@@ -1,30 +1,67 @@
 import { join } from 'node:path';
 
-import { app, BrowserWindow, ipcMain, shell, clipboard, Menu, type MenuItemConstructorOptions } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  desktopCapturer,
+  globalShortcut,
+  ipcMain,
+  Menu,
+  nativeImage,
+  net,
+  protocol,
+  screen,
+  session,
+  shell,
+  systemPreferences,
+  type MenuItemConstructorOptions,
+} from 'electron';
 
 import { guardAppWindow, createFileSink, importRetiredAppData, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
 
-import type { NotesStore } from '@midnite/studio-feature-notes/main';
+import {
+  createDisplayMediaGate,
+  electronCapturePort,
+  electronOverlayOpener,
+  type CaptureElectronModules,
+  type CaptureOverlayBrowserWindow,
+  type CaptureService,
+} from '@midnite/studio-feature-capture/main';
+import {
+  captureDataDir,
+  installCaptureFileProtocol,
+  installCapturePermissions,
+  isCaptureAppOrigin,
+  type CapturePermissionSession,
+} from '@midnite/studio-module-capture/main';
+import { CAPTURE_OVERLAY_ARG, MSTUDIO_FILE_SCHEME } from '@midnite/studio-shared';
 
-import { registerMindHandlers } from '@midnite/studio-module-mind/main';
+import { registerMindHost } from './host';
 import { MIND_NAME, SMOKE_READY_LINE, USER_DATA_ENV, mindUserData, isSmoke } from './identity';
 import { registerReport, reportMenuTemplate } from './report';
 
 /**
  * Midnite Mind's main process — the entry the bundle's `package.json` names (`main.cjs`), run by
- * the launcher's stub as `Resources/app`. One window over the notes feature, registered through a
- * `FeatureMainContext` built from the runtime; no desktop, no other app. Notes are stored under
- * Mind's own userData (`Midnite Runtime/apps/mind/notes/`), never Studio's.
+ * the launcher's stub as `Resources/app`. One window over the Mind module, plus the Capture module it mounts
+ * (Phase 124 Theme E.3), registered through `registerMindHost`; no desktop, no other app. Notes are stored under
+ * Mind's own userData (`Midnite Runtime/apps/mind/notes/`), never Studio's, and captures under its `capture/`.
+ * Capture takes no chord by default here and reads no clipboard until the user turns either on; a smoke run
+ * takes neither.
  */
 const smoke = isSmoke(process.env);
 let win: BrowserWindow | null = null;
 let crashLog: LogSink | null = null;
-let store: NotesStore | null = null;
+let quit: (() => Promise<void>) | null = null;
+let capture: CaptureService | null = null;
 let flushed = false;
 
 app.setName(MIND_NAME);
 // A smoke run is a proof, not a session: keep it out of the Dock and off the screen.
 if (smoke) app.dock?.hide();
+// Captures are shown as `mstudio-file://capture/…` URLs, registered before `ready` as Electron requires.
+// `stream` lets a recording's player seek.
+protocol.registerSchemesAsPrivileged([{ scheme: MSTUDIO_FILE_SCHEME, privileges: { stream: true, supportFetchAPI: true } }]);
 app.setPath('userData', mindUserData(app.getPath('appData'), process.env[USER_DATA_ENV]));
 // Phase 124 Theme G.4: take over what the apps merged into this one left behind, once (never in a throwaway run).
 if (process.env[USER_DATA_ENV] === undefined || process.env[USER_DATA_ENV] === '') importRetiredAppData({ appData: app.getPath('appData'), host: 'mind' });
@@ -33,11 +70,7 @@ if (process.env[USER_DATA_ENV] === undefined || process.env[USER_DATA_ENV] === '
 if (!smoke && !app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
-    if (win === null) return;
-    if (win.isMinimized()) win.restore();
-    win.focus();
-  });
+  app.on('second-instance', () => focusWindow());
 
   void app.whenReady().then(() => {
     // The runtime's crash-log sink (NDJSON, rotated, redacted) — what Report an Issue reads.
@@ -66,7 +99,22 @@ if (!smoke && !app.requestSingleInstanceLock()) {
         }) as MenuItemConstructorOptions[],
       ),
     );
-    store = registerMindHandlers({
+    const gate = createDisplayMediaGate({ isAppOrigin: isCaptureAppOrigin });
+    installCapturePermissions(session.defaultSession as unknown as CapturePermissionSession, gate);
+    const electron = electronCapturePort(
+      {
+        platform: process.platform,
+        desktopCapturer,
+        systemPreferences,
+        screen,
+        globalShortcut,
+        clipboard,
+        nativeImage,
+        shell,
+      } as unknown as CaptureElectronModules,
+      { windows: () => BrowserWindow.getAllWindows(), focusApp: focusWindow },
+    );
+    const host = registerMindHost({
       ipcMain,
       trashItem: (path) => shell.trashItem(path),
       send: (channel, payload) => {
@@ -76,21 +124,79 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       knowledgeCacheDirectory: join(app.getPath('userData'), 'knowledge-cache'),
       // eslint-disable-next-line no-console
       warn: (issue) => console.warn(`[mind] ${issue}`),
+      capture: {
+        dataDir: captureDataDir(app.getPath('userData')),
+        electron,
+        gate,
+        background: !smoke,
+        overlay: electronOverlayOpener({
+          createWindow: openOverlayWindow,
+          htmlPath: join(__dirname, 'capture-overlay.html'),
+          preloadPath: join(__dirname, 'overlay-preload.cjs'),
+          tokenArg: CAPTURE_OVERLAY_ARG,
+        }),
+        // Only ever a `midnite-studio://capture` link: main builds it, the renderer never passes a URL.
+        openStudioLink: (url) => shell.openExternal(url),
+      },
     });
+    capture = host.capture;
+    quit = host.shutdown;
+    // Mind has no other `mstudio-file://` resolver, so the scheme's one handler is Capture's.
+    installCaptureFileProtocol(
+      {
+        handle: (scheme, handler) => protocol.handle(scheme, handler),
+        fetchFile: (fileUrl, headers) => net.fetch(fileUrl, { headers, bypassCustomProtocolHandlers: true }),
+      },
+      host.capture.fileResolver,
+    );
+    void host.capture.start();
     openWindow();
   });
 
-  // Writes are debounced: hold the quit until the last one is on disk.
+  // Writes are debounced and Capture holds a chord: hold the quit until the notes are on disk and the chord is released.
   app.on('before-quit', (event) => {
-    if (flushed || store === null) return;
+    if (flushed || quit === null) return;
     event.preventDefault();
     flushed = true;
-    void store.flush().finally(() => app.quit());
+    void quit().finally(() => {
+      globalShortcut.unregisterAll();
+      app.quit();
+    });
   });
-  app.on('window-all-closed', () => app.quit());
+  // Capture keeps running with its window closed only while a chord is registered to bring it back.
+  app.on('window-all-closed', () => {
+    if (smoke || capture === null) {
+      app.quit();
+      return;
+    }
+    void capture.status().then((status) => {
+      if (status.shortcut.state !== 'registered') app.quit();
+    });
+  });
   app.on('activate', () => {
     if (win === null) openWindow();
   });
+}
+
+function focusWindow(): void {
+  if (win === null || win.isDestroyed()) {
+    openWindow();
+    return;
+  }
+  if (win.isMinimized()) win.restore();
+  win.show();
+  app.focus({ steal: true });
+  win.focus();
+}
+
+/**
+ * The desktop region overlay's window: frameless, transparent, always on top over one display, with the
+ * overlay's own preload (three calls) and the same navigation guard as the app window.
+ */
+function openOverlayWindow(options: Record<string, unknown>): CaptureOverlayBrowserWindow {
+  const overlay = new BrowserWindow(options as ConstructorParameters<typeof BrowserWindow>[0]);
+  guardAppWindow(overlay.webContents, { openExternal: () => undefined });
+  return overlay;
 }
 
 function openWindow(): void {

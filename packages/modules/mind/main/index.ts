@@ -2,5 +2,6 @@
 export * from './bridge';
 export * from './context';
 export * from './knowledge';
+export * from './module';
 export * from './notes-graph';
 export { mindManifest } from '../manifest';

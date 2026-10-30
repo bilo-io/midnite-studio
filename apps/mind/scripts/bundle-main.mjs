@@ -5,6 +5,7 @@
  * `main.cjs`. Everything but `electron` is inlined (the runtime, the notes feature's main half, zod), so
  * the installed bundle carries no workspace symlinks. Run after `vite build`: that empties `dist/`.
  */
+import { copyFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { build } from 'esbuild';
@@ -20,6 +21,11 @@ const common = {
   minify: process.env.NODE_ENV === 'production',
   // The feature's `./main` export points at tsc output; bundle its source so no prior tsc build is needed.
   alias: {
+    '@midnite/studio-module-capture/overlay-bridge': at('../../../packages/modules/capture/main/overlay-bridge.ts'),
+    '@midnite/studio-module-capture/bridge': at('../../../packages/modules/capture/main/bridge.ts'),
+    '@midnite/studio-module-capture/main': at('../../../packages/modules/capture/main/index.ts'),
+    '@midnite/studio-feature-capture/main': at('../../../packages/features/capture/main/index.ts'),
+    '@midnite/studio-feature-report/bridge': at('../../../packages/features/report/bridge.ts'),
     '@midnite/studio-module-mind/bridge': at('../../../packages/modules/mind/main/bridge.ts'),
     '@midnite/studio-module-mind/main': at('../../../packages/modules/mind/main/index.ts'),
     '@midnite/studio-feature-report/main': at('../../../packages/features/report/main/index.ts'),
@@ -36,4 +42,22 @@ const common = {
 await Promise.all([
   build({ ...common, entryPoints: [at('../main/index.ts')], outfile: at('../dist/main.cjs') }),
   build({ ...common, entryPoints: [at('../main/preload.ts')], outfile: at('../dist/preload.cjs') }),
+  // The Capture module's region overlay window: its own preload (three calls, nothing else)…
+  build({ ...common, entryPoints: [at('../main/overlay-preload.ts')], outfile: at('../dist/overlay-preload.cjs') }),
+  // …and its page's script: the feature's tiny DOM entry, a classic iife for the browser.
+  build({
+    bundle: true,
+    platform: 'browser',
+    format: 'iife',
+    target: 'chrome130',
+    logLevel: 'warning',
+    minify: process.env.NODE_ENV === 'production',
+    entryPoints: [at('../../../packages/features/capture/renderer/overlay/entry.ts')],
+    outfile: at('../dist/capture-overlay.js'),
+  }),
 ]);
+// The overlay's static page, with its own strict CSP, beside the script it loads.
+copyFileSync(
+  at('../../../packages/features/capture/renderer/overlay/capture-overlay.html'),
+  at('../dist/capture-overlay.html'),
+);

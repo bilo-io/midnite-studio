@@ -1,5 +1,5 @@
 import { createNotesStore, createReviewService, notesMain, type NotesStore } from '@midnite/studio-feature-notes/main';
-import { createIpcContext, type IpcContextElectron } from '@midnite/studio-runtime';
+import { createIpcContext, type FeatureMainContext, type IpcContextElectron } from '@midnite/studio-runtime';
 import { MIND_NOTEBOOK_ID } from '@midnite/studio-shared';
 
 import { registerMindKnowledge } from './knowledge';
@@ -19,9 +19,13 @@ export type MindElectron = IpcContextElectron & {
  * the caller can flush it before the app quits (writes are debounced).
  */
 export function registerMindHandlers(el: MindElectron): NotesStore {
+  return registerMindOn(createIpcContext(el), el);
+}
+
+/** Registers Mind's channels on an existing context: what `registerMindHandlers` wraps and the module's mount calls. */
+export function registerMindOn(ctx: FeatureMainContext, el: MindElectron): NotesStore {
   const store = createNotesStore(el.notesDirectory);
   const review = createReviewService({ directory: el.notesDirectory, store: () => store });
-  const ctx = createIpcContext(el);
   // The Knowledge tab's graph is Mind's own notebook, read through the same store the notes tab writes.
   registerMindKnowledge(ctx, {
     notes: () => store.list(MIND_NOTEBOOK_ID),
