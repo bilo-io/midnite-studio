@@ -2,6 +2,15 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-30 — Phase 123 Theme A — a frameless window for every app
+
+Vanguard, Agents, Media, Gamer, Money, Mind and Browser open frameless on macOS: each `openWindow` spreads
+`suiteWindowOptions` and merges the `--mstudio-frameless` argument. The shell's `TitleBar` is the drag region and
+`TitleBarDoubleClick` maximises or restores on a double-click (never in full screen, never on a control) through the new
+optional `WindowChromeBridge.toggleMaximize`. Vanguard's `window-options.ts` carries the test that the suite keys sit
+beside `sandbox`, `contextIsolation` and `nodeIntegration`. The retired apps are untouched (Phase 124 deletes them);
+the Playwright double-click e2e is Theme I's.
+
 ## 2026-10-30 — Phase 123 Theme H 3/4 — suite preload and main slices, Monitor page (#1084)
 
 `registerSuiteMain` and `createSuiteBridge` in `packages/runtime/src/app-main/`: every app that renders `SuiteAppShell`
