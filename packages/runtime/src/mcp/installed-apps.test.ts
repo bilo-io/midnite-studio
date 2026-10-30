@@ -14,15 +14,15 @@ describe('createMcpToolListing', () => {
     // import a feature, so a stub says the same.
     const manifests = [{ owner: 'gamer', mcpTools: ['model_list'] }] as const;
     const gamer = createMcpToolListing({ installed: installedAppsFromIds(['gamer']), manifests });
-    const coder = createMcpToolListing({ installed: installedAppsFromIds(['coder']), manifests });
+    const agents = createMcpToolListing({ installed: installedAppsFromIds(['agents']), manifests });
     expect(gamer.list()).toContain('model_list');
     expect(gamer.list()).not.toContain('forge.pulls');
-    expect(coder.list()).toContain('forge.pulls');
-    expect(coder.list()).not.toContain('model_list');
+    expect(agents.list()).toContain('forge.pulls');
+    expect(agents.list()).not.toContain('model_list');
     expect(gamer.isListed('model_list')).toBe(true);
     expect(gamer.isListed('forge.pulls')).toBe(false);
     // Frame tools are in both.
-    expect(gamer.isListed('repo.list') && coder.isListed('repo.list')).toBe(true);
+    expect(gamer.isListed('repo.list') && agents.isListed('repo.list')).toBe(true);
   });
 
   it('re-reads the source, so an install shows up without a restart', () => {

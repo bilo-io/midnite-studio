@@ -61,14 +61,6 @@ export function defaultMcpToolOwner(id: McpToolId): PlacementLayer {
   return 'frame';
 }
 
-/**
- * The retired app that still serves a tool until its bundle is deleted (Phase 124 Theme H): the forge
- * tools are Agents' now, but a Coder bundle installed on its own keeps listing them.
- */
-function legacyToolOwner(id: McpToolId): PlacementAppId | undefined {
-  return id.startsWith('forge.') ? 'coder' : undefined;
-}
-
 /** Tool id → owner, with manifest contributions taking precedence over the default table. */
 export function mcpToolOwner(id: McpToolId, manifests: readonly Pick<FeatureManifest, 'owner' | 'mcpTools'>[] = []): PlacementLayer {
   for (const manifest of manifests) {
@@ -88,9 +80,7 @@ export function listMcpToolIds(
 ): McpToolId[] {
   return MCP_TOOL_IDS.filter((id) => {
     const owner = mcpToolOwner(id, manifests);
-    if (owner === 'frame' || isInstalled(owner)) return true;
-    const legacy = legacyToolOwner(id);
-    return legacy !== undefined && isInstalled(legacy);
+    return owner === 'frame' || isInstalled(owner);
   });
 }
 

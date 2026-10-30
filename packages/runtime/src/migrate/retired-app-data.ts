@@ -12,7 +12,7 @@ import { appDataDirectory } from '../data-directory';
  * `<appData>/Midnite Runtime/apps/<id>`. Their host (Agents, Vanguard, Mind) keeps the same layout
  * under its own id, so on its first launch it copies what the retired app left, then writes a marker
  * so it never runs again. The source is **left in place** — nothing is moved or deleted, so the old
- * app keeps working beside the host until Theme H removes it — and an entry the host already has is
+ * app (if still installed) keeps working beside the host — and an entry the host already has is
  * never overwritten.
  *
  * Secrets are not in this plan. A vault secret lives in the runtime vault service
