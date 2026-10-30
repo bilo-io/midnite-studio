@@ -13,8 +13,6 @@ import {
 import { agentFingerprintEnv, agentKeyEnv } from './pty-env';
 import type { PtyAgentWatcher, PtyPorts } from './pty-ports';
 
-type BrowserWindow = RuntimeWindow;
-
 let ptyPorts: PtyPorts | null = null;
 
 /** Bind the composer's services; desktop's `pty-service.ts` shim calls this once at load. */
@@ -35,7 +33,7 @@ type AgentWatcher = PtyAgentWatcher;
 
 let agentWatcher: AgentWatcher | null = null;
 let brokerClient: BrokerClient | null = null;
-let getWindowThunk: () => BrowserWindow | null = () => null;
+let getWindowThunk: () => RuntimeWindow | null = () => null;
 
 // --- per-window pty output subscriptions (Phase 55) -------------------------
 //
@@ -67,7 +65,7 @@ function dropWindowFromEverySubscription(windowId: number): void {
   for (const ids of ptySubscribers.values()) ids.delete(windowId);
 }
 
-export function subscribeWindowToPty(ptyId: string, win: BrowserWindow): void {
+export function subscribeWindowToPty(ptyId: string, win: RuntimeWindow): void {
   let ids = ptySubscribers.get(ptyId);
   if (!ids) {
     ids = new Set<number>();
@@ -83,7 +81,7 @@ export function subscribeWindowToPty(ptyId: string, win: BrowserWindow): void {
   }
 }
 
-export function unsubscribeWindowFromPty(ptyId: string, win: BrowserWindow): void {
+export function unsubscribeWindowFromPty(ptyId: string, win: RuntimeWindow): void {
   const ids = ptySubscribers.get(ptyId);
   if (!ids) return;
   ids.delete(win.id);
@@ -95,12 +93,12 @@ export function unsubscribeWindowFromPty(ptyId: string, win: BrowserWindow): voi
  * every explicit subscriber, plus the main window unconditionally (see the
  * block doc above for why).
  */
-export function subscribersFor(ptyId: string): BrowserWindow[] {
+export function subscribersFor(ptyId: string): RuntimeWindow[] {
   const ids = new Set(ptySubscribers.get(ptyId) ?? []);
   const main = ports().windows.main();
   if (main) ids.add(main.id);
 
-  const result: BrowserWindow[] = [];
+  const result: RuntimeWindow[] = [];
   for (const id of ids) {
     const win = ports().windows.fromId(id);
     if (win && !win.isDestroyed()) result.push(win);
@@ -212,7 +210,7 @@ export function setAgentWatcher(watcher: AgentWatcher | null): void {
   ports().inproc.setAgentWatcher(watcher);
 }
 
-export function setWindowProvider(provider: () => BrowserWindow | null): void {
+export function setWindowProvider(provider: () => RuntimeWindow | null): void {
   getWindowThunk = provider;
 }
 
@@ -487,7 +485,7 @@ export async function initPtyService(deps: {
   userDataDir: string;
   appVersion: string;
   isPackaged: boolean;
-  getWindow: () => BrowserWindow | null;
+  getWindow: () => RuntimeWindow | null;
   log?: (message: string) => void;
 }): Promise<void> {
   getWindowThunk = deps.getWindow;

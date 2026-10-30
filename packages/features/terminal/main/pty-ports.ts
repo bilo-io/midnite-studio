@@ -1,7 +1,4 @@
-import type { BrokerClient } from '@midnite/studio-runtime';
-import type { RuntimeWindow } from '@midnite/studio-runtime';
-
-import type { agentKeyEnv } from './pty-env';
+import type { BrokerClient, EngineKeyReader, RuntimeWindow } from '@midnite/studio-runtime';
 
 /**
  * What the pty service needs from its composer (Phase 123 Theme E.3). It may not import `electron`,
@@ -71,7 +68,7 @@ export type PtyPorts = {
   /** The main window and a lookup by id, for the per-window output subscriptions. */
   windows: { main(): RuntimeWindow | null; fromId(id: number): RuntimeWindow | null };
   confinement(): PtyConfinementPort | null;
-  readAgentApiKey: Parameters<typeof agentKeyEnv>[3];
+  readAgentApiKey: EngineKeyReader;
   readOllamaApiKey(): Promise<string | null>;
   inproc: InprocPtyPort;
   broker: {

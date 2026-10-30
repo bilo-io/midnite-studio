@@ -101,6 +101,10 @@ export const terminalMain = defineFeatureMain<TerminalMainServices>({
   register(ctx, services) {
     const { ipc } = ctx;
     const warn = (issue: string): void => services.warn?.(issue);
+    // Sender-aware: the composer must provide `sendFromSender`; refusing loudly beats a silently dead popout.
+    // Checked before anything registers, so a refusal leaves no half-registered channels behind.
+    const fromSender = ipc.sendFromSender?.bind(ipc);
+    if (!fromSender) throw new Error('terminalMain needs an ipc with sendFromSender');
 
     ipc.handleBare(CHANNELS.terminalList, async () => ({
       sessions: await listTerminals(),
@@ -150,9 +154,6 @@ export const terminalMain = defineFeatureMain<TerminalMainServices>({
       () => ({ bytes: new Uint8Array(0) }),
     );
 
-    // Sender-aware: the composer must provide `sendFromSender`; refusing loudly beats a silently dead popout.
-    const fromSender = ipc.sendFromSender?.bind(ipc);
-    if (!fromSender) throw new Error('terminalMain needs an ipc with sendFromSender');
     fromSender(CHANNELS.ptySubscribe, schemas.PtySubscribeRequest, ({ ptyId }, win) => {
       if (win) subscribeWindowToPty(ptyId, win);
     }, warn);

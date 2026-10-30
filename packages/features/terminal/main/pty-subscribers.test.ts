@@ -48,7 +48,7 @@ const { FakeBrowserWindow } = vi.hoisted(() => {
 
 let mainWindow: RuntimeWindow | null = null;
 setPtyPorts({
-  windows: { main: () => mainWindow, fromId: (id) => FakeBrowserWindow.fromId(id) as unknown as RuntimeWindow | null },
+  windows: { main: () => mainWindow, fromId: (id: number) => FakeBrowserWindow.fromId(id) as unknown as RuntimeWindow | null },
 } as unknown as PtyPorts);
 
 describe('pty output subscriber registry (Phase 55)', () => {
