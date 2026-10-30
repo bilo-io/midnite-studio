@@ -4,6 +4,8 @@ import { createRecordingContext } from '@midnite/studio-runtime';
 import { CHANNELS } from '@midnite/studio-shared';
 
 import { terminalMain, type TerminalMainServices } from './index';
+import type { PtyPorts } from './pty-ports';
+import { setPtyPorts, subscribersFor } from './pty-service';
 import { setTerminalPorts } from './terminal-service';
 
 setTerminalPorts({
@@ -60,5 +62,36 @@ describe('terminal main', () => {
     expect(start).toHaveBeenCalledWith({ force: true });
     await ctx.invoke(CHANNELS.terminalSave, { session: 'nope' });
     expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('registers the sender-aware pty channels and hands the sending window to subscribe', async () => {
+    const ctx = createRecordingContext();
+    terminalMain.register(ctx, services());
+    expect(ctx.channels).toEqual(
+      expect.arrayContaining([
+        CHANNELS.ptyCreate,
+        CHANNELS.ptyInput,
+        CHANNELS.ptyResize,
+        CHANNELS.ptyKill,
+        CHANNELS.ptySnapshot,
+        CHANNELS.ptySubscribe,
+        CHANNELS.ptyUnsubscribe,
+      ]),
+    );
+    const win = { id: 7, isDestroyed: () => false, once: vi.fn(), webContents: { send: vi.fn() } };
+    setPtyPorts({ windows: { main: () => null, fromId: () => win } } as unknown as PtyPorts);
+    await ctx.invoke(CHANNELS.ptySubscribe, { ptyId: 'p-sub' }, win);
+    expect(subscribersFor('p-sub').map((w) => w.id)).toEqual([7]);
+    await ctx.invoke(CHANNELS.ptyUnsubscribe, { ptyId: 'p-sub' }, win);
+    expect(subscribersFor('p-sub')).toEqual([]);
+    setPtyPorts(null);
+  });
+
+  it('refuses an ipc without sendFromSender rather than leaving popouts silently dead', () => {
+    const ctx = createRecordingContext();
+    const bare = { ...ctx, ipc: { handle: ctx.ipc.handle, handleBare: ctx.ipc.handleBare, send: ctx.ipc.send } };
+    expect(() => terminalMain.register(bare, services())).toThrow(/sendFromSender/);
+    // The guard runs first: nothing was registered before it threw.
+    expect(ctx.channels).toEqual([]);
   });
 });

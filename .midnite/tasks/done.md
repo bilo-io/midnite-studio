@@ -11,6 +11,10 @@ adapter is `packages/app/src/compose/companion-host.tsx`; its revealers, sources
 follows suite-prefs (`companion.enabled`, `voices`, `sttEngine`, `sttProvider`). Importing the barrel reads no host
 (`import-without-host.test.ts`). Package suite: 1,045 tests under two vitest projects (renderer on jsdom, main on node).
 
+## 2026-10-30 — Phase 124 Theme G (G.1–G.4) — Migration
+
+Retired app ids resolve to host + module in `midnite://` links (`legacyApp` rides along), `FEATURE_HOSTS` places features on host apps, `forge.*` tools belong to Agents (a lone Coder bundle still serves them), the launcher router falls back to a still-installed old bundle and the host tile offers the swap ("Replaces Coder", then "Move to Trash"), and Agents, Vanguard and Mind import a retired app's app-local data once behind a marker. G.5 (final per-app releases) is open.
+
 ## 2026-10-29 — Phase 123 Theme K — The system monitor core
 
 PR pending. `bindMetricsToWindow` in the runtime (one pause/resume/stop rule for Studio's main and `apps/monitor`); the status bar's monitor cluster moved into the frame as `createMonitorSegment({ Flyout, openMonitor })` with the flyout and hand-off injected; `Sparkline`/`MetricDonut` moved to `frame/src/metrics/`; `hiddenMetrics` and `metricsIdleIntervalMs` moved from `ui-store` to the suite-prefs `monitor` group with a one-time migration. The other apps' own `monitorMain.register` calls land with Theme H's roll-out.
@@ -15489,3 +15493,7 @@ E.1 finished: `packages/modules/{agents,gamer,mind,browser}` (renderer + bridge/
 ### Phase 123 J.4 and E.3 (slice) — the title bar's right cluster; the terminal's session list on the feature (2026-10-29)
 
 J.4: `TitleBarStatus`, `TitleBarBattery` and a frame `ThemeToggle` moved to `packages/frame/src/shell/titlebar/`, and `AppShell` renders them after `titleBarEnd`; Studio fills a `TitleBarHost` (metrics idle cadence, privacy switches) and its own popover through `compose/titlebar-host.tsx`. E.3 (slice): `terminal-service`, the three stores and `pty-env` moved to `packages/features/terminal/main` (built like `feature-monitor`), `terminalMain` registers the list, roster and save/forget/reorder channels, and desktop binds the pty, locator and logger ports. Still open: `pty-service`, `inproc-pty`, `pty-handlers`.
+
+### Phase 123 E.3 (rest) — the pty service and handlers on the terminal feature (2026-10-30)
+
+`pty-service` moved to `packages/features/terminal/main` behind `PtyPorts` (windows, confinement, secrets, broker, in-process pty), bound by desktop's `pty-service.ts` shim. `pty-handlers` moved into `terminalMain.register`; `RuntimeIpc` gained an optional `sendFromSender` so subscribe/unsubscribe keep their sending window. `pty-subscribers.test.ts` moved with it and runs without `electron`. Theme E is complete.

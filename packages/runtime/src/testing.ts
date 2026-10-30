@@ -1,8 +1,8 @@
 import type { z } from 'zod';
 
-import type { FeatureMainContext } from './feature-main';
+import type { FeatureMainContext, RuntimeWindow } from './feature-main';
 
-type Handler = (raw?: unknown) => Promise<unknown>;
+type Handler = (raw?: unknown, sender?: RuntimeWindow | null) => Promise<unknown>;
 
 /**
  * A {@link FeatureMainContext} that records instead of registering — what a
@@ -19,7 +19,8 @@ export interface RecordingContext extends FeatureMainContext {
   readonly emitted: { channel: string; payload: unknown }[];
   /** Every `trashItem` path, in order. */
   readonly trashed: string[];
-  invoke(channel: string, payload?: unknown): Promise<unknown>;
+  /** `sender` stands in for the sending window of a `sendFromSender` channel (default `null`). */
+  invoke(channel: string, payload?: unknown, sender?: RuntimeWindow | null): Promise<unknown>;
 }
 
 export function createRecordingContext(): RecordingContext {
@@ -66,6 +67,18 @@ export function createRecordingContext(): RecordingContext {
           handler(parsed.data);
         });
       },
+      sendFromSender<S extends z.ZodTypeAny>(
+        channel: string,
+        schema: S,
+        handler: (payload: z.output<S>, window: RuntimeWindow | null) => void,
+        onInvalid: (issue: string) => void,
+      ) {
+        register(channel, async (raw, sender) => {
+          const parsed = schema.safeParse(raw);
+          if (!parsed.success) return onInvalid(`${channel}: ${parsed.error.issues[0]?.message ?? 'invalid payload'}`);
+          handler(parsed.data, sender ?? null);
+        });
+      },
     },
     emit(channel, payload) {
       emitted.push({ channel, payload });
@@ -73,10 +86,10 @@ export function createRecordingContext(): RecordingContext {
     async trashItem(path) {
       trashed.push(path);
     },
-    invoke(channel, payload) {
+    invoke(channel, payload, sender) {
       const handler = handlers.get(channel);
       if (!handler) return Promise.reject(new Error(`no handler for ${channel}`));
-      return handler(payload);
+      return handler(payload, sender);
     },
   };
 }

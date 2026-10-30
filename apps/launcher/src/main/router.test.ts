@@ -19,11 +19,11 @@ const deps = (over: Partial<RouterDeps> = {}): RouterDeps => ({
 
 describe('studioUrlFor', () => {
   it('maps page, view(+tab) and bare app to midnite-studio links', () => {
-    expect(studioUrlFor({ app: 'vault', page: 'accounts' })).toBe('midnite-studio://view?id=settings&page=accounts');
+    expect(studioUrlFor({ app: 'vanguard', module: 'vault', page: 'accounts' })).toBe('midnite-studio://view?id=settings&page=accounts');
     expect(studioUrlFor({ app: 'gamer', view: 'media', tab: 'game' })).toBe('midnite-studio://view?id=media&tab=game');
-    expect(studioUrlFor({ app: 'coder', view: 'sessions' })).toBe('midnite-studio://view?id=sessions');
+    expect(studioUrlFor({ app: 'agents', module: 'coder', view: 'sessions' })).toBe('midnite-studio://view?id=sessions');
     expect(studioUrlFor({ app: 'gamer' })).toBe('midnite-studio://view?id=media&tab=game');
-    expect(studioUrlFor({ app: 'cleaner' })).toBe('midnite-studio://view?id=optimizer');
+    expect(studioUrlFor({ app: 'vanguard', module: 'cleaner' })).toBe('midnite-studio://view?id=optimizer');
   });
 });
 
@@ -49,19 +49,19 @@ describe('routeTarget', () => {
     }
   });
   it('prefers an installed app bundle', async () => {
-    const d = deps({ findAppBundle: async () => '/Applications/Midnite Coder.app' });
-    expect(await routeTarget({ app: 'coder' }, d)).toEqual({ kind: 'bundle', path: '/Applications/Midnite Coder.app' });
+    const d = deps({ findAppBundle: async () => '/Applications/Midnite Agents.app' });
+    expect(await routeTarget({ app: 'agents' }, d)).toEqual({ kind: 'bundle', path: '/Applications/Midnite Agents.app' });
   });
   it('forwards to Studio when there is no bundle', async () => {
-    expect(await routeTarget({ app: 'coder', view: 'tasks' }, deps())).toEqual({
+    expect(await routeTarget({ app: 'agents', module: 'coder', view: 'tasks' }, deps())).toEqual({
       kind: 'studio',
       url: 'midnite-studio://view?id=tasks',
     });
   });
   it('shows the detail sheet when neither is installed', async () => {
-    expect(await routeTarget({ app: 'coder' }, deps({ isStudioInstalled: async () => false }))).toEqual({
+    expect(await routeTarget({ app: 'agents' }, deps({ isStudioInstalled: async () => false }))).toEqual({
       kind: 'detail',
-      app: 'coder',
+      app: 'agents',
     });
   });
 });
@@ -160,25 +160,25 @@ describe('every router fallback, end to end through handleMidniteLink', () => {
 
   it('installed bundle wins even when Studio is installed too', async () => {
     const { a, decision } = await run(
-      'midnite://open?app=coder&view=sessions',
-      deps({ findAppBundle: async (app) => (app === 'coder' ? '/stubs/Coder.app' : null) }),
+      'midnite://open?app=agents&view=sessions',
+      deps({ findAppBundle: async (app) => (app === 'agents' ? '/stubs/Agents.app' : null) }),
     );
-    expect(decision).toEqual({ kind: 'bundle', path: '/stubs/Coder.app' });
-    expect(a.openBundle).toHaveBeenCalledWith('/stubs/Coder.app');
+    expect(decision).toEqual({ kind: 'bundle', path: '/stubs/Agents.app' });
+    expect(a.openBundle).toHaveBeenCalledWith('/stubs/Agents.app');
     expect(a.openStudioUrl).not.toHaveBeenCalled();
     expect(a.showDetail).not.toHaveBeenCalled();
   });
 
   it('not installed but Studio is: forwards the exact midnite-studio:// link', async () => {
-    const { a } = await run('midnite://open?app=coder&view=sessions', deps());
+    const { a } = await run('midnite://open?app=agents&module=coder&view=sessions', deps());
     expect(a.openStudioUrl).toHaveBeenCalledWith('midnite-studio://view?id=sessions');
     expect(a.openBundle).not.toHaveBeenCalled();
   });
 
   it('neither installed: the launcher detail sheet for that app', async () => {
-    const { a, decision } = await run('midnite://open?app=coder', deps({ isStudioInstalled: async () => false }));
-    expect(decision).toEqual({ kind: 'detail', app: 'coder' });
-    expect(a.showDetail).toHaveBeenCalledWith('coder');
+    const { a, decision } = await run('midnite://open?app=agents', deps({ isStudioInstalled: async () => false }));
+    expect(decision).toEqual({ kind: 'detail', app: 'agents' });
+    expect(a.showDetail).toHaveBeenCalledWith('agents');
     expect(a.openBundle).not.toHaveBeenCalled();
     expect(a.openStudioUrl).not.toHaveBeenCalled();
   });
@@ -196,9 +196,9 @@ describe('every router fallback, end to end through handleMidniteLink', () => {
 
   it('a failing bundle open falls back to the sheet, not to Studio', async () => {
     const a = { openBundle: vi.fn(async () => { throw new Error('boom'); }), openStudioUrl: vi.fn(async () => {}), showDetail: vi.fn() };
-    const decision = await handleMidniteLink('midnite://open?app=coder', deps({ findAppBundle: async () => '/x.app' }), a);
-    expect(decision).toEqual({ kind: 'detail', app: 'coder' });
-    expect(a.showDetail).toHaveBeenCalledWith('coder');
+    const decision = await handleMidniteLink('midnite://open?app=agents', deps({ findAppBundle: async () => '/x.app' }), a);
+    expect(decision).toEqual({ kind: 'detail', app: 'agents' });
+    expect(a.showDetail).toHaveBeenCalledWith('agents');
     expect(a.openStudioUrl).not.toHaveBeenCalled();
   });
 
@@ -223,19 +223,62 @@ describe('every router fallback, end to end through handleMidniteLink', () => {
   });
 });
 
+describe('retired app links (Phase 124 Theme G)', () => {
+  const actions = () => ({ openBundle: vi.fn(async () => {}), openStudioUrl: vi.fn(async () => {}), showDetail: vi.fn() });
+  const bundles = (installed: Record<string, string>): RouterDeps['findAppBundle'] => async (app) => installed[app] ?? null;
+
+  it('opens the host when it is installed, even with the old bundle beside it', async () => {
+    const a = actions();
+    const d = deps({ findAppBundle: bundles({ agents: '/Agents.app', coder: '/Coder.app' }) });
+    expect(await handleMidniteLink('midnite://open?app=coder&view=reviews', d, a)).toEqual({ kind: 'bundle', path: '/Agents.app' });
+    expect(a.openBundle).toHaveBeenCalledWith('/Agents.app');
+  });
+
+  it('falls back to the old bundle while the host is not installed', async () => {
+    const a = actions();
+    const d = deps({ findAppBundle: bundles({ coder: '/Coder.app' }) });
+    expect(await handleMidniteLink('midnite://open?app=coder', d, a)).toEqual({ kind: 'bundle', path: '/Coder.app' });
+  });
+
+  it('prefers Studio for a link that carries a view, which an old bundle would drop', async () => {
+    const d = deps({ findAppBundle: bundles({ coder: '/Coder.app' }) });
+    expect((await handleMidniteLink('midnite://open?app=coder&view=reviews', d, actions()))?.kind).toBe('studio');
+  });
+
+  it('forwards to Studio on the module, and shows the host sheet when nothing is installed', async () => {
+    const a = actions();
+    expect(await handleMidniteLink('midnite://open?app=vault&page=accounts', deps(), a)).toEqual({
+      kind: 'studio',
+      url: 'midnite-studio://view?id=settings&page=accounts',
+    });
+    const b = actions();
+    expect(await handleMidniteLink('midnite://open?app=capture', deps({ isStudioInstalled: async () => false }), b)).toEqual({
+      kind: 'detail',
+      app: 'mind',
+    });
+    expect(b.showDetail).toHaveBeenCalledWith('mind');
+  });
+
+  it('never routes an agent run to a retired bundle', async () => {
+    const d = deps({ findAppBundle: bundles({ coder: '/Coder.app' }) });
+    const run = Buffer.from(JSON.stringify({ issueUrl: 'https://github.com/o/r/issues/1', skill: 'x' })).toString('base64url');
+    expect((await routeTarget({ app: 'agents', legacyApp: 'coder', run }, d)).kind).toBe('studio');
+  });
+});
+
 describe('hand-off links through the router', () => {
   const actions = () => ({ openBundle: vi.fn(async () => {}), openStudioUrl: vi.fn(async () => {}), showDetail: vi.fn() });
   const ref = { kind: 'commit', repoId: 'repo:a', sha: 'abc1234' } as const;
 
   it('forwards a hand-off to Studio as the reveal link for the same ref', async () => {
     const a = actions();
-    await handleMidniteLink(handoffLink({ app: 'coder', view: 'graph', ref }), deps(), a);
+    await handleMidniteLink(handoffLink({ app: 'agents', view: 'graph', ref }), deps(), a);
     expect(a.openStudioUrl).toHaveBeenCalledWith(resourceRefLink(ref));
   });
 
   it('an installed bundle is opened for a hand-off (ref delivery to it is the runtime transport seam)', async () => {
     const a = actions();
-    await handleMidniteLink(handoffLink({ app: 'coder', ref }), deps({ findAppBundle: async () => '/c.app' }), a);
+    await handleMidniteLink(handoffLink({ app: 'agents', ref }), deps({ findAppBundle: async () => '/c.app' }), a);
     expect(a.openBundle).toHaveBeenCalledWith('/c.app');
   });
 });

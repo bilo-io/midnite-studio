@@ -17,12 +17,12 @@ import type { AgentRunHandoff } from './agent-run-handoff';
 import type { ResourceRef } from './domain/resource-ref';
 import type { SettingsPageId, ViewId } from './domain/view';
 import type { MediaTab } from './media';
-import { midniteOpenLink, type MidniteAppId, type MidniteLinkTarget } from './midnite-link';
+import { midniteOpenLink, type HandoffAppId, type MidniteLinkInput } from './midnite-link';
 import { encodeRefParam } from './studio-link';
 
 export type HandoffRequest = {
   /** The app that owns the destination (`PLACEMENT` says which owns a view). */
-  app: MidniteAppId;
+  app: HandoffAppId;
   view?: ViewId;
   tab?: MediaTab;
   page?: SettingsPageId;
@@ -41,7 +41,7 @@ export type HandoffPlan =
 
 /** The `midnite://open` link for a request — what crosses a process boundary. */
 export function handoffLink(request: HandoffRequest): string {
-  const target: MidniteLinkTarget = { app: request.app };
+  const target: MidniteLinkInput = { app: request.app };
   if (request.view !== undefined) target.view = request.view;
   if (request.tab !== undefined) target.tab = request.tab;
   if (request.page !== undefined) target.page = request.page;
@@ -52,6 +52,6 @@ export function handoffLink(request: HandoffRequest): string {
 }
 
 /** `local` when this process hosts the target app, else `external` with the link to route. */
-export function planHandoff(request: HandoffRequest, hosted: ReadonlySet<MidniteAppId>): HandoffPlan {
+export function planHandoff(request: HandoffRequest, hosted: ReadonlySet<HandoffAppId>): HandoffPlan {
   return hosted.has(request.app) ? { kind: 'local', request } : { kind: 'external', link: handoffLink(request) };
 }

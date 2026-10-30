@@ -107,7 +107,7 @@ its dismissal stack. Surprise: the "Mod+t does not escape `.xterm`" check in the
 `terminal.new` is not a yield command there, so the frame test proves the yield with `fab.toggle` (`Ctrl+L` off
 macOS) instead of changing Studio.
 
-**Theme E — The terminal panel as a feature.** ◐ 5/6 ([#1068](https://github.com/bilo-io/midnite-studio/pull/1068)).
+**Theme E — The terminal panel as a feature.** ✅ 6/6 ([#1068](https://github.com/bilo-io/midnite-studio/pull/1068)).
 `packages/features/terminal/renderer` now holds the panel, the session list, every xterm, the store, the unload
 policy and the replay gate (27 test files moved with it), behind a `TerminalHost` port: panel layout and prefs,
 font, repos, palette, link routing, a tooltip, popover and avatar slot, and three optional actions (configure an
@@ -120,10 +120,12 @@ FAB and primary agent. Sessions carry an optional `appId` (absent = studio); onl
 so Studio's records are unchanged on disk. The list filters to its own app with a "Show all apps" toggle on
 suite-prefs `terminal.showAllApps`, shown only once another app's session is present; until someone toggles it,
 each app takes its host's default (Studio: all). A broker that never attached now says so in the empty panel.
-E.3, the main half, is partly in: the session list's stores, `terminal-service` and `pty-env` moved to
-`packages/features/terminal/main` behind a `TerminalPorts` object, and `terminalMain` registers the list, roster
-and save/forget/reorder channels. Open: `pty-service`, `inproc-pty` and `pty-handlers`, which reach `electron`, the
-window manager, confinement and sender-aware IPC that need injecting first.
+E.3, the main half, is in: the session list's stores, `terminal-service`, `pty-env` and now `pty-service` live in
+`packages/features/terminal/main`. The pty service reaches the main window, confinement, the secrets vault, the
+broker client and the in-process pty through a `PtyPorts` object that desktop's `pty-service.ts` shim binds once
+(`inproc-pty` and `node-pty` stay in desktop and arrive as `ports.inproc`). The pty IPC handlers moved into
+`terminalMain.register`; `RuntimeIpc` gained an optional `sendFromSender` (the handler receives a structural
+`RuntimeWindow`), which desktop binds to `handleSendFromSender` and the recording test context fakes.
 
 **Theme F — The companion panel as a feature.** ✅ `packages/features/companion`: the renderer (orb, panel, thread,
 voice, zen stage, the reveal engine; ~50 files and the store) and the main half (`desktop/src/main/companion`,
@@ -395,7 +397,7 @@ the frame cannot supply them — H hands them to `suiteSettingsPages()` per app 
     suite-prefs).
   - *Done when* `grep -r "packages/app\|\.\./\.\./store" packages/features/terminal` is empty and a test
     renders `TerminalPanel` under the default host with a mock bridge.
-- [ ] **Extract the main half.** `terminal-service.ts`, `pty-service.ts`, `pty-env.ts` from
+- [x] **Extract the main half.** `terminal-service.ts`, `pty-service.ts`, `pty-env.ts` from
   `packages/desktop/src/main/` → `packages/features/terminal/main/`, exposed as
   `terminalMain = defineFeatureMain<TerminalMainServices>(...)` over the runtime broker client
   (`openBrokerClient`). Studio's desktop registers it; its existing imports re-export from the feature.
@@ -408,10 +410,7 @@ the frame cannot supply them — H hands them to `suiteSettingsPages()` per app 
     agent-conversation locator and the logger through a `TerminalPorts` object that desktop's shim binds once.
     `terminalMain` registers `terminalList`, `agentList`, `agentRecheck` and the save/forget/reorder sends; Studio's
     `terminal-handlers.ts` is now its composition.
-  - ⏳ Still open: `pty-service.ts` (820 lines of module state over `electron`, the window manager, confinement and
-    the secrets handlers), `inproc-pty.ts` and `pty-handlers.ts` (sender-aware sends, which `RuntimeIpc` does not
-    offer yet). Those need `RuntimeIpc` to grow a sender-aware send and the pty service to take its window,
-    confinement and secrets as injected services.
+  - ✅ Landed (2026-10-30): `pty-service` and the pty handlers moved too, behind `PtyPorts` and `RuntimeIpc.sendFromSender`.
 - [x] **Sessions carry the app.** `TerminalSessionSchema`
   ([`shared/src/terminal.ts:624`](../../../packages/shared/src/terminal.ts)) gains `appId: SuiteAppIdSchema.optional()`;
   absent means `'studio'` (every existing record). `ptyCreate`'s payload carries it; each app's main stamps
