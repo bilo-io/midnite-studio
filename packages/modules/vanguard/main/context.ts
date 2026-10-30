@@ -6,24 +6,27 @@ import {
   createVanguardService,
   INTERRUPT,
   resolveByFingerprint,
-  vanguardMain,
   type VanguardService,
 } from '@midnite/studio-feature-vanguard/main';
 import {
   guestSessionRecord,
   readHostSessions,
-  sessionsGuestMain,
   shutdownGuestSessions,
 } from '@midnite/studio-feature-sessions/main';
 import {
   createFindingsLedger,
   createIpcContext,
   createSharedBroker,
+  mountModuleMains,
   readRuntimeHostRecord,
   type IpcContextElectron,
   type LogSink,
+  type ModuleMount,
+  type SharedBroker,
 } from '@midnite/studio-runtime';
 import { EVENT_CHANNELS } from '@midnite/studio-shared';
+
+import { vanguardModuleMain, type VanguardModuleServices } from './module';
 
 /** The electron pieces Vanguard's main needs, injected so registration is testable under bare vitest. */
 export type VanguardElectron = IpcContextElectron & {
@@ -50,7 +53,20 @@ export type VanguardElectron = IpcContextElectron & {
  * installed this app to be watched over.
  */
 export async function registerVanguardHandlers(el: VanguardElectron): Promise<{ service: VanguardService; shutdown: () => Promise<void> }> {
-  const ctx = createIpcContext(el);
+  const { mount, service, shutdown } = await prepareVanguard(el);
+  mountModuleMains(createIpcContext(el), [mount]);
+  await service.host.start();
+  return { service, shutdown };
+}
+
+/**
+ * Builds Vanguard's service and the module mount over it, registering nothing and starting nothing: a host
+ * that mounts more modules than its own (Phase 124 Theme E.3) passes `mount` to `mountModuleMains` beside
+ * theirs, then starts `service.host`. {@link registerVanguardHandlers} is the one-module path.
+ */
+export async function prepareVanguard(
+  el: VanguardElectron,
+): Promise<{ mount: ModuleMount; service: VanguardService; broker: SharedBroker; shutdown: () => Promise<void> }> {
   const broker = createSharedBroker({ runtimeDirectory: el.runtimeDirectory, appId: 'vanguard' });
   const ledger = createFindingsLedger({ userData: el.userData, onChanged: () => el.send(EVENT_CHANNELS.securityFindingsChanged, undefined) });
   // The host's agent sessions: the pty pids come from the shared broker, which agent they run from the host's
@@ -121,7 +137,7 @@ export async function registerVanguardHandlers(el: VanguardElectron): Promise<{ 
       },
     },
   });
-  vanguardMain.register(ctx, {
+  const vanguard: VanguardModuleServices['vanguard'] = {
     ledger: () => ledger,
     service: () => service,
     openPath: async (path) => {
@@ -129,15 +145,16 @@ export async function registerVanguardHandlers(el: VanguardElectron): Promise<{ 
       if (failure) throw new Error(failure);
     },
     warn: (issue) => el.log.write('warn', issue),
-  });
+  };
   // The runtime host's sessions, attach-only: listed, attached, written to. Vanguard starts and kills none.
-  sessionsGuestMain.register(ctx, {
+  const sessions = {
     broker,
     hostSessions: () => readHostSessions(readRuntimeHostRecord(el.runtimeDirectory)?.sessionsFile),
-  });
-  await service.host.start();
+  };
   return {
+    mount: { module: vanguardModuleMain, services: { vanguard, sessions } },
     service,
+    broker,
     shutdown: async () => {
       await service.host.stop();
       await shutdownGuestSessions();

@@ -3,7 +3,7 @@ import { LuZap } from 'react-icons/lu';
 import { useStatusBarChrome } from '../../status-bar/status-bar-chrome';
 import { useMetricsStore } from '../../../metrics/metrics-store';
 import { useMetricsStream } from '../../../metrics/use-metrics-stream';
-import { useTitleBarHost } from '../titlebar-host';
+import { useMonitorPrefsStore } from '../../../prefs/monitor-prefs-store';
 import { BatteryIcon } from './battery-icon';
 import { BatteryPanel } from './battery-panel';
 import {
@@ -24,7 +24,7 @@ import {
 export function BatterySegment({ side = 'bottom' }: { side?: 'top' | 'bottom' } = {}) {
   const [open, setOpen] = useState(false);
   const latest = useMetricsStore((state) => state.latest);
-  const { metricsIdleIntervalMs: idleIntervalMs } = useTitleBarHost();
+  const idleIntervalMs = useMonitorPrefsStore((state) => state.metricsIdleIntervalMs);
   const { Popover } = useStatusBarChrome();
 
   useMetricsStream({ detailed: open, idleIntervalMs });

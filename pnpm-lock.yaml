@@ -1186,6 +1186,12 @@ importers:
       '@bilo-io/ui':
         specifier: 0.2.0
         version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@midnite/studio-feature-monitor':
+        specifier: workspace:*
+        version: link:../../packages/features/monitor
+      '@midnite/studio-feature-optimizer':
+        specifier: workspace:*
+        version: link:../../packages/features/optimizer
       '@midnite/studio-feature-report':
         specifier: workspace:*
         version: link:../../packages/features/report
@@ -1195,12 +1201,24 @@ importers:
       '@midnite/studio-feature-vanguard':
         specifier: workspace:*
         version: link:../../packages/features/vanguard
+      '@midnite/studio-feature-vault':
+        specifier: workspace:*
+        version: link:../../packages/features/vault
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../packages/frame
+      '@midnite/studio-module-cleaner':
+        specifier: workspace:*
+        version: link:../../packages/modules/cleaner
+      '@midnite/studio-module-monitor':
+        specifier: workspace:*
+        version: link:../../packages/modules/monitor
       '@midnite/studio-module-vanguard':
         specifier: workspace:*
         version: link:../../packages/modules/vanguard
+      '@midnite/studio-module-vault':
+        specifier: workspace:*
+        version: link:../../packages/modules/vault
       '@midnite/studio-runtime':
         specifier: workspace:*
         version: link:../../packages/runtime

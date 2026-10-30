@@ -58,4 +58,44 @@ describe('mountModuleMains', () => {
     expect(await ctx.invoke('coder:echo', { n: 2 })).toBe(2);
     expect(String(await ctx.invoke('coder:echo', { n: 'x' }))).toContain('coder:echo');
   });
+
+  it('registers a shared channel once, from the earlier mount', async () => {
+    const ctx = createRecordingContext();
+    const first = defineFeatureMain<null>({
+      feature: 'sessions',
+      channels: ['t:list'],
+      register: (c) => c.ipc.handleBare('t:list', () => 'first'),
+    });
+    const second = defineFeatureMain<null>({
+      feature: 'monitor',
+      channels: ['t:list', 'm:a'],
+      register(c) {
+        c.ipc.handleBare('t:list', () => 'second');
+        c.ipc.handleBare('m:a', () => 'a');
+      },
+    });
+    mountModuleMains(ctx, [
+      { module: first, services: null },
+      { module: second, services: null, shared: ['t:list'] },
+    ]);
+    expect(ctx.channels).toEqual(['t:list', 'm:a']);
+    expect(await ctx.invoke('t:list')).toBe('first');
+  });
+
+  it('rejects a shared channel no earlier mount declares, or the module does not declare', () => {
+    const a = moduleWith('a', ['a:x']);
+    const b = moduleWith('b', ['b:x']);
+    expect(() =>
+      mountModuleMains(createRecordingContext(), [
+        { module: a, services: null },
+        { module: b, services: null, shared: ['zzz'] },
+      ]),
+    ).toThrow(/does not declare it/);
+    expect(() =>
+      mountModuleMains(createRecordingContext(), [
+        { module: b, services: null, shared: ['b:x'] },
+        { module: a, services: null },
+      ]),
+    ).toThrow(/no earlier mount declares it/);
+  });
 });

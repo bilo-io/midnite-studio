@@ -1,9 +1,11 @@
 import {
   connectRuntimeVault,
   createIpcContext,
+  mountModuleMains,
   vaultHostSocketPath,
   type ClipboardAdapter,
   type IpcContextElectron,
+  type ModuleMount,
   type PairingIdentity,
 } from '@midnite/studio-runtime';
 
@@ -26,7 +28,20 @@ export type VaultElectron = IpcContextElectron & {
  * and nothing here reads a stored value — the host refuses a `get` from `vault` even if asked.
  */
 export function registerVaultHandlers(el: VaultElectron): { close(): void } {
+  const { mount, close } = prepareVault(el);
+  mountModuleMains(createIpcContext(el), [mount]);
+  return { close };
+}
+
+/**
+ * Connects to the runtime host's vault and builds the module mount over it, registering nothing: a host that
+ * mounts more modules than its own (Phase 124 Theme E.3) passes `mount` to `mountModuleMains` beside theirs.
+ * {@link registerVaultHandlers} is the one-module path.
+ */
+export function prepareVault(el: Pick<VaultElectron, 'directory' | 'pairing' | 'clipboard'>): { mount: ModuleMount; close(): void } {
   const vault = connectRuntimeVault({ socketPath: vaultHostSocketPath(el.directory), appId: 'vault', identity: el.pairing });
-  vaultModuleMain.register(createIpcContext(el), { vault, grants: vault.grants, pairings: vault.pairing, clipboard: el.clipboard });
-  return { close: () => vault.close() };
+  return {
+    mount: { module: vaultModuleMain, services: { vault, grants: vault.grants, pairings: vault.pairing, clipboard: el.clipboard } },
+    close: () => vault.close(),
+  };
 }
