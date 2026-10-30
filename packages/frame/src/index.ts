@@ -560,3 +560,5 @@ export {
   type SuiteSettingsPageId,
 } from './settings/settings-pages';
 export { SettingsView, type SettingsViewProps } from './settings/settings-view';
+export { SuiteAppearancePage } from './settings/suite-appearance-page';
+export { SuiteAppShell, SUITE_APP_SETTINGS_PAGES, type SuiteAppShellProps } from './shell/suite-app-shell';
