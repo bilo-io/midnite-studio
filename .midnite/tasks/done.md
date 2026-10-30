@@ -15546,3 +15546,7 @@ Vanguard, Agents, Media and Gamer render a nav group per mounted module (Vanguar
 ### Phase 123 Theme H (2/3) — Money, Mind and Browser on the shell (2026-10-30)
 
 Money, Mind and Browser render `SuiteAppShell` with their manifest nav and Settings; Mind's settings tab became an app page and Browser got a manifest and tools strip. `Mod+,` opens Settings in every suite app. Science has no app. The four settings-page extractions, panels and main registration are open, so no checklist item is ticked; see the Headlines H paragraph.
+
+### Phase 123 Theme H (4/5) — the monitor in every suite app, Settings keeps Browser mounted (2026-10-30)
+
+Seven apps on the shell now register the monitor main and preload slice and show the status bar's monitor segment with the Monitor settings page; Browser's page stays mounted under Settings. Terminal, companion, FAB/Loops and loop-runs are gated off (no pty host in a suite app), retired apps untouched; H batches 1-3 and Screenshots ticked, Studio last open. See the Headlines H paragraph.
