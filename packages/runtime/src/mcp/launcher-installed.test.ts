@@ -62,7 +62,7 @@ describe('installedAppsFromLauncherFile', () => {
     const file = writeState(['gamer']);
     const listing = createMcpToolListing({ installed: installedAppsFromLauncherFile({ file, provided: [] }), manifests });
     expect(listing.isListed('model_list')).toBe(true);
-    writeState(['coder']);
+    writeState(['agents']);
     expect(listing.isListed('model_list')).toBe(false);
     expect(listing.isListed('forge.pulls')).toBe(true);
   });
@@ -73,9 +73,9 @@ describe('installedAppsFromLauncherFile', () => {
     expect(none.isListed('model_list')).toBe(false);
     const bad = join(root, 'bad.json');
     writeFileSync(bad, 'garbage');
-    const coder = createMcpToolListing({ installed: installedAppsFromLauncherFile({ file: bad, provided: ['coder'] }), manifests });
-    expect(coder.isListed('forge.pulls')).toBe(true);
-    expect(coder.isListed('model_list')).toBe(false);
+    const agents = createMcpToolListing({ installed: installedAppsFromLauncherFile({ file: bad, provided: ['agents'] }), manifests });
+    expect(agents.isListed('forge.pulls')).toBe(true);
+    expect(agents.isListed('model_list')).toBe(false);
   });
 
   it('Studio as host (provides every app) still lists everything, with or without a file', () => {

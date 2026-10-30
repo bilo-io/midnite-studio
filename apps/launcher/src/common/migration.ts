@@ -3,8 +3,8 @@ import { LEGACY_APP_HOSTS, LEGACY_BUNDLE_APP_IDS, LEGACY_BUNDLE_NAMES, type AppI
 
 /**
  * The swap from a retired app to its host (Phase 124 Theme G.3). Coder, Creator, Cleaner, Vault,
- * Monitor and Capture are modules of Agents, Vanguard and Mind now, but their bundles stay
- * installable until Theme H, so a Mac can have one installed. The host's tile says so, offers the
+ * Monitor and Capture are modules of Agents, Vanguard and Mind now, but their apps were
+ * deleted in Theme H and no release builds them, but a Mac can still have one installed. The host's tile says so, offers the
  * host while it is missing, and offers to remove the old bundle once the host is there.
  */
 export type ReplacedBundle = {
