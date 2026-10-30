@@ -33,3 +33,34 @@ export function createBridgeSlice(ipc: RendererIpc): BridgeSlice {
     },
   };
 }
+
+const isNamespace = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/**
+ * The union of several modules' bridge slices, for a host that mounts more than one (Phase 124 Theme E.3).
+ *
+ * Namespaces merge key by key, so two slices that each expose part of one (`terminal.list` from one, more of
+ * `terminal` from another) end up with both halves. Where two slices define the same leaf — every module
+ * carries its own `report` bridge over the same channels — the **first** wins: the leaves are interchangeable
+ * because they call the same channel, and the host's own module is passed first.
+ */
+export function unionBridgeSlices<T extends object>(...slices: readonly object[]): T {
+  const out: Record<string, unknown> = {};
+  for (const slice of slices) mergeInto(out, slice as Record<string, unknown>);
+  return out as T;
+}
+
+function mergeInto(target: Record<string, unknown>, source: Record<string, unknown>): void {
+  for (const [key, value] of Object.entries(source)) {
+    const existing = target[key];
+    if (existing === undefined) target[key] = isNamespace(value) ? cloneNamespace(value) : value;
+    else if (isNamespace(existing) && isNamespace(value)) mergeInto(existing, value);
+  }
+}
+
+function cloneNamespace(value: Record<string, unknown>): Record<string, unknown> {
+  const copy: Record<string, unknown> = {};
+  mergeInto(copy, value);
+  return copy;
+}
