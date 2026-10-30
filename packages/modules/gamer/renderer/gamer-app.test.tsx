@@ -80,7 +80,9 @@ describe('Midnite Gamer', () => {
 
   it('opens on the media shell with the five tabs in the strip', async () => {
     render(<GamerApp />);
-    expect(screen.getByText('Midnite Gamer')).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Midnite Gamer' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeTruthy();
+    expect(screen.queryAllByRole('tab')).toEqual([]);
     await waitFor(() => {
       for (const label of ['Games', 'Maps', 'Terrain', 'Models', 'Sprites']) expect(screen.getAllByLabelText(label).length).toBeGreaterThan(0);
     });

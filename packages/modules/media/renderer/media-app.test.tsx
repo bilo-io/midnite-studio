@@ -1,5 +1,5 @@
 // vitest/jsdom: composition and the home view over a mock bridge — none of it needs a real browser.
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FEATURE_PACKAGE_SPLITS, FEATURE_PLACEMENT, placementOwners } from '@midnite/studio-shared';
@@ -62,10 +62,13 @@ describe('Media composition', () => {
 });
 
 describe('Media home view', () => {
-  it('opens on the Library with only it in the strip, and offers to add a folder', async () => {
+  it('opens on the Library with only it in the rail, and offers to add a folder', async () => {
     render(<MediaApp />);
-    expect(screen.getByText('Midnite Media')).toBeDefined();
-    expect(screen.getAllByRole('tab').map((t) => t.getAttribute('aria-label'))).toEqual(['Library']);
+    expect(screen.getByRole('img', { name: 'Midnite Media' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined();
+    const rail = within(screen.getByRole('navigation', { name: 'Views' }));
+    expect(rail.getAllByRole('link').map((l) => l.getAttribute('aria-label') ?? l.textContent)).toEqual(['Library']);
+    expect(screen.queryAllByRole('tab')).toEqual([]);
     await waitFor(() => expect(library.roots).toHaveBeenCalled());
     fireEvent.click(await screen.findByRole('button', { name: 'Add a folder…' }));
     await waitFor(() => expect(library.addRoot).toHaveBeenCalled());

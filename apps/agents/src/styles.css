@@ -1,6 +1,7 @@
 /* Design tokens (HSL custom properties + the `.dark` block) from @bilo-io/ui, the same
  * token source Studio uses, so the agents' features wear identical colours here. */
 @import '@bilo-io/ui/styles';
+@import '@bilo-io/shell/appearance.css';
 
 @tailwind base;
 @tailwind components;

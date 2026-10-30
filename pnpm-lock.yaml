@@ -51,6 +51,9 @@ importers:
 
   apps/agents:
     dependencies:
+      '@bilo-io/shell':
+        specifier: 0.2.0
+        version: 0.2.0(@tanstack/react-query@5.102.3(react@19.2.8))(@types/react@19.2.18)(next-intl@4.13.7(@swc/helpers@0.5.23)(next@16.3.2(@playwright/test@1.64.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@bilo-io/ui':
         specifier: 0.2.0
         version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -675,6 +678,9 @@ importers:
 
   apps/gamer:
     dependencies:
+      '@bilo-io/shell':
+        specifier: 0.2.0
+        version: 0.2.0(@tanstack/react-query@5.102.3(react@19.2.8))(@types/react@19.2.18)(next-intl@4.13.7(@swc/helpers@0.5.23)(next@16.3.2(@playwright/test@1.64.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@bilo-io/ui':
         specifier: 0.2.0
         version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -866,6 +872,9 @@ importers:
 
   apps/media:
     dependencies:
+      '@bilo-io/shell':
+        specifier: 0.2.0
+        version: 0.2.0(@tanstack/react-query@5.102.3(react@19.2.8))(@types/react@19.2.18)(next-intl@4.13.7(@swc/helpers@0.5.23)(next@16.3.2(@playwright/test@1.64.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@bilo-io/ui':
         specifier: 0.2.0
         version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -1249,6 +1258,9 @@ importers:
 
   apps/vanguard:
     dependencies:
+      '@bilo-io/shell':
+        specifier: 0.2.0
+        version: 0.2.0(@tanstack/react-query@5.102.3(react@19.2.8))(@types/react@19.2.18)(next-intl@4.13.7(@swc/helpers@0.5.23)(next@16.3.2(@playwright/test@1.64.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@bilo-io/ui':
         specifier: 0.2.0
         version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)

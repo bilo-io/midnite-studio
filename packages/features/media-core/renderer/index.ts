@@ -20,7 +20,7 @@ export {
   type MediaPaneSize,
   type MediaTooltipProps,
 } from './host';
-export { MediaShell } from './media-shell';
+export { MediaShell, useActiveMediaTab } from './media-shell';
 export { createStandaloneMediaHost, type StandaloneMediaState } from './standalone-host';
 export { StandaloneAccordion, StandaloneMenu, StandaloneTooltip } from './standalone-chrome';
 export { MediaTabStrip } from './media-tab-strip';
