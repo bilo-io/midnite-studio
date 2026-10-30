@@ -840,6 +840,8 @@ The detector's discount for code spans and quotation marks is bypassable by wrap
 - **Ollama library search is not behind a switch yet**: Phase 115 Theme A is not on `main`. Digest checks make no network call, so nothing was added.
 - **Digest pins are not cleaned** when a model is deleted, and the Agents app does not configure the digest ledger.
 
+- **A pty host for the suite apps (Phase 123 H/I).** Terminal, companion and FAB/Loops exist as features but no suite app mounts them: the broker script, `node-pty`, confinement and the agent probe live in `packages/desktop`, and an app can only attach to Studio's broker as a guest, which cannot create a session. `panels` is declared in each manifest and not rendered, and `Ctrl+``, `Mod+l` and `Mod+l` then `L` have no Playwright coverage outside Studio. See `docs/APPS.md` "The shell".
+
 - **Phase 124 G.5 — a final release for each retired app.** Deferred on purpose when Theme H deleted
   `apps/{coder,creator,cleaner,vault,monitor,capture}`: an existing install of one gets no notice that its app
   moved into Agents, Vanguard or Mind, and its feed stays frozen at its last version. A final release whose notes

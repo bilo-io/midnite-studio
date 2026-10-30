@@ -343,6 +343,79 @@ A new suite app (`apps/<id>`) writes its composition, not its chrome:
   path (alias both in `bundle-main.mjs`), never the barrels: that took Cleaner's preload from
   426 KB to 24 KB.
 
+## The shell (Phase 123)
+
+Every app that renders `SuiteAppShell` (`packages/frame/src/shell/`) wears the same window as Studio: a
+frameless title bar, a rail over its own views with Settings at its foot, the app's logo, and the status bar.
+An app composes it; it does not copy it. The shell itself is not optional.
+
+### What an app gets for free
+
+- **A frameless window.** `openWindow` spreads `suiteWindowOptions(process.platform)`
+  (`runtime/src/app-main/suite-window.ts`: `titleBarStyle: 'hidden'` and the traffic-light inset on macOS) and
+  merges its `--mstudio-frameless=` launch argument into `webPreferences.additionalArguments`; the preload's
+  `windowChrome` slice reports it. The shell draws `TitleBar` as the drag region, drops the inset in full
+  screen, and a double-click on it calls `windowChrome.toggleMaximize` (a no-op in full screen; a click on a
+  control in the bar is left alone). Vanguard keeps its options in `main/window-options.ts`, which imports no
+  `electron`, so a test can assert them.
+- **The launcher's logo.** `appLogoUrl(app)` serves a 256 px copy of the launcher's tile, written by
+  `generate-app-logos.cjs` and held byte-identical by a drift test. `SUITE_APP_IDS` in `shared` is the one id
+  list. Nothing hand-copies a PNG.
+- **A rail.** Built from the manifest's `nav`, with the app accent on the logo tile and the active row only. A
+  row that names a `command` shows that chord on hover, never a literal.
+- **Settings, last in the rail.** The suite pages (Appearance, Keyboard shortcuts, Monitor) come first, then
+  the app's own `settingsPages`. `Mod+,` (`view.settings`) opens it in every app.
+- **The chords.** `useKeybindings` and the command palette live in `frame/src/commands/`; an app binds only the
+  commands it has a handler for, and a chord that is not its own reaches the page untouched. `SUITE_COMMANDS`
+  in `shared/src/keybindings.ts` is the subset a suite app answers; no app defines a chord literal.
+- **Shared preferences.** Appearance, palette, motion and the title-bar cluster persist through the runtime's
+  `suite-prefs` file under `<appData>/Midnite Runtime/`, so one change reaches every app. They never go in
+  `localStorage`, which is per-app.
+- **The status bar and the monitor core.** `suiteSegments(panels)` gives the five suite segments, dropping any
+  whose panel the app lacks; the monitor segment opens the metrics-only flyout, and the runtime's
+  `bindMetricsToWindow` is the one rule that pauses sampling on blur, hide and minimise.
+
+### The manifest fields
+
+An app's `src/<id>-manifest.ts` carries `ShellManifestFields` beside its id, name and accent
+(`frame/src/shell/nav-config.ts`):
+
+| Field | Meaning |
+| --- | --- |
+| `nav` | `NavConfig`: the views in rail order. Settings is never one of them. `navConfigProblems(nav)` is `[]` for a sound config (at least one view, unique ids, every `command` a real `CommandId`); each manifest test asserts it. A host over several modules builds it with `navFromModules(APP_MODULES.<host>, { <module>: <MODULE>_NAV_GROUP })`, one titled group per module. |
+| `panels` | `{ terminal?, companion?, fab? }`, each on unless set `false`. This is how a panel is opted out. |
+| `settings` | The ids of the app's own settings pages, after the suite's. A page id of the form `app:<name>` is an app page. |
+
+### The hosts
+
+The frame imports no feature, so everything a panel needs from outside it arrives through a host port the
+composer fills (the `notes/renderer/host.tsx` pattern), never an eslint exception:
+
+- `FrameChromeProvider`: the chrome the app's modules and features draw with.
+- `TerminalHost`, `CompanionHost`, `LoopsHost`: the panels' ports, in `packages/features/<name>/renderer`. Each
+  feature ships a default host in its own package, since the frame cannot name the port's type. Studio fills
+  them in `packages/app/src/compose/`.
+- `TitleBarHost`: the right cluster's metrics cadence and privacy switches.
+- `StatusBarChromeProvider`: the status bar's tooltip and popover; the default is a `title` and the frame's
+  `SimplePopover`.
+
+### Deferred: a pty host for the suite apps
+
+Terminal, companion and FAB/Loops are built as features behind those ports, but **no suite app mounts them
+yet**, so `panels` is declared in the manifests and not rendered. The reason is main-side, not renderer-side:
+the broker script, `node-pty`, confinement and the agent probe live in `packages/desktop`, and an app can only
+attach to Studio's broker as a guest, which cannot create a session. The companion also needs Studio's dispatch,
+agents and utility fork, and the FAB starts its loop in the terminal. Each joins with the host it needs, never
+as a button that does nothing. Until then the chords `terminal.toggle`, `fab.toggle` and `companion.toggle` are
+not bound outside Studio, and the shell's e2e covers only what a suite app actually has.
+
+### Testing the shell
+
+`packages/app/e2e/suite-shell/` drives Vanguard's and Agents' own renderers (each on its own Vite server, from
+`playwright.config.ts`) through `test-support/suite-bridge.ts`, a deep-proxy `window.midniteStudio` that
+answers an unlisted call with `{ ok: true, value: null }` and takes per-path `answers` for the few reads a pane
+crashes without. Appearance is `e2e/visual/suite-shell.spec.ts`: framed, frameless and nav collapsed.
+
 ## App compositions
 
 Each app in `apps/` composes the frame, its assigned features, and its host ports into an installable desktop product.
