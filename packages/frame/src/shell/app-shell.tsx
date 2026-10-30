@@ -94,6 +94,13 @@ function AppShellFrame({
     return createViewLink(navigate, (view) => chordRef.current(view), options);
   }, [navigate, tooltip]);
 
+  // A module group's heading is a toggle (the shell draws no heading for a non-collapsible section).
+  const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
+  const toggleGroup = useCallback(
+    (key: string) => setCollapsedGroups((all) => (all.includes(key) ? all.filter((k) => k !== key) : [...all, key])),
+    [],
+  );
+
   const settingsActive = activeView === SETTINGS_VIEW;
   const shellNav = useMemo<ShellNavConfig>(
     () => ({
@@ -109,7 +116,6 @@ function AppShellFrame({
       sections: (nav.groups ?? []).map((group) => ({
         key: group.id,
         title: group.label,
-        collapsible: false,
         items: group.views.map(({ id, label, icon: Icon }) => ({
           href: pathForNavView(id),
           label,
@@ -181,7 +187,7 @@ function AppShellFrame({
 
   return (
     <div className="app-shell" data-app={app} style={{ '--app-accent': accent } as CSSProperties}>
-      <AppFrame nav={shellNav} activePath={pathForNavView(activeView)} linkComponent={ViewLink} navLabel="Views" titleBar={titleBar}>
+      <AppFrame nav={shellNav} activePath={pathForNavView(activeView)} linkComponent={ViewLink} navLabel="Views" titleBar={titleBar} collapsedSections={collapsedGroups} onToggleSection={toggleGroup}>
         <div className="flex flex-col" style={CONTENT_BOX}>
           {framed ? (
             <div
