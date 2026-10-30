@@ -146,7 +146,7 @@ the retired ids are mirrored locally (`LEGACY_APP_HOSTS`, `LEGACY_BUNDLE_APP_IDS
 `shared/src/modules.ts`; bundle install/uninstall stays keyed on `BUNDLE_APP_IDS` so the six still-built apps
 keep working until Theme H, and old `coder`/`vault`/... links resolve to the host's module.
 
-**Theme G — Migration.** ✅ G.1–G.4 landed; G.5 deferred (no final releases, see Decisions). A `midnite://open?app=coder` link (any retired
+**Theme G — Migration.** ✅ G.1–G.5 landed (G.5 needed no release of its own, see Decisions). A `midnite://open?app=coder` link (any retired
 id) now parses to `app: agents, module: coder` with `legacyApp: coder` kept on the target, `MIDNITE_APP_IDS` is the
 eight hosts bar Science, and hand-offs may still *name* a retired id (`HandoffAppId`; Studio's hosted set lists
 them) so no caller changed. `placement.ts` gains `FEATURE_HOSTS` / `placementHosts` (`forge → agents`,
@@ -158,8 +158,9 @@ app is installed says "Replaces Coder", the sheet offers the host, and once it i
 old bundle to the Trash (`common/migration.ts`). `importRetiredAppData` (`runtime/src/migrate/`) copies each
 retired app's app-local files into its host's directory once, never overwrites, leaves the source, writes a
 `.migrated/<id>.json` marker, and is called from Agents, Vanguard and Mind's main. Vault secrets are not in the
-plan: they already live in the shared runtime vault. Deferred: G.5 (a final release per retired app is an
-irreversible release action; agreed to skip it for now, see Decisions). Open: opening a host *bundle* from a link does not land on
+plan: they already live in the shared runtime vault. G.5 resolved without a release: the six apps never had
+feeds of their own, they ship as launcher bundles in the lockstep `catalog.json`, which the next release rebuilds
+without them (see Decisions). Open: opening a host *bundle* from a link does not land on
 the module (a bundle is opened, not handed the link) and the hosts do not mount the other modules' main halves or
 MCP tools until E.3 (`music_*` stay with a Creator bundle or Studio until then); Creator's data imports into
 Agents only (its alias host), not Media or Gamer.
@@ -286,9 +287,9 @@ a `moon.yml`, so the matrix cannot name them.
   clipboard history and recordings index, Vault's per-app state) from that app's `userData`, once, with a
   marker so it never re-runs; the source is left in place. Vault secrets keep going through the runtime
   vault service, never copied as files. `[M]`
-- [ ] **G.5** One final release per retired app, pointing to its host `[S]` (⏳ deferred)
+- [x] **G.5** One final release per retired app, pointing to its host `[S]`
   Each retired app gets one final release on its updater feed whose notes point to its host, so an existing
-  install learns where it went. Skipped for now; see *Retired update feeds* in Decisions.
+  install learns where it went. Resolved with no release cut: see *Retired update feeds* in Decisions.
 
 ## Theme H — Retire the six apps `[M]`
 
@@ -361,8 +362,11 @@ a `moon.yml`, so the matrix cannot name them.
   editors on one file; last write wins, as it does today with Studio beside Creator.
 - **Accent** *(open — recommend)*: the window wears the host's accent; a module's accent appears only on
   its nav group label.
-- **Retired update feeds** *(deferred)*: G.5 is skipped for now, so no final release points an existing install
-  at its host and the feeds are simply frozen. A final release per retired app can still be cut later from the last
-  commit that has the apps, `e64bcf62f13deee8d5918e79412e20d4d5ba7c5e` (origin/main when Theme H branched).
+- **Retired update feeds** *(resolved, 2026-10-30)*: there is nothing to release. The six apps never had updater
+  feeds of their own (no `coder/…`-style tags exist in `bilo-io/midnite-apps`); they shipped as launcher bundles
+  listed in the one lockstep `catalog.json`, which `release.yml` rebuilds from the bundles it packs, one per
+  `apps/<id>`. With the folders gone, the next normal release drops them from the catalog, and the launcher already
+  maps a retired id to its host (G.3). In early access nobody runs them, so a release cut from the old commit just to
+  carry a note would be an irreversible step that buys nothing.
 - **Studio's own nav** *(open)*: whether Studio also groups its nav by module, or keeps its flat rail —
   recommend flat for now, since "no behaviour change" is a guardrail.
