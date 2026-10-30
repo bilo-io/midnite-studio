@@ -565,15 +565,15 @@ the frame cannot supply them — H hands them to `suiteSettingsPages()` per app 
 
 ### H — Every app on the shell [L · 1–2d]
 
-- [x] **Roll-out, batch 1.** `vanguard`, `vault`, `monitor`, `cleaner`, `capture` — the apps with the least UI.
+- [ ] **Roll-out, batch 1.** `vanguard`, `vault`, `monitor`, `cleaner`, `capture` — the apps with the least UI.
   Each: `openWindow` spreads `suiteWindowOptions`, its preload adds `windowChrome`, its app root renders
   `AppShell` with its manifest's `nav`, `panels`, `settings` and the frame's default hosts, its main registers
   `terminalMain`, `companionMain`, `monitorMain` and the suite-prefs + loop-runs services.
   `apps/browser/src/browser-manifest.ts` is created in batch 3.
   - *Done when* each app's `*-app.test.tsx` asserts the shell renders its name, logo and Settings, and the
     PR carries one screenshot per app.
-- [x] **Roll-out, batch 2.** `agents`, `coder`, `creator`, `gamer` — same checklist.
-- [x] **Roll-out, batch 3.** `media`, `mind`, `money`, `browser` — same checklist. Mind's in-view `settings`
+- [ ] **Roll-out, batch 2.** `agents`, `coder`, `creator`, `gamer` — same checklist.
+- [ ] **Roll-out, batch 3.** `media`, `mind`, `money`, `browser` — same checklist. Mind's in-view `settings` *(Shell, Settings, status bar and Monitor landed in #1087; terminal, companion and FAB/Loops are gated off until suite apps get a pty host, so batches 1–3 stay open.)*
   tab and Cleaner's `midnite-cleaner.settings` become their Theme L app pages.
 - [ ] **Studio last.** `packages/app` renders the same `AppShell` with its extras in `titleBarEnd`, its full
   segment list in `footer`, and its hosts. Its own PR.
