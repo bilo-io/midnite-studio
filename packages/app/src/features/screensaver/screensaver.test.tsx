@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // Phase 91 Theme D: main compares the code, so the test's bridge plays main's `lock.verify`.
 vi.mock('../../services/bridge', () => ({
   bridge: () => ({ lock: { verify: async (code: string) => code === '1234', set: vi.fn() } }),
+  hasBridge: () => false,
 }));
 
 import { useUiStore } from '../../store/ui-store';

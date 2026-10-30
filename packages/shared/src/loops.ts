@@ -646,6 +646,11 @@ export const LoopRunRecordSchema = z.object({
   exitCode: z.number().int().optional(),
   status: LoopRunStatusSchema,
   findingsSummary: LoopRunFindingsSummarySchema.optional(),
+  /**
+   * The suite app that started the run. Never stored — each app's ledger file is named for it —
+   * and set by the merged read (`listLoopRuns`), so a run in the list says whose it was.
+   */
+  appId: z.string().min(1).optional(),
 });
 export type LoopRunRecord = z.infer<typeof LoopRunRecordSchema>;
 

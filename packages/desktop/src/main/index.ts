@@ -7,6 +7,7 @@ import { getGlobalGitIdentity, setGlobalGitIdentity } from '@midnite/studio-git-
 import {
   assertSiteIsolation,
   createFileSink,
+  createLoopRunsFiles,
   createOutboundSecretSource,
   createPairingStore,
   createVaultGrants,
@@ -16,6 +17,7 @@ import {
   configureGuardedFetch,
   createVaultService,
   ensureCanaries,
+  LOOP_RUNS_DIRECTORY_NAME,
   runtimeHostDirectory,
   setDiskRedactionSecrets,
   sweepProfileFiles,
@@ -129,9 +131,8 @@ import {
 } from './pty-service';
 import { registerLoopRunsHandlers } from './ipc/loop-runs-handlers';
 import { registerSuitePrefsHandlers } from './ipc/suite-prefs-handlers';
-import { configureLoopRuns, noteSessionExit, setGuardSummaryProvider } from './loop-runs';
+import { configureLoopRuns, emitChanged as emitLoopRunsChanged, noteSessionExit, setGuardSummaryProvider } from './loop-runs';
 import { latestGuardSweepSummary, startGuardSweeps, stopGuardSweeps } from './guard-sweep-wiring';
-import { createLoopRunsStore } from './loop-runs-store';
 import { createTerminalStore } from './terminal-store';
 import {
   configureTerminals,
@@ -1072,7 +1073,7 @@ export const startStudioMain: StartStudioMain = () => {
             log: (msg) => defaultLogger(msg),
           }),
         )
-        .then(() => {
+        .then(async () => {
           bootMark('pty-ready');
           /*
             The loop ledger's ends are owned here in main: a run's record is
@@ -1081,7 +1082,21 @@ export const startStudioMain: StartStudioMain = () => {
             registry is module state, but the exits it observes only exist once the
             service is up.
           */
-          configureLoopRuns(createLoopRunsStore(userData), getMainWindow);
+          /*
+            One ledger file per app under the runtime directory (Phase 123 Theme G): Studio writes
+            `loop-runs/studio.json` and reads every app's. Its pre-G `<userData>/loop-runs.json` is
+            copied in on first start (the old file stays); another app's writes arrive via a watch.
+          */
+          const loopRunFiles = createLoopRunsFiles({
+            directory: join(runtimeDirectory, LOOP_RUNS_DIRECTORY_NAME),
+            appId: 'studio',
+            warn: (message) => defaultLogger.warn(message),
+          });
+          await loopRunFiles.migrateFrom(join(userData, 'loop-runs.json')).catch(() => false);
+          loopRunFiles.onChanged(emitLoopRunsChanged);
+          loopRunFiles.watch();
+          app.on('will-quit', () => loopRunFiles.close());
+          configureLoopRuns(loopRunFiles, getMainWindow);
           onSessionExit(noteSessionExit);
           // The second consumer of the same seam: a session's exit code, kept
           // until the close that archives it finally comes (Phase 67).

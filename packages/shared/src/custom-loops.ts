@@ -392,3 +392,9 @@ export function removeCustomOption(loop: CustomLoop, optionId: string): CustomLo
 export function removeCustomChoice(loop: CustomLoop, choiceId: string): CustomLoop {
   return { ...loop, choices: loop.choices.filter((c) => c.id !== choiceId || c.section === undefined) };
 }
+
+/** A built-in loop's tab id. */
+export type BuiltinFabTab = 'guard' | 'innovate' | 'automate' | 'watchdog' | 'medic' | 'overhaul';
+
+/** Active tab in the FAB panel — a built-in, or a custom loop (`custom-…`). */
+export type FabTab = BuiltinFabTab | `custom-${string}`;

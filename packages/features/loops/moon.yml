@@ -1,0 +1,60 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# The loops feature package (Phase 123 Theme G) — the FAB, the quick-access
+# menu and the Loops panel, behind a LoopsHost port. Renderer-only: the run
+# ledger's main half lives in the runtime (`packages/runtime/src/loop-runs`).
+id: 'feature-loops'
+language: 'typescript'
+layer: 'library'
+
+# `FEATURE_PLACEMENT.loops` = frame, so it reaches every app (`app-all`).
+# `scripts/affected-apps.mjs` turns an affected project's tags into app ids.
+tags:
+  - 'layer-feature'
+  - 'app-all'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+
+tasks:
+  # No main half, so nothing emits. The inherited `build` (`tsc -b`, `outputs: dist`) can never produce
+  # its output, and `app:build` → `desktop:dist` depends on it — so it is a no-op here, with no outputs.
+  build:
+    command: 'noop'
+    options:
+      mergeArgs: 'replace'
+      mergeDeps: 'replace'
+      mergeOutputs: 'replace'
+    deps: []
+    outputs: []
+
+  typecheck:
+    command: 'pnpm run typecheck'
+    options:
+      mergeArgs: 'replace'
+    inputs:
+      - 'renderer/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'tsconfig.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+
+  test:
+    inputs:
+      - 'renderer/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'vitest.config.ts'
+      - 'vitest-setup.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+
+  lint:
+    inputs:
+      - 'renderer/**/*'
+      - '*.ts'
+      - '/eslint.config.mjs'

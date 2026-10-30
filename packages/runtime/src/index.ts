@@ -25,6 +25,7 @@ export * from './engine-key-env';
 export * from './shell-path';
 export * from './vault';
 export * from './suite-prefs';
+export * from './loop-runs';
 export * from './broker';
 export * from './cli';
 export * from './mcp';
