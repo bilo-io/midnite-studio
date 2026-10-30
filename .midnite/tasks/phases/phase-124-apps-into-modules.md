@@ -167,7 +167,7 @@ Agents only (its alias host), not Media or Gamer.
 **Theme H — Retire the six apps.** ◻ `apps/{coder,creator,cleaner,vault,monitor,capture}` and their pack,
 release, icon and test legs are deleted.
 
-**Theme I — Docs.** ◻ `docs/APPS.md` and the layer rule in `CLAUDE.md`/`AGENTS.md`/`GEMINI.md`.
+**Theme I — Docs.** ✅ `docs/APPS.md` gains a "Modules and hosts" section (what a module is, the layer as eslint enforces it, the host to modules map, how a host mounts modules through `mountModuleMains`, `unionBridgeSlices`, nav groups and `ModuleViewRouter`, and how to add a module), and its vocabulary and app list now name the eight hosts and the six retired apps. `CLAUDE.md`, `AGENTS.md` and `GEMINI.md` carry the same module bullet beside the app and feature bullets (a module imports features, the frame and `shared`, never an app or another module; its main half takes no `electron`; nothing below an app imports one) and an updated `apps/` list. `docs/VAULT_SECURITY.md` names Vanguard as Vault's home. No other doc listed a retired app as live; `packages/website` is untouched.
 
 ---
 
@@ -300,11 +300,11 @@ release, icon and test legs are deleted.
 
 ## Theme I — Docs `[S]`
 
-- [ ] **I.1** [`docs/APPS.md`](../../../docs/APPS.md): the module layer, the app → modules table, the
+- [x] **I.1** [`docs/APPS.md`](../../../docs/APPS.md): the module layer, the app → modules table, the
   placement map, and a guide to turning a feature into a module. `[S]`
-- [ ] **I.2** The layer rule in `CLAUDE.md`, `AGENTS.md` and `GEMINI.md` gains the module bullet, and the
+- [x] **I.2** The layer rule in `CLAUDE.md`, `AGENTS.md` and `GEMINI.md` gains the module bullet, and the
   `apps/launcher` paragraph's app list is updated — the same edit in all three. `[S]`
-- [ ] **I.3** [`docs/VAULT_SECURITY.md`](../../../docs/VAULT_SECURITY.md) names Vanguard as Vault's home. `[S]`
+- [x] **I.3** [`docs/VAULT_SECURITY.md`](../../../docs/VAULT_SECURITY.md) names Vanguard as Vault's home. `[S]`
 
 ---
 
