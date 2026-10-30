@@ -248,7 +248,7 @@ status segments. **Decision:** suite apps get no pty host yet, so terminal, FAB/
 Privacy/Terminal/Companion pages stay off for them; the order is in `outstanding.md`. Batches 1-3 are ticked on that basis.
 Theme H is complete.
 
-**Theme I — Proof.** ✅ Six Playwright flows, three visual baselines, an idle number and a docs section. **e2e:**
+**Theme I — Proof.** ✅ 4/4 Six Playwright flows, three visual baselines, an idle number and a docs section. **e2e:**
 `packages/app/e2e/suite-shell/suite-shell.spec.ts` drives Vanguard and Agents (Vault is gone, so Agents is the second host)
 on their own Vite servers, added as extra `webServer`s in `playwright.config.ts`, through `test-support/suite-bridge.ts`,
 a deep-proxy `window.midniteStudio` that answers any unlisted call with `{ ok: true, value: null }` and takes per-path
@@ -259,7 +259,7 @@ test also fails on an uncaught renderer error, since a throwing pane unmounts th
 `Mod+l`, `Mod+l` then `L`) are not covered: no suite app mounts a panel until it has a pty host. The declared e2e count
 went 473 to 479 against the cap of 482 (merged tests keep headroom), so the cap is unchanged. **Visual:**
 `e2e/visual/suite-shell.spec.ts` crops the shell root for framed (`frameless: false`), frameless and nav collapsed (the
-Vanguard module section folded to its chevron), clock frozen; the baselines are Linux PNGs. **Idle cost** (Vanguard,
+Vanguard module section folded to its chevron), clock frozen; the baselines are Linux PNGs (the pill is masked, the pointer parked off the rail), written from the CI `visual` job's actuals because no Docker daemon ran locally. **Idle cost** (Vanguard,
 packaged-equivalent `vite build` + `main.cjs`, window blurred to Finder, 120 s, 25 s after launch, percent of one core
 from `ps cputime` deltas the way `idle-cpu.mjs` does it): **0.38 % before the phase** (`27b93b560`) and **0.88 % after**,
 a difference of +0.50, at the limit and from one run each; the extra is the GPU process (0.03 to 0.22 %), which is the
@@ -627,7 +627,7 @@ the frame cannot supply them — H hands them to `suiteSettingsPages()` per app 
   opens the FAB, `Mod+l` then `L` opens Loops, `Mod+,` opens Settings. Each spec's header names the browser
   capability it needs (focus order, real keyboard). The e2e cap in `scripts/e2e-budget.mjs` and its pinned
   test in `e2e-budget.test.mjs` move together.
-- [ ] **Visual.** One locator-cropped baseline per shell variant — framed, frameless, nav collapsed — taken in
+- [x] **Visual.** One locator-cropped baseline per shell variant — framed, frameless, nav collapsed — taken in
   Vanguard, inside the visual budget (~100 baselines / 3 MB).
 - [x] **Idle cost.** `scripts/perf/idle-cpu.mjs --blurred` against one packaged suite app (Vanguard) shows no
   more than its pre-phase number + 0.5 % of a core; both numbers go in the PR body.
