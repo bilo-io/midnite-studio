@@ -1,11 +1,24 @@
 import { defineFeatureMain } from '@midnite/studio-runtime';
-import { CHANNELS, schemas } from '@midnite/studio-shared';
+import { CHANNELS, SCROLLBACK_BYTES, schemas } from '@midnite/studio-shared';
 
 import { terminalManifest } from '../manifest';
+import {
+  createPty,
+  fetchScrollbackSnapshot,
+  killPty,
+  resizePty,
+  sessionIdFor,
+  subscribeWindowToPty,
+  unsubscribeWindowFromPty,
+  writePty,
+} from './pty-service';
 import { forgetTerminal, listAgents, listTerminals, reorderTerminals, saveTerminal } from './terminal-service';
+import { trimScrollback } from './terminal-store';
 
 export { terminalManifest, type TerminalManifest } from '../manifest';
 export { agentFingerprintEnv, agentKeyEnv } from './pty-env';
+export * from './pty-service';
+export type * from './pty-ports';
 export { createAgentsStore, mergeAgents, type AgentsStore } from './agents-store';
 export {
   createSessionHistoryStore,
@@ -72,12 +85,19 @@ export type TerminalMainServices = {
  * The terminal's session rows — not processes. `list` and the agent roster are `invoke`s because the
  * renderer cannot start without their answers; save, forget and reorder are one-way sends, since a
  * dropped one costs an ordering, not correctness: the next change rewrites the whole list anyway.
- * The pty channels (`create`, `input`, `resize`, `subscribe`…) are sender-aware and stay registered by
- * desktop's `pty-handlers.ts`.
+ * The pty channels register here too: `create`/`snapshot` are `invoke`s, input/resize/kill are one-way
+ * sends fired on every keystroke (a round-trip per key would add typing latency for nothing), and
+ * subscribe/unsubscribe are sender-aware (Phase 55) — a popout subscribes ITSELF to a ptyId's output.
  */
 export const terminalMain = defineFeatureMain<TerminalMainServices>({
   feature: terminalManifest.feature,
-  channels: [CHANNELS.terminalList, CHANNELS.agentList, CHANNELS.agentRecheck],
+  channels: [
+    CHANNELS.terminalList,
+    CHANNELS.agentList,
+    CHANNELS.agentRecheck,
+    CHANNELS.ptyCreate,
+    CHANNELS.ptySnapshot,
+  ],
   register(ctx, services) {
     const { ipc } = ctx;
     const warn = (issue: string): void => services.warn?.(issue);
@@ -111,5 +131,33 @@ export const terminalMain = defineFeatureMain<TerminalMainServices>({
       warn,
     );
     ipc.send(CHANNELS.terminalReorder, schemas.TerminalReorderRequest, ({ sessionIds }) => reorderTerminals(sessionIds), warn);
+
+    ipc.handle(CHANNELS.ptyCreate, schemas.PtyCreateRequest, (req) => createPty(req), (issue) => ({
+      ok: false as const,
+      message: issue,
+    }));
+    ipc.send(CHANNELS.ptyInput, schemas.PtyInputRequest, ({ ptyId, data }) => writePty(ptyId, data), warn);
+    ipc.send(CHANNELS.ptyResize, schemas.PtyResizeRequest, ({ ptyId, cols, rows }) => resizePty(ptyId, cols, rows), warn);
+    ipc.send(CHANNELS.ptyKill, schemas.PtyKillRequest, ({ ptyId }) => killPty(ptyId), warn);
+    ipc.handle(
+      CHANNELS.ptySnapshot,
+      schemas.PtySnapshotRequest,
+      async ({ ptyId }) => {
+        const sessionId = sessionIdFor(ptyId);
+        if (!sessionId) return { bytes: new Uint8Array(0) };
+        return { bytes: trimScrollback(await fetchScrollbackSnapshot(sessionId), SCROLLBACK_BYTES) };
+      },
+      () => ({ bytes: new Uint8Array(0) }),
+    );
+
+    // Sender-aware: the composer must provide `sendFromSender`; refusing loudly beats a silently dead popout.
+    const fromSender = ipc.sendFromSender?.bind(ipc);
+    if (!fromSender) throw new Error('terminalMain needs an ipc with sendFromSender');
+    fromSender(CHANNELS.ptySubscribe, schemas.PtySubscribeRequest, ({ ptyId }, win) => {
+      if (win) subscribeWindowToPty(ptyId, win);
+    }, warn);
+    fromSender(CHANNELS.ptyUnsubscribe, schemas.PtyUnsubscribeRequest, ({ ptyId }, win) => {
+      if (win) unsubscribeWindowFromPty(ptyId, win);
+    }, warn);
   },
 });

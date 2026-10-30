@@ -1,13 +1,12 @@
+import type { RuntimeWindow } from '@midnite/studio-runtime';
 import { describe, expect, it, vi } from 'vitest';
 
-import { subscribeWindowToPty, subscribersFor, unsubscribeWindowFromPty } from './pty-service';
-import { registerMainWindow } from './window-manager';
+import type { PtyPorts } from './pty-ports';
+import { setPtyPorts, subscribeWindowToPty, subscribersFor, unsubscribeWindowFromPty } from './pty-service';
 
 /**
- * `pty-service.ts` needs a real `BrowserWindow` value (`BrowserWindow.fromId`)
- * for the per-ptyId subscriber registry (Phase 55), so it is faked the same
- * way the browser feature's `browser-service.test.ts` fakes `WebContentsView` — a minimal class
- * with an `id`, a `fromId` registry, `once`/`isDestroyed`.
+ * the per-ptyId subscriber registry (Phase 55) resolves windows through the `windows` port, so it is
+ * driven with a minimal fake — an `id`, a `fromId` registry, `once`/`isDestroyed`.
  */
 const { FakeBrowserWindow } = vi.hoisted(() => {
   const liveWindows = new Map<number, InstanceType<typeof FakeBrowserWindow>>();
@@ -47,33 +46,36 @@ const { FakeBrowserWindow } = vi.hoisted(() => {
   return { FakeBrowserWindow };
 });
 
-vi.mock('electron', () => ({ BrowserWindow: FakeBrowserWindow }));
+let mainWindow: RuntimeWindow | null = null;
+setPtyPorts({
+  windows: { main: () => mainWindow, fromId: (id) => FakeBrowserWindow.fromId(id) as unknown as RuntimeWindow | null },
+} as unknown as PtyPorts);
 
 describe('pty output subscriber registry (Phase 55)', () => {
   it('a subscribed window receives the ptyId in subscribersFor', () => {
     const win = new FakeBrowserWindow();
-    subscribeWindowToPty('pty-1', win as unknown as import('electron').BrowserWindow);
+    subscribeWindowToPty('pty-1', win as unknown as RuntimeWindow);
     expect(subscribersFor('pty-1').map((w) => w.id)).toEqual([win.id]);
   });
 
   it('two windows subscribed to one ptyId both receive it', () => {
     const a = new FakeBrowserWindow();
     const b = new FakeBrowserWindow();
-    subscribeWindowToPty('pty-2', a as unknown as import('electron').BrowserWindow);
-    subscribeWindowToPty('pty-2', b as unknown as import('electron').BrowserWindow);
+    subscribeWindowToPty('pty-2', a as unknown as RuntimeWindow);
+    subscribeWindowToPty('pty-2', b as unknown as RuntimeWindow);
     expect(subscribersFor('pty-2').map((w) => w.id).sort()).toEqual([a.id, b.id].sort());
   });
 
   it('an unsubscribed window receives none', () => {
     const win = new FakeBrowserWindow();
-    subscribeWindowToPty('pty-3', win as unknown as import('electron').BrowserWindow);
-    unsubscribeWindowFromPty('pty-3', win as unknown as import('electron').BrowserWindow);
+    subscribeWindowToPty('pty-3', win as unknown as RuntimeWindow);
+    unsubscribeWindowFromPty('pty-3', win as unknown as RuntimeWindow);
     expect(subscribersFor('pty-3')).toEqual([]);
   });
 
   it('a window closing drops its subscription', () => {
     const win = new FakeBrowserWindow();
-    subscribeWindowToPty('pty-4', win as unknown as import('electron').BrowserWindow);
+    subscribeWindowToPty('pty-4', win as unknown as RuntimeWindow);
     win.simulateClose();
     expect(subscribersFor('pty-4')).toEqual([]);
   });
@@ -81,7 +83,7 @@ describe('pty output subscriber registry (Phase 55)', () => {
   it('subscribing to many ptyIds registers only one closed listener, and closing drops all of them', () => {
     const win = new FakeBrowserWindow();
     for (let i = 0; i < 5; i += 1) {
-      subscribeWindowToPty(`pty-multi-${i}`, win as unknown as import('electron').BrowserWindow);
+      subscribeWindowToPty(`pty-multi-${i}`, win as unknown as RuntimeWindow);
     }
     expect(win.closedHandlers).toHaveLength(1);
 
@@ -100,11 +102,11 @@ describe('pty output subscriber registry (Phase 55)', () => {
     // pty.onData/onExit for a ptyId they never call pty.subscribe for, on
     // the pre-Phase-55 guarantee that main got everything unconditionally.
     const main = new FakeBrowserWindow();
-    registerMainWindow(main as unknown as import('electron').BrowserWindow);
+    mainWindow = main as unknown as RuntimeWindow;
 
     expect(subscribersFor('pty-never-subscribed-by-main').map((w) => w.id)).toEqual([main.id]);
 
-    subscribeWindowToPty('pty-5', main as unknown as import('electron').BrowserWindow);
+    subscribeWindowToPty('pty-5', main as unknown as RuntimeWindow);
     expect(subscribersFor('pty-5').map((w) => w.id)).toEqual([main.id]);
   });
 });

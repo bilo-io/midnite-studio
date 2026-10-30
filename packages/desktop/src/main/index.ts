@@ -96,7 +96,6 @@ import { registerFsSearchHandlers } from './ipc/fs-search-handlers';
 import { registerFsWriteHandlers } from './ipc/fs-write-handlers';
 import { bindMetricsToWindow, registerMetricsHandlers } from './ipc/metrics-handlers';
 import { registerOptimizerHandlers } from './ipc/optimizer-handlers';
-import { registerPtyHandlers } from './ipc/pty-handlers';
 import { bindAgentProbeToWindow, startAgentProbeAtBoot } from './agent-probe-runtime';
 import { registerTerminalHandlers } from './ipc/terminal-handlers';
 import { registerTrashHandlers } from './ipc/trash-handlers';
@@ -575,7 +574,6 @@ export const startStudioMain: StartStudioMain = () => {
       registerKnowledgeHandlers();
       registerScaffoldHandlers();
       registerTestsFeatureHandlers(getMainWindow);
-      registerPtyHandlers(getMainWindow);
       // The browser feature's channels (Phase 113 Theme L) — browser tabs and the web-apps rail, one registration.
       registerBrowserFeatureHandlers(getMainWindow, (url, origin) => {
         // Only Studio's own scheme is acted on in-process; a page's `midnite://` link is not forwarded
