@@ -5,6 +5,7 @@ import {
   creatorMediaRoot,
   creatorModuleMain,
   resolveCreatorFileUrl,
+  type CreatorModuleServices,
   type CreatorElectron,
 } from '@midnite/studio-module-creator/main';
 import {
@@ -46,9 +47,10 @@ export function registerMediaHost(el: MediaHostElectron): MediaServices & { shut
   };
   let services: MediaServices | null = null;
   let stopMedia: (() => void) | null = null;
+  const creatorServices: CreatorModuleServices = { electron: creatorElectron, onRegistered: (media) => void (stopMedia = () => media.stopWatchers()) };
   const mounts: ModuleMount[] = [
     { module: mediaModuleMain, services: { electron: mediaEl, onRegistered: (s: MediaServices) => void (services = s) } },
-    { module: creatorModuleMain, services: { electron: creatorElectron, onRegistered: (media) => void (stopMedia = () => media.stopWatchers()) } },
+    { module: creatorModuleMain, services: creatorServices },
   ];
   mountModuleMains(createIpcContext(el), mounts);
   if (services === null) throw new Error('the media module did not register');

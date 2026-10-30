@@ -1,8 +1,8 @@
 import { stopAllVideoProcesses } from '@midnite/studio-feature-media-video/main';
 import { reportMain } from '@midnite/studio-feature-report/main';
-import { agentsModuleMain, type AgentsElectron } from '@midnite/studio-module-agents/main';
-import { coderModuleMain, type CoderElectron } from '@midnite/studio-module-coder/main';
-import { creatorMediaRoot, creatorModuleMain, type CreatorElectron } from '@midnite/studio-module-creator/main';
+import { agentsModuleMain, type AgentsElectron, type AgentsModuleServices } from '@midnite/studio-module-agents/main';
+import { coderModuleMain, type CoderElectron, type CoderModuleServices } from '@midnite/studio-module-coder/main';
+import { creatorMediaRoot, creatorModuleMain, type CreatorElectron, type CreatorModuleServices } from '@midnite/studio-module-creator/main';
 import {
   connectRuntimeVault,
   createIpcContext,
@@ -66,18 +66,13 @@ export function registerAgentsHost(el: AgentsHostElectron): { shutdown: () => Pr
   let disposeAgents: (() => Promise<void>) | null = null;
   let disposeCoder: (() => Promise<void>) | null = null;
   let stopMedia: (() => void) | null = null;
+  const agents: AgentsModuleServices = { electron: agentsEl, onRegistered: (r) => void (disposeAgents = r.dispose) };
+  const coderServices: CoderModuleServices = { electron: coderElectron, onRegistered: (r) => void (disposeCoder = r.shutdown) };
+  const creatorServices: CreatorModuleServices = { electron: creatorElectron, onRegistered: (media) => void (stopMedia = () => media.stopWatchers()) };
   const mounts: ModuleMount[] = [
-    { module: agentsModuleMain, services: { electron: agentsEl, onRegistered: (r) => void (disposeAgents = r.dispose) } },
-    {
-      module: coderModuleMain,
-      services: { electron: coderElectron, onRegistered: (r) => void (disposeCoder = r.shutdown) },
-      shared: REPORT_CHANNELS,
-    },
-    {
-      module: creatorModuleMain,
-      services: { electron: creatorElectron, onRegistered: (media) => void (stopMedia = () => media.stopWatchers()) },
-      shared: REPORT_CHANNELS,
-    },
+    { module: agentsModuleMain, services: agents },
+    { module: coderModuleMain, services: coderServices, shared: REPORT_CHANNELS },
+    { module: creatorModuleMain, services: creatorServices, shared: REPORT_CHANNELS },
   ];
   mountModuleMains(createIpcContext(el), mounts);
   return {
