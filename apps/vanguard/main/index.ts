@@ -6,6 +6,7 @@ import {
   ipcMain,
   shell,
   clipboard,
+  dialog,
   Menu,
   type MenuItemConstructorOptions,
 } from 'electron';
@@ -17,7 +18,10 @@ import {
   type LogSink,
 } from '@midnite/studio-runtime';
 
-import { registerVanguardHandlers } from '@midnite/studio-module-vanguard/main';
+import type { MetricsService } from '@midnite/studio-feature-monitor/main';
+
+import { registerVanguardHost } from './host';
+import { vanguardVaultPairing } from './pairing';
 import {
   VANGUARD_NAME,
   SMOKE_READY_LINE,
@@ -38,6 +42,8 @@ let win: BrowserWindow | null = null;
 let crashLog: LogSink | null = null;
 /** Quit hook from the handlers: stop the sensors and detach from the host's broker. */
 let shutdownHandlers: (() => Promise<void>) | null = null;
+/** Monitor's sampler, paused while the window is not in view. */
+let metrics: MetricsService | null = null;
 
 app.setName(VANGUARD_NAME);
 // A smoke run is a proof, not a session: keep it out of the Dock and off the screen.
@@ -87,7 +93,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       ),
     );
     // The window opens only once the channels are registered, so no first request finds no handler.
-    void registerVanguardHandlers({
+    void registerVanguardHost({
       ipcMain,
       trashItem: (path) => shell.trashItem(path),
       send: (channel, payload) => {
@@ -103,6 +109,19 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       openPath: (path) => shell.openPath(path),
       windowFocused: () => win !== null && !win.isDestroyed() && win.isVisible() && !win.isMinimized() && win.isFocused(),
       log,
+      // The Vault module: the runtime host's vault over its socket, paired under Vanguard's own key.
+      directory: vanguardRuntimeDirectory(app.getPath('appData'), process.env[USER_DATA_ENV]),
+      pairing: vanguardVaultPairing(app.getPath('userData'), smoke),
+      clipboard: { writeText: (text) => clipboard.writeText(text), readText: () => clipboard.readText() },
+      // The Cleaner module's directory picker and the Monitor module's sampler and hand-off.
+      pickDirectory: async () => {
+        const picked = await dialog.showOpenDialog({ properties: ['openDirectory'] });
+        return picked.canceled ? null : (picked.filePaths[0] ?? null);
+      },
+      onMetricsService: (service) => {
+        metrics = service;
+      },
+      openExternal: (url) => shell.openExternal(url),
     })
       .then(
         (registered) => {
@@ -142,7 +161,14 @@ function openWindow(): void {
   });
   // A link never loads into this window (it carries the bridge): http(s) goes to the system browser.
   guardAppWindow(win.webContents, { openExternal: (url) => shell.openExternal(url) });
+  win.on('blur', () => metrics?.pause());
+  win.on('focus', () => metrics?.resume());
+  win.on('hide', () => metrics?.pause());
+  win.on('show', () => metrics?.resume());
+  win.on('minimize', () => metrics?.pause());
+  win.on('restore', () => metrics?.resume());
   win.on('closed', () => {
+    metrics?.stop();
     win = null;
   });
   win.once('ready-to-show', () => {

@@ -22,6 +22,7 @@ import {
   type IpcContextElectron,
   type LogSink,
   type ModuleMount,
+  type SharedBroker,
 } from '@midnite/studio-runtime';
 import { EVENT_CHANNELS } from '@midnite/studio-shared';
 
@@ -52,10 +53,10 @@ export type VanguardElectron = IpcContextElectron & {
  * installed this app to be watched over.
  */
 export async function registerVanguardHandlers(el: VanguardElectron): Promise<{ service: VanguardService; shutdown: () => Promise<void> }> {
-  const { mount, ...rest } = await prepareVanguard(el);
+  const { mount, service, shutdown } = await prepareVanguard(el);
   mountModuleMains(createIpcContext(el), [mount]);
-  await rest.service.host.start();
-  return rest;
+  await service.host.start();
+  return { service, shutdown };
 }
 
 /**
@@ -65,7 +66,7 @@ export async function registerVanguardHandlers(el: VanguardElectron): Promise<{ 
  */
 export async function prepareVanguard(
   el: VanguardElectron,
-): Promise<{ mount: ModuleMount; service: VanguardService; shutdown: () => Promise<void> }> {
+): Promise<{ mount: ModuleMount; service: VanguardService; broker: SharedBroker; shutdown: () => Promise<void> }> {
   const broker = createSharedBroker({ runtimeDirectory: el.runtimeDirectory, appId: 'vanguard' });
   const ledger = createFindingsLedger({ userData: el.userData, onChanged: () => el.send(EVENT_CHANNELS.securityFindingsChanged, undefined) });
   // The host's agent sessions: the pty pids come from the shared broker, which agent they run from the host's
@@ -153,6 +154,7 @@ export async function prepareVanguard(
   return {
     mount: { module: vanguardModuleMain, services: { vanguard, sessions } },
     service,
+    broker,
     shutdown: async () => {
       await service.host.stop();
       await shutdownGuestSessions();
