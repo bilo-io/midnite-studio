@@ -45,8 +45,7 @@ describe('tool listing per installed set', () => {
     for (const id of MCP_TOOL_IDS) histogram[ownerOf(id)] = (histogram[ownerOf(id)] ?? 0) + 1;
     expect(histogram).toMatchInlineSnapshot(`
       {
-        "agents": 2,
-        "coder": 2,
+        "agents": 4,
         "creator": 14,
         "frame": 21,
         "gamer": 87,
@@ -71,7 +70,7 @@ describe('tool listing per installed set', () => {
     expect(listed).toContain('map_goto');
     expect(listed).not.toContain('forge.pulls');
     expect(listed).not.toContain('workflow_gates_list');
-    expect(listed).not.toContain('music_list');
+    expect(listed).not.toContain(MUSIC_TOOLS[0]!);
   });
 
   it('{coder, agents} lists forge and workflow-gate tools but no media tools', () => {
@@ -80,6 +79,14 @@ describe('tool listing per installed set', () => {
     expect(listed).toContain('forge.checks');
     expect(listed).toContain('workflow_gate_decide');
     expect(listed.some((id) => /^(model|game|terrain|sprite|music)_/.test(id))).toBe(false);
+  });
+
+  it('forge tools belong to Agents; a retired Coder bundle or the host serves them (Phase 124 Theme G)', () => {
+    expect(defaultMcpToolOwner('forge.pulls')).toBe('agents');
+    expect(listMcpToolIds(installedSet(['agents']), MANIFESTS)).toContain('forge.pulls');
+    expect(listMcpToolIds(installedSet(['coder']), MANIFESTS)).toContain('forge.pulls');
+    expect(listMcpToolIds(installedSet(['gamer']), MANIFESTS)).not.toContain('forge.pulls');
+    expect(listMcpToolIds(installedSet(['coder']), MANIFESTS)).not.toContain(MUSIC_TOOLS[0]!);
   });
 
   it('{creator} lists the music tools and nothing of gamer, coder or agents', () => {
@@ -100,7 +107,7 @@ describe('tool listing per installed set', () => {
     }
     // The default table names the apps whose tools no manifest claims yet; Creator's left it for Audio's
     // manifest and Gamer's for its five feature manifests.
-    expect([...MCP_TOOL_OWNING_APPS].sort()).toEqual(['agents', 'coder']);
+    expect([...MCP_TOOL_OWNING_APPS].sort()).toEqual(['agents']);
     expect(MUSIC_TOOLS.every((id) => defaultMcpToolOwner(id) === 'frame')).toBe(true);
     expect(GAMER_TOOLS.every((id) => defaultMcpToolOwner(id) === 'frame')).toBe(true);
   });
