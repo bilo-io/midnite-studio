@@ -31,6 +31,7 @@ import { reportIssueMenuItem } from '@midnite/studio-feature-report/main';
 
 import { registerBrowserAppHandlers } from '@midnite/studio-module-browser/main';
 import { BROWSER_NAME, browserUserData, isSmoke, SMOKE_READY_LINE, USER_DATA_ENV } from './identity';
+import { registerSuiteMain, suiteRuntimeDirectory, type SuiteMain } from '@midnite/studio-runtime';
 
 /**
  * Midnite Browser's main process — the entry the bundle's `package.json` names (`main.cjs`), run by the
@@ -40,6 +41,8 @@ import { BROWSER_NAME, browserUserData, isSmoke, SMOKE_READY_LINE, USER_DATA_ENV
  */
 const smoke = isSmoke(process.env);
 let win: BrowserWindow | null = null;
+/** The shell's two bridge halves (suite prefs, window chrome), registered once the app is ready. */
+let suite: SuiteMain | null = null;
 let shutdownHandlers: (() => void) | null = null;
 
 app.setName(BROWSER_NAME);
@@ -85,6 +88,14 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
+    suite = registerSuiteMain({
+      ipcMain,
+      runtimeDirectory: suiteRuntimeDirectory(app.getPath('appData'), process.env[USER_DATA_ENV]),
+      getWindow: () => win,
+      warn: (message) => process.stderr.write(`${message}\n`),
+    });
+    // The prefs file watcher is a live handle: let go of it with the app.
+    app.on('will-quit', () => suite?.close());
     // Crash log + Report an Issue: the runtime's file sink, the app's own Help menu item, and the report feature's services.
     const crashLog = createFileSink({ dir: app.getPath('userData'), name: 'browser.log', homeDir: app.getPath('home') });
     installCrashLogging((level, message) => crashLog.write(level, message));
@@ -193,6 +204,7 @@ function openWindow(): void {
       sandbox: true,
     },
   });
+  suite?.attachWindow(win);
   // The app window never browses (it carries the bridge): a link in Browser's own chrome goes to the
   // system browser. Pages are browsed in the tabs' own sandboxed views, never in this window.
   guardAppWindow(win.webContents, { openExternal: (url) => shell.openExternal(url) });

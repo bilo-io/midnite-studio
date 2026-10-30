@@ -36,12 +36,19 @@ const common = {
     '@midnite/studio-shared/ipc/channels': at('../../../packages/shared/src/ipc/channels.ts'),
     // Likewise the bridge helper alone: the runtime barrel imports shared, which would pull the barrel back in.
     '@midnite/studio-runtime/app-main/bridge-slice': at('../../../packages/runtime/src/app-main/bridge-slice.ts'),
+    '@midnite/studio-runtime/app-main/suite-preload': at('../../../packages/runtime/src/app-main/suite-preload.ts'),
   },
 };
 
 await Promise.all([
   build({ ...common, entryPoints: [at('../main/index.ts')], outfile: at('../dist/main.cjs') }),
-  build({ ...common, entryPoints: [at('../main/preload.ts')], outfile: at('../dist/preload.cjs') }),
+  build({
+    ...common,
+    // The preload reads channel names only; the barrel would add every zod schema (the runtime's preload slices import it).
+    alias: { ...common.alias, '@midnite/studio-shared': at('../../../packages/shared/src/ipc/channels.ts') },
+    entryPoints: [at('../main/preload.ts')],
+    outfile: at('../dist/preload.cjs'),
+  }),
   // The Capture module's region overlay window: its own preload (three calls, nothing else)…
   build({ ...common, entryPoints: [at('../main/overlay-preload.ts')], outfile: at('../dist/overlay-preload.cjs') }),
   // …and its page's script: the feature's tiny DOM entry, a classic iife for the browser.

@@ -2,6 +2,14 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-30 — Phase 123 Theme H 3/4 — suite preload and main slices, Monitor page (#1084)
+
+`registerSuiteMain` and `createSuiteBridge` in `packages/runtime/src/app-main/`: every app that renders `SuiteAppShell`
+now serves the suite-prefs file and the window-chrome channels from its main and exposes `windowChrome` and
+`suitePrefs` from its preload. The frame's `SuiteMonitorPage` (shared with Studio's Monitor page) and
+`suiteAppSettingsPages(statusPanels)` show Monitor only when the bar has a monitor segment. Privacy, Terminal and
+Companion pages, the panels and each main's terminal/companion/monitor registration stay open; Studio's move is H 4/4.
+
 ## 2026-10-30 — Phase 124 Theme E.3b — Mind host: Mind and Capture groups
 
 `apps/mind/src/host-app.tsx` renders the suite shell over a Mind group (Notes, Knowledge) and a Capture group, with

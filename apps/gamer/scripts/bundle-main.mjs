@@ -47,6 +47,7 @@ const common = {
     '@midnite/studio-shared/ipc/channels': at('../../../packages/shared/src/ipc/channels.ts'),
     // Likewise the bridge helper alone: the runtime barrel imports shared, which would pull the barrel back in.
     '@midnite/studio-runtime/app-main/bridge-slice': at('../../../packages/runtime/src/app-main/bridge-slice.ts'),
+    '@midnite/studio-runtime/app-main/suite-preload': at('../../../packages/runtime/src/app-main/suite-preload.ts'),
     // The game-agent shim runs as plain node: the run-shim module alone, never the runtime barrel.
     '@midnite/studio-runtime/agent-run/run-shim': at('../../../packages/runtime/src/agent-run/run-shim.ts'),
   },
@@ -54,7 +55,13 @@ const common = {
 
 await Promise.all([
   build({ ...common, entryPoints: [at('../main/index.ts')], outfile: at('../dist/main.cjs') }),
-  build({ ...common, entryPoints: [at('../main/preload.ts')], outfile: at('../dist/preload.cjs') }),
+  build({
+    ...common,
+    // The preload reads channel names only; the barrel would add every zod schema (the runtime's preload slices import it).
+    alias: { ...common.alias, '@midnite/studio-shared': at('../../../packages/shared/src/ipc/channels.ts') },
+    entryPoints: [at('../main/preload.ts')],
+    outfile: at('../dist/preload.cjs'),
+  }),
   // The two `utilityProcess` entries the Maps and Terrain brokers fork, by the names their script-path helpers give.
   build({ ...common, entryPoints: [at('../../../packages/modules/gamer/main/workers/map-capture-worker.ts')], outfile: at('../dist/map-capture-worker.js') }),
   build({ ...common, entryPoints: [at('../../../packages/modules/gamer/main/workers/terrain-worker.ts')], outfile: at('../dist/terrain-worker.js') }),

@@ -1,15 +1,9 @@
 import { useEffect, useState } from 'react';
 
 import { SettingsAccordion } from '../settings-section';
-import { LuActivity, LuShieldCheck } from 'react-icons/lu';
+import { LuShieldCheck } from 'react-icons/lu';
 
-import {
-  METRICS_ACTIVE_INTERVAL_MS,
-  METRICS_IDLE_INTERVAL_MS,
-  METRIC_IDS,
-  commandLine,
-  type MetricId,
-} from '@midnite/studio-shared';
+import { commandLine } from '@midnite/studio-shared';
 
 import {
   useDiagTrust,
@@ -17,13 +11,10 @@ import {
   useRunDiagnostics,
   useUntrustDiagnostics,
 } from '../../../services/queries';
-import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { bridge } from '../../../services/bridge';
 import { ReportIssueDialog } from '@midnite/studio-feature-report/renderer';
 import { useActiveWorktree } from '../../../services/use-status';
-import { useMonitorPrefsStore } from '@midnite/studio-frame';
-import { METRIC_LABELS, metricColor } from '../../monitor/metric-palette';
-import { Choice, Field } from './controls';
+import { MonitorMetricsSection } from '@midnite/studio-frame';
 
 /**
  * Monitor & Diagnostics — the settings behind the footer's right cluster.
@@ -37,11 +28,6 @@ import { Choice, Field } from './controls';
  * checkbox somewhere. Split into two accordions for the same reason.
  */
 export function MonitorPage() {
-  const hidden = useMonitorPrefsStore((s) => s.hiddenMetrics);
-  const toggleMetric = useMonitorPrefsStore((s) => s.toggleMetric);
-  const idleMs = useMonitorPrefsStore((s) => s.metricsIdleIntervalMs);
-  const setIdleMs = useMonitorPrefsStore((s) => s.setMetricsIdleInterval);
-
   const { repoId } = useActiveWorktree();
   const trust = useDiagTrust(repoId);
   const runner = useRunDiagnostics(repoId);
@@ -53,49 +39,7 @@ export function MonitorPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <SettingsAccordion title="Metrics" icon={<LuActivity className="h-4 w-4" />} defaultOpen>
-        <div className="flex flex-col gap-4 p-3">
-          <Field
-            label="Metrics shown"
-            hint="Readouts in the footer's right cluster. A metric this machine cannot report is never shown, whatever is ticked here."
-          >
-            <ul className="flex flex-col">
-              {METRIC_IDS.map((id: MetricId) => (
-                <li key={id}>
-                  <SettingsSwitchRow
-                    id={id}
-                    label={METRIC_LABELS[id]}
-                    icon={
-                      <span
-                        aria-hidden
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: metricColor(id) }}
-                      />
-                    }
-                    on={!hidden.includes(id)}
-                    onToggle={() => toggleMetric(id)}
-                  />
-                </li>
-              ))}
-            </ul>
-          </Field>
-
-          <Choice<string>
-            label="Refresh interval"
-            hint={`How often the footer samples when the flyout is closed. Opening it always escalates to ${
-              METRICS_ACTIVE_INTERVAL_MS / 1000
-            }s, and sampling stops entirely when the window is not in front.`}
-            value={String(idleMs)}
-            onChange={(value) => setIdleMs(Number(value))}
-            options={[
-              [String(METRICS_ACTIVE_INTERVAL_MS), '2 seconds'],
-              [String(METRICS_IDLE_INTERVAL_MS), '5 seconds'],
-              ['15000', '15 seconds'],
-              ['30000', '30 seconds'],
-            ]}
-          />
-        </div>
-      </SettingsAccordion>
+      <MonitorMetricsSection />
 
       <SettingsAccordion title="Diagnostics" icon={<LuShieldCheck className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-2 p-3">

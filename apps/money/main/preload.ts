@@ -1,10 +1,18 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 import { createMoneyBridge } from '@midnite/studio-module-money/bridge';
+import { unionBridgeSlices } from '@midnite/studio-runtime/app-main/bridge-slice';
+import { createSuiteBridge } from '@midnite/studio-runtime/app-main/suite-preload';
 
 // The renderer reads `window.midniteStudio` (the frame's `bridge()`); Money exposes the slice it needs.
 try {
-  contextBridge.exposeInMainWorld('midniteStudio', createMoneyBridge(ipcRenderer));
+  contextBridge.exposeInMainWorld(
+    'midniteStudio',
+    unionBridgeSlices(
+      createMoneyBridge(ipcRenderer),
+      createSuiteBridge(ipcRenderer, process.argv, process.platform),
+    ),
+  );
 } catch {
   // contextIsolation disabled, or already exposed — nothing to do.
 }

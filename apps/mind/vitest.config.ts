@@ -20,6 +20,7 @@ export default defineConfig({
       '@midnite/studio-module-mind/renderer': at('../../packages/modules/mind/renderer/index.ts'),
       '@midnite/studio-shared/ipc/channels': at('../../packages/shared/src/ipc/channels.ts'),
       '@midnite/studio-runtime/app-main/bridge-slice': at('../../packages/runtime/src/app-main/bridge-slice.ts'),
+      '@midnite/studio-runtime/app-main/suite-preload': at('../../packages/runtime/src/app-main/suite-preload.ts'),
       '@midnite/studio-shared': at('../../packages/shared/src/index.ts'),
       '@midnite/studio-frame/knowledge': at('../../packages/frame/src/knowledge/index.ts'),
       '@midnite/studio-knowledge': at('../../packages/knowledge/src/index.ts'),

@@ -22,3 +22,12 @@ export {
 } from './suite-window';
 export { createWindowChromeBridge } from './window-chrome-preload';
 export { bindMetricsToWindow, type PausableSampler, type PausableWindow } from './bind-metrics';
+export {
+  registerSuiteMain,
+  suiteRuntimeDirectory,
+  type SuiteMain,
+  type SuiteMainElectron,
+  type SuiteMainOptions,
+  type SuiteMainWindow,
+} from './suite-main';
+export { createSuiteBridge } from './suite-preload';

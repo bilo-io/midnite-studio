@@ -40,6 +40,7 @@ import { CAPTURE_OVERLAY_ARG, MSTUDIO_FILE_SCHEME } from '@midnite/studio-shared
 import { registerMindHost } from './host';
 import { MIND_NAME, SMOKE_READY_LINE, USER_DATA_ENV, mindUserData, isSmoke } from './identity';
 import { registerReport, reportMenuTemplate } from './report';
+import { registerSuiteMain, suiteRuntimeDirectory, type SuiteMain } from '@midnite/studio-runtime';
 
 /**
  * Midnite Mind's main process — the entry the bundle's `package.json` names (`main.cjs`), run by
@@ -51,6 +52,8 @@ import { registerReport, reportMenuTemplate } from './report';
  */
 const smoke = isSmoke(process.env);
 let win: BrowserWindow | null = null;
+/** The shell's two bridge halves (suite prefs, window chrome), registered once the app is ready. */
+let suite: SuiteMain | null = null;
 let crashLog: LogSink | null = null;
 let quit: (() => Promise<void>) | null = null;
 let capture: CaptureService | null = null;
@@ -73,6 +76,14 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   app.on('second-instance', () => focusWindow());
 
   void app.whenReady().then(() => {
+    suite = registerSuiteMain({
+      ipcMain,
+      runtimeDirectory: suiteRuntimeDirectory(app.getPath('appData'), process.env[USER_DATA_ENV]),
+      getWindow: () => win,
+      warn: (message) => process.stderr.write(`${message}\n`),
+    });
+    // The prefs file watcher is a live handle: let go of it with the app.
+    app.on('will-quit', () => suite?.close());
     // The runtime's crash-log sink (NDJSON, rotated, redacted) — what Report an Issue reads.
     crashLog = createFileSink({ dir: app.getPath('userData'), name: 'mind.log', homeDir: app.getPath('home') });
     installCrashLogging((level, message) => crashLog?.write(level, message));
@@ -214,6 +225,7 @@ function openWindow(): void {
       sandbox: true,
     },
   });
+  suite?.attachWindow(win);
   // A link never loads into this window (it carries the bridge): http(s) goes to the system browser.
   guardAppWindow(win.webContents, { openExternal: (url) => shell.openExternal(url) });
   win.on('closed', () => {

@@ -1,10 +1,5 @@
-import {
-  CHANNELS,
-  EVENT_CHANNELS,
-  WINDOW_FRAMELESS_ARG,
-  type DesktopPlatform,
-  type WindowChromeBridge,
-} from '@midnite/studio-shared';
+import type { DesktopPlatform, WindowChromeBridge } from '@midnite/studio-shared';
+import { CHANNELS, EVENT_CHANNELS, WINDOW_FRAMELESS_ARG } from '@midnite/studio-shared';
 
 import { createBridgeSlice, type RendererIpc } from './bridge-slice';
 
