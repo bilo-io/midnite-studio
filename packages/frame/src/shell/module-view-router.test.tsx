@@ -1,9 +1,10 @@
 // vitest/jsdom: routing is a pure lookup over the nav groups — no real browser needed.
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LuRadar, LuShieldAlert } from 'react-icons/lu';
 
 import { ModuleViewRouter } from './module-view-router';
+import { useSyncedView } from './use-synced-view';
 import { firstViewOfModule, moduleOfView, navFromGroups } from './nav-config';
 
 const NAV = navFromGroups([
@@ -27,15 +28,37 @@ describe('module view routing', () => {
       a: ({ view }: { view: string }) => <p>pane-a:{view}</p>,
       b: ({ view }: { view: string }) => <p>pane-b:{view}</p>,
     };
-    const { rerender } = render(<ModuleViewRouter nav={NAV} view="a2" panes={panes} />);
+    const { rerender } = render(<ModuleViewRouter nav={NAV} view="a2" onView={() => {}} panes={panes} />);
     expect(screen.getByText('pane-a:a2')).toBeTruthy();
-    rerender(<ModuleViewRouter nav={NAV} view="b1" panes={panes} />);
+    rerender(<ModuleViewRouter nav={NAV} view="b1" onView={() => {}} panes={panes} />);
     expect(screen.getByText('pane-b:b1')).toBeTruthy();
     expect(screen.queryByText(/pane-a/)).toBeNull();
   });
 
   it('renders the fallback for a view in no group or a module with no pane', () => {
-    render(<ModuleViewRouter nav={NAV} view="zzz" panes={{}} fallback={<p>none</p>} />);
+    render(<ModuleViewRouter nav={NAV} view="zzz" onView={() => {}} panes={{}} fallback={<p>none</p>} />);
     expect(screen.getByText('none')).toBeTruthy();
+  });
+});
+
+describe('useSyncedView', () => {
+  const Probe = ({ view, own, setOwn, onView }: { view: string; own: string; setOwn: (v: string) => void; onView: (v: string) => void }) => {
+    useSyncedView(view, onView, own, setOwn);
+    return null;
+  };
+
+  it('pushes the rail view in on mount without reporting the stale own value', () => {
+    const setOwn = vi.fn();
+    const onView = vi.fn();
+    render(<Probe view="a" own="stale" setOwn={setOwn} onView={onView} />);
+    expect(setOwn).toHaveBeenCalledWith('a');
+    expect(onView).not.toHaveBeenCalled();
+  });
+
+  it('reports a change the module makes itself', () => {
+    const onView = vi.fn();
+    const { rerender } = render(<Probe view="a" own="a" setOwn={() => {}} onView={onView} />);
+    rerender(<Probe view="a" own="b" setOwn={() => {}} onView={onView} />);
+    expect(onView).toHaveBeenCalledWith('b');
   });
 });

@@ -1,5 +1,7 @@
 import { monitorManifest } from '@midnite/studio-feature-monitor/renderer';
-import type { NavConfig } from '@midnite/studio-frame';
+import type { NavConfig, NavGroup } from '@midnite/studio-frame';
+import { PiPulseFill } from 'react-icons/pi';
+import { monitorManifest as monitorModuleManifest } from '../manifest';
 import { LuActivity } from 'react-icons/lu';
 
 /**
@@ -32,3 +34,15 @@ export const MONITOR_APP = {
 } as const;
 
 export type MonitorApp = typeof MONITOR_APP;
+
+/**
+ * This module's nav group in a host's rail (Phase 124 Theme E.3): one row, since the page keeps its own tabs.
+ * A host composes it with `navFromModules`; the module's accent shows on the group label only.
+ */
+export const MONITOR_NAV_GROUP: NavGroup = {
+  id: 'monitor',
+  label: monitorModuleManifest.label,
+  icon: PiPulseFill,
+  accent: monitorModuleManifest.accent,
+  views: [{ id: 'monitor', label: 'Monitor', icon: PiPulseFill }],
+};
