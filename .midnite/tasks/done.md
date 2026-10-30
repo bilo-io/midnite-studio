@@ -2,6 +2,15 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-30 — Phase 124 Theme E.3a — Mind mounts Capture
+
+`apps/mind/main/host.ts` mounts the Mind and Capture modules through `mountModuleMains`; the preload exposes
+`unionBridgeSlices(mind, capture)`. New `mindModuleMain` (over `registerMindOn`) and `createCaptureAppService`
+(split from `registerCaptureAppHandlers`, which the standalone Capture app still calls). Mind's main composes the
+display-media gate, overlay window and file protocol; its bundle builds the overlay preload, page and script. No
+default chord in Mind. This finishes the main-side half of E.3 for all five hosts; E.3b (renderer half) waits on
+Phase 123 Theme H.
+
 ## 2026-10-29 — Phase 123 Theme G — the FAB and Loops as a feature
 
 `packages/features/loops/renderer` (FAB launchers, quick-access menu, Loops panel and composer) behind a `LoopsHost` port, Studio's adapter in `compose/loops-host.tsx`, a default host for every other app; menu leaves hidden when the app lacks the feature. The run ledger moved to `packages/runtime/src/loop-runs/`: one file per app, merged on read, `appId`-tagged, Studio's old file copied once.
@@ -15514,6 +15523,6 @@ J.4: `TitleBarStatus`, `TitleBarBattery` and a frame `ThemeToggle` moved to `pac
 
 `SuiteAppShell` and `SuiteAppearancePage` in the frame; the four host apps render `AppShell` with their manifest nav and a Settings view (Appearance, Keyboard shortcuts, plus Vanguard's own page). Panels, mains and the status bar are still to do, so no checklist item is ticked; see the Headlines H paragraph.
 
-### Phase 124 Theme E.3 (renderer slice) — host nav groups and view routers (2026-10-30)
+### Phase 124 Theme E.3b (renderer slice) — host nav groups and view routers (2026-10-30)
 
-Vanguard, Agents, Media and Gamer render a nav group per mounted module (Vanguard ← Vault, Cleaner, Monitor; Agents ← Coder, Creator; Media ← Creator; Gamer ← Creator) through a frame `ModuleViewRouter` and per-module panes; `useSyncedView` keeps a module's own tab and the rail in step, and the shell's group headings now render and collapse. Mind ← Capture is still open, so E.3 is not ticked and the index row is unchanged.
+Vanguard, Agents, Media and Gamer render a nav group per mounted module (Vanguard ← Vault, Cleaner, Monitor; Agents ← Coder, Creator; Media ← Creator; Gamer ← Creator) through a frame `ModuleViewRouter` and per-module panes; `useSyncedView` keeps a module's own tab and the rail in step, and the shell's group headings now render and collapse. Mind has no group yet (it is not on the shell), so E.3b is not ticked and the index row is unchanged.
