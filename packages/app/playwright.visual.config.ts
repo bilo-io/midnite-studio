@@ -150,6 +150,13 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
+      command: `pnpm exec vite --port ${VANGUARD_PORT} --strictPort`,
+      cwd: '../../apps/vanguard',
+      url: `http://localhost:${VANGUARD_PORT}`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+    {
       // `cwd` resolves relative to this config file's own directory
       // (`packages/app`), so `../website` is `packages/website` — its own
       // `dev` script, unmodified, on its own fixed port.
