@@ -116,11 +116,18 @@ broker identity from the host (`appId`, so one pairing key and one set of grants
 ids over one `<userData>/media` and Creator builds on Gamer's media service (`media`), so there is one store and one
 watcher; Electron allows one handler per scheme, so each host composes the modules' `mstudio-file://` resolvers
 (library, then Creator's; Gamer's, then Creator's); Agents takes Coder's system-git shim in place of the dugite stub
-(the Coder module only reads) and bundles the script-runner worker. Open: Mind ← capture (needs the capture service,
-display-media gate, file protocol and overlay window composed in Mind's main), and the renderer half for every host: no
+(the Coder module only reads) and bundles the script-runner worker. Mind mounts Mind and Capture through one
+`registerMindHost` (`apps/mind/main/host.ts`): the Mind module gained `mindModuleMain` over `registerMindOn`, and the
+Capture module's `createCaptureAppService` (clipboard and Finder destinations, no Creator) is split out of
+`registerCaptureAppHandlers`, which stays a thin wrapper for the standalone app. Mind's main composes the electron
+port, display-media gate, overlay window and `mstudio-file://` handler (Capture's resolver is the only one, so no
+composition was needed), its preload exposes `unionBridgeSlices(mind, capture)`, and its bundle builds the overlay
+preload, page and script. Decisions: Mind ships no default chord (the standalone Capture app ships one; here the user
+opts in from Capture's settings), Report an Issue stays Mind's own registration, and quit releases the chord and
+flushes notes in one `shutdown`. Every main-side E.3 item is now landed; the renderer half for every host is open: no
 host renders `AppShell` yet (Phase 123 Theme H), so the per-host view router over several modules' compose trees and host
 ports is still to build, and E.2's extra groups appear only once a module's views are routable (a module with no group
-is skipped). E.3 stays unticked until Mind and the renderer half land. Surprises: the module's `main/` may not import `electron`, so Gamer's `game-electron.ts` stayed in the host;
+is skipped). E.3b stays unticked until the renderer half lands. Surprises: the module's `main/` may not import `electron`, so Gamer's `game-electron.ts` stayed in the host;
 a renderer test may not import its own `main/`, so `GAMER_REPO_ID` moved to the module manifest; `app-vault-grants`
 scanned `apps/agents/*` only and now scans the module too.
 
@@ -217,9 +224,11 @@ release, icon and test legs are deleted.
 - [x] **E.2** Each host's manifest derives its Phase 123 `nav` from `APP_MODULES`: one nav group per
   module (glyph + label), its views beneath. The window keeps the host's accent; a module's accent shows
   only on its group label. **Needs Phase 123 Theme B.** `[M]`
-- [ ] **E.3** Wire the hosts: Agents ← coder, creator · Media ← creator · Gamer ← creator · Vanguard ←
-  vault, cleaner, monitor · Mind ← capture. Each host's `main/index.ts` mounts its modules' main halves;
+- [x] **E.3a** Wire the hosts' main halves: Agents ← coder, creator · Media ← creator · Gamer ← creator ·
+  Vanguard ← vault, cleaner, monitor · Mind ← capture. Each host's `main/index.ts` mounts its modules' main halves;
   each preload exposes the union of their bridge slices. `[L]`
+- [ ] **E.3b** The renderer half of the hosts: a per-host view router and nav groups over the mounted modules'
+  compose trees. **Needs Phase 123 Theme H** (`AppShell`). `[L]`
 - [x] **E.4** `midnite://open` links address a module: a new optional `&module=<ModuleId>` param on
   `midnite://open?app=<id>[&view=<ViewId>]` lands on that nav group (`buildMidniteLink` / its parser in
   [`midnite-link.ts`](../../../packages/shared/src/midnite-link.ts)). `[M]`

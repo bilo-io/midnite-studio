@@ -2,6 +2,15 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-30 — Phase 124 Theme E.3a — Mind mounts Capture
+
+`apps/mind/main/host.ts` mounts the Mind and Capture modules through `mountModuleMains`; the preload exposes
+`unionBridgeSlices(mind, capture)`. New `mindModuleMain` (over `registerMindOn`) and `createCaptureAppService`
+(split from `registerCaptureAppHandlers`, which the standalone Capture app still calls). Mind's main composes the
+display-media gate, overlay window and file protocol; its bundle builds the overlay preload, page and script. No
+default chord in Mind. This finishes the main-side half of E.3 for all five hosts; E.3b (renderer half) waits on
+Phase 123 Theme H.
+
 ## 2026-10-29 — Phase 123 Theme F — The companion panel as a feature
 
 `packages/features/companion` takes the whole companion: the renderer (`renderer/`, behind the `CompanionHost` port
