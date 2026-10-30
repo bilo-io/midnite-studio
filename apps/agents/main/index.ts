@@ -20,7 +20,7 @@ import {
 } from '@midnite/studio-runtime';
 import { reportIssueMenuItem } from '@midnite/studio-feature-report/main';
 
-import { registerAgentsHandlers } from './context';
+import { registerAgentsHandlers } from '@midnite/studio-module-agents/main';
 import { AGENTS_NAME, SMOKE_READY_LINE, USER_DATA_ENV, isSmoke, agentsUserData, agentsVaultDirectory } from './identity';
 import { agentsPairing } from './pairing';
 

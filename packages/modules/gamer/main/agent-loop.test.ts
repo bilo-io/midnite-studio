@@ -41,8 +41,8 @@ beforeAll(async () => {
     external: ['electron'],
     logLevel: 'silent',
     alias: {
-      '@midnite/studio-runtime/agent-run/run-shim': at('../../../packages/runtime/src/agent-run/run-shim.ts'),
-      '@midnite/studio-shared': at('../../../packages/shared/src/index.ts'),
+      '@midnite/studio-runtime/agent-run/run-shim': at('../../../runtime/src/agent-run/run-shim.ts'),
+      '@midnite/studio-shared': at('../../../shared/src/index.ts'),
     },
   });
   fakeBin = join(work, 'bin');
@@ -163,9 +163,9 @@ const run = (agentId: string, prompt = 'make the player faster') =>
 
 describe('the shim Gamer ships', () => {
   it('is bundled beside main.cjs under the name main looks for', async () => {
-    const bundler = await readFile(at('../scripts/bundle-main.mjs'), 'utf8');
-    const main = await readFile(at('index.ts'), 'utf8');
-    expect(bundler).toContain("at('../main/workers/game-mcp-shim.ts')");
+    const bundler = await readFile(at('../../../../apps/gamer/scripts/bundle-main.mjs'), 'utf8');
+    const main = await readFile(at('../../../../apps/gamer/main/index.ts'), 'utf8');
+    expect(bundler).toContain("at('../../../packages/modules/gamer/main/workers/game-mcp-shim.ts')");
     // `.cjs`: apps/gamer is `"type": "module"`, so a `.js` beside it would be read as ESM in dev.
     expect(bundler).toContain("at('../dist/game-mcp-shim.cjs')");
     expect(main).toContain("join(__dirname, 'game-mcp-shim.cjs')");

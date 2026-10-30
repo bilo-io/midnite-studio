@@ -24,6 +24,7 @@ export {
   navChordFor,
   navConfigProblems,
   navFromGroups,
+  navFromModules,
   navViewForPath,
   pathForNavView,
   type NavConfig,
