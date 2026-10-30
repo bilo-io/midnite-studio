@@ -15585,3 +15585,7 @@ Seven apps on the shell now register the monitor main and preload slice and show
 ### Phase 123 Theme I — Proof (2026-10-30)
 
 Six Playwright flows in Vanguard and Agents (shell, rail, Settings via rail and `Mod+,`, title-bar double-click) on each app's own Vite server through a deep-proxy mock bridge; three Linux visual baselines (framed, frameless, nav collapsed); Vanguard idle CPU blurred 0.38 % before the phase and 0.88 % after; `docs/APPS.md` "The shell". Panel chords are uncovered until a suite app has a pty host (`outstanding.md`). Phase 123 is done.
+
+### Phase 124 Theme G.5 — Retired apps leave the catalog (2026-10-30)
+
+Resolved without a release. The six retired apps never had updater feeds of their own; they shipped as launcher bundles in the lockstep `catalog.json`, which `release.yml` rebuilds from the `apps/<id>` bundles it packs, so the next normal release drops them and the launcher's retired-id mapping (G.3) points any old link at its host. Phase doc decision and `outstanding.md` updated.
