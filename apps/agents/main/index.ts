@@ -86,7 +86,9 @@ if (override === undefined || override === '') importRetiredAppData({ appData: a
 if (!smoke && !app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, argv) => {
+    // A launcher link (`--midnite-link=…`) tells the running host which module and view to land on.
+    suite?.handleArgv(argv);
     if (win === null) return;
     if (win.isMinimized()) win.restore();
     win.focus();
@@ -97,6 +99,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       ipcMain,
       runtimeDirectory: suiteRuntimeDirectory(app.getPath('appData'), process.env[USER_DATA_ENV]),
       getWindow: () => win,
+      argv: process.argv,
       warn: (message) => process.stderr.write(`${message}\n`),
     });
     // The prefs file watcher is a live handle: let go of it with the app.

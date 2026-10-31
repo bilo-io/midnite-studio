@@ -15589,3 +15589,7 @@ Six Playwright flows in Vanguard and Agents (shell, rail, Settings via rail and 
 ### Phase 124 Theme G.5 — Retired apps leave the catalog (2026-10-30)
 
 Resolved without a release. The six retired apps never had updater feeds of their own; they shipped as launcher bundles in the lockstep `catalog.json`, which `release.yml` rebuilds from the `apps/<id>` bundles it packs, so the next normal release drops them and the launcher's retired-id mapping (G.3) points any old link at its host. Phase doc decision and `outstanding.md` updated.
+
+### Phase 124 follow-up — retired links land on the module (2026-10-31)
+
+A `midnite://open?app=<host>&module=…&view=…` link (and a retired id such as `app=coder`) now lands the host on that module and view. The launcher opens the host bundle with `open -n <bundle> --args --midnite-link=<rebuilt link>`; each host's main reads the switch from `process.argv` or `second-instance` argv (`registerSuiteMain`), sends it over `suiteLinkTake` / `suiteLinkOpen`, and `SuiteAppShell` navigates via `landingView`, ignoring unknown ids. Vitest at each layer; no e2e.

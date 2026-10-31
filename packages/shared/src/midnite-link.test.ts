@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { SETTINGS_PAGE_IDS, VIEW_IDS } from './domain/view';
 import { MEDIA_TABS } from './media';
-import { MIDNITE_APP_IDS, midniteOpenLink, parseMidniteLink } from './midnite-link';
+import { MIDNITE_APP_IDS, MIDNITE_LINK_ARG, midniteLinkArg, midniteOpenLink, parseMidniteLink } from './midnite-link';
 import { APP_MODULES, MODULE_HOST_IDS, RETIRED_APP_ALIASES, RETIRED_APP_IDS } from './modules';
 
 const vocab = { views: VIEW_IDS, tabs: MEDIA_TABS, pages: SETTINGS_PAGE_IDS };
@@ -136,5 +136,16 @@ describe('midnite:// links', () => {
       expect(parseMidniteLink('midnite://open?app=coder')?.app).toBe('agents');
       expect(parseMidniteLink('midnite://open?app=agents')?.legacyApp).toBeUndefined();
     });
+  });
+});
+
+describe('midniteLinkArg', () => {
+  it('is the switch plus the rebuilt link, module and view only', () => {
+    expect(midniteLinkArg({ app: 'agents', module: 'coder', view: 'reviews', tab: 'image', run: 'abc' })).toBe(
+      `${MIDNITE_LINK_ARG}midnite://open?app=agents&module=coder&view=reviews`,
+    );
+  });
+  it('is null when there is no module or view to land on', () => {
+    expect(midniteLinkArg({ app: 'agents' })).toBeNull();
   });
 });
