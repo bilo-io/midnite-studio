@@ -8,11 +8,22 @@ name: Release
 # (midnite-studio/vX.Y.Z) rather than a bare vX.Y.Z that would collide with a
 # sibling app's (Phase 53 Theme D).
 #
-# Only `v*` (the lockstep tag `planReleaseTags` cuts for a minor/major bump)
-# triggers this — a scoped independent-patch tag (`@midnite/studio-desktop@X.Y.Z`)
-# does not match this glob and will not build a new distributable here. The
-# phase doc specifies this exact trigger without addressing that case; left
-# as a known gap for a future pass rather than an invented extra pattern.
+# Only `v*` triggers a real release. `planReleaseTags` always ends a release whose packages all land
+# on one version with the plain `vX.Y.Z` (a lockstep patch included); a scoped tag
+# (`@midnite/studio-desktop@X.Y.Z`) matches no `v*` and builds nothing by itself.
+#
+# DRY RUN (`workflow_dispatch`, `dry_run: true` — the default): everything that BUILDS runs for real
+# (Studio, the launcher, every bundle, the Browser Chromium floor, both verify-signature checks,
+# build-catalog + the launcher's own catalog parser) and everything that WRITES is skipped — the
+# Studio release, the launcher release, and every checkout/commit/push to bilo-io/midnite-apps. What
+# would have been published is uploaded as artifacts instead (`release-assembly`, `dry-run-*-preview`).
+#   gh workflow run release.yml --ref main -f dry_run=true [-f version=0.0.6]
+# A real publish from a dispatch (`dry_run=false`) is only allowed from the matching tag ref, i.e. a
+# re-run of a release whose publish failed: `gh workflow run release.yml --ref v0.0.6 -f dry_run=false`.
+#
+# ALL-OR-NOTHING: nothing is published until the `assemble` job has proven every asset (Studio,
+# launcher, every bundle) exists at the release version and the catalog.json built from them passes
+# the launcher's own parser. A failure there leaves midnite-apps untouched.
 #
 # Crib: ~/Dev/midnite's own release.yml — same SHAPE, never its `repository:`
 # value. That repo publishes to bilo-io/midnite-app (singular) — a DIFFERENT
@@ -21,6 +32,16 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version X.Y.Z (default: read from apps/launcher/package.json)'
+        type: string
+        required: false
+      dry_run:
+        description: 'Build + assemble + validate only; publish nothing'
+        type: boolean
+        default: true
 
 # Workflow default covers the `build` job (checkout + GitHub Packages
 # install, same as ci.yml's `package` job). `release` overrides this with its
@@ -31,8 +52,68 @@ permissions:
   packages: read
 
 jobs:
+  # Every job needs this one. It is the single place the version, tag and mode are derived — a tag
+  # push is always a real release of the tag's version; a dispatch is a dry run unless told
+  # otherwise, with the version defaulting to the launcher's. On a dispatch the ref is a BRANCH, so
+  # no later job may read GITHUB_REF for the version. It also fails fast, before any build minutes
+  # are spent, when a package missed the version bump.
+  meta:
+    name: Release version + mode
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      dry_run: ${{ steps.meta.outputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v7
+      # node builtins only — version-check.mjs imports nothing from the workspace, so no install.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.22.1
+      - name: Derive version, tag and dry-run flag
+        id: meta
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = push ]; then
+            version="${REF_NAME#v}"
+            dry_run=false
+          else
+            version="${INPUT_VERSION#v}"
+            if [ -z "$version" ]; then
+              version=$(node -p "require('./apps/launcher/package.json').version")
+            fi
+            dry_run="${INPUT_DRY_RUN:-true}"
+          fi
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::'$version' is not a release version (expected X.Y.Z, from tag '$REF_NAME')"
+            exit 1
+          fi
+          if [ "$dry_run" = false ] && [ "$REF" != "refs/tags/v$version" ]; then
+            echo "::error::a real release publishes from the tag v$version, not from '$REF' — push the tag, or dispatch with --ref v$version"
+            exit 1
+          fi
+          {
+            echo "version=$version"
+            echo "tag=v$version"
+            echo "dry_run=$dry_run"
+          } >> "$GITHUB_OUTPUT"
+          echo "Release v$version — dry_run=$dry_run (event: $EVENT, ref: $REF)"
+      # The runtime, the launcher and every app must already read exactly this version: catalog.json
+      # is rejected by the launcher on one stale app, and a tag cut from a branch that missed a bump
+      # would otherwise publish a half-versioned release. Also asserts the MAJOR.MINOR lockstep.
+      - name: Assert every package is at the release version
+        run: node scripts/version-check.mjs --expect "${{ steps.meta.outputs.version }}"
+
   build:
     name: Build macOS arm64
+    needs: meta
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v7
@@ -192,6 +273,7 @@ jobs:
   # listed. `release-bundles.mjs --all` decides; ubuntu, a node script with no platform behaviour.
   plan:
     name: Plan app bundles
+    needs: meta
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
@@ -218,7 +300,7 @@ jobs:
   # macOS jobs is spent on the runtime's `dist`. Skipped when no app has been extracted yet.
   bundles:
     name: Bundle ${{ matrix.app }}
-    needs: plan
+    needs: [meta, plan]
     if: ${{ needs.plan.outputs.any == 'true' }}
     runs-on: ubuntu-24.04
     strategy:
@@ -244,9 +326,9 @@ jobs:
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # Phase 117 Theme A: the Browser bundle cannot ship on an Electron major outside the supported
-      # window (no security backports). Strict judges the launcher's pin — the runtime a bundle runs
-      # on; Studio's own pin stays a warning until Phase 76 Theme A's bump lands — the same gate
-      # `app-browser:dist` runs, here in the job that packs the bundle.
+      # window (no security backports). Strict judges both pins (the launcher's, which a bundle runs
+      # on, and Studio's) against the three newest stable majors — the same gate `app-browser:dist`
+      # runs, here in the job that packs the bundle.
       - name: Chromium floor (Browser only, strict)
         id: floor
         if: ${{ matrix.app == 'browser' }}
@@ -258,49 +340,294 @@ jobs:
       - name: Check the bundle ships no Quick Kiss
         if: ${{ matrix.app != 'browser' || steps.floor.outcome == 'success' }}
         run: node scripts/no-quick-kiss.mjs ${{ matrix.dir }}/dist
-      # An app with no `resources/icon.icns` yet cannot pass the launcher's bundle check, so it is not
-      # packed: a warning, not a failure — the catalog simply does not list it this release.
+      # An app with no `resources/icon.icns` cannot pass the launcher's bundle check. It used to be a
+      # warning (the catalog simply did not list it); it is an error now, because a bundle silently
+      # missing from a lockstep catalog is exactly the partial publish `assemble` exists to stop.
       - name: Pack the bundle zip
         if: ${{ matrix.app != 'browser' || steps.floor.outcome == 'success' }}
         shell: bash
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
           mkdir -p bundle-out
           if [ ! -f "${{ matrix.dir }}/resources/icon.icns" ]; then
-            echo "::warning::${{ matrix.app }} has no resources/icon.icns — not packed, not in catalog.json"
-            exit 0
+            echo "::error::${{ matrix.app }} has no resources/icon.icns — it cannot be packed, and a catalog without it would be partial"
+            exit 1
           fi
           node scripts/pack-bundle.mjs --app "${{ matrix.app }}" --dir "${{ matrix.dir }}" \
-            --version "$version" --out bundle-out --stage "$RUNNER_TEMP/stage-${{ matrix.app }}"
+            --version "$VERSION" --out bundle-out --stage "$RUNNER_TEMP/stage-${{ matrix.app }}"
       - name: Upload the bundle
         if: ${{ matrix.app != 'browser' || steps.floor.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
           name: bundle-${{ matrix.app }}
           path: bundle-out/*.zip
-          if-no-files-found: warn
+          if-no-files-found: error
+      # The ONE intentional skip: the Browser bundle when its Chromium floor step fails (Phase 117) —
+      # the job still succeeds, with no zip. Every bundle job records which outcome it had in
+      # `bstatus-<app>` (a name `bundle-*` does not match), so `assemble` can tell "skipped by design"
+      # from "never ran" and name the Browser floor outcome in its summary.
+      - name: Record the bundle outcome
+        shell: bash
+        env:
+          FLOOR: ${{ steps.floor.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p bundle-status
+          if [ "${{ matrix.app }}" = browser ] && [ "$FLOOR" != success ]; then
+            status=skipped-chromium-floor
+          elif compgen -G 'bundle-out/*.zip' > /dev/null; then
+            status=packed
+          else
+            echo "::error::${{ matrix.app }} produced no bundle zip"
+            exit 1
+          fi
+          printf '{"app":"%s","status":"%s"}\n' "${{ matrix.app }}" "$status" > "bundle-status/${{ matrix.app }}.json"
+          cat "bundle-status/${{ matrix.app }}.json"
+      - name: Upload the bundle outcome
+        uses: actions/upload-artifact@v7
+        with:
+          name: bstatus-${{ matrix.app }}
+          path: bundle-status/*.json
+          if-no-files-found: error
 
+  # All-or-nothing gate (Phase 113 follow-up). Runs before ANY publishing job and decides whether the
+  # release is publishable: every upstream job succeeded; the Studio and launcher assets exist at
+  # exactly the release version (their `latest-mac.yml` too); every bundle in the matrix either packed
+  # or was skipped by design (the Browser Chromium floor); and the catalog.json built from those files
+  # — with the URLs it WILL have — passes the launcher's own parser. Previously the launcher/studio
+  # asset check ran only inside `publish-suite`, after the Studio release was already public, so a
+  # missed version bump left a half-published release. Builds catalog.json + SHA256SUMS + a summary
+  # into the `release-assembly` artifact, which is what a dry run ends with and what the publishing
+  # jobs consume, so what is validated is byte-for-byte what is published.
+  assemble:
+    name: Assemble + validate release
+    needs: [meta, build, plan, bundles]
+    # Always runs (unless cancelled) so a failed upstream job is a loud failure HERE with a named
+    # reason, not a silently skipped dependency; the publishing jobs `need` this one and so skip on it.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every build job to have succeeded
+        shell: bash
+        env:
+          BUILD: ${{ needs.build.result }}
+          PLAN: ${{ needs.plan.result }}
+          BUNDLES: ${{ needs.bundles.result }}
+          ANY_BUNDLES: ${{ needs.plan.outputs.any }}
+        run: |
+          set -euo pipefail
+          ok=true
+          [ "$BUILD" = success ] || { echo "::error::build (Studio + launcher) result is '$BUILD' — refusing to assemble a release"; ok=false; }
+          [ "$PLAN" = success ] || { echo "::error::plan result is '$PLAN'"; ok=false; }
+          if [ "$ANY_BUNDLES" = true ]; then
+            [ "$BUNDLES" = success ] || { echo "::error::at least one bundle job did not succeed (result '$BUNDLES') — refusing to publish a partial catalog"; ok=false; }
+          fi
+          [ "$ok" = true ]
+
+      - uses: actions/checkout@v7
+
+      - name: Download Studio
+        uses: actions/download-artifact@v8
+        with:
+          name: mac-arm64
+          path: studio
+
+      - name: Download the launcher
+        uses: actions/download-artifact@v8
+        with:
+          name: launcher-mac-arm64
+          path: launcher
+
+      # `bundle-*` / `bstatus-*` match nothing when no app is extracted: an empty dir, not a failure.
+      - name: Download the app bundles
+        uses: actions/download-artifact@v8
+        with:
+          pattern: bundle-*
+          path: bundles
+          merge-multiple: true
+
+      - name: Download the bundle outcomes
+        uses: actions/download-artifact@v8
+        with:
+          pattern: bstatus-*
+          path: bstatus
+          merge-multiple: true
+
+      - name: Check the Studio and launcher asset sets
+        shell: bash
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p bundles bstatus
+          find studio launcher bundles bstatus -type f | sort
+          v="$VERSION"
+          for f in "studio/midnite-studio-$v-arm64.zip" "studio/midnite-studio-$v-arm64.dmg" studio/latest-mac.yml \
+                   "launcher/midnite-launcher-$v-arm64.zip" "launcher/midnite-launcher-$v-arm64.dmg" launcher/latest-mac.yml; do
+            [ -f "$f" ] || { echo "::error::missing $f — a package did not build at $v; refusing to publish"; exit 1; }
+          done
+          # The feed manifests name the version the updater will offer; one that disagrees with the
+          # tag is a missed bump the file names above would not catch.
+          for f in studio/latest-mac.yml launcher/latest-mac.yml; do
+            grep -qx "version: $v" "$f" || { echo "::error::$f does not read 'version: $v'"; head -5 "$f"; exit 1; }
+          done
+
+      - name: Check every bundle packed or was skipped by design
+        id: bundles
+        shell: bash
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+          MATRIX: ${{ needs.plan.outputs.matrix }}
+        run: |
+          set -euo pipefail
+          v="$VERSION"
+          apps=$(node -e 'for (const e of JSON.parse(process.env.MATRIX).include) console.log(e.app)')
+          packed=()
+          rows=""
+          for app in $apps; do
+            f="bstatus/$app.json"
+            [ -f "$f" ] || { echo "::error::bundle $app recorded no outcome — refusing to publish a partial catalog"; exit 1; }
+            status=$(node -p "require('./$f').status")
+            case "$status" in
+              packed)
+                [ -f "bundles/midnite-$app-$v-bundle.zip" ] || { echo "::error::bundle $app says packed but midnite-$app-$v-bundle.zip is missing"; exit 1; }
+                packed+=("$app") ;;
+              skipped-chromium-floor) ;;
+              *) echo "::error::bundle $app has unexpected outcome '$status'"; exit 1 ;;
+            esac
+            rows="$rows| $app | $status |"$'\n'
+          done
+          printf '%s\n' "${packed[*]:-}" > packed.txt
+          { echo 'rows<<__EOF__'; printf '%s' "$rows"; echo '__EOF__'; } >> "$GITHUB_OUTPUT"
+          echo "Packed bundles: ${packed[*]:-none}"
+
+      # Only needed for validate-catalog.mjs, which bundles the launcher's parser with esbuild.
+      - name: GitHub Packages auth (user-level npmrc)
+        # pnpm 10 ignores env-expanded auth in the project .npmrc; user-level is honoured.
+        run: echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          version: 10.34.5
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.22.1
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Published in Phase 91 Theme H: `<sha256>  <basename>` per installable, so
+      # `shasum -a 256 -c SHA256SUMS` works from a directory holding the downloads. Studio's only —
+      # install.sh reads the zip's digest from version.json (midnite-apps' release-feed.yml).
+      - name: Write SHA256SUMS
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assembly
+          : > assembly/SHA256SUMS
+          while IFS= read -r -d '' f; do
+            printf '%s  %s\n' "$(shasum -a 256 "$f" | cut -d' ' -f1)" "$(basename "$f")" >> assembly/SHA256SUMS
+          done < <(find studio -type f \( -name '*.dmg' -o -name '*.zip' \) -print0 | sort -z)
+          [ -s assembly/SHA256SUMS ] || { echo "::error::no dmg/zip found to checksum"; exit 1; }
+          cat assembly/SHA256SUMS
+
+      # The URLs are deterministic (tag + asset name), so the catalog can be built and validated BEFORE
+      # the releases that will serve them exist.
+      - name: Build catalog.json
+        shell: bash
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          v="$VERSION"
+          base=https://github.com/bilo-io/midnite-apps/releases/download
+          args=(--version "$v" --released-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                --app "studio=studio/midnite-studio-$v-arm64.zip=$base/midnite-studio/v$v/midnite-studio-$v-arm64.zip")
+          expect=(--expect-app studio)
+          read -ra packed_apps < packed.txt
+          for app in "${packed_apps[@]}"; do
+            name="midnite-$app-$v-bundle.zip"
+            args+=(--app "$app=bundles/$name=$base/midnite-launcher/v$v/$name")
+            expect+=(--expect-app "$app")
+          done
+          node scripts/build-catalog.mjs "${args[@]}" --out assembly/catalog.json
+          cat assembly/catalog.json
+          node scripts/validate-catalog.mjs assembly/catalog.json --version "$v" "${expect[@]}"
+
+      - name: Summarise what would be published
+        shell: bash
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+          TAG: ${{ needs.meta.outputs.tag }}
+          DRY_RUN: ${{ needs.meta.outputs.dry_run }}
+          BUNDLE_ROWS: ${{ steps.bundles.outputs.rows }}
+        run: |
+          set -euo pipefail
+          floor="not in the bundle matrix"
+          if [ -f bstatus/browser.json ]; then
+            case "$(node -p "require('./bstatus/browser.json').status")" in
+              packed) floor="PASSED — Browser bundle packed" ;;
+              skipped-chromium-floor) floor="SKIPPED BY DESIGN — Electron outside the Chromium freshness window; Browser is not in this catalog" ;;
+            esac
+          fi
+          {
+            echo "# Release $TAG ($( [ "$DRY_RUN" = true ] && echo 'DRY RUN — nothing published' || echo 'real release' ))"
+            echo
+            echo "- Version: \`$VERSION\` — every apps/* and packages/desktop package.json reads it exactly"
+            echo "- Studio release would be: \`midnite-studio/$TAG\` on bilo-io/midnite-apps"
+            echo "- Launcher release would be: \`midnite-launcher/$TAG\` (launcher + bundles)"
+            echo "- Browser Chromium floor: $floor"
+            echo "- catalog.json passed the launcher's own parser (lockstep at $VERSION)"
+            echo
+            echo "## Bundles"
+            echo
+            echo "| App | Outcome |"
+            echo "|---|---|"
+            printf '%s' "$BUNDLE_ROWS"
+            echo
+            echo "## Catalog apps"
+            echo
+            # shellcheck disable=SC2016  # the backticks are a JS template literal, not shell
+            node -e 'for (const a of require("./assembly/catalog.json").apps) console.log(`- ${a.id} ${a.version} — ${a.size} bytes — sha256 ${a.sha256.slice(0, 12)}…`)'
+            echo
+            echo "## Studio assets"
+            echo
+            find studio -maxdepth 1 -type f -printf '- %f\n' | sort
+            echo
+            echo "## Launcher assets"
+            echo
+            find launcher -maxdepth 1 -type f -printf '- %f\n' | sort
+          } | tee assembly/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload catalog.json + SHA256SUMS + summary
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-assembly
+          path: assembly/*
+          if-no-files-found: error
+          retention-days: ${{ needs.meta.outputs.dry_run == 'true' && 7 || 30 }}
+
+  # Real releases only (a dry run skips this whole job — it is the Studio GitHub release).
   release:
     name: Publish release
-    needs: build
-    # Publish even when `build` failed or was cancelled. Without this, a
-    # failed macOS leg leaves this job silently SKIPPED — easy to miss — and
-    # (per the sibling's own cost: a glob upload collision once left a release
-    # an untagged draft) a half-finished release is worse than a loud one that
-    # explicitly refuses to publish nothing. The guard step below is what
-    # turns "build failed" into a clear ::error instead of a silent no-op.
-    if: ${{ !cancelled() }}
+    needs: [meta, assemble]
+    # Default `success()` applies: `assemble` passing means every asset is proven, so a failed or
+    # cancelled build can no longer reach here — the old `!cancelled()` existed to publish-and-fail
+    # loudly, and `assemble` now fails loudly first.
+    if: ${{ needs.meta.outputs.dry_run == 'false' }}
     runs-on: ubuntu-latest
     # Overrides the workflow default (contents: read) — publishing needs
     # write. `packages: read` isn't needed here; this job never installs.
     permissions:
       contents: write
-    # `publish-feed` (Phase 53 Theme E) needs the same version/tag derivation
-    # without recomputing it from `GITHUB_REF` a second time.
-    outputs:
-      source_tag: ${{ steps.version.outputs.source_tag }}
-      version: ${{ steps.version.outputs.version }}
     steps:
       # By NAME: the launcher and the bundles are published by `publish-suite` to their own release,
       # and downloading everything would put the launcher's `latest-mac.yml` into this one.
@@ -310,81 +637,27 @@ jobs:
           name: mac-arm64
           path: artifacts
 
-      # Guards both ways the publishable set can be wrong before uploading
-      # anything: empty (the build leg failed or was cancelled) and
-      # duplicated (a basename collision, which is exactly what the explicit
-      # allowlist below — not `artifacts/**/*` — exists to prevent: every
-      # electron-builder invocation also emits its own `builder-debug.yml`,
-      # and a wildcard upload would collide on that shared basename).
-      - name: Check the publishable asset set
-        shell: bash
-        run: |
-          find artifacts -type f \
-            \( -name '*.dmg' -o -name '*.zip' -o -name '*.blockmap' -o -name 'latest-mac.yml' \) | sort > publishable.txt
-          count=$(wc -l < publishable.txt | tr -d ' ')
-          echo "Publishable assets ($count):"
-          sed 's/^/  /' publishable.txt
-
-          if [ "$count" -eq 0 ]; then
-            echo "::error::No installers were built — refusing to publish an empty release."
-            exit 1
-          fi
-
-          dupes=$(xargs -n1 basename < publishable.txt | sort | uniq -d)
-          if [ -n "$dupes" ]; then
-            echo "::error::Duplicate asset basename(s) would collide on upload: $(echo "$dupes" | tr '\n' ' ')"
-            exit 1
-          fi
-
-      # The source tag here is the lockstep vX.Y.Z this workflow triggers on;
-      # the receiving repo's tag is NAMESPACED under the app
-      # (midnite-studio/vX.Y.Z) since it holds several apps' releases.
-      - name: Derive the namespaced release tag
-        id: version
-        run: |
-          source_tag="${GITHUB_REF#refs/tags/}"
-          {
-            echo "source_tag=$source_tag"
-            echo "release_tag=midnite-studio/$source_tag"
-            echo "version=${source_tag#v}"
-          } >> "$GITHUB_OUTPUT"
+      - name: Download SHA256SUMS
+        uses: actions/download-artifact@v8
+        with:
+          name: release-assembly
+          path: assembly
 
       # Cross-repo publish needs a fine-grained PAT with Contents:write on
       # bilo-io/midnite-apps — the default GITHUB_TOKEN is scoped to THIS
-      # (private) repo only and cannot write to a different one.
+      # repo only and cannot write to a different one. The receiving repo's tag is
+      # NAMESPACED under the app (midnite-studio/vX.Y.Z) since it holds several apps' releases.
       #
-      # RELEASES_REPO_TOKEN does not exist as a secret in this repo yet —
-      # this workflow cannot actually publish until it's created in Settings
-      # > Secrets and variables > Actions. See the PR description.
-      #
-      # `files:` is an explicit ALLOWLIST, matching the guard step above —
-      # never `artifacts/**/*`, for the same `builder-debug.yml` collision
-      # reason. Asset basenames come straight from electron-builder.yml's
-      # `artifactName` (midnite-studio-${version}-${arch}.${ext}) and must
-      # match the receiving repo's apps.json exactly, since its install.sh
-      # builds its download URL from that same template.
-      # Phase 91 Theme H: a published checksum for every installable. Lines are
-      # `<sha256>  <basename>` so `shasum -a 256 -c SHA256SUMS` works from a
-      # directory holding the downloads. install.sh reads the zip's digest from
-      # version.json instead (written by midnite-apps' release-feed.yml, which
-      # needs the paired `sha256` edit); this file is the human-checkable copy.
-      - name: Write SHA256SUMS
-        shell: bash
-        run: |
-          set -euo pipefail
-          : > SHA256SUMS
-          while IFS= read -r -d '' f; do
-            printf '%s  %s\n' "$(shasum -a 256 "$f" | cut -d' ' -f1)" "$(basename "$f")" >> SHA256SUMS
-          done < <(find artifacts -type f \( -name '*.dmg' -o -name '*.zip' \) -print0 | sort -z)
-          [ -s SHA256SUMS ] || { echo "::error::no dmg/zip found to checksum"; exit 1; }
-          cat SHA256SUMS
-
+      # `files:` is an explicit ALLOWLIST — never `artifacts/**/*`: every electron-builder invocation
+      # also emits its own `builder-debug.yml`, and a wildcard upload would collide on that shared
+      # basename. Asset basenames come straight from electron-builder.yml's `artifactName`
+      # (midnite-studio-${version}-${arch}.${ext}) and must match the receiving repo's apps.json
+      # exactly, since its install.sh builds its download URL from that same template.
       - name: Publish release to bilo-io/midnite-apps
-        if: ${{ !cancelled() }}
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           repository: bilo-io/midnite-apps
-          tag_name: ${{ steps.version.outputs.release_tag }}
+          tag_name: midnite-studio/${{ needs.meta.outputs.tag }}
           token: ${{ secrets.RELEASES_REPO_TOKEN }}
           draft: false
           generate_release_notes: true
@@ -393,7 +666,7 @@ jobs:
             artifacts/**/*.zip
             artifacts/**/*.blockmap
             artifacts/**/latest-mac.yml
-            SHA256SUMS
+            assembly/SHA256SUMS
 
   # Phase 53 Theme E. This app's feed is the `generic` provider (see
   # electron-builder.yml's `publish:` block and CLAUDE.md), so unlike
@@ -410,10 +683,14 @@ jobs:
   # `path`/`sha512` name the release ASSETS, which must already be
   # downloadable before this commits — committing first would publish a feed
   # every running app finds, offers, and fails to download.
+  #
+  # In a dry run `release` is skipped, so this job runs anyway (to prove the install, the shared
+  # build and the changelog extraction) but touches nothing: no midnite-apps checkout, commit or
+  # push. A stand-in workspace takes their place and is uploaded as `dry-run-feed-preview`.
   publish-feed:
     name: Publish feed manifest + changelog mirror
-    needs: release
-    if: ${{ !cancelled() }}
+    needs: [meta, assemble, release]
+    if: ${{ !cancelled() && needs.assemble.result == 'success' && (needs.meta.outputs.dry_run == 'true' || needs.release.result == 'success') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -463,13 +740,23 @@ jobs:
       # `release` job above, since the default GITHUB_TOKEN cannot write to a
       # different repo.
       - name: Checkout bilo-io/midnite-apps
+        if: ${{ needs.meta.outputs.dry_run == 'false' }}
         uses: actions/checkout@v7
         with:
           repository: bilo-io/midnite-apps
           token: ${{ secrets.RELEASES_REPO_TOKEN }}
           path: midnite-apps
 
-      - name: Commit the feed manifest
+      # The mirror reads its target's existing CHANGELOG.md, so the stand-in carries the minimum
+      # Keep a Changelog skeleton the real one always has.
+      - name: Dry run — stand-in for the midnite-apps checkout
+        if: ${{ needs.meta.outputs.dry_run == 'true' }}
+        run: |
+          set -euo pipefail
+          mkdir -p midnite-apps/midnite-studio
+          printf '# Changelog\n\n## [Unreleased]\n' > midnite-apps/midnite-studio/CHANGELOG.md
+
+      - name: Stage the feed manifest
         run: |
           set -euo pipefail
           mkdir -p midnite-apps/midnite-studio/feed
@@ -488,12 +775,13 @@ jobs:
         run: |
           node scripts/publish-feed-changelog.mjs \
             CHANGELOG.md \
-            "${{ needs.release.outputs.version }}" \
+            "${{ needs.meta.outputs.version }}" \
             midnite-apps/midnite-studio/CHANGELOG.md \
-            "https://github.com/bilo-io/midnite-apps/releases/tag/midnite-studio/v${{ needs.release.outputs.version }}" \
+            "https://github.com/bilo-io/midnite-apps/releases/tag/midnite-studio/${{ needs.meta.outputs.tag }}" \
             "$(date -u +%Y-%m-%d)"
 
       - name: Commit + push
+        if: ${{ needs.meta.outputs.dry_run == 'false' }}
         working-directory: midnite-apps
         run: |
           set -euo pipefail
@@ -501,30 +789,48 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add midnite-studio/feed/latest-mac.yml midnite-studio/CHANGELOG.md
           if git diff --cached --quiet; then
-            echo "::notice::feed manifest + changelog already current for ${{ needs.release.outputs.version }}"
+            echo "::notice::feed manifest + changelog already current for ${{ needs.meta.outputs.version }}"
             exit 0
           fi
-          git commit -m "chore(midnite-studio): publish feed manifest + changelog for v${{ needs.release.outputs.version }}"
-          git push
+          git commit -m "chore(midnite-studio): publish feed manifest + changelog for ${{ needs.meta.outputs.tag }}"
+          # midnite-apps' own release-feed.yml pushes version.json to main off the very same release
+          # event, so a bare `git push` races it: rebase onto whatever landed and retry.
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase --quiet origin main && git push && exit 0
+            echo "::warning::push attempt $attempt lost a race with midnite-apps main — retrying"
+            git rebase --abort 2> /dev/null || true
+            sleep $((attempt * 5))
+          done
+          echo "::error::could not push the feed manifest + changelog after 5 attempts"
+          exit 1
+
+      - name: Dry run — upload what would have been committed
+        if: ${{ needs.meta.outputs.dry_run == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: dry-run-feed-preview
+          path: midnite-apps/midnite-studio
+          retention-days: 7
 
   # Phase 113 Themes E1 + F2 — the rest of the suite, beside Studio:
   #   1. the launcher (Midnite Apps) as its own namespaced release, `midnite-launcher/v<version>`, with
   #      every app bundle zip attached to it (the runtime release is what bundles are lockstep with);
-  #   2. `catalog.json` at midnite-apps' root, built by `scripts/build-catalog.mjs` from the files
-  #      actually uploaded (sizes + SHA-256 computed, one version everywhere) — the launcher reads it
+  #   2. `catalog.json` at midnite-apps' root, built and validated by the `assemble` job from the files
+  #      actually built (sizes + SHA-256 computed, one version everywhere) — the launcher reads it
   #      before `midnite-studio/version.json` (`apps/launcher/src/main/feed.ts`);
   #   3. the launcher's own `generic` updater feed, `midnite-launcher/feed/latest-mac.yml`.
   # `midnite-launcher/version.json` is NOT written here: midnite-apps' own release-feed.yml writes
   # `<app>/version.json` for every release whose app is registered in its apps.json — so
   # `midnite-launcher` must be registered there once (docs/RELEASING.md).
   #
-  # `needs: publish-feed` serialises the two pushes to midnite-apps' main; `needs: bundles` waits for
-  # the zips (skipped when no app is extracted, which `!cancelled()` tolerates). Like `publish-feed`,
-  # the commit comes only after the release assets it names are downloadable.
+  # `needs: publish-feed` serialises the two pushes to midnite-apps' main (its own result is not
+  # required: the two targets are independent and either can be re-run). Like `publish-feed`, the
+  # commit comes only after the release assets it names are downloadable; in a dry run the launcher
+  # release and the midnite-apps commit/push are skipped and a stand-in tree is uploaded instead.
   publish-suite:
     name: Publish launcher, bundles + catalog.json
-    needs: [release, publish-feed, bundles]
-    if: ${{ !cancelled() && needs.release.result == 'success' }}
+    needs: [meta, assemble, release, publish-feed]
+    if: ${{ !cancelled() && needs.assemble.result == 'success' && (needs.meta.outputs.dry_run == 'true' || needs.release.result == 'success') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -532,24 +838,14 @@ jobs:
       group: publish-feed-midnite-apps-suite
       cancel-in-progress: false
     steps:
-      - name: Checkout this repo (for scripts/build-catalog.mjs)
+      - name: Checkout this repo (for apps/launcher/install.sh)
         uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.22.1
 
       - name: Download the launcher
         uses: actions/download-artifact@v8
         with:
           name: launcher-mac-arm64
           path: launcher
-
-      - name: Download Studio (hashed for its catalog entry)
-        uses: actions/download-artifact@v8
-        with:
-          name: mac-arm64
-          path: studio
 
       # `bundle-*` may match nothing (no extracted app has an icon yet): an empty dir, not a failure.
       - name: Download the app bundles
@@ -559,27 +855,25 @@ jobs:
           path: bundles
           merge-multiple: true
 
-      - name: Check the launcher asset set
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p bundles
-          ls -la launcher bundles
-          v="${{ needs.release.outputs.version }}"
-          for f in "launcher/midnite-launcher-$v-arm64.zip" "launcher/midnite-launcher-$v-arm64.dmg" launcher/latest-mac.yml \
-                   "studio/midnite-studio-$v-arm64.zip"; do
-            [ -f "$f" ] || { echo "::error::missing $f — refusing to publish the launcher"; exit 1; }
-          done
+      - name: Download catalog.json (built + validated by assemble)
+        uses: actions/download-artifact@v8
+        with:
+          name: release-assembly
+          path: assembly
+
+      - name: Make sure the bundles directory exists
+        run: mkdir -p bundles
 
       - name: Publish the launcher release to bilo-io/midnite-apps
+        if: ${{ needs.meta.outputs.dry_run == 'false' }}
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           repository: bilo-io/midnite-apps
-          tag_name: midnite-launcher/v${{ needs.release.outputs.version }}
+          tag_name: midnite-launcher/${{ needs.meta.outputs.tag }}
           token: ${{ secrets.RELEASES_REPO_TOKEN }}
           draft: false
           generate_release_notes: false
-          body: Midnite Apps ${{ needs.release.outputs.version }} — the launcher and the app bundles, lockstep with midnite-studio/v${{ needs.release.outputs.version }}.
+          body: Midnite Apps ${{ needs.meta.outputs.version }} — the launcher and the app bundles, lockstep with midnite-studio/${{ needs.meta.outputs.tag }}.
           files: |
             launcher/*.dmg
             launcher/*.zip
@@ -587,47 +881,55 @@ jobs:
             launcher/latest-mac.yml
             bundles/*.zip
 
-      - name: Build catalog.json
-        shell: bash
-        run: |
-          set -euo pipefail
-          v="${{ needs.release.outputs.version }}"
-          base=https://github.com/bilo-io/midnite-apps/releases/download
-          args=(--version "$v" --released-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-                --app "studio=studio/midnite-studio-$v-arm64.zip=$base/midnite-studio/v$v/midnite-studio-$v-arm64.zip")
-          for zip in bundles/*.zip; do
-            [ -e "$zip" ] || continue
-            name=$(basename "$zip")                      # midnite-<id>-<v>-bundle.zip
-            id=${name#midnite-}; id=${id%-"$v"-bundle.zip}
-            args+=(--app "$id=$zip=$base/midnite-launcher/v$v/$name")
-          done
-          node scripts/build-catalog.mjs "${args[@]}" --out catalog.json
-          cat catalog.json
-
       - name: Checkout bilo-io/midnite-apps
+        if: ${{ needs.meta.outputs.dry_run == 'false' }}
         uses: actions/checkout@v7
         with:
           repository: bilo-io/midnite-apps
           token: ${{ secrets.RELEASES_REPO_TOKEN }}
           path: midnite-apps
 
-      - name: Commit catalog.json + the launcher feed
+      - name: Dry run — stand-in for the midnite-apps checkout
+        if: ${{ needs.meta.outputs.dry_run == 'true' }}
+        run: mkdir -p midnite-apps
+
+      - name: Stage catalog.json + the launcher feed + installer
         working-directory: midnite-apps
         run: |
           set -euo pipefail
           mkdir -p midnite-launcher/feed
           cp ../launcher/latest-mac.yml midnite-launcher/feed/latest-mac.yml
-          cp ../catalog.json catalog.json
+          cp ../assembly/catalog.json catalog.json
           # The launcher's installer: the website's install link serves a verbatim copy of this file.
           cp ../apps/launcher/install.sh midnite-launcher/install.sh
+
+      - name: Commit + push
+        if: ${{ needs.meta.outputs.dry_run == 'false' }}
+        working-directory: midnite-apps
+        run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add catalog.json midnite-launcher/feed/latest-mac.yml midnite-launcher/install.sh
           if git diff --cached --quiet; then
-            echo "::notice::catalog.json + launcher feed already current for ${{ needs.release.outputs.version }}"
+            echo "::notice::catalog.json + launcher feed already current for ${{ needs.meta.outputs.version }}"
             exit 0
           fi
-          git commit -m "chore(midnite-launcher): publish catalog.json + feed + installer for v${{ needs.release.outputs.version }}"
+          git commit -m "chore(midnite-launcher): publish catalog.json + feed + installer for ${{ needs.meta.outputs.tag }}"
           # release-feed.yml in midnite-apps pushes version.json on the same release events.
-          git pull --rebase --quiet origin main
-          git push
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase --quiet origin main && git push && exit 0
+            echo "::warning::push attempt $attempt lost a race with midnite-apps main — retrying"
+            git rebase --abort 2> /dev/null || true
+            sleep $((attempt * 5))
+          done
+          echo "::error::could not push catalog.json + the launcher feed after 5 attempts"
+          exit 1
+
+      - name: Dry run — upload what would have been committed
+        if: ${{ needs.meta.outputs.dry_run == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: dry-run-suite-preview
+          path: midnite-apps
+          retention-days: 7

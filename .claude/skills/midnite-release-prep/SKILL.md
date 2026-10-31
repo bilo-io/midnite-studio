@@ -21,7 +21,7 @@ don't invent new ones.
 ## 1 · Preconditions
 - `git fetch origin --tags --quiet`. Work from an up-to-date `main`: `git switch main && git pull --ff-only` (or note if the user is intentionally elsewhere).
 - Working tree must be **clean** — `git status --porcelain` empty. If dirty, stop and say so.
-- If `$ARGUMENTS` names a level (`major`/`minor`/`patch`/`ephemeral`), treat it as a hard override of step 3's auto-detect (still show the auto-detect reasoning so the user can sanity-check the override).
+- If `$ARGUMENTS` names a level (`major`/`minor`/`patch`/`ephemeral`), treat it as a hard override of step 3's auto-detect (still show the auto-detect reasoning so the user can sanity-check the override). An explicit level always wins over `bumpLevelFromCommits`: `/midnite-release-prep patch` cuts a patch even when the range holds `feat` commits that auto-detect would call `minor`, and says so in the reasoning.
 
 ## 2 · Find the last release & gather changes
 - **Base:** latest lockstep tag — `git describe --tags --abbrev=0 --match 'v*'`. Note any scoped
@@ -64,6 +64,10 @@ Build shared once and call **`planRelease`** (`moon run shared:build` + a small
 hand or chaining the three helpers yourself. It returns `{ firstRelease, level, next, tags }` in one
 call, which is the only way the first-release rule above cannot be forgotten.
 
+**An explicit level argument overrides the table above.** Auto-detect is only the default — with `patch`, `minor` or `major` in `$ARGUMENTS`, that level is what gets planned (for `patch`, every package and every `apps/*` bump together, §5), and the reasoning shows both the override and what auto-detect would have picked.
+
+**Tags** come from `planReleaseTags` (inside `planRelease`): a lockstep minor/major gives the single `vX.Y.Z`; a patch gives a scoped `‹pkg›@X.Y.Z` per bumped package **and, when every package lands on the same version (the suite-wide patch), a final plain `vX.Y.Z`** — the only tag `release.yml` (`v*`) fires on. A scoped tag alone builds nothing.
+
 **Show the reasoning:** the base tag, the bump level + the commit(s) that triggered
 it, and the resulting version(s). If the level is `none`, stop — there's nothing to
 release; say which commits were seen.
@@ -98,5 +102,5 @@ Report, terse:
 - a preview of the drafted changelog section (or note that changelog is untouched for ephemeral);
 - anything still ambiguous the human should eyeball;
 - the next step:
-  - **Standard release:** review the branch, then run **`/midnite-release-complete`** to finalise (tag, push, GitHub Release). Nothing irreversible has happened yet — `git switch main && git branch -D release/vX.Y.Z` discards it cleanly.
+  - **Standard release:** prove the pipeline first with a dry run from the branch — `gh workflow run release.yml --ref release/vX.Y.Z -f dry_run=true` (builds Studio, the launcher and every bundle, validates `catalog.json`, publishes nothing; the run's summary and `release-assembly` artifact show what would ship). Then review the branch and run **`/midnite-release-complete`** to finalise (tag, push, GitHub Release). Nothing irreversible has happened yet — `git switch main && git branch -D release/vX.Y.Z` discards it cleanly.
   - **Ephemeral release:** confirm `RELEASES_REPO_TOKEN` exists in repo secrets, then run **`/midnite-release-complete ephemeral`** to cut and push the test tag.

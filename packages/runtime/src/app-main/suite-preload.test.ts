@@ -7,9 +7,9 @@ import { createSuiteBridge } from './suite-preload';
 const ipc = (): RendererIpc => ({ invoke: vi.fn(async () => ({})), send: vi.fn(), on: vi.fn(), removeListener: vi.fn() });
 
 describe('createSuiteBridge', () => {
-  it('exposes windowChrome and suitePrefs, and only those', () => {
+  it('exposes windowChrome, suitePrefs and suiteLink, and only those', () => {
     const bridge = createSuiteBridge(ipc(), ['--mstudio-frameless=0'], 'darwin');
-    expect(Object.keys(bridge).sort()).toEqual(['suitePrefs', 'windowChrome']);
+    expect(Object.keys(bridge).sort()).toEqual(['suiteLink', 'suitePrefs', 'windowChrome']);
     expect(bridge.windowChrome.frameless).toBe(false);
   });
 
@@ -24,5 +24,14 @@ describe('createSuiteBridge', () => {
     expect(i.on).toHaveBeenCalledWith(EVENT_CHANNELS.suitePrefsChanged, expect.any(Function));
     off();
     expect(i.removeListener).toHaveBeenCalled();
+  });
+
+  it('routes suiteLink over its channels', async () => {
+    const i = ipc();
+    const { suiteLink } = createSuiteBridge(i, [], 'darwin');
+    await suiteLink.take();
+    expect(i.invoke).toHaveBeenCalledWith(CHANNELS.suiteLinkTake, undefined);
+    suiteLink.onOpen(() => undefined);
+    expect(i.on).toHaveBeenCalledWith(EVENT_CHANNELS.suiteLinkOpen, expect.any(Function));
   });
 });

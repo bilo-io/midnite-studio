@@ -72,6 +72,23 @@ export function firstViewOfModule(nav: NavConfig, module: string): string | unde
   return nav.groups?.find((g) => g.id === module)?.views[0]?.id;
 }
 
+/**
+ * The view a launcher link lands on in `nav`, or `undefined` when it names nothing this nav has (the shell
+ * then stays where it is — the host's default view on a cold start). A requested view that exists wins, but
+ * only inside the requested module when that module has a group here; a module alone lands on its first view;
+ * an unknown module is ignored, and an unknown view falls back to the module's first view or nothing.
+ */
+export function landingView(nav: NavConfig, landing: { module?: string | undefined; view?: string | undefined }): string | undefined {
+  const { module, view } = landing;
+  const group = module === undefined ? undefined : nav.groups?.find((g) => g.id === module);
+  if (group !== undefined) {
+    if (view !== undefined && group.views.some((v) => v.id === view)) return view;
+    return group.views[0]?.id;
+  }
+  if (view !== undefined && nav.views.some((v) => v.id === view)) return view;
+  return undefined;
+}
+
 /** Which panels an app carries. Absent, or a key left out, means on (decision 12). */
 export type ShellPanels = {
   terminal?: boolean;

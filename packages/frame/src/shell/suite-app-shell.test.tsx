@@ -1,11 +1,12 @@
 // vitest/jsdom: composition of the shell, Settings and the status bar over no bridge — no real browser needed.
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { useEffect } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { act } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LuShieldAlert, LuRadar } from 'react-icons/lu';
 
 import { SuiteAppShell } from './suite-app-shell';
-import type { NavConfig } from './nav-config';
+import { navFromGroups, type NavConfig } from './nav-config';
 
 const NAV: NavConfig = {
   views: [
@@ -14,7 +15,10 @@ const NAV: NavConfig = {
   ],
 };
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  delete (window as { midniteStudio?: unknown }).midniteStudio;
+});
 
 function renderShell(extra: Partial<React.ComponentProps<typeof SuiteAppShell>> = {}) {
   return render(
@@ -114,5 +118,56 @@ describe('SuiteAppShell', () => {
     expect(seen).toEqual([true]);
     fireEvent.click(within(screen.getByRole('navigation', { name: 'Views' })).getByRole('link', { name: 'One' }));
     expect(seen).toEqual([true, false]);
+  });
+});
+
+describe('SuiteAppShell: launcher link landing', () => {
+  const GROUPED = navFromGroups([
+    { id: 'agents', label: 'Agents', icon: LuShieldAlert, views: [{ id: 'chats', label: 'Chats', icon: LuShieldAlert }] },
+    {
+      id: 'coder',
+      label: 'Coder',
+      icon: LuRadar,
+      views: [
+        { id: 'requests', label: 'Requests', icon: LuRadar },
+        { id: 'reviews', label: 'Reviews', icon: LuRadar },
+      ],
+    },
+  ]);
+  function withLink(taken: { module?: string; view?: string } | null) {
+    let push: (landing: { module?: string; view?: string }) => void = () => undefined;
+    const take = vi.fn(async () => taken);
+    (window as { midniteStudio?: unknown }).midniteStudio = {
+      suiteLink: { take, onOpen: (h: typeof push) => { push = h; return () => undefined; } },
+    };
+    return { take, push: (l: { module?: string; view?: string }) => act(() => push(l)) };
+  }
+  const shell = () =>
+    render(
+      <SuiteAppShell app="agents" name="Midnite Agents" accent="#6366f1" nav={GROUPED} home="chats">
+        {(view) => <p>view:{view}</p>}
+      </SuiteAppShell>,
+    );
+
+  it('lands a cold start on the module and view the launcher passed', async () => {
+    withLink({ module: 'coder', view: 'reviews' });
+    shell();
+    expect(await screen.findByText('view:reviews')).toBeTruthy();
+  });
+
+  it('lands a link that reaches the running host, leaving Settings', async () => {
+    const { push } = withLink(null);
+    shell();
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    push({ module: 'coder' });
+    expect(await screen.findByText('view:requests')).toBeTruthy();
+  });
+
+  it('stays on the home view for an unknown module or view', async () => {
+    const { take, push } = withLink({ module: 'vault', view: 'nope' });
+    shell();
+    await vi.waitFor(() => expect(take).toHaveBeenCalled());
+    push({ view: 'also-nope' });
+    expect(screen.getByText('view:chats')).toBeTruthy();
   });
 });

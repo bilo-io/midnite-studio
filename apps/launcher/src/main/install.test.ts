@@ -2,15 +2,42 @@ import { createHash } from 'node:crypto';
 import { chmod, mkdir, mkdtemp, rm, truncate, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Writable } from 'node:stream';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MIN_FRAMEWORK_BYTES } from './constants';
+import { CORRUPT_DOWNLOAD_MESSAGE, UNPACK_FAILED_MESSAGE } from './integrity';
 import { installStudio, verifyBundle } from './install';
+
+// Lets a test make the bytes that land on disk differ from the bytes that were streamed to the
+// write stream, which is exactly the failure the on-disk hash exists to catch.
+const disk = vi.hoisted(() => ({ corrupt: false }));
+vi.mock('node:fs', async (importOriginal) => {
+  const real = await importOriginal<typeof import('node:fs')>();
+  return {
+    ...real,
+    createWriteStream: ((path: string, ...rest: unknown[]) => {
+      const inner = (real.createWriteStream as (...a: unknown[]) => import('node:fs').WriteStream)(path, ...rest);
+      if (!disk.corrupt) return inner;
+      return new Writable({
+        write(chunk: Buffer, _enc, done) {
+          const bad = Buffer.from(chunk);
+          bad[0] = bad[0]! ^ 0xff;
+          inner.write(bad, done);
+        },
+        final(done) {
+          inner.end(done);
+        },
+      });
+    }) as typeof real.createWriteStream,
+  };
+});
 
 let root: string;
 
 beforeEach(async () => {
+  disk.corrupt = false;
   root = await mkdtemp(join(tmpdir(), 'launcher-install-test-'));
 });
 
@@ -85,7 +112,7 @@ describe('installStudio', () => {
       installDir: root,
       fetchImpl: routed({ version: '1.2.3', sha256 }, { body: 'a corrupt zip' }),
     });
-    expect(result).toEqual({ ok: false, message: expect.stringMatching(/checksum/) });
+    expect(result).toEqual({ ok: false, message: expect.stringMatching(/corrupt/) });
   });
 
   it('refuses a short read when the server declared a length', async () => {
@@ -96,5 +123,53 @@ describe('installStudio', () => {
       fetchImpl: routed({ version: '1.2.3' }, { body: 'abc', headers: { 'content-length': '999' } }),
     });
     expect(result).toEqual({ ok: false, message: expect.stringMatching(/cut short/) });
+  });
+
+  it('rejects a file that differs on disk from a stream that matched, and deletes it', async () => {
+    const body = 'the real zip';
+    const sha256 = createHash('sha256').update(body).digest('hex');
+    const extract = vi.fn(async () => undefined);
+    disk.corrupt = true;
+    const result = await installStudio({
+      onProgress: () => undefined,
+      isRunning: async () => false,
+      installDir: root,
+      fetchImpl: routed({ version: '1.2.3', sha256 }, { body }),
+      extract,
+    });
+    expect(result).toEqual({ ok: false, message: CORRUPT_DOWNLOAD_MESSAGE });
+    expect(extract).not.toHaveBeenCalled();
+  });
+
+  it('accepts a file whose on-disk digest matches', async () => {
+    const body = 'the real zip';
+    const sha256 = createHash('sha256').update(body).digest('hex');
+    const extract = vi.fn(async () => Promise.reject(new Error('stop here')));
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const result = await installStudio({
+      onProgress: () => undefined,
+      isRunning: async () => false,
+      installDir: root,
+      fetchImpl: routed({ version: '1.2.3', sha256 }, { body }),
+      extract,
+    });
+    // Got past the checksum and into extraction.
+    expect(extract).toHaveBeenCalledOnce();
+    expect(result).toEqual({ ok: false, message: UNPACK_FAILED_MESSAGE });
+  });
+
+  it('shows a friendly message, not the ditto command line, when extraction fails', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const result = await installStudio({
+      onProgress: () => undefined,
+      isRunning: async () => false,
+      installDir: root,
+      fetchImpl: routed({ version: '1.2.3' }, { body: 'not a zip' }),
+      extract: async () => {
+        throw new Error('Command failed: ditto -xk /tmp/a.zip /tmp/extracted\nditto: Couldn\'t read pkzip signature');
+      },
+    });
+    expect(result).toEqual({ ok: false, message: UNPACK_FAILED_MESSAGE });
+    expect(log).toHaveBeenCalled();
   });
 });

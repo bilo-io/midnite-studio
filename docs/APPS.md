@@ -402,6 +402,14 @@ link opens Agents on the Coder module, and `importRetiredAppData` copies a retir
 its host once. The placement map above still names the module-level owner (`cleaner`, `capture`, ...);
 `placementHosts` derives which host mounts it.
 
+**A link lands on the module, not just the host.** When the launcher opens a host bundle for a link that
+names a module or view, it runs `open -n <bundle> --args --midnite-link=<url>` (`bundles/open-command.ts`);
+the URL is its own rebuild of the link, module and view only. The host's main reads the switch from
+`process.argv` on a cold start and from the `second-instance` argv when already running
+(`registerSuiteMain`'s `argv` / `handleArgv`), and hands it to the renderer over `suiteLinkTake` /
+`suiteLinkOpen`. `SuiteAppShell` resolves it against its own nav (`landingView`): an unknown module or view
+changes nothing, and the host stays on its default view.
+
 ### How a host mounts its modules
 
 - **Main:** a host's `apps/<host>/main/host.ts` registers its modules through the runtime's

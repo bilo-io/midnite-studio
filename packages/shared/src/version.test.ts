@@ -182,9 +182,36 @@ describe('planReleaseTags', () => {
   });
 
   it('plans one scoped tag per bumped package on an independent patch', () => {
-    const previous = { '@midnite/studio-desktop': '0.3.0', '@midnite/studio-app': '0.3.1' };
-    const next = { '@midnite/studio-desktop': '0.3.1', '@midnite/studio-app': '0.3.1' };
+    const previous = { '@midnite/studio-desktop': '0.3.0', '@midnite/studio-app': '0.3.2' };
+    const next = { '@midnite/studio-desktop': '0.3.1', '@midnite/studio-app': '0.3.2' };
     expect(planReleaseTags(previous, next)).toEqual(['@midnite/studio-desktop@0.3.1']);
+  });
+
+  it('also plans the plain vX.Y.Z (last) when a patch lands every package on one version', () => {
+    // 0.0.5 -> 0.0.6 across the suite: the scoped tags match no `v*` trigger, so release.yml would
+    // never fire without the plain tag.
+    const previous = {
+      root: '0.0.5',
+      '@midnite/launcher': '0.0.5',
+      '@midnite/studio-desktop': '0.0.5',
+    };
+    const next = {
+      root: '0.0.6',
+      '@midnite/launcher': '0.0.6',
+      '@midnite/studio-desktop': '0.0.6',
+    };
+    expect(planReleaseTags(previous, next)).toEqual([
+      'root@0.0.6',
+      '@midnite/launcher@0.0.6',
+      '@midnite/studio-desktop@0.0.6',
+      'v0.0.6',
+    ]);
+  });
+
+  it('does not plan a plain tag when packages end up on different patches', () => {
+    const previous = { a: '0.0.5', b: '0.0.5' };
+    const next = { a: '0.0.6', b: '0.0.7' };
+    expect(planReleaseTags(previous, next)).toEqual(['a@0.0.6', 'b@0.0.7']);
   });
 
   it('returns an empty list when nothing changed', () => {

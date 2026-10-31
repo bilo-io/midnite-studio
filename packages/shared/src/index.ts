@@ -35,6 +35,7 @@ export * from './midnite-link';
 export * from './modules';
 export * from './studio-link';
 export * from './suite-apps';
+export * from './suite-link';
 export * from './suite-prefs';
 export * from './ipc';
 export * from './keybindings';

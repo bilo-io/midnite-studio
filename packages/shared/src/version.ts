@@ -210,6 +210,10 @@ export function bumpLevelFromCommits(commits: ConventionalCommit[]): BumpLevel {
  *   package moved to the new `X.Y.0` → a single repo tag `vX.Y.Z`.
  * - **independent patch** — MAJOR.MINOR unchanged, only some packages' patches
  *   bumped → a scoped tag `‹pkg›@X.Y.Z` per bumped package.
+ * - **lockstep patch** — as above, but every package lands on the same `X.Y.Z` → the
+ *   scoped tags plus a final plain `vX.Y.Z`, the only one `release.yml` (`v*`) fires on.
+ *   Push that one on its own, after the scoped ones: GitHub raises no tag-push events
+ *   when more than three tags arrive in a single push.
  *
  * These are the SOURCE tags in this (private) repo — never the namespaced
  * `midnite-studio/vX.Y.Z` tag `/midnite-release-complete` also cuts in the
@@ -248,7 +252,16 @@ export function planReleaseTags(
 
   if (lockstepBump) return [`v${target}`];
   // Independent patch → a scoped tag per bumped package.
-  return changedNext.map((entry) => `${entry.name}@${entry.version}`);
+  const scoped = changedNext.map((entry) => `${entry.name}@${entry.version}`);
+  // …and when every package nonetheless lands on ONE version (a lockstep patch, e.g. 0.0.5 → 0.0.6
+  // across the whole suite) the plain `vX.Y.Z` is cut as well, LAST: `release.yml` triggers on `v*`
+  // alone, and no scoped tag matches that glob, so without it the release never builds.
+  const nextVersions = Object.values(next);
+  const [only] = nextVersions;
+  if (only !== undefined && nextVersions.every((version) => version === only)) {
+    return [...scoped, `v${only}`];
+  }
+  return scoped;
 }
 
 /** Extract `X.Y.Z` from a `release/vX.Y.Z` branch name, or `null` if it isn't one. */

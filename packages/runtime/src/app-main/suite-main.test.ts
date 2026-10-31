@@ -99,3 +99,67 @@ describe('registerSuiteMain', () => {
     main.close();
   });
 });
+
+describe('registerSuiteMain: launcher link landing', () => {
+  const link = (qs: string) => `--midnite-link=midnite://open?${qs}`;
+  const setupWith = (win: SuiteMainWindow | null, argv: string[]) => {
+    const dir = mkdtempSync(join(tmpdir(), 'suite-main-'));
+    dirs.push(dir);
+    const handlers = new Map<string, (event: unknown, raw: unknown) => unknown>();
+    const main = registerSuiteMain({
+      ipcMain: { handle: (c, l) => void handlers.set(c, l), on: vi.fn() },
+      runtimeDirectory: dir,
+      getWindow: () => win,
+      warn: vi.fn(),
+      argv,
+    });
+    return { main, take: handlers.get(CHANNELS.suiteLinkTake)! };
+  };
+
+  it('hands a cold-start argv link to the renderer once', async () => {
+    const { main, take } = setupWith(null, ['electron', link('app=agents&module=coder&view=reviews')]);
+    expect(await take({}, undefined)).toEqual({ module: 'coder', view: 'reviews' });
+    expect(await take({}, undefined)).toBeNull();
+    main.close();
+  });
+
+  it('answers null when the argv has no link, or one that names nothing to land on', async () => {
+    const a = setupWith(null, ['electron']);
+    expect(await a.take({}, undefined)).toBeNull();
+    a.main.close();
+    const b = setupWith(null, ['electron', link('app=agents')]);
+    expect(await b.take({}, undefined)).toBeNull();
+    b.main.close();
+  });
+
+  it('parks a second-instance link until the renderer has mounted, then pushes', async () => {
+    const win = fakeWindow();
+    const { main, take } = setupWith(win, ['electron']);
+    main.handleArgv(['electron', link('app=agents&module=creator')]);
+    expect(win.webContents.send).not.toHaveBeenCalledWith(EVENT_CHANNELS.suiteLinkOpen, expect.anything());
+    expect(await take({}, undefined)).toEqual({ module: 'creator' });
+    main.handleArgv(['electron', link('app=agents&view=chats')]);
+    expect(win.webContents.send).toHaveBeenCalledWith(EVENT_CHANNELS.suiteLinkOpen, { view: 'chats' });
+    main.close();
+  });
+
+  it('ignores a second-instance argv that carries no valid link', async () => {
+    const win = fakeWindow();
+    const { main, take } = setupWith(win, ['electron']);
+    await take({}, undefined);
+    main.handleArgv(['electron', '--midnite-link=https://evil.example/', '--midnite-link=not a url']);
+    expect(win.webContents.send).not.toHaveBeenCalledWith(EVENT_CHANNELS.suiteLinkOpen, expect.anything());
+    main.close();
+  });
+
+  it('parks a link again when a new window is attached, until that renderer has taken', async () => {
+    const win = fakeWindow();
+    const { main, take } = setupWith(win, ['electron']);
+    await take({}, undefined);
+    main.attachWindow(win);
+    main.handleArgv(['electron', link('app=agents&module=coder')]);
+    expect(win.webContents.send).not.toHaveBeenCalledWith(EVENT_CHANNELS.suiteLinkOpen, expect.anything());
+    expect(await take({}, undefined)).toEqual({ module: 'coder' });
+    main.close();
+  });
+});

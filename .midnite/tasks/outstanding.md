@@ -842,9 +842,6 @@ The detector's discount for code spans and quotation marks is bypassable by wrap
 
 - **A pty host for the suite apps (Phase 123 H/I).** Terminal, companion and FAB/Loops exist as features but no suite app mounts them: the broker script, `node-pty`, confinement and the agent probe live in `packages/desktop`, and an app can only attach to Studio's broker as a guest, which cannot create a session. `panels` is declared in each manifest and not rendered, and `Ctrl+``, `Mod+l` and `Mod+l` then `L` have no Playwright coverage outside Studio. See `docs/APPS.md` "The shell".
 
-- **A retired-id link lands on the host, not the module (Phase 124).** `midnite://open?app=coder&view=reviews` opens the Agents bundle, but the launcher opens a bundle rather than handing it the link, so Agents starts on its own view instead of the Coder module. Forwarding the link (or `&module=`) to a host renderer is the fix.
-
 ## Phase 76 Theme A — before Electron 46
 
 - **The sync `safeStorage` calls must become async before the Electron 46 bump.** Electron 45 deprecates `safeStorage.encryptString` / `decryptString` / `isEncryptionAvailable`, and 46 removes them in favour of the async forms. Every vault (`runtime/src/vault/`, the forge, database and secrets namespaces) still calls the sync ones. The move touches each vault's read and write path, so it is its own PR, not part of the 45 bump.
-- **`release.yml`'s electron-freshness comment is stale.** It still says Studio's pin "stays a warning until Phase 76 Theme A's bump lands", but `--strict` now gates both pins. The comment was left alone while `ci/release-dry-run` was editing that file; fix the wording once that PR lands.

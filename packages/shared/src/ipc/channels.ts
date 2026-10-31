@@ -1742,6 +1742,9 @@ export const CHANNELS = {
   suitePrefsGet: 'mstudio:suite-prefs:get',
   /** Replace one group (`{ key, value }`, validated against that key's schema). */
   suitePrefsSet: 'mstudio:suite-prefs:set',
+  // --- suite-link (retired-link landing) --------------------------------------
+  /** The landing a launcher link asked for, once (`SuiteLinkLanding | null`): a cold start's renderer takes what arrived before it mounted. */
+  suiteLinkTake: 'mstudio:suite-link:take',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */
@@ -1996,6 +1999,8 @@ export const EVENT_CHANNELS = {
    * `fs.watch` (debounced 100 ms). Carries a SuitePrefsSnapshot (Phase 123 Theme L.1).
    */
   suitePrefsChanged: 'mstudio:suite-prefs:changed',
+  /** A launcher link reached an already-running host (its `second-instance` argv). Carries a SuiteLinkLanding. */
+  suiteLinkOpen: 'mstudio:suite-link:open',
 } as const;
 
 /**
