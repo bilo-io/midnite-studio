@@ -440,7 +440,7 @@ function OptionEditor({
           <OptionText
             label="Default skill"
             value={option.defaultSkill ?? ''}
-            placeholder="Optional — e.g. /pr-review"
+            placeholder="Optional — e.g. /midnite-pr-review"
             onChange={(defaultSkill) => onPatch({ defaultSkill })}
           />
           <label className="relative flex cursor-pointer items-center justify-between gap-2 text-[11px] text-muted-foreground hover:text-foreground">

@@ -99,7 +99,7 @@ import { useFileEditorStore } from './file-editor-store';
 import { cycleBrowserLayout, type BrowserLayout } from '@midnite/studio-feature-browser/renderer/store';
 import { bridge } from '../services/bridge';
 import { adoptRenamedPersistKey } from './persist-rename';
-import { renameLegacySkillsIn } from './migrate-skill-renames';
+import { migratePrSkills, renameLegacySkillsIn } from './migrate-skill-renames';
 import { migrateLoopSwitch } from './migrate-loop-switch';
 import { mergeCustomLoops, migrateCustomLoops, omitKey } from './migrate-custom-loops';
 import { migrateAppsToWebApps } from './migrate-web-apps';
@@ -3510,7 +3510,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 37,
+      version: 38,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         chatsWidthMode: state.chatsWidthMode,
@@ -3783,6 +3783,9 @@ export const useUiStore = create<UiState>()(
        * v36 → v37: seed `chatsWidthMode = 'default'` — the Chats thread's width
        * toggle. `??=` so a test profile seeded straight into the persist key
        * keeps the mode it chose.
+       * v37 → v38: rewrite persisted `/pr-review` and `/pr-feedback` (agent skills,
+       * loop modifier skills, custom loops, card and column skills) to the
+       * `/midnite-pr-*` skills — see `store/migrate-skill-renames.ts`.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -3977,6 +3980,7 @@ export const useUiStore = create<UiState>()(
         if (version < 35) migrateLoopSwitch(state);
         if (version < 36) migrateCustomLoops(state);
         if (version < 37) state.chatsWidthMode ??= DEFAULT_CHAT_WIDTH_MODE;
+        if (version < 38) migratePrSkills(state);
         return state as PersistedUi;
       },
       /**

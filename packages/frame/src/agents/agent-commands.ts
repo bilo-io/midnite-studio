@@ -1,13 +1,16 @@
 import type { IconType } from 'react-icons';
 import {
+  LuBadgeCheck,
   LuBug,
   LuChartLine,
   LuCheckCheck,
   LuClipboardCheck,
   LuFilePen,
+  LuFileText,
   LuGauge,
   LuGitBranch,
   LuGitPullRequest,
+  LuGitPullRequestCreate,
   LuInfinity,
   LuLightbulb,
   LuListChecks,
@@ -177,6 +180,13 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
     hint: 'Fan work out across parallel agents on several phases at once.',
   },
   {
+    id: 'prCreate',
+    label: 'Create PR',
+    icon: LuGitPullRequestCreate,
+    category: 'tasks',
+    hint: 'Open a draft PR for this branch with a house-template body.',
+  },
+  {
     id: 'prReview',
     label: 'PR Review',
     icon: LuScanEye,
@@ -196,6 +206,20 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
     icon: LuFileSearch,
     category: 'reviews',
     hint: 'Audit a pull request against its request, plan and issue.',
+  },
+  {
+    id: 'checkYourself',
+    label: 'Check Yourself',
+    icon: LuBadgeCheck,
+    category: 'reviews',
+    hint: 'Self-review your latest PR and fix the findings before asking anyone.',
+  },
+  {
+    id: 'prDescription',
+    label: 'PR Description',
+    icon: LuFileText,
+    category: 'reviews',
+    hint: 'Write or rewrite a PR body in the house template.',
   },
   {
     id: 'triage',
@@ -314,9 +338,12 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
   refine: '/midnite-refine',
   verifyPhase: '/midnite-verify',
   execSwarm: '/midnite-swarm',
-  prReview: '/pr-review',
-  prFeedback: '/pr-feedback',
+  prCreate: '/midnite-pr-create',
+  prReview: '/midnite-pr-review',
+  prFeedback: '/midnite-pr-feedback',
   prAudit: '/midnite-pr-audit',
+  checkYourself: '/midnite-check-yourself',
+  prDescription: '/midnite-pr-description',
   triage: '/midnite-triage',
   releasePrep: '/midnite-release-prep',
   releaseComplete: '/midnite-release-complete',
@@ -325,12 +352,12 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
   // Guard: security sweeps — secret scanning, dep audit, vuln review. No trailing
   // skill: the modifiers themselves name what runs (same pattern as loopPatrol).
   loopGuard: '/loop /midnite-address-issue',
-  // Bare on purpose: the FAB's Patrol tab appends `/pr-review`, `/pr-feedback`
+  // Bare on purpose: the FAB's Patrol tab appends `/midnite-pr-review`, `/midnite-pr-feedback`
   // or `/midnite-triage` from its own checkboxes, so a skill named here would
   // be a fifth one every run carried whether or not a box was ticked.
   loopPatrol: '/loop',
-  loopPrReview: '/loop /pr-review',
-  loopPrFeedback: '/loop /pr-feedback',
+  loopPrReview: '/loop /midnite-pr-review',
+  loopPrFeedback: '/loop /midnite-pr-feedback',
   loopExecBacklog: '/loop /midnite-create',
   loopExecAdhoc: '/loop /midnite-create-adhoc',
   loopAddressIssue: '/loop /midnite-address-issue',

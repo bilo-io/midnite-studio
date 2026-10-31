@@ -469,6 +469,8 @@ One phase per PR where practical. Work the checklist in `.midnite/tasks/phases/p
 phase doc's own `## Headlines` paragraph for each theme that landed, and update the phase's row in
 the table in `.midnite/tasks/_INDEX.md` (the row only — no prose goes in the index).
 
+- **The PR skill family (`midnite-pr-review`, `-pr-feedback`, `-check-yourself`, `-pr-create`, `-pr-description`, `-pr-description-image`) is the repo's own PR workflow, and the midnite menu's review and PR entries invoke it.** Self-review runs through `midnite-check-yourself` before any PR leaves draft.
+
 ## A PR is ready for review only after a self-review
 
 A PR opens as a **draft** and stays one until at least one self-review has run on its current diff

@@ -307,7 +307,20 @@ describe('navVisibility (sidenav feature flags)', () => {
       execAdhoc: '/midnite-create-adhoc',
       execSwarm: '/midnite-swarm',
       loopBrainstorm: '/loop /midnite-ideate',
-      prReview: '/pr-review',
+      prReview: '/midnite-pr-review',
+    });
+  });
+
+  it('v37 → v38 migration points saved PR prompts at the midnite skills', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const migrated = migrate?.(
+      { agentSkills: { prReview: '/pr-review', loopPrFeedback: '/loop /pr-feedback', prAudit: '/midnite-pr-audit' } },
+      37,
+    ) as { agentSkills: Record<string, string> };
+    expect(migrated.agentSkills).toEqual({
+      prReview: '/midnite-pr-review',
+      loopPrFeedback: '/loop /midnite-pr-feedback',
+      prAudit: '/midnite-pr-audit',
     });
   });
 
@@ -1752,7 +1765,7 @@ describe('v31 -> v32 migration (Phase 109 Theme B)', () => {
     expect(state.companionNames).toEqual(['Nova', 'Companion']);
     expect(state.companionVoices).toEqual({ system: 'urn:voice:1', local: 'bf_emma' });
     expect(state.voiceConversationTrigger).toBe('wake');
-    expect(useUiStore.persist.getOptions().version).toBe(37);
+    expect(useUiStore.persist.getOptions().version).toBe(38);
   });
 
   it('migrates a v32 payload to v33', () => {
@@ -1785,7 +1798,7 @@ describe('v32 -> v33 migration (Phase 111 Theme A)', () => {
     const state = useUiStore.getState();
     expect(state.primaryAgent).toBe('codex');
     expect(state.primaryModelByAgent).toEqual({});
-    expect(useUiStore.persist.getOptions().version).toBe(37);
+    expect(useUiStore.persist.getOptions().version).toBe(38);
   });
 
   it('leaves a v34 payload alone', () => {

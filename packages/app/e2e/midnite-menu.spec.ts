@@ -166,10 +166,18 @@ test('the top level is the five groups, each opening its own verbs', async ({ pa
     'Refine Plan',
     'Verify Phase',
     'Swarm',
+    'Create PR',
   ]);
 
   await topMenu.getByRole('menuitem', { name: 'Reviews', exact: true }).hover();
-  await expect.poll(() => rowNames(submenu)).toEqual(['PR Review', 'PR Feedback', 'PR Audit', 'Triage']);
+  await expect.poll(() => rowNames(submenu)).toEqual([
+    'PR Review',
+    'PR Feedback',
+    'PR Audit',
+    'Check Yourself',
+    'PR Description',
+    'Triage',
+  ]);
 
   await topMenu.getByRole('menuitem', { name: 'Releases', exact: true }).hover();
   await expect.poll(() => rowNames(submenu)).toEqual(['Release Prep', 'Release Complete']);

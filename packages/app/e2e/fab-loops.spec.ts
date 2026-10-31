@@ -271,7 +271,7 @@ test.describe('FAB loop console', () => {
       'When reviewing PRs, if an open PR carries the `routine` label and the review finds no critical issues, approve it with a body of just "LGTM" or "🚀" (otherwise leave findings as review comments and do not approve). Do not restrict reviews to `routine` PRs — review all PRs targeted by the rest of the prompt.';
     // Tasks, then scope, then the standing rules, then the window, extras last.
     expect(run?.['composedPrompt']).toBe(
-      '/loop /pr-review /pr-feedback Look only at PRs that are ready for review — skip drafts. ' +
+      '/loop /midnite-pr-review /midnite-pr-feedback Look only at PRs that are ready for review — skip drafts. ' +
         `${ROUTINE_PR_FRAGMENT} ` +
         'Do every piece of work in its own git worktree — never edit the primary checkout. ' +
         'Never stop to ask: keep advancing and always take the recommended option. ' +
