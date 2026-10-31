@@ -14,7 +14,7 @@ export function createSuiteBridge(
   argv: readonly string[],
   /** `process.platform`. */
   platform: string,
-): Pick<MidniteStudioBridge, 'windowChrome' | 'suitePrefs'> {
+): Pick<MidniteStudioBridge, 'windowChrome' | 'suitePrefs' | 'suiteLink'> {
   const { call, subscribe } = createBridgeSlice(ipc);
   return {
     windowChrome: createWindowChromeBridge(ipc, argv, platform as DesktopPlatform),
@@ -22,6 +22,10 @@ export function createSuiteBridge(
       get: () => call(CHANNELS.suitePrefsGet),
       set: (req) => call(CHANNELS.suitePrefsSet, req),
       onChanged: (handler) => subscribe(EVENT_CHANNELS.suitePrefsChanged, handler),
+    },
+    suiteLink: {
+      take: () => call(CHANNELS.suiteLinkTake),
+      onOpen: (handler) => subscribe(EVENT_CHANNELS.suiteLinkOpen, handler),
     },
   };
 }

@@ -27,6 +27,7 @@ import type { AgentLimitTrip } from '../agent-limits';
 import type { ToolApprovalHookInfo, ToolApprovalRequest, ToolApprovalResolved } from '../tool-policy';
 import type { CompanionDigest, CompanionSnapshot } from '../companion';
 import type { CommandId } from '../keybindings';
+import type { SuiteLinkLanding } from '../suite-link';
 import type { SuitePrefsSetRequest, SuitePrefsSetResponse, SuitePrefsSnapshot } from '../suite-prefs';
 import type { SongChat } from '../media-music-chat';
 import type { ModelLibraryMigrateResult, ModelLibraryNode } from '../media-model-library';
@@ -1028,6 +1029,16 @@ export type MidniteStudioBridge = {
     get: () => Promise<SuitePrefsSnapshot>;
     set: (req: SuitePrefsSetRequest) => Promise<SuitePrefsSetResponse>;
     onChanged: (handler: (snapshot: SuitePrefsSnapshot) => void) => Unsubscribe;
+  };
+
+  /**
+   * Where a launcher link asked this host to land (module and/or view). `take` hands over, once, what
+   * arrived before the renderer mounted; `onOpen` fires for a link that reaches the running host.
+   * Optional: only the suite hosts carry it (`registerSuiteMain`); Studio has its own link path.
+   */
+  suiteLink?: {
+    take: () => Promise<SuiteLinkLanding | null>;
+    onOpen: (handler: (landing: SuiteLinkLanding) => void) => Unsubscribe;
   };
 
   loopRuns: {

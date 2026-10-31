@@ -112,6 +112,22 @@ export function midniteOpenLink(target: MidniteLinkInput): string {
   return `${MIDNITE_PROTOCOL}//open?${params.toString()}`;
 }
 
+/**
+ * The command-line switch the launcher opens a host bundle with when a link names a module or view
+ * (`open -n <bundle> --args --midnite-link=<url>`). The value is a `midnite://open` link the launcher
+ * rebuilt from its own parse, never the string it was sent. A host reads it from `process.argv` on a
+ * cold start and from the `second-instance` argv when it is already running.
+ */
+export const MIDNITE_LINK_ARG = '--midnite-link=' as const;
+
+/** `--midnite-link=<url>` for `target`, or `null` when it names neither a module nor a view (nothing to land on). */
+export function midniteLinkArg(target: MidniteLinkInput): string | null {
+  if (target.module === undefined && target.view === undefined) return null;
+  // Only the landing travels: a ref or run never rides a bundle's argv (the router sends those to Studio).
+  const { app, module, view } = target;
+  return `${MIDNITE_LINK_ARG}${midniteOpenLink({ app, ...(module !== undefined ? { module } : {}), ...(view !== undefined ? { view } : {}) })}`;
+}
+
 /** base64url, at most 4 KB — a ref is a few dozen bytes; anything bigger is not one. */
 const REF_PARAM = /^[A-Za-z0-9_-]{1,4096}$/;
 /** base64url, at most 2 KB — `{ issueUrl, skill }` is a few hundred bytes at most. */
