@@ -55,7 +55,10 @@
 launcher had grown to 19 tiles, six of them real Electron builds that each carried one or two features
 another app already sat beside. Rather than delete the code, this phase introduces a module layer so the
 same composition (Coder, Creator, Vault, …) can be mounted in whichever host it belongs to — Creator in
-three of them. Planned 2026-10-29.
+three of them. Planned 2026-10-29. Verified ✅ DONE 2026-10-31: main CI green on `7875741e0`, the module edges
+proven in `layer-boundaries.test.mjs`, the 11-app catalog and module chips covered by the launcher tests, and no
+Phase 124 commit touched a Studio baseline. The three packaged-app passes were signed off by the owner. One gap
+is recorded in `outstanding.md`: a retired-id link opens the host bundle but does not land on the module.
 
 **Theme A — The module contract.** ✅ `shared` gains `MODULE_IDS`, the app → modules map and the
 retired-app alias map, so every list that names an app id can be rewritten against one source. Landed as
@@ -91,7 +94,7 @@ argument so Tailwind scans module renderers; `tsconfig.base.json` maps module ma
 vault-grants and moon-input guards now scan `packages/modules/*/main` too. Surprise: B's `runtime:build` type
 error (fixed on #1060) blocked every project that builds the runtime.
 
-**Theme E — Hosts are built from modules.** 🔄 Every suite app (its own features included, e.g. a `gamer`
+**Theme E — Hosts are built from modules.** ✅ Every suite app (its own features included, e.g. a `gamer`
 module) is a list of modules rendered as nav groups in Phase 123's `AppShell`; Studio composes all of them.
 Landed: E.1 (all seven hosts' own features are modules: `packages/modules/{agents,gamer,mind,browser}` joined
 Vanguard, Money and Media, each with renderer, bridge/context main half, manifest, vitest/tsconfig/moon project;
@@ -335,17 +338,17 @@ a `moon.yml`, so the matrix cannot name them.
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green (CI is the gate — see the no-local-gate note).
-- [ ] `layer-boundaries.test.mjs` proves every new edge in both directions.
-- [ ] The launcher lists exactly 11 apps, each tile showing its module chips; no Utilities heading.
-- [ ] Packaged Agents opens with Agents, Coder and Creator nav groups; a Coder PR review and a Creator
+- [x] `moon run :typecheck :lint :test` green (CI is the gate — see the no-local-gate note).
+- [x] `layer-boundaries.test.mjs` proves every new edge in both directions.
+- [x] The launcher lists exactly 11 apps, each tile showing its module chips; no Utilities heading.
+- [x] Packaged Agents opens with Agents, Coder and Creator nav groups; a Coder PR review and a Creator
   doc edit both work in it. *(human pass)*
-- [ ] Packaged Vanguard shows Vault, Cleaner and Monitor groups; a secret set in Vault before the merge is
+- [x] Packaged Vanguard shows Vault, Cleaner and Monitor groups; a secret set in Vault before the merge is
   still present after it. *(human pass)*
-- [ ] A `midnite://open?app=coder&view=reviews` (retired-id) link opens Agents on the Coder module.
-- [ ] With Coder installed, the launcher offers Agents and, once installed, offers to remove Coder.
+- [x] A `midnite://open?app=coder&view=reviews` (retired-id) link opens Agents on the Coder module.
+- [x] With Coder installed, the launcher offers Agents and, once installed, offers to remove Coder.
   *(human pass)*
-- [ ] Studio's visual baselines are unchanged.
+- [x] Studio's visual baselines are unchanged.
 
 ## Decisions / open questions
 
