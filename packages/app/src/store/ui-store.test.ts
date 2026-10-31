@@ -307,7 +307,7 @@ describe('navVisibility (sidenav feature flags)', () => {
       execAdhoc: '/midnite-create-adhoc',
       execSwarm: '/midnite-swarm',
       loopBrainstorm: '/loop /midnite-ideate',
-      prReview: '/pr-review',
+      prReview: '/midnite-pr-review',
     });
   });
 
