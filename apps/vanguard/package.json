@@ -1,6 +1,6 @@
 {
   "name": "@midnite/app-vanguard",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "description": "Midnite Vanguard — antivirus and agentic self-defense as its own app: the findings ledger, the sensors that fill it and the response to each.",
   "type": "module",

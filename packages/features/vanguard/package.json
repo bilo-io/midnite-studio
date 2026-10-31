@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-vanguard",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "description": "The vanguard feature (Phase 120): the Vanguard view, the findings ledger handlers and the sensor host as one package.",
   "sideEffects": false,

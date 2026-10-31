@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-loops",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "description": "The FAB, the quick-access menu and the Loops panel as a feature (Phase 123 Theme G), behind a LoopsHost port. Placed in the frame: every midnite app composes it.",
   "sideEffects": false,
