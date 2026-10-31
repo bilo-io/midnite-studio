@@ -61,7 +61,7 @@ export const LOOP_GROUPS: readonly { id: LoopGroup; label: string }[] = [
  * `promptFragment` is appended verbatim to the composed prompt when it is on,
  * and it is one of two things. Usually a complete imperative sentence — a
  * sentence rather than a flag, so the agent reads it the way a human
- * instruction reads. Sometimes a bare skill invocation (`/pr-review`), for the
+ * instruction reads. Sometimes a bare skill invocation (`/midnite-pr-review`), for the
  * loops whose *job* is the checkbox: Patrol's base is a bare `/loop`, and its
  * boxes are what say which forge skills that loop runs.
  */
@@ -730,7 +730,7 @@ export const AUTONOMY_CHOICE: LoopChoice = {
  * A *base* prompt is indirected through `agentCommandId`, so Settings ▸ Agent
  * can repoint it. A modifier's skill is repointed in the composer itself: every
  * option with a `skillTemplate` has a skill field, and a skill picked there
- * (say `/ekko-pr-review` for a checkout that has no `/pr-review`) is swapped
+ * (say `/ekko-pr-review` for a checkout that has no `/midnite-pr-review`) is swapped
  * into the fragment by {@link loopModifierFragment}.
  */
 /**
@@ -1037,10 +1037,10 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
         id: 'pr-review',
         label: 'Review PRs',
         description:
-          'Reviews open pull requests (with /pr-review by default).',
-        promptFragment: '/pr-review',
+          'Reviews open pull requests (with /midnite-pr-review by default).',
+        promptFragment: '/midnite-pr-review',
         skillTemplate: LOOP_SKILL_SLOT,
-        defaultSkill: '/pr-review',
+        defaultSkill: '/midnite-pr-review',
         group: 'tasks',
         control: 'checkbox',
         providesTask: true,
@@ -1052,10 +1052,10 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
         id: 'pr-feedback',
         label: 'Reply to PRs',
         description:
-          'Replies to review feedback on your open pull requests (with /pr-feedback by default).',
-        promptFragment: '/pr-feedback',
+          'Replies to review feedback on your open pull requests (with /midnite-pr-feedback by default).',
+        promptFragment: '/midnite-pr-feedback',
         skillTemplate: LOOP_SKILL_SLOT,
-        defaultSkill: '/pr-feedback',
+        defaultSkill: '/midnite-pr-feedback',
         group: 'tasks',
         control: 'checkbox',
         providesTask: true,

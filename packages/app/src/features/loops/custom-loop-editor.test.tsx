@@ -121,13 +121,13 @@ describe('custom loop composer', () => {
     fireEvent.change(within(option).getByLabelText('Option label'), { target: { value: 'Review PRs' } });
     fireEvent.change(within(option).getByLabelText('Tooltip'), { target: { value: 'Reviews open PRs' } });
     fireEvent.change(within(option).getByLabelText('Prompt fragment'), { target: { value: 'Review open PRs.' } });
-    fireEvent.change(within(option).getByLabelText('Default skill'), { target: { value: '/pr-review' } });
+    fireEvent.change(within(option).getByLabelText('Default skill'), { target: { value: '/midnite-pr-review' } });
     fireEvent.click(within(option).getByRole('switch'));
     expect(ownOptions()[0]).toMatchObject({
       label: 'Review PRs',
       description: 'Reviews open PRs',
       promptFragment: 'Review open PRs.',
-      defaultSkill: '/pr-review',
+      defaultSkill: '/midnite-pr-review',
       defaultOn: true,
     });
 

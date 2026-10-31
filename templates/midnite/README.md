@@ -41,6 +41,11 @@ whatever GitHub org or repo the user names and assumes nothing about the one it 
   is true of an arbitrary target repo, and a skill that assumes it would fail (or worse, half-work)
   the first time someone actually ran it somewhere else.
 
+Also excluded, for the same test: the PR family (`midnite-pr-review`, `-pr-feedback`,
+`-check-yourself`, `-pr-create`, `-pr-description`, `-pr-description-image`) and `midnite-pr-audit`
+and the sitrep family. They name this repo's slug, its `bilo-io` auth, its CI caps and its
+conventions, none of which hold in an arbitrary target repo.
+
 If a future onboarding pass wants to add an eleventh skill, ask whether it holds true of *any* target
 repo or only of this one — that's the test these three failed (and the test `midnite-swarm` and
 `midnite-retro` passed).
