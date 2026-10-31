@@ -6,6 +6,9 @@ describe('midniteLinkFromArgv', () => {
   it('reads the value of --midnite-link=', () => {
     expect(midniteLinkFromArgv(['x', '--midnite-link=midnite://open?app=agents'])).toBe('midnite://open?app=agents');
   });
+  it('takes the last switch, so a newer link beats a stale one', () => {
+    expect(midniteLinkFromArgv(['--midnite-link=midnite://open?app=agents&view=a', '--midnite-link=midnite://open?app=agents&view=b'])).toBe('midnite://open?app=agents&view=b');
+  });
   it('is undefined without the switch, and does not treat a bare link as one', () => {
     expect(midniteLinkFromArgv(['x', 'midnite://open?app=agents'])).toBeUndefined();
   });

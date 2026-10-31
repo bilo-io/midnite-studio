@@ -151,4 +151,15 @@ describe('registerSuiteMain: launcher link landing', () => {
     expect(win.webContents.send).not.toHaveBeenCalledWith(EVENT_CHANNELS.suiteLinkOpen, expect.anything());
     main.close();
   });
+
+  it('parks a link again when a new window is attached, until that renderer has taken', async () => {
+    const win = fakeWindow();
+    const { main, take } = setupWith(win, ['electron']);
+    await take({}, undefined);
+    main.attachWindow(win);
+    main.handleArgv(['electron', link('app=agents&module=coder')]);
+    expect(win.webContents.send).not.toHaveBeenCalledWith(EVENT_CHANNELS.suiteLinkOpen, expect.anything());
+    expect(await take({}, undefined)).toEqual({ module: 'coder' });
+    main.close();
+  });
 });

@@ -105,7 +105,11 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   app.on('second-instance', (_event, argv) => {
     // A launcher link (`--midnite-link=…`) tells the running host which module and view to land on.
     suite?.handleArgv(argv);
-    if (win === null) return;
+    if (win === null) {
+      // Window closed but the app still running (macOS): a link brings it back, as the Dock icon does.
+      if (suite !== null) openWindow();
+      return;
+    }
     if (win.isMinimized()) win.restore();
     win.focus();
   });

@@ -1,12 +1,12 @@
-import { MIDNITE_LINK_ARG, parseMidniteLink, type SuiteLinkLanding } from '@midnite/studio-shared';
+import { MIDNITE_LINK_ARG, parseMidniteLink, SuiteLinkLandingSchema, type SuiteLinkLanding } from '@midnite/studio-shared';
 
 /**
- * The raw `--midnite-link=<url>` value on an argv (the launcher's `open -n <bundle> --args …`), or
+ * The raw `--midnite-link=<url>` value on an argv (the last switch wins, so a newer link beats a stale one) (the launcher's `open -n <bundle> --args …`), or
  * `undefined`. Only the switch is read: no other argument is ever treated as a link, and the value is
  * only ever parsed, never executed or opened.
  */
 export function midniteLinkFromArgv(argv: readonly string[]): string | undefined {
-  const arg = argv.find((a) => a.startsWith(MIDNITE_LINK_ARG));
+  const arg = [...argv].reverse().find((a) => a.startsWith(MIDNITE_LINK_ARG));
   return arg === undefined ? undefined : arg.slice(MIDNITE_LINK_ARG.length);
 }
 
@@ -21,7 +21,10 @@ export function landingFromLink(raw: string | undefined): SuiteLinkLanding | nul
   const landing: SuiteLinkLanding = {};
   if (target.module !== undefined) landing.module = target.module;
   if (target.view !== undefined) landing.view = target.view;
-  return landing.module === undefined && landing.view === undefined ? null : landing;
+  if (landing.module === undefined && landing.view === undefined) return null;
+  // The wire shape, checked at the seam rather than trusted.
+  const checked = SuiteLinkLandingSchema.safeParse(landing);
+  return checked.success ? checked.data : null;
 }
 
 /** Both steps: the landing an argv asks for, or `null`. */

@@ -69,13 +69,14 @@ if (smoke) app.dock?.hide();
 // `stream` lets a recording's player seek.
 protocol.registerSchemesAsPrivileged([{ scheme: MSTUDIO_FILE_SCHEME, privileges: { stream: true, supportFetchAPI: true } }]);
 app.setPath('userData', mindUserData(app.getPath('appData'), process.env[USER_DATA_ENV]));
-// Phase 124 Theme G.4: take over what the apps merged into this one left behind, once (never in a throwaway run).
-if (process.env[USER_DATA_ENV] === undefined || process.env[USER_DATA_ENV] === '') importRetiredAppData({ appData: app.getPath('appData'), host: 'mind' });
 
 // A smoke run is one-shot and must not collide with a real Mind's lock.
 if (!smoke && !app.requestSingleInstanceLock()) {
   app.quit();
 } else {
+  // Phase 124 Theme G.4: take over what the apps merged into this one left behind, once (never in a throwaway run).
+  // After the lock: a launcher link's `open -n` instance quits at the lock and must not run it beside the live host.
+  if (process.env[USER_DATA_ENV] === undefined || process.env[USER_DATA_ENV] === '') importRetiredAppData({ appData: app.getPath('appData'), host: 'mind' });
   app.on('second-instance', (_event, argv) => {
     // A launcher link (`--midnite-link=…`) tells the running host which module and view to land on.
     suite?.handleArgv(argv);

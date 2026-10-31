@@ -131,19 +131,23 @@ export function SuiteAppShell({
   // that started it (taken once on mount) and any that reach it running (pushed). Unknown ids change nothing.
   const navigateRef = useRef(navigate);
   navigateRef.current = navigate;
+  const navRef = useRef(nav);
+  navRef.current = nav;
   useEffect(() => {
     const link = bridge()?.suiteLink;
     if (link === undefined) return undefined;
     const land = (landing: { module?: string | undefined; view?: string | undefined }) => {
-      const target = landingView(nav, landing);
+      const target = landingView(navRef.current, landing);
       if (target !== undefined) navigateRef.current(target);
     };
     const off = link.onOpen(land);
     void link.take().then((landing) => {
       if (landing !== null) land(landing);
     }, () => undefined);
+    // `take` is applied even if this run was cleaned up (a StrictMode remount): it hands over only once, and
+    // the refs always point at the live nav and navigate.
     return off;
-  }, [nav]);
+  }, []);
 
   // `Mod+,` opens Settings (`view.settings`) in every suite app; only that command is this runtime's.
   const runtime = useMemo<CommandRuntime>(

@@ -109,7 +109,11 @@ export function registerSuiteMain(options: SuiteMainOptions): SuiteMain {
 
   return {
     service,
-    attachWindow: (win) => attachWindowChrome(win),
+    attachWindow: (win) => {
+      // A new window is a new renderer: a link must wait for its `take` again.
+      rendererReady = false;
+      attachWindowChrome(win);
+    },
     handleArgv,
     close: () => service.close(),
   };
