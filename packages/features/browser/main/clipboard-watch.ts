@@ -27,7 +27,8 @@ export const PAGE_INTERACTION_WINDOW_MS = 5000;
 export type ClipboardHit = { tabId: string; origin: string; match: ClickFixMatch; preview: string };
 
 export type ClipboardWatchDeps = {
-  readText(): string;
+  /** Electron 44+'s main-process `clipboard.readText()` is a promise. */
+  readText(): Promise<string> | string;
   /** Whether to look at all: the setting is on and a Browser window is focused. */
   isActive(): boolean;
   /** The tab the user interacted with within the window, with its page origin; else `null`. */
@@ -37,7 +38,7 @@ export type ClipboardWatchDeps = {
   clearInterval?: (handle: unknown) => void;
 };
 
-export type ClipboardWatch = { start(): void; stop(): void; tick(): void };
+export type ClipboardWatch = { start(): void; stop(): void; tick(): Promise<void> };
 
 export function hashClipboardText(text: string): string {
   return createHash('sha256').update(text).digest('hex');
@@ -55,16 +56,21 @@ export function createClipboardWatch(deps: ClipboardWatchDeps): ClipboardWatch {
     });
   const cancel = deps.clearInterval ?? ((h) => clearInterval(h as ReturnType<typeof setInterval>));
 
-  const tick = (): void => {
+  let reading = false;
+  const tick = async (): Promise<void> => {
     if (!deps.isActive()) {
       lastHash = null;
       return;
     }
+    if (reading) return;
     let text: string;
+    reading = true;
     try {
-      text = deps.readText();
+      text = await deps.readText();
     } catch {
       return;
+    } finally {
+      reading = false;
     }
     const hash = hashClipboardText(text);
     const previous = lastHash;
@@ -80,7 +86,7 @@ export function createClipboardWatch(deps: ClipboardWatchDeps): ClipboardWatch {
     tick,
     start() {
       if (handle !== null) return;
-      handle = every(tick, CLIPBOARD_POLL_MS);
+      handle = every(() => void tick(), CLIPBOARD_POLL_MS);
     },
     stop() {
       if (handle === null) return;

@@ -21,11 +21,12 @@ export function registerClipboardHandlers(): void {
   handle(
     CHANNELS.clipboardWriteText,
     schemas.ClipboardWriteTextRequest,
-    (req) => {
+    async (req) => {
       try {
-        // Synchronous, which is why the schema caps the length: this call
-        // blocks the main process, and a multi-megabyte write is a stalled UI.
-        clipboard.writeText(req.text);
+        // The schema caps the length: a multi-megabyte write is a stalled pasteboard.
+        // Electron 44+ made the main-process clipboard promise-based, so a refusal
+        // arrives as a rejection — awaited here so the button reports it.
+        await clipboard.writeText(req.text);
         return { ok: true };
       } catch (error) {
         // A clipboard the OS refuses (a locked session, a headless CI run) is

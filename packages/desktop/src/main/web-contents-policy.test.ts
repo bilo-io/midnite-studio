@@ -31,7 +31,7 @@ describe('applyAppWebContentsPolicy', () => {
   });
 
   it('ignores a WebContentsView on another partition even though Electron reports it as a window', () => {
-    // Electron 42: a browser tab's `WebContentsView` contents report `getType() === 'window'`.
+    // Electron 42+ (re-checked on 45): a browser tab's `WebContentsView` contents report `getType() === 'window'`.
     const open = vi.fn();
     const { wc, listeners, navigate } = fakeContents('window', { name: 'persist:browser' });
     expect(applyAppWebContentsPolicy(wc, APP_SESSION, null, open)).toBe(false);

@@ -45,7 +45,7 @@ const clipboardExecutor = createClipboardExecutor({
   writeText: (text) => {
     const write = workflowsPorts().desktop?.writeClipboard;
     if (!write) throw new Error('This app has no clipboard.');
-    write(text);
+    return write(text);
   },
 });
 

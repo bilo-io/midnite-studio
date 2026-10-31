@@ -15,7 +15,7 @@ export type ReportElectron = {
   /** The diagnostics bundle's first line: which build this is. */
   bootLine: () => string;
   openExternal: (url: string) => Promise<void> | void;
-  writeClipboard: (text: string) => void;
+  writeClipboard: (text: string) => Promise<void> | void;
   revealPath: (path: string) => void;
 };
 

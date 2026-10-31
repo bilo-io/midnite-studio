@@ -553,7 +553,7 @@ export function createCaptureService(deps: CaptureServiceDeps): CaptureService {
       if (item.kind !== 'screenshot')
         return failure('Only a screenshot can be copied as an image.');
       try {
-        el.clipboard.writeImage(el.imageFromPng(await readFile(store.pathOf(item))));
+        await el.clipboard.writeImage(el.imageFromPng(await readFile(store.pathOf(item))));
         return ok();
       } catch (error) {
         return failure(message(error));

@@ -46,15 +46,20 @@ export type CaptureDisplay = {
   bounds?: { x: number; y: number; width: number; height: number };
 };
 
-/** The clipboard, as far as the history reads it — and the two writes a copy-back needs. */
+/**
+ * The clipboard, as far as the history reads it — and the two writes a copy-back needs. Every call is
+ * async because Electron 44+'s main-process `clipboard` is (`electronCaptureClipboard` adapts it).
+ */
 export type CaptureClipboard = {
-  availableFormats(): string[];
-  /** `clipboard.has(format)` — how a custom pasteboard type (the nspasteboard markers) is detected. */
-  has(format: string): boolean;
-  readText(): string;
-  readImage(): CaptureImage;
-  writeText(text: string): void;
-  writeImage(image: CaptureImage): void;
+  /** The clipboard's types: MIME types, and each raw pasteboard type by its bare name. */
+  availableFormats(): Promise<string[]>;
+  /** Whether a type is on the clipboard — how a custom pasteboard type (the nspasteboard markers) is detected. */
+  has(format: string): Promise<boolean>;
+  readText(): Promise<string>;
+  /** The clipboard's image; an empty one when there is none. */
+  readImage(): Promise<CaptureImage>;
+  writeText(text: string): Promise<void>;
+  writeImage(image: CaptureImage): Promise<void>;
 };
 
 export type CaptureGlobalShortcut = {

@@ -66,23 +66,23 @@ export function fakeClipboard(): FakeClipboard {
       clip.formats = formats ?? [...(text ? ['text/plain'] : []), ...(image ? ['image/png'] : [])];
       clip.markers = new Set(markers);
     },
-    availableFormats: () => {
+    availableFormats: async () => {
       clip.reads += 1;
       return [...clip.formats];
     },
-    has: (format) => clip.markers.has(format),
-    readText: () => {
+    has: async (format) => clip.markers.has(format),
+    readText: async () => {
       clip.reads += 1;
       return clip.text;
     },
-    readImage: () => {
+    readImage: async () => {
       clip.reads += 1;
       return clip.image;
     },
-    writeText: (text) => {
+    writeText: async (text) => {
       clip.written.push({ kind: 'text', text });
     },
-    writeImage: (image) => {
+    writeImage: async (image) => {
       clip.written.push({ kind: 'image', image });
     },
   };

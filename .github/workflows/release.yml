@@ -326,9 +326,9 @@ jobs:
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # Phase 117 Theme A: the Browser bundle cannot ship on an Electron major outside the supported
-      # window (no security backports). Strict judges the launcher's pin — the runtime a bundle runs
-      # on; Studio's own pin stays a warning until Phase 76 Theme A's bump lands — the same gate
-      # `app-browser:dist` runs, here in the job that packs the bundle.
+      # window (no security backports). Strict judges both pins (the launcher's, which a bundle runs
+      # on, and Studio's) against the three newest stable majors — the same gate `app-browser:dist`
+      # runs, here in the job that packs the bundle.
       - name: Chromium floor (Browser only, strict)
         id: floor
         if: ${{ matrix.app == 'browser' }}

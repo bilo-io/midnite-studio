@@ -498,7 +498,7 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
     if (!clipboardManager) {
       clipboardManager = createVaultClipboardManager(clipboard);
     }
-    const res = clipboardManager.copySecret(val, options);
+    const res = await clipboardManager.copySecret(val, options);
     await audit.log({ op: 'copy', namespace, id: key, app: 'vault', principal: 'user', result: 'ok' });
     return { ok: true, timeoutSeconds: res.timeoutSeconds };
   };

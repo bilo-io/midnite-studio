@@ -74,7 +74,7 @@ const alias = { '@midnite/studio-desktop/main': resolve(root, 'src/main/index.ts
 const common = {
   bundle: true,
   platform: 'node',
-  // Electron 42 runs Node 24.15 (Chromium M148).
+  // Electron 45 runs Node 24.22 (Chromium 156).
   target: 'node24',
   format: 'cjs',
   sourcemap: wantSourcemap,

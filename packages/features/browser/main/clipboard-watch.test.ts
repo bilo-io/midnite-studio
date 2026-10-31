@@ -19,11 +19,11 @@ function harness(overrides: Partial<ClipboardWatchDeps> = {}) {
 }
 
 describe('the ClickFix clipboard watch', () => {
-  it('raises the bar within one poll when a page interaction puts a pipe-to-shell line on the clipboard', () => {
+  it('raises the bar within one poll when a page interaction puts a pipe-to-shell line on the clipboard', async () => {
     const { state, onHit, watch } = harness();
-    watch.tick(); // baseline
+    await watch.tick(); // baseline
     state.clipboard = LURE;
-    watch.tick();
+    await watch.tick();
     expect(onHit).toHaveBeenCalledWith({
       tabId: 't1',
       origin: 'https://captcha.example',
@@ -32,47 +32,47 @@ describe('the ClickFix clipboard watch', () => {
     });
   });
 
-  it('never alerts on the first read: a change made while unfocused happened elsewhere', () => {
+  it('never alerts on the first read: a change made while unfocused happened elsewhere', async () => {
     const { state, onHit, watch } = harness();
     state.clipboard = LURE;
-    watch.tick();
+    await watch.tick();
     expect(onHit).not.toHaveBeenCalled();
   });
 
-  it('does not read the clipboard at all while no Browser window is focused', () => {
+  it('does not read the clipboard at all while no Browser window is focused', async () => {
     const { state, reads, onHit, watch } = harness();
     state.active = false;
-    watch.tick();
+    await watch.tick();
     state.clipboard = LURE;
-    watch.tick();
+    await watch.tick();
     expect(reads).not.toHaveBeenCalled();
     state.active = true;
-    watch.tick(); // a fresh baseline after refocus
+    await watch.tick(); // a fresh baseline after refocus
     expect(onHit).not.toHaveBeenCalled();
   });
 
-  it('ignores a command copied without a page interaction, and harmless text with one', () => {
+  it('ignores a command copied without a page interaction, and harmless text with one', async () => {
     const { state, onHit, watch } = harness();
-    watch.tick();
+    await watch.tick();
     state.interaction = null;
     state.clipboard = LURE;
-    watch.tick();
+    await watch.tick();
     state.interaction = { tabId: 't1', origin: 'https://docs.example' };
     state.clipboard = 'npm install left-pad';
-    watch.tick();
+    await watch.tick();
     expect(onHit).not.toHaveBeenCalled();
   });
 
-  it('does not alert twice for the same clipboard', () => {
+  it('does not alert twice for the same clipboard', async () => {
     const { state, onHit, watch } = harness();
-    watch.tick();
+    await watch.tick();
     state.clipboard = LURE;
-    watch.tick();
-    watch.tick();
+    await watch.tick();
+    await watch.tick();
     expect(onHit).toHaveBeenCalledTimes(1);
   });
 
-  it('polls at 1 Hz and stops cleanly', () => {
+  it('polls at 1 Hz and stops cleanly', async () => {
     const setInterval = vi.fn(() => 7);
     const clearInterval = vi.fn();
     const { watch } = harness({ setInterval, clearInterval });

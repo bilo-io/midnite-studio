@@ -52,7 +52,7 @@ tasks:
       - 'dist'
 
   # The Browser bundle, gated (Phase 117 Theme A): `pnpm run dist` runs the Chromium floor first —
-  # `electron-freshness.mjs --strict` fails on a launcher Electron major outside the supported window —
+  # `electron-freshness.mjs --strict` fails on an Electron major (launcher or Studio) outside the supported window —
   # and only then the same build `release.yml` packs (a package script, not two moon deps, because moon
   # runs deps concurrently and the build must not start when the gate has already failed). The Browser
   # has no binary of its own (a stub clones the launcher's runtime), so the fuses are the launcher's

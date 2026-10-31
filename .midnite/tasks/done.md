@@ -15594,6 +15594,10 @@ Six Playwright flows in Vanguard and Agents (shell, rail, Settings via rail and 
 
 Resolved without a release. The six retired apps never had updater feeds of their own; they shipped as launcher bundles in the lockstep `catalog.json`, which `release.yml` rebuilds from the `apps/<id>` bundles it packs, so the next normal release drops them and the launcher's retired-id mapping (G.3) points any old link at its host. Phase doc decision and `outstanding.md` updated.
 
+### Phase 76 Theme A (version bump) — Electron 45 (2026-10-31)
+
+Every app and package now pins Electron `^45.2.1` (Chromium 156, Node 24.22.1, ABI 150), the newest stable release; 46 is still alpha and 47 nightly-only. `electron-freshness` judges stable majors only (prereleases had pushed every stable release out of its window) and gates Studio's pin under `--strict`, with a unit test. Electron 44's promise-based clipboard broke Capture history, vault copy and clear, the Browser clipboard watch and every `writeClipboard` port, all behind casts; they are now async, and an adapter maps Electron's raw pasteboard formats back to the bare names the password-manager markers use. better-sqlite3 13 is N-API, and a `node-abi` override covers the rebuild. Perf suite, dist + broker handshake and the soak are still open, so the theme stays 🔄.
+
 ### Phase 124 follow-up — retired links land on the module (2026-10-31)
 
 A `midnite://open?app=<host>&module=…&view=…` link (and a retired id such as `app=coder`) now lands the host on that module and view. The launcher opens the host bundle with `open -n <bundle> --args --midnite-link=<rebuilt link>`; each host's main reads the switch from `process.argv` or `second-instance` argv (`registerSuiteMain`), sends it over `suiteLinkTake` / `suiteLinkOpen`, and `SuiteAppShell` navigates via `landingView`, ignoring unknown ids. Vitest at each layer; no e2e.
