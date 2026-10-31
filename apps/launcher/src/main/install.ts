@@ -1,5 +1,4 @@
 import { execFile } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
 import { access, constants, mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -16,6 +15,7 @@ import {
   studioZipUrl,
 } from './constants';
 import { fetchStudioRelease, fetchStudioSha256 } from './feed';
+import { CORRUPT_DOWNLOAD_MESSAGE, sha256File, unpack } from './integrity';
 import { swapIntoPlace } from './swap';
 
 /**
@@ -40,6 +40,8 @@ export type InstallDeps = {
   feedUrl?: string;
   catalogUrl?: string;
   fetchImpl?: typeof fetch;
+  /** Unzips `zip` into `dest`. Default: `ditto -xk`. */
+  extract?: (zip: string, dest: string) => Promise<void>;
 };
 
 export function run(cmd: string, args: readonly string[]): Promise<void> {
@@ -132,11 +134,9 @@ export async function installStudio(deps: InstallDeps): Promise<LauncherResult> 
     const total = Number(res.headers.get('content-length')) || null;
     let received = 0;
     let lastSent = 0;
-    const hash = createHash('sha256');
     const body = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]);
     body.on('data', (chunk: Buffer) => {
       received += chunk.length;
-      hash.update(chunk);
       const now = Date.now();
       if (now - lastSent > 100) {
         lastSent = now;
@@ -154,15 +154,18 @@ export async function installStudio(deps: InstallDeps): Promise<LauncherResult> 
     if (total !== null && received !== total) {
       return fail(`The download was cut short (${received} of ${total} bytes). Nothing was installed — try again.`);
     }
+    // Hash the file as it is on disk, not the stream that was written to it: the extractor reads the
+    // former, and the two have been seen to differ. The bad zip is deleted so nothing can reuse it.
     const expected = await fetchStudioSha256(version, { feedUrl: deps.feedUrl, catalogUrl: deps.catalogUrl, fetchImpl: deps.fetchImpl });
-    if (expected !== null && hash.digest('hex') !== expected) {
-      return fail('The download failed its checksum — it is corrupt or was altered. Nothing was installed; try again.');
+    if (expected !== null && (await sha256File(zip)) !== expected) {
+      await rm(zip, { force: true });
+      return fail(CORRUPT_DOWNLOAD_MESSAGE);
     }
 
     // ── Extract + verify, before /Applications is touched ──────────────────
     deps.onProgress({ phase: 'verify', received, total });
     const extracted = join(tmp, 'extracted');
-    await run('ditto', ['-xk', zip, extracted]);
+    await unpack(() => (deps.extract ?? ((z, d) => run('ditto', ['-xk', z, d])))(zip, extracted));
     const bad = await verifyBundle(join(extracted, STUDIO_BUNDLE));
     if (bad !== null) return fail(`The download is incomplete (${bad}). Nothing was installed — try again.`);
 

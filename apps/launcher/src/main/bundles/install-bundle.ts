@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
 import { access, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -11,6 +10,7 @@ import { checkLockstep } from '../../common/lockstep';
 import type { CatalogApp } from '../../common/catalog-feed';
 import type { InstalledApp } from '../../common/installed-state';
 import { canWrite } from '../install';
+import { CORRUPT_DOWNLOAD_MESSAGE, sha256File, unpack } from '../integrity';
 import { swapIntoPlace } from '../swap';
 import { bundlePathFor, siblings, stubPathFor, type BundleRoots, type StubIdentity } from './layout';
 import { findInstalled, recordInstall, recordUninstall } from './state';
@@ -78,25 +78,23 @@ export async function verifyAppBundle(dir: string, expectVersion?: string): Prom
   return null;
 }
 
-/** Streams `res` to `file`, hashing as it goes. */
+/** Streams `res` to `file`, counting bytes as it goes. The digest is taken from the file afterwards. */
 async function download(
   res: Response,
   file: string,
   onBytes: (received: number, total: number | null) => void,
-): Promise<{ bytes: number; sha256: string }> {
+): Promise<number> {
   const total = Number(res.headers.get('content-length')) || null;
-  const hash = createHash('sha256');
   let received = 0;
   const tap = new Transform({
     transform(chunk: Buffer, _enc, done) {
-      hash.update(chunk);
       received += chunk.length;
       onBytes(received, total);
       done(null, chunk);
     },
   });
   await pipeline(Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]), tap, createWriteStream(file));
-  return { bytes: received, sha256: hash.digest('hex') };
+  return received;
 }
 
 const inFlight = new Set<string>();
@@ -163,7 +161,7 @@ export async function installAppBundle(
       const res = await (deps.fetchImpl ?? fetch)(entry.bundleUrl);
       if (!res.ok || res.body === null) return fail(`Download failed (${res.status}).`);
       let lastSent = 0;
-      const got = await download(res, zip, (bytes, total) => {
+      const bytes = await download(res, zip, (bytes, total) => {
         received = bytes;
         const now = Date.now();
         if (now - lastSent > 100) {
@@ -172,13 +170,15 @@ export async function installAppBundle(
         }
       });
       progress({ phase: 'verify', received, total: entry.size });
-      if (got.bytes !== entry.size || got.sha256 !== entry.sha256) {
-        return fail('The download does not match the catalog checksum. Nothing was installed — try again.');
+      // The digest is of the file on disk — what `ditto` will read — not of the stream written to it.
+      if (bytes !== entry.size || (await sha256File(zip)) !== entry.sha256) {
+        await rm(zip, { force: true });
+        return fail(CORRUPT_DOWNLOAD_MESSAGE);
       }
 
       // ── Extract + verify ─────────────────────────────────────────────────
       const extracted = join(tmp, 'extracted');
-      await (deps.extract ?? ((z, d) => io.exec('ditto', ['-xk', z, d])))(zip, extracted);
+      await unpack(() => (deps.extract ?? ((z, d) => io.exec('ditto', ['-xk', z, d])))(zip, extracted));
       const bad = await verifyAppBundle(extracted, entry.version);
       if (bad !== null) return fail(`The bundle is not usable (${bad}). Nothing was installed.`);
 
