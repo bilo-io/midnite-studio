@@ -57,6 +57,8 @@ export function createVaultClipboardManager(clipboard: ClipboardAdapter): VaultC
     const hash = hashSecret(secret);
     expectedHash = hash;
     await clipboard.writeText(secret);
+    // A copy or clear that landed while this write was pending owns the clipboard now.
+    if (expectedHash !== hash) return { ok: true, timeoutSeconds };
 
     const timer = setTimeout(async () => {
       try {

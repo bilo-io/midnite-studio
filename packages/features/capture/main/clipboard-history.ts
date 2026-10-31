@@ -194,6 +194,12 @@ export function createClipboardHistory(deps: {
     busy = true;
     try {
       const { clipboard } = deps;
+      // Markers first, through `has()` alone: Electron 44+ lists formats via `clipboard.read()`, which
+      // may materialise the data, and a password manager's copy must not be read at all.
+      if (await isMarked(clipboard, [])) {
+        lastSignature = 'marked';
+        return false;
+      }
       let formats: string[];
       try {
         formats = await clipboard.availableFormats();

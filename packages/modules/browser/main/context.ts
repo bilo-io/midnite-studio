@@ -27,7 +27,7 @@ export type BrowserAppElectron = IpcContextElectron & {
   getMainWindow: () => BrowserHostWindow | null;
   /** The window that sent an IPC message (`BrowserWindow.fromWebContents(event.sender)`), null when unknown. */
   senderWindow: (event: unknown) => BrowserHostWindow | null;
-  /** `clipboard.writeText` — synchronous, as Electron's is. */
+  /** `clipboard.writeText` — a promise, as Electron 44+'s is. */
   writeClipboard: (text: string) => Promise<void> | void;
   log: BrowserLog;
   userDataPath?: string;

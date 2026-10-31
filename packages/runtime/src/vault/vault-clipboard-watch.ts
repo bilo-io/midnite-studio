@@ -68,17 +68,22 @@ export function createVaultClipboardWatch(deps: VaultClipboardWatchDeps): VaultC
     }
   };
 
+  let reading = false;
   const tick = async (): Promise<void> => {
     if (!deps.isEnabled()) {
       lastHash = null;
       return;
     }
+    if (reading) return;
 
     let text = '';
+    reading = true;
     try {
       text = await deps.clipboard.readText();
     } catch {
       return;
+    } finally {
+      reading = false;
     }
 
     if (!text || text.trim().length === 0) {
