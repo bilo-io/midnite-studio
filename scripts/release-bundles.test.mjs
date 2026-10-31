@@ -149,16 +149,40 @@ describe('release.yml', () => {
   });
   it('publishes the launcher, bundles and catalog.json only after Studio and its feed', () => {
     const suite = job(release, 'publish-suite');
-    expect(suite).toContain('needs: [release, publish-feed, bundles]');
-    expect(suite).toContain('tag_name: midnite-launcher/v');
+    // `assemble` already waits on `bundles`; the suite needs it, plus Studio's release and feed.
+    expect(suite).toContain('needs: [meta, assemble, release, publish-feed]');
+    expect(suite).toContain('tag_name: midnite-launcher/${{ needs.meta.outputs.tag }}');
     expect(suite).toContain('name: launcher-mac-arm64');
     expect(suite).toContain('pattern: bundle-*');
-    expect(suite).toContain('node scripts/build-catalog.mjs');
-    expect(suite).toContain('midnite-launcher/feed/latest-mac.yml');
+    expect(suite).toContain('name: release-assembly');
     expect(suite).toContain('git add catalog.json midnite-launcher/feed/latest-mac.yml');
     expect(suite).not.toMatch(/runs-on:\s*macos-/);
     // The Studio release itself still takes only Studio's artifact.
     expect(job(release, 'release')).not.toContain('launcher-mac-arm64');
+  });
+  it('builds and validates catalog.json in `assemble`, before any publishing job', () => {
+    const assemble = job(release, 'assemble');
+    expect(assemble).toContain('node scripts/build-catalog.mjs');
+    expect(assemble).toContain('node scripts/validate-catalog.mjs');
+    expect(assemble).toContain('needs: [meta, build, plan, bundles]');
+    for (const name of ['release', 'publish-feed', 'publish-suite']) {
+      expect(job(release, name)).toContain('assemble');
+    }
+  });
+  it('gates every write behind !dry_run and gives every job meta', () => {
+    for (const name of ['build', 'plan', 'bundles', 'assemble', 'release', 'publish-feed', 'publish-suite']) {
+      expect(job(release, name)).toMatch(/needs:.*\bmeta\b/);
+    }
+    expect(job(release, 'release')).toContain("needs.meta.outputs.dry_run == 'false'");
+    for (const name of ['publish-feed', 'publish-suite']) {
+      const j = job(release, name);
+      expect(j).toMatch(/- name: Checkout bilo-io\/midnite-apps\n\s+if: \$\{\{ needs\.meta\.outputs\.dry_run == 'false' \}\}/);
+      expect(j).toMatch(/- name: Commit \+ push\n\s+if: \$\{\{ needs\.meta\.outputs\.dry_run == 'false' \}\}/);
+      expect(j).toContain('git pull --rebase');
+    }
+    expect(job(release, 'publish-suite')).toMatch(/Publish the launcher release[^\n]*\n\s+if: \$\{\{ needs\.meta\.outputs\.dry_run == 'false' \}\}/);
+    // No job derives the version from the ref any more: on a dispatch it is a branch.
+    expect(release.replace(/^\s*#.*$/gm, '')).not.toMatch(/GITHUB_REF(_NAME)?#|\$\{GITHUB_REF/);
   });
   it('uses one macOS job, and CI stays at or under the cap of 5 concurrent', () => {
     expect(macosJobs(release)).toBe(1);
