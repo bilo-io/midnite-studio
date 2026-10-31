@@ -684,8 +684,8 @@ export function clearBrowserClipboard(): void {
 }
 
 /** Test seam: run one clipboard poll now. */
-export function tickBrowserClipboardWatchForTests(): void {
-  clipboardWatch?.tick();
+export async function tickBrowserClipboardWatchForTests(): Promise<void> {
+  await clipboardWatch?.tick();
 }
 
 /**

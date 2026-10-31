@@ -83,7 +83,7 @@ export function electronCaptureClipboard(
     },
     writeText: (text) => clipboard.writeText(text),
     writeImage: (image) =>
-      clipboard.write([new ClipboardItem({ 'image/png': new Blob([image.toPNG()], { type: 'image/png' }) })]),
+      clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(image.toPNG())], { type: 'image/png' }) })]),
   };
 }
 

@@ -142,13 +142,13 @@ describe('ClickFix clipboard watch, wired', () => {
     vi.clearAllMocks();
   });
 
-  it('raises the bar within one poll after the page puts a command on the clipboard, and clears it in one click', () => {
+  it('raises the bar within one poll after the page puts a command on the clipboard, and clears it in one click', async () => {
     const { win, sent } = fakeWindow();
     createBrowserTab(win, 't1', 'https://captcha.example/verify');
     views[0]!.webContents.emit('focus');
-    tickBrowserClipboardWatchForTests(); // baseline
+    await tickBrowserClipboardWatchForTests(); // baseline
     clipboard.text = LURE;
-    tickBrowserClipboardWatchForTests();
+    await tickBrowserClipboardWatchForTests();
     expect(sent).toContainEqual({
       kind: 'clipboard-warning',
       tabId: 't1',
@@ -161,20 +161,20 @@ describe('ClickFix clipboard watch, wired', () => {
     expect(clipboard.text).toBe('');
   });
 
-  it('never reads the clipboard while no Browser window is focused, nor when switched off', () => {
+  it('never reads the clipboard while no Browser window is focused, nor when switched off', async () => {
     const { win, raw, sent } = fakeWindow(false);
     createBrowserTab(win, 't1', 'https://captcha.example/verify');
     views[0]!.webContents.emit('focus');
-    tickBrowserClipboardWatchForTests();
+    await tickBrowserClipboardWatchForTests();
     clipboard.text = LURE;
-    tickBrowserClipboardWatchForTests();
+    await tickBrowserClipboardWatchForTests();
     expect(electron.readClipboardText).not.toHaveBeenCalled();
 
     raw.focused = true;
     setBrowserClipboardWatch(false);
-    tickBrowserClipboardWatchForTests();
+    await tickBrowserClipboardWatchForTests();
     clipboard.text = `${LURE} # again`;
-    tickBrowserClipboardWatchForTests();
+    await tickBrowserClipboardWatchForTests();
     expect(electron.readClipboardText).not.toHaveBeenCalled();
     expect(sent.some((e) => e.kind === 'clipboard-warning')).toBe(false);
   });
