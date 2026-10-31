@@ -2,7 +2,7 @@
 name: midnite-pr-create
 description: Open a draft pull request for the current Midnite Studio branch, or report the existing one, with a body from midnite-pr-description and screenshots embedded at creation for visual changes. Use when the user asks to open, raise or create a PR.
 argument-hint: "[base branch, default main]"
-allowed-tools: Bash, Read, Glob, Grep
+allowed-tools: Bash, Read, Write, Skill, Glob, Grep
 ---
 
 # Create the PR

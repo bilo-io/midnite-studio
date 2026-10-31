@@ -92,8 +92,8 @@ eslint afterwards: deleting a comment can strip a load-bearing pragma.
 
 ## 6 · Push and report
 
-`git push` (regular, per the command above). Append a `## Feedback addressed` list to the PR body
-with `gh pr edit`, preserving the original body, and print a short summary ending with the PR URL.
+`git push` (regular, per the command above). When run on its own, append a `## Feedback addressed` list to the PR body
+with `gh pr edit`, preserving the original body (when called by `midnite-check-yourself`, skip the body edit: it fills `## Self-review` instead), and print a short summary ending with the PR URL.
 
 ## Rules
 

@@ -33,20 +33,26 @@ export function renamePrSkills(prompt: string): string {
 }
 
 /** `renamePrSkills` over every string in a JSON-shaped value (records, arrays, custom loops). */
-export function renamePrSkillsDeep(value: unknown): unknown {
-  if (typeof value === 'string') return renamePrSkills(value);
-  if (Array.isArray(value)) return value.map(renamePrSkillsDeep);
+export function renamePrSkillsDeep(value: unknown, onlyKeys?: ReadonlySet<string>, key?: string): unknown {
+  if (typeof value === 'string') return onlyKeys && !(key && onlyKeys.has(key)) ? value : renamePrSkills(value);
+  if (Array.isArray(value)) return value.map((inner) => renamePrSkillsDeep(inner, onlyKeys, key));
   if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).map(([key, inner]) => [key, renamePrSkillsDeep(inner)]));
+    return Object.fromEntries(
+      Object.entries(value).map(([k, inner]) => [k, renamePrSkillsDeep(inner, onlyKeys, k)]),
+    );
   }
   return value;
 }
 
+/** The fields of a custom loop that hold a skill or prompt, so its label and description prose stay. */
+const CUSTOM_LOOP_SKILL_KEYS: ReadonlySet<string> = new Set(['defaultSkill', 'promptFragment', 'fallbackPrompt', 'skillTemplate']);
+
 /** The v38 arm: every persisted field that can hold a skill string. */
 export function migratePrSkills(state: Record<string, unknown>): Record<string, unknown> {
-  for (const key of ['agentSkills', 'loopModifierSkills', 'customLoops', 'cardSkillByTask', 'columnSkillByProject']) {
+  for (const key of ['agentSkills', 'loopModifierSkills', 'cardSkillByTask', 'columnSkillByProject']) {
     if (state[key] !== undefined) state[key] = renamePrSkillsDeep(state[key]);
   }
+  if (state.customLoops !== undefined) state.customLoops = renamePrSkillsDeep(state.customLoops, CUSTOM_LOOP_SKILL_KEYS);
   return state;
 }
 

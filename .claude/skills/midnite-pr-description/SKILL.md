@@ -2,7 +2,7 @@
 name: midnite-pr-description
 description: Write the body (and title) of a Midnite Studio pull request in the house template, terse and linked. Use before any `gh pr create`, when amending or rewriting a PR body, when filling the Self-review section, or when the user says "pr-description".
 argument-hint: "[PR number, or nothing for the current branch]"
-allowed-tools: Bash, Read, Glob, Grep
+allowed-tools: Bash, Read, Write, Skill, Glob, Grep
 ---
 
 # PR description: the house template

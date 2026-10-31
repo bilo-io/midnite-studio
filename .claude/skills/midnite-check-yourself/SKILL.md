@@ -2,7 +2,7 @@
 name: midnite-check-yourself
 description: Self-review the latest PR from this session by running midnite-pr-review and midnite-pr-feedback on it, apply every CRITICAL and WARNING plus the small NITs, commit, push and report. Posts nothing to the PR. Use when the user says "check yourself" or asks for a self-review before requesting review.
 argument-hint: "[PR number or URL]"
-allowed-tools: Bash, Read, Edit, Write, Glob, Grep
+allowed-tools: Bash, Read, Edit, Write, Skill, Glob, Grep
 ---
 
 # Check yourself: self-review and fix your own PR

@@ -51,7 +51,7 @@ describe('PR skill renames (v37 → v38)', () => {
     const migrated = migratePrSkills({
       agentSkills: { prReview: '/pr-review', loopPrFeedback: '/loop /pr-feedback', triage: '/midnite-triage' },
       loopModifierSkills: { watchdog: { 'pr-review': '/pr-review' } },
-      customLoops: [{ id: 'custom:a', fallbackPrompt: '/loop /pr-review', modifiers: [{ defaultSkill: '/pr-feedback', n: 1 }] }],
+      customLoops: [{ id: 'custom:a', label: 'Runs /pr-review', fallbackPrompt: '/loop /pr-review', modifiers: [{ defaultSkill: '/pr-feedback', n: 1 }] }],
       cardSkillByTask: { t1: '/pr-review' },
       unrelated: '/pr-review',
     });
@@ -59,7 +59,7 @@ describe('PR skill renames (v37 → v38)', () => {
       agentSkills: { prReview: '/midnite-pr-review', loopPrFeedback: '/loop /midnite-pr-feedback', triage: '/midnite-triage' },
       loopModifierSkills: { watchdog: { 'pr-review': '/midnite-pr-review' } },
       customLoops: [
-        { id: 'custom:a', fallbackPrompt: '/loop /midnite-pr-review', modifiers: [{ defaultSkill: '/midnite-pr-feedback', n: 1 }] },
+        { id: 'custom:a', label: 'Runs /pr-review', fallbackPrompt: '/loop /midnite-pr-review', modifiers: [{ defaultSkill: '/midnite-pr-feedback', n: 1 }] },
       ],
       cardSkillByTask: { t1: '/midnite-pr-review' },
       unrelated: '/pr-review',
