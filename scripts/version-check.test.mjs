@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkLockstep, collectWorkspaceVersions } from './version-check.mjs';
+import {
+  checkExactVersion,
+  checkLockstep,
+  collectReleaseVersions,
+  collectWorkspaceVersions,
+  parseExpect,
+} from './version-check.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -95,5 +101,52 @@ describe('checkLockstep', () => {
 
   it('is trivially ok for an empty list', () => {
     expect(checkLockstep([]).ok).toBe(true);
+  });
+});
+
+describe('checkExactVersion (release.yml meta job)', () => {
+  it('passes when every package is exactly the release version', () => {
+    const result = checkExactVersion(
+      [
+        { name: 'apps/launcher', version: '0.0.6' },
+        { name: 'packages/desktop', version: '0.0.6' },
+      ],
+      '0.0.6',
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it('names every package that missed the bump, even within the same MAJOR.MINOR', () => {
+    const result = checkExactVersion(
+      [
+        { name: 'apps/launcher', version: '0.0.6' },
+        { name: 'packages/desktop', version: '0.0.5' },
+        { name: 'apps/media', version: null },
+      ],
+      '0.0.6',
+    );
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('packages/desktop: 0.0.5');
+    expect(result.message).toContain('apps/media: missing');
+    expect(result.message).not.toContain('apps/launcher');
+  });
+
+  it('collects the desktop runtime and every apps/* from this repo', async () => {
+    const names = (await collectReleaseVersions(repoRoot)).map((p) => p.name);
+    expect(names).toEqual(expect.arrayContaining(['@midnite/studio-desktop', '@midnite/launcher', '@midnite/app-browser']));
+    // packages/* beyond the desktop runtime are not shipped installables.
+    expect(names).not.toContain('@midnite/studio-shared');
+  });
+});
+
+describe('parseExpect', () => {
+  it('reads --expect X.Y.Z and --expect=X.Y.Z, dropping a leading v', () => {
+    expect(parseExpect(['--expect', '0.0.6'])).toBe('0.0.6');
+    expect(parseExpect(['--expect=v0.0.6'])).toBe('0.0.6');
+  });
+
+  it('is null without the flag and throws without a value', () => {
+    expect(parseExpect([])).toBeNull();
+    expect(() => parseExpect(['--expect'])).toThrow(/needs a version/);
   });
 });

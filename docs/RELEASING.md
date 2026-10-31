@@ -227,3 +227,27 @@ The receiving repo's `midnite-studio/README.md` does not yet say plainly that bu
 signed and that `manualInstall` is the permanent (not provisional) update route — that edit lives in
 `bilo-io/midnite-apps`, a separate repo from this one, and is left for a human pass alongside the
 first real release (Phase 53 Theme F).
+
+## Proving a release before publishing it — the dry run
+
+`release.yml` also runs on `workflow_dispatch`, and a dispatch is a dry run unless told otherwise:
+
+```sh
+gh workflow run release.yml --ref main -f dry_run=true               # version from apps/launcher/package.json
+gh workflow run release.yml --ref release/v0.0.6 -f dry_run=true -f version=0.0.6
+```
+
+It builds Studio, the launcher (both signature-verified) and every app bundle (including the Browser
+Chromium-floor step), then builds `catalog.json` with the URLs it *would* have and runs it through the
+launcher's own `parseCatalog` (`scripts/validate-catalog.mjs`). It publishes nothing: the Studio and
+launcher releases and every checkout/commit/push to `bilo-io/midnite-apps` are skipped. Read the run
+summary (packed bundles, the Browser floor outcome) and download `release-assembly` (`catalog.json`,
+`SHA256SUMS`, `summary.md`) and `dry-run-feed-preview` / `dry-run-suite-preview` (the files that would
+have been committed).
+
+The `meta` job asserts every `apps/*` and `packages/desktop` version equals the release version
+(`node scripts/version-check.mjs --expect X.Y.Z`), and the `assemble` job runs before any publishing
+job: a missed bump or a failed bundle stops the release before midnite-apps is touched. A bundle may
+be absent from the catalog in exactly one case — the Browser bundle when its Chromium floor skips it
+by design. A real publish from a dispatch (`-f dry_run=false`) is only accepted from the matching tag
+ref, e.g. `gh workflow run release.yml --ref v0.0.6 -f dry_run=false`.
