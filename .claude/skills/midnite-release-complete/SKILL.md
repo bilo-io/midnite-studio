@@ -15,7 +15,7 @@ if preconditions aren't met.
 **Policy + math are fixed** — don't re-derive them (ported from midnite, Phase 53 Theme B):
 - whole plan = `planRelease` (the one entry point — it wraps the three below and is the only
   thing that knows about the first release);
-- tag scheme = `planReleaseTags` (lockstep `vX.Y.Z` vs scoped `‹pkg›@X.Y.Z`);
+- tag scheme = `planReleaseTags` (lockstep minor/major `vX.Y.Z`; a patch's scoped `‹pkg›@X.Y.Z` tags, plus a final plain `vX.Y.Z` when every package lands on one version — the tag `release.yml` fires on);
 - bump math = `planVersionBump`; lockstep invariant = `sharesLockstepMajorMinor`;
 - changelog section = `extractChangelogSection`; branch→version = `versionFromReleaseBranch`.
 
@@ -31,13 +31,16 @@ Gather, and **stop with a clear message** on the first failure (nothing has chan
 - **Versions match the branch:** read every `package.json`; for a lockstep release every package is `X.Y.0`; for a patch the bumped package(s) are `X.Y.Z`. The lockstep MAJOR.MINOR invariant holds — run `moon run root:version-check`.
 - **Changelog ready (standard release only):** this repo's `extractChangelogSection(markdown, version)` ([`release.ts`](../../../packages/shared/src/release.ts)) returns just the section body as `string | null` — no `.date` field — so check both halves directly: `extractChangelogSection(CHANGELOG.md, 'X.Y.Z')` is non-null and non-empty, AND the changelog literally has a dated heading for that version (`## [X.Y.Z] - YYYY-MM-DD`, not `## [Unreleased]` — grep the heading text). Either missing means `/midnite-release-prep` wasn't finished — stop. (Skipped for ephemeral releases.)
 - **GitHub secret present:** verify `RELEASES_REPO_TOKEN` exists via `gh secret list --repo bilo-io/midnite-studio`. If absent, stop — `.github/workflows/release.yml` will fail to publish assets to `bilo-io/midnite-apps`.
+- **Dry run green:** `gh workflow run release.yml --ref <release branch> -f dry_run=true` has completed successfully on this version (it builds everything and publishes nothing; `workflow_dispatch` runs the workflow file on that ref). Required after any toolchain bump (Electron, node) since `launcher:dist` and the bundle builds otherwise only run in `release.yml`; look at the run summary for the packed bundles and the Browser Chromium-floor outcome. `release.yml`'s own `meta` job also refuses to start unless every `apps/*` and `packages/desktop` version equals the tag's.
 - **Green:** `moon ci` passes. (Run it; don't trust a stale cache for the gate.)
 
 ## 2 · Plan the tags & show the go/no-go — STOP for the human
 - Compute the tag(s) with `planRelease({ current, previous, commits: [], changedPackages: [] })`.
   `current` is the working tree's versions; `previous` is the version map read from the last `v*`
-  tag's tree (`git show ‹lastTag›:package.json` etc.). Expect `['vX.Y.Z']` for a lockstep release or
-  `['‹pkg›@X.Y.Z', …]` for a patch.
+  tag's tree (`git show ‹lastTag›:package.json` etc.). Expect `['vX.Y.Z']` for a lockstep minor/major
+  release; for a patch, the scoped `['‹pkg›@X.Y.Z', …]` tags **plus a final `vX.Y.Z`** when every
+  package lands on the same version (the suite-wide patch, e.g. 0.0.5 → 0.0.6). If a patch plans
+  scoped tags only (packages on different patches), `release.yml` will not fire — say so at the go/no-go.
 - **First release — `git tag --list 'v*'` is empty, so there is no last tag to read `previous`
   from.** Pass `previous: null`: `planRelease` then tags the versions already in the tree
   (`['vX.Y.Z']`) instead of `planReleaseTags(current, current)` returning `[]` — nothing changed, so
@@ -52,7 +55,7 @@ Gather, and **stop with a clear message** on the first failure (nothing has chan
   Do **not** proceed without an affirmative.
 
 ## 3 · Commit + tag (first irreversible step)
-- **Standard release:** If `/midnite-release-prep` left version bumps uncommitted (it shouldn't), or the changelog still shows `## [Unreleased]` instead of the dated section, finalise: confirm the bumps are lockstep, move `## [Unreleased]` → `## [X.Y.Z] - YYYY-MM-DD` (today). Commit `chore(release): vX.Y.Z` with no attribution trailer. (Usually the prep branch already has this commit.) Create the tag(s) from `planReleaseTags`: `git tag vX.Y.Z` (annotated: `-a -m "vX.Y.Z"`), or each scoped `git tag '‹pkg›@X.Y.Z'`.
+- **Standard release:** If `/midnite-release-prep` left version bumps uncommitted (it shouldn't), or the changelog still shows `## [Unreleased]` instead of the dated section, finalise: confirm the bumps are lockstep, move `## [Unreleased]` → `## [X.Y.Z] - YYYY-MM-DD` (today). Commit `chore(release): vX.Y.Z` with no attribution trailer. (Usually the prep branch already has this commit.) Create the tag(s) from `planReleaseTags`: `git tag vX.Y.Z` (annotated: `-a -m "vX.Y.Z"`), or each scoped `git tag '‹pkg›@X.Y.Z'` with the plain `vX.Y.Z` created last.
 - **Ephemeral release:** No commit is created. Create annotated tag on HEAD: `git tag -a vX.Y.Z -m "vX.Y.Z (ephemeral test release)"`.
 
 ## 4 · Publish
@@ -62,7 +65,7 @@ live here.** Source tags stay here; the public Release, the installers and the f
 tracker. Because that repo carries several apps, its tags are namespaced — `midnite-studio/vX.Y.Z`,
 never a bare `vX.Y.Z`, which would collide with another app's.
 
-- **Push** the source tag(s) here: `git push origin ‹tag›`. This is what
+- **Push** the source tag(s) here: the scoped tags first (`git push origin '‹pkg›@X.Y.Z' …`), then the plain tag **on its own** — `git push origin vX.Y.Z`. GitHub raises no tag-push events when more than three tags arrive in one push, and the plain tag is the one that must fire. This is what
   [`.github/workflows/release.yml`](../../../.github/workflows/release.yml) (Phase 53 Theme D)
   triggers on — it builds the macOS arm64 dmg/zip, publishes the namespaced Release to
   `bilo-io/midnite-apps`, then (Theme E) a second job commits `latest-mac.yml` under

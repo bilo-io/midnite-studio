@@ -146,6 +146,65 @@ export async function collectWorkspaceVersions(root) {
   return Promise.all(candidates.filter((_, i) => present[i]).map((t) => readPackageVersion(t.pkgPath, t.fallbackName)));
 }
 
+/**
+ * Assert every release-shipped package sits on EXACTLY `expected`: the lockstep check above lets
+ * PATCH diverge, but `catalog.json` is rejected by the launcher unless every app equals the
+ * release's version, and a tag built from a branch that missed one bump would publish a
+ * half-versioned release. Pure, like {@link checkLockstep}.
+ *
+ * @param {PackageVersion[]} packages
+ * @param {string} expected `X.Y.Z`, no leading `v`
+ * @returns {{ ok: boolean, message: string }}
+ */
+export function checkExactVersion(packages, expected) {
+  const wrong = packages.filter((pkg) => pkg.version !== expected);
+  if (wrong.length > 0) {
+    return {
+      ok: false,
+      message: [
+        `version-check FAILED: the release is ${expected} but these packages are not:`,
+        ...wrong.map((pkg) => `  ${pkg.name}: ${pkg.version ?? 'missing or unreadable "version" field'}`),
+      ].join('\n'),
+    };
+  }
+  return { ok: true, message: `version-check OK: ${packages.length} release package(s) at exactly ${expected}.` };
+}
+
+/**
+ * The packages a release ships as installables: the Electron runtime (`packages/desktop`) and every
+ * `apps/*` (the launcher and each bundle).
+ *
+ * @param {string} root
+ * @returns {Promise<PackageVersion[]>}
+ */
+export async function collectReleaseVersions(root) {
+  const entries = await readdir(path.join(root, 'apps'), { withFileTypes: true }).catch(() => []);
+  const candidates = [
+    { pkgPath: path.join(root, 'packages', 'desktop', 'package.json'), fallbackName: 'packages/desktop' },
+    ...entries
+      .filter((d) => d.isDirectory())
+      .map((d) => ({ pkgPath: path.join(root, 'apps', d.name, 'package.json'), fallbackName: `apps/${d.name}` })),
+  ];
+  const present = await Promise.all(
+    candidates.map((t) =>
+      access(t.pkgPath).then(
+        () => true,
+        () => false,
+      ),
+    ),
+  );
+  return Promise.all(candidates.filter((_, i) => present[i]).map((t) => readPackageVersion(t.pkgPath, t.fallbackName)));
+}
+
+/** `--expect X.Y.Z` (or `--expect=X.Y.Z`, a leading `v` tolerated) → `X.Y.Z`; `null` when absent. */
+export function parseExpect(argv) {
+  const at = argv.findIndex((a) => a === '--expect' || a.startsWith('--expect='));
+  if (at === -1) return null;
+  const raw = argv[at].includes('=') ? argv[at].split('=')[1] : argv[at + 1];
+  if (!raw) throw new Error('--expect needs a version');
+  return raw.replace(/^v/, '');
+}
+
 async function main() {
   const packages = await collectWorkspaceVersions(repoRoot);
 
@@ -155,6 +214,19 @@ async function main() {
   } else {
     console.error(result.message);
     process.exitCode = 1;
+  }
+
+  // `--expect X.Y.Z` (release.yml's `meta` job): additionally require the release's own version
+  // everywhere it ships, before anything is built or published.
+  const expected = parseExpect(process.argv.slice(2));
+  if (expected !== null) {
+    const exact = checkExactVersion(await collectReleaseVersions(repoRoot), expected);
+    if (exact.ok) {
+      console.log(exact.message);
+    } else {
+      console.error(exact.message);
+      process.exitCode = 1;
+    }
   }
 }
 
