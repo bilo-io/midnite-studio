@@ -2,7 +2,11 @@ import { cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/pr
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { Writable } from 'node:stream';
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { CORRUPT_DOWNLOAD_MESSAGE, UNPACK_FAILED_MESSAGE } from '../integrity';
 
 import { installAppBundle, uninstallAppBundle, verifyAppBundle, type BundleOpsDeps } from './install-bundle';
 import { stubIdentity, type BundleRoots } from './layout';
@@ -10,11 +14,36 @@ import { readPlistString } from './plist-stamp';
 import { readInstalledState, STATE_FILE } from './state';
 import { catalogEntry, fakeIo, fakePayload, fakeRuntime, serve, type FakeIo } from './testing';
 
+// Lets a test make the bytes that land on disk differ from the bytes that were streamed to the
+// write stream, which is exactly the failure the on-disk hash exists to catch.
+const disk = vi.hoisted(() => ({ corrupt: false }));
+vi.mock('node:fs', async (importOriginal) => {
+  const real = await importOriginal<typeof import('node:fs')>();
+  return {
+    ...real,
+    createWriteStream: ((path: string, ...rest: unknown[]) => {
+      const inner = (real.createWriteStream as (...a: unknown[]) => import('node:fs').WriteStream)(path, ...rest);
+      if (!disk.corrupt) return inner;
+      return new Writable({
+        write(chunk: Buffer, _enc, done) {
+          const bad = Buffer.from(chunk);
+          bad[0] = bad[0]! ^ 0xff;
+          inner.write(bad, done);
+        },
+        final(done) {
+          inner.end(done);
+        },
+      });
+    }) as typeof real.createWriteStream,
+  };
+});
+
 let root: string;
 let roots: BundleRoots;
 let payloads: string;
 
 beforeEach(async () => {
+  disk.corrupt = false;
   root = await mkdtemp(join(tmpdir(), 'launcher-bundle-test-'));
   roots = { installRoot: join(root, 'support', 'bundles'), stubRoot: join(root, 'Applications') };
   payloads = join(root, 'payloads');
@@ -88,9 +117,27 @@ describe('installAppBundle', () => {
   it('refuses a download whose checksum does not match the catalog, touching neither root', async () => {
     const entry = catalogEntry('cleaner', '0.2.0', zip('0.2.0'));
     const result = await installAppBundle(entry, cleaner, { ...(await deps()), fetchImpl: serve(Buffer.from('tampered')) });
-    expect(result).toEqual({ ok: false, message: expect.stringMatching(/checksum/) });
+    expect(result).toEqual({ ok: false, message: CORRUPT_DOWNLOAD_MESSAGE });
     expect(await readdir(roots.stubRoot)).toEqual(['Unrelated.app']);
     expect(await readdir(roots.installRoot)).toEqual([]);
+  });
+
+  it('refuses a file that differs on disk from a stream that matched the catalog, before extracting', async () => {
+    const extract = vi.fn(async () => undefined);
+    disk.corrupt = true;
+    expect(await install('0.2.0', await deps({ extract }))).toEqual({ ok: false, message: CORRUPT_DOWNLOAD_MESSAGE });
+    expect(extract).not.toHaveBeenCalled();
+    expect(await readdir(roots.installRoot)).toEqual([]);
+  });
+
+  it('shows a friendly message, not the ditto command line, when extraction fails', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const extract = async () => {
+      throw new Error('Command failed: ditto -xk /tmp/a.zip /tmp/extracted');
+    };
+    expect(await install('0.2.0', await deps({ extract }))).toEqual({ ok: false, message: UNPACK_FAILED_MESSAGE });
+    expect(log).toHaveBeenCalled();
+    log.mockRestore();
   });
 
   it('refuses a bundle whose own version is not the catalog’s', async () => {
