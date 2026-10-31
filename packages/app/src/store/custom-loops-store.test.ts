@@ -27,7 +27,7 @@ describe('v35 -> v36 migration (custom loops)', () => {
   it('runs from the real store migrate', () => {
     const migrated = useUiStore.persist.getOptions().migrate?.({ loopEnabled: {} }, 35) as Record<string, unknown>;
     expect(migrated.customLoops).toEqual([]);
-    expect(useUiStore.persist.getOptions().version).toBe(37);
+    expect(useUiStore.persist.getOptions().version).toBe(38);
   });
 
   it('a persisted v35 blob rehydrates with no custom loops', () => {

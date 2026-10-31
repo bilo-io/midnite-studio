@@ -146,11 +146,11 @@ describe('structural edits', () => {
       description: 'Reviews things',
       promptFragment: 'Review recent PRs.',
       skillTemplate: 'Review recent PRs with {skill}.',
-      defaultSkill: '/pr-review',
+      defaultSkill: '/midnite-pr-review',
       defaultOn: true,
     });
     const edited = loop.modifiers.find((m) => m.id === second!.id)!;
-    expect(edited).toMatchObject({ label: 'Review', defaultOn: true, defaultSkill: '/pr-review' });
+    expect(edited).toMatchObject({ label: 'Review', defaultOn: true, defaultSkill: '/midnite-pr-review' });
     // Blank optional fields are stored as absent; a template without a slot is dropped.
     loop = updateCustomOption(loop, second!.id, { description: '  ', skillTemplate: 'no slot' });
     const cleared = loop.modifiers.find((m) => m.id === second!.id)!;

@@ -73,3 +73,38 @@ describe('midnite-sitrep skill family copies', () => {
     });
   }
 });
+
+// The PR skill family (`midnite-pr-review`, `-pr-feedback`, `-check-yourself`, `-pr-create`,
+// `-pr-description`, `-pr-description-image`) ships in the repo's three mirrors, byte-identical,
+// every file in each skill's folder (`midnite-pr-review` carries `review-header.md` beside its
+// SKILL.md). It is repo-specific (it names `bilo-io/midnite-studio`), so it is deliberately not in
+// `templates/midnite/` — see that README's "any target repo" test.
+const prSkills = [
+  'midnite-pr-review',
+  'midnite-pr-feedback',
+  'midnite-check-yourself',
+  'midnite-pr-create',
+  'midnite-pr-description',
+  'midnite-pr-description-image',
+];
+
+describe('midnite PR skill family copies', () => {
+  for (const skill of prSkills) {
+    it(`${skill} is byte-identical across .claude, .agents and .codex`, () => {
+      const dir = join(root, '.claude', 'skills', skill);
+      expect(existsSync(join(dir, 'SKILL.md')), `.claude/skills/${skill}/SKILL.md is missing`).toBe(true);
+      const files = readdirSync(dir);
+      for (const copy of ['.agents', '.codex']) {
+        expect(readdirSync(join(root, copy, 'skills', skill)).sort(), `${copy}/skills/${skill} file list`).toEqual(
+          files.sort(),
+        );
+        for (const file of files) {
+          expect(
+            readFileSync(join(root, copy, 'skills', skill, file)).equals(readFileSync(join(dir, file))),
+            `${copy}/skills/${skill}/${file} differs from .claude`,
+          ).toBe(true);
+        }
+      }
+    });
+  }
+});

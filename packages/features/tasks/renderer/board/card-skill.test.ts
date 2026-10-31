@@ -125,6 +125,34 @@ describe('isAdhocCard', () => {
 });
 
 describe('buildSkillSuggestions', () => {
+  it('ranks the midnite PR family after the build skills, ahead of audit and release', () => {
+    const names = [
+      'midnite-release-prep',
+      'midnite-check-yourself',
+      'midnite-pr-feedback',
+      'midnite-pr-audit',
+      'midnite-pr-review',
+      'midnite-pr-description',
+      'midnite-pr-create',
+      'midnite-create',
+    ];
+    const list = buildSkillSuggestions({
+      repoSkills: names.map((name) => skill(name)),
+      recent: [],
+      agentSkills: AGENT_SKILLS,
+    });
+    expect(list.map((s) => s.value)).toEqual([
+      '/midnite-create',
+      '/midnite-pr-create',
+      '/midnite-pr-description',
+      '/midnite-pr-review',
+      '/midnite-pr-feedback',
+      '/midnite-check-yourself',
+      '/midnite-pr-audit',
+      '/midnite-release-prep',
+    ]);
+  });
+
   it('orders Recent, then midnite in workflow order, then other repo skills by name', () => {
     const list = buildSkillSuggestions({
       repoSkills: REPO_SKILLS,

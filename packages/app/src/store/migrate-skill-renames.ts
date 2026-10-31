@@ -17,6 +17,39 @@ const SKILL_RENAMES: readonly (readonly [RegExp, string])[] = [
   [/(?<![\w-])midnite-brainstorm(?![\w-])/g, 'midnite-ideate'],
 ];
 
+/**
+ * v37 → v38: the bare `/pr-review` and `/pr-feedback` skills no longer exist; the repo's own are
+ * `/midnite-pr-review` and `/midnite-pr-feedback`. Kept apart from {@link SKILL_RENAMES} because
+ * it needs a leading slash: `/ekko-pr-review` and `/loop-pr-reviews` are other people's skills and
+ * must survive. Runs over every persisted skill string, including inside `/loop …`.
+ */
+const PR_SKILL_RENAMES: readonly (readonly [RegExp, string])[] = [
+  [/(?<![\w-])\/pr-review(?![\w-])/g, '/midnite-pr-review'],
+  [/(?<![\w-])\/pr-feedback(?![\w-])/g, '/midnite-pr-feedback'],
+];
+
+export function renamePrSkills(prompt: string): string {
+  return PR_SKILL_RENAMES.reduce((out, [pattern, next]) => out.replace(pattern, next), prompt);
+}
+
+/** `renamePrSkills` over every string in a JSON-shaped value (records, arrays, custom loops). */
+export function renamePrSkillsDeep(value: unknown): unknown {
+  if (typeof value === 'string') return renamePrSkills(value);
+  if (Array.isArray(value)) return value.map(renamePrSkillsDeep);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, inner]) => [key, renamePrSkillsDeep(inner)]));
+  }
+  return value;
+}
+
+/** The v38 arm: every persisted field that can hold a skill string. */
+export function migratePrSkills(state: Record<string, unknown>): Record<string, unknown> {
+  for (const key of ['agentSkills', 'loopModifierSkills', 'customLoops', 'cardSkillByTask', 'columnSkillByProject']) {
+    if (state[key] !== undefined) state[key] = renamePrSkillsDeep(state[key]);
+  }
+  return state;
+}
+
 export function renameLegacySkills(prompt: string): string {
   return SKILL_RENAMES.reduce((out, [pattern, next]) => out.replace(pattern, next), prompt);
 }

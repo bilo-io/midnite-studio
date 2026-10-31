@@ -486,6 +486,8 @@ for every PR a session opens, skill or not.
 Why: on 2026-10-21 a session requested a reviewer on two draft PRs in another repo before any
 self-review had run, which pinged a colleague to read unfinished work.
 
+- **The PR skill family (`midnite-pr-review`, `-pr-feedback`, `-check-yourself`, `-pr-create`, `-pr-description`, `-pr-description-image`) is the repo's own PR workflow, and the midnite menu's review and PR entries invoke it.** Self-review runs through `midnite-check-yourself` before any PR leaves draft.
+
 ## Onboarding another repo
 
 [`templates/midnite/`](templates/midnite/) is a checked-in, repo-agnostic skeleton of this same

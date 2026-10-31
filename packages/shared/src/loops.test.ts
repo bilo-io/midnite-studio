@@ -590,8 +590,8 @@ describe('DEFAULT_LOOPS', () => {
     expect(patrol?.agentCommandId).toBe('loopPatrol');
 
     const fragments = new Map(patrol?.modifiers.map((m) => [m.id, m.promptFragment]));
-    expect(fragments.get('pr-review')).toBe('/pr-review');
-    expect(fragments.get('pr-feedback')).toBe('/pr-feedback');
+    expect(fragments.get('pr-review')).toBe('/midnite-pr-review');
+    expect(fragments.get('pr-feedback')).toBe('/midnite-pr-feedback');
     expect(fragments.get('security-review')).toBe('/security-review');
 
     // Review is the tab's resting job; the others are extra passes.
@@ -621,7 +621,7 @@ describe('DEFAULT_LOOPS', () => {
     const patrol = DEFAULT_LOOPS.find((l) => l.id === 'watchdog')!;
     const feedback = patrol.modifiers.find((m) => m.id === 'pr-feedback');
     expect(feedback?.label).toBe('Reply to PRs');
-    expect(feedback?.promptFragment).toBe('/pr-feedback');
+    expect(feedback?.promptFragment).toBe('/midnite-pr-feedback');
     expect(DEFAULT_LOOPS.flatMap((l) => l.modifiers).some((m) => m.label === 'Answer feedback')).toBe(false);
   });
 
@@ -642,7 +642,7 @@ describe('DEFAULT_LOOPS', () => {
     const on = composeLoopPrompt(patrol.fallbackPrompt, patrol, { modifierIds: ['routine', 'pr-review'] });
     expect(on).toContain(ROUTINE_PR_FRAGMENT);
     // Tasks emit first, then run rules:
-    expect(on).toBe(`/loop /pr-review ${ROUTINE_PR_FRAGMENT}`);
+    expect(on).toBe(`/loop /midnite-pr-review ${ROUTINE_PR_FRAGMENT}`);
 
     const off = composeLoopPrompt(patrol.fallbackPrompt, patrol, { modifierIds: ['pr-review'] });
     expect(off).not.toContain(ROUTINE_PR_FRAGMENT);
@@ -710,13 +710,13 @@ describe('DEFAULT_LOOPS', () => {
 
   it('has Patrol override its own default-on skill when triage is switched on', () => {
     // `pr-review` is `defaultOn`, so the composed triage line still carries
-    // `/pr-review`. The fragment must therefore *name* what it overrides — a
-    // bare "do not review" beside `/pr-review` is a contradiction, not an order.
+    // `/midnite-pr-review`. The fragment must therefore *name* what it overrides — a
+    // bare "do not review" beside `/midnite-pr-review` is a contradiction, not an order.
     const patrol = DEFAULT_LOOPS.find((l) => l.id === 'watchdog')!;
     const line = composeLoopPrompt(patrol.fallbackPrompt, patrol, {
       modifierIds: ['pr-review', 'triage-only'],
     });
-    expect(line).toContain('/pr-review');
+    expect(line).toContain('/midnite-pr-review');
     expect(line).toContain('ignore any review or feedback skill named above');
   });
 
@@ -753,7 +753,7 @@ describe('DEFAULT_LOOPS', () => {
         choiceIds: { 'pr-scope': 'ready', autonomy: 'fastest' },
       }),
     ).toBe(
-      '/loop /pr-review /pr-feedback Look only at PRs that are ready for review — skip drafts. Never stop to ask: keep advancing and always take the most performant option.',
+      '/loop /midnite-pr-review /midnite-pr-feedback Look only at PRs that are ready for review — skip drafts. Never stop to ask: keep advancing and always take the most performant option.',
     );
   });
 });
@@ -874,8 +874,8 @@ describe('skill field — skillTemplate / loopModifierFragment', () => {
   it('substitutes a chosen skill, and keeps the default when the pick is empty', () => {
     const review = modifier('watchdog', 'pr-review');
     expect(loopModifierFragment(review, 'ekko-pr-review')).toBe('/ekko-pr-review');
-    expect(loopModifierFragment(review, '')).toBe('/pr-review');
-    expect(loopModifierFragment(review)).toBe('/pr-review');
+    expect(loopModifierFragment(review, '')).toBe('/midnite-pr-review');
+    expect(loopModifierFragment(review)).toBe('/midnite-pr-review');
     expect(loopModifierFragment(modifier('watchdog', 'routine'), '/ekko-pr-review')).toBe(
       ROUTINE_PR_FRAGMENT,
     );
@@ -895,7 +895,7 @@ describe('skill field — skillTemplate / loopModifierFragment', () => {
         modifierIds: ['pr-review', 'pr-feedback'],
         skills: { 'pr-review': 'ekko-pr-review', 'pr-feedback': '' },
       }),
-    ).toBe('/loop /ekko-pr-review /pr-feedback');
+    ).toBe('/loop /ekko-pr-review /midnite-pr-feedback');
   });
 });
 
@@ -909,17 +909,17 @@ describe('#870 run options', () => {
         reviewUsers: ['bilo-io', ' kurt '],
       }),
     ).toBe(
-      '/loop /pr-review Review PRs for these users only: bilo-io, kurt. Auto-approve PRs that pass review with no blocking findings.',
+      '/loop /midnite-pr-review Review PRs for these users only: bilo-io, kurt. Auto-approve PRs that pass review with no blocking findings.',
     );
     expect(composeLoopPrompt('/loop', patrol, { modifierIds: ['pr-review'], reviewUsers: [] })).toBe(
-      '/loop /pr-review',
+      '/loop /midnite-pr-review',
     );
   });
 
   it('tells subagents when to rotate, with the run rules, clamped and snapped to the slider', () => {
     expect(LOOP_AUTO_ROTATE).toEqual({ min: 10, max: 100, step: 5, default: 30 });
     expect(composeLoopPrompt('/loop', patrol, { modifierIds: ['pr-review'], autoRotatePercent: 30 })).toBe(
-      '/loop /pr-review Auto-rotate subagents at 30% context.',
+      '/loop /midnite-pr-review Auto-rotate subagents at 30% context.',
     );
     expect(composeLoopPrompt('/loop', patrol, { autoRotatePercent: 3 })).toBe(
       '/loop Auto-rotate subagents at 10% context.',
@@ -937,7 +937,7 @@ describe('#870 run options', () => {
     expect(composeLoopPrompt('/loop /midnite-create', create, { repeat: false })).toBe('/midnite-create');
     expect(composeLoopPrompt('/loop /midnite-create', create, { repeat: true })).toBe('/loop /midnite-create');
     expect(composeLoopPrompt('/loop /midnite-create', create, {})).toBe('/loop /midnite-create');
-    expect(composeLoopPrompt('/loop', patrol, { modifierIds: ['pr-review'], repeat: false })).toBe('/pr-review');
+    expect(composeLoopPrompt('/loop', patrol, { modifierIds: ['pr-review'], repeat: false })).toBe('/midnite-pr-review');
     expect(onceOffBasePrompt('/looper /x')).toBe('/looper /x');
   });
 
@@ -947,7 +947,7 @@ describe('#870 run options', () => {
         modifierIds: ['pr-feedback', 'pr-review'],
         choiceIds: { 'pr-scope': 'ready' },
       }),
-    ).toBe('/loop /pr-review /pr-feedback Look only at PRs that are ready for review — skip drafts.');
+    ).toBe('/loop /midnite-pr-review /midnite-pr-feedback Look only at PRs that are ready for review — skip drafts.');
   });
 });
 

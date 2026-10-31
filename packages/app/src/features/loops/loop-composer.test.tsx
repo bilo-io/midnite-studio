@@ -537,7 +537,7 @@ describe('LoopComposer — option rows', () => {
     expect(chevron.getAttribute('aria-expanded')).toBe('false');
     fireEvent.click(chevron);
     expect(preview.hidden).toBe(false);
-    expect(preview.textContent).toBe('/pr-review');
+    expect(preview.textContent).toBe('/midnite-pr-review');
     expect(
       screen.getByRole('button', { name: `Hide the prompt ${review.label} adds` }).getAttribute('aria-expanded'),
     ).toBe('true');
@@ -555,7 +555,7 @@ describe('LoopComposer — option rows', () => {
     expect(screen.queryByRole('combobox', { name: 'Skill for Review PRs' })).toBeNull();
     rerender(<LoopComposer {...props} checked={{ 'pr-review': true, 'report-only': true }} />);
     const field = screen.getByRole('combobox', { name: 'Skill for Review PRs' }) as HTMLInputElement;
-    expect(field.placeholder).toBe('/pr-review');
+    expect(field.placeholder).toBe('/midnite-pr-review');
     // A plain policy names no skill, so it never grows a field.
     const policy = watchdog.modifiers.find((m) => m.skillTemplate === undefined)!;
     expect(screen.queryByRole('combobox', { name: `Skill for ${policy.label}` })).toBeNull();

@@ -43,6 +43,22 @@ describe('AGENT_COMMANDS', () => {
     expect(DEFAULT_AGENT_SKILLS.verifyPhase).toBe('/midnite-verify');
   });
 
+  it('points the PR menu entries at the midnite PR skill family', () => {
+    expect(DEFAULT_AGENT_SKILLS).toMatchObject({
+      prReview: '/midnite-pr-review',
+      prFeedback: '/midnite-pr-feedback',
+      loopPrReview: '/loop /midnite-pr-review',
+      loopPrFeedback: '/loop /midnite-pr-feedback',
+      checkYourself: '/midnite-check-yourself',
+      prDescription: '/midnite-pr-description',
+      prCreate: '/midnite-pr-create',
+    });
+    const categoryOf = (id: string) => AGENT_COMMANDS.find((command) => command.id === id)?.category;
+    expect(categoryOf('checkYourself')).toBe('reviews');
+    expect(categoryOf('prDescription')).toBe('reviews');
+    expect(categoryOf('prCreate')).toBe('tasks');
+  });
+
   it('leaves the Patrol loop bare — its skills come from the FAB checkboxes', () => {
     // The one default that is deliberately *not* a skill. A skill creeping in
     // here would ride along on every Patrol run whether or not a box was
