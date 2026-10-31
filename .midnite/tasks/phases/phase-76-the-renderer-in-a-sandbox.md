@@ -83,9 +83,9 @@ upgrade in its own PR, and it is the one theme that must not run unattended.
 
 ## Headlines
 
-*Five findings around boundaries that are otherwise well drawn: an end-of-life Electron, a `sandbox: false` whose stated reason `bundle.mjs` made false, no CSP and no `will-navigate` guard on the app's own window, one plaintext credential and one silent IP lookup, and forty-five one-way channels still hand-rolling validation. Theme A is human-run; nothing touches Renovate's PRs.* (0% · 0/35) — **Planned, not started.** The security audit found the boundaries well drawn (zod at every `invoke`, a real fs jail, a `sandbox: true` preload-less browser partition, `safeStorage` for DB passwords, redaction on write, no `rehype-raw` anywhere) and five places the app is one layer thinner than its comments believe. Renovate's open dependency PRs are untouched by every theme.
+*Five findings around boundaries that are otherwise well drawn: an end-of-life Electron, a `sandbox: false` whose stated reason `bundle.mjs` made false, no CSP and no `will-navigate` guard on the app's own window, one plaintext credential and one silent IP lookup, and forty-five one-way channels still hand-rolling validation. Theme A is human-run; nothing touches Renovate's PRs.* (77% · 27/35) — **B–E landed; A's version bump landed, its perf, dist and soak checks are open.** The security audit found the boundaries well drawn (zod at every `invoke`, a real fs jail, a `sandbox: true` preload-less browser partition, `safeStorage` for DB passwords, redaction on write, no `rehype-raw` anywhere) and five places the app is one layer thinner than its comments believe. Renovate's open dependency PRs are untouched by every theme.
 
-**Theme A — Electron off the end-of-life line.** ◻ Electron off the end-of-life line (oldest supported major), `node-pty` rebuild, full perf suite before/after, broker legacy-peer handshake, a day's soak — **human-run**. *Human-run, never a swarm*: Electron is `33.4.11`, off the supported line since 36 shipped; the theme is the deliberate upgrade with the native-ABI, `verify-dist`, perf-suite and broker legacy-peer checklist.
+**Theme A — Electron off the end-of-life line.** 🔄 Version bump landed: every app and package now pins Electron `^45.2.1` (Chromium 156, Node 24.22.1, ABI 150), the newest stable release. 46 is still alpha and 47 nightly-only. `electron-freshness` now counts stable majors only and gates Studio's pin under `--strict`. Electron 44's promise-based main-process `clipboard` broke Capture's clipboard history, vault copy and clear, the Browser clipboard watch and every `writeClipboard` port, all hidden behind casts; they are now async. better-sqlite3 13 is N-API, since 12 no longer compiles against V8 in 45. A `node-abi` override teaches the rebuild about 45. node-pty 1.1.0 rebuilds, and the built app boots and spawns a shell through the broker. Still open: the perf suite before/after, `dist` + `verify-dist` + the broker legacy-peer handshake, and a day's soak. Sync `safeStorage` must go async before 46 (`outstanding.md`).
 
 **Theme B — `sandbox: true`, because the reason for `false` no longer exists.** ✅ `sandbox: true` on both windows: `homedir`/`hostname` via `additionalArguments`, `node:os` out of the preload, a bundle test that keeps `node:` out. (PR #484) `sandbox: false` on every app window for a reason that is no longer true — `scripts/bundle.mjs` inlines `shared` into the preload, and the only Node touch left is `node:os` for `homedir`/`hostname`, which the existing `additionalArguments` pattern removes; flip both windows to `sandbox: true` and add a bundle test that keeps `node:` out.
 
@@ -103,19 +103,27 @@ The one theme a human executes, because a Chromium major is the one dependency t
 packaged app in ways CI does not see (native ABI, notarisation, `spawn-helper`, the broker's build
 fingerprint). Sequenced first because everything after it is tested against the runtime it produces.
 
-- [ ] Bump `electron` in [`packages/desktop/package.json:33`](../../../packages/desktop/package.json)
+- [x] Bump `electron` in [`packages/desktop/package.json:33`](../../../packages/desktop/package.json)
       to the **oldest currently-supported major** (not the newest — the supported window is three
       majors; the oldest of the three has had the most patch releases), and `electron-builder` to the
       release that supports it. Record both versions and the Chromium/Node they carry in the PR body.
-- [ ] `pnpm install`, then `electron-rebuild` for `node-pty` — the single-ABI constraint from
+      *Done as `^45.2.1` in every app and package, the newest stable rather than the oldest:
+      `electron-freshness` had counted 47 nightlies and 46 alphas, so 45 was the only stable major its
+      window accepted. The gate counts stable majors only now, which makes 45/44/43 the window.
+      electron-builder 25.1.8 is unchanged, and CI's `package` job builds with it.*
+- [x] `pnpm install`, then `electron-rebuild` for `node-pty` — the single-ABI constraint from
       [`INITIAL_PLAN.md:27`](../../../docs/INITIAL_PLAN.md). Confirm `scripts/fix-node-pty.cjs`'s
       `spawn-helper` chmod still applies to the rebuilt binary.
-- [ ] Read the Electron breaking-changes notes for every major crossed and grep this repo for each
+      *node-pty 1.1.0 rebuilt as `darwin-arm64-150` and `spawn-helper` is still `0755`.
+      better-sqlite3 moved to 13 (N-API), and a `node-abi ^3.101` override lets the rebuild detect 45.*
+- [x] Read the Electron breaking-changes notes for every major crossed and grep this repo for each
       removed/renamed API. Known suspects from the audit: `protocol.handle` semantics
       ([`fs-protocol.ts`](../../../packages/desktop/src/main/fs-protocol.ts)), `WebContentsView`
       bounds behaviour ([`browser-service.ts`](../../../packages/desktop/src/main/browser-service.ts)),
       `safeStorage` availability at boot ([`credential-vault.ts`](../../../packages/desktop/src/main/db/credential-vault.ts)),
       `setWindowOpenHandler` return shape, and `session.setPermissionCheckHandler`'s signature.
+      *43–45 read and every change grepped; the PR body has a verdict for each one. The only real
+      break was 44's clipboard rewrite, now fixed.*
 - [ ] `moon run :typecheck :lint :test` green, then `moon run app:build desktop:bundle` and the
       **full** `scripts/perf/` suite (`startup-report --runs=5`, `bundle-report`, `idle-cpu
       --blurred`, `memory-report --action=terminal`) — a Chromium major moves every number in
