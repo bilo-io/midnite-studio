@@ -6,6 +6,7 @@ import { app, BrowserWindow, Menu, shell } from 'electron';
 import { LAUNCHER_CHANNELS } from '../common/bridge';
 import { tileIdFor } from '../common/catalog';
 import { lockstepBundleFinder } from './bundles/open';
+import { bundleOpenCommand, runOpenCommand } from './bundles/open-command';
 import { productionBundleRoots } from './bundles/layout';
 import { createAppsOps } from './bundles/apps-ops';
 import { installAppBundle, uninstallAppBundle } from './bundles/install-bundle';
@@ -114,7 +115,12 @@ function openLink(raw: string): void {
       runLimiter,
     },
     {
-      openBundle: (path) => shell.openPath(path).then((error) => (error === '' ? undefined : Promise.reject(new Error(error)))),
+      openBundle: (path, linkArg) => {
+        // A link that names a module or view is handed to the host on its command line (see `open-command.ts`).
+        const command = bundleOpenCommand(path, linkArg);
+        if (command !== null) return runOpenCommand(command);
+        return shell.openPath(path).then((error) => (error === '' ? undefined : Promise.reject(new Error(error))));
+      },
       openStudioUrl: (url) => shell.openExternal(url),
       showDetail: (requested) => {
         bringForward();

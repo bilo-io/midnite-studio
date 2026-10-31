@@ -79,7 +79,8 @@ describe('handleMidniteLink', () => {
   it('opens the bundle', async () => {
     const a = actions();
     await handleMidniteLink('midnite://open?app=coder', deps({ findAppBundle: async () => '/x.app' }), a);
-    expect(a.openBundle).toHaveBeenCalledWith('/x.app');
+    // `coder` is retired: its host is opened on the module it became.
+    expect(a.openBundle).toHaveBeenCalledWith('/x.app', '--midnite-link=midnite://open?app=agents&module=coder');
     expect(a.openStudioUrl).not.toHaveBeenCalled();
   });
   it('forwards to Studio, dropping a bad tab', async () => {
@@ -163,8 +164,9 @@ describe('every router fallback, end to end through handleMidniteLink', () => {
       'midnite://open?app=agents&view=sessions',
       deps({ findAppBundle: async (app) => (app === 'agents' ? '/stubs/Agents.app' : null) }),
     );
-    expect(decision).toEqual({ kind: 'bundle', path: '/stubs/Agents.app' });
-    expect(a.openBundle).toHaveBeenCalledWith('/stubs/Agents.app');
+    const linkArg = '--midnite-link=midnite://open?app=agents&view=sessions';
+    expect(decision).toEqual({ kind: 'bundle', path: '/stubs/Agents.app', linkArg });
+    expect(a.openBundle).toHaveBeenCalledWith('/stubs/Agents.app', linkArg);
     expect(a.openStudioUrl).not.toHaveBeenCalled();
     expect(a.showDetail).not.toHaveBeenCalled();
   });
@@ -230,14 +232,38 @@ describe('retired app links (Phase 124 Theme G)', () => {
   it('opens the host when it is installed, even with the old bundle beside it', async () => {
     const a = actions();
     const d = deps({ findAppBundle: bundles({ agents: '/Agents.app', coder: '/Coder.app' }) });
-    expect(await handleMidniteLink('midnite://open?app=coder&view=reviews', d, a)).toEqual({ kind: 'bundle', path: '/Agents.app' });
+    const linkArg = '--midnite-link=midnite://open?app=agents&module=coder&view=reviews';
+    expect(await handleMidniteLink('midnite://open?app=coder&view=reviews', d, a)).toEqual({ kind: 'bundle', path: '/Agents.app', linkArg });
+    // The host is handed where to land: its module and its own nav's view id, which Studio's vocabulary would drop.
+    expect(a.openBundle).toHaveBeenCalledWith('/Agents.app', linkArg);
+  });
+
+  it('hands a host bundle the module and view of a host link, and nothing else', async () => {
+    const a = actions();
+    const d = deps({ findAppBundle: bundles({ agents: '/Agents.app' }) });
+    const run = Buffer.from('{"issueUrl":"https://github.com/o/r/issues/1","skill":"x"}').toString('base64url');
+    await handleMidniteLink(`midnite://open?app=agents&module=creator&view=docs&tab=images&ref=${run}&evil=1`, d, a);
+    expect(a.openBundle).toHaveBeenCalledWith('/Agents.app', '--midnite-link=midnite://open?app=agents&module=creator&view=docs');
+  });
+
+  it('opens a host bundle plainly when the link names no module or view', async () => {
+    const a = actions();
+    await handleMidniteLink('midnite://open?app=agents', deps({ findAppBundle: bundles({ agents: '/Agents.app' }) }), a);
     expect(a.openBundle).toHaveBeenCalledWith('/Agents.app');
+  });
+
+  it('drops a module the host does not carry, keeping the view', async () => {
+    const a = actions();
+    await handleMidniteLink('midnite://open?app=agents&module=vault&view=chats', deps({ findAppBundle: bundles({ agents: '/Agents.app' }) }), a);
+    expect(a.openBundle).toHaveBeenCalledWith('/Agents.app', '--midnite-link=midnite://open?app=agents&view=chats');
   });
 
   it('falls back to the old bundle while the host is not installed', async () => {
     const a = actions();
     const d = deps({ findAppBundle: bundles({ coder: '/Coder.app' }) });
     expect(await handleMidniteLink('midnite://open?app=coder', d, a)).toEqual({ kind: 'bundle', path: '/Coder.app' });
+    // A legacy bundle predates the switch: it is opened plainly.
+    expect(a.openBundle).toHaveBeenCalledWith('/Coder.app');
   });
 
   it('prefers Studio for a link that carries a view, which an old bundle would drop', async () => {

@@ -1,6 +1,6 @@
 import { SETTINGS_PAGE_IDS, VIEW_IDS } from '@midnite/studio-shared/domain/view';
 import { MEDIA_TABS } from '@midnite/studio-shared/media';
-import { parseMidniteLink, type MidniteAppId, type MidniteLinkTarget } from '@midnite/studio-shared/midnite-link';
+import { midniteLinkArg, parseMidniteLink, type MidniteAppId, type MidniteLinkTarget } from '@midnite/studio-shared/midnite-link';
 import type { RetiredAppId } from '@midnite/studio-shared/modules';
 import type { LinkRateLimiter } from '@midnite/studio-shared/page-deep-link';
 import { studioRevealLinkFromParam, studioRunLinkFromParam, studioSettingsLink, studioViewLink } from '@midnite/studio-shared/studio-link';
@@ -34,7 +34,7 @@ import { appLink } from './links';
  */
 
 export type RouteDecision =
-  | { kind: 'bundle'; path: string }
+  | { kind: 'bundle'; path: string; /** `--midnite-link=…`, when the link names a module or view for the host to land on. */ linkArg?: string }
   | { kind: 'studio'; url: string }
   | { kind: 'detail'; app: MidniteAppId }
   /** Phase 117 Theme G: a second agent run inside the rate window, dropped before it reaches Studio. */
@@ -68,21 +68,32 @@ export function studioUrlFor(target: MidniteLinkTarget): string {
   return appLink(target.app, target.module === undefined ? undefined : `${MODULE_FEATURE_PREFIX}${target.module}`);
 }
 
-export async function routeTarget(target: MidniteLinkTarget, deps: RouterDeps): Promise<RouteDecision> {
-  let bundle = target.run === undefined ? await deps.findAppBundle(target.app) : null;
+export async function routeTarget(
+  target: MidniteLinkTarget,
+  deps: RouterDeps,
+  /** The same link parsed with no view vocabulary: what a host bundle is handed to land on. */
+  hostTarget: MidniteLinkTarget = target,
+): Promise<RouteDecision> {
+  const hostBundle = target.run === undefined ? await deps.findAppBundle(target.app) : null;
+  let bundle = hostBundle;
   // The host is not installed but the app it replaced still is: keep the old link working.
   // A link that carries a view, page or resource goes to Studio instead: an old bundle would drop it.
   const carriesTarget = target.view !== undefined || target.page !== undefined || target.ref !== undefined;
   if (bundle === null && target.run === undefined && !carriesTarget && target.legacyApp !== undefined) {
     bundle = await deps.findAppBundle(target.legacyApp);
   }
-  if (bundle !== null) return { kind: 'bundle', path: bundle };
+  if (bundle !== null) {
+    // Only the host's own bundle is handed the landing; a legacy one (opened below) predates it.
+    const linkArg = bundle === hostBundle ? midniteLinkArg(hostTarget) : null;
+    return linkArg === null ? { kind: 'bundle', path: bundle } : { kind: 'bundle', path: bundle, linkArg };
+  }
   if (await deps.isStudioInstalled()) return { kind: 'studio', url: studioUrlFor(target) };
   return { kind: 'detail', app: target.app };
 }
 
 export type RouterActions = {
-  openBundle(path: string): Promise<void>;
+  /** `linkArg` is the `--midnite-link=…` switch to open it with, when the link names where to land. */
+  openBundle(path: string, linkArg?: string): Promise<void>;
   openStudioUrl(url: string): Promise<void>;
   showDetail(app: MidniteAppId): void;
 };
@@ -96,9 +107,9 @@ export async function handleMidniteLink(
   const target = parseMidniteLink(raw, { views: VIEW_IDS, tabs: MEDIA_TABS, pages: SETTINGS_PAGE_IDS });
   if (target === null) return null;
   if (target.run !== undefined && deps.runLimiter && !deps.runLimiter.allow('run')) return { kind: 'throttled' };
-  const decision = await routeTarget(target, deps);
+  const decision = await routeTarget(target, deps, parseMidniteLink(raw) ?? target);
   try {
-    if (decision.kind === 'bundle') await actions.openBundle(decision.path);
+    if (decision.kind === 'bundle') await (decision.linkArg === undefined ? actions.openBundle(decision.path) : actions.openBundle(decision.path, decision.linkArg));
     else if (decision.kind === 'studio') await actions.openStudioUrl(decision.url);
   } catch {
     // The bundle or Studio would not open: fall back to the sheet rather than swallowing the click.
