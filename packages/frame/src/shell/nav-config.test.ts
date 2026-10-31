@@ -2,7 +2,7 @@
 import { LuShield } from 'react-icons/lu';
 import { describe, expect, it } from 'vitest';
 
-import { displayChord, navChordFor, navConfigProblems, navFromGroups, navFromModules, navViewForPath, pathForNavView } from './nav-config';
+import { displayChord, landingView, navChordFor, navConfigProblems, navFromGroups, navFromModules, navViewForPath, pathForNavView } from './nav-config';
 
 describe('nav config', () => {
   it('accepts a sound nav', () => {
@@ -74,5 +74,32 @@ describe('nav groups (Phase 124 Theme E)', () => {
     expect(navConfigProblems({ views: [view('x')], groups: [group, { ...group, views: [] }] })).toEqual(
       expect.arrayContaining(['duplicate group id "a"', 'group "a" has no views']),
     );
+  });
+});
+
+describe('landingView', () => {
+  const nav = navFromGroups([
+    { id: 'agents', label: 'Agents', icon: LuShield, views: [{ id: 'chats', label: 'Chats', icon: LuShield }, { id: 'councils', label: 'Councils', icon: LuShield }] },
+    { id: 'coder', label: 'Coder', icon: LuShield, views: [{ id: 'requests', label: 'Requests', icon: LuShield }, { id: 'reviews', label: 'Reviews', icon: LuShield }] },
+  ]);
+  it('lands on the requested view inside the requested module', () => {
+    expect(landingView(nav, { module: 'coder', view: 'reviews' })).toBe('reviews');
+  });
+  it('lands a module alone on its first view', () => {
+    expect(landingView(nav, { module: 'coder' })).toBe('requests');
+  });
+  it('falls back to the module front door when the view is not in that module', () => {
+    expect(landingView(nav, { module: 'coder', view: 'chats' })).toBe('requests');
+    expect(landingView(nav, { module: 'coder', view: 'nope' })).toBe('requests');
+  });
+  it('honours a view alone, and ignores an unknown module or view', () => {
+    expect(landingView(nav, { view: 'councils' })).toBe('councils');
+    expect(landingView(nav, { module: 'vault', view: 'councils' })).toBe('councils');
+    expect(landingView(nav, { view: 'nope' })).toBeUndefined();
+    expect(landingView(nav, { module: 'vault' })).toBeUndefined();
+    expect(landingView(nav, {})).toBeUndefined();
+  });
+  it('ignores a module on an ungrouped nav', () => {
+    expect(landingView({ views: [{ id: 'a', label: 'A', icon: LuShield }] }, { module: 'coder', view: 'a' })).toBe('a');
   });
 });

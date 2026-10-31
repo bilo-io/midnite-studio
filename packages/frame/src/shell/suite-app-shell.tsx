@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { LuActivity, LuKeyboard, LuPalette } from 'react-icons/lu';
 import type { SuiteAppId } from '@midnite/studio-shared';
 
+import { bridge } from '../bridge';
 import type { CommandRuntime } from '../commands/command-runtime';
 import { useKeybindings } from '../commands/use-keybindings';
 import { useAppearanceSync } from '../prefs/appearance-store';
@@ -12,7 +13,7 @@ import { SettingsView } from '../settings/settings-view';
 import { SuiteAppearancePage } from '../settings/suite-appearance-page';
 import { SuiteMonitorPage } from '../settings/suite-monitor-page';
 import { AppShell, type AppShellPanels } from './app-shell';
-import { SETTINGS_VIEW, type NavConfig } from './nav-config';
+import { landingView, SETTINGS_VIEW, type NavConfig } from './nav-config';
 import { StatusBar } from './status-bar/status-bar';
 import type { StatusSegment } from './status-bar/segments';
 import { suiteSegments, type AppPanels } from './status-bar/suite-segments';
@@ -125,6 +126,24 @@ export function SuiteAppShell({
     if (onViewChange) onViewChange(next);
     else setOwnView(next);
   };
+
+  // A launcher link (`midnite://open?app=…&module=…&view=…`) lands the host on that module and view: the one
+  // that started it (taken once on mount) and any that reach it running (pushed). Unknown ids change nothing.
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
+  useEffect(() => {
+    const link = bridge()?.suiteLink;
+    if (link === undefined) return undefined;
+    const land = (landing: { module?: string | undefined; view?: string | undefined }) => {
+      const target = landingView(nav, landing);
+      if (target !== undefined) navigateRef.current(target);
+    };
+    const off = link.onOpen(land);
+    void link.take().then((landing) => {
+      if (landing !== null) land(landing);
+    }, () => undefined);
+    return off;
+  }, [nav]);
 
   // `Mod+,` opens Settings (`view.settings`) in every suite app; only that command is this runtime's.
   const runtime = useMemo<CommandRuntime>(

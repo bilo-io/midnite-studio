@@ -22,6 +22,7 @@ export {
   SETTINGS_VIEW,
   displayChord,
   firstViewOfModule,
+  landingView,
   moduleOfView,
   navChordFor,
   navConfigProblems,
