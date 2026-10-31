@@ -20,6 +20,7 @@
     "@midnite/studio-feature-vanguard": "workspace:*",
     "@midnite/studio-feature-vault": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
+    "@midnite/studio-git-engine": "workspace:*",
     "@midnite/studio-module-cleaner": "workspace:*",
     "@midnite/studio-module-monitor": "workspace:*",
     "@midnite/studio-module-vanguard": "workspace:*",

@@ -858,6 +858,9 @@ importers:
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../packages/frame
+      '@midnite/studio-git-engine':
+        specifier: workspace:*
+        version: link:../../packages/git-engine
       '@midnite/studio-module-cleaner':
         specifier: workspace:*
         version: link:../../packages/modules/cleaner

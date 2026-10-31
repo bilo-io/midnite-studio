@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { packBundle } from './pack-bundle.mjs';
-import { allApps, bundleMatrix } from './release-bundles.mjs';
+import { NOT_BUNDLES, allApps, bundleMatrix } from './release-bundles.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (f) => readFileSync(path.join(repoRoot, f), 'utf8');
@@ -221,5 +221,36 @@ describe('packBundle (Theme H2)', () => {
     const root = mk(true);
     rmSync(path.join(root, 'resources', 'icon.icns'));
     expect(() => packBundle({ app: 'x', dir: root, version: '1', out: root })).toThrow(/icon\.icns/);
+  });
+});
+
+// A bundle job runs `root:install` frozen after moon syncs each project's `dependsOn` into its
+// package.json; an edge missing there rewrites the file mid-build and the install fails, which only a
+// release ever ran (Vanguard + git-engine, caught by the 0.0.6 dry run).
+describe('bundle apps declare every moon dependency', () => {
+  const projectDirs = ['apps', 'packages', 'packages/features', 'packages/modules'].flatMap((root) =>
+    readdirSync(path.join(repoRoot, root), { withFileTypes: true })
+      .filter((d) => d.isDirectory() && existsSync(path.join(repoRoot, root, d.name, 'moon.yml')))
+      .map((d) => `${root}/${d.name}`),
+  );
+  const moonId = (dir) => /^id:\s*'?([^'\s]+)'?/m.exec(read(`${dir}/moon.yml`))?.[1] ?? path.basename(dir);
+  const pkgName = new Map(
+    projectDirs
+      .filter((dir) => existsSync(path.join(repoRoot, dir, 'package.json')))
+      .map((dir) => [moonId(dir), JSON.parse(read(`${dir}/package.json`)).name]),
+  );
+  const bundleDirs = projectDirs.filter((dir) => dir.startsWith('apps/') && !NOT_BUNDLES.includes(path.basename(dir)));
+
+  it.each(bundleDirs)('%s', (dir) => {
+    const deps = /^dependsOn:\n((?: {2}- .*\n)+)/m.exec(read(`${dir}/moon.yml`))?.[1] ?? '';
+    const pkg = JSON.parse(read(`${dir}/package.json`));
+    const declared = { ...pkg.dependencies, ...pkg.devDependencies };
+    const missing = deps
+      .split('\n')
+      .map((l) => l.replace(/^\s*-\s*'?([^'\s]+)'?.*$/, '$1'))
+      .filter(Boolean)
+      .map((id) => pkgName.get(id) ?? `<no package for moon id ${id}>`)
+      .filter((name) => !(name in declared));
+    expect(missing).toEqual([]);
   });
 });
