@@ -28,7 +28,7 @@ export interface VaultClipboardWatchDeps {
 export interface VaultClipboardWatch {
   start(): void;
   stop(): void;
-  tick(): void;
+  tick(): Promise<void>;
 }
 
 export const VAULT_CLIPBOARD_POLL_INTERVAL_MS = 1000;
@@ -58,17 +58,17 @@ export function createVaultClipboardWatch(deps: VaultClipboardWatchDeps): VaultC
   const cancelAfter: (handle: unknown) => void =
     deps.clearTimeout ?? ((h) => clearTimeout(h as ReturnType<typeof setTimeout>));
 
-  const clearNow = (targetText: string) => {
+  const clearNow = async (targetText: string): Promise<void> => {
     try {
-      if (deps.clipboard.readText() === targetText) {
-        deps.clipboard.writeText('');
+      if ((await deps.clipboard.readText()) === targetText) {
+        await deps.clipboard.writeText('');
       }
     } catch {
       // Ignore clipboard access errors
     }
   };
 
-  const tick = (): void => {
+  const tick = async (): Promise<void> => {
     if (!deps.isEnabled()) {
       lastHash = null;
       return;
@@ -76,7 +76,7 @@ export function createVaultClipboardWatch(deps: VaultClipboardWatchDeps): VaultC
 
     let text = '';
     try {
-      text = deps.clipboard.readText();
+      text = await deps.clipboard.readText();
     } catch {
       return;
     }
@@ -100,7 +100,7 @@ export function createVaultClipboardWatch(deps: VaultClipboardWatchDeps): VaultC
       const hit: VaultClipboardHit = {
         pattern: primaryFinding.pattern,
         masked: primaryFinding.masked,
-        clearNow: () => clearNow(text),
+        clearNow: () => void clearNow(text),
       };
 
       deps.onSecretDetected(hit);
@@ -108,7 +108,7 @@ export function createVaultClipboardWatch(deps: VaultClipboardWatchDeps): VaultC
       if (deps.isAutoClearEnabled?.()) {
         if (autoClearHandle) cancelAfter(autoClearHandle);
         autoClearHandle = after(() => {
-          clearNow(text);
+          void clearNow(text);
         }, VAULT_CLIPBOARD_AUTO_CLEAR_MS);
       }
     }
@@ -116,7 +116,7 @@ export function createVaultClipboardWatch(deps: VaultClipboardWatchDeps): VaultC
 
   const start = (): void => {
     if (pollHandle) return;
-    pollHandle = every(tick, VAULT_CLIPBOARD_POLL_INTERVAL_MS);
+    pollHandle = every(() => void tick(), VAULT_CLIPBOARD_POLL_INTERVAL_MS);
   };
 
   const stop = (): void => {

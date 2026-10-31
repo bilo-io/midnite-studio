@@ -140,7 +140,7 @@ export type WorkflowsPorts = {
   /** Desktop notification and clipboard seams for the `notify` and `clipboard` nodes. */
   desktop?: {
     notify?: { isSupported(): boolean; show(input: { title: string; body: string }): void };
-    writeClipboard?: (text: string) => void;
+    writeClipboard?: (text: string) => Promise<void> | void;
   };
 };
 

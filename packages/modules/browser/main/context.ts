@@ -28,7 +28,7 @@ export type BrowserAppElectron = IpcContextElectron & {
   /** The window that sent an IPC message (`BrowserWindow.fromWebContents(event.sender)`), null when unknown. */
   senderWindow: (event: unknown) => BrowserHostWindow | null;
   /** `clipboard.writeText` — synchronous, as Electron's is. */
-  writeClipboard: (text: string) => void;
+  writeClipboard: (text: string) => Promise<void> | void;
   log: BrowserLog;
   userDataPath?: string;
 };
@@ -93,9 +93,9 @@ export function registerBrowserAppHandlers(el: BrowserAppElectron): { shutdown: 
   ctx.ipc.handle(
     CHANNELS.clipboardWriteText,
     schemas.ClipboardWriteTextRequest,
-    ({ text }) => {
+    async ({ text }) => {
       try {
-        el.writeClipboard(text);
+        await el.writeClipboard(text);
         return { ok: true as const };
       } catch (error) {
         // A clipboard the OS refuses is the user's environment, not a crash — report it, as Studio does.

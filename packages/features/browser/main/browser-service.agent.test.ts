@@ -102,7 +102,7 @@ const electron = {
   })),
   onDisplayMetricsChanged: vi.fn(),
   openExternal: vi.fn(async () => undefined),
-  readClipboardText: vi.fn(() => clipboard.text),
+  readClipboardText: vi.fn(async () => clipboard.text),
   clearClipboard: vi.fn(() => {
     clipboard.text = '';
   }),

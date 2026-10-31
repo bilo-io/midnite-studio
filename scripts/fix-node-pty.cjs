@@ -25,7 +25,7 @@ function restoreHelpers(nodePtyDir) {
     }
   }
   // `electron-rebuild` writes spawn-helper under build/Release, which is what
-  // a sandboxed Electron 42 process actually execs.
+  // a sandboxed Electron process actually execs.
   const rebuilt = path.join(nodePtyDir, 'build', 'Release', 'spawn-helper');
   try {
     if (fs.existsSync(rebuilt)) fs.chmodSync(rebuilt, 0o755);

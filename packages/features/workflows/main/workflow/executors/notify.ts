@@ -20,7 +20,7 @@ export type NotifyDeps = {
   show: (notification: { title: string; body: string }) => void;
 };
 
-export type ClipboardDeps = { writeText: (text: string) => void };
+export type ClipboardDeps = { writeText: (text: string) => Promise<void> | void };
 
 export function createNotifyExecutor(deps: NotifyDeps): NodeExecutor {
   return async (node, context): Promise<NodeOutcome> => {
@@ -48,13 +48,13 @@ export function createClipboardExecutor(deps: ClipboardDeps): NodeExecutor {
     const text = interpolate(node.config.text, context.upstream);
     if (!text.ok) return text;
     if (text.value === '') return { ok: false, error: 'There is nothing to copy.' };
-    // The same ceiling the renderer's clipboard channel enforces: the write is
-    // synchronous in main, and a multi-megabyte one stalls the UI.
+    // The same ceiling the renderer's clipboard channel enforces: a multi-megabyte
+    // write is a stalled pasteboard.
     if (text.value.length > CLIPBOARD_MAX_LENGTH) {
       return { ok: false, error: `The text is ${text.value.length} characters — over the ${CLIPBOARD_MAX_LENGTH} limit.` };
     }
     try {
-      deps.writeText(text.value);
+      await deps.writeText(text.value);
     } catch (err) {
       return { ok: false, error: `Could not write the clipboard: ${err instanceof Error ? err.message : String(err)}` };
     }

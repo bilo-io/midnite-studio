@@ -179,7 +179,7 @@ export type BrowserElectron = {
   /** `shell.openExternal`. */
   openExternal(url: string): Promise<void>;
   /** Phase 117 Theme G: `clipboard.readText()` for the ClickFix watch. Absent, the watch stays off. */
-  readClipboardText?(): string;
+  readClipboardText?(): Promise<string>;
   /** Phase 117 Theme G: `clipboard.clear()` behind the ClickFix bar's one-click clear. */
   clearClipboard?(): void;
 };

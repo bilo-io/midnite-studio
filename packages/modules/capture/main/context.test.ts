@@ -44,7 +44,7 @@ const emptyImage: CaptureImage = {
 
 function fakes() {
   const registered = new Map<string, () => void>();
-  const clipboardReads = vi.fn(() => [] as string[]);
+  const clipboardReads = vi.fn(async () => [] as string[]);
   const getSources = vi.fn(async () => []);
   const electron: CaptureElectron = {
     platform: 'darwin',
@@ -62,11 +62,11 @@ function fakes() {
     },
     clipboard: {
       availableFormats: clipboardReads,
-      has: () => false,
-      readText: vi.fn(() => ''),
-      readImage: vi.fn(() => emptyImage),
-      writeText: vi.fn(),
-      writeImage: vi.fn(),
+      has: async () => false,
+      readText: vi.fn(async () => ''),
+      readImage: vi.fn(async () => emptyImage),
+      writeText: vi.fn(async () => undefined),
+      writeImage: vi.fn(async () => undefined),
     },
     imageFromPng: () => emptyImage,
     showItemInFolder: vi.fn(),

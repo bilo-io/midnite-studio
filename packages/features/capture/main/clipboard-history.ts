@@ -88,19 +88,20 @@ export type ClipboardHistory = {
 const sha = (data: Uint8Array | string) => createHash('sha256').update(data).digest('hex');
 
 /** Whether the clipboard carries a "do not keep" marker. */
-export function isMarked(
-  clipboard: Pick<CaptureClipboard, 'availableFormats' | 'has'>,
+export async function isMarked(
+  clipboard: Pick<CaptureClipboard, 'has'>,
   formats: string[],
-): boolean {
+): Promise<boolean> {
   const markers: readonly string[] = CLIPBOARD_SKIP_MARKERS;
   if (formats.some((f) => markers.includes(f))) return true;
-  return CLIPBOARD_SKIP_MARKERS.some((marker) => {
+  for (const marker of CLIPBOARD_SKIP_MARKERS) {
     try {
-      return clipboard.has(marker);
+      if (await clipboard.has(marker)) return true;
     } catch {
-      return false;
+      // An unreadable type is not a marker.
     }
-  });
+  }
+  return false;
 }
 
 export function createClipboardHistory(deps: {
@@ -195,18 +196,18 @@ export function createClipboardHistory(deps: {
       const { clipboard } = deps;
       let formats: string[];
       try {
-        formats = clipboard.availableFormats();
+        formats = await clipboard.availableFormats();
       } catch {
         return false;
       }
       if (formats.length === 0) return false;
       // A marked entry (a password manager's copy) is never read, not even into the comparison below:
       // the markers are checked on the formats alone, before any text leaves the pasteboard.
-      if (isMarked(clipboard, formats)) {
+      if (await isMarked(clipboard, formats)) {
         lastSignature = `marked:${formats.join('|')}`;
         return false;
       }
-      const text = formats.some((f) => f.startsWith('text/plain')) ? clipboard.readText() : '';
+      const text = formats.some((f) => f.startsWith('text/plain')) ? await clipboard.readText() : '';
       const hasImage = formats.some((f) => f.startsWith('image/'));
       const signature = `${formats.join('|')}\n${text}`;
       // Unchanged since the last look (an image is re-checked only when the formats or text move).
@@ -214,7 +215,7 @@ export function createClipboardHistory(deps: {
       lastSignature = signature;
       const id = `clip-${randomBytes(6).toString('hex')}`;
       if (hasImage) {
-        const image = clipboard.readImage();
+        const image = await clipboard.readImage();
         if (!image.isEmpty()) {
           const png = image.toPNG();
           if (png.byteLength > CLIPBOARD_IMAGE_MAX_BYTES) return false;
@@ -275,9 +276,9 @@ export function createClipboardHistory(deps: {
       );
       void (async () => {
         try {
-          const formats = deps.clipboard.availableFormats();
+          const formats = await deps.clipboard.availableFormats();
           const text = formats.some((f) => f.startsWith('text/plain'))
-            ? deps.clipboard.readText()
+            ? await deps.clipboard.readText()
             : '';
           lastSignature = `${formats.join('|')}\n${text}`;
         } catch {
@@ -297,8 +298,8 @@ export function createClipboardHistory(deps: {
       const entry = (await load()).find((e) => e.id === id);
       if (!entry) return failure('That clipboard entry is gone.');
       try {
-        if (entry.kind === 'text') deps.clipboard.writeText(entry.text);
-        else deps.clipboard.writeImage(deps.imageFromPng(await readFile(pngPath(entry.id))));
+        if (entry.kind === 'text') await deps.clipboard.writeText(entry.text);
+        else await deps.clipboard.writeImage(deps.imageFromPng(await readFile(pngPath(entry.id))));
         return ok();
       } catch (error) {
         return failure(error instanceof Error ? error.message : String(error));

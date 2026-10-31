@@ -32,10 +32,60 @@ export type CaptureElectronModules = {
     getDisplayNearestPoint(point: { x: number; y: number }): CaptureDisplay;
   };
   globalShortcut: CaptureGlobalShortcut;
-  clipboard: CaptureClipboard;
+  clipboard: ElectronClipboard;
+  /** Electron's `ClipboardItem` class — what an image is written to the clipboard as. */
+  ClipboardItem: new (items: Record<string, Blob>) => unknown;
   nativeImage: { createFromBuffer(buffer: Uint8Array): CaptureImage };
   shell: { showItemInFolder(path: string): void; openExternal(url: string): Promise<void> };
 };
+
+/**
+ * Electron 44+'s main-process `clipboard`: promise-based and modelled on the W3C Async Clipboard API.
+ * `readImage`/`writeImage`/`availableFormats` are gone; an image travels as a `ClipboardItem` blob.
+ */
+export type ElectronClipboard = {
+  read(): Promise<Array<{ readonly types: string[]; getType(type: string): Promise<unknown> }>>;
+  has(mimetype: string): Promise<boolean>;
+  readText(): Promise<string>;
+  writeText(text: string): Promise<void>;
+  write(items: unknown[]): Promise<void>;
+};
+
+/** How Electron 44+ names a raw pasteboard type (a UTI such as `org.nspasteboard.ConcealedType`). */
+const RAW_FORMAT = /^electron application\/osclipboard;format="(.*)"$/;
+const rawFormat = (type: string) => `electron application/osclipboard;format="${type}"`;
+/** Always listed by Electron 44+ on macOS, even on an empty clipboard; it is not content. */
+const FIND_TEXT = 'electron application/findtext';
+
+/**
+ * {@link CaptureClipboard} over Electron 44+'s `clipboard`. Raw pasteboard types come back by their
+ * bare name, so a password manager's `org.nspasteboard.ConcealedType` marker still matches
+ * `CLIPBOARD_SKIP_MARKERS` (checked against Electron 45 on macOS: `has()` on the bare name is false,
+ * on the `osclipboard` form true).
+ */
+export function electronCaptureClipboard(
+  clipboard: ElectronClipboard,
+  ClipboardItem: CaptureElectronModules['ClipboardItem'],
+  nativeImage: CaptureElectronModules['nativeImage'],
+): CaptureClipboard {
+  const types = async () => (await clipboard.read())[0]?.types ?? [];
+  return {
+    availableFormats: async () =>
+      (await types()).flatMap((t) => (t === FIND_TEXT ? [] : [RAW_FORMAT.exec(t)?.[1] ?? t])),
+    has: (format) => clipboard.has(format.includes('/') ? format : rawFormat(format)),
+    readText: () => clipboard.readText(),
+    readImage: async () => {
+      const [item] = await clipboard.read();
+      const type = item?.types.includes('image/png') ? 'image/png' : item?.types.find((t) => t.startsWith('image/'));
+      if (!item || !type) return nativeImage.createFromBuffer(new Uint8Array(0));
+      const blob = (await item.getType(type)) as Blob;
+      return nativeImage.createFromBuffer(new Uint8Array(await blob.arrayBuffer()));
+    },
+    writeText: (text) => clipboard.writeText(text),
+    writeImage: (image) =>
+      clipboard.write([new ClipboardItem({ 'image/png': new Blob([image.toPNG()], { type: 'image/png' }) })]),
+  };
+}
 
 /** A window as far as hiding it for a screen grab goes. */
 export type CaptureOwnWindow = {
@@ -67,6 +117,7 @@ export function electronCapturePort(
     screen,
     globalShortcut,
     clipboard,
+    ClipboardItem,
     nativeImage,
     shell,
   } = modules;
@@ -80,7 +131,7 @@ export function electronCapturePort(
     displays: () => screen.getAllDisplays(),
     displayUnderPointer: () => screen.getDisplayNearestPoint(screen.getCursorScreenPoint()),
     globalShortcut,
-    clipboard,
+    clipboard: electronCaptureClipboard(clipboard, ClipboardItem, nativeImage),
     imageFromPng: (bytes) => nativeImage.createFromBuffer(bytes),
     showItemInFolder: (path) => shell.showItemInFolder(path),
     ...(windows

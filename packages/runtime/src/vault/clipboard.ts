@@ -3,10 +3,11 @@ import { createHash } from 'node:crypto';
 /**
  * Minimal clipboard interface injected into the runtime from the main process.
  * This keeps `@midnite/studio-runtime` free from direct electron dependencies.
+ * Electron 44+'s main-process `clipboard` is promise-based, so both calls may return a promise.
  */
 export type ClipboardAdapter = {
-  writeText(text: string): void;
-  readText(): string;
+  writeText(text: string): Promise<void> | void;
+  readText(): Promise<string> | string;
 };
 
 export interface VaultClipboardManager {
@@ -17,7 +18,7 @@ export interface VaultClipboardManager {
   copySecret(
     secret: string,
     options?: { timeoutSeconds?: number },
-  ): { ok: boolean; timeoutSeconds: number };
+  ): Promise<{ ok: boolean; timeoutSeconds: number }>;
   /** Immediately clears any active clipboard clear timer and empties the clipboard. */
   clearNow(): void;
   /** Cancels any pending auto-clear timer without modifying clipboard contents. */
@@ -42,25 +43,27 @@ export function createVaultClipboardManager(clipboard: ClipboardAdapter): VaultC
 
   const clearNow = () => {
     clearTimer();
-    clipboard.writeText('');
+    void Promise.resolve()
+      .then(() => clipboard.writeText(''))
+      .catch(() => undefined);
   };
 
-  const copySecret = (
+  const copySecret = async (
     secret: string,
     options?: { timeoutSeconds?: number },
-  ): { ok: boolean; timeoutSeconds: number } => {
+  ): Promise<{ ok: boolean; timeoutSeconds: number }> => {
     clearTimer();
     const timeoutSeconds = Math.max(1, Math.min(300, options?.timeoutSeconds ?? 30));
     const hash = hashSecret(secret);
     expectedHash = hash;
-    clipboard.writeText(secret);
+    await clipboard.writeText(secret);
 
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       try {
         if (expectedHash === hash) {
-          const current = clipboard.readText();
+          const current = await clipboard.readText();
           if (hashSecret(current) === hash) {
-            clipboard.writeText('');
+            await clipboard.writeText('');
           }
         }
       } catch {

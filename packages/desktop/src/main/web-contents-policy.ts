@@ -10,7 +10,7 @@
  * (`session.defaultSession`), i.e. a `BrowserWindow`'s own page. The browser pane's tabs and the
  * web-app views have their own `checkNavigationUrl` policy in the browser feature, which inverts
  * this rule (they *must* navigate to arbitrary http(s)) — a net that denied them would break the
- * browser. `getType()` alone does not tell them apart: Electron 42 reports a `WebContentsView`'s
+ * browser. `getType()` alone does not tell them apart: Electron 42+ (re-checked on 45) reports a `WebContentsView`'s
  * contents as `'window'` too, which sent every link clicked in a browser tab to the OS browser.
  * Their partition does — tabs are `persist:browser`, web apps `persist:app-<id>`.
  *

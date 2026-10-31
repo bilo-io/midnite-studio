@@ -37,7 +37,7 @@ const ensured = spawnSync(process.execPath, [resolve(here, '../../../scripts/ens
 if (ensured.status) process.exit(ensured.status);
 
 /**
- * Electron 42's node-gyp still passes `-mmacosx-version-min=10.7`. Linking
+ * Electron's node-gyp (42 and 45 alike) still passes `-mmacosx-version-min=10.7`. Linking
  * against the Command Line Tools' default MacOSX 26/27 SDK then fails
  * (`unknown architecture arm64e.x1` in the TBD files). Prefer an SDK 15
  * tree when present; GitHub `macos-14` runners already have a compatible SDK.

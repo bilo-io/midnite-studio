@@ -54,7 +54,7 @@ export type ReportMainServices = {
   /** `shell.openExternal` — only ever handed a midnite-apps issues URL (checked here). */
   openExternal: (url: string) => Promise<void> | void;
   /** `clipboard.writeText` — synchronous, which is why the request schema caps the length. */
-  writeClipboard: (text: string) => void;
+  writeClipboard: (text: string) => Promise<void> | void;
   /** `shell.showItemInFolder` — handed the sink's own path, never one from the renderer. */
   revealPath: (path: string) => void;
 };
@@ -135,9 +135,9 @@ export const reportMain = defineFeatureMain<ReportMainServices>({
     ipc.handle(
       CHANNELS.reportCopy,
       schemas.ReportCopyRequest,
-      ({ text }) => {
+      async ({ text }) => {
         try {
-          services.writeClipboard(text);
+          await services.writeClipboard(text);
           return { ok: true };
         } catch (error) {
           // A clipboard the OS refuses is the user's environment, not a crash.
