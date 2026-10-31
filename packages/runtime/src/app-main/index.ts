@@ -30,4 +30,5 @@ export {
   type SuiteMainOptions,
   type SuiteMainWindow,
 } from './suite-main';
+export { landingFromArgv, landingFromLink, midniteLinkFromArgv } from './suite-link';
 export { createSuiteBridge } from './suite-preload';

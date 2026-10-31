@@ -79,15 +79,22 @@ app.setName(AGENTS_NAME);
 // A smoke run is a proof, not a session: keep it out of the Dock and off the screen.
 if (smoke) app.dock?.hide();
 app.setPath('userData', agentsUserData(app.getPath('appData'), override));
-// Phase 124 Theme G.4: take over what the apps merged into this one left behind, once (never in a throwaway run).
-if (override === undefined || override === '') importRetiredAppData({ appData: app.getPath('appData'), host: 'agents' });
 
 // A smoke run is one-shot and must not collide with a real Agents' lock.
 if (!smoke && !app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
-    if (win === null) return;
+  // Phase 124 Theme G.4: take over what the apps merged into this one left behind, once (never in a throwaway run).
+  // After the lock: a launcher link's `open -n` instance quits at the lock and must not run it beside the live host.
+  if (override === undefined || override === '') importRetiredAppData({ appData: app.getPath('appData'), host: 'agents' });
+  app.on('second-instance', (_event, argv) => {
+    // A launcher link (`--midnite-link=…`) tells the running host which module and view to land on.
+    suite?.handleArgv(argv);
+    if (win === null) {
+      // Window closed but the app still running (macOS): a link brings it back, as the Dock icon does.
+      if (suite !== null) openWindow();
+      return;
+    }
     if (win.isMinimized()) win.restore();
     win.focus();
   });
@@ -97,6 +104,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       ipcMain,
       runtimeDirectory: suiteRuntimeDirectory(app.getPath('appData'), process.env[USER_DATA_ENV]),
       getWindow: () => win,
+      argv: process.argv,
       warn: (message) => process.stderr.write(`${message}\n`),
     });
     // The prefs file watcher is a live handle: let go of it with the app.

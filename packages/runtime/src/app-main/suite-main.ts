@@ -6,11 +6,13 @@ import {
   resolveSuitePrefs,
   SuitePrefsSetRequestSchema,
   WindowSetBackgroundRequest,
+  type SuiteLinkLanding,
   type SuitePrefsSnapshot,
 } from '@midnite/studio-shared';
 
 import { runtimeDataDirectory } from '../data-directory';
 import { createSuitePrefsService, type SuitePrefsService } from '../suite-prefs';
+import { landingFromArgv } from './suite-link';
 import { attachWindowChrome, toggleMaximize, type ChromeableWindow } from './suite-window';
 
 /** The window an app's main hands over: chrome events plus the one setter the theme retint needs. */
@@ -29,12 +31,19 @@ export type SuiteMainOptions = SuiteMainElectron & {
   /** The app's one window, or null before it exists / after it closes. */
   getWindow: () => SuiteMainWindow | null;
   warn: (message: string) => void;
+  /** `process.argv` of this launch: a `--midnite-link=` on it is where the host first lands. */
+  argv?: readonly string[];
 };
 
 export type SuiteMain = {
   service: SuitePrefsService;
   /** Forward fullscreen/focus/maximize transitions of the window just created. */
   attachWindow(win: SuiteMainWindow): void;
+  /**
+   * A launcher link reached the running host (`second-instance`'s argv): pushed to the window, or kept
+   * for the renderer's `take` when there is none yet. An argv with no valid link is ignored.
+   */
+  handleArgv(argv: readonly string[]): void;
   close(): void;
 };
 
@@ -70,6 +79,24 @@ export function registerSuiteMain(options: SuiteMainOptions): SuiteMain {
     return service.set(parsed.data);
   });
 
+  // A landing the renderer has not taken yet: the cold start's argv, or a link that beat the window.
+  let pending: SuiteLinkLanding | null = landingFromArgv(options.argv ?? []);
+  // Once the renderer has asked, it is mounted and listening: a later link is pushed rather than parked.
+  let rendererReady = false;
+  ipcMain.handle(CHANNELS.suiteLinkTake, () => {
+    rendererReady = true;
+    const landing = pending;
+    pending = null;
+    return landing;
+  });
+  const handleArgv = (argv: readonly string[]): void => {
+    const landing = landingFromArgv(argv);
+    if (landing === null) return;
+    const win = getWindow();
+    if (rendererReady && win !== null && !win.isDestroyed()) win.webContents.send(EVENT_CHANNELS.suiteLinkOpen, landing);
+    else pending = landing;
+  };
+
   ipcMain.on(CHANNELS.windowMaximizeToggle, () => {
     const win = getWindow();
     if (win !== null) toggleMaximize(win);
@@ -82,7 +109,12 @@ export function registerSuiteMain(options: SuiteMainOptions): SuiteMain {
 
   return {
     service,
-    attachWindow: (win) => attachWindowChrome(win),
+    attachWindow: (win) => {
+      // A new window is a new renderer: a link must wait for its `take` again.
+      rendererReady = false;
+      attachWindowChrome(win);
+    },
+    handleArgv,
     close: () => service.close(),
   };
 }
