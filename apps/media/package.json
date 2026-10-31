@@ -1,6 +1,6 @@
 {
   "name": "@midnite/app-media",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "description": "Midnite Media - a library of your own films, shows, music and photos, as its own app.",
   "type": "module",

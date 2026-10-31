@@ -1,6 +1,6 @@
 {
   "name": "@midnite/app-money",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "description": "Midnite Money — stocks, crypto and a simulated portfolio as their own app: a watchlist, markets, allocation and news, over the finance feature.",
   "type": "module",

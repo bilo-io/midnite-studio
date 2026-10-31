@@ -20,6 +20,37 @@ that mirror is what the in-app release-notes popover actually reads (see
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-10-31
+
+> **Using the 0.0.5 launcher?** It cannot update itself and its Studio install can fail with `ditto: Couldn't read pkzip signature`. Reinstall it once from a terminal: `curl -fsSL https://midnite-apps.vercel.app/install.sh | sh`.
+
+### Added
+- **One shell for every suite app** (Phase 123): every app now wears the same frameless window, title-bar cluster, nav rail, status bar with a system monitor, settings pages, chords, terminal panel, companion panel and the FAB / Loops menu. Studio runs on the same shell.
+- **Modules** (Phase 124): Coder, Creator, Vault, Cleaner, Monitor and Capture are now modules mounted by their host apps — Agents (Coder, Creator), Media and Gamer (Creator), Vanguard (Vault, Cleaner, Monitor) and Mind (Capture) — each with its own nav group.
+- **Midnite Apps catalog**: 11 apps with module chips and a grouped detail sheet, plus an **Update launcher** button.
+- **Supply-chain guard** (Phase 122): a scheduled sweep of lockfiles against OSV and CISA KEV, installed-software and Electron-freshness checks, and a signed threat feed for poisoned packages, MCP servers and slopsquats.
+- **Privacy controls** (Phase 115): an outbound host registry with a master switch, history retention and clear-all, owner-only history files, secrets scrubbed on write, and session-only API keys that never touch the Keychain.
+- **Forge host** (Phase 119): a mirror and backup engine for your repos, scheduled at boot.
+- **Midnite PR skills** in the midnite menu: self-review, PR description and PR create.
+- An ink-morph explainer template for video, and gradient sliders throughout (loop hue, auto-rotate).
+
+### Changed
+- **Retired apps resolve to their hosts.** Links and launcher tiles for Coder, Creator, Cleaner, Vault, Monitor and Capture open the host app on the right module and view; the launcher offers to swap an installed retired app for its host and imports its data.
+- **Electron 45** (Chromium 156, Node 24.22) across Studio, the launcher and every app, so the Browser ships on a supported Chromium again.
+
+### Fixed
+- **Launcher installs verify the file on disk.** A download corrupted on its way to disk is caught, deleted and reported as "The download was corrupted — try again" instead of a raw `ditto` error.
+- Loops no longer drop the first character of a launched command (`laude` for `claude`).
+- Egress safelists headers across redirects, refuses downgrades and re-validates every hop.
+- Vanguard's login-item scan is opt-in, so it no longer triggers macOS password prompts.
+- Capture, Vault, Monitor and Vanguard views scroll their own content.
+- Links clicked inside Browser tabs open in the tab, not the system browser.
+- A stopped terminal pane is no longer revived by hovering it.
+- maplibre-gl 6 (security) and Remotion 4.0.538.
+
+### Removed
+- **Coder, Creator, Cleaner, Vault, Monitor and Capture as standalone apps.** They leave the catalog; their features live on as modules (above).
+
 ## [0.0.5] - 2026-10-26
 
 ### Added
@@ -100,7 +131,8 @@ Covers everything since 0.0.1; the 0.0.2 test release shipped without notes.
 - User-level skills management option accessible via the Midnite menu.
 - Full two-pane Notes manager with Monaco code editor, Markdown preview, and persistent disk storage.
 
-[Unreleased]: https://github.com/bilo-io/midnite-studio/compare/v0.0.5...HEAD
+[Unreleased]: https://github.com/bilo-io/midnite-studio/compare/v0.0.6...HEAD
+[0.0.6]: https://github.com/bilo-io/midnite-studio/releases/tag/v0.0.6
 [0.0.5]: https://github.com/bilo-io/midnite-studio/releases/tag/v0.0.5
 [0.0.4]: https://github.com/bilo-io/midnite-studio/releases/tag/v0.0.4
 [0.0.3]: https://github.com/bilo-io/midnite-studio/releases/tag/v0.0.3

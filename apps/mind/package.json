@@ -1,6 +1,6 @@
 {
   "name": "@midnite/app-mind",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "description": "Midnite Mind - notes you capture in a keystroke, as their own app.",
   "type": "module",

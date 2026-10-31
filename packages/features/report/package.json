@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-report",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "description": "Report an Issue as a feature: the dialog (renderer), the issue filing, gh status, diagnostics bundle and crash-report channels (main), and the preload bridge helper. Placed in the frame: every midnite app composes it.",
   "sideEffects": false,

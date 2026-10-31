@@ -1,6 +1,6 @@
 {
   "name": "@midnite/app-agents",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "description": "Midnite Agents \u2014 chats with your agent CLIs, councils that answer together and local models, as their own app over the chats, councils and models features.",
   "type": "module",

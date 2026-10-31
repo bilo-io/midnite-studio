@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-companion",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "description": "The companion as a feature (Phase 123 Theme F): the orb, panel, thread, voice and zen stage (renderer) behind a CompanionHost port, and the snapshot, digest, ask, STT and TTS services (main) behind CompanionMainServices. Placed in the frame.",
   "sideEffects": [

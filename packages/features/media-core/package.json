@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-media-core",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "description": "The shared media plumbing (Phase 113 Theme Q): the Media shell and tab registry, the media kit every tab composes, and the repo-scoped media store and export service — composed by Creator, Media, Gamer and Studio.",
   "sideEffects": false,

@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-forge-host",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "description": "The forge-host feature (Phase 119): Midnite Git's mirror and backup engine, and later the local forge supervisor. Main half only until the app (Theme C) lands.",
   "sideEffects": false,

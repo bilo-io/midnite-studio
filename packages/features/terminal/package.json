@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-terminal",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "description": "The terminal panel as a feature (Phase 123 Theme E): the session list, every session's xterm, the panel store and its unload policy, behind a TerminalHost port, and the session list's main half (stores, service and its IPC handlers). Placed in the frame: every midnite app composes it.",
   "sideEffects": false,

@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-module-coder",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "description": "The Coder module (Phase 124 Theme C): reviews, CI runs, tests, API collections, databases and sessions over the forge, tests, api-client, database, sessions and tasks features.",
   "sideEffects": false,

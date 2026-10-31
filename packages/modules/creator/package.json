@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-module-creator",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "description": "The Creator module (Phase 124 Theme C): Docs, Images, Video and Audio over media-core (and Slides as a doc deck), mountable by any host.",
   "sideEffects": false,
