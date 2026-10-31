@@ -161,7 +161,7 @@ export async function installAppBundle(
       const res = await (deps.fetchImpl ?? fetch)(entry.bundleUrl);
       if (!res.ok || res.body === null) return fail(`Download failed (${res.status}).`);
       let lastSent = 0;
-      const bytes = await download(res, zip, (bytes, total) => {
+      const downloaded = await download(res, zip, (bytes, total) => {
         received = bytes;
         const now = Date.now();
         if (now - lastSent > 100) {
@@ -171,7 +171,7 @@ export async function installAppBundle(
       });
       progress({ phase: 'verify', received, total: entry.size });
       // The digest is of the file on disk — what `ditto` will read — not of the stream written to it.
-      if (bytes !== entry.size || (await sha256File(zip)) !== entry.sha256) {
+      if (downloaded !== entry.size || (await sha256File(zip)) !== entry.sha256) {
         await rm(zip, { force: true });
         return fail(CORRUPT_DOWNLOAD_MESSAGE);
       }
