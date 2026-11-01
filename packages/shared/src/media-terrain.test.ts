@@ -112,7 +112,7 @@ describe('naming', () => {
 
 describe('the Terrain media tab', () => {
   it('sits after Maps and before Models, and is repo-scoped', () => {
-    expect(MEDIA_TABS.slice(0, 7)).toEqual(['doc', 'image', 'video', 'audio', 'map', 'terrain', 'model']);
+    expect(MEDIA_TABS.slice(0, 8)).toEqual(['doc', 'image', 'video', 'audio', 'sfx', 'map', 'terrain', 'model']);
     expect(REPO_SCOPED_MEDIA_TABS).toContain('terrain');
   });
 });

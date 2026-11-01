@@ -447,6 +447,7 @@ import {
   MapTargetSchema,
 } from '../media-map';
 import { Sf3dRequestSchema, Sf3dGenerateResultSchema, Sf3dProgressEventSchema, Sf3dStatusSchema } from '../media-model-sf3d';
+import { SfxGenerateResultSchema, SfxProgressEventSchema, SfxRequestSchema, SfxStatusSchema } from '../media-sfx';
 import { ModelChangedEventSchema, ModelOpenEventSchema } from '../media-model-mcp';
 import {
   VideoProjectSchema,
@@ -3783,6 +3784,13 @@ export const MediaAudioCancelResponse = GitOpResultSchema;
 export const MediaAudioEngineResponse = z.object({ engine: AudioEngineStatusSchema });
 export const MediaAudioEngineInstallResponse = GitOpResultSchema;
 export const MediaAudioEngineProgressPayload = AudioEngineProgressSchema;
+/**
+ * Media ▸ SFX (Stable Audio Open Small): status / consent / install / cancel / uninstall / generate / cancel
+ * as one `op` union, each answering the `GitOpResult` envelope; progress on `mediaSfxProgress`.
+ */
+export const MediaSfxRequest = SfxRequestSchema;
+export const MediaSfxResponse = z.union([GitOpResultOf(z.union([SfxStatusSchema, SfxGenerateResultSchema])), GitOpResultSchema]);
+export const MediaSfxProgressPayload = SfxProgressEventSchema;
 export const MediaAudioExpandRequest = AudioExpandRequestSchema;
 export const MediaAudioExpandResponse = GitOpResultOf(AudioExpandResultSchema);
 

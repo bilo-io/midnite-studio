@@ -1,5 +1,5 @@
 import { defineFeatureMain, type FeatureMainContext } from '@midnite/studio-runtime';
-import { AUDIO_FILE_EXTENSIONS, CHANNELS, EVENT_CHANNELS, failure, ok, schemas, type GitOpResult } from '@midnite/studio-shared';
+import { AUDIO_FILE_EXTENSIONS, CHANNELS, EVENT_CHANNELS, failure, ok, schemas, type GitOpResult, type SfxRequest } from '@midnite/studio-shared';
 
 import { mediaAudioManifest } from '../manifest';
 import type { AudioEngineServices } from './engine-services';
@@ -24,6 +24,10 @@ export { CC_PAN, CC_VOLUME, ccToPan, ccToVolume, midiToSong, panToCc, songToMidi
 export { createMusicExporter, type MusicExportDeps, type MusicExporter } from './music/music-export';
 export { createMusicService, songNameFromFile, type MusicService, type MusicServiceDeps } from './music/music-service';
 export { AudioProviderError, type AudioProvider, type ProducedAudio } from './types';
+export { createSfxInstaller, type SfxInstaller } from './sfx/installer';
+export { createSfxBroker, sfxWorkerScriptPath, SFX_IDLE_MS, type SfxBroker, type SfxWorkerHandle } from './sfx/sfx-broker';
+export { createSfxService, sfxStem, unavailableSfx, type SfxService } from './sfx/sfx-service';
+export type { SfxWorkerIn, SfxWorkerOut } from './sfx/worker-protocol';
 
 /**
  * The Audio feature's main half (Phase 113 Theme Q): provider status, engine
@@ -46,6 +50,11 @@ export type MediaAudioMainServices = {
    * focused window's open and save dialogs) and ffmpeg — so no window crosses this port.
    */
   music: MusicMainServices;
+  /**
+   * Media ▸ SFX's one dispatcher (Stable Audio Open Small) — Studio's runs the engine (`createSfxService`); a
+   * host without it passes {@link unavailableSfx}, whose status says so.
+   */
+  sfx: (req: SfxRequest) => Promise<GitOpResult<unknown> | GitOpResult>;
 };
 
 export type MusicMainServices = {
@@ -57,7 +66,7 @@ export type MusicMainServices = {
 export const mediaAudioMain = defineFeatureMain<MediaAudioMainServices>({
   feature: mediaAudioManifest.feature,
   channels: mediaAudioManifest.ipc,
-  register(ctx, { audio, engine, installEngine, pickImportFiles, music }) {
+  register(ctx, { audio, engine, installEngine, pickImportFiles, music, sfx }) {
     const invalid = (issue: string) => failure(issue);
     ctx.ipc.handleBare(CHANNELS.mediaAudioProviders, () => ({ providers: audio.providerStatuses() }));
     ctx.ipc.handleBare(CHANNELS.mediaAudioEngine, async () => ({ engine: await engine.status() }));
@@ -67,6 +76,7 @@ export const mediaAudioMain = defineFeatureMain<MediaAudioMainServices>({
     ctx.ipc.handle(CHANNELS.mediaAudioGenerate, schemas.MediaAudioGenerateRequest, (req) => audio.generate(req), invalid);
     ctx.ipc.handle(CHANNELS.mediaAudioCancel, schemas.MediaAudioCancelRequest, ({ importId }) => audio.cancel(importId), invalid);
     ctx.ipc.handle(CHANNELS.mediaAudioExpand, schemas.MediaAudioExpandRequest, (req) => engine.expand(req), invalid);
+    ctx.ipc.handle(CHANNELS.mediaSfx, schemas.MediaSfxRequest, (req) => sfx(req), invalid);
     ctx.ipc.handle(
       CHANNELS.mediaAudioImport,
       schemas.MediaAudioImportRequest,

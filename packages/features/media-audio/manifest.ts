@@ -16,6 +16,9 @@ import { CHANNELS, defineFeatureManifest, EVENT_CHANNELS } from '@midnite/studio
  * feature package could not import this one. What needs Studio's agents (the
  * song chat) comes through the host port.
  *
+ * Media ▸ SFX lives here too, as a second tab (`mediaSfxTab`): local sound effects from Stable Audio Open
+ * Small in its own utility process, written beside the songs' sidecar convention under `.midnite/media/sfx/`.
+ *
  * Imports `@midnite/studio-shared` and nothing else — the main-process
  * composer reads this file too.
  */
@@ -32,6 +35,8 @@ export const mediaAudioManifest = defineFeatureManifest({
     CHANNELS.mediaAudioCancel,
     CHANNELS.mediaAudioExpand,
     CHANNELS.mediaAudioImport,
+    // Media ▸ SFX (Stable Audio Open Small) — this feature's second tab, one `op` channel like SF3D's.
+    CHANNELS.mediaSfx,
     // The music editor's song store, exports and General MIDI samples. Its agent run, chat thread
     // and Antigravity registration stay Studio's (they need agents), registered by Studio's main.
     CHANNELS.mediaMusicList,
@@ -45,7 +50,7 @@ export const mediaAudioManifest = defineFeatureManifest({
     CHANNELS.mediaGmEnsure,
     CHANNELS.mediaGmLoad,
   ],
-  events: [EVENT_CHANNELS.mediaAudioProgress, EVENT_CHANNELS.mediaAudioEngineProgress, EVENT_CHANNELS.mediaGmProgress],
+  events: [EVENT_CHANNELS.mediaAudioProgress, EVENT_CHANNELS.mediaAudioEngineProgress, EVENT_CHANNELS.mediaGmProgress, EVENT_CHANNELS.mediaSfxProgress],
   // The `music_*` tools an agent edits songs with. Creator owns them (`FEATURE_PACKAGE_SPLITS`), so a
   // Creator-only install lists them and an Agents-only one does not. Their handlers stay with the MCP
   // server (Studio's `main/mcp`); only ownership lives here.
