@@ -11,6 +11,7 @@ const TABS: Array<{ id: GameAssetSourceTab; label: string }> = [
   { id: 'model', label: 'Models' },
   { id: 'image', label: 'Images' },
   { id: 'audio', label: 'Audio' },
+  { id: 'sfx', label: 'SFX' },
 ];
 
 const EMPTY: Record<GameAssetSourceTab, string> = {
@@ -19,13 +20,14 @@ const EMPTY: Record<GameAssetSourceTab, string> = {
   model: 'No .glb models in your repos. Export one from Media ▸ Models.',
   image: 'No images in your repos.',
   audio: 'No audio in your repos.',
+  sfx: 'No sound effects in your repos. Generate some in Media ▸ SFX.',
 };
 
 const formatBytes = (bytes: number): string =>
   bytes === 0 ? '' : bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
 
 /**
- * Pick media to copy into a game (Phase 107 Theme N): the five source tabs
+ * Pick media to copy into a game (Phase 107 Theme N): the six source tabs
  * list what the registered repos hold; Terrain and Sprites also take a pack
  * folder from disk. An import is a copy plus one commit, so a row only needs
  * one click.

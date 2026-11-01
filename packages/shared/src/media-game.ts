@@ -641,8 +641,8 @@ export const GameAssetIndexSchema = z.object({
 export type GameAssetIndex = z.infer<typeof GameAssetIndexSchema>;
 export const GAME_ASSET_INDEX_FILE = 'assets/index.json';
 
-/** The tabs a game can import from. */
-export const GAME_ASSET_SOURCE_TABS = ['terrain', 'sprite', 'model', 'image', 'audio'] as const;
+/** The tabs a game can import from. An `sfx` take (Media ▸ SFX) imports as an `audio` asset. */
+export const GAME_ASSET_SOURCE_TABS = ['terrain', 'sprite', 'model', 'image', 'audio', 'sfx'] as const;
 export const GameAssetSourceTabSchema = z.enum(GAME_ASSET_SOURCE_TABS);
 export type GameAssetSourceTab = z.infer<typeof GameAssetSourceTabSchema>;
 

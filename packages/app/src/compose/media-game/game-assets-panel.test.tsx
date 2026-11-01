@@ -75,6 +75,8 @@ describe('GameAssetsPanel', () => {
     expect(screen.queryByRole('button', { name: 'Choose a pack folder…' })).toBeNull();
     fireEvent.click(screen.getByRole('tab', { name: 'Audio' }));
     expect(await screen.findByText('No audio in your repos.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'SFX' }));
+    expect(await screen.findByText(/Generate some in Media ▸ SFX/)).toBeTruthy();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Sprites' }));
     expect(screen.getByRole('button', { name: 'Choose a pack folder…' })).toBeTruthy();

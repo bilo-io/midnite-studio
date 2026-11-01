@@ -171,6 +171,16 @@ describe('importing a single file', () => {
     expect(second).toMatchObject({ ok: true, value: { name: 'hero-2', path: 'assets/audio/hero-2.mp3' } });
   });
 
+  it('lists and imports a Media ▸ SFX take as an audio asset, skipping its sidecar', async () => {
+    await mkdir(media('sfx', 'zaps'), { recursive: true });
+    await writeFile(media('sfx', 'zaps', 'laser-zap.wav'), 'RIFF');
+    await writeFile(media('sfx', 'zaps', 'laser-zap.json'), '{}');
+    const b = bridge();
+    expect((await b.sources('sfx')).repos[0]?.items).toEqual([{ path: 'zaps/laser-zap.wav', label: 'zaps/laser-zap.wav', kind: 'audio', bytes: 4 }]);
+    const imported = await b.importAsset({ gameId: 'g1', source: { tab: 'sfx', repoPath: repo, path: 'zaps/laser-zap.wav' } });
+    expect(imported).toMatchObject({ ok: true, value: { name: 'laser-zap', kind: 'audio', path: 'assets/audio/laser-zap.wav' } });
+  });
+
   it('refuses a wrong extension, a missing item and an unregistered repo', async () => {
     await mkdir(media('model'), { recursive: true });
     await writeFile(media('model', 'rock.fbx'), 'x');

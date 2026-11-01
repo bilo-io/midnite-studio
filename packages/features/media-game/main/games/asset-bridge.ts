@@ -70,6 +70,12 @@ const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 const AUDIO_EXT = new Set(['.mp3', '.wav', '.flac', '.ogg', '.m4a']);
 const MODEL_EXT = new Set(['.glb']);
 
+type FileTab = Exclude<GameAssetSourceTab, 'terrain' | 'sprite'>;
+/** The extensions a single-file tab lists and imports. */
+const fileExts = (tab: FileTab): Set<string> => (tab === 'model' ? MODEL_EXT : tab === 'image' ? IMAGE_EXT : AUDIO_EXT);
+/** The asset kind a single-file tab's item becomes — a Media ▸ SFX take is a game's `audio`. */
+const fileKind = (tab: FileTab): 'model' | 'image' | 'audio' => (tab === 'sfx' ? 'audio' : tab);
+
 const SPRITE_GROUP_KIND: Record<SpriteGroupId, GameAssetProvenance['kind']> = {
   characters: 'sprite',
   objects: 'sprite',
@@ -356,9 +362,9 @@ export function createAssetBridge(deps: AssetBridgeDeps) {
     }
     if (!info.isFile()) return failure('Pick a file.');
     const ext = extname(abs).toLowerCase();
-    const allowed = source.tab === 'model' ? MODEL_EXT : source.tab === 'image' ? IMAGE_EXT : AUDIO_EXT;
+    const allowed = fileExts(source.tab);
     if (!allowed.has(ext)) return failure(`A ${source.tab} import takes ${[...allowed].join(', ')}.`);
-    return ok({ ...common, kind: source.tab, isDir: false, abs, terrain: false });
+    return ok({ ...common, kind: fileKind(source.tab), isDir: false, abs, terrain: false });
   }
 
   async function sources(tab: GameAssetSourceTab): Promise<GameAssetSourcesResult> {
@@ -391,13 +397,13 @@ export function createAssetBridge(deps: AssetBridgeDeps) {
           }
         }
       } else {
-        const allowed = tab === 'model' ? MODEL_EXT : tab === 'image' ? IMAGE_EXT : AUDIO_EXT;
+        const allowed = fileExts(tab);
         const files = (await isDirectory(root)) ? await walk(root) : ok([] as FileRef[]);
         if (files.ok) {
           for (const file of files.value) {
             if (!allowed.has(extname(file.rel).toLowerCase())) continue;
             const size = (await stat(file.abs).catch(() => null))?.size ?? 0;
-            items.push({ path: file.rel, label: file.rel, kind: tab, bytes: size });
+            items.push({ path: file.rel, label: file.rel, kind: fileKind(tab), bytes: size });
           }
         }
       }
