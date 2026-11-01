@@ -33,8 +33,22 @@ export type SfxMcpDeps = {
   newId?: () => string;
 };
 
+type GenerateEvent = Extract<SfxProgressEvent, { kind: 'generate' }>;
+/** Runs started here that have no service event yet — capped like the desktop's event map. */
+const PENDING_KEPT = 50;
+
 export function createSfxMcpTools(deps: SfxMcpDeps) {
   const newId = deps.newId ?? randomUUID;
+  // The service sends its first event only after its own status check, and a run that fails before then
+  // (consent revoked, model uninstalled, still starting up) sends none. So every id handed out is recorded
+  // here first, and a failure with no event of its own lands here too — a returned id is never `not-found`.
+  const pending = new Map<string, GenerateEvent>();
+  const remember = (event: GenerateEvent) => {
+    pending.delete(event.generationId);
+    pending.set(event.generationId, event);
+    if (pending.size > PENDING_KEPT) pending.delete(pending.keys().next().value as string);
+  };
+  const latest = (generationId: string): GenerateEvent | undefined => deps.generation(generationId) ?? pending.get(generationId);
 
   async function readStatus(): Promise<SfxStatus> {
     const result = await deps.handle({ op: 'status' });
@@ -48,7 +62,7 @@ export function createSfxMcpTools(deps: SfxMcpDeps) {
     const status = await readStatus();
     const installed = status.state === 'installed';
     const consentCurrent = sfxConsentIsCurrent(status.consent);
-    const event = input.generationId ? deps.generation(input.generationId) : undefined;
+    const event = input.generationId ? latest(input.generationId) : undefined;
     if (input.generationId && !event) throw new McpToolError('not-found', `No SFX run "${input.generationId}" in this session.`);
     return {
       state: status.state,
@@ -79,20 +93,31 @@ export function createSfxMcpTools(deps: SfxMcpDeps) {
     if (!repo.ok) throw new McpToolError(repo.kind, repo.message);
     const status = await readStatus();
     if (status.state === 'unavailable') throw new McpToolError('refused', notReady(status));
-    if (status.state !== 'installed' || !sfxConsentIsCurrent(status.consent)) {
-      throw new McpToolError('refused', `Stable Audio Open Small is not installed. ${SFX_NOT_READY_HINT}`);
-    }
+    if (status.state !== 'installed') throw new McpToolError('refused', `Stable Audio Open Small is not installed. ${SFX_NOT_READY_HINT}`);
+    if (!sfxConsentIsCurrent(status.consent)) throw new McpToolError('refused', `The Stability AI Community License has changed since it was accepted. ${SFX_NOT_READY_HINT}`);
     const generationId = `sfx-${newId()}`;
+    const placeholder: GenerateEvent = { kind: 'generate', generationId, repoId: repo.repoId, project: input.project, status: 'running', stage: 'loading', fraction: 0 };
+    remember(placeholder);
+    const settle = (message: string) => {
+      if (deps.generation(generationId)) return; // the service reported the run itself
+      const base = { kind: 'generate' as const, generationId, repoId: repo.repoId, project: input.project };
+      remember(message === 'cancelled' ? { ...base, status: 'cancelled' } : { ...base, status: 'failed', error: message });
+    };
     // Started, not awaited: progress lands in `generation(id)` through the service's events.
-    void deps.handle({
-      op: 'generate',
-      generationId,
-      repoId: repo.repoId,
-      project: input.project,
-      prompt: input.prompt,
-      ...(input.name ? { name: input.name } : {}),
-      ...(input.options ? { options: input.options } : {}),
-    });
+    void deps
+      .handle({
+        op: 'generate',
+        generationId,
+        repoId: repo.repoId,
+        project: input.project,
+        prompt: input.prompt,
+        ...(input.name ? { name: input.name } : {}),
+        ...(input.options ? { options: input.options } : {}),
+      })
+      .then((result) => {
+        if (!result.ok) settle(result.kind === 'error' ? result.message : 'The run could not start.');
+      })
+      .catch((error: unknown) => settle(error instanceof Error ? error.message : String(error)));
     return { started: true, generationId };
   }
 

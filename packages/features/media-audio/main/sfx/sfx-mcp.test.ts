@@ -83,6 +83,34 @@ describe('sfx_generate', () => {
     }
   });
 
+  it('reports a run that fails before the service sends any event as failed, never not-found', async () => {
+    type Failed = { ok: false; kind: 'error'; message: string };
+    let finish: (result: Failed) => void = () => {};
+    const tools = createSfxMcpTools({
+      handle: vi.fn((req: SfxRequest) =>
+        req.op === 'status' ? Promise.resolve({ ok: true as const, value: installed }) : new Promise<Failed>((resolve) => (finish = resolve)),
+      ),
+      resolveRepo: async () => ({ ok: true, repoId: 'r1' }),
+      generation: () => undefined,
+      newId: () => 'early',
+    });
+    const { generationId } = await tools.sfx_generate(input);
+    // Polled before the service's first event: still the run it just returned.
+    expect((await tools.sfx_status({ generationId })).generation).toMatchObject({ generationId, status: 'running', stage: 'loading' });
+    finish({ ok: false, kind: 'error', message: 'Accept the Stability AI Community License (Media ▸ SFX) before generating.' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect((await tools.sfx_status({ generationId })).generation).toEqual({
+      generationId,
+      project: 'blasters',
+      status: 'failed',
+      error: 'Accept the Stability AI Community License (Media ▸ SFX) before generating.',
+    });
+  });
+
+  it('names a changed licence as such, not as a missing install', async () => {
+    await expect(setup(staleConsent).tools.sfx_generate(input)).rejects.toMatchObject({ message: expect.stringMatching(/License has changed/) });
+  });
+
   it('refuses in an app without the engine, with its reason', async () => {
     await expect(setup(unavailable).tools.sfx_generate(input)).rejects.toMatchObject({ kind: 'refused', message: unavailable.reason });
   });

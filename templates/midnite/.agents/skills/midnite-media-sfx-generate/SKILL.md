@@ -29,7 +29,7 @@ Name the project after what uses the sounds — the game's id, or the video proj
 | Tool | Use |
 |---|---|
 | `sfx_status` | Install state, licence and `hint`; with `generationId`, a run's `status`, `stage`, `fraction` and finished `files` (repo-relative). |
-| `sfx_generate` | Starts a run (`repoPath`, `project`, `prompt`, optional `name`, `options`) and returns `generationId` at once. Needs the `Let agents edit music` switch in Settings ▸ MCP. |
+| `sfx_generate` | Starts a run (`repoPath`, `project`, `prompt`, optional `name`, `options`) and returns `generationId` at once. Needs the `Let agents edit music` switch in Settings ▸ MCP. A worktree's `repoPath` resolves to its main checkout, so takes land there; pass the main checkout's path to `game_import_asset` too. |
 
 Poll `sfx_status({ generationId })` about every 5 s until `status` is `succeeded`, `failed` or `cancelled`.
 
@@ -51,7 +51,7 @@ Poll `sfx_status({ generationId })` about every 5 s until `status` is `succeeded
 
 ## Using the takes
 
-- **Games:** `game_import_asset` with `source: { tab: "sfx", repoPath, path: "<project>/<file>.wav" }` copies a take into the game's `assets/` and commits it.
+- **Games:** `game_import_asset` with `source: { tab: "sfx", repoPath, path: "<project>/<file>.wav" }` copies a take into the game's `assets/` and commits it. `sfx_status` lists `files` from the repo root (`.midnite/media/sfx/<project>/<file>.wav`); drop the `.midnite/media/sfx/` prefix for `path`.
 - **Videos:** in a video root at `.midnite/media/video`, the editor's `npm run assets` (`scripts/sync-assets.mjs`) mirrors the `.wav` takes from `.midnite/media/sfx/` into `media-sfx/` — `staticFile("media-sfx/<project>/<file>.wav")` in Remotion, `assets/media-sfx/<project>/<file>.wav` in HyperFrames. A root scaffolded before this mirror existed lacks it: copy the take into the project's `input/` instead.
 - Credit "Powered by Stability AI" wherever the product lists its audio credits.
 

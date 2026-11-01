@@ -69,10 +69,12 @@ const MAX_LISTED = 500;
 const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 const AUDIO_EXT = new Set(['.mp3', '.wav', '.flac', '.ogg', '.m4a']);
 const MODEL_EXT = new Set(['.glb']);
+/** Media ▸ SFX writes `.wav` takes only. */
+const SFX_EXT = new Set(['.wav']);
 
 type FileTab = Exclude<GameAssetSourceTab, 'terrain' | 'sprite'>;
 /** The extensions a single-file tab lists and imports. */
-const fileExts = (tab: FileTab): Set<string> => (tab === 'model' ? MODEL_EXT : tab === 'image' ? IMAGE_EXT : AUDIO_EXT);
+const fileExts = (tab: FileTab): Set<string> => ({ model: MODEL_EXT, image: IMAGE_EXT, audio: AUDIO_EXT, sfx: SFX_EXT })[tab];
 /** The asset kind a single-file tab's item becomes — a Media ▸ SFX take is a game's `audio`. */
 const fileKind = (tab: FileTab): 'model' | 'image' | 'audio' => (tab === 'sfx' ? 'audio' : tab);
 

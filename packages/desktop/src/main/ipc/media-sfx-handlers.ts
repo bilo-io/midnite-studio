@@ -61,6 +61,7 @@ export function configureSfx(userData: string): void {
       if (event.kind === 'generate') {
         generations.delete(event.generationId);
         generations.set(event.generationId, event);
+        // Over the cap there is always a first key: the oldest run, dropped.
         if (generations.size > GENERATIONS_KEPT) generations.delete(generations.keys().next().value!);
       }
       if (event.kind === 'generate' && event.status === 'succeeded') notifyMediaChanged(event.repoId, 'sfx');

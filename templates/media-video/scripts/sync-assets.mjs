@@ -17,7 +17,8 @@
  * (`.midnite/media/video` next to `.midnite/media/sfx`) — only the `.wav` takes, never their sidecars:
  *     ../sfx/<project>/<take>.wav    →  public/media-sfx/…           staticFile("media-sfx/zaps/laser-zap.wav")
  *                                    →  <project>/assets/media-sfx/… <audio src="assets/media-sfx/zaps/laser-zap.wav">
- * `media-sfx/`, not `sfx/`, so a shared `assets/sfx/` kind of your own never collides with it.
+ * `media-sfx/`, not `sfx/`, so a shared `assets/sfx/` kind of your own never collides with it. Like shared
+ * assets, HyperFrames gets every take in every project's mirror.
  *
  * A project **id is a path**, not a single segment: this repo files videos as
  * `<brand>/<category>/<NNN-name>` (e.g. `acme/marketing/000-example`), so a

@@ -14,8 +14,6 @@ import { MediaProjectNameSchema } from './media';
 import { SF3D_STATES } from './media-model-sf3d';
 import { SFX_GENERATE_STAGES, SFX_PROMPT_MAX, SfxOptionsSchema } from './media-sfx';
 
-export const SFX_MCP_TOOL_IDS = ['sfx_status', 'sfx_generate'] as const;
-
 /** What an agent is told when the model is not installed or its licence not accepted. */
 export const SFX_NOT_READY_HINT =
   'Ask the user to open Media ▸ SFX, read and accept the Stability AI Community License, and install Stable Audio Open Small (~2.1 GB) — an agent cannot accept the licence or start the download for them.';
