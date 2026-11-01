@@ -119,6 +119,8 @@ describe('RigPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Pose mode' }));
     expect(screen.getByText(/Pick a clip on the timeline/)).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Timeline clip'), { target: { value: 'wave' } });
+    // Pose mode keys at the playhead, so picking a clip there never starts it moving.
+    expect(viewOut()).toMatchObject({ clip: 'wave', playing: false });
     fireEvent.change(screen.getByLabelText('Scrub'), { target: { value: '0.5' } });
     expect(screen.getByTestId('pose-key').textContent).toContain('wave at 0.5s');
     const x = screen.getByLabelText('Rotate ° X');

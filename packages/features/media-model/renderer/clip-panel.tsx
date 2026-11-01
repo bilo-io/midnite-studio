@@ -34,10 +34,10 @@ export function ClipPanel({
   const rigged = anatomy !== 'static' && (spec.rig?.bones.length ?? 0) > 0;
   const clip = clips.find((c) => c.name === view.clip);
 
-  // Opening the tab on a rigged model with clips starts one playing (once per visit — picking "Rest pose" afterwards stays put).
+  // Opening the tab on a rigged model with clips starts one playing (once per visit; never in pose mode, where the playhead must hold still to key).
   const started = useRef(false);
   useEffect(() => {
-    if (started.current || !rigged || !view.autoPlay || clips.length === 0) return;
+    if (started.current || !rigged || !view.autoPlay || view.pose || clips.length === 0) return;
     started.current = true;
     if (view.playing) return;
     const name = view.clip !== null && clips.some((c) => c.name === view.clip) ? view.clip : autoPlayClip(clips);
@@ -53,7 +53,7 @@ export function ClipPanel({
     let name: string = kind;
     for (let n = 2; clips.some((c) => c.name === name); n += 1) name = `${kind} ${n}`;
     dispatch({ type: 'clips', ops: [{ op: 'add', clip: { name, kind } }] });
-    onView({ clip: name, time: 0, playing: view.autoPlay });
+    onView({ clip: name, time: 0, playing: view.autoPlay && !view.pose });
   };
   const update = (fields: Record<string, unknown>) => clip && dispatch({ type: 'clips', ops: [{ op: 'update', name: clip.name, fields }] });
 
@@ -78,7 +78,7 @@ export function ClipPanel({
               <button
                 type="button"
                 aria-pressed={c.name === view.clip}
-                onClick={() => onView({ clip: c.name, time: 0, playing: view.autoPlay })}
+                onClick={() => onView({ clip: c.name, time: 0, playing: view.autoPlay && !view.pose })}
                 className={`flex w-full items-center gap-1 truncate px-1.5 py-0.5 text-left text-[11px] ${c.name === view.clip ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'}`}
               >
                 <span className="truncate">{c.name}</span>

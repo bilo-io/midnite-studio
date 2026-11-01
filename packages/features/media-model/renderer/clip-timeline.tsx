@@ -46,7 +46,7 @@ export function ClipTimeline({ spec, view, onView }: { spec: ModelSpec; view: Ri
       <select
         aria-label="Timeline clip"
         value={view.clip ?? ''}
-        onChange={(event) => onView({ clip: event.target.value || null, time: 0, playing: view.autoPlay && event.target.value !== '' })}
+        onChange={(event) => onView({ clip: event.target.value || null, time: 0, playing: view.autoPlay && !view.pose && event.target.value !== '' })}
         className={`${FIELD} max-w-[9rem]`}
       >
         <option value="">Rest pose</option>
