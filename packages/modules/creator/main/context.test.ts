@@ -111,6 +111,12 @@ describe('Creator Audio', () => {
     expect(await invoke(CHANNELS.mediaAudioEngineInstall)).toMatchObject({ ok: false });
   });
 
+  it('answers the SFX status as "unavailable" with a reason, and refuses every other op', async () => {
+    const { invoke } = await setup();
+    expect(await invoke(CHANNELS.mediaSfx, { op: 'status' })).toMatchObject({ ok: true, value: { state: 'unavailable', reason: expect.stringContaining('Midnite Studio') } });
+    expect(await invoke(CHANNELS.mediaSfx, { op: 'install' })).toMatchObject({ ok: false });
+  });
+
   it('answers Import with "cancelled" when the native picker is dismissed', async () => {
     const { invoke } = await setup();
     const result = await invoke(CHANNELS.mediaAudioImport, {

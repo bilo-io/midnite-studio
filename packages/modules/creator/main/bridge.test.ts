@@ -19,7 +19,7 @@ describe('createCreatorBridge', () => {
     const bridge = createCreatorBridge(fakeIpc());
     expect(Object.keys(bridge).sort()).toEqual(['media', 'report', 'video']);
     expect(Object.keys(bridge.media).sort()).toEqual(
-      ['audio', 'cancelExport', 'doc', 'export', 'ffmpegStatus', 'file', 'image', 'music', 'onChanged', 'onExportProgress', 'project', 'reveal'].sort(),
+      ['audio', 'cancelExport', 'doc', 'export', 'ffmpegStatus', 'file', 'image', 'music', 'onChanged', 'onExportProgress', 'project', 'reveal', 'sfx'].sort(),
     );
     expect(Object.keys(bridge.media.music).sort()).toEqual(
       ['delete', 'export', 'import', 'list', 'onChanged', 'onOpen', 'read', 'sendToGenerator', 'write'].sort(),
@@ -32,6 +32,10 @@ describe('createCreatorBridge', () => {
     // The generator, import and the editor's General MIDI instrument library.
     expect(Object.keys(bridge.media.audio).sort()).toEqual(
       ['cancel', 'engine', 'expand', 'generate', 'gm', 'import', 'installEngine', 'onEngineProgress', 'onProgress', 'providers'].sort(),
+    );
+    // SFX: the channel is there so the tab can show why it is unavailable here.
+    expect(Object.keys(bridge.media.sfx).sort()).toEqual(
+      ['cancelGenerate', 'cancelInstall', 'consent', 'generate', 'install', 'onProgress', 'revokeConsent', 'status', 'uninstall'].sort(),
     );
   });
 

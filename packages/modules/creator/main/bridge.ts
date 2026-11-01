@@ -91,6 +91,17 @@ export function createCreatorBridge(ipc: RendererIpc): CreatorBridge {
         cancel: (req) => call(CHANNELS.mediaImageCancel, req),
         onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaImageProgress, handler),
       },
+      sfx: {
+        status: () => call(CHANNELS.mediaSfx, { op: 'status' }),
+        consent: (req) => call(CHANNELS.mediaSfx, { op: 'consent', ...req }),
+        revokeConsent: () => call(CHANNELS.mediaSfx, { op: 'revokeConsent' }),
+        install: () => call(CHANNELS.mediaSfx, { op: 'install' }),
+        cancelInstall: () => call(CHANNELS.mediaSfx, { op: 'cancelInstall' }),
+        uninstall: () => call(CHANNELS.mediaSfx, { op: 'uninstall' }),
+        generate: (req) => call(CHANNELS.mediaSfx, { op: 'generate', ...req }),
+        cancelGenerate: (req) => call(CHANNELS.mediaSfx, { op: 'cancelGenerate', ...req }),
+        onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaSfxProgress, handler),
+      },
       audio: {
         providers: () => call(CHANNELS.mediaAudioProviders),
         import: (req) => call(CHANNELS.mediaAudioImport, req),

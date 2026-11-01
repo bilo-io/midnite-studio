@@ -15,6 +15,7 @@ import {
   importAudioProvider,
   mediaAudioMain,
   unavailableMusicWorker,
+  unavailableSfx,
 } from '@midnite/studio-feature-media-audio/main';
 import { configureVideo, createProjectsStore, mediaVideoMain, resolveHandoffPath } from '@midnite/studio-feature-media-video/main';
 import { mediaDocsMain } from '@midnite/studio-feature-media-docs/main';
@@ -177,6 +178,8 @@ export function registerCreatorOn(ctx: FeatureMainContext, el: CreatorElectron):
     engine: createAudioEngineServices({ broker: musicBroker }),
     installEngine: (onProgress) => musicBroker.install(onProgress),
     pickImportFiles: el.pickImportFiles,
+    // Stable Audio Open Small needs an ONNX runtime in a utility process and a ~2 GB download; only Studio carries it.
+    sfx: unavailableSfx('this app'),
     music: { service: musicService, exporter: musicExporter, gm: createGmSampleCache({ directory: el.videoSettingsDir }) },
   });
   // Video: the engine's projects live under Creator's one media root (`<media>/.midnite/media/video`).

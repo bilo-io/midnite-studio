@@ -778,6 +778,8 @@ export type MockFixtures = {
     /** Maps (Phase 108): `keySet` makes the MapTiler sources available; the cache readout. */
     map?: { keySet?: boolean; cacheBytes?: number; cacheCapMB?: number };
     sf3d?: { state?: 'not-installed' | 'installed'; licenceSha256?: string; hold?: boolean; holdFraction?: number };
+    /** SFX (Stable Audio Open Small): the starting install state; `licenceSha256` = consent already given. */
+    sfx?: { state?: 'not-installed' | 'installed'; licenceSha256?: string };
     ffmpeg?:
       { found: true; path: string; version: string | null } | { found: false; reason: string };
     /**
@@ -3607,6 +3609,50 @@ export function buildMockBridge(data: MockFixtures) {
         cancel: async () => ({ ok: true as const }),
         onProgress: unsubscribe,
       },
+      sfx: {
+        status: async () => ({ ok: true as const, value: { ...sfxState } }),
+        consent: async (req: { licenceSha256: string }) => {
+          sfxState = { ...sfxState, consent: { licenceSha256: req.licenceSha256, acceptedAt: '2026-11-01T12:00:00.000Z', revenueAcknowledged: true } };
+          return { ok: true as const, value: { ...sfxState } };
+        },
+        revokeConsent: async () => {
+          sfxState = { ...sfxState, consent: null };
+          return { ok: true as const, value: { ...sfxState } };
+        },
+        install: async () => {
+          sfxState = { ...sfxState, state: 'installed', bytesOnDisk: sfxState.totalBytes };
+          sfxListeners.forEach((handler) => handler({ kind: 'install', progress: { phase: 'ready', receivedBytes: sfxState.totalBytes, totalBytes: sfxState.totalBytes, fraction: 1 } }));
+          return { ok: true as const, value: { ...sfxState } };
+        },
+        cancelInstall: async () => ({ ok: true as const }),
+        uninstall: async () => {
+          sfxState = { ...sfxState, state: 'not-installed', consent: null, bytesOnDisk: 0 };
+          return { ok: true as const, value: { ...sfxState } };
+        },
+        generate: async (req: { project: string; prompt: string; options?: { seconds?: number; seed?: number; variations?: number } }) => {
+          const slug = req.prompt.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'sound';
+          const seconds = req.options?.seconds ?? 3;
+          const seed = req.options?.seed ?? 1234;
+          const takes = Array.from({ length: req.options?.variations ?? 1 }, (_, i) => {
+            const stem = `${slug}-${seconds}s-s${seed + i}-20261101-120000`;
+            return { file: `${stem}.wav`, sidecar: `${stem}.json`, seed: seed + i, seconds };
+          });
+          const key = `sfx:${req.project}`;
+          const added = Object.fromEntries(
+            takes.flatMap((t) => [
+              [t.file, 'x'],
+              [t.sidecar, JSON.stringify({ version: 1, kind: 'sfx', file: t.file, prompt: req.prompt, seconds, steps: 8, cfgScale: 1, seed: t.seed, sampleRate: 44100, channels: 2, model: { name: 'Stable Audio Open Small', repo: 'r', revision: 'v', upstream: 'u' }, createdAt: '2026-11-01T12:00:00.000Z' })],
+            ]),
+          );
+          mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), ...added } };
+          return { ok: true as const, value: { takes, elapsedMs: 9700 } };
+        },
+        cancelGenerate: async () => ({ ok: true as const }),
+        onProgress: (handler: (event: unknown) => void) => {
+          sfxListeners.add(handler);
+          return () => sfxListeners.delete(handler);
+        },
+      },
       // Phase 99 Theme E — Import "picks" two files, lands them as variants
       // with sidecars, and appends one session to project.json.
       audio: {
@@ -6134,6 +6180,18 @@ export function buildMockBridge(data: MockFixtures) {
     bytesOnDisk: data.media?.sf3d?.state === 'installed' ? 1_730_000_000 : 0,
     totalBytes: 1_730_000_000,
   } as { state: string; consent: { licenceSha256: string; acceptedAt: string; revenueAcknowledged: true } | null; bytesOnDisk: number; totalBytes: number };
+  // SFX (Stable Audio Open Small): the same install state machine, without the held download.
+  // eslint-disable-next-line no-var
+  var sfxState = {
+    state: data.media?.sfx?.state ?? 'not-installed',
+    consent: data.media?.sfx?.licenceSha256
+      ? { licenceSha256: data.media.sfx.licenceSha256, acceptedAt: '2026-11-01T12:00:00.000Z', revenueAcknowledged: true as const }
+      : null,
+    bytesOnDisk: data.media?.sfx?.state === 'installed' ? 2_117_683_571 : 0,
+    totalBytes: 2_117_683_571,
+  } as { state: string; consent: { licenceSha256: string; acceptedAt: string; revenueAcknowledged: true } | null; bytesOnDisk: number; totalBytes: number };
+  // eslint-disable-next-line no-var
+  var sfxListeners = new Set<(event: unknown) => void>();
   // eslint-disable-next-line no-var
   var sf3dListeners = new Set<(event: unknown) => void>();
   // eslint-disable-next-line no-var

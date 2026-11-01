@@ -20,6 +20,7 @@ import { broadcastToAllWindows } from '../window-manager';
 import { handle, handleBare, handleSend } from './handle';
 import { mediaStore } from './media-handlers';
 import { gmCache } from './media-music-gm-handlers';
+import { handleSfx } from './media-sfx-handlers';
 import { musicExporter, musicSongService } from './media-music-handlers';
 
 /**
@@ -81,6 +82,7 @@ export function registerMediaAudioHandlers(): void {
     engine,
     installEngine: (onProgress) => musicBroker.install(onProgress),
     pickImportFiles,
+    sfx: (req) => handleSfx(req),
     music: {
       service: musicSongService,
       exporter: musicExporter,
