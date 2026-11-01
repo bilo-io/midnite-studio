@@ -1,8 +1,9 @@
 import { ModelSpecSchema } from '@midnite/studio-shared';
+import { useBottomPanelStore } from '@midnite/studio-frame';
 import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { render } from './test-render';
 import { useReducer } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { resolveKey } from './editor-keys';
 import { editorReducer, initialEditorState } from './editor-state';
@@ -11,6 +12,7 @@ import { boundsOf, distanceBetween, formatSize, orthoZoom, sizeOf } from './scen
 import { editorScene } from './spec-geometry';
 
 afterEach(cleanup);
+beforeEach(() => useBottomPanelStore.setState({ panels: {} }));
 
 const spec = ModelSpecSchema.parse({
   name: 'rig',
@@ -28,6 +30,30 @@ function Harness() {
   return <ModelInspector state={state} dispatch={dispatch} issues={editorScene(state.spec).issues} />;
 }
 const row = (name: string) => within(screen.getByRole('list', { name: 'Parts' })).getByRole('button', { name: new RegExp(name) });
+
+describe('inspector panel', () => {
+  it('is 224px tall by default and collapses to its header row', () => {
+    render(<Harness />);
+    expect(screen.getByTestId('model-inspector').style.height).toBe('224px');
+    const toggle = screen.getByRole('button', { name: 'Inspector' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('list', { name: 'Parts' })).toBeNull();
+    expect(screen.queryByRole('tablist')).toBeNull();
+    fireEvent.click(toggle);
+    expect(screen.getByRole('list', { name: 'Parts' })).toBeTruthy();
+  });
+
+  it('keeps the selected tab across a collapse', () => {
+    render(<Harness />);
+    fireEvent.click(row('base'));
+    fireEvent.click(screen.getByRole('tab', { name: 'Material' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Inspector' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Inspector' }));
+    expect(screen.getByRole('tab', { name: 'Material' }).getAttribute('aria-selected')).toBe('true');
+  });
+});
 
 describe('outliner', () => {
   it('selects with click, Cmd-click toggle and Shift-click range', () => {

@@ -1,4 +1,5 @@
 import { descendantIndices, type BuildIssue, type ModelPart, type ModelSpec } from '@midnite/studio-shared';
+import { BottomPanel } from '@midnite/studio-frame';
 import { useEffect, useState, type Dispatch } from 'react';
 import { LuCopy, LuTrash2 } from 'react-icons/lu';
 
@@ -28,6 +29,9 @@ import type { EditorScene } from './spec-geometry';
  * Properties (name, transform, dimensions, parent), Material, Boolean and Modifiers. With several
  * parts selected it shows the arrange tools and edits material for all of them. Rig and Animation
  * are about the whole design, so they show whatever is selected.
+ *
+ * Docked in a frame `BottomPanel`: drag its top edge to resize, click the header to collapse it to
+ * that row so the viewport takes the space. Height and collapsed state persist under `model.inspector`.
  */
 const TABS = ['Properties', 'Material', 'Boolean', 'Modifiers', 'Mesh', 'SDF', 'Sculpt', 'Paint', 'Rig', 'Animation'] as const;
 type Tab = (typeof TABS)[number];
@@ -81,7 +85,14 @@ export function ModelInspector({
   const designTab = DESIGN_TABS.has(tab) && available(tab);
 
   return (
-    <div className="flex h-56 shrink-0 border-t border-border/60 text-xs" data-testid="model-inspector">
+    <BottomPanel
+      id="model.inspector"
+      title="Inspector"
+      ariaLabel="Model inspector"
+      testId="model-inspector"
+      resize={{ initial: 224, min: 96, max: 560 }}
+      bodyClassName="flex min-h-0 flex-1 text-xs"
+    >
       <div className="flex w-52 shrink-0 flex-col border-r border-border/60">
         <Outliner state={state} dispatch={dispatch} />
       </div>
@@ -140,7 +151,7 @@ export function ModelInspector({
           </p>
         )}
       </div>
-    </div>
+    </BottomPanel>
   );
 }
 
