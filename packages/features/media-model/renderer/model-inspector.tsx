@@ -1,5 +1,5 @@
 import { descendantIndices, type BuildIssue, type ModelPart, type ModelSpec } from '@midnite/studio-shared';
-import { BottomPanel } from '@midnite/studio-frame';
+import { BottomPanel, useBottomPanel } from '@midnite/studio-frame';
 import { useEffect, useState, type Dispatch } from 'react';
 import { LuCopy, LuTrash2 } from 'react-icons/lu';
 
@@ -45,6 +45,9 @@ const BASE_KEYS = new Set([
   'id', 'name', 'shape', 'position', 'rotation', 'scale', 'color', 'parent', 'pivot', 'material', 'modifiers', 'op', 'target', 'segments', 'smoothAngle', 'hidden', 'locked', 'source',
 ]);
 
+/** The dock's persistence id and bounds, shared by the panel and the effects below that reopen it. */
+const DOCK = { id: 'model.inspector', resize: { initial: 224, min: 96, max: 560 } } as const;
+
 export function ModelInspector({
   state,
   dispatch,
@@ -69,15 +72,21 @@ export function ModelInspector({
   paint?: { controller: PaintController; snapshot: PaintSnapshot };
 }) {
   const [tab, setTab] = useState<Tab>('Properties');
-  // Entering sculpt mode from anywhere brings its settings up.
+  // Same stored state as the `BottomPanel` below, so a collapsed dock can be reopened from here.
+  const { setCollapsed } = useBottomPanel(DOCK.id, DOCK.resize);
+  // Entering sculpt mode from anywhere brings its settings up, reopening the dock if it was collapsed.
   const sculptOpen = sculpt?.snapshot.status === 'ready';
   useEffect(() => {
-    if (sculptOpen) setTab('Sculpt');
-  }, [sculptOpen]);
+    if (!sculptOpen) return;
+    setTab('Sculpt');
+    setCollapsed(false);
+  }, [sculptOpen, setCollapsed]);
   const paintOpen = paint?.snapshot.status === 'ready';
   useEffect(() => {
-    if (paintOpen) setTab('Paint');
-  }, [paintOpen]);
+    if (!paintOpen) return;
+    setTab('Paint');
+    setCollapsed(false);
+  }, [paintOpen, setCollapsed]);
   const { spec, selected, selection } = state;
   const part = selected !== null ? spec.parts[selected] : undefined;
   const hasGroup = selection.some((i) => spec.parts[i]?.shape === 'group');
@@ -86,11 +95,11 @@ export function ModelInspector({
 
   return (
     <BottomPanel
-      id="model.inspector"
+      id={DOCK.id}
       title="Inspector"
       ariaLabel="Model inspector"
       testId="model-inspector"
-      resize={{ initial: 224, min: 96, max: 560 }}
+      resize={DOCK.resize}
       bodyClassName="flex min-h-0 flex-1 text-xs"
     >
       <div className="flex w-52 shrink-0 flex-col border-r border-border/60">

@@ -10,6 +10,7 @@ import { editorReducer, initialEditorState } from './editor-state';
 import { ModelInspector } from './model-inspector';
 import { boundsOf, distanceBetween, formatSize, orthoZoom, sizeOf } from './scene-bounds';
 import { editorScene } from './spec-geometry';
+import type { PaintController, PaintSnapshot } from './paint/paint-controller';
 
 afterEach(cleanup);
 beforeEach(() => useBottomPanelStore.setState({ panels: {} }));
@@ -43,6 +44,17 @@ describe('inspector panel', () => {
     expect(screen.queryByRole('tablist')).toBeNull();
     fireEvent.click(toggle);
     expect(screen.getByRole('list', { name: 'Parts' })).toBeTruthy();
+  });
+
+  it('reopens a collapsed dock when paint mode becomes ready', () => {
+    const idle = { status: 'idle', error: null, partId: null } as unknown as PaintSnapshot;
+    const paint = (snapshot: PaintSnapshot) => ({ controller: {} as PaintController, snapshot });
+    const view = (snapshot: PaintSnapshot) => <ModelInspector state={initialEditorState(spec)} dispatch={() => undefined} issues={[]} paint={paint(snapshot)} />;
+    const { rerender } = render(view(idle));
+    fireEvent.click(screen.getByRole('button', { name: 'Inspector' }));
+    expect(screen.getByRole('button', { name: 'Inspector' }).getAttribute('aria-expanded')).toBe('false');
+    rerender(view({ ...idle, status: 'ready' } as PaintSnapshot));
+    expect(screen.getByRole('button', { name: 'Inspector' }).getAttribute('aria-expanded')).toBe('true');
   });
 
   it('keeps the selected tab across a collapse', () => {
