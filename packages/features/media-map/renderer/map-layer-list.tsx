@@ -2,7 +2,7 @@ import { MAP_LAYER_MAX_BYTES, MapLayerNameSchema, type MapLayerFile } from '@mid
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { LuEye, LuEyeOff, LuGripVertical, LuPencil, LuPlus, LuTrash2, LuUpload } from 'react-icons/lu';
 
-import { SortableList, useSortableRow, useToastStore } from '@midnite/studio-frame';
+import { BottomPanel, SortableList, useSortableRow, useToastStore } from '@midnite/studio-frame';
 
 import { IconButton, useDialogs } from './chrome';
 import { importGeoJson, kmlToGeoJson } from './kml';
@@ -103,7 +103,12 @@ function LayerRow({ layer, layers, active, count }: { layer: LayerView; layers: 
   );
 }
 
-/** The layer list (Phase 108 Theme H): visibility, colour, rename, Trash, reorder, New and Import. */
+/**
+ * The layer list (Phase 108 Theme H): visibility, colour, rename, Trash, reorder, New and Import.
+ * Docked in a frame `BottomPanel` under the projects list — resizable from its top edge, collapsible to
+ * its header, both remembered under `map.layers`. The import input stays mounted while collapsed, so
+ * its ref is never null.
+ */
 export function MapLayerList({ layers }: { layers: MapLayers }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const names = layers.layers.map((l) => l.name);
@@ -117,19 +122,25 @@ export function MapLayerList({ layers }: { layers: MapLayers }) {
   };
 
   return (
-    <section aria-label="Layers" className="flex max-h-[45%] min-h-0 shrink-0 flex-col border-t border-border" data-testid="map-layers">
-      <div className="flex h-8 shrink-0 items-center justify-between px-2">
-        <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Layers</h2>
-        <div className="flex items-center">
+    <BottomPanel
+      id="map.layers"
+      title="Layers"
+      ariaLabel="Layers"
+      testId="map-layers"
+      resize={{ initial: 208, min: 88, max: 560 }}
+      bodyClassName="flex min-h-0 flex-1 flex-col"
+      actions={
+        <span className="ml-auto flex items-center">
           <IconButton icon={LuPlus} size="sm" label="New layer" onClick={() => void layers.create('Layer')} />
           <IconButton icon={LuUpload} size="sm" label="Import layer (.geojson, .kml)" onClick={() => fileInput.current?.click()} />
           <input ref={fileInput} type="file" accept=".geojson,.json,.kml" hidden aria-label="Import layer file" onChange={(e) => { void importFile(e.target.files?.[0]); e.target.value = ''; }} />
-        </div>
-      </div>
+        </span>
+      }
+    >
       {layers.layers.length === 0 ? (
-        <p className="px-3 pb-3 text-xs text-muted-foreground">No layers yet. Draw something, or import a .geojson or .kml.</p>
+        <p className="px-3 py-2 text-xs text-muted-foreground">No layers yet. Draw something, or import a .geojson or .kml.</p>
       ) : (
-        <ul className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1 pb-2">
+        <ul className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1 py-1">
           <SortableList ids={names} onReorder={layers.reorder}>
             {layers.layers.map((l) => (
               <LayerRow key={l.name} layer={l} layers={layers} active={layers.active === l.name} count={l.fc?.features.length ?? 0} />
@@ -137,6 +148,6 @@ export function MapLayerList({ layers }: { layers: MapLayers }) {
           </SortableList>
         </ul>
       )}
-    </section>
+    </BottomPanel>
   );
 }
