@@ -1,8 +1,9 @@
-import { LuAudioLines } from 'react-icons/lu';
+import { LuAudioLines, LuMusic } from 'react-icons/lu';
 
 import type { MediaTabDescriptor } from '@midnite/studio-frame';
 
 import { AudioTab } from './audio-tab';
+import { SfxTab } from './sfx/sfx-tab';
 
 /**
  * Media ▸ Audio's renderer half (Phase 113 Theme Q). It never imports
@@ -60,6 +61,17 @@ export const mediaAudioTab = {
   icon: LuAudioLines,
   Component: AudioTab,
 } as const satisfies MediaTabDescriptor;
+
+/** The SFX tab: local sound effects from Stable Audio Open Small, beside Audio. */
+export const mediaSfxTab = {
+  id: 'sfx',
+  label: 'SFX',
+  icon: LuMusic,
+  Component: SfxTab,
+} as const satisfies MediaTabDescriptor;
+export { DEFAULT_SFX_PROJECT, TakeList } from './sfx/sfx-tab';
+export { initialSfxForm, sfxFormFromSidecar, toSfxRequest, type SfxFormState } from './sfx/sfx-form-state';
+export { useSfx, useSfxTakes, type SfxTakeView } from './sfx/use-sfx';
 
 // The music editor (Audio ▸ Editor) — mounted by Audio's own tab. Studio's Settings ▸ Audio
 // lists the same General MIDI instrument library, and the app's e2e and tests reach the session.

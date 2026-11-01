@@ -1,4 +1,4 @@
-import { mediaAudioTab } from '@midnite/studio-feature-media-audio/renderer';
+import { mediaAudioTab, mediaSfxTab } from '@midnite/studio-feature-media-audio/renderer';
 import { mediaDocsTab } from '@midnite/studio-feature-media-docs/renderer';
 import { mediaGameTab } from '@midnite/studio-feature-media-game/renderer';
 import { mediaImagesTab } from '@midnite/studio-feature-media-images/renderer';
@@ -21,6 +21,7 @@ const FEATURE_TABS: Record<MediaTab, MediaTabDescriptor> = {
   doc: mediaDocsTab,
   image: mediaImagesTab,
   audio: mediaAudioTab,
+  sfx: mediaSfxTab,
   video: mediaVideoTab,
   map: mediaMapTab,
   terrain: mediaTerrainTab,

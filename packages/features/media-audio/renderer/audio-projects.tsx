@@ -19,12 +19,15 @@ const validName = (value: string) =>
  */
 export function AudioProjects({
   repoId,
+  tab = 'audio',
   activeProject,
   selectedPath,
   onSelectProject,
   onSelectVariant,
 }: {
   repoId: string;
+  /** Audio's own projects, or SFX's — the same explorer over `.midnite/media/<tab>/`. */
+  tab?: 'audio' | 'sfx';
   activeProject: string | null;
   selectedPath: string | null;
   onSelectProject: (project: string) => void;
@@ -32,16 +35,16 @@ export function AudioProjects({
 }) {
   const { Accordion, keys, revealMedia, useMediaMutations, useMediaProjects } = useMediaKit();
   const { IconButton, useDialogs } = useFrameChrome();
-  const projects = useMediaProjects(repoId, 'audio');
-  const mutations = useMediaMutations(repoId, 'audio');
+  const projects = useMediaProjects(repoId, tab);
+  const mutations = useMediaMutations(repoId, tab);
   const dialogs = useDialogs();
   const prompt = dialogs.prompt;
   const all = projects.data ?? [];
   const listings = useQueries({
     queries: all.map((p) => ({
-      queryKey: keys.files(repoId, 'audio', p.name),
+      queryKey: keys.files(repoId, tab, p.name),
       queryFn: async (): Promise<MediaFileEntry[]> => {
-        const result = await bridge()?.media.file.list({ repoId, tab: 'audio', project: p.name });
+        const result = await bridge()?.media.file.list({ repoId, tab, project: p.name });
         return result?.ok ? result.value : [];
       },
     })),
@@ -49,10 +52,10 @@ export function AudioProjects({
 
   const create = () =>
     prompt?.({
-      title: 'New audio project',
+      title: tab === 'sfx' ? 'New sound-effects project' : 'New audio project',
       label: 'Name',
       confirmLabel: 'Create',
-      placeholder: 'night-drive',
+      placeholder: tab === 'sfx' ? 'blasters' : 'night-drive',
       validate: validName,
       onConfirm: (name) => {
         const project = name.trim();
@@ -84,7 +87,7 @@ export function AudioProjects({
   const remove = (project: string, fileCount: number) =>
     dialogs.confirm({
       title: `Delete "${project}"?`,
-      body: `Moves .midnite/media/audio/${project}/ to the Trash.`,
+      body: `Moves .midnite/media/${tab}/${project}/ to the Trash.`,
       confirmLabel: 'Move to Trash',
       danger: true,
       blastRadius: { count: fileCount, sample: [] },
@@ -106,12 +109,16 @@ export function AudioProjects({
           <EmptyState
             icon={LuFileAudio}
             title="No projects yet"
-            body="Projects live in .midnite/media/audio/ and are tracked by git. Importing creates one."
+            body={
+              tab === 'sfx'
+                ? 'Projects live in .midnite/media/sfx/ and are tracked by git. Generating creates one.'
+                : 'Projects live in .midnite/media/audio/ and are tracked by git. Importing creates one.'
+            }
           />
         ) : (
           <Accordion
             tone="primary"
-            id="media-audio-projects"
+            id={`media-${tab}-projects`}
             sections={all.map((project, i) => {
               const variants = (listings[i]?.data ?? []).filter((f) => isAudioPath(f.path));
               const active = project.name === activeProject;
@@ -128,7 +135,7 @@ export function AudioProjects({
                       icon={LuFolderOpen}
                       label="Reveal in Finder"
                       size="sm"
-                      onClick={() => revealMedia(repoId, 'audio', project.name)}
+                      onClick={() => revealMedia(repoId, tab, project.name)}
                     />
                     <IconButton
                       icon={LuTrash2}
@@ -150,7 +157,7 @@ export function AudioProjects({
                           active ? 'font-medium text-foreground' : 'text-muted-foreground hover:text-foreground'
                         }`}
                       >
-                        Session
+                        {tab === 'sfx' ? 'All takes' : 'Session'}
                       </button>
                     </li>
                     {variants.map((file) => {

@@ -402,6 +402,8 @@ export type LayoutSizes = {
   mediaVideoDetailWidth: number;
   mediaAudioExplorerWidth: number;
   mediaAudioDetailWidth: number;
+  mediaSfxExplorerWidth: number;
+  mediaSfxDetailWidth: number;
   mediaModelExplorerWidth: number;
   mediaModelDetailWidth: number;
   mediaTerrainExplorerWidth: number;
@@ -508,6 +510,8 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   mediaVideoDetailWidth: 320,
   mediaAudioExplorerWidth: 224,
   mediaAudioDetailWidth: 360,
+  mediaSfxExplorerWidth: 224,
+  mediaSfxDetailWidth: 340,
   mediaModelExplorerWidth: 224,
   mediaModelDetailWidth: 360,
   mediaTerrainExplorerWidth: 224,
@@ -599,6 +603,8 @@ export const LAYOUT_BOUNDS = {
   mediaVideoDetailWidth: { min: 260, max: 600 },
   mediaAudioExplorerWidth: { min: 180, max: 480 },
   mediaAudioDetailWidth: { min: 260, max: 640 },
+  mediaSfxExplorerWidth: { min: 180, max: 480 },
+  mediaSfxDetailWidth: { min: 260, max: 640 },
   mediaModelExplorerWidth: { min: 180, max: 480 },
   mediaModelDetailWidth: { min: 260, max: 640 },
   mediaTerrainExplorerWidth: { min: 180, max: 480 },
@@ -4103,6 +4109,7 @@ const MEDIA_LAYOUT_KEYS = {
   image: { explorer: 'mediaImageExplorerWidth', detail: 'mediaImageDetailWidth' },
   video: { explorer: 'mediaVideoExplorerWidth', detail: 'mediaVideoDetailWidth' },
   audio: { explorer: 'mediaAudioExplorerWidth', detail: 'mediaAudioDetailWidth' },
+  sfx: { explorer: 'mediaSfxExplorerWidth', detail: 'mediaSfxDetailWidth' },
   model: { explorer: 'mediaModelExplorerWidth', detail: 'mediaModelDetailWidth' },
   terrain: { explorer: 'mediaTerrainExplorerWidth', detail: 'mediaTerrainDetailWidth' },
   sprite: { explorer: 'mediaSpriteExplorerWidth', detail: 'mediaSpriteDetailWidth' },
