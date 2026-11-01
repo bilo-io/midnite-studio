@@ -9,6 +9,8 @@ import {
   SF3D_REPO,
   SF3D_REVISION,
   type GitOpResult,
+  type ModelAnatomy,
+  type ModelFacing,
   type Sf3dRequest,
   type Sf3dGenerateRequest,
   type Sf3dGenerateResult,
@@ -57,6 +59,9 @@ export type Sf3dServiceDeps = {
     reference?: { file: string; data: Buffer };
     extra?: Record<string, unknown>;
     createdAt?: Date;
+    /** Auto-rig the imported mesh with this anatomy (and every preset clip) before it is written. */
+    anatomy?: ModelAnatomy;
+    facing?: ModelFacing;
   }) => Promise<GitOpResult<{ files: string[]; primary: string }>>;
   emit: (event: Sf3dProgressEvent) => void;
   /** Ends the worker — on uninstall, so no session holds a deleted file. */
@@ -149,6 +154,7 @@ export function createSf3dService(deps: Sf3dServiceDeps) {
         reference: { file: `${stem}.ref.${IMAGE_EXT[req.image.mime] ?? 'png'}`, data: bytes },
         extra: sf3dManifestExtra(result, settings),
         createdAt,
+        ...(req.anatomy && req.anatomy !== 'static' ? { anatomy: req.anatomy, ...(req.facing ? { facing: req.facing } : {}) } : {}),
       });
       if (!imported.ok) return fail(imported.kind === 'error' ? imported.message : 'Could not write the model.');
       files.push(...imported.value.files);

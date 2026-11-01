@@ -5,6 +5,8 @@
  */
 import { z } from 'zod';
 
+import { ModelAnatomySchema, ModelFacingSchema } from './media-model-rig';
+
 /** Texture atlas edge, in texels; the bake queries the colour MLP once per covered texel. */
 export const SF3D_TEXTURE_SIZES = [512, 1024, 2048, 4096] as const;
 export const SF3D_DEFAULT_TEXTURE_SIZE = 1024;
@@ -97,3 +99,10 @@ export function sf3dSettingsSuffix(textureSize: number | undefined, options: Sf3
   }
   return parts.join('-');
 }
+
+/**
+ * The auto-rig an SF3D run finishes with: the same `setAnatomy` the Rig tab's Auto-rig runs, applied to the
+ * freshly imported mesh. Absent or `static` leaves the model unrigged; `facing` is the way the picture's
+ * subject faces (default `+z`). `media-model-rig.ts` is zod-only, so this adds no import cycle.
+ */
+export const Sf3dRigShape = { anatomy: ModelAnatomySchema.optional(), facing: ModelFacingSchema.optional() } as const;

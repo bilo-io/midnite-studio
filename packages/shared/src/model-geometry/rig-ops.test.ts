@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ModelSpec } from '../media-model';
 import { applyClipOps, applyRigOps, copyClips, setAnatomy } from './rig-ops';
+import { MODEL_CLIP_PRESETS } from '../media-model-rig';
 import { RIG_EXAMPLE_BIPED, RIG_EXAMPLE_QUADRUPED, RIG_EXAMPLE_VEHICLE } from './rig-examples';
 
 const ok = (out: ReturnType<typeof setAnatomy>): ModelSpec => {
@@ -20,6 +21,25 @@ describe('rig edits', () => {
     expect(flat.anatomy).toBe('static');
     expect(flat.rig).toBeUndefined();
     expect(flat.animations).toBeUndefined();
+  });
+
+  it('presetClips adds every preset clip once, keeps custom clips and the clips it already has', () => {
+    const full = ok(setAnatomy(RIG_EXAMPLE_BIPED, 'biped', undefined, { presetClips: true }));
+    expect(full.animations!.map((c) => c.kind)).toEqual([...MODEL_CLIP_PRESETS.biped]);
+    expect(full.animations!.map((c) => c.name)).toEqual([...MODEL_CLIP_PRESETS.biped]);
+    const again = ok(setAnatomy(walking, 'biped', undefined, { presetClips: true }));
+    expect(again.animations!.filter((c) => c.kind === 'walk')).toHaveLength(1);
+    expect(again.animations!.some((c) => c.name === 'wave')).toBe(true);
+    expect(again.animations).toHaveLength(MODEL_CLIP_PRESETS.biped.length + 1);
+    const dog = ok(setAnatomy({ ...RIG_EXAMPLE_BIPED, parts: RIG_EXAMPLE_QUADRUPED.parts }, 'quadruped', undefined, { presetClips: true }));
+    expect(dog.animations!.map((c) => c.kind)).toEqual([...MODEL_CLIP_PRESETS.quadruped]);
+    const car = ok(setAnatomy({ ...RIG_EXAMPLE_BIPED, parts: RIG_EXAMPLE_VEHICLE.parts }, 'vehicle', undefined, { presetClips: true }));
+    expect(car.animations!.map((c) => c.kind)).toEqual([...MODEL_CLIP_PRESETS.vehicle]);
+    expect(ok(setAnatomy(RIG_EXAMPLE_BIPED, 'static', undefined, { presetClips: true })).animations).toBeUndefined();
+  });
+
+  it('without presetClips a fresh rig still starts with no clips', () => {
+    expect(biped.animations).toBeUndefined();
   });
 
   it('switching anatomy keeps only the clips the new one offers', () => {

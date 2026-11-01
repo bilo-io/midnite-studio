@@ -16,7 +16,7 @@ import { z } from 'zod';
 import { MediaProjectNameSchema } from './media';
 import { ModelImageAttachmentSchema } from './media-model';
 import { SF3D_LICENCE_SHA256 } from './media-model-sf3d-licence';
-import { Sf3dOptionsSchema, Sf3dTextureSizeSchema } from './media-model-sf3d-options';
+import { Sf3dOptionsSchema, Sf3dRigShape, Sf3dTextureSizeSchema } from './media-model-sf3d-options';
 
 export * from './media-model-sf3d-options';
 
@@ -123,6 +123,7 @@ export const Sf3dGenerateRequestSchema = z.object({
   name: z.string().trim().min(1).max(80).optional(),
   textureSize: Sf3dTextureSizeSchema.optional(),
   options: Sf3dOptionsSchema.optional(),
+  ...Sf3dRigShape,
 });
 export type Sf3dGenerateRequest = z.infer<typeof Sf3dGenerateRequestSchema>;
 

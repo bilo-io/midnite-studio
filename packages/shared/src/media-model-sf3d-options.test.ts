@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ModelEngineSchema } from './media-model';
+import { Sf3dGenerateRequestSchema } from './media-model-sf3d';
 import { ModelGenerateSf3dInputSchema } from './media-model-mcp';
 import { resolveSf3dOptions, SF3D_OPTION_DEFAULTS, sf3dSettingsSuffix, Sf3dOptionsSchema } from './media-model-sf3d-options';
 
@@ -30,5 +31,14 @@ describe('SF3D options', () => {
     expect(ModelEngineSchema.parse({ kind: 'sf3d', textureSize: 4096, options: { threshold: 8 } })).toEqual({ kind: 'sf3d', textureSize: 4096, options: { threshold: 8 } });
     expect(ModelGenerateSf3dInputSchema.safeParse({ repoPath: '/r', project: 'props', imagePath: 'a.png', options: { removeBackground: true } }).success).toBe(true);
     expect(ModelGenerateSf3dInputSchema.safeParse({ repoPath: '/r', project: 'props', imagePath: 'a.png', textureSize: 3000 }).success).toBe(false);
+  });
+
+  it('carries the auto-rig anatomy and facing on the engine and on the request', () => {
+    expect(ModelEngineSchema.parse({ kind: 'sf3d', anatomy: 'biped', facing: '-z' })).toEqual({ kind: 'sf3d', anatomy: 'biped', facing: '-z' });
+    expect(ModelEngineSchema.safeParse({ kind: 'sf3d', anatomy: 'dragon' }).success).toBe(false);
+    const request = { generationId: 'g', repoId: 'r', project: 'p', image: { name: 'a.png', mime: 'image/png', data: 'AAAA' } };
+    expect(Sf3dGenerateRequestSchema.parse({ ...request, anatomy: 'quadruped', facing: '+x' })).toMatchObject({ anatomy: 'quadruped', facing: '+x' });
+    expect(Sf3dGenerateRequestSchema.safeParse({ ...request, facing: 'up' }).success).toBe(false);
+    expect(Sf3dGenerateRequestSchema.parse(request).anatomy).toBeUndefined();
   });
 });

@@ -19,7 +19,7 @@ import { MediaProjectNameSchema } from './media';
 import { MODEL_MAX_CLIPS, ModelAnatomySchema, ModelClipSchema, ModelRigSchema } from './media-model-rig';
 import { ModelMapFileSchema, ModelPbrSchema } from './media-model-pbr';
 import { ModelSculptSdfSchema } from './media-model-sdf';
-import { Sf3dOptionsSchema, Sf3dTextureSizeSchema } from './media-model-sf3d-options';
+import { Sf3dOptionsSchema, Sf3dRigShape, Sf3dTextureSizeSchema } from './media-model-sf3d-options';
 import { ReferenceViewsSchema } from './media-model-reference';
 
 // --- the spec an LLM writes ----------------------------------------------------
@@ -423,7 +423,7 @@ export const ModelEngineSchema = z.discriminatedUnion('kind', [
    * which lands as a design with one `asset` part — editable, riggable and exportable like any other.
    * Needs the user's licence consent and install first (`media-model-sf3d.ts`).
    */
-  z.object({ kind: z.literal('sf3d'), textureSize: Sf3dTextureSizeSchema.optional(), options: Sf3dOptionsSchema.optional() }),
+  z.object({ kind: z.literal('sf3d'), textureSize: Sf3dTextureSizeSchema.optional(), options: Sf3dOptionsSchema.optional(), ...Sf3dRigShape }),
 ]);
 export type ModelEngine = z.infer<typeof ModelEngineSchema>;
 
@@ -517,6 +517,13 @@ export const ModelGenerateRequestSchema = z
     maxIterations: z.number().int().min(1).max(MODEL_ITERATIONS_MAX).optional(),
     /** `false` forces the one-shot JSON path even for an agent that could iterate. */
     iterative: z.boolean().optional(),
+    /**
+     * Refine a model that already exists instead of making a new one: `path` is any file of it inside
+     * `project` (its `.obj`, `.glb` or design `.json`). The agent edits that design in place, compared
+     * against the source picture the model was made from (its sidecar's `reference`), and an imported
+     * mesh (an SF3D `.asset.glb`) is never rewritten.
+     */
+    edit: z.object({ path: z.string().min(1).max(500) }).optional(),
   })
   .refine((req) => req.prompt.length > 0 || req.image !== undefined, {
     message: 'Describe the model, attach an image, or both.',
@@ -524,6 +531,18 @@ export const ModelGenerateRequestSchema = z
   })
   .refine((req) => req.engine.kind !== 'sf3d' || req.image !== undefined, {
     message: 'SF3D turns a picture into a model — attach one.',
+    path: ['image'],
+  })
+  .refine((req) => req.edit === undefined || req.engine.kind === 'agent', {
+    message: 'Refining a model needs an agent that can iterate (Claude Code or Codex).',
+    path: ['edit'],
+  })
+  .refine((req) => req.edit === undefined || req.prompt.length > 0, {
+    message: 'Say what to change.',
+    path: ['prompt'],
+  })
+  .refine((req) => req.edit === undefined || req.image === undefined, {
+    message: 'A refined model is compared with its own source picture — detach the new one.',
     path: ['image'],
   });
 export type ModelGenerateRequest = z.infer<typeof ModelGenerateRequestSchema>;
