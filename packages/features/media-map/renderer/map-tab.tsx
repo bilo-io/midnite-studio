@@ -13,11 +13,11 @@ import { LazyMapCanvas } from './map-canvas-lazy';
 import { useMapFocus, zoomForSide } from './map-focus';
 import { MapExplorer, mapProjectOf } from './map-explorer';
 import { MapPanel } from './map-panel';
-import { MapErrorChip, MapLoadingBar, MapLoadingState, MapOfflinePanel, isMapOffline } from './map-states';
+import { MapErrorChip, MapLoadingBar, MapLoadingState, MapOfflinePanel } from './map-states';
 import { basemapAttribution, buildMapStyle } from './map-style';
 import { useMapFraming } from './use-map-framing';
 import { useBaseStyles, useMapKey, useMapProject, useMapSources, useSaveMapView } from './use-map';
-import { useMapStatus } from './use-map-status';
+import { mapStatusStore, useMapStatus } from './use-map-status';
 
 const NO_STATUSES: readonly MapSourceStatus[] = [];
 
@@ -137,12 +137,14 @@ function MapCentre({ repoId, project, save, framing, drawing }: { repoId: string
     setBasemapOverride(next);
     save({ basemap: next });
   };
-  const retry = () => setReload((n) => n + 1);
+  const retry = () => {
+    mapStatusStore.patch({ styleFailed: false });
+    setReload((n) => n + 1);
+  };
 
   if (map.isError) return <EmptyState title="Could not read this map" body={map.error.message} />;
   if (base.isError || !status.online) return <MapOfflinePanel onRetry={() => (base.isError ? void base.refetch() : retry())} />;
   if (!map.data || !style) return <MapLoadingState />;
-  if (isMapOffline(status)) return <MapOfflinePanel onRetry={retry} />;
 
   return (
     <div className="relative h-full min-h-0" data-testid="map-view">
@@ -206,6 +208,13 @@ function MapCentre({ repoId, project, save, framing, drawing }: { repoId: string
           <MapErrorChip status={status} />
         </div>
       </LazyMapCanvas>
+      {/* Over the canvas, never instead of it: unmounting the map resets the status, which brought the canvas
+          back to fail again — a remount loop that flashed the whole map many times a second. */}
+      {status.styleFailed ? (
+        <div className="absolute inset-0 z-20 bg-background" data-testid="map-style-failed">
+          <MapOfflinePanel onRetry={retry} />
+        </div>
+      ) : null}
     </div>
   );
 }

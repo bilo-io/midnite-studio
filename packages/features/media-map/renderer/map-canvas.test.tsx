@@ -1,8 +1,9 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 type Fake = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 const instances: Fake[] = [];
+const setWorkerUrl = vi.fn();
 
 vi.mock('maplibre-gl/dist/maplibre-gl.css', () => ({}));
 vi.mock('maplibre-gl', () => {
@@ -30,11 +31,18 @@ vi.mock('maplibre-gl', () => {
     getZoom = vi.fn(() => 5);
     getBearing = vi.fn(() => 0);
     getPitch = vi.fn(() => 0);
+    handlers: Record<string, ((event?: unknown) => void)[]> = {};
     constructor() {
       instances.push(this as unknown as Fake);
     }
     addControl() {}
-    on() {}
+    on(type: string, ...rest: unknown[]) {
+      const handler = rest[rest.length - 1];
+      if (rest.length === 1 && typeof handler === 'function') (this.handlers[type] ??= []).push(handler as (event?: unknown) => void);
+    }
+    fire(type: string, event?: unknown) {
+      this.handlers[type]?.forEach((h) => h(event));
+    }
     off() {}
     resize() {}
     areTilesLoaded() {
@@ -46,10 +54,14 @@ vi.mock('maplibre-gl', () => {
   }
   class Control {}
   // v6 ships ESM with named exports only, so the fake is the module itself, not a `default`.
-  return { Map, AttributionControl: Control, NavigationControl: Control };
+  return { Map, AttributionControl: Control, NavigationControl: Control, setWorkerUrl: (url: string) => setWorkerUrl(url) };
 });
 
+const createObjectURL = vi.fn((_blob: Blob) => 'blob:null/maplibre-worker');
+vi.stubGlobal('URL', Object.assign(URL, { createObjectURL }));
+
 import MapCanvas, { type MapCanvasHandle } from './map-canvas';
+import { mapStatusStore, useMapStatus } from './use-map-status';
 
 class FakeResizeObserver {
   observe() {}
@@ -67,9 +79,39 @@ const props = {
 afterEach(() => {
   cleanup();
   instances.length = 0;
+  mapStatusStore.reset();
 });
 
 describe('MapCanvas', () => {
+  it('hands maplibre its worker as a blob URL once, so a bundled file:// renderer can start it', () => {
+    render(<MapCanvas {...props} />);
+    cleanup();
+    render(<MapCanvas {...props} />);
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(createObjectURL.mock.calls[0]![0]).toBeInstanceOf(Blob);
+    expect(setWorkerUrl).toHaveBeenCalledTimes(1);
+    expect(setWorkerUrl).toHaveBeenCalledWith('blob:null/maplibre-worker');
+  });
+
+  it('a style-level error stays failed through idle, so the failure panel cannot blink on and off', () => {
+    const status = renderHook(() => useMapStatus());
+    render(<MapCanvas {...props} />);
+    const map = instances[0]!;
+    act(() => map.fire('error', { error: new Error('Worker failed to load') }));
+    expect(status.result.current.styleFailed).toBe(true);
+    act(() => map.fire('idle'));
+    expect(status.result.current.styleFailed).toBe(true);
+    expect(status.result.current.loading).toBe(false);
+  });
+
+  it('a tile error is counted against its source and never fails the style', () => {
+    const status = renderHook(() => useMapStatus());
+    render(<MapCanvas {...props} />);
+    act(() => instances[0]!.fire('error', { sourceId: 'dem', error: { message: 'x', status: 404 } }));
+    expect(status.result.current.styleFailed).toBe(false);
+    expect(status.result.current.firstError).toEqual({ source: 'dem', status: '404' });
+  });
+
   it('creates one map per mount and removes it and its WebGL context on unmount', () => {
     const { unmount } = render(<MapCanvas {...props} />);
     expect(instances).toHaveLength(1);

@@ -29,14 +29,6 @@ export function MapErrorChip({ status }: { status: Pick<MapStatus, 'failed' | 'f
   );
 }
 
-/**
- * Offline = `navigator.onLine === false`, or the style itself failed to load. Tiles already in the disk
- * cache still draw offline, so this replaces the canvas only when there is nothing to draw.
- */
-export function isMapOffline(status: Pick<MapStatus, 'online' | 'styleFailed'>): boolean {
-  return !status.online || status.styleFailed;
-}
-
 export function MapOfflinePanel({ onRetry }: { onRetry: () => void }) {
   return (
     <EmptyState

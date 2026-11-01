@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render as plainRender, screen } from '@testing-libr
 import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { isMapOffline, MapErrorChip, MapLoadingBar, MapOfflinePanel } from './map-states';
+import { MapErrorChip, MapLoadingBar, MapOfflinePanel } from './map-states';
 import { mapStatusStore } from './use-map-status';
 
 /** Only what these components read from the kit: a tooltip that is just its child. */
@@ -33,12 +33,6 @@ describe('map states', () => {
     expect(screen.getByRole('status').textContent).toBe('3 tiles failed');
     rerender(<MapErrorChip status={{ failed: 1, firstError: null }} />);
     expect(screen.getByRole('status').textContent).toBe('1 tile failed');
-  });
-
-  it('offline is navigator.onLine false or a style that failed to load', () => {
-    expect(isMapOffline({ online: false, styleFailed: false })).toBe(true);
-    expect(isMapOffline({ online: true, styleFailed: true })).toBe(true);
-    expect(isMapOffline({ online: true, styleFailed: false })).toBe(false);
   });
 
   it('the offline panel explains itself and Retry calls back', () => {
