@@ -111,12 +111,13 @@ describe('SF3D pipeline (mocked inference)', () => {
 describe('onnxruntime-node seam', () => {
   function fakeOrt(inputs: string[]) {
     const feeds: Record<string, unknown>[] = [];
+    const created: Record<string, unknown>[] = [];
     const ort: OrtModule = {
       Tensor: class {
         constructor(public type: string, public data: Float32Array, public dims: readonly number[]) {}
       } as unknown as OrtModule['Tensor'],
       InferenceSession: {
-        create: async (path) => ({
+        create: async (path, options) => (created.push(options ?? {}), {
           inputNames: path.includes('tokenizer') ? inputs : path.includes('decoder') ? ['triplane', 'positions'] : ['image_tokens'],
           outputNames: path.includes('decoder') ? ['density', 'vertex_offset'] : ['out'],
           run: async (f: Record<string, unknown>) => {
@@ -131,8 +132,17 @@ describe('onnxruntime-node seam', () => {
         }) as unknown as OrtSession,
       },
     };
-    return { ort, feeds };
+    return { ort, feeds, created };
   }
+
+  it("creates every session without ORT's CPU arena (its >2 GiB growth trips Electron's allocator)", async () => {
+    const { ort, created } = fakeOrt(['rgb', 'c2w', 'intrinsic_normed']);
+    const inference = createOrtInference(ort, (p) => p);
+    await inference.tokenize({ rgb, c2w: new Float32Array(16), intrinsicNormed: new Float32Array(9) });
+    await inference.decode(new Float32Array(3 * 40 * 2 * 2), new Float32Array(9));
+    expect(created).toHaveLength(2);
+    for (const options of created) expect(options).toMatchObject({ enableCpuMemArena: false, executionProviders: ['cpu'] });
+  });
 
   it('feeds the tokenizer by input name and converts fp16 outputs', async () => {
     const { ort, feeds } = fakeOrt(['rgb', 'c2w', 'intrinsic_normed']);

@@ -55,6 +55,9 @@ export async function loadSf3dAssets(path: (asset: string) => string): Promise<S
   return { grid: { vertices, indices }, mlp };
 }
 
+/** No CPU arena: it grows by doubling into single blocks over 2 GiB, which Electron's PartitionAlloc kills with SIGTRAP. */
+const SF3D_SESSION_OPTIONS = { executionProviders: ['cpu'], graphOptimizationLevel: 'all', enableCpuMemArena: false };
+
 /**
  * Sessions are created on first use and kept for the next generation; the worker process is the unit
  * of release (a cancel or an uninstall kills it).
@@ -64,7 +67,7 @@ export function createOrtInference(ort: OrtModule, path: (asset: string) => stri
   const session = (file: string) => {
     let s = sessions.get(file);
     if (!s) {
-      s = ort.InferenceSession.create(path(file), { executionProviders: ['cpu'], graphOptimizationLevel: 'all' });
+      s = ort.InferenceSession.create(path(file), SF3D_SESSION_OPTIONS);
       sessions.set(file, s);
     }
     return s;
