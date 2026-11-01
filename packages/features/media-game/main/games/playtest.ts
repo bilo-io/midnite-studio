@@ -64,12 +64,22 @@ export type PlaytestDeps = {
   now?: () => number;
   /** How long a restarted game has to print `midnite-ready`. */
   readyTimeoutMs?: number;
+  /** How long to wait for the page to paint before a capture (default `PLAYTEST_PAINT_TIMEOUT_MS`). */
+  paintTimeoutMs?: number;
 };
 
 export const PLAYTEST_READY_TIMEOUT_MS = 20_000;
 /** Steps per `seek` call at full speed: each is one synchronous page evaluation. */
 export const PLAYTEST_SEEK_CHUNK = 600;
 const SEEK_TIMEOUT_MS = 30_000;
+/** Fallback for the paint wait: a hidden or occluded window never fires rAF, so it must not hang a capture. */
+export const PLAYTEST_PAINT_TIMEOUT_MS = 250;
+/** Extra host-side slack over the in-page fallback before the paint evaluate is abandoned. */
+const PAINT_HOST_SLACK_MS = 750;
+
+const PLAYTEST_BUSY = 'A play-test is already running for this game.';
+/** Game ids with a play-test run in flight. Module-level: every `createPlaytests` shares it. */
+const activeRuns = new Set<string>();
 
 const NOT_RUNNING = 'Run the game first.';
 const OLD_KIT =
@@ -211,8 +221,33 @@ export function createPlaytests(deps: PlaytestDeps) {
     return parsed.data;
   }
 
+  /**
+   * Let the page paint before a capture: `seek` steps the game synchronously, so DOM overlays have not
+   * reached the compositor yet. Two rAF callbacks, with a timeout fallback. Never steps the game (the
+   * kit loop is paused in deterministic mode) and never throws: a missed paint just captures as before.
+   */
+  async function waitForPaint(page: PlaytestPage): Promise<void> {
+    const ms = deps.paintTimeoutMs ?? PLAYTEST_PAINT_TIMEOUT_MS;
+    const code = `new Promise((resolve) => { const t = setTimeout(resolve, ${Math.trunc(ms)}); requestAnimationFrame(() => requestAnimationFrame(() => { clearTimeout(t); resolve(true); })); })`;
+    try {
+      await evalWithTimeout((c) => page.evaluate(c), code, ms + PAINT_HOST_SLACK_MS, 'The paint wait');
+    } catch {
+      // Best effort.
+    }
+  }
+
+  /** Claim the game for one run; a second claim is refused until `release`. */
+  function claim(gameId: string): () => void {
+    if (activeRuns.has(gameId)) throw new McpToolError('refused', PLAYTEST_BUSY);
+    activeRuns.add(gameId);
+    return () => {
+      activeRuns.delete(gameId);
+    };
+  }
+
   async function capture(page: PlaytestPage): Promise<Buffer> {
     try {
+      await waitForPaint(page);
       return await page.capture();
     } catch (error) {
       throw new McpToolError('error', clipError(`Could not capture the game: ${error instanceof Error ? error.message : String(error)}`));
@@ -387,6 +422,15 @@ export function createPlaytests(deps: PlaytestDeps) {
   /** Run named play-tests (or every valid one), one after another. */
   async function run(target: string, opts: { names?: readonly string[]; inline?: GamePlaytest } = {}) {
     const game = await need(target);
+    const release = claim(game.gameId);
+    try {
+      return await runLocked(game, opts);
+    } finally {
+      release();
+    }
+  }
+
+  async function runLocked(game: GameSummary, opts: { names?: readonly string[]; inline?: GamePlaytest }) {
     const runs: GamePlaytestResult[] = [];
     const failures: Buffer[] = [];
     const playtests: GamePlaytest[] = [];
@@ -440,6 +484,15 @@ export function createPlaytests(deps: PlaytestDeps) {
 
   async function replayPlay(target: string, input: { replay: string | GameReplay; speed: 1 | 'max' }) {
     const game = await need(target);
+    const release = claim(game.gameId);
+    try {
+      return await replayPlayLocked(game, input);
+    } finally {
+      release();
+    }
+  }
+
+  async function replayPlayLocked(game: GameSummary, input: { replay: string | GameReplay; speed: 1 | 'max' }) {
     const replay = await resolveReplay(game.path, input.replay);
     const page = await restart(game.gameId, replay.seed);
     if (input.speed === 'max') {

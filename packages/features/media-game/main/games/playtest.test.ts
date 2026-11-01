@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { runInNewContext } from 'node:vm';
 
 import { GamePlaytestResultSchema, GameReplaySchema, type GameSummary } from '@midnite/studio-shared';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { encodePngRgba8 } from '@midnite/studio-runtime';
 
@@ -242,5 +242,120 @@ describe('play-tests (Theme O)', () => {
       ['error', 'replay.status() did not return valid JSON.'],
       ['error', 'replay.status() did not return valid JSON.'],
     ]);
+  });
+});
+
+describe('play-test paint wait and per-game lock', () => {
+  let root: string;
+  const game = (): GameSummary => ({
+    gameId: 'g-lock',
+    name: 'Walker',
+    path: root,
+    engine: 'phaser',
+    dimension: '2d',
+    starter: 'top-down',
+    dirty: false,
+    valid: true,
+    issue: null,
+  });
+  const png = encodePngRgba8(new Uint8Array(4 * 4 * 4).fill(255), 4, 4);
+  const replay = { version: 1, seed: 1, frames: 5, events: [] };
+  const inline = { version: 1, name: 'paint', replay, asserts: [{ frame: 5, kind: 'state', path: '$.scene', op: 'eq', value: 'level' }] };
+
+  /** A page whose replay hook is trivially ready; `paint` answers the rAF evaluate, `calls` logs order. */
+  function fakePage(calls: string[], paint: () => Promise<unknown>, opts: { failSeek?: boolean } = {}): PlaytestPage {
+    return {
+      evaluate: async (code) => {
+        if (code.includes('requestAnimationFrame')) {
+          calls.push('paint');
+          return paint();
+        }
+        if (code.includes('.status()')) return JSON.stringify({ frame: 0 });
+        if (code.includes('.seek(')) return JSON.stringify(opts.failSeek ? { ok: false, message: 'boom' } : { ok: true, frame: 5 });
+        if (code.includes('.load(')) return true;
+        if (code.includes('getState')) return JSON.stringify({ version: 1, scene: 'level', frame: 5, time: 0 });
+        return 'ready';
+      },
+      capture: async () => {
+        calls.push('capture');
+        return png;
+      },
+    };
+  }
+  const make = (page: () => PlaytestPage | null, extra: { paintTimeoutMs?: number; gate?: Promise<void> } = {}) =>
+    createPlaytests({
+      resolve: async () => game(),
+      runDeterministic: async () => {
+        await extra.gate;
+        return { ok: true };
+      },
+      page,
+      sleep: async () => undefined,
+      ...(extra.paintTimeoutMs === undefined ? {} : { paintTimeoutMs: extra.paintTimeoutMs }),
+    });
+
+  beforeEach(async () => {
+    root = await mkdtemp(join(tmpdir(), 'mstudio-playtest-lock-'));
+  });
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it('awaits the paint evaluate before capturing a frame', async () => {
+    const calls: string[] = [];
+    let release!: () => void;
+    const painted = new Promise<void>((r) => (release = r));
+    const page = fakePage(calls, () => painted);
+    const pending = make(() => page).assertFrame('g-lock', { frame: 5, name: 'p', tolerance: 0.01 });
+    await vi.waitFor(() => expect(calls).toEqual(['paint']));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toEqual(['paint']); // not captured while the paint is outstanding
+    release();
+    await pending;
+    expect(calls).toEqual(['paint', 'capture']);
+  });
+
+  it('still captures when the paint never answers (timeout path resolves)', async () => {
+    const calls: string[] = [];
+    const page = fakePage(calls, () => new Promise(() => undefined));
+    const started = Date.now();
+    const result = await make(() => page, { paintTimeoutMs: 10 }).assertFrame('g-lock', { frame: 5, name: 'p', tolerance: 0.01 });
+    expect(result.status).toBe('baseline-created');
+    expect(calls).toEqual(['paint', 'capture']);
+    expect(Date.now() - started).toBeLessThan(5000);
+  });
+
+  it('captures when the paint evaluate throws', async () => {
+    const calls: string[] = [];
+    const page = fakePage(calls, async () => {
+      throw new Error('no rAF');
+    });
+    await make(() => page).assertFrame('g-lock', { frame: 5, name: 'p', tolerance: 0.01 });
+    expect(calls).toEqual(['paint', 'capture']);
+  });
+
+  it('refuses a second concurrent run on the same game, and frees the game after success', async () => {
+    let open!: () => void;
+    const gate = new Promise<void>((r) => (open = r));
+    const page = fakePage([], async () => true);
+    const runs = make(() => page, { gate });
+    const first = runs.run('g-lock', { inline: inline as never });
+    await expect(runs.run('g-lock', { inline: inline as never })).rejects.toThrow('A play-test is already running for this game.');
+    await expect(runs.replayPlay('g-lock', { replay: replay as never, speed: 'max' })).rejects.toThrow('A play-test is already running for this game.');
+    open();
+    expect((await first).passed).toBe(true);
+    expect((await runs.run('g-lock', { inline: inline as never })).passed).toBe(true);
+  });
+
+  it('releases the lock after a failed run', async () => {
+    const page = fakePage([], async () => true, { failSeek: true });
+    const runs = make(() => page);
+    expect((await runs.run('g-lock', { inline: inline as never })).passed).toBe(false);
+    await expect(runs.replayPlay('g-lock', { replay: replay as never, speed: 'max' })).rejects.toThrow('boom');
+    // Neither failure left the game claimed.
+    await expect(runs.replayPlay('g-lock', { replay: replay as never, speed: 'max' })).rejects.toThrow('boom');
+    const missing = make(() => null);
+    await expect(missing.run('g-lock', { inline: inline as never })).resolves.toMatchObject({ passed: false });
+    await expect(missing.replayPlay('g-lock', { replay: replay as never, speed: 'max' })).rejects.not.toThrow('already running');
   });
 });
