@@ -25,19 +25,17 @@ const git = (...args) => {
 };
 
 const SURFACES = ['apps', 'packages'];
-// The guard itself names the font as the thing it forbids.
-const NOT_SURFACES = [':!scripts/no-quick-kiss.mjs', ':!scripts/no-quick-kiss.test.mjs'];
 
 describe('no midnite surface ships Quick Kiss', () => {
   it('has no quick-kiss font file in any public surface', () => {
-    const files = git('ls-files', '--cached', '--others', '--exclude-standard', '--', ...SURFACES, ...NOT_SURFACES);
+    const files = git('ls-files', '--cached', '--others', '--exclude-standard', '--', ...SURFACES);
     expect(files.filter((f) => /quick[-_ ]?kiss/i.test(f))).toEqual([]);
   });
 
   it('never references the font file (url, import or path) outside comments and docs', () => {
     // Prose may name the face (the launcher/site CSS explain why they use Damion); a reference
     // is a `url(...)`, an import, or a path to the .ttf.
-    const hits = git('grep', '--untracked', '-n', '-i', '-E', "quick[-_ ]?kiss[^'\"\\s)]*\\.(ttf|otf|woff2?)", '--', ...SURFACES, ...NOT_SURFACES)
+    const hits = git('grep', '--untracked', '-n', '-i', '-E', "quick[-_ ]?kiss[^'\"\\s)]*\\.(ttf|otf|woff2?)", '--', ...SURFACES)
       // the website guard test and docs name the filename as a forbidden string
       .filter((l) => !/\.test\.[cm]?[jt]sx?:/.test(l) && !/\.(md|css):\d+:\s*(\/?\*|\/\/|\*)/.test(l) && !/^\S+\.(css|tsx?|md):\d+:\s*(\*|\/\/|\/\*)/.test(l));
     expect(hits).toEqual([]);

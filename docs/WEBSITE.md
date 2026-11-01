@@ -154,7 +154,7 @@ so a future re-pick starts from rendered type rather than from this paragraph.
 
 ### How it is wired
 
-Four files, and the same three-part wiring the app uses (the app has no preload, step 3):
+Four files. The app wires its copy the same way, minus the preload (step 3):
 
 1. **The file.** `src/fonts/damion/Damion-latin.woff2` — the upstream TTF
    subset to Latin and compressed, **74 KB → 27 KB**. Upstream's `OFL.txt` sits
