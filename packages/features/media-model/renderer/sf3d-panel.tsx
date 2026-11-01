@@ -118,7 +118,7 @@ export function Sf3dPanel({
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             A neural network that turns a picture of one object into a UV-unwrapped, textured mesh (<span className="font-medium text-foreground">.glb</span>),
             on this Mac. Opt-in: {formatBytes(total)} is downloaded into the app’s data folder only after you accept its licence.
-            A cut-out picture (transparent background) works best.
+            A cut-out picture (transparent background) works best; for one on a plain background, turn on Remove background.
           </p>
         </div>
 
