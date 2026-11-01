@@ -8,11 +8,10 @@
  * `font-medium` and one muted step back. Setting both in a script face would
  * read as one made-up word.
  *
- * The face itself is **Damion**, not the app's Quick Kiss. Quick Kiss is
- * licensed for personal use only and can never be served from a public origin;
- * Damion is an OFL script in the same hand. See `docs/WEBSITE.md` and
- * `src/fonts/damion/README.md`. The two surfaces are deliberately
- * near-identical rather than identical.
+ * The face itself is **Damion** (SIL OFL), the same face the app's wordmark
+ * wears. It replaced Quick Kiss, which is licensed for personal use only and
+ * can never be served from a public origin. See `docs/WEBSITE.md` and
+ * `src/fonts/damion/README.md`.
  *
  * **Three surfaces render this and none of them spells it out inline**: the
  * nav's `Logo`, the hero headline, and the footer's big wordmark. That is why

@@ -195,7 +195,7 @@ export async function setReducedMotion(page: Page, reduced = true): Promise<void
 
 /**
  * `document.fonts.ready` before any capture — closes the `font-display: swap`
- * race on `styles.css`'s `Quick Kiss` `@font-face`.
+ * race on `styles.css`'s `Damion` `@font-face`.
  *
  * `swap` means the very first frame renders in the fallback (`sans-serif`)
  * and swaps to the brand face the instant it finishes downloading — which,

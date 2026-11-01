@@ -66,7 +66,8 @@ Apply only the sections the diff touches.
   feature (they meet through the link router and `shared` ids). The frame never imports a feature.
 - A new feature package is listed in `apps/studio/src/composition.ts`.
 - `apps/launcher` and `packages/website` stay off the graph. The website never links to or names
-  `bilo-io/midnite-apps` and never copies `quick-kiss.ttf`.
+  `bilo-io/midnite-apps`.
+- No surface re-adds the personal-use Quick Kiss font; every wordmark is Damion (SIL OFL).
 - **The fix for a boundary rule firing is an IPC channel, not an exception.**
 
 ### Renderer and UI

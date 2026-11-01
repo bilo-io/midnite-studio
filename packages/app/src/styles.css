@@ -10,21 +10,22 @@
  * hard-codings are overridden at the bottom of this file. */
 @import 'react-grid-layout/css/styles.css';
 
-/* The "Quick Kiss" brand face, the same file the midnite apps ship. Vite
- * fingerprints and emits it from this url(), so there is no public/ copy to keep
- * in step. Exposed as `--font-brand` so `font-brand` (tailwind.config.ts) reaches
- * it — the same three-part wiring midnite/packages/docs uses.
+/* The brand face: Damion (SIL OFL), the same 27 KB Latin subset the website and
+ * the launcher ship, with upstream's licence beside it (`fonts/damion/OFL.txt`,
+ * which clause 2 of the OFL requires). Vite fingerprints and emits it from this
+ * url(), so there is no public/ copy to keep in step. Exposed as `--font-brand`
+ * so `font-brand` (tailwind.config.ts) reaches it.
  *
- * It stays in THIS package, and copying it into packages/website is never the
- * fix for anything. The font is licensed for personal use only (its name table
- * reads "Quick Kiss Personal Use", Billy Argel, all rights reserved), which the
- * private app is arguably within and the *public* marketing site is not. The site
- * therefore sets the same wordmark in Damion (SIL OFL), an open script in the
- * same hand — so the two surfaces are deliberately near-identical rather than
- * identical. See docs/WEBSITE.md § "The brand face". */
+ * Studio used to wear Quick Kiss here, a personal-use face ("Quick Kiss Personal
+ * Use", Billy Argel, all rights reserved). Studio is a binary handed out
+ * publicly, so it moved to the open face every other midnite surface already
+ * wore; `scripts/no-quick-kiss.mjs` keeps the old file out of every bundle. See
+ * docs/WEBSITE.md § "The brand face". */
 @font-face {
-  font-family: 'Quick Kiss';
-  src: url('./fonts/quick-kiss.ttf') format('truetype');
+  font-family: 'Damion';
+  src: url('./fonts/damion/Damion-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
   font-display: swap;
 }
 
@@ -57,7 +58,7 @@
 
 @layer base {
   :root {
-    --font-brand: 'Quick Kiss', sans-serif;
+    --font-brand: 'Damion', cursive;
 
     /* The red/amber/green a branch's status dot reads in (features/repos/branch-health.ts).
      * Three of the four defer to an existing token so the dots stay in the

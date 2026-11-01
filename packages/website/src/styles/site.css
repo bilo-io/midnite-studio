@@ -2,12 +2,9 @@
 @import './apps.css';
 
 /*
-  The brand face: Damion, the site's open-licence stand-in for the app's
-  Quick Kiss.
-
-  The app's own face cannot ship here — it is licensed for personal use only —
-  so the site sets the same wordmark in an OFL face instead. The two surfaces
-  are near-identical by design, not identical. See
+  The brand face: Damion (SIL OFL), the face every midnite surface wears — the
+  desktop app ships the same subset. It replaced Quick Kiss, a personal-use face
+  that can never be served from a public origin. See
   `src/fonts/damion/README.md` for the subsetting command and
   `docs/WEBSITE.md` for the decision.
 
