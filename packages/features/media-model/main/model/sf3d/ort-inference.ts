@@ -55,11 +55,7 @@ export async function loadSf3dAssets(path: (asset: string) => string): Promise<S
   return { grid: { vertices, indices }, mlp };
 }
 
-/**
- * `enableCpuMemArena: false` is load-bearing: ORT's arena grows by doubling and soon asks `malloc` for
- * one block over 2 GiB, which Electron's PartitionAlloc refuses with a deliberate SIGTRAP — the worker
- * died in the tokenizer every time. Without the arena each tensor is its own allocation, all under the cap.
- */
+/** No CPU arena: it grows by doubling into single blocks over 2 GiB, which Electron's PartitionAlloc kills with SIGTRAP. */
 const SF3D_SESSION_OPTIONS = { executionProviders: ['cpu'], graphOptimizationLevel: 'all', enableCpuMemArena: false };
 
 /**
