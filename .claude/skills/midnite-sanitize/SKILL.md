@@ -28,7 +28,7 @@ Take the target from `$ARGUMENTS`:
 | a plugin name | its folder under `~/.claude/plugins/` |
 | `--installed` | every skill and plugin already installed: `~/.claude/skills/`, `~/.claude/plugins/`, `./.claude/skills/`, `.agents/skills/`, `.codex/skills/`, plus `~/.claude/settings.json` hooks and MCP servers |
 | `--self` | this repo's own agent surface: `.claude/`, `.agents/`, `.codex/`, `templates/midnite/`, `CLAUDE.md`/`AGENTS.md`/`GEMINI.md`, `.githooks/`, `.mcp.json` |
-| nothing | ask for one with `AskUserQuestion` |
+| nothing | ask the user for one |
 
 Clone a remote target into its **own new directory in the session scratchpad**, never into the
 repo, with checkout hooks disabled:
@@ -68,10 +68,12 @@ every future push** — always say so.
 
 ## 2 · Mechanical scan
 
+`<skill dir>` is the folder this SKILL.md lives in (`${CLAUDE_SKILL_DIR}` in Claude Code).
+
 ```sh
-python3 -I "${CLAUDE_SKILL_DIR}/scan.py" "$D/repo"               # markdown report on stdout
-python3 -I "${CLAUDE_SKILL_DIR}/scan.py" "$D/repo" --json        # the same, machine-readable
-python3 -I "${CLAUDE_SKILL_DIR}/scan.py" "$D/repo" --skills-dir ~/.claude/skills --skills-dir ./.claude/skills
+python3 -I "<skill dir>/scan.py" "$D/repo"               # markdown report on stdout
+python3 -I "<skill dir>/scan.py" "$D/repo" --json        # the same, machine-readable
+python3 -I "<skill dir>/scan.py" "$D/repo" --skills-dir ~/.claude/skills --skills-dir ./.claude/skills
 ```
 
 `--skills-dir` (repeatable) is where the already-installed skills live; the scanner compares the
@@ -137,7 +139,7 @@ A ⛔ verdict ends the skill after the report; offer nothing to install.
 
 ## 5 · Install interview
 
-Only on ✅ or ⚠️. One `AskUserQuestion` call, each question self-contained:
+Only on ✅ or ⚠️. Ask all four at once (one `AskUserQuestion` call in Claude Code), each question self-contained:
 
 - **Method** — *pinned copy* of the audited SHA (recommended: nothing changes until the next audit)
   vs *plugin marketplace* (follows upstream HEAD; future pushes land unaudited).
