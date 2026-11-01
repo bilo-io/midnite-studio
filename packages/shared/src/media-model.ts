@@ -19,6 +19,7 @@ import { MediaProjectNameSchema } from './media';
 import { MODEL_MAX_CLIPS, ModelAnatomySchema, ModelClipSchema, ModelRigSchema } from './media-model-rig';
 import { ModelMapFileSchema, ModelPbrSchema } from './media-model-pbr';
 import { ModelSculptSdfSchema } from './media-model-sdf';
+import { Sf3dOptionsSchema, Sf3dTextureSizeSchema } from './media-model-sf3d-options';
 import { ReferenceViewsSchema } from './media-model-reference';
 
 // --- the spec an LLM writes ----------------------------------------------------
@@ -422,7 +423,7 @@ export const ModelEngineSchema = z.discriminatedUnion('kind', [
    * which lands as a design with one `asset` part — editable, riggable and exportable like any other.
    * Needs the user's licence consent and install first (`media-model-sf3d.ts`).
    */
-  z.object({ kind: z.literal('sf3d'), textureSize: z.union([z.literal(512), z.literal(1024), z.literal(2048)]).optional() }),
+  z.object({ kind: z.literal('sf3d'), textureSize: Sf3dTextureSizeSchema.optional(), options: Sf3dOptionsSchema.optional() }),
 ]);
 export type ModelEngine = z.infer<typeof ModelEngineSchema>;
 

@@ -117,6 +117,7 @@ export function createSf3dMcpTools(deps: Sf3dMcpDeps) {
       image: { name, mime, data: data.toString('base64') },
       ...(input.name ? { name: input.name } : {}),
       ...(input.textureSize ? { textureSize: input.textureSize } : {}),
+      ...(input.options ? { options: input.options } : {}),
     });
     return { started: true, generationId };
   }

@@ -16,7 +16,9 @@ import { z } from 'zod';
 import { MediaProjectNameSchema } from './media';
 import { ModelImageAttachmentSchema } from './media-model';
 import { SF3D_LICENCE_SHA256 } from './media-model-sf3d-licence';
+import { Sf3dOptionsSchema, Sf3dTextureSizeSchema } from './media-model-sf3d-options';
 
+export * from './media-model-sf3d-options';
 
 /** The Hugging Face repository of the ONNX port (not gated). */
 export const SF3D_REPO = 'needle-tools/SF3D-webgpu';
@@ -112,10 +114,6 @@ export const Sf3dStatusSchema = z.object({
 });
 export type Sf3dStatus = z.infer<typeof Sf3dStatusSchema>;
 
-/** Texture atlas edge, in texels; the bake queries the colour MLP once per covered texel. */
-export const SF3D_TEXTURE_SIZES = [512, 1024, 2048] as const;
-export const SF3D_DEFAULT_TEXTURE_SIZE = 1024;
-
 export const Sf3dGenerateRequestSchema = z.object({
   generationId: z.string().min(1),
   repoId: z.string().min(1),
@@ -123,7 +121,8 @@ export const Sf3dGenerateRequestSchema = z.object({
   image: ModelImageAttachmentSchema,
   /** A label for the model; defaults to the image's file name. */
   name: z.string().trim().min(1).max(80).optional(),
-  textureSize: z.union([z.literal(512), z.literal(1024), z.literal(2048)]).optional(),
+  textureSize: Sf3dTextureSizeSchema.optional(),
+  options: Sf3dOptionsSchema.optional(),
 });
 export type Sf3dGenerateRequest = z.infer<typeof Sf3dGenerateRequestSchema>;
 

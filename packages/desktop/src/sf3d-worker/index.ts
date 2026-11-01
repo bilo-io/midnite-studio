@@ -47,6 +47,7 @@ process.parentPort.on('message', (event) => {
       const runtime = runtimeFor(data.assetsDir);
       const assets = await runtime.assets;
       const result = await runSf3dPipeline(runtime.inference, assets, data.rgb, {
+        ...data.settings,
         textureSize: data.textureSize,
         name: data.name,
         onStage: (stage, fraction) => post({ type: 'stage', id: data.id, stage, ...(fraction !== undefined ? { fraction } : {}) }),
