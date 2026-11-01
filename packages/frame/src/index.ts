@@ -131,6 +131,9 @@ export {
   type UseResizableOptions,
 } from './layout/resizable/use-resizable';
 export { ResizeHandle } from './layout/resizable/resize-handle';
+export { BottomPanel, BottomPanelHeader } from './layout/bottom-panel/bottom-panel';
+export { useBottomPanel, type BottomPanel as BottomPanelHandle, type BottomPanelOptions } from './layout/bottom-panel/use-bottom-panel';
+export { useBottomPanelStore } from './layout/bottom-panel/bottom-panel-store';
 
 // Graph geometry — the pan/zoom and edge-path maths a node canvas draws with (the project graph reuses it).
 export {
