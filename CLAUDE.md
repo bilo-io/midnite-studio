@@ -346,25 +346,25 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   **root** — on the Pages target that includes the path prefix. **Nothing on the website may link to, or print the name of, the
   `bilo-io/midnite-apps` repo** — the early-access form's prefilled-issue URL is the one deliberate exception, and it
   never shows the repo name.
-- **The two surfaces wear two near-identical brand faces, and that is deliberate.** The app's
-  `--font-brand` is **Quick Kiss**, whose own name table reads `Quick Kiss Personal Use` / "All
-  rights reserved" (Billy Argel; commercial and webfont licences are sold separately). The
-  private app is arguably within that; **`packages/website` is public marketing and is not**, and
-  serving the TTF from a public origin hands out the file besides. So the site sets the same
-  wordmark in **Damion (SIL OFL)** — self-hosted from
-  `packages/website/src/fonts/damion/` with upstream's `OFL.txt` verbatim beside it, a
-  27 KB Latin woff2 subset, no Google Fonts `<link>` and no third-party request. **The binding
-  constraint is the licence, not the ranking**: twenty OFL/Apache script faces were once rendered
-  against Quick Kiss at the sizes the site actually uses and Kaushan Script won that sheet, with
-  Damion fourth — the site wears Damion anyway, picked directly, and the sheet stays committed at
+- **Every midnite surface wears one brand face: Damion (SIL OFL).** Studio's `--font-brand` used
+  to be **Quick Kiss**, whose own name table reads `Quick Kiss Personal Use` / "All rights
+  reserved" (Billy Argel; commercial and webfont licences are sold separately). Studio is a binary
+  handed out publicly, so that was never within the licence, and the font is gone from the repo:
+  the app (`packages/app/src/fonts/damion/`), the website (`packages/website/src/fonts/damion/`),
+  the launcher and the video editor all set "Midnite" in the same 27 KB Latin woff2 subset, with
+  upstream's `OFL.txt` verbatim beside each copy, no Google Fonts `<link>` and no third-party
+  request. **Quick Kiss never comes back** — not as a file, not as a `@font-face`;
+  [`scripts/no-quick-kiss.mjs`](scripts/no-quick-kiss.mjs) fails the release on any built bundle
+  (Studio's `.app`, the launcher, every suite app) that carries it. **The binding constraint is
+  the licence, not the ranking**: twenty OFL/Apache script faces were once rendered against Quick
+  Kiss and Kaushan Script won that sheet, with Damion fourth — Damion was picked directly, and the
+  sheet stays committed at
   [`docs/screenshots/website-wordmark/candidates.png`](docs/screenshots/website-wordmark/candidates.png)
-  so a re-pick starts from rendered type. **`quick-kiss.ttf` still must never be copied into
-  `packages/website`** — the substitution is what makes that unnecessary, not what relaxes it.
-  The wordmark's split lives in one place, `packages/website/src/components/wordmark.tsx`,
-  mirroring the app's own `brand.tsx`; its `pr-[0.15em]` is clip headroom measured **per face**
-  (Damion's ink runs 0.104em past its advance box over "Midnite"; Kaushan's ran 0.051em), so a
-  face swap re-measures it. [`docs/WEBSITE.md`](docs/WEBSITE.md) carries the licence evidence and
-  the wiring.
+  so a re-pick starts from rendered type. The wordmark's split lives in the app's `brand.tsx` and
+  the site's `packages/website/src/components/wordmark.tsx`; a gradient-clipped "Midnite" needs
+  `0.15em` of right padding as clip headroom, measured **per face** (Damion's ink runs 0.104em past
+  its advance box over "Midnite"), so a face swap re-measures it.
+  [`docs/WEBSITE.md`](docs/WEBSITE.md) carries the licence evidence and the wiring.
 - **Commits here are authored as `bilo-io` — `Bilo Lwabona <bilo.lwabona@gmail.com>`.** The
   global `~/.gitconfig` carries the *work* identity, which is correct for every other
   checkout on this machine and wrong for this one. Nothing about a clone announces that

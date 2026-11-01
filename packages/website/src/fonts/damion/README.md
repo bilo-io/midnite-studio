@@ -11,13 +11,14 @@ Its copyright line declares **no Reserved Font Name**, so keeping the family
 name `Damion` carries no obligation either way — the subset keeps it, and
 carries no outline changes.
 
-It is here because the desktop app's own brand face, **Quick Kiss**, is licensed
-for personal use only and cannot be served from a public origin. Damion is an
+It replaced **Quick Kiss**, the desktop app's original brand face, which is
+licensed for personal use only and cannot be served from a public origin; the
+app now ships this same file from `packages/app/src/fonts/damion/`. Damion is an
 open-licence script in the same hand — see the twenty-candidate sheet at
 [`docs/screenshots/website-wordmark/candidates.png`](../../../../../docs/screenshots/website-wordmark/candidates.png)
 and the "brand face" section of [`docs/WEBSITE.md`](../../../../../docs/WEBSITE.md),
 which records why it replaced Kaushan Script.
-**Never copy `packages/app/src/fonts/quick-kiss.ttf` into this directory.**
+**Quick Kiss must never be re-added here or anywhere else in the repo.**
 
 The subset was produced with `fonttools`, over Google Fonts' own `latin` unicode
 range and keeping every layout feature a script face needs for its joins:

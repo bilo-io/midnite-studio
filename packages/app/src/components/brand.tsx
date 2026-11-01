@@ -6,10 +6,11 @@ import { useUiStore } from '../store/ui-store';
 /**
  * The midnite crescent and wordmark.
  *
- * Both come straight from the midnite app: the mark is its `logo.PNG`, and the
- * wordmark is set in Quick Kiss, midnite's brand face. Sharing the assets rather
- * than approximating them is the point — this is the same product family, and a
- * near-miss logo reads worse than none.
+ * The mark comes straight from the midnite app (its `logo.PNG`), and the
+ * wordmark is set in Damion (SIL OFL), the brand face every midnite surface
+ * wears — the website, the launcher and the videos set the same word in the
+ * same file. Sharing the assets rather than approximating them is the point:
+ * this is one product family, and a near-miss logo reads worse than none.
  *
  * midnite's own <Wordmark> carries a live font/case/size picker for trialling
  * faces; that machinery is deliberately not copied. Here the brand is settled,
@@ -42,8 +43,7 @@ export function BrandMark({ className = 'h-5 w-5' }: { className?: string }) {
  * "Midnite Studio" — the brand face for the name, the UI face for the qualifier.
  *
  * The two words are weighted differently on purpose: `Midnite` is the brand and
- * is set in Quick Kiss, the same face the midnite app uses for its own wordmark
- * (`WORDMARK_LOGO_FONT` there). `Studio` says which of its apps this is, so it
+ * is set in Damion, the brand face (`--font-brand`, `styles.css`). `Studio` says which of its apps this is, so it
  * stays in the UI face — setting both in the display face would read as one
  * made-up word.
  *

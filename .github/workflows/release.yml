@@ -216,6 +216,11 @@ jobs:
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Studio ships publicly like every other bundle, so it wears Damion too — scan the packaged
+      # .app (the renderer's assets sit unpacked under Contents/Resources/renderer).
+      - name: Check Studio ships no Quick Kiss
+        run: node scripts/no-quick-kiss.mjs packages/desktop/release/mac-arm64
+
       # Phase 113 Theme F1: the launcher (Midnite Apps) is built in THIS job, beside Studio, so a
       # release stays ONE macOS job (the runtime's `dist`) against the cap of 5 concurrent. Signing and
       # notarizing reuse the env the "Configure macOS code-signing" step wrote to $GITHUB_ENV, exactly as

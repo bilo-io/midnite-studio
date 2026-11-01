@@ -21,7 +21,7 @@ import { describe, expect, it } from 'vitest';
  * subject is the wiring.
  *
  * The two licence assertions are the exception, and they are not stylistic:
- * `packages/app`'s Quick Kiss is licensed for personal use only and must never
+ * Quick Kiss (once `packages/app`'s face) is licensed for personal use only and must never
  * reach this public package, and the OFL requires upstream's licence file to
  * ship beside any subset of the font. See `docs/WEBSITE.md` § "The brand face".
  */

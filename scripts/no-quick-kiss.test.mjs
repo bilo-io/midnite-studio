@@ -1,10 +1,10 @@
-// Phase 113 Theme F item 3 — public apps keep Damion, never Quick Kiss. Plain vitest: no browser
-// capability needed; `git ls-files`/`git grep` keep it fast under a loaded gate (no directory walk).
+// Phase 113 Theme F item 3 — every midnite surface wears Damion, never Quick Kiss. Plain vitest: no
+// browser capability needed; `git ls-files`/`git grep` keep it fast under a loaded gate (no directory
+// walk).
 //
-// Public surfaces: every apps/* except Studio, packages/website, packages/frame (the chrome every app
-// shares) and packages/features/*. Studio and its renderer (packages/app) legitimately use Quick Kiss.
-// The check looks for the font ASSET and for references to its file, not the `--font-brand` variable
-// name, which public surfaces may define for Damion.
+// Studio (apps/studio + its renderer, packages/app) was once exempt; it ships publicly too, so it
+// moved to Damion and the exemption went with it. The check looks for the font ASSET and for
+// references to its file, not the `--font-brand` variable name, which every surface defines for Damion.
 
 import { execFileSync } from 'node:child_process';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
@@ -24,26 +24,29 @@ const git = (...args) => {
   }
 };
 
-const PUBLIC = ['apps', 'packages/website', 'packages/frame', 'packages/features'];
-const NOT_PUBLIC = [':!apps/studio'];
+const SURFACES = ['apps', 'packages'];
 
-describe('public apps never ship Quick Kiss', () => {
+describe('no midnite surface ships Quick Kiss', () => {
   it('has no quick-kiss font file in any public surface', () => {
-    const files = git('ls-files', '--cached', '--others', '--exclude-standard', '--', ...PUBLIC, ...NOT_PUBLIC);
+    const files = git('ls-files', '--cached', '--others', '--exclude-standard', '--', ...SURFACES);
     expect(files.filter((f) => /quick[-_ ]?kiss/i.test(f))).toEqual([]);
   });
 
   it('never references the font file (url, import or path) outside comments and docs', () => {
     // Prose may name the face (the launcher/site CSS explain why they use Damion); a reference
     // is a `url(...)`, an import, or a path to the .ttf.
-    const hits = git('grep', '--untracked', '-n', '-i', '-E', "quick[-_ ]?kiss[^'\"\\s)]*\\.(ttf|otf|woff2?)", '--', ...PUBLIC, ...NOT_PUBLIC)
+    const hits = git('grep', '--untracked', '-n', '-i', '-E', "quick[-_ ]?kiss[^'\"\\s)]*\\.(ttf|otf|woff2?)", '--', ...SURFACES)
       // the website guard test and docs name the filename as a forbidden string
       .filter((l) => !/\.test\.[cm]?[jt]sx?:/.test(l) && !/\.(md|css):\d+:\s*(\/?\*|\/\/|\*)/.test(l) && !/^\S+\.(css|tsx?|md):\d+:\s*(\*|\/\/|\/\*)/.test(l));
     expect(hits).toEqual([]);
   });
 
-  it('the launcher and website each declare a Damion @font-face', () => {
-    for (const css of ['apps/launcher/src/renderer/styles.css', 'packages/website/src/styles/site.css']) {
+  it('Studio, the launcher and the website each declare a Damion @font-face', () => {
+    for (const css of [
+      'packages/app/src/styles.css',
+      'apps/launcher/src/renderer/styles.css',
+      'packages/website/src/styles/site.css',
+    ]) {
       const text = execFileSync('git', ['show', `:${css}`], { cwd: repoRoot, encoding: 'utf8' });
       expect(text, css).toMatch(/@font-face\s*{[^}]*font-family:\s*['"]?Damion/);
     }

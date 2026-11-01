@@ -92,20 +92,19 @@ installer, used by the in-app "Update Midnite Studio" action):
   outage into a red repo-wide gate. CI runs it post-merge in `website.yml`'s build job, since upstream
   can change with nothing merged here.
 
-## The brand face — Damion, an open stand-in for the app's
+## The brand face — Damion, on every surface
 
 The site sets "Midnite" in **Damion** (OFL), self-hosted from
 [`packages/website/src/fonts/damion/`](../packages/website/src/fonts/damion/).
-The desktop app sets the same word in **Quick Kiss** and keeps it. **The two
-faces are deliberately near-identical, not identical**, and that is the whole
-design: the app's own face cannot legally be served from a public origin, so the
-public surface wears the closest open re-cut of it instead.
+The desktop app sets the same word in the same file
+(`packages/app/src/fonts/damion/`, exposed there as `--font-brand`; see
+`packages/app/src/components/brand.tsx`), as do the launcher and the videos.
+It used to wear **Quick Kiss**; it moved to Damion because Studio is a binary
+handed out publicly, which that font's licence does not cover.
 
-### Why the app's face cannot ship here
+### Why Quick Kiss is gone
 
-Quick Kiss (`packages/app/src/fonts/quick-kiss.ttf`, exposed there as
-`--font-brand`; see `packages/app/src/components/brand.tsx`) is licensed for
-personal use only. The bundled file's own name table says so:
+Quick Kiss is licensed for personal use only. The file's own name table said so:
 
 | Name ID | Value |
 |---|---|
@@ -115,15 +114,16 @@ personal use only. The bundled file's own name table says so:
 | 13/14 (licence) | `www.billyargel.com` |
 
 The upstream listing is explicit: *"This font is partial and free for personal
-use. Commercial licenses and complete set available @ billyargel.com"*. The app
-is private, which is arguably personal use; **the website is public marketing for
-a product**, which is not, and a webfont is a separate licence tier for this
-foundry besides. Serving the TTF from a public origin would also hand anyone the
-file itself.
+use. Commercial licenses and complete set available @ billyargel.com"*. The
+website is public marketing for a product, and every app is a public download,
+so neither is personal use; a webfont is a separate licence tier for this
+foundry besides, and shipping the TTF hands anyone the file itself.
 
-**So `quick-kiss.ttf` must never be copied into `packages/website`** — not into
-`src/fonts/`, not into `public/`, not as a `@font-face` reaching across the
-package boundary. Nothing about the substitution below relaxes that.
+**So Quick Kiss must never be re-added anywhere** — not into `src/fonts/`, not
+into `public/`, not as a `@font-face`. `scripts/no-quick-kiss.test.mjs` fails
+the gate on the file or a reference to it anywhere under `apps/` or
+`packages/`, and `scripts/no-quick-kiss.mjs` fails the release on any built
+bundle that carries it.
 
 ### How Damion was chosen
 
@@ -154,7 +154,7 @@ so a future re-pick starts from rendered type rather than from this paragraph.
 
 ### How it is wired
 
-Four files, and the same three-part wiring the app uses:
+Four files. The app wires its copy the same way, minus the preload (step 3):
 
 1. **The file.** `src/fonts/damion/Damion-latin.woff2` — the upstream TTF
    subset to Latin and compressed, **74 KB → 27 KB**. Upstream's `OFL.txt` sits
