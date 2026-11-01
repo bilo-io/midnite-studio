@@ -53,9 +53,9 @@ describe('media-audio manifest', () => {
 });
 
 describe('media-audio MCP ownership', () => {
-  const music = MCP_TOOL_IDS.filter((id) => id.startsWith('music_'));
+  const music = MCP_TOOL_IDS.filter((id) => id.startsWith('music_') || id.startsWith('sfx_'));
 
-  it('declares exactly the music_* tools, owned by Creator', () => {
+  it('declares exactly the music_* and sfx_* tools, owned by Creator', () => {
     expect([...mediaAudioManifest.mcpTools]).toEqual(music);
     for (const id of music) expect(mcpToolOwner(id, [mediaAudioManifest])).toBe('creator');
   });

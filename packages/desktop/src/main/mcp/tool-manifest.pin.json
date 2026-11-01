@@ -1,5 +1,5 @@
 {
-  "hash": "9d9719bd8d0543684e927eca0d533ef07dbd3ea27ad3bb32484993b04d754475",
+  "hash": "56bc33a549fdd5836419ca40c3bc8c05a4c7eb2fa1d59f06f9b12aaee1bf7b23",
   "tools": {
     "repo.list": "c2254fa779e5cb87",
     "repo.resolve": "b39c228fe331d5d8",
@@ -117,6 +117,8 @@
     "music_add_track": "8b68109d6244a7fa",
     "music_save": "0d5969ec552e4cde",
     "music_render_preview": "a8ec52f2359cc9d1",
+    "sfx_status": "ecf43dc234f159d4",
+    "sfx_generate": "ac0f07d2175c97c1",
     "companion_settings_get": "97f3577a07c0aadd",
     "companion_settings_set": "cca52ced4de2af08",
     "companion_voices_list": "730066213e239725",

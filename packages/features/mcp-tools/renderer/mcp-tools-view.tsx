@@ -434,7 +434,7 @@ export function McpToolsView({ isAppInstalled = ALL_APPS_INSTALLED, serverAvaila
             <SettingsSwitchRow
               id="mcp-allow-music"
               label="Let agents edit music"
-              description="A ninth switch, as narrow as the ones above — off by default, and disabled until the master switch is on. It gates the music tools that change a song: opening one in the editor, setting the tempo, adding or removing notes, controllers and pitch bends, adding tracks and saving. Listing songs, reading tracks and notes and rendering a preview always work once the server is on."
+              description="A ninth switch, as narrow as the ones above — off by default, and disabled until the master switch is on. It gates the music tools that change a song: opening one in the editor, setting the tempo, adding or removing notes, controllers and pitch bends, adding tracks and saving — and generating sound effects in Media ▸ SFX, which writes takes into the repository (only once you have installed the model there). Listing songs, reading tracks and notes, rendering a preview and checking the SFX model always work once the server is on."
               on={allowMusic}
               onToggle={(_id, next) => setAllowMusic.mutate(next)}
               testId="mcp-allow-music"

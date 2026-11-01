@@ -14,16 +14,17 @@ import {
 // Vitest/jsdom: pure logic, no browser capability needed.
 
 /**
- * Audio's manifest (`packages/features/media-audio/manifest.ts`) is where the `music_*` tools are
- * claimed for Creator, and the Model, Game, Terrain, Sprite and Map manifests are where Gamer's tools are
+ * Audio's manifest (`packages/features/media-audio/manifest.ts`) is where the `music_*` and `sfx_*` tools
+ * are claimed for Creator, and the Model, Game, Terrain, Sprite and Map manifests are where Gamer's tools are
  * (Phase 113 Theme S); `shared` cannot import a feature, so these are the same claims by prefix and each
  * feature's own test (`manifest.test.ts`) pins that the real manifest lists exactly these.
  */
 const MUSIC_TOOLS = MCP_TOOL_IDS.filter((id) => id.startsWith('music_'));
+const SFX_TOOLS = MCP_TOOL_IDS.filter((id) => id.startsWith('sfx_'));
 const GAMER_TOOLS = MCP_TOOL_IDS.filter(
   (id) => /^(model|game|terrain|sprite|map)_/.test(id) || id === 'tileset_generate' || id === 'background_generate',
 );
-const CREATOR_MANIFEST = { owner: 'creator', mcpTools: MUSIC_TOOLS } as const;
+const CREATOR_MANIFEST = { owner: 'creator', mcpTools: [...MUSIC_TOOLS, ...SFX_TOOLS] } as const;
 const GAMER_MANIFEST = { owner: 'gamer', mcpTools: GAMER_TOOLS } as const;
 const MANIFESTS = [CREATOR_MANIFEST, GAMER_MANIFEST];
 
@@ -40,13 +41,13 @@ describe('tool listing per installed set', () => {
     expect(listMcpToolIds(installedSet([]))).toEqual(expect.arrayContaining(GAMER_TOOLS));
     expect(listMcpToolIds(installedSet([]), MANIFESTS).some((id) => GAMER_TOOLS.includes(id))).toBe(false);
     // Pinned count: a new tool must be deliberately placed (and this number bumped).
-    expect(MCP_TOOL_IDS).toHaveLength(126);
+    expect(MCP_TOOL_IDS).toHaveLength(128);
     const histogram: Record<string, number> = {};
     for (const id of MCP_TOOL_IDS) histogram[ownerOf(id)] = (histogram[ownerOf(id)] ?? 0) + 1;
     expect(histogram).toMatchInlineSnapshot(`
       {
         "agents": 4,
-        "creator": 14,
+        "creator": 16,
         "frame": 21,
         "gamer": 87,
       }
@@ -91,8 +92,9 @@ describe('tool listing per installed set', () => {
 
   it('{creator} lists the music tools and nothing of gamer, coder or agents', () => {
     const listed = listMcpToolIds(installedSet(['creator']), MANIFESTS);
-    expect(listed).toEqual(MCP_TOOL_IDS.filter((id) => FRAME_TOOLS.includes(id) || MUSIC_TOOLS.includes(id)));
+    expect(listed).toEqual(MCP_TOOL_IDS.filter((id) => FRAME_TOOLS.includes(id) || MUSIC_TOOLS.includes(id) || SFX_TOOLS.includes(id)));
     expect(listed).toContain('music_add_notes');
+    expect(listed).toContain('sfx_generate');
     expect(listed).not.toContain('model_list');
   });
 
