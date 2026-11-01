@@ -11,6 +11,10 @@
       "types": "./dist/main/musicgen/worker-entry.d.ts",
       "default": "./dist/main/musicgen/worker-entry.js"
     },
+    "./sfx-worker": {
+      "types": "./dist/main/sfx/worker-entry.d.ts",
+      "default": "./dist/main/sfx/worker-entry.js"
+    },
     "./main": {
       "types": "./dist/main/index.d.ts",
       "default": "./dist/main/index.js"

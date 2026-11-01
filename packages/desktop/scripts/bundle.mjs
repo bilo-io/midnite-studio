@@ -125,6 +125,7 @@ const outfiles = [
   'companion-tts-worker',
   'music-worker',
   'sf3d-worker',
+  'sfx-worker',
   'terrain-worker',
   'map-capture-worker',
   'knowledge-layout-worker',

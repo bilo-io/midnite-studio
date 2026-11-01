@@ -169,6 +169,7 @@ import { registerMediaSpriteHandlers } from './ipc/media-sprite-handlers';
 import { disposeMapCaptureBroker, installMapTileProtocol, registerMediaMapHandlers } from './ipc/media-map-handlers';
 import { disposeTerrainBroker, registerMediaTerrainHandlers } from './ipc/media-terrain-handlers';
 import { configureSf3d, disposeSf3d } from './ipc/media-model-sf3d-handlers';
+import { configureSfx, disposeSfx } from './ipc/media-sfx-handlers';
 import {
   configureVideo,
   createProjectsStore as createVideoProjectsStore,
@@ -1046,6 +1047,7 @@ export const startStudioMain: StartStudioMain = () => {
       // Media ▸ Audio's local music engine — same lazy-fork shape; weights cache under `userData/audio-models`.
       configureMusicBroker(userData);
       configureSf3d(userData);
+      configureSfx(userData);
 
       /*
         Three independent boot chains, run at once (Theme B). They were sequential
@@ -1316,6 +1318,7 @@ export const startStudioMain: StartStudioMain = () => {
       disposeCompanionTtsBroker();
       disposeMusicBroker();
       disposeSf3d();
+      disposeSfx();
       disposeTerrainBroker();
       disposeMapCaptureBroker();
       /*

@@ -1900,6 +1900,8 @@ describe('media contract (Phase 99 Theme A)', () => {
       mediaAudioEngine: ['MediaAudioEngineResponse'],
       mediaAudioEngineInstall: ['MediaAudioEngineInstallResponse'],
       mediaAudioEngineProgress: ['MediaAudioEngineProgressPayload'],
+      mediaSfx: ['MediaSfxRequest', 'MediaSfxResponse'],
+      mediaSfxProgress: ['MediaSfxProgressPayload'],
       mediaAudioExpand: ['MediaAudioExpandRequest', 'MediaAudioExpandResponse'],
       mediaGmStatus: ['MediaGmStatusResponse'],
       mediaGmEnsure: ['MediaGmEnsureRequest', 'MediaGmEnsureResponse'],

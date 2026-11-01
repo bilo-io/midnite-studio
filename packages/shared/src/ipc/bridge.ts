@@ -34,6 +34,7 @@ import type { ModelLibraryMigrateResult, ModelLibraryNode } from '../media-model
 import type { ModelMeshResult } from '../media-model-mesh';
 import type { ModelOpEntry } from '../model-geometry/mesh/ops-log';
 import type { Sf3dGenerateRequest, Sf3dGenerateResult, Sf3dProgressEvent, Sf3dStatus } from '../media-model-sf3d';
+import type { SfxGenerateRequest, SfxGenerateResult, SfxProgressEvent, SfxStatus } from '../media-sfx';
 import type { PerfMark } from '../perf';
 import type * as S from './schemas';
 import type { GitIdentitySetRequest, GitIdentityGetResponse, GitIdentitySetResponse } from '../git-identity';
@@ -83,6 +84,20 @@ export type Sf3dBridge = {
   generate: (req: Sf3dGenerateRequest) => Promise<GitOpResult<Sf3dGenerateResult>>;
   cancelGenerate: (req: { generationId: string }) => Promise<GitOpResult>;
   onProgress: (handler: (event: Sf3dProgressEvent) => void) => Unsubscribe;
+};
+
+/** `mediaSfx`'s `op` union (Media ▸ SFX, Stable Audio Open Small), one typed method per op — SF3D's shape. */
+export type SfxBridge = {
+  status: () => Promise<GitOpResult<SfxStatus>>;
+  consent: (req: { licenceSha256: string; revenueAcknowledged: true }) => Promise<GitOpResult<SfxStatus>>;
+  revokeConsent: () => Promise<GitOpResult<SfxStatus>>;
+  /** Resolves when the install ends (verified, failed or cancelled); progress arrives on `onProgress`. */
+  install: () => Promise<GitOpResult<SfxStatus>>;
+  cancelInstall: () => Promise<GitOpResult>;
+  uninstall: () => Promise<GitOpResult<SfxStatus>>;
+  generate: (req: SfxGenerateRequest) => Promise<GitOpResult<SfxGenerateResult>>;
+  cancelGenerate: (req: { generationId: string }) => Promise<GitOpResult>;
+  onProgress: (handler: (event: SfxProgressEvent) => void) => Unsubscribe;
 };
 
 /**
@@ -1567,6 +1582,8 @@ export type MidniteStudioBridge = {
         chooseFfmpeg: () => Promise<z.infer<typeof S.MediaLibraryLanChooseFfmpegResponse>>;
       };
     };
+    /** SFX: Stable Audio Open Small, the opt-in local sound-effect engine. */
+    sfx: SfxBridge;
     /** Audio (Theme E): the `AudioProvider` catalogue and Import, all run in main. */
     audio: {
       providers: () => Promise<z.infer<typeof S.MediaAudioProvidersResponse>>;

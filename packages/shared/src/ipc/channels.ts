@@ -1023,6 +1023,8 @@ export const CHANNELS = {
   mediaAudioEngine: 'mstudio:media:audio-engine',
   mediaAudioEngineInstall: 'mstudio:media:audio-engine-install',
   mediaAudioExpand: 'mstudio:media:audio-expand',
+  /** Media ▸ SFX, Stable Audio Open Small — see `SfxRequestSchema`. Progress on `mediaSfxProgress`. */
+  mediaSfx: 'mstudio:media:sfx',
   // General MIDI instrument samples (Phase 101 Theme D) — cached per program under `userData`.
   mediaGmStatus: 'mstudio:media:gm-status',
   mediaGmEnsure: 'mstudio:media:gm-ensure',
@@ -1878,6 +1880,8 @@ export const EVENT_CHANNELS = {
   mediaAudioProgress: 'mstudio:media:audio-progress',
   /** The local audio model is downloading or loading — see `AudioEngineProgressSchema`. */
   mediaAudioEngineProgress: 'mstudio:media:audio-engine-progress',
+  /** The Stable Audio Open Small install or a generation advanced — see `SfxProgressEventSchema`. */
+  mediaSfxProgress: 'mstudio:media:sfx-progress',
   /** A General MIDI sample set is downloading — see `GmProgressSchema`. */
   mediaGmProgress: 'mstudio:media:gm-progress',
   /** A 3D model generation advanced — see `ModelGenerateProgressEventSchema`. */

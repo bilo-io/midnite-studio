@@ -22,6 +22,7 @@ const services = (over: Partial<MediaAudioMainServices> = {}): MediaAudioMainSer
   installEngine: vi.fn(),
   pickImportFiles: vi.fn(),
   music: { service: {}, exporter: {}, gm: {} } as MusicMainServices,
+  sfx: vi.fn(),
   ...over,
 });
 

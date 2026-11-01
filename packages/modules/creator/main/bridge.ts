@@ -26,6 +26,8 @@ export type CreatorBridge = {
     // agents); `onChanged`/`onOpen` are the MCP server's, which Creator does not run, so they never fire.
     music: Pick<Media['music'], 'list' | 'read' | 'write' | 'import' | 'delete' | 'export' | 'sendToGenerator' | 'onChanged' | 'onOpen'>;
     doc: Pick<Media['doc'], 'export'>;
+    // Media ▸ SFX's whole surface; Creator's main answers it with the unavailable reason (no SFX worker).
+    sfx: Media['sfx'];
   };
 };
 
@@ -90,6 +92,17 @@ export function createCreatorBridge(ipc: RendererIpc): CreatorBridge {
         generate: (req) => call(CHANNELS.mediaImageGenerate, req),
         cancel: (req) => call(CHANNELS.mediaImageCancel, req),
         onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaImageProgress, handler),
+      },
+      sfx: {
+        status: () => call(CHANNELS.mediaSfx, { op: 'status' }),
+        consent: (req) => call(CHANNELS.mediaSfx, { op: 'consent', ...req }),
+        revokeConsent: () => call(CHANNELS.mediaSfx, { op: 'revokeConsent' }),
+        install: () => call(CHANNELS.mediaSfx, { op: 'install' }),
+        cancelInstall: () => call(CHANNELS.mediaSfx, { op: 'cancelInstall' }),
+        uninstall: () => call(CHANNELS.mediaSfx, { op: 'uninstall' }),
+        generate: (req) => call(CHANNELS.mediaSfx, { op: 'generate', ...req }),
+        cancelGenerate: (req) => call(CHANNELS.mediaSfx, { op: 'cancelGenerate', ...req }),
+        onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaSfxProgress, handler),
       },
       audio: {
         providers: () => call(CHANNELS.mediaAudioProviders),
