@@ -25,7 +25,9 @@ The Audio page generates music from a prompt (and optional lyrics) and keeps eve
 
 ## MCP
 
-No `music_*` tools exist yet — they are planned in Phase 101. Until then the agent cannot trigger generation; it only drafts inputs.
+No tool generates a song: generation runs in the page, so the agent drafts its inputs. The `music_*` tools edit a song in **Media ▸ Audio ▸ Editor** — list songs, read tracks and notes, add notes, tracks and controllers, save — and their writes need `Settings ▸ MCP ▸ Let agents edit music`.
+
+Sound effects (a door, a laser, footsteps, a short ambience bed) are not songs: make them in **Media ▸ SFX** with `sfx_status` / `sfx_generate` (`/midnite-media-sfx-generate`). If `sfx_status` returns a `hint`, ask the user to install Stable Audio Open Small there — an agent never accepts its licence or starts the download.
 
 ## Hand-off to the UI
 

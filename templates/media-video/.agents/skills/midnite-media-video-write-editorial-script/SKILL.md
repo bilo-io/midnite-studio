@@ -136,7 +136,12 @@ inside it) containing:
   what the brief assumes. (Omit for a from-scratch build, and say so.)
 - **Asset inventory** — resolved, verified on-disk paths for everything needed, marking
   each as shared (`assets/…`) or project-specific (`<project>/input/…`), with the
-  engine's reference form (see **Engine** above)
+  engine's reference form (see **Engine** above). A sound effect the brief needs that no
+  asset covers (a whoosh, a click, an impact) is listed with a one-line prompt for
+  Media ▸ SFX and its future path, `media-sfx/<sfx-project>/<file>.wav` — call `sfx_status`
+  on the midnite MCP server, and if it returns a `hint`, put "ask the user to install Stable
+  Audio Open Small in Media ▸ SFX" under Open items instead of reaching for a synth or a
+  download. Never accept its licence or start its download for them.
 - **Full timeline map** — a table of beats with real timestamps AND frame numbers (state
   the fps used for conversion), flagging replace-vs-insert points explicitly
 - **Per-section build specs** — copy, timing, animation, assets, exact pixel coordinates

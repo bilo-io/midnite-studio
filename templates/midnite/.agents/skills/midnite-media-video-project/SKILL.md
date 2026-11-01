@@ -28,7 +28,7 @@ The Video page runs a Remotion or HyperFrames workspace (`video.config.json` say
 
 ## MCP
 
-No `video_*` tools. Audio for a video is made in Media ▸ Audio (`music_*` tools are planned in Phase 101).
+No `video_*` tools. Music for a video is made in Media ▸ Audio. Sound effects (whooshes, clicks, impacts, ambience) come from **Media ▸ SFX** through `sfx_status` / `sfx_generate` (`/midnite-media-sfx-generate`): call `sfx_status` first and, if it returns a `hint`, ask the user to install Stable Audio Open Small there — an agent never accepts its licence or starts the download. Takes land in `.midnite/media/sfx/<project>/`, and the editor's `npm run assets` mirrors them into `media-sfx/` (`staticFile("media-sfx/<project>/x.wav")` / `assets/media-sfx/<project>/x.wav`).
 
 ## Hand-off to the UI
 

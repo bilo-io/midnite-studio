@@ -59,7 +59,13 @@ here.
    mirrors `assets/` and every project's `input/` into the editor app, which is generated
    (Remotion: `video-editor/public/`; HyperFrames: each project's `assets/`). Shared media
    is `staticFile("audio/music/x.mp3")` / `assets/audio/music/x.mp3`; the project's own
-   media is `projectFile("<project-id>")("x.mp4")` / `assets/input/x.mp4`.
+   media is `projectFile("<project-id>")("x.mp4")` / `assets/input/x.mp4`. When the video root
+   is `.midnite/media/video`, the sound effects made in Media ▸ SFX are mirrored too:
+   `staticFile("media-sfx/<sfx-project>/x.wav")` / `assets/media-sfx/<sfx-project>/x.wav`.
+   A take the script lists but that does not exist yet: if `sfx_status` (midnite MCP) shows the
+   model installed, make it with `sfx_generate`, poll `sfx_status({ generationId })`, then run
+   `npm run assets`; otherwise ask the user to install Stable Audio Open Small in Media ▸ SFX —
+   never accept its licence or start its download for them.
 
 4. **Build each section as its own unit** (a component, or a sub-composition under
    `compositions/`), following the script's per-section spec exactly. Trim source clips

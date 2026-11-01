@@ -9,15 +9,17 @@ import { describe, expect, it } from 'vitest';
 
 const root = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const COPIES = ['.claude', '.agents', '.codex', 'templates/midnite/.claude', 'templates/midnite/.agents', 'templates/midnite/.codex'];
-const skills = readdirSync(join(root, '.claude', 'skills')).filter((name) => /^midnite-media-.+-build$/.test(name));
+const skills = readdirSync(join(root, '.claude', 'skills')).filter((name) => /^midnite-media-/.test(name));
 
-describe('midnite-media-*-build skill copies', () => {
-  it('finds the build skills, the terrain one among them', () => {
+describe('midnite-media-* skill copies', () => {
+  it('finds the media skills, the build ones and the generate ones', () => {
     expect(skills).toContain('midnite-media-terrain-build');
     expect(skills).toContain('midnite-media-model-build');
     expect(skills).toContain('midnite-media-game-build');
     expect(skills).toContain('midnite-media-sprite-build');
     expect(skills).toContain('midnite-media-map-build');
+    expect(skills).toContain('midnite-media-sfx-generate');
+    expect(skills).toContain('midnite-media-audio-generate');
   });
 
   // The game build skill is also seeded into every game repo from templates/media-game/skills/
