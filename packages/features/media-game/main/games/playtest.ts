@@ -74,7 +74,6 @@ export const PLAYTEST_SEEK_CHUNK = 600;
 const SEEK_TIMEOUT_MS = 30_000;
 /** Fallback for the paint wait: a hidden or occluded window never fires rAF, so it must not hang a capture. */
 export const PLAYTEST_PAINT_TIMEOUT_MS = 250;
-/** Extra host-side slack over the in-page fallback before the paint evaluate is abandoned. */
 const PAINT_HOST_SLACK_MS = 750;
 
 const PLAYTEST_BUSY = 'A play-test is already running for this game.';
@@ -221,11 +220,7 @@ export function createPlaytests(deps: PlaytestDeps) {
     return parsed.data;
   }
 
-  /**
-   * Let the page paint before a capture: `seek` steps the game synchronously, so DOM overlays have not
-   * reached the compositor yet. Two rAF callbacks, with a timeout fallback. Never steps the game (the
-   * kit loop is paused in deterministic mode) and never throws: a missed paint just captures as before.
-   */
+  /** Let the page paint (two rAFs, timeout fallback) before a capture; never steps the game, never throws. */
   async function waitForPaint(page: PlaytestPage): Promise<void> {
     const ms = deps.paintTimeoutMs ?? PLAYTEST_PAINT_TIMEOUT_MS;
     const code = `new Promise((resolve) => { const t = setTimeout(resolve, ${Math.trunc(ms)}); requestAnimationFrame(() => requestAnimationFrame(() => { clearTimeout(t); resolve(true); })); })`;
