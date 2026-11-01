@@ -56,6 +56,13 @@ export async function loadSf3dAssets(path: (asset: string) => string): Promise<S
 }
 
 /**
+ * `enableCpuMemArena: false` is load-bearing: ORT's arena grows by doubling and soon asks `malloc` for
+ * one block over 2 GiB, which Electron's PartitionAlloc refuses with a deliberate SIGTRAP — the worker
+ * died in the tokenizer every time. Without the arena each tensor is its own allocation, all under the cap.
+ */
+const SF3D_SESSION_OPTIONS = { executionProviders: ['cpu'], graphOptimizationLevel: 'all', enableCpuMemArena: false };
+
+/**
  * Sessions are created on first use and kept for the next generation; the worker process is the unit
  * of release (a cancel or an uninstall kills it).
  */
@@ -64,7 +71,7 @@ export function createOrtInference(ort: OrtModule, path: (asset: string) => stri
   const session = (file: string) => {
     let s = sessions.get(file);
     if (!s) {
-      s = ort.InferenceSession.create(path(file), { executionProviders: ['cpu'], graphOptimizationLevel: 'all' });
+      s = ort.InferenceSession.create(path(file), SF3D_SESSION_OPTIONS);
       sessions.set(file, s);
     }
     return s;
