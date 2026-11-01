@@ -1,6 +1,7 @@
 import { mapSource, mapTileUrl, type MapView } from '@midnite/studio-shared';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import workerSource from 'maplibre-gl/dist/maplibre-gl-worker.mjs?raw';
 import { useEffect, useRef, type KeyboardEvent, type ReactNode, type Ref } from 'react';
 
 import { EMPTY_FC, type GeoFC } from './map-layers';
@@ -68,6 +69,19 @@ const HANDLE_SRC = 'capture-frame-handles';
 const ELEVATION_INTERVAL_MS = 250;
 const EMPTY = { type: 'FeatureCollection' as const, features: [] };
 const NO_DRAFT = { shape: EMPTY_FC, vertices: EMPTY_FC };
+
+let workerUrl: string | null = null;
+/**
+ * maplibre v6 finds its worker beside its own module (`new URL('./maplibre-gl-worker.mjs', import.meta.url)`),
+ * which is nothing once Vite has bundled it, and the packaged renderer's opaque `file://` origin refuses a
+ * `file:` worker anyway. Without one every map fails with "Worker failed to load", so the worker source
+ * rides this chunk and starts from a blob URL, which that origin allows (why Monaco's are `?worker&inline`).
+ */
+function ensureWorkerUrl() {
+  if (workerUrl || typeof URL.createObjectURL !== 'function') return;
+  workerUrl = URL.createObjectURL(new Blob([workerSource], { type: 'text/javascript' }));
+  maplibregl.setWorkerUrl(workerUrl);
+}
 
 function readView(map: maplibregl.Map): MapView {
   const c = map.getCenter();
@@ -206,6 +220,7 @@ export default function MapCanvas({
     const el = container.current;
     if (!el) return;
     mapStatusStore.reset();
+    ensureWorkerUrl();
     const { style: s, view: v, attribution: a } = initial.current;
     const map = new maplibregl.Map({
       container: el,
@@ -230,7 +245,9 @@ export default function MapCanvas({
       else mapStatusStore.patch({ styleFailed: true });
     };
     const onData = () => mapStatusStore.patch({ loading: !map.areTilesLoaded() });
-    const onIdle = () => mapStatusStore.patch({ loading: false, styleFailed: false });
+    // `styleFailed` stays set until Retry clears it: an idle map after a failure must not hide the panel and
+    // let the next error show it again.
+    const onIdle = () => mapStatusStore.patch({ loading: false });
     map.on('moveend', onMoveEnd);
     map.on('error', onError);
     map.on('dataloading', onData);
