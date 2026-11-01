@@ -17,13 +17,20 @@ export type RigView = {
   /** Playhead, seconds into the clip. */
   time: number;
   playing: boolean;
+  /** Picking or adding a clip, and opening the Animation tab, starts it playing (on by default). */
+  autoPlay: boolean;
   loop: boolean;
   /** Playback-rate multiplier for the viewport only (the clip's own `speed` is part of the design). */
   speed: number;
 };
 
-export const INITIAL_RIG_VIEW: RigView = { bone: null, bones: true, weights: false, pose: false, clip: null, time: 0, playing: false, loop: true, speed: 1 };
+export const INITIAL_RIG_VIEW: RigView = { bone: null, bones: true, weights: false, pose: false, clip: null, time: 0, playing: false, autoPlay: true, loop: true, speed: 1 };
 
 export type UpdateRigView = (patch: Partial<RigView>) => void;
 
 export const PLAYBACK_SPEEDS = [0.25, 0.5, 1, 2] as const;
+
+/** The clip the Animation tab starts on: the idle loop when there is one, else the first clip. */
+export function autoPlayClip(clips: readonly { name: string; kind: string }[]): string | null {
+  return (clips.find((c) => c.kind === 'idle') ?? clips[0])?.name ?? null;
+}

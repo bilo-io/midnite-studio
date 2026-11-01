@@ -1,4 +1,4 @@
-import { RIG_EXAMPLE_BIPED, type ModelSpec } from '@midnite/studio-shared';
+import { MODEL_CLIP_PRESETS, RIG_EXAMPLE_BIPED, type ModelSpec } from '@midnite/studio-shared';
 import { act, cleanup, fireEvent, screen } from '@testing-library/react';
 import { render } from './test-render';
 import { useReducer, useState } from 'react';
@@ -9,14 +9,14 @@ import { ClipTimeline } from './clip-timeline';
 import { editorReducer, initialEditorState, type EditorState } from './editor-state';
 import { RigPanel } from './rig-panel';
 import { advancePlayhead, boneSegments, poseAt, posedScene, rigModel, weightColor } from './rig-pose';
-import { INITIAL_RIG_VIEW, type RigView } from './rig-view';
+import { autoPlayClip, INITIAL_RIG_VIEW, type RigView } from './rig-view';
 import { editorScene } from './spec-geometry';
 
 /** vitest/jsdom: the rig and clip editing — reducer steps, the posing helpers, and the panels' DOM. */
 
 afterEach(cleanup);
 
-const rigged = (): EditorState => editorReducer(initialEditorState(RIG_EXAMPLE_BIPED, 'gen/robot.obj'), { type: 'anatomy', anatomy: 'biped' });
+const rigged = (): EditorState => editorReducer(initialEditorState(RIG_EXAMPLE_BIPED, 'gen/robot.obj'), { type: 'anatomy', anatomy: 'biped', presetClips: false });
 
 describe('rig actions in the editor reducer', () => {
   it('auto-rig, a clip and a key are each one undoable step', () => {
@@ -135,21 +135,77 @@ describe('ClipPanel and the timeline', () => {
       render(<Harness initial={rigged()} panel="clips" />);
       fireEvent.change(screen.getByLabelText('Add clip'), { target: { value: 'walk' } });
       expect(specOut().clips).toEqual(['walk']);
-      expect(viewOut().clip).toBe('walk');
+      expect(viewOut()).toMatchObject({ clip: 'walk', playing: true });
       const speed = screen.getByLabelText('Speed ×');
       fireEvent.change(speed, { target: { value: '2' } });
       fireEvent.blur(speed);
       expect(screen.getByTestId('timeline-time').textContent).toContain('0.55s');
-      fireEvent.click(screen.getByRole('button', { name: 'Play' }));
       act(() => void vi.advanceTimersByTime(200));
       expect(viewOut().time).toBeGreaterThan(0.1);
       fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
       expect(viewOut().playing).toBe(false);
+      fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+      expect(viewOut().playing).toBe(true);
+      fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+      expect(viewOut()).toMatchObject({ playing: false, time: 0 });
       fireEvent.change(screen.getByLabelText('Scrub'), { target: { value: '0.3' } });
       expect(viewOut().time).toBeCloseTo(0.3, 6);
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('Auto-rig adds every preset clip of the anatomy', () => {
+    render(<Harness initial={initialEditorState(RIG_EXAMPLE_BIPED as ModelSpec, 'x')} panel="rig" />);
+    fireEvent.change(screen.getByLabelText('Anatomy'), { target: { value: 'biped' } });
+    expect(specOut().clips).toEqual([...MODEL_CLIP_PRESETS.biped]);
+  });
+
+  describe('auto-play', () => {
+    const withClips = (): EditorState => editorReducer(initialEditorState(RIG_EXAMPLE_BIPED, 'x'), { type: 'anatomy', anatomy: 'biped' });
+
+    it('is on by default and opening the Animation tab starts the idle clip', () => {
+      expect(INITIAL_RIG_VIEW.autoPlay).toBe(true);
+      render(<Harness initial={withClips()} panel="clips" />);
+      expect(viewOut()).toMatchObject({ clip: 'idle', playing: true });
+      expect(screen.getByRole('button', { name: 'Pause' })).toBeTruthy();
+      expect((screen.getByLabelText('Auto-play') as HTMLInputElement).checked).toBe(true);
+    });
+
+    it('picking another clip in the list plays it', () => {
+      render(<Harness initial={withClips()} panel="clips" />);
+      fireEvent.click(screen.getByRole('button', { name: /^run/ }));
+      expect(viewOut()).toMatchObject({ clip: 'run', playing: true, time: 0 });
+    });
+
+    it('with Auto-play off, opening the tab and picking a clip leave it paused', () => {
+      render(<Harness initial={withClips()} panel="clips" />);
+      fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+      fireEvent.click(screen.getByLabelText('Auto-play'));
+      expect(viewOut().autoPlay).toBe(false);
+      fireEvent.click(screen.getByRole('button', { name: /^walk/ }));
+      expect(viewOut()).toMatchObject({ clip: 'walk', playing: false });
+    });
+
+    it('does not start anything on a rig with no clips, and prefers idle else the first clip', () => {
+      render(<Harness initial={rigged()} panel="clips" />);
+      expect(viewOut()).toMatchObject({ clip: null, playing: false });
+      expect(autoPlayClip([{ name: 'walk', kind: 'walk' }, { name: 'idle', kind: 'idle' }])).toBe('idle');
+      expect(autoPlayClip([{ name: 'a', kind: 'walk' }])).toBe('a');
+      expect(autoPlayClip([])).toBeNull();
+    });
+  });
+
+  it('the Play button wears the brand gradient and the Stop button is solid red', () => {
+    render(<Harness initial={rigged()} panel="clips" />);
+    fireEvent.change(screen.getByLabelText('Add clip'), { target: { value: 'walk' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+    expect(screen.getByTestId('timeline-play').className).toContain('brand-gradient-button');
+    const stop = screen.getByTestId('timeline-stop');
+    expect(stop.className).toContain('bg-destructive');
+    expect(stop.className).toContain('text-destructive-foreground');
+    expect(stop.textContent).toBe('Stop');
+    expect(screen.getByTestId('timeline-play').textContent).toBe('Play');
   });
 
   it('needs a rig before it offers clips', () => {

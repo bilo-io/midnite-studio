@@ -1,11 +1,11 @@
 import { clipTiming, MODEL_CLIP_DEFAULTS, MODEL_CLIP_LABELS, MODEL_CLIP_PRESETS, type ModelClipKind, type ModelSpec } from '@midnite/studio-shared';
-import { useState, type Dispatch } from 'react';
+import { useEffect, useRef, useState, type Dispatch } from 'react';
 import { LuCopy, LuPlay, LuTrash2 } from 'react-icons/lu';
 
 import { IconButton } from './chrome';
 import type { EditorAction, EditorState } from './editor-state';
 import { FIELD, NumberField, SECTION, TextField } from './fields';
-import type { RigView, UpdateRigView } from './rig-view';
+import { autoPlayClip, type RigView, type UpdateRigView } from './rig-view';
 
 /** Another model in the library whose clips can be copied here. */
 export type RetargetSource = { key: string; label: string; load: () => Promise<ModelSpec | null> };
@@ -34,6 +34,16 @@ export function ClipPanel({
   const rigged = anatomy !== 'static' && (spec.rig?.bones.length ?? 0) > 0;
   const clip = clips.find((c) => c.name === view.clip);
 
+  // Opening the tab on a rigged model with clips starts one playing (once per visit — picking "Rest pose" afterwards stays put).
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current || !rigged || !view.autoPlay || clips.length === 0) return;
+    started.current = true;
+    if (view.playing) return;
+    const name = view.clip !== null && clips.some((c) => c.name === view.clip) ? view.clip : autoPlayClip(clips);
+    if (name) onView({ clip: name, time: view.clip === name ? view.time : 0, playing: true });
+  });
+
   if (!rigged) {
     return <p className="text-[11px] text-muted-foreground">Clips need a rig. Set an anatomy and press Auto-rig in the Rig tab first.</p>;
   }
@@ -43,7 +53,7 @@ export function ClipPanel({
     let name: string = kind;
     for (let n = 2; clips.some((c) => c.name === name); n += 1) name = `${kind} ${n}`;
     dispatch({ type: 'clips', ops: [{ op: 'add', clip: { name, kind } }] });
-    onView({ clip: name, time: 0 });
+    onView({ clip: name, time: 0, playing: view.autoPlay });
   };
   const update = (fields: Record<string, unknown>) => clip && dispatch({ type: 'clips', ops: [{ op: 'update', name: clip.name, fields }] });
 
@@ -68,7 +78,7 @@ export function ClipPanel({
               <button
                 type="button"
                 aria-pressed={c.name === view.clip}
-                onClick={() => onView({ clip: c.name, time: 0, playing: false })}
+                onClick={() => onView({ clip: c.name, time: 0, playing: view.autoPlay })}
                 className={`flex w-full items-center gap-1 truncate px-1.5 py-0.5 text-left text-[11px] ${c.name === view.clip ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'}`}
               >
                 <span className="truncate">{c.name}</span>
@@ -77,6 +87,10 @@ export function ClipPanel({
             </li>
           ))}
         </ul>
+        <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <input type="checkbox" aria-label="Auto-play" checked={view.autoPlay} onChange={(event) => onView({ autoPlay: event.target.checked })} />
+          Auto-play
+        </label>
       </div>
       <div className="hide-scrollbar flex min-w-0 flex-1 flex-col gap-1.5 overflow-auto">
         {clip ? (

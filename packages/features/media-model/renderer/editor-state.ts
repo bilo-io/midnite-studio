@@ -102,8 +102,12 @@ export type EditorAction =
   /** A gizmo drag finished: set each part's world anchor in one step. */
   | { type: 'transform'; items: { index: number; anchor: Mat4 }[] }
   | { type: 'showAll' }
-  /** Set the anatomy and place a fresh rig (`static` removes rig and clips) — the Rig tab's Auto-rig. */
-  | { type: 'anatomy'; anatomy: ModelAnatomy; facing?: ModelFacing }
+  /**
+   * Set the anatomy and place a fresh rig (`static` removes rig and clips) — the Rig tab's Auto-rig. By
+   * default every clip in the anatomy's presets is added too, so a rigged model opens with its whole
+   * animation list; `presetClips: false` places the bare rig.
+   */
+  | { type: 'anatomy'; anatomy: ModelAnatomy; facing?: ModelFacing; presetClips?: boolean }
   /** Bone, binding, facing and falloff edits (the shared `applyRigOps`). */
   | { type: 'rig'; ops: ModelRigOp[] }
   /** Clip and pose-key edits (the shared `applyClipOps`). */
@@ -263,7 +267,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       return result ? commit(state, result.spec, state.selection) : state;
     }
     case 'anatomy':
-      return applyRig(state, (spec) => setAnatomy(spec, action.anatomy, action.facing));
+      return applyRig(state, (spec) => setAnatomy(spec, action.anatomy, action.facing, { presetClips: action.presetClips ?? true }));
     case 'rig':
       return applyRig(state, (spec) => applyRigOps(spec, action.ops));
     case 'clips':
