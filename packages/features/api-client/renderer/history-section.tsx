@@ -1,13 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 import { toCurl, toDraft, toFetch, type ApiHistoryEntry, type PostmanItem } from '@midnite/studio-shared';
 import { LuCopy, LuTrash2 } from 'react-icons/lu';
 
-import { bridge, EmptyState, TREE_INDENT } from '@midnite/studio-frame';
+import { bridge, EmptyState, TREE_INDENT, useBottomPanel } from '@midnite/studio-frame';
 
 import { useApiClientStore } from './api-client-store';
 import { MethodBadge } from './method-badge';
 import { TreeSection, useDialogs } from './ui';
+
+/**
+ * The history block's height and open state, remembered across reloads under `api.history`. It is
+ * collapsed until first opened, as the section always was. The view reads it for the container's
+ * height and resize handle, the section for its open toggle; both land on the same stored state.
+ */
+export const useHistoryPanel = () => useBottomPanel('api.history', { initial: 192, min: 72, max: 480, defaultCollapsed: true });
 
 /**
  * The persisted request history section (Phase 70 Theme D), rendered below
@@ -32,7 +39,8 @@ export function HistorySection({ repoId }: { repoId: string }) {
   const clearHistoryAction = useApiClientStore((s) => s.clearHistory);
   const collections = useApiClientStore((s) => s.collections);
   const openTab = useApiClientStore((s) => s.openTab);
-  const [open, setOpen] = useState(false);
+  const panel = useHistoryPanel();
+  const open = !panel.collapsed;
 
   useEffect(() => {
     void loadHistory(repoId);
@@ -95,7 +103,7 @@ export function HistorySection({ repoId }: { repoId: string }) {
       count={rows.length}
       collapsible
       open={open}
-      onToggle={() => setOpen((value) => !value)}
+      onToggle={panel.toggle}
       hideWhenEmpty={false}
       action={
         rows.length > 0
