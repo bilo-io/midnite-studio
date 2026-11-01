@@ -65,7 +65,14 @@ export function Sf3dPanel({
   const onGenerate = () => {
     if (blocked || !image) return;
     sf3d.generate.mutate(
-      { project, image, textureSize: settings.textureSize, options: settings.options, ...(settings.name.trim() ? { name: settings.name.trim() } : {}) },
+      {
+        project,
+        image,
+        textureSize: settings.textureSize,
+        options: settings.options,
+        ...(settings.anatomy !== 'static' ? { anatomy: settings.anatomy, facing: settings.facing } : {}),
+        ...(settings.name.trim() ? { name: settings.name.trim() } : {}),
+      },
       {
         onSuccess: (result) => {
           if (!result.ok) return;

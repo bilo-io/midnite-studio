@@ -1,5 +1,7 @@
 import type {
   GitOpResult,
+  ModelAnatomy,
+  ModelFacing,
   ModelImageAttachment,
   Sf3dGenerateResult,
   Sf3dGenerateStage,
@@ -107,7 +109,15 @@ export function useSf3d(repoId: string | null) {
   });
 
   const generate = useMutation({
-    mutationFn: async (input: { project: string; image: ModelImageAttachment; name?: string; textureSize?: Sf3dTextureSize; options?: Sf3dOptions }) => {
+    mutationFn: async (input: {
+      project: string;
+      image: ModelImageAttachment;
+      name?: string;
+      textureSize?: Sf3dTextureSize;
+      options?: Sf3dOptions;
+      anatomy?: ModelAnatomy;
+      facing?: ModelFacing;
+    }) => {
       if (!repoId) return noBridge<Sf3dGenerateResult>();
       const generationId = `sf3d-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       setLastError(null);
