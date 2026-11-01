@@ -2,6 +2,8 @@ import {
   consentIsCurrent,
   failure,
   ok,
+  resolveSf3dOptions,
+  sf3dSettingsSuffix,
   SF3D_DEFAULT_TEXTURE_SIZE,
   SF3D_PROVIDER,
   SF3D_REPO,
@@ -12,12 +14,12 @@ import {
   type Sf3dGenerateResult,
   type Sf3dGenerateStage,
   type Sf3dProgressEvent,
+  type Sf3dResolvedOptions,
   type Sf3dStatus,
 } from '@midnite/studio-shared';
 
 import { modelSlug, modelTimeStamp } from '../model-service';
 import type { Sf3dInstaller } from './installer';
-import { SF3D_DEFAULTS } from './pipeline';
 import { prepareSf3dInput, type RgbaImage } from './prepare-image';
 import type { Sf3dRunRequest, Sf3dRunResult } from './sf3d-broker';
 
@@ -66,9 +68,12 @@ export type Sf3dServiceDeps = {
 
 const IMAGE_EXT: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
 
-/** What `model.json` records about the SF3D run beside the usual fields (under `sf3d`). */
-export function sf3dManifestExtra(result: Pick<Sf3dRunResult, 'textureSize'>): { sf3d: Record<string, unknown> } {
-  return { sf3d: { repo: SF3D_REPO, revision: SF3D_REVISION, textureSize: result.textureSize, isosurfaceThreshold: SF3D_DEFAULTS.threshold } };
+/**
+ * What `model.json` records about the SF3D run beside the usual fields (under `sf3d`): the texture the
+ * bake actually used (it grows past the request when the atlas needs room) and every setting, defaults included.
+ */
+export function sf3dManifestExtra(result: Pick<Sf3dRunResult, 'textureSize'>, settings: Sf3dResolvedOptions): { sf3d: Record<string, unknown> } {
+  return { sf3d: { repo: SF3D_REPO, revision: SF3D_REVISION, textureSize: result.textureSize, settings } };
 }
 
 export function createSf3dService(deps: Sf3dServiceDeps) {
@@ -111,13 +116,23 @@ export function createSf3dService(deps: Sf3dServiceDeps) {
       const bytes = Buffer.from(req.image.data, 'base64');
       const image = deps.decodeImage(bytes, req.image.mime);
       if (!image) return fail('The picture could not be read.');
-      const rgb = prepareSf3dInput(image);
+      const settings = resolveSf3dOptions(req.options);
+      const rgb = prepareSf3dInput(image, settings);
       const label = req.name ?? req.image.name.replace(/\.[^.]+$/, '');
       const createdAt = now();
-      const stem = `${modelSlug(label)}-${modelTimeStamp(createdAt)}`;
+      const textureSize = req.textureSize ?? SF3D_DEFAULT_TEXTURE_SIZE;
+      const suffix = sf3dSettingsSuffix(textureSize, settings);
+      const stem = [modelSlug(label), suffix, modelTimeStamp(createdAt)].filter(Boolean).join('-');
+      const { threshold, resolution, decodeBatch, roughness, metalness, cameraDistance, fov } = settings;
 
       const result = await deps.run(
-        { assetsDir: deps.installer.assetPath(''), rgb, textureSize: req.textureSize ?? SF3D_DEFAULT_TEXTURE_SIZE, name: label },
+        {
+          assetsDir: deps.installer.assetPath(''),
+          rgb,
+          textureSize,
+          name: label,
+          settings: { threshold, resolution, decodeBatch, roughness, metalness, cameraDistance, fov },
+        },
         { signal: controller.signal, onStage: (stage, fraction) => progress('running', { stage, ...(fraction !== undefined ? { fraction } : {}) }) },
       );
       if (controller.signal.aborted) return fail('cancelled');
@@ -132,7 +147,7 @@ export function createSf3dService(deps: Sf3dServiceDeps) {
         engine: SF3D_PROVIDER,
         glb: Buffer.from(result.glb),
         reference: { file: `${stem}.ref.${IMAGE_EXT[req.image.mime] ?? 'png'}`, data: bytes },
-        extra: sf3dManifestExtra(result),
+        extra: sf3dManifestExtra(result, settings),
         createdAt,
       });
       if (!imported.ok) return fail(imported.kind === 'error' ? imported.message : 'Could not write the model.');

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import type { Sf3dGenerateStage } from '@midnite/studio-shared';
 
-import type { Sf3dWorkerIn, Sf3dWorkerOut } from './worker-protocol';
+import type { Sf3dRunSettings, Sf3dWorkerIn, Sf3dWorkerOut } from './worker-protocol';
 
 /**
  * Main-side broker for `sf3d-worker` — the `music-broker.ts` shape: fork lazily, one child, replies
@@ -25,7 +25,7 @@ export function sf3dWorkerScriptPath(dirname: string = __dirname): string {
   return join(dirname, 'sf3d-worker.js');
 }
 
-export type Sf3dRunRequest = { assetsDir: string; rgb: Float32Array; textureSize: number; name: string };
+export type Sf3dRunRequest = { assetsDir: string; rgb: Float32Array; textureSize: number; name: string; settings: Sf3dRunSettings };
 export type Sf3dRunResult = Extract<Sf3dWorkerOut, { type: 'reply'; ok: true }>;
 
 const CRASHED = 'The SF3D engine stopped unexpectedly (it may have run out of memory). Try again; if it keeps happening, reinstall SF3D.';

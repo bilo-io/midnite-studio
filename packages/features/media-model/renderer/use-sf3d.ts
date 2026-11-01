@@ -1,4 +1,13 @@
-import type { GitOpResult, ModelImageAttachment, Sf3dGenerateResult, Sf3dGenerateStage, Sf3dInstallProgress, Sf3dStatus } from '@midnite/studio-shared';
+import type {
+  GitOpResult,
+  ModelImageAttachment,
+  Sf3dGenerateResult,
+  Sf3dGenerateStage,
+  Sf3dInstallProgress,
+  Sf3dOptions,
+  Sf3dStatus,
+  Sf3dTextureSize,
+} from '@midnite/studio-shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
@@ -98,7 +107,7 @@ export function useSf3d(repoId: string | null) {
   });
 
   const generate = useMutation({
-    mutationFn: async (input: { project: string; image: ModelImageAttachment; textureSize?: 512 | 1024 | 2048 }) => {
+    mutationFn: async (input: { project: string; image: ModelImageAttachment; name?: string; textureSize?: Sf3dTextureSize; options?: Sf3dOptions }) => {
       if (!repoId) return noBridge<Sf3dGenerateResult>();
       const generationId = `sf3d-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       setLastError(null);

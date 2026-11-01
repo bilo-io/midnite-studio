@@ -94,6 +94,16 @@ describe('SF3D pipeline (mocked inference)', () => {
     expect(inference.decode).not.toHaveBeenCalled();
   });
 
+  it('conditions on the requested camera and writes the requested material', async () => {
+    const inference = fakeInference();
+    const result = await runSf3dPipeline(inference, { grid, mlp: MLP }, rgb, { textureSize: 64, cameraDistance: 2, fov: 30, roughness: 0.25, metalness: 0.5 });
+    const { c2w, intrinsicNormed } = (inference.tokenize as Mock).mock.calls[0]![0] as { c2w: Float32Array; intrinsicNormed: Float32Array };
+    expect(c2w[3]).toBe(2);
+    expect(intrinsicNormed[0]).toBeCloseTo(0.5 / Math.tan((30 * Math.PI) / 360), 5);
+    const json = JSON.parse(result.glb.subarray(20, 20 + result.glb.readUInt32LE(12)).toString('utf8'));
+    expect(json.materials[0].pbrMetallicRoughness).toMatchObject({ roughnessFactor: 0.25, metallicFactor: 0.5 });
+  });
+
   it('rejects a backbone output that is not a triplane', async () => {
     const inference = fakeInference();
     inference.backbone = async () => new Float32Array(7);
@@ -182,7 +192,8 @@ describe('SF3D broker', () => {
     };
     return { handle, sent, reply: (m: Sf3dWorkerOut) => onMessage(m), exit: () => onExit(1) };
   }
-  const req = { assetsDir: '/a', rgb: new Float32Array(3), textureSize: 512, name: 'x' };
+  const settings = { threshold: 10, resolution: 160, decodeBatch: 1024, roughness: 0.6, metalness: 0, cameraDistance: 1.6, fov: 40 };
+  const req = { assetsDir: '/a', rgb: new Float32Array(3), textureSize: 512, name: 'x', settings };
 
   it('forwards stages and resolves the reply', async () => {
     const w = fakeWorker();
@@ -283,6 +294,22 @@ describe('SF3D service', () => {
       'running:writing',
       'succeeded:',
     ]);
+  });
+
+  it('runs with the requested settings, names the file after the ones that differ, and records them all', async () => {
+    const { service, imports, run } = setup();
+    const options = { threshold: 8, roughness: 0.3, decodeBatch: 65_536, removeBackground: true };
+    const result = await service.handle({ ...generate, name: 'TM Uniform', textureSize: 2048, options });
+    expect(result).toMatchObject({ ok: true });
+    const stem = 'tm-uniform-tex2048-bg-th8-rough30-20261004-120000';
+    expect(imports[0]).toMatchObject({ stem, name: 'TM Uniform' });
+    expect(run.mock.calls[0]![0]).toMatchObject({
+      textureSize: 2048,
+      settings: { threshold: 8, resolution: 160, decodeBatch: 65_536, roughness: 0.3, metalness: 0, cameraDistance: 1.6, fov: 40 },
+    });
+    expect(imports[0]!.extra).toMatchObject({
+      sf3d: { textureSize: 1024, settings: { ...options, backgroundTolerance: 28, foregroundRatio: 0.85, resolution: 160, metalness: 0, cameraDistance: 1.6, fov: 40 } },
+    });
   });
 
   it('refuses to generate without consent or an install, without starting the worker', async () => {

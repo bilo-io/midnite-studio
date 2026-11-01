@@ -1,13 +1,14 @@
 /**
  * SF3D's input picture: 512×512 RGB in [0, 1], the object centred and filling 85% of the frame on a
- * 50% grey background — what `run.py` builds with `rembg` + `resize_foreground(0.85)`. There is no
- * background remover here: a picture with transparency is cropped to its alpha, an opaque one is
- * fitted whole (so a cut-out PNG gives SF3D's intended input, and a photo gives its background too).
+ * 50% grey background — what `run.py` builds with `rembg` + `resize_foreground(0.85)`. A picture with
+ * transparency is cropped to its alpha; an opaque one is fitted whole (background included) unless
+ * `removeBackground` cuts it out first (`cutout.ts`, a flood fill rather than `rembg`'s network).
  */
-import { alphaBounds } from '@midnite/studio-shared';
+import { alphaBounds, SF3D_OPTION_DEFAULTS } from '@midnite/studio-shared';
+
+import { removeBackground } from './cutout';
 
 export const SF3D_INPUT_SIZE = 512;
-export const SF3D_FOREGROUND_RATIO = 0.85;
 const BACKGROUND = 0.5;
 
 export type RgbaImage = { data: Uint8Array; width: number; height: number };
@@ -20,16 +21,27 @@ const hasTransparency = (image: RgbaImage): boolean => {
   return false;
 };
 
+export type Sf3dInputOptions = {
+  size?: number;
+  /** How much of the frame a cut-out object fills (`foreground_ratio`). */
+  foregroundRatio?: number;
+  removeBackground?: boolean;
+  backgroundTolerance?: number;
+};
+
 /** `[512, 512, 3]` float32, row-major (HWC) — the tokenizer's `rgb` without its batch dimension. */
-export function prepareSf3dInput(image: RgbaImage, size: number = SF3D_INPUT_SIZE): Float32Array {
-  if (image.width <= 0 || image.height <= 0 || image.data.length !== image.width * image.height * 4) {
+export function prepareSf3dInput(picture: RgbaImage, options: Sf3dInputOptions = {}): Float32Array {
+  if (picture.width <= 0 || picture.height <= 0 || picture.data.length !== picture.width * picture.height * 4) {
     throw new Error('The picture could not be read.');
   }
+  const size = options.size ?? SF3D_INPUT_SIZE;
+  const ratio = options.foregroundRatio ?? SF3D_OPTION_DEFAULTS.foregroundRatio;
+  const image = options.removeBackground ? removeBackground(picture, options.backgroundTolerance ?? SF3D_OPTION_DEFAULTS.backgroundTolerance) : picture;
   const cutout = hasTransparency(image);
   const box = (cutout ? alphaBounds(image) : null) ?? { x0: 0, y0: 0, x1: image.width, y1: image.height };
   const bw = box.x1 - box.x0;
   const bh = box.y1 - box.y0;
-  const target = cutout ? size * SF3D_FOREGROUND_RATIO : size;
+  const target = cutout ? size * ratio : size;
   const scale = target / Math.max(bw, bh);
   const ox = (size - bw * scale) / 2;
   const oy = (size - bh * scale) / 2;

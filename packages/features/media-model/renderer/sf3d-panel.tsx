@@ -1,9 +1,7 @@
 import {
   consentIsCurrent,
-  SF3D_DEFAULT_TEXTURE_SIZE,
   SF3D_DOWNLOAD_BYTES,
   SF3D_STAGE_LABELS,
-  SF3D_TEXTURE_SIZES,
   sf3dBlockedReason,
   type ModelImageAttachment,
 } from '@midnite/studio-shared';
@@ -13,6 +11,7 @@ import { LuBox, LuDownload, LuImagePlus, LuSquare, LuTrash2, LuX } from 'react-i
 import { RingSpinner as Spinner } from '@midnite/studio-frame';
 import { readImageAttachment } from './model-utils';
 import { Sf3dConsentDialog } from './sf3d-consent-dialog';
+import { SF3D_SETTINGS_DEFAULT, Sf3dSettings, type Sf3dSettingsValue } from './sf3d-settings';
 import { formatBytes, useSf3d } from './use-sf3d';
 
 /**
@@ -34,7 +33,7 @@ export function Sf3dPanel({
   const [confirmUninstall, setConfirmUninstall] = useState(false);
   const [image, setImage] = useState<ModelImageAttachment | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
-  const [textureSize, setTextureSize] = useState<512 | 1024 | 2048>(SF3D_DEFAULT_TEXTURE_SIZE);
+  const [settings, setSettings] = useState<Sf3dSettingsValue>(SF3D_SETTINGS_DEFAULT);
   const [dragging, setDragging] = useState(false);
 
   const status = sf3d.status.data;
@@ -66,12 +65,13 @@ export function Sf3dPanel({
   const onGenerate = () => {
     if (blocked || !image) return;
     sf3d.generate.mutate(
-      { project, image, textureSize },
+      { project, image, textureSize: settings.textureSize, options: settings.options, ...(settings.name.trim() ? { name: settings.name.trim() } : {}) },
       {
         onSuccess: (result) => {
           if (!result.ok) return;
           onGenerated(project, result.value.primary);
           setImage(null);
+          setSettings((current) => ({ ...current, name: '' }));
         },
       },
     );
@@ -210,22 +210,12 @@ export function Sf3dPanel({
                 Attach or drop a picture of one object
               </button>
             )}
-            <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
-              Texture
-              <select
-                aria-label="Texture size"
-                value={textureSize}
-                disabled={running}
-                onChange={(event) => setTextureSize(Number(event.target.value) as 512 | 1024 | 2048)}
-                className="h-6 rounded-md border border-border bg-background px-1 text-[11px] text-foreground"
-              >
-                {SF3D_TEXTURE_SIZES.map((size) => (
-                  <option key={size} value={size}>
-                    {size} × {size}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <Sf3dSettings
+              value={settings}
+              placeholderName={image ? image.name.replace(/\.[^.]+$/, '') : 'From the picture'}
+              disabled={running}
+              onChange={setSettings}
+            />
             {running && sf3d.running ? (
               <div role="status" data-testid="sf3d-stage" className="flex items-center gap-2 text-muted-foreground">
                 <Spinner /> {SF3D_STAGE_LABELS[sf3d.running.stage]}

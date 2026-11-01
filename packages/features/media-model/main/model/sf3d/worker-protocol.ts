@@ -1,4 +1,7 @@
-import type { Sf3dGenerateStage } from '@midnite/studio-shared';
+import type { Sf3dGenerateStage, Sf3dResolvedOptions } from '@midnite/studio-shared';
+
+/** The settings the worker's pipeline takes; the cut-out and framing ones are applied in main, before the pixels are sent. */
+export type Sf3dRunSettings = Pick<Sf3dResolvedOptions, 'threshold' | 'resolution' | 'decodeBatch' | 'roughness' | 'metalness' | 'cameraDistance' | 'fov'>;
 
 /** Messages the SF3D broker posts to `sf3d-worker`. `rgb` is structured-cloned, never base64. */
 export type Sf3dWorkerIn = {
@@ -10,6 +13,7 @@ export type Sf3dWorkerIn = {
   rgb: Float32Array;
   textureSize: number;
   name: string;
+  settings: Sf3dRunSettings;
 };
 
 /** Messages the worker posts back. */

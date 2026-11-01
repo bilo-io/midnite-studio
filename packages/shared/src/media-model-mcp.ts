@@ -32,7 +32,7 @@ import {
   PbrNoiseSchema,
 } from './media-model-pbr';
 import { SDF_RESOLUTION_MAX, SDF_RESOLUTION_MIN } from './media-model-sdf';
-import { SF3D_GENERATE_STAGES, SF3D_STATES } from './media-model-sf3d';
+import { SF3D_GENERATE_STAGES, SF3D_STATES, Sf3dOptionsSchema, Sf3dTextureSizeSchema } from './media-model-sf3d';
 import {
   MODEL_RIG_PATCH_MAX_OPS,
   ModelAnatomySchema,
@@ -183,7 +183,9 @@ export const ModelGenerateSf3dInputSchema = z.object({
   /** A PNG/JPEG/WebP of one object — absolute, or relative to `repoPath`; must sit inside the repository. A transparent background works best. */
   imagePath: z.string().min(1).max(1024),
   name: z.string().trim().min(1).max(80).optional(),
-  textureSize: z.union([z.literal(512), z.literal(1024), z.literal(2048)]).optional(),
+  textureSize: Sf3dTextureSizeSchema.optional(),
+  /** Every other SF3D setting; one left out takes its `SF3D_OPTION_DEFAULTS` value. `removeBackground` cuts an opaque picture out first. */
+  options: Sf3dOptionsSchema.optional(),
 });
 export const ModelGenerateSf3dResultSchema = z.object({ started: z.literal(true), generationId: z.string() });
 

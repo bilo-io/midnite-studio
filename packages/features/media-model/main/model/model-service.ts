@@ -417,6 +417,7 @@ export function createModelService(deps: ModelServiceDeps) {
         image: req.image,
         ...(req.prompt ? { name: req.prompt.slice(0, 80) } : {}),
         ...(engine.textureSize ? { textureSize: engine.textureSize } : {}),
+        ...(engine.options ? { options: engine.options } : {}),
       });
       if (!result.ok) return fail(result.kind === 'error' ? result.message : 'SF3D could not build the model.');
       files.push(...result.value.files);

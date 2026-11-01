@@ -1,4 +1,4 @@
-import type { Sf3dGenerateStage } from '@midnite/studio-shared';
+import { SF3D_OPTION_DEFAULTS, type Sf3dGenerateStage } from '@midnite/studio-shared';
 
 import { atlasLayout, bakeTexture, buildAtlas } from './atlas';
 import { writeTexturedGlb } from './glb-textured';
@@ -36,6 +36,11 @@ export type Sf3dPipelineOptions = {
   /** Grid points per decoder call. */
   decodeBatch?: number;
   triplaneChannels?: number;
+  roughness?: number;
+  metalness?: number;
+  /** The conditioning camera's distance and field of view (degrees). */
+  cameraDistance?: number;
+  fov?: number;
   name?: string;
   onStage?: (stage: Sf3dGenerateStage, fraction?: number) => void;
   isCancelled?: () => boolean;
@@ -50,7 +55,16 @@ export type Sf3dPipelineResult = {
   textureSize: number;
 };
 
-export const SF3D_DEFAULTS = { threshold: 10, resolution: 160, decodeBatch: 131_072, triplaneChannels: 40, roughness: 0.6, metalness: 0 };
+export const SF3D_DEFAULTS = {
+  threshold: SF3D_OPTION_DEFAULTS.threshold,
+  resolution: SF3D_OPTION_DEFAULTS.resolution,
+  decodeBatch: SF3D_OPTION_DEFAULTS.decodeBatch,
+  triplaneChannels: 40,
+  roughness: SF3D_OPTION_DEFAULTS.roughness,
+  metalness: SF3D_OPTION_DEFAULTS.metalness,
+  cameraDistance: SF3D_OPTION_DEFAULTS.cameraDistance,
+  fov: SF3D_OPTION_DEFAULTS.fov,
+};
 
 /** SF3D's Z-up model space → glTF's Y-up: `run.py` rotates −90° about X, then 90° about Y. */
 export function sf3dToGltf(x: number, y: number, z: number): [number, number, number] {
@@ -87,7 +101,11 @@ export async function runSf3dPipeline(
   const stage = options.onStage ?? (() => undefined);
 
   stage('tokenizing');
-  const tokens = await inference.tokenize({ rgb, c2w: sf3dCameraToWorld(), intrinsicNormed: sf3dIntrinsicNormed() });
+  const tokens = await inference.tokenize({
+    rgb,
+    c2w: sf3dCameraToWorld(options.cameraDistance ?? SF3D_DEFAULTS.cameraDistance),
+    intrinsicNormed: sf3dIntrinsicNormed(options.fov ?? SF3D_DEFAULTS.fov),
+  });
   checkCancel(options);
 
   stage('backbone');
@@ -149,8 +167,8 @@ export async function runSf3dPipeline(
     uvs: atlas.uvs,
     png: encodePng(rgba, textureSize, textureSize),
     name: options.name ?? 'sf3d',
-    roughness: SF3D_DEFAULTS.roughness,
-    metalness: SF3D_DEFAULTS.metalness,
+    roughness: options.roughness ?? SF3D_DEFAULTS.roughness,
+    metalness: options.metalness ?? SF3D_DEFAULTS.metalness,
   });
   return { glb, vertices: positions.length / 3, triangles, bounds: { min, max }, textureSize };
 }

@@ -4,10 +4,11 @@ import { inflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 
 import { atlasLayout, bakeTexture, buildAtlas, clampedBarycentric } from './atlas';
+import { removeBackground } from './cutout';
 import { vertexNormals, writeTexturedGlb } from './glb-textured';
 import { cubeTetGrid, deformGrid, marchingTets } from './marching-tets';
 import { crc32, encodePng } from './png';
-import { alphaBounds, prepareSf3dInput, sf3dIntrinsicNormed } from './prepare-image';
+import { alphaBounds, prepareSf3dInput, sf3dIntrinsicNormed, type RgbaImage } from './prepare-image';
 import { createColorSampler, parseColorMlp, sampleTriplane, SF3D_RADIUS } from './triplane';
 
 /** A sphere of radius `r` around (0.5, 0.5, 0.5) in grid space, positive inside. */
@@ -209,6 +210,50 @@ describe('png and glb', () => {
   });
 });
 
+/** 20×20 opaque white with a 6×6 blue square in the middle and a white hole inside it. */
+function whiteCard(): RgbaImage {
+  const data = new Uint8Array(20 * 20 * 4).fill(255);
+  for (let y = 7; y < 13; y += 1) for (let x = 7; x < 13; x += 1) if (!(x === 10 && y === 10)) data.set([0, 0, 200, 255], (y * 20 + x) * 4);
+  return { data, width: 20, height: 20 };
+}
+
+describe('background cut-out', () => {
+  const alpha = (image: RgbaImage, x: number, y: number) => image.data[(y * image.width + x) * 4 + 3];
+
+  it('clears the background connected to the edge and keeps the object, holes inside it included', () => {
+    const out = removeBackground(whiteCard(), 28);
+    expect(alpha(out, 0, 0)).toBe(0);
+    expect(alpha(out, 5, 10)).toBe(0);
+    expect(alpha(out, 9, 9)).toBe(255);
+    expect(alpha(out, 10, 10)).toBe(255);
+    // The outline is softened by its distance from the background, not left a hard stair.
+    expect(alpha(out, 7, 10)).toBe(255);
+  });
+
+  it('takes the background from the corners that agree, not one the object touches', () => {
+    const image = whiteCard();
+    for (let y = 0; y < 4; y += 1) for (let x = 0; x < 4; x += 1) image.data.set([0, 0, 200, 255], (y * 20 + x) * 4);
+    const out = removeBackground(image, 28);
+    expect(alpha(out, 19, 19)).toBe(0);
+    expect(alpha(out, 0, 0)).toBe(255);
+  });
+
+  it('leaves a picture with transparency, and one it would clear entirely, as they are', () => {
+    const cut = whiteCard();
+    cut.data[3] = 0;
+    expect(removeBackground(cut, 28)).toBe(cut);
+    const blank = { data: new Uint8Array(4 * 4 * 4).fill(255), width: 4, height: 4 };
+    expect(removeBackground(blank, 28)).toBe(blank);
+  });
+
+  it('cuts less with a tighter tolerance', () => {
+    const image = whiteCard();
+    for (let x = 0; x < 20; x += 1) image.data.set([235, 235, 235, 255], (19 * 20 + x) * 4);
+    expect(alpha(removeBackground(image, 28), 3, 19)).toBe(0);
+    expect(alpha(removeBackground(image, 8), 3, 19)).toBeGreaterThan(0);
+  });
+});
+
 describe('input picture', () => {
   it('crops a cut-out to its alpha, fills 85% of the frame and composites over grey', () => {
     // 10×10 transparent with a 2×2 opaque red block at (4,4).
@@ -216,7 +261,7 @@ describe('input picture', () => {
     for (const [x, y] of [[4, 4], [5, 4], [4, 5], [5, 5]]) data.set([255, 0, 0, 255], (y! * 10 + x!) * 4);
     const image = { data, width: 10, height: 10 };
     expect(alphaBounds(image)).toEqual({ x0: 4, y0: 4, x1: 6, y1: 6 });
-    const rgb = prepareSf3dInput(image, 64);
+    const rgb = prepareSf3dInput(image, { size: 64 });
     const at = (x: number, y: number) => [...rgb.subarray((y * 64 + x) * 3, (y * 64 + x) * 3 + 3)];
     expect(at(32, 32)).toEqual([1, 0, 0]);
     expect(at(1, 1)).toEqual([0.5, 0.5, 0.5]);
@@ -227,10 +272,26 @@ describe('input picture', () => {
   });
 
   it('fits an opaque picture whole and rejects a malformed one', () => {
-    const rgb = prepareSf3dInput({ data: new Uint8Array(4 * 2 * 4).fill(255), width: 4, height: 2 }, 8);
+    const rgb = prepareSf3dInput({ data: new Uint8Array(4 * 2 * 4).fill(255), width: 4, height: 2 }, { size: 8 });
     expect(rgb[(1 * 8 + 4) * 3]).toBe(0.5); // letterbox above
     expect(rgb[(4 * 8 + 4) * 3]).toBe(1);
     expect(() => prepareSf3dInput({ data: new Uint8Array(3), width: 1, height: 1 })).toThrow(/could not be read/);
+  });
+
+  it('fills the requested share of the frame', () => {
+    const data = new Uint8Array(10 * 10 * 4);
+    for (const [x, y] of [[4, 4], [5, 4], [4, 5], [5, 5]]) data.set([255, 0, 0, 255], (y! * 10 + x!) * 4);
+    const rgb = prepareSf3dInput({ data, width: 10, height: 10 }, { size: 64, foregroundRatio: 0.5 });
+    const reds = Array.from({ length: 64 }, (_, x) => rgb[(32 * 64 + x) * 3]! > 0.9).filter(Boolean).length;
+    expect(reds).toBeGreaterThanOrEqual(30);
+    expect(reds).toBeLessThanOrEqual(34);
+  });
+
+  it('cuts an opaque picture’s background out first when asked, then crops to the object', () => {
+    const rgb = prepareSf3dInput(whiteCard(), { size: 64, removeBackground: true });
+    // Without the cut-out the white card fills the frame; with it, the corners are SF3D's grey.
+    expect(rgb[0]).toBe(0.5);
+    expect(prepareSf3dInput(whiteCard(), { size: 64 })[0]).toBe(1);
   });
 
   it('builds SF3D’s 40° normalised intrinsics', () => {
