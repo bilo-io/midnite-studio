@@ -270,6 +270,17 @@ describe('SF3D service', () => {
   const image = { name: 'mug.png', mime: 'image/png' as const, data: Buffer.from('png').toString('base64') };
   const generate = { op: 'generate' as const, generationId: 'g1', repoId: 'r', project: 'props', image };
 
+  it('passes the auto-rig anatomy and facing to the asset import, and nothing for static or none', async () => {
+    const rigged = setup();
+    await rigged.service.handle({ ...generate, anatomy: 'quadruped', facing: '-x' });
+    expect(rigged.imports[0]).toMatchObject({ anatomy: 'quadruped', facing: '-x' });
+    for (const extra of [{}, { anatomy: 'static' as const }]) {
+      const plain = setup();
+      await plain.service.handle({ ...generate, ...extra });
+      expect(plain.imports[0]).not.toHaveProperty('anatomy');
+    }
+  });
+
   it('hands the glb, the reference picture and its SF3D details to the asset import, and answers its design', async () => {
     const { service, imports, events } = setup();
     const result = await service.handle(generate);

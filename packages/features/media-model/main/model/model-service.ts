@@ -25,6 +25,9 @@ import {
   modelAssetBounds,
   modelAssetHash,
   parseGlbMesh,
+  setAnatomy,
+  type ModelAnatomy,
+  type ModelFacing,
   registerModelAsset,
   type Sf3dGenerateRequest,
   type Sf3dGenerateResult,
@@ -245,6 +248,68 @@ export function createModelService(deps: ModelServiceDeps) {
   }
 
   /**
+   * Continue an existing model with an iterative agent ("Refine with Claude" on a selected model — an
+   * SF3D result above all). Nothing is created: the agent is pointed at the model already on disk and
+   * edits its design through the `model_*` tools, with the picture the model was made from as its
+   * reference so it can compare as it goes. The design keeps every `asset` part, so an SF3D mesh and its
+   * baked texture are layered on, never rebuilt. A run that edits nothing is a failure here — the one-shot
+   * fallback would replace the whole design with a fresh one.
+   */
+  async function refine(
+    req: ModelGenerateRequest & { edit: { path: string } },
+    signal: AbortSignal,
+    files: string[],
+    progress: Progress,
+    fail: (message: string) => GitOpResult<ModelGenerateResult>,
+  ): Promise<GitOpResult<ModelGenerateResult>> {
+    const engine = req.engine;
+    if (engine.kind !== 'agent' || !agentIteratesModel(engine.agentId) || !deps.iterative) {
+      return fail('Refining a model needs an agent that can iterate (Claude Code or Codex).');
+    }
+    const iter = deps.iterative;
+    const repoPath = await iter.repoPath(req.repoId);
+    if (!repoPath) return fail('Could not find this repository.');
+    const scope: Scope = { repoId: req.repoId, tab: 'model', project: req.project };
+    const sidecarPath = modelSidecarPath(req.edit.path);
+    const read = await deps.readBytes({ ...scope, path: sidecarPath });
+    const sidecar = read.ok ? parseModelSidecar(read.value.toString('utf8')) : null;
+    if (!sidecar) return fail('This model has no design to refine — only models made in Media ▸ Models can be.');
+    const dir = designDir(sidecarPath);
+    const stem = sidecarPath.split('/').pop()!.replace(/\.json$/, '');
+    const primary = `${dir ? `${dir}/` : ''}${stem}.obj`;
+    const hasReference = sidecar.reference
+      ? (await deps.readBytes({ ...scope, path: `${dir ? `${dir}/` : ''}${sidecar.reference}` })).ok
+      : false;
+
+    const maxIterations = req.maxIterations ?? MODEL_ITERATIONS_DEFAULT;
+    const target = { repoPath, project: req.project, model: primary };
+    progress('running', 'iterating', undefined, { iteration: { n: 0, max: maxIterations }, primary });
+    const outcome = await runIterative({
+      host: iter.host,
+      tools: iter.tools(),
+      agentId: engine.agentId,
+      modelArgs: iter.modelArgs(engine),
+      prompt: buildIterativePrompt({ prompt: req.prompt, hasReference, target, maxIterations, editing: true }),
+      target,
+      cwd: repoPath,
+      maxIterations,
+      signal,
+      onProgress: (p) => progress('running', 'iterating', undefined, { ...p, primary }),
+    });
+    if (outcome.kind === 'cancelled') {
+      progress('cancelled', undefined, undefined, { primary });
+      return failure('cancelled');
+    }
+    if (outcome.kind === 'failed') {
+      progress('failed', undefined, outcome.message, { primary });
+      return failure(outcome.message);
+    }
+    files.push(`${dir ? `${dir}/` : ''}${stem}.json`, primary);
+    progress('succeeded', undefined, undefined, { primary });
+    return ok({ files: [...files], primary });
+  }
+
+  /**
    * One model's folder: the design sidecar first — it is what Save-as rebuilds from, so a half-written
    * run still exports — then the `.mtl`, `.obj`, `.fbx` and `.glb` rendered from its spec, then
    * `model.json`. Every path is `<stem>/<file>`; `written` collects each as it lands.
@@ -325,6 +390,7 @@ export function createModelService(deps: ModelServiceDeps) {
 
     try {
       if (req.engine.kind === 'sf3d') return await viaSf3d(req, req.engine, files, progress, fail);
+      if (req.edit) return await refine({ ...req, edit: req.edit }, signal, files, progress, fail);
       // An agent CLI that speaks MCP iterates: it builds, renders, looks and refines through the model_* tools.
       let reuse: { stem: string; reference: string | undefined } | null = null;
       if (req.engine.kind === 'agent' && req.iterative !== false && agentIteratesModel(req.engine.agentId) && deps.iterative) {
@@ -418,6 +484,8 @@ export function createModelService(deps: ModelServiceDeps) {
         ...(req.prompt ? { name: req.prompt.slice(0, 80) } : {}),
         ...(engine.textureSize ? { textureSize: engine.textureSize } : {}),
         ...(engine.options ? { options: engine.options } : {}),
+        ...(engine.anatomy ? { anatomy: engine.anatomy } : {}),
+        ...(engine.facing ? { facing: engine.facing } : {}),
       });
       if (!result.ok) return fail(result.kind === 'error' ? result.message : 'SF3D could not build the model.');
       files.push(...result.value.files);
@@ -449,6 +517,9 @@ export function createModelService(deps: ModelServiceDeps) {
     imageDescription?: string;
     extra?: Record<string, unknown>;
     createdAt?: Date;
+    /** Auto-rig the design before it is written — the Rig tab's Auto-rig, with every preset clip (`static` or absent: no rig). */
+    anatomy?: ModelAnatomy;
+    facing?: ModelFacing;
   }): Promise<GitOpResult<{ files: string[]; primary: string; spec: ModelSpec; vertices: number; triangles: number }>> {
     const scope: Scope = { repoId: req.repoId, tab: 'model', project: req.project };
     const bytes = asBytes(req.glb);
@@ -472,7 +543,7 @@ export function createModelService(deps: ModelServiceDeps) {
     const { min, max } = modelAssetBounds(mesh);
     const vertices = mesh.positions.length / 3;
     const triangles = mesh.indices.length / 3;
-    const spec: ModelSpec = {
+    const meshSpec: ModelSpec = {
       name: req.name.slice(0, 60).trim() || 'model',
       parts: [
         {
@@ -491,6 +562,12 @@ export function createModelService(deps: ModelServiceDeps) {
         },
       ],
     };
+    let spec = meshSpec;
+    if (req.anatomy && req.anatomy !== 'static') {
+      const rigged = setAnatomy(meshSpec, req.anatomy, req.facing, { presetClips: true });
+      // A mesh the rig cannot be placed on stays a valid, unrigged model: the picture's work is not thrown away.
+      if (rigged.ok) spec = rigged.spec;
+    }
     const sidecar: ModelSidecar = {
       version: 1,
       name: req.stem,

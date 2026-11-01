@@ -114,7 +114,13 @@ export function buildIterativePrompt(input: {
     '7. Finish by calling model_save. A model that was never saved is lost.',
     '',
     'Keep the model resting on the ground (lowest point at y=0) and centred on x=0, z=0. Spend early passes on proportions and later passes on detail; a believable silhouette beats many tiny parts.',
-    input.editing ? 'The model already has a design — start from it with model_get_spec rather than replacing it.' : '',
+    input.editing
+      ? [
+          'This model already exists — you are CONTINUING it, not starting over. Call model_get_spec first and build on that design with model_patch_parts; never replace it with model_set_spec and never delete parts that are already right.',
+          'A part with "shape": "asset" is an imported, textured mesh (e.g. from an image-to-3D run). Keep it exactly as it is — do not remove it, replace it with primitives, or try to re-model it. Add, move or patch other parts around it, and use materials only on the parts you add.',
+          'Keep the existing rig and animations unless the request is about them.',
+        ].join('\n')
+      : '',
     '',
     'When it is saved, reply with one short sentence describing what you built.',
   ]

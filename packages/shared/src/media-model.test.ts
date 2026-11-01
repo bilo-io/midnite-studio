@@ -69,6 +69,20 @@ describe('ModelGenerateRequestSchema', () => {
   it('rejects a project name that climbs out of the folder', () => {
     expect(ModelGenerateRequestSchema.safeParse({ ...base, prompt: 'x', project: '../x' }).success).toBe(false);
   });
+
+  describe('edit (refine an existing model)', () => {
+    const agent = { ...base, engine: { kind: 'agent', agentId: 'claude' }, prompt: 'longer arms', edit: { path: 'fox/fox.obj' } };
+
+    it('takes an agent, a prompt and the model path', () => {
+      expect(ModelGenerateRequestSchema.safeParse(agent).success).toBe(true);
+    });
+
+    it('refuses a one-shot engine, an empty prompt, and a replacement picture', () => {
+      expect(ModelGenerateRequestSchema.safeParse({ ...agent, engine: base.engine }).success).toBe(false);
+      expect(ModelGenerateRequestSchema.safeParse({ ...agent, prompt: '' }).success).toBe(false);
+      expect(ModelGenerateRequestSchema.safeParse({ ...agent, image: { name: 'a.png', mime: 'image/png', data: 'AAAA' } }).success).toBe(false);
+    });
+  });
 });
 
 describe('model files', () => {

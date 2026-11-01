@@ -1,4 +1,4 @@
-import { SF3D_OPTION_DEFAULTS } from '@midnite/studio-shared';
+import { MODEL_ANATOMIES, MODEL_FACINGS, SF3D_OPTION_DEFAULTS } from '@midnite/studio-shared';
 import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -60,11 +60,38 @@ describe('Sf3dSettings', () => {
       name: 'TM Uniform',
       textureSize: 2048,
       options: { removeBackground: true, backgroundTolerance: 40, foregroundRatio: 0.9, threshold: 8, resolution: 200, roughness: 0.3, metalness: 0.5, cameraDistance: 2, fov: 30, decodeBatch: 65_536 },
+      anatomy: 'static',
+      facing: '+z',
     });
     expect(screen.getByTestId('sf3d-suffix').textContent).toBe('File name adds -tex2048-bg40-fg90-th8-def200-rough30-metal50-cam200-fov30');
 
     fireEvent.click(screen.getByTestId('sf3d-settings-reset'));
-    expect(onValue.mock.lastCall![0]).toEqual({ name: 'TM Uniform', textureSize: 1024, options: SF3D_OPTION_DEFAULTS });
+    expect(onValue.mock.lastCall![0]).toEqual({ name: 'TM Uniform', textureSize: 1024, options: SF3D_OPTION_DEFAULTS, anatomy: 'static', facing: '+z' });
+  });
+
+  describe('auto-rig', () => {
+    it('offers every anatomy, defaults to none and hides Facing until one is picked', () => {
+      render(<Harness onValue={() => undefined} />);
+      const anatomy = screen.getByRole('combobox', { name: 'Anatomy' }) as HTMLSelectElement;
+      expect(anatomy.value).toBe('static');
+      expect([...anatomy.options].map((o) => o.value)).toEqual([...MODEL_ANATOMIES]);
+      expect([...anatomy.options].map((o) => o.textContent)).toEqual(['None (static)', 'Biped', 'Quadruped', 'Vehicle']);
+      expect(screen.queryByRole('combobox', { name: 'Facing' })).toBeNull();
+    });
+
+    it('sets the anatomy and the facing, and Defaults puts them back', () => {
+      const onValue = vi.fn();
+      render(<Harness onValue={onValue} />);
+      fireEvent.change(screen.getByRole('combobox', { name: 'Anatomy' }), { target: { value: 'quadruped' } });
+      const facing = screen.getByRole('combobox', { name: 'Facing' }) as HTMLSelectElement;
+      expect([...facing.options].map((o) => o.value)).toEqual([...MODEL_FACINGS]);
+      fireEvent.change(facing, { target: { value: '-x' } });
+      expect(onValue.mock.lastCall![0]).toMatchObject({ anatomy: 'quadruped', facing: '-x' });
+      expect((screen.getByTestId('sf3d-settings-reset') as HTMLButtonElement).disabled).toBe(false);
+      fireEvent.click(screen.getByTestId('sf3d-settings-reset'));
+      expect(onValue.mock.lastCall![0]).toMatchObject({ anatomy: 'static', facing: '+z' });
+      expect(screen.queryByRole('combobox', { name: 'Facing' })).toBeNull();
+    });
   });
 
   it('clamps a typed value to the range', () => {

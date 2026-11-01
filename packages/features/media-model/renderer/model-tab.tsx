@@ -6,7 +6,7 @@ import { PiSparkleFill } from 'react-icons/pi';
 
 import { bridge, EmptyState, EmptyStateButton, RingSpinner as Spinner, useMediaKit } from '@midnite/studio-frame';
 
-import { ModelPanel } from './model-panel';
+import { ModelPanel, type ModelRefineTarget } from './model-panel';
 import { editorReducer, initialEditorState, isDirty } from './editor-state';
 import { useModelAssets } from './model-assets';
 import { useConvertToSculpt } from './sculpt/use-convert';
@@ -146,6 +146,18 @@ function ModelTabBody({ repoId }: { repoId: string }) {
     }
     return out;
   }, [library.data, repoId, modelProject, selectedPath]);
+  // The model open in the editor is what the prompt box can continue; its source picture sits beside the design.
+  const refineTarget = useMemo<ModelRefineTarget | null>(() => {
+    if (!design || !modelProject || !selectedPath || centre.kind !== 'editor') return null;
+    const folder = libraryParent(selectedPath);
+    return {
+      project: modelProject,
+      path: selectedPath,
+      name: design.spec.name,
+      sf3d: design.engine.startsWith('sf3d'),
+      referenceUrl: design.reference ? modelFileUrl(repoId, modelProject, folder ? `${folder}/${design.reference}` : design.reference) : null,
+    };
+  }, [design, modelProject, selectedPath, centre.kind, repoId]);
   const sidecarMissing = centre.kind === 'viewer' || sidecar.isError || (sidecar.isSuccess && design === null);
 
   const onExport = (exportFormat: MediaExportFormat) => {
@@ -260,6 +272,7 @@ function ModelTabBody({ repoId }: { repoId: string }) {
         <ModelPanel
           repoId={repoId}
           project={target}
+          refineTarget={refineTarget}
           onGenerated={(project, primary) => openModel(selectionForGenerated(project, primary))}
         />
       }

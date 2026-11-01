@@ -1,7 +1,7 @@
 import { BrandSlider } from '@midnite/studio-frame';
 import { clipTiming, type ModelSpec } from '@midnite/studio-shared';
 import { useEffect, useRef } from 'react';
-import { LuPause, LuPlay, LuRepeat, LuSkipBack } from 'react-icons/lu';
+import { LuPause, LuPlay, LuRepeat, LuSkipBack, LuSquare } from 'react-icons/lu';
 
 import { IconButton } from './chrome';
 import { FIELD } from './fields';
@@ -42,11 +42,11 @@ export function ClipTimeline({ spec, view, onView }: { spec: ModelSpec; view: Ri
   }, [view.playing, clip]);
 
   return (
-    <div role="toolbar" aria-label="Timeline" className="flex h-9 shrink-0 items-center gap-1.5 border-t border-border/60 px-2 text-[11px] text-muted-foreground" data-testid="clip-timeline">
+    <div role="toolbar" aria-label="Timeline" className="flex h-11 shrink-0 items-center gap-2 border-t border-border/60 px-2 text-[11px] text-muted-foreground" data-testid="clip-timeline">
       <select
         aria-label="Timeline clip"
         value={view.clip ?? ''}
-        onChange={(event) => onView({ clip: event.target.value || null, time: 0, playing: false })}
+        onChange={(event) => onView({ clip: event.target.value || null, time: 0, playing: view.autoPlay && !view.pose && event.target.value !== '' })}
         className={`${FIELD} max-w-[9rem]`}
       >
         <option value="">Rest pose</option>
@@ -57,13 +57,28 @@ export function ClipTimeline({ spec, view, onView }: { spec: ModelSpec; view: Ri
         ))}
       </select>
       <IconButton icon={LuSkipBack} label="Back to start" size="sm" disabled={!clip} onClick={() => onView({ time: 0 })} />
-      <IconButton
-        icon={view.playing ? LuPause : LuPlay}
-        label={view.playing ? 'Pause' : 'Play'}
-        size="sm"
+      <button
+        type="button"
+        aria-label={view.playing ? 'Pause' : 'Play'}
+        data-testid="timeline-play"
         disabled={!clip}
         onClick={() => onView(view.playing ? { playing: false } : { playing: true, time: view.time >= duration && !view.loop ? 0 : view.time })}
-      />
+        className="brand-gradient-button flex h-8 shrink-0 items-center gap-1.5 rounded-md px-3.5 text-xs font-semibold disabled:opacity-40"
+      >
+        {view.playing ? <LuPause aria-hidden className="h-4 w-4" /> : <LuPlay aria-hidden className="h-4 w-4" />}
+        {view.playing ? 'Pause' : 'Play'}
+      </button>
+      <button
+        type="button"
+        aria-label="Stop"
+        data-testid="timeline-stop"
+        disabled={!clip}
+        onClick={() => onView({ playing: false, time: 0 })}
+        className="flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-destructive px-3.5 text-xs font-semibold text-destructive-foreground hover:bg-destructive/90 disabled:opacity-40"
+      >
+        <LuSquare aria-hidden className="h-3.5 w-3.5 fill-current" />
+        Stop
+      </button>
       <IconButton icon={LuRepeat} label="Loop playback" size="sm" aria-pressed={view.loop} onClick={() => onView({ loop: !view.loop })} />
       <BrandSlider
         aria-label="Scrub"

@@ -3,6 +3,7 @@ import {
   type ModelAnatomy,
   type ModelBone,
   type ModelClip,
+  type ModelClipKind,
   type ModelClipOp,
   ModelClipSchema,
   type ModelFacing,
@@ -49,8 +50,13 @@ const issuesUnder = (spec: ModelSpec, prefix: string): RigEditIssue[] => validat
 /**
  * Sets the anatomy and places a fresh rig for it (`static` removes the rig and the clips). Clips
  * whose kind the new anatomy does not offer are dropped; keys on bones it lacks go with them.
+ *
+ * With `presetClips`, every clip in `MODEL_CLIP_PRESETS[anatomy]` the design does not already carry
+ * (matched by kind) is added with its defaults, named after its kind — so a freshly rigged model
+ * opens with its whole animation list instead of an empty one. The editor's Auto-rig and SF3D's
+ * auto-rig turn it on; the `model_auto_rig` tool keeps the bare behaviour.
  */
-export function setAnatomy(spec: ModelSpec, anatomy: ModelAnatomy, facing?: ModelFacing): RigEditOutcome {
+export function setAnatomy(spec: ModelSpec, anatomy: ModelAnatomy, facing?: ModelFacing, options: { presetClips?: boolean } = {}): RigEditOutcome {
   if (anatomy === 'static') {
     const { rig: _rig, animations: _animations, ...rest } = spec;
     void _rig;
@@ -60,8 +66,23 @@ export function setAnatomy(spec: ModelSpec, anatomy: ModelAnatomy, facing?: Mode
   const rig = autoRig(spec, anatomy, facing);
   if (!rig || rig.bones.length === 0) return { ok: false, errors: [{ path: 'anatomy', message: `Could not place a ${anatomy} rig on this design.` }] };
   const presets = MODEL_CLIP_PRESETS[anatomy];
-  const animations = (spec.animations ?? []).filter((clip) => clip.kind === 'custom' || presets.includes(clip.kind));
+  const kept = (spec.animations ?? []).filter((clip) => clip.kind === 'custom' || presets.includes(clip.kind));
+  const animations = options.presetClips ? [...kept, ...missingPresetClips(kept, presets)] : kept;
   return { ok: true, spec: pruneToRig({ ...spec, anatomy, rig, ...(animations.length > 0 ? { animations } : { animations: undefined }) }) };
+}
+
+/** One default clip per preset kind the list lacks, named after the kind (suffixed when a custom clip took it). */
+function missingPresetClips(have: readonly ModelClip[], presets: readonly ModelClipKind[]): ModelClip[] {
+  const names = new Set(have.map((c) => c.name));
+  const out: ModelClip[] = [];
+  for (const kind of presets) {
+    if (have.some((c) => c.kind === kind)) continue;
+    let name: string = kind;
+    for (let n = 2; names.has(name); n += 1) name = `${kind} ${n}`;
+    names.add(name);
+    out.push(ModelClipSchema.parse({ name, kind }));
+  }
+  return out.slice(0, Math.max(0, MODEL_MAX_CLIPS - have.length));
 }
 
 /** Applies rig ops in order; any failing op, or a rig left invalid, rejects the whole call. */

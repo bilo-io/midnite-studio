@@ -1,9 +1,14 @@
 import {
+  MODEL_ANATOMIES,
+  MODEL_ANATOMY_LABELS,
+  MODEL_FACINGS,
   SF3D_DEFAULT_TEXTURE_SIZE,
   SF3D_OPTION_DEFAULTS,
   SF3D_OPTION_RANGES,
   SF3D_TEXTURE_SIZES,
   sf3dSettingsSuffix,
+  type ModelAnatomy,
+  type ModelFacing,
   type Sf3dResolvedOptions,
   type Sf3dTextureSize,
 } from '@midnite/studio-shared';
@@ -12,9 +17,19 @@ import { LuChevronRight, LuRotateCcw } from 'react-icons/lu';
 import { RadioRow, SwitchRow } from '@midnite/studio-frame';
 import { FIELD, NumberField, SECTION, SliderField } from './fields';
 
-export type Sf3dSettingsValue = { name: string; textureSize: Sf3dTextureSize; options: Sf3dResolvedOptions };
+/**
+ * `anatomy` is the auto-rig the finished mesh gets (the Rig tab's Auto-rig, with every preset clip):
+ * `static` leaves it unrigged. `facing` is the way the picture's subject faces, used only when rigged.
+ */
+export type Sf3dSettingsValue = { name: string; textureSize: Sf3dTextureSize; options: Sf3dResolvedOptions; anatomy: ModelAnatomy; facing: ModelFacing };
 
-export const SF3D_SETTINGS_DEFAULT: Sf3dSettingsValue = { name: '', textureSize: SF3D_DEFAULT_TEXTURE_SIZE, options: { ...SF3D_OPTION_DEFAULTS } };
+export const SF3D_SETTINGS_DEFAULT: Sf3dSettingsValue = {
+  name: '',
+  textureSize: SF3D_DEFAULT_TEXTURE_SIZE,
+  options: { ...SF3D_OPTION_DEFAULTS },
+  anatomy: 'static',
+  facing: '+z',
+};
 
 type NumberKey = keyof typeof SF3D_OPTION_RANGES;
 
@@ -54,7 +69,12 @@ export function Sf3dSettings({
   );
   const suffix = sf3dSettingsSuffix(value.textureSize, options);
   const fill = SF3D_OPTION_RANGES.foregroundRatio;
-  const changed = value.textureSize !== SF3D_DEFAULT_TEXTURE_SIZE || suffix !== '' || options.decodeBatch !== SF3D_OPTION_DEFAULTS.decodeBatch;
+  const changed =
+    value.textureSize !== SF3D_DEFAULT_TEXTURE_SIZE ||
+    suffix !== '' ||
+    options.decodeBatch !== SF3D_OPTION_DEFAULTS.decodeBatch ||
+    value.anatomy !== SF3D_SETTINGS_DEFAULT.anatomy ||
+    value.facing !== SF3D_SETTINGS_DEFAULT.facing;
 
   return (
     <fieldset disabled={disabled} data-testid="sf3d-settings" className="flex flex-col gap-2 rounded-md border border-border/60 bg-card/40 p-2 disabled:opacity-60">
@@ -89,6 +109,44 @@ export function Sf3dSettings({
         value={String(value.textureSize)}
         onSelect={(id) => onChange({ ...value, textureSize: Number(id) as Sf3dTextureSize })}
       />
+      <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <span className="w-24 shrink-0" title="Auto-rig the finished model with this skeleton and add every animation it offers (idle, walk, run…). Static leaves it unrigged.">
+          Auto-rig
+        </span>
+        <select
+          aria-label="Anatomy"
+          data-testid="sf3d-anatomy"
+          value={value.anatomy}
+          onChange={(event) => onChange({ ...value, anatomy: event.target.value as ModelAnatomy })}
+          className={`${FIELD} min-w-0 flex-1`}
+        >
+          {MODEL_ANATOMIES.map((anatomy) => (
+            <option key={anatomy} value={anatomy}>
+              {anatomy === 'static' ? 'None (static)' : MODEL_ANATOMY_LABELS[anatomy]}
+            </option>
+          ))}
+        </select>
+      </label>
+      {value.anatomy !== 'static' ? (
+        <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <span className="w-24 shrink-0" title="The direction the subject faces in the picture, so the rig and its walk cycle point the right way.">
+            Facing
+          </span>
+          <select
+            aria-label="Facing"
+            data-testid="sf3d-facing"
+            value={value.facing}
+            onChange={(event) => onChange({ ...value, facing: event.target.value as ModelFacing })}
+            className={`${FIELD} min-w-0 flex-1`}
+          >
+            {MODEL_FACINGS.map((facing) => (
+              <option key={facing} value={facing}>
+                {facing}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <SwitchRow
         id="removeBackground"
         label="Remove background"

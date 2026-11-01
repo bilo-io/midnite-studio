@@ -17,13 +17,35 @@ import { useMemo, useState, type DragEvent } from 'react';
 import { LuInfo, LuSquare, LuX } from 'react-icons/lu';
 import { SiOllama } from 'react-icons/si';
 
-import { MediaPanelBody, MediaPanelFooter, MediaPanelLayout, RingSpinner as Spinner, BrandSlider } from '@midnite/studio-frame';
+import { MediaPanelBody, MediaPanelFooter, MediaPanelLayout, RingSpinner as Spinner, BrandSlider, SwitchRow } from '@midnite/studio-frame';
 
 import { ModelComposer } from './model-composer';
 import { useAgentRoster, type ModelPickerProvider } from './host';
 import { generateBlockedReason, pickOllamaModel, readImageAttachment, textModels, visionModels } from './model-utils';
 import { Sf3dPanel } from './sf3d-panel';
 import { useModelGeneration, useModelPrefs, useModelProviders, type ModelTier } from './use-model';
+
+/**
+ * The model open in the editor, offered to the prompt box as something to continue rather than replace
+ * (an SF3D result above all). `path` is the 3D file inside `project`; `referenceUrl` is the picture the
+ * model was made from, which the agent is given to compare against.
+ */
+export type ModelRefineTarget = {
+  project: string;
+  path: string;
+  name: string;
+  /** Made by SF3D — refining is the default for these, optional for the rest. */
+  sf3d: boolean;
+  referenceUrl: string | null;
+};
+
+/** Why a refine run is off, or `undefined` when it can run: it needs an agent that iterates and a request. */
+export function refineBlockedReason(input: { prompt: string; running: boolean; iterative: boolean }): string | undefined {
+  if (input.running) return 'Generating…';
+  if (!input.iterative) return 'Refining needs an agent that iterates — pick Claude Code or Codex in the engine picker.';
+  if (input.prompt.trim().length === 0) return 'Say what to change.';
+  return undefined;
+}
 
 /**
  * The right-hand panel of Media ▸ Models: the prompt box (with its engine
@@ -37,13 +59,28 @@ export function ModelPanel(props: {
   project: string;
   /** Fired with the new project/file once a run succeeds. */
   onGenerated: (project: string, primary: string) => void;
+  /** The model open in the editor, when it has a design to continue. */
+  refineTarget?: ModelRefineTarget | null;
 }) {
   const tier = useModelPrefs((s) => s.tier);
   const setPrefs = useModelPrefs((s) => s.set);
+  const { agents, primaryAgent } = useAgentRoster();
+  const { refineTarget, ...rest } = props;
+
+  // An SF3D run hands over to the normal prompt box: the next thing to do with its model is refine it with
+  // Claude (or Codex), so switch there and, if the engine picked is one-shot, to the primary agent.
+  const afterSf3d = (project: string, primary: string) => {
+    props.onGenerated(project, primary);
+    const agent = agents.find((a) => a.id === primaryAgent);
+    const iterates = agent !== undefined && agentHeadlessArgs(agent.id) !== null && agentIteratesModel(agent.id);
+    setPrefs({ tier: 'procedural', ...(iterates ? { engineId: agent.id } : {}) });
+  };
   return (
     <div className="flex h-full min-h-0 flex-col">
       <TierSwitch tier={tier} onChange={(next) => setPrefs({ tier: next })} />
-      <div className="flex min-h-0 flex-1 flex-col">{tier === 'sf3d' ? <Sf3dPanel {...props} /> : <ProceduralPanel {...props} />}</div>
+      <div className="flex min-h-0 flex-1 flex-col">
+        {tier === 'sf3d' ? <Sf3dPanel {...rest} onGenerated={afterSf3d} /> : <ProceduralPanel {...rest} refineTarget={refineTarget ?? null} />}
+      </div>
     </div>
   );
 }
@@ -81,10 +118,12 @@ function ProceduralPanel({
   repoId,
   project,
   onGenerated,
+  refineTarget,
 }: {
   repoId: string;
   project: string;
   onGenerated: (project: string, primary: string) => void;
+  refineTarget: ModelRefineTarget | null;
 }) {
   const [prompt, setPrompt] = useState('');
   const [image, setImage] = useState<ModelImageAttachment | null>(null);
@@ -111,14 +150,21 @@ function ProceduralPanel({
       : { kind: 'agent', agentId: engineId, ...(prefs.agentModel !== 'default' ? { model: prefs.agentModel } : {}) };
 
   const iterative = engine.kind === 'agent' && agentIteratesModel(engine.agentId);
-  const blocked = generateBlockedReason({
-    iterative,
-    prompt,
-    image,
-    running,
-    engine: { id: engineId, model: engineId === 'ollama' ? ollamaModel : prefs.agentModel },
-    providers: providers.data,
-  });
+
+  // Continue the open model instead of making a new one: on by default for an SF3D result, a choice for the rest.
+  const refineKey = refineTarget ? `${refineTarget.project}/${refineTarget.path}` : null;
+  const [refineChoice, setRefineChoice] = useState<{ key: string; on: boolean } | null>(null);
+  const refining = refineTarget !== null && (refineChoice?.key === refineKey ? refineChoice.on : refineTarget.sf3d);
+  const blocked = refining
+    ? refineBlockedReason({ prompt, running, iterative })
+    : generateBlockedReason({
+        iterative,
+        prompt,
+        image,
+        running,
+        engine: { id: engineId, model: engineId === 'ollama' ? ollamaModel : prefs.agentModel },
+        providers: providers.data,
+      });
 
   // Say in the picker itself which engines iterate (build, render, look, refine) and which answer once.
   const pickerProviders: ModelPickerProvider[] = [
@@ -155,12 +201,14 @@ function ProceduralPanel({
     if (blocked) return;
     generation.generate.mutate(
       {
-        project,
+        project: refining ? refineTarget.project : project,
         prompt: prompt.trim(),
         engine,
         ...(iterative ? { maxIterations: prefs.maxIterations } : {}),
-        ...(image ? { image } : {}),
-        ...(image && prefs.visionModel ? { visionModel: prefs.visionModel } : {}),
+        // A refined model is compared with its own source picture, so no new one rides along.
+        ...(refining ? { edit: { path: refineTarget.path } } : {}),
+        ...(image && !refining ? { image } : {}),
+        ...(image && !refining && prefs.visionModel ? { visionModel: prefs.visionModel } : {}),
       },
       {
         onSuccess: (result) => {
@@ -181,9 +229,9 @@ function ProceduralPanel({
 
   const live = generation.pending[0];
   const stage = live?.stage;
-  const ollamaDown = engineId === 'ollama' && ollama && !ollama.available;
-  const noTextModel = engineId === 'ollama' && ollama?.available && installedText.length === 0;
-  const noVision = image && !iterative && ollama?.available && installedVision.length === 0;
+  const ollamaDown = !refining && engineId === 'ollama' && ollama && !ollama.available;
+  const noTextModel = !refining && engineId === 'ollama' && ollama?.available && installedText.length === 0;
+  const noVision = image && !refining && !iterative && ollama?.available && installedVision.length === 0;
 
   return (
     <MediaPanelLayout
@@ -205,11 +253,47 @@ function ProceduralPanel({
       onDrop={onDrop}
     >
       <MediaPanelBody className="flex flex-col gap-3 p-3">
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          Describe an object — or attach a picture of one — and the engine designs it from boxes, spheres, cylinders and revolved
-          profiles. You get an <span className="font-medium text-foreground">.obj</span> and an{' '}
-          <span className="font-medium text-foreground">.fbx</span>.
-        </p>
+        {refineTarget ? (
+          <div data-testid="model-refine" data-refining={refining || undefined} className="flex flex-col gap-2 rounded-md border border-border/60 bg-card/40 p-2">
+            <div className="flex items-center gap-2">
+              {refineTarget.referenceUrl && refining ? (
+                <img
+                  alt="Source picture"
+                  data-testid="model-refine-reference"
+                  src={refineTarget.referenceUrl}
+                  className="h-12 w-12 shrink-0 rounded border border-border object-contain"
+                />
+              ) : null}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-medium text-foreground" title={refineTarget.name}>
+                  {refining ? 'Refining' : 'Selected'} · {refineTarget.name}
+                </p>
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  {refining
+                    ? refineTarget.referenceUrl
+                      ? 'Claude edits this model in place and compares each render with the picture it was made from. A textured mesh keeps its texture.'
+                      : 'Claude edits this model in place. A textured mesh keeps its texture.'
+                    : 'Turn on Refine to continue this model with the agent instead of starting a new one.'}
+                </p>
+              </div>
+            </div>
+            <SwitchRow
+              id="refine-selected"
+              label="Refine this model"
+              title="Edit the open model in place instead of generating a new one"
+              on={refining}
+              onToggle={(_id, on) => refineKey && setRefineChoice({ key: refineKey, on })}
+            />
+          </div>
+        ) : null}
+
+        {refining ? null : (
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Describe an object — or attach a picture of one — and the engine designs it from boxes, spheres, cylinders and revolved
+            profiles. You get an <span className="font-medium text-foreground">.obj</span> and an{' '}
+            <span className="font-medium text-foreground">.fbx</span>.
+          </p>
+        )}
 
         <div data-testid="model-engine-mode" data-mode={iterative ? 'iterative' : 'one-shot'} className="flex flex-col gap-1.5 rounded-md border border-border/60 bg-card/40 px-2 py-1.5 text-[11px] text-muted-foreground">
           {iterative ? (
@@ -244,7 +328,7 @@ function ProceduralPanel({
           )}
         </div>
 
-        {image ? (
+        {image && !refining ? (
           <div className="flex flex-col gap-2 rounded-md border border-border/60 bg-card/40 p-2" data-testid="model-image">
             <div className="flex items-center gap-2">
               <img
@@ -346,7 +430,7 @@ function ProceduralPanel({
 
       <MediaPanelFooter className="flex flex-col gap-2 border-t border-border/50 p-3">
         <div className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
-          Description
+          {refining ? 'What to change' : 'Description'}
           <ModelComposer
             ariaLabel="Description"
             value={prompt}
@@ -354,10 +438,10 @@ function ProceduralPanel({
             onDictation={(text) => setPrompt((current) => appendDictation(current, text))}
             onSend={onGenerate}
             canSend={!blocked}
-            sendTooltip={blocked ?? 'Generate (Cmd/Ctrl+Enter)'}
-            sendAriaLabel="Generate"
+            sendTooltip={blocked ?? (refining ? 'Refine (Cmd/Ctrl+Enter)' : 'Generate (Cmd/Ctrl+Enter)')}
+            sendAriaLabel={refining ? 'Refine' : 'Generate'}
             rows={5}
-            placeholder="A low-poly red fox sitting, with a bushy white-tipped tail"
+            placeholder={refining ? 'What should change? e.g. longer arms, add a red hat, match the picture’s colours' : 'A low-poly red fox sitting, with a bushy white-tipped tail'}
             testIdPrefix="model-prompt"
             picker={{
               testId: 'model-picker',
