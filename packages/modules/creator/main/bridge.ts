@@ -26,6 +26,8 @@ export type CreatorBridge = {
     // agents); `onChanged`/`onOpen` are the MCP server's, which Creator does not run, so they never fire.
     music: Pick<Media['music'], 'list' | 'read' | 'write' | 'import' | 'delete' | 'export' | 'sendToGenerator' | 'onChanged' | 'onOpen'>;
     doc: Pick<Media['doc'], 'export'>;
+    // Media ▸ SFX's whole surface; Creator's main answers it with the unavailable reason (no SFX worker).
+    sfx: Media['sfx'];
   };
 };
 
