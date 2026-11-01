@@ -10,6 +10,7 @@ import {
   SFX_REVISION,
 } from '@midnite/studio-shared';
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { LuDownload, LuTriangleAlert } from 'react-icons/lu';
 
 import { FrameModal } from '@midnite/studio-frame';
@@ -37,7 +38,9 @@ export function SfxConsentDialog({
   const [revenue, setRevenue] = useState(false);
   const limit = `US$${SFX_REVENUE_LIMIT_USD.toLocaleString('en-US')}`;
 
-  return (
+  // Portalled to <body>: the SFX panel sits inside the media layout's stacking context, which would trap the
+  // modal's fixed overlay inside the detail column (SF3D's consent dialog does the same).
+  return createPortal(
     <FrameModal open={open} onClose={onClose} title={SFX_LICENCE_NAME} size="lg" scope="window" testId="sfx-consent">
       <div className="flex max-h-[inherit] flex-col gap-3 p-4 text-xs">
         <h2 className="text-sm font-semibold text-foreground">Set up Stable Audio Open Small — {SFX_LICENCE_NAME}</h2>
@@ -62,7 +65,7 @@ export function SfxConsentDialog({
         <pre
           data-testid="sfx-licence-text"
           tabIndex={0}
-          className="min-h-[120px] flex-1 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed text-foreground"
+          className="max-h-[40vh] min-h-[120px] flex-1 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed text-foreground"
         >
           {SFX_LICENCE_TEXT}
         </pre>
@@ -90,6 +93,7 @@ export function SfxConsentDialog({
           </button>
         </div>
       </div>
-    </FrameModal>
+    </FrameModal>,
+    document.body,
   );
 }
