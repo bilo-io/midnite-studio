@@ -108,3 +108,22 @@ describe('midnite PR skill family copies', () => {
     });
   }
 });
+
+// `midnite-sanitize` ships in the repo's three mirrors with its scanner beside it. The scanner is
+// byte-identical everywhere; the SKILL.md copies drop the Claude-only frontmatter keys and carry
+// the argument hint as an "**Invoke with:**" line instead, like `midnite-triage`.
+describe('midnite-sanitize skill copies', () => {
+  const dir = (copy) => join(root, copy, 'skills', 'midnite-sanitize');
+  const withoutInvokeLine = (text) => text.replace(/^\n\*\*Invoke with:\*\* .*\n/m, '');
+
+  for (const copy of ['.agents', '.codex']) {
+    it(`${copy} matches .claude`, () => {
+      const scanner = readFileSync(join(dir('.claude'), 'scan.py'));
+      expect(readFileSync(join(dir(copy), 'scan.py')).equals(scanner), `${copy} scan.py differs`).toBe(true);
+      const reference = withoutClaudeOnlyKeys(readFileSync(join(dir('.claude'), 'SKILL.md'), 'utf8'));
+      const mirror = readFileSync(join(dir(copy), 'SKILL.md'), 'utf8');
+      expect(mirror).toContain('**Invoke with:** ');
+      expect(withoutInvokeLine(mirror)).toBe(reference);
+    });
+  }
+});
