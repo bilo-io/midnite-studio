@@ -85,6 +85,24 @@ describe('scripts/sync-assets.mjs — dispatches on video.config.json', () => {
     expect(existsSync(join(mirror, 'input', 'clip.mp4'))).toBe(true);
   });
 
+  it("mirrors Media ▸ SFX's .wav takes from the sibling store, never their sidecars, into media-sfx/", async () => {
+    for (const engine of ['remotion', 'hyperframes'] as const) {
+      const root = await workspace(engine);
+      const sfx = join(root, '..', 'sfx', 'zaps');
+      mkdirSync(sfx, { recursive: true });
+      writeFileSync(join(sfx, 'laser-zap.wav'), 'RIFF');
+      writeFileSync(join(sfx, 'laser-zap.json'), '{}');
+      expect(node(root, 'scripts/sync-assets.mjs').status).toBe(0);
+      const mirror =
+        engine === 'remotion'
+          ? join(root, 'video-editor', 'public', 'media-sfx', 'zaps')
+          : join(root, 'hyperframes-editor', 'projects', 'example', '000-hello', 'assets', 'media-sfx', 'zaps');
+      expect(existsSync(join(mirror, 'laser-zap.wav')), engine).toBe(true);
+      expect(existsSync(join(mirror, 'laser-zap.json')), engine).toBe(false);
+      rmSync(tmp!, { recursive: true, force: true });
+    }
+  });
+
   it('a workspace with no video.config.json is Remotion (pre-engine workspaces keep working)', async () => {
     const root = await workspace('remotion');
     rmSync(join(root, 'video.config.json'));

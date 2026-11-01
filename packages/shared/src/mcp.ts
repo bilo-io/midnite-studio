@@ -98,6 +98,7 @@ import {
   ModelSf3dStatusInputSchema,
   ModelSf3dStatusResultSchema,
 } from './media-model-mcp';
+import { SfxMcpGenerateInputSchema, SfxMcpGenerateResultSchema, SfxMcpStatusInputSchema, SfxMcpStatusResultSchema } from './media-sfx-mcp';
 import {
   TerrainMcpBuildResultSchema,
   TerrainEditResultSchema,
@@ -332,6 +333,8 @@ type McpToolEntry = {
     | 'music_add_track'
     | 'music_save'
     | 'music_render_preview'
+    | 'sfx_status'
+    | 'sfx_generate'
     | 'companion_settings_get'
     | 'companion_settings_set'
     | 'companion_voices_list'
@@ -1549,6 +1552,30 @@ export const MCP_TOOLS = {
     input: MusicRenderPreviewInputSchema,
     output: MusicRenderPreviewResultSchema,
     readOnly: true,
+  },
+  /*
+   * Media ▸ SFX (Stable Audio Open Small): sound effects for a game or a video, made locally. The status
+   * answers whenever the server is on; a generation writes files, so it sits behind Audio's switch
+   * (`Settings ▸ MCP ▸ Let agents edit music`). Neither can install the model or accept its licence — a
+   * not-ready model answers a hint telling the agent to ask the user. Schemas: `media-sfx-mcp.ts`.
+   */
+  sfx_status: {
+    id: 'sfx_status',
+    title: 'Sound-effect engine status',
+    description:
+      'Reports whether local Stable Audio Open Small is installed and how an `sfx_generate` run is going — call it before generating, and poll a run until it lists its `.wav` files.',
+    input: SfxMcpStatusInputSchema,
+    output: SfxMcpStatusResultSchema,
+    readOnly: true,
+  },
+  sfx_generate: {
+    id: 'sfx_generate',
+    title: 'Generate sound effects',
+    description:
+      'Starts a local run that turns a text prompt into sound-effect takes in Media ▸ SFX — use instead of a synth script or a download; returns a generationId at once, poll `sfx_status`.',
+    input: SfxMcpGenerateInputSchema,
+    output: SfxMcpGenerateResultSchema,
+    readOnly: false,
   },
   /*
    * The companion's own settings (Phase 109 Theme D), so an agent can change

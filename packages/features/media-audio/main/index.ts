@@ -26,6 +26,7 @@ export { createMusicService, songNameFromFile, type MusicService, type MusicServ
 export { AudioProviderError, type AudioProvider, type ProducedAudio } from './types';
 export { createSfxInstaller, type SfxInstaller } from './sfx/installer';
 export { createSfxBroker, sfxWorkerScriptPath, SFX_IDLE_MS, type SfxBroker, type SfxWorkerHandle } from './sfx/sfx-broker';
+export { createSfxMcpTools, type SfxMcpDeps, type SfxMcpTools } from './sfx/sfx-mcp';
 export { createSfxService, sfxStem, unavailableSfx, type SfxService } from './sfx/sfx-service';
 export type { SfxWorkerIn, SfxWorkerOut } from './sfx/worker-protocol';
 

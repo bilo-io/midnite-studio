@@ -124,6 +124,7 @@ import {
   tilesetGenerate,
 } from './sprite-tools';
 import { mapCaptureTerrain, mapGoto, mapList, mapMeasure } from './map-tools';
+import { sfxGenerate, sfxStatus } from './sfx-tools';
 import { musicAddCc, musicAddNotes, musicAddPitchbends, musicAddTrack, musicGetInfo, musicGetNotes, musicGetTrack, musicGetTracks, musicList, musicOpen, musicRemoveNotes, musicRenderPreview, musicSave, musicSetTempo } from './music-tools';
 
 /**
@@ -250,6 +251,8 @@ export const MCP_HANDLERS: {
   music_add_track: musicAddTrack,
   music_save: musicSave,
   music_render_preview: musicRenderPreview,
+  sfx_status: sfxStatus,
+  sfx_generate: sfxGenerate,
   companion_settings_get: companionSettingsGet,
   companion_settings_set: companionSettingsSet,
   companion_voices_list: companionVoicesList,

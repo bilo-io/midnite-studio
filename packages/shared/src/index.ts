@@ -67,6 +67,7 @@ export * from './media-model-sf3d';
 export * from './media-model-sf3d-licence';
 export * from './media-sfx';
 export * from './media-sfx-licence';
+export * from './media-sfx-mcp';
 export * from './media-sprite';
 export * from './media-map-capture';
 export * from './media-terrain';

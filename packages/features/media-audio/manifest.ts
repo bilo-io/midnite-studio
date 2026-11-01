@@ -53,7 +53,7 @@ export const mediaAudioManifest = defineFeatureManifest({
   events: [EVENT_CHANNELS.mediaAudioProgress, EVENT_CHANNELS.mediaAudioEngineProgress, EVENT_CHANNELS.mediaGmProgress, EVENT_CHANNELS.mediaSfxProgress],
   // The `music_*` tools an agent edits songs with. Creator owns them (`FEATURE_PACKAGE_SPLITS`), so a
   // Creator-only install lists them and an Agents-only one does not. Their handlers stay with the MCP
-  // server (Studio's `main/mcp`); only ownership lives here.
+  // server (Studio's `main/mcp`); only ownership lives here. `sfx_*` are Media ▸ SFX's, the same way.
   mcpTools: [
     'music_list',
     'music_open',
@@ -69,6 +69,8 @@ export const mediaAudioManifest = defineFeatureManifest({
     'music_add_track',
     'music_save',
     'music_render_preview',
+    'sfx_status',
+    'sfx_generate',
   ],
 });
 

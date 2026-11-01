@@ -5,6 +5,7 @@ import { utilityProcess } from 'electron';
 
 import {
   createSfxBroker,
+  createSfxMcpTools,
   createSfxInstaller,
   createSfxService,
   sfxWorkerScriptPath,
@@ -14,6 +15,8 @@ import {
 } from '@midnite/studio-feature-media-audio/main';
 import { EVENT_CHANNELS, failure, type SfxProgressEvent, type SfxRequest } from '@midnite/studio-shared';
 
+import { setSfxTools } from '../mcp/sfx-tools';
+import { resolveRegisteredRepo } from '../mcp/tools';
 import { broadcastToAllWindows } from '../window-manager';
 import { mediaStore, notifyMediaChanged } from './media-handlers';
 import { readSecret } from './secrets-handlers';
@@ -27,6 +30,9 @@ import { readSecret } from './secrets-handlers';
 let service: SfxService | null = null;
 let broker: SfxBroker | null = null;
 let runtime: boolean | null = null;
+/** The latest event per generation, for `sfx_status` — capped so a long session cannot grow it. */
+const generations = new Map<string, Extract<SfxProgressEvent, { kind: 'generate' }>>();
+const GENERATIONS_KEPT = 50;
 
 /** Whether `onnxruntime-node` resolves through `@huggingface/transformers` — checked once, lazily, never loaded here. */
 function runtimeAvailable(): boolean {
@@ -52,14 +58,32 @@ export function configureSfx(userData: string): void {
     writeBytes: (req) => mediaStore.writeBytes(req),
     emit: (event: SfxProgressEvent) => {
       broadcastToAllWindows(EVENT_CHANNELS.mediaSfxProgress, event);
+      if (event.kind === 'generate') {
+        generations.delete(event.generationId);
+        generations.set(event.generationId, event);
+        // Over the cap there is always a first key: the oldest run, dropped.
+        if (generations.size > GENERATIONS_KEPT) generations.delete(generations.keys().next().value!);
+      }
       if (event.kind === 'generate' && event.status === 'succeeded') notifyMediaChanged(event.repoId, 'sfx');
     },
     disposeEngine: () => engine.dispose(),
     runtimeAvailable,
   });
+  setSfxTools(
+    createSfxMcpTools({
+      handle: (req) => handleSfx(req),
+      resolveRepo: async (repoPath) => {
+        const resolved = await resolveRegisteredRepo(repoPath);
+        if (resolved.ok) return { ok: true, repoId: resolved.repo.descriptor.id };
+        return { ok: false, kind: resolved.error.kind === 'not-found' ? 'not-found' : 'refused', message: resolved.error.message };
+      },
+      generation: (id) => generations.get(id),
+    }),
+  );
 }
 
 export function disposeSfx(): void {
+  setSfxTools(null);
   broker?.dispose();
 }
 
