@@ -13,6 +13,12 @@
  *     assets/<kind>/…                →  <project>/assets/<kind>/…   <img src="assets/logos/acme/mark.svg">
  *     projects/<id>/input/<media>    →  <project>/assets/input/…    <video src="assets/input/x.mp4">
  *
+ * Media ▸ SFX's takes are mirrored too, when the video root sits in a repo's media store beside them
+ * (`.midnite/media/video` next to `.midnite/media/sfx`) — only the `.wav` takes, never their sidecars:
+ *     ../sfx/<project>/<take>.wav    →  public/media-sfx/…           staticFile("media-sfx/zaps/laser-zap.wav")
+ *                                    →  <project>/assets/media-sfx/… <audio src="assets/media-sfx/zaps/laser-zap.wav">
+ * `media-sfx/`, not `sfx/`, so a shared `assets/sfx/` kind of your own never collides with it.
+ *
  * A project **id is a path**, not a single segment: this repo files videos as
  * `<brand>/<category>/<NNN-name>` (e.g. `acme/marketing/000-example`), so a
  * project is "any directory under projects/ containing a project.json" and its
@@ -103,6 +109,14 @@ const syncShared = (mirror) => {
   for (const f of walk(assets)) mirror.sync(f, relative(assets, f));
 };
 
+/** Media ▸ SFX's store, the video root's sibling — present only when the root is `.midnite/media/video`. */
+const sfx = join(ROOT, "..", "sfx");
+const syncSfx = (mirror) => {
+  if (!existsSync(sfx)) return;
+  console.log("../sfx/ (Media ▸ SFX)");
+  for (const f of walk(sfx)) if (/\.wav$/i.test(f)) mirror.sync(f, join("media-sfx", relative(sfx, f)));
+};
+
 const syncInput = (mirror, id, prefix) => {
   const input = join(projectsDir, id, "input");
   if (!existsSync(input)) return;
@@ -119,6 +133,7 @@ if (ENGINE === "hyperframes") {
     if (!existsSync(join(projectApp, "index.html"))) continue;
     const mirror = makeMirror(join(projectApp, "assets"));
     syncShared(mirror);
+    syncSfx(mirror);
     syncInput(mirror, id, "input");
     mirror.pruneStale();
     mirrored++;
@@ -127,6 +142,7 @@ if (ENGINE === "hyperframes") {
 } else {
   const mirror = makeMirror(join(APP, "public"));
   syncShared(mirror);
+  syncSfx(mirror);
   for (const id of projects) syncInput(mirror, id, join("projects", id));
   mirror.pruneStale();
   console.log(`${copied} copied, ${skipped} up to date → video-editor/public/`);
