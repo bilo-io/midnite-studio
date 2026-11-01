@@ -12,7 +12,7 @@ import {
   type SfxStatus,
 } from '@midnite/studio-shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { bridge, noBridge, reportFailure, useMediaKit } from '@midnite/studio-frame';
 
@@ -36,6 +36,10 @@ export function useSfx(repoId: string | null) {
   const [progress, setProgress] = useState<SfxInstallProgress | null>(null);
   const [running, setRunning] = useState<SfxRunning | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
+  /** The generation this panel started, if any — events for any other id only mark the engine busy. */
+  const ownId = useRef<string | null>(null);
+  /** Runs this panel did not start that are still going — another repo or window, or an agent. */
+  const [others, setOthers] = useState<ReadonlySet<string>>(() => new Set());
 
   const status = useQuery<SfxStatus | undefined>({
     queryKey: SFX_KEYS.status,
@@ -55,21 +59,32 @@ export function useSfx(repoId: string | null) {
         }
         return;
       }
-      if (event.repoId !== repoId) return;
-      if (event.status === 'running') {
-        setRunning((current) => ({
-          generationId: event.generationId,
-          project: event.project,
-          stage: event.stage ?? current?.stage ?? 'loading',
-          ...(event.fraction !== undefined ? { fraction: event.fraction } : {}),
-          ...(event.variation !== undefined ? { variation: event.variation } : {}),
-          ...(event.variations !== undefined ? { variations: event.variations } : {}),
-        }));
+      if (event.generationId === ownId.current) {
+        // Only this panel's own run drives `running`; the mutation clears it when the call returns.
+        if (event.status === 'running') {
+          setRunning((current) => ({
+            generationId: event.generationId,
+            project: event.project,
+            stage: event.stage ?? current?.stage ?? 'loading',
+            ...(event.fraction !== undefined ? { fraction: event.fraction } : {}),
+            ...(event.variation !== undefined ? { variation: event.variation } : {}),
+            ...(event.variations !== undefined ? { variations: event.variations } : {}),
+          }));
+        }
       } else {
-        setRunning(null);
+        // Someone else's run — another repo, window or an agent: the engine is busy until it ends.
+        setOthers((current) => {
+          if ((event.status === 'running') === current.has(event.generationId)) return current;
+          const next = new Set(current);
+          if (event.status === 'running') next.add(event.generationId);
+          else next.delete(event.generationId);
+          return next;
+        });
       }
-      // A take written by an agent through the MCP tools shows up as well as one made here.
-      if (event.status === 'succeeded' || (event.files?.length ?? 0) > 0) void client.invalidateQueries({ queryKey: keys.tab(event.repoId, 'sfx') });
+      // A take written elsewhere (an agent, another window) shows up as well as one made here.
+      if (event.repoId === repoId && (event.status === 'succeeded' || (event.files?.length ?? 0) > 0)) {
+        void client.invalidateQueries({ queryKey: keys.tab(event.repoId, 'sfx') });
+      }
     });
     return () => off?.();
   }, [client, keys, repoId]);
@@ -119,9 +134,13 @@ export function useSfx(repoId: string | null) {
       if (!repoId) return noBridge<SfxGenerateResult>();
       const generationId = `sfx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       setLastError(null);
+      ownId.current = generationId;
       setRunning({ generationId, project: input.project, stage: 'loading' });
       const result = (await bridge()?.media.sfx.generate({ ...input, generationId, repoId })) ?? noBridge<SfxGenerateResult>();
-      setRunning(null);
+      if (ownId.current === generationId) {
+        ownId.current = null;
+        setRunning(null);
+      }
       if (!result.ok && !cancelled(result)) {
         setLastError(result.kind === 'error' ? result.message : 'Stable Audio Open Small failed.');
         reportFailure(result);
@@ -137,7 +156,9 @@ export function useSfx(repoId: string | null) {
   };
 
   const installing = consentAndInstall.isPending || install.isPending || status.data?.state === 'installing';
-  return { status, progress, installing, running, lastError, consentAndInstall, install, cancelInstall, uninstall, generate, cancelGenerate };
+  /** True while a generation this panel did not start is running — the broker would queue a new take behind it. */
+  const busy = others.size > 0;
+  return { status, progress, installing, running, busy, lastError, consentAndInstall, install, cancelInstall, uninstall, generate, cancelGenerate };
 }
 
 const takeUrl = (repoId: string, project: string, path: string) => mstudioFileUrl('repo', repoId, `${MEDIA_ROOT_DIR}/sfx/${project}/${path}`);

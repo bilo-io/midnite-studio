@@ -6,6 +6,7 @@ import type { SfxWorkerIn, SfxWorkerOut } from './worker-protocol';
 
 const take = { prompt: 'zap', negativePrompt: '', seconds: 1, steps: 8, cfgScale: 1, seed: 1 };
 
+/** A real `utilityProcess` exits asynchronously after `kill()`, so the fake does too. */
 function fakeWorker(reply: (msg: SfxWorkerIn, post: (m: SfxWorkerOut) => void) => void) {
   const listeners: { message: Array<(m: unknown) => void>; exit: Array<(c: number) => void> } = { message: [], exit: [] };
   const handle: SfxWorkerHandle & { killed: boolean; posted: SfxWorkerIn[] } = {
@@ -18,7 +19,7 @@ function fakeWorker(reply: (msg: SfxWorkerIn, post: (m: SfxWorkerOut) => void) =
     on: ((event: 'message' | 'exit', l: never) => listeners[event].push(l)) as SfxWorkerHandle['on'],
     kill: () => {
       handle.killed = true;
-      listeners.exit.forEach((l) => l(0));
+      setTimeout(() => listeners.exit.forEach((l) => l(0)), 0);
     },
   };
   return handle;
@@ -96,5 +97,53 @@ describe('SFX broker', () => {
     timers.at(-1)!();
     expect(workers[0]!.killed).toBe(true);
     expect(broker.running()).toBe(false);
+  });
+
+  it('a killed worker’s late exit never fails the take queued behind it on the next worker', async () => {
+    const workers: ReturnType<typeof fakeWorker>[] = [];
+    const broker = createSfxBroker({
+      spawn: () => {
+        // The first worker never answers; the second answers only after the first has exited.
+        const w = fakeWorker(workers.length === 0 ? () => undefined : (msg, post) => setTimeout(() => okReply(msg, post), 5));
+        workers.push(w);
+        return w;
+      },
+    });
+    const a = new AbortController();
+    const first = broker.run({ assetsDir: '/a', take }, { signal: a.signal, onStage: () => undefined });
+    const second = broker.run({ assetsDir: '/a', take }, { signal: new AbortController().signal, onStage: () => undefined });
+    await Promise.resolve();
+    a.abort();
+    await expect(first).rejects.toThrow('cancelled');
+    await expect(second).resolves.toMatchObject({ sampleRate: 44_100 });
+    expect(workers).toHaveLength(2);
+    broker.dispose();
+  });
+
+  it('dispose fails every outstanding take and ends the worker', async () => {
+    let worker: ReturnType<typeof fakeWorker> | null = null;
+    const broker = createSfxBroker({ spawn: () => (worker = fakeWorker(() => undefined)) });
+    const run = broker.run({ assetsDir: '/a', take }, { signal: new AbortController().signal, onStage: () => undefined });
+    await Promise.resolve();
+    broker.dispose();
+    await expect(run).rejects.toThrow(/stopped unexpectedly/);
+    expect(worker!.killed).toBe(true);
+    expect(broker.running()).toBe(false);
+  });
+
+  it('ends the worker after it answers an error, so the next take starts on a fresh one', async () => {
+    const workers: ReturnType<typeof fakeWorker>[] = [];
+    const broker = createSfxBroker({
+      spawn: () => {
+        const w = fakeWorker(workers.length === 0 ? (msg, post) => post({ type: 'reply', id: msg.id, ok: false, message: 'bad shape' }) : okReply);
+        workers.push(w);
+        return w;
+      },
+    });
+    await expect(broker.run({ assetsDir: '/a', take }, { signal: new AbortController().signal, onStage: () => undefined })).rejects.toThrow('bad shape');
+    expect(workers[0]!.killed).toBe(true);
+    await expect(broker.run({ assetsDir: '/a', take }, { signal: new AbortController().signal, onStage: () => undefined })).resolves.toBeTruthy();
+    expect(workers).toHaveLength(2);
+    broker.dispose();
   });
 });

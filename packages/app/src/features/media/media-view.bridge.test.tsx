@@ -24,7 +24,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('MediaTabStrip', () => {
-  it('renders ten icon tabs (Library last) and the label only on the active one', () => {
+  it('renders eleven icon tabs (Library last) and the label only on the active one', () => {
     open();
     const tabs = screen.getAllByRole('tab');
     expect(tabs.map((t) => t.getAttribute('aria-label'))).toEqual(['Docs', 'Images', 'Video', 'Audio', 'SFX', 'Maps', 'Terrain', 'Models', 'Sprites', 'Games', 'Library']);

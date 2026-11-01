@@ -159,3 +159,28 @@ describe('unavailableSfx', () => {
     expect((await handle({ op: 'install' })).ok).toBe(false);
   });
 });
+
+describe('SFX service — uninstall', () => {
+  it('cancels a running generation, ends the engine, and only then deletes the files', async () => {
+    const order: string[] = [];
+    const { service, deps } = setup({
+      run: (_req, opts) =>
+        new Promise((_resolve, reject) =>
+          opts.signal.addEventListener('abort', () => {
+            order.push('abort');
+            reject(new Error('cancelled'));
+          }),
+        ),
+      disposeEngine: vi.fn(() => order.push('disposeEngine')),
+    });
+    vi.mocked(deps.installer.uninstall).mockImplementation(async () => {
+      order.push('uninstall');
+      return ok({ state: 'not-installed', consent: null, bytesOnDisk: 0, totalBytes: 1 });
+    });
+    const generating = service.generate(request);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await service.uninstall();
+    expect(order).toEqual(['abort', 'disposeEngine', 'uninstall']);
+    await expect(generating).resolves.toMatchObject({ ok: false, message: 'cancelled' });
+  });
+});

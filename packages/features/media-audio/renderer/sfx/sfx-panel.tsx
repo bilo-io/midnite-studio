@@ -96,7 +96,10 @@ export function SfxPanel({
   const installed = status?.state === 'installed' && sfxConsentIsCurrent(status.consent);
   const running = sfx.running !== null || sfx.generate.isPending;
   const checked = toSfxRequest(form);
-  const blocked = sfxBlockedReason(status, form.prompt, running) ?? ('error' in checked ? checked.error : null);
+  const blocked =
+    sfxBlockedReason(status, form.prompt, running) ??
+    (sfx.busy ? 'Another sound is being generated (another window, repository or an agent) — this one can start when it ends.' : null) ??
+    ('error' in checked ? checked.error : null);
   const progress = sfx.installing ? sfx.progress : null;
   const total = status?.totalBytes || SFX_DOWNLOAD_BYTES;
   const partial = !installed && !sfx.installing && (status?.bytesOnDisk ?? 0) > 0 && sfxConsentIsCurrent(status?.consent ?? null);
@@ -159,6 +162,17 @@ export function SfxPanel({
               <LuDownload aria-hidden className="h-3.5 w-3.5" />
               {partial ? `Resume install (${formatBytes(status.bytesOnDisk)} of ${formatBytes(total)})` : `Set up Stable Audio Open Small (${formatBytes(total)})…`}
             </button>
+            {partial ? (
+              <button
+                type="button"
+                data-testid="sfx-discard"
+                onClick={() => sfx.uninstall.mutate()}
+                disabled={sfx.uninstall.isPending}
+                className="self-start text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              >
+                Discard the partial download
+              </button>
+            ) : null}
             {status.error ? (
               <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive">
                 {status.error}

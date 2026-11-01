@@ -13,6 +13,7 @@ const hook = {
   progress: null,
   installing: false,
   running: null,
+  busy: false,
   lastError: null,
   consentAndInstall: { mutate: vi.fn(), isPending: false },
   install: { mutate: vi.fn(), isPending: false },
@@ -65,6 +66,17 @@ describe('SfxPanel', () => {
     fireEvent.click(screen.getByTestId('sfx-setup'));
     expect(hook.install.mutate).toHaveBeenCalled();
     expect(screen.queryByTestId('sfx-consent-accept')).toBeNull();
+    fireEvent.click(screen.getByTestId('sfx-discard'));
+    expect(hook.uninstall.mutate).toHaveBeenCalled();
+  });
+
+  it('blocks Generate while a run it did not start is going', () => {
+    hook.busy = true;
+    withStatus({ state: 'installed', consent, bytesOnDisk: 1, totalBytes: 1 });
+    fireEvent.change(screen.getByTestId('sfx-prompt'), { target: { value: 'zap' } });
+    expect(screen.getByTestId('sfx-generate')).toHaveProperty('disabled', true);
+    expect(screen.getByTestId('sfx-generate').getAttribute('title')).toMatch(/Another sound is being generated/);
+    hook.busy = false;
   });
 
   it('installed: the negative prompt waits for guidance, and Generate sends every knob', () => {

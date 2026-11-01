@@ -11,9 +11,9 @@ import type { SfxWorkerIn, SfxWorkerOut } from './worker-protocol';
  * everything outstanding settled when the child exits so no caller hangs, and **a cancel kills the child** (an
  * ONNX `run` cannot be interrupted from inside; the next take forks a fresh worker).
  *
- * One addition: **an idle worker is ended.** The three graphs hold ~3 GB resident; keeping them after the last
- * take would tax a machine that is also running agents and builds, so the child is killed `idleMs` after its
- * last reply and the next take pays a couple of seconds to reload. `electron` is reached through the injected
+ * Two additions, both because the three graphs hold ~3 GB resident: **an idle worker is ended** `idleMs` after
+ * its last reply (the next take pays a couple of seconds to reload), and **a worker that answered an error is
+ * ended** (a failed run's native memory is freed only by GC). `electron` is reached through the injected
  * `spawn`, so this file stays testable under bare vitest.
  */
 export type SfxWorkerHandle = {
@@ -40,7 +40,8 @@ export function createSfxBroker(options: { spawn: () => SfxWorkerHandle; idleMs?
   const setTimer = options.setTimer ?? setTimeout;
   const clearTimer = options.clearTimer ?? clearTimeout;
   let child: SfxWorkerHandle | null = null;
-  const pending = new Map<string, { onMessage: (m: SfxWorkerOut) => void; onExit: () => void }>();
+  /** Each entry remembers the child it was posted to: a killed child's exit arrives later, after a queued take may already run on its successor. */
+  const pending = new Map<string, { worker: SfxWorkerHandle; onMessage: (m: SfxWorkerOut) => void; onExit: () => void }>();
   let lane: Promise<unknown> = Promise.resolve();
   let idle: ReturnType<typeof setTimeout> | null = null;
 
@@ -67,8 +68,11 @@ export function createSfxBroker(options: { spawn: () => SfxWorkerHandle; idleMs?
     });
     next.on('exit', () => {
       if (child === next) child = null;
-      for (const entry of [...pending.values()]) entry.onExit();
-      pending.clear();
+      for (const [id, entry] of [...pending]) {
+        if (entry.worker !== next) continue;
+        pending.delete(id);
+        entry.onExit();
+      }
     });
     child = next;
     return next;
@@ -88,13 +92,20 @@ export function createSfxBroker(options: { spawn: () => SfxWorkerHandle; idleMs?
       opts.signal.addEventListener('abort', onAbort, { once: true });
       const done = () => opts.signal.removeEventListener('abort', onAbort);
       pending.set(id, {
+        worker,
         onMessage: (m) => {
           if (m.type === 'stage') return opts.onStage(m.stage, m.fraction);
           pending.delete(id);
           done();
-          armIdle();
-          if (m.ok) resolve({ channels: m.channels, sampleRate: m.sampleRate });
-          else reject(new Error(m.message));
+          if (m.ok) {
+            armIdle();
+            resolve({ channels: m.channels, sampleRate: m.sampleRate });
+          } else {
+            // A failed run can leave ~3 GB of native session memory that only GC would free: end the child, and
+            // the next take forks a clean one.
+            kill();
+            reject(new Error(m.message));
+          }
         },
         onExit: () => {
           done();

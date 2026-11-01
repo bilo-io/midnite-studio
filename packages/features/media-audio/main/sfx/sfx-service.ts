@@ -112,6 +112,7 @@ export function createSfxService(deps: SfxServiceDeps) {
       const label = req.name ?? req.prompt;
       for (let v = 0; v < variations; v += 1) {
         const variation = v + 1;
+        const takeStarted = Date.now();
         const overall = (stage: SfxGenerateStage, fraction = 0) => {
           const [a, b] = STAGE_SPAN[stage];
           return Math.min(1, (v + a + (b - a) * fraction) / variations);
@@ -143,7 +144,7 @@ export function createSfxService(deps: SfxServiceDeps) {
           channels: result.channels.length || SFX_CHANNELS,
           model: { name: SFX_MODEL_LABEL, repo: SFX_REPO, revision: SFX_REVISION, upstream: SFX_UPSTREAM_MODEL },
           createdAt: createdAt.toISOString(),
-          elapsedMs: Date.now() - started,
+          elapsedMs: Date.now() - takeStarted,
         };
         const scope = { repoId: req.repoId, tab: 'sfx' as const, project: req.project };
         const wrote = await deps.writeBytes({ ...scope, path: wav, data: encodeStereoWav(result.channels, result.sampleRate) });
