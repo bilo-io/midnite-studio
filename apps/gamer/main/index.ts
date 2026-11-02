@@ -103,6 +103,17 @@ async function pickTiledMap(): Promise<string | null> {
   return picked.canceled || !picked.filePaths[0] ? null : picked.filePaths[0];
 }
 
+/** The Animations tab's pickers (Phase 125): clip files, or one folder of them. */
+async function pickAnimationPaths(kind: 'files' | 'folder'): Promise<string[] | null> {
+  const options = {
+    title: kind === 'files' ? 'Import animation clips' : 'Import a folder of animation clips',
+    ...(kind === 'files' ? { filters: [{ name: 'Animation clips', extensions: ['fbx', 'glb', 'gltf', 'bvh'] }] } : {}),
+    properties: (kind === 'files' ? ['openFile', 'multiSelections'] : ['openDirectory']) as Array<'openFile' | 'multiSelections' | 'openDirectory'>,
+  };
+  const picked = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+  return picked.canceled ? null : picked.filePaths;
+}
+
 /** Where the bundle carries what the games need: beside `main.cjs` when packaged, in the tree in dev. */
 const bundled = (name: string, dev: string[]): string => {
   const beside = join(__dirname, name);
@@ -189,6 +200,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       revealPath: (target) => shell.showItemInFolder(target),
       pickSavePath,
       pickTiledMap,
+      pickAnimationPaths,
       ffmpegStatus,
       fetch: (url, init) => net.fetch(url, init),
       userAgent: `MidniteGamer/${app.getVersion()} (+https://github.com/bilo-io/midnite-apps)`,

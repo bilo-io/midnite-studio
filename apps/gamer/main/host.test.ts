@@ -31,6 +31,7 @@ function setup() {
     revealPath: () => undefined,
     pickSavePath: async () => null,
     pickTiledMap: async () => null,
+    pickAnimationPaths: async () => null,
     vaultDirectory: join(dir, 'runtime'),
     pairing: () => null,
     hasWindow: () => false,

@@ -20,11 +20,12 @@ describe('createGamerBridge', () => {
     expect(Object.keys(bridge).sort()).toEqual(['games', 'media', 'report']);
     expect(Object.keys(bridge.report).sort()).toEqual(['bundle', 'copy', 'error', 'ghStatus', 'logPath', 'onOpen', 'openUrl', 'reveal', 'submitIssue']);
     expect(Object.keys(bridge.media).sort()).toEqual(
-      ['cancelExport', 'export', 'ffmpegStatus', 'file', 'map', 'model', 'onChanged', 'onExportProgress', 'project', 'reveal', 'sprite', 'terrain'].sort(),
+      ['animation', 'cancelExport', 'export', 'ffmpegStatus', 'file', 'map', 'model', 'onChanged', 'onExportProgress', 'project', 'reveal', 'sprite', 'terrain'].sort(),
     );
     expect(Object.keys(bridge.media.model).sort()).toEqual(
       ['cancel', 'export', 'generate', 'library', 'mesh', 'onChanged', 'onOpen', 'onProgress', 'providers', 'saveEdit', 'sf3d'].sort(),
     );
+    expect(Object.keys(bridge.media.animation).sort()).toEqual(['importBytes', 'importFiles', 'importFolder', 'list', 'onChanged', 'onProgress', 'read', 'remove', 'update']);
     expect(Object.keys(bridge.media.map).sort()).toEqual(['cache', 'capture', 'captureCancel', 'get', 'onCaptureProgress', 'onOpen', 'setView', 'sources']);
   });
 
@@ -34,8 +35,9 @@ describe('createGamerBridge', () => {
     await media.project.list({ repoId: 'gamer', tab: 'map' });
     await media.terrain.library({ op: 'list', repoId: 'gamer' } as never);
     await games.list();
+    await media.animation.list();
     games.setBounds({ gameId: 'g', bounds: { x: 0, y: 0, width: 1, height: 1 } } as never);
-    expect(vi.mocked(ipc.invoke).mock.calls.map((c) => c[0])).toEqual([CHANNELS.mediaProjectList, CHANNELS.mediaTerrainLibrary, CHANNELS.gamesList]);
+    expect(vi.mocked(ipc.invoke).mock.calls.map((c) => c[0])).toEqual([CHANNELS.mediaProjectList, CHANNELS.mediaTerrainLibrary, CHANNELS.gamesList, CHANNELS.mediaAnimation]);
     expect(vi.mocked(ipc.send).mock.calls.map((c) => c[0])).toEqual([CHANNELS.gamesSetBounds]);
   });
 });

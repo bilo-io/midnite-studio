@@ -13,7 +13,7 @@ type Media = MidniteStudioBridge['media'];
  */
 export type GamerBridge = {
   games: MidniteStudioBridge['games'];
-  media: Pick<Media, 'project' | 'file' | 'reveal' | 'ffmpegStatus' | 'export' | 'cancelExport' | 'onChanged' | 'onExportProgress' | 'map' | 'terrain' | 'sprite' | 'model'>;
+  media: Pick<Media, 'project' | 'file' | 'reveal' | 'ffmpegStatus' | 'export' | 'cancelExport' | 'onChanged' | 'onExportProgress' | 'map' | 'terrain' | 'sprite' | 'model' | 'animation'>;
   /** Report an Issue — the report feature's own bridge half. */
   report: ReportBridge;
 };
@@ -112,6 +112,17 @@ export function createGamerBridge(ipc: RendererIpc): GamerBridge {
         onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaTerrainProgress, handler),
         onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaTerrainChanged, handler),
         onOpen: (handler) => subscribe(EVENT_CHANNELS.mediaTerrainOpen, handler),
+      },
+      animation: {
+        list: () => call(CHANNELS.mediaAnimation, { op: 'list' }),
+        importFiles: () => call(CHANNELS.mediaAnimation, { op: 'importFiles' }),
+        importFolder: () => call(CHANNELS.mediaAnimation, { op: 'importFolder' }),
+        importBytes: (req) => call(CHANNELS.mediaAnimation, { op: 'importBytes', ...req }),
+        update: (req) => call(CHANNELS.mediaAnimation, { op: 'update', ...req }),
+        remove: (req) => call(CHANNELS.mediaAnimation, { op: 'remove', ...req }),
+        read: (req) => call(CHANNELS.mediaAnimation, { op: 'read', ...req }),
+        onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaAnimationChanged, handler),
+        onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaAnimationProgress, handler),
       },
       model: {
         providers: () => call(CHANNELS.mediaModelProviders),

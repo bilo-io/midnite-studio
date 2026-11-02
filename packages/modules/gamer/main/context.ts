@@ -28,6 +28,8 @@ import {
 } from '@midnite/studio-feature-media-game/main';
 import { createMapRuntime, mediaMapMain, type CaptureWorkerHandle, type MapRuntime } from '@midnite/studio-feature-media-map/main';
 import {
+  createAnimationLibrary,
+  createAnimationService,
   createLlmCall,
   createModelRuntime,
   createVisionCall,
@@ -74,6 +76,8 @@ export type GamerElectron = IpcContextElectron & {
   pickSavePath: (options: { defaultPath: string; filters: { name: string; extensions: string[] }[] }) => Promise<string | null>;
   /** The "Import a Tiled map" picker — an absolute path, or null when dismissed. */
   pickTiledMap: () => Promise<string | null>;
+  /** The Animations tab's pickers: clip files, or one folder of them — absolute paths, or null when dismissed. */
+  pickAnimationPaths: (kind: 'files' | 'folder') => Promise<string[] | null>;
   /**
    * The runtime's data directory, where the runtime host (Studio) serves the vault on a socket. Gamer holds
    * no cipher: the host decrypts, and the host's grants decide — so Gamer reads no key until the user grants
@@ -211,7 +215,14 @@ export function registerGamerOn(ctx: FeatureMainContext, el: GamerElectron): Gam
     emit: (event) => el.send(EVENT_CHANNELS.mediaModelProgress, event),
     ollama,
   });
-  mediaModelMain.register(ctx, { runtime: model, pickSavePath: el.pickSavePath, sf3d: sf3dUnavailable });
+  // Media ▸ Animations: the global clip library, one folder under Gamer's userData (it is not a repo's media).
+  const animation = createAnimationService({
+    library: createAnimationLibrary({ root: join(el.userData, 'animation-library'), log: el.log }),
+    pickPaths: el.pickAnimationPaths,
+    emitChanged: (event) => el.send(EVENT_CHANNELS.mediaAnimationChanged, event),
+    emitProgress: (event) => el.send(EVENT_CHANNELS.mediaAnimationProgress, event),
+  });
+  mediaModelMain.register(ctx, { runtime: model, pickSavePath: el.pickSavePath, sf3d: sf3dUnavailable, animation });
 
   // Image generation (Sprites' generating methods, Terrain's prompted heightmap): the Images feature's
   // service used as a library — no tab, no channel — with its two keys read from the vault above.

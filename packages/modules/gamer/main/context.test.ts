@@ -1,6 +1,6 @@
 // @vitest-environment node
 // vitest, not Playwright: handler registration is logic over an injected ipcMain — no browser needed.
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -69,6 +69,7 @@ async function setup(options: { granted?: boolean; paired?: boolean; host?: Game
     revealPath: () => undefined,
     pickSavePath: async () => null,
     pickTiledMap: async () => null,
+    pickAnimationPaths: async () => null,
     ffmpegStatus: async () => ({ found: false, reason: 'none' }),
     fetch: async () => {
       throw new Error('no network in tests');
@@ -150,6 +151,15 @@ describe('registerGamerHandlers', () => {
     host.grants.set('gamer', 'secrets', '*');
     const result = await invoke(CHANNELS.mediaMapSources);
     expect(JSON.stringify(result)).not.toContain('sk-agent');
+  });
+
+  it('serves the animation library from its own folder under userData, not from a repo', async () => {
+    const { invoke, dir } = await setup();
+    expect(await invoke(CHANNELS.mediaAnimation, { op: 'list' })).toMatchObject({ ok: true, value: { clips: [] } });
+    // A dismissed picker imports nothing and writes nothing.
+    expect(await invoke(CHANNELS.mediaAnimation, { op: 'importFolder' })).toMatchObject({ ok: true, value: { cancelled: true } });
+    expect(await invoke(CHANNELS.mediaAnimation, { op: 'nope' })).toMatchObject({ ok: false });
+    expect(await readdir(dir)).not.toContain('animation-library');
   });
 
   it('answers a refused SF3D status as "unavailable" with a reason, and refuses its other ops', async () => {

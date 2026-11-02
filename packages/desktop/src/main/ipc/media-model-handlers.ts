@@ -30,6 +30,7 @@ import { createIterativeHost } from '../media/iterative-host';
 import { resolveWorkdir } from '../repo-registry';
 import { broadcastToAllWindows } from '../window-manager';
 import { handle, handleBare, handleSend } from './handle';
+import { animationService } from './media-animation-handlers';
 import { mediaStore, notifyMediaChanged } from './media-handlers';
 
 /**
@@ -189,5 +190,6 @@ export function registerMediaModelHandlers(): void {
       return picked.canceled || !picked.filePath ? null : picked.filePath;
     },
     sf3d: (req) => (sf3dDispatch ? sf3dDispatch(req) : Promise.resolve(failure('SF3D is still starting up; try again in a moment.'))),
+    animation: animationService,
   });
 }
