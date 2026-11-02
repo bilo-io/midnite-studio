@@ -61,10 +61,10 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('Midnite Gamer', () => {
-  it('is the launcher catalog tile: Games first, with Maps, Terrain, Models and Sprites beside it', () => {
+  it('is the launcher catalog tile: Games first, with Maps, Terrain, Models, Sprites and Animations beside it', () => {
     expect(GAMER_APP.accent).toBe('#10b981');
-    expect(GAMER_TABS.map((t) => t.id)).toEqual(['game', 'map', 'terrain', 'model', 'sprite']);
-    expect(GAMER_TABS.map((t) => t.label)).toEqual(['Games', 'Maps', 'Terrain', 'Models', 'Sprites']);
+    expect(GAMER_TABS.map((t) => t.id)).toEqual(['game', 'map', 'terrain', 'model', 'sprite', 'animation']);
+    expect(GAMER_TABS.map((t) => t.label)).toEqual(['Games', 'Maps', 'Terrain', 'Models', 'Sprites', 'Animations']);
   });
 
   it('composes the five media packages the placement map gives it, and nothing else', () => {
@@ -78,13 +78,13 @@ describe('Midnite Gamer', () => {
     expect(GAMER_REPO_ID).toBe(MAIN_REPO_ID);
   });
 
-  it('opens on the media shell with the five tabs in the strip', async () => {
+  it('opens on the media shell with the six tabs in the strip', async () => {
     render(<GamerApp />);
     expect(screen.getByRole('img', { name: 'Midnite Gamer' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Settings' })).toBeTruthy();
     expect(screen.queryAllByRole('tab')).toEqual([]);
     await waitFor(() => {
-      for (const label of ['Games', 'Maps', 'Terrain', 'Models', 'Sprites']) expect(screen.getAllByLabelText(label).length).toBeGreaterThan(0);
+      for (const label of ['Games', 'Maps', 'Terrain', 'Models', 'Sprites', 'Animations']) expect(screen.getAllByLabelText(label).length).toBeGreaterThan(0);
     });
   });
 

@@ -236,7 +236,13 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // Raised 480 -> 482 for Phase 84 Themes E.6 and K.7 (one test each): counting the xterms a real terminal
 // panel mounts with ten sessions open, and reading a cascade's end time off the browser's own animation
 // timeline (`getAnimations`), both need a real browser. The policy and the cascade arithmetic are vitest.
-export const MAX_DECLARED_E2E = 482;
+//
+// Raised 482 -> 483 for Phase 125 Themes A–C's `animations-shots.spec.ts` (1 test): the Animations
+// tab's filters, list and detail are three flex panes, and jsdom reports every box as 0×0. The RTL
+// suite stubs `MediaLayout` into stacked divs, so only a real `getBoundingClientRect` shows the panes
+// side by side, and the three review screenshots are of that shell. Search, tag maths, rename and
+// import are vitest (`animation-model.test.ts`, `animation-tab.test.tsx`).
+export const MAX_DECLARED_E2E = 483;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four
