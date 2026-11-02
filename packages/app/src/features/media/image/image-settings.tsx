@@ -18,7 +18,7 @@ export function ImageSettingsSection() {
   );
 }
 
-export function ApiKeyRow({ label, secretKey }: { label: string; secretKey: SecretKey }) {
+export function ApiKeyRow({ label, secretKey, noun = 'API key' }: { label: string; secretKey: SecretKey; noun?: string }) {
   const has = useImageSecretHas(secretKey);
   const set = useSetImageSecret(secretKey);
   const [value, setValue] = useState('');
@@ -29,7 +29,7 @@ export function ApiKeyRow({ label, secretKey }: { label: string; secretKey: Secr
 
   return (
     <div className="space-y-1">
-      <p className="text-xs font-medium text-foreground">{label} API key</p>
+      <p className="text-xs font-medium text-foreground">{label} {noun}</p>
       <div className="flex items-center gap-2 rounded-md border border-border/60 bg-card/40 px-2 py-1.5 text-xs">
         <LuLock aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
         {has.data?.hasKey ? (
@@ -51,13 +51,13 @@ export function ApiKeyRow({ label, secretKey }: { label: string; secretKey: Secr
           <>
             <input
               type="password"
-              aria-label={`${label} API key`}
+              aria-label={`${label} ${noun}`}
               value={value}
               onChange={(event) => setValue(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') save();
               }}
-              placeholder={`Paste a ${label} API key`}
+              placeholder={`Paste a ${label} ${noun}`}
               className="h-5 flex-1 bg-transparent text-xs placeholder:text-muted-foreground/70 focus-visible:outline-none"
             />
             <button

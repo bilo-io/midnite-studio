@@ -9,6 +9,7 @@ import {
   AnimationRequestSchema,
   animationSlug,
   formatAnimationDuration,
+  SketchfabStatusResultSchema,
 } from './media-animation';
 import { MEDIA_TABS, MEDIA_TAB_EXPORT_FORMATS, REPO_SCOPED_MEDIA_TABS } from './media';
 import { MediaAnimationRequest, MediaAnimationResponse } from './ipc/schemas';
@@ -111,5 +112,24 @@ describe('helpers', () => {
   });
   it('lists the four formats Mixamo, glTF and BVH hand out', () => {
     expect([...ANIMATION_FORMATS]).toEqual(['fbx', 'glb', 'gltf', 'bvh']);
+  });
+});
+
+describe('Sketchfab ops (Theme E)', () => {
+  const UID = 'a'.repeat(32);
+  it('accepts a search with ticked licences and a download by uid', () => {
+    expect(AnimationRequestSchema.safeParse({ op: 'sketchfabSearch', q: 'walk', licences: ['cc0', 'cc-by'] }).success).toBe(true);
+    expect(AnimationRequestSchema.safeParse({ op: 'sketchfabDownload', uid: UID }).success).toBe(true);
+    expect(AnimationRequestSchema.safeParse({ op: 'sketchfabStatus' }).success).toBe(true);
+  });
+  it('rejects no licences, a licence it cannot name, a malformed uid and a cursor with odd characters', () => {
+    expect(AnimationRequestSchema.safeParse({ op: 'sketchfabSearch', q: 'x', licences: [] }).success).toBe(false);
+    expect(AnimationRequestSchema.safeParse({ op: 'sketchfabSearch', q: 'x', licences: ['by-nd'] }).success).toBe(false);
+    expect(AnimationRequestSchema.safeParse({ op: 'sketchfabDownload', uid: '../etc/passwd' }).success).toBe(false);
+    expect(AnimationRequestSchema.safeParse({ op: 'sketchfabSearch', q: 'x', licences: ['cc0'], cursor: 'a b;c' }).success).toBe(false);
+  });
+  it('keeps the token out of the contract: status carries a boolean only', () => {
+    expect(SketchfabStatusResultSchema.parse({ hasToken: true })).toEqual({ hasToken: true });
+    expect(Object.keys(SketchfabStatusResultSchema.shape)).toEqual(['hasToken']);
   });
 });

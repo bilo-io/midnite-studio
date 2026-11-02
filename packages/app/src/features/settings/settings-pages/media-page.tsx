@@ -1,11 +1,12 @@
 import { SettingsAccordion } from '../settings-section';
 import { FFMPEG_INSTALL_COMMAND } from '@midnite/studio-shared';
-import { LuAudioLines, LuClapperboard, LuFolderOpen, LuGamepad2, LuImage, LuMap, LuSettings2, LuX } from 'react-icons/lu';
+import { LuAudioLines, LuClapperboard, LuFolderOpen, LuFootprints, LuGamepad2, LuImage, LuMap, LuSettings2, LuX } from 'react-icons/lu';
 
 import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
 import { AudioSettingsSection } from '../../media/audio/audio-settings';
 import { ImageSettingsSection } from '../../media/image/image-settings';
+import { AnimationSettingsSection } from '../../../compose/media-animation-settings';
 import { MapSettingsSection } from '../../../compose/media-map/map-settings';
 import { useFfmpegStatus } from '../../media/use-media';
 import { submitCommand } from '../../terminal/submit-command';
@@ -22,6 +23,7 @@ import { VideoRootSection } from './video-root-section';
  * - **Images** (Theme C): default provider/model and API keys (`ImageSettingsSection`).
  * - **Audio** (Theme E): prompt-form defaults and the MP3 bitrate (`AudioSettingsSection`).
  * - **Maps** (Phase 108 Theme B): the optional MapTiler key and the tile cache (`MapSettingsSection`).
+ * - **Animations** (Phase 125 Theme E): your own Sketchfab API token (`AnimationSettingsSection`).
  * - **Games** (Phase 107 Theme A): the games location, default engine and network (`GamesRootSection`).
  */
 export function MediaSettingsPage() {
@@ -45,6 +47,9 @@ export function MediaSettingsPage() {
       <SettingsAccordion title="Maps" icon={<LuMap className="h-4 w-4" />}>
         <MapUnitsRow />
         <MapSettingsSection />
+      </SettingsAccordion>
+      <SettingsAccordion title="Animations" icon={<LuFootprints className="h-4 w-4" />}>
+        <AnimationSettingsSection />
       </SettingsAccordion>
       <SettingsAccordion title="Games" icon={<LuGamepad2 className="h-4 w-4" />}>
         <GamesRootSection />
