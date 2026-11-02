@@ -96,8 +96,6 @@ export const ANIMATION_SOURCE_SITES: readonly AnimationSourceSite[] = [
   },
 ];
 
-export const animationSourceSite = (id: string): AnimationSourceSite | undefined => ANIMATION_SOURCE_SITES.find((site) => site.id === id);
-
 /** The URL to open for a site: the search link for a non-empty query, else the site's home. */
 export function animationSourceUrl(site: AnimationSourceSite, query: string): string {
   const q = query.trim();

@@ -4,7 +4,7 @@
 
 ## 2026-11-02 — Phase 125 Theme F — external source links
 
-[PR #PRNUM](https://github.com/bilo-io/midnite-studio/pull/PRNUM). Static catalogue of eight sites with search-URL templates; a "Find more clips" section on Media ▸ Animations opens them in the system browser (https, catalogue hosts only). Nothing is fetched or scraped.
+[PR #1121](https://github.com/bilo-io/midnite-studio/pull/1121). Static catalogue of eight sites with search-URL templates; a "Find more clips" section on Media ▸ Animations opens them in the system browser (https, catalogue hosts only). Nothing is fetched or scraped.
 
 ## 2026-11-02 — Phase 125 Themes A, B, C — Media ▸ Animations library
 
