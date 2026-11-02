@@ -130,6 +130,7 @@ export const GAME_ASSET_KINDS = [
   'model',
   'image',
   'audio',
+  'animation',
 ] as const;
 
 export const GameAssetProvenanceSchema = z.object({
@@ -631,6 +632,17 @@ export const GameAssetIndexEntrySchema = z.object({
   path: z.string().min(1),
   /** The file inside a folder asset that opens it: `terrain.manifest.json`, `atlas.json`, `map.tmj`, ... */
   entry: z.string().optional(),
+  /** Where an animation clip came from (Phase 125 Theme G), so a game can credit it without the library. */
+  provenance: z
+    .object({
+      source: z.string(),
+      site: z.string().optional(),
+      licence: z.string(),
+      author: z.string().optional(),
+      originalUrl: z.string().optional(),
+      sha256: z.string(),
+    })
+    .optional(),
 });
 export type GameAssetIndexEntry = z.infer<typeof GameAssetIndexEntrySchema>;
 
@@ -654,10 +666,14 @@ const GAME_ASSET_PATH = z
   .refine((p) => !p.startsWith('/'), 'must be relative')
   .refine((p) => !p.split('/').some((seg) => seg === '..' || seg === ''), 'must not traverse');
 
-/** Where an import comes from: an item in a repo's media store, or a pack folder picked from disk. */
+/**
+ * Where an import comes from: an item in a repo's media store, a pack folder picked from disk, or a clip in
+ * the global animation library (Phase 125 Theme G — the library is not a repo's media, so it is keyed by id).
+ */
 export const GameAssetSourceSchema = z.union([
   z.object({ tab: GameAssetSourceTabSchema, repoPath: z.string().min(1), path: GAME_ASSET_PATH }),
   z.object({ packPath: z.string().min(1) }),
+  z.object({ animationId: z.string().min(1).max(64) }),
 ]);
 export type GameAssetSource = z.infer<typeof GameAssetSourceSchema>;
 

@@ -216,8 +216,10 @@ export function registerGamerOn(ctx: FeatureMainContext, el: GamerElectron): Gam
     ollama,
   });
   // Media ▸ Animations: the global clip library, one folder under Gamer's userData (it is not a repo's media).
+  const animationRoot = join(el.userData, 'animation-library');
+  const animationLibrary = createAnimationLibrary({ root: animationRoot, log: el.log });
   const animation = createAnimationService({
-    library: createAnimationLibrary({ root: join(el.userData, 'animation-library'), log: el.log }),
+    library: animationLibrary,
     pickPaths: el.pickAnimationPaths,
     emitChanged: (event) => el.send(EVENT_CHANNELS.mediaAnimationChanged, event),
     emitProgress: (event) => el.send(EVENT_CHANNELS.mediaAnimationProgress, event),
@@ -335,6 +337,8 @@ export function registerGamerOn(ctx: FeatureMainContext, el: GamerElectron): Gam
     registerRepo: async () => ({ ok: true }),
     listRepoPaths: async () => [],
     exportTerrain,
+    // A game imports a clip from the global animation library (Phase 125 Theme G).
+    animations: { root: () => animationRoot, get: (id) => animationLibrary.get(id) },
   });
   // Play-tests (Phase 107 Theme O) run here as they do in Studio: `playtests/*.json` replayed
   // deterministically through the kit hook, frame asserts, a screenshot per failure — no agent involved.
