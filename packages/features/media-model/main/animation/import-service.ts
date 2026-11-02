@@ -4,6 +4,7 @@ import { basename, extname, join } from 'node:path';
 import {
   ANIMATION_EXTENSIONS,
   ANIMATION_MAX_FILE_BYTES,
+  type AnimationClip,
   type AnimationFormat,
   type AnimationImportFailure,
   type AnimationImportResult,
@@ -40,6 +41,20 @@ export type ImporterDeps = {
 export type AnimationImporter = {
   importPaths: (paths: readonly string[]) => Promise<AnimationImportResult>;
   importBytes: (input: { name: string; bytes: Uint8Array; folder?: string }) => Promise<AnimationImportResult>;
+  /** A clip fetched from an online source (Theme E): named, credited and licensed by that source, not guessed from the file. */
+  addDownloaded: (input: DownloadedClip) => Promise<AnimationImportResult>;
+};
+
+export type DownloadedClip = {
+  /** The file name, for its extension (`model.glb`). */
+  fileName: string;
+  bytes: Uint8Array;
+  name: string;
+  source: AnimationClip['source'];
+  site: string;
+  licence: AnimationClip['licence'];
+  author: string;
+  originalUrl: string;
 };
 
 function parseClip(format: AnimationFormat, bytes: Uint8Array): ClipMeta {
@@ -88,7 +103,7 @@ export async function collectClipFiles(paths: readonly string[]): Promise<Walked
 export function createAnimationImporter(deps: ImporterDeps): AnimationImporter {
   const { library, onProgress } = deps;
 
-  async function importOne(name: string, bytes: Uint8Array, folder: string, result: AnimationImportResult): Promise<void> {
+  async function importOne(name: string, bytes: Uint8Array, folder: string, result: AnimationImportResult, downloaded?: DownloadedClip): Promise<void> {
     const format = FORMAT_BY_EXT[extname(name).toLowerCase()];
     if (!format) {
       result.failed.push({ name, reason: 'Not an animation file (.fbx, .glb, .gltf or .bvh)' });
@@ -110,8 +125,8 @@ export function createAnimationImporter(deps: ImporterDeps): AnimationImporter {
       return;
     }
     for (const warning of meta.warnings) result.warnings.push(`${name}: ${warning}`);
-    const mixamo = detectMixamo(meta.boneNames);
-    const clipName = clipNameFromFile(name, meta.takeName, folder);
+    const mixamo = downloaded ? false : detectMixamo(meta.boneNames);
+    const clipName = downloaded ? downloaded.name : clipNameFromFile(name, meta.takeName, folder);
     const added = await library.add({
       bytes,
       format,
@@ -122,10 +137,11 @@ export function createAnimationImporter(deps: ImporterDeps): AnimationImporter {
       fps: meta.fps,
       boneCount: meta.boneNames.length > 0 ? meta.boneNames.length : undefined,
       hasSkin: meta.hasSkin,
-      source: mixamo ? 'mixamo' : 'local',
-      site: mixamo ? 'mixamo.com' : undefined,
-      licence: mixamo ? 'mixamo-eula' : 'unknown',
-      author: mixamo ? 'Mixamo' : '',
+      source: downloaded ? downloaded.source : mixamo ? 'mixamo' : 'local',
+      site: downloaded ? downloaded.site : mixamo ? 'mixamo.com' : undefined,
+      licence: downloaded ? downloaded.licence : mixamo ? 'mixamo-eula' : 'unknown',
+      author: downloaded ? downloaded.author : mixamo ? 'Mixamo' : '',
+      ...(downloaded ? { originalUrl: downloaded.originalUrl } : {}),
     });
     (added.duplicate ? result.duplicates : result.added).push(added.clip);
   }
@@ -159,6 +175,16 @@ export function createAnimationImporter(deps: ImporterDeps): AnimationImporter {
         done += 1;
       }
       onProgress?.({ done, total: files.length, finished: true });
+      return result;
+    },
+
+    async addDownloaded(input) {
+      const result = empty();
+      try {
+        await importOne(basename(input.fileName), input.bytes, '', result, input);
+      } catch (error) {
+        result.failed.push({ name: input.name, reason: error instanceof Error ? error.message : 'The file could not be read' });
+      }
       return result;
     },
 

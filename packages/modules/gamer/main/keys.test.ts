@@ -7,10 +7,10 @@ import { createGamerKeyReader, GAMER_SECRET_KEYS } from './keys';
 
 /** Which keys Gamer reads, and that a denied, absent or unreachable vault is "not set" — never a throw. */
 describe('createGamerKeyReader', () => {
-  it('reads only Gamer\'s three keys, from the secrets namespace', async () => {
+  it('reads only Gamer\'s four keys, from the secrets namespace', async () => {
     const get = vi.fn(async (_namespace: string, key: string) => `value-of-${key}`);
     const read = createGamerKeyReader({ get: get as never });
-    expect([...GAMER_SECRET_KEYS]).toEqual(['media.mapTilerApiKey', 'media.geminiApiKey', 'media.openaiApiKey']);
+    expect([...GAMER_SECRET_KEYS]).toEqual(['media.mapTilerApiKey', 'media.geminiApiKey', 'media.openaiApiKey', 'media.sketchfabApiToken']);
     expect(await read('media.mapTilerApiKey')).toBe('value-of-media.mapTilerApiKey');
     expect(get).toHaveBeenCalledWith('secrets', 'media.mapTilerApiKey');
   });

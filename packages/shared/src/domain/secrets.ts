@@ -24,6 +24,9 @@ export const SECRET_KEYS = [
   // Phase 113 Theme R — the opt-in online metadata provider for Media ▸ Library (TMDB). Read only by main's
   // library service, and only while the user has the online provider switched on; never the renderer.
   'media.tmdbApiKey',
+  // Phase 125 Theme E — the user's own Sketchfab API token (BYOK; there is no default). Read only by main's
+  // `media-model/main/animation/sketchfab.ts`, which sends it only to https://api.sketchfab.com; never the renderer.
+  'media.sketchfabApiToken',
   // Phase 113 Theme J slice 2 — LLM agent API keys, moved out of the renderer's `agentApiKeys`. Write-only
   // from the renderer (`secretsHas`/`secretsSet`); `copilot`'s GITHUB_TOKEN is a forge credential, not here.
   'agent.claude.apiKey',

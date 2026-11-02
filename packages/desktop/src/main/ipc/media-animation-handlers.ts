@@ -5,12 +5,14 @@ import { app, BrowserWindow, dialog } from 'electron';
 import {
   createAnimationLibrary,
   createAnimationService,
+  createSketchfabClient,
   type AnimationLibrary,
   type AnimationService,
 } from '@midnite/studio-feature-media-model/main';
 import { EVENT_CHANNELS } from '@midnite/studio-shared';
 
 import { broadcastToAllWindows } from '../window-manager';
+import { readSecret } from './secrets-handlers';
 
 /**
  * Media ▸ Animations (Phase 125) — Studio's half: the global clip library under `<userData>/animation-library`
@@ -48,6 +50,8 @@ export const animationService: AnimationService = {
       pickPaths,
       emitChanged: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaAnimationChanged, event),
       emitProgress: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaAnimationProgress, event),
+      // The user's own Sketchfab token, read from the vault in main only; no channel returns it.
+      sketchfab: createSketchfabClient({ readToken: () => readSecret('media.sketchfabApiToken') }),
     });
     return service.handle(req);
   },

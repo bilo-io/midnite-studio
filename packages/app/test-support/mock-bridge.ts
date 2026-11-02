@@ -784,6 +784,8 @@ export type MockFixtures = {
     animations?: Array<Record<string, unknown> & { id: string; name: string; tags: string[] }>;
     /** Animations: the bytes `read` returns for a clip id (base64), for the timeline player. */
     animationFiles?: Record<string, { format: 'fbx' | 'glb' | 'gltf' | 'bvh'; dataBase64: string }>;
+    /** Phase 125 Theme E: whether a Sketchfab token is "set" and the search results to show. Fixtures only, never a real token. */
+    sketchfab?: { hasToken: boolean; results: Array<{ uid: string; name: string; author: string; licence: string; viewUrl: string; thumbnailUrl?: string; animationCount?: number; faceCount?: number }> };
     ffmpeg?:
       { found: true; path: string; version: string | null } | { found: false; reason: string };
     /**
@@ -2995,8 +2997,11 @@ export function buildMockBridge(data: MockFixtures) {
     },
     secrets: {
       get: async () => ({ value: null }),
-      set: async () => {},
-      has: async () => ({ hasKey: false }),
+      set: async (req?: { key?: string; value?: string }) => {
+        // Phase 125 Theme E: pasting a Sketchfab token flips the Animations tab out of its prompt (the value is dropped here).
+        if (req?.key === 'media.sketchfabApiToken') sketchfabHasToken = Boolean(req.value);
+      },
+      has: async (req?: { key?: string }) => ({ hasKey: req?.key === 'media.sketchfabApiToken' ? sketchfabHasToken : false }),
     },
     vaultGrants: {
       list: async () => ({ grants: {}, corrupt: false }),
@@ -3645,6 +3650,18 @@ export function buildMockBridge(data: MockFixtures) {
             ? { ok: true as const, value: { id: req.id, name: clip.name, format: file.format, dataBase64: file.dataBase64 } }
             : { ok: false as const, kind: 'error' as const, message: 'Clip bytes are not available in the mock bridge.' };
         },
+        // Phase 125 Theme E: Sketchfab, from fixtures. A token is "set" only when the data says so; a download adds a clip.
+        sketchfabStatus: async () => ({ ok: true as const, value: { hasToken: sketchfabHasToken } }),
+        sketchfabSearch: async () => ({ ok: true as const, value: { results: data.media?.sketchfab?.results ?? [], nextCursor: null } }),
+        sketchfabDownload: async (req: { uid: string }) => {
+          const hit = (data.media?.sketchfab?.results ?? []).find((r) => r.uid === req.uid);
+          if (!hit) return { ok: false as const, kind: 'error' as const, message: 'That model is no longer on Sketchfab.' };
+          const clip = { id: req.uid.slice(0, 12), name: hit.name, tags: [], durationSec: 2, hasSkin: true, format: 'glb', source: 'sketchfab', licence: hit.licence, author: hit.author, originalUrl: hit.viewUrl, sha256: req.uid.repeat(2), file: `clips/${req.uid.slice(0, 12)}.glb`, sizeBytes: 1, addedAt: 0 };
+          animationClips = [...animationClips, clip];
+          animationListeners.forEach((handler) => handler({ reason: 'import', count: 1 }));
+          return { ok: true as const, value: { added: [clip], duplicates: [], failed: [], warnings: [], cancelled: false } };
+        },
+        sketchfabCancel: async () => ({ ok: true as const, value: undefined }),
         onChanged: (handler: (event: unknown) => void) => {
           animationListeners.add(handler);
           return () => animationListeners.delete(handler);
@@ -6236,6 +6253,8 @@ export function buildMockBridge(data: MockFixtures) {
   var animationClips = [...(data.media?.animations ?? [])] as Array<Record<string, unknown> & { id: string; name: string; tags: string[] }>;
   // eslint-disable-next-line no-var
   var animationListeners = new Set<(event: unknown) => void>();
+  // eslint-disable-next-line no-var
+  var sketchfabHasToken = data.media?.sketchfab?.hasToken ?? false;
   // eslint-disable-next-line no-var
   var sfxListeners = new Set<(event: unknown) => void>();
   // eslint-disable-next-line no-var

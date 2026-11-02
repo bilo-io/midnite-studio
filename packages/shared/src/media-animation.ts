@@ -157,6 +157,21 @@ export type AnimationPatch = z.infer<typeof AnimationPatchSchema>;
 /** The largest file a drag-drop import or a `read` moves over IPC (base64 triples that on the wire). */
 export const ANIMATION_MAX_FILE_BYTES = 128 * 1024 * 1024;
 
+/**
+ * Sketchfab (Theme E) — the official Data API v3 with the user's own token (BYOK). Only licences the library
+ * can name are searched: a model under any other terms (NoDerivs, Standard, Editorial…) is never offered.
+ */
+export const SKETCHFAB_LICENCES = ['cc0', 'cc-by', 'cc-by-sa', 'cc-by-nc'] as const satisfies readonly AnimationLicence[];
+export const SketchfabLicenceSchema = z.enum(SKETCHFAB_LICENCES);
+export type SketchfabLicence = z.infer<typeof SketchfabLicenceSchema>;
+/** Sketchfab's own `license` filter slug for each. */
+export const SKETCHFAB_LICENCE_SLUGS: Record<SketchfabLicence, string> = { cc0: 'cc0', 'cc-by': 'by', 'cc-by-sa': 'by-sa', 'cc-by-nc': 'by-nc' };
+export const SketchfabUidSchema = z.string().regex(/^[a-f0-9]{32}$/);
+/** An opaque cursor (main packs one Sketchfab page cursor per licence into it, base64url). */
+export const SketchfabCursorSchema = z.string().regex(/^[A-Za-z0-9_-]{1,256}$/);
+/** Where a user is sent to create a token. */
+export const SKETCHFAB_TOKEN_URL = 'https://sketchfab.com/settings/password';
+
 export const AnimationRequestSchema = z.discriminatedUnion('op', [
   z.object({ op: z.literal('list') }),
   /** Opens the native file picker, then imports the picked files. */
@@ -175,8 +190,41 @@ export const AnimationRequestSchema = z.discriminatedUnion('op', [
   z.object({ op: z.literal('remove'), id: AnimationIdSchema }),
   /** The clip's bytes, base64, for the timeline player (Theme D). */
   z.object({ op: z.literal('read'), id: AnimationIdSchema }),
+  /** Whether a Sketchfab token is set, answered from main's vault — the value never crosses (Theme E). */
+  z.object({ op: z.literal('sketchfabStatus') }),
+  /** Sketchfab Data API search for animated, downloadable models in the ticked licences (Theme E). */
+  z.object({
+    op: z.literal('sketchfabSearch'),
+    q: z.string().trim().max(200),
+    licences: z.array(SketchfabLicenceSchema).min(1).max(SKETCHFAB_LICENCES.length),
+    cursor: SketchfabCursorSchema.optional(),
+  }),
+  /** Downloads one model's GLB into the library; main re-reads its name, author and licence from Sketchfab. */
+  z.object({ op: z.literal('sketchfabDownload'), uid: SketchfabUidSchema }),
+  z.object({ op: z.literal('sketchfabCancel'), uid: SketchfabUidSchema }),
 ]);
 export type AnimationRequest = z.infer<typeof AnimationRequestSchema>;
+
+export const SketchfabStatusResultSchema = z.object({ hasToken: z.boolean() });
+export type SketchfabStatusResult = z.infer<typeof SketchfabStatusResultSchema>;
+
+export const SketchfabResultSchema = z.object({
+  uid: SketchfabUidSchema,
+  name: z.string().max(200),
+  author: z.string().max(120),
+  licence: SketchfabLicenceSchema,
+  thumbnailUrl: z.string().max(2000).optional(),
+  viewUrl: HttpUrlSchema,
+  animationCount: z.number().int().min(0).optional(),
+  faceCount: z.number().int().min(0).optional(),
+});
+export type SketchfabResult = z.infer<typeof SketchfabResultSchema>;
+
+export const SketchfabSearchResultSchema = z.object({
+  results: z.array(SketchfabResultSchema),
+  nextCursor: SketchfabCursorSchema.nullable(),
+});
+export type SketchfabSearchResult = z.infer<typeof SketchfabSearchResultSchema>;
 
 export const AnimationListResultSchema = z.object({ clips: z.array(AnimationClipSchema) });
 export type AnimationListResult = z.infer<typeof AnimationListResultSchema>;

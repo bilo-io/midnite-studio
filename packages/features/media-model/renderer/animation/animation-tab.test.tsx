@@ -104,6 +104,19 @@ const rowNames = () => within(screen.getByRole('list', { name: 'Animation clips'
 const row = (name: string) => screen.getByRole('button', { name: new RegExp(name) });
 
 describe('AnimationTab', () => {
+  it('swaps the clip list for Sketchfab with the toolbar switch, and back', async () => {
+    const { animation } = installBridge();
+    Object.assign(animation, { sketchfabStatus: vi.fn(async () => ({ ok: true, value: { hasToken: false } })) });
+    renderTab();
+    await screen.findByRole('list', { name: 'Animation clips' });
+    const group = screen.getByRole('group', { name: 'Clip source' });
+    fireEvent.click(within(group).getByRole('button', { name: 'Sketchfab' }));
+    expect(await screen.findByTestId('sketchfab-token-prompt')).toBeTruthy();
+    expect(screen.queryByRole('list', { name: 'Animation clips' })).toBeNull();
+    fireEvent.click(within(group).getByRole('button', { name: 'Library' }));
+    expect(await screen.findByRole('list', { name: 'Animation clips' })).toBeTruthy();
+  });
+
   it('lists the clips by name with a count', async () => {
     installBridge();
     renderTab();

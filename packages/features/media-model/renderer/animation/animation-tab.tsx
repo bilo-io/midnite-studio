@@ -30,6 +30,7 @@ import {
   type ClipSort,
 } from './animation-model';
 import { ClipPlayer } from './clip-player';
+import { SketchfabPanel } from './sketchfab-panel';
 import { SourceLinks } from './source-links';
 import { UseInGame } from './use-in-game';
 import { useAnimationClips, useAnimationEvents, useAnimationMutations } from './use-animations';
@@ -41,6 +42,7 @@ import { useAnimationClips, useAnimationEvents, useAnimationMutations } from './
  * - **Content**: the clips as a searchable, sortable list; a drop zone for FBX / GLB / glTF / BVH files and
  *   folders, with an import summary under the toolbar.
  * - **Detail**: the selected clip's name, tags and provenance (source, licence, author, original URL, hash).
+ * - **Sketchfab** (Theme E): a toolbar switch swaps the list for a search of Sketchfab's official API (your own token).
  * - **Player** (Theme D): under the list, the selected clip on a chosen model with a transport and per-bone lanes.
  *
  * Not repo-scoped: the library lives under the app's data directory, shared by every repo.
@@ -53,6 +55,7 @@ export function AnimationTab() {
   const [filter, setFilter] = useState<ClipFilter>(DEFAULT_CLIP_FILTER);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [view, setView] = useState<'library' | 'sketchfab'>('library');
 
   const all = useMemo(() => clips.data ?? [], [clips.data]);
   const visible = useMemo(() => filterClips(all, filter), [all, filter]);
@@ -79,6 +82,8 @@ export function AnimationTab() {
         <AnimationToolbar
           filter={filter}
           onFilter={patch}
+          view={view}
+          onView={setView}
           importing={mutations.importing}
           onImportFiles={() => mutations.importFiles.mutate()}
           onImportFolder={() => mutations.importFolder.mutate()}
@@ -99,7 +104,9 @@ export function AnimationTab() {
           data-testid="animation-dropzone"
         >
           <ImportStatus progress={progress} summary={mutations.summary} onDismiss={mutations.clearSummary} />
-          {clips.isError ? (
+          {view === 'sketchfab' ? (
+            <SketchfabPanel clips={all} />
+          ) : clips.isError ? (
             <EmptyState icon={LuCircleAlert} title="The animation library could not be read" body={clips.error instanceof Error ? clips.error.message : undefined} />
           ) : !clips.isLoading && !hasClips ? (
             <EmptyState
@@ -116,7 +123,7 @@ export function AnimationTab() {
           ) : (
             <ClipList clips={visible} total={all.length} selectedId={selectedId} onSelect={setSelectedId} loading={clips.isLoading} />
           )}
-          {selected ? (
+          {selected && view === 'library' ? (
             <div className="h-[28rem] max-h-[65%] shrink-0" data-testid="clip-player">
               <ClipPlayer key={selected.id} clip={selected} />
             </div>
@@ -142,12 +149,16 @@ export function AnimationTab() {
 function AnimationToolbar({
   filter,
   onFilter,
+  view,
+  onView,
   importing,
   onImportFiles,
   onImportFolder,
 }: {
   filter: ClipFilter;
   onFilter: (next: Partial<ClipFilter>) => void;
+  view: 'library' | 'sketchfab';
+  onView: (view: 'library' | 'sketchfab') => void;
   importing: boolean;
   onImportFiles: () => void;
   onImportFolder: () => void;
@@ -165,6 +176,19 @@ function AnimationToolbar({
           onChange={(sort) => onFilter({ sort })}
           options={CLIP_SORTS.map((sort) => ({ value: sort, label: CLIP_SORT_LABELS[sort] }))}
         />
+      </div>
+      <div role="group" aria-label="Clip source" className="flex overflow-hidden rounded-md border border-border text-xs">
+        {(['library', 'sketchfab'] as const).map((id) => (
+          <button
+            key={id}
+            type="button"
+            aria-pressed={view === id}
+            onClick={() => onView(id)}
+            className={`px-2 py-1 transition-colors ${view === id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-primary/10'}`}
+          >
+            {id === 'library' ? 'Library' : 'Sketchfab'}
+          </button>
+        ))}
       </div>
       <span className="flex-1" />
       <IconButton icon={LuFolderInput} label="Import a folder of clips" busy={importing} onClick={onImportFolder} />

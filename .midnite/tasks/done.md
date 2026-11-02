@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-02 — Phase 125 Theme E — Sketchfab search and download
+
+[PR #1123](https://github.com/bilo-io/midnite-studio/pull/1123). Search Sketchfab's Data API and download an animated model's GLB into the library from Media ▸ Animations, with the user's own token (vault, main-only, sent only to api.sketchfab.com), licence filtering, author and licence recorded. The egress-registry item stays open (no registry exists).
+
 ## 2026-11-02 — Phase 125 Theme G — Import an animation into a game
 
 [PR #1122](https://github.com/bilo-io/midnite-studio/pull/1122). The asset bridge gains an `animation` source: a library clip is copied to `assets/animations/` with its licence, author and URL in the manifest and index, idempotent by sha256. The Animations detail pane has "Use in a game" (game select, attribution confirm, destination path). Shots: `docs/screenshots/p125-g/`.
