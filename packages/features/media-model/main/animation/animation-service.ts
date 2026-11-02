@@ -11,6 +11,7 @@ import {
 
 import type { AnimationLibrary } from './animation-library';
 import { createAnimationImporter } from './import-service';
+import { SketchfabError, type SketchfabClient } from './sketchfab';
 
 /**
  * The one dispatcher behind the `mediaAnimation` channel (Phase 125 Theme A): `list`, the three imports,
@@ -26,6 +27,8 @@ export type AnimationServiceDeps = {
   pickPaths: (kind: 'files' | 'folder') => Promise<string[] | null>;
   emitChanged: (event: AnimationChangedEvent) => void;
   emitProgress: (event: AnimationProgressEvent) => void;
+  /** Sketchfab's Data API with the user's token (Theme E); absent in a host that does not offer it. */
+  sketchfab?: SketchfabClient;
 };
 
 export type AnimationService = {
@@ -42,6 +45,10 @@ export function unavailableAnimations(host: string): AnimationService {
 export function createAnimationService(deps: AnimationServiceDeps): AnimationService {
   const { library, pickPaths, emitChanged, emitProgress } = deps;
   const importer = createAnimationImporter({ library, onProgress: emitProgress });
+  const sketchfab = deps.sketchfab;
+  // One download per model at a time; Cancel aborts it.
+  const downloads = new Map<string, AbortController>();
+  const noSketchfab = () => failure('Sketchfab search is not available here.');
 
   const finish = (result: AnimationImportResult): GitOpResult<AnimationImportResult> => {
     // A duplicate can still have merged tags into the clip, so any non-empty outcome refreshes the list.
@@ -80,6 +87,39 @@ export function createAnimationService(deps: AnimationServiceDeps): AnimationSer
             emitChanged({ reason: 'remove', count: 1 });
             return ok(undefined);
           }
+          case 'sketchfabStatus':
+            return ok({ hasToken: sketchfab ? await sketchfab.hasToken() : false });
+          case 'sketchfabSearch': {
+            if (!sketchfab) return noSketchfab();
+            return ok(await sketchfab.search({ q: req.q, licences: req.licences, cursor: req.cursor }));
+          }
+          case 'sketchfabDownload': {
+            if (!sketchfab) return noSketchfab();
+            if (downloads.has(req.uid)) return failure('That model is already downloading.');
+            const controller = new AbortController();
+            downloads.set(req.uid, controller);
+            try {
+              const model = await sketchfab.download(req.uid, controller.signal);
+              emitProgress({ done: 0, total: 1, current: model.name, finished: false });
+              const result = await importer.addDownloaded({
+                fileName: `${model.uid}.glb`,
+                bytes: model.bytes,
+                name: model.name,
+                source: 'sketchfab',
+                site: 'sketchfab.com',
+                licence: model.licence,
+                author: model.author,
+                originalUrl: model.viewUrl,
+              });
+              emitProgress({ done: 1, total: 1, finished: true });
+              return finish(result);
+            } finally {
+              downloads.delete(req.uid);
+            }
+          }
+          case 'sketchfabCancel':
+            downloads.get(req.uid)?.abort();
+            return ok(undefined);
           case 'read': {
             const read = await library.read(req.id);
             if (!read) return failure('That clip is no longer in the library');
@@ -88,6 +128,8 @@ export function createAnimationService(deps: AnimationServiceDeps): AnimationSer
           }
         }
       } catch (error) {
+        // A Sketchfab error's message is written for the user and never carries the token.
+        if (error instanceof SketchfabError) return failure(error.message);
         return caught(error);
       }
     },

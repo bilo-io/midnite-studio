@@ -43,6 +43,9 @@ import type {
   AnimationPatch,
   AnimationProgressEvent,
   AnimationReadResult,
+  SketchfabLicence,
+  SketchfabSearchResult,
+  SketchfabStatusResult,
 } from '../media-animation';
 import type { SfxGenerateRequest, SfxGenerateResult, SfxProgressEvent, SfxStatus } from '../media-sfx';
 import type { PerfMark } from '../perf';
@@ -122,6 +125,12 @@ export type AnimationBridge = {
   update: (req: { id: AnimationClip['id']; patch: AnimationPatch }) => Promise<GitOpResult<AnimationClipResult>>;
   remove: (req: { id: AnimationClip['id'] }) => Promise<GitOpResult>;
   read: (req: { id: AnimationClip['id'] }) => Promise<GitOpResult<AnimationReadResult>>;
+  /** Sketchfab (Theme E): whether the user's token is set — never its value. */
+  sketchfabStatus: () => Promise<GitOpResult<SketchfabStatusResult>>;
+  sketchfabSearch: (req: { q: string; licences: SketchfabLicence[]; cursor?: string }) => Promise<GitOpResult<SketchfabSearchResult>>;
+  /** Downloads one model's GLB into the library; the clip it became comes back. */
+  sketchfabDownload: (req: { uid: string }) => Promise<GitOpResult<AnimationImportResult>>;
+  sketchfabCancel: (req: { uid: string }) => Promise<GitOpResult>;
   onChanged: (handler: (event: AnimationChangedEvent) => void) => Unsubscribe;
   onProgress: (handler: (event: AnimationProgressEvent) => void) => Unsubscribe;
 };

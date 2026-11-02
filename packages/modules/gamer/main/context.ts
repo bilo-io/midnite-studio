@@ -30,6 +30,7 @@ import { createMapRuntime, mediaMapMain, type CaptureWorkerHandle, type MapRunti
 import {
   createAnimationLibrary,
   createAnimationService,
+  createSketchfabClient,
   createLlmCall,
   createModelRuntime,
   createVisionCall,
@@ -223,6 +224,8 @@ export function registerGamerOn(ctx: FeatureMainContext, el: GamerElectron): Gam
     pickPaths: el.pickAnimationPaths,
     emitChanged: (event) => el.send(EVENT_CHANNELS.mediaAnimationChanged, event),
     emitProgress: (event) => el.send(EVENT_CHANNELS.mediaAnimationProgress, event),
+    // The token is read from the runtime vault as `gamer`, only if granted; it is never sent to the renderer.
+    sketchfab: createSketchfabClient({ readToken: () => readKey('media.sketchfabApiToken') }),
   });
   mediaModelMain.register(ctx, { runtime: model, pickSavePath: el.pickSavePath, sf3d: sf3dUnavailable, animation });
 
