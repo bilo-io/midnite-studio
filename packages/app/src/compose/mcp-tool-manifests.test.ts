@@ -14,7 +14,7 @@ describe('STUDIO_MCP_TOOL_MANIFESTS', () => {
     const byOwner: Record<string, number> = {};
     for (const manifest of STUDIO_MCP_TOOL_MANIFESTS) byOwner[manifest.owner] = (byOwner[manifest.owner] ?? 0) + manifest.mcpTools.length;
     expect(Object.keys(byOwner).sort()).toEqual(['creator', 'gamer']);
-    expect(byOwner['creator']).toBe(14);
+    expect(byOwner['creator']).toBe(16);
     expect(byOwner['gamer']).toBe(87);
   });
 });
