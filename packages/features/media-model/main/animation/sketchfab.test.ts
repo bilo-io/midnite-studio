@@ -16,7 +16,7 @@ const model = (uid: string, slug: string, label: string, extra: Record<string, u
   license: { slug, label },
   user: { displayName: 'Ada' },
   viewerUrl: `https://sketchfab.com/3d-models/walk-${uid}`,
-  thumbnails: { images: [{ url: 'https://media.sketchfab.com/big.jpeg', width: 1920 }, { url: 'https://media.sketchfab.com/small.jpeg', width: 256 }, { url: 'http://insecure.example/x.jpeg', width: 300 }] },
+  thumbnails: { images: [{ url: 'https://media.sketchfab.com/big.jpeg', width: 1920 }, { url: 'https://media.sketchfab.com/small.jpeg', width: 256 }, { url: 'http://media.sketchfab.com/insecure.jpeg', width: 300 }] },
   animationCount: 2,
   faceCount: 1000,
   isDownloadable: true,
@@ -94,6 +94,15 @@ describe('search', () => {
     const page = await client.search({ q: '', licences: ['cc-by'] });
     expect(page.results.map((r) => r.uid)).toEqual(['c'.repeat(32)]);
     expect(page.nextCursor).toBeNull();
+  });
+
+  it('falls back to the canonical page and drops a thumbnail when the API names a host off sketchfab.com', async () => {
+    const { client } = harness(() =>
+      json({ results: [model(UID, 'by', 'CC Attribution', { viewerUrl: 'https://evil.example/x', thumbnails: { images: [{ url: 'https://tracker.example/p.png', width: 300 }] } })], cursors: {} }),
+    );
+    const [only] = (await client.search({ q: '', licences: ['cc-by'] })).results;
+    expect(only!.viewUrl).toBe(`https://sketchfab.com/3d-models/${UID}`);
+    expect(only).not.toHaveProperty('thumbnailUrl');
   });
 
   it('with no token says so and never issues a request', async () => {

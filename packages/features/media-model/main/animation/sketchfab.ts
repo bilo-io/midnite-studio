@@ -101,10 +101,12 @@ export function licenceFromSketchfab(license: z.infer<typeof LicenceObject> | nu
   }
 }
 
-const isHttps = (value: string | undefined): value is string => {
+/** An https URL on sketchfab.com or a subdomain (its media CDN included); anything else from the API is not trusted for a link or an image. */
+const isSketchfabUrl = (value: string | undefined): value is string => {
   if (!value) return false;
   try {
-    return new URL(value).protocol === 'https:';
+    const url = new URL(value);
+    return url.protocol === 'https:' && /(^|\.)sketchfab\.com$/i.test(url.hostname);
   } catch {
     return false;
   }
@@ -235,7 +237,7 @@ export function createSketchfabClient(deps: SketchfabDeps): SketchfabClient {
           if (!model.success || !/^[a-f0-9]{32}$/.test(model.data.uid) || model.data.isDownloadable === false) continue;
           // The filter is Sketchfab's; the label is checked again so a stray result never reads as a licence it is not.
           if (licenceFromSketchfab(model.data.license) !== id) continue;
-          const thumbs = model.data.thumbnails?.images.filter((image) => isHttps(image.url)) ?? [];
+          const thumbs = model.data.thumbnails?.images.filter((image) => isSketchfabUrl(image.url)) ?? [];
           // The smallest thumbnail at least 200px wide, else the largest there is.
           const sorted = [...thumbs].sort((a, b) => (a.width ?? 0) - (b.width ?? 0));
           const thumb = sorted.find((image) => (image.width ?? 0) >= 200) ?? sorted[sorted.length - 1];
@@ -245,7 +247,7 @@ export function createSketchfabClient(deps: SketchfabDeps): SketchfabClient {
             author: author(model.data.user),
             licence: id,
             ...(thumb ? { thumbnailUrl: thumb.url } : {}),
-            viewUrl: isHttps(model.data.viewerUrl) ? model.data.viewerUrl : `https://sketchfab.com/3d-models/${model.data.uid}`,
+            viewUrl: isSketchfabUrl(model.data.viewerUrl) ? model.data.viewerUrl : `https://sketchfab.com/3d-models/${model.data.uid}`,
             ...(model.data.animationCount === undefined ? {} : { animationCount: Math.max(0, Math.round(model.data.animationCount)) }),
             ...(model.data.faceCount === undefined ? {} : { faceCount: Math.max(0, Math.round(model.data.faceCount)) }),
           });
@@ -277,7 +279,7 @@ export function createSketchfabClient(deps: SketchfabDeps): SketchfabClient {
         name: model.data.name.slice(0, 120),
         author: author(model.data.user),
         licence,
-        viewUrl: isHttps(model.data.viewerUrl) ? model.data.viewerUrl : `https://sketchfab.com/3d-models/${uid}`,
+        viewUrl: isSketchfabUrl(model.data.viewerUrl) ? model.data.viewerUrl : `https://sketchfab.com/3d-models/${uid}`,
         bytes,
       };
     },
