@@ -15609,3 +15609,7 @@ Every app and package now pins Electron `^45.2.1` (Chromium 156, Node 24.22.1, A
 ### Phase 124 follow-up — retired links land on the module (2026-10-31)
 
 A `midnite://open?app=<host>&module=…&view=…` link (and a retired id such as `app=coder`) now lands the host on that module and view. The launcher opens the host bundle with `open -n <bundle> --args --midnite-link=<rebuilt link>`; each host's main reads the switch from `process.argv` or `second-instance` argv (`registerSuiteMain`), sends it over `suiteLinkTake` / `suiteLinkOpen`, and `SuiteAppShell` navigates via `landingView`, ignoring unknown ids. Vitest at each layer; no e2e.
+
+### Ad hoc — `/midnite-sanitize` security-audit skill (2026-11-01)
+
+A new skill audits a third-party skill, plugin, MCP server or repo before install (or `--installed` / `--self`) without running its code. It clones into the scratchpad with checkout hooks off, checks provenance, runs a stdlib-only `scan.py` (agent-surface files, invisible/bidi text, HTML comments, injection phrases, `allowed-tools` breadth, trigger collisions with installed skills, network/exec/credential/persistence/obfuscation sites, symlinks escaping the tree), requires a manual read of every SKILL.md and spawn site, reports a verdict plus what it does that it doesn't advertise, then interviews the user about a pinned install. It is mirrored in `.claude`/`.agents`/`.codex` with a copies test, and the midnite menu shows it as **Reviews ▸ Sanitize** (`sanitize` → `/midnite-sanitize`).

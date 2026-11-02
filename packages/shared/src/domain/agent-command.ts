@@ -34,6 +34,7 @@ export const AGENT_COMMAND_IDS = [
   'checkYourself',
   'prDescription',
   'triage',
+  'sanitize',
   'releasePrep',
   'releaseComplete',
   'gitReport',
