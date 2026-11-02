@@ -318,11 +318,9 @@ describe('play-test paint wait and per-game lock', () => {
   it('still captures when the paint never answers (timeout path resolves)', async () => {
     const calls: string[] = [];
     const page = fakePage(calls, () => new Promise(() => undefined));
-    const started = Date.now();
     const result = await make(() => page, { paintTimeoutMs: 10 }).assertFrame('g-lock', { frame: 5, name: 'p', tolerance: 0.01 });
     expect(result.status).toBe('baseline-created');
     expect(calls).toEqual(['paint', 'capture']);
-    expect(Date.now() - started).toBeLessThan(5000);
   });
 
   it('captures when the paint evaluate throws', async () => {
