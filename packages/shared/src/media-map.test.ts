@@ -17,9 +17,9 @@ import { SECRET_KEYS } from './domain/secrets';
 
 describe('Maps tab (Phase 108 Theme A)', () => {
   it('sits after Audio and SFX; ids are unchanged so only the order moves', () => {
-    // Phase 113 Theme R appended the library after Games; SFX later joined Audio's side.
-    expect(MEDIA_TABS).toHaveLength(11);
-    expect(MEDIA_TABS).toEqual(['doc', 'image', 'video', 'audio', 'sfx', 'map', 'terrain', 'model', 'sprite', 'game', 'library']);
+    // Phase 113 Theme R appended the library after Games; SFX later joined Audio's side; Animations (Phase 125) follows Sprites.
+    expect(MEDIA_TABS).toHaveLength(12);
+    expect(MEDIA_TABS).toEqual(['doc', 'image', 'video', 'audio', 'sfx', 'map', 'terrain', 'model', 'sprite', 'animation', 'game', 'library']);
     expect(REPO_SCOPED_MEDIA_TABS).toContain('map');
     expect(MEDIA_TAB_EXPORT_FORMATS.map).toEqual(['geojson', 'kml']);
   });

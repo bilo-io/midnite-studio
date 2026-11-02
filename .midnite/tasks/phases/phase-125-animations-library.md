@@ -54,9 +54,9 @@ one library per machine, plays any clip on any rigged model, and points the user
 have more, without ever scraping one. Planned 2026-11-02 by an unattended swarm agent against the
 human decisions recorded below; first slice is **A + B + C**.
 
-**Theme A — Library store, manifest and IPC.** ◻ Not started. First slice.
-**Theme B — Bulk import: FBX / GLB / BVH, Mixamo naming and auto-tags.** ◻ Not started. First slice.
-**Theme C — Animations page: list, filter, search.** ◻ Not started. First slice.
+**Theme A — Library store, manifest and IPC.** ✅ [PR #1118](https://github.com/bilo-io/midnite-studio/pull/1118). Clips live in one library under the app-data directory, indexed by `animations.manifest.json`, with content-addressed files and a single `mediaAnimation` channel. A corrupt manifest is moved aside and the library starts empty; a path that escapes the root is dropped. Wired through Studio's preload and Gamer's bridge. Creator does not host the tab, so its bridge stays without it.
+**Theme B — Bulk import: FBX / GLB / BVH, Mixamo naming and auto-tags.** ✅ [PR #1118](https://github.com/bilo-io/midnite-studio/pull/1118). Hand-written readers pull duration, bones and skin from binary FBX (ASCII imports with an unknown duration), GLB/glTF and BVH. Mixamo names are cleaned and tagged from a keyword table. A folder walk stops at depth 4, skips symlinks, and one bad file does not abort the batch; the same bytes import once.
+**Theme C — Animations page: list, filter, search.** ✅ [PR #1118](https://github.com/bilo-io/midnite-studio/pull/1118). Media ▸ Animations lists the library with search, tag chips, a source filter and sort, and a detail pane for name, tags and provenance. Import is a file picker, a folder picker, or a drop. The page is not repo-scoped. Review shots are `docs/screenshots/p125-abc/`.
 **Theme D — Timeline player and retargeted preview.** ◻ Not started. Second slice.
 **Theme E — Sketchfab search and download.** ◻ Not started. Needs the user's Sketchfab API token.
 **Theme F — External source links.** ◻ Not started.
@@ -71,42 +71,42 @@ human decisions recorded below; first slice is **A + B + C**.
 3. **E** needs A (the store's `addDownloaded`) and the secret key; **F** is independent of E.
 4. **G** last: it needs a clip in the library and a game to import into.
 
-## A — Library store, manifest and IPC (S)
+## A — Library store, manifest and IPC (S) ✅ DONE (PR #1118, 2026-11-02)
 
-- [ ] `shared/src/media-animation.ts`: `AnimationSourceSchema`, `AnimationFormatSchema` (`fbx · glb · gltf · bvh`), `AnimationClipSchema`, `AnimationManifestSchema` (`version: 1`), the op union for the channel, the result envelope, `ANIMATION_TAG_IDS`, `ANIMATION_MANIFEST_FILE`; exported from `shared/src/index.ts`
+- [x] `shared/src/media-animation.ts`: `AnimationSourceSchema`, `AnimationFormatSchema` (`fbx · glb · gltf · bvh`), `AnimationClipSchema`, `AnimationManifestSchema` (`version: 1`), the op union for the channel, the result envelope, `ANIMATION_TAG_IDS`, `ANIMATION_MANIFEST_FILE`; exported from `shared/src/index.ts`
   - `AnimationClipSchema` fields: `id`, `name` (≤ 120), `tags[]` (lower-case, ≤ 16), `durationSec` (`null` when unreadable), `frameCount?`, `fps?`, `boneCount?`, `hasSkin`, `format`, `source`, `site?`, `licence`, `author`, `originalUrl?`, `sha256`, `file` (relative to the library root), `sizeBytes`, `addedAt`
   - Every optional is `.optional()`/`.default()` so a manifest written by a later build still loads
-- [ ] `media-model/main/animation/animation-library.ts`: `createAnimationLibrary({root})` → `list`, `get`, `add`, `update`, `remove`, `readFile`; manifest `animations.manifest.json` plus `clips/<sha256-prefix>-<slug>.<ext>`
+- [x] `media-model/main/animation/animation-library.ts`: `createAnimationLibrary({root})` → `list`, `get`, `add`, `update`, `remove`, `readFile`; manifest `animations.manifest.json` plus `clips/<sha256-prefix>-<slug>.<ext>`
   - Writes are atomic (temp file + rename) and serialised through one in-process queue (two imports racing cannot lose a clip)
   - A clip with an already-known `sha256` is a dedupe: the existing entry is returned, tags are merged, no second file is written
   - A malformed manifest is moved to `animations.manifest.corrupt-<ts>.json` and the library starts empty rather than throwing at boot
   - Every `file` is resolved through `confineToRoot`; a manifest entry that points outside the root is dropped on load
-- [ ] The library root is `<userData>/animation-library` (global, not per repo); main injects it (no `electron` import in the feature)
-- [ ] `CHANNELS.mediaAnimation` + `EVENT_CHANNELS.mediaAnimationChanged`; handler in `desktop/src/main/ipc/media-animation-handlers.ts`; preload slice; `Media['animation']` bridge type; Creator's bridge and context carry it; `test-support/mock-bridge.ts` mock
-- [ ] Ops never throw across the boundary: the handler returns `{ok:true,…} | {ok:false,error}`
-- [ ] Tests: vitest for the library (add/dedupe/update/remove, corrupt manifest, path escape, concurrent adds), the schemas (round-trip, defaults, unknown-future-field), the channel parse in `ipc.test.ts`
+- [x] The library root is `<userData>/animation-library` (global, not per repo); main injects it (no `electron` import in the feature)
+- [x] `CHANNELS.mediaAnimation` + `EVENT_CHANNELS.mediaAnimationChanged`; handler in `desktop/src/main/ipc/media-animation-handlers.ts`; preload slice; `Media['animation']` bridge type; Gamer's bridge and context carry it (Creator does not host this tab); `test-support/mock-bridge.ts` mock
+- [x] Ops never throw across the boundary: the handler returns `{ok:true,…} | {ok:false,error}`
+- [x] Tests: vitest for the library (add/dedupe/update/remove, corrupt manifest, path escape, concurrent adds), the schemas (round-trip, defaults, unknown-future-field), the channel parse in `ipc.test.ts`
 
-## B — Bulk import: FBX / GLB / BVH, Mixamo naming and auto-tags (M)
+## B — Bulk import: FBX / GLB / BVH, Mixamo naming and auto-tags (M) ✅ DONE (PR #1118, 2026-11-02)
 
-- [ ] `media-model/main/animation/parse-fbx.ts`: binary FBX reader (node records, zlib-compressed arrays) → `{durationSec, frameCount, boneNames[], hasSkin, takeName}`; ASCII FBX and unreadable files import with `durationSec: null` and a warning rather than failing
+- [x] `media-model/main/animation/parse-fbx.ts`: binary FBX reader (node records, zlib-compressed arrays) → `{durationSec, frameCount, boneNames[], hasSkin, takeName}`; ASCII FBX and unreadable files import with `durationSec: null` and a warning rather than failing
   - Duration from the `AnimationStack`'s `LocalStart`/`LocalStop` (KTime, 46 186 158 000 ticks/s), else the max `KeyTime` of the `AnimationCurve`s
   - `hasSkin` = a `Deformer` of subclass `Skin` or a `Geometry` node is present (Mixamo's with-skin vs without-skin export)
-- [ ] `parse-gltf.ts` (`.glb`/`.gltf`: animation channels' sampler input accessor `min`/`max`, node names) and `parse-bvh.ts` (`HIERARCHY` joints, `Frames`, `Frame Time`)
-- [ ] `mixamo.ts`: `clipNameFromFile` (strip extension, ` (1)`, `_withSkin`, `Without Skin`, `mixamo.com`; Title-case) and `detectMixamo(boneNames)` (`mixamorig`/`mixamorig:` prefix → source `mixamo`, licence `mixamo-eula`)
-- [ ] `auto-tags.ts`: a keyword table (`locomotion`: walk, run, jog, sprint, strafe, crouch, sneak; `traversal`: jump, climb, fall, vault, roll; `combat`: punch, kick, slash, sword, attack, block, shoot, swing; `reaction`: hit, death, die, stagger; `idle`: idle, breathing, stand; `emote`: dance, wave, taunt, cheer, clap, salute) → tags, de-duplicated and sorted; always adds the format tag only when the user asks for it
-- [ ] `import-service.ts`: `importPaths(paths[])` walks folders (depth ≤ 4, `.fbx .glb .gltf .bvh` only, no symlink follow), parses, hashes, adds, and reports `{added, duplicate, failed[{path,reason}]}` with progress events; one bad file never aborts the batch
-- [ ] Ops `importFiles` / `importFolder` (the handler opens the native picker; paths from drag-drop go through `importPaths`)
-- [ ] Tests: parsers against tiny hand-built fixtures (a generated binary FBX with a compressed array, a minimal GLB, a 3-frame BVH), Mixamo naming table, auto-tag table, import service (folder walk, dedupe, a corrupt file, depth cap, symlink skipped)
+- [x] `parse-gltf.ts` (`.glb`/`.gltf`: animation channels' sampler input accessor `min`/`max`, node names) and `parse-bvh.ts` (`HIERARCHY` joints, `Frames`, `Frame Time`)
+- [x] `mixamo.ts`: `clipNameFromFile` (strip extension, ` (1)`, `_withSkin`, `Without Skin`, `mixamo.com`; Title-case) and `detectMixamo(boneNames)` (`mixamorig`/`mixamorig:` prefix → source `mixamo`, licence `mixamo-eula`)
+- [x] `auto-tags.ts`: a keyword table (`locomotion`: walk, run, jog, sprint, strafe, crouch, sneak; `traversal`: jump, climb, fall, vault, roll; `combat`: punch, kick, slash, sword, attack, block, shoot, swing; `reaction`: hit, death, die, stagger; `idle`: idle, breathing, stand; `emote`: dance, wave, taunt, cheer, clap, salute) → tags, de-duplicated and sorted; always adds the format tag only when the user asks for it
+- [x] `import-service.ts`: `importPaths(paths[])` walks folders (depth ≤ 4, `.fbx .glb .gltf .bvh` only, no symlink follow), parses, hashes, adds, and reports `{added, duplicate, failed[{path,reason}]}` with progress events; one bad file never aborts the batch
+- [x] Ops `importFiles` / `importFolder` (the handler opens the native picker; paths from drag-drop go through `importPaths`)
+- [x] Tests: parsers against tiny hand-built fixtures (a generated binary FBX with a compressed array, a minimal GLB, a 3-frame BVH), Mixamo naming table, auto-tag table, import service (folder walk, dedupe, a corrupt file, depth cap, symlink skipped)
 
-## C — Animations page: list, filter, search (M)
+## C — Animations page: list, filter, search (M) ✅ DONE (PR #1118, 2026-11-02)
 
-- [ ] `'animation'` added to `MEDIA_TABS` (after `model`), labelled **Animations**, with every `Record<MediaTab, …>` the compiler flags filled; **not** in `REPO_SCOPED_MEDIA_TABS` (the library is global); `MEDIA_TAB_EXPORT_FORMATS.animation = []`
-- [ ] `AnimationsTab` (`media-model/renderer/animation/animation-tab.tsx`) as `mediaAnimationTab` in the feature's descriptor and `compose/media-tabs.tsx`; layout keys `mediaAnimationExplorerWidth`/`mediaAnimationDetailWidth`
-- [ ] `animation-model.ts` (pure): `filterClips({query, tags[], source, sort})` — substring search over name/tags/author/site, AND across selected tags, `sort` by name, newest, duration, size; `tagCounts(clips)`; `sourceCounts(clips)`
-- [ ] List pane: search box, tag chips with counts, source select, sort select, a row per clip (name, duration, tags, source badge); keyboard: arrows move, Enter selects; empty / loading / error states; "N of M clips"
-- [ ] Detail pane: name (rename), tags (add/remove), and the manifest fields (source/site, licence, author, original URL as an external link, sha256, file path, size, bone count, skin); delete with a confirm that states the file goes too
-- [ ] Import bar: **Import files**, **Import folder** and a drop zone with a progress line and a result summary (added / duplicate / failed with reasons)
-- [ ] Tests: vitest for `animation-model.ts`; RTL for the tab (render, search, tag filter, source filter, sort, select, rename, delete confirm, import summary) over the mock bridge; Playwright e2e `animations-shots.spec.ts` with the mocked bridge (page loads, filter, select) + screenshots under `docs/screenshots/phase-125-animations/`
+- [x] `'animation'` added to `MEDIA_TABS` (after `sprite`), labelled **Animations**, with every `Record<MediaTab, …>` the compiler flags filled; **not** in `REPO_SCOPED_MEDIA_TABS` (the library is global); `MEDIA_TAB_EXPORT_FORMATS.animation = []`
+- [x] `AnimationsTab` (`media-model/renderer/animation/animation-tab.tsx`) as `mediaAnimationTab` in the feature's descriptor and `compose/media-tabs.tsx`; layout keys `mediaAnimationExplorerWidth`/`mediaAnimationDetailWidth`
+- [x] `animation-model.ts` (pure): `filterClips({query, tags[], source, sort})` — substring search over name/tags/author/site, AND across selected tags, `sort` by name, newest, duration, size; `tagCounts(clips)`; `sourceCounts(clips)`
+- [x] List pane: search box, tag chips with counts, source select, sort select, a row per clip (name, duration, tags, source badge); keyboard: arrows move, Enter selects; empty / loading / error states; "N of M clips"
+- [x] Detail pane: name (rename), tags (add/remove), and the manifest fields (source/site, licence, author, original URL as an external link, sha256, file path, size, bone count, skin); delete with a confirm that states the file goes too
+- [x] Import bar: **Import files**, **Import folder** and a drop zone with a progress line and a result summary (added / duplicate / failed with reasons)
+- [x] Tests: vitest for `animation-model.ts`; RTL for the tab (render, search, tag filter, source filter, sort, select, rename, delete confirm, import summary) over the mock bridge; Playwright e2e `animations-shots.spec.ts` with the mocked bridge (page loads, filter, select) + screenshots under `docs/screenshots/p125-abc/`
 
 ## D — Timeline player and retargeted preview (L)
 

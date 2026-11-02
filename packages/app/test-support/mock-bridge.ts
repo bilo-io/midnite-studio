@@ -780,6 +780,8 @@ export type MockFixtures = {
     sf3d?: { state?: 'not-installed' | 'installed'; licenceSha256?: string; hold?: boolean; holdFraction?: number };
     /** SFX (Stable Audio Open Small): the starting install state; `licenceSha256` = consent already given. */
     sfx?: { state?: 'not-installed' | 'installed'; licenceSha256?: string };
+    /** Animations (Phase 125): the library's starting clips (full manifest entries); defaults to none. */
+    animations?: Array<Record<string, unknown> & { id: string; name: string; tags: string[] }>;
     ffmpeg?:
       { found: true; path: string; version: string | null } | { found: false; reason: string };
     /**
@@ -3609,6 +3611,31 @@ export function buildMockBridge(data: MockFixtures) {
         cancel: async () => ({ ok: true as const }),
         onProgress: unsubscribe,
       },
+      // Phase 125: the animation library, in memory. Import "picks" nothing (cancelled); edits and removes stick.
+      animation: {
+        list: async () => ({ ok: true as const, value: { clips: animationClips.map((clip) => ({ ...clip })) } }),
+        importFiles: async () => ({ ok: true as const, value: { added: [], duplicates: [], failed: [], warnings: [], cancelled: true } }),
+        importFolder: async () => ({ ok: true as const, value: { added: [], duplicates: [], failed: [], warnings: [], cancelled: true } }),
+        importBytes: async () => ({ ok: true as const, value: { added: [], duplicates: [], failed: [], warnings: [], cancelled: false } }),
+        update: async (req: { id: string; patch: Record<string, unknown> }) => {
+          animationClips = animationClips.map((clip) => (clip.id === req.id ? { ...clip, ...req.patch } : clip));
+          const clip = animationClips.find((c) => c.id === req.id);
+          animationListeners.forEach((handler) => handler({ reason: 'update', count: 1 }));
+          return clip ? { ok: true as const, value: { clip } } : { ok: false as const, kind: 'error' as const, message: 'That clip is no longer in the library.' };
+        },
+        remove: async (req: { id: string }) => {
+          const clip = animationClips.find((c) => c.id === req.id);
+          animationClips = animationClips.filter((c) => c.id !== req.id);
+          animationListeners.forEach((handler) => handler({ reason: 'remove', count: 1 }));
+          return clip ? { ok: true as const, value: { clip } } : { ok: false as const, kind: 'error' as const, message: 'That clip is no longer in the library.' };
+        },
+        read: async () => ({ ok: false as const, kind: 'error' as const, message: 'Clip bytes are not available in the mock bridge.' }),
+        onChanged: (handler: (event: unknown) => void) => {
+          animationListeners.add(handler);
+          return () => animationListeners.delete(handler);
+        },
+        onProgress: unsubscribe,
+      },
       sfx: {
         status: async () => ({ ok: true as const, value: { ...sfxState } }),
         consent: async (req: { licenceSha256: string }) => {
@@ -6190,6 +6217,10 @@ export function buildMockBridge(data: MockFixtures) {
     bytesOnDisk: data.media?.sfx?.state === 'installed' ? 2_117_683_571 : 0,
     totalBytes: 2_117_683_571,
   } as { state: string; consent: { licenceSha256: string; acceptedAt: string; revenueAcknowledged: true } | null; bytesOnDisk: number; totalBytes: number };
+  // eslint-disable-next-line no-var
+  var animationClips = [...(data.media?.animations ?? [])] as Array<Record<string, unknown> & { id: string; name: string; tags: string[] }>;
+  // eslint-disable-next-line no-var
+  var animationListeners = new Set<(event: unknown) => void>();
   // eslint-disable-next-line no-var
   var sfxListeners = new Set<(event: unknown) => void>();
   // eslint-disable-next-line no-var

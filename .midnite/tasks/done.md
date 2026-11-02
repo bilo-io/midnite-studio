@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-02 — Phase 125 Themes A, B, C — Media ▸ Animations library
+
+[PR #1118](https://github.com/bilo-io/midnite-studio/pull/1118). A global animation library under the app-data directory, with a manifest, content-addressed clip files, and one `mediaAnimation` channel. Bulk import reads FBX, GLB/glTF and BVH, cleans Mixamo names and auto-tags. Media ▸ Animations lists, filters and shows clip details; it is not repo-scoped. Themes D–H stay open. Shots: `docs/screenshots/p125-abc/`.
+
 ## 2026-10-31 — Phase 124 — Merge suite apps into modules
 
 [Phase 124](phases/phase-124-apps-into-modules.md) marked ✅ DONE (47/47 items verified). Main CI green on `7875741e0` (typecheck, lint, tests, gate-native, e2e ×4); `layer-boundaries.test.mjs` proves the module edges; the launcher tests cover the 11-app catalog, one `suite` section and module chips; no Phase 124 commit touched a Studio baseline. The packaged Agents, Vanguard and Coder-to-Agents launcher passes were signed off by the owner. A retired-id link opens the host bundle without landing on the module (recorded in `outstanding.md`).

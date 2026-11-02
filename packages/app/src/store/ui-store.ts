@@ -408,6 +408,8 @@ export type LayoutSizes = {
   mediaModelDetailWidth: number;
   mediaTerrainExplorerWidth: number;
   mediaTerrainDetailWidth: number;
+  mediaAnimationExplorerWidth: number;
+  mediaAnimationDetailWidth: number;
   mediaSpriteExplorerWidth: number;
   mediaSpriteDetailWidth: number;
   mediaMapExplorerWidth: number;
@@ -516,6 +518,8 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   mediaModelDetailWidth: 360,
   mediaTerrainExplorerWidth: 224,
   mediaTerrainDetailWidth: 360,
+  mediaAnimationExplorerWidth: 224,
+  mediaAnimationDetailWidth: 340,
   mediaSpriteExplorerWidth: 224,
   mediaSpriteDetailWidth: 380,
   mediaMapExplorerWidth: 240,
@@ -609,6 +613,8 @@ export const LAYOUT_BOUNDS = {
   mediaModelDetailWidth: { min: 260, max: 640 },
   mediaTerrainExplorerWidth: { min: 180, max: 480 },
   mediaTerrainDetailWidth: { min: 260, max: 640 },
+  mediaAnimationExplorerWidth: { min: 180, max: 480 },
+  mediaAnimationDetailWidth: { min: 260, max: 680 },
   mediaSpriteExplorerWidth: { min: 180, max: 480 },
   mediaSpriteDetailWidth: { min: 280, max: 680 },
   mediaMapExplorerWidth: { min: 180, max: 480 },
@@ -4113,6 +4119,7 @@ const MEDIA_LAYOUT_KEYS = {
   model: { explorer: 'mediaModelExplorerWidth', detail: 'mediaModelDetailWidth' },
   terrain: { explorer: 'mediaTerrainExplorerWidth', detail: 'mediaTerrainDetailWidth' },
   sprite: { explorer: 'mediaSpriteExplorerWidth', detail: 'mediaSpriteDetailWidth' },
+  animation: { explorer: 'mediaAnimationExplorerWidth', detail: 'mediaAnimationDetailWidth' },
   game: { explorer: 'mediaGameExplorerWidth', detail: 'mediaGameDetailWidth' },
   map: { explorer: 'mediaMapExplorerWidth', detail: 'mediaMapDetailWidth' },
   library: { explorer: 'mediaLibraryExplorerWidth', detail: 'mediaLibraryDetailWidth' },

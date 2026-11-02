@@ -49,6 +49,7 @@ const UNMIGRATED: Record<string, string> = {
   'packages/runtime/src/vault/breach/hibp-check.ts': 'user-triggered Pwned Passwords check, api.pwnedpasswords.com is registered; follow-up: bind',
   'packages/features/companion/main/stt/openai-whisper.ts': 'user-triggered transcription to api.openai.com with the user’s key; follow-up: register and bind',
   'packages/features/media-audio/main/music/gm-sample-cache.ts': 'one-time General MIDI sample download the user starts; follow-up: register the host and bind',
+  'packages/features/media-audio/main/sfx/installer.ts': 'one-time Stable Audio download the user starts; follow-up: register the host and bind',
   'packages/features/media-model/main/model/sf3d/installer.ts': 'model download the user starts; follow-up: register the host and bind',
   'apps/launcher/src/main': 'the launcher is off the graph and cannot import the runtime; follow-up: launcher switches (Theme A, second slice)',
 };

@@ -777,6 +777,17 @@ const bridge: Pick<
         chooseFfmpeg: () => call(CHANNELS.mediaLibraryLanChooseFfmpeg),
       },
     },
+    animation: {
+      list: () => call(CHANNELS.mediaAnimation, { op: 'list' }),
+      importFiles: () => call(CHANNELS.mediaAnimation, { op: 'importFiles' }),
+      importFolder: () => call(CHANNELS.mediaAnimation, { op: 'importFolder' }),
+      importBytes: (req) => call(CHANNELS.mediaAnimation, { op: 'importBytes', ...req }),
+      update: (req) => call(CHANNELS.mediaAnimation, { op: 'update', ...req }),
+      remove: (req) => call(CHANNELS.mediaAnimation, { op: 'remove', ...req }),
+      read: (req) => call(CHANNELS.mediaAnimation, { op: 'read', ...req }),
+      onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaAnimationChanged, handler),
+      onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaAnimationProgress, handler),
+    },
     sfx: {
       status: () => call(CHANNELS.mediaSfx, { op: 'status' }),
       consent: (req) => call(CHANNELS.mediaSfx, { op: 'consent', ...req }),

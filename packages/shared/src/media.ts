@@ -18,9 +18,10 @@ import type { SecretKey } from './domain/secrets';
 
 /**
  * Tab order is render order in the strip. `doc` is first by decision. `sfx` (Stable Audio Open Small sound effects) sits beside `audio`. `library` (Phase 113 Theme R, the Media
- * app's local library) is appended, so no earlier tab's position or persisted id moved.
+ * app's local library) is appended, so no earlier tab's position or persisted id moved. `animation` (Phase 125, the
+ * global animation-clip library) sits after `sprite`; it is not repo-scoped, so it is absent from `REPO_SCOPED_MEDIA_TABS`.
  */
-export const MEDIA_TABS = ['doc', 'image', 'video', 'audio', 'sfx', 'map', 'terrain', 'model', 'sprite', 'game', 'library'] as const;
+export const MEDIA_TABS = ['doc', 'image', 'video', 'audio', 'sfx', 'map', 'terrain', 'model', 'sprite', 'animation', 'game', 'library'] as const;
 export const MediaTabSchema = z.enum(MEDIA_TABS);
 export type MediaTab = z.infer<typeof MediaTabSchema>;
 
@@ -121,6 +122,8 @@ export const MEDIA_TAB_EXPORT_FORMATS: Record<MediaTab, readonly MediaExportForm
   // Takes are already .wav; the same ffmpeg encodes as Audio's give a game its mp3 or flac.
   sfx: ['wav', 'mp3', 'flac'],
   model: ['obj', 'fbx', 'glb', 'fbx-ascii'],
+  // The library holds the user's clips as imported; a game takes one through the asset import (Phase 125 Theme G).
+  animation: [],
   // The pack (a folder, not a zip: Phase 105 Decision 13) is the default; the glb is one file for a DCC tool.
   terrain: ['terrain-pack', 'glb'],
   // Theme G (Phase 106) writes the pack; until then the tab's export answers "not available yet".
