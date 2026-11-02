@@ -14,7 +14,7 @@ import {
 } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createModelRuntime, mediaModelMain, type ModelRuntimeDeps } from './main';
+import { createModelRuntime, mediaModelMain, unavailableAnimations, type ModelRuntimeDeps } from './main';
 import { mediaModelManifest } from './manifest';
 
 /** Deps that touch nothing: no media store, no Ollama, no agent, no window. */
@@ -42,7 +42,7 @@ const deps = (over: Partial<ModelRuntimeDeps> = {}): ModelRuntimeDeps => ({
 const register = (over: Partial<ModelRuntimeDeps> = {}, pickSavePath = async (): Promise<string | null> => null) => {
   const ctx = createRecordingContext();
   const sf3d = vi.fn(async () => ({ ok: true as const, value: undefined }));
-  mediaModelMain.register(ctx, { runtime: createModelRuntime(deps(over)), pickSavePath, sf3d });
+  mediaModelMain.register(ctx, { runtime: createModelRuntime(deps(over)), pickSavePath, sf3d, animation: unavailableAnimations('a unit test') });
   return { ctx, sf3d };
 };
 

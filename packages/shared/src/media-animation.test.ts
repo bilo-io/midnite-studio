@@ -79,8 +79,8 @@ describe('AnimationRequestSchema', () => {
 
 describe('the channel', () => {
   it('is registered with request and response schemas', () => {
-    expect(CHANNELS.mediaAnimation).toBe('mstudio:media:animation');
-    expect(EVENT_CHANNELS.mediaAnimationChanged).toBe('mstudio:media:animation-changed');
+    expect(CHANNELS.mediaAnimation).toBe('mstudio:media:model-animation');
+    expect(EVENT_CHANNELS.mediaAnimationChanged).toBe('mstudio:media:model-animation-changed');
     expect(MediaAnimationRequest.safeParse({ op: 'list' }).success).toBe(true);
     expect(MediaAnimationResponse.safeParse({ ok: true, value: { clips: [] } }).success).toBe(true);
     expect(MediaAnimationResponse.safeParse({ ok: false, kind: 'error', message: 'nope' }).success).toBe(true);

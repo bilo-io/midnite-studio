@@ -5,6 +5,7 @@ import { defineFeatureMain } from '@midnite/studio-runtime';
 import { CHANNELS, failure, MEDIA_EXPORT_FORMAT_INFO, ok, schemas, type GitOpResult, type Sf3dRequest } from '@midnite/studio-shared';
 
 import { mediaModelManifest } from '../manifest';
+import type { AnimationService } from './animation/animation-service';
 import type { ModelRuntime } from './model/model-runtime';
 
 export { mediaModelManifest, type MediaModelManifest } from '../manifest';
@@ -39,6 +40,7 @@ export { createSf3dBroker, sf3dWorkerScriptPath, type Sf3dBroker, type Sf3dWorke
 export { createSf3dMcpTools, SF3D_NOT_READY_HINT, type Sf3dMcpTools } from './model/sf3d/sf3d-mcp';
 export { createSf3dService, type Sf3dService } from './model/sf3d/sf3d-service';
 export type { RgbaImage } from './model/sf3d/prepare-image';
+export * from './animation';
 export { memoryModelKit, BOX_SPEC, type MemoryModelKit } from './model/model-test-kit';
 
 /**
@@ -56,6 +58,8 @@ export type MediaModelMainServices = {
   pickSavePath: (options: { defaultPath: string; filters: { name: string; extensions: string[] }[] }) => Promise<string | null>;
   /** The one dispatcher the SF3D channel and the `model_*` SF3D tools share. */
   sf3d: (req: Sf3dRequest) => Promise<GitOpResult<unknown> | GitOpResult>;
+  /** Media ▸ Animations' dispatcher (Phase 125); a host without the library passes `unavailableAnimations`. */
+  animation: AnimationService;
 };
 
 const caught = (error: unknown) => failure(error instanceof Error ? error.message : String(error));
@@ -63,7 +67,7 @@ const caught = (error: unknown) => failure(error instanceof Error ? error.messag
 export const mediaModelMain = defineFeatureMain<MediaModelMainServices>({
   feature: mediaModelManifest.feature,
   channels: mediaModelManifest.ipc,
-  register(ctx, { runtime, pickSavePath, sf3d }) {
+  register(ctx, { runtime, pickSavePath, sf3d, animation }) {
     const { handle, handleBare } = ctx.ipc;
     const { service, library, sculptStore } = runtime;
     const invalid = (issue: string) => failure(issue);
@@ -156,5 +160,6 @@ export const mediaModelMain = defineFeatureMain<MediaModelMainServices>({
       invalid,
     );
     handle(CHANNELS.mediaModelSf3d, schemas.MediaModelSf3dRequest, (req) => sf3d(req), invalid);
+    handle(CHANNELS.mediaAnimation, schemas.MediaAnimationRequest, (req) => animation.handle(req), invalid);
   },
 });
