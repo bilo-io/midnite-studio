@@ -60,7 +60,7 @@ human decisions recorded below; first slice is **A + B + C**.
 **Theme D — Timeline player and retargeted preview.** ✅ [PR #1120](https://github.com/bilo-io/midnite-studio/pull/1120). Selecting a clip opens a player under the list: a WebGL preview, transport (play/pause, frame step, loop, 0.25–2× speed), a ruler with scrub and draggable in/out range, and a key-tick lane per bone (collapsed to one summary lane past 60 bones). Clips decode with three's FBX/GLTF/BVH loaders; the preview model is a mannequin, the clip's own skeleton, or a repo Models rig drawn as bones, and the clip is retargeted by bone name (exact, normalised, then a Mixamo/VRM key table), with unmatched bones listed. Only the root keeps translation (scaled to the target's hips height); there is no rest-pose correction. Review shot is `docs/screenshots/p125-d/`.
 **Theme E — Sketchfab search and download.** ◻ Not started. Needs the user's Sketchfab API token.
 **Theme F — External source links.** ◻ Not started.
-**Theme G — Import into a game.** ◻ Not started.
+**Theme G — Import into a game.** ✅ [PR #1122](https://github.com/bilo-io/midnite-studio/pull/1122). The games' asset bridge takes an `{ animationId }` source: the clip's file is confined to the library root, checked against its manifest hash and copied to `assets/animations/<name>.<ext>` in one commit, with licence, author and URL recorded in the manifest and `assets/index.json`. A clip the game already holds is a no-op by sha256. The detail pane's "Use in a game" picks a game and names the licence in a confirm when it asks for credit. No Gamer picker tab: the detail pane already lists the library. Shots `docs/screenshots/p125-g/`.
 **Theme H — Verification.** ◻ Not started.
 
 ## Build order
@@ -132,12 +132,12 @@ human decisions recorded below; first slice is **A + B + C**.
 - [ ] Empty-state and import bar point at the sources ("Downloaded something? Drop it here")
 - [ ] Tests: URL builder (encoding), host allow-list, RTL for the source list
 
-## G — Import into a game (M)
+## G — Import into a game (M) ✅ DONE (PR #1122, 2026-11-02)
 
-- [ ] `asset-bridge.ts` gains the `animation` source: lists library clips and copies one into the game's `assets/animations/<name>.<ext>`, with provenance (source, licence, author, url, sha256) in the asset index
-- [ ] "Use in a game" on the detail pane: pick a game, import, show the destination path; the confirm names the licence when it requires attribution
-- [ ] Re-import is idempotent by sha256
-- [ ] Tests: vitest for the bridge (copy, provenance, idempotence, path jail), RTL for the dialog
+- [x] `asset-bridge.ts` gains the `animation` source: lists library clips and copies one into the game's `assets/animations/<name>.<ext>`, with provenance (source, licence, author, url, sha256) in the asset index
+- [x] "Use in a game" on the detail pane: pick a game, import, show the destination path; the confirm names the licence when it requires attribution
+- [x] Re-import is idempotent by sha256
+- [x] Tests: vitest for the bridge (copy, provenance, idempotence, path jail), RTL for the dialog
 
 ## H — Verification
 

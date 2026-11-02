@@ -7,7 +7,7 @@ import {
   type GitOpResult,
 } from '@midnite/studio-shared';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { LuGamepad2 } from 'react-icons/lu';
 
 import { bridge, noBridge, reportFailure, SelectField, useFrameChrome } from '@midnite/studio-frame';
@@ -28,9 +28,6 @@ export function UseInGame({ clip }: { clip: AnimationClip }) {
   const usable = (games.data ?? []).filter((game) => game.valid);
   const [gameId, setGameId] = useState('');
   const [result, setResult] = useState<GameImportAssetResult | null>(null);
-  useEffect(() => {
-    setResult(null);
-  }, [clip.id]);
   const chosen = usable.find((game) => game.gameId === gameId) ?? usable[0];
 
   const importClip = useMutation({
@@ -64,7 +61,10 @@ export function UseInGame({ clip }: { clip: AnimationClip }) {
         <p className="text-muted-foreground">No games yet. Create one in Media ▸ Games.</p>
       ) : (
         <>
-          <SelectField<string> label="Game" value={chosen.gameId} onChange={setGameId} options={usable.map((game) => ({ value: game.gameId, label: game.name }))} />
+          <SelectField<string> label="Game" value={chosen.gameId} onChange={(next) => {
+              setGameId(next);
+              setResult(null);
+            }} options={usable.map((game) => ({ value: game.gameId, label: game.name }))} />
           <button
             type="button"
             onClick={run}
