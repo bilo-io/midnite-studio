@@ -35,7 +35,8 @@ Four commits on the branch, plus the commit that adds this note:
 - `5fcff0690` library store, FBX/GLB/BVH metadata readers, Mixamo naming and auto-tags, bulk importer, `mediaAnimation` dispatcher
 - `6820ecb9f` Studio and Gamer handlers, preload, bridge, pickers
 - `afb4f2c7c` Animations tab: list, search, tag and source filters, import, clip details, vitest/RTL
-- This commit: Gamer launcher expects the Animations tab; `packages/app/e2e/animations-shots.spec.ts` (one test, three shots); e2e budget 482 → 483
+- `082df4e07` Gamer launcher expects the Animations tab; `packages/app/e2e/animations-shots.spec.ts` (one test); e2e budget 482 → 483; this handover note
+- The Playwright spec has been run. `docs/screenshots/p125-abc/list.png`, `filter.png` and `detail.png` show the three-pane shell, the combat filter leaving only Sword Slash, and that clip's detail. They are committed. Do not retake them unless the page changes.
 
 Themes A, B and C are claimed WIP in `.midnite/tasks/_INDEX.md` on `main` (commit `e4f69de54`). The phase doc's checkboxes are still open. That update happens on this branch just before merge.
 
@@ -45,16 +46,15 @@ No pull request. Nothing pushed. CI has not run. The pre-push gate has not been 
 
 ## Next steps, in order
 
-1. `cd` this worktree. Do not redo the store, the parsers, the importer or the tab.
-2. Run the Playwright spec so it writes `docs/screenshots/p125-abc/list.png`, `filter.png` and `detail.png`. Read the three PNGs. The spec is `packages/app/e2e/animations-shots.spec.ts`. It opens Media ▸ Animations against the mocked bridge, checks the three panes sit side by side, applies the combat tag filter, and opens Sword Slash.
-3. Run the animation and gamer vitest suites, then the full gate. Do not push red.
-4. `git rm SCRATCHPAD.md` and commit that removal before opening the PR.
-5. Commit the three PNGs. Push `feature/p125-abc`. Open a **draft** PR whose body already embeds them with commit-pinned raw URLs: `https://github.com/bilo-io/midnite-studio/raw/<sha>/docs/screenshots/p125-abc/<file>.png`. Do not add images after the PR exists.
-6. `gh pr checks <n> --watch`. A failure in a file this branch did not touch: re-run that job once, then treat it as real. Fix, re-run the local gate, push, repeat until green.
-7. On the branch, mark Themes A, B and C done in the phase doc and `_INDEX.md` (Done count, percent, 10-cell bar, theme-key icons, PR number). Leave D, E, F, G and H open. Commit that.
-8. If the branch is behind `origin/main`, `git rebase origin/main` and `git push --force-with-lease`.
-9. `gh pr ready <n>` then `gh pr merge <n> --squash --delete-branch`.
-10. In the primary checkout: `git checkout main && git pull`. Re-read `_INDEX.md`. If a race clobbered the row, fix it on `main` and push. Tear the worktree down (`du -sk` first, then `git worktree remove`, `git branch -D`, `git worktree prune`) and report the freed MB.
+1. `cd` this worktree. Do not redo the store, the parsers, the importer, the tab, the spec or the screenshots.
+2. Run the animation and gamer vitest suites, then the full gate: `moon run :typecheck && moon run :lint && moon run :test`. Do not push red.
+3. `git rm SCRATCHPAD.md` and commit that removal before opening the PR.
+4. Push `feature/p125-abc`. Open a **draft** PR whose body already embeds the three PNGs with commit-pinned raw URLs: `https://github.com/bilo-io/midnite-studio/raw/<sha>/docs/screenshots/p125-abc/<file>.png`. Do not add images after the PR exists.
+5. `gh pr checks <n> --watch`. A failure in a file this branch did not touch: re-run that job once, then treat it as real. Fix, re-run the local gate, push, repeat until green.
+6. On the branch, mark Themes A, B and C done in the phase doc and `_INDEX.md` (Done count, percent, 10-cell bar, theme-key icons, PR number). Leave D, E, F, G and H open. Commit that.
+7. If the branch is behind `origin/main`, `git rebase origin/main` and `git push --force-with-lease`.
+8. `gh pr ready <n>` then `gh pr merge <n> --squash --delete-branch`.
+9. In the primary checkout: `git checkout main && git pull`. Re-read `_INDEX.md`. If a race clobbered the row, fix it on `main` and push. Tear the worktree down (`du -sk` first, then `git worktree remove`, `git branch -D`, `git worktree prune`) and report the freed MB.
 
 ## Gotchas
 
