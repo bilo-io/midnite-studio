@@ -2,6 +2,7 @@ import {
   ANIMATION_LICENCES,
   ANIMATION_LICENCE_LABELS,
   ANIMATION_SOURCES,
+  ANIMATION_SOURCE_SITES,
   ANIMATION_SOURCE_LABELS,
   formatAnimationDuration,
   type AnimationClip,
@@ -29,6 +30,7 @@ import {
   type ClipSort,
 } from './animation-model';
 import { ClipPlayer } from './clip-player';
+import { SourceLinks } from './source-links';
 import { useAnimationClips, useAnimationEvents, useAnimationMutations } from './use-animations';
 
 /**
@@ -81,7 +83,7 @@ export function AnimationTab() {
           onImportFolder={() => mutations.importFolder.mutate()}
         />
       }
-      explorer={<AnimationExplorer clips={all} filter={filter} onSource={(source) => patch({ source })} onToggleTag={toggleTag} onClearTags={() => patch({ tags: [] })} />}
+      explorer={<AnimationExplorer query={filter.query} clips={all} filter={filter} onSource={(source) => patch({ source })} onToggleTag={toggleTag} onClearTags={() => patch({ tags: [] })} />}
       content={
         <div
           className={`relative flex h-full min-h-0 flex-col ${dragging ? 'ring-2 ring-inset ring-primary/60' : ''}`}
@@ -102,7 +104,7 @@ export function AnimationTab() {
             <EmptyState
               icon={LuFootprints}
               title="Your animation library is empty"
-              body="Import a folder of Mixamo FBX files (with or without skin), or GLB, glTF and BVH clips. They are copied into one library shared by every project. Or drop files here."
+              body="Import a folder of Mixamo FBX files (with or without skin), or GLB, glTF and BVH clips. They are copied into one library shared by every project. Or drop files here. Looking for clips? Find more clips in the left panel."
               action={
                 <div className="flex gap-2">
                   <EmptyStateButton icon={LuFolderInput} label="Import a folder…" onClick={() => mutations.importFolder.mutate()} disabled={mutations.importing} />
@@ -171,12 +173,14 @@ function AnimationToolbar({
 }
 
 function AnimationExplorer({
+  query,
   clips,
   filter,
   onSource,
   onToggleTag,
   onClearTags,
 }: {
+  query: string;
   clips: readonly AnimationClip[];
   filter: ClipFilter;
   onSource: (source: AnimationSource | 'all') => void;
@@ -249,6 +253,7 @@ function AnimationExplorer({
               </ul>
             ),
         },
+        { id: 'find-more', title: 'Find more clips', count: ANIMATION_SOURCE_SITES.length, children: <SourceLinks query={query} /> },
       ]}
     />
   );
