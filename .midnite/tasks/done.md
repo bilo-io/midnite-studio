@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-02 — Phase 125 Theme D — Animation timeline player
+
+[PR #1120](https://github.com/bilo-io/midnite-studio/pull/1120). Selecting a library clip opens a player: WebGL preview on a mannequin, the clip's own skeleton or a repo rig (retargeted by bone name), transport, in/out range and per-bone key lanes. Shot: `docs/screenshots/p125-d/`. Themes E–H stay open.
+
 ## 2026-11-02 — Phase 125 Themes A, B, C — Media ▸ Animations library
 
 [PR #1118](https://github.com/bilo-io/midnite-studio/pull/1118). A global animation library under the app-data directory, with a manifest, content-addressed clip files, and one `mediaAnimation` channel. Bulk import reads FBX, GLB/glTF and BVH, cleans Mixamo names and auto-tags. Media ▸ Animations lists, filters and shows clip details; it is not repo-scoped. Themes D–H stay open. Shots: `docs/screenshots/p125-abc/`.

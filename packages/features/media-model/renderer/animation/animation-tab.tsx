@@ -28,6 +28,7 @@ import {
   type ClipFilter,
   type ClipSort,
 } from './animation-model';
+import { ClipPlayer } from './clip-player';
 import { useAnimationClips, useAnimationEvents, useAnimationMutations } from './use-animations';
 
 /**
@@ -37,6 +38,7 @@ import { useAnimationClips, useAnimationEvents, useAnimationMutations } from './
  * - **Content**: the clips as a searchable, sortable list; a drop zone for FBX / GLB / glTF / BVH files and
  *   folders, with an import summary under the toolbar.
  * - **Detail**: the selected clip's name, tags and provenance (source, licence, author, original URL, hash).
+ * - **Player** (Theme D): under the list, the selected clip on a chosen model with a transport and per-bone lanes.
  *
  * Not repo-scoped: the library lives under the app's data directory, shared by every repo.
  */
@@ -111,6 +113,11 @@ export function AnimationTab() {
           ) : (
             <ClipList clips={visible} total={all.length} selectedId={selectedId} onSelect={setSelectedId} loading={clips.isLoading} />
           )}
+          {selected ? (
+            <div className="h-[28rem] max-h-[65%] shrink-0" data-testid="clip-player">
+              <ClipPlayer key={selected.id} clip={selected} />
+            </div>
+          ) : null}
           {dragging ? (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/70 text-sm font-medium" aria-hidden>
               Drop animation files or folders to import
