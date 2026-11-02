@@ -3,10 +3,12 @@ import { cp, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } f
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { createHash } from 'node:crypto';
 
 import {
   GameAssetIndexSchema,
   parseGameManifest,
+  type AnimationClip,
   type GameSummary,
   type GitOpResult,
 } from '@midnite/studio-shared';
@@ -380,6 +382,108 @@ describe('re-sync', () => {
     expect(result.ok && result.value.assets.find((a) => a.name === 'logo')?.state).toBe('missing');
     expect(await readFile(join(game, 'assets/image/logo.png'), 'utf8')).toBe('v1');
     expect(commits).toEqual([]);
+  });
+});
+
+describe('importing an animation clip from the library (Phase 125 Theme G)', () => {
+  const BYTES = Buffer.from('FBX-BYTES');
+  let lib: string;
+  let clips: Map<string, AnimationClip>;
+
+  const clipOf = (over: Partial<AnimationClip> = {}): AnimationClip => ({
+    id: 'abc123abc123',
+    name: 'Sword Slash',
+    tags: ['combat'],
+    durationSec: 1.2,
+    hasSkin: false,
+    format: 'fbx',
+    source: 'mixamo',
+    licence: 'mixamo-eula',
+    author: 'Adobe',
+    originalUrl: 'https://www.mixamo.com/',
+    sha256: createHash('sha256').update(BYTES).digest('hex'),
+    file: 'clips/abc123abc123-sword-slash.fbx',
+    sizeBytes: BYTES.length,
+    addedAt: 0,
+    ...over,
+  });
+  const animBridge = () => bridge({ animations: { root: () => lib, get: async (id) => clips.get(id) ?? null } });
+  const from = { animationId: 'abc123abc123' };
+
+  beforeEach(async () => {
+    lib = join(work, 'animation-library');
+    await mkdir(join(lib, 'clips'), { recursive: true });
+    await writeFile(join(lib, 'clips/abc123abc123-sword-slash.fbx'), BYTES);
+    clips = new Map([['abc123abc123', clipOf()]]);
+  });
+
+  it('copies the clip into assets/animations, with provenance in the manifest and the index, as one commit', async () => {
+    const result = await animBridge().importAsset({ gameId: 'g1', source: from });
+    expect(result).toMatchObject({ ok: true, value: { name: 'Sword-Slash', kind: 'animation', path: 'assets/animations/Sword-Slash.fbx', commit: 'sha1' } });
+    expect(await readFile(join(game, 'assets/animations/Sword-Slash.fbx'))).toEqual(BYTES);
+
+    const index = GameAssetIndexSchema.parse(await readIndex());
+    expect(index.assets[0]).toMatchObject({
+      name: 'Sword-Slash',
+      kind: 'animation',
+      provenance: { source: 'mixamo', licence: 'mixamo-eula', author: 'Adobe', originalUrl: 'https://www.mixamo.com/', sha256: clips.get('abc123abc123')!.sha256 },
+    });
+    const parsed = parseGameManifest(await readManifest());
+    expect(parsed.ok && parsed.manifest.assets[0]).toMatchObject({ kind: 'animation', source: { tab: 'animation', repoId: null, path: 'abc123abc123' }, sha256: clips.get('abc123abc123')!.sha256 });
+    expect(commits).toEqual([{ paths: ['assets/animations/Sword-Slash.fbx', 'assets/index.json', 'midnite-game.json'], message: 'assets: import Sword-Slash' }]);
+  });
+
+  it('is idempotent by sha256: a second import copies and commits nothing', async () => {
+    const b = animBridge();
+    await b.importAsset({ gameId: 'g1', source: from });
+    commits = [];
+    const again = await b.importAsset({ gameId: 'g1', source: from });
+    expect(again).toMatchObject({ ok: true, value: { name: 'Sword-Slash', path: 'assets/animations/Sword-Slash.fbx', commit: null } });
+    expect(commits).toEqual([]);
+    expect(GameAssetIndexSchema.parse(await readIndex()).assets).toHaveLength(1);
+    expect(await readdir(join(game, 'assets/animations'))).toEqual(['Sword-Slash.fbx']);
+  });
+
+  it('imports a different clip with the same name under a fresh name', async () => {
+    const other = Buffer.from('OTHER');
+    await writeFile(join(lib, 'clips/def456def456-sword-slash.fbx'), other);
+    clips.set('def456def456', clipOf({ id: 'def456def456', file: 'clips/def456def456-sword-slash.fbx', sha256: createHash('sha256').update(other).digest('hex') }));
+    const b = animBridge();
+    await b.importAsset({ gameId: 'g1', source: from });
+    const second = await b.importAsset({ gameId: 'g1', source: { animationId: 'def456def456' } });
+    expect(second).toMatchObject({ ok: true, value: { name: 'Sword-Slash-2', path: 'assets/animations/Sword-Slash-2.fbx' } });
+  });
+
+  it('refuses an unknown clip, a clip file outside the library, a missing file and a changed file', async () => {
+    const b = animBridge();
+    expect(await b.importAsset({ gameId: 'g1', source: { animationId: 'nope' } })).toMatchObject({ ok: false });
+    clips.set('abc123abc123', clipOf({ file: '../../secret.fbx' }));
+    expect(await b.importAsset({ gameId: 'g1', source: from })).toMatchObject({ ok: false, message: expect.stringContaining('sits outside') });
+    clips.set('abc123abc123', clipOf({ file: 'clips/gone.fbx' }));
+    expect(await b.importAsset({ gameId: 'g1', source: from })).toMatchObject({ ok: false, message: expect.stringContaining('missing') });
+    clips.set('abc123abc123', clipOf({ sha256: 'f'.repeat(64) }));
+    expect(await b.importAsset({ gameId: 'g1', source: from })).toMatchObject({ ok: false, message: expect.stringContaining('no longer matches') });
+    expect(commits).toEqual([]);
+  });
+
+  it('refuses a symlink that leaves the library', async () => {
+    await writeFile(join(work, 'outside.fbx'), 'X');
+    await symlink(join(work, 'outside.fbx'), join(lib, 'clips/link.fbx'));
+    clips.set('abc123abc123', clipOf({ file: 'clips/link.fbx' }));
+    expect(await animBridge().importAsset({ gameId: 'g1', source: from })).toMatchObject({ ok: false });
+  });
+
+  it('fails plainly where there is no animation library', async () => {
+    expect(await bridge().importAsset({ gameId: 'g1', source: from })).toMatchObject({ ok: false, message: expect.stringContaining('no animation library') });
+  });
+
+  it('re-sync reports a clip removed from the library as missing and keeps the copy', async () => {
+    const b = animBridge();
+    await b.importAsset({ gameId: 'g1', source: from });
+    clips.clear();
+    const checked = await b.resync({ gameId: 'g1', check: true });
+    expect(checked.ok && checked.value.assets.map((a) => [a.name, a.state])).toEqual([['Sword-Slash', 'missing']]);
+    expect(await readFile(join(game, 'assets/animations/Sword-Slash.fbx'))).toEqual(BYTES);
   });
 });
 

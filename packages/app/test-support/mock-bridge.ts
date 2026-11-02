@@ -3498,6 +3498,13 @@ export function buildMockBridge(data: MockFixtures) {
         sources: async (req: { tab: string }) => ({ ok: true as const, value: { repos: data.games?.assetSources?.[req.tab] ?? [] } }),
         import: async (req: { gameId: string; source: unknown; name?: string }) => {
           gamesCalls.push({ call: 'assetImport', ...req });
+          const animationId = (req.source as { animationId?: string }).animationId;
+          if (animationId) {
+            // Phase 125 Theme G: a library clip lands under assets/animations/.
+            const clip = (data.media?.animations as Array<{ id: string; name: string; format: string }> | undefined)?.find((c) => c.id === animationId);
+            const name = (req.name ?? clip?.name ?? 'clip').replace(/\s+/g, '-');
+            return { ok: true as const, value: { name, kind: 'animation' as const, path: `assets/animations/${name}.${clip?.format ?? 'fbx'}`, sha256: 'abc', commit: 'a1b2c3d' } };
+          }
           const name = req.name ?? 'asset';
           return { ok: true as const, value: { name, kind: 'sprite' as const, path: `assets/sprite/${name}`, sha256: 'abc', commit: 'a1b2c3d' } };
         },

@@ -17,6 +17,7 @@ import {
   SPRITE_SPEC_FILE,
   TERRAIN_MANIFEST_FILE,
   TERRAIN_SPEC_FILE,
+  type AnimationClip,
   type GameAssetIndexEntry,
   type GameAssetProvenance,
   type GameAssetSource,
@@ -124,6 +125,12 @@ export type AssetBridgeDeps = {
   exportTerrain?: ExportTerrain;
   /** A built terrain's pack exported into `dest`; answers the pack folder. Real export by default. */
   exportTerrainPack?: (terrainDir: string, dest: string) => Promise<GitOpResult<{ path: string }>>;
+  /**
+   * The global animation library (Phase 125 Theme G), a seam because this package may not import the feature that
+   * owns it. `root` is the folder a clip's `file` is relative to; the bridge confines every file to it.
+   * Absent → an animation import fails plainly (an app without the Animations tab).
+   */
+  animations?: { root: () => string | Promise<string>; get: (id: string) => Promise<AnimationClip | null> };
   git?: AssetGit;
   now?: () => Date;
   send: (channel: string, payload: unknown) => void;
@@ -133,7 +140,9 @@ export type AssetBridgeDeps = {
 type FileRef = { rel: string; abs: string };
 type Located = {
   kind: GameAssetProvenance['kind'];
-  tab: GameAssetSourceTab;
+  tab: GameAssetSourceTab | 'animation';
+  /** Set for a clip from the animation library. */
+  animation?: AnimationClip;
   /** A single file, or a folder. */
   isDir: boolean;
   /** What is hashed and copied. */
@@ -146,6 +155,9 @@ type Located = {
   /** The suggested asset name. */
   stem: string;
 };
+
+/** The folder under `assets/` a kind lives in: its own name, except animations, which the phase files under `animations/`. */
+const kindDir = (kind: GameAssetProvenance['kind']): string => (kind === 'animation' ? 'animations' : kind);
 
 const sha256 = (data: Buffer | string): string => createHash('sha256').update(data).digest('hex');
 
@@ -300,7 +312,20 @@ export function createAssetBridge(deps: AssetBridgeDeps) {
 
   // --- sources ---------------------------------------------------------------------
 
+  async function locateAnimation(id: string): Promise<GitOpResult<Located>> {
+    if (!deps.animations) return failure('Animations cannot be imported here - this app has no animation library.');
+    const clip = await deps.animations.get(id);
+    if (!clip) return failure('That animation is not in the library.');
+    const root = await deps.animations.root();
+    const abs = await confineToRoot(root, clip.file);
+    if (!abs) return failure('That animation’s file is missing from the library, or sits outside it.');
+    const info = await stat(abs).catch(() => null);
+    if (!info?.isFile()) return failure('That animation’s file is missing from the library.');
+    return ok({ kind: 'animation', tab: 'animation', animation: clip, isDir: false, abs, terrain: false, path: clip.id, stem: suggestAssetName(clip.name) });
+  }
+
   async function locate(source: GameAssetSource): Promise<GitOpResult<Located>> {
+    if ('animationId' in source) return locateAnimation(source.animationId);
     const repos = await registeredRepos();
     if ('packPath' in source) {
       let real: string;
@@ -536,7 +561,8 @@ export function createAssetBridge(deps: AssetBridgeDeps) {
     for (let n = 1; n < 1000; n += 1) {
       const name = n === 1 ? wanted : `${wanted}-${n}`;
       if (taken.has(name)) continue;
-      const rel = isDir ? `assets/${kind}/${name}` : `assets/${kind}/${name}${ext}`;
+      const dir = kindDir(kind as GameAssetProvenance['kind']);
+      const rel = isDir ? `assets/${dir}/${name}` : `assets/${dir}/${name}${ext}`;
       if (await exists(join(gamePath, ...rel.split('/')))) continue;
       return name;
     }
@@ -553,9 +579,23 @@ export function createAssetBridge(deps: AssetBridgeDeps) {
       if (!located.ok) return located;
       const l = located.value;
       const index = await readIndex(game.path);
+      if (l.animation) {
+        // Idempotent by sha256: a clip the game already holds is not copied or committed a second time.
+        const clip = l.animation;
+        const hashed = await hashAsset(l.abs, false);
+        if (!hashed.ok) return hashed;
+        if (hashed.value.sha256 !== clip.sha256) return failure('That animation’s file no longer matches the library manifest; re-import it into the library.');
+        const recorded = parseGameManifest(manifest.value);
+        const held = (recorded.ok ? recorded.manifest.assets : []).find(
+          (p) => p.kind === 'animation' && (p.sourceSha256 ?? p.sha256) === clip.sha256 && index.assets.some((e) => e.name === p.name),
+        );
+        if (held && (await exists(join(game.path, ...held.path.split('/'))))) {
+          return ok({ name: held.name, kind: 'animation', path: held.path, sha256: held.sha256, commit: null });
+        }
+      }
       const ext = l.isDir ? '' : extname(l.abs).toLowerCase();
       const name = await usableName(index.assets, game.path, l.kind, req.name ?? l.stem, l.isDir, ext);
-      const destRel = l.isDir ? `assets/${l.kind}/${name}` : `assets/${l.kind}/${name}${ext}`;
+      const destRel = l.isDir ? `assets/${kindDir(l.kind)}/${name}` : `assets/${kindDir(l.kind)}/${name}${ext}`;
 
       const guard = await guardTree(game.path, pathsFor({ path: destRel }));
       if (!guard.ok) return guard;
@@ -571,7 +611,24 @@ export function createAssetBridge(deps: AssetBridgeDeps) {
         sourceSha256: brought.value.sourceSha256,
         importedAt: now().toISOString(),
       };
-      const entry: GameAssetIndexEntry = { name, kind: l.kind, path: destRel, ...(brought.value.entry ? { entry: brought.value.entry } : {}) };
+      const entry: GameAssetIndexEntry = {
+        name,
+        kind: l.kind,
+        path: destRel,
+        ...(brought.value.entry ? { entry: brought.value.entry } : {}),
+        ...(l.animation
+          ? {
+              provenance: {
+                source: l.animation.source,
+                ...(l.animation.site ? { site: l.animation.site } : {}),
+                licence: l.animation.licence,
+                ...(l.animation.author ? { author: l.animation.author } : {}),
+                ...(l.animation.originalUrl ? { originalUrl: l.animation.originalUrl } : {}),
+                sha256: l.animation.sha256,
+              },
+            }
+          : {}),
+      };
       await writeJson(join(game.path, GAME_ASSET_INDEX_FILE), { version: 1, assets: [...index.assets, entry] });
       const list = Array.isArray(manifest.value.assets) ? (manifest.value.assets as unknown[]) : [];
       await writeJson(join(game.path, GAME_MANIFEST_FILE), { ...manifest.value, assets: [...list, provenance] });
@@ -588,7 +645,9 @@ export function createAssetBridge(deps: AssetBridgeDeps) {
 
   /** Where a recorded import came from, as a source `locate` understands. */
   const sourceOf = (p: GameAssetProvenance): GameAssetSource =>
-    p.source.repoPath
+    p.source.tab === 'animation'
+      ? { animationId: p.source.path }
+      : p.source.repoPath
       ? { tab: p.source.tab as GameAssetSourceTab, repoPath: p.source.repoPath, path: p.source.path }
       : { packPath: p.source.path };
 
@@ -648,7 +707,7 @@ export function createAssetBridge(deps: AssetBridgeDeps) {
         if (at >= 0) nextRecorded[at] = { ...provenance, sha256: brought.value.sha256, sourceSha256: brought.value.sourceSha256, importedAt: now().toISOString() };
         const slot = nextIndex.findIndex((e) => e.name === provenance.name);
         const entry: GameAssetIndexEntry = { name: provenance.name, kind: provenance.kind, path: provenance.path, ...(brought.value.entry ? { entry: brought.value.entry } : {}) };
-        if (slot >= 0) nextIndex[slot] = entry;
+        if (slot >= 0) nextIndex[slot] = { ...nextIndex[slot], ...entry };
         else nextIndex.push(entry);
         done.push(provenance.name);
       }

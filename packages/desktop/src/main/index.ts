@@ -39,6 +39,7 @@ import {
 import { BrowserWindow, app, ipcMain, powerMonitor, safeStorage, session, shell, type WebContentsView } from 'electron';
 import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
+import { animationLibrary, animationLibraryRoot } from './ipc/media-animation-handlers';
 import { registerSecurityHandlers } from './ipc/security-handlers';
 import { registerUpdater } from './update-service';
 import { registerReleaseNotesHandlers } from './ipc/release-notes-handlers';
@@ -874,6 +875,8 @@ export const startStudioMain: StartStudioMain = () => {
         openPopoutWindow: asPopoutWindow(() => createRoleWindow('game', defaultLogger)),
         // A terrain pack imported as a game asset is exported by the Terrain feature's own code.
         exportTerrain,
+        // A game imports a clip from the global animation library (Phase 125 Theme G).
+        animations: { root: animationLibraryRoot, get: (id) => animationLibrary().get(id) },
       });
       gameService = games.service;
       const mcpGameService = gameService;

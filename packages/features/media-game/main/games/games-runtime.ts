@@ -1,4 +1,4 @@
-import type { GitOpResult } from '@midnite/studio-shared';
+import type { AnimationClip, GitOpResult } from '@midnite/studio-shared';
 
 import { createAssetBridge, type AssetBridge, type ExportTerrain } from './asset-bridge';
 import type { GameElectron, GamePopoutWindow, GameView, GameWindow } from './game-electron';
@@ -41,6 +41,8 @@ export type GamesRuntimeDeps<V extends GameView = GameView> = {
   repoIdOf?: (repoPath: string) => Promise<string | null>;
   /** The Terrain feature's `exportTerrain`, for importing a terrain pack as a game asset. Absent → that import fails plainly. */
   exportTerrain?: ExportTerrain;
+  /** The global animation library, for importing a clip as a game asset (Phase 125 Theme G). Absent → that import fails plainly. */
+  animations?: { root: () => string | Promise<string>; get: (id: string) => Promise<AnimationClip | null> };
 };
 
 export type GamesRuntime<V extends GameView = GameView> = {
@@ -78,6 +80,7 @@ export function createGamesRuntime<V extends GameView = GameView>(deps: GamesRun
     gamesRoot: async () => (await service.settings.get()).resolvedRoot,
     ...(deps.repoIdOf ? { repoIdOf: deps.repoIdOf } : {}),
     ...(deps.exportTerrain ? { exportTerrain: deps.exportTerrain } : {}),
+    ...(deps.animations ? { animations: deps.animations } : {}),
     send: deps.send,
     log: deps.log,
   });

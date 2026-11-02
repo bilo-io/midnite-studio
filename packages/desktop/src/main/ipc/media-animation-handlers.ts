@@ -5,6 +5,7 @@ import { app, BrowserWindow, dialog } from 'electron';
 import {
   createAnimationLibrary,
   createAnimationService,
+  type AnimationLibrary,
   type AnimationService,
 } from '@midnite/studio-feature-media-model/main';
 import { EVENT_CHANNELS } from '@midnite/studio-shared';
@@ -17,9 +18,16 @@ import { broadcastToAllWindows } from '../window-manager';
  * Electron. Built on first use, so nothing touches the disk at startup.
  */
 let service: AnimationService | null = null;
+let library: AnimationLibrary | null = null;
 
 /** The folder every repo shares; a path outside any repo, so a clip is never a stray file in one. */
 export const animationLibraryRoot = (): string => join(app.getPath('userData'), 'animation-library');
+
+/**
+ * The one library instance: the channel's service and the game asset bridge (Phase 125 Theme G) both read it, so a
+ * clip just added is visible to an import without either holding a stale copy of the manifest.
+ */
+export const animationLibrary = (): AnimationLibrary => (library ??= createAnimationLibrary({ root: animationLibraryRoot() }));
 
 async function pickPaths(kind: 'files' | 'folder'): Promise<string[] | null> {
   const options = {
@@ -36,7 +44,7 @@ async function pickPaths(kind: 'files' | 'folder'): Promise<string[] | null> {
 export const animationService: AnimationService = {
   handle: (req) => {
     service ??= createAnimationService({
-      library: createAnimationLibrary({ root: animationLibraryRoot() }),
+      library: animationLibrary(),
       pickPaths,
       emitChanged: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaAnimationChanged, event),
       emitProgress: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaAnimationProgress, event),

@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-02 — Phase 125 Theme G — Import an animation into a game
+
+[PR #1122](https://github.com/bilo-io/midnite-studio/pull/1122). The asset bridge gains an `animation` source: a library clip is copied to `assets/animations/` with its licence, author and URL in the manifest and index, idempotent by sha256. The Animations detail pane has "Use in a game" (game select, attribution confirm, destination path). Shots: `docs/screenshots/p125-g/`.
+
 ## 2026-11-02 — Phase 125 Theme D — Animation timeline player
 
 [PR #1120](https://github.com/bilo-io/midnite-studio/pull/1120). Selecting a library clip opens a player: WebGL preview on a mannequin, the clip's own skeleton or a repo rig (retargeted by bone name), transport, in/out range and per-bone key lanes. Shot: `docs/screenshots/p125-d/`. Themes E–H stay open.
