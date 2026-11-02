@@ -59,7 +59,7 @@ human decisions recorded below; first slice is **A + B + C**.
 **Theme C — Animations page: list, filter, search.** ✅ [PR #1118](https://github.com/bilo-io/midnite-studio/pull/1118). Media ▸ Animations lists the library with search, tag chips, a source filter and sort, and a detail pane for name, tags and provenance. Import is a file picker, a folder picker, or a drop. The page is not repo-scoped. Review shots are `docs/screenshots/p125-abc/`.
 **Theme D — Timeline player and retargeted preview.** ◻ Not started. Second slice.
 **Theme E — Sketchfab search and download.** ◻ Not started. Needs the user's Sketchfab API token.
-**Theme F — External source links.** ◻ Not started.
+**Theme F — External source links.** ✅ [PR #PRNUM](https://github.com/bilo-io/midnite-studio/pull/PRNUM). A static catalogue of eight sites (Mixamo, Quaternius, Poly Pizza, OpenGameArt, ActorCore free, CMU mocap, TurboSquid, CGTrader) with search-URL templates, a licence note and a needs-account flag. A "Find more clips" section in the Animations filters pane opens the encoded search in the system browser through the guarded `shell.openExternal`, after re-checking the https URL against the catalogue's hosts; nothing is fetched. The empty state points at it and the section says to drop downloads on the list. Review shot is `docs/screenshots/p125-f/`.
 **Theme G — Import into a game.** ◻ Not started.
 **Theme H — Verification.** ◻ Not started.
 
@@ -125,12 +125,12 @@ human decisions recorded below; first slice is **A + B + C**.
 - [ ] Network use registered with the privacy egress registry (Phase 115) as an opt-in destination; no token → a "Add your Sketchfab token" state, never a failing request
 - [ ] Tests: vitest with an injected `fetch` (search parse, download chain, 401, 403 not-downloadable, 429, cancel, oversize)
 
-## F — External source links (S)
+## F — External source links (S) ✅ DONE (PR #PRNUM, 2026-11-02)
 
-- [ ] `shared/src/media-animation-sources.ts`: a static catalogue (Mixamo, TurboSquid, CGTrader, Quaternius, Poly Pizza, OpenGameArt, ActorCore free, CMU mocap/BVH) with a search-URL template, licence note and "needs an account" flag
-- [ ] Search box → "Search on <site>" opens the URL in the **system browser** through the existing external-open path (allow-listed to the catalogue's hosts); nothing is fetched by the app
-- [ ] Empty-state and import bar point at the sources ("Downloaded something? Drop it here")
-- [ ] Tests: URL builder (encoding), host allow-list, RTL for the source list
+- [x] `shared/src/media-animation-sources.ts`: a static catalogue (Mixamo, TurboSquid, CGTrader, Quaternius, Poly Pizza, OpenGameArt, ActorCore free, CMU mocap/BVH) with a search-URL template, licence note and "needs an account" flag
+- [x] Search box → "Search on <site>" opens the URL in the **system browser** through the existing external-open path (allow-listed to the catalogue's hosts); nothing is fetched by the app
+- [x] Empty-state and import bar point at the sources ("Downloaded something? Drop it here")
+- [x] Tests: URL builder (encoding), host allow-list, RTL for the source list
 
 ## G — Import into a game (M)
 

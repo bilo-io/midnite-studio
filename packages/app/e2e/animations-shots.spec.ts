@@ -9,7 +9,7 @@ import { clickRailLink, type MockFixtures } from '../test-support/mock-bridge';
 import { installMockBridge, prepareForVisualCapture } from './shots-helper';
 
 /**
- * Playwright: Media ▸ Animations inside Studio's real Media shell (Phase 125 Themes A–C).
+ * Playwright: Media ▸ Animations inside Studio's real Media shell (Phase 125 Themes A–C, and F's source list).
  *
  * Needs a real browser because the filters / list / detail columns are a flex layout: jsdom reports
  * every pane as 0×0, and the RTL suite (`animation-tab.test.tsx`) stubs `MediaLayout` into stacked
@@ -18,6 +18,8 @@ import { installMockBridge, prepareForVisualCapture } from './shots-helper';
  * filter changes the rows, and a click fills the detail pane — and writes the three review shots.
  */
 const SHOTS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../docs/screenshots/p125-abc');
+
+const SHOTS_F = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../docs/screenshots/p125-f');
 
 const clip = (over: Record<string, unknown> & { id: string; name: string; tags: string[] }) => ({
   durationSec: 1,
@@ -76,12 +78,12 @@ async function openAnimations(page: Page): Promise<void> {
   }).toPass({ timeout: 15_000 });
 }
 
-async function shoot(page: Page, name: string): Promise<void> {
-  mkdirSync(SHOTS, { recursive: true });
+async function shoot(page: Page, name: string, dir: string = SHOTS): Promise<void> {
+  mkdirSync(dir, { recursive: true });
   await prepareForVisualCapture(page);
   // tablist → strip wrapper → header row → the Media shell (header + the three panes).
   const shell = page.getByRole('tablist', { name: 'Media' }).locator('xpath=../../..');
-  await shell.screenshot({ path: path.join(SHOTS, name) });
+  await shell.screenshot({ path: path.join(dir, name) });
 }
 
 test('the library lists in the real three-pane shell, a tag filter narrows it, and a row opens its detail', async ({ page }) => {
@@ -112,4 +114,11 @@ test('the library lists in the real three-pane shell, a tag filter narrows it, a
   await expect(page.getByLabel('Author')).toHaveValue('Adobe Mixamo');
   await expect(page.getByText('With mesh and skin')).toBeVisible();
   await shoot(page, 'detail.png');
+
+  // Theme F: the source list sits in the filters pane and opens the system browser, not the app.
+  const sources = page.getByRole('list', { name: 'Find more clips' });
+  if (!(await sources.isVisible())) await page.getByRole('button', { name: /Find more clips/ }).click();
+  await expect(sources.getByRole('button')).toHaveCount(8);
+  await expect(page.getByText(/Downloaded something\? Drop it on the list/)).toBeVisible();
+  await shoot(page, 'sources.png', SHOTS_F);
 });

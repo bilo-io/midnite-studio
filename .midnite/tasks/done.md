@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-02 — Phase 125 Theme F — external source links
+
+[PR #PRNUM](https://github.com/bilo-io/midnite-studio/pull/PRNUM). Static catalogue of eight sites with search-URL templates; a "Find more clips" section on Media ▸ Animations opens them in the system browser (https, catalogue hosts only). Nothing is fetched or scraped.
+
 ## 2026-11-02 — Phase 125 Themes A, B, C — Media ▸ Animations library
 
 [PR #1118](https://github.com/bilo-io/midnite-studio/pull/1118). A global animation library under the app-data directory, with a manifest, content-addressed clip files, and one `mediaAnimation` channel. Bulk import reads FBX, GLB/glTF and BVH, cleans Mixamo names and auto-tags. Media ▸ Animations lists, filters and shows clip details; it is not repo-scoped. Themes D–H stay open. Shots: `docs/screenshots/p125-abc/`.
