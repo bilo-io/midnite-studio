@@ -62,7 +62,7 @@ function disposeObject(root: Object3D): void {
 }
 
 /** Bone objects (and a marker per bone) for a skeleton spec; returns the group holding its roots. */
-function buildSkeleton(spec: SkeletonSpec): Group {
+function buildSkeleton(spec: SkeletonSpec): { group: Group; marker: SphereGeometry; material: MeshStandardMaterial } {
   const group = new Group();
   const bones = spec.bones.map((b) => {
     const bone = new Bone();
@@ -78,7 +78,7 @@ function buildSkeleton(spec: SkeletonSpec): Group {
     const parent = b.parent === null ? null : bones[b.parent];
     (parent ?? group).add(bone);
   });
-  return group;
+  return { group, marker, material };
 }
 
 export default function ClipPreview({ decoded, target, time, onReport }: Props) {
@@ -126,7 +126,7 @@ export default function ClipPreview({ decoded, target, time, onReport }: Props) 
     let playClip = decoded.clip;
     let mixerRoot: Object3D;
     let shown: Object3D;
-    let helperOf: Object3D;
+    const owned: { dispose: () => void }[] = [];
     let mode: PreviewReport['mode'] = 'own';
     let matched = 0;
     let unmatched: string[] = [];
@@ -136,6 +136,7 @@ export default function ClipPreview({ decoded, target, time, onReport }: Props) 
       if (!decoded.root) return false;
       if (decoded.bvh && decoded.skeleton) {
         const helper = new SkeletonHelper(decoded.root);
+        owned.push(helper);
         (helper as unknown as { skeleton: unknown }).skeleton = decoded.skeleton;
         mixerRoot = helper;
         shown = decoded.root;
@@ -143,8 +144,9 @@ export default function ClipPreview({ decoded, target, time, onReport }: Props) 
       } else {
         mixerRoot = decoded.root;
         shown = decoded.root;
-        helperOf = new SkeletonHelper(decoded.root);
-        scene.add(helperOf);
+        const helper = new SkeletonHelper(decoded.root);
+        owned.push(helper);
+        scene.add(helper);
       }
       scene.add(shown);
       playClip = decoded.clip;
@@ -159,10 +161,12 @@ export default function ClipPreview({ decoded, target, time, onReport }: Props) 
       if (result.matched === 0 && showOwn()) {
         fellBack = true;
       } else {
-        const group = buildSkeleton(target.skeleton);
-        mixerRoot = group;
-        shown = group;
-        scene.add(group, new SkeletonHelper(group));
+        const built = buildSkeleton(target.skeleton);
+        const lines = new SkeletonHelper(built.group);
+        owned.push(lines, built.marker, built.material);
+        mixerRoot = built.group;
+        shown = built.group;
+        scene.add(built.group, lines);
         playClip = result.clip;
         mode = 'retarget';
       }
@@ -231,6 +235,8 @@ export default function ClipPreview({ decoded, target, time, onReport }: Props) 
       controls.removeEventListener('change', render);
       controls.dispose();
       mixer.stopAllAction();
+      mixer.uncacheRoot(mixerRoot);
+      for (const item of owned) item.dispose();
       if (target.kind === 'own' || fellBack) disposeObject(decoded.root ?? new Group());
       renderer.dispose();
       renderer.forceContextLoss();
