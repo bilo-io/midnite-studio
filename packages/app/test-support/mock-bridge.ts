@@ -6253,6 +6253,7 @@ export function buildMockBridge(data: MockFixtures) {
   var animationClips = [...(data.media?.animations ?? [])] as Array<Record<string, unknown> & { id: string; name: string; tags: string[] }>;
   // eslint-disable-next-line no-var
   var animationListeners = new Set<(event: unknown) => void>();
+  // eslint-disable-next-line no-var
   var sketchfabHasToken = data.media?.sketchfab?.hasToken ?? false;
   // eslint-disable-next-line no-var
   var sfxListeners = new Set<(event: unknown) => void>();

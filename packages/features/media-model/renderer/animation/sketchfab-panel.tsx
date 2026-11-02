@@ -96,7 +96,7 @@ function SketchfabSearch({ clips }: { clips: readonly AnimationClip[] }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="sketchfab-panel">
-      <form onSubmit={submit} className="flex flex-col gap-2 border-b border-border px-3 py-2">
+      <form onSubmit={submit} className="flex flex-col gap-2 border-b border-border py-2 pl-10 pr-10">
         <div className="flex items-center gap-2">
           <input
             type="search"
