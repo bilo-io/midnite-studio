@@ -57,7 +57,7 @@ human decisions recorded below; first slice is **A + B + C**.
 **Theme A — Library store, manifest and IPC.** ✅ [PR #1118](https://github.com/bilo-io/midnite-studio/pull/1118). Clips live in one library under the app-data directory, indexed by `animations.manifest.json`, with content-addressed files and a single `mediaAnimation` channel. A corrupt manifest is moved aside and the library starts empty; a path that escapes the root is dropped. Wired through Studio's preload and Gamer's bridge. Creator does not host the tab, so its bridge stays without it.
 **Theme B — Bulk import: FBX / GLB / BVH, Mixamo naming and auto-tags.** ✅ [PR #1118](https://github.com/bilo-io/midnite-studio/pull/1118). Hand-written readers pull duration, bones and skin from binary FBX (ASCII imports with an unknown duration), GLB/glTF and BVH. Mixamo names are cleaned and tagged from a keyword table. A folder walk stops at depth 4, skips symlinks, and one bad file does not abort the batch; the same bytes import once.
 **Theme C — Animations page: list, filter, search.** ✅ [PR #1118](https://github.com/bilo-io/midnite-studio/pull/1118). Media ▸ Animations lists the library with search, tag chips, a source filter and sort, and a detail pane for name, tags and provenance. Import is a file picker, a folder picker, or a drop. The page is not repo-scoped. Review shots are `docs/screenshots/p125-abc/`.
-**Theme D — Timeline player and retargeted preview.** ◻ Not started. Second slice.
+**Theme D — Timeline player and retargeted preview.** ✅ [PR #1120](https://github.com/bilo-io/midnite-studio/pull/1120). Selecting a clip opens a player under the list: a WebGL preview, transport (play/pause, frame step, loop, 0.25–2× speed), a ruler with scrub and draggable in/out range, and a key-tick lane per bone (collapsed to one summary lane past 60 bones). Clips decode with three's FBX/GLTF/BVH loaders; the preview model is a mannequin, the clip's own skeleton, or a repo Models rig drawn as bones, and the clip is retargeted by bone name (exact, normalised, then a Mixamo/VRM key table), with unmatched bones listed. Only the root keeps translation (scaled to the target's hips height); there is no rest-pose correction. Review shot is `docs/screenshots/p125-d/`.
 **Theme E — Sketchfab search and download.** ◻ Not started. Needs the user's Sketchfab API token.
 **Theme F — External source links.** ✅ [PR #1121](https://github.com/bilo-io/midnite-studio/pull/1121). A static catalogue of eight sites (Mixamo, Quaternius, Poly Pizza, OpenGameArt, ActorCore free, CMU mocap, TurboSquid, CGTrader) with search-URL templates, a licence note and a needs-account flag. A "Find more clips" section in the Animations filters pane opens the encoded search in the system browser through the guarded `shell.openExternal`, after re-checking the https URL against the catalogue's hosts; nothing is fetched. The empty state points at it and the section says to drop downloads on the list. Review shot is `docs/screenshots/p125-f/`.
 **Theme G — Import into a game.** ◻ Not started.
@@ -108,14 +108,14 @@ human decisions recorded below; first slice is **A + B + C**.
 - [x] Import bar: **Import files**, **Import folder** and a drop zone with a progress line and a result summary (added / duplicate / failed with reasons)
 - [x] Tests: vitest for `animation-model.ts`; RTL for the tab (render, search, tag filter, source filter, sort, select, rename, delete confirm, import summary) over the mock bridge; Playwright e2e `animations-shots.spec.ts` with the mocked bridge (page loads, filter, select) + screenshots under `docs/screenshots/p125-abc/`
 
-## D — Timeline player and retargeted preview (L)
+## D — Timeline player and retargeted preview (L) ✅ DONE (PR #1120, 2026-11-02)
 
-- [ ] Player state (pure, `player-state.ts`): `time`, `playing`, `loop`, `speed` (0.25–2), `in`/`out` range, `fps`; reducers for play/pause, scrub, step ±1 frame, set range; `timeToFrame`/`frameToTime`
-- [ ] Timeline UI: ruler with in/out handles, playhead scrub, transport (play/pause, frame step, loop, speed), current time/frame readout, per-bone track lanes with keyframe ticks (lane list virtualised past 60 bones; collapsed to a summary lane)
-- [ ] Keys scoped to the focused timeline (Space, ←/→, `[` `]`, `L`); nothing joins `COMMANDS`
-- [ ] Clip decode in the renderer (`decode-fbx`/`GLTFLoader`/`BVHLoader` from three, loaded lazily) from a `read` op that returns the file bytes
-- [ ] Preview model picker: the user's Models library rigs, default a built-in Mixamo-style mannequin; retarget by bone name (`mixamorig:Hips` ↔ `Hips`/`pelvis`, a synonym table); unmatched bones listed; falls back to the clip's own skeleton
-- [ ] Tests: vitest for the player reducers and the retarget map; RTL for the transport; Playwright for scrub/step with real layout
+- [x] Player state (pure, `player-state.ts`): `time`, `playing`, `loop`, `speed` (0.25–2), `in`/`out` range, `fps`; reducers for play/pause, scrub, step ±1 frame, set range; `timeToFrame`/`frameToTime`
+- [x] Timeline UI: ruler with in/out handles, playhead scrub, transport (play/pause, frame step, loop, speed), current time/frame readout, per-bone track lanes with keyframe ticks (lane list virtualised past 60 bones; collapsed to a summary lane)
+- [x] Keys scoped to the focused timeline (Space, ←/→, `[` `]`, `L`); nothing joins `COMMANDS`
+- [x] Clip decode in the renderer (`decode-fbx`/`GLTFLoader`/`BVHLoader` from three, loaded lazily) from a `read` op that returns the file bytes
+- [x] Preview model picker: the user's Models library rigs, default a built-in Mixamo-style mannequin; retarget by bone name (`mixamorig:Hips` ↔ `Hips`/`pelvis`, a synonym table); unmatched bones listed; falls back to the clip's own skeleton
+- [x] Tests: vitest for the player reducers and the retarget map; RTL for the transport; Playwright for scrub/step with real layout
 
 ## E — Sketchfab search and download (L)
 

@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-02 — Phase 125 Theme D — Animation timeline player
+
+[PR #1120](https://github.com/bilo-io/midnite-studio/pull/1120). Selecting a library clip opens a player: WebGL preview on a mannequin, the clip's own skeleton or a repo rig (retargeted by bone name), transport, in/out range and per-bone key lanes. Shot: `docs/screenshots/p125-d/`. Themes E–H stay open.
+
 ## 2026-11-02 — Phase 125 Theme F — external source links
 
 [PR #1121](https://github.com/bilo-io/midnite-studio/pull/1121). Static catalogue of eight sites with search-URL templates; a "Find more clips" section on Media ▸ Animations opens them in the system browser (https, catalogue hosts only). Nothing is fetched or scraped.
