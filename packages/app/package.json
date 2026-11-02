@@ -110,7 +110,7 @@
     "@types/mdast": "^4.0.4",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@types/three": "^0.186.0",
+    "@types/three": "^0.187.0",
     "@types/unist": "^3.0.3",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
