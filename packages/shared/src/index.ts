@@ -66,6 +66,7 @@ export * from './media-model-pbr';
 export * from './media-model-sf3d';
 export * from './media-model-sf3d-licence';
 export * from './media-animation';
+export * from './media-animation-sources';
 export * from './media-sfx';
 export * from './media-sfx-licence';
 export * from './media-sfx-mcp';
