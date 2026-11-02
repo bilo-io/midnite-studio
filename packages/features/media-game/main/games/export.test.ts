@@ -233,7 +233,7 @@ describe('createGameExport on a composed platformer', () => {
     expect(files).toContain('src/main.js');
     expect(files.some((f) => f.startsWith('vendor/phaser/'))).toBe(true);
     expect(excludedSomewhere(files)).toEqual([]);
-    expect(files).toEqual((await listGameFiles(path)).filter((f) => !f.includes('link.txt')).sort());
+    expect(files).toEqual([...(await listGameFiles(path)).filter((f) => !f.includes('link.txt')), 'serve.mjs', 'package.json', 'README-run.txt'].sort());
     expect(await has(join(out, '.moon-rover-web.tmp'))).toBe(false);
 
     const again = await exporter.exportGame({ gameId: 'g1', format: 'game-folder', dest: out });
