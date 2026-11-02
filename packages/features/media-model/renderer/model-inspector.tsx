@@ -1,4 +1,5 @@
 import { descendantIndices, type BuildIssue, type ModelPart, type ModelSpec } from '@midnite/studio-shared';
+import { BottomPanel, useBottomPanel } from '@midnite/studio-frame';
 import { useEffect, useState, type Dispatch } from 'react';
 import { LuCopy, LuTrash2 } from 'react-icons/lu';
 
@@ -28,6 +29,9 @@ import type { EditorScene } from './spec-geometry';
  * Properties (name, transform, dimensions, parent), Material, Boolean and Modifiers. With several
  * parts selected it shows the arrange tools and edits material for all of them. Rig and Animation
  * are about the whole design, so they show whatever is selected.
+ *
+ * Docked in a frame `BottomPanel`: drag its top edge to resize, click the header to collapse it to
+ * that row so the viewport takes the space. Height and collapsed state persist under `model.inspector`.
  */
 const TABS = ['Properties', 'Material', 'Boolean', 'Modifiers', 'Mesh', 'SDF', 'Sculpt', 'Paint', 'Rig', 'Animation'] as const;
 type Tab = (typeof TABS)[number];
@@ -40,6 +44,9 @@ export type InspectorRig = { view: RigView; onView: UpdateRigView; model: RigMod
 const BASE_KEYS = new Set([
   'id', 'name', 'shape', 'position', 'rotation', 'scale', 'color', 'parent', 'pivot', 'material', 'modifiers', 'op', 'target', 'segments', 'smoothAngle', 'hidden', 'locked', 'source',
 ]);
+
+/** The dock's persistence id and bounds, shared by the panel and the effects below that reopen it. */
+const DOCK = { id: 'model.inspector', resize: { initial: 224, min: 96, max: 560 } } as const;
 
 export function ModelInspector({
   state,
@@ -65,15 +72,21 @@ export function ModelInspector({
   paint?: { controller: PaintController; snapshot: PaintSnapshot };
 }) {
   const [tab, setTab] = useState<Tab>('Properties');
-  // Entering sculpt mode from anywhere brings its settings up.
+  // Same stored state as the `BottomPanel` below, so a collapsed dock can be reopened from here.
+  const { setCollapsed } = useBottomPanel(DOCK.id, DOCK.resize);
+  // Entering sculpt mode from anywhere brings its settings up, reopening the dock if it was collapsed.
   const sculptOpen = sculpt?.snapshot.status === 'ready';
   useEffect(() => {
-    if (sculptOpen) setTab('Sculpt');
-  }, [sculptOpen]);
+    if (!sculptOpen) return;
+    setTab('Sculpt');
+    setCollapsed(false);
+  }, [sculptOpen, setCollapsed]);
   const paintOpen = paint?.snapshot.status === 'ready';
   useEffect(() => {
-    if (paintOpen) setTab('Paint');
-  }, [paintOpen]);
+    if (!paintOpen) return;
+    setTab('Paint');
+    setCollapsed(false);
+  }, [paintOpen, setCollapsed]);
   const { spec, selected, selection } = state;
   const part = selected !== null ? spec.parts[selected] : undefined;
   const hasGroup = selection.some((i) => spec.parts[i]?.shape === 'group');
@@ -81,7 +94,14 @@ export function ModelInspector({
   const designTab = DESIGN_TABS.has(tab) && available(tab);
 
   return (
-    <div className="flex h-56 shrink-0 border-t border-border/60 text-xs" data-testid="model-inspector">
+    <BottomPanel
+      id={DOCK.id}
+      title="Inspector"
+      ariaLabel="Model inspector"
+      testId="model-inspector"
+      resize={DOCK.resize}
+      bodyClassName="flex min-h-0 flex-1 text-xs"
+    >
       <div className="flex w-52 shrink-0 flex-col border-r border-border/60">
         <Outliner state={state} dispatch={dispatch} />
       </div>
@@ -140,7 +160,7 @@ export function ModelInspector({
           </p>
         )}
       </div>
-    </div>
+    </BottomPanel>
   );
 }
 

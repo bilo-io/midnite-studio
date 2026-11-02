@@ -7,7 +7,7 @@ import { CollectionRunner } from './collection-runner';
 import { CollectionTree } from './collection-tree';
 import { EnvironmentSwitcher } from './environment-switcher';
 import { useApiClientHost } from './host';
-import { HistorySection } from './history-section';
+import { HistorySection, useHistoryPanel } from './history-section';
 import { RequestBuilder } from './request-builder';
 import { RequestTabStrip } from './request-tab-strip';
 import { IconButton } from './ui';
@@ -40,6 +40,8 @@ export function ApiClientView() {
   const runnerCollectionId = useApiClientStore((s) => s.runnerCollectionId);
   const closeRunner = useApiClientStore((s) => s.closeRunner);
 
+  const history = useHistoryPanel();
+
   const tree = useResizable({
     size: treePane.size,
     onSize: treePane.setSize,
@@ -64,7 +66,11 @@ export function ApiClientView() {
           <EnvironmentSwitcher repoId={selectedRepoId} />
         </div>
         <CollectionTree repoId={selectedRepoId} />
-        <div className="max-h-64 shrink-0 overflow-auto border-t border-border">
+        {history.collapsed ? null : <ResizeHandle resizable={history.resizable} axis="y" label="Resize request history" />}
+        <div
+          style={history.collapsed ? undefined : { height: history.height }}
+          className={`shrink-0 overflow-auto ${history.collapsed ? 'border-t border-border' : ''}`}
+        >
           <HistorySection repoId={selectedRepoId} />
         </div>
       </div>

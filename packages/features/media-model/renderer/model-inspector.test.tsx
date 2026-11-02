@@ -1,16 +1,19 @@
 import { ModelSpecSchema } from '@midnite/studio-shared';
+import { useBottomPanelStore } from '@midnite/studio-frame';
 import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { render } from './test-render';
 import { useReducer } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { resolveKey } from './editor-keys';
 import { editorReducer, initialEditorState } from './editor-state';
 import { ModelInspector } from './model-inspector';
 import { boundsOf, distanceBetween, formatSize, orthoZoom, sizeOf } from './scene-bounds';
 import { editorScene } from './spec-geometry';
+import type { PaintController, PaintSnapshot } from './paint/paint-controller';
 
 afterEach(cleanup);
+beforeEach(() => useBottomPanelStore.setState({ panels: {} }));
 
 const spec = ModelSpecSchema.parse({
   name: 'rig',
@@ -28,6 +31,41 @@ function Harness() {
   return <ModelInspector state={state} dispatch={dispatch} issues={editorScene(state.spec).issues} />;
 }
 const row = (name: string) => within(screen.getByRole('list', { name: 'Parts' })).getByRole('button', { name: new RegExp(name) });
+
+describe('inspector panel', () => {
+  it('is 224px tall by default and collapses to its header row', () => {
+    render(<Harness />);
+    expect(screen.getByTestId('model-inspector').style.height).toBe('224px');
+    const toggle = screen.getByRole('button', { name: 'Inspector' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('list', { name: 'Parts' })).toBeNull();
+    expect(screen.queryByRole('tablist')).toBeNull();
+    fireEvent.click(toggle);
+    expect(screen.getByRole('list', { name: 'Parts' })).toBeTruthy();
+  });
+
+  it('reopens a collapsed dock when paint mode becomes ready', () => {
+    const idle = { status: 'idle', error: null, partId: null } as unknown as PaintSnapshot;
+    const paint = (snapshot: PaintSnapshot) => ({ controller: {} as PaintController, snapshot });
+    const view = (snapshot: PaintSnapshot) => <ModelInspector state={initialEditorState(spec)} dispatch={() => undefined} issues={[]} paint={paint(snapshot)} />;
+    const { rerender } = render(view(idle));
+    fireEvent.click(screen.getByRole('button', { name: 'Inspector' }));
+    expect(screen.getByRole('button', { name: 'Inspector' }).getAttribute('aria-expanded')).toBe('false');
+    rerender(view({ ...idle, status: 'ready' } as PaintSnapshot));
+    expect(screen.getByRole('button', { name: 'Inspector' }).getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('keeps the selected tab across a collapse', () => {
+    render(<Harness />);
+    fireEvent.click(row('base'));
+    fireEvent.click(screen.getByRole('tab', { name: 'Material' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Inspector' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Inspector' }));
+    expect(screen.getByRole('tab', { name: 'Material' }).getAttribute('aria-selected')).toBe('true');
+  });
+});
 
 describe('outliner', () => {
   it('selects with click, Cmd-click toggle and Shift-click range', () => {

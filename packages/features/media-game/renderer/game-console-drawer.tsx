@@ -1,5 +1,7 @@
 import type { GameLogEntry } from '@midnite/studio-shared';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { BottomPanel } from '@midnite/studio-frame';
 
 import { useGameRunStore } from './game-run-store';
 
@@ -33,6 +35,10 @@ export const matchesFilter = (level: Level, filter: Filter): boolean => {
  * view, not main's buffer — `game_logs` keeps its cursor. Auto-scrolls unless
  * the user has scrolled up; the log region is polite, and only errors are
  * announced.
+ *
+ * Docked in a frame `BottomPanel`: drag its top edge to resize, click the header
+ * chevron to collapse it to that one row. Height and collapsed state persist
+ * under `game.console`, shared by the Games tab and the pop-out window.
  */
 export function GameConsoleDrawer({ gameId }: { gameId: string | null }) {
   const entries = useGameRunStore((s) => (gameId ? s.logs[gameId] : undefined));
@@ -43,72 +49,89 @@ export function GameConsoleDrawer({ gameId }: { gameId: string | null }) {
     () => (entries ?? []).filter((entry) => entry.seq > clearedAt && matchesFilter(entry.level, filter)),
     [entries, clearedAt, filter],
   );
-  const listRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
   const stuck = useRef(true);
 
   useEffect(() => {
     const el = listRef.current;
     if (el && stuck.current) el.scrollTop = el.scrollHeight;
   }, [shown]);
+  // The log is unmounted while the panel is collapsed; a freshly opened one starts at the bottom.
+  const attachList = useCallback((el: HTMLDivElement | null) => {
+    listRef.current = el;
+    if (!el) return;
+    stuck.current = true;
+    el.scrollTop = el.scrollHeight;
+  }, []);
 
   const lastError = [...shown].reverse().find((entry) => matchesFilter(entry.level, 'error'));
 
   return (
-    <section aria-label="Game console" data-testid="game-console" className="flex h-44 shrink-0 flex-col border-t border-border">
-      <div className="flex h-7 shrink-0 items-center gap-1 border-b border-border px-2">
-        <span className="mr-2 text-[11px] font-medium text-muted-foreground">Console</span>
-        {FILTERS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            aria-pressed={filter === item.id}
-            onClick={() => setFilter(item.id)}
-            className={`rounded px-1.5 py-0.5 text-[11px] ${filter === item.id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60'}`}
-          >
-            {item.label}
-          </button>
-        ))}
-        <button
-          type="button"
-          disabled={!gameId || shown.length === 0}
-          onClick={() => gameId && clear(gameId)}
-          className="ml-auto rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-accent/60 disabled:opacity-50"
-        >
-          Clear
-        </button>
-      </div>
-      <div
-        ref={listRef}
-        role="log"
-        aria-label="Console output"
-        aria-live="off"
-        onScroll={(event) => {
-          const el = event.currentTarget;
-          stuck.current = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
-        }}
-        className="min-h-0 flex-1 overflow-auto px-2 py-1 font-mono text-[11px] leading-snug"
+    <>
+      <BottomPanel
+        id="game.console"
+        title="Console"
+        ariaLabel="Game console"
+        testId="game-console"
+        resize={{ initial: 176, min: 72, max: 480 }}
+        bodyClassName="flex min-h-0 flex-1 flex-col"
+        actions={
+          <>
+            {FILTERS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                aria-pressed={filter === item.id}
+                onClick={() => setFilter(item.id)}
+                className={`rounded px-1.5 py-0.5 text-[11px] ${filter === item.id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60'}`}
+              >
+                {item.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              disabled={!gameId || shown.length === 0}
+              onClick={() => gameId && clear(gameId)}
+              className="ml-auto rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-accent/60 disabled:opacity-50"
+            >
+              Clear
+            </button>
+          </>
+        }
       >
-        {shown.length === 0 ? (
-          <p className="text-muted-foreground">Nothing logged yet.</p>
-        ) : (
-          shown.map((entry) => (
-            <div key={entry.seq} data-level={entry.level} className={`whitespace-pre-wrap break-words ${LEVEL_CLASS[entry.level]}`}>
-              {entry.text}
-              {entry.source ? (
-                <span className="text-muted-foreground">
-                  {' '}
-                  {entry.source.replace(/^mstudio-game:\/\/[^/]+\//, '')}
-                  {entry.line !== undefined ? `:${entry.line}` : ''}
-                </span>
-              ) : null}
-            </div>
-          ))
-        )}
-      </div>
-      {/* Errors only, announced politely. */}
+        <div
+          ref={attachList}
+          role="log"
+          aria-label="Console output"
+          aria-live="off"
+          onScroll={(event) => {
+            const el = event.currentTarget;
+            stuck.current = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
+          }}
+          className="min-h-0 flex-1 overflow-auto px-2 py-1 font-mono text-[11px] leading-snug"
+        >
+          {shown.length === 0 ? (
+            <p className="text-muted-foreground">Nothing logged yet.</p>
+          ) : (
+            shown.map((entry) => (
+              <div key={entry.seq} data-level={entry.level} className={`whitespace-pre-wrap break-words ${LEVEL_CLASS[entry.level]}`}>
+                {entry.text}
+                {entry.source ? (
+                  <span className="text-muted-foreground">
+                    {' '}
+                    {entry.source.replace(/^mstudio-game:\/\/[^/]+\//, '')}
+                    {entry.line !== undefined ? `:${entry.line}` : ''}
+                  </span>
+                ) : null}
+              </div>
+            ))
+          )}
+        </div>
+      </BottomPanel>
+      {/* Errors only, announced politely — outside the panel, so a collapsed console still announces them. */}
       <p aria-live="polite" className="sr-only">
         {lastError ? lastError.text : ''}
       </p>
-    </section>
+    </>
   );
 }

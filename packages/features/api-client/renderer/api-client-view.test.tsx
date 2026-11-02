@@ -1,5 +1,6 @@
 import type { ApiCollectionSummary, MidniteStudioBridge } from '@midnite/studio-shared';
-import { cleanup, screen, waitFor } from '@testing-library/react';
+import { useBottomPanelStore } from '@midnite/studio-frame';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useApiClientStore } from './api-client-store';
@@ -27,6 +28,7 @@ const collection: ApiCollectionSummary = {
 
 describe('ApiClientView', () => {
   beforeEach(() => {
+    useBottomPanelStore.setState({ panels: {} });
     selectedRepoId = 'repo-1';
     useApiClientStore.setState({
       collections: [],
@@ -82,5 +84,24 @@ describe('ApiClientView', () => {
 
     expect(await screen.findByLabelText('URL')).toHaveProperty('value', 'https://example.com/user');
     expect(screen.getByText('Send the request to see a response.')).toBeDefined();
+  });
+
+  it('opens the history block on its header, sized by a resize handle above it, and collapses it again', async () => {
+    (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
+      apiClient: {
+        listCollections: vi.fn().mockResolvedValue({ ok: true, value: [] }),
+        listHistory: vi.fn().mockResolvedValue({ ok: true, value: [] }),
+      } as unknown as MidniteStudioBridge['apiClient'],
+    };
+    renderView();
+    // Collapsed until first opened, as it always was: no handle, and the empty-state line is not shown.
+    expect(screen.queryByRole('separator', { name: 'Resize request history' })).toBeNull();
+    const toggle = screen.getByRole('button', { name: /History/ });
+    fireEvent.click(toggle);
+    const handle = await screen.findByRole('separator', { name: 'Resize request history' });
+    expect(handle.getAttribute('aria-valuenow')).toBe('192');
+    expect(useBottomPanelStore.getState().panels['api.history']?.collapsed).toBe(false);
+    fireEvent.click(toggle);
+    expect(screen.queryByRole('separator', { name: 'Resize request history' })).toBeNull();
   });
 });

@@ -1,5 +1,6 @@
+import { useBottomPanelStore } from '@midnite/studio-frame';
 import { cleanup, fireEvent, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fixtures } from '../../../test-support/fixtures';
 import { renderView } from '../../../test-support/render';
@@ -7,6 +8,7 @@ import { BAD_LAYER_TEXT, MapLayerList } from '@midnite/studio-feature-media-map/
 import type { MapLayers } from '@midnite/studio-feature-media-map/renderer';
 
 afterEach(cleanup);
+beforeEach(() => useBottomPanelStore.setState({ panels: {} }));
 
 const fc = { type: 'FeatureCollection' as const, features: [{ type: 'Feature' as const, id: 'a', geometry: { type: 'Point' as const, coordinates: [1, 2] as [number, number] }, properties: { kind: 'pin' as const } }] };
 
@@ -29,6 +31,27 @@ function fakeLayers(over: Partial<MapLayers> = {}): MapLayers {
 }
 
 describe('MapLayerList', () => {
+  it('collapses to its header row, which keeps New and Import', () => {
+    renderView(<MapLayerList layers={fakeLayers()} />, { fixtures });
+    const toggle = screen.getByRole('button', { name: 'Layers' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByTestId('map-layers').style.height).toBe('208px');
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByLabelText('Layer roads')).toBeNull();
+    expect(screen.getByRole('button', { name: 'New layer' })).toBeTruthy();
+    fireEvent.click(toggle);
+    expect(screen.getByLabelText('Layer roads')).toBeTruthy();
+  });
+
+  it('New layer does not toggle the panel', () => {
+    const layers = fakeLayers();
+    renderView(<MapLayerList layers={layers} />, { fixtures });
+    fireEvent.click(screen.getByRole('button', { name: 'New layer' }));
+    expect(layers.create).toHaveBeenCalledWith('Layer');
+    expect(screen.getByRole('button', { name: 'Layers' }).getAttribute('aria-expanded')).toBe('true');
+  });
+
   it('shows an error row for an invalid file, and a count for a good one', () => {
     renderView(<MapLayerList layers={fakeLayers()} />, { fixtures });
     expect(screen.getByText(BAD_LAYER_TEXT)).toBeTruthy();
