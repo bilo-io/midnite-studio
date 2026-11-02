@@ -1,7 +1,7 @@
 import { mediaCoreManifest } from '@midnite/studio-feature-media-core/renderer';
 import { mediaGameManifest, mediaGameTab } from '@midnite/studio-feature-media-game/renderer';
 import { mediaMapManifest, mediaMapTab } from '@midnite/studio-feature-media-map/renderer';
-import { mediaModelManifest, mediaModelTab } from '@midnite/studio-feature-media-model/renderer';
+import { mediaAnimationTab, mediaModelManifest, mediaModelTab } from '@midnite/studio-feature-media-model/renderer';
 import { mediaSpriteManifest, mediaSpriteTab } from '@midnite/studio-feature-media-sprite/renderer';
 import { mediaTerrainManifest, mediaTerrainTab } from '@midnite/studio-feature-media-terrain/renderer';
 import { navFromModules, type MediaTabDescriptor, type NavConfig, type NavGroup } from '@midnite/studio-frame';
@@ -10,7 +10,7 @@ import { PiGameControllerFill } from 'react-icons/pi';
 import { gamerManifest } from '../manifest';
 
 /** The tabs Gamer registers with its `MediaShell`, in strip order (`MEDIA_TABS`'s: the Models tab sits before Sprites). */
-export const GAMER_TABS: readonly MediaTabDescriptor[] = [mediaGameTab, mediaMapTab, mediaTerrainTab, mediaModelTab, mediaSpriteTab];
+export const GAMER_TABS: readonly MediaTabDescriptor[] = [mediaGameTab, mediaMapTab, mediaTerrainTab, mediaModelTab, mediaSpriteTab, mediaAnimationTab];
 
 /**
  * The shell's rail (Phase 123 Theme B): one row per media tab, from the same descriptors the

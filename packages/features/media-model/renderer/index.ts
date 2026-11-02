@@ -1,7 +1,8 @@
-import { LuBox } from 'react-icons/lu';
+import { LuBox, LuFootprints } from 'react-icons/lu';
 
 import type { MediaTabDescriptor } from '@midnite/studio-frame';
 
+import { AnimationTab } from './animation/animation-tab';
 import { ModelTab } from './model-tab';
 
 /**
@@ -42,3 +43,12 @@ export const mediaModelTab = {
   icon: LuBox,
   Component: ModelTab,
 } as const satisfies MediaTabDescriptor;
+
+/** The Animations tab (Phase 125): the global library of animation clips, beside Models. */
+export const mediaAnimationTab = {
+  id: 'animation',
+  label: 'Animations',
+  icon: LuFootprints,
+  Component: AnimationTab,
+} as const satisfies MediaTabDescriptor;
+export { filterClips, tagCounts, sourceCounts, type ClipFilter } from './animation/animation-model';
