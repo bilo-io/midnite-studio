@@ -100,7 +100,7 @@ human decisions recorded below; first slice is **A + B + C**.
 
 ## C — Animations page: list, filter, search (M)
 
-- [ ] `'animation'` added to `MEDIA_TABS` (after `model`), labelled **Animations**, with every `Record<MediaTab, …>` the compiler flags filled; **not** in `REPO_SCOPED_MEDIA_TABS` (the library is global); `MEDIA_TAB_EXPORT_FORMATS.animation = []`
+- [ ] `'animation'` added to `MEDIA_TABS` (after `sprite`), labelled **Animations**, with every `Record<MediaTab, …>` the compiler flags filled; **not** in `REPO_SCOPED_MEDIA_TABS` (the library is global); `MEDIA_TAB_EXPORT_FORMATS.animation = []`
 - [ ] `AnimationsTab` (`media-model/renderer/animation/animation-tab.tsx`) as `mediaAnimationTab` in the feature's descriptor and `compose/media-tabs.tsx`; layout keys `mediaAnimationExplorerWidth`/`mediaAnimationDetailWidth`
 - [ ] `animation-model.ts` (pure): `filterClips({query, tags[], source, sort})` — substring search over name/tags/author/site, AND across selected tags, `sort` by name, newest, duration, size; `tagCounts(clips)`; `sourceCounts(clips)`
 - [ ] List pane: search box, tag chips with counts, source select, sort select, a row per clip (name, duration, tags, source badge); keyboard: arrows move, Enter selects; empty / loading / error states; "N of M clips"

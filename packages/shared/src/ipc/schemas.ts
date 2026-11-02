@@ -447,6 +447,15 @@ import {
   MapTargetSchema,
 } from '../media-map';
 import { Sf3dRequestSchema, Sf3dGenerateResultSchema, Sf3dProgressEventSchema, Sf3dStatusSchema } from '../media-model-sf3d';
+import {
+  AnimationChangedEventSchema,
+  AnimationClipResultSchema,
+  AnimationImportResultSchema,
+  AnimationListResultSchema,
+  AnimationProgressEventSchema,
+  AnimationReadResultSchema,
+  AnimationRequestSchema,
+} from '../media-animation';
 import { SfxGenerateResultSchema, SfxProgressEventSchema, SfxRequestSchema, SfxStatusSchema } from '../media-sfx';
 import { ModelChangedEventSchema, ModelOpenEventSchema } from '../media-model-mcp';
 import {
@@ -3791,6 +3800,17 @@ export const MediaAudioEngineProgressPayload = AudioEngineProgressSchema;
 export const MediaSfxRequest = SfxRequestSchema;
 export const MediaSfxResponse = z.union([GitOpResultOf(z.union([SfxStatusSchema, SfxGenerateResultSchema])), GitOpResultSchema]);
 export const MediaSfxProgressPayload = SfxProgressEventSchema;
+/**
+ * Media ▸ Animations (Phase 125): list / import / update / remove / read as one `op` union, each answering the
+ * `GitOpResult` envelope; a bulk import's progress and the library's changes arrive as events.
+ */
+export const MediaAnimationRequest = AnimationRequestSchema;
+export const MediaAnimationResponse = z.union([
+  GitOpResultOf(z.union([AnimationListResultSchema, AnimationImportResultSchema, AnimationClipResultSchema, AnimationReadResultSchema])),
+  GitOpResultSchema,
+]);
+export const MediaAnimationChangedPayload = AnimationChangedEventSchema;
+export const MediaAnimationProgressPayload = AnimationProgressEventSchema;
 export const MediaAudioExpandRequest = AudioExpandRequestSchema;
 export const MediaAudioExpandResponse = GitOpResultOf(AudioExpandResultSchema);
 

@@ -34,6 +34,16 @@ import type { ModelLibraryMigrateResult, ModelLibraryNode } from '../media-model
 import type { ModelMeshResult } from '../media-model-mesh';
 import type { ModelOpEntry } from '../model-geometry/mesh/ops-log';
 import type { Sf3dGenerateRequest, Sf3dGenerateResult, Sf3dProgressEvent, Sf3dStatus } from '../media-model-sf3d';
+import type {
+  AnimationChangedEvent,
+  AnimationClip,
+  AnimationClipResult,
+  AnimationImportResult,
+  AnimationListResult,
+  AnimationPatch,
+  AnimationProgressEvent,
+  AnimationReadResult,
+} from '../media-animation';
 import type { SfxGenerateRequest, SfxGenerateResult, SfxProgressEvent, SfxStatus } from '../media-sfx';
 import type { PerfMark } from '../perf';
 import type * as S from './schemas';
@@ -98,6 +108,22 @@ export type SfxBridge = {
   generate: (req: SfxGenerateRequest) => Promise<GitOpResult<SfxGenerateResult>>;
   cancelGenerate: (req: { generationId: string }) => Promise<GitOpResult>;
   onProgress: (handler: (event: SfxProgressEvent) => void) => Unsubscribe;
+};
+
+/** `mediaAnimation`'s `op` union (Media ▸ Animations, Phase 125), one typed method per op. */
+export type AnimationBridge = {
+  list: () => Promise<GitOpResult<AnimationListResult>>;
+  /** Opens the native file picker and imports what is picked; `cancelled` when it is dismissed. */
+  importFiles: () => Promise<GitOpResult<AnimationImportResult>>;
+  /** Opens the native folder picker and imports every clip file under it. */
+  importFolder: () => Promise<GitOpResult<AnimationImportResult>>;
+  /** A dropped file: its bytes (base64), never its path. */
+  importBytes: (req: { name: string; dataBase64: string; folder?: string }) => Promise<GitOpResult<AnimationImportResult>>;
+  update: (req: { id: AnimationClip['id']; patch: AnimationPatch }) => Promise<GitOpResult<AnimationClipResult>>;
+  remove: (req: { id: AnimationClip['id'] }) => Promise<GitOpResult>;
+  read: (req: { id: AnimationClip['id'] }) => Promise<GitOpResult<AnimationReadResult>>;
+  onChanged: (handler: (event: AnimationChangedEvent) => void) => Unsubscribe;
+  onProgress: (handler: (event: AnimationProgressEvent) => void) => Unsubscribe;
 };
 
 /**
@@ -1584,6 +1610,8 @@ export type MidniteStudioBridge = {
     };
     /** SFX: Stable Audio Open Small, the opt-in local sound-effect engine. */
     sfx: SfxBridge;
+    /** Animations (Phase 125): the global clip library — import, browse, edit. */
+    animation: AnimationBridge;
     /** Audio (Theme E): the `AudioProvider` catalogue and Import, all run in main. */
     audio: {
       providers: () => Promise<z.infer<typeof S.MediaAudioProvidersResponse>>;
