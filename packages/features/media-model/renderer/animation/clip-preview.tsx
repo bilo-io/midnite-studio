@@ -132,7 +132,7 @@ export default function ClipPreview({ decoded, target, time, onReport }: Props) 
     let unmatched: string[] = [];
     let fellBack = false;
 
-    const useOwn = (): boolean => {
+    const showOwn = (): boolean => {
       if (!decoded.root) return false;
       if (decoded.bvh && decoded.skeleton) {
         const helper = new SkeletonHelper(decoded.root);
@@ -156,7 +156,7 @@ export default function ClipPreview({ decoded, target, time, onReport }: Props) 
       const result = retargetClip(decoded.clip, target.skeleton);
       matched = result.matched;
       unmatched = result.unmatched;
-      if (result.matched === 0 && useOwn()) {
+      if (result.matched === 0 && showOwn()) {
         fellBack = true;
       } else {
         const group = buildSkeleton(target.skeleton);
@@ -166,7 +166,7 @@ export default function ClipPreview({ decoded, target, time, onReport }: Props) 
         playClip = result.clip;
         mode = 'retarget';
       }
-    } else if (!useOwn()) {
+    } else if (!showOwn()) {
       mode = 'none';
       mixerRoot = new Group();
       shown = mixerRoot;

@@ -782,6 +782,8 @@ export type MockFixtures = {
     sfx?: { state?: 'not-installed' | 'installed'; licenceSha256?: string };
     /** Animations (Phase 125): the library's starting clips (full manifest entries); defaults to none. */
     animations?: Array<Record<string, unknown> & { id: string; name: string; tags: string[] }>;
+    /** Animations: the bytes `read` returns for a clip id (base64), for the timeline player. */
+    animationFiles?: Record<string, { format: 'fbx' | 'glb' | 'gltf' | 'bvh'; dataBase64: string }>;
     ffmpeg?:
       { found: true; path: string; version: string | null } | { found: false; reason: string };
     /**
@@ -3629,7 +3631,13 @@ export function buildMockBridge(data: MockFixtures) {
           animationListeners.forEach((handler) => handler({ reason: 'remove', count: 1 }));
           return clip ? { ok: true as const, value: { clip } } : { ok: false as const, kind: 'error' as const, message: 'That clip is no longer in the library.' };
         },
-        read: async () => ({ ok: false as const, kind: 'error' as const, message: 'Clip bytes are not available in the mock bridge.' }),
+        read: async (req: { id: string }) => {
+          const file = data.media?.animationFiles?.[req.id];
+          const clip = animationClips.find((c) => c.id === req.id);
+          return file && clip
+            ? { ok: true as const, value: { id: req.id, name: clip.name, format: file.format, dataBase64: file.dataBase64 } }
+            : { ok: false as const, kind: 'error' as const, message: 'Clip bytes are not available in the mock bridge.' };
+        },
         onChanged: (handler: (event: unknown) => void) => {
           animationListeners.add(handler);
           return () => animationListeners.delete(handler);

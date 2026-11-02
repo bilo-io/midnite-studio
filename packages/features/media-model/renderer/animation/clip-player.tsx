@@ -1,5 +1,5 @@
 import type { AnimationClip } from '@midnite/studio-shared';
-import { Suspense, lazy, useCallback, useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type UIEvent } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject, type UIEvent } from 'react';
 import { LuChevronsDownUp, LuChevronsUpDown, LuPause, LuPlay, LuRepeat, LuSkipBack, LuStepBack, LuStepForward } from 'react-icons/lu';
 
 import { SelectField, useFrameChrome } from '@midnite/studio-frame';
@@ -162,15 +162,13 @@ function Transport({ player, dispatch }: { player: PlayerState; dispatch: Dispat
 }
 
 /** Pointer-drag over an element: reports the 0–1 position of the pointer along it. */
-function useDragX(onFraction: (fraction: number) => void) {
-  const el = useRef<HTMLDivElement>(null);
+function useDragX(el: RefObject<HTMLDivElement | null>, onFraction: (fraction: number) => void) {
   const move = (event: ReactPointerEvent) => {
     const box = el.current?.getBoundingClientRect();
     if (!box || box.width === 0) return;
     onFraction(Math.min(1, Math.max(0, (event.clientX - box.left) / box.width)));
   };
   return {
-    ref: el,
     onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => {
       event.currentTarget.setPointerCapture?.(event.pointerId);
       move(event);
@@ -183,9 +181,11 @@ function useDragX(onFraction: (fraction: number) => void) {
 
 function Timeline({ player, dispatch, lanes }: { player: PlayerState; dispatch: Dispatch; lanes: Lane[] }) {
   const { duration } = player;
-  const scrub = useDragX((f) => dispatch({ type: 'scrub', time: f * duration }));
-  const inDrag = useDragX((f) => dispatch({ type: 'setIn', time: f * duration }));
-  const outDrag = useDragX((f) => dispatch({ type: 'setOut', time: f * duration }));
+  // All three drags measure against the ruler, not the element under the pointer (a handle is 6 px wide).
+  const ruler = useRef<HTMLDivElement>(null);
+  const scrub = useDragX(ruler, (f) => dispatch({ type: 'scrub', time: f * duration }));
+  const inDrag = useDragX(ruler, (f) => dispatch({ type: 'setIn', time: f * duration }));
+  const outDrag = useDragX(ruler, (f) => dispatch({ type: 'setOut', time: f * duration }));
   const long = lanes.length > LANE_COLLAPSE_THRESHOLD;
   const [expanded, setExpanded] = useState(false);
   useEffect(() => setExpanded(false), [lanes]);
@@ -202,7 +202,7 @@ function Timeline({ player, dispatch, lanes }: { player: PlayerState; dispatch: 
             </button>
           ) : null}
         </div>
-        <div className="relative h-6 cursor-ew-resize touch-none select-none bg-muted/40" {...scrub} role="slider" aria-label="Timeline" aria-valuemin={0} aria-valuemax={duration} aria-valuenow={player.time}>
+        <div ref={ruler} className="relative h-6 cursor-ew-resize touch-none select-none bg-muted/40" {...scrub} role="slider" aria-label="Timeline" aria-valuemin={0} aria-valuemax={duration} aria-valuenow={player.time}>
           <div className="absolute inset-y-0 bg-primary/15" style={{ left: `${timePercent(player.inPoint, duration)}%`, right: `${100 - timePercent(player.outPoint, duration)}%` }} data-testid="range" />
           <RangeHandle drag={inDrag} percent={timePercent(player.inPoint, duration)} label="In point" />
           <RangeHandle drag={outDrag} percent={timePercent(player.outPoint, duration)} label="Out point" />
@@ -225,8 +225,9 @@ function RangeHandle({ drag, percent, label }: { drag: ReturnType<typeof useDrag
       role="slider"
       aria-label={label}
       aria-valuenow={percent}
-      className="absolute inset-y-0 w-1.5 -translate-x-1/2 cursor-col-resize bg-primary/70"
-      style={{ left: `${percent}%` }}
+      className="absolute inset-y-0 w-1.5 cursor-col-resize bg-primary/70"
+      // Kept inside the ruler (6 px wide, so the end handle does not hang over a neighbouring pane's edge).
+      style={{ left: `calc(${percent}% - ${percent * 0.06}px)` }}
     />
   );
 }
