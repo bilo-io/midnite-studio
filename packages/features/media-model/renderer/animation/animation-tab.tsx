@@ -29,6 +29,7 @@ import {
   type ClipSort,
 } from './animation-model';
 import { ClipPlayer } from './clip-player';
+import { UseInGame } from './use-in-game';
 import { useAnimationClips, useAnimationEvents, useAnimationMutations } from './use-animations';
 
 /**
@@ -485,6 +486,8 @@ function ClipDetail({ clip, onUpdate, onRemove }: { clip: AnimationClip; onUpdat
         </p>
         <p className="break-all font-mono text-[10px] text-muted-foreground">{clip.file}</p>
       </section>
+
+      <UseInGame clip={clip} />
 
       <button type="button" onClick={remove} className="mt-auto flex items-center justify-center gap-1.5 rounded border border-destructive/40 px-2 py-1.5 text-destructive hover:bg-destructive/10">
         <LuTrash2 aria-hidden className="h-3.5 w-3.5" />
