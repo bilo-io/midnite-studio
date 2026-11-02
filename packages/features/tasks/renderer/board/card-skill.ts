@@ -78,6 +78,7 @@ const MIDNITE_ORDER = [
   'midnite-release-complete',
   'midnite-address-issue',
   'midnite-triage',
+  'midnite-sanitize',
   'midnite-git-report',
   'midnite-git-cleanup',
   'midnite-retro',

@@ -30,6 +30,7 @@ import {
   LuFileSearch,
   LuScanSearch,
   LuScissors,
+  LuShieldAlert,
   LuShieldCheck,
   LuZap,
 } from 'react-icons/lu';
@@ -233,6 +234,13 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
     hint: 'Read-only table of the open PRs and issues — checks, reviews, mergeability, age.',
   },
   {
+    id: 'sanitize',
+    label: 'Sanitize',
+    icon: LuShieldAlert,
+    category: 'reviews',
+    hint: 'Security-audit a skill, plugin or repo before you install it: hidden prompts, exfiltration, backdoors.',
+  },
+  {
     id: 'releasePrep',
     label: 'Release Prep',
     icon: LuRocket,
@@ -345,6 +353,7 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
   checkYourself: '/midnite-check-yourself',
   prDescription: '/midnite-pr-description',
   triage: '/midnite-triage',
+  sanitize: '/midnite-sanitize',
   releasePrep: '/midnite-release-prep',
   releaseComplete: '/midnite-release-complete',
   gitReport: '/midnite-git-report',

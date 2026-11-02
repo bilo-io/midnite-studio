@@ -59,6 +59,11 @@ describe('AGENT_COMMANDS', () => {
     expect(categoryOf('prCreate')).toBe('tasks');
   });
 
+  it('offers Sanitize under Reviews, pointed at the security-audit skill', () => {
+    expect(DEFAULT_AGENT_SKILLS.sanitize).toBe('/midnite-sanitize');
+    expect(AGENT_COMMANDS.find((command) => command.id === 'sanitize')?.category).toBe('reviews');
+  });
+
   it('leaves the Patrol loop bare — its skills come from the FAB checkboxes', () => {
     // The one default that is deliberately *not* a skill. A skill creeping in
     // here would ride along on every Patrol run whether or not a box was
