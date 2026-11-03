@@ -36,5 +36,43 @@
       ],
       "groupName": "dev dependencies"
     }
+  ],
+  "customManagers": [
+    {
+      "description": "moon's toolchain pins node and pnpm separately from .prototools, and a mismatch breaks setup: #1117 bumped node in .prototools only, and moon kept 24.22.1. These managers make the same Renovate PR bump .moon/toolchain.yml as well.",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.moon/toolchain\\.yml$/"
+      ],
+      "matchStrings": [
+        "node:\\s*\\n(?:\\s*#.*\\n)*\\s*version:\\s*'(?<currentValue>[^']+)'"
+      ],
+      "depNameTemplate": "node",
+      "datasourceTemplate": "node-version"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.moon/toolchain\\.yml$/"
+      ],
+      "matchStrings": [
+        "pnpm:\\s*\\n\\s*version:\\s*'(?<currentValue>[^']+)'"
+      ],
+      "depNameTemplate": "pnpm",
+      "datasourceTemplate": "npm"
+    },
+    {
+      "description": "Two pnpm pins outside package.json: the corepack step in ci.yml and visual-regen's container recipe.",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/ci\\.yml$/",
+        "/^scripts/visual-regen\\.mjs$/"
+      ],
+      "matchStrings": [
+        "pnpm@(?<currentValue>\\d+\\.\\d+\\.\\d+)"
+      ],
+      "depNameTemplate": "pnpm",
+      "datasourceTemplate": "npm"
+    }
   ]
 }
