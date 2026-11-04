@@ -24,7 +24,7 @@ const CardStateSchema = z.object({
   due: z.number().nonnegative(),
   lastReviewed: z.number().nonnegative(),
 });
-const ReviewFileSchema = z.object({ version: z.literal(1), cards: z.record(CardStateSchema) });
+const ReviewFileSchema = z.object({ version: z.literal(1), cards: z.record(z.string(), CardStateSchema) });
 type ReviewFile = z.infer<typeof ReviewFileSchema>;
 
 export type ReviewService = {

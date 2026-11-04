@@ -163,7 +163,7 @@ describe('the sign-in channels', () => {
       handleBare: vi.fn(),
       send: vi.fn(),
     };
-    registerWebAppsHandlers(ipc, () => null);
+    registerWebAppsHandlers(ipc as unknown as Parameters<typeof registerWebAppsHandlers>[0], () => null);
     expect(await handlers.get(CHANNELS.webAppsSignIns)?.({})).toMatchObject({ available: true });
     expect(await handlers.get(CHANNELS.webAppsSignOut)?.({ id: 'not-an-app' })).toMatchObject({ ok: false });
     for (const session of sessions.values()) expect(session.clearStorageData).not.toHaveBeenCalled();

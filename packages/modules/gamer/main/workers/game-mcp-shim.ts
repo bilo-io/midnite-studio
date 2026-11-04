@@ -12,7 +12,7 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { zodToJsonSchema } from 'zod-to-json-schema';
+import { z } from 'zod';
 
 import { createRunShim, runShimSocketFromArgv } from '@midnite/studio-runtime/agent-run/run-shim';
 import { GAME_AGENT_TOOL_IDS, GAME_CALL_TIMEOUT_MS, isGameSlowToolId, MCP_SERVER_NAME } from '@midnite/studio-shared';
@@ -23,9 +23,7 @@ const CALL_TIMEOUT_MS = 60_000;
 const shim = createRunShim({
   toolIds: GAME_AGENT_TOOL_IDS,
   socketPath: runShimSocketFromArgv(process.argv),
-  // `MCP_TOOLS` inputs are a union of distinct zod object types; `any` stops TypeScript walking it (as Studio's shim does).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  toJsonSchema: (schema) => zodToJsonSchema(schema as any, { target: 'jsonSchema7' }) as Record<string, unknown>,
+  toJsonSchema: (schema) => z.toJSONSchema(schema as z.ZodType, { target: 'draft-7', io: 'input', unrepresentable: 'any' }) as Record<string, unknown>,
   timeoutMs: (tool) => (isGameSlowToolId(tool) ? GAME_CALL_TIMEOUT_MS : CALL_TIMEOUT_MS),
 });
 

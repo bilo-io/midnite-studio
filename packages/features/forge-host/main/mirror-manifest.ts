@@ -9,9 +9,9 @@ import { z } from 'zod';
 export const MirrorManifestSchema = z.object({
   fetchedAt: z.string(),
   /** Every ref in the bare repo at fetch time, name to object id. */
-  headRefs: z.record(z.string()),
+  headRefs: z.record(z.string(), z.string()),
   /** SHA-256 of each metadata file, by file name. */
-  files: z.record(z.string()),
+  files: z.record(z.string(), z.string()),
   adapter: z.string(),
   account: z.string(),
 });

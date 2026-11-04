@@ -19,7 +19,7 @@ export type RunShimOptions = {
   toolIds: readonly McpToolId[];
   /** The run's socket — required: a shim without one answers every call with an error. */
   socketPath: string | null;
-  /** `zod-to-json-schema` over a tool's input schema (injected so this file needs no converter). */
+  /** `z.toJSONSchema` over a tool's input schema (injected so this file needs no converter). */
   toJsonSchema: (schema: unknown) => Record<string, unknown>;
   timeoutMs: (tool: McpToolId) => number;
   call?: typeof callMcpSocket;

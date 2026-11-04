@@ -150,7 +150,7 @@ export const ForgeIssueLinkSetSchema = z.object({
 export type ForgeIssueLinkSet = z.infer<typeof ForgeIssueLinkSetSchema>;
 
 /**
- * An issue with no dependency links at all — the shape `.default({})` parses to.
+ * An issue with no dependency links at all — the shape `.prefault({})` parses to.
  * Exported because the field is required on the *output* type, so every fixture
  * and every hand-built `issue` content literal needs one; spelling it out five
  * times is how the five drift apart.
@@ -209,7 +209,7 @@ export const ForgeProjectItemContentSchema = z.discriminatedUnion('type', [
      * `blockedBy`/`parent`/`subIssues` — GitHub only exposes these on
      * `Issue`, never `PullRequest` or `DraftIssue` (Phase 75 Theme A).
      */
-    dependencies: ForgeIssueLinkSetSchema.default({}),
+    dependencies: ForgeIssueLinkSetSchema.prefault({}),
     /** PRs linked to this issue (closing references or custom pull request field). */
     linkedPrs: z.array(ForgeLinkedPullRequestSchema).default([]),
   }),
@@ -248,7 +248,7 @@ export const ForgeProjectItemSchema = z.object({
    * simply has no entry — never a placeholder value — so the table can tell
    * "empty" from "unset" without a sentinel.
    */
-  fieldValues: z.record(z.string(), ForgeProjectFieldValueSchema).default({}),
+  fieldValues: z.record(z.string(), ForgeProjectFieldValueSchema).prefault({}),
 });
 export type ForgeProjectItem = z.infer<typeof ForgeProjectItemSchema>;
 

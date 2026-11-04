@@ -277,7 +277,7 @@ const SdfPartRef = z.string().min(1).max(60);
 const SdfResolutionInput = z.number().int().min(SDF_RESOLUTION_MIN).max(SDF_RESOLUTION_MAX);
 export const ModelSdfSetInputSchema = ModelToolTargetSchema.extend({
   /** `{ nodes: [...], blend? }` — the roots are unioned (smoothly, by `blend`). */
-  tree: z.object({ nodes: z.array(z.record(z.unknown())).min(1).max(32), blend: z.number().optional() }).passthrough(),
+  tree: z.object({ nodes: z.array(z.record(z.string(), z.unknown())).min(1).max(32), blend: z.number().optional() }).passthrough(),
   /** An SDF part (id or name) to replace; omitted adds a new part. */
   part: SdfPartRef.optional(),
   /** Name for a new part (default "sdf shape"). */
@@ -289,7 +289,7 @@ export const ModelSdfPatchInputSchema = ModelToolTargetSchema.extend({
   /** The SDF part (id or name); may be omitted when the design has exactly one. */
   part: SdfPartRef.optional(),
   /** `add`/`update`/`remove`/`move`/`wrap` nodes by name, or `blend` the roots — applied in order, all or nothing. */
-  ops: z.array(z.record(z.unknown())).min(1).max(64),
+  ops: z.array(z.record(z.string(), z.unknown())).min(1).max(64),
   /** Re-bake at this resolution (default: the part's last). */
   resolution: SdfResolutionInput.optional(),
 });
@@ -580,12 +580,12 @@ export const ModelLayerListResultSchema = z.object({
   unwrapped: z.boolean(),
   preset: z.string().optional(),
   base: z.object({ color: z.string(), roughness: z.number(), metalness: z.number(), emissive: z.string() }),
-  sizes: z.record(z.number()),
+  sizes: z.record(z.string(), z.number()),
   /** Bottom → top. */
   layers: z.array(LayerSummarySchema),
   /** Theme F bakes a mask can use. */
   bakes: z.array(z.string()),
-  flattened: z.record(z.string()),
+  flattened: z.record(z.string(), z.string()),
 });
 
 export const ModelLandmarksResultSchema = z.object({
@@ -663,7 +663,7 @@ export const ModelEditResultSchema = z.discriminatedUnion('ok', [
         undoable: z.number().int().min(0),
         redoable: z.number().int().min(0),
         /** What the call did, in numbers: dabs, vertices moved, the largest move in metres, masked vertices… */
-        summary: z.record(z.union([z.number(), z.string(), z.boolean()])),
+        summary: z.record(z.string(), z.union([z.number(), z.string(), z.boolean()])),
       })
       .optional(),
     /** `model_decimate`/`retopo`/`unwrap`/`bake`/`export`: the part it produced and the numbers. */
@@ -674,7 +674,7 @@ export const ModelEditResultSchema = z.discriminatedUnion('ok', [
         vertices: z.number().int().min(0),
         triangles: z.number().int().min(0),
         /** Per-op figures: reached target, quad share, texel density, hit rate, files written… */
-        summary: z.record(z.union([z.number(), z.string(), z.boolean(), z.array(z.string())])),
+        summary: z.record(z.string(), z.union([z.number(), z.string(), z.boolean(), z.array(z.string())])),
         /** A rigged model: the skeleton is kept and the skin re-derived and checked against the old surface. */
         rig: z.object({ kept: z.boolean(), normalised: z.boolean(), influences: z.number().int(), drift: z.object({ mean: z.number(), max: z.number() }) }).optional(),
       })
@@ -686,7 +686,7 @@ export const ModelEditResultSchema = z.discriminatedUnion('ok', [
         layers: z.array(LayerSummarySchema),
         /** Texture files written (layer channels and the flattened set). */
         files: z.array(z.string()),
-        summary: z.record(z.union([z.number(), z.string(), z.boolean()])),
+        summary: z.record(z.string(), z.union([z.number(), z.string(), z.boolean()])),
       })
       .optional(),
     /** `model_sdf_*`: the SDF part that holds the bake, and how it went. */

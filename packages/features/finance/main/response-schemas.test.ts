@@ -7,18 +7,18 @@ import type { z } from 'zod';
 function propertyNames(schema: z.ZodTypeAny, seen = new Set<unknown>()): string[] {
   if (seen.has(schema)) return [];
   seen.add(schema);
-  const def = schema._def as Record<string, unknown>;
+  const def = schema._def as unknown as Record<string, unknown>;
   const names: string[] = [];
   const next = (child: unknown): void => {
     if (child && typeof child === 'object' && '_def' in child) names.push(...propertyNames(child as z.ZodTypeAny, seen));
   };
   if (typeof (schema as { shape?: unknown }).shape === 'object') {
-    for (const [name, child] of Object.entries((schema as z.AnyZodObject).shape)) {
+    for (const [name, child] of Object.entries((schema as z.ZodObject).shape)) {
       names.push(name);
       next(child);
     }
   }
-  for (const field of ['type', 'innerType', 'schema', 'left', 'right', 'valueType', 'in', 'out', 'unwrap']) next(def[field]);
+  for (const field of ['element', 'innerType', 'schema', 'left', 'right', 'valueType', 'in', 'out', 'unwrap']) next(def[field]);
   if (Array.isArray(def['options'])) def['options'].forEach(next);
   if (Array.isArray(def['items'])) def['items'].forEach(next);
   if (typeof def['getter'] === 'function') next((def['getter'] as () => unknown)());

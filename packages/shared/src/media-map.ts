@@ -363,7 +363,7 @@ export const MapProjectFileSchema = z
     basemap: MapProjectFields.basemap.default('streets'),
     terrain3d: MapProjectFields.terrain3d.default({ on: false, exaggeration: 1.5 }),
     layerOrder: MapProjectFields.layerOrder.default([]),
-    layerStyle: MapProjectFields.layerStyle.default({}),
+    layerStyle: MapProjectFields.layerStyle.prefault({}),
     frame: MapProjectFields.frame,
   })
   .passthrough();

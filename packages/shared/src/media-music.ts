@@ -158,7 +158,7 @@ export const SongEffectSchema = z.object({
   id: idString,
   type: SongEffectTypeSchema,
   bypass: z.boolean().default(false),
-  params: z.record(z.string().min(1).max(32), z.number().finite()).default({}),
+  params: z.record(z.string().min(1).max(32), z.number().finite()).prefault({}),
 });
 export type SongEffect = z.infer<typeof SongEffectSchema>;
 
@@ -177,7 +177,7 @@ export const SongTrackSchema = z.object({
   controlChanges: z.array(SongControlChangeSchema).max(MUSIC_MAX_CC_PER_TRACK).default([]),
   pitchBends: z.array(SongPitchBendSchema).max(MUSIC_MAX_PITCH_BENDS_PER_TRACK).default([]),
   automation: z.array(SongAutomationLaneSchema).max(MUSIC_MAX_AUTOMATION_LANES_PER_TRACK).default([]),
-  mixer: SongMixerChannelSchema.default({}),
+  mixer: SongMixerChannelSchema.prefault({}),
   /** Insert effects between the instrument and the mixer strip, first to last. */
   effects: z.array(SongEffectSchema).max(MUSIC_MAX_EFFECTS_PER_TRACK).default([]),
   /** The drum grid's view of this track (Theme G): steps per bar and swing. Absent until used. */
@@ -225,7 +225,7 @@ export const SongSchema = z
     meta: z.array(SongMetaEventSchema).max(MUSIC_MAX_META_EVENTS).default([]),
     tracks: z.array(SongTrackSchema).max(MUSIC_MAX_TRACKS).default([]),
     clips: z.array(SongClipSchema).max(MUSIC_MAX_CLIPS).default([]),
-    mixer: z.object({ master: SongMixerChannelSchema.default({}) }).default({}),
+    mixer: z.object({ master: SongMixerChannelSchema.prefault({}) }).prefault({}),
   })
   .superRefine((song, ctx) => {
     const ids = new Set<string>();

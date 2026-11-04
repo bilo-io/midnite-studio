@@ -24,7 +24,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { MCP_CONTENT_KEY, MCP_SERVER_NAME, MCP_TOOLS, ALL_APPS_INSTALLED, listMcpToolIds, type IsAppInstalled, isMcpToolId, isModelMcpToolId, isGameSlowToolId, GAME_CALL_TIMEOUT_MS, isTerrainSlowToolId, TERRAIN_CALL_TIMEOUT_MS, isSpriteSlowToolId, isMapSlowToolId, MAP_CALL_TIMEOUT_MS, McpContentBlockSchema } from '@midnite/studio-shared';
 import { MCP_TOOL_MANIFESTS } from '../main/mcp/tool-manifests';
-import { zodToJsonSchema } from 'zod-to-json-schema';
+import { z } from 'zod';
 
 import { callMcpTool, SLOW_CALL_TIMEOUT_MS } from './client';
 
@@ -69,18 +69,7 @@ const server = new Server(
 server.setRequestHandler(ListToolsRequestSchema, () => ({
   tools: listMcpToolIds(readInstalledApps(), MCP_TOOL_MANIFESTS).map((id) => {
     const tool = MCP_TOOLS[id];
-    /*
-     * `tool.input` is a union of eight distinct `ZodObject` types across the
-     * registry, and `zodToJsonSchema` is typed against `zod/v3`'s `ZodSchema`
-     * while this file's zod import resolves to the package root — two
-     * type identities zod's 3.25.x transitional dual-export layout keeps
-     * nominally distinct even though they describe the same runtime object.
-     * `any` here is what actually stops TypeScript short of walking either
-     * union or that cross-module structural comparison ("excessively deep").
-     */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const schema: any = tool.input;
-    const inputSchema = zodToJsonSchema(schema, { target: 'jsonSchema7' }) as Record<string, unknown> & {
+    const inputSchema = z.toJSONSchema(tool.input as z.ZodType, { target: 'draft-7', io: 'input', unrepresentable: 'any' }) as Record<string, unknown> & {
       type: 'object';
     };
     return { name: tool.id, description: tool.description, inputSchema };

@@ -104,9 +104,9 @@ export type DetectorInfo = z.infer<typeof DetectorInfoSchema>;
 
 export const ScanResultSchema = z.object({
   totalBytes: z.number().nonnegative(),
-  byCategory: z.record(ScanCategorySchema, z.number().nonnegative()),
+  byCategory: z.partialRecord(ScanCategorySchema, z.number().nonnegative()),
   /** Same totals, grouped by `Ecosystem` instead — computed once in `main`, not re-aggregated by the renderer. */
-  byEcosystem: z.record(EcosystemSchema, z.number().nonnegative()),
+  byEcosystem: z.partialRecord(EcosystemSchema, z.number().nonnegative()),
   /** Populated only for detectors that actually matched during this scan — not one entry per item. */
   detectors: z.record(z.string(), DetectorInfoSchema),
   items: z.array(ScanItemSchema).max(SCAN_ITEMS_CAP),

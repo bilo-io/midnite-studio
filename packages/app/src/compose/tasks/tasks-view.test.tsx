@@ -713,7 +713,7 @@ describe('Phase 75 Theme D — graph mode', () => {
             body: '',
             labels: [],
             // `bridge()` is mocked here with a raw object, skipping the real
-            // zod parse `.default({})` would otherwise supply — so this
+            // zod parse `.prefault({})` would otherwise supply — so this
             // suite's own fixtures carry every field verbatim, the same rule
             // `kanban.spec.ts` states for `body`/`labels`.
             dependencies: { blockedBy: [], parent: null, subIssues: [], blockedByTruncated: false, subIssuesTruncated: false },

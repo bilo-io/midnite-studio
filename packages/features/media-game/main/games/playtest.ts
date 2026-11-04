@@ -128,9 +128,9 @@ async function readRepoJson(root: string, rel: string): Promise<unknown> {
   }
 }
 
-const firstIssue = (error: { issues: { path: (string | number)[]; message: string }[] }): string => {
+const firstIssue = (error: { issues: { path: PropertyKey[]; message: string }[] }): string => {
   const issue = error.issues[0];
-  return issue ? `${issue.path.join('.') || '(root)'}: ${issue.message}` : 'invalid';
+  return issue ? `${issue.path.map(String).join('.') || '(root)'}: ${issue.message}` : 'invalid';
 };
 
 export function createPlaytests(deps: PlaytestDeps) {

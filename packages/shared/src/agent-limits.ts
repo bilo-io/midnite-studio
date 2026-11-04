@@ -25,14 +25,22 @@ export const AgentLimitsSchema = z.object({
 });
 export type AgentLimits = z.infer<typeof AgentLimitsSchema>;
 
-/** The limits a repo changes; anything it leaves out keeps the default. */
-export const AgentLimitsOverrideSchema = AgentLimitsSchema.partial();
+/**
+ * The limits a repo changes; anything it leaves out keeps the default. Built from the fields without
+ * their defaults: zod 4's `.partial()` still applies an inner `.default()`, which would fill every
+ * omitted limit and clobber the layer below.
+ */
+export const AgentLimitsOverrideSchema = AgentLimitsSchema.extend(
+  Object.fromEntries(
+    Object.entries(AgentLimitsSchema.shape).map(([key, field]) => [key, field.unwrap().optional()]),
+  ) as { [K in keyof typeof AgentLimitsSchema.shape]: z.ZodOptional<ReturnType<(typeof AgentLimitsSchema.shape)[K]['unwrap']>> },
+);
 export type AgentLimitsOverride = z.infer<typeof AgentLimitsOverrideSchema>;
 
 /** The persisted settings: one override for every repo, and one per repo path (the repo wins). */
 export const AgentLimitsSettingsSchema = z.object({
-  defaults: AgentLimitsOverrideSchema.default({}),
-  repos: z.record(z.string(), AgentLimitsOverrideSchema).default({}),
+  defaults: AgentLimitsOverrideSchema.prefault({}),
+  repos: z.record(z.string(), AgentLimitsOverrideSchema).prefault({}),
 });
 export type AgentLimitsSettings = z.infer<typeof AgentLimitsSettingsSchema>;
 

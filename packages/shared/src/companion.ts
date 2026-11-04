@@ -3938,7 +3938,7 @@ export const CompanionVolumeSchema = z
  */
 export const CompanionVoiceSelectionSchema = z.object({
   system: z.string().min(1).nullable(),
-  local: CompanionLocalVoiceIdSchema.nullable().catch(null),
+  local: z.unknown().pipe(CompanionLocalVoiceIdSchema.nullable().catch(null)),
 });
 
 /** How many persona profiles the store keeps (Theme G). */
@@ -4058,11 +4058,7 @@ export function parseCompanionSettingValue<K extends CompanionSettingKey>(
   key: K,
   value: unknown,
 ): { ok: true; value: CompanionSettingValues[K] } | { ok: false; message: string } {
-  const schema = COMPANION_SETTING_VALUE_SCHEMAS[key] as unknown as z.ZodType<
-    CompanionSettingValues[K],
-    z.ZodTypeDef,
-    unknown
-  >;
+  const schema = COMPANION_SETTING_VALUE_SCHEMAS[key] as unknown as z.ZodType<CompanionSettingValues[K], unknown>;
   const parsed = schema.safeParse(value);
   if (parsed.success) return { ok: true, value: parsed.data };
   return { ok: false, message: parsed.error.issues[0]?.message ?? 'Invalid value.' };

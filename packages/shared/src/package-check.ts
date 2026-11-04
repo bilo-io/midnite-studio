@@ -38,7 +38,7 @@ export const PackageCheckFindingSchema = z.object({
   severity: PackageCheckSeveritySchema,
   candidate: InstallCandidateSchema,
   message: z.string(),
-  details: z.record(z.unknown()).optional(),
+  details: z.record(z.string(), z.unknown()).optional(),
 });
 export type PackageCheckFinding = z.infer<typeof PackageCheckFindingSchema>;
 
@@ -55,6 +55,6 @@ export const SkillAuditFindingSchema = z.object({
   skillPath: z.string(),
   skillName: z.string(),
   message: z.string(),
-  details: z.record(z.unknown()).optional(),
+  details: z.record(z.string(), z.unknown()).optional(),
 });
 export type SkillAuditFinding = z.infer<typeof SkillAuditFindingSchema>;

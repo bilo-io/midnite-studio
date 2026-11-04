@@ -1,5 +1,5 @@
 import { MODEL_MAX_PARTS, ModelSpecSchema } from '@midnite/studio-shared';
-import { zodToJsonSchema } from 'zod-to-json-schema';
+import { z } from 'zod';
 
 /**
  * The format reference an agent reads — `model_get_spec`'s `schema` and
@@ -17,6 +17,8 @@ type JsonSchema = {
   type?: string;
   const?: unknown;
   anyOf?: JsonSchema[];
+  /** zod 4 writes a discriminated union as `oneOf`. */
+  oneOf?: JsonSchema[];
   properties?: Record<string, JsonSchema>;
   required?: string[];
   items?: JsonSchema | JsonSchema[];
@@ -81,8 +83,7 @@ const MODIFIER_HINTS: Record<string, string> = {
 
 /** The design's JSON Schema, with every definition inlined. */
 export function modelSpecJsonSchema(): JsonSchema {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- zod 3.25's dual type identities; see mcp-shim/index.ts
-  return zodToJsonSchema(ModelSpecSchema as any, { target: 'jsonSchema7', $refStrategy: 'none' }) as JsonSchema;
+  return z.toJSONSchema(ModelSpecSchema, { target: 'draft-7', io: 'input', unrepresentable: 'any' }) as JsonSchema;
 }
 
 function typeOf(schema: JsonSchema, depth = 0): string {
@@ -92,7 +93,8 @@ function typeOf(schema: JsonSchema, depth = 0): string {
     const fields = Object.entries(schema.properties).map(([key, prop]) => `${key}${schema.required?.includes(key) ? '' : '?'}: ${typeOf(prop, depth + 1)}`);
     return `{ ${fields.join(', ')} }`;
   }
-  if (schema.anyOf) return schema.anyOf.map((arm) => typeOf(arm, depth + 1)).join(' | ');
+  const arms = schema.anyOf ?? schema.oneOf;
+  if (arms) return arms.map((arm) => typeOf(arm, depth + 1)).join(' | ');
   if (schema.type === 'number') {
     if (schema.exclusiveMinimum !== undefined) return 'number > 0';
     if (schema.minimum !== undefined && schema.minimum >= 0) return 'number ≥ 0';
@@ -112,7 +114,7 @@ function typeOf(schema: JsonSchema, depth = 0): string {
 /** The union arms of `parts[]`, as `{ shape, properties, required }`. */
 function partVariants(schema: JsonSchema): { shape: string; properties: Record<string, JsonSchema>; required: string[] }[] {
   const items = schema.properties?.parts?.items;
-  const arms = !Array.isArray(items) ? (items?.anyOf ?? []) : [];
+  const arms = !Array.isArray(items) ? (items?.anyOf ?? items?.oneOf ?? []) : [];
   return arms
     .map((arm) => ({ shape: String(arm.properties?.shape?.const ?? ''), properties: arm.properties ?? {}, required: arm.required ?? [] }))
     .filter((arm) => arm.shape !== '');
@@ -155,7 +157,8 @@ export function modelSpecReference(): string {
     const hint = SHAPE_HINTS[variant.shape];
     lines.push(`- "${variant.shape}": ${own.join(', ') || '(no extra fields)'}${hint ? ` — ${hint}` : ''}`);
   }
-  const modifierArms = (first?.properties.modifiers?.items as JsonSchema | undefined)?.anyOf ?? [];
+  const modifierItems = first?.properties.modifiers?.items as JsonSchema | undefined;
+  const modifierArms = modifierItems?.anyOf ?? modifierItems?.oneOf ?? [];
   if (modifierArms.length > 0) {
     lines.push('', 'Modifiers (part "modifiers": [ { "type": ..., ...fields, "enabled"?: false }, ... ], applied in order):');
     for (const arm of modifierArms) {

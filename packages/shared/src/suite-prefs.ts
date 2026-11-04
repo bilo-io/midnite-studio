@@ -48,7 +48,7 @@ export const AppearancePrefsSchema = z.object({
       typewriter: z.boolean().default(true),
       glass: z.boolean().default(true),
     })
-    .default({}),
+    .prefault({}),
   shimmer: z.enum(['ltr', 'rtl']).default('ltr'),
 });
 export type AppearancePrefs = z.infer<typeof AppearancePrefsSchema>;
@@ -64,12 +64,12 @@ export const UserPaletteSchema = z.object({
   id: z.string().min(1).max(128),
   label: z.string().max(256),
   appearance: z.enum(['dark', 'light']),
-  chrome: z.record(z.string()),
-  terminal: z.record(z.unknown()),
+  chrome: z.record(z.string(), z.string()),
+  terminal: z.record(z.string(), z.unknown()),
   editor: z.object({
     base: z.enum(['vs', 'vs-dark', 'hc-black']),
-    rules: z.array(z.record(z.unknown())),
-    colors: z.record(z.string()),
+    rules: z.array(z.record(z.string(), z.unknown())),
+    colors: z.record(z.string(), z.string()),
   }),
   highlight: z.string(),
 });
@@ -94,7 +94,7 @@ const ACTIVITY_OVERRIDES_SHAPE = Object.fromEntries(
 
 export const ActivityPalettePrefsSchema = z.object({
   activePaletteId: z.string().min(1).max(128).default(DEFAULT_ACTIVITY_PALETTE_ID),
-  statusOverrides: z.object(ACTIVITY_OVERRIDES_SHAPE).default({}),
+  statusOverrides: z.object(ACTIVITY_OVERRIDES_SHAPE).prefault({}),
   agentStyle: z.enum(['gradient', 'metallic']).default('gradient'),
   shellStyle: z.enum(['metallic', 'gradient', 'matchAgent']).default('metallic'),
 });
@@ -139,7 +139,7 @@ export const TitlebarStatusPrefsSchema = z.object({
       worldClocks: z.boolean().default(true),
       time: z.boolean().default(true),
     })
-    .default({}),
+    .prefault({}),
 });
 export type TitlebarStatusPrefs = z.infer<typeof TitlebarStatusPrefsSchema>;
 
