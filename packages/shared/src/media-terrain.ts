@@ -140,7 +140,7 @@ export const TerrainNoiseSchema = z.object({
   persistence: z.number().min(0.1).max(0.9).default(0.5),
   lacunarity: z.number().min(1.5).max(3).default(2),
   island: z.boolean().default(false),
-  erosion: z.object({ iterations: z.number().int().min(0).max(500_000).default(50_000) }).default({}),
+  erosion: z.object({ iterations: z.number().int().min(0).max(500_000).default(50_000) }).prefault({}),
 });
 export type TerrainNoise = z.infer<typeof TerrainNoiseSchema>;
 
@@ -166,7 +166,7 @@ export const TerrainStatsSchema = z.object({
   minHeight: z.number(),
   maxHeight: z.number(),
   histogram: z.array(z.number().int().nonnegative()).length(16),
-  classPercent: z.record(z.enum(TERRAIN_CLASSES), z.number()).optional(),
+  classPercent: z.partialRecord(z.enum(TERRAIN_CLASSES), z.number()).optional(),
   roadCount: z.number().int().nonnegative().optional(),
   roadLengthM: z.number().nonnegative().optional(),
   roadAgreement: z.number().min(0).max(1).optional(),
@@ -197,7 +197,7 @@ export const TerrainSpecSchema = z
         /** Set only by a Maps capture: real OSM building footprints with heights. */
         buildingsFootprints: TerrainBuildingsFootprintsRefSchema.optional(),
       })
-      .default({}),
+      .prefault({}),
     resolution: z
       .union([z.literal(129), z.literal(257), z.literal(513), z.literal(1025), z.literal(2049), z.literal(4097)])
       .default(513),
@@ -219,18 +219,18 @@ export const TerrainSpecSchema = z
         /** `'satellite'` follows the satellite's alignment. */
         roads: z.union([TerrainAlignmentSchema, z.literal('satellite')]).default('satellite'),
       })
-      .default({}),
+      .prefault({}),
     textureSize: z
       .union([z.literal(1024), z.literal(2048), z.literal(4096), z.literal(8192)])
       .default(2048),
     classes: z
       .object({
-        vision: z.object({ enabled: z.boolean().default(false), model: z.string().optional() }).default({}),
+        vision: z.object({ enabled: z.boolean().default(false), model: z.string().optional() }).prefault({}),
         k: z.number().int().min(4).max(12).default(8),
         exgThreshold: z.number().default(0.05),
         rockSlopeDeg: z.number().default(35),
       })
-      .default({}),
+      .prefault({}),
     snowLineM: z.number().optional(),
     foliage: z
       .object({
@@ -240,9 +240,9 @@ export const TerrainSpecSchema = z
         slopeLimitDeg: z.number().default(35),
         scale: z.tuple([z.number(), z.number()]).default([0.8, 1.3]),
         margin: z.number().default(2),
-        assets: z.record(z.enum(['tree', 'grass']), z.array(z.string())).optional(),
+        assets: z.partialRecord(z.enum(['tree', 'grass']), z.array(z.string())).optional(),
       })
-      .default({}),
+      .prefault({}),
     buildings: z
       .object({
         seed: z.number().int().min(0).default(1),
@@ -252,7 +252,7 @@ export const TerrainSpecSchema = z
         snapToleranceDeg: z.number().default(12),
         flattenBlendM: z.number().default(3),
       })
-      .default({}),
+      .prefault({}),
     roads: z
       .object({
         colour: Hex.optional(),
@@ -263,7 +263,7 @@ export const TerrainSpecSchema = z
         maxCutFillM: z.number().default(4),
         spurMinM: z.number().default(8),
       })
-      .default({}),
+      .prefault({}),
     /** Present when a Maps capture made this terrain. */
     geo: TerrainGeoSchema.optional(),
     createdAt: z.string().optional(),
@@ -344,7 +344,7 @@ export type TerrainGetResult = z.infer<typeof TerrainGetResultSchema>;
 
 export const TerrainSetSpecRequestSchema = TerrainTargetSchema.extend({
   /** A partial spec, merged shallowly over the stored one (nested objects replaced whole), then validated. */
-  patch: z.record(z.unknown()),
+  patch: z.record(z.string(), z.unknown()),
 });
 export type TerrainSetSpecRequest = z.infer<typeof TerrainSetSpecRequestSchema>;
 

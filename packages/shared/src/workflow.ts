@@ -215,9 +215,9 @@ export const WorkflowHttpConfigSchema = z.object({
   method: WorkflowHttpMethodSchema,
   /** May contain `{{nodeId.path}}` references — see `interpolate.ts`. */
   url: z.string(),
-  headers: z.record(z.string(), z.string()).default({}),
+  headers: z.record(z.string(), z.string()).prefault({}),
   /** Serialised into the query string. Meaningful on any method, required by `queryShaped`. */
-  params: z.record(z.string(), z.string()).default({}),
+  params: z.record(z.string(), z.string()).prefault({}),
   /** Raw request body, sent as-is after interpolation. Never set on GET/HEAD. */
   body: z.string().optional(),
   /**
@@ -407,7 +407,7 @@ export type WorkflowAgentConfig = z.infer<typeof WorkflowAgentConfigSchema>;
 export const WorkflowScriptConfigSchema = z.object({
   command: z.string().default(''),
   cwd: z.string().optional(),
-  env: z.record(z.string(), z.string()).default({}),
+  env: z.record(z.string(), z.string()).prefault({}),
   /** Pins this node's `out` port shape (Theme A) — optional, read by {@link portsForNode}. */
   outputShape: WorkflowPortShapeSchema.optional(),
   /** Phase 97 Theme I — see {@link WorkflowHttpConfigSchema.actions}'s identical doc comment. */
@@ -610,7 +610,7 @@ export const WorkflowVerifyExitCodeCheckSchema = z.object({
   check: z.literal('exit-code'),
   command: z.string().default(''),
   cwd: z.string().optional(),
-  env: z.record(z.string(), z.string()).default({}),
+  env: z.record(z.string(), z.string()).prefault({}),
 });
 export type WorkflowVerifyExitCodeCheck = z.infer<typeof WorkflowVerifyExitCodeCheckSchema>;
 
@@ -626,7 +626,7 @@ export const WorkflowVerifyTestCountsCheckSchema = z.object({
   check: z.literal('test-counts'),
   command: z.string().default(''),
   cwd: z.string().optional(),
-  env: z.record(z.string(), z.string()).default({}),
+  env: z.record(z.string(), z.string()).prefault({}),
   parser: z.enum(WORKFLOW_TEST_COUNT_PARSERS),
   minPassed: z.number().int().min(0).default(1),
 });
@@ -983,7 +983,7 @@ export type WorkflowFailConfig = z.infer<typeof WorkflowFailConfigSchema>;
 export const WorkflowCommandConfigSchema = z.object({
   command: z.string().default(''),
   cwd: z.string().optional(),
-  env: z.record(z.string(), z.string()).default({}),
+  env: z.record(z.string(), z.string()).prefault({}),
   allowNonZeroExit: z.boolean().default(false),
   /** See {@link WorkflowHttpConfigSchema.actions}. */
   actions: z.array(WorkflowActionSchema).optional(),
@@ -1056,7 +1056,7 @@ export type WorkflowForgeIssueConfig = z.infer<typeof WorkflowForgeIssueConfigSc
  * persisted on the run — it is an ordinary node output.
  */
 export const WorkflowSetFieldsConfigSchema = z.object({
-  fields: z.record(z.string(), z.string()).default({}),
+  fields: z.record(z.string(), z.string()).prefault({}),
 });
 export type WorkflowSetFieldsConfig = z.infer<typeof WorkflowSetFieldsConfigSchema>;
 

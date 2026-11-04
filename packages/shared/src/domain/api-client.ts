@@ -204,7 +204,7 @@ export const ApiRequestDraftSchema = z.object({
   headers: z.array(KeyValueRowSchema),
   auth: ApiAuthSchema,
   bodyMode: BodyModeSchema,
-  bodies: z.record(BodyModeSchema, z.string()),
+  bodies: z.partialRecord(BodyModeSchema, z.string()),
   binaryPath: z.string().nullable(),
   /**
    * Phase 70 Theme B — the two `pm.*` scripts a request tab carries, edited

@@ -200,7 +200,7 @@ export const SpriteSheetSpecSchema = z.object({
       /** Off: frames are not checked (and carry no consistency badge — the user chose it). */
       enabled: z.boolean().default(true),
     })
-    .default({}),
+    .prefault({}),
   /**
    * Theme D: a 1-direction side sheet draws only `e` and writes `w` as its mirror (`source: 'mirrored'`,
    * `flipped: true`). Off ("My character is asymmetric") draws `w` with the same pose table instead.
@@ -455,12 +455,12 @@ export type SpriteFrameMeta = z.infer<typeof SpriteFrameMetaSchema>;
 export const SpriteFramesFileSchema = z.object({
   version: z.literal(1).default(1),
   /** Keyed `<clip>/<dir>/<n>`. */
-  frames: z.record(SpriteFrameMetaSchema).default({}),
+  frames: z.record(z.string(), SpriteFrameMetaSchema).prefault({}),
   /**
    * Per direction, the alpha-bounds height (source pixels) of the reference frame that set the sheet's
    * scale (Theme B). Kept so regenerating one clip scales it exactly like the frames already on disk.
    */
-  referenceHeights: z.record(z.number().positive()).default({}),
+  referenceHeights: z.record(z.string(), z.number().positive()).prefault({}),
 });
 export type SpriteFramesFile = z.infer<typeof SpriteFramesFileSchema>;
 
@@ -508,7 +508,7 @@ export const SpriteLibraryRequestSchema = z.discriminatedUnion('op', [
     op: z.literal('create'),
     repoId: z.string().min(1),
     /** A full or partial spec; the group follows its kind (and a sheet's category). */
-    spec: z.record(z.unknown()),
+    spec: z.record(z.string(), z.unknown()),
   }),
   SpriteTargetSchema.extend({ op: z.literal('rename'), to: z.string().trim().min(1).max(120) }),
   SpriteTargetSchema.extend({ op: z.literal('duplicate') }),
@@ -527,7 +527,7 @@ export type SpriteGetResult = z.infer<typeof SpriteGetResultSchema>;
 
 export const SpriteSetSpecRequestSchema = SpriteTargetSchema.extend({
   /** A partial spec merged shallowly over the stored one (nested objects replaced whole), then validated. `kind` cannot change. */
-  patch: z.record(z.unknown()),
+  patch: z.record(z.string(), z.unknown()),
 });
 export type SpriteSetSpecRequest = z.infer<typeof SpriteSetSpecRequestSchema>;
 
@@ -619,7 +619,7 @@ export type SpritePackOptions = z.infer<typeof SpritePackOptionsSchema>;
  */
 export const SpriteExportRequestSchema = SpriteTargetSchema.extend({
   dest: z.string().min(1).optional(),
-  pack: SpritePackOptionsSchema.default({}),
+  pack: SpritePackOptionsSchema.prefault({}),
 });
 export type SpriteExportRequest = z.input<typeof SpriteExportRequestSchema>;
 export const SpriteExportResultSchema = z.object({

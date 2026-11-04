@@ -254,7 +254,7 @@ export type MarketHolding = z.infer<typeof MarketHoldingSchema>;
 export const MarketPortfolioSchema = z.object({
   version: z.literal(1),
   /** Cash per currency, in that currency's own units. */
-  balances: z.record(z.number()),
+  balances: z.record(z.string(), z.number()),
   holdings: z.array(MarketHoldingSchema),
   transactions: z.array(MarketTransactionSchema),
   /** Symbols the user watches; the Watchlist card shows exactly these. */

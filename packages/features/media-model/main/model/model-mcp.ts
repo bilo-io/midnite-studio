@@ -481,8 +481,8 @@ export function createModelTools(deps: ModelMcpDeps) {
     };
   }
 
-  const treeIssues = (error: { issues: { path: (string | number)[]; message: string }[] }, prefix: string) =>
-    error.issues.map((issue) => ({ path: [prefix, ...issue.path].join('.'), message: issue.message }));
+  const treeIssues = (error: { issues: { path: PropertyKey[]; message: string }[] }, prefix: string) =>
+    error.issues.map((issue) => ({ path: [prefix, ...issue.path.map(String)].join('.'), message: issue.message }));
 
   async function modelSdfSet(input: McpToolInput<'model_sdf_set'>): Promise<McpToolOutput<'model_sdf_set'>> {
     const l = await load(input);

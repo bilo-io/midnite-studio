@@ -1008,7 +1008,7 @@ export const CommitStatsRequest = RepoId.extend({
   shas: z.array(CommitShaSchema).min(1).max(COMMIT_RUNS_MAX_SHAS),
 });
 export const CommitStatsResponse = z.object({
-  stats: z.record(CommitDiffStatSchema),
+  stats: z.record(z.string(), CommitDiffStatSchema),
 });
 
 // --- forge polling (Phase 84 Theme C) ---------------------------------------
@@ -1503,7 +1503,7 @@ export const AiImproveFieldRequest = z.object({
   repoName: z.string().max(200).default(''),
   fieldName: z.string().trim().min(1).max(60),
   fieldValue: z.string().max(8000),
-  otherFields: z.record(z.string().max(60), z.string().max(2000)).default({}),
+  otherFields: z.record(z.string().max(60), z.string().max(2000)).prefault({}),
   /**
    * Phase 96 Theme I — when set, main calls this Ollama model's `/api/chat`
    * instead of a headless CLI (Settings ▸ Agent ▸ "Headless AI features use").
@@ -2538,7 +2538,7 @@ export const ScaffoldApplyRequest = RepoId.extend({
 });
 export const ScaffoldApplyResponse = GitOpResultOf(ScaffoldApplyResultSchema);
 
-export const InstallUserSkillsRequest = z.object({}).default({});
+export const InstallUserSkillsRequest = z.object({}).prefault({});
 export type InstallUserSkillsRequest = z.infer<typeof InstallUserSkillsRequest>;
 export const InstallUserSkillsResponse = GitOpResultOf(InstallUserSkillsResultSchema);
 
@@ -3969,7 +3969,7 @@ export const MediaExportRequest = z.object({
   exportId: z.string().min(1),
   source: MediaExportSourceSchema,
   format: MediaExportFormatSchema,
-  options: MediaExportOptionsSchema.default({}),
+  options: MediaExportOptionsSchema.prefault({}),
   defaultDir: z.string().min(1).optional(),
 });
 export const MediaExportResponse = GitOpResultOf(z.object({ dest: z.string() }));
@@ -4809,7 +4809,7 @@ export const CompanionUiResultValueSchema = z.union([
   CompanionSettingsSetOutputSchema.extend({ did: z.literal('setting') }),
   z.object({
     did: z.literal('settingsState'),
-    values: z.record(CompanionSettingKeySchema, z.unknown()),
+    values: z.partialRecord(CompanionSettingKeySchema, z.unknown()),
     locked: z.boolean(),
   }),
   z.object({
@@ -5076,7 +5076,7 @@ export const VaultNamespaceSchema = z.enum(['secrets', 'forge-accounts', 'db-cre
 export const VaultGrantScopeSchema = z.union([z.literal('*'), z.array(z.string().min(1)).max(500)]);
 /** Apps that need no grant (Studio, Vault) are never grantees. */
 export const VaultGranteeSchema = z.enum(PLACEMENT_APP_IDS).exclude(['vault']);
-export const VaultGrantsSchema = z.record(z.string(), z.record(VaultNamespaceSchema, VaultGrantScopeSchema));
+export const VaultGrantsSchema = z.record(z.string(), z.partialRecord(VaultNamespaceSchema, VaultGrantScopeSchema));
 
 export const VaultGrantsListRequest = z.object({});
 export const VaultGrantsListResponse = z.object({
@@ -5405,7 +5405,7 @@ export const MarketsSeriesRequest = z.object({
   refresh: z.boolean().optional(),
 });
 export const MarketsSeriesResponse = GitOpResultOf(
-  z.object({ series: z.record(MarketSeriesEntrySchema) }),
+  z.object({ series: z.record(z.string(), MarketSeriesEntrySchema) }),
 );
 
 /** Latest price for a batch of assets, in USD, keyed by symbol. */
@@ -5414,7 +5414,7 @@ export const MarketsQuotesRequest = z.object({
   refresh: z.boolean().optional(),
 });
 export const MarketsQuotesResponse = GitOpResultOf(
-  z.object({ quotes: z.record(MarketQuoteEntrySchema) }),
+  z.object({ quotes: z.record(z.string(), MarketQuoteEntrySchema) }),
 );
 
 export const MarketsSearchRequest = z.object({ query: z.string().trim().min(1).max(60) });
@@ -5426,7 +5426,7 @@ export const MarketsSearchResponse = GitOpResultOf(
 export const MarketsRatesResponse = GitOpResultOf(
   z.object({
     base: z.literal('USD'),
-    rates: z.record(z.number()),
+    rates: z.record(z.string(), z.number()),
     fetchedAt: z.number().nullable(),
     stale: z.boolean(),
   }),

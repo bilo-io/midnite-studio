@@ -220,7 +220,7 @@ export const GameManifestSchema = z
         rapier: z.string().optional(),
         recast: z.string().optional(),
       })
-      .default({}),
+      .prefault({}),
     assets: z.array(GameAssetProvenanceSchema).default([]),
     network: GameNetworkSchema.default('off'),
     deterministic: z.boolean().default(false),

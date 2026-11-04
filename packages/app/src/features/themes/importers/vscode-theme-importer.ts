@@ -50,7 +50,7 @@ const VsCodeThemeSchema = z
   .object({
     name: z.string().optional(),
     type: z.enum(['dark', 'light']).optional(),
-    colors: z.record(z.string()).optional().default({}),
+    colors: z.record(z.string(), z.string()).prefault({}),
     tokenColors: z.array(TokenColorSchema).optional().default([]),
   })
   .passthrough();

@@ -29,7 +29,7 @@ export const ModelOpEntrySchema = z.object({
   /** Content hash of the mesh file after this op, when the op ended in a save. */
   hash: z.string().regex(/^[0-9a-f]{8,64}$/).optional(),
   /** Op parameters — brush, radius, strength, target, SDF tree, resolution… Shape is per kind. */
-  data: z.record(z.unknown()).optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
 });
 export type ModelOpEntry = z.infer<typeof ModelOpEntrySchema>;
 

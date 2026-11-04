@@ -1,5 +1,6 @@
 import { readFile, realpath, stat } from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute, join, relative } from 'node:path';
+import { z } from 'zod';
 
 import {
   MCP_CONTENT_KEY,
@@ -17,7 +18,6 @@ import {
   type MediaProject,
   type TerrainOpenEvent,
 } from '@midnite/studio-shared';
-import { zodToJsonSchema } from 'zod-to-json-schema';
 
 import { confineToRoot, joinWithin } from '../../fs-scope';
 import { McpToolError } from '../../mcp/errors';
@@ -146,8 +146,7 @@ export function createTerrainTools(deps: TerrainMcpDeps) {
     return {
       spec: t.spec as unknown as Record<string, unknown>,
       built: t.built,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- zod 3.25's dual type identities; see mcp-shim/index.ts
-      schema: zodToJsonSchema(TerrainSpecSchema as any, { target: 'jsonSchema7', $refStrategy: 'none' }),
+      schema: z.toJSONSchema(TerrainSpecSchema, { target: 'draft-7', io: 'input', unrepresentable: 'any' }),
       hint,
     };
   }

@@ -61,11 +61,11 @@ export const LIBRARY_INDEX_VERSION = 1;
 const IndexSchema = z.object({
   version: z.literal(LIBRARY_INDEX_VERSION),
   roots: z.array(LibraryRootSchema),
-  items: z.record(StoredItemSchema),
-  progress: z.record(LibraryProgressSchema),
+  items: z.record(z.string(), StoredItemSchema),
+  progress: z.record(z.string(), LibraryProgressSchema),
   settings: LibrarySettingsSchema,
   playlists: z.array(LibraryPlaylistSchema).default([]),
-  probes: z.record(MediaProbeSchema).default({}),
+  probes: z.record(z.string(), MediaProbeSchema).prefault({}),
 });
 export type LibraryIndex = z.infer<typeof IndexSchema>;
 

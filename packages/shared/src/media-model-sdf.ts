@@ -179,7 +179,7 @@ export const SdfOpSchema = z.discriminatedUnion('op', [
   /** Adds `node` under the container `parent` (default: the roots), at `index` (default: last). */
   z.object({ op: z.literal('add'), node: SdfNodeSchema, parent: SdfNameSchema.optional(), index: z.number().int().min(0).optional() }),
   /** Merges `set` into the named node's own fields (not `kind` or `children`). */
-  z.object({ op: z.literal('update'), name: SdfNameSchema, set: z.record(z.unknown()) }),
+  z.object({ op: z.literal('update'), name: SdfNameSchema, set: z.record(z.string(), z.unknown()) }),
   /** Removes the named node and everything under it. */
   z.object({ op: z.literal('remove'), name: SdfNameSchema }),
   /** Moves the named node under `parent` (absent: the roots) at `index` (default: last). */

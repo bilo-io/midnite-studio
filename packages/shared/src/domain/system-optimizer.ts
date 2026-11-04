@@ -45,7 +45,7 @@ export const SystemScanResultSchema = z.object({
   totalBytes: z.number().nonnegative(),
   /** True if any item is approximate — the tab's own banner keys on this. */
   approximate: z.boolean(),
-  byEcosystem: z.record(EcosystemSchema, z.number().nonnegative()),
+  byEcosystem: z.partialRecord(EcosystemSchema, z.number().nonnegative()),
   items: z.array(SystemCacheItemSchema).max(SYSTEM_SCAN_ITEMS_CAP),
 });
 export type SystemScanResult = z.infer<typeof SystemScanResultSchema>;

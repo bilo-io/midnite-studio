@@ -41,7 +41,7 @@ export type AsepriteFrameTag = z.infer<typeof AsepriteFrameTagSchema>;
 
 /** Phaser 3's JSON-hash atlas (`Textures.Parsers.JSONHash`): a `frames` object plus `meta`. */
 export const PhaserAtlasJsonSchema = z.object({
-  frames: z.record(FrameEntry),
+  frames: z.record(z.string(), FrameEntry),
   meta: z.object({
     app: z.string(),
     version: z.string(),

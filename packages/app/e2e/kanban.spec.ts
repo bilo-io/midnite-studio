@@ -69,7 +69,7 @@ const ITEM = {
       guarantee. The mock bridge hands these fixtures back VERBATIM, with no
       schema parse, so omitting any of the three here throws — on the detail
       pane's first render for the first two, on the first drag-to-skill drop
-      for the third. `dependencies` (`.default({})`) is the fourth: every
+      for the third. `dependencies` (`.prefault({})`) is the fourth: every
       Projects mode now builds the dependency graph for its blocked status
       stroke, and `resolveForgeGraph` reads it on the view's first render.
     */

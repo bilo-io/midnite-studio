@@ -23,8 +23,8 @@ describe('schema-derived reference', () => {
   });
 
   it('exposes the full JSON schema for the design, with every part shape inlined', () => {
-    const schema = modelSpecJsonSchema() as { properties: { parts: { items: { anyOf: unknown[] } } } };
-    expect(schema.properties.parts.items.anyOf).toHaveLength(MODEL_SHAPES.length);
+    const schema = modelSpecJsonSchema() as { properties: { parts: { items: { oneOf: unknown[] } } } };
+    expect(schema.properties.parts.items.oneOf).toHaveLength(MODEL_SHAPES.length);
   });
 
   it('feeds the one-shot prompt and the iterative prompt from the same source', () => {

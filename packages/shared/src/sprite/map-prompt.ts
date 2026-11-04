@@ -68,7 +68,7 @@ export const describeMapIssues = (issues: readonly MapSpecIssue[], limit = 8): s
 /** A reply's JSON (already extracted) checked against the schema and the tileset. */
 export function checkMapSpec(raw: unknown, terrains: readonly MapPromptTerrain[]): { ok: true; spec: MapSpec } | { ok: false; issues: MapSpecIssue[] } {
   const parsed = MapSpecSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false, issues: parsed.error.issues.map((i) => ({ path: i.path.map((p, k) => (typeof p === 'number' ? `[${p}]` : `${k === 0 ? '' : '.'}${p}`)).join(''), message: i.message })) };
+  if (!parsed.success) return { ok: false, issues: parsed.error.issues.map((i) => ({ path: i.path.map((p, k) => (typeof p === 'number' ? `[${p}]` : `${k === 0 ? '' : '.'}${String(p)}`)).join(''), message: i.message })) };
   const issues = mapSpecIssues(parsed.data, terrains);
   return issues.length > 0 ? { ok: false, issues } : { ok: true, spec: parsed.data };
 }

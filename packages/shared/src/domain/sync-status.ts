@@ -64,7 +64,7 @@ export type SyncStatusEvent = z.infer<typeof SyncStatusEventSchema>;
 export const SettingsSyncPayloadSchema = z.object({
   autoFetchEnabled: z.boolean(),
   autoFetchIntervalMs: z.number().int(),
-  webAppDiscardIdle: z.record(WebAppIdSchema, z.boolean()).optional(),
+  webAppDiscardIdle: z.partialRecord(WebAppIdSchema, z.boolean()).optional(),
   browserDiscardMs: z.number().int().optional(),
   /**
    * Phase 90 Theme C: whether switching the active GitHub account also runs

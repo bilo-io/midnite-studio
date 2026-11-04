@@ -13,39 +13,42 @@ import { BrowserApp } from '../browser-app';
 
 /**
  * Every string leaf a schema can carry, by path, except inside `UntrustedPageContentSchema` — the one
- * place page words may travel. zod 3's internals, walked by `_def.typeName`.
+ * place page words may travel. zod 4's internals, walked by `_zod.def.type`.
  */
 function stringLeaves(schema: z.ZodTypeAny, path = '', out: string[] = []): string[] {
   if (schema === UntrustedPageContentSchema) return out;
-  const def = schema._def as { typeName: string } & Record<string, unknown>;
-  switch (def.typeName) {
-    case 'ZodString':
+  const def = schema._zod.def as unknown as { type: string } & Record<string, unknown>;
+  switch (def.type) {
+    case 'string':
       out.push(path);
       break;
-    case 'ZodObject':
-      for (const [key, value] of Object.entries((schema as z.AnyZodObject).shape)) stringLeaves(value as z.ZodTypeAny, `${path}.${key}`, out);
+    case 'object':
+      for (const [key, value] of Object.entries((schema as z.ZodObject).shape)) stringLeaves(value as z.ZodTypeAny, `${path}.${key}`, out);
       break;
-    case 'ZodOptional':
-    case 'ZodNullable':
-    case 'ZodDefault':
+    case 'optional':
+    case 'nullable':
+    case 'default':
+    case 'prefault':
+    case 'catch':
+    case 'readonly':
       stringLeaves(def.innerType as z.ZodTypeAny, path, out);
       break;
-    case 'ZodEffects':
-      stringLeaves(def.schema as z.ZodTypeAny, path, out);
+    case 'pipe':
+      stringLeaves(def.in as z.ZodTypeAny, path, out);
+      stringLeaves(def.out as z.ZodTypeAny, path, out);
       break;
-    case 'ZodArray':
-      stringLeaves(def.type as z.ZodTypeAny, `${path}[]`, out);
+    case 'array':
+      stringLeaves(def.element as z.ZodTypeAny, `${path}[]`, out);
       break;
-    case 'ZodUnion':
-    case 'ZodDiscriminatedUnion':
+    case 'union':
       (def.options as z.ZodTypeAny[]).forEach((option, i) => stringLeaves(option, `${path}|${i}`, out));
       break;
-    case 'ZodRecord':
-    case 'ZodMap':
-    case 'ZodAny':
-    case 'ZodUnknown':
+    case 'record':
+    case 'map':
+    case 'any':
+    case 'unknown':
       // An open-ended value could carry anything, page words included.
-      out.push(`${path}<open:${def.typeName}>`);
+      out.push(`${path}<open:${def.type}>`);
       break;
     default:
       // Literals, enums, numbers and booleans carry no free text.
@@ -61,7 +64,7 @@ describe('what the agent receives', () => {
 
   it('the walker skips only the envelope: a stray string beside it is caught', () => {
     expect(stringLeaves(z.object({ page: UntrustedPageContentSchema, leak: z.string() }))).toEqual(['.leak']);
-    expect(stringLeaves(z.object({ blob: z.record(z.unknown()) }))).toEqual(['.blob<open:ZodRecord>']);
+    expect(stringLeaves(z.object({ blob: z.record(z.string(), z.unknown()) }))).toEqual(['.blob<open:record>']);
   });
 });
 

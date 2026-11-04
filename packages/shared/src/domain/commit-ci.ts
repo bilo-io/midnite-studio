@@ -120,7 +120,7 @@ export const COMMIT_RUNS_MAX_SHAS = 50;
  */
 export const ForgeCommitRunsResultSchema = z.object({
   cli: ForgeCliStatusSchema,
-  runs: z.record(z.string(), z.array(ForgeRunSchema)).default({}),
+  runs: z.record(z.string(), z.array(ForgeRunSchema)).prefault({}),
   error: z.string().nullable().default(null),
 });
 export type ForgeCommitRunsResult = z.infer<typeof ForgeCommitRunsResultSchema>;

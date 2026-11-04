@@ -37,23 +37,24 @@ const FORBIDDEN =
 
 /** Every field name reachable from a zod schema, with its path. */
 function fieldNames(schema: z.ZodTypeAny, path = ''): string[] {
-  const def = schema._def as { typeName: string } & Record<string, unknown>;
-  switch (def.typeName) {
-    case 'ZodObject': {
-      const shape = (schema as z.AnyZodObject).shape as Record<string, z.ZodTypeAny>;
+  const def = schema._zod.def as unknown as { type: string } & Record<string, unknown>;
+  switch (def.type) {
+    case 'object': {
+      const shape = (schema as z.ZodObject).shape as Record<string, z.ZodTypeAny>;
       return Object.entries(shape).flatMap(([k, v]) => [`${path}${k}`, ...fieldNames(v, `${path}${k}.`)]);
     }
-    case 'ZodArray':
-      return fieldNames(def.type as z.ZodTypeAny, path);
-    case 'ZodOptional':
-    case 'ZodNullable':
-    case 'ZodDefault':
+    case 'array':
+      return fieldNames(def.element as z.ZodTypeAny, path);
+    case 'optional':
+    case 'nullable':
+    case 'default':
+    case 'prefault':
+    case 'catch':
+    case 'readonly':
       return fieldNames(def.innerType as z.ZodTypeAny, path);
-    case 'ZodEffects':
-      return fieldNames(def.schema as z.ZodTypeAny, path);
-    case 'ZodUnion':
-      return (def.options as z.ZodTypeAny[]).flatMap((o) => fieldNames(o, path));
-    case 'ZodDiscriminatedUnion':
+    case 'pipe':
+      return [...fieldNames(def.in as z.ZodTypeAny, path), ...fieldNames(def.out as z.ZodTypeAny, path)];
+    case 'union':
       return (def.options as z.ZodTypeAny[]).flatMap((o) => fieldNames(o, path));
     default:
       return [];

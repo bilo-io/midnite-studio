@@ -1,5 +1,6 @@
 import { readFile, realpath, stat } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative } from 'node:path';
+import { z } from 'zod';
 
 import {
   estimateSpriteRequests,
@@ -33,7 +34,6 @@ import {
   type SpriteTarget,
   type SpriteToolIssue,
 } from '@midnite/studio-shared';
-import { zodToJsonSchema } from 'zod-to-json-schema';
 
 import { confineToRoot, joinWithin } from '@midnite/studio-runtime';
 import { McpToolError } from '../../mcp/errors';
@@ -85,8 +85,8 @@ const fail = (result: { ok: false; kind: string } & Partial<{ message: string }>
   throw new McpToolError('error', result.message ?? 'The sprite operation failed.');
 };
 
-const issuesOf = (error: { issues: Array<{ path: Array<string | number>; message: string }> }): SpriteToolIssue[] =>
-  error.issues.map((i) => ({ path: i.path.map((p) => (typeof p === 'number' ? `[${p}]` : p)).join('.').replace(/\.\[/g, '['), message: i.message }));
+const issuesOf = (error: { issues: Array<{ path: PropertyKey[]; message: string }> }): SpriteToolIssue[] =>
+  error.issues.map((i) => ({ path: i.path.map((p) => (typeof p === 'number' ? `[${p}]` : String(p))).join('.').replace(/\.\[/g, '['), message: i.message }));
 
 const exists = (path: string): Promise<boolean> =>
   stat(path).then(
@@ -167,8 +167,7 @@ export function createSpriteTools(deps: SpriteMcpDeps) {
     const t = await locate(input);
     return {
       spec: t.spec as unknown as Record<string, unknown>,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- zod 3.25's dual type identities; see mcp-shim/index.ts
-      schema: zodToJsonSchema(SpriteAssetSpecSchema as any, { target: 'jsonSchema7', $refStrategy: 'none' }),
+      schema: z.toJSONSchema(SpriteAssetSpecSchema, { target: 'draft-7', io: 'input', unrepresentable: 'any' }),
       hint: hintFor(t.spec),
     };
   }

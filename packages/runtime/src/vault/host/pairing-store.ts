@@ -17,8 +17,8 @@ export const PAIRINGS_FILE = 'pairings.json';
 
 const FileSchema = z.object({
   version: z.literal(1),
-  apps: z.record(z.object({ publicKey: z.string().min(1), pairedAt: z.number().int().nonnegative() })),
-  conflicts: z.record(z.object({ at: z.number().int().nonnegative(), count: z.number().int().positive() })),
+  apps: z.record(z.string(), z.object({ publicKey: z.string().min(1), pairedAt: z.number().int().nonnegative() })),
+  conflicts: z.record(z.string(), z.object({ at: z.number().int().nonnegative(), count: z.number().int().positive() })),
 });
 type PairingsFile = z.infer<typeof FileSchema>;
 
