@@ -33,7 +33,33 @@ export const GAME_KEYS = {
   playtests: (gameId: string) => ['games', 'playtests', gameId] as const,
 };
 
+/**
+ * The app's repo list lives under this key. The feature can't import the
+ * app's `keys`, so it names the key literally, as `useCreateGame` does.
+ */
+const REPOS_KEY = ['repos'] as const;
+
+/**
+ * Main lists every registered repo whose root carries a `midnite-game.json`
+ * beside the games root. Queries never go stale in this app, so without this
+ * a repo opened from the repos panel would not show up until a reload.
+ */
+export function useGamesFollowRepos(): void {
+  const client = useQueryClient();
+  useEffect(
+    () =>
+      client.getQueryCache().subscribe((event) => {
+        if (event.type !== 'updated' || event.action.type !== 'success') return;
+        const key = event.query.queryKey;
+        if (key.length !== REPOS_KEY.length || key[0] !== REPOS_KEY[0]) return;
+        void client.invalidateQueries({ queryKey: GAME_KEYS.list });
+      }),
+    [client],
+  );
+}
+
 export function useGames() {
+  useGamesFollowRepos();
   return useQuery<GameSummary[]>({
     queryKey: GAME_KEYS.list,
     queryFn: async () => (await bridge()?.games.list())?.games ?? [],
@@ -69,7 +95,7 @@ export function useCreateGame() {
       if (result.ok) {
         void client.invalidateQueries({ queryKey: GAME_KEYS.list });
         // The new repo is in the repo list too.
-        void client.invalidateQueries({ queryKey: ['repos'] });
+        void client.invalidateQueries({ queryKey: REPOS_KEY });
       }
     },
   });
