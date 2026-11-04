@@ -53,7 +53,7 @@ function fieldNames(schema: z.ZodTypeAny, path = ''): string[] {
     case 'readonly':
       return fieldNames(def.innerType as z.ZodTypeAny, path);
     case 'pipe':
-      return fieldNames(def.in as z.ZodTypeAny, path);
+      return [...fieldNames(def.in as z.ZodTypeAny, path), ...fieldNames(def.out as z.ZodTypeAny, path)];
     case 'union':
       return (def.options as z.ZodTypeAny[]).flatMap((o) => fieldNames(o, path));
     default:

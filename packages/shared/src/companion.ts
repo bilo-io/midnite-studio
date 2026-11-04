@@ -3930,15 +3930,21 @@ export const CompanionVolumeSchema = z
 /**
  * A voice choice per engine — {@link CompanionVoiceSelection} as a schema.
  *
- * `local` falls back to `null` (Heart) on an id the catalog no longer has,
- * rather than failing the whole slice: a stored id can predate a catalog
+ * `local` falls back to `null` (Heart) on an id the catalog no longer has, or
+ * on a slice stored without one, rather than failing the whole slice: a stored id can predate a catalog
  * change, the reason {@link isCompanionLocalVoiceId} exists. Setting the key
  * on its own is strict ({@link COMPANION_SETTING_VALUE_SCHEMAS}), so a new
  * unknown id is refused, never stored.
  */
 export const CompanionVoiceSelectionSchema = z.object({
   system: z.string().min(1).nullable(),
-  local: z.unknown().pipe(CompanionLocalVoiceIdSchema.nullable().catch(null)),
+  local: z
+    .unknown()
+    .optional()
+    .transform((value) => {
+      const parsed = CompanionLocalVoiceIdSchema.nullable().safeParse(value);
+      return parsed.success ? parsed.data : null;
+    }),
 });
 
 /** How many persona profiles the store keeps (Theme G). */

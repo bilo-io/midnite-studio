@@ -4,6 +4,7 @@ import {
   COMPANION_FILLER_SPACING_MS,
   COMPANION_TTS_CHUNK_CHARS,
   COMPANION_WHISTLE_MELODIES,
+  CompanionVoiceSelectionSchema,
   DEFAULT_STT_PROVIDER_ID,
   MELODY_REST,
   STT_PROVIDER_IDS,
@@ -166,5 +167,13 @@ describe('COMPANION_WHISTLE_MELODIES', () => {
   it('has unique names, so a melody can be picked by one', () => {
     const names = COMPANION_WHISTLE_MELODIES.map((melody) => melody.name);
     expect(new Set(names).size).toBe(names.length);
+  });
+});
+
+describe('CompanionVoiceSelectionSchema', () => {
+  it('keeps a slice stored with an unknown or missing local voice, falling back to null', () => {
+    expect(CompanionVoiceSelectionSchema.parse({ system: 'Samantha' })).toEqual({ system: 'Samantha', local: null });
+    expect(CompanionVoiceSelectionSchema.parse({ system: null, local: 'retired-voice' })).toEqual({ system: null, local: null });
+    expect(CompanionVoiceSelectionSchema.parse({ system: null, local: 'af_heart' })).toEqual({ system: null, local: 'af_heart' });
   });
 });

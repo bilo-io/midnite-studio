@@ -81,7 +81,7 @@ const MODIFIER_HINTS: Record<string, string> = {
   bend: 'curves the shape through angle degrees along the axis',
 };
 
-/** The design's JSON Schema, with every definition inlined. */
+/** The design's JSON Schema, inlined except where a recursive schema needs a `$ref`. */
 export function modelSpecJsonSchema(): JsonSchema {
   return z.toJSONSchema(ModelSpecSchema, { target: 'draft-7', io: 'input', unrepresentable: 'any' }) as JsonSchema;
 }
