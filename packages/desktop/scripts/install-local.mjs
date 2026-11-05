@@ -11,6 +11,7 @@ import { existsSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { findAppMainPids } from './lib/running-app.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
@@ -27,6 +28,43 @@ const target = join('/Applications', APP_NAME);
 if (!existsSync(source)) {
   console.error(`No built app at ${source}. Run \`moon run desktop:dist\` first.`);
   process.exit(1);
+}
+
+// Replacing a bundle under a live Electron app crashes it mid-run, so quit it
+// first — gracefully, never with a kill (a close guard may be holding unsaved
+// work). The pty broker runs the same executable but is deliberately left alone.
+const executable = join(target, 'Contents', 'MacOS', APP_NAME.replace(/\.app$/, ''));
+const QUIT_TIMEOUT_MS = 15_000;
+const POLL_MS = 250;
+
+function runningPids() {
+  try {
+    const out = execFileSync('ps', ['-axo', 'pid=,command='], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    return findAppMainPids(out, executable);
+  } catch {
+    return [];
+  }
+}
+
+const wasRunning = existsSync(target) && runningPids().length > 0;
+if (wasRunning) {
+  console.log(`Quitting the running ${APP_NAME.replace(/\.app$/, '')} to replace it (will relaunch afterwards).`);
+  try {
+    execFileSync('osascript', ['-e', `quit app "${APP_NAME.replace(/\.app$/, '')}"`], { stdio: 'ignore' });
+  } catch {
+    // Fall through: the poll below decides whether it actually quit.
+  }
+  const deadline = Date.now() + QUIT_TIMEOUT_MS;
+  while (runningPids().length > 0 && Date.now() < deadline) {
+    execFileSync('sleep', [String(POLL_MS / 1000)]);
+  }
+  if (runningPids().length > 0) {
+    console.error(
+      `${APP_NAME} did not quit within ${QUIT_TIMEOUT_MS / 1000}s (an unsaved-changes prompt may be open). ` +
+        `Quit it yourself and re-run; nothing was replaced.`,
+    );
+    process.exit(1);
+  }
 }
 
 if (existsSync(target)) {
@@ -51,6 +89,11 @@ for (const legacyName of LEGACY_APP_NAMES) {
     console.log(`Removing pre-rename ${legacyTarget}`);
     rmSync(legacyTarget, { recursive: true, force: true });
   }
+}
+
+if (wasRunning) {
+  console.log(`Relaunching ${APP_NAME.replace(/\.app$/, '')}.`);
+  execFileSync('open', ['-a', target], { stdio: 'ignore' });
 }
 
 console.log(`Installed. Launch it from Finder to exercise the login-shell PATH fix.`);
