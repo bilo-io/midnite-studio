@@ -109,6 +109,17 @@ describe('NewTabPage', () => {
     expect(useBrowserStore.getState().tabs[0]?.url).toBe('https://example.com');
   });
 
+  it('survives an unparseable persisted recent instead of throwing at render', () => {
+    useBrowserStore.setState({
+      tabs: [{ id: 'tab-1', kind: 'newtab', url: '', title: '', loading: false, canGoBack: false, canGoForward: false }],
+      recents: ['null', 'https://example.com'],
+    });
+    renderPage();
+
+    expect(screen.getByText('example.com')).toBeDefined();
+    expect(screen.getByText('null')).toBeDefined();
+  });
+
   it('renders no recents heading on a first run', () => {
     renderPage();
     expect(screen.queryByText('Recent Origins')).toBeNull();

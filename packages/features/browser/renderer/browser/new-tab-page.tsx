@@ -20,7 +20,7 @@ import {
 } from '@midnite/studio-shared';
 import { bridge, type IconComponent } from '@midnite/studio-frame';
 
-import { useBrowserStore, type BrowserShortcutTile } from '../browser-store';
+import { hostnameOf, useBrowserStore, type BrowserShortcutTile } from '../browser-store';
 import { useBrowserHost } from '../host';
 import { BrandMark, useBrowserUi, useRemotes, useRepos, Wordmark } from '../ui';
 import { devServerLabel, devServerUrl } from './dev-server';
@@ -314,7 +314,7 @@ export function NewTabPage() {
                   className="flex items-center gap-1.5 rounded-full border border-border/50 bg-card/60 backdrop-blur-md px-3 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                 >
                   <LuExternalLink className="h-3 w-3" />
-                  <span>{new URL(url).hostname}</span>
+                  <span>{hostnameOf(url) ?? url}</span>
                 </button>
               ))}
             </div>
