@@ -63,13 +63,20 @@ export const bootStudioRenderer: BootStudioRenderer = (container) => {
     void import('./store/suite-prefs-seed').then(({ seedSuitePrefsFromLocalStorage }) =>
       seedSuitePrefsFromLocalStorage(window.midniteStudio?.suitePrefs, globalThis.localStorage),
     ).catch(() => undefined);
-    void import('./app').then(({ App }) => {
-      createRoot(container).render(
-        <StrictMode>
-          <App />
-        </StrictMode>,
-      );
-    });
+    // The root boundary is the last resort: a throw in `App`'s own body or providers otherwise
+    // unmounts the tree and leaves a black window. Loaded with the app chunk, not statically,
+    // so the boot module graph stays as small as it is.
+    void Promise.all([import('./app'), import('./components/error-boundary')]).then(
+      ([{ App }, { ErrorBoundary }]) => {
+        createRoot(container).render(
+          <StrictMode>
+            <ErrorBoundary label="Midnite Studio">
+              <App />
+            </ErrorBoundary>
+          </StrictMode>,
+        );
+      },
+    );
   } else {
     void import('./detached-root').then(({ DetachedRoot }) => {
       createRoot(container).render(
