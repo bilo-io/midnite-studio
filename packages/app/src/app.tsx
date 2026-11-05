@@ -1174,7 +1174,10 @@ function Shell() {
             so there is nothing here to show.
           */}
           {browserDetached ? null : (
-            <BrowserPane shown={browserTween.shown} settled={browserTween.settled} />
+            // Its own boundary: the pane sits outside every view slot's, so a throw here blanked the window.
+            <ErrorBoundary label="Browser">
+              <BrowserPane shown={browserTween.shown} settled={browserTween.settled} />
+            </ErrorBoundary>
           )}
         </div>
       </div>
@@ -1826,7 +1829,9 @@ function Shell() {
           {!browserSideBySide && browserReveal.mounted ? (
             // Guards the tail of the collapse tween — see `browserColumn`'s.
             browserDetached ? null : (
-              <BrowserPane shown={browserReveal.shown} />
+              <ErrorBoundary label="Browser">
+                <BrowserPane shown={browserReveal.shown} />
+              </ErrorBoundary>
             )
           ) : null}
 

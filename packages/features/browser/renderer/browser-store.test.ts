@@ -344,6 +344,14 @@ describe('pushRecentOrigin', () => {
     const recents = pushRecentOrigin(['https://a.example'], 'not a url');
     expect(recents).toEqual(['https://a.example']);
   });
+
+  it('never records an opaque origin (about:blank, data:, file:, custom schemes)', () => {
+    let recents = ['https://a.example'];
+    for (const url of ['about:blank', 'data:text/html,hi', 'file:///tmp/x.html', 'midnite-studio://view?id=graph']) {
+      recents = pushRecentOrigin(recents, url);
+    }
+    expect(recents).toEqual(['https://a.example']);
+  });
 });
 
 describe('recents (Phase 32 Theme F)', () => {
@@ -501,6 +509,20 @@ describe('wallpaperTheme (Phase 32 Theme F)', () => {
     const migrated = migrate({ wallpaperTheme: 'space' }, 2);
 
     expect(migrated.wallpaperTheme).toBe('space');
+  });
+
+  it('v3 drops a persisted opaque "null" recent that used to blank the window', () => {
+    const migrate = useBrowserStore.persist.getOptions().migrate as (
+      persisted: unknown,
+      version: number,
+    ) => { recents: string[] };
+
+    const migrated = migrate(
+      { recents: ['http://localhost:5174', 'null', 'https://github.com', 'not a url'] },
+      2,
+    );
+
+    expect(migrated.recents).toEqual(['http://localhost:5174', 'https://github.com']);
   });
 });
 

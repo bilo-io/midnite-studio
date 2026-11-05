@@ -132,10 +132,27 @@ export function clampZoomFactor(factor: number): number {
   return Math.round(Math.min(5, Math.max(0.25, factor)) * 100) / 100;
 }
 
-/** `null` for an unparseable URL — callers treat that as "not an origin worth remembering". */
+/**
+ * `null` for an unparseable URL — callers treat that as "not an origin worth remembering".
+ *
+ * Also `null` for an opaque origin: `about:blank`, `data:`, `file:` and custom
+ * schemes parse fine but serialise their origin as the literal string `"null"`,
+ * which is not itself a URL. Persisting that string once left every later
+ * new-tab page calling `new URL("null")` at render and blanking the window.
+ */
 export function originOf(url: string): string | null {
   try {
-    return new URL(url).origin;
+    const { origin } = new URL(url);
+    return origin === 'null' ? null : origin;
+  } catch {
+    return null;
+  }
+}
+
+/** `null` when `url` does not parse — render paths show nothing rather than throw. */
+export function hostnameOf(url: string): string | null {
+  try {
+    return new URL(url).hostname || null;
   } catch {
     return null;
   }
@@ -686,7 +703,7 @@ export const useBrowserStore = create<BrowserState>()(
     }),
     {
       name: 'midnite-studio.browser',
-      version: 2,
+      version: 3,
       /**
        * v1 → v2: `wallpaperTheme` moves out of raw `localStorage` and into
        * this store (Theme F). Reads `wallpaper.ts`'s legacy
@@ -722,7 +739,8 @@ export const useBrowserStore = create<BrowserState>()(
           groups: state.groups ?? [],
           previewDeployHosts: state.previewDeployHosts ?? [...PREVIEW_DEPLOY_HOSTS],
           tabs: state.tabs ?? [],
-          recents: state.recents ?? [],
+          // v3: drop anything that is not a real origin (an opaque `"null"` crashed the new-tab page).
+          recents: (state.recents ?? []).filter((r) => originOf(r) === r),
           tiles: state.tiles ?? [...DEFAULT_TILES],
           wallpaperTheme,
           zoomByOrigin: state.zoomByOrigin ?? {},
