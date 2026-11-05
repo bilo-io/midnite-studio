@@ -79,6 +79,20 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('This view stopped rendering')).toBeTruthy();
   });
 
+  it('contains a throwing browser pane so the rest of the shell stays mounted', () => {
+    render(
+      <div>
+        <p>shell</p>
+        <ErrorBoundary label="Browser">
+          <AlwaysThrows />
+        </ErrorBoundary>
+      </div>,
+    );
+
+    expect(screen.getByText('Browser stopped rendering')).toBeTruthy();
+    expect(screen.getByText('shell')).toBeTruthy();
+  });
+
   it('reports to lib/report as a boundary, with the component stack', () => {
     render(
       <ErrorBoundary label="Graph">
