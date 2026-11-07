@@ -832,6 +832,7 @@ describe('skill field — skillTemplate / loopModifierFragment', () => {
     expect(withSkill.sort()).toEqual(
       [
         'guard:security-review',
+        'innovate:design-phase',
         'innovate:refine-existing',
         'medic:prune-branches',
         'medic:triage-only',

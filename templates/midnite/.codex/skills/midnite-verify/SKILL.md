@@ -15,7 +15,7 @@ You are the **Phase Verification Specialist** for **Midnite Studio**. Your respo
 
 1. Read **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md)** — its `## Phases` table only; it is a status table with no prose.
 2. Determine target phase:
-   - If an argument is provided (e.g. `24` or `phase-24`), target that specific phase doc in `.midnite/tasks/phases/`.
+   - If an argument is provided (e.g. `24` or `phase-24`), target that specific phase doc in `.midnite/tasks/FEATURES/phases/`.
    - If no argument is provided, scan the index table to find the **oldest non-DONE phase** (i.e. the lowest phase number with status `🔄 WIP` or `◻ TODO`).
 3. Read the targeted phase doc `phase-<N>-*.md` in full:
    - Identify all `- [ ]` open items under `## Deliverables` and `## Verification`.
@@ -111,7 +111,7 @@ Upon explicit human confirmation:
 5. **Commit:**
    Stage explicitly and commit:
    ```bash
-   git add .midnite/tasks/phases/phase-<N>-*.md .midnite/tasks/_INDEX.md .midnite/tasks/done.md
+   git add .midnite/tasks/FEATURES/phases/phase-<N>-*.md .midnite/tasks/_INDEX.md .midnite/tasks/done.md
    git commit -m "docs(tasks): mark phase <N> as done"
    ```
    **CRITICAL:** Never add `Co-Authored-By`, `Signed-off-by`, or any other attribution trailer.
