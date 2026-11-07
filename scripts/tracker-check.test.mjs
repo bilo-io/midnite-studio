@@ -455,5 +455,30 @@ ${letters.map((l) => `**Theme ${l} — Theme ${l}.** ✅ what ${l} landed.`).joi
       expect(fixed).toContain('- ✅ **A** — Theme A');
       expect(fixed).toContain('- ◻ **B** — Theme B');
     });
+
+    it('verifies category tasks directory with its own _INDEX.md and phase docs', () => {
+      const securityIndex = `
+## Phases
+| Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
+|-------|--------|---------|------|----------|---|--------|--------|
+| [1 · CVE Remediation](phases/phase-1-cve.md) | ◻ TODO | — | 0/2 | \`░░░░░░░░░░\` | 0% | — | A |
+`;
+      const doc = `
+# Phase 1 — CVE Remediation
+
+## Headlines
+**Theme A — CVE Patch.** ◻ Audit and update.
+
+### A — CVE Patch
+- [ ] Item 1
+- [ ] Item 2
+`;
+      const docFiles = new Map([['phases/phase-1-cve.md', doc]]);
+      const res = runTrackerChecks({
+        indexContent: securityIndex,
+        docFiles,
+      });
+      expect(res.violations).toHaveLength(0);
+    });
   });
 });

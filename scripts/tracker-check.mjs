@@ -514,6 +514,26 @@ function main() {
 
   const { violations, warnings } = runTrackerChecks({ tasksDir });
 
+  // Also check category subdirectories if they exist (FEATURES, SECURITY, ISSUES)
+  const categories = ['FEATURES', 'SECURITY', 'ISSUES'].filter((cat) =>
+    fs.existsSync(path.join(tasksDir, cat, '_INDEX.md'))
+  );
+  for (const cat of categories) {
+    const catResult = runTrackerChecks({ tasksDir: path.join(tasksDir, cat) });
+    for (const v of catResult.violations) {
+      violations.push({
+        ...v,
+        message: `[${cat}] ${v.message}`,
+      });
+    }
+    for (const w of catResult.warnings) {
+      warnings.push({
+        ...w,
+        message: `[${cat}] ${w.message}`,
+      });
+    }
+  }
+
   for (const warning of warnings) {
     console.warn(warning.message);
   }
