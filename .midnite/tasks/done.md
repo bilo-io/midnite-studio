@@ -2,13 +2,41 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-11 — Phase 130 Theme E — Startup vendors and contracts
+
+PR pending. Vendors and contracts with pure date maths (`contractStatus`, `noticeDeadline`, in shared so the view reuses it), an Action needed strip, an attached file copied by content hash into the app's folder through a host-injected picker and opener, and one linked plan line per priced contract.
+
+## 2026-11-11 — Phase 130 Theme D — Startup costs and runway
+
+[PR #1144](https://github.com/bilo-io/midnite-studio/pull/1144). Pure `projectRunway` (cadence, growth, scenario multipliers, burn, runway, zero-cash month, default alive), the `projection` op, and the Runway view with lines table, scenario tabs, horizon, headline cards and an inline-SVG cash chart. Actuals from the books wait for Theme F.
+
+## 2026-11-11 — Phase 126 Theme E — Plot cells
+
+[PR #1145](https://github.com/bilo-io/midnite-studio/pull/1145). Plot cells sampled in the compute worker against the notebook scope and drawn as an SVG with nice ticks, percentile auto-range and asymptote breaks; series, x and y range editor.
+
+## 2026-11-11 — Phase 126 Theme D — Compute cells in a worker
+
+[PR #1142](https://github.com/bilo-io/midnite-studio/pull/1142). mathjs evaluator with the JavaScript-reaching functions disabled, run in an inline worker with a 300 ms debounce and a 2 s terminate-and-respawn budget; compute cells show KaTeX and the value or `Line N: message`.
+
 ## 2026-11-11 — Phase 130 Theme C — Startup roadmap and milestones
 
-PR pending. Milestone list and timeline with dependency cycle rejection, At risk and Overdue badges, and a remembered view mode.
+[PR #1141](https://github.com/bilo-io/midnite-studio/pull/1141). Milestone list and timeline with dependency cycle rejection, At risk and Overdue badges, and a remembered view mode.
 
 ## 2026-11-11 — Phase 130 Theme B — Startup workspace store and contract
 
-PR pending. The `startup` zod contract and channel, a versioned atomically written `workspace.json` with newer-version read-only and corrupt-file recovery, referential-integrity refusals, a react-query data layer, the first-run company form and Settings ▸ Company.
+[PR #1139](https://github.com/bilo-io/midnite-studio/pull/1139). The `startup` zod contract and channel, a versioned atomically written `workspace.json` with newer-version read-only and corrupt-file recovery, referential-integrity refusals, a react-query data layer, the first-run company form and Settings ▸ Company.
+
+## 2026-11-11 — Phase 126 Theme C — Notebook editor: text and maths cells
+
+[PR #1140](https://github.com/bilo-io/midnite-studio/pull/1140). Notebook list and editor in the Science module: discipline filter, rename, Trash-confirmed delete, autosaving draft store, markdown cells with KaTeX maths, persisted last-open notebook.
+
+## 2026-11-11 — Phase 126 Theme B — Notebook store and IPC
+
+[PR #1138](https://github.com/bilo-io/midnite-studio/pull/1138). Versioned notebook/cell/request schemas in `shared/src/science.ts`, the `mstudio:science:notebook` channel and `ScienceBridge`, the runtime's generic `createJsonDirStore` (atomic 0600 writes, corrupt-file quarantine, id jail), and the Science module's notebook store (Trash on remove) with its registration.
+
+## 2026-11-11 — Phase 126 Theme A — Science app and module scaffold
+
+[PR #1136](https://github.com/bilo-io/midnite-studio/pull/1136). New `packages/modules/science` (manifest, nav group, pane with empty notebooks state, main half and report-only bridge) and `apps/science` (host cloned from Mind: identity, `registerScienceHost`, preload, rail, shell, bundle script, icon); `science` added to every app/module id list and the release-bundle matrix; template zod pin fixed. The launcher tile stays Coming soon until Theme H.
 
 ## 2026-11-11 — Phase 130 Theme A — Startup app scaffold
 
