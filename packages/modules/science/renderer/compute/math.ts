@@ -1,4 +1,4 @@
-import { create, all, type EvalFunction, type MathJsInstance, type MathNode } from 'mathjs';
+import { create, all, type EvalFunction, type FactoryFunctionMap, type MathJsInstance, type MathNode } from 'mathjs';
 
 /**
  * One mathjs instance per module load (Phase 126 Theme D.1). A notebook can arrive as a file, so its
@@ -11,7 +11,7 @@ import { create, all, type EvalFunction, type MathJsInstance, type MathNode } fr
  * every mathjs function built on it, and `derivative` and `simplify` — which reach no JavaScript and are the
  * point of a CAS-lite — would stop working.
  */
-export const math: MathJsInstance = create(all);
+export const math: MathJsInstance = create(all as FactoryFunctionMap);
 
 const DISABLED = new Set(['import', 'createUnit', 'reviver', 'evaluate', 'parse', 'compile']);
 

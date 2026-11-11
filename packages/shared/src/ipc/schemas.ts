@@ -5539,3 +5539,9 @@ export {
   formatCodexHookSnippet,
 } from '../tool-policy';
 
+// Midnite Startup's one channel (Phase 130 Theme B).
+export {
+  StartupChangedEventSchema as StartupChangedPayload,
+  StartupRequestSchema as StartupOpRequest,
+  StartupSnapshotSchema as StartupSnapshotResponse,
+} from '../startup';
