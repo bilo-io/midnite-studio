@@ -49,7 +49,7 @@ export function createStartupBridge(ipc: RendererIpc): StartupBridge {
       exportInvoicePdf: op('exportInvoicePdf'),
       linkBook: op('linkBook'),
       ledgerSummary: op('ledgerSummary'),
-      onChanged: (handler) => subscribe(EVENT_CHANNELS.startupChanged, handler),
+      onChanged: (handler: (payload: unknown) => void) => subscribe(EVENT_CHANNELS.startupChanged, handler),
     } as unknown as StartupBridge['startup'],
     report: createReportBridge(slice),
   };
