@@ -52,9 +52,7 @@ host; this phase makes it an app you can install: notebooks of prose, LaTeX, liv
 molecules, saved as plain JSON under the app's own data directory, with a template shelf so the first
 notebook is never blank. Planned 2026-11-11; first slice is **A + B**, then **C + D**, **E + G**, **F**, and **H** last.
 
-**Theme A — App and module scaffold.** ◻ `apps/science` and `packages/modules/science` from the Mind host
-and the module template, every id list that names an app or module extended, the bundle in the release
-matrix, a rail with an empty Notebooks view. Still "Coming soon" on the launcher.
+**Theme A — App and module scaffold.** ✅ [PR #1136](https://github.com/bilo-io/midnite-studio/pull/1136) `apps/science` and `packages/modules/science` from the Mind host and the module template; `science` is in every id list (`MidniteAppId`, placement, `STUDIO_MODULES`, `NODE_PROJECTS`) and the release matrix carries the bundle with its icon. The pane is the empty notebooks state plus a templates placeholder; the main half registers no channels yet and the bridge is `report` only (B adds `science`). The template's zod pin is fixed. Surprises: `scripts/typecheck-node.test.mjs` and `gate-projects-check.test.mjs` pin the `NODE_PROJECTS` count and list, so each new module bumps them. Landed with CI billing-locked, on the local affected-subset gate.
 
 **Theme B — Notebook store and IPC.** ◻ `ScienceNotebookSchema` (versioned) in a net-new
 `shared/src/science.ts`, one `science` channel with an `op` union, and a generic `createJsonDirStore` in the runtime (one 0600
@@ -92,7 +90,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
 
 ### A — App and module scaffold (L)
 
-- [ ] **A.1** Create `packages/modules/science/` from the template.
+- [x] **A.1** Create `packages/modules/science/` from the template.
   - Copy [`packages/modules/_template/`](../../../packages/modules/_template/) to `packages/modules/science/`
     (net-new), drop `.tmpl`, replace `__ID__` → `science`, `__LABEL__` → `Science`.
   - **Fix the template's stale zod pin while copying:** `package.json` takes `"zod": "^4.0.0"` (the repo
@@ -105,7 +103,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
   - `moon.yml`: `id: 'module-science'`, tags `layer-module`, `app-science`, `app-studio`.
   - Verified by `packages/modules/science/manifest.test.ts` (from the template): `scienceManifest.module ===
     'science'` and `MODULE_IDS.includes(scienceManifest.module)`.
-- [ ] **A.2** The module's renderer entry: nav group, pane and app manifest.
+- [x] **A.2** The module's renderer entry: nav group, pane and app manifest.
   - `renderer/science-nav.ts` (net-new): `export const SCIENCE_NAV_GROUP: NavGroup = { id: 'science', label:
     scienceManifest.label, icon: PiFlaskFill, accent: scienceManifest.accent, views: [{ id: 'notebooks',
     label: 'Notebooks', icon: LuNotebookText }, { id: 'templates', label: 'Templates', icon: LuLayoutTemplate }] }`
@@ -124,7 +122,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     until B) and **Browse templates** (`onView('templates')`).
   - `renderer/index.ts` exports `SCIENCE_NAV_GROUP`, `SCIENCE_APP`, `SciencePane`, `SCIENCE_CHROME`,
     `scienceManifest`.
-- [ ] **A.3** The module's main half and bridge.
+- [x] **A.3** The module's main half and bridge.
   - `main/module.ts` (net-new): `export type ScienceModuleServices = { userData: string; showOpenDialog?:
     ShowOpenDialog }` and `export const scienceModuleMain = defineFeatureMain<ScienceModuleServices>({ feature:
     'science', channels: [], register() {} })`. B.4 fills `channels: [CHANNELS.science]` and
@@ -142,7 +140,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     `@midnite/studio-module-science/bridge` → `./packages/modules/science/main/bridge.ts`.
   - Verified by `main/bridge.test.ts`: the bridge's top-level keys are exactly `['report']` after A and
     `['report', 'science']` after B (the allow-list rule `mind/main/bridge.test.ts` holds).
-- [ ] **A.4** `apps/science/` from `apps/mind/`.
+- [x] **A.4** `apps/science/` from `apps/mind/`.
   - Net-new files, each copied from its `apps/mind` twin and renamed: `package.json`
     (`"name": "@midnite/app-science"`, `"version"` equal to `apps/money/package.json`'s — `scripts/version-check.mjs`
     holds every `apps/*` in lockstep), `moon.yml` (`id: 'app-science'`, tags `layer-app`, `app-science`,
@@ -179,7 +177,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     registered channels equal `scienceModuleMain.channels`), and `apps/science/src/host-app.test.tsx`
     (renders the rail with the "Science" group label and both rows; `navConfigProblems(SCIENCE_HOST_NAV)`
     is `[]`).
-- [ ] **A.5** Extend every id list that names an app or a module (the board's wiring contract).
+- [x] **A.5** Extend every id list that names an app or a module (the board's wiring contract).
   - [`shared/src/midnite-link.ts`](../../../packages/shared/src/midnite-link.ts): `MidniteAppId =
     ModuleHostId` (drop `Exclude<…, 'science'>`), append `'science'` to `MIDNITE_APP_IDS`; update
     [`midnite-link.test.ts`](../../../packages/shared/src/midnite-link.test.ts)'s first case to

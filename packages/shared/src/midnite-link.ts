@@ -31,18 +31,18 @@ import {
 export const MIDNITE_PROTOCOL = 'midnite:' as const;
 
 /**
- * Every app a `midnite://` link resolves to: the hosts that carry modules, minus Science (no feature
- * yet), plus Studio itself. Phase 124 Theme G: the apps merged into a host are no longer here — a
+ * Every app a `midnite://` link resolves to: the hosts that carry modules (Science included),
+ * plus Studio itself. Phase 124 Theme G: the apps merged into a host are no longer here — a
  * link naming one (`RetiredAppId`) is rewritten to host + module by `parseMidniteLink`.
  */
-export type MidniteAppId = Exclude<ModuleHostId, 'science'>;
+export type MidniteAppId = ModuleHostId;
 
 /** What a link or a hand-off may *name*: a live app, or a retired one that still resolves to its host. */
 export type HandoffAppId = MidniteAppId | RetiredAppId;
 
 /**
  * The runtime twin of `MidniteAppId`. `midnite-link.test.ts` holds it equal to `MODULE_HOST_IDS`
- * minus Science, and the two assertions below make a missing or extra id a compile error.
+ * and the two assertions below make a missing or extra id a compile error.
  */
 export const MIDNITE_APP_IDS = [
   'studio',
@@ -53,6 +53,7 @@ export const MIDNITE_APP_IDS = [
   'mind',
   'money',
   'browser',
+  'science',
 ] as const satisfies readonly MidniteAppId[];
 type _AllAppsListed = MidniteAppId extends (typeof MIDNITE_APP_IDS)[number] ? true : never;
 export const _allAppsListed: _AllAppsListed = true;
