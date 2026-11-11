@@ -65,7 +65,7 @@ notebook is never blank. Planned 2026-11-11; first slice is **A + B**, then **C 
 **Theme F — Molecule viewer cells.** ◻ XYZ, PDB and MOL/SDF parsers, bond inference on a spatial grid, an
 instanced ball-and-stick R3F view with CPK colours, imported through a native picker capped at 10 MB.
 
-**Theme G — Templates.** ✅ PR #TBD Seven built-in notebooks across maths, physics, chemistry and biology (`SCIENCE_TEMPLATES`; the eighth, Caffeine, arrives with Theme F's molecule fixture), each asserted to parse with `ScienceCellSchema` and evaluate without error. The Templates view is a grid of cards filtered by the same discipline chips as the notebook list; "Use template" creates a copy with fresh cell ids, selects it and switches to Notebooks.
+**Theme G — Templates.** ✅ [PR #1147](https://github.com/bilo-io/midnite-studio/pull/1147) Seven built-in notebooks across maths, physics, chemistry and biology (`SCIENCE_TEMPLATES`; the eighth, Caffeine, arrives with Theme F's molecule fixture), each asserted to parse with `ScienceCellSchema` and evaluate without error. The Templates view is a grid of cards filtered by the same discipline chips as the notebook list; "Use template" creates a copy with fresh cell ids, selects it and switches to Notebooks.
 
 **Theme H — Launch: catalog, website, docs.** ◻ `comingSoon` dropped from the Science tile (Simulator keeps
 its own), the website lists Science, `docs/APPS.md` records the app.

@@ -4,7 +4,7 @@
 
 ## 2026-11-11 — Phase 126 Theme G — Templates
 
-PR #TBD. Seven built-in starter notebooks and a Templates view with discipline filter and "Use template" (fresh cell ids).
+[PR #1147](https://github.com/bilo-io/midnite-studio/pull/1147). Seven built-in starter notebooks and a Templates view with discipline filter and "Use template" (fresh cell ids).
 
 ## 2026-11-11 — Phase 126 Theme E — Plot cells
 
