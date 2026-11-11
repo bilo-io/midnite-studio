@@ -35,12 +35,15 @@ let best = null; const scores = [];
 for (let bpm = bmin; bpm <= bmax; bpm += 0.1) {
   const lag = 6000 / bpm; let s = 0, c = 0;
   for (let f = 0; f + lag * 4 < N; f += 1) { const i1 = Math.round(f + lag), i2 = Math.round(f + 2 * lag), i4 = Math.round(f + 4 * lag); s += on[f] * (on[i1] + 0.5 * on[i2] + 0.25 * on[i4]); c++; }
+  if (!c) continue;
   s /= c;
   const prior = Math.exp(-0.5 * (Math.log2(bpm / 115) / 0.9) ** 2);
   scores.push([bpm, s * prior]);
   if (!best || s * prior > best[1]) best = [bpm, s * prior];
 }
 const peaks = scores.filter((p, i) => i > 0 && i < scores.length - 1 && p[1] >= scores[i - 1][1] && p[1] >= scores[i + 1][1]).sort((a, b) => b[1] - a[1]).slice(0, 4);
+if (!best) { console.error(`${file}: too short to find a tempo between ${bmin} and ${bmax} BPM`); process.exit(1); }
+const top = best[1];
 const forced = opt('bpm'); if (forced) best = [+forced, 0];
 const bpm = Math.round(best[0] * 10) / 10;
 const period = 60 / bpm;
@@ -56,5 +59,5 @@ const barLen = 4 * period; const bars = [];
 for (let t = downbeat; t + barLen <= dur; t += barLen) { let s = 0, c = 0; for (let f = Math.round(t * 100); f < Math.round((t + barLen) * 100); f++) { s += rms[f] ** 2; c++; } bars.push({ t: +t.toFixed(3), db: +(10 * Math.log10(s / c + 1e-12)).toFixed(1) }); }
 const out = { file, duration: +dur.toFixed(3), bpm, period: +period.toFixed(5), firstBeat: +bestPh.toFixed(3), downbeat: +downbeat.toFixed(3), bars };
 if (opt('json')) fs.writeFileSync(opt('json'), JSON.stringify(out, null, 1));
-console.log(`${file.split('/').pop()}  ${dur.toFixed(1)}s  ${bpm} BPM [${peaks.map((p) => p[0].toFixed(1) + ':' + (p[1] / best[1]).toFixed(2)).join(' ')}]  first beat ${bestPh.toFixed(3)}  downbeat ${downbeat.toFixed(3)}`);
+console.log(`${file.split('/').pop()}  ${dur.toFixed(1)}s  ${bpm} BPM [${peaks.map((p) => p[0].toFixed(1) + ':' + (p[1] / top).toFixed(2)).join(' ')}]  first beat ${bestPh.toFixed(3)}  downbeat ${downbeat.toFixed(3)}`);
 if (argv.includes('--bars')) { const mx = Math.max(...bars.map((b) => b.db)); for (const [i, b] of bars.entries()) console.log(String(i).padStart(3), b.t.toFixed(2).padStart(7), String(b.db).padStart(6), '█'.repeat(Math.max(0, Math.round((b.db - mx + 30))))); }

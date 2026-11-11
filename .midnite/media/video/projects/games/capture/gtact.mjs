@@ -98,6 +98,7 @@ const SHOTS = {
       }
       return best;
     }, [d]);
+    if (!pick) { console.log('traffic: no straight downtown road found, skipping'); return null; }
     console.log('drive dir', d, 'start', pick);
     await page.evaluate(([x, z]) => window.__midnite.gtact.car(x, z), [pick.x - d[0] * 20, pick.z - d[1] * 20]);
     for (let i = 0; i < 20; i++) { await page.evaluate(() => window.__midnite.step(6)); await sleep(60); }

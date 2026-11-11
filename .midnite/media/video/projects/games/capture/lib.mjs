@@ -90,12 +90,14 @@ export async function screencast(page, name, { outDir, quality = 88 } = {}) {
   return async function stop() {
     await cdp.send('Page.stopScreencast');
     await sleep(300);
+    if (!times.length) throw new Error(`${name}: the screencast caught no frames`);
     let txt = '';
     for (let i = 0; i < times.length; i++) {
       const d = i < times.length - 1 ? times[i + 1] - times[i] : 1 / 30;
       txt += `file '${path.join(dir, String(i).padStart(6, '0') + '.jpg')}'\nduration ${Math.max(d, 0.001).toFixed(4)}\n`;
     }
     fs.writeFileSync(path.join(dir, 'list.txt'), txt);
+    fs.mkdirSync(outDir, { recursive: true });
     const out = path.join(outDir, name + '.mp4');
     execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', path.join(dir, 'list.txt'), '-vf', 'fps=30,scale=1920:1080:flags=lanczos,format=yuv420p', '-c:v', 'libx264', '-crf', '18', '-preset', 'medium', '-movflags', '+faststart', out]);
     const span = times.at(-1) - times[0];
