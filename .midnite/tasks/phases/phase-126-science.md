@@ -60,14 +60,12 @@ notebook is never blank. Planned 2026-11-11; first slice is **A + B**, then **C 
 
 **Theme D — Compute cells in a worker.** ✅ [PR #1142](https://github.com/bilo-io/midnite-studio/pull/1142) mathjs in an inline Web Worker: top-down evaluation in one fresh scope per run (`evaluateNotebook`), units/matrices/complex/derivatives, `import`/`createUnit`/`reviver`/`evaluate`/`parse`/`compile` replaced by throwing stubs after the real `parse`/`compile` are captured. `createUseCompute(factory)` debounces 300 ms, drops stale `runId`s, and past 2 s terminates and respawns the worker with "Stopped after 2 s" on every compute cell; the cell shows KaTeX of the expression beside the value, or `Line N: message`. Only compute-cell edits post a run.
 
-**Theme E — Plot cells.** ◻ y = f(x) series sampled in the worker against the notebook's scope, drawn as a
-hand-rolled SVG with nice-number ticks, percentile auto-range and asymptote breaks.
+**Theme E — Plot cells.** ✅ [PR #1145](https://github.com/bilo-io/midnite-studio/pull/1145) `samplePlot` evaluates each series at 512 x values inside the worker against the notebook's final scope (so `k*x` sees `k = 2`), non-real or failing values are `NaN`; `autoRange` takes the 2nd to 98th percentile padded 5 %. `PlotSvg` is a hand-rolled SVG: `niceTicks` (1, 2, 5 steps), 8 % grid, axes at zero, paths broken at `NaN` and at jumps over 10 times the y-range (asymptotes), four series colours and a legend. The cell editor has series rows (up to 4), x range and an auto or manual y range.
 
 **Theme F — Molecule viewer cells.** ◻ XYZ, PDB and MOL/SDF parsers, bond inference on a spatial grid, an
 instanced ball-and-stick R3F view with CPK colours, imported through a native picker capped at 10 MB.
 
-**Theme G — Templates.** ◻ Eight built-in notebooks across maths, physics, chemistry and biology on a
-Templates view; "Use template" creates a copy.
+**Theme G — Templates.** ✅ [PR #1147](https://github.com/bilo-io/midnite-studio/pull/1147) Seven built-in notebooks across maths, physics, chemistry and biology (`SCIENCE_TEMPLATES`; the eighth, Caffeine, arrives with Theme F's molecule fixture), each asserted to parse with `ScienceCellSchema` and evaluate without error. The Templates view is a grid of cards filtered by the same discipline chips as the notebook list; "Use template" creates a copy with fresh cell ids, selects it and switches to Notebooks.
 
 **Theme H — Launch: catalog, website, docs.** ◻ `comingSoon` dropped from the Science tile (Simulator keeps
 its own), the website lists Science, `docs/APPS.md` records the app.
@@ -346,7 +344,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
 
 ### E — Plot cells (M)
 
-- [ ] **E.1** Sampling, `renderer/plot/sample.ts` (net-new, pure).
+- [x] **E.1** Sampling, `renderer/plot/sample.ts` (net-new, pure).
   - `samplePlot(cell: PlotCell, scope: Map<string, unknown>, math): PlotSamples` — 512 evenly spaced `x` in
     `[x.min, x.max]` per series; each `expr` compiled once and evaluated with `{ ...scope, x }`; a
     non-finite or non-real result is `NaN`. Runs inside the worker after the compute pass, so a plot can
@@ -355,7 +353,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     series (range 0) pads ±1.
   - Verified by `renderer/plot/sample.test.ts`: `sin(x)` on `[0, 2*pi]` has 512 samples within [-1, 1];
     `1/x` on `[-1, 1]` has a `NaN` or break at the sign change; `k*x` uses `k` from scope.
-- [ ] **E.2** Drawing, `renderer/plot/plot-svg.tsx` (net-new).
+- [x] **E.2** Drawing, `renderer/plot/plot-svg.tsx` (net-new).
   - `<PlotSvg samples width={640} height={360} />`: `viewBox="0 0 640 360"`, 48 px left / 32 px bottom
     gutters, ticks from `niceTicks(min, max, 6)` (steps 1·2·5 × 10^k), grid lines at 8 % opacity, axis
     lines at x = 0 / y = 0 when in range.
@@ -410,7 +408,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
 
 ### G — Templates (S)
 
-- [ ] **G.1** Built-in templates, `renderer/templates/index.ts` (net-new).
+- [x] **G.1** Built-in templates, `renderer/templates/index.ts` (net-new).
   - `SCIENCE_TEMPLATES: readonly { id: string; title: string; discipline: ScienceDiscipline; blurb: string;
     cells: ScienceCell[] }[]` — eight entries: **Function explorer** (maths), **Linear algebra basics**
     (maths), **Kinematics** (physics: `v = u + a t` etc. with units), **Projectile range plot** (physics),
@@ -419,7 +417,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     of `K / (1 + ((K - N0)/N0) * e^(-r x))`).
   - Each template's cells parse with `ScienceCellSchema` and every compute cell evaluates with no error —
     asserted in `renderer/templates/templates.test.ts`, which runs `evaluateNotebook` over each.
-- [ ] **G.2** Templates view, `renderer/views/templates-view.tsx` (net-new).
+- [x] **G.2** Templates view, `renderer/views/templates-view.tsx` (net-new).
   - A grid of cards (title, discipline chip, blurb), filtered by the same discipline chips as C.1; **Use
     template** calls `science.create({ title, discipline, cells })` with fresh cell ids and then
     `onView('notebooks')` with the new notebook selected. **New notebook** in C.1 creates a blank notebook
