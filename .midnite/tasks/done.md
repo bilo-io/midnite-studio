@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-11 — Phase 130 Theme A — Startup app scaffold
+
+[PR #1137](https://github.com/bilo-io/midnite-studio/pull/1137). `apps/startup` and `packages/modules/startup` (manifest, main half, bridge, nav, placeholder panes), `startup` appended to every id list, release case, icon and lockfile; the launcher tile lists `MODULES.startup` and stays coming soon.
+
 ## 2026-11-02 — Phase 125 Theme E — Sketchfab search and download
 
 [PR #1123](https://github.com/bilo-io/midnite-studio/pull/1123). Search Sketchfab's Data API and download an animated model's GLB into the library from Media ▸ Animations, with the user's own token (vault, main-only, sent only to api.sketchfab.com), licence filtering, author and licence recorded. The egress-registry item stays open (no registry exists).
