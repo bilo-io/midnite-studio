@@ -53,9 +53,7 @@ layout rather than the template (same package/moon/tsconfig shape, no feature-re
 module carries Report). The three views are placeholders until C/D/E; `createSimulatorBridge` is empty until F.
 Lockfile gained the new workspace importer.
 
-**Theme B — Simulation runtime: worker, fixed step, transport.** ◻ One `SimEngine` contract every sandbox
-implements, a seeded PRNG, a fixed-timestep worker loop with a transferable-buffer ping-pong, and a transport
-bar (play/pause/step/reset/speed) that pauses when the window is hidden.
+**Theme B — Simulation runtime: worker, fixed step, transport.** ✅ [PR #1152](https://github.com/bilo-io/midnite-studio/pull/1152). `SimEngine` contract (plus a `capacity` so the worker can size its two buffers), `mulberry32` with an eslint `Math.random` ban, a pure `createSimLoop` (time-based accumulator, 8-tick cap with `droppedTicks`, transferable-buffer ping-pong) behind `sim.worker.ts`, `createUseSim` with a draw-on-rAF `onFrame` callback and hide-pause, and the `Transport` bar plus `SimCanvasFrame` (Space, `.`). The engine table is empty until C/D/E register theirs; the `?worker&inline` import is first exercised by the first sandbox view.
 
 **Theme C — Emergence: cellular automata.** ◻ Life-like rules on a toroidal grid (Life, HighLife, Seeds,
 Day & Night, custom `B/S`), pattern stamps and RLE paste, draw/erase, plus elementary 1D rules 0–255 as a
@@ -135,7 +133,7 @@ under the app's userData through `createJsonDirStore`, a scenario list per sandb
 
 ### B — Simulation runtime: worker, fixed step, transport (M)
 
-- [ ] **B.1** The engine contract, `renderer/engine/types.ts` (net-new).
+- [x] **B.1** The engine contract, `renderer/engine/types.ts` (net-new).
   - `export interface SimEngine<P, S> { init(params: P, seed: number): void; step(): void; snapshot(out:
     Float32Array): number; stats(): Record<string, number>; serialise(): S; restore(state: S): void }` —
     `step()` advances exactly one fixed tick (each engine owns its `dt`); `snapshot` writes render data into
@@ -145,7 +143,7 @@ under the app's userData through `createJsonDirStore`, a scenario list per sandb
     `no-restricted-properties` override for those globs in [`eslint.config.mjs`](../../../eslint.config.mjs)).
   - Verified by `renderer/engine/rng.test.ts`: the same seed yields the same first 1,000 draws; all draws
     are in `[0, 1)`.
-- [ ] **B.2** The worker loop, `renderer/engine/sim.worker.ts` + `renderer/engine/use-sim.ts` (net-new).
+- [x] **B.2** The worker loop, `renderer/engine/sim.worker.ts` + `renderer/engine/use-sim.ts` (net-new).
   - Messages in: `{ type: 'init'; kind: SimKind; params; seed }`, `{ type: 'play' }`, `{ type: 'pause' }`,
     `{ type: 'step' }` (one tick while paused), `{ type: 'speed'; ticksPerFrame: 0.25 | 0.5 | 1 | 2 | 4 }`,
     `{ type: 'restore'; state }`, `{ type: 'serialise' }`, `{ type: 'return'; buffer: ArrayBuffer }`.
@@ -164,7 +162,7 @@ under the app's userData through `createJsonDirStore`, a scenario list per sandb
   - Verified by `renderer/engine/use-sim.test.tsx` (fake worker): `play` posts `play`; a hidden
     `visibilitychange` posts `pause`, visible posts `play` only when it had been playing; a frame's buffer
     is posted back as `return` after the draw callback.
-- [ ] **B.3** Transport bar, `renderer/components/transport.tsx` (net-new).
+- [x] **B.3** Transport bar, `renderer/components/transport.tsx` (net-new).
   - Buttons, each `useFrameChrome().IconButton` whose `label` is both its accessible name and its tooltip
     (`IconButtonProps` in [`frame/src/chrome/types.ts`](../../../packages/frame/src/chrome/types.ts)): Play/Pause (`LuPlay`/`LuPause`), Step (`LuStepForward`,
     disabled while playing), Reset (`LuRotateCcw`), a speed select (0.25× – 4×), a seed field (integer,
