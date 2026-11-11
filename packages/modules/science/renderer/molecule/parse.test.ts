@@ -1,13 +1,14 @@
 // @vitest-environment node
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { describe, expect, it } from 'vitest';
 
+import caffeineMol from './__fixtures__/caffeine.mol?raw';
+import tripeptidePdb from './__fixtures__/tripeptide.pdb?raw';
+import waterXyz from './__fixtures__/water.xyz?raw';
 import { inferBonds } from './bonds';
 import { parseStructure } from './parse';
 
-const fixture = (name: string) => readFileSync(join(__dirname, '__fixtures__', name), 'utf8');
+const fixtures: Record<string, string> = { 'water.xyz': waterXyz, 'caffeine.mol': caffeineMol, 'tripeptide.pdb': tripeptidePdb };
+const fixture = (name: string) => fixtures[name] ?? '';
 
 describe('parseStructure', () => {
   it('reads water XYZ and infers two bonds', () => {
