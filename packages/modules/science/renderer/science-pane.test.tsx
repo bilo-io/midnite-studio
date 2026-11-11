@@ -1,14 +1,23 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SciencePane } from './science-pane';
 
+beforeEach(() => {
+  window.midniteStudio = {
+    science: { list: vi.fn().mockResolvedValue({ ok: true, value: { notebooks: [], quarantined: 0 } }) },
+  } as unknown as typeof window.midniteStudio;
+});
+afterEach(() => {
+  cleanup();
+  window.midniteStudio = undefined;
+});
+
 describe('SciencePane', () => {
-  it('shows the empty notebooks state and routes to templates', () => {
+  it('shows the empty notebooks state and routes to templates', async () => {
     const onView = vi.fn();
     render(<SciencePane view="notebooks" onView={onView} />);
-    expect(screen.getByText('No notebooks yet')).toBeTruthy();
-    expect(screen.getByText('New notebook').closest('button')?.hasAttribute('disabled')).toBe(true);
+    await waitFor(() => expect(screen.getByText('No notebooks yet')).toBeTruthy());
     fireEvent.click(screen.getByText('Browse templates'));
     expect(onView).toHaveBeenCalledWith('templates');
   });

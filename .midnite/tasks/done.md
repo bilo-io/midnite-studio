@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-11 — Phase 126 Theme C — Notebook editor: text and maths cells
+
+[PR #1140](https://github.com/bilo-io/midnite-studio/pull/1140). Notebook list and editor in the Science module: discipline filter, rename, Trash-confirmed delete, autosaving draft store, markdown cells with KaTeX maths, persisted last-open notebook.
+
 ## 2026-11-11 — Phase 126 Theme B — Notebook store and IPC
 
 [PR #1138](https://github.com/bilo-io/midnite-studio/pull/1138). Versioned notebook/cell/request schemas in `shared/src/science.ts`, the `mstudio:science:notebook` channel and `ScienceBridge`, the runtime's generic `createJsonDirStore` (atomic 0600 writes, corrupt-file quarantine, id jail), and the Science module's notebook store (Trash on remove) with its registration.

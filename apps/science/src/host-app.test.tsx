@@ -1,5 +1,5 @@
 // vitest/jsdom: the host's rail and view router over a mock bridge — nothing here needs a real browser.
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { firstViewOfModule, moduleOfView, navConfigProblems, suiteShellTestBridge } from '@midnite/studio-frame';
@@ -10,6 +10,7 @@ import { SCIENCE_HOST_NAV } from './host-nav';
 
 beforeEach(() => {
   window.midniteStudio = suiteShellTestBridge({
+    science: { list: vi.fn().mockResolvedValue({ ok: true, value: { notebooks: [], quarantined: 0 } }) },
     report: {
       logPath: vi.fn().mockResolvedValue({ path: '/tmp/science.log' }),
       bundle: vi.fn().mockResolvedValue({ text: 'boot' }),
@@ -41,10 +42,10 @@ describe('Science host nav', () => {
 });
 
 describe('Science host', () => {
-  it('lists Notebooks and Templates under the Science group and opens on the empty notebooks state', () => {
+  it('lists Notebooks and Templates under the Science group and opens on the empty notebooks state', async () => {
     render(<ScienceHostApp />);
     const rail = screen.getByRole('navigation', { name: 'Views' });
     for (const label of ['Notebooks', 'Templates']) expect(within(rail).getByRole('link', { name: label })).toBeDefined();
-    expect(screen.getByText('No notebooks yet')).toBeDefined();
+    await waitFor(() => expect(screen.getByText('No notebooks yet')).toBeDefined());
   });
 });

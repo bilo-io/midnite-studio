@@ -56,8 +56,7 @@ notebook is never blank. Planned 2026-11-11; first slice is **A + B**, then **C 
 
 **Theme B — Notebook store and IPC.** ✅ [PR #1138](https://github.com/bilo-io/midnite-studio/pull/1138) `ScienceNotebookSchema` (versioned, `migrateScienceNotebook`) in `shared/src/science.ts`, one `science` channel with an `op` union, `ScienceBridge` (optional `science?` on `MidniteStudioBridge`), a generic `createJsonDirStore` in the runtime (atomic 0600 files, quarantine of bad or misnamed files, id jail) that 127 and 128 reuse, and the module's `createNotebookStore` (remove goes to the OS Trash) registered through `registerScienceOn`. `importStructure` answers "Not available yet" until Theme F. Landed with CI billing-locked, on the local affected-subset gate; `runtime:test`'s egress-registry case fails on `main` (sketchfab.ts) independently of this work.
 
-**Theme C — Notebook editor: text and maths cells.** ◻ The notebook list and editor, markdown cells with
-`$…$`/`$$…$$` LaTeX through KaTeX, add/move/delete cells, debounced autosave.
+**Theme C — Notebook editor: text and maths cells.** ✅ [PR #1140](https://github.com/bilo-io/midnite-studio/pull/1140) The notebook list (discipline filter, rename, Trash-confirmed delete, error banner, quarantine line, last-open notebook persisted) and the editor (title via `rename`, add/move/delete cells, a draft store that autosaves 600 ms after the last edit and flushes on unmount, "Not saved" on a failed write), with markdown cells rendered through react-markdown, remark-math and rehype-katex (`throwOnError: false`). Compute cells are a plain textarea and plot/molecule cells a one-line placeholder until D, E and F. Landed with CI billing-locked, on the local affected-subset gate.
 
 **Theme D — Compute cells in a worker.** ◻ mathjs in an inline Web Worker: top-down evaluation in one
 scope per run, units/matrices/complex/derivatives, a 2 s budget that terminates and respawns the worker,
@@ -273,7 +272,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
 
 ### C — Notebook editor: text and maths cells (M)
 
-- [ ] **C.1** Notebook list (`renderer/views/notebooks-view.tsx`, net-new).
+- [x] **C.1** Notebook list (`renderer/views/notebooks-view.tsx`, net-new).
   - Left column (280 px): **New notebook** button, a discipline filter (`All` + the five disciplines as
     chips), then rows of title + discipline chip + relative `updatedAt`. The selected row opens the
     editor on the right; with none selected the right side shows A.2's empty state (or "Select a
@@ -288,7 +287,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     v: 1, lastNotebookId: null }, … })` (`renderer/science-ui-store.ts`, net-new); its `state(set, initial)`
     replaces an `initial` whose `v !== 1` with the defaults — `createPersistedStore` has no `migrate`, so the
     version check lives there. A stored id that no longer lists falls back to none.
-- [ ] **C.2** The editor (`renderer/views/notebook-editor.tsx`, net-new).
+- [x] **C.2** The editor (`renderer/views/notebook-editor.tsx`, net-new).
   - Title input at the top (commits on blur/Enter through `rename`), then the cell list, then an
     **Add cell** split button (Text · Compute · Plot · Molecule). Each cell has a hover toolbar: move up,
     move down, delete (no confirm — undo is out of scope, see Not in this phase; delete is one cell in an
@@ -297,7 +296,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     edit marks it dirty and schedules a `write` 600 ms after the last keystroke; switching notebooks or
     unmounting flushes immediately. A `write` failure shows "Not saved — <message>" in the editor header and
     keeps the draft dirty.
-- [ ] **C.3** Markdown cells with LaTeX.
+- [x] **C.3** Markdown cells with LaTeX.
   - Two modes: **edit** (a `<textarea>` with monospace font, auto-height) and **rendered**
     (`react-markdown` + `remark-gfm` + `remark-math` + `rehype-katex`, KaTeX CSS imported once in
     `science-pane.tsx`). Double-click rendered → edit; **Shift+Enter** in the textarea → rendered. A cell-local
