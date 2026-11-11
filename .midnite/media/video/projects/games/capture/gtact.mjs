@@ -49,10 +49,6 @@ const aircraft = (page, type) => page.evaluate((type) => window.__midnite.getSta
 const warp = async (page, n) => { const press = controls(page); for (let i = 0; i < n; i++) { await press(['debug-warp']); await page.evaluate(() => window.__midnite.step(4)); await press([]); await page.evaluate(() => window.__midnite.step(6)); } };
 
 /**
- * Drive a car down a downtown road on the chase camera; a small steering loop keeps it on the road. With `stars`, the
- * crime comes `lead` frames before recording so the police are on the way.
- */
-/**
  * A route along the road graph from the drivable road nearest `at`, heading along `dir` when given: at each junction
  * the straightest continuation. Points are [x, z, half-width, motorway?], in order of travel.
  */
@@ -85,9 +81,11 @@ async function planRoute(page, at, dir, length) {
         if (!DRV.has(c.cls)) continue;
         let q = xz(c);
         if (same(q, prev)) continue;
-        if (Math.hypot(q[0][0] - end[0], q[0][1] - end[1]) < 3) { /* starts here */ }
-        else if (Math.hypot(q.at(-1)[0] - end[0], q.at(-1)[1] - end[1]) < 3) q = q.reverse();
-        else continue;
+        const startsHere = Math.hypot(q[0][0] - end[0], q[0][1] - end[1]) < 3;
+        if (!startsHere) {
+          if (Math.hypot(q.at(-1)[0] - end[0], q.at(-1)[1] - end[1]) >= 3) continue;
+          q = q.reverse();
+        }
         const j = Math.min(3, q.length - 1);
         const out = [q[j][0] - q[0][0], q[j][1] - q[0][1]]; const ol = Math.hypot(...out) || 1;
         const turn = Math.acos(Math.max(-1, Math.min(1, (din[0] * out[0] + din[1] * out[1]) / dl / ol)));
@@ -191,6 +189,9 @@ async function drive(page, name, frames, { stars = 0, lead = 0, maxSpeed = 16, l
   return stepRec(page, name, frames, async () => { last = await steer(); await log(); }, { outDir: OUT, settle: 20 });
 }
 
+/** Where `traffic` and `chase` start: DRIVE_AT=[x,z] and DRIVE_DIR=[dx,dz] override the downtown default. */
+const driveFrom = () => ({ at: JSON.parse(process.env.DRIVE_AT ?? '[1063,-831]'), dir: JSON.parse(process.env.DRIVE_DIR ?? 'null') });
+
 const SHOTS = {
   // Orbit the CBD from the harbour side, Table Mountain behind it.
   async 'cbd-orbit'(page) {
@@ -218,9 +219,9 @@ const SHOTS = {
     return stepRec(page, 'gtact-city-bowl', 210, (i, t) => look(page, mix(p0, p1, ease(t)), mix(t0, t1, t)), { outDir: OUT, settle: 40 });
   },
   // CBD traffic: drive a car down a downtown road on the chase camera.
-  traffic: (page) => drive(page, 'gtact-traffic', 270, { at: JSON.parse(process.env.DRIVE_AT ?? '[1063,-831]'), dir: JSON.parse(process.env.DRIVE_DIR ?? 'null') }),
+  traffic: (page) => drive(page, 'gtact-traffic', 270, driveFrom()),
   // A police chase: the same downtown drive with three stars; the units close in from behind and alongside.
-  chase: (page) => drive(page, 'gtact-chase', Number(process.env.CHASE_FRAMES ?? 420), { stars: 3, lead: 900, leadSpeed: 3, closeAt: Number(process.env.CLOSE_AT ?? 35), maxSpeed: 17, at: JSON.parse(process.env.DRIVE_AT ?? '[1063,-831]'), dir: JSON.parse(process.env.DRIVE_DIR ?? 'null'), cams: Number(process.env.DRIVE_CAMS ?? 0) }),
+  chase: (page) => drive(page, 'gtact-chase', Number(process.env.CHASE_FRAMES ?? 420), { stars: 3, lead: 900, leadSpeed: 3, closeAt: Number(process.env.CLOSE_AT ?? 35), maxSpeed: 17, ...driveFrom(), cams: Number(process.env.DRIVE_CAMS ?? 0) }),
   // The helicopter from the Sea Point helipad: lift off, climb, then swing right along the coast towards Green Point.
   async heli(page) {
     const press = controls(page);
@@ -303,6 +304,7 @@ const SHOTS = {
     for (let i = 0; i < 60; i++) { await page.evaluate(() => window.__midnite.step(10)); await sleep(40); }
     const road = [];
     for (let s = 0; s <= 260; s += 20) road.push(await g(o[0] + d[0] * s, o[1] + d[1] * s, 30));
+    if (road.some((r) => !r)) { console.log('street: no road under part of the crane line, skipping'); return null; }
     const along = (s) => { const k = Math.min(road.length - 1.001, s / 20), i = Math.floor(k), f = k - i; return [lerp(road[i].x, road[i + 1].x, f), lerp(road[i].z, road[i + 1].z, f)]; };
     const ground = await page.evaluate(([x, z]) => window.__midnite.gtact.heightAt(x, z), along(40));
     const at = (s) => { const [x, z] = along(20 + s); return [x, ground + 14, z]; };
