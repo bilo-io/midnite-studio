@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-11 — Phase 126 Theme F — Molecule viewer cells
+
+PR TBD. XYZ, PDB and MOL/SDF parsers, Jmol CPK elements, spatial-hash bond inference, an instanced ball-and-stick R3F canvas, an `importStructure` op (native picker, 10 MB cap) and the Caffeine template.
+
 ## 2026-11-11 — Phase 126 Theme G — Templates
 
 [PR #1147](https://github.com/bilo-io/midnite-studio/pull/1147). Seven built-in starter notebooks and a Templates view with discipline filter and "Use template" (fresh cell ids).
