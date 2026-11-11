@@ -4,7 +4,7 @@
 
 ## 2026-11-11 — Phase 130 Theme E — Startup vendors and contracts
 
-PR pending. Vendors and contracts with pure date maths (`contractStatus`, `noticeDeadline`, in shared so the view reuses it), an Action needed strip, an attached file copied by content hash into the app's folder through a host-injected picker and opener, and one linked plan line per priced contract.
+[PR #1146](https://github.com/bilo-io/midnite-studio/pull/1146). Vendors and contracts with pure date maths (`contractStatus`, `noticeDeadline`, in shared so the view reuses it), an Action needed strip, an attached file copied by content hash into the app's folder through a host-injected picker and opener, and one linked plan line per priced contract.
 
 ## 2026-11-11 — Phase 130 Theme D — Startup costs and runway
 
