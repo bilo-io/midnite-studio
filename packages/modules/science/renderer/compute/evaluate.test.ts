@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ScienceCell } from '@midnite/studio-shared';
 
-import { evaluateNotebook } from './evaluate';
+import { evaluateNotebook, runNotebook } from './evaluate';
 
 const c = (id: string, source: string): ScienceCell => ({ kind: 'compute', id, source });
 const one = (source: string) => evaluateNotebook([c('c-aaaaaaaa', source)])['c-aaaaaaaa']!;
@@ -41,5 +41,13 @@ describe('evaluateNotebook', () => {
   it('ignores non-compute cells and blank lines', () => {
     const r = evaluateNotebook([{ kind: 'markdown', id: 'c-aaaaaaaa', source: 'x' }, c('c-bbbbbbbb', '\n\n')]);
     expect(Object.keys(r)).toEqual(['c-bbbbbbbb']);
+  });
+});
+
+describe('runNotebook', () => {
+  it('samples a plot against the variables the compute cells defined', () => {
+    const plot: ScienceCell = { kind: 'plot', id: 'c-pppppppp', series: [{ expr: 'k*x' }], x: { min: 0, max: 1 }, y: 'auto' };
+    const run = runNotebook([plot, c('c-aaaaaaaa', 'k = 3')]);
+    expect(run.samples['c-pppppppp']!.series[0]!.ys.at(-1)).toBeCloseTo(3);
   });
 });

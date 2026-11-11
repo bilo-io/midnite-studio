@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-11 — Phase 126 Theme E — Plot cells
+
+[PR #1145](https://github.com/bilo-io/midnite-studio/pull/1145). Plot cells sampled in the compute worker against the notebook scope and drawn as an SVG with nice ticks, percentile auto-range and asymptote breaks; series, x and y range editor.
+
 ## 2026-11-11 — Phase 126 Theme D — Compute cells in a worker
 
 [PR #1142](https://github.com/bilo-io/midnite-studio/pull/1142). mathjs evaluator with the JavaScript-reaching functions disabled, run in an inline worker with a 300 ms debounce and a 2 s terminate-and-respawn budget; compute cells show KaTeX and the value or `Line N: message`.
