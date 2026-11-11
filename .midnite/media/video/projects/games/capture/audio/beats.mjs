@@ -7,7 +7,7 @@ const argv = process.argv.slice(2);
 const file = argv[0];
 const opt = (k, d) => { const i = argv.indexOf('--' + k); return i < 0 ? d : argv[i + 1]; };
 const SR = 22050, HOP = 220.5; // 100 Hz frames
-const pcm = spawnSync('/opt/homebrew/bin/ffmpeg', ['-v', 'error', '-i', file, '-ac', '1', '-ar', String(SR), '-f', 'f32le', '-'], { maxBuffer: 1 << 30 }).stdout;
+const pcm = spawnSync(process.env.FFMPEG ?? 'ffmpeg', ['-v', 'error', '-i', file, '-ac', '1', '-ar', String(SR), '-f', 'f32le', '-'], { maxBuffer: 1 << 30 }).stdout;
 const x = new Float32Array(pcm.buffer, pcm.byteOffset, pcm.byteLength / 4);
 const dur = x.length / SR;
 const N = Math.floor(x.length / HOP);

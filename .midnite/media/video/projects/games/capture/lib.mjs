@@ -11,7 +11,8 @@ export const HERE = path.dirname(new URL(import.meta.url).pathname);
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 export const lerp = (a, b, t) => a + (b - a) * t;
-export const FFMPEG = '/opt/homebrew/bin/ffmpeg';
+export const FFMPEG = process.env.FFMPEG ?? 'ffmpeg';
+export const FFPROBE = process.env.FFPROBE ?? 'ffprobe';
 
 export async function launch({ width = 1920, height = 1080, gpu = true, args = [], init } = {}) {
   const browser = await chromium.launch({
@@ -68,7 +69,7 @@ export async function stepRec(page, name, frames, before, { stepN = 2, settle = 
 
 /** A contact sheet of n frames from a clip, for checking. */
 export function sheet(clip, outPng, n = 6) {
-  const d = Number(execFileSync('/opt/homebrew/bin/ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', clip]).toString());
+  const d = Number(execFileSync(FFPROBE, ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', clip]).toString());
   const fps = (n / d).toFixed(4);
   execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-i', clip, '-vf', `fps=${fps},scale=480:-1,tile=3x${Math.ceil(n / 3)}`, '-frames:v', '1', outPng]);
 }
