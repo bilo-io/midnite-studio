@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-11 — Phase 126 Theme B — Notebook store and IPC
+
+[PR #1138](https://github.com/bilo-io/midnite-studio/pull/1138). Versioned notebook/cell/request schemas in `shared/src/science.ts`, the `mstudio:science:notebook` channel and `ScienceBridge`, the runtime's generic `createJsonDirStore` (atomic 0600 writes, corrupt-file quarantine, id jail), and the Science module's notebook store (Trash on remove) with its registration.
+
 ## 2026-11-11 — Phase 126 Theme A — Science app and module scaffold
 
 [PR #1136](https://github.com/bilo-io/midnite-studio/pull/1136). New `packages/modules/science` (manifest, nav group, pane with empty notebooks state, main half and report-only bridge) and `apps/science` (host cloned from Mind: identity, `registerScienceHost`, preload, rail, shell, bundle script, icon); `science` added to every app/module id list and the release-bundle matrix; template zod pin fixed. The launcher tile stays Coming soon until Theme H.
