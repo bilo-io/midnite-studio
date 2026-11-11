@@ -1,4 +1,4 @@
-import type { Contract } from '@midnite/studio-shared';
+import type { Contract } from './startup';
 
 export type ContractStatus = 'active' | 'notice-due' | 'ending' | 'ended';
 

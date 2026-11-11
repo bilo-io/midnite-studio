@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Contract } from '@midnite/studio-shared';
-
+import type { Contract } from './startup';
 import { addMonths, contractStatus, currentTermEnd, noticeDeadline } from './contract-dates';
 
 const base: Contract = {
