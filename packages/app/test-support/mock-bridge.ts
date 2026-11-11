@@ -5141,10 +5141,20 @@ export function buildMockBridge(data: MockFixtures) {
       restart: noop,
       setChannel: noop,
       onState: unsubscribe,
-      releaseNotes: async (req: { version: string }) => ({
+      releaseNotes: async (req: { version: string; latest?: number }) => ({
         version: req.version,
         notes: data.releaseNotesOverride ?? '### Added\n\n- A version pill in the rail.',
         error: null,
+        ...(req.latest
+          ? {
+              sections: [
+                { version: req.version, date: '2026-10-12', body: '### Added\n\n- A version pill in the rail.' },
+                { version: '1.2.2', date: '2026-09-28', body: '### Fixed\n\n- The rail hairline.' },
+                { version: '1.2.1', date: '2026-09-10', body: '### Added\n\n- Media Maps.' },
+                { version: '1.2.0', date: '2026-08-30', body: '### Added\n\n- Gamer showreels.' },
+              ].slice(0, req.latest),
+            }
+          : {}),
       }),
     },
     // Phase 98 Theme D: every catalogue id the fixture profile has — brew and git.
