@@ -43,7 +43,7 @@ export const SCIENCE_TEMPLATES: readonly ScienceTemplate[] = [
       md(1, '# Linear algebra\n\nFor $A x = b$, the solution is $x = A^{-1} b$.'),
       calc(2, 'A = [1, 2; 3, 4]\ndet(A)'),
       calc(3, 'inv(A)'),
-      calc(4, 'b = [5; 6]\nx = A \\ b\nA * x'),
+      calc(4, 'b = [5; 6]\nx = lusolve(A, b)\nA * x'),
     ],
   },
   {

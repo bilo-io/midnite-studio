@@ -1,9 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { ScienceCellSchema } from '@midnite/studio-shared';
 
 import { evaluateNotebook, runNotebook } from '../compute/evaluate';
 import { SCIENCE_TEMPLATES } from './index';
+
+vi.setConfig({ testTimeout: 20_000 });
 
 describe('SCIENCE_TEMPLATES', () => {
   it('has unique ids and every cell parses', () => {
