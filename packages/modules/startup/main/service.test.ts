@@ -99,3 +99,21 @@ describe('invoices (drafts only until Theme F)', () => {
     expect(await run(s, { op: 'issueInvoice', id: u(40), issueDate: '2026-11-11' })).toMatchObject({ ok: false, kind: 'no-book' });
   });
 });
+
+describe('projection', () => {
+  it('refuses before the company exists, and for an unknown scenario', async () => {
+    const s = await open();
+    expect(await run(s, { op: 'projection', scenarioId: BASE_SCENARIO_ID, months: 12 })).toMatchObject({ ok: false, kind: 'invalid' });
+    await run(s, { op: 'updateCompany', company: company() });
+    expect(await run(s, { op: 'projection', scenarioId: u(99), months: 12 })).toMatchObject({ ok: false, kind: 'not-found' });
+  });
+
+  it('projects the stored lines from the company opening cash, for Base without a stored scenario', async () => {
+    const s = await open();
+    await run(s, { op: 'updateCompany', company: company() });
+    const line = { id: u(50), kind: 'cost' as const, name: 'Rent', category: 'premises' as const, minor: 10000, cadence: 'monthly' as const, start: '2000-01', growthBpPerMonth: 0 };
+    await run(s, { op: 'upsertLine', line });
+    const result = await run(s, { op: 'projection', scenarioId: BASE_SCENARIO_ID, months: 12 });
+    expect(result).toMatchObject({ ok: true, value: { burnMinor: -10000 } });
+  });
+});

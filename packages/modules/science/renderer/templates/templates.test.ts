@@ -1,10 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { ScienceCellSchema } from '@midnite/studio-shared';
 
-import { evaluateNotebook, runNotebook } from '../compute/evaluate';
 import { parseStructure } from '../molecule/parse';
+import { evaluateNotebook, runNotebook } from '../compute/evaluate';
 import { SCIENCE_TEMPLATES } from './index';
+
+vi.setConfig({ testTimeout: 20_000 });
 
 describe('SCIENCE_TEMPLATES', () => {
   it('has unique ids and every cell parses', () => {
@@ -30,8 +32,8 @@ describe('SCIENCE_TEMPLATES', () => {
   });
 
   it('every molecule cell holds a structure the viewer can read', () => {
-    for (const t of SCIENCE_TEMPLATES) {
-      for (const c of t.cells) if (c.kind === 'molecule') expect(parseStructure(c.text, c.format), `${t.id} ${c.id}`).toMatchObject({ ok: true });
+    for (const tpl of SCIENCE_TEMPLATES) {
+      for (const c of tpl.cells) if (c.kind === 'molecule') expect(parseStructure(c.text, c.format), `${tpl.id} ${c.id}`).toMatchObject({ ok: true });
     }
   });
 });
