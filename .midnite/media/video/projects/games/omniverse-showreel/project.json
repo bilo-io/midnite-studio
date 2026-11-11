@@ -1,0 +1,7 @@
+{
+  "id": "games/omniverse-showreel",
+  "title": "Omniverse showreel",
+  "composition": "GamesOmniverseShowreel",
+  "brief": "input/BRIEF.md",
+  "script": "EDITORIAL_SCRIPT.md"
+}
