@@ -91,7 +91,7 @@ describe('deriveAppState', () => {
   });
 
   it('is Coming soon for apps marked comingSoon, regardless of Studio or bundles', () => {
-    const state = deriveAppState('science', studio('0.4.1'), apps());
+    const state = deriveAppState('health', studio('0.4.1'), apps());
     expect(state).toMatchObject({ state: 'coming-soon', studioFallback: false });
     expect(deriveAppState('startup', null, null).state).toBe('coming-soon');
   });
