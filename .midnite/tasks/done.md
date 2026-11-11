@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-11 — Phase 130 Theme C — Startup roadmap and milestones
+
+[PR #1141](https://github.com/bilo-io/midnite-studio/pull/1141). Milestone list and timeline with dependency cycle rejection, At risk and Overdue badges, and a remembered view mode.
+
 ## 2026-11-11 — Phase 130 Theme B — Startup workspace store and contract
 
 [PR #1139](https://github.com/bilo-io/midnite-studio/pull/1139). The `startup` zod contract and channel, a versioned atomically written `workspace.json` with newer-version read-only and corrupt-file recovery, referential-integrity refusals, a react-query data layer, the first-run company form and Settings ▸ Company.

@@ -1,4 +1,5 @@
 import { useStartupSnapshot } from '../data/use-startup';
+import { RoadmapView } from '../roadmap/roadmap-view';
 import { CompanyForm } from './company-form';
 
 const TITLES: Readonly<Record<string, string>> = {
@@ -40,6 +41,7 @@ export function StartupHome({ view }: { view: string }) {
       </main>
     );
   }
+  if (view === 'startup.roadmap') return <RoadmapView milestones={workspace.milestones} />;
   return (
     <main className="flex h-full min-h-0 flex-col gap-1 p-6" aria-label={title}>
       <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{workspace.company.name}</p>
