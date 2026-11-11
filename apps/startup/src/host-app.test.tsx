@@ -1,5 +1,5 @@
 // vitest/jsdom: the host's rail and view router over a mock bridge — nothing here needs a real browser.
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { firstViewOfModule, moduleOfView, navConfigProblems, suiteShellTestBridge } from '@midnite/studio-frame';
@@ -44,18 +44,15 @@ describe('Startup host nav', () => {
 
 describe('Startup host', () => {
   it('lists the five views in the rail and opens on Overview', async () => {
-    render(<StartupHostApp />);
+    const { container } = render(<StartupHostApp />);
     await waitFor(() => expect(screen.getByRole('main', { name: 'Overview' })).toBeTruthy());
-    const nav = screen.getByRole('navigation');
-    for (const label of ['Overview', 'Roadmap', 'Runway', 'Invoices', 'Vendors']) {
-      expect(within(nav).getAllByText(label).length).toBeGreaterThan(0);
-    }
+    const views = new Set([...container.querySelectorAll('[data-view]')].map((el) => el.getAttribute('data-view')));
+    expect([...views].sort()).toEqual(['startup.invoices', 'startup.overview', 'startup.roadmap', 'startup.runway', 'startup.vendors']);
   });
 
   it('switches view from the rail', async () => {
-    render(<StartupHostApp />);
-    const nav = screen.getByRole('navigation');
-    fireEvent.click(within(nav).getAllByText('Roadmap')[0]!);
+    const { container } = render(<StartupHostApp />);
+    fireEvent.click(container.querySelector('[data-view="startup.roadmap"]')!);
     await waitFor(() => expect(screen.getByRole('main', { name: 'Roadmap' })).toBeTruthy());
   });
 });
