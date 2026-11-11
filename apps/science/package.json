@@ -17,6 +17,7 @@
     "@midnite/studio-feature-report": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-module-science": "workspace:*",
+    "@midnite/studio-module-simulator": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
     "@tanstack/react-query": "^5.62.0",

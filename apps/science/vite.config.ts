@@ -14,6 +14,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@midnite/studio-module-science/renderer': at('../../packages/modules/science/renderer/index.ts'),
+      '@midnite/studio-module-simulator/renderer': at('../../packages/modules/simulator/renderer/index.ts'),
       '@midnite/studio-feature-monitor/renderer': at('../../packages/features/monitor/renderer/index.ts'),
       '@midnite/studio-shared': at('../../packages/shared/src/index.ts'),
       '@midnite/studio-feature-report/renderer': at('../../packages/features/report/renderer/index.ts'),

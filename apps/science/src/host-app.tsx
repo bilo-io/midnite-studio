@@ -4,6 +4,7 @@ import { createSuiteMonitorSegment } from '@midnite/studio-feature-monitor/rende
 import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { FrameChromeProvider, ModuleViewRouter, SuiteAppShell, type ModulePane } from '@midnite/studio-frame';
 import { SCIENCE_APP, SCIENCE_CHROME, SciencePane } from '@midnite/studio-module-science/renderer';
+import { SimulatorPane } from '@midnite/studio-module-simulator/renderer';
 
 import { SCIENCE_HOST_NAV } from './host-nav';
 
@@ -13,6 +14,7 @@ const MONITOR_SEGMENT = createSuiteMonitorSegment({ hosted: new Set(['science'])
 /** Each mounted module's pane, by module id — the view router's table. */
 export const SCIENCE_PANES: Readonly<Record<string, ModulePane>> = {
   science: SciencePane,
+  simulator: SimulatorPane,
 };
 
 /**
