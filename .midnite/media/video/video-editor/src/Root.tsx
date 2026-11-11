@@ -2,6 +2,7 @@ import "./index.css";
 
 import { ExampleHello } from "./projects/example/000-hello/register";
 import { MidnitePilot } from "./projects/midnite/marketing/000-pilot/register";
+import { GamesShowreels } from "./projects/games/register";
 import { MidniteApps } from "./projects/midnite-apps/register";
 import { MidniteGolivePromo } from "./projects/midnite/marketing/001-golive-promo/register";
 import { YoutubeTutorialsMidniteVideo1 } from "./projects/youtube-tutorials/midnite-video-1-automated-workflow/register";
@@ -26,6 +27,7 @@ export const RemotionRoot: React.FC = () => {
       <MidniteGolivePromo />
       <YoutubeTutorialsMidniteVideo1 />
       <MidniteApps />
+      <GamesShowreels />
       <TemplateMidniteGolivePromo />
       <TemplateYoutubeTutorialsNeonHud />
       <TemplateExplainersInkMorph />

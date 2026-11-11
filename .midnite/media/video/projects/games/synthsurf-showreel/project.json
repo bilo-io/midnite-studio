@@ -1,0 +1,7 @@
+{
+  "id": "games/synthsurf-showreel",
+  "title": "Synth Surf showreel",
+  "composition": "GamesSynthsurfShowreel",
+  "brief": "input/BRIEF.md",
+  "script": "EDITORIAL_SCRIPT.md"
+}
