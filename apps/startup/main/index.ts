@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 
-import { app, BrowserWindow, clipboard, ipcMain, Menu, shell, type MenuItemConstructorOptions } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell, type MenuItemConstructorOptions } from 'electron';
 
 import { guardAppWindow, createFileSink, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
 
@@ -100,6 +100,12 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       trashItem: (path) => shell.trashItem(path),
       send: sendToWindow,
       userData: app.getPath('userData'),
+      pickContractFile: async () => {
+        const options = { properties: ['openFile' as const], filters: [{ name: 'Contracts', extensions: ['pdf', 'docx', 'png', 'jpg', 'jpeg'] }] };
+        const result = win !== null && !win.isDestroyed() ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+        return result.canceled ? null : (result.filePaths[0] ?? null);
+      },
+      openPath: (path) => shell.openPath(path),
       warn: (message) => process.stderr.write(`${message}\n`),
     });
     quit = host.dispose;
