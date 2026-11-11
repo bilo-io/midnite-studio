@@ -1,4 +1,5 @@
-import { AbsoluteFill, Audio, Img, OffthreadVideo, Sequence, interpolate, useCurrentFrame } from "remotion";
+import { useEffect, useState } from "react";
+import { AbsoluteFill, Audio, Img, OffthreadVideo, Sequence, continueRender, delayRender, interpolate, useCurrentFrame } from "remotion";
 
 import { monoFontFamily, uiFontFamily } from "../../shared/fonts";
 import { projectFile } from "../../shared/projectFile";
@@ -119,17 +120,26 @@ const Slam: React.FC<{ reel: Reel; title: string; logo?: string; kicker?: string
   });
   const kickIn = easeOut((f - fpb) / 8);
   const src = logo ? projectFile(reel.projectId)(logo) : undefined;
-  const ghost = (dx: number, c: string): React.CSSProperties => ({
-    position: "absolute", inset: 0, backgroundColor: c, mixBlendMode: "screen", transform: `translateX(${dx}px)`,
-    WebkitMaskImage: `url("${src}")`, WebkitMaskSize: "contain", WebkitMaskRepeat: "no-repeat", WebkitMaskPosition: "center",
-  });
+  // Remotion waits for <Img> but not for CSS mask images, so hold the frame until the logo is decoded.
+  const [handle] = useState(() => (src ? delayRender("logo mask") : null));
+  useEffect(() => {
+    if (handle === null || !src) return;
+    const img = new Image();
+    img.src = src;
+    const done = () => continueRender(handle);
+    img.decode().then(done, done);
+  }, [handle, src]);
   const slam: React.CSSProperties = { position: "relative", transform: `translate(${shake}px, ${shake * 0.4}px) scale(${1.35 - 0.35 * k})`, opacity: k };
   return (
     <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", opacity: f < 0 ? 0 : 1 }}>
       {src ? (
         <div style={{ ...slam, width: size * 7.2, height: size * 2.85 }}>
-          <div style={ghost(-split, reel.accent[0])} />
-          <div style={ghost(split, reel.accent[1])} />
+          {([[-split, reel.accent[0]], [split, reel.accent[1]]] as const).map(([dx, c], i) => (
+            <div key={i} style={{
+              position: "absolute", inset: 0, backgroundColor: c, mixBlendMode: "screen", transform: `translateX(${dx}px)`,
+              WebkitMaskImage: `url("${src}")`, WebkitMaskSize: "contain", WebkitMaskRepeat: "no-repeat", WebkitMaskPosition: "center",
+            }} />
+          ))}
           <Img src={src} alt={title} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", filter: "drop-shadow(0 6px 30px rgba(0,0,0,0.6))" }} />
         </div>
       ) : (

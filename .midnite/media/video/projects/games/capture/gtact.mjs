@@ -143,12 +143,15 @@ async function drive(page, name, frames, { stars = 0, lead = 0, maxSpeed = 16, l
   const yaw0 = Math.atan2(-(route[2][0] - route[0][0]), -(route[2][1] - route[0][1]));
   await page.evaluate(([x, z, yaw, car]) => window.__midnite.gtact.car(x, z, yaw, car), [route[0][0], route[0][1], yaw0, car]);
   for (let i = 0; i < 20; i++) { await page.evaluate(() => window.__midnite.step(6)); await sleep(60); }
-  let idx = 0, dbg = 0;
+  let idx = 0, dbg = 0, prevPos = null;
   const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
   const ahead = (from, m) => { let i = from, d = 0; while (i < route.length - 1 && d < m) { d += Math.hypot(route[i + 1][0] - route[i][0], route[i + 1][1] - route[i][1]); i++; } return i; };
   const steer = async () => {
     const st = await page.evaluate(() => window.__midnite.getState().player);
     const [px, , pz] = st.position; const h = st.heading, v = st.speed ?? 0;
+    // speed is unsigned and 'brake' also reverses: measure signed forward motion along (-sin h, -cos h).
+    const fwd = prevPos ? (px - prevPos[0]) * -Math.sin(h) + (pz - prevPos[1]) * -Math.cos(h) : 0;
+    prevPos = [px, pz];
     let bi = idx, bd = Infinity;
     for (let i = idx; i < Math.min(route.length, idx + 40); i++) { const d = Math.hypot(route[i][0] - px, route[i][1] - pz); if (d < bd) { bd = d; bi = i; } }
     idx = bi;
@@ -163,8 +166,9 @@ async function drive(page, name, frames, { stars = 0, lead = 0, maxSpeed = 16, l
       bend = Math.max(bend, Math.abs(wrap(a2 - a1)));
     }
     const limit = Math.min(cap, bend > 0.7 ? 7 : bend > 0.4 ? 10 : bend > 0.2 ? 13 : cap);
-    const want = [v > limit + 1 ? 'brake' : v > limit ? null : 'forward'].filter(Boolean);
-    if (diff > 0.03) want.push('left'); else if (diff < -0.03) want.push('right');
+    const backing = fwd < -0.05;
+    const want = backing ? ['forward'] : [v > limit + 1 ? 'brake' : v > limit ? null : 'forward'].filter(Boolean);
+    if (!backing) { if (diff > 0.03) want.push('left'); else if (diff < -0.03) want.push('right'); }
     await press(want);
     if (process.env.DRIVE_DEBUG && dbg++ < 400 && dbg % 8 === 0) console.log('steer', JSON.stringify({ p: [px, pz].map(Math.round), h: +h.toFixed(2), v: +v.toFixed(1), idx, t: t.map(Math.round), diff: +diff.toFixed(2), limit, want, r0: route[idx].map(Math.round) }));
     return { idx, off: bd, diff };
