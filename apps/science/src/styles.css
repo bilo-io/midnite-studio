@@ -1,0 +1,19 @@
+/* Design tokens (HSL custom properties + the `.dark` block) from @bilo-io/ui, the same
+ * token source Studio uses, so the science module wears identical colours here. */
+@import '@bilo-io/ui/styles';
+@import '@bilo-io/shell/appearance.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Science's accent — the launcher catalog's `science` tile colour. */
+  --science-accent: #06b6d4;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
