@@ -8,6 +8,7 @@ import {
   type StartupWorkspace,
 } from '@midnite/studio-shared';
 
+import { projectRunway } from './runway';
 import type { Mutation, WorkspaceStore } from './workspace-store';
 
 const fail = (kind: Extract<Mutation, { ok: false }>['kind'], message: string): Mutation => ({ ok: false, kind, message });
@@ -137,8 +138,21 @@ export async function handleStartupRequest(store: WorkspaceStore, request: Start
     case 'ledgerSummary':
       return { ok: false, kind: 'no-book', message: 'Link a book in Settings ▸ Company to use the ledger.' };
 
-    // Theme D (projection) and Theme E (contract files).
-    case 'projection':
+    case 'projection': {
+      const ws = store.snapshot().workspace;
+      if (ws.company === null) return { ok: false, kind: 'invalid', message: 'Set up your company first.' };
+      const stored = ws.scenarios.find((s) => s.id === request.scenarioId);
+      const scenario =
+        stored ?? (request.scenarioId === BASE_SCENARIO_ID ? { id: BASE_SCENARIO_ID, name: 'Base', costMultiplierBp: 10000, revenueMultiplierBp: 10000, extraLines: [] } : null);
+      if (scenario === null) return { ok: false, kind: 'not-found', message: 'That scenario no longer exists.' };
+      const startMonth = new Date().toISOString().slice(0, 7);
+      return {
+        ok: true,
+        value: projectRunway({ openingCashMinor: ws.company.openingCash.minor, startMonth, lines: ws.lines, scenario, months: request.months }),
+      };
+    }
+
+    // Theme E (contract files).
     case 'attachContractFile':
     case 'openContractFile':
       return { ok: false, kind: 'invalid', message: NOT_YET };
