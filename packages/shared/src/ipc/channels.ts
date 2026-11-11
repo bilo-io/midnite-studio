@@ -1751,6 +1751,9 @@ export const CHANNELS = {
   // --- suite-link (retired-link landing) --------------------------------------
   /** The landing a launcher link asked for, once (`SuiteLinkLanding | null`): a cold start's renderer takes what arrived before it mounted. */
   suiteLinkTake: 'mstudio:suite-link:take',
+  // --- startup (Phase 130 Theme B) --------------------------------------------
+  /** Midnite Startup's one channel: a `StartupRequest` (`op` union) in, a `StartupResult` out. */
+  startup: 'mstudio:startup:op',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */
@@ -2013,6 +2016,8 @@ export const EVENT_CHANNELS = {
   suitePrefsChanged: 'mstudio:suite-prefs:changed',
   /** A launcher link reached an already-running host (its `second-instance` argv). Carries a SuiteLinkLanding. */
   suiteLinkOpen: 'mstudio:suite-link:open',
+  /** The Startup workspace was written. Carries a StartupChangedEvent. */
+  startupChanged: 'mstudio:startup:changed',
 } as const;
 
 /**

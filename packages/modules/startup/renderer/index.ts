@@ -5,3 +5,5 @@ export { startupManifest } from '../manifest';
 export { StartupPane } from './startup-pane';
 export { STARTUP_NAV_GROUP } from './startup-nav';
 export { STARTUP_SETTINGS } from './startup-settings';
+export { CompanyForm } from './views/company-form';
+export { useStartupSnapshot } from './data/use-startup';
