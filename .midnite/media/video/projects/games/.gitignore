@@ -1,0 +1,3 @@
+# Captured clips and music beds stay local: too big for git, and the beds are not ours to redistribute.
+*/input/**/*.mp4
+*/input/*.mp3
