@@ -53,8 +53,7 @@ then **F** (after Phase 129 B + C), then **G**.
 
 **Theme B — Workspace store and the startup contract.** ✅ PR pending. `shared/src/startup.ts` (every record schema, the `op` union, `StartupResult`, a pure `milestoneCycle` that Theme C reuses), `CHANNELS.startup` and `startupChanged`, an optional `startup` bridge namespace, and a versioned workspace store (temp + rename through one queue, newer versions read-only, corrupt files moved aside) behind a module-main `op` handler with `in-use`/`cycle`/`locked` integrity. The renderer has a react-query data layer, the first-run company form and Settings ▸ Company. Amounts are local integer minor units because Phase 129's money type is not on main; ops whose behaviour belongs to C to F (projection, contract files, issue/pay/void, PDF, link book) answer a clear refusal until then.
 
-**Theme C — Roadmap and milestones.** ◻ A list and a month timeline, dependencies with cycle rejection, an
-"at risk" rule when a milestone is due before what it depends on.
+**Theme C — Roadmap and milestones.** ✅ PR pending. A pure `roadmap-model.ts` (`wouldCreateCycle` over Theme B's `milestoneCycle`, `atRisk`, `overdue`, `timelineRange`, `positionInRange`), the roadmap view with a remembered List | Timeline switch, an add/edit sheet that greys out loop-making dependencies and shows main's `cycle` message, and an SVG timeline with today line and dependency arrows. The timeline's real-layout geometry stays for Theme G's browser spec, as the phase says.
 
 **Theme D — Costs and runway.** ◻ Cost and revenue lines with cadence and growth, up to three scenarios, a
 36-month projection, runway, zero-cash month and default-alive, with opening cash and actual burn read from
@@ -184,10 +183,10 @@ website listing.
 
 ### C — Roadmap and milestones (M)
 
-- [ ] `MilestoneSchema = { id: z.uuid(), title (1–120), description: z.string().max(2000).default(''), status: z.enum(['planned',
+- [x] `MilestoneSchema = { id: z.uuid(), title (1–120), description: z.string().max(2000).default(''), status: z.enum(['planned',
   'in-progress', 'done', 'dropped']), start: IsoDateSchema.optional(), due: IsoDateSchema, dependsOn: z.array(z.uuid()).max(20),
   owner: z.string().max(80).optional(), tags: z.array(z.string().max(24)).max(8).default([]) }`
-- [ ] Net-new pure `renderer/roadmap/roadmap-model.ts`
+- [x] Net-new pure `renderer/roadmap/roadmap-model.ts`
   - `wouldCreateCycle(milestones, id, dependsOn): boolean` (DFS); main re-checks on `upsertMilestone` and returns `cycle`
     naming the loop's titles.
   - `atRisk(m, byId): boolean` — not `done`/`dropped`, and a dependency that is not `done` is due on or after `m.due`; also
@@ -195,13 +194,13 @@ website listing.
   - `timelineRange(milestones, today): { from: 'YYYY-MM'; to: 'YYYY-MM' }` — earliest start/due minus a month to latest due
     plus a month, at least 6 months, at most 36 (beyond is clipped with a "+N later" marker).
   - Verified by `roadmap-model.test.ts`: A→B→A is a cycle; self-dependency is a cycle; at-risk and overdue truth tables.
-- [ ] Roadmap view (`startup.roadmap`): a **List | Timeline** switch, persisted in the module's UI store
+- [x] Roadmap view (`startup.roadmap`): a **List | Timeline** switch, persisted in the module's UI store
   - List: grouped by status, sorted by due; badges "At risk" (amber) and "Overdue" (red); a side sheet to add/edit with a
     dependency multi-select that greys out choices `wouldCreateCycle` rejects.
   - Timeline: month columns (CSS grid), one bar per milestone from `start ?? due` to `due`, colour by status, a today line,
     dependency arrows as an SVG overlay between bar ends; clicking a bar opens the same sheet.
   - Empty: "No milestones yet" + **Add milestone**.
-- [ ] Tests: RTL `roadmap-view.test.tsx` (add, the cycle option disabled, `cycle` error copy from the mock, status badges);
+- [x] Tests: RTL `roadmap-view.test.tsx` (add, the cycle option disabled, `cycle` error copy from the mock, status badges);
   the timeline's geometry is asserted in Theme G's shots spec (it needs real layout)
 
 ### D — Costs and runway (L)
