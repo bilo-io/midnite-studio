@@ -117,3 +117,45 @@ describe('projection', () => {
     expect(result).toMatchObject({ ok: true, value: { burnMinor: -10000 } });
   });
 });
+
+describe('contracts', () => {
+  const contract = (over: object = {}) => ({
+    id: u(70), title: 'Hosting', counterparty: { kind: 'vendor' as const, id: u(20) }, start: '2026-01-15', end: '2026-12-31',
+    autoRenews: false, noticeDays: 0, value: { minor: 5000, cadence: 'monthly' as const }, ...over,
+  });
+  const withVendor = async () => {
+    const s = await open();
+    await run(s, { op: 'updateCompany', company: company() });
+    await run(s, { op: 'upsertVendor', vendor });
+    return s;
+  };
+
+  it('keeps one linked cost line for a priced contract, and updates it in place', async () => {
+    const s = await withVendor();
+    await run(s, { op: 'upsertContract', contract: contract() });
+    const first = s.snapshot().workspace.lines;
+    expect(first).toHaveLength(1);
+    expect(first[0]).toMatchObject({ contractId: u(70), kind: 'cost', category: 'software', minor: 5000, start: '2026-01', end: '2026-12' });
+    await run(s, { op: 'upsertContract', contract: contract({ value: { minor: 9000, cadence: 'monthly' } }) });
+    const second = s.snapshot().workspace.lines;
+    expect(second).toHaveLength(1);
+    expect(second[0]).toMatchObject({ id: first[0]!.id, minor: 9000 });
+  });
+
+  it('drops the line when the price is removed or the contract is deleted', async () => {
+    const s = await withVendor();
+    await run(s, { op: 'upsertContract', contract: contract() });
+    await run(s, { op: 'upsertContract', contract: contract({ value: undefined }) });
+    expect(s.snapshot().workspace.lines).toHaveLength(0);
+    await run(s, { op: 'upsertContract', contract: contract() });
+    await run(s, { op: 'removeContract', id: u(70) });
+    expect(s.snapshot().workspace.lines).toHaveLength(0);
+  });
+
+  it('refuses to attach to a missing contract, and opens nothing without a file', async () => {
+    const s = await withVendor();
+    expect(await run(s, { op: 'attachContractFile', contractId: u(71) })).toMatchObject({ ok: false, kind: 'not-found' });
+    await run(s, { op: 'upsertContract', contract: contract() });
+    expect(await run(s, { op: 'openContractFile', contractId: u(70) })).toMatchObject({ ok: false, kind: 'not-found' });
+  });
+});
