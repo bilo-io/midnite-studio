@@ -15,7 +15,10 @@ export type ShowOpenDialog = (opts: {
   filters: { name: string; extensions: string[] }[];
 }) => Promise<{ canceled: boolean; filePaths: string[] }>;
 
-async function dispatch(store: NotebookStore, req: ScienceRequest): Promise<GitOpResult<unknown>> {
+/** Any op's answer: with a value, without one, or a failure. */
+type ScienceResult = GitOpResult<unknown> | GitOpResult;
+
+async function dispatch(store: NotebookStore, req: ScienceRequest): Promise<ScienceResult> {
   switch (req.op) {
     case 'list':
       return store.list();
@@ -42,7 +45,7 @@ export function registerScienceOn(ctx: FeatureMainContext, services: ScienceModu
     CHANNELS.science,
     ScienceRequestSchema,
     (req) => dispatch(store, req),
-    (issue): GitOpResult<unknown> => ({ ok: false, kind: 'error', message: issue }),
+    (issue): ScienceResult => ({ ok: false, kind: 'error', message: issue }),
   );
   return store;
 }

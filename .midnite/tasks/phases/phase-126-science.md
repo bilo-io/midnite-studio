@@ -54,9 +54,7 @@ notebook is never blank. Planned 2026-11-11; first slice is **A + B**, then **C 
 
 **Theme A — App and module scaffold.** ✅ [PR #1136](https://github.com/bilo-io/midnite-studio/pull/1136) `apps/science` and `packages/modules/science` from the Mind host and the module template; `science` is in every id list (`MidniteAppId`, placement, `STUDIO_MODULES`, `NODE_PROJECTS`) and the release matrix carries the bundle with its icon. The pane is the empty notebooks state plus a templates placeholder; the main half registers no channels yet and the bridge is `report` only (B adds `science`). The template's zod pin is fixed. Surprises: `scripts/typecheck-node.test.mjs` and `gate-projects-check.test.mjs` pin the `NODE_PROJECTS` count and list, so each new module bumps them. Landed with CI billing-locked, on the local affected-subset gate.
 
-**Theme B — Notebook store and IPC.** ◻ `ScienceNotebookSchema` (versioned) in a net-new
-`shared/src/science.ts`, one `science` channel with an `op` union, and a generic `createJsonDirStore` in the runtime (one 0600
-JSON file per item, atomic writes, corrupt-file quarantine, an id jail) that 127 and 128 reuse.
+**Theme B — Notebook store and IPC.** ✅ [PR #1138](https://github.com/bilo-io/midnite-studio/pull/1138) `ScienceNotebookSchema` (versioned, `migrateScienceNotebook`) in `shared/src/science.ts`, one `science` channel with an `op` union, `ScienceBridge` (optional `science?` on `MidniteStudioBridge`), a generic `createJsonDirStore` in the runtime (atomic 0600 files, quarantine of bad or misnamed files, id jail) that 127 and 128 reuse, and the module's `createNotebookStore` (remove goes to the OS Trash) registered through `registerScienceOn`. `importStructure` answers "Not available yet" until Theme F. Landed with CI billing-locked, on the local affected-subset gate; `runtime:test`'s egress-registry case fails on `main` (sketchfab.ts) independently of this work.
 
 **Theme C — Notebook editor: text and maths cells.** ◻ The notebook list and editor, markdown cells with
 `$…$`/`$$…$$` LaTeX through KaTeX, add/move/delete cells, debounced autosave.
@@ -197,7 +195,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
 
 ### B — Notebook store and IPC (M)
 
-- [ ] **B.1** Schemas in net-new `packages/shared/src/science.ts` (zod only, exported from the barrel).
+- [x] **B.1** Schemas in net-new `packages/shared/src/science.ts` (zod only, exported from the barrel).
   - `ScienceNotebookIdSchema = z.string().regex(/^nb-[a-z0-9]{12}$/)` — the id is the file name, so the
     regex is the path jail.
   - `ScienceDisciplineSchema = z.enum(['maths', 'physics', 'chemistry', 'biology', 'general'])`.
@@ -218,7 +216,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     { op:'rename', id, title }, { op:'remove', id }, { op:'importStructure' } ])` (`importStructure` is F's).
   - Verified by net-new `packages/shared/src/science.test.ts`: a valid notebook round-trips; `id: '../x'`
     fails; a plot with `x.max <= x.min` fails; 501 cells fail; `migrateScienceNotebook({ version: 2 })` is `null`.
-- [ ] **B.2** Channel, bridge type, schema registration.
+- [x] **B.2** Channel, bridge type, schema registration.
   - [`shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts): `science: 'mstudio:science:notebook'`.
   - [`shared/src/ipc/bridge.ts`](../../../packages/shared/src/ipc/bridge.ts): `export type ScienceBridge =
     { list(): Promise<GitOpResult<{ notebooks: ScienceNotebookSummary[]; quarantined: number }>>; read(req: { id }):
@@ -229,7 +227,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     and `science?: ScienceBridge` on `MidniteStudioBridge` — **optional**, like `suiteLink?`, because only
     the Science host carries it and Studio's preload must not have to (Decision 4).
   - `createScienceBridge` fills `science` with one `call(CHANNELS.science, { op, … })` per method.
-- [ ] **B.3** A generic JSON-directory store in the runtime, `packages/runtime/src/json-dir-store.ts` (net-new).
+- [x] **B.3** A generic JSON-directory store in the runtime, `packages/runtime/src/json-dir-store.ts` (net-new).
   - `export function createJsonDirStore<T extends { id: string; updatedAt: string }>(opts: { dir: string;
     prefix: string; idPattern: RegExp; parse: (raw: unknown) => T | null }): JsonDirStore<T>` with
     `list(): Promise<{ items: T[]; quarantined: number }>`, `read(id): Promise<T | null>`,
@@ -249,7 +247,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
   - Verified by net-new `packages/runtime/src/json-dir-store.test.ts` (tmp dir): write → list → read;
     a garbage file is quarantined (`quarantined === 1`, the `.corrupt-*` file exists); `pathOf('../x')`
     throws; written files are mode `0o600`.
-- [ ] **B.3b** The notebook store over it, `packages/modules/science/main/notebook-store.ts` (net-new).
+- [x] **B.3b** The notebook store over it, `packages/modules/science/main/notebook-store.ts` (net-new).
   - `export function createNotebookStore(dir: string, trashItem: (path: string) => Promise<void>): NotebookStore`
     with `list()`, `read(id)`, `create(input)`, `write(notebook)`, `rename(id, title)`, `remove(id)`, each
     returning `GitOpResult`; `dir` is `<userData>/notebooks`. Built on `createJsonDirStore({ dir, prefix:
@@ -260,7 +258,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
   - `remove` moves the file to the OS Trash through the injected `trashItem` (the host passes
     `ctx.trashItem`), never `unlink`: a deleted notebook is recoverable from Finder.
   - Filesystem errors become `{ ok: false, kind: 'error', message }`; nothing throws across the channel.
-- [ ] **B.4** Registration, `packages/modules/science/main/context.ts` (net-new).
+- [x] **B.4** Registration, `packages/modules/science/main/context.ts` (net-new).
   - `export type ShowOpenDialog = (opts: { properties: ['openFile']; filters: { name: string; extensions:
     string[] }[] }) => Promise<{ canceled: boolean; filePaths: string[] }>` (Electron's shape, so the host
     passes `(o) => dialog.showOpenDialog(win, o)` without importing it here).
