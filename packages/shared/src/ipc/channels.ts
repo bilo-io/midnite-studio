@@ -1027,6 +1027,8 @@ export const CHANNELS = {
   mediaSfx: 'mstudio:media:sfx',
   /** Media ▸ Animations (Phase 125) — the global clip library; see `AnimationRequestSchema`. */
   mediaAnimation: 'mstudio:media:model-animation',
+  /** Science notebooks (Phase 126) — one `op` union; see `ScienceRequestSchema`. */
+  science: 'mstudio:science:notebook',
   // General MIDI instrument samples (Phase 101 Theme D) — cached per program under `userData`.
   mediaGmStatus: 'mstudio:media:gm-status',
   mediaGmEnsure: 'mstudio:media:gm-ensure',
