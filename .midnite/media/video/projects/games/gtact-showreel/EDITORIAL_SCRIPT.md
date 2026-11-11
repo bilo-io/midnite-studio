@@ -8,18 +8,22 @@ one bar where the beat thins out, so the title lands in the gap and the first sh
 |---|---|---|---|
 | 0–4 | Title slam over the seaboard, dimmed | seaboard @ 2 | — |
 | 4–12 | Offshore down the seaboard | seaboard @ 0 | ATLANTIC SEABOARD |
-| 12–20 | Orbit the CBD, Table Mountain behind | cbd-orbit @ 0.5 | CAPE TOWN CBD |
-| 20–24 | Driving through the CBD, HUD up (pulse) | traffic @ 1 | DOWNTOWN DRIVE |
-| 24–28 | Helicopter lifts off (pulse) | heli @ 0 | SEA POINT HELIPAD |
-| 28–36 | Heli along the coast, Lion's Head | heli @ 6 | LION'S HEAD |
-| 36–40 | Push into the city bowl | city-bowl @ 0.5 | CITY BOWL |
-| 40–44 | Jet take-off roll (pulse) | jet @ 0 | CAPE TOWN AIRPORT |
-| 44–48 | Jet rotates and climbs | jet @ 4 | — |
-| 48–56 | Clifton, Camps Bay, Twelve Apostles | seaboard @ 6.5 | CAMPS BAY |
-| 56–60 | Pause menu opens on the map | menu @ 0.4 | PAUSE MENU · MAP |
-| 60–62 | Zoom in, drop a waypoint | menu @ 3.2 | — |
-| 62–66 | The 3D map | menu @ 5 | 3D MAP |
-| 66–70 | Tabs | menu @ 8 | — |
-| 70–78 | End card over the city bowl | city-bowl @ 3 | — |
+| 12–16 | Dolly along the Sea Point promenade lawns | promenade @ 0.3 | SEA POINT PROMENADE |
+| 16–24 | Orbit the CBD, Table Mountain behind | cbd-orbit @ 0.5 | CAPE TOWN CBD |
+| 24–28 | Crane down a CBD street, traffic below | street @ 0.5 | CITY TRAFFIC |
+| 28–32 | Driving through the CBD, HUD up (pulse) | traffic @ 1 | DOWNTOWN DRIVE |
+| 32–40 | Cops close in, sirens, 5 stars (pulse) | chase @ 0.6 | POLICE CHASE |
+| 40–44 | Helicopter lifts off (pulse) | heli @ 0 | SEA POINT HELIPAD |
+| 44–52 | Orbit Lion's Head, fynbos and trails | lions-head @ 0.5 | LION'S HEAD |
+| 52–60 | Table Mountain front face | table-mountain @ 1 | TABLE MOUNTAIN |
+| 60–64 | Back Table, kloof forest and reservoirs | back-table @ 1 | BACK TABLE |
+| 64–68 | Push into the city bowl | city-bowl @ 0.5 | CITY BOWL |
+| 68–72 | Runways and terminal, rebuilt from OSM | airport @ 0.5 | CAPE TOWN INTERNATIONAL |
+| 72–76 | Jet take-off roll (pulse) | jet @ 0 | — |
+| 76–80 | Jet rotates and climbs | jet @ 4 (×1.2) | — |
+| 80–84 | Clifton, Camps Bay, Twelve Apostles | seaboard @ 6.5 | CAMPS BAY |
+| 84–88 | Pause menu opens on the map | menu @ 0.4 | PAUSE MENU · MAP |
+| 88–92 | The 3D map | menu @ 5 | 3D MAP |
+| 92–100 | End card over the city bowl | city-bowl @ 3 | — |
 
-Every cut: white flash + zoom punch on the beat. Music fades over the last 2 beats.
+Every cut: white flash + zoom punch on the beat. Music fades over the last 2 beats. v2: 100 beats = 64 s (bed 30.86–94.86 s of 96.47 s).
