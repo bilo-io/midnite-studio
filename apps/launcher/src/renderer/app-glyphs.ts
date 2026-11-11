@@ -70,6 +70,7 @@ export const MODULE_GLYPHS: Record<ModuleId, IconType> = {
   science: PiFlaskFill,
   simulator: PiPlanetFill,
   browser: PiGlobeFill,
+  startup: PiBuildingsFill,
   studio: PiRocketLaunchFill,
 };
 

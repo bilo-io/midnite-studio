@@ -49,9 +49,7 @@ model whose opening cash and actual burn can come from the books, and invoices t
 entries into the Accountant ledger. Planned 2026-11-11; build order **A → B**, then **C, D, E** in parallel,
 then **F** (after Phase 129 B + C), then **G**.
 
-**Theme A — App scaffold and wiring.** ◻ `apps/startup` copied from Money's shape, a `startup` module, every
-id list appended per the board's contract, Studio's module list, the release test, and the tile still
-`comingSoon` until Theme G.
+**Theme A — App scaffold and wiring.** ✅ [PR #1137](https://github.com/bilo-io/midnite-studio/pull/1137). `apps/startup` cloned from the Mind host shape, a `startup` module (manifest, main half with no channel yet, report-only bridge, five-view nav, placeholder panes), every id list appended, Studio's module list, the release case and the icon. The launcher tile now carries `MODULES.startup` (still `comingSoon`) because the catalog test requires each module host's tile to list its `APP_MODULES`; that moved part of Theme G's flip forward. Phase 129's money type is not on main, so Theme B keeps amounts as local integer minor units.
 
 **Theme B — Workspace store and the startup contract.** ◻ `shared/src/startup.ts` (company, milestones, plan
 lines, scenarios, customers, invoices, vendors, contracts) and one `startup` channel with an `op` union over a
@@ -86,7 +84,7 @@ website listing.
 
 ### A — App scaffold and wiring (L)
 
-- [ ] Ids, appended per the board contract
+- [x] Ids, appended per the board contract
   - [`modules.ts`](../../../packages/shared/src/modules.ts): `'startup'` appended to `MODULE_IDS` and `MODULE_HOST_IDS`;
     `APP_MODULES.startup = ['startup']` (Theme F makes it `['startup', 'accountant']`).
   - [`midnite-link.ts`](../../../packages/shared/src/midnite-link.ts): `'startup'` appended to `MIDNITE_APP_IDS` (the
@@ -97,7 +95,7 @@ website listing.
   - [`suite-apps.ts`](../../../packages/shared/src/suite-apps.ts) and the launcher's `APP_IDS` (**unchanged**: both already list `startup`).
   - Verified by `modules.test.ts` (existing: every host's own module first), `midnite-link.test.ts` (`MIDNITE_APP_IDS`
     equals `MODULE_HOST_IDS` minus the documented exclusions), `affected-apps.test.mjs`.
-- [ ] Net-new module `packages/modules/startup` (`@midnite/studio-module-startup`) from [`_template`](../../../packages/modules/_template/README.md)
+- [x] Net-new module `packages/modules/startup` (`@midnite/studio-module-startup`) from [`_template`](../../../packages/modules/_template/README.md)
   - `manifest.ts`: `startupManifest = defineModuleManifest({ module: 'startup', label: 'Startup', glyph: 'PiBuildingsFill',
     accent: '#8b5cf6', features: [], views: [] })` — the code lives in the module, not a feature (Decision 2).
   - moon id `module-startup`, tags `layer-module`, `app-startup`, `app-studio`; `dependsOn` `shared`, `frame`, `runtime`,
@@ -114,7 +112,7 @@ website listing.
     `STARTUP_SETTINGS: SettingsPageDef[]` with one `scope: 'app'` page, **Company** (Theme B's profile form).
   - Verified by `manifest.test.ts` (template), `main/bridge.test.ts` (each op → `CHANNELS.startup`), and a renderer test
     that every nav view id renders a pane without throwing over the mock bridge.
-- [ ] Net-new `apps/startup`, copying [`apps/money`](../../../apps/money/package.json)'s files one for one
+- [x] Net-new `apps/startup`, copying [`apps/money`](../../../apps/money/package.json)'s files one for one
   - `package.json` (`@midnite/app-startup`, `"build": "vite build && node scripts/bundle-main.mjs"`), `moon.yml` (id
     `app-startup`, tags `layer-app`, `app-startup`; `dependsOn` `shared`, `frame`, `runtime`, `feature-report`,
     `feature-monitor`, `module-startup`), `tsconfig.json`, `vite.config.ts` (`server: { port: 5198, strictPort: true }`),
@@ -137,12 +135,12 @@ website listing.
     (`CHANNELS.startup` registered once over `createRecordingContext`), `src/host-app.test.tsx` (the Startup group and its
     five rows render), and the repo-wide guards that scan every app: `scripts/app-window-guard.test.mjs`,
     `scripts/app-moon-inputs.test.mjs`.
-- [ ] Release wiring: a `describe('apps/startup')` case in [`release-bundles.test.mjs`](../../../scripts/release-bundles.test.mjs),
+- [x] Release wiring: a `describe('apps/startup')` case in [`release-bundles.test.mjs`](../../../scripts/release-bundles.test.mjs),
   copying the `apps/money (Theme P)` case — `bundleMatrix(apps, has).include` contains `{ app: 'startup', project:
   'app-startup', dir: 'apps/startup' }` and `apps/startup/resources/icon.icns` is a valid `icns`
-- [ ] Studio: `'startup'` appended to `STUDIO_MODULES` in [`composition.ts`](../../../apps/studio/src/composition.ts) (its test globs
+- [x] Studio: `'startup'` appended to `STUDIO_MODULES` in [`composition.ts`](../../../apps/studio/src/composition.ts) (its test globs
   `packages/modules/*/package.json`); Studio renders no Startup view in this phase (Decision 6)
-- [ ] The tile stays `comingSoon: true` through Themes A–F; Theme G flips it (the launcher falls back to Studio for an
+- [x] The tile stays `comingSoon: true` through Themes A–F; Theme G flips it (the launcher falls back to Studio for an
   unpublished non-`comingSoon` app, and Studio renders no Startup view)
 
 ### B — Workspace store and the startup contract (M)

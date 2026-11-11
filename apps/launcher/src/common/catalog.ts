@@ -374,6 +374,17 @@ const MODULES = {
     ],
     comingSoon: true,
   },
+  startup: {
+    id: 'startup',
+    name: 'Startup',
+    tagline: 'Roadmap, costs and lightweight ERP',
+    home: view('landing'),
+    features: [
+      { id: 'roadmap', label: 'Roadmap', blurb: 'Milestones, dependencies and product timeline', target: view('landing') },
+      { id: 'costs', label: 'Costs & Runway', blurb: 'Live burn tracking and financial modeling', target: view('landing') },
+      { id: 'erp', label: 'ERP', blurb: 'Invoicing, vendor management and contracts', target: view('landing') },
+    ],
+  },
   browser: {
     id: 'browser',
     name: 'Browser',
@@ -537,12 +548,7 @@ const RAW_APPS: readonly RawApp[] = [
     vision:
       'All the foundational tooling for early-stage companies: clear milestone roadmaps, live burn rate and runway modeling, and modular lightweight ERP.',
     home: view('landing'),
-    modules: [],
-    features: [
-      { id: 'roadmap', label: 'Roadmap', blurb: 'Milestones, dependencies and product timeline', target: view('landing') },
-      { id: 'costs', label: 'Costs & Runway', blurb: 'Live burn tracking and financial modeling', target: view('landing') },
-      { id: 'erp', label: 'ERP', blurb: 'Invoicing, vendor management and contracts', target: view('landing') },
-    ],
+    modules: [MODULES.startup],
     runsIn: 'studio',
     comingSoon: true,
   },
