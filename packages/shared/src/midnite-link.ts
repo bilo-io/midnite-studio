@@ -31,8 +31,8 @@ import {
 export const MIDNITE_PROTOCOL = 'midnite:' as const;
 
 /**
- * Every app a `midnite://` link resolves to: the hosts that carry modules, minus Science (no feature
- * yet), plus Studio itself. Phase 124 Theme G: the apps merged into a host are no longer here — a
+ * Every app a `midnite://` link resolves to: the hosts that carry modules (Science included),
+ * plus Studio itself. Phase 124 Theme G: the apps merged into a host are no longer here — a
  * link naming one (`RetiredAppId`) is rewritten to host + module by `parseMidniteLink`.
  */
 export type MidniteAppId = ModuleHostId;
