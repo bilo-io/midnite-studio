@@ -23,6 +23,8 @@ const common = {
     '@midnite/studio-feature-report/bridge': at('../../../packages/features/report/bridge.ts'),
     '@midnite/studio-module-science/bridge': at('../../../packages/modules/science/main/bridge.ts'),
     '@midnite/studio-module-science/main': at('../../../packages/modules/science/main/index.ts'),
+    '@midnite/studio-module-simulator/bridge': at('../../../packages/modules/simulator/main/bridge.ts'),
+    '@midnite/studio-module-simulator/main': at('../../../packages/modules/simulator/main/index.ts'),
     '@midnite/studio-feature-report/main': at('../../../packages/features/report/main/index.ts'),
     '@midnite/studio-feature-monitor/main': at('../../../packages/features/monitor/main/index.ts'),
     '@midnite/studio-feature-monitor/bridge': at('../../../packages/features/monitor/bridge.ts'),

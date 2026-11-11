@@ -45,6 +45,8 @@
       "@midnite/studio-module-mind/bridge": ["./packages/modules/mind/main/bridge.ts"],
       "@midnite/studio-module-science/main": ["./packages/modules/science/main/index.ts"],
       "@midnite/studio-module-science/bridge": ["./packages/modules/science/main/bridge.ts"],
+      "@midnite/studio-module-simulator/main": ["./packages/modules/simulator/main/index.ts"],
+      "@midnite/studio-module-simulator/bridge": ["./packages/modules/simulator/main/bridge.ts"],
       "@midnite/studio-module-agents/main": ["./packages/modules/agents/main/index.ts"],
       "@midnite/studio-module-agents/bridge": ["./packages/modules/agents/main/bridge.ts"],
       "@midnite/studio-module-gamer/main": ["./packages/modules/gamer/main/index.ts"],
