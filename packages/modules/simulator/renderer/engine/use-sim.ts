@@ -32,7 +32,7 @@ export type SimHandle = {
   /** Re-inits with the current params and seed. */
   reset(): void;
   setSpeed(ticksPerFrame: TicksPerFrame): void;
-  /** Asks the worker for its state; resolves with it. */
+  /** Asks the worker for its state; resolves with it, or `null` when there is no worker or it went away. */
   serialise(): Promise<unknown>;
   restore(state: unknown): void;
 };
@@ -65,6 +65,7 @@ export function createUseSim(factory: SimWorkerFactory | null) {
     useEffect(() => {
       if (factory === null) return;
       const w = factory();
+      const waiting = pending.current;
       worker.current = w;
       let latest: { tick: number; length: number; buffer: ArrayBuffer; stats: Record<string, number> } | null = null;
       let raf: number | null = null;
@@ -113,6 +114,7 @@ export function createUseSim(factory: SimWorkerFactory | null) {
         if (raf !== null) cancelAnimationFrame(raf);
         w.onmessage = null;
         w.terminate();
+        for (const resolve of waiting.splice(0)) resolve(null);
         worker.current = null;
       };
     }, [init]);
@@ -142,6 +144,10 @@ export function createUseSim(factory: SimWorkerFactory | null) {
       setSpeed: (ticksPerFrame) => post({ type: 'speed', ticksPerFrame }),
       serialise: () =>
         new Promise((resolve) => {
+          if (worker.current === null) {
+            resolve(null);
+            return;
+          }
           pending.current.push(resolve);
           post({ type: 'serialise' });
         }),

@@ -18,4 +18,12 @@ const loop = createSimLoop({
   },
 });
 
-ctx.onmessage = (event) => loop.handle(event.data);
+// An engine that throws (a bad restore, a bad param) must not kill the worker silently: stop the loop and say why.
+ctx.onmessage = (event) => {
+  try {
+    loop.handle(event.data);
+  } catch (e) {
+    loop.handle({ type: 'pause' });
+    ctx.postMessage({ type: 'error', message: e instanceof Error ? e.message : String(e) });
+  }
+};
