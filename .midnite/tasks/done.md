@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-11 — Phase 126 Theme A — Science app and module scaffold
+
+[PR #1136](https://github.com/bilo-io/midnite-studio/pull/1136). New `packages/modules/science` (manifest, nav group, pane with empty notebooks state, main half and report-only bridge) and `apps/science` (host cloned from Mind: identity, `registerScienceHost`, preload, rail, shell, bundle script, icon); `science` added to every app/module id list and the release-bundle matrix; template zod pin fixed. The launcher tile stays Coming soon until Theme H.
+
 ## 2026-11-02 — Phase 125 Theme E — Sketchfab search and download
 
 [PR #1123](https://github.com/bilo-io/midnite-studio/pull/1123). Search Sketchfab's Data API and download an animated model's GLB into the library from Media ▸ Animations, with the user's own token (vault, main-only, sent only to api.sketchfab.com), licence filtering, author and licence recorded. The egress-registry item stays open (no registry exists).

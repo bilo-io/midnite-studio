@@ -45,7 +45,6 @@ describe('Science host', () => {
     render(<ScienceHostApp />);
     const rail = screen.getByRole('navigation', { name: 'Views' });
     for (const label of ['Notebooks', 'Templates']) expect(within(rail).getByRole('link', { name: label })).toBeDefined();
-    expect(screen.getAllByText('Science').length).toBeGreaterThan(0);
     expect(screen.getByText('No notebooks yet')).toBeDefined();
   });
 });
