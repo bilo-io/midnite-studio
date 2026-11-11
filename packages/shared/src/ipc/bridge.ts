@@ -28,6 +28,7 @@ import type { ToolApprovalHookInfo, ToolApprovalRequest, ToolApprovalResolved } 
 import type { CompanionDigest, CompanionSnapshot } from '../companion';
 import type { CommandId } from '../keybindings';
 import type { SuiteLinkLanding } from '../suite-link';
+import type { StartupChangedEvent, StartupRequest, StartupResult, StartupSnapshot } from '../startup';
 import type { SuitePrefsSetRequest, SuitePrefsSetResponse, SuitePrefsSnapshot } from '../suite-prefs';
 import type { SongChat } from '../media-music-chat';
 import type { ModelLibraryMigrateResult, ModelLibraryNode } from '../media-model-library';
@@ -2226,6 +2227,39 @@ export type MidniteStudioBridge = {
     onLayoutProgress: (
       handler: (e: z.infer<typeof S.KnowledgeLayoutProgressEvent>) => void,
     ) => Unsubscribe;
+  };
+
+  /**
+   * Midnite Startup's workspace (Phase 130): one `invoke` channel with an `op` union, one method per op,
+   * and `onChanged`, which fires after every write. Optional because only the Startup app (and Studio, once
+   * it renders a Startup view) provides it. Ops never throw: a refusal is `{ ok: false, kind, message }`.
+   */
+  startup?: {
+    get: () => Promise<StartupResult<StartupSnapshot>>;
+    updateCompany: (req: Omit<Extract<StartupRequest, { op: 'updateCompany' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    upsertMilestone: (req: Omit<Extract<StartupRequest, { op: 'upsertMilestone' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    removeMilestone: (req: Omit<Extract<StartupRequest, { op: 'removeMilestone' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    upsertLine: (req: Omit<Extract<StartupRequest, { op: 'upsertLine' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    removeLine: (req: Omit<Extract<StartupRequest, { op: 'removeLine' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    upsertScenario: (req: Omit<Extract<StartupRequest, { op: 'upsertScenario' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    removeScenario: (req: Omit<Extract<StartupRequest, { op: 'removeScenario' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    projection: (req: Omit<Extract<StartupRequest, { op: 'projection' }>, 'op'>) => Promise<StartupResult<unknown>>;
+    upsertVendor: (req: Omit<Extract<StartupRequest, { op: 'upsertVendor' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    removeVendor: (req: Omit<Extract<StartupRequest, { op: 'removeVendor' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    upsertContract: (req: Omit<Extract<StartupRequest, { op: 'upsertContract' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    removeContract: (req: Omit<Extract<StartupRequest, { op: 'removeContract' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    attachContractFile: (req: Omit<Extract<StartupRequest, { op: 'attachContractFile' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    openContractFile: (req: Omit<Extract<StartupRequest, { op: 'openContractFile' }>, 'op'>) => Promise<StartupResult<unknown>>;
+    upsertCustomer: (req: Omit<Extract<StartupRequest, { op: 'upsertCustomer' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    removeCustomer: (req: Omit<Extract<StartupRequest, { op: 'removeCustomer' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    upsertInvoice: (req: Omit<Extract<StartupRequest, { op: 'upsertInvoice' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    issueInvoice: (req: Omit<Extract<StartupRequest, { op: 'issueInvoice' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    markPaid: (req: Omit<Extract<StartupRequest, { op: 'markPaid' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    voidInvoice: (req: Omit<Extract<StartupRequest, { op: 'voidInvoice' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    exportInvoicePdf: (req: Omit<Extract<StartupRequest, { op: 'exportInvoicePdf' }>, 'op'>) => Promise<StartupResult<unknown>>;
+    linkBook: (req: Omit<Extract<StartupRequest, { op: 'linkBook' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    ledgerSummary: () => Promise<StartupResult<unknown>>;
+    onChanged: (handler: (e: StartupChangedEvent) => void) => Unsubscribe;
   };
 
   /**

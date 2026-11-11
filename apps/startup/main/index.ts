@@ -99,6 +99,8 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       ipcMain,
       trashItem: (path) => shell.trashItem(path),
       send: sendToWindow,
+      userData: app.getPath('userData'),
+      warn: (message) => process.stderr.write(`${message}\n`),
     });
     quit = host.dispose;
     openWindow();
