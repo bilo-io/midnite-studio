@@ -15,3 +15,9 @@
 ## v4-v4 — 2026-11-11
 
 - Chase window moved to 0.6 s so it ends before the facade; three re-takes of the chase (Sea Point, harbour, closer cops) were busted and discarded. Final: gtact-showreel.mp4.
+
+## v5-logo-fulmine-chase — 2026-11-11
+
+- In-game "gta Cape Town" logo (input/logo.svg) slams in on the intro and end card instead of title text.
+- Traffic and chase re-shot in the yellow Zaffiro Fulmine, steered along the road (pure pursuit); chase is roadblock @3.5 (8 beats) + cop on the tail @8.8 (4 beats); jet climb dropped.
+- Street, CBD orbit, city bowl and airport re-shot on the fixed roads (no diagonal streets drawn over streets). Final: gtact-showreel.mp4.
