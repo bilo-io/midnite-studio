@@ -1,4 +1,4 @@
-import { createBridgeSlice, type RendererIpc } from '@midnite/studio-runtime/app-main/bridge-slice';
+import type { RendererIpc } from '@midnite/studio-runtime/app-main/bridge-slice';
 
 /**
  * The slice of `window.midniteStudio` the Simulator module adds. Empty until Theme F's `simulator` channel.
@@ -10,7 +10,6 @@ export type SimulatorAppBridge = {};
 
 export type { RendererIpc };
 
-export function createSimulatorBridge(ipc: RendererIpc): SimulatorAppBridge {
-  createBridgeSlice(ipc);
+export function createSimulatorBridge(_ipc: RendererIpc): SimulatorAppBridge {
   return {};
 }
