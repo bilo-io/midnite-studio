@@ -6,6 +6,8 @@ import { bridge, noBridge } from '@midnite/studio-frame';
 import type { ScienceCell, ScienceNotebook } from '@midnite/studio-shared';
 
 import { blankCell, createNotebookDraft, moveCell, type CellKind } from '../notebook-draft';
+import { useCompute } from '../compute/compute-worker-factory';
+import { ComputeResult } from './compute-cell';
 import { MarkdownCell } from './markdown-cell';
 
 const KINDS: { kind: CellKind; label: string }[] = [
@@ -47,6 +49,7 @@ export function NotebookEditor({ notebook, onSaved }: Props) {
 
   const state = useStore(draft);
   const cells = state.notebook.cells;
+  const compute = useCompute(cells);
   const [title, setTitle] = useState(state.notebook.title);
   const [adding, setAdding] = useState(false);
 
@@ -102,6 +105,7 @@ export function NotebookEditor({ notebook, onSaved }: Props) {
               </button>
             </div>
             <CellBody cell={cell} onChange={(next) => setCell(cell.id, next)} />
+            {cell.kind === 'compute' ? <ComputeResult result={compute.results[cell.id]} pending={compute.pending} /> : null}
           </section>
         ))}
         <div className="relative">
@@ -138,7 +142,7 @@ export function NotebookEditor({ notebook, onSaved }: Props) {
   );
 }
 
-/** The body of one cell. Compute, plot and molecule cells get their real bodies in Themes D, E and F. */
+/** The body of one cell. The compute cell's result row is drawn by the parent; plot and molecule cells get their real bodies in Themes E and F. */
 function CellBody({ cell, onChange }: { cell: ScienceCell; onChange: (cell: ScienceCell) => void }) {
   switch (cell.kind) {
     case 'markdown':

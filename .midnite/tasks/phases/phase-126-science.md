@@ -58,9 +58,7 @@ notebook is never blank. Planned 2026-11-11; first slice is **A + B**, then **C 
 
 **Theme C — Notebook editor: text and maths cells.** ✅ [PR #1140](https://github.com/bilo-io/midnite-studio/pull/1140) The notebook list (discipline filter, rename, Trash-confirmed delete, error banner, quarantine line, last-open notebook persisted) and the editor (title via `rename`, add/move/delete cells, a draft store that autosaves 600 ms after the last edit and flushes on unmount, "Not saved" on a failed write), with markdown cells rendered through react-markdown, remark-math and rehype-katex (`throwOnError: false`). Compute cells are a plain textarea and plot/molecule cells a one-line placeholder until D, E and F. Landed with CI billing-locked, on the local affected-subset gate.
 
-**Theme D — Compute cells in a worker.** ◻ mathjs in an inline Web Worker: top-down evaluation in one
-scope per run, units/matrices/complex/derivatives, a 2 s budget that terminates and respawns the worker,
-dangerous mathjs functions disabled.
+**Theme D — Compute cells in a worker.** ✅ [PR #1142](https://github.com/bilo-io/midnite-studio/pull/1142) mathjs in an inline Web Worker: top-down evaluation in one fresh scope per run (`evaluateNotebook`), units/matrices/complex/derivatives, `import`/`createUnit`/`reviver`/`evaluate`/`parse`/`compile` replaced by throwing stubs after the real `parse`/`compile` are captured. `createUseCompute(factory)` debounces 300 ms, drops stale `runId`s, and past 2 s terminates and respawns the worker with "Stopped after 2 s" on every compute cell; the cell shows KaTeX of the expression beside the value, or `Line N: message`. Only compute-cell edits post a run.
 
 **Theme E — Plot cells.** ◻ y = f(x) series sampled in the worker against the notebook's scope, drawn as a
 hand-rolled SVG with nice-number ticks, percentile auto-range and asymptote breaks.
@@ -312,7 +310,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
 
 ### D — Compute cells in a worker (M)
 
-- [ ] **D.1** The evaluator, `renderer/compute/evaluate.ts` (net-new, pure, no DOM).
+- [x] **D.1** The evaluator, `renderer/compute/evaluate.ts` (net-new, pure, no DOM).
   - `export function evaluateNotebook(cells: readonly ScienceCell[]): Record<string, CellResult>` where
     `CellResult = { ok: true; text: string; tex?: string } | { ok: false; line: number; message: string }`.
   - One `math = create(all)` instance per module load (`renderer/compute/math.ts`, net-new). **Capture
@@ -331,7 +329,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
   - Verified by `renderer/compute/evaluate.test.ts`: `a = 3\nb = a^2` → `9`; `5 km/h to m/s` →
     `1.3888888889 m / s`; `det([1,2;3,4])` → `-2`; `sqrt(-4)` → `2i`; `derivative('x^2', 'x')` → `2 * x`;
     `import({}, {})` → `{ ok: false, message: /disabled/ }`; a later cell sees an earlier cell's variable.
-- [ ] **D.2** The worker, `renderer/compute/compute.worker.ts` (net-new) and `use-compute.ts`.
+- [x] **D.2** The worker, `renderer/compute/compute.worker.ts` (net-new) and `use-compute.ts`.
   - The worker answers `{ runId, cells }` with `{ runId, results, samples }` (E adds `samples`).
   - Imported with `import ComputeWorker from './compute.worker?worker&inline'` (the `file://` rule in
     `packages/app/vite.config.ts`); `apps/science/vite.config.ts` sets `worker: { format: 'es' }`.
