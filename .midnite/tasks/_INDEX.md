@@ -8,6 +8,11 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [130 · Startup app](phases/phase-130-startup.md) | ◻ TODO | x1 | 0/57 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
+| [129 · Accountant module](phases/phase-129-accountant.md) | ◻ TODO | x1 | 0/61 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
+| [128 · Health app](phases/phase-128-health.md) | ◻ TODO | x1 | 0/43 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
+| [127 · Simulator module](phases/phase-127-simulator.md) | ◻ TODO | x1 | 0/40 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
+| [126 · Science app](phases/phase-126-science.md) | ◻ TODO | x1 | 0/43 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [125 · Media ▸ Animations: a library of animation clips](phases/phase-125-animations-library.md) | 🔄 WIP | — | 38/41 | `█████████░` | 93% | — | H |
 | [124 · Merge suite apps into modules](phases/phase-124-apps-into-modules.md) | ✅ DONE | — | 47/47 | `██████████` | 100% | — | — |
 | [123 · One shell for every suite app](phases/phase-123-suite-shell.md) | ✅ DONE | x1 | 56/56 | `██████████` | 100% | — | — |
