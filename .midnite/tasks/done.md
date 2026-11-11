@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-11 — Phase 126 Theme D — Compute cells in a worker
+
+[PR #1142](https://github.com/bilo-io/midnite-studio/pull/1142). mathjs evaluator with the JavaScript-reaching functions disabled, run in an inline worker with a 300 ms debounce and a 2 s terminate-and-respawn budget; compute cells show KaTeX and the value or `Line N: message`.
+
 ## 2026-11-11 — Phase 126 Theme C — Notebook editor: text and maths cells
 
 [PR #1140](https://github.com/bilo-io/midnite-studio/pull/1140). Notebook list and editor in the Science module: discipline filter, rename, Trash-confirmed delete, autosaving draft store, markdown cells with KaTeX maths, persisted last-open notebook.
