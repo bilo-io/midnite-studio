@@ -58,12 +58,9 @@ notebook is never blank. Planned 2026-11-11; first slice is **A + B**, then **C 
 
 **Theme C — Notebook editor: text and maths cells.** ✅ [PR #1140](https://github.com/bilo-io/midnite-studio/pull/1140) The notebook list (discipline filter, rename, Trash-confirmed delete, error banner, quarantine line, last-open notebook persisted) and the editor (title via `rename`, add/move/delete cells, a draft store that autosaves 600 ms after the last edit and flushes on unmount, "Not saved" on a failed write), with markdown cells rendered through react-markdown, remark-math and rehype-katex (`throwOnError: false`). Compute cells are a plain textarea and plot/molecule cells a one-line placeholder until D, E and F. Landed with CI billing-locked, on the local affected-subset gate.
 
-**Theme D — Compute cells in a worker.** ◻ mathjs in an inline Web Worker: top-down evaluation in one
-scope per run, units/matrices/complex/derivatives, a 2 s budget that terminates and respawns the worker,
-dangerous mathjs functions disabled.
+**Theme D — Compute cells in a worker.** ✅ [PR #1142](https://github.com/bilo-io/midnite-studio/pull/1142) mathjs in an inline Web Worker: top-down evaluation in one fresh scope per run (`evaluateNotebook`), units/matrices/complex/derivatives, `import`/`createUnit`/`reviver`/`evaluate`/`parse`/`compile` replaced by throwing stubs after the real `parse`/`compile` are captured. `createUseCompute(factory)` debounces 300 ms, drops stale `runId`s, and past 2 s terminates and respawns the worker with "Stopped after 2 s" on every compute cell; the cell shows KaTeX of the expression beside the value, or `Line N: message`. Only compute-cell edits post a run.
 
-**Theme E — Plot cells.** ◻ y = f(x) series sampled in the worker against the notebook's scope, drawn as a
-hand-rolled SVG with nice-number ticks, percentile auto-range and asymptote breaks.
+**Theme E — Plot cells.** ✅ [PR #1145](https://github.com/bilo-io/midnite-studio/pull/1145) `samplePlot` evaluates each series at 512 x values inside the worker against the notebook's final scope (so `k*x` sees `k = 2`), non-real or failing values are `NaN`; `autoRange` takes the 2nd to 98th percentile padded 5 %. `PlotSvg` is a hand-rolled SVG: `niceTicks` (1, 2, 5 steps), 8 % grid, axes at zero, paths broken at `NaN` and at jumps over 10 times the y-range (asymptotes), four series colours and a legend. The cell editor has series rows (up to 4), x range and an auto or manual y range.
 
 **Theme F — Molecule viewer cells.** ◻ XYZ, PDB and MOL/SDF parsers, bond inference on a spatial grid, an
 instanced ball-and-stick R3F view with CPK colours, imported through a native picker capped at 10 MB.
@@ -312,7 +309,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
 
 ### D — Compute cells in a worker (M)
 
-- [ ] **D.1** The evaluator, `renderer/compute/evaluate.ts` (net-new, pure, no DOM).
+- [x] **D.1** The evaluator, `renderer/compute/evaluate.ts` (net-new, pure, no DOM).
   - `export function evaluateNotebook(cells: readonly ScienceCell[]): Record<string, CellResult>` where
     `CellResult = { ok: true; text: string; tex?: string } | { ok: false; line: number; message: string }`.
   - One `math = create(all)` instance per module load (`renderer/compute/math.ts`, net-new). **Capture
@@ -331,7 +328,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
   - Verified by `renderer/compute/evaluate.test.ts`: `a = 3\nb = a^2` → `9`; `5 km/h to m/s` →
     `1.3888888889 m / s`; `det([1,2;3,4])` → `-2`; `sqrt(-4)` → `2i`; `derivative('x^2', 'x')` → `2 * x`;
     `import({}, {})` → `{ ok: false, message: /disabled/ }`; a later cell sees an earlier cell's variable.
-- [ ] **D.2** The worker, `renderer/compute/compute.worker.ts` (net-new) and `use-compute.ts`.
+- [x] **D.2** The worker, `renderer/compute/compute.worker.ts` (net-new) and `use-compute.ts`.
   - The worker answers `{ runId, cells }` with `{ runId, results, samples }` (E adds `samples`).
   - Imported with `import ComputeWorker from './compute.worker?worker&inline'` (the `file://` rule in
     `packages/app/vite.config.ts`); `apps/science/vite.config.ts` sets `worker: { format: 'es' }`.
@@ -348,7 +345,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
 
 ### E — Plot cells (M)
 
-- [ ] **E.1** Sampling, `renderer/plot/sample.ts` (net-new, pure).
+- [x] **E.1** Sampling, `renderer/plot/sample.ts` (net-new, pure).
   - `samplePlot(cell: PlotCell, scope: Map<string, unknown>, math): PlotSamples` — 512 evenly spaced `x` in
     `[x.min, x.max]` per series; each `expr` compiled once and evaluated with `{ ...scope, x }`; a
     non-finite or non-real result is `NaN`. Runs inside the worker after the compute pass, so a plot can
@@ -357,7 +354,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     series (range 0) pads ±1.
   - Verified by `renderer/plot/sample.test.ts`: `sin(x)` on `[0, 2*pi]` has 512 samples within [-1, 1];
     `1/x` on `[-1, 1]` has a `NaN` or break at the sign change; `k*x` uses `k` from scope.
-- [ ] **E.2** Drawing, `renderer/plot/plot-svg.tsx` (net-new).
+- [x] **E.2** Drawing, `renderer/plot/plot-svg.tsx` (net-new).
   - `<PlotSvg samples width={640} height={360} />`: `viewBox="0 0 640 360"`, 48 px left / 32 px bottom
     gutters, ticks from `niceTicks(min, max, 6)` (steps 1·2·5 × 10^k), grid lines at 8 % opacity, axis
     lines at x = 0 / y = 0 when in range.
