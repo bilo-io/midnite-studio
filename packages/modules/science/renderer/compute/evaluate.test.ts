@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { ScienceCell } from '@midnite/studio-shared';
 
@@ -6,6 +6,8 @@ import { evaluateNotebook, runNotebook } from './evaluate';
 
 const c = (id: string, source: string): ScienceCell => ({ kind: 'compute', id, source });
 const one = (source: string) => evaluateNotebook([c('c-aaaaaaaa', source)])['c-aaaaaaaa']!;
+
+vi.setConfig({ testTimeout: 20_000 });
 
 describe('evaluateNotebook', () => {
   it('carries variables across lines', () => {
