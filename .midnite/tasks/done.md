@@ -2,6 +2,30 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-11 — Phase 126 Theme H — Launch
+
+[PR #1150](https://github.com/bilo-io/midnite-studio/pull/1150). Science leaves coming soon in the launcher catalog, gets its website entry and tile image, and `docs/APPS.md` records the app. Phase 126 is done.
+
+## 2026-11-11 — Phase 126 Theme F — Molecule viewer cells
+
+[PR #1149](https://github.com/bilo-io/midnite-studio/pull/1149). XYZ, PDB and MOL/SDF parsers, Jmol CPK elements, spatial-hash bond inference, an instanced ball-and-stick R3F canvas, an `importStructure` op (native picker, 10 MB cap) and the Caffeine template.
+
+## 2026-11-11 — Phase 130 Theme E — Startup vendors and contracts
+
+[PR #1148](https://github.com/bilo-io/midnite-studio/pull/1148). Vendors and contracts with pure date maths (`contractStatus`, `noticeDeadline`, in shared so the view reuses it), an Action needed strip, an attached file copied by content hash into the app's folder through a host-injected picker and opener, and one linked plan line per priced contract.
+
+## 2026-11-11 — Phase 126 Theme G — Templates
+
+[PR #1147](https://github.com/bilo-io/midnite-studio/pull/1147). Seven built-in starter notebooks and a Templates view with discipline filter and "Use template" (fresh cell ids).
+
+## 2026-11-11 — Phase 130 Theme D — Startup costs and runway
+
+[PR #1144](https://github.com/bilo-io/midnite-studio/pull/1144). Pure `projectRunway` (cadence, growth, scenario multipliers, burn, runway, zero-cash month, default alive), the `projection` op, and the Runway view with lines table, scenario tabs, horizon, headline cards and an inline-SVG cash chart. Actuals from the books wait for Theme F.
+
+## 2026-11-11 — Phase 126 Theme E — Plot cells
+
+[PR #1145](https://github.com/bilo-io/midnite-studio/pull/1145). Plot cells sampled in the compute worker against the notebook scope and drawn as an SVG with nice ticks, percentile auto-range and asymptote breaks; series, x and y range editor.
+
 ## 2026-11-11 — Phase 126 Theme D — Compute cells in a worker
 
 [PR #1142](https://github.com/bilo-io/midnite-studio/pull/1142). mathjs evaluator with the JavaScript-reaching functions disabled, run in an inline worker with a 300 ms debounce and a 2 s terminate-and-respawn budget; compute cells show KaTeX and the value or `Line N: message`.
@@ -686,7 +710,6 @@ read back and confirmed. They are never dictated.
 - **No raw dictation:** `tune`/`tweak` intents carry no text, a `setting` intent for either field is
   schema-invalid, and `persona` is stripped from router replies. The page gains "Try: …" hints for both fields.
 
-
 ## 2026-10-11 — Phase 112 Themes A, B — ResourceRef and the revealResource engine
 
 [PR #823](https://github.com/bilo-io/midnite-studio/pull/823). [Phase 112](phases/phase-112-companion-deep-navigation.md)
@@ -1094,7 +1117,6 @@ FPS, RTS, ARPG and top-down crime as genre modules over the Theme G bases, with 
 
 - [x] FPS, RTS, ARPG, top-down crime starters, and vitest for the engine-free systems (`kit-genres.test.ts`, `compose.test.ts`).
 - [ ] The per-genre e2e smoke run waits for Theme O's replay runner (see `outstanding.md`).
-
 
 ## 2026-10-06 — Phase 104 Theme B — Primitives to mesh
 
@@ -5180,7 +5202,6 @@ auto-submit** in Theme F's transcript item belongs to Theme D/E's `autoSend` pat
 the transcript unsent, which is the phase's stated default, and `companionHandsFree` is read
 nowhere in it.
 
-
 ## 2026-09-08 — Phase 79 Themes C, H — the companion panel, the FAB's four looks and its Settings page
 
 [PR #270](https://github.com/bilo-io/midnite-studio/pull/270). Moves Phase 79 12/67 → 27/67
@@ -5250,7 +5271,6 @@ Loops shut that is the companion, directly on top of its send and mic buttons. H
 Loops panel's own answer) was rejected: watching it run listening → thinking → handoff → speaking
 is this theme's entire point, and hiding it would leave that visible only while the panel was
 closed. The input bar reserves the 56px corner instead.
-
 
 ## 2026-09-08 — Phase 79 Themes A, B — the companion's state, its words and its grounding
 
@@ -10452,7 +10472,6 @@ qualifier became Studio and the pitch broadened with it.
 - [x] **Docs + phase 33.** README/`CLAUDE.md`/`AGENTS.md`/`GEMINI.md` ledes broadened; the planned
       CLI binary and deep-link scheme become `midnite-studio` / `midnite-studio://`.
 
-
 ## 2026-08-30 — Phase 32 Themes A–D — The browser gets a real engine, tabs and groups
 
 Merged to `main` locally (this repo has no git remote, so no PR link). Phase 27 shipped browser
@@ -10480,7 +10499,6 @@ fills the body and pays that condition in the same change.
 - [x] **Theme F — Left-side Review Comments.** Added `leftSideLines` and per-side thread maps in `comment-anchors.ts`; enabled left-side deleted line comment affordances in `DiffCell` and `DiffView`; added `LEFT`/`RIGHT` line badges to thread headers.
 - [x] **Theme G — Commit Workbench Tab.** Added `commit` workbench tab kind, header `Open commit in tab` button, graph context menu verb, and full-width rendering in `workbench.tsx`.
 - [x] **Theme H — PR Image Diffs.** Added `baseSha` to `ForgePullDetailSchema`, `gh-cli.ts`, and `gh-parse.ts`; wired `baseSha` into `imageDiffSources` in `PrFileAccordion`.
-
 
 
 ## 2026-08-30 — Phase 25 Themes D–F — CodePreview line rework, blame gutter, FilterInput, find bar & Search settings
@@ -10512,9 +10530,7 @@ Landed on `main`. Phase 25 delivers git search everywhere (commit pickaxe, git g
 - [x] **D — A stash you can read.** Commit detail inspector integrates stash selectors with a stash badge and action buttons (apply, branch, drop) in the header, rendering the stash commit and diffs via `DiffView`.
 - [x] **E — Stash from the Changes view.** Changes panel header gains a Stash button; prompts for optional message with checkboxes for `--include-untracked` and `--keep-index`; disabled when there are no changes to stash.
 
-
 ## 2026-08-28 — Phase 30 Themes F, G — the activity indicator that never span, and a detector that can be wrong out loud
-
 
 Merged locally on `feature/p30-fg` — no PR link, no GitHub remote on this checkout. Phase 30 is
 now feature-complete — all seven themes (A–G) have landed; only the "Open, for a human" manual
@@ -12523,7 +12539,6 @@ landed**, rather than the one F was written against:
 - **A fixed epoch in a screenshot fixture ages.** The flyout's shot read "Measured 24366 hours
   ago", which is what `ranAt: 1_700_000_000_000` becomes three years later.
 
-
 ## 2026-08-26 — Phase 19 · Theme A — The nav rail becomes the app's table of contents
 
 Landed on `feature/phase-19-nav-shell` (squash-merged — this repository still has no remote, so
@@ -13283,7 +13298,6 @@ Unicode glyph is now a lucide icon, and motion is a two-keyframe vocabulary disa
 been declared with chords and menu items since Phase 9 finally have handlers. 304 tests green.
 **Not verified visually** — Electron cannot reach the macOS window server from the agent's shell,
 so the manual smoke and the screenshot are outstanding.
-
 
 ## 2026-08-25 — Sidebar: flush delimiters, collapsible sections, and a smoke run that works
 
@@ -15271,7 +15285,6 @@ role's queries are ever mounted" already held by construction. H.4: `memory-repo
 **Ad-hoc: knowledge view spinner** ([PR #427](https://github.com/bilo-io/midnite-studio/pull/427)) — The Knowledge view could sit on "Reading the knowledge graph…" indefinitely with nothing in `main.log`. Now every way the layout worker can end settles `runLayoutInWorker` (a 60 s stall watchdog, a clean exit that never posted `done`, a spawn failure), every `getGraph` stage is logged through the log seam, `fetchKnowledgeGraph` gives the renderer its own 90 s progress-reset silence budget so the query settles even if main never answers, the view offers Retry on an error and after 30 s on the spinner, and the layout cache's temp file carries a random suffix so two concurrent writes for one repo no longer collide. Measured on this repo's graph (15,199 nodes / 36,772 links) in the packaged app: ~10-12 s cold, <2 s on a cache hit.
 
 
-
 ---
 
 ### Ad-hoc: Knowledge view freeze on a dense graph, and a detail budget (Phase 89 follow-up)
@@ -15315,7 +15328,6 @@ the variant's ceiling.
 ### Phase 86 Theme D — The pane that shows a live terminal ([PR #387](https://github.com/bilo-io/midnite-studio/pull/387))
 
 **Theme D.** Selecting a closed session in the Sessions view still shows `transcript-view.tsx` (read-only, no WebGL). Selecting a **running** session now shows its real, interactive xterm on the right — one xterm per pty, via `revealSession(sessionId)` rather than mounting a second view of the same pty (Phases 45 and 84 not regressed). A new `sendInputToSession(id, text)` action in `terminal-store` lets the Sessions pane send input without needing a mounted `TerminalView` (which previously held the only reference to `sendInputRef`). `revealSession()` returns `false` and the row shows "lives in the ___ panel" for sessions in non-`main` surfaces (fab, kanban, board) rather than silently doing nothing. The pane tears down cleanly on view switch, repo switch and window close — asserted in e2e (real xterm, named in the spec's header per `docs/TESTING.md`).
-
 
 **Ad-hoc: resizable side panels everywhere** ([PR #449](https://github.com/bilo-io/midnite-studio/pull/449)) — The GitHub Projects Board view, the Database connections list, and Settings' inner page nav all gained resizable left/right side panels, plus a keyboard-propagation fix in `useResizable`.
 
@@ -15486,7 +15498,6 @@ centre shows the build's stats until Theme D's viewport lands. Tested in vitest:
 (bit-exact 16-bit, five filters, three literal refusals), resample/normals/LOD crack-freedom, the broker, the service and a
 real build into a temp folder, and the tab through the mock bridge. No viewport, noise, satellite or road handling yet.
 
-
 ### Phase 107 Themes A + B — Game repos, the Games tab and the sandboxed runner (2026-10-04)
 
 Media gains a **Games** tab. A game is its own git repo under `~/Midnite Games` (configurable in Settings ▸ Media ▸ Games,
@@ -15519,7 +15530,6 @@ Vendors exact-pinned Phaser 3 (`phaser@3.90.0`), three.js (`three@0.186.1`), Rap
 
 Satellite imagery can now be resampled into `build/drape.png` (RGBA8, 1K–8K power of two) through `TerrainAlignment` (offset X/Z, scale X/Z, rotation about centre). The viewport shaded mode applies the drape as an albedo texture, and an interactive Align toggle (`LuMove` / `LuLockOpen`) provides an onion-skin quad overlay over the height ramp with opacity control and `TransformControls` gizmos (move, rotate, scale) that commit to `terrain.json` on release. Roads can optionally follow the satellite alignment (`alignment.roads === 'satellite'`). A deterministic land-cover classifier (`shared/src/terrain/classify.ts`) evaluates ExG variance (trees vs grass), slope (rock), flat sub-sea-level elevation (water), and Lab k-means (roads, buildings, bare ground) to output `build/landcover.png` and `landcover.json`. An optional Ollama vision relabeling pass (`createVisionCall`) refines regional classification. The interactive class brush (`B` key / `LuBrush`, 1–64px radius, erase + 8 classes) rasterizes overrides to `overrides/landcover.png` and re-bakes. `generateSplatMap` outputs `build/splat.png` with 4-way material weights (grass, rock, dirt, snow with configurable `snowLineM`), blended via a custom Three.js shader using four CC0 tiled PBR materials (`resources/terrain-materials/{grass,rock,dirt,snow}`) with distance-based fading to drape albedo. Tested in vitest (alignment matrix/UV transforms, deterministic classifier, splat weight calculations, 8-bit grey PNG encoding, vision relabeling pass, build pipeline drape/landcover/splat stages, brush paint rasterization, viewport shader and UI controls).
 
-
 ### Phase 105 Themes G + H — Foliage, buildings and roads from the land cover and the roads mask (2026-10-06)
 
 The build gains four stages after the splat: `roads` keys the roads image (dominant saturated hue, luminance fallback), cleans the mask and turns it into a graph (Zhang–Suen skeleton, junction clustering, spur pruning, node merge, Catmull-Rom splines, width from the distance transform, path/street/avenue); `conform` levels the ground under each road (30 m moving average, `blendM` falloff, clamped cut/fill with at most ten warnings); `foliage` scatters trees and grass with a seeded Bridson pass per class, kept off water, roads, buildings and the cleaned roads mask; `buildings` traces footprints (open/close, Moore tracing, Douglas-Peucker, right-angle snap, min area), extrudes them over a seeded height range and flattens the ground beneath them after the roads, before foliage is re-seated on the final field. Outputs are data — `build/roads-mask.png`, `roads.json`, `foliage.json`, `buildings.json` — and the viewer meshes them itself (`terrain-layers.tsx`: one merged road geometry, vertex-coloured buildings, one `InstancedMesh` per asset per chunk with a 600 m draw distance). `media.terrain.roadKey` previews the keyed mask at 512² without a build and samples the panel's eyedropper in main. The panel gains Roads (swatch with Auto/detected colour, `LuPipette` eyedropper, debounced live tolerance preview, width scale), Foliage (densities, slope limit, seed, built-in asset toggles per class) and Buildings (height range, min area, scale by area). Build rasters now load with `flipY = false`, fixing a z-mirror of the drape, land cover, splat and road mask against the heightfield that dated from Theme E. The scatter's candidate test got cheaper (neighbour test before slope, tan(limit) instead of atan). Deferred: the **Add from Models…** foliage asset picker (`outstanding.md`). Tested in vitest across the shared kernels, the desktop build pipeline (G + H end-to-end through the overrides layer) and `roadKey`, the app panel sections and the layer data helpers.
@@ -15547,7 +15557,6 @@ PR #975. One `SiteVerdict` per browser tab, built in main and pushed as a `verdi
 ### Phase 120 Theme A — One finding, one ledger (2026-10-22)
 
 `SecurityFindingSchema`, typed evidence schemas, remediation schemas in `@midnite/studio-shared`, append-only monthly NDJSON ledger (`findings-<yyyy-mm>.ndjson`) under `<userData>/security` with directory 0700 / file 0600 permissions, `redactRecord` on write, deduplication by fingerprint for open findings, serialized through `withLock`. Feature package `@midnite/studio-feature-vanguard` with findings handlers (`securityFindingsList`, `securityFindingsSetStatus`, `securityFindingsAct`) and `securityFindingsChanged` event wired into desktop main.
-
 
 ### Phase 120 Theme B — The feature and the app (2026-10-23)
 
@@ -15588,7 +15597,6 @@ An HMAC-SHA256 integrity manager over all vault files (`vault-integrity.json` un
 ### Phase 122 Theme A — The sweep runner (2026-10-27)
 
 `packages/runtime/src/guard/` (`check.ts` defining `GuardCheck` with pure `run(inputs)` and stable `<checkId>:<subject>` fingerprints producing `SecurityFinding`s, `inputs.ts` resolving named inputs once per sweep with privacy switch gating, `sweeps-store.ts` managing `guard-sweeps.json` and `<userData>/security/sweeps/<id>.json`, `runner.ts` running eligible checks, recording into findings ledger with deduplication and `resolvedBy: 'sweep'`, and `scheduler.ts` scheduling main-side sweeps on Guard's `LoopSchedule` with persisted `nextWake` surviving reloads). Guard loop prompt composition attaches sweep findings JSON with untrusted provenance per Phase 121 A, and adds *Fix the sweep's findings* modifier beside *Report only*.
-
 
 ### Phase 124 Theme C — Coder and Creator become modules (2026-10-29)
 

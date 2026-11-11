@@ -177,6 +177,22 @@ export const SITE_APPS: readonly SiteApp[] = [
     ],
   },
   {
+    id: 'science',
+    name: 'Science',
+    section: 'suite',
+    accent: '#06b6d4',
+    spectrum: ['#0a4452', '#0e8aa3', '#4cc9e0', '#818cf8'],
+    tagline: 'Maths, physics, chemistry and biology notebooks',
+    like: 'Like Jupyter and Wolfram, with molecules built in',
+    vision:
+      'A notebook that does the maths: prose with LaTeX, live calculations with units and matrices, function plots and 3D molecules, saved as plain files on your disk, with starter notebooks so the first page is never blank.',
+    features: [
+      { label: 'Research', blurb: 'Notebooks with LaTeX, units and matrices' },
+      { label: 'Visualization', blurb: 'Function plots and 3D molecules' },
+      { label: 'Templates', blurb: 'Starter notebooks per discipline' },
+    ],
+  },
+  {
     id: 'mind',
     name: 'Mind',
     section: 'suite',

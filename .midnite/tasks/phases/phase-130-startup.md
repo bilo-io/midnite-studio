@@ -55,11 +55,11 @@ then **F** (after Phase 129 B + C), then **G**.
 
 **Theme C — Roadmap and milestones.** ✅ PR pending. A pure `roadmap-model.ts` (`wouldCreateCycle` over Theme B's `milestoneCycle`, `atRisk`, `overdue`, `timelineRange`, `positionInRange`), the roadmap view with a remembered List | Timeline switch, an add/edit sheet that greys out loop-making dependencies and shows main's `cycle` message, and an SVG timeline with today line and dependency arrows. The timeline's real-layout geometry stays for Theme G's browser spec, as the phase says.
 
-**Theme D — Costs and runway.** ◻ Cost and revenue lines with cadence and growth, up to three scenarios, a
+**Theme D — Costs and runway.** ✅ Cost and revenue lines with cadence and growth, up to three scenarios, a
 36-month projection, runway, zero-cash month and default-alive, with opening cash and actual burn read from
 the linked book when there is one.
 
-**Theme E — Vendors and contracts.** ◻ Vendors, contracts with term, renewal and notice dates, an attached
+**Theme E — Vendors and contracts.** ✅ Vendors, contracts with term, renewal and notice dates, an attached
 file kept in the app's folder, a deadlines list, and one linked cost line per priced contract.
 
 **Theme F — Invoicing posted to the books.** ◻ Customers and invoices (draft → issued → paid, or void), gapless
@@ -205,13 +205,13 @@ website listing.
 
 ### D — Costs and runway (L)
 
-- [ ] `PlanLineSchema = { id, kind: z.enum(['cost', 'revenue']), name (1–80), category: z.enum(['people', 'software', 'premises',
+- [x] `PlanLineSchema = { id, kind: z.enum(['cost', 'revenue']), name (1–80), category: z.enum(['people', 'software', 'premises',
   'marketing', 'professional', 'hardware', 'revenue', 'other']), minor: z.int().nonnegative(), cadence: z.enum(['monthly',
   'quarterly', 'yearly', 'one-off']), start: z.string().regex(/^\d{4}-\d{2}$/), end: same.optional(), growthBpPerMonth:
   z.int().min(-10000).max(10000).default(0), contractId: z.uuid().optional() }`
-- [ ] `RunwayScenarioSchema = { id, name (1–40), costMultiplierBp: z.int().min(0).max(100000).default(10000), revenueMultiplierBp:
+- [x] `RunwayScenarioSchema = { id, name (1–40), costMultiplierBp: z.int().min(0).max(100000).default(10000), revenueMultiplierBp:
   same, extraLines: PlanLineSchema[] }`; at most 3 scenarios; "Base" (multipliers 10000, no extras) always exists and cannot be removed
-- [ ] Net-new pure `main/runway.ts`: `projectRunway(input: { openingCashMinor: number; startMonth: 'YYYY-MM'; lines: PlanLine[];
+- [x] Net-new pure `main/runway.ts`: `projectRunway(input: { openingCashMinor: number; startMonth: 'YYYY-MM'; lines: PlanLine[];
   scenario: RunwayScenario; months: 12 | 24 | 36 }): RunwayProjection`
   - Per month: each line contributes when `start ≤ month ≤ end`; `quarterly`/`yearly` fall in the start month and every 3/12
     after; `one-off` only in `start`; growth compounds monthly from `start` with `percentOfMinor` rounding each month.
@@ -226,38 +226,38 @@ website listing.
   - Opening cash = the book's cash + bank balance as of today (overrides `company.openingCash`, shown as "from <book>").
   - "Actual burn" = mean monthly (expense − income) over the last 3 full months from the book, shown beside the modelled burn
     with the difference.
-- [ ] Runway view (`startup.runway`): lines table (add/edit/remove in a sheet), scenario tabs (Base + up to 2), horizon select
+- [x] Runway view (`startup.runway`): lines table (add/edit/remove in a sheet), scenario tabs (Base + up to 2), horizon select
   (12/24/36), headline cards (cash today, monthly burn, runway in months or "Beyond <horizon>", zero-cash month, Default
   alive / Default dead), and a cash line chart
   - Chart: inline SVG polyline (one series per scenario, the zero line marked); no chart dependency.
   - Empty: "Add your first cost" + **Add line**.
-- [ ] Tests: RTL `runway-view.test.tsx` (headline copy for `runwayMonths: null` → "Beyond 36 months"; scenario tab switches the
+- [x] Tests: RTL `runway-view.test.tsx` (headline copy for `runwayMonths: null` → "Beyond 36 months"; scenario tab switches the
   `projection` request; Base has no remove button)
 
 ### E — Vendors and contracts (M)
 
-- [ ] `VendorSchema = { id, name (1–120), category: PlanLineSchema's category enum, website: z.url().optional(), contact:
+- [x] `VendorSchema = { id, name (1–120), category: PlanLineSchema's category enum, website: z.url().optional(), contact:
   z.string().max(200).optional(), notes: z.string().max(2000).default('') }`
-- [ ] `ContractSchema = { id, title (1–120), counterparty: { kind: z.enum(['vendor', 'customer']), id: z.uuid() }, start:
+- [x] `ContractSchema = { id, title (1–120), counterparty: { kind: z.enum(['vendor', 'customer']), id: z.uuid() }, start:
   IsoDateSchema, end: IsoDateSchema.optional(), autoRenews: z.boolean().default(false), renewalTermMonths: z.int().min(1).max(60)
   .optional(), noticeDays: z.int().min(0).max(365).default(0), value: { minor: z.int().nonnegative(), cadence: PlanLine cadence
   }.optional(), file: { name: z.string().max(260), sha256: z.string().regex(/^[a-f0-9]{64}$/), ext: z.enum(['pdf', 'docx',
   'png', 'jpg']) }.optional() }`
-- [ ] Net-new pure `contract-dates.ts`: `currentTermEnd(c, today)` (rolls an auto-renewing contract forward by
+- [x] Net-new pure `contract-dates.ts`: `currentTermEnd(c, today)` (rolls an auto-renewing contract forward by
   `renewalTermMonths` until ≥ today), `noticeDeadline(c, today) = currentTermEnd − noticeDays`, `contractStatus(c, today):
   'active' | 'notice-due' (deadline within 30 days) | 'ending' (non-renewing, end within 30 days) | 'ended'`
   - Verified by `contract-dates.test.ts`: a 12-month auto-renewing contract from 2025-01-01 with 30 days' notice on 2026-11-11
     → term end 2026-12-31, deadline 2026-12-01, `notice-due`; a non-renewing one past its end → `ended`.
-- [ ] Attachments: `attachContractFile` opens the host-injected `pickContractFile()` (pdf/docx/png/jpg, ≤ 25 MB), copies it to
+- [x] Attachments: `attachContractFile` opens the host-injected `pickContractFile()` (pdf/docx/png/jpg, ≤ 25 MB), copies it to
   `<userData>/startup/contracts/<sha256>.<ext>`; `openContractFile` resolves the stored name through `confineToRoot`
   ([`fs-jail.ts`](../../../packages/runtime/src/fs-jail.ts)) and calls the injected `openPath`
   - The renderer never sends or receives a path; replacing a file leaves the old copy only if another contract references its hash.
-- [ ] Priced contracts drive the runway: saving a contract with `value` creates or updates exactly one `PlanLine` with
+- [x] Priced contracts drive the runway: saving a contract with `value` creates or updates exactly one `PlanLine` with
   `contractId` (kind `cost` for a vendor, `revenue` for a customer, `start` = contract start month, `end` = term end month
   unless `autoRenews`); removing the contract asks, through the frame's `confirm`, whether to remove that line too
-- [ ] Vendors view (`startup.vendors`): **Vendors | Contracts** tabs; an "Action needed" strip at the top listing `notice-due` and
+- [x] Vendors view (`startup.vendors`): **Vendors | Contracts** tabs; an "Action needed" strip at the top listing `notice-due` and
   `ending` contracts with their dates; contract sheet with counterparty picker, dates, value, file attach/open
-- [ ] Tests: `contracts.test.ts` in main (attach copies and hashes; open refuses a stored name that escapes the folder; contract
+- [x] Tests: `contracts.test.ts` in main (attach copies and hashes; open refuses a stored name that escapes the folder; contract
   save creates one linked line and a second save updates it); RTL `vendors-view.test.tsx` (Action needed lists a
   `notice-due` contract; remove-vendor `in-use` copy)
 

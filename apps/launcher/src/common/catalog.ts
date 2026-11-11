@@ -355,9 +355,9 @@ const MODULES = {
     tagline: 'Maths, physics, chemistry, biology and 3D visualization',
     home: view('landing'),
     features: [
-      { id: 'research', label: 'Research', blurb: 'Maths, physics, chemistry and biology tabs', target: view('landing') },
-      { id: 'visualization', label: 'Visualization', blurb: '3D visualisations and embedded artifacts', target: view('landing') },
-      { id: 'templates', label: 'Templates', blurb: 'Reusable scientific notebook components', target: view('landing') },
+      { id: 'research', label: 'Research', blurb: 'Notebooks with LaTeX, units and matrices', target: view('landing') },
+      { id: 'visualization', label: 'Visualization', blurb: 'Function plots and 3D molecules', target: view('landing') },
+      { id: 'templates', label: 'Templates', blurb: 'Starter notebooks per discipline', target: view('landing') },
     ],
   },
   simulator: {
@@ -523,7 +523,6 @@ const RAW_APPS: readonly RawApp[] = [
     home: view('landing'),
     modules: [MODULES.science, MODULES.simulator],
     runsIn: 'studio',
-    comingSoon: true,
   },
   {
     id: 'vanguard',

@@ -1,5 +1,6 @@
 import type { ScienceCell } from '@midnite/studio-shared';
 
+import { samplePlot, type PlotSamples } from '../plot/sample';
 import { compile, math, parse } from './math';
 
 /** One compute cell's answer: the formatted value (and its TeX), or the line that failed. */
@@ -11,13 +12,25 @@ export type CellResult = { ok: true; text: string; tex?: string } | { ok: false;
  * line fails its cell only; later cells still run.
  */
 export function evaluateNotebook(cells: readonly ScienceCell[]): Record<string, CellResult> {
+  return runNotebook(cells).results;
+}
+
+/** Everything one worker run answers with: compute results, plus each plot cell sampled against the final scope (Theme E). */
+export type NotebookRun = { results: Record<string, CellResult>; samples: Record<string, PlotSamples> };
+
+/** `evaluateNotebook` plus the plot cells' samples; a plot reads the variables every compute cell defined. */
+export function runNotebook(cells: readonly ScienceCell[]): NotebookRun {
   const scope = new Map<string, unknown>();
   const results: Record<string, CellResult> = {};
   for (const cell of cells) {
     if (cell.kind !== 'compute') continue;
     results[cell.id] = evaluateCell(cell.source, scope);
   }
-  return results;
+  const samples: Record<string, PlotSamples> = {};
+  for (const cell of cells) {
+    if (cell.kind === 'plot') samples[cell.id] = samplePlot(cell, scope);
+  }
+  return { results, samples };
 }
 
 function evaluateCell(source: string, scope: Map<string, unknown>): CellResult {

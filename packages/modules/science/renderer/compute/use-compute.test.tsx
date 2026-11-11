@@ -72,3 +72,17 @@ describe('useCompute', () => {
     expect(FakeWorker.all[0]!.posts).toHaveLength(1);
   });
 });
+
+describe('useCompute samples', () => {
+  it('carries the worker samples and posts for an edit to a plot cell', () => {
+    const plot = (expr: string): ScienceCell => ({ kind: 'plot', id: 'c-pppppppp', series: [{ expr }], x: { min: 0, max: 1 }, y: 'auto' });
+    const { result, rerender } = renderHook(({ cells }) => useCompute(cells), { initialProps: { cells: [plot('x')] } });
+    act(() => void vi.advanceTimersByTime(300));
+    const w = FakeWorker.all[0]!;
+    act(() => w.onmessage?.({ data: { runId: 1, results: {}, samples: { 'c-pppppppp': { xs: [0], series: [{ label: 'x', ys: [0] }] } } } }));
+    expect(result.current.samples['c-pppppppp']).toBeDefined();
+    rerender({ cells: [plot('2*x')] });
+    act(() => void vi.advanceTimersByTime(300));
+    expect(w.posts).toHaveLength(2);
+  });
+});

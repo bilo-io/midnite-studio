@@ -5,9 +5,12 @@ import { LuArrowDown, LuArrowUp, LuPlus, LuTrash2 } from 'react-icons/lu';
 import { bridge, noBridge } from '@midnite/studio-frame';
 import type { ScienceCell, ScienceNotebook } from '@midnite/studio-shared';
 
+import type { PlotSamples } from '../plot/sample';
 import { blankCell, createNotebookDraft, moveCell, type CellKind } from '../notebook-draft';
 import { useCompute } from '../compute/compute-worker-factory';
 import { ComputeResult } from './compute-cell';
+import { MoleculeCellView } from './molecule-cell';
+import { PlotCellView } from './plot-cell';
 import { MarkdownCell } from './markdown-cell';
 
 const KINDS: { kind: CellKind; label: string }[] = [
@@ -104,7 +107,7 @@ export function NotebookEditor({ notebook, onSaved }: Props) {
                 <LuTrash2 aria-hidden />
               </button>
             </div>
-            <CellBody cell={cell} onChange={(next) => setCell(cell.id, next)} />
+            <CellBody cell={cell} samples={compute.samples[cell.id]} onChange={(next) => setCell(cell.id, next)} />
             {cell.kind === 'compute' ? <ComputeResult result={compute.results[cell.id]} pending={compute.pending} /> : null}
           </section>
         ))}
@@ -142,8 +145,8 @@ export function NotebookEditor({ notebook, onSaved }: Props) {
   );
 }
 
-/** The body of one cell. The compute cell's result row is drawn by the parent; plot and molecule cells get their real bodies in Themes E and F. */
-function CellBody({ cell, onChange }: { cell: ScienceCell; onChange: (cell: ScienceCell) => void }) {
+/** The body of one cell. The compute cell's result row is drawn by the parent; each kind has its own body view. */
+function CellBody({ cell, samples, onChange }: { cell: ScienceCell; samples: PlotSamples | undefined; onChange: (cell: ScienceCell) => void }) {
   switch (cell.kind) {
     case 'markdown':
       return <MarkdownCell source={cell.source} onChange={(source) => onChange({ ...cell, source })} />;
@@ -159,8 +162,8 @@ function CellBody({ cell, onChange }: { cell: ScienceCell; onChange: (cell: Scie
         />
       );
     case 'plot':
-      return <p className="p-2 text-sm opacity-60">Plot cell: {cell.series.map((s) => s.expr).join(', ')}</p>;
+      return <PlotCellView cell={cell} samples={samples} onChange={onChange} />;
     case 'molecule':
-      return <p className="p-2 text-sm opacity-60">Molecule cell{cell.name ? `: ${cell.name}` : ''}</p>;
+      return <MoleculeCellView cell={cell} onChange={onChange} />;
   }
 }
