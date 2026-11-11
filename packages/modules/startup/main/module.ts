@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { defineFeatureMain, type IpcContextElectron } from '@midnite/studio-runtime';
 import { CHANNELS, EVENT_CHANNELS, schemas, type StartupResult } from '@midnite/studio-shared';
 
+import type { ContractFilePort } from './contract-files';
 import { handleStartupRequest } from './service';
 import { openWorkspaceStore } from './workspace-store';
 
@@ -12,7 +13,7 @@ export type StartupElectron = IpcContextElectron & {
   userData: string;
   /** Where a warning goes; dropped when absent. */
   warn?: (message: string) => void;
-};
+} & Partial<ContractFilePort>;
 
 /** What the host hands the Startup module. */
 export type StartupMainServices = { electron: StartupElectron; now?: () => number };
@@ -37,7 +38,11 @@ export const startupModuleMain = defineFeatureMain<StartupMainServices>({
     ctx.ipc.handle(
       CHANNELS.startup,
       schemas.StartupOpRequest,
-      async (request) => handleStartupRequest(await store, request),
+      async (request) =>
+        handleStartupRequest(await store, request, {
+          contractsDir: join(electron.userData, 'startup', 'contracts'),
+          ...(electron.pickContractFile && electron.openPath ? { files: { pickContractFile: electron.pickContractFile, openPath: electron.openPath } } : {}),
+        }),
       (issue) => invalid(issue),
     );
   },

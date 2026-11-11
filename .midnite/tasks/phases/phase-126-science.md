@@ -65,8 +65,7 @@ notebook is never blank. Planned 2026-11-11; first slice is **A + B**, then **C 
 **Theme F — Molecule viewer cells.** ◻ XYZ, PDB and MOL/SDF parsers, bond inference on a spatial grid, an
 instanced ball-and-stick R3F view with CPK colours, imported through a native picker capped at 10 MB.
 
-**Theme G — Templates.** ◻ Eight built-in notebooks across maths, physics, chemistry and biology on a
-Templates view; "Use template" creates a copy.
+**Theme G — Templates.** ✅ [PR #1147](https://github.com/bilo-io/midnite-studio/pull/1147) Seven built-in notebooks across maths, physics, chemistry and biology (`SCIENCE_TEMPLATES`; the eighth, Caffeine, arrives with Theme F's molecule fixture), each asserted to parse with `ScienceCellSchema` and evaluate without error. The Templates view is a grid of cards filtered by the same discipline chips as the notebook list; "Use template" creates a copy with fresh cell ids, selects it and switches to Notebooks.
 
 **Theme H — Launch: catalog, website, docs.** ◻ `comingSoon` dropped from the Science tile (Simulator keeps
 its own), the website lists Science, `docs/APPS.md` records the app.
@@ -409,7 +408,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
 
 ### G — Templates (S)
 
-- [ ] **G.1** Built-in templates, `renderer/templates/index.ts` (net-new).
+- [x] **G.1** Built-in templates, `renderer/templates/index.ts` (net-new).
   - `SCIENCE_TEMPLATES: readonly { id: string; title: string; discipline: ScienceDiscipline; blurb: string;
     cells: ScienceCell[] }[]` — eight entries: **Function explorer** (maths), **Linear algebra basics**
     (maths), **Kinematics** (physics: `v = u + a t` etc. with units), **Projectile range plot** (physics),
@@ -418,7 +417,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     of `K / (1 + ((K - N0)/N0) * e^(-r x))`).
   - Each template's cells parse with `ScienceCellSchema` and every compute cell evaluates with no error —
     asserted in `renderer/templates/templates.test.ts`, which runs `evaluateNotebook` over each.
-- [ ] **G.2** Templates view, `renderer/views/templates-view.tsx` (net-new).
+- [x] **G.2** Templates view, `renderer/views/templates-view.tsx` (net-new).
   - A grid of cards (title, discipline chip, blurb), filtered by the same discipline chips as C.1; **Use
     template** calls `science.create({ title, discipline, cells })` with fresh cell ids and then
     `onView('notebooks')` with the new notebook selected. **New notebook** in C.1 creates a blank notebook

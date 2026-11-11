@@ -16,7 +16,7 @@ export function SciencePane({ view, onView }: { view: string; onView: (view: str
   return (
     <QueryClientProvider client={client}>
       <FrameChromeProvider chrome={SCIENCE_CHROME}>
-        {view === 'templates' ? <TemplatesView /> : <NotebooksView onView={onView} />}
+        {view === 'templates' ? <TemplatesView onView={onView} /> : <NotebooksView onView={onView} />}
         <ScienceDialogHost />
       </FrameChromeProvider>
     </QueryClientProvider>
