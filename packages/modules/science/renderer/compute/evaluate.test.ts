@@ -12,7 +12,8 @@ describe('evaluateNotebook', () => {
     expect(one('a = 3\nb = a^2')).toMatchObject({ ok: true, text: '9' });
   });
   it('converts units', () => {
-    expect(one('5 km/h to m/s')).toMatchObject({ ok: true, text: '1.3888888889 m / s' });
+    // precision 10 is ten significant digits.
+    expect(one('5 km/h to m/s')).toMatchObject({ ok: true, text: '1.388888889 m / s' });
   });
   it('does linear algebra and complex numbers', () => {
     expect(one('det([1,2;3,4])')).toMatchObject({ ok: true, text: '-2' });
@@ -20,9 +21,10 @@ describe('evaluateNotebook', () => {
   });
   it('keeps simplify and derivative', () => {
     expect(one("derivative('x^2', 'x')")).toMatchObject({ ok: true, text: '2 * x' });
+    expect(one("simplify('2 x + x')")).toMatchObject({ ok: true, text: '3 * x' });
   });
   it('disables the functions that reach JavaScript', () => {
-    for (const src of ['import({}, {})', 'evaluate("1+1")', 'parse("1")', 'compile("1")', 'createUnit("x")']) {
+    for (const src of ['import({}, {})', 'evaluate("1+1")', 'parse("1")', 'compile("1")', 'createUnit("x")', 'f = import', 'g(x) = evaluate']) {
       expect(one(src)).toMatchObject({ ok: false, message: expect.stringMatching(/disabled/) });
     }
   });
