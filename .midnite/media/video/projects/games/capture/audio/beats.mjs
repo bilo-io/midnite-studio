@@ -34,7 +34,7 @@ const bmin = +opt('bpm-min', 70), bmax = +opt('bpm-max', 180);
 let best = null; const scores = [];
 for (let bpm = bmin; bpm <= bmax; bpm += 0.1) {
   const lag = 6000 / bpm; let s = 0, c = 0;
-  for (let f = 0; f + lag * 4 < N; f += 1) { const i1 = Math.round(f + lag), i2 = Math.round(f + 2 * lag), i4 = Math.round(f + 4 * lag); s += on[f] * (on[i1] + 0.5 * on[i2] + 0.25 * on[i4]); c++; }
+  for (let f = 0; Math.round(f + lag * 4) < N; f += 1) { const i1 = Math.round(f + lag), i2 = Math.round(f + 2 * lag), i4 = Math.round(f + 4 * lag); s += on[f] * (on[i1] + 0.5 * on[i2] + 0.25 * on[i4]); c++; }
   if (!c) continue;
   s /= c;
   const prior = Math.exp(-0.5 * (Math.log2(bpm / 115) / 0.9) ** 2);
