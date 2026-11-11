@@ -8,8 +8,8 @@ import { APP_MODULES, MODULE_HOST_IDS, RETIRED_APP_ALIASES, RETIRED_APP_IDS } fr
 const vocab = { views: VIEW_IDS, tabs: MEDIA_TABS, pages: SETTINGS_PAGE_IDS };
 
 describe('midnite:// links', () => {
-  it('names exactly the module hosts bar science, and no retired app', () => {
-    expect([...MIDNITE_APP_IDS].sort()).toEqual(MODULE_HOST_IDS.filter((id) => id !== 'science').sort());
+  it('names exactly the module hosts, and no retired app', () => {
+    expect([...MIDNITE_APP_IDS].sort()).toEqual([...MODULE_HOST_IDS].sort());
     for (const retired of RETIRED_APP_IDS) expect(MIDNITE_APP_IDS as readonly string[]).not.toContain(retired);
   });
 

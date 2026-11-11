@@ -48,6 +48,7 @@ import type {
   SketchfabSearchResult,
   SketchfabStatusResult,
 } from '../media-animation';
+import type { ScienceDiscipline, ScienceNotebook, ScienceNotebookId, ScienceNotebookSummary, ScienceCell } from '../science';
 import type { SfxGenerateRequest, SfxGenerateResult, SfxProgressEvent, SfxStatus } from '../media-sfx';
 import type { PerfMark } from '../perf';
 import type * as S from './schemas';
@@ -112,6 +113,17 @@ export type SfxBridge = {
   generate: (req: SfxGenerateRequest) => Promise<GitOpResult<SfxGenerateResult>>;
   cancelGenerate: (req: { generationId: string }) => Promise<GitOpResult>;
   onProgress: (handler: (event: SfxProgressEvent) => void) => Unsubscribe;
+};
+
+/** `science`'s `op` union (Science notebooks, Phase 126), one typed method per op. */
+export type ScienceBridge = {
+  list: () => Promise<GitOpResult<{ notebooks: ScienceNotebookSummary[]; quarantined: number }>>;
+  read: (req: { id: ScienceNotebookId }) => Promise<GitOpResult<{ notebook: ScienceNotebook }>>;
+  create: (req: { title: string; discipline: ScienceDiscipline; cells: ScienceCell[] }) => Promise<GitOpResult<{ notebook: ScienceNotebook }>>;
+  write: (req: { notebook: ScienceNotebook }) => Promise<GitOpResult<{ updatedAt: string }>>;
+  rename: (req: { id: ScienceNotebookId; title: string }) => Promise<GitOpResult>;
+  remove: (req: { id: ScienceNotebookId }) => Promise<GitOpResult>;
+  importStructure: () => Promise<GitOpResult<{ name: string; format: 'xyz' | 'pdb' | 'mol'; text: string } | { cancelled: true }>>;
 };
 
 /** `mediaAnimation`'s `op` union (Media ▸ Animations, Phase 125), one typed method per op. */
@@ -1081,6 +1093,9 @@ export type MidniteStudioBridge = {
     set: (req: SuitePrefsSetRequest) => Promise<SuitePrefsSetResponse>;
     onChanged: (handler: (snapshot: SuitePrefsSnapshot) => void) => Unsubscribe;
   };
+
+  /** Science notebooks (Phase 126). Optional, like `suiteLink`: only the Science host carries it (Decision 4). */
+  science?: ScienceBridge;
 
   /**
    * Where a launcher link asked this host to land (module and/or view). `take` hands over, once, what

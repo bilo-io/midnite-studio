@@ -52,16 +52,11 @@ host; this phase makes it an app you can install: notebooks of prose, LaTeX, liv
 molecules, saved as plain JSON under the app's own data directory, with a template shelf so the first
 notebook is never blank. Planned 2026-11-11; first slice is **A + B**, then **C + D**, **E + G**, **F**, and **H** last.
 
-**Theme A — App and module scaffold.** ◻ `apps/science` and `packages/modules/science` from the Mind host
-and the module template, every id list that names an app or module extended, the bundle in the release
-matrix, a rail with an empty Notebooks view. Still "Coming soon" on the launcher.
+**Theme A — App and module scaffold.** ✅ [PR #1136](https://github.com/bilo-io/midnite-studio/pull/1136) `apps/science` and `packages/modules/science` from the Mind host and the module template; `science` is in every id list (`MidniteAppId`, placement, `STUDIO_MODULES`, `NODE_PROJECTS`) and the release matrix carries the bundle with its icon. The pane is the empty notebooks state plus a templates placeholder; the main half registers no channels yet and the bridge is `report` only (B adds `science`). The template's zod pin is fixed. Surprises: `scripts/typecheck-node.test.mjs` and `gate-projects-check.test.mjs` pin the `NODE_PROJECTS` count and list, so each new module bumps them. Landed with CI billing-locked, on the local affected-subset gate.
 
-**Theme B — Notebook store and IPC.** ◻ `ScienceNotebookSchema` (versioned) in a net-new
-`shared/src/science.ts`, one `science` channel with an `op` union, and a generic `createJsonDirStore` in the runtime (one 0600
-JSON file per item, atomic writes, corrupt-file quarantine, an id jail) that 127 and 128 reuse.
+**Theme B — Notebook store and IPC.** ✅ [PR #1138](https://github.com/bilo-io/midnite-studio/pull/1138) `ScienceNotebookSchema` (versioned, `migrateScienceNotebook`) in `shared/src/science.ts`, one `science` channel with an `op` union, `ScienceBridge` (optional `science?` on `MidniteStudioBridge`), a generic `createJsonDirStore` in the runtime (atomic 0600 files, quarantine of bad or misnamed files, id jail) that 127 and 128 reuse, and the module's `createNotebookStore` (remove goes to the OS Trash) registered through `registerScienceOn`. `importStructure` answers "Not available yet" until Theme F. Landed with CI billing-locked, on the local affected-subset gate; `runtime:test`'s egress-registry case fails on `main` (sketchfab.ts) independently of this work.
 
-**Theme C — Notebook editor: text and maths cells.** ◻ The notebook list and editor, markdown cells with
-`$…$`/`$$…$$` LaTeX through KaTeX, add/move/delete cells, debounced autosave.
+**Theme C — Notebook editor: text and maths cells.** ✅ [PR #1140](https://github.com/bilo-io/midnite-studio/pull/1140) The notebook list (discipline filter, rename, Trash-confirmed delete, error banner, quarantine line, last-open notebook persisted) and the editor (title via `rename`, add/move/delete cells, a draft store that autosaves 600 ms after the last edit and flushes on unmount, "Not saved" on a failed write), with markdown cells rendered through react-markdown, remark-math and rehype-katex (`throwOnError: false`). Compute cells are a plain textarea and plot/molecule cells a one-line placeholder until D, E and F. Landed with CI billing-locked, on the local affected-subset gate.
 
 **Theme D — Compute cells in a worker.** ◻ mathjs in an inline Web Worker: top-down evaluation in one
 scope per run, units/matrices/complex/derivatives, a 2 s budget that terminates and respawns the worker,
@@ -92,7 +87,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
 
 ### A — App and module scaffold (L)
 
-- [ ] **A.1** Create `packages/modules/science/` from the template.
+- [x] **A.1** Create `packages/modules/science/` from the template.
   - Copy [`packages/modules/_template/`](../../../packages/modules/_template/) to `packages/modules/science/`
     (net-new), drop `.tmpl`, replace `__ID__` → `science`, `__LABEL__` → `Science`.
   - **Fix the template's stale zod pin while copying:** `package.json` takes `"zod": "^4.0.0"` (the repo
@@ -105,7 +100,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
   - `moon.yml`: `id: 'module-science'`, tags `layer-module`, `app-science`, `app-studio`.
   - Verified by `packages/modules/science/manifest.test.ts` (from the template): `scienceManifest.module ===
     'science'` and `MODULE_IDS.includes(scienceManifest.module)`.
-- [ ] **A.2** The module's renderer entry: nav group, pane and app manifest.
+- [x] **A.2** The module's renderer entry: nav group, pane and app manifest.
   - `renderer/science-nav.ts` (net-new): `export const SCIENCE_NAV_GROUP: NavGroup = { id: 'science', label:
     scienceManifest.label, icon: PiFlaskFill, accent: scienceManifest.accent, views: [{ id: 'notebooks',
     label: 'Notebooks', icon: LuNotebookText }, { id: 'templates', label: 'Templates', icon: LuLayoutTemplate }] }`
@@ -124,7 +119,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     until B) and **Browse templates** (`onView('templates')`).
   - `renderer/index.ts` exports `SCIENCE_NAV_GROUP`, `SCIENCE_APP`, `SciencePane`, `SCIENCE_CHROME`,
     `scienceManifest`.
-- [ ] **A.3** The module's main half and bridge.
+- [x] **A.3** The module's main half and bridge.
   - `main/module.ts` (net-new): `export type ScienceModuleServices = { userData: string; showOpenDialog?:
     ShowOpenDialog }` and `export const scienceModuleMain = defineFeatureMain<ScienceModuleServices>({ feature:
     'science', channels: [], register() {} })`. B.4 fills `channels: [CHANNELS.science]` and
@@ -142,7 +137,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     `@midnite/studio-module-science/bridge` → `./packages/modules/science/main/bridge.ts`.
   - Verified by `main/bridge.test.ts`: the bridge's top-level keys are exactly `['report']` after A and
     `['report', 'science']` after B (the allow-list rule `mind/main/bridge.test.ts` holds).
-- [ ] **A.4** `apps/science/` from `apps/mind/`.
+- [x] **A.4** `apps/science/` from `apps/mind/`.
   - Net-new files, each copied from its `apps/mind` twin and renamed: `package.json`
     (`"name": "@midnite/app-science"`, `"version"` equal to `apps/money/package.json`'s — `scripts/version-check.mjs`
     holds every `apps/*` in lockstep), `moon.yml` (`id: 'app-science'`, tags `layer-app`, `app-science`,
@@ -179,7 +174,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     registered channels equal `scienceModuleMain.channels`), and `apps/science/src/host-app.test.tsx`
     (renders the rail with the "Science" group label and both rows; `navConfigProblems(SCIENCE_HOST_NAV)`
     is `[]`).
-- [ ] **A.5** Extend every id list that names an app or a module (the board's wiring contract).
+- [x] **A.5** Extend every id list that names an app or a module (the board's wiring contract).
   - [`shared/src/midnite-link.ts`](../../../packages/shared/src/midnite-link.ts): `MidniteAppId =
     ModuleHostId` (drop `Exclude<…, 'science'>`), append `'science'` to `MIDNITE_APP_IDS`; update
     [`midnite-link.test.ts`](../../../packages/shared/src/midnite-link.test.ts)'s first case to
@@ -199,7 +194,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
 
 ### B — Notebook store and IPC (M)
 
-- [ ] **B.1** Schemas in net-new `packages/shared/src/science.ts` (zod only, exported from the barrel).
+- [x] **B.1** Schemas in net-new `packages/shared/src/science.ts` (zod only, exported from the barrel).
   - `ScienceNotebookIdSchema = z.string().regex(/^nb-[a-z0-9]{12}$/)` — the id is the file name, so the
     regex is the path jail.
   - `ScienceDisciplineSchema = z.enum(['maths', 'physics', 'chemistry', 'biology', 'general'])`.
@@ -220,7 +215,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     { op:'rename', id, title }, { op:'remove', id }, { op:'importStructure' } ])` (`importStructure` is F's).
   - Verified by net-new `packages/shared/src/science.test.ts`: a valid notebook round-trips; `id: '../x'`
     fails; a plot with `x.max <= x.min` fails; 501 cells fail; `migrateScienceNotebook({ version: 2 })` is `null`.
-- [ ] **B.2** Channel, bridge type, schema registration.
+- [x] **B.2** Channel, bridge type, schema registration.
   - [`shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts): `science: 'mstudio:science:notebook'`.
   - [`shared/src/ipc/bridge.ts`](../../../packages/shared/src/ipc/bridge.ts): `export type ScienceBridge =
     { list(): Promise<GitOpResult<{ notebooks: ScienceNotebookSummary[]; quarantined: number }>>; read(req: { id }):
@@ -231,7 +226,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     and `science?: ScienceBridge` on `MidniteStudioBridge` — **optional**, like `suiteLink?`, because only
     the Science host carries it and Studio's preload must not have to (Decision 4).
   - `createScienceBridge` fills `science` with one `call(CHANNELS.science, { op, … })` per method.
-- [ ] **B.3** A generic JSON-directory store in the runtime, `packages/runtime/src/json-dir-store.ts` (net-new).
+- [x] **B.3** A generic JSON-directory store in the runtime, `packages/runtime/src/json-dir-store.ts` (net-new).
   - `export function createJsonDirStore<T extends { id: string; updatedAt: string }>(opts: { dir: string;
     prefix: string; idPattern: RegExp; parse: (raw: unknown) => T | null }): JsonDirStore<T>` with
     `list(): Promise<{ items: T[]; quarantined: number }>`, `read(id): Promise<T | null>`,
@@ -251,7 +246,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
   - Verified by net-new `packages/runtime/src/json-dir-store.test.ts` (tmp dir): write → list → read;
     a garbage file is quarantined (`quarantined === 1`, the `.corrupt-*` file exists); `pathOf('../x')`
     throws; written files are mode `0o600`.
-- [ ] **B.3b** The notebook store over it, `packages/modules/science/main/notebook-store.ts` (net-new).
+- [x] **B.3b** The notebook store over it, `packages/modules/science/main/notebook-store.ts` (net-new).
   - `export function createNotebookStore(dir: string, trashItem: (path: string) => Promise<void>): NotebookStore`
     with `list()`, `read(id)`, `create(input)`, `write(notebook)`, `rename(id, title)`, `remove(id)`, each
     returning `GitOpResult`; `dir` is `<userData>/notebooks`. Built on `createJsonDirStore({ dir, prefix:
@@ -262,7 +257,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
   - `remove` moves the file to the OS Trash through the injected `trashItem` (the host passes
     `ctx.trashItem`), never `unlink`: a deleted notebook is recoverable from Finder.
   - Filesystem errors become `{ ok: false, kind: 'error', message }`; nothing throws across the channel.
-- [ ] **B.4** Registration, `packages/modules/science/main/context.ts` (net-new).
+- [x] **B.4** Registration, `packages/modules/science/main/context.ts` (net-new).
   - `export type ShowOpenDialog = (opts: { properties: ['openFile']; filters: { name: string; extensions:
     string[] }[] }) => Promise<{ canceled: boolean; filePaths: string[] }>` (Electron's shape, so the host
     passes `(o) => dialog.showOpenDialog(win, o)` without importing it here).
@@ -277,7 +272,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
 
 ### C — Notebook editor: text and maths cells (M)
 
-- [ ] **C.1** Notebook list (`renderer/views/notebooks-view.tsx`, net-new).
+- [x] **C.1** Notebook list (`renderer/views/notebooks-view.tsx`, net-new).
   - Left column (280 px): **New notebook** button, a discipline filter (`All` + the five disciplines as
     chips), then rows of title + discipline chip + relative `updatedAt`. The selected row opens the
     editor on the right; with none selected the right side shows A.2's empty state (or "Select a
@@ -292,7 +287,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     v: 1, lastNotebookId: null }, … })` (`renderer/science-ui-store.ts`, net-new); its `state(set, initial)`
     replaces an `initial` whose `v !== 1` with the defaults — `createPersistedStore` has no `migrate`, so the
     version check lives there. A stored id that no longer lists falls back to none.
-- [ ] **C.2** The editor (`renderer/views/notebook-editor.tsx`, net-new).
+- [x] **C.2** The editor (`renderer/views/notebook-editor.tsx`, net-new).
   - Title input at the top (commits on blur/Enter through `rename`), then the cell list, then an
     **Add cell** split button (Text · Compute · Plot · Molecule). Each cell has a hover toolbar: move up,
     move down, delete (no confirm — undo is out of scope, see Not in this phase; delete is one cell in an
@@ -301,7 +296,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     edit marks it dirty and schedules a `write` 600 ms after the last keystroke; switching notebooks or
     unmounting flushes immediately. A `write` failure shows "Not saved — <message>" in the editor header and
     keeps the draft dirty.
-- [ ] **C.3** Markdown cells with LaTeX.
+- [x] **C.3** Markdown cells with LaTeX.
   - Two modes: **edit** (a `<textarea>` with monospace font, auto-height) and **rendered**
     (`react-markdown` + `remark-gfm` + `remark-math` + `rehype-katex`, KaTeX CSS imported once in
     `science-pane.tsx`). Double-click rendered → edit; **Shift+Enter** in the textarea → rendered. A cell-local
