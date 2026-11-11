@@ -66,8 +66,7 @@ notebook is never blank. Planned 2026-11-11; first slice is **A + B**, then **C 
 
 **Theme G — Templates.** ✅ [PR #1147](https://github.com/bilo-io/midnite-studio/pull/1147) Seven built-in notebooks across maths, physics, chemistry and biology (`SCIENCE_TEMPLATES`; the eighth, Caffeine, arrives with Theme F's molecule fixture), each asserted to parse with `ScienceCellSchema` and evaluate without error. The Templates view is a grid of cards filtered by the same discipline chips as the notebook list; "Use template" creates a copy with fresh cell ids, selects it and switches to Notebooks.
 
-**Theme H — Launch: catalog, website, docs.** ◻ `comingSoon` dropped from the Science tile (Simulator keeps
-its own), the website lists Science, `docs/APPS.md` records the app.
+**Theme H — Launch: catalog, website, docs.** ✅ [PR #1150](https://github.com/bilo-io/midnite-studio/pull/1150) `comingSoon` dropped from the Science tile (Simulator keeps its own), the launcher blurbs now describe what shipped, the website lists Science with its tile image, and `docs/APPS.md` records the app.
 
 ## Build order
 
@@ -426,7 +425,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
 
 ### H — Launch: catalog, website, docs (S)
 
-- [ ] **H.1** Launcher catalog.
+- [x] **H.1** Launcher catalog.
   - [`catalog.ts`](../../../apps/launcher/src/common/catalog.ts): delete `comingSoon: true` from the
     `science` entry in `RAW_APPS`; `MODULES.simulator.comingSoon` stays `true` until Phase 127. Update the
     `science` module's feature blurbs to what shipped: Research → "Notebooks with LaTeX, units and
@@ -435,11 +434,11 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     is `undefined`; `module('science', 'simulator').comingSoon` stays `true`.
   - [`app.test.tsx`](../../../apps/launcher/src/renderer/app.test.tsx): the "renders coming-soon apps" case
     switches its example tile from Science to **Health** (`'More for Midnite Health'`).
-- [ ] **H.2** Website. [`packages/website/src/apps/catalog.ts`](../../../packages/website/src/apps/catalog.ts)
+- [x] **H.2** Website. [`packages/website/src/apps/catalog.ts`](../../../packages/website/src/apps/catalog.ts)
   gains a `science` entry (accent `#06b6d4`, the tagline and the three features, no dashes as
   punctuation), and `apps/launcher/src/renderer/assets/app-logos/science.png` is copied to
   `packages/website/public/img/apps/science.png`.
-- [ ] **H.3** Docs. [`docs/APPS.md`](../../../docs/APPS.md): the host table row "Science | Science, Simulator
+- [x] **H.3** Docs. [`docs/APPS.md`](../../../docs/APPS.md): the host table row "Science | Science, Simulator
   (both coming soon)" → "Science, Simulator (coming soon)", and a new `### App: Science (apps/science) —
   Phase 126` section under "App compositions" naming the store path, the channel, the worker rule and the
   notebook schema version.
@@ -474,21 +473,21 @@ its own), the website lists Science, `docs/APPS.md` records the app.
 
 ## Verification
 
-- [ ] `science.test.ts`: schema round-trip; `../x` id rejected; bad plot range rejected; 501 cells rejected; unknown version migrates to `null`.
-- [ ] `json-dir-store.test.ts`: write/list/read; quarantine; `pathOf('../x')` throws; files are 0600.
-- [ ] `notebook-store.test.ts`: create/list/read/write; quarantine renames a corrupt file and counts it; remove goes through `trashItem`; write to an unknown id is `{ ok: false }`.
-- [ ] `context.test.ts`: invalid payload → `{ ok: false, kind: 'error' }`; 11 MB structure refused; cancelled picker → `cancelled`.
-- [ ] `bridge.test.ts`: the Science bridge exposes exactly `report` and `science`.
-- [ ] `host.test.ts`: `registerScienceHost` registers exactly `scienceModuleMain.channels`.
-- [ ] `host-app.test.tsx`: rail shows the Science group with Notebooks and Templates; `navConfigProblems` is `[]`.
-- [ ] `notebook-editor.test.tsx`: `$x^2$` renders `.katex`; unclosed LaTeX does not throw; move-up reorders; autosave fires once 600 ms after an edit.
-- [ ] `evaluate.test.ts`: assignments carry across cells; units convert; `det`, complex `sqrt`, `derivative` answer; `import` is disabled.
-- [ ] `use-compute.test.tsx`: debounced single run; stale run ignored; 2 s budget terminates and respawns.
-- [ ] `sample.test.ts` / `plot-svg.test.tsx`: sampling bounds; asymptote breaks; scope variables; nice ticks; series colours.
-- [ ] `parse.test.ts` / `bonds.test.ts`: water, caffeine and PDB fixtures; 50,001-atom refusal; V3000 refusal.
-- [ ] `templates.test.ts`: every template's cells parse and evaluate without error.
-- [ ] `templates-view.test.tsx`: **Use template** creates a physics notebook and switches view.
-- [ ] `midnite-link.test.ts`, `catalog.test.ts`, `app.test.tsx`, `release-bundles.test.mjs`, `affected-apps.test.mjs`, `composition.test.ts` green with the new ids.
+- [x] `science.test.ts`: schema round-trip; `../x` id rejected; bad plot range rejected; 501 cells rejected; unknown version migrates to `null`.
+- [x] `json-dir-store.test.ts`: write/list/read; quarantine; `pathOf('../x')` throws; files are 0600.
+- [x] `notebook-store.test.ts`: create/list/read/write; quarantine renames a corrupt file and counts it; remove goes through `trashItem`; write to an unknown id is `{ ok: false }`.
+- [x] `context.test.ts`: invalid payload → `{ ok: false, kind: 'error' }`; 11 MB structure refused; cancelled picker → `cancelled`.
+- [x] `bridge.test.ts`: the Science bridge exposes exactly `report` and `science`.
+- [x] `host.test.ts`: `registerScienceHost` registers exactly `scienceModuleMain.channels`.
+- [x] `host-app.test.tsx`: rail shows the Science group with Notebooks and Templates; `navConfigProblems` is `[]`.
+- [x] `notebook-editor.test.tsx`: `$x^2$` renders `.katex`; unclosed LaTeX does not throw; move-up reorders; autosave fires once 600 ms after an edit.
+- [x] `evaluate.test.ts`: assignments carry across cells; units convert; `det`, complex `sqrt`, `derivative` answer; `import` is disabled.
+- [x] `use-compute.test.tsx`: debounced single run; stale run ignored; 2 s budget terminates and respawns.
+- [x] `sample.test.ts` / `plot-svg.test.tsx`: sampling bounds; asymptote breaks; scope variables; nice ticks; series colours.
+- [x] `parse.test.ts` / `bonds.test.ts`: water, caffeine and PDB fixtures; 50,001-atom refusal; V3000 refusal.
+- [x] `templates.test.ts`: every template's cells parse and evaluate without error.
+- [x] `templates-view.test.tsx`: **Use template** creates a physics notebook and switches view.
+- [x] `midnite-link.test.ts`, `catalog.test.ts`, `app.test.tsx`, `release-bundles.test.mjs`, `affected-apps.test.mjs`, `composition.test.ts` green with the new ids.
 - [ ] CI `gate-node` green (it now runs `module-science`).
 - [ ] **Open, for a human:** install the built bundle from the launcher; the window is frameless; a caffeine template renders and rotates; a `tan(x)` plot breaks at its asymptotes; Help ▸ Report an Issue opens.
 
