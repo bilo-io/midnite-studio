@@ -3030,11 +3030,19 @@ export type UpdateState = z.infer<typeof UpdateStateSchema>;
  * not reach the mirror", because the popover says different things about each
  * and the links below it stand either way.
  */
-export const ReleaseNotesRequest = z.object({ version: z.string().min(1) });
+export const ReleaseNotesRequest = z.object({
+  version: z.string().min(1),
+  /** Also return the newest N released sections (1-10); absent keeps the single-version reply. */
+  latest: z.number().int().min(1).max(10).optional(),
+});
 export const ReleaseNotesResponse = z.object({
   version: z.string(),
   notes: z.string().nullable(),
   error: z.string().nullable(),
+  /** Newest released sections, only when `latest` was asked for. */
+  sections: z
+    .array(z.object({ version: z.string(), date: z.string().optional(), body: z.string() }))
+    .optional(),
 });
 export type ReleaseNotes = z.infer<typeof ReleaseNotesResponse>;
 

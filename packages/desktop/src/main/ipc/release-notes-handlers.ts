@@ -3,6 +3,7 @@ import {
   RELEASE_CHANGELOG_RAW_URL,
   ReleaseNotesRequest,
   extractChangelogSection,
+  extractLatestSections,
   type ReleaseNotes,
 } from '@midnite/studio-shared';
 
@@ -29,7 +30,7 @@ export function registerReleaseNotesHandlers(
   handle<typeof ReleaseNotesRequest, ReleaseNotes>(
     CHANNELS.updateReleaseNotes,
     ReleaseNotesRequest,
-    async ({ version }) => {
+    async ({ version, latest }) => {
       try {
         const res = await fetchImpl(RELEASE_CHANGELOG_RAW_URL, {
           // The mirror is a branch tip, so a CDN copy of it can be minutes stale
@@ -38,7 +39,13 @@ export function registerReleaseNotesHandlers(
           signal: AbortSignal.timeout(TIMEOUT_MS),
         });
         if (!res.ok) return { version, notes: null, error: `changelog: HTTP ${res.status}` };
-        return { version, notes: extractChangelogSection(await res.text(), version), error: null };
+        const text = await res.text();
+        return {
+          version,
+          notes: extractChangelogSection(text, version),
+          error: null,
+          ...(latest ? { sections: extractLatestSections(text, latest) } : {}),
+        };
       } catch (err) {
         return { version, notes: null, error: err instanceof Error ? err.message : 'unreachable' };
       }
