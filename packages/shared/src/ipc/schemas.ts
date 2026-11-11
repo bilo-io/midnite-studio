@@ -5541,7 +5541,7 @@ export {
 
 // Midnite Startup's one channel (Phase 130 Theme B).
 export {
-  StartupChangedEventSchema as StartupChangedEvent,
-  StartupRequestSchema as StartupRequest,
-  StartupSnapshotSchema as StartupSnapshot,
+  StartupChangedEventSchema as StartupChangedPayload,
+  StartupRequestSchema as StartupOpRequest,
+  StartupSnapshotSchema as StartupSnapshotResponse,
 } from '../startup';

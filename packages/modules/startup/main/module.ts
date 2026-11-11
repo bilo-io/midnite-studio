@@ -36,7 +36,7 @@ export const startupModuleMain = defineFeatureMain<StartupMainServices>({
     });
     ctx.ipc.handle(
       CHANNELS.startup,
-      schemas.StartupRequest,
+      schemas.StartupOpRequest,
       async (request) => handleStartupRequest(await store, request),
       (issue) => invalid(issue),
     );
