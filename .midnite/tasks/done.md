@@ -4,7 +4,7 @@
 
 ## 2026-11-11 — Phase 126 Theme C — Notebook editor: text and maths cells
 
-[PR #1139](https://github.com/bilo-io/midnite-studio/pull/1139). Notebook list and editor in the Science module: discipline filter, rename, Trash-confirmed delete, autosaving draft store, markdown cells with KaTeX maths, persisted last-open notebook.
+[PR #1140](https://github.com/bilo-io/midnite-studio/pull/1140). Notebook list and editor in the Science module: discipline filter, rename, Trash-confirmed delete, autosaving draft store, markdown cells with KaTeX maths, persisted last-open notebook.
 
 ## 2026-11-11 — Phase 126 Theme B — Notebook store and IPC
 
