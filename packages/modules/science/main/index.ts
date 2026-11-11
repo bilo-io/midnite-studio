@@ -2,4 +2,5 @@
 export * from './bridge';
 export * from './context';
 export * from './module';
+export * from './notebook-store';
 export { scienceManifest } from '../manifest';
