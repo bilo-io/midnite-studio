@@ -1,5 +1,7 @@
 import type { ScienceCell, ScienceDiscipline } from '@midnite/studio-shared';
 
+import caffeineMol from '../molecule/__fixtures__/caffeine.mol?raw';
+
 export type ScienceTemplate = {
   id: string;
   title: string;
@@ -89,6 +91,17 @@ export const SCIENCE_TEMPLATES: readonly ScienceTemplate[] = [
       md(1, '# Stoichiometry\n\n$2\\,\\mathrm{H_2} + \\mathrm{O_2} \\to 2\\,\\mathrm{H_2O}$.'),
       calc(2, 'M_water = 18.015 g / mol\nm_water = 36 g\nn_water = m_water / M_water'),
       calc(3, 'n_oxygen = n_water / 2'),
+    ],
+  },
+  {
+    id: 'caffeine',
+    title: 'Caffeine',
+    discipline: 'chemistry',
+    blurb: 'A 3D caffeine molecule (PubChem CID 2519, public domain) with its molar mass.',
+    cells: [
+      md(1, '# Caffeine\n\n$\\mathrm{C_8H_{10}N_4O_2}$. Drag to rotate; scroll to zoom.'),
+      { kind: 'molecule', id: 'c-tpl00002', name: 'caffeine.mol', format: 'mol', text: caffeineMol },
+      calc(3, 'M_caffeine = 8 * 12.011 + 10 * 1.008 + 4 * 14.007 + 2 * 15.999'),
     ],
   },
   {

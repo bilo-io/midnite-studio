@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ScienceCellSchema } from '@midnite/studio-shared';
 
 import { evaluateNotebook, runNotebook } from '../compute/evaluate';
+import { parseStructure } from '../molecule/parse';
 import { SCIENCE_TEMPLATES } from './index';
 
 describe('SCIENCE_TEMPLATES', () => {
@@ -25,6 +26,12 @@ describe('SCIENCE_TEMPLATES', () => {
     for (const t of SCIENCE_TEMPLATES) {
       const { samples } = runNotebook(t.cells);
       for (const [id, s] of Object.entries(samples)) for (const series of s.series) expect(series.ys.some(Number.isFinite), `${t.id} ${id}`).toBe(true);
+    }
+  });
+
+  it('every molecule cell holds a structure the viewer can read', () => {
+    for (const t of SCIENCE_TEMPLATES) {
+      for (const c of t.cells) if (c.kind === 'molecule') expect(parseStructure(c.text, c.format), `${t.id} ${c.id}`).toMatchObject({ ok: true });
     }
   });
 });

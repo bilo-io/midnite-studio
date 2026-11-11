@@ -9,6 +9,7 @@ import type { PlotSamples } from '../plot/sample';
 import { blankCell, createNotebookDraft, moveCell, type CellKind } from '../notebook-draft';
 import { useCompute } from '../compute/compute-worker-factory';
 import { ComputeResult } from './compute-cell';
+import { MoleculeCellView } from './molecule-cell';
 import { PlotCellView } from './plot-cell';
 import { MarkdownCell } from './markdown-cell';
 
@@ -144,7 +145,7 @@ export function NotebookEditor({ notebook, onSaved }: Props) {
   );
 }
 
-/** The body of one cell. The compute cell's result row is drawn by the parent; the molecule cell gets its real body in Theme F. */
+/** The body of one cell. The compute cell's result row is drawn by the parent; each kind has its own body view. */
 function CellBody({ cell, samples, onChange }: { cell: ScienceCell; samples: PlotSamples | undefined; onChange: (cell: ScienceCell) => void }) {
   switch (cell.kind) {
     case 'markdown':
@@ -163,6 +164,6 @@ function CellBody({ cell, samples, onChange }: { cell: ScienceCell; samples: Plo
     case 'plot':
       return <PlotCellView cell={cell} samples={samples} onChange={onChange} />;
     case 'molecule':
-      return <p className="p-2 text-sm opacity-60">Molecule cell{cell.name ? `: ${cell.name}` : ''}</p>;
+      return <MoleculeCellView cell={cell} onChange={onChange} />;
   }
 }
