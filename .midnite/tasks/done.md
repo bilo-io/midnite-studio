@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-11 — Phase 126 Theme H — Launch
+
+PR TBD. Science leaves coming soon in the launcher catalog, gets its website entry and tile image, and `docs/APPS.md` records the app. Phase 126 is done.
+
 ## 2026-11-11 — Phase 130 Theme E — Startup vendors and contracts
 
 [PR #1148](https://github.com/bilo-io/midnite-studio/pull/1148). Vendors and contracts with pure date maths (`contractStatus`, `noticeDeadline`, in shared so the view reuses it), an Action needed strip, an attached file copied by content hash into the app's folder through a host-injected picker and opener, and one linked plan line per priced contract.
