@@ -6,6 +6,14 @@
 
 [PR #1142](https://github.com/bilo-io/midnite-studio/pull/1142). mathjs evaluator with the JavaScript-reaching functions disabled, run in an inline worker with a 300 ms debounce and a 2 s terminate-and-respawn budget; compute cells show KaTeX and the value or `Line N: message`.
 
+## 2026-11-11 — Phase 130 Theme C — Startup roadmap and milestones
+
+[PR #1141](https://github.com/bilo-io/midnite-studio/pull/1141). Milestone list and timeline with dependency cycle rejection, At risk and Overdue badges, and a remembered view mode.
+
+## 2026-11-11 — Phase 130 Theme B — Startup workspace store and contract
+
+[PR #1139](https://github.com/bilo-io/midnite-studio/pull/1139). The `startup` zod contract and channel, a versioned atomically written `workspace.json` with newer-version read-only and corrupt-file recovery, referential-integrity refusals, a react-query data layer, the first-run company form and Settings ▸ Company.
+
 ## 2026-11-11 — Phase 126 Theme C — Notebook editor: text and maths cells
 
 [PR #1140](https://github.com/bilo-io/midnite-studio/pull/1140). Notebook list and editor in the Science module: discipline filter, rename, Trash-confirmed delete, autosaving draft store, markdown cells with KaTeX maths, persisted last-open notebook.

@@ -1,5 +1,9 @@
 // @vitest-environment node
 // vitest, not Playwright: mounting is logic over an injected ipcMain — no browser needed.
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import { startupModuleMain } from '@midnite/studio-module-startup/main';
@@ -17,8 +21,10 @@ describe('registerStartupHost', () => {
       },
       trashItem: async () => undefined,
       send: () => undefined,
+      userData: mkdtempSync(join(tmpdir(), 'startup-host-')),
     });
     const all = new Set([...handlers.keys(), ...on]);
+    expect(startupModuleMain.channels.length).toBeGreaterThan(0);
     for (const channel of startupModuleMain.channels) expect(all, channel).toContain(channel);
     for (const count of handlers.values()) expect(count).toBe(1);
     await host.dispose();

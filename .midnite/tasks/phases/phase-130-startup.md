@@ -51,12 +51,9 @@ then **F** (after Phase 129 B + C), then **G**.
 
 **Theme A — App scaffold and wiring.** ✅ [PR #1137](https://github.com/bilo-io/midnite-studio/pull/1137). `apps/startup` cloned from the Mind host shape, a `startup` module (manifest, main half with no channel yet, report-only bridge, five-view nav, placeholder panes), every id list appended, Studio's module list, the release case and the icon. The launcher tile now carries `MODULES.startup` (still `comingSoon`) because the catalog test requires each module host's tile to list its `APP_MODULES`; that moved part of Theme G's flip forward. Phase 129's money type is not on main, so Theme B keeps amounts as local integer minor units.
 
-**Theme B — Workspace store and the startup contract.** ◻ `shared/src/startup.ts` (company, milestones, plan
-lines, scenarios, customers, invoices, vendors, contracts) and one `startup` channel with an `op` union over a
-versioned, atomically written `workspace.json`.
+**Theme B — Workspace store and the startup contract.** ✅ PR pending. `shared/src/startup.ts` (every record schema, the `op` union, `StartupResult`, a pure `milestoneCycle` that Theme C reuses), `CHANNELS.startup` and `startupChanged`, an optional `startup` bridge namespace, and a versioned workspace store (temp + rename through one queue, newer versions read-only, corrupt files moved aside) behind a module-main `op` handler with `in-use`/`cycle`/`locked` integrity. The renderer has a react-query data layer, the first-run company form and Settings ▸ Company. Amounts are local integer minor units because Phase 129's money type is not on main; ops whose behaviour belongs to C to F (projection, contract files, issue/pay/void, PDF, link book) answer a clear refusal until then.
 
-**Theme C — Roadmap and milestones.** ◻ A list and a month timeline, dependencies with cycle rejection, an
-"at risk" rule when a milestone is due before what it depends on.
+**Theme C — Roadmap and milestones.** ✅ PR pending. A pure `roadmap-model.ts` (`wouldCreateCycle` over Theme B's `milestoneCycle`, `atRisk`, `overdue`, `timelineRange`, `positionInRange`), the roadmap view with a remembered List | Timeline switch, an add/edit sheet that greys out loop-making dependencies and shows main's `cycle` message, and an SVG timeline with today line and dependency arrows. The timeline's real-layout geometry stays for Theme G's browser spec, as the phase says.
 
 **Theme D — Costs and runway.** ◻ Cost and revenue lines with cadence and growth, up to three scenarios, a
 36-month projection, runway, zero-cash month and default-alive, with opening cash and actual burn read from
@@ -145,7 +142,7 @@ website listing.
 
 ### B — Workspace store and the startup contract (M)
 
-- [ ] Net-new `packages/shared/src/startup.ts` (zod only), exported from the shared barrel; amounts are `MoneyAmountSchema` /
+- [x] Net-new `packages/shared/src/startup.ts` (zod only), exported from the shared barrel; amounts are `MoneyAmountSchema` /
   integer `minor` from Phase 129's [`money-amount.ts`](phase-129-accountant.md#b--money-amounts-and-the-ledger-contract-s)
   - `CompanyProfileSchema = { name (1–120), legalName?, currency: CurrencyCodeSchema, address: z.string().max(400).default(''),
     taxId: z.string().max(40).optional(), invoicePrefix: z.string().regex(/^[A-Z0-9-]{0,8}$/).default('INV-'),
@@ -156,7 +153,7 @@ website listing.
     scenarios, customers, invoices, vendors, contracts, invoiceCounter: z.int().min(0).default(0), ledger: { bookId:
     LedgerIdSchema; accounts: { receivable; sales; taxPayable; bank } }.nullable().default(null) }`; every array `.default([])`.
   - Verified by net-new `startup.test.ts`: an empty `{ version: 1 }` parses to a full workspace; each schema round-trips.
-- [ ] The channel: `CHANNELS.startup = 'mstudio:startup:op'`, `EVENT_CHANNELS.startupChanged = 'mstudio:startup:changed'` (payload
+- [x] The channel: `CHANNELS.startup = 'mstudio:startup:op'`, `EVENT_CHANNELS.startupChanged = 'mstudio:startup:changed'` (payload
   `{ revision: number }`)
   - `StartupRequestSchema = z.discriminatedUnion('op', [...])`: `get` · `updateCompany` · `upsertMilestone` / `removeMilestone` ·
     `upsertLine` / `removeLine` · `upsertScenario` / `removeScenario` · `projection { scenarioId, months: 12 | 24 | 36 }` ·
@@ -168,7 +165,7 @@ website listing.
     'no-book' | 'ledger' | 'newer-version' | 'io'; message: string }`. Ops never throw across the boundary.
   - Registered in [`ipc/schemas.ts`](../../../packages/shared/src/ipc/schemas.ts) and `MidniteStudioBridge['startup']` in
     [`ipc/bridge.ts`](../../../packages/shared/src/ipc/bridge.ts); the existing `ipc.test.ts` walk covers the parse.
-- [ ] Net-new `packages/modules/startup/main/workspace-store.ts`: `openWorkspaceStore({ dir, now, warn }): Promise<WorkspaceStore>`
+- [x] Net-new `packages/modules/startup/main/workspace-store.ts`: `openWorkspaceStore({ dir, now, warn }): Promise<WorkspaceStore>`
   - File `<userData>/startup/workspace.json`, written temp + rename through one promise queue (the
     [`portfolio-store.ts`](../../../packages/features/finance/main/markets/portfolio-store.ts) pattern); every write bumps
     `revision` and sends `startupChanged`.
@@ -178,18 +175,18 @@ website listing.
   - No lock file: Startup is single-instance (`requestSingleInstanceLock`) and Studio does not open this file.
   - Verified by net-new `workspace-store.test.ts`: write → reopen equal; 10 concurrent upserts → 10 records; `version: 2` →
     read-only; garbage → moved aside, empty workspace.
-- [ ] Referential integrity is main's job: `removeVendor` with contracts, `removeCustomer` with invoices, `removeMilestone` with
+- [x] Referential integrity is main's job: `removeVendor` with contracts, `removeCustomer` with invoices, `removeMilestone` with
   dependents each return `in-use` and name the count; the UI shows that message, never a cascade
-- [ ] Company first-run: with `company: null`, every view shows "Set up your company" (name, currency from
+- [x] Company first-run: with `company: null`, every view shows "Set up your company" (name, currency from
   `MARKET_CURRENCIES`, opening cash and its date); the currency is fixed once the first invoice is issued (`locked`)
-- [ ] Data access in the renderer through react-query keyed `['startup', op, args]`; `startupChanged` invalidates `['startup']`
+- [x] Data access in the renderer through react-query keyed `['startup', op, args]`; `startupChanged` invalidates `['startup']`
 
 ### C — Roadmap and milestones (M)
 
-- [ ] `MilestoneSchema = { id: z.uuid(), title (1–120), description: z.string().max(2000).default(''), status: z.enum(['planned',
+- [x] `MilestoneSchema = { id: z.uuid(), title (1–120), description: z.string().max(2000).default(''), status: z.enum(['planned',
   'in-progress', 'done', 'dropped']), start: IsoDateSchema.optional(), due: IsoDateSchema, dependsOn: z.array(z.uuid()).max(20),
   owner: z.string().max(80).optional(), tags: z.array(z.string().max(24)).max(8).default([]) }`
-- [ ] Net-new pure `renderer/roadmap/roadmap-model.ts`
+- [x] Net-new pure `renderer/roadmap/roadmap-model.ts`
   - `wouldCreateCycle(milestones, id, dependsOn): boolean` (DFS); main re-checks on `upsertMilestone` and returns `cycle`
     naming the loop's titles.
   - `atRisk(m, byId): boolean` — not `done`/`dropped`, and a dependency that is not `done` is due on or after `m.due`; also
@@ -197,13 +194,13 @@ website listing.
   - `timelineRange(milestones, today): { from: 'YYYY-MM'; to: 'YYYY-MM' }` — earliest start/due minus a month to latest due
     plus a month, at least 6 months, at most 36 (beyond is clipped with a "+N later" marker).
   - Verified by `roadmap-model.test.ts`: A→B→A is a cycle; self-dependency is a cycle; at-risk and overdue truth tables.
-- [ ] Roadmap view (`startup.roadmap`): a **List | Timeline** switch, persisted in the module's UI store
+- [x] Roadmap view (`startup.roadmap`): a **List | Timeline** switch, persisted in the module's UI store
   - List: grouped by status, sorted by due; badges "At risk" (amber) and "Overdue" (red); a side sheet to add/edit with a
     dependency multi-select that greys out choices `wouldCreateCycle` rejects.
   - Timeline: month columns (CSS grid), one bar per milestone from `start ?? due` to `due`, colour by status, a today line,
     dependency arrows as an SVG overlay between bar ends; clicking a bar opens the same sheet.
   - Empty: "No milestones yet" + **Add milestone**.
-- [ ] Tests: RTL `roadmap-view.test.tsx` (add, the cycle option disabled, `cycle` error copy from the mock, status badges);
+- [x] Tests: RTL `roadmap-view.test.tsx` (add, the cycle option disabled, `cycle` error copy from the mock, status badges);
   the timeline's geometry is asserted in Theme G's shots spec (it needs real layout)
 
 ### D — Costs and runway (L)
