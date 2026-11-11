@@ -28,7 +28,6 @@ describe('the 11-app catalog (Phase 124 Theme F)', () => {
       const expected = host === 'studio' ? ['studio'] : APP_MODULES[host];
       expect(appById(host).modules.map((m) => m.id)).toEqual(expected);
     }
-    expect(appById('startup').modules).toEqual([]);
     expect(appById('health').modules).toEqual([]);
   });
 

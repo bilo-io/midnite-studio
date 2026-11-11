@@ -41,6 +41,7 @@ export const APP_GLYPHS: Record<AppId, IconType> = {
   money: PiChartLineUpFill,
   mind: PiBrainFill,
   browser: PiGlobeFill,
+  startup: PiBuildingsFill,
   studio: PiRocketLaunchFill,
   science: PiFlaskFill,
   startup: PiBuildingsFill,

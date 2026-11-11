@@ -53,6 +53,7 @@ export const MIDNITE_APP_IDS = [
   'mind',
   'money',
   'browser',
+  'startup',
 ] as const satisfies readonly MidniteAppId[];
 type _AllAppsListed = MidniteAppId extends (typeof MIDNITE_APP_IDS)[number] ? true : never;
 export const _allAppsListed: _AllAppsListed = true;

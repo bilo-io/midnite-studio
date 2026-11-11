@@ -1,0 +1,172 @@
+import { join } from 'node:path';
+
+import { app, BrowserWindow, clipboard, ipcMain, Menu, shell, type MenuItemConstructorOptions } from 'electron';
+
+import { guardAppWindow, createFileSink, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
+
+import { registerStartupHost } from './host';
+import { STARTUP_NAME, SMOKE_READY_LINE, USER_DATA_ENV, startupUserData, isSmoke } from './identity';
+import { registerReport, reportMenuTemplate } from './report';
+import { bindMetricsToWindow, registerSuiteMain, suiteRuntimeDirectory, suiteWindowOptions, type SuiteMain } from '@midnite/studio-runtime';
+import { registerSuiteMonitor, type MetricsService } from '@midnite/studio-feature-monitor/main';
+
+/**
+ * Midnite Startup's main process — the entry the bundle's `package.json` names (`main.cjs`), run by
+ * the launcher's stub as `Resources/app`. One window over the Startup module, registered through
+ * `registerStartupHost`; no desktop, no other app. The workspace lives under Startup's own userData
+ * (`Midnite Runtime/apps/startup/`), never Studio's.
+ */
+const smoke = isSmoke(process.env);
+let win: BrowserWindow | null = null;
+/** The shell's two bridge halves (suite prefs, window chrome), registered once the app is ready. */
+let suite: SuiteMain | null = null;
+/** Monitor's sampler (the status bar's segment), paused while the window is not in view. */
+let metrics: MetricsService | null = null;
+let crashLog: LogSink | null = null;
+let quit: (() => Promise<void>) | null = null;
+let flushed = false;
+
+app.setName(STARTUP_NAME);
+// A smoke run is a proof, not a session: keep it out of the Dock and off the screen.
+if (smoke) app.dock?.hide();
+// Captures are shown as `mstudio-file://capture/…` URLs, registered before `ready` as Electron requires.
+// `stream` lets a recording's player seek.
+app.setPath('userData', startupUserData(app.getPath('appData'), process.env[USER_DATA_ENV]));
+
+// A smoke run is one-shot and must not collide with a real Startup's lock.
+if (!smoke && !app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  // Phase 124 Theme G.4: take over what the apps merged into this one left behind, once (never in a throwaway run).
+  // After the lock: a launcher link's `open -n` instance quits at the lock and must not run it beside the live host.
+  app.on('second-instance', (_event, argv) => {
+    // A launcher link (`--midnite-link=…`) tells the running host which module and view to land on.
+    suite?.handleArgv(argv);
+    focusWindow();
+  });
+
+  void app.whenReady().then(() => {
+    suite = registerSuiteMain({
+      ipcMain,
+      runtimeDirectory: suiteRuntimeDirectory(app.getPath('appData'), process.env[USER_DATA_ENV]),
+      getWindow: () => win,
+      argv: process.argv,
+      warn: (message) => process.stderr.write(`${message}\n`),
+    });
+    // The prefs file watcher is a live handle: let go of it with the app.
+    app.on('will-quit', () => suite?.close());
+    // The status bar's monitor segment (Phase 123 Theme H): the sampler, system health and token spend.
+    registerSuiteMonitor({
+      ipcMain,
+      trashItem: (path) => shell.trashItem(path),
+      send: (channel, payload) => {
+        if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);
+      },
+      homeDir: app.getPath('home'),
+      warn: (message) => process.stderr.write(`${message}\n`),
+      openExternal: (url) => shell.openExternal(url),
+      onMetricsService: (service) => {
+        metrics = service;
+      },
+    });
+    // The runtime's crash-log sink (NDJSON, rotated, redacted) — what Report an Issue reads.
+    crashLog = createFileSink({ dir: app.getPath('userData'), name: 'startup.log', homeDir: app.getPath('home') });
+    installCrashLogging((level, message) => crashLog?.write(level, message));
+    crashLog.write('info', `${STARTUP_NAME} ${app.getVersion()} started`);
+    const sendToWindow = (channel: string, payload: unknown): void => {
+      if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);
+    };
+    registerReport(
+      { ipcMain, trashItem: (path) => shell.trashItem(path), send: sendToWindow },
+      {
+        sink: () => crashLog,
+        homeDir: () => app.getPath('home'),
+        bootLine: () => `${STARTUP_NAME} ${app.getVersion()}`,
+        openExternal: (url) => shell.openExternal(url),
+        writeClipboard: (text) => clipboard.writeText(text),
+        revealPath: (path) => shell.showItemInFolder(path),
+      },
+    );
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate(
+        reportMenuTemplate((channel, payload) => {
+          const target = BrowserWindow.getFocusedWindow() ?? win;
+          if (target !== null && !target.isDestroyed()) target.webContents.send(channel, payload);
+        }) as MenuItemConstructorOptions[],
+      ),
+    );
+    const host = registerStartupHost({
+      ipcMain,
+      trashItem: (path) => shell.trashItem(path),
+      send: sendToWindow,
+    });
+    quit = host.dispose;
+    openWindow();
+  });
+
+  // Hold the quit until the host has flushed what it owns.
+  app.on('before-quit', (event) => {
+    if (flushed || quit === null) return;
+    event.preventDefault();
+    flushed = true;
+    void quit().finally(() => app.quit());
+  });
+  app.on('window-all-closed', () => {
+    app.quit();
+  });
+  app.on('activate', () => {
+    if (win === null) openWindow();
+  });
+}
+
+function focusWindow(): void {
+  if (win === null || win.isDestroyed()) {
+    openWindow();
+    return;
+  }
+  if (win.isMinimized()) win.restore();
+  win.show();
+  app.focus({ steal: true });
+  win.focus();
+}
+
+function openWindow(): void {
+  // Frameless where the platform allows (Phase 123 Theme A): the shell's title bar is the drag region.
+  const { additionalArguments, ...frame } = suiteWindowOptions(process.platform);
+  win = new BrowserWindow({
+    width: 1100,
+    height: 760,
+    minWidth: 720,
+    minHeight: 480,
+    title: STARTUP_NAME,
+    show: false,
+    ...frame,
+    webPreferences: {
+      additionalArguments,
+      preload: join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  suite?.attachWindow(win);
+  if (metrics !== null) bindMetricsToWindow(win, metrics);
+  // A link never loads into this window (it carries the bridge): http(s) goes to the system browser.
+  guardAppWindow(win.webContents, { openExternal: (url) => shell.openExternal(url) });
+  win.on('closed', () => {
+    win = null;
+  });
+  win.once('ready-to-show', () => {
+    if (win === null) return;
+    if (smoke) return;
+    win.show();
+  });
+  if (smoke) {
+    win.webContents.once('did-finish-load', () => {
+      // eslint-disable-next-line no-console
+      console.log(SMOKE_READY_LINE);
+      app.quit();
+    });
+  }
+  void win.loadFile(join(__dirname, 'index.html'));
+}
