@@ -62,8 +62,7 @@ notebook is never blank. Planned 2026-11-11; first slice is **A + B**, then **C 
 
 **Theme E — Plot cells.** ✅ [PR #1145](https://github.com/bilo-io/midnite-studio/pull/1145) `samplePlot` evaluates each series at 512 x values inside the worker against the notebook's final scope (so `k*x` sees `k = 2`), non-real or failing values are `NaN`; `autoRange` takes the 2nd to 98th percentile padded 5 %. `PlotSvg` is a hand-rolled SVG: `niceTicks` (1, 2, 5 steps), 8 % grid, axes at zero, paths broken at `NaN` and at jumps over 10 times the y-range (asymptotes), four series colours and a legend. The cell editor has series rows (up to 4), x range and an auto or manual y range.
 
-**Theme F — Molecule viewer cells.** ◻ XYZ, PDB and MOL/SDF parsers, bond inference on a spatial grid, an
-instanced ball-and-stick R3F view with CPK colours, imported through a native picker capped at 10 MB.
+**Theme F — Molecule viewer cells.** ✅ [PR #1149](https://github.com/bilo-io/midnite-studio/pull/1149). XYZ, PDB and MOL/SDF parsers (`parseStructure`, 50,000-atom cap), Jmol CPK elements, bond inference on a 4 Å spatial hash, an instanced ball-and-stick R3F canvas with orbit controls and a reset button, and an `importStructure` op that opens a native picker capped at 10 MB (`.sdf` maps to `mol`, the renderer never sees the path). The Caffeine template holds the PubChem CID 2519 MOL.
 
 **Theme G — Templates.** ✅ [PR #1147](https://github.com/bilo-io/midnite-studio/pull/1147) Seven built-in notebooks across maths, physics, chemistry and biology (`SCIENCE_TEMPLATES`; the eighth, Caffeine, arrives with Theme F's molecule fixture), each asserted to parse with `ScienceCellSchema` and evaluate without error. The Templates view is a grid of cards filtered by the same discipline chips as the notebook list; "Use template" creates a copy with fresh cell ids, selects it and switches to Notebooks.
 
@@ -369,7 +368,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
 
 ### F — Molecule viewer cells (L)
 
-- [ ] **F.1** Parsers, `renderer/molecule/parse.ts` (net-new, pure).
+- [x] **F.1** Parsers, `renderer/molecule/parse.ts` (net-new, pure).
   - `parseStructure(text: string, format: 'xyz' | 'pdb' | 'mol'): { ok: true; atoms: Atom[]; bonds: Bond[] }
     | { ok: false; message: string }`, `Atom = { el: string; x: number; y: number; z: number }`,
     `Bond = { a: number; b: number; order: 1 | 2 | 3 }`.
@@ -379,7 +378,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
   - **MOL/SDF V2000:** counts line (line 4: atoms 1–3, bonds 4–6), atom block, bond block with order; for
     an SDF only the first record (up to `$$$$`). V3000 → `{ ok: false, message: 'MOL V3000 is not supported yet' }`.
   - More than **50,000 atoms** → `{ ok: false, message: 'Over 50,000 atoms — too large to view' }`.
-- [ ] **F.2** Elements and bond inference, `renderer/molecule/elements.ts` + `bonds.ts` (net-new).
+- [x] **F.2** Elements and bond inference, `renderer/molecule/elements.ts` + `bonds.ts` (net-new).
   - `ELEMENTS: Record<string, { color: string; covalent: number }>` for H–Kr plus Ag, I, Pt, Au, Hg, Pb
     (Jmol CPK colours, covalent radii in Å); unknown → `#ff1493`, 1.5 Å.
   - `inferBonds(atoms)`: used when the file has no bonds (XYZ, PDB without `CONECT`); a spatial hash
@@ -389,14 +388,14 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     `renderer/molecule/__fixtures__/` (water XYZ, caffeine MOL from PubChem CID 2519 — public domain —
     a 3-residue PDB): water has 3 atoms and 2 inferred bonds; caffeine MOL has 24 atoms and 25 bonds;
     the PDB's element columns parse; a 50,001-atom synthetic XYZ fails with the size message.
-- [ ] **F.3** The view, `renderer/molecule/molecule-view.tsx` (net-new).
+- [x] **F.3** The view, `renderer/molecule/molecule-view.tsx` (net-new).
   - R3F `<Canvas>` 100 % × 360 px, `OrbitControls` from drei, one `instancedMesh` of spheres (radius
     `0.3 × covalent`, CPK colour per instance) and one of cylinders for bonds (radius 0.12 Å, split
     half-colour at the midpoint is out of scope — single grey `#9ca3af`), camera framed on the bounding
     sphere. Above 5,000 atoms, sphere segments drop from 16 to 8.
   - Cell header: name, atom/bond counts, format; buttons **Reset view** and **Replace…**.
   - Dependencies: `three`, `@react-three/fiber`, `@react-three/drei` at media-model's ranges.
-- [ ] **F.4** Import through main.
+- [x] **F.4** Import through main.
   - `importStructure` op: main opens `dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name:
     'Structures', extensions: ['xyz', 'pdb', 'mol', 'sdf'] }] })` (injected as `services.showOpenDialog`;
     `apps/science/main/host.ts` passes Electron's), `stat` first and refuses over 10 MB with `{ ok: false,

@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-11 — Phase 126 Theme F — Molecule viewer cells
+
+[PR #1149](https://github.com/bilo-io/midnite-studio/pull/1149). XYZ, PDB and MOL/SDF parsers, Jmol CPK elements, spatial-hash bond inference, an instanced ball-and-stick R3F canvas, an `importStructure` op (native picker, 10 MB cap) and the Caffeine template.
+
 ## 2026-11-11 — Phase 130 Theme E — Startup vendors and contracts
 
 [PR #1148](https://github.com/bilo-io/midnite-studio/pull/1148). Vendors and contracts with pure date maths (`contractStatus`, `noticeDeadline`, in shared so the view reuses it), an Action needed strip, an attached file copied by content hash into the app's folder through a host-injected picker and opener, and one linked plan line per priced contract.
