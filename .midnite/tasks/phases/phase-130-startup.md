@@ -51,9 +51,7 @@ then **F** (after Phase 129 B + C), then **G**.
 
 **Theme A — App scaffold and wiring.** ✅ [PR #1137](https://github.com/bilo-io/midnite-studio/pull/1137). `apps/startup` cloned from the Mind host shape, a `startup` module (manifest, main half with no channel yet, report-only bridge, five-view nav, placeholder panes), every id list appended, Studio's module list, the release case and the icon. The launcher tile now carries `MODULES.startup` (still `comingSoon`) because the catalog test requires each module host's tile to list its `APP_MODULES`; that moved part of Theme G's flip forward. Phase 129's money type is not on main, so Theme B keeps amounts as local integer minor units.
 
-**Theme B — Workspace store and the startup contract.** ◻ `shared/src/startup.ts` (company, milestones, plan
-lines, scenarios, customers, invoices, vendors, contracts) and one `startup` channel with an `op` union over a
-versioned, atomically written `workspace.json`.
+**Theme B — Workspace store and the startup contract.** ✅ PR pending. `shared/src/startup.ts` (every record schema, the `op` union, `StartupResult`, a pure `milestoneCycle` that Theme C reuses), `CHANNELS.startup` and `startupChanged`, an optional `startup` bridge namespace, and a versioned workspace store (temp + rename through one queue, newer versions read-only, corrupt files moved aside) behind a module-main `op` handler with `in-use`/`cycle`/`locked` integrity. The renderer has a react-query data layer, the first-run company form and Settings ▸ Company. Amounts are local integer minor units because Phase 129's money type is not on main; ops whose behaviour belongs to C to F (projection, contract files, issue/pay/void, PDF, link book) answer a clear refusal until then.
 
 **Theme C — Roadmap and milestones.** ◻ A list and a month timeline, dependencies with cycle rejection, an
 "at risk" rule when a milestone is due before what it depends on.
@@ -145,7 +143,7 @@ website listing.
 
 ### B — Workspace store and the startup contract (M)
 
-- [ ] Net-new `packages/shared/src/startup.ts` (zod only), exported from the shared barrel; amounts are `MoneyAmountSchema` /
+- [x] Net-new `packages/shared/src/startup.ts` (zod only), exported from the shared barrel; amounts are `MoneyAmountSchema` /
   integer `minor` from Phase 129's [`money-amount.ts`](phase-129-accountant.md#b--money-amounts-and-the-ledger-contract-s)
   - `CompanyProfileSchema = { name (1–120), legalName?, currency: CurrencyCodeSchema, address: z.string().max(400).default(''),
     taxId: z.string().max(40).optional(), invoicePrefix: z.string().regex(/^[A-Z0-9-]{0,8}$/).default('INV-'),
@@ -156,7 +154,7 @@ website listing.
     scenarios, customers, invoices, vendors, contracts, invoiceCounter: z.int().min(0).default(0), ledger: { bookId:
     LedgerIdSchema; accounts: { receivable; sales; taxPayable; bank } }.nullable().default(null) }`; every array `.default([])`.
   - Verified by net-new `startup.test.ts`: an empty `{ version: 1 }` parses to a full workspace; each schema round-trips.
-- [ ] The channel: `CHANNELS.startup = 'mstudio:startup:op'`, `EVENT_CHANNELS.startupChanged = 'mstudio:startup:changed'` (payload
+- [x] The channel: `CHANNELS.startup = 'mstudio:startup:op'`, `EVENT_CHANNELS.startupChanged = 'mstudio:startup:changed'` (payload
   `{ revision: number }`)
   - `StartupRequestSchema = z.discriminatedUnion('op', [...])`: `get` · `updateCompany` · `upsertMilestone` / `removeMilestone` ·
     `upsertLine` / `removeLine` · `upsertScenario` / `removeScenario` · `projection { scenarioId, months: 12 | 24 | 36 }` ·
@@ -168,7 +166,7 @@ website listing.
     'no-book' | 'ledger' | 'newer-version' | 'io'; message: string }`. Ops never throw across the boundary.
   - Registered in [`ipc/schemas.ts`](../../../packages/shared/src/ipc/schemas.ts) and `MidniteStudioBridge['startup']` in
     [`ipc/bridge.ts`](../../../packages/shared/src/ipc/bridge.ts); the existing `ipc.test.ts` walk covers the parse.
-- [ ] Net-new `packages/modules/startup/main/workspace-store.ts`: `openWorkspaceStore({ dir, now, warn }): Promise<WorkspaceStore>`
+- [x] Net-new `packages/modules/startup/main/workspace-store.ts`: `openWorkspaceStore({ dir, now, warn }): Promise<WorkspaceStore>`
   - File `<userData>/startup/workspace.json`, written temp + rename through one promise queue (the
     [`portfolio-store.ts`](../../../packages/features/finance/main/markets/portfolio-store.ts) pattern); every write bumps
     `revision` and sends `startupChanged`.
@@ -178,11 +176,11 @@ website listing.
   - No lock file: Startup is single-instance (`requestSingleInstanceLock`) and Studio does not open this file.
   - Verified by net-new `workspace-store.test.ts`: write → reopen equal; 10 concurrent upserts → 10 records; `version: 2` →
     read-only; garbage → moved aside, empty workspace.
-- [ ] Referential integrity is main's job: `removeVendor` with contracts, `removeCustomer` with invoices, `removeMilestone` with
+- [x] Referential integrity is main's job: `removeVendor` with contracts, `removeCustomer` with invoices, `removeMilestone` with
   dependents each return `in-use` and name the count; the UI shows that message, never a cascade
-- [ ] Company first-run: with `company: null`, every view shows "Set up your company" (name, currency from
+- [x] Company first-run: with `company: null`, every view shows "Set up your company" (name, currency from
   `MARKET_CURRENCIES`, opening cash and its date); the currency is fixed once the first invoice is issued (`locked`)
-- [ ] Data access in the renderer through react-query keyed `['startup', op, args]`; `startupChanged` invalidates `['startup']`
+- [x] Data access in the renderer through react-query keyed `['startup', op, args]`; `startupChanged` invalidates `['startup']`
 
 ### C — Roadmap and milestones (M)
 

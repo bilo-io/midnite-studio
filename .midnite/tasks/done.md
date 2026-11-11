@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-11 — Phase 130 Theme B — Startup workspace store and contract
+
+PR pending. The `startup` zod contract and channel, a versioned atomically written `workspace.json` with newer-version read-only and corrupt-file recovery, referential-integrity refusals, a react-query data layer, the first-run company form and Settings ▸ Company.
+
 ## 2026-11-11 — Phase 130 Theme A — Startup app scaffold
 
 [PR #1137](https://github.com/bilo-io/midnite-studio/pull/1137). `apps/startup` and `packages/modules/startup` (manifest, main half, bridge, nav, placeholder panes), `startup` appended to every id list, release case, icon and lockfile; the launcher tile lists `MODULES.startup` and stays coming soon.
