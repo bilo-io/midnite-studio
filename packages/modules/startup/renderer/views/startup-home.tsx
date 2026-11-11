@@ -1,5 +1,7 @@
 import { useStartupSnapshot } from '../data/use-startup';
 import { RoadmapView } from '../roadmap/roadmap-view';
+import { RunwayView } from '../runway/runway-view';
+import { VendorsView } from '../vendors/vendors-view';
 import { CompanyForm } from './company-form';
 
 const TITLES: Readonly<Record<string, string>> = {
@@ -42,6 +44,8 @@ export function StartupHome({ view }: { view: string }) {
     );
   }
   if (view === 'startup.roadmap') return <RoadmapView milestones={workspace.milestones} />;
+  if (view === 'startup.runway') return <RunwayView company={workspace.company} lines={workspace.lines} scenarios={workspace.scenarios} />;
+  if (view === 'startup.vendors') return <VendorsView company={workspace.company} vendors={workspace.vendors} contracts={workspace.contracts} />;
   return (
     <main className="flex h-full min-h-0 flex-col gap-1 p-6" aria-label={title}>
       <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{workspace.company.name}</p>

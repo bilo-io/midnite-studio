@@ -2,12 +2,16 @@ import {
   BASE_SCENARIO_ID,
   MAX_SCENARIOS,
   milestoneCycle,
+  type Contract,
+  type PlanLine,
   type StartupRequest,
   type StartupResult,
   type StartupSnapshot,
   type StartupWorkspace,
 } from '@midnite/studio-shared';
 
+import { attachContractFile, confinedAttachmentPath, type ContractFilePort } from './contract-files';
+import { projectRunway } from './runway';
 import type { Mutation, WorkspaceStore } from './workspace-store';
 
 const fail = (kind: Extract<Mutation, { ok: false }>['kind'], message: string): Mutation => ({ ok: false, kind, message });
@@ -27,7 +31,36 @@ const NOT_YET = 'This is not available in this build yet.';
  * that something still points at answers `in-use` naming the count, never a cascade. Every refusal is a value;
  * nothing here throws across the boundary.
  */
-export async function handleStartupRequest(store: WorkspaceStore, request: StartupRequest): Promise<StartupResult<StartupSnapshot | unknown>> {
+export type StartupServiceDeps = {
+  /** The host's picker and opener for contract files; absent in a bare test, where attaching answers a refusal. */
+  files?: ContractFilePort;
+  /** Where attachments are copied: `<userData>/startup/contracts`. */
+  contractsDir?: string;
+};
+
+/** The one cost (vendor) or revenue (customer) line a priced contract keeps in the plan, or `null` when it has no price. */
+function contractLine(ws: StartupWorkspace, contract: Contract, existing: PlanLine | undefined): PlanLine | null {
+  if (contract.value === undefined) return null;
+  const vendor = contract.counterparty.kind === 'vendor' ? ws.vendors.find((v) => v.id === contract.counterparty.id) : undefined;
+  return {
+    id: existing?.id ?? crypto.randomUUID(),
+    kind: contract.counterparty.kind === 'vendor' ? 'cost' : 'revenue',
+    name: contract.title.slice(0, 80),
+    category: vendor?.category ?? 'revenue',
+    minor: contract.value.minor,
+    cadence: contract.value.cadence,
+    start: contract.start.slice(0, 7),
+    ...(contract.end !== undefined ? { end: contract.end.slice(0, 7) } : {}),
+    growthBpPerMonth: existing?.growthBpPerMonth ?? 0,
+    contractId: contract.id,
+  };
+}
+
+export async function handleStartupRequest(
+  store: WorkspaceStore,
+  request: StartupRequest,
+  deps: StartupServiceDeps = {},
+): Promise<StartupResult<StartupSnapshot | unknown>> {
   switch (request.op) {
     case 'get':
       return { ok: true, value: store.snapshot() };
@@ -97,12 +130,15 @@ export async function handleStartupRequest(store: WorkspaceStore, request: Start
         const { counterparty } = request.contract;
         const exists = (counterparty.kind === 'vendor' ? ws.vendors : ws.customers).some((x) => x.id === counterparty.id);
         if (!exists) return fail('not-found', `That ${counterparty.kind} no longer exists.`);
-        return done({ ...ws, contracts: upsert(ws.contracts, request.contract) });
+        const previous = ws.lines.find((l) => l.contractId === request.contract.id);
+        const line = contractLine(ws, request.contract, previous);
+        const lines = ws.lines.filter((l) => l.contractId !== request.contract.id);
+        return done({ ...ws, contracts: upsert(ws.contracts, request.contract), lines: line === null ? lines : [...lines, line] });
       });
     case 'removeContract':
       return store.mutate((ws) =>
         ws.contracts.some((c) => c.id === request.id)
-          ? done({ ...ws, contracts: ws.contracts.filter((c) => c.id !== request.id) })
+          ? done({ ...ws, contracts: ws.contracts.filter((c) => c.id !== request.id), lines: ws.lines.filter((l) => l.contractId !== request.id) })
           : fail('not-found', 'That contract no longer exists.'),
       );
 
@@ -137,10 +173,42 @@ export async function handleStartupRequest(store: WorkspaceStore, request: Start
     case 'ledgerSummary':
       return { ok: false, kind: 'no-book', message: 'Link a book in Settings ▸ Company to use the ledger.' };
 
-    // Theme D (projection) and Theme E (contract files).
-    case 'projection':
-    case 'attachContractFile':
-    case 'openContractFile':
-      return { ok: false, kind: 'invalid', message: NOT_YET };
+    case 'projection': {
+      const ws = store.snapshot().workspace;
+      if (ws.company === null) return { ok: false, kind: 'invalid', message: 'Set up your company first.' };
+      const stored = ws.scenarios.find((s) => s.id === request.scenarioId);
+      const scenario =
+        stored ?? (request.scenarioId === BASE_SCENARIO_ID ? { id: BASE_SCENARIO_ID, name: 'Base', costMultiplierBp: 10000, revenueMultiplierBp: 10000, extraLines: [] } : null);
+      if (scenario === null) return { ok: false, kind: 'not-found', message: 'That scenario no longer exists.' };
+      const startMonth = new Date().toISOString().slice(0, 7);
+      return {
+        ok: true,
+        value: projectRunway({ openingCashMinor: ws.company.openingCash.minor, startMonth, lines: ws.lines, scenario, months: request.months }),
+      };
+    }
+
+    case 'attachContractFile': {
+      const { files, contractsDir } = deps;
+      if (!store.snapshot().workspace.contracts.some((c) => c.id === request.contractId)) return { ok: false, kind: 'not-found', message: 'That contract no longer exists.' };
+      if (files === undefined || contractsDir === undefined) return { ok: false, kind: 'invalid', message: NOT_YET };
+      const outcome = await attachContractFile(files, contractsDir).catch((error: unknown) => ({ ok: false as const, message: `Could not attach the file: ${String(error)}` }));
+      if (outcome.ok === 'cancelled') return { ok: true, value: store.snapshot() };
+      if (outcome.ok === false) return { ok: false, kind: 'invalid', message: outcome.message };
+      return store.mutate((ws) =>
+        ws.contracts.some((c) => c.id === request.contractId)
+          ? done({ ...ws, contracts: ws.contracts.map((c) => (c.id === request.contractId ? { ...c, file: outcome.file } : c)) })
+          : fail('not-found', 'That contract no longer exists.'),
+      );
+    }
+    case 'openContractFile': {
+      const { files, contractsDir } = deps;
+      const file = store.snapshot().workspace.contracts.find((c) => c.id === request.contractId)?.file;
+      if (file === undefined) return { ok: false, kind: 'not-found', message: 'That contract has no file attached.' };
+      if (files === undefined || contractsDir === undefined) return { ok: false, kind: 'invalid', message: NOT_YET };
+      const path = confinedAttachmentPath(contractsDir, file);
+      if (path === null) return { ok: false, kind: 'invalid', message: 'That file is outside the contracts folder.' };
+      const problem = await files.openPath(path);
+      return problem === '' ? { ok: true, value: null } : { ok: false, kind: 'io', message: problem };
+    }
   }
 }

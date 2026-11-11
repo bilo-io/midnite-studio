@@ -1,7 +1,8 @@
-import { join } from 'node:path';
+import { readFile, stat } from 'node:fs/promises';
+import { basename, extname, join } from 'node:path';
 
 import type { FeatureMainContext } from '@midnite/studio-runtime';
-import { CHANNELS, ScienceRequestSchema, type GitOpResult, type ScienceRequest } from '@midnite/studio-shared';
+import { CHANNELS, SCIENCE_MOLECULE_MAX_BYTES, ScienceRequestSchema, type GitOpResult, type ScienceRequest } from '@midnite/studio-shared';
 
 import { createNotebookStore, type NotebookStore } from './notebook-store';
 import type { ScienceModuleServices } from './module';
@@ -18,7 +19,25 @@ export type ShowOpenDialog = (opts: {
 /** Any op's answer: with a value, without one, or a failure. */
 type ScienceResult = GitOpResult<unknown> | GitOpResult;
 
-async function dispatch(store: NotebookStore, req: ScienceRequest): Promise<ScienceResult> {
+const FORMATS: Record<string, 'xyz' | 'pdb' | 'mol'> = { '.xyz': 'xyz', '.pdb': 'pdb', '.mol': 'mol', '.sdf': 'mol' };
+
+/** The native picker for a structure file (Phase 126 Theme F.4): size-checked before reading; the renderer never sees the path. */
+export async function importStructure(showOpenDialog: ShowOpenDialog | undefined): Promise<ScienceResult> {
+  if (showOpenDialog === undefined) return { ok: false, kind: 'error', message: 'No file picker available' };
+  try {
+    const picked = await showOpenDialog({ properties: ['openFile'], filters: [{ name: 'Structures', extensions: ['xyz', 'pdb', 'mol', 'sdf'] }] });
+    const path = picked.filePaths[0];
+    if (picked.canceled || path === undefined) return { ok: true, value: { cancelled: true } };
+    const format = FORMATS[extname(path).toLowerCase()];
+    if (format === undefined) return { ok: false, kind: 'error', message: 'Unsupported file type' };
+    if ((await stat(path)).size > SCIENCE_MOLECULE_MAX_BYTES) return { ok: false, kind: 'error', message: 'Larger than 10 MB' };
+    return { ok: true, value: { name: basename(path), format, text: await readFile(path, 'utf8') } };
+  } catch (e) {
+    return { ok: false, kind: 'error', message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+async function dispatch(store: NotebookStore, services: ScienceModuleServices, req: ScienceRequest): Promise<ScienceResult> {
   switch (req.op) {
     case 'list':
       return store.list();
@@ -33,8 +52,7 @@ async function dispatch(store: NotebookStore, req: ScienceRequest): Promise<Scie
     case 'remove':
       return store.remove(req.id);
     case 'importStructure':
-      // Theme F.
-      return { ok: false, kind: 'error', message: 'Not available yet' };
+      return importStructure(services.showOpenDialog);
   }
 }
 
@@ -44,7 +62,7 @@ export function registerScienceOn(ctx: FeatureMainContext, services: ScienceModu
   ctx.ipc.handle(
     CHANNELS.science,
     ScienceRequestSchema,
-    (req) => dispatch(store, req),
+    (req) => dispatch(store, services, req),
     (issue): ScienceResult => ({ ok: false, kind: 'error', message: issue }),
   );
   return store;

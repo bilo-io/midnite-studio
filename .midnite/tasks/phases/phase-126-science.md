@@ -60,17 +60,13 @@ notebook is never blank. Planned 2026-11-11; first slice is **A + B**, then **C 
 
 **Theme D — Compute cells in a worker.** ✅ [PR #1142](https://github.com/bilo-io/midnite-studio/pull/1142) mathjs in an inline Web Worker: top-down evaluation in one fresh scope per run (`evaluateNotebook`), units/matrices/complex/derivatives, `import`/`createUnit`/`reviver`/`evaluate`/`parse`/`compile` replaced by throwing stubs after the real `parse`/`compile` are captured. `createUseCompute(factory)` debounces 300 ms, drops stale `runId`s, and past 2 s terminates and respawns the worker with "Stopped after 2 s" on every compute cell; the cell shows KaTeX of the expression beside the value, or `Line N: message`. Only compute-cell edits post a run.
 
-**Theme E — Plot cells.** ◻ y = f(x) series sampled in the worker against the notebook's scope, drawn as a
-hand-rolled SVG with nice-number ticks, percentile auto-range and asymptote breaks.
+**Theme E — Plot cells.** ✅ [PR #1145](https://github.com/bilo-io/midnite-studio/pull/1145) `samplePlot` evaluates each series at 512 x values inside the worker against the notebook's final scope (so `k*x` sees `k = 2`), non-real or failing values are `NaN`; `autoRange` takes the 2nd to 98th percentile padded 5 %. `PlotSvg` is a hand-rolled SVG: `niceTicks` (1, 2, 5 steps), 8 % grid, axes at zero, paths broken at `NaN` and at jumps over 10 times the y-range (asymptotes), four series colours and a legend. The cell editor has series rows (up to 4), x range and an auto or manual y range.
 
-**Theme F — Molecule viewer cells.** ◻ XYZ, PDB and MOL/SDF parsers, bond inference on a spatial grid, an
-instanced ball-and-stick R3F view with CPK colours, imported through a native picker capped at 10 MB.
+**Theme F — Molecule viewer cells.** ✅ [PR #1149](https://github.com/bilo-io/midnite-studio/pull/1149). XYZ, PDB and MOL/SDF parsers (`parseStructure`, 50,000-atom cap), Jmol CPK elements, bond inference on a 4 Å spatial hash, an instanced ball-and-stick R3F canvas with orbit controls and a reset button, and an `importStructure` op that opens a native picker capped at 10 MB (`.sdf` maps to `mol`, the renderer never sees the path). The Caffeine template holds the PubChem CID 2519 MOL.
 
-**Theme G — Templates.** ◻ Eight built-in notebooks across maths, physics, chemistry and biology on a
-Templates view; "Use template" creates a copy.
+**Theme G — Templates.** ✅ [PR #1147](https://github.com/bilo-io/midnite-studio/pull/1147) Seven built-in notebooks across maths, physics, chemistry and biology (`SCIENCE_TEMPLATES`; the eighth, Caffeine, arrives with Theme F's molecule fixture), each asserted to parse with `ScienceCellSchema` and evaluate without error. The Templates view is a grid of cards filtered by the same discipline chips as the notebook list; "Use template" creates a copy with fresh cell ids, selects it and switches to Notebooks.
 
-**Theme H — Launch: catalog, website, docs.** ◻ `comingSoon` dropped from the Science tile (Simulator keeps
-its own), the website lists Science, `docs/APPS.md` records the app.
+**Theme H — Launch: catalog, website, docs.** ✅ [PR #1150](https://github.com/bilo-io/midnite-studio/pull/1150) `comingSoon` dropped from the Science tile (Simulator keeps its own), the launcher blurbs now describe what shipped, the website lists Science with its tile image, and `docs/APPS.md` records the app.
 
 ## Build order
 
@@ -346,7 +342,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
 
 ### E — Plot cells (M)
 
-- [ ] **E.1** Sampling, `renderer/plot/sample.ts` (net-new, pure).
+- [x] **E.1** Sampling, `renderer/plot/sample.ts` (net-new, pure).
   - `samplePlot(cell: PlotCell, scope: Map<string, unknown>, math): PlotSamples` — 512 evenly spaced `x` in
     `[x.min, x.max]` per series; each `expr` compiled once and evaluated with `{ ...scope, x }`; a
     non-finite or non-real result is `NaN`. Runs inside the worker after the compute pass, so a plot can
@@ -355,7 +351,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     series (range 0) pads ±1.
   - Verified by `renderer/plot/sample.test.ts`: `sin(x)` on `[0, 2*pi]` has 512 samples within [-1, 1];
     `1/x` on `[-1, 1]` has a `NaN` or break at the sign change; `k*x` uses `k` from scope.
-- [ ] **E.2** Drawing, `renderer/plot/plot-svg.tsx` (net-new).
+- [x] **E.2** Drawing, `renderer/plot/plot-svg.tsx` (net-new).
   - `<PlotSvg samples width={640} height={360} />`: `viewBox="0 0 640 360"`, 48 px left / 32 px bottom
     gutters, ticks from `niceTicks(min, max, 6)` (steps 1·2·5 × 10^k), grid lines at 8 % opacity, axis
     lines at x = 0 / y = 0 when in range.
@@ -371,7 +367,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
 
 ### F — Molecule viewer cells (L)
 
-- [ ] **F.1** Parsers, `renderer/molecule/parse.ts` (net-new, pure).
+- [x] **F.1** Parsers, `renderer/molecule/parse.ts` (net-new, pure).
   - `parseStructure(text: string, format: 'xyz' | 'pdb' | 'mol'): { ok: true; atoms: Atom[]; bonds: Bond[] }
     | { ok: false; message: string }`, `Atom = { el: string; x: number; y: number; z: number }`,
     `Bond = { a: number; b: number; order: 1 | 2 | 3 }`.
@@ -381,7 +377,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
   - **MOL/SDF V2000:** counts line (line 4: atoms 1–3, bonds 4–6), atom block, bond block with order; for
     an SDF only the first record (up to `$$$$`). V3000 → `{ ok: false, message: 'MOL V3000 is not supported yet' }`.
   - More than **50,000 atoms** → `{ ok: false, message: 'Over 50,000 atoms — too large to view' }`.
-- [ ] **F.2** Elements and bond inference, `renderer/molecule/elements.ts` + `bonds.ts` (net-new).
+- [x] **F.2** Elements and bond inference, `renderer/molecule/elements.ts` + `bonds.ts` (net-new).
   - `ELEMENTS: Record<string, { color: string; covalent: number }>` for H–Kr plus Ag, I, Pt, Au, Hg, Pb
     (Jmol CPK colours, covalent radii in Å); unknown → `#ff1493`, 1.5 Å.
   - `inferBonds(atoms)`: used when the file has no bonds (XYZ, PDB without `CONECT`); a spatial hash
@@ -391,14 +387,14 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     `renderer/molecule/__fixtures__/` (water XYZ, caffeine MOL from PubChem CID 2519 — public domain —
     a 3-residue PDB): water has 3 atoms and 2 inferred bonds; caffeine MOL has 24 atoms and 25 bonds;
     the PDB's element columns parse; a 50,001-atom synthetic XYZ fails with the size message.
-- [ ] **F.3** The view, `renderer/molecule/molecule-view.tsx` (net-new).
+- [x] **F.3** The view, `renderer/molecule/molecule-view.tsx` (net-new).
   - R3F `<Canvas>` 100 % × 360 px, `OrbitControls` from drei, one `instancedMesh` of spheres (radius
     `0.3 × covalent`, CPK colour per instance) and one of cylinders for bonds (radius 0.12 Å, split
     half-colour at the midpoint is out of scope — single grey `#9ca3af`), camera framed on the bounding
     sphere. Above 5,000 atoms, sphere segments drop from 16 to 8.
   - Cell header: name, atom/bond counts, format; buttons **Reset view** and **Replace…**.
   - Dependencies: `three`, `@react-three/fiber`, `@react-three/drei` at media-model's ranges.
-- [ ] **F.4** Import through main.
+- [x] **F.4** Import through main.
   - `importStructure` op: main opens `dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name:
     'Structures', extensions: ['xyz', 'pdb', 'mol', 'sdf'] }] })` (injected as `services.showOpenDialog`;
     `apps/science/main/host.ts` passes Electron's), `stat` first and refuses over 10 MB with `{ ok: false,
@@ -410,7 +406,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
 
 ### G — Templates (S)
 
-- [ ] **G.1** Built-in templates, `renderer/templates/index.ts` (net-new).
+- [x] **G.1** Built-in templates, `renderer/templates/index.ts` (net-new).
   - `SCIENCE_TEMPLATES: readonly { id: string; title: string; discipline: ScienceDiscipline; blurb: string;
     cells: ScienceCell[] }[]` — eight entries: **Function explorer** (maths), **Linear algebra basics**
     (maths), **Kinematics** (physics: `v = u + a t` etc. with units), **Projectile range plot** (physics),
@@ -419,7 +415,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     of `K / (1 + ((K - N0)/N0) * e^(-r x))`).
   - Each template's cells parse with `ScienceCellSchema` and every compute cell evaluates with no error —
     asserted in `renderer/templates/templates.test.ts`, which runs `evaluateNotebook` over each.
-- [ ] **G.2** Templates view, `renderer/views/templates-view.tsx` (net-new).
+- [x] **G.2** Templates view, `renderer/views/templates-view.tsx` (net-new).
   - A grid of cards (title, discipline chip, blurb), filtered by the same discipline chips as C.1; **Use
     template** calls `science.create({ title, discipline, cells })` with fresh cell ids and then
     `onView('notebooks')` with the new notebook selected. **New notebook** in C.1 creates a blank notebook
@@ -429,7 +425,7 @@ its own), the website lists Science, `docs/APPS.md` records the app.
 
 ### H — Launch: catalog, website, docs (S)
 
-- [ ] **H.1** Launcher catalog.
+- [x] **H.1** Launcher catalog.
   - [`catalog.ts`](../../../apps/launcher/src/common/catalog.ts): delete `comingSoon: true` from the
     `science` entry in `RAW_APPS`; `MODULES.simulator.comingSoon` stays `true` until Phase 127. Update the
     `science` module's feature blurbs to what shipped: Research → "Notebooks with LaTeX, units and
@@ -438,11 +434,11 @@ its own), the website lists Science, `docs/APPS.md` records the app.
     is `undefined`; `module('science', 'simulator').comingSoon` stays `true`.
   - [`app.test.tsx`](../../../apps/launcher/src/renderer/app.test.tsx): the "renders coming-soon apps" case
     switches its example tile from Science to **Health** (`'More for Midnite Health'`).
-- [ ] **H.2** Website. [`packages/website/src/apps/catalog.ts`](../../../packages/website/src/apps/catalog.ts)
+- [x] **H.2** Website. [`packages/website/src/apps/catalog.ts`](../../../packages/website/src/apps/catalog.ts)
   gains a `science` entry (accent `#06b6d4`, the tagline and the three features, no dashes as
   punctuation), and `apps/launcher/src/renderer/assets/app-logos/science.png` is copied to
   `packages/website/public/img/apps/science.png`.
-- [ ] **H.3** Docs. [`docs/APPS.md`](../../../docs/APPS.md): the host table row "Science | Science, Simulator
+- [x] **H.3** Docs. [`docs/APPS.md`](../../../docs/APPS.md): the host table row "Science | Science, Simulator
   (both coming soon)" → "Science, Simulator (coming soon)", and a new `### App: Science (apps/science) —
   Phase 126` section under "App compositions" naming the store path, the channel, the worker rule and the
   notebook schema version.
@@ -477,21 +473,21 @@ its own), the website lists Science, `docs/APPS.md` records the app.
 
 ## Verification
 
-- [ ] `science.test.ts`: schema round-trip; `../x` id rejected; bad plot range rejected; 501 cells rejected; unknown version migrates to `null`.
-- [ ] `json-dir-store.test.ts`: write/list/read; quarantine; `pathOf('../x')` throws; files are 0600.
-- [ ] `notebook-store.test.ts`: create/list/read/write; quarantine renames a corrupt file and counts it; remove goes through `trashItem`; write to an unknown id is `{ ok: false }`.
-- [ ] `context.test.ts`: invalid payload → `{ ok: false, kind: 'error' }`; 11 MB structure refused; cancelled picker → `cancelled`.
-- [ ] `bridge.test.ts`: the Science bridge exposes exactly `report` and `science`.
-- [ ] `host.test.ts`: `registerScienceHost` registers exactly `scienceModuleMain.channels`.
-- [ ] `host-app.test.tsx`: rail shows the Science group with Notebooks and Templates; `navConfigProblems` is `[]`.
-- [ ] `notebook-editor.test.tsx`: `$x^2$` renders `.katex`; unclosed LaTeX does not throw; move-up reorders; autosave fires once 600 ms after an edit.
-- [ ] `evaluate.test.ts`: assignments carry across cells; units convert; `det`, complex `sqrt`, `derivative` answer; `import` is disabled.
-- [ ] `use-compute.test.tsx`: debounced single run; stale run ignored; 2 s budget terminates and respawns.
-- [ ] `sample.test.ts` / `plot-svg.test.tsx`: sampling bounds; asymptote breaks; scope variables; nice ticks; series colours.
-- [ ] `parse.test.ts` / `bonds.test.ts`: water, caffeine and PDB fixtures; 50,001-atom refusal; V3000 refusal.
-- [ ] `templates.test.ts`: every template's cells parse and evaluate without error.
-- [ ] `templates-view.test.tsx`: **Use template** creates a physics notebook and switches view.
-- [ ] `midnite-link.test.ts`, `catalog.test.ts`, `app.test.tsx`, `release-bundles.test.mjs`, `affected-apps.test.mjs`, `composition.test.ts` green with the new ids.
+- [x] `science.test.ts`: schema round-trip; `../x` id rejected; bad plot range rejected; 501 cells rejected; unknown version migrates to `null`.
+- [x] `json-dir-store.test.ts`: write/list/read; quarantine; `pathOf('../x')` throws; files are 0600.
+- [x] `notebook-store.test.ts`: create/list/read/write; quarantine renames a corrupt file and counts it; remove goes through `trashItem`; write to an unknown id is `{ ok: false }`.
+- [x] `context.test.ts`: invalid payload → `{ ok: false, kind: 'error' }`; 11 MB structure refused; cancelled picker → `cancelled`.
+- [x] `bridge.test.ts`: the Science bridge exposes exactly `report` and `science`.
+- [x] `host.test.ts`: `registerScienceHost` registers exactly `scienceModuleMain.channels`.
+- [x] `host-app.test.tsx`: rail shows the Science group with Notebooks and Templates; `navConfigProblems` is `[]`.
+- [x] `notebook-editor.test.tsx`: `$x^2$` renders `.katex`; unclosed LaTeX does not throw; move-up reorders; autosave fires once 600 ms after an edit.
+- [x] `evaluate.test.ts`: assignments carry across cells; units convert; `det`, complex `sqrt`, `derivative` answer; `import` is disabled.
+- [x] `use-compute.test.tsx`: debounced single run; stale run ignored; 2 s budget terminates and respawns.
+- [x] `sample.test.ts` / `plot-svg.test.tsx`: sampling bounds; asymptote breaks; scope variables; nice ticks; series colours.
+- [x] `parse.test.ts` / `bonds.test.ts`: water, caffeine and PDB fixtures; 50,001-atom refusal; V3000 refusal.
+- [x] `templates.test.ts`: every template's cells parse and evaluate without error.
+- [x] `templates-view.test.tsx`: **Use template** creates a physics notebook and switches view.
+- [x] `midnite-link.test.ts`, `catalog.test.ts`, `app.test.tsx`, `release-bundles.test.mjs`, `affected-apps.test.mjs`, `composition.test.ts` green with the new ids.
 - [ ] CI `gate-node` green (it now runs `module-science`).
 - [ ] **Open, for a human:** install the built bundle from the launcher; the window is frameless; a caffeine template renders and rotates; a `tan(x)` plot breaks at its asymptotes; Help ▸ Report an Issue opens.
 

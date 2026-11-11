@@ -14,7 +14,7 @@ a folder that is gone, or when a row below disagrees with the const.
 |---|---|
 | **runtime** | The headless main-process services no window owns: the vault (all credentials), the pty broker, the `midnite` CLI and MCP server, the link router, the updater, the app registry, window and Dock identity, and the `version`. |
 | **frame** | The renderer chrome every app wears: layout, title bar and status bar, terminal, companion, loops, quick access, palette, the browser panel, files, search, themes, setup, settings, the git graph and its write ops, the knowledge graph, each app's landing, and the dashboard grid. |
-| **app** | One installable product that owns one area of work, a *host* of modules: Agents, Media, Gamer, Vanguard, Mind, Money, Browser (and Science, so far catalog-only). Studio is every module composed, the internal superset and dev harness. Coder, Creator, Cleaner, Vault, Monitor and Capture were apps until Phase 124 and are modules now ([Modules and hosts](#modules-and-hosts)). |
+| **app** | One installable product that owns one area of work, a *host* of modules: Agents, Media, Gamer, Vanguard, Mind, Money, Browser (and Science). Studio is every module composed, the internal superset and dev harness. Coder, Creator, Cleaner, Vault, Monitor and Capture were apps until Phase 124 and are modules now ([Modules and hosts](#modules-and-hosts)). |
 | **module** | One composable slice a host mounts: `packages/modules/<id>`, with a renderer half, a main half and a `manifest.ts`. It composes features and the frame; an app composes modules. |
 | **feature** | One folder of `packages/app/src/features/`: a view or panel plus its stores and tests. Each feature is placed in the frame or in exactly one owning app. Once a feature is extracted, it becomes its own package, `packages/features/<name>/` ([Packages](#packages)). |
 
@@ -391,7 +391,7 @@ MCP tool owners are derived from it. The host's own module comes first.
 | Vanguard | Vanguard, Vault, Cleaner, Monitor |
 | Mind | Mind, Capture |
 | Money | Money, Accountant (coming soon) |
-| Science | Science, Simulator (both coming soon) |
+| Science | Science, Simulator (coming soon) |
 | Browser | Browser |
 | Studio | every module |
 
@@ -520,6 +520,24 @@ crashes without. Appearance is `e2e/visual/suite-shell.spec.ts`: framed, framele
 ## App compositions
 
 Each app in `apps/` composes the frame, its modules, its assigned features, and its host ports into an installable desktop product. The compositions below were written when Cleaner, Capture, Creator and Coder were apps of their own; their code now lives in `packages/modules/<id>`, and the notes still describe how it is composed.
+
+### App: Science (`apps/science`) — Phase 126
+
+The notebook app. A host of the `science` module (`packages/modules/science`); the Simulator module is still
+coming soon. Notebooks are one `nb-<12 chars>.json` per notebook under
+`<userData>/notebooks/`, written atomically with 0600 permissions by the runtime's `createJsonDirStore` (a
+file that fails to parse or whose content id differs from its name is quarantined, never deleted). The wire
+contract is `shared/src/science.ts`: a versioned `ScienceNotebook` (`version: 1`, migrated by
+`migrateScienceNotebook`) of markdown, compute, plot and molecule cells, and the one channel
+`mstudio:science:notebook` with an `op` union. `science?` on `MidniteStudioBridge` is optional because only
+this host carries it.
+
+**The worker rule:** every expression a notebook holds is untrusted input (a notebook can arrive as a
+file), so compute and plot cells are evaluated by mathjs inside an inline Web Worker
+(`?worker&inline`, for the packaged `file://` renderer), never on the render thread. A run is posted 300 ms
+after the last edit, always from the top in a fresh scope, and a run that does not answer in 2 s terminates
+and respawns the worker. `import`, `createUnit`, `reviver`, `evaluate`, `parse` and `compile` are refused by
+a guard on the parsed expression. Molecule files are read by main through a native picker, capped at 10 MB.
 
 ### App 5: Browser (`apps/browser`) — Phase 113 Theme L
 

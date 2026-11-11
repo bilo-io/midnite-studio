@@ -2,13 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ScienceCell } from '@midnite/studio-shared';
 
+import type { PlotSamples } from '../plot/sample';
 import type { CellResult } from './evaluate';
 
 /** The slice of `Worker` the hook uses, so a test can inject a fake. */
 export type ComputeWorkerLike = {
   postMessage(message: { runId: number; cells: ScienceCell[] }): void;
   terminate(): void;
-  onmessage: ((event: { data: { runId: number; results: Record<string, CellResult> } }) => void) | null;
+  onmessage: ((event: { data: { runId: number; results: Record<string, CellResult>; samples?: Record<string, PlotSamples> } }) => void) | null;
 };
 export type ComputeWorkerFactory = () => ComputeWorkerLike;
 
@@ -19,23 +20,25 @@ export const STOPPED_MESSAGE = 'Stopped after 2 s — simplify the expression or
 
 export type ComputeState = {
   results: Record<string, CellResult>;
+  /** Each plot cell's sampled series, by cell id. */
+  samples: Record<string, PlotSamples>;
   /** A run has been pending for longer than the spinner delay. */
   pending: boolean;
 };
 
 /**
  * Builds the compute hook over a worker factory (Phase 126 Theme D.2). A run is posted 300 ms after the last
- * edit to a compute cell; a newer run supersedes an older one (a stale `runId` is dropped). A run that has not
+ * edit to a compute or plot cell; a newer run supersedes an older one (a stale `runId` is dropped). A run that has not
  * answered in 2000 ms terminates the worker, builds a fresh one and marks every compute cell stopped.
  */
 export function createUseCompute(factory: ComputeWorkerFactory | null) {
   return function useCompute(cells: readonly ScienceCell[]): ComputeState {
-    const [state, setState] = useState<ComputeState>({ results: {}, pending: false });
+    const [state, setState] = useState<ComputeState>({ results: {}, samples: {}, pending: false });
     const worker = useRef<ComputeWorkerLike | null>(null);
     const runId = useRef(0);
 
-    // Only compute cells matter: an edit to a text cell must not post a run.
-    const key = useMemo(() => JSON.stringify(cells.filter((c) => c.kind === 'compute').map((c) => [c.id, c.source])), [cells]);
+    // Only compute and plot cells matter: an edit to a text cell must not post a run.
+    const key = useMemo(() => JSON.stringify(cells.filter((c) => c.kind === 'compute' || c.kind === 'plot')), [cells]);
 
     useEffect(() => {
       if (factory === null) return;
@@ -44,7 +47,7 @@ export function createUseCompute(factory: ComputeWorkerFactory | null) {
         w.onmessage = (event) => {
           if (event.data.runId !== runId.current) return;
           clearTimers();
-          setState({ results: event.data.results, pending: false });
+          setState({ results: event.data.results, samples: event.data.samples ?? {}, pending: false });
         };
         worker.current = w;
       };
@@ -57,8 +60,8 @@ export function createUseCompute(factory: ComputeWorkerFactory | null) {
         timeout = spinner = null;
       }
       const computeCells = cells.filter((c) => c.kind === 'compute');
-      if (computeCells.length === 0) {
-        setState({ results: {}, pending: false });
+      if (computeCells.length === 0 && !cells.some((c) => c.kind === 'plot')) {
+        setState({ results: {}, samples: {}, pending: false });
         return;
       }
       debounce = setTimeout(() => {
@@ -74,7 +77,7 @@ export function createUseCompute(factory: ComputeWorkerFactory | null) {
           spawn();
           const stopped: Record<string, CellResult> = {};
           for (const c of computeCells) stopped[c.id] = { ok: false, line: 1, message: STOPPED_MESSAGE };
-          setState({ results: stopped, pending: false });
+          setState({ results: stopped, samples: {}, pending: false });
         }, COMPUTE_TIMEOUT_MS);
         worker.current!.postMessage({ runId: id, cells: [...cells] });
       }, COMPUTE_DEBOUNCE_MS);
