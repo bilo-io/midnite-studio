@@ -29,16 +29,12 @@ let flushed = false;
 app.setName(STARTUP_NAME);
 // A smoke run is a proof, not a session: keep it out of the Dock and off the screen.
 if (smoke) app.dock?.hide();
-// Captures are shown as `mstudio-file://capture/…` URLs, registered before `ready` as Electron requires.
-// `stream` lets a recording's player seek.
 app.setPath('userData', startupUserData(app.getPath('appData'), process.env[USER_DATA_ENV]));
 
 // A smoke run is one-shot and must not collide with a real Startup's lock.
 if (!smoke && !app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  // Phase 124 Theme G.4: take over what the apps merged into this one left behind, once (never in a throwaway run).
-  // After the lock: a launcher link's `open -n` instance quits at the lock and must not run it beside the live host.
   app.on('second-instance', (_event, argv) => {
     // A launcher link (`--midnite-link=…`) tells the running host which module and view to land on.
     suite?.handleArgv(argv);
