@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-11 — Phase 126 Theme G — Templates
+
+[PR #1147](https://github.com/bilo-io/midnite-studio/pull/1147). Seven built-in starter notebooks and a Templates view with discipline filter and "Use template" (fresh cell ids).
+
 ## 2026-11-11 — Phase 130 Theme D — Startup costs and runway
 
 [PR #1144](https://github.com/bilo-io/midnite-studio/pull/1144). Pure `projectRunway` (cadence, growth, scenario multipliers, burn, runway, zero-cash month, default alive), the `projection` op, and the Runway view with lines table, scenario tabs, horizon, headline cards and an inline-SVG cash chart. Actuals from the books wait for Theme F.

@@ -24,6 +24,6 @@ describe('SciencePane', () => {
 
   it('renders the template shelf for view=templates', () => {
     render(<SciencePane view="templates" onView={() => undefined} />);
-    expect(screen.getByTestId('templates-empty')).toBeTruthy();
+    expect(screen.getByTestId('templates-view')).toBeTruthy();
   });
 });
