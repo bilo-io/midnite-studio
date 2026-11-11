@@ -55,7 +55,7 @@ then **F** (after Phase 129 B + C), then **G**.
 
 **Theme C — Roadmap and milestones.** ✅ PR pending. A pure `roadmap-model.ts` (`wouldCreateCycle` over Theme B's `milestoneCycle`, `atRisk`, `overdue`, `timelineRange`, `positionInRange`), the roadmap view with a remembered List | Timeline switch, an add/edit sheet that greys out loop-making dependencies and shows main's `cycle` message, and an SVG timeline with today line and dependency arrows. The timeline's real-layout geometry stays for Theme G's browser spec, as the phase says.
 
-**Theme D — Costs and runway.** ◻ Cost and revenue lines with cadence and growth, up to three scenarios, a
+**Theme D — Costs and runway.** ✅ Cost and revenue lines with cadence and growth, up to three scenarios, a
 36-month projection, runway, zero-cash month and default-alive, with opening cash and actual burn read from
 the linked book when there is one.
 
@@ -205,13 +205,13 @@ website listing.
 
 ### D — Costs and runway (L)
 
-- [ ] `PlanLineSchema = { id, kind: z.enum(['cost', 'revenue']), name (1–80), category: z.enum(['people', 'software', 'premises',
+- [x] `PlanLineSchema = { id, kind: z.enum(['cost', 'revenue']), name (1–80), category: z.enum(['people', 'software', 'premises',
   'marketing', 'professional', 'hardware', 'revenue', 'other']), minor: z.int().nonnegative(), cadence: z.enum(['monthly',
   'quarterly', 'yearly', 'one-off']), start: z.string().regex(/^\d{4}-\d{2}$/), end: same.optional(), growthBpPerMonth:
   z.int().min(-10000).max(10000).default(0), contractId: z.uuid().optional() }`
-- [ ] `RunwayScenarioSchema = { id, name (1–40), costMultiplierBp: z.int().min(0).max(100000).default(10000), revenueMultiplierBp:
+- [x] `RunwayScenarioSchema = { id, name (1–40), costMultiplierBp: z.int().min(0).max(100000).default(10000), revenueMultiplierBp:
   same, extraLines: PlanLineSchema[] }`; at most 3 scenarios; "Base" (multipliers 10000, no extras) always exists and cannot be removed
-- [ ] Net-new pure `main/runway.ts`: `projectRunway(input: { openingCashMinor: number; startMonth: 'YYYY-MM'; lines: PlanLine[];
+- [x] Net-new pure `main/runway.ts`: `projectRunway(input: { openingCashMinor: number; startMonth: 'YYYY-MM'; lines: PlanLine[];
   scenario: RunwayScenario; months: 12 | 24 | 36 }): RunwayProjection`
   - Per month: each line contributes when `start ≤ month ≤ end`; `quarterly`/`yearly` fall in the start month and every 3/12
     after; `one-off` only in `start`; growth compounds monthly from `start` with `percentOfMinor` rounding each month.
@@ -226,12 +226,12 @@ website listing.
   - Opening cash = the book's cash + bank balance as of today (overrides `company.openingCash`, shown as "from <book>").
   - "Actual burn" = mean monthly (expense − income) over the last 3 full months from the book, shown beside the modelled burn
     with the difference.
-- [ ] Runway view (`startup.runway`): lines table (add/edit/remove in a sheet), scenario tabs (Base + up to 2), horizon select
+- [x] Runway view (`startup.runway`): lines table (add/edit/remove in a sheet), scenario tabs (Base + up to 2), horizon select
   (12/24/36), headline cards (cash today, monthly burn, runway in months or "Beyond <horizon>", zero-cash month, Default
   alive / Default dead), and a cash line chart
   - Chart: inline SVG polyline (one series per scenario, the zero line marked); no chart dependency.
   - Empty: "Add your first cost" + **Add line**.
-- [ ] Tests: RTL `runway-view.test.tsx` (headline copy for `runwayMonths: null` → "Beyond 36 months"; scenario tab switches the
+- [x] Tests: RTL `runway-view.test.tsx` (headline copy for `runwayMonths: null` → "Beyond 36 months"; scenario tab switches the
   `projection` request; Base has no remove button)
 
 ### E — Vendors and contracts (M)

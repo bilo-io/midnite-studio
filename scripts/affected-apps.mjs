@@ -50,6 +50,7 @@ export const PLACEMENT_APPS = [
   'media',
   'gamer',
   'vanguard',
+  'science',
   'startup',
 ];
 
