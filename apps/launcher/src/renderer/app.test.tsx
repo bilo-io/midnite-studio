@@ -193,15 +193,15 @@ describe('<App>', () => {
   it('renders coming-soon apps with disabled button, limited menu, and safe detail view', async () => {
     mount('installed');
     await screen.findByLabelText('Open Midnite Agents');
-    const scienceTile = screen.getAllByRole('article').find((a) => within(a).queryByLabelText('More for Midnite Science'))!;
-    expect(within(scienceTile).getAllByText('Coming soon').length).toBeGreaterThanOrEqual(2);
-    expect(within(scienceTile).queryByText('Runs in Studio')).toBeNull();
-    const comingSoonBtn = within(scienceTile).getByRole('button', { name: 'Coming soon' });
+    const healthTile = screen.getAllByRole('article').find((a) => within(a).queryByLabelText('More for Midnite Health'))!;
+    expect(within(healthTile).getAllByText('Coming soon').length).toBeGreaterThanOrEqual(2);
+    expect(within(healthTile).queryByText('Runs in Studio')).toBeNull();
+    const comingSoonBtn = within(healthTile).getByRole('button', { name: 'Coming soon' });
     expect(comingSoonBtn.getAttribute('disabled')).not.toBeNull();
     expect(comingSoonBtn.getAttribute('aria-disabled')).toBe('true');
 
     // Menu only has About this app
-    fireEvent.click(within(scienceTile).getByLabelText('More for Midnite Science'));
+    fireEvent.click(within(healthTile).getByLabelText('More for Midnite Health'));
     const menuItems = within(screen.getByRole('menu')).getAllByRole('menuitem');
     expect(menuItems).toHaveLength(1);
     expect(menuItems[0]!.textContent).toBe('About this app');
@@ -209,7 +209,7 @@ describe('<App>', () => {
     // Details sheet
     fireEvent.click(menuItems[0]!);
     const sheet = screen.getByRole('dialog');
-    expect(sheet.getAttribute('aria-label')).toBe('Midnite Science');
+    expect(sheet.getAttribute('aria-label')).toBe('Midnite Health');
     expect(within(sheet).getByText('Vision')).toBeDefined();
     // No feature Open buttons
     expect(within(sheet).queryByRole('button', { name: /^Open / })).toBeNull();

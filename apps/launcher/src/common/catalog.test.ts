@@ -43,6 +43,7 @@ describe('the 11-app catalog (Phase 124 Theme F)', () => {
     expect(module('money', 'accountant').comingSoon).toBe(true);
     expect(module('science', 'simulator').comingSoon).toBe(true);
     expect(appById('money').comingSoon).toBeUndefined();
+    expect(appById('science').comingSoon).toBeUndefined();
     expect(module('money', 'money').comingSoon).toBeUndefined();
   });
 
