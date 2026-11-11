@@ -25,7 +25,7 @@ export function NotebooksView({ onView }: { onView: (view: string) => void }) {
 
   const list = useQuery({
     queryKey: LIST_KEY,
-    queryFn: async () => (await bridge()?.science?.list()) ?? noBridge(),
+    queryFn: async () => (await bridge()?.science?.list()) ?? noBridge<{ notebooks: ScienceNotebookSummary[]; quarantined: number }>(),
   });
   const refresh = () => void client.invalidateQueries({ queryKey: LIST_KEY });
 
@@ -41,7 +41,7 @@ export function NotebooksView({ onView }: { onView: (view: string) => void }) {
     enabled: selectedId !== null,
     // Always the file on disk when a notebook is opened; the editor's own draft is the live copy.
     gcTime: 0,
-    queryFn: async () => (await bridge()?.science?.read({ id: selectedId! })) ?? noBridge(),
+    queryFn: async () => (await bridge()?.science?.read({ id: selectedId! })) ?? noBridge<{ notebook: ScienceNotebook }>(),
   });
 
   useEffect(() => {
@@ -161,7 +161,7 @@ export function NotebooksView({ onView }: { onView: (view: string) => void }) {
       </aside>
       <section className="min-w-0 flex-1">
         {selectedId !== null && open.data?.ok ? (
-          <NotebookEditor key={selectedId} notebook={open.data.value.notebook as ScienceNotebook} onSaved={refresh} />
+          <NotebookEditor key={selectedId} notebook={open.data.value.notebook} onSaved={refresh} />
         ) : selectedId !== null && open.data && !open.data.ok ? (
           <p role="alert" className="p-6 text-sm">
             {open.data.kind === 'error' ? open.data.message : 'Could not open the notebook.'}

@@ -35,6 +35,7 @@ export function NotebookEditor({ notebook, onSaved }: Props) {
         onSaved,
       }),
     // A draft lives for one notebook id; the parent remounts this component for another.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [notebook.id],
   );
   useEffect(
