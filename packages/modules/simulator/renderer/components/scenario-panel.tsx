@@ -80,7 +80,7 @@ export function ScenarioPanel({ kinds, kind, capture, apply }: Props) {
   };
 
   const save = () => {
-    const current = scenarios.find((s) => s.id === currentId);
+    const current = scenarios.find((s) => s.id === currentId && s.kind === kind);
     if (current !== undefined) return void doSave(current.title, current.id);
     const prompt = dialogs.prompt;
     if (prompt === undefined) return void doSave('Untitled scenario', undefined);

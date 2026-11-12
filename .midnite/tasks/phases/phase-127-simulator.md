@@ -62,8 +62,7 @@ Lockfile gained the new workspace importer.
 **Theme E — Agent environments: flocking and predator–prey.** ◻ Reynolds boids in a 3D box on a spatial
 hash, and a predator–prey world whose population counts chart live.
 
-**Theme F — Scenarios: save and load.** ◻ `SimScenarioSchema` (versioned), one `simulator` channel, files
-under the app's userData through `createJsonDirStore`, a scenario list per sandbox.
+**Theme F — Scenarios: save and load.** ✅ [PR #1157](https://github.com/bilo-io/midnite-studio/pull/1157). Versioned `SimScenarioSchema` and request union in `shared/src/simulator.ts`, the `simulator` channel with an optional `simulator?` bridge, and a store over `createJsonDirStore` at `<userData>/simulations` (Trash on remove, 8 MB cap). `ScenarioPanel` sits in the Emergence and Worlds side panels; per-kind zod schemas (`sims/scenario-codec.ts`) check params and state on load, with `Uint8Array` cells carried as base64 rather than RLE. The Agents view is wired by Theme E.
 
 **Theme G — Launch.** ◻ `comingSoon` dropped from the Simulator module chip, docs updated.
 
@@ -270,7 +269,7 @@ under the app's userData through `createJsonDirStore`, a scenario list per sandb
 
 ### F — Scenarios: save and load (M)
 
-- [ ] **F.1** Schemas, net-new `packages/shared/src/simulator.ts` (exported from the barrel).
+- [x] **F.1** Schemas, net-new `packages/shared/src/simulator.ts` (exported from the barrel).
   - `SimScenarioIdSchema = z.string().regex(/^sim-[a-z0-9]{12}$/)`; `SimKindSchema = z.enum(['life',
     'elementary', 'nbody', 'boids', 'predprey'])`.
   - `SimScenarioSchema = z.object({ version: z.literal(1), id, kind, title: z.string().min(1).max(200), seed:
@@ -285,7 +284,7 @@ under the app's userData through `createJsonDirStore`, a scenario list per sandb
     (without id/timestamps) | with id }`, `rename { id, title }`, `remove { id }`.
   - Verified by `packages/shared/src/simulator.test.ts`: a valid scenario parses; `sim-../x` fails;
     version 2 migrates to `null`.
-- [ ] **F.2** Channel, bridge and store.
+- [x] **F.2** Channel, bridge and store.
   - [`shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts): `simulator:
     'mstudio:simulator:scenario'`; [`shared/src/ipc/bridge.ts`](../../../packages/shared/src/ipc/bridge.ts):
     `SimulatorBridge` (one method per op, each `Promise<GitOpResult<…>>`) and **optional** `simulator?:
@@ -298,7 +297,7 @@ under the app's userData through `createJsonDirStore`, a scenario list per sandb
   - `main/bridge.ts`: `SimulatorAppBridge = { simulator: SimulatorBridge }`.
   - Verified by `main/scenario-store.test.ts` (tmp dir: save → list filtered by kind → read; remove calls
     `trashItem`; a 9 MB scenario is refused) and `main/bridge.test.ts` (top-level keys exactly `['simulator']`).
-- [ ] **F.3** Scenario panel, `renderer/components/scenario-panel.tsx` (net-new).
+- [x] **F.3** Scenario panel, `renderer/components/scenario-panel.tsx` (net-new).
   - In each view's side panel: **Save** (asks for a title the first time; saves `serialise()` + params +
     seed), a list of saved scenarios for that view's kinds (title, relative `updatedAt`), click to load
     (`restore`), context menu (`useDialogs().openMenu`) Rename (`useDialogs().prompt`) / Delete, confirmed with
