@@ -9,6 +9,11 @@ export default defineConfig({
   resolve: {
     alias: {
       '@midnite/studio-feature-report/bridge': at('../../packages/features/report/bridge.ts'),
+      '@midnite/studio-feature-ledger/main': at('../../packages/features/ledger/main/index.ts'),
+      '@midnite/studio-feature-ledger/renderer': at('../../packages/features/ledger/renderer/index.ts'),
+      '@midnite/studio-module-accountant/bridge': at('../../packages/modules/accountant/main/bridge.ts'),
+      '@midnite/studio-module-accountant/main': at('../../packages/modules/accountant/main/index.ts'),
+      '@midnite/studio-module-accountant/renderer': at('../../packages/modules/accountant/renderer/index.ts'),
       '@midnite/studio-module-startup/bridge': at('../../packages/modules/startup/main/bridge.ts'),
       '@midnite/studio-module-startup/main': at('../../packages/modules/startup/main/index.ts'),
       '@midnite/studio-module-startup/renderer': at('../../packages/modules/startup/renderer/index.ts'),

@@ -15,7 +15,9 @@ dependsOn:
   - 'frame'
   - 'runtime'
   - 'feature-report'
+  - 'feature-ledger'
   - 'feature-monitor'
+  - 'module-accountant'
   - 'module-startup'
 
 tasks:
@@ -48,6 +50,12 @@ tasks:
       - '/packages/modules/startup/main/**/*'
       - '/packages/modules/startup/renderer/**/*'
       - '/packages/modules/startup/manifest.ts'
+      - '/packages/features/ledger/renderer/**/*'
+      - '/packages/features/ledger/manifest.ts'
+      - '/packages/features/ledger/main/**/*'
+      - '/packages/modules/accountant/main/**/*'
+      - '/packages/modules/accountant/renderer/**/*'
+      - '/packages/modules/accountant/manifest.ts'
     outputs:
       - 'dist'
 
@@ -73,6 +81,12 @@ tasks:
       - '/packages/modules/startup/main/**/*'
       - '/packages/modules/startup/renderer/**/*'
       - '/packages/modules/startup/manifest.ts'
+      - '/packages/features/ledger/renderer/**/*'
+      - '/packages/features/ledger/manifest.ts'
+      - '/packages/features/ledger/main/**/*'
+      - '/packages/modules/accountant/main/**/*'
+      - '/packages/modules/accountant/renderer/**/*'
+      - '/packages/modules/accountant/manifest.ts'
 
   test:
     inputs:
@@ -94,3 +108,9 @@ tasks:
       - '/packages/modules/startup/main/**/*'
       - '/packages/modules/startup/renderer/**/*'
       - '/packages/modules/startup/manifest.ts'
+      - '/packages/features/ledger/renderer/**/*'
+      - '/packages/features/ledger/manifest.ts'
+      - '/packages/features/ledger/main/**/*'
+      - '/packages/modules/accountant/main/**/*'
+      - '/packages/modules/accountant/renderer/**/*'
+      - '/packages/modules/accountant/manifest.ts'

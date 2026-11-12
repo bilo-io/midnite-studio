@@ -7,11 +7,12 @@ language: 'typescript'
 layer: 'library'
 
 # `app-<id>` names the apps that compose this feature, from the placement map
-# (`FEATURE_PLACEMENT.ledger` = money); Studio composes every feature.
+# (`FEATURE_PLACEMENT.ledger` = money, startup); Studio composes every feature.
 # `scripts/affected-apps.mjs` turns an affected project's tags into app ids.
 tags:
   - 'layer-feature'
   - 'app-money'
+  - 'app-startup'
   - 'app-studio'
 
 dependsOn:

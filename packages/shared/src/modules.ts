@@ -56,7 +56,7 @@ export const APP_MODULES: Record<ModuleHostId, readonly ModuleId[]> = {
   money: ['money', 'accountant'],
   science: ['science', 'simulator'],
   browser: ['browser'],
-  startup: ['startup'],
+  startup: ['startup', 'accountant'],
 };
 
 /** Apps merged into a host by Phase 124. */

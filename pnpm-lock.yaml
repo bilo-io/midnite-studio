@@ -907,6 +907,9 @@ importers:
       '@bilo-io/ui':
         specifier: 0.2.0
         version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@midnite/studio-feature-ledger':
+        specifier: workspace:*
+        version: link:../../packages/features/ledger
       '@midnite/studio-feature-monitor':
         specifier: workspace:*
         version: link:../../packages/features/monitor
@@ -916,6 +919,9 @@ importers:
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../packages/frame
+      '@midnite/studio-module-accountant':
+        specifier: workspace:*
+        version: link:../../packages/modules/accountant
       '@midnite/studio-module-startup':
         specifier: workspace:*
         version: link:../../packages/modules/startup
