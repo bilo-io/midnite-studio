@@ -8,8 +8,5 @@ Released sections are mirrored to the public release feed by the release flow.
 
 ## [Unreleased]
 
-## [0.0.6] - 2026-10-31
-
 ### Added
-- **One shell for every suite app** (Phase 123): every app now wears the same frameless window, title-bar cluster, nav rail, status bar with a system monitor, settings pages, chords, terminal panel, companion panel and the FAB / Loops menu.
-- **Modules** (Phase 124): the suite's apps now mount feature modules, each with its own nav group.
+- **Midnite Startup** (Phase 130): a roadmap, costs and runway, and vendors and contracts.

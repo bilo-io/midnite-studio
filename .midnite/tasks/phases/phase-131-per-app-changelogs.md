@@ -450,7 +450,7 @@ All resolved; the option picked in each case was the recommended one.
 5. **Resolved — a missing section warns at release time instead of blocking it.** Agreed, because Studio already
    publishes with `has_section=false` as a documented normal case, and blocking a lockstep release over notes would hold
    back every bundle.
-6. **Resolved — back-fill only 0.0.6.** Agreed, because 0.0.6 is the first release after the app split (Phases 123 and
+6. **Resolved — back-fill only 0.0.6, and only for apps that existed at 0.0.6 (Science and Startup start at `[Unreleased]`).** Agreed, because 0.0.6 is the first release after the app split (Phases 123 and
    124) and the earlier ones have no per-app meaning.
 7. **Resolved — feed files live at `midnite-<id>/CHANGELOG.md`, beside `midnite-studio/` and `midnite-launcher/`.**
    Agreed, because it matches the feed repo's existing namespacing and the `midnite-<app>` issue slugs.
