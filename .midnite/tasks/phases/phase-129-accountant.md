@@ -77,9 +77,9 @@ post; re-importing the same file posts nothing twice. `main/import/csv.ts` (`par
 computed from the journal, rendered as tables, exported as CSV. The balance sheet always balances
 and the cash flow always reconciles, or says by how much it does not. The maths is pure and lives in `shared/src/ledger-reports.ts` (not `main/reports.ts`) so the in-memory ledger the renderer's tests and shots use runs the very same code; every sum is `BigInt`, converted to `number` only after a safe-integer check. `main/reports.ts` holds the `report`/`exportReport` ops and the CSV writer (amounts as exact decimal strings, a leading `=`/`+`/`@` neutralised). Cash flow lists a retained-earnings movement under financing, so the remainder is zero for any balanced journal. A trial balance and balance sheet are as of `to`. `LedgerReport` types the `report` op; `LedgerService.notifyChanged` and a `silent` option on `post`/`addImportRules` let a batch emit one `ledgerChanged` (import commit now does).
 
-**Theme G — Tax estimates.** ◻ A `TaxJurisdiction` interface and registry, the UK (England, Wales and
+**Theme G — Tax estimates.** ✅ A `TaxJurisdiction` interface and registry, the UK (England, Wales and
 Northern Ireland) as the reference: income tax + Class 4 NIC for a sole trader, corporation tax with
-marginal relief for a company. Every screen carries the fixed not-tax-advice notice.
+marginal relief for a company. Every screen carries the fixed not-tax-advice notice. The maths is pure and lives in `shared/src/ledger-tax.ts`, `ledger-tax-uk.ts` and `ledger-tax-uk-rates.ts` (not `main/tax/`, as Theme F's did) so the in-memory ledger runs the same code; rates are the one data table, in basis points and pence, with a source URL and checked-on date per year, and every product goes through `percentOfMinor`. `taxEstimate`'s `taxYear` is the start year (`2026` is 2026-27) and its payload is the typed `LedgerTaxEstimate`; it refuses with `invalid` for no jurisdiction, a personal book, a non-GBP book or an unknown year. A company's year is the 1 April financial year, a sole trader's the 6 April tax year, so `yearRange` takes the entity. Ships 2025-26 and 2026-27. `createMemoryLedger` gained `entity` and `jurisdiction` options.
 
 **Theme H — Verification and the catalog flip.** ◻ Shots spec over the mock bridge, the packaged-app pass,
 and `comingSoon` removed from `MODULES.accountant`.
@@ -392,7 +392,7 @@ and `comingSoon` removed from `MODULES.accountant`.
 
 ### G — Tax estimates (M)
 
-- [ ] Net-new `main/tax/jurisdiction.ts`: the interface every rule set implements
+- [x] Net-new `shared/src/ledger-tax.ts` (moved from `main/tax/`, as Theme F's maths was, so the in-memory ledger runs the same code): the interface every rule set implements
   - `TaxJurisdiction = { id: TaxJurisdictionId; label: string; currency: string; entities: readonly ('sole-trader' |
     'company')[]; taxYears: readonly string[]; yearRange(taxYear): { from: string; to: string }; estimate(input: TaxInput):
     TaxEstimate }`.
@@ -401,7 +401,7 @@ and `comingSoon` removed from `MODULES.accountant`.
   - `TaxEstimate = { lines: { label; basisMinor; rateBp; taxMinor }[]; totalMinor; effectiveRateBp; payments: { due: string;
     minor: number; label: string }[]; notes: string[]; source: { url: string; checkedOn: string } }` (in `shared/src/ledger.ts`).
   - `TAX_JURISDICTIONS` registry; `TaxJurisdictionIdSchema = z.enum(['uk-ew-ni'])` (adding a jurisdiction is a new file plus one enum value).
-- [ ] Net-new `main/tax/uk-ew-ni.ts`: the reference jurisdiction, rates as data in `uk-rates.ts` keyed by tax year
+- [x] Net-new `shared/src/ledger-tax-uk.ts`: the reference jurisdiction, rates as data in `ledger-tax-uk-rates.ts` keyed by tax year
   - Sole trader: personal allowance tapered £1 per £2 over £100 000; basic 20 % / higher 40 % / additional 45 % bands;
     Class 4 NIC (main rate between the lower and upper profits limits, additional rate above). Scotland is excluded
     (its bands differ) and the jurisdiction label says so.
@@ -413,15 +413,15 @@ and `comingSoon` removed from `MODULES.accountant`.
     table, with `source.url` and `checkedOn`; the test file's worked examples are rewritten from those figures.
   - Verified by `uk-ew-ni.test.ts` (2025-26 figures): sole-trader profit £60 000 → income tax £11 432, Class 4 £2 456.60,
     total £13 888.60; profit £110 000 → personal allowance £7 570; company profit £100 000 → £22 750 (marginal relief £2 250).
-- [ ] `taxEstimate` op: refuses with `invalid` when the book has no `jurisdiction`, the entity is `personal`, or the tax year
+- [x] `taxEstimate` op: refuses with `invalid` when the book has no `jurisdiction`, the entity is `personal`, or the tax year
   is not in `taxYears`
-- [ ] Tax view (`accountant.tax`): jurisdiction + tax year selects, the estimate table, payment dates, the notes, and the
+- [x] Tax view (`accountant.tax`): jurisdiction + tax year selects, the estimate table, payment dates, the notes, and the
   fixed notice
   - `TAX_DISCLAIMER` (in `shared/src/ledger.ts`): "Estimate only — not tax advice. Based on the <label> rules for <tax year>,
     checked <date>. Confirm with the tax authority or an accountant before you file or pay." It renders above the table on
     every estimate and cannot be dismissed.
   - No jurisdiction set: an empty state with a select that writes `updateBook({ jurisdiction })`.
-- [ ] Tests: RTL `tax-view.test.tsx` (the notice is present in every rendered state; personal entity → the "not available"
+- [x] Tests: RTL `tax-view.test.tsx` (the notice is present in every rendered state; personal entity → the "not available"
   copy; estimate rows render formatted amounts)
 
 ### H — Verification and the catalog flip (S)
@@ -485,11 +485,12 @@ and `comingSoon` removed from `MODULES.accountant`.
 - [ ] `apps/money/main/host.test.ts`: ledger + finance channels each registered once; `host-app.test.tsx`: two nav groups.
 - [x] `csv.test.ts` + `import-service.test.ts`: quoting, BOM, delimiter sniff, caps, rule priority, idempotent re-import.
 - [x] `reports.test.ts`: the hand-worked year; 500 random balanced entries keep the balance sheet balanced and cash flow reconciled.
-- [ ] `uk-ew-ni.test.ts`: the three worked examples above.
-- [ ] RTL: overview, accounts, journal, import, reports and tax views as listed per theme; the tax notice in every state.
+- [x] `ledger-tax.test.ts` (UK): the three worked examples above.
+- [x] RTL: overview, accounts, journal, import, reports and tax views as listed per theme; the tax notice in every state.
 - [ ] `accountant-shots.spec.ts` screenshots committed under `docs/screenshots/p129/`.
 - [ ] `catalog.test.ts`: Accountant no longer `comingSoon`.
 - [ ] **Open, for a human:** the packaged-app pass in Theme H.
+- [ ] **Open, for a human:** UK figures verified against GOV.UK (`shared/src/ledger-tax-uk-rates.ts`). 2026-27 was read from GOV.UK on 2026-11-12; 2025-26 carries the same figures from this spec and was not re-read there.
 
 ## Not in this phase
 

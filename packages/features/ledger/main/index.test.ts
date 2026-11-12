@@ -77,9 +77,13 @@ describe('ledgerMain', () => {
     expect(await handler({ op: 'listBooks' })).toEqual({ ok: false, kind: 'io', message: 'EIO: disk gone' });
   });
 
-  it('answers ops with no service method yet as invalid', async () => {
-    const { handler, book } = await seeded();
+  it('answers taxEstimate invalid without a jurisdiction, and with an estimate once one is set', async () => {
+    const { handler, book, service } = await seeded();
     expect(await handler({ op: 'taxEstimate', bookId: book.id, taxYear: 2025 })).toMatchObject({ ok: false, kind: 'invalid' });
+    await service.updateBook(book.id, { jurisdiction: 'uk-ew-ni' });
+    expect(await handler({ op: 'taxEstimate', bookId: book.id, taxYear: 2025 })).toMatchObject({ ok: true, value: { taxYear: '2025-26', from: '2025-04-06', to: '2026-04-05' } });
+    expect(await handler({ op: 'taxEstimate', bookId: book.id, taxYear: 2019 })).toMatchObject({ ok: false, kind: 'invalid' });
+    expect(await handler({ op: 'taxEstimate', bookId: '00000000-0000-4000-8000-00000000ffff', taxYear: 2025 })).toMatchObject({ ok: false, kind: 'not-found' });
   });
 
   it('reports a bad payload through the envelope', async () => {

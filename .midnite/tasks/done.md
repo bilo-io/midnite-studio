@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 129 Theme G — Tax estimates
+
+PR (see the Phase 129 G PR). `TaxJurisdiction` interface and registry, the UK (England, Wales, Northern Ireland) rule set with its rates as one data table, the `taxEstimate` op and the Tax tab. Sole trader: income tax with the tapered allowance plus Class 4 NIC and payments on account; company: corporation tax with marginal relief. Every state carries the not-tax-advice notice.
+
 ## 2026-11-12 — Phase 128 Theme A — Health app and module scaffold
 
 PR (see the Phase 128 A PR). New `packages/modules/health` (manifest, five-row nav group, pane with empty views, main half and report-only bridge) and `apps/health` (host cloned from the Science scaffold: identity, `registerHealthHost` with a save dialog port, preload, rail, bundle script, icon, changelog); `health` added to every app/module id list, the release matrix and the changelog lists. Still "Coming soon" on the launcher.

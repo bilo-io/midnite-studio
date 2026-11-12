@@ -1,5 +1,5 @@
 import { defineFeatureMain } from '@midnite/studio-runtime';
-import { CHANNELS, LedgerRequestSchema, type LedgerRequest, type LedgerResult, type SuiteAppId } from '@midnite/studio-shared';
+import { CHANNELS, buildTaxEstimate, LedgerRequestSchema, type LedgerRequest, type LedgerResult, type SuiteAppId } from '@midnite/studio-shared';
 
 import { ledgerManifest } from '../manifest';
 import { createImportService, type ImportService } from './import/import-service';
@@ -57,14 +57,16 @@ async function dispatch(req: LedgerRequest, services: LedgerMainServices, import
       return runReport(service, req);
     case 'exportReport':
       return exportReport(service, req, services.saveCsv);
+    case 'taxEstimate': {
+      const snap = await service.snapshot(req.bookId);
+      return snap.ok ? buildTaxEstimate(snap.value.book, snap.value.entries, req.taxYear) : snap;
+    }
     case 'importPick':
       return imports.pick(req.bookId);
     case 'importPreview':
       return imports.preview(req.bookId, req.mapping);
     case 'importCommit':
       return imports.commit(req.bookId, req.mapping, req.rows);
-    default:
-      return invalid(`"${req.op}" is not available yet.`);
   }
 }
 
