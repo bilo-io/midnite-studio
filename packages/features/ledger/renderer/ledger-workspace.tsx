@@ -6,6 +6,7 @@ import { useLedgerUiStore } from './ledger-ui-store';
 import { ImportView } from './import-view';
 import { Journal } from './journal';
 import { Overview } from './overview';
+import { ReportsView } from './reports-view';
 
 export const LEDGER_TABS = [
   { id: 'overview', label: 'Overview' },
@@ -20,8 +21,8 @@ export type LedgerTab = (typeof LEDGER_TABS)[number]['id'];
 
 /**
  * The books workspace: one component with an internal tab strip, because Studio has one view per feature
- * (a suite host drives `tab` from its own rail and hides the strip). Overview, Journal, Accounts and Import are
- * filled; Reports and Tax arrive with Themes F and G.
+ * (a suite host drives `tab` from its own rail and hides the strip). Overview, Journal, Accounts, Reports and
+ * Import are filled; Tax arrives with Theme G.
  */
 export function LedgerWorkspace({ tab, onTabChange, showTabs = true }: { tab?: LedgerTab; onTabChange?: (tab: LedgerTab) => void; showTabs?: boolean }) {
   const [own, setOwn] = useState<LedgerTab>('overview');
@@ -59,7 +60,8 @@ export function LedgerWorkspace({ tab, onTabChange, showTabs = true }: { tab?: L
         {active === 'journal' ? <Journal onOpenSettings={openSettings} /> : null}
         {active === 'accounts' ? <Accounts /> : null}
         {active === 'import' ? <ImportView /> : null}
-        {active === 'reports' || active === 'tax' ? (
+        {active === 'reports' ? <ReportsView onOpenTab={select} /> : null}
+        {active === 'tax' ? (
           <section role="status" className="mx-auto max-w-md rounded-xl border border-border bg-card p-6 text-center">
             <h2 className="text-base font-medium">Coming next</h2>
             <p className="mt-2 text-sm text-muted-foreground">This section arrives in a later update.</p>

@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { bridge } from '@midnite/studio-frame';
-import type { ImportMapping, ImportPreview, LedgerBridge, LedgerBookDetail, LedgerBookSummary, LedgerResult, JournalEntry } from '@midnite/studio-shared';
+import type { LedgerReport, LedgerReportKind, ImportMapping, ImportPreview, LedgerBridge, LedgerBookDetail, LedgerBookSummary, LedgerResult, JournalEntry } from '@midnite/studio-shared';
 
 export const ledgerApi = (): LedgerBridge | undefined => bridge()?.ledger;
 
@@ -104,4 +104,12 @@ export const useImportPreview = (bookId: string | null, mapping: ImportMapping |
     enabled: bookId !== null && mapping !== null,
     staleTime: STALE,
     placeholderData: (previous) => previous,
+  });
+
+export const useReport = (bookId: string | null, kind: LedgerReportKind, from: string, to: string) =>
+  useQuery<LedgerReport, LedgerOpError>({
+    queryKey: ['ledger', bookId, 'report', kind, from, to],
+    queryFn: () => unwrap((a) => a.report({ bookId: bookId as string, kind, from, to })),
+    enabled: bookId !== null && from !== '' && to !== '' && from <= to,
+    staleTime: STALE,
   });

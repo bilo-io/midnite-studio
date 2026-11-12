@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import type { ImportMapping, LedgerAccount, LedgerBook } from '@midnite/studio-shared';
+import { EVENT_CHANNELS, type ImportMapping, type LedgerAccount, type LedgerBook } from '@midnite/studio-shared';
 
 import { createLedgerService, type LedgerService } from '../ledger-service';
 import { createImportService, parseStatementDate, suggestAccount, type ImportService } from './import-service';
@@ -19,7 +19,8 @@ async function setup(csv: string) {
   const dir = await mkdtemp(join(tmpdir(), 'ledger-import-'));
   const file = join(dir, 'statement.csv');
   await writeFile(file, csv);
-  const service = createLedgerService({ root: join(dir, 'books'), appId: 'money', now: () => new Date('2026-06-01T00:00:00Z') });
+  const events: unknown[] = [];
+  const service = createLedgerService({ root: join(dir, 'books'), appId: 'money', now: () => new Date('2026-06-01T00:00:00Z'), send: (c, p) => events.push([c, p]) });
   open.push(service);
   const made = await service.createBook({ name: 'Acme', entity: 'sole-trader', currency: 'GBP', fiscalYearStart: { month: 4, day: 6 }, template: 'sole-trader' });
   if (!made.ok) throw new Error(made.message);
@@ -32,7 +33,7 @@ async function setup(csv: string) {
     if (!r.ok || !r.value) throw new Error('pick failed');
     return r.value;
   };
-  return { service, imports, book, acct, pick, file, cancel: () => (next = null) };
+  return { service, imports, book, acct, pick, file, events, cancel: () => (next = null) };
 }
 
 const single = (token: string, bank: string, extra: Partial<ImportMapping> = {}): ImportMapping => ({
@@ -152,6 +153,16 @@ describe('import service', () => {
     expect(await s.imports.commit(s.book.id, mapping, rows)).toMatchObject({ ok: true, value: { posted: 2, duplicates: 0 } });
     const again = await s.pick();
     expect(await s.imports.commit(s.book.id, single(again.token, s.acct('Bank').id), rows)).toMatchObject({ ok: true, value: { posted: 0, duplicates: 2 } });
+  });
+
+  it('emits ledgerChanged once per commit, not once per row', async () => {
+    const s = await setup('Date,Description,Amount\n2026-05-01,A,-1.00\n2026-05-02,B,-2.00\n2026-05-03,C,-3.00\n');
+    const { token } = await s.pick();
+    s.events.length = 0;
+    const rows = [0, 1, 2].map((index) => ({ index, accountId: s.acct('Software & subscriptions').id, remember: index === 0 }));
+    expect(await s.imports.commit(s.book.id, single(token, s.acct('Bank').id), rows)).toMatchObject({ ok: true, value: { posted: 3 } });
+    expect(s.events).toHaveLength(1);
+    expect(s.events[0]).toMatchObject([EVENT_CHANNELS.ledgerChanged, { bookId: s.book.id, revision: 3 }]);
   });
 
   it('refuses the bank account as the category and a stale token', async () => {

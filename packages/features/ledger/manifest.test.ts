@@ -9,8 +9,8 @@ describe('ledger manifest', () => {
     expect(ledgerManifest.ipc).toEqual([CHANNELS.ledger]);
   });
 
-  it('is placed in money', () => {
-    expect(FEATURE_PLACEMENT.ledger).toBe('money');
+  it('is placed in money, and shared with startup', () => {
+    expect(placementOwners(FEATURE_PLACEMENT.ledger)).toEqual(['money', 'startup']);
     expect(placementOwners(FEATURE_PLACEMENT[ledgerManifest.feature])[0]).toBe(ledgerManifest.owner);
   });
 });
