@@ -111,14 +111,15 @@ export function createMockBridge(mode: string | null): LauncherBridge {
     },
     links: { open: ok },
     changelog: {
-      latest: async () => ({
+      latest: async (app) => ({
         sections: [
-          { version: '0.4.1', date: '2026-10-12', body: '### Added\n\n- A **version drop-up** lists the last few releases.\n- The launcher shows what is new in `Midnite Studio`.\n\n### Fixed\n\n- The rail hairline no longer flickers.' },
+          { version: '0.4.1', date: '2026-10-12', body: `### Added\n\n- ${app} fixture\n- A **version drop-up** lists the last few releases.\n\n### Fixed\n\n- The rail hairline no longer flickers.` },
           { version: '0.4.0', date: '2026-09-28', body: '### Added\n\n- Media Maps.\n- Gamer showreels.' },
           { version: '0.3.9', date: '2026-09-10', body: '### Fixed\n\n- Terminal reconnect after sleep.' },
         ],
         error: null,
       }),
+      openFull: ok,
     },
     theme: { set: () => undefined },
   };

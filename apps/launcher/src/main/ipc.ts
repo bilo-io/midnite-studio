@@ -1,12 +1,12 @@
 import { ipcMain, nativeTheme, shell, type BrowserWindow } from 'electron';
-import { RELEASE_CHANGELOG_PAGE_URL } from '@midnite/studio-shared/release';
+import { changelogPageUrl } from '@midnite/studio-shared/release';
 import { z } from 'zod';
 
 import { EXTERNAL_LINKS, LAUNCHER_CHANNELS, THEME_SOURCES, type LauncherResult, type LauncherSelfStatus } from '../common/bridge';
 import { APP_IDS, type AppId } from '../common/catalog';
 import type { createAppsOps } from './bundles/apps-ops';
 import { DOWNLOAD_URL, RELEASES_URL, SITE_URL } from './constants';
-import { fetchChangelog } from './changelog';
+import { ChangelogRequestSchema, answerChangelogLatest } from './changelog';
 import { fetchStudioRelease } from './feed';
 import { installStudio } from './install';
 import { appLink } from './links';
@@ -114,7 +114,14 @@ export function registerIpc(getWindow: () => BrowserWindow | null, apps: AppsIpc
     }
   });
 
-  ipcMain.handle(LAUNCHER_CHANNELS.changelogLatest, () => fetchChangelog());
+  ipcMain.handle(LAUNCHER_CHANNELS.changelogLatest, (_event, raw: unknown) => answerChangelogLatest(raw));
+
+  ipcMain.handle(LAUNCHER_CHANNELS.changelogOpen, async (_event, raw: unknown): Promise<LauncherResult> => {
+    const parsed = ChangelogRequestSchema.safeParse(raw);
+    if (!parsed.success) return failure('Unknown app.');
+    await shell.openExternal(changelogPageUrl(parsed.data.app));
+    return { ok: true };
+  });
 
   ipcMain.handle(LAUNCHER_CHANNELS.linkOpen, async (_event, raw: unknown): Promise<LauncherResult> => {
     const parsed = LinkSchema.safeParse(raw);
@@ -129,9 +136,6 @@ export function registerIpc(getWindow: () => BrowserWindow | null, apps: AppsIpc
         break;
       case 'download':
         url = DOWNLOAD_URL;
-        break;
-      case 'changelog':
-        url = RELEASE_CHANGELOG_PAGE_URL;
         break;
       case 'notes':
         url = (await fetchStudioRelease()).release?.notesUrl ?? RELEASES_URL;

@@ -1,22 +1,34 @@
 import { useEffect, useState } from 'react';
 
+import { CHANGELOG_APP_IDS, type ChangelogAppId } from '@midnite/studio-shared/release';
+
 import type { ChangelogResult, ChangelogSection } from '../../common/bridge';
 import { getBridge } from '../bridge';
 
-/** Latest changelog sections, fetched once on mount. `null` while loading. */
-export function useChangelog(enabled: boolean): ChangelogResult | null {
+/** A catalog id as a changelog app id, or `null` for ids with no changelog (retired apps, modules). */
+export function changelogAppOf(id: string): ChangelogAppId | null {
+  return (CHANGELOG_APP_IDS as readonly string[]).includes(id) ? (id as ChangelogAppId) : null;
+}
+
+/**
+ * Latest changelog sections for one app, fetched when `app` is set. `null` while loading, and for
+ * `app === null` (nothing is fetched); a changed `app` resets to loading and drops a late answer
+ * for the previous one.
+ */
+export function useChangelog(app: ChangelogAppId | null): ChangelogResult | null {
   const [result, setResult] = useState<ChangelogResult | null>(null);
   useEffect(() => {
-    if (!enabled) return;
+    setResult(null);
+    if (app === null) return;
     let live = true;
     getBridge()
-      .changelog.latest()
+      .changelog.latest(app)
       .then((r) => live && setResult(r))
       .catch(() => live && setResult({ sections: [], error: 'Could not load the changelog.' }));
     return () => {
       live = false;
     };
-  }, [enabled]);
+  }, [app]);
   return result;
 }
 
@@ -73,7 +85,7 @@ export function ChangelogList({ result, onFull }: { result: ChangelogResult | nu
       {result === null ? (
         <p className="sheet-note">Loading…</p>
       ) : result.sections.length === 0 ? (
-        <p className="sheet-note">{result.error ?? 'No published release notes yet.'}</p>
+        <p className="sheet-note">{result.error ?? 'No release notes published yet.'}</p>
       ) : (
         result.sections.map((s) => <Section key={s.version} section={s} />)
       )}

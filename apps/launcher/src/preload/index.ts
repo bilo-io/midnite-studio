@@ -50,7 +50,8 @@ const bridge: LauncherBridge = {
     open: (link) => ipcRenderer.invoke(LAUNCHER_CHANNELS.linkOpen, link),
   },
   changelog: {
-    latest: () => ipcRenderer.invoke(LAUNCHER_CHANNELS.changelogLatest),
+    latest: (app) => ipcRenderer.invoke(LAUNCHER_CHANNELS.changelogLatest, { app }),
+    openFull: (app) => ipcRenderer.invoke(LAUNCHER_CHANNELS.changelogOpen, { app }),
   },
   theme: {
     set: (source) => ipcRenderer.send(LAUNCHER_CHANNELS.themeSet, source),

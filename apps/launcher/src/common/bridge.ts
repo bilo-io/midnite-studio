@@ -1,3 +1,5 @@
+import type { ChangelogAppId } from '@midnite/studio-shared/release';
+
 import type { AppId, BundleAppId } from './catalog';
 import type { LockstepReason } from './lockstep';
 
@@ -36,8 +38,10 @@ export const LAUNCHER_CHANNELS = {
   /** main → renderer: the installer exited non-zero before it could quit this app. */
   selfUpdateFailed: 'launcher:self:update-failed',
   linkOpen: 'launcher:link:open',
-  /** The newest released sections of Studio's public changelog mirror. */
+  /** The newest released sections of one app's public changelog mirror. */
   changelogLatest: 'launcher:changelog:latest',
+  /** Opens one app's full changelog page in the browser. */
+  changelogOpen: 'launcher:changelog:open',
   themeSet: 'launcher:theme:set',
 } as const;
 
@@ -102,7 +106,7 @@ export type AppsStatus = {
 
 export type AppInstallProgress = { id: AppId; progress: InstallProgress };
 
-export const EXTERNAL_LINKS = ['website', 'releases', 'notes', 'download', 'changelog'] as const;
+export const EXTERNAL_LINKS = ['website', 'releases', 'notes', 'download'] as const;
 export type ExternalLink = (typeof EXTERNAL_LINKS)[number];
 
 export const THEME_SOURCES = ['system', 'light', 'dark'] as const;
@@ -143,8 +147,9 @@ export type LauncherBridge = {
     open(link: ExternalLink): Promise<LauncherResult>;
   };
   changelog: {
-    /** Never throws: offline is `{ sections: [], error }`. */
-    latest(): Promise<ChangelogResult>;
+    /** Never throws: offline is `{ sections: [], error }`; not published yet is `{ sections: [], error: null }`. */
+    latest(app: ChangelogAppId): Promise<ChangelogResult>;
+    openFull(app: ChangelogAppId): Promise<LauncherResult>;
   };
   theme: {
     /** Fire-and-forget: sets Electron's `nativeTheme.themeSource`. */

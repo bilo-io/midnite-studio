@@ -8,7 +8,7 @@ import { getBridge } from '../bridge';
 import { MODULE_GLYPHS } from '../app-glyphs';
 import { appNumber } from '../model';
 import type { AppView } from '../use-apps';
-import { ChangelogList, useChangelog } from './changelog';
+import { ChangelogList, changelogAppOf, useChangelog } from './changelog';
 import { AppIcon } from './app-icon';
 import { PrimaryAction, type ActionHandlers } from './primary-action';
 import { StatusPill } from './status-pill';
@@ -63,7 +63,8 @@ export function AppDetail({
   onClose: () => void;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
-  const changelog = useChangelog(app.id === 'studio');
+  const changelogApp = view.state === 'coming-soon' ? null : changelogAppOf(app.id);
+  const changelog = useChangelog(changelogApp);
   const groups = featureGroups(app);
   const canOpen = view.state === 'installed' || view.state === 'update';
   const offer = swapOffer(view.replaces, canOpen && view.source === 'bundle');
@@ -132,10 +133,10 @@ export function AppDetail({
           <p className="sheet-vision">{app.vision}</p>
         </section>
 
-        {app.id === 'studio' && (
+        {changelogApp !== null && (
           <section className="sheet-section" aria-label="What’s new">
             <h3 className="eyebrow">What’s new</h3>
-            <ChangelogList result={changelog} onFull={() => void getBridge().links.open('changelog')} />
+            <ChangelogList result={changelog} onFull={() => void getBridge().changelog.openFull(changelogApp)} />
           </section>
         )}
 
