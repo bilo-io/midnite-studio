@@ -63,7 +63,8 @@ export type SuiteMain = {
 /**
  * What every suite app's main registers for the shell's two bridge slices (Phase 123 Theme H):
  * `suitePrefs` (get / set / changed over the shared file, watched so another app's write arrives) and
- * the `windowChrome` channels (maximise toggle, window-backing retint). Studio's main wires the same
+ * the `windowChrome` channels (maximise toggle, window-backing retint), plus the app's own release notes
+ * (`suiteReleaseNotes`, Phase 131 Theme E). Studio's main wires the same
  * channels through its own `window-chrome.ts` / `suite-prefs-handlers.ts`; this is the runtime-only
  * form for apps that have no desktop package. Reads never throw into the renderer's boot.
  */
