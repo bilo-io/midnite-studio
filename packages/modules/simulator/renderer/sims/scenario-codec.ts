@@ -2,7 +2,9 @@ import { z } from 'zod';
 
 import { ELEMENTARY_MAX_WIDTH, ELEMENTARY_MIN_WIDTH, type ElementaryParams, type ElementaryState } from './elementary';
 import { LIFE_MAX, LIFE_MIN, parseRule, type LifeParams, type LifeState } from './life';
+import { BOIDS_MAX, BOIDS_MIN, type BoidsParams, type BoidsState } from './boids';
 import { MAX_BODIES, type NBodyParams, type NBodyState } from './nbody';
+import { AGENT_CAP, type PredPreyParams, type PredPreyState } from './predprey';
 
 /**
  * Scenario files carry `params` and `state` as opaque JSON (Phase 127 Theme F.1); these are the per-kind
@@ -55,11 +57,29 @@ const NBodyParamsSchema = z.object({
   dt: num.refine((n) => n > 0),
   softening: num.refine((n) => n >= 0),
 });
+const BoidsParamsSchema = z.object({
+  count: int(BOIDS_MIN, BOIDS_MAX),
+  box: num.refine((n) => n > 0),
+  separation: num,
+  alignment: num,
+  cohesion: num,
+  radius: num.refine((n) => n > 0),
+  maxSpeed: num.refine((n) => n > 0),
+});
+const PredPreyParamsSchema = z.object({
+  prey: int(0, AGENT_CAP),
+  predators: int(0, AGENT_CAP),
+  box: num.refine((n) => n > 0),
+  preyBirth: num,
+  predatorBirth: num,
+  eatGain: num,
+  startEnergy: num.optional(),
+});
 
 const b64 = z.string().max(12 * 1024 * 1024);
 
 export type AutomataKind = 'life' | 'elementary';
-export type ScenarioKind = AutomataKind | 'nbody';
+export type ScenarioKind = AutomataKind | 'nbody' | 'boids' | 'predprey';
 
 const result = <T>(r: { success: true; data: T } | { success: false }): T | null => (r.success ? r.data : null);
 
@@ -98,4 +118,24 @@ export function decodeNBodyState(raw: unknown, params: NBodyParams): NBodyState 
   const p = z.object({ pos: z.array(num), vel: z.array(num), e0: num, tick: int(0, Number.MAX_SAFE_INTEGER) }).safeParse(raw);
   const n = 3 * params.bodies.length;
   return p.success && p.data.pos.length === n && p.data.vel.length === n ? p.data : null;
+}
+
+export function parseBoidsParams(raw: unknown): BoidsParams | null {
+  return result(BoidsParamsSchema.safeParse(raw));
+}
+export function parsePredPreyParams(raw: unknown): PredPreyParams | null {
+  return result(PredPreyParamsSchema.safeParse(raw));
+}
+
+const floats = (max: number) => z.array(num).max(max);
+
+export function decodeBoidsState(raw: unknown, params: BoidsParams): BoidsState | null {
+  const p = z.object({ pos: floats(3 * BOIDS_MAX), vel: floats(3 * BOIDS_MAX), tick: int(0, Number.MAX_SAFE_INTEGER) }).safeParse(raw);
+  const n = 3 * params.count;
+  return p.success && p.data.pos.length === n && p.data.vel.length === n ? p.data : null;
+}
+
+/** The agent array's length is checked by the engine (it owns the field count); this bounds it. */
+export function decodePredPreyState(raw: unknown): PredPreyState | null {
+  return result(z.object({ agents: floats(8 * AGENT_CAP), draws: int(0, Number.MAX_SAFE_INTEGER), tick: int(0, Number.MAX_SAFE_INTEGER) }).safeParse(raw));
 }

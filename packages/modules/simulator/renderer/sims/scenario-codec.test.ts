@@ -7,7 +7,11 @@ import {
   decodeLifeState,
   decodeNBodyState,
   encodeLifeState,
+  decodeBoidsState,
+  decodePredPreyState,
+  parseBoidsParams,
   parseLifeParams,
+  parsePredPreyParams,
   parseNBodyParams,
 } from './scenario-codec';
 
@@ -32,5 +36,17 @@ describe('scenario codec', () => {
     expect(decodeLifeState({ width: 64, height: 64, cells: bytesToBase64(new Uint8Array(5)), generation: 0 }, params)).toBeNull();
     expect(decodeElementaryState({ rows: 'AAAA', row: 0, generation: 0 }, { rule: 30, width: 128, height: 64, start: 'single' })).toBeNull();
     expect(decodeNBodyState({ pos: [0], vel: [0], e0: 0, tick: 0 }, { bodies: [], G: 1, dt: 0.1, softening: 0 })).toBeNull();
+  });
+
+  it('checks boids and predator-prey params and states', () => {
+    const boids = { count: 10, box: 100, separation: 1, alignment: 1, cohesion: 1, radius: 5, maxSpeed: 4 };
+    expect(parseBoidsParams(boids)).toEqual(boids);
+    expect(parseBoidsParams({ ...boids, count: 5 })).toBeNull();
+    expect(parsePredPreyParams({ prey: 3, predators: 1, box: 10, preyBirth: 0.1, predatorBirth: 0.1, eatGain: 5 })).not.toBeNull();
+    expect(parsePredPreyParams({ prey: -1 })).toBeNull();
+    expect(decodeBoidsState({ pos: new Array(30).fill(0), vel: new Array(30).fill(0), tick: 1 }, boids)).not.toBeNull();
+    expect(decodeBoidsState({ pos: [0], vel: [0], tick: 1 }, boids)).toBeNull();
+    expect(decodePredPreyState({ agents: [1, 2], draws: 0, tick: 0 })).not.toBeNull();
+    expect(decodePredPreyState({ agents: 'x' })).toBeNull();
   });
 });
