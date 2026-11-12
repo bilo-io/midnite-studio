@@ -3,10 +3,11 @@ import type { Invoice } from './startup';
 
 type Line = Invoice['lines'][number];
 
-/** `quantityMilli × unitMinor / 1000`, in BigInt and rounded half away from zero: 1.5 h × £80.00 is 12000 exactly. */
+/** `quantityMilli × unitMinor / 1000`, in BigInt and rounded half away from zero for either sign: 1.5 h × £80.00 is 12000 exactly, and a credit line mirrors it. */
 export function lineNet(line: Pick<Line, 'quantityMilli' | 'unitMinor'>): number {
   const product = BigInt(line.quantityMilli) * BigInt(line.unitMinor);
-  return Number((product * 2n + 1000n) / 2000n);
+  const magnitude = ((product < 0n ? -product : product) * 2n + 1000n) / 2000n;
+  return Number(product < 0n ? -magnitude : magnitude);
 }
 
 export const lineTax = (line: Line): number => percentOfMinor(lineNet(line), line.taxRateBp);

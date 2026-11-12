@@ -13,6 +13,13 @@ describe('invoice math', () => {
     expect(lineNet({ quantityMilli: 1, unitMinor: 499 })).toBe(0);
     expect(lineNet({ quantityMilli: 1_000_000, unitMinor: 9_007_199_254 })).toBe(9_007_199_254_000);
   });
+  it('rounds half away from zero for negative quantities and credit lines too', () => {
+    expect(lineNet({ quantityMilli: -1, unitMinor: 500 })).toBe(-1); // -0.5 rounds to -1, not 0
+    expect(lineNet({ quantityMilli: 1, unitMinor: -500 })).toBe(-1);
+    expect(lineNet({ quantityMilli: -1, unitMinor: 499 })).toBe(0);
+    expect(lineNet({ quantityMilli: -1500, unitMinor: 8000 })).toBe(-12000);
+    expect(lineNet({ quantityMilli: -1, unitMinor: -500 })).toBe(1);
+  });
   it('groups tax by rate', () => {
     const t = totals({
       lines: [

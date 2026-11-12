@@ -23,6 +23,7 @@ export const CHANGELOG_APP_IDS = [
   'agents',
   'browser',
   'gamer',
+  'health',
   'media',
   'mind',
   'money',

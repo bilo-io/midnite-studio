@@ -85,7 +85,7 @@ export type LauncherApp = {
   vision: string;
   /** Where "Open" lands when no feature is picked. */
   home: StudioTarget;
-  /** The modules this app hosts, its own first. Empty for an app with none yet (Startup, Health). */
+  /** The modules this app hosts, its own first. Empty for an app with none yet (Health). */
   modules: readonly LauncherModule[];
   /** Every module's features, flattened in module order (an app with no modules lists its own). */
   features: readonly AppFeature[];
@@ -384,6 +384,19 @@ const MODULES = {
       { id: 'erp', label: 'ERP', blurb: 'Invoicing, vendor management and contracts', target: view('landing') },
     ],
   },
+  health: {
+    id: 'health',
+    name: 'Health',
+    tagline: 'Body metrics, meals, workouts and trends',
+    home: view('landing'),
+    features: [
+      { id: 'biometrics', label: 'Biometrics', blurb: 'Optional height, weight, age and body metrics', target: view('landing') },
+      { id: 'nutrition', label: 'Nutrition', blurb: 'Meal logger and calorie counter', target: view('landing') },
+      { id: 'workouts', label: 'Workout Plans', blurb: 'Custom training schedules and progressive overload', target: view('landing') },
+      { id: 'progress', label: 'Progress', blurb: 'Trend analytics and wellness reports', target: view('landing') },
+    ],
+    comingSoon: true,
+  },
   browser: {
     id: 'browser',
     name: 'Browser',
@@ -548,7 +561,6 @@ const RAW_APPS: readonly RawApp[] = [
     home: view('landing'),
     modules: [MODULES.startup, MODULES.accountant],
     runsIn: 'studio',
-    comingSoon: true,
   },
   {
     id: 'health',
@@ -560,13 +572,7 @@ const RAW_APPS: readonly RawApp[] = [
     vision:
       'Track your personal wellness with total privacy: log biometrics, record meals and calories, plan progressive workout routines, and analyze long-term trends.',
     home: view('landing'),
-    modules: [],
-    features: [
-      { id: 'biometrics', label: 'Biometrics', blurb: 'Optional height, weight, age and body metrics', target: view('landing') },
-      { id: 'nutrition', label: 'Nutrition', blurb: 'Meal logger and calorie counter', target: view('landing') },
-      { id: 'workouts', label: 'Workout Plans', blurb: 'Custom training schedules and progressive overload', target: view('landing') },
-      { id: 'progress', label: 'Progress', blurb: 'Trend analytics and wellness reports', target: view('landing') },
-    ],
+    modules: [MODULES.health],
     runsIn: 'studio',
     comingSoon: true,
   },

@@ -28,7 +28,7 @@ describe('the 11-app catalog (Phase 124 Theme F)', () => {
       const expected = host === 'studio' ? ['studio'] : APP_MODULES[host];
       expect(appById(host).modules.map((m) => m.id)).toEqual(expected);
     }
-    expect(appById('health').modules).toEqual([]);
+    expect(appById('health').modules.map((m) => m.id)).toEqual(['health']);
   });
 
   it('flattens each app\'s features from its modules, with unique ids', () => {
@@ -45,6 +45,11 @@ describe('the 11-app catalog (Phase 124 Theme F)', () => {
     expect(appById('money').comingSoon).toBeUndefined();
     expect(appById('science').comingSoon).toBeUndefined();
     expect(module('money', 'money').comingSoon).toBeUndefined();
+  });
+
+  it('launches Startup with its own module and the Accountant', () => {
+    expect(appById('startup').comingSoon).toBeUndefined();
+    expect(appById('startup').modules.map((m) => m.id)).toEqual(['startup', 'accountant']);
   });
 
   it('folds each absorbed app\'s tagline and vision into its module', () => {

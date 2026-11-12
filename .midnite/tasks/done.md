@@ -6,6 +6,14 @@
 
 PR (see the Phase 129 G PR). `TaxJurisdiction` interface and registry, the UK (England, Wales, Northern Ireland) rule set with its rates as one data table, the `taxEstimate` op and the Tax tab. Sole trader: income tax with the tapered allowance plus Class 4 NIC and payments on account; company: corporation tax with marginal relief. Every state carries the not-tax-advice notice.
 
+## 2026-11-12 — Phase 128 Theme A — Health app and module scaffold
+
+PR (see the Phase 128 A PR). New `packages/modules/health` (manifest, five-row nav group, pane with empty views, main half and report-only bridge) and `apps/health` (host cloned from the Science scaffold: identity, `registerHealthHost` with a save dialog port, preload, rail, bundle script, icon, changelog); `health` added to every app/module id list, the release matrix and the changelog lists. Still "Coming soon" on the launcher.
+
+## 2026-11-12 — Phase 130 Theme G — Verification and the catalog flip
+
+PR (see the Phase 130 G PR). `suite-shell/startup.spec.ts` (arrow endpoints on bar edges, first-run form, shots), Startup out of `comingSoon` in the launcher with its two modules, a website listing, `lineNet` symmetric for negative products. Packaged-app pass left for a human.
+
 ## 2026-11-12 — Phase 130 Theme F — Invoicing posted to the books
 
 PR (see the Phase 130 F PR). Startup mounts the Accountant module as its Books group; a `StartupLedgerPort` (host-implemented over the shared books) carries invoice posting, reversal, cash and monthly net. Gapless invoice numbers at issue, draft to issued to paid or void each one ledger call, PDF export, Invoices, Customers, Overview and Settings ▸ Company ▸ Books, and Theme D's actuals from the book.

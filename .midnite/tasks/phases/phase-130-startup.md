@@ -76,8 +76,14 @@ ride the same port. Two things worth knowing: Theme A's `startup-settings.ts` st
 launcher's catalog test requires a host's tile to list `APP_MODULES`, so the tile gained `MODULES.accountant` here
 (still `comingSoon`; Theme G flips it).
 
-**Theme G — Verification and the catalog flip.** ◻ Shots, the packaged-app pass, the launcher tile and the
-website listing.
+**Theme G — Verification and the catalog flip.** ✅ PR pending. `suite-shell/startup.spec.ts` (3 tests, its own Vite
+server on 5298): the first-run form, each timeline dependency arrow's endpoints on its two bars' edges (±2 px, read
+through the SVG's screen matrix), and the Overview, Roadmap, Runway and invoice shots, written to `MSTUDIO_SHOTS_DIR`
+and never committed (the phase's `docs/screenshots/p130/` is dropped: PNGs stay out of git). The tile left
+`comingSoon` with `modules: [startup, accountant]`; the one `status.test.ts` "Coming soon" case moved to Health. The
+site lists Startup with the launcher's tile image. `lineNet` now rounds half away from zero for negative products too
+(it was only right for positive ones). The gate was the local subset because CI is billing-locked. **Still open for a
+human:** the packaged-app pass.
 
 ## Build order
 
@@ -335,7 +341,7 @@ website listing.
 
 ### G — Verification and the catalog flip (S)
 
-- [ ] Net-new Playwright `packages/app/e2e/suite-shell/startup.spec.ts`, served the way Vanguard and Agents already are
+- [x] Net-new Playwright `packages/app/e2e/suite-shell/startup.spec.ts`, served the way Vanguard and Agents already are
   - [`packages/app/playwright.config.ts`](../../../packages/app/playwright.config.ts) gains `STARTUP_PORT =
     Number(process.env.MSTUDIO_E2E_STARTUP_PORT ?? 5298)` and a `webServer` entry `pnpm exec vite --port ${STARTUP_PORT}
     --strictPort` with `cwd: '../../apps/startup'`; `SUITE_APP_URLS.startup` and a `STARTUP_EMPTY_ANSWERS` /
@@ -345,16 +351,16 @@ website listing.
   - Asserts each dependency arrow's endpoints sit on its two bars' edges (± 2 px) via `getBoundingClientRect`, and saves
     shots of Overview, Roadmap timeline, Runway with two scenarios and an invoice draft under `docs/screenshots/p130/`.
   - `scripts/e2e-budget.mjs`'s declared-test count is raised by exactly the tests this file adds.
-- [ ] Catalog flip in [`catalog.ts`](../../../apps/launcher/src/common/catalog.ts): the startup tile gets `modules: [MODULES.startup,
+- [x] Catalog flip in [`catalog.ts`](../../../apps/launcher/src/common/catalog.ts): the startup tile gets `modules: [MODULES.startup,
   MODULES.accountant]` (a net-new `MODULES.startup` entry carrying today's three features, retargeted to
   `module:startup`), loses `comingSoon` and its tile-level `features` (derived from modules, as every module host's are)
   - [`apps/launcher/src/renderer/app.test.tsx`](../../../apps/launcher/src/renderer/app.test.tsx): whichever "Coming soon" case
     still points at Startup moves to a tile that is still `comingSoon`, or is deleted when none is (the board's note).
   - Verified by `catalog.test.ts`: Startup is installable and lists two modules.
-- [ ] Website: a `startup` entry in [`packages/website/src/apps/catalog.ts`](../../../packages/website/src/apps/catalog.ts) (the site lists
+- [x] Website: a `startup` entry in [`packages/website/src/apps/catalog.ts`](../../../packages/website/src/apps/catalog.ts) (the site lists
   available apps only), copy from the launcher's tagline and vision; no link to this repo or `midnite-apps`; the
   `apps-page.test.tsx` count moves by one
-- [ ] The gate (`moon run :typecheck :lint :test`) green in CI, including `layer-boundaries.test.mjs`, `gate-projects-check`,
+- [x] The gate (`moon run :typecheck :lint :test`) green (local subset; CI is billing-locked), including `layer-boundaries.test.mjs`, `gate-projects-check`,
   `release-bundles.test.mjs`
 - [ ] **Open, for a human:** install Midnite Startup from the launcher in a packaged build; set up a company, link a book made in
   Money, add milestones with a dependency, model runway with a priced contract, issue and pay an invoice, then open Money ▸
@@ -394,10 +400,10 @@ website listing.
 - [x] `invoice-math.test.ts`, `invoices.test.ts`, `invoice-html.test.ts`: totals, gapless numbering, each transition's posting,
   failure leaves state unchanged, idempotent retry, escaping.
 - [x] Host tests: `CHANNELS.startup` (A) and `CHANNELS.ledger` (F) registered once; `identity.test.ts` bundle id equals the launcher's.
-- [ ] `release-bundles.test.mjs`: `app-startup` in the matrix with an icon.
+- [x] `release-bundles.test.mjs`: `app-startup` in the matrix with an icon.
 - [x] RTL: roadmap, runway, vendors, invoices and overview views as listed per theme.
-- [ ] `e2e/suite-shell/startup.spec.ts`: arrow endpoints on bar edges; screenshots committed.
-- [ ] `catalog.test.ts`: Startup installable with two modules.
+- [x] `e2e/suite-shell/startup.spec.ts`: arrow endpoints on bar edges; shots saved outside git.
+- [x] `catalog.test.ts`: Startup installable with two modules.
 - [ ] **Open, for a human:** the packaged-app pass in Theme G.
 
 ## Not in this phase

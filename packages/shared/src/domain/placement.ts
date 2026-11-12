@@ -34,6 +34,7 @@ export const PlacementAppIdSchema = z.enum([
   'vanguard',
   'science',
   'startup',
+  'health',
 ]);
 export type PlacementAppId = z.infer<typeof PlacementAppIdSchema>;
 

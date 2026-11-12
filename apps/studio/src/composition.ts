@@ -28,7 +28,7 @@ export const STUDIO_FEATURES = ['optimizer', 'monitor', 'vault', 'notes', 'finan
  * features; `STUDIO_FEATURES` stays the complete list of feature packages, because Studio's own renderer
  * (`packages/app`) still composes each directly. The "every module is listed" test holds this list.
  */
-export const STUDIO_MODULES = ['agents', 'coder', 'creator', 'media', 'gamer', 'vanguard', 'vault', 'cleaner', 'monitor', 'mind', 'capture', 'money', 'browser', 'science', 'startup', 'simulator', 'accountant'] as const;
+export const STUDIO_MODULES = ['agents', 'coder', 'creator', 'media', 'gamer', 'vanguard', 'vault', 'cleaner', 'monitor', 'mind', 'capture', 'money', 'browser', 'science', 'startup', 'simulator', 'accountant', 'health'] as const;
 
 export const STUDIO_COMPOSITION = {
   id: 'studio',
