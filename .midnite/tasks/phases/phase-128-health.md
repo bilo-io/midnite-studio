@@ -62,9 +62,9 @@ macros, daily totals against the target. Editing a meal changes its own numbers 
 **Theme E — Workout plans and progressive overload.** ✅ Plans of weekday sessions and exercises, three
 starter plans, session logging, and a double-progression rule that prescribes the next weight and reps. A zero increment holds the weight (aiming at the top of the range), the deload rounds down to 0.5 kg, the plan editor saves 600 ms after the last edit and flushes on leaving, and the session sheet prefills from the last three months of history.
 
-**Theme F — Today and Progress.** ◻ A Today dashboard (calories left, macros, quick weigh-in, today's
+**Theme F — Today and Progress.** ✅ A Today dashboard (calories left, macros, quick weigh-in, today's
 session) and a Progress view of hand-rolled SVG charts: weight with a 7-day average and weekly rate,
-calories against target, training volume and per-exercise top set, plus a weekly report card.
+calories against target, training volume and per-exercise top set, plus a weekly report card. Trend maths is pure (`calc/trends.ts`, calendar-day windows, ISO weeks by the Thursday rule); the charts are a hand-rolled `TimeChart` with a hidden data table; the range persists under `midnite-health.ui`; weekly volume bars are dated to that week's Monday.
 
 **Theme G — Privacy: export and erase.** ◻ Export everything as one JSON file through a save dialog, and
 "Erase all Health data" behind a blast-radius confirm that moves the data folder to the Trash; a source
@@ -427,7 +427,7 @@ guard test that keeps network calls out of the module.
 
 ### F — Today and Progress (L)
 
-- [ ] **F.1** `TodayView` (`renderer/views/today-view.tsx`, net-new).
+- [x] **F.1** `TodayView` (`renderer/views/today-view.tsx`, net-new).
   - Calories card: a ring (SVG, `stroke-dasharray`) of eaten / target with "N kcal left", and P/C/F grams;
     **Log a meal** opens D.1's Add modal for today.
   - Weigh-in card: today's weight or a single input "Weight" + **Save**; shows the 7-day average and its
@@ -443,7 +443,7 @@ guard test that keeps network calls out of the module.
   - Verified by `today-view.test.tsx` (mock bridge, clock at Wed 2026-11-11): a Mon/Wed/Fri plan shows the
     Wednesday day; 1700 eaten of 2200 reads "500 kcal left"; an empty bridge shows the first-run card;
     `quarantined: 2` shows the notice.
-- [ ] **F.2** Trend maths, `renderer/calc/trends.ts` (net-new).
+- [x] **F.2** Trend maths, `renderer/calc/trends.ts` (net-new).
   - `movingAverage(points: { date: string; value: number }[], days = 7): { date; value }[]` — trailing
     window of **calendar** days ending at each point (missing days do not stretch it), emitted only where
     the window holds ≥ 3 points.
@@ -455,7 +455,7 @@ guard test that keeps network calls out of the module.
   - Verified by net-new `renderer/calc/trends.test.ts`: a 7-day average skips a gap correctly; a linear
     −0.1 kg/day series gives `weeklyRate` −0.7; `isoWeekKey('2026-11-11')` is `'2026-W46'` and
     `'2027-01-01'` is `'2026-W53'`; volume of 3×10 at 60 is 1800.
-- [ ] **F.3** Chart primitives, `renderer/charts/` (net-new; written here, not shared with Science's plot,
+- [x] **F.3** Chart primitives, `renderer/charts/` (net-new; written here, not shared with Science's plot,
   because a module may not import a module — Decision 10).
   - `TimeChart({ series: { id; label; points: { date; value }[]; kind: 'line' | 'dots' | 'bars'; tone:
     'accent' | 'muted' | 'good' | 'bad' }[]; refLine?: { value; label }; yUnit: string; range: { from;
@@ -465,7 +465,7 @@ guard test that keeps network calls out of the module.
   - Hover: a vertical rule + tooltip with the date and each series' value at the nearest date.
   - Verified by `charts/time-chart.test.tsx`: ticks for 61.2–83.9 are 60, 65, 70, 75, 80, 85; a bars
     series renders one `rect` per point; the hidden table has one row per date.
-- [ ] **F.4** `ProgressView` (`renderer/views/progress-view.tsx`, net-new).
+- [x] **F.4** `ProgressView` (`renderer/views/progress-view.tsx`, net-new).
   - Range tabs 30 days / 90 days / 1 year (persisted in `createPersistedStore('midnite-health.ui', {
     defaults: { v: 1, range: '90d' } })`, a `v` mismatch reads as defaults — the board's rule).
   - Charts: Weight (dots + 7-day average line, header "−0.4 kg/week"); Calories (bars + target ref line);

@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 128 Theme F — Today and Progress
+
+PR (see the Phase 128 F PR). The Today dashboard (calorie ring, quick weigh-in with 7-day average, today's plan day with Log session, first-run card, error and damaged-file states), trend maths (moving average, weekly rate, ISO weeks, weekly summary), the `TimeChart` primitive with nice ticks, and the Progress view with range tabs, weekly report card and four charts.
+
 ## 2026-11-12 — Phase 129 Theme H — Verification and the catalog flip
 
 PR (see the Phase 129 H PR). Shots spec over the in-Node memory ledger, the Accountant module's `comingSoon` removed (home and features on the `books` view), the launcher tests rewritten, and the missing Books rail row in Studio added under Dashboard. The packaged-app pass and the CI gate remain open.
