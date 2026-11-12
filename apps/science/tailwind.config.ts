@@ -8,7 +8,7 @@ import type { Config } from 'tailwindcss';
  */
 const config: Config = {
   presets: [frameTailwindPreset],
-  content: frameContent(__dirname, [], ['science']),
+  content: frameContent(__dirname, [], ['science', 'simulator']),
 };
 
 export default config;

@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 import { createMonitorFeatureBridge } from '@midnite/studio-feature-monitor/bridge';
 import { createScienceBridge } from '@midnite/studio-module-science/bridge';
+import { createSimulatorBridge } from '@midnite/studio-module-simulator/bridge';
 import { createBridgeSlice, unionBridgeSlices } from '@midnite/studio-runtime/app-main/bridge-slice';
 import { createSuiteBridge } from '@midnite/studio-runtime/app-main/suite-preload';
 
@@ -12,6 +13,7 @@ try {
     'midniteStudio',
     unionBridgeSlices(
       createScienceBridge(ipcRenderer),
+      createSimulatorBridge(ipcRenderer),
       createMonitorFeatureBridge(createBridgeSlice(ipcRenderer)),
       createSuiteBridge(ipcRenderer, process.argv, process.platform),
     ),

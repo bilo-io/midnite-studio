@@ -28,8 +28,9 @@ afterEach(() => {
 describe('Science host nav', () => {
   it('has a sound config, one group for each mounted module, and a pane for every group', () => {
     expect(navConfigProblems(SCIENCE_HOST_NAV)).toEqual([]);
-    expect(SCIENCE_HOST_NAV.groups?.map((g) => g.id)).toEqual(['science']);
+    expect(SCIENCE_HOST_NAV.groups?.map((g) => g.id)).toEqual(['science', 'simulator']);
     expect(APP_MODULES.science).toContain('science');
+    expect(APP_MODULES.science).toContain('simulator');
     for (const group of SCIENCE_HOST_NAV.groups ?? []) {
       expect(SCIENCE_PANES[group.id]).toBeTypeOf('function');
       for (const view of group.views) expect(moduleOfView(SCIENCE_HOST_NAV, view.id)).toBe(group.id);
@@ -38,10 +39,19 @@ describe('Science host nav', () => {
 
   it("lands a module link on that module's first view", () => {
     expect(firstViewOfModule(SCIENCE_HOST_NAV, 'science')).toBe('notebooks');
+    expect(firstViewOfModule(SCIENCE_HOST_NAV, 'simulator')).toBe('sim-automata');
   });
 });
 
 describe('Science host', () => {
+  it('lists the Simulator group after Science', () => {
+    render(<ScienceHostApp />);
+    const rail = screen.getByRole('navigation', { name: 'Views' });
+    for (const label of ['Emergence', 'Virtual worlds', 'Agent environments']) {
+      expect(within(rail).getByRole('link', { name: label })).toBeDefined();
+    }
+  });
+
   it('lists Notebooks and Templates under the Science group and opens on the empty notebooks state', async () => {
     render(<ScienceHostApp />);
     const rail = screen.getByRole('navigation', { name: 'Views' });

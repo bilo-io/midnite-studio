@@ -47,12 +47,13 @@ between bodies from a binary star to the inner solar system, and agents that flo
 runs on a fixed timestep in a worker from a seed, so the same scenario always plays out the same way.
 Planned 2026-11-11; it starts once Phase 126 Theme A has merged; first slice is **A + B**.
 
-**Theme A — Module scaffold and mount in Science.** ◻ `packages/modules/simulator` from the template, mounted
-as Science's second module (main mount, preload union, rail group, pane), every id list extended.
+**Theme A — Module scaffold and mount in Science.** ✅ `packages/modules/simulator` mounted as Science's second
+module (main mount, preload union, rail group, pane), every id list extended. Modelled on the science module's
+layout rather than the template (same package/moon/tsconfig shape, no feature-report dep since the host's other
+module carries Report). The three views are placeholders until C/D/E; `createSimulatorBridge` is empty until F.
+Lockfile gained the new workspace importer.
 
-**Theme B — Simulation runtime: worker, fixed step, transport.** ◻ One `SimEngine` contract every sandbox
-implements, a seeded PRNG, a fixed-timestep worker loop with a transferable-buffer ping-pong, and a transport
-bar (play/pause/step/reset/speed) that pauses when the window is hidden.
+**Theme B — Simulation runtime: worker, fixed step, transport.** ✅ [PR #1152](https://github.com/bilo-io/midnite-studio/pull/1152). `SimEngine` contract (plus a `capacity` so the worker can size its two buffers), `mulberry32` with an eslint `Math.random` ban, a pure `createSimLoop` (time-based accumulator, 8-tick cap with `droppedTicks`, transferable-buffer ping-pong) behind `sim.worker.ts`, `createUseSim` with a draw-on-rAF `onFrame` callback and hide-pause, and the `Transport` bar plus `SimCanvasFrame` (Space, `.`). The engine table is empty until C/D/E register theirs; the `?worker&inline` import is first exercised by the first sandbox view.
 
 **Theme C — Emergence: cellular automata.** ◻ Life-like rules on a toroidal grid (Life, HighLife, Seeds,
 Day & Night, custom `B/S`), pattern stamps and RLE paste, draw/erase, plus elementary 1D rules 0–255 as a
@@ -80,7 +81,7 @@ under the app's userData through `createJsonDirStore`, a scenario list per sandb
 
 ### A — Module scaffold and mount in Science (M)
 
-- [ ] **A.1** Create `packages/modules/simulator/` (net-new) from the template.
+- [x] **A.1** Create `packages/modules/simulator/` (net-new) from the template.
   - Copy [`packages/modules/_template/`](../../../packages/modules/_template/), drop `.tmpl`, `__ID__` →
     `simulator`, `__LABEL__` → `Simulator`; `package.json` takes `"zod": "^4.0.0"` (126 A.1 fixes the
     template; if 126 has not, set it here).
@@ -92,7 +93,7 @@ under the app's userData through `createJsonDirStore`, a scenario list per sandb
     `@react-three/fiber`, `@react-three/drei` at media-model's ranges.
   - Verified by `manifest.test.ts`: `simulatorManifest.module === 'simulator'` and it is in
     `APP_MODULES.science`.
-- [ ] **A.2** Renderer entry.
+- [x] **A.2** Renderer entry.
   - `renderer/simulator-nav.ts`: `SIMULATOR_NAV_GROUP: NavGroup = { id: 'simulator', label: 'Simulator', icon:
     PiPlanetFill, accent: '#6366f1', views: [{ id: 'sim-automata', label: 'Emergence', icon: LuGrid3X3 },
     { id: 'sim-worlds', label: 'Virtual worlds', icon: LuOrbit }, { id: 'sim-agents', label: 'Agent
@@ -103,7 +104,7 @@ under the app's userData through `createJsonDirStore`, a scenario list per sandb
     `<WorldsView />`, `sim-agents` → `<AgentsView />`, anything else → `<AutomataView />`.
   - `renderer/compose/simulator-chrome.tsx`: `createFrameChrome()` + `DialogHost`.
   - `renderer/index.ts` exports `SIMULATOR_NAV_GROUP`, `SimulatorPane`, `SIMULATOR_CHROME`, `simulatorManifest`.
-- [ ] **A.3** Main half and bridge.
+- [x] **A.3** Main half and bridge.
   - `main/module.ts`: `export const simulatorModuleMain = defineFeatureMain<{ userData: string }>({ feature:
     'simulator', channels: [], register() {} })`; F fills it.
   - `main/bridge.ts`: `export type SimulatorAppBridge = {}` and `createSimulatorBridge(ipc)`; F adds
@@ -111,7 +112,7 @@ under the app's userData through `createJsonDirStore`, a scenario list per sandb
     and `unionBridgeSlices` must not see the key twice.
   - [`tsconfig.base.json`](../../../tsconfig.base.json) paths: `@midnite/studio-module-simulator/main` and
     `/bridge`.
-- [ ] **A.4** Mount in the Science host (files net-new in Phase 126).
+- [x] **A.4** Mount in the Science host (files net-new in Phase 126).
   - `apps/science/main/host.ts`: append `{ module: simulatorModuleMain, services: { userData: el.userData } }`
     to the mounts.
   - `apps/science/main/preload.ts`: add `createSimulatorBridge(ipcRenderer)` to `unionBridgeSlices(...)`.
@@ -125,14 +126,14 @@ under the app's userData through `createJsonDirStore`, a scenario list per sandb
     `firstViewOfModule(SCIENCE_HOST_NAV, 'simulator') === 'sim-automata'` (where a
     `midnite://open?app=simulator` link lands); `navConfigProblems(SCIENCE_HOST_NAV)` is `[]`. And
     `apps/science/main/host.test.ts`: registered channels equal the union of both modules' `channels`.
-- [ ] **A.5** Id lists: [`apps/studio/src/composition.ts`](../../../apps/studio/src/composition.ts)
+- [x] **A.5** Id lists: [`apps/studio/src/composition.ts`](../../../apps/studio/src/composition.ts)
   `STUDIO_MODULES` appends `'simulator'`; [`scripts/gate-projects-check.mjs`](../../../scripts/gate-projects-check.mjs)
   `NODE_PROJECTS` appends `'module-simulator'`. No placement or link change: `'science'` is already the
   host there (126 A.5) and `simulator` is already a `RETIRED_APP_ALIASES` entry.
 
 ### B — Simulation runtime: worker, fixed step, transport (M)
 
-- [ ] **B.1** The engine contract, `renderer/engine/types.ts` (net-new).
+- [x] **B.1** The engine contract, `renderer/engine/types.ts` (net-new).
   - `export interface SimEngine<P, S> { init(params: P, seed: number): void; step(): void; snapshot(out:
     Float32Array): number; stats(): Record<string, number>; serialise(): S; restore(state: S): void }` —
     `step()` advances exactly one fixed tick (each engine owns its `dt`); `snapshot` writes render data into
@@ -142,7 +143,7 @@ under the app's userData through `createJsonDirStore`, a scenario list per sandb
     `no-restricted-properties` override for those globs in [`eslint.config.mjs`](../../../eslint.config.mjs)).
   - Verified by `renderer/engine/rng.test.ts`: the same seed yields the same first 1,000 draws; all draws
     are in `[0, 1)`.
-- [ ] **B.2** The worker loop, `renderer/engine/sim.worker.ts` + `renderer/engine/use-sim.ts` (net-new).
+- [x] **B.2** The worker loop, `renderer/engine/sim.worker.ts` + `renderer/engine/use-sim.ts` (net-new).
   - Messages in: `{ type: 'init'; kind: SimKind; params; seed }`, `{ type: 'play' }`, `{ type: 'pause' }`,
     `{ type: 'step' }` (one tick while paused), `{ type: 'speed'; ticksPerFrame: 0.25 | 0.5 | 1 | 2 | 4 }`,
     `{ type: 'restore'; state }`, `{ type: 'serialise' }`, `{ type: 'return'; buffer: ArrayBuffer }`.
@@ -161,7 +162,7 @@ under the app's userData through `createJsonDirStore`, a scenario list per sandb
   - Verified by `renderer/engine/use-sim.test.tsx` (fake worker): `play` posts `play`; a hidden
     `visibilitychange` posts `pause`, visible posts `play` only when it had been playing; a frame's buffer
     is posted back as `return` after the draw callback.
-- [ ] **B.3** Transport bar, `renderer/components/transport.tsx` (net-new).
+- [x] **B.3** Transport bar, `renderer/components/transport.tsx` (net-new).
   - Buttons, each `useFrameChrome().IconButton` whose `label` is both its accessible name and its tooltip
     (`IconButtonProps` in [`frame/src/chrome/types.ts`](../../../packages/frame/src/chrome/types.ts)): Play/Pause (`LuPlay`/`LuPause`), Step (`LuStepForward`,
     disabled while playing), Reset (`LuRotateCcw`), a speed select (0.25× – 4×), a seed field (integer,
