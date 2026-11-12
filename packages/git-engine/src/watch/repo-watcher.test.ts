@@ -55,6 +55,10 @@ describe('linkedWorktreeName', () => {
   it('is null for the main worktree, whose git dir is the common dir', () => {
     expect(linkedWorktreeName('/r/.git', '/r/.git')).toBeNull();
   });
+
+  it('still names it when the two paths are spelled through different symlinks', () => {
+    expect(linkedWorktreeName('/tmp/r/.git', '/private/tmp/r/.git/worktrees/feat')).toBe('feat');
+  });
 });
 
 describe('classifyWorktreeAdminEvent', () => {

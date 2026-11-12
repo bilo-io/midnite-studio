@@ -1,5 +1,5 @@
 import { watch, type FSWatcher } from 'node:fs';
-import { basename, join, sep } from 'node:path';
+import { basename, dirname, join, sep } from 'node:path';
 
 import type { WatchKind } from '@midnite/studio-shared';
 
@@ -251,10 +251,10 @@ export class RepoWatcher {
  * worktree (whose git dir IS the common dir).
  */
 export function linkedWorktreeName(commonDir: string, ownGitDir: string): string | null {
-  const prefix = join(commonDir, 'worktrees') + sep;
-  if (!ownGitDir.startsWith(prefix)) return null;
-  const name = ownGitDir.slice(prefix.length).split(sep)[0];
-  return name ? name : null;
+  if (ownGitDir === commonDir) return null;
+  // By shape, not by prefix: the two paths come from different git queries,
+  // and a symlinked path (`/tmp` vs `/private/tmp`) can spell them differently.
+  return basename(dirname(ownGitDir)) === 'worktrees' ? basename(ownGitDir) || null : null;
 }
 
 function isLockFile(file: string): boolean {
