@@ -36,7 +36,7 @@ export function MealModal({ slot, editing, onSave, onClose }: { slot: HealthMeal
   const [query, setQuery] = useState('');
   const [picked, setPicked] = useState<HealthFood | null>(null);
   const [servings, setServings] = useState(1);
-  const [custom, setCustom] = useState(editing !== undefined || false);
+  const [custom, setCustom] = useState(editing !== undefined);
   const [form, setForm] = useState<Custom>({ name: editing?.name ?? '', kcal: editing?.kcal, proteinG: editing?.proteinG, carbsG: editing?.carbsG, fatG: editing?.fatG });
   const [saveFood, setSaveFood] = useState(false);
 
