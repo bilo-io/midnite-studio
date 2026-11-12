@@ -160,7 +160,12 @@ export type LedgerBridge = {
 };
 
 /** A book as the picker lists it: no accounts, plus whether this process can write it. */
-export type LedgerBookSummary = Pick<LedgerBook, 'id' | 'name' | 'entity' | 'currency'> & { readOnly: boolean; revision: number };
+export type LedgerBookSummary = Pick<LedgerBook, 'id' | 'name' | 'entity' | 'currency'> & {
+  readOnly: boolean;
+  revision: number;
+  /** Journal lines that failed their schema (1-based; empty when `book.json` itself is unreadable) and the book folder to look in. */
+  corrupt?: { lines: number[]; path: string };
+};
 
 /** `mediaAnimation`'s `op` union (Media ▸ Animations, Phase 125), one typed method per op. */
 export type AnimationBridge = {

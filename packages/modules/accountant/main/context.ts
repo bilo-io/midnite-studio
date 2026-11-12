@@ -1,4 +1,7 @@
-import { createUnavailableLedgerService, type LedgerMainServices } from '@midnite/studio-feature-ledger/main';
+import { join } from 'node:path';
+
+import { createLedgerService, type LedgerMainServices } from '@midnite/studio-feature-ledger/main';
+import { runtimeDataDirectory } from '@midnite/studio-runtime';
 import type { SuiteAppId } from '@midnite/studio-shared';
 
 /**
@@ -16,9 +19,10 @@ export type AccountantElectron = {
 };
 
 /**
- * Builds the services the module mounts with. Until the book store lands (Phase 129 Theme C) the service is
- * the unavailable one, so the channel answers `io` rather than a missing handler.
+ * Builds the services the module mounts with: the books service over `<appData>/Midnite Runtime/books`, shared by
+ * every app that mounts the module so they all see the same books (one writer each, by lock file).
  */
 export function createAccountantServices(el: AccountantElectron): LedgerMainServices {
-  return { service: createUnavailableLedgerService(), appId: el.appId, pickCsv: el.pickCsv, saveCsv: el.saveCsv };
+  const service = createLedgerService({ root: join(runtimeDataDirectory(el.appDataBase), 'books'), appId: el.appId, send: el.send, warn: el.warn });
+  return { service, appId: el.appId, pickCsv: el.pickCsv, saveCsv: el.saveCsv };
 }
