@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { appById } from './catalog';
+
 import type { AppsStatus, StudioStatus } from './bridge';
 import { deriveAppState } from './status';
 
@@ -91,9 +93,16 @@ describe('deriveAppState', () => {
   });
 
   it('is Coming soon for apps marked comingSoon, regardless of Studio or bundles', () => {
-    const state = deriveAppState('health', studio('0.4.1'), apps());
-    expect(state).toMatchObject({ state: 'coming-soon', studioFallback: false });
-    expect(deriveAppState('health', null, null).state).toBe('coming-soon');
+    // No catalog app is coming soon any more, so one is flagged for the length of the check.
+    const app = appById('health') as { comingSoon?: boolean };
+    app.comingSoon = true;
+    try {
+      const state = deriveAppState('health', studio('0.4.1'), apps());
+      expect(state).toMatchObject({ state: 'coming-soon', studioFallback: false });
+      expect(deriveAppState('health', null, null).state).toBe('coming-soon');
+    } finally {
+      delete app.comingSoon;
+    }
   });
 
   it('resolves Vanguard as a live Studio-hosted app', () => {

@@ -389,12 +389,11 @@ const MODULES = {
     tagline: 'Body metrics, meals, workouts and trends',
     home: view('landing'),
     features: [
-      { id: 'biometrics', label: 'Biometrics', blurb: 'Optional height, weight, age and body metrics', target: view('landing') },
-      { id: 'nutrition', label: 'Nutrition', blurb: 'Meal logger and calorie counter', target: view('landing') },
-      { id: 'workouts', label: 'Workout Plans', blurb: 'Custom training schedules and progressive overload', target: view('landing') },
-      { id: 'progress', label: 'Progress', blurb: 'Trend analytics and wellness reports', target: view('landing') },
+      { id: 'biometrics', label: 'Biometrics', blurb: 'Optional profile, weight and body measurements', target: view('landing') },
+      { id: 'nutrition', label: 'Nutrition', blurb: 'Meal log, saved foods and a calorie target', target: view('landing') },
+      { id: 'workouts', label: 'Workout Plans', blurb: 'Weekly plans with automatic progressive overload', target: view('landing') },
+      { id: 'progress', label: 'Progress', blurb: 'Trend charts and a weekly report', target: view('landing') },
     ],
-    comingSoon: true,
   },
   browser: {
     id: 'browser',
@@ -573,7 +572,6 @@ const RAW_APPS: readonly RawApp[] = [
     home: view('landing'),
     modules: [MODULES.health],
     runsIn: 'studio',
-    comingSoon: true,
   },
 ];
 

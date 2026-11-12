@@ -393,10 +393,11 @@ MCP tool owners are derived from it. The host's own module comes first.
 | Money | Money, Accountant (coming soon) |
 | Science | Science, Simulator |
 | Startup | Startup, Accountant (coming soon) |
+| Health | Health |
 | Browser | Browser |
 | Studio | every module |
 
-Health carries no modules. **The six standalone apps are retired**: Coder, Creator, Cleaner,
+Health hosts its own module. **The six standalone apps are retired**: Coder, Creator, Cleaner,
 Vault, Monitor and Capture no longer have an `apps/<id>` (Accountant and Simulator were catalog entries
 only). `RETIRED_APP_ALIASES` maps each old id to its host and module, so an old `midnite://open?app=coder`
 link opens Agents on the Coder module, and `importRetiredAppData` copies a retired app's per-app files into
@@ -541,6 +542,14 @@ and respawns the worker. `import`, `createUnit`, `reviver`, `evaluate`, `parse` 
 a guard on the parsed expression. Molecule files are read by main through a native picker, capped at 10 MB.
 
 **Simulator (Phase 127).** Five deterministic sandboxes behind one `SimEngine` contract (`init`/`step`/`snapshot`/`serialise`/`restore`): Life-like and elementary cellular automata (Emergence), n-body gravity (Virtual worlds), and boids and predator-prey (Agent environments). Engines run in a Web Worker on a fixed timestep; the worker and the renderer ping-pong two transferable buffers, so a frame is never copied, and every random draw goes through a seeded `mulberry32` (`Math.random` is banned in sim code). Scenarios are one `sim-<12 chars>.json` per scenario under `<userData>/simulations/` through the same `createJsonDirStore`, on the channel `mstudio:simulator:scenario` (`shared/src/simulator.ts`, versioned, 8 MB cap, remove goes to the Trash); `simulator?` on `MidniteStudioBridge` is optional like `science?`. Params and state are opaque on the wire and validated per kind by the renderer on load (`sims/scenario-codec.ts`; cell grids travel as base64).
+
+### App: Health (`apps/health`) — Phase 128
+
+The body-metrics, meals and workouts app. A host of the `health` module (`packages/modules/health`). Everything it stores is private JSON under `<userData>/data/` (`~/Library/Application Support/Midnite Runtime/apps/health/data`), written atomically with 0600 permissions by the runtime's `createJsonDirStore`: `profile.json`, `foods.json`, `plans/plan-<id>.json` and **one file per calendar month** (`logs/log-YYYY-MM.json`) holding that month's days (weigh-ins, meals, sessions). A file that fails to parse is quarantined, never deleted, and every mutation runs through one promise chain. The wire contract is `shared/src/health.ts` (versioned, migrated by `migrate*`) and one channel, `mstudio:health:op` (`CHANNELS.health`), with an `op` union; `health?` on `MidniteStudioBridge` is optional because only this host carries it.
+
+**No network.** Health data never leaves the machine: `packages/modules/health/privacy.test.ts` fails on `fetch(`, XHR, WebSocket, EventSource, `sendBeacon`, network node modules and any feature import other than report/monitor. Export writes one JSON file through a save dialog, and Erase moves the whole data folder to the Trash behind a blast-radius confirm. No log line or issue report carries Health values (the channel handler logs the op and an error code only).
+
+**Not medical advice.** BMI, BMR, TDEE and the calorie target are estimates shown as such; the target never goes below 1200 kcal and the overload rule only suggests the next session's weight and reps.
 
 ### App 5: Browser (`apps/browser`) — Phase 113 Theme L
 

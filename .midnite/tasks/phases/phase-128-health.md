@@ -68,8 +68,7 @@ calories against target, training volume and per-exercise top set, plus a weekly
 
 **Theme G — Privacy: export and erase.** ✅ A "Your data" card at the foot of Biometrics names the data folder (`HEALTH_DATA_HINT`), exports everything as one JSON file through a save dialog (the `exportAll` op already existed from B), and "Erase all Health data…" behind a files blast-radius confirm that moves the folder to the Trash and invalidates every `['health']` query. `privacy.test.ts` fails on any network API, network module import or non-report/monitor feature import under the module, with a planted-string case proving the matcher fires.
 
-**Theme H — Launch: catalog, website, docs.** ◻ `comingSoon` dropped from the Health tile, the launcher's
-`MODULES.health`, the website entry, `docs/APPS.md`.
+**Theme H — Launch: catalog, website, docs.** ✅ `comingSoon` dropped from the Health tile and `MODULES.health`, blurbs set to what shipped, a Health entry and logo on the website, and `docs/APPS.md` gains the host row and an App: Health section. Startup had already flipped, so no coming-soon app is left in the launcher; the app test now uses `queryAllByRole` so zero Coming soon buttons passes.
 
 ## Build order
 
@@ -504,7 +503,7 @@ calories against target, training volume and per-exercise top set, plus a weekly
 
 ### H — Launch: catalog, website, docs (S)
 
-- [ ] **H.1** Launcher catalog.
+- [x] **H.1** Launcher catalog.
   - [`catalog.ts`](../../../apps/launcher/src/common/catalog.ts): delete `comingSoon: true` from the
     `health` app entry and from `MODULES.health`; update the blurbs to what shipped: Biometrics → "Optional
     profile, weight and body measurements", Nutrition → "Meal log, saved foods and a calorie target",
@@ -516,11 +515,11 @@ calories against target, training volume and per-exercise top set, plus a weekly
     (moved to the Health tile by 126 H.1) moves to **Startup** (`'More for Midnite Startup'`); if Phase 130
     has already flipped Startup, replace the tile lookup with a catalog fixture that marks one app
     `comingSoon` (agreed with agent-B on the board).
-- [ ] **H.2** Website. [`packages/website/src/apps/catalog.ts`](../../../packages/website/src/apps/catalog.ts)
+- [x] **H.2** Website. [`packages/website/src/apps/catalog.ts`](../../../packages/website/src/apps/catalog.ts)
   gains a `health` entry (accent `#f43f5e`, the tagline and four features, no dashes as punctuation), and
   `apps/launcher/src/renderer/assets/app-logos/health.png` is copied to
   `packages/website/public/img/apps/health.png` (net-new).
-- [ ] **H.3** Docs. [`docs/APPS.md`](../../../docs/APPS.md): the host table gains "Health | Health", and a
+- [x] **H.3** Docs. [`docs/APPS.md`](../../../docs/APPS.md): the host table gains "Health | Health", and a
   `### App: Health (apps/health) — Phase 128` section naming the data layout, the channel, the
   month-per-file rule, the no-network guard and the not-medical-advice rule.
 
