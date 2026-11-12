@@ -22,7 +22,7 @@ export function WorkoutsView() {
   const { useDialogs } = useFrameChrome();
   const dialogs = useDialogs();
   const [openId, setOpenId] = useState<string | null>(null);
-  const [logging, setLogging] = useState<{ planId: string; dayId: string } | null>(null);
+  const [logging, setLogging] = useState<{ plan: HealthPlan; dayId: string } | null>(null);
   if (healthBridge() === undefined) return <HealthMissing />;
   if (plans.isError) {
     return (
@@ -35,7 +35,6 @@ export function WorkoutsView() {
   const list = plans.data?.plans ?? [];
   const units = profile.data?.units ?? 'metric';
   const open = list.find((p) => p.id === openId);
-  const logPlan = logging === null ? undefined : list.find((p) => p.id === logging.planId);
 
   const create = (plan: HealthPlan, andOpen: boolean) => {
     write.mutate(plan);
@@ -82,7 +81,7 @@ export function WorkoutsView() {
   return (
     <div className="mx-auto flex h-full max-w-3xl flex-col gap-4 overflow-y-auto p-6" data-testid="workouts-view">
       {open ? (
-        <PlanEditor key={open.id} plan={open} onBack={() => setOpenId(null)} onLogSession={(planId, dayId) => setLogging({ planId, dayId })} />
+        <PlanEditor key={open.id} plan={open} onBack={() => setOpenId(null)} onLogSession={(plan, dayId) => setLogging({ plan, dayId })} />
       ) : (
         <>
           <div className="flex items-center justify-between">
@@ -129,7 +128,7 @@ export function WorkoutsView() {
           </ul>
         </>
       )}
-      {logging !== null && logPlan !== undefined ? <SessionSheet plan={logPlan} dayId={logging.dayId} date={todayKey()} units={units} onClose={() => setLogging(null)} /> : null}
+      {logging !== null ? <SessionSheet plan={logging.plan} dayId={logging.dayId} date={todayKey()} units={units} onClose={() => setLogging(null)} /> : null}
     </div>
   );
 }

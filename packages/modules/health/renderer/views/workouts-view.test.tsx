@@ -88,3 +88,15 @@ describe('WorkoutsView', () => {
     expect(writePlan.mock.calls[0]![0].plan.days[0].exercises[1].name).toBe(first);
   });
 });
+
+describe('WorkoutsView log session', () => {
+  it('logs against the edited plan, not the last saved copy', async () => {
+    const plan = planFromStarter(STARTERS[0]!);
+    listPlans.mockResolvedValue({ ok: true, value: { plans: [plan], quarantined: 0 } });
+    renderHealth(<WorkoutsView />);
+    fireEvent.click((await screen.findByTestId('plan-card')).querySelector('button')!);
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Add exercise' }))[0]!);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Log session' })[0]!);
+    expect(await screen.findByLabelText('New exercise set 1 reps')).toBeTruthy();
+  });
+});

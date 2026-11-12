@@ -25,7 +25,7 @@ function ExerciseRow({ ex, onChange }: { ex: HealthExercise; onChange: (e: Healt
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-6" data-testid="exercise-row">
       <label className="col-span-2 flex flex-col gap-1 text-xs font-medium">
         Exercise
-        <input value={ex.name} maxLength={80} onChange={(e) => onChange({ ...ex, name: e.target.value })} className="rounded-md border border-input bg-background px-1.5 py-1 text-xs font-normal outline-none focus:ring-1 focus:ring-ring" />
+        <input value={ex.name} maxLength={80} onChange={(e) => e.target.value !== '' && onChange({ ...ex, name: e.target.value })} className="rounded-md border border-input bg-background px-1.5 py-1 text-xs font-normal outline-none focus:ring-1 focus:ring-ring" />
       </label>
       <NumField label="Sets" value={ex.sets} min={1} max={10} integer onCommit={(v) => v !== undefined && onChange({ ...ex, sets: v })} />
       <NumField label="Reps min" value={ex.repsMin} min={1} max={ex.repsMax} integer onCommit={(v) => v !== undefined && onChange({ ...ex, repsMin: v })} />
@@ -41,7 +41,7 @@ function ExerciseRow({ ex, onChange }: { ex: HealthExercise; onChange: (e: Healt
  * Edits one plan. Changes save 600 ms after the last edit, and a pending save is flushed on leaving, so closing
  * the editor never drops an edit.
  */
-export function PlanEditor({ plan, onBack, onLogSession }: { plan: HealthPlan; onBack: () => void; onLogSession: (planId: string, dayId: string) => void }) {
+export function PlanEditor({ plan, onBack, onLogSession }: { plan: HealthPlan; onBack: () => void; onLogSession: (plan: HealthPlan, dayId: string) => void }) {
   const { IconButton } = useFrameChrome();
   const write = useWritePlan();
   const [draft, setDraft] = useState(plan);
@@ -117,7 +117,7 @@ export function PlanEditor({ plan, onBack, onLogSession }: { plan: HealthPlan; o
                 </option>
               ))}
             </select>
-            <button type="button" className="ml-auto rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground disabled:opacity-40" disabled={day.exercises.length === 0} onClick={() => onLogSession(draft.id, day.id)}>
+            <button type="button" className="ml-auto rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground disabled:opacity-40" disabled={day.exercises.length === 0} onClick={() => onLogSession(draft, day.id)}>
               Log session
             </button>
             {draft.days.length > 1 ? <IconButton icon={LuTrash2} label={`Delete ${day.name}`} onClick={() => edit({ ...draft, days: draft.days.filter((_, j) => j !== i) })} /> : null}
