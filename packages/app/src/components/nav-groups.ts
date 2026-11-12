@@ -31,6 +31,12 @@ export const PINNED_NAV_ITEMS: RailNavItem[] = [
     description: "The repository's front page: activity, checks and what needs attention",
   },
   {
+    view: 'books',
+    label: 'Books',
+    icon: VIEW_ICON.books,
+    description: 'Double-entry books on this computer: accounts, journal, reports and a tax estimate',
+  },
+  {
     view: 'notes',
     label: 'Notes',
     icon: VIEW_ICON.notes,

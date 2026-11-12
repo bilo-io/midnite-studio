@@ -34,6 +34,7 @@ import { SETTINGS_PAGE_ICON, VIEW_ICON } from './nav-icons';
 const VIEW_LABELS: Record<ViewId, string> = {
   landing: 'Home',
   dashboard: 'Dashboard',
+  books: 'Books',
   notes: 'Notes',
   chats: 'Chats',
   knowledge: 'Knowledge',

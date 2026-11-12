@@ -8,25 +8,25 @@ import { APP_MODULES } from '@midnite/studio-shared';
 import { MoneyHostApp, MONEY_PANES } from './host-app';
 import { MONEY_HOST_NAV } from './host-nav';
 
+const ok = <T,>(value: T) => async () => ({ ok: true as const, value });
+
 beforeEach(() => {
   window.midniteStudio = suiteShellTestBridge({
+    secrets: { has: vi.fn(async () => ({ hasKey: false })), get: vi.fn() },
+    finance: { search: ok([]), quote: ok({ price: 1, currency: 'USD' }), history: ok([]) },
     markets: {
-      series: vi.fn().mockResolvedValue({ ok: true, value: { series: [] } }),
-      quotes: vi.fn().mockResolvedValue({ ok: true, value: { quotes: [] } }),
-      search: vi.fn().mockResolvedValue({ ok: true, value: { results: [] } }),
-      rates: vi.fn().mockResolvedValue({ ok: true, value: { rates: { USD: 1 }, fetchedAt: 0 } }),
-      portfolio: vi.fn().mockResolvedValue({ ok: true, value: { portfolio: null } }),
-      apply: vi.fn(),
-      news: vi.fn().mockResolvedValue({ ok: true, value: { items: [] } }),
+      series: ok({ series: {} }),
+      quotes: ok({ quotes: {} }),
+      search: ok([]),
+      rates: ok({ base: 'USD', rates: { USD: 1 }, fetchedAt: 1, stale: false }),
+      portfolio: ok({ version: 1, balances: {}, holdings: [], transactions: [], watchlist: [], extraAssets: [] }),
+      apply: ok({}),
+      news: ok({ items: [], stale: false, failed: [] }),
     },
-    finance: { search: vi.fn(), quote: vi.fn(), history: vi.fn() },
-    financeAccounts: { list: vi.fn().mockResolvedValue({ ok: true, value: { accounts: [] } }), test: vi.fn(), add: vi.fn(), remove: vi.fn(), snapshots: vi.fn() },
-    secrets: { has: vi.fn().mockResolvedValue({ hasKey: false }) },
     report: {
-      logPath: vi.fn().mockResolvedValue({ path: '/tmp/money.log' }),
-      bundle: vi.fn().mockResolvedValue({ text: 'boot' }),
-      ghStatus: vi.fn().mockResolvedValue({ reason: 'ready', binPath: '/usr/bin/gh', hint: '' }),
-      onOpen: () => () => undefined,
+      onOpen: vi.fn(() => () => undefined),
+      bundle: vi.fn(async () => ({ text: '' })),
+      ghStatus: vi.fn(async () => ({ reason: 'ready', binPath: '/usr/bin/gh', hint: '' })),
     },
   }) as unknown as typeof window.midniteStudio;
 });
@@ -60,7 +60,6 @@ describe('Money host', () => {
     render(<MoneyHostApp />);
     const rail = screen.getByRole('navigation', { name: 'Views' });
     for (const label of ['Markets', 'Overview', 'Journal']) expect(within(rail).getByRole('link', { name: label })).toBeDefined();
-    expect(screen.getAllByText('Accountant').length).toBeGreaterThan(0);
     fireEvent.click(within(rail).getByRole('link', { name: 'Overview' }));
     await waitFor(() => expect(screen.getByText('No books yet')).toBeDefined());
   });
