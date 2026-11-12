@@ -59,6 +59,16 @@ describe('nbody', () => {
     expect([...oc]).toEqual([...oa]);
   });
 
+  it('stays finite when two bodies start on the same point', () => {
+    const e = createNBody();
+    e.init({ bodies: [b('a', 1, 0, 0), b('b', 1, 0, 0), b('c', 1, 1, 0)], G: 1, dt: 0.01, softening: 0 }, 0);
+    for (let i = 0; i < 10; i++) e.step();
+    const out = new Float32Array(e.capacity);
+    e.snapshot(out);
+    expect(out.every(Number.isFinite)).toBe(true);
+    expect(Number.isFinite(e.stats().energy)).toBe(true);
+  });
+
   it('refuses a non-positive dt and more than the body limit', () => {
     const e = createNBody();
     expect(() => e.init({ bodies: [], G: 1, dt: 0, softening: 0 }, 0)).toThrow('dt');

@@ -44,6 +44,7 @@ export function createNBody(): SimEngine<NBodyParams, NBodyState> {
         const dy = pos[3 * j + 1]! - pos[3 * i + 1]!;
         const dz = pos[3 * j + 2]! - pos[3 * i + 2]!;
         const r2 = dx * dx + dy * dy + dz * dz + eps2;
+        if (r2 === 0) continue; // coincident bodies with no softening: no direction, no force
         const inv = G / (r2 * Math.sqrt(r2));
         const fi = inv * mass[j]!;
         const fj = inv * mass[i]!;
@@ -68,7 +69,8 @@ export function createNBody(): SimEngine<NBodyParams, NBodyState> {
         const dx = pos[3 * j]! - pos[3 * i]!;
         const dy = pos[3 * j + 1]! - pos[3 * i + 1]!;
         const dz = pos[3 * j + 2]! - pos[3 * i + 2]!;
-        e -= (G * mass[i]! * mass[j]!) / Math.sqrt(dx * dx + dy * dy + dz * dz + eps2);
+        const r = Math.sqrt(dx * dx + dy * dy + dz * dz + eps2);
+        if (r > 0) e -= (G * mass[i]! * mass[j]!) / r;
       }
     }
     return e;

@@ -1,6 +1,6 @@
 import { OrbitControls } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { BufferAttribute, BufferGeometry, Line, LineBasicMaterial, type Mesh } from 'three';
 
 import type { Body } from '../sims/nbody';
@@ -34,6 +34,13 @@ function TrailLine({ body, index, store }: { body: Body; index: number; store: S
     g.setAttribute('position', new BufferAttribute(new Float32Array(TRAIL_LENGTH * 3), 3));
     return new Line(g, new LineBasicMaterial({ color: body.color, transparent: true, opacity: 0.7 }));
   }, [body.color]);
+  useEffect(
+    () => () => {
+      line.geometry.dispose();
+      (line.material as LineBasicMaterial).dispose();
+    },
+    [line],
+  );
   useFrame(() => {
     const attr = line.geometry.getAttribute('position') as BufferAttribute;
     const t = store.current.trails;

@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 127 Theme D — Virtual worlds: n-body gravity
+
+[PR #1154](https://github.com/bilo-io/midnite-studio/pull/1154). Velocity-Verlet n-body engine with energy-drift stats, four presets, and a 3D Virtual worlds view with trails and a body panel.
+
 ## 2026-11-12 — Phase 127 Theme B — Simulation runtime
 
 [PR #1152](https://github.com/bilo-io/midnite-studio/pull/1152). Engine contract, seeded PRNG, fixed-timestep worker loop with buffer ping-pong, `useSim`, transport bar; `Math.random` banned in sim code.

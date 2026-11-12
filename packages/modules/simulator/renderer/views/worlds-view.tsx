@@ -126,7 +126,7 @@ export function WorldsView() {
         <div className="min-w-0 flex-1">
           <SimCanvasFrame playing={sim.playing} onPlay={sim.play} onPause={sim.pause} onStep={sim.step}>
             <div className="h-[calc(100vh-12rem)] min-h-64">
-              <NBodyScene bodies={params.bodies} store={store} bodyScale={bodyScale} trails={trails} distance={distance} target={target.current} />
+              <NBodyScene key={presetId} bodies={params.bodies} store={store} bodyScale={bodyScale} trails={trails} distance={distance} target={target.current} />
             </div>
           </SimCanvasFrame>
         </div>
