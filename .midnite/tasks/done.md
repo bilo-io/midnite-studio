@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 129 Theme E — Bank CSV import and rules
+
+PR (see the Phase 129 E PR). `parseCsv` and the import service in the ledger feature's main (`importPick`, `importPreview`, `importCommit`; rules by priority, idempotent by statement-row hash, one bad row never aborts the batch) and the Import tab. Adds `ImportCommitRow.remember`, `LedgerService.snapshot` and `addImportRules`.
+
 ## 2026-11-12 — Phase 131 Theme F — Verification (packaged pass still open)
 
 Shots of the launcher's per-app What's new and a suite app's version drop-up; the dry-run release artifact check run locally (ten `midnite-<id>/CHANGELOG.md`, idempotent). No release cut; the packaged pass on the first real tag stays a manual check.
