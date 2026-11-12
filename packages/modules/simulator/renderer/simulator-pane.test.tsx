@@ -9,6 +9,7 @@ import { SIMULATOR_NAV_GROUP } from './simulator-nav';
 
 // The R3F canvas needs WebGL, which jsdom lacks.
 vi.mock('./views/nbody-scene', () => ({ NBodyScene: () => null }));
+vi.mock('./views/agents-scene', () => ({ AgentsScene: () => null }));
 
 afterEach(cleanup);
 

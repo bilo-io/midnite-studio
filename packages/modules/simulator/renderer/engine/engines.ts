@@ -1,4 +1,6 @@
+import { createBoids } from '../sims/boids';
 import { createNBody } from '../sims/nbody';
+import { createPredPrey } from '../sims/predprey';
 
 import type { EngineFactories } from './types';
 
@@ -8,4 +10,6 @@ import type { EngineFactories } from './types';
  */
 export const ENGINE_FACTORIES: EngineFactories = {
   nbody: () => createNBody() as never,
+  boids: () => createBoids() as never,
+  predprey: () => createPredPrey() as never,
 };

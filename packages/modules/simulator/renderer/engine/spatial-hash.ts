@@ -17,7 +17,7 @@ export function createSpatialHash(cellSize: number, bounds: number): SpatialHash
   const cursor = new Int32Array(cells);
   let items = new Int32Array(0);
   let cellOf = new Int32Array(0);
-  let pos = new Float32Array(0);
+  let pos: Float32Array = new Float32Array(0);
   const axis = (v: number) => Math.min(dim - 1, Math.max(0, Math.floor(v / cellSize)));
 
   return {
