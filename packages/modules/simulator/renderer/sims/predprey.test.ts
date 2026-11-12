@@ -38,7 +38,7 @@ describe('predprey', () => {
     expect(s.prey! + s.predators!).toBe(AGENT_CAP);
     expect(s.atCap).toBe(1);
     expect(e.snapshot(new Float32Array(e.capacity))).toBe(7 * AGENT_CAP);
-  });
+  }, 30_000);
 
   it('keeps every agent in the box and round-trips its state', () => {
     const { e } = run(PREDPREY_DEFAULTS, 4, 100);

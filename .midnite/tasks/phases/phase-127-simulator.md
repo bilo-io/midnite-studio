@@ -59,11 +59,11 @@ Lockfile gained the new workspace importer.
 
 **Theme D — Virtual worlds: n-body gravity.** ✅ [PR #1154](https://github.com/bilo-io/midnite-studio/pull/1154). Direct O(n²) velocity-Verlet engine (`sims/nbody.ts`) with softened gravity, a 200-body cap, `energy`/`energyDrift` stats and four zero-momentum presets; the view is an R3F z-up scene with a body-scale slider and 500-point ring-buffer trails (`sims/trails.ts`), plus a side panel (preset, dt, softening, body table, Add body, four-sig-fig energy read-out). Coincident bodies skip their pair force rather than going NaN, since Add body drops a body on the camera target, often the Sun. The Transport read-out is left empty because it rounds to 3 decimals and would show a tiny drift as 0.
 
-**Theme E — Agent environments: flocking and predator–prey.** ✅ [PR #1156](https://github.com/bilo-io/midnite-studio/pull/1156). A flat counting-sort spatial hash (`engine/spatial-hash.ts`, verified against brute force), Reynolds boids over it with a soft wall force and a speed band, and a plane predator–prey world with energy, seeded reproduction and a hard 5,000-agent cap (`atCap` stat drives the "Population cap reached" line). The view toggles Flocking / Predator–prey, draws instanced velocity-oriented cones in a wire box, and charts both counts in a plain-SVG `Sparkline` (the last 2,000 drawn frames). Prey graze more energy than they pay, so only predators starve; the PRNG state is unreadable, so a restore replays the recorded draw count from the seed. Boid steering constants are unreviewed by eye.
+**Theme E — Agent environments: flocking and predator–prey.** ✅ [PR #1156](https://github.com/bilo-io/midnite-studio/pull/1156). A flat counting-sort spatial hash (`engine/spatial-hash.ts`, verified against brute force), Reynolds boids over it with a soft wall force and a speed band, and a plane predator–prey world with energy, seeded reproduction and a hard 5,000-agent cap (`atCap` stat drives the "Population cap reached" line). The view toggles Flocking / Predator–prey, draws instanced velocity-oriented cones in a wire box, and charts both counts in a plain-SVG `Sparkline` (the last 2,000 drawn frames). Prey graze more energy than they pay, so only predators starve; the 1158G state is unreadable, so a restore replays the recorded draw count from the seed. Boid steering constants are unreviewed by eye.
 
 **Theme F — Scenarios: save and load.** ✅ [PR #1157](https://github.com/bilo-io/midnite-studio/pull/1157). Versioned `SimScenarioSchema` and request union in `shared/src/simulator.ts`, the `simulator` channel with an optional `simulator?` bridge, and a store over `createJsonDirStore` at `<userData>/simulations` (Trash on remove, 8 MB cap). `ScenarioPanel` sits in the Emergence and Worlds side panels; per-kind zod schemas (`sims/scenario-codec.ts`) check params and state on load, with `Uint8Array` cells carried as base64 rather than RLE. The panel is in all three views, Agents included (boids and predator–prey).
 
-**Theme G — Launch.** ◻ `comingSoon` dropped from the Simulator module chip, docs updated.
+**Theme G — Launch.** ✅ PR #1158. `comingSoon` dropped from the Simulator module in the launcher catalog (its test now expects it undefined), `docs/APPS.md` lists Science, Simulator and gains a Simulator paragraph, and the website's Science entry gains a Simulations feature. Also gave E's predator–prey 5000-agent test an explicit 30 s timeout, since it timed out at 5 s under load.
 
 ## Build order
 
@@ -309,10 +309,10 @@ Lockfile gained the new workspace importer.
 
 ### G — Launch (S)
 
-- [ ] **G.1** [`catalog.ts`](../../../apps/launcher/src/common/catalog.ts): delete `comingSoon: true` from
+- [x] **G.1** [`catalog.ts`](../../../apps/launcher/src/common/catalog.ts): delete `comingSoon: true` from
   `MODULES.simulator`; the `like`/`vision` on the Science `RAW_APPS` entry stay. [`catalog.test.ts`](../../../apps/launcher/src/common/catalog.test.ts):
   `module('science', 'simulator').comingSoon` is `undefined`.
-- [ ] **G.2** [`docs/APPS.md`](../../../docs/APPS.md): host table row → "Science | Science, Simulator"; the
+- [x] **G.2** [`docs/APPS.md`](../../../docs/APPS.md): host table row → "Science | Science, Simulator"; the
   Science section (126 H.3) gains a Simulator paragraph (engines, the worker ping-pong, the scenario store).
   [`packages/website/src/apps/catalog.ts`](../../../packages/website/src/apps/catalog.ts): the Science entry's
   features gain "Simulations: cellular automata, gravity and flocking".

@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 127 Theme G — Launch
+
+[PR #1158](https://github.com/bilo-io/midnite-studio/pull/1158). Simulator no longer coming soon in the launcher; APPS.md and the website's Science entry updated.
+
 ## 2026-11-12 — Phase 127 Theme F — Scenarios: save and load
 
 [PR #1157](https://github.com/bilo-io/midnite-studio/pull/1157). Versioned scenario schema, `simulator` channel and Trash-backed JSON store, and a scenario panel in the Emergence and Worlds views.
@@ -20,7 +24,7 @@
 
 ## 2026-11-12 — Phase 127 Theme B — Simulation runtime
 
-[PR #1152](https://github.com/bilo-io/midnite-studio/pull/1152). Engine contract, seeded PRNG, fixed-timestep worker loop with buffer ping-pong, `useSim`, transport bar; `Math.random` banned in sim code.
+[PR #1152](https://github.com/bilo-io/midnite-studio/pull/1152). Engine contract, seeded 1158G, fixed-timestep worker loop with buffer ping-pong, `useSim`, transport bar; `Math.random` banned in sim code.
 
 ## 2026-11-12 — Phase 127 Theme A — Module scaffold and mount in Science
 
