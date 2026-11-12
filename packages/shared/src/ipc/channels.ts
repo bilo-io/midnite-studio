@@ -1029,6 +1029,8 @@ export const CHANNELS = {
   mediaAnimation: 'mstudio:media:model-animation',
   /** Science notebooks (Phase 126) — one `op` union; see `ScienceRequestSchema`. */
   science: 'mstudio:science:notebook',
+  /** Simulator scenarios (Phase 127) — one `op` union; see `SimulatorRequestSchema`. */
+  simulator: 'mstudio:simulator:scenario',
   // General MIDI instrument samples (Phase 101 Theme D) — cached per program under `userData`.
   mediaGmStatus: 'mstudio:media:gm-status',
   mediaGmEnsure: 'mstudio:media:gm-ensure',

@@ -71,6 +71,7 @@ export * from './media-sfx';
 export * from './media-sfx-licence';
 export * from './media-sfx-mcp';
 export * from './science';
+export * from './simulator';
 export * from './media-sprite';
 export * from './media-map-capture';
 export * from './media-terrain';
