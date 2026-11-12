@@ -53,10 +53,10 @@ rather than edit, reads a bank statement, produces the four standard reports, an
 one jurisdiction, plainly labelled as an estimate. Planned 2026-11-11; build order **B → A → C → D**, then
 **E, F, G** in parallel, then **H**.
 
-**Theme A — Module scaffold, and Money as a two-module host.** ◻ `packages/modules/accountant` and the
+**Theme A — Module scaffold, and Money as a two-module host.** ✅ `packages/modules/accountant` and the
 empty `packages/features/ledger` package; Money gains `main/host.ts`, `src/host-nav.ts`,
 `src/host-app.tsx` and the accountant bridge in its preload; Studio composes the ledger feature as a
-`books` view. The catalog stays `comingSoon` until Theme H.
+`books` view. The catalog stays `comingSoon` until Theme H. Until Theme C the books service is `createUnavailableLedgerService` (every op answers `io`); `LedgerMainServices` carries an `appId` main stamps onto `source.app`; the Studio view order entry is the feature key `ledger`.
 
 **Theme B — Money amounts and the ledger contract.** ✅ `shared/src/money-amount.ts` (integer minor units +
 ISO-4217) and `shared/src/ledger.ts` (books, accounts, journal entries, the `ledger` channel's op union and
@@ -96,7 +96,7 @@ and `comingSoon` removed from `MODULES.accountant`.
 
 ### A — Module scaffold, and Money as a two-module host (M)
 
-- [ ] Net-new feature package `packages/features/ledger` (`@midnite/studio-feature-ledger`)
+- [x] Net-new feature package `packages/features/ledger` (`@midnite/studio-feature-ledger`)
   - Copy [`finance`](../../../packages/features/finance/)'s `package.json`, `moon.yml`, `tsconfig.json`,
     `tsconfig.main.json`, `vitest.config.ts`; moon id `feature-ledger`, tags `app-money`, `app-studio`
     (130 Theme F adds `app-startup`).
@@ -107,7 +107,7 @@ and `comingSoon` removed from `MODULES.accountant`.
   - Added to `NODE_PROJECTS` in [`gate-projects-check.mjs`](../../../scripts/gate-projects-check.mjs) (else CI fails).
   - Verified by `packages/features/ledger/manifest.test.ts`: `ledgerManifest.ipc` equals `[CHANNELS.ledger]` and
     `FEATURE_PLACEMENT.ledger === 'money'`.
-- [ ] Net-new module package `packages/modules/accountant` (`@midnite/studio-module-accountant`) from `_template`
+- [x] Net-new module package `packages/modules/accountant` (`@midnite/studio-module-accountant`) from `_template`
   - Drop the `.tmpl` suffixes, replace `__ID__`/`__LABEL__`; moon id `module-accountant`, tags `layer-module`,
     `app-money`, `app-studio`; `dependsOn` `shared`, `frame`, `runtime`, `feature-ledger`.
   - `manifest.ts`: `accountantManifest = defineModuleManifest({ module: 'accountant', label: 'Accountant',
@@ -129,7 +129,7 @@ and `comingSoon` removed from `MODULES.accountant`.
   - Added to `NODE_PROJECTS` as `module-accountant`.
   - Verified by `packages/modules/accountant/manifest.test.ts` (template's test: module id in `MODULE_IDS`, glyph,
     `features` equals `['ledger']`) and `main/bridge.test.ts` (each op calls `CHANNELS.ledger` with its payload).
-- [ ] Money becomes a two-module host, copying Mind's four files
+- [x] Money becomes a two-module host, copying Mind's four files
   - Net-new `apps/money/main/host.ts`: `registerMoneyHost(el: MoneyHostElectron):
     { ledger: LedgerService; dispose: () => Promise<void>; stopRates: () => void }` calls `registerMoneyHandlers(el)`
     unchanged (money keeps its own registration; wrapping it in a `defineFeatureMain` is not this phase's) and
@@ -150,7 +150,7 @@ and `comingSoon` removed from `MODULES.accountant`.
   - Verified by net-new `apps/money/main/host.test.ts` (over `createRecordingContext`: `CHANNELS.ledger` and every
     finance channel registered exactly once) and `apps/money/src/host-app.test.tsx` (nav shows a "Money" and an
     "Accountant" group; clicking `accountant.overview` renders the Accountant pane's empty state).
-- [ ] Studio composes the ledger feature as a `books` view
+- [x] Studio composes the ledger feature as a `books` view
   - `FEATURE_VIEWS.ledger = ['books']` and `'books'` after `'dashboard'` in `STUDIO_VIEW_ORDER`
     ([`feature-registrations.ts`](../../../packages/shared/src/domain/feature-registrations.ts)); the test that pins
     the old literal list gains `'books'`.
@@ -167,7 +167,7 @@ and `comingSoon` removed from `MODULES.accountant`.
     (one seeded book, Theme D's fixture) used by RTL and the shots spec.
   - Verified by `apps/studio/src/composition.test.ts` (existing, now passing with the module) and
     `packages/app/src/components/view-registry.test.ts` (`books` resolves).
-- [ ] The catalog keeps `comingSoon: true` on `MODULES.accountant` in this theme; Theme H removes it
+- [x] The catalog keeps `comingSoon: true` on `MODULES.accountant` in this theme; Theme H removes it
   - Reason: a tile that opens onto an empty pane with no posting is a broken promise.
 
 ### B — Money amounts and the ledger contract (S)

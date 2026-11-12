@@ -4,11 +4,11 @@ import type { Config } from 'tailwindcss';
 
 /**
  * Money's Tailwind config: the frame's preset plus the globs of what this build
- * compiles from source (the frame and the money feature) and its own src.
+ * compiles from source (the frame and the finance and ledger features) and its own src.
  */
 const config: Config = {
   presets: [frameTailwindPreset],
-  content: frameContent(__dirname, ['finance'], ['money']),
+  content: frameContent(__dirname, ['finance', 'ledger'], ['money', 'accountant']),
 };
 
 export default config;

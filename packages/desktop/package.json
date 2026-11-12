@@ -41,6 +41,7 @@
     "@midnite/studio-feature-councils": "workspace:*",
     "@midnite/studio-feature-database": "workspace:*",
     "@midnite/studio-feature-finance": "workspace:*",
+    "@midnite/studio-feature-ledger": "workspace:*",
     "@midnite/studio-feature-forge": "workspace:*",
     "@midnite/studio-feature-forge-host": "workspace:*",
     "@midnite/studio-feature-mcp-tools": "workspace:*",

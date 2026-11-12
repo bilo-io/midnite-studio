@@ -18,6 +18,11 @@ describe('VIEW_COMPONENT', () => {
     expect(new Set(Object.keys(VIEW_COMPONENT))).toEqual(new Set(VIEW_IDS));
   });
 
+  it('resolves the books view to the ledger workspace', () => {
+    expect(VIEW_IDS).toContain('books');
+    expect(VIEW_COMPONENT.books.Component).toBeTruthy();
+  });
+
   it('gives every entry a component', () => {
     for (const view of VIEW_IDS) {
       expect(VIEW_COMPONENT[view].Component, view).toBeTruthy();
@@ -63,6 +68,8 @@ describe('VIEW_COMPONENT', () => {
         'notes',
         // The Chats page: app-wide storage, each chat remembers its repo.
         'chats',
+        // Phase 129: books are files on this computer, not one checkout's.
+        'books',
       ]),
     );
   });

@@ -19,6 +19,8 @@ export default defineConfig({
       '@midnite/studio-feature-report/renderer': at('../../packages/features/report/renderer/index.ts'),
       '@midnite/studio-frame': at('../../packages/frame/src/index.ts'),
       '@midnite/studio-feature-finance/renderer': at('../../packages/features/finance/renderer/index.ts'),
+      '@midnite/studio-feature-ledger/renderer': at('../../packages/features/ledger/renderer/index.ts'),
+      '@midnite/studio-module-accountant/renderer': at('../../packages/modules/accountant/renderer/index.ts'),
     },
   },
   server: { port: 5180, strictPort: true },

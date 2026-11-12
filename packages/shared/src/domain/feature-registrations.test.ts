@@ -21,6 +21,7 @@ import { SETTINGS_PAGE_IDS, VIEW_IDS } from './view';
 const LEGACY_VIEW_IDS = [
   'landing',
   'dashboard',
+  'books',
   'notes',
   'chats',
   'sessions',

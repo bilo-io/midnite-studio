@@ -16,7 +16,9 @@ dependsOn:
   - 'runtime'
   - 'feature-report'
   - 'feature-finance'
+  - 'feature-ledger'
   - 'module-money'
+  - 'module-accountant'
 
 tasks:
   build:
@@ -47,6 +49,12 @@ tasks:
       - '/packages/modules/money/main/**/*'
       - '/packages/modules/money/renderer/**/*'
       - '/packages/modules/money/manifest.ts'
+      - '/packages/features/ledger/renderer/**/*'
+      - '/packages/features/ledger/manifest.ts'
+      - '/packages/features/ledger/main/**/*'
+      - '/packages/modules/accountant/main/**/*'
+      - '/packages/modules/accountant/renderer/**/*'
+      - '/packages/modules/accountant/manifest.ts'
     outputs:
       - 'dist'
 
@@ -71,6 +79,12 @@ tasks:
       - '/packages/modules/money/main/**/*'
       - '/packages/modules/money/renderer/**/*'
       - '/packages/modules/money/manifest.ts'
+      - '/packages/features/ledger/renderer/**/*'
+      - '/packages/features/ledger/manifest.ts'
+      - '/packages/features/ledger/main/**/*'
+      - '/packages/modules/accountant/main/**/*'
+      - '/packages/modules/accountant/renderer/**/*'
+      - '/packages/modules/accountant/manifest.ts'
 
   test:
     inputs:
@@ -91,3 +105,9 @@ tasks:
       - '/packages/modules/money/main/**/*'
       - '/packages/modules/money/renderer/**/*'
       - '/packages/modules/money/manifest.ts'
+      - '/packages/features/ledger/renderer/**/*'
+      - '/packages/features/ledger/manifest.ts'
+      - '/packages/features/ledger/main/**/*'
+      - '/packages/modules/accountant/main/**/*'
+      - '/packages/modules/accountant/renderer/**/*'
+      - '/packages/modules/accountant/manifest.ts'

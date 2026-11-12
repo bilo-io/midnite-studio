@@ -23,6 +23,7 @@
     { "path": "../features/terminal/tsconfig.main.json" },
     { "path": "../features/notes/tsconfig.main.json" },
     { "path": "../features/finance/tsconfig.main.json" },
+    { "path": "../features/ledger/tsconfig.main.json" },
     { "path": "../features/tests/tsconfig.main.json" },
     { "path": "../features/forge/tsconfig.main.json" },
     { "path": "../features/forge-host/tsconfig.main.json" },
