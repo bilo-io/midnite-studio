@@ -190,6 +190,7 @@ export const SITE_APPS: readonly SiteApp[] = [
       { label: 'Research', blurb: 'Notebooks with LaTeX, units and matrices' },
       { label: 'Visualization', blurb: 'Function plots and 3D molecules' },
       { label: 'Templates', blurb: 'Starter notebooks per discipline' },
+      { label: 'Simulations', blurb: 'Cellular automata, gravity and flocking' },
     ],
   },
   {

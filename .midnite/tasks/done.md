@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 127 Theme G — Launch
+
+[PR #PRN](https://github.com/bilo-io/midnite-studio/pull/PRN). Simulator no longer coming soon in the launcher; APPS.md and the website's Science entry updated.
+
 ## 2026-11-12 — Phase 127 Theme F — Scenarios: save and load
 
 [PR #1157](https://github.com/bilo-io/midnite-studio/pull/1157). Versioned scenario schema, `simulator` channel and Trash-backed JSON store, and a scenario panel in the Emergence and Worlds views.

@@ -38,10 +38,10 @@ describe('the 11-app catalog (Phase 124 Theme F)', () => {
     }
   });
 
-  it('marks Accountant and Simulator coming soon at module level, with Money still installable', () => {
+  it('marks Accountant coming soon at module level and Simulator launched, with Money still installable', () => {
     const module = (app: Parameters<typeof appById>[0], id: string) => appById(app).modules.find((m) => m.id === id)!;
     expect(module('money', 'accountant').comingSoon).toBe(true);
-    expect(module('science', 'simulator').comingSoon).toBe(true);
+    expect(module('science', 'simulator').comingSoon).toBeUndefined();
     expect(appById('money').comingSoon).toBeUndefined();
     expect(appById('science').comingSoon).toBeUndefined();
     expect(module('money', 'money').comingSoon).toBeUndefined();

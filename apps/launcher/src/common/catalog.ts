@@ -372,7 +372,6 @@ const MODULES = {
       { id: 'worlds', label: 'Virtual Worlds', blurb: 'Solar systems, celestial physics and gravity', target: view('landing') },
       { id: 'emergence', label: 'Emergence', blurb: 'Cellular automata and Conway\'s Game of Life', target: view('landing') },
     ],
-    comingSoon: true,
   },
   startup: {
     id: 'startup',
