@@ -17,6 +17,9 @@ export function suiteShellTestBridge(extra: Record<string, unknown> = {}): Recor
     systemHealthStartSshAgent: async () => ({ ok: true }),
     monitorAgentUsage: async () => ({ sessions: [], agents: [] }),
     handoff: { open: async () => ({ ok: true }) },
+    // A version and a notes stub, so the rail's version pill draws (a test overrides either through `extra`).
+    appVersion: '0.0.7',
+    suiteReleaseNotes: { get: async () => ({ version: '0.0.7', notes: null, error: null }) },
     suitePrefs: {
       get: async () => resolveSuitePrefs({}),
       set: async () => ({ ok: true }),

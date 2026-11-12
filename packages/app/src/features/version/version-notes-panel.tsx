@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react';
-import Markdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { LuBug, LuExternalLink, LuFileText, LuLoaderCircle } from 'react-icons/lu';
+import { LuBug, LuExternalLink, LuFileText } from 'react-icons/lu';
 
 import { RELEASE_CHANGELOG_PAGE_URL, RELEASE_LIST_URL, releasePageUrl } from '@midnite/studio-shared';
 
 import { ReportIssueDialog } from '@midnite/studio-feature-report/renderer';
 import { ExternalLink } from '../markdown/external-link';
-import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
+import { ReleaseNotesPanel } from '@midnite/studio-frame';
 import { openExternal } from '../../services/queries';
 import { PresentButton, useSlidesStore } from '@midnite/studio-feature-slides/renderer';
 import { useReleaseNotes } from './release-notes';
@@ -17,9 +15,6 @@ const PREVIOUS_COUNT = 3;
 
 export function VersionNotesPanel({ version }: { version: string }) {
   const { data, isLoading } = useReleaseNotes(version, PREVIOUS_COUNT + 1);
-  const earlier = (data?.sections ?? [])
-    .filter((section) => section.version.replace(/^v/, '') !== version.replace(/^v/, ''))
-    .slice(0, PREVIOUS_COUNT);
   const label = `Release ${version}`;
   const [reportOpen, setReportOpen] = useState(false);
 
@@ -34,85 +29,44 @@ export function VersionNotesPanel({ version }: { version: string }) {
   }, [data?.notes, label]);
 
   return (
-    <div className="flex flex-col">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <LuFileText aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <span className="text-sm font-semibold">What&apos;s new in v{version}</span>
-        {data?.notes ? (
-          <PresentButton source={{ content: data.notes, label }} className="ml-auto" />
-        ) : null}
-      </div>
+    <>
+      <ReleaseNotesPanel
+        appName="Midnite Studio"
+        version={version}
+        data={data}
+        isLoading={isLoading}
+        headerAction={data?.notes ? <PresentButton source={{ content: data.notes, label }} /> : undefined}
+        markdownComponents={{ a: ExternalLink }}
+        earlierCount={PREVIOUS_COUNT}
+        links={
+          <>
+            <PanelLink icon={LuFileText} label="Full changelog" href={RELEASE_CHANGELOG_PAGE_URL} />
+            <PanelLink
+              icon={LuExternalLink}
+              label="Release page"
+              href={data?.notes ? releasePageUrl(version) : RELEASE_LIST_URL}
+            />
+            {/*
+              The third of the links that stand whether or not the notes arrived
+              (Phase 65 Theme E). Before it there was no way to report a bug from
+              inside the app at all. Phase 93 Theme C: opens the same in-app
+              composer `monitor-page.tsx`'s "Report a bug" does, rather than
+              `openExternal` directly — no `href`, so `PanelLink` skips the
+              external-link chevron it wears for the other two rows.
 
-      <div className="hide-scrollbar max-h-[min(60vh,20rem)] overflow-auto px-3 py-2 text-xs leading-relaxed">
-        {isLoading ? (
-          <p className="flex items-center gap-2 py-1 text-muted-foreground">
-            <LuLoaderCircle aria-hidden className="h-3.5 w-3.5 animate-spin" />
-            Loading release notes…
-          </p>
-        ) : data?.notes ? (
-          <div className={MARKDOWN_PROSE_CLASSES}>
-            <Markdown remarkPlugins={[remarkGfm]} components={{ a: ExternalLink }}>
-              {data.notes}
-            </Markdown>
-          </div>
-        ) : (
-          <p className="py-1 text-muted-foreground">
-            {data?.error
-              ? 'Release notes are unavailable right now.'
-              : 'No published notes for this build yet.'}
-          </p>
-        )}
-        {earlier.length > 0 ? (
-          <div className="mt-2 flex flex-col gap-1 border-t border-border pt-2" data-testid="earlier-releases">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Earlier releases
-            </span>
-            {earlier.map((section) => (
-              <details key={section.version} className="group rounded border border-border">
-                <summary className="flex cursor-pointer items-center gap-2 px-2 py-1 text-xs font-medium hover:bg-accent">
-                  v{section.version}
-                  {section.date ? (
-                    <span className="ml-auto font-normal text-muted-foreground">{section.date}</span>
-                  ) : null}
-                </summary>
-                <div className={`${MARKDOWN_PROSE_CLASSES} px-2 pb-2`}>
-                  <Markdown remarkPlugins={[remarkGfm]} components={{ a: ExternalLink }}>
-                    {section.body}
-                  </Markdown>
-                </div>
-              </details>
-            ))}
-          </div>
-        ) : null}
-      </div>
-
-      <div className="flex flex-col gap-0.5 border-t border-border p-1">
-        <PanelLink icon={LuFileText} label="Full changelog" href={RELEASE_CHANGELOG_PAGE_URL} />
-        <PanelLink
-          icon={LuExternalLink}
-          label="Release page"
-          href={data?.notes ? releasePageUrl(version) : RELEASE_LIST_URL}
-        />
-        {/*
-          The third of the links that stand whether or not the notes arrived
-          (Phase 65 Theme E). Before it there was no way to report a bug from
-          inside the app at all. Phase 93 Theme C: opens the same in-app
-          composer `monitor-page.tsx`'s "Report a bug" does, rather than
-          `openExternal` directly — no `href`, so `PanelLink` skips the
-          external-link chevron it wears for the other two rows.
-
-          **Packaged-only, by way of this panel.** `version-pill.tsx` hides
-          itself on `'0.0.0'`, so in a dev build nothing opens this panel and
-          this link is unreachable. That is deliberate rather than a gap: the
-          same action also sits in `Settings ▸ Monitor ▸ Diagnostics`, which
-          renders in every build, so the affordance exists either way and this
-          one is simply the convenient copy beside the release notes.
-        */}
-        <PanelLink icon={LuBug} label="Report a bug" onClick={() => setReportOpen(true)} />
-      </div>
-
+              **Packaged-only, by way of this panel.** `version-pill.tsx` hides
+              itself on `'0.0.0'`, so in a dev build nothing opens this panel and
+              this link is unreachable. That is deliberate rather than a gap: the
+              same action also sits in `Settings ▸ Monitor ▸ Diagnostics`, which
+              renders in every build, so the affordance exists either way and this
+              one is simply the convenient copy beside the release notes.
+            */}
+            <PanelLink icon={LuBug} label="Report a bug" onClick={() => setReportOpen(true)} />
+          </>
+        }
+      />
       <ReportIssueDialog open={reportOpen} onClose={() => setReportOpen(false)} />
-    </div>
+    </>
   );
 }
 

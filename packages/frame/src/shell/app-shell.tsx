@@ -8,6 +8,7 @@ import { LuSettings } from 'react-icons/lu';
 import { bridge } from '../bridge';
 import { CONTENT_BOX } from '../layout/content-box';
 import { appLogoUrl } from './app-logo';
+import { SuiteRailVersion, suiteVersion } from './version/suite-version-pill';
 import { TitleBarDoubleClick } from './title-bar-double-click';
 import { TitleBarCluster } from './titlebar/titlebar-cluster';
 import { SETTINGS_VIEW, navChordFor, pathForNavView, type NavConfig } from './nav-config';
@@ -111,6 +112,7 @@ function AppShellFrame({
   const windowChrome = bridge()?.windowChrome ?? null;
   const framed = !windowChrome?.frameless;
   const logo = appLogoUrl(app);
+  const hasVersion = suiteVersion(app) !== null;
 
   const resolvedChordFor = useMemo(() => chordFor ?? navChordFor(nav), [chordFor, nav]);
   // The link component's identity must not follow a caller's inline `onNavigate` / `chordFor`: a new
@@ -175,7 +177,9 @@ function AppShellFrame({
       // Settings, last in the rail's footer — Studio's markup (`app.tsx`'s footer slot), so the row
       // reads as a nav item even though the shell's footer is free-form.
       footer: ({ expanded }) => (
-        <div className="flex w-full flex-col gap-1 pb-3">
+        // The version strip is absolutely positioned against the fixed rail (it reserves no space), so the
+        // stack pads itself by the 12px it claims beyond the rail's own `py-3` — only when it is drawn.
+        <div className={`flex w-full flex-col gap-1 ${hasVersion ? 'pb-6' : 'pb-3'}`}>
           <button
             type="button"
             onClick={() => navigate(SETTINGS_VIEW)}
@@ -191,10 +195,11 @@ function AppShellFrame({
             <LuSettings aria-hidden className="h-4 w-4 shrink-0" />
             {expanded ? <span>Settings</span> : null}
           </button>
+          <SuiteRailVersion app={app} name={name} expanded={expanded} />
         </div>
       ),
     }),
-    [nav, logo, name, navigate, settingsActive],
+    [nav, logo, name, app, hasVersion, navigate, settingsActive],
   );
 
   // The suite-wide right cluster (Theme J.4): the status pill, the battery and the theme toggle, always
