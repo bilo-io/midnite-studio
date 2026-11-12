@@ -1,10 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { ScenarioPanel } from '../components/scenario-panel';
 import { SimCanvasFrame, Transport } from '../components/transport';
 import { useSim } from '../engine/sim-worker-factory';
 import type { SimFrame } from '../engine/use-sim';
 import type { TicksPerFrame } from '../engine/types';
 import { ELEMENTARY_DEFAULTS, ELEMENTARY_MAX_WIDTH, ELEMENTARY_MIN_WIDTH, type ElementaryParams } from '../sims/elementary';
+import {
+  decodeElementaryState,
+  decodeLifeState,
+  encodeElementaryState,
+  encodeLifeState,
+  parseElementaryParams,
+  parseLifeParams,
+} from '../sims/scenario-codec';
+import type { SimScenario } from '@midnite/studio-shared';
 import { fillImage, paintCells, stampPattern, type View } from '../sims/grid';
 import { LIFE_DEFAULTS, LIFE_MAX, LIFE_MIN, type LifeParams } from '../sims/life';
 import type { RlePattern } from '../sims/rle';
@@ -79,6 +89,46 @@ export function AutomataView() {
     setSpeedRef.current(speed);
   }, [mode, speed]);
 
+  // A loaded scenario's state is restored once the reset its params trigger has run.
+  const pending = useRef<{ kind: Mode; state: unknown } | null>(null);
+  const [loadTick, setLoadTick] = useState(0);
+  useEffect(() => {
+    const p = pending.current;
+    if (p === null || p.kind !== mode) return;
+    pending.current = null;
+    sim.restore(p.state);
+    // `sim` is a fresh object each render; only a load should restore.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadTick]);
+
+  const capture = async () => {
+    const state = await sim.serialise();
+    const encoded = mode === 'life' ? encodeLifeState(state as never) : encodeElementaryState(state as never);
+    return { seed, params: { ...(mode === 'life' ? life : elementary) }, state: encoded };
+  };
+
+  const apply = (scenario: SimScenario): string | null => {
+    if (scenario.kind === 'life') {
+      const params = parseLifeParams(scenario.params);
+      const state = params === null || scenario.state === undefined ? null : decodeLifeState(scenario.state, params);
+      if (params === null || (scenario.state !== undefined && state === null)) return 'invalid';
+      setMode('life');
+      setLife(params);
+      pending.current = state === null ? null : { kind: 'life', state };
+    } else if (scenario.kind === 'elementary') {
+      const params = parseElementaryParams(scenario.params);
+      const state = params === null || scenario.state === undefined ? null : decodeElementaryState(scenario.state, params);
+      if (params === null || (scenario.state !== undefined && state === null)) return 'invalid';
+      setMode('elementary');
+      setElementary(params);
+      pending.current = state === null ? null : { kind: 'elementary', state };
+    } else return 'invalid';
+    setSeed(scenario.seed);
+    grid.current = null;
+    setLoadTick((n) => n + 1);
+    return null;
+  };
+
   const post = () => {
     if (grid.current === null) return;
     lastPost.current = Date.now();
@@ -134,7 +184,9 @@ export function AutomataView() {
           onElementary={setElementary}
           onStamp={onStamp}
           gridSize={[w, h]}
-        />
+        >
+          <ScenarioPanel kinds={['life', 'elementary']} kind={mode} capture={capture} apply={apply} />
+        </AutomataPanel>
       </div>
     </section>
   );
