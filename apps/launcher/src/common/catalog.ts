@@ -341,13 +341,12 @@ const MODULES = {
     tagline: 'Accounting, tax calculation and bookkeeping',
     vision:
       'Automated bookkeeping, ledger management, and intelligent tax calculations tailored for freelancers, contractors, and growing teams.',
-    home: view('landing'),
+    home: view('books'),
     features: [
-      { id: 'accounting', label: 'Accounting', blurb: 'Double-entry bookkeeping and ledger tracking', target: view('landing') },
-      { id: 'tax', label: 'Tax Calculation', blurb: 'Automated deductions, estimates and filing prep', target: view('landing') },
-      { id: 'reports', label: 'Financial Reports', blurb: 'Balance sheets, P&L and cash flow', target: view('landing') },
+      { id: 'accounting', label: 'Accounting', blurb: 'Double-entry bookkeeping and ledger tracking', target: view('books') },
+      { id: 'tax', label: 'Tax Calculation', blurb: 'Automated deductions, estimates and filing prep', target: view('books') },
+      { id: 'reports', label: 'Financial Reports', blurb: 'Balance sheets, P&L and cash flow', target: view('books') },
     ],
-    comingSoon: true,
   },
   science: {
     id: 'science',
@@ -492,7 +491,7 @@ const RAW_APPS: readonly RawApp[] = [
     tagline: 'Stocks, investments, crypto, trading and the books',
     like: 'Like Robinhood, Yahoo Finance and QuickBooks',
     vision:
-      'Every account you hold in one view — brokerage, crypto and cash — with live prices, allocation and performance over time, and the trades themselves a click away, with an agent to explain what moved and why. Bookkeeping and tax follow as the Accountant module.',
+      'Every account you hold in one view — brokerage, crypto and cash — with live prices, allocation and performance over time, and the trades themselves a click away, with an agent to explain what moved and why. Bookkeeping and tax estimates sit beside it in the Accountant module.',
     home: view('dashboard'),
     modules: [MODULES.money, MODULES.accountant],
     runsIn: 'studio',

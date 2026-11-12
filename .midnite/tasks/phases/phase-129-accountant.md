@@ -81,8 +81,7 @@ and the cash flow always reconciles, or says by how much it does not. The maths 
 Northern Ireland) as the reference: income tax + Class 4 NIC for a sole trader, corporation tax with
 marginal relief for a company. Every screen carries the fixed not-tax-advice notice. The maths is pure and lives in `shared/src/ledger-tax.ts`, `ledger-tax-uk.ts` and `ledger-tax-uk-rates.ts` (not `main/tax/`, as Theme F's did) so the in-memory ledger runs the same code; rates are the one data table, in basis points and pence, with a source URL and checked-on date per year, and every product goes through `percentOfMinor`. `taxEstimate`'s `taxYear` is the start year (`2026` is 2026-27) and its payload is the typed `LedgerTaxEstimate`; it refuses with `invalid` for no jurisdiction, a personal book, a non-GBP book or an unknown year. A company's year is the 1 April financial year, a sole trader's the 6 April tax year, so `yearRange` takes the entity. Ships 2025-26 and 2026-27. `createMemoryLedger` gained `entity` and `jurisdiction` options.
 
-**Theme H — Verification and the catalog flip.** ◻ Shots spec over the mock bridge, the packaged-app pass,
-and `comingSoon` removed from `MODULES.accountant`.
+**Theme H — Verification and the catalog flip.** ✅ (automated; the packaged-app pass and the CI gate stay open) `accountant-shots.spec.ts` drives Studio's real Books view over the page's mock bridge: `buildMockBridge` cannot import the ledger, so the spec builds `createMemoryLedger` in Node and hands the page a bridge whose ops call it through `exposeFunction`. It photographs Overview, the Journal with the new-entry sheet, the Balance sheet and the tax estimate to `MSTUDIO_SHOTS_DIR`, never the repo. The catalog drops `comingSoon` from Accountant and points its home and features at the `books` view; the Money tile's vision is in the present tense; `app.test.tsx` now asserts **Open Accountant module** opens `module:accountant`. Two things surfaced: Studio drew no Books rail row (Theme A pinned it in `nav-groups.ts` but `app.tsx` never rendered it), so Studio had no way to open the view; the row now sits under Dashboard. And the new-entry sheet's Close button sits under the window title bar (Escape still closes it): left as is, noted for a follow-up. 2025-26's `checkedOn` now names the spec rather than a date it was not re-read on.
 
 ## Build order
 
@@ -426,19 +425,18 @@ and `comingSoon` removed from `MODULES.accountant`.
 
 ### H — Verification and the catalog flip (S)
 
-- [ ] Net-new `packages/app/e2e/accountant-shots.spec.ts` (Studio's `books` view, `installMockBridge` from
+- [x] Net-new `packages/app/e2e/accountant-shots.spec.ts` (Studio's `books` view, `installMockBridge` from
   [`e2e/shots-helper.ts`](../../../packages/app/e2e/shots-helper.ts), repos panel closed): Overview, Journal with the new-entry
-  sheet open, Balance sheet, Tax estimate; shots under `docs/screenshots/p129/`
+  sheet open, Balance sheet, Tax estimate; shots go to `MSTUDIO_SHOTS_DIR` (default: the OS temp dir) and are not committed
   - Header comment names the browser capability it needs: real layout of the four-table report page.
-- [ ] Catalog: remove `comingSoon` from `MODULES.accountant`; `home: { kind: 'view', view: 'books' }` and each feature's target
+- [x] Catalog: remove `comingSoon` from `MODULES.accountant`; `home: { kind: 'view', view: 'books' }` and each feature's target
   `view('books')` in [`catalog.ts`](../../../apps/launcher/src/common/catalog.ts); the Money tile's `vision` keeps its
   "Bookkeeping and tax follow as the Accountant module" sentence rewritten in the present tense
   - Verified by `apps/launcher/src/common/catalog.test.ts`: no module on the Money tile is `comingSoon`.
   - [`apps/launcher/src/renderer/app.test.tsx`](../../../apps/launcher/src/renderer/app.test.tsx)'s "lists a coming-soon module
     with no way to open it" case uses the Accountant region today: rewrite it to assert the sheet's **Open Accountant
     module** button calls `open('money', 'module:accountant')`, and move the coming-soon assertion to the Science tile's
-    Simulator region (still `comingSoon` until Phase 127 flips it; whichever phase flips the last coming-soon module deletes
-    that case).
+    Simulator region (Simulator was already flipped, so the case no longer asserts a coming-soon module at all: the Health app's own tile case covers that).
 - [ ] The gate (`moon run :typecheck :lint :test`) is green in CI, including `layer-boundaries.test.mjs` and `gate-projects-check`
 - [ ] **Open, for a human:** in the packaged Money app, create a sole-trader book, import a real bank CSV, post two manual
   entries, reverse one, read the four reports and a UK estimate; then open Studio at the same time and see the read-only banner
@@ -487,8 +485,8 @@ and `comingSoon` removed from `MODULES.accountant`.
 - [x] `reports.test.ts`: the hand-worked year; 500 random balanced entries keep the balance sheet balanced and cash flow reconciled.
 - [x] `ledger-tax.test.ts` (UK): the three worked examples above.
 - [x] RTL: overview, accounts, journal, import, reports and tax views as listed per theme; the tax notice in every state.
-- [ ] `accountant-shots.spec.ts` screenshots committed under `docs/screenshots/p129/`.
-- [ ] `catalog.test.ts`: Accountant no longer `comingSoon`.
+- [x] `accountant-shots.spec.ts` renders Overview, Journal with the sheet, Balance sheet and the tax estimate (shots are not committed).
+- [x] `catalog.test.ts`: Accountant no longer `comingSoon`.
 - [ ] **Open, for a human:** the packaged-app pass in Theme H.
 - [ ] **Open, for a human:** UK figures verified against GOV.UK (`shared/src/ledger-tax-uk-rates.ts`). 2026-27 was read from GOV.UK on 2026-11-12; 2025-26 carries the same figures from this spec and was not re-read there.
 

@@ -155,16 +155,16 @@ describe('<App>', () => {
     expect(open).toHaveBeenCalledWith('vanguard', 'secrets');
   });
 
-  it('lists a coming-soon module with no way to open it', async () => {
-    mount('installed');
+  it('opens the Accountant module from the Money tile', async () => {
+    const { open } = mount('installed');
     await screen.findByLabelText('Open Midnite Money');
     const tile = screen.getAllByRole('article').find((el) => within(el).queryByLabelText('Open Midnite Money'))!;
     fireEvent.click(within(tile).getAllByRole('button', { name: /Details/ })[0]!);
     const sheet = screen.getByRole('dialog');
-    const accountant = within(sheet).getByRole('region', { name: 'Accountant module' });
-    expect(within(accountant).getByText('Coming soon')).toBeDefined();
-    expect(within(accountant).queryByRole('button')).toBeNull();
+    expect(within(sheet).queryByText('Coming soon')).toBeNull();
     expect(within(sheet).getByRole('button', { name: 'Open Money module' })).toBeDefined();
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Open Accountant module' }));
+    expect(open).toHaveBeenCalledWith('money', 'module:accountant');
   });
 
   it('switches to the table and remembers it', async () => {
