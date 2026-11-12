@@ -57,7 +57,7 @@ each app's section from the commits that touched it, mirrors every file into the
 shows the result in the launcher (per app, plus its own) and in a version pill in every suite app's rail. Planned
 2026-11-12; build order **A**, then **B, C, D, E** in parallel, then **F**.
 
-**Theme A — Per-app changelog files and the shared contract.** ◻ `apps/<id>/CHANGELOG.md` for the launcher and the nine
+**Theme A — Per-app changelog files and the shared contract.** ✅ [#1161](https://github.com/bilo-io/midnite-studio/pull/1161) `apps/<id>/CHANGELOG.md` for the launcher and the nine
 suite apps (seeded with `[Unreleased]` and a curated 0.0.6 section), and `release.ts` naming each app's source path,
 feed folder, raw URL, page URL and release page, pinned by a guard test.
 
@@ -94,7 +94,7 @@ published yet." rather than as an error.
 
 ### A — Per-app changelog files and the shared contract (M)
 
-- [ ] `CHANGELOG_APP_IDS` and the per-app helpers in [`release.ts`](../../../packages/shared/src/release.ts) (stays import-free)
+- [x] `CHANGELOG_APP_IDS` and the per-app helpers in [`release.ts`](../../../packages/shared/src/release.ts) (stays import-free)
   - `export const CHANGELOG_APP_IDS = ['studio', 'launcher', 'agents', 'browser', 'gamer', 'media', 'mind', 'money',
     'science', 'startup', 'vanguard'] as const;` and `export type ChangelogAppId = (typeof CHANGELOG_APP_IDS)[number];`
     — Studio, the launcher, then every `apps/<id>` with a `moon.yml`, alphabetical.
@@ -110,7 +110,7 @@ published yet." rather than as an error.
     the launcher release is the one every bundle zip is attached to (`publish-suite`).
   - Verified by `release.test.ts`: the two legacy constants equal the helper output for `studio`; `changelogSourcePath('money')`
     is `apps/money/CHANGELOG.md`; `appReleasePageUrl('agents', '0.0.7')` ends `/tag/midnite-launcher/v0.0.7`.
-- [ ] Net-new `apps/launcher/CHANGELOG.md` and `apps/<id>/CHANGELOG.md` for the nine suite apps
+- [x] Net-new `apps/launcher/CHANGELOG.md` and `apps/<id>/CHANGELOG.md` for the nine suite apps
   - Header: `# Changelog — Midnite <Name>` (`Midnite Apps` for the launcher; `<Name>` is the catalog `name` in
     [`catalog.ts`](../../../apps/launcher/src/common/catalog.ts)), then three sentences: Keep a Changelog format; versions
     are lockstep with the whole suite; released sections are mirrored to the public feed by the release flow. No link to
@@ -120,7 +120,7 @@ published yet." rather than as an error.
     or one of its modules goes into that app only; the launcher gets the "Midnite Apps catalog" and "Update launcher"
     lines. Older versions are not back-filled (Decision 6).
   - No trailing link-reference block in the seed; C's mirror appends the refs it needs in the feed copy.
-- [ ] Guard test, net-new `scripts/changelog-files.test.mjs` (vitest, node builtins only)
+- [x] Guard test, net-new `scripts/changelog-files.test.mjs` (vitest, node builtins only)
   - `CHANGELOG_APP_IDS` (read from `packages/shared/src/release.ts` source with a regex, so the test needs no build) equals
     `['studio', 'launcher', ...sorted(dirs of apps/*/moon.yml minus studio and launcher)]`. A new `apps/health` without a
     changelog fails here.
@@ -402,8 +402,8 @@ published yet." rather than as an error.
 ## Verification
 
 - [ ] `moon run :typecheck :lint :test` green in CI (the local gate is not run on this machine; CI gates).
-- [ ] `release.test.ts`: the helper outputs and the two legacy constants (A).
-- [ ] `changelog-files.test.mjs`: id list equals the app directories; every file has one `[Unreleased]` and parseable headings (A).
+- [x] `release.test.ts`: the helper outputs and the two legacy constants (A).
+- [x] `changelog-files.test.mjs`: id list equals the app directories; every file has one `[Unreleased]` and parseable headings (A).
 - [ ] `changelog-attribution.test.mjs`: module, retired-id, `app-all`, unowned-file and nested-project cases (B).
 - [ ] `changelog-sections-check.test.mjs`: one warning for the file without the section, exit 0 (B).
 - [ ] `publish-feed-changelog.test.mjs`: ordering, idempotence, fallback date, skeleton creation (C).
@@ -450,7 +450,7 @@ All resolved; the option picked in each case was the recommended one.
 5. **Resolved — a missing section warns at release time instead of blocking it.** Agreed, because Studio already
    publishes with `has_section=false` as a documented normal case, and blocking a lockstep release over notes would hold
    back every bundle.
-6. **Resolved — back-fill only 0.0.6.** Agreed, because 0.0.6 is the first release after the app split (Phases 123 and
+6. **Resolved — back-fill only 0.0.6, and only for apps that existed at 0.0.6 (Science and Startup start at `[Unreleased]`).** Agreed, because 0.0.6 is the first release after the app split (Phases 123 and
    124) and the earlier ones have no per-app meaning.
 7. **Resolved — feed files live at `midnite-<id>/CHANGELOG.md`, beside `midnite-studio/` and `midnite-launcher/`.**
    Agreed, because it matches the feed repo's existing namespacing and the `midnite-<app>` issue slugs.

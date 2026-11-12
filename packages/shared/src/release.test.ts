@@ -8,6 +8,14 @@ import {
   isAppIssuesUrl,
   NEW_ISSUE_URL,
   releasePageUrl,
+  CHANGELOG_APP_IDS,
+  RELEASE_CHANGELOG_PAGE_URL,
+  RELEASE_CHANGELOG_RAW_URL,
+  appReleasePageUrl,
+  changelogFeedDir,
+  changelogPageUrl,
+  changelogRawUrl,
+  changelogSourcePath,
 } from './release';
 
 const CHANGELOG = `# Changelog — Midnite Studio
@@ -228,5 +236,36 @@ describe('isAppIssuesUrl — what the report bridge may open', () => {
     ]) {
       expect(isAppIssuesUrl(url), url).toBe(false);
     }
+  });
+});
+
+describe('per-app changelog helpers', () => {
+  it('keeps the legacy Studio constants identical to the helpers', () => {
+    expect(RELEASE_CHANGELOG_RAW_URL).toBe(
+      'https://raw.githubusercontent.com/bilo-io/midnite-apps/main/midnite-studio/CHANGELOG.md',
+    );
+    expect(RELEASE_CHANGELOG_PAGE_URL).toBe(
+      'https://github.com/bilo-io/midnite-apps/blob/main/midnite-studio/CHANGELOG.md',
+    );
+    expect(changelogRawUrl('studio')).toBe(RELEASE_CHANGELOG_RAW_URL);
+    expect(changelogPageUrl('studio')).toBe(RELEASE_CHANGELOG_PAGE_URL);
+  });
+
+  it('names each app source path and feed folder', () => {
+    expect(changelogSourcePath('studio')).toBe('CHANGELOG.md');
+    expect(changelogSourcePath('money')).toBe('apps/money/CHANGELOG.md');
+    expect(changelogFeedDir('launcher')).toBe('midnite-launcher');
+    expect(changelogRawUrl('money')).toContain('/midnite-money/CHANGELOG.md');
+  });
+
+  it('points non-Studio release links at the launcher release', () => {
+    expect(appReleasePageUrl('studio', '0.0.7')).toBe(releasePageUrl('0.0.7'));
+    expect(appReleasePageUrl('agents', '0.0.7')).toMatch(/\/tag\/midnite-launcher\/v0\.0\.7$/);
+  });
+
+  it('lists studio then launcher first, the rest alphabetical', () => {
+    const rest = CHANGELOG_APP_IDS.slice(2);
+    expect(CHANGELOG_APP_IDS.slice(0, 2)).toEqual(['studio', 'launcher']);
+    expect([...rest].sort()).toEqual([...rest]);
   });
 });

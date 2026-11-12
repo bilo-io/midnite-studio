@@ -16,13 +16,51 @@
  * the human-readable pages.
  */
 
+/**
+ * Every app that keeps a changelog: Studio (the root `CHANGELOG.md`), the launcher, then each
+ * `apps/<id>` with a `moon.yml`, alphabetical. Pinned to the directories by `changelog-files.test.mjs`.
+ */
+export const CHANGELOG_APP_IDS = [
+  'studio',
+  'launcher',
+  'agents',
+  'browser',
+  'gamer',
+  'media',
+  'mind',
+  'money',
+  'science',
+  'startup',
+  'vanguard',
+] as const;
+
+export type ChangelogAppId = (typeof CHANGELOG_APP_IDS)[number];
+
+/** Where an app's changelog is written in this repo. Studio's stays the root file. */
+export function changelogSourcePath(app: ChangelogAppId): string {
+  return app === 'studio' ? 'CHANGELOG.md' : `apps/${app}/CHANGELOG.md`;
+}
+
+/** The folder an app's published files live in, in the public feed (`midnite-<id>`). */
+export function changelogFeedDir(app: ChangelogAppId): string {
+  return `midnite-${app}`;
+}
+
 /** The raw changelog main fetches. Unauthenticated — the mirror repo is public. */
-export const RELEASE_CHANGELOG_RAW_URL =
-  'https://raw.githubusercontent.com/bilo-io/midnite-apps/main/midnite-studio/CHANGELOG.md';
+export function changelogRawUrl(app: ChangelogAppId): string {
+  return `https://raw.githubusercontent.com/bilo-io/midnite-apps/main/${changelogFeedDir(app)}/CHANGELOG.md`;
+}
 
 /** The same file, rendered — the popover's "full changelog" link. */
-export const RELEASE_CHANGELOG_PAGE_URL =
-  'https://github.com/bilo-io/midnite-apps/blob/main/midnite-studio/CHANGELOG.md';
+export function changelogPageUrl(app: ChangelogAppId): string {
+  return `https://github.com/bilo-io/midnite-apps/blob/main/${changelogFeedDir(app)}/CHANGELOG.md`;
+}
+
+/** Studio's raw changelog. */
+export const RELEASE_CHANGELOG_RAW_URL = changelogRawUrl('studio');
+
+/** Studio's changelog, rendered. */
+export const RELEASE_CHANGELOG_PAGE_URL = changelogPageUrl('studio');
 
 /** Every Midnite Studio release, newest first. The fallback when no tag matches. */
 export const RELEASE_LIST_URL =
@@ -224,6 +262,16 @@ export function appIssueBody(draft: AppIssueFormDraft): string {
  */
 export function releasePageUrl(version: string): string {
   return `https://github.com/bilo-io/midnite-apps/releases/tag/midnite-studio/v${version}`;
+}
+
+/**
+ * The release page for one app's version. Studio has its own tag; every other app ships in the
+ * `midnite-launcher/vX.Y.Z` release, which is where every bundle zip is attached.
+ */
+export function appReleasePageUrl(app: ChangelogAppId, version: string): string {
+  return app === 'studio'
+    ? releasePageUrl(version)
+    : `https://github.com/bilo-io/midnite-apps/releases/tag/midnite-launcher/v${version}`;
 }
 
 /** `## [1.2.3]`, `## [1.2.3] - 2026-01-01`, `## 1.2.3` — all four shapes in the wild. */
