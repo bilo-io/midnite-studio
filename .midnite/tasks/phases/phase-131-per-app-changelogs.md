@@ -73,12 +73,9 @@ missing feed file and back-fills any released section the feed lacks; `publish-s
 cache, every released app's detail sheet shows its own notes, the Release notes dialog follows the app it was opened
 from, and the launcher's version opens the launcher's notes.
 
-**Theme E — A version pill and drop-up in every suite app.** ◻ The runtime passes the app version to the renderer and
-serves the app's own notes through the guarded fetch; the frame gets a presentational `ReleaseNotesPanel` and a
-`SuiteVersionPill` in AppShell's rail footer; Studio's panel becomes a thin wrapper over the same component.
+**Theme E — A version pill and drop-up in every suite app.** ✅ [PR](https://github.com/bilo-io/midnite-studio/pulls?q=Phase+131+E) The runtime passes the app version to the renderer (`APP_VERSION_ARG` through `suiteWindowOptions`, parsed in `createSuiteBridge`) and serves the app's own notes through `registerSuiteMain` and the guarded fetch (`fetchAppReleaseNotes`, a 404 is "not published yet"); the frame gets a presentational `ReleaseNotesPanel` and a `SuiteVersionPill` in AppShell's rail footer; Studio's panel is now a thin wrapper over the same component. Surprises: `SuiteAppId` outnumbers `ChangelogAppId`, so the pill draws nothing for an app with no changelog; the strip is absolutely positioned like Studio's `RailVersion`, and the footer pads itself only when it is drawn; Node's fetch takes no `cache` option, so `no-store` was dropped. `egress-registry.test.ts` has one failure on main already (`sketchfab.ts:129`), unrelated.
 
-**Theme F — Verification and the first release.** ◻ Shots of the two new surfaces, the dry-run release artifact
-check, and the packaged pass on the first real release that publishes per-app files.
+**Theme F — Verification and the first release.** ◐ Shots taken (the launcher's Money sheet with its What's new, and Vanguard's open version drop-up, from the mock bridges; not committed). The dry-run artifact check was run locally against a stand-in feed directory instead of dispatching `release.yml`: ten files, one `[Unreleased]` each, idempotent on a second run. No release was cut. **Still open, for a human:** the packaged pass on the first tag after Theme C (feed has the ten files, the launcher's Agents sheet and Release notes dialog show Agents' notes, Money's rail pill opens its own notes, Studio's drop-up is unchanged), plus a check that `react-markdown` stays out of each app's entry chunk.
 
 ## Build order
 
@@ -273,7 +270,7 @@ published yet." rather than as an error.
 
 ### E — A version pill and drop-up in every suite app (L)
 
-- [ ] Shared contract
+- [x] Shared contract
   - [`channels.ts`](../../../packages/shared/src/ipc/channels.ts): `CHANNELS.suiteReleaseNotes = 'mstudio:suite:release-notes'`.
   - [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts): `SuiteReleaseNotesRequest = z.object({ latest:
     z.number().int().min(1).max(10).optional() })`; the response is the existing `ReleaseNotesResponse`. No app or
@@ -283,7 +280,7 @@ published yet." rather than as an error.
   - [`egress.ts`](../../../packages/shared/src/egress.ts): the `raw.githubusercontent.com` entry's `sends` becomes
     `'GET only: the Studio update feed and each app’s public changelog, no identifiers'`. No second entry —
     `findEgressEntry` returns the first exact host match, so a second one would never be found.
-- [ ] Runtime main half
+- [x] Runtime main half
   - Net-new `packages/runtime/src/app-main/release-notes.ts`: `fetchAppReleaseNotes(options: { app: ChangelogAppId;
     version: string; latest?: number; fetch: GuardedFetch }): Promise<ReleaseNotes>` — `fetch('launcher',
     changelogRawUrl(app), { cache: 'no-store', signal: AbortSignal.timeout(8_000) })`, then the same envelope as
@@ -302,10 +299,10 @@ published yet." rather than as an error.
     `appVersion` (parsed from `argv` exactly as [`desktop/src/preload/index.ts`](../../../packages/desktop/src/preload/index.ts)
     does, `'0.0.0'` when absent) and `suiteReleaseNotes: { get: (req) => call(CHANNELS.suiteReleaseNotes, req) }`; the
     return type's `Pick` gains `'appVersion'` and `'suiteReleaseNotes'`.
-- [ ] Every suite app's main passes its id and version — `apps/{agents,browser,gamer,media,mind,money,science,startup,vanguard}/main/index.ts`
+- [x] Every suite app's main passes its id and version — `apps/{agents,browser,gamer,media,mind,money,science,startup,vanguard}/main/index.ts`
   - `registerSuiteMain({ …, app: '<id>', appVersion: app.getVersion() })` and `suiteWindowOptions(process.platform,
     app.getVersion())`. Preloads need no edit: they already spread `createSuiteBridge(...)`.
-- [ ] Frame: presentational `ReleaseNotesPanel` — net-new `packages/frame/src/shell/version/release-notes-panel.tsx`
+- [x] Frame: presentational `ReleaseNotesPanel` — net-new `packages/frame/src/shell/version/release-notes-panel.tsx`
   - Props: `{ appName: string; version: string; data: ReleaseNotes | undefined; isLoading: boolean; headerAction?:
     ReactNode; links: ReactNode; markdownComponents?: Components; earlierCount?: number /* 3 */ }`.
   - Body is Studio's current markup moved as is: header `What's new in v{version}`, loading line, notes via
@@ -319,7 +316,7 @@ published yet." rather than as an error.
   - [`packages/frame/package.json`](../../../packages/frame/package.json) gains `react-markdown ^10.1.0` and
     `remark-gfm ^4.0.1` (the versions `packages/app` uses). The panel is only reached through a `lazy()` import, so no
     app's entry chunk grows.
-- [ ] Frame: `SuiteVersionPill` in AppShell's rail footer — net-new `packages/frame/src/shell/version/suite-version-pill.tsx`
+- [x] Frame: `SuiteVersionPill` in AppShell's rail footer — net-new `packages/frame/src/shell/version/suite-version-pill.tsx`
   - Reads `bridge()?.appVersion`; renders nothing when it is absent or `'0.0.0'`, or when `bridge()?.suiteReleaseNotes`
     is absent (Studio's rail never mounts it anyway).
   - `KitPopover` with `side="top"`, `align={expanded ? 'start' : 'center'}`, `` label={`${name} v${version} — release notes`} ``,
@@ -334,12 +331,12 @@ published yet." rather than as an error.
     Settings button, a strip `<div className="flex h-6 items-center border-t border-border …">` holding
     `<SuiteVersionPill app={app} name={name} expanded={expanded} />` (`justify-start px-2` expanded, `justify-center px-1`
     collapsed — `RailVersion`'s classes).
-- [ ] Studio's panel becomes a wrapper — [`version-notes-panel.tsx`](../../../packages/app/src/features/version/version-notes-panel.tsx)
+- [x] Studio's panel becomes a wrapper — [`version-notes-panel.tsx`](../../../packages/app/src/features/version/version-notes-panel.tsx)
   - `VersionNotesPanel` keeps its `useReleaseNotes`, the slides `setActiveMarkdown` effect and `ReportIssueDialog`, and
     renders `<ReleaseNotesPanel appName="Midnite Studio" … headerAction={<PresentButton …/>} links={…three PanelLink
     rows…} markdownComponents={{ a: ExternalLink }} />`. `version-notes-panel.test.tsx` and `version-pill.test.tsx` pass
     unchanged — that is the acceptance check for the move.
-- [ ] Tests
+- [x] Tests
   - `runtime/src/app-main/release-notes.test.ts`: fixture changelog → `notes` for the version and 3 `sections` when
     `latest: 4`; 404 → `error: null, notes: null`; an injected fetch throwing `EgressBlockedError` → the "turned off" copy;
     the URL asked for is `…/midnite-money/CHANGELOG.md` for `app: 'money'`.
@@ -353,10 +350,10 @@ published yet." rather than as an error.
 
 ### F — Verification and the first release (S)
 
-- [ ] Shots for the PRs (not visual baselines — the e2e budget stays as is): the launcher's Money detail sheet with its
+- [x] Shots for the PRs (not visual baselines — the e2e budget stays as is): the launcher's Money detail sheet with its
   What's new section, and a suite app's open drop-up, via the `*-shots.spec.ts` helpers with `reposOpen: false`; the
   suite-app shot rides `packages/app/e2e/suite-shell/` (it serves Vanguard's and Agents' Vite servers already).
-- [ ] Dry-run release (`release.yml` `workflow_dispatch` dry run) uploads a `publish-suite` preview holding
+- [x] Dry-run release (`release.yml` `workflow_dispatch` dry run) uploads a `publish-suite` preview holding
   `midnite-<id>/CHANGELOG.md` for the launcher and all nine apps, each with `## [Unreleased]` above the dry-run version's section.
 - [ ] **Open, for a human:** on the first real tag after C merges — the feed repo has the ten new files; the launcher's
   Agents sheet and Release notes dialog show Agents' notes; Midnite Money's rail pill opens its own notes; Studio's drop-up
@@ -408,10 +405,10 @@ published yet." rather than as an error.
 - [x] `changelog-sections-check.test.mjs`: one warning for the file without the section, exit 0 (B).
 - [x] `publish-feed-changelog.test.mjs`: ordering, idempotence, fallback date, skeleton creation (C).
 - [x] Launcher `changelog.test.ts`, `changelog.test.tsx`, `app.test.tsx`: per-app URL and cache, 404 as empty, dialog title per app (D).
-- [ ] `release-notes.test.ts`, `suite-main.test.ts`, the window/preload version round-trip (E).
-- [ ] `suite-version-pill.test.tsx`, `suite-app-shell.test.tsx`; Studio's `version-notes-panel.test.tsx` and `version-pill.test.tsx` unchanged and green (E).
-- [ ] `egress-registry.test.ts` green with no new `UNMIGRATED` entry (E uses `guardedFetch`).
-- [ ] Dry-run release preview carries the ten feed files (F).
+- [x] `release-notes.test.ts`, `suite-main.test.ts`, the window/preload version round-trip (E).
+- [x] `suite-version-pill.test.tsx`, `suite-app-shell.test.tsx`; Studio's `version-notes-panel.test.tsx` and `version-pill.test.tsx` unchanged and green (E).
+- [x] `egress-registry.test.ts` green with no new `UNMIGRATED` entry (E uses `guardedFetch`).
+- [x] Dry-run release preview carries the ten feed files (F). Checked locally: `publish-feed-changelog.mjs --all` into a stand-in feed produced all ten `midnite-<id>/CHANGELOG.md`, each with one `## [Unreleased]`; a second run mirrored nothing new. The workflow's own dry-run upload was not dispatched.
 - [ ] **Open, for a human:** the packaged pass on the first tag after C (F).
 
 ## Not in this phase

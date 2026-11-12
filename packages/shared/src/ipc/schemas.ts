@@ -3045,6 +3045,10 @@ export const ReleaseNotesResponse = z.object({
     .optional(),
 });
 export type ReleaseNotes = z.infer<typeof ReleaseNotesResponse>;
+/** A suite app's own notes (Phase 131 Theme E): no app or version on the wire, main answers for itself. */
+export const SuiteReleaseNotesRequest = z.object({
+  latest: z.number().int().min(1).max(10).optional(),
+});
 
 // --- system health (Phase 33) ----------------------------------------------
 export const ToolchainBinarySchema = z.object({

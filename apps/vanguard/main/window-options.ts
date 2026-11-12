@@ -7,8 +7,8 @@ import { VANGUARD_NAME } from './identity';
  * chrome comes from the suite's helper; the security options stay here, per app, where the helper
  * cannot weaken them.
  */
-export function vanguardWindowOptions(preload: string, platform: NodeJS.Platform) {
-  const { additionalArguments, ...frame } = suiteWindowOptions(platform);
+export function vanguardWindowOptions(preload: string, platform: NodeJS.Platform, appVersion?: string) {
+  const { additionalArguments, ...frame } = suiteWindowOptions(platform, appVersion);
   return {
     width: 1100,
     height: 760,

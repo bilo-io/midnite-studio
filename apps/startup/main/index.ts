@@ -44,6 +44,8 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   void app.whenReady().then(() => {
     suite = registerSuiteMain({
       ipcMain,
+      app: 'startup',
+      appVersion: app.getVersion(),
       runtimeDirectory: suiteRuntimeDirectory(app.getPath('appData'), process.env[USER_DATA_ENV]),
       getWindow: () => win,
       argv: process.argv,
@@ -136,7 +138,7 @@ function focusWindow(): void {
 
 function openWindow(): void {
   // Frameless where the platform allows (Phase 123 Theme A): the shell's title bar is the drag region.
-  const { additionalArguments, ...frame } = suiteWindowOptions(process.platform);
+  const { additionalArguments, ...frame } = suiteWindowOptions(process.platform, app.getVersion());
   win = new BrowserWindow({
     width: 1100,
     height: 760,

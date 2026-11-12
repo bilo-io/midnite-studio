@@ -31,4 +31,5 @@ export {
   type SuiteMainWindow,
 } from './suite-main';
 export { landingFromArgv, landingFromLink, midniteLinkFromArgv } from './suite-link';
+export { fetchAppReleaseNotes, type AppReleaseNotesOptions } from './release-notes';
 export { createSuiteBridge } from './suite-preload';
