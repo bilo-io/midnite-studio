@@ -8,3 +8,6 @@ export const HEALTH_APP = {
 } as const;
 
 export type HealthApp = typeof HEALTH_APP;
+
+/** Where Health keeps its files; the bridge exposes no paths, so the card names it from here. */
+export const HEALTH_DATA_HINT = '~/Library/Application Support/Midnite Runtime/apps/health/data';

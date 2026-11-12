@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 128 Theme G — Privacy: export and erase
+
+PR (see the Phase 128 G PR). A "Your data" card on Biometrics with Export… (save dialog, 0600 file) and Erase all Health data… (files blast-radius confirm, folder to the Trash, queries invalidated), plus `privacy.test.ts`, the no-network source guard. Manual check outstanding: export and erase in the packaged app.
+
 ## 2026-11-12 — Phase 128 Theme F — Today and Progress
 
 PR (see the Phase 128 F PR). The Today dashboard (calorie ring, quick weigh-in with 7-day average, today's plan day with Log session, first-run card, error and damaged-file states), trend maths (moving average, weekly rate, ISO weeks, weekly summary), the `TimeChart` primitive with nice ticks, and the Progress view with range tabs, weekly report card and four charts.
