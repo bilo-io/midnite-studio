@@ -85,7 +85,7 @@ site lists Startup with the launcher's tile image. `lineNet` now rounds half awa
 (it was only right for positive ones). The gate was the local subset because CI is billing-locked. **Still open for a
 human:** the packaged-app pass.
 
-**Verification (2026-11-13).** Ticked from local runs of `module-startup:test` (117 passed), `shared:test` and `app-startup:test`: `startup`, `workspace-store`, integrity (`in-use`, in `service.test.ts`), `roadmap-model`, `runway`. **Still open:** the `contracts.test.ts` box (no such file; `contract-dates.test.ts` and `contract-files.test.ts` pass but no test by that name covers one linked ledger line per contract) and the packaged-app pass.
+**Verification (2026-11-13).** Ticked from local runs of `module-startup:test` (117 passed), `shared:test` and `app-startup:test`: `startup`, `workspace-store`, integrity (`in-use`, in `service.test.ts`), `roadmap-model`, `runway`. **Update:** the `contracts.test.ts` box was a stale file name; the contract behaviour is covered by `contract-dates.test.ts`, `contract-files.test.ts` and the `contracts` block of `service.test.ts` (all pass), so the box is ticked with the real names. **Still open:** the packaged-app pass.
 
 ## Build order
 
@@ -275,7 +275,7 @@ human:** the packaged-app pass.
   unless `autoRenews`); removing the contract asks, through the frame's `confirm`, whether to remove that line too
 - [x] Vendors view (`startup.vendors`): **Vendors | Contracts** tabs; an "Action needed" strip at the top listing `notice-due` and
   `ending` contracts with their dates; contract sheet with counterparty picker, dates, value, file attach/open
-- [x] Tests: `contracts.test.ts` in main (attach copies and hashes; open refuses a stored name that escapes the folder; contract
+- [x] Tests: `contract-files.test.ts` and `service.test.ts` in main (attach copies and hashes; open refuses a stored name that escapes the folder; contract
   save creates one linked line and a second save updates it); RTL `vendors-view.test.tsx` (Action needed lists a
   `notice-due` contract; remove-vendor `in-use` copy)
 
@@ -398,7 +398,7 @@ human:** the packaged-app pass.
 - [x] Integrity: removing a referenced vendor, customer or milestone returns `in-use` with the count.
 - [x] `roadmap-model.test.ts`: cycles (incl. self), at-risk and overdue tables.
 - [x] `runway.test.ts`: the four worked projections above, exact to the minor unit.
-- [ ] `contract-dates.test.ts` + `contracts.test.ts`: renewal roll-forward, notice deadline, jailed open, one linked line per contract.
+- [x] `contract-dates.test.ts` (shared), `contract-files.test.ts` (jailed open), `service.test.ts` contracts block (one linked line): renewal roll-forward, notice deadline, jailed open, one linked line per contract.
 - [x] `invoice-math.test.ts`, `invoices.test.ts`, `invoice-html.test.ts`: totals, gapless numbering, each transition's posting,
   failure leaves state unchanged, idempotent retry, escaping.
 - [x] Host tests: `CHANNELS.startup` (A) and `CHANNELS.ledger` (F) registered once; `identity.test.ts` bundle id equals the launcher's.

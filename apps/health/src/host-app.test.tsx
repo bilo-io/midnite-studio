@@ -41,10 +41,11 @@ describe('Health host nav', () => {
 });
 
 describe('Health host', () => {
-  it('lists the five rows under the Health group and opens on Today', () => {
+  it('lists the five rows under the Health group and opens on Today', async () => {
     render(<HealthHostApp />);
     const rail = screen.getByRole('navigation', { name: 'Views' });
     for (const label of ['Today', 'Biometrics', 'Nutrition', 'Workouts', 'Progress']) expect(within(rail).getByRole('link', { name: label })).toBeDefined();
-    expect(screen.getByText('Nothing logged today')).toBeDefined();
+    // The test bridge carries no Health channels, so Today (the opening view) renders its no-bridge notice.
+    expect(await screen.findByTestId('health-missing')).toBeDefined();
   });
 });
