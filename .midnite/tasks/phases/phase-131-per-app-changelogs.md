@@ -65,7 +65,7 @@ feed folder, raw URL, page URL and release page, pinned by a guard test.
 tags, the release-prep skill drafting one section per app (a one-line maintenance entry when nothing changed), and a
 release-time warning when a file has no section for the tag.
 
-**Theme C — The feed publishes every app's changelog.** ◻ The mirror script gains an every-app mode that creates a
+**Theme C — The feed publishes every app's changelog.** ✅ [#1164](https://github.com/bilo-io/midnite-studio/pull/1164) The mirror script gains an every-app mode that creates a
 missing feed file and back-fills any released section the feed lacks; `publish-suite` runs it and commits
 `midnite-<id>/CHANGELOG.md` beside `catalog.json`.
 
@@ -180,7 +180,7 @@ published yet." rather than as an error.
 
 ### C — The feed publishes every app's changelog (M)
 
-- [ ] `mirrorMissingSections` in [`publish-feed-changelog.mjs`](../../../scripts/publish-feed-changelog.mjs)
+- [x] `mirrorMissingSections` in [`publish-feed-changelog.mjs`](../../../scripts/publish-feed-changelog.mjs)
   - `export function mirrorMissingSections(targetMarkdown, sourceMarkdown, releaseUrlFor, fallbackDate)` →
     `{ markdown: string, added: string[] }`. Takes every released section of the source
     (`extractLatestSections(source, 1000)`), skips each version the target already has (the same `^##\s+\[<v>\]` test
@@ -191,7 +191,7 @@ published yet." rather than as an error.
   - `mirrorSection` stays (Studio's single-version path keeps its behaviour and its tests).
   - `export function changelogSkeleton(title)` → `` `# Changelog — ${title}\n\n## [Unreleased]\n` `` — what a missing
     target starts as, because `mirrorSection`'s "no `[Unreleased]` heading" throw must not fire on an app's first release.
-- [ ] Every-app CLI mode: `publish-feed-changelog.mjs --all <version> <feed-root> <release-date>`
+- [x] Every-app CLI mode: `publish-feed-changelog.mjs --all <version> <feed-root> <release-date>`
   - For each `CHANGELOG_APP_IDS` id **except `studio`** (Studio's mirror stays in `publish-feed`, whose ordering is
     load-bearing for the updater feed): read `changelogSourcePath(id)`; read `<feed-root>/<changelogFeedDir(id)>/CHANGELOG.md`
     or start from `changelogSkeleton('Midnite <Name>')` (`mkdir -p` the folder); write `mirrorMissingSections(…,
@@ -199,7 +199,7 @@ published yet." rather than as an error.
   - The display name comes from a literal `CHANGELOG_TITLES` map in the script, pinned to the files' own `# Changelog — …`
     first lines by `changelog-files.test.mjs`.
   - The positional single-version mode is unchanged, so `publish-feed`'s step needs no edit.
-- [ ] `release.yml` `publish-suite` job mirrors and commits the files
+- [x] `release.yml` `publish-suite` job mirrors and commits the files
   - Copy `publish-feed`'s `GitHub Packages auth`, `pnpm/action-setup`, `setup-node`, `Install` and `Build shared` steps in
     (the script imports the built shared); all ubuntu, no macOS job added.
   - New step after the midnite-apps checkout (or the dry-run stand-in): `node scripts/publish-feed-changelog.mjs --all
@@ -208,7 +208,7 @@ published yet." rather than as an error.
     publish catalog.json + feed + installer + changelogs for <tag>`. The dry-run upload includes the same paths.
   - The comment block above `publish-suite` and [`docs/RELEASING.md`](../../../docs/RELEASING.md)'s "What a tag build
     publishes beyond Studio" table each gain a `midnite-<id>/CHANGELOG.md` row.
-- [ ] Tests in `publish-feed-changelog.test.mjs`
+- [x] Tests in `publish-feed-changelog.test.mjs`
   - Empty skeleton target + a source with 0.0.7 and 0.0.6 → both inserted, 0.0.7 first, both refs appended, `added` is
     `['0.0.7', '0.0.6']`.
   - Target already holding 0.0.6 → only 0.0.7 added, inserted above 0.0.6; a second run returns the input unchanged and
@@ -406,7 +406,7 @@ published yet." rather than as an error.
 - [x] `changelog-files.test.mjs`: id list equals the app directories; every file has one `[Unreleased]` and parseable headings (A).
 - [x] `changelog-attribution.test.mjs`: module, retired-id, `app-all`, unowned-file and nested-project cases (B).
 - [x] `changelog-sections-check.test.mjs`: one warning for the file without the section, exit 0 (B).
-- [ ] `publish-feed-changelog.test.mjs`: ordering, idempotence, fallback date, skeleton creation (C).
+- [x] `publish-feed-changelog.test.mjs`: ordering, idempotence, fallback date, skeleton creation (C).
 - [ ] Launcher `changelog.test.ts`, `changelog.test.tsx`, `app.test.tsx`: per-app URL and cache, 404 as empty, dialog title per app (D).
 - [ ] `release-notes.test.ts`, `suite-main.test.ts`, the window/preload version round-trip (E).
 - [ ] `suite-version-pill.test.tsx`, `suite-app-shell.test.tsx`; Studio's `version-notes-panel.test.tsx` and `version-pill.test.tsx` unchanged and green (E).
