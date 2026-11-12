@@ -70,7 +70,7 @@ calories against target, training volume and per-exercise top set, plus a weekly
 
 **Theme H — Launch: catalog, website, docs.** ✅ `comingSoon` dropped from the Health tile and `MODULES.health`, blurbs set to what shipped, a Health entry and logo on the website, and `docs/APPS.md` gains the host row and an App: Health section. Startup had already flipped, so no coming-soon app is left in the launcher; the app test now uses `queryAllByRole` so zero Coming soon buttons passes.
 
-**Verification (2026-11-13).** Ticked from local runs of `module-health:test` (131 passed), `shared:test`, `launcher:test`, `studio:test`, `root:test` (release-bundles, affected-apps) and `app-health:test`. **Still open:** `apps/health` `host-app.test.tsx` fails (`lists the five rows under the Health group and opens on Today` looks for the text `Nothing logged today`, which no Health renderer file renders), so that box is unticked; CI `gate-node` (CI is billing-locked); the human packaged-app pass.
+**Verification (2026-11-13).** Ticked from local runs of `module-health:test` (131 passed), `shared:test`, `launcher:test`, `studio:test`, `root:test` (release-bundles, affected-apps) and `app-health:test`. **Update:** `host-app.test.tsx` asserted stale copy; the test bridge has no Health channels, so Today renders the `health-missing` notice, which the test now looks for and the box is ticked. **Still open:** CI `gate-node` (CI is billing-locked); the human packaged-app pass.
 
 ## Build order
 
@@ -557,7 +557,7 @@ calories against target, training volume and per-exercise top set, plus a weekly
 - [x] `health-store.test.ts`: `putDay`/`getMonths`; concurrent `putDay`s on one month both survive; empty day removed; corrupt single file and corrupt month quarantined; `eraseAll` trashes `dataDir`; files 0600.
 - [x] `context.test.ts`: invalid payload and store throw answer `{ ok: false }`; no logged string contains a payload value; cancelled export answers `cancelled`; export file has the format tag and is 0600.
 - [x] `bridge.test.ts`: the Health bridge exposes exactly `health` and `report`.
-- [ ] `host.test.ts` / `host-app.test.tsx` / `identity.test.ts`: channels, five-row rail, userData path.
+- [x] `host.test.ts` / `host-app.test.tsx` / `identity.test.ts`: channels, five-row rail, userData path.
 - [x] `body.test.ts` / `units.test.ts`: BMI, band, Mifflin–St Jeor (male, female), target floor and missing inputs; unit round-trips.
 - [x] `overload.test.ts`: start, increase, hold, deload, partial session, zero increment.
 - [x] `trends.test.ts`: moving average across a gap, weekly rate, ISO week keys at the year boundary, volume.
