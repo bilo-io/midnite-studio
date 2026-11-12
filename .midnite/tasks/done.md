@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 130 Theme F — Invoicing posted to the books
+
+PR (see the Phase 130 F PR). Startup mounts the Accountant module as its Books group; a `StartupLedgerPort` (host-implemented over the shared books) carries invoice posting, reversal, cash and monthly net. Gapless invoice numbers at issue, draft to issued to paid or void each one ledger call, PDF export, Invoices, Customers, Overview and Settings ▸ Company ▸ Books, and Theme D's actuals from the book.
+
 ## 2026-11-12 — Phase 131 Theme F — Verification (packaged pass still open)
 
 Shots of the launcher's per-app What's new and a suite app's version drop-up; the dry-run release artifact check run locally (ten `midnite-<id>/CHANGELOG.md`, idempotent). No release cut; the packaged pass on the first real tag stays a manual check.
