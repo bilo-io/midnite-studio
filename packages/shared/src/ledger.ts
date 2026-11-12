@@ -171,8 +171,28 @@ export const ImportMappingSchema = z.object({
 export type ImportMapping = z.infer<typeof ImportMappingSchema>;
 
 /** A reviewed statement row going into `importCommit`: main re-derives nothing the renderer could forge but the account. */
-export const ImportCommitRowSchema = z.object({ index: z.int().min(0), accountId: LedgerIdSchema });
+export const ImportCommitRowSchema = z.object({
+  index: z.int().min(0),
+  accountId: LedgerIdSchema,
+  /** "Remember for next time": main adds a rule from this row's description once the row posts. */
+  remember: z.boolean().optional(),
+});
 export type ImportCommitRow = z.infer<typeof ImportCommitRowSchema>;
+
+/** One statement row as `importPreview` reads it. `minor` is signed: positive money in, negative money out of the bank account. */
+export type ImportPreviewRow = {
+  index: number;
+  date: string;
+  description: string;
+  minor: number;
+  suggestedAccountId: string | null;
+  /** The same row (by its idempotency reference) is already in the books. */
+  duplicate: boolean;
+  error?: string;
+};
+export type ImportPreview = { rows: ImportPreviewRow[] };
+export type ImportPick = { token: string; header: string[]; sample: string[][] };
+export type ImportCommitResult = { posted: number; duplicates: number; failed: { index: number; reason: string }[] };
 
 export const LEDGER_CHART_TEMPLATES = LEDGER_ENTITIES;
 

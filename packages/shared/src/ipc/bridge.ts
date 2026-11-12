@@ -50,7 +50,7 @@ import type {
 } from '../media-animation';
 import type { SimKind, SimScenario, SimScenarioDraft, SimScenarioId, SimScenarioSummary } from '../simulator';
 import type {
-  ImportMapping, ImportCommitRow, JournalEntry, LedgerAccountInput, LedgerBook, LedgerPostInput, LedgerReportKind,
+  ImportMapping, ImportCommitRow, ImportCommitResult, ImportPick, ImportPreview, JournalEntry, LedgerAccountInput, LedgerBook, LedgerPostInput, LedgerReportKind,
   LedgerResult, TaxJurisdictionId, LedgerEntity, LedgerAccount, LedgerChangedPayload,
 } from '../ledger';
 import type { ScienceDiscipline, ScienceNotebook, ScienceNotebookId, ScienceNotebookSummary, ScienceCell } from '../science';
@@ -154,9 +154,9 @@ export type LedgerBridge = {
   balances: (req: { bookId: string; asOf: string }) => Promise<LedgerResult<{ balances: { accountId: string; debit: number; credit: number }[] }>>;
   report: (req: { bookId: string; kind: LedgerReportKind; from: string; to: string }) => Promise<LedgerResult<unknown>>;
   exportReport: (req: { bookId: string; kind: LedgerReportKind; from: string; to: string }) => Promise<LedgerResult<{ path: string | null }>>;
-  importPick: (req: { bookId: string }) => Promise<LedgerResult<{ token: string; header: string[]; sample: string[][] } | null>>;
-  importPreview: (req: { bookId: string; mapping: ImportMapping }) => Promise<LedgerResult<unknown>>;
-  importCommit: (req: { bookId: string; mapping: ImportMapping; rows: ImportCommitRow[] }) => Promise<LedgerResult<{ posted: number; duplicates: number; failed: { index: number; reason: string }[] }>>;
+  importPick: (req: { bookId: string }) => Promise<LedgerResult<ImportPick | null>>;
+  importPreview: (req: { bookId: string; mapping: ImportMapping }) => Promise<LedgerResult<ImportPreview>>;
+  importCommit: (req: { bookId: string; mapping: ImportMapping; rows: ImportCommitRow[] }) => Promise<LedgerResult<ImportCommitResult>>;
   taxEstimate: (req: { bookId: string; taxYear: number }) => Promise<LedgerResult<unknown>>;
   /** Fires after any write to a book (this window's or another app's, once seen): `{ bookId, revision }`. */
   onChanged: (handler: (event: LedgerChangedPayload) => void) => Unsubscribe;
