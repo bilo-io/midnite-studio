@@ -313,6 +313,7 @@ published yet." rather than as an error.
     the `Earlier releases` `<details>` list (`data-testid="earlier-releases"`), then the `links` slot.
   - Empty copy: `error` set → `Release notes are unavailable right now.`; `notes: null` without error →
     `No published notes for this build yet.` (Studio's strings, unchanged).
+  - `appName` names the panel for assistive tech: the root is `` <div role="region" aria-label={`${appName} release notes`}> ``.
   - Default `markdownComponents.a` renders `<a href target="_blank" rel="noreferrer">`; `guardAppWindow` already hands
     every http(s) navigation to `openExternal`, so suite apps need no open-link bridge.
   - [`packages/frame/package.json`](../../../packages/frame/package.json) gains `react-markdown ^10.1.0` and
@@ -321,8 +322,8 @@ published yet." rather than as an error.
 - [ ] Frame: `SuiteVersionPill` in AppShell's rail footer — net-new `packages/frame/src/shell/version/suite-version-pill.tsx`
   - Reads `bridge()?.appVersion`; renders nothing when it is absent or `'0.0.0'`, or when `bridge()?.suiteReleaseNotes`
     is absent (Studio's rail never mounts it anyway).
-  - `KitPopover` with `side="top"`, `align={expanded ? 'start' : 'center'}`, `label={`${name} v${version} — release
-    notes`}`, `testId="suite-version-pill"`, `panelClassName="w-[22rem]"` and Studio's pill `triggerClassName` verbatim.
+  - `KitPopover` with `side="top"`, `align={expanded ? 'start' : 'center'}`, `` label={`${name} v${version} — release notes`} ``,
+    `testId="suite-version-pill"`, `panelClassName="w-[22rem]"` and Studio's pill `triggerClassName` verbatim.
   - Data through net-new `useSuiteReleaseNotes(version)` in the same folder: a `useEffect` that calls
     `suiteReleaseNotes.get({ latest: 4 })` once per mount of the panel (the popover mounts its panel only while open)
     — not react-query, because the rail sits above any module's `QueryClientProvider`.
@@ -389,7 +390,7 @@ published yet." rather than as an error.
 | `packages/runtime/src/app-main/release-notes.ts` + `.test.ts` | E | **net-new** |
 | [`packages/runtime/src/app-main/suite-main.ts`](../../../packages/runtime/src/app-main/suite-main.ts) · [`suite-window.ts`](../../../packages/runtime/src/app-main/suite-window.ts) · [`suite-preload.ts`](../../../packages/runtime/src/app-main/suite-preload.ts) | E | edited |
 | `apps/{agents,browser,gamer,media,mind,money,science,startup,vanguard}/main/index.ts` | E | edited (two call sites each) |
-| `packages/frame/src/shell/version/{release-notes-panel,suite-version-pill,use-suite-release-notes}.tsx` + tests | E | **net-new** |
+| `packages/frame/src/shell/version/{release-notes-panel,suite-version-pill}.tsx`, `use-suite-release-notes.ts` + tests | E | **net-new** |
 | [`packages/frame/src/shell/app-shell.tsx`](../../../packages/frame/src/shell/app-shell.tsx) · [`suite-app-shell.test.tsx`](../../../packages/frame/src/shell/suite-app-shell.test.tsx) · [`suite-shell-test-bridge.ts`](../../../packages/frame/src/shell/suite-shell-test-bridge.ts) | E | edited |
 | [`packages/frame/package.json`](../../../packages/frame/package.json) · `pnpm-lock.yaml` | E | edited — `react-markdown`, `remark-gfm` |
 | [`packages/frame/src/index.ts`](../../../packages/frame/src/index.ts) | E | edited — export `ReleaseNotesPanel` |
