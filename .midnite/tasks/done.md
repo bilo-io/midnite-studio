@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 131 Theme F — Verification (packaged pass still open)
+
+Shots of the launcher's per-app What's new and a suite app's version drop-up; the dry-run release artifact check run locally (ten `midnite-<id>/CHANGELOG.md`, idempotent). No release cut; the packaged pass on the first real tag stays a manual check.
+
 ## 2026-11-12 — Phase 131 Theme E — A version pill and drop-up in every suite app
 
 PR (see the Phase 131 E PR). `suiteReleaseNotes` channel, `fetchAppReleaseNotes` and an app version argument in the runtime; a frame `ReleaseNotesPanel` and `SuiteVersionPill` in every suite app's rail footer; Studio's `VersionNotesPanel` now wraps the same panel.
