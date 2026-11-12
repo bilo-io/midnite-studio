@@ -29,7 +29,7 @@ export async function fetchAppReleaseNotes(options: AppReleaseNotesOptions): Pro
   const { app, version, latest } = options;
   try {
     const res = await options.fetch('launcher', changelogRawUrl(app), {
-      cache: 'no-store',
+      // Node's fetch keeps no HTTP cache, so there is nothing to bypass; the mirror is read fresh every call.
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (res.status === 404) return { version, notes: null, error: null };

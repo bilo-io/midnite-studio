@@ -18,7 +18,7 @@ const ReleaseNotesPanel = lazy(() => import('./release-notes-panel').then((m) =>
 export function suiteVersion(app: SuiteAppId): { app: ChangelogAppId; version: string } | null {
   const b = bridge();
   const version = b?.appVersion;
-  if (!version || version === '0.0.0' || b?.suiteReleaseNotes === undefined) return null;
+  if (typeof version !== 'string' || version === '' || version === '0.0.0' || b?.suiteReleaseNotes === undefined) return null;
   // A suite app with no changelog of its own (not yet released) has nothing to link to either.
   const known = CHANGELOG_APP_IDS.find((id) => id === app);
   return known === undefined ? null : { app: known, version };
