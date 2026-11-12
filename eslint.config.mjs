@@ -787,6 +787,17 @@ export default tseslint.config(
     rules: { 'no-console': 'off' },
   },
 
+  /*
+    The Simulator's engines are deterministic (Phase 127 Theme B.1): every random draw goes through the seeded
+    `mulberry32` in `engine/rng.ts`, so a scenario replays identically. `Math.random` is banned there.
+  */
+  {
+    files: ['packages/modules/simulator/renderer/engine/**/*.ts', 'packages/modules/simulator/renderer/sims/**/*.ts'],
+    rules: {
+      'no-restricted-properties': ['error', { object: 'Math', property: 'random', message: 'Use the seeded mulberry32 from engine/rng.ts so the sim stays deterministic.' }],
+    },
+  },
+
   // Keep ESLint out of Prettier's lane (formatting rules disabled).
   prettier,
 );

@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 127 Theme B — Simulation runtime
+
+[PR #1152](https://github.com/bilo-io/midnite-studio/pull/1152). Engine contract, seeded PRNG, fixed-timestep worker loop with buffer ping-pong, `useSim`, transport bar; `Math.random` banned in sim code.
+
 ## 2026-11-12 — Phase 127 Theme A — Module scaffold and mount in Science
 
 Simulator module package (manifest, nav group with `sim-` view ids, pane with placeholder views, empty main half and bridge) mounted as the Science host's second module; Studio and gate id lists extended.
