@@ -15779,3 +15779,7 @@ New `feature-ledger` (manifest, `ledgerMain` routing the op union to a `LedgerSe
 ### Phase 129 Theme D — Books, accounts and journal UI (2026-11-12)
 
 Overview (book picker, create-book form, four headline numbers, read-only and corrupt banners, book settings with a confirmed lock), Accounts (chart by type, balances, add/edit/archive sheet) and Journal (filters, paging, expandable lines, New entry sheet with live difference, reversal with a required reason, N / arrows / Enter keys) in the ledger feature's renderer, over react-query on `bridge().ledger` and a persisted `ledger-ui-store`. New `getBook` op and `onChanged` subscription; `createBook` now writes `book.json` temp + rename. RTL over `createMemoryLedger`.
+
+## 2026-11-13 — Phases 127–131 — automated verification pass
+
+Docs PR. Ran the named tests locally (`module-simulator`, `module-health`, `module-startup`, `module-science`, `module-money`, `module-accountant`, `shared`, `app-science`, `app-money`, `app-startup`, `launcher`, `studio`, `root:test`, `gate-projects-check`) and ticked 34 passing boxes across 127 (15), 128 (11), 129 (3) and 130 (5); cleared Theme F from 131's TODO cell. Left open: CI gates (billing-locked), human checks, 128's `apps/health` `host-app.test.tsx` (failing: expects text `Nothing logged today`) and 130's `contracts.test.ts` (no such file). No phase marked DONE.

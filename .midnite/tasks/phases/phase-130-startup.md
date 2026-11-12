@@ -85,6 +85,8 @@ site lists Startup with the launcher's tile image. `lineNet` now rounds half awa
 (it was only right for positive ones). The gate was the local subset because CI is billing-locked. **Still open for a
 human:** the packaged-app pass.
 
+**Verification (2026-11-13).** Ticked from local runs of `module-startup:test` (117 passed), `shared:test` and `app-startup:test`: `startup`, `workspace-store`, integrity (`in-use`, in `service.test.ts`), `roadmap-model`, `runway`. **Still open:** the `contracts.test.ts` box (no such file; `contract-dates.test.ts` and `contract-files.test.ts` pass but no test by that name covers one linked ledger line per contract) and the packaged-app pass.
+
 ## Build order
 
 1. **A** (scaffold), then **B** (contract + store) — every view reads B's ops.
@@ -391,11 +393,11 @@ human:** the packaged-app pass.
 
 ## Verification
 
-- [ ] `startup.test.ts`: `{ version: 1 }` parses to a full workspace; every schema round-trips.
-- [ ] `workspace-store.test.ts`: reopen equal; concurrent upserts serialised; newer version read-only; corrupt file moved aside.
-- [ ] Integrity: removing a referenced vendor, customer or milestone returns `in-use` with the count.
-- [ ] `roadmap-model.test.ts`: cycles (incl. self), at-risk and overdue tables.
-- [ ] `runway.test.ts`: the four worked projections above, exact to the minor unit.
+- [x] `startup.test.ts`: `{ version: 1 }` parses to a full workspace; every schema round-trips.
+- [x] `workspace-store.test.ts`: reopen equal; concurrent upserts serialised; newer version read-only; corrupt file moved aside.
+- [x] Integrity: removing a referenced vendor, customer or milestone returns `in-use` with the count.
+- [x] `roadmap-model.test.ts`: cycles (incl. self), at-risk and overdue tables.
+- [x] `runway.test.ts`: the four worked projections above, exact to the minor unit.
 - [ ] `contract-dates.test.ts` + `contracts.test.ts`: renewal roll-forward, notice deadline, jailed open, one linked line per contract.
 - [x] `invoice-math.test.ts`, `invoices.test.ts`, `invoice-html.test.ts`: totals, gapless numbering, each transition's posting,
   failure leaves state unchanged, idempotent retry, escaping.

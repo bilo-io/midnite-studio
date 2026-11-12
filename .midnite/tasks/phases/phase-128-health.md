@@ -70,6 +70,8 @@ calories against target, training volume and per-exercise top set, plus a weekly
 
 **Theme H — Launch: catalog, website, docs.** ✅ `comingSoon` dropped from the Health tile and `MODULES.health`, blurbs set to what shipped, a Health entry and logo on the website, and `docs/APPS.md` gains the host row and an App: Health section. Startup had already flipped, so no coming-soon app is left in the launcher; the app test now uses `queryAllByRole` so zero Coming soon buttons passes.
 
+**Verification (2026-11-13).** Ticked from local runs of `module-health:test` (131 passed), `shared:test`, `launcher:test`, `studio:test`, `root:test` (release-bundles, affected-apps) and `app-health:test`. **Still open:** `apps/health` `host-app.test.tsx` fails (`lists the five rows under the Health group and opens on Today` looks for the text `Nothing logged today`, which no Health renderer file renders), so that box is unticked; CI `gate-node` (CI is billing-locked); the human packaged-app pass.
+
 ## Build order
 
 1. **A** first and alone (after [Phase 126](phase-126-science.md) A has merged, since both edit the same id
@@ -551,18 +553,18 @@ calories against target, training volume and per-exercise top set, plus a weekly
 
 ## Verification
 
-- [ ] `health.test.ts`: every schema round-trips; empty profile parses; out-of-range weight, cross-month day key, bad rep range, bad plan id, oversized `getMonths` span and unknown `op` fail; `migrate*` of v2 is `null`.
-- [ ] `health-store.test.ts`: `putDay`/`getMonths`; concurrent `putDay`s on one month both survive; empty day removed; corrupt single file and corrupt month quarantined; `eraseAll` trashes `dataDir`; files 0600.
-- [ ] `context.test.ts`: invalid payload and store throw answer `{ ok: false }`; no logged string contains a payload value; cancelled export answers `cancelled`; export file has the format tag and is 0600.
-- [ ] `bridge.test.ts`: the Health bridge exposes exactly `health` and `report`.
+- [x] `health.test.ts`: every schema round-trips; empty profile parses; out-of-range weight, cross-month day key, bad rep range, bad plan id, oversized `getMonths` span and unknown `op` fail; `migrate*` of v2 is `null`.
+- [x] `health-store.test.ts`: `putDay`/`getMonths`; concurrent `putDay`s on one month both survive; empty day removed; corrupt single file and corrupt month quarantined; `eraseAll` trashes `dataDir`; files 0600.
+- [x] `context.test.ts`: invalid payload and store throw answer `{ ok: false }`; no logged string contains a payload value; cancelled export answers `cancelled`; export file has the format tag and is 0600.
+- [x] `bridge.test.ts`: the Health bridge exposes exactly `health` and `report`.
 - [ ] `host.test.ts` / `host-app.test.tsx` / `identity.test.ts`: channels, five-row rail, userData path.
-- [ ] `body.test.ts` / `units.test.ts`: BMI, band, Mifflin–St Jeor (male, female), target floor and missing inputs; unit round-trips.
-- [ ] `overload.test.ts`: start, increase, hold, deload, partial session, zero increment.
-- [ ] `trends.test.ts`: moving average across a gap, weekly rate, ISO week keys at the year boundary, volume.
-- [ ] `time-chart.test.tsx`: nice ticks, bar count, hidden data table.
-- [ ] View tests: `biometrics-view`, `nutrition-view`, `workouts-view`, `session-sheet`, `today-view`, `progress-view`, `use-health`, `dates` — as named in each item.
-- [ ] `privacy.test.ts`: no network API or forbidden import under `packages/modules/health/`.
-- [ ] `midnite-link.test.ts`, `catalog.test.ts`, `app.test.tsx`, `release-bundles.test.mjs`, `affected-apps.test.mjs`, `composition.test.ts` green with the new ids.
+- [x] `body.test.ts` / `units.test.ts`: BMI, band, Mifflin–St Jeor (male, female), target floor and missing inputs; unit round-trips.
+- [x] `overload.test.ts`: start, increase, hold, deload, partial session, zero increment.
+- [x] `trends.test.ts`: moving average across a gap, weekly rate, ISO week keys at the year boundary, volume.
+- [x] `time-chart.test.tsx`: nice ticks, bar count, hidden data table.
+- [x] View tests: `biometrics-view`, `nutrition-view`, `workouts-view`, `session-sheet`, `today-view`, `progress-view`, `use-health`, `dates` — as named in each item.
+- [x] `privacy.test.ts`: no network API or forbidden import under `packages/modules/health/`.
+- [x] `midnite-link.test.ts`, `catalog.test.ts`, `app.test.tsx`, `release-bundles.test.mjs`, `affected-apps.test.mjs`, `composition.test.ts` green with the new ids.
 - [ ] CI `gate-node` green (it now runs `module-health`).
 - [ ] **Open, for a human:** install the built bundle from the launcher; the window is frameless; log a weigh-in, a meal and a starter-plan session; Progress draws them; Export writes a readable JSON; Erase moves the folder to the Trash; Help ▸ Report an Issue's preview shows no health numbers.
 

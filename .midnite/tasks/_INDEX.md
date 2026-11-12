@@ -8,11 +8,11 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [131 · Per-app changelogs](phases/phase-131-per-app-changelogs.md) | 🔄 WIP | x1 | 39/42 | `█████████░` | 93% | — | F |
-| [130 · Startup app](phases/phase-130-startup.md) | 🔄 WIP | x1 | 49/57 | `█████████░` | 86% | — | — |
-| [129 · Accountant module](phases/phase-129-accountant.md) | 🔄 WIP | x1 | 55/62 | `█████████░` | 89% | — | — |
-| [128 · Health app](phases/phase-128-health.md) | 🔄 WIP | x1 | 29/43 | `███████░░░` | 67% | — | — |
-| [127 · Simulator module](phases/phase-127-simulator.md) | 🔄 WIP | x1 | 24/40 | `██████░░░░` | 60% | — | — |
+| [131 · Per-app changelogs](phases/phase-131-per-app-changelogs.md) | 🔄 WIP | x1 | 39/42 | `█████████░` | 93% | — | — |
+| [130 · Startup app](phases/phase-130-startup.md) | 🔄 WIP | x1 | 54/57 | `█████████░` | 95% | — | — |
+| [129 · Accountant module](phases/phase-129-accountant.md) | 🔄 WIP | x1 | 58/62 | `█████████░` | 94% | — | — |
+| [128 · Health app](phases/phase-128-health.md) | 🔄 WIP | x1 | 40/43 | `█████████░` | 93% | — | — |
+| [127 · Simulator module](phases/phase-127-simulator.md) | 🔄 WIP | x1 | 39/40 | `█████████░` | 98% | — | — |
 | [126 · Science app](phases/phase-126-science.md) | ✅ DONE | x1 | 43/43 | `██████████` | 100% | — | — |
 | [125 · Media ▸ Animations: a library of animation clips](phases/phase-125-animations-library.md) | 🔄 WIP | — | 38/41 | `█████████░` | 93% | — | H |
 | [124 · Merge suite apps into modules](phases/phase-124-apps-into-modules.md) | ✅ DONE | — | 47/47 | `██████████` | 100% | — | — |

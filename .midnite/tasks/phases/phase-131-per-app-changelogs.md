@@ -77,6 +77,8 @@ from, and the launcher's version opens the launcher's notes.
 
 **Theme F — Verification and the first release.** ◐ Shots taken (the launcher's Money sheet with its What's new, and Vanguard's open version drop-up, from the mock bridges; not committed). The dry-run artifact check was run locally against a stand-in feed directory instead of dispatching `release.yml`: ten files, one `[Unreleased]` each, idempotent on a second run. No release was cut. **Still open, for a human:** the packaged pass on the first tag after Theme C (feed has the ten files, the launcher's Agents sheet and Release notes dialog show Agents' notes, Money's rail pill opens its own notes, Studio's drop-up is unchanged), plus a check that `react-markdown` stays out of each app's entry chunk.
 
+**Verification (2026-11-13).** Nothing automated was left to tick: the three open boxes are the CI gate and two human post-release checks. Theme F's code merged as #1168, so the index no longer lists it as TODO; its only open item is the packaged pass on the first tag after C.
+
 ## Build order
 
 1. **A** first — every other theme reads `CHANGELOG_APP_IDS` and the URL helpers, and C mirrors A's files.

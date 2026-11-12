@@ -83,6 +83,8 @@ marginal relief for a company. Every screen carries the fixed not-tax-advice not
 
 **Theme H — Verification and the catalog flip.** ✅ (automated; the packaged-app pass and the CI gate stay open) `accountant-shots.spec.ts` drives Studio's real Books view over the page's mock bridge: `buildMockBridge` cannot import the ledger, so the spec builds `createMemoryLedger` in Node and hands the page a bridge whose ops call it through `exposeFunction`. It photographs Overview, the Journal with the new-entry sheet, the Balance sheet and the tax estimate to `MSTUDIO_SHOTS_DIR`, never the repo. The catalog drops `comingSoon` from Accountant and points its home and features at the `books` view; the Money tile's vision is in the present tense; `app.test.tsx` now asserts **Open Accountant module** opens `module:accountant`. Two things surfaced: Studio drew no Books rail row (Theme A pinned it in `nav-groups.ts` but `app.tsx` never rendered it), so Studio had no way to open the view; the row now sits under Dashboard. And the new-entry sheet's Close button sits under the window title bar (Escape still closes it): left as is, noted for a follow-up. 2025-26's `checkedOn` now names the spec rather than a date it was not re-read on.
 
+**Verification (2026-11-13).** `money-amount.test.ts`, `ledger.test.ts` (`shared:test`) and `apps/money` `host.test.ts` / `host-app.test.tsx` (`app-money:test`) pass locally and are ticked. **Still open:** the CI gate, the packaged-app pass and the GOV.UK figures check.
+
 ## Build order
 
 1. **B** first: the schemas are what A's bridge types and C's store are written against.
@@ -473,14 +475,14 @@ marginal relief for a company. Every screen carries the fixed not-tax-advice not
 
 ## Verification
 
-- [ ] `money-amount.test.ts`: exact parse, no float drift, minor units per currency, half-away rounding, largest-remainder allocation.
-- [ ] `ledger.test.ts`: schemas round-trip; unbalanced entry rejected at `['lines']`; renderer `post` of a non-manual kind rejected.
+- [x] `money-amount.test.ts`: exact parse, no float drift, minor units per currency, half-away rounding, largest-remainder allocation.
+- [x] `ledger.test.ts`: schemas round-trip; unbalanced entry rejected at `['lines']`; renderer `post` of a non-manual kind rejected.
 - [x] `book-store.test.ts`: reopen → same balances; 20 concurrent posts serialised; torn tail truncated; bad middle line → read-only.
 - [x] Lock: second store read-only; stale pid taken over; read-only store sees another writer's append after an mtime change.
 - [x] Posting: unbalanced / archived account / locked period each return their `kind`; duplicate `ref` appends nothing.
 - [x] Reversal: balances return to zero; a second reversal is a duplicate.
 - [x] `main/index.test.ts`: every op answers through the envelope; an injected fs error is `io`, never a throw.
-- [ ] `apps/money/main/host.test.ts`: ledger + finance channels each registered once; `host-app.test.tsx`: two nav groups.
+- [x] `apps/money/main/host.test.ts`: ledger + finance channels each registered once; `host-app.test.tsx`: two nav groups.
 - [x] `csv.test.ts` + `import-service.test.ts`: quoting, BOM, delimiter sniff, caps, rule priority, idempotent re-import.
 - [x] `reports.test.ts`: the hand-worked year; 500 random balanced entries keep the balance sheet balanced and cash flow reconciled.
 - [x] `ledger-tax.test.ts` (UK): the three worked examples above.

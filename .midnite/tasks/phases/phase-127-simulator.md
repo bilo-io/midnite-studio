@@ -65,6 +65,8 @@ Lockfile gained the new workspace importer.
 
 **Theme G — Launch.** ✅ PR #1158. `comingSoon` dropped from the Simulator module in the launcher catalog (its test now expects it undefined), `docs/APPS.md` lists Science, Simulator and gains a Simulator paragraph, and the website's Science entry gains a Simulations feature. Also gave E's predator–prey 5000-agent test an explicit 30 s timeout, since it timed out at 5 s under load.
 
+**Verification (2026-11-13).** The 15 automated boxes are ticked from a local run of `module-simulator:test` (99 passed), `shared:test`, `app-science:test`, `launcher:test`, `studio:test`, `root:test` and `gate-projects-check`. **Still open:** the human check (Gosper gun, figure-eight, flock, predator-prey, pause on app switch).
+
 ## Build order
 
 1. Phase 126 **A** merged first (the host exists), and 126 **B** for `createJsonDirStore` before F here.
@@ -338,21 +340,21 @@ Lockfile gained the new workspace importer.
 
 ## Verification
 
-- [ ] `rng.test.ts`: seeded determinism; range `[0, 1)`.
-- [ ] `use-sim.test.tsx`: play/pause messages; visibility pause/resume; buffer returned after draw.
-- [ ] `transport.test.tsx`: Step disabled while playing; Space toggles.
-- [ ] `life.test.ts`: blinker period 2; glider wraps; rule parsing.
-- [ ] `rle.test.ts`: glider cells; malformed RLE error.
-- [ ] `elementary.test.ts`: rule 90 Sierpiński row; rule 0 empties.
-- [ ] `nbody.test.ts`: two-body period return within 1e-3; energy drift < 1e-6 over 10 periods; figure-eight bounded; presets have zero net momentum.
-- [ ] `spatial-hash.test.ts`: neighbour sets equal brute force.
-- [ ] `boids.test.ts`: determinism; alignment raises polarisation.
-- [ ] `predprey.test.ts`: determinism; cap at 5,000.
-- [ ] `sparkline.test.tsx`: one polyline per series; empty safe.
-- [ ] `simulator.test.ts`, `scenario-store.test.ts`, `bridge.test.ts`: schema, store, 8 MB cap, bridge allow-list.
-- [ ] `scenario-panel.test.tsx`: save lists; bad params message.
-- [ ] `apps/science` `host-app.test.tsx` / `host.test.ts`: two groups; `firstViewOfModule(…, 'simulator') === 'sim-automata'`; union of channels.
-- [ ] `catalog.test.ts`, `composition.test.ts`, `gate-projects-check` green.
+- [x] `rng.test.ts`: seeded determinism; range `[0, 1)`.
+- [x] `use-sim.test.tsx`: play/pause messages; visibility pause/resume; buffer returned after draw.
+- [x] `transport.test.tsx`: Step disabled while playing; Space toggles.
+- [x] `life.test.ts`: blinker period 2; glider wraps; rule parsing.
+- [x] `rle.test.ts`: glider cells; malformed RLE error.
+- [x] `elementary.test.ts`: rule 90 Sierpiński row; rule 0 empties.
+- [x] `nbody.test.ts`: two-body period return within 1e-3; energy drift < 1e-6 over 10 periods; figure-eight bounded; presets have zero net momentum.
+- [x] `spatial-hash.test.ts`: neighbour sets equal brute force.
+- [x] `boids.test.ts`: determinism; alignment raises polarisation.
+- [x] `predprey.test.ts`: determinism; cap at 5,000.
+- [x] `sparkline.test.tsx`: one polyline per series; empty safe.
+- [x] `simulator.test.ts`, `scenario-store.test.ts`, `bridge.test.ts`: schema, store, 8 MB cap, bridge allow-list.
+- [x] `scenario-panel.test.tsx`: save lists; bad params message.
+- [x] `apps/science` `host-app.test.tsx` / `host.test.ts`: two groups; `firstViewOfModule(…, 'simulator') === 'sim-automata'`; union of channels.
+- [x] `catalog.test.ts`, `composition.test.ts`, `gate-projects-check` green.
 - [ ] **Open, for a human:** a Gosper gun emits gliders; the figure-eight traces its eight; a flock visibly aligns; predator–prey counts oscillate; switching to another app pauses the simulation (Activity Monitor CPU drops).
 
 ## Not in this phase
