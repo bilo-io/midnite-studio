@@ -226,6 +226,23 @@ export const SITE_APPS: readonly SiteApp[] = [
     ],
   },
   {
+    id: 'health',
+    name: 'Health',
+    section: 'suite',
+    accent: '#f43f5e',
+    spectrum: ['#6b1228', '#b92f4f', '#f08aa0', '#fb923c'],
+    tagline: 'Body metrics, meals, workouts and trends',
+    like: 'Like Apple Health, MyFitnessPal and Strava',
+    vision:
+      'Your numbers, on your Mac: log what you weigh, eat and lift, get a calorie target and a next-session prescription worked out from your own history, and watch the trends. Every byte stays in private files on your disk.',
+    features: [
+      { label: 'Biometrics', blurb: 'Optional profile, weight and body measurements' },
+      { label: 'Nutrition', blurb: 'Meal log, saved foods and a calorie target' },
+      { label: 'Workout Plans', blurb: 'Weekly plans with automatic progressive overload' },
+      { label: 'Progress', blurb: 'Trend charts and a weekly report' },
+    ],
+  },
+  {
     id: 'browser',
     name: 'Browser',
     section: 'suite',

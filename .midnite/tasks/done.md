@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 128 Theme H — Launch: catalog, website, docs
+
+PR (see the Phase 128 H PR). Health's `comingSoon` removed from the launcher catalog and module, blurbs updated, Health added to the website catalog with its logo, and `docs/APPS.md` documents the app. Manual checks outstanding: packaged-app pass over export and erase.
+
 ## 2026-11-12 — Phase 128 Theme G — Privacy: export and erase
 
 PR (see the Phase 128 G PR). A "Your data" card on Biometrics with Export… (save dialog, 0600 file) and Erase all Health data… (files blast-radius confirm, folder to the Trash, queries invalidated), plus `privacy.test.ts`, the no-network source guard. Manual check outstanding: export and erase in the packaged app.

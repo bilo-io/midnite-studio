@@ -54,6 +54,11 @@ describe('the 11-app catalog (Phase 124 Theme F)', () => {
     expect(appById('startup').modules.map((m) => m.id)).toEqual(['startup', 'accountant']);
   });
 
+  it('launches Health, with no coming-soon app left', () => {
+    expect(appById('health').comingSoon).toBeUndefined();
+    expect(appById('health').modules.some((m) => m.comingSoon)).toBe(false);
+  });
+
   it('folds each absorbed app\'s tagline and vision into its module', () => {
     for (const id of RETIRED_APP_IDS) {
       const { app, module } = RETIRED_APP_ALIASES[id];
