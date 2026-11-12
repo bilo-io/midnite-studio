@@ -69,7 +69,7 @@ release-time warning when a file has no section for the tag.
 missing feed file and back-fills any released section the feed lacks; `publish-suite` runs it and commits
 `midnite-<id>/CHANGELOG.md` beside `catalog.json`.
 
-**Theme D — Launcher: What's new for every app, and its own.** ◻ The changelog channel takes an app id with a per-app
+**Theme D — Launcher: What's new for every app, and its own.** ✅ [#1165](https://github.com/bilo-io/midnite-studio/pull/1165) The changelog channel takes an app id with a per-app
 cache, every released app's detail sheet shows its own notes, the Release notes dialog follows the app it was opened
 from, and the launcher's version opens the launcher's notes.
 
@@ -219,7 +219,7 @@ published yet." rather than as an error.
 
 ### D — Launcher: What's new for every app, and its own (M)
 
-- [ ] Contract in [`common/bridge.ts`](../../../apps/launcher/src/common/bridge.ts)
+- [x] Contract in [`common/bridge.ts`](../../../apps/launcher/src/common/bridge.ts)
   - `LAUNCHER_CHANNELS.changelogLatest` now takes `{ app: ChangelogAppId }`; net-new `changelogOpen: 'launcher:changelog:open'`
     (same payload). `ChangelogAppId` and `CHANGELOG_APP_IDS` come from `@midnite/studio-shared/release` (per file — the
     launcher's off-graph rule).
@@ -227,7 +227,7 @@ published yet." rather than as an error.
     ChangelogAppId): Promise<LauncherResult> }`. `'changelog'` leaves `EXTERNAL_LINKS` (no caller remains) and its
     `linkOpen` case goes.
   - `ChangelogResult` gains nothing: "not published yet" is `{ sections: [], error: null }`.
-- [ ] Per-app fetch and cache in [`main/changelog.ts`](../../../apps/launcher/src/main/changelog.ts)
+- [x] Per-app fetch and cache in [`main/changelog.ts`](../../../apps/launcher/src/main/changelog.ts)
   - `fetchChangelog(app: ChangelogAppId, fetchImpl = fetch, now = Date.now)` fetching `changelogRawUrl(app)`; the module
     cache becomes `Map<ChangelogAppId, { at: number; result: ChangelogResult }>`; TTL (10 min), timeout (8 s) and
     `CHANGELOG_KEEP` (3) unchanged; `resetChangelogCache()` clears the map.
@@ -236,21 +236,21 @@ published yet." rather than as an error.
     non-empty result is cached, as today.
   - Raw `fetch` stays — `apps/launcher/src/main` is already an `UNMIGRATED` entry in `egress-registry.test.ts`, and the
     host is registered.
-- [ ] IPC in [`main/ipc.ts`](../../../apps/launcher/src/main/ipc.ts) and [`preload/index.ts`](../../../apps/launcher/src/preload/index.ts)
+- [x] IPC in [`main/ipc.ts`](../../../apps/launcher/src/main/ipc.ts) and [`preload/index.ts`](../../../apps/launcher/src/preload/index.ts)
   - `ChangelogRequestSchema = z.object({ app: z.enum(CHANGELOG_APP_IDS) })`; `changelogLatest` → `safeParse`, invalid →
     `{ sections: [], error: 'Unknown app.' }`, valid → `fetchChangelog(app)`. `changelogOpen` → invalid →
     `failure('Unknown app.')`, valid → `shell.openExternal(changelogPageUrl(app))`, `{ ok: true }`.
   - Preload: `latest: (app) => ipcRenderer.invoke(LAUNCHER_CHANNELS.changelogLatest, { app })`, `openFull` likewise.
-- [ ] Renderer hook and list in [`components/changelog.tsx`](../../../apps/launcher/src/renderer/components/changelog.tsx)
+- [x] Renderer hook and list in [`components/changelog.tsx`](../../../apps/launcher/src/renderer/components/changelog.tsx)
   - `useChangelog(app: ChangelogAppId | null)` — `null` fetches nothing; a changed `app` resets to `null` (loading) and
     refetches, dropping a late answer for the previous app (the existing `live` flag, keyed per effect run).
   - `ChangelogList` copy: loading stays as is; `{ sections: [], error: null }` renders `No release notes published yet.`;
     an error renders as today. "View full changelog ↗" stays in all three states.
-- [ ] Detail sheet: What's new for every released app — [`components/app-detail.tsx`](../../../apps/launcher/src/renderer/components/app-detail.tsx)
+- [x] Detail sheet: What's new for every released app — [`components/app-detail.tsx`](../../../apps/launcher/src/renderer/components/app-detail.tsx)
   - `useChangelog(view.state === 'coming-soon' ? null : app.id)`; the `What’s new` section renders under the same
     condition (was `app.id === 'studio'`), `onFull={() => void getBridge().changelog.openFull(app.id)}`.
   - A coming-soon tile (Health) shows no section and makes no request.
-- [ ] Release notes dialog follows its app — [`app.tsx`](../../../apps/launcher/src/renderer/app.tsx)
+- [x] Release notes dialog follows its app — [`app.tsx`](../../../apps/launcher/src/renderer/app.tsx)
   - `notesOpen: boolean` becomes `notesFor: ChangelogAppId | null`; `useChangelog(notesFor)`; the title is
     `What’s new in <name>` where `<name>` is `Midnite Studio` for `studio`, `Midnite Apps` for `launcher`, and
     `Midnite ${appById(id).name}` otherwise.
@@ -259,9 +259,9 @@ published yet." rather than as an error.
     the footer's `v{bridge.launcherVersion}` span becomes a `button.link` (`title="Midnite Apps release notes"`) →
     `setNotesFor('launcher')`.
   - Escape and backdrop close set `notesFor` to `null`.
-- [ ] [`mock-bridge.ts`](../../../apps/launcher/src/renderer/mock-bridge.ts): `changelog.latest(app)` answers one fixture
+- [x] [`mock-bridge.ts`](../../../apps/launcher/src/renderer/mock-bridge.ts): `changelog.latest(app)` answers one fixture
   section whose body names the app (`- ${app} fixture`), `'health'` is never asked; `openFull` resolves `{ ok: true }`.
-- [ ] Tests
+- [x] Tests
   - `main/changelog.test.ts`: `fetchChangelog('money')` requests `…/midnite-money/CHANGELOG.md`; a cached Studio answer
     does not satisfy a Money call (two fetches); a 404 answers `{ sections: [], error: null }` and a second call fetches
     again.
@@ -407,7 +407,7 @@ published yet." rather than as an error.
 - [x] `changelog-attribution.test.mjs`: module, retired-id, `app-all`, unowned-file and nested-project cases (B).
 - [x] `changelog-sections-check.test.mjs`: one warning for the file without the section, exit 0 (B).
 - [x] `publish-feed-changelog.test.mjs`: ordering, idempotence, fallback date, skeleton creation (C).
-- [ ] Launcher `changelog.test.ts`, `changelog.test.tsx`, `app.test.tsx`: per-app URL and cache, 404 as empty, dialog title per app (D).
+- [x] Launcher `changelog.test.ts`, `changelog.test.tsx`, `app.test.tsx`: per-app URL and cache, 404 as empty, dialog title per app (D).
 - [ ] `release-notes.test.ts`, `suite-main.test.ts`, the window/preload version round-trip (E).
 - [ ] `suite-version-pill.test.tsx`, `suite-app-shell.test.tsx`; Studio's `version-notes-panel.test.tsx` and `version-pill.test.tsx` unchanged and green (E).
 - [ ] `egress-registry.test.ts` green with no new `UNMIGRATED` entry (E uses `guardedFetch`).

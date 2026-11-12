@@ -34,4 +34,10 @@ describe('ChangelogList', () => {
     expect(screen.getByText('offline')).not.toBeNull();
     expect(screen.getByText('View full changelog ↗')).not.toBeNull();
   });
+
+  it('says so when an app has no published notes yet', () => {
+    render(<ChangelogList result={{ sections: [], error: null }} onFull={noop} />);
+    expect(screen.getByText('No release notes published yet.')).not.toBeNull();
+    expect(screen.getByText('View full changelog ↗')).not.toBeNull();
+  });
 });
