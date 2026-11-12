@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type ReportRange = 'month' | 'quarter' | 'fiscal-year' | 'custom';
+export type ReportRange = 'month' | 'last-month' | 'quarter' | 'fiscal-year' | 'last-fiscal-year' | 'custom';
 
 export type LedgerUiState = {
   bookId: string | null;

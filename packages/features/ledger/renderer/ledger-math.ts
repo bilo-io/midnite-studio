@@ -1,4 +1,4 @@
-import { normalSide, type LedgerAccount } from '@midnite/studio-shared';
+import { fiscalYearStartOn, isoDayBefore, normalSide, type LedgerAccount } from '@midnite/studio-shared';
 
 const pad = (n: number): string => String(n).padStart(2, '0');
 
@@ -7,18 +7,9 @@ export const todayIso = (now: Date = new Date()): string => `${now.getFullYear()
 
 const daysIn = (year: number, month: number): number => new Date(Date.UTC(year, month, 0)).getUTCDate();
 
-/** The latest fiscal-year start on or before `onDate` (a day past the month's end clamps to its last day). */
-export function fiscalYearStart(start: { month: number; day: number }, onDate: string): string {
-  const year = Number(onDate.slice(0, 4));
-  const at = (y: number): string => `${y}-${pad(start.month)}-${pad(Math.min(start.day, daysIn(y, start.month)))}`;
-  return at(year) <= onDate ? at(year) : at(year - 1);
-}
-
-export function dayBefore(iso: string): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10);
-}
+/** The latest fiscal-year start on or before `onDate`; the one definition lives with the report maths in `shared`. */
+export const fiscalYearStart = fiscalYearStartOn;
+export const dayBefore = isoDayBefore;
 
 export const dayAfter = (iso: string): string => {
   const d = new Date(`${iso}T00:00:00Z`);
@@ -45,4 +36,41 @@ export function sumBySubtype(accounts: readonly LedgerAccount[], rows: Map<strin
 /** Income minus expense from a balance set. */
 export function profitOf(accounts: readonly LedgerAccount[], rows: Map<string, RawBalance>): number {
   return accounts.reduce((t, a) => (a.type === 'income' ? t + accountBalance(a, rows.get(a.id)) : a.type === 'expense' ? t - accountBalance(a, rows.get(a.id)) : t), 0);
+}
+
+export const REPORT_RANGES = [
+  { id: 'month', label: 'This month' },
+  { id: 'last-month', label: 'Last month' },
+  { id: 'quarter', label: 'This quarter' },
+  { id: 'fiscal-year', label: 'Fiscal year to date' },
+  { id: 'last-fiscal-year', label: 'Last fiscal year' },
+  { id: 'custom', label: 'Custom' },
+] as const;
+
+const monthEnd = (year: number, month: number): string => `${year}-${pad(month)}-${pad(daysIn(year, month))}`;
+
+/** The `from`/`to` a preset means on `today`; `custom` has no preset range (null). */
+export function presetRange(preset: string, today: string, fiscalStart: { month: number; day: number }): { from: string; to: string } | null {
+  const year = Number(today.slice(0, 4));
+  const month = Number(today.slice(5, 7));
+  switch (preset) {
+    case 'month':
+      return { from: `${year}-${pad(month)}-01`, to: monthEnd(year, month) };
+    case 'last-month': {
+      const [y, m] = month === 1 ? [year - 1, 12] : [year, month - 1];
+      return { from: `${y}-${pad(m)}-01`, to: monthEnd(y, m) };
+    }
+    case 'quarter': {
+      const first = Math.floor((month - 1) / 3) * 3 + 1;
+      return { from: `${year}-${pad(first)}-01`, to: monthEnd(year, first + 2) };
+    }
+    case 'fiscal-year':
+      return { from: fiscalYearStart(fiscalStart, today), to: today };
+    case 'last-fiscal-year': {
+      const start = fiscalYearStart(fiscalStart, today);
+      return { from: fiscalYearStart(fiscalStart, dayBefore(start)), to: dayBefore(start) };
+    }
+    default:
+      return null;
+  }
 }
