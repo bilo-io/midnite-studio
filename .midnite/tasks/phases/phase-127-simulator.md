@@ -55,9 +55,7 @@ Lockfile gained the new workspace importer.
 
 **Theme B — Simulation runtime: worker, fixed step, transport.** ✅ [PR #1152](https://github.com/bilo-io/midnite-studio/pull/1152). `SimEngine` contract (plus a `capacity` so the worker can size its two buffers), `mulberry32` with an eslint `Math.random` ban, a pure `createSimLoop` (time-based accumulator, 8-tick cap with `droppedTicks`, transferable-buffer ping-pong) behind `sim.worker.ts`, `createUseSim` with a draw-on-rAF `onFrame` callback and hide-pause, and the `Transport` bar plus `SimCanvasFrame` (Space, `.`). The engine table is empty until C/D/E register theirs; the `?worker&inline` import is first exercised by the first sandbox view.
 
-**Theme C — Emergence: cellular automata.** ◻ Life-like rules on a toroidal grid (Life, HighLife, Seeds,
-Day & Night, custom `B/S`), pattern stamps and RLE paste, draw/erase, plus elementary 1D rules 0–255 as a
-space-time diagram.
+**Theme C — Emergence: cellular automata.** ✅ [PR #1155](https://github.com/bilo-io/midnite-studio/pull/1155). Life-like engine (toroidal, double-buffered, `B/S` rules and four presets), elementary engine (rules 0-255; it keeps and snapshots the whole space-time diagram so a dropped frame loses no rows), a Golly RLE parser with five built-in patterns, and `AutomataView` (1 px/cell canvas, wheel zoom, Shift-pan, draw/erase through `restore`, rule/size/density/pattern/Paste RLE panel). First sandbox on the worker runtime; the built Science bundle carries the inlined worker.
 
 **Theme D — Virtual worlds: n-body gravity.** ✅ [PR #1154](https://github.com/bilo-io/midnite-studio/pull/1154). Direct O(n²) velocity-Verlet engine (`sims/nbody.ts`) with softened gravity, a 200-body cap, `energy`/`energyDrift` stats and four zero-momentum presets; the view is an R3F z-up scene with a body-scale slider and 500-point ring-buffer trails (`sims/trails.ts`), plus a side panel (preset, dt, softening, body table, Add body, four-sig-fig energy read-out). Coincident bodies skip their pair force rather than going NaN, since Add body drops a body on the camera target, often the Sun. The Transport read-out is left empty because it rounds to 3 decimals and would show a tiny drift as 0.
 
@@ -172,7 +170,7 @@ under the app's userData through `createJsonDirStore`, a scenario list per sandb
 
 ### C — Emergence: cellular automata (M)
 
-- [ ] **C.1** Life-like engine, `renderer/sims/life.ts` (net-new).
+- [x] **C.1** Life-like engine, `renderer/sims/life.ts` (net-new).
   - `LifeParams = { width: number; height: number; rule: string; density: number }` — width/height 64–1024
     (default 256×256), `rule` in `B<digits>/S<digits>` form parsed by `parseRule(rule): { birth: Set<number>;
     survive: Set<number> } | null`, `density` 0–1 for the random fill from the seed.
@@ -185,20 +183,20 @@ under the app's userData through `createJsonDirStore`, a scenario list per sandb
     shape shifted (1, 1) after 4 generations, wrapping at the edge on a 16×16 grid; `parseRule('B3/S23')`
     → birth {3}, survive {2, 3}; `parseRule('X3')` → `null`; a 1024×1024 grid steps 10 generations (no
     timing assertion — the size limit is the rule, not a wall-clock budget).
-- [ ] **C.2** Patterns and RLE, `renderer/sims/rle.ts` (net-new).
+- [x] **C.2** Patterns and RLE, `renderer/sims/rle.ts` (net-new).
   - `parseRle(text: string): { width: number; height: number; cells: [number, number][]; rule?: string } |
     { error: string }` — the `x = m, y = n, rule = …` header, run counts, `b`/`o`/`$`/`!`; lines starting with
     `#` ignored; a pattern larger than the grid is refused with "Pattern is W×H; the grid is w×h".
   - Built-ins: glider, lightweight spaceship, pulsar, R-pentomino, Gosper glider gun (each as an RLE string).
   - Verified by `renderer/sims/rle.test.ts`: the glider RLE `bob$2bo$3o!` yields the 5 expected cells;
     a malformed RLE returns `{ error }`.
-- [ ] **C.3** Elementary engine, `renderer/sims/elementary.ts` (net-new).
+- [x] **C.3** Elementary engine, `renderer/sims/elementary.ts` (net-new).
   - `ElementaryParams = { rule: number /* 0–255 */; width: number /* 128–1024 */; start: 'single' | 'random' }`;
     each tick computes the next row; the renderer keeps the last `height` rows as a scrolling space-time
     diagram.
   - Verified by `renderer/sims/elementary.test.ts`: rule 90 from a single cell produces Sierpiński rows
     (row 2 has cells at ±2); rule 0 empties after one step.
-- [ ] **C.4** View, `renderer/views/automata-view.tsx` (net-new).
+- [x] **C.4** View, `renderer/views/automata-view.tsx` (net-new).
   - Mode toggle **Life-like** / **Elementary**; a Canvas2D sized to the pane, drawn from the snapshot by
     writing an `ImageData` at 1 px per cell and scaling with `imageSmoothingEnabled = false`; zoom 1–16×
     with the wheel, pan by drag with **Shift** held.

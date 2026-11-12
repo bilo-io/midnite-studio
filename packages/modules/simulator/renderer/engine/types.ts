@@ -39,4 +39,6 @@ export type SimOut =
   | { type: 'state'; state: unknown }
   | { type: 'error'; message: string };
 
-export type EngineFactories = Partial<Record<SimKind, () => SimEngine<never, never>>>;
+/** An engine as the worker holds it: params and state are checked by the engine itself (method bivariance). */
+export type AnySimEngine = SimEngine<never, unknown>;
+export type EngineFactories = Partial<Record<SimKind, () => AnySimEngine>>;
