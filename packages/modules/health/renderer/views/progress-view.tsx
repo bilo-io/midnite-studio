@@ -87,6 +87,7 @@ export function ProgressView() {
 
   const weightsInRange = data.weights.filter((p) => p.date >= from);
   const avg = movingAverage(data.weights).filter((p) => p.date >= from);
+  // `data.weights` is already in the profile's units, so the rate is too.
   const rate = weeklyRate(data.weights);
   const year = now.getFullYear();
   const target = kcalTarget(profile.data, latest?.kg, year);
@@ -125,7 +126,7 @@ export function ProgressView() {
           <b>Last week</b> · {report(lastWeek)}
         </p>
       </section>
-      <Card title="Weight" header={rate === null ? undefined : `${signed(imperial ? kgToLb(rate) : rate)} ${wUnit}/week`}>
+      <Card title="Weight" header={rate === null ? undefined : `${signed(rate)} ${wUnit}/week`}>
         {weightsInRange.length === 0 ? (
           <Empty />
         ) : (

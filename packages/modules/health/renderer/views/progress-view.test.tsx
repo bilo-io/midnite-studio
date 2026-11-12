@@ -49,6 +49,15 @@ describe('ProgressView', () => {
   });
 });
 
+describe('ProgressView imperial', () => {
+  it('converts the weekly rate once (-0.7 kg is about -1.5 lb a week)', async () => {
+    getProfile.mockResolvedValue({ ok: true, value: { profile: { version: 1, units: 'imperial', sex: 'male', activity: 'sedentary', goal: 'maintain', updatedAt: '2026-11-01T00:00:00.000Z' } } });
+    getMonths.mockResolvedValue({ ok: true, value: { months: [{ version: 1, id: 'log-2026-11', updatedAt: '2026-11-01T00:00:00.000Z', days: series() }], quarantined: 0 } });
+    renderHealth(<ProgressView />);
+    await waitFor(() => expect(screen.getByText(/lb\/week/).textContent).toMatch(/^−1\.[45] lb\/week$/));
+  });
+});
+
 describe('the persisted range', () => {
   it('reads a mismatched version as the defaults', () => {
     const storage = window.localStorage;
