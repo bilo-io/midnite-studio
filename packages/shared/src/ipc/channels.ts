@@ -1031,6 +1031,8 @@ export const CHANNELS = {
   science: 'mstudio:science:notebook',
   /** Simulator scenarios (Phase 127) — one `op` union; see `SimulatorRequestSchema`. */
   simulator: 'mstudio:simulator:scenario',
+  /** Double-entry books (Phase 129) — one `op` union; see `LedgerRequestSchema`. */
+  ledger: 'mstudio:ledger:op',
   // General MIDI instrument samples (Phase 101 Theme D) — cached per program under `userData`.
   mediaGmStatus: 'mstudio:media:gm-status',
   mediaGmEnsure: 'mstudio:media:gm-ensure',
@@ -1895,6 +1897,8 @@ export const EVENT_CHANNELS = {
   mediaAnimationChanged: 'mstudio:media:model-animation-changed',
   /** A bulk animation import advanced — see `AnimationProgressEventSchema`. */
   mediaAnimationProgress: 'mstudio:media:model-animation-progress',
+  /** A book's revision moved (Phase 129) — see `LedgerChangedPayloadSchema`. */
+  ledgerChanged: 'mstudio:ledger:changed',
   /** A General MIDI sample set is downloading — see `GmProgressSchema`. */
   mediaGmProgress: 'mstudio:media:gm-progress',
   /** A 3D model generation advanced — see `ModelGenerateProgressEventSchema`. */
