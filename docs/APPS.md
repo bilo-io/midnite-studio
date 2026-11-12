@@ -392,10 +392,11 @@ MCP tool owners are derived from it. The host's own module comes first.
 | Mind | Mind, Capture |
 | Money | Money, Accountant (coming soon) |
 | Science | Science, Simulator |
+| Startup | Startup, Accountant (coming soon) |
 | Browser | Browser |
 | Studio | every module |
 
-Startup and Health carry no modules. **The six standalone apps are retired**: Coder, Creator, Cleaner,
+Health carries no modules. **The six standalone apps are retired**: Coder, Creator, Cleaner,
 Vault, Monitor and Capture no longer have an `apps/<id>` (Accountant and Simulator were catalog entries
 only). `RETIRED_APP_ALIASES` maps each old id to its host and module, so an old `midnite://open?app=coder`
 link opens Agents on the Coder module, and `importRetiredAppData` copies a retired app's per-app files into
