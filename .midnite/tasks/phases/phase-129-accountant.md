@@ -62,9 +62,9 @@ empty `packages/features/ledger` package; Money gains `main/host.ts`, `src/host-
 ISO-4217) and `shared/src/ledger.ts` (books, accounts, journal entries, the `ledger` channel's op union and
 result envelope). Phase 130 builds on both. The date schema is `LedgerDateSchema` (not `IsoDateSchema`, which `startup.ts` already exports); `report`/`importPreview`/`taxEstimate` response payloads are typed `unknown` until E/F/G define them.
 
-**Theme C — Book store and posting engine.** ◻ Books under `<appData>/Midnite Runtime/books/<id>/`: a
+**Theme C — Book store and posting engine.** ✅ Books under `<appData>/Midnite Runtime/books/<id>/`: a
 `book.json` plus an append-only `journal.ndjson`, one writer per book by lock file, balanced-or-rejected
-posting, reversal instead of edit, period lock, idempotent posting by source reference, chart templates.
+posting, reversal instead of edit, period lock, idempotent posting by source reference, chart templates. `createLedgerService` replaces `createUnavailableLedgerService` in Money's and Studio's hosts; `LedgerBookSummary` gains an optional `corrupt: { lines, path }`. A reversal posts through the same archived-account check as any post, so reversing an entry on an archived account answers `archived-account`. `report`, `exportReport`, the import ops and `taxEstimate` still answer `invalid` until E, F and G.
 
 **Theme D — Books, accounts and journal UI.** ◻ Overview, Accounts and Journal views in the ledger
 feature's renderer, mounted as the Accountant nav group: create a book, browse balances, post and reverse
@@ -238,7 +238,7 @@ and `comingSoon` removed from `MODULES.accountant`.
 
 ### C — Book store and posting engine (L)
 
-- [ ] Net-new `packages/features/ledger/main/book-store.ts`: `openBookStore({ dir, appId, now, warn }):
+- [x] Net-new `packages/features/ledger/main/book-store.ts`: `openBookStore({ dir, appId, now, warn }):
   Promise<BookStore>` — one book's files and its in-memory index
   - Files: `<dir>/book.json` (the `LedgerBook`, written temp + rename), `<dir>/journal.ndjson` (one `JournalEntry`
     per line, appended with `open(path, 'a')` → `write` → `datasync`), `<dir>/writer.lock`.
@@ -247,7 +247,7 @@ and `comingSoon` removed from `MODULES.accountant`.
   - Every write runs through one in-process promise queue per book, so two posts cannot interleave.
   - Verified by net-new `book-store.test.ts` over a temp dir: post → reopen → same balances; 20 concurrent posts →
     20 lines, `revision === 20`.
-- [ ] One writer per book: the lock file
+- [x] One writer per book: the lock file
   - `writer.lock` created with `open(path, 'wx')`, holding `{ pid, appId, startedAt }`. Exists and
     `process.kill(pid, 0)` succeeds → the store opens **read-only**; exists and the pid is dead → replaced (stale).
   - A read-only store re-reads `journal.ndjson` when its `mtimeMs`/size changed, checked at the start of every read op.
@@ -255,7 +255,7 @@ and `comingSoon` removed from `MODULES.accountant`.
     being written there.' }`; `dispose()` unlinks the lock only if it still holds this pid.
   - Verified: a second store on the same dir is read-only; after the first `dispose()` a third opens writable; a lock
     naming a dead pid (spawn and wait for `process.execPath -e ''`) is taken over.
-- [ ] Load is tolerant of a torn tail, strict about the middle
+- [x] Load is tolerant of a torn tail, strict about the middle
   - A last line without a trailing `\n` that fails to parse is a torn append: the file is truncated to the last
     newline and `warn('ledger: dropped a torn final line in <bookId>')`.
   - Any other line that fails `JournalEntrySchema` opens the book **read-only** with `corrupt: { lines: number[] }`;
@@ -263,19 +263,19 @@ and `comingSoon` removed from `MODULES.accountant`.
   - A `book.json` that fails its schema is moved to `book.corrupt-<ts>.json` and the book is listed with
     `kind: 'corrupt'` rather than crashing boot.
   - Verified with fixtures: torn tail → truncated, reopens writable; bad line 3 of 5 → read-only, `corrupt.lines = [3]`.
-- [ ] Posting rules, enforced in `post(input, source)` and nowhere else
+- [x] Posting rules, enforced in `post(input, source)` and nowhere else
   - Balanced (re-checked server-side), every `accountId` exists and is not archived (`archived-account`), `date` is after
     `lockedThrough` (`locked-period`), 2–200 lines.
   - Idempotent: a `source.ref` already in `bySource` returns `{ ok: true, value: { entry: existing, duplicate: true } }`
     and appends nothing.
   - Main assigns `id = crypto.randomUUID()` and `postedAt = now()`.
   - Verified: unbalanced → `unbalanced`; post dated on `lockedThrough` → `locked-period`; same `ref` twice → one line in the file.
-- [ ] Corrections are reversals; there is no edit and no delete op
+- [x] Corrections are reversals; there is no edit and no delete op
   - `reverse(entryId, date, reason)` posts the mirror (sides swapped), `source.kind: 'reversal'`, `reverses: entryId`,
     description `Reversal: <original> — <reason>`; reversing an entry twice returns the existing reversal (`ref = entryId`).
   - Reason: an append-only journal is the audit trail, and it is what lets the file stay append-only on disk.
   - Verified: post then reverse → every balance back to 0; second reverse → `duplicate: true`.
-- [ ] Net-new `ledger-service.ts`: `createLedgerService({ root, appId, now?, warn? }): LedgerService`
+- [x] Net-new `ledger-service.ts`: `createLedgerService({ root, appId, now?, warn? }): LedgerService`
   - `root` is `join(runtimeDataDirectory(appDataBase), 'books')`; one folder per book, named by its uuid.
   - Methods: `listBooks()`, `createBook(input)`, `updateBook(id, patch)`, `upsertAccount`, `archiveAccount`, `post(req:
     LedgerPostRequest, source: JournalSource)`, `reverse(bookId, entryId, date, reason)`, `journal(query)`, `balances(bookId, asOf)`,
@@ -283,14 +283,14 @@ and `comingSoon` removed from `MODULES.accountant`.
   - `post` is what Phase 130's `LedgerPort` wraps: it takes `source` from the caller in main, never from the renderer.
   - Stores open lazily on first use and stay open until `dispose()`.
   - After each write: `send(EVENT_CHANNELS.ledgerChanged, { bookId, revision })`.
-- [ ] Net-new `main/index.ts`: `ledgerMain = defineFeatureMain<LedgerMainServices>({ feature: 'ledger', channels:
+- [x] Net-new `main/index.ts`: `ledgerMain = defineFeatureMain<LedgerMainServices>({ feature: 'ledger', channels:
   [CHANNELS.ledger], register })`; the handler switches on `op`, catches everything into the envelope (`io` for an fs error)
   - `LedgerMainServices = { service: LedgerService; pickCsv: () => Promise<string | null>; saveCsv: (defaultName: string) =>
     Promise<string | null> }`; `send` goes into `createLedgerService`. A host keeps the `service` it built, which is how
     Phase 130's Startup host reaches the same books (its `LedgerPort` wraps `service.post`/`service.balances`).
   - Verified by net-new `main/index.test.ts` over `createRecordingContext`: each op answers `ok: true` on the seeded book;
     an fs error injected into the store becomes `{ ok: false, kind: 'io' }`, never a throw.
-- [ ] Net-new `chart-templates.ts`: `CHART_TEMPLATES: Record<'personal' | 'sole-trader' | 'company', LedgerAccountInput[]>`
+- [x] Net-new `chart-templates.ts`: `CHART_TEMPLATES: Record<'personal' | 'sole-trader' | 'company', LedgerAccountInput[]>`
   - `sole-trader`: 1000 Bank (bank), 1010 Cash (cash), 1100 Accounts receivable, 1500 Equipment (fixed-asset),
     2000 Accounts payable, 2100 Sales tax payable (tax-payable), 2200 Loans (loan), 3000 Owner's capital, 3100 Drawings,
     3900 Retained earnings, 4000 Sales, 4900 Other income, 5000 Cost of sales, 6000 Software & subscriptions, 6100 Travel,
@@ -477,11 +477,11 @@ and `comingSoon` removed from `MODULES.accountant`.
 
 - [ ] `money-amount.test.ts`: exact parse, no float drift, minor units per currency, half-away rounding, largest-remainder allocation.
 - [ ] `ledger.test.ts`: schemas round-trip; unbalanced entry rejected at `['lines']`; renderer `post` of a non-manual kind rejected.
-- [ ] `book-store.test.ts`: reopen → same balances; 20 concurrent posts serialised; torn tail truncated; bad middle line → read-only.
-- [ ] Lock: second store read-only; stale pid taken over; read-only store sees another writer's append after an mtime change.
-- [ ] Posting: unbalanced / archived account / locked period each return their `kind`; duplicate `ref` appends nothing.
-- [ ] Reversal: balances return to zero; a second reversal is a duplicate.
-- [ ] `main/index.test.ts`: every op answers through the envelope; an injected fs error is `io`, never a throw.
+- [x] `book-store.test.ts`: reopen → same balances; 20 concurrent posts serialised; torn tail truncated; bad middle line → read-only.
+- [x] Lock: second store read-only; stale pid taken over; read-only store sees another writer's append after an mtime change.
+- [x] Posting: unbalanced / archived account / locked period each return their `kind`; duplicate `ref` appends nothing.
+- [x] Reversal: balances return to zero; a second reversal is a duplicate.
+- [x] `main/index.test.ts`: every op answers through the envelope; an injected fs error is `io`, never a throw.
 - [ ] `apps/money/main/host.test.ts`: ledger + finance channels each registered once; `host-app.test.tsx`: two nav groups.
 - [ ] `csv.test.ts` + `import-service.test.ts`: quoting, BOM, delimiter sniff, caps, rule priority, idempotent re-import.
 - [ ] `reports.test.ts`: the hand-worked year; 500 random balanced entries keep the balance sheet balanced and cash flow reconciled.

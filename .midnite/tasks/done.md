@@ -15717,3 +15717,8 @@ A new skill audits a third-party skill, plugin, MCP server or repo before instal
 ### Phase 129 Theme A — Module scaffold, and Money as a two-module host (2026-11-12)
 
 New `feature-ledger` (manifest, `ledgerMain` routing the op union to a `LedgerService`, `LedgerWorkspace` empty state) and `module-accountant` (main bridge, services, nav group, pane). Money is now a two-module host (`registerMoneyHost`, `host-nav`, `host-app`, preload union); Studio shows a global `books` view and registers the ledger handlers as `studio`. The service is a stand-in until Theme C; the catalog stays `comingSoon`. Vitest at each layer; no e2e.
+
+
+### Phase 129 Theme C — Book store and posting engine (2026-11-12)
+
+`book-store.ts` (NDJSON journal + `book.json`, one writer per book by `writer.lock`, torn-tail truncation, corrupt middle line opens read-only, balanced / archived / locked-period checks, idempotent `source.ref`, reversal), `ledger-service.ts` (`createLedgerService`: list/create/update books, accounts, post, reverse, journal with cursor, balances, `ledgerChanged` events) and `chart-templates.ts` (personal, sole-trader, company). Money's host and Studio's `registerLedgerHandlers` now run the real service under `<appData>/Midnite Runtime/books`. Vitest over temp dirs, including a dead-pid lock takeover.

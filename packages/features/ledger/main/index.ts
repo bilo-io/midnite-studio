@@ -5,7 +5,8 @@ import { ledgerManifest } from '../manifest';
 import type { LedgerService } from './ledger-service';
 
 export { ledgerManifest, type LedgerManifest } from '../manifest';
-export { createUnavailableLedgerService, type CreateBookInput, type JournalQuery, type LedgerService } from './ledger-service';
+export { createLedgerService, type CreateBookInput, type JournalQuery, type LedgerService, type LedgerServiceOptions } from './ledger-service';
+export { CHART_TEMPLATES } from './chart-templates';
 
 /**
  * What the composer hands the ledger feature. A host keeps the `service` it built (Phase 130's Startup host

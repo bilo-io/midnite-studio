@@ -51,7 +51,7 @@ describe('registerMoneyHost', () => {
 
   it('hands back a books service that answers the envelope', async () => {
     const { registered } = await setup();
-    expect(await registered.ledger.listBooks()).toMatchObject({ ok: false });
+    expect(await registered.ledger.listBooks()).toEqual({ ok: true, value: { books: [] } });
     registered.stopRates();
     await registered.dispose();
   });
