@@ -15705,3 +15705,7 @@ A new skill audits a third-party skill, plugin, MCP server or repo before instal
 ### Phase 129 Theme B — Money amounts and the ledger contract (2026-11-12)
 
 `shared/src/money-amount.ts` (integer minor units, string-based `parseAmount`, BigInt `percentOfMinor`, largest-remainder `allocateMinor`) and `shared/src/ledger.ts` (accounts, books, balanced journal entries, the `ledger` op union with a manual-only renderer `post`, `LedgerResult`), plus `CHANNELS.ledger`, `EVENT_CHANNELS.ledgerChanged` and an optional `ledger` bridge. Vitest in shared; no e2e.
+
+### Phase 129 Theme A — Module scaffold, and Money as a two-module host (2026-11-12)
+
+New `feature-ledger` (manifest, `ledgerMain` routing the op union to a `LedgerService`, `LedgerWorkspace` empty state) and `module-accountant` (main bridge, services, nav group, pane). Money is now a two-module host (`registerMoneyHost`, `host-nav`, `host-app`, preload union); Studio shows a global `books` view and registers the ledger handlers as `studio`. The service is a stand-in until Theme C; the catalog stays `comingSoon`. Vitest at each layer; no e2e.

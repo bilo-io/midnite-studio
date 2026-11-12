@@ -46,6 +46,7 @@ import type { IconComponent } from '../../components/icon-button';
 export const VIEW_LABELS: Record<ViewId, string> = {
   landing: 'Home',
   dashboard: 'Dashboard',
+  books: 'Books',
   notes: 'Notes',
   chats: 'Agent Chats',
   knowledge: 'Knowledge',
@@ -76,6 +77,7 @@ export const VIEW_KEYWORDS: Record<ViewId, string> = {
   landing: 'home landing start welcome shortcuts keys cheatsheet',
   // `home` is the landing page's word now, so the dashboard drops it.
   dashboard: 'overview summary metrics',
+  books: 'books accounting accountant ledger journal double-entry accounts bookkeeping tax invoice',
   notes: 'notes todo jot brainstorm quick note scratchpad',
   chats: 'chats chat conversation talk ask assistant prompt thread claude codex gemini ollama',
   // Deliberately NOT the bare word `graph`: the companion's `longestViewMatch`

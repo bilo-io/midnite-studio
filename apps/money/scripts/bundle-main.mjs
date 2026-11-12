@@ -24,6 +24,9 @@ const common = {
     '@midnite/studio-module-money/main': at('../../../packages/modules/money/main/index.ts'),
     '@midnite/studio-feature-report/main': at('../../../packages/features/report/main/index.ts'),
     '@midnite/studio-feature-finance/main': at('../../../packages/features/finance/main/index.ts'),
+    '@midnite/studio-feature-ledger/main': at('../../../packages/features/ledger/main/index.ts'),
+    '@midnite/studio-module-accountant/bridge': at('../../../packages/modules/accountant/main/bridge.ts'),
+    '@midnite/studio-module-accountant/main': at('../../../packages/modules/accountant/main/index.ts'),
     // The channel names alone, by source path: the shared barrel drags every zod schema (~400 KB) into the preload.
     '@midnite/studio-feature-monitor/main': at('../../../packages/features/monitor/main/index.ts'),
     '@midnite/studio-feature-monitor/bridge': at('../../../packages/features/monitor/bridge.ts'),

@@ -63,6 +63,7 @@ import { registerConflictHandlers } from './ipc/conflict-handlers';
 import { registerCouncilHandlers } from './ipc/council-handlers';
 import { registerApiClientFeatureHandlers, shutdownApiClientFeature } from './ipc/api-client-feature-handlers';
 import { registerFinanceHandlers } from './ipc/finance-handlers';
+import { registerLedgerHandlers, releaseLedgerOnQuit } from './ipc/ledger-handlers';
 import { configureSecrets, configureVaultGrants, registerSecretsHandlers } from './ipc/secrets-handlers';
 import { createSecretsVault } from './secrets-vault';
 import {
@@ -647,6 +648,7 @@ export const startStudioMain: StartStudioMain = () => {
       registerOllamaHandlers(getMainWindow);
       registerSecretsHandlers();
       registerFinanceHandlers();
+      releaseLedgerOnQuit(registerLedgerHandlers());
       registerApiClientFeatureHandlers(getMainWindow);
       registerMcpHandlers();
       registerCompanionHandlers();

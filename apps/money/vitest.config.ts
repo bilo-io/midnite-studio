@@ -23,11 +23,17 @@ export default defineConfig({
       '@midnite/studio-frame': at('../../packages/frame/src/index.ts'),
       '@midnite/studio-runtime': at('../../packages/runtime/src/index.ts'),
       '@midnite/studio-feature-finance/main': at('../../packages/features/finance/main/index.ts'),
+      '@midnite/studio-feature-ledger/main': at('../../packages/features/ledger/main/index.ts'),
+      '@midnite/studio-module-accountant/bridge': at('../../packages/modules/accountant/main/bridge.ts'),
+      '@midnite/studio-module-accountant/main': at('../../packages/modules/accountant/main/index.ts'),
       '@midnite/studio-feature-finance/renderer': at('../../packages/features/finance/renderer/index.ts'),
+      '@midnite/studio-feature-ledger/renderer': at('../../packages/features/ledger/renderer/index.ts'),
+      '@midnite/studio-module-accountant/renderer': at('../../packages/modules/accountant/renderer/index.ts'),
     },
   },
   test: {
     include: ['src/**/*.test.{ts,tsx}', 'main/**/*.test.ts'],
     environment: 'jsdom',
+    setupFiles: [at('../../packages/frame/src/vitest-setup.ts')],
   },
 });

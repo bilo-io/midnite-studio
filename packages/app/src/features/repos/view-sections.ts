@@ -186,6 +186,8 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
    */
   landing: WORK_IN_PROGRESS,
   dashboard: WORK_IN_PROGRESS,
+  // A formality the `Record` demands: books are files on this computer, with no sidebar section to narrow.
+  books: WORK_IN_PROGRESS,
   // A formality the `Record` demands, same reasoning as `landing`: notes are
   // per-repo but the view has no sidebar section of its own to narrow
   // (Phase 86 Theme E).

@@ -7402,6 +7402,29 @@ export function buildMockBridge(data: MockFixtures) {
     };
   }
 
+  // Phase 129 — the books. No book is seeded yet (Theme D adds the fixture and the in-memory ledger), so every
+  // op answers the envelope with an empty list or a plain error, exactly as main's unavailable service does.
+  {
+    const unavailable = async () => ({ ok: false as const, kind: 'io' as const, message: 'Books are not available in this mock yet.' });
+    (bridge as Record<string, unknown>).ledger = {
+      listBooks: async () => ({ ok: true as const, value: { books: [] as unknown[] } }),
+      createBook: unavailable,
+      updateBook: unavailable,
+      upsertAccount: unavailable,
+      archiveAccount: unavailable,
+      post: unavailable,
+      reverse: unavailable,
+      journal: unavailable,
+      balances: unavailable,
+      report: unavailable,
+      exportReport: unavailable,
+      importPick: unavailable,
+      importPreview: unavailable,
+      importCommit: unavailable,
+      taxEstimate: unavailable,
+    };
+  }
+
   return bridge;
 }
 

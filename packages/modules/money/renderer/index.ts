@@ -4,3 +4,5 @@ export { MoneyHome } from './views/money-home';
 export { MONEY_CHROME } from './compose/money-chrome';
 export { MONEY_FINANCE_HOST } from './compose/money-host';
 export { moneyManifest } from '../manifest';
+export { MoneyPane } from './money-pane';
+export { MONEY_NAV_GROUP } from './money-nav';

@@ -9,6 +9,7 @@ export type { NavVisibility };
  */
 export const RAIL_VIEW_IDS: readonly ViewId[] = [
   'dashboard',
+  'books',
   'notes',
   'chats',
   'sessions',
