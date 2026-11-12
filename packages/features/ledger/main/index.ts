@@ -67,8 +67,6 @@ async function dispatch(req: LedgerRequest, services: LedgerMainServices, import
       return imports.preview(req.bookId, req.mapping);
     case 'importCommit':
       return imports.commit(req.bookId, req.mapping, req.rows);
-    default:
-      return invalid(`"${req.op}" is not available yet.`);
   }
 }
 

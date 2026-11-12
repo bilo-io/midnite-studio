@@ -9,6 +9,7 @@ afterEach(teardownLedger);
 
 const NOTICE = 'Not tax advice';
 
+
 describe('TaxView', () => {
   it('with no jurisdiction shows the notice and a select that writes the book', async () => {
     const { ledger } = mountLedger(<TaxView />);
@@ -22,8 +23,7 @@ describe('TaxView', () => {
   });
 
   it('renders an estimate with formatted amounts, the payment-free small case, and the full notice above the table', async () => {
-    const { ledger } = mountLedger(<TaxView />);
-    await ledger.updateBook({ bookId: SEED_BOOK_ID, patch: { jurisdiction: 'uk-ew-ni' } });
+    mountLedger(<TaxView />, { jurisdiction: 'uk-ew-ni' });
     const select = await screen.findByLabelText('Tax year');
     fireEvent.change(select, { target: { value: '2026' } });
     const table = await screen.findByRole('table', { name: 'Tax estimate' });
@@ -37,8 +37,7 @@ describe('TaxView', () => {
   });
 
   it('shows the tax lines and payment dates for a larger profit', async () => {
-    const { ledger } = mountLedger(<TaxView />);
-    await ledger.updateBook({ bookId: SEED_BOOK_ID, patch: { jurisdiction: 'uk-ew-ni' } });
+    const { ledger } = mountLedger(<TaxView />, { jurisdiction: 'uk-ew-ni' });
     const book = await ledger.getBook({ bookId: SEED_BOOK_ID });
     if (!book.ok) throw new Error('no book');
     const id = (name: string): string => book.value.book.accounts.find((a) => a.name === name)!.id;
@@ -56,9 +55,7 @@ describe('TaxView', () => {
   });
 
   it('says a personal book has no estimate, still carrying the notice', async () => {
-    const { ledger } = mountLedger(<TaxView />, { seed: false });
-    const made = await ledger.createBook({ name: 'Me', entity: 'personal', currency: 'GBP', fiscalYearStart: { month: 4, day: 6 }, template: 'personal' });
-    expect(made.ok).toBe(true);
+    mountLedger(<TaxView />, { entity: 'personal', jurisdiction: 'uk-ew-ni' });
     expect(await screen.findByText(/not available for a personal book/)).toBeTruthy();
     expect(screen.getByRole('note', { name: NOTICE })).toBeTruthy();
   });
@@ -70,8 +67,7 @@ describe('TaxView', () => {
   });
 
   it('shows the error from the op under the notice', async () => {
-    const { ledger } = mountLedger(<TaxView />);
-    await ledger.updateBook({ bookId: SEED_BOOK_ID, patch: { jurisdiction: 'uk-ew-ni' } });
+    const { ledger } = mountLedger(<TaxView />, { jurisdiction: 'uk-ew-ni' });
     ledger.taxEstimate = async () => ({ ok: false, kind: 'invalid', message: 'No such year.' });
     expect(await screen.findByText(/No such year/)).toBeTruthy();
     expect(screen.getByRole('note', { name: NOTICE })).toBeTruthy();

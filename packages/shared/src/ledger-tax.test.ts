@@ -104,7 +104,7 @@ const book = (over: Partial<LedgerBook> = {}): LedgerBook =>
     ...over,
   });
 const entry = (date: string, lines: JournalEntry['lines']): JournalEntry =>
-  ({ id: crypto.randomUUID(), date, description: 'x', lines, source: { app: 'money', kind: 'manual' }, createdAt: '2026-01-01T00:00:00.000Z' }) as JournalEntry;
+  ({ id: crypto.randomUUID(), date, description: 'x', lines, source: { app: 'money', kind: 'manual' }, postedAt: '2026-01-01T00:00:00.000Z' });
 const journal = [
   entry('2026-05-01', [{ accountId: ACC.bank, side: 'debit', minor: P(60_000) }, { accountId: ACC.sales, side: 'credit', minor: P(60_000) }]),
   entry('2026-06-01', [{ accountId: ACC.fines, side: 'debit', minor: P(1_000) }, { accountId: ACC.bank, side: 'credit', minor: P(1_000) }]),

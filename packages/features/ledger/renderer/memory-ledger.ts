@@ -6,6 +6,8 @@ import type {
   LedgerBook,
   LedgerBookDetail,
   LedgerBridge,
+  LedgerEntity,
+  TaxJurisdictionId,
   LedgerErrorKind,
   LedgerResult,
   ImportMapping,
@@ -20,6 +22,10 @@ export type MemoryLedgerOptions = {
   corruptLines?: number[];
   /** Today, for the seeded entries' dates (default 2026-05-20). */
   today?: string;
+  /** The seeded book's entity (default sole-trader). */
+  entity?: LedgerEntity;
+  /** The seeded book's tax jurisdiction (default none). */
+  jurisdiction?: TaxJurisdictionId | null;
 };
 
 export const SEED_BOOK_ID = '11111111-1111-4111-8111-111111111111';
@@ -94,11 +100,11 @@ export function createMemoryLedger(options: MemoryLedgerOptions = {}): LedgerBri
       version: 1,
       id: SEED_BOOK_ID,
       name: 'Acme Studio',
-      entity: 'sole-trader',
+      entity: options.entity ?? 'sole-trader',
       currency: 'GBP',
       fiscalYearStart: { month: 4, day: 6 },
       lockedThrough: null,
-      jurisdiction: null,
+      jurisdiction: options.jurisdiction ?? null,
       accounts: SEED_ACCOUNTS.map((a, i) => ({ ...a, id: acc(i + 1) })),
       rules: [{ id: acc(900), match: { field: 'description', contains: 'adobe' }, accountId: acc(6), priority: 0 }],
       createdAt: '2026-04-06T00:00:00.000Z',

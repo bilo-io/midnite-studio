@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 129 Theme G — Tax estimates
+
+PR (see the Phase 129 G PR). `TaxJurisdiction` interface and registry, the UK (England, Wales, Northern Ireland) rule set with its rates as one data table, the `taxEstimate` op and the Tax tab. Sole trader: income tax with the tapered allowance plus Class 4 NIC and payments on account; company: corporation tax with marginal relief. Every state carries the not-tax-advice notice.
+
 ## 2026-11-12 — Phase 130 Theme F — Invoicing posted to the books
 
 PR (see the Phase 130 F PR). Startup mounts the Accountant module as its Books group; a `StartupLedgerPort` (host-implemented over the shared books) carries invoice posting, reversal, cash and monthly net. Gapless invoice numbers at issue, draft to issued to paid or void each one ledger call, PDF export, Invoices, Customers, Overview and Settings ▸ Company ▸ Books, and Theme D's actuals from the book.
