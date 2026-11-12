@@ -242,7 +242,11 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // suite stubs `MediaLayout` into stacked divs, so only a real `getBoundingClientRect` shows the panes
 // side by side, and the three review screenshots are of that shell. Search, tag maths, rename and
 // import are vitest (`animation-model.test.ts`, `animation-tab.test.tsx`).
-export const MAX_DECLARED_E2E = 483;
+// Raised 483 -> 486 for Phase 130 Theme G's `suite-shell/startup.spec.ts` (3 tests): the roadmap timeline's
+// dependency arrows must land on their bars' edges, which only a real `getBoundingClientRect` over an SVG with
+// `preserveAspectRatio="none"` can show, and the first-run form and the Overview, Runway and invoice-draft shots
+// are of the real layout.
+export const MAX_DECLARED_E2E = 486;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

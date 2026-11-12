@@ -85,7 +85,7 @@ export type LauncherApp = {
   vision: string;
   /** Where "Open" lands when no feature is picked. */
   home: StudioTarget;
-  /** The modules this app hosts, its own first. Empty for an app with none yet (Startup, Health). */
+  /** The modules this app hosts, its own first. Empty for an app with none yet (Health). */
   modules: readonly LauncherModule[];
   /** Every module's features, flattened in module order (an app with no modules lists its own). */
   features: readonly AppFeature[];
@@ -548,7 +548,6 @@ const RAW_APPS: readonly RawApp[] = [
     home: view('landing'),
     modules: [MODULES.startup, MODULES.accountant],
     runsIn: 'studio',
-    comingSoon: true,
   },
   {
     id: 'health',

@@ -209,6 +209,23 @@ export const SITE_APPS: readonly SiteApp[] = [
     ],
   },
   {
+    id: 'startup',
+    name: 'Startup',
+    section: 'suite',
+    accent: '#8b5cf6',
+    spectrum: ['#2e1f6b', '#6a48b9', '#ac8fed', '#38bdf8'],
+    tagline: 'Roadmap, costs and lightweight ERP',
+    like: 'Like Linear, Carta and NetSuite',
+    vision:
+      'All the foundational tooling for early-stage companies: clear milestone roadmaps, live burn rate and runway modeling, and invoicing that posts to your own books, all in files on your disk.',
+    features: [
+      { label: 'Roadmap', blurb: 'Milestones, dependencies and a timeline' },
+      { label: 'Costs & Runway', blurb: 'Burn, scenarios and months of cash left' },
+      { label: 'Invoicing', blurb: 'Gapless invoices posted to the ledger' },
+      { label: 'Vendors & Contracts', blurb: 'Renewals and notice dates, never missed' },
+    ],
+  },
+  {
     id: 'browser',
     name: 'Browser',
     section: 'suite',
