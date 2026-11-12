@@ -17,7 +17,7 @@ describe('SimulatorPane', () => {
     ['anything-else', 'Emergence'],
   ])('routes %s to %s', (view, title) => {
     render(<SimulatorPane view={view} onView={() => undefined} />);
-    expect(screen.getByRole('heading', { name: title })).toBeDefined();
+    expect(screen.getByRole('region', { name: title })).toBeDefined();
   });
 
   it('has a sound nav group with sim- prefixed view ids', () => {
