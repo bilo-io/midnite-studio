@@ -66,7 +66,7 @@ describe('VersionPill', () => {
     expect(releaseNotes).not.toHaveBeenCalled();
 
     open();
-    await waitFor(() => expect(releaseNotes).toHaveBeenCalledWith({ version: '1.2.3' }));
+    await waitFor(() => expect(releaseNotes).toHaveBeenCalledWith({ version: '1.2.3', latest: 4 }));
     expect(await screen.findByText('A version pill.')).toBeDefined();
     expect(screen.getByText("What's new in v1.2.3")).toBeDefined();
   });

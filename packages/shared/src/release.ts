@@ -273,3 +273,51 @@ function body(lines: string[]): string | null {
     .trim();
   return text.length > 0 ? text : null;
 }
+
+/** One released section of the changelog. */
+export interface ChangelogSection {
+  version: string;
+  /** `YYYY-MM-DD` when the heading carries one. */
+  date?: string;
+  body: string;
+}
+
+/**
+ * The newest `n` released sections, in file order (Keep a Changelog is newest
+ * first). `[Unreleased]` is skipped — it is not a release. Empty sections are
+ * dropped, CRLF is tolerated and a malformed file yields `[]`.
+ */
+export function extractLatestSections(markdown: string, n: number): ChangelogSection[] {
+  if (!Number.isFinite(n) || n < 1) return [];
+  const lines = markdown.replace(/\r\n?/g, '\n').split('\n');
+  const out: ChangelogSection[] = [];
+  let fenced = false;
+  let current: { version: string; date?: string; start: number } | null = null;
+
+  const close = (end: number): void => {
+    if (!current) return;
+    const text = body(lines.slice(current.start, end));
+    if (text !== null && !/^unreleased$/i.test(current.version)) {
+      out.push({
+        version: current.version.replace(/^v/, ''),
+        ...(current.date ? { date: current.date } : {}),
+        body: text,
+      });
+    }
+    current = null;
+  };
+
+  for (let i = 0; i < lines.length && out.length < n; i += 1) {
+    const line = lines[i] ?? '';
+    if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
+    if (fenced) continue;
+    const match = HEADING.exec(line);
+    if (!match) continue;
+    close(i);
+    if (out.length >= n) break;
+    const date = /(\d{4}-\d{2}-\d{2})/.exec(line)?.[1];
+    current = { version: match[1] ?? '', ...(date ? { date } : {}), start: i + 1 };
+  }
+  if (out.length < n) close(lines.length);
+  return out.slice(0, n);
+}

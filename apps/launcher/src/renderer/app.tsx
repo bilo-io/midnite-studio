@@ -7,6 +7,7 @@ import { compareVersions } from '../common/version';
 import { getBridge } from './bridge';
 import { AppDetail } from './components/app-detail';
 import type { MenuItem } from './components/app-menu';
+import { ChangelogList, useChangelog } from './components/changelog';
 import { AppTable } from './components/app-table';
 import { AppTile } from './components/app-tile';
 import { LauncherWordmark } from './components/wordmark';
@@ -63,6 +64,14 @@ export function App() {
   const [sort, setSort] = useState<SortKey>('suite');
   const [query, setQuery] = useState('');
   const [detail, setDetail] = useState<LauncherApp | null>(null);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const changelog = useChangelog(notesOpen);
+  useEffect(() => {
+    if (!notesOpen) return;
+    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && setNotesOpen(false);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [notesOpen]);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [confirmUninstall, setConfirmUninstall] = useState<LauncherApp | null>(null);
   const [confirmRemoveAll, setConfirmRemoveAll] = useState(false);
@@ -138,7 +147,7 @@ export function App() {
     }
     const base: MenuItem[] = [
       { id: 'details', label: 'About this app', onSelect: () => setDetail(app) },
-      { id: 'notes', label: 'Release notes', onSelect: () => void bridge.links.open('notes') },
+      { id: 'notes', label: 'Release notes', onSelect: () => setNotesOpen(true) },
     ];
     if (view.source === 'bundle') {
       // Its own bundle: every action here touches this one app and nothing else.
@@ -294,7 +303,7 @@ export function App() {
             <span className="pill pill-solid">Update</span>
             <span className="banner-text">Midnite Studio {studio.status.latest.version} is available.</span>
             <div className="banner-actions">
-              <button type="button" className="link" onClick={() => void bridge.links.open('notes')}>
+              <button type="button" className="link" onClick={() => setNotesOpen(true)}>
                 What’s new ↗
               </button>
               <button type="button" className="btn btn-primary btn-compact" onClick={() => handlers.onInstall(STUDIO_APP)} disabled={studio.installing}>
@@ -397,6 +406,20 @@ export function App() {
           onRemoveReplaced={(id) => void apps.removeReplaced(id).then((r) => report(r, 'Moved the old app to the Trash.'))}
           onClose={() => setDetail(null)}
         />
+      )}
+
+      {notesOpen && (
+        <div className="sheet-backdrop sheet-backdrop-center" onMouseDown={(e) => e.target === e.currentTarget && setNotesOpen(false)}>
+          <div className="dialog dialog-changelog" role="dialog" aria-modal="true" aria-labelledby="notes-title">
+            <h2 id="notes-title" className="dialog-title">What’s new in Midnite Studio</h2>
+            <ChangelogList result={changelog} onFull={() => void bridge.links.open('changelog')} />
+            <div className="dialog-actions">
+              <button type="button" className="btn" onClick={() => setNotesOpen(false)} autoFocus>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {confirmUninstall && (

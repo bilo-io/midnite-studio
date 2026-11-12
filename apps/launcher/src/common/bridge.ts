@@ -36,6 +36,8 @@ export const LAUNCHER_CHANNELS = {
   /** main → renderer: the installer exited non-zero before it could quit this app. */
   selfUpdateFailed: 'launcher:self:update-failed',
   linkOpen: 'launcher:link:open',
+  /** The newest released sections of Studio's public changelog mirror. */
+  changelogLatest: 'launcher:changelog:latest',
   themeSet: 'launcher:theme:set',
 } as const;
 
@@ -43,6 +45,10 @@ export const LAUNCHER_CHANNELS = {
 export type StudioInstall = { path: string; version: string | null };
 
 /** The newest published release, from `midnite-studio/version.json`. */
+/** One released changelog section; `body` is Keep-a-Changelog markdown. */
+export type ChangelogSection = { version: string; date?: string; body: string };
+export type ChangelogResult = { sections: ChangelogSection[]; error: string | null };
+
 export type StudioRelease = { version: string; releasedAt: string | null; notesUrl: string | null };
 
 /** The running launcher against its own feed. `latest` is `null` with `feedError` set when it could not be read. */
@@ -96,7 +102,7 @@ export type AppsStatus = {
 
 export type AppInstallProgress = { id: AppId; progress: InstallProgress };
 
-export const EXTERNAL_LINKS = ['website', 'releases', 'notes', 'download'] as const;
+export const EXTERNAL_LINKS = ['website', 'releases', 'notes', 'download', 'changelog'] as const;
 export type ExternalLink = (typeof EXTERNAL_LINKS)[number];
 
 export const THEME_SOURCES = ['system', 'light', 'dark'] as const;
@@ -135,6 +141,10 @@ export type LauncherBridge = {
   };
   links: {
     open(link: ExternalLink): Promise<LauncherResult>;
+  };
+  changelog: {
+    /** Never throws: offline is `{ sections: [], error }`. */
+    latest(): Promise<ChangelogResult>;
   };
   theme: {
     /** Fire-and-forget: sets Electron's `nativeTheme.themeSource`. */
