@@ -22,7 +22,7 @@ describe('UK (England, Wales, Northern Ireland)', () => {
     const e = sole(110_000);
     // 110 000 - 7 570 = 102 430 taxable: 37 700 at 20 % + 64 730 at 40 %.
     expect(incomeTax(e)).toBe(P(37_700 * 0.2 + 64_730 * 0.4));
-    expect(e.notes[0]).toContain('tapered (7570.00)');
+    expect(e.notes[0]).toContain('tapered (£7,570.00)');
   });
 
   it('loses the whole allowance at 125 140 and pays the additional rate above it', () => {
@@ -119,6 +119,11 @@ describe('buildTaxEstimate', () => {
     expect(r.value).toMatchObject({ taxYear: '2026-27', from: '2026-04-06', to: '2027-04-05', profitMinor: P(59_000), disallowableMinor: P(1_000), taxableProfitMinor: P(60_000) });
     expect(r.value.estimate.totalMinor).toBe(P(13_888.6));
     expect(r.value.disclaimer).toMatch(/^Estimate only — not tax advice\. Based on the United Kingdom .* rules for 2026-27, checked 2026-11-12\./);
+  });
+
+  it('says where an undated year came from rather than inventing a date', () => {
+    const r = buildTaxEstimate(book(), journal, 2025);
+    expect(r.ok && r.value.disclaimer).toContain('taken from the Phase 129 spec, not re-checked');
   });
 
   it('refuses without a jurisdiction, for a personal book, in another currency and for an unknown year', () => {

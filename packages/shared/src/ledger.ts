@@ -315,7 +315,8 @@ export type LedgerTaxEstimate = {
 /** The short form of the notice, shown where no estimate is (yet) on screen. */
 export const TAX_NOTICE = 'Estimate only — not tax advice.';
 
-/** The fixed notice every estimate carries. */
+/** The fixed notice every estimate carries. `checkedOn` is a date, or the name of the source the figures came from. */
 export function taxDisclaimer(jurisdictionLabel: string, taxYear: string, checkedOn: string): string {
-  return `${TAX_NOTICE} Based on the ${jurisdictionLabel} rules for ${taxYear}, checked ${checkedOn}. Confirm with the tax authority or an accountant before you file or pay.`;
+  const provenance = /^\d{4}-\d{2}-\d{2}$/.test(checkedOn) ? `checked ${checkedOn}` : `taken from ${checkedOn}, not re-checked`;
+  return `${TAX_NOTICE} Based on the ${jurisdictionLabel} rules for ${taxYear}, ${provenance}. Confirm with the tax authority or an accountant before you file or pay.`;
 }
