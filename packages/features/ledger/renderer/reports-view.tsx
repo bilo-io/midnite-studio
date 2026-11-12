@@ -202,7 +202,10 @@ export function ReportsView({ onOpenTab }: { onOpenTab: (tab: LedgerTab) => void
     <div className="grid max-w-3xl gap-4">
       <div className="flex flex-wrap items-end gap-3">
         <Field label="Report">
-          <select className={INPUT} value={kind} onChange={(e) => setKind(e.target.value as LedgerReportKind)}>
+          <select className={INPUT} value={kind} onChange={(e) => {
+              setKind(e.target.value as LedgerReportKind);
+              setNote(null);
+            }}>
             {LEDGER_REPORT_KINDS.map((k) => (
               <option key={k} value={k}>
                 {KIND_LABEL[k]}
@@ -211,7 +214,10 @@ export function ReportsView({ onOpenTab }: { onOpenTab: (tab: LedgerTab) => void
           </select>
         </Field>
         <Field label="Period">
-          <select className={INPUT} value={range} onChange={(e) => setRange(e.target.value as ReportRange)}>
+          <select className={INPUT} value={range} onChange={(e) => {
+              setRange(e.target.value as ReportRange);
+              setNote(null);
+            }}>
             {REPORT_RANGES.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.label}

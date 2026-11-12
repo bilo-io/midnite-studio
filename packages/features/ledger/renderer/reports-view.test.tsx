@@ -76,6 +76,8 @@ describe('ReportsView', () => {
     await screen.findByRole('table', { name: 'Profit and loss' });
     fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
     expect(await screen.findByText('Report saved.')).toBeTruthy();
+    pickKind('trial-balance');
+    expect(screen.queryByText('Report saved.')).toBeNull();
     expect(spy).toHaveBeenCalledWith(expect.objectContaining({ kind: 'profit-and-loss' }));
   });
 
