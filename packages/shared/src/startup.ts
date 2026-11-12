@@ -187,6 +187,19 @@ export const StartupWorkspaceSchema = z.object({
 });
 export type StartupWorkspace = z.infer<typeof StartupWorkspaceSchema>;
 
+/** The linked book at a glance (`ledgerSummary`): what the runway view shows beside the modelled figures. */
+export type StartupLedgerSummary = {
+  bookName: string;
+  /** Cash plus bank balance as of `asOf`, in minor units. */
+  cashMinor: number;
+  asOf: string;
+  /** Mean monthly expense minus income over the last three full months (positive = spending more than earning); null when the book cannot say. */
+  actualBurnMinor: number | null;
+};
+
+/** What `exportInvoicePdf` answers: whether a file was saved (false when the save dialog was cancelled). */
+export type StartupPdfExport = { saved: boolean };
+
 /** What every read and write answers: the workspace, its revision, and whether writes are refused. */
 export const StartupSnapshotSchema = z.object({
   workspace: StartupWorkspaceSchema,

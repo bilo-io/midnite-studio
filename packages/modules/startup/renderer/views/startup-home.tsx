@@ -1,8 +1,10 @@
 import { useStartupSnapshot } from '../data/use-startup';
+import { InvoicesView } from '../invoices/invoices-view';
 import { RoadmapView } from '../roadmap/roadmap-view';
 import { RunwayView } from '../runway/runway-view';
 import { VendorsView } from '../vendors/vendors-view';
 import { CompanyForm } from './company-form';
+import { Overview } from './overview';
 
 const TITLES: Readonly<Record<string, string>> = {
   'startup.overview': 'Overview',
@@ -19,10 +21,9 @@ export function startupViewTitle(view: string): string {
 
 /**
  * What Startup shows in the shell: the rail's rows are the five views, so the page is only the active one.
- * With no company yet every view is the setup form; a workspace that cannot load shows why. Themes C to F
- * replace each placeholder with its view.
+ * With no company yet every view is the setup form; a workspace that cannot load shows why.
  */
-export function StartupHome({ view }: { view: string }) {
+export function StartupHome({ view, onView }: { view: string; onView: (view: string) => void }) {
   const title = startupViewTitle(view);
   const snapshot = useStartupSnapshot();
   if (snapshot.isPending) return <p className="p-6 text-xs text-muted-foreground">Loading…</p>;
@@ -44,14 +45,13 @@ export function StartupHome({ view }: { view: string }) {
     );
   }
   if (view === 'startup.roadmap') return <RoadmapView milestones={workspace.milestones} />;
-  if (view === 'startup.runway') return <RunwayView company={workspace.company} lines={workspace.lines} scenarios={workspace.scenarios} />;
+  if (view === 'startup.runway') return <RunwayView company={workspace.company} lines={workspace.lines} scenarios={workspace.scenarios} linked={workspace.ledger !== null} />;
+  if (view === 'startup.invoices') return <InvoicesView company={workspace.company} customers={workspace.customers} invoices={workspace.invoices} bookId={workspace.ledger?.bookId ?? null} />;
   if (view === 'startup.vendors') return <VendorsView company={workspace.company} vendors={workspace.vendors} contracts={workspace.contracts} />;
   return (
-    <main className="flex h-full min-h-0 flex-col gap-1 p-6" aria-label={title}>
-      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{workspace.company.name}</p>
-      <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-      {readOnly ? <p className="text-xs text-amber-500">This workspace was written by a newer Midnite Startup. It is read-only here.</p> : null}
-      <p className="text-sm text-muted-foreground">Coming together in the next slices of Phase 130.</p>
-    </main>
+    <>
+      {readOnly ? <p className="px-6 pt-4 text-xs text-amber-500">This workspace was written by a newer Midnite Startup. It is read-only here.</p> : null}
+      <Overview company={workspace.company} milestones={workspace.milestones} lines={workspace.lines} invoices={workspace.invoices} contracts={workspace.contracts} linked={workspace.ledger !== null} onView={onView} />
+    </>
   );
 }

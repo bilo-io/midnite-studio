@@ -1,3 +1,5 @@
+import { tmpdir } from 'node:os';
+
 import {
   BASE_SCENARIO_ID,
   MAX_SCENARIOS,
@@ -10,7 +12,11 @@ import {
   type StartupWorkspace,
 } from '@midnite/studio-shared';
 
+import { ledgerSummary, linkBook } from './books';
 import { attachContractFile, confinedAttachmentPath, type ContractFilePort } from './contract-files';
+import { exportInvoicePdf, type InvoicePdfPort } from './invoice-pdf';
+import { issueInvoice, markPaid, voidInvoice } from './invoices';
+import type { StartupLedgerPort } from './ledger-port';
 import { projectRunway } from './runway';
 import type { Mutation, WorkspaceStore } from './workspace-store';
 
@@ -36,6 +42,13 @@ export type StartupServiceDeps = {
   files?: ContractFilePort;
   /** Where attachments are copied: `<userData>/startup/contracts`. */
   contractsDir?: string;
+  /** The books, from the host; `null` or absent until a host provides them, and every ledger op then answers `no-book`. */
+  ledger?: StartupLedgerPort | null;
+  /** Prints and saves an invoice PDF; absent in a bare test. */
+  pdf?: InvoicePdfPort;
+  /** Where a PDF's temp page is written; the OS temp folder by default. */
+  tmpDir?: string;
+  now?: () => Date;
 };
 
 /** The one cost (vendor) or revenue (customer) line a priced contract keeps in the plan, or `null` when it has no price. */
@@ -161,17 +174,23 @@ export async function handleStartupRequest(
         if (existing !== undefined && existing.status !== 'draft') return fail('invalid', 'Issued invoices are read-only.');
         if (invoice.status !== 'draft') return fail('invalid', 'Only a draft can be saved; issuing posts it to the books.');
         if (!ws.customers.some((c) => c.id === invoice.customerId)) return fail('not-found', 'That customer no longer exists.');
-        return done({ ...ws, invoices: upsert(ws.invoices, invoice) });
+        // A draft carries no number, dates or entries: those are assigned by issuing, never by the caller.
+        const draft = { ...invoice, number: null, issueDate: null, dueDate: null, entries: {}, paidDate: undefined, voidReason: undefined };
+        return done({ ...ws, invoices: upsert(ws.invoices, draft) });
       });
 
-    // Theme F: invoices post into a linked book.
     case 'issueInvoice':
+      return issueInvoice(store, request.id, request.issueDate, { ledger: deps.ledger ?? null, ...(deps.now ? { now: deps.now } : {}) });
     case 'markPaid':
+      return markPaid(store, request.id, request.paidDate, { ledger: deps.ledger ?? null });
     case 'voidInvoice':
+      return voidInvoice(store, request.id, request.reason, { ledger: deps.ledger ?? null, ...(deps.now ? { now: deps.now } : {}) });
     case 'exportInvoicePdf':
+      return exportInvoicePdf(store, request.id, deps.pdf, deps.tmpDir ?? tmpdir());
     case 'linkBook':
+      return linkBook(store, request.bookId, deps.ledger ?? null);
     case 'ledgerSummary':
-      return { ok: false, kind: 'no-book', message: 'Link a book in Settings ▸ Company to use the ledger.' };
+      return ledgerSummary(store, deps.ledger ?? null, deps.now?.() ?? new Date());
 
     case 'projection': {
       const ws = store.snapshot().workspace;
@@ -180,10 +199,16 @@ export async function handleStartupRequest(
       const scenario =
         stored ?? (request.scenarioId === BASE_SCENARIO_ID ? { id: BASE_SCENARIO_ID, name: 'Base', costMultiplierBp: 10000, revenueMultiplierBp: 10000, extraLines: [] } : null);
       if (scenario === null) return { ok: false, kind: 'not-found', message: 'That scenario no longer exists.' };
-      const startMonth = new Date().toISOString().slice(0, 7);
+      const startMonth = (deps.now?.() ?? new Date()).toISOString().slice(0, 7);
+      // With a book linked its cash today replaces the typed opening cash; a book that will not answer falls back to it.
+      let openingCashMinor = ws.company.openingCash.minor;
+      if (deps.ledger && ws.ledger !== null) {
+        const cash = await deps.ledger.cashBalance(ws.ledger.bookId, (deps.now?.() ?? new Date()).toISOString().slice(0, 10));
+        if (cash.ok) openingCashMinor = cash.value.minor;
+      }
       return {
         ok: true,
-        value: projectRunway({ openingCashMinor: ws.company.openingCash.minor, startMonth, lines: ws.lines, scenario, months: request.months }),
+        value: projectRunway({ openingCashMinor, startMonth, lines: ws.lines, scenario, months: request.months }),
       };
     }
 

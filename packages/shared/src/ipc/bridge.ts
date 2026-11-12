@@ -28,7 +28,7 @@ import type { ToolApprovalHookInfo, ToolApprovalRequest, ToolApprovalResolved } 
 import type { CompanionDigest, CompanionSnapshot } from '../companion';
 import type { CommandId } from '../keybindings';
 import type { SuiteLinkLanding } from '../suite-link';
-import type { StartupChangedEvent, StartupRequest, StartupResult, StartupSnapshot } from '../startup';
+import type { StartupChangedEvent, StartupLedgerSummary, StartupPdfExport, StartupRequest, StartupResult, StartupSnapshot } from '../startup';
 import type { SuitePrefsSetRequest, SuitePrefsSetResponse, SuitePrefsSnapshot } from '../suite-prefs';
 import type { SongChat } from '../media-music-chat';
 import type { ModelLibraryMigrateResult, ModelLibraryNode } from '../media-model-library';
@@ -2339,9 +2339,9 @@ export type MidniteStudioBridge = {
     issueInvoice: (req: Omit<Extract<StartupRequest, { op: 'issueInvoice' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
     markPaid: (req: Omit<Extract<StartupRequest, { op: 'markPaid' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
     voidInvoice: (req: Omit<Extract<StartupRequest, { op: 'voidInvoice' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
-    exportInvoicePdf: (req: Omit<Extract<StartupRequest, { op: 'exportInvoicePdf' }>, 'op'>) => Promise<StartupResult<unknown>>;
+    exportInvoicePdf: (req: Omit<Extract<StartupRequest, { op: 'exportInvoicePdf' }>, 'op'>) => Promise<StartupResult<StartupPdfExport>>;
     linkBook: (req: Omit<Extract<StartupRequest, { op: 'linkBook' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
-    ledgerSummary: () => Promise<StartupResult<unknown>>;
+    ledgerSummary: () => Promise<StartupResult<StartupLedgerSummary>>;
     onChanged: (handler: (e: StartupChangedEvent) => void) => Unsubscribe;
   };
 

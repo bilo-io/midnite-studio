@@ -546,7 +546,7 @@ const RAW_APPS: readonly RawApp[] = [
     vision:
       'All the foundational tooling for early-stage companies: clear milestone roadmaps, live burn rate and runway modeling, and modular lightweight ERP.',
     home: view('landing'),
-    modules: [MODULES.startup],
+    modules: [MODULES.startup, MODULES.accountant],
     runsIn: 'studio',
     comingSoon: true,
   },
