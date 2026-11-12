@@ -2,12 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LuPlus, LuTrash2 } from 'react-icons/lu';
 
 import { useFrameChrome } from '@midnite/studio-frame';
+import type { SimScenario } from '@midnite/studio-shared';
 
+import { ScenarioPanel } from '../components/scenario-panel';
 import { SimCanvasFrame, Transport } from '../components/transport';
 import { useSim } from '../engine/sim-worker-factory';
 import type { TicksPerFrame } from '../engine/types';
 import { MAX_BODIES, type Body, type NBodyParams } from '../sims/nbody';
 import { NBODY_PRESETS, presetParams, type NBodyPresetId } from '../sims/nbody-presets';
+import { decodeNBodyState, parseNBodyParams } from '../sims/scenario-codec';
 import { createTrails } from '../sims/trails';
 import { NBodyScene, type CameraTarget, type NBodyStore } from './nbody-scene';
 
@@ -84,6 +87,37 @@ export function WorldsView() {
     store.current = { positions: new Float32Array(3 * params.bodies.length), trails: createTrails(params.bodies.length) };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // A loaded scenario's state is restored once the reset its params trigger has run.
+  const pending = useRef<unknown>(null);
+  const [loadTick, setLoadTick] = useState(0);
+  useEffect(() => {
+    if (pending.current === null) return;
+    const state = pending.current;
+    pending.current = null;
+    sim.restore(state);
+    // `sim` is a fresh object each render; only a load should restore.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadTick]);
+
+  const capture = async () => ({ seed, params: { ...params, presetId, bodyScale, trails }, state: await sim.serialise() });
+
+  const apply = (scenario: SimScenario): string | null => {
+    const nbody = parseNBodyParams(scenario.params);
+    if (scenario.kind !== 'nbody' || nbody === null) return 'invalid';
+    const extra = scenario.params as { presetId?: unknown; bodyScale?: unknown; trails?: unknown };
+    const state = scenario.state === undefined ? null : decodeNBodyState(scenario.state, nbody);
+    if (scenario.state !== undefined && state === null) return 'invalid';
+    const preset = NBODY_PRESETS.find((p) => p.id === extra.presetId)?.id ?? presetId;
+    setPresetId(preset);
+    setParams(nbody);
+    setSeed(scenario.seed);
+    if (typeof extra.bodyScale === 'number' && extra.bodyScale >= 1 && extra.bodyScale <= 1000) setBodyScale(extra.bodyScale);
+    if (typeof extra.trails === 'boolean') setTrails(extra.trails);
+    pending.current = state;
+    setLoadTick((n) => n + 1);
+    return null;
+  };
 
   const choose = (id: NBodyPresetId) => {
     const next = presetParams(id);
@@ -191,6 +225,7 @@ export function WorldsView() {
             <IconButton icon={LuPlus} label="Add body" onClick={addBody} disabled={atLimit} />
             {atLimit && <span className="text-xs text-muted-foreground">{MAX_BODIES} bodies is the limit</span>}
           </div>
+          <ScenarioPanel kinds={['nbody']} kind="nbody" capture={capture} apply={apply} />
         </aside>
       </div>
     </section>

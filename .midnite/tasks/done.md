@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 127 Theme F — Scenarios: save and load
+
+[PR #1157](https://github.com/bilo-io/midnite-studio/pull/1157). Versioned scenario schema, `simulator` channel and Trash-backed JSON store, and a scenario panel in the Emergence and Worlds views.
+
 ## 2026-11-12 — Phase 127 Theme E — Agent environments: flocking and predator–prey
 
 [PR #1156](https://github.com/bilo-io/midnite-studio/pull/1156). Spatial hash, boids and predator–prey engines, a Sparkline, and the Agent environments view with an environment toggle and parameter sliders.

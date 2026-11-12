@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { ScenarioPanel } from '../components/scenario-panel';
 import { Sparkline } from '../components/sparkline';
 import { SimCanvasFrame, Transport } from '../components/transport';
 import { useSim } from '../engine/sim-worker-factory';
 import type { TicksPerFrame } from '../engine/types';
 import { BOIDS_DEFAULTS, BOIDS_MAX, BOIDS_MIN, BOIDS_STRIDE, type BoidsParams } from '../sims/boids';
 import { AGENT_CAP, PREDPREY_DEFAULTS, PREDPREY_STRIDE, type PredPreyParams } from '../sims/predprey';
+import { decodeBoidsState, decodePredPreyState, parseBoidsParams, parsePredPreyParams } from '../sims/scenario-codec';
+import type { SimScenario } from '@midnite/studio-shared';
 import { AgentsScene, type AgentStoreRef } from './agents-scene';
 
 type Env = 'boids' | 'predprey';
@@ -67,6 +70,41 @@ export function AgentsView() {
     // `sim` is a fresh object each render; only these inputs should re-init.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params, seed]);
+
+  // A loaded scenario's state is restored once the reset its params trigger has run.
+  const pending = useRef<{ env: Env; state: unknown } | null>(null);
+  const [loadTick, setLoadTick] = useState(0);
+  useEffect(() => {
+    const p = pending.current;
+    if (p === null || p.env !== env) return;
+    pending.current = null;
+    sim.restore(p.state);
+    // `sim` is a fresh object each render; only a load should restore.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadTick]);
+
+  const capture = async () => ({ seed, params: { ...params }, state: await sim.serialise() });
+
+  const apply = (scenario: SimScenario): string | null => {
+    if (scenario.kind === 'boids') {
+      const next = parseBoidsParams(scenario.params);
+      const state = next === null || scenario.state === undefined ? null : decodeBoidsState(scenario.state, next);
+      if (next === null || (scenario.state !== undefined && state === null)) return 'invalid';
+      setEnv('boids');
+      setBoids(next);
+      pending.current = state === null ? null : { env: 'boids', state };
+    } else if (scenario.kind === 'predprey') {
+      const next = parsePredPreyParams(scenario.params);
+      const state = next === null || scenario.state === undefined ? null : decodePredPreyState(scenario.state);
+      if (next === null || (scenario.state !== undefined && state === null)) return 'invalid';
+      setEnv('predprey');
+      setPP(next);
+      pending.current = state === null ? null : { env: 'predprey', state };
+    } else return 'invalid';
+    setSeed(scenario.seed);
+    setLoadTick((n) => n + 1);
+    return null;
+  };
 
   const series = [
     { label: 'Prey', color: PREDPREY_COLOURS[0], values: history.current.prey },
@@ -156,6 +194,7 @@ export function AgentsView() {
               <Slider label="Eat gain" value={pp.eatGain} min={5} max={80} step={5} onChange={(eatGain) => setPP({ ...pp, eatGain })} />
             </>
           )}
+          <ScenarioPanel kinds={['boids', 'predprey']} kind={env} capture={capture} apply={apply} />
         </aside>
       </div>
     </section>

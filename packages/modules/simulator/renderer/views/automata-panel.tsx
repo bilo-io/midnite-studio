@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { ELEMENTARY_MAX_WIDTH, ELEMENTARY_MIN_WIDTH, type ElementaryParams } from '../sims/elementary';
 import { LIFE_PRESETS, parseRule, RULE_HINT, type LifeParams } from '../sims/life';
@@ -21,6 +21,8 @@ type Props = {
   /** Stamps a pattern at the grid centre; returns an error message when it cannot (too big, no grid yet). */
   onStamp(pattern: RlePattern): string | null;
   gridSize: [number, number];
+  /** Rendered at the foot of the panel (the scenario list). */
+  children?: ReactNode;
 };
 
 /** The side panel: mode toggle, rule, size, density, patterns and RLE paste (Phase 127 Theme C.4). */
@@ -178,6 +180,7 @@ export function AutomataPanel(p: Props) {
           </label>
         </>
       )}
+      {p.children}
     </aside>
   );
 }

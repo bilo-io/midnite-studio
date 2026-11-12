@@ -48,6 +48,7 @@ import type {
   SketchfabSearchResult,
   SketchfabStatusResult,
 } from '../media-animation';
+import type { SimKind, SimScenario, SimScenarioDraft, SimScenarioId, SimScenarioSummary } from '../simulator';
 import type { ScienceDiscipline, ScienceNotebook, ScienceNotebookId, ScienceNotebookSummary, ScienceCell } from '../science';
 import type { SfxGenerateRequest, SfxGenerateResult, SfxProgressEvent, SfxStatus } from '../media-sfx';
 import type { PerfMark } from '../perf';
@@ -124,6 +125,15 @@ export type ScienceBridge = {
   rename: (req: { id: ScienceNotebookId; title: string }) => Promise<GitOpResult>;
   remove: (req: { id: ScienceNotebookId }) => Promise<GitOpResult>;
   importStructure: () => Promise<GitOpResult<{ name: string; format: 'xyz' | 'pdb' | 'mol'; text: string } | { cancelled: true }>>;
+};
+
+/** `simulator`'s `op` union (Simulator scenarios, Phase 127), one typed method per op. */
+export type SimulatorBridge = {
+  list: (req?: { kind?: SimKind }) => Promise<GitOpResult<{ scenarios: SimScenarioSummary[]; quarantined: number }>>;
+  read: (req: { id: SimScenarioId }) => Promise<GitOpResult<{ scenario: SimScenario }>>;
+  save: (req: { id?: SimScenarioId; scenario: SimScenarioDraft }) => Promise<GitOpResult<{ scenario: SimScenario }>>;
+  rename: (req: { id: SimScenarioId; title: string }) => Promise<GitOpResult>;
+  remove: (req: { id: SimScenarioId }) => Promise<GitOpResult>;
 };
 
 /** `mediaAnimation`'s `op` union (Media ▸ Animations, Phase 125), one typed method per op. */
@@ -1096,6 +1106,9 @@ export type MidniteStudioBridge = {
 
   /** Science notebooks (Phase 126). Optional, like `suiteLink`: only the Science host carries it (Decision 4). */
   science?: ScienceBridge;
+
+  /** Simulator scenarios (Phase 127). Optional, like `science?`: only a host mounting the Simulator module carries it. */
+  simulator?: SimulatorBridge;
 
   /**
    * Where a launcher link asked this host to land (module and/or view). `take` hands over, once, what
