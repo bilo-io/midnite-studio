@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 128 Theme B — Health data store and IPC
+
+PR (see the Phase 128 B PR). `shared/src/health.ts` schemas and request union, the `health` channel and `HealthBridge`, a month-per-file store over `createJsonDirStore` with a write chain, IPC handlers that log no payload, and renderer data hooks (optimistic `usePutDay`). Also fixes the Health host's `registerSuiteMain` call for Phase 131 E.
+
 ## 2026-11-12 — Phase 128 Theme A — Health app and module scaffold
 
 PR (see the Phase 128 A PR). New `packages/modules/health` (manifest, five-row nav group, pane with empty views, main half and report-only bridge) and `apps/health` (host cloned from the Science scaffold: identity, `registerHealthHost` with a save dialog port, preload, rail, bundle script, icon, changelog); `health` added to every app/module id list, the release matrix and the changelog lists. Still "Coming soon" on the launcher.

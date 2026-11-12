@@ -50,9 +50,7 @@ data directory. Planned 2026-11-11; first slice is **A + B**, then **C + D**, **
 
 **Theme A — App and module scaffold.** ✅ PR (Phase 128 A PR) `apps/health` and `packages/modules/health` from the Science scaffold (itself the Mind host); `health` is in every id list (`MODULE_IDS`, `MODULE_HOST_IDS`, `APP_MODULES`, `MidniteAppId`, placement, `STUDIO_MODULES`, `NODE_PROJECTS`, tsconfig paths, launcher `MODULES.health` still `comingSoon`) and the release matrix and per-app changelog lists (Phase 131 added those, so `CHANGELOG_APP_IDS` and the feed titles gained `health` too). The five rail views are empty states; port 5196. The attribution test's "unlisted id" stand-in moved from `app-health` to `app-accountant`.
 
-**Theme B — Health data store and IPC.** ◻ Versioned schemas in a net-new `shared/src/health.ts`
-(profile, month logs, foods, plans), one `health` channel with an `op` union, and a main-side store on
-`createJsonDirStore` with one month per file and a per-store write queue.
+**Theme B — Health data store and IPC.** ✅ PR (Phase 128 B PR) `shared/src/health.ts` (schemas, `HealthRequestSchema`, `migrate*`, `healthMonthSpan`), the `health` channel and optional `HealthBridge`, `createHealthStore` on `createJsonDirStore` (one month per file, one promise chain for every mutation, corrupt single files and months quarantined), `registerHealthOn` (logs op and error code only) and the renderer hooks with an optimistic `usePutDay`. `exportAll` already writes the file (Theme G adds the UI and its test). The frame's `notify` has no `tone`, so the save-failure notice is title and body only. A also left `apps/health/main/index.ts` without the `app`/`appVersion` that Phase 131 E added to `registerSuiteMain`; fixed here.
 
 **Theme C — Profile and biometrics.** ◻ An all-optional profile (units, sex, birth year, height, activity,
 goal), a measurement log (weight, body fat, waist, resting heart rate, sleep), and pure BMI / BMR
@@ -201,7 +199,7 @@ guard test that keeps network calls out of the module.
 
 ### B — Health data store and IPC (M)
 
-- [ ] **B.1** Schemas in net-new `packages/shared/src/health.ts` (zod only, exported from the barrel). All
+- [x] **B.1** Schemas in net-new `packages/shared/src/health.ts` (zod only, exported from the barrel). All
   stored quantities are metric (Decision 3).
   - Keys: `HealthDateSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/)` (a local
     calendar date), `HealthMonthIdSchema = z.string().regex(/^log-\d{4}-(0[1-9]|1[0-2])$/)`,
@@ -242,7 +240,7 @@ guard test that keeps network calls out of the module.
   - Verified by net-new `packages/shared/src/health.test.ts`: each schema round-trips a valid fixture; a
     profile with no body fields parses; `weightKg: 401` fails; a month log `log-2026-11` holding day key
     `2026-12-01` fails; `repsMax < repsMin` fails; `plan-../x` fails; every `migrate*({ version: 2 })` is `null`.
-- [ ] **B.2** Request union, channel, bridge type.
+- [x] **B.2** Request union, channel, bridge type.
   - `HealthRequestSchema = z.discriminatedUnion('op', [ { op: 'getProfile' }, { op: 'putProfile', profile },
     { op: 'getMonths', from: YYYY-MM, to: YYYY-MM } (refined: `from <= to`, at most 36 months), { op:
     'putDay', date, day: HealthDaySchema }, { op: 'getFoods' }, { op: 'upsertFood', food }, { op:
@@ -262,7 +260,7 @@ guard test that keeps network calls out of the module.
   - `createHealthBridge` fills `health` with one `call(CHANNELS.health, { op, … })` per method.
   - Verified by `health.test.ts`: `getMonths` with `from > to` and with a 37-month span both fail; an
     unknown `op` fails.
-- [ ] **B.3** The store, `packages/modules/health/main/health-store.ts` (net-new).
+- [x] **B.3** The store, `packages/modules/health/main/health-store.ts` (net-new).
   - `export function createHealthStore(dataDir: string, trashItem: (path: string) => Promise<void>):
     HealthStore`, `dataDir = <userData>/data`. Layout: `profile.json`, `foods.json`, `logs/log-YYYY-MM.json`,
     `plans/plan-<12>.json`.
@@ -287,7 +285,7 @@ guard test that keeps network calls out of the module.
     `Promise.all` of two `putDay`s on different dates of one month keeps both; an emptied day removes its
     key; a corrupt `profile.json` is quarantined and `getProfile` answers `null`; a garbage `log-2026-10.json`
     is quarantined and counted; `eraseAll` calls `trashItem` with `dataDir`; files are mode `0o600`.
-- [ ] **B.4** IPC handlers, `packages/modules/health/main/context.ts` (net-new).
+- [x] **B.4** IPC handlers, `packages/modules/health/main/context.ts` (net-new).
   - `export function registerHealthOn(ctx: FeatureMainContext, services: HealthModuleServices): void` —
     `ctx.ipc.handle(CHANNELS.health, …)`: `HealthRequestSchema.safeParse`; a miss answers `{ ok: false,
     kind: 'error', message: 'Invalid request' }`; dispatch by `op` to the store; any thrown error is caught
@@ -303,7 +301,7 @@ guard test that keeps network calls out of the module.
     `{ ok: false, kind: 'error' }`; a store throw answers `{ ok: false }`; with a `console` spy, a failing
     `putDay` carrying `weightKg: 81.3` logs nothing containing `81.3`; a cancelled save dialog answers
     `cancelled: true`.
-- [ ] **B.5** Renderer data hooks, `renderer/data/use-health.ts` (net-new).
+- [x] **B.5** Renderer data hooks, `renderer/data/use-health.ts` (net-new).
   - `useProfile()`, `useMonths(from, to)`, `useFoods()`, `usePlans()` — TanStack Query over
     `window.midniteStudio.health` with keys `['health', 'profile']`, `['health', 'months', from, to]`, etc.;
     a `{ ok: false }` result throws inside the query fn so the view's `isError` branch renders.

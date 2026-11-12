@@ -1029,6 +1029,8 @@ export const CHANNELS = {
   mediaAnimation: 'mstudio:media:model-animation',
   /** Science notebooks (Phase 126) — one `op` union; see `ScienceRequestSchema`. */
   science: 'mstudio:science:notebook',
+  /** Health logs, foods and plans (Phase 128) — one `op` union; see `HealthRequestSchema`. */
+  health: 'mstudio:health:op',
   /** Simulator scenarios (Phase 127) — one `op` union; see `SimulatorRequestSchema`. */
   simulator: 'mstudio:simulator:scenario',
   /** Double-entry books (Phase 129) — one `op` union; see `LedgerRequestSchema`. */

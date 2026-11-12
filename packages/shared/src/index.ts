@@ -70,6 +70,7 @@ export * from './media-animation-sources';
 export * from './media-sfx';
 export * from './media-sfx-licence';
 export * from './media-sfx-mcp';
+export * from './health';
 export * from './science';
 export * from './money-amount';
 export * from './ledger';
