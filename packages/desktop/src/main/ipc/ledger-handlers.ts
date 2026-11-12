@@ -1,14 +1,16 @@
-import { createUnavailableLedgerService, ledgerMain } from '@midnite/studio-feature-ledger/main';
-import type { FeatureMainContext } from '@midnite/studio-runtime';
+import { join } from 'node:path';
 
-import { app, dialog } from 'electron';
+import { createLedgerService, ledgerMain } from '@midnite/studio-feature-ledger/main';
+import { runtimeDataDirectory, type FeatureMainContext } from '@midnite/studio-runtime';
+
+import { app, BrowserWindow, dialog } from 'electron';
 
 import { handle, handleBare, handleSend } from './handle';
 
 /**
  * The books IPC (Phase 129) is the ledger feature's main half; this is Studio's composition of it, as
- * `appId: 'studio'`. Returns what releases the books' writer locks on quit. Until the book store lands
- * (Theme C) the service answers every op `io`.
+ * `appId: 'studio'`. Returns what releases the books' writer locks on quit. The books live under the
+ * runtime's data directory, shared with every suite app that mounts the Accountant module.
  */
 export function registerLedgerHandlers(): () => Promise<void> {
   const ctx: FeatureMainContext = {
@@ -16,7 +18,14 @@ export function registerLedgerHandlers(): () => Promise<void> {
     emit: () => undefined,
     trashItem: () => Promise.reject(new Error('the ledger never trashes')),
   };
-  const service = createUnavailableLedgerService();
+  const service = createLedgerService({
+    root: join(runtimeDataDirectory(app.getPath('appData')), 'books'),
+    appId: 'studio',
+    send: (channel, payload) => {
+      for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.webContents.send(channel, payload);
+    },
+    warn: (message) => console.warn(message),
+  });
   ledgerMain.register(ctx, {
     service,
     appId: 'studio',
