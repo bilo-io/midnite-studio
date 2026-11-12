@@ -5,7 +5,7 @@ export type HealthHostElectron = IpcContextElectron & { userData: string; showSa
 
 /**
  * Mounts the Health host's modules (Phase 128 Theme A.4) through `mountModuleMains`. A list of one:
- * Phase 127 appends the Simulator mount and nothing else.
+ * Health is a one-module host.
  */
 export function registerHealthHost(el: HealthHostElectron): void {
   const mounts: ModuleMount[] = [
