@@ -45,6 +45,8 @@
       "@midnite/studio-module-browser/bridge": ["./packages/modules/browser/main/bridge.ts"],
       "@midnite/studio-module-mind/main": ["./packages/modules/mind/main/index.ts"],
       "@midnite/studio-module-mind/bridge": ["./packages/modules/mind/main/bridge.ts"],
+      "@midnite/studio-module-health/main": ["./packages/modules/health/main/index.ts"],
+      "@midnite/studio-module-health/bridge": ["./packages/modules/health/main/bridge.ts"],
       "@midnite/studio-module-science/main": ["./packages/modules/science/main/index.ts"],
       "@midnite/studio-module-science/bridge": ["./packages/modules/science/main/bridge.ts"],
       "@midnite/studio-module-simulator/main": ["./packages/modules/simulator/main/index.ts"],

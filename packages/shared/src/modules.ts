@@ -24,6 +24,7 @@ export const MODULE_IDS = [
   'accountant',
   'science',
   'simulator',
+  'health',
   'browser',
   'startup',
   'studio',
@@ -40,6 +41,7 @@ export const MODULE_HOST_IDS = [
   'mind',
   'money',
   'science',
+  'health',
   'browser',
   'startup',
 ] as const;
@@ -57,6 +59,7 @@ export const APP_MODULES: Record<ModuleHostId, readonly ModuleId[]> = {
   science: ['science', 'simulator'],
   browser: ['browser'],
   startup: ['startup', 'accountant'],
+  health: ['health'],
 };
 
 /** Apps merged into a host by Phase 124. */

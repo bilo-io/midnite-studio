@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 128 Theme A — Health app and module scaffold
+
+PR (see the Phase 128 A PR). New `packages/modules/health` (manifest, five-row nav group, pane with empty views, main half and report-only bridge) and `apps/health` (host cloned from the Science scaffold: identity, `registerHealthHost` with a save dialog port, preload, rail, bundle script, icon, changelog); `health` added to every app/module id list, the release matrix and the changelog lists. Still "Coming soon" on the launcher.
+
 ## 2026-11-12 — Phase 130 Theme G — Verification and the catalog flip
 
 PR (see the Phase 130 G PR). `suite-shell/startup.spec.ts` (arrow endpoints on bar edges, first-run form, shots), Startup out of `comingSoon` in the launcher with its two modules, a website listing, `lineNet` symmetric for negative products. Packaged-app pass left for a human.

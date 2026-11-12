@@ -165,6 +165,7 @@ export const CHANGELOG_TITLES = {
   agents: 'Midnite Agents',
   browser: 'Midnite Browser',
   gamer: 'Midnite Gamer',
+  health: 'Midnite Health',
   media: 'Midnite Media',
   mind: 'Midnite Mind',
   money: 'Midnite Money',
