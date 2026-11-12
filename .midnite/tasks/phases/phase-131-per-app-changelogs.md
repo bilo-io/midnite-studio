@@ -61,7 +61,7 @@ shows the result in the launcher (per app, plus its own) and in a version pill i
 suite apps (seeded with `[Unreleased]` and a curated 0.0.6 section), and `release.ts` naming each app's source path,
 feed folder, raw URL, page URL and release page, pinned by a guard test.
 
-**Theme B — Release-prep drafts every app's section.** ◻ A path-to-app attribution script over the moon `app-<id>`
+**Theme B — Release-prep drafts every app's section.** ✅ [#1162](https://github.com/bilo-io/midnite-studio/pull/1162) A path-to-app attribution script over the moon `app-<id>`
 tags, the release-prep skill drafting one section per app (a one-line maintenance entry when nothing changed), and a
 release-time warning when a file has no section for the tag.
 
@@ -131,7 +131,7 @@ published yet." rather than as an error.
 
 ### B — Release-prep drafts every app's section (M)
 
-- [ ] Net-new `scripts/changelog-attribution.mjs`, self-contained (node builtins, no `@midnite/*`), like `affected-apps.mjs`
+- [x] Net-new `scripts/changelog-attribution.mjs`, self-contained (node builtins, no `@midnite/*`), like `affected-apps.mjs`
   - `readProjectTags(repoRoot): Map<string, string[]>` — every `moon.yml` under `apps/*` and `packages/**` (skipping
     `node_modules`), keyed by its directory relative to the root, value the `app-*` entries of its `tags:` list (parsed
     line by line: a `tags:` key, then `- 'x'` / `- x` items until the next un-indented key).
@@ -149,12 +149,12 @@ published yet." rather than as an error.
     per the repo's git-parsing rule). Prints the JSON. `--base` missing → exit 1 with usage.
   - The two literal lists are pinned to shared by the test (`RETIRED_SUITE_APP_HOSTS` and `CHANGELOG_APP_IDS` read from
     source with a regex), the way `affected-apps.test.mjs` pins `PLACEMENT_APPS`.
-- [ ] Net-new `scripts/changelog-attribution.test.mjs` with an in-memory `projects` map
+- [x] Net-new `scripts/changelog-attribution.test.mjs` with an in-memory `projects` map
   - `packages/modules/coder/main/x.ts` tagged `app-agents` → `agents`; tagged `app-coder` → `agents` (retired id);
     `packages/frame/src/a.tsx` tagged `app-all` → every id with `suite: true`; `README.md` → nothing;
     `apps/launcher/src/main/ipc.ts` → `launcher`; a nested project (`packages/features/media-core` inside `packages/features`)
     resolves to the deeper one.
-- [ ] Release-prep skill drafts per-app sections — [`.claude/skills/midnite-release-prep/SKILL.md`](../../../.claude/skills/midnite-release-prep/SKILL.md)
+- [x] Release-prep skill drafts per-app sections — [`.claude/skills/midnite-release-prep/SKILL.md`](../../../.claude/skills/midnite-release-prep/SKILL.md)
   and its mirrors `.agents/skills/midnite-release-prep/SKILL.md`, `.codex/skills/midnite-release-prep/SKILL.md` (same edit in all three)
   - After "Draft the changelog": run `node scripts/changelog-attribution.mjs --base <base-tag>`; for each id in
     `CHANGELOG_APP_IDS` other than `studio`, move that file's `[Unreleased]` content into `## [X.Y.Z] - YYYY-MM-DD` and add
@@ -166,10 +166,10 @@ published yet." rather than as an error.
     the running version instead of "No published notes".
   - Re-seed each file's empty `## [Unreleased]`. Commit the app files in the same `chore(release): prepare vX.Y.Z` commit.
   - The ephemeral-release path (no changelog edits) is unchanged.
-- [ ] Release-complete skill — [`.claude/skills/midnite-release-complete/SKILL.md`](../../../.claude/skills/midnite-release-complete/SKILL.md) (+ `.agents/`, `.codex/` mirrors)
+- [x] Release-complete skill — [`.claude/skills/midnite-release-complete/SKILL.md`](../../../.claude/skills/midnite-release-complete/SKILL.md) (+ `.agents/`, `.codex/` mirrors)
   - Its precondition list gains: `node scripts/changelog-sections-check.mjs X.Y.Z` prints no warning. Its §4 "what a
     release writes in the feed repo" list gains `midnite-<id>/CHANGELOG.md` for every app.
-- [ ] Net-new `scripts/changelog-sections-check.mjs` `<version>`
+- [x] Net-new `scripts/changelog-sections-check.mjs` `<version>`
   - Imports `extractChangelogSection` and `CHANGELOG_APP_IDS` from `packages/shared/dist/release.js` (like the mirror script).
   - For each id: no `## [<version>]` in `changelogSourcePath(id)` → print
     `::warning::<path> has no section for <version>; its in-app notes will be empty`. Always exits 0 — a missing
@@ -404,8 +404,8 @@ published yet." rather than as an error.
 - [ ] `moon run :typecheck :lint :test` green in CI (the local gate is not run on this machine; CI gates).
 - [x] `release.test.ts`: the helper outputs and the two legacy constants (A).
 - [x] `changelog-files.test.mjs`: id list equals the app directories; every file has one `[Unreleased]` and parseable headings (A).
-- [ ] `changelog-attribution.test.mjs`: module, retired-id, `app-all`, unowned-file and nested-project cases (B).
-- [ ] `changelog-sections-check.test.mjs`: one warning for the file without the section, exit 0 (B).
+- [x] `changelog-attribution.test.mjs`: module, retired-id, `app-all`, unowned-file and nested-project cases (B).
+- [x] `changelog-sections-check.test.mjs`: one warning for the file without the section, exit 0 (B).
 - [ ] `publish-feed-changelog.test.mjs`: ordering, idempotence, fallback date, skeleton creation (C).
 - [ ] Launcher `changelog.test.ts`, `changelog.test.tsx`, `app.test.tsx`: per-app URL and cache, 404 as empty, dialog title per app (D).
 - [ ] `release-notes.test.ts`, `suite-main.test.ts`, the window/preload version round-trip (E).
