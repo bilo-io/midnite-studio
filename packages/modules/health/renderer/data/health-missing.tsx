@@ -1,5 +1,3 @@
-import { healthBridge } from './use-health';
-
 /** Studio carries no Health bridge: a view shows this instead of crashing. */
 export function HealthMissing() {
   return (
@@ -8,5 +6,3 @@ export function HealthMissing() {
     </div>
   );
 }
-
-export const hasHealthBridge = (): boolean => healthBridge() !== undefined;
