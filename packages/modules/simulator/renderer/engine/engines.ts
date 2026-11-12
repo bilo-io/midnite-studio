@@ -1,11 +1,14 @@
+import { createElementaryEngine } from '../sims/elementary';
+import { createLifeEngine } from '../sims/life';
 import { createNBody } from '../sims/nbody';
-
 import type { EngineFactories } from './types';
 
 /**
- * The worker's engine table. Themes C (life, elementary), D (nbody) and E (boids, predprey) register theirs
- * here; a kind with no entry answers `init` with an error frame instead of throwing.
+ * The worker's engine table. Theme C registers life and elementary, D registers nbody; E (boids, predprey)
+ * adds its own here. A kind with no entry answers `init` with an error message instead of throwing.
  */
 export const ENGINE_FACTORIES: EngineFactories = {
+  life: createLifeEngine,
+  elementary: createElementaryEngine,
   nbody: () => createNBody() as never,
 };

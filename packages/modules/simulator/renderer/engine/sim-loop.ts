@@ -1,4 +1,4 @@
-import type { EngineFactories, SimEngine, SimIn, SimOut, TicksPerFrame } from './types';
+import type { AnySimEngine, EngineFactories, SimEngine, SimIn, SimOut, TicksPerFrame } from './types';
 
 /** Most whole ticks one 60 Hz interval runs; past it ticks are dropped rather than spiralling. */
 export const MAX_TICKS_PER_INTERVAL = 8;
@@ -20,7 +20,7 @@ export type SimLoopHost = {
  * stepping and the next free buffer carries the latest state.
  */
 export function createSimLoop(host: SimLoopHost) {
-  let engine: SimEngine<never, never> | null = null;
+  let engine: AnySimEngine | null = null;
   let playing = false;
   let stop: (() => void) | null = null;
   let ticksPerFrame: TicksPerFrame = 1;
