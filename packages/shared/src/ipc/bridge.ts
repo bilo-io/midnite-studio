@@ -49,6 +49,10 @@ import type {
   SketchfabStatusResult,
 } from '../media-animation';
 import type { SimKind, SimScenario, SimScenarioDraft, SimScenarioId, SimScenarioSummary } from '../simulator';
+import type {
+  ImportMapping, ImportCommitRow, JournalEntry, LedgerAccountInput, LedgerBook, LedgerPostInput, LedgerReportKind,
+  LedgerResult, TaxJurisdictionId, LedgerEntity, LedgerAccount,
+} from '../ledger';
 import type { ScienceDiscipline, ScienceNotebook, ScienceNotebookId, ScienceNotebookSummary, ScienceCell } from '../science';
 import type { SfxGenerateRequest, SfxGenerateResult, SfxProgressEvent, SfxStatus } from '../media-sfx';
 import type { PerfMark } from '../perf';
@@ -135,6 +139,28 @@ export type SimulatorBridge = {
   rename: (req: { id: SimScenarioId; title: string }) => Promise<GitOpResult>;
   remove: (req: { id: SimScenarioId }) => Promise<GitOpResult>;
 };
+
+/** `ledger`'s `op` union (Double-entry books, Phase 129), one typed method per op. Every method answers `LedgerResult`. */
+export type LedgerBridge = {
+  listBooks: () => Promise<LedgerResult<{ books: LedgerBookSummary[] }>>;
+  createBook: (req: { name: string; entity: LedgerEntity; currency: string; fiscalYearStart: { month: number; day: number }; template: LedgerEntity }) => Promise<LedgerResult<{ book: LedgerBook }>>;
+  updateBook: (req: { bookId: string; patch: { name?: string; lockedThrough?: string | null; jurisdiction?: TaxJurisdictionId | null } }) => Promise<LedgerResult<{ book: LedgerBook }>>;
+  upsertAccount: (req: { bookId: string; account: LedgerAccountInput }) => Promise<LedgerResult<{ account: LedgerAccount }>>;
+  archiveAccount: (req: { bookId: string; accountId: string }) => Promise<LedgerResult<{ account: LedgerAccount }>>;
+  post: (req: { bookId: string; entry: LedgerPostInput }) => Promise<LedgerResult<{ entry: JournalEntry }>>;
+  reverse: (req: { bookId: string; entryId: string; date: string; reason: string }) => Promise<LedgerResult<{ entry: JournalEntry }>>;
+  journal: (req: { bookId: string; from?: string; to?: string; accountId?: string; query?: string; cursor?: string; limit?: number }) => Promise<LedgerResult<{ entries: JournalEntry[]; nextCursor: string | null }>>;
+  balances: (req: { bookId: string; asOf: string }) => Promise<LedgerResult<{ balances: { accountId: string; debit: number; credit: number }[] }>>;
+  report: (req: { bookId: string; kind: LedgerReportKind; from: string; to: string }) => Promise<LedgerResult<unknown>>;
+  exportReport: (req: { bookId: string; kind: LedgerReportKind; from: string; to: string }) => Promise<LedgerResult<{ path: string | null }>>;
+  importPick: (req: { bookId: string }) => Promise<LedgerResult<{ token: string; header: string[]; sample: string[][] } | null>>;
+  importPreview: (req: { bookId: string; mapping: ImportMapping }) => Promise<LedgerResult<unknown>>;
+  importCommit: (req: { bookId: string; mapping: ImportMapping; rows: ImportCommitRow[] }) => Promise<LedgerResult<{ posted: number; duplicates: number; failed: { index: number; reason: string }[] }>>;
+  taxEstimate: (req: { bookId: string; taxYear: number }) => Promise<LedgerResult<unknown>>;
+};
+
+/** A book as the picker lists it: no accounts, plus whether this process can write it. */
+export type LedgerBookSummary = Pick<LedgerBook, 'id' | 'name' | 'entity' | 'currency'> & { readOnly: boolean; revision: number };
 
 /** `mediaAnimation`'s `op` union (Media ▸ Animations, Phase 125), one typed method per op. */
 export type AnimationBridge = {
@@ -1109,6 +1135,9 @@ export type MidniteStudioBridge = {
 
   /** Simulator scenarios (Phase 127). Optional, like `science?`: only a host mounting the Simulator module carries it. */
   simulator?: SimulatorBridge;
+
+  /** Double-entry books (Phase 129). Optional: only a host mounting the Accountant module carries it. */
+  ledger?: LedgerBridge;
 
   /**
    * Where a launcher link asked this host to land (module and/or view). `take` hands over, once, what

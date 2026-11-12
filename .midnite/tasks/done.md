@@ -15689,3 +15689,7 @@ A `midnite://open?app=<host>&module=…&view=…` link (and a retired id such as
 ### Ad hoc — `/midnite-sanitize` security-audit skill (2026-11-01)
 
 A new skill audits a third-party skill, plugin, MCP server or repo before install (or `--installed` / `--self`) without running its code. It clones into the scratchpad with checkout hooks off, checks provenance, runs a stdlib-only `scan.py` (agent-surface files, invisible/bidi text, HTML comments, injection phrases, `allowed-tools` breadth, trigger collisions with installed skills, network/exec/credential/persistence/obfuscation sites, symlinks escaping the tree), requires a manual read of every SKILL.md and spawn site, reports a verdict plus what it does that it doesn't advertise, then interviews the user about a pinned install. It is mirrored in `.claude`/`.agents`/`.codex` with a copies test, and the midnite menu shows it as **Reviews ▸ Sanitize** (`sanitize` → `/midnite-sanitize`).
+
+### Phase 129 Theme B — Money amounts and the ledger contract (2026-11-12)
+
+`shared/src/money-amount.ts` (integer minor units, string-based `parseAmount`, BigInt `percentOfMinor`, largest-remainder `allocateMinor`) and `shared/src/ledger.ts` (accounts, books, balanced journal entries, the `ledger` op union with a manual-only renderer `post`, `LedgerResult`), plus `CHANNELS.ledger`, `EVENT_CHANNELS.ledgerChanged` and an optional `ledger` bridge. Vitest in shared; no e2e.
