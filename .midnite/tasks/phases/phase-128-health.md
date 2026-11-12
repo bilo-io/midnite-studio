@@ -48,9 +48,7 @@ eat and what you lift, get a calorie target and a next-session prescription work
 history, and watch the trend lines — with every byte in four kinds of private JSON file under the app's
 data directory. Planned 2026-11-11; first slice is **A + B**, then **C + D**, **E**, **F**, **G**, and **H** last.
 
-**Theme A — App and module scaffold.** ◻ `apps/health` and `packages/modules/health` from the Mind host and
-the module template; `health` joins `MODULE_IDS`, `MODULE_HOST_IDS`, `APP_MODULES` and every other id list;
-the bundle joins the release matrix; a five-row rail with empty views. Still "Coming soon" on the launcher.
+**Theme A — App and module scaffold.** ✅ PR (Phase 128 A PR) `apps/health` and `packages/modules/health` from the Science scaffold (itself the Mind host); `health` is in every id list (`MODULE_IDS`, `MODULE_HOST_IDS`, `APP_MODULES`, `MidniteAppId`, placement, `STUDIO_MODULES`, `NODE_PROJECTS`, tsconfig paths, launcher `MODULES.health` still `comingSoon`) and the release matrix and per-app changelog lists (Phase 131 added those, so `CHANGELOG_APP_IDS` and the feed titles gained `health` too). The five rail views are empty states; port 5196. The attribution test's "unlisted id" stand-in moved from `app-health` to `app-accountant`.
 
 **Theme B — Health data store and IPC.** ◻ Versioned schemas in a net-new `shared/src/health.ts`
 (profile, month logs, foods, plans), one `health` channel with an `op` union, and a main-side store on
@@ -90,7 +88,7 @@ guard test that keeps network calls out of the module.
 
 ### A — App and module scaffold (L)
 
-- [ ] **A.1** Create `packages/modules/health/` from the template.
+- [x] **A.1** Create `packages/modules/health/` from the template.
   - Copy [`packages/modules/_template/`](../../../packages/modules/_template/) to `packages/modules/health/`
     (net-new), drop `.tmpl`, replace `__ID__` → `health`, `__LABEL__` → `Health`. `package.json` keeps
     `"zod": "^4.0.0"` (126 A.1 fixed the template).
@@ -100,7 +98,7 @@ guard test that keeps network calls out of the module.
   - `moon.yml`: `id: 'module-health'`, tags `layer-module`, `app-health`, `app-studio`.
   - Verified by `packages/modules/health/manifest.test.ts`: `healthManifest.module === 'health'`,
     `MODULE_IDS` contains it, and `APP_MODULES.health` equals `['health']`.
-- [ ] **A.2** Shared id lists (the board's wiring contract; append, never reorder).
+- [x] **A.2** Shared id lists (the board's wiring contract; append, never reorder).
   - [`shared/src/modules.ts`](../../../packages/shared/src/modules.ts): insert `'health'` into `MODULE_IDS`
     directly after `'simulator'` (with the other suite modules; no test pins the order) and into
     `MODULE_HOST_IDS` after `'science'`; add `health: ['health']` to `APP_MODULES`. `studio: MODULE_IDS`
@@ -127,7 +125,7 @@ guard test that keeps network calls out of the module.
     → `.map((m) => m.id)` equals `['health']`; the `MODULE_HOST_IDS` loop (lines 25–28) now covers Health.
   - Verified by the existing `midnite-link.test.ts`, `placement.test.ts`, `affected-apps.test.mjs`,
     `composition.test.ts`, `catalog.test.ts` and `scripts/gate-projects-check.test.mjs` passing with the new ids.
-- [ ] **A.3** The module's renderer entry: nav group, pane, chrome.
+- [x] **A.3** The module's renderer entry: nav group, pane, chrome.
   - `renderer/health-nav.ts` (net-new): `export const HEALTH_NAV_GROUP: NavGroup = { id: 'health', label:
     healthManifest.label, icon: PiHeartbeatFill, accent: healthManifest.accent, views: [ { id: 'today',
     label: 'Today', icon: LuLayoutDashboard }, { id: 'biometrics', label: 'Biometrics', icon: LuScale },
@@ -147,7 +145,7 @@ guard test that keeps network calls out of the module.
   - `renderer/index.ts` exports `HEALTH_NAV_GROUP`, `HEALTH_APP`, `HealthPane`, `HEALTH_CHROME`, `healthManifest`.
   - Verified by `renderer/health-nav.test.ts`: every rail icon is a function (names resolve) and
     `navConfigProblems({ groups: [HEALTH_NAV_GROUP] })` is `[]`.
-- [ ] **A.4** The module's main half and bridge.
+- [x] **A.4** The module's main half and bridge.
   - `main/module.ts` (net-new): `export type ShowSaveDialog = (opts: { defaultPath: string; filters: { name:
     string; extensions: string[] }[] }) => Promise<{ canceled: boolean; filePath?: string }>`;
     `export type HealthModuleServices = { userData: string; showSaveDialog?: ShowSaveDialog }`;
@@ -159,7 +157,7 @@ guard test that keeps network calls out of the module.
   - `package.json` exports `"./bridge": "./main/bridge.ts"` (source, as `modules/mind/package.json`).
   - Verified by `main/bridge.test.ts`: top-level keys are exactly `['report']` after A and
     `['health', 'report']` (sorted) after B.
-- [ ] **A.5** `apps/health/` from `apps/mind/`.
+- [x] **A.5** `apps/health/` from `apps/mind/`.
   - Net-new, each copied from its `apps/mind` twin and renamed: `package.json` (`"name":
     "@midnite/app-health"`, `"version"` equal to `apps/money/package.json`'s — `scripts/version-check.mjs`
     keeps `apps/*` in lockstep), `moon.yml` (`id: 'app-health'`, tags `layer-app`, `app-health`, `dependsOn`
@@ -193,7 +191,7 @@ guard test that keeps network calls out of the module.
   - Verified by `apps/health/main/identity.test.ts` (path, override, smoke flag), `main/host.test.ts`
     (`createRecordingContext()`: registered channels equal `healthModuleMain.channels`) and
     `src/host-app.test.tsx` (rail shows the "Health" group with its five rows).
-- [ ] **A.6** Release wiring.
+- [x] **A.6** Release wiring.
   - [`scripts/release-bundles.test.mjs`](../../../scripts/release-bundles.test.mjs): `describe('apps/health
     (Phase 128)')` mirroring Money's (line 68) — `bundleMatrix(apps, has).include` contains `{ app: 'health',
     project: 'app-health', dir: 'apps/health' }` and `apps/health/resources/icon.icns` starts with the

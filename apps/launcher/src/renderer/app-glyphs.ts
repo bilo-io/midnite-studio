@@ -69,6 +69,7 @@ export const MODULE_GLYPHS: Record<ModuleId, IconType> = {
   accountant: PiCalculatorFill,
   science: PiFlaskFill,
   simulator: PiPlanetFill,
+  health: PiHeartbeatFill,
   browser: PiGlobeFill,
   startup: PiBuildingsFill,
   studio: PiRocketLaunchFill,

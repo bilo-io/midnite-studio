@@ -45,7 +45,7 @@ describe('appsForFile', () => {
     expect([...appsForFile('packages/features/media-core/a.ts', projects)]).toEqual(['media']);
   });
   it('drops ids outside the changelog list', () => {
-    const p = new Map([['packages/x', ['app-simulator', 'app-health']]]);
+    const p = new Map([['packages/x', ['app-simulator', 'app-accountant']]]);
     expect(appsForFile('packages/x/a.ts', p).size).toBe(0);
   });
 });
