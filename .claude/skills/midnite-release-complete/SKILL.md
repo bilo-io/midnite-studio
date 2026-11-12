@@ -32,6 +32,7 @@ Gather, and **stop with a clear message** on the first failure (nothing has chan
 - **Changelog ready (standard release only):** this repo's `extractChangelogSection(markdown, version)` ([`release.ts`](../../../packages/shared/src/release.ts)) returns just the section body as `string | null` — no `.date` field — so check both halves directly: `extractChangelogSection(CHANGELOG.md, 'X.Y.Z')` is non-null and non-empty, AND the changelog literally has a dated heading for that version (`## [X.Y.Z] - YYYY-MM-DD`, not `## [Unreleased]` — grep the heading text). Either missing means `/midnite-release-prep` wasn't finished — stop. (Skipped for ephemeral releases.)
 - **GitHub secret present:** verify `RELEASES_REPO_TOKEN` exists via `gh secret list --repo bilo-io/midnite-studio`. If absent, stop — `.github/workflows/release.yml` will fail to publish assets to `bilo-io/midnite-apps`.
 - **Dry run green:** `gh workflow run release.yml --ref <release branch> -f dry_run=true` has completed successfully on this version (it builds everything and publishes nothing; `workflow_dispatch` runs the workflow file on that ref). Required after any toolchain bump (Electron, node) since `launcher:dist` and the bundle builds otherwise only run in `release.yml`; look at the run summary for the packed bundles and the Browser Chromium-floor outcome. `release.yml`'s own `meta` job also refuses to start unless every `apps/*` and `packages/desktop` version equals the tag's.
+- **Every app has a section (warn only):** `pnpm exec moon run shared:build && node scripts/changelog-sections-check.mjs X.Y.Z` prints no `::warning::` (standard release only). A warning means that app's in-app notes will be empty; it never blocks the release, but fix it on the branch first.
 - **Green:** `moon ci` passes. (Run it; don't trust a stale cache for the gate.)
 
 ## 2 · Plan the tags & show the go/no-go — STOP for the human
@@ -101,6 +102,7 @@ never a bare `vX.Y.Z`, which would collide with another app's.
   - **`midnite-launcher/feed/latest-mac.yml`** (the launcher's own `generic` updater feed) and
     **`midnite-launcher/version.json`** — the latter written by midnite-apps' `release-feed.yml`,
     which only happens when `midnite-launcher` is registered in its `apps.json`.
+  - **`midnite-<id>/CHANGELOG.md` for the launcher and every app:** mirrored by `publish-suite` (Phase 131 Theme C), which back-fills any released section the feed lacks; check the ten files exist and carry `X.Y.Z`.
   - **`midnite-studio/CHANGELOG.md`:** the same job's changelog-mirror step. If this version's
     section was genuinely empty (a patch of docs/chore-only commits), `has_section=false` in the
     job's own output is the expected outcome, not a failure to chase.

@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 131 Theme B — Release-prep drafts every app's section
+
+[PR #1162](https://github.com/bilo-io/midnite-studio/pull/1162). `changelog-attribution.mjs` (commits to apps via moon `app-<id>` tags), per-app drafting in the release-prep skill, and a warn-only `changelog-sections-check.mjs` step in `publish-feed`.
+
 ## 2026-11-12 — Phase 131 Theme A — Per-app changelog files and the shared contract
 
 [PR #1161](https://github.com/bilo-io/midnite-studio/pull/1161). `CHANGELOG_APP_IDS` and per-app path/URL helpers in `release.ts`, ten new `apps/<id>/CHANGELOG.md` files (0.0.6 back-filled), and `changelog-files.test.mjs` guarding them.

@@ -735,6 +735,11 @@ jobs:
       - name: Build shared
         run: pnpm exec moon run shared:build
 
+      # Phase 131 Theme B: warn (never fail) for any app changelog with no section for this
+      # version — its in-app release notes would be empty. Always exits 0.
+      - name: Check every app changelog has a section
+        run: node scripts/changelog-sections-check.mjs "${{ needs.meta.outputs.version }}"
+
       - name: Download the manifest built earlier
         uses: actions/download-artifact@v8
         with:
