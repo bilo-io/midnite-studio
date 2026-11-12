@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 127 Theme C — Emergence: cellular automata
+
+[PR #1155](https://github.com/bilo-io/midnite-studio/pull/1155). Life-like and elementary engines, RLE parser and built-in patterns, the Emergence view with drawing, zoom/pan and a settings panel.
+
 ## 2026-11-12 — Phase 127 Theme B — Simulation runtime
 
 [PR #1152](https://github.com/bilo-io/midnite-studio/pull/1152). Engine contract, seeded PRNG, fixed-timestep worker loop with buffer ping-pong, `useSim`, transport bar; `Math.random` banned in sim code.
