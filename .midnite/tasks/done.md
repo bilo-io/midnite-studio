@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 131 Theme A — Per-app changelog files and the shared contract
+
+[PR #1161](https://github.com/bilo-io/midnite-studio/pull/1161). `CHANGELOG_APP_IDS` and per-app path/URL helpers in `release.ts`, ten new `apps/<id>/CHANGELOG.md` files (0.0.6 back-filled), and `changelog-files.test.mjs` guarding them.
+
 ## 2026-11-12 — Phase 127 Theme G — Launch
 
 [PR #1158](https://github.com/bilo-io/midnite-studio/pull/1158). Simulator no longer coming soon in the launcher; APPS.md and the website's Science entry updated.
