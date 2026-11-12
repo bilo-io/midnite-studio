@@ -250,6 +250,7 @@ export function createImportService(opts: ImportServiceOptions): ImportService {
             },
           },
           { app: appId, kind: 'import', ref },
+          { silent: true },
         );
         if (!posted.ok) {
           result.failed.push({ index: pick.index, reason: posted.message });
@@ -259,7 +260,9 @@ export function createImportService(opts: ImportServiceOptions): ImportService {
         else result.posted += 1;
         if (pick.remember) remember.push({ contains: row.description, accountId: category.id });
       }
-      if (remember.length > 0) await service.addImportRules(bookId, remember);
+      if (remember.length > 0) await service.addImportRules(bookId, remember, { silent: true });
+      // One event for the whole batch, not one per row: a 2,000-row statement must not trigger 2,000 refetches.
+      if (result.posted > 0 || remember.length > 0) await service.notifyChanged(bookId);
       return { ok: true, value: result };
     },
   };
