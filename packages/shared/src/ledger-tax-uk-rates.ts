@@ -12,7 +12,8 @@
  *  - Payments on account: https://www.gov.uk/understand-self-assessment-bill/payments-on-account
  *
  * 2026-27 was read from those pages on 2026-11-12. 2025-26 carries the same figures, as listed in the
- * Phase 129 spec; GOV.UK's live pages now show only the current year, so it was not re-read there.
+ * Phase 129 spec; GOV.UK's live pages now show only the current year, so it was not re-read there and its
+ * `checkedOn` names the spec instead of a date.
  * Corporation tax is by financial year: the `2025-26` row is the financial year starting 1 April 2025.
  */
 export type UkRates = {
@@ -65,5 +66,5 @@ const COMMON = {
 
 export const UK_RATES: Readonly<Record<string, UkRates>> = {
   '2026-27': { ...COMMON, startYear: 2026, source: { url: 'https://www.gov.uk/income-tax-rates', checkedOn: '2026-11-12' } },
-  '2025-26': { ...COMMON, startYear: 2025, source: { url: 'https://www.gov.uk/income-tax-rates', checkedOn: '2026-11-11' } },
+  '2025-26': { ...COMMON, startYear: 2025, source: { url: 'https://www.gov.uk/income-tax-rates', checkedOn: 'the Phase 129 spec' } },
 };

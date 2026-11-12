@@ -360,6 +360,14 @@ function pinnedItem(view: ViewId): NavItem {
 const PINNED_ITEM: NavItem = pinnedItem('dashboard');
 
 /**
+ * Books, pinned directly under Dashboard (Phase 129 Theme H).
+ *
+ * The `books` view and its rail entry (`PINNED_NAV_ITEMS`) landed in Theme A, but the row was never drawn, so
+ * Studio had no way to open it. Global like Notes: books are files on this computer, not a checkout's.
+ */
+const BOOKS_ITEM: NavItem = pinnedItem('books');
+
+/**
  * Notes, pinned directly under Dashboard (Phase 86 Theme E).
  *
  * Same reasoning as `PINNED_ITEM`: a note is not scoped to one section of a
@@ -425,6 +433,7 @@ const SESSIONS_ITEM: NavItem = pinnedItem('sessions');
  */
 export const ALL_NAV_ITEMS: NavItem[] = [
   PINNED_ITEM,
+  BOOKS_ITEM,
   NOTES_ITEM,
   CHATS_ITEM,
   SESSIONS_ITEM,
@@ -1224,6 +1233,7 @@ function Shell() {
       // job, not this array's.
       pinned: [
         visibleNavItem(PINNED_ITEM),
+        visibleNavItem(BOOKS_ITEM),
         visibleNavItem(NOTES_ITEM),
         visibleNavItem(CHATS_ITEM),
         visibleNavItem(SESSIONS_ITEM),

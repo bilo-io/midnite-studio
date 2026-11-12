@@ -103,7 +103,7 @@ function EstimateTable({ est }: { est: LedgerTaxEstimate }) {
           ))}
         </ul>
         <p className="mt-2 text-xs text-muted-foreground">
-          Rates from {e.source.url}, checked {e.source.checkedOn}.
+          Source: {e.source.url} · {e.source.checkedOn}
         </p>
       </section>
     </div>

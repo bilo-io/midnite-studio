@@ -56,7 +56,7 @@ function soleTrader(input: TaxInput, r: UkRates): TaxEstimate {
   ].filter((l) => l.basisMinor !== 0);
   const total = lines.reduce((sum, l) => sum + l.taxMinor, 0);
 
-  const notes = [`Personal allowance used: ${allowance === r.personalAllowance ? 'in full' : 'tapered'} (${(allowance / 100).toFixed(2)}).`, ...SOLE_NOTES];
+  const notes = [`Personal allowance used: ${allowance === r.personalAllowance ? 'in full' : 'tapered'} (£${(allowance / 100).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}).`, ...SOLE_NOTES];
   const payments: TaxPayment[] = [];
   if (total > r.paymentsOnAccountThreshold) {
     // Payments on account for the NEXT year fall due in the January after the year's return is due.

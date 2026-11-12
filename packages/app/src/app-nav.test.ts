@@ -11,9 +11,10 @@ describe('rail nav order', () => {
     expect(views.indexOf('knowledge')).toBe(chats + 2);
   });
 
-  it('keeps the five ungrouped rows before the Workspace section: Notes, Chats, Sessions, Knowledge', () => {
-    expect(ALL_NAV_ITEMS.slice(0, 5).map((item) => item.view)).toEqual([
+  it('keeps the six ungrouped rows before the Workspace section: Books, Notes, Chats, Sessions, Knowledge', () => {
+    expect(ALL_NAV_ITEMS.slice(0, 6).map((item) => item.view)).toEqual([
       'dashboard',
+      'books',
       'notes',
       'chats',
       'sessions',
