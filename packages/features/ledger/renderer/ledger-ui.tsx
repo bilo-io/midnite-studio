@@ -31,10 +31,8 @@ export function ErrorLine({
   if (!error) return null;
   return (
     <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
-      {error.message}
       {error.kind === 'locked-period' ? (
         <>
-          {' '}
           Books are locked through {lockedThrough ?? 'a later date'}.{' '}
           {onOpenSettings ? (
             <button type="button" className="underline" onClick={onOpenSettings}>
@@ -42,7 +40,9 @@ export function ErrorLine({
             </button>
           ) : null}
         </>
-      ) : null}
+      ) : (
+        error.message
+      )}
     </p>
   );
 }
@@ -50,7 +50,7 @@ export function ErrorLine({
 /** A side sheet over the view. */
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-black/40">
+    <div className="fixed inset-0 z-40 flex justify-end bg-black/40" onKeyDown={(e) => (e.key === 'Escape' ? onClose() : undefined)}>
       <div role="dialog" aria-modal="true" aria-label={title} className="flex h-full w-full max-w-lg flex-col gap-4 overflow-auto border-l border-border bg-background p-5 shadow-xl">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-medium">{title}</h2>
