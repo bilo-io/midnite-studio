@@ -214,8 +214,9 @@ export async function openBookStore(opts: BookStoreOptions): Promise<BookStore> 
           lockedBy = info.appId;
           return false;
         }
-        // Stale (dead pid) or unreadable: take it over.
-        await unlink(lockPath).catch(() => undefined);
+        // Stale (dead pid) or unreadable: take it over, unless another opener already did (the lock changed under us).
+        const again = await readLock(lockPath);
+        if (again?.pid === info?.pid && again?.startedAt === info?.startedAt) await unlink(lockPath).catch(() => undefined);
       }
     }
     return false;

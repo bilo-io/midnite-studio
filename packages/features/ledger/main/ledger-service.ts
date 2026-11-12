@@ -270,7 +270,6 @@ export function createLedgerService(opts: LedgerServiceOptions): LedgerService {
           }
           out.push(e);
         }
-        // Newest first by posting order, then stable by date for display.
         return { ok: true, value: { entries: out, nextCursor: next } };
       }),
 
