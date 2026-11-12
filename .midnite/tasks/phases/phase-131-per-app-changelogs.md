@@ -75,8 +75,7 @@ from, and the launcher's version opens the launcher's notes.
 
 **Theme E — A version pill and drop-up in every suite app.** ✅ [PR](https://github.com/bilo-io/midnite-studio/pulls?q=Phase+131+E) The runtime passes the app version to the renderer (`APP_VERSION_ARG` through `suiteWindowOptions`, parsed in `createSuiteBridge`) and serves the app's own notes through `registerSuiteMain` and the guarded fetch (`fetchAppReleaseNotes`, a 404 is "not published yet"); the frame gets a presentational `ReleaseNotesPanel` and a `SuiteVersionPill` in AppShell's rail footer; Studio's panel is now a thin wrapper over the same component. Surprises: `SuiteAppId` outnumbers `ChangelogAppId`, so the pill draws nothing for an app with no changelog; the strip is absolutely positioned like Studio's `RailVersion`, and the footer pads itself only when it is drawn; Node's fetch takes no `cache` option, so `no-store` was dropped. `egress-registry.test.ts` has one failure on main already (`sketchfab.ts:129`), unrelated.
 
-**Theme F — Verification and the first release.** ◻ Shots of the two new surfaces, the dry-run release artifact
-check, and the packaged pass on the first real release that publishes per-app files.
+**Theme F — Verification and the first release.** ◐ Shots taken (the launcher's Money sheet with its What's new, and Vanguard's open version drop-up, from the mock bridges; not committed). The dry-run artifact check was run locally against a stand-in feed directory instead of dispatching `release.yml`: ten files, one `[Unreleased]` each, idempotent on a second run. No release was cut. **Still open, for a human:** the packaged pass on the first tag after Theme C (feed has the ten files, the launcher's Agents sheet and Release notes dialog show Agents' notes, Money's rail pill opens its own notes, Studio's drop-up is unchanged), plus a check that `react-markdown` stays out of each app's entry chunk.
 
 ## Build order
 
@@ -351,10 +350,10 @@ published yet." rather than as an error.
 
 ### F — Verification and the first release (S)
 
-- [ ] Shots for the PRs (not visual baselines — the e2e budget stays as is): the launcher's Money detail sheet with its
+- [x] Shots for the PRs (not visual baselines — the e2e budget stays as is): the launcher's Money detail sheet with its
   What's new section, and a suite app's open drop-up, via the `*-shots.spec.ts` helpers with `reposOpen: false`; the
   suite-app shot rides `packages/app/e2e/suite-shell/` (it serves Vanguard's and Agents' Vite servers already).
-- [ ] Dry-run release (`release.yml` `workflow_dispatch` dry run) uploads a `publish-suite` preview holding
+- [x] Dry-run release (`release.yml` `workflow_dispatch` dry run) uploads a `publish-suite` preview holding
   `midnite-<id>/CHANGELOG.md` for the launcher and all nine apps, each with `## [Unreleased]` above the dry-run version's section.
 - [ ] **Open, for a human:** on the first real tag after C merges — the feed repo has the ten new files; the launcher's
   Agents sheet and Release notes dialog show Agents' notes; Midnite Money's rail pill opens its own notes; Studio's drop-up
@@ -409,7 +408,7 @@ published yet." rather than as an error.
 - [x] `release-notes.test.ts`, `suite-main.test.ts`, the window/preload version round-trip (E).
 - [x] `suite-version-pill.test.tsx`, `suite-app-shell.test.tsx`; Studio's `version-notes-panel.test.tsx` and `version-pill.test.tsx` unchanged and green (E).
 - [x] `egress-registry.test.ts` green with no new `UNMIGRATED` entry (E uses `guardedFetch`).
-- [ ] Dry-run release preview carries the ten feed files (F).
+- [x] Dry-run release preview carries the ten feed files (F). Checked locally: `publish-feed-changelog.mjs --all` into a stand-in feed produced all ten `midnite-<id>/CHANGELOG.md`, each with one `## [Unreleased]`; a second run mirrored nothing new. The workflow's own dry-run upload was not dispatched.
 - [ ] **Open, for a human:** the packaged pass on the first tag after C (F).
 
 ## Not in this phase
