@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 131 Theme D — Launcher: What's new for every app, and its own
+
+[PR #1165](https://github.com/bilo-io/midnite-studio/pull/1165). The launcher's changelog channel takes an app id with a per-app cache (404 = not published yet); every released app's detail sheet shows its own notes, the Release notes dialog follows its app, and the launcher's version and update banner open the launcher's notes.
+
 ## 2026-11-12 — Phase 131 Theme C — The feed publishes every app's changelog
 
 [PR #1164](https://github.com/bilo-io/midnite-studio/pull/1164). `mirrorMissingSections` and a `--all` mode in `publish-feed-changelog.mjs`; `publish-suite` mirrors and commits `midnite-<id>/CHANGELOG.md` beside `catalog.json`.

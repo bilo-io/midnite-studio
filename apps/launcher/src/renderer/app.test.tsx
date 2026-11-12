@@ -120,6 +120,7 @@ describe('<App>', () => {
     const sheet = screen.getByRole('dialog');
     expect(sheet.getAttribute('aria-label')).toBe('Midnite Gamer');
     expect(within(sheet).getByText('Vision')).toBeDefined();
+    expect(await within(sheet).findByText('gamer fixture')).toBeDefined();
     fireEvent.click(within(sheet).getByRole('button', { name: 'Open Terrains' }));
     expect(open).toHaveBeenCalledWith('gamer', 'terrains');
     fireEvent.keyDown(document, { key: 'Escape' });
@@ -211,6 +212,8 @@ describe('<App>', () => {
     const sheet = screen.getByRole('dialog');
     expect(sheet.getAttribute('aria-label')).toBe('Midnite Health');
     expect(within(sheet).getByText('Vision')).toBeDefined();
+    // No What's new section for a coming-soon app
+    expect(within(sheet).queryByLabelText('What’s new')).toBeNull();
     // No feature Open buttons
     expect(within(sheet).queryByRole('button', { name: /^Open / })).toBeNull();
     // No "runs in Studio" note
@@ -279,5 +282,18 @@ describe('<App>', () => {
     mount(null);
     await screen.findAllByLabelText(/^Install Midnite /);
     expect(screen.getByRole('button', { name: 'Move all apps to Trash…' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('opens Release notes on the app it was picked on, and the launcher\'s notes from the footer version', async () => {
+    const { bridge } = mount('installed');
+    const latest = vi.spyOn(bridge.changelog, 'latest');
+    fireEvent.click(await screen.findByLabelText('More for Midnite Agents'));
+    fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: 'Release notes' }));
+    expect(await screen.findByRole('heading', { name: 'What’s new in Midnite Agents' })).toBeDefined();
+    expect(latest).toHaveBeenCalledWith('agents');
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.click(screen.getByTitle('Midnite Apps release notes'));
+    expect(await screen.findByRole('heading', { name: 'What’s new in Midnite Apps' })).toBeDefined();
+    expect(latest).toHaveBeenCalledWith('launcher');
   });
 });
