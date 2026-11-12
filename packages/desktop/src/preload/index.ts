@@ -619,6 +619,7 @@ const bridge: Pick<
   },
   ledger: {
     listBooks: () => call(CHANNELS.ledger, { op: 'listBooks' }),
+    getBook: (req) => call(CHANNELS.ledger, { op: 'getBook', ...req }),
     createBook: (req) => call(CHANNELS.ledger, { op: 'createBook', ...req }),
     updateBook: (req) => call(CHANNELS.ledger, { op: 'updateBook', ...req }),
     upsertAccount: (req) => call(CHANNELS.ledger, { op: 'upsertAccount', ...req }),
@@ -633,6 +634,7 @@ const bridge: Pick<
     importPreview: (req) => call(CHANNELS.ledger, { op: 'importPreview', ...req }),
     importCommit: (req) => call(CHANNELS.ledger, { op: 'importCommit', ...req }),
     taxEstimate: (req) => call(CHANNELS.ledger, { op: 'taxEstimate', ...req }),
+    onChanged: (handler) => subscribe(EVENT_CHANNELS.ledgerChanged, handler),
   },
   markets: {
     series: (req) => call(CHANNELS.marketsSeries, req),

@@ -1,5 +1,11 @@
 import { useState } from 'react';
 
+import { Accounts } from './accounts';
+import { useLedgerSync } from './ledger-data';
+import { useLedgerUiStore } from './ledger-ui-store';
+import { Journal } from './journal';
+import { Overview } from './overview';
+
 export const LEDGER_TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'journal', label: 'Journal' },
@@ -19,9 +25,15 @@ export type LedgerTab = (typeof LEDGER_TABS)[number]['id'];
 export function LedgerWorkspace({ tab, onTabChange, showTabs = true }: { tab?: LedgerTab; onTabChange?: (tab: LedgerTab) => void; showTabs?: boolean }) {
   const [own, setOwn] = useState<LedgerTab>('overview');
   const active = tab ?? own;
+  useLedgerSync();
+  const setSettingsOpen = useLedgerUiStore((st) => st.setSettingsOpen);
   const select = (next: LedgerTab): void => {
     setOwn(next);
     onTabChange?.(next);
+  };
+  const openSettings = (): void => {
+    setSettingsOpen(true);
+    select('overview');
   };
   return (
     <div className="flex h-full min-h-0 flex-col" aria-label="Books">
@@ -42,10 +54,15 @@ export function LedgerWorkspace({ tab, onTabChange, showTabs = true }: { tab?: L
         </div>
       ) : null}
       <main className="min-h-0 flex-1 overflow-auto p-6" aria-label={LEDGER_TABS.find((t) => t.id === active)?.label}>
-        <section role="status" className="mx-auto max-w-md rounded-xl border border-border bg-card p-6 text-center">
-          <h2 className="text-base font-medium">No books yet</h2>
-          <p className="mt-2 text-sm text-muted-foreground">Books you keep here stay on this computer. Creating one arrives next.</p>
-        </section>
+        {active === 'overview' ? <Overview onOpenTab={select} /> : null}
+        {active === 'journal' ? <Journal onOpenSettings={openSettings} /> : null}
+        {active === 'accounts' ? <Accounts /> : null}
+        {active === 'reports' || active === 'tax' || active === 'import' ? (
+          <section role="status" className="mx-auto max-w-md rounded-xl border border-border bg-card p-6 text-center">
+            <h2 className="text-base font-medium">Coming next</h2>
+            <p className="mt-2 text-sm text-muted-foreground">This section arrives in a later update.</p>
+          </section>
+        ) : null}
       </main>
     </div>
   );

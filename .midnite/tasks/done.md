@@ -15726,3 +15726,8 @@ New `feature-ledger` (manifest, `ledgerMain` routing the op union to a `LedgerSe
 ### Phase 129 Theme C — Book store and posting engine (2026-11-12)
 
 `book-store.ts` (NDJSON journal + `book.json`, one writer per book by `writer.lock`, torn-tail truncation, corrupt middle line opens read-only, balanced / archived / locked-period checks, idempotent `source.ref`, reversal), `ledger-service.ts` (`createLedgerService`: list/create/update books, accounts, post, reverse, journal with cursor, balances, `ledgerChanged` events) and `chart-templates.ts` (personal, sole-trader, company). Money's host and Studio's `registerLedgerHandlers` now run the real service under `<appData>/Midnite Runtime/books`. Vitest over temp dirs, including a dead-pid lock takeover.
+
+
+### Phase 129 Theme D — Books, accounts and journal UI (2026-11-12)
+
+Overview (book picker, create-book form, four headline numbers, read-only and corrupt banners, book settings with a confirmed lock), Accounts (chart by type, balances, add/edit/archive sheet) and Journal (filters, paging, expandable lines, New entry sheet with live difference, reversal with a required reason, N / arrows / Enter keys) in the ledger feature's renderer, over react-query on `bridge().ledger` and a persisted `ledger-ui-store`. New `getBook` op and `onChanged` subscription; `createBook` now writes `book.json` temp + rename. RTL over `createMemoryLedger`.

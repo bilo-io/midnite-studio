@@ -16,12 +16,12 @@ export function tabOfView(view: string): LedgerTab {
  * Accountant as a pane inside a host's shell: the books workspace for the active view, over its own query
  * client and frame chrome. The host's rail drives the tab, so the workspace shows no strip of its own.
  */
-export function AccountantPane({ view }: { view: string; onView: (view: string) => void }) {
+export function AccountantPane({ view, onView }: { view: string; onView: (view: string) => void }) {
   const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } } }));
   return (
     <QueryClientProvider client={client}>
       <FrameChromeProvider chrome={kit.chrome}>
-        <LedgerWorkspace tab={tabOfView(view)} showTabs={false} />
+        <LedgerWorkspace tab={tabOfView(view)} onTabChange={(t) => onView(`accountant.${t}`)} showTabs={false} />
         <kit.DialogHost />
       </FrameChromeProvider>
     </QueryClientProvider>

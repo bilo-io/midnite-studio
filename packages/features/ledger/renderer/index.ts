@@ -4,3 +4,5 @@
  */
 export { ledgerManifest, type LedgerManifest } from '../manifest';
 export { LEDGER_TABS, LedgerWorkspace, type LedgerTab } from './ledger-workspace';
+export { createMemoryLedger, type MemoryLedgerOptions } from './memory-ledger';
+export { useLedgerUiStore, resolveBookId } from './ledger-ui-store';

@@ -1,6 +1,6 @@
 import { createBridgeSlice, type RendererIpc } from '@midnite/studio-runtime/app-main/bridge-slice';
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
-import { CHANNELS } from '@midnite/studio-shared/ipc/channels';
+import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
 
 /**
  * The slice of `window.midniteStudio` the Accountant module exposes: `ledger.*` — one method per op of the
@@ -11,10 +11,11 @@ export type AccountantBridge = { ledger: NonNullable<MidniteStudioBridge['ledger
 export type { RendererIpc };
 
 export function createAccountantBridge(ipc: RendererIpc): AccountantBridge {
-  const { call } = createBridgeSlice(ipc);
+  const { call, subscribe } = createBridgeSlice(ipc);
   return {
     ledger: {
       listBooks: () => call(CHANNELS.ledger, { op: 'listBooks' }),
+      getBook: (req) => call(CHANNELS.ledger, { op: 'getBook', ...req }),
       createBook: (req) => call(CHANNELS.ledger, { op: 'createBook', ...req }),
       updateBook: (req) => call(CHANNELS.ledger, { op: 'updateBook', ...req }),
       upsertAccount: (req) => call(CHANNELS.ledger, { op: 'upsertAccount', ...req }),
@@ -29,6 +30,7 @@ export function createAccountantBridge(ipc: RendererIpc): AccountantBridge {
       importPreview: (req) => call(CHANNELS.ledger, { op: 'importPreview', ...req }),
       importCommit: (req) => call(CHANNELS.ledger, { op: 'importCommit', ...req }),
       taxEstimate: (req) => call(CHANNELS.ledger, { op: 'taxEstimate', ...req }),
+      onChanged: (handler) => subscribe(EVENT_CHANNELS.ledgerChanged, handler),
     },
   };
 }
