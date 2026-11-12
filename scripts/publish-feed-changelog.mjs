@@ -13,7 +13,7 @@
 // the parser, so the workflow step that calls this runs `shared:build`
 // first. `mirrorSection` below is new logic and is covered by
 // publish-feed-changelog.test.mjs, colocated with it.
-import { readFile, writeFile, appendFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, appendFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -94,6 +94,128 @@ export function mirrorSection(targetMarkdown, version, sectionBody, releaseUrl, 
   return `${newBody.trimEnd()}\n\n${newRefs}\n`;
 }
 
+/** The built shared modules this script reuses; tests inject the source modules instead. */
+async function loadShared() {
+  const dist = path.join(repoRoot, 'packages/shared/dist');
+  const release = await import(path.join(dist, 'release.js'));
+  const version = await import(path.join(dist, 'version.js'));
+  return { ...release, compareSemVer: version.compareSemVer };
+}
+
+const RELEASE_HEADING = /^##\s+\[([^\]]+)\]/gm;
+
+/**
+ * Phase 131 Theme C: back-fill every released section of `sourceMarkdown` that
+ * `targetMarkdown` lacks. Each missing version is inserted in descending order —
+ * directly before the first existing release heading with a lower version, else at
+ * the end of the body — and always after the whole `[Unreleased]` section. Idempotent:
+ * with nothing missing the input comes back unchanged and `added` is empty.
+ *
+ * @param {string} targetMarkdown
+ * @param {string} sourceMarkdown
+ * @param {(version: string) => string} releaseUrlFor
+ * @param {string} fallbackDate `YYYY-MM-DD`, for a section whose own heading has none
+ * @param {{ extractLatestSections: Function, compareSemVer: Function }} shared
+ * @returns {{ markdown: string, added: string[] }}
+ */
+export function mirrorMissingSections(targetMarkdown, sourceMarkdown, releaseUrlFor, fallbackDate, shared) {
+  const { extractLatestSections, compareSemVer } = shared;
+  const has = (md, v) => new RegExp(`^##\\s+\\[${escapeRegExp(v)}\\]`, 'm').test(md);
+  const missing = extractLatestSections(sourceMarkdown, 1000)
+    .filter((section) => !has(targetMarkdown, section.version))
+    .sort((x, y) => compareSemVer(y.version, x.version));
+  if (missing.length === 0) return { markdown: targetMarkdown, added: [] };
+
+  const split = splitTrailingLinkRefs(targetMarkdown);
+  let body = split.body;
+  if (!UNRELEASED_HEADING.test(body)) {
+    throw new Error('target changelog has no "## [Unreleased]" heading to insert the new section after');
+  }
+  const added = [];
+  const newRefs = [];
+  for (const section of missing) {
+    const text = `## [${section.version}] - ${section.date ?? fallbackDate}\n\n${section.body.trim()}\n`;
+    let insertAt = -1;
+    for (const match of body.matchAll(RELEASE_HEADING)) {
+      if (/^unreleased$/i.test(match[1])) continue;
+      if (compareSemVer(match[1], section.version) < 0) {
+        insertAt = match.index;
+        break;
+      }
+    }
+    body =
+      insertAt < 0
+        ? `${body.trimEnd()}\n\n${text}`
+        : `${body.slice(0, insertAt).trimEnd()}\n\n${text}\n${body.slice(insertAt)}`;
+    added.push(section.version);
+    newRefs.push(`[${section.version}]: ${releaseUrlFor(section.version)}`);
+  }
+  const refs = [split.refs, ...newRefs].filter(Boolean).join('\n');
+  return { markdown: `${body.trimEnd()}\n\n${refs}\n`, added };
+}
+
+/** What a missing feed file starts as, so `[Unreleased]` exists on an app's first release. */
+export function changelogSkeleton(title) {
+  return `# Changelog — ${title}\n\n## [Unreleased]\n`;
+}
+
+/** Display names for the feed skeleton; pinned to each file's own first line by changelog-files.test.mjs. */
+export const CHANGELOG_TITLES = {
+  launcher: 'Midnite Apps',
+  agents: 'Midnite Agents',
+  browser: 'Midnite Browser',
+  gamer: 'Midnite Gamer',
+  media: 'Midnite Media',
+  mind: 'Midnite Mind',
+  money: 'Midnite Money',
+  science: 'Midnite Science',
+  startup: 'Midnite Startup',
+  vanguard: 'Midnite Vanguard',
+};
+
+/**
+ * Mirror every app's changelog except Studio's (which `publish-feed` owns) into `<feedRoot>/midnite-<id>/CHANGELOG.md`.
+ * @returns {Promise<{ id: string, added: string[] }[]>}
+ */
+export async function mirrorAll({ feedRoot, releaseDate, root = repoRoot, shared }) {
+  const results = [];
+  for (const id of shared.CHANGELOG_APP_IDS) {
+    if (id === 'studio') continue;
+    const source = await readFile(path.join(root, shared.changelogSourcePath(id)), 'utf8');
+    const dir = path.join(feedRoot, shared.changelogFeedDir(id));
+    const file = path.join(dir, 'CHANGELOG.md');
+    await mkdir(dir, { recursive: true });
+    let target;
+    try {
+      target = await readFile(file, 'utf8');
+    } catch {
+      target = changelogSkeleton(CHANGELOG_TITLES[id] ?? `Midnite ${id}`);
+    }
+    const { markdown, added } = mirrorMissingSections(
+      target,
+      source,
+      (v) => shared.appReleasePageUrl(id, v),
+      releaseDate,
+      shared,
+    );
+    await writeFile(file, markdown, 'utf8');
+    results.push({ id, added });
+  }
+  return results;
+}
+
+async function mainAll() {
+  const [, , , version, feedRoot, releaseDate] = process.argv;
+  if (!version || !feedRoot || !releaseDate) {
+    console.error('usage: publish-feed-changelog.mjs --all <version> <feed-root> <release-date>');
+    process.exit(1);
+  }
+  const shared = await loadShared();
+  for (const { id, added } of await mirrorAll({ feedRoot, releaseDate, shared })) {
+    console.log(`mirrored ${id}: ${added.length ? added.join(', ') : 'nothing new'}`);
+  }
+}
+
 async function main() {
   const [, , sourceChangelogPath, version, targetChangelogPath, releaseUrl, releaseDate] =
     process.argv;
@@ -133,5 +255,6 @@ async function main() {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  await main();
+  if (process.argv[2] === '--all') await mainAll();
+  else await main();
 }

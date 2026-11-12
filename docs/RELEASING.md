@@ -106,6 +106,7 @@ After Studio's `release` and `publish-feed`, the `publish-suite` job:
 | Release `midnite-launcher/vX.Y.Z` | launcher dmg/zip/blockmaps, `latest-mac.yml`, every `midnite-<app>-X.Y.Z-bundle.zip` |
 | `catalog.json` (repo root) | `scripts/build-catalog.mjs` over the uploaded files: one version everywhere, real sizes and SHA-256; Studio's entry points at its own release's zip |
 | `midnite-launcher/feed/latest-mac.yml` | the launcher's `generic` updater feed (`apps/launcher/electron-builder.yml`) |
+| `midnite-<id>/CHANGELOG.md` | the launcher's and every app's changelog except Studio's, mirrored from `apps/<id>/CHANGELOG.md` by `publish-feed-changelog.mjs --all` — created on an app's first release, every missing released section back-filled, a re-run changes nothing |
 | `midnite-launcher/version.json` | **not this job** — midnite-apps' `release-feed.yml` writes it, and only for apps registered in its `apps.json`. Register `midnite-launcher` there once before the first suite release. |
 
 ## What the installer verifies (Phase 91 Theme H)

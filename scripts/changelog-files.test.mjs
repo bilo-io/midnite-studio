@@ -19,6 +19,18 @@ const appDirs = readdirSync(join(root, 'apps'), { withFileTypes: true })
 const sourcePath = (id) => (id === 'studio' ? 'CHANGELOG.md' : `apps/${id}/CHANGELOG.md`);
 const HEADING = /^## \[(Unreleased|\d+\.\d+\.\d+)\]( - \d{4}-\d{2}-\d{2})?$/;
 
+describe('publish-feed-changelog CHANGELOG_TITLES', () => {
+  it('matches each file\'s own first line', () => {
+    const src = readFileSync(join(root, 'scripts/publish-feed-changelog.mjs'), 'utf8');
+    const body = src.match(/CHANGELOG_TITLES = \{([^}]*)\}/)[1];
+    const titles = Object.fromEntries([...body.matchAll(/(\w+):\s*'([^']+)'/g)].map((m) => [m[1], m[2]]));
+    for (const id of ids.filter((i) => i !== 'studio')) {
+      const first = readFileSync(join(root, sourcePath(id)), 'utf8').split('\n')[0];
+      expect(first).toBe(`# Changelog — ${titles[id]}`);
+    }
+  });
+});
+
 describe('per-app changelog files', () => {
   it('CHANGELOG_APP_IDS lists studio, launcher, then every app directory', () => {
     expect(ids).toEqual(['studio', 'launcher', ...appDirs]);
