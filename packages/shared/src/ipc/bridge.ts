@@ -53,6 +53,7 @@ import type {
   ImportMapping, ImportCommitRow, ImportCommitResult, ImportPick, ImportPreview, JournalEntry, LedgerAccountInput, LedgerBook, LedgerPostInput, LedgerReportKind,
   LedgerResult, TaxJurisdictionId, LedgerEntity, LedgerAccount, LedgerChangedPayload,
 } from '../ledger';
+import type { LedgerReport } from '../ledger-reports';
 import type { ScienceDiscipline, ScienceNotebook, ScienceNotebookId, ScienceNotebookSummary, ScienceCell } from '../science';
 import type { SfxGenerateRequest, SfxGenerateResult, SfxProgressEvent, SfxStatus } from '../media-sfx';
 import type { PerfMark } from '../perf';
@@ -152,7 +153,7 @@ export type LedgerBridge = {
   reverse: (req: { bookId: string; entryId: string; date: string; reason: string }) => Promise<LedgerResult<{ entry: JournalEntry }>>;
   journal: (req: { bookId: string; from?: string; to?: string; accountId?: string; query?: string; cursor?: string; limit?: number }) => Promise<LedgerResult<{ entries: JournalEntry[]; nextCursor: string | null }>>;
   balances: (req: { bookId: string; asOf: string }) => Promise<LedgerResult<{ balances: { accountId: string; debit: number; credit: number }[] }>>;
-  report: (req: { bookId: string; kind: LedgerReportKind; from: string; to: string }) => Promise<LedgerResult<unknown>>;
+  report: (req: { bookId: string; kind: LedgerReportKind; from: string; to: string }) => Promise<LedgerResult<LedgerReport>>;
   exportReport: (req: { bookId: string; kind: LedgerReportKind; from: string; to: string }) => Promise<LedgerResult<{ path: string | null }>>;
   importPick: (req: { bookId: string }) => Promise<LedgerResult<ImportPick | null>>;
   importPreview: (req: { bookId: string; mapping: ImportMapping }) => Promise<LedgerResult<ImportPreview>>;

@@ -4,6 +4,7 @@ import { CHANNELS, LedgerRequestSchema, type LedgerRequest, type LedgerResult, t
 import { ledgerManifest } from '../manifest';
 import { createImportService, type ImportService } from './import/import-service';
 import type { LedgerService } from './ledger-service';
+import { exportReport, runReport } from './reports';
 
 export { ledgerManifest, type LedgerManifest } from '../manifest';
 export { createLedgerService, type CreateBookInput, type JournalQuery, type LedgerService, type LedgerServiceOptions } from './ledger-service';
@@ -52,6 +53,10 @@ async function dispatch(req: LedgerRequest, services: LedgerMainServices, import
     }
     case 'balances':
       return service.balances(req.bookId, req.asOf);
+    case 'report':
+      return runReport(service, req);
+    case 'exportReport':
+      return exportReport(service, req, services.saveCsv);
     case 'importPick':
       return imports.pick(req.bookId);
     case 'importPreview':
