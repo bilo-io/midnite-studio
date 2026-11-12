@@ -15,6 +15,10 @@ export type SuiteBridgeOptions = {
   answers?: Record<string, unknown>;
   /** `windowChrome.frameless`; the shell draws its own title bar only when true. Default true. */
   frameless?: boolean;
+  /** `appVersion`, which with `suiteReleaseNotes` makes the rail's version pill draw. Absent, the pill is hidden (`0.0.0`). */
+  appVersion?: string;
+  /** What `suiteReleaseNotes.get` answers. */
+  releaseNotes?: unknown;
 };
 
 declare global {
@@ -24,7 +28,7 @@ declare global {
 }
 
 export async function installSuiteBridge(page: Page, options: SuiteBridgeOptions = {}): Promise<void> {
-  await page.addInitScript((opts: { frameless: boolean; answers: Record<string, unknown> }) => {
+  await page.addInitScript((opts: { frameless: boolean; answers: Record<string, unknown>; appVersion: string; releaseNotes: unknown }) => {
     const calls = { toggleMaximize: 0 };
     (window as unknown as { __shellCalls: typeof calls }).__shellCalls = calls;
     const unsubscribe = () => undefined;
@@ -47,6 +51,8 @@ export async function installSuiteBridge(page: Page, options: SuiteBridgeOptions
           calls.toggleMaximize += 1;
         },
       },
+      appVersion: opts.appVersion,
+      suiteReleaseNotes: { get: async () => opts.releaseNotes },
       suitePrefs: { get: async () => ({}), set: async () => ({ ok: true }), onChanged: () => unsubscribe },
       metrics: { start: () => undefined, stop: () => undefined, onSample: () => unsubscribe },
     };
@@ -54,7 +60,12 @@ export async function installSuiteBridge(page: Page, options: SuiteBridgeOptions
       get: (target, key) => (key in target ? target[key as string] : key === 'then' || typeof key === 'symbol' ? undefined : make(String(key))),
       has: () => true,
     });
-  }, { frameless: options.frameless ?? true, answers: options.answers ?? {} });
+  }, {
+    frameless: options.frameless ?? true,
+    answers: options.answers ?? {},
+    appVersion: options.appVersion ?? '0.0.0',
+    releaseNotes: options.releaseNotes ?? { version: options.appVersion ?? '0.0.0', notes: null, error: null },
+  });
 }
 
 /** What Vanguard's panes read on mount: nothing found, no sensors, no connections. */

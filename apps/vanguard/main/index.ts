@@ -77,6 +77,8 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   void app.whenReady().then(() => {
     suite = registerSuiteMain({
       ipcMain,
+      app: 'vanguard',
+      appVersion: app.getVersion(),
       runtimeDirectory: suiteRuntimeDirectory(app.getPath('appData'), process.env[USER_DATA_ENV]),
       getWindow: () => win,
       argv: process.argv,
@@ -168,7 +170,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
 }
 
 function openWindow(): void {
-  win = new BrowserWindow(vanguardWindowOptions(join(__dirname, 'preload.cjs'), process.platform));
+  win = new BrowserWindow(vanguardWindowOptions(join(__dirname, 'preload.cjs'), process.platform, app.getVersion()));
   suite?.attachWindow(win);
   // A link never loads into this window (it carries the bridge): http(s) goes to the system browser.
   guardAppWindow(win.webContents, { openExternal: (url) => shell.openExternal(url) });

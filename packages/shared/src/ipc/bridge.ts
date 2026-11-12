@@ -1154,6 +1154,14 @@ export type MidniteStudioBridge = {
     onOpen: (handler: (landing: SuiteLinkLanding) => void) => Unsubscribe;
   };
 
+  /**
+   * This suite app's own release notes (Phase 131 Theme E). Optional, like `suiteLink`: only the suite hosts carry
+   * it (`registerSuiteMain`); Studio reads its notes through `update.releaseNotes`.
+   */
+  suiteReleaseNotes?: {
+    get: (req: In<typeof S.SuiteReleaseNotesRequest>) => Promise<z.infer<typeof S.ReleaseNotesResponse>>;
+  };
+
   loopRuns: {
     list: () => Promise<z.infer<typeof S.LoopRunsListResponse>>;
     start: (
