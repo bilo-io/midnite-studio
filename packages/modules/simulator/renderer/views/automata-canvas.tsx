@@ -48,6 +48,12 @@ export function AutomataCanvas(p: AutomataCanvasProps) {
     return c === null ? null : cellAt(e.clientX, e.clientY, c.getBoundingClientRect(), p.w, p.h);
   };
 
+  const endStroke = () => {
+    const d = drag.current;
+    drag.current = null;
+    if (d?.kind === 'draw') p.onStroke([], d.erase, true);
+  };
+
   return (
     <div
       ref={host}
@@ -81,11 +87,8 @@ export function AutomataCanvas(p: AutomataCanvasProps) {
         p.onStroke(d.last === null ? [c] : lineCells(d.last, c), d.erase, false);
         d.last = c;
       }}
-      onPointerUp={() => {
-        const d = drag.current;
-        drag.current = null;
-        if (d?.kind === 'draw') p.onStroke([], d.erase, true);
-      }}
+      onPointerUp={endStroke}
+      onPointerCancel={endStroke}
     >
       <canvas
         ref={p.canvasRef}

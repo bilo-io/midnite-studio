@@ -122,7 +122,7 @@ export function AutomataView() {
         </p>
       )}
       <div className="flex min-h-0 flex-1">
-        <SimCanvasFrame playing={sim.playing} onPlay={sim.play} onPause={sim.pause} onStep={sim.step}>
+        <SimCanvasFrame className="flex min-h-0 min-w-0 flex-1" playing={sim.playing} onPlay={sim.play} onPause={sim.pause} onStep={sim.step}>
           <AutomataCanvas w={w} h={h} canvasRef={canvasRef} view={view} onView={setView} editable={mode === 'life'} onStroke={onStroke} />
         </SimCanvasFrame>
         <AutomataPanel

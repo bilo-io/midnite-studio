@@ -76,7 +76,7 @@ export function Transport(p: TransportProps) {
  * The sandbox canvas's focusable wrapper: **Space** toggles play and **.** steps once while paused. A
  * canvas-local handler rather than a `CommandId`, so it never competes with the app's chords.
  */
-export function SimCanvasFrame(p: { playing: boolean; onPlay(): void; onPause(): void; onStep(): void; children: ReactNode }) {
+export function SimCanvasFrame(p: { playing: boolean; onPlay(): void; onPause(): void; onStep(): void; className?: string; children: ReactNode }) {
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === ' ') {
       e.preventDefault();
@@ -85,7 +85,7 @@ export function SimCanvasFrame(p: { playing: boolean; onPlay(): void; onPause():
     } else if (e.key === '.' && !p.playing) p.onStep();
   };
   return (
-    <div tabIndex={0} role="application" aria-label="Simulation canvas" onKeyDown={onKeyDown} className="outline-none focus-visible:ring-1 focus-visible:ring-ring">
+    <div tabIndex={0} role="application" aria-label="Simulation canvas" onKeyDown={onKeyDown} className={`outline-none focus-visible:ring-1 focus-visible:ring-ring ${p.className ?? ''}`}>
       {p.children}
     </div>
   );
