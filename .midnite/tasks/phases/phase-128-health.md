@@ -52,12 +52,12 @@ data directory. Planned 2026-11-11; first slice is **A + B**, then **C + D**, **
 
 **Theme B — Health data store and IPC.** ✅ PR (Phase 128 B PR) `shared/src/health.ts` (schemas, `HealthRequestSchema`, `migrate*`, `healthMonthSpan`), the `health` channel and optional `HealthBridge`, `createHealthStore` on `createJsonDirStore` (one month per file, one promise chain for every mutation, corrupt single files and months quarantined), `registerHealthOn` (logs op and error code only) and the renderer hooks with an optimistic `usePutDay`. `exportAll` already writes the file (Theme G adds the UI and its test). The frame's `notify` has no `tone`, so the save-failure notice is title and body only. A also left `apps/health/main/index.ts` without the `app`/`appVersion` that Phase 131 E added to `registerSuiteMain`; fixed here.
 
-**Theme C — Profile and biometrics.** ◻ An all-optional profile (units, sex, birth year, height, activity,
+**Theme C — Profile and biometrics.** ✅ An all-optional profile (units, sex, birth year, height, activity,
 goal), a measurement log (weight, body fat, waist, resting heart rate, sleep), and pure BMI / BMR
-(Mifflin–St Jeor) / TDEE / calorie-target calculations shown as estimates.
+(Mifflin–St Jeor) / TDEE / calorie-target calculations shown as estimates. Pure calc in `renderer/calc/` with worked-example tests; waist stays in cm under both unit systems; every save merges into the day read from a single-month query so a weigh-in never drops that day's meals.
 
-**Theme D — Nutrition logger.** ◻ Meals per day by slot, a saved-foods library with servings, kcal and
-macros, daily totals against the target.
+**Theme D — Nutrition logger.** ✅ Meals per day by slot, a saved-foods library with servings, kcal and
+macros, daily totals against the target. Editing a meal changes its own numbers (no rescale by servings); "Duplicate to today" reads today fresh from main before merging.
 
 **Theme E — Workout plans and progressive overload.** ◻ Plans of weekday sessions and exercises, three
 starter plans, session logging, and a double-progression rule that prescribes the next weight and reps.
@@ -318,7 +318,7 @@ guard test that keeps network calls out of the module.
 
 ### C — Profile and biometrics (M)
 
-- [ ] **C.1** Pure calculations, `renderer/calc/body.ts` (net-new).
+- [x] **C.1** Pure calculations, `renderer/calc/body.ts` (net-new).
   - `bmi(weightKg, heightCm): number` = kg / m², and `bmiBand(bmi): 'under' | 'healthy' | 'over' | 'obese'`
     at the WHO cut-offs 18.5 / 25 / 30.
   - `bmrMifflin({ weightKg, heightCm, age, sex }): number` = `10·kg + 6.25·cm − 5·age + s`, `s` = +5 male,
@@ -335,7 +335,7 @@ guard test that keeps network calls out of the module.
     `bmrMifflin({ 80, 180, 30, male })` = 1780; female = 1614; `kcalTarget` with no height answers
     `{ missing: ['height'] }`; a `lose` target below 1200 is `1200` with `floored: true`; and
     `units.test.ts`: `lbToKg(kgToLb(81.3))` within 1e-9; `cmToFtIn(180)` = `{ ft: 5, in: 11 }`.
-- [ ] **C.2** Profile form in `BiometricsView` (`renderer/views/biometrics-view.tsx`, net-new).
+- [x] **C.2** Profile form in `BiometricsView` (`renderer/views/biometrics-view.tsx`, net-new).
   - A card "Profile — all optional": Units (segmented Metric / Imperial), Sex (Female / Male / Prefer not to
     say), Birth year (number), Height (cm, or ft + in when imperial), Activity (select with one-line
     descriptions), Goal (Lose / Maintain / Gain), "Set my own calorie target" (toggle + number).
@@ -347,7 +347,7 @@ guard test that keeps network calls out of the module.
   - Verified by `biometrics-view.test.tsx` (mock bridge): switching to Imperial re-renders 180 cm as `5 ft 11
     in` without a write; entering height `300` shows the range hint and sends no `putProfile`; with weight,
     height and birth year set the target renders.
-- [ ] **C.3** Measurement log in `BiometricsView`.
+- [x] **C.3** Measurement log in `BiometricsView`.
   - A date row (defaults to today, `‹ ›` `IconButton`s with `label="Previous day"`/`"Next day"`, no future
     dates) and fields Weight, Body fat %, Waist, Resting heart rate, Sleep (hours), Note; each saves on blur
     via `usePutDay`, merging into that day's existing meals and sessions.
@@ -359,7 +359,7 @@ guard test that keeps network calls out of the module.
 
 ### D — Nutrition logger (M)
 
-- [ ] **D.1** Meal log in `NutritionView` (`renderer/views/nutrition-view.tsx`, net-new).
+- [x] **D.1** Meal log in `NutritionView` (`renderer/views/nutrition-view.tsx`, net-new).
   - Same date row as C.3. Four sections (Breakfast, Lunch, Dinner, Snacks), each listing its meals (name,
     servings, kcal, P/C/F grams) with a section total, an **Add** button and a per-row `openMenu` (Edit,
     Duplicate to today, Delete). Delete needs no confirm (one meal, undo by re-adding) — this is the one
@@ -371,7 +371,7 @@ guard test that keeps network calls out of the module.
     target → total only and "Set up your profile for a target" linking to Biometrics (`onView('biometrics')`).
   - Verified by `nutrition-view.test.tsx` (mock bridge): adding 2 servings of a 250 kcal food stores
     `kcal: 500`; the total shows `500 / 2200 kcal`; Delete removes the row through `putDay`.
-- [ ] **D.2** Saved foods.
+- [x] **D.2** Saved foods.
   - A "Foods" tab in `NutritionView` listing the library (name, serving, kcal, P/C/F) with **New food**, Edit
     and Delete (Delete through `useDialogs().confirm({ title: "Delete '<name>'?", body: 'Meals already
     logged keep their numbers.', confirmLabel: 'Delete', danger: true })` — logged meals copy their numbers,

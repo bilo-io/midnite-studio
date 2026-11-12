@@ -14,3 +14,12 @@ export function monthKeyOffset(d: Date, n: number): string {
   const t = new Date(d.getFullYear(), d.getMonth() + n, 1);
   return localDateKey(t).slice(0, 7);
 }
+
+/** The date key `n` days from `date` (negative for earlier), by local calendar arithmetic. */
+export function shiftDate(date: string, n: number): string {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  return localDateKey(new Date(y, m - 1, d + n));
+}
+
+/** Today's local date key. */
+export const todayKey = (): string => localDateKey(new Date());

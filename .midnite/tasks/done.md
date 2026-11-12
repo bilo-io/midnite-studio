@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 128 Themes C + D — Profile, biometrics and nutrition logger
+
+PR (see the Phase 128 C+D PR). Pure BMI / Mifflin-St Jeor BMR / TDEE / calorie-target calculations (1200 kcal floor, override wins) and unit conversion, the all-optional profile form with its estimates, the measurement log, the four-slot meal logger against the daily target, and the saved-foods library.
+
 ## 2026-11-12 — Phase 128 Theme B — Health data store and IPC
 
 PR (see the Phase 128 B PR). `shared/src/health.ts` schemas and request union, the `health` channel and `HealthBridge`, a month-per-file store over `createJsonDirStore` with a write chain, IPC handlers that log no payload, and renderer data hooks (optimistic `usePutDay`). Also fixes the Health host's `registerSuiteMain` call for Phase 131 E.
