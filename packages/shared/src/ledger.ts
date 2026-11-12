@@ -54,36 +54,22 @@ export const SUBTYPES_BY_TYPE: Readonly<Record<AccountType, readonly AccountSubt
   expense: ['cost-of-sales', 'operating-expense', 'other-expense'],
 };
 
-export const LedgerAccountSchema = z
-  .object({
-    id: LedgerIdSchema,
-    code: z.string().regex(/^[0-9]{3,6}$/),
-    name: z.string().trim().min(1).max(80),
-    type: AccountTypeSchema,
-    subtype: AccountSubtypeSchema,
-    archived: z.boolean().default(false),
-    taxTreatment: z.enum(['allowable', 'disallowable', 'none']).default('none'),
-  })
-  .refine((a) => SUBTYPES_BY_TYPE[a.type].includes(a.subtype), {
-    message: 'subtype does not belong to the account type',
-    path: ['subtype'],
-  });
+const AccountShape = {
+  code: z.string().regex(/^[0-9]{3,6}$/),
+  name: z.string().trim().min(1).max(80),
+  type: AccountTypeSchema,
+  subtype: AccountSubtypeSchema,
+  archived: z.boolean().default(false),
+  taxTreatment: z.enum(['allowable', 'disallowable', 'none']).default('none'),
+};
+const subtypeBelongsToType = (a: { type: AccountType; subtype: AccountSubtype }): boolean =>
+  SUBTYPES_BY_TYPE[a.type].includes(a.subtype);
+const SUBTYPE_MISMATCH = { message: 'subtype does not belong to the account type', path: ['subtype'] };
+
+export const LedgerAccountSchema = z.object({ id: LedgerIdSchema, ...AccountShape }).refine(subtypeBelongsToType, SUBTYPE_MISMATCH);
 export type LedgerAccount = z.infer<typeof LedgerAccountSchema>;
-/** An account before it has an id (create), or with one (update) — the id is optional on upsert. */
-export const LedgerAccountInputSchema = z
-  .object({
-    id: LedgerIdSchema.optional(),
-    code: z.string().regex(/^[0-9]{3,6}$/),
-    name: z.string().trim().min(1).max(80),
-    type: AccountTypeSchema,
-    subtype: AccountSubtypeSchema,
-    archived: z.boolean().default(false),
-    taxTreatment: z.enum(['allowable', 'disallowable', 'none']).default('none'),
-  })
-  .refine((a) => SUBTYPES_BY_TYPE[a.type].includes(a.subtype), {
-    message: 'subtype does not belong to the account type',
-    path: ['subtype'],
-  });
+/** An account on upsert: the id is optional (absent creates). */
+export const LedgerAccountInputSchema = z.object({ id: LedgerIdSchema.optional(), ...AccountShape }).refine(subtypeBelongsToType, SUBTYPE_MISMATCH);
 export type LedgerAccountInput = z.infer<typeof LedgerAccountInputSchema>;
 
 /** Jurisdictions with a tax rule set; adding one is a new rule file plus one value here. */

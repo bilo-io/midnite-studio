@@ -67,7 +67,7 @@ export function formatAmount(amount: MoneyAmount, locale?: string): string {
   return formatter.format((sign < 0n ? `-${text}` : text) as unknown as number);
 }
 
-/** `minor × basisPoints / 10000`, BigInt intermediate, rounded half away from zero. */
+/** `minor × basisPoints / 10000` (both integers),, BigInt intermediate, rounded half away from zero. */
 export function percentOfMinor(minor: number, basisPoints: number): number {
   const product = BigInt(minor) * BigInt(basisPoints);
   const denom = 10000n;
@@ -77,7 +77,7 @@ export function percentOfMinor(minor: number, basisPoints: number): number {
   return Number(negative ? -quotient : quotient);
 }
 
-/** Largest-remainder split: the parts sum to `minor` exactly. A zero weight total returns all zeros. */
+/** Largest-remainder split over non-negative integer weights: the parts sum to `minor` exactly. A zero weight total returns all zeros. */
 export function allocateMinor(minor: number, weights: readonly number[]): number[] {
   const total = weights.reduce((a, b) => a + b, 0);
   if (weights.length === 0) return [];

@@ -58,9 +58,9 @@ empty `packages/features/ledger` package; Money gains `main/host.ts`, `src/host-
 `src/host-app.tsx` and the accountant bridge in its preload; Studio composes the ledger feature as a
 `books` view. The catalog stays `comingSoon` until Theme H.
 
-**Theme B — Money amounts and the ledger contract.** ◻ `shared/src/money-amount.ts` (integer minor units +
+**Theme B — Money amounts and the ledger contract.** ✅ `shared/src/money-amount.ts` (integer minor units +
 ISO-4217) and `shared/src/ledger.ts` (books, accounts, journal entries, the `ledger` channel's op union and
-result envelope). Phase 130 builds on both.
+result envelope). Phase 130 builds on both. The date schema is `LedgerDateSchema` (not `IsoDateSchema`, which `startup.ts` already exports); `report`/`importPreview`/`taxEstimate` response payloads are typed `unknown` until E/F/G define them.
 
 **Theme C — Book store and posting engine.** ◻ Books under `<appData>/Midnite Runtime/books/<id>/`: a
 `book.json` plus an append-only `journal.ndjson`, one writer per book by lock file, balanced-or-rejected
@@ -172,7 +172,7 @@ and `comingSoon` removed from `MODULES.accountant`.
 
 ### B — Money amounts and the ledger contract (S)
 
-- [ ] Net-new `packages/shared/src/money-amount.ts`, exported from the shared barrel
+- [x] Net-new `packages/shared/src/money-amount.ts`, exported from the shared barrel
   - `CurrencyCodeSchema` is `MarketCurrencyCodeSchema` from [`markets.ts`](../../../packages/shared/src/markets.ts) re-exported
     (one ISO regex in the repo).
   - `MoneyAmountSchema = z.object({ minor: z.int(), currency: CurrencyCodeSchema })` — zod 4's `z.int()` is
@@ -190,7 +190,7 @@ and `comingSoon` removed from `MODULES.accountant`.
     `30`; `parseAmount('1.234','USD')` → `too-many-decimals`; `parseAmount('1234','JPY')` → `1234`;
     `percentOfMinor(-125, 2000)` → `-25`; `allocateMinor(100, [1,1,1])` → `[34,33,33]`;
     `formatAmount({minor: 123456, currency: 'GBP'}, 'en-GB')` → `£1,234.56`.
-- [ ] Net-new `packages/shared/src/ledger.ts`: the domain schemas
+- [x] Net-new `packages/shared/src/ledger.ts`: the domain schemas
   - `LedgerIdSchema = z.uuid()`; `IsoDateSchema = z.iso.date()` (`YYYY-MM-DD`).
   - `AccountTypeSchema = z.enum(['asset', 'liability', 'equity', 'income', 'expense'])`;
     `normalSide(type): 'debit' | 'credit'` (asset, expense → debit).
@@ -216,7 +216,7 @@ and `comingSoon` removed from `MODULES.accountant`.
   - Every optional is `.optional()`/`.default()` so a book written by a later build still loads.
   - Verified by net-new `ledger.test.ts`: round-trip of each schema; an entry with Σdebit ≠ Σcredit fails with path
     `['lines']`; a `subtype: 'bank'` on an `income` account fails; an unknown extra field on a book is stripped, not fatal.
-- [ ] The `ledger` channel: one request union, one envelope
+- [x] The `ledger` channel: one request union, one envelope
   - `CHANNELS.ledger = 'mstudio:ledger:op'`; `EVENT_CHANNELS.ledgerChanged = 'mstudio:ledger:changed'` with payload
     `{ bookId: string; revision: number }`.
   - `LedgerRequestSchema = z.discriminatedUnion('op', [...])`, ops: `listBooks` · `createBook { name, entity,
