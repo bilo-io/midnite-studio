@@ -137,6 +137,7 @@ const bridge: Pick<
   | 'finance'
   | 'financeAccounts'
   | 'markets'
+  | 'ledger'
   | 'apiClient'
   | 'video'
   | 'games'
@@ -615,6 +616,23 @@ const bridge: Pick<
     add: (req) => call(CHANNELS.financeAccountAdd, req),
     remove: (req) => call(CHANNELS.financeAccountRemove, req),
     snapshots: (req) => call(CHANNELS.financeAccountSnapshots, req),
+  },
+  ledger: {
+    listBooks: () => call(CHANNELS.ledger, { op: 'listBooks' }),
+    createBook: (req) => call(CHANNELS.ledger, { op: 'createBook', ...req }),
+    updateBook: (req) => call(CHANNELS.ledger, { op: 'updateBook', ...req }),
+    upsertAccount: (req) => call(CHANNELS.ledger, { op: 'upsertAccount', ...req }),
+    archiveAccount: (req) => call(CHANNELS.ledger, { op: 'archiveAccount', ...req }),
+    post: (req) => call(CHANNELS.ledger, { op: 'post', ...req }),
+    reverse: (req) => call(CHANNELS.ledger, { op: 'reverse', ...req }),
+    journal: (req) => call(CHANNELS.ledger, { op: 'journal', ...req }),
+    balances: (req) => call(CHANNELS.ledger, { op: 'balances', ...req }),
+    report: (req) => call(CHANNELS.ledger, { op: 'report', ...req }),
+    exportReport: (req) => call(CHANNELS.ledger, { op: 'exportReport', ...req }),
+    importPick: (req) => call(CHANNELS.ledger, { op: 'importPick', ...req }),
+    importPreview: (req) => call(CHANNELS.ledger, { op: 'importPreview', ...req }),
+    importCommit: (req) => call(CHANNELS.ledger, { op: 'importCommit', ...req }),
+    taxEstimate: (req) => call(CHANNELS.ledger, { op: 'taxEstimate', ...req }),
   },
   markets: {
     series: (req) => call(CHANNELS.marketsSeries, req),

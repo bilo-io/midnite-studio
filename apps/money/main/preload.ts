@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+import { createAccountantBridge } from '@midnite/studio-module-accountant/bridge';
 import { createMoneyBridge } from '@midnite/studio-module-money/bridge';
 import { createMonitorFeatureBridge } from '@midnite/studio-feature-monitor/bridge';
 import { createBridgeSlice, unionBridgeSlices } from '@midnite/studio-runtime/app-main/bridge-slice';
@@ -11,6 +12,7 @@ try {
     'midniteStudio',
     unionBridgeSlices(
       createMoneyBridge(ipcRenderer),
+      createAccountantBridge(ipcRenderer),
       createMonitorFeatureBridge(createBridgeSlice(ipcRenderer)),
       createSuiteBridge(ipcRenderer, process.argv, process.platform),
     ),
