@@ -18,13 +18,15 @@ type Props = {
   apply(scenario: SimScenario): string | null;
 };
 
+/** A failed result's text; a conflict (never produced here) reads generically. */
+const failText = (r: { kind: string; message?: string }): string => (r.kind === 'error' && r.message !== undefined ? r.message : 'Something went wrong');
+
 const CANNOT_OPEN = 'This scenario was saved by a newer or different version and cannot be opened';
 
 type ListValue = { scenarios: SimScenarioSummary[]; quarantined: number };
 
 /** A view's saved scenarios: Save, list, load, Rename and Delete (Phase 127 Theme F.3). */
 export function ScenarioPanel({ kinds, kind, capture, apply }: Props) {
-  const client = useQueryClient();
   const dialogs = useFrameChrome().useDialogs();
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [unopenable, setUnopenable] = useState<ReadonlySet<string>>(new Set());
@@ -57,7 +59,7 @@ export function ScenarioPanel({ kinds, kind, capture, apply }: Props) {
     return () => clearTimeout(t);
   }, [fetching]);
 
-  const failure = result && !result.ok ? result.message : null;
+  const failure = result && !result.ok ? failText(result) : null;
   const scenarios = result?.ok ? result.value.scenarios.filter((s) => kinds.includes(s.kind)) : [];
 
   const doSave = async (title: string, id: string | undefined) => {
@@ -69,7 +71,7 @@ export function ScenarioPanel({ kinds, kind, capture, apply }: Props) {
       if (res.ok) {
         setCurrentId(res.value.scenario.id);
         void refresh();
-      } else setProblem(res.message);
+      } else setProblem(failText(res));
     } catch (e) {
       setProblem(e instanceof Error ? e.message : String(e));
     } finally {
@@ -94,7 +96,7 @@ export function ScenarioPanel({ kinds, kind, capture, apply }: Props) {
   const open = async (s: SimScenarioSummary) => {
     setProblem(null);
     const res = (await bridge()?.simulator?.read({ id: s.id })) ?? noBridge<{ scenario: SimScenario }>();
-    if (!res.ok) return setProblem(res.message);
+    if (!res.ok) return setProblem(failText(res));
     const message = apply(res.value.scenario);
     setUnopenable((prev) => {
       const next = new Set(prev);
@@ -116,7 +118,7 @@ export function ScenarioPanel({ kinds, kind, capture, apply }: Props) {
         void (async () => {
           const res = (await bridge()?.simulator?.rename({ id: s.id, title: v.trim() })) ?? noBridge();
           if (res.ok) void refresh();
-          else setProblem(res.message);
+          else setProblem(failText(res));
         })();
       },
     });
@@ -135,7 +137,7 @@ export function ScenarioPanel({ kinds, kind, capture, apply }: Props) {
           if (res.ok) {
             if (currentId === s.id) setCurrentId(null);
             void refresh();
-          } else setProblem(res.message);
+          } else setProblem(failText(res));
         })();
       },
     });

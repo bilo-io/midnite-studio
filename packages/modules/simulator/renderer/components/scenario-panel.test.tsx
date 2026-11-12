@@ -1,6 +1,6 @@
 // vitest/jsdom: the panel over a fake `window.midniteStudio.simulator` bridge.
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { FrameChromeProvider } from '@midnite/studio-frame';
 import type { SimScenario, SimScenarioSummary } from '@midnite/studio-shared';
@@ -33,7 +33,7 @@ function install(stored: SimScenario[]) {
     rename: vi.fn(),
     remove: vi.fn(),
   };
-  vi.stubGlobal('window', Object.assign(window, { midniteStudio: { simulator: api } }));
+  Object.assign(window, { midniteStudio: { simulator: api } });
   return api;
 }
 
@@ -45,7 +45,6 @@ const mount = (apply: (s: SimScenario) => string | null = () => null) =>
     </FrameChromeProvider>,
   );
 
-beforeEach(() => void 0);
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
