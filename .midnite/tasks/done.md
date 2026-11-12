@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 130 Theme G — Verification and the catalog flip
+
+PR (see the Phase 130 G PR). `suite-shell/startup.spec.ts` (arrow endpoints on bar edges, first-run form, shots), Startup out of `comingSoon` in the launcher with its two modules, a website listing, `lineNet` symmetric for negative products. Packaged-app pass left for a human.
+
 ## 2026-11-12 — Phase 130 Theme F — Invoicing posted to the books
 
 PR (see the Phase 130 F PR). Startup mounts the Accountant module as its Books group; a `StartupLedgerPort` (host-implemented over the shared books) carries invoice posting, reversal, cash and monthly net. Gapless invoice numbers at issue, draft to issued to paid or void each one ledger call, PDF export, Invoices, Customers, Overview and Settings ▸ Company ▸ Books, and Theme D's actuals from the book.
