@@ -16,7 +16,7 @@ describe('createAccountantBridge', () => {
     const bridge = createAccountantBridge(fakeIpc());
     expect(Object.keys(bridge)).toEqual(['ledger']);
     expect(Object.keys(bridge.ledger).sort()).toEqual(
-      [...LedgerRequestSchema.options.map((o) => o.shape.op.value)].sort(),
+      [...LedgerRequestSchema.options.map((o) => o.shape.op.value), 'onChanged'].sort(),
     );
   });
 

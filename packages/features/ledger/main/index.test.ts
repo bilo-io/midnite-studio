@@ -50,6 +50,7 @@ describe('ledgerMain', () => {
     expect(posted.ok).toBe(true);
     const requests: Record<string, unknown>[] = [
       { op: 'listBooks' },
+      { op: 'getBook', bookId: book.id },
       { op: 'updateBook', bookId: book.id, patch: { name: 'Acme 2' } },
       { op: 'upsertAccount', bookId: book.id, account: { code: '6950', name: 'Gifts', type: 'expense', subtype: 'operating-expense' } },
       { op: 'archiveAccount', bookId: book.id, accountId: acct('Cash').id },

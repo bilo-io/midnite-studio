@@ -180,6 +180,7 @@ const bookId = { bookId: LedgerIdSchema };
 
 export const LedgerRequestSchema = z.discriminatedUnion('op', [
   z.object({ op: z.literal('listBooks') }),
+  z.object({ op: z.literal('getBook'), ...bookId }),
   z.object({
     op: z.literal('createBook'),
     name: z.string().trim().min(1).max(80),

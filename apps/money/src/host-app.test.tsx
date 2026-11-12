@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { createMemoryLedger } from '@midnite/studio-feature-ledger/renderer';
 import { firstViewOfModule, moduleOfView, navConfigProblems, suiteShellTestBridge } from '@midnite/studio-frame';
 import { APP_MODULES } from '@midnite/studio-shared';
 
@@ -23,6 +24,7 @@ beforeEach(() => {
       apply: ok({}),
       news: ok({ items: [], stale: false, failed: [] }),
     },
+    ledger: createMemoryLedger({ seed: false }),
     report: {
       onOpen: vi.fn(() => () => undefined),
       bundle: vi.fn(async () => ({ text: '' })),

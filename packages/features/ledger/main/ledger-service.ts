@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import {
@@ -11,6 +11,7 @@ import {
   type LedgerAccount,
   type LedgerAccountInput,
   type LedgerBook,
+  type LedgerBookDetail,
   type LedgerBookSummary,
   type LedgerEntity,
   type LedgerErrorKind,
@@ -41,6 +42,7 @@ export type JournalQuery = { bookId: string; from?: string; to?: string; account
  */
 export type LedgerService = {
   listBooks(): Promise<LedgerResult<{ books: LedgerBookSummary[] }>>;
+  getBook(bookId: string): Promise<LedgerResult<LedgerBookDetail>>;
   createBook(input: CreateBookInput): Promise<LedgerResult<{ book: LedgerBook }>>;
   updateBook(bookId: string, patch: { name?: string; lockedThrough?: string | null; jurisdiction?: TaxJurisdictionId | null }): Promise<LedgerResult<{ book: LedgerBook }>>;
   upsertAccount(bookId: string, account: LedgerAccountInput): Promise<LedgerResult<{ account: LedgerAccount }>>;
@@ -163,6 +165,18 @@ export function createLedgerService(opts: LedgerServiceOptions): LedgerService {
       }
     },
 
+    getBook: (bookId) =>
+      withStore(bookId, async (store) => ({
+        ok: true,
+        value: {
+          book: store.book(),
+          readOnly: store.readOnly,
+          lockedBy: store.lockedBy,
+          revision: store.revision,
+          ...(store.corrupt ? { corrupt: { lines: store.corrupt.lines, path: store.dir } } : {}),
+        },
+      })),
+
     async createBook(input) {
       try {
         const currency = CurrencyCodeSchema.safeParse(input.currency);
@@ -183,7 +197,10 @@ export function createLedgerService(opts: LedgerServiceOptions): LedgerService {
           createdAt: now().toISOString(),
         };
         await mkdir(dirOf(id), { recursive: true });
-        await writeFile(join(dirOf(id), 'book.json'), `${JSON.stringify(book, null, 2)}\n`);
+        // Temp + rename, as the store writes it: a crash mid-create cannot leave a half-written book.json.
+        const bookPath = join(dirOf(id), 'book.json');
+        await writeFile(`${bookPath}.tmp`, `${JSON.stringify(book, null, 2)}\n`);
+        await rename(`${bookPath}.tmp`, bookPath);
         return withStore(id, async (store) => ({ ok: true, value: { book: store.book() } }), true);
       } catch (err) {
         return fail('io', err instanceof Error ? err.message : 'could not create the book');

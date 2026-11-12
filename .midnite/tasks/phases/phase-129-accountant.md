@@ -66,9 +66,9 @@ result envelope). Phase 130 builds on both. The date schema is `LedgerDateSchema
 `book.json` plus an append-only `journal.ndjson`, one writer per book by lock file, balanced-or-rejected
 posting, reversal instead of edit, period lock, idempotent posting by source reference, chart templates. `createLedgerService` replaces `createUnavailableLedgerService` in Money's and Studio's hosts; `LedgerBookSummary` gains an optional `corrupt: { lines, path }`. A reversal posts through the same archived-account check as any post, so reversing an entry on an archived account answers `archived-account`. `report`, `exportReport`, the import ops and `taxEstimate` still answer `invalid` until E, F and G.
 
-**Theme D — Books, accounts and journal UI.** ◻ Overview, Accounts and Journal views in the ledger
+**Theme D — Books, accounts and journal UI.** ✅ Overview, Accounts and Journal views in the ledger
 feature's renderer, mounted as the Accountant nav group: create a book, browse balances, post and reverse
-entries, with every empty, loading, read-only and error state written down.
+entries, with every empty, loading, read-only and error state written down. Two contract additions the views needed: a `getBook` op (the full chart plus `readOnly`, `lockedBy`, `corrupt`; `listBooks` only returns summaries) and `LedgerBridge.onChanged`, wired in the accountant bridge and Studio's preload, which invalidates every `['ledger']` query. `createMemoryLedger` (exported from the renderer index) is the in-memory bridge RTL tests use; the app's `buildMockBridge` is serialised into Playwright pages and cannot import it, so Theme H seeds the shots spec's book itself. A headline links to the journal filtered to its account when it names exactly one, else unfiltered. "Reversed on" is read from the loaded journal pages only. Reports, Tax and Import tabs show a "Coming next" card until E, F and G.
 
 **Theme E — Bank CSV import and rules.** ◻ Pick a statement, map its columns, preview, categorise by rules,
 post; re-importing the same file posts nothing twice.
@@ -305,40 +305,40 @@ and `comingSoon` removed from `MODULES.accountant`.
 
 ### D — Books, accounts and journal UI (L)
 
-- [ ] Net-new `packages/features/ledger/renderer/ledger-ui-store.ts` (zustand `persist`, as
+- [x] Net-new `packages/features/ledger/renderer/ledger-ui-store.ts` (zustand `persist`, as
   [`finance-ui-store.ts`](../../../packages/features/finance/renderer/dashboard/finance-ui-store.ts) does)
   - `name: 'midnite-studio.ledger-ui'`, `version: 1`, `migrate: (raw, v) => v < 1 ? DEFAULTS : raw`; persisted:
     `bookId: string | null`, `journalFilter: { accountId: string | null; query: string }`, `reportRange: 'month' | 'quarter' |
     'fiscal-year' | 'custom'`.
   - A persisted `bookId` that no longer exists falls back to the first book (or the empty state).
   - Verified by `ledger-ui-store.test.ts`: a v0 blob migrates to defaults; an unknown `bookId` resolves to the first book.
-- [ ] Data access through react-query over `bridge().ledger`, keyed `['ledger', bookId, op, args]`
+- [x] Data access through react-query over `bridge().ledger`, keyed `['ledger', bookId, op, args]`
   - `ledgerChanged` invalidates `['ledger', bookId]`; reads use `staleTime: 30_000`.
-- [ ] Overview (`accountant.overview`): book picker, create-book form, and the four headline numbers
+- [x] Overview (`accountant.overview`): book picker, create-book form, and the four headline numbers
   - No books: centred "No books yet" + **Create a book** (name, entity, currency select from `MARKET_CURRENCIES`, fiscal
     year start, template preselected from entity).
   - With a book: Cash (Σ cash + bank), Owed to you (receivable), You owe (payable + tax-payable), Profit this fiscal year;
     each a link to the filtered journal.
   - Read-only book: an amber banner "Read-only — this book is open for writing in <app>." Corrupt: a red banner naming the
     line numbers and the book folder's path, with a **Copy path** button (`navigator.clipboard.writeText`); no new reveal op.
-- [ ] Accounts (`accountant.accounts`): the chart grouped by type, balance per account as of today
+- [x] Accounts (`accountant.accounts`): the chart grouped by type, balance per account as of today
   - Columns: code, name, subtype, balance (normal-side sign, `formatAmount`); archived accounts hidden behind a "Show archived" toggle.
   - Add / rename / archive in a side sheet; archiving an account with a non-zero balance is refused in the UI with the
     balance named (main also refuses: `archived-account` on post is the backstop).
-- [ ] Journal (`accountant.journal`): entries newest first, filter by account and text, 100 per page (`cursor`)
+- [x] Journal (`accountant.journal`): entries newest first, filter by account and text, 100 per page (`cursor`)
   - Row: date, description, source badge (Manual · Import · Invoice · Payment · Reversal), total, expand to lines.
   - **New entry** sheet: date, description, ≥ 2 line rows (account combobox, debit, credit, memo), a live
     "Difference" footer; **Post** is disabled until the difference is `0` and every row has an account.
   - **Reverse** on an entry opens a confirm with the reversal's date and a required reason; a reversed entry shows
     "Reversed on <date>" and loses the button.
   - Amount inputs go through `parseAmount`; a bad value marks the cell `aria-invalid` with the reason.
-- [ ] Every `{ ok: false }` renders as an inline error under the control that sent it, with `message`; `locked-period` adds
+- [x] Every `{ ok: false }` renders as an inline error under the control that sent it, with `message`; `locked-period` adds
   "Books are locked through <date>." and a link to the book's settings
-- [ ] Book settings (a sheet from the Overview picker): rename, lock books through a date, tax jurisdiction (Theme G)
+- [x] Book settings (a sheet from the Overview picker): rename, lock books through a date, tax jurisdiction (Theme G)
   - Moving `lockedThrough` later goes through `useDialogs().confirm({ title: 'Lock books through <date>?', body: '<n> entries fall in the newly locked range and can no longer be reversed into it.', confirmLabel: 'Lock' })` (the frame's `ConfirmRequest`; `n` from the `journal` op's count).
-- [ ] Keyboard: `↑/↓` move in the journal list, `Enter` expands, `N` opens New entry while the journal has focus; nothing joins
+- [x] Keyboard: `↑/↓` move in the journal list, `Enter` expands, `N` opens New entry while the journal has focus; nothing joins
   `COMMANDS` in [`keybindings.ts`](../../../packages/shared/src/keybindings.ts)
-- [ ] Tests: net-new RTL `overview.test.tsx`, `accounts.test.tsx`, `journal.test.tsx` over the mock bridge
+- [x] Tests: net-new RTL `overview.test.tsx`, `accounts.test.tsx`, `journal.test.tsx` over the mock bridge
   - Assertions: empty state copy; create book → picker shows it; Post disabled at difference `0.01`, enabled at `0`; reverse
     confirm requires a reason; read-only banner renders for a `readOnly: true` book; `locked-period` error copy renders.
 

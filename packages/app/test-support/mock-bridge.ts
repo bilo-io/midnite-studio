@@ -7402,12 +7402,14 @@ export function buildMockBridge(data: MockFixtures) {
     };
   }
 
-  // Phase 129 — the books. No book is seeded yet (Theme D adds the fixture and the in-memory ledger), so every
-  // op answers the envelope with an empty list or a plain error, exactly as main's unavailable service does.
+  // Phase 129 — the books. buildMockBridge is serialised into a Playwright page, so it cannot import the ledger
+  // feature's in-memory bridge (`createMemoryLedger`, which RTL tests use); here no book exists, and Theme H
+  // seeds the shots spec's book through the page. Every op answers the envelope: an empty list or a plain error.
   {
     const unavailable = async () => ({ ok: false as const, kind: 'io' as const, message: 'Books are not available in this mock yet.' });
     (bridge as Record<string, unknown>).ledger = {
       listBooks: async () => ({ ok: true as const, value: { books: [] as unknown[] } }),
+      getBook: unavailable,
       createBook: unavailable,
       updateBook: unavailable,
       upsertAccount: unavailable,
@@ -7422,6 +7424,7 @@ export function buildMockBridge(data: MockFixtures) {
       importPreview: unavailable,
       importCommit: unavailable,
       taxEstimate: unavailable,
+      onChanged: () => () => undefined,
     };
   }
 

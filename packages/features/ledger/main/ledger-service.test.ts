@@ -50,6 +50,15 @@ describe('createLedgerService', () => {
     expect(events[0]).toEqual([EVENT_CHANNELS.ledgerChanged, { bookId: book.id, revision: 0 }]);
   });
 
+  it('getBook returns the chart and whether this process can write it', async () => {
+    const first = await setup('money');
+    const { book } = await newBook(first.service);
+    expect(await first.service.getBook(book.id)).toMatchObject({ ok: true, value: { readOnly: false, lockedBy: null, book: { id: book.id } } });
+    const second = await setup('studio', first.dir);
+    expect(await second.service.getBook(book.id)).toMatchObject({ ok: true, value: { readOnly: true, lockedBy: 'money' } });
+    expect(await first.service.getBook('22222222-2222-4222-8222-222222222222')).toMatchObject({ ok: false, kind: 'not-found' });
+  });
+
   it('posts, announces the revision and lists the journal newest first with a cursor', async () => {
     const { service, events } = await setup();
     const { book, acct } = await newBook(service);

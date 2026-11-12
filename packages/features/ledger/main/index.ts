@@ -30,6 +30,8 @@ async function dispatch(req: LedgerRequest, services: LedgerMainServices): Promi
   switch (req.op) {
     case 'listBooks':
       return service.listBooks();
+    case 'getBook':
+      return service.getBook(req.bookId);
     case 'createBook':
       return service.createBook(req);
     case 'updateBook':

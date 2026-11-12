@@ -51,7 +51,7 @@ import type {
 import type { SimKind, SimScenario, SimScenarioDraft, SimScenarioId, SimScenarioSummary } from '../simulator';
 import type {
   ImportMapping, ImportCommitRow, JournalEntry, LedgerAccountInput, LedgerBook, LedgerPostInput, LedgerReportKind,
-  LedgerResult, TaxJurisdictionId, LedgerEntity, LedgerAccount,
+  LedgerResult, TaxJurisdictionId, LedgerEntity, LedgerAccount, LedgerChangedPayload,
 } from '../ledger';
 import type { ScienceDiscipline, ScienceNotebook, ScienceNotebookId, ScienceNotebookSummary, ScienceCell } from '../science';
 import type { SfxGenerateRequest, SfxGenerateResult, SfxProgressEvent, SfxStatus } from '../media-sfx';
@@ -143,6 +143,7 @@ export type SimulatorBridge = {
 /** `ledger`'s `op` union (Double-entry books, Phase 129), one typed method per op. Every method answers `LedgerResult`. */
 export type LedgerBridge = {
   listBooks: () => Promise<LedgerResult<{ books: LedgerBookSummary[] }>>;
+  getBook: (req: { bookId: string }) => Promise<LedgerResult<LedgerBookDetail>>;
   createBook: (req: { name: string; entity: LedgerEntity; currency: string; fiscalYearStart: { month: number; day: number }; template: LedgerEntity }) => Promise<LedgerResult<{ book: LedgerBook }>>;
   updateBook: (req: { bookId: string; patch: { name?: string; lockedThrough?: string | null; jurisdiction?: TaxJurisdictionId | null } }) => Promise<LedgerResult<{ book: LedgerBook }>>;
   upsertAccount: (req: { bookId: string; account: LedgerAccountInput }) => Promise<LedgerResult<{ account: LedgerAccount }>>;
@@ -157,6 +158,8 @@ export type LedgerBridge = {
   importPreview: (req: { bookId: string; mapping: ImportMapping }) => Promise<LedgerResult<unknown>>;
   importCommit: (req: { bookId: string; mapping: ImportMapping; rows: ImportCommitRow[] }) => Promise<LedgerResult<{ posted: number; duplicates: number; failed: { index: number; reason: string }[] }>>;
   taxEstimate: (req: { bookId: string; taxYear: number }) => Promise<LedgerResult<unknown>>;
+  /** Fires after any write to a book (this window's or another app's, once seen): `{ bookId, revision }`. */
+  onChanged: (handler: (event: LedgerChangedPayload) => void) => Unsubscribe;
 };
 
 /** A book as the picker lists it: no accounts, plus whether this process can write it. */
@@ -164,6 +167,16 @@ export type LedgerBookSummary = Pick<LedgerBook, 'id' | 'name' | 'entity' | 'cur
   readOnly: boolean;
   revision: number;
   /** Journal lines that failed their schema (1-based; empty when `book.json` itself is unreadable) and the book folder to look in. */
+  corrupt?: { lines: number[]; path: string };
+};
+
+/** One book in full: its chart of accounts and whether this process can write it (`getBook`). */
+export type LedgerBookDetail = {
+  book: LedgerBook;
+  readOnly: boolean;
+  /** The app holding the writer lock when this process is read-only for that reason. */
+  lockedBy: string | null;
+  revision: number;
   corrupt?: { lines: number[]; path: string };
 };
 
