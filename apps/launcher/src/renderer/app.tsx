@@ -66,6 +66,12 @@ export function App() {
   const [detail, setDetail] = useState<LauncherApp | null>(null);
   const [notesOpen, setNotesOpen] = useState(false);
   const changelog = useChangelog(notesOpen);
+  useEffect(() => {
+    if (!notesOpen) return;
+    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && setNotesOpen(false);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [notesOpen]);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [confirmUninstall, setConfirmUninstall] = useState<LauncherApp | null>(null);
   const [confirmRemoveAll, setConfirmRemoveAll] = useState(false);

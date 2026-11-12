@@ -6,8 +6,8 @@ import { EXTERNAL_LINKS, LAUNCHER_CHANNELS, THEME_SOURCES, type LauncherResult, 
 import { APP_IDS, type AppId } from '../common/catalog';
 import type { createAppsOps } from './bundles/apps-ops';
 import { DOWNLOAD_URL, RELEASES_URL, SITE_URL } from './constants';
-import { fetchStudioRelease } from './feed';
 import { fetchChangelog } from './changelog';
+import { fetchStudioRelease } from './feed';
 import { installStudio } from './install';
 import { appLink } from './links';
 import { findStudio, isStudioRunning, studioStatus } from './studio';
