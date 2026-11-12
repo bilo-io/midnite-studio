@@ -70,8 +70,8 @@ posting, reversal instead of edit, period lock, idempotent posting by source ref
 feature's renderer, mounted as the Accountant nav group: create a book, browse balances, post and reverse
 entries, with every empty, loading, read-only and error state written down. Two contract additions the views needed: a `getBook` op (the full chart plus `readOnly`, `lockedBy`, `corrupt`; `listBooks` only returns summaries) and `LedgerBridge.onChanged`, wired in the accountant bridge and Studio's preload, which invalidates every `['ledger']` query. `createMemoryLedger` (exported from the renderer index) is the in-memory bridge RTL tests use; the app's `buildMockBridge` is serialised into Playwright pages and cannot import it, so Theme H seeds the shots spec's book itself. A headline links to the journal filtered to its account when it names exactly one, else unfiltered. "Reversed on" is read from the loaded journal pages only. Reports, Tax and Import tabs show a "Coming next" card until E, F and G.
 
-**Theme E — Bank CSV import and rules.** ◻ Pick a statement, map its columns, preview, categorise by rules,
-post; re-importing the same file posts nothing twice.
+**Theme E — Bank CSV import and rules.** ✅ Pick a statement, map its columns, preview, categorise by rules,
+post; re-importing the same file posts nothing twice. `main/import/csv.ts` (`parseCsv`) and `import-service.ts` back the `importPick`/`importPreview`/`importCommit` ops; the statement's path stays in main behind a token that expires on the next pick. Additive contract changes: `ImportCommitRow.remember` (main adds a rule from the row's description after it posts), typed `ImportPreview`/`ImportPick`/`ImportCommitResult`, and two service methods, `snapshot` (book + entries, which Theme F reads) and `addImportRules`. A re-import is detected across apps (the idempotency ref ignores `source.app`), and a decimal comma (`12,50`) is read as 12.50, never 1250. The Import tab is `import-view.tsx`; `createMemoryLedger` serves one built-in statement.
 
 **Theme F — Financial reports.** ◻ Trial balance, profit and loss, balance sheet and cash flow (indirect)
 computed in main from the journal, rendered as tables, exported as CSV. The balance sheet always balances
@@ -344,30 +344,30 @@ and `comingSoon` removed from `MODULES.accountant`.
 
 ### E — Bank CSV import and rules (M)
 
-- [ ] Net-new `main/import/csv.ts`: `parseCsv(text: string): { rows: string[][]; delimiter: ',' | ';' | '\t' }`
+- [x] Net-new `main/import/csv.ts`: `parseCsv(text: string): { rows: string[][]; delimiter: ',' | ';' | '\t' }`
   - RFC 4180 quoting, `""` escapes, CRLF/LF, a UTF-8 BOM stripped, delimiter sniffed from the first non-empty line (most
     frequent of `,` `;` `\t` outside quotes). Hand-written: one function, no dependency.
   - Caps: 5 MB file, 20 000 rows; over either → `{ ok: false, kind: 'invalid', message: 'Statement is larger than …' }`.
   - Verified by `csv.test.ts`: a quoted field with a comma and a newline, a BOM, a `;` file, a trailing empty line.
-- [ ] `importPick` opens the injected `pickCsv()` (main-side native dialog), returns `{ token, header, sample: first 10 rows }`
+- [x] `importPick` opens the injected `pickCsv()` (main-side native dialog), returns `{ token, header, sample: first 10 rows }`
   - The path stays in main behind an opaque `token` (a uuid in a map, expires on the next pick); the renderer never sends a path.
-- [ ] `ImportMappingSchema`: `{ token, bankAccountId, date: { column, format: 'YYYY-MM-DD' | 'DD/MM/YYYY' | 'MM/DD/YYYY' },
+- [x] `ImportMappingSchema`: `{ token, bankAccountId, date: { column, format: 'YYYY-MM-DD' | 'DD/MM/YYYY' | 'MM/DD/YYYY' },
   description: column, amount: { kind: 'single', column, negativeIsOutflow: boolean } | { kind: 'split', inColumn, outColumn } }`
   - `importPreview` returns each row as `{ index, date, description, minor, suggestedAccountId | null, duplicate: boolean,
     error?: string }`.
-- [ ] Rules: `ImportRuleSchema = { id, match: { field: 'description'; contains: string (case-insensitive) }, accountId,
+- [x] Rules: `ImportRuleSchema = { id, match: { field: 'description'; contains: string (case-insensitive) }, accountId,
   priority: z.int() }` stored on the book
   - First matching rule by ascending `priority` wins; a row with no match goes to a "Needs an account" bucket and is not
     posted until it has one.
   - "Remember for next time" on a manual pick adds a rule with `contains` prefilled from the description.
-- [ ] Idempotency: each row posts with `source = { kind: 'import', ref: sha256(bankAccountId|date|minor|description|n) }`,
+- [x] Idempotency: each row posts with `source = { kind: 'import', ref: sha256(bankAccountId|date|minor|description|n) }`,
   where `n` counts identical earlier rows in the same file, so two genuine identical payments are both kept and a
   re-import posts neither again
-- [ ] `importCommit` posts one entry per row (bank line + categorised line), returns `{ posted, duplicates, failed[{index,
+- [x] `importCommit` posts one entry per row (bank line + categorised line), returns `{ posted, duplicates, failed[{index,
   reason}] }`; one bad row never aborts the batch
-- [ ] Import view (`accountant.import`): pick → map (selects for each column, live preview of 10 rows) → review table with
+- [x] Import view (`accountant.import`): pick → map (selects for each column, live preview of 10 rows) → review table with
   per-row account combobox → **Post N entries**; summary line after commit
-- [ ] Tests: `import-service.test.ts` (mapping both amount kinds, three date formats, rule priority, re-import → 0 posted,
+- [x] Tests: `import-service.test.ts` (mapping both amount kinds, three date formats, rule priority, re-import → 0 posted,
   two identical rows → 2 posted), RTL `import-view.test.tsx` (Post disabled while a row needs an account)
 
 ### F — Financial reports (M)
@@ -483,7 +483,7 @@ and `comingSoon` removed from `MODULES.accountant`.
 - [x] Reversal: balances return to zero; a second reversal is a duplicate.
 - [x] `main/index.test.ts`: every op answers through the envelope; an injected fs error is `io`, never a throw.
 - [ ] `apps/money/main/host.test.ts`: ledger + finance channels each registered once; `host-app.test.tsx`: two nav groups.
-- [ ] `csv.test.ts` + `import-service.test.ts`: quoting, BOM, delimiter sniff, caps, rule priority, idempotent re-import.
+- [x] `csv.test.ts` + `import-service.test.ts`: quoting, BOM, delimiter sniff, caps, rule priority, idempotent re-import.
 - [ ] `reports.test.ts`: the hand-worked year; 500 random balanced entries keep the balance sheet balanced and cash flow reconciled.
 - [ ] `uk-ew-ni.test.ts`: the three worked examples above.
 - [ ] RTL: overview, accounts, journal, import, reports and tax views as listed per theme; the tax notice in every state.

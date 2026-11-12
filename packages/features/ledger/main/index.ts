@@ -2,11 +2,13 @@ import { defineFeatureMain } from '@midnite/studio-runtime';
 import { CHANNELS, LedgerRequestSchema, type LedgerRequest, type LedgerResult, type SuiteAppId } from '@midnite/studio-shared';
 
 import { ledgerManifest } from '../manifest';
+import { createImportService, type ImportService } from './import/import-service';
 import type { LedgerService } from './ledger-service';
 
 export { ledgerManifest, type LedgerManifest } from '../manifest';
 export { createLedgerService, type CreateBookInput, type JournalQuery, type LedgerService, type LedgerServiceOptions } from './ledger-service';
 export { CHART_TEMPLATES } from './chart-templates';
+export { createImportService, type ImportService } from './import/import-service';
 
 /**
  * What the composer hands the ledger feature. A host keeps the `service` it built (Phase 130's Startup host
@@ -25,7 +27,7 @@ export type LedgerMainServices = {
 const invalid = (message: string): LedgerResult<never> => ({ ok: false, kind: 'invalid', message });
 
 /** Routes one request to the service. Main stamps `source.app`; the renderer's `post` is `manual` only. */
-async function dispatch(req: LedgerRequest, services: LedgerMainServices): Promise<LedgerResult<unknown>> {
+async function dispatch(req: LedgerRequest, services: LedgerMainServices, imports: ImportService): Promise<LedgerResult<unknown>> {
   const { service } = services;
   switch (req.op) {
     case 'listBooks':
@@ -50,6 +52,12 @@ async function dispatch(req: LedgerRequest, services: LedgerMainServices): Promi
     }
     case 'balances':
       return service.balances(req.bookId, req.asOf);
+    case 'importPick':
+      return imports.pick(req.bookId);
+    case 'importPreview':
+      return imports.preview(req.bookId, req.mapping);
+    case 'importCommit':
+      return imports.commit(req.bookId, req.mapping, req.rows);
     default:
       return invalid(`"${req.op}" is not available yet.`);
   }
@@ -59,12 +67,13 @@ export const ledgerMain = defineFeatureMain<LedgerMainServices>({
   feature: ledgerManifest.feature,
   channels: ledgerManifest.ipc,
   register(ctx, services) {
+    const imports = createImportService({ service: services.service, appId: services.appId, pickCsv: services.pickCsv });
     ctx.ipc.handle(
       CHANNELS.ledger,
       LedgerRequestSchema,
       async (req): Promise<LedgerResult<unknown>> => {
         try {
-          return await dispatch(req, services);
+          return await dispatch(req, services, imports);
         } catch (err) {
           return { ok: false, kind: 'io', message: err instanceof Error ? err.message : 'ledger request failed' };
         }

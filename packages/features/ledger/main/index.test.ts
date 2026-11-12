@@ -57,6 +57,7 @@ describe('ledgerMain', () => {
       { op: 'reverse', bookId: book.id, entryId: posted.value.entry.id, date: '2026-05-02', reason: 'oops' },
       { op: 'journal', bookId: book.id },
       { op: 'balances', bookId: book.id, asOf: '2026-12-31' },
+      { op: 'importPick', bookId: book.id },
     ];
     for (const req of requests) expect(await handler(req), String(req.op)).toMatchObject({ ok: true });
   });
@@ -76,7 +77,7 @@ describe('ledgerMain', () => {
 
   it('answers ops with no service method yet as invalid', async () => {
     const { handler, book } = await seeded();
-    expect(await handler({ op: 'importPick', bookId: book.id })).toMatchObject({ ok: false, kind: 'invalid' });
+    expect(await handler({ op: 'taxEstimate', bookId: book.id, taxYear: 2025 })).toMatchObject({ ok: false, kind: 'invalid' });
   });
 
   it('reports a bad payload through the envelope', async () => {

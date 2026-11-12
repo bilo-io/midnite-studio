@@ -51,6 +51,10 @@ export type LedgerService = {
   reverse(bookId: string, entryId: string, date: string, reason: string): Promise<LedgerResult<{ entry: JournalEntry; duplicate: boolean }>>;
   journal(query: JournalQuery): Promise<LedgerResult<{ entries: JournalEntry[]; nextCursor: string | null }>>;
   balances(bookId: string, asOf: string): Promise<LedgerResult<{ balances: { accountId: string; debit: number; credit: number }[] }>>;
+  /** The book and every posted entry, for main-side readers (reports, tax, import). The entries are the store's own: read, never mutate. */
+  snapshot(bookId: string): Promise<LedgerResult<{ book: LedgerBook; entries: readonly JournalEntry[]; readOnly: boolean }>>;
+  /** Appends import rules (skipping one already present for the same text and account) after the highest existing priority. */
+  addImportRules(bookId: string, rules: { contains: string; accountId: string }[]): Promise<LedgerResult<{ added: number }>>;
   /** Releases every book's writer lock. */
   dispose(): Promise<void>;
 };
@@ -304,6 +308,31 @@ export function createLedgerService(opts: LedgerServiceOptions): LedgerService {
         }
         return { ok: true, value: { balances: [...totals].map(([accountId, t]) => ({ accountId, ...t })) } };
       }),
+
+    snapshot: (bookId) => withStore(bookId, async (store) => ({ ok: true, value: { book: store.book(), entries: store.entries(), readOnly: store.readOnly } })),
+
+    addImportRules: (bookId, rules) =>
+      withStore(
+        bookId,
+        async (store) => {
+          let added = 0;
+          const r = await store.updateBook((b) => {
+            const next = [...b.rules];
+            let priority = next.reduce((m, x) => Math.max(m, x.priority), -1);
+            for (const rule of rules) {
+              const contains = rule.contains.trim().slice(0, 120);
+              if (contains === '' || !b.accounts.some((a) => a.id === rule.accountId && !a.archived)) continue;
+              if (next.some((x) => x.accountId === rule.accountId && x.match.contains.toLowerCase() === contains.toLowerCase())) continue;
+              priority += 1;
+              next.push({ id: randomUUID(), match: { field: 'description', contains }, accountId: rule.accountId, priority });
+              added += 1;
+            }
+            return added === 0 ? b : { ...b, rules: next };
+          });
+          return r.ok ? { ok: true, value: { added } } : r;
+        },
+        true,
+      ),
 
     async dispose() {
       const pending = [...stores.values()];

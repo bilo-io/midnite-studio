@@ -1,4 +1,6 @@
+import { parseAmount } from '@midnite/studio-shared';
 import type {
+  ImportPreviewRow,
   JournalEntry,
   LedgerAccount,
   LedgerBook,
@@ -6,6 +8,7 @@ import type {
   LedgerBridge,
   LedgerErrorKind,
   LedgerResult,
+  ImportMapping,
 } from '@midnite/studio-shared';
 
 export type MemoryLedgerOptions = {
@@ -33,11 +36,35 @@ const SEED_ACCOUNTS: Omit<LedgerAccount, 'id'>[] = [
   { code: '6000', name: 'Software & subscriptions', type: 'expense', subtype: 'operating-expense', archived: false, taxTreatment: 'allowable' },
 ];
 
+/** The one statement `importPick` offers: a header and signed amounts, ISO dates. */
+const STATEMENT: string[][] = [
+  ['Date', 'Description', 'Amount'],
+  ['2026-05-15', 'ADOBE *CREATIVE CLOUD', '-19.99'],
+  ['2026-05-16', 'Client payment — Globex', '1500.00'],
+  ['2026-05-17', 'TRAINLINE LONDON', '-42.10'],
+  ['2026-05-18', 'Mystery transfer', '-7.00'],
+];
+
+function readStatement(book: LedgerBook, mapping: ImportMapping, imported: ReadonlySet<string>): ImportPreviewRow[] {
+  return STATEMENT.slice(1).map((cells, index): ImportPreviewRow => {
+    const description = cells[mapping.description] ?? '';
+    const date = cells[mapping.date.column] ?? '';
+    const base = { index, date, description, suggestedAccountId: null, duplicate: imported.has(`${mapping.token}:${index}`) };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ...base, minor: 0, error: `Date "${date}" is not ${mapping.date.format}.` };
+    const column = mapping.amount.kind === 'single' ? mapping.amount.column : mapping.amount.inColumn;
+    const amount = parseAmount(cells[column] ?? '', book.currency);
+    if (!amount.ok) return { ...base, minor: 0, error: 'The amount is not a number.' };
+    const minor = mapping.amount.kind === 'single' && !mapping.amount.negativeIsOutflow ? -amount.minor : amount.minor;
+    const rule = [...book.rules].sort((a, b) => a.priority - b.priority).find((r) => description.toLowerCase().includes(r.match.contains.toLowerCase()));
+    return { ...base, minor, suggestedAccountId: rule?.accountId ?? null };
+  });
+}
+
 /**
  * The books bridge in memory — one seeded book and the ops the Overview, Accounts and Journal views use.
  * It enforces the same posting rules main does (balanced, archived account, locked period) so a view's error
  * states can be driven through it. Used by the app's mock bridge, the shots spec and this feature's tests;
- * reports, import and tax answer `io` until their themes land.
+ * reports and tax answer `io` until their themes land; import reads one built-in statement.
  */
 export function createMemoryLedger(options: MemoryLedgerOptions = {}): LedgerBridge & { entries: () => JournalEntry[] } {
   const today = options.today ?? '2026-05-20';
@@ -73,7 +100,7 @@ export function createMemoryLedger(options: MemoryLedgerOptions = {}): LedgerBri
       lockedThrough: null,
       jurisdiction: null,
       accounts: SEED_ACCOUNTS.map((a, i) => ({ ...a, id: acc(i + 1) })),
-      rules: [],
+      rules: [{ id: acc(900), match: { field: 'description', contains: 'adobe' }, accountId: acc(6), priority: 0 }],
       createdAt: '2026-04-06T00:00:00.000Z',
     });
     journals.set(SEED_BOOK_ID, [
@@ -90,6 +117,9 @@ export function createMemoryLedger(options: MemoryLedgerOptions = {}): LedgerBri
 
   const balanceOf = (bookId: string, accountId: string): number =>
     (journals.get(bookId) ?? []).reduce((t, e) => t + e.lines.reduce((s, l) => (l.accountId === accountId ? s + (l.side === 'debit' ? l.minor : -l.minor) : s), 0), 0);
+
+  /** Statement rows already posted by `importCommit`, per book. The mock has one statement, so a row's reference is its index. */
+  const importedRefs = new Map<string, Set<string>>();
 
   const unavailable = async (): Promise<LedgerResult<never>> => fail('io', 'Not available in this mock yet.');
 
@@ -246,9 +276,51 @@ export function createMemoryLedger(options: MemoryLedgerOptions = {}): LedgerBri
     },
     report: unavailable,
     exportReport: unavailable,
-    importPick: unavailable,
-    importPreview: unavailable,
-    importCommit: unavailable,
+    importPick: async ({ bookId }) => {
+      if (!find(bookId)) return notFound;
+      return ok({ token: 'memory-statement', header: STATEMENT[0] as string[], sample: STATEMENT.slice(1, 11) });
+    },
+    importPreview: async ({ bookId, mapping }) => {
+      const book = find(bookId);
+      if (!book) return notFound;
+      if (mapping.token !== 'memory-statement') return fail('invalid', 'That statement is no longer open. Choose the file again.');
+      return ok({ rows: readStatement(book, mapping, importedRefs.get(bookId) ?? new Set()) });
+    },
+    importCommit: async ({ bookId, mapping, rows }) => {
+      const book = find(bookId);
+      if (!book) return notFound;
+      if (readOnly(bookId)) return fail('read-only', `Open in ${options.readOnlyBy} — this book is being written there.`);
+      const refs = importedRefs.get(bookId) ?? new Set<string>();
+      importedRefs.set(bookId, refs);
+      const byIndex = new Map(readStatement(book, mapping, refs).map((r) => [r.index, r]));
+      const out = { posted: 0, duplicates: 0, failed: [] as { index: number; reason: string }[] };
+      for (const pick of rows) {
+        const row = byIndex.get(pick.index);
+        if (!row || row.error) {
+          out.failed.push({ index: pick.index, reason: row?.error ?? 'That row is not in the statement.' });
+        } else if (row.duplicate) {
+          out.duplicates += 1;
+        } else {
+          const abs = Math.abs(row.minor);
+          const r = post(bookId, {
+            date: row.date,
+            description: row.description,
+            lines: [
+              { accountId: mapping.bankAccountId, side: row.minor > 0 ? 'debit' : 'credit', minor: abs },
+              { accountId: pick.accountId, side: row.minor > 0 ? 'credit' : 'debit', minor: abs },
+            ],
+            source: { app: 'money', kind: 'import', ref: `${mapping.token}:${row.index}` },
+          });
+          if (r.ok) {
+            out.posted += 1;
+            refs.add(`${mapping.token}:${row.index}`);
+          } else {
+            out.failed.push({ index: pick.index, reason: r.message });
+          }
+        }
+      }
+      return ok(out);
+    },
     taxEstimate: unavailable,
     onChanged: (handler) => {
       listeners.add(handler);

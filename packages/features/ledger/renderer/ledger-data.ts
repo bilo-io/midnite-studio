@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { bridge } from '@midnite/studio-frame';
-import type { LedgerBridge, LedgerBookDetail, LedgerBookSummary, LedgerResult, JournalEntry } from '@midnite/studio-shared';
+import type { ImportMapping, ImportPreview, LedgerBridge, LedgerBookDetail, LedgerBookSummary, LedgerResult, JournalEntry } from '@midnite/studio-shared';
 
 export const ledgerApi = (): LedgerBridge | undefined => bridge()?.ledger;
 
@@ -95,3 +95,13 @@ export function useLedgerCall(): <T>(run: (api: LedgerBridge) => Promise<LedgerR
     return result;
   };
 }
+
+/** A statement read through a mapping: every row with its suggested account and duplicate flag. */
+export const useImportPreview = (bookId: string | null, mapping: ImportMapping | null) =>
+  useQuery<ImportPreview, LedgerOpError>({
+    queryKey: ['ledger', bookId, 'importPreview', mapping],
+    queryFn: () => unwrap((a) => a.importPreview({ bookId: bookId as string, mapping: mapping as ImportMapping })),
+    enabled: bookId !== null && mapping !== null,
+    staleTime: STALE,
+    placeholderData: (previous) => previous,
+  });

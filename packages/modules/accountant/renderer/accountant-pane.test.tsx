@@ -21,7 +21,7 @@ describe('accountant renderer', () => {
 
   it('renders the empty state with no strip', () => {
     render(<AccountantPane view="accountant.journal" onView={() => {}} />);
-    expect(screen.getByText('No books yet')).toBeTruthy();
+    expect(screen.getByText('Create a book on the Overview tab first.')).toBeTruthy();
     expect(screen.queryAllByRole('tab')).toHaveLength(0);
   });
 });
