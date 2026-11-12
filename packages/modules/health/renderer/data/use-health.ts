@@ -12,6 +12,8 @@ import type {
   HealthProfile,
 } from '@midnite/studio-shared';
 
+import { monthKeyOffset } from './dates';
+
 /** The Health bridge, or `undefined` outside the Health host (Studio carries none). */
 export const healthBridge = (): HealthBridge | undefined => bridge()?.health;
 
@@ -152,4 +154,29 @@ export function useRemovePlan() {
     mutationFn: async (id: string) => unwrap(await healthBridge()?.removePlan({ id })),
     onSettled: () => void client.invalidateQueries({ queryKey: plansKey }),
   });
+}
+
+const EMPTY_DAY: HealthDay = { meals: [], sessions: [] };
+
+/**
+ * One day, read through a single-month query so an edit always merges into that day's real contents —
+ * never into a blank one that a range query had not loaded (which would drop its meals on save).
+ */
+export function useDay(date: HealthDate) {
+  const month = date.slice(0, 7);
+  const q = useMonths(month, month);
+  const day = q.data?.months.find((m) => m.id === `log-${month}`)?.days[date];
+  return { day: day ?? EMPTY_DAY, isLoading: q.isLoading, isError: q.isError, loaded: q.data !== undefined };
+}
+
+/** The most recent logged weight (kg) within the last twelve months, or `undefined`. */
+export function useLatestWeight(now: Date = new Date()) {
+  const q = useMonths(monthKeyOffset(now, -11), monthKeyOffset(now, 0));
+  let latest: { date: string; kg: number } | undefined;
+  for (const m of q.data?.months ?? []) {
+    for (const [date, d] of Object.entries(m.days)) {
+      if (d.weightKg !== undefined && (latest === undefined || date > latest.date)) latest = { date, kg: d.weightKg };
+    }
+  }
+  return { latest, months: q.data?.months ?? [], isLoading: q.isLoading };
 }
