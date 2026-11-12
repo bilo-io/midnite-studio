@@ -268,3 +268,54 @@ export type LedgerResult<T> = { ok: true; value: T } | { ok: false; kind: Ledger
 /** The `ledgerChanged` event payload: a book's revision moved. */
 export const LedgerChangedPayloadSchema = z.object({ bookId: z.string(), revision: z.int().min(0) });
 export type LedgerChangedPayload = z.infer<typeof LedgerChangedPayloadSchema>;
+
+/** One row of a tax estimate. `taxMinor` is negative for a relief. */
+export type TaxEstimateLine = { label: string; basisMinor: number; rateBp: number; taxMinor: number };
+/** A payment the estimate implies; shown as information, never scheduled. */
+export type TaxPayment = { due: string; minor: number; label: string };
+
+/** What a jurisdiction's rule set computes (Phase 129 Theme G). Integer minor units throughout. */
+export type TaxEstimate = {
+  lines: TaxEstimateLine[];
+  totalMinor: number;
+  /** Total tax over the taxable profit, in basis points; 0 when the profit is 0. */
+  effectiveRateBp: number;
+  payments: TaxPayment[];
+  notes: string[];
+  source: { url: string; checkedOn: string };
+};
+
+export type TaxInput = {
+  /** The year's label, e.g. `2026-27`. */
+  taxYear: string;
+  entity: Exclude<LedgerEntity, 'personal'>;
+  /** Net profit over the year's range (`profitAndLoss`). */
+  profitMinor: number;
+  /** Expense with `taxTreatment: 'disallowable'`, added back to the profit. */
+  disallowableMinor: number;
+};
+
+/** The `taxEstimate` op's payload: the estimate with the inputs it was computed from. */
+export type LedgerTaxEstimate = {
+  jurisdictionId: TaxJurisdictionId;
+  jurisdictionLabel: string;
+  taxYear: string;
+  entity: Exclude<LedgerEntity, 'personal'>;
+  currency: string;
+  from: string;
+  to: string;
+  profitMinor: number;
+  disallowableMinor: number;
+  taxableProfitMinor: number;
+  estimate: TaxEstimate;
+  /** The fixed notice for this estimate; always rendered above the table. */
+  disclaimer: string;
+};
+
+/** The short form of the notice, shown where no estimate is (yet) on screen. */
+export const TAX_NOTICE = 'Estimate only — not tax advice.';
+
+/** The fixed notice every estimate carries. */
+export function taxDisclaimer(jurisdictionLabel: string, taxYear: string, checkedOn: string): string {
+  return `${TAX_NOTICE} Based on the ${jurisdictionLabel} rules for ${taxYear}, checked ${checkedOn}. Confirm with the tax authority or an accountant before you file or pay.`;
+}

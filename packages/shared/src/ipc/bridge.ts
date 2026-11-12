@@ -51,7 +51,7 @@ import type {
 import type { SimKind, SimScenario, SimScenarioDraft, SimScenarioId, SimScenarioSummary } from '../simulator';
 import type {
   ImportMapping, ImportCommitRow, ImportCommitResult, ImportPick, ImportPreview, JournalEntry, LedgerAccountInput, LedgerBook, LedgerPostInput, LedgerReportKind,
-  LedgerResult, TaxJurisdictionId, LedgerEntity, LedgerAccount, LedgerChangedPayload,
+  LedgerResult, LedgerTaxEstimate, TaxJurisdictionId, LedgerEntity, LedgerAccount, LedgerChangedPayload,
 } from '../ledger';
 import type { LedgerReport } from '../ledger-reports';
 import type { ScienceDiscipline, ScienceNotebook, ScienceNotebookId, ScienceNotebookSummary, ScienceCell } from '../science';
@@ -158,7 +158,8 @@ export type LedgerBridge = {
   importPick: (req: { bookId: string }) => Promise<LedgerResult<ImportPick | null>>;
   importPreview: (req: { bookId: string; mapping: ImportMapping }) => Promise<LedgerResult<ImportPreview>>;
   importCommit: (req: { bookId: string; mapping: ImportMapping; rows: ImportCommitRow[] }) => Promise<LedgerResult<ImportCommitResult>>;
-  taxEstimate: (req: { bookId: string; taxYear: number }) => Promise<LedgerResult<unknown>>;
+  /** `taxYear` is the year the tax year starts in: `2026` is 2026-27. */
+  taxEstimate: (req: { bookId: string; taxYear: number }) => Promise<LedgerResult<LedgerTaxEstimate>>;
   /** Fires after any write to a book (this window's or another app's, once seen): `{ bookId, revision }`. */
   onChanged: (handler: (event: LedgerChangedPayload) => void) => Unsubscribe;
 };
