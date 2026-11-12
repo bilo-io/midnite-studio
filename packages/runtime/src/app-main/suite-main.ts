@@ -5,13 +5,17 @@ import {
   EVENT_CHANNELS,
   resolveSuitePrefs,
   SuitePrefsSetRequestSchema,
+  SuiteReleaseNotesRequest,
   WindowSetBackgroundRequest,
+  type ChangelogAppId,
   type SuiteLinkLanding,
   type SuitePrefsSnapshot,
 } from '@midnite/studio-shared';
 
 import { runtimeDataDirectory } from '../data-directory';
+import { createGuardedFetch, type GuardedFetch } from '../net/guarded-fetch';
 import { createSuitePrefsService, type SuitePrefsService } from '../suite-prefs';
+import { fetchAppReleaseNotes } from './release-notes';
 import { landingFromArgv } from './suite-link';
 import { attachWindowChrome, toggleMaximize, type ChromeableWindow } from './suite-window';
 
@@ -33,6 +37,15 @@ export type SuiteMainOptions = SuiteMainElectron & {
   warn: (message: string) => void;
   /** `process.argv` of this launch: a `--midnite-link=` on it is where the host first lands. */
   argv?: readonly string[];
+  /** Which suite app this is: names the changelog its drop-up reads (Phase 131 Theme E). */
+  app: Exclude<ChangelogAppId, 'studio' | 'launcher'>;
+  /** `app.getVersion()`: the section of the changelog the renderer is told about. */
+  appVersion: string;
+  /**
+   * The guarded transport for the changelog read. Defaults to a fresh `createGuardedFetch()` — no settings
+   * mirror, so the `launcher-updates` default (on) applies until suite apps get a Privacy page.
+   */
+  fetch?: GuardedFetch;
 };
 
 export type SuiteMain = {
@@ -96,6 +109,13 @@ export function registerSuiteMain(options: SuiteMainOptions): SuiteMain {
     if (rendererReady && win !== null && !win.isDestroyed()) win.webContents.send(EVENT_CHANNELS.suiteLinkOpen, landing);
     else pending = landing;
   };
+
+  const guarded = options.fetch ?? createGuardedFetch();
+  ipcMain.handle(CHANNELS.suiteReleaseNotes, async (_event, raw) => {
+    const parsed = SuiteReleaseNotesRequest.safeParse(raw ?? {});
+    if (!parsed.success) return { version: options.appVersion, notes: null, error: 'invalid request' };
+    return fetchAppReleaseNotes({ app: options.app, version: options.appVersion, latest: parsed.data.latest, fetch: guarded });
+  });
 
   ipcMain.on(CHANNELS.windowMaximizeToggle, () => {
     const win = getWindow();

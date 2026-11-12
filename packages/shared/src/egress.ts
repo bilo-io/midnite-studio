@@ -76,7 +76,7 @@ export const EGRESS_ENTRIES: readonly EgressHost[] = [
   entry({ host: 'electronjs.org', owner: 'guard', sends: 'GET only: the public Electron release index, no identifiers', trigger: 'automatic', switch: 'guard-feeds' }),
   entry({ host: 'cdn.jsdelivr.net', owner: 'media-video', sends: 'GET only: a pinned animation library, loaded by a video render the user started, no identifiers', trigger: 'user' }),
   entry({ host: 'midnite-apps.vercel.app', owner: 'launcher', sends: 'GET only: the app catalog, no identifiers', trigger: 'automatic', switch: 'launcher-catalog' }),
-  entry({ host: 'raw.githubusercontent.com', owner: 'launcher', sends: 'GET only: the Studio update feed, no identifiers', trigger: 'automatic', switch: 'launcher-updates' }),
+  entry({ host: 'raw.githubusercontent.com', owner: 'launcher', sends: 'GET only: the Studio update feed and each app’s public changelog, no identifiers', trigger: 'automatic', switch: 'launcher-updates' }),
   // ── scheduled feeds (Phase 117 Theme C: pulled whole, matched on this Mac, off by default) ──
   entry({ host: 'urlhaus.abuse.ch', owner: 'browser', sends: 'nothing about the user — a plain GET of the public online-URL list (CC0)', trigger: 'feed', switch: 'reputation-urlhaus', description: 'URLhaus malware URL feed for the Browser app' }),
   entry({ host: 'openphish.com', owner: 'browser', sends: 'nothing about the user — a plain GET of the public community feed', trigger: 'feed', switch: 'reputation-openphish', description: 'OpenPhish community phishing feed for the Browser app' }),

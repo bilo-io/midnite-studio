@@ -1755,6 +1755,8 @@ export const CHANNELS = {
   // --- suite-link (retired-link landing) --------------------------------------
   /** The landing a launcher link asked for, once (`SuiteLinkLanding | null`): a cold start's renderer takes what arrived before it mounted. */
   suiteLinkTake: 'mstudio:suite-link:take',
+  /** The suite app's own release notes (Phase 131 Theme E): main answers for itself, so the request names no app or version. */
+  suiteReleaseNotes: 'mstudio:suite:release-notes',
   // --- startup (Phase 130 Theme B) --------------------------------------------
   /** Midnite Startup's one channel: a `StartupRequest` (`op` union) in, a `StartupResult` out. */
   startup: 'mstudio:startup:op',

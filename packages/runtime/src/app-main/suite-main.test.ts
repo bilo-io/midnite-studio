@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { GuardedFetch } from '../net/guarded-fetch';
 import { registerSuiteMain, type SuiteMainWindow } from './suite-main';
 
 const dirs: string[] = [];
@@ -12,7 +13,7 @@ afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
-function setup(win: SuiteMainWindow | null) {
+function setup(win: SuiteMainWindow | null, fetch: GuardedFetch = async () => new Response('', { status: 404 })) {
   const dir = mkdtempSync(join(tmpdir(), 'suite-main-'));
   dirs.push(dir);
   const handlers = new Map<string, (event: unknown, raw: unknown) => unknown>();
@@ -22,6 +23,9 @@ function setup(win: SuiteMainWindow | null) {
     runtimeDirectory: dir,
     getWindow: () => win,
     warn: vi.fn(),
+    app: 'money',
+    appVersion: '0.0.7',
+    fetch,
   });
   return { main, handlers, listeners };
 }
@@ -100,6 +104,39 @@ describe('registerSuiteMain', () => {
   });
 });
 
+describe('registerSuiteMain: release notes', () => {
+  it('answers the app’s own notes through the injected fetch', async () => {
+    const fetch = vi.fn<GuardedFetch>(async () => new Response('## [0.0.7] - 2026-11-20\n\n- Seventh.\n', { status: 200 }));
+    const { main, handlers } = setup(null, fetch);
+    const res = (await handlers.get(CHANNELS.suiteReleaseNotes)!({}, { latest: 4 })) as { version: string; notes: string | null };
+    expect(res.version).toBe('0.0.7');
+    expect(res.notes).toContain('Seventh.');
+    expect(String(fetch.mock.calls[0]?.[1])).toContain('midnite-money/CHANGELOG.md');
+    main.close();
+  });
+
+  it('answers an empty request, and registers the channel once', async () => {
+    const fetch = vi.fn<GuardedFetch>(async () => new Response('', { status: 404 }));
+    const handle = vi.fn();
+    const dir = mkdtempSync(join(tmpdir(), 'suite-main-'));
+    dirs.push(dir);
+    const main = registerSuiteMain({ ipcMain: { handle, on: vi.fn() }, runtimeDirectory: dir, getWindow: () => null, warn: vi.fn(), app: 'money', appVersion: '0.0.7', fetch });
+    expect(handle.mock.calls.filter(([c]) => c === CHANNELS.suiteReleaseNotes)).toHaveLength(1);
+    const handler = handle.mock.calls.find(([c]) => c === CHANNELS.suiteReleaseNotes)![1] as (e: unknown, raw: unknown) => Promise<{ notes: string | null }>;
+    expect((await handler({}, undefined)).notes).toBeNull();
+    main.close();
+  });
+
+  it('answers an invalid request without fetching', async () => {
+    const fetch = vi.fn<GuardedFetch>();
+    const { main, handlers } = setup(null, fetch);
+    const res = await handlers.get(CHANNELS.suiteReleaseNotes)!({}, { latest: 99 });
+    expect(res).toEqual({ version: '0.0.7', notes: null, error: 'invalid request' });
+    expect(fetch).not.toHaveBeenCalled();
+    main.close();
+  });
+});
+
 describe('registerSuiteMain: launcher link landing', () => {
   const link = (qs: string) => `--midnite-link=midnite://open?${qs}`;
   const setupWith = (win: SuiteMainWindow | null, argv: string[]) => {
@@ -111,6 +148,8 @@ describe('registerSuiteMain: launcher link landing', () => {
       runtimeDirectory: dir,
       getWindow: () => win,
       warn: vi.fn(),
+      app: 'money',
+      appVersion: '0.0.7',
       argv,
     });
     return { main, take: handlers.get(CHANNELS.suiteLinkTake)! };

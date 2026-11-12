@@ -43,6 +43,11 @@ describe('suiteWindowOptions', () => {
     });
   });
 
+  it('carries the app version as its own argument on either branch', () => {
+    expect(suiteWindowOptions('darwin', '0.0.7').additionalArguments).toEqual(['--mstudio-frameless=1', '--mstudio-app-version=0.0.7']);
+    expect(suiteWindowOptions('linux', '0.0.7').additionalArguments).toEqual(['--mstudio-frameless=0', '--mstudio-app-version=0.0.7']);
+  });
+
   it('keeps the native frame elsewhere and says so', () => {
     for (const platform of ['win32', 'linux'] as const) {
       expect(windowFrameless(platform)).toBe(false);

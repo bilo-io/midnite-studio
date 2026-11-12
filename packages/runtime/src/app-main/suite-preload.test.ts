@@ -9,7 +9,7 @@ const ipc = (): RendererIpc => ({ invoke: vi.fn(async () => ({})), send: vi.fn()
 describe('createSuiteBridge', () => {
   it('exposes windowChrome, suitePrefs and suiteLink, and only those', () => {
     const bridge = createSuiteBridge(ipc(), ['--mstudio-frameless=0'], 'darwin');
-    expect(Object.keys(bridge).sort()).toEqual(['suiteLink', 'suitePrefs', 'windowChrome']);
+    expect(Object.keys(bridge).sort()).toEqual(['appVersion', 'suiteLink', 'suitePrefs', 'suiteReleaseNotes', 'windowChrome']);
     expect(bridge.windowChrome.frameless).toBe(false);
   });
 
@@ -24,6 +24,17 @@ describe('createSuiteBridge', () => {
     expect(i.on).toHaveBeenCalledWith(EVENT_CHANNELS.suitePrefsChanged, expect.any(Function));
     off();
     expect(i.removeListener).toHaveBeenCalled();
+  });
+
+  it('reads the app version from its argument, 0.0.0 when absent', () => {
+    expect(createSuiteBridge(ipc(), ['--mstudio-app-version=0.0.7'], 'darwin').appVersion).toBe('0.0.7');
+    expect(createSuiteBridge(ipc(), [], 'darwin').appVersion).toBe('0.0.0');
+  });
+
+  it('routes suiteReleaseNotes over its channel', async () => {
+    const i = ipc();
+    await createSuiteBridge(i, [], 'darwin').suiteReleaseNotes.get({ latest: 4 });
+    expect(i.invoke).toHaveBeenCalledWith(CHANNELS.suiteReleaseNotes, { latest: 4 });
   });
 
   it('routes suiteLink over its channels', async () => {
