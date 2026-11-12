@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { createSuiteMonitorSegment } from '@midnite/studio-feature-monitor/renderer';
 import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { FrameChromeProvider, ModuleViewRouter, SuiteAppShell, type ModulePane } from '@midnite/studio-frame';
+import { AccountantPane } from '@midnite/studio-module-accountant/renderer';
 import { STARTUP_APP, STARTUP_CHROME, STARTUP_SETTINGS, StartupPane } from '@midnite/studio-module-startup/renderer';
 
 import { STARTUP_HOST_NAV } from './host-nav';
@@ -13,6 +14,7 @@ const MONITOR_SEGMENT = createSuiteMonitorSegment({ hosted: new Set() });
 /** Each mounted module's pane, by module id — the view router's table. */
 export const STARTUP_PANES: Readonly<Record<string, ModulePane>> = {
   startup: StartupPane,
+  accountant: AccountantPane,
 };
 
 /**

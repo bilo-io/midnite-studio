@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 130 Theme F — Invoicing posted to the books
+
+PR (see the Phase 130 F PR). Startup mounts the Accountant module as its Books group; a `StartupLedgerPort` (host-implemented over the shared books) carries invoice posting, reversal, cash and monthly net. Gapless invoice numbers at issue, draft to issued to paid or void each one ledger call, PDF export, Invoices, Customers, Overview and Settings ▸ Company ▸ Books, and Theme D's actuals from the book.
+
 ## 2026-11-12 — Phase 129 Theme E — Bank CSV import and rules
 
 PR (see the Phase 129 E PR). `parseCsv` and the import service in the ledger feature's main (`importPick`, `importPreview`, `importCommit`; rules by priority, idempotent by statement-row hash, one bad row never aborts the batch) and the Import tab. Adds `ImportCommitRow.remember`, `LedgerService.snapshot` and `addImportRules`.

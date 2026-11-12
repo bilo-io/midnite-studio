@@ -62,9 +62,19 @@ the linked book when there is one.
 **Theme E — Vendors and contracts.** ✅ Vendors, contracts with term, renewal and notice dates, an attached
 file kept in the app's folder, a deadlines list, and one linked cost line per priced contract.
 
-**Theme F — Invoicing posted to the books.** ◻ Customers and invoices (draft → issued → paid, or void), gapless
-numbers at issue, a PDF export, and journal entries posted through a `StartupLedgerPort`; Startup mounts the
-Accountant module as its Books group.
+**Theme F — Invoicing posted to the books.** ✅ PR pending. Startup mounts the Accountant module as its Books group
+(`APP_MODULES.startup = ['startup', 'accountant']`, the ledger placement tuple, the preload bridge, the nav group, the
+pane and the Tailwind globs). A `StartupLedgerPort` in the module is implemented by the host over the `LedgerService`
+from `createAccountantServices`, which stamps `source.app` itself. Invoices go draft, issued, paid or void in main: the
+number is gapless at issue and survives a void, posting is the commit point (the workspace is written only after the
+ledger answers, and the ledger's `source.ref` idempotency heals a crash), and transitions run one at a time per store.
+`linkBook` resolves the four accounts at link time and fixes the link once an invoice is posted. The invoice PDF is a
+script-less printed page with every value escaped. The Invoices, Customers and Overview views and Settings ▸ Company ▸
+Books are in, and Theme D's actuals (book cash as opening cash, three-month actual burn beside the modelled burn)
+ride the same port. Two things worth knowing: Theme A's `startup-settings.ts` stub shadowed the real
+`startup-settings.tsx` (a `.ts` resolves before a `.tsx`), so the Company page never showed; the stub is deleted. And the
+launcher's catalog test requires a host's tile to list `APP_MODULES`, so the tile gained `MODULES.accountant` here
+(still `comingSoon`; Theme G flips it).
 
 **Theme G — Verification and the catalog flip.** ◻ Shots, the packaged-app pass, the launcher tile and the
 website listing.
@@ -222,7 +232,7 @@ website listing.
   - Verified by `runway.test.ts`: £100 000 cash, £10 000/month cost, no revenue → `runwayMonths 10`, `zeroCashMonth` the 11th
     month; a yearly £12 000 line lands only in month 1 and 13; 10 % monthly revenue growth from £1 000 against £5 000 cost
     → `defaultAlive` true/false at the hand-computed crossover; a 0 % line equals a flat line exactly.
-- [ ] Actuals from the books, when a book is linked (Theme F's port; until F lands this sub-item renders "Link a book to use actuals")
+- [x] Actuals from the books, when a book is linked (Theme F's port; until F lands this sub-item renders "Link a book to use actuals")
   - Opening cash = the book's cash + bank balance as of today (overrides `company.openingCash`, shown as "from <book>").
   - "Actual burn" = mean monthly (expense − income) over the last 3 full months from the book, shown beside the modelled burn
     with the difference.
@@ -263,14 +273,14 @@ website listing.
 
 ### F — Invoicing posted to the books (L)
 
-- [ ] Startup mounts the Accountant module (needs Phase 129 A–C merged)
+- [x] Startup mounts the Accountant module (needs Phase 129 A–C merged)
   - `APP_MODULES.startup = ['startup', 'accountant']`; `FEATURE_PLACEMENT.ledger = ['money', 'startup']`; `feature-ledger` and
     `module-accountant` gain the `app-startup` tag; `apps/startup/main/host.ts` mounts `accountantModuleMain` with `createAccountantServices({ appDataBase, appId: 'startup', … })`, the
     preload adds `createAccountantBridge`, `host-nav.ts` adds `accountant: ACCOUNTANT_NAV_GROUP`, the panes add `accountant:
     AccountantPane`, `tailwind.config.ts` becomes `frameContent(__dirname, ['ledger'], ['startup', 'accountant'])`.
   - The books are the shared ones under `Midnite Runtime/books` (Phase 129 Theme C), so a company book made in Money shows here.
   - Verified by `apps/startup/main/host.test.ts`: `CHANNELS.ledger` and `CHANNELS.startup` each registered once.
-- [ ] Net-new `packages/modules/startup/main/ledger-port.ts`: the port Startup declares and its host implements
+- [x] Net-new `packages/modules/startup/main/ledger-port.ts`: the port Startup declares and its host implements
   - `StartupLedgerPort = { listBooks(): Promise<LedgerResult<{ id: string; name: string; entity: string; currency: string }[]>>;
     post(req: LedgerPostRequest, source: { kind: 'invoice' | 'payment'; ref: string }): Promise<LedgerResult<{ entryId: string;
     duplicate: boolean }>>; reverse(bookId: string, entryId: string, date: string, reason: string): Promise<LedgerResult<{ entryId:
@@ -281,12 +291,12 @@ website listing.
     by the module or renderer. The module imports only types from `shared/src/ledger.ts`, never the ledger feature or the
     accountant module.
   - Until Theme F, `createStartupServices` receives `ledger: null` and every ledger op answers `no-book`.
-- [ ] `linkBook`: Settings ▸ Company lists books from the port whose currency equals the company currency (others shown disabled
+- [x] `linkBook`: Settings ▸ Company lists books from the port whose currency equals the company currency (others shown disabled
   with "Different currency"); linking resolves `ledger.accounts` by subtype — first non-archived `receivable`, `sales`,
   `tax-payable`, `bank` by code — and refuses with `ledger` "<book> has no <subtype> account" when one is missing
-- [ ] `CustomerSchema = { id, name (1–120), email: z.email().optional(), address: z.string().max(400).default(''), taxId:
+- [x] `CustomerSchema = { id, name (1–120), email: z.email().optional(), address: z.string().max(400).default(''), taxId:
   z.string().max(40).optional() }`
-- [ ] `InvoiceSchema = { id, number: z.string().max(20).nullable() (null while draft), customerId, issueDate:
+- [x] `InvoiceSchema = { id, number: z.string().max(20).nullable() (null while draft), customerId, issueDate:
   IsoDateSchema.nullable(), dueDate: IsoDateSchema.nullable(), lines: { description (1–200), quantityMilli: z.int().positive(),
   unitMinor: z.int().nonnegative(), taxRateBp: z.int().min(0).max(10000) }[] (1–100), notes: z.string().max(1000).default(''),
   status: z.enum(['draft', 'issued', 'paid', 'void']), entries: { issued?: uuid; paid?: uuid; void?: uuid }, paidDate?, voidReason? }`
@@ -295,7 +305,7 @@ website listing.
     Map<bp, minor> }`.
   - Verified by `invoice-math.test.ts`: 1.5 h × £80.00 at 20 % → net 12000, tax 2400; 3 × £0.333 → 999 (no float drift);
     two lines at different rates group by rate.
-- [ ] The state machine, in main, each transition one ledger call
+- [x] The state machine, in main, each transition one ledger call
   - `issueInvoice`: draft only, needs a linked book; assigns `number = invoicePrefix + String(++invoiceCounter).padStart(4, '0')`
     (gapless, assigned at issue so drafts burn no numbers); `dueDate = issueDate + paymentTermsDays`; posts Dr receivable
     `total` / Cr sales `net` / Cr tax-payable `tax` (the tax line omitted at 0), `source { kind: 'invoice', ref: invoice.id }`.
@@ -308,19 +318,19 @@ website listing.
   - Verified by `invoices.test.ts` against an in-memory port: issue → one post with the three lines and number `INV-0001`; a
     second issue of another draft → `INV-0002`; pay → Dr bank; void → one `reverse`; port returning `locked-period` →
     invoice still `draft`, counter unchanged; retry after a crash between post and write → `duplicate: true`, one entry.
-- [ ] `exportInvoicePdf`: pure `renderInvoiceHtml(invoice, company, customer): string` (every interpolated value HTML-escaped,
+- [x] `exportInvoicePdf`: pure `renderInvoiceHtml(invoice, company, customer): string` (every interpolated value HTML-escaped,
   inline CSS, no script), written to a temp file and printed by the host-injected `printToPdf(htmlFile): Promise<Buffer>` —
   the hidden `javascript: false` window Gamer and Agents already use ([`apps/gamer/main/index.ts`](../../../apps/gamer/main/index.ts)
   `printToPdf`) — then saved via `savePdf(defaultName)`; cancel → `{ ok: true, value: { saved: false } }`
   - Verified by `invoice-html.test.ts`: a customer named `<script>` renders escaped; totals and the VOID stamp appear.
-- [ ] Invoices view (`startup.invoices`): **Invoices | Customers** tabs; filter by status; columns number, customer, issue, due,
+- [x] Invoices view (`startup.invoices`): **Invoices | Customers** tabs; filter by status; columns number, customer, issue, due,
   total, status (Overdue derived: issued and `dueDate` < today); draft editor sheet with line rows and live totals; actions
   Issue · Mark paid · Void · Export PDF, each confirming with what will be posted ("Posts £1,440.00 to <book>: receivable,
   sales, tax")
   - No linked book: Issue is disabled with "Link a book in Settings ▸ Company to issue invoices."
-- [ ] Overview (`startup.overview`): cash today, runway, next 3 milestones by due, overdue invoices total, contracts needing action;
+- [x] Overview (`startup.overview`): cash today, runway, next 3 milestones by due, overdue invoices total, contracts needing action;
   each card links to its view
-- [ ] Tests: RTL `invoices-view.test.tsx` (Issue disabled without a book; issue confirm copy names the amount and book; a void
+- [x] Tests: RTL `invoices-view.test.tsx` (Issue disabled without a book; issue confirm copy names the amount and book; a void
   invoice shows VOID and no actions) and `overview.test.tsx` (cards render from the mock; empty company → setup prompt)
 
 ### G — Verification and the catalog flip (S)
@@ -381,11 +391,11 @@ website listing.
 - [ ] `roadmap-model.test.ts`: cycles (incl. self), at-risk and overdue tables.
 - [ ] `runway.test.ts`: the four worked projections above, exact to the minor unit.
 - [ ] `contract-dates.test.ts` + `contracts.test.ts`: renewal roll-forward, notice deadline, jailed open, one linked line per contract.
-- [ ] `invoice-math.test.ts`, `invoices.test.ts`, `invoice-html.test.ts`: totals, gapless numbering, each transition's posting,
+- [x] `invoice-math.test.ts`, `invoices.test.ts`, `invoice-html.test.ts`: totals, gapless numbering, each transition's posting,
   failure leaves state unchanged, idempotent retry, escaping.
-- [ ] Host tests: `CHANNELS.startup` (A) and `CHANNELS.ledger` (F) registered once; `identity.test.ts` bundle id equals the launcher's.
+- [x] Host tests: `CHANNELS.startup` (A) and `CHANNELS.ledger` (F) registered once; `identity.test.ts` bundle id equals the launcher's.
 - [ ] `release-bundles.test.mjs`: `app-startup` in the matrix with an icon.
-- [ ] RTL: roadmap, runway, vendors, invoices and overview views as listed per theme.
+- [x] RTL: roadmap, runway, vendors, invoices and overview views as listed per theme.
 - [ ] `e2e/suite-shell/startup.spec.ts`: arrow endpoints on bar edges; screenshots committed.
 - [ ] `catalog.test.ts`: Startup installable with two modules.
 - [ ] **Open, for a human:** the packaged-app pass in Theme G.

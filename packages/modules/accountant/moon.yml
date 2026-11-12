@@ -9,6 +9,7 @@ layer: 'library'
 tags:
   - 'layer-module'
   - 'app-money'
+  - 'app-startup'
   - 'app-studio'
 
 dependsOn:

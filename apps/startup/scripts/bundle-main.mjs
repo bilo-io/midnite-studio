@@ -20,6 +20,9 @@ const common = {
   minify: process.env.NODE_ENV === 'production',
   // The packages' `./main` exports point at tsc output; bundle their source so no prior tsc build is needed.
   alias: {
+    '@midnite/studio-feature-ledger/main': at('../../../packages/features/ledger/main/index.ts'),
+    '@midnite/studio-module-accountant/bridge': at('../../../packages/modules/accountant/main/bridge.ts'),
+    '@midnite/studio-module-accountant/main': at('../../../packages/modules/accountant/main/index.ts'),
     '@midnite/studio-module-startup/bridge': at('../../../packages/modules/startup/main/bridge.ts'),
     '@midnite/studio-module-startup/main': at('../../../packages/modules/startup/main/index.ts'),
     '@midnite/studio-feature-report/bridge': at('../../../packages/features/report/bridge.ts'),

@@ -89,4 +89,21 @@ describe('RunwayView', () => {
     await waitFor(() => expect(upsertLine).toHaveBeenCalledTimes(1));
     expect((upsertLine.mock.calls[0] as unknown as [{ line: PlanLine }])[0].line).toMatchObject({ name: 'Laptops', minor: 125050, kind: 'cost', cadence: 'monthly' });
   });
+
+  it('shows the linked book\'s cash and actual burn beside the modelled burn', async () => {
+    const linked = { ...snapshot([line], []).value.workspace, ledger: { bookId: 'b', accounts: { receivable: 'a', sales: 'b', taxPayable: 'c', bank: 'd' } } };
+    window.midniteStudio = {
+      startup: {
+        get: vi.fn(async () => ({ ok: true, value: { workspace: linked, revision: 0, readOnly: false } })),
+        projection: vi.fn(async () => projection()),
+        ledgerSummary: vi.fn(async () => ({ ok: true, value: { bookName: 'Acme Ltd', cashMinor: 4_200_000, asOf: '2026-11-12', actualBurnMinor: 150_000 } })),
+        onChanged: () => () => undefined,
+      },
+    } as unknown as typeof window.midniteStudio;
+    renderRunway();
+    expect(await screen.findByText('From Acme Ltd')).toBeTruthy();
+    expect(screen.getByText('£42,000')).toBeTruthy();
+    expect(screen.getByText(/Modelled £1,000, \+£500 from plan/)).toBeTruthy();
+    expect(screen.queryByText('Link a book to use actuals.')).toBeNull();
+  });
 });

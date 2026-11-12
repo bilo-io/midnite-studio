@@ -6,15 +6,17 @@ import { useStartupWrite } from '../data/use-startup';
 import { LineSheet } from './line-sheet';
 import { HORIZONS, chartPoints, formatMinor, runwayLabel, type Horizon, type RunwayProjectionView } from './runway-types';
 import { useProjection } from './use-projection';
+import { useLedgerSummary } from '../ledger/use-summary';
 
 const CHART_W = 600;
 const CHART_H = 160;
 
-function Card({ label, value, tone }: { label: string; value: string; tone?: string }) {
+function Card({ label, value, tone, hint }: { label: string; value: string; tone?: string; hint?: string }) {
   return (
     <div className="flex min-w-36 flex-1 flex-col gap-0.5 rounded-md border border-border p-3">
       <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
       <span className={`text-lg font-semibold ${tone ?? ''}`}>{value}</span>
+      {hint !== undefined ? <span className="text-xs text-muted-foreground">{hint}</span> : null}
     </div>
   );
 }
@@ -55,7 +57,7 @@ function ScenarioTools({ scenario }: { scenario: RunwayScenario }) {
 }
 
 /** Costs and runway: the lines table, scenario tabs (Base plus at most two), a horizon, headline cards and the cash chart. */
-export function RunwayView({ company, lines, scenarios }: { company: CompanyProfile; lines: readonly PlanLine[]; scenarios: readonly RunwayScenario[] }) {
+export function RunwayView({ company, lines, scenarios, linked = false }: { company: CompanyProfile; lines: readonly PlanLine[]; scenarios: readonly RunwayScenario[]; linked?: boolean }) {
   const [scenarioId, setScenarioId] = useState(BASE_SCENARIO_ID);
   const [horizon, setHorizon] = useState<Horizon>(36);
   const [sheet, setSheet] = useState<{ line: PlanLine | null } | null>(null);
@@ -68,6 +70,7 @@ export function RunwayView({ company, lines, scenarios }: { company: CompanyProf
   const projection = useProjection(activeId, horizon);
   const money = (minor: number): string => formatMinor(minor, company.currency);
   const data = projection.data;
+  const book = useLedgerSummary(linked).data ?? null;
 
   function newScenario(): void {
     const next: RunwayScenario = { id: crypto.randomUUID(), name: `Scenario ${others.length + 1}`, costMultiplierBp: 10000, revenueMultiplierBp: 10000, extraLines: [] };
@@ -128,11 +131,18 @@ export function RunwayView({ company, lines, scenarios }: { company: CompanyProf
         {data !== undefined ? (
           <>
             <div className="flex flex-wrap gap-3">
-              <Card label="Cash today" value={money(company.openingCash.minor)} />
+              <Card label="Cash today" value={money(book?.cashMinor ?? company.openingCash.minor)} {...(book !== null ? { hint: `From ${book.bookName}` } : {})} />
               <Card label="Monthly burn" value={money(data.burnMinor)} tone={data.burnMinor < 0 ? 'text-red-500' : 'text-emerald-500'} />
               <Card label="Runway" value={runwayLabel(data.runwayMonths, horizon)} />
               <Card label="Zero cash" value={data.zeroCashMonth ?? 'Not in horizon'} />
               <Card label="Outlook" value={data.defaultAlive ? 'Default alive' : 'Default dead'} tone={data.defaultAlive ? 'text-emerald-500' : 'text-red-500'} />
+              {book?.actualBurnMinor !== null && book !== null ? (
+                <Card
+                  label="Actual burn"
+                  value={`${money(book.actualBurnMinor ?? 0)} / month`}
+                  hint={`Modelled ${money(-data.burnMinor)}, ${(book.actualBurnMinor ?? 0) + data.burnMinor >= 0 ? '+' : '-'}${money(Math.abs((book.actualBurnMinor ?? 0) + data.burnMinor))} from plan`}
+                />
+              ) : null}
             </div>
             <CashChart projection={data} />
           </>
@@ -141,7 +151,7 @@ export function RunwayView({ company, lines, scenarios }: { company: CompanyProf
             {projection.error.message}
           </p>
         ) : null}
-        <p className="text-xs text-muted-foreground">Link a book to use actuals.</p>
+        {!linked ? <p className="text-xs text-muted-foreground">Link a book to use actuals.</p> : null}
 
         {lines.length > 0 ? (
           <table className="w-full text-left text-sm">
