@@ -75,6 +75,8 @@ export * from './science';
 export * from './money-amount';
 export * from './ledger';
 export * from './ledger-reports';
+export * from './ledger-tax';
+export * from './ledger-tax-uk-rates';
 export * from './simulator';
 export * from './media-sprite';
 export * from './media-map-capture';

@@ -1,4 +1,4 @@
-import { buildReport, parseAmount, ReportRangeError } from '@midnite/studio-shared';
+import { buildReport, buildTaxEstimate, parseAmount, ReportRangeError } from '@midnite/studio-shared';
 import type {
   ImportPreviewRow,
   JournalEntry,
@@ -6,6 +6,8 @@ import type {
   LedgerBook,
   LedgerBookDetail,
   LedgerBridge,
+  LedgerEntity,
+  TaxJurisdictionId,
   LedgerErrorKind,
   LedgerResult,
   ImportMapping,
@@ -20,9 +22,13 @@ export type MemoryLedgerOptions = {
   corruptLines?: number[];
   /** Today, for the seeded entries' dates (default 2026-05-20). */
   today?: string;
+  /** The seeded book's entity (default sole-trader). */
+  entity?: LedgerEntity;
+  /** The seeded book's tax jurisdiction (default none). */
+  jurisdiction?: TaxJurisdictionId | null;
 };
 
-const SEED_BOOK_ID = '11111111-1111-4111-8111-111111111111';
+export const SEED_BOOK_ID = '11111111-1111-4111-8111-111111111111';
 const acc = (n: number): string => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const fail = (kind: LedgerErrorKind, message: string): { ok: false; kind: LedgerErrorKind; message: string } => ({ ok: false, kind, message });
 const ok = <T>(value: T): LedgerResult<T> => ({ ok: true, value });
@@ -64,7 +70,7 @@ function readStatement(book: LedgerBook, mapping: ImportMapping, imported: Reado
  * The books bridge in memory — one seeded book and the ops the Overview, Accounts and Journal views use.
  * It enforces the same posting rules main does (balanced, archived account, locked period) so a view's error
  * states can be driven through it. Used by the app's mock bridge, the shots spec and this feature's tests;
- * tax answers `io` until its theme lands; reports run the real report maths over the in-memory journal; import reads one built-in statement.
+ * tax and reports run the real report maths over the in-memory journal; import reads one built-in statement.
  */
 export function createMemoryLedger(options: MemoryLedgerOptions = {}): LedgerBridge & { entries: () => JournalEntry[] } {
   const today = options.today ?? '2026-05-20';
@@ -94,11 +100,11 @@ export function createMemoryLedger(options: MemoryLedgerOptions = {}): LedgerBri
       version: 1,
       id: SEED_BOOK_ID,
       name: 'Acme Studio',
-      entity: 'sole-trader',
+      entity: options.entity ?? 'sole-trader',
       currency: 'GBP',
       fiscalYearStart: { month: 4, day: 6 },
       lockedThrough: null,
-      jurisdiction: null,
+      jurisdiction: options.jurisdiction ?? null,
       accounts: SEED_ACCOUNTS.map((a, i) => ({ ...a, id: acc(i + 1) })),
       rules: [{ id: acc(900), match: { field: 'description', contains: 'adobe' }, accountId: acc(6), priority: 0 }],
       createdAt: '2026-04-06T00:00:00.000Z',
@@ -121,7 +127,6 @@ export function createMemoryLedger(options: MemoryLedgerOptions = {}): LedgerBri
   /** Statement rows already posted by `importCommit`, per book. The mock has one statement, so a row's reference is its index. */
   const importedRefs = new Map<string, Set<string>>();
 
-  const unavailable = async (): Promise<LedgerResult<never>> => fail('io', 'Not available in this mock yet.');
 
   const post = (bookId: string, input: Omit<JournalEntry, 'id' | 'postedAt'>): LedgerResult<{ entry: JournalEntry; duplicate: boolean }> => {
     const book = find(bookId);
@@ -330,7 +335,10 @@ export function createMemoryLedger(options: MemoryLedgerOptions = {}): LedgerBri
       }
       return ok(out);
     },
-    taxEstimate: unavailable,
+    taxEstimate: async ({ bookId, taxYear }) => {
+      const book = find(bookId);
+      return book ? buildTaxEstimate(book, journals.get(bookId) ?? [], taxYear) : notFound;
+    },
     onChanged: (handler) => {
       listeners.add(handler);
       return () => void listeners.delete(handler);
