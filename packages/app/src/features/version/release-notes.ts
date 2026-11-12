@@ -16,11 +16,11 @@ import { bridge } from '../../services/bridge';
  * `staleTime` refetches, which is the right cadence for "did the release land
  * yet".
  */
-export function useReleaseNotes(version: string) {
+export function useReleaseNotes(version: string, latest?: number) {
   return useQuery<ReleaseNotes>({
-    queryKey: ['release-notes', version],
+    queryKey: ['release-notes', version, latest ?? null],
     queryFn: async () =>
-      (await bridge()?.update.releaseNotes({ version })) ?? {
+      (await bridge()?.update.releaseNotes({ version, ...(latest ? { latest } : {}) })) ?? {
         version,
         notes: null,
         error: 'No bridge',

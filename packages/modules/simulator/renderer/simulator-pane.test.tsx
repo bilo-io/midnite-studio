@@ -1,11 +1,14 @@
 // vitest/jsdom: the pane routes a view id to its sandbox view.
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { navConfigProblems } from '@midnite/studio-frame';
 
 import { SimulatorPane } from './simulator-pane';
 import { SIMULATOR_NAV_GROUP } from './simulator-nav';
+
+// The R3F canvas needs WebGL, which jsdom lacks.
+vi.mock('./views/nbody-scene', () => ({ NBodyScene: () => null }));
 
 afterEach(cleanup);
 

@@ -12,8 +12,14 @@ import { openExternal } from '../../services/queries';
 import { PresentButton, useSlidesStore } from '@midnite/studio-feature-slides/renderer';
 import { useReleaseNotes } from './release-notes';
 
+/** How many earlier releases the drop-up lists beneath the current one. */
+const PREVIOUS_COUNT = 3;
+
 export function VersionNotesPanel({ version }: { version: string }) {
-  const { data, isLoading } = useReleaseNotes(version);
+  const { data, isLoading } = useReleaseNotes(version, PREVIOUS_COUNT + 1);
+  const earlier = (data?.sections ?? [])
+    .filter((section) => section.version.replace(/^v/, '') !== version.replace(/^v/, ''))
+    .slice(0, PREVIOUS_COUNT);
   const label = `Release ${version}`;
   const [reportOpen, setReportOpen] = useState(false);
 
@@ -56,6 +62,28 @@ export function VersionNotesPanel({ version }: { version: string }) {
               : 'No published notes for this build yet.'}
           </p>
         )}
+        {earlier.length > 0 ? (
+          <div className="mt-2 flex flex-col gap-1 border-t border-border pt-2" data-testid="earlier-releases">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Earlier releases
+            </span>
+            {earlier.map((section) => (
+              <details key={section.version} className="group rounded border border-border">
+                <summary className="flex cursor-pointer items-center gap-2 px-2 py-1 text-xs font-medium hover:bg-accent">
+                  v{section.version}
+                  {section.date ? (
+                    <span className="ml-auto font-normal text-muted-foreground">{section.date}</span>
+                  ) : null}
+                </summary>
+                <div className={`${MARKDOWN_PROSE_CLASSES} px-2 pb-2`}>
+                  <Markdown remarkPlugins={[remarkGfm]} components={{ a: ExternalLink }}>
+                    {section.body}
+                  </Markdown>
+                </div>
+              </details>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-0.5 border-t border-border p-1">

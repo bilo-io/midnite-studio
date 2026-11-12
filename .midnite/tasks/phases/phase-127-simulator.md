@@ -57,8 +57,7 @@ Lockfile gained the new workspace importer.
 
 **Theme C — Emergence: cellular automata.** ✅ [PR #1155](https://github.com/bilo-io/midnite-studio/pull/1155). Life-like engine (toroidal, double-buffered, `B/S` rules and four presets), elementary engine (rules 0-255; it keeps and snapshots the whole space-time diagram so a dropped frame loses no rows), a Golly RLE parser with five built-in patterns, and `AutomataView` (1 px/cell canvas, wheel zoom, Shift-pan, draw/erase through `restore`, rule/size/density/pattern/Paste RLE panel). First sandbox on the worker runtime; the built Science bundle carries the inlined worker.
 
-**Theme D — Virtual worlds: n-body gravity.** ◻ Velocity-Verlet with softening, four presets (Sun–Earth–Moon,
-inner solar system, figure-eight three-body, binary star), a 3D view with trails and an energy-drift readout.
+**Theme D — Virtual worlds: n-body gravity.** ✅ [PR #1154](https://github.com/bilo-io/midnite-studio/pull/1154). Direct O(n²) velocity-Verlet engine (`sims/nbody.ts`) with softened gravity, a 200-body cap, `energy`/`energyDrift` stats and four zero-momentum presets; the view is an R3F z-up scene with a body-scale slider and 500-point ring-buffer trails (`sims/trails.ts`), plus a side panel (preset, dt, softening, body table, Add body, four-sig-fig energy read-out). Coincident bodies skip their pair force rather than going NaN, since Add body drops a body on the camera target, often the Sun. The Transport read-out is left empty because it rounds to 3 decimals and would show a tiny drift as 0.
 
 **Theme E — Agent environments: flocking and predator–prey.** ◻ Reynolds boids in a 3D box on a spatial
 hash, and a predator–prey world whose population counts chart live.
@@ -210,7 +209,7 @@ under the app's userData through `createJsonDirStore`, a scenario list per sandb
 
 ### D — Virtual worlds: n-body gravity (L)
 
-- [ ] **D.1** Engine, `renderer/sims/nbody.ts` (net-new).
+- [x] **D.1** Engine, `renderer/sims/nbody.ts` (net-new).
   - `Body = { name: string; mass: number; x: number; y: number; z: number; vx: number; vy: number; vz: number;
     color: string; radius: number }`; `NBodyParams = { bodies: Body[]; G: number; dt: number; softening: number }`,
     at most **200 bodies** (direct O(n²) sum; above that the add button disables with "200 bodies is the limit").
@@ -221,14 +220,14 @@ under the app's userData through `createJsonDirStore`, a scenario list per sandb
   - Verified by `renderer/sims/nbody.test.ts`: a two-body circular orbit (G = 1, m = 1 and 1e-6, r = 1,
     v = 1) returns within 1e-3 of its start after one period (2π) at dt = 0.001; `energyDrift < 1e-6`
     after 10 periods; the figure-eight preset stays bounded (all |r| < 2) for one period.
-- [ ] **D.2** Presets, `renderer/sims/nbody-presets.ts` (net-new).
+- [x] **D.2** Presets, `renderer/sims/nbody-presets.ts` (net-new).
   - **Sun–Earth–Moon** and **Inner solar system** (Sun, Mercury, Venus, Earth, Mars on circular, coplanar
     orbits at their semi-major axes) in AU / days / solar masses, `G = 2.959122082855911e-4`, dt 0.5 day.
   - **Figure-eight** (Chenciner–Montgomery): G = 1, three unit masses, x₁ = (0.97000436, −0.24308753, 0),
     x₂ = −x₁, x₃ = 0, v₃ = (−0.93240737, −0.86473146, 0), v₁ = v₂ = −v₃ / 2, dt 0.001.
   - **Binary star**: two 1 M☉ stars at ±0.5 AU on a circular mutual orbit plus one planet at 3 AU.
   - Verified by the D.1 test file (each preset initialises with zero net momentum to 1e-9).
-- [ ] **D.3** View, `renderer/views/worlds-view.tsx` (net-new).
+- [x] **D.3** View, `renderer/views/worlds-view.tsx` (net-new).
   - R3F `<Canvas>` filling the pane, drei `OrbitControls`, one sphere mesh per body (radius from the body,
     exaggerated by a "Body scale" slider 1–1000× because true radii are invisible at AU scale), a `Line` trail
     of the last 500 positions per body (a ring buffer, toggle **Trails**).

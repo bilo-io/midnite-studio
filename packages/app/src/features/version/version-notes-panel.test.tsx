@@ -9,7 +9,19 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('./release-notes', () => ({
-  useReleaseNotes: () => ({ data: { version: '0.3.1', notes: null, error: null }, isLoading: false }),
+  useReleaseNotes: () => ({
+    data: {
+      version: '0.3.1',
+      notes: null,
+      error: null,
+      sections: [
+        { version: '0.3.1', date: '2026-03-03', body: '- current' },
+        { version: '0.3.0', date: '2026-03-01', body: '- previous one' },
+        { version: '0.2.9', body: '- older' },
+      ],
+    },
+    isLoading: false,
+  }),
 }));
 
 vi.mock('@midnite/studio-frame', async (importOriginal) => ({
@@ -68,5 +80,15 @@ describe('VersionNotesPanel — Report a bug', () => {
     expect(mocks.openExternal).toHaveBeenCalledWith(
       expect.stringContaining('midnite-apps/issues/new?template=bug.yml'),
     );
+  });
+});
+
+describe('VersionNotesPanel — earlier releases', () => {
+  it('lists the previous versions but not the current one', () => {
+    render(<VersionNotesPanel version="0.3.1" />);
+    const list = screen.getByTestId('earlier-releases');
+    expect(list.textContent).toContain('v0.3.0');
+    expect(list.textContent).toContain('v0.2.9');
+    expect(list.textContent).not.toContain('v0.3.1');
   });
 });
