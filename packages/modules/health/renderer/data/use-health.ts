@@ -16,7 +16,7 @@ import type {
 export const healthBridge = (): HealthBridge | undefined => bridge()?.health;
 
 /** A `{ ok: false }` result throws so the view's `isError` branch renders. */
-function unwrap<T>(res: GitOpResult<T> | undefined): T {
+function unwrap<T = void>(res: GitOpResult<T> | GitOpResult | undefined): T {
   if (res === undefined) throw new Error('Health runs in its own app.');
   if (!res.ok) throw new Error(res.kind === 'error' ? res.message : 'Conflict');
   return (res as { value: T }).value;
