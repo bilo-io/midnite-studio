@@ -38,9 +38,10 @@ describe('ReportsView', () => {
     const last = spy.mock.calls.at(-1)?.[0];
     expect(last).toMatchObject({ kind: 'profit-and-loss' });
     // The preset is the fiscal year before the one containing today, ending the day before this year starts.
-    expect(last?.from < (last?.to as string)).toBe(true);
-    expect(last?.from.slice(5)).toBe('04-06');
-    expect(last?.to.slice(5)).toBe('04-05');
+    const { from, to } = last as { from: string; to: string };
+    expect(from < to).toBe(true);
+    expect(from.slice(5)).toBe('04-06');
+    expect(to.slice(5)).toBe('04-05');
   });
 
   it('shows the balance sheet balanced, with the two computed equity lines', async () => {
