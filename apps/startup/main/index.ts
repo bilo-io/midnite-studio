@@ -98,6 +98,23 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       trashItem: (path) => shell.trashItem(path),
       send: sendToWindow,
       userData: app.getPath('userData'),
+      appDataBase: app.getPath('appData'),
+      pickCsv: async () => {
+        const result = await dialog.showOpenDialog({ title: 'Choose a bank statement', filters: [{ name: 'CSV', extensions: ['csv', 'txt'] }], properties: ['openFile'] });
+        return result.canceled ? null : (result.filePaths[0] ?? null);
+      },
+      saveCsv: async (defaultName) => {
+        const result = await dialog.showSaveDialog({ defaultPath: defaultName, filters: [{ name: 'CSV', extensions: ['csv'] }] });
+        return result.canceled ? null : (result.filePath ?? null);
+      },
+      pdf: {
+        printToPdf,
+        savePdf: async (defaultName) => {
+          const options = { defaultPath: defaultName, filters: [{ name: 'PDF', extensions: ['pdf'] }] };
+          const result = win !== null && !win.isDestroyed() ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+          return result.canceled ? null : (result.filePath ?? null);
+        },
+      },
       pickContractFile: async () => {
         const options = { properties: ['openFile' as const], filters: [{ name: 'Contracts', extensions: ['pdf', 'docx', 'png', 'jpg', 'jpeg'] }] };
         const result = win !== null && !win.isDestroyed() ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
@@ -123,6 +140,20 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   app.on('activate', () => {
     if (win === null) openWindow();
   });
+}
+
+/** A hidden, script-less window prints an invoice's standalone HTML: the page cannot run code, whatever a customer's name says. */
+async function printToPdf(htmlFile: string): Promise<Buffer> {
+  const printer = new BrowserWindow({
+    show: false,
+    webPreferences: { sandbox: true, javascript: false, contextIsolation: true, nodeIntegration: false },
+  });
+  try {
+    await printer.loadFile(htmlFile);
+    return await printer.webContents.printToPDF({ printBackground: true, pageSize: 'A4' });
+  } finally {
+    printer.destroy();
+  }
 }
 
 function focusWindow(): void {

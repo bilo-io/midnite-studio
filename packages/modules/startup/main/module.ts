@@ -4,6 +4,8 @@ import { defineFeatureMain, type IpcContextElectron } from '@midnite/studio-runt
 import { CHANNELS, EVENT_CHANNELS, schemas, type StartupResult } from '@midnite/studio-shared';
 
 import type { ContractFilePort } from './contract-files';
+import type { InvoicePdfPort } from './invoice-pdf';
+import type { StartupLedgerPort } from './ledger-port';
 import { handleStartupRequest } from './service';
 import { openWorkspaceStore } from './workspace-store';
 
@@ -16,7 +18,14 @@ export type StartupElectron = IpcContextElectron & {
 } & Partial<ContractFilePort>;
 
 /** What the host hands the Startup module. */
-export type StartupMainServices = { electron: StartupElectron; now?: () => number };
+export type StartupMainServices = {
+  electron: StartupElectron;
+  now?: () => number;
+  /** The books, implemented by the host over its ledger service; `null` until one is mounted. */
+  ledger?: StartupLedgerPort | null;
+  /** Prints an invoice page to PDF and asks where to save it; the host's hidden window and save dialog. */
+  pdf?: InvoicePdfPort;
+};
 
 const invalid = (message: string): StartupResult<never> => ({ ok: false, kind: 'invalid', message });
 
@@ -28,7 +37,7 @@ const invalid = (message: string): StartupResult<never> => ({ ok: false, kind: '
 export const startupModuleMain = defineFeatureMain<StartupMainServices>({
   feature: 'startup',
   channels: [CHANNELS.startup],
-  register(ctx, { electron, now }) {
+  register(ctx, { electron, now, ledger, pdf }) {
     const store = openWorkspaceStore({
       dir: join(electron.userData, 'startup'),
       ...(now ? { now } : {}),
@@ -41,6 +50,8 @@ export const startupModuleMain = defineFeatureMain<StartupMainServices>({
       async (request) =>
         handleStartupRequest(await store, request, {
           contractsDir: join(electron.userData, 'startup', 'contracts'),
+          ledger: ledger ?? null,
+          ...(pdf ? { pdf } : {}),
           ...(electron.pickContractFile && electron.openPath ? { files: { pickContractFile: electron.pickContractFile, openPath: electron.openPath } } : {}),
         }),
       (issue) => invalid(issue),

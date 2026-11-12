@@ -9,7 +9,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [131 · Per-app changelogs](phases/phase-131-per-app-changelogs.md) | 🔄 WIP | x1 | 39/42 | `█████████░` | 93% | — | F |
-| [130 · Startup app](phases/phase-130-startup.md) | 🔄 WIP | x1 | 28/57 | `█████░░░░░` | 49% | — | F G |
+| [130 · Startup app](phases/phase-130-startup.md) | 🔄 WIP | x1 | 42/57 | `███████░░░` | 74% | — | G |
 | [129 · Accountant module](phases/phase-129-accountant.md) | 🔄 WIP | x1 | 44/61 | `███████░░░` | 72% | — | G H |
 | [128 · Health app](phases/phase-128-health.md) | ◻ TODO | x1 | 0/43 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [127 · Simulator module](phases/phase-127-simulator.md) | 🔄 WIP | x1 | 24/40 | `██████░░░░` | 60% | — | — |

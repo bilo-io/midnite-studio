@@ -13,6 +13,8 @@ export default defineConfig({
   css: { postcss: at('./') },
   resolve: {
     alias: {
+      '@midnite/studio-feature-ledger/renderer': at('../../packages/features/ledger/renderer/index.ts'),
+      '@midnite/studio-module-accountant/renderer': at('../../packages/modules/accountant/renderer/index.ts'),
       '@midnite/studio-module-startup/renderer': at('../../packages/modules/startup/renderer/index.ts'),
       '@midnite/studio-feature-monitor/renderer': at('../../packages/features/monitor/renderer/index.ts'),
       '@midnite/studio-shared': at('../../packages/shared/src/index.ts'),

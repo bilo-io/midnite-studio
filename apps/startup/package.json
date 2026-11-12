@@ -13,9 +13,11 @@
   "dependencies": {
     "@bilo-io/shell": "0.2.0",
     "@bilo-io/ui": "0.2.0",
+    "@midnite/studio-feature-ledger": "workspace:*",
     "@midnite/studio-feature-monitor": "workspace:*",
     "@midnite/studio-feature-report": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
+    "@midnite/studio-module-accountant": "workspace:*",
     "@midnite/studio-module-startup": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
