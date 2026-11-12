@@ -23,7 +23,7 @@ export function HealthPane({ view, onView }: { view: string; onView: (view: stri
         {view === 'nutrition' ? <NutritionView onView={onView} /> : null}
         {view === 'workouts' ? <WorkoutsView /> : null}
         {view === 'progress' ? <ProgressView /> : null}
-        {['biometrics', 'nutrition', 'workouts', 'progress'].includes(view) ? null : <TodayView />}
+        {['biometrics', 'nutrition', 'workouts', 'progress'].includes(view) ? null : <TodayView onView={onView} />}
         <HealthDialogHost />
       </FrameChromeProvider>
     </QueryClientProvider>

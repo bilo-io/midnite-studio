@@ -178,5 +178,5 @@ export function useLatestWeight(now: Date = new Date()) {
       if (d.weightKg !== undefined && (latest === undefined || date > latest.date)) latest = { date, kg: d.weightKg };
     }
   }
-  return { latest, months: q.data?.months ?? [], isLoading: q.isLoading };
+  return { latest, months: q.data?.months ?? [], quarantined: q.data?.quarantined ?? 0, isLoading: q.isLoading };
 }
