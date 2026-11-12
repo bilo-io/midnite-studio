@@ -73,9 +73,9 @@ entries, with every empty, loading, read-only and error state written down. Two 
 **Theme E — Bank CSV import and rules.** ✅ Pick a statement, map its columns, preview, categorise by rules,
 post; re-importing the same file posts nothing twice. `main/import/csv.ts` (`parseCsv`) and `import-service.ts` back the `importPick`/`importPreview`/`importCommit` ops; the statement's path stays in main behind a token that expires on the next pick. Additive contract changes: `ImportCommitRow.remember` (main adds a rule from the row's description after it posts), typed `ImportPreview`/`ImportPick`/`ImportCommitResult`, and two service methods, `snapshot` (book + entries, which Theme F reads) and `addImportRules`. A re-import is detected across apps (the idempotency ref ignores `source.app`), and a decimal comma (`12,50`) is read as 12.50, never 1250. The Import tab is `import-view.tsx`; `createMemoryLedger` serves one built-in statement.
 
-**Theme F — Financial reports.** ◻ Trial balance, profit and loss, balance sheet and cash flow (indirect)
-computed in main from the journal, rendered as tables, exported as CSV. The balance sheet always balances
-and the cash flow always reconciles, or says by how much it does not.
+**Theme F — Financial reports.** ✅ Trial balance, profit and loss, balance sheet and cash flow (indirect)
+computed from the journal, rendered as tables, exported as CSV. The balance sheet always balances
+and the cash flow always reconciles, or says by how much it does not. The maths is pure and lives in `shared/src/ledger-reports.ts` (not `main/reports.ts`) so the in-memory ledger the renderer's tests and shots use runs the very same code; every sum is `BigInt`, converted to `number` only after a safe-integer check. `main/reports.ts` holds the `report`/`exportReport` ops and the CSV writer (amounts as exact decimal strings, a leading `=`/`+`/`@` neutralised). Cash flow lists a retained-earnings movement under financing, so the remainder is zero for any balanced journal. A trial balance and balance sheet are as of `to`. `LedgerReport` types the `report` op; `LedgerService.notifyChanged` and a `silent` option on `post`/`addImportRules` let a batch emit one `ledgerChanged` (import commit now does).
 
 **Theme G — Tax estimates.** ◻ A `TaxJurisdiction` interface and registry, the UK (England, Wales and
 Northern Ireland) as the reference: income tax + Class 4 NIC for a sole trader, corporation tax with
@@ -372,7 +372,7 @@ and `comingSoon` removed from `MODULES.accountant`.
 
 ### F — Financial reports (M)
 
-- [ ] Net-new `main/reports.ts`: pure functions over `(book, entries)`; every number is integer minor units
+- [x] Net-new `main/reports.ts`: pure functions over `(book, entries)`; every number is integer minor units
   - `trialBalance({ asOf })` → rows `{ accountId, debit, credit }`, totals equal.
   - `profitAndLoss({ from, to })` → income rows, cost-of-sales, gross profit, operating expenses, net profit.
   - `balanceSheet({ asOf })` → assets, liabilities, equity, plus two computed lines: **Retained earnings** (Σ income − expense
@@ -384,11 +384,11 @@ and `comingSoon` removed from `MODULES.accountant`.
   - Verified by `reports.test.ts`: a hand-worked fixture year (12 entries) with the expected numbers written in the test; and a
     seeded generator (an LCG, no new dependency) of 500 random balanced entries asserting assets − liabilities − equity −
     computed lines === 0 and the cash-flow remainder === 0.
-- [ ] Reports view (`accountant.reports`): a report picker, range presets (this month, last month, this quarter, fiscal
+- [x] Reports view (`accountant.reports`): a report picker, range presets (this month, last month, this quarter, fiscal
   year to date, last fiscal year, custom), tables with indented groups and totals; rows link to the filtered journal
-- [ ] `exportReport` writes CSV via the injected `saveCsv(defaultName)` (`<book>-<kind>-<from>-<to>.csv`, amounts as decimal
+- [x] `exportReport` writes CSV via the injected `saveCsv(defaultName)` (`<book>-<kind>-<from>-<to>.csv`, amounts as decimal
   strings with the currency's minor units, no float); cancel → `{ ok: true, value: { saved: false } }`
-- [ ] Tests: RTL `reports-view.test.tsx` (range preset → request args; the Unreconciled row renders when the mock returns a remainder)
+- [x] Tests: RTL `reports-view.test.tsx` (range preset → request args; the Unreconciled row renders when the mock returns a remainder)
 
 ### G — Tax estimates (M)
 
@@ -484,7 +484,7 @@ and `comingSoon` removed from `MODULES.accountant`.
 - [x] `main/index.test.ts`: every op answers through the envelope; an injected fs error is `io`, never a throw.
 - [ ] `apps/money/main/host.test.ts`: ledger + finance channels each registered once; `host-app.test.tsx`: two nav groups.
 - [x] `csv.test.ts` + `import-service.test.ts`: quoting, BOM, delimiter sniff, caps, rule priority, idempotent re-import.
-- [ ] `reports.test.ts`: the hand-worked year; 500 random balanced entries keep the balance sheet balanced and cash flow reconciled.
+- [x] `reports.test.ts`: the hand-worked year; 500 random balanced entries keep the balance sheet balanced and cash flow reconciled.
 - [ ] `uk-ew-ni.test.ts`: the three worked examples above.
 - [ ] RTL: overview, accounts, journal, import, reports and tax views as listed per theme; the tax notice in every state.
 - [ ] `accountant-shots.spec.ts` screenshots committed under `docs/screenshots/p129/`.

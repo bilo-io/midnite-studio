@@ -1,4 +1,4 @@
-import { parseAmount } from '@midnite/studio-shared';
+import { buildReport, parseAmount, ReportRangeError } from '@midnite/studio-shared';
 import type {
   ImportPreviewRow,
   JournalEntry,
@@ -64,7 +64,7 @@ function readStatement(book: LedgerBook, mapping: ImportMapping, imported: Reado
  * The books bridge in memory — one seeded book and the ops the Overview, Accounts and Journal views use.
  * It enforces the same posting rules main does (balanced, archived account, locked period) so a view's error
  * states can be driven through it. Used by the app's mock bridge, the shots spec and this feature's tests;
- * reports and tax answer `io` until their themes land; import reads one built-in statement.
+ * tax answers `io` until its theme lands; reports run the real report maths over the in-memory journal; import reads one built-in statement.
  */
 export function createMemoryLedger(options: MemoryLedgerOptions = {}): LedgerBridge & { entries: () => JournalEntry[] } {
   const today = options.today ?? '2026-05-20';
@@ -274,8 +274,17 @@ export function createMemoryLedger(options: MemoryLedgerOptions = {}): LedgerBri
       }
       return ok({ balances: [...totals].map(([accountId, t]) => ({ accountId, ...t })) });
     },
-    report: unavailable,
-    exportReport: unavailable,
+    report: async ({ bookId, kind, from, to }) => {
+      const book = find(bookId);
+      if (!book) return notFound;
+      try {
+        return ok(buildReport(kind, book, journals.get(bookId) ?? [], from, to));
+      } catch (err) {
+        if (err instanceof ReportRangeError) return fail('invalid', err.message);
+        throw err;
+      }
+    },
+    exportReport: async ({ bookId }) => (find(bookId) ? ok({ path: '/memory/report.csv' }) : notFound),
     importPick: async ({ bookId }) => {
       if (!find(bookId)) return notFound;
       return ok({ token: 'memory-statement', header: STATEMENT[0] as string[], sample: STATEMENT.slice(1, 11) });

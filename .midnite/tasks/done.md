@@ -14,6 +14,10 @@ PR (see the Phase 130 F PR). Startup mounts the Accountant module as its Books g
 
 PR (see the Phase 129 E PR). `parseCsv` and the import service in the ledger feature's main (`importPick`, `importPreview`, `importCommit`; rules by priority, idempotent by statement-row hash, one bad row never aborts the batch) and the Import tab. Adds `ImportCommitRow.remember`, `LedgerService.snapshot` and `addImportRules`.
 
+## 2026-11-12 — Phase 129 Theme F — Financial reports
+
+PR (see the Phase 129 F PR). Trial balance, profit and loss, balance sheet and cash flow (`shared/src/ledger-reports.ts`, exact `BigInt` sums), the `report` and `exportReport` ops with CSV export, and the Reports tab with range presets. Import commit now emits one `ledgerChanged` per commit, not per row.
+
 ## 2026-11-12 — Phase 131 Theme F — Verification (packaged pass still open)
 
 Shots of the launcher's per-app What's new and a suite app's version drop-up; the dry-run release artifact check run locally (ten `midnite-<id>/CHANGELOG.md`, idempotent). No release cut; the packaged pass on the first real tag stays a manual check.

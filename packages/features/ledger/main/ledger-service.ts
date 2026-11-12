@@ -47,14 +47,17 @@ export type LedgerService = {
   updateBook(bookId: string, patch: { name?: string; lockedThrough?: string | null; jurisdiction?: TaxJurisdictionId | null }): Promise<LedgerResult<{ book: LedgerBook }>>;
   upsertAccount(bookId: string, account: LedgerAccountInput): Promise<LedgerResult<{ account: LedgerAccount }>>;
   archiveAccount(bookId: string, accountId: string): Promise<LedgerResult<{ account: LedgerAccount }>>;
-  post(req: LedgerPostRequest, source: JournalSource): Promise<LedgerResult<{ entry: JournalEntry; duplicate: boolean }>>;
+  /** `silent` skips the `ledgerChanged` event: a batch writer posts silently, then calls `notifyChanged` once. */
+  post(req: LedgerPostRequest, source: JournalSource, opts?: { silent?: boolean }): Promise<LedgerResult<{ entry: JournalEntry; duplicate: boolean }>>;
   reverse(bookId: string, entryId: string, date: string, reason: string): Promise<LedgerResult<{ entry: JournalEntry; duplicate: boolean }>>;
   journal(query: JournalQuery): Promise<LedgerResult<{ entries: JournalEntry[]; nextCursor: string | null }>>;
   balances(bookId: string, asOf: string): Promise<LedgerResult<{ balances: { accountId: string; debit: number; credit: number }[] }>>;
   /** The book and every posted entry, for main-side readers (reports, tax, import). The entries are the store's own: read, never mutate. */
   snapshot(bookId: string): Promise<LedgerResult<{ book: LedgerBook; entries: readonly JournalEntry[]; readOnly: boolean }>>;
   /** Appends import rules (skipping one already present for the same text and account) after the highest existing priority. */
-  addImportRules(bookId: string, rules: { contains: string; accountId: string }[]): Promise<LedgerResult<{ added: number }>>;
+  addImportRules(bookId: string, rules: { contains: string; accountId: string }[], opts?: { silent?: boolean }): Promise<LedgerResult<{ added: number }>>;
+  /** Announces the book's current revision (the one `ledgerChanged` of a silent batch). */
+  notifyChanged(bookId: string): Promise<LedgerResult<Record<string, never>>>;
   /** Releases every book's writer lock. */
   dispose(): Promise<void>;
 };
@@ -266,7 +269,7 @@ export function createLedgerService(opts: LedgerServiceOptions): LedgerService {
         true,
       ),
 
-    post: (req, source) => withStore(req.bookId, (store) => store.post(req.entry, source), true),
+    post: (req, source, opts) => withStore(req.bookId, (store) => store.post(req.entry, source), !opts?.silent),
 
     reverse: (bookId, entryId, date, reason) => withStore(bookId, (store) => store.reverse(entryId, date, reason), true),
 
@@ -311,7 +314,7 @@ export function createLedgerService(opts: LedgerServiceOptions): LedgerService {
 
     snapshot: (bookId) => withStore(bookId, async (store) => ({ ok: true, value: { book: store.book(), entries: store.entries(), readOnly: store.readOnly } })),
 
-    addImportRules: (bookId, rules) =>
+    addImportRules: (bookId, rules, opts) =>
       withStore(
         bookId,
         async (store) => {
@@ -331,8 +334,10 @@ export function createLedgerService(opts: LedgerServiceOptions): LedgerService {
           });
           return r.ok ? { ok: true, value: { added } } : r;
         },
-        true,
+        !opts?.silent,
       ),
+
+    notifyChanged: (bookId) => withStore(bookId, async () => ({ ok: true, value: {} }), true),
 
     async dispose() {
       const pending = [...stores.values()];

@@ -58,6 +58,8 @@ describe('ledgerMain', () => {
       { op: 'journal', bookId: book.id },
       { op: 'balances', bookId: book.id, asOf: '2026-12-31' },
       { op: 'importPick', bookId: book.id },
+      { op: 'report', bookId: book.id, kind: 'trial-balance', from: '2026-04-06', to: '2026-12-31' },
+      { op: 'exportReport', bookId: book.id, kind: 'balance-sheet', from: '2026-04-06', to: '2026-12-31' },
     ];
     for (const req of requests) expect(await handler(req), String(req.op)).toMatchObject({ ok: true });
   });
