@@ -63,8 +63,8 @@ function soleTrader(input: TaxInput, r: UkRates): TaxEstimate {
     const next = r.startYear + 2;
     const first = Math.floor(total / 2);
     payments.push(
-      { due: `${next}-01-31`, minor: first, label: `First payment on account, ${next}-01-31` },
-      { due: `${next}-07-31`, minor: total - first, label: `Second payment on account, ${next}-07-31` },
+      { due: `${next}-01-31`, minor: first, label: 'First payment on account' },
+      { due: `${next}-07-31`, minor: total - first, label: 'Second payment on account' },
     );
     notes.push('Payments on account are half of this estimate each, due 31 January and 31 July; the first also settles any balance for the year.');
   }
