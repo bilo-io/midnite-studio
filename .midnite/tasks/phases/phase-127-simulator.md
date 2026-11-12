@@ -61,8 +61,7 @@ space-time diagram.
 
 **Theme D — Virtual worlds: n-body gravity.** ✅ [PR #1154](https://github.com/bilo-io/midnite-studio/pull/1154). Direct O(n²) velocity-Verlet engine (`sims/nbody.ts`) with softened gravity, a 200-body cap, `energy`/`energyDrift` stats and four zero-momentum presets; the view is an R3F z-up scene with a body-scale slider and 500-point ring-buffer trails (`sims/trails.ts`), plus a side panel (preset, dt, softening, body table, Add body, four-sig-fig energy read-out). Coincident bodies skip their pair force rather than going NaN, since Add body drops a body on the camera target, often the Sun. The Transport read-out is left empty because it rounds to 3 decimals and would show a tiny drift as 0.
 
-**Theme E — Agent environments: flocking and predator–prey.** ◻ Reynolds boids in a 3D box on a spatial
-hash, and a predator–prey world whose population counts chart live.
+**Theme E — Agent environments: flocking and predator–prey.** ✅ [PR #1156](https://github.com/bilo-io/midnite-studio/pull/1156). A flat counting-sort spatial hash (`engine/spatial-hash.ts`, verified against brute force), Reynolds boids over it with a soft wall force and a speed band, and a plane predator–prey world with energy, seeded reproduction and a hard 5,000-agent cap (`atCap` stat drives the "Population cap reached" line). The view toggles Flocking / Predator–prey, draws instanced velocity-oriented cones in a wire box, and charts both counts in a plain-SVG `Sparkline` (the last 2,000 drawn frames). Prey graze more energy than they pay, so only predators starve; the PRNG state is unreadable, so a restore replays the recorded draw count from the seed. Boid steering constants are unreviewed by eye.
 
 **Theme F — Scenarios: save and load.** ◻ `SimScenarioSchema` (versioned), one `simulator` channel, files
 under the app's userData through `createJsonDirStore`, a scenario list per sandbox.
@@ -239,12 +238,12 @@ under the app's userData through `createJsonDirStore`, a scenario list per sandb
 
 ### E — Agent environments: flocking and predator–prey (L)
 
-- [ ] **E.1** Spatial hash, `renderer/engine/spatial-hash.ts` (net-new).
+- [x] **E.1** Spatial hash, `renderer/engine/spatial-hash.ts` (net-new).
   - `createSpatialHash(cellSize: number, bounds: number)` with `rebuild(positions: Float32Array, count)` and
     `forEachNear(i, radius, fn)`; flat typed arrays (cell start/count), rebuilt each tick — no `Map` of arrays.
   - Verified by `renderer/engine/spatial-hash.test.ts`: `forEachNear` visits exactly the brute-force
     neighbour set for 500 random points.
-- [ ] **E.2** Boids, `renderer/sims/boids.ts` (net-new).
+- [x] **E.2** Boids, `renderer/sims/boids.ts` (net-new).
   - `BoidsParams = { count: number /* 10–2000, default 400 */; box: number /* 100 */; separation: number;
     alignment: number; cohesion: number; radius: number /* 5 */; maxSpeed: number /* 4 */ }`; Reynolds's
     three steering rules over neighbours from E.1, a soft wall force within 10 % of the box edge, dt 1/60.
@@ -252,7 +251,7 @@ under the app's userData through `createJsonDirStore`, a scenario list per sandb
     disordered, 1 = aligned).
   - Verified by `renderer/sims/boids.test.ts`: same seed → identical positions after 100 ticks; with
     `alignment = 2, separation = cohesion = 0`, polarisation after 600 ticks exceeds its tick-0 value.
-- [ ] **E.3** Predator–prey, `renderer/sims/predprey.ts` (net-new).
+- [x] **E.3** Predator–prey, `renderer/sims/predprey.ts` (net-new).
   - Two species in a 2D-plane box (z = 0): prey wander and flee predators within 8 units; predators steer to
     the nearest prey within 15 units and eat it within 1 unit (+energy). Every agent loses energy per tick; at
     zero it dies; above a threshold it reproduces with a seeded probability. Defaults 300 prey / 20 predators.
@@ -260,7 +259,7 @@ under the app's userData through `createJsonDirStore`, a scenario list per sandb
   - `stats()` → `{ prey, predators }`; the view keeps the last 2,000 ticks of both counts.
   - Verified by `renderer/sims/predprey.test.ts`: same seed → identical counts after 500 ticks; with no
     predators prey never decrease below their start except by energy death; the cap holds at 5,000.
-- [ ] **E.4** View, `renderer/views/agents-view.tsx` (net-new).
+- [x] **E.4** View, `renderer/views/agents-view.tsx` (net-new).
   - Environment toggle **Flocking** / **Predator–prey**; R3F instanced cones oriented by velocity (prey
     `#22c55e`, predators `#ef4444`, boids the module accent), drei `OrbitControls`; side panel sliders for the
     params; for predator–prey a `Sparkline` of both counts under the canvas.

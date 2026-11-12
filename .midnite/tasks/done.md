@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 127 Theme E — Agent environments: flocking and predator–prey
+
+[PR #1156](https://github.com/bilo-io/midnite-studio/pull/1156). Spatial hash, boids and predator–prey engines, a Sparkline, and the Agent environments view with an environment toggle and parameter sliders.
+
 ## 2026-11-12 — Phase 127 Theme D — Virtual worlds: n-body gravity
 
 [PR #1154](https://github.com/bilo-io/midnite-studio/pull/1154). Velocity-Verlet n-body engine with energy-drift stats, four presets, and a 3D Virtual worlds view with trails and a body panel.

@@ -70,7 +70,8 @@ export function createBoids(): SimEngine<BoidsParams, BoidsState> {
         vel[3 * i + 1] = r * Math.sin(a) * sp;
         vel[3 * i + 2] = z * sp;
       }
-      hash = createSpatialHash(Math.max(p.radius, 1), p.box);
+      // Cells are never finer than box / 32, which bounds the grid at 32768 cells however small the radius.
+      hash = createSpatialHash(Math.max(p.radius, p.box / 32), p.box);
       tick = 0;
     },
     step() {
