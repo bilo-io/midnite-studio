@@ -50,19 +50,17 @@ data directory. Planned 2026-11-11; first slice is **A + B**, then **C + D**, **
 
 **Theme A — App and module scaffold.** ✅ PR (Phase 128 A PR) `apps/health` and `packages/modules/health` from the Science scaffold (itself the Mind host); `health` is in every id list (`MODULE_IDS`, `MODULE_HOST_IDS`, `APP_MODULES`, `MidniteAppId`, placement, `STUDIO_MODULES`, `NODE_PROJECTS`, tsconfig paths, launcher `MODULES.health` still `comingSoon`) and the release matrix and per-app changelog lists (Phase 131 added those, so `CHANGELOG_APP_IDS` and the feed titles gained `health` too). The five rail views are empty states; port 5196. The attribution test's "unlisted id" stand-in moved from `app-health` to `app-accountant`.
 
-**Theme B — Health data store and IPC.** ◻ Versioned schemas in a net-new `shared/src/health.ts`
-(profile, month logs, foods, plans), one `health` channel with an `op` union, and a main-side store on
-`createJsonDirStore` with one month per file and a per-store write queue.
+**Theme B — Health data store and IPC.** ✅ PR (Phase 128 B PR) `shared/src/health.ts` (schemas, `HealthRequestSchema`, `migrate*`, `healthMonthSpan`), the `health` channel and optional `HealthBridge`, `createHealthStore` on `createJsonDirStore` (one month per file, one promise chain for every mutation, corrupt single files and months quarantined), `registerHealthOn` (logs op and error code only) and the renderer hooks with an optimistic `usePutDay`. `exportAll` already writes the file (Theme G adds the UI and its test). The frame's `notify` has no `tone`, so the save-failure notice is title and body only. A also left `apps/health/main/index.ts` without the `app`/`appVersion` that Phase 131 E added to `registerSuiteMain`; fixed here.
 
-**Theme C — Profile and biometrics.** ◻ An all-optional profile (units, sex, birth year, height, activity,
+**Theme C — Profile and biometrics.** ✅ An all-optional profile (units, sex, birth year, height, activity,
 goal), a measurement log (weight, body fat, waist, resting heart rate, sleep), and pure BMI / BMR
-(Mifflin–St Jeor) / TDEE / calorie-target calculations shown as estimates.
+(Mifflin–St Jeor) / TDEE / calorie-target calculations shown as estimates. Pure calc in `renderer/calc/` with worked-example tests; waist stays in cm under both unit systems; every save merges into the day read from a single-month query so a weigh-in never drops that day's meals.
 
-**Theme D — Nutrition logger.** ◻ Meals per day by slot, a saved-foods library with servings, kcal and
-macros, daily totals against the target.
+**Theme D — Nutrition logger.** ✅ Meals per day by slot, a saved-foods library with servings, kcal and
+macros, daily totals against the target. Editing a meal changes its own numbers (no rescale by servings); "Duplicate to today" reads today fresh from main before merging.
 
-**Theme E — Workout plans and progressive overload.** ◻ Plans of weekday sessions and exercises, three
-starter plans, session logging, and a double-progression rule that prescribes the next weight and reps.
+**Theme E — Workout plans and progressive overload.** ✅ Plans of weekday sessions and exercises, three
+starter plans, session logging, and a double-progression rule that prescribes the next weight and reps. A zero increment holds the weight (aiming at the top of the range), the deload rounds down to 0.5 kg, the plan editor saves 600 ms after the last edit and flushes on leaving, and the session sheet prefills from the last three months of history.
 
 **Theme F — Today and Progress.** ◻ A Today dashboard (calories left, macros, quick weigh-in, today's
 session) and a Progress view of hand-rolled SVG charts: weight with a 7-day average and weekly rate,
@@ -201,7 +199,7 @@ guard test that keeps network calls out of the module.
 
 ### B — Health data store and IPC (M)
 
-- [ ] **B.1** Schemas in net-new `packages/shared/src/health.ts` (zod only, exported from the barrel). All
+- [x] **B.1** Schemas in net-new `packages/shared/src/health.ts` (zod only, exported from the barrel). All
   stored quantities are metric (Decision 3).
   - Keys: `HealthDateSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/)` (a local
     calendar date), `HealthMonthIdSchema = z.string().regex(/^log-\d{4}-(0[1-9]|1[0-2])$/)`,
@@ -242,7 +240,7 @@ guard test that keeps network calls out of the module.
   - Verified by net-new `packages/shared/src/health.test.ts`: each schema round-trips a valid fixture; a
     profile with no body fields parses; `weightKg: 401` fails; a month log `log-2026-11` holding day key
     `2026-12-01` fails; `repsMax < repsMin` fails; `plan-../x` fails; every `migrate*({ version: 2 })` is `null`.
-- [ ] **B.2** Request union, channel, bridge type.
+- [x] **B.2** Request union, channel, bridge type.
   - `HealthRequestSchema = z.discriminatedUnion('op', [ { op: 'getProfile' }, { op: 'putProfile', profile },
     { op: 'getMonths', from: YYYY-MM, to: YYYY-MM } (refined: `from <= to`, at most 36 months), { op:
     'putDay', date, day: HealthDaySchema }, { op: 'getFoods' }, { op: 'upsertFood', food }, { op:
@@ -262,7 +260,7 @@ guard test that keeps network calls out of the module.
   - `createHealthBridge` fills `health` with one `call(CHANNELS.health, { op, … })` per method.
   - Verified by `health.test.ts`: `getMonths` with `from > to` and with a 37-month span both fail; an
     unknown `op` fails.
-- [ ] **B.3** The store, `packages/modules/health/main/health-store.ts` (net-new).
+- [x] **B.3** The store, `packages/modules/health/main/health-store.ts` (net-new).
   - `export function createHealthStore(dataDir: string, trashItem: (path: string) => Promise<void>):
     HealthStore`, `dataDir = <userData>/data`. Layout: `profile.json`, `foods.json`, `logs/log-YYYY-MM.json`,
     `plans/plan-<12>.json`.
@@ -287,7 +285,7 @@ guard test that keeps network calls out of the module.
     `Promise.all` of two `putDay`s on different dates of one month keeps both; an emptied day removes its
     key; a corrupt `profile.json` is quarantined and `getProfile` answers `null`; a garbage `log-2026-10.json`
     is quarantined and counted; `eraseAll` calls `trashItem` with `dataDir`; files are mode `0o600`.
-- [ ] **B.4** IPC handlers, `packages/modules/health/main/context.ts` (net-new).
+- [x] **B.4** IPC handlers, `packages/modules/health/main/context.ts` (net-new).
   - `export function registerHealthOn(ctx: FeatureMainContext, services: HealthModuleServices): void` —
     `ctx.ipc.handle(CHANNELS.health, …)`: `HealthRequestSchema.safeParse`; a miss answers `{ ok: false,
     kind: 'error', message: 'Invalid request' }`; dispatch by `op` to the store; any thrown error is caught
@@ -303,7 +301,7 @@ guard test that keeps network calls out of the module.
     `{ ok: false, kind: 'error' }`; a store throw answers `{ ok: false }`; with a `console` spy, a failing
     `putDay` carrying `weightKg: 81.3` logs nothing containing `81.3`; a cancelled save dialog answers
     `cancelled: true`.
-- [ ] **B.5** Renderer data hooks, `renderer/data/use-health.ts` (net-new).
+- [x] **B.5** Renderer data hooks, `renderer/data/use-health.ts` (net-new).
   - `useProfile()`, `useMonths(from, to)`, `useFoods()`, `usePlans()` — TanStack Query over
     `window.midniteStudio.health` with keys `['health', 'profile']`, `['health', 'months', from, to]`, etc.;
     a `{ ok: false }` result throws inside the query fn so the view's `isError` branch renders.
@@ -320,7 +318,7 @@ guard test that keeps network calls out of the module.
 
 ### C — Profile and biometrics (M)
 
-- [ ] **C.1** Pure calculations, `renderer/calc/body.ts` (net-new).
+- [x] **C.1** Pure calculations, `renderer/calc/body.ts` (net-new).
   - `bmi(weightKg, heightCm): number` = kg / m², and `bmiBand(bmi): 'under' | 'healthy' | 'over' | 'obese'`
     at the WHO cut-offs 18.5 / 25 / 30.
   - `bmrMifflin({ weightKg, heightCm, age, sex }): number` = `10·kg + 6.25·cm − 5·age + s`, `s` = +5 male,
@@ -337,7 +335,7 @@ guard test that keeps network calls out of the module.
     `bmrMifflin({ 80, 180, 30, male })` = 1780; female = 1614; `kcalTarget` with no height answers
     `{ missing: ['height'] }`; a `lose` target below 1200 is `1200` with `floored: true`; and
     `units.test.ts`: `lbToKg(kgToLb(81.3))` within 1e-9; `cmToFtIn(180)` = `{ ft: 5, in: 11 }`.
-- [ ] **C.2** Profile form in `BiometricsView` (`renderer/views/biometrics-view.tsx`, net-new).
+- [x] **C.2** Profile form in `BiometricsView` (`renderer/views/biometrics-view.tsx`, net-new).
   - A card "Profile — all optional": Units (segmented Metric / Imperial), Sex (Female / Male / Prefer not to
     say), Birth year (number), Height (cm, or ft + in when imperial), Activity (select with one-line
     descriptions), Goal (Lose / Maintain / Gain), "Set my own calorie target" (toggle + number).
@@ -349,7 +347,7 @@ guard test that keeps network calls out of the module.
   - Verified by `biometrics-view.test.tsx` (mock bridge): switching to Imperial re-renders 180 cm as `5 ft 11
     in` without a write; entering height `300` shows the range hint and sends no `putProfile`; with weight,
     height and birth year set the target renders.
-- [ ] **C.3** Measurement log in `BiometricsView`.
+- [x] **C.3** Measurement log in `BiometricsView`.
   - A date row (defaults to today, `‹ ›` `IconButton`s with `label="Previous day"`/`"Next day"`, no future
     dates) and fields Weight, Body fat %, Waist, Resting heart rate, Sleep (hours), Note; each saves on blur
     via `usePutDay`, merging into that day's existing meals and sessions.
@@ -361,7 +359,7 @@ guard test that keeps network calls out of the module.
 
 ### D — Nutrition logger (M)
 
-- [ ] **D.1** Meal log in `NutritionView` (`renderer/views/nutrition-view.tsx`, net-new).
+- [x] **D.1** Meal log in `NutritionView` (`renderer/views/nutrition-view.tsx`, net-new).
   - Same date row as C.3. Four sections (Breakfast, Lunch, Dinner, Snacks), each listing its meals (name,
     servings, kcal, P/C/F grams) with a section total, an **Add** button and a per-row `openMenu` (Edit,
     Duplicate to today, Delete). Delete needs no confirm (one meal, undo by re-adding) — this is the one
@@ -373,7 +371,7 @@ guard test that keeps network calls out of the module.
     target → total only and "Set up your profile for a target" linking to Biometrics (`onView('biometrics')`).
   - Verified by `nutrition-view.test.tsx` (mock bridge): adding 2 servings of a 250 kcal food stores
     `kcal: 500`; the total shows `500 / 2200 kcal`; Delete removes the row through `putDay`.
-- [ ] **D.2** Saved foods.
+- [x] **D.2** Saved foods.
   - A "Foods" tab in `NutritionView` listing the library (name, serving, kcal, P/C/F) with **New food**, Edit
     and Delete (Delete through `useDialogs().confirm({ title: "Delete '<name>'?", body: 'Meals already
     logged keep their numbers.', confirmLabel: 'Delete', danger: true })` — logged meals copy their numbers,
@@ -385,7 +383,7 @@ guard test that keeps network calls out of the module.
 
 ### E — Workout plans and progressive overload (L)
 
-- [ ] **E.1** The overload rule, `renderer/calc/overload.ts` (net-new).
+- [x] **E.1** The overload rule, `renderer/calc/overload.ts` (net-new).
   - `export function nextPrescription(ex: HealthExercise, history: { date: string; sets: HealthSet[] }[]):
     { kg: number; repsTarget: number; reason: 'start' | 'hold' | 'increase' | 'deload' }`, `history` oldest
     first, already filtered to this exercise id.
@@ -399,7 +397,7 @@ guard test that keeps network calls out of the module.
   - Verified by net-new `renderer/calc/overload.test.ts`: empty history → start; 3×12 at 60 with range 8–12
     → 62.5 increase; two sessions with a 6 at 60 → 54 deload (60 × 0.9); one bad session → hold; 2 of 3
     sets logged at 12 → hold; `incrementKg: 0` never increases weight.
-- [ ] **E.2** Plans list and editor in `WorkoutsView` (`renderer/views/workouts-view.tsx`, net-new).
+- [x] **E.2** Plans list and editor in `WorkoutsView` (`renderer/views/workouts-view.tsx`, net-new).
   - The list: plan cards (name, days per week, exercises) with **New plan**, a per-card `openMenu` (Rename
     via `prompt`, Duplicate, Delete) and "Starter plans" below.
   - Delete: `useDialogs().confirm({ title: "Move '<name>' to the Trash?", body: 'Logged sessions stay in
@@ -414,7 +412,7 @@ guard test that keeps network calls out of the module.
   - Verified by `workouts-view.test.tsx` (mock bridge): **Use** on "Full body, 3 days" calls `writePlan` with
     3 days on weekdays 1/3/5; choosing a weekday already used shows "Already on Monday" and is not saved;
     and `starters.test.ts`: every starter parses with `HealthPlanSchema`.
-- [ ] **E.3** Logging a session.
+- [x] **E.3** Logging a session.
   - "Log session" on a plan day (and on Today, F.1) opens a session sheet: per exercise, the prescription
     line from `nextPrescription` ("3 × 8–12 @ 62.5 kg · up from 60") and one row per set prefilled with
     `{ reps: repsTarget, kg }`, editable, plus "Add set" and Minutes.

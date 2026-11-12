@@ -6,6 +6,18 @@
 
 PR (see the Phase 129 H PR). Shots spec over the in-Node memory ledger, the Accountant module's `comingSoon` removed (home and features on the `books` view), the launcher tests rewritten, and the missing Books rail row in Studio added under Dashboard. The packaged-app pass and the CI gate remain open.
 
+## 2026-11-12 — Phase 128 Theme E — Workout plans and progressive overload
+
+PR (see the Phase 128 E PR). Double-progression `nextPrescription` (start, increase, hold, deload) with worked tests, three starter plans, the plans list and editor (debounced save, weekday uniqueness, reorder, Trash-confirm delete) and the session sheet that prefills from history and stores kilograms.
+
+## 2026-11-12 — Phase 128 Themes C + D — Profile, biometrics and nutrition logger
+
+PR (see the Phase 128 C+D PR). Pure BMI / Mifflin-St Jeor BMR / TDEE / calorie-target calculations (1200 kcal floor, override wins) and unit conversion, the all-optional profile form with its estimates, the measurement log, the four-slot meal logger against the daily target, and the saved-foods library.
+
+## 2026-11-12 — Phase 128 Theme B — Health data store and IPC
+
+PR (see the Phase 128 B PR). `shared/src/health.ts` schemas and request union, the `health` channel and `HealthBridge`, a month-per-file store over `createJsonDirStore` with a write chain, IPC handlers that log no payload, and renderer data hooks (optimistic `usePutDay`). Also fixes the Health host's `registerSuiteMain` call for Phase 131 E.
+
 ## 2026-11-12 — Phase 129 Theme G — Tax estimates
 
 PR (see the Phase 129 G PR). `TaxJurisdiction` interface and registry, the UK (England, Wales, Northern Ireland) rule set with its rates as one data table, the `taxEstimate` op and the Tax tab. Sole trader: income tax with the tapered allowance plus Class 4 NIC and payments on account; company: corporation tax with marginal relief. Every state carries the not-tax-advice notice.
@@ -10580,7 +10592,6 @@ fills the body and pays that condition in the same change.
 - [x] **Theme G — Commit Workbench Tab.** Added `commit` workbench tab kind, header `Open commit in tab` button, graph context menu verb, and full-width rendering in `workbench.tsx`.
 - [x] **Theme H — PR Image Diffs.** Added `baseSha` to `ForgePullDetailSchema`, `gh-cli.ts`, and `gh-parse.ts`; wired `baseSha` into `imageDiffSources` in `PrFileAccordion`.
 
-
 ## 2026-08-30 — Phase 25 Themes D–F — CodePreview line rework, blame gutter, FilterInput, find bar & Search settings
 
 - [x] **Theme D — CodePreview line rework & Blame gutter.** Refactored `CodePreview` to CodeMirror 6 read-only line model; added `blame-store.ts` for per-file blame state; added blame toggle button to `FilePreview` header; implemented blame gutter and scroll to line.
@@ -15364,7 +15375,6 @@ role's queries are ever mounted" already held by construction. H.4: `memory-repo
 
 **Ad-hoc: knowledge view spinner** ([PR #427](https://github.com/bilo-io/midnite-studio/pull/427)) — The Knowledge view could sit on "Reading the knowledge graph…" indefinitely with nothing in `main.log`. Now every way the layout worker can end settles `runLayoutInWorker` (a 60 s stall watchdog, a clean exit that never posted `done`, a spawn failure), every `getGraph` stage is logged through the log seam, `fetchKnowledgeGraph` gives the renderer its own 90 s progress-reset silence budget so the query settles even if main never answers, the view offers Retry on an error and after 30 s on the spinner, and the layout cache's temp file carries a random suffix so two concurrent writes for one repo no longer collide. Measured on this repo's graph (15,199 nodes / 36,772 links) in the packaged app: ~10-12 s cold, <2 s on a cache hit.
 
-
 ---
 
 ### Ad-hoc: Knowledge view freeze on a dense graph, and a detail budget (Phase 89 follow-up)
@@ -15750,11 +15760,9 @@ A new skill audits a third-party skill, plugin, MCP server or repo before instal
 
 New `feature-ledger` (manifest, `ledgerMain` routing the op union to a `LedgerService`, `LedgerWorkspace` empty state) and `module-accountant` (main bridge, services, nav group, pane). Money is now a two-module host (`registerMoneyHost`, `host-nav`, `host-app`, preload union); Studio shows a global `books` view and registers the ledger handlers as `studio`. The service is a stand-in until Theme C; the catalog stays `comingSoon`. Vitest at each layer; no e2e.
 
-
 ### Phase 129 Theme C — Book store and posting engine (2026-11-12)
 
 `book-store.ts` (NDJSON journal + `book.json`, one writer per book by `writer.lock`, torn-tail truncation, corrupt middle line opens read-only, balanced / archived / locked-period checks, idempotent `source.ref`, reversal), `ledger-service.ts` (`createLedgerService`: list/create/update books, accounts, post, reverse, journal with cursor, balances, `ledgerChanged` events) and `chart-templates.ts` (personal, sole-trader, company). Money's host and Studio's `registerLedgerHandlers` now run the real service under `<appData>/Midnite Runtime/books`. Vitest over temp dirs, including a dead-pid lock takeover.
-
 
 ### Phase 129 Theme D — Books, accounts and journal UI (2026-11-12)
 

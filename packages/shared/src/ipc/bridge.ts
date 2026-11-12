@@ -54,6 +54,16 @@ import type {
   LedgerResult, LedgerTaxEstimate, TaxJurisdictionId, LedgerEntity, LedgerAccount, LedgerChangedPayload,
 } from '../ledger';
 import type { LedgerReport } from '../ledger-reports';
+import type {
+  HealthDate,
+  HealthDay,
+  HealthFood,
+  HealthFoodId,
+  HealthMonthLog,
+  HealthPlan,
+  HealthPlanId,
+  HealthProfile,
+} from '../health';
 import type { ScienceDiscipline, ScienceNotebook, ScienceNotebookId, ScienceNotebookSummary, ScienceCell } from '../science';
 import type { SfxGenerateRequest, SfxGenerateResult, SfxProgressEvent, SfxStatus } from '../media-sfx';
 import type { PerfMark } from '../perf';
@@ -119,6 +129,22 @@ export type SfxBridge = {
   generate: (req: SfxGenerateRequest) => Promise<GitOpResult<SfxGenerateResult>>;
   cancelGenerate: (req: { generationId: string }) => Promise<GitOpResult>;
   onProgress: (handler: (event: SfxProgressEvent) => void) => Unsubscribe;
+};
+
+/** `health`'s `op` union (Health, Phase 128), one typed method per op. */
+export type HealthBridge = {
+  getProfile: () => Promise<GitOpResult<{ profile: HealthProfile | null }>>;
+  putProfile: (req: { profile: HealthProfile }) => Promise<GitOpResult>;
+  getMonths: (req: { from: string; to: string }) => Promise<GitOpResult<{ months: HealthMonthLog[]; quarantined: number }>>;
+  putDay: (req: { date: HealthDate; day: HealthDay }) => Promise<GitOpResult<{ updatedAt: string }>>;
+  getFoods: () => Promise<GitOpResult<{ foods: HealthFood[] }>>;
+  upsertFood: (req: { food: HealthFood }) => Promise<GitOpResult>;
+  removeFood: (req: { id: HealthFoodId }) => Promise<GitOpResult>;
+  listPlans: () => Promise<GitOpResult<{ plans: HealthPlan[]; quarantined: number }>>;
+  writePlan: (req: { plan: HealthPlan }) => Promise<GitOpResult>;
+  removePlan: (req: { id: HealthPlanId }) => Promise<GitOpResult>;
+  exportAll: () => Promise<GitOpResult<{ path: string } | { cancelled: true }>>;
+  eraseAll: () => Promise<GitOpResult>;
 };
 
 /** `science`'s `op` union (Science notebooks, Phase 126), one typed method per op. */
@@ -1152,6 +1178,9 @@ export type MidniteStudioBridge = {
 
   /** Science notebooks (Phase 126). Optional, like `suiteLink`: only the Science host carries it (Decision 4). */
   science?: ScienceBridge;
+
+  /** Health logs, foods and plans (Phase 128). Optional, like `science?`: only the Health host carries it. */
+  health?: HealthBridge;
 
   /** Simulator scenarios (Phase 127). Optional, like `science?`: only a host mounting the Simulator module carries it. */
   simulator?: SimulatorBridge;
