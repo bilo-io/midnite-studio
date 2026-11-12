@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { todayKey } from '../data/dates';
 import { healthBridge, useLatestWeight, useProfile } from '../data/use-health';
 import { HealthMissing } from '../data/health-missing';
+import { DataCard } from './data-card';
 import { MeasurementLog } from './measurement-log';
 import { ProfileCard } from './profile-card';
 
@@ -23,6 +24,7 @@ export function BiometricsView() {
     <div className="mx-auto flex h-full max-w-3xl flex-col gap-4 overflow-y-auto p-6" data-testid="biometrics-view">
       <ProfileCard profile={profile.data ?? null} latestWeightKg={latest?.kg} />
       <MeasurementLog units={profile.data?.units ?? 'metric'} date={date} onDate={setDate} />
+      <DataCard />
     </div>
   );
 }

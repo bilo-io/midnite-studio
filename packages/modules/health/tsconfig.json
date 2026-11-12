@@ -12,7 +12,7 @@
     "composite": false,
     "declaration": false,
     "declarationMap": false,
-    "types": ["vite/client"],
+    "types": ["vite/client", "node"],
     "paths": {
       // Source, not dist — the resolution the composing app uses.
       "@midnite/studio-shared": ["../../shared/src/index.ts"],
@@ -22,6 +22,6 @@
       "@midnite/studio-runtime": ["../../runtime/src/index.ts"]
     }
   },
-  "include": ["renderer/**/*", "manifest.ts", "manifest.test.ts", "vitest.config.ts"],
+  "include": ["renderer/**/*", "manifest.ts", "manifest.test.ts", "privacy.test.ts", "vitest.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

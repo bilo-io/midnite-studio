@@ -66,9 +66,7 @@ starter plans, session logging, and a double-progression rule that prescribes th
 session) and a Progress view of hand-rolled SVG charts: weight with a 7-day average and weekly rate,
 calories against target, training volume and per-exercise top set, plus a weekly report card. Trend maths is pure (`calc/trends.ts`, calendar-day windows, ISO weeks by the Thursday rule); the charts are a hand-rolled `TimeChart` with a hidden data table; the range persists under `midnite-health.ui`; weekly volume bars are dated to that week's Monday.
 
-**Theme G — Privacy: export and erase.** ◻ Export everything as one JSON file through a save dialog, and
-"Erase all Health data" behind a blast-radius confirm that moves the data folder to the Trash; a source
-guard test that keeps network calls out of the module.
+**Theme G — Privacy: export and erase.** ✅ A "Your data" card at the foot of Biometrics names the data folder (`HEALTH_DATA_HINT`), exports everything as one JSON file through a save dialog (the `exportAll` op already existed from B), and "Erase all Health data…" behind a files blast-radius confirm that moves the folder to the Trash and invalidates every `['health']` query. `privacy.test.ts` fails on any network API, network module import or non-report/monitor feature import under the module, with a planted-string case proving the matcher fires.
 
 **Theme H — Launch: catalog, website, docs.** ◻ `comingSoon` dropped from the Health tile, the launcher's
 `MODULES.health`, the website entry, `docs/APPS.md`.
@@ -480,7 +478,7 @@ guard test that keeps network calls out of the module.
 
 ### G — Privacy: export and erase (S)
 
-- [ ] **G.1** Export all data.
+- [x] **G.1** Export all data.
   - `exportAll` (B.4) writes `{ format: 'midnite-health-export', version: 1, exportedAt, profile, foods,
     plans, months }` — every month file, every plan — with `writePrivateFile` (0600) to the chosen path.
   - A "Your data" card at the bottom of `BiometricsView`: "Everything Health stores is on this Mac, in
@@ -489,7 +487,7 @@ guard test that keeps network calls out of the module.
     no filesystem paths to the renderer.
   - Verified by `context.test.ts`: `exportAll` with a stub dialog returning `/tmp/x.json` writes a file whose
     JSON has `format: 'midnite-health-export'` and the fixture's month; mode `0o600`.
-- [ ] **G.2** Erase all data.
+- [x] **G.2** Erase all data.
   - **Erase all Health data…** → `useDialogs().confirm({ title: 'Erase all Health data?', body: 'Your
     profile, every log, every food and every plan move to the Trash. You can restore the folder from the
     Trash in Finder.', confirmLabel: 'Move to Trash', danger: true, blastRadius: { count: <months + plans +
@@ -497,7 +495,7 @@ guard test that keeps network calls out of the module.
     then `queryClient.invalidateQueries({ queryKey: ['health'] })` so every view reads empty.
   - Verified by `biometrics-view.test.tsx`: confirming calls `eraseAll` once and Today then shows the
     first-run card; cancelling calls nothing.
-- [ ] **G.3** The no-network guard, `packages/modules/health/privacy.test.ts` (net-new).
+- [x] **G.3** The no-network guard, `packages/modules/health/privacy.test.ts` (net-new).
   - Reads every `.ts`/`.tsx` under `packages/modules/health/` (excluding tests) and fails on any of:
     `fetch(`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `navigator.sendBeacon`, an import of `node:http`,
     `node:https`, `node:net`, `node:dgram`, `undici`, `electron` (`net`), or `@midnite/studio-feature-*`

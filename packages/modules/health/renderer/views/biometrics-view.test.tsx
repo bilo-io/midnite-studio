@@ -117,3 +117,42 @@ describe('BiometricsView measurements', () => {
     await waitFor(() => expect(screen.getByTestId('date-row').textContent).toContain(earlier));
   });
 });
+
+describe('BiometricsView your data', () => {
+  const exportAll = vi.fn();
+  const eraseAll = vi.fn();
+  const listPlans = vi.fn();
+  beforeEach(() => {
+    exportAll.mockReset().mockResolvedValue({ ok: true, value: { path: '/x.json' } });
+    eraseAll.mockReset().mockResolvedValue({ ok: true });
+    listPlans.mockReset().mockResolvedValue({ ok: true, value: { plans: [], quarantined: 0 } });
+    window.midniteStudio = { health: { getProfile, putProfile, getMonths, putDay, exportAll, eraseAll, listPlans } } as unknown as typeof window.midniteStudio;
+  });
+
+  it('names the data folder and exports through the bridge', async () => {
+    renderHealth(<BiometricsView />);
+    const card = await screen.findByTestId('data-card');
+    expect(card.textContent).toContain('Everything Health stores is on this Mac');
+    fireEvent.click(screen.getByRole('button', { name: 'Export…' }));
+    await waitFor(() => expect(exportAll).toHaveBeenCalledTimes(1));
+  });
+
+  it('erase asks first, then calls eraseAll once and refetches', async () => {
+    renderHealth(<BiometricsView />);
+    await screen.findByTestId('data-card');
+    fireEvent.click(screen.getByRole('button', { name: 'Erase all Health data…' }));
+    expect(eraseAll).not.toHaveBeenCalled();
+    const before = getProfile.mock.calls.length;
+    fireEvent.click(await screen.findByRole('button', { name: 'Move to Trash' }));
+    await waitFor(() => expect(eraseAll).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(getProfile.mock.calls.length).toBeGreaterThan(before));
+  });
+
+  it('cancelling the erase confirm calls nothing', async () => {
+    renderHealth(<BiometricsView />);
+    await screen.findByTestId('data-card');
+    fireEvent.click(screen.getByRole('button', { name: 'Erase all Health data…' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+    expect(eraseAll).not.toHaveBeenCalled();
+  });
+});
