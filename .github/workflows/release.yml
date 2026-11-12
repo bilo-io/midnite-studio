@@ -735,6 +735,11 @@ jobs:
       - name: Build shared
         run: pnpm exec moon run shared:build
 
+      # Phase 131 Theme B: warn (never fail) for any app changelog with no section for this
+      # version — its in-app release notes would be empty. Always exits 0.
+      - name: Check every app changelog has a section
+        run: node scripts/changelog-sections-check.mjs "${{ needs.meta.outputs.version }}"
+
       - name: Download the manifest built earlier
         uses: actions/download-artifact@v8
         with:
@@ -824,6 +829,8 @@ jobs:
   #      actually built (sizes + SHA-256 computed, one version everywhere) — the launcher reads it
   #      before `midnite-studio/version.json` (`apps/launcher/src/main/feed.ts`);
   #   3. the launcher's own `generic` updater feed, `midnite-launcher/feed/latest-mac.yml`.
+  #   4. (Phase 131) `midnite-<id>/CHANGELOG.md` for the launcher and every app except Studio, mirrored
+  #      from each `apps/<id>/CHANGELOG.md` (Studio's stays with `publish-feed`).
   # `midnite-launcher/version.json` is NOT written here: midnite-apps' own release-feed.yml writes
   # `<app>/version.json` for every release whose app is registered in its apps.json — so
   # `midnite-launcher` must be registered there once (docs/RELEASING.md).
@@ -843,8 +850,33 @@ jobs:
       group: publish-feed-midnite-apps-suite
       cancel-in-progress: false
     steps:
-      - name: Checkout this repo (for apps/launcher/install.sh)
+      - name: Checkout this repo (for apps/launcher/install.sh and every app's CHANGELOG.md)
         uses: actions/checkout@v7
+
+      # Phase 131 Theme C: the changelog mirror below imports the BUILT shared package, so this job
+      # needs the same install + build as `publish-feed`. All ubuntu; no macOS job is added.
+      - name: GitHub Packages auth (user-level npmrc)
+        # pnpm 10 ignores env-expanded auth in the project .npmrc; user-level is honoured.
+        run: echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          version: 10.34.9
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.22.2
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build shared
+        run: pnpm exec moon run shared:build
 
       - name: Download the launcher
         uses: actions/download-artifact@v8
@@ -908,6 +940,11 @@ jobs:
           # The launcher's installer: the website's install link serves a verbatim copy of this file.
           cp ../apps/launcher/install.sh midnite-launcher/install.sh
 
+      # Phase 131 Theme C: every app except Studio (whose mirror stays in `publish-feed`) gets
+      # `midnite-<id>/CHANGELOG.md`, created on its first release and back-filled idempotently.
+      - name: Mirror every app's changelog into the feed
+        run: node scripts/publish-feed-changelog.mjs --all "${{ needs.meta.outputs.version }}" midnite-apps "$(date -u +%Y-%m-%d)"
+
       - name: Commit + push
         if: ${{ needs.meta.outputs.dry_run == 'false' }}
         working-directory: midnite-apps
@@ -915,12 +952,12 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add catalog.json midnite-launcher/feed/latest-mac.yml midnite-launcher/install.sh
+          git add catalog.json midnite-launcher/feed/latest-mac.yml midnite-launcher/install.sh 'midnite-*/CHANGELOG.md'
           if git diff --cached --quiet; then
             echo "::notice::catalog.json + launcher feed already current for ${{ needs.meta.outputs.version }}"
             exit 0
           fi
-          git commit -m "chore(midnite-launcher): publish catalog.json + feed + installer for ${{ needs.meta.outputs.tag }}"
+          git commit -m "chore(midnite-launcher): publish catalog.json + feed + installer + changelogs for ${{ needs.meta.outputs.tag }}"
           # release-feed.yml in midnite-apps pushes version.json on the same release events.
           for attempt in 1 2 3 4 5; do
             git pull --rebase --quiet origin main && git push && exit 0
