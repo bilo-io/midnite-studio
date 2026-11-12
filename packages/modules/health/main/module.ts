@@ -1,4 +1,7 @@
 import { defineFeatureMain } from '@midnite/studio-runtime';
+import { CHANNELS } from '@midnite/studio-shared';
+
+import { registerHealthOn } from './context';
 
 /**
  * Electron's `dialog.showSaveDialog` shape, so the host passes `(o) => dialog.showSaveDialog(win, o)`
@@ -14,10 +17,12 @@ export type HealthModuleServices = { userData: string; showSaveDialog?: ShowSave
 
 /**
  * The Health module's main half (Phase 128 Theme A.4), on the feature seam so a host mounts it through
- * `mountModuleMains`. Theme A registers nothing; B adds the `health` channel.
+ * `mountModuleMains`. The `health` channel (Theme B).
  */
 export const healthModuleMain = defineFeatureMain<HealthModuleServices>({
   feature: 'health',
-  channels: [],
-  register() {},
+  channels: [CHANNELS.health],
+  register(ctx, services) {
+    registerHealthOn(ctx, services);
+  },
 });
