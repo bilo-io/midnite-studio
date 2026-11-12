@@ -5,3 +5,9 @@ export function shortId(prefix: 'm' | 'f' | 'd' | 'x' | 'w'): string {
   const bytes = crypto.getRandomValues(new Uint8Array(8));
   return `${prefix}-${Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join('')}`;
 }
+
+/** A plan id like `plan-a1b2c3d4e5f6`. */
+export function planId(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  return `plan-${Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join('')}`;
+}
