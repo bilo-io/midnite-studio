@@ -57,7 +57,7 @@ export function parseStatementDate(text: string, format: ImportMapping['date']['
 
 /** Strips currency marks and spaces, reads `(1.50)` as negative, and turns a decimal comma into a point. */
 function normaliseAmountText(raw: string): string {
-  let t = raw.replace(/[\s £$€¥]/g, '');
+  let t = raw.replace(/[\s£$€¥]/g, '');
   let negative = false;
   if (/^\(.*\)$/.test(t)) {
     negative = true;
