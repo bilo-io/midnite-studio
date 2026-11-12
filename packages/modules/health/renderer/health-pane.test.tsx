@@ -11,12 +11,12 @@ describe('HealthPane', () => {
     expect(screen.getByText('Nothing logged today')).toBeTruthy();
   });
 
-  it.each(['workouts', 'progress'])('renders %s', (id) => {
+  it.each(['progress'])('renders %s', (id) => {
     render(<HealthPane view={id} onView={() => undefined} />);
     expect(screen.getByTestId(`${id}-empty`)).toBeTruthy();
   });
 
-  it.each(['biometrics', 'nutrition'])('renders the %s view (no bridge: Health runs in its own app)', (id) => {
+  it.each(['biometrics', 'nutrition', 'workouts'])('renders the %s view (no bridge: Health runs in its own app)', (id) => {
     render(<HealthPane view={id} onView={() => undefined} />);
     expect(screen.getByTestId('health-missing')).toBeTruthy();
   });

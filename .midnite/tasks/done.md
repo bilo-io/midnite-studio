@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-12 — Phase 128 Theme E — Workout plans and progressive overload
+
+PR (see the Phase 128 E PR). Double-progression `nextPrescription` (start, increase, hold, deload) with worked tests, three starter plans, the plans list and editor (debounced save, weekday uniqueness, reorder, Trash-confirm delete) and the session sheet that prefills from history and stores kilograms.
+
 ## 2026-11-12 — Phase 128 Themes C + D — Profile, biometrics and nutrition logger
 
 PR (see the Phase 128 C+D PR). Pure BMI / Mifflin-St Jeor BMR / TDEE / calorie-target calculations (1200 kcal floor, override wins) and unit conversion, the all-optional profile form with its estimates, the measurement log, the four-slot meal logger against the daily target, and the saved-foods library.

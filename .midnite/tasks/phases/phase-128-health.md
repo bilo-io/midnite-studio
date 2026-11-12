@@ -59,8 +59,8 @@ goal), a measurement log (weight, body fat, waist, resting heart rate, sleep), a
 **Theme D — Nutrition logger.** ✅ Meals per day by slot, a saved-foods library with servings, kcal and
 macros, daily totals against the target. Editing a meal changes its own numbers (no rescale by servings); "Duplicate to today" reads today fresh from main before merging.
 
-**Theme E — Workout plans and progressive overload.** ◻ Plans of weekday sessions and exercises, three
-starter plans, session logging, and a double-progression rule that prescribes the next weight and reps.
+**Theme E — Workout plans and progressive overload.** ✅ Plans of weekday sessions and exercises, three
+starter plans, session logging, and a double-progression rule that prescribes the next weight and reps. A zero increment holds the weight (aiming at the top of the range), the deload rounds down to 0.5 kg, the plan editor saves 600 ms after the last edit and flushes on leaving, and the session sheet prefills from the last three months of history.
 
 **Theme F — Today and Progress.** ◻ A Today dashboard (calories left, macros, quick weigh-in, today's
 session) and a Progress view of hand-rolled SVG charts: weight with a 7-day average and weekly rate,
@@ -383,7 +383,7 @@ guard test that keeps network calls out of the module.
 
 ### E — Workout plans and progressive overload (L)
 
-- [ ] **E.1** The overload rule, `renderer/calc/overload.ts` (net-new).
+- [x] **E.1** The overload rule, `renderer/calc/overload.ts` (net-new).
   - `export function nextPrescription(ex: HealthExercise, history: { date: string; sets: HealthSet[] }[]):
     { kg: number; repsTarget: number; reason: 'start' | 'hold' | 'increase' | 'deload' }`, `history` oldest
     first, already filtered to this exercise id.
@@ -397,7 +397,7 @@ guard test that keeps network calls out of the module.
   - Verified by net-new `renderer/calc/overload.test.ts`: empty history → start; 3×12 at 60 with range 8–12
     → 62.5 increase; two sessions with a 6 at 60 → 54 deload (60 × 0.9); one bad session → hold; 2 of 3
     sets logged at 12 → hold; `incrementKg: 0` never increases weight.
-- [ ] **E.2** Plans list and editor in `WorkoutsView` (`renderer/views/workouts-view.tsx`, net-new).
+- [x] **E.2** Plans list and editor in `WorkoutsView` (`renderer/views/workouts-view.tsx`, net-new).
   - The list: plan cards (name, days per week, exercises) with **New plan**, a per-card `openMenu` (Rename
     via `prompt`, Duplicate, Delete) and "Starter plans" below.
   - Delete: `useDialogs().confirm({ title: "Move '<name>' to the Trash?", body: 'Logged sessions stay in
@@ -412,7 +412,7 @@ guard test that keeps network calls out of the module.
   - Verified by `workouts-view.test.tsx` (mock bridge): **Use** on "Full body, 3 days" calls `writePlan` with
     3 days on weekdays 1/3/5; choosing a weekday already used shows "Already on Monday" and is not saved;
     and `starters.test.ts`: every starter parses with `HealthPlanSchema`.
-- [ ] **E.3** Logging a session.
+- [x] **E.3** Logging a session.
   - "Log session" on a plan day (and on Today, F.1) opens a session sheet: per exercise, the prescription
     line from `nextPrescription` ("3 × 8–12 @ 62.5 kg · up from 60") and one row per set prefilled with
     `{ reps: repsTarget, kg }`, editable, plus "Add set" and Minutes.
