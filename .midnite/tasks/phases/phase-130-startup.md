@@ -85,7 +85,7 @@ site lists Startup with the launcher's tile image. `lineNet` now rounds half awa
 (it was only right for positive ones). The gate was the local subset because CI is billing-locked. **Still open for a
 human:** the packaged-app pass.
 
-**Verification (2026-11-13).** Ticked from local runs of `module-startup:test` (117 passed), `shared:test` and `app-startup:test`: `startup`, `workspace-store`, integrity (`in-use`, in `service.test.ts`), `roadmap-model`, `runway`. **Still open:** the `contracts.test.ts` box (no such file; `contract-dates.test.ts` and `contract-files.test.ts` pass but nothing asserts one linked ledger line per contract by that name) and the packaged-app pass.
+**Verification (2026-11-13).** Ticked from local runs of `module-startup:test` (117 passed), `shared:test` and `app-startup:test`: `startup`, `workspace-store`, integrity (`in-use`, in `service.test.ts`), `roadmap-model`, `runway`. **Still open:** the `contracts.test.ts` box (no such file; `contract-dates.test.ts` and `contract-files.test.ts` pass but no test by that name covers one linked ledger line per contract) and the packaged-app pass.
 
 ## Build order
 
