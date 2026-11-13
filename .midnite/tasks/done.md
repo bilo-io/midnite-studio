@@ -5,6 +5,8 @@
 ## 2026-11-13 — Phase 122 Theme E — Guard: sites the browser visited
 
 PR (see the Phase 122 E PR). The offline `sites` check (ClickFix, phishing, http login forms, end-of-life headers), the URLhaus parser and a `readBrowserHistory` seam in the resolvers. Not wired in desktop: the browser keeps no readable origin history yet (open decision, see the phase doc).
+
+
 ## 2026-11-13 — Phase 116 Theme E (partial) — budget guards
 
 PR (see the Phase 116 E PR, stacked on C). `e2e-budget` now bans shots specs, disk screenshots, orphaned `docs/screenshots/` images (196 deleted) and un-allowlisted `waitForTimeout`; cap lowered 486 → 483; fixed an un-awaited fallback count; TESTING.md and the three convention files synced. The ≤ 200 cap waits on Theme C's Vitest waves.
