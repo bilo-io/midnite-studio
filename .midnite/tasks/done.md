@@ -15848,6 +15848,10 @@ The launcher honours its update and catalog switches and the master; map, image,
 
 All 110 functional specs open with `// e2e-capability:` or `// e2e-candidate:` (35 candidates); `e2e-budget` enforces it. No test deleted or run; Wave C1/C2 migrations still wait on an `app:e2e` run.
 
+## 2026-11-13 — Phase 115 Theme E (sockets) — a per-launch token on the MCP and broker sockets
+
+The MCP server and the pty broker each write a 32-byte token file beside their socket (0600); the MCP shim and the broker client send it as the first frame and a connection that does not is dropped with no reply (constant-time compare, `runtime/src/security/socket-token.ts`). `retire` copies the token to the retired path so legacy peers stay reachable; Gamer's per-run servers stay tokenless in their private run directory. Tests: socket-server, shim client and a new broker `socket-token.test.ts`. Packaged-install check is the open human item.
+
 ## 2026-11-13 — Phase 116 Theme C (Wave C1 twins, partial) — Vitest twins beside the e2e tests
 
 New `midnite-menu.test.tsx`, four readout tests in `monitor-cluster.test.tsx`, and `// vitest-twin:` markers on the twinned e2e tests (midnite-menu, footer-monitor, titlebar-agents). No e2e test deleted; cap stays 483.
