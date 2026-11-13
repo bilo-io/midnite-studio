@@ -30,9 +30,9 @@ const execFileAsync = promisify(execFile);
  * (mirrored from the renderer through `settings-mirror.ts`), running the default checks with real resolvers into
  * the findings ledger. It runs with or without an agent installed and never touches a pty.
  *
- * Feeds go out over the platform `fetch` for now: Phase 115 A's `guardedFetch` and Theme H's per-feed Privacy
- * switches are not in the tree, so while the Guard schedule is enabled the OSV and KEV feeds are on (package
- * coordinates and CVE ids only) and the threat feed is skipped until a trusted key is built in.
+ * Feeds go out through `guardedFetchFor('guard')`, so the `guard-feeds` Privacy switch and the egress registry gate every
+ * call; the threat feed is skipped until a trusted key is built in. A scheduled sweep is held while the window is blurred
+ * and the Mac is on battery below 20% (`shouldHoldSweep`); *Sweep now* is not.
  */
 const MAX_SUMMARY_AGE_MS = 2 * 24 * 60 * 60 * 1000;
 let scheduler: GuardScheduler | null = null;

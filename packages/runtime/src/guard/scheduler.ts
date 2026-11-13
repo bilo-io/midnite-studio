@@ -212,6 +212,7 @@ export function createGuardScheduler(options: GuardSchedulerOptions): GuardSched
       options.onError?.(error); // an unreadable gate must not stop sweeps
     }
     if (defer) {
+      if (!running) return; // stopped while the gate was being asked
       const retryAt = now() + (options.deferMs ?? DEFAULT_DEFER_MS);
       currentNextWake = retryAt;
       await store.save(retryAt);
