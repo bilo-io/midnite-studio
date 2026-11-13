@@ -114,8 +114,13 @@ export function createGuardResolvers(options: GuardResolverOptions): Record<stri
       const now = (options.now ?? Date.now)();
       const windowStart = now - (options.windowMs ?? 24 * 60 * 60 * 1000);
       const reader = createAgentAuditReader({ directory: agentAuditDirectory(options.userData) });
-      const { records } = await reader.list({ since: windowStart - 30 * 24 * 60 * 60 * 1000, limit: 1000 });
-      return { records, windowStart, now };
+      // Two reads, so a busy window cannot crowd the baseline out of the newest-1000 cap (which would leave the
+      // unusual-hours rule silently inert).
+      const [recent, earlier] = await Promise.all([
+        reader.list({ since: windowStart, limit: 1000 }),
+        reader.list({ since: windowStart - 30 * 24 * 60 * 60 * 1000, until: windowStart, limit: 1000 }),
+      ]);
+      return { records: [...earlier.records, ...recent.records], windowStart, now };
     },
     ...(options.readVanguardFindings
       ? { vanguardFindings: async () => options.readVanguardFindings!((options.now ?? Date.now)() - (options.windowMs ?? 24 * 60 * 60 * 1000)) }
