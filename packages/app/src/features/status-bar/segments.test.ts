@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { SUITE_SEGMENT_META } from '@midnite/studio-frame';
 
-import { STATUS_SEGMENTS, type StatusZone } from './segments';
+import { SEGMENT_FEATURE, segmentsFor, STATUS_SEGMENTS, type StatusZone } from './segments';
 
 const zones: StatusZone[] = ['left', 'center', 'right'];
 
@@ -68,5 +68,24 @@ describe('the suite segments in Studio’s bar (Phase 123 Theme J)', () => {
       const { El: _El, ...studioMeta } = studio!;
       expect(studioMeta).toEqual(meta);
     }
+  });
+});
+
+describe('segmentsFor (Phase 135 Theme C)', () => {
+  it('maps only real segment ids to a feature', () => {
+    const ids = new Set(STATUS_SEGMENTS.map((s) => s.id));
+    for (const id of Object.keys(SEGMENT_FEATURE)) expect(ids.has(id)).toBe(true);
+  });
+
+  it('keeps every segment while nothing is off', () => {
+    expect(segmentsFor([])).toBe(STATUS_SEGMENTS);
+  });
+
+  it('drops a switched-off feature segment and keeps the frame ones', () => {
+    const ids = segmentsFor(['finance', 'tests']).map((s) => s.id);
+    expect(ids).not.toContain('finance');
+    expect(ids).not.toContain('test-verdict');
+    expect(ids).toContain('notification-bell');
+    expect(ids).toContain('checks-verdict');
   });
 });

@@ -74,6 +74,7 @@ export function FeaturesPage() {
         title: `Turn off ${label}?`,
         body: `${labels(dependents)} ${dependents.length === 1 ? 'needs' : 'need'} ${label}, so ${dependents.length === 1 ? 'it is' : 'they are'} turned off too. Data is kept.`,
         confirmLabel: `Turn off ${dependents.length + 1} features`,
+        blastRadius: null,
         onConfirm: () => setEnabled(id, false),
       });
     },

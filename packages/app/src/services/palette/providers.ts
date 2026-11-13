@@ -197,7 +197,7 @@ export function createProjectBoardsSource(
   return {
     key: 'project-boards',
     items: () => {
-      if (repoId === null) return [];
+      if (repoId === null || useFeatureTogglesStore.getState().disabled.includes('tasks')) return [];
       const repoIssues: PaletteItem = {
         id: `project-board:${REPO_ISSUES_SOURCE_ID}`,
         label: 'Repo issues',
@@ -243,7 +243,7 @@ export function createRepoIssuesSource(
   return {
     key: 'repo-issues',
     items: () => {
-      if (repoId === null) return [];
+      if (repoId === null || useFeatureTogglesStore.getState().disabled.includes('tasks')) return [];
       return issues.map((issue): PaletteItem => ({
         id: `repo-issue:${issue.number}`,
         label: `#${issue.number} ${issue.title}`,
