@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { CompanionSttEngineSchema, CompanionVoiceSelectionSchema, SttProviderIdSchema } from './companion';
 import { METRIC_IDS, METRICS_IDLE_INTERVAL_MS } from './domain/metrics';
 import { ActivityStatusSchema, ActivityStatusStyleSchema, DEFAULT_ACTIVITY_PALETTE_ID } from './activity-palette';
+import { FeatureFlagsPrefsSchema } from './feature-flags';
 
 /**
  * The suite-prefs file (Phase 123 Theme L.1, Decision 6) — the preferences every
@@ -180,6 +181,8 @@ export const SUITE_PREFS_GROUPS = {
   companion: CompanionPrefsSchema,
   terminal: TerminalPrefsSchema,
   monitor: MonitorPrefsSchema,
+  /** Phase 134 Theme D: feature flags (`feature-flags.ts`), one value for every suite app. */
+  featureFlags: FeatureFlagsPrefsSchema,
 } as const;
 
 export type SuitePrefsKey = keyof typeof SUITE_PREFS_GROUPS;
@@ -197,6 +200,7 @@ export const SuitePrefsSchema = z
     companion: CompanionPrefsSchema,
     terminal: TerminalPrefsSchema,
     monitor: MonitorPrefsSchema,
+    featureFlags: FeatureFlagsPrefsSchema,
   })
   .partial();
 export type SuitePrefsFile = z.infer<typeof SuitePrefsSchema>;

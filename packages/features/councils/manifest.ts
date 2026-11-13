@@ -47,6 +47,7 @@ export const councilsManifest = defineFeatureManifest({
     CHANNELS.councilRunCancel,
     CHANNELS.councilRunContinue,
     CHANNELS.councilRecommend,
+    CHANNELS.councilGenerate,
   ],
   // A member's live output rides the existing `pty:*` channels; there is no council event channel.
   events: [],

@@ -1149,6 +1149,9 @@ export type MidniteStudioBridge = {
     recommend: (
       req: In<typeof S.CouncilRecommendRequest>,
     ) => Promise<z.infer<typeof S.CouncilRecommendResponse>>;
+    generate: (
+      req: In<typeof S.CouncilGenerateRequest>,
+    ) => Promise<z.infer<typeof S.CouncilGenerateResponse>>;
     run: {
       start: (
         req: In<typeof S.CouncilRunStartRequest>,

@@ -4,6 +4,7 @@ import {
   type CouncilMember,
   type CouncilMemberProvider,
   type CouncilRun,
+  type CouncilSynthesisType,
 } from '@midnite/studio-shared';
 
 import { MAX_STORED_RUNS, nullCouncilsRunsStore, type CouncilsRunsStore } from './councils-runs-store';
@@ -61,6 +62,8 @@ export type CouncilSeed = {
   members?: CouncilMember[] | undefined;
   synthProvider?: CouncilMemberProvider | undefined;
   synthModel?: string | undefined;
+  synthesisType?: CouncilSynthesisType | undefined;
+  synthInstructions?: string | undefined;
 };
 
 export async function createCouncil(name: string, description?: string, seed: CouncilSeed = {}): Promise<Council> {
@@ -71,6 +74,8 @@ export async function createCouncil(name: string, description?: string, seed: Co
     name,
     members: seed.members ?? createStarterMembers(),
     synthProvider: seed.synthProvider ?? 'agy',
+    synthesisType: seed.synthesisType ?? 'brainstorm',
+    ...(seed.synthInstructions === undefined ? {} : { synthInstructions: seed.synthInstructions }),
     createdAt: now,
     updatedAt: now,
     ...(seed.synthModel === undefined ? {} : { synthModel: seed.synthModel }),
@@ -86,17 +91,21 @@ export async function updateCouncilMembers(
   members: CouncilMember[],
   synthProvider: CouncilMemberProvider,
   synthModel?: string,
+  synthesis: { type?: CouncilSynthesisType | undefined; instructions?: string | undefined } = {},
 ): Promise<Council | null> {
   await ensureCouncilsLoaded();
   const index = councils.findIndex((c) => c.id === id);
   if (index === -1) return null;
 
-  const { synthModel: _previous, ...rest } = councils[index]!;
+  const { synthModel: _previous, synthInstructions: _instructions, ...rest } = councils[index]!;
   const updated: Council = {
     ...rest,
     members,
     synthProvider,
     ...(synthModel === undefined ? {} : { synthModel }),
+    // An absent type keeps the council's; absent instructions fall back to the preset's own.
+    ...(synthesis.type === undefined ? {} : { synthesisType: synthesis.type }),
+    ...(synthesis.instructions === undefined ? {} : { synthInstructions: synthesis.instructions }),
     updatedAt: Date.now(),
   };
   councils = [...councils.slice(0, index), updated, ...councils.slice(index + 1)];

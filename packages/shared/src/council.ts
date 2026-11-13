@@ -34,18 +34,37 @@ export const COUNCIL_MEMBER_PROVIDERS = ['agy', 'claude', 'codex', 'opencode'] a
 export const CouncilMemberProviderSchema = z.enum(COUNCIL_MEMBER_PROVIDERS);
 export type CouncilMemberProvider = z.infer<typeof CouncilMemberProviderSchema>;
 
-// --- format --------------------------------------------------------------
+// --- synthesis types ---------------------------------------------------------
 
 /**
- * The only synthesis format this phase ships.
- *
- * Written as a one-value literal rather than a placeholder enum, so adding a
- * second format later (`debate`, with its anonymize/shuffle/de-anonymize
- * mechanic) is an honest, visible schema change instead of a value slotting
- * into a union nobody widened on purpose.
+ * How a council's synthesizer combines its members' answers (Phase 134 Theme A).
+ * Four presets, each with its own instructions and members
+ * (`council-presets.ts`), plus `custom`, whose instructions the user writes or
+ * generates. Members stay attributed in every type: no shuffle or anonymising.
  */
-export const CouncilFormatSchema = z.literal('brainstorm');
+export const COUNCIL_SYNTHESIS_TYPES = ['brainstorm', 'debate', 'promote-demote', 'review', 'custom'] as const;
+export const CouncilSynthesisTypeSchema = z.enum(COUNCIL_SYNTHESIS_TYPES);
+export type CouncilSynthesisType = z.infer<typeof CouncilSynthesisTypeSchema>;
+
+/**
+ * A run's format: the council's synthesis type, snapshotted at run start. Phase
+ * 133 and earlier only wrote `'brainstorm'`, which still parses.
+ */
+export const CouncilFormatSchema = CouncilSynthesisTypeSchema;
 export type CouncilFormat = z.infer<typeof CouncilFormatSchema>;
+
+/** The longest synthesizer instructions a council stores. */
+export const COUNCIL_SYNTH_INSTRUCTIONS_MAX = 4_000;
+
+/** The member-count range (Phase 134 Theme D): free councils hold up to 3, Pro up to 6. */
+export const COUNCIL_MIN_MEMBERS = 2;
+export const COUNCIL_FREE_MEMBERS = 3;
+export const COUNCIL_PRO_MEMBERS = 6;
+
+/** How many members a council may grow to, given whether `councils.pro` is on. */
+export function councilMemberCap(pro: boolean): number {
+  return pro ? COUNCIL_PRO_MEMBERS : COUNCIL_FREE_MEMBERS;
+}
 
 // --- council + members -----------------------------------------------------
 
@@ -68,13 +87,17 @@ export const CouncilSchema = z.object({
   synthProvider: CouncilMemberProviderSchema,
   /** The synthesizer's model, as {@link CouncilMemberSchema}'s `model`. */
   synthModel: z.string().min(1).optional(),
+  /** How the synthesizer combines the answers (Phase 134 Theme A); a council from before reads as brainstorm. */
+  synthesisType: CouncilSynthesisTypeSchema.default('brainstorm'),
+  /** The synthesizer's instructions; absent means the preset's own (Custom without any falls back to brainstorm's). */
+  synthInstructions: z.string().max(COUNCIL_SYNTH_INSTRUCTIONS_MAX).optional(),
   createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),
 });
 export type Council = z.infer<typeof CouncilSchema>;
 
 /**
- * Four starter personas, seeded on every new council — mirrors upstream's own
+ * Three starter personas, seeded on every new council — mirrors upstream's own
  * `COUNCIL_STARTER_MEMBERS` so a fresh council is immediately useful rather
  * than an empty list the user has to populate before it means anything.
  *
@@ -87,7 +110,6 @@ export function createStarterMembers(): CouncilMember[] {
     { id: crypto.randomUUID(), name: 'Optimist', provider: 'agy', role: 'Argue the best case — what could go right, and why this is worth doing.' },
     { id: crypto.randomUUID(), name: 'Skeptic', provider: 'codex', role: 'Find the strongest objection — what breaks, what is being assumed away.' },
     { id: crypto.randomUUID(), name: 'Pragmatist', provider: 'opencode', role: 'Focus on what is actually achievable given real constraints — time, cost, complexity.' },
-    { id: crypto.randomUUID(), name: 'Visionary', provider: 'agy', role: 'Ignore near-term constraints — what is the most ambitious version of this?' },
   ];
 }
 
@@ -199,6 +221,8 @@ export const CouncilRunSchema = z.object({
   synthProvider: CouncilMemberProviderSchema,
   members: z.array(CouncilRunMemberSchema),
   synthModel: z.string().min(1).optional(),
+  /** The synthesizer's instructions as resolved at run start (Phase 134 Theme A). */
+  synthInstructions: z.string().max(COUNCIL_SYNTH_INSTRUCTIONS_MAX).optional(),
   synthesisStatus: CouncilSynthesisStatusSchema.optional(),
   synthesisOutput: z.string().optional(),
   synthesisTruncated: z.boolean().optional(),
@@ -232,6 +256,8 @@ export const CouncilRecommendedMemberSchema = z.object({
   name: z.string().trim().min(1).max(60),
   role: z.string().trim().min(1).max(600),
   provider: CouncilMemberProviderSchema,
+  /** A catalogue model for `provider` (Phase 134 Theme E/F); absent is the CLI's default. */
+  model: z.string().trim().min(1).optional(),
 });
 export type CouncilRecommendedMember = z.infer<typeof CouncilRecommendedMemberSchema>;
 
@@ -241,6 +267,23 @@ export const CouncilRecommendationSchema = z.object({
   synthProvider: CouncilMemberProviderSchema,
 });
 export type CouncilRecommendation = z.infer<typeof CouncilRecommendationSchema>;
+
+/**
+ * "Generate with AI" for a Custom council (Phase 134 Theme E): the
+ * synthesizer's instructions and the members, held to what is available here.
+ */
+export const CouncilGeneratedSchema = z.object({
+  instructions: z.string().trim().min(1).max(COUNCIL_SYNTH_INSTRUCTIONS_MAX),
+  members: z.array(CouncilRecommendedMemberSchema).min(COUNCIL_MIN_MEMBERS).max(COUNCIL_PRO_MEMBERS),
+});
+export type CouncilGenerated = z.infer<typeof CouncilGeneratedSchema>;
+
+/** One provider Generate may use, and the catalogue models it may pick for it. */
+export const CouncilAvailableProviderSchema = z.object({
+  provider: CouncilMemberProviderSchema,
+  models: z.array(z.string().min(1)).max(40),
+});
+export type CouncilAvailableProvider = z.infer<typeof CouncilAvailableProviderSchema>;
 
 // --- tunables ----------------------------------------------------------------
 

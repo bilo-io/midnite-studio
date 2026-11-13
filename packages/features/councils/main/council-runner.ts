@@ -14,6 +14,7 @@ import {
   redactionTotal,
   ok,
   resolveAgentLaunch,
+  resolveSynthInstructions,
   toAgentPrompt,
   type CouncilMemberProvider,
   type AgentDefinition,
@@ -230,13 +231,14 @@ function targetOf(member: CouncilRunMember): LaunchTarget {
 /** The prompt a member is sent on the run's latest turn. */
 function promptFor(run: CouncilRun, target: LaunchTarget): string {
   const previous = run.turns[run.turns.length - 1];
-  if (!previous) return buildMemberPrompt(run.prompt, target.role);
+  if (!previous) return buildMemberPrompt(run.prompt, target.role, undefined, run.format);
   return buildFollowUpPrompt({
     prompt: run.prompt,
     role: target.role,
     previousSynthesis: previous.synthesisOutput,
     firstTopic: councilThreadTitle(run),
     resumed: target.sessionId !== undefined,
+    format: run.format,
   });
 }
 
@@ -250,10 +252,11 @@ export async function startRun(councilId: string, prompt: string): Promise<GitOp
     id: crypto.randomUUID(),
     councilId,
     prompt,
-    format: 'brainstorm',
+    format: council.synthesisType,
     status: 'running',
     synthProvider: council.synthProvider,
     ...(council.synthModel === undefined ? {} : { synthModel: council.synthModel }),
+    synthInstructions: resolveSynthInstructions(council.synthesisType, council.synthInstructions),
     members: council.members.map((member) =>
       freshMember({ memberId: member.id, name: member.name, provider: member.provider, role: member.role, model: member.model }, now),
     ),
@@ -316,12 +319,18 @@ export async function continueRun(runId: string, prompt: string): Promise<GitOpR
     const next: CouncilRun = {
       id: current.id,
       councilId: current.councilId,
-      format: current.format,
+      // The council's current type and instructions, like its members: an edit between turns applies to the next.
+      format: council?.synthesisType ?? current.format,
       prompt,
       status: 'running',
       members,
       synthProvider,
       ...(synthModel === undefined ? {} : { synthModel }),
+      ...(council
+        ? { synthInstructions: resolveSynthInstructions(council.synthesisType, council.synthInstructions) }
+        : current.synthInstructions === undefined
+          ? {}
+          : { synthInstructions: current.synthInstructions }),
       ...(synthProvider === current.synthProvider && current.synthSessionId !== undefined
         ? { synthSessionId: current.synthSessionId }
         : {}),
@@ -570,7 +579,13 @@ async function maybeSynthesize(runId: string): Promise<void> {
     status: m.status === 'running' ? 'failed' : m.status,
   }));
   const previous = run.turns[run.turns.length - 1];
-  const synthesisPrompt = buildSynthesisPrompt(run.prompt, entries, undefined, previous?.synthesisOutput);
+  const synthesisPrompt = buildSynthesisPrompt(
+    run.prompt,
+    entries,
+    undefined,
+    previous?.synthesisOutput,
+    run.synthInstructions ?? resolveSynthInstructions(run.format, undefined),
+  );
 
   const spawned = await spawnOneShot(
     { memberId: 'synthesis', name: 'Synthesis', role: 'synthesizer', provider: run.synthProvider, model: run.synthModel, sessionId: run.synthSessionId },

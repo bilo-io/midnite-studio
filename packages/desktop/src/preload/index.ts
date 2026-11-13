@@ -530,6 +530,7 @@ const bridge: Pick<
     updateMembers: (req) => call(CHANNELS.councilUpdateMembers, req),
     remove: (req) => call(CHANNELS.councilRemove, req),
     recommend: (req) => call(CHANNELS.councilRecommend, req),
+    generate: (req) => call(CHANNELS.councilGenerate, req),
     run: {
       start: (req) => call(CHANNELS.councilRunStart, req),
       get: (req) => call(CHANNELS.councilRunGet, req),

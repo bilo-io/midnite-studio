@@ -1,10 +1,11 @@
 /**
  * Pure prompt construction for a council run — no pty, no IPC, no store.
  *
- * Brainstorm-only for this phase (see `council.ts`'s `CouncilFormatSchema`),
- * and always attributed: unlike upstream's `debate`/`critique` formats, no
- * shuffle or A/B/C relabeling happens here, so `buildSynthesisPrompt` can name
- * every member by their real name and role directly.
+ * Always attributed: no shuffle or A/B/C relabeling happens here, so
+ * `buildSynthesisPrompt` can name every member by their real name and role
+ * directly. Since Phase 134 the synthesis type (`council-presets.ts`) decides
+ * what the council calls itself and what the synthesizer is told to do; the
+ * instructions are the council's own (the user's, or the preset's).
  *
  * Two parts of these prompts are not the user's own typing and are fenced as untrusted data
  * (Phase 121 Theme A, the same `fenceUntrusted` Chats uses): a topic whose provenance says it was
@@ -13,6 +14,9 @@
  */
 import {
   COUNCIL_FOLLOW_UP_EXCERPT_CHARS,
+  councilNoun,
+  resolveSynthInstructions,
+  type CouncilSynthesisType,
   COUNCIL_SYNTHESIS_ENTRY_CHARS,
   fenceUntrusted,
   sanitizeLabel,
@@ -29,12 +33,23 @@ export function excerpt(text: string, max: number): string {
   return `${(space > max * 0.8 ? cut.slice(0, space) : cut).trimEnd()} […]`;
 }
 
+/** "a debate council", "a council" — what a member is told it is part of. */
+function councilPhrase(format: CouncilSynthesisType): string {
+  const noun = councilNoun(format);
+  return noun === '' ? 'a council' : `a ${noun} council`;
+}
+
 /** What one member is asked, given the run's topic and their own role. */
-export function buildMemberPrompt(topic: string, role: string, topicProvenance?: Partial<ContentProvenance>): string {
+export function buildMemberPrompt(
+  topic: string,
+  role: string,
+  topicProvenance?: Partial<ContentProvenance>,
+  format: CouncilSynthesisType = 'brainstorm',
+): string {
   const header = untrustedHeaderFor([topicProvenance], 'user');
   return [
     ...(header === '' ? [] : [header, '']),
-    'You are one member of a brainstorming council. Answer briefly and directly from your',
+    `You are one member of ${councilPhrase(format)}. Answer briefly and directly from your`,
     "assigned role's perspective — you are not the only voice being consulted, so favor a",
     'sharp, opinionated take over a balanced survey.',
     '',
@@ -53,7 +68,9 @@ export type CouncilSynthesisEntry = {
 };
 
 /**
- * What the synthesizer is asked, given every member's (attributed) answer.
+ * What the synthesizer is asked, given every member's (attributed) answer and
+ * the council's synthesis instructions (Phase 134 Theme A; absent means
+ * Brainstorm's).
  *
  * A member that never produced usable output is still listed — by name, with
  * its status — rather than silently dropped, so the synthesis can say "the
@@ -65,6 +82,7 @@ export function buildSynthesisPrompt(
   entries: readonly CouncilSynthesisEntry[],
   topicProvenance?: Partial<ContentProvenance>,
   previousSynthesis?: string,
+  instructions?: string,
 ): string {
   const sections = entries.map((entry) => {
     if (entry.status !== 'succeeded' || entry.output.trim().length === 0) {
@@ -79,11 +97,9 @@ export function buildSynthesisPrompt(
   const header = anyAnswer ? untrustedHeaderFor([{ origin: 'agent-output' }]) : untrustedHeaderFor([topicProvenance], 'user');
   return [
     ...(header === '' ? [] : [header]),
-    'You are synthesizing a brainstorming council\'s answers into one considered write-up.',
-    'Distill the panel\'s answers below into a single, coherent brainstorm: pull out the',
-    'strongest ideas, note real disagreements between members rather than papering over them,',
-    'and end with a short list of concrete next steps. Write the synthesis itself — do not',
-    'restate this instruction, and do not simply summarize each member in turn.',
+    "You are the synthesizer of a council: combine the members' answers below into one considered write-up.",
+    `Your instructions: ${resolveSynthInstructions('custom', instructions)}`,
+    'Write the synthesis itself — do not restate these instructions, and do not simply summarize each member in turn.',
     '',
     ...(previousSynthesis && previousSynthesis.trim().length > 0
       ? [
@@ -110,6 +126,7 @@ export function buildFollowUpPrompt(input: {
   previousSynthesis: string | undefined;
   firstTopic: string;
   resumed: boolean;
+  format?: CouncilSynthesisType;
 }): string {
   const synthesis = input.previousSynthesis?.trim() ?? '';
   const header = synthesis.length > 0 ? untrustedHeaderFor([{ origin: 'agent-output' }]) : '';
@@ -118,7 +135,7 @@ export function buildFollowUpPrompt(input: {
     input.resumed
       ? 'The council continues. Answer the follow-up below from the same role as before.'
       : [
-          'You are one member of a brainstorming council, joining a follow-up turn. Answer briefly and',
+          `You are one member of ${councilPhrase(input.format ?? 'brainstorm')}, joining a follow-up turn. Answer briefly and`,
           "directly from your assigned role's perspective.",
           '',
           `Your role: ${input.role}`,
