@@ -372,7 +372,6 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
   return {
     async run(requested) {
       const picked = nextLevel.get(requested.gameId);
-      nextLevel.delete(requested.gameId);
       const game: RunnableGame = requested.level || picked === undefined ? requested : { ...requested, level: picked };
       if (runs.has(game.gameId)) stop(game.gameId);
       if (runs.size >= GAMES_MAX_RUNNING) {
@@ -381,6 +380,7 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
       const win = hostFor(game.gameId);
       if (!win || win.isDestroyed()) return failure('There is no window to run the game in.');
 
+      nextLevel.delete(game.gameId); // spent only once the run is really starting
       const runId = `r${randomBytes(4).toString('hex')}`;
       const partition = gamePartition(game.gameId, runId, game.keepSaveData);
       const ses = deps.electron.sessionFromPartition(partition);
