@@ -124,9 +124,7 @@ plugins/skills re-scan; the installed-package resolver now descends into pnpm's 
 the ClickFix domain list, HTTP-only origins, known-phishing feeds with usable licences, and sites
 whose server headers announce an end-of-life stack; findings link back to the tab.
 
-**Theme F — Suspicious behaviour over the window.** ◻ Phase 121's audit trail and Phase 120's
-sensor history correlated across the sweep window: sessions outside the user's hours, a
-persistence item during a session, a new outbound host, a lockfile change with no PR.
+**Theme F — Suspicious behaviour over the window.** ◐ PARTIAL (PR pending). `guard/checks/behaviour.ts` correlates Phase 121's audit trail (read by the runtime reader: the window plus 30 days of baseline) with Vanguard's ledger findings: a session that started in an hour holding at most 5% of the last 30 days' sessions (`low`, needs 10 baseline sessions), a Vanguard persistence or network finding first seen inside a session (`high`, names both fingerprints), a `limit-trip` record (`medium`) and more than three denied approvals in one session (`medium`). Desktop passes `readVanguardFindings` from the shared ledger. A quiet week yields nothing. **Not done:** the "lockfile change in a repo with no PR opened from it" rule, which needs the forge (a credential and network), so it stays out; the linked-findings link is by fingerprint in the detail, not a ledger field.
 
 **Theme G — Findings in the Guard tab, with a button.** ◻ The tab lists the last sweep's findings by
 severity with a diff against the previous sweep; each remediation action renders through the shared
@@ -276,13 +274,13 @@ repo.
 
 ### F — Suspicious behaviour over the window [S · ≤ 2h]
 
-- [ ] **Correlations.** `guard/checks/behaviour.ts` over Phase 121 G's trail and Phase 120's
+- [~] **Correlations.** `guard/checks/behaviour.ts` over Phase 121 G's trail and Phase 120's
       ledger for the sweep window: an agent session active outside the hours the user's sessions
       usually run (learned from the last 30 days; `low`); a persistence or network finding from
       Vanguard whose time falls inside a session (`high`, the two findings linked); a lockfile
       change in a repo with no PR opened from it within the window (`medium`); a run that tripped a
       Phase 121 F limit (`medium`); more than N approvals denied in a session (`medium`). [S]
-- [ ] **Tests.** Fixture trails for each correlation; a quiet week yields nothing. [S]
+- [x] **Tests.** Fixture trails for each correlation; a quiet week yields nothing. [S]
 
 ### G — Findings in the Guard tab, with a button [M · ~1d]
 
