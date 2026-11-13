@@ -1,3 +1,4 @@
+// e2e-capability: pointer drag, real pointer hover
 import { expect, test } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';

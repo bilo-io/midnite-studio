@@ -170,3 +170,48 @@ describe('GuardScheduler.reschedule / onError (Phase 122)', () => {
     expect(errors).toHaveLength(1);
   });
 });
+
+describe('GuardScheduler.shouldDefer (Phase 122 Theme H)', () => {
+  const schedule: LoopSchedule = { enabled: true, from: '00:00', to: '00:00', frequency: 'hourly', days: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] };
+
+  it('holds a due sweep and asks again after the defer interval, but never holds Sweep now', async () => {
+    const now = 1_000_000;
+    let sweeps = 0;
+    let hold = true;
+    let saved: number | null = now - 1;
+    const scheduler = createGuardScheduler({
+      getSchedule: () => schedule,
+      onSweep: async () => void (sweeps += 1),
+      shouldDefer: () => hold,
+      deferMs: 60_000,
+      store: { load: async () => saved, save: async (v) => void (saved = v) },
+      now: () => now,
+    });
+    await scheduler.start();
+    expect(sweeps).toBe(0);
+    expect(scheduler.getNextWake()).toBe(now + 60_000);
+    await scheduler.sweepNow();
+    expect(sweeps).toBe(1);
+    hold = false;
+    scheduler.stop();
+  });
+
+  it('runs the sweep when the gate lets it through, and when the gate throws', async () => {
+    let sweeps = 0;
+    const errors: unknown[] = [];
+    const scheduler = createGuardScheduler({
+      getSchedule: () => schedule,
+      onSweep: async () => void (sweeps += 1),
+      shouldDefer: () => {
+        throw new Error('pmset missing');
+      },
+      onError: (e) => errors.push(e),
+      store: { load: async () => null, save: async () => undefined },
+      now: () => 5_000_000,
+    });
+    await scheduler.start();
+    expect(sweeps).toBe(1);
+    expect(errors).toHaveLength(1);
+    scheduler.stop();
+  });
+});

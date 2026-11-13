@@ -2,6 +2,18 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 122 Theme G (remainder) — Guard: package fixes on a branch, Fix with agent
+
+PR (see the Phase 122 package-actions PR). `update-package` and `remove-package` run behind the confirm on a new branch in a throwaway worktree (scripts off, no sudo, nothing pushed); a *Fix with agent* button starts a one-finding agent run linked back on the finding's row. Not done: opening the PR through the forge, `pin-package`.
+
+## 2026-11-13 — Phase 122 Theme F (remainder) — Guard: lockfile changed with nothing pushed
+
+PR (see the Phase 122 lockfile-rule PR). A `lockfile-changes` check: a lockfile commit in the last 7 days on no remote branch is a `medium` finding per repo, read from git (no forge call). Not done: a pushed branch that has no PR.
+
+## 2026-11-13 — Phase 122 Theme H (remainder) — Guard: daily default, power gate, egress, perf
+
+PR (see the Phase 122 remainder H PR). Guard's own daily default schedule (off until enabled), a scheduler gate that holds a scheduled sweep while the window is blurred and the Mac is on battery below 20%, egress entries for NVD, npm, PyPI and URLhaus, `docs/PRIVACY.md` regenerated, and `scripts/perf/guard-sweep.mjs` with its budget. Not done: the midnite-apps feed entry (waits on Themes B/C).
+
 ## 2026-11-13 — Phase 122 Theme H (partial) — Guard: schedule, cost and disclosure
 
 PR (see the Phase 122 H PR). `guard.sweep` command and `guardSweepNow` channel, a Guard paragraph in `SECURITY.md`, and the rewritten Guard docblock. Open: the tab button, daily default schedule, the extra egress entries, the perf script and the battery gate (see the phase doc).
@@ -15831,3 +15843,7 @@ Docs only. 126 reopened as 🔄 WIP at 41/43: its two open boxes are the CI `gat
 ## 2026-11-13 — Phase 115 Theme A (third slice) — launcher switches, every client on the registry, idle e2e
 
 The launcher honours its update and catalog switches and the master; map, image, forge, Browser feed and Ollama clients go through `guardedFetchFor`; user-chosen hosts register as `*`; an idle e2e with the master on sees no request (and found Gravatar/GitHub avatars, now behind an `avatars` switch). Theme A is done.
+
+## 2026-11-13 — Phase 116 Theme C (header sweep) — every e2e spec names its browser capability
+
+All 110 functional specs open with `// e2e-capability:` or `// e2e-candidate:` (35 candidates); `e2e-budget` enforces it. No test deleted or run; Wave C1/C2 migrations still wait on an `app:e2e` run.

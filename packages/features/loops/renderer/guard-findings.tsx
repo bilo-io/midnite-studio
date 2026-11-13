@@ -1,5 +1,5 @@
 import { bridge, useFrameChrome } from '@midnite/studio-frame';
-import { guardFixPrompt, REMEDIATION_ACTION_LABEL, REMEDIATION_PENDING, REMEDIATION_UNCONFIRMED, type RemediationAction, type SecurityFinding } from '@midnite/studio-shared';
+import { guardFixPrompt, REMEDIATION_ACTION_LABEL, REMEDIATION_PENDING, REMEDIATION_UNCONFIRMED, type LoopRunRecord, type RemediationAction, type SecurityFinding } from '@midnite/studio-shared';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LuChevronDown, LuChevronRight } from 'react-icons/lu';
 
@@ -45,7 +45,7 @@ function useGuardFindings(): { findings: SecurityFinding[]; loaded: boolean } {
   return { findings, loaded };
 }
 
-export function GuardFindings() {
+export function GuardFindings({ runs = [], onFixWithAgent }: { runs?: readonly LoopRunRecord[]; onFixWithAgent?: ((finding: SecurityFinding) => void) | undefined }) {
   const { findings, loaded } = useGuardFindings();
   const [open, setOpen] = useState(true);
   const [sweeping, setSweeping] = useState(false);
@@ -123,7 +123,7 @@ export function GuardFindings() {
                   {g.severity} ({g.findings.length})
                 </h4>
                 {g.findings.map((f) => (
-                  <FindingRow key={f.id} finding={f} />
+                  <FindingRow key={f.id} finding={f} fixRun={latestFixRun(runs, f.fingerprint)} {...(onFixWithAgent ? { onFixWithAgent } : {})} />
                 ))}
               </section>
             ))
@@ -134,7 +134,20 @@ export function GuardFindings() {
   );
 }
 
-function FindingRow({ finding }: { finding: SecurityFinding }) {
+/** The newest *Fix with agent* run scoped to this finding, if one was started. */
+function latestFixRun(runs: readonly LoopRunRecord[], fingerprint: string): LoopRunRecord | undefined {
+  return runs.filter((r) => r.findingFingerprint === fingerprint).sort((a, b) => b.startedAt - a.startedAt)[0];
+}
+
+function FindingRow({
+  finding,
+  fixRun,
+  onFixWithAgent,
+}: {
+  finding: SecurityFinding;
+  fixRun?: LoopRunRecord | undefined;
+  onFixWithAgent?: ((finding: SecurityFinding) => void) | undefined;
+}) {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const dialogs = useFrameChrome().useDialogs();
@@ -226,7 +239,20 @@ function FindingRow({ finding }: { finding: SecurityFinding }) {
             >
               Copy agent prompt
             </button>
+            {onFixWithAgent ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onFixWithAgent(finding);
+                  setMessage('Started an agent run scoped to this finding. It works on a branch and opens a PR; read it before merging.');
+                }}
+                className="rounded border border-border px-1.5 py-0.5 hover:text-foreground"
+              >
+                Fix with agent
+              </button>
+            ) : null}
           </div>
+          {fixRun ? <p>Agent run {fixRun.status} (started {new Date(fixRun.startedAt).toLocaleString()}).</p> : null}
           {message ? <p role="status">{message}</p> : null}
         </div>
       ) : null}

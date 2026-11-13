@@ -25,6 +25,11 @@ export interface PackageArgv {
   args: string[];
 }
 
+/** `lockfileOnly` edits the manifest and lockfile without installing into `node_modules` (pnpm and npm; yarn and cargo have no such flag). */
+export interface ArgvOptions {
+  lockfileOnly?: boolean;
+}
+
 /** Names go to a package manager's argv, never a shell, but a name that looks like a flag is still refused. */
 const SAFE = /^[A-Za-z0-9@][A-Za-z0-9@._/+-]*$/;
 const safe = (value: string): boolean => SAFE.test(value);
@@ -35,13 +40,13 @@ const safe = (value: string): boolean => SAFE.test(value);
  * cannot drive or a value that is not a plain package name or version. The runner executes it on a branch with
  * lifecycle scripts off; this function only builds the vector.
  */
-export function updatePackageArgv(manager: PackageManager, name: string, to: string): PackageArgv | null {
+export function updatePackageArgv(manager: PackageManager, name: string, to: string, options: ArgvOptions = {}): PackageArgv | null {
   if (!safe(name) || !safe(to)) return null;
   switch (manager) {
     case 'pnpm':
-      return { file: 'pnpm', args: ['up', `${name}@${to}`, '--ignore-scripts'] };
+      return { file: 'pnpm', args: ['up', `${name}@${to}`, '--ignore-scripts', ...(options.lockfileOnly ? ['--lockfile-only'] : [])] };
     case 'npm':
-      return { file: 'npm', args: ['install', `${name}@${to}`, '--ignore-scripts'] };
+      return { file: 'npm', args: ['install', `${name}@${to}`, '--ignore-scripts', ...(options.lockfileOnly ? ['--package-lock-only'] : [])] };
     case 'yarn':
       return { file: 'yarn', args: ['up', `${name}@${to}`] };
     case 'cargo':
@@ -50,13 +55,13 @@ export function updatePackageArgv(manager: PackageManager, name: string, to: str
 }
 
 /** The argv that takes `name` out. Cargo removes from the manifest with `cargo remove`. */
-export function removePackageArgv(manager: PackageManager, name: string): PackageArgv | null {
+export function removePackageArgv(manager: PackageManager, name: string, options: ArgvOptions = {}): PackageArgv | null {
   if (!safe(name)) return null;
   switch (manager) {
     case 'pnpm':
-      return { file: 'pnpm', args: ['remove', name, '--ignore-scripts'] };
+      return { file: 'pnpm', args: ['remove', name, '--ignore-scripts', ...(options.lockfileOnly ? ['--lockfile-only'] : [])] };
     case 'npm':
-      return { file: 'npm', args: ['uninstall', name, '--ignore-scripts'] };
+      return { file: 'npm', args: ['uninstall', name, '--ignore-scripts', ...(options.lockfileOnly ? ['--package-lock-only'] : [])] };
     case 'yarn':
       return { file: 'yarn', args: ['remove', name] };
     case 'cargo':

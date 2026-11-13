@@ -1,3 +1,4 @@
+// e2e-capability: canvas/WebGL, focus order, real pointer hover
 import { expect, test, type Page } from '@playwright/test';
 
 import { clickRailLink, installMockBridge, type MockFixtures } from '../test-support/mock-bridge';

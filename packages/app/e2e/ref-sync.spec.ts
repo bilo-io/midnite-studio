@@ -1,3 +1,4 @@
+// e2e-capability: getBoundingClientRect, real pointer hover
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { installMockBridge, type MockFixtures } from '../test-support/mock-bridge';

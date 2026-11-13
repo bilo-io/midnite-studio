@@ -1,3 +1,4 @@
+// e2e-capability: getBoundingClientRect
 import { expect, test, type Page } from '@playwright/test';
 
 import { COMMIT_SHA, fixtures } from '../test-support/fixtures';

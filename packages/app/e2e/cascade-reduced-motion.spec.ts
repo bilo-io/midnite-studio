@@ -1,3 +1,4 @@
+// e2e-capability: getBoundingClientRect, computed CSS
 import { expect, test, type Page } from '@playwright/test';
 
 import type { MockFixtures } from '../test-support/mock-bridge';

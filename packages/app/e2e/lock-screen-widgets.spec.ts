@@ -1,3 +1,4 @@
+// e2e-capability: getBoundingClientRect, computed CSS, focus order, network/CSP interception
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';

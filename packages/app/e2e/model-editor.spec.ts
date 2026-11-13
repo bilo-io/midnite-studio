@@ -1,3 +1,4 @@
+// e2e-capability: getBoundingClientRect, pointer drag, canvas/WebGL
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';

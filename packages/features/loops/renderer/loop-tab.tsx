@@ -176,7 +176,7 @@ export function LoopTab({
       : loop.agentId;
   // The roster's own command, not the id — see `useLoopSession`'s note.
   const command = agents.agents.find((a) => a.id === agentId)?.command ?? agentId;
-  const { start, stop } = useLoopSession(runLoop, {
+  const { start, fixFinding, stop } = useLoopSession(runLoop, {
     repoId: selectedRepoId,
     cwd,
     basePrompt,
@@ -302,7 +302,7 @@ export function LoopTab({
             onStart={start}
             onStop={stop}
           />
-          {loop.id === 'guard' ? <GuardFindings /> : null}
+          {loop.id === 'guard' ? <GuardFindings runs={runs} onFixWithAgent={selectedRepoId && cwd ? fixFinding : undefined} /> : null}
           <LoopHistory runs={runs} />
         </div>
       </div>

@@ -31,9 +31,13 @@ The app makes these on its own, without you asking, while the feature is in use.
 | `api.frankfurter.dev` | finance | GET only: a base currency, no identifiers | Market prices, FX and finance news (on by default) |
 | `ts-api.cnbc.com` | finance | GET only: ticker symbols, no identifiers | Market prices, FX and finance news (on by default) |
 | `news.google.com` | finance | GET only: a news search query for a held asset | Market prices, FX and finance news (on by default) |
-| `api.osv.dev` | guard | package names and versions found in the user’s repositories, to look up advisories | Guard vulnerability feeds (OSV, CISA KEV) (on by default) |
-| `www.cisa.gov` | guard | GET only: the public Known Exploited Vulnerabilities list | Guard vulnerability feeds (OSV, CISA KEV) (on by default) |
-| `electronjs.org` | guard | GET only: the public Electron release index, no identifiers | Guard vulnerability feeds (OSV, CISA KEV) (on by default) |
+| `api.osv.dev` | guard | package names and versions found in the user’s repositories, to look up advisories | Guard vulnerability feeds (OSV, CISA KEV, NVD, npm, PyPI, URLhaus) (on by default) |
+| `www.cisa.gov` | guard | GET only: the public Known Exploited Vulnerabilities list | Guard vulnerability feeds (OSV, CISA KEV, NVD, npm, PyPI, URLhaus) (on by default) |
+| `electronjs.org` | guard | GET only: the public Electron release index, no identifiers | Guard vulnerability feeds (OSV, CISA KEV, NVD, npm, PyPI, URLhaus) (on by default) |
+| `services.nvd.nist.gov` | guard | a CVE id or a package coordinate, to look up its public record | Guard vulnerability feeds (OSV, CISA KEV, NVD, npm, PyPI, URLhaus) (on by default) |
+| `registry.npmjs.org` | guard | GET only: the public metadata of a package name found in the user’s repositories | Guard vulnerability feeds (OSV, CISA KEV, NVD, npm, PyPI, URLhaus) (on by default) |
+| `pypi.org` | guard | GET only: the public metadata of a package name found in the user’s repositories | Guard vulnerability feeds (OSV, CISA KEV, NVD, npm, PyPI, URLhaus) (on by default) |
+| `urlhaus.abuse.ch` | guard | nothing about the user — a plain GET of the public online-URL list (CC0), matched on this Mac | Guard vulnerability feeds (OSV, CISA KEV, NVD, npm, PyPI, URLhaus) (on by default) |
 | `midnite-apps.vercel.app` | launcher | GET only: the app catalog, no identifiers | Launcher: refresh the app catalog at start (on by default) |
 | `raw.githubusercontent.com` | launcher | GET only: the Studio update feed and each app’s public changelog, no identifiers | Launcher: check for Studio updates at start (on by default) |
 | `gravatar.com` | avatars | a hash of a commit author’s email address, to look up their picture | Author avatars (Gravatar, GitHub) (on by default) |

@@ -3,6 +3,7 @@ import { createLockfileCvesCheck } from './checks/lockfile-cves';
 import { createInstalledSoftwareCheck } from './checks/installed-software';
 import { electronFreshnessCheck } from './checks/electron-freshness';
 import { behaviourCheck } from './checks/behaviour';
+import { lockfileChangesCheck } from './checks/lockfile-changes';
 import { macConfigCheck } from './checks/mac-config';
 import { macPortsCheck } from './checks/mac-ports';
 import { secretsOutsideVaultCheck } from './checks/secrets-outside-vault';
@@ -15,5 +16,5 @@ import { mcpServersCheck, poisonedPackagesCheck, slopsquatCheck } from './checks
  * not here is visible in review rather than silently inert; Themes D (the Mac) to F append theirs.
  */
 export function defaultGuardChecks(now: () => number = () => Date.now()): GuardCheck[] {
-  return [createLockfileCvesCheck(now), createInstalledSoftwareCheck(now), poisonedPackagesCheck, mcpServersCheck, slopsquatCheck, electronFreshnessCheck, macPortsCheck, macConfigCheck, sshKeysCheck, secretsOutsideVaultCheck, sitesCheck, behaviourCheck];
+  return [createLockfileCvesCheck(now), createInstalledSoftwareCheck(now), poisonedPackagesCheck, mcpServersCheck, slopsquatCheck, electronFreshnessCheck, macPortsCheck, macConfigCheck, sshKeysCheck, secretsOutsideVaultCheck, sitesCheck, behaviourCheck, lockfileChangesCheck];
 }

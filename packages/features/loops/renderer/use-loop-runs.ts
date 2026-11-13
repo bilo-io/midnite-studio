@@ -61,6 +61,7 @@ export async function recordLoopStart(req: {
   composedPrompt: string;
   checkedModifierIds: string[];
   model?: LoopModel;
+  findingFingerprint?: string;
 }): Promise<void> {
   const result = await bridge()?.loopRuns.start(req);
   if (result && !result.ok && result.kind === 'error') {

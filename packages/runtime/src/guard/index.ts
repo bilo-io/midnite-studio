@@ -10,3 +10,4 @@ export * from './default-checks';
 export * from './resolvers';
 export * from './mac-probes';
 export * from './package-argv';
+export * from './sweep-gate';

@@ -2,17 +2,21 @@ import { execFile } from 'node:child_process';
 import { homedir } from 'node:os';
 import { promisify } from 'node:util';
 
+import { BrowserWindow } from 'electron';
 import {
   createGuardScheduler,
   createGuardSweepsStore,
   createGuardResolvers,
   defaultGuardChecks,
+  GUARD_DEFAULT_SCHEDULE,
+  parsePmsetBattery,
+  shouldHoldSweep,
   guardedFetchFor,
   runGuardSweep,
   type GuardScheduler,
   type GuardSweepsStore,
 } from '@midnite/studio-runtime';
-import { DEFAULT_LOOP_SCHEDULE, type LoopRunFindingsSummary, type LoopSchedule } from '@midnite/studio-shared';
+import { type LoopRunFindingsSummary, type LoopSchedule } from '@midnite/studio-shared';
 
 import { getFindingsLedger } from './ipc/vanguard-handlers';
 import { defaultLogger } from './log';
@@ -26,9 +30,9 @@ const execFileAsync = promisify(execFile);
  * (mirrored from the renderer through `settings-mirror.ts`), running the default checks with real resolvers into
  * the findings ledger. It runs with or without an agent installed and never touches a pty.
  *
- * Feeds go out over the platform `fetch` for now: Phase 115 A's `guardedFetch` and Theme H's per-feed Privacy
- * switches are not in the tree, so while the Guard schedule is enabled the OSV and KEV feeds are on (package
- * coordinates and CVE ids only) and the threat feed is skipped until a trusted key is built in.
+ * Feeds go out through `guardedFetchFor('guard')`, so the `guard-feeds` Privacy switch and the egress registry gate every
+ * call; the threat feed is skipped until a trusted key is built in. A scheduled sweep is held while the window is blurred
+ * and the Mac is on battery below 20% (`shouldHoldSweep`); *Sweep now* is not.
  */
 const MAX_SUMMARY_AGE_MS = 2 * 24 * 60 * 60 * 1000;
 let scheduler: GuardScheduler | null = null;
@@ -39,7 +43,7 @@ let stopWatching: (() => void) | null = null;
 const FASTER_THAN_HOURLY: ReadonlySet<string | undefined> = new Set([undefined, 'continuous', '1m', '2m', '5m', '10m', '15m', '30m']);
 
 const guardSchedule = (): LoopSchedule => {
-  const schedule = currentSettings().guardSchedule ?? { ...DEFAULT_LOOP_SCHEDULE, enabled: false };
+  const schedule = currentSettings().guardSchedule ?? GUARD_DEFAULT_SCHEDULE;
   return FASTER_THAN_HOURLY.has(schedule.frequency) ? { ...schedule, frequency: 'hourly' } : schedule;
 };
 
@@ -51,6 +55,12 @@ export function startGuardSweeps(options: { userData: string }): void {
   const sweeper = createGuardScheduler({
     userData,
     getSchedule: guardSchedule,
+    shouldDefer: async () => {
+      const blurred = !BrowserWindow.getAllWindows().some((win) => win.isFocused());
+      if (!blurred) return false;
+      const out = await execFileAsync('pmset', ['-g', 'batt'], { timeout: 5_000 }).then((r) => r.stdout, () => '');
+      return shouldHoldSweep({ blurred, battery: parsePmsetBattery(out) });
+    },
     onError: (error) => defaultLogger.warn(`guard sweep failed: ${String(error)}`),
     onSweep: async () => {
       const result = await runGuardSweep({
