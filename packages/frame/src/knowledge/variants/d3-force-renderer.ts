@@ -56,6 +56,11 @@ export class D3ForceRenderer extends Base2DRenderer {
   private foreground = 'hsl(0 0% 90%)';
   private accent = 'hsl(217 91% 60%)';
   private fillCache = new Map<string, string>();
+  /** Edge fade-in applies to a fresh layout only; a collapse re-settle keeps its edges. */
+  private rampEdges = true;
+  private bucketPaint: unknown = null;
+  private bucketModel: unknown = null;
+  private buckets: Uint8Array = new Uint8Array(0);
 
   /** The simulation's lifecycle, for tests and the bake-off harness: never a UI affordance. */
   get simulationState(): { state: 'idle' | 'running' | 'settled' | 'ceiling'; ticks: number; frameScheduled: boolean } {
@@ -167,30 +172,28 @@ export class D3ForceRenderer extends Base2DRenderer {
     ctx.clearRect(0, 0, width * dpr, height * dpr);
     ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * x, dpr * y);
 
-    // Edges: three batched paths (rest / dimmed / emphasised) instead of one stroke per edge.
-    const ramp = this.state === 'running' || this.ticks < 60 ? edgeRamp(this.ticks) : 1;
-    const buckets: Array<{ alpha: number; width: number; path: Array<[number, number, number, number]> }> = [
-      { alpha: 0.28 * ramp, width: 0.6, path: [] },
-      { alpha: 0.07 * ramp, width: 0.5, path: [] },
-      { alpha: 0.85 * ramp, width: 1.4, path: [] },
+    // Edges: three batched paths (rest / dimmed / emphasised) instead of one stroke per edge. The
+    // bucket of each edge is computed when the paint changes, so a simulation frame allocates nothing.
+    const ramp = this.rampEdges ? edgeRamp(this.ticks) : 1;
+    const buckets = this.edgeBuckets(model.links, paint);
+    const styles = [
+      { alpha: 0.28 * ramp, width: 0.6 },
+      { alpha: 0.07 * ramp, width: 0.5 },
+      { alpha: 0.85 * ramp, width: 1.4 },
     ];
-    for (const link of model.links) {
-      if (!(paint.linkVisible.get(link.id) ?? true)) continue;
-      const a = this.positions.get(link.source);
-      const b = this.positions.get(link.target);
-      if (!a || !b) continue;
-      const bucket = paint.linkEmphasised.has(link.id) ? 2 : (paint.linkAlpha.get(link.id) ?? 1) < 0.1 ? 1 : 0;
-      buckets[bucket]!.path.push([a.x, a.y, b.x, b.y]);
-    }
     ctx.strokeStyle = this.foreground;
-    for (const bucket of buckets) {
-      if (bucket.path.length === 0) continue;
-      ctx.globalAlpha = bucket.alpha;
-      ctx.lineWidth = bucket.width / k;
+    for (let bucket = 0; bucket < styles.length; bucket += 1) {
+      ctx.globalAlpha = styles[bucket]!.alpha;
+      ctx.lineWidth = styles[bucket]!.width / k;
       ctx.beginPath();
-      for (const [ax, ay, bx, by] of bucket.path) {
-        ctx.moveTo(ax, ay);
-        ctx.lineTo(bx, by);
+      for (let i = 0; i < model.links.length; i += 1) {
+        if (buckets[i] !== bucket) continue;
+        const link = model.links[i]!;
+        const a = this.positions.get(link.source);
+        const b = this.positions.get(link.target);
+        if (!a || !b) continue;
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
       }
       ctx.stroke();
     }
@@ -220,6 +223,26 @@ export class D3ForceRenderer extends Base2DRenderer {
         ctx.fillText(node.label, at.x, at.y + r + 2 / k);
       }
     }
+  }
+
+  /** 0 rest, 1 dimmed, 2 emphasised, 255 hidden — recomputed only when the paint or the model changes. */
+  private edgeBuckets(links: readonly { id: string }[], paint: NonNullable<D3ForceRenderer['paint']>): Uint8Array {
+    if (this.bucketPaint === paint && this.bucketModel === this.model) return this.buckets;
+    const out = new Uint8Array(links.length);
+    for (let i = 0; i < links.length; i += 1) {
+      const id = links[i]!.id;
+      out[i] = !(paint.linkVisible.get(id) ?? true)
+        ? 255
+        : paint.linkEmphasised.has(id)
+          ? 2
+          : (paint.linkAlpha.get(id) ?? 1) < 0.1
+            ? 1
+            : 0;
+    }
+    this.buckets = out;
+    this.bucketPaint = paint;
+    this.bucketModel = this.model;
+    return out;
   }
 
   // --- Simulation -------------------------------------------------------------------------------
@@ -273,6 +296,7 @@ export class D3ForceRenderer extends Base2DRenderer {
       .force('charge', forceManyBody<SimNode>().strength(-30).theta(0.9).distanceMax(300))
       .force('center', forceCenter(model.centroid.x, model.centroid.y))
       .alpha(resettle ? 0.6 : 1);
+    this.rampEdges = !resettle;
     this.ticks = 0;
     this.maxTicks = resettle ? SETTLE.maxTicksResettle : SETTLE.maxTicks;
     this.startedAt = this.now();
