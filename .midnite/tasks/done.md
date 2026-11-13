@@ -15820,6 +15820,10 @@ HIBP, Whisper, release notes, GM samples, Stable Audio and SF3D installers now g
 
 LAN streams/posters/transcodes take `?e=&s=` signed, six-hour URLs; packaged `script-src` is hash-based. Socket tokens deferred.
 
+## 2026-11-13 — Phase 115 Theme G (partial) — generated `docs/PRIVACY.md`
+
+`renderPrivacyDoc` from the egress registry, a stale-file test, `moon run root:privacy-doc`, SECURITY.md link. Website page and Settings footer link deferred.
+
 ## 2026-11-13 — Tracker fixes (113 H, 126–130)
 
 Docs only. 126 reopened as 🔄 WIP at 41/43: its two open boxes are the CI `gate-node` run (billing-locked, not verifiable locally) and a human install check. 127/128/130 progress bars set to the 10-cell form the checker derives. 113 Theme H closed out: Cleaner is now `packages/modules/cleaner`, nothing left to build; only human release tests remain.

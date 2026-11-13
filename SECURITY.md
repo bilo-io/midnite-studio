@@ -46,6 +46,8 @@ Two positions are held deliberately; please read them before spending time on on
   sockets guarded by file modes (`0600`/umask `0o177`), the boundary macOS offers. A process already
   running as the same user can reach them.
 
+What the app sends, stores and exposes, in plain language, is in [`docs/PRIVACY.md`](docs/PRIVACY.md).
+
 Findings from our own audits, and their status, are indexed in
 [`docs/security/README.md`](docs/security/README.md).
 
