@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Ad hoc — onboarding kit skills made project-agnostic
+
+The kit's `midnite-plan`, `-build`, `-build-adhoc`, `-test`, `-maintain`, `-deploy` and `-design` (all three mirrors) no longer name Midnite Studio, its moon commands, Electron or its release tags; they defer to the target repo's convention file and testing doc.
+
 ## 2026-11-13 — Phase 89 Theme K (part) — renderer variant seam e2e
 
 One Playwright e2e in `knowledge-canvas.spec.ts`: pick Telemetry HUD from the default Atlas, the sigma canvas layers are replaced by the 3D engine's canvas, and the choice survives a reload. Needs a real canvas mount and `page.reload()` persistence of `rendererVariant`. `MAX_DECLARED_E2E` 485 -> 486. Still open in Theme K: bundle ceilings, idle CPU, the three visual baselines, the full gate.

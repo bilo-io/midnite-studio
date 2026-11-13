@@ -1,16 +1,16 @@
 ---
 name: midnite-build
-description: Pick one or more unblocked tasks across phase categories (FEATURES, SECURITY, ISSUES), build them together in a worktree, conduct a self-review with one sub-agent, implement proposed fixes with another subagent, screenshot visual changes with Playwright, open a PR, drive CI green, and merge.
+description: Pick one or more unblocked tasks across phase categories (FEATURES, SECURITY, ISSUES), build them together in a worktree, conduct a self-review with one sub-agent, implement proposed fixes with another subagent, screenshot visual changes, open a PR, drive CI green, and merge.
 ---
 
 **Invoke with:** [optional: category, phase number, or task hint]
 
-End-to-end "execute a phase slice" for **Midnite Studio**.
+End-to-end "execute a phase slice" for **this repo**.
 
 **Conversation style — enforced.** Be terse to save time and tokens. No preamble, no recap of instructions, no narrating what you are *about* to do. Report results, not intentions; bullets over prose. Stay silent on no-op stages. Spend tokens on code, diffs, and decisions — not commentary.
 
 ## Respect
-- `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` = conventions (package boundaries — `shared ◀ git-engine ◀ desktop`, `shared ◀ frame ◀ feature ◀ app`; commit style; pre-push gate). Re-read relevant sections before coding. `docs/INITIAL_PLAN.md` is design source of truth.
+- `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` = conventions (package/module boundaries, commit style, pre-push gate). Re-read relevant sections before coding. If the repo has a design doc, it is the source of truth.
 - `.midnite/tasks/` = tracker divided into category folders:
   - **`FEATURES/`** (`FEATURES/_INDEX.md`, `FEATURES/phases/phase-N-*.md`)
   - **`SECURITY/`** (`SECURITY/_INDEX.md`, `SECURITY/phases/phase-N-*.md`)
@@ -39,7 +39,7 @@ Do **not** read individual phase docs yet. Status, Done/%, and `🔄 WIP` / `◻
 1. Pick up to **4 candidate phases** with open, unblocked themes.
 2. If multiple categories have candidates, present the candidate themes grouped by category/phase.
 3. Stop for human confirmation on the chosen batch.
-4. Upfront decisions: Ask at least 5 consequential architectural/design decisions (state management, API contract, IPC channel, error handling, layout) before touching code.
+4. Upfront decisions: Ask at least 5 consequential architectural/design decisions (state management, API contract, error handling, layout, and any cross-process boundary) before touching code.
 
 ---
 
@@ -57,8 +57,7 @@ Do **not** read individual phase docs yet. Status, Done/%, and `🔄 WIP` / `◻
    git fetch origin
    git worktree add .worktrees/<slice> -b feature/<slice> origin/main
    cd .worktrees/<slice>
-   export GITHUB_PACKAGES_TOKEN=$(gh auth token)
-   pnpm install --frozen-lockfile
+   # install dependencies the way the repo's convention file says (a fresh worktree needs its own install)
    ```
 4. Write untracked `SCRATCHPAD.md` at worktree root before editing code.
 
@@ -67,20 +66,17 @@ Do **not** read individual phase docs yet. Status, Done/%, and `🔄 WIP` / `◻
 ## 4 · Build (Implementation Sub-Agent)
 
 - Implement each theme in the batch in accordance with the phase doc and recorded decisions.
-- Maintain strict package boundaries:
-  - `packages/shared` has wire contracts only.
-  - `packages/git-engine` touches git and never imports Electron.
-  - `packages/app` communicates with main strictly via `window.midniteStudio`.
+- Maintain the repo's package/module boundaries exactly as its convention file states them (what may import what, where wire contracts live, how processes talk to each other). If a boundary rule fires, the fix is a proper interface, not an exception.
 - Tests ship with every change:
   - Unit tests with Vitest at the proper layer.
-  - Functional tests or Playwright tests where browser capabilities are required.
+  - Functional/e2e tests where a real browser, device or process is required, per the repo's testing doc.
 - Small, conventional commits without attribution trailers (`Co-Authored-By`, `Signed-off-by`).
 
 ---
 
-## 5 · Visual Verification (Playwright Screenshots)
+## 5 · Visual Verification (Screenshots)
 
-- For visual changes, capture screenshots using Playwright shots helper under `/tmp/midnite-shots-<slice>/`.
+- For visual changes, capture screenshots with the repo's own tooling (e.g. a Playwright or equivalent helper) into a scratch directory outside the repo, such as `/tmp/shots-<slice>/`.
 - Render screenshots inline in the thread for visual confirmation.
 - Never commit ephemeral screenshots into git unless updating committed baselines.
 
@@ -88,10 +84,7 @@ Do **not** read individual phase docs yet. Status, Done/%, and `🔄 WIP` / `◻
 
 ## 6 · Pre-push Gate
 
-Run the local gate inside the worktree:
-```bash
-moon run :typecheck && moon run :lint && moon run :test && moon run root:tracker-check
-```
+Run the repo's local gate inside the worktree (typecheck, lint, tests and the tracker drift guard, as its convention file names them).
 All checks must pass green before moving to review.
 
 ---
@@ -109,7 +102,7 @@ All checks must pass green before moving to review.
 Never mark ready or request review before completing the two-subagent self-review pass:
 
 1. **Sub-Agent 1 — Reviewer:**
-   - Launch a self-review subagent to audit the PR diff against `CLAUDE.md` conventions, code quality, and phase requirements.
+   - Launch a self-review subagent to audit the PR diff against the repo's convention file, code quality, and phase requirements.
    - Categorize findings into `CRITICAL`, `WARNING`, `NIT`, `PRAISE`.
 2. **Sub-Agent 2 — Fix Implementer:**
    - Launch an implementation subagent to address the findings.
@@ -120,7 +113,7 @@ Never mark ready or request review before completing the two-subagent self-revie
 
 ## 9 · Mark Ready & Merge
 
-1. Run final gate: `moon run :typecheck :lint :test && moon run root:tracker-check`.
+1. Run the final gate (the same commands as step 6).
 2. Update phase doc: mark completed items `- [x]` and update `## Headlines` with landed narrative and PR link.
 3. Update category `_INDEX.md`: update `Done`, `%`, progress bar, remove theme from `🔄 WIP`.
 4. Check that `SCRATCHPAD.md` is untracked (`git ls-files --error-unmatch SCRATCHPAD.md`).

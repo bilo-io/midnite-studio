@@ -1,41 +1,29 @@
 ---
 name: midnite-test
-description: Local test suite runner and diagnostic tool for Midnite Studio apps and workspace packages (like ekko-test for local app environments) — runs automated typecheck, lint, unit tests, and Playwright e2e, diagnoses failures, and produces actionable remediation plans.
-argument-hint: "[optional: target package or app, e.g. 'shared', 'desktop', 'app', 'apps/launcher', or 'e2e']"
+description: Local test suite runner and diagnostic tool for this repo's apps and packages — runs the automated typecheck, lint, unit and e2e layers its convention file names, diagnoses failures, and produces actionable remediation plans.
+argument-hint: "[optional: target package, app or layer, e.g. a package name, 'e2e' or 'visual']"
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, TodoWrite, Agent
 ---
 
-You are running the **test** specialist for **Midnite Studio**. Because Midnite Studio is a desktop workspace rather than a hosted cloud webapp, testing is executed locally across workspace packages and target apps using moon and pnpm.
+You are running the **test** specialist for **this repo**. Testing is executed locally across the repo's packages and apps, using whatever runner and task tool its convention file names.
 
 ## Testing Architecture & Levels
 
-Per `docs/TESTING.md` and repository conventions:
-1. **Vitest / jsdom:** Default for unit logic, store transitions, DOM text/roles, IPC envelope handling (`moon run :test` or `moon run <package>:test`).
-2. **Typecheck & Lint:** Strict TypeScript checks and layer boundary enforcement (`moon run :typecheck && moon run :lint`).
-3. **Playwright Visual Regression:** Appearance testing using locator-cropped `toHaveScreenshot` (`moon run app:visual`).
-4. **Playwright Functional e2e:** Reserved for real layout, CSS, canvas, xterm, and multi-view flows (`moon run app:e2e`). Note: 5 concurrent macOS job cap.
+Read the repo's testing doc (e.g. `docs/TESTING.md`) and convention file first; they define the layers and the commands. The usual shape, which this repo's own conventions are an example of rather than a rule:
+1. **Unit / component tests:** the default for logic, state transitions and rendered text/roles. Fast, run on every change.
+2. **Typecheck & lint:** strict type checks and any layer-boundary enforcement.
+3. **Visual regression:** appearance checks (screenshot comparison), if the repo has them.
+4. **Functional / e2e:** reserved for what needs a real browser, device, process or CLI — real layout, rendering, pointer or terminal behaviour, multi-view flows. Respect any CI concurrency or platform limits the repo documents.
 
 ---
 
 ## 🔍 Stage 1 — Determine Target Scope
 
 Check `$ARGUMENTS` or inspect git diff:
-- **Workspace-wide:** No arguments provided → run full pre-push gate:
-  ```bash
-  moon run :typecheck && moon run :lint && moon run :test && moon run root:tracker-check
-  ```
-- **Package-specific:** If user requested a specific package (e.g. `shared`, `git-engine`, `feature-tasks`, `runtime`):
-  ```bash
-  moon run <package>:typecheck && moon run <package>:test
-  ```
-- **App-specific:** For target apps:
-  - Studio: `moon run studio:bundle && moon run app:test`
-  - Launcher: `moon run launcher:typecheck && moon run launcher:test`
-  - Desktop: `moon run desktop:typecheck && moon run desktop:test`
-- **Functional e2e:**
-  ```bash
-  moon run app:e2e
-  ```
+- **Repo-wide:** No arguments provided → run the full pre-push gate (typecheck, lint, tests and the tracker drift guard, as the convention file names them).
+- **Package-specific:** If the user named a package, run that package's typecheck and test tasks.
+- **App-specific:** For a target app (web, desktop, CLI), run that app's own build and test tasks.
+- **Functional e2e / visual:** run the repo's e2e or visual task when the change touches what those layers cover.
 
 ---
 
@@ -46,22 +34,20 @@ Run the targeted commands. Capture stdout and stderr cleanly.
 Produce a structured pass/fail status table:
 | Layer / Package | Status | Passed | Failed | Duration | Notes |
 |---|---|---|---|---|---|
-| `shared` | ✅ pass | 3453 | 0 | 35s | Pure types & contracts |
-| `git-engine` | ✅ pass | 280 | 0 | 4s | NUL-delimited git parsers |
-| `app` | ✅ pass | 450 | 0 | 12s | Renderer RTL tests |
-| `typecheck` | ✅ pass | 106 tasks | 0 | 40s | Strict TS |
-| `lint` | ✅ pass | 68 pkgs | 0 | 8s | Layer boundaries intact |
+| `<package>` | ✅ pass | 120 | 0 | 4s | one-line note |
+| `typecheck` | ✅ pass | 12 tasks | 0 | 40s | Strict types |
+| `lint` | ✅ pass | 12 pkgs | 0 | 8s | Boundaries intact |
 
 ---
 
 ## 🩺 Stage 3 — Diagnostics & Root Cause Analysis
 
 If any step fails, analyze the failure immediately:
-1. **ESLint Boundary Violation:** Look for cross-layer imports (e.g. `app` importing `electron`, or feature importing feature directly instead of `@midnite/studio-frame` or link router).
-2. **TypeScript Error:** Flag missing exports, type divergence across `@midnite/studio-shared`, or stale `.d.ts`.
-3. **Git Lock Contention:** Detect concurrent git operations colliding on `index.lock` without write-queue.
-4. **Environment / Token Error:** Check if `GITHUB_PACKAGES_TOKEN` is missing or `.npmrc` environment substitution failed.
-5. **Playwright Timeout:** Check if selectors were modified or `window.midniteStudio` bridge mock was omitted.
+1. **Boundary / lint violation:** look for imports that cross a layer or package boundary the convention file forbids.
+2. **Type error:** flag missing exports, contract drift between packages, or stale generated types.
+3. **Environment / auth error:** check for a missing token, registry credential or env var the install or tests need.
+4. **Concurrency / ordering:** look for tests or commands racing on shared state (lock files, ports, temp dirs).
+5. **E2E timeout:** check whether selectors changed or a required mock/fixture was omitted.
 
 ---
 
