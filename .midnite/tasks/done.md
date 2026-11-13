@@ -6,6 +6,10 @@
 
 One Playwright e2e in `knowledge-canvas.spec.ts`: pick Telemetry HUD from the default Atlas, the sigma canvas layers are replaced by the 3D engine's canvas, and the choice survives a reload. Needs a real canvas mount and `page.reload()` persistence of `rendererVariant`. `MAX_DECLARED_E2E` 485 -> 486. Still open in Theme K: bundle ceilings, idle CPU, the three visual baselines, the full gate.
 
+## 2026-11-13 — Phase 132 Theme D (e2e) — level editor, real pointer input
+
+`packages/app/e2e/game-level-editor.spec.ts`: over the mock bridge, opens a game's Level editor tab, paints three cells with real pointer drags on the canvas (hit-tested through `getBoundingClientRect` and the fitted view), paints a fourth and undoes it, saves, and asserts the one `level-set` payload holds exactly the three cells. The mock gained `games.levels` (list, get, set recorded as `levelSet`) and `games.goto`. `MAX_DECLARED_E2E` 485 to 486 with its reason. No screenshot.
+
 ## 2026-11-13 — Phase 132 Theme E — 3D placement editor
 
 The Level editor tab edits 3D levels in plan view on the 2D editor's canvas, model and picker: Select / Move, Place, Volume (a `prop` box, `sizeY` 3), Path and Rotate (yaw as Tiled's `rotation`, about the centre), a metre grid, footprints with a yaw tick, the terrain as an outline over its drape (`levelGet` reads it from the pack manifest), and an inspector for elevation, sizeY, pitch, roll, scale, model, collider and a light's fields with the world position from `levelEntityToWorld`. New scene makes a 3D scene. Not done: the canvas look and the third-person human pass (Theme H).

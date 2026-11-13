@@ -263,7 +263,13 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // all automatic network" on, an idle dashboard must put no request on the wire, and a control with it off
 // must see the forecast request go out. Both read the browser's own request stream (`page.on('request')`)
 // over a real page load; nothing in jsdom issues or intercepts a real network request.
-export const MAX_DECLARED_E2E = 486;
+//
+// Raised 485 -> 486 for Phase 132 Theme D's `game-level-editor.spec.ts`: the Level editor paints on a
+// `<canvas>` and hit-tests a pointer to a cell through `getBoundingClientRect` and the fitted view; jsdom has
+// neither layout nor real pointer input, so one drag-paint, undo and Save flow needs a real browser.
+//
+// Raised 486 -> 487 for Phase 89 Theme K's renderer seam test in `knowledge-canvas.spec.ts` (reason at the test).
+export const MAX_DECLARED_E2E = 487;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four
