@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 89 Theme H — vis-network variant
+
+PR #PRN, stacked on #1208. `vis-network` (Apache-2.0 OR MIT) from npm behind its own dynamic `import()`, with Phase 87's CDN rejection qualified in the code. Not done: the packaged-app network trace; a real-browser look.
+
 ## 2026-11-13 — Phase 89 Theme G — cytoscape variant
 
 PR #1208. `cytoscape` (MIT, no deps) behind its own dynamic `import()` over the shared 2D layer; alpha states as stylesheet classes. Not done: a real-browser look; frame-rate numbers (Theme J).
