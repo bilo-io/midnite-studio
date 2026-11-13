@@ -75,7 +75,7 @@ first, then **B** and **C** in parallel, then **D**, **F**, **G**, then **E**, t
 
 **Theme B — Centre layout: Level editor and Play mode tabs.** ✅ The centre is a `GameCenter` with a **Level editor** tab (an empty-state placeholder until Theme D) and a **Play mode** tab holding the runner and console drawer; both panels stay mounted and `GameRunnerHost` takes `active` so the native view hides under the editor. `useGameMode` keeps the tab per game (a game opens on the editor) and the pause policy: leaving Play pauses only a run the Play button started, `pauseWhenEditing` (default on, Settings ▸ Games switch) gates it, and return resumes only that auto-pause. The run controls moved to the centre of the top bar (name left, export right), led by a gradient-bordered Run/Play button with a hover glow. Human check stays in H.
 
-**Theme C — Level format, kit loader and the scene jump.** ◻ `shared/src/game-level.ts` (the 2D and 3D conventions over Tiled JSON), additive Tiled schema fields, `kit/core/level.js` plus Phaser and three builders, `window.__midnite.goto(scene)`, kit 0.12.0, and the main-side level list/get/set and goto ops.
+**Theme C — Level format, kit loader and the scene jump.** ✅ `shared/src/game-level.ts` (loose `parseGameLevel`, the 2D and 3D conventions, `levelEntityToWorld`, the level IPC schemas), additive Tiled property/class/polyline fields and `cellAt`, the manifest's `levels` key and `GameSceneNameSchema`, `kit/core/level.js` with Phaser (`preloadLevel`, `buildLevel`, `KitLevelScene`) and three (`buildLevel3d`) builders, `window.__midnite.goto` (in place for a Phaser `level` scene, else a reload on `?midnite-level=`) and `getState().level`, kit 0.12.0, `game-levels.ts` (list/get/set confined to `levels/`, one pathspec commit per save) and the runner's `goto` (`hook` / `reload` / `next-run`) behind four channels, Studio's preload and Gamer's bridge. `GAME_ENGINE_VERSIONS.three` is left at 0.186.1 (desktop pins 0.187.0): that mismatch predates this theme and a vendored-engine bump is its own change.
 
 **Theme D — 2D tile and entity editor, and the scene picker.** ◻ A canvas editor for platformer, top-down, isometric and raycaster levels (paint, erase, rectangle, pick, place and edit entities, layers, undo), Save as one commit, and a scene picker that opens a level and jumps the running game to it.
 
@@ -253,7 +253,7 @@ keep editing scenes as code.
 
 ### C — Level format, kit loader and the scene jump [L · 4-8h]
 
-- [ ] Net-new `packages/shared/src/game-level.ts` (zod only; exported from the shared barrel)
+- [x] Net-new `packages/shared/src/game-level.ts` (zod only; exported from the shared barrel)
   - `GAME_LEVELS_DIR = 'levels'`, `GAME_LEVEL_EXT = '.tmj'`, `GAME_LEVEL_PARAM = 'midnite-level'` (beside
     `GAME_DETERMINISM_PARAMS`), `GAME_LEVEL_MAX_BYTES = 4 * 1024 * 1024`, `GAME_LEVEL_IMAGES_MAX_BYTES = 8 * 1024 * 1024`.
   - `GameSceneNameSchema = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/, 'use lowercase letters, digits, - and _')` —
@@ -276,14 +276,14 @@ keep editing scenes as code.
     against the kit's copy by an agreement test (below).
   - `GameManifestSchema` gains `levels: z.object({ dir: z.literal('levels').default('levels'), start:
     GameSceneNameSchema }).optional()` — present means "this game's code reads its levels from files" (Decision 14).
-- [ ] Additive fields in [`shared/src/sprite/tiled.ts`](../../../packages/shared/src/sprite/tiled.ts): `TiledPropertySchema =
+- [x] Additive fields in [`shared/src/sprite/tiled.ts`](../../../packages/shared/src/sprite/tiled.ts): `TiledPropertySchema =
   z.object({ name: z.string().min(1), type: z.enum(['string', 'int', 'float', 'bool', 'color', 'file']).default('string'),
   value: z.unknown() })`; `TiledObjectSchema` gains optional `properties`, `class` and `polyline: z.array(z.object({ x,
   y }))`; `TiledMapSchema` and both layer kinds gain optional `properties`. `buildTmj` output is byte-identical (no
   new keys written), so Sprites' tests and exports do not move.
-- [ ] `cellAt(map, px, py): { x: number; y: number } | null` in [`map-view.ts`](../../../packages/shared/src/sprite/map-view.ts),
+- [x] `cellAt(map, px, py): { x: number; y: number } | null` in [`map-view.ts`](../../../packages/shared/src/sprite/map-view.ts),
   the inverse of `cellOrigin` for both orientations (`null` off the map), with cases in `map-view.test.ts`.
-- [ ] Kit — engine-free net-new `templates/media-game/kit/core/level.js`
+- [x] Kit — engine-free net-new `templates/media-game/kit/core/level.js`
   - `currentLevel(fallback)` reads `?midnite-level=` (validated with the same regex; anything else → `fallback`);
     `levelUrl(name)` → `levels/${name}.tmj`; `fetchLevel(name)` → parsed JSON (a 404 rejects with `Level "<name>" not
     found in levels/.`).
@@ -292,7 +292,7 @@ keep editing scenes as code.
     `class`, as `tiled-objects.js` already does), `toWorld3d(entity, map)` → `{ position: [x, y | null, z], yaw, pitch,
     roll, scale, size: [x, y, z] }` (`y` null when `elevation` is absent: snap to ground).
   - `tiled-objects.js` is unchanged; `level.js` re-exports `tiledObjects` and `collisionGrid` so starters import one module.
-- [ ] Kit — engine builders
+- [x] Kit — engine builders
   - Net-new `kit/phaser/level.js`: `preloadLevel(scene, name)` (queues `levelUrl(name)` under key `level:<name>`);
     `buildLevel(scene, name, { render })` → `render: true` delegates to `buildTiledMap` (tile layers drawn, `collision`
     solid and hidden); `render: false` (layout mode, what the starters use — Decision 13) returns `{ map, grid(layer),
@@ -304,7 +304,7 @@ keep editing scenes as code.
     and gets a box collider of its bounds unless `collider: 'none'`; a `light` becomes a point light (`intensity`,
     `range`, `color` properties); a `path` returns its world XZ points; `elevation` absent → `heightAt(x, z)` (the
     terrain's sampler, from `kit/core/heightfield.js`) or `midnite.groundY`. Returns `{ spawns, entities, paths }`.
-- [ ] Kit — `goto` on the hook
+- [x] Kit — `goto` on the hook
   - [`hook.js`](../../../templates/media-game/kit/core/hook.js) default: `goto(name)` validates `name`, rewrites
     `location.search` with `midnite-level=<name>` (every other param, determinism included, kept) and
     `location.replace(...)`; returns `true`. Allowed by the runner's `will-navigate` guard (same scheme and host).
@@ -315,7 +315,7 @@ keep editing scenes as code.
     `GameStateSchema` gains `level: z.string().optional()`. `scene` keeps meaning the engine's scene key.
   - `KIT_VERSION` and `GAME_KIT_VERSION` → `'0.12.0'`; `kit-hash.json` regenerated (`kit-hash.test.ts` says how);
     `HOOK_VERSION` stays `1` — `goto` is additive and main feature-detects it.
-- [ ] Main — level ops in a net-new `packages/features/media-game/main/games/game-levels.ts`, exposed on the service
+- [x] Main — level ops in a net-new `packages/features/media-game/main/games/game-levels.ts`, exposed on the service
   - Every op resolves the game with `service.resolve(gameId)`, validates `scene` with `GameSceneNameSchema`, and confines
     every path to `<game>/levels/` (a resolved path outside it → `failure('That level is outside the game\'s levels
     folder.')`). Nothing throws.
@@ -333,7 +333,7 @@ keep editing scenes as code.
     other uncommitted work out of the commit; unchanged content makes no commit. Sends `gamesChanged { reason:
     'level' }` (`GamesChangedSchema` gains `'level'`). Answers `ok({ sha: string | null })`.
   - `goto(gameId, scene)` → runner `goto`, below.
-- [ ] Main — runner
+- [x] Main — runner
   - `RunnableGame.level?: string`; `gameEntryUrl` adds `midnite-level=<scene>` when set (with or without determinism).
   - `runner.goto(gameId, scene): Promise<GitOpResult<{ via: 'hook' | 'reload' | 'next-run' }>>` — not running →
     remember `nextLevel[gameId]` for the next `run` and answer `next-run` (picking a scene never starts a stopped game);
@@ -343,11 +343,11 @@ keep editing scenes as code.
     same way (the view is the same).
   - The watcher is unchanged: a level save hot-reloads a running game at its current URL, which is how an edit to the
     scene being played shows up (Decision 12).
-- [ ] IPC: `gamesLevels: 'mstudio:games:levels'`, `gamesLevelGet: 'mstudio:games:level-get'`, `gamesLevelSet:
+- [x] IPC: `gamesLevels: 'mstudio:games:levels'`, `gamesLevelGet: 'mstudio:games:level-get'`, `gamesLevelSet:
   'mstudio:games:level-set'`, `gamesGoto: 'mstudio:games:goto'` (channels, request schemas in `ipc/schemas.ts`, the
   `games.levels.{list,get,set}` and `games.goto` bridge methods, handlers in `media-game/main/index.ts`, the manifest's
   `ipc` list, Studio's preload and Gamer's bridge)
-- [ ] Tests (vitest)
+- [x] Tests (vitest)
   - Net-new `game-level.test.ts`: a Sprites `buildTmj` map parses as a 2D level; a 3D fixture parses with
     `dimension: '3d'`; an external tileset, an infinite map and a bad scene name each give their issue;
     `levelEntityToWorld` for point, rotated rectangle and `metresPerTile: 2` cases.
