@@ -27,6 +27,7 @@ import { NOTES_MEDIA_REVEALERS } from './companion/revealers/notes-media';
 import { TOOLS_REVEALERS } from './companion/revealers/tools';
 import { studioFollowUpReads } from './companion/follow-up-live';
 import { DEFAULT_SOURCES } from './companion/sources';
+import { gateRevealers, gateSources } from './companion/feature-gate';
 import { useFileEditorStore } from '../store/file-editor-store';
 import { openIssueModal } from '../store/issue-modal-store';
 import { SETTINGS_PAGES, useUiStore, type PersistedUi } from '../store/ui-store';
@@ -56,8 +57,8 @@ const STUDIO_REVEALERS = { ...GIT_REVEALERS, ...AGENT_REVEALERS, ...NOTES_MEDIA_
  */
 export const STUDIO_COMPANION_HOST: CompanionHost = {
   ui: useUiStore as unknown as CompanionHost['ui'],
-  revealers: STUDIO_REVEALERS,
-  sources: DEFAULT_SOURCES,
+  revealers: gateRevealers(STUDIO_REVEALERS),
+  sources: gateSources(DEFAULT_SOURCES, STUDIO_REVEALERS),
   followUp: studioFollowUpReads,
   catalog: {
     viewLabels: VIEW_LABELS,

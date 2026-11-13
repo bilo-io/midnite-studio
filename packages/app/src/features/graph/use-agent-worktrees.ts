@@ -1,7 +1,7 @@
 import type { ChatSummary, RepoDescriptor, TerminalSession } from '@midnite/studio-shared';
 import { useEffect, useMemo } from 'react';
 
-import type { ActiveAgentWorktreeSession } from '@midnite/studio-frame';
+import { useFeatureOn, type ActiveAgentWorktreeSession } from '@midnite/studio-frame';
 
 import { bridge } from '../../services/bridge';
 import { useRepos } from '../../services/queries';
@@ -39,15 +39,17 @@ export function activeChatWorktreeSessions(chats: readonly ChatSummary[]): Map<s
  */
 function useRunningChatWorktrees(): Map<string, ActiveAgentWorktreeSession> {
   const chats = useChatsStore((s) => s.list);
+  // Phase 135: with Chats switched off its IPC answers the error envelope, and no chat is running anyway.
+  const chatsOn = useFeatureOn('chats');
   useEffect(() => {
     const api = bridge();
-    if (!api) return undefined;
+    if (!api || !chatsOn) return undefined;
     void useChatsStore.getState().refreshList();
     return api.chats.onEvent((event) => {
       if (event.kind === 'chat' || event.kind === 'removed') void useChatsStore.getState().refreshList();
     });
-  }, []);
-  return useMemo(() => activeChatWorktreeSessions(chats), [chats]);
+  }, [chatsOn]);
+  return useMemo(() => (chatsOn ? activeChatWorktreeSessions(chats) : new Map<string, ActiveAgentWorktreeSession>()), [chats, chatsOn]);
 }
 
 /** Terminal sessions first (they were there first), then running chats. */

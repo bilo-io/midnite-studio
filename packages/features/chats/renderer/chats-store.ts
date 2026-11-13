@@ -232,6 +232,11 @@ export const useChatsStore = create<ChatsState>()((set, get) => ({
     if (get().listStatus === 'idle') set({ listStatus: 'loading' });
     try {
       const { chats } = await api.chats.list();
+      // Switched off in Settings ▸ Features (Phase 135), the channel answers the error envelope, not a list.
+      if (!Array.isArray(chats)) {
+        set({ listStatus: 'error' });
+        return;
+      }
       set({ list: chats, listStatus: 'ready' });
     } catch {
       set({ listStatus: 'error' });
