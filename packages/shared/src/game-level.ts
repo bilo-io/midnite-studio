@@ -185,10 +185,23 @@ export const GameLevelsResultSchema = z.object({
 export type GameLevelsResult = z.infer<typeof GameLevelsResultSchema>;
 
 export const GameLevelGetRequestSchema = z.object({ gameId: z.string().min(1), scene: GameSceneNameSchema });
+/** A 3D level's terrain, only as an extent: the pack's bounds in metres (X right, Z down) and its drape image when it carries one. */
+export const GameLevelTerrainSchema = z.object({
+  name: z.string(),
+  minX: z.number(),
+  minZ: z.number(),
+  maxX: z.number(),
+  maxZ: z.number(),
+  preview: z.string().nullable(),
+});
+export type GameLevelTerrain = z.infer<typeof GameLevelTerrainSchema>;
+
 export const GameLevelGetResultSchema = z.object({
   level: z.unknown(),
   issues: z.array(IssueSchema),
   images: z.array(z.object({ path: z.string(), dataUrl: z.string() })),
+  /** Set for a 3D level whose `midnite.terrain` names a terrain pack that can be read (Phase 132 Theme E). */
+  terrain: GameLevelTerrainSchema.nullable().optional(),
 });
 export type GameLevelGetResult = z.infer<typeof GameLevelGetResultSchema>;
 

@@ -5,6 +5,9 @@ import { buildBlankLevel } from './new-scene-model';
 
 export const blankLevel = () => buildBlankLevel({ width: 4, height: 3, tilewidth: 32, tileheight: 32, orientation: 'orthogonal', baseLayer: 'ground' });
 
+/** A 20 x 20 m plan (640 px at 32 px a tile, one metre a tile) with the template's spawn at its centre, (336, 336) px. */
+export const blankLevel3d = () => buildBlankLevel({ width: 20, height: 20, tilewidth: 32, tileheight: 32, orientation: 'orthogonal', baseLayer: null });
+
 export const newClient = () => new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
 
 type Bridge = {

@@ -79,7 +79,7 @@ first, then **B** and **C** in parallel, then **D**, **F**, **G**, then **E**, t
 
 **Theme D — 2D tile and entity editor, and the scene picker.** ✅ (part) The Level editor tab is a canvas editor over a pure edit model (`level-edit-model.ts`: paint, erase, rectangle, pick, entities, typed properties, layers, a 100-step undo where a drag is one step, `serialise` keeping fields it never touched). It draws with Sprites' `map-view.ts` and hit-tests with `cellAt`, isometric included; wheel zoom 0.25x-8x, Space or middle-drag pan; B/E/R/I/O/V and Mod+Z act only with the canvas focused. A layer list, tile palette, entity palette and inspector sit around it; Save is one `level-set` commit, no autosave. The scene picker sits in B's `sceneSlot`: picking opens the level and calls `goto`, a dirty level asks Save/Discard/Cancel, `next-run` says so; the open level and its undo live in a per-game store. New scene makes a blank level by perspective and can opt the game into `levels.start`. A tileset image that is missing does not make a level read-only (only a parse issue does); 3D levels open read-only until E. Not done: **Start from a map asset** (no renderer read for `assets/map/`), the one e2e (not run in this pass), and the canvas look, which stays a human check in H.
 
-**Theme E — 3D placement editor.** ◻ The same canvas in plan view for first-person, third-person and the 3D genres: place, move and rotate entities and volumes, edit elevation, size, model and collider, with the terrain kept separate and shown only as an extent.
+**Theme E — 3D placement editor.** ✅ The Level editor tab opens a 3D level (`midnite.dimension` `3d`) in plan view on the same canvas, edit model and picker: tile tools, the tile palette and the Tile layer button give way to **Select / Move** (V), **Place** (O), **Volume** (R, drag a rectangle into a `prop` box with `sizeY` 3), **Path** (P, click points, Enter finishes a polyline `path`) and **Rotate** (Y, drag around the object, Shift snaps to 15°). Yaw is Tiled's own `rotation`, turned about the footprint's centre so its world position does not move. The canvas draws a metre grid (1 m lines, every tenth bold, thinned when zoomed out), footprints as rotated rectangles with a yaw tick, and the terrain only as a dashed outline over its drape image: `levelGet` gained an optional `terrain` (`game-level-terrain.ts` reads `assets/index.json`, the pack's `terrain.manifest.json` bounds and its drape, confined to the game). The inspector adds elevation (empty snaps to ground), sizeY, pitch, roll, scale, a model select over the game's `model` assets, collider, a light's intensity, range and colour, and a read-only world position from `levelEntityToWorld`. New scene makes a 3D scene (80 × 80 m, objects layer with one spawn, `3d` dimension, one metre a tile); the read-only banner for 3D is gone (only a non-orthogonal 3D level stays read-only). Tests: the 3D model ops, plan geometry, the editor's 3D tools and inspector, `readLevelTerrain`, and an agreement test that the editor's placements map to the same world position in `levelEntityToWorld` and the kit's `toWorld3d`. Not done: the canvas look and the human pass on a third-person game, which stay in H.
 
 **Theme F — Starters read their levels from files.** ✅ Every base and 3D genre scene builds from `levels/level.tmj` (2D scenes extend `KitLevelScene`, preload the file and read it from the tilemap cache; 3D scenes `buildLevel3d` it and re-skin the boxes by name), keeping their procedural textures, lights and juice. fps and crime moved their ASCII and city rule into the file, rts reads `home`, `enemy-home` and `mineral` objects, and shooter and soulslike read their spawns, bonfire and boss. `composeStarter` writes the 2D palette image, `createGame` sets `levels: { dir: 'levels', start: 'level' }` in the manifest, and existing games are untouched. The palette PNG is never committed (Decision 18). Not done: the visual "unchanged" check (Theme H), `arpg` (procedural dungeon), rts ridges and the shooter's extra crates (still code).
 
@@ -437,21 +437,21 @@ keep editing scenes as code.
 
 ### E — 3D placement editor [M · 2-4h]
 
-- [ ] `level-editor.tsx` switches to plan-view placement mode when `parseGameLevel` says `dimension: '3d'`; tile tools
+- [x] `level-editor.tsx` switches to plan-view placement mode when `parseGameLevel` says `dimension: '3d'`; tile tools
   and the tileset palette are hidden (a 3D level has object layers only — Decision 3).
-- [ ] Canvas: a metres grid (1 m lines, 10 m bold) from `midnite.metresPerTile`; +X right, +Z down, as seen from above;
+- [x] Canvas: a metres grid (1 m lines, 10 m bold) from `midnite.metresPerTile`; +X right, +Z down, as seen from above;
   an outline of the terrain's extent when `midnite.terrain` names a terrain asset whose pack manifest gives one (and the
   pack's preview image under it when the pack carries one — the builder checks the pack format, and draws only the
   outline otherwise). Entities draw as footprints (rectangles) or markers (points) with a yaw tick.
-- [ ] Tools: **Select/Move** (`V`, drag), **Place** (`O`, point entities from `GAME_LEVEL_ENTITY_TYPES_3D`), **Volume**
+- [x] Tools: **Select/Move** (`V`, drag), **Place** (`O`, point entities from `GAME_LEVEL_ENTITY_TYPES_3D`), **Volume**
   (`R`, drag a rectangle → a `prop` box, `sizeY` 3 m), **Path** (`P`, click points, Enter to finish → a polyline
   `path`), **Rotate** (drag around the entity; 15° steps with Shift). Yaw writes Tiled's own `rotation`.
-- [ ] Inspector adds: elevation (m; empty = snap to ground), sizeY (m), pitch, roll (degrees), scale, model (a select of
+- [x] Inspector adds: elevation (m; empty = snap to ground), sizeY (m), pitch, roll (degrees), scale, model (a select of
   this game's `model` assets from `manifest.assets`; empty = box), collider (`box` / `none`), and for `light`:
   intensity, range, colour. World coordinates read-only, from shared `levelEntityToWorld`, so what the inspector says
   is what the kit builds.
-- [ ] `level-edit-model.ts` 3D ops: `rotateObject` (snap), `setVolume`, `addPathPoint` / `finishPath`, all undoable.
-- [ ] Tests (vitest): model cases (yaw ↔ `rotation` sign, snap, volume default `sizeY`, path finish); an inspector
+- [x] `level-edit-model.ts` 3D ops: `rotateObject` (snap), `setVolume`, `addPathPoint` / `finishPath`, all undoable.
+- [x] Tests (vitest): model cases (yaw ↔ `rotation` sign, snap, volume default `sizeY`, path finish); an inspector
   case that the world position shown equals `levelEntityToWorld`; the editor hides tile tools for a 3D level.
 
 ### F — Starters read their levels from files [L · 4-8h]

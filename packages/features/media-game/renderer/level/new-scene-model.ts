@@ -2,10 +2,18 @@ import { GameSceneNameSchema, GAME_LEVEL_PROPS, TILED_APP_VERSION, TILED_VERSION
 
 import { cellCentre, type EditLevel } from './level-edit-model';
 
-export type SceneDefaults = { width: number; height: number; tilewidth: number; tileheight: number; orientation: 'orthogonal' | 'isometric'; baseLayer: 'ground' | 'walls' };
+export type SceneDefaults = {
+  width: number;
+  height: number;
+  tilewidth: number;
+  tileheight: number;
+  orientation: 'orthogonal' | 'isometric';
+  /** `null` for a 3D scene: it has object layers only (Decision 3). */
+  baseLayer: 'ground' | 'walls' | null;
+};
 
-/** A new 2D scene's size, tile size and orientation by the game's perspective (Phase 132 Theme D). `null` for 3D ones (Theme E). */
-export function sceneDefaults(perspective: GamePerspective | null | undefined): SceneDefaults | null {
+/** A new scene's size, tile size and orientation by the game's perspective (Phase 132 Themes D and E). A 3D scene is 80 x 80 tiles of 32 px at one metre a tile. */
+export function sceneDefaults(perspective: GamePerspective | null | undefined): SceneDefaults {
   switch (perspective) {
     case 'platformer':
       return { width: 50, height: 17, tilewidth: 32, tileheight: 32, orientation: 'orthogonal', baseLayer: 'ground' };
@@ -15,7 +23,7 @@ export function sceneDefaults(perspective: GamePerspective | null | undefined): 
       return { width: 24, height: 12, tilewidth: 64, tileheight: 64, orientation: 'orthogonal', baseLayer: 'walls' };
     case 'first-person':
     case 'third-person':
-      return null;
+      return { width: 80, height: 80, tilewidth: 32, tileheight: 32, orientation: 'orthogonal', baseLayer: null };
     default:
       return { width: 40, height: 30, tilewidth: 32, tileheight: 32, orientation: 'orthogonal', baseLayer: 'ground' };
   }
@@ -28,8 +36,8 @@ export function validateSceneName(name: string, existing: readonly string[]): st
   return existing.includes(name) ? `A scene named "${name}" already exists.` : null;
 }
 
-/** A blank scene: a base tile layer, a `collision` tile layer and an `objects` layer with one `spawn`. No tileset (the template's palette is Theme F's). */
-export function buildBlankLevel(input: { width: number; height: number; tilewidth: number; tileheight: number; orientation: 'orthogonal' | 'isometric'; baseLayer: 'ground' | 'walls' }): EditLevel {
+/** A blank scene: a base tile layer, a `collision` tile layer and an `objects` layer with one `spawn` (a 3D scene has the objects layer only, plus its dimension and scale). No tileset (the template's palette is Theme F's). */
+export function buildBlankLevel(input: { width: number; height: number; tilewidth: number; tileheight: number; orientation: 'orthogonal' | 'isometric'; baseLayer: 'ground' | 'walls' | null }): EditLevel {
   const { width, height, tilewidth, tileheight, orientation } = input;
   const tileLayer = (id: number, name: string) => ({ id, name, type: 'tilelayer', x: 0, y: 0, width, height, opacity: 1, visible: true, data: new Array<number>(width * height).fill(0) });
   const centre = cellCentre({ orientation, height, tilewidth, tileheight }, { x: Math.floor(width / 2), y: Math.floor(height / 2) });
@@ -47,8 +55,7 @@ export function buildBlankLevel(input: { width: number; height: number; tilewidt
     nextlayerid: 4,
     nextobjectid: 2,
     layers: [
-      tileLayer(1, input.baseLayer),
-      tileLayer(2, 'collision'),
+      ...(input.baseLayer === null ? [] : [tileLayer(1, input.baseLayer), tileLayer(2, 'collision')]),
       {
         id: 3,
         name: 'objects',
@@ -62,7 +69,15 @@ export function buildBlankLevel(input: { width: number; height: number; tilewidt
       },
     ],
     tilesets: [],
-    properties: [{ name: GAME_LEVEL_PROPS.level, type: 'int', value: 1 }],
+    properties: [
+      { name: GAME_LEVEL_PROPS.level, type: 'int', value: 1 },
+      ...(input.baseLayer === null
+        ? [
+            { name: GAME_LEVEL_PROPS.dimension, type: 'string', value: '3d' },
+            { name: GAME_LEVEL_PROPS.metresPerTile, type: 'float', value: 1 },
+          ]
+        : []),
+    ],
   } as EditLevel;
 }
 

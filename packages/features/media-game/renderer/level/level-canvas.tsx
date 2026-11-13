@@ -2,7 +2,11 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerE
 
 import { cellAt, cellOrigin, collisionAt, collisionLayer, mapPixelSize, readTmj, sourceRect, tileOf, type TmjTileLayer } from '@midnite/studio-shared';
 
-import { objectToMapPoint, mapPointToObject, type Cell, type EditLevel, type EditSelection, type LevelObject } from './level-edit-model';
+import type { GameLevelTerrain } from '@midnite/studio-shared';
+
+import { objectToMapPoint, mapPointToObject, type Cell, type EditLevel, type EditSelection, type LevelObject, type PlanPoint } from './level-edit-model';
+import { hitPlan, levelMetresPerTile, planBounds } from './level-plan';
+import { drawPlan, type PlanOverlay } from './level-plan-draw';
 import { fitView, screenToMap, zoomAround, type View } from './level-view';
 
 /**
@@ -20,7 +24,24 @@ export type CanvasPointer = {
   /** The object under the pointer, if any (topmost layer first). */
   hit: NonNullable<EditSelection> | null;
   alt: boolean;
+  shift: boolean;
 };
+
+/** Plan view (Theme E): a 3D level drawn from above, with the terrain's extent and what the tools are drawing. */
+export type PlanView = { terrain: GameLevelTerrain | null; draft: readonly PlanPoint[]; volume: { from: PlanPoint; to: PlanPoint } | null };
+
+/** The terrain's drape image, redrawing once it arrives. */
+function useTerrainImage(preview: string | null | undefined): { image: HTMLImageElement | null; loaded: number } {
+  const [loaded, setLoaded] = useState(0);
+  const image = useMemo(() => {
+    if (!preview) return null;
+    const img = new Image();
+    img.onload = () => setLoaded((n) => n + 1);
+    img.src = preview;
+    return img;
+  }, [preview]);
+  return { image, loaded };
+}
 
 export const OBJECT_COLOURS: Record<string, string> = { spawn: '#22c55e', exit: '#3b82f6' };
 const NEUTRAL = '#e5e7eb';
@@ -80,6 +101,7 @@ export function LevelCanvas({
   onPointer,
   onKeyDown,
   label,
+  plan,
 }: {
   level: EditLevel;
   images: ReadonlyArray<{ path: string; dataUrl: string }>;
@@ -90,14 +112,25 @@ export function LevelCanvas({
   onPointer: (event: CanvasPointer) => void;
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
   label: string;
+  /** Set for a 3D level: the canvas draws the plan view instead of tiles. */
+  plan?: PlanView;
 }) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const tmj = useMemo(() => readTmj(level), [level]);
   const { map: tilesetImages, loaded } = useTilesetImages(images);
   const [size, setSize] = useState({ width: 640, height: 400 });
-  const [view, setView] = useState<View>(() => fitView({ width: 640, height: 400 }, mapPixelSize(level).width, mapPixelSize(level).height));
+  /** What the first fit frames: the map, or for a plan its real bounds (a level may sit at negative pixels). */
+  const frame = (box: { width: number; height: number }): View => {
+    if (!plan) return fitView(box, mapPixelSize(level).width, mapPixelSize(level).height);
+    const b = planBounds(level, plan.terrain);
+    const v = fitView(box, b.maxX - b.minX, b.maxY - b.minY);
+    return { ...v, x: v.x - b.minX * v.zoom, y: v.y - b.minY * v.zoom };
+  };
+  const [view, setView] = useState<View>(() => frame({ width: 640, height: 400 }));
   const [hover, setHover] = useState<Cell | null>(null);
+  const [cursor, setCursor] = useState<PlanPoint | null>(null);
+  const { image: terrainImage, loaded: terrainLoaded } = useTerrainImage(plan?.terrain?.preview);
   const space = useRef(false);
   const pan = useRef<{ sx: number; sy: number; view: View } | null>(null);
   const tool = useRef(false);
@@ -112,8 +145,7 @@ export function LevelCanvas({
       // The first real measurement fits the map; later resizes keep the user's view.
       if (!fitted.current) {
         fitted.current = true;
-        const px = mapPixelSize(level);
-        setView(fitView({ width, height }, px.width, px.height));
+        setView(frame({ width, height }));
       }
     });
     ro.observe(el);
@@ -142,6 +174,11 @@ export function LevelCanvas({
         ctx.closePath();
       } else ctx.rect(o.x, o.y, tmj.tilewidth, tmj.tileheight);
     };
+    if (plan) {
+      const overlay: PlanOverlay = { terrain: plan.terrain, terrainImage, draft: plan.draft, cursor: plan.draft.length > 0 ? cursor : null, volume: plan.volume };
+      drawPlan(ctx, { level, view, selection, overlay, outline, text });
+      return;
+    }
     const pixel = mapPixelSize(tmj);
     ctx.strokeStyle = 'rgba(128,128,128,0.35)';
     ctx.lineWidth = 1 / view.zoom;
@@ -212,7 +249,7 @@ export function LevelCanvas({
       cellPath(c.x, c.y);
       ctx.stroke();
     }
-  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection]);
+  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection, plan, terrainImage, terrainLoaded, cursor]);
 
   const local = (e: { clientX: number; clientY: number }) => {
     const rect = canvas.current?.getBoundingClientRect();
@@ -223,8 +260,18 @@ export function LevelCanvas({
     const { sx, sy } = local(e);
     const p = screenToMap(view, sx, sy);
     const cell = cellAt(level, p.x, p.y);
-    if (phase === 'move') setHover(cell);
-    onPointer({ phase, cell, object: mapPointToObject(level, p.x, p.y), hit: hitObject(level, p, view.zoom), alt: e.altKey });
+    if (phase === 'move') {
+      setHover(cell);
+      if (plan) setCursor({ x: p.x, y: p.y });
+    }
+    onPointer({
+      phase,
+      cell,
+      object: plan ? { x: p.x, y: p.y } : mapPointToObject(level, p.x, p.y),
+      hit: plan ? hitPlan(level, p, view.zoom) : hitObject(level, p, view.zoom),
+      alt: e.altKey,
+      shift: e.shiftKey,
+    });
   };
 
   const onDown = (e: ReactPointerEvent<HTMLCanvasElement>) => {
@@ -294,7 +341,7 @@ export function LevelCanvas({
         onAuxClick={(e) => e.preventDefault()}
       />
       <span className="pointer-events-none absolute bottom-1 right-2 text-[11px] tabular-nums text-muted-foreground" data-testid="level-zoom">
-        {level.width} × {level.height} · {Math.round(view.zoom * 100)}%
+        {plan ? `${level.width * levelMetresPerTile(level)} × ${level.height * levelMetresPerTile(level)} m` : `${level.width} × ${level.height}`} · {Math.round(view.zoom * 100)}%
       </span>
     </div>
   );
