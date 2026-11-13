@@ -551,7 +551,7 @@ keep editing scenes as code.
 | [`games-root-section.tsx`](../../../packages/app/src/features/settings/settings-pages/games-root-section.tsx) | B | edited — the pause switch |
 | `templates/media-game/kit/core/level.js` · `kit/phaser/level.js` · `kit/three/level.js` | C | **net-new** |
 | [`kit/core/hook.js`](../../../templates/media-game/kit/core/hook.js) · [`kit/phaser/boot.js`](../../../templates/media-game/kit/phaser/boot.js) · [`kit/three/loop.js`](../../../templates/media-game/kit/three/loop.js) | C | edited — `goto`, `level` in state, `KIT_VERSION` |
-| `templates/media-game/{bases,genres}/*/levels/level.tmj` · `common/levels/palette.png` | F | **net-new** |
+| `templates/media-game/{bases,genres}/*/levels/level.tmj` · `main/games/level-palette.ts` (the palette image, generated at scaffold, never committed) | F | **net-new** |
 | `templates/media-game/{bases,genres}/*/src/scenes/level.js` · `genres/{fps,crime}/src/genre/*` | F | edited — build from the file |
 | [`game-scaffold.ts`](../../../packages/features/media-game/main/games/game-scaffold.ts) · [`compose.ts`](../../../packages/features/media-game/main/games/compose.ts) | F | edited — `levels` in the manifest, copy `levels/` |
 | `.claude/` · `.agents/` · `.codex/` · `templates/media-game/` `skills/midnite-media-game-build/SKILL.md` | G | edited (same edit ×4) |
