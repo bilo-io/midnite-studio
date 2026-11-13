@@ -1,6 +1,11 @@
 import type { CouncilsHost } from '@midnite/studio-feature-councils/renderer';
 
+import { AiComposer, ProviderModelPicker } from '../components/ai-thread';
+import { resolveAgentIcon } from '../components/icons';
 import { useOccluder } from '../components/use-occluder';
+import { MarkdownBody } from '../features/markdown/markdown-body';
+import { MEDIA_PROMPT_BOX } from '../features/media/prompt-input';
+import { useAgents } from '../features/terminal/use-agents';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../store/ui-store';
 
 /**
@@ -10,6 +15,7 @@ import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../store/ui-store';
  * (`layout.councilNavWidth`, `layout.councilConfigWidth`,
  * `councilConfigCollapsed`), so moving the feature into a package changed no
  * stored key, and the occluder count is the one the embedded browser watches.
+ * The AI-thread kit (Phase 133) is the same set the Chats host installs.
  */
 export const STUDIO_COUNCILS_HOST = {
   useLayout: () => {
@@ -35,4 +41,10 @@ export const STUDIO_COUNCILS_HOST = {
     };
   },
   useOccluder,
+  AiComposer,
+  composerBoxClassName: MEDIA_PROMPT_BOX,
+  ProviderModelPicker,
+  MarkdownBody,
+  useAgentRoster: () => useAgents(),
+  resolveAgentIcon,
 } satisfies CouncilsHost;

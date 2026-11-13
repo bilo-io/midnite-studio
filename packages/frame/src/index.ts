@@ -574,3 +574,19 @@ export { MonitorMetricsSection, SuiteMonitorPage } from './settings/suite-monito
 export { useSyncedView } from './shell/use-synced-view';
 export { ModuleViewRouter, type ModulePane } from './shell/module-view-router';
 export { SuiteAppShell, SUITE_APP_SETTINGS_PAGES, suiteAppSettingsPages, type SuiteAppShellProps } from './shell/suite-app-shell';
+
+// The AI-thread presentational kit Chats and Councils share (Phase 133 Theme C).
+export {
+  CHAT_COLUMN,
+  CHAT_FULL_GUTTER,
+  CHAT_GUTTER,
+  CHAT_WIDTH_GLIDE,
+  chatThreadColumn,
+  chatThreadGutter,
+  copyText,
+  CopyButton,
+  isNearBottom,
+  NEAR_BOTTOM_PX,
+  scrollToBottom,
+  threadMotionReduced,
+} from './chat';

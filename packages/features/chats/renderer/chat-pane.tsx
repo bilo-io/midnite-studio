@@ -9,11 +9,10 @@ import { ChatComposer, type ChatSettings } from './chat-composer';
 import { ChatEmptyState } from './chat-empty-state';
 import { ChatThread } from './chat-thread';
 import { ChatWidthToggle } from './chat-width-toggle';
-import { CHAT_COLUMN, CHAT_GUTTER } from './chat-column';
 import { isStreaming, useChatsStore } from './chats-store';
 import { pickEngine, useChatEngines, wireModel, type ChatEngine } from './use-chat-engines';
 import { useChatFiles, useChatSkills } from './use-composer-sources';
-import { ExplorerNotice, useFrameChrome, useToastStore } from '@midnite/studio-frame';
+import { CHAT_COLUMN, CHAT_GUTTER, ExplorerNotice, useFrameChrome, useToastStore } from '@midnite/studio-frame';
 import { Tooltip } from './ui';
 import { useChatsHost } from './host';
 

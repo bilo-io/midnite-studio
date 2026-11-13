@@ -6,6 +6,9 @@
  * Not for production code: an app composes the feature through
  * `@midnite/studio-feature-councils/renderer` and nothing else.
  */
-export { CouncilCreateDialog } from './council-create-dialog';
+export { CouncilCreateDialog, NewCouncilDialog } from './council-create-dialog';
+export { CouncilComposer } from './council-composer';
+export { CouncilRunList } from './council-run-list';
+export { CouncilRunView, turnsOf } from './council-thread';
 export { CouncilsView } from './councils-view';
 export { CouncilConfigPanel } from './council-config-panel';
