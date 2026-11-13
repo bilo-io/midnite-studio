@@ -20,7 +20,14 @@ export type CouncilsStore = {
   save: (councils: readonly Council[]) => Promise<void>;
 };
 
-type StoredState = { version: 1; councils: unknown[] };
+/**
+ * v2 (Phase 134 Theme A): each council carries a `synthesisType`. A v1 file
+ * is migrated on load — every council becomes a brainstorm, which is what it
+ * always was — and written back as v2 on the next save.
+ */
+export const COUNCILS_STORE_VERSION = 2;
+
+type StoredState = { version: typeof COUNCILS_STORE_VERSION; councils: unknown[] };
 
 export function createCouncilsStore(directory: string): CouncilsStore {
   const file = join(directory, FILE_NAME);
@@ -38,7 +45,7 @@ export function createCouncilsStore(directory: string): CouncilsStore {
     },
 
     save: async (councils) => {
-      const state: StoredState = { version: 1, councils: [...councils] };
+      const state: StoredState = { version: COUNCILS_STORE_VERSION, councils: [...councils] };
       try {
         await writeFile(file, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
       } catch {
@@ -52,15 +59,21 @@ export function createCouncilsStore(directory: string): CouncilsStore {
 /** Exported for the store's own tests; drops one bad entry rather than the file. */
 export function parseStoredCouncils(value: unknown): Council[] {
   if (typeof value !== 'object' || value === null) return [];
-  const councils = (value as { councils?: unknown }).councils;
+  const { councils, version } = value as { councils?: unknown; version?: unknown };
   if (!Array.isArray(councils)) return [];
 
   const result: Council[] = [];
   for (const entry of councils) {
-    const parsed = CouncilSchema.safeParse(entry);
+    const parsed = CouncilSchema.safeParse(typeof version === 'number' && version < 2 ? migrateV1Council(entry) : entry);
     if (parsed.success) result.push(parsed.data);
   }
   return result;
+}
+
+/** v1 → v2: a council from before synthesis types is a brainstorm. */
+export function migrateV1Council(entry: unknown): unknown {
+  if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return entry;
+  return { synthesisType: 'brainstorm', ...(entry as Record<string, unknown>) };
 }
 
 /** A store that remembers nothing — the fallback before one is configured. */

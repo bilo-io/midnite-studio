@@ -2773,6 +2773,8 @@ export function buildMockBridge(data: MockFixtures) {
         members?: unknown[];
         synthProvider?: string;
         synthModel?: string;
+        synthesisType?: string;
+        synthInstructions?: string;
       }) => {
         const now = Date.now();
         const council = {
@@ -2799,21 +2801,24 @@ export function buildMockBridge(data: MockFixtures) {
               provider: 'opencode' as const,
               role: 'Focus on what is achievable.',
             },
-            {
-              id: 'm4',
-              name: 'Visionary',
-              provider: 'agy' as const,
-              role: 'Ignore near-term constraints.',
-            },
           ],
           synthProvider: req.synthProvider ?? 'agy',
+          synthesisType: req.synthesisType ?? 'brainstorm',
+          ...(req.synthInstructions === undefined ? {} : { synthInstructions: req.synthInstructions }),
           createdAt: now,
           updatedAt: now,
         };
         councils = [...councils, council];
         return { ok: true as const, value: council };
       },
-      updateMembers: async (req: { id: string; members: unknown[]; synthProvider: string; synthModel?: string }) => {
+      updateMembers: async (req: {
+        id: string;
+        members: unknown[];
+        synthProvider: string;
+        synthModel?: string;
+        synthesisType?: string;
+        synthInstructions?: string;
+      }) => {
         const index = councils.findIndex((c) => c.id === req.id);
         const existing = councils[index];
         // `noUncheckedIndexedAccess` types `councils[index]` as possibly
@@ -2824,11 +2829,15 @@ export function buildMockBridge(data: MockFixtures) {
         // field of `updated` optional, `id` included.
         if (index === -1 || !existing)
           return { ok: false as const, kind: 'error' as const, message: 'Council not found.' };
+        // Main's rule: an absent type keeps the council's, absent instructions fall back to the preset's.
+        const { synthInstructions: _instructions, ...rest } = existing;
         const updated: { id: string; [key: string]: unknown } = {
-          ...existing,
+          ...rest,
           members: req.members,
           synthProvider: req.synthProvider,
           synthModel: req.synthModel,
+          ...(req.synthesisType === undefined ? {} : { synthesisType: req.synthesisType }),
+          ...(req.synthInstructions === undefined ? {} : { synthInstructions: req.synthInstructions }),
           updatedAt: Date.now(),
         };
         councils = [...councils.slice(0, index), updated, ...councils.slice(index + 1)];
@@ -2945,6 +2954,21 @@ export function buildMockBridge(data: MockFixtures) {
             { name: 'Critic', role: 'Find the strongest objection.', provider: 'claude' as const },
             { name: 'Builder', role: 'Say what it would take to ship.', provider: 'agy' as const },
           ],
+        },
+      }),
+      /** "Generate with AI" (Phase 134 Theme E): fixed instructions and members, sized to the count asked for. */
+      generate: async (req: { name: string; count: number }) => ({
+        ok: true as const,
+        value: {
+          instructions: `Combine the panel's answers on ${req.name} into one plan, ranked by impact.`,
+          members: [
+            { name: 'Strategist', role: 'Set the direction.', provider: 'claude' as const, model: 'haiku-4-5' },
+            { name: 'Operator', role: 'Say how it runs day to day.', provider: 'agy' as const, model: 'gemini-3.8-flash-low' },
+            { name: 'Auditor', role: 'Check the numbers.', provider: 'agy' as const },
+            { name: 'Designer', role: 'Shape the experience.', provider: 'claude' as const },
+            { name: 'Analyst', role: 'Read the data.', provider: 'agy' as const },
+            { name: 'Advocate', role: 'Speak for the user.', provider: 'claude' as const },
+          ].slice(0, Math.max(2, Math.min(6, req.count))),
         },
       }),
     },

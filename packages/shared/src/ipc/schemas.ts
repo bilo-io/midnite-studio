@@ -294,7 +294,13 @@ import { SuiteAppIdSchema } from '../suite-apps';
 import {
   CouncilMemberProviderSchema,
   CouncilMemberSchema,
+  CouncilAvailableProviderSchema,
+  CouncilGeneratedSchema,
   CouncilRecommendationSchema,
+  CouncilSynthesisTypeSchema,
+  COUNCIL_PRO_MEMBERS,
+  COUNCIL_MIN_MEMBERS,
+  COUNCIL_SYNTH_INSTRUCTIONS_MAX,
   CouncilRunSchema,
   CouncilSchema,
 } from '../council';
@@ -2241,6 +2247,9 @@ export const CouncilCreateRequest = z.object({
   members: z.array(CouncilMemberSchema).optional(),
   synthProvider: CouncilMemberProviderSchema.optional(),
   synthModel: z.string().min(1).optional(),
+  /** Phase 134 Theme A: the synthesis type and its instructions; absent is brainstorm with the preset's own. */
+  synthesisType: CouncilSynthesisTypeSchema.optional(),
+  synthInstructions: z.string().max(COUNCIL_SYNTH_INSTRUCTIONS_MAX).optional(),
 });
 export const CouncilCreateResponse = GitOpResultOf(CouncilSchema);
 
@@ -2250,6 +2259,10 @@ export const CouncilUpdateMembersRequest = z.object({
   synthProvider: CouncilMemberProviderSchema,
   /** Absent clears it back to the CLI's default. */
   synthModel: z.string().min(1).optional(),
+  /** Phase 134 Theme A. Absent keeps the council's current type. */
+  synthesisType: CouncilSynthesisTypeSchema.optional(),
+  /** Absent clears it back to the preset's own instructions. */
+  synthInstructions: z.string().max(COUNCIL_SYNTH_INSTRUCTIONS_MAX).optional(),
 });
 export const CouncilUpdateMembersResponse = GitOpResultOf(CouncilSchema);
 
@@ -2297,8 +2310,23 @@ export const CouncilRecommendRequest = z.object({
   brief: z.string().max(2_000).optional(),
   /** The providers installed here, in the order to try them; absent tries every council provider. */
   providers: z.array(CouncilMemberProviderSchema).optional(),
+  /** The most members to propose: the member cap (Phase 134 Theme D/F); absent is 5. */
+  maxMembers: z.number().int().min(COUNCIL_MIN_MEMBERS).max(COUNCIL_PRO_MEMBERS).optional(),
+  /** The catalogue models each provider may use; a model outside them is dropped. */
+  models: z.array(CouncilAvailableProviderSchema).max(8).optional(),
 });
 export const CouncilRecommendResponse = GitOpResultOf(CouncilRecommendationSchema);
+
+/** "Generate with AI" for a Custom council (Phase 134 Theme E). */
+export const CouncilGenerateRequest = z.object({
+  name: z.string().min(1).max(120),
+  /** The prompt or brief the council is for. */
+  topic: z.string().max(2_000).optional(),
+  count: z.number().int().min(COUNCIL_MIN_MEMBERS).max(COUNCIL_PRO_MEMBERS),
+  /** The installed providers, fastest first, and the catalogue models each may use. */
+  providers: z.array(CouncilAvailableProviderSchema).min(1).max(8),
+});
+export const CouncilGenerateResponse = GitOpResultOf(CouncilGeneratedSchema);
 
 // --- FAB loop runs (Phase 35) ------------------------------------------------
 

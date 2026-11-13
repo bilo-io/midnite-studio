@@ -2,7 +2,7 @@ import { defineFeatureMain } from '@midnite/studio-runtime';
 import { CHANNELS, failure, ok, schemas } from '@midnite/studio-shared';
 
 import { councilsManifest } from '../manifest';
-import { recommendCouncil } from './council-recommend';
+import { generateCouncil, recommendCouncil } from './council-recommend';
 import {
   cancelRun,
   configureCouncilRunner,
@@ -75,16 +75,19 @@ export const councilsMain = defineFeatureMain<CouncilsMainServices>({
     ipc.handle(
       CHANNELS.councilCreate,
       schemas.CouncilCreateRequest,
-      async ({ name, description, members, synthProvider, synthModel }) =>
-        ok(await createCouncil(name, description, { members, synthProvider, synthModel })),
+      async ({ name, description, members, synthProvider, synthModel, synthesisType, synthInstructions }) =>
+        ok(await createCouncil(name, description, { members, synthProvider, synthModel, synthesisType, synthInstructions })),
       (issue) => failure(issue),
     );
 
     ipc.handle(
       CHANNELS.councilUpdateMembers,
       schemas.CouncilUpdateMembersRequest,
-      async ({ id, members, synthProvider, synthModel }) => {
-        const updated = await updateCouncilMembers(id, members, synthProvider, synthModel);
+      async ({ id, members, synthProvider, synthModel, synthesisType, synthInstructions }) => {
+        const updated = await updateCouncilMembers(id, members, synthProvider, synthModel, {
+          type: synthesisType,
+          instructions: synthInstructions,
+        });
         return updated ? ok(updated) : failure('Council not found.');
       },
       (issue) => failure(issue),
@@ -156,6 +159,13 @@ export const councilsMain = defineFeatureMain<CouncilsMainServices>({
       CHANNELS.councilRecommend,
       schemas.CouncilRecommendRequest,
       async (request) => recommendCouncil(request),
+      (issue) => failure(issue),
+    );
+
+    ipc.handle(
+      CHANNELS.councilGenerate,
+      schemas.CouncilGenerateRequest,
+      async (request) => generateCouncil(request),
       (issue) => failure(issue),
     );
   },

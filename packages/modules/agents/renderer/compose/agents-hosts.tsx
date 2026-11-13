@@ -144,6 +144,7 @@ export const AGENTS_COUNCILS_HOST = {
   MarkdownBody: AGENTS_CHATS_HOST.MarkdownBody,
   useAgentRoster: AGENTS_CHATS_HOST.useAgentRoster,
   resolveAgentIcon: AGENTS_CHATS_HOST.resolveAgentIcon,
+  openExternal,
 } satisfies CouncilsHost;
 
 /** A boolean, the same way: `initial` until something was stored. */

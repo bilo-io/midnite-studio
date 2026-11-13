@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 134 — Councils synthesizer presets
+
+[#1229](https://github.com/bilo-io/midnite-studio/pull/1229): a council picks a synthesis type (Brainstorm, Debate, Promote / Demote, Review / Red team, Custom) in a synthesizer card above the members, with a heuristic recommendation and editable instructions that reach the synthesis prompt; presets bring their members in a cascade; members are accordions with the picker and trash usable while collapsed; a 2–6 slider capped at 3 behind the local `councils.pro` flag opens "Upgrade to Pro"; "Generate with AI" writes a Custom council's instructions and members; the new-council modal shows provider marks. Gated on the built app with a real Debate turn and a real Generate.
+
 ## 2026-11-13 — Ad hoc — onboarding kit skills made project-agnostic
 
 The kit's `midnite-plan`, `-build`, `-build-adhoc`, `-test`, `-maintain`, `-deploy` and `-design` (all three mirrors) no longer name Midnite Studio, its moon commands, Electron or its release tags; they defer to the target repo's convention file and testing doc.

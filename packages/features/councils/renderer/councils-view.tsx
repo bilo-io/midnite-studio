@@ -2,6 +2,7 @@ import { LuChevronLeft, LuUsers } from 'react-icons/lu';
 
 import { CouncilComposer } from './council-composer';
 import { CouncilConfigPanel } from './council-config-panel';
+import { useCouncilDraft } from './council-draft-store';
 import { CouncilList } from './council-list';
 import { CouncilRunList } from './council-run-list';
 import { CouncilRunView, CouncilThreadEmpty } from './council-thread';
@@ -156,7 +157,11 @@ export function CouncilsView() {
           <>
             <ResizeHandle resizable={config} axis="x" label="Resize council configuration" />
             <div className="shrink-0" style={{ width: config.current }}>
-              <CouncilConfigWrapper councilId={currentCouncilId} onDeleted={() => history.reset()} />
+              <CouncilConfigWrapper
+                councilId={currentCouncilId}
+                runId={history.current.kind === 'run' ? history.current.id : null}
+                onDeleted={() => history.reset()}
+              />
             </div>
           </>
         )
@@ -205,8 +210,26 @@ function CouncilOutput({
   );
 }
 
-function CouncilConfigWrapper({ councilId, onDeleted }: { councilId: string; onDeleted: () => void }) {
+/**
+ * The config pane for a council. Its topic — what the synthesis recommendation
+ * and "Generate with AI" read (Phase 134) — is the composer's unsent draft, else
+ * the open thread's first prompt, else the council's description.
+ */
+function CouncilConfigWrapper({
+  councilId,
+  runId,
+  onDeleted,
+}: {
+  councilId: string;
+  runId: string | null;
+  onDeleted: () => void;
+}) {
   const { data: council } = useCouncil(councilId);
+  const { data: run } = useCouncilRun(runId);
+  const [draft] = useCouncilDraft(councilId);
   if (!council) return <EmptyState icon={LuUsers} title="Loading council…" />;
-  return <CouncilConfigPanel council={council} onDeleted={onDeleted} />;
+  const openRun = run && run.councilId === councilId ? run : null;
+  const firstPrompt = openRun ? (openRun.turns[0]?.prompt ?? openRun.prompt) : '';
+  const topic = draft.trim() || firstPrompt || council.description || '';
+  return <CouncilConfigPanel council={council} topic={topic} onDeleted={onDeleted} />;
 }

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   LuBot,
   LuExternalLink,
+  LuFlaskConical,
   LuFolder,
   LuFolderTree,
   LuGitCommitVertical,
@@ -27,11 +28,15 @@ import {
   type AgentDefinition,
   type AgentMode,
   type AgentProbeState,
+  FEATURE_FLAG_IDS,
+  FEATURE_FLAGS,
   type AgentStatus,
   type ClaudeInfo,
   type LoopDefinition,
   type SkillExecutionMode,
 } from '@midnite/studio-shared';
+
+import { useFeatureFlagsStore } from '@midnite/studio-frame';
 
 import { IconButton } from '../../../components/icon-button';
 import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
@@ -95,6 +100,36 @@ function ConfinementAccordion() {
             Confinement is unavailable: {status?.reason ?? 'sandbox-exec could not be used on this machine.'} Sessions run as before.
           </p>
         ) : null}
+      </div>
+    </SettingsAccordion>
+  );
+}
+
+/**
+ * Feature flags (Phase 134 Theme D): local switches for surfaces not on for
+ * everyone, collapsed by default — a testing aid, not an entitlement. The
+ * flags and their defaults are `shared/src/feature-flags.ts`.
+ */
+function FeatureFlagsAccordion() {
+  const flags = useFeatureFlagsStore((s) => s.flags);
+  const setFlag = useFeatureFlagsStore((s) => s.setFlag);
+  return (
+    <SettingsAccordion title="Feature flags (testing)" icon={<LuFlaskConical className="h-4 w-4" />}>
+      <div className="flex flex-col gap-3 p-3">
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          Local switches for testing features that are not on for everyone. They change this machine only and check no
+          account or licence.
+        </p>
+        {FEATURE_FLAG_IDS.map((id) => (
+          <SettingsSwitchRow
+            key={id}
+            id={`feature-flag-${id}`}
+            label={FEATURE_FLAGS[id].label}
+            description={FEATURE_FLAGS[id].description}
+            on={flags[id]}
+            onToggle={(_id, next) => setFlag(id, next)}
+          />
+        ))}
       </div>
     </SettingsAccordion>
   );
@@ -205,6 +240,8 @@ export function AgentPage() {
           <LoopDefaultFields />
         </div>
       </SettingsAccordion>
+
+      <FeatureFlagsAccordion />
 
       <SettingsAccordion title="~/.claude" icon={<LuFolderTree className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-2 p-3">

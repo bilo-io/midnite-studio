@@ -150,7 +150,11 @@ describe('CouncilCreateDialog — recommend', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Recommend' }));
 
     await screen.findByTestId('council-recommendation');
-    expect(recommend).toHaveBeenCalledWith(expect.objectContaining({ name: 'Release board', brief: 'ship or hold' }));
+    expect(recommend).toHaveBeenCalledWith(expect.objectContaining({ name: 'Release board', brief: 'ship or hold', maxMembers: 3 }));
+    // Each recommended member, and the synthesizer, carry the provider/model picker with its mark (Phase 134 Theme F).
+    expect(screen.getByTestId('council-recommended-picker-0-provider').getAttribute('aria-label')).toBe('Provider: Antigravity');
+    expect(screen.getByTestId('council-recommended-picker-1-provider').getAttribute('aria-label')).toBe('Provider: Claude');
+    expect(screen.getByTestId('council-recommended-synth-picker-provider').getAttribute('aria-label')).toBe('Provider: Claude');
     expect((screen.getByLabelText('Description (optional)') as HTMLTextAreaElement).value).toBe('Weighs a release.');
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Remove recommended member' })[1]!);

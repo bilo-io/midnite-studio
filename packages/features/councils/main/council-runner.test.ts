@@ -68,6 +68,7 @@ const COUNCIL: Council = {
     { id: 'm-codex', name: 'Skeptic', provider: 'codex', role: 'Worst case.' },
   ],
   synthProvider: 'opencode',
+  synthesisType: 'brainstorm',
   createdAt: 1,
   updatedAt: 1,
 };
@@ -609,5 +610,36 @@ describe('askOnce (Phase 133 Theme E)', () => {
     reply(ptyId!, `${JSON.stringify({ result: '{"members":[]}', is_error: false })}\n`);
     await expect(asked).resolves.toMatchObject({ status: 'succeeded', text: '{"members":[]}' });
     expect(saveRun).not.toHaveBeenCalled();
+  });
+});
+
+describe('synthesis types (Phase 134 Theme A)', () => {
+  const DEBATE: Council = { ...COUNCIL, synthesisType: 'debate', synthInstructions: 'Name the winner in one line.' };
+
+  beforeEach(() => {
+    vi.mocked(getCouncil).mockImplementation(async (id: string) => (id === DEBATE.id ? DEBATE : null));
+  });
+
+  it('snapshots the type and instructions, and the synthesizer is told them', async () => {
+    const result = await startRun('c1', 'tabs or spaces?');
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.value.format).toBe('debate');
+    expect(result.value.synthInstructions).toBe('Name the winner in one line.');
+    await flush();
+    expect(spawns[0]!.prompt).toContain('one member of a debate council');
+
+    const [p1, p2] = [...listeners.keys()];
+    reply(p1!, 'tabs');
+    reply(p2!, 'spaces');
+    await flush();
+    const synthesis = spawns[spawns.length - 1]!;
+    expect(synthesis.prompt).toContain('Your instructions: Name the winner in one line.');
+  });
+
+  it("uses the preset's own instructions when the council stores none", async () => {
+    vi.mocked(getCouncil).mockResolvedValueOnce({ ...COUNCIL, synthesisType: 'review' });
+    const result = await startRun('c1', 'review this');
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.value.synthInstructions).toContain('must-fix');
   });
 });

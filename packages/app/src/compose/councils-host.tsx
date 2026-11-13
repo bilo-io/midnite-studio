@@ -6,6 +6,7 @@ import { useOccluder } from '../components/use-occluder';
 import { MarkdownBody } from '../features/markdown/markdown-body';
 import { MEDIA_PROMPT_BOX } from '../features/media/prompt-input';
 import { useAgents } from '../features/terminal/use-agents';
+import { openExternal } from '../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../store/ui-store';
 
 /**
@@ -47,4 +48,5 @@ export const STUDIO_COUNCILS_HOST = {
   MarkdownBody,
   useAgentRoster: () => useAgents(),
   resolveAgentIcon,
+  openExternal,
 } satisfies CouncilsHost;

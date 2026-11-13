@@ -547,6 +547,7 @@ export {
   type TitlebarStatusState,
 } from './prefs/titlebar-status-store';
 export { useMonitorPrefsStore, type MonitorPrefsState } from './prefs/monitor-prefs-store';
+export { useFeatureFlag, useFeatureFlagsStore, type FeatureFlagsState } from './prefs/feature-flags-store';
 export { sharedSettingsStorage } from './prefs/shared-settings-storage';
 export {
   registerSuitePrefsStore,

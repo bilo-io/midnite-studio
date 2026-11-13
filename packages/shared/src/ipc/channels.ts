@@ -848,6 +848,7 @@ export const CHANNELS = {
   councilRunCancel: 'mstudio:council:run-cancel',
   councilRunContinue: 'mstudio:council:run-continue',
   councilRecommend: 'mstudio:council:recommend',
+  councilGenerate: 'mstudio:council:generate',
 
   // --- FAB loop runs (Phase 35) ----------------------------------------------
   // The durable trace of the FAB panel's loop runs. `start` is announced by the

@@ -92,6 +92,8 @@ export type CouncilsHost = {
   useAgentRoster: () => { agents: AgentDefinition[]; status: AgentStatus[] };
   /** The glyph for an agent (its brand mark, or a fallback for an unknown one). */
   resolveAgentIcon: (agent: { id: string; icon?: string }) => IconComponent;
+  /** Opens a URL in the user's browser — the "Upgrade to Pro" pricing link (Phase 134 Theme D). */
+  openExternal: (url: string) => void;
 };
 
 const CouncilsHostContext = createContext<CouncilsHost | null>(null);

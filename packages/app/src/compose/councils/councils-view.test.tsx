@@ -17,6 +17,7 @@ const COUNCIL: Council = {
   name: 'Release board',
   members: [{ id: 'm1', name: 'Skeptic', provider: 'codex', role: 'Worst case.' }],
   synthProvider: 'opencode',
+  synthesisType: 'brainstorm',
   createdAt: 1,
   updatedAt: 1,
 };

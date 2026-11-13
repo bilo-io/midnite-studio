@@ -90,3 +90,23 @@ describe('buildFollowUpPrompt (Phase 133 Theme D)', () => {
     expect(prompt.length).toBeLessThan(COUNCIL_FOLLOW_UP_EXCERPT_CHARS * 2);
   });
 });
+
+describe('synthesis types (Phase 134 Theme A)', () => {
+  it("feeds the council's instructions to the synthesizer", () => {
+    const prompt = buildSynthesisPrompt('Topic', [], undefined, undefined, 'Judge the debate and name a winner.');
+    expect(prompt).toContain('Your instructions: Judge the debate and name a winner.');
+    expect(prompt).not.toContain('Cluster related ideas');
+  });
+
+  it("falls back to brainstorm's instructions when none are given", () => {
+    expect(buildSynthesisPrompt('Topic', [])).toContain('Cluster related ideas');
+  });
+
+  it('names the kind of council in each member prompt', () => {
+    expect(buildMemberPrompt('t', 'r', undefined, 'debate')).toContain('one member of a debate council');
+    expect(buildMemberPrompt('t', 'r')).toContain('one member of a brainstorming council');
+    expect(buildMemberPrompt('t', 'r', undefined, 'custom')).toContain('one member of a council.');
+    const followUp = buildFollowUpPrompt({ prompt: 'p', role: 'r', previousSynthesis: undefined, firstTopic: 't', resumed: false, format: 'review' });
+    expect(followUp).toContain('one member of a review council');
+  });
+});

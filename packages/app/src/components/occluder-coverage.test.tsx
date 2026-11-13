@@ -146,9 +146,11 @@ describe('occluder coverage across overlays', () => {
   it('7. CouncilCreateDialog registers as an occluder', () => {
     assertOccluderLifecycle(() =>
       render(
-        <CouncilsHostProvider host={STUDIO_COUNCILS_HOST}>
-          <CouncilCreateDialog onCancel={() => {}} onCreate={() => {}} />
-        </CouncilsHostProvider>,
+        withProviders(
+          <CouncilsHostProvider host={STUDIO_COUNCILS_HOST}>
+            <CouncilCreateDialog onCancel={() => {}} onCreate={() => {}} />
+          </CouncilsHostProvider>,
+        ),
       ),
     );
   });

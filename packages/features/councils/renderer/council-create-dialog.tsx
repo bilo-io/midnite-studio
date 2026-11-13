@@ -2,15 +2,17 @@ import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { LuSparkles, LuTrash2 } from 'react-icons/lu';
 
-import { RingSpinner as Spinner, SelectField, useFocusTrap } from '@midnite/studio-frame';
+import { RingSpinner as Spinner, useFeatureFlag, useFocusTrap } from '@midnite/studio-frame';
 import {
   COUNCIL_MEMBER_PROVIDERS,
+  councilMemberCap,
+  modelsForAgent,
   type CouncilMember,
   type CouncilMemberProvider,
   type CouncilRecommendedMember,
 } from '@midnite/studio-shared';
 
-import { PROVIDER_LABEL, useCouncilProviders } from './council-providers';
+import { councilModelOptions, DEFAULT_MODEL_ID, useCouncilProviders } from './council-providers';
 import { useCouncilsHost } from './host';
 import { IconButton } from './ui';
 import { useCreateCouncil, useRecommendCouncil } from './use-council';
@@ -21,7 +23,13 @@ export type NewCouncilInput = {
   description?: string;
   members?: CouncilMember[];
   synthProvider?: CouncilMemberProvider;
+  synthModel?: string;
 };
+
+const isProvider = (id: string): id is CouncilMemberProvider => (COUNCIL_MEMBER_PROVIDERS as readonly string[]).includes(id);
+
+/** A picker model id as stored: absent for the CLI's default. */
+const storedModel = (id: string): string | undefined => (id === DEFAULT_MODEL_ID ? undefined : id);
 
 const FIELD =
   'mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring';
@@ -51,17 +59,15 @@ export function CouncilCreateDialog({
   const [brief, setBrief] = useState('');
   const [members, setMembers] = useState<CouncilRecommendedMember[] | null>(null);
   const [synthProvider, setSynthProvider] = useState<CouncilMemberProvider>('claude');
+  const [synthModel, setSynthModel] = useState<string | undefined>(undefined);
   const [recommendError, setRecommendError] = useState<string | null>(null);
   const containerRef = useRef<HTMLFormElement>(null);
   useCouncilsHost().useOccluder(true);
   useFocusTrap(containerRef, true);
   const { providers, installed } = useCouncilProviders();
+  const { ProviderModelPicker } = useCouncilsHost();
   const recommend = useRecommendCouncil();
-
-  const options = COUNCIL_MEMBER_PROVIDERS.map((id) => ({
-    value: id,
-    label: providers.find((p) => p.id === id)?.disabled ? `${PROVIDER_LABEL[id]} (not installed)` : PROVIDER_LABEL[id],
-  }));
+  const cap = councilMemberCap(useFeatureFlag('councils.pro'));
 
   const trimmedName = name.trim();
   const accepted = (members ?? []).filter((m) => m.name.trim().length > 0 && m.role.trim().length > 0);
@@ -71,15 +77,27 @@ export function CouncilCreateDialog({
     if (trimmedName.length === 0 || recommend.isPending) return;
     setRecommendError(null);
     recommend.mutate(
-      { name: trimmedName, ...(brief.trim() ? { brief: brief.trim() } : {}), providers: installed },
+      {
+        name: trimmedName,
+        ...(brief.trim() ? { brief: brief.trim() } : {}),
+        providers: installed,
+        maxMembers: cap,
+        models: installed.map((provider) => ({
+          provider,
+          models: modelsForAgent(provider)
+            .map((m) => m.id)
+            .filter((id) => id !== DEFAULT_MODEL_ID),
+        })),
+      },
       {
         onSuccess: (result) => {
           if (!result.ok) {
             setRecommendError(result.kind === 'error' ? result.message : 'Could not get a recommendation.');
             return;
           }
-          setMembers(result.value.members);
+          setMembers(result.value.members.slice(0, cap));
           setSynthProvider(result.value.synthProvider);
+          setSynthModel(undefined);
           if (description.trim().length === 0 && result.value.description) setDescription(result.value.description);
         },
       },
@@ -94,14 +112,32 @@ export function CouncilCreateDialog({
       ...(members === null
         ? {}
         : {
-            members: accepted.map((m) => ({ id: crypto.randomUUID(), name: m.name.trim(), role: m.role.trim(), provider: m.provider })),
+            members: accepted.map((m) => ({
+              id: crypto.randomUUID(),
+              name: m.name.trim(),
+              role: m.role.trim(),
+              provider: m.provider,
+              ...(m.model ? { model: m.model } : {}),
+            })),
             synthProvider,
+            ...(synthModel ? { synthModel } : {}),
           }),
     });
   };
 
-  const patchMember = (index: number, patch: Partial<CouncilRecommendedMember>) =>
-    setMembers((current) => (current ?? []).map((m, i) => (i === index ? { ...m, ...patch } : m)));
+  /** A recommended-member edit; an `undefined` model goes back to the CLI's default. */
+  const patchMember = (index: number, patch: { [K in keyof CouncilRecommendedMember]?: CouncilRecommendedMember[K] | undefined }) =>
+    setMembers((current) =>
+      (current ?? []).map((m, i) => {
+        if (i !== index) return m;
+        const next: Record<string, unknown> = { ...m };
+        for (const [key, value] of Object.entries(patch)) {
+          if (value === undefined) delete next[key];
+          else next[key] = value;
+        }
+        return next as CouncilRecommendedMember;
+      }),
+    );
 
   return createPortal(
     <div
@@ -199,15 +235,15 @@ export function CouncilCreateDialog({
                         aria-label="Recommended member name"
                         className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1 py-0.5 text-xs font-medium outline-none focus:border-input focus:bg-background"
                       />
-                      {/* A fixed width: the select is `w-full`, and would otherwise squeeze the name to nothing. */}
-                      <div className="w-36 shrink-0">
-                        <SelectField
-                          value={member.provider}
-                          onChange={(provider) => patchMember(index, { provider })}
-                          options={options}
-                          label="Recommended member agent"
-                        />
-                      </div>
+                      <ProviderModelPicker
+                        providers={providers}
+                        provider={member.provider}
+                        onProviderChange={(id) => isProvider(id) && patchMember(index, { provider: id, model: undefined })}
+                        models={councilModelOptions(member.provider)}
+                        model={member.model ?? DEFAULT_MODEL_ID}
+                        onModelChange={(id) => patchMember(index, { model: storedModel(id) })}
+                        testId={`council-recommended-picker-${index}`}
+                      />
                       <IconButton
                         icon={LuTrash2}
                         label="Remove recommended member"
@@ -226,9 +262,19 @@ export function CouncilCreateDialog({
                 ))}
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span>Synthesize with</span>
-                  <div className="w-36 shrink-0">
-                    <SelectField value={synthProvider} onChange={setSynthProvider} options={options} label="Recommended synthesizer" />
-                  </div>
+                  <ProviderModelPicker
+                    providers={providers}
+                    provider={synthProvider}
+                    onProviderChange={(id) => {
+                      if (!isProvider(id)) return;
+                      setSynthProvider(id);
+                      setSynthModel(undefined);
+                    }}
+                    models={councilModelOptions(synthProvider)}
+                    model={synthModel ?? DEFAULT_MODEL_ID}
+                    onModelChange={(id) => setSynthModel(storedModel(id))}
+                    testId="council-recommended-synth-picker"
+                  />
                   <button
                     type="button"
                     onClick={() => setMembers(null)}
@@ -239,7 +285,7 @@ export function CouncilCreateDialog({
                 </div>
               </div>
             ) : (
-              <p className="mt-2 text-[11px] text-muted-foreground">Without a recommendation the council starts with four starter members.</p>
+              <p className="mt-2 text-[11px] text-muted-foreground">Without a recommendation the council starts as a Brainstorm with three starter members.</p>
             )}
           </div>
         </div>
