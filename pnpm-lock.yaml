@@ -4107,6 +4107,9 @@ importers:
       '@tanstack/react-virtual':
         specifier: ^3.11.2
         version: 3.14.10(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      cytoscape:
+        specifier: ^3.35.0
+        version: 3.35.0
       force-graph:
         specifier: ^1.52.0
         version: 1.52.0
@@ -8393,6 +8396,10 @@ packages:
 
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
+
+  cytoscape@3.35.0:
+    resolution: {integrity: sha512-sMvBIXiGMnhkCaWz2R06FwF/27MNlS+Tqvi17foO9UhnUg3XGZccKjxsvEqQFAQYMSSZmN5SxYzUYlQ0DOJJ3g==}
+    engines: {node: '>=0.10'}
 
   d3-array@3.2.5:
     resolution: {integrity: sha512-Th8qGXoBalmWsstpkuhmBuTsBQIFqYOJtjlBvNVvBfJ8E3uYusBUwUR8HU20U0qKKQkgCvKyR1YjiozWadk5QA==}
@@ -14433,6 +14440,8 @@ snapshots:
       rrweb-cssom: 0.8.0
 
   csstype@3.2.3: {}
+
+  cytoscape@3.35.0: {}
 
   d3-array@3.2.5:
     dependencies:

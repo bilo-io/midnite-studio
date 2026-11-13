@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 
-import { LuActivity, LuBoxes, LuNetwork, LuOrbit, LuRadar, LuSparkles, LuWaypoints } from 'react-icons/lu';
+import { LuActivity, LuBoxes, LuNetwork, LuOrbit, LuRadar, LuSparkles, LuShare2, LuWaypoints } from 'react-icons/lu';
 
 import type { KnowledgeGraphPayload } from '@midnite/studio-shared';
 
@@ -178,6 +178,7 @@ export type KnowledgeVariant = {
  */
 const loadSigma = () => import('./use-sigma-graph');
 const load3D = () => import('./use-3d-graph');
+const loadCytoscape = () => import('./variants/use-cytoscape');
 const loadForceGraph = () => import('./variants/use-force-graph');
 
 /**
@@ -259,6 +260,14 @@ export const VARIANTS: readonly KnowledgeVariant[] = [
     engine: 'force-graph',
     consumesWorkerLayout: true,
     load: loadForceGraph,
+  },
+  {
+    id: 'cytoscape',
+    label: 'Cytoscape',
+    icon: LuShare2,
+    engine: 'cytoscape',
+    consumesWorkerLayout: true,
+    load: loadCytoscape,
   },
 ];
 
