@@ -29,7 +29,7 @@ against sigma's own four looks has something for the libraries to fit into.
 
 **Theme F — force-graph.** ✅ (PR [#1205](https://github.com/bilo-io/midnite-studio/pull/1205)) — the `force-graph` variant, and under it the engine-neutral layer Themes G–I reuse: `variants/knowledge-2d-model.ts` (detail budget, collapse, community colours, the Theme C alpha values as one pure `computePaint2D`) and `base-2d-renderer.ts` (intro via `IntroTracker`, layout tween via `LayoutTransition`, `paused` snap, reduced motion). The grounding was wrong on one point: `force-graph` draws on Canvas 2D, not WebGL. Its own d3 simulation is off — the worker's coordinates are the layout. Lazy chunk 151 KB; the entry chunk does not contain it.
 
-**Theme G — cytoscape.js.** ◻ the `cytoscape.js` variant
+**Theme G — cytoscape.js.** ✅ (PR [#1208](https://github.com/bilo-io/midnite-studio/pull/1208)) — the `cytoscape` variant as an adapter over Theme F's shared 2D layer, in cytoscape's own idiom: the Theme C alpha states are stylesheet classes (`node.dim`, `.neighbor`, `.focus`, `edge.emph`), `preset` layout from the worker's coordinates, `haystack` edges and `hideEdgesOnViewport` per its performance guide. Lazy chunk 444 KB. Built honestly, not tuned: it is the slowest engine at 15k nodes and Theme J's gate is what keeps it off graphs it cannot carry. Stacked on #1205.
 
 **Theme H — vis-network.** ◻ the `vis-network` variant, with Phase 87's CDN-not-library rejection qualified in the code
 
@@ -259,14 +259,15 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       Recorded: `force-graph@1.52.0` is MIT, and its 31-package dependency closure is MIT (14), ISC (16) and BSD-3-Clause (1).
       Not done: alpha *ramping* (Theme C's `AlphaRampTracker`) — the new engines share C's alpha *values* (`computePaint2D`) and snap between them.
 
-### G — cytoscape.js (M)
+### G — cytoscape.js (M) ✅ DONE (PR #1208, 2026-11-13)
 
-- [ ] `cytoscape` behind its own dynamic `import()`, same contract, same colour tokens.
-- [ ] Canvas-based, so expect it to be the first variant the Theme J gate catches. Build it honestly
+- [x] `cytoscape` behind its own dynamic `import()`, same contract, same colour tokens.
+- [x] Canvas-based, so expect it to be the first variant the Theme J gate catches. Build it honestly
       rather than tuning it into a number it cannot hold — the gate exists for exactly this.
-- [ ] Map the contract onto cytoscape's own idioms (stylesheet selectors for the alpha states,
+- [x] Map the contract onto cytoscape's own idioms (stylesheet selectors for the alpha states,
       `layout.run()` for the intro) rather than fighting the library into sigma's shape.
-- [ ] Licence recorded and checked.
+- [x] Licence recorded and checked.
+      Recorded: `cytoscape@3.35.0` is MIT with no dependencies; it ships its own types.
 
 ### H — vis-network (M)
 
