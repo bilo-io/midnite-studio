@@ -120,7 +120,7 @@ token from a 0600 file. The CSP drops `'unsafe-inline'` by hashing the no-flash 
 `~/.claude*`, `.mcp.json` or `~/.codex/config.toml`. Reading `~/.claude`/`~/.codex` transcripts is
 disclosed in Settings ▸ Privacy, with an off switch (default on).
 
-**Theme G — A privacy statement anyone can read.** ◐ PARTIAL (PR pending). Landed: `renderPrivacyDoc` in `shared/src/privacy-doc.ts` renders `docs/PRIVACY.md` from `EGRESS_ENTRIES` (automatic calls and scheduled feeds with their switch and default, then user-initiated hosts) plus hand-written storage and inbound sections for Themes B to F; `privacy-doc.test.ts` fails when the committed file is stale and rewrites it under `PRIVACY_DOC_WRITE=1`, which is what `moon run root:privacy-doc` (`scripts/privacy-doc.mjs`) sets — a vitest rather than a TS loader, so the check also runs in `shared:test`. `SECURITY.md` links the statement. The doc says plainly that the Launcher does not read its update/catalog switches yet (Theme A's open item). **Deferred:** the website page (a new multi-page entry, route, nav and tests under the website's no-repo-link rule, best as its own PR) and the Settings ▸ Privacy footer link. Original text: `docs/PRIVACY.md` and a website page,
+**Theme G — A privacy statement anyone can read.** ✅ Done. Landed: `renderPrivacyDoc` in `shared/src/privacy-doc.ts` renders `docs/PRIVACY.md` from `EGRESS_ENTRIES` (automatic calls and scheduled feeds with their switch and default, then user-initiated hosts) plus hand-written storage and inbound sections for Themes B to F; `privacy-doc.test.ts` fails when the committed file is stale and rewrites it under `PRIVACY_DOC_WRITE=1`, which is what `moon run root:privacy-doc` (`scripts/privacy-doc.mjs`) sets — a vitest rather than a TS loader, so the check also runs in `shared:test`. `SECURITY.md` links the statement. The doc says plainly that the Launcher does not read its update/catalog switches yet (Theme A's open item). The website serves it at `/privacy/` (a new HTML entry, route, footer link), built from the generated `docs/PRIVACY.md` taken as text at build time, with the repository pointer stripped and a test that the page names and links no repository; Settings ▸ Privacy ends with a link to it. Original text: `docs/PRIVACY.md` and a website page,
 generated from Theme A's registry, answering the three questions in plain language.
 
 ## Deliverables
@@ -255,11 +255,14 @@ generated from Theme A's registry, answering the three questions in plain langua
       short hand-written section on credentials (vault/Keychain), history (Theme B), redaction
       (Theme C) and the Claude/Codex guarantee (Theme F). A check mode fails CI when the committed
       file is stale.
-- [ ] **A website page.** `packages/website` gets a Privacy page built from the same generated
+- [x] **A website page.** `packages/website` gets a Privacy page built from the same generated
       markdown. Mind the website's boundary: it may import `shared` (zod-only) for `EGRESS_HOSTS`
-      and nothing else, and must not link to this repo.
-- [ ] **Link it.** `SECURITY.md` and the app's Settings ▸ Privacy footer link to the statement.
-- [ ] *Acceptance:* adding a registry entry and running the generator changes `PRIVACY.md`. A stale
+      and nothing else, and must not link to this repo. (Landed as a `?raw` import of the generated
+      `docs/PRIVACY.md` at build time, rendered by a small markdown subset renderer, so the page can
+      never differ from the document; the website imports nothing from `shared` for it, and the
+      `SECURITY.md` pointer is stripped at render.)
+- [x] **Link it.** `SECURITY.md` and the app's Settings ▸ Privacy footer link to the statement.
+- [x] *Acceptance:* adding a registry entry and running the generator changes `PRIVACY.md`. A stale
       file fails the check.
 
 ## Files this phase touches
@@ -290,7 +293,7 @@ generated from Theme A's registry, answering the three questions in plain langua
       `'unsafe-inline'` in `script-src`, with zero CSP violations across `app:e2e`.
 - [ ] **F:** the no-write test fails on an injected write. With the switch off, no read under
       `~/.claude` or `~/.codex`.
-- [ ] **G:** `PRIVACY.md` regenerates from the registry, and the stale check fails CI.
+- [x] **G:** `PRIVACY.md` regenerates from the registry, and the stale check fails CI.
 - [ ] **Open, for a human:** one packaged-app pass on a real Mac with a network monitor (Little
       Snitch or `nettop`), master switch off, 10 minutes idle, and zero connections. A LAN stream
       to a real TV or VLC client still plays through a signed URL.

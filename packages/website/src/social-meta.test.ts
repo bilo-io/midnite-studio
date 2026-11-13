@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
  * `scripts/website-og-image.mjs` and committed.
  */
 const ENTRIES = import.meta.glob<string>(
-  ['../index.html', '../apps/index.html', '../download/index.html', '../pricing/index.html'],
+  ['../index.html', '../apps/index.html', '../download/index.html', '../pricing/index.html', '../privacy/index.html'],
   { eager: true, query: '?raw', import: 'default' },
 );
 

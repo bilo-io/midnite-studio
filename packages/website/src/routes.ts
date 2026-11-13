@@ -4,14 +4,14 @@
  * There is no router dependency here on purpose. Four static pages need a
  * comparison, not a route table, and the deployment shape does the rest: each
  * page is a real HTML file (`index.html`, `apps/index.html`,
- * `download/index.html`, `pricing/index.html`), so any static host serves a deep link directly and no
+ * `download/index.html`, `pricing/index.html`, `privacy/index.html`), so any static host serves a deep link directly and no
  * client-side history rewriting has to exist. What this module does is (a) tell
  * the already-loaded page which one it is, and (b) build hrefs that survive
  * whatever `base` prefix the deployed site carries — see the note on `base` in
  * `vite.config.ts`.
  */
 
-export type Route = 'landing' | 'apps' | 'download' | 'pricing';
+export type Route = 'landing' | 'apps' | 'download' | 'pricing' | 'privacy';
 
 /**
  * `import.meta.env.BASE_URL` always ends in `/` (Vite normalises it), so this
@@ -38,6 +38,7 @@ export const routeFor = (pathname: string): Route => {
   if (rest === 'apps') return 'apps';
   if (rest === 'download') return 'download';
   if (rest === 'pricing') return 'pricing';
+  if (rest === 'privacy') return 'privacy';
   return 'landing';
 };
 
@@ -46,6 +47,7 @@ export const hrefFor = (route: Route): string => {
   if (route === 'apps') return `${baseUrl()}apps/`;
   if (route === 'download') return `${baseUrl()}download/`;
   if (route === 'pricing') return `${baseUrl()}pricing/`;
+  if (route === 'privacy') return `${baseUrl()}privacy/`;
   return baseUrl();
 };
 

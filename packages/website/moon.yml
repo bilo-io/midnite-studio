@@ -30,6 +30,7 @@ tasks:
       - 'apps/index.html'
       - 'download/index.html'
       - 'pricing/index.html'
+      - 'privacy/index.html'
       - 'public/**/*'
       - 'vite.config.ts'
       - 'tailwind.config.ts'

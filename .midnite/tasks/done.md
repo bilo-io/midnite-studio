@@ -15843,3 +15843,7 @@ Docs only. 126 reopened as 🔄 WIP at 41/43: its two open boxes are the CI `gat
 ## 2026-11-13 — Phase 116 Theme C (header sweep) — every e2e spec names its browser capability
 
 All 110 functional specs open with `// e2e-capability:` or `// e2e-candidate:` (35 candidates); `e2e-budget` enforces it. No test deleted or run; Wave C1/C2 migrations still wait on an `app:e2e` run.
+
+## 2026-11-13 — Phase 115 Theme G (website page and Settings link) — the privacy statement on the site
+
+The website serves `/privacy/` (new HTML entry, route, footer link), rendered from the generated `docs/PRIVACY.md` taken as text at build time with the repository pointer stripped; a test holds it to naming and linking no repository. Settings ▸ Privacy ends with a link to it. Theme G is done.

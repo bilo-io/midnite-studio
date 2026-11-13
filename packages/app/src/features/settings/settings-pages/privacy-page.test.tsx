@@ -1,9 +1,15 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createFrameChrome, FrameChromeProvider } from '@midnite/studio-frame';
+import { openExternal } from '../../../services/queries';
 import { useUiStore } from '../../../store/ui-store';
-import { PrivacyPage } from './privacy-page';
+import { PRIVACY_STATEMENT_URL, PrivacyPage } from './privacy-page';
+
+vi.mock('../../../services/queries', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../services/queries')>()),
+  openExternal: vi.fn(),
+}));
 
 function renderPage() {
   return render(
@@ -93,5 +99,17 @@ describe('PrivacyPage automatic network (Phase 115 Theme A)', () => {
     expect(useUiStore.getState().egressAllAutomaticOff).toBe(true);
     expect((screen.getByRole('switch', { name: 'Market prices, FX and finance news' }) as HTMLInputElement).disabled).toBe(true);
     expect(useUiStore.getState().egressSwitches).toEqual({ markets: true });
+  });
+});
+
+describe('PrivacyPage statement link (Phase 115 Theme G)', () => {
+  afterEach(cleanup);
+
+  it('opens the public privacy page, on the site and not a repository', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /privacy page/ }));
+    expect(openExternal).toHaveBeenCalledWith(PRIVACY_STATEMENT_URL);
+    expect(PRIVACY_STATEMENT_URL).toMatch(/^https:\/\/[^/]+\/privacy\/$/);
+    expect(PRIVACY_STATEMENT_URL).not.toMatch(/github/);
   });
 });

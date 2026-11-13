@@ -5,6 +5,7 @@ import { useHashLanding } from './hooks/use-hash-landing';
 import { AppsPage } from './pages/apps/apps-page';
 import { DownloadPage } from './pages/download-page';
 import { PricingPage } from './pages/pricing-page';
+import { PrivacyPage } from './pages/privacy-page';
 import { routeFor, type Route } from './routes';
 import { SECTIONS } from './sections/registry';
 
@@ -59,5 +60,6 @@ export const App = () => {
   if (route === 'apps') return <AppsPage />;
   if (route === 'download') return <DownloadPage />;
   if (route === 'pricing') return <PricingPage />;
+  if (route === 'privacy') return <PrivacyPage />;
   return <Landing />;
 };
