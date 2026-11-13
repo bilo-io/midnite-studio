@@ -30,6 +30,7 @@ export * from './fs';
 export * from './git-identity';
 export * from './install-command';
 export * from './feature-flags';
+export * from './feature-toggles';
 export * from './launcher-data-dir';
 export * from './agent-run-handoff';
 export * from './handoff';
