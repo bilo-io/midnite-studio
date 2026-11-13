@@ -1,10 +1,12 @@
 import {
   composeLoopPrompt,
+  guardFixPrompt,
   type FabTab,
   loopModelArgs,
   type LoopDefinition,
   type LoopModel,
   type LoopSchedule,
+  type SecurityFinding,
 } from '@midnite/studio-shared';
 import { useCallback } from 'react';
 
@@ -25,6 +27,8 @@ const INTERRUPT = '\x03';
 
 export type LoopSessionControls = {
   start: () => void;
+  /** Starts one agent run scoped to a single finding (Guard's *Fix with agent*); never a repeating loop. */
+  fixFinding: (finding: Pick<SecurityFinding, 'fingerprint' | 'severity' | 'title' | 'detail' | 'evidence'>) => void;
   stop: () => void;
 };
 
@@ -233,5 +237,26 @@ export function useLoopSession(
     })();
   }, [tab, host]);
 
-  return { start, stop };
+  const fixFinding = useCallback(
+    (finding: Pick<SecurityFinding, 'fingerprint' | 'severity' | 'title' | 'detail' | 'evidence'>) => {
+      if (!repoId || !cwd) return;
+      const composedPrompt = guardFixPrompt(finding);
+      const modelArgs = loopModelArgs(agentId, model);
+      void host
+        .startAgent({ repoId, cwd, title: `${loop.label}: fix`, prompt: composedPrompt, agentId, command, extraArgs: modelArgs, surface: 'fab', autoSend: true })
+        .then((sessionId) => {
+          void recordLoopStart({
+            loopId: loop.id,
+            sessionId,
+            composedPrompt,
+            checkedModifierIds: [],
+            findingFingerprint: finding.fingerprint,
+            ...(modelArgs.length > 0 ? { model } : {}),
+          });
+        });
+    },
+    [repoId, cwd, agentId, model, command, loop, host],
+  );
+
+  return { start, fixFinding, stop };
 }

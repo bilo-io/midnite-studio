@@ -184,7 +184,7 @@ export const MuteActionSchema = z.object({
 });
 export type MuteAction = z.infer<typeof MuteActionSchema>;
 
-/** Guard Theme B: bump a dependency to the version that fixes an advisory. Runs through the agent pass (Theme G). */
+/** Guard Theme B: bump a dependency to the version that fixes an advisory. Runs on a new branch from the finding's confirm (Theme G). */
 export const UpdatePackageActionSchema = z.object({
   id: z.literal('update-package'),
   name: z.string(),
@@ -312,17 +312,9 @@ export type RemediationAction = z.infer<typeof RemediationActionSchema>;
  * with Phase 121 Theme C: it runs wherever the composer supplies the MCP allowlist.)
  */
 export const REMEDIATION_PENDING: Readonly<Partial<Record<RemediationActionId, { reason: string; dependsOn: string }>>> = {
-  'update-package': {
-    reason: 'Run from the Guard tab once Phase 122 Theme G lands; until then the finding names the version to move to.',
-    dependsOn: 'Phase 122 Theme G',
-  },
-  'remove-package': {
-    reason: 'Run from the Guard tab once Phase 122 Theme G lands; until then remove the package and rotate anything it could read.',
-    dependsOn: 'Phase 122 Theme G',
-  },
   'pin-package': {
-    reason: 'Run from the Guard tab once Phase 122 Theme G lands; until then the finding names the version to pin.',
-    dependsOn: 'Phase 122 Theme G',
+    reason: 'Pinning an override is not run from the app yet; the finding names the version to pin. Update runs on a branch from the Guard tab.',
+    dependsOn: 'Phase 122 Theme G follow-up',
   },
   'open-system-settings': { reason: 'Open System Settings yourself; the pane is named in the finding.', dependsOn: 'Phase 122 Theme G follow-up' },
   'move-to-vault': { reason: 'Move the secret into the vault by hand until the import path is wired to Guard.', dependsOn: 'Phase 118 import path' },
