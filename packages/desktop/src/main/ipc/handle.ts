@@ -3,6 +3,7 @@ import type { z } from 'zod';
 
 import { failure, type GitOpResult } from '@midnite/studio-shared';
 
+import { channelFeatureOff, featureOffAnswer } from '../feature-gate';
 import { resolveWindow } from '../window-manager';
 
 /**
@@ -25,6 +26,9 @@ export function handle<S extends z.ZodTypeAny, R>(
   onInvalid: (issue: string) => R,
 ): void {
   ipcMain.handle(channel, async (_event, raw: unknown) => {
+    // Phase 135: a switched-off feature's channel answers the error envelope instead of running.
+    const off = featureOffAnswer(channel);
+    if (off) return off as R;
     const parsed = schema.safeParse(raw);
     if (!parsed.success) {
       return onInvalid(`${channel}: ${parsed.error.issues[0]?.message ?? 'invalid payload'}`);
@@ -87,6 +91,7 @@ export function handleSend<S extends z.ZodTypeAny>(
   onInvalid: (issue: string) => void,
 ): void {
   ipcMain.on(channel, (_event, raw: unknown) => {
+    if (channelFeatureOff(channel)) return;
     const parsed = schema.safeParse(raw);
     if (!parsed.success) {
       onInvalid(`${channel}: ${parsed.error.issues[0]?.message ?? 'invalid payload'}`);
@@ -102,7 +107,7 @@ export function handleSend<S extends z.ZodTypeAny>(
 
 /** A handler taking no payload. */
 export function handleBare<R>(channel: string, handler: () => Promise<R> | R): void {
-  ipcMain.handle(channel, () => handler());
+  ipcMain.handle(channel, () => (featureOffAnswer(channel) as R | undefined) ?? handler());
 }
 
 /**
@@ -116,6 +121,7 @@ export function handleSendFromSender<S extends z.ZodTypeAny>(
   onInvalid: (issue: string) => void,
 ): void {
   ipcMain.on(channel, (event, raw: unknown) => {
+    if (channelFeatureOff(channel)) return;
     const parsed = schema.safeParse(raw);
     if (!parsed.success) {
       onInvalid(`${channel}: ${parsed.error.issues[0]?.message ?? 'invalid payload'}`);
@@ -134,7 +140,7 @@ export function handleBareFromSender<R>(
   channel: string,
   handler: (win: BrowserWindow | null) => Promise<R> | R,
 ): void {
-  ipcMain.handle(channel, (event) => handler(resolveWindow(event.sender)));
+  ipcMain.handle(channel, (event) => (featureOffAnswer(channel) as R | undefined) ?? handler(resolveWindow(event.sender)));
 }
 
 /**
@@ -151,6 +157,8 @@ export function handleFromSender<S extends z.ZodTypeAny, R>(
   onInvalid: (issue: string) => R,
 ): void {
   ipcMain.handle(channel, async (event, raw: unknown) => {
+    const off = featureOffAnswer(channel);
+    if (off) return off as R;
     const parsed = schema.safeParse(raw);
     if (!parsed.success) {
       return onInvalid(`${channel}: ${parsed.error.issues[0]?.message ?? 'invalid payload'}`);

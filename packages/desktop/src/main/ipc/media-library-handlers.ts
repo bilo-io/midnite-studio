@@ -15,6 +15,7 @@ import {
 import { guardedFetchFor, type FeatureMainContext } from '@midnite/studio-runtime';
 import { app, BrowserWindow, dialog } from 'electron';
 
+import { bindFeatureLifecycle } from '../feature-gate';
 import { setLibraryFileResolver } from '../fs-protocol';
 import { broadcastToAllWindows } from '../window-manager';
 import { handle, handleBare, handleSend } from './handle';
@@ -85,7 +86,9 @@ export function registerMediaLibraryHandlers(): void {
     },
   });
   mediaLibraryMain.register(ctx, { library, lan });
-  void lan.startAtLaunch();
+  // Phase 135: the LAN server runs only while Media is on (and, as before, only when the user left it on).
+  const server = lan;
+  bindFeatureLifecycle('media', 'media library LAN server', () => void server.startAtLaunch(), () => void server.dispose());
 }
 
 /** Closes the Library's LAN server and any transcode, keeping "it was on" — `main/index.ts`'s `before-quit`. */

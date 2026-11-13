@@ -145,6 +145,7 @@ export const FEATURE_TOGGLES = {
     settingsPages: [],
     commands: [],
     data: NO_DATA,
+    ipcOpen: 'Its two channels list and replay terminals, which the always-on Terminal uses too.',
   },
   optimizer: {
     label: 'Workspace Optimizer',

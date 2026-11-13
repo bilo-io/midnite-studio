@@ -51,11 +51,19 @@ import { configureOutboundSecrets } from './outbound-secrets';
 import { startAgentCommandAudit } from './ipc/agent-command-audit';
 import { startStudioAgentBreaker, stopStudioAgentBreaker } from './agent-breaker-wiring';
 import { configureToolPolicy } from './tool-policy-wiring';
-import { configureFindingsLedger, getFindingsLedger, registerVanguardHandlers, startVanguardSensors, stopVanguardSensors } from './ipc/vanguard-handlers';
+import { configureFindingsLedger, getFindingsLedger, registerVanguardHandlers, resumeVanguardSensors, startVanguardSensors, stopVanguardSensors } from './ipc/vanguard-handlers';
 
 import { createActivityDetector } from './activity-detect';
 import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
-import { allowAppAudioOnly, denyAllDevices, destroyAllBrowserTabs, destroyAllWebApps, startBrowserDiscardSweep, startWebAppsDiscardSweep } from '@midnite/studio-feature-browser/main';
+import { allowAppAudioOnly, denyAllDevices, destroyAllBrowserTabs, destroyAllWebApps, startBrowserDiscardSweep, startWebAppsDiscardSweep, stopBrowserDiscardSweep, stopWebAppsDiscardSweep } from '@midnite/studio-feature-browser/main';
+import {
+  applyDisabledFeatures,
+  bindFeatureLifecycle,
+  configureFeatureChannels,
+  configureFeatureMcpTools,
+  loadFeatureGate,
+} from './feature-gate';
+import { FEATURE_GATE_CHANNELS, FEATURE_GATE_MCP_TOOLS } from './feature-gate-channels';
 import { installCsp } from './csp';
 import { registerBrowserFeatureHandlers } from './ipc/browser-feature-handlers';
 import { registerClaudeHandlers } from './ipc/claude-handlers';
@@ -530,6 +538,10 @@ export const startStudioMain: StartStudioMain = () => {
       // than noise at 10. Set (not measured) 2026-10-19 — revisit if a channel legitimately fans out.
       ipcMain.setMaxListeners(100);
       registerWindowChrome();
+      // Phase 135: which features are switched off, read before any feature's handlers or work start.
+      loadFeatureGate(studioRuntimeDirectory(app.getPath('appData'), app.getPath('userData')), defaultLogger);
+      configureFeatureChannels(FEATURE_GATE_CHANNELS);
+      configureFeatureMcpTools(FEATURE_GATE_MCP_TOOLS);
       registerLockHandlers(app.getPath('userData'), (message) => defaultLogger.warn(message));
       registerRepoHandlers(getMainWindow);
       registerSearchHandlers();
@@ -590,8 +602,18 @@ export const startStudioMain: StartStudioMain = () => {
       // discard eligibility check reads live `WebContentsView`/`BrowserWindow`
       // state at tick time, so there is nothing to reconcile per repo or per
       // window the way `watch-service.ts`'s watchers are.
-      startBrowserDiscardSweep();
-      startWebAppsDiscardSweep();
+      bindFeatureLifecycle(
+        'browser',
+        'browser and web-app discard sweeps',
+        () => {
+          startBrowserDiscardSweep();
+          startWebAppsDiscardSweep();
+        },
+        () => {
+          stopBrowserDiscardSweep();
+          stopWebAppsDiscardSweep();
+        },
+      );
       registerWindowHandlers(getMainWindow, defaultLogger);
       // Phase 81 Theme F: `ui-bridge.ts` targets `getMainWindow()` explicitly,
       // never the focused window — registered here, once, the same way every
@@ -839,9 +861,19 @@ export const startStudioMain: StartStudioMain = () => {
       startStudioAgentBreaker({ userData, getWindow: getMainWindow });
       // Phase 122: the scheduled Guard sweep (checks and resolvers of Themes B and C) and its summary on a Guard run's record.
       setGuardSummaryProvider(latestGuardSweepSummary);
-      startGuardSweeps({ userData });
+      bindFeatureLifecycle('loops', 'Guard loop sweeps', () => startGuardSweeps({ userData }), stopGuardSweeps);
       handleBare(CHANNELS.guardSweepNow, sweepGuardNow);
-      void startVanguardSensors(userData).catch((error: unknown) => defaultLogger.warn(`vanguard sensors failed to start: ${String(error)}`));
+      let vanguardStarted = false;
+      bindFeatureLifecycle(
+        'vanguard',
+        'vanguard sensors',
+        () => {
+          const started = vanguardStarted ? resumeVanguardSensors() : startVanguardSensors(userData);
+          vanguardStarted = true;
+          void started.catch((error: unknown) => defaultLogger.warn(`vanguard sensors failed to start: ${String(error)}`));
+        },
+        () => void stopVanguardSensors(),
+      );
       configureVideo(createVideoProjectsStore(userData), {
         emit: (channel, payload) => {
           const win = getMainWindow();
@@ -943,6 +975,8 @@ export const startStudioMain: StartStudioMain = () => {
         broadcast: broadcastToAllWindows,
       });
       app.on('will-quit', () => suitePrefs.close());
+      // Phase 135: a feature switched off or on in Settings ▸ Features reaches main through the same file.
+      suitePrefs.onChanged((snapshot) => applyDisabledFeatures(snapshot.prefs.studioFeatures.disabled));
       const vaultPairings = createPairingStore({
         hostDirectory: runtimeHostDirectory(runtimeDirectory),
         onPersist: (p) => vaultIntegrity.updateFileSync(p),
