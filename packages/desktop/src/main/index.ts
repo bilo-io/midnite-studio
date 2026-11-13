@@ -93,6 +93,7 @@ import { createSttCredentials } from '@midnite/studio-feature-companion/main/stt
 import { configureUiBridge } from '@midnite/studio-feature-companion/main/ui-bridge';
 import { registerCompanionHandlers } from './ipc/companion-handlers';
 import { configurePrivacy, registerPrivacyHandlers } from './ipc/privacy-handlers';
+import { registerFeatureDataHandlers } from './ipc/feature-data-handlers';
 import { configureSessions, registerSessionsHandlers } from './ipc/sessions-handlers';
 import { configureChats, disposeChats, registerChatsHandlers } from './ipc/chats-handlers';
 import { configureNotes, registerNotesHandlers } from './ipc/notes-handlers';
@@ -585,6 +586,7 @@ export const startStudioMain: StartStudioMain = () => {
       registerDiagHandlers();
       registerSessionsHandlers();
       registerPrivacyHandlers();
+      registerFeatureDataHandlers();
       registerNotesHandlers();
       registerChatsHandlers();
       // The Database feature's channels (Phase 113 Theme O) register below, beside its stores and the vault.

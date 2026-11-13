@@ -183,6 +183,7 @@ const bridge: Pick<
   | 'vanguard'
   | 'toolApproval'
   | 'privacy'
+  | 'features'
 > = {
   /*
     A plain value, not a channel: it never changes for the life of the process,
@@ -513,6 +514,10 @@ const bridge: Pick<
     clearHistory: () => call(CHANNELS.privacyHistoryClear),
     fileVault: () => call(CHANNELS.privacyFileVault),
     openFileVault: () => call(CHANNELS.privacyOpenFileVault),
+  },
+  features: {
+    describeData: (req) => call(CHANNELS.featuresDataDescribe, req),
+    deleteData: (req) => call(CHANNELS.featuresDataDelete, req),
   },
   agent: {
     list: () => call(CHANNELS.agentList),
