@@ -9,6 +9,7 @@ import { GameDetailPanel } from './game-detail-panel';
 import { GameExportBar } from './game-export-bar';
 import { GameExplorer } from './game-explorer';
 import type { GameResolution } from './game-runner-host';
+import { ScenePicker } from './level/scene-picker';
 import { GameRunnerToolbar } from './game-runner-toolbar';
 import { useGameMode } from './use-game-mode';
 import { useAddGame, useGameEvents, useGames, useGamesSettings } from './use-games';
@@ -96,6 +97,7 @@ export function GameTab() {
           mode={modeOf(selected?.gameId ?? null)}
           onMode={(next) => selected && setMode(selected.gameId, next)}
           resolution={resolution}
+          sceneSlot={<ScenePicker gameId={selected?.gameId ?? null} />}
         />
       }
       detail={
