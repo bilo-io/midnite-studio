@@ -32,6 +32,7 @@ export function parseStoredGamesSettings(value: unknown): GamesSettings {
     defaultEngine: pick('defaultEngine'),
     defaultNetwork: pick('defaultNetwork'),
     squashRunCommits: pick('squashRunCommits'),
+    pauseWhenEditing: pick('pauseWhenEditing'),
   };
 }
 

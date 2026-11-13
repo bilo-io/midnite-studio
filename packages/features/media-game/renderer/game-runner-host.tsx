@@ -41,15 +41,24 @@ export function letterbox(
  * `hosted` is false while the game is popped out of this window (Theme B): the
  * popout's own host owns its bounds and visibility then, so this one sends
  * nothing — not even the hide on unmount, which would blank the popout.
+ *
+ * `active` is false while another centre tab (the level editor, Phase 132 Theme B) covers the stage: the view hides
+ * exactly as it does for an occluder, and switching back sends the bounds again.
  */
-function useGameBounds(gameId: string | null, live: boolean, resolution: GameResolution, hosted: boolean) {
+function useGameBounds(
+  gameId: string | null,
+  live: boolean,
+  resolution: GameResolution,
+  hosted: boolean,
+  active: boolean,
+) {
   // A callback ref backed by state, not `useRef`: the host first renders with no game (the
   // empty state, no container), and the observer below must attach once the container mounts.
   const [container, containerRef] = useState<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const occluded = useGameOccluded();
   const pageVisible = usePageVisible();
-  const visible = live && pageVisible && !occluded;
+  const visible = live && pageVisible && !occluded && active;
   const [stage, setStage] = useState<{ width: number; height: number } | null>(null);
 
   const measure = useCallback(() => {
@@ -104,9 +113,12 @@ export function GameRunnerHost({
   gameId,
   resolution,
   inPopout = false,
+  active = true,
 }: {
   gameId: string | null;
   resolution: GameResolution;
+  /** False while the level editor tab is showing, which hides the native view. */
+  active?: boolean;
   /** Rendered by the `game` popout window itself, which always hosts its game. */
   inPopout?: boolean;
 }) {
@@ -115,7 +127,7 @@ export function GameRunnerHost({
   const run = useRunGame();
   const live = isLive(info?.state);
   const poppedHere = !inPopout && gameId !== null && popped === gameId;
-  const { containerRef, stageRef, stage } = useGameBounds(gameId, live, resolution, !poppedHere);
+  const { containerRef, stageRef, stage } = useGameBounds(gameId, live, resolution, !poppedHere, active);
 
   if (!gameId) {
     return (

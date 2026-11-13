@@ -272,6 +272,8 @@ export const GamesSettingsSchema = z.object({
   defaultEngine: GameEngineSchema,
   defaultNetwork: GameNetworkSchema,
   squashRunCommits: z.boolean(),
+  /** Pause a run this window started when its Play tab is left for the level editor (Phase 132 Theme B). */
+  pauseWhenEditing: z.boolean(),
 });
 export type GamesSettings = z.infer<typeof GamesSettingsSchema>;
 
@@ -281,6 +283,7 @@ export const DEFAULT_GAMES_SETTINGS: GamesSettings = {
   defaultEngine: 'phaser',
   defaultNetwork: 'off',
   squashRunCommits: false,
+  pauseWhenEditing: true,
 };
 
 /** What the Settings page reads: the stored settings and where the default resolves. */
