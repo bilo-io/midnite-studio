@@ -45,7 +45,7 @@ describe('resolveGameFolder', () => {
     await mkdir(dir);
     const result = await resolveGameFolder(dir);
     expect(result).toMatchObject({ ok: false });
-    if (!result.ok) expect(result.message).toBe('"plain" is not a git repository. A game is its own repository — run git init in it, or start a new game with New game.');
+    if (!result.ok && result.kind === 'error') expect(result.message).toBe('"plain" is not a git repository. A game is its own repository — run git init in it, or start a new game with New game.');
   });
 
   it('opens the repository root for a game, and for a folder inside it', async () => {
@@ -71,13 +71,13 @@ describe('resolveGameFolder', () => {
     await writeFile(join(nested, GAME_MANIFEST_FILE), '{}', 'utf8');
     const result = await resolveGameFolder(nested);
     expect(result).toMatchObject({ ok: false });
-    if (!result.ok) expect(result.message).toBe(`"inner" is inside the repository ${top}. Games are their own repositories — move it out, or open ${top} if that is the game.`);
+    if (!result.ok && result.kind === 'error') expect(result.message).toBe(`"inner" is inside the repository ${top}. Games are their own repositories — move it out, or open ${top} if that is the game.`);
   });
 
   it('refuses a repository with no manifest', async () => {
     const dir = await repo('empty', null);
     const result = await resolveGameFolder(dir);
     expect(result).toMatchObject({ ok: false });
-    if (!result.ok) expect(result.message).toBe('No midnite-game.json in "empty". Open Game adds an existing Midnite game; to start one, use New game.');
+    if (!result.ok && result.kind === 'error') expect(result.message).toBe('No midnite-game.json in "empty". Open Game adds an existing Midnite game; to start one, use New game.');
   });
 });

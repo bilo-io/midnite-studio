@@ -108,7 +108,8 @@ export function useAddGame() {
   return useMutation({
     mutationFn: async () => (await bridge()?.games.add({})) ?? noBridge<GameAddResult>(),
     onSuccess: (result) => {
-      reportFailure(result);
+      // Narrowed first: `GitOpResult<T>` distributes over a union `T`, which a union result is not assignable to.
+      if (!result.ok) reportFailure(result);
       if (result.ok && result.value.status !== 'cancelled') {
         void client.invalidateQueries({ queryKey: GAME_KEYS.list });
         void client.invalidateQueries({ queryKey: REPOS_KEY });

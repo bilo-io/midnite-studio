@@ -48,6 +48,7 @@ function setup() {
       getWindow: () => null,
       templateDir: join(dir, 'template'),
       enginesDir: join(dir, 'engines'),
+      pickFolder: async () => null,
     },
     log: () => undefined,
     creator: {
