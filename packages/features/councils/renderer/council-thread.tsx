@@ -11,12 +11,13 @@ import {
   useNow,
   type IconComponent,
 } from '@midnite/studio-frame';
-import type {
-  CouncilMemberProvider,
-  CouncilRun,
-  CouncilRunMember,
-  CouncilSynthesisStatus,
-  CouncilTurn,
+import {
+  isCouncilRunLive,
+  type CouncilMemberProvider,
+  type CouncilRun,
+  type CouncilRunMember,
+  type CouncilSynthesisStatus,
+  type CouncilTurn,
 } from '@midnite/studio-shared';
 
 import { councilModelLabel, PROVIDER_LABEL, useCouncilProviders } from './council-providers';
@@ -199,7 +200,7 @@ function ThreadScroller({ run, tab }: { run: CouncilRun; tab: string }) {
       className="min-h-0 flex-1 overflow-y-auto"
       role="log"
       aria-live="polite"
-      aria-busy={turns[turns.length - 1]?.latest === true && run.status !== 'completed' && run.status !== 'failed'}
+      aria-busy={isCouncilRunLive(run.status)}
       data-testid="council-thread"
     >
       <div className={`${CHAT_COLUMN} flex flex-col gap-5 px-6 py-5`}>

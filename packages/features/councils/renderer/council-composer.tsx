@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { CHAT_COLUMN, InjectionBanner, useInjectionScans } from '@midnite/studio-frame';
-import { isCouncilRunLive, type CouncilRun } from '@midnite/studio-shared';
+import { isCouncilRunLive, type CouncilRun, type GitOpResult } from '@midnite/studio-shared';
 
 import { useCouncilsHost } from './host';
 import { useCancelCouncilRun, useContinueCouncilRun, useStartCouncilRun } from './use-council-run';
@@ -42,13 +42,26 @@ export function CouncilComposer({
   const pending = start.isPending || followUp.isPending;
   const canSend = canStart && !live && !pending && prompt.trim().length > 0;
 
+  // A turn main refused (the hooks toast why) hands the prompt back rather than dropping it.
+  const restoreOnFailure = (text: string) => (result: GitOpResult<CouncilRun>) => {
+    if (!result.ok) setPrompt((current) => (current.length === 0 ? text : current));
+  };
+
   const send = () => {
     if (!canSend) return;
     const text = prompt.trim();
     if (run) {
-      followUp.mutate({ runId: run.id, prompt: text });
+      followUp.mutate({ runId: run.id, prompt: text }, { onSuccess: restoreOnFailure(text) });
     } else {
-      start.mutate({ councilId, prompt: text }, { onSuccess: (result) => result.ok && onRunStarted(result.value.id) });
+      start.mutate(
+        { councilId, prompt: text },
+        {
+          onSuccess: (result) => {
+            restoreOnFailure(text)(result);
+            if (result.ok) onRunStarted(result.value.id);
+          },
+        },
+      );
     }
     setPrompt('');
   };

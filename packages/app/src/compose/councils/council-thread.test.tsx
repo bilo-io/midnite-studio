@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  CouncilComposer,
   CouncilCreateDialog,
   CouncilRunList,
   CouncilRunView,
@@ -173,5 +174,20 @@ describe('CouncilCreateDialog — recommend', () => {
     expect((await screen.findByRole('alert')).textContent).toContain('claude: timed out');
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
     expect(onCreate).toHaveBeenCalledWith({ name: 'Board' });
+  });
+});
+
+describe('CouncilComposer', () => {
+  it('hands the prompt back when main refuses the turn', async () => {
+    const start = vi.fn(async () => ({ ok: false as const, kind: 'error' as const, message: 'This council has no members yet.' }));
+    vi.stubGlobal('window', Object.assign(window, { midniteStudio: { council: { run: { start } } } }));
+    const onRunStarted = vi.fn();
+    render(<CouncilComposer councilId="c1" run={null} canStart onRunStarted={onRunStarted} />, { wrapper: Providers });
+    const box = screen.getByLabelText('Council prompt') as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: 'Ship it?' } });
+    fireEvent.click(screen.getByTestId('council-composer-send'));
+    await waitFor(() => expect(start).toHaveBeenCalledWith({ councilId: 'c1', prompt: 'Ship it?' }));
+    await waitFor(() => expect(box.value).toBe('Ship it?'));
+    expect(onRunStarted).not.toHaveBeenCalled();
   });
 });
