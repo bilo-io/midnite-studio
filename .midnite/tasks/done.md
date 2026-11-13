@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 122 Theme G — Guard: findings in the Guard tab
+
+PR (see the Phase 122 G PR). A Findings section in the Guard tab (severity groups, filters, new mark, evidence, confirmed actions), eight new remediation ids with pending reasons, the package-manager argv builder and the one-fingerprint agent prompt. Package fixes end to end and the Fix-with-agent button are still open.
+
 ## 2026-11-13 — Phase 116 Theme E (partial) — budget guards
 
 PR (see the Phase 116 E PR, stacked on C). `e2e-budget` now bans shots specs, disk screenshots, orphaned `docs/screenshots/` images (196 deleted) and un-allowlisted `waitForTimeout`; cap lowered 486 → 483; fixed an un-awaited fallback count; TESTING.md and the three convention files synced. The ≤ 200 cap waits on Theme C's Vitest waves.

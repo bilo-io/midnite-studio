@@ -32,6 +32,14 @@ export const ACTION_LABEL: Record<RemediationAction['id'], string> = {
   'update-package': 'Update package',
   'pin-package': 'Pin package',
   'remove-package': 'Remove package',
+  'open-system-settings': 'Open System Settings',
+  'copy-fix-command': 'Copy fix command',
+  'move-to-vault': 'Move to vault',
+  'redact-line': 'Redact line',
+  rotate: 'Rotate credential',
+  'open-tab': 'Open tab',
+  'close-tab': 'Close tab',
+  'forget-origin': 'Forget site data',
 };
 
 /** A failed envelope's message; a conflict never comes back from these channels, but the type allows one. */

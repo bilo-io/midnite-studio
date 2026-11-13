@@ -137,3 +137,4 @@ export * from './module-manifest';
 export * from './startup';
 export * from './invoice-math';
 export * from './contract-dates';
+export * from './guard-fix-prompt';

@@ -128,9 +128,7 @@ whose server headers announce an end-of-life stack; findings link back to the ta
 sensor history correlated across the sweep window: sessions outside the user's hours, a
 persistence item during a session, a new outbound host, a lockfile change with no PR.
 
-**Theme G — Findings in the Guard tab, with a button.** ◻ The tab lists the last sweep's findings by
-severity with a diff against the previous sweep; each remediation action renders through the shared
-enum; "Fix with agent" composes the finding into a Guard run with *Report only* off.
+**Theme G — Findings in the Guard tab, with a button.** ◐ PARTIAL (PR pending). The Guard tab gains a Findings section above the runs (`loops/renderer/guard-findings.tsx`, read through the bridge's findings channel with `source: 'guard'`, so the loops feature imports no other feature): grouped by severity, a category and status filter, a *new* mark (an open finding seen once, since the ledger bumps `count` per sweep), rows that expand to detail, evidence and actions, and the shared preview-and-confirm before an action runs. The enum gains `open-system-settings`, `copy-fix-command`, `move-to-vault`, `redact-line`, `rotate`, `open-tab`, `close-tab` and `forget-origin`; `copy-fix-command` runs in the tab (clipboard, no confirm) and the rest sit in `REMEDIATION_PENDING` with a reason. `guard/package-argv.ts` builds the pnpm/npm/yarn/cargo update and remove argv (lifecycle scripts off, flag-shaped names refused) and the `guard/` branch name. `guardFixPrompt` composes the one-fingerprint, untrusted-tagged prompt. **Not done:** running `update-package` / `remove-package` end to end (branch, process runner, forge PR) and the handlers for the new ids, the "Fix with agent" button that starts a run and links the run record back (the tab offers *Copy agent prompt* meanwhile), and the same rows in Vanguard's view.
 
 **Theme H — Schedule, cost and disclosure.** ◻ Default daily on wake, each feed behind its
 switch, a Privacy row that says what leaves, and a sweep that finishes in under a minute on this
@@ -286,13 +284,13 @@ repo.
 
 ### G — Findings in the Guard tab, with a button [M · ~1d]
 
-- [ ] **The list.** The Guard tab's history pane ([`loop-history.tsx`](../../../packages/app/src/features/loops/loop-history.tsx))
+- [x] **The list.** The Guard tab's history pane ([`loop-history.tsx`](../../../packages/app/src/features/loops/loop-history.tsx))
       gains a Findings section above the runs: grouped by severity, each row with its category
       glyph, title, subject, `count`, and a *new since last sweep* mark from the sweep diff; filters
       by category and status; a row expands to the evidence and the actions. Reads
       `CHANNELS.securityFindingsList` with `source: 'guard'`; the same rows appear in Vanguard's
       view, which owns the full ledger. [M]
-- [ ] **Actions.** Every action id from Phase 120 H's enum renders through the one component; a
+- [~] **Actions.** Every action id from Phase 120 H's enum renders through the one component; a
       Guard-specific set is added to the enum here: `update-package`, `pin-package`,
       `remove-package`, `open-system-settings`, `copy-fix-command`, `move-to-vault`,
       `redact-line`, `rotate` (opens the forge or provider page), `open-tab`, `close-tab`,
@@ -300,10 +298,10 @@ repo.
       [`process-runner.ts`](../../../packages/runtime/src/process-runner.ts) with the repo's
       package manager detected from the lockfile, on a branch, and open a PR via the forge feature
       — never on `main`. Each behind the confirm. [M]
-- [ ] **Fix with agent.** A finding's "Fix with agent" composes a Guard run whose prompt is the
+- [~] **Fix with agent.** A finding's "Fix with agent" composes a Guard run whose prompt is the
       finding (tagged untrusted) plus *Fix the sweep's findings*, scoped to that one fingerprint;
       the run record links back to the finding and the finding's row shows the run. [S]
-- [ ] **Tests.** The grouped list from a fixture ledger; the diff mark; `update-package` builds the
+- [x] **Tests.** The grouped list from a fixture ledger; the diff mark; `update-package` builds the
       right argv for pnpm, npm, yarn and cargo fixtures; the composed prompt carries the fingerprint. [S]
 
 ### H — Schedule, cost and disclosure [S · ≤ 2h]

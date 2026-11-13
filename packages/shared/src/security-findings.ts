@@ -100,6 +100,14 @@ export const RemediationActionIdSchema = z.enum([
   'update-package',
   'pin-package',
   'remove-package',
+  'open-system-settings',
+  'copy-fix-command',
+  'move-to-vault',
+  'redact-line',
+  'rotate',
+  'open-tab',
+  'close-tab',
+  'forget-origin',
 ]);
 export type RemediationActionId = z.infer<typeof RemediationActionIdSchema>;
 
@@ -205,6 +213,72 @@ export const RemovePackageActionSchema = z.object({
 });
 export type RemovePackageAction = z.infer<typeof RemovePackageActionSchema>;
 
+/** Guard Theme G: open a System Settings pane (the user flips the switch; the app never calls sudo). */
+export const OpenSystemSettingsActionSchema = z.object({
+  id: z.literal('open-system-settings'),
+  pane: z.string(),
+  description: z.string().optional(),
+});
+export type OpenSystemSettingsAction = z.infer<typeof OpenSystemSettingsActionSchema>;
+
+/** Guard Theme G: put a one-line fix on the clipboard for the user to run (the app never runs it). */
+export const CopyFixCommandActionSchema = z.object({
+  id: z.literal('copy-fix-command'),
+  command: z.string(),
+  description: z.string().optional(),
+});
+export type CopyFixCommandAction = z.infer<typeof CopyFixCommandActionSchema>;
+
+/** Guard Theme G: a secret in a file outside the vault moves into it (Phase 118's import path). */
+export const MoveToVaultActionSchema = z.object({
+  id: z.literal('move-to-vault'),
+  path: z.string(),
+  line: z.number().int().positive().optional(),
+  description: z.string().optional(),
+});
+export type MoveToVaultAction = z.infer<typeof MoveToVaultActionSchema>;
+
+/** Guard Theme G: blank the secret on one line of a file. */
+export const RedactLineActionSchema = z.object({
+  id: z.literal('redact-line'),
+  path: z.string(),
+  line: z.number().int().positive(),
+  description: z.string().optional(),
+});
+export type RedactLineAction = z.infer<typeof RedactLineActionSchema>;
+
+/** Guard Theme G: open the forge or provider page where the exposed credential is rotated. */
+export const RotateActionSchema = z.object({
+  id: z.literal('rotate'),
+  url: z.string().url(),
+  description: z.string().optional(),
+});
+export type RotateAction = z.infer<typeof RotateActionSchema>;
+
+/** Guard Theme G: open a visited site in the browser to look at it. */
+export const OpenTabActionSchema = z.object({
+  id: z.literal('open-tab'),
+  url: z.string().url(),
+  description: z.string().optional(),
+});
+export type OpenTabAction = z.infer<typeof OpenTabActionSchema>;
+
+/** Guard Theme G: close a browser tab that is still open on a flagged site. */
+export const CloseTabActionSchema = z.object({
+  id: z.literal('close-tab'),
+  tabId: z.string(),
+  description: z.string().optional(),
+});
+export type CloseTabAction = z.infer<typeof CloseTabActionSchema>;
+
+/** Guard Theme G: clear the browser's storage for an origin. */
+export const ForgetOriginActionSchema = z.object({
+  id: z.literal('forget-origin'),
+  origin: z.string(),
+  description: z.string().optional(),
+});
+export type ForgetOriginAction = z.infer<typeof ForgetOriginActionSchema>;
+
 export const RemediationActionSchema = z.discriminatedUnion('id', [
   PauseSessionActionSchema,
   KillProcessGroupActionSchema,
@@ -219,6 +293,14 @@ export const RemediationActionSchema = z.discriminatedUnion('id', [
   UpdatePackageActionSchema,
   PinPackageActionSchema,
   RemovePackageActionSchema,
+  OpenSystemSettingsActionSchema,
+  CopyFixCommandActionSchema,
+  MoveToVaultActionSchema,
+  RedactLineActionSchema,
+  RotateActionSchema,
+  OpenTabActionSchema,
+  CloseTabActionSchema,
+  ForgetOriginActionSchema,
 ]);
 export type RemediationAction = z.infer<typeof RemediationActionSchema>;
 
@@ -242,6 +324,13 @@ export const REMEDIATION_PENDING: Readonly<Partial<Record<RemediationActionId, {
     reason: 'Run from the Guard tab once Phase 122 Theme G lands; until then the finding names the version to pin.',
     dependsOn: 'Phase 122 Theme G',
   },
+  'open-system-settings': { reason: 'Open System Settings yourself; the pane is named in the finding.', dependsOn: 'Phase 122 Theme G follow-up' },
+  'move-to-vault': { reason: 'Move the secret into the vault by hand until the import path is wired to Guard.', dependsOn: 'Phase 118 import path' },
+  'redact-line': { reason: 'Edit the file to remove the line until Guard can rewrite it.', dependsOn: 'Phase 122 Theme G follow-up' },
+  rotate: { reason: 'Rotate the credential at its provider until Guard can open the page.', dependsOn: 'Phase 122 Theme G follow-up' },
+  'open-tab': { reason: 'Open the site from the Browser until Guard can open the tab.', dependsOn: 'Phase 122 Theme G follow-up' },
+  'close-tab': { reason: 'Close the tab in the Browser until Guard can close it.', dependsOn: 'Phase 122 Theme G follow-up' },
+  'forget-origin': { reason: 'Clear the site data in the Browser until Guard can do it.', dependsOn: 'Phase 122 Theme G follow-up' },
   'open-in-agents': {
     reason:
       'Available once Phase 121 lands: a finding goes into a Chats thread only once it can be tagged untrusted (Phase 121 Theme A).',
@@ -250,7 +339,7 @@ export const REMEDIATION_PENDING: Readonly<Partial<Record<RemediationActionId, {
 };
 
 /** Actions that act without a confirm: they change nothing on the machine (Phase 120 Theme H). */
-export const REMEDIATION_UNCONFIRMED: ReadonlySet<RemediationActionId> = new Set<RemediationActionId>(['mute', 'report-issue']);
+export const REMEDIATION_UNCONFIRMED: ReadonlySet<RemediationActionId> = new Set<RemediationActionId>(['mute', 'report-issue', 'copy-fix-command']);
 
 export const FindingActionResultSchema = z.object({
   id: RemediationActionIdSchema,
