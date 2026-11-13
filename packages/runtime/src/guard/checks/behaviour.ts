@@ -57,7 +57,7 @@ const stamp = (t: number): string => new Date(t).toISOString().slice(0, 16).repl
  * a session that started in an hour the last 30 days almost never saw (`low`), a Vanguard persistence or network
  * finding whose first sighting falls inside a session (`high`, naming both fingerprints), a limit-trip record
  * (`medium`) and a session with more than {@link DENIED_APPROVALS_LIMIT} denied approvals (`medium`). The
- * lockfile-change-without-a-PR rule needs the forge and is not part of this check. A quiet week yields nothing.
+ * lockfile-change-without-a-PR rule is its own check (`lockfile-changes.ts`). A quiet week yields nothing.
  */
 export const behaviourCheck: GuardCheck = {
   id: BEHAVIOUR_CHECK_ID,
