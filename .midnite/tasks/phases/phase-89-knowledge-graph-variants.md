@@ -37,7 +37,7 @@ against sigma's own four looks has something for the libraries to fit into.
 
 **Theme J — The gate, and the bake-off.** 🔄 (gate mechanism landed, bake-off open) — `KnowledgeVariant` takes optional `maxNodes` / `maxEdges`; `knowledge-variant-gate.ts` holds the pure arithmetic and `effectiveVariant`. Over a limit the pill is disabled with a tooltip naming the reason and counts, the stored preference is never rewritten, a visible notice says the default renders instead, and a smaller graph restores it. No variant declares a limit yet: the limits must come from TTFP / FPS / memory measured on the packaged app, and none has been run, so none is guessed. Stale 14,881 / 36,032 counts in `types.ts` and `projection.ts` and the node panel now say 15,292 / 37,036 (the measured 6,066 and 35,763 edge figures in `knowledge-filters.ts` are kept: they were measured on the older graph). Open: the `MSTUDIO_PERF=1` harness, the numbers, `budgets.json`, the per-variant limits and the written verdict.
 
-**Theme K — Verification and budgets.** 🔄 (licence audit landed; the rest open) — the four dependencies' licences are recorded in one table at the foot of Theme K. The seam e2e, the entry-chunk and Knowledge-chunk ceilings, idle-CPU per animated variant, the three visual baselines and the full gate are open, with the reasons stated there; the registry/fallback and view-mock boxes were already satisfied by earlier themes.
+**Theme K — Verification and budgets.** 🔄 (licence audit and seam e2e landed; the rest open) — the four dependencies' licences are recorded in one table at the foot of Theme K. The seam e2e (`knowledge-canvas.spec.ts`: Atlas to Telemetry HUD re-mounts the canvas, and `rendererVariant` survives a reload) is done. The entry-chunk and Knowledge-chunk ceilings, idle-CPU per animated variant, the three visual baselines and the full gate are open, with the reasons stated there; the registry/fallback and view-mock boxes were already satisfied by earlier themes.
 
 ## What the grounding changed
 
@@ -332,7 +332,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [ ] `knowledge-view.test.tsx` already mocks `./knowledge-canvas` (`:14`) with a stub — extend the
       mock to the variant seam rather than mocking each engine, so adding a variant does not mean
       touching the view test.
-- [ ] **One** e2e, for the seam only: pick a variant, confirm the canvas re-mounts and the preference
+- [x] **One** e2e, for the seam only: pick a variant, confirm the canvas re-mounts and the preference
       survives. Per Phase 82's decision rule, the header comment names which browser capability it
       needs. The four engines are not each given an e2e.
 - [ ] **Three** visual baselines, not nine: Atlas, Constellation, Clusters. Decision 6.
@@ -358,10 +358,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 | `vis-network` | 10.1.5 | Apache-2.0 OR MIT | `vis-data`, `vis-util`, `keycharm` (Apache-2.0 OR MIT); `component-emitter`, `uuid`, `@egjs/hammerjs` (MIT) | H |
 | `d3-force` | 3.0.1 | ISC | `d3-dispatch`, `d3-quadtree`, `d3-timer` (ISC); `@types/d3-force` 3.0.10 (MIT, dev) | I |
 
-**What Theme K did not do, and why.** The seam e2e (pick a renderer, canvas re-mounts, choice survives a
-reload) was drafted against `knowledge-canvas.spec.ts` but not committed: running it needed Playwright,
-which this session was not permitted to run, and an e2e that has never passed does not go in. It needs
-`MAX_DECLARED_E2E` raised 485 -> 486. Also open: the entry-chunk and Knowledge-chunk ceilings across all
+**What Theme K did not do, and why.** The seam e2e is done: `knowledge-canvas.spec.ts` picks Telemetry HUD from
+Atlas, asserts sigma's stacked canvases are replaced by the 3D engine's single canvas, then reloads and asserts the
+choice held (`MAX_DECLARED_E2E` 485 -> 486). Still open: the entry-chunk and Knowledge-chunk ceilings across all
 engines, `idle-cpu.mjs --blurred` per animated variant, the three visual baselines (never committed from
 a session; `app:visual` owns them), and the full `moon run :typecheck :lint :test`. Already covered by
 earlier themes: the variant registry and fallback (`renderer-contract.test.ts`), the gate arithmetic
