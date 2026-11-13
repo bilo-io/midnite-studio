@@ -23,7 +23,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [119 · Midnite Git: a self-hosted forge and local CI runners](phases/phase-119-midnite-git.md) | 🔄 WIP | — | 3/56 | `█░░░░░░░░░` | 5% | A | B C D E F G H |
 | [118 · Vault security hardening](phases/phase-118-vault-security-hardening.md) | ✅ DONE | — | 51/51 | `██████████` | 100% | — | — |
 | [117 · Browser security hardening](phases/phase-117-browser-security-hardening.md) | 🔄 WIP | — | 52/60 | `█████████░` | 87% | — | — |
-| [116 · Test suite diet and screenshot purge](phases/phase-116-test-suite-diet-and-screenshot-purge.md) | 🔄 WIP | — | 14/28 | `█████░░░░░` | 50% | — | C E |
+| [116 · Test suite diet and screenshot purge](phases/phase-116-test-suite-diet-and-screenshot-purge.md) | 🔄 WIP | — | 16/28 | `██████░░░░` | 57% | — | C E |
 | [115 · Privacy: data leaving the Mac and data at rest](phases/phase-115-privacy-egress-and-at-rest.md) | 🔄 WIP | — | 23/44 | `█████░░░░░` | 52% | — | A E G |
 | [114 · App-wide settings by voice](phases/phase-114-app-wide-settings-by-voice.md) | ◻ TODO | — | 0/34 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [113 · Midnite Apps suite split](phases/phase-113-midnite-apps-suite-split.md) | 🔄 WIP | — | 74/78 | `█████████░` | 95% | H | — |

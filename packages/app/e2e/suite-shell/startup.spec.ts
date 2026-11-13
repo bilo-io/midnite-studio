@@ -1,5 +1,3 @@
-import { mkdirSync } from 'node:fs';
-import { join } from 'node:path';
 
 import { expect, test, type Page } from '@playwright/test';
 
@@ -13,10 +11,7 @@ import { installSuiteBridge, STARTUP_EMPTY_ANSWERS, STARTUP_SEEDED_ANSWERS, SUIT
  * dependency's right edge and ends on the dependent's left edge is only visible through
  * `getBoundingClientRect` and the SVG's screen matrix. jsdom reports every box as 0x0. Everything else
  * about the views (ops, refusals, copy) is vitest in `packages/modules/startup`.
- *
- * Review shots go to `MSTUDIO_SHOTS_DIR` (never committed); unset, they land under `test-results/`.
  */
-const SHOTS = process.env.MSTUDIO_SHOTS_DIR ?? join('test-results', 'p130-shots');
 
 const pageErrors: string[] = [];
 
@@ -33,7 +28,6 @@ const goto = (page: Page, view: string) => page.getByRole('complementary', { nam
 test.describe('Midnite Startup', () => {
   test.beforeEach(() => {
     pageErrors.length = 0;
-    mkdirSync(SHOTS, { recursive: true });
   });
   test.afterEach(() => {
     expect(pageErrors).toEqual([]);
@@ -49,7 +43,6 @@ test.describe('Midnite Startup', () => {
   test('roadmap timeline: each dependency arrow joins its two bars edge to edge', async ({ page }) => {
     await open(page, STARTUP_SEEDED_ANSWERS);
     await goto(page, 'startup.overview');
-    await page.screenshot({ path: join(SHOTS, 'startup-overview.png') });
     await goto(page, 'startup.roadmap');
     await page.getByRole('button', { name: 'Timeline' }).click();
     const timeline = page.getByTestId('roadmap-timeline');
@@ -77,7 +70,6 @@ test.describe('Midnite Startup', () => {
       expect(e.end.y).toBeGreaterThanOrEqual(e.to.top - 2);
       expect(e.end.y).toBeLessThanOrEqual(e.to.bottom + 2);
     }
-    await page.screenshot({ path: join(SHOTS, 'startup-roadmap-timeline.png') });
   });
 
   test('runway with two scenarios and an invoice draft, for the review shots', async ({ page }) => {
@@ -85,9 +77,7 @@ test.describe('Midnite Startup', () => {
     await goto(page, 'startup.runway');
     await expect(page.getByRole('img', { name: 'Cash by month' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Lean' })).toBeVisible();
-    await page.screenshot({ path: join(SHOTS, 'startup-runway.png') });
     await goto(page, 'startup.invoices');
     await expect(page.getByText('Globex').first()).toBeVisible();
-    await page.screenshot({ path: join(SHOTS, 'startup-invoices.png') });
   });
 });
