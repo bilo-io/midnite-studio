@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 89 Theme K (part) — licence audit
+
+One table of the four variant dependencies' licences and closures. Not done: the seam e2e, bundle and idle-CPU ceilings, visual baselines, full gate; reasons in the phase doc.
+
 ## 2026-11-13 — Phase 89 Theme H — vis-network variant
 
 PR #1209, stacked on #1208. `vis-network` (Apache-2.0 OR MIT) from npm behind its own dynamic `import()`, with Phase 87's CDN rejection qualified in the code. Not done: the packaged-app network trace; a real-browser look.

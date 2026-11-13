@@ -37,7 +37,7 @@ against sigma's own four looks has something for the libraries to fit into.
 
 **Theme J — The gate, and the bake-off.** ◻ the capability gate and the bake-off: TTFP/FPS/memory per variant on the real graph, thresholds from measurement, stale counts fixed
 
-**Theme K — Verification and budgets.** ◻ verification: pure-layer units, one seam e2e, three baselines (not nine), bundle and idle-CPU budgets, licence audit
+**Theme K — Verification and budgets.** 🔄 (licence audit landed; the rest open) — the four dependencies' licences are recorded in one table at the foot of Theme K. The seam e2e, the entry-chunk and Knowledge-chunk ceilings, idle-CPU per animated variant, the three visual baselines and the full gate are open, with the reasons stated there; the registry/fallback and view-mock boxes were already satisfied by earlier themes.
 
 ## What the grounding changed
 
@@ -342,11 +342,30 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [ ] `idle-cpu.mjs --blurred` with each animated variant open is indistinguishable from the view
       closed. The d3-force live sim is the one most likely to fail this; it is why Theme I has a
       settle ceiling.
-- [ ] Licence audit of all four new dependencies recorded in one place.
+- [x] Licence audit of all four new dependencies recorded in one place — see the table below.
 - [ ] `moon run :typecheck :lint :test` green; `moon run root:tracker-check` exits 0.
 - [ ] **Open, for a human:** switch through every pill on a repo you know well and say which one you
       reach for. Nine variants that all render correctly and none of which you prefer is a failure
       this phase cannot assert against.
+
+**Licence audit (read from each package's own `package.json` in `node_modules`).** Every one is permissive; none needs attribution beyond the notices already in the package.
+
+| Package | Version | Licence | Transitive closure | Theme |
+|---|---|---|---|---|
+| `force-graph` | 1.52.0 | MIT | MIT 14, ISC 16, BSD-3-Clause 1 (as recorded in PR #1205) | F |
+| `cytoscape` | 3.35.0 | MIT | none | G |
+| `vis-network` | 10.1.5 | Apache-2.0 OR MIT | `vis-data`, `vis-util`, `keycharm` (Apache-2.0 OR MIT); `component-emitter`, `uuid`, `@egjs/hammerjs` (MIT) | H |
+| `d3-force` | 3.0.1 | ISC | `d3-dispatch`, `d3-quadtree`, `d3-timer` (ISC); `@types/d3-force` 3.0.10 (MIT, dev) | I |
+
+**What Theme K did not do, and why.** The seam e2e (pick a renderer, canvas re-mounts, choice survives a
+reload) was drafted against `knowledge-canvas.spec.ts` but not committed: running it needed Playwright,
+which this session was not permitted to run, and an e2e that has never passed does not go in. It needs
+`MAX_DECLARED_E2E` raised 485 -> 486. Also open: the entry-chunk and Knowledge-chunk ceilings across all
+engines, `idle-cpu.mjs --blurred` per animated variant, the three visual baselines (never committed from
+a session; `app:visual` owns them), and the full `moon run :typecheck :lint :test`. Already covered by
+earlier themes: the variant registry and fallback (`renderer-contract.test.ts`), the gate arithmetic
+(Theme J), and `knowledge-view.test.tsx` already mocks the single `./knowledge-canvas` seam rather than
+any engine, so adding a variant touches no view test.
 
 ---
 
