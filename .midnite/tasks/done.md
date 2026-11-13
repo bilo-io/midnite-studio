@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 122 Theme G (remainder) — Guard: package fixes on a branch, Fix with agent
+
+PR (see the Phase 122 package-actions PR). `update-package` and `remove-package` run behind the confirm on a new branch in a throwaway worktree (scripts off, no sudo, nothing pushed); a *Fix with agent* button starts a one-finding agent run linked back on the finding's row. Not done: opening the PR through the forge, `pin-package`.
+
 ## 2026-11-13 — Phase 122 Theme F (remainder) — Guard: lockfile changed with nothing pushed
 
 PR (see the Phase 122 lockfile-rule PR). A `lockfile-changes` check: a lockfile commit in the last 7 days on no remote branch is a `medium` finding per repo, read from git (no forge call). Not done: a pushed branch that has no PR.
