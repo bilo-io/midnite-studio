@@ -1136,7 +1136,7 @@ export const MCP_TOOLS = {
     id: 'game_level_list',
     title: 'List a game’s levels',
     description:
-      'Lists the scenes in a game’s `levels/` folder with their size and 2D or 3D kind, the start scene, and whether the game reads its levels from files — use instead of listing the folder yourself.',
+      'Lists the scenes in a game’s `levels/` folder with their kind, the start scene, and whether the game reads its levels from files — use instead of `ls levels`.',
     input: GameToolTargetSchema,
     output: GameLevelListOutputSchema,
     readOnly: true,
@@ -1145,7 +1145,7 @@ export const MCP_TOOLS = {
     id: 'game_level_get',
     title: 'Read a game level',
     description:
-      'Reads one level (`levels/<scene>.tmj`, Tiled JSON) with the problems found in it, no images — use instead of reading the file when you need to know what the editor would show.',
+      'Reads one level (`levels/<scene>.tmj`, Tiled JSON) with the problems found in it, no images — use instead of `cat` on the file.',
     input: GameLevelGetInputSchema,
     output: GameLevelGetOutputSchema,
     readOnly: true,
@@ -1154,7 +1154,7 @@ export const MCP_TOOLS = {
     id: 'game_level_set',
     title: 'Write a game level',
     description:
-      'Validates a Tiled JSON level and writes it to `levels/<scene>.tmj` as one commit of that file; `create` is needed for a new scene — use instead of editing the file, so a bad level is refused with its reason; refused unless its Settings switch is on.',
+      'Validates a Tiled JSON level and commits it to `levels/<scene>.tmj` (`create` for a new scene) — use instead of editing the file by hand; refused unless its Settings switch is on.',
     input: GameLevelSetInputSchema,
     output: GameLevelSetOutputSchema,
     readOnly: false,
@@ -1163,7 +1163,7 @@ export const MCP_TOOLS = {
     id: 'game_goto',
     title: 'Jump a game to a scene',
     description:
-      'Jumps the running game to a scene through its hook, or reloads or arms the next run when it cannot — use after `game_level_set` to see the level; refused unless its Settings switch is on.',
+      'Jumps the running game to a scene, reloading or arming the next run when it cannot — use after `game_level_set` to see the level; refused unless its Settings switch is on.',
     input: GameGotoInputSchema,
     output: GameGotoOutputSchema,
     readOnly: false,
