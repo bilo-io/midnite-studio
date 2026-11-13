@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 89 Theme G — cytoscape variant
+
+PR #PRN, stacked on #1205. `cytoscape` (MIT, no deps) behind its own dynamic `import()` over the shared 2D layer; alpha states as stylesheet classes. Not done: a real-browser look; frame-rate numbers (Theme J).
+
 ## 2026-11-13 — Phase 89 Theme F — force-graph variant + shared 2D engine layer
 
 PR #1205. `force-graph` (MIT) behind its own dynamic `import()`, over a shared engine-neutral model and renderer base the next three engines reuse. Canvas 2D, not WebGL as the doc said. Not done: alpha ramping on the new engines; a real-browser look.
