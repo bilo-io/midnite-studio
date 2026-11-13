@@ -1,3 +1,4 @@
+import { FEATURE_OFF_REASON, isSettingsPageOff } from '@midnite/studio-shared';
 import type {
   AgentDefinition,
   CommandId,
@@ -11,6 +12,7 @@ import type {
 } from '@midnite/studio-shared';
 import {
   createCommandSource as createFrameCommandSource,
+  useFeatureTogglesStore,
   type CommandSourceOptions,
 } from '@midnite/studio-frame';
 import { GoIssueOpened } from 'react-icons/go';
@@ -35,7 +37,7 @@ import {
   useTerminalStore,
 } from '../../features/terminal/terminal-store';
 import type { CommandRuntime } from '../../services/keybindings/use-command-handlers';
-import { isNavViewVisible } from '../../components/nav-visibility';
+import { effectiveNavVisibility, isNavViewVisible } from '../../components/nav-visibility';
 import { useUiStore, VIEW_IDS, SETTINGS_PAGES, type ViewId } from '../../store/ui-store';
 import { openIssueModal } from '../../store/issue-modal-store';
 import { REPO_ISSUES_SOURCE_ID } from '@midnite/studio-feature-tasks/renderer/state';
@@ -127,7 +129,11 @@ const HIDDEN_WHEN_DISABLED = new Set<CommandId>(['browser.openDevServer']);
  * handler), narrowed to the palette-safe list and with Studio's glyphs.
  */
 export const STUDIO_COMMAND_OPTIONS: CommandSourceOptions = {
-  include: (id, runtime) => isPaletteSafe(id) && !(HIDDEN_WHEN_DISABLED.has(id) && !runtime[id]?.enabled),
+  include: (id, runtime) =>
+    isPaletteSafe(id) &&
+    !(HIDDEN_WHEN_DISABLED.has(id) && !runtime[id]?.enabled) &&
+    // Phase 135 Theme C: a switched-off feature's commands leave the palette rather than grey out.
+    runtime[id]?.disabledReason !== FEATURE_OFF_REASON,
   icon: (id) => COMMAND_ICONS[id],
 };
 
@@ -139,7 +145,8 @@ export function createViewsSource(onSelect: () => void): PaletteSource {
   return {
     key: 'views',
     items: () => {
-      const navVisibility = useUiStore.getState().navVisibility;
+      const disabled = useFeatureTogglesStore.getState().disabled;
+      const navVisibility = effectiveNavVisibility(useUiStore.getState().navVisibility, disabled);
       const viewItems: PaletteItem[] = VIEW_IDS.filter((viewId) =>
         isNavViewVisible(navVisibility, viewId),
       ).map((viewId): PaletteItem => ({
@@ -154,7 +161,7 @@ export function createViewsSource(onSelect: () => void): PaletteSource {
         },
       }));
 
-      const settingsItems: PaletteItem[] = SETTINGS_PAGES.map((page): PaletteItem => ({
+      const settingsItems: PaletteItem[] = SETTINGS_PAGES.filter((page) => !isSettingsPageOff(disabled, page.id)).map((page): PaletteItem => ({
         id: `settings:${page.id}`,
         label: `Settings: ${page.label}`,
         group: 'Settings',

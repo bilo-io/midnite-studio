@@ -13,7 +13,7 @@ import { createPortal } from 'react-dom';
 import { LuBug, LuCompass, LuInfinity, LuRepeat2, LuRocket, LuWandSparkles } from 'react-icons/lu';
 import { MdOutlineEditNote } from 'react-icons/md';
 
-import { useFocusTrap, type IconComponent } from '@midnite/studio-frame';
+import { useDisabledFeatures, useFocusTrap, type IconComponent } from '@midnite/studio-frame';
 
 import { useLoopsHost, type LoopsCompanionPort, type LoopsHost, type LoopsTriggerSource as TriggerSource } from './host';
 
@@ -52,9 +52,18 @@ type QuickAccessRow = QuickAccessItem | { type: 'separator' };
  */
 function buildRows(
   host: LoopsHost,
-  options: { companionEnabled: boolean; canRepeat: boolean; setupIncomplete: boolean },
+  options: {
+    companionEnabled: boolean;
+    canRepeat: boolean;
+    setupIncomplete: boolean;
+    /** Phase 135: a leaf whose feature is switched off in Settings ▸ Features is hidden like an absent one. */
+    companionOff?: boolean;
+    notesOff?: boolean;
+  },
 ): readonly QuickAccessRow[] {
-  const { companion, openNotes, setupStore } = host;
+  const { setupStore } = host;
+  const companion = options.companionOff ? undefined : host.companion;
+  const openNotes = options.notesOff ? undefined : host.openNotes;
   const rows: QuickAccessRow[] = [
     {
       mnemonic: 'L',
@@ -279,6 +288,7 @@ export function QuickAccessMenu({
   const companionStatus = useCompanionStatus();
   const setupIncomplete = useSetupIncomplete();
   const { enabled: companionEnabled, state: companionState, lastText } = companionStatus;
+  const disabledFeatures = useDisabledFeatures();
 
   const [anchorStyle, setAnchorStyle] = useState<CSSProperties | null>(null);
   useLayoutEffect(() => {
@@ -299,8 +309,15 @@ export function QuickAccessMenu({
   }, [anchor]);
 
   const rows = useMemo(
-    () => buildRows(host, { companionEnabled, canRepeat: lastText !== null, setupIncomplete }),
-    [host, companionEnabled, lastText, setupIncomplete],
+    () =>
+      buildRows(host, {
+        companionEnabled,
+        canRepeat: lastText !== null,
+        setupIncomplete,
+        companionOff: disabledFeatures.includes('companion'),
+        notesOff: disabledFeatures.includes('notes'),
+      }),
+    [host, companionEnabled, lastText, setupIncomplete, disabledFeatures],
   );
 
   // Escape, an outside `pointerdown`, focus leaving, Tab and the window
