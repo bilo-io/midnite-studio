@@ -178,7 +178,7 @@ test('typing a symbol into search flies the camera to it, centring it under a fi
   // whether the resulting camera fly (`use-sigma-graph.ts`'s `camera.animate`,
   // 400ms) actually lands on it well enough for a real click to hit it.
   await page.getByRole('textbox', { name: 'Search knowledge graph nodes' }).fill('Tick');
-  await page.waitForTimeout(700);
+  await page.waitForTimeout(700); // allow-timeout: sigma camera fly (400ms) has no DOM signal
 
   await page.mouse.click(center.x, center.y);
   await expect(nodePanel(page)).toBeVisible();
@@ -226,7 +226,7 @@ test('picking a member in the community tree flies the camera to it, so the cent
   // 400ms — which only a real canvas can show landed.
   await page.getByRole('button', { name: 'useNowTick', exact: true }).click();
   await expect(page.getByText('src/east.ts')).toBeVisible();
-  await page.waitForTimeout(700);
+  await page.waitForTimeout(700); // allow-timeout: sigma camera fly (400ms) has no DOM signal
 
   await page.getByRole('button', { name: 'Close' }).click();
   await expect(nodePanel(page)).toBeHidden();

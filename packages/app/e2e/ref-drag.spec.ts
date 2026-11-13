@@ -152,7 +152,7 @@ async function dragOnto(page: Page, from: Locator, to: Locator): Promise<void> {
     capture phase before React's delegated listener sees it — the menu item then
     looks completely dead, with no error and nothing in the DOM to explain it.
   */
-  await page.waitForTimeout(80);
+  await page.waitForTimeout(80); // allow-timeout: dnd-kit swallows the click trailing a drag for 50ms
 }
 
 type OpCall = { op: string; args: Record<string, unknown> };

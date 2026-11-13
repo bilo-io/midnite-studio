@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 116 Theme C (partial) — shots purge repeat and `waitForTimeout` purge
+
+PR (see the Phase 116 C PR). Five re-grown `*-shots.spec.ts` files and `animation-player`'s disk screenshot removed; every bare `page.waitForTimeout` in e2e specs is now polled, routed through `settle()`, or marked `// allow-timeout: <reason>`. The Vitest migration waves (477 → ≤ 200) are not done: they need Playwright runs that CI-lock and RAM rule out here.
+
 ## 2026-11-12 — Phase 128 Theme H — Launch: catalog, website, docs
 
 PR (see the Phase 128 H PR). Health's `comingSoon` removed from the launcher catalog and module, blurbs updated, Health added to the website catalog with its logo, and `docs/APPS.md` documents the app. Manual checks outstanding: packaged-app pass over export and erase.

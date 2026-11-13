@@ -105,7 +105,7 @@ async function setState(page: Page, state: string | null, level = 0): Promise<vo
     },
     { next: state, lvl: level },
   );
-  await page.waitForTimeout(350);
+  await page.waitForTimeout(350); // allow-timeout: rAF/CSS tween with no DOM completion signal
 }
 
 /**
@@ -136,7 +136,7 @@ async function freezeAtPhase(page: Page): Promise<void> {
     el.style.setProperty('--companion-orbit', '200deg');
     el.style.setProperty('--companion-glow', '24px');
   });
-  await page.waitForTimeout(120);
+  await page.waitForTimeout(120); // allow-timeout: rAF/CSS tween with no DOM completion signal
 }
 
 /** Mean luminance of the one-pixel ring `depth` inside the raster's edge. */
@@ -284,7 +284,7 @@ test('the idle arc and its bloom orbit on one timeline', async ({ page }) => {
   expect(first.host, 'the host ring should carry a resolved orbit angle').not.toBe('');
   expect(first.band, 'the bloom should carry the same angle, not its initial 0deg').toBe(first.host);
 
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(600); // allow-timeout: lets the orbit angle advance before re-reading it
   const second = await read();
   expect(second.band).toBe(second.host);
   expect(second.host, 'the orbit should have advanced').not.toBe(first.host);
