@@ -15923,3 +15923,7 @@ New `midnite-menu.test.tsx`, four readout tests in `monitor-cluster.test.tsx`, a
 ## 2026-11-13 — Phase 88 Theme G (verification, automated half) — terminal e2e and entry-chunk exclusion
 
 All nine terminal e2e specs the phase names pass locally against xterm 6.0.0 (no CI; one spec at a time, except `kanban` and `notes`, which ran together), and the entry chunk (1118.3 KB) holds no xterm or addon string; its static import closure is one chunk. `bundle-budget.spec.ts`'s total-JS test fails at 44448.7 KB against 15950 KB, unrelated to xterm and recorded in the phase doc. The human pass stays open, listed in the phase's Theme G Headlines.
+
+## 2026-11-13 — Phase 133 (Themes A–E) — councils as threads, a synthesis that finishes
+
+Council prompts go to a `0600` temp file a short `run.sh` reads, so the shell never redraws a long line; agy and claude answer in print-mode JSON; timeout, cancelled and interrupted read as themselves. Members and the synthesizer pick a model; the centre pane is a chat thread with Chats' composer docked under it (the chat column, copy button and stick-to-bottom helpers moved into the frame); follow-ups resume each CLI's session; thread rows show turn counts; the new-council modal can ask a small model for a panel. Gate passed in the built app on a throwaway profile: two Antigravity members on Gemini 3.8 Flash (Low) and a Claude Haiku 4.5 synthesizer answered two turns, 12 s each.

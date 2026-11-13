@@ -36,15 +36,29 @@ that creates a council in place (optionally recommended by a small, fast model).
 
 ## Headlines
 
-**Theme A — Synthesis fix and accurate status.** ◻ TODO
+**Theme A — Synthesis fix and accurate status.** ✅ The prompt goes to a `0600` `prompt.txt` beside a `run.sh` in a
+fresh `midnite-council-*` temp dir, and the shell is only typed `/bin/sh '<run.sh>'; exit $?`, so zsh never redraws a
+long line. agy and claude answer in print-mode JSON (`parseCouncilAnswer` in `council-cli.ts`); members, the synthesis
+and the run record `timeout` and `cancelled` beside `failed`; a run with no answers skips the synthesis; `council:run:cancel`
+stops a turn; a run left live by a closed app reads as interrupted; the rail polls while a run is live.
 
-**Theme B — Provider icons and model pickers.** ◻ TODO
+**Theme B — Provider icons and model pickers.** ✅ Members and the synthesizer carry an optional catalogue `model`
+(`councilCliArgs` → `--model`, skipped under an Ollama binding); agy's catalogue lists the 3.8 Flash, Argon and Hydrogen
+tiers with `gemini-3.8-flash-low` as fast/cheap. Member tabs, assistant turns and the config rows show each agent's
+mark; the config rows and the synthesizer row use the provider/model picker.
 
-**Theme C — Chats composer and thread UI.** ◻ TODO
+**Theme C — Chats composer and thread UI.** ✅ The chat column, `CopyButton`/`copyText` and the stick-to-bottom helpers
+moved into `packages/frame/src/chat/`. Chats' `AiComposer` docks under the thread through the host port; each member
+tab and the Synthesis tab draw every turn as a user bubble plus an assistant turn (mark, model, status, markdown,
+copy, Skip/Retry) with a working row and elapsed seconds while live.
 
-**Theme D — Continue a run.** ◻ TODO
+**Theme D — Continue a run.** ✅ `council:run:continue` archives the latest turn into `turns`, resumes each member's
+and the synthesizer's CLI session (agy `--conversation`, claude `--resume`) and carries a ≤ 1,500-character excerpt of
+the last synthesis. Proven live: a two-turn thread on two Antigravity members and a Claude Haiku synthesizer.
 
-**Theme E — Thread list turns, new-council modal and recommend.** ◻ TODO
+**Theme E — Thread list turns, new-council modal and recommend.** ✅ Thread rows show the first prompt, status and
+turn count; the rail header has New thread and New council. The modal (portalled to the body) can ask the fastest
+installed CLI (claude haiku, then agy Flash, then codex mini) for a panel, validated by zod and edited before Create.
 
 ## Root cause (Theme A)
 
@@ -70,97 +84,100 @@ because their prompts are short. Separately, the rail's run list (`useCouncilRun
 
 ### A — Synthesis fix and accurate status (M)
 
-- [ ] The prompt never goes through the shell's line editor
-  - `spawnOneShot` writes the scrubbed prompt to a `0600` file in a fresh `mkdtemp` directory under `os.tmpdir()`
-    and types `<cli> … -p "$(cat '<file>')"; exit $?` (a short, fixed-length line). The directory is removed when the
-    member or synthesis settles.
+- [x] The prompt never goes through the shell's line editor
+  - `spawnOneShot` writes the scrubbed prompt to a `0600` `prompt.txt` and the invocation to a `run.sh` in a fresh
+    `mkdtemp` directory under `os.tmpdir()`, and types `/bin/sh '<run.sh>'; exit $?` (a short, fixed-length line).
+    The directory is removed when the member or synthesis settles.
   - Newlines in the prompt survive (no `shellQuote` collapse), so the CLI reads the prompt as written.
-- [ ] Structured output for the CLIs that have it
+- [x] Structured output for the CLIs that have it
   - agy: `--output-format json` → `{ conversation_id, status, response }`; claude: `--output-format json` →
     `{ session_id, result, is_error }`. Both verified against agy 1.5.8 and claude on this machine.
-  - `parseCouncilOutput(provider, cleaned)` (new, pure) finds the last JSON object line, returns
+  - `parseCouncilAnswer` (new, pure, `council-cli.ts`) finds the last JSON object line, returns
     `{ text, sessionId?, error? }`; anything else falls back to the cleaned text (codex, opencode).
   - A JSON answer with `is_error: true` or a non-`SUCCESS` status settles as `failed` with the CLI's message.
-- [ ] Claude joins `COUNCIL_MEMBER_PROVIDERS` (it has a print mode, `-p`); the stale "no headless flag" comment goes.
-- [ ] Every terminal state is recorded for members, the synthesis and the run
+- [x] Claude joins `COUNCIL_MEMBER_PROVIDERS` (it has a print mode, `-p`); the stale "no headless flag" comment goes.
+- [x] Every terminal state is recorded for members, the synthesis and the run
   - Member status gains `cancelled`; run status gains `timeout` and `cancelled`; a new `synthesisStatus`
     (`running | succeeded | failed | timeout | cancelled`) says what happened to the synthesis itself.
   - A synthesis that times out sets the run to `timeout`, not `failed`; a synthesis that fails sets `failed`.
   - A run whose every member failed still synthesizes nothing: it settles `failed` with
     "No member answered, so there was nothing to synthesize." instead of spending a synthesis call.
-- [ ] Cancel a run: `council:run:cancel` kills every live pty, marks running members `cancelled`, the synthesis
+- [x] Cancel a run: `council:run:cancel` kills every live pty, marks running members `cancelled`, the synthesis
   `cancelled` and the run `cancelled`. Returns the `GitOpResult` envelope.
-- [ ] Interrupted runs are reconciled: a run read as `running`/`synthesizing` that this process is not tracking
+- [x] Interrupted runs are reconciled: a run read as `running`/`synthesizing` that this process is not tracking
   (the app quit mid-run) is rewritten to `failed` with "Interrupted: the app closed while this run was in flight."
-- [ ] The rail stops saying Running: `useCouncilRuns` polls while any run in the list is live, and a settled
+- [x] The rail stops saying Running: `useCouncilRuns` polls while any run in the list is live, and a settled
   `useCouncilRun` invalidates the list.
-- [ ] Tests: `council-runner.test.ts` (temp-file command shape, JSON parse, timeout → `timeout`, cancel, reconcile,
-  no-answer short-circuit), `council-output.test.ts` (parser), `council.test.ts` (new statuses parse; old runs parse).
+- [x] Tests: `council-runner.test.ts` (temp-file command shape, JSON parse, timeout → `timeout`, cancel, reconcile,
+  no-answer short-circuit), `council-cli.test.ts` (parser), `council.test.ts` (new statuses parse; old runs parse).
 
 ### B — Provider icons and model pickers (M)
 
-- [ ] `CouncilMember.model` and `Council.synthModel` (optional strings, catalogue ids); a run snapshots them as
+- [x] `CouncilMember.model` and `Council.synthModel` (optional strings, catalogue ids); a run snapshots them as
   `CouncilRunMember.model` and `CouncilRun.synthModel`. Absent means "the CLI's default".
-- [ ] The model reaches the CLI: `councilModelArgs(provider, model)` maps a catalogue id to `--model <cliModel>`
+- [x] The model reaches the CLI: `councilCliArgs` (via `councilCliModel(provider, model)`) maps a catalogue id to `--model <cliModel>`
   (Claude's `LOOP_MODELS` ids and `haiku`; agy's ids pass through). Skipped when the agent is bound to Ollama
   (that binding already sets `--model`).
-- [ ] agy's catalogue is current: `cheapModelFor('agy')`/`fastModelFor('agy')` become `gemini-3.8-flash-low`
+- [x] agy's catalogue is current: `cheapModelFor('agy')`/`fastModelFor('agy')` become `gemini-3.8-flash-low`
   (agy 1.5.8 rejects `gemini-2.5-flash`), and `modelsForAgent('agy')` lists the Flash, Argon and Hydrogen tiers.
-- [ ] The CouncilsHost port gains `resolveAgentIcon`, `ProviderModelPicker`, `useAgentRoster` (Studio and Agents
+- [x] The CouncilsHost port gains `resolveAgentIcon`, `ProviderModelPicker`, `useAgentRoster` (Studio and Agents
   wire the same members their Chats hosts get).
-- [ ] Icons everywhere a provider shows: each member tab and the Synthesis tab carry their agent's mark in its accent;
+- [x] Icons everywhere a provider shows: each member tab and the Synthesis tab carry their agent's mark in its accent;
   the config rows and the synthesizer row use the provider/model picker, which shows the mark in the trigger and in
   every option.
-- [ ] Tests: `ai-models.test.ts` (agy rows), `council-runner.test.ts` (model flag present, absent for default),
-  a DOM test that each tab renders its agent's icon.
+- [x] Tests: `ai-models.test.ts` (agy rows), `council-cli.test.ts` and `council-runner.test.ts` (model flag present,
+  absent for default), `council-thread.test.tsx` (each member tab and its model label; the marks themselves are checked
+  in the gate shots).
 
 ### C — Chats composer and thread UI (L)
 
-- [ ] Chats' presentational thread pieces move down into the frame (`packages/frame/src/chat/`): `copyText`,
+- [x] Chats' presentational thread pieces move down into the frame (`packages/frame/src/chat/`): `copyText`,
   `CopyButton`, `scrollToBottom`, `isNearBottom`, and the column constants (`chat-column.ts`). Chats imports them
   from `@midnite/studio-frame`; behaviour unchanged.
-- [ ] The CouncilsHost port gains `AiComposer`, `MarkdownBody`, `composerBoxClassName` (the Chats host's members).
-- [ ] The composer leaves the config panel and docks under the thread in the centre pane (`CouncilComposer`), with
+- [x] The CouncilsHost port gains `AiComposer`, `MarkdownBody`, `composerBoxClassName` (the Chats host's members).
+- [x] The composer leaves the config panel and docks under the thread in the centre pane (`CouncilComposer`), with
   the injection banner it already had. Enter sends; Stop cancels a live run.
-- [ ] A member tab is a thread: per turn, the user's prompt as a bubble and the member's answer as an assistant turn
+- [x] A member tab is a thread: per turn, the user's prompt as a bubble and the member's answer as an assistant turn
   (agent mark, markdown body, copy, status line, error callout). The Synthesis tab is the same, with the synthesizer.
-- [ ] A live turn shows a working row (spinner, elapsed seconds, Skip for a member) instead of a raw pty dump.
-- [ ] Empty states: "No runs yet" with the composer below it; a new council lands on the composer.
-- [ ] Tests: `council-thread.test.tsx` (bubbles and answers per turn, status text for every terminal state),
-  `chat-kit.test.tsx` in the frame (copy, near-bottom maths moved with their tests).
+- [x] A live turn shows a working row (spinner, elapsed seconds, Skip for a member) instead of a raw pty dump.
+- [x] Empty states: "Start a thread" with the composer below it (the rail says "No runs yet"); a new council lands
+  on the composer.
+- [x] Tests: `council-thread.test.tsx` (bubbles and answers per turn, terminal status text), the frame's
+  `chat-column.test.ts` (moved) and `stick-to-bottom.test.ts` (near-bottom maths, reduced-motion scroll).
 
 ### D — Continue a run (M)
 
-- [ ] `CouncilRun.turns` holds the earlier turns of the thread (prompt, each member's answer and status, the
+- [x] `CouncilRun.turns` holds the earlier turns of the thread (prompt, each member's answer and status, the
   synthesis), oldest first; the top-level fields stay the latest turn, so a run written before this phase parses as a
   one-turn thread (zod default `[]`, no store version bump).
-- [ ] Each member and the synthesizer keep their CLI session id (`sessionId`, `synthSessionId`) from the JSON answer.
-- [ ] `council:run:continue { runId, prompt }`: refuses while the run is live; moves the latest turn into `turns`,
+- [x] Each member and the synthesizer keep their CLI session id (`sessionId`, `synthSessionId`) from the JSON answer.
+- [x] `council:run:continue { runId, prompt }`: refuses while the run is live; moves the latest turn into `turns`,
   resets members to `running` with the new prompt and launches them.
   - A member with a session resumes it (agy `--conversation <id>`, claude `--resume <id>`); one without starts fresh.
   - The follow-up prompt is the new prompt plus a bounded excerpt of the previous synthesis (≤ 1,500 characters,
     marked as an excerpt), never the other members' transcripts.
   - The synthesizer resumes its own session and synthesizes the new answers.
-- [ ] Retry and skip keep working on the latest turn.
-- [ ] Tests: `council-runner.test.ts` (resume flags, excerpt bound, history kept), `council-prompts.test.ts`
-  (`buildFollowUpPrompt`).
+- [x] Retry and skip keep working on the latest turn.
+- [x] Tests: `council-runner.test.ts` (resume flags, excerpt carried, history kept), `council-prompts.test.ts`
+  (`buildFollowUpPrompt`, excerpt bound).
 
 ### E — Thread list turns, new-council modal and recommend (M)
 
-- [ ] Each thread row shows its turn count ("3 turns") beside the status, and its title is the first prompt.
-- [ ] A "+" button, right-aligned in the rail's header row (back button, council title), opens the new-council modal;
+- [x] Each thread row shows its turn count ("3 turns") beside the status, and its title is the first prompt.
+- [x] A "+" button ("New council", beside "New thread"), right-aligned in the rail's header row (back button, council
+  title), opens the new-council modal;
   the top-level list keeps its own "New council" entry, which opens the same modal.
-- [ ] The modal asks for a name (and optional description). "Recommend members" takes a one-line brief and asks a
+- [x] The modal asks for a name (and optional description). "Recommend members" takes a one-line brief and asks a
   small, fast model for a council (members with name, role, agent; a synthesizer); the result is listed for the user
   to edit or remove before Create.
-- [ ] `council:recommend { name, brief }` runs in main: picks the first installed of claude (haiku), agy (Flash),
-  codex (mini) by the catalogue's `fastModelFor`, asks for JSON only, validates it with zod
+- [x] `council:recommend { name, brief, providers }` runs in main: tries the installed CLIs in order claude (haiku), agy
+  (Flash), codex (mini), falling through on failure, asks for JSON only, validates it with zod
   (`CouncilRecommendationSchema`, 2–6 members, providers from `COUNCIL_MEMBER_PROVIDERS`) and returns the
   `GitOpResult` envelope. A parse failure is a normal `{ ok: false }` the modal shows.
-- [ ] `council:create` accepts optional `members` and `synthProvider`/`synthModel`, so a recommended council is
+- [x] `council:create` accepts optional `members` and `synthProvider`/`synthModel`, so a recommended council is
   created in one call; without them the starter members are seeded as before.
-- [ ] Tests: `council-recommend.test.ts` (parse, clamp, bad JSON), `council-create-dialog.test.tsx` (name required,
-  recommendation rows editable), `council-run-list.test.tsx` (turn count, "+" opens the modal).
+- [x] Tests: `council-recommend.test.ts` (parse, clamp, bad JSON, fall-through), and in `council-thread.test.tsx` the
+  run list (title, status, turn count) and the modal (recommendation rows editable, error shown, starter fallback).
 
 ## Files this phase touches
 
@@ -178,13 +195,16 @@ because their prompts are short. Separately, the rail's run list (`useCouncilRun
 
 ## Verification
 
-- [ ] Targeted checks green: `tsc --noEmit` on shared, frame, councils, chats, app, agents module; eslint on every
-  changed file; vitest on the touched suites (the workspace-wide gate is not run on this machine).
-- [ ] **Gate — a real council run, end to end, in the dev app** with a throwaway `--user-data-dir`: two members on
+- [x] Targeted checks green: `tsc --noEmit` on shared, frame, councils, chats, app, agents module; eslint on every
+  changed file; vitest on the touched suites; `councils.spec.ts` e2e 8/8 (the workspace-wide gate is not run on this
+  machine).
+- [x] **Gate — a real council run, end to end, in the dev app** with a throwaway `--user-data-dir`: two members on
   Antigravity (`gemini-3.8-flash-low`) and a Claude synthesizer (`haiku`), a short prompt. Screenshots under
   `/tmp/midnite-shots-p133/`: both member tabs with real answers, the Synthesis tab with a real synthesis, the rail
   showing the run as done, and a follow-up turn continuing the thread. Mocks do not count. Not merged until it passes.
-- [ ] Shots of the new-council modal with a recommendation, and of the config rows with icons and model pickers.
+  Passed 2026-11-13: each turn completed in 12 s, both members and the synthesis `succeeded` with session ids, and the
+  rail read "Done · 2 turns".
+- [x] Shots of the new-council modal with a recommendation, and of the config rows with icons and model pickers.
 
 ## Not in this phase
 
