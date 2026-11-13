@@ -1,6 +1,7 @@
 import type {
   GameAssetSourceTab,
   GameAssetSourcesResult,
+  GameAddResult,
   GameCreateRequest,
   GameImportAssetRequest,
   GameImportAssetResult,
@@ -95,6 +96,22 @@ export function useCreateGame() {
       if (result.ok) {
         void client.invalidateQueries({ queryKey: GAME_KEYS.list });
         // The new repo is in the repo list too.
+        void client.invalidateQueries({ queryKey: REPOS_KEY });
+      }
+    },
+  });
+}
+
+/** Open Game (Phase 132 Theme A): the folder dialog lives in main; `added` and `listed` both leave the game in the list. */
+export function useAddGame() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async () => (await bridge()?.games.add({})) ?? noBridge<GameAddResult>(),
+    onSuccess: (result) => {
+      // Narrowed first: `GitOpResult<T>` distributes over a union `T`, which a union result is not assignable to.
+      if (!result.ok) reportFailure(result);
+      if (result.ok && result.value.status !== 'cancelled') {
+        void client.invalidateQueries({ queryKey: GAME_KEYS.list });
         void client.invalidateQueries({ queryKey: REPOS_KEY });
       }
     },

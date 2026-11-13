@@ -1596,6 +1596,7 @@ export type MidniteStudioBridge = {
     };
     list: () => Promise<z.infer<typeof S.GamesListResponse>>;
     create: (req: In<typeof S.GamesCreateRequest>) => Promise<z.infer<typeof S.GamesCreateResponse>>;
+    add: (req: In<typeof S.GamesAddRequest>) => Promise<z.infer<typeof S.GamesAddResponse>>;
     manifest: {
       get: (req: In<typeof S.GamesGetManifestRequest>) => Promise<z.infer<typeof S.GamesGetManifestResponse>>;
       set: (req: In<typeof S.GamesSetManifestRequest>) => Promise<GitOpResult>;

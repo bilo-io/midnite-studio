@@ -8,7 +8,8 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [132 · Game level editor and Open Game](phases/phase-132-game-level-editor.md) | 🔄 WIP | x1 | 7/62 | `█░░░░░░░░░` | 11% | — | A C D E F G H |
+| [133 · Ekko Studio: a lightweight studio extracted from this repo](phases/phase-133-ekko-studio.md) | ◻ TODO | — | 0/69 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
+| [132 · Game level editor and Open Game](phases/phase-132-game-level-editor.md) | 🔄 WIP | x1 | 13/62 | `██░░░░░░░░` | 21% | — | C D E F G H |
 | [131 · Per-app changelogs](phases/phase-131-per-app-changelogs.md) | 🔄 WIP | x1 | 39/42 | `█████████░` | 93% | — | — |
 | [130 · Startup app](phases/phase-130-startup.md) | 🔄 WIP | x1 | 55/57 | `██████████` | 96% | — | — |
 | [129 · Accountant module](phases/phase-129-accountant.md) | 🔄 WIP | x1 | 58/62 | `█████████░` | 94% | — | — |

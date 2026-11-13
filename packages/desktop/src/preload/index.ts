@@ -712,6 +712,7 @@ const bridge: Pick<
     },
     list: () => call(CHANNELS.gamesList),
     create: (req) => call(CHANNELS.gamesCreate, req),
+    add: (req) => call(CHANNELS.gamesAdd, req),
     manifest: {
       get: (req) => call(CHANNELS.gamesGetManifest, req),
       set: (req) => call(CHANNELS.gamesSetManifest, req),

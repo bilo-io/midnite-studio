@@ -36,7 +36,7 @@ import {
   SetupProbeRequest,
   SetupRevealRequest,
 } from '@midnite/studio-shared';
-import { BrowserWindow, app, ipcMain, powerMonitor, safeStorage, session, shell, type WebContentsView } from 'electron';
+import { BrowserWindow, app, dialog, ipcMain, powerMonitor, safeStorage, session, shell, type OpenDialogOptions, type OpenDialogReturnValue, type WebContentsView } from 'electron';
 import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
 import { animationLibrary, animationLibraryRoot } from './ipc/media-animation-handlers';
@@ -873,6 +873,14 @@ export const startStudioMain: StartStudioMain = () => {
           return { ok: true };
         },
         listRepoPaths: async () => (await listRepos()).map((repo) => repo.path),
+        // Open Game (Phase 132 Theme A): the folder dialog; an opened game is registered like a repo opened in the panel.
+        // Annotated: `games` is referenced inside its own initializer, so inference would cycle.
+        pickFolder: async (): Promise<string | null> => {
+          const win = getMainWindow();
+          const options: OpenDialogOptions = { title: 'Open a game', properties: ['openDirectory'], defaultPath: (await games.service.settings.get()).resolvedRoot };
+          const picked: OpenDialogReturnValue = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+          return picked.canceled || !picked.filePaths[0] ? null : picked.filePaths[0];
+        },
         repoIdOf: async (path) => (await listRepos()).find((repo) => repo.path === path)?.id ?? null,
         // Pop out (Theme B): the `game` role window hosts one game's view.
         openPopoutWindow: asPopoutWindow(() => createRoleWindow('game', defaultLogger)),

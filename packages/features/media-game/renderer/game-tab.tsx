@@ -11,7 +11,7 @@ import { GameExplorer } from './game-explorer';
 import type { GameResolution } from './game-runner-host';
 import { GameRunnerToolbar } from './game-runner-toolbar';
 import { useGameMode } from './use-game-mode';
-import { useGameEvents, useGames, useGamesSettings } from './use-games';
+import { useAddGame, useGameEvents, useGames, useGamesSettings } from './use-games';
 import { useGameHost } from './host';
 
 /** The agent's event subscription when the app has no agent: nothing to hear. */
@@ -59,6 +59,14 @@ export function GameTab() {
     setCreating(false);
   };
 
+  const addGame = useAddGame();
+  const openGame = () =>
+    addGame.mutate(undefined, {
+      onSuccess: (result) => {
+        if (result.ok && result.value.status !== 'cancelled') select(result.value.gameId);
+      },
+    });
+
   return (
     <MediaLayout
       tab="game"
@@ -81,7 +89,7 @@ export function GameTab() {
           </div>
         </div>
       }
-      explorer={<GameExplorer selectedId={selectedId} onSelect={select} onNew={() => setCreating(true)} />}
+      explorer={<GameExplorer selectedId={selectedId} onSelect={select} onNew={() => setCreating(true)} onOpen={openGame} opening={addGame.isPending} />}
       content={
         <GameCenter
           game={selected}

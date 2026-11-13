@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, realpath, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve as resolvePath } from 'node:path';
 
 import {
@@ -8,6 +8,7 @@ import {
   ok,
   parseGameManifest,
   type BrowserBounds,
+  type GameAddResult,
   type GameCreateRequest,
   type GameCreateResult,
   type GameJuicePatch,
@@ -24,9 +25,10 @@ import {
 } from '@midnite/studio-shared';
 
 import type { Logger } from './logger';
+import { resolveGameFolder } from './game-open';
 import { listGames } from './game-list';
 import { createGameLevels } from './game-levels';
-import { createGame } from './game-scaffold';
+import { createGame, gameIdForPath } from './game-scaffold';
 import type { GamePopout } from './game-popout';
 import type { GameRunner, ToolbarAction } from './game-runner';
 import { effectiveGamesRoot, validateGamesRoot } from './games-root';
@@ -44,6 +46,8 @@ export type GameServiceDeps = {
   registerRepo: (path: string) => Promise<GitOpResult>;
   /** Paths of every repo the app has registered. */
   listRepoPaths: () => Promise<string[]>;
+  /** The Open Game folder dialog, owned by the host's main process: an absolute path, or null when dismissed. */
+  pickFolder?: () => Promise<string | null>;
   /** Push an event to the renderer(s). */
   send: (channel: string, payload: unknown) => void;
   log: Logger;
@@ -141,6 +145,37 @@ export function createGameService(deps: GameServiceDeps) {
         deps.log.info(`game created ${result.value.gameId} path=${result.value.path}`);
       }
       return result;
+    },
+
+    /**
+     * Open Game (Phase 132 Theme A): add an existing game folder to the list. `path` absent shows the host's
+     * folder dialog. A game already listed answers `listed` and nothing is written.
+     */
+    async add(path?: string): Promise<GitOpResult<GameAddResult>> {
+      let picked = path;
+      if (picked === undefined) {
+        if (!deps.pickFolder) return failure('Open Game is not available here.');
+        const answer = await deps.pickFolder();
+        if (answer === null) return ok({ status: 'cancelled' });
+        picked = answer;
+      }
+      const resolved = await resolveGameFolder(picked);
+      if (!resolved.ok) return resolved;
+      const { root } = resolved.value;
+      const { root: gamesRoot } = await read();
+      const real = await realpath(root).catch(() => root);
+      const games = await listGames(gamesRoot, await deps.listRepoPaths());
+      for (const game of games) {
+        if ((await realpath(game.path).catch(() => game.path)) === real) {
+          return ok({ status: 'listed', gameId: game.gameId, path: game.path });
+        }
+      }
+      const registered = await deps.registerRepo(root);
+      if (!registered.ok) return registered;
+      deps.send(EVENT_CHANNELS.gamesChanged, { reason: 'added' });
+      const gameId = await gameIdForPath(root);
+      deps.log.info(`game added ${gameId} path=${root}`);
+      return ok({ status: 'added', gameId, path: root });
     },
 
     async manifestGet(gameId: string): Promise<{ manifest: GameManifest | null; issues: GameManifestIssue[] }> {

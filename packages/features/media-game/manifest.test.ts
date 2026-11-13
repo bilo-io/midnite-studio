@@ -65,6 +65,10 @@ describe('media-game manifest', () => {
     }
   });
 
+  it('lists the Open Game channel', () => {
+    expect(mediaGameManifest.ipc).toContain(CHANNELS.gamesAdd);
+  });
+
   it('has a main half that registers exactly its channels, agents and play-tests or not', () => {
     for (const over of [{}, { agents: { run: refusing, cancel: refusing, undo: refusing }, playtests: { list: refusing, run: refusing } }]) {
       const ctx = createRecordingContext();

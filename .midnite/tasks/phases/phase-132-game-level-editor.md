@@ -71,7 +71,7 @@ over them, defines how a 2D and a 3D level live in Tiled JSON, teaches the kit t
 to jump to a scene on request, and gives agents the same level tools over MCP. Planned 2026-11-13; build order **A**
 first, then **B** and **C** in parallel, then **D**, **F**, **G**, then **E**, then **H**.
 
-**Theme A — Open Game.** ◻ An **Open Game** button beside **New game**: a folder dialog in main, the folder resolved to its game root, registered through the host's repo port (Gamer gets a small opened-games store behind it), refused with a plain reason when it is not a game.
+**Theme A — Open Game.** ✅ An **Open Game** button beside **New game** (and in the empty state): `mstudio:games:add`, a folder dialog in main, `resolveGameFolder` resolving the folder to its repository root with the plain refusals of Decision 7, `service.add` answering `added`, `listed` or `cancelled`, registered through the host's repo port. Studio wires its dialog and `registerRepo`; Gamer gets `opened-games.json` behind the same two ports. Not done: the human check (folded into Theme H); "Remove from list" stays open under Decision 17.
 
 **Theme B — Centre layout: Level editor and Play mode tabs.** ✅ The centre is a `GameCenter` with a **Level editor** tab (an empty-state placeholder until Theme D) and a **Play mode** tab holding the runner and console drawer; both panels stay mounted and `GameRunnerHost` takes `active` so the native view hides under the editor. `useGameMode` keeps the tab per game (a game opens on the editor) and the pause policy: leaving Play pauses only a run the Play button started, `pauseWhenEditing` (default on, Settings ▸ Games switch) gates it, and return resumes only that auto-pause. The run controls moved to the centre of the top bar (name left, export right), led by a gradient-bordered Run/Play button with a hover glow. Human check stays in H.
 
@@ -106,7 +106,7 @@ keep editing scenes as code.
 
 ### A — Open Game [S · 1-2h]
 
-- [ ] Contract in [`media-game.ts`](../../../packages/shared/src/media-game.ts) and the IPC files
+- [x] Contract in [`media-game.ts`](../../../packages/shared/src/media-game.ts) and the IPC files
   - `GameAddRequestSchema = z.object({ path: z.string().min(1).optional() })` — `path` absent means "show the folder
     dialog in main"; present is how a test (and a future drag-and-drop) adds a known folder.
   - `GameAddResultSchema = z.discriminatedUnion('status', [z.object({ status: z.literal('added'), gameId: z.string(),
@@ -117,7 +117,7 @@ keep editing scenes as code.
     `gamesCreate`. **Not** `gamesOpen`: `EVENT_CHANNELS.gamesOpen` is already the agent's reveal event.
   - `schemas.GamesAddRequest` in `ipc/schemas.ts`; `games.add(req: GameAddRequest): Promise<GitOpResult<GameAddResult>>`
     in [`ipc/bridge.ts`](../../../packages/shared/src/ipc/bridge.ts).
-- [ ] Net-new `packages/features/media-game/main/games/game-open.ts` — `resolveGameFolder(path): Promise<GitOpResult<{ root: string }>>`
+- [x] Net-new `packages/features/media-game/main/games/game-open.ts` — `resolveGameFolder(path): Promise<GitOpResult<{ root: string }>>`
   - Checks in this order, each refusal a `failure(message)` with these exact messages (`<name>` is `basename`):
     not absolute → `Choose a full folder path.`; not a directory → `"<name>" is not a folder.`;
     `workTreeTop(path)` is null → `"<name>" is not a git repository. A game is its own repository — run git init in
@@ -129,7 +129,7 @@ keep editing scenes as code.
     invalid game with its first issue, and this is how a user gets to fix one.
   - A folder outside the games root is the point of the feature and is allowed; a folder nested deeper than one level
     inside the games root (not found by the scan) is registered like any other.
-- [ ] `service.add(path?: string): Promise<GitOpResult<GameAddResult>>` in [`game-service.ts`](../../../packages/features/media-game/main/games/game-service.ts)
+- [x] `service.add(path?: string): Promise<GitOpResult<GameAddResult>>` in [`game-service.ts`](../../../packages/features/media-game/main/games/game-service.ts)
   - `path` absent → `deps.pickFolder?.()`; no picker → `failure('Open Game is not available here.')`; `null` →
     `ok({ status: 'cancelled' })`.
   - `resolveGameFolder`; then if `listGames(...)` already holds a game whose `realpath` equals the root's →
@@ -141,7 +141,7 @@ keep editing scenes as code.
   - Handler in [`media-game/main/index.ts`](../../../packages/features/media-game/main/index.ts):
     `handle(CHANNELS.gamesAdd, schemas.GamesAddRequest, ({ path }) => service.add(path), (issue) => failure(issue))`;
     `CHANNELS.gamesAdd` appended to [`media-game/manifest.ts`](../../../packages/features/media-game/manifest.ts) `ipc`.
-- [ ] Host wiring
+- [x] Host wiring
   - Studio: `pickFolder` in [`desktop/src/main/index.ts`](../../../packages/desktop/src/main/index.ts)'s `createGamesRuntime`
     call — `dialog.showOpenDialog(win, { title: 'Open a game', properties: ['openDirectory'], defaultPath:
     (await games.service.settings.get()).resolvedRoot })`, `null` on cancel. `registerRepo` is unchanged, so an opened
@@ -157,7 +157,7 @@ keep editing scenes as code.
     and [`modules/gamer/main/bridge.ts`](../../../packages/modules/gamer/main/bridge.ts).
   - Known effect, accepted: Gamer's asset bridge scans `listRepoPaths` for media sources, so an opened game with a
     `.midnite/media/` folder becomes a source. That is the behaviour Studio already has.
-- [ ] Renderer
+- [x] Renderer
   - [`game-explorer.tsx`](../../../packages/features/media-game/renderer/game-explorer.tsx): header gets **Open Game**
     (`LuFolderOpen`, same pill styling as **New game**) immediately left of **New game**; new prop `onOpen`. The empty
     state reads `No games yet. Create one from a starter, or open one you already have.` with both buttons.
@@ -167,7 +167,7 @@ keep editing scenes as code.
   - [`game-tab.tsx`](../../../packages/features/media-game/renderer/game-tab.tsx): `onOpen` runs the mutation and, on
     `added`/`listed`, calls `select(gameId)` so the opened game is selected (Theme B then opens its editor tab). The
     button shows a spinner and is disabled while the mutation is pending.
-- [ ] Tests (vitest)
+- [x] Tests (vitest)
   - Net-new `game-open.test.ts` (node, temp dirs with `git init`): each refusal message; a `src/` pick resolves to the
     top; an invalid manifest still resolves; a folder outside the root resolves.
   - `game-service` add cases (in a net-new `game-service-add.test.ts` over a fake runner and fake deps): `cancelled`

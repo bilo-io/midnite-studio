@@ -958,6 +958,7 @@ export const CHANNELS = {
   gamesSettingsSet: 'mstudio:games:settings-set',
   gamesList: 'mstudio:games:list',
   gamesCreate: 'mstudio:games:create',
+  gamesAdd: 'mstudio:games:add',
   gamesGetManifest: 'mstudio:games:get-manifest',
   gamesSetManifest: 'mstudio:games:set-manifest',
   gamesRun: 'mstudio:games:run',

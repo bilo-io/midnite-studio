@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 132 Theme A — Open Game
+
+An Open Game button beside New game: a main-side folder dialog, `resolveGameFolder` (git root, plain refusals), `service.add` (`added` / `listed` / `cancelled`) over the host's repo port; Gamer keeps `opened-games.json`. Not done: the human check (Theme H); Remove from list (Decision 17).
+
 ## 2026-11-13 — Phase 132 Theme B — centre tabs
 
 Level editor (placeholder) and Play mode tabs, the native view hidden under the editor, a pause-when-editing policy and setting, run controls centred in the top bar, and a gradient Play button with a hover glow. Not done: the human check (folded into H).

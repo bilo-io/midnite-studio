@@ -17,6 +17,7 @@ export const mediaGameManifest = defineFeatureManifest({
     CHANNELS.gamesSettingsSet,
     CHANNELS.gamesList,
     CHANNELS.gamesCreate,
+    CHANNELS.gamesAdd,
     CHANNELS.gamesGetManifest,
     CHANNELS.gamesSetManifest,
     CHANNELS.gamesRun,
