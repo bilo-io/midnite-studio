@@ -40,7 +40,7 @@ Unticked stages are skipped; their inputs come from what the human already suppl
 | Plan | opus | The build broken into slices with acceptance criteria; a phase doc when it belongs in the tracker (`/midnite-plan`) | `plan.md` or `phase-N-*.md` | Research done (and Design, if picked) |
 | Refine | sonnet | Resolves open decisions, tightens criteria (`/midnite-refine`) | the plan, refined | Plan done |
 | Dev | sonnet | Builds the plan in a worktree, one PR per slice (`/midnite-build` or `-adhoc`); independent slices run as parallel Dev agents within the cap | draft PR(s) | Plan (or Refine) done |
-| Review | opus | `/midnite-pr-review` in-session on each PR; findings to the board | `review-<pr>.md` | each Dev PR opened |
+| Review | opus | A code review of each PR, in-session; findings to the board | `review-<pr>.md` | each Dev PR opened |
 | Test | sonnet | Acceptance criteria end to end: vitest, e2e where a browser is needed, screenshots | `test-<pr>.md` | beside Review |
 | Report | haiku | Goal, what landed, evidence, open items — published as an Artifact | `report.md` + link | everything above done |
 

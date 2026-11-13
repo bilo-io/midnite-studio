@@ -47,6 +47,6 @@ Each worker:
 - Claims its row in `_INDEX.md` on `main` before branching (`git pull --rebase origin main` on a push
   race); writes what landed into its phase doc's `## Headlines`, touching only its own index row.
 - Uses a worktree slug that cannot collide: `.worktrees/p<N>-<letters>`.
-- Opens the PR as a draft, self-reviews with `/midnite-check-yourself`, readies it, watches CI.
+- Opens the PR as a draft, self-reviews the diff with the repo's own review step, readies it, watches CI.
 
 Then follow `/midnite-orchestrate` §2–§8. The sitrep's Task column is the phase/task with its PR link.
