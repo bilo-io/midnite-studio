@@ -10,7 +10,7 @@ import {
   type CouncilMemberProvider,
   type CouncilSynthesisType,
 } from '@midnite/studio-shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LuChevronRight, LuGripVertical, LuTrash2 } from 'react-icons/lu';
 
 import { SortableList, useFeatureFlag, useFlushableSave, useSortableRow } from '@midnite/studio-frame';
@@ -93,6 +93,9 @@ export function CouncilConfigPanel({
   const cap = councilMemberCap(useFeatureFlag('councils.pro'));
 
   const [draft, setDraft] = useState<Draft>(() => draftOf(council));
+  // The latest draft and council, for a commit that lands after an await (Generate) — never a stale closure's.
+  const latest = useRef({ draft, councilId: council.id });
+  latest.current = { draft, councilId: council.id };
   const [reveal, setReveal] = useState<Map<string, number>>(() => new Map());
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -123,8 +126,10 @@ export function CouncilConfigPanel({
   );
 
   const commit = (patch: Partial<Draft>, options: { cascade?: boolean } = {}) => {
-    const next = { ...draft, ...patch };
-    if (options.cascade) setReveal(revealOrder(draft.members, next.members));
+    const current = latest.current.draft;
+    const next = { ...current, ...patch };
+    if (options.cascade) setReveal(revealOrder(current.members, next.members));
+    latest.current = { ...latest.current, draft: next };
     setDraft(next);
     schedule(next);
   };
@@ -157,6 +162,7 @@ export function CouncilConfigPanel({
     if (generate.isPending) return;
     setGenerateError(null);
     const count = Math.min(Math.max(draft.members.length, COUNCIL_MIN_MEMBERS), cap);
+    const forCouncil = council.id;
     generate.mutate(
       {
         name: council.name,
@@ -171,6 +177,8 @@ export function CouncilConfigPanel({
       },
       {
         onSuccess: (result) => {
+          // The user moved to another council while this one was generating: it is not theirs to fill.
+          if (latest.current.councilId !== forCouncil) return;
           if (!result.ok) {
             setGenerateError(result.kind === 'error' ? result.message : 'Could not generate a council.');
             return;

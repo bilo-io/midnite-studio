@@ -141,6 +141,25 @@ describe('CouncilConfigPanel — synthesizer', () => {
     expect(request.providers.find((p) => p.provider === 'agy')?.models).toContain('gemini-3.8-flash-low');
     expect(request.providers.every((p) => !p.models.includes('default'))).toBe(true);
   });
+
+  it('drops a generated council that lands after the user moved to another council', async () => {
+    let resolve: (value: unknown) => void = () => {};
+    const generate = vi.fn(() => new Promise((r) => (resolve = r)));
+    const { updateMembers } = stubBridge({ generate });
+    const { rerender } = render(<CouncilConfigPanel council={{ ...COUNCIL, synthesisType: 'custom' }} topic="" onDeleted={() => {}} />, {
+      wrapper: Providers,
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Generate with AI' }));
+    await waitFor(() => expect(generate).toHaveBeenCalled());
+
+    const other: Council = { ...COUNCIL, id: 'c2', name: 'Other', members: [{ id: 'o1', name: 'Solo', provider: 'agy', role: 'r' }, { id: 'o2', name: 'Duo', provider: 'agy', role: 'r' }] };
+    rerender(<CouncilConfigPanel council={other} topic="" onDeleted={() => {}} />);
+    resolve({ ok: true, value: { instructions: 'x', members: [{ name: 'Late', role: 'r', provider: 'agy' }, { name: 'Later', role: 'r', provider: 'agy' }] } });
+
+    await new Promise((r) => setTimeout(r, 700));
+    expect(memberNames()).toEqual(['Solo', 'Duo']);
+    expect(updateMembers).not.toHaveBeenCalled();
+  });
 });
 
 describe('CouncilConfigPanel — member accordions', () => {
