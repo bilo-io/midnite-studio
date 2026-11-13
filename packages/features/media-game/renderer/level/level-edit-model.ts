@@ -178,7 +178,7 @@ function nextObjectId(level: EditLevel): number {
 export function addObject(
   state: EditState,
   layerId: number,
-  input: { type: string; x: number; y: number; width?: number; height?: number; name?: string },
+  input: { type: string; x: number; y: number; width?: number; height?: number; name?: string; properties?: LevelProperty[]; polyline?: Array<{ x: number; y: number }> },
 ): EditState {
   const layer = layerById(state.level, layerId);
   if (!layer || !isObjects(layer)) return state;
@@ -194,7 +194,9 @@ export function addObject(
     height,
     rotation: 0,
     visible: true,
-    ...(width === 0 && height === 0 ? { point: true } : {}),
+    ...(width === 0 && height === 0 && !input.polyline ? { point: true } : {}),
+    ...(input.polyline ? { polyline: input.polyline } : {}),
+    ...(input.properties ? { properties: input.properties } : {}),
   };
   const level = mapLayers(state.level, layerId, (l) => ({ ...l, objects: [...(l.objects ?? []), object] }));
   return commit(state, { ...level, nextobjectid: id + 1 }, { selection: { layerId, objectId: id } });
@@ -282,6 +284,93 @@ export function removeProperty(state: EditState, target: NonNullable<EditSelecti
   });
 }
 
+// --- 3D placement (Phase 132 Theme E) --------------------------------------------------
+
+/** A volume's default vertical size, metres (Decision 3). */
+export const DEFAULT_SIZE_Y = 3;
+export type PlanPoint = { x: number; y: number };
+
+/** `degrees` rounded to a multiple of `step`, normalised to `[0, 360)`. */
+export function snapRotation(degrees: number, step = 0): number {
+  const snapped = step > 0 ? Math.round(degrees / step) * step : degrees;
+  return ((snapped % 360) + 360) % 360;
+}
+
+/**
+ * Tiled's `rotation` (clockwise from above, degrees) that makes an object at `from` face `to`: 0 faces up the
+ * screen (-Z), 90 faces right (+X). The yaw tick on the canvas points the same way.
+ */
+export function rotationToward(from: PlanPoint, to: PlanPoint): number {
+  return snapRotation((Math.atan2(to.x - from.x, -(to.y - from.y)) * 180) / Math.PI);
+}
+
+const rad = (deg: number): number => (deg * Math.PI) / 180;
+
+/** The object's centre in map pixels: a point is itself, a rectangle turns about its origin (Tiled's rule, as `levelEntityToWorld`). */
+export function objectCentre(o: Pick<LevelObject, 'x' | 'y' | 'width' | 'height' | 'rotation'>): PlanPoint {
+  const w = o.width ?? 0, h = o.height ?? 0, t = rad(o.rotation ?? 0);
+  return { x: o.x + (w / 2) * Math.cos(t) - (h / 2) * Math.sin(t), y: o.y + (w / 2) * Math.sin(t) + (h / 2) * Math.cos(t) };
+}
+
+/**
+ * Set an object's yaw (Tiled's own `rotation`), turning it about its centre: a footprint keeps the spot it
+ * covers, so the world position {@link levelEntityToWorld} reports does not move. `step` snaps (15 with Shift).
+ */
+export function rotateObject(state: EditState, sel: NonNullable<EditSelection>, degrees: number, step = 0): EditState {
+  if (!Number.isFinite(degrees)) return state;
+  const next = snapRotation(degrees, step);
+  return mapObject(state, sel, (o) => {
+    if (snapRotation(o.rotation ?? 0) === next) return o;
+    const w = o.width ?? 0, h = o.height ?? 0, c = objectCentre(o), t = rad(next);
+    return { ...o, rotation: next, x: c.x - ((w / 2) * Math.cos(t) - (h / 2) * Math.sin(t)), y: c.y - ((w / 2) * Math.sin(t) + (h / 2) * Math.cos(t)) };
+  });
+}
+
+/** Drag a rectangle (map pixels) into a `prop` box with the default `sizeY`. A drag smaller than a pixel in either direction adds nothing. */
+export function setVolume(state: EditState, layerId: number, from: PlanPoint, to: PlanPoint): EditState {
+  const width = Math.abs(to.x - from.x), height = Math.abs(to.y - from.y);
+  if (width < 1 || height < 1) return state;
+  return addObject(setActiveLayer(state, layerId), layerId, {
+    type: 'prop',
+    name: 'box',
+    x: Math.min(from.x, to.x),
+    y: Math.min(from.y, to.y),
+    width,
+    height,
+    properties: [{ name: 'sizeY', type: 'float', value: DEFAULT_SIZE_Y }],
+  });
+}
+
+/** A path being drawn: the points so far, a repeated point ignored. Pure, so the editor can keep the draft in view state. */
+export function addPathPoint(draft: readonly PlanPoint[], point: PlanPoint): PlanPoint[] {
+  const last = draft[draft.length - 1];
+  return last && last.x === point.x && last.y === point.y ? [...draft] : [...draft, point];
+}
+
+/** Commit a draft as a `path` object: its origin is the first point and the polyline is relative to it. Fewer than two points adds nothing. */
+export function finishPath(state: EditState, layerId: number, draft: readonly PlanPoint[]): EditState {
+  if (draft.length < 2) return state;
+  const origin = draft[0]!;
+  return addObject(setActiveLayer(state, layerId), layerId, {
+    type: 'path',
+    x: origin.x,
+    y: origin.y,
+    polyline: draft.map((p) => ({ x: p.x - origin.x, y: p.y - origin.y })),
+  });
+}
+
+/** An optional number property: empty removes it (so the kit snaps or defaults); text that is not a number changes nothing. */
+export function setOptionalNumber(state: EditState, sel: NonNullable<EditSelection>, name: string, raw: string): EditState {
+  if (raw.trim() === '') return removeProperty(state, sel, name);
+  return setProperty(state, sel, name, 'float', raw);
+}
+
+/** An optional string property (`model`, `collider`, `color`): empty removes it. */
+export function setOptionalText(state: EditState, sel: NonNullable<EditSelection>, name: string, raw: string): EditState {
+  if (raw === '') return removeProperty(state, sel, name);
+  return setProperty(state, sel, name, 'string', raw);
+}
+
 // --- layers --------------------------------------------------------------------------
 
 export function addLayer(state: EditState, kind: 'tile' | 'object', name: string): EditState {
@@ -347,7 +436,7 @@ export function cellCentre(level: Pick<EditLevel, 'orientation' | 'height' | 'ti
   return { x: (cell.x + 0.5) * level.tilewidth, y: (cell.y + 0.5) * level.tileheight };
 }
 
-/** Whether the level is a 3D one: the 2D editor does not take those (Theme E). */
+/** Whether the level is a 3D one: it opens in plan view (Theme E) rather than as tiles. */
 export function isLevel3d(level: Pick<EditLevel, 'properties'>): boolean {
   return level.properties?.some((p) => p.name === GAME_LEVEL_PROPS.dimension && p.value === '3d') ?? false;
 }

@@ -84,10 +84,19 @@ describe('NewSceneDialog', () => {
     expect(screen.queryByLabelText('Make this the start scene')).toBeNull();
   });
 
-  it('cannot create a scene for a 3D game', async () => {
-    manifestGet.mockResolvedValue(manifest({ perspective: 'first-person' }));
+  it('makes a 3D scene: an 80 x 80 m plan with one spawn, a 3d dimension and no tile layers', async () => {
+    manifestGet.mockResolvedValue(manifest({ perspective: 'first-person', dimension: '3d' }));
     renderDialog();
-    expect(await screen.findByText(/3D game/)).toBeTruthy();
-    expect(create().disabled).toBe(true);
+    await waitFor(() => expect((screen.getByLabelText('Width (m)') as HTMLInputElement).value).toBe('80'));
+    expect((screen.getByLabelText('Depth (m)') as HTMLInputElement).value).toBe('80');
+    expect(screen.queryByLabelText('Tile width (px)')).toBeNull();
+    type('Name', 'arena');
+    fireEvent.click(create());
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('arena'));
+    const req = set.mock.calls[0]![0] as { create: boolean; level: { width: number; tilewidth: number; layers: Array<{ type: string }>; properties: Array<{ name: string; value: unknown }> } };
+    expect(req.create).toBe(true);
+    expect(req.level).toMatchObject({ width: 80, tilewidth: 32 });
+    expect(req.level.layers.map((l) => l.type)).toEqual(['objectgroup']);
+    expect(req.level.properties).toEqual(expect.arrayContaining([{ name: 'midnite.dimension', type: 'string', value: '3d' }, { name: 'midnite.metresPerTile', type: 'float', value: 1 }]));
   });
 });

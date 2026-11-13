@@ -1,11 +1,13 @@
 // vitest/node: the pure edit model — tiles, objects, layers, undo, serialise, snapping.
-import { parseGameLevel } from '@midnite/studio-shared';
+import { levelEntityToWorld, parseGameLevel } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import {
+  DEFAULT_SIZE_Y,
   UNDO_LIMIT,
   addLayer,
   addObject,
+  addPathPoint,
   beginStroke,
   cellCentre,
   createEditState,
@@ -13,6 +15,7 @@ import {
   endStroke,
   erase,
   fillRect,
+  finishPath,
   mapPointToObject,
   moveObject,
   objectToMapPoint,
@@ -21,9 +24,15 @@ import {
   redo,
   removeProperty,
   renameLayer,
+  rotateObject,
+  rotationToward,
   serialise,
   setObjectField,
+  setOptionalNumber,
+  setOptionalText,
   setProperty,
+  setVolume,
+  snapRotation,
   toEditLevel,
   toggleVisible,
   undo,
@@ -221,5 +230,105 @@ describe('geometry', () => {
     expect(back.x).toBeCloseTo(c.x);
     expect(back.y).toBeCloseTo(c.y);
     expect(mapPointToObject(ortho, 10, 20)).toEqual({ x: 10, y: 20 });
+  });
+});
+
+describe('3D placement (Phase 132 Theme E)', () => {
+  const plan = () => createEditState(buildBlankLevel({ width: 20, height: 20, tilewidth: 32, tileheight: 32, orientation: 'orthogonal', baseLayer: null }));
+  const objectsId = (s: ReturnType<typeof plan>) => s.level.layers.find((l) => l.type === 'objectgroup')!.id!;
+  const last = (s: ReturnType<typeof plan>) => s.level.layers.find((l) => l.type === 'objectgroup')!.objects!.at(-1)!;
+  const worldOf = (s: ReturnType<typeof plan>, o = last(s)) => levelEntityToWorld(o as never, s.level as never);
+
+  it('turns degrees into Tiled rotation, clockwise from up, and snaps', () => {
+    expect(rotationToward({ x: 0, y: 0 }, { x: 0, y: -10 })).toBe(0);
+    expect(rotationToward({ x: 0, y: 0 }, { x: 10, y: 0 })).toBeCloseTo(90);
+    expect(rotationToward({ x: 0, y: 0 }, { x: 0, y: 10 })).toBeCloseTo(180);
+    expect(rotationToward({ x: 0, y: 0 }, { x: -10, y: 0 })).toBeCloseTo(270);
+    expect(snapRotation(52, 15)).toBe(45);
+    expect(snapRotation(-10)).toBe(350);
+    expect(snapRotation(370, 15)).toBe(15);
+  });
+
+  it('writes yaw as Tiled\'s own rotation; the kit yaw is its negation in radians', () => {
+    let s = addObject(plan(), objectsId(plan()), { type: 'prop', x: 320, y: 320 });
+    s = rotateObject(s, s.selection!, 90);
+    expect(last(s).rotation).toBe(90);
+    expect(worldOf(s).yaw).toBeCloseTo(-Math.PI / 2);
+  });
+
+  it('rotates a footprint about its centre, so its world position does not move', () => {
+    let s = plan();
+    s = setVolume(s, objectsId(s), { x: 64, y: 96 }, { x: 192, y: 160 });
+    const before = worldOf(s).position;
+    for (const deg of [30, 90, 200]) {
+      s = rotateObject(s, s.selection!, deg);
+      const after = worldOf(s).position;
+      expect(after[0]).toBeCloseTo(before[0]);
+      expect(after[2]).toBeCloseTo(before[2]);
+    }
+  });
+
+  it('snaps a rotation to the step and is one undo step', () => {
+    let s = addObject(plan(), objectsId(plan()), { type: 'prop', x: 10, y: 10 });
+    const done = s.past.length;
+    s = rotateObject(s, s.selection!, 52, 15);
+    expect(last(s).rotation).toBe(45);
+    expect(s.past).toHaveLength(done + 1);
+    expect(rotateObject(s, s.selection!, 45, 15)).toBe(s);
+    expect(last(undo(s)).rotation).toBe(0);
+    expect(rotateObject(s, s.selection!, Number.NaN)).toBe(s);
+  });
+
+  it('drags a rectangle into a prop box with the default sizeY', () => {
+    const s = setVolume(plan(), objectsId(plan()), { x: 192, y: 160 }, { x: 64, y: 96 });
+    expect(last(s)).toMatchObject({ type: 'prop', x: 64, y: 96, width: 128, height: 64 });
+    expect(last(s).properties).toEqual([{ name: 'sizeY', type: 'float', value: DEFAULT_SIZE_Y }]);
+    expect(worldOf(s).size).toEqual([4, 3, 2]);
+    expect(s.selection).toEqual({ layerId: objectsId(s), objectId: last(s).id });
+    expect(parseGameLevel(serialise(s)).ok).toBe(true);
+  });
+
+  it('makes no volume from a click or a line', () => {
+    const s = plan();
+    expect(setVolume(s, objectsId(s), { x: 5, y: 5 }, { x: 5, y: 5 })).toBe(s);
+    expect(setVolume(s, objectsId(s), { x: 5, y: 5 }, { x: 99, y: 5 })).toBe(s);
+  });
+
+  it('collects path points, ignores a repeat, and finishes into a polyline relative to the first point', () => {
+    let draft = addPathPoint([], { x: 100, y: 200 });
+    draft = addPathPoint(draft, { x: 100, y: 200 });
+    draft = addPathPoint(draft, { x: 164, y: 200 });
+    draft = addPathPoint(draft, { x: 164, y: 264 });
+    expect(draft).toHaveLength(3);
+    const s0 = plan();
+    const s = finishPath(s0, objectsId(s0), draft);
+    expect(last(s)).toMatchObject({ type: 'path', x: 100, y: 200, polyline: [{ x: 0, y: 0 }, { x: 64, y: 0 }, { x: 64, y: 64 }] });
+    expect(last(s).point).toBeUndefined();
+    expect(last(undo(s)).type).toBe('spawn');
+  });
+
+  it('finishes no path from fewer than two points', () => {
+    const s = plan();
+    expect(finishPath(s, objectsId(s), [{ x: 1, y: 1 }])).toBe(s);
+    expect(finishPath(s, objectsId(s), [])).toBe(s);
+  });
+
+  it('sets an optional number, and clearing it removes the property so the kit snaps to ground', () => {
+    let s = addObject(plan(), objectsId(plan()), { type: 'prop', x: 320, y: 320 });
+    s = setOptionalNumber(s, s.selection!, 'elevation', '2.5');
+    expect(worldOf(s).position[1]).toBe(2.5);
+    expect(setOptionalNumber(s, s.selection!, 'elevation', 'abc')).toBe(s);
+    s = setOptionalNumber(s, s.selection!, 'elevation', '');
+    expect(worldOf(s).position[1]).toBeNull();
+    expect(last(s).properties ?? []).toEqual([]);
+  });
+
+  it('sets a text property (model, collider) and clears it when empty', () => {
+    let s = addObject(plan(), objectsId(plan()), { type: 'prop', x: 0, y: 0 });
+    s = setOptionalText(s, s.selection!, 'model', 'crate');
+    s = setOptionalText(s, s.selection!, 'collider', 'none');
+    expect(last(s).properties).toEqual([{ name: 'model', type: 'string', value: 'crate' }, { name: 'collider', type: 'string', value: 'none' }]);
+    s = setOptionalText(s, s.selection!, 'model', '');
+    expect(last(s).properties).toEqual([{ name: 'collider', type: 'string', value: 'none' }]);
   });
 });

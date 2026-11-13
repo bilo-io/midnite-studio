@@ -1,4 +1,4 @@
-import type { GameLevelGetResult } from '@midnite/studio-shared';
+import type { GameLevelGetResult, GameLevelTerrain } from '@midnite/studio-shared';
 import { create } from 'zustand';
 
 import { createEditState, toEditLevel, type EditState } from './level-edit-model';
@@ -10,6 +10,8 @@ export type OpenLevel = {
   /** `parseGameLevel`'s issues; any means the level opens read-only. */
   issues: string[];
   images: GameLevelGetResult['images'];
+  /** A 3D level's terrain extent, drawn under the plan (Phase 132 Theme E). */
+  terrain: GameLevelTerrain | null;
   /** The level is not a map the 2D editor can hold (not JSON, a 3D one, or unreadable). */
   unreadable: boolean;
 };
@@ -35,9 +37,9 @@ export function openLevelFrom(scene: string, data: GameLevelGetResult): OpenLeve
   const level = toEditLevel(data.level);
   const issues = data.issues.map((i) => (i.path === '(root)' ? i.message : `${i.path}: ${i.message}`));
   if (!level) {
-    return { scene, edit: createEditState({ orientation: 'orthogonal', width: 1, height: 1, tilewidth: 1, tileheight: 1, layers: [], tilesets: [] }), issues: issues.length ? issues : ['This is not a Tiled map.'], images: data.images, unreadable: true };
+    return { scene, edit: createEditState({ orientation: 'orthogonal', width: 1, height: 1, tilewidth: 1, tileheight: 1, layers: [], tilesets: [] }), issues: issues.length ? issues : ['This is not a Tiled map.'], images: data.images, terrain: null, unreadable: true };
   }
-  return { scene, edit: createEditState(level), issues, images: data.images, unreadable: false };
+  return { scene, edit: createEditState(level), issues, images: data.images, terrain: data.terrain ?? null, unreadable: false };
 }
 
 /**

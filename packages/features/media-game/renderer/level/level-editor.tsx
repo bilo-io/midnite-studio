@@ -10,7 +10,10 @@ import {
   LuPencilRuler,
   LuPlus,
   LuRedo2,
+  LuRotateCw,
+  LuRoute,
   LuSave,
+  LuBox,
   LuSquare,
   LuTrash2,
   LuTriangleAlert,
@@ -18,19 +21,21 @@ import {
 } from 'react-icons/lu';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { GAME_LEVEL_ENTITY_TYPES_2D } from '@midnite/studio-shared';
+import { GAME_LEVEL_ENTITY_TYPES_2D, GAME_LEVEL_ENTITY_TYPES_3D, levelEntityToWorld, levelProperties } from '@midnite/studio-shared';
 import { EmptyState, EmptyStateButton, Skeleton } from '@midnite/studio-frame';
 
 import { LevelCanvas, type CanvasPointer } from './level-canvas';
 import {
   addLayer,
   addObject,
+  addPathPoint,
   beginStroke,
   cellCentre,
   deleteObject,
   endStroke,
   erase,
   fillRect,
+  finishPath,
   findObject,
   isLevel3d,
   layerById,
@@ -40,10 +45,16 @@ import {
   redo,
   removeProperty,
   renameLayer,
+  rotateObject,
+  rotationToward,
+  objectCentre,
   select,
   setActiveLayer,
   setObjectField,
+  setOptionalNumber,
+  setOptionalText,
   setProperty,
+  setVolume,
   toggleVisible,
   undo,
   rectCells,
@@ -53,12 +64,14 @@ import {
   type LevelObject,
   type LevelProperty,
   type ObjectField,
+  type PlanPoint,
 } from './level-edit-model';
+import { snapPlan } from './level-plan';
 import { blockingIssues, useLevelStore, type OpenLevel } from './level-store';
 import { lineCells } from './level-view';
-import { fetchLevel, useLevel, useLevels, useSaveOpenLevel } from './use-levels';
+import { fetchLevel, useGameManifest, useLevel, useLevels, useSaveOpenLevel } from './use-levels';
 
-export type LevelTool = 'paint' | 'erase' | 'rect' | 'pick' | 'entity' | 'select';
+export type LevelTool = 'paint' | 'erase' | 'rect' | 'pick' | 'entity' | 'select' | 'volume' | 'path' | 'rotate';
 
 const TOOLS: readonly { tool: LevelTool; label: string; key: string; icon: typeof LuPaintbrush }[] = [
   { tool: 'paint', label: 'Paint', key: 'b', icon: LuPaintbrush },
@@ -68,6 +81,20 @@ const TOOLS: readonly { tool: LevelTool; label: string; key: string; icon: typeo
   { tool: 'entity', label: 'Entity', key: 'o', icon: LuMapPin },
   { tool: 'select', label: 'Select', key: 'v', icon: LuMousePointer2 },
 ];
+
+/** A 3D level's tools (Theme E): the same V and O as 2D, plus a volume, a path and a yaw drag. */
+const TOOLS_3D: readonly { tool: LevelTool; label: string; key: string; icon: typeof LuPaintbrush }[] = [
+  { tool: 'select', label: 'Select / Move', key: 'v', icon: LuMousePointer2 },
+  { tool: 'entity', label: 'Place', key: 'o', icon: LuMapPin },
+  { tool: 'volume', label: 'Volume', key: 'r', icon: LuBox },
+  { tool: 'path', label: 'Path', key: 'p', icon: LuRoute },
+  { tool: 'rotate', label: 'Rotate', key: 'y', icon: LuRotateCw },
+];
+
+/** The properties the 3D inspector has its own field for; the generic list leaves them out. */
+const MANAGED_3D = ['elevation', 'sizeY', 'pitch', 'roll', 'scale', 'model', 'collider', 'intensity', 'range', 'color'];
+/** Plan placement snaps to half a metre; Shift snaps a rotation to 15 degrees. */
+const ROTATE_STEP = 15;
 
 const CUSTOM = '__custom__';
 
@@ -149,16 +176,31 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
   const level = edit.level as EditLevel;
   const save = useSaveOpenLevel(gameId);
   const [saving, setSaving] = useState(false);
-  const [tool, setTool] = useState<LevelTool>('paint');
+  const is3d = isLevel3d(level);
+  const [tool, setTool] = useState<LevelTool>(is3d ? 'select' : 'paint');
   const [gid, setGid] = useState(1);
   const [entityType, setEntityType] = useState<string>('spawn');
   const [custom, setCustom] = useState('');
   const [preview, setPreview] = useState<Cell[] | null>(null);
   const drag = useRef<{ from: Cell; last: Cell } | { move: NonNullable<typeof edit.selection> } | null>(null);
+  const planDrag = useRef<
+    { kind: 'move'; sel: NonNullable<typeof edit.selection>; grab: PlanPoint } | { kind: 'rotate'; sel: NonNullable<typeof edit.selection>; centre: PlanPoint } | { kind: 'volume'; from: PlanPoint } | null
+  >(null);
+  const [draft, setDraft] = useState<PlanPoint[]>([]);
+  const [volumeDrag, setVolumeDrag] = useState<{ from: PlanPoint; to: PlanPoint } | null>(null);
+  const manifest = useGameManifest(gameId).data ?? null;
+  const models = useMemo(() => (manifest?.assets ?? []).filter((a) => a.kind === 'model').map((a) => a.name), [manifest]);
 
   const blocking = blockingIssues(entry);
-  const is3d = isLevel3d(level);
-  const readOnly = entry.unreadable || blocking.length > 0 || is3d;
+  // A 3D level is a top-down orthogonal map; an isometric one has no plan to place on.
+  const planBroken = is3d && level.orientation !== 'orthogonal';
+  const readOnly = entry.unreadable || blocking.length > 0 || planBroken;
+  const tools = is3d ? TOOLS_3D : TOOLS;
+  const chooseTool = (next: LevelTool) => {
+    setDraft([]);
+    setVolumeDrag(null);
+    setTool(next);
+  };
   const update: Updater = (fn) => useLevelStore.getState().update(gameId, fn);
 
   // A scene changed on disk by someone else (an agent, Tiled) shows up when there is nothing of ours to lose.
@@ -181,8 +223,55 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
   const tilesets = level.tilesets;
   const tiles = useMemo(() => paletteTiles({ tilesets }), [tilesets]);
 
+  /** Plan-view input for a 3D level: the same canvas, a different set of tools. Map pixels are object coordinates here. */
+  const onPlanPointer = (e: CanvasPointer) => {
+    const at = snapPlan(level, e.object, e.alt);
+    const sel = e.hit;
+    if (e.phase === 'down') {
+      if (tool === 'select' || tool === 'rotate') {
+        const found = sel ? findObject(level, sel) : undefined;
+        if (!sel || !found) {
+          if (tool === 'select') update((s) => select(s, null));
+          return;
+        }
+        planDrag.current = tool === 'select' ? { kind: 'move', sel, grab: { x: e.object.x - found.x, y: e.object.y - found.y } } : { kind: 'rotate', sel, centre: objectCentre(found) };
+        update((s) => beginStroke(select(s, sel)));
+      } else if (tool === 'entity') {
+        if (objectLayerId === null || !entityName) return;
+        update((s) => addObject(setActiveLayer(s, objectLayerId), objectLayerId, { type: entityName, x: at.x, y: at.y }));
+      } else if (tool === 'volume') {
+        if (objectLayerId === null) return;
+        planDrag.current = { kind: 'volume', from: at };
+        setVolumeDrag({ from: at, to: at });
+      } else if (tool === 'path') {
+        if (objectLayerId === null) return;
+        setDraft((d) => addPathPoint(d, at));
+      }
+    } else if (e.phase === 'move') {
+      const d = planDrag.current;
+      if (!d) return;
+      if (d.kind === 'move') {
+        const to = snapPlan(level, { x: e.object.x - d.grab.x, y: e.object.y - d.grab.y }, e.alt);
+        update((s) => moveObject(s, d.sel, to.x, to.y));
+      } else if (d.kind === 'rotate') update((s) => rotateObject(s, d.sel, rotationToward(d.centre, e.object), e.shift ? ROTATE_STEP : 0));
+      else setVolumeDrag({ from: d.from, to: at });
+    } else {
+      const d = planDrag.current;
+      planDrag.current = null;
+      if (!d) return;
+      if (d.kind === 'volume') {
+        setVolumeDrag(null);
+        if (objectLayerId !== null) update((s) => setVolume(s, objectLayerId, d.from, at));
+      } else update(endStroke);
+    }
+  };
+
   const onPointer = (e: CanvasPointer) => {
     if (readOnly) return;
+    if (is3d) {
+      onPlanPointer(e);
+      return;
+    }
     const snap = (p: CanvasPointer) => (p.alt || !p.cell ? p.object : cellCentre(level, p.cell));
     if (e.phase === 'down') {
       if (tool === 'paint' || tool === 'erase') {
@@ -198,7 +287,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
         const found = pick(edit, tileLayerId, e.cell);
         if (found > 0) {
           setGid(found);
-          setTool('paint');
+          chooseTool('paint');
         }
       } else if (tool === 'entity') {
         if (objectLayerId === null || !entityName) return;
@@ -244,16 +333,33 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
       return;
     }
     if (mod || event.altKey) return;
+    if (is3d && tool === 'path' && !readOnly) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        if (objectLayerId !== null) update((s) => finishPath(s, objectLayerId, draft));
+        setDraft([]);
+        return;
+      }
+      if (event.key === 'Escape') {
+        setDraft([]);
+        return;
+      }
+      if (event.key === 'Backspace' && draft.length > 0) {
+        event.preventDefault();
+        setDraft((d) => d.slice(0, -1));
+        return;
+      }
+    }
     if ((event.key === 'Delete' || event.key === 'Backspace') && edit.selection && !readOnly) {
       event.preventDefault();
       const sel = edit.selection;
       update((s) => deleteObject(s, sel));
       return;
     }
-    const hit = TOOLS.find((t) => t.key === event.key.toLowerCase());
+    const hit = tools.find((t) => t.key === event.key.toLowerCase());
     if (hit && !readOnly) {
       event.preventDefault();
-      setTool(hit.tool);
+      chooseTool(hit.tool);
     }
   };
 
@@ -272,7 +378,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
     <div className="flex h-full min-h-0 flex-col" data-testid="level-editor">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-2 py-1">
         <div role="radiogroup" aria-label="Tool" className="flex items-center gap-0.5">
-          {TOOLS.map(({ tool: t, label, key, icon: Icon }) => (
+          {tools.map(({ tool: t, label, key, icon: Icon }) => (
             <button
               key={t}
               type="button"
@@ -281,7 +387,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
               aria-label={label}
               title={`${label} (${key.toUpperCase()})`}
               disabled={readOnly}
-              onClick={() => setTool(t)}
+              onClick={() => chooseTool(t)}
               className={`rounded p-1.5 disabled:opacity-40 ${tool === t ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}
             >
               <Icon aria-hidden className="h-3.5 w-3.5" />
@@ -312,44 +418,51 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
           This game does not read level files yet. Edits are saved, but Play will not show them until its scenes load levels/ — the game-build skill has the recipe.
         </Banner>
       ) : null}
-      {is3d ? <Banner testId="level-banner-readonly">This is a 3D level. The placement editor is not available yet, so it opens read-only.</Banner> : null}
+      {planBroken ? <Banner testId="level-banner-readonly">This 3D level is not an orthogonal top-down map, so it opens read-only.</Banner> : null}
       {firstIssue ? <Banner testId="level-banner-readonly">{`This level opens read-only: ${firstIssue}`}</Banner> : null}
       {entry.issues.filter((i) => !blocking.includes(i)).length > 0 ? <Banner testId="level-banner-images">{entry.issues.find((i) => !blocking.includes(i))!}</Banner> : null}
       <div className="flex min-h-0 flex-1">
-        <LayerList level={level} activeLayerId={edit.activeLayerId} readOnly={readOnly} update={update} />
+        <LayerList level={level} activeLayerId={edit.activeLayerId} readOnly={readOnly} update={update} is3d={is3d} />
         <div className="min-w-0 flex-1">
           <LevelCanvas
             level={level}
             images={entry.images}
             selection={edit.selection}
-            hoverEnabled={!readOnly && tool !== 'select'}
+            hoverEnabled={!readOnly && !is3d && tool !== 'select'}
+            plan={is3d && !planBroken ? { terrain: entry.terrain, draft, volume: volumeDrag } : undefined}
             preview={preview}
             onPointer={onPointer}
             onKeyDown={onKeyDown}
-            label={`Level canvas, ${level.width} × ${level.height} tiles. Tools: B paint, E erase, R rectangle, I pick, O entity, V select.`}
+            label={
+              is3d
+                ? 'Level plan view, seen from above. Tools: V select and move, O place, R volume, P path (Enter finishes), Y rotate (Shift snaps to 15 degrees).'
+                : `Level canvas, ${level.width} × ${level.height} tiles. Tools: B paint, E erase, R rectangle, I pick, O entity, V select.`
+            }
           />
         </div>
         <aside className="flex w-56 shrink-0 flex-col gap-3 overflow-y-auto border-l border-border p-2 text-xs" aria-label="Palette and inspector">
           {tool === 'entity' ? (
             <div role="radiogroup" aria-label="Entity type" className="flex flex-wrap gap-1">
-              {[...GAME_LEVEL_ENTITY_TYPES_2D, CUSTOM].map((t) => (
+              {[...(is3d ? GAME_LEVEL_ENTITY_TYPES_3D.filter((t) => t !== 'path') : GAME_LEVEL_ENTITY_TYPES_2D), CUSTOM].map((t) => (
                 <button key={t} type="button" role="radio" aria-checked={entityType === t} onClick={() => setEntityType(t)} className={`rounded border px-1.5 py-0.5 ${entityType === t ? 'border-primary text-foreground' : 'border-border text-muted-foreground'}`}>
                   {t === CUSTOM ? 'Custom…' : t}
                 </button>
               ))}
               {entityType === CUSTOM ? <input aria-label="Custom entity type" value={custom} onChange={(e) => setCustom(e.target.value)} className="mt-1 w-full rounded border border-border bg-background px-1.5 py-0.5" /> : null}
             </div>
+          ) : is3d ? (
+            <PlanHint tool={tool} drafting={draft.length} />
           ) : (
-            <TilePalette tiles={tiles} images={entry.images} gid={gid} onGid={(g) => { setGid(g); if (tool === 'erase') setTool('paint'); }} />
+            <TilePalette tiles={tiles} images={entry.images} gid={gid} onGid={(g) => { setGid(g); if (tool === 'erase') chooseTool('paint'); }} />
           )}
-          {selected && edit.selection ? <Inspector object={selected} readOnly={readOnly} onField={(f, v) => update((s) => setObjectField(s, edit.selection!, f, v))} onProperty={(n, t, v) => update((s) => setProperty(s, edit.selection!, n, t, v))} onRemove={(n) => update((s) => removeProperty(s, edit.selection!, n))} onDelete={() => update((s) => deleteObject(s, edit.selection!))} properties={selected.properties ?? []} /> : null}
+          {selected && edit.selection ? <Inspector object={selected} readOnly={readOnly} onField={(f, v) => update((s) => setObjectField(s, edit.selection!, f, v))} onProperty={(n, t, v) => update((s) => setProperty(s, edit.selection!, n, t, v))} onRemove={(n) => update((s) => removeProperty(s, edit.selection!, n))} onDelete={() => update((s) => deleteObject(s, edit.selection!))} properties={selected.properties ?? []} plan={is3d ? { level, models, onNumber: (n, raw) => update((s) => setOptionalNumber(s, edit.selection!, n, raw)), onText: (n, raw) => update((s) => setOptionalText(s, edit.selection!, n, raw)) } : undefined} /> : null}
         </aside>
       </div>
     </div>
   );
 }
 
-function LayerList({ level, activeLayerId, readOnly, update }: { level: EditLevel; activeLayerId: number | null; readOnly: boolean; update: Updater }) {
+function LayerList({ level, activeLayerId, readOnly, update, is3d }: { level: EditLevel; activeLayerId: number | null; readOnly: boolean; update: Updater; is3d: boolean }) {
   const [renaming, setRenaming] = useState<number | null>(null);
   // The top layer first, as Tiled lists them.
   const layers = [...level.layers].reverse();
@@ -390,9 +503,9 @@ function LayerList({ level, activeLayerId, readOnly, update }: { level: EditLeve
         })}
       </ul>
       <div className="flex gap-1 border-t border-border p-1.5">
-        <button type="button" disabled={readOnly} onClick={() => update((s) => addLayer(s, 'tile', 'tiles'))} className="flex flex-1 items-center justify-center gap-1 rounded border border-border px-1 py-0.5 hover:bg-accent disabled:opacity-40">
+        {is3d ? null : <button type="button" disabled={readOnly} onClick={() => update((s) => addLayer(s, 'tile', 'tiles'))} className="flex flex-1 items-center justify-center gap-1 rounded border border-border px-1 py-0.5 hover:bg-accent disabled:opacity-40">
           <LuPlus aria-hidden className="h-3 w-3" />Tile layer
-        </button>
+        </button>}
         <button type="button" disabled={readOnly} onClick={() => update((s) => addLayer(s, 'object', 'objects'))} className="flex flex-1 items-center justify-center gap-1 rounded border border-border px-1 py-0.5 hover:bg-accent disabled:opacity-40">
           <LuPlus aria-hidden className="h-3 w-3" />Object layer
         </button>
@@ -470,6 +583,7 @@ function Inspector({
   onProperty,
   onRemove,
   onDelete,
+  plan,
 }: {
   object: LevelObject;
   properties: readonly LevelProperty[];
@@ -478,6 +592,8 @@ function Inspector({
   onProperty: (name: string, type: 'string' | 'int' | 'float' | 'bool', value: string | number | boolean) => void;
   onRemove: (name: string) => void;
   onDelete: () => void;
+  /** Set for a 3D level: the placement fields and the world position. */
+  plan?: PlanInspector;
 }) {
   const [name, setName] = useState('');
   const [type, setType] = useState<'string' | 'int' | 'float' | 'bool'>('string');
@@ -504,8 +620,9 @@ function Inspector({
           </label>
         );
       })}
+      {plan ? <PlanFields object={object} readOnly={readOnly} plan={plan} /> : null}
       <ul aria-label="Custom properties" className="flex flex-col gap-0.5">
-        {properties.map((p) => (
+        {properties.filter((p) => !plan || !MANAGED_3D.includes(p.name)).map((p) => (
           <li key={p.name} className="flex items-center gap-1">
             <span className="min-w-0 flex-1 truncate" title={`${p.name} (${p.type})`}>{p.name}: {String(p.value)}</span>
             <button type="button" aria-label={`Remove property ${p.name}`} disabled={readOnly} onClick={() => onRemove(p.name)} className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-40">
@@ -541,5 +658,96 @@ function Inspector({
         <LuTrash2 aria-hidden className="h-3 w-3" />Delete entity
       </button>
     </section>
+  );
+}
+
+type PlanInspector = {
+  level: EditLevel;
+  /** This game's `model` assets, by name. */
+  models: readonly string[];
+  onNumber: (name: string, raw: string) => void;
+  onText: (name: string, raw: string) => void;
+};
+
+function PlanHint({ tool, drafting }: { tool: LevelTool; drafting: number }) {
+  const text: Partial<Record<LevelTool, string>> = {
+    select: 'Click an object to select it; drag to move it (half-metre snap, Alt for free).',
+    volume: 'Drag a rectangle to make a box prop, 3 m tall by default.',
+    path: drafting > 0 ? `${drafting} point${drafting === 1 ? '' : 's'}. Enter finishes, Backspace removes the last, Escape cancels.` : 'Click points along the route; Enter finishes the path.',
+    rotate: 'Drag around an object to turn it. Shift snaps to 15 degrees.',
+  };
+  return <p className="text-muted-foreground" data-testid="plan-hint">{text[tool] ?? ''}</p>;
+}
+
+const trim = (n: number): string => String(Number(n.toFixed(3)));
+
+/** Placement fields of a 3D object. The world position is read-only and comes from `levelEntityToWorld`, so it is what the kit builds. */
+function PlanFields({ object, readOnly, plan }: { object: LevelObject; readOnly: boolean; plan: PlanInspector }) {
+  const props = levelProperties(object);
+  const world = levelEntityToWorld(object, plan.level);
+  const text = (name: string): string => (typeof props[name] === 'string' ? (props[name] as string) : '');
+  const number = (name: string, label: string, placeholder: string) => {
+    const v = props[name];
+    const current = typeof v === 'number' ? String(v) : '';
+    return (
+      <label key={`${object.id}-${name}-${current}`} className="flex items-center gap-1.5">
+        <span className="w-14 shrink-0 text-muted-foreground">{label}</span>
+        <input
+          aria-label={label}
+          type="number"
+          step="any"
+          placeholder={placeholder}
+          defaultValue={current}
+          disabled={readOnly}
+          className="min-w-0 flex-1 rounded border border-border bg-background px-1.5 py-0.5"
+          onBlur={(e) => plan.onNumber(name, e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur();
+            e.stopPropagation();
+          }}
+        />
+      </label>
+    );
+  };
+  const model = text('model');
+  const models = model && !plan.models.includes(model) ? [model, ...plan.models] : plan.models;
+  const isLight = (object.type || object.class) === 'light';
+  return (
+    <div className="flex flex-col gap-1.5" data-testid="plan-fields">
+      <p className="text-muted-foreground" data-testid="inspector-world">
+        World: {trim(world.position[0])}, {world.position[1] === null ? 'ground' : trim(world.position[1])}, {trim(world.position[2])} m
+      </p>
+      {number('elevation', 'Elevation (m)', 'ground')}
+      {number('sizeY', 'Size Y (m)', '3')}
+      {number('pitch', 'Pitch (°)', '0')}
+      {number('roll', 'Roll (°)', '0')}
+      {number('scale', 'Scale', '1')}
+      <label className="flex items-center gap-1.5">
+        <span className="w-14 shrink-0 text-muted-foreground">Model</span>
+        <select aria-label="Model" value={model} disabled={readOnly} onChange={(e) => plan.onText('model', e.target.value)} className="min-w-0 flex-1 rounded border border-border bg-background px-1 py-0.5">
+          <option value="">Box</option>
+          {models.map((m) => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
+      </label>
+      <label className="flex items-center gap-1.5">
+        <span className="w-14 shrink-0 text-muted-foreground">Collider</span>
+        <select aria-label="Collider" value={text('collider') || 'box'} disabled={readOnly} onChange={(e) => plan.onText('collider', e.target.value)} className="min-w-0 flex-1 rounded border border-border bg-background px-1 py-0.5">
+          <option value="box">box</option>
+          <option value="none">none</option>
+        </select>
+      </label>
+      {isLight ? (
+        <>
+          {number('intensity', 'Intensity', '10')}
+          {number('range', 'Range (m)', '0')}
+          <label className="flex items-center gap-1.5">
+            <span className="w-14 shrink-0 text-muted-foreground">Colour</span>
+            <input aria-label="Colour" type="color" value={/^#[0-9a-f]{6}$/i.test(text('color')) ? text('color') : '#ffffff'} disabled={readOnly} onChange={(e) => plan.onText('color', e.target.value)} className="h-6 w-full rounded border border-border bg-background" />
+          </label>
+        </>
+      ) : null}
+    </div>
   );
 }

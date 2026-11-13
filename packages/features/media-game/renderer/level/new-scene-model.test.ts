@@ -10,7 +10,8 @@ describe('sceneDefaults', () => {
     expect(sceneDefaults('top-down')).toMatchObject({ width: 40, height: 30, tilewidth: 32 });
     expect(sceneDefaults('isometric')).toMatchObject({ width: 20, height: 20, tilewidth: 64, tileheight: 32, orientation: 'isometric' });
     expect(sceneDefaults('raycaster')).toMatchObject({ width: 24, height: 12, tilewidth: 64, baseLayer: 'walls' });
-    expect(sceneDefaults('first-person')).toBeNull();
+    expect(sceneDefaults('first-person')).toMatchObject({ width: 80, height: 80, tilewidth: 32, baseLayer: null });
+    expect(sceneDefaults('third-person')).toMatchObject({ width: 80, height: 80, baseLayer: null });
   });
 });
 
@@ -22,9 +23,20 @@ describe('validateSceneName', () => {
   });
 });
 
+describe('buildBlankLevel, 3D', () => {
+  it('is a valid 3D level: objects only, one spawn, one metre a tile', () => {
+    const level = buildBlankLevel(sceneDefaults('third-person'));
+    const parsed = parseGameLevel(level);
+    expect(parsed.ok && parsed.dimension).toBe('3d');
+    expect(level.layers.map((l) => l.type)).toEqual(['objectgroup']);
+    expect(level.layers[0]!.objects).toHaveLength(1);
+    expect(level.layers[0]!.objects![0]).toMatchObject({ type: 'spawn', x: 1296, y: 1296 });
+  });
+});
+
 describe('buildBlankLevel', () => {
   it('is a valid 2D level with a base layer, collision and one spawn', () => {
-    const level = buildBlankLevel({ ...sceneDefaults('raycaster')! });
+    const level = buildBlankLevel({ ...sceneDefaults('raycaster') });
     const parsed = parseGameLevel(level);
     expect(parsed.ok && parsed.dimension).toBe('2d');
     expect(level.layers.map((l) => l.name)).toEqual(['walls', 'collision', 'objects']);

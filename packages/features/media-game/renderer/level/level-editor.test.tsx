@@ -4,9 +4,11 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { levelEntityToWorld } from '@midnite/studio-shared';
+
 import { LevelEditor } from './level-editor';
 import { useLevelStore } from './level-store';
-import { blankLevel, installBridge, newClient, removeBridge, stubCanvas, stubPointerEvents } from './test-helpers';
+import { blankLevel, blankLevel3d, installBridge, newClient, removeBridge, stubCanvas, stubPointerEvents } from './test-helpers';
 
 const list = vi.fn();
 const get = vi.fn();
@@ -161,5 +163,176 @@ describe('LevelEditor', () => {
     fireEvent.pointerUp(canvas, { clientX: 198.4 + 80 * 1.9, clientY: 108.8 + 48 * 1.9, button: 0, pointerId: 1 });
     const inspector = await screen.findByRole('region', { name: 'Entity inspector' });
     expect((inspector.querySelector('input[aria-label="Type"]') as HTMLInputElement).value).toBe('spawn');
+  });
+});
+
+// A 20 x 20 m plan in a 640 x 400 canvas: the view fits at zoom 0.59375 with its origin at (130, 10), so map (x, y)
+// px sits at screen (130 + 0.59375 x, 10 + 0.59375 y), and one metre is 32 px. jsdom has no layout, so
+// `getBoundingClientRect` is all zeros and `clientX/Y` are canvas coordinates.
+const at = (mx: number, my: number) => ({ clientX: 130 + 0.59375 * mx, clientY: 10 + 0.59375 * my, button: 0, pointerId: 1 });
+
+describe('LevelEditor, 3D plan view (Phase 132 Theme E)', () => {
+  const lastObject = () => {
+    const entry = useLevelStore.getState().byGame.g1!;
+    return entry.edit.level.layers.find((l) => l.type === 'objectgroup')!.objects!.at(-1)!;
+  };
+  const open3d = async (extra: Record<string, unknown> = {}) => {
+    get.mockResolvedValue({ ok: true, value: { level: blankLevel3d(), issues: [], images: [], ...extra } });
+    list.mockResolvedValue(listed({ scenes: [{ scene: 'level', bytes: 1, dimension: '3d', issue: null }] }));
+    renderEditor();
+    await ready();
+    return { canvas: screen.getByTestId('level-canvas'), wrap: screen.getByTestId('level-canvas-wrap') };
+  };
+
+  it('opens editable, with the 3D tools and no tile tools, palette or layer button', async () => {
+    await open3d();
+    const labels = Array.from(screen.getByRole('radiogroup', { name: 'Tool' }).querySelectorAll('[role=radio]')).map((r) => r.getAttribute('aria-label'));
+    expect(labels).toEqual(['Select / Move', 'Place', 'Volume', 'Path', 'Rotate']);
+    expect(screen.getByRole('radio', { name: 'Select / Move' }).getAttribute('aria-checked')).toBe('true');
+    expect((screen.getByRole('radio', { name: 'Place' }) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByRole('radio', { name: 'Paint' })).toBeNull();
+    expect(screen.queryByRole('radiogroup', { name: 'Tiles' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Tile layer/ })).toBeNull();
+    expect(screen.queryByTestId('level-banner-readonly')).toBeNull();
+  });
+
+  it('switches tools with V O R P Y', async () => {
+    const { wrap } = await open3d();
+    for (const [key, label] of [['o', 'Place'], ['r', 'Volume'], ['p', 'Path'], ['y', 'Rotate'], ['v', 'Select / Move']] as const) {
+      fireEvent.keyDown(wrap, { key });
+      expect(screen.getByRole('radio', { name: label }).getAttribute('aria-checked')).toBe('true');
+    }
+  });
+
+  it('places a point entity on the half-metre grid, from the 3D palette without path', async () => {
+    const { canvas, wrap } = await open3d();
+    fireEvent.keyDown(wrap, { key: 'o' });
+    const types = Array.from(screen.getByRole('radiogroup', { name: 'Entity type' }).querySelectorAll('[role=radio]')).map((r) => r.textContent);
+    expect(types).toContain('prop');
+    expect(types).toContain('light');
+    expect(types).not.toContain('path');
+    fireEvent.click(screen.getByRole('radio', { name: 'prop' }));
+    fireEvent.pointerDown(canvas, at(100, 150));
+    fireEvent.pointerUp(canvas, at(100, 150));
+    // 100 px is 3.125 m, 150 px is 4.6875 m: both snap to the half metre.
+    expect(lastObject()).toMatchObject({ type: 'prop', x: 96, y: 144 });
+  });
+
+  it('drags a volume into a prop box with sizeY 3', async () => {
+    const { canvas, wrap } = await open3d();
+    fireEvent.keyDown(wrap, { key: 'r' });
+    fireEvent.pointerDown(canvas, at(64, 64));
+    fireEvent.pointerMove(canvas, at(192, 128));
+    fireEvent.pointerUp(canvas, at(192, 128));
+    expect(lastObject()).toMatchObject({ type: 'prop', x: 64, y: 64, width: 128, height: 64 });
+    expect(lastObject().properties).toEqual([{ name: 'sizeY', type: 'float', value: 3 }]);
+  });
+
+  it('draws a path with clicks and Enter finishes it; Escape cancels a draft', async () => {
+    const { canvas, wrap } = await open3d();
+    fireEvent.keyDown(wrap, { key: 'p' });
+    for (const [x, y] of [[64, 64], [160, 64], [160, 160]] as const) {
+      fireEvent.pointerDown(canvas, at(x, y));
+      fireEvent.pointerUp(canvas, at(x, y));
+    }
+    expect(screen.getByTestId('plan-hint').textContent).toContain('3 points');
+    fireEvent.keyDown(wrap, { key: 'Enter' });
+    expect(lastObject()).toMatchObject({ type: 'path', x: 64, y: 64, polyline: [{ x: 0, y: 0 }, { x: 96, y: 0 }, { x: 96, y: 96 }] });
+    fireEvent.pointerDown(canvas, at(64, 64));
+    fireEvent.pointerUp(canvas, at(64, 64));
+    fireEvent.keyDown(wrap, { key: 'Escape' });
+    fireEvent.keyDown(wrap, { key: 'Enter' });
+    expect(useLevelStore.getState().byGame.g1!.edit.level.layers[0]!.objects!.filter((o) => o.type === 'path')).toHaveLength(1);
+  });
+
+  it('moves an object by drag, keeping where it was grabbed', async () => {
+    const { canvas, wrap } = await open3d();
+    fireEvent.keyDown(wrap, { key: 'v' });
+    // The spawn is at (336, 336); grab it 3 px off and drag 64 px right.
+    fireEvent.pointerDown(canvas, at(339, 336));
+    fireEvent.pointerMove(canvas, at(403, 336));
+    fireEvent.pointerUp(canvas, at(403, 336));
+    expect(lastObject()).toMatchObject({ type: 'spawn', x: 400, y: 336 });
+    expect(useLevelStore.getState().byGame.g1!.edit.past).toHaveLength(1);
+  });
+
+  it('rotates by dragging around the object, with Shift snapping to 15 degrees', async () => {
+    const { canvas, wrap } = await open3d();
+    fireEvent.keyDown(wrap, { key: 'y' });
+    fireEvent.pointerDown(canvas, at(336, 336));
+    fireEvent.pointerMove(canvas, at(436, 336));
+    expect(lastObject().rotation).toBe(90);
+    fireEvent.pointerMove(canvas, { ...at(436, 300), shiftKey: true });
+    // atan2(100, 36) is about 70.2 degrees from up, which snaps to 75.
+    expect(lastObject().rotation).toBe(75);
+    fireEvent.pointerUp(canvas, at(436, 300));
+    expect(useLevelStore.getState().byGame.g1!.edit.past).toHaveLength(1);
+  });
+
+  it('shows the world position from levelEntityToWorld and edits elevation, which clears back to ground', async () => {
+    const { canvas, wrap } = await open3d();
+    fireEvent.keyDown(wrap, { key: 'v' });
+    fireEvent.pointerDown(canvas, at(336, 336));
+    fireEvent.pointerUp(canvas, at(336, 336));
+    const inspector = await screen.findByRole('region', { name: 'Entity inspector' });
+    const level = useLevelStore.getState().byGame.g1!.edit.level;
+    const world = () => levelEntityToWorld(lastObject() as never, useLevelStore.getState().byGame.g1!.edit.level as never).position;
+    expect(world()).toEqual([10.5, null, 10.5]);
+    expect(screen.getByTestId('inspector-world').textContent).toBe('World: 10.5, ground, 10.5 m');
+    expect(level.layers[0]!.objects).toHaveLength(1);
+    const elevation = inspector.querySelector('input[aria-label="Elevation (m)"]') as HTMLInputElement;
+    fireEvent.blur(elevation, { target: { value: '2' } });
+    expect(world()).toEqual([10.5, 2, 10.5]);
+    expect(screen.getByTestId('inspector-world').textContent).toBe('World: 10.5, 2, 10.5 m');
+    fireEvent.blur(inspector.querySelector('input[aria-label="Elevation (m)"]')!, { target: { value: '' } });
+    expect(screen.getByTestId('inspector-world').textContent).toBe('World: 10.5, ground, 10.5 m');
+  });
+
+  it('edits model from this game\'s model assets, collider, scale and a light\'s colour', async () => {
+    (window as unknown as { midniteStudio: { games: { manifest: { get: unknown } } } }).midniteStudio.games.manifest.get = vi.fn().mockResolvedValue({ manifest: { assets: [{ name: 'crate', kind: 'model' }, { name: 'tree', kind: 'model' }, { name: 'boom', kind: 'audio' }] }, issues: [] });
+    const { canvas, wrap } = await open3d();
+    fireEvent.keyDown(wrap, { key: 'v' });
+    fireEvent.pointerDown(canvas, at(336, 336));
+    fireEvent.pointerUp(canvas, at(336, 336));
+    await screen.findByRole('region', { name: 'Entity inspector' });
+    const model = screen.getByLabelText('Model') as HTMLSelectElement;
+    await waitFor(() => expect(Array.from(model.options).map((o) => o.value)).toEqual(['', 'crate', 'tree']));
+    fireEvent.change(model, { target: { value: 'tree' } });
+    fireEvent.change(screen.getByLabelText('Collider'), { target: { value: 'none' } });
+    fireEvent.blur(screen.getByLabelText('Scale'), { target: { value: '2' } });
+    expect(lastObject().properties).toEqual([{ name: 'model', type: 'string', value: 'tree' }, { name: 'collider', type: 'string', value: 'none' }, { name: 'scale', type: 'float', value: 2 }]);
+    expect(screen.queryByLabelText('Colour')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'light' } });
+    fireEvent.blur(screen.getByLabelText('Type'), { target: { value: 'light' } });
+    fireEvent.change(await screen.findByLabelText('Colour'), { target: { value: '#ff0000' } });
+    expect(lastObject().properties).toEqual(expect.arrayContaining([{ name: 'color', type: 'string', value: '#ff0000' }]));
+  });
+
+  it('carries the terrain extent the level read returned, and none without one', async () => {
+    const terrain = { name: 'world', minX: 0, minZ: 0, maxX: 100, maxZ: 100, preview: null };
+    await open3d({ terrain });
+    expect(useLevelStore.getState().byGame.g1!.terrain).toEqual(terrain);
+    cleanup();
+    useLevelStore.setState({ byGame: {}, newSceneFor: null });
+    await open3d();
+    expect(useLevelStore.getState().byGame.g1!.terrain).toBeNull();
+  });
+
+  it('saves a 3D edit as one level-set', async () => {
+    const { canvas, wrap } = await open3d();
+    fireEvent.keyDown(wrap, { key: 'r' });
+    fireEvent.pointerDown(canvas, at(64, 64));
+    fireEvent.pointerUp(canvas, at(192, 128));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(set).toHaveBeenCalledTimes(1));
+    expect(set.mock.calls[0]![0]).toMatchObject({ gameId: 'g1', scene: 'level' });
+  });
+
+  it('opens a 3D level that is not an orthogonal map read-only', async () => {
+    get.mockResolvedValue({ ok: true, value: { level: { ...blankLevel3d(), orientation: 'isometric' }, issues: [], images: [] } });
+    renderEditor();
+    await ready();
+    expect(screen.getByTestId('level-banner-readonly').textContent).toContain('orthogonal');
+    expect((screen.getByRole('radio', { name: 'Place' }) as HTMLButtonElement).disabled).toBe(true);
   });
 });
