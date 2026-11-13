@@ -8,6 +8,7 @@ import type { BrowserWindow } from 'electron';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createMcpToolListing, installedAppsFromIds } from '@midnite/studio-runtime';
+import { readSocketToken } from '@midnite/studio-runtime/security/socket-token';
 
 import { createFrameDecoder, encodeJsonFrame } from '../../broker/protocol';
 import { resetRegistry } from '../repo-registry';
@@ -48,10 +49,15 @@ async function boot(): Promise<McpServerHandle> {
 }
 
 /** One raw connection to a real socket, decoding frames as they arrive. */
-function connect(socketPath: string): Promise<net.Socket> {
+function connect(socketPath: string, authenticate = true): Promise<net.Socket> {
   return new Promise((resolve, reject) => {
     const socket = net.connect(socketPath);
-    socket.once('connect', () => resolve(socket));
+    socket.once('connect', () => {
+      // Phase 115 Theme E: the first frame is the token from the file beside the socket.
+      const token = readSocketToken(socketPath);
+      if (authenticate && token !== null) socket.write(encodeJsonFrame({ auth: token }));
+      resolve(socket);
+    });
     socket.once('error', reject);
   });
 }
@@ -165,9 +171,22 @@ describe('startMcpServer', () => {
     socket.destroy();
   });
 
+  it('drops a connection that sends no token, without replying (Phase 115 Theme E)', async () => {
+    const handle = await boot();
+    const socket = await connect(handle.socketPath, false);
+    const heard: Buffer[] = [];
+    socket.on('data', (c: Buffer) => heard.push(c));
+    const closed = new Promise<void>((resolve) => socket.once('close', () => resolve()));
+    socket.write(encodeJsonFrame({ id: '1', tool: 'repo.list', input: {} }));
+    await closed;
+    expect(heard).toEqual([]);
+  });
+
   it('refuses an oversized request and keeps the socket open', async () => {
     const handle = await boot();
     const socket = await connect(handle.socketPath);
+    // Let the auth frame land on its own: an oversized frame in the same chunk resets the decoder and drops it.
+    await new Promise((r) => setTimeout(r, 50));
 
     const oversized = encodeJsonFrame({
       id: '1',
@@ -206,7 +225,9 @@ describe('startMcpServer', () => {
         open.push(await connect(handle.socketPath));
       }
 
-      const ninth = await connect(handle.socketPath);
+      // No auth frame: the refusal happens before authentication, and a write to the already-destroyed
+      // socket would reset the connection and swallow the refusal.
+      const ninth = await connect(handle.socketPath, false);
       const response = await new Promise<McpResponse>((resolve, reject) => {
         const decoder = createFrameDecoder(MCP_MAX_REQUEST_BYTES);
         ninth.once('data', (chunk) => {

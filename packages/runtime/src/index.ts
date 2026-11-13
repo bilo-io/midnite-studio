@@ -46,6 +46,7 @@ export * from './security/injection-detector';
 export * from './security/mcp-discovery';
 export * from './security/mcp-poison';
 export * from './security/mcp-trust';
+export * from './security/socket-token';
 export * from './security/canary';
 export * from './security/tool-guard';
 export * from './security/hook-call';

@@ -111,6 +111,8 @@ export async function startMcpServer(opts: StartMcpServerOptions): Promise<Start
   const started = await startMcpSocketServer({
     socketPath,
     dispatch,
+    // Phase 115 Theme E: only a process that can read the owner's token file may dial in.
+    requireToken: true,
     log: (line) => log(line),
     /*
       Theme E's audit ring, plus one `[mcp]` line through the one log seam — only for a recognised tool id

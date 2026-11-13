@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import * as net from 'node:net';
 
+import { readSocketToken } from '@midnite/studio-runtime/security/socket-token';
 import { MCP_MAX_RESPONSE_BYTES, type McpRequest, type McpResponse } from '@midnite/studio-shared';
 
 import { createFrameDecoder, encodeJsonFrame } from '../broker/protocol';
@@ -72,6 +73,9 @@ export async function callMcpTool(
     socket.once('connect', () => {
       const request: McpRequest = { id, tool, input: input ?? {} };
       try {
+        // Phase 115 Theme E: the first frame proves we can read the owner's token file.
+        const token = readSocketToken(socketPath);
+        if (token !== null) socket.write(encodeJsonFrame({ auth: token }));
         socket.write(encodeJsonFrame(request));
       } catch {
         finish({ id, ok: false, kind: 'error', message: MCP_NOT_RUNNING_MESSAGE });
