@@ -9,7 +9,6 @@ import { hitPlan, planBounds, snapPlan } from './level-plan';
 const load = async (): Promise<unknown> =>
   JSON.parse(
     (
-      // @ts-expect-error TS2307: a Vite ?raw import of a template file, which has no module declaration
       (await import('../../../../../templates/media-game/bases/first-person/levels/level.tmj?raw')) as { default: string }
     ).default,
   );
