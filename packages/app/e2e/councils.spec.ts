@@ -1,3 +1,4 @@
+// e2e-capability: computed CSS
 import { expect, test } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';

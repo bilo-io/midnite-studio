@@ -1,3 +1,4 @@
+// e2e-capability: getBoundingClientRect, computed CSS, real pointer hover
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';

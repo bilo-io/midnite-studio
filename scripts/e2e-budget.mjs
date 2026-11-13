@@ -284,6 +284,7 @@ export const MAX_DECLARED_E2E = 483;
  *   diskScreenshotViolations?: SpecViolation[];
  *   orphanedScreenshots?: string[];
  *   timeoutViolations?: SpecViolation[];
+ *   headerViolations?: SpecViolation[];
  * }} input
  * @param {{
  *   maxDeclaredE2e?: number;
@@ -359,6 +360,17 @@ export function checkE2eBudget(input, limits = {}) {
           .join('\n') +
         `\n  Use a web-first assertion (expect.poll / expect(locator)...), call settle(page) from shots-helper,` +
         ` or justify a deliberate sleep with an \`// allow-timeout: <reason>\` comment.`,
+    );
+  }
+
+  if (input.headerViolations && input.headerViolations.length > 0) {
+    issues.push(
+      `  Found ${input.headerViolations.length} functional E2E spec(s) without a capability header:` +
+        '\n' +
+        input.headerViolations.map((v) => `    ${v.file}`).join('\n') +
+        `\n  Open each with \`// e2e-capability: <getBoundingClientRect, computed CSS, pointer drag, xterm,` +
+        ` canvas/WebGL, focus order, paint/z-order, network/CSP>\` or, when none applies,` +
+        ` \`// e2e-candidate: pure DOM — migrate to Vitest\` (docs/TESTING.md).`,
     );
   }
 
@@ -494,6 +506,9 @@ export async function collectUnitTimingViolations(root = repoRoot) {
 
 const E2E_DIR = 'packages/app/e2e';
 const SCREENSHOT_PATH_RE = /\.screenshot\(\s*(?:\{[^}]*\bpath\s*:|['"`])/;
+// Every functional spec opens with `// e2e-capability: <browser capability>` or
+// `// e2e-candidate: pure DOM — migrate to Vitest` (docs/TESTING.md rule 3).
+const SPEC_HEADER_RE = /^\/\/ e2e-(capability|candidate):[ \t]*\S/m;
 const ALLOW_TIMEOUT_RE = /allow-timeout\s*:\s*\S/;
 
 /**
@@ -501,12 +516,13 @@ const ALLOW_TIMEOUT_RE = /allow-timeout\s*:\s*\S/;
  *
  * @param {string} file repo-relative path, reported in violations
  * @param {string} content
- * @returns {{ disk: SpecViolation[], timeouts: SpecViolation[] }}
+ * @returns {{ disk: SpecViolation[], timeouts: SpecViolation[], headerless: boolean }}
  */
 export function scanSpecSource(file, content) {
   const disk = [];
   const timeouts = [];
   const lines = content.split('\n');
+  const headerless = !SPEC_HEADER_RE.test(lines.slice(0, 3).join('\n'));
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (SCREENSHOT_PATH_RE.test(line)) {
@@ -517,7 +533,7 @@ export function scanSpecSource(file, content) {
       if (!allowed) timeouts.push({ file, line: i + 1, lineContent: line });
     }
   }
-  return { disk, timeouts };
+  return { disk, timeouts, headerless };
 }
 
 /**
@@ -531,6 +547,8 @@ export async function collectSpecViolations(root = repoRoot) {
   const disk = [];
   /** @type {SpecViolation[]} */
   const timeouts = [];
+  /** @type {SpecViolation[]} */
+  const headerless = [];
   // Functional specs live at the top level and in feature folders (e.g. `suite-shell/`). `visual/` is
   // the screenshot-comparison layer and `perf/` measures wall-clock by design, so both are exempt.
   const files = (await listFiles(dir, new Set(['node_modules', 'dist', 'visual', 'perf', '__screenshots__']))).filter(
@@ -544,8 +562,9 @@ export async function collectSpecViolations(root = repoRoot) {
     const found = scanSpecSource(rel, await readFile(full, 'utf8'));
     disk.push(...found.disk);
     timeouts.push(...found.timeouts);
+    if (found.headerless) headerless.push({ file: rel, line: 1, lineContent: 'no `// e2e-capability:` / `// e2e-candidate:` header' });
   }
-  return { disk, timeouts };
+  return { disk, timeouts, headerless };
 }
 
 const IMAGE_RE = /\.(png|jpe?g|gif|webp|svg|avif)$/i;
@@ -622,6 +641,7 @@ async function main() {
     diskScreenshotViolations: specViolations.disk,
     orphanedScreenshots,
     timeoutViolations: specViolations.timeouts,
+    headerViolations: specViolations.headerless,
   });
 
   if (result.ok) {

@@ -1,3 +1,4 @@
+// e2e-capability: getBoundingClientRect
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { fixtures, installMockBridge, type MockFixtures } from './shots-helper';
