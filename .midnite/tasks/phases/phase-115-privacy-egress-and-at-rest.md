@@ -112,7 +112,7 @@ and chats pass through `redactRecord` on write. A vault-value matcher catches th
 moves to session memory instead of staying in localStorage, with a visible notice, matching how
 forge PATs already degrade.
 
-**Theme E — Inbound surfaces that check who's asking.** ◻ LAN streams use short-lived, per-item
+**Theme E — Inbound surfaces that check who's asking.** ◐ PARTIAL (PR pending). Landed: LAN stream, poster and transcode URLs are now `/media|art|transcode/<id>?e=<expiry>&s=<HMAC-SHA256 over path and expiry>`, keyed by the LAN access token (`lan-signature.ts`), six hours by default, constant-time compare, bare 401 on a missing, wrong, mismatched or expired signature; a bare `?k=` no longer opens a stream, regenerating the token kills every signed link, and the browse pages mint fresh signed links per page load. The `?k=` stays for the browse pages, which hold the same links the user shares. The packaged CSP drops `'unsafe-inline'` from `script-src`: the no-flash theme script in `packages/app/index.html` is allowed by `THEME_SCRIPT_HASH`, and `csp.test.ts` hashes the real file so a script edit without a new hash fails; the Vite dev server keeps `'unsafe-inline'` for its HMR preamble. **Deferred:** the per-launch token on the MCP and broker sockets. It changes the first-frame protocol of every socket client across the suite apps and the legacy-peer handshake, which cannot be proven without installing a build, so it is left for a build with a human install test. Original text: LAN streams use short-lived, per-item
 signed URLs instead of the long-lived token. The MCP and broker sockets require a per-launch
 token from a 0600 file. The CSP drops `'unsafe-inline'` by hashing the no-flash theme script.
 
@@ -213,7 +213,7 @@ generated from Theme A's registry, answering the three questions in plain langua
 
 ### E — Inbound surfaces that check who's asking [M · ~1d]
 
-- [ ] **LAN: short-lived signed URLs.** Each stream URL becomes `/i/<itemId>?e=<expiry>&s=<hmac>`
+- [x] **LAN: short-lived signed URLs.** Each stream URL becomes `/i/<itemId>?e=<expiry>&s=<hmac>`
       with an HMAC over item and expiry, keyed by the existing LAN secret, expiring in 6 h by
       default. The long-lived `?k=` stays only for the index page, which is shown to the user and
       never shared to clients. DLNA/VLC clients cannot add headers, which is why it is a URL rather
@@ -224,7 +224,7 @@ generated from Theme A's registry, answering the three questions in plain langua
       token, comparing in constant time. A stale token from a previous launch is refused.
 - [ ] **Keep legacy broker peers reachable.** The legacy-peer handshake keeps working: the token
       is per build fingerprint, alongside the socket name. Document it in the broker README comment.
-- [ ] **CSP without `'unsafe-inline'`.** Hash the `index.html` no-flash theme script into
+- [x] **CSP without `'unsafe-inline'`.** Hash the `index.html` no-flash theme script into
       `script-src 'sha256-…'` at build time, and drop `'unsafe-inline'` from `script-src` (style-src
       stays as-is). Zero CSP violations across `app:e2e`.
 - [ ] *Acceptance:* a `nc -U` to the MCP socket with no token is closed without a reply. An

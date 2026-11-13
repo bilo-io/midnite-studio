@@ -62,6 +62,9 @@ export function esc(text: string): string {
 export const linkTo = (path: string, token: string): string =>
   `${path}?k=${encodeURIComponent(token)}`;
 
+/** Signs a stream, poster or transcode path (`lan-signature.ts`); the pages never see the secret for these. */
+export type SignStream = (path: string) => string;
+
 const page = (title: string, body: string, script = false): string =>
   `<!doctype html><html lang="en"><head><meta charset="utf-8">` +
   `<meta name="viewport" content="width=device-width,initial-scale=1">` +
@@ -137,8 +140,9 @@ export function renderItemPage(input: {
   token: string;
   item: LibraryItem;
   plan: PlaybackPlan;
+  sign: SignStream;
 }): string {
-  const { token, item, plan } = input;
+  const { token, item, plan, sign } = input;
   const back = `<p><a href="${esc(linkTo('/', token))}">← Library</a></p>`;
   const title = itemLabel(item);
   if (plan === 'unplayable')
@@ -147,9 +151,9 @@ export function renderItemPage(input: {
       `${back}<h1>${esc(title)}</h1><p class="muted">A browser cannot play this file, and transcoding is off ` +
         `or ffmpeg is not installed on the computer sharing it.</p>`,
     );
-  const src = esc(linkTo(streamPath(item, plan), token));
+  const src = esc(sign(streamPath(item, plan)));
   const poster =
-    item.art && item.kind !== 'photo' ? ` poster="${esc(linkTo(`/art/${item.id}`, token))}"` : '';
+    item.art && item.kind !== 'photo' ? ` poster="${esc(sign(`/art/${item.id}`))}"` : '';
   const media =
     item.kind === 'photo'
       ? `<img src="${src}" alt="${esc(item.title)}">`
@@ -166,14 +170,15 @@ export function renderPlaylistPage(input: {
   token: string;
   playlist: LibraryPlaylist;
   entries: readonly IndexEntry[];
+  sign: SignStream;
 }): string {
-  const { token, playlist, entries } = input;
+  const { token, playlist, entries, sign } = input;
   const back = `<p><a href="${esc(linkTo('/', token))}">← Library</a></p>`;
   const rows = entries
     .map(({ item, plan }) =>
       plan === 'unplayable' || item.kind === 'photo'
         ? `<li class="off">${esc(itemLabel(item))}${plan === 'unplayable' ? UNPLAYABLE : ''}</li>`
-        : `<li data-src="${esc(linkTo(streamPath(item, plan), token))}">${esc(itemLabel(item))}</li>`,
+        : `<li data-src="${esc(sign(streamPath(item, plan)))}">${esc(itemLabel(item))}</li>`,
     )
     .join('');
   const playable = entries.some(({ item, plan }) => plan !== 'unplayable' && item.kind !== 'photo');
