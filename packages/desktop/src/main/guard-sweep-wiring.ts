@@ -65,6 +65,7 @@ export function startGuardSweeps(options: { userData: string }): void {
             repos: async () => (await listRepos()).map((repo) => repo.path),
             fetch: guardedFetchFor('guard'),
             allowConfigRead: agentHistoryReadsEnabled,
+            readVanguardFindings: (since) => getFindingsLedger().list({ source: 'vanguard', since }),
             exec: async (file, args) => (await execFileAsync(file, [...args], { timeout: 60_000, maxBuffer: 16 * 1024 * 1024 })).stdout,
           }),
         },

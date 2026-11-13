@@ -41,6 +41,7 @@ import {
  * - The optional Hugging Face token comes from the secrets vault (`readToken`) and only ever travels
  *   in the `Authorization` header — the port is not gated today, so it is usually absent.
  */
+import { guardedFetchFor } from '@midnite/studio-runtime';
 export type Sf3dInstallerDeps = {
   /** `<userData>/sf3d`. */
   directory: string;
@@ -81,7 +82,7 @@ async function hashFile(path: string, hash: ReturnType<typeof createHash>, signa
 }
 
 export function createSf3dInstaller(deps: Sf3dInstallerDeps) {
-  const doFetch = deps.fetch ?? fetch;
+  const doFetch = deps.fetch ?? guardedFetchFor('media-model');
   const now = deps.now ?? (() => new Date());
   const manifest = deps.manifest ?? SF3D_PINNED_MANIFEST;
   const url = deps.url ?? ((path: string) => sf3dFileUrl(path));

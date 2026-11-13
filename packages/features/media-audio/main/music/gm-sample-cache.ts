@@ -21,6 +21,7 @@ import {
  * the directory into place, so a half-finished download is never mistaken for a cached set.
  */
 
+import { guardedFetchFor } from '@midnite/studio-runtime';
 export type GmCacheDeps = {
   /** `userData`; sets land in `<directory>/gm-samples/`. */
   directory: string;
@@ -44,7 +45,7 @@ export function parseSampleSet(script: string): Record<string, string> {
 }
 
 export function createGmSampleCache(deps: GmCacheDeps) {
-  const doFetch = deps.fetch ?? fetch;
+  const doFetch = deps.fetch ?? guardedFetchFor('media-audio');
   const baseUrl = deps.baseUrl ?? GM_SAMPLE_BASE_URL;
   const root = join(deps.directory, 'gm-samples');
   const inflight = new Map<number, Promise<GmEnsureResult>>();

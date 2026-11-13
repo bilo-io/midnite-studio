@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { EGRESS_ENTRIES, EGRESS_HOSTS, EgressHostSchema, findEgressEntry, privacySwitchOn, rendererConnectOrigins } from '@midnite/studio-shared';
 
-import { EgressBlockedError, EgressRedirectError, EgressUnregisteredError, createGuardedFetch } from './guarded-fetch';
+import { EgressBlockedError, EgressRedirectError, EgressUnregisteredError, createGuardedFetch, resolveEgress } from './guarded-fetch';
 
 /**
  * Phase 115 Theme A — a main-side request to an unregistered host fails CI.
@@ -45,12 +45,6 @@ const UNMIGRATED: Record<string, string> = {
   'packages/features/media-map/main': 'tile sources and Overpass share one injected fetch; follow-up: register every tile host, then bind',
   'packages/desktop/src/main/ipc/media-image-handlers.ts': 'provider fetch injected into media-images; follow-up: bind to guardedFetch (local Ollama is loopback)',
   'packages/desktop/src/main/ipc/media-map-handlers.ts': 'tile and geocode fetch injected into media-map; follow-up: register tile hosts, then bind',
-  'packages/desktop/src/main/ipc/release-notes-handlers.ts': 'GitHub release notes for the update dialog; follow-up: register and gate',
-  'packages/runtime/src/vault/breach/hibp-check.ts': 'user-triggered Pwned Passwords check, api.pwnedpasswords.com is registered; follow-up: bind',
-  'packages/features/companion/main/stt/openai-whisper.ts': 'user-triggered transcription to api.openai.com with the user’s key; follow-up: register and bind',
-  'packages/features/media-audio/main/music/gm-sample-cache.ts': 'one-time General MIDI sample download the user starts; follow-up: register the host and bind',
-  'packages/features/media-audio/main/sfx/installer.ts': 'one-time Stable Audio download the user starts; follow-up: register the host and bind',
-  'packages/features/media-model/main/model/sf3d/installer.ts': 'model download the user starts; follow-up: register the host and bind',
   'apps/launcher/src/main': 'the launcher is off the graph and cannot import the runtime; follow-up: launcher switches (Theme A, second slice)',
 };
 
@@ -126,7 +120,7 @@ describe('the registry', () => {
   it('keeps hosts unique per owner and lists every concrete host in EGRESS_HOSTS', () => {
     const keys = EGRESS_ENTRIES.map((e) => `${e.owner}/${e.host}`);
     expect(new Set(keys).size).toBe(keys.length);
-    for (const e of EGRESS_ENTRIES.filter((x) => x.host !== '*')) expect(EGRESS_HOSTS[e.host]).toBe(e);
+    for (const e of EGRESS_ENTRIES.filter((x) => !x.host.includes('*'))) expect(EGRESS_HOSTS[e.host]).toBe(EGRESS_ENTRIES.find((x) => x.host === e.host));
   });
 
   it('derives the renderer connect-src from the registry', () => {
@@ -343,5 +337,14 @@ describe('guardedFetch redirects', () => {
     const post = scripted([redirect(307, '/again')]);
     const req = new Request('https://api.osv.dev/v1/x', { method: 'POST', body: 'hi' });
     await expect(createGuardedFetch({ transport: post.transport })('guard', req)).rejects.toBeInstanceOf(EgressRedirectError);
+  });
+});
+
+describe('owner-scoped registry lookup', () => {
+  it('resolves a host shared by two owners, and a redirect host, on the caller’s own entry', () => {
+    expect(resolveEgress('companion', 'https://api.openai.com/v1/audio/transcriptions')?.owner).toBe('companion');
+    expect(resolveEgress('media-images', 'https://api.openai.com/v1/images')?.owner).toBe('media-images');
+    expect(resolveEgress('media-audio', 'https://cas-bridge.xethub.hf.co/x')?.owner).toBe('media-audio');
+    expect(resolveEgress('vault', 'https://example.com/')).toBeUndefined();
   });
 });

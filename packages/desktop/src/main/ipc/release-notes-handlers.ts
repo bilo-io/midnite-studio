@@ -22,10 +22,11 @@ import { handle } from './handle';
  * tag publishes — so a "no notes" answer memoised at first open would outlive
  * the reason for it, and a relaunch is not a reasonable price for a reload.
  */
+import { guardedFetchFor } from '@midnite/studio-runtime';
 const TIMEOUT_MS = 8_000;
 
 export function registerReleaseNotesHandlers(
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch = guardedFetchFor('app'),
 ): void {
   handle<typeof ReleaseNotesRequest, ReleaseNotes>(
     CHANNELS.updateReleaseNotes,

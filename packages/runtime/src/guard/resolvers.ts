@@ -3,8 +3,10 @@ import { join } from 'node:path';
 
 import { THREAT_FEED_PUBLIC_KEY_PEM } from '@midnite/studio-shared';
 
+import { agentAuditDirectory, createAgentAuditReader } from '../security/agent-audit';
 import { discoverMcpServers } from '../security/mcp-discovery';
 import { canonicalizeMcpConfig } from '../security/mcp-trust';
+import type { VanguardFindingRef } from './checks/behaviour';
 import { pinnedMajor, type ElectronPin } from './checks/electron-freshness';
 import { parseSuppressions, type AuditSuppression } from './checks/lockfile-cves';
 import type { GuardMcpServer } from './checks/threat-feed-checks';
@@ -14,6 +16,7 @@ import { loadKev } from './feeds/kev';
 import { loadThreatFeed } from './feeds/threat-feed';
 import type { GuardInputResolverContext } from './inputs';
 import { resolveDotfileSecrets, resolveListeningPorts, resolveMacConfig, resolveSshInputs } from './mac-probes';
+import type { VisitedOrigin } from './checks/sites';
 import { resolveInstalledSoftware, type ExecFile } from './software';
 import { resolveLockfiles } from './lockfiles/discover';
 import { resolveInstalledNodeModules } from './lockfiles/node-modules';
@@ -32,6 +35,18 @@ export interface GuardResolverOptions {
   allowConfigRead?: () => boolean;
   /** Runs a binary for the installed-software inventory; without it that input has no resolver and is skipped. */
   exec?: ExecFile;
+  /**
+   * The browser's visited origins since `sinceMs`, handed in by the composer (a feature never reaches Guard and Guard
+   * never imports a feature). Without it `history` has no resolver and the sites check is skipped.
+   */
+  readBrowserHistory?: (sinceMs: number) => VisitedOrigin[] | Promise<VisitedOrigin[]>;
+  /** How far back the history sweep looks; Theme E's first-run default is 7 days. */
+  historyWindowMs?: number;
+  /** Vanguard's findings since `sinceMs`, from the shared ledger; without it the behaviour check skips its persistence/network correlation. */
+  readVanguardFindings?: (sinceMs: number) => VanguardFindingRef[] | Promise<VanguardFindingRef[]>;
+  /** The sweep window the behaviour check looks at; default 24 hours. The 30 days before it are the baseline. */
+  windowMs?: number;
+  now?: () => number;
   threatFeedUrl?: string;
   publicKeyPem?: string;
 }
@@ -102,6 +117,24 @@ export function createGuardResolvers(options: GuardResolverOptions): Record<stri
           macConfig: () => resolveMacConfig(exec),
           sshKeys: () => resolveSshInputs(exec, options.home),
         }
+      : {}),
+    ...(options.readBrowserHistory
+      ? { history: async () => options.readBrowserHistory!(Date.now() - (options.historyWindowMs ?? 7 * 24 * 60 * 60 * 1000)) }
+      : {}),
+    auditTrail: async () => {
+      const now = (options.now ?? Date.now)();
+      const windowStart = now - (options.windowMs ?? 24 * 60 * 60 * 1000);
+      const reader = createAgentAuditReader({ directory: agentAuditDirectory(options.userData) });
+      // Two reads, so a busy window cannot crowd the baseline out of the newest-1000 cap (which would leave the
+      // unusual-hours rule silently inert).
+      const [recent, earlier] = await Promise.all([
+        reader.list({ since: windowStart, limit: 1000 }),
+        reader.list({ since: windowStart - 30 * 24 * 60 * 60 * 1000, until: windowStart, limit: 1000 }),
+      ]);
+      return { records: [...earlier.records, ...recent.records], windowStart, now };
+    },
+    ...(options.readVanguardFindings
+      ? { vanguardFindings: async () => options.readVanguardFindings!((options.now ?? Date.now)() - (options.windowMs ?? 24 * 60 * 60 * 1000)) }
       : {}),
     dotfileSecrets: async () => resolveDotfileSecrets(options.home, await repos()),
     lockfiles: () => lockedPackages(),
