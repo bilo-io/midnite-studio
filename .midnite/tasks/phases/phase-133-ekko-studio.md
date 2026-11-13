@@ -85,8 +85,14 @@ take their seats from the roster.
 **Theme D — The re-runnable extract.** ◻ `scripts/ekko-extract/` does the copy and the rename and adds the composition
 file, then runs a leak guard over the source and the built app.
 
-**Theme E — Repo bootstrap.** ◻ `bilo-ekko/ekko-studio` (private) gets its toolchain, CI, convention files, the `.ekko/`
-layout and the no-LFS guard.
+**Theme E — Repo bootstrap.** 🔄 [`bilo-ekko/ekko-studio`](https://github.com/bilo-ekko/ekko-studio) (private) exists
+at `~/Dev/ekko-v3/ekko-studio`, as one root commit `2dfadd6` under the ekko work identity. It has the toolchain pins,
+moon/pnpm workspace, `.npmrc` for GitHub Packages, identity and no-trailer hooks, `.ekko/` (`settings.json`, `video/`),
+the ownership placeholders (`apps/ekko-studio`, `packages/ekko-brand`, `packages/ekko-menu`, `skills/ekko`), three
+convention files and two guards. The leak guard reads its terms base64-encoded, so the plain words never appear in the
+repo. Both guards and their `node --test` suite pass, and the leak scan is clean over files and history. **Open:** the
+first CI run failed before starting ("configuration 'macos-14-arm64-us-xl' is not supported" on the bilo-ekko
+account), and the install step still needs a `read:packages` PAT secret.
 
 **Theme F — The ekko brand.** ◻ Icon, wordmark and palette from the ekko frontend repos.
 
@@ -214,7 +220,7 @@ with the remaining hubs pruned by a temporary patch named in its README.
 
 ### E — Repo bootstrap (ekko-studio) [M · 2-4h]
 
-- [ ] Create `bilo-ekko/ekko-studio`, **private**, with a single root commit; nothing from this repo's history. [XS]
+- [x] Create `bilo-ekko/ekko-studio`, **private**, with a single root commit; nothing from this repo's history. [XS]
   - Created as **bilo-ekko**, not the active `gh` account: `GH_TOKEN=$(gh auth token -u bilo-ekko) gh repo create
     bilo-ekko/ekko-studio --private`. Every push and `gh` call for ekko-studio passes that token the same way; never
     `gh auth switch`.
@@ -223,17 +229,17 @@ with the remaining hubs pruned by a temporary patch named in its README.
   - Commits are authored with the **ekko work identity**, pinned in the clone's local git config, and the same
     `pre-commit` identity guard as here rejects the personal `bilo-io` identity. The global `~/.gitconfig` is
     currently the personal one, so the local pin is required.
-- [ ] Toolchain: `.prototools` (node 22.12.0 / pnpm 9.15.0 / moon 2.3.4), `.npmrc` for `@bilo-io` on GitHub Packages
+- [x] Toolchain: `.prototools` (node 22.12.0 / pnpm 9.15.0 / moon 2.3.4), `.npmrc` for `@bilo-io` on GitHub Packages
   (`GITHUB_PACKAGES_TOKEN`), and `moon run :typecheck :lint :test`. [S]
 - [ ] CI: one `gate` job on `macos-14` (typecheck, lint, test, leak guard) and one `e2e` smoke job. Commit identity and
   a no-trailer `commit-msg` hook, as here. [S]
-- [ ] Convention files `CLAUDE.md`/`AGENTS.md`/`GEMINI.md` (kept in sync), describing ekko-studio's own layers, the
+- [x] Convention files `CLAUDE.md`/`AGENTS.md`/`GEMINI.md` (kept in sync), describing ekko-studio's own layers, the
   extract's ownership split and the `.ekko/` layout. [S]
-- [ ] `.ekko/` layout:
+- [x] `.ekko/` layout:
   - `.ekko/settings.json` (the repo-onboarding manifest)
   - `.ekko/video/` (video projects, the old `media/video` root)
   - no tracker or media dirs [XS]
-- [ ] No-LFS guard: no `.gitattributes` `filter=lfs`; CI fails on any tracked file over 2 MB or with an audio, video,
+- [x] No-LFS guard: no `.gitattributes` `filter=lfs`; CI fails on any tracked file over 2 MB or with an audio, video,
   `.glb` or large-image extension under `.ekko/`. `.ekko/video/**/{input,output}` binaries are git-ignored. [S]
 
 ### F — The ekko brand (ekko-studio) [M · 2-4h]
