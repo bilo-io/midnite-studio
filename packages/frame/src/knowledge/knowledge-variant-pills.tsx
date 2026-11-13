@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { LuEllipsis } from 'react-icons/lu';
 
 import { useKnowledgeHost } from './knowledge-host';
+import { variantGate, type GraphCounts } from './knowledge-variant-gate';
 import { VARIANTS, type KnowledgeVariant, type KnowledgeVariantId } from './renderer-contract';
 
 /**
@@ -23,9 +24,12 @@ import { VARIANTS, type KnowledgeVariant, type KnowledgeVariantId } from './rend
 export function KnowledgeVariantPills({
   activeId,
   onSelect,
+  counts,
 }: {
   activeId: KnowledgeVariantId;
   onSelect: (id: KnowledgeVariantId) => void;
+  /** The open graph's size; with it, a variant over its declared limit renders disabled with the reason. */
+  counts?: GraphCounts;
 }) {
   const { Popover } = useKnowledgeHost();
   const { containerRef, measureRef, visible, overflow } = useOverflowVariants(VARIANTS);
@@ -51,7 +55,7 @@ export function KnowledgeVariantPills({
       >
         {VARIANTS.map((variant) => (
           <div key={variant.id} data-pill-id={variant.id}>
-            <VariantPill variant={variant} selected={false} onSelect={() => {}} />
+            <VariantPill variant={variant} selected={false} onSelect={() => {}} gatedReason={null} />
           </div>
         ))}
         <div data-trigger>
@@ -71,6 +75,7 @@ export function KnowledgeVariantPills({
             variant={variant}
             selected={variant.id === activeId}
             onSelect={onSelect}
+            gatedReason={gatedReason(variant, counts)}
           />
         ))}
         {overflow.length > 0 ? (
@@ -86,12 +91,16 @@ export function KnowledgeVariantPills({
             trigger={<OverflowTrigger />}
           >
             <div className="flex flex-col gap-0.5 p-1" role="menu">
-              {overflow.map((variant) => (
+              {overflow.map((variant) => {
+                const reason = gatedReason(variant, counts);
+                return (
                 <button
                   key={variant.id}
                   type="button"
                   role="menuitemradio"
                   aria-checked={variant.id === activeId}
+                  disabled={reason !== null}
+                  title={reason ?? undefined}
                   onClick={() => {
                     onSelect(variant.id);
                     setMenuOpen(false);
@@ -105,7 +114,8 @@ export function KnowledgeVariantPills({
                   <variant.icon aria-hidden className="h-3.5 w-3.5 shrink-0" />
                   {variant.label}
                 </button>
-              ))}
+                );
+              })}
             </div>
           </Popover>
         ) : null}
@@ -123,21 +133,32 @@ function OverflowTrigger() {
   );
 }
 
+function gatedReason(variant: KnowledgeVariant, counts: GraphCounts | undefined): string | null {
+  if (!counts) return null;
+  const gate = variantGate(variant, counts);
+  return gate.allowed ? null : gate.reason;
+}
+
 function VariantPill({
   variant,
   selected,
   onSelect,
+  gatedReason: reason,
 }: {
   variant: KnowledgeVariant;
   selected: boolean;
   onSelect: (id: KnowledgeVariantId) => void;
+  /** Why this pill is unavailable for the open graph, or null. The stored preference is untouched either way. */
+  gatedReason: string | null;
 }) {
   return (
     <button
       type="button"
       aria-pressed={selected}
+      disabled={reason !== null}
+      title={reason ?? undefined}
       onClick={() => onSelect(variant.id)}
-      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs transition-colors ${
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
         selected
           ? 'border-primary/60 bg-primary/10 text-foreground'
           : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'

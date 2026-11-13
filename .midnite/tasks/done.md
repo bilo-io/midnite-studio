@@ -6,6 +6,10 @@
 
 One table of the four variant dependencies' licences and closures. Not done: the seam e2e, bundle and idle-CPU ceilings, visual baselines, full gate; reasons in the phase doc.
 
+## 2026-11-13 — Phase 89 Theme J (part) — capability gate
+
+Per-variant `maxNodes` / `maxEdges`, a disabled pill naming the reason, the stored preference kept and announced; stale graph counts corrected. Not done: the bake-off harness and numbers, so no limit is set on any variant yet.
+
 ## 2026-11-13 — Phase 89 Theme I — live d3-force variant
 
 `d3-force` (ISC) simulated in the renderer on our own canvas; hand-driven with a per-frame budget and a hard settle ceiling, paused halts it. Not done: gating by node count (Theme J), a real-browser look, frame-rate numbers.

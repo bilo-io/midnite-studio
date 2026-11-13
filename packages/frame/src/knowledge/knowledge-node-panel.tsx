@@ -20,7 +20,7 @@ type DetailState =
  * rather than navigating to the Files view, since `files-store.ts`'s
  * `revealFile` has no line parameter and Knowledge needs one. Fetches the
  * node's `source_file`/`source_location` by id on open — the lean graph
- * `getGraph` returns never carries it for all 14,881 nodes.
+ * `getGraph` returns never carries it for all 15,292 nodes.
  */
 export function KnowledgeNodePanel({
   repoId,

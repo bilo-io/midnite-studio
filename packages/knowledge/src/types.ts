@@ -1,6 +1,6 @@
 /**
  * The on-disk shape `graphify update .` writes to `graphify-out/graph.json` —
- * verified against this repo's own graph (14,881 nodes, 36,032 links,
+ * verified against this repo's own graph (15,292 nodes, 37,036 links,
  * `built_at_commit` a full 40-char sha). Only the fields this package actually
  * reads are typed; graphify's file carries more (`hyperedges`, `graph`,
  * `directed`, `multigraph`) that nothing here touches.
@@ -23,7 +23,7 @@ export type RawGraphLink = {
   relation: string;
   /**
    * Optional in the wild — verified against this repo's own graph.json: 113 of
-   * 36,032 links (all `dynamic_import`) carry no `weight` at all. Missing
+   * 37,036 links (all `dynamic_import`) carry no `weight` at all. Missing
    * means "graphify didn't score this edge", not "score it zero" — the
    * projection defaults it to `1`, a full-strength edge, rather than dropping
    * or zeroing it.

@@ -42,7 +42,7 @@ export function projectGraph(graph: RawGraph): LeanGraph {
 /**
  * Per-node detail, keyed by id, kept OUT of the lean projection so a click can
  * fetch one node's `source_file`/`source_location` without the projection
- * having carried it for all 14,881 (phase doc, Theme A).
+ * having carried it for all 15,292 (phase doc, Theme A).
  *
  * Built from the raw graph rather than persisted: the cache (Theme A's other
  * artifact) stores lean node/link data plus layout positions, and this index
