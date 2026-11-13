@@ -1,52 +1,23 @@
 // @ts-check
 /**
- * The starter city, as a Tiled map (`.tmj` shape): a `collision` tile layer
- * (buildings are solid) and an `objects` layer with the player spawn, three
- * parked cars and the police station. Built in code so the starter needs no
- * binary asset; replace it with a map exported from the Maps tab and read it
- * with the same `collisionGrid` / `tiledObjects` calls.
+ * The starter city. Its layout is `levels/level.tmj` (Phase 132): a `buildings` tile layer (solid cells; not `collision`, so a base scene does not build them) and an
+ * `objects` layer with the player spawn, three parked cars and the police station, in pixels of `TILE`. It was generated
+ * once from the rule below (a grid of 14-cell blocks split by 3-cell roads, a 9 x 9 building in each); the rule stays here
+ * because the genre also draws the road markings and lamp posts from it. Replace the map with one exported from the Maps tab
+ * and read it with the same `collisionGrid` / `tiledObjects` calls.
  */
 
 export const TILE = 32;
 const BLOCK = 14;
 const ROAD = 3;
-export const COLS = 4 * BLOCK + ROAD;
-export const ROWS = 3 * BLOCK + ROAD;
 
 /** Road cell: inside a road band along either axis. @param {number} x @param {number} y */
 export const isRoad = (x, y) => x % BLOCK < ROAD || y % BLOCK < ROAD;
 
-/** @param {number} x @param {number} y */
-function isBuilding(x, y) {
-  if (isRoad(x, y)) return false;
-  const bx = (x % BLOCK) - ROAD;
-  const by = (y % BLOCK) - ROAD;
-  return bx >= 1 && bx <= 9 && by >= 1 && by <= 9;
-}
-
-const point = (/** @type {string} */ name, /** @type {string} */ type, /** @type {number} */ tx, /** @type {number} */ ty) => ({ name, type, x: tx * TILE, y: ty * TILE, width: 0, height: 0 });
-
-export function cityMap() {
-  const data = [];
-  for (let y = 0; y < ROWS; y += 1) for (let x = 0; x < COLS; x += 1) data.push(isBuilding(x, y) ? 1 : 0);
-  return {
-    width: COLS,
-    height: ROWS,
-    tilewidth: TILE,
-    tileheight: TILE,
-    layers: [
-      { type: 'tilelayer', name: 'collision', width: COLS, height: ROWS, data },
-      {
-        type: 'objectgroup',
-        name: 'objects',
-        objects: [
-          point('player', 'spawn', 1.5, 1.5),
-          point('car1', 'car', 7.5, 1.5),
-          point('car2', 'car', 15.5, 15.5),
-          point('car3', 'car', 1.5, 22.5),
-          point('station', 'police', COLS - 1.5, ROWS - 1.5),
-        ],
-      },
-    ],
-  };
+/**
+ * The scene's parsed level (`levels/<scene>.tmj`), which the base scene preloaded under `level:<name>`.
+ * @param {Phaser.Scene & { levelName?: string }} scene
+ */
+export function sceneLevel(scene) {
+  return scene.cache.tilemap.get(`level:${scene.levelName ?? 'level'}`)?.data ?? { width: 0, height: 0, layers: [] };
 }

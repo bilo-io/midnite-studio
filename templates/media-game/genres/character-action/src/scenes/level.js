@@ -15,6 +15,7 @@
 import * as THREE from 'three';
 
 import { moveRelativeToYaw } from 'kit/core/cameras.js';
+import { currentLevel, fetchLevel } from 'kit/core/level.js';
 import { THREE_BINDINGS } from 'kit/core/three-defaults.js';
 import { createCameraRig } from 'kit/three/cameras.js';
 import { createCharacter } from 'kit/three/character.js';
@@ -23,6 +24,7 @@ import { createHud } from 'kit/three/hud.js';
 import { createInput } from 'kit/three/input.js';
 import { createRenderer, startLoop } from 'kit/three/loop.js';
 import { repeatFor } from 'kit/three/materials.js';
+import { buildLevel3d } from 'kit/three/level.js';
 import { initPhysics } from 'kit/three/physics.js';
 
 import config from '../game.config.js';
@@ -49,7 +51,11 @@ export async function startLevel() {
   env.sun.intensity *= 1.9;
   const physics = await initPhysics();
   physics.addGround(90);
-  const character = createCharacter(physics, { position: PLAYER_SPAWN });
+  // The spawn is `levels/level.tmj`'s; the ring itself is the genre's.
+  const levelName = currentLevel('level');
+  const level = await buildLevel3d({ scene, physics }, await fetchLevel(levelName));
+  const spawn = level.spawns[0]?.position ?? PLAYER_SPAWN;
+  const character = createCharacter(physics, { position: spawn });
   const input = createInput(THREE_BINDINGS);
   const rig = createCameraRig({ mode: 'third-person', physics, exclude: character.collider, allowed: config.cameras, canvas });
   // Bloom lifts the slash arcs, the sealing walls and the afterimages; a warm exposure suits the dusk.
@@ -73,7 +79,7 @@ export async function startLevel() {
   scene.add(avatar);
 
   const hud = createHud({ hint: 'WASD move · SPACE jump · C camera' });
-  const genre = installGenre(scene, { physics, character, rig, hud, input, avatar, fx });
+  const genre = installGenre(scene, { physics, character, rig, hud, input, avatar, fx, spawn });
 
   let simFrame = 0;
   // A distant arena crowd; it rides the juice volume and ends with the loop.
@@ -108,6 +114,7 @@ export async function startLevel() {
     },
     state: () => ({
       player: { position: character.position.map((v) => Number(v.toFixed(3))) },
+      level: levelName,
       animation: animationState(character),
       camera: rig.preset,
       juice: juice.state(),
