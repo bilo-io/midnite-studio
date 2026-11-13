@@ -35,14 +35,6 @@ export function CouncilMemberCount({
         <span className="text-xs tabular-nums text-muted-foreground">{count}</span>
       </div>
       <div className="relative mt-1.5 h-5">
-        {locked ? (
-          <div
-            aria-hidden
-            data-testid="council-member-count-locked"
-            className="pointer-events-none absolute inset-y-1.5 right-0 rounded-r-full bg-muted-foreground/15"
-            style={{ left: `calc(${at(cap)}% + 6px)` }}
-          />
-        ) : null}
         <input
           id="council-member-count"
           type="range"
@@ -59,8 +51,18 @@ export function CouncilMemberCount({
           }}
           className="relative h-5 w-full cursor-pointer accent-primary"
         />
+        {locked ? (
+          // Over the track, inset by the thumb's half-width (the span its centre travels) so the band starts at the cap.
+          <div aria-hidden className="pointer-events-none absolute inset-y-[7px] left-2 right-2">
+            <div
+              data-testid="council-member-count-locked"
+              className="absolute inset-y-0 -right-2 rounded-r-full bg-muted-foreground/25"
+              style={{ left: `calc(${at(cap)}% + 8px)` }}
+            />
+          </div>
+        ) : null}
       </div>
-      <div className="relative mt-0.5 h-4 text-[10px] text-muted-foreground">
+      <div className="relative mx-2 mt-0.5 h-4 text-[10px] text-muted-foreground">
         {STEPS.map((step) => (
           <span
             key={step}
