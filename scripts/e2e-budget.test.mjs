@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkE2eBudget, MAX_DECLARED_E2E } from './e2e-budget.mjs';
+import { checkE2eBudget, findOrphans, MAX_DECLARED_E2E, scanSpecSource } from './e2e-budget.mjs';
 
 describe('checkE2eBudget', () => {
   it('passes when declared count and visual budget are within limits', () => {
@@ -72,7 +72,72 @@ describe('checkE2eBudget', () => {
     expect(result.message).toContain('Found 1 wall-clock duration assertion(s)');
   });
 
-  it('the committed ratchet cap matches its own committed value (449 -> 454 Theme G drag-to-skill -> 456 Theme I workflow editor React Flow port -> 457 Phase 98 Theme C FAB handoff -> 458 workflow panel-collapse viewport -> 459 graph CI column connector -> 461 graph inline panels -> 463 media images masonry + glow -> 461 Changes view removed -> 462 terminal right dock -> 464 content-bounds modal centring -> 466 diff header alignment -> 469 media models 3D editor -> 470 finance dashboard resize + insights hover -> 472 chats layout + scroll pinning -> 474 diff blank-band probe -> 475 models explorer drag-move -> 476 sprite render WebGL smoke -> 478 -> 478 piano roll pointer drag -> 479 Phase 112 Theme C reveal-commit -> 480 Phase 112 Theme H companion chips -> 482 Phase 84 E.6+K.7 -> 483 Phase 125 Animations shell -> 486 Phase 130 Startup shell)', () => {
-    expect(MAX_DECLARED_E2E).toBe(486);
+  it('the committed ratchet cap matches its own committed value (449 -> 454 Theme G drag-to-skill -> 456 Theme I workflow editor React Flow port -> 457 Phase 98 Theme C FAB handoff -> 458 workflow panel-collapse viewport -> 459 graph CI column connector -> 461 graph inline panels -> 463 media images masonry + glow -> 461 Changes view removed -> 462 terminal right dock -> 464 content-bounds modal centring -> 466 diff header alignment -> 469 media models 3D editor -> 470 finance dashboard resize + insights hover -> 472 chats layout + scroll pinning -> 474 diff blank-band probe -> 475 models explorer drag-move -> 476 sprite render WebGL smoke -> 478 -> 478 piano roll pointer drag -> 479 Phase 112 Theme C reveal-commit -> 480 Phase 112 Theme H companion chips -> 482 Phase 84 E.6+K.7 -> 483 Phase 125 Animations shell -> 486 Phase 130 Startup shell -> 483 Phase 116 Theme E after the re-grown shots specs went)', () => {
+    expect(MAX_DECLARED_E2E).toBe(483);
+  });
+});
+
+describe('scanSpecSource', () => {
+  const scan = (src) => scanSpecSource('packages/app/e2e/x.spec.ts', src);
+
+  it('flags a screenshot written to a path, in either call shape', () => {
+    expect(scan("await el.screenshot({ path: 'a.png' });").disk).toHaveLength(1);
+    expect(scan("await el.screenshot({ type: 'png', path: p });").disk).toHaveLength(1);
+    expect(scan("await el.screenshot('a.png');").disk).toHaveLength(1);
+  });
+
+  it('lets an in-memory screenshot through', () => {
+    expect(scan('const buf = await canvas.screenshot();').disk).toHaveLength(0);
+    expect(scan('const raster = decodePng(await page.screenshot({ clip: box }));').disk).toHaveLength(0);
+  });
+
+  it('flags a bare waitForTimeout and reports its line', () => {
+    const { timeouts } = scan('test(1);\nawait page.waitForTimeout(300);\n');
+    expect(timeouts).toHaveLength(1);
+    expect(timeouts[0].line).toBe(2);
+  });
+
+  it('accepts an allow-timeout reason on the same or the preceding line', () => {
+    expect(scan('await page.waitForTimeout(80); // allow-timeout: dnd-kit swallows the click').timeouts).toHaveLength(0);
+    expect(scan('// allow-timeout: debounce\nawait page.waitForTimeout(600);').timeouts).toHaveLength(0);
+  });
+
+  it('rejects an allow-timeout marker with no reason, and ignores commented-out calls', () => {
+    expect(scan('await page.waitForTimeout(80); // allow-timeout:').timeouts).toHaveLength(1);
+    expect(scan('// await page.waitForTimeout(80);').timeouts).toHaveLength(0);
+  });
+});
+
+describe('findOrphans', () => {
+  it('keeps an image whose docs/screenshots path is mentioned and drops the rest', () => {
+    const corpus = '![x](docs/screenshots/website-wordmark/candidates.png) and ../screenshots/a.png';
+    expect(findOrphans(['website-wordmark/candidates.png', 'a.png', 'b/a.png', 'other/c.png'], corpus)).toEqual([
+      'b/a.png',
+      'other/c.png',
+    ]);
+  });
+});
+
+describe('checkE2eBudget invariants', () => {
+  const base = { declaredCount: 1, visualSizes: [], unitTimingViolations: [] };
+  const v = { file: 'packages/app/e2e/x.spec.ts', line: 3, lineContent: 'await page.waitForTimeout(1);' };
+
+  it('fails on a disk screenshot, an orphaned image and an un-allowlisted sleep', () => {
+    const r = checkE2eBudget({
+      ...base,
+      diskScreenshotViolations: [v],
+      orphanedScreenshots: ['docs/screenshots/a/b.png'],
+      timeoutViolations: [v],
+    });
+    expect(r.ok).toBe(false);
+    expect(r.message).toContain('disk screenshot(s) in functional E2E');
+    expect(r.message).toContain('docs/screenshots/a/b.png');
+    expect(r.message).toContain('un-allowlisted waitForTimeout');
+  });
+
+  it('passes when none are present', () => {
+    expect(
+      checkE2eBudget({ ...base, diskScreenshotViolations: [], orphanedScreenshots: [], timeoutViolations: [] }).ok,
+    ).toBe(true);
   });
 });

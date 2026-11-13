@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 116 Theme E (partial) — budget guards
+
+PR (see the Phase 116 E PR, stacked on C). `e2e-budget` now bans shots specs, disk screenshots, orphaned `docs/screenshots/` images (196 deleted) and un-allowlisted `waitForTimeout`; cap lowered 486 → 483; fixed an un-awaited fallback count; TESTING.md and the three convention files synced. The ≤ 200 cap waits on Theme C's Vitest waves.
+
 ## 2026-11-13 — Phase 116 Theme C (partial) — shots purge repeat and `waitForTimeout` purge
 
 PR (see the Phase 116 C PR). Five re-grown `*-shots.spec.ts` files and `animation-player`'s disk screenshot removed; every bare `page.waitForTimeout` in e2e specs is now polled, routed through `settle()`, or marked `// allow-timeout: <reason>`. The Vitest migration waves (477 → ≤ 200) are not done: they need Playwright runs that CI-lock and RAM rule out here.
