@@ -3,6 +3,7 @@ import { accessSync, closeSync, constants, existsSync, mkdirSync, openSync } fro
 import { dirname } from 'node:path';
 
 import type { LauncherResult, LauncherSelfStatus } from '../common/bridge';
+import { FEED_OFF } from './privacy';
 import { INSTALL_DIR, LAUNCHER_BUNDLE_PATH, LAUNCHER_INSTALL_URL, LAUNCHER_VERSION_URL } from './constants';
 import { fetchLatestRelease } from './feed';
 
@@ -18,8 +19,10 @@ import { fetchLatestRelease } from './feed';
  */
 
 export async function launcherSelfStatus(
-  deps: { current: string; isPackaged: boolean; fetchImpl?: typeof fetch },
+  deps: { current: string; isPackaged: boolean; fetchImpl?: typeof fetch; feedOff?: boolean },
 ): Promise<LauncherSelfStatus> {
+  // Phase 115 Theme A: with the automatic switch off, an automatic status asks nobody; a click (manual) does.
+  if (deps.feedOff === true) return { current: deps.current, latest: null, feedError: FEED_OFF, canUpdate: deps.isPackaged };
   const feed = await fetchLatestRelease(LAUNCHER_VERSION_URL, deps.fetchImpl);
   return { current: deps.current, latest: feed.release, feedError: feed.error, canUpdate: deps.isPackaged };
 }

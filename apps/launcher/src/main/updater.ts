@@ -52,6 +52,11 @@ export type LauncherUpdatesDeps = {
   adHocSigned: boolean;
   /** After the runtime check: bring the installed bundles up to date (`updateInstalledBundles`). */
   updateBundles: () => Promise<void>;
+  /**
+   * Phase 115 Theme A: `false` when the `launcher-updates` switch is off — no `checkForUpdates` request at
+   * start. Omitted means on. The catalog switch is the caller's: it passes a no-op `updateBundles`.
+   */
+  checkRuntime?: boolean;
   onError?: (message: string) => void;
 };
 
@@ -71,7 +76,7 @@ export async function runLauncherUpdates(deps: LauncherUpdatesDeps): Promise<Lau
   // The launcher holds no unsaved work, so a verified update installs the next time it quits.
   updater.autoDownload = !deps.adHocSigned;
   updater.autoInstallOnAppQuit = !deps.adHocSigned;
-  await updater.checkForUpdates().catch(report);
+  if (deps.checkRuntime !== false) await updater.checkForUpdates().catch(report);
   await deps.updateBundles().catch(report);
   return deps.adHocSigned ? 'check-only' : 'auto';
 }

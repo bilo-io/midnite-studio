@@ -10,7 +10,7 @@ const bridge: LauncherBridge = {
   launcherVersion: versionArg?.slice('--launcher-version='.length) ?? '0.0.0',
   platform: { os: process.platform, arch: process.arch },
   studio: {
-    status: () => ipcRenderer.invoke(LAUNCHER_CHANNELS.studioStatus),
+    status: (options) => ipcRenderer.invoke(LAUNCHER_CHANNELS.studioStatus, options),
     install: () => ipcRenderer.invoke(LAUNCHER_CHANNELS.studioInstall),
     uninstall: () => ipcRenderer.invoke(LAUNCHER_CHANNELS.studioUninstall),
     reveal: () => ipcRenderer.invoke(LAUNCHER_CHANNELS.studioReveal),
@@ -22,7 +22,7 @@ const bridge: LauncherBridge = {
   },
   apps: {
     open: (id, featureId) => ipcRenderer.invoke(LAUNCHER_CHANNELS.appOpen, { id, featureId }),
-    status: () => ipcRenderer.invoke(LAUNCHER_CHANNELS.appsStatus),
+    status: (options) => ipcRenderer.invoke(LAUNCHER_CHANNELS.appsStatus, options),
     install: (id) => ipcRenderer.invoke(LAUNCHER_CHANNELS.appInstall, { id }),
     uninstall: (id) => ipcRenderer.invoke(LAUNCHER_CHANNELS.appUninstall, { id }),
     onProgress: (listener) => {
@@ -38,7 +38,7 @@ const bridge: LauncherBridge = {
     takePending: () => ipcRenderer.invoke(LAUNCHER_CHANNELS.appPending),
   },
   self: {
-    status: () => ipcRenderer.invoke(LAUNCHER_CHANNELS.selfStatus),
+    status: (options) => ipcRenderer.invoke(LAUNCHER_CHANNELS.selfStatus, options),
     update: () => ipcRenderer.invoke(LAUNCHER_CHANNELS.selfUpdate),
     onFailed: (listener) => {
       const handler = (_event: unknown, message: string) => listener(message);
@@ -52,6 +52,10 @@ const bridge: LauncherBridge = {
   changelog: {
     latest: (app) => ipcRenderer.invoke(LAUNCHER_CHANNELS.changelogLatest, { app }),
     openFull: (app) => ipcRenderer.invoke(LAUNCHER_CHANNELS.changelogOpen, { app }),
+  },
+  privacy: {
+    get: () => ipcRenderer.invoke(LAUNCHER_CHANNELS.privacyGet),
+    set: (next) => ipcRenderer.invoke(LAUNCHER_CHANNELS.privacySet, next),
   },
   theme: {
     set: (source) => ipcRenderer.send(LAUNCHER_CHANNELS.themeSet, source),

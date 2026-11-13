@@ -1,4 +1,4 @@
-import { app, nativeImage, net, protocol, utilityProcess } from 'electron';
+import { app, nativeImage, protocol, utilityProcess } from 'electron';
 
 import {
   createMapRuntime,
@@ -7,7 +7,7 @@ import {
   geocodePlace,
   type CaptureWorkerHandle,
 } from '@midnite/studio-feature-media-map/main';
-import type { FeatureMainContext } from '@midnite/studio-runtime';
+import { guardedFetchFor, type FeatureMainContext } from '@midnite/studio-runtime';
 import { EVENT_CHANNELS } from '@midnite/studio-shared';
 
 import { defaultLogger } from '../log';
@@ -23,7 +23,7 @@ import { readSecret } from './secrets-handlers';
 /**
  * Media ▸ Maps (Phase 108): `map.json` per project plus the tile plumbing, composed here from the
  * `media-map` feature (Phase 113 Theme S). The feature owns the services and the six channels; this is
- * Studio's Electron-bound half of them — `net.fetch`, `nativeImage`, the capture `utilityProcess`, the
+ * Studio's Electron-bound half of them — `guardedFetch`, `nativeImage`, the capture `utilityProcess`, the
  * media store and the Terrain hand-off — which Gamer wires its own way.
  */
 const runtime = createMapRuntime({
@@ -34,7 +34,7 @@ const runtime = createMapRuntime({
   get userData() {
     return app.getPath('userData');
   },
-  fetch: (url, init) => net.fetch(url, init),
+  fetch: guardedFetchFor('media-map') as typeof fetch,
   get userAgent() {
     return `MidniteStudio/${app.getVersion()} (+https://github.com/bilo-io/midnite-apps)`;
   },
@@ -100,7 +100,7 @@ setMapTools(
     readText: (req) => mediaStore.readFile({ repoId: req.repoId, tab: 'map', project: req.project, path: req.path, encoding: 'utf8' }),
     setView: (req) => mapService.setView(req),
     capture: (req) => captureService.capture(req),
-    geocode: (query) => geocodePlace(query, (url, init) => net.fetch(url, init)),
+    geocode: (query) => geocodePlace(query, guardedFetchFor('media-map') as typeof fetch),
     emitOpen: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaMapOpen, event),
   }),
 );

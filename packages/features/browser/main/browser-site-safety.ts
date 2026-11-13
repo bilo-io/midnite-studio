@@ -1,3 +1,4 @@
+import { guardedFetchFor } from '@midnite/studio-runtime';
 import { WEB_APP_DEFINITIONS, type SiteFeedId, type SiteKnownBad, type SiteVerdict } from '@midnite/studio-shared';
 
 import { browserMainDeps, defaultLogger } from './browser-main-deps';
@@ -47,7 +48,7 @@ export function reputationFeeds(): ReputationFeedService {
     feeds = directory
       ? createReputationFeedService({
           directory,
-          fetch: ((url, init) => globalThis.fetch(url, init)) as FeedFetch,
+          fetch: guardedFetchFor('browser') as FeedFetch,
           log: (message) => defaultLogger(message),
         })
       : NO_FEEDS;
