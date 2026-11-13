@@ -92,12 +92,11 @@ export class VisNetworkRenderer extends Base2DRenderer {
 
   protected modelChanged(): void {
     this.feed();
-    this.fitToModel();
   }
 
   protected override onResize(): void {
     const container = this.container;
-    if (!container || !this.network) return;
+    if (!container || !this.network || container.clientWidth === 0 || container.clientHeight === 0) return;
     this.network.setSize(`${container.clientWidth}px`, `${container.clientHeight}px`);
   }
 
@@ -140,7 +139,8 @@ export class VisNetworkRenderer extends Base2DRenderer {
           opacity: alpha,
           color: { background: node.color, border: this.accent },
           borderWidth: selected ? 2 : 0,
-          label: labelled ? node.label : undefined,
+          // '' not `undefined`: a data-set update merges, and an undefined field would leave a stale label up.
+          label: labelled ? node.label : '',
         });
       }
       if (nodeUpdates.length > 0) this.nodes.update(nodeUpdates);

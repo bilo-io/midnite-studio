@@ -57,6 +57,8 @@ describe('VisNetworkRenderer', () => {
     expect(data.nodes.get('a')).toMatchObject({ opacity: 1, borderWidth: 2, label: 'A' });
     expect(data.nodes.get('b')).toMatchObject({ opacity: 0.85 });
     expect(data.nodes.get('c')).toMatchObject({ opacity: 0.1 });
+    renderer.applyHighlight(null);
+    expect(data.nodes.get('a')).toMatchObject({ opacity: 0.5, label: '' });
     renderer.dispose();
   });
 
