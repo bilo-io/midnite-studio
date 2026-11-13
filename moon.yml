@@ -39,6 +39,13 @@ tasks:
     options:
       cache: false
 
+  # privacy-doc (Phase 115 Theme G): regenerate docs/PRIVACY.md from the egress registry.
+  # `--check` only verifies; the same check runs in `shared:test` (privacy-doc.test.ts).
+  privacy-doc:
+    command: 'node scripts/privacy-doc.mjs'
+    options:
+      cache: false
+
   # version-check: assert the lockstep invariant — the root package.json and
   # every packages/*/package.json share one MAJOR.MINOR (PATCH may diverge per
   # package). Pure static check — no build deps, no network, import-free
