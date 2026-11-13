@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 132 Theme E — 3D placement editor
+
+The Level editor tab edits 3D levels in plan view on the 2D editor's canvas, model and picker: Select / Move, Place, Volume (a `prop` box, `sizeY` 3), Path and Rotate (yaw as Tiled's `rotation`, about the centre), a metre grid, footprints with a yaw tick, the terrain as an outline over its drape (`levelGet` reads it from the pack manifest), and an inspector for elevation, sizeY, pitch, roll, scale, model, collider and a light's fields with the world position from `levelEntityToWorld`. New scene makes a 3D scene. Not done: the canvas look and the third-person human pass (Theme H).
+
 ## 2026-11-13 — Phase 132 Theme G — level tools for agents
 
 `game_level_list`, `game_level_get`, `game_level_set` and `game_goto` on the midnite MCP server (reads open whenever the server is on, writes behind `allowGames`, all four in an agent run's private server), adapters over the level service and runner `goto`, the tool-manifest pin, and a Levels section with the pre-0.12 migration recipe in the game-build skill (seven mirrored copies). Not done: the editor (D, E), starters reading levels (F), the human check (H).
