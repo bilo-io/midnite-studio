@@ -54,7 +54,7 @@ describe('the default sweep, end to end (Phase 122 B + C)', () => {
     });
     expect(record.checksRun).toContain('lockfile-cves');
     expect(record.checksRun).toContain('electron-freshness');
-    expect(Object.keys(record.inputsSkipped).sort()).toEqual(['dotfileSecrets', 'installedSoftware', 'macConfig', 'ports', 'sshKeys', 'threatFeed']);
+    expect(Object.keys(record.inputsSkipped).sort()).toEqual(['dotfileSecrets', 'history', 'installedSoftware', 'macConfig', 'phishingHosts', 'ports', 'sshKeys', 'threatFeed', 'vanguardFindings']);
     expect(record.inputsSkipped.installedSoftware).toBe('no-resolver'); // the host supplies exec
     expect(record.inputsSkipped.threatFeed).toContain('no trusted threat-feed key');
     expect(findings.map((f) => f.fingerprint)).toEqual([expect.stringContaining('lockfile-cves:')]);
