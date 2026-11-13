@@ -305,7 +305,7 @@ describe('navVisibility (sidenav feature flags)', () => {
     expect(migrated.agentSkills).toEqual({
       execBacklog: '/midnite-build',
       execAdhoc: '/midnite-build-adhoc',
-      execSwarm: '/midnite-swarm',
+      execSwarm: '/midnite-fleet',
       loopBrainstorm: '/loop /midnite-plan',
       prReview: '/midnite-pr-review',
     });
@@ -1645,10 +1645,10 @@ describe('columnSkillByProject (Phase 95 Theme G)', () => {
 
   it('holds independent overrides per project', () => {
     useUiStore.getState().setColumnSkill('proj-1', 'In progress', '/midnite-create-adhoc');
-    useUiStore.getState().setColumnSkill('proj-2', 'In progress', '/midnite-swarm');
+    useUiStore.getState().setColumnSkill('proj-2', 'In progress', '/midnite-fleet');
 
     expect(useUiStore.getState().columnSkillByProject['proj-1']?.['in progress']).toBe('/midnite-create-adhoc');
-    expect(useUiStore.getState().columnSkillByProject['proj-2']?.['in progress']).toBe('/midnite-swarm');
+    expect(useUiStore.getState().columnSkillByProject['proj-2']?.['in progress']).toBe('/midnite-fleet');
   });
 
   it('persists the map', () => {
@@ -1765,7 +1765,7 @@ describe('v31 -> v32 migration (Phase 109 Theme B)', () => {
     expect(state.companionNames).toEqual(['Nova', 'Companion']);
     expect(state.companionVoices).toEqual({ system: 'urn:voice:1', local: 'bf_emma' });
     expect(state.voiceConversationTrigger).toBe('wake');
-    expect(useUiStore.persist.getOptions().version).toBe(39);
+    expect(useUiStore.persist.getOptions().version).toBe(40);
   });
 
   it('migrates a v32 payload to v33', () => {
@@ -1798,7 +1798,7 @@ describe('v32 -> v33 migration (Phase 111 Theme A)', () => {
     const state = useUiStore.getState();
     expect(state.primaryAgent).toBe('codex');
     expect(state.primaryModelByAgent).toEqual({});
-    expect(useUiStore.persist.getOptions().version).toBe(39);
+    expect(useUiStore.persist.getOptions().version).toBe(40);
   });
 
   it('leaves a v34 payload alone', () => {

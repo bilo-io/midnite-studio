@@ -86,7 +86,7 @@ function makeUseUiStore() {
         brainstorm: '/midnite-ideate',
         refine: '/midnite-refine',
         verifyPhase: '/midnite-verify',
-        execSwarm: '/midnite-swarm',
+        execSwarm: '/midnite-fleet',
       },
     });
   // `Modal`'s own `useDismiss`/`useFocusTrap` read the occluder counter
