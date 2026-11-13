@@ -19,7 +19,7 @@ describe('sites check', () => {
       ['sites:http-login:old-portal.example', 'medium'],
       ['sites:eol:old-portal.example:Apache 2.2 or older', 'low'],
       ['sites:eol:old-portal.example:PHP before 8.0', 'low'],
-      ['sites:phishing:mirror.evil.example', 'critical'],
+      ['sites:phishing:mirror.evil.example', 'high'],
     ]);
     expect(f[0]!.detail).toContain('tab-7');
   });
@@ -41,7 +41,7 @@ describe('sites check', () => {
   });
 
   it('parses a captured URLhaus export into hosts', () => {
-    const csv = ['# URLhaus', '# id,dateadded,url,url_status', '"1","2026-11-01","http://bad.example/x.exe","online"', '"2","2026-11-01","not a url","online"', 'https://other.example/p'].join('\n');
+    const csv = ['# URLhaus', '# id,dateadded,url,url_status', '"1","2026-11-01","http://bad.example/x.exe","online"', '"2","2026-11-01","not a url","online"', 'https://other.example/p', '"3","2026-11-01","https://raw.githubusercontent.com/x/y","online"'].join('\n');
     expect(parseUrlhausHosts(csv)).toEqual(['bad.example', 'other.example']);
   });
 });

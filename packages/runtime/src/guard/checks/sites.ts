@@ -45,9 +45,16 @@ export function hostMatchesDomain(host: string, domain: string): boolean {
   return d !== '' && (host === d || host.endsWith(`.${d}`));
 }
 
+/** Shared platforms URLhaus lists individual URLs on; flagging the whole host would false-positive on every visit. */
+export const SHARED_HOSTS: readonly string[] = [
+  'github.com', 'githubusercontent.com', 'gitlab.com', 'google.com', 'googleusercontent.com', 'dropbox.com', 'dropboxusercontent.com',
+  'onedrive.live.com', 'sharepoint.com', 'amazonaws.com', 'cloudfront.net', 'discord.com', 'discordapp.com', 'telegram.org', 'mediafire.com',
+  'bitbucket.org', 'sourceforge.net', 'pastebin.com', 'cdn.jsdelivr.net', 'npmjs.com', 'pypi.org',
+];
+
 /**
  * Hosts out of a URLhaus text/CSV export (CC0): each non-comment line carries a quoted URL; only its host is kept.
- * Anything unparseable is skipped.
+ * Shared platforms ({@link SHARED_HOSTS}) and anything unparseable are skipped.
  */
 export function parseUrlhausHosts(text: string): string[] {
   const hosts = new Set<string>();
@@ -55,7 +62,7 @@ export function parseUrlhausHosts(text: string): string[] {
     if (line === '' || line.startsWith('#')) continue;
     const url = /"(https?:\/\/[^"]+)"/.exec(line)?.[1] ?? (/^https?:\/\/\S+$/.test(line.trim()) ? line.trim() : undefined);
     const host = url ? originHost(url) : null;
-    if (host) hosts.add(host);
+    if (host && !SHARED_HOSTS.some((d) => hostMatchesDomain(host, d))) hosts.add(host);
   }
   return [...hosts];
 }
@@ -64,7 +71,7 @@ const when = (t: number): string => new Date(t).toISOString().slice(0, 16).repla
 
 /**
  * Theme E, sites the browser visited, checked offline: an origin on the threat feed's `clickfixDomains` (`critical`),
- * an `http:` origin that served a login form (`medium`), an origin on a phishing feed (`critical`) and a response
+ * an `http:` origin that served a login form (`medium`), an origin on a malware feed (`high`) and a response
  * header that announced an end-of-life stack (`low`). The feeds are optional inputs, so with them off the local
  * parts still run. The fix is text ("open it", "forget it"): the tab and forget-origin actions arrive with Theme G.
  */
@@ -109,9 +116,9 @@ export const sitesCheck: GuardCheck = {
           createGuardFinding({
             ...base,
             subject: `phishing:${host}`,
-            severity: 'critical',
-            title: `Visited ${host}, listed as hosting malware or phishing`,
-            detail: `${host} is on the URLhaus feed (visited ${when(v.visitedAt)}).${tab}`,
+            severity: 'high',
+            title: `Visited ${host}, listed as serving malware`,
+            detail: `${host} is on the URLhaus feed of hosts serving malware URLs (visited ${when(v.visitedAt)}); a listing can cover one path, not the whole site.${tab}`,
             firstSeen: v.visitedAt,
           }),
         );
