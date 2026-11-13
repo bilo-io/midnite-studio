@@ -46,7 +46,7 @@ export function useTilesetImages(images: ReadonlyArray<{ path: string; dataUrl: 
 }
 
 /** The topmost object within reach of a map-space point, over the visible object layers. */
-export function hitObject(level: EditLevel, tmj: Tmj | null, mapPoint: { x: number; y: number }, zoom: number): NonNullable<EditSelection> | null {
+export function hitObject(level: EditLevel, mapPoint: { x: number; y: number }, zoom: number): NonNullable<EditSelection> | null {
   const reach = HIT_RADIUS_PX / zoom;
   for (let i = level.layers.length - 1; i >= 0; i -= 1) {
     const layer = level.layers[i]!;
@@ -62,7 +62,6 @@ export function hitObject(level: EditLevel, tmj: Tmj | null, mapPoint: { x: numb
       if (near || inside) return { layerId: layer.id, objectId: o.id };
     }
   }
-  void tmj;
   return null;
 }
 
@@ -110,19 +109,18 @@ export function LevelCanvas({
     const ro = new ResizeObserver(() => {
       const width = Math.max(1, Math.round(el.clientWidth)), height = Math.max(1, Math.round(el.clientHeight));
       setSize((s) => (s.width === width && s.height === height ? s : { width, height }));
+      // The first real measurement fits the map; later resizes keep the user's view.
+      if (!fitted.current) {
+        fitted.current = true;
+        const px = mapPixelSize(level);
+        setView(fitView({ width, height }, px.width, px.height));
+      }
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
-  useEffect(() => {
-    if (fitted.current) return;
-    fitted.current = true;
-    const px = mapPixelSize(level);
-    setView(fitView(size, px.width, px.height));
-    // Fit once per mounted level (the editor keys this component by scene); later resizes keep the user's view.
+    // Mounted once per scene (the editor keys this component by scene); `level` is only read for the first fit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [size.width, size.height]);
-
+  }, []);
   useEffect(() => {
     const el = canvas.current;
     const ctx = el?.getContext('2d');
@@ -226,7 +224,7 @@ export function LevelCanvas({
     const p = screenToMap(view, sx, sy);
     const cell = cellAt(level, p.x, p.y);
     if (phase === 'move') setHover(cell);
-    onPointer({ phase, cell, object: mapPointToObject(level, p.x, p.y), hit: hitObject(level, tmj, p, view.zoom), alt: e.altKey });
+    onPointer({ phase, cell, object: mapPointToObject(level, p.x, p.y), hit: hitObject(level, p, view.zoom), alt: e.altKey });
   };
 
   const onDown = (e: ReactPointerEvent<HTMLCanvasElement>) => {
