@@ -595,6 +595,14 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
         case 'update-package':
         case 'pin-package':
         case 'remove-package':
+        case 'open-system-settings':
+        case 'copy-fix-command':
+        case 'move-to-vault':
+        case 'redact-line':
+        case 'rotate':
+        case 'open-tab':
+        case 'close-tab':
+        case 'forget-origin':
         case 'open-in-agents':
           // Unreachable while REMEDIATION_PENDING names it; kept so a new id cannot slip past the switch.
           return { kind: 'unavailable', unavailable: { reason: 'This action is not available yet.' } };

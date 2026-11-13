@@ -60,7 +60,7 @@ const urlOf = (input: GuardedFetchInput): string => (typeof input === 'string' ?
  * composed is not an automatic call of whichever feature happens to own that host. Pure.
  */
 export function resolveEgress(owner: string, input: GuardedFetchInput): EgressHost | undefined {
-  const exact = findEgressEntry(urlOf(input));
+  const exact = findEgressEntry(urlOf(input), owner);
   const wildcard = EGRESS_ENTRIES.find((e) => e.host === '*' && e.owner === owner);
   if (exact && (exact.owner === owner || !wildcard)) return exact;
   return wildcard;

@@ -40,7 +40,9 @@ import {
   renderItemPage,
   renderPlaylistPage,
   type IndexEntry,
+  type SignStream,
 } from './lan-pages';
+import { DEFAULT_STREAM_URL_TTL_SECONDS, signStreamPath, verifyStreamSignature } from './lan-signature';
 import { createLanSettingsStore, createLanTokenStore } from './lan-store';
 import type { LibraryLanController } from './lan';
 import type { LibraryService } from './library-service';
@@ -51,8 +53,9 @@ import type { LibraryService } from './library-service';
  * - **Bind**: one private IPv4 address the user picked that one of this computer's interfaces holds now
  *   (`lan-addresses.ts`). Never `0.0.0.0`, never a public address, never at launch unless the user left it on
  *   *and* asked for "start with the app".
- * - **Token**: every request carries `?k=<token>` (256 random bits, `lan-store.ts`), checked in constant time
- *   *before* anything is routed — a request without it gets a bare 401 and learns nothing else, not even
+ * - **Token**: browse pages carry `?k=<token>` (256 random bits, `lan-store.ts`); streams, posters and transcodes
+ *   carry a signed, expiring `?e=&s=` instead (`lan-signature.ts`, six hours by default, keyed by the token). Checked in
+ *   constant time *before* anything is routed — a request without it gets a bare 401 and learns nothing else, not even
  *   whether a path exists. "Regenerate" mints a new one and cuts every open connection.
  * - **Path jail**: routes take an item id, never a path. The bytes behind an id come only from
  *   `LibraryService.resolveFile` — the index and the root's `confineToRoot` jail, as for the app's own player.
@@ -85,6 +88,8 @@ export type LanServerDeps = {
   /** `PATH`, for finding ffmpeg. */
   pathEnv?: string;
   now?: () => number;
+  /** How long a signed stream URL lives, in seconds; default six hours. */
+  streamUrlTtlSeconds?: number;
   maxTranscodes?: number;
   random?: (bytes: number) => Buffer;
 };
@@ -94,6 +99,8 @@ const MAX_PROBES = 2;
 const MAX_CLIENTS = 32;
 const ITEM_ID = /^[0-9a-f]{20}$/;
 const PLAYLIST_ID = /^p[0-9a-f]{12}$/;
+/** The routes that move bytes. They take a signed, expiring URL, not the access token. */
+const STREAM_HEADS: ReadonlySet<string> = new Set(['media', 'art', 'transcode']);
 
 /** Headers on every response. `no-store`: pages carry the token in their links. */
 const BASE_HEADERS = {
@@ -209,6 +216,7 @@ export function createLanStreamServer(deps: LanServerDeps): LibraryLanController
   const port: FfmpegPort = deps.ffmpeg ?? nodeFfmpegPort;
   const now = deps.now ?? Date.now;
   const maxTranscodes = deps.maxTranscodes ?? MAX_TRANSCODES;
+  const streamTtl = deps.streamUrlTtlSeconds ?? DEFAULT_STREAM_URL_TTL_SECONDS;
   const probeGate = gate(MAX_PROBES);
   const probing = new Map<string, Promise<MediaProbe | null>>();
   const transcodes = new Set<TranscodeProcess>();
@@ -375,8 +383,13 @@ export function createLanStreamServer(deps: LanServerDeps): LibraryLanController
     // Origin-form only: `//host/x` or an absolute URL is not a path on this server.
     if (!raw.startsWith('/') || raw.startsWith('//')) return bare(res, 400);
     const url = new URL(raw, 'http://lan.invalid');
-    // The token first, before routing: without it, every path — real or not — is the same bare 401.
-    if (!(await tokens.matches(url.searchParams.get('k')))) return bare(res, 401);
+    // Proof of access first, before routing: without it, every path — real or not — is the same bare 401.
+    // Streams, posters and transcodes need a signed, expiring URL; the browse pages take the access token.
+    const streamHead = STREAM_HEADS.has(url.pathname.split('/')[1] ?? '');
+    const allowed = streamHead
+      ? verifyStreamSignature(await tokens.token(), url.pathname, url.searchParams.get('e'), url.searchParams.get('s'), now())
+      : await tokens.matches(url.searchParams.get('k'));
+    if (!allowed) return bare(res, 401);
     const remote = remoteOf(req);
     const seen = clients.get(remote);
     clients.delete(remote);
@@ -390,6 +403,7 @@ export function createLanStreamServer(deps: LanServerDeps): LibraryLanController
     if (req.method !== 'GET' && req.method !== 'HEAD')
       return bare(res, 405, { Allow: 'GET, HEAD' });
     const token = await tokens.token();
+    const sign: SignStream = (path) => signStreamPath(path, token, now(), streamTtl);
     const segments = url.pathname.split('/').slice(1);
     const [head = '', id = '', ...rest] = segments;
     if (url.pathname === '/') {
@@ -403,7 +417,7 @@ export function createLanStreamServer(deps: LanServerDeps): LibraryLanController
       const items = (
         await Promise.all(playlist.itemIds.map((itemId) => library.item(itemId)))
       ).filter((item): item is LibraryItem => item !== null);
-      return html(res, renderPlaylistPage({ token, playlist, entries: await entriesFor(items) }));
+      return html(res, renderPlaylistPage({ token, playlist, entries: await entriesFor(items), sign }));
     }
     if (!ITEM_ID.test(id)) return notFound(res);
     const item = await library.item(id);
@@ -411,7 +425,7 @@ export function createLanStreamServer(deps: LanServerDeps): LibraryLanController
     switch (head) {
       case 'item': {
         const { plan } = await planFor(item, true);
-        return html(res, renderItemPage({ token, item, plan }));
+        return html(res, renderItemPage({ token, item, plan, sign }));
       }
       case 'media': {
         const path = await library.resolveFile(item.rootId, item.path);
