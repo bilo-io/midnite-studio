@@ -584,6 +584,10 @@ export const CHANNELS = {
   privacyFileVault: 'mstudio:privacy:file-vault',
   /** Phase 115 B: open System Settings ▸ Privacy & Security ▸ FileVault. */
   privacyOpenFileVault: 'mstudio:privacy:open-file-vault',
+  /** Phase 135 F: the files a switched-off feature keeps under userData, with sizes — "Delete this feature's data"'s blast radius. */
+  featuresDataDescribe: 'mstudio:features:data-describe',
+  /** Phase 135 F: move those files to the Trash; refused while the feature is on. */
+  featuresDataDelete: 'mstudio:features:data-delete',
 
   // --- session history (Phase 67) ------------------------------------------
   // The sessions you *closed*. `terminal:*` above owns rows that still exist;

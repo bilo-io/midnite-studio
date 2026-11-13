@@ -1,3 +1,5 @@
+import type { FeatureToggleId } from '@midnite/studio-shared';
+
 import {
   WIDGET_CATEGORIES,
   WIDGET_IDS,
@@ -264,12 +266,38 @@ export const ALL_WIDGETS: readonly WidgetSpec[] = WIDGET_IDS.map((id) => WIDGETS
  * grows run and PR events the moment a forge exists and the gate for that is
  * "renders either way" rather than "needs a forge".
  */
-export const isAvailable = (spec: WidgetSpec, hasForge: boolean): boolean =>
-  spec.source !== 'forge' || hasForge;
+export const isAvailable = (spec: WidgetSpec, hasForge: boolean, disabled: readonly FeatureToggleId[] = []): boolean =>
+  (spec.source !== 'forge' || hasForge) && !isWidgetFeatureOff(spec.id, disabled);
+
+/**
+ * The feature each widget draws from (Phase 135 Theme C). A widget whose feature is switched off in Settings ▸
+ * Features leaves the board and the picker, and comes back with the feature — the saved layout is untouched.
+ */
+export const WIDGET_FEATURE: Partial<Record<WidgetId, FeatureToggleId>> = {
+  pulls: 'forge',
+  issues: 'forge',
+  runs: 'forge',
+  'recent-sessions': 'sessions',
+  'loop-runs': 'loops',
+  'fin-bank-cards': 'finance',
+  'fin-assets': 'finance',
+  'fin-allocation': 'finance',
+  'fin-accounts': 'finance',
+  'fin-chart': 'finance',
+  'fin-watchlist': 'finance',
+  'fin-markets': 'finance',
+  'fin-transactions': 'finance',
+  'fin-news': 'finance',
+};
+
+export const isWidgetFeatureOff = (id: WidgetId, disabled: readonly FeatureToggleId[]): boolean => {
+  const feature = WIDGET_FEATURE[id];
+  return feature !== undefined && disabled.includes(feature);
+};
 
 /** Widgets a repo can offer at all — what the Add-widget menu chooses from. */
-export const availableWidgets = (hasForge: boolean): readonly WidgetSpec[] =>
-  ALL_WIDGETS.filter((spec) => isAvailable(spec, hasForge));
+export const availableWidgets = (hasForge: boolean, disabled: readonly FeatureToggleId[] = []): readonly WidgetSpec[] =>
+  ALL_WIDGETS.filter((spec) => isAvailable(spec, hasForge, disabled));
 
 /**
  * The widgets that actually render, given a saved layout.
@@ -284,10 +312,11 @@ export const availableWidgets = (hasForge: boolean): readonly WidgetSpec[] =>
 export const renderableWidgets = (
   layoutIds: readonly string[],
   hasForge: boolean,
+  disabled: readonly FeatureToggleId[] = [],
 ): readonly WidgetSpec[] =>
   layoutIds
     .map((id) => (id in WIDGETS ? WIDGETS[id as WidgetId] : undefined))
-    .filter((spec): spec is WidgetSpec => spec !== undefined && isAvailable(spec, hasForge));
+    .filter((spec): spec is WidgetSpec => spec !== undefined && isAvailable(spec, hasForge, disabled));
 
 /** Whether any renderable widget needs the expensive `--numstat` half. */
 export const needsChurn = (layoutIds: readonly string[]): boolean =>

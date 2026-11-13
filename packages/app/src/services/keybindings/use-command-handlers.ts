@@ -3,13 +3,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { CommandId } from '@midnite/studio-shared';
 
 import { useDialogs } from '../../components/dialog-host';
-import { navCommandDisabledReason } from '../../components/nav-visibility';
+import { navCommandDisabledReason, withFeatureToggles } from '../../components/nav-visibility';
 import { activePanelBack, activePanelForward } from '../../components/panel-stack/active-panel';
 import { isAgentUnconfigured } from '../../features/agent/agent-install-status';
 import { useDevServerFor } from '@midnite/studio-feature-browser/renderer';
 import { openReportIssue } from '@midnite/studio-feature-report/renderer';
 import { toggleNotes } from '../../features/notes/notes-window';
-import { useGraphStore, type CommandEntry } from '@midnite/studio-frame';
+import { useDisabledFeatures, useGraphStore, type CommandEntry } from '@midnite/studio-frame';
 import { useSetupStore } from '../../features/setup/setup-store';
 import { useSlidesStore } from '@midnite/studio-feature-slides/renderer';
 import { syncAffordances } from '../../features/status/sync-availability';
@@ -94,6 +94,7 @@ export function useCommandHandlers(): CommandRuntime {
     1 + agentRoster.filter((a) => !isAgentUnconfigured(a, agentStatus)).length;
   const activeView = useUiStore((s) => s.activeView);
   const navVisibility = useUiStore((s) => s.navVisibility);
+  const disabledFeatures = useDisabledFeatures();
   const browserOpen = useUiStore((s) => s.browserOpen);
   // The browser feature's dev-server query, under the same key the new-tab tile uses (Phase 113 Theme L).
   const devServer = useDevServerFor(selectedRepoId, selectedWorktreePath);
@@ -174,7 +175,7 @@ export function useCommandHandlers(): CommandRuntime {
 
   const activeMarkdown = useSlidesStore((s) => s.activeMarkdown);
 
-  return {
+  return withFeatureToggles(disabledFeatures, {
     'file.save': editorTarget
       ? {
           enabled: editorDirty,
@@ -632,7 +633,7 @@ export function useCommandHandlers(): CommandRuntime {
     'panel.forward': PANEL_HISTORY_VIEWS.has(activeView)
       ? { enabled: true, run: () => activePanelForward() }
       : { enabled: false, disabledReason: 'Open Councils, Files or a Projects card first', run: () => {} },
-  };
+  });
 }
 
 const NO_BROWSER = 'Open the browser first';

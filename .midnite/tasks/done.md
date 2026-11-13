@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-14 — Phase 135 — Feature toggles
+
+[#1230](https://github.com/bilo-io/midnite-studio/pull/1230): Settings ▸ Features switches any of 24 features off (Terminal, Settings and Accounts always on). Off hides it from the rail, palette, chords, settings, dashboard, status bar and quick-access menu, lands deep links on an off state, answers its IPC with the error envelope, stops its background work at runtime and refuses its MCP tools; data stays until "Delete this feature's data" trashes it behind the destructive confirm. Dependencies prompt (Chats → Councils). Deferred: the MCP shim's static tool list, Sidebar marks, the empty-workspace browser shortcut and lock-screen finance/monitor widgets, Books/Loops runtime-dir data.
+
 ## 2026-11-13 — Phase 134 — Councils synthesizer presets
 
 [#1229](https://github.com/bilo-io/midnite-studio/pull/1229): a council picks a synthesis type (Brainstorm, Debate, Promote / Demote, Review / Red team, Custom) in a synthesizer card above the members, with a heuristic recommendation and editable instructions that reach the synthesis prompt; presets bring their members in a cascade; members are accordions with the picker and trash usable while collapsed; a 2–6 slider capped at 3 behind the local `councils.pro` flag opens "Upgrade to Pro"; "Generate with AI" writes a Custom council's instructions and members; the new-council modal shows provider marks. Gated on the built app with a real Debate turn and a real Generate.

@@ -11,8 +11,10 @@
     // the real modules (packages/app/vite.config.ts, packages/desktop/scripts/bundle.mjs); the typecheck
     // reads the contracts those modules are typed against, so it neither compiles the whole renderer
     // and main a second time nor needs their built feature declarations. `paths` replaces the base's
-    // map wholesale: nothing here imports another workspace package.
+    // map wholesale. The one other workspace import is `shared`, which the feature-toggles test holds the
+    // composition against.
     "paths": {
+      "@midnite/studio-shared": ["../../packages/shared/src/index.ts"],
       "@midnite/studio-app/boot": ["../../packages/app/src/boot-contract.ts"],
       "@midnite/studio-desktop/main": ["../../packages/desktop/src/main/main-contract.ts"]
     }

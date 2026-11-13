@@ -983,6 +983,12 @@ export type MidniteStudioBridge = {
     openFileVault: () => Promise<void>;
   };
 
+  /** A switched-off feature's on-disk data, for Settings ▸ Features' delete (Phase 135 Theme F). */
+  features: {
+    describeData: (req: In<typeof S.FeatureDataRequest>) => Promise<z.infer<typeof S.FeatureDataDescribeResponse>>;
+    deleteData: (req: In<typeof S.FeatureDataRequest>) => Promise<z.infer<typeof S.FeatureDataDeleteResponse>>;
+  };
+
   sessions: {
     history: () => Promise<z.infer<typeof S.SessionsHistoryResponse>>;
     transcript: (

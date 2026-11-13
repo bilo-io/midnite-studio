@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { SecretFindingSchema } from '../scan-secrets';
 import { VANGUARD_TABS } from '../vanguard';
+import { FEATURE_TOGGLE_IDS, type FeatureToggleId } from '../feature-toggles';
 
 import {
   MapCaptureCancelRequestSchema,
@@ -2378,6 +2379,20 @@ export const PrivacyHistoryClearResponse = z.object({
 });
 /** `fdesetup status`, read without admin: `unknown` when the probe could not run. */
 export const PrivacyFileVaultResponse = z.object({ status: z.enum(['on', 'off', 'unknown']) });
+
+// --- feature toggles: a switched-off feature's data (Phase 135 Theme F) -------
+
+export const FeatureDataRequest = z.object({
+  feature: z.enum(FEATURE_TOGGLE_IDS as [FeatureToggleId, ...FeatureToggleId[]]),
+});
+/** One file or folder under userData that a feature keeps, as it is on disk now. Absent ones are left out. */
+export const FeatureDataFileSchema = z.object({ path: z.string(), bytes: z.number().int().nonnegative() });
+export const FeatureDataDescribeResponse = z.object({ files: z.array(FeatureDataFileSchema) });
+/** `ok:false` while the feature is still on, or when a move to the Trash failed part way. */
+export const FeatureDataDeleteResponse = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), removedFiles: z.number().int().nonnegative(), removedBytes: z.number().int().nonnegative() }),
+  z.object({ ok: z.literal(false), kind: z.literal('error'), message: z.string() }),
+]);
 /**
  * Update runs to completion in main; chunks stream on the event channel while
  * it does. Failures resolve — the settings page renders them like any other.

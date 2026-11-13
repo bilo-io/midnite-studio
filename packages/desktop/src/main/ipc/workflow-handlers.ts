@@ -1,4 +1,5 @@
 import {
+  setWorkflowsBackgroundPaused,
   TRIGGER_SCHEDULER_SUBSCRIBER_ID,
   workflowsMain,
   type WorkflowsPorts,
@@ -17,6 +18,7 @@ import type { FeatureMainContext } from '@midnite/studio-runtime';
 import { Notification, clipboard, type BrowserWindow } from 'electron';
 
 import { runOllamaPrompt } from '../ai/ollama-headless';
+import { bindFeatureLifecycle, isFeatureEnabled } from '../feature-gate';
 import { defaultLogger } from '../log';
 import { activityFor, killPty, offPty, onPty } from '../pty-service';
 import { resolveWorkdir } from '../repo-registry';
@@ -92,9 +94,17 @@ export function registerWorkflowHandlers(deps: {
       writeClipboard: (text) => clipboard.writeText(text),
     },
   };
+  // Phase 135 Theme E: switched off at boot, register arms nothing; switching it later pauses or resumes.
+  if (!isFeatureEnabled('workflows')) setWorkflowsBackgroundPaused(true);
   workflowsMain.register(ctx, {
     ports,
     dataDirectory: deps.userData,
     gateApprovalPollMs: deps.gateApprovalPollMs,
   });
+  bindFeatureLifecycle(
+    'workflows',
+    'workflow triggers and gate poll',
+    () => setWorkflowsBackgroundPaused(false),
+    () => setWorkflowsBackgroundPaused(true),
+  );
 }

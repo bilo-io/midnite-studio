@@ -15,7 +15,7 @@ import {
   type NavConfig,
   type NavLinkComponent,
 } from '@bilo-io/shell';
-import { pickForgeRemote, type ForgeCapability, type ForgeKind } from '@midnite/studio-shared';
+import { featureForView, pickForgeRemote, type ForgeCapability, type ForgeKind } from '@midnite/studio-shared';
 import { CiPower } from 'react-icons/ci';
 import './services/avatar-privacy';
 import { LuSettings } from 'react-icons/lu';
@@ -34,7 +34,7 @@ import {
 } from '@midnite/studio-feature-browser/renderer';
 // The frame (Phase 113 Theme C): the chrome every app wears. The layout
 // pieces below are the first to leave this file for it.
-import { AppShell, DelayedFallback, FrameChromeProvider, NavLockToggle, TitleBarBattery, TitleBarStatus, ToolApprovalHost, useKnowledgeGraphExists } from '@midnite/studio-frame';
+import { AppShell, DelayedFallback, FrameChromeProvider, NavLockToggle, TitleBarBattery, TitleBarStatus, ToolApprovalHost, useDisabledFeatures, useKnowledgeGraphExists } from '@midnite/studio-frame';
 import { DialogHost } from './components/dialog-host';
 import { STUDIO_FORGE_HOST } from './compose/forge-host';
 import { STUDIO_CHROME } from './compose/studio-chrome';
@@ -55,7 +55,8 @@ import {
 import { VIEW_COMPONENT } from './components/view-registry';
 import { useKeptAliveView } from './components/view-keep-alive';
 import { navChord } from './components/nav-chords';
-import { isNavViewVisible } from './components/nav-visibility';
+import { FeatureOffState } from './components/feature-off-state';
+import { effectiveNavVisibility, isNavViewVisible } from './components/nav-visibility';
 import { useNavCategoryIconVars } from './components/use-nav-category-icon-vars';
 import { Tooltip } from './components/tooltip';
 import { commandChord } from './features/status-bar/chord-hint';
@@ -526,6 +527,11 @@ function Shell() {
   const terminalOpen = useUiStore((s) => s.terminalOpen);
   const terminalMaximized = useUiStore((s) => s.terminalMaximized);
   const browserOpen = useUiStore((s) => s.browserOpen);
+  // Phase 135 Theme C: a switched-off Browser, Companion or Loops (the FAB's quick access) never docks or shows.
+  const disabledFeatures = useDisabledFeatures();
+  const browserOn = !disabledFeatures.includes('browser');
+  const companionOn = !disabledFeatures.includes('companion');
+  const loopsOn = !disabledFeatures.includes('loops');
   const browserLayout = useUiStore((s) => s.browserLayout);
   const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
   const companionPanelOpen = useUiStore((s) => s.companionPanelOpen);
@@ -548,17 +554,17 @@ function Shell() {
   */
   const reposDocked = reposOpen && !reposDetached;
   const terminalDocked = terminalOpen && !terminalDetached;
-  const browserDocked = browserOpen && !browserDetached;
+  const browserDocked = browserOpen && !browserDetached && browserOn;
   /*
     `isFabPanelDocked`/`isCompanionPanelDocked` (`ui-store.ts`) — the companion
     additionally needs the master switch as well as the open flag: it is a
     default-off feature, and a column that could be dragged open with the
     switch off would be a panel the user never agreed to.
   */
-  const fabPanelDocked = isFabPanelDocked({ fabPanelOpen, fabDetached });
+  const fabPanelDocked = loopsOn && isFabPanelDocked({ fabPanelOpen, fabDetached });
   const companionDocked = isCompanionPanelDocked({
     companionPanelOpen,
-    companionEnabled,
+    companionEnabled: companionEnabled && companionOn,
     companionDetached,
   });
   // The single source of truth for the four flags above is main's own
@@ -668,6 +674,12 @@ function Shell() {
   const isForgeViewAvailable = useForgeViewAvailability(selectedRepoId);
   const optimizerEnabled = useUiStore((s) => s.optimizerEnabled);
   const navVisibility = useUiStore((s) => s.navVisibility);
+  // Phase 135 Theme C: the rail leaves out a switched-off feature's views. The redirect below reads the user's own
+  // choice only, so a view whose feature is off stays put and draws `FeatureOffState` with the switch back.
+  const railVisibility = useMemo(
+    () => effectiveNavVisibility(navVisibility, disabledFeatures),
+    [navVisibility, disabledFeatures],
+  );
 
   // Ad hoc: sidenav category icons — the Git rail section's own glyph tracks
   // the selected repo's forge, same `useRemotes` + `pickForgeRemote` pairing
@@ -1091,6 +1103,9 @@ function Shell() {
     default covers it.
   */
   const viewLabel = ALL_NAV_ITEMS.find((item) => item.view === activeView)?.label;
+  const activeViewFeature = featureForView(activeView);
+  const activeFeatureOff =
+    activeViewFeature !== undefined && disabledFeatures.includes(activeViewFeature) ? activeViewFeature : undefined;
 
   /*
     Phase 84 Theme G: the single view left behind most recently that opted
@@ -1207,8 +1222,8 @@ function Shell() {
   );
 
   const visibleNavItem = useCallback(
-    (item: NavItem) => (isNavViewVisible(navVisibility, item.view) ? navItem(item) : null),
-    [navItem, navVisibility],
+    (item: NavItem) => (isNavViewVisible(railVisibility, item.view) ? navItem(item) : null),
+    [navItem, railVisibility],
   );
 
   const filterNavItems = useCallback(
@@ -1216,12 +1231,12 @@ function Shell() {
       items
         .filter(
           (item) =>
-            isNavViewVisible(navVisibility, item.view) &&
+            isNavViewVisible(railVisibility, item.view) &&
             (!FORGE_GATED_VIEWS.includes(item.view) || isForgeViewAvailable(item.view)) &&
             (item.view !== 'optimizer' || optimizerEnabled),
         )
         .map(navItem),
-    [navItem, navVisibility, isForgeViewAvailable, optimizerEnabled],
+    [navItem, railVisibility, isForgeViewAvailable, optimizerEnabled],
   );
 
   const nav: NavConfig = useMemo(
@@ -1503,7 +1518,7 @@ function Shell() {
           keeps the stackHeight reasoning above intact.
         */}
         <CommitActivityPanel slot="bottom" />
-        <StatusBar fab={fabInStatusBar && !fabHidden ? fabNode : null} />
+        <StatusBar fab={fabInStatusBar && !fabHidden && loopsOn ? fabNode : null} />
         {/*
           Eager, not lazy, and for the same reason `BrowserPane` is: this is
           what `Mod+B` puts on screen, and a modal that arrives a chunk-fetch
@@ -1514,7 +1529,7 @@ function Shell() {
         {/* Mod+T's own HUD (`TerminalSwitcherOverlay`) — same "eager, always
             mounted" reasoning as `BrowserSwitcherOverlay` just above. */}
         <TerminalSwitcherOverlay />
-        <NotesModal />
+        {disabledFeatures.includes('notes') ? null : <NotesModal />}
         {/*
           The FAB's own entry point (Theme E) — self-contained, so it only
           needs mounting here. The statusbar's `assistant-menu.tsx` used to
@@ -1523,7 +1538,7 @@ function Shell() {
           FAB button above and the `Mod+l` chord are now the only ways to
           flip `quickAccessOpen`.
         */}
-        {quickAccessOpen ? (
+        {quickAccessOpen && loopsOn ? (
           <QuickAccessMenu
             trigger={fabButtonRef}
             anchor={fabInStatusBar ? fabButtonRef : undefined}
@@ -1693,7 +1708,13 @@ function Shell() {
                   window — the fallthrough that quietly caught `sessions` for
                   four phases no longer exists to catch anything.
                 */}
-                      {viewIsGlobal || selectedRepoId ? <Component /> : <EmptyWorkspace />}
+                      {activeFeatureOff !== undefined ? (
+                        <FeatureOffState feature={activeFeatureOff} />
+                      ) : viewIsGlobal || selectedRepoId ? (
+                        <Component />
+                      ) : (
+                        <EmptyWorkspace />
+                      )}
                     </div>
                   </Suspense>
                 </ErrorBoundary>
@@ -1940,7 +1961,7 @@ function Shell() {
             `companionEnabled` (above), so a disabled companion never
             suppresses this button.
           */}
-          {!fabPanelDocked && !companionDocked && !fabInStatusBar ? (
+          {!fabPanelDocked && !companionDocked && !fabInStatusBar && loopsOn ? (
             <div className="absolute bottom-4 right-4 z-20 h-10 w-10">
               {fabNode}
             </div>

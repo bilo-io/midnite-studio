@@ -205,6 +205,11 @@ export async function stopVanguardSensors(): Promise<void> {
   await serviceInstance?.host.stop();
 }
 
+/** Phase 135: start the sensors again after Vanguard was switched off and back on (the service already exists). */
+export async function resumeVanguardSensors(): Promise<void> {
+  await serviceInstance?.host.start();
+}
+
 export function registerVanguardHandlers(getWindow: () => BrowserWindow | null): void {
   getWindowThunk = getWindow;
   const ctx: FeatureMainContext = {

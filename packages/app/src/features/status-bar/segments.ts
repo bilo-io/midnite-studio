@@ -1,3 +1,4 @@
+import type { FeatureToggleId } from '@midnite/studio-shared';
 
 import { FinanceSegment } from '@midnite/studio-feature-finance/renderer';
 
@@ -100,3 +101,23 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
   { id: 'notification-bell', zone: 'right', group: 'alerts', priority: 50, label: 'Notifications', El: NotificationBell },
   { id: 'assistant-menu', zone: 'right', group: 'alerts', priority: 60, label: 'Midnite Assistant', El: AssistantMenu },
 ];
+
+/**
+ * The feature behind each segment that belongs to one (Phase 135 Theme C): a switched-off feature's segment leaves
+ * the bar. Segments without an entry (repos, terminal, palette, progress, alerts) are the frame's and always stay.
+ */
+export const SEGMENT_FEATURE: Partial<Record<string, FeatureToggleId>> = {
+  'browser-toggle': 'browser',
+  finance: 'finance',
+  'test-verdict': 'tests',
+  'checks-verdict': 'forge',
+  monitor: 'monitor',
+};
+
+export function segmentsFor(disabled: readonly FeatureToggleId[]): StatusSegment[] {
+  if (disabled.length === 0) return STATUS_SEGMENTS;
+  return STATUS_SEGMENTS.filter((segment) => {
+    const feature = SEGMENT_FEATURE[segment.id];
+    return feature === undefined || !disabled.includes(feature);
+  });
+}

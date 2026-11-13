@@ -5,6 +5,7 @@ import type { FeatureMainContext } from '@midnite/studio-runtime';
 
 import { app } from 'electron';
 
+import { bindFeatureLifecycle } from '../feature-gate';
 import { defaultLogger } from '../log';
 import { handle, handleBare, handleSend } from './handle';
 import { accountCredentials, readTwelveDataKey } from './secrets-handlers';
@@ -30,6 +31,17 @@ export function registerFinanceHandlers(): void {
     twelveDataKey: readTwelveDataKey,
     warn: (issue) => defaultLogger.warn(issue),
   });
-  // Keep the FX table fresh in the background; a failed refresh is only logged.
-  startRatesRefresh(runtime, (message) => defaultLogger.warn(message));
+  // Keep the FX table fresh in the background while Finance is on; a failed refresh is only logged.
+  let stopRates: (() => void) | null = null;
+  bindFeatureLifecycle(
+    'finance',
+    'FX rates refresh',
+    () => {
+      stopRates = startRatesRefresh(runtime, (message) => defaultLogger.warn(message));
+    },
+    () => {
+      stopRates?.();
+      stopRates = null;
+    },
+  );
 }

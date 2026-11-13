@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { pickForgeRemote, type StatsWindow } from '@midnite/studio-shared';
+import { useDisabledFeatures } from '@midnite/studio-frame';
 import {
   LuActivity,
   LuArrowDown,
@@ -173,9 +174,10 @@ export function DashboardView() {
   const { data: remotes } = useRemotes(selectedRepoId);
   const forge = pickForgeRemote(remotes ?? [])?.forge ?? null;
   const hasForge = forge?.kind === 'github';
+  const disabledFeatures = useDisabledFeatures();
 
   const layoutIds = useMemo(() => board.layout.map((item) => item.i), [board.layout]);
-  const specs = useMemo(() => renderableWidgets(layoutIds, hasForge), [layoutIds, hasForge]);
+  const specs = useMemo(() => renderableWidgets(layoutIds, hasForge, disabledFeatures), [layoutIds, hasForge, disabledFeatures]);
   const onBoard = useMemo(() => new Set(specs.map((spec) => spec.id)), [specs]);
 
   const withChurn = needsChurn(layoutIds);
@@ -250,7 +252,7 @@ export function DashboardView() {
    * runs entry at all, rather than three entries that add a permanently empty
    * tile.
    */
-  const offered = availableWidgets(hasForge);
+  const offered = availableWidgets(hasForge, disabledFeatures);
 
   const ordered = inReadingOrder(board.layout);
   const widgetMenu = (id: WidgetId): MenuItem[] => {

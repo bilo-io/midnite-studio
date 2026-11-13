@@ -42,6 +42,8 @@ export const SETTINGS_SECTIONS: Record<SettingsPageId, readonly SettingsSection[
   privacy: [
     section('Location'),
   ],
+  // The group sections are drawn from `FEATURE_TOGGLE_GROUPS`, so only the static one is anchored here.
+  features: [section('Always on', 'feature', 'toggle', 'terminal', 'accounts')],
   graph: [
     section('Style'),
     section('Row density'),

@@ -83,6 +83,37 @@ export type WorkflowsMainServices = {
 };
 
 let gateApprovalTimer: ReturnType<typeof setInterval> | null = null;
+let gateApprovalPollMs: number | undefined;
+/** Phase 135 Theme E: while paused (the feature is switched off) no trigger is armed and the gate poll is idle. */
+let backgroundPaused = false;
+
+function reconcileTriggers(): void {
+  if (backgroundPaused) {
+    reconcileTriggerScheduler([]);
+    return;
+  }
+  void listWorkflows().then((workflows) => {
+    if (!backgroundPaused) reconcileTriggerScheduler(workflows);
+  });
+}
+
+function armGatePoll(): void {
+  if (gateApprovalTimer !== null) clearInterval(gateApprovalTimer);
+  gateApprovalTimer = null;
+  if (gateApprovalPollMs === undefined || backgroundPaused) return;
+  gateApprovalTimer = setInterval(() => void pollWorkflowGateApprovals(), gateApprovalPollMs);
+  gateApprovalTimer.unref();
+}
+
+/**
+ * Pause or resume the feature's background work — trigger schedules and the gate-approval poll — without
+ * touching its stores or in-flight runs. Studio calls it when Workflows is switched off or back on.
+ */
+export function setWorkflowsBackgroundPaused(paused: boolean): void {
+  backgroundPaused = paused;
+  reconcileTriggers();
+  armGatePoll();
+}
 
 /**
  * Stops the feature's own background work and kills what it spawned: the gate poll, the demo API
@@ -111,17 +142,11 @@ export const workflowsMain = defineFeatureMain<WorkflowsMainServices>({
 
     // Phase 97 Theme H — arms `trigger` nodes for every enabled workflow, now and whenever one is saved or deleted.
     initTriggerScheduler(workflowsLog());
-    const reconcile = (): void => {
-      void listWorkflows().then((workflows) => reconcileTriggerScheduler(workflows));
-    };
-    reconcile();
-    onWorkflowsChanged(reconcile);
+    reconcileTriggers();
+    onWorkflowsChanged(reconcileTriggers);
 
-    if (services.gateApprovalPollMs !== undefined) {
-      if (gateApprovalTimer !== null) clearInterval(gateApprovalTimer);
-      gateApprovalTimer = setInterval(() => void pollWorkflowGateApprovals(), services.gateApprovalPollMs);
-      gateApprovalTimer.unref();
-    }
+    gateApprovalPollMs = services.gateApprovalPollMs;
+    armGatePoll();
 
     ipc.handleBare(CHANNELS.workflowList, async () => ({ workflows: await listWorkflows() }));
 

@@ -4,6 +4,7 @@ import { CompanionSttEngineSchema, CompanionVoiceSelectionSchema, SttProviderIdS
 import { METRIC_IDS, METRICS_IDLE_INTERVAL_MS } from './domain/metrics';
 import { ActivityStatusSchema, ActivityStatusStyleSchema, DEFAULT_ACTIVITY_PALETTE_ID } from './activity-palette';
 import { FeatureFlagsPrefsSchema } from './feature-flags';
+import { StudioFeaturesPrefsSchema } from './feature-toggles';
 
 /**
  * The suite-prefs file (Phase 123 Theme L.1, Decision 6) — the preferences every
@@ -183,6 +184,8 @@ export const SUITE_PREFS_GROUPS = {
   monitor: MonitorPrefsSchema,
   /** Phase 134 Theme D: feature flags (`feature-flags.ts`), one value for every suite app. */
   featureFlags: FeatureFlagsPrefsSchema,
+  /** Phase 135: which of Studio's features are switched off (`feature-toggles.ts`). Only Studio applies it. */
+  studioFeatures: StudioFeaturesPrefsSchema,
 } as const;
 
 export type SuitePrefsKey = keyof typeof SUITE_PREFS_GROUPS;
@@ -201,6 +204,7 @@ export const SuitePrefsSchema = z
     terminal: TerminalPrefsSchema,
     monitor: MonitorPrefsSchema,
     featureFlags: FeatureFlagsPrefsSchema,
+    studioFeatures: StudioFeaturesPrefsSchema,
   })
   .partial();
 export type SuitePrefsFile = z.infer<typeof SuitePrefsSchema>;
