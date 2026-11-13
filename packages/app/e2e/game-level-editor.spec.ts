@@ -71,8 +71,9 @@ test('paint three cells by pointer drag, undo the next stroke, Save writes one l
   await page.getByRole('button', { name: 'Undo' }).click();
   await save.click();
 
-  await expect.poll(() => page.evaluate(() => (window as unknown as { __mstudioMockGames: { calls: Array<Record<string, unknown>> } }).__mstudioMockGames.calls.filter((c) => c.call === 'levelSet').length)).toBe(1);
-  const call = await page.evaluate(() => (window as unknown as { __mstudioMockGames: { calls: Array<Record<string, unknown>> } }).__mstudioMockGames.calls.find((c) => c.call === 'levelSet'));
+  const levelSets = () => page.evaluate(() => (window as unknown as { __mstudioMockGames: { calls: Array<Record<string, unknown>> } }).__mstudioMockGames.calls.filter((c) => c.call === 'levelSet'));
+  await expect.poll(async () => (await levelSets()).length).toBe(1);
+  const [call] = await levelSets();
   const saved = call!.level as { layers: Array<{ name: string; data?: number[] }> };
   const ground = saved.layers.find((l) => l.name === 'ground')!.data!;
   const painted = ground.map((g, i) => (g === 1 ? i : -1)).filter((i) => i >= 0);
