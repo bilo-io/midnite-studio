@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 122 Theme H (partial) — Guard: schedule, cost and disclosure
+
+PR (see the Phase 122 H PR). `guard.sweep` command and `guardSweepNow` channel, a Guard paragraph in `SECURITY.md`, and the rewritten Guard docblock. Open: the tab button, daily default schedule, the extra egress entries, the perf script and the battery gate (see the phase doc).
+
 ## 2026-11-13 — Phase 122 Theme G — Guard: findings in the Guard tab
 
 PR (see the Phase 122 G PR). A Findings section in the Guard tab (severity groups, filters, new mark, evidence, confirmed actions), eight new remediation ids with pending reasons, the package-manager argv builder and the one-fingerprint agent prompt. Package fixes end to end and the Fix-with-agent button are still open.

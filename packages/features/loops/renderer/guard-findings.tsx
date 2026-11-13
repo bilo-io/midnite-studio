@@ -48,10 +48,21 @@ function useGuardFindings(): { findings: SecurityFinding[]; loaded: boolean } {
 export function GuardFindings() {
   const { findings, loaded } = useGuardFindings();
   const [open, setOpen] = useState(true);
+  const [sweeping, setSweeping] = useState(false);
+  const [sweepNote, setSweepNote] = useState<string | null>(null);
   const [filter, setFilter] = useState<GuardFindingFilter>(DEFAULT_GUARD_FILTER);
   const visible = useMemo(() => filterGuardFindings(findings, filter), [findings, filter]);
   const groups = useMemo(() => groupBySeverity(visible), [visible]);
   const categories = useMemo(() => categoriesOf(findings), [findings]);
+
+  const sweepNow = useCallback((): void => {
+    setSweeping(true);
+    setSweepNote(null);
+    void Promise.resolve(bridge()?.guardSweepNow?.())
+      .then((r) => setSweepNote(r && !r.ok ? (r.message ?? 'The sweep did not run.') : null))
+      .catch(() => setSweepNote('The sweep did not run.'))
+      .finally(() => setSweeping(false));
+  }, []);
 
   return (
     <div className="shrink-0 border-b border-border" data-testid="guard-findings">
@@ -89,7 +100,20 @@ export function GuardFindings() {
               <option value="open">Open</option>
               <option value="all">All</option>
             </select>
+            <button
+              type="button"
+              onClick={sweepNow}
+              disabled={sweeping}
+              className="ml-auto rounded border border-border px-1.5 py-0.5 hover:text-foreground disabled:opacity-50"
+            >
+              {sweeping ? 'Sweeping…' : 'Sweep now'}
+            </button>
           </div>
+          {sweepNote ? (
+            <p role="status" className="mb-1 text-[10px] text-muted-foreground">
+              {sweepNote}
+            </p>
+          ) : null}
           {!loaded ? null : groups.length === 0 ? (
             <p className="py-1 text-[11px] text-muted-foreground">No findings from the last sweep.</p>
           ) : (

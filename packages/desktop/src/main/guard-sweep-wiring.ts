@@ -86,6 +86,17 @@ export function startGuardSweeps(options: { userData: string }): void {
   void sweeper.start().catch((error: unknown) => defaultLogger.warn(`guard sweep: ${String(error)}`));
 }
 
+/** Runs a sweep now, for the Sweep now button and the palette command; refuses while another is running. */
+export async function sweepGuardNow(): Promise<{ ok: boolean; message?: string }> {
+  if (!scheduler) return { ok: false, message: 'Guard sweeps are not running.' };
+  try {
+    await scheduler.sweepNow();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 export function stopGuardSweeps(): void {
   stopWatching?.();
   stopWatching = null;

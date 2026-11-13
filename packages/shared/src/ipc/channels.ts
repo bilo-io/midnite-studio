@@ -1722,6 +1722,8 @@ export const CHANNELS = {
   vanguardSensors: 'mstudio:vanguard:sensors',
   /** Run one sensor now. */
   vanguardSensorRun: 'mstudio:vanguard:sensor-run',
+  /** Run a Guard sweep now (Phase 122 Theme H): the tab's Sweep now button and the `guard.sweep` command. */
+  guardSweepNow: 'mstudio:guard:sweep-now',
   /** Read the persisted Vanguard settings. */
   vanguardSettingsGet: 'mstudio:vanguard:settings-get',
   /** Merge a partial update into the persisted Vanguard settings. */

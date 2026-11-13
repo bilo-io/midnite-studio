@@ -134,7 +134,7 @@ import {
 import { registerLoopRunsHandlers } from './ipc/loop-runs-handlers';
 import { registerSuitePrefsHandlers } from './ipc/suite-prefs-handlers';
 import { configureLoopRuns, emitChanged as emitLoopRunsChanged, noteSessionExit, setGuardSummaryProvider } from './loop-runs';
-import { latestGuardSweepSummary, startGuardSweeps, stopGuardSweeps } from './guard-sweep-wiring';
+import { latestGuardSweepSummary, startGuardSweeps, stopGuardSweeps, sweepGuardNow } from './guard-sweep-wiring';
 import { createTerminalStore } from './terminal-store';
 import {
   configureTerminals,
@@ -840,6 +840,7 @@ export const startStudioMain: StartStudioMain = () => {
       // Phase 122: the scheduled Guard sweep (checks and resolvers of Themes B and C) and its summary on a Guard run's record.
       setGuardSummaryProvider(latestGuardSweepSummary);
       startGuardSweeps({ userData });
+      handleBare(CHANNELS.guardSweepNow, sweepGuardNow);
       void startVanguardSensors(userData).catch((error: unknown) => defaultLogger.warn(`vanguard sensors failed to start: ${String(error)}`));
       configureVideo(createVideoProjectsStore(userData), {
         emit: (channel, payload) => {
