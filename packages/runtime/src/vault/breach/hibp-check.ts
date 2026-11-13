@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { guardedFetchFor } from '../../net/guarded-fetch';
 export const HIBP_API_BASE = 'https://api.pwnedpasswords.com/range';
 export const BREACH_CACHE_FILE = 'vault-breach-cache.json';
 export const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -34,7 +35,7 @@ export type BreachChecker = {
   clearCache(): Promise<void>;
 };
 
-export function createBreachChecker(directory: string, customFetch: FetchFn = fetch): BreachChecker {
+export function createBreachChecker(directory: string, customFetch: FetchFn = guardedFetchFor('vault')): BreachChecker {
   const cachePath = join(directory, BREACH_CACHE_FILE);
   let cache: StoredBreachCache | null = null;
 
