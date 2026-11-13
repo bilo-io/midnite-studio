@@ -56,6 +56,41 @@ export function migratePrSkills(state: Record<string, unknown>): Record<string, 
   return state;
 }
 
+/**
+ * v38 → v39: `/midnite-create(-adhoc)` became `/midnite-build(-adhoc)` and `/midnite-ideate` became
+ * `/midnite-plan`. Same fields as the v38 arm, since a saved prompt naming a deleted skill is broken
+ * whatever surrounds it. `/midnite-refine` still exists and is left alone.
+ */
+const BUILD_PLAN_RENAMES: readonly (readonly [RegExp, string])[] = [
+  [/(?<![\w-])midnite-create-adhoc(?![\w-])/g, 'midnite-build-adhoc'],
+  [/(?<![\w-])midnite-create(?![\w-])/g, 'midnite-build'],
+  [/(?<![\w-])midnite-ideate(?![\w-])/g, 'midnite-plan'],
+];
+
+export function renameBuildPlanSkills(prompt: string): string {
+  return BUILD_PLAN_RENAMES.reduce((out, [pattern, next]) => out.replace(pattern, next), prompt);
+}
+
+function renameBuildPlanSkillsDeep(value: unknown, onlyKeys?: ReadonlySet<string>, key?: string): unknown {
+  if (typeof value === 'string') return onlyKeys && !(key && onlyKeys.has(key)) ? value : renameBuildPlanSkills(value);
+  if (Array.isArray(value)) return value.map((inner) => renameBuildPlanSkillsDeep(inner, onlyKeys, key));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([k, inner]) => [k, renameBuildPlanSkillsDeep(inner, onlyKeys, k)]),
+    );
+  }
+  return value;
+}
+
+/** The v39 arm. */
+export function migrateBuildPlanSkills(state: Record<string, unknown>): Record<string, unknown> {
+  for (const key of ['agentSkills', 'loopModifierSkills', 'cardSkillByTask', 'columnSkillByProject']) {
+    if (state[key] !== undefined) state[key] = renameBuildPlanSkillsDeep(state[key]);
+  }
+  if (state.customLoops !== undefined) state.customLoops = renameBuildPlanSkillsDeep(state.customLoops, CUSTOM_LOOP_SKILL_KEYS);
+  return state;
+}
+
 export function renameLegacySkills(prompt: string): string {
   return SKILL_RENAMES.reduce((out, [pattern, next]) => out.replace(pattern, next), prompt);
 }

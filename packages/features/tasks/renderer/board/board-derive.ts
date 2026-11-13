@@ -164,8 +164,8 @@ export function composeSkillLaunchPrompt(item: ForgeProjectItem, skillTemplate: 
  * matching skill; every other column keeps today's status-only drop.
  */
 export const DEFAULT_COLUMN_SKILLS: Readonly<Record<string, string>> = Object.freeze({
-  'in progress': '/midnite-create',
-  'in review': '/midnite-review',
+  'in progress': '/midnite-build',
+  'in review': '/midnite-pr-review',
 });
 
 /** `DEFAULT_COLUMN_SKILLS`' own lookup key for a column name — trimmed and

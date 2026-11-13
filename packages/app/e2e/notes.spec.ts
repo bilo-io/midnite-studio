@@ -194,7 +194,7 @@ test.describe('the full note lifecycle', () => {
     await expect(page.locator('[data-terminal-panel]')).toBeVisible();
 
     await expect.poll(() => ptyInputs(page)).toEqual([
-      "claude '/midnite-ideate draft a plan for the settings redesign'",
+      "claude '/midnite-plan draft a plan for the settings redesign'",
     ]);
     const inputs = await ptyInputs(page);
     // `autoSend: false` end to end: no `\r` reached the pty. Pressing Return
@@ -228,7 +228,7 @@ test.describe('the full note lifecycle', () => {
     await expect(page.locator('[data-terminal-panel]')).toBeVisible();
 
     await expect.poll(() => ptyInputs(page)).toEqual([
-      "claude '/midnite-create-adhoc wire the missing icon on the empty state'",
+      "claude '/midnite-build-adhoc wire the missing icon on the empty state'",
     ]);
   });
 });

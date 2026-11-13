@@ -36,11 +36,11 @@ describe('MidniteMenu', () => {
     expect(items.map((i) => i.label)).toEqual(['Tasks', 'Reviews', 'Releases', 'Git', 'Loops']);
     const byGroup = Object.fromEntries(items.map((i) => [i.label, (i.submenu ?? []).map((s) => s.label)]));
     expect(byGroup['Tasks']).toEqual([
-      'Backlog Task',
+      'Build Task',
       'Adhoc Task',
       'Address Issue',
-      'Ideate',
-      'Refine Plan',
+      'Plan',
+      'Design & Refine',
       'Verify Phase',
       'Swarm',
       'Create PR',
@@ -65,8 +65,8 @@ describe('MidniteMenu', () => {
     const items = openItems();
     const tasks = items.find((i) => i.label === 'Tasks');
     expect(tasks?.description).toBe('Plan and build work in this repository.');
-    const backlog = tasks?.submenu?.find((s) => s.label === 'Backlog Task');
-    expect(backlog?.description).toBe('Pick up the next unblocked backlog task and build it.');
+    const backlog = tasks?.submenu?.find((s) => s.label === 'Build Task');
+    expect(backlog?.description).toBe('Pick up unblocked tasks across category indexes and build them.');
     for (const item of items) {
       expect(item.description).toBeTruthy();
       for (const sub of item.submenu ?? []) expect(sub.description).toBeTruthy();
@@ -75,10 +75,10 @@ describe('MidniteMenu', () => {
 
   it('an entry hands its skill off for this repo', () => {
     const items = openItems();
-    const backlog = items[0]?.submenu?.find((s) => s.label === 'Backlog Task');
+    const backlog = items[0]?.submenu?.find((s) => s.label === 'Build Task');
     backlog?.onSelect?.();
     expect(mockHandoff).toHaveBeenCalledWith(
-      expect.objectContaining({ repoId: 'r1', cwd: '/p', title: 'Backlog Task' }),
+      expect.objectContaining({ repoId: 'r1', cwd: '/p', title: 'Build Task' }),
     );
   });
 

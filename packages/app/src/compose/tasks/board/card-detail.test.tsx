@@ -298,7 +298,7 @@ describe('CardDetail', () => {
       renderDetail();
       fireEvent.click(combobox());
       expect(await screen.findByText('Adhoc Task')).toBeDefined();
-      expect(screen.getByText('Backlog Task')).toBeDefined();
+      expect(screen.getByText('Build Task')).toBeDefined();
       expect(screen.queryByText('PR Review')).toBeNull();
     });
 

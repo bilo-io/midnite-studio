@@ -312,7 +312,7 @@ test.describe('drag-to-skill (Phase 95 Theme G)', () => {
       .toContain('forgeProjectSetField');
 
     // The Undo toast names the mapped skill and the card, in full.
-    await expect(page.getByText('/midnite-create on #42 in 5s')).toBeVisible();
+    await expect(page.getByText('/midnite-build on #42 in 5s')).toBeVisible();
     await page.getByRole('button', { name: 'Undo' }).click();
 
     // And the move itself reverted — a second real write back to Todo, not
@@ -338,11 +338,11 @@ test.describe('drag-to-skill (Phase 95 Theme G)', () => {
     const progressColumn = page.getByRole('button', { name: 'Collapse In progress' });
     await dragOnto(page, card, progressColumn);
 
-    await expect(page.getByText('/midnite-create on #42 in 5s')).toBeVisible();
+    await expect(page.getByText('/midnite-build on #42 in 5s')).toBeVisible();
 
     await expect.poll(async () => (await ptyCalls(page)).creates.length, { timeout: 8000 }).toBe(1);
     const create = (await ptyCalls(page)).creates[0]!;
-    expect(create.initialInput).toContain('/midnite-create https://github.com/bilo-io/midnite-studio/issues/42');
+    expect(create.initialInput).toContain('/midnite-build https://github.com/bilo-io/midnite-studio/issues/42');
     // `autoSend: true` — the trailing `\r` is what tells a typed prompt from
     // a sent one; Play's own default composes the identical words with none.
     expect(create.initialInput?.endsWith('\r')).toBe(true);
@@ -586,8 +586,8 @@ test.describe('Play button — the card skill picker', () => {
     await page.getByText('Wire the write path').click();
     const picker = page.getByTestId('card-detail').last().getByRole('combobox', { name: 'Skill' });
     // Prepopulated for an ad hoc card nobody has chosen a skill for.
-    await expect(picker).toHaveValue('/midnite-create-adhoc');
-    await picker.fill('/midnite-create 98 D');
+    await expect(picker).toHaveValue('/midnite-build-adhoc');
+    await picker.fill('/midnite-build 98 D');
     await picker.press('Enter');
 
     const card = page
@@ -599,7 +599,7 @@ test.describe('Play button — the card skill picker', () => {
     expect(await page.getByRole('menu').count()).toBe(0);
     await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
     const create = (await ptyCalls(page)).creates[0]!;
-    expect(create.initialInput).toContain("'/midnite-create 98 D https://github.com/bilo-io/midnite-studio/issues/42'");
+    expect(create.initialInput).toContain("'/midnite-build 98 D https://github.com/bilo-io/midnite-studio/issues/42'");
     expect(create.initialInput).not.toContain('Wire the write path');
 
     // And the terminal panel opened on it — `revealSession`'s own job.
@@ -623,6 +623,6 @@ test.describe('Play button — the card skill picker', () => {
     expect(await page.getByRole('menu').count()).toBe(0);
     await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
     const create = (await ptyCalls(page)).creates[0]!;
-    expect(create.initialInput).toContain('/midnite-ideate https://github.com/bilo-io/midnite-studio/issues/43');
+    expect(create.initialInput).toContain('/midnite-plan https://github.com/bilo-io/midnite-studio/issues/43');
   });
 });

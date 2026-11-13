@@ -171,7 +171,7 @@ test.describe('Play button — the card skill picker', () => {
     expect(await page.getByRole('menu').count()).toBe(0);
     await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
     const create = (await ptyCalls(page)).creates[0]!;
-    expect(create.initialInput).toContain('/midnite-create-adhoc https://github.com/bilo-io/midnite-studio/issues/40');
+    expect(create.initialInput).toContain('/midnite-build-adhoc https://github.com/bilo-io/midnite-studio/issues/40');
     expect(create.initialInput).not.toContain('Land the write path');
 
     // The node was never selected by that click — `onPlay`'s own
@@ -198,6 +198,6 @@ test.describe('Play button — the card skill picker', () => {
     expect(await page.getByRole('menu').count()).toBe(0);
     await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
     const create = (await ptyCalls(page)).creates[0]!;
-    expect(create.initialInput).toContain('/midnite-create-adhoc https://github.com/bilo-io/midnite-studio/issues/41');
+    expect(create.initialInput).toContain('/midnite-build-adhoc https://github.com/bilo-io/midnite-studio/issues/41');
   });
 });
