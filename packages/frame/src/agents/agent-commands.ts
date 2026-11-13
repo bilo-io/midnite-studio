@@ -178,7 +178,7 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
     label: 'Swarm',
     icon: LuNetwork,
     category: 'tasks',
-    hint: 'Fan work out across parallel agents on several phases at once.',
+    hint: 'Fan work out across parallel agents, one per phase or task, at once.',
   },
   {
     id: 'prCreate',
@@ -345,7 +345,7 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
   brainstorm: '/midnite-plan',
   refine: '/midnite-design',
   verifyPhase: '/midnite-verify',
-  execSwarm: '/midnite-swarm',
+  execSwarm: '/midnite-fleet',
   prCreate: '/midnite-pr-create',
   prReview: '/midnite-pr-review',
   prFeedback: '/midnite-pr-feedback',

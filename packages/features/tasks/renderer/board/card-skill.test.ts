@@ -19,7 +19,7 @@ const AGENT_SKILLS = {
   brainstorm: '/midnite-ideate',
   refine: '/midnite-refine',
   verifyPhase: '/midnite-verify',
-  execSwarm: '/midnite-swarm',
+  execSwarm: '/midnite-fleet',
 };
 
 const skill = (name: string, description = `${name} does things`): RepoSkill => ({
@@ -184,7 +184,7 @@ describe('buildSkillSuggestions', () => {
       '/midnite-ideate',
       '/midnite-refine',
       '/midnite-verify',
-      '/midnite-swarm',
+      '/midnite-fleet',
     ]);
     expect(list.at(-1)).toMatchObject({ group: 'other', value: '/graphify' });
   });

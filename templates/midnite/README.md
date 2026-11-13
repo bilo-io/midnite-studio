@@ -11,8 +11,8 @@ copies this tree into a target repo; re-running it there is an upgrade, not a fr
 - **`.midnite/`** — the tracker skeleton: `settings.json`, `tasks/_INDEX.md` (headers + an empty
   phase table), `tasks/done.md`, `tasks/outstanding.md`, an empty `tasks/phases/`, and
   `_features.md`.
-- **`.claude/skills/`, `.agents/skills/`, `.codex/skills/`** — three verbatim mirrors of the same
-  ten skills, because each CLI (Claude Code, Codex, Antigravity/Gemini) reads its own path.
+- **`.claude/skills/`, `.agents/skills/`, `.codex/skills/`** — three mirrors of the same
+  eighteen workflow skills (plus the Media set), because each CLI (Claude Code, Codex, Antigravity/Gemini) reads its own path.
   Symlinks were considered and rejected: zero drift by construction, but broken the moment the
   repo is cloned onto another machine, since a symlink target under `~/.claude/skills/` is
   machine-local. Three copies plus the eventual hash manifest solves the same drift problem
@@ -23,14 +23,17 @@ copies this tree into a target repo; re-running it there is an upgrade, not a fr
   left as a marked `<!-- TODO -->` placeholder. A stub that reads as a template is honest; a copy
   that names this repo's own package boundaries in someone else's repo is not.
 
-## Why these ten skills, and not the other three
+## Why these skills, and not the others
 
-Of the thirteen skills this repo has, ten are the workflow core and ship here:
-`midnite-ideate`, `midnite-create`, `midnite-swarm`, `midnite-create-adhoc`, `midnite-refine`,
-`midnite-address-issue`, `midnite-triage`, `midnite-git-report`, `midnite-git-cleanup`,
-`midnite-retro`.
-`midnite-swarm` holds true of any target repo — it is a pure orchestration layer over
-`midnite-create` with no credentials or product-specific assumptions of its own, so it passes the
+Of the skills this repo has, the workflow core ships here: the lifecycle set (`midnite-plan`,
+`midnite-design`, `midnite-refine`, `midnite-build`, `midnite-build-adhoc`, `midnite-test`,
+`midnite-maintain`, `midnite-deploy`, `midnite-verify`), the agent-group set (`midnite-agents`, the
+umbrella; `midnite-fleet`, separate tasks one agent each; `midnite-swarm`, one problem one agent per
+stage; `midnite-orchestrate`, the shared core they both run on) and the helpers
+(`midnite-address-issue`, `midnite-triage`, `midnite-git-report`, `midnite-git-cleanup`,
+`midnite-retro`). That is eighteen, beside the `midnite-media-*` skills.
+The agent-group set holds true of any target repo — it is a pure orchestration layer over
+`midnite-build` with no credentials or product-specific assumptions of its own, so it passes the
 test below and ships alongside it. So does `midnite-retro`: it reads
 whatever GitHub org or repo the user names and assumes nothing about the one it runs in. Three are deliberately excluded:
 
@@ -46,8 +49,8 @@ Also excluded, for the same test: the PR family (`midnite-pr-review`, `-pr-feedb
 and the sitrep family. They name this repo's slug, its `bilo-io` auth, its CI caps and its
 conventions, none of which hold in an arbitrary target repo.
 
-If a future onboarding pass wants to add an eleventh skill, ask whether it holds true of *any* target
-repo or only of this one — that's the test these three failed (and the test `midnite-swarm` and
+If a future onboarding pass wants to add another skill, ask whether it holds true of *any* target
+repo or only of this one — that's the test these three failed (and the test the agent-group set and
 `midnite-retro` passed).
 
 ## What Setup does not do

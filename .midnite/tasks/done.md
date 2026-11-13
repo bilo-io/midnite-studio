@@ -15923,3 +15923,7 @@ New `midnite-menu.test.tsx`, four readout tests in `monitor-cluster.test.tsx`, a
 ## 2026-11-13 — Phase 88 Theme G (verification, automated half) — terminal e2e and entry-chunk exclusion
 
 All nine terminal e2e specs the phase names pass locally against xterm 6.0.0 (no CI; one spec at a time, except `kanban` and `notes`, which ran together), and the entry chunk (1118.3 KB) holds no xterm or addon string; its static import closure is one chunk. `bundle-budget.spec.ts`'s total-JS test fails at 44448.7 KB against 15950 KB, unrelated to xterm and recorded in the phase doc. The human pass stays open, listed in the phase's Theme G Headlines.
+
+## 2026-11-13 — Ad hoc (skills) — midnite-swarm split into agents, fleet, swarm and orchestrate
+
+The old "one agent per phase" swarm is now `midnite-fleet`; `midnite-swarm` is one problem put through staged agents, `midnite-orchestrate` is the shared core and `midnite-agents` the umbrella (Fleet default). Mirrored into the three skill dirs and the onboarding kit, the convention files name them, and the app's Swarm command now defaults to `/midnite-fleet` (ui-store v40 migrates saved `/midnite-swarm`).
