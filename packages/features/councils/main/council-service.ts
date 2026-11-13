@@ -56,16 +56,24 @@ export async function getCouncil(id: string): Promise<Council | null> {
   return councils.find((c) => c.id === id) ?? null;
 }
 
-export async function createCouncil(name: string, description?: string): Promise<Council> {
+/** What a new council starts with; absent members seeds the starters (Phase 133 Theme E). */
+export type CouncilSeed = {
+  members?: CouncilMember[] | undefined;
+  synthProvider?: CouncilMemberProvider | undefined;
+  synthModel?: string | undefined;
+};
+
+export async function createCouncil(name: string, description?: string, seed: CouncilSeed = {}): Promise<Council> {
   await ensureCouncilsLoaded();
   const now = Date.now();
   const council: Council = {
     id: crypto.randomUUID(),
     name,
-    members: createStarterMembers(),
-    synthProvider: 'agy',
+    members: seed.members ?? createStarterMembers(),
+    synthProvider: seed.synthProvider ?? 'agy',
     createdAt: now,
     updatedAt: now,
+    ...(seed.synthModel === undefined ? {} : { synthModel: seed.synthModel }),
     ...(description === undefined ? {} : { description }),
   };
   councils = [...councils, council];
@@ -77,12 +85,20 @@ export async function updateCouncilMembers(
   id: string,
   members: CouncilMember[],
   synthProvider: CouncilMemberProvider,
+  synthModel?: string,
 ): Promise<Council | null> {
   await ensureCouncilsLoaded();
   const index = councils.findIndex((c) => c.id === id);
   if (index === -1) return null;
 
-  const updated: Council = { ...councils[index]!, members, synthProvider, updatedAt: Date.now() };
+  const { synthModel: _previous, ...rest } = councils[index]!;
+  const updated: Council = {
+    ...rest,
+    members,
+    synthProvider,
+    ...(synthModel === undefined ? {} : { synthModel }),
+    updatedAt: Date.now(),
+  };
   councils = [...councils.slice(0, index), updated, ...councils.slice(index + 1)];
   void councilsStore.save(councils);
   return updated;

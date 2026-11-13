@@ -1146,6 +1146,9 @@ export type MidniteStudioBridge = {
       req: In<typeof S.CouncilUpdateMembersRequest>,
     ) => Promise<z.infer<typeof S.CouncilUpdateMembersResponse>>;
     remove: (req: In<typeof S.CouncilRemoveRequest>) => Promise<GitOpResult>;
+    recommend: (
+      req: In<typeof S.CouncilRecommendRequest>,
+    ) => Promise<z.infer<typeof S.CouncilRecommendResponse>>;
     run: {
       start: (
         req: In<typeof S.CouncilRunStartRequest>,
@@ -1158,6 +1161,10 @@ export type MidniteStudioBridge = {
       ) => Promise<z.infer<typeof S.CouncilRunListResponse>>;
       skipMember: (req: In<typeof S.CouncilRunSkipMemberRequest>) => Promise<GitOpResult>;
       retryMember: (req: In<typeof S.CouncilRunRetryMemberRequest>) => Promise<GitOpResult>;
+      cancel: (req: In<typeof S.CouncilRunCancelRequest>) => Promise<GitOpResult>;
+      continue: (
+        req: In<typeof S.CouncilRunContinueRequest>,
+      ) => Promise<z.infer<typeof S.CouncilRunContinueResponse>>;
     };
   };
 

@@ -2767,13 +2767,20 @@ export function buildMockBridge(data: MockFixtures) {
       get: async (req: { id: string }) => ({
         council: councils.find((c) => c.id === req.id) ?? null,
       }),
-      create: async (req: { name: string; description?: string }) => {
+      create: async (req: {
+        name: string;
+        description?: string;
+        members?: unknown[];
+        synthProvider?: string;
+        synthModel?: string;
+      }) => {
         const now = Date.now();
         const council = {
           id: `council-${councils.length + 1}`,
           name: req.name,
           ...(req.description === undefined ? {} : { description: req.description }),
-          members: [
+          ...(req.synthModel === undefined ? {} : { synthModel: req.synthModel }),
+          members: req.members ?? [
             {
               id: 'm1',
               name: 'Optimist',
@@ -2799,14 +2806,14 @@ export function buildMockBridge(data: MockFixtures) {
               role: 'Ignore near-term constraints.',
             },
           ],
-          synthProvider: 'agy' as const,
+          synthProvider: req.synthProvider ?? 'agy',
           createdAt: now,
           updatedAt: now,
         };
         councils = [...councils, council];
         return { ok: true as const, value: council };
       },
-      updateMembers: async (req: { id: string; members: unknown[]; synthProvider: string }) => {
+      updateMembers: async (req: { id: string; members: unknown[]; synthProvider: string; synthModel?: string }) => {
         const index = councils.findIndex((c) => c.id === req.id);
         const existing = councils[index];
         // `noUncheckedIndexedAccess` types `councils[index]` as possibly
@@ -2821,6 +2828,7 @@ export function buildMockBridge(data: MockFixtures) {
           ...existing,
           members: req.members,
           synthProvider: req.synthProvider,
+          synthModel: req.synthModel,
           updatedAt: Date.now(),
         };
         councils = [...councils.slice(0, index), updated, ...councils.slice(index + 1)];
@@ -2867,14 +2875,56 @@ export function buildMockBridge(data: MockFixtures) {
               startedAt: now,
               endedAt: now,
             })),
+            synthesisStatus: 'succeeded' as const,
             synthesisOutput: `Synthesis of the panel's views on: ${req.prompt}`,
             synthesisTruncated: false,
+            turns: [] as unknown[],
+            turnStartedAt: now,
             createdAt: now,
             updatedAt: now,
           };
           councilRuns = [...councilRuns, run];
           return { ok: true as const, value: run };
         },
+        /**
+         * A follow-up turn (Phase 133 Theme D), answered at once like `start`:
+         * the latest turn moves into `turns`, the members answer the new prompt.
+         */
+        continue: async (req: { runId: string; prompt: string }) => {
+          const index = councilRuns.findIndex((r) => r.id === req.runId);
+          const existing = councilRuns[index];
+          if (index === -1 || !existing)
+            return { ok: false as const, kind: 'error' as const, message: 'Run not found.' };
+          const now = Date.now();
+          const members = (existing.members as Array<{ name: string; [key: string]: unknown }>).map((m) => ({
+            ...m,
+            output: `${m.name}'s answer to: ${req.prompt}`,
+            startedAt: now,
+            endedAt: now,
+          }));
+          const turn = {
+            prompt: existing.prompt,
+            status: existing.status,
+            members: existing.members,
+            synthProvider: existing.synthProvider,
+            synthesisStatus: existing.synthesisStatus,
+            synthesisOutput: existing.synthesisOutput,
+            createdAt: existing.turnStartedAt ?? existing.createdAt,
+            endedAt: existing.updatedAt,
+          };
+          const updated = {
+            ...existing,
+            prompt: req.prompt,
+            members,
+            synthesisOutput: `Synthesis of the panel's views on: ${req.prompt}`,
+            turns: [...((existing.turns as unknown[] | undefined) ?? []), turn],
+            turnStartedAt: now,
+            updatedAt: now,
+          };
+          councilRuns = [...councilRuns.slice(0, index), updated, ...councilRuns.slice(index + 1)];
+          return { ok: true as const, value: updated };
+        },
+        cancel: async () => ({ ok: false as const, kind: 'error' as const, message: 'This run is not running.' }),
         get: async (req: { runId: string }) => ({
           run: councilRuns.find((r) => r.id === req.runId) ?? null,
         }),
@@ -2884,6 +2934,19 @@ export function buildMockBridge(data: MockFixtures) {
         skipMember: async () => ({ ok: true as const }),
         retryMember: async () => ({ ok: true as const }),
       },
+      /** "Recommend a council" (Phase 133 Theme E): a fixed panel, no model asked. */
+      recommend: async (req: { name: string }) => ({
+        ok: true as const,
+        value: {
+          description: `A panel for ${req.name}.`,
+          synthProvider: 'claude' as const,
+          members: [
+            { name: 'Advocate', role: 'Make the strongest case for it.', provider: 'agy' as const },
+            { name: 'Critic', role: 'Find the strongest objection.', provider: 'claude' as const },
+            { name: 'Builder', role: 'Say what it would take to ship.', provider: 'agy' as const },
+          ],
+        },
+      }),
     },
     /**
      * Workflows (Phase 43). `run` answers with an already-`completed` run

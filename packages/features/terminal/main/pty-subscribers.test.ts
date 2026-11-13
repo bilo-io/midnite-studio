@@ -98,8 +98,8 @@ describe('pty output subscriber registry (Phase 55)', () => {
   });
 
   it('the main window always receives every ptyId, even with no explicit subscribe — and is deduplicated when it also does', () => {
-    // Regression guard: use-session-exits.ts and CouncilLiveOutput read
-    // pty.onData/onExit for a ptyId they never call pty.subscribe for, on
+    // Regression guard: use-session-exits.ts reads pty.onExit for a ptyId
+    // it never calls pty.subscribe for, on
     // the pre-Phase-55 guarantee that main got everything unconditionally.
     const main = new FakeBrowserWindow();
     mainWindow = main as unknown as RuntimeWindow;

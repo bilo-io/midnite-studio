@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 
-import { FENCE_CLOSE, UNTRUSTED_CONTENT_HEADER } from '@midnite/studio-shared';
-import { buildMemberPrompt, buildSynthesisPrompt } from './council-prompts';
+import { COUNCIL_FOLLOW_UP_EXCERPT_CHARS, FENCE_CLOSE, UNTRUSTED_CONTENT_HEADER } from '@midnite/studio-shared';
+import { buildFollowUpPrompt, buildMemberPrompt, buildSynthesisPrompt } from './council-prompts';
 
 describe('buildMemberPrompt', () => {
   it('includes both the role and the topic', () => {
@@ -64,5 +64,29 @@ describe('untrusted parts', () => {
 
   it('adds no header when no answer succeeded', () => {
     expect(buildSynthesisPrompt('T', [{ name: 'S', role: 'r', output: '', status: 'timeout' }])).not.toContain('UNTRUSTED');
+  });
+});
+
+describe('buildFollowUpPrompt (Phase 133 Theme D)', () => {
+  const base = { prompt: 'what about cost?', role: 'The skeptic.', firstTopic: 'ship it?', previousSynthesis: 'Ship in May.' };
+
+  it('a resumed member gets the follow-up and the last synthesis, fenced as untrusted', () => {
+    const prompt = buildFollowUpPrompt({ ...base, resumed: true });
+    expect(prompt).toContain('what about cost?');
+    expect(prompt).toContain('Ship in May.');
+    expect(prompt).toContain(UNTRUSTED_CONTENT_HEADER);
+    expect(prompt).not.toContain('The skeptic.');
+  });
+
+  it('a fresh member is also told its role and the first topic', () => {
+    const prompt = buildFollowUpPrompt({ ...base, resumed: false });
+    expect(prompt).toContain('The skeptic.');
+    expect(prompt).toContain('ship it?');
+  });
+
+  it('bounds the synthesis excerpt', () => {
+    const long = 'x'.repeat(COUNCIL_FOLLOW_UP_EXCERPT_CHARS * 3);
+    const prompt = buildFollowUpPrompt({ ...base, previousSynthesis: long, resumed: true });
+    expect(prompt.length).toBeLessThan(COUNCIL_FOLLOW_UP_EXCERPT_CHARS * 2);
   });
 });

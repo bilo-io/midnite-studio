@@ -1,12 +1,12 @@
 import { memo, useEffect, useRef, useState } from 'react';
 
 import type { ChatMessage as ChatMessageData } from '@midnite/studio-shared';
-import { LuCheck, LuCopy, LuFileText, LuPencil, LuRotateCcw, LuShieldAlert, LuTriangleAlert } from 'react-icons/lu';
+import { LuFileText, LuPencil, LuRotateCcw, LuShieldAlert, LuTriangleAlert } from 'react-icons/lu';
 
 import { ChatChangesCard } from './chat-changes-card';
 import { ThinkingPanel } from './thinking-panel';
 import type { ChatEngine } from './use-chat-engines';
-import { useToastStore } from '@midnite/studio-frame';
+import { CopyButton } from '@midnite/studio-frame';
 import { IconButton, MarkdownBody, UserAvatar } from './ui';
 import { useChatsHost } from './host';
 
@@ -17,36 +17,6 @@ import { useChatsHost } from './host';
  * message being written changes identity, so the rest of a long thread (and its
  * markdown + syntax highlighting) does not re-render with every chunk.
  */
-
-export async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    useToastStore.getState().addToast({ message: 'Could not copy to the clipboard.', status: 'error' });
-    return false;
-  }
-}
-
-function CopyButton({ text, label }: { text: string; label: string }) {
-  const [copied, setCopied] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => void (timer.current !== null && clearTimeout(timer.current)), []);
-  return (
-    <IconButton
-      icon={copied ? LuCheck : LuCopy}
-      label={copied ? 'Copied' : label}
-      size="sm"
-      onClick={() => {
-        void copyText(text).then((ok) => {
-          if (!ok) return;
-          setCopied(true);
-          timer.current = setTimeout(() => setCopied(false), 1500);
-        });
-      }}
-    />
-  );
-}
 
 const ACTIONS = 'mt-1 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100';
 

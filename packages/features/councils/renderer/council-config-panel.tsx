@@ -1,38 +1,40 @@
-import {
-  COUNCIL_MEMBER_PROVIDERS,
-  type Council,
-  type CouncilMember,
-  type CouncilMemberProvider,
-} from '@midnite/studio-shared';
-import { useEffect, useMemo, useState } from 'react';
+import { COUNCIL_MEMBER_PROVIDERS, type Council, type CouncilMember, type CouncilMemberProvider } from '@midnite/studio-shared';
+import { useEffect, useState } from 'react';
 import { LuGripVertical, LuPlus, LuTrash2 } from 'react-icons/lu';
 
+import { councilModelOptions, DEFAULT_MODEL_ID, useCouncilProviders } from './council-providers';
+import { useCouncilsHost } from './host';
 import { useRemoveCouncil, useUpdateCouncilMembers } from './use-council';
-import { useStartCouncilRun } from './use-council-run';
-import { InjectionBanner, SelectField, SortableList, useFlushableSave, useInjectionScans, useSortableRow } from '@midnite/studio-frame';
+import { SortableList, useFlushableSave, useSortableRow } from '@midnite/studio-frame';
 import { IconButton } from './ui';
 
-const PROVIDER_LABEL: Record<CouncilMemberProvider, string> = {
-  agy: 'Antigravity',
-  codex: 'Codex',
-  opencode: 'OpenCode',
-};
+const isProvider = (id: string): id is CouncilMemberProvider => (COUNCIL_MEMBER_PROVIDERS as readonly string[]).includes(id);
 
-const PROVIDER_OPTIONS = COUNCIL_MEMBER_PROVIDERS.map((provider) => ({
-  value: provider,
-  label: PROVIDER_LABEL[provider],
-}));
+/** A picker model id as stored: absent for the CLI's default. */
+const storedModel = (id: string): string | undefined => (id === DEFAULT_MODEL_ID ? undefined : id);
 
 /** Debounce for the members panel's auto-save, mirroring upstream's own. */
 const SAVE_DEBOUNCE_MS = 500;
 
-type PendingSave = { members: CouncilMember[]; synthProvider: CouncilMemberProvider };
+/** A member edit; `undefined` clears an optional field (a model back to the CLI's default). */
+type MemberPatch = { [K in keyof CouncilMember]?: CouncilMember[K] | undefined };
+
+function applyPatch(member: CouncilMember, patch: MemberPatch): CouncilMember {
+  const next: Record<string, unknown> = { ...member };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) delete next[key];
+    else next[key] = value;
+  }
+  return next as CouncilMember;
+}
+
+type PendingSave = { members: CouncilMember[]; synthProvider: CouncilMemberProvider; synthModel: string | undefined };
 
 /**
- * A council's configuration: members (drag- and keyboard-reorderable),
- * synthesizer, and the run composer — moved to the panel's right edge
- * (Phase 42 Theme C), extracted out of the 221-line `council-detail.tsx` that
- * used to hold this beside the run view.
+ * A council's configuration: members (drag- and keyboard-reorderable), each
+ * with its agent and model, and the synthesizer's agent and model (Phase 133
+ * Theme B). The composer that used to sit at the bottom of this panel moved
+ * under the thread in the centre pane (Phase 133 Theme C).
  *
  * Member order is **presentation and prompt order only** — members still run
  * in parallel, so reordering never implies a scheduling promise the runner
@@ -41,19 +43,20 @@ type PendingSave = { members: CouncilMember[]; synthProvider: CouncilMemberProvi
 export function CouncilConfigPanel({
   council,
   onDeleted,
-  onRunStarted,
   className,
 }: {
   council: Council;
   onDeleted: () => void;
-  onRunStarted: (runId: string) => void;
   className?: string;
 }) {
   const updateMembers = useUpdateCouncilMembers();
   const remove = useRemoveCouncil();
+  const { ProviderModelPicker } = useCouncilsHost();
+  const { providers } = useCouncilProviders();
 
   const [members, setMembers] = useState<CouncilMember[]>(council.members);
   const [synthProvider, setSynthProvider] = useState<CouncilMemberProvider>(council.synthProvider);
+  const [synthModel, setSynthModel] = useState<string | undefined>(council.synthModel);
 
   // Reset local editing state only when the *council itself* changes — not on
   // every refetch of the one we're already editing, which would clobber an
@@ -61,20 +64,31 @@ export function CouncilConfigPanel({
   useEffect(() => {
     setMembers(council.members);
     setSynthProvider(council.synthProvider);
+    setSynthModel(council.synthModel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [council.id]);
 
   const { schedule } = useFlushableSave<PendingSave>(
-    (pending) => updateMembers.mutate({ id: council.id, members: pending.members, synthProvider: pending.synthProvider }),
+    (pending) =>
+      updateMembers.mutate({
+        id: council.id,
+        members: pending.members,
+        synthProvider: pending.synthProvider,
+        ...(pending.synthModel === undefined ? {} : { synthModel: pending.synthModel }),
+      }),
     SAVE_DEBOUNCE_MS,
   );
 
-  const scheduleSave = (nextMembers: CouncilMember[], nextSynthProvider: CouncilMemberProvider): void => {
-    schedule({ members: nextMembers, synthProvider: nextSynthProvider });
+  const scheduleSave = (
+    nextMembers: CouncilMember[],
+    nextSynthProvider: CouncilMemberProvider,
+    nextSynthModel: string | undefined = synthModel,
+  ): void => {
+    schedule({ members: nextMembers, synthProvider: nextSynthProvider, synthModel: nextSynthModel });
   };
 
-  const updateMember = (index: number, patch: Partial<CouncilMember>) => {
-    const next = members.map((m, i) => (i === index ? { ...m, ...patch } : m));
+  const updateMember = (index: number, patch: MemberPatch) => {
+    const next = members.map((m, i) => (i === index ? applyPatch(m, patch) : m));
     setMembers(next);
     scheduleSave(next, synthProvider);
   };
@@ -118,9 +132,10 @@ export function CouncilConfigPanel({
     scheduleSave(next, synthProvider);
   };
 
-  const changeSynthProvider = (value: CouncilMemberProvider) => {
-    setSynthProvider(value);
-    scheduleSave(members, value);
+  const changeSynth = (provider: CouncilMemberProvider, model: string | undefined) => {
+    setSynthProvider(provider);
+    setSynthModel(model);
+    scheduleSave(members, provider, model);
   };
 
   return (
@@ -167,17 +182,20 @@ export function CouncilConfigPanel({
           <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Synthesize with
           </h3>
-          <SelectField
-            value={synthProvider}
-            onChange={changeSynthProvider}
-            options={PROVIDER_OPTIONS}
-            label="Synthesize with"
-            className="mt-1.5"
-          />
+          <div className="mt-1.5">
+            <ProviderModelPicker
+              providers={providers}
+              provider={synthProvider}
+              // A new agent starts on its own default model: the old model id belongs to the old agent.
+              onProviderChange={(id) => isProvider(id) && changeSynth(id, undefined)}
+              models={councilModelOptions(synthProvider)}
+              model={synthModel ?? DEFAULT_MODEL_ID}
+              onModelChange={(id) => changeSynth(synthProvider, storedModel(id))}
+              testId="council-synth-picker"
+            />
+          </div>
         </div>
       </div>
-
-      <RunComposer councilId={council.id} canStart={members.length > 0} onRunStarted={onRunStarted} />
     </div>
   );
 }
@@ -193,11 +211,13 @@ function MemberRow({
   member: CouncilMember;
   index: number;
   total: number;
-  onChange: (patch: Partial<CouncilMember>) => void;
+  onChange: (patch: MemberPatch) => void;
   onRemove: () => void;
   onMove: (direction: -1 | 1) => void;
 }) {
   const row = useSortableRow(member.id);
+  const { ProviderModelPicker } = useCouncilsHost();
+  const { providers } = useCouncilProviders();
 
   return (
     <div
@@ -239,84 +259,23 @@ function MemberRow({
         />
         <IconButton icon={LuTrash2} label="Remove member" size="sm" onClick={onRemove} />
       </div>
-      <SelectField
-        value={member.provider}
-        onChange={(provider) => onChange({ provider })}
-        options={PROVIDER_OPTIONS}
-        label="Member provider"
-        className="mt-1.5"
-      />
+      <div className="mt-1.5">
+        <ProviderModelPicker
+          providers={providers}
+          provider={member.provider}
+          onProviderChange={(id) => isProvider(id) && onChange({ provider: id, model: undefined })}
+          models={councilModelOptions(member.provider)}
+          model={member.model ?? DEFAULT_MODEL_ID}
+          onModelChange={(id) => onChange({ model: storedModel(id) })}
+          testId={`council-member-picker-${index}`}
+        />
+      </div>
       <textarea
         value={member.role}
         rows={2}
         onChange={(event) => onChange({ role: event.target.value })}
         className="mt-1.5 w-full resize-none rounded-md border border-input bg-background px-1.5 py-1 text-xs outline-none focus:ring-1 focus:ring-ring"
       />
-    </div>
-  );
-}
-
-/**
- * The prompt composer — its own state, deliberately not lifted into the
- * config panel's `members`/`synthProvider` pair (the phase doc's own
- * distinction: "`prompt` belongs to the composer").
- */
-function RunComposer({
-  councilId,
-  canStart,
-  onRunStarted,
-}: {
-  councilId: string;
-  canStart: boolean;
-  onRunStarted: (runId: string) => void;
-}) {
-  const startRun = useStartCouncilRun();
-  const [prompt, setPrompt] = useState('');
-  // Phase 121 Theme A: a prompt that scores above the injection threshold (typically pasted page or
-  // issue text) gets the same banner Chats shows an attachment.
-  const scanItems = useMemo(() => [{ id: 'prompt', text: prompt }], [prompt]);
-  const flagged = useInjectionScans(scanItems)['prompt'];
-  const [proceededWith, setProceededWith] = useState<string | null>(null);
-
-  const canRun = canStart && prompt.trim().length > 0 && !startRun.isPending;
-
-  return (
-    <div className="shrink-0 border-t border-border p-3">
-      {flagged !== undefined && proceededWith !== prompt ? (
-        <InjectionBanner
-          subject="This prompt"
-          fenced={false}
-          scan={flagged}
-          onProceed={() => setProceededWith(prompt)}
-          onStrip={() => flagged.stripped !== undefined && setPrompt(flagged.stripped)}
-          onDrop={() => setPrompt('')}
-        />
-      ) : null}
-      <textarea
-        value={prompt}
-        onChange={(event) => setPrompt(event.target.value)}
-        placeholder="What should the council answer?"
-        rows={3}
-        className="w-full resize-none rounded-md border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-ring"
-      />
-      <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">
-        Members run automatically once you hit Run — unlike a regular agent session, a council
-        member only answers this prompt and makes no changes to any repository.
-      </p>
-      <button
-        type="button"
-        disabled={!canRun}
-        onClick={() => {
-          startRun.mutate(
-            { councilId, prompt: prompt.trim() },
-            { onSuccess: (result) => result.ok && onRunStarted(result.value.id) },
-          );
-          setPrompt('');
-        }}
-        className="mt-2 w-full rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-opacity disabled:opacity-40"
-      >
-        Run
-      </button>
     </div>
   );
 }

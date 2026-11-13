@@ -27,6 +27,7 @@ const run = (over: Partial<CouncilRun> = {}): CouncilRun => ({
   status: 'completed',
   synthProvider: 'agy',
   members: [],
+  turns: [],
   createdAt: 1,
   updatedAt: 1,
   ...over,

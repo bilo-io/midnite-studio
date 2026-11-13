@@ -137,6 +137,13 @@ export const AGENTS_COUNCILS_HOST = {
   },
   // No embedded browser view to hide beneath an overlay.
   useOccluder: () => undefined,
+  // The same thread kit the Chats host above installs (Phase 133).
+  AiComposer: AGENTS_CHATS_HOST.AiComposer,
+  composerBoxClassName: AGENTS_CHATS_HOST.composerBoxClassName,
+  ProviderModelPicker: AGENTS_CHATS_HOST.ProviderModelPicker,
+  MarkdownBody: AGENTS_CHATS_HOST.MarkdownBody,
+  useAgentRoster: AGENTS_CHATS_HOST.useAgentRoster,
+  resolveAgentIcon: AGENTS_CHATS_HOST.resolveAgentIcon,
 } satisfies CouncilsHost;
 
 /** A boolean, the same way: `initial` until something was stored. */

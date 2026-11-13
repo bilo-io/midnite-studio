@@ -74,7 +74,8 @@ const AI_MODELS: Partial<Record<string, AiModelTier>> = {
   claude: { cheap: 'haiku', fast: 'haiku' },
   codex: { cheap: 'gpt-5-mini', fast: 'gpt-5-mini' },
   gemini: { cheap: 'gemini-2.5-flash', fast: 'gemini-2.5-flash' },
-  agy: { cheap: 'gemini-2.5-flash', fast: 'gemini-2.5-flash' },
+  // agy 1.5.8 rejects `gemini-2.5-flash` ("not recognized as a known model"); checked 2026-11-13.
+  agy: { cheap: 'gemini-3.8-flash-low', fast: 'gemini-3.8-flash-low' },
   grok: { cheap: 'grok-4-fast', fast: 'grok-4-fast' },
   cursor: { cheap: 'auto', fast: 'auto' },
 };
@@ -107,6 +108,22 @@ export function modelArgsFor(_agentId: string, model: string): string[] {
 }
 
 import { LOOP_MODELS } from './loops';
+
+/**
+ * The models `agy models` offered on 2026-11-13, cheapest first. Ids are the
+ * CLI's own words (agy takes them verbatim after `--model`).
+ */
+const AGY_MODELS: readonly { id: string; label: string; tier?: 'fast' | 'cheap' }[] = [
+  { id: 'gemini-3.8-flash-low', label: 'Gemini 3.8 Flash (Low)', tier: 'fast' },
+  { id: 'gemini-3.8-flash-medium', label: 'Gemini 3.8 Flash (Medium)' },
+  { id: 'gemini-3.8-flash-high', label: 'Gemini 3.8 Flash (High)' },
+  { id: 'gemini-4-argon-low', label: 'Gemini 4 Argon (Low)' },
+  { id: 'gemini-4-argon-medium', label: 'Gemini 4 Argon (Medium)' },
+  { id: 'gemini-4-argon-high', label: 'Gemini 4 Argon (High)' },
+  { id: 'gemini-4-hydrogen-low', label: 'Gemini 4 Hydrogen (Low)' },
+  { id: 'gemini-4-hydrogen-medium', label: 'Gemini 4 Hydrogen (Medium)' },
+  { id: 'gemini-4-hydrogen-high', label: 'Gemini 4 Hydrogen (High)' },
+];
 import { BUILTIN_AGENTS, type AgentDefinition } from './terminal';
 import { editDistance } from './companion';
 
@@ -132,7 +149,15 @@ export function modelsForAgent(agentId: string, ollamaModels?: string[]): AgentM
     }
   }
 
-  // 2. cheap/fast tier models for this agent
+  // 2. Antigravity's own tiers, as `agy models` listed them on 2026-11-13 (a snapshot, like the rest).
+  if (agentId === 'agy') {
+    for (const m of AGY_MODELS) {
+      result.push({ ...m, cliModel: m.id });
+      seenIds.add(m.id);
+    }
+  }
+
+  // 3. cheap/fast tier models for this agent
   const cheap = cheapModelFor(agentId);
   const fast = fastModelFor(agentId);
   if (cheap && !seenIds.has(cheap)) {
@@ -154,7 +179,7 @@ export function modelsForAgent(agentId: string, ollamaModels?: string[]): AgentM
     seenIds.add(fast);
   }
 
-  // 3. Ollama models if provided
+  // 4. Ollama models if provided
   if (ollamaModels && ollamaModels.length > 0) {
     for (const om of ollamaModels) {
       const trimmed = om.trim();

@@ -529,12 +529,15 @@ const bridge: Pick<
     create: (req) => call(CHANNELS.councilCreate, req),
     updateMembers: (req) => call(CHANNELS.councilUpdateMembers, req),
     remove: (req) => call(CHANNELS.councilRemove, req),
+    recommend: (req) => call(CHANNELS.councilRecommend, req),
     run: {
       start: (req) => call(CHANNELS.councilRunStart, req),
       get: (req) => call(CHANNELS.councilRunGet, req),
       list: (req) => call(CHANNELS.councilRunListForCouncil, req),
       skipMember: (req) => call(CHANNELS.councilRunSkipMember, req),
       retryMember: (req) => call(CHANNELS.councilRunRetryMember, req),
+      cancel: (req) => call(CHANNELS.councilRunCancel, req),
+      continue: (req) => call(CHANNELS.councilRunContinue, req),
     },
   },
   workflow: {

@@ -294,6 +294,7 @@ import { SuiteAppIdSchema } from '../suite-apps';
 import {
   CouncilMemberProviderSchema,
   CouncilMemberSchema,
+  CouncilRecommendationSchema,
   CouncilRunSchema,
   CouncilSchema,
 } from '../council';
@@ -2236,6 +2237,10 @@ export const CouncilGetResponse = z.object({ council: CouncilSchema.nullable() }
 export const CouncilCreateRequest = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
+  /** A council the user accepted from `recommend` (Phase 133 Theme E); absent seeds the starter members. */
+  members: z.array(CouncilMemberSchema).optional(),
+  synthProvider: CouncilMemberProviderSchema.optional(),
+  synthModel: z.string().min(1).optional(),
 });
 export const CouncilCreateResponse = GitOpResultOf(CouncilSchema);
 
@@ -2243,6 +2248,8 @@ export const CouncilUpdateMembersRequest = z.object({
   id: z.string().min(1),
   members: z.array(CouncilMemberSchema),
   synthProvider: CouncilMemberProviderSchema,
+  /** Absent clears it back to the CLI's default. */
+  synthModel: z.string().min(1).optional(),
 });
 export const CouncilUpdateMembersResponse = GitOpResultOf(CouncilSchema);
 
@@ -2272,6 +2279,26 @@ export const CouncilRunRetryMemberRequest = z.object({
   memberId: z.string().min(1),
 });
 export const CouncilRunRetryMemberResponse = GitOpResultSchema;
+
+/** Stop every live member and the synthesis of a run's latest turn (Phase 133 Theme A). */
+export const CouncilRunCancelRequest = z.object({ runId: z.string().min(1) });
+export const CouncilRunCancelResponse = GitOpResultSchema;
+
+/** A follow-up turn on a settled thread (Phase 133 Theme D). */
+export const CouncilRunContinueRequest = z.object({
+  runId: z.string().min(1),
+  prompt: z.string().min(1),
+});
+export const CouncilRunContinueResponse = GitOpResultOf(CouncilRunSchema);
+
+/** Ask a small, fast model for a council to start from (Phase 133 Theme E). */
+export const CouncilRecommendRequest = z.object({
+  name: z.string().min(1).max(120),
+  brief: z.string().max(2_000).optional(),
+  /** The providers installed here, in the order to try them; absent tries every council provider. */
+  providers: z.array(CouncilMemberProviderSchema).optional(),
+});
+export const CouncilRecommendResponse = GitOpResultOf(CouncilRecommendationSchema);
 
 // --- FAB loop runs (Phase 35) ------------------------------------------------
 

@@ -15935,3 +15935,7 @@ The old "one agent per phase" swarm is now `midnite-fleet`; `midnite-swarm` is o
 ## 2026-11-13 — Ad hoc (templates) — kit's address-issue and verify skills made project-agnostic
 
 The onboarding kit's `midnite-address-issue` and `midnite-verify` no longer name Midnite Studio, its repos, moon tasks or packages; they point at the onboarded repo's own forge, convention file, gate and testing doc. Mirrored across the three `templates/midnite` skill dirs.
+
+## 2026-11-13 — Phase 133 (Themes A–E) — councils as threads, a synthesis that finishes
+
+Council prompts go to a `0600` temp file a short `run.sh` reads, so the shell never redraws a long line; agy and claude answer in print-mode JSON; timeout, cancelled and interrupted read as themselves. Members and the synthesizer pick a model; the centre pane is a chat thread with Chats' composer docked under it (the chat column, copy button and stick-to-bottom helpers moved into the frame); follow-ups resume each CLI's session; thread rows show turn counts; the new-council modal can ask a small model for a panel. Gate passed in the built app on a throwaway profile: two Antigravity members on Gemini 3.8 Flash (Low) and a Claude Haiku 4.5 synthesizer answered two turns, 12 s each.

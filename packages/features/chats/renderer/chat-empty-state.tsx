@@ -1,7 +1,6 @@
 import { LuBug, LuFileSearch, LuFlaskConical, LuMessagesSquare, LuScanEye } from 'react-icons/lu';
-import { type IconComponent } from '@midnite/studio-frame';
+import { CHAT_COLUMN, type IconComponent } from '@midnite/studio-frame';
 
-import { CHAT_COLUMN } from './chat-column';
 
 /**
  * The new-chat screen: a greeting and a few starting points. A suggestion fills

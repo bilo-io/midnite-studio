@@ -1,4 +1,7 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, type ComponentType, type ReactNode } from 'react';
+
+import type { IconComponent } from '@midnite/studio-frame';
+import type { AgentDefinition, AgentStatus } from '@midnite/studio-shared';
 
 /**
  * The councils feature's host port — what this feature needs from the app that
@@ -11,6 +14,12 @@ import { createContext, useContext, type ReactNode } from 'react';
  * collapsed, and the occluder count that hides the embedded browser while a
  * dialog is open (a Studio-only concern; an app without a browser installs a
  * no-op).
+ *
+ * Phase 133 added the AI-thread kit Chats already takes from its host — the
+ * composer, the provider/model picker, markdown, the agent roster and its
+ * marks — so a council thread reads and is driven exactly like a chat. The
+ * props below are the subset Councils passes; the Chats host's members satisfy
+ * them, and Studio and Agents install the very same components.
  */
 
 /** A persisted pane width: the stored size, how to store one, and its bounds. */
@@ -29,11 +38,60 @@ export type CouncilsLayout = {
   setConfigCollapsed: (collapsed: boolean) => void;
 };
 
+export type CouncilsAiComposerProps = {
+  value: string;
+  onChange: (value: string) => void;
+  onSend: () => void;
+  canSend: boolean;
+  placeholder?: string;
+  ariaLabel: string;
+  rows?: number;
+  above?: ReactNode;
+  sendTooltip?: string;
+  streaming?: boolean;
+  onStop?: () => void;
+  testIdPrefix?: string;
+  boxClassName?: string;
+};
+
+export type CouncilsPickerProvider = {
+  id: string;
+  label: string;
+  icon: IconComponent;
+  color?: string;
+  disabled?: boolean;
+  reason?: string;
+};
+
+export type CouncilsPickerModel = { id: string; label: string; recommended?: boolean };
+
+export type CouncilsProviderModelPickerProps = {
+  providers: readonly CouncilsPickerProvider[];
+  provider: string;
+  onProviderChange: (id: string) => void;
+  models: readonly CouncilsPickerModel[];
+  model: string;
+  onModelChange: (id: string) => void;
+  testId?: string;
+};
+
 export type CouncilsHost = {
   /** The persisted pane widths and the config pane's collapsed flag. A hook. */
   useLayout: () => CouncilsLayout;
   /** Registers an open overlay so a live embedded browser view hides beneath it. A hook. */
   useOccluder: (active?: boolean) => void;
+  /** The shared AI composer (Chats' own). */
+  AiComposer: ComponentType<CouncilsAiComposerProps>;
+  /** The gradient-bordered wrapper class the composer's box wears. */
+  composerBoxClassName: string;
+  /** The provider + model picker (Chats' own). */
+  ProviderModelPicker: ComponentType<CouncilsProviderModelPickerProps>;
+  /** Markdown, for member answers and the synthesis. */
+  MarkdownBody: ComponentType<{ content: string; className?: string }>;
+  /** The agent roster and what main could learn about it on this machine. A hook. */
+  useAgentRoster: () => { agents: AgentDefinition[]; status: AgentStatus[] };
+  /** The glyph for an agent (its brand mark, or a fallback for an unknown one). */
+  resolveAgentIcon: (agent: { id: string; icon?: string }) => IconComponent;
 };
 
 const CouncilsHostContext = createContext<CouncilsHost | null>(null);
