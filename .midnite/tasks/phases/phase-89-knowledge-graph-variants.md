@@ -35,7 +35,7 @@ against sigma's own four looks has something for the libraries to fit into.
 
 **Theme I — d3-force, live.** ◻ `d3-force` live: a simulation you watch settle, on our own canvas, with a hard settle ceiling
 
-**Theme J — The gate, and the bake-off.** ◻ the capability gate and the bake-off: TTFP/FPS/memory per variant on the real graph, thresholds from measurement, stale counts fixed
+**Theme J — The gate, and the bake-off.** 🔄 (gate mechanism landed, bake-off open) — `KnowledgeVariant` takes optional `maxNodes` / `maxEdges`; `knowledge-variant-gate.ts` holds the pure arithmetic and `effectiveVariant`. Over a limit the pill is disabled with a tooltip naming the reason and counts, the stored preference is never rewritten, a visible notice says the default renders instead, and a smaller graph restores it. No variant declares a limit yet: the limits must come from TTFP / FPS / memory measured on the packaged app, and none has been run, so none is guessed. Stale 14,881 / 36,032 counts in `types.ts` and `projection.ts` and the node panel now say 15,292 / 37,036 (the measured 6,066 and 35,763 edge figures in `knowledge-filters.ts` are kept: they were measured on the older graph). Open: the `MSTUDIO_PERF=1` harness, the numbers, `budgets.json`, the per-variant limits and the written verdict.
 
 **Theme K — Verification and budgets.** ◻ verification: pure-layer units, one seam e2e, three baselines (not nine), bundle and idle-CPU budgets, licence audit
 
@@ -314,9 +314,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       [`diff-toolbar.tsx`](../../../packages/app/src/features/diff/diff-toolbar.tsx)'s
       `canSplit(diff) && !tooNarrowForSplit ? pref : 'unified'` precedent, where a stored preference
       falls back when the content cannot support it.
-- [ ] A gated variant never silently becomes another variant: the stored preference is kept, the pill
+- [x] A gated variant never silently becomes another variant: the stored preference is kept, the pill
       stays visible and disabled, and returning to a smaller repo restores it.
-- [ ] Fix the stale node counts in
+- [x] Fix the stale node counts in
       [`types.ts`](../../../packages/knowledge/src/types.ts),
       [`layout.ts`](../../../packages/knowledge/src/layout.ts) and `use-sigma-graph.ts:38` — they
       still say 14,881 / 36,032.

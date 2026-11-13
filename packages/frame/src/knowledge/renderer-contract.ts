@@ -153,6 +153,10 @@ export type KnowledgeVariant = {
    * showing controls that do nothing."
    */
   consumesWorkerLayout: boolean;
+  /** Capability gate (Theme J): above this many nodes the pill is disabled. Undefined means no limit has been measured. */
+  maxNodes?: number;
+  /** Capability gate (Theme J): above this many edges the pill is disabled. */
+  maxEdges?: number;
   /**
    * The variant's own dynamic `import()`, resolving to a component that
    * accepts `KnowledgeVariantProps`. Per-variant rather than one static

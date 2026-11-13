@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { render } from './test-host';
 import { KnowledgeVariantPills } from './knowledge-variant-pills';
+import { VARIANTS } from './renderer-contract';
 
 afterEach(cleanup);
 
@@ -55,5 +56,21 @@ describe('KnowledgeVariantPills', () => {
     render(<KnowledgeVariantPills activeId="atlas" onSelect={onSelect} />);
     fireEvent.click(findVariantControl(/^constellation$/i).element);
     expect(onSelect).toHaveBeenCalledWith('constellation');
+  });
+
+  it('renders a variant over its declared limit disabled, with the reason, and does not select it', () => {
+    const target = VARIANTS.find((v) => v.id === 'cytoscape')!;
+    target.maxNodes = 10;
+    try {
+      const onSelect = vi.fn();
+      render(<KnowledgeVariantPills activeId="atlas" onSelect={onSelect} counts={{ nodes: 50, edges: 5 }} />);
+      const control = findVariantControl(/^cytoscape$/i).element;
+      expect((control as HTMLButtonElement).disabled).toBe(true);
+      expect(control.getAttribute('title')).toBe('Cytoscape is limited to 10 nodes; this graph has 50.');
+      fireEvent.click(control);
+      expect(onSelect).not.toHaveBeenCalled();
+    } finally {
+      delete target.maxNodes;
+    }
   });
 });
