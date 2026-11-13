@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 122 Theme H (remainder) — Guard: daily default, power gate, egress, perf
+
+PR (see the Phase 122 remainder H PR). Guard's own daily default schedule (off until enabled), a scheduler gate that holds a scheduled sweep while the window is blurred and the Mac is on battery below 20%, egress entries for NVD, npm, PyPI and URLhaus, `docs/PRIVACY.md` regenerated, and `scripts/perf/guard-sweep.mjs` with its budget. Not done: the midnite-apps feed entry (waits on Themes B/C).
+
 ## 2026-11-13 — Phase 122 Theme H (partial) — Guard: schedule, cost and disclosure
 
 PR (see the Phase 122 H PR). `guard.sweep` command and `guardSweepNow` channel, a Guard paragraph in `SECURITY.md`, and the rewritten Guard docblock. Open: the tab button, daily default schedule, the extra egress entries, the perf script and the battery gate (see the phase doc).

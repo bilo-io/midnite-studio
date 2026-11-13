@@ -76,7 +76,7 @@ describe('PrivacyPage automatic network (Phase 115 Theme A)', () => {
   it('generates one switch per automatic registry switch, on by default', () => {
     renderPage();
     expect((screen.getByRole('switch', { name: 'Market prices, FX and finance news' }) as HTMLInputElement).checked).toBe(true);
-    expect((screen.getByRole('switch', { name: 'Guard vulnerability feeds (OSV, CISA KEV)' }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole('switch', { name: 'Guard vulnerability feeds (OSV, CISA KEV, NVD, npm, PyPI, URLhaus)' }) as HTMLInputElement).checked).toBe(true);
   });
 
   it('stores a per-host switch without touching the master', () => {

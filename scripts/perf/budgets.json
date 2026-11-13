@@ -2,6 +2,9 @@
   "_": "Phase 36 Theme H. The ONE budget source: read by scripts/perf/bundle-report.mjs --assert and by every spec under packages/app/e2e/perf/. Rebaselining procedure is in ./README.md — do not edit a number here without the run that justifies it.",
 
   "_sizes": "Deterministic, so the headroom is tight (1.13x the post-phase measurement). The 2.5x rule the phase set is a FLAKE allowance and a byte count does not flake; at 2.5x the entry budget would be 2712 KB, which is above the 2481 KB this phase started from — a budget that permits undoing the phase is not a budget.",
+  "_guardSweep": "Phase 122 Theme H. Wall-clock of one Guard sweep over this repo (guard-sweep.mjs): warm caches under 60 s, cold under 5 min. Stated by the phase, not yet baselined from a run.",
+  "guardSweep": { "warmMs": 60000, "coldMs": 300000 },
+
   "entryKb": 1520,
   "totalJsKb": 15950,
 
