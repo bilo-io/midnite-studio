@@ -49,7 +49,7 @@ export function parseAuthorizedKeys(path: string, text: string): AuthorizedKeyEn
 /**
  * Theme D, keys: a private key readable by group or others is `high` with `chmod-600`; one without a passphrase is
  * `medium`; `authorized_keys` entries carrying `command=`/`from=` options are listed as `info` so the user can say
- * whether they set them; `~/.gnupg` entries open to group or others are `medium`. The age check on
+ * whether they set them; `~/.gnupg`, its private-keys-v1.d and secring.gpg when open to group or others are `medium`. The age check on
  * `authorized_keys` entries needs the file's mtime, which a line does not carry, so it is not attempted.
  */
 export const sshKeysCheck: GuardCheck = {

@@ -119,9 +119,14 @@ export async function resolveSshInputs(exec: ExecFile, home: string): Promise<Ss
   try {
     const gnupg = join(home, '.gnupg');
     out.gnupg.push({ path: gnupg, mode: (await stat(gnupg)).mode & 0o777 });
-    for (const name of await readdir(gnupg)) {
-      const path = join(gnupg, name);
-      out.gnupg.push({ path, mode: (await stat(path)).mode & 0o777 });
+    // Only what holds secrets: the home itself and its private key store. gpg.conf, pubring and the like are public.
+    for (const name of ['private-keys-v1.d', 'secring.gpg']) {
+      try {
+        const path = join(gnupg, name);
+        out.gnupg.push({ path, mode: (await stat(path)).mode & 0o777 });
+      } catch {
+        // not present
+      }
     }
   } catch {
     // no ~/.gnupg
