@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 89 Theme F — force-graph variant + shared 2D engine layer
+
+PR #1205. `force-graph` (MIT) behind its own dynamic `import()`, over a shared engine-neutral model and renderer base the next three engines reuse. Canvas 2D, not WebGL as the doc said. Not done: alpha ramping on the new engines; a real-browser look.
+
 ## 2026-11-13 — Phase 122 Theme G (remainder) — Guard: package fixes on a branch, Fix with agent
 
 PR (see the Phase 122 package-actions PR). `update-package` and `remove-package` run behind the confirm on a new branch in a throwaway worktree (scripts off, no sudo, nothing pushed); a *Fix with agent* button starts a one-finding agent run linked back on the finding's row. Not done: opening the PR through the forge, `pin-package`.

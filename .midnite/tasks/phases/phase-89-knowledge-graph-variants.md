@@ -27,7 +27,7 @@ against sigma's own four looks has something for the libraries to fit into.
 
 **Theme E — Layout variants in the worker.** ✅ layout variants in the worker (circlepack, hierarchical, noverlap), layout id in the cache key, tweened transitions ([PR #439](https://github.com/bilo-io/midnite-studio/pull/439))
 
-**Theme F — force-graph.** ◻ the `force-graph` variant (WebGL; the one alternative with a shot at 15k nodes)
+**Theme F — force-graph.** ✅ (PR [#1205](https://github.com/bilo-io/midnite-studio/pull/1205)) — the `force-graph` variant, and under it the engine-neutral layer Themes G–I reuse: `variants/knowledge-2d-model.ts` (detail budget, collapse, community colours, the Theme C alpha values as one pure `computePaint2D`) and `base-2d-renderer.ts` (intro via `IntroTracker`, layout tween via `LayoutTransition`, `paused` snap, reduced motion). The grounding was wrong on one point: `force-graph` draws on Canvas 2D, not WebGL. Its own d3 simulation is off — the worker's coordinates are the layout. Lazy chunk 151 KB; the entry chunk does not contain it.
 
 **Theme G — cytoscape.js.** ◻ the `cytoscape.js` variant
 
@@ -243,20 +243,21 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       for sigma today.
 - [x] `packages/knowledge` stays electron-free. Boundary unchanged, vitest coverage per layout.
 
-### F — force-graph (M)
+### F — force-graph (M) ✅ DONE (PR #1205, 2026-11-13)
 
-- [ ] `force-graph` behind its own dynamic `import()`, implementing `KnowledgeRenderer`. WebGL, so it
-      is the one alternative with a plausible shot at 15,292 nodes.
-- [ ] Consumes `payload.nodes` / `payload.links` / `payload.positions` **directly** — no graphology
+- [x] `force-graph` behind its own dynamic `import()`, implementing `KnowledgeRenderer`. **Correction: `force-graph` is Canvas 2D, not WebGL** (`3d-force-graph` is the WebGL sibling, out of scope). It is still the large-graph slot: plain arrays in, off-screen culling, and `autoPauseRedraw` stops it drawing when nothing changes.
+- [x] Consumes `payload.nodes` / `payload.links` / `payload.positions` **directly** — no graphology
       instance. The wire payload is plain arrays plus a positions record precisely so an engine can
       take it as-is.
-- [ ] Node colour from the same
+- [x] Node colour from the same
       [`knowledge-community-colors.ts`](../../../packages/app/src/features/knowledge/knowledge-community-colors.ts)
       tokens, so a community is the same colour in every variant. A variant that invents its own
       palette breaks the one thing the pills are supposed to make comparable.
-- [ ] `playIntro`, `applyFilters`, `applyHighlight` (including the C alpha model), `focusNode`,
+- [x] `playIntro`, `applyFilters`, `applyHighlight` (including the C alpha model), `focusNode`,
       `setPaused` — all of it, or the pill does not ship.
-- [ ] Licence recorded in the theme's notes and checked against the repo's existing constraints.
+- [x] Licence recorded in the theme's notes and checked against the repo's existing constraints.
+      Recorded: `force-graph@1.52.0` is MIT, and its 31-package dependency closure is MIT (14), ISC (16) and BSD-3-Clause (1).
+      Not done: alpha *ramping* (Theme C's `AlphaRampTracker`) — the new engines share C's alpha *values* (`computePaint2D`) and snap between them.
 
 ### G — cytoscape.js (M)
 
