@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 89 Theme K (part) — renderer variant seam e2e
+
+One Playwright e2e in `knowledge-canvas.spec.ts`: pick Telemetry HUD from the default Atlas, the sigma canvas layers are replaced by the 3D engine's canvas, and the choice survives a reload. Needs a real canvas mount and `page.reload()` persistence of `rendererVariant`. `MAX_DECLARED_E2E` 485 -> 486. Still open in Theme K: bundle ceilings, idle CPU, the three visual baselines, the full gate.
+
 ## 2026-11-13 — Phase 132 Theme D (e2e) — level editor, real pointer input
 
 `packages/app/e2e/game-level-editor.spec.ts`: over the mock bridge, opens a game's Level editor tab, paints three cells with real pointer drags on the canvas (hit-tested through `getBoundingClientRect` and the fitted view), paints a fourth and undoes it, saves, and asserts the one `level-set` payload holds exactly the three cells. The mock gained `games.levels` (list, get, set recorded as `levelSet`) and `games.goto`. `MAX_DECLARED_E2E` 485 to 486 with its reason. No screenshot.
