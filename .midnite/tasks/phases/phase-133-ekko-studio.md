@@ -76,8 +76,13 @@ ekko-menu, the ekko loops and per-feature toggles are added. Planned 2026-11-13.
 handlers, IPC/preload, MCP, dashboard widgets, media tabs, the title-bar menu slot, the loop set), plus a runtime
 `enabledFeatures`.
 
-**Theme B — Commit-graph profile.** ◻ A `GraphFeatures` profile turns off effects, diff columns, the column picker
-and inline expansion; Studio keeps all of them.
+**Theme B — Commit-graph profile.** ✅ `GraphFeatures` (`shared/src/domain/graph-features.ts`, zod-typed, with
+`DEFAULT_GRAPH_FEATURES` and `resolveGraphFeatures`) reaches the frame through an optional `graphFeatures` member of
+the `GitHost` port, resolved to all-true when absent, so Studio is unchanged and passes nothing. `effects: false` drops
+every shimmer, pulse and glow class (rows, lane glow in the SVG, badge glow, HEAD and agent arcs, the reveal pulse and
+the 5 s recency tick). `diffChart`/`diffColumns` force the columns hidden and stop the numstat fetch; `columnPicker:
+false` removes the dropdown and pins visibility to the defaults; `inlineExpansion: false` opens the commit in the
+right-hand aside instead of under its row. Covered by `graph-features.test.tsx`.
 
 **Theme C — Roster and forge profiles.** ◻ The agent roster and forge adapters are chosen by the composition; councils
 take their seats from the roster.
@@ -151,23 +156,23 @@ with the remaining hubs pruned by a temporary patch named in its README.
 
 ### B — Commit-graph profile (midnite-studio) [M · 2-4h]
 
-- [ ] `GraphFeatures` in `shared`: `{ effects, diffChart, diffColumns, columnPicker, inlineExpansion }`, all `true`
+- [x] `GraphFeatures` in `shared`: `{ effects, diffChart, diffColumns, columnPicker, inlineExpansion }`, all `true`
   by default (Studio). [XS]
-- [ ] `effects: false` stops every time-based animation in the graph: shimmer, pulse, glow and the live-badge pulse,
+- [x] `effects: false` stops every time-based animation in the graph: shimmer, pulse, glow and the live-badge pulse,
   in [`graph-row.tsx`](../../../packages/frame/src/graph/graph-row.tsx),
   [`graph-svg.tsx`](../../../packages/frame/src/graph/graph-svg.tsx),
   [`ref-badge.tsx`](../../../packages/frame/src/graph/ref-badge.tsx),
   [`graph-view.tsx`](../../../packages/frame/src/graph/graph-view.tsx) and
   [`graph-store.ts`](../../../packages/frame/src/graph/graph-store.ts). [S]
-- [ ] `diffChart: false` / `diffColumns: false` remove the Diff chart
+- [x] `diffChart: false` / `diffColumns: false` remove the Diff chart
   ([`diff-chart-cell.tsx`](../../../packages/frame/src/graph/diff-chart-cell.tsx)) and Diff
   ([`diff-stat-cell.tsx`](../../../packages/frame/src/graph/diff-stat-cell.tsx)) columns, and skip fetching their
   numstat. [S]
-- [ ] `columnPicker: false` hides [`columns-menu.tsx`](../../../packages/frame/src/graph/columns-menu.tsx) and pins
+- [x] `columnPicker: false` hides [`columns-menu.tsx`](../../../packages/frame/src/graph/columns-menu.tsx) and pins
   `column-visibility.ts` to a fixed set. [XS]
-- [ ] `inlineExpansion: false` disables [`inline-expansion.tsx`](../../../packages/frame/src/graph/inline-expansion.tsx):
+- [x] `inlineExpansion: false` disables [`inline-expansion.tsx`](../../../packages/frame/src/graph/inline-expansion.tsx):
   a commit selects and opens the inspector, and never expands to its file list in the row. [S]
-- [ ] Vitest per flag: with the profile off, the element or column is absent and no animation class is applied. Studio's
+- [x] Vitest per flag: with the profile off, the element or column is absent and no animation class is applied. Studio's
   rendering is unchanged. [S]
 
 ### C — Roster and forge profiles (midnite-studio) [M · 2-4h]

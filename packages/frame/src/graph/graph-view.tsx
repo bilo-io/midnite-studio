@@ -36,7 +36,7 @@ import { useEditableFocus } from '../lib/use-editable-focus';
 import { useGraphStream } from './use-graph-stream';
 import { useCommitCi } from './use-commit-ci';
 import { useCommitStats } from './use-commit-stats';
-import { hiddenColumnTokens } from './column-visibility';
+import { DEFAULT_GRAPH_COLUMN_VISIBILITY, hiddenColumnTokens } from './column-visibility';
 import { provenanceMarkMode as provenanceMarkModeOf } from './provenance-display';
 import { applyHeadLane, findHeadLane } from './head-lane';
 import { resolveProvenanceDetails } from './provenance-mark';
@@ -86,7 +86,19 @@ export function GraphView() {
   // by a future build falls back to the default instead of rendering nothing.
   const provenanceMarkMode = provenanceMarkModeOf(useGitUi((s) => s.graphProvenanceMark));
   const showCi = useGitUi((s) => s.graphShowCi);
-  const columnVisibility = useGitUi((s) => s.graphColumnVisibility);
+  const savedColumnVisibility = useGitUi((s) => s.graphColumnVisibility);
+  const { graphFeatures } = host;
+  const { effects, inlineExpansion } = graphFeatures;
+  // Phase 133 Theme B: a profile that drops the picker pins the columns to the defaults, and a profile that
+  // drops a Diff column hides it whatever was persisted — and never fetches its numstat.
+  const columnVisibility = useMemo(() => {
+    const base = graphFeatures.columnPicker ? savedColumnVisibility : DEFAULT_GRAPH_COLUMN_VISIBILITY;
+    return {
+      ...base,
+      diff: base.diff && graphFeatures.diffColumns,
+      diffChart: base.diffChart && graphFeatures.diffChart,
+    };
+  }, [savedColumnVisibility, graphFeatures.columnPicker, graphFeatures.diffColumns, graphFeatures.diffChart]);
   const showDiff = columnVisibility.diff;
   const showDiffChart = columnVisibility.diffChart;
 
@@ -385,12 +397,12 @@ export function GraphView() {
   }, [rows, rowCount, nowMs]);
 
   useEffect(() => {
-    if (!hasRecentCommits) return;
+    if (!hasRecentCommits || !effects) return;
     const interval = setInterval(() => {
       setNowMs(Date.now());
     }, 5000);
     return () => clearInterval(interval);
-  }, [hasRecentCommits]);
+  }, [hasRecentCommits, effects]);
 
   // dnd-kit's drag-end event carries no pointer position, and the drop menu has
   // to appear where the user released.
@@ -448,7 +460,7 @@ export function GraphView() {
     during render rather than in an effect, so no frame renders the previous
     row without its panel before the closing one mounts.
   */
-  const expandedSha = selectedSha;
+  const expandedSha = inlineExpansion ? selectedSha : null;
   const [lastExpanded, setLastExpanded] = useState(expandedSha);
   const [closingSha, setClosingSha] = useState<string | null>(null);
   if (lastExpanded !== expandedSha) {
@@ -552,7 +564,7 @@ export function GraphView() {
     if (index < 0) return;
     handledPulse.current = revealPulse.nonce;
     virtualizer.scrollToIndex(index, { align: 'center' });
-    if (isReducedMotion()) return;
+    if (isReducedMotion() || !effects) return;
     let tries = 0;
     const play = () => {
       const rowEl = scrollRef.current?.querySelector<HTMLElement>(`[data-index="${index}"] [role="row"]`);
@@ -688,10 +700,11 @@ export function GraphView() {
     [rows, rowCount, headOid],
   );
   const glowColorIdx = useMemo(() => {
+    if (!effects) return null;
     const index = rows.findIndex((row) => row.commit.sha === selectedSha);
     return index < 0 ? null : applyHeadLane(rows[index]!, index, headLane).colorIdx;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, rowCount, selectedSha, headLane]);
+  }, [rows, rowCount, selectedSha, headLane, effects]);
 
   /**
    * The row HEAD points at, for the working-copy row to sit on top of.
@@ -947,6 +960,7 @@ export function GraphView() {
                     clipId={avatarClipId(theme)}
                     dimmed={dimmed}
                     glowColorIdx={glowColorIdx}
+                    effects={effects}
                     nowMs={nowMs}
                     provenance={commitProv}
                     sessionName={sessionName}
@@ -1045,7 +1059,9 @@ export function GraphView() {
         the Conflict Resolution Studio. Commits and the working copy expand in
         place under their own rows instead.
       */}
-      {(graphSelection?.kind === 'stash' && StashInspector) || (graphSelection?.kind === 'conflict' && ConflictStudio) ? (
+      {(graphSelection?.kind === 'commit' && !inlineExpansion) ||
+      (graphSelection?.kind === 'stash' && StashInspector) ||
+      (graphSelection?.kind === 'conflict' && ConflictStudio) ? (
         <>
           <ResizeHandle resizable={detail} axis="x" label="Resize commit detail" />
           <aside
@@ -1055,7 +1071,9 @@ export function GraphView() {
             style={{ width: detail.current }}
           >
             <div className="min-h-0 flex-1">
-              {graphSelection?.kind === 'stash' && StashInspector ? (
+              {graphSelection?.kind === 'commit' && !inlineExpansion ? (
+                <CommitPanel repoId={repoId} sha={graphSelection.sha} onClose={() => selectCommit(null)} />
+              ) : graphSelection?.kind === 'stash' && StashInspector ? (
                 <StashInspector
                   repoId={repoId}
                   selector={graphSelection.selector}

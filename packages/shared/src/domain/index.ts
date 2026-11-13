@@ -1,5 +1,6 @@
 export * from './agent-command';
 export * from './agent-run';
+export * from './graph-features';
 export * from './api-client';
 export * from './api-codegen';
 export * from './api-script-surface';

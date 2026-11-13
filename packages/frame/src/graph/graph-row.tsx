@@ -72,6 +72,8 @@ export type GraphRowProps = {
    * unavoidable, since no row can tell on its own whether it is on the lane.
    */
   glowColorIdx?: number | null;
+  /** Phase 133 Theme B: `false` applies no shimmer, pulse or glow class. Default true. */
+  effects?: boolean;
   onSelect: (sha: string) => void;
   onContextMenu: (event: React.MouseEvent, row: GraphRow) => void;
   onRefContextMenu: (event: React.MouseEvent, ref: Ref) => void;
@@ -140,6 +142,7 @@ function GraphRowInner({
   clipId,
   dimmed,
   glowColorIdx = null,
+  effects = true,
   nowMs = Date.now(),
   provenance,
   sessionName,
@@ -171,7 +174,7 @@ function GraphRowInner({
 
   // The row's own node sits on the lit lane — as opposed to merely having one
   // of its edges pass through it, which the SVG decides for itself.
-  const onGlowingLane = glowColorIdx !== null && row.colorIdx === glowColorIdx;
+  const onGlowingLane = effects && glowColorIdx !== null && row.colorIdx === glowColorIdx;
 
   const recencyTier = commitRecencyTier(row.commit.committerDate, nowMs);
   /*
@@ -190,7 +193,7 @@ function GraphRowInner({
   const recencyInk = [
     selected || laneInk || laneInkMuted ? '' : 'text-muted-foreground',
     laneInk ? 'commit-text-lane' : laneInkMuted ? 'commit-text-lane-muted' : '',
-    laneInk ? 'commit-text-pulse' : laneInkMuted ? 'commit-text-pulse-muted' : '',
+    !effects ? '' : laneInk ? 'commit-text-pulse' : laneInkMuted ? 'commit-text-pulse-muted' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -222,7 +225,7 @@ function GraphRowInner({
       className={`graph-row relative flex cursor-pointer items-center gap-2 pr-3 text-sm transition-colors ${
         selected ? '' : 'hover:bg-accent/30'
       } ${dimmed ? 'opacity-40' : ''} ${
-        recencyTier === 'fresh' || recencyTier === 'recent' ? 'commit-row-glow' : ''
+        effects && (recencyTier === 'fresh' || recencyTier === 'recent') ? 'commit-row-glow' : ''
       }`}
       /*
         The lane's hue as three components, on every row — the selected tint,
@@ -399,7 +402,7 @@ function GraphRowInner({
               clipId={clipId}
               dimmed={dimmed}
               connector={refs.length > 0}
-              glowColorIdx={glowColorIdx}
+              glowColorIdx={effects ? glowColorIdx : null}
               provenance={provenance}
               agent={agent}
               markMode={markMode}
@@ -497,7 +500,7 @@ function GraphRowInner({
       <div
         className={`graph-msg-col relative flex flex-1 items-center overflow-hidden transition-opacity duration-150 ease-in-out ${
           dimmed ? 'opacity-40' : ''
-        } ${recencyTier === 'fresh' ? 'commit-row-shimmer' : ''}`}
+        } ${effects && recencyTier === 'fresh' ? 'commit-row-shimmer' : ''}`}
       >
         <span className={`graph-row-ink min-w-0 flex-1 truncate ${recencyInk}`}>
           <CommitSubject subject={row.commit.subject} />

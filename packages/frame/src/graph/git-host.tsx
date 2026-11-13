@@ -8,12 +8,14 @@ import {
   type ReactNode,
 } from 'react';
 
+import { DEFAULT_GRAPH_FEATURES } from '@midnite/studio-shared';
 import type {
   AgentDefinition,
   ClosedSession,
   CommitCi,
   DiffLine,
   ForgeRun,
+  GraphFeatures,
   GraphRow,
   Ref,
   StashEntry,
@@ -185,6 +187,8 @@ export type GitHost = GitHostComponents & {
   useSessionHistory?: () => GitQuery<ClosedSession[]>;
   /** Live agent sessions by worktree path, for the badge glow and avatar. */
   useAgentWorktreeSessions?: () => ReadonlyMap<string, ActiveAgentWorktreeSession>;
+  /** Which parts of the graph show (Phase 133 Theme B). Absent: all of them, as in Studio. */
+  graphFeatures?: Partial<GraphFeatures>;
   /** A hidden graph's row count, so a keep-alive cache can drop a huge one early. */
   onHiddenRowCount?: (rowCount: number) => void;
 };
@@ -194,6 +198,7 @@ export type ResolvedGitHost = GitHost &
   Required<
     Pick<GitHost, 'useStashes' | 'useOccluder' | 'useAgents' | 'useSessionHistory' | 'useAgentWorktreeSessions' | 'useLineHighlight'>
   > & {
+    graphFeatures: GraphFeatures;
     actionsEnabled: boolean;
     useActions: NonNullable<GitHost['useActions']>;
   };
@@ -220,6 +225,7 @@ export function resolveGitHost(host: GitHost): ResolvedGitHost {
     useSessionHistory: host.useSessionHistory ?? (() => EMPTY_QUERY),
     useAgentWorktreeSessions: host.useAgentWorktreeSessions ?? (() => NO_SESSIONS),
     useLineHighlight: host.useLineHighlight ?? (() => null),
+    graphFeatures: { ...DEFAULT_GRAPH_FEATURES, ...host.graphFeatures },
     actionsEnabled: host.useActions !== undefined,
     useActions: host.useActions ?? (() => NO_ACTIONS),
   };

@@ -9,6 +9,7 @@ import { bridge } from '../bridge';
 import { AuthorFilter, type AuthorSummary } from './author-filter';
 import { CI_COLUMN_WIDTH } from './ci-cell';
 import { ColumnsMenu } from './columns-menu';
+import { useGitHost } from './git-host';
 import { RAIL_WIDTH, showsAuthorColumn, type GraphTheme } from './graph-themes';
 import { ProvenanceFilter } from './provenance-filter';
 import { RefFilter } from './ref-filter';
@@ -143,6 +144,7 @@ export function GraphHeader({
   // affordance for the same window.
   const isPopout = (bridge()?.windowRole ?? 'main') !== 'main';
   const { PageDetachMark } = useFrameChrome();
+  const columnPicker = useGitHost().graphFeatures.columnPicker;
   const graphRefFilter = useGitUi((s) => s.graphRefFilter);
   const setGraphRefFilter = useGitUi((s) => s.setGraphRefFilter);
   const graphAuthorFilter = useGitUi((s) => s.graphAuthorFilter);
@@ -193,7 +195,7 @@ export function GraphHeader({
           </div>
         )}
         <span className="ml-auto" />
-        <ColumnsMenu />
+        {columnPicker ? <ColumnsMenu /> : null}
       </div>
 
       <div

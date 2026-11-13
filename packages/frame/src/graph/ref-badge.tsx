@@ -134,7 +134,8 @@ export function RefBadge({
     isDragging: boolean;
   };
 }) {
-  const { RefAgentAvatar } = useGitHost();
+  const { RefAgentAvatar, graphFeatures } = useGitHost();
+  const effects = graphFeatures.effects;
   const upstream = refItem.upstream;
   const ahead = upstream?.ahead ?? 0;
   const behind = upstream?.behind ?? 0;
@@ -210,14 +211,14 @@ export function RefBadge({
         // `RefAgentGlowBleed`'s `.ref-badge-agent-arc-glow` (portalled halo)
         // carry the whole effect between them, both in the branch's own
         // lane hue rather than a chip-level colour swap.
-        !agentActive && branchGlow ? 'graph-badge-glow' : ''
+        effects && !agentActive && branchGlow ? 'graph-badge-glow' : ''
       } ${
         // A drop target has to look like one mid-drag, or the gesture is a
         // guess — the ring is the only feedback the user gets before releasing.
         dnd?.isOver ? 'ring-2 ring-primary ring-offset-1 ring-offset-background' : ''
       } ${dnd?.isDragging ? 'opacity-40' : ''}`}
     >
-      {current || agentActive ? <HeadGlow agentActive={agentActive} /> : null}
+      {effects && (current || agentActive) ? <HeadGlow agentActive={agentActive} /> : null}
       <RefIcon refItem={refItem} />
       <span className="truncate">{refItem.name}</span>
       {/* Ahead/behind belongs on the badge: it's the answer to "do I need to
@@ -255,7 +256,7 @@ export function RefBadge({
   // descendant of the chip, so `--lane-h/s/l` cannot cascade to it and it
   // needs its own copy, same as `SyncOverlay` below.
   const glowBleed = (
-    <RefAgentGlowBleed anchor={chipRef} active={agentActive} colorIdx={colorIdx} palette={palette} />
+    <RefAgentGlowBleed anchor={chipRef} active={agentActive && effects} colorIdx={colorIdx} palette={palette} />
   );
 
   if (!expandable) {
