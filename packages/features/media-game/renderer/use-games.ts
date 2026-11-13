@@ -32,6 +32,9 @@ export const GAME_KEYS = {
   assetSources: (tab: string) => ['games', 'asset-sources', tab] as const,
   /** Theme O: `playtests/*.json` with their last results. */
   playtests: (gameId: string) => ['games', 'playtests', gameId] as const,
+  /** Phase 132 Theme D: `levels/*.tmj`, and one scene under the same prefix. */
+  levels: (gameId: string) => ['games', 'levels', gameId] as const,
+  level: (gameId: string, scene: string) => ['games', 'levels', gameId, scene] as const,
 };
 
 /**
@@ -154,9 +157,10 @@ export function useGameEvents(): void {
     const offs = [
       api.games.onRunState((event) => useGameRunStore.getState().applyRunState(event)),
       api.games.onConsole((event) => useGameRunStore.getState().appendLogs(event.gameId, event.runId, event.entries)),
-      api.games.onChanged(() => {
+      api.games.onChanged((event) => {
         void client.invalidateQueries({ queryKey: GAME_KEYS.list });
         void client.invalidateQueries({ queryKey: ['games', 'assets'] });
+        if (event.reason === 'level') void client.invalidateQueries({ queryKey: ['games', 'levels'] });
       }),
       // A source in the media store changed: the "N assets changed" badge may need to move.
       api.media.onChanged(() => {
