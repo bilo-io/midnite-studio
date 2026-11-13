@@ -60,7 +60,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 **Theme F — The two debts parked on this bump.** ✅ (PR [#510](https://github.com/bilo-io/midnite-studio/pull/510)) — the two parked debts, checked against real v6 source and proven with deterministic tests, neither fixed by the bump: the `Viewport`/`RenderService` unmount throw still reproduces (renamed internally from `syncScrollArea` to `_sync`, same `MutableDisposable`-post-dispose defect), re-parked in `outstanding.md` with the v6 verdict; Phase 51's "fractional cell height rounded per row" never existed as described — `WebglRenderer` quantizes cell height to one integer per resize, byte-identical pre- and post-bump, with the real uneven-text symptom already explained by that phase's own Theme C
 
-**Theme G — Verification.** ◻ verification: existing terminal e2e, entry-chunk exclusion, human pass
+**Theme G — Verification.** 🔄 WIP — the automated half is done, the human pass is not. All nine named terminal e2e specs pass locally against v6 (no CI; one spec at a time, except `kanban` and `notes`, which ran together), the entry chunk (1118.3 KB) holds no xterm or addon string and its static closure is a single chunk. Found but not caused by this phase: `bundle-budget.spec.ts`'s total-JS test fails at 44448.7 KB vs 15950 KB. **Human pass, still to do** on the packaged app (`moon run app:build desktop:bundle`, or `desktop:dist`): (1) open a terminal and type, run `ls`/`htop`, compare text sharpness and line height against the Phase 51 baseline; (2) resize the window and the panel, with no stale rows or clipped last line; (3) drag the terminal splitter; (4) switch theme, including a VS Code-imported one, and confirm colours and the scrollbar slider update; (5) open a Kanban card's terminal; (6) open a detached terminal window; (7) check WebGL falls back to DOM cleanly (open 13+ terminals, or force context loss) with no blank pane.
 
 ## Deliverables
 
@@ -117,9 +117,9 @@ Both were deferred *on the assumption* that a bump would fix them. The deliverab
 ### G — Verification (S)
 
 - [ ] `moon run :typecheck :lint :test` green.
-- [ ] The existing terminal e2e specs pass unchanged: `terminal.spec.ts`, `terminal-reveal.spec.ts`, `terminal-palette-switch.spec.ts`, `terminal-links.spec.ts`, `terminal-lazy-preload.spec.ts`.
-- [ ] The specs that mount a terminal incidentally and caught #242 pass: `panel-snap.spec.ts`, `phase-21-roster.spec.ts`, `kanban.spec.ts`, `notes.spec.ts`.
-- [ ] `perf/bundle-budget.spec.ts` still asserts `@xterm/*` is **absent from the entry chunk** — [Phase 36](phase-36-performance-diet.md)'s lazy-load boundary must not regress.
+- [x] The existing terminal e2e specs pass unchanged: `terminal.spec.ts`, `terminal-reveal.spec.ts`, `terminal-palette-switch.spec.ts`, `terminal-links.spec.ts`, `terminal-lazy-preload.spec.ts`. Verified 2026-11-13 on a local run (no CI), `--workers=1`: 39 + 2 + 1 + 2 + 3 passed, 0 failed.
+- [x] The specs that mount a terminal incidentally and caught #242 pass: `panel-snap.spec.ts`, `phase-21-roster.spec.ts`, `kanban.spec.ts`, `notes.spec.ts`. Verified 2026-11-13 on a local run (no CI), `--workers=1`: 4 + 1 + 15 + 8 passed, 0 failed.
+- [x] `perf/bundle-budget.spec.ts` still asserts `@xterm/*` is **absent from the entry chunk** — [Phase 36](phase-36-performance-diet.md)'s lazy-load boundary must not regress. Run via `playwright.perf.config.ts` against a fresh `app:build` of main: the `@xterm/xterm` absence test passes, as do the other four tripwires and the entry-size test. Entry chunk `index-B7r_S-bp.js` is 1118.3 KB (budget 1520), contains none of `@xterm/xterm`, `xterm.js`, `@xterm/addon-fit`, `@xterm/addon-webgl`, `WebglAddon`, `FitAddon`; the manifest's static import closure from the entry is that one chunk, so xterm sits only in lazy chunks (`terminal-view-*.js`, `use-report-window-repo-*.js`). Not xterm-related: `total emitted JS` fails (44448.7 KB across 511 chunks vs the 15950 KB budget) on main as it stands, so the spec as a whole is not green; the budget wants its own re-measure.
 - [ ] Human pass: open a terminal, resize it, drag the splitter, switch theme, open a Kanban card terminal and a detached window, and confirm text quality against the Phase 51 baseline.
 
 ## Files this phase touches
@@ -148,11 +148,11 @@ Both were deferred *on the assumption* that a bump would fix them. The deliverab
 
 - [ ] `moon run :typecheck :lint :test` green.
 - [ ] The new attach test fails against a mismatched core/addon pair and passes against the matched one.
-- [ ] All five dedicated terminal e2e specs green, plus the four incidental ones that caught #242.
+- [x] All five dedicated terminal e2e specs green, plus the four incidental ones that caught #242. See Theme G.
 - [ ] `perf/bundle-budget.spec.ts` green — xterm still out of the entry chunk.
 - [ ] `pnpm-lock.yaml` resolves exactly one `@xterm/xterm`.
 - [ ] `outstanding.md`'s xterm section is either deleted or rewritten with a v6 verdict — no "next bump" phrasing left.
-- [ ] Human pass per Theme G.
+- [ ] Human pass per Theme G (open: needs a person on the packaged app; checklist in Theme G's Headlines paragraph).
 
 ## Not in this phase
 
