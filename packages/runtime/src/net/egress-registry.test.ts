@@ -33,19 +33,11 @@ const UNMIGRATED: Record<string, string> = {
   'packages/desktop/src/main/ipc/status-handlers.ts': 'git fetch, not an HTTP client',
   'packages/desktop/src/main/fs-protocol.ts': 'net.fetch of a file:// URL for the mstudio-file protocol',
   'packages/desktop/src/main/games/game-electron.ts': 'net.fetch of a file:// URL for the game protocol',
-  'apps/gamer/main/index.ts': 'file:// protocol handler, and the app composer injecting `net.fetch` (follow-up: bind to guardedFetch)',
+  'apps/gamer/main/index.ts': 'net.fetch of a file:// URL for the game and host file protocols',
   'apps/gamer/main/game-electron.ts': 'net.fetch of a file:// URL for the game protocol',
   'apps/mind/main/index.ts': 'net.fetch of a file:// URL for the capture protocol',
-  'apps/media/main/index.ts': 'file:// protocol handler, and the app composer injecting `net.fetch` (follow-up: bind to guardedFetch)',
-  'packages/modules/creator/main/context.ts': 'app composer default (follow-up: bind to guardedFetch)',
-  'packages/features/monitor/main/system-health.ts': 'GET to the user’s own local Ollama /api/version',
-  'packages/features/models/main/client.ts': 'the user’s own local Ollama server (loopback)',
-  'packages/features/forge/main/http.ts': 'forge providers on user-chosen hosts (github, gitlab, self-hosted); follow-up: register per provider',
-  'packages/features/browser/main/browser-site-safety.ts': 'feed fetch injected into feed-service; follow-up: bind to guardedFetch',
-  'packages/features/media-map/main': 'tile sources and Overpass share one injected fetch; follow-up: register every tile host, then bind',
-  'packages/desktop/src/main/ipc/media-image-handlers.ts': 'provider fetch injected into media-images; follow-up: bind to guardedFetch (local Ollama is loopback)',
-  'packages/desktop/src/main/ipc/media-map-handlers.ts': 'tile and geocode fetch injected into media-map; follow-up: register tile hosts, then bind',
-  'apps/launcher/src/main': 'the launcher is off the graph and cannot import the runtime; follow-up: launcher switches (Theme A, second slice)',
+  'apps/media/main/index.ts': 'net.fetch of a file:// URL for the media file protocol',
+  'apps/launcher/src/main': 'the launcher is off the graph and cannot import the runtime; its automatic calls are gated by its own launcher-updates / launcher-catalog switches (apps/launcher/src/main/privacy.ts)',
 };
 
 function* walk(dir: string): Generator<string> {
@@ -63,6 +55,8 @@ function findRawRequests(source: string): number[] {
   const hits: number[] = [];
   source.split('\n').forEach((line, i) => {
     if (/^\s*(\/\/|\*|\/\*)/.test(line) || /\bfunction\s+fetch\b/.test(line)) return;
+    // A method named fetch (`async fetch(key, url) {`) is a definition, not a call.
+    if (/^\s*(?:async\s+)?fetch\s*\([^)]*\)\s*(?::[^={]+)?\{\s*$/.test(line)) return;
     if (REQUEST_CALL.test(line) || REQUEST_VALUE.test(line)) hits.push(i + 1);
   });
   return hits;
@@ -79,6 +73,12 @@ describe('the egress scan', () => {
     expect(findRawRequests("await guardedFetch('app', url);")).toEqual([]);
     expect(findRawRequests('await deps.fetch(url);')).toEqual([]);
     expect(findRawRequests('// fetch(url) is not allowed')).toEqual([]);
+    expect(findRawRequests('    async fetch(key, url, opts = {}) {')).toEqual([]);
+  });
+
+  it('an avatars entry never gates the app’s own github.com download', () => {
+    expect(resolveEgress('app', 'https://github.com/k2-fsa/sherpa-onnx/releases/download/x.tar.bz2')?.switch).toBeUndefined();
+    expect(resolveEgress('avatars', 'https://github.com/octocat.png')?.switch).toBe('avatars');
   });
 
   it('finds no main-side request outside guardedFetch except the documented ones', () => {

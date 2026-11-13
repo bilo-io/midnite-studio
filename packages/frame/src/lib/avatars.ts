@@ -36,6 +36,22 @@ const cache = new Map<string, AvatarState>();
 const inFlight = new Map<string, Promise<void>>();
 const listeners = new Set<() => void>();
 
+/** Shared, so every identity answered while remote avatars are off has the identical snapshot. */
+const NONE: AvatarState = { status: 'none' };
+
+let remoteAvatars = true;
+
+/**
+ * Phase 115 Theme A: the host mirrors its `avatars` privacy switch (and the master) here. Off, `avatarFor`
+ * answers `none` without hashing or caching anything, so no Gravatar request is ever built; the faces fall
+ * back to initials. Subscribers are told so the avatars already on screen redraw.
+ */
+export function setRemoteAvatarsEnabled(on: boolean): void {
+  if (remoteAvatars === on) return;
+  remoteAvatars = on;
+  listeners.forEach((fn) => fn());
+}
+
 /** Gravatar wants the address lowercased and trimmed before hashing. */
 export const normaliseEmail = (email: string): string => email.trim().toLowerCase();
 
@@ -76,6 +92,7 @@ export const gravatarUrl = (hash: string, size: number): string =>
  * an uncached snapshot in development).
  */
 export function avatarFor(email: string): AvatarState {
+  if (!remoteAvatars) return NONE;
   const key = normaliseEmail(email);
   const known = cache.get(key);
   if (known) return known;
@@ -129,6 +146,7 @@ export function subscribeAvatars(fn: () => void): () => void {
 export function __resetAvatars(): void {
   cache.clear();
   inFlight.clear();
+  remoteAvatars = true;
 }
 
 /**

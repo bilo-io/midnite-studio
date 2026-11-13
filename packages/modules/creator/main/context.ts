@@ -29,7 +29,7 @@ import {
   openaiImageProvider,
   type ImageProvider,
 } from '@midnite/studio-feature-media-images/main';
-import { createIpcContext, type FeatureMainContext, type IpcContextElectron } from '@midnite/studio-runtime';
+import { createIpcContext, guardedFetchFor, type FeatureMainContext, type IpcContextElectron } from '@midnite/studio-runtime';
 import { EVENT_CHANNELS, MUSIC_MIDI_FILE_EXTENSIONS, failure, ok, type FfmpegStatus, type SecretKey } from '@midnite/studio-shared';
 
 import { CREATOR_REPO_ID } from '../manifest';
@@ -117,7 +117,7 @@ export function registerCreatorOn(ctx: FeatureMainContext, el: CreatorElectron):
     readKey: el.readKey,
     writeFile: (req) => media.store.writeFile(req),
     emit: (event) => el.send(EVENT_CHANNELS.mediaImageProgress, event),
-    fetch: el.fetch ?? ((input, init) => fetch(input, init)),
+    fetch: el.fetch ?? (guardedFetchFor('media-images') as typeof fetch),
     discoverOllamaModels: async () => [],
     agyAvailable: isAgyInstalled,
   });

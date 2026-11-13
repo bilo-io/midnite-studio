@@ -4,6 +4,7 @@ import type {
   OllamaModelDetails,
   OllamaRunningModel,
 } from '@midnite/studio-shared';
+import { guardedFetch } from '@midnite/studio-runtime';
 import { deriveContextLength } from '@midnite/studio-shared';
 
 /**
@@ -62,7 +63,7 @@ async function fetchWithTimeout(
   }, timeoutMs);
   deadline.unref?.();
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    return await guardedFetch('models', url, { ...init, signal: controller.signal });
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       if (timedOut) throw new Error(`Ollama request to ${url} timed out after ${timeoutMs} ms.`);

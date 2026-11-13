@@ -15840,6 +15840,10 @@ LAN streams/posters/transcodes take `?e=&s=` signed, six-hour URLs; packaged `sc
 
 Docs only. 126 reopened as 🔄 WIP at 41/43: its two open boxes are the CI `gate-node` run (billing-locked, not verifiable locally) and a human install check. 127/128/130 progress bars set to the 10-cell form the checker derives. 113 Theme H closed out: Cleaner is now `packages/modules/cleaner`, nothing left to build; only human release tests remain.
 
+## 2026-11-13 — Phase 115 Theme A (third slice) — launcher switches, every client on the registry, idle e2e
+
+The launcher honours its update and catalog switches and the master; map, image, forge, Browser feed and Ollama clients go through `guardedFetchFor`; user-chosen hosts register as `*`; an idle e2e with the master on sees no request (and found Gravatar/GitHub avatars, now behind an `avatars` switch). Theme A is done.
+
 ## 2026-11-13 — Phase 116 Theme C (header sweep) — every e2e spec names its browser capability
 
 All 110 functional specs open with `// e2e-capability:` or `// e2e-candidate:` (35 candidates); `e2e-budget` enforces it. No test deleted or run; Wave C1/C2 migrations still wait on an `app:e2e` run.
@@ -15847,3 +15851,7 @@ All 110 functional specs open with `// e2e-capability:` or `// e2e-candidate:` (
 ## 2026-11-13 — Phase 115 Theme G (website page and Settings link) — the privacy statement on the site
 
 The website serves `/privacy/` (new HTML entry, route, footer link), rendered from the generated `docs/PRIVACY.md` taken as text at build time with the repository pointer stripped; a test holds it to naming and linking no repository. Settings ▸ Privacy ends with a link to it. Theme G is done.
+
+## 2026-11-13 — Phase 116 Theme C (Wave C1 twins, partial) — Vitest twins beside the e2e tests
+
+New `midnite-menu.test.tsx`, four readout tests in `monitor-cluster.test.tsx`, and `// vitest-twin:` markers on the twinned e2e tests (midnite-menu, footer-monitor, titlebar-agents). No e2e test deleted; cap stays 483.

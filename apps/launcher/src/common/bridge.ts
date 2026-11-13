@@ -38,6 +38,8 @@ export const LAUNCHER_CHANNELS = {
   /** main → renderer: the installer exited non-zero before it could quit this app. */
   selfUpdateFailed: 'launcher:self:update-failed',
   linkOpen: 'launcher:link:open',
+  privacyGet: 'launcher:privacy:get',
+  privacySet: 'launcher:privacy:set',
   /** The newest released sections of one app's public changelog mirror. */
   changelogLatest: 'launcher:changelog:latest',
   /** Opens one app's full changelog page in the browser. */
@@ -112,11 +114,23 @@ export type ExternalLink = (typeof EXTERNAL_LINKS)[number];
 export const THEME_SOURCES = ['system', 'light', 'dark'] as const;
 export type ThemeSource = (typeof THEME_SOURCES)[number];
 
+/**
+ * Phase 115 Theme A: the launcher's automatic network calls and whether each may run at start. `allAutomaticOff`
+ * is the master and overrides the two switches without changing them. A manual "Check again" always runs.
+ */
+export type LauncherPrivacy = {
+  allAutomaticOff: boolean;
+  switches: { 'launcher-updates': boolean; 'launcher-catalog': boolean };
+};
+
+/** `manual` is a click on Check again: it runs even with the automatic switch off. */
+export type StatusOptions = { manual?: boolean };
+
 export type LauncherBridge = {
   launcherVersion: string;
   platform: { os: string; arch: string };
   studio: {
-    status(): Promise<StudioStatus>;
+    status(options?: StatusOptions): Promise<StudioStatus>;
     install(): Promise<LauncherResult>;
     uninstall(): Promise<LauncherResult>;
     reveal(): Promise<LauncherResult>;
@@ -124,7 +138,7 @@ export type LauncherBridge = {
   };
   apps: {
     open(id: AppId, featureId?: string): Promise<LauncherResult>;
-    status(): Promise<AppsStatus>;
+    status(options?: StatusOptions): Promise<AppsStatus>;
     /** Installs or updates one app's bundle and Dock stub. Never throws. */
     install(id: AppId): Promise<LauncherResult>;
     /** Removes exactly this app's bundle, stub and record (to the Trash). Never throws. */
@@ -137,7 +151,7 @@ export type LauncherBridge = {
   };
   /** The launcher itself. */
   self: {
-    status(): Promise<LauncherSelfStatus>;
+    status(options?: StatusOptions): Promise<LauncherSelfStatus>;
     /** Starts the installer and returns; on success this app quits shortly after. Never throws. */
     update(): Promise<LauncherResult>;
     /** Fires with a message when a started update failed and this app is still running. */
@@ -150,6 +164,10 @@ export type LauncherBridge = {
     /** Never throws: offline is `{ sections: [], error }`; not published yet is `{ sections: [], error: null }`. */
     latest(app: ChangelogAppId): Promise<ChangelogResult>;
     openFull(app: ChangelogAppId): Promise<LauncherResult>;
+  };
+  privacy: {
+    get(): Promise<LauncherPrivacy>;
+    set(next: LauncherPrivacy): Promise<LauncherPrivacy>;
   };
   theme: {
     /** Fire-and-forget: sets Electron's `nativeTheme.themeSource`. */

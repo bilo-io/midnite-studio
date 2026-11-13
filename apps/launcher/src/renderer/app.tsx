@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { LuLayoutGrid, LuMonitor, LuMoon, LuRefreshCw, LuSearch, LuSun, LuTable, LuTrash2, LuX } from 'react-icons/lu';
+import { LuLayoutGrid, LuMonitor, LuMoon, LuRefreshCw, LuSearch, LuShield, LuSun, LuTable, LuTrash2, LuX } from 'react-icons/lu';
 
 import type { ChangelogAppId } from '@midnite/studio-shared/release';
 
@@ -7,6 +7,7 @@ import type { LauncherResult, LauncherSelfStatus, ThemeSource } from '../common/
 import { APPS, SECTION_LABELS, appById, type AppId, type LauncherApp } from '../common/catalog';
 import { compareVersions } from '../common/version';
 import { getBridge } from './bridge';
+import { PrivacyDialog } from './components/privacy-dialog';
 import { AppDetail } from './components/app-detail';
 import type { MenuItem } from './components/app-menu';
 import { ChangelogList, changelogAppOf, useChangelog } from './components/changelog';
@@ -85,16 +86,20 @@ export function App() {
   const [confirmUninstall, setConfirmUninstall] = useState<LauncherApp | null>(null);
   const [confirmRemoveAll, setConfirmRemoveAll] = useState(false);
   const [removingAll, setRemovingAll] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; tone: 'error' | 'info' } | null>(null);
   const [self, setSelf] = useState<LauncherSelfStatus | null>(null);
   /** The version whose banner was dismissed — a newer one found by Check again shows again. */
   const [selfBannerDismissed, setSelfBannerDismissed] = useState<string | null>(null);
   const [selfUpdating, setSelfUpdating] = useState(false);
 
-  const checkSelf = useCallback(() => {
-    void bridge.self.status().then(setSelf, () => undefined);
-  }, [bridge]);
-  useEffect(checkSelf, [checkSelf]);
+  const checkSelf = useCallback(
+    (manual = false) => {
+      void bridge.self.status({ manual }).then(setSelf, () => undefined);
+    },
+    [bridge],
+  );
+  useEffect(() => checkSelf(false), [checkSelf]);
   useEffect(
     () =>
       bridge.self.onFailed((message) => {
@@ -273,11 +278,20 @@ export function App() {
             aria-label="Check again"
             onClick={() => {
               void apps.refresh();
-              checkSelf();
+              checkSelf(true);
             }}
             disabled={apps.refreshing}
           >
             <LuRefreshCw size={15} className={apps.refreshing ? 'spin' : undefined} />
+          </button>
+          <button
+            type="button"
+            className="btn btn-icon topbar-privacy"
+            aria-label="Privacy: automatic network calls"
+            title="Privacy: automatic network calls"
+            onClick={() => setPrivacyOpen(true)}
+          >
+            <LuShield size={15} />
           </button>
           <button
             type="button"
@@ -504,6 +518,8 @@ export function App() {
           </div>
         </div>
       )}
+
+      {privacyOpen && <PrivacyDialog bridge={bridge} onClose={() => setPrivacyOpen(false)} />}
 
       {toast && (
         <div className="toast" data-tone={toast.tone} role={toast.tone === 'error' ? 'alert' : 'status'}>
