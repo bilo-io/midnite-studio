@@ -9,6 +9,8 @@ import {
 } from '@midnite/studio-shared';
 
 const SECURITY_DIR = 'security';
+/** How long a held sweep waits before the gate is asked again. */
+const DEFAULT_DEFER_MS = 15 * 60 * 1000;
 const NEXT_WAKE_FILE = 'guard-next-wake.json';
 
 const FREQUENCY_MS: Record<LoopFrequency, number> = {
@@ -121,6 +123,12 @@ export interface GuardSchedulerOptions {
   onSweep: () => Promise<unknown>;
   /** A sweep that threw; the scheduler carries on to the next one. */
   onError?: (error: unknown) => void;
+  /**
+   * Asked before a scheduled sweep (never *Sweep now*): true holds this one and asks again after `deferMs`, so a
+   * sweep does not run on a blurred window over a low battery (`sweep-gate.ts`).
+   */
+  shouldDefer?: () => boolean | Promise<boolean>;
+  deferMs?: number;
   userData?: string;
   store?: NextWakeStore;
   now?: () => number;
@@ -197,6 +205,22 @@ export function createGuardScheduler(options: GuardSchedulerOptions): GuardSched
   }
 
   async function triggerSweep(): Promise<void> {
+    let defer = false;
+    try {
+      defer = (await options.shouldDefer?.()) === true;
+    } catch (error) {
+      options.onError?.(error); // an unreadable gate must not stop sweeps
+    }
+    if (defer) {
+      const retryAt = now() + (options.deferMs ?? DEFAULT_DEFER_MS);
+      currentNextWake = retryAt;
+      await store.save(retryAt);
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        void triggerSweep();
+      }, Math.max(0, retryAt - now()));
+      return;
+    }
     await runSweep();
     await scheduleNext();
   }
