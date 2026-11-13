@@ -73,7 +73,7 @@ first, then **B** and **C** in parallel, then **D**, **F**, **G**, then **E**, t
 
 **Theme A — Open Game.** ◻ An **Open Game** button beside **New game**: a folder dialog in main, the folder resolved to its game root, registered through the host's repo port (Gamer gets a small opened-games store behind it), refused with a plain reason when it is not a game.
 
-**Theme B — Centre layout: Level editor and Play mode tabs.** ◻ Clicking a game opens a **Level editor** tab in the centre; **Run** opens **Play mode** beside it with the runner and console drawer moved under it; the run controls move to the centre of the top bar, led by a gradient-bordered Play button.
+**Theme B — Centre layout: Level editor and Play mode tabs.** ✅ The centre is a `GameCenter` with a **Level editor** tab (an empty-state placeholder until Theme D) and a **Play mode** tab holding the runner and console drawer; both panels stay mounted and `GameRunnerHost` takes `active` so the native view hides under the editor. `useGameMode` keeps the tab per game (a game opens on the editor) and the pause policy: leaving Play pauses only a run the Play button started, `pauseWhenEditing` (default on, Settings ▸ Games switch) gates it, and return resumes only that auto-pause. The run controls moved to the centre of the top bar (name left, export right), led by a gradient-bordered Run/Play button with a hover glow. Human check stays in H.
 
 **Theme C — Level format, kit loader and the scene jump.** ◻ `shared/src/game-level.ts` (the 2D and 3D conventions over Tiled JSON), additive Tiled schema fields, `kit/core/level.js` plus Phaser and three builders, `window.__midnite.goto(scene)`, kit 0.12.0, and the main-side level list/get/set and goto ops.
 
@@ -183,7 +183,7 @@ keep editing scenes as code.
 
 ### B — Centre layout: Level editor and Play mode tabs [M · 2-4h]
 
-- [ ] Net-new `renderer/game-center.tsx` — `GameCenter({ game, mode, onMode, resolution, sceneSlot })`
+- [x] Net-new `renderer/game-center.tsx` — `GameCenter({ game, mode, onMode, resolution, sceneSlot })`
   - A `role="tablist"` strip (`aria-label="Game view"`) with two `role="tab"` buttons: **Level editor** (`LuPencilRuler`)
     and **Play mode** (`LuGamepad2`), `aria-selected` on the active one, arrow keys move between them. Right of the tabs,
     `sceneSlot` (Theme D puts the scene picker there; empty until then).
@@ -194,17 +194,17 @@ keep editing scenes as code.
     available for this game yet.`, body `Press Run to play it.`).
   - While a run is live and the editor tab is showing, the Play tab label carries a small live dot
     (`role="img" aria-label="Running"`), so a run started by an agent is never invisible.
-- [ ] Mode state in [`game-tab.tsx`](../../../packages/features/media-game/renderer/game-tab.tsx)
+- [x] Mode state in [`game-tab.tsx`](../../../packages/features/media-game/renderer/game-tab.tsx)
   - `mode: 'editor' | 'play'` per `gameId` (a `Map` in a `useState`, not persisted). Selecting a game in the list
     (or via `useMediaOpenFor`) sets that game's mode to `editor` — clicking a game opens its level editor.
   - A run started by the Play button sets `play`. A run started elsewhere (an agent's `game_run`, a play-test, MCP)
     does not switch tabs; the live dot shows it.
-- [ ] The native view must hide under the editor tab
+- [x] The native view must hide under the editor tab
   - `GameRunnerHost` gains `active: boolean`; `useGameBounds` folds it in: `visible = live && pageVisible && !occluded
     && active`. With `active` false it sends `setVisible(false)` exactly as an occluder does today; switching back sends
     the bounds again. Without this the `WebContentsView` floats over the editor canvas.
   - The popout (`hosted` false) is unaffected: a popped-out game keeps its own window.
-- [ ] Pause policy (Decision 10)
+- [x] Pause policy (Decision 10)
   - Leaving Play for the editor pauses the run (`games.toolbar({ gameId, action: 'pause' })`) **only** when the run was
     started by this window's Play button, it is `running`, it is not popped out, and the `pauseWhenEditing` setting is
     on; the tab remembers it paused it. Returning to Play resumes only a run it paused itself — a run the user paused
@@ -214,7 +214,7 @@ keep editing scenes as code.
     default. Studio's Settings ▸ Games section
     ([`games-root-section.tsx`](../../../packages/app/src/features/settings/settings-pages/games-root-section.tsx)) gets a
     switch, `Pause the game while editing levels`. Gamer has no Games settings page and uses the default.
-- [ ] Run controls in the centre of the top bar
+- [x] Run controls in the centre of the top bar
   - `game-tab.tsx`'s toolbar node becomes `grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center
     gap-3`: left cell the game name (left-aligned, `truncate`, today's `title`), centre cell `GameRunnerToolbar`, right
     cell `GameExportBar` with `justify-self-end`. The name moves from centre to left.
@@ -223,7 +223,7 @@ keep editing scenes as code.
     export bar at the narrowest supported width; pad the outer cells if they do.
   - The popout's own bar ([`game-popout-pane.tsx`](../../../packages/features/media-game/renderer/game-popout-pane.tsx))
     keeps its current layout.
-- [ ] The Play button — first control in [`GameRunnerToolbar`](../../../packages/features/media-game/renderer/game-runner-toolbar.tsx)
+- [x] The Play button — first control in [`GameRunnerToolbar`](../../../packages/features/media-game/renderer/game-runner-toolbar.tsx)
   - New prop `onPlay: () => void`. Not live → label **Run** (`LuPlay`), starts `useRunGame` and calls `onPlay`. Live →
     label **Play** (`aria-label="Show the running game"`), calls `onPlay` (which switches to the Play tab and resumes an
     auto-paused run). Disabled with no game selected. In the popout `onPlay` is absent and the button only runs.
@@ -237,7 +237,7 @@ keep editing scenes as code.
     `html[data-motion='reduced']`); the glow itself is static, and its fade is `motion-safe:transition-shadow` only.
   - The existing Restart, Stop, resolution, mute, overlay, DevTools, Juice, Playtests and Pop out controls keep their
     order after it.
-- [ ] Tests (vitest/jsdom)
+- [x] Tests (vitest/jsdom)
   - Net-new `game-center.test.tsx`: two tabs with roles and `aria-selected`; the inactive panel is `hidden`; arrow keys
     move selection; the live dot appears when the run store says live and the editor tab is active.
   - Net-new `game-tab-mode.test.tsx` (mock bridge): selecting a game shows the editor tab; Run calls `games.run` and
