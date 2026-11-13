@@ -8,6 +8,7 @@ Completed work is logged append-only in [`../done.md`](../done.md). Deferred sco
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [134 · Councils synthesizer presets](phases/phase-134-councils-synthesizer-presets.md) | ◻ TODO | — | 0/28 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [133 · Councils threads and synthesis](phases/phase-133-councils-threads-and-synthesis.md) | ✅ DONE | x1 | 35/35 | `██████████` | 100% | — | — |
 | [132 · Game level editor and Open Game](phases/phase-132-game-level-editor.md) | 🔄 WIP | x1 | 48/62 | `████████░░` | 77% | — | H |
 | [131 · Per-app changelogs](phases/phase-131-per-app-changelogs.md) | 🔄 WIP | x1 | 39/42 | `█████████░` | 93% | — | — |
