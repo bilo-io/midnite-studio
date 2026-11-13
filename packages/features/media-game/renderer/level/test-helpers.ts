@@ -34,3 +34,16 @@ export function removeBridge(): void {
 export function stubCanvas(): void {
   HTMLCanvasElement.prototype.getContext = (() => null) as never;
 }
+
+/** jsdom lacks `PointerEvent`, so `fireEvent.pointerDown` would drop `clientX`/`button`; a `MouseEvent` carries them. */
+export function stubPointerEvents(): void {
+  if (typeof window.PointerEvent === 'function') return;
+  class PointerEventStub extends MouseEvent {
+    pointerId: number;
+    constructor(type: string, init: MouseEventInit & { pointerId?: number } = {}) {
+      super(type, init);
+      this.pointerId = init.pointerId ?? 1;
+    }
+  }
+  (window as unknown as { PointerEvent: unknown }).PointerEvent = PointerEventStub;
+}

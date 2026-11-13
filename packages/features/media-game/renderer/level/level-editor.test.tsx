@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LevelEditor } from './level-editor';
 import { useLevelStore } from './level-store';
-import { blankLevel, installBridge, newClient, removeBridge, stubCanvas } from './test-helpers';
+import { blankLevel, installBridge, newClient, removeBridge, stubCanvas, stubPointerEvents } from './test-helpers';
 
 const list = vi.fn();
 const get = vi.fn();
@@ -16,6 +16,7 @@ const listed = (over: Record<string, unknown> = {}) => ({ ok: true, value: { sce
 
 beforeEach(() => {
   stubCanvas();
+  stubPointerEvents();
   for (const m of [list, get, set]) m.mockReset();
   list.mockResolvedValue(listed());
   get.mockResolvedValue({ ok: true, value: { level: blankLevel(), issues: [], images: [] } });
