@@ -1,6 +1,6 @@
 {
   "name": "@midnite/app-startup",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "private": true,
   "description": "Midnite Startup - roadmap, runway and a lightweight ERP for a young company, as its own app.",
   "type": "module",
