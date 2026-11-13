@@ -1,5 +1,5 @@
 import { access } from 'node:fs/promises';
-import { basename, dirname, join, relative } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 
 import {
   detectPackageManager,
@@ -132,6 +132,7 @@ export async function runPackageFix(input: {
   if (!top.ok || top.exitCode !== 0) return fail(`${target.dir} is not inside a git repository, so there is no branch to put the fix on.`);
   const root = top.stdout.trim();
   const rel = relative(root, target.dir);
+  if (rel.startsWith('..') || isAbsolute(rel)) return fail(`${target.dir} is outside its git repository (${root}); nothing was changed.`);
 
   const clash = await git(root, ['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`]);
   if (clash.ok && clash.exitCode === 0) return fail(EXISTING_BRANCH_HINT);

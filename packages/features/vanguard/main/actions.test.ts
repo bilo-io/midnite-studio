@@ -703,6 +703,14 @@ describe('update-package and remove-package (Phase 122 Theme G)', () => {
     expect(gitArgs.some((a) => /push|checkout|switch/.test(a))).toBe(false);
   });
 
+  it('refuses a lockfile that sits outside the repository git reports', async () => {
+    const f = await finding();
+    const outside: SensorRunProcess = async (command, args) => (command === 'git' && args[2] === 'rev-parse' && args[3] === '--show-toplevel' ? ok(`${root}/repo/inner\n`) : proc(command, args));
+    const result = await runAction(ledger, actionsFor({ runProcess: outside }), f.id, update);
+    expect(result).toMatchObject({ ok: false, message: expect.stringContaining('outside its git repository') });
+    expect(named('pnpm')).toEqual([]);
+  });
+
   it('removes a package the same way', async () => {
     const f = await finding();
     const result = await runAction(ledger, actionsFor(), f.id, { id: 'remove-package', name: 'evil-pkg', version: '1.0.0' });
