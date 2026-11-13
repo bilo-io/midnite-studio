@@ -14,6 +14,7 @@ import { loadKev } from './feeds/kev';
 import { loadThreatFeed } from './feeds/threat-feed';
 import type { GuardInputResolverContext } from './inputs';
 import { resolveDotfileSecrets, resolveListeningPorts, resolveMacConfig, resolveSshInputs } from './mac-probes';
+import type { VisitedOrigin } from './checks/sites';
 import { resolveInstalledSoftware, type ExecFile } from './software';
 import { resolveLockfiles } from './lockfiles/discover';
 import { resolveInstalledNodeModules } from './lockfiles/node-modules';
@@ -32,6 +33,13 @@ export interface GuardResolverOptions {
   allowConfigRead?: () => boolean;
   /** Runs a binary for the installed-software inventory; without it that input has no resolver and is skipped. */
   exec?: ExecFile;
+  /**
+   * The browser's visited origins since `sinceMs`, handed in by the composer (a feature never reaches Guard and Guard
+   * never imports a feature). Without it `history` has no resolver and the sites check is skipped.
+   */
+  readBrowserHistory?: (sinceMs: number) => VisitedOrigin[] | Promise<VisitedOrigin[]>;
+  /** How far back the history sweep looks; Theme E's first-run default is 7 days. */
+  historyWindowMs?: number;
   threatFeedUrl?: string;
   publicKeyPem?: string;
 }
@@ -102,6 +110,9 @@ export function createGuardResolvers(options: GuardResolverOptions): Record<stri
           macConfig: () => resolveMacConfig(exec),
           sshKeys: () => resolveSshInputs(exec, options.home),
         }
+      : {}),
+    ...(options.readBrowserHistory
+      ? { history: async () => options.readBrowserHistory!(Date.now() - (options.historyWindowMs ?? 7 * 24 * 60 * 60 * 1000)) }
       : {}),
     dotfileSecrets: async () => resolveDotfileSecrets(options.home, await repos()),
     lockfiles: () => lockedPackages(),
