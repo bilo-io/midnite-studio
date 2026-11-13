@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell, clipboard, Menu, type MenuItemConstructorOptions } from 'electron';
 
 import { libraryFileResolver } from '@midnite/studio-feature-media-library/main';
-import { connectRuntimeVault, guardAppWindow, vaultHostSocketPath, createFileSink, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
+import { connectRuntimeVault, guardAppWindow, guardedFetchFor, vaultHostSocketPath, createFileSink, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
 import { MSTUDIO_FILE_SCHEME, type FfmpegStatus } from '@midnite/studio-shared';
 
 import { createMediaKeyReader, mediaLibraryDataDir } from '@midnite/studio-module-media/main';
@@ -173,7 +173,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       pickDirectory,
       readKey: () => readKey('media.tmdbApiKey'),
       // Only ever called once the user has switched online metadata on and a granted key reads back.
-      fetch: (input, init) => net.fetch(input instanceof URL ? input.toString() : input, init),
+      fetch: guardedFetchFor('media-library') as typeof fetch,
       homeDir: homedir(),
       // Share on your network: the private addresses it may bind, and where a system ffmpeg might be.
       interfaces: networkInterfaces,

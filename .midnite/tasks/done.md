@@ -15827,3 +15827,7 @@ LAN streams/posters/transcodes take `?e=&s=` signed, six-hour URLs; packaged `sc
 ## 2026-11-13 — Tracker fixes (113 H, 126–130)
 
 Docs only. 126 reopened as 🔄 WIP at 41/43: its two open boxes are the CI `gate-node` run (billing-locked, not verifiable locally) and a human install check. 127/128/130 progress bars set to the 10-cell form the checker derives. 113 Theme H closed out: Cleaner is now `packages/modules/cleaner`, nothing left to build; only human release tests remain.
+
+## 2026-11-13 — Phase 115 Theme A (third slice) — launcher switches, every client on the registry, idle e2e
+
+The launcher honours its update and catalog switches and the master; map, image, forge, Browser feed and Ollama clients go through `guardedFetchFor`; user-chosen hosts register as `*`; an idle e2e with the master on sees no request (and found Gravatar/GitHub avatars, now behind an `avatars` switch). Theme A is done.

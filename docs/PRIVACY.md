@@ -23,6 +23,9 @@ The app makes these on its own, without you asking, while the feature is in use.
 | `api.open-meteo.com` | titlebar-status | coordinates of the chosen city, for a forecast | Title-bar weather (Open-Meteo) (on by default) |
 | `geocoding-api.open-meteo.com` | titlebar-status | the city name typed into weather and map search | Title-bar weather (Open-Meteo) (on by default) |
 | `ipwho.is` | titlebar-status | the Mac’s public IP address (the server sees it), to guess a city | Locate me by IP (ipwho.is) (off by default) |
+| `gravatar.com` | app | a hash of a commit author’s email address, to look up their picture | Author avatars (Gravatar, GitHub) (on by default) |
+| `github.com` | app | GET only: a GitHub login’s public avatar image | Author avatars (Gravatar, GitHub) (on by default) |
+| `avatars.githubusercontent.com` | app | GET only: the redirect target of a GitHub avatar | Author avatars (Gravatar, GitHub) (on by default) |
 | `api.coingecko.com` | finance | GET only: crypto asset ids, no identifiers | Market prices, FX and finance news (on by default) |
 | `data-api.binance.vision` | finance | GET only: crypto symbols, no identifiers | Market prices, FX and finance news (on by default) |
 | `query1.finance.yahoo.com` | finance | GET only: ticker symbols, no identifiers | Market prices, FX and finance news (on by default) |
@@ -74,11 +77,22 @@ These happen because you started something: a search, a download, a request you 
 | `api.maptiler.com` | media-map | tile coordinates and the user’s MapTiler key |
 | `tiles.openfreemap.org` | media-map | GET only: map tile coordinates |
 | `huggingface.co` | models | GET only: a model download the user asked for |
+| `geocoding-api.open-meteo.com` | media-map | the place name typed into the map search |
+| `s3.amazonaws.com` | media-map | GET only: elevation tile coordinates (AWS Terrain Tiles), for a terrain capture |
+| `tiles.maps.eox.at` | media-map | GET only: satellite tile coordinates (Sentinel-2 cloudless), for a terrain capture |
+| any address you type | models | model lists, pulls and chat requests to the Ollama server you configured (this Mac, unless OLLAMA_HOST says otherwise) |
+| any address you type | media-images | the image prompt to the Ollama server you configured (this Mac, unless OLLAMA_HOST says otherwise) |
+| any address you type | monitor | GET only: the version of the Ollama server you configured, for the health probe |
+| any address you type | forge | API requests with your access token, to the forge host you added (GitHub, GitLab, Bitbucket, Azure DevOps or a self-hosted one) |
+| `api.kraken.com` | finance | read-only balance requests, signed with the Kraken key you added |
+| `api.alpaca.markets` | finance | read-only account and position requests, with the Alpaca key you added |
+| `paper-api.alpaca.markets` | finance | read-only paper-account requests, with the Alpaca key you added |
 | any address you type | api-client | whatever request the user composes, to the URL they typed |
 | any address you type | workflows | whatever the workflow’s HTTP node is set to send, to its URL |
 
-The Launcher is a separate app. Its update and catalog checks are listed above under their switches; the Launcher
-does not read those switches yet, so today they run at start regardless.
+The Launcher is a separate app. Its update and catalog checks are listed above under their switches, and it reads
+them from its own Privacy dialog (the shield in its top bar): with a switch off, or with "Turn off all automatic
+network" on, nothing is requested at start, and its Check again button still asks when you click it.
 
 ## 2. What stays on this Mac, and how it is kept
 

@@ -1,5 +1,9 @@
 import { useState, useSyncExternalStore, type ReactNode } from 'react';
 
+import { privacySwitchOn } from '@midnite/studio-shared';
+
+import { useUiStore } from '../store/ui-store';
+
 import type { AvatarState } from '../services/avatars';
 import {
   avatarFor,
@@ -65,6 +69,12 @@ export function UserAvatar({
   const cleanName = name?.trim() || null;
   const cleanSrc = src?.trim() || null;
 
+  // Phase 115 Theme A: every remote picture is an automatic request (Gravatar sees a hash of the email, GitHub
+  // the login), so the `avatars` switch and the master turn them all into initials. A `data:`/`blob:` src is local.
+  const allAutomaticOff = useUiStore((s) => s.egressAllAutomaticOff);
+  const egressSwitches = useUiStore((s) => s.egressSwitches);
+  const remoteAvatars = privacySwitchOn({ allAutomaticOff, switches: egressSwitches }, 'avatars');
+
   const [githubImgFailed, setGithubImgFailed] = useState(false);
   const [srcFailed, setSrcFailed] = useState(false);
 
@@ -82,7 +92,7 @@ export function UserAvatar({
 
   let avatarElement: ReactNode;
 
-  if (cleanSrc && !srcFailed) {
+  if (cleanSrc && !srcFailed && (remoteAvatars || !/^https?:/i.test(cleanSrc))) {
     avatarElement = (
       <img
         src={cleanSrc}
@@ -92,7 +102,7 @@ export function UserAvatar({
         onError={() => setSrcFailed(true)}
       />
     );
-  } else if (cleanLogin && !githubImgFailed) {
+  } else if (cleanLogin && !githubImgFailed && remoteAvatars) {
     avatarElement = (
       <img
         src={`https://github.com/${cleanLogin}.png?size=${Math.round(size * 2)}`}
@@ -102,7 +112,7 @@ export function UserAvatar({
         onError={() => setGithubImgFailed(true)}
       />
     );
-  } else if (cleanEmail && gravatarState.status === 'ready') {
+  } else if (cleanEmail && gravatarState.status === 'ready' && remoteAvatars) {
     avatarElement = (
       <img
         src={gravatarUrl(gravatarState.hash, size)}

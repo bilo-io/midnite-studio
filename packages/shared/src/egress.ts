@@ -14,6 +14,7 @@ import { z } from 'zod';
 /** Switches that gate an `automatic` entry. A switch id is the stored key's name in Settings ▸ Privacy. */
 export const PRIVACY_SWITCHES = {
   weather: 'Title-bar weather (Open-Meteo)',
+  avatars: 'Author avatars (Gravatar, GitHub)',
   'locate-by-ip': 'Locate me by IP (ipwho.is)',
   markets: 'Market prices, FX and finance news',
   'guard-feeds': 'Guard vulnerability feeds (OSV, CISA KEV)',
@@ -63,6 +64,9 @@ export const EGRESS_ENTRIES: readonly EgressHost[] = [
   entry({ host: 'api.open-meteo.com', owner: 'titlebar-status', sends: 'coordinates of the chosen city, for a forecast', trigger: 'automatic', switch: 'weather', renderer: true }),
   entry({ host: 'geocoding-api.open-meteo.com', owner: 'titlebar-status', sends: 'the city name typed into weather and map search', trigger: 'automatic', switch: 'weather', renderer: true }),
   entry({ host: 'ipwho.is', owner: 'titlebar-status', sends: 'the Mac’s public IP address (the server sees it), to guess a city', trigger: 'automatic', switch: 'locate-by-ip', renderer: true }),
+  entry({ host: 'gravatar.com', owner: 'app', sends: 'a hash of a commit author’s email address, to look up their picture', trigger: 'automatic', switch: 'avatars' }),
+  entry({ host: 'github.com', owner: 'app', sends: 'GET only: a GitHub login’s public avatar image', trigger: 'automatic', switch: 'avatars' }),
+  entry({ host: 'avatars.githubusercontent.com', owner: 'app', sends: 'GET only: the redirect target of a GitHub avatar', trigger: 'automatic', switch: 'avatars' }),
   entry({ host: 'api.coingecko.com', owner: 'finance', sends: 'GET only: crypto asset ids, no identifiers', trigger: 'automatic', switch: 'markets' }),
   entry({ host: 'data-api.binance.vision', owner: 'finance', sends: 'GET only: crypto symbols, no identifiers', trigger: 'automatic', switch: 'markets' }),
   entry({ host: 'query1.finance.yahoo.com', owner: 'finance', sends: 'GET only: ticker symbols, no identifiers', trigger: 'automatic', switch: 'markets' }),
@@ -102,6 +106,16 @@ export const EGRESS_ENTRIES: readonly EgressHost[] = [
   entry({ host: 'tiles.openfreemap.org', owner: 'media-map', sends: 'GET only: map tile coordinates', trigger: 'user' }),
   entry({ host: 'huggingface.co', owner: 'models', sends: 'GET only: a model download the user asked for', trigger: 'user' }),
   entry({ host: '*', owner: 'finance', sends: 'a plain GET of an RSS feed URL the user added to the news list', trigger: 'automatic', switch: 'markets' }),
+  entry({ host: 'geocoding-api.open-meteo.com', owner: 'media-map', sends: 'the place name typed into the map search', trigger: 'user' }),
+  entry({ host: 's3.amazonaws.com', owner: 'media-map', sends: 'GET only: elevation tile coordinates (AWS Terrain Tiles), for a terrain capture', trigger: 'user' }),
+  entry({ host: 'tiles.maps.eox.at', owner: 'media-map', sends: 'GET only: satellite tile coordinates (Sentinel-2 cloudless), for a terrain capture', trigger: 'user' }),
+  entry({ host: '*', owner: 'models', sends: 'model lists, pulls and chat requests to the Ollama server you configured (this Mac, unless OLLAMA_HOST says otherwise)', trigger: 'user' }),
+  entry({ host: '*', owner: 'media-images', sends: 'the image prompt to the Ollama server you configured (this Mac, unless OLLAMA_HOST says otherwise)', trigger: 'user' }),
+  entry({ host: '*', owner: 'monitor', sends: 'GET only: the version of the Ollama server you configured, for the health probe', trigger: 'user' }),
+  entry({ host: '*', owner: 'forge', sends: 'API requests with your access token, to the forge host you added (GitHub, GitLab, Bitbucket, Azure DevOps or a self-hosted one)', trigger: 'user' }),
+  entry({ host: 'api.kraken.com', owner: 'finance', sends: 'read-only balance requests, signed with the Kraken key you added', trigger: 'user' }),
+  entry({ host: 'api.alpaca.markets', owner: 'finance', sends: 'read-only account and position requests, with the Alpaca key you added', trigger: 'user' }),
+  entry({ host: 'paper-api.alpaca.markets', owner: 'finance', sends: 'read-only paper-account requests, with the Alpaca key you added', trigger: 'user' }),
   entry({ host: '*', owner: 'api-client', sends: 'whatever request the user composes, to the URL they typed', trigger: 'user' }),
   entry({ host: '*', owner: 'workflows', sends: 'whatever the workflow’s HTTP node is set to send, to its URL', trigger: 'user' }),
 ];
@@ -163,6 +177,7 @@ export type EgressSettings = z.infer<typeof EgressSettingsSchema>;
 
 export const PRIVACY_SWITCH_DEFAULTS: Record<PrivacySwitchId, boolean> = {
   weather: true,
+  avatars: true,
   'locate-by-ip': false,
   markets: true,
   'guard-feeds': true,

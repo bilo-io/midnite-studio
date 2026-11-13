@@ -17,6 +17,7 @@ import {
 } from '@bilo-io/shell';
 import { pickForgeRemote, type ForgeCapability, type ForgeKind } from '@midnite/studio-shared';
 import { CiPower } from 'react-icons/ci';
+import './services/avatar-privacy';
 import { LuSettings } from 'react-icons/lu';
 
 import { Brand, BrandHomeButton, BrandMark } from './components/brand';

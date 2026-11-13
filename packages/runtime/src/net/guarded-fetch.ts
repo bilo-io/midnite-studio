@@ -52,6 +52,12 @@ export type GuardedFetchOptions = {
   transport?: (input: string | Request, init?: RequestInit) => Promise<Response>;
 };
 
+/**
+ * The first hop sends the caller's input as given. A `URL` object goes through unchanged (every `fetch` takes
+ * one, and a caller that built one, like the forge client, reads `url.href` back off its own stub).
+ */
+const passThrough = (input: GuardedFetchInput): string | Request => input as string | Request;
+
 const urlOf = (input: GuardedFetchInput): string => (typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
 
 /**
@@ -107,7 +113,7 @@ export function createGuardedFetch(options: GuardedFetchOptions = {}): GuardedFe
     const callerRedirect = init?.redirect ?? (input instanceof Request ? input.redirect : undefined);
     if (callerRedirect === 'manual' || callerRedirect === 'error') {
       // The caller sees (or refuses) the redirect itself; nothing is followed on its behalf.
-      return transport(input instanceof URL ? input.href : input, init);
+      return transport(passThrough(input), init);
     }
 
     // Pull a Request apart once: later hops need its method, headers and body as plain values.
@@ -124,7 +130,7 @@ export function createGuardedFetch(options: GuardedFetchOptions = {}): GuardedFe
       // The first hop sends the caller's input as given (a Request keeps its method, headers and body).
       const response =
         hop === 0
-          ? await transport(input instanceof URL ? input.href : input, { ...init, redirect: 'manual' })
+          ? await transport(passThrough(input), { ...init, redirect: 'manual' })
           : await transport(current, {
               ...rest,
               method,
