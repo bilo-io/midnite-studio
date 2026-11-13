@@ -17,7 +17,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [125 · Media ▸ Animations: a library of animation clips](phases/phase-125-animations-library.md) | 🔄 WIP | — | 38/41 | `█████████░` | 93% | — | H |
 | [124 · Merge suite apps into modules](phases/phase-124-apps-into-modules.md) | ✅ DONE | — | 47/47 | `██████████` | 100% | — | — |
 | [123 · One shell for every suite app](phases/phase-123-suite-shell.md) | ✅ DONE | x1 | 56/56 | `██████████` | 100% | — | — |
-| [122 · Guard loop upgrade](phases/phase-122-guard-loop-upgrade.md) | 🔄 WIP | — | 24/34 | `███████░░░` | 71% | E F G | — |
+| [122 · Guard loop upgrade](phases/phase-122-guard-loop-upgrade.md) | 🔄 WIP | — | 25/34 | `███████░░░` | 74% | E G | — |
 | [121 · Agents security](phases/phase-121-agents-security.md) | ✅ DONE | — | 51/51 | `██████████` | 100% | — | — |
 | [120 · Vanguard: antivirus and agentic self-defense](phases/phase-120-vanguard.md) | ✅ DONE | — | 46/46 | `██████████` | 100% | — | — |
 | [119 · Midnite Git: a self-hosted forge and local CI runners](phases/phase-119-midnite-git.md) | 🔄 WIP | — | 3/56 | `█░░░░░░░░░` | 5% | A | B C D E F G H |

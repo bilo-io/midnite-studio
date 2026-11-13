@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 122 Theme F (remainder) — Guard: lockfile changed with nothing pushed
+
+PR (see the Phase 122 lockfile-rule PR). A `lockfile-changes` check: a lockfile commit in the last 7 days on no remote branch is a `medium` finding per repo, read from git (no forge call). Not done: a pushed branch that has no PR.
+
 ## 2026-11-13 — Phase 122 Theme H (remainder) — Guard: daily default, power gate, egress, perf
 
 PR (see the Phase 122 remainder H PR). Guard's own daily default schedule (off until enabled), a scheduler gate that holds a scheduled sweep while the window is blurred and the Mac is on battery below 20%, egress entries for NVD, npm, PyPI and URLhaus, `docs/PRIVACY.md` regenerated, and `scripts/perf/guard-sweep.mjs` with its budget. Not done: the midnite-apps feed entry (waits on Themes B/C).

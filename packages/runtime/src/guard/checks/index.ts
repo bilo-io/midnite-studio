@@ -8,3 +8,4 @@ export * from './ssh-keys';
 export * from './secrets-outside-vault';
 export * from './sites';
 export * from './behaviour';
+export * from './lockfile-changes';
