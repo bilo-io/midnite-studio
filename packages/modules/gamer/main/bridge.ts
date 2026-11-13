@@ -45,6 +45,12 @@ export function createGamerBridge(ipc: RendererIpc): GamerBridge {
       juice: (req) => call(CHANNELS.gamesJuice, req),
       logs: (req) => call(CHANNELS.gamesLogs, req),
       kitUpgrade: (req) => call(CHANNELS.gamesKitUpgrade, req),
+      levels: {
+        list: (req) => call(CHANNELS.gamesLevels, req),
+        get: (req) => call(CHANNELS.gamesLevelGet, req),
+        set: (req) => call(CHANNELS.gamesLevelSet, req),
+      },
+      goto: (req) => call(CHANNELS.gamesGoto, req),
       popOut: (req) => call(CHANNELS.gamesPopOut, req),
       popped: () => call(CHANNELS.gamesPopped),
       onPopState: (handler) => subscribe(EVENT_CHANNELS.gamesPopState, handler),

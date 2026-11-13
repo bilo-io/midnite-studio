@@ -14,6 +14,7 @@ import * as Phaser from 'phaser';
 
 import { determinism } from '../core/determinism.js';
 import { HOOK_VERSION, installHook, markReady, startSeed } from '../core/hook.js';
+import { currentLevel, isSceneName, LEVEL_PARAM } from '../core/level.js';
 import { beforeKitStep } from '../core/replay.js';
 
 const STEP_MS = 1000 / 60;
@@ -78,8 +79,24 @@ export function boot(options) {
         scene: scene?.scene.key ?? 'boot',
         frame: game.loop.frame + manualFrames,
         time: Math.max(0, Math.round(determinism.enabled ? virtualTime : paused ? manualTime : game.loop.time)),
+        // A scene that is not a `KitLevelScene` still reports where the URL says the game is.
+        level: currentLevel('main'),
         ...(scene?.kitState?.() ?? {}),
       };
+    },
+    goto(name) {
+      if (!isSceneName(name)) return false;
+      const query = new URLSearchParams(location.search);
+      query.set(LEVEL_PARAM, name);
+      const next = `${location.pathname}?${query.toString()}${location.hash}`;
+      // A game with a scene keyed `level` restarts it in place; the URL follows so a hot reload lands on the same level.
+      if (game.scene.keys['level']) {
+        history.replaceState(null, '', next);
+        game.scene.start('level', { level: name });
+        return true;
+      }
+      location.replace(next);
+      return true;
     },
     pause() {
       if (paused) return;

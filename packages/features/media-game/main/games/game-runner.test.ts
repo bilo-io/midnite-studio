@@ -175,6 +175,43 @@ describe('createGameRunner', () => {
     );
   });
 
+  it('adds midnite-level to the entry URL, with or without determinism (Phase 132 Theme C)', () => {
+    expect(gameEntryUrl({ gameId: 'ga', level: 'cave' })).toBe('mstudio-game://ga/index.html?midnite-level=cave');
+    expect(gameEntryUrl({ gameId: 'ga', level: 'cave', determinism: { seed: 7, paused: true } })).toBe(
+      'mstudio-game://ga/index.html?midnite-deterministic=1&midnite-seed=7&midnite-paused=1&midnite-level=cave',
+    );
+  });
+
+  it('goto: a stopped game remembers the scene for its next run, once', async () => {
+    const answer = await runner.goto('ga', 'cave');
+    expect(answer).toEqual({ ok: true, value: { via: 'next-run' } });
+    await runner.run(game('ga'));
+    expect(viewOf('ga').webContents.loadURL).toHaveBeenCalledWith('mstudio-game://ga/index.html?midnite-level=cave');
+    await runner.run(game('ga')); // restarts: the pick was spent
+    expect(viewOf('ga').webContents.loadURL).toHaveBeenCalledWith('mstudio-game://ga/index.html');
+  });
+
+  it('goto: a running game with the hook is told, a literal true only', async () => {
+    await runner.run(game('ga'));
+    const wc = viewOf('ga').webContents;
+    wc.loadURL.mockClear();
+    expect(await runner.goto('ga', 'cave')).toEqual({ ok: true, value: { via: 'hook' } });
+    expect(String(wc.executeJavaScript.mock.calls.at(-1)?.[0])).toContain('m.goto("cave")');
+    expect(wc.loadURL).not.toHaveBeenCalled();
+  });
+
+  it('goto: no hook (or a page answering anything but true) reloads on the level URL, and later reloads keep it', async () => {
+    await runner.run(game('ga', { determinism: { seed: 3, paused: false } }));
+    const wc = viewOf('ga').webContents;
+    wc.loadURL.mockClear();
+    wc.executeJavaScript.mockResolvedValueOnce(false);
+    expect(await runner.goto('ga', 'cave')).toEqual({ ok: true, value: { via: 'reload' } });
+    expect(wc.loadURL).toHaveBeenCalledWith('mstudio-game://ga/index.html?midnite-deterministic=1&midnite-seed=3&midnite-level=cave');
+    wc.executeJavaScript.mockResolvedValueOnce({ polluted: true });
+    await runner.goto('ga', 'keep');
+    expect(wc.loadURL).toHaveBeenLastCalledWith('mstudio-game://ga/index.html?midnite-deterministic=1&midnite-seed=3&midnite-level=keep');
+  });
+
   it('uses a fresh in-memory partition per run, and a persistent one with keepSaveData', async () => {
     expect(gamePartition('ga', 'r1', false)).toBe('game-ga-r1');
     expect(gamePartition('ga', 'r1', true)).toBe('persist:game-ga');

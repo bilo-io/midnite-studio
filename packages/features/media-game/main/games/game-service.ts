@@ -25,6 +25,7 @@ import {
 
 import type { Logger } from './logger';
 import { listGames } from './game-list';
+import { createGameLevels } from './game-levels';
 import { createGame } from './game-scaffold';
 import type { GamePopout } from './game-popout';
 import type { GameRunner, ToolbarAction } from './game-runner';
@@ -97,6 +98,8 @@ export function createGameService(deps: GameServiceDeps) {
     const wanted = resolvePath(target);
     return games.find((game) => resolvePath(game.path) === wanted) ?? null;
   }
+
+  const levels = createGameLevels({ resolve, readManifest, runner: deps.runner, send: deps.send, log: deps.log });
 
   return {
     resolve,
@@ -204,6 +207,9 @@ export function createGameService(deps: GameServiceDeps) {
       deps.runner.juice(gameId, action, patch),
     logs: (gameId: string, since?: number): { runId: string | null; entries: GameLogEntry[] } =>
       deps.runner.logs(gameId, since),
+    /** `levels/<scene>.tmj` (Phase 132 Theme C): list, read, write-and-commit; and the jump to a scene. */
+    levels: { list: levels.list, get: levels.get, set: levels.set },
+    goto: levels.goto,
     async kitUpgrade(gameId: string): Promise<GitOpResult<{ branch: string }>> {
       const game = await find(gameId);
       if (!game) return failure('That game was not found.');

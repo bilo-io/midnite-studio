@@ -6,6 +6,7 @@ import {
   failure,
   GAME_CONSOLE_BATCH_MS,
   GAME_DETERMINISM_PARAMS,
+  GAME_LEVEL_PARAM,
   GAMES_MAX_RUNNING,
   GameJuicePatchSchema,
   GameJuiceSettingsSchema,
@@ -13,6 +14,7 @@ import {
   ok,
   type BrowserBounds,
   type GameJuicePatch,
+  type GameGotoResult,
   type GameJuiceSettings,
   type GameLogEntry,
   type GameNetwork,
@@ -51,18 +53,25 @@ export type RunnableGame = {
    * `paused` starts the loop paused after its first step — how a play-test begins.
    */
   determinism?: { seed: number; paused: boolean } | null;
+  /** The level this run starts on (`?midnite-level=`); absent → the game's own start (Phase 132 Theme C). */
+  level?: string;
 };
 
 /** The URL a run loads: `index.html`, plus the deterministic-mode query the kit reads before any game module. */
-export function gameEntryUrl(game: Pick<RunnableGame, 'gameId' | 'determinism'>): string {
+export function gameEntryUrl(game: Pick<RunnableGame, 'gameId' | 'determinism' | 'level'>): string {
   const base = `${MSTUDIO_GAME_SCHEME}://${game.gameId}/index.html`;
-  if (!game.determinism) return base;
   const query = new URLSearchParams({
-    [GAME_DETERMINISM_PARAMS.deterministic]: '1',
-    [GAME_DETERMINISM_PARAMS.seed]: String(Math.trunc(game.determinism.seed)),
-    ...(game.determinism.paused ? { [GAME_DETERMINISM_PARAMS.paused]: '1' } : {}),
+    ...(game.determinism
+      ? {
+          [GAME_DETERMINISM_PARAMS.deterministic]: '1',
+          [GAME_DETERMINISM_PARAMS.seed]: String(Math.trunc(game.determinism.seed)),
+          ...(game.determinism.paused ? { [GAME_DETERMINISM_PARAMS.paused]: '1' } : {}),
+        }
+      : {}),
+    ...(game.level ? { [GAME_LEVEL_PARAM]: game.level } : {}),
   });
-  return `${base}?${query.toString()}`;
+  const text = query.toString();
+  return text === '' ? base : `${base}?${text}`;
 }
 
 export type GameRunnerDeps<V extends GameView = GameView> = {
@@ -180,6 +189,8 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
   const lastBounds = new Map<string, BrowserBounds>();
   /** A game hosted outside the main window (its popout). */
   const hosts = new Map<string, GameWindow>();
+  /** Where a stopped game's next run starts, from `goto`; used once. */
+  const nextLevel = new Map<string, string>();
 
   const hostFor = (gameId: string): GameWindow | null => {
     const host = hosts.get(gameId);
@@ -354,7 +365,10 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
   };
 
   return {
-    async run(game) {
+    async run(requested) {
+      const picked = nextLevel.get(requested.gameId);
+      nextLevel.delete(requested.gameId);
+      const game: RunnableGame = requested.level || picked === undefined ? requested : { ...requested, level: picked };
       if (runs.has(game.gameId)) stop(game.gameId);
       if (runs.size >= GAMES_MAX_RUNNING) {
         return failure(`Stop a running game first (${GAMES_MAX_RUNNING} are running).`);
@@ -471,6 +485,21 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
           return hooked ? ok() : failure('This game has no overlay hook.');
         }
       }
+    },
+
+    async goto(gameId, scene) {
+      const run = runs.get(gameId);
+      if (!run) {
+        nextLevel.set(gameId, scene);
+        return ok({ via: 'next-run' as const });
+      }
+      // `scene` is a validated scene name, so its JSON is a safe literal to splice in.
+      if (await exec(run, HOOK_CALL('goto', JSON.stringify(scene)))) return ok({ via: 'hook' as const });
+      // A pre-0.12 kit or a hand-written game has no hook: reload at the level's URL. The run keeps its level for later reloads.
+      run.game = { ...run.game, level: scene };
+      run.crashReason = null;
+      void run.view.webContents.loadURL(gameEntryUrl(run.game)).catch(() => undefined);
+      return ok({ via: 'reload' as const });
     },
 
     async juice(gameId, action, patch) {

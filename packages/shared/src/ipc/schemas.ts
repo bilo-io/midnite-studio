@@ -368,6 +368,14 @@ import {
   GamePopStateSchema,
   GamePoppedResponseSchema,
   GamesChangedSchema,
+  GameLevelsRequestSchema,
+  GameLevelsResultSchema,
+  GameLevelGetRequestSchema,
+  GameLevelGetResultSchema,
+  GameLevelSetRequestSchema,
+  GameLevelSetResultSchema,
+  GameGotoRequestSchema,
+  GameGotoResultSchema,
   GamesOpenEventSchema,
   GamesListSchema,
   GamesSettingsReadSchema,
@@ -5494,6 +5502,14 @@ export const GamesConsolePayload = GameConsolePayloadSchema;
 export const GamesKitUpgradeRequest = GameIdRequestSchema;
 export const GamesKitUpgradeResultSchema = z.object({ branch: z.string() });
 export const GamesKitUpgradeResponse = GitOpResultOf(GamesKitUpgradeResultSchema);
+export const GamesLevelsRequest = GameLevelsRequestSchema;
+export const GamesLevelsResponse = GitOpResultOf(GameLevelsResultSchema);
+export const GamesLevelGetRequest = GameLevelGetRequestSchema;
+export const GamesLevelGetResponse = GitOpResultOf(GameLevelGetResultSchema);
+export const GamesLevelSetRequest = GameLevelSetRequestSchema;
+export const GamesLevelSetResponse = GitOpResultOf(GameLevelSetResultSchema);
+export const GamesGotoRequest = GameGotoRequestSchema;
+export const GamesGotoResponse = GitOpResultOf(GameGotoResultSchema);
 export const GamesPopOutRequest = GameIdRequestSchema;
 export const GamesPoppedResponse = GamePoppedResponseSchema;
 export const GamesPopStatePayload = GamePopStateSchema;
