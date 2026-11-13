@@ -745,6 +745,7 @@ export type MockFixtures = {
       defaultEngine?: 'phaser' | 'three';
       defaultNetwork?: 'off' | 'on';
       squashRunCommits?: boolean;
+      pauseWhenEditing?: boolean;
     };
     resolvedRoot?: string;
     rootProblem?: string | null;
@@ -6346,6 +6347,7 @@ export function buildMockBridge(data: MockFixtures) {
     defaultEngine: 'phaser',
     defaultNetwork: 'off',
     squashRunCommits: false,
+    pauseWhenEditing: true,
     ...(data.games?.settings ?? {}),
   };
   /** Every `games.run`/`stop`/`toolbar`/`setBounds`/`setVisible` call — the spec's assertion surface. */

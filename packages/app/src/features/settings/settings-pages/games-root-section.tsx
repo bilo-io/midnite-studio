@@ -107,6 +107,14 @@ export function GamesRootSection() {
         onToggle={() => set.mutate({ squashRunCommits: !settings.squashRunCommits })}
       />
 
+      <SettingsSwitchRow
+        id="games-pause-when-editing"
+        label="Pause the game while editing levels"
+        description="Leaving Play mode for the Level editor pauses a run you started with Run, and returning resumes it."
+        on={settings.pauseWhenEditing}
+        onToggle={() => set.mutate({ pauseWhenEditing: !settings.pauseWhenEditing })}
+      />
+
       <div className="space-y-1">
         <p className="text-xs font-medium text-foreground">Ollama</p>
         <p className="text-[11px] text-muted-foreground" data-testid="games-ollama-warning">
