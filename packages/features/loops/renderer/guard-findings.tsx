@@ -1,5 +1,5 @@
 import { bridge, useFrameChrome } from '@midnite/studio-frame';
-import { guardFixPrompt, REMEDIATION_PENDING, REMEDIATION_UNCONFIRMED, type RemediationAction, type SecurityFinding } from '@midnite/studio-shared';
+import { guardFixPrompt, REMEDIATION_ACTION_LABEL, REMEDIATION_PENDING, REMEDIATION_UNCONFIRMED, type RemediationAction, type SecurityFinding } from '@midnite/studio-shared';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LuChevronDown, LuChevronRight } from 'react-icons/lu';
 
@@ -19,29 +19,6 @@ import {
  * confirm Vanguard uses, and one the app cannot run yet says why instead of failing.
  */
 
-const ACTION_LABEL: Record<RemediationAction['id'], string> = {
-  'pause-session': 'Pause session',
-  'kill-process-group': 'Kill process group',
-  'bootout-launch-item': 'Unload launch item',
-  'quarantine-file': 'Quarantine file',
-  'restore-file': 'Restore file',
-  'revoke-mcp-server': 'Revoke MCP server',
-  'chmod-600': 'Restrict to owner (chmod 600)',
-  'report-issue': 'Report issue',
-  'open-in-agents': 'Open in Agents',
-  mute: 'Mute',
-  'update-package': 'Update package',
-  'pin-package': 'Pin package',
-  'remove-package': 'Remove package',
-  'open-system-settings': 'Open System Settings',
-  'copy-fix-command': 'Copy fix command',
-  'move-to-vault': 'Move to vault',
-  'redact-line': 'Redact line',
-  rotate: 'Rotate credential',
-  'open-tab': 'Open tab',
-  'close-tab': 'Close tab',
-  'forget-origin': 'Forget site data',
-};
 
 function useGuardFindings(): { findings: SecurityFinding[]; loaded: boolean } {
   const [findings, setFindings] = useState<SecurityFinding[]>([]);
@@ -163,7 +140,11 @@ function FindingRow({ finding }: { finding: SecurityFinding }) {
       }
       if (REMEDIATION_UNCONFIRMED.has(action.id)) return act(action);
       const preview = await bridge()?.vanguard.findings.preview({ findingId: finding.id, action });
-      if (!preview?.ok) return;
+      if (!preview) return;
+      if (!preview.ok) {
+        setMessage('message' in preview && typeof preview.message === 'string' ? preview.message : 'That did not go through.');
+        return;
+      }
       const radius = preview.value;
       if (radius.unavailable) {
         setMessage(radius.unavailable.reason);
@@ -210,7 +191,7 @@ function FindingRow({ finding }: { finding: SecurityFinding }) {
           <div className="flex flex-wrap gap-1">
             {finding.remediation.map((a, i) => (
               <button key={i} type="button" onClick={() => void run(a)} className="rounded border border-border px-1.5 py-0.5 hover:text-foreground">
-                {ACTION_LABEL[a.id]}
+                {REMEDIATION_ACTION_LABEL[a.id]}
               </button>
             ))}
             <button

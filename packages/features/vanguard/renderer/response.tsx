@@ -1,5 +1,6 @@
 import { bridge, useFrameChrome } from '@midnite/studio-frame';
 import {
+  REMEDIATION_ACTION_LABEL,
   REMEDIATION_PENDING,
   REMEDIATION_UNCONFIRMED,
   type ActionBlastRadius,
@@ -18,29 +19,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * preview, never a licence.
  */
 
-export const ACTION_LABEL: Record<RemediationAction['id'], string> = {
-  'pause-session': 'Pause session',
-  'kill-process-group': 'Kill process group',
-  'bootout-launch-item': 'Unload launch item',
-  'quarantine-file': 'Quarantine file',
-  'restore-file': 'Restore file',
-  'revoke-mcp-server': 'Revoke MCP server',
-  'chmod-600': 'Restrict to owner (chmod 600)',
-  'report-issue': 'Report issue',
-  'open-in-agents': 'Open in Agents',
-  mute: 'Mute',
-  'update-package': 'Update package',
-  'pin-package': 'Pin package',
-  'remove-package': 'Remove package',
-  'open-system-settings': 'Open System Settings',
-  'copy-fix-command': 'Copy fix command',
-  'move-to-vault': 'Move to vault',
-  'redact-line': 'Redact line',
-  rotate: 'Rotate credential',
-  'open-tab': 'Open tab',
-  'close-tab': 'Close tab',
-  'forget-origin': 'Forget site data',
-};
+export const ACTION_LABEL = REMEDIATION_ACTION_LABEL;
 
 /** A failed envelope's message; a conflict never comes back from these channels, but the type allows one. */
 const failureText = (result: { ok: false; kind: string; message?: string }, fallback = 'That did not go through.'): string =>

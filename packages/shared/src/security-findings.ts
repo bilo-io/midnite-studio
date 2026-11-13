@@ -338,6 +338,31 @@ export const REMEDIATION_PENDING: Readonly<Partial<Record<RemediationActionId, {
   },
 };
 
+/** The one label per action id, shared by the Vanguard view and the Guard tab. */
+export const REMEDIATION_ACTION_LABEL: Record<RemediationActionId, string> = {
+  'pause-session': 'Pause session',
+  'kill-process-group': 'Kill process group',
+  'bootout-launch-item': 'Unload launch item',
+  'quarantine-file': 'Quarantine file',
+  'restore-file': 'Restore file',
+  'revoke-mcp-server': 'Revoke MCP server',
+  'chmod-600': 'Restrict to owner (chmod 600)',
+  'report-issue': 'Report issue',
+  'open-in-agents': 'Open in Agents',
+  mute: 'Mute',
+  'update-package': 'Update package',
+  'pin-package': 'Pin package',
+  'remove-package': 'Remove package',
+  'open-system-settings': 'Open System Settings',
+  'copy-fix-command': 'Copy fix command',
+  'move-to-vault': 'Move to vault',
+  'redact-line': 'Redact line',
+  rotate: 'Rotate credential',
+  'open-tab': 'Open tab',
+  'close-tab': 'Close tab',
+  'forget-origin': 'Forget site data',
+};
+
 /** Actions that act without a confirm: they change nothing on the machine (Phase 120 Theme H). */
 export const REMEDIATION_UNCONFIRMED: ReadonlySet<RemediationActionId> = new Set<RemediationActionId>(['mute', 'report-issue', 'copy-fix-command']);
 
