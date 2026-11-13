@@ -362,50 +362,55 @@ function MemberRow({
         }
       }}
     >
-      <div className="flex items-center gap-1 px-1.5 py-1">
-        {/*
-          A dedicated drag handle, not the row itself — spreading
-          useSortableRow's listeners onto the whole card would swallow clicks
-          on the toggle, the picker and the fields.
-        */}
-        <button
-          type="button"
-          {...row.attributes}
-          {...row.listeners}
-          aria-label={`Reorder ${label} — member ${index + 1} of ${total}`}
-          className="shrink-0 cursor-grab touch-none rounded p-0.5 text-muted-foreground hover:bg-accent active:cursor-grabbing"
-        >
-          <LuGripVertical className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          aria-expanded={expanded}
-          aria-controls={bodyId}
-          onClick={onToggle}
-          className="flex min-w-0 flex-1 items-center gap-1 rounded px-0.5 py-0.5 text-left text-xs font-medium hover:bg-accent"
-        >
-          <LuChevronRight
-            aria-hidden
-            className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`}
+      <div className="px-1.5 py-1">
+        <div className="flex items-center gap-1">
+          {/*
+            A dedicated drag handle, not the row itself — spreading
+            useSortableRow's listeners onto the whole card would swallow clicks
+            on the toggle, the picker and the fields.
+          */}
+          <button
+            type="button"
+            {...row.attributes}
+            {...row.listeners}
+            aria-label={`Reorder ${label} — member ${index + 1} of ${total}`}
+            className="shrink-0 cursor-grab touch-none rounded p-0.5 text-muted-foreground hover:bg-accent active:cursor-grabbing"
+          >
+            <LuGripVertical className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            aria-expanded={expanded}
+            aria-controls={bodyId}
+            onClick={onToggle}
+            className="flex min-w-0 flex-1 items-center gap-1 rounded px-0.5 py-0.5 text-left text-xs font-medium hover:bg-accent"
+          >
+            <LuChevronRight
+              aria-hidden
+              className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`}
+            />
+            <span className="truncate">{member.name || 'Unnamed member'}</span>
+          </button>
+          <IconButton
+            icon={LuTrash2}
+            label={canRemove ? `Remove ${label}` : `A council needs at least ${COUNCIL_MIN_MEMBERS} members`}
+            size="sm"
+            disabled={!canRemove}
+            onClick={onRemove}
           />
-          <span className="truncate">{member.name || 'Unnamed member'}</span>
-        </button>
-        <ProviderModelPicker
-          providers={providers}
-          provider={member.provider}
-          onProviderChange={(id) => isProvider(id) && onChange({ provider: id, model: undefined })}
-          models={councilModelOptions(member.provider)}
-          model={member.model ?? DEFAULT_MODEL_ID}
-          onModelChange={(id) => onChange({ model: storedModel(id) })}
-          testId={`council-member-picker-${index}`}
-        />
-        <IconButton
-          icon={LuTrash2}
-          label={canRemove ? `Remove ${label}` : `A council needs at least ${COUNCIL_MIN_MEMBERS} members`}
-          size="sm"
-          disabled={!canRemove}
-          onClick={onRemove}
-        />
+        </div>
+        {/* The agent and model, on the header's second line so a long model label never squeezes the name. */}
+        <div className="pl-5">
+          <ProviderModelPicker
+            providers={providers}
+            provider={member.provider}
+            onProviderChange={(id) => isProvider(id) && onChange({ provider: id, model: undefined })}
+            models={councilModelOptions(member.provider)}
+            model={member.model ?? DEFAULT_MODEL_ID}
+            onModelChange={(id) => onChange({ model: storedModel(id) })}
+            testId={`council-member-picker-${index}`}
+          />
+        </div>
       </div>
       <div id={bodyId} hidden={!expanded} className="border-t border-border px-2 pb-2 pt-1.5">
         <input

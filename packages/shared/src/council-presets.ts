@@ -53,8 +53,14 @@ export const COUNCIL_SYNTHESIS_PRESETS: Readonly<Record<CouncilPresetType, Counc
       'anything that would change the verdict.',
     ].join(' '),
     members: [
-      { name: 'Affirmative', role: 'Take the position in favour and argue it as strongly as the evidence allows.' },
-      { name: 'Negative', role: 'Take the position against and argue it as strongly as the evidence allows.' },
+      {
+        name: 'Affirmative',
+        role: 'Argue for the first option named (or for the proposal) as strongly as the evidence allows. Do not concede.',
+      },
+      {
+        name: 'Negative',
+        role: 'Argue for the other side: the second option named, or against the proposal, as strongly as the evidence allows, even if you would personally pick the first. Do not concede.',
+      },
       { name: 'Cross-examiner', role: 'Press both positions: find the unsupported claims and the questions each side avoids.' },
     ],
   },
