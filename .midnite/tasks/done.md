@@ -4,7 +4,7 @@
 
 ## 2026-11-13 — Phase 89 Theme H — vis-network variant
 
-PR #PRN, stacked on #1208. `vis-network` (Apache-2.0 OR MIT) from npm behind its own dynamic `import()`, with Phase 87's CDN rejection qualified in the code. Not done: the packaged-app network trace; a real-browser look.
+PR #1209, stacked on #1208. `vis-network` (Apache-2.0 OR MIT) from npm behind its own dynamic `import()`, with Phase 87's CDN rejection qualified in the code. Not done: the packaged-app network trace; a real-browser look.
 
 ## 2026-11-13 — Phase 89 Theme G — cytoscape variant
 

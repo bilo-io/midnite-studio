@@ -31,7 +31,7 @@ against sigma's own four looks has something for the libraries to fit into.
 
 **Theme G — cytoscape.js.** ✅ (PR [#1208](https://github.com/bilo-io/midnite-studio/pull/1208)) — the `cytoscape` variant as an adapter over Theme F's shared 2D layer, in cytoscape's own idiom: the Theme C alpha states are stylesheet classes (`node.dim`, `.neighbor`, `.focus`, `edge.emph`), `preset` layout from the worker's coordinates, `haystack` edges and `hideEdgesOnViewport` per its performance guide. Lazy chunk 444 KB. Built honestly, not tuned: it is the slowest engine at 15k nodes and Theme J's gate is what keeps it off graphs it cannot carry. Stacked on #1205.
 
-**Theme H — vis-network.** ✅ (PR [#PRN](https://github.com/bilo-io/midnite-studio/pull/PRN)) — the `vis-network` variant from the npm `standalone` build, with a docblock at the top of `vis-network-renderer.ts` naming `graphify-out/graph.html:6` and Phase 87's "one trap" so the next reader does not delete it. Physics off, worker coordinates as the layout, `moveNode` for the intro. Lazy chunk 658 KB, nothing CDN in it. Still open for a human: the packaged-app network trace.
+**Theme H — vis-network.** ✅ (PR [#1209](https://github.com/bilo-io/midnite-studio/pull/1209)) — the `vis-network` variant from the npm `standalone` build, with a docblock at the top of `vis-network-renderer.ts` naming `graphify-out/graph.html:6` and Phase 87's "one trap" so the next reader does not delete it. Physics off, worker coordinates as the layout, `moveNode` for the intro. Lazy chunk 658 KB, nothing CDN in it. Still open for a human: the packaged-app network trace.
 
 **Theme I — d3-force, live.** ◻ `d3-force` live: a simulation you watch settle, on our own canvas, with a hard settle ceiling
 
@@ -269,7 +269,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] Licence recorded and checked.
       Recorded: `cytoscape@3.35.0` is MIT with no dependencies; it ships its own types.
 
-### H — vis-network (M) ✅ DONE (PR #PRN, 2026-11-13)
+### H — vis-network (M) ✅ DONE (PR #1209, 2026-11-13)
 
 - [x] `vis-network` from npm, behind its own dynamic `import()`, same contract, same colour tokens.
 - [x] **A comment at the top of the variant module qualifying Phase 87's rejection**, naming the file
