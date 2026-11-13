@@ -24,6 +24,7 @@ import {
 } from '@midnite/studio-shared';
 import { confineToRoot, joinWithin } from '@midnite/studio-runtime';
 
+import { readLevelTerrain } from './game-level-terrain';
 import type { GameRunner } from './game-runner';
 import type { Logger } from './logger';
 
@@ -157,7 +158,8 @@ export function createGameLevels(deps: GameLevelsDeps) {
         issues.push({ path: `tilesets.${String(tileset.name ?? '')}.image`, message: `"${image}" could not be read.` });
       }
     }
-    return ok({ level, issues, images });
+    const terrain = parsed.ok && parsed.dimension === '3d' ? await readLevelTerrain(game.path, parsed.level) : null;
+    return ok({ level, issues, images, ...(terrain ? { terrain } : {}) });
   }
 
   async function levelSet(gameId: string, scene: string, level: unknown, opts: { create?: boolean } = {}): Promise<GitOpResult<GameLevelSetResult>> {
