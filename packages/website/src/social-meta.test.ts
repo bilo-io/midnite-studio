@@ -19,8 +19,8 @@ const content = (html: string, attr: 'property' | 'name', key: string): string |
   new RegExp(`<meta\\s+${attr}="${key}"\\s+content="([^"]*)"`).exec(html)?.[1];
 
 describe('social meta', () => {
-  it('reads all four HTML entries', () => {
-    expect(Object.keys(ENTRIES)).toHaveLength(4);
+  it('reads all five HTML entries', () => {
+    expect(Object.keys(ENTRIES)).toHaveLength(5);
   });
 
   it('ships the card it points at', () => {

@@ -27,7 +27,8 @@ describe('PrivacyPage', () => {
     const hrefs = Array.from(container.querySelectorAll('a')).map((a) => a.getAttribute('href') ?? '');
     expect(hrefs.some((h) => /github\.com|bilo-io/i.test(h))).toBe(false);
     const text = container.textContent ?? '';
-    expect(text).not.toMatch(/bilo-io|midnite-apps|SECURITY\.md/);
+    // The site's own host (midnite-apps.vercel.app) is a row in the table; the repository name is not.
+    expect(text).not.toMatch(/bilo-io|SECURITY\.md|midnite-apps(?!\.vercel\.app)/);
   });
 
   it('shows every line of the document except the file title and the repository pointer', () => {
