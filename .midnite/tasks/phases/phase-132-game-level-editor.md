@@ -77,7 +77,7 @@ first, then **B** and **C** in parallel, then **D**, **F**, **G**, then **E**, t
 
 **Theme C — Level format, kit loader and the scene jump.** ✅ `shared/src/game-level.ts` (loose `parseGameLevel`, the 2D and 3D conventions, `levelEntityToWorld`, the level IPC schemas), additive Tiled property/class/polyline fields and `cellAt`, the manifest's `levels` key and `GameSceneNameSchema`, `kit/core/level.js` with Phaser (`preloadLevel`, `buildLevel`, `KitLevelScene`) and three (`buildLevel3d`) builders, `window.__midnite.goto` (in place for a Phaser `level` scene, else a reload on `?midnite-level=`) and `getState().level`, kit 0.12.0, `game-levels.ts` (list/get/set confined to `levels/`, one pathspec commit per save) and the runner's `goto` (`hook` / `reload` / `next-run`) behind four channels, Studio's preload and Gamer's bridge. `GAME_ENGINE_VERSIONS.three` is left at 0.186.1 (desktop pins 0.187.0): that mismatch predates this theme and a vendored-engine bump is its own change.
 
-**Theme D — 2D tile and entity editor, and the scene picker.** ◻ A canvas editor for platformer, top-down, isometric and raycaster levels (paint, erase, rectangle, pick, place and edit entities, layers, undo), Save as one commit, and a scene picker that opens a level and jumps the running game to it.
+**Theme D — 2D tile and entity editor, and the scene picker.** ✅ (part) The Level editor tab is a canvas editor over a pure edit model (`level-edit-model.ts`: paint, erase, rectangle, pick, entities, typed properties, layers, a 100-step undo where a drag is one step, `serialise` keeping fields it never touched). It draws with Sprites' `map-view.ts` and hit-tests with `cellAt`, isometric included; wheel zoom 0.25x-8x, Space or middle-drag pan; B/E/R/I/O/V and Mod+Z act only with the canvas focused. A layer list, tile palette, entity palette and inspector sit around it; Save is one `level-set` commit, no autosave. The scene picker sits in B's `sceneSlot`: picking opens the level and calls `goto`, a dirty level asks Save/Discard/Cancel, `next-run` says so; the open level and its undo live in a per-game store. New scene makes a blank level by perspective and can opt the game into `levels.start`. A tileset image that is missing does not make a level read-only (only a parse issue does); 3D levels open read-only until E. Not done: **Start from a map asset** (no renderer read for `assets/map/`), the one e2e (not run in this pass), and the canvas look, which stays a human check in H.
 
 **Theme E — 3D placement editor.** ◻ The same canvas in plan view for first-person, third-person and the 3D genres: place, move and rotate entities and volumes, edit elevation, size, model and collider, with the terrain kept separate and shown only as an extent.
 
@@ -366,10 +366,10 @@ keep editing scenes as code.
 
 ### D — 2D tile and entity editor, and the scene picker [L · 4-8h]
 
-- [ ] Net-new `renderer/level/use-levels.ts`: `GAME_KEYS.levels(gameId)` (`['games', 'levels', gameId]`) and `GAME_KEYS.level(gameId, scene)` (`['games', 'levels', gameId, scene]`, under the same prefix) queries over
+- [x] Net-new `renderer/level/use-levels.ts`: `GAME_KEYS.levels(gameId)` (`['games', 'levels', gameId]`) and `GAME_KEYS.level(gameId, scene)` (`['games', 'levels', gameId, scene]`, under the same prefix) queries over
   the C bridge; `useSaveLevel` (invalidates both and the list); `useGotoScene`. `gamesChanged { reason: 'level' }`
   invalidates `['games', 'levels']` in `useGameEvents`.
-- [ ] Net-new `renderer/level/level-edit-model.ts` — pure, no React
+- [x] Net-new `renderer/level/level-edit-model.ts` — pure, no React
   - State: the level JSON, active layer id, selection, `dirty`, an undo stack capped at 100 entries (oldest dropped).
   - Ops: `paint(layer, cells, gid)`, `erase(layer, cells)`, `fillRect(layer, from, to, gid)`, `pick(layer, cell)`,
     `addObject(layer, { type, x, y, width?, height? })` (id from `nextobjectid`, which it bumps), `moveObject`,
@@ -377,12 +377,12 @@ keep editing scenes as code.
     (typed: string, int, float, bool), `addLayer(kind, name)`, `renameLayer`, `toggleVisible`, `undo`, `redo`,
     `serialise()` (the level with every field it did not touch preserved).
   - Snapping: 2D objects snap to the cell centre unless Alt is held.
-- [ ] Net-new `renderer/level/level-canvas.tsx` — draws with `map-view.ts` (`tileOf`, `sourceRect`, `cellOrigin`,
+- [x] Net-new `renderer/level/level-canvas.tsx` — draws with `map-view.ts` (`tileOf`, `sourceRect`, `cellOrigin`,
   `cellAt`, `collisionAt`) so it matches Sprites' preview; `collision` cells get a translucent red overlay; object
   layers draw typed markers (`spawn` green, `exit` blue, others neutral, using existing theme tokens) with the name
   under them; the hovered cell is outlined. Wheel zooms around the pointer (0.25× – 8×), Space-drag or middle-drag pans.
   Isometric maps draw and hit-test through the same functions.
-- [ ] Net-new `renderer/level/level-editor.tsx` — the editor tab's content
+- [x] Net-new `renderer/level/level-editor.tsx` — the editor tab's content
   - Toolbar: tools **Paint** (`B`), **Erase** (`E`), **Rectangle** (`R`), **Pick** (`I`), **Entity** (`O`),
     **Select** (`V`) as a `role="radiogroup"`; undo/redo buttons; **Save** (disabled when clean, shows `Saving…`).
     The letter keys and `Mod+z` / `Mod+Shift+z` act only while the canvas has focus — they are not added to the global
@@ -396,7 +396,7 @@ keep editing scenes as code.
   - A level with issues opens read-only with the first issue in a banner; the picker can still jump to it.
   - Loading → skeleton; no scenes → `EmptyState` `No levels yet` with **New scene**; a get failure → its message with
     **Retry**.
-- [ ] Net-new `renderer/level/scene-picker.tsx` in B's `sceneSlot` (Decision 9)
+- [x] Net-new `renderer/level/scene-picker.tsx` in B's `sceneSlot` (Decision 9)
   - A select labelled **Scene**, listing `levels/*.tmj` names with the manifest's `start` scene marked `(start)`, and a
     trailing **New scene…** item. Disabled with no game.
   - Picking a scene: if the open level is dirty, a confirm (`Save changes to <scene>?` — **Save**, **Discard**,
@@ -406,19 +406,22 @@ keep editing scenes as code.
     picker does not follow — the game's own level is in `getState().level`.
   - Switching tabs keeps the open level and its undo stack (a per-`gameId` zustand store); switching games or scenes
     goes through the dirty confirm.
-- [ ] Net-new `renderer/level/new-scene-dialog.tsx`
+- [x] Net-new `renderer/level/new-scene-dialog.tsx`
   - Name (validated live with `GameSceneNameSchema`, `A scene named "<x>" already exists.` against the list), size in
     tiles and tile size prefilled from the manifest's perspective: platformer 50×17 @ 32 px, top-down 40×30 @ 32,
     isometric 20×20 @ 64×32 (isometric orientation), raycaster 24×12 @ 64 with a `walls` layer instead of `ground`;
     3D (Theme E) 80×80 @ 32 with `midnite.metresPerTile = 1` and no tile layers.
-  - **Start from**: Blank (a `ground` (or `walls`) tile layer, a `collision` tile layer, an `objects` layer with one
-    `spawn`, the template's palette tileset embedded — F ships it), or any `map` asset already imported into this game
-    (`manifest.assets` kind `map`, read from `assets/map/<name>/map.tmj`), copied with its tileset `image` paths
-    rewritten relative to `levels/`. Creates with `levelSet(..., { create: true })`, then opens it.
+  - **Start from** Blank: a `ground` (or `walls`) tile layer, a `collision` tile layer, an `objects` layer with one
+    `spawn` (the template's palette tileset joins it when F ships one). Creates with `levelSet(..., { create: true })`,
+    then opens it.
   - When the game has no `levels` key yet, creating the first scene also offers **Make this the start scene**
     (unchecked by default), which sets `levels: { dir: 'levels', start: <scene> }` through `games.manifest.set` — the
     explicit opt-in of Decision 14.
-- [ ] Tests (vitest/jsdom)
+- [ ] **Start from a map asset** in the New scene dialog: any `map` asset already imported into this game
+  (`manifest.assets` kind `map`, `assets/map/<name>/map.tmj`), copied with its tileset `image` paths rewritten relative
+  to `levels/`. Not built in this pass: the renderer has no channel that reads a game file outside `levels/`, so it
+  needs a small read op first (`rewriteTilesetImages` in `new-scene-model.ts` is the pure half, tested).
+- [x] Tests (vitest/jsdom)
   - Net-new `level-edit-model.test.ts`: paint/erase/rect produce the right `data`; undo/redo round-trip and the 100 cap;
     object ids follow `nextobjectid`; `serialise` keeps unknown fields; the result passes `parseGameLevel`.
   - Net-new `scene-picker.test.tsx`: picking calls `level-get` then `goto`; a dirty level prompts and **Cancel** leaves

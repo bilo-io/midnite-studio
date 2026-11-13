@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 132 Theme D (part) — 2D level editor and scene picker
+
+The Level editor tab: a pure edit model (paint, erase, rectangle, pick, entities, typed properties, layers, a 100-step undo with one step per drag, `serialise` keeping untouched fields), a canvas drawn with Sprites' `map-view.ts`, layer list, palettes and inspector, Save as one `level-set` commit. The scene picker in the tab strip opens a level and jumps the game, asking first when dirty; New scene makes a blank level by perspective and can opt the game into `levels.start`. Not done: Start from a map asset (needs a renderer read of `assets/map/`), the one e2e, and the canvas look (human check, Theme H).
+
 ## 2026-11-13 — Phase 132 Theme C — level format and scene jump
 
 Levels are Tiled JSON at `levels/<scene>.tmj`: shared `game-level.ts` (loose parse, 2D/3D conventions, world mapping), additive Tiled fields, `cellAt`, the manifest's `levels` key, kit 0.12.0 (`level.js`, Phaser and three builders, `goto`, `getState().level`), main-side level list/get/set (one single-file commit per save) and the runner's `goto`. Not done: starters still hard-code their layout (F), no editor yet (D, E), no MCP tools (G).

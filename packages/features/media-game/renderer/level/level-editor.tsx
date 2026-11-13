@@ -178,7 +178,8 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
   const selected = findObject(level, edit.selection);
   const entityName = entityType === CUSTOM ? custom.trim() : entityType;
 
-  const tiles = useMemo(() => paletteTiles(level), [level.tilesets]);
+  const tilesets = level.tilesets;
+  const tiles = useMemo(() => paletteTiles({ tilesets }), [tilesets]);
 
   const onPointer = (e: CanvasPointer) => {
     if (readOnly) return;
