@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 122 Theme G — Guard: findings in the Guard tab
+
+PR (see the Phase 122 G PR). A Findings section in the Guard tab (severity groups, filters, new mark, evidence, confirmed actions), eight new remediation ids with pending reasons, the package-manager argv builder and the one-fingerprint agent prompt. Package fixes end to end and the Fix-with-agent button are still open.
+
 ## 2026-11-13 — Phase 122 Theme E — Guard: sites the browser visited
 
 PR (see the Phase 122 E PR). The offline `sites` check (ClickFix, phishing, http login forms, end-of-life headers), the URLhaus parser and a `readBrowserHistory` seam in the resolvers. Not wired in desktop: the browser keeps no readable origin history yet (open decision, see the phase doc).
