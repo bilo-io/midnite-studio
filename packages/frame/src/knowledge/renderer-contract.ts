@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 
-import { LuActivity, LuBoxes, LuNetwork, LuOrbit, LuRadar, LuSparkles, LuShare2, LuWaypoints } from 'react-icons/lu';
+import { LuActivity, LuBoxes, LuNetwork, LuOrbit, LuRadar, LuSparkles, LuShare2, LuWaypoints, LuWorkflow } from 'react-icons/lu';
 
 import type { KnowledgeGraphPayload } from '@midnite/studio-shared';
 
@@ -179,6 +179,7 @@ export type KnowledgeVariant = {
 const loadSigma = () => import('./use-sigma-graph');
 const load3D = () => import('./use-3d-graph');
 const loadCytoscape = () => import('./variants/use-cytoscape');
+const loadVisNetwork = () => import('./variants/use-vis-network');
 const loadForceGraph = () => import('./variants/use-force-graph');
 
 /**
@@ -268,6 +269,14 @@ export const VARIANTS: readonly KnowledgeVariant[] = [
     engine: 'cytoscape',
     consumesWorkerLayout: true,
     load: loadCytoscape,
+  },
+  {
+    id: 'vis-network',
+    label: 'vis-network',
+    icon: LuWorkflow,
+    engine: 'vis-network',
+    consumesWorkerLayout: true,
+    load: loadVisNetwork,
   },
 ];
 
