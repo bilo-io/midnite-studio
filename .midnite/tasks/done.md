@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 89 Theme K (part) — licence audit
+
+One table of the four variant dependencies' licences and closures. Not done: the seam e2e, bundle and idle-CPU ceilings, visual baselines, full gate; reasons in the phase doc.
+
 ## 2026-11-13 — Phase 89 Theme J (part) — capability gate
 
 Per-variant `maxNodes` / `maxEdges`, a disabled pill naming the reason, the stored preference kept and announced; stale graph counts corrected. Not done: the bake-off harness and numbers, so no limit is set on any variant yet.
