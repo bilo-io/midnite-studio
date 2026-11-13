@@ -127,6 +127,7 @@ export default defineConfig({
         apps: fileURLToPath(new URL('./apps/index.html', import.meta.url)),
         download: fileURLToPath(new URL('./download/index.html', import.meta.url)),
         pricing: fileURLToPath(new URL('./pricing/index.html', import.meta.url)),
+        privacy: fileURLToPath(new URL('./privacy/index.html', import.meta.url)),
       },
     },
   },

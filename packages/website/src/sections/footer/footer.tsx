@@ -18,6 +18,7 @@ const PRODUCT: readonly FooterLink[] = [
   { label: 'The launcher', href: anchorHref('launcher') },
   { label: 'FAQ', href: anchorHref('faq') },
   { label: 'Early access', href: anchorHref('early-access') },
+  { label: 'Privacy', href: hrefFor('privacy') },
 ];
 
 const FooterColumn = ({

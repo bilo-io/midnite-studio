@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
-import { LuDatabase, LuEye, LuGlobe, LuMapPin, LuShieldCheck } from 'react-icons/lu';
+import { LuDatabase, LuExternalLink, LuEye, LuGlobe, LuMapPin, LuShieldCheck } from 'react-icons/lu';
 
 import { useFrameChrome } from '@midnite/studio-frame';
-import { BESPOKE_PRIVACY_SWITCHES, PRIVACY_SWITCH_DEFAULTS, egressSwitchGroups, type PrivacySwitchId } from '@midnite/studio-shared';
+import { MIDNITE_SITE_ORIGIN, BESPOKE_PRIVACY_SWITCHES, PRIVACY_SWITCH_DEFAULTS, egressSwitchGroups, type PrivacySwitchId } from '@midnite/studio-shared';
 
 import { SelectField } from '../../../components/form/select-field';
 import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { bridge } from '../../../services/bridge';
+import { openExternal } from '../../../services/queries';
 import { useUiStore } from '../../../store/ui-store';
 import { SettingsAccordion } from '../settings-section';
+
+/** The public statement, generated from the same registry as the switches above. */
+export const PRIVACY_STATEMENT_URL = `${MIDNITE_SITE_ORIGIN}/privacy/`;
 
 type RetentionValue = 'forever' | '90' | '30' | '7';
 const RETENTION_OPTIONS: readonly { value: RetentionValue; label: string }[] = [
@@ -230,6 +234,17 @@ export function PrivacyPage() {
           />
         </div>
       </SettingsAccordion>
+      <p className="text-[11px] text-muted-foreground">
+        The full statement of what leaves this Mac, what stays on it and who can reach in is on the{' '}
+        <button
+          type="button"
+          onClick={() => openExternal(PRIVACY_STATEMENT_URL)}
+          className="inline-flex items-center gap-0.5 underline decoration-dotted hover:text-foreground"
+        >
+          privacy page <LuExternalLink aria-hidden className="h-2.5 w-2.5" />
+        </button>
+        .
+      </p>
     </div>
   );
 }

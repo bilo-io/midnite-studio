@@ -41,6 +41,7 @@ describe('<Footer>', () => {
     expect(all).toContain('/#launcher');
     expect(all).toContain('/#faq');
     expect(all).toContain('/#early-access');
+    expect(all).toContain('/privacy/');
   });
 
   it('names every agent in the roster', () => {
