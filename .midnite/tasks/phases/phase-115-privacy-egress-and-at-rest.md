@@ -120,7 +120,7 @@ token from a 0600 file. The CSP drops `'unsafe-inline'` by hashing the no-flash 
 `~/.claude*`, `.mcp.json` or `~/.codex/config.toml`. Reading `~/.claude`/`~/.codex` transcripts is
 disclosed in Settings ▸ Privacy, with an off switch (default on).
 
-**Theme G — A privacy statement anyone can read.** ◻ `docs/PRIVACY.md` and a website page,
+**Theme G — A privacy statement anyone can read.** ◐ PARTIAL (PR pending). Landed: `renderPrivacyDoc` in `shared/src/privacy-doc.ts` renders `docs/PRIVACY.md` from `EGRESS_ENTRIES` (automatic calls and scheduled feeds with their switch and default, then user-initiated hosts) plus hand-written storage and inbound sections for Themes B to F; `privacy-doc.test.ts` fails when the committed file is stale and rewrites it under `PRIVACY_DOC_WRITE=1`, which is what `moon run root:privacy-doc` (`scripts/privacy-doc.mjs`) sets — a vitest rather than a TS loader, so the check also runs in `shared:test`. `SECURITY.md` links the statement. The doc says plainly that the Launcher does not read its update/catalog switches yet (Theme A's open item). **Deferred:** the website page (a new multi-page entry, route, nav and tests under the website's no-repo-link rule, best as its own PR) and the Settings ▸ Privacy footer link. Original text: `docs/PRIVACY.md` and a website page,
 generated from Theme A's registry, answering the three questions in plain language.
 
 ## Deliverables
@@ -250,7 +250,7 @@ generated from Theme A's registry, answering the three questions in plain langua
 
 ### G — A privacy statement anyone can read [S · ≤ 2h]
 
-- [ ] **`docs/PRIVACY.md`, generated.** A `scripts/privacy-doc.mjs` (moon `root:privacy-doc`)
+- [x] **`docs/PRIVACY.md`, generated.** A `scripts/privacy-doc.mjs` (moon `root:privacy-doc`)
       renders the three answers. The outbound table comes from `EGRESS_HOSTS`. Storage comes from a
       short hand-written section on credentials (vault/Keychain), history (Theme B), redaction
       (Theme C) and the Claude/Codex guarantee (Theme F). A check mode fails CI when the committed

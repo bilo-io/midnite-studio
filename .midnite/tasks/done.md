@@ -15803,3 +15803,7 @@ HIBP, Whisper, release notes, GM samples, Stable Audio and SF3D installers now g
 ## 2026-11-13 — Phase 115 Theme E (partial) — signed LAN stream URLs, CSP without `'unsafe-inline'`
 
 LAN streams/posters/transcodes take `?e=&s=` signed, six-hour URLs; packaged `script-src` is hash-based. Socket tokens deferred.
+
+## 2026-11-13 — Phase 115 Theme G (partial) — generated `docs/PRIVACY.md`
+
+`renderPrivacyDoc` from the egress registry, a stale-file test, `moon run root:privacy-doc`, SECURITY.md link. Website page and Settings footer link deferred.
