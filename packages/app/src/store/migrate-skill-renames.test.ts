@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { migratePrSkills, renameLegacySkills, renameLegacySkillsIn, renamePrSkills } from './migrate-skill-renames';
+import {
+  migrateBuildPlanSkills,
+  migratePrSkills,
+  renameBuildPlanSkills,
+  renameLegacySkills,
+  renameLegacySkillsIn,
+  renamePrSkills,
+} from './migrate-skill-renames';
 
 describe('renameLegacySkills', () => {
   it.each([
@@ -64,5 +71,26 @@ describe('PR skill renames (v37 → v38)', () => {
       cardSkillByTask: { t1: '/midnite-pr-review' },
       unrelated: '/pr-review',
     });
+  });
+});
+
+describe('build/plan skill renames (v38 → v39)', () => {
+  it('renames create, create-adhoc and ideate, and leaves refine and lookalikes alone', () => {
+    expect(renameBuildPlanSkills('/midnite-create 98 D')).toBe('/midnite-build 98 D');
+    expect(renameBuildPlanSkills('/loop /midnite-create-adhoc')).toBe('/loop /midnite-build-adhoc');
+    expect(renameBuildPlanSkills('/loop /midnite-ideate')).toBe('/loop /midnite-plan');
+    expect(renameBuildPlanSkills('/midnite-refine 77')).toBe('/midnite-refine 77');
+    expect(renameBuildPlanSkills('/my-midnite-create')).toBe('/my-midnite-create');
+  });
+
+  it('rewrites every persisted skill field, and only the skill keys of a custom loop', () => {
+    const migrated = migrateBuildPlanSkills({
+      agentSkills: { execBacklog: '/midnite-create', brainstorm: '/midnite-ideate' },
+      columnSkillByProject: { p: { 'in progress': '/midnite-create' } },
+      customLoops: [{ label: 'midnite-create fans', fallbackPrompt: '/loop /midnite-create' }],
+    });
+    expect(migrated.agentSkills).toEqual({ execBacklog: '/midnite-build', brainstorm: '/midnite-plan' });
+    expect(migrated.columnSkillByProject).toEqual({ p: { 'in progress': '/midnite-build' } });
+    expect(migrated.customLoops).toEqual([{ label: 'midnite-create fans', fallbackPrompt: '/loop /midnite-build' }]);
   });
 });

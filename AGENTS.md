@@ -9,16 +9,17 @@ its centre, with an integrated terminal and agent roster, an embedded browser, a
 carries the architecture, IPC contract, data model, and the verified research constraints
 (licensing, registry auth, native-module ABI) that every phase assumes.
 
-**Progress tracker: [`.midnite/tasks/`](.midnite/tasks/)** — `_INDEX.md` is the phase table, `done.md` is the
+**Progress tracker: [`.midnite/tasks/`](.midnite/tasks/)** — `_INDEX.md` is the phase table across category folders (`FEATURES/`, `SECURITY/`, `ISSUES/`), `done.md` is the
 append-only landed log, `outstanding.md` is deliberately-deferred scope.
 
-**`_INDEX.md` is status only — scan its table, nothing else.** Its `## Phases` table (Status, Done,
-`🔄 WIP` and `◻ TODO` theme letters) is all a session needs to find what is TODO, in flight or
+**`_INDEX.md` is status only — scan category tables, nothing else.** Its `## Phases` table (Status, Done,
+`🔄 WIP` and `◻ TODO` theme letters) across `FEATURES/_INDEX.md`, `SECURITY/_INDEX.md`, and
+`ISSUES/_INDEX.md` is all a session needs to find what is TODO, in flight or
 done. Each phase's narrative — why it exists, what landed, per-theme notes — lives in the
-`## Headlines` section at the top of its own `phases/phase-N-*.md`, one short paragraph per theme
+`## Headlines` section at the top of its own category phase doc (e.g. `FEATURES/phases/phase-N-*.md`), one short paragraph per theme
 (`**Theme A — <name>.** ✅ …`). Read a phase's Headlines only once that phase is picked; when a
 theme lands or a phase is refined, verified or created, write the narrative into that doc's
-Headlines paragraph and touch only the phase's *row* in `_INDEX.md`. The index was 438 KB before
+Headlines paragraph and touch only the phase's *row* in the category `_INDEX.md`. The index was 438 KB before
 the move; keeping prose out of it is what keeps the first read of every session cheap.
 
 ## Keep `CLAUDE.md`, `AGENTS.md` and `GEMINI.md` in sync
@@ -469,12 +470,13 @@ and drives this same recurring-table report until every one of them has merged.
 
 ## Phase workflow
 
-One phase per PR where practical. Work the checklist in `.midnite/tasks/phases/phase-N-*.md`, leave
-`moon run :typecheck :lint :test` green, append an entry to `.midnite/tasks/done.md`, update the
-phase doc's own `## Headlines` paragraph for each theme that landed, and update the phase's row in
-the table in `.midnite/tasks/_INDEX.md` (the row only — no prose goes in the index).
+One phase per PR where practical. Work the checklist in `.midnite/tasks/<CATEGORY>/phases/phase-N-*.md` (`FEATURES/`,
+`SECURITY/`, or `ISSUES/`), leave `moon run :typecheck :lint :test` green, append an entry to `.midnite/tasks/done.md`,
+update the phase doc's own `## Headlines` paragraph for each theme that landed, and update the phase's row in
+the table in `.midnite/tasks/<CATEGORY>/_INDEX.md` and top-level `.midnite/tasks/_INDEX.md` (the row only — no prose goes in the index).
 
-- **The PR skill family (`midnite-pr-review`, `-pr-feedback`, `-check-yourself`, `-pr-create`, `-pr-description`, `-pr-description-image`) is the repo's own PR workflow, and the midnite menu's review and PR entries invoke it.** Self-review runs through `midnite-check-yourself` before any PR leaves draft.
+- **The core skill family (`midnite-plan`, `midnite-design`, `midnite-build`, `midnite-test`, `midnite-maintain`, `midnite-deploy`) drives the lifecycle.** Self-review runs through `midnite-check-yourself` before any PR leaves draft.
+- **The PR skill family (`midnite-pr-review`, `-pr-feedback`, `-check-yourself`, `-pr-create`, `-pr-description`, `-pr-description-image`) is the repo's own PR workflow, and the midnite menu's review and PR entries invoke it.**
 
 ## A PR is ready for review only after a self-review
 

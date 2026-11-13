@@ -111,7 +111,7 @@ describe('defaultCardSkill — the prepopulation rule', () => {
   it('survives an unhydrated store', () => {
     expect(
       defaultCardSkill({ item: card('x'), taskKey: 'k', cardSkillByTask: undefined, agentSkills: undefined }),
-    ).toBe('/midnite-create-adhoc');
+    ).toBe('/midnite-build-adhoc');
   });
 });
 

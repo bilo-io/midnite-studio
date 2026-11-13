@@ -93,7 +93,7 @@ describe('useCardPlay (Phase 92 Theme A)', () => {
       expect(sessions[0]?.taskRef).toEqual(TASK_REF);
       const queued = useTerminalStore.getState().pendingInput[sessions[0]!.id]!;
       // The skill-launch prompt (Theme B) — a link, not the whole issue.
-      expect(queued).toContain('/midnite-create-adhoc https://github.com/acme/widgets/issues/1');
+      expect(queued).toContain('/midnite-build-adhoc https://github.com/acme/widgets/issues/1');
       expect(queued.endsWith('\r')).toBe(true); // autoSend: true — sent, not just typed
     });
 
@@ -130,7 +130,7 @@ describe('useCardPlay (Phase 92 Theme A)', () => {
       return useTerminalStore.getState().pendingInput[sessions[0]!.id]!;
     };
 
-    it('launches /midnite-create-adhoc for an ad hoc card — no menu, nothing persisted', () => {
+    it('launches /midnite-build-adhoc for an ad hoc card — no menu, nothing persisted', () => {
       const item = issueItem({ id: TASK_REF.itemId, content: { type: 'issue', title: 'Fix it', url: URL } as never });
       const { result } = renderHook(
         () => useCardPlay({ item, repoId: 'r1', worktreePath: '/repo', taskRef: TASK_REF, sessionId: undefined }),
@@ -140,11 +140,11 @@ describe('useCardPlay (Phase 92 Theme A)', () => {
       firePlay(result.current.onPlay);
 
       expect(screen.queryByRole('menu')).toBeNull();
-      expect(launchedInput()).toContain(`'/midnite-create-adhoc ${URL}'`);
+      expect(launchedInput()).toContain(`'/midnite-build-adhoc ${URL}'`);
       expect(useUiStore.getState().cardSkillByTask[TASK_KEY]).toBeUndefined();
     });
 
-    it('launches /midnite-create for a card whose title names a phase', () => {
+    it('launches /midnite-build for a card whose title names a phase', () => {
       const item = issueItem({
         id: TASK_REF.itemId,
         content: { type: 'issue', title: 'Phase 98 Theme D', url: URL } as never,
@@ -154,7 +154,7 @@ describe('useCardPlay (Phase 92 Theme A)', () => {
         { wrapper },
       );
       firePlay(result.current.onPlay);
-      expect(launchedInput()).toContain(`'/midnite-create ${URL}'`);
+      expect(launchedInput()).toContain(`'/midnite-build ${URL}'`);
     });
 
     it('uses the most recently used skill on any other card before either default', () => {

@@ -161,11 +161,11 @@ test('the top level is the five groups, each opening its own verbs', async ({ pa
 
   await topMenu.getByRole('menuitem', { name: 'Tasks', exact: true }).hover();
   await expect.poll(() => rowNames(submenu)).toEqual([
-    'Backlog Task',
+    'Build Task',
     'Adhoc Task',
     'Address Issue',
-    'Ideate',
-    'Refine Plan',
+    'Plan',
+    'Design & Refine',
     'Verify Phase',
     'Swarm',
     'Create PR',
@@ -193,11 +193,11 @@ test('the top level is the five groups, each opening its own verbs', async ({ pa
     'Loop: Patrol',
     'Loop: PR Review',
     'Loop: PR Feedback',
-    'Loop: Backlog Task',
+    'Loop: Build',
     'Loop: Adhoc Task',
     'Loop: Address Issue',
-    'Loop: Ideate',
-    'Loop: Overhaul',
+    'Loop: Plan',
+    'Loop: Maintain',
   ]);
 
   /*
@@ -237,7 +237,7 @@ test('every row carries a sub-text description, without it becoming the row name
   await expect(tasks).toHaveAccessibleDescription('Plan and build work in this repository.');
   await tasks.hover();
 
-  const backlog = page.getByRole('menuitem', { name: 'Backlog Task', exact: true });
+  const backlog = page.getByRole('menuitem', { name: 'Build Task', exact: true });
   await expect(backlog).toHaveAccessibleDescription(
     'Pick up the next unblocked backlog task and build it.',
   );
@@ -251,7 +251,7 @@ test('every row carries a sub-text description, without it becoming the row name
     .last()
     .evaluate((el) => [getComputedStyle(el).fontSize, getComputedStyle(el).color]);
   const labelColor = await backlog
-    .locator('span', { hasText: /^Backlog Task$/ })
+    .locator('span', { hasText: /^Build Task$/ })
     .last()
     .evaluate((el) => getComputedStyle(el).color);
   expect(size).toBe('11px');
@@ -306,10 +306,10 @@ for (const width of [1280, 760]) {
 test('an entry opens a Claude session with its skill typed, not run', async ({ page }) => {
   await open(page);
   await openMidniteMenu(page);
-  await page.getByRole('menuitem', { name: 'Backlog Task', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Build Task', exact: true }).click();
 
   await expect(page.locator('[data-terminal-panel]')).toBeVisible();
-  await expect.poll(() => ptyInputs(page)).toEqual(["claude '/midnite-create'"]);
+  await expect.poll(() => ptyInputs(page)).toEqual(["claude '/midnite-build'"]);
   // No trailing newline anywhere in this path. Pressing Return is the
   // confirmation, so a mis-clicked menu cannot set an agent loose on a repo.
   const inputs = await ptyInputs(page);
@@ -323,8 +323,8 @@ test('pointing the entry at another skill in Settings changes what it sends', as
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('button', { name: 'Agent', exact: true }).click();
 
-  const field = page.getByRole('textbox', { name: 'Skill for Backlog Task' });
-  await expect(field).toHaveValue('/midnite-create');
+  const field = page.getByRole('textbox', { name: 'Skill for Build Task' });
+  await expect(field).toHaveValue('/midnite-build');
   await field.fill('/midnite-address-issue');
 
   // The reset link is the "this has drifted from the default" signal, so it
@@ -334,7 +334,7 @@ test('pointing the entry at another skill in Settings changes what it sends', as
 
   await clickRailLink(page, 'Timeline');
   await openMidniteMenu(page);
-  await page.getByRole('menuitem', { name: 'Backlog Task', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Build Task', exact: true }).click();
 
   await expect.poll(() => ptyInputs(page)).toEqual(["claude '/midnite-address-issue'"]);
 });
@@ -350,12 +350,12 @@ test('switching the primary agent in Settings changes which binary and prefix th
 
   await clickRailLink(page, 'Timeline');
   await openMidniteMenu(page);
-  await page.getByRole('menuitem', { name: 'Backlog Task', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Build Task', exact: true }).click();
 
   // Codex doesn't recognise `/name` for a custom skill, only `$name` — so the
-  // stored `/midnite-create` prompt gets its prefix translated on the way out.
+  // stored `/midnite-build` prompt gets its prefix translated on the way out.
   // It also only runs a prompt non-interactively behind `exec`.
-  await expect.poll(() => ptyInputs(page)).toEqual(["codex exec '$midnite-create'"]);
+  await expect.poll(() => ptyInputs(page)).toEqual(["codex exec '$midnite-build'"]);
 });
 
 /**
@@ -446,7 +446,7 @@ test.describe('Setup and Update', () => {
           targetRoot: '/tmp/repo',
           templateVersion: '1.0.0',
           entries: [
-            { path: '.claude/skills/midnite-create/SKILL.md', status: 'create', bytes: 10 },
+            { path: '.claude/skills/midnite-build/SKILL.md', status: 'create', bytes: 10 },
             { path: 'CLAUDE.md', status: 'locally-edited', bytes: 20 },
           ],
         },
@@ -460,7 +460,7 @@ test.describe('Setup and Update', () => {
 
     const dialog = page.getByRole('dialog', { name: 'Set up this repo' });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText('.claude/skills/midnite-create/SKILL.md')).toBeVisible();
+    await expect(dialog.getByText('.claude/skills/midnite-build/SKILL.md')).toBeVisible();
     await expect(dialog.getByText('CLAUDE.md')).toBeVisible();
     // No terminal opened — Setup previews, it never blindly writes.
     await expect(page.locator('[data-terminal-panel]')).toHaveCount(0);

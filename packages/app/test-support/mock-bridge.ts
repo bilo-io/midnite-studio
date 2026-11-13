@@ -4667,9 +4667,9 @@ export function buildMockBridge(data: MockFixtures) {
           value: {
             copied: [
               'midnite-address-issue',
-              'midnite-ideate',
-              'midnite-create',
-              'midnite-create-adhoc',
+              'midnite-plan',
+              'midnite-build',
+              'midnite-build-adhoc',
               'midnite-swarm',
               'midnite-git-cleanup',
               'midnite-git-report',
@@ -7189,7 +7189,7 @@ export function buildMockBridge(data: MockFixtures) {
         value: {
           skills: clone(
             cfg.skills ?? [
-              { name: 'midnite-create', description: 'Pick unblocked themes, build them in a worktree, open a PR, drive CI green, merge.', scope: 'project' as const },
+              { name: 'midnite-build', description: 'Pick unblocked themes, build them in a worktree, open a PR, drive CI green, merge.', scope: 'project' as const },
               { name: 'midnite-sitrep', description: 'Post the standing sitrep table for whatever is in flight.', scope: 'project' as const },
               { name: 'code-review', description: 'Review the current diff for correctness bugs.', scope: 'user' as const },
               { name: 'vercel:deploy', description: 'Deploy the current project to Vercel.', scope: 'plugin' as const },

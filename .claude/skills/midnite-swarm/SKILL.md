@@ -1,11 +1,11 @@
 ---
 name: midnite-swarm
-description: Fan /midnite-create out across several phases (or ad hoc tasks) at once, each in its own background subagent capped to a chosen theme count, then post a recurring sitrep until every subagent has merged.
+description: Fan /midnite-build out across several phases (or ad hoc tasks) at once, each in its own background subagent capped to a chosen theme count, then post a recurring sitrep until every subagent has merged.
 argument-hint: "[optional: phases/tasks, themes-per-phase, sitrep interval, model, rotate=<P>% of the context window (default 30-40%), window=<N>k]"
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep, AskUserQuestion, TodoWrite, Agent, ToolSearch, CronCreate, CronDelete, ListAgents, SendMessage, TaskStop
 ---
 
-Fan-out orchestration on top of `/midnite-create` for **Midnite Studio** — one subagent per phase,
+Fan-out orchestration on top of `/midnite-build` for **Midnite Studio** — one subagent per phase,
 running in parallel, with a recurring status report until they all land.
 
 **Conversation style — enforced.** Be terse to save time and tokens. No preamble, no recap of
@@ -15,18 +15,18 @@ commentary.
 
 ## Respect
 
-This skill does not reimplement `/midnite-create` — every spawned subagent invokes it directly and
+This skill does not reimplement `/midnite-build` — every spawned subagent invokes it directly and
 inherits its own rules (`CLAUDE.md` conventions, the `.midnite/tasks/` tracker, worktree-per-batch,
 the pre-push gate, PR conventions). This skill's own job is narrower: pick *which* phases run, cap
 *how much* each one takes on, launch them in parallel, and keep watch. Read
 [`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md) yourself in Stage 1 — **Pass 1
-only** (`_INDEX.md`'s `## Phases` table, which is the whole file; no `phase-*.md`). Phase docs are Pass 2 inside each spawned `/midnite-create`,
+only** (`_INDEX.md`'s `## Phases` table, which is the whole file; no `phase-*.md`). Phase docs are Pass 2 inside each spawned `/midnite-build`,
 not here. This skill does not get to skip the scan just because it delegates the build.
 
 ## 1 · Scope — STOP for the human (skip whatever `$ARGUMENTS` already answers)
 
 If `$ARGUMENTS` doesn't already name which phases or tasks to run, scan `_INDEX.md` for candidates
-exactly like `/midnite-create` Stage 1 **Pass 1** (index columns only — do not open `phase-*.md` to
+exactly like `/midnite-build` Stage 1 **Pass 1** (index columns only — do not open `phase-*.md` to
 pick the list; `gh pr list --state open` to skip anything already in flight). Present up to 6
 candidates via **one AskUserQuestion, `multiSelect: true`** — each option a phase (or a named ad
 hoc task, if the human describes one instead of a phase number). The batch is every phase/task
@@ -40,7 +40,7 @@ like:
 - `A theme or two [XS-S, fastest]` — the smallest unblocked slice per phase.
 - `Up to a size cap (e.g. no single theme past L)` — ask what cap, or default to no theme over `[L
   · 4-8h]`.
-- `All open, unblocked themes` — the whole phase in one PR, `/midnite-create`'s own default batching.
+- `All open, unblocked themes` — the whole phase in one PR, `/midnite-build`'s own default batching.
 
 This becomes an instruction inside each subagent's own prompt (Stage 4) — the subagent still reads
 its phase doc and index row itself and picks the *specific* themes within that cap.
@@ -76,9 +76,9 @@ general-purpose`, `model:` the Stage 4 answer) — send every call for the batch
 message** so they run concurrently, not serially. Each subagent's prompt must be self-contained
 (it starts with none of this conversation's context) and must instruct it to:
 
-- Invoke the `midnite-create` skill (`Skill({skill: "midnite-create", args: "<phase>"})`) and follow it
+- Invoke the `midnite-build` skill (`Skill({skill: "midnite-build", args: "<phase>"})`) and follow it
   for **that phase only**, capped to the Stage 2 theme/size limit.
-- Skip `AskUserQuestion` at `/midnite-create`'s own Stage 2 and 2.5 — it is running unattended. Pick
+- Skip `AskUserQuestion` at `/midnite-build`'s own Stage 2 and 2.5 — it is running unattended. Pick
   themes and design defaults itself (most conventional choice, or whatever the phase doc's own
   *Decisions* section already recommends) and record what it chose and why in the PR body instead
   of asking.
@@ -178,7 +178,7 @@ watching it. Neither is actually done. On every sitrep tick, cross-check each su
 state (`gh pr view <n> --json state,mergedAt`, `gh pr checks <n>`) against what it last reported:
 
 - If its PR is open with CI resolved (pass or fail) and it isn't currently running: `SendMessage`
-  it to finish the remaining `/midnite-create` stages (fix-and-repush on a real failure, or merge +
+  it to finish the remaining `/midnite-build` stages (fix-and-repush on a real failure, or merge +
   teardown once green).
 - If it keeps re-stalling after being resumed once or twice, stop delegating and finish the
   remaining stages yourself directly (`gh pr ready`, watch/rerun CI, squash-merge, worktree

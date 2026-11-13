@@ -133,10 +133,10 @@ export type AgentCommand = {
 export const AGENT_COMMANDS: readonly AgentCommand[] = [
   {
     id: 'execBacklog',
-    label: 'Backlog Task',
+    label: 'Build Task',
     icon: LuPlay,
     category: 'tasks',
-    hint: 'Pick up the next unblocked backlog task and build it.',
+    hint: 'Pick up unblocked tasks across category indexes and build them.',
   },
   {
     id: 'execAdhoc',
@@ -154,17 +154,17 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
   },
   {
     id: 'brainstorm',
-    label: 'Ideate',
+    label: 'Plan',
     icon: LuLightbulb,
     category: 'tasks',
-    hint: 'Riff on a new phase and write the doc for it.',
+    hint: 'Plan and refine a new phase doc for simpler models.',
   },
   {
     id: 'refine',
-    label: 'Refine Plan',
+    label: 'Design & Refine',
     icon: LuFilePen,
     category: 'tasks',
-    hint: 'Deepen an existing phase doc until any model could execute it.',
+    hint: 'Extend a phase doc with visual design and component architecture.',
   },
   {
     id: 'verifyPhase',
@@ -298,10 +298,10 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
   },
   {
     id: 'loopExecBacklog',
-    label: 'Loop: Backlog Task',
+    label: 'Loop: Build',
     icon: LuRepeat,
     category: 'loops',
-    hint: 'Pick up and build the next unblocked backlog task, on a loop.',
+    hint: 'Pick up and build unblocked tasks across category indexes, on a loop.',
   },
   {
     id: 'loopExecAdhoc',
@@ -319,17 +319,17 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
   },
   {
     id: 'loopBrainstorm',
-    label: 'Loop: Ideate',
+    label: 'Loop: Plan',
     icon: LuListTodo,
     category: 'loops',
-    hint: 'Riff on a new phase and write the doc for it, on a loop.',
+    hint: 'Plan and refine a new phase doc for simpler models, on a loop.',
   },
   {
     id: 'loopOverhaul',
-    label: 'Loop: Overhaul',
+    label: 'Loop: Maintain',
     icon: LuGauge,
     category: 'loops',
-    hint: 'Profile startup, idle CPU, bundle size and renders, and fix what is slow, on a loop.',
+    hint: 'Address issues, performance quick wins, and security CVEs, on a loop.',
   },
 ];
 
@@ -339,11 +339,11 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
  * `agentSkills`, seeded with this).
  */
 export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
-  execBacklog: '/midnite-create',
-  execAdhoc: '/midnite-create-adhoc',
+  execBacklog: '/midnite-build',
+  execAdhoc: '/midnite-build-adhoc',
   addressIssue: '/midnite-address-issue',
-  brainstorm: '/midnite-ideate',
-  refine: '/midnite-refine',
+  brainstorm: '/midnite-plan',
+  refine: '/midnite-design',
   verifyPhase: '/midnite-verify',
   execSwarm: '/midnite-swarm',
   prCreate: '/midnite-pr-create',
@@ -367,9 +367,9 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
   loopPatrol: '/loop',
   loopPrReview: '/loop /midnite-pr-review',
   loopPrFeedback: '/loop /midnite-pr-feedback',
-  loopExecBacklog: '/loop /midnite-create',
-  loopExecAdhoc: '/loop /midnite-create-adhoc',
+  loopExecBacklog: '/loop /midnite-build',
+  loopExecAdhoc: '/loop /midnite-build-adhoc',
   loopAddressIssue: '/loop /midnite-address-issue',
-  loopBrainstorm: '/loop /midnite-ideate',
-  loopOverhaul: '/loop /midnite-create',
+  loopBrainstorm: '/loop /midnite-plan',
+  loopOverhaul: '/loop /midnite-maintain',
 };

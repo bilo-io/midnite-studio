@@ -40,8 +40,8 @@ type AgentSkills = Readonly<Partial<Record<AgentCommandId, string>>> | undefined
  *  Held here rather than imported so this module never reaches into the
  *  store (which half the board's tests replace with a selector mock). */
 const FALLBACK_TEMPLATES: Partial<Record<AgentCommandId, string>> = {
-  execBacklog: '/midnite-create',
-  execAdhoc: '/midnite-create-adhoc',
+  execBacklog: '/midnite-build',
+  execAdhoc: '/midnite-build-adhoc',
 };
 
 /** How many recently-used skills sit above the repo's own catalogue. */
@@ -55,6 +55,13 @@ export const RECENT_SKILL_LIMIT = 5;
  * and an unlisted `midnite-*` sorts after these by name.
  */
 const MIDNITE_ORDER = [
+  'midnite-build',
+  'midnite-build-adhoc',
+  'midnite-plan',
+  'midnite-design',
+  'midnite-test',
+  'midnite-maintain',
+  'midnite-deploy',
   'midnite-create',
   'midnite-create-adhoc',
   'midnite-ideate',

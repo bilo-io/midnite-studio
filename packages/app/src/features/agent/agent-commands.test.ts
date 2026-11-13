@@ -29,14 +29,14 @@ describe('AGENT_COMMANDS', () => {
   });
 
   it('keeps the labels a display layer, free of the ids they render', () => {
-    // "Backlog Task" over `execBacklog`, "Refine Plan" over `refine`: the menu reads as
+    // "Build Task" over `execBacklog`, "Design & Refine" over `refine`: the menu reads as
     // verb phrases while the persisted keys stay short. Asserted so a later
     // rename of one cannot quietly drag the other with it.
     expect(AGENT_COMMANDS.find((command) => command.id === 'execBacklog')?.label).toBe(
-      'Backlog Task',
+      'Build Task',
     );
-    expect(AGENT_COMMANDS.find((command) => command.id === 'refine')?.label).toBe('Refine Plan');
-    expect(DEFAULT_AGENT_SKILLS.refine).toBe('/midnite-refine');
+    expect(AGENT_COMMANDS.find((command) => command.id === 'refine')?.label).toBe('Design & Refine');
+    expect(DEFAULT_AGENT_SKILLS.refine).toBe('/midnite-design');
     expect(AGENT_COMMANDS.find((command) => command.id === 'verifyPhase')?.label).toBe(
       'Verify Phase',
     );

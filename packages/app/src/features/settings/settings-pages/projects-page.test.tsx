@@ -46,10 +46,10 @@ describe('ProjectsPage — column → skill map (Phase 95 Theme G)', () => {
     render(<ProjectsPage />);
 
     expect((screen.getByLabelText('Skill for column "in progress"') as HTMLInputElement).value).toBe(
-      '/midnite-create',
+      '/midnite-build',
     );
     expect((screen.getByLabelText('Skill for column "in review"') as HTMLInputElement).value).toBe(
-      '/midnite-review',
+      '/midnite-pr-review',
     );
   });
 

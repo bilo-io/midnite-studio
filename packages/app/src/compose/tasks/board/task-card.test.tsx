@@ -381,7 +381,7 @@ describe('TaskCard', () => {
       expect(screen.queryByRole('menu')).toBeNull();
       const sessions = useTerminalStore.getState().sessions;
       expect(sessions.length).toBe(1);
-      expect(useTerminalStore.getState().pendingInput[sessions[0]!.id]).toContain('/midnite-create-adhoc');
+      expect(useTerminalStore.getState().pendingInput[sessions[0]!.id]).toContain('/midnite-build-adhoc');
       expect(useUiStore.getState().terminalOpen).toBe(true);
     });
   });

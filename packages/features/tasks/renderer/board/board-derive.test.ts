@@ -355,9 +355,9 @@ describe('countLiveCardSessions (Phase 50 Theme A)', () => {
 
 describe('resolveColumnSkill (Phase 95 Theme G)', () => {
   it('matches a default column name case-insensitively, with no override at all', () => {
-    expect(resolveColumnSkill('In Progress', undefined)).toBe('/midnite-create');
-    expect(resolveColumnSkill('in progress', {})).toBe('/midnite-create');
-    expect(resolveColumnSkill('IN REVIEW', undefined)).toBe('/midnite-review');
+    expect(resolveColumnSkill('In Progress', undefined)).toBe('/midnite-build');
+    expect(resolveColumnSkill('in progress', {})).toBe('/midnite-build');
+    expect(resolveColumnSkill('IN REVIEW', undefined)).toBe('/midnite-pr-review');
   });
 
   it('a column with no default and no override keeps today\'s status-only drop', () => {
@@ -381,7 +381,7 @@ describe('resolveColumnSkill (Phase 95 Theme G)', () => {
   });
 
   it('DEFAULT_COLUMN_SKILLS is exactly the phase doc\'s own two defaults', () => {
-    expect(DEFAULT_COLUMN_SKILLS).toEqual({ 'in progress': '/midnite-create', 'in review': '/midnite-review' });
+    expect(DEFAULT_COLUMN_SKILLS).toEqual({ 'in progress': '/midnite-build', 'in review': '/midnite-pr-review' });
   });
 
   it('columnSkillKey trims and lower-cases', () => {
@@ -543,7 +543,7 @@ describe('decideColumnSkillAction (Phase 95 Theme G)', () => {
     // `board-view.tsx` reads it differently for "In review" specifically.
     expect(decideColumnSkillAction(issue, 'In progress', undefined, undefined)).toEqual({
       kind: 'launch',
-      skillTemplate: '/midnite-create',
+      skillTemplate: '/midnite-build',
       url: 'https://github.com/acme/widgets/issues/42',
       usedIssueFallback: true,
     });
@@ -552,7 +552,7 @@ describe('decideColumnSkillAction (Phase 95 Theme G)', () => {
   it('"In review" with no linked PR launches with the issue link, flagged as a fallback', () => {
     expect(decideColumnSkillAction(issue, 'In review', undefined, undefined)).toEqual({
       kind: 'launch',
-      skillTemplate: '/midnite-review',
+      skillTemplate: '/midnite-pr-review',
       url: 'https://github.com/acme/widgets/issues/42',
       usedIssueFallback: true,
     });
