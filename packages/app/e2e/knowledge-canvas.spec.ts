@@ -250,7 +250,7 @@ test('picking another renderer re-mounts the canvas, and the choice survives a r
   const threeD = page.getByTestId('knowledge-3d-canvas');
 
   // Default is Atlas (sigma): several stacked layers, no 3D canvas.
-  expect(await canvases.count()).toBeGreaterThan(1);
+  await expect.poll(() => canvases.count()).toBeGreaterThan(1);
   await expect(threeD).toHaveCount(0);
 
   async function pickTelemetry(): Promise<void> {
