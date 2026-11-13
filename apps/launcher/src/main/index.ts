@@ -17,6 +17,7 @@ import { fetchCatalog } from './feed';
 import { applyDevIdentity, pinDataDir } from './identity';
 import { registerIpc, takePendingApp, type SelfIpc } from './ipc';
 import { handleMidniteLink, linkFromArgv } from './router';
+import { automaticAllowed, launcherPrivacyView, privacyFile, readLauncherSettings, writeLauncherSettings } from './privacy';
 import { launcherSelfStatus, startSelfUpdate } from './self-update';
 import { findStudio } from './studio';
 import { isAdHocSigned, loadAutoUpdater, runLauncherUpdates } from './updater';
@@ -147,12 +148,19 @@ async function startUpdates(): Promise<void> {
     version: app.getVersion(),
   });
   if (!app.isPackaged) return;
+  // Phase 115 Theme A: each switch (and the master) gates its own automatic request at start.
+  const [runtimeOn, catalogOn] = await Promise.all([
+    automaticAllowed(privacyFile(app.getPath('userData')), 'launcher-updates'),
+    automaticAllowed(privacyFile(app.getPath('userData')), 'launcher-catalog'),
+  ]);
+  if (!runtimeOn && !catalogOn) return;
   await runLauncherUpdates({
+    checkRuntime: runtimeOn,
     updater: await loadAutoUpdater(),
     isPackaged: app.isPackaged,
     adHocSigned: app.isPackaged && isAdHocSigned(process.execPath),
     updateBundles: async () => {
-      if (deps !== null) await updateInstalledBundles(await fetchCatalog(), identityForApp, deps);
+      if (catalogOn && deps !== null) await updateInstalledBundles(await fetchCatalog(), identityForApp, deps);
     },
   });
 }
@@ -194,7 +202,7 @@ if (!app.requestSingleInstanceLock()) {
       );
     }
     const selfIpc: SelfIpc = {
-      status: () => launcherSelfStatus({ current: app.getVersion(), isPackaged: app.isPackaged }),
+      status: ({ feedOff }) => launcherSelfStatus({ current: app.getVersion(), isPackaged: app.isPackaged, feedOff }),
       update: () =>
         startSelfUpdate({
           isPackaged: app.isPackaged,
@@ -216,7 +224,14 @@ if (!app.requestSingleInstanceLock()) {
         onProgress: (event) => mainWindow?.webContents.send(LAUNCHER_CHANNELS.appProgress, event),
       }),
       findBundle: (id) => lockstepBundleFinder(bundleRoots().installRoot, app.getVersion())(id),
-    }, selfIpc);
+    }, selfIpc, {
+      allowed: (id) => automaticAllowed(privacyFile(app.getPath('userData')), id),
+      get: async () => launcherPrivacyView(await readLauncherSettings(privacyFile(app.getPath('userData')))),
+      set: async (next) => {
+        await writeLauncherSettings(privacyFile(app.getPath('userData')), next);
+        return launcherPrivacyView(await readLauncherSettings(privacyFile(app.getPath('userData'))));
+      },
+    });
     createWindow();
     ready = true;
     const first = pendingLink ?? linkFromArgv(process.argv);

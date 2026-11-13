@@ -45,7 +45,7 @@ const UNMIGRATED: Record<string, string> = {
   'packages/features/media-map/main': 'tile sources and Overpass share one injected fetch; follow-up: register every tile host, then bind',
   'packages/desktop/src/main/ipc/media-image-handlers.ts': 'provider fetch injected into media-images; follow-up: bind to guardedFetch (local Ollama is loopback)',
   'packages/desktop/src/main/ipc/media-map-handlers.ts': 'tile and geocode fetch injected into media-map; follow-up: register tile hosts, then bind',
-  'apps/launcher/src/main': 'the launcher is off the graph and cannot import the runtime; follow-up: launcher switches (Theme A, second slice)',
+  'apps/launcher/src/main': 'the launcher is off the graph and cannot import the runtime; its automatic calls are gated by its own launcher-updates / launcher-catalog switches (apps/launcher/src/main/privacy.ts)',
 };
 
 function* walk(dir: string): Generator<string> {

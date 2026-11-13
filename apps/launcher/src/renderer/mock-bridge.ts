@@ -121,6 +121,16 @@ export function createMockBridge(mode: string | null): LauncherBridge {
       }),
       openFull: ok,
     },
+    privacy: (() => {
+      let privacy = { allAutomaticOff: false, switches: { 'launcher-updates': true, 'launcher-catalog': true } };
+      return {
+        get: async () => privacy,
+        set: async (next) => {
+          privacy = next;
+          return privacy;
+        },
+      };
+    })(),
     theme: { set: () => undefined },
   };
 }

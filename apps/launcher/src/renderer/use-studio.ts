@@ -26,25 +26,27 @@ export function useStudio(): StudioController {
   const [installing, setInstalling] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const refresh = useCallback(async () => {
+  // Phase 115 Theme A: start and focus are automatic (a switch can turn them off); `refresh` is a click.
+  const load = useCallback(async (manual: boolean) => {
     setRefreshing(true);
     try {
-      setStatus(await getBridge().studio.status());
+      setStatus(await getBridge().studio.status({ manual }));
     } finally {
       setRefreshing(false);
     }
   }, []);
+  const refresh = useCallback(() => load(true), [load]);
 
   useEffect(() => {
-    void refresh();
+    void load(false);
     const unsub = getBridge().studio.onProgress(setProgress);
-    const onFocus = () => void refresh();
+    const onFocus = () => void load(false);
     window.addEventListener('focus', onFocus);
     return () => {
       unsub();
       window.removeEventListener('focus', onFocus);
     };
-  }, [refresh]);
+  }, [load]);
 
   const install = useCallback(async () => {
     setInstalling(true);

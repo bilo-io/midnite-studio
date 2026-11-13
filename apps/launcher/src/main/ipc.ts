@@ -2,13 +2,14 @@ import { ipcMain, nativeTheme, shell, type BrowserWindow } from 'electron';
 import { changelogPageUrl } from '@midnite/studio-shared/release';
 import { z } from 'zod';
 
-import { EXTERNAL_LINKS, LAUNCHER_CHANNELS, THEME_SOURCES, type LauncherResult, type LauncherSelfStatus } from '../common/bridge';
+import { EXTERNAL_LINKS, LAUNCHER_CHANNELS, THEME_SOURCES, type LauncherPrivacy, type LauncherResult, type LauncherSelfStatus } from '../common/bridge';
 import { APP_IDS, type AppId } from '../common/catalog';
 import type { createAppsOps } from './bundles/apps-ops';
 import { DOWNLOAD_URL, RELEASES_URL, SITE_URL } from './constants';
 import { ChangelogRequestSchema, answerChangelogLatest } from './changelog';
 import { fetchStudioRelease } from './feed';
 import { installStudio } from './install';
+import { LauncherPrivacySchema } from './privacy';
 import { appLink } from './links';
 import { findStudio, isStudioRunning, studioStatus } from './studio';
 
@@ -16,6 +17,9 @@ const AppIdSchema = z.object({ id: z.enum(APP_IDS) });
 const AppOpenSchema = z.object({ id: z.enum(APP_IDS), featureId: z.string().max(64).optional() });
 const LinkSchema = z.enum(EXTERNAL_LINKS);
 const ThemeSchema = z.enum(THEME_SOURCES);
+/** `manual` is a click on Check again; anything else (including no argument) is an automatic call. */
+const StatusOptionsSchema = z.object({ manual: z.boolean().optional() }).optional();
+const isManual = (raw: unknown): boolean => StatusOptionsSchema.safeParse(raw).data?.manual === true;
 
 let pendingApp: AppId | null = null;
 
@@ -40,14 +44,32 @@ export type AppsIpc = {
 
 /** The launcher itself (`self-update.ts`). */
 export type SelfIpc = {
-  status(): Promise<LauncherSelfStatus>;
+  status(options: { feedOff: boolean }): Promise<LauncherSelfStatus>;
   update(): LauncherResult;
 };
 
-export function registerIpc(getWindow: () => BrowserWindow | null, apps: AppsIpc, self: SelfIpc): void {
-  ipcMain.handle(LAUNCHER_CHANNELS.appsStatus, () => apps.ops.status());
+/** Phase 115 Theme A: the launcher's own privacy switches (`privacy.ts`). */
+export type PrivacyIpc = {
+  /** Whether an automatic call may run for this switch right now. */
+  allowed(id: 'launcher-updates' | 'launcher-catalog'): Promise<boolean>;
+  get(): Promise<LauncherPrivacy>;
+  set(next: LauncherPrivacy): Promise<LauncherPrivacy>;
+};
 
-  ipcMain.handle(LAUNCHER_CHANNELS.selfStatus, () => self.status());
+export function registerIpc(getWindow: () => BrowserWindow | null, apps: AppsIpc, self: SelfIpc, privacy: PrivacyIpc): void {
+  ipcMain.handle(LAUNCHER_CHANNELS.appsStatus, async (_event, raw: unknown) =>
+    apps.ops.status({ catalogOff: !isManual(raw) && !(await privacy.allowed('launcher-catalog')) }),
+  );
+
+  ipcMain.handle(LAUNCHER_CHANNELS.selfStatus, async (_event, raw: unknown) =>
+    self.status({ feedOff: !isManual(raw) && !(await privacy.allowed('launcher-updates')) }),
+  );
+
+  ipcMain.handle(LAUNCHER_CHANNELS.privacyGet, () => privacy.get());
+  ipcMain.handle(LAUNCHER_CHANNELS.privacySet, async (_event, raw: unknown) => {
+    const parsed = LauncherPrivacySchema.safeParse(raw);
+    return parsed.success ? privacy.set(parsed.data) : privacy.get();
+  });
   ipcMain.handle(LAUNCHER_CHANNELS.selfUpdate, (): LauncherResult => self.update());
 
   // Ops return the result envelope and never throw; a payload that is not an app id is a failure, not an exception.
@@ -66,7 +88,9 @@ export function registerIpc(getWindow: () => BrowserWindow | null, apps: AppsIpc
     if (parsed.success) nativeTheme.themeSource = parsed.data;
   });
 
-  ipcMain.handle(LAUNCHER_CHANNELS.studioStatus, () => studioStatus());
+  ipcMain.handle(LAUNCHER_CHANNELS.studioStatus, async (_event, raw: unknown) =>
+    studioStatus({ feedOff: !isManual(raw) && !(await privacy.allowed('launcher-updates')) }),
+  );
 
   ipcMain.handle(LAUNCHER_CHANNELS.studioInstall, () =>
     installStudio({

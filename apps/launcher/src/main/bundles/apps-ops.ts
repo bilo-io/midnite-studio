@@ -32,8 +32,12 @@ const asMessage = (error: unknown) => (error instanceof Error ? error.message : 
 
 export function createAppsOps(deps: AppsOpsDeps) {
   return {
-    async status(): Promise<AppsStatus> {
-      const [catalog, state] = await Promise.all([deps.fetchCatalog().catch(() => null), deps.readState()]);
+    /** `catalogOff`: an automatic status with the catalog switch off reads the installed record only. */
+    async status(options: { catalogOff?: boolean } = {}): Promise<AppsStatus> {
+      const [catalog, state] = await Promise.all([
+        options.catalogOff === true ? Promise.resolve(null) : deps.fetchCatalog().catch(() => null),
+        deps.readState(),
+      ]);
       return {
         runtimeVersion: deps.runtimeVersion,
         canManageBundles: deps.bundleDeps() !== null,
