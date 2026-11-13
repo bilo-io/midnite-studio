@@ -158,7 +158,7 @@ async function stableX(locator: Locator): Promise<number> {
     const x = box?.x ?? Number.NaN;
     if (x === last) return x;
     last = x;
-    await locator.page().waitForTimeout(50);
+    await locator.page().waitForTimeout(50); // allow-timeout: polling loop: sample the box position every 50ms until it stops moving
   }
   throw new Error('layout never settled');
 }

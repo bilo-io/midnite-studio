@@ -60,12 +60,26 @@ async function openEditor(page: Page): Promise<Locator> {
   }).toPass({ timeout: 5000 });
   const canvas = page.getByTestId('model-canvas');
   await expect(canvas).toBeVisible({ timeout: 30_000 });
-  // Let the camera frame the model before anything is compared.
-  await page.waitForTimeout(500);
+  // Let the camera frame the model before anything is compared: two consecutive frames match.
+  await settled(canvas);
   return canvas;
 }
 
 const shot = (canvas: Locator): Promise<Buffer> => canvas.screenshot();
+
+/** Poll until the canvas stops repainting (two consecutive captures are byte-identical). */
+async function settled(canvas: Locator): Promise<Buffer> {
+  let last = await shot(canvas);
+  await expect
+    .poll(async () => {
+      const next = await shot(canvas);
+      const same = Buffer.compare(last, next) === 0;
+      last = next;
+      return same;
+    })
+    .toBe(true);
+  return last;
+}
 
 test('the canvas renders the design and redraws for selection and wireframe', async ({ page }) => {
   const canvas = await openEditor(page);
@@ -73,27 +87,23 @@ test('the canvas renders the design and redraws for selection and wireframe', as
   expect(solid.length).toBeGreaterThan(2000);
 
   await page.getByRole('list', { name: 'Parts' }).getByRole('button', { name: /body/ }).click();
-  await page.waitForTimeout(300);
-  const selected = await shot(canvas);
-  expect(Buffer.compare(solid, selected)).not.toBe(0);
+  await expect.poll(async () => Buffer.compare(solid, await shot(canvas))).not.toBe(0);
+  const selected = await settled(canvas);
 
   await page.getByRole('button', { name: /^Shading:/ }).click();
   await page.getByRole('option', { name: 'Wireframe' }).click();
-  await page.waitForTimeout(300);
-  const wire = await shot(canvas);
-  expect(Buffer.compare(selected, wire)).not.toBe(0);
+  await expect.poll(async () => Buffer.compare(selected, await shot(canvas))).not.toBe(0);
+  const wire = await settled(canvas);
 
   // The orthographic Top view and x-ray are real camera / blend changes: both must repaint.
   await page.getByRole('button', { name: /^Shading:/ }).click();
   await page.getByRole('option', { name: 'Solid' }).click();
   await page.getByRole('button', { name: /^Projection:/ }).click();
   await page.getByRole('option', { name: 'Top' }).click();
-  await page.waitForTimeout(500);
-  const top = await shot(canvas);
-  expect(Buffer.compare(wire, top)).not.toBe(0);
+  await expect.poll(async () => Buffer.compare(wire, await shot(canvas))).not.toBe(0);
+  const top = await settled(canvas);
   await page.getByRole('button', { name: /^X-ray/ }).click();
-  await page.waitForTimeout(300);
-  expect(Buffer.compare(top, await shot(canvas))).not.toBe(0);
+  await expect.poll(async () => Buffer.compare(top, await shot(canvas))).not.toBe(0);
 });
 
 test('clicking the model in the canvas picks the part under the pointer', async ({ page }) => {
@@ -115,10 +125,8 @@ test('dragging orbits the camera and Reset camera brings it back', async ({ page
   await page.mouse.down();
   await page.mouse.move(box.x + box.width * 0.2 + 160, box.y + 140, { steps: 8 });
   await page.mouse.up();
-  await page.waitForTimeout(300);
-  expect(Buffer.compare(home, await shot(canvas))).not.toBe(0);
+  await expect.poll(async () => Buffer.compare(home, await shot(canvas))).not.toBe(0);
 
   await page.getByRole('button', { name: 'Reset camera' }).click();
-  await page.waitForTimeout(300);
-  expect(Buffer.compare(home, await shot(canvas))).toBe(0);
+  await expect.poll(async () => Buffer.compare(home, await shot(canvas))).toBe(0);
 });

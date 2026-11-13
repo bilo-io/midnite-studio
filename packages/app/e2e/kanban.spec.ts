@@ -181,7 +181,7 @@ async function dragOnto(page: Page, from: Locator, to: Locator): Promise<void> {
 
   // dnd-kit swallows the click trailing a drag for 50ms — see `ref-drag.spec.ts`'s
   // own note on `AbstractPointerSensor`'s capture-phase `stopPropagation`.
-  await page.waitForTimeout(80);
+  await page.waitForTimeout(80); // allow-timeout: dnd-kit swallows the click trailing a drag for 50ms
 }
 
 test.describe('kanban board drag (Theme C)', () => {
@@ -326,7 +326,7 @@ test.describe('drag-to-skill (Phase 95 Theme G)', () => {
 
     // Long enough to prove the 5s timer really was cancelled, not merely
     // not-yet-fired.
-    await page.waitForTimeout(5500);
+    await page.waitForTimeout(5500); // allow-timeout: proves a negative (nothing may happen in this window)
     expect((await ptyCalls(page)).creates).toHaveLength(0);
   });
 

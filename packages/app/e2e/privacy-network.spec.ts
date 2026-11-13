@@ -24,7 +24,7 @@ test.describe('privacy network defaults', () => {
     await page.goto('/');
 
     await expect(page.getByTestId('finance-segment')).toBeVisible({ timeout: 15_000 });
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(1500); // allow-timeout: proves a negative (nothing may happen in this window)
 
     expect(external.filter((url) => url.includes('ipwho.is'))).toHaveLength(0);
     expect(external.filter((url) => url.includes('twelvedata.com'))).toHaveLength(0);
