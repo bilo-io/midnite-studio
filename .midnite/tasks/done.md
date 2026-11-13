@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 132 Theme A — Open Game
+
+An Open Game button beside New game: a main-side folder dialog, `resolveGameFolder` (git root, plain refusals), `service.add` (`added` / `listed` / `cancelled`) over the host's repo port; Gamer keeps `opened-games.json`. Not done: the human check (Theme H); Remove from list (Decision 17).
+
 ## 2026-11-13 — Phase 89 Theme K (part) — licence audit
 
 One table of the four variant dependencies' licences and closures. Not done: the seam e2e, bundle and idle-CPU ceilings, visual baselines, full gate; reasons in the phase doc.

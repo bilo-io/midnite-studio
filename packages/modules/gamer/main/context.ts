@@ -60,6 +60,7 @@ import {
 import { EVENT_CHANNELS, failure, MediaTabSchema, ok, type FfmpegStatus, type GitOpResult, type Sf3dRequest } from '@midnite/studio-shared';
 
 import { createGamerKeyReader } from './keys';
+import { createOpenedGamesStore } from './opened-games';
 
 import { GAMER_REPO_ID } from '../manifest';
 
@@ -114,6 +115,8 @@ export type GamerElectron = IpcContextElectron & {
     openPopoutWindow?: () => GamePopoutWindow;
     templateDir: string;
     enginesDir: string;
+    /** The Open Game folder dialog (Phase 132 Theme A): an absolute path, or null when dismissed. */
+    pickFolder: () => Promise<string | null>;
   };
   log: (line: string) => void;
   /**
@@ -326,6 +329,7 @@ export function registerGamerOn(ctx: FeatureMainContext, el: GamerElectron): Gam
   });
   mediaSpriteMain.register(ctx, { runtime: sprite, pickTiledMap: el.pickTiledMap });
 
+  const openedGames = createOpenedGamesStore(el.userData);
   const games = createGamesRuntime({
     userData: el.userData,
     ...(el.defaultGamesRoot ? { defaultGamesRoot: el.defaultGamesRoot } : {}),
@@ -336,9 +340,11 @@ export function registerGamerOn(ctx: FeatureMainContext, el: GamerElectron): Gam
     ...(el.game.openPopoutWindow ? { openPopoutWindow: el.game.openPopoutWindow } : {}),
     templateDir: el.game.templateDir,
     enginesDir: el.game.enginesDir,
-    // Gamer has no repository list: a game is a folder under the games root, found by scanning it.
-    registerRepo: async () => ({ ok: true }),
-    listRepoPaths: async () => [],
+    // Gamer has no repository list: a game is a folder under the games root, found by scanning it, or one the
+    // user opened from elsewhere (Phase 132 Theme A), kept in `opened-games.json` behind the same two ports.
+    registerRepo: (path) => openedGames.add(path),
+    listRepoPaths: () => openedGames.list(),
+    pickFolder: el.game.pickFolder,
     exportTerrain,
     // A game imports a clip from the global animation library (Phase 125 Theme G).
     animations: { root: () => animationRoot, get: (id) => animationLibrary.get(id) },

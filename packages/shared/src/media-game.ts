@@ -335,6 +335,18 @@ export type GameCreateRequest = z.input<typeof GameCreateRequestSchema>;
 export const GameCreateResultSchema = z.object({ path: z.string(), gameId: z.string() });
 export type GameCreateResult = z.infer<typeof GameCreateResultSchema>;
 
+/** Open Game: `path` absent means "show the folder dialog in main". */
+export const GameAddRequestSchema = z.object({ path: z.string().min(1).optional() });
+export type GameAddRequest = z.input<typeof GameAddRequestSchema>;
+
+/** `listed` means the game was already in the list and nothing was written. */
+export const GameAddResultSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('added'), gameId: z.string(), path: z.string() }),
+  z.object({ status: z.literal('listed'), gameId: z.string(), path: z.string() }),
+  z.object({ status: z.literal('cancelled') }),
+]);
+export type GameAddResult = z.infer<typeof GameAddResultSchema>;
+
 export const GameIdRequest = z.object({ gameId: z.string().min(1) });
 export const GameManifestGetResponse = z.object({
   manifest: GameManifestSchema.nullable(),
@@ -445,7 +457,7 @@ export const GameLogsResponse = z.object({
 });
 
 /** Pushed when the set of games on disk changes (create, remove, manifest edit). */
-export const GamesChangedSchema = z.object({ reason: z.enum(['created', 'manifest', 'removed']) });
+export const GamesChangedSchema = z.object({ reason: z.enum(['created', 'added', 'manifest', 'removed']) });
 export type GamesChangedEvent = z.infer<typeof GamesChangedSchema>;
 
 // --- play-test state (Theme D) ---------------------------------------------------

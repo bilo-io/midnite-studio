@@ -127,6 +127,7 @@ export const mediaGameMain = defineFeatureMain<MediaGameMainServices>({
     handle(CHANNELS.gamesSettingsSet, schemas.GamesSettingsSetRequest, (patch) => service.settings.set(patch), (issue) => failure(issue));
     handleBare(CHANNELS.gamesList, async () => ({ games: await service.list() }));
     handle(CHANNELS.gamesCreate, schemas.GamesCreateRequest, (req) => service.create(req), (issue) => failure(issue));
+    handle(CHANNELS.gamesAdd, schemas.GamesAddRequest, ({ path }) => service.add(path), (issue) => failure(issue));
     handle(
       CHANNELS.gamesGetManifest,
       schemas.GamesGetManifestRequest,

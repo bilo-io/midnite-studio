@@ -37,6 +37,8 @@ export type GamesRuntimeDeps<V extends GameView = GameView> = {
   registerRepo: (path: string) => Promise<GitOpResult>;
   /** Paths of every repo the app has registered. */
   listRepoPaths: () => Promise<string[]>;
+  /** The Open Game folder dialog (a native dialog lives in main): an absolute path, or null when dismissed. */
+  pickFolder?: () => Promise<string | null>;
   /** Maps a registered repo path to its id, for an asset's provenance. */
   repoIdOf?: (repoPath: string) => Promise<string | null>;
   /** The Terrain feature's `exportTerrain`, for importing a terrain pack as a game asset. Absent → that import fails plainly. */
@@ -69,6 +71,7 @@ export function createGamesRuntime<V extends GameView = GameView>(deps: GamesRun
     enginesDir: deps.enginesDir,
     registerRepo: deps.registerRepo,
     listRepoPaths: deps.listRepoPaths,
+    ...(deps.pickFolder ? { pickFolder: deps.pickFolder } : {}),
     send: deps.send,
     log: deps.log,
     popout,
