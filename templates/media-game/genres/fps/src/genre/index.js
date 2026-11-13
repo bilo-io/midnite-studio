@@ -14,7 +14,7 @@ import { rng } from 'kit/core/rng.js';
 import { createHud } from 'kit/phaser/hud.js';
 import { createInput } from 'kit/phaser/input.js';
 
-import { levelMap, levelObjects, skylitCells, wallGrid } from './levels.js';
+import { levelObjects, sceneLevel, skylitCells, wallGrid } from './levels.js';
 import { createViewmodel } from './viewmodel.js';
 
 const ENEMY = { hp: 30, speed: 1.6, range: 7, damage: 6, everyMs: 1200 };
@@ -33,7 +33,7 @@ export function installGenre(scene, ctx) {
   const { view, fx } = ctx;
   const juice = fx.juice;
   const viewmodel = createViewmodel(scene, { get shake() { return fx.settings.resolved().shake; } });
-  const level = levelMap();
+  const level = sceneLevel(scene);
   const walls = wallGrid(level);
   rig.map.length = 0;
   for (const row of walls) rig.map.push([...row]);
@@ -41,7 +41,7 @@ export function installGenre(scene, ctx) {
 
   // The east hall is a courtyard under a dusk sky; the rest keeps its stone ceiling. The sound follows: wind out there,
   // room tone inside. `fx.ambience` replaces the base's own bed, and a repeat call for the same bed does nothing.
-  const underSky = skylitCells();
+  const underSky = skylitCells(level);
   view.setSky('dusk', { skylit: underSky });
   const bedFor = () => (underSky(Math.floor(rig.pos.x), Math.floor(rig.pos.y)) ? 'ambience-wind' : 'ambience-room');
   fx.ambience(bedFor(), { volume: 0.32 });

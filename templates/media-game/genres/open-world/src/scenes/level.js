@@ -25,6 +25,7 @@ import { moveRelativeToYaw } from 'kit/core/cameras.js';
 import { hourAt } from 'kit/core/genre/open-world/daynight.js';
 import { extendHook } from 'kit/core/hook.js';
 import { createJuiceSettings } from 'kit/core/juice-settings.js';
+import { currentLevel, fetchLevel, levelProps } from 'kit/core/level.js';
 import { decodePng16 } from 'kit/core/png16.js';
 import { createRng } from 'kit/core/rng.js';
 import { resolveTerrainPath } from 'kit/core/terrain-manifest.js';
@@ -37,6 +38,7 @@ import { createHud } from 'kit/three/hud.js';
 import { createInput } from 'kit/three/input.js';
 import { createJuice } from 'kit/three/juice.js';
 import { createRenderer, startLoop } from 'kit/three/loop.js';
+import { buildLevel3d } from 'kit/three/level.js';
 import { initPhysics } from 'kit/three/physics.js';
 import { createPostFx } from 'kit/three/postfx.js';
 import { loadTerrain } from 'kit/three/terrain.js';
@@ -55,9 +57,10 @@ import { addFoliageWind } from '../genre/wind.js';
 const MODE = config.perspective === 'first-person' ? 'first-person' : 'third-person';
 /** The terrain `assets/index.json` names; the asset bridge can repoint it at an imported pack. */
 const TERRAIN = { kind: 'terrain', name: 'world', manifest: 'terrain.manifest.json' };
-/** Where the player starts and the cars are parked: `[x, z, yaw]`, beside the south road. */
-const PLAYER_START = /** @type {const} */ ([2.2, 31, 0]);
-const PARKED = /** @type {const} */ ([[4.5, 26, 0, '#d1453b'], [-4.5, -30, Math.PI, '#3b82f6'], [30, 4.5, Math.PI / 2, '#eab308']]);
+/** Where the player starts and the cars are parked: `[x, z, yaw]`, beside the south road. `levels/level.tmj` carries both (the
+ * `player` spawn and the `car` entities); these are what a level without them falls back to. */
+const DEFAULT_PLAYER_START = /** @type {const} */ ([2.2, 31, 0]);
+const DEFAULT_PARKED = /** @type {const} */ ([[4.5, 26, 0, '#d1453b'], [-4.5, -30, Math.PI, '#3b82f6'], [30, 4.5, Math.PI / 2, '#eab308']]);
 
 const animationState = (character) => {
   if (!character.grounded) return 'jump';
@@ -73,8 +76,12 @@ export async function startLevel() {
   const scene = new THREE.Scene();
   const physics = await initPhysics();
   const assets = await loadAssetIndex();
-  const relative = assets.url(TERRAIN.kind, TERRAIN.name, TERRAIN.manifest);
-  if (!relative) throw new Error(`assets/index.json has no ${TERRAIN.kind} named "${TERRAIN.name}".`);
+  // The level names its terrain (`midnite.terrain`); the heightfield, splat and foliage stay in the terrain pack.
+  const levelName = currentLevel('level');
+  const levelMap = await fetchLevel(levelName);
+  const terrainName = String(levelProps(levelMap)['midnite.terrain'] ?? TERRAIN.name);
+  const relative = assets.url(TERRAIN.kind, terrainName, TERRAIN.manifest);
+  if (!relative) throw new Error(`assets/index.json has no ${TERRAIN.kind} named "${terrainName}".`);
   const terrainUrl = new URL(relative, document.baseURI).href;
   const terrain = await loadTerrain(terrainUrl, { scene, physics });
 
@@ -97,6 +104,11 @@ export async function startLevel() {
   const surfaceAt = (/** @type {number} */ x, /** @type {number} */ z) => (cover ? classAt(cover.classes, cover.size, cover.legend, terrain.heightfield.worldSize, x, z) : 'grass');
 
   const ground = (/** @type {number} */ x, /** @type {number} */ z) => terrain.heightAt(x, z);
+  const level = await buildLevel3d({ scene, physics, heightAt: ground }, levelMap);
+  const start = level.spawns[0];
+  const PLAYER_START = start ? /** @type {const} */ ([start.position[0], start.position[2], start.world.yaw || 0]) : DEFAULT_PLAYER_START;
+  const cars3 = level.entities.filter((p) => p.entity.name === 'car');
+  const PARKED = cars3.length ? cars3.map((p) => /** @type {const} */ ([p.world.position[0], p.world.position[2], p.world.yaw || 0, String(p.entity.properties.color ?? '#d1453b')])) : DEFAULT_PARKED;
   const character = createCharacter(physics, { position: [PLAYER_START[0], ground(PLAYER_START[0], PLAYER_START[1]) + 0.3, PLAYER_START[1]] });
   character.yaw = PLAYER_START[2];
 
@@ -356,6 +368,7 @@ export async function startLevel() {
       hud.set('state', driving ? `driving ${Math.round(Math.abs(driving.speed) * 3.6)} km/h` : animationState(character));
     },
     state: () => ({
+      level: levelName,
       player: {
         position: (driving ? [driving.object.position.x, driving.object.position.y, driving.object.position.z] : character.position).map((v) =>
           Number(v.toFixed(3)),

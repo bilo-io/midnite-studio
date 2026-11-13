@@ -1,44 +1,48 @@
 // @ts-check
 import { extendHook } from 'kit/core/hook.js';
 import { isoDepth, isoToScreen } from 'kit/core/iso.js';
+import { collisionGrid, levelEntities } from 'kit/core/level.js';
 import { createIsometric } from 'kit/phaser/presets/isometric.js';
-import { KitScene } from 'kit/phaser/scenes.js';
+import { KitLevelScene, preloadLevel } from 'kit/phaser/level.js';
 
 import { createFx } from '../fx.js';
 import { installGenre } from '../genre/index.js';
 import { blockTexture, domeTexture, shadowTexture, tileTexture } from '../lit.js';
 
-// 0 floor, 1 wall block. The player starts in the top-left corner.
-const MAP = [
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 1, 1, 0, 0, 0, 1, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
-  [0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-];
 const TILE_W = 64;
 const TILE_H = 32;
 const BLOCK_DEPTH = 36;
-const GEMS = [[5, 1], [8, 5], [2, 6]];
 const STRIDE = 0.8; // tiles between footsteps
 
-export class Level extends KitScene {
+// The layout (the wall grid, spawn, torches, gems) is `levels/level.tmj`: 0 floor, a painted `collision` cell a wall block.
+// Isometric objects are in tile units times the map's tile height, Tiled's own convention. Textures, lights and juice are here.
+export class Level extends KitLevelScene {
   constructor() {
     super('level');
     this.score = 0;
   }
 
+  preload() {
+    preloadLevel(this, this.levelName);
+  }
+
   create() {
+    const map = this.cache.tilemap.get(`level:${this.levelName}`)?.data ?? {};
+    // A level with no `collision` layer (a genre's own world, such as crime's) gets an empty 10 x 8 floor under it.
+    const painted = collisionGrid(map);
+    const MAP = painted.length ? painted : Array.from({ length: 8 }, () => Array.from({ length: 10 }, () => 0));
+    const unit = Number(map.tileheight) || 32;
+    const tiles = levelEntities(map).map((e) => ({ ...e, tx: e.x / unit, ty: e.y / unit }));
+    const spawn = tiles.find((e) => e.type === 'spawn') ?? { tx: 1, ty: 1 };
+    const torchCells = tiles.filter((e) => e.name === 'torch');
+    const gemCells = tiles.filter((e) => e.name === 'gem');
     // Fidelity kit: Light2D normal-mapped tiles and blocks from generated textures, juice and sound on by default.
     this.fx = createFx(this, { name: 'isometric', ambient: 0xb4bcd6, postfx: 'vignette' });
     const { juice, lighting } = this.fx;
     // A torch-lit stone court at dusk with a room tone. A genre that takes over calls `fx.tint` / `fx.ambience` itself, which replaces both.
     this.fx.tint('dusk');
     this.fx.ambience('ambience-room', { volume: 0.35 });
-    this.rig = createIsometric(this, { map: MAP, start: { x: 1, y: 1 } });
+    this.rig = createIsometric(this, { map: MAP, start: { x: spawn.tx, y: spawn.ty } });
     // The preset paints flat diamonds (depth -1) and an ellipse for the player; hide them and draw lit ones in their place.
     for (const child of this.children.list) {
       const object = /** @type {Phaser.GameObjects.GameObject & { depth: number, setVisible(v: boolean): unknown }} */ (child);
@@ -70,16 +74,16 @@ export class Level extends KitScene {
     this.hero = lighting.lit(this.add.image(0, 0, domeTexture(this, 'hero', { size: 32, color: 0x6ea8ff, eyes: true })).setDisplaySize(24, 24));
     this.heroShadow = this.add.image(0, 0, shadow).setDisplaySize(30, 15);
     this.glow = lighting.add(origin.x, origin.y, { radius: 260, intensity: 1.0 });
-    this.torches = [[2, 3], [7, 4], [5, 5]].map(([x, y]) => {
-      const p = at((x ?? 0) + 0.5, (y ?? 0) + 0.5);
+    this.torches = torchCells.map(({ tx, ty }) => {
+      const p = at(tx, ty);
       return lighting.add(p.x, p.y - 10, { radius: 170, intensity: 0.9, color: 0xff9a4a });
     });
 
     // Collect the gems: a chime, sparks and a "+1".
     const gemTexture = domeTexture(this, 'gem', { size: 20, color: 0xf5d90a, ring: 0.2 });
-    this.gems = GEMS.map(([x, y]) => {
-      const p = at((x ?? 0) + 0.5, (y ?? 0) + 0.5);
-      return { x: (x ?? 0) + 0.5, y: (y ?? 0) + 0.5, sprite: lighting.lit(this.add.image(p.x, p.y - 10, gemTexture).setDepth(isoDepth((x ?? 0) + 0.5, (y ?? 0) + 0.5, 1))), phase: (x ?? 0) * 1.3 };
+    this.gems = gemCells.map(({ tx, ty }) => {
+      const p = at(tx, ty);
+      return { x: tx, y: ty, sprite: lighting.lit(this.add.image(p.x, p.y - 10, gemTexture).setDepth(isoDepth(tx, ty, 1))), phase: Math.floor(tx) * 1.3 };
     });
 
     // Clicking a tile pings it.
@@ -92,7 +96,7 @@ export class Level extends KitScene {
     });
 
     this.stride = 0;
-    this.last = { x: 1.5, y: 1.5 };
+    this.last = { x: spawn.tx + 0.5, y: spawn.ty + 0.5 };
     extendHook('fx', { trigger: (name) => juice.trigger(name, { x: this.hero.x, y: this.hero.y }), state: () => juice.state() });
     this.genre = installGenre(this, { rig: this.rig, fx: this.fx, lighting, glow: this.glow });
   }
@@ -132,6 +136,6 @@ export class Level extends KitScene {
   }
 
   kitState() {
-    return { ...this.rig.state(), score: this.score, juice: this.fx.juice.state(), ...this.genre.state() };
+    return { ...super.kitState(), ...this.rig.state(), score: this.score, juice: this.fx.juice.state(), ...this.genre.state() };
   }
 }

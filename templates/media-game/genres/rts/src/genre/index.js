@@ -14,6 +14,7 @@ import { UNIT_TYPES, createEconomy, deposit, queueUnit, tickEconomy, GATHER_PER_
 import { FOG, createVisibility, fogUpdate, visibleCount } from 'kit/core/genre/rts/fog.js';
 import { flowField } from 'kit/core/genre/rts/flow-field.js';
 import { createControlGroups, selectAt, selectInBox } from 'kit/core/genre/rts/selection.js';
+import { levelEntities } from 'kit/core/level.js';
 import { createInput } from 'kit/phaser/input.js';
 import { createWorld2d } from 'kit/phaser/world2d.js';
 
@@ -24,18 +25,33 @@ const COLS = 40;
 const ROWS = 30;
 const SIGHT = 5;
 const SPEED = 3; // tiles/s
-const HOME = { x: 3.5, y: 3.5 };
-const ENEMY_HOME = { x: 36.5, y: 26.5 };
-const MINERALS = [{ x: 6, y: 3 }, { x: 6, y: 4 }, { x: 33, y: 26 }, { x: 33, y: 27 }];
+// The two bases and the mineral cells are `levels/level.tmj` objects (`home`, `enemy-home`, `mineral`), in pixels of the
+// map's tile size; the ridges below stay procedural. These are what a level without them falls back to.
+const DEFAULT_HOME = { x: 3.5, y: 3.5 };
+const DEFAULT_ENEMY_HOME = { x: 36.5, y: 26.5 };
+const DEFAULT_MINERALS = [{ x: 6, y: 3 }, { x: 6, y: 4 }, { x: 33, y: 26 }, { x: 33, y: 27 }];
+
+/** @param {Phaser.Scene & { levelName?: string }} scene */
+function readLayout(scene) {
+  const map = scene.cache.tilemap.get(`level:${scene.levelName ?? 'level'}`)?.data;
+  const cell = Number(map?.tilewidth) || 32;
+  const entities = levelEntities(map);
+  const point = (/** @type {string} */ name, /** @type {{ x: number, y: number }} */ fallback) => {
+    const e = entities.find((o) => o.name === name);
+    return e ? { x: e.x / cell, y: e.y / cell } : fallback;
+  };
+  const minerals = entities.filter((o) => o.name === 'mineral').map((o) => ({ x: Math.floor(o.x / cell), y: Math.floor(o.y / cell) }));
+  return { home: point('home', DEFAULT_HOME), enemyHome: point('enemy-home', DEFAULT_ENEMY_HOME), minerals: minerals.length ? minerals : DEFAULT_MINERALS };
+}
 const TEAM_COLOR = { player: 0x6ea8ff, enemy: 0xe5484d };
 const KIND = { worker: { hp: 20, radius: 0.28 }, soldier: { hp: 40, radius: 0.36 } };
 
 /** 0 walkable, 1 rock. A few ridges to path around. */
-function makeGrid() {
+function makeGrid(/** @type {{ x: number, y: number }[]} */ minerals) {
   const grid = Array.from({ length: ROWS }, () => Array.from({ length: COLS }, () => 0));
   for (let y = 8; y < 22; y += 1) grid[y][20] = 1;
   for (let x = 12; x < 29; x += 1) grid[14][x] = x === 22 ? 0 : 1;
-  for (const m of MINERALS) grid[m.y][m.x] = 2;
+  for (const m of minerals) grid[m.y][m.x] = 2;
   return grid;
 }
 
@@ -59,7 +75,8 @@ export function installGenre(scene, ctx) {
     left: { keys: ['LEFT', 'A'] }, right: { keys: ['RIGHT', 'D'] }, up: { keys: ['UP', 'W'] }, down: { keys: ['DOWN', 'S'] },
     trainWorker: { keys: ['Q'] }, trainSoldier: { keys: ['E'] },
   });
-  const grid = makeGrid();
+  const { home: HOME, enemyHome: ENEMY_HOME, minerals: MINERALS } = readLayout(scene);
+  const grid = makeGrid(MINERALS);
   // Rock and minerals both block walking.
   const walls = grid.map((row) => row.map((c) => (c === 0 ? 0 : 1)));
 

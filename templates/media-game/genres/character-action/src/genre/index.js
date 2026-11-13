@@ -63,6 +63,7 @@ const facingOf = (/** @type {number} */ yaw) => [-Math.sin(yaw), -Math.cos(yaw)]
  *   input: ReturnType<typeof import('kit/three/input.js').createInput>,
  *   avatar?: THREE.Object3D,
  *   fx: ReturnType<typeof import('./fx.js').createFx>,
+ *   spawn?: readonly number[],
  * }} ctx
  */
 export function installGenre(scene, ctx) {
@@ -187,7 +188,7 @@ export function installGenre(scene, ctx) {
     enemies = [];
     arena = createArena();
     seal(false);
-    character.teleport(PLAYER_SPAWN);
+    character.teleport(ctx.spawn ?? PLAYER_SPAWN);
     rig.clearLock();
   };
 

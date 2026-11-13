@@ -81,7 +81,7 @@ first, then **B** and **C** in parallel, then **D**, **F**, **G**, then **E**, t
 
 **Theme E — 3D placement editor.** ◻ The same canvas in plan view for first-person, third-person and the 3D genres: place, move and rotate entities and volumes, edit elevation, size, model and collider, with the terrain kept separate and shown only as an extent.
 
-**Theme F — Starters read their levels from files.** ◻ Every base and 3D genre scene moves its hard-coded layout into `levels/level.tmj` and builds from it (visuals unchanged), new games get `levels` in their manifest, and existing games keep working until they opt in.
+**Theme F — Starters read their levels from files.** ✅ Every base and 3D genre scene builds from `levels/level.tmj` (2D scenes extend `KitLevelScene`, preload the file and read it from the tilemap cache; 3D scenes `buildLevel3d` it and re-skin the boxes by name), keeping their procedural textures, lights and juice. fps and crime moved their ASCII and city rule into the file, rts reads `home`, `enemy-home` and `mineral` objects, and shooter and soulslike read their spawns, bonfire and boss. `composeStarter` writes the 2D palette image, `createGame` sets `levels: { dir: 'levels', start: 'level' }` in the manifest, and existing games are untouched. The palette PNG is never committed (Decision 18). Not done: the visual "unchanged" check (Theme H), `arpg` (procedural dungeon), rts ridges and the shooter's extra crates (still code).
 
 **Theme G — Level tools for agents.** ✅ `game_level_list`, `game_level_get`, `game_level_set` and `game_goto` are on the midnite MCP server, as thin adapters over Theme C's level service and the runner's `goto`. The two reads answer whenever the server is on; the two writes are refused with `GAMES_OFF_MESSAGE` while `allowGames` is off, and an agent run's private server gets all four. `game_level_get` returns the JSON and its issues, never the images; a refused level or a missing scene comes back as a named tool error. A **Levels** section (where levels live, the 2D and 3D conventions, the four tools, and the pre-0.12 migration recipe) went into `midnite-media-game-build`, in all seven byte-identical copies the copies test pins, not just the four the doc named.
 
@@ -456,30 +456,26 @@ keep editing scenes as code.
 
 ### F — Starters read their levels from files [L · 4-8h]
 
-- [ ] Template palette for 2D: `templates/media-game/common/levels/palette.png` and its embedded tileset — one flat
-  32 px tile per layout kind (`ground`, `ledge`, `oneway`, `wall`, `door`, `water`, `hazard`, `decor`), each tile
-  carrying a `kind` property. A small committed PNG, generated once by a script documented in the template's README
-  (not a screenshot or baseline). The editor draws with it; the starters do not render it (layout mode).
-- [ ] 2D bases — each `bases/<base>/levels/level.tmj` holds today's layout exactly, and `src/scenes/level.js` builds
+- [x] 2D bases — each `bases/<base>/levels/level.tmj` holds today's layout exactly, and `src/scenes/level.js` builds
   from it through `kit/phaser/level.js` in layout mode, keeping every procedural texture, light and juice call:
   [`platformer`](../../../templates/media-game/bases/platformer/src/scenes/level.js) (ground row, the three one-way
   ledges, three coins, the walker, the spawn at 64,400), `top-down`, `isometric`, `raycaster`.
-- [ ] 2D genres — fps's `LEVEL_ASCII` and crime's `city.js` emit their `.tmj` once into `genres/<g>/levels/level.tmj`;
+- [x] 2D genres — fps's `LEVEL_ASCII` and crime's `city.js` emit their `.tmj` once into `genres/<g>/levels/level.tmj`;
   `genre/index.js` reads the file through `fetchLevel` with the same `collisionGrid` / `tiledObjects` calls; the ASCII
   stays as a comment for reference. `rts` and `arpg` read their spawns and points from the base level's `objects`.
-- [ ] 3D bases and genres — `first-person`, `third-person` and the six 3D genre scenes
+- [x] 3D bases and genres — `first-person`, `third-person` and the six 3D genre scenes
   (`character-action`, `fighter`, `open-world`, `rpg`, `shooter`, `soulslike`) move their crates, ramps, arenas,
   enemies and spawns into `levels/level.tmj` (3D conventions) and call `buildLevel3d`; boxes keep their materials by
   `type`/`name` (the scene maps them, not the file). `open-world` sets `midnite.terrain = 'world'` (its `TERRAIN`
   asset) and leaves the heightfield in the terrain pack.
-- [ ] Every composed starter's manifest gets `levels: { dir: 'levels', start: 'level' }` (written where
+- [x] Every composed starter's manifest gets `levels: { dir: 'levels', start: 'level' }` (written where
   [`game-scaffold.ts`](../../../packages/features/media-game/main/games/game-scaffold.ts) /
   [`compose.ts`](../../../packages/features/media-game/main/games/compose.ts) write the rest), and composition copies
   the right `levels/` (genre over base, as `src/` already layers).
-- [ ] Existing games: nothing rewrites their `src/`. After a kit upgrade (0.12.0) they have `level.js`, the builders and
+- [x] Existing games: nothing rewrites their `src/`. After a kit upgrade (0.12.0) they have `level.js`, the builders and
   `goto`; their hard-coded scenes keep running; the editor shows the D banner until their manifest has `levels`. The
   game-build skill (Theme G) carries the migration recipe an agent follows on request.
-- [ ] Tests (vitest)
+- [x] Tests (vitest)
   - Net-new `starter-levels.test.ts`: for every base × allowed genre composition, `levels/level.tmj` passes
     `parseGameLevel` with the right dimension, the manifest's `levels.start` names an existing file, and the scene
     source imports `kit/phaser/level.js` or `kit/three/level.js`.
@@ -490,6 +486,13 @@ keep editing scenes as code.
     [`genre-fidelity.test.ts`](../../../packages/features/media-game/main/games/genre-fidelity.test.ts) and
     `game-scaffold.test.ts` stay green; where they assert scene source that moved into the file, update the assertion to
     the file, not delete it.
+
+> Landed notes: the palette is `PALETTE_KINDS` in `level-palette.ts` (nine tiles: the eight kinds plus a second wall, since
+> the raycaster's wall ids run 1 to 9), drawn through the runtime's `encodePngRgba8` by `composeStarter` into a 2D game's
+> `levels/palette.png`. The `level.tmj` files carry the embedded tileset (`image: palette.png`). Crime's solid layer is
+> `buildings` and the raycaster family's is `walls`, so a base scene never builds a genre's own world from `collision`. 3D
+> levels are origin-centred, so their objects have negative pixel coordinates. `arpg` stays procedural (its dungeon is
+> generated, there is no layout to move), `rts` keeps its ridges in code, and the shooter's extra cover crates stay in its genre module.
 
 ### G — Level tools for agents [M · 2-4h]
 
@@ -551,7 +554,7 @@ keep editing scenes as code.
 | [`games-root-section.tsx`](../../../packages/app/src/features/settings/settings-pages/games-root-section.tsx) | B | edited — the pause switch |
 | `templates/media-game/kit/core/level.js` · `kit/phaser/level.js` · `kit/three/level.js` | C | **net-new** |
 | [`kit/core/hook.js`](../../../templates/media-game/kit/core/hook.js) · [`kit/phaser/boot.js`](../../../templates/media-game/kit/phaser/boot.js) · [`kit/three/loop.js`](../../../templates/media-game/kit/three/loop.js) | C | edited — `goto`, `level` in state, `KIT_VERSION` |
-| `templates/media-game/{bases,genres}/*/levels/level.tmj` · `common/levels/palette.png` | F | **net-new** |
+| `templates/media-game/{bases,genres}/*/levels/level.tmj` · `main/games/level-palette.ts` (the palette image, generated at scaffold, never committed) | F | **net-new** |
 | `templates/media-game/{bases,genres}/*/src/scenes/level.js` · `genres/{fps,crime}/src/genre/*` | F | edited — build from the file |
 | [`game-scaffold.ts`](../../../packages/features/media-game/main/games/game-scaffold.ts) · [`compose.ts`](../../../packages/features/media-game/main/games/compose.ts) | F | edited — `levels` in the manifest, copy `levels/` |
 | `.claude/` · `.agents/` · `.codex/` · `templates/media-game/` `skills/midnite-media-game-build/SKILL.md` | G | edited (same edit ×4) |
@@ -567,7 +570,7 @@ keep editing scenes as code.
   `goto` cases, `map-view` `cellAt` (C).
 - [ ] `level-edit-model.test.ts`, `scene-picker.test.tsx`, `level-editor.test.tsx`, `new-scene-dialog.test.tsx` and the
   one e2e (D); the 3D model and inspector cases (E).
-- [ ] `starter-levels.test.ts` and the layout regression; existing template tests green (F).
+- [x] `starter-levels.test.ts` and the layout regression; existing template tests green (F).
 - [ ] The MCP id, read-set and write-set tests (G).
 - [ ] **Open, for a human:** the passes listed under H.
 
@@ -658,3 +661,7 @@ the coordinator relayed 9–11 from the user as layout requirements.
 17. **Open — should Theme A also offer "Remove from list"?** Recommended: not now. In Studio a game leaves with its
     repo in the repos panel; Gamer would need a `forget` op and a row menu. It is small, but A was asked to stay
     small; if wanted, it is one more channel and one menu item in A.
+18. **Resolved — the template palette image is generated at scaffold time and never committed.** Agreed with the user: the
+    2D starters' tile palette (`palette.png`) is drawn from code by `composeStarter` when a game is created, using the
+    runtime's PNG encoder, so the template tree carries no binary for it and a test asserts no `*.png` sits under any
+    `templates/media-game/**/levels/`. The `.tmj` embeds the tileset and names the image; a scaffolded game gets the file.

@@ -12,6 +12,8 @@ import {
   type GitOpResult,
 } from '@midnite/studio-shared';
 
+import { encodePalettePng, PALETTE_FILE } from './level-palette';
+
 /** Where a genre's systems module lives, relative to `templates/media-game/`. */
 const genreDir = (genre: string): string => join('genres', genre);
 
@@ -94,6 +96,11 @@ export async function composeStarter(
     if (await exists(genre)) {
       await cp(genre, dest, { recursive: true, force: true, filter: (src) => relative(genre, src) !== GENRE_MANIFEST });
     }
+  }
+
+  // A 2D starter's level embeds the palette tileset; its image is drawn here and never committed (Decision 18).
+  if (dimensionOf(parsed.perspective) === '2d' && (await exists(join(dest, 'levels', 'level.tmj')))) {
+    await writeFile(join(dest, 'levels', PALETTE_FILE), encodePalettePng());
   }
 
   const config = {

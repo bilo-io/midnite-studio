@@ -1,0 +1,393 @@
+{
+  "type": "map",
+  "version": "1.10",
+  "tiledversion": "1.10.2",
+  "orientation": "orthogonal",
+  "renderorder": "right-down",
+  "infinite": false,
+  "width": 80,
+  "height": 80,
+  "tilewidth": 32,
+  "tileheight": 32,
+  "nextlayerid": 3,
+  "nextobjectid": 15,
+  "properties": [
+    {
+      "name": "midnite.level",
+      "type": "int",
+      "value": 1
+    },
+    {
+      "name": "midnite.dimension",
+      "type": "string",
+      "value": "3d"
+    },
+    {
+      "name": "midnite.metresPerTile",
+      "type": "int",
+      "value": 1
+    },
+    {
+      "name": "midnite.groundY",
+      "type": "int",
+      "value": 0
+    }
+  ],
+  "tilesets": [],
+  "layers": [
+    {
+      "id": 1,
+      "name": "objects",
+      "type": "objectgroup",
+      "draworder": "topdown",
+      "opacity": 1,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "objects": [
+        {
+          "id": 1,
+          "name": "wall",
+          "type": "prop",
+          "x": -1280,
+          "y": -1296,
+          "width": 2560,
+          "height": 32,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "sizeY",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "elevation",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "name": "wall",
+          "type": "prop",
+          "x": -1280,
+          "y": 1264,
+          "width": 2560,
+          "height": 32,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "sizeY",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "elevation",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "name": "wall",
+          "type": "prop",
+          "x": -1296,
+          "y": -1280,
+          "width": 32,
+          "height": 2560,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "sizeY",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "elevation",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "name": "wall",
+          "type": "prop",
+          "x": 1264,
+          "y": -1280,
+          "width": 32,
+          "height": 2560,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "sizeY",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "elevation",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "name": "crate",
+          "type": "prop",
+          "x": -192,
+          "y": -224,
+          "width": 64,
+          "height": 64,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "sizeY",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "elevation",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "name": "crate",
+          "type": "prop",
+          "x": -32,
+          "y": -352,
+          "width": 64,
+          "height": 64,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "sizeY",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "elevation",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "name": "crate",
+          "type": "prop",
+          "x": 128,
+          "y": -224,
+          "width": 64,
+          "height": 64,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "sizeY",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "elevation",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "name": "ramp",
+          "type": "prop",
+          "x": 224,
+          "y": -32,
+          "width": 128,
+          "height": 192,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "sizeY",
+              "type": "float",
+              "value": 0.3
+            },
+            {
+              "name": "elevation",
+              "type": "float",
+              "value": 0.45
+            },
+            {
+              "name": "pitch",
+              "type": "float",
+              "value": -11.4592
+            },
+            {
+              "name": "collider",
+              "type": "string",
+              "value": "none"
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "name": "door",
+          "type": "prop",
+          "x": -32,
+          "y": -100.8,
+          "width": 64,
+          "height": 9.6,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "sizeY",
+              "type": "int",
+              "value": 3
+            },
+            {
+              "name": "elevation",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "collider",
+              "type": "string",
+              "value": "none"
+            }
+          ]
+        },
+        {
+          "id": 10,
+          "name": "enemy",
+          "type": "enemy",
+          "x": -96,
+          "y": 128,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "elevation",
+              "type": "float",
+              "value": 0.5
+            }
+          ]
+        },
+        {
+          "id": 11,
+          "name": "player",
+          "type": "spawn",
+          "x": 0,
+          "y": 192,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "elevation",
+              "type": "float",
+              "value": 0.1
+            }
+          ]
+        },
+        {
+          "id": 12,
+          "name": "pillar",
+          "type": "prop",
+          "x": -406.4,
+          "y": -150.4,
+          "width": 44.8,
+          "height": 44.8,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "sizeY",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "elevation",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "collider",
+              "type": "string",
+              "value": "none"
+            }
+          ]
+        },
+        {
+          "id": 13,
+          "name": "pillar",
+          "type": "prop",
+          "x": 361.6,
+          "y": -406.4,
+          "width": 44.8,
+          "height": 44.8,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "sizeY",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "elevation",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "collider",
+              "type": "string",
+              "value": "none"
+            }
+          ]
+        },
+        {
+          "id": 14,
+          "name": "pillar",
+          "type": "prop",
+          "x": -278.4,
+          "y": -662.4,
+          "width": 44.8,
+          "height": 44.8,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "sizeY",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "elevation",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "collider",
+              "type": "string",
+              "value": "none"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
