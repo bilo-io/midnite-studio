@@ -23,9 +23,6 @@ The app makes these on its own, without you asking, while the feature is in use.
 | `api.open-meteo.com` | titlebar-status | coordinates of the chosen city, for a forecast | Title-bar weather (Open-Meteo) (on by default) |
 | `geocoding-api.open-meteo.com` | titlebar-status | the city name typed into weather and map search | Title-bar weather (Open-Meteo) (on by default) |
 | `ipwho.is` | titlebar-status | the Mac’s public IP address (the server sees it), to guess a city | Locate me by IP (ipwho.is) (off by default) |
-| `gravatar.com` | app | a hash of a commit author’s email address, to look up their picture | Author avatars (Gravatar, GitHub) (on by default) |
-| `github.com` | app | GET only: a GitHub login’s public avatar image | Author avatars (Gravatar, GitHub) (on by default) |
-| `avatars.githubusercontent.com` | app | GET only: the redirect target of a GitHub avatar | Author avatars (Gravatar, GitHub) (on by default) |
 | `api.coingecko.com` | finance | GET only: crypto asset ids, no identifiers | Market prices, FX and finance news (on by default) |
 | `data-api.binance.vision` | finance | GET only: crypto symbols, no identifiers | Market prices, FX and finance news (on by default) |
 | `query1.finance.yahoo.com` | finance | GET only: ticker symbols, no identifiers | Market prices, FX and finance news (on by default) |
@@ -39,6 +36,9 @@ The app makes these on its own, without you asking, while the feature is in use.
 | `electronjs.org` | guard | GET only: the public Electron release index, no identifiers | Guard vulnerability feeds (OSV, CISA KEV) (on by default) |
 | `midnite-apps.vercel.app` | launcher | GET only: the app catalog, no identifiers | Launcher: refresh the app catalog at start (on by default) |
 | `raw.githubusercontent.com` | launcher | GET only: the Studio update feed and each app’s public changelog, no identifiers | Launcher: check for Studio updates at start (on by default) |
+| `gravatar.com` | avatars | a hash of a commit author’s email address, to look up their picture | Author avatars (Gravatar, GitHub) (on by default) |
+| `github.com` | avatars | GET only: a GitHub login’s public avatar image | Author avatars (Gravatar, GitHub) (on by default) |
+| `avatars.githubusercontent.com` | avatars | GET only: the redirect target of a GitHub avatar | Author avatars (Gravatar, GitHub) (on by default) |
 | any address you type | finance | a plain GET of an RSS feed URL the user added to the news list | Market prices, FX and finance news (on by default) |
 
 ### Scheduled feeds

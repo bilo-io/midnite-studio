@@ -76,6 +76,11 @@ describe('the egress scan', () => {
     expect(findRawRequests('    async fetch(key, url, opts = {}) {')).toEqual([]);
   });
 
+  it('an avatars entry never gates the app’s own github.com download', () => {
+    expect(resolveEgress('app', 'https://github.com/k2-fsa/sherpa-onnx/releases/download/x.tar.bz2')?.switch).toBeUndefined();
+    expect(resolveEgress('avatars', 'https://github.com/octocat.png')?.switch).toBe('avatars');
+  });
+
   it('finds no main-side request outside guardedFetch except the documented ones', () => {
     const offenders: string[] = [];
     for (const top of ['packages', 'apps']) {
