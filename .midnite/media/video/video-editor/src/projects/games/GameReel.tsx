@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { AbsoluteFill, Audio, Img, OffthreadVideo, Sequence, continueRender, delayRender, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, OffthreadVideo, Sequence, interpolate, useCurrentFrame } from "remotion";
 
 import { monoFontFamily, uiFontFamily } from "../../shared/fonts";
 import { projectFile } from "../../shared/projectFile";
@@ -45,9 +44,9 @@ export type Reel = {
   /** Seconds into the bed where the film's beat 0 sits (a downbeat). */
   musicFrom: number;
   /** Title over the opening beats. */
-  intro: { beats: number; title: string; kicker: string; bg?: Shot; logo?: string };
+  intro: { beats: number; title: string; kicker: string; bg?: Shot };
   shots: Shot[];
-  outro: { beats: number; title: string; lines: string[]; bg?: Shot; logo?: string };
+  outro: { beats: number; title: string; lines: string[]; bg?: Shot };
   /** Two accent colours for type and flashes. */
   accent: [string, string];
   /** Beats of music that run on after the end card starts fading (tail). */
@@ -107,8 +106,8 @@ const Tag: React.FC<{ reel: Reel; text: string; frames: number }> = ({ reel, tex
   );
 };
 
-/** Big type (or the game's logo, an image under input/) that slams in on the downbeat with an RGB split that settles. */
-const Slam: React.FC<{ reel: Reel; title: string; logo?: string; kicker?: string; lines?: string[]; at?: number; size?: number }> = ({ reel, title, logo, kicker, lines, at = 0, size = 150 }) => {
+/** Big type that slams in on the downbeat with an RGB split that settles. */
+const Slam: React.FC<{ reel: Reel; title: string; kicker?: string; lines?: string[]; at?: number; size?: number }> = ({ reel, title, kicker, lines, at = 0, size = 150 }) => {
   const f = useCurrentFrame() - at;
   const fpb = framesPerBeat(reel);
   const k = easeOut(f / 7);
@@ -119,36 +118,13 @@ const Slam: React.FC<{ reel: Reel; title: string; logo?: string; kicker?: string
     color: c, mixBlendMode: "screen", transform: `translateX(${dx}px)`,
   });
   const kickIn = easeOut((f - fpb) / 8);
-  const src = logo ? projectFile(reel.projectId)(logo) : undefined;
-  // Remotion waits for <Img> but not for CSS mask images, so hold the frame until the logo is decoded.
-  const [handle] = useState(() => (src ? delayRender("logo mask") : null));
-  useEffect(() => {
-    if (handle === null || !src) return;
-    const img = new Image();
-    img.src = src;
-    const done = () => continueRender(handle);
-    img.decode().then(done, done);
-  }, [handle, src]);
-  const slam: React.CSSProperties = { position: "relative", transform: `translate(${shake}px, ${shake * 0.4}px) scale(${1.35 - 0.35 * k})`, opacity: k };
   return (
     <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", opacity: f < 0 ? 0 : 1 }}>
-      {src ? (
-        <div style={{ ...slam, width: size * 7.2, height: size * 2.85 }}>
-          {([[-split, reel.accent[0]], [split, reel.accent[1]]] as const).map(([dx, c], i) => (
-            <div key={i} style={{
-              position: "absolute", inset: 0, backgroundColor: c, mixBlendMode: "screen", transform: `translateX(${dx}px)`,
-              WebkitMaskImage: `url("${src}")`, WebkitMaskSize: "contain", WebkitMaskRepeat: "no-repeat", WebkitMaskPosition: "center",
-            }} />
-          ))}
-          <Img src={src} alt={title} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", filter: "drop-shadow(0 6px 30px rgba(0,0,0,0.6))" }} />
-        </div>
-      ) : (
-        <div style={{ ...slam, width: "100%", height: size * 1.3, fontFamily: uiFontFamily, fontWeight: 900, fontSize: size, letterSpacing: -2, textTransform: "uppercase", fontStyle: "italic" }}>
-          <div style={t(-split, reel.accent[0])}>{title}</div>
-          <div style={t(split, reel.accent[1])}>{title}</div>
-          <div style={{ ...t(0, "#fff"), mixBlendMode: "normal", textShadow: "0 6px 40px rgba(0,0,0,0.6)" }}>{title}</div>
-        </div>
-      )}
+      <div style={{ position: "relative", width: "100%", height: size * 1.3, transform: `translate(${shake}px, ${shake * 0.4}px) scale(${1.35 - 0.35 * k})`, opacity: k, fontFamily: uiFontFamily, fontWeight: 900, fontSize: size, letterSpacing: -2, textTransform: "uppercase", fontStyle: "italic" }}>
+        <div style={t(-split, reel.accent[0])}>{title}</div>
+        <div style={t(split, reel.accent[1])}>{title}</div>
+        <div style={{ ...t(0, "#fff"), mixBlendMode: "normal", textShadow: "0 6px 40px rgba(0,0,0,0.6)" }}>{title}</div>
+      </div>
       {kicker && (
         <div style={{ marginTop: 18, opacity: kickIn, transform: `translateY(${(1 - kickIn) * 20}px)`, fontFamily: monoFontFamily, fontSize: 30, letterSpacing: 10, color: "#fff", textTransform: "uppercase" }}>
           {kicker}
@@ -188,7 +164,7 @@ export const GameReel: React.FC<{ reel: Reel }> = ({ reel }) => {
       <Audio src={asset(reel.music)} trimBefore={Math.round(reel.musicFrom * FPS)} volume={() => music} />
       <Sequence durationInFrames={at(reel.intro.beats)}>
         {reel.intro.bg && <ShotView reel={reel} shot={reel.intro.bg} frames={at(reel.intro.beats)} dim={0.45} />}
-        <Slam reel={reel} title={reel.intro.title} logo={reel.intro.logo} kicker={reel.intro.kicker} at={at(Math.max(0, reel.intro.beats - 4))} />
+        <Slam reel={reel} title={reel.intro.title} kicker={reel.intro.kicker} at={at(Math.max(0, reel.intro.beats - 4))} />
       </Sequence>
       {placed.map(({ s, from, frames }, i) => (
         <Sequence key={i} from={from} durationInFrames={frames}>
@@ -197,7 +173,7 @@ export const GameReel: React.FC<{ reel: Reel }> = ({ reel }) => {
       ))}
       <Sequence from={outroFrom}>
         {reel.outro.bg && <ShotView reel={reel} shot={reel.outro.bg} frames={total - outroFrom} dim={0.55} />}
-        <Slam reel={reel} title={reel.outro.title} logo={reel.outro.logo} lines={reel.outro.lines} size={120} />
+        <Slam reel={reel} title={reel.outro.title} lines={reel.outro.lines} size={120} />
       </Sequence>
       <AbsoluteFill style={{ backgroundColor: "#000", opacity: fadeOut }} />
     </AbsoluteFill>
