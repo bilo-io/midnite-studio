@@ -9,15 +9,15 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [131 · Per-app changelogs](phases/phase-131-per-app-changelogs.md) | 🔄 WIP | x1 | 39/42 | `█████████░` | 93% | — | — |
-| [130 · Startup app](phases/phase-130-startup.md) | 🔄 WIP | x1 | 55/57 | `█████████░` | 96% | — | — |
+| [130 · Startup app](phases/phase-130-startup.md) | 🔄 WIP | x1 | 55/57 | `██████████` | 96% | — | — |
 | [129 · Accountant module](phases/phase-129-accountant.md) | 🔄 WIP | x1 | 58/62 | `█████████░` | 94% | — | — |
-| [128 · Health app](phases/phase-128-health.md) | 🔄 WIP | x1 | 41/43 | `█████████░` | 95% | — | — |
-| [127 · Simulator module](phases/phase-127-simulator.md) | 🔄 WIP | x1 | 39/40 | `█████████░` | 98% | — | — |
-| [126 · Science app](phases/phase-126-science.md) | ✅ DONE | x1 | 43/43 | `██████████` | 100% | — | — |
+| [128 · Health app](phases/phase-128-health.md) | 🔄 WIP | x1 | 41/43 | `██████████` | 95% | — | — |
+| [127 · Simulator module](phases/phase-127-simulator.md) | 🔄 WIP | x1 | 39/40 | `██████████` | 98% | — | — |
+| [126 · Science app](phases/phase-126-science.md) | 🔄 WIP | x1 | 41/43 | `██████████` | 95% | — | — |
 | [125 · Media ▸ Animations: a library of animation clips](phases/phase-125-animations-library.md) | 🔄 WIP | — | 38/41 | `█████████░` | 93% | — | H |
 | [124 · Merge suite apps into modules](phases/phase-124-apps-into-modules.md) | ✅ DONE | — | 47/47 | `██████████` | 100% | — | — |
 | [123 · One shell for every suite app](phases/phase-123-suite-shell.md) | ✅ DONE | x1 | 56/56 | `██████████` | 100% | — | — |
-| [122 · Guard loop upgrade](phases/phase-122-guard-loop-upgrade.md) | 🔄 WIP | — | 15/41 | `████░░░░░░` | 37% | B C D | E F G H |
+| [122 · Guard loop upgrade](phases/phase-122-guard-loop-upgrade.md) | 🔄 WIP | — | 18/36 | `█████░░░░░` | 50% | F | G H |
 | [121 · Agents security](phases/phase-121-agents-security.md) | ✅ DONE | — | 51/51 | `██████████` | 100% | — | — |
 | [120 · Vanguard: antivirus and agentic self-defense](phases/phase-120-vanguard.md) | ✅ DONE | — | 46/46 | `██████████` | 100% | — | — |
 | [119 · Midnite Git: a self-hosted forge and local CI runners](phases/phase-119-midnite-git.md) | 🔄 WIP | — | 3/56 | `█░░░░░░░░░` | 5% | A | B C D E F G H |
@@ -26,7 +26,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [116 · Test suite diet and screenshot purge](phases/phase-116-test-suite-diet-and-screenshot-purge.md) | 🔄 WIP | — | 16/28 | `██████░░░░` | 57% | — | C E |
 | [115 · Privacy: data leaving the Mac and data at rest](phases/phase-115-privacy-egress-and-at-rest.md) | 🔄 WIP | — | 25/44 | `██████░░░░` | 57% | — | A E G |
 | [114 · App-wide settings by voice](phases/phase-114-app-wide-settings-by-voice.md) | ◻ TODO | — | 0/34 | `░░░░░░░░░░` | 0% | — | A B C D E F |
-| [113 · Midnite Apps suite split](phases/phase-113-midnite-apps-suite-split.md) | 🔄 WIP | — | 74/78 | `█████████░` | 95% | H | — |
+| [113 · Midnite Apps suite split](phases/phase-113-midnite-apps-suite-split.md) | 🔄 WIP | — | 74/78 | `█████████░` | 95% | — | — |
 | [112 · Companion deep navigation: open any resource](phases/phase-112-companion-deep-navigation.md) | 🔄 WIP | — | 39/48 | `████████░░` | 81% | — | — |
 | [111 · Voice agent and model switching](phases/phase-111-voice-agent-and-model-switching.md) | 🔄 WIP | — | 20/24 | `████████░░` | 83% | — | — |
 | [110 · Prompt & Context Lab](phases/phase-110-prompt-and-context-lab.md) | ◻ TODO | — | 0/33 | `░░░░░░░░░░` | 0% | — | A B C D E F |

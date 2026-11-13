@@ -96,7 +96,7 @@ fetched inputs, run on the loop's schedule by main with or without an agent, wri
 Phase 120's ledger; the agent pass receives the findings file; the run record gains a findings
 summary.
 
-**Theme B — CVEs against the lockfiles and the installed software.** ◐ PARTIAL (PR pending). Landed in
+**Theme B — CVEs against the lockfiles and the installed software.** ◐ PARTIAL, remainder deferred (GHSA via the forge credential, NVD with an API key, OSV ranges for installed software). Landed in
 `runtime/src/guard/`: lockfile parsers (`lockfiles/`: pnpm v5/v6/v9, package-lock v1–v3, yarn classic,
 requirements.txt, Cargo.lock, go.sum — line parsers, no YAML dependency), an OSV client (`feeds/osv.ts`: batches
 of 500, `next_page_token` pagination, per-advisory cache keyed by `modified`) that takes an *injected* fetch because
@@ -108,7 +108,7 @@ Phase 115 A's `guardedFetch` is not in the tree yet, CISA KEV (`feeds/kev.ts`), 
 *before* resolving, so no feed is fetched for a check that cannot run; the `.pnpm` store scan reads 32 folders at a
 time. The `installed-software` check landed (PR pending): `software.ts` inventories `brew outdated --json=v2`, each `/Applications` bundle's `CFBundleShortVersionString` (PlistBuddy) and `sw_vers` through an injected `exec` (desktop wires `execFile`; no sudo), and the check rates an outdated item `low`, KEV-named `high`, and `critical` when overdue or ransomware-linked. KEV carries no version ranges, so it only raises items already behind. A later PR landed the Electron-freshness check (`checks/electron-freshness.ts`: `electronPins` reads the `electron` range from each open repo's root, `packages/*` and `apps/*` package.json; `electronMajors` is the three highest majors of `electronjs.org/headers/index.json`, cached, new `guard-feeds` egress entry; a pin outside them is one `high` finding with an `update-package` action) and `GuardCheck.optional`, so `installed-software` marks `kev` optional and keeps reporting outdated software when the KEV switch is off (the skip is still recorded in `inputsSkipped`). Still open: GHSA/NVD and OSV matching for installed software.
 
-**Theme C — The threat feed.** ◐ PARTIAL (PR pending). Landed: `ThreatFeedSchema` in `shared/src/threat-feed.ts`
+**Theme C — The threat feed.** ◐ PARTIAL, remainder deferred (the signed feed and its workflow live in `bilo-io/midnite-apps`; the plugins/skills re-scan). Landed: `ThreatFeedSchema` in `shared/src/threat-feed.ts`
 (every entry carries an https `ref`), an Ed25519 detached-signature verifier and cached loader
 (`guard/feeds/threat-feed.ts`; the signature covers `canonicalJson`, a tampered byte or a malformed entry rejects the
 whole file, and a bad signature is reported rather than papered over with an older copy), `scripts/threat-feed-check.mjs`
@@ -120,13 +120,9 @@ plugins/skills re-scan; the installed-package resolver now descends into pnpm's 
 
 **Theme D — The Mac itself.** ◐ PARTIAL (PR pending). `runtime/src/guard/checks/`: `mac-ports` (wildcard listeners from a process that is neither Apple-signed nor a known dev/suite process; `medium`, `high` unsigned; `kill-process-group`), `mac-config` (FileVault, firewall, Gatekeeper, SIP, Remote Login, Screen Sharing, automatic updates, pending security updates — each with a copyable fix, never sudo), `ssh-keys` (0600 `chmod-600`, passphrase-less keys tried on a private copy removed straight away, `authorized_keys` options as `info` without key material, `~/.gnupg` modes) and `secrets-outside-vault` (the shared `scanText` over shell profiles, tool credentials and open repos' `.env*`; evidence is file, line and pattern kind, never the value), with probes in `guard/mac-probes.ts` over the injected `exec`. The pending-security-updates probe is held back: `softwareupdate -l` asks Apple's servers, which the egress registry does not carry yet (Theme H). Not done: the opt-in `git log -p` history pass (needs the composer checkbox, Theme G), the `move-to-vault` / `redact-line` / `open-system-settings` actions (the enum grows in Theme G, so fixes ride as text and `command` evidence), `authorized_keys` age (a line carries no date), and the ports parser is Guard's own, since the runtime layer may not import Vanguard's.
 
-**Theme E — Sites the browser visited.** ◻ The browser feature's history checked offline against
-the ClickFix domain list, HTTP-only origins, known-phishing feeds with usable licences, and sites
-whose server headers announce an end-of-life stack; findings link back to the tab.
+**Theme E — Sites the browser visited.** ◐ PARTIAL (PR pending). `guard/checks/sites.ts`: a ClickFix-listed origin (`critical`, with the tab when still open), a phishing/malware-listed host (`critical`), an `http:` origin that showed a login form (`medium`) and an end-of-life `Server`/`X-Powered-By` header (`low`), plus the URLhaus host parser; the feed inputs are optional, so the local rules run with them off. The check reads a `history` input that `createGuardResolvers` takes from a composer-supplied `readBrowserHistory(sinceMs)` (7-day window), so Guard imports no feature. **Open decision (user):** whether to persist a visited-origins history so this check has input. **Not wired:** the browser feature keeps no readable origin history (`host-first-seen` stores salted digests only), so the desktop passes no reader and the check is recorded as skipped (`no-resolver`) until a visited-origins store exists, which stores browsing history and is a privacy decision for the user. Also open: fetching the URLhaus feed (needs a Phase 115 egress entry, Theme H), and the `open-tab` / `close-tab` / `forget-origin` actions (Theme G).
 
-**Theme F — Suspicious behaviour over the window.** ◻ Phase 121's audit trail and Phase 120's
-sensor history correlated across the sweep window: sessions outside the user's hours, a
-persistence item during a session, a new outbound host, a lockfile change with no PR.
+**Theme F — Suspicious behaviour over the window.** ◐ PARTIAL (PR pending). `guard/checks/behaviour.ts` correlates Phase 121's audit trail (read by the runtime reader: the window plus 30 days of baseline) with Vanguard's ledger findings: a session that started in an hour holding at most 5% of the last 30 days' sessions (`low`, needs 10 baseline sessions), a Vanguard persistence or network finding first seen inside a session (`high`, names both fingerprints), a `limit-trip` record (`medium`) and more than three denied approvals in one session (`medium`). Desktop passes `readVanguardFindings` from the shared ledger. A quiet week yields nothing. **Not done:** the "lockfile change in a repo with no PR opened from it" rule, which needs the forge (a credential and network), so it stays out; the linked-findings link is by fingerprint in the detail, not a ledger field.
 
 **Theme G — Findings in the Guard tab, with a button.** ◻ The tab lists the last sweep's findings by
 severity with a diff against the previous sweep; each remediation action renders through the shared
@@ -257,11 +253,11 @@ repo.
 
 ### E — Sites the browser visited [M · ~1d]
 
-- [ ] **The input.** The browser feature's history and open tabs through its main half's existing
+- [~] **The input.** The browser feature's history and open tabs through its main half's existing
       store (the feature exposes a read seam; Guard never imports `features/browser` — the
       composer hands `guard/inputs.ts` a `readBrowserHistory()` function, the layer rule's way),
       origins only, for the sweep window. [S]
-- [ ] **The checks.** `guard/checks/sites.ts`: an origin on the threat feed's `clickfixDomains`
+- [~] **The checks.** `guard/checks/sites.ts`: an origin on the threat feed's `clickfixDomains`
       (`critical`, with the visit time and the tab if still open); an `http:` origin that served a
       login form (the browser's own sign-in detection in
       [`web-app-sign-ins.ts`](../../../packages/features/browser/main/web-app-sign-ins.ts) already
@@ -271,18 +267,18 @@ repo.
       headers, captured by Phase 117's response hook (`low`). [M]
 - [ ] **The action.** `open-tab {url}` to look, `close-tab {tabId}`, `forget-origin {origin}` (clears
       the browser's storage for it, through the browser feature's existing clear-data seam). [S]
-- [ ] **Tests.** A fixture history with one ClickFix domain, one `http:` login, one clean origin;
+- [x] **Tests.** A fixture history with one ClickFix domain, one `http:` login, one clean origin;
       the URLhaus parser on a captured feed. [S]
 
 ### F — Suspicious behaviour over the window [S · ≤ 2h]
 
-- [ ] **Correlations.** `guard/checks/behaviour.ts` over Phase 121 G's trail and Phase 120's
+- [~] **Correlations.** `guard/checks/behaviour.ts` over Phase 121 G's trail and Phase 120's
       ledger for the sweep window: an agent session active outside the hours the user's sessions
       usually run (learned from the last 30 days; `low`); a persistence or network finding from
       Vanguard whose time falls inside a session (`high`, the two findings linked); a lockfile
       change in a repo with no PR opened from it within the window (`medium`); a run that tripped a
       Phase 121 F limit (`medium`); more than N approvals denied in a session (`medium`). [S]
-- [ ] **Tests.** Fixture trails for each correlation; a quiet week yields nothing. [S]
+- [x] **Tests.** Fixture trails for each correlation; a quiet week yields nothing. [S]
 
 ### G — Findings in the Guard tab, with a button [M · ~1d]
 

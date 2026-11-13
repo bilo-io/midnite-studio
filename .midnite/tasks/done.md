@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 122 Theme E — Guard: sites the browser visited
+
+PR (see the Phase 122 E PR). The offline `sites` check (ClickFix, phishing, http login forms, end-of-life headers), the URLhaus parser and a `readBrowserHistory` seam in the resolvers. Not wired in desktop: the browser keeps no readable origin history yet (open decision, see the phase doc).
+
 ## 2026-11-13 — Phase 116 Theme E (partial) — budget guards
 
 PR (see the Phase 116 E PR, stacked on C). `e2e-budget` now bans shots specs, disk screenshots, orphaned `docs/screenshots/` images (196 deleted) and un-allowlisted `waitForTimeout`; cap lowered 486 → 483; fixed an un-awaited fallback count; TESTING.md and the three convention files synced. The ≤ 200 cap waits on Theme C's Vitest waves.
@@ -9,6 +13,10 @@ PR (see the Phase 116 E PR, stacked on C). `e2e-budget` now bans shots specs, di
 ## 2026-11-13 — Phase 116 Theme C (partial) — shots purge repeat and `waitForTimeout` purge
 
 PR (see the Phase 116 C PR). Five re-grown `*-shots.spec.ts` files and `animation-player`'s disk screenshot removed; every bare `page.waitForTimeout` in e2e specs is now polled, routed through `settle()`, or marked `// allow-timeout: <reason>`. The Vitest migration waves (477 → ≤ 200) are not done: they need Playwright runs that CI-lock and RAM rule out here.
+
+## 2026-11-13 — Phase 122 Theme F — Guard: suspicious behaviour over the window
+
+PR (see the Phase 122 F PR). The `behaviour` check correlates Phase 121's audit trail with Vanguard's ledger (unusual-hours session, persistence/network finding during a session, limit trip, repeated denied approvals); desktop passes `readVanguardFindings`. The lockfile-change-without-a-PR rule needs the forge and is not built.
 
 ## 2026-11-13 — Phase 122 Theme D — Guard: the Mac itself
 
@@ -15803,3 +15811,7 @@ HIBP, Whisper, release notes, GM samples, Stable Audio and SF3D installers now g
 ## 2026-11-13 — Phase 115 Theme E (partial) — signed LAN stream URLs, CSP without `'unsafe-inline'`
 
 LAN streams/posters/transcodes take `?e=&s=` signed, six-hour URLs; packaged `script-src` is hash-based. Socket tokens deferred.
+
+## 2026-11-13 — Tracker fixes (113 H, 126–130)
+
+Docs only. 126 reopened as 🔄 WIP at 41/43: its two open boxes are the CI `gate-node` run (billing-locked, not verifiable locally) and a human install check. 127/128/130 progress bars set to the 10-cell form the checker derives. 113 Theme H closed out: Cleaner is now `packages/modules/cleaner`, nothing left to build; only human release tests remain.
