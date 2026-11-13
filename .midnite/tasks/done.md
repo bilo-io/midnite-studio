@@ -15863,3 +15863,7 @@ The website serves `/privacy/` (new HTML entry, route, footer link), rendered fr
 ## 2026-11-13 — Phase 116 Theme C (Wave C1 twins, partial) — Vitest twins beside the e2e tests
 
 New `midnite-menu.test.tsx`, four readout tests in `monitor-cluster.test.tsx`, and `// vitest-twin:` markers on the twinned e2e tests (midnite-menu, footer-monitor, titlebar-agents). No e2e test deleted; cap stays 483.
+
+## 2026-11-13 — Phase 88 Theme G (verification, automated half) — terminal e2e and entry-chunk exclusion
+
+All nine terminal e2e specs the phase names pass locally against xterm 6.0.0 (no CI; one spec at a time, except `kanban` and `notes`, which ran together), and the entry chunk (1118.3 KB) holds no xterm or addon string; its static import closure is one chunk. `bundle-budget.spec.ts`'s total-JS test fails at 44448.7 KB against 15950 KB, unrelated to xterm and recorded in the phase doc. The human pass stays open, listed in the phase's Theme G Headlines.
