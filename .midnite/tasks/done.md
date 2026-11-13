@@ -4,7 +4,7 @@
 
 ## 2026-11-13 — Phase 122 Theme E — Guard: sites the browser visited
 
-PR (see the Phase 122 E PR, stacked on D). The offline `sites` check (ClickFix, phishing, http login forms, end-of-life headers), the URLhaus parser and a `readBrowserHistory` seam in the resolvers. Not wired in desktop: the browser keeps no readable origin history yet.
+PR (see the Phase 122 E PR). The offline `sites` check (ClickFix, phishing, http login forms, end-of-life headers), the URLhaus parser and a `readBrowserHistory` seam in the resolvers. Not wired in desktop: the browser keeps no readable origin history yet (open decision, see the phase doc).
 
 ## 2026-11-13 — Phase 122 Theme D — Guard: the Mac itself
 
