@@ -558,6 +558,7 @@ export function useCommandHandlers(): CommandRuntime {
     // these act on whatever is checked out, which is what they have always
     // meant. The ref badges pass a scope instead — see `SyncScope` in
     // use-status.
+    'guard.sweep': { enabled: true, run: () => void bridge()?.guardSweepNow?.() },
     'sync.fetch': sync
       ? { enabled: sync.fetch.enabled, ...(sync.fetch.reason ? { disabledReason: sync.fetch.reason } : {}), run: () => void fetch.mutateAsync({}) }
       : { enabled: false, disabledReason: NO_REPO, run: () => {} },

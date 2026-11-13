@@ -818,6 +818,8 @@ export type MidniteStudioBridge = {
    * settings). `onChanged` fires on either, carrying nothing; re-fetch. Findings are the wire shape only:
    * evidence and remediation are typed, never a shell string.
    */
+  /** Run a Guard sweep now. Resolves once it has finished; `ok: false` carries why it did not run (Phase 122 Theme H). */
+  guardSweepNow: () => Promise<{ ok: boolean; message?: string }>;
   vanguard: {
     findings: {
       list: (req: In<typeof S.SecurityFindingsListRequest>) => Promise<z.infer<typeof S.SecurityFindingsListResponse>>;

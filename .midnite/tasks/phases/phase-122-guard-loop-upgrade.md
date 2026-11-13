@@ -130,9 +130,7 @@ persistence item during a session, a new outbound host, a lockfile change with n
 severity with a diff against the previous sweep; each remediation action renders through the shared
 enum; "Fix with agent" composes the finding into a Guard run with *Report only* off.
 
-**Theme H — Schedule, cost and disclosure.** ◻ Default daily on wake, each feed behind its
-switch, a Privacy row that says what leaves, and a sweep that finishes in under a minute on this
-repo.
+**Theme H — Schedule, cost and disclosure.** ◐ PARTIAL (PR pending). Landed: `guard.sweep` ("Guard: Sweep now", chord-free, in `COMMANDS`, palette `direct`) backed by a new `guardSweepNow` channel and bridge method that runs the scheduler's `sweepNow`; `SECURITY.md` names the sweep and the feed; the Guard loop's docblock in `loops.ts` says what Guard now is. The OSV, CISA KEV and Electron hosts were already in the egress registry (Phase 115 A) under the `guard-feeds` switch. **Not done:** the tab's *Sweep now* button (a one-line add once the findings section from Theme G is on main); the daily-on-wake default schedule (it changes every loop's `DEFAULT_LOOP_SCHEDULE`, so it needs a Guard-only default and a decision); registry entries for NVD, the npm/PyPI registries, URLhaus and the midnite-apps feed (no code calls them yet; the feed needs `bilo-io/midnite-apps`); `scripts/perf/guard-sweep.mjs` and its numbers (needs a packaged-equivalent run); the blurred-and-low-battery gate (needs Electron's power state in the scheduler); and the `docs/PRIVACY.md` Guard row (the file does not exist yet: Phase 115 G).
 
 ## Deliverables
 
@@ -306,11 +304,11 @@ repo.
 
 ### H — Schedule, cost and disclosure [S · ≤ 2h]
 
-- [ ] **Defaults.** Guard's schedule default becomes daily, in the user's active window, on the
+- [~] **Defaults.** Guard's schedule default becomes daily, in the user's active window, on the
       first wake after it is due; a sweep with every feed off still runs Themes D, E (local parts)
       and F. `Sweep now` is in the tab and the command palette (`guard.sweep`, chord-free, in
       `COMMANDS`). [S]
-- [ ] **Egress entries and switches.** Phase 115 A registry entries for OSV, GitHub (reusing the
+- [~] **Egress entries and switches.** Phase 115 A registry entries for OSV, GitHub (reusing the
       forge's), NVD, CISA, the npm and PyPI registry metadata endpoints and the midnite-apps feed,
       each with *what is sent* (package coordinates; CVE ids; nothing else) and its switch; the
       sweep's `inputsSkipped` names the switch that skipped an input so the tab can say "OSV is
@@ -319,7 +317,7 @@ repo.
       histories, a day of trail) completes in under 60 s wall-clock with warm caches and under
       5 minutes cold, measured by a `scripts/perf/guard-sweep.mjs` in the Phase 82 style; a sweep
       never runs while the window is blurred *and* on battery below 20%. [S]
-- [ ] **Docs.** `docs/PRIVACY.md` (Phase 115 G) gains the Guard row; `SECURITY.md` names the
+- [~] **Docs.** `docs/PRIVACY.md` (Phase 115 G) gains the Guard row; `SECURITY.md` names the
       sweep and the feed; the loop's docblock in `loops.ts` is rewritten to say what Guard now is. [S]
 
 ## Files this phase touches

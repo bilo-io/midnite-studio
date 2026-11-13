@@ -719,8 +719,11 @@ export const AUTONOMY_CHOICE: LoopChoice = {
  * The six loops the FAB ships with. Ids match the historical `FabTab` union
  * so persisted `activeFabTab` values keep meaning what they meant.
  *
- * **Guard** runs security sweeps — secret scanning, dependency audits and
- * vulnerability reviews. **Ideate** brainstorms new phase docs. **Create**
+ * **Guard** is the recurring security sweep: deterministic checks the runtime runs on the loop's schedule with
+ * or without an agent (lockfile CVEs, the threat feed, the Mac's settings and keys, secrets outside the vault,
+ * visited sites, agent behaviour), each finding in the shared ledger with a severity and an action; the model pass
+ * on top triages and fixes. Guard feeds the ledger and never acts; Vanguard is the always-on hand that does.
+ * **Ideate** brainstorms new phase docs. **Create**
  * executes the backlog. **Patrol** walks the pull requests. **Medic** treats
  * what is already sick: the dependency bots' PRs and the issue backlog.
  * **Overhaul** is the performance loop — it profiles, measures and fixes.

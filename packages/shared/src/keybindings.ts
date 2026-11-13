@@ -351,6 +351,8 @@ export const COMMANDS = [
   { id: 'status.commit', label: 'Commit', group: 'status', chord: 'Mod+Enter' },
   // Chord-free since the reload pair took Mod+Shift+r — see `view.refresh`.
   { id: 'sync.fetch', label: 'Fetch', group: 'sync' },
+  // Chord-free: a palette command, and the Guard tab's Sweep now button (Phase 122 Theme H).
+  { id: 'guard.sweep', label: 'Guard: Sweep now', group: 'view' },
   { id: 'sync.pull', label: 'Pull', group: 'sync', chord: 'Mod+Shift+p' },
   { id: 'sync.push', label: 'Push', group: 'sync', chord: 'Mod+Shift+u' },
   { id: 'search.open', label: 'Search Everywhere', group: 'view', chord: 'Mod+Shift+f', scope: 'global' },

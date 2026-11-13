@@ -58,6 +58,7 @@ export const PALETTE_SAFE: readonly CommandId[] = [
   'status.focus',
   'status.commit',
   'sync.fetch',
+  'guard.sweep',
   'sync.pull',
   'sync.push',
   'palette.open',
@@ -220,6 +221,8 @@ export const COMMAND_ACCESS: Record<CommandId, CompanionAccess> = {
   'status.focus': 'direct',
   'status.commit': 'confirm',
   'sync.fetch': 'direct',
+  // A sweep reads and reports; it changes nothing on the machine (Phase 122 Theme H).
+  'guard.sweep': 'direct',
   // Decision 14 — open for a human: a pull on a dirty tree is what the user
   // least wants from a misheard word, so this stays `confirm` for now.
   'sync.pull': 'confirm',

@@ -356,6 +356,7 @@ const bridge: Pick<
     importFromApp: (req) => call(CHANNELS.captureImport, req),
     onChanged: (handler) => subscribe(EVENT_CHANNELS.captureChanged, handler),
   },
+  guardSweepNow: () => call(CHANNELS.guardSweepNow),
   vanguard: {
     findings: {
       list: (req) => call(CHANNELS.securityFindingsList, req),

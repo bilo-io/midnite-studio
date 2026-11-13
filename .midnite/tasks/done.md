@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 122 Theme H (partial) — Guard: schedule, cost and disclosure
+
+PR (see the Phase 122 H PR). `guard.sweep` command and `guardSweepNow` channel, a Guard paragraph in `SECURITY.md`, and the rewritten Guard docblock. Open: the tab button, daily default schedule, the extra egress entries, the perf script and the battery gate (see the phase doc).
+
 ## 2026-11-13 — Phase 122 Theme E — Guard: sites the browser visited
 
 PR (see the Phase 122 E PR). The offline `sites` check (ClickFix, phishing, http login forms, end-of-life headers), the URLhaus parser and a `readBrowserHistory` seam in the resolvers. Not wired in desktop: the browser keeps no readable origin history yet (open decision, see the phase doc).
