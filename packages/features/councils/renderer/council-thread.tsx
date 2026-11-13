@@ -387,7 +387,7 @@ function WorkingRow({ since, label }: { since: number; label: string }) {
 export function CouncilThreadEmpty() {
   return (
     <EmptyState
-      title="No runs yet"
+      title="Start a thread"
       body="Ask the council below. Every member answers in parallel, then the synthesizer distills their answers."
     />
   );

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { LuSparkles, LuTrash2 } from 'react-icons/lu';
 
 import { RingSpinner as Spinner, SelectField, useFocusTrap } from '@midnite/studio-frame';
@@ -31,6 +32,10 @@ const FIELD =
  * Theme E) takes a one-line brief, asks a small, fast model in main for a panel,
  * and lists it here for the user to edit or trim before Create — nothing is
  * created until then.
+ *
+ * Portalled to the body: it opens from the rail, whose sliding panel-stack pane
+ * is transformed, and a `fixed` overlay inside a transformed ancestor is
+ * confined to that pane instead of the window.
  */
 export function CouncilCreateDialog({
   onCancel,
@@ -98,7 +103,7 @@ export function CouncilCreateDialog({
   const patchMember = (index: number, patch: Partial<CouncilRecommendedMember>) =>
     setMembers((current) => (current ?? []).map((m, i) => (i === index ? { ...m, ...patch } : m)));
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-dialog flex items-center justify-center bg-background/70 p-6"
       role="dialog"
@@ -194,12 +199,15 @@ export function CouncilCreateDialog({
                         aria-label="Recommended member name"
                         className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1 py-0.5 text-xs font-medium outline-none focus:border-input focus:bg-background"
                       />
-                      <SelectField
-                        value={member.provider}
-                        onChange={(provider) => patchMember(index, { provider })}
-                        options={options}
-                        label="Recommended member agent"
-                      />
+                      {/* A fixed width: the select is `w-full`, and would otherwise squeeze the name to nothing. */}
+                      <div className="w-36 shrink-0">
+                        <SelectField
+                          value={member.provider}
+                          onChange={(provider) => patchMember(index, { provider })}
+                          options={options}
+                          label="Recommended member agent"
+                        />
+                      </div>
                       <IconButton
                         icon={LuTrash2}
                         label="Remove recommended member"
@@ -218,7 +226,9 @@ export function CouncilCreateDialog({
                 ))}
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span>Synthesize with</span>
-                  <SelectField value={synthProvider} onChange={setSynthProvider} options={options} label="Recommended synthesizer" />
+                  <div className="w-36 shrink-0">
+                    <SelectField value={synthProvider} onChange={setSynthProvider} options={options} label="Recommended synthesizer" />
+                  </div>
                   <button
                     type="button"
                     onClick={() => setMembers(null)}
@@ -251,7 +261,8 @@ export function CouncilCreateDialog({
           </button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
