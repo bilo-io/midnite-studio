@@ -5,8 +5,8 @@ import { GAME_ASSET_INDEX_FILE, GameAssetIndexSchema, GAME_LEVEL_PROPS, levelPro
 import { confineToRoot } from '@midnite/studio-runtime';
 import { z } from 'zod';
 
-/** The drape image is only a backdrop for the plan view; a bigger one is left out rather than shipped over IPC. */
-const PREVIEW_MAX_BYTES = 2 * 1024 * 1024;
+/** The drape image is only a backdrop for the plan view; a bigger one is left out rather than shipped over IPC (the editor re-reads a level on focus, so it is sent often). */
+const PREVIEW_MAX_BYTES = 1024 * 1024;
 const PREVIEW_TYPES: Record<string, string> = { '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' };
 
 /** Only the part of `terrain.manifest.json` the plan view needs; readers ignore the rest. */

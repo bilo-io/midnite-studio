@@ -12,7 +12,7 @@ export type OpenLevel = {
   images: GameLevelGetResult['images'];
   /** A 3D level's terrain extent, drawn under the plan (Phase 132 Theme E). */
   terrain: GameLevelTerrain | null;
-  /** The level is not a map the 2D editor can hold (not JSON, a 3D one, or unreadable). */
+  /** The level is not a map the editor can hold (not JSON, or unreadable). */
   unreadable: boolean;
 };
 
