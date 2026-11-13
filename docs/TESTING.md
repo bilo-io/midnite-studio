@@ -104,6 +104,11 @@ The functional E2E suite is governed by a committed ratchet in `scripts/e2e-budg
 - **Lowering the ratchet count** is a routine commit when tests are migrated to Vitest.
 - **Raising the ratchet count** requires an explicit sentence in the commit message and PR description explaining why the addition cannot run in Vitest or the visual layer.
 - CI runs `scripts/e2e-budget.mjs` in the `gate-node` job before tests run, failing fast if the budget is breached.
+- Three static invariants beside the count (Phase 116 Theme E):
+  1. **No disk screenshots in functional E2E.** No `*-shots.spec.ts` (retired, along with `MSTUDIO_SHOTS`) and no `.screenshot({ path })` in `packages/app/e2e/*.spec.ts`. An in-memory `.screenshot()` compared in the test is fine.
+  2. **No orphaned `docs/screenshots/` images.** Each must be referenced (as `screenshots/<path>`) from `README.md`, `docs/*.md` or `packages/website/`; PR verification shots live in the session scratchpad.
+  3. **No bare `waitForTimeout`.** Prefer `expect.poll` / `expect(locator)`; a reveal-tween settle goes through `settle(page)` in `e2e/shots-helper.ts`; a deliberate sleep (negative proof, debounce) carries `// allow-timeout: <reason>` on the same or preceding line.
+- The cap tracks the real count, so it only ever goes down as tests migrate; the phase target is <= 200 (Theme C's Vitest waves).
 
 ---
 

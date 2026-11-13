@@ -31,7 +31,7 @@ Scope guardrails:
 
 **Theme D — CI runner topology and gate-locale fold.** ✅ (PR #950) Folded `gate-locale` into `gate-native` to save a 321s macOS VM boot, expanded `e2e` to 4 macOS shards within the hard 5-slot macOS cap, and right-sized `gate-node-app-test` from 4 Ubuntu shards to 2.
 
-**Theme E — Ratchet & budget guards (`MAX_DECLARED_E2E ≤ 200`, screenshot & `waitForTimeout` bans).** ◻ Lower `MAX_DECLARED_E2E` in `scripts/e2e-budget.mjs` from 480 to ≤ 200, fail on any `docs/screenshots/` file not referenced by `README.md` or `docs/*.md`, fail on any `.screenshot({ path })` or un-allowlisted `waitForTimeout(` in functional E2E specs, and sync `docs/TESTING.md` + `CLAUDE.md`/`AGENTS.md`/`GEMINI.md`.
+**Theme E — Ratchet & budget guards (`MAX_DECLARED_E2E ≤ 200`, screenshot & `waitForTimeout` bans).** ◐ PARTIAL (guards landed; the cap is 483, not ≤ 200, because Theme C's Vitest waves did not). `scripts/e2e-budget.mjs` now fails on a `*-shots.spec.ts` or a `.screenshot({ path })`/`.screenshot('…')` in `packages/app/e2e/*.spec.ts`, on any image under `docs/screenshots/` that `README.md`, `docs/*.md` or `packages/website/` does not reference as `screenshots/<path>`, and on a `waitForTimeout(` without `// allow-timeout: <reason>` (same or preceding line) — all pure functions with unit tests in `e2e-budget.test.mjs`. Landing them deleted 196 orphaned PNGs that had regrown since Theme B (206 → 10 tracked). Two surprises: the script's `main` never awaited `collectDeclaredE2eCount`, whose spec-parse fallback is async, so without a Playwright binary the cap compared a Promise and passed silently (fixed); and the fallback count is a rougher regex (465 vs Playwright's 483), so the cap is only meaningful with Playwright installed, as in CI. `docs/TESTING.md` §5 and the CLAUDE/AGENTS/GEMINI screenshot bullet now describe the retired shots specs, the three invariants and `root:test-node`/`root:lint-all`. Stacked on Theme C's branch (the guard needs its `allow-timeout` markers). Original plan: lower `MAX_DECLARED_E2E` in `scripts/e2e-budget.mjs` from 480 to ≤ 200, fail on any `docs/screenshots/` file not referenced by `README.md` or `docs/*.md`, fail on any `.screenshot({ path })` or un-allowlisted `waitForTimeout(` in functional E2E specs, and sync `docs/TESTING.md` + `CLAUDE.md`/`AGENTS.md`/`GEMINI.md`.
 
 ## Deliverables
 
@@ -79,12 +79,12 @@ Scope guardrails:
 
 ### E — Ratchet & budget guards (`MAX_DECLARED_E2E ≤ 200`, screenshot & `waitForTimeout` bans) (S)
 
-- [ ] In [`scripts/e2e-budget.mjs`](../../../scripts/e2e-budget.mjs), lower `MAX_DECLARED_E2E` from `480` to the new post-Theme-C count (**≤ 200**).
-- [ ] Extend [`scripts/e2e-budget.mjs`](../../../scripts/e2e-budget.mjs) (and its unit tests in [`scripts/e2e-budget.test.mjs`](../../../scripts/e2e-budget.test.mjs)) with three new static invariants that run in `gate-node`:
+- [ ] ◐ PARTIAL (cap lowered 486 → 483, the real count; ≤ 200 waits on Theme C) In [`scripts/e2e-budget.mjs`](../../../scripts/e2e-budget.mjs), lower `MAX_DECLARED_E2E` from `480` to the new post-Theme-C count (**≤ 200**).
+- [x] Extend [`scripts/e2e-budget.mjs`](../../../scripts/e2e-budget.mjs) (and its unit tests in [`scripts/e2e-budget.test.mjs`](../../../scripts/e2e-budget.test.mjs)) with three new static invariants that run in `gate-node`:
   1. **No disk screenshots in functional E2E:** fail if any file in `packages/app/e2e/*.spec.ts` calls `.screenshot(` with a `path` option or if any `*-shots.spec.ts` file is reintroduced.
   2. **No orphaned files in `docs/screenshots/`:** fail if any image under `docs/screenshots/` is not referenced in `README.md`, `docs/*.md`, or `packages/website/`.
   3. **No un-allowlisted `waitForTimeout` in functional E2E:** fail if `waitForTimeout(` appears in `packages/app/e2e/*.spec.ts` outside a small, explicitly justified allowlist.
-- [ ] Update [`docs/TESTING.md`](../../../docs/TESTING.md) and sync [`CLAUDE.md`](../../../CLAUDE.md), [`AGENTS.md`](../../../AGENTS.md), and [`GEMINI.md`](../../../GEMINI.md) to document `moon run root:test-node`, `moon run root:lint-all`, the retirement of `*-shots.spec.ts` / `MSTUDIO_SHOTS`, and the new `e2e-budget.mjs` checks.
+- [x] Update [`docs/TESTING.md`](../../../docs/TESTING.md) and sync [`CLAUDE.md`](../../../CLAUDE.md), [`AGENTS.md`](../../../AGENTS.md), and [`GEMINI.md`](../../../GEMINI.md) to document `moon run root:test-node`, `moon run root:lint-all`, the retirement of `*-shots.spec.ts` / `MSTUDIO_SHOTS`, and the new `e2e-budget.mjs` checks.
 
 ## Files this phase touches
 

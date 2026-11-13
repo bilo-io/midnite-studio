@@ -11,7 +11,7 @@
 //    that genuinely require a real browser (real layout/geometry, real CSS,
 //    pointer drag, xterm, canvas, or focus order).
 //
-// This script enforces three invariants in the gate:
+// This script enforces these invariants in the gate (the last three are Phase 116 Theme E):
 // - Functional E2E test ratchet: declared functional tests must not exceed the
 //   committed ratchet cap (currently 433). Lowering this cap is a deliberate commit
 //   as tests migrate to Vitest; raising it requires an explicit sentence in the
@@ -20,6 +20,14 @@
 //   (delegated to `checkVisualBudget` from `visual-budget.mjs`).
 // - Timing flake prevention: unit tests must never assert wall-clock duration bounds
 //   (`expect(elapsed).toBeLessThan(...)`), which flakes under CI thread contention.
+// - No disk screenshots from functional E2E: no `*-shots.spec.ts`, and no
+//   `.screenshot({ path })` / `.screenshot(path)` in `packages/app/e2e/*.spec.ts`.
+//   PR verification shots live in the session scratchpad, never in git.
+// - No orphaned images under `docs/screenshots/`: each must be referenced from
+//   `README.md`, `docs/*.md` or `packages/website/`.
+// - No un-allowlisted `waitForTimeout(` in functional E2E specs: a call must be
+//   polled instead, routed through `settle()` in `shots-helper.ts`, or carry an
+//   `// allow-timeout: <reason>` comment on the same or the preceding line.
 
 import { execFileSync } from 'node:child_process';
 import { readdir, readFile } from 'node:fs/promises';
@@ -246,7 +254,11 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // dependency arrows must land on their bars' edges, which only a real `getBoundingClientRect` over an SVG with
 // `preserveAspectRatio="none"` can show, and the first-run form and the Overview, Runway and invoice-draft shots
 // are of the real layout.
-export const MAX_DECLARED_E2E = 486;
+//
+// Lowered 486 -> 483 for Phase 116 Theme E, to the count after Theme C deleted the five
+// `*-shots.spec.ts` files that had crept back. The phase's <= 200 target waits on Theme C's
+// Vitest migration waves, which need Playwright runs; each one lowers this number.
+export const MAX_DECLARED_E2E = 483;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four
@@ -258,6 +270,7 @@ export const MAX_DECLARED_E2E = 486;
 /**
  * @typedef {{ ok: boolean, message: string }} CheckResult
  * @typedef {{ file: string, line: number, lineContent: string }} TimingViolation
+ * @typedef {{ file: string, line: number, lineContent: string }} SpecViolation
  */
 
 /**
@@ -268,6 +281,9 @@ export const MAX_DECLARED_E2E = 486;
  *   declaredCount: number;
  *   visualSizes?: number[];
  *   unitTimingViolations?: TimingViolation[];
+ *   diskScreenshotViolations?: SpecViolation[];
+ *   orphanedScreenshots?: string[];
+ *   timeoutViolations?: SpecViolation[];
  * }} input
  * @param {{
  *   maxDeclaredE2e?: number;
@@ -307,6 +323,42 @@ export function checkE2eBudget(input, limits = {}) {
           .join('\n') +
         `\n  Unit tests must not assert wall-clock durations (e.g. expect(elapsed).toBeLessThan(...)).` +
         ` Use vi.useFakeTimers() or event-driven polling instead (see docs/TESTING.md).`,
+    );
+  }
+
+  if (input.diskScreenshotViolations && input.diskScreenshotViolations.length > 0) {
+    issues.push(
+      `  Found ${input.diskScreenshotViolations.length} disk screenshot(s) in functional E2E:` +
+        '\n' +
+        input.diskScreenshotViolations
+          .map((v) => `    ${v.file}${v.line ? `:${v.line}` : ''} -> ${v.lineContent.trim()}`)
+          .join('\n') +
+        `\n  Functional specs assert; they never write images. PR shots go in the session scratchpad,` +
+        ` and appearance belongs to \`app:visual\` (see docs/TESTING.md).`,
+    );
+  }
+
+  if (input.orphanedScreenshots && input.orphanedScreenshots.length > 0) {
+    const shown = input.orphanedScreenshots.slice(0, 20).map((f) => `    ${f}`);
+    const more = input.orphanedScreenshots.length - shown.length;
+    issues.push(
+      `  Found ${input.orphanedScreenshots.length} image(s) under docs/screenshots/ that nothing references:` +
+        '\n' +
+        shown.join('\n') +
+        (more > 0 ? `\n    ...and ${more} more` : '') +
+        `\n  Reference each from README.md, docs/*.md or packages/website/, or delete it.`,
+    );
+  }
+
+  if (input.timeoutViolations && input.timeoutViolations.length > 0) {
+    issues.push(
+      `  Found ${input.timeoutViolations.length} un-allowlisted waitForTimeout call(s) in functional E2E:` +
+        '\n' +
+        input.timeoutViolations
+          .map((v) => `    ${v.file}:${v.line} -> ${v.lineContent.trim()}`)
+          .join('\n') +
+        `\n  Use a web-first assertion (expect.poll / expect(locator)...), call settle(page) from shots-helper,` +
+        ` or justify a deliberate sleep with an \`// allow-timeout: <reason>\` comment.`,
     );
   }
 
@@ -440,15 +492,136 @@ export async function collectUnitTimingViolations(root = repoRoot) {
   return violations;
 }
 
+const E2E_DIR = 'packages/app/e2e';
+const SCREENSHOT_PATH_RE = /\.screenshot\(\s*(?:\{[^}]*\bpath\s*:|['"`])/;
+const ALLOW_TIMEOUT_RE = /allow-timeout\s*:\s*\S/;
+
+/**
+ * Pure: scan one functional spec's source for disk screenshots and un-allowlisted sleeps.
+ *
+ * @param {string} file repo-relative path, reported in violations
+ * @param {string} content
+ * @returns {{ disk: SpecViolation[], timeouts: SpecViolation[] }}
+ */
+export function scanSpecSource(file, content) {
+  const disk = [];
+  const timeouts = [];
+  const lines = content.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (SCREENSHOT_PATH_RE.test(line)) {
+      disk.push({ file, line: i + 1, lineContent: line });
+    }
+    if (/\bwaitForTimeout\s*\(/.test(line) && !line.trim().startsWith('//')) {
+      const allowed = ALLOW_TIMEOUT_RE.test(line) || (i > 0 && ALLOW_TIMEOUT_RE.test(lines[i - 1]));
+      if (!allowed) timeouts.push({ file, line: i + 1, lineContent: line });
+    }
+  }
+  return { disk, timeouts };
+}
+
+/**
+ * Scan `packages/app/e2e/*.spec.ts` (shots specs included, so a reintroduced one fails twice over).
+ *
+ * @param {string} root
+ */
+export async function collectSpecViolations(root = repoRoot) {
+  const dir = path.join(root, E2E_DIR);
+  /** @type {SpecViolation[]} */
+  const disk = [];
+  /** @type {SpecViolation[]} */
+  const timeouts = [];
+  // Functional specs live at the top level and in feature folders (e.g. `suite-shell/`). `visual/` is
+  // the screenshot-comparison layer and `perf/` measures wall-clock by design, so both are exempt.
+  const files = (await listFiles(dir, new Set(['node_modules', 'dist', 'visual', 'perf', '__screenshots__']))).filter(
+    (f) => f.endsWith('.spec.ts'),
+  );
+  for (const full of files) {
+    const rel = path.relative(root, full).split(path.sep).join('/');
+    if (full.endsWith('-shots.spec.ts')) {
+      disk.push({ file: rel, line: 0, lineContent: '*-shots.spec.ts files are retired' });
+    }
+    const found = scanSpecSource(rel, await readFile(full, 'utf8'));
+    disk.push(...found.disk);
+    timeouts.push(...found.timeouts);
+  }
+  return { disk, timeouts };
+}
+
+const IMAGE_RE = /\.(png|jpe?g|gif|webp|svg|avif)$/i;
+const TEXT_RE = /\.(md|mdx|ts|tsx|js|jsx|mjs|html|css|json)$/i;
+
+/** @param {string} dir @param {Set<string>} [skip] directory names to skip @returns {Promise<string[]>} absolute file paths, recursively */
+async function listFiles(dir, skip = new Set(['node_modules', 'dist'])) {
+  const out = [];
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return out;
+  }
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (skip.has(entry.name)) continue;
+      out.push(...(await listFiles(full, skip)));
+    } else if (entry.isFile()) {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
+/**
+ * Pure: an image is referenced when some doc text mentions `screenshots/<its path under docs/screenshots>`.
+ *
+ * @param {string[]} images paths relative to docs/screenshots, forward slashes
+ * @param {string} corpus concatenated text of every referencing file
+ * @returns {string[]} the unreferenced images
+ */
+export function findOrphans(images, corpus) {
+  return images.filter((rel) => !corpus.includes(`screenshots/${rel}`));
+}
+
+/** @param {string} root */
+export async function collectOrphanedScreenshots(root = repoRoot) {
+  const base = path.join(root, 'docs/screenshots');
+  const images = (await listFiles(base))
+    .filter((f) => IMAGE_RE.test(f))
+    .map((f) => path.relative(base, f).split(path.sep).join('/'));
+  if (images.length === 0) return [];
+  const docFiles = (await readdir(path.join(root, 'docs'), { withFileTypes: true }))
+    .filter((e) => e.isFile() && e.name.endsWith('.md'))
+    .map((e) => path.join(root, 'docs', e.name));
+  const sources = [path.join(root, 'README.md'), ...docFiles, ...(await listFiles(path.join(root, 'packages/website')))].filter(
+    (f) => TEXT_RE.test(f),
+  );
+  const chunks = [];
+  for (const f of sources) {
+    try {
+      chunks.push(await readFile(f, 'utf8'));
+    } catch {
+      /* a missing README is not an orphan */
+    }
+  }
+  return findOrphans(images, chunks.join('\n')).map((rel) => `docs/screenshots/${rel}`);
+}
+
 async function main() {
-  const declaredCount = collectDeclaredE2eCount(repoRoot);
+  const declaredCount = await collectDeclaredE2eCount(repoRoot);
   const visualSizes = await collectPngSizes(VISUAL_SCREENSHOTS_DIR);
   const timingViolations = await collectUnitTimingViolations(repoRoot);
+
+  const specViolations = await collectSpecViolations(repoRoot);
+  const orphanedScreenshots = await collectOrphanedScreenshots(repoRoot);
 
   const result = checkE2eBudget({
     declaredCount,
     visualSizes,
     unitTimingViolations: timingViolations,
+    diskScreenshotViolations: specViolations.disk,
+    orphanedScreenshots,
+    timeoutViolations: specViolations.timeouts,
   });
 
   if (result.ok) {
