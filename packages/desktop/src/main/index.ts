@@ -61,6 +61,7 @@ import {
   bindFeatureLifecycle,
   configureFeatureChannels,
   configureFeatureMcpTools,
+  featureGateSummary,
   loadFeatureGate,
 } from './feature-gate';
 import { FEATURE_GATE_CHANNELS, FEATURE_GATE_MCP_TOOLS } from './feature-gate-channels';
@@ -768,6 +769,8 @@ export const startStudioMain: StartStudioMain = () => {
       ].join(' ');
       setBootLine(bootLine);
       defaultLogger.info(`[boot] ${bootLine}`);
+      const gateSummary = featureGateSummary();
+      if (gateSummary !== null) defaultLogger.info(gateSummary);
       checkSiteIsolation();
       // Must run before the store is read: each rename ("Midnite Studio", then
       // "Midnite Studio") moved userData, and the user's repository list is

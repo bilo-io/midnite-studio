@@ -12,6 +12,7 @@ import {
   channelFeatureOff,
   configureFeatureChannels,
   configureFeatureMcpTools,
+  featureGateSummary,
   featureOffAnswer,
   isFeatureEnabled,
   loadFeatureGate,
@@ -79,6 +80,11 @@ describe('feature gate (Phase 135 Theme E)', () => {
     const start = vi.fn();
     bindFeatureLifecycle('finance', 'rates', start, () => undefined);
     expect(start).not.toHaveBeenCalled();
+    expect(featureGateSummary()).toBe('feature-gate: switched off at boot: finance; not started: rates (finance)');
+  });
+
+  it('has no summary while everything is on', () => {
+    expect(featureGateSummary()).toBeNull();
   });
 
   it("refuses a switched-off feature's MCP tools and only those", () => {

@@ -133,6 +133,17 @@ export function applyDisabledFeatures(next: readonly FeatureToggleId[]): void {
   }
 }
 
+/**
+ * One line for the log file: what is off and which bound work is held. `loadFeatureGate` and the earliest
+ * lifecycles run before main installs the file sink, so their own lines reach only the console; `index.ts`
+ * logs this once the sink exists. Null when everything is on.
+ */
+export function featureGateSummary(): string | null {
+  if (disabled.size === 0) return null;
+  const held = lifecycles.filter((entry) => !entry.running).map((entry) => `${entry.label} (${entry.id})`);
+  return `feature-gate: switched off at boot: ${[...disabled].join(', ')}; not started: ${held.join(', ') || 'none'}`;
+}
+
 /** Test-only reset. */
 export function resetFeatureGateForTests(): void {
   disabled = new Set();
