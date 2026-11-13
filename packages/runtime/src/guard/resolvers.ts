@@ -13,6 +13,7 @@ import { loadElectronMajors } from './feeds/electron-releases';
 import { loadKev } from './feeds/kev';
 import { loadThreatFeed } from './feeds/threat-feed';
 import type { GuardInputResolverContext } from './inputs';
+import { resolveDotfileSecrets, resolveListeningPorts, resolveMacConfig, resolveSshInputs } from './mac-probes';
 import { resolveInstalledSoftware, type ExecFile } from './software';
 import { resolveLockfiles } from './lockfiles/discover';
 import { resolveInstalledNodeModules } from './lockfiles/node-modules';
@@ -94,7 +95,15 @@ export function createGuardResolvers(options: GuardResolverOptions): Record<stri
 
   const exec = options.exec;
   return {
-    ...(exec ? { installedSoftware: () => resolveInstalledSoftware(exec) } : {}),
+    ...(exec
+      ? {
+          installedSoftware: () => resolveInstalledSoftware(exec),
+          ports: () => resolveListeningPorts(exec),
+          macConfig: () => resolveMacConfig(exec),
+          sshKeys: () => resolveSshInputs(exec, options.home),
+        }
+      : {}),
+    dotfileSecrets: async () => resolveDotfileSecrets(options.home, await repos()),
     lockfiles: () => lockedPackages(),
     installedPackages: async () => resolveInstalledNodeModules(await repos()),
     osv: async () => {

@@ -10,6 +10,10 @@ PR (see the Phase 116 E PR, stacked on C). `e2e-budget` now bans shots specs, di
 
 PR (see the Phase 116 C PR). Five re-grown `*-shots.spec.ts` files and `animation-player`'s disk screenshot removed; every bare `page.waitForTimeout` in e2e specs is now polled, routed through `settle()`, or marked `// allow-timeout: <reason>`. The Vitest migration waves (477 → ≤ 200) are not done: they need Playwright runs that CI-lock and RAM rule out here.
 
+## 2026-11-13 — Phase 122 Theme D — Guard: the Mac itself
+
+PR (see the Phase 122 D PR). Four deterministic checks (listening ports, macOS security settings, SSH and GPG key hygiene, secrets outside the vault) with read-only probes over the injected `exec`, wired into `defaultGuardChecks` and `createGuardResolvers`. No sudo anywhere (grep-tested). Held back: the pending-security-updates probe (egress), the deep `git log -p` pass and the new action ids (Theme G).
+
 ## 2026-11-12 — Phase 128 Theme H — Launch: catalog, website, docs
 
 PR (see the Phase 128 H PR). Health's `comingSoon` removed from the launcher catalog and module, blurbs updated, Health added to the website catalog with its logo, and `docs/APPS.md` documents the app. Manual checks outstanding: packaged-app pass over export and erase.
