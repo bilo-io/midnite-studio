@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 
 import RAPIER from '@dimforge/rapier3d-compat';
 import { GAME_CAMERA_IDS, GAME_CAMERA_OFFSETS, GAME_GENRES } from '@midnite/studio-shared';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { encodePngGrey16 } from '@midnite/studio-runtime';
 
@@ -308,5 +308,105 @@ describe('kit/core/vehicle.js, road-ribbon.js, nav-policy.js and dom-keys.js', (
       'UP',
       '1',
     ]);
+  });
+});
+
+// `kit/three/level.js` imports three, which only the desktop package installs: a tiny stand-in is enough to
+// count what the builder adds (the real geometry needs WebGL and is covered by booting a starter).
+vi.mock('three', () => {
+  class Vec {
+    x = 0;
+    y = 0;
+    z = 0;
+    set(x: number, y: number, z: number) {
+      this.x = x;
+      this.y = y;
+      this.z = z;
+    }
+  }
+  class Mesh {
+    position = new Vec();
+    rotation = new Vec();
+    visible = true;
+    castShadow = false;
+    receiveShadow = false;
+    constructor(
+      public geometry: unknown,
+      public material: unknown,
+    ) {}
+  }
+  class PointLight {
+    position = new Vec();
+    constructor(
+      public color: unknown,
+      public intensity: number,
+      public distance: number,
+    ) {}
+  }
+  class BoxGeometry {
+    constructor(
+      public w: number,
+      public h: number,
+      public d: number,
+    ) {}
+  }
+  class MeshStandardMaterial {}
+  return { Mesh, PointLight, BoxGeometry, MeshStandardMaterial, Box3: class {}, Vector3: class {} };
+});
+
+describe('kit/three/level.js buildLevel3d', () => {
+  const prop = (name: string, value: unknown) => ({ name, type: 'string', value });
+  const rect = (id: number, type: string, props: unknown[] = []) => ({ id, name: `o${id}`, type, x: 64 * id, y: 32, width: 64, height: 32, rotation: 0, properties: props });
+  const map = {
+    tilewidth: 32,
+    tileheight: 32,
+    properties: [prop('midnite.groundY', 0.5)],
+    layers: [
+      {
+        type: 'objectgroup',
+        name: 'objects',
+        objects: [
+          rect(1, 'prop', [prop('elevation', 2)]),
+          rect(2, 'prop', [prop('collider', 'none')]),
+          rect(3, 'trigger'),
+          rect(4, 'prop'),
+          { id: 5, name: 'lamp', type: 'light', x: 32, y: 32, width: 0, height: 0, properties: [prop('intensity', 5)] },
+          { id: 6, name: 'start', type: 'spawn', x: 32, y: 64, width: 0, height: 0 },
+          { id: 7, name: 'route', type: 'path', x: 0, y: 0, width: 0, height: 0, polyline: [{ x: 0, y: 0 }, { x: 32, y: 32 }] },
+        ],
+      },
+    ],
+  };
+  const loadBuilder = async () => (await import(pathToFileURL(join(__dirname, '../../../../../templates/media-game/kit/three/level.js')).href)) as {
+    buildLevel3d: (context: unknown, map: unknown) => Promise<{ spawns: { position: number[] }[]; entities: unknown[]; paths: { points: number[][] }[] }>;
+  };
+
+  it('adds one collider per box prop and none for collider: none or a trigger', async () => {
+    const { buildLevel3d } = await loadBuilder();
+    const boxes: number[][][] = [];
+    const scene = { added: [] as unknown[], add(object: unknown) { this.added.push(object); } };
+    const result = await buildLevel3d({ scene, physics: { addBox: (p: number[], h: number[]) => boxes.push([p, h]) } }, map);
+    expect(boxes).toHaveLength(2);
+    expect(scene.added).toHaveLength(5); // 3 boxes (prop, prop none, trigger) + the 4th prop + the light
+    expect(result.paths[0]!.points).toEqual([[0, 0], [1, 1]]);
+    expect(result.spawns).toHaveLength(1);
+  });
+
+  it('uses elevation when set and heightAt (else groundY) when absent', async () => {
+    const { buildLevel3d } = await loadBuilder();
+    const scene = { add: () => undefined };
+    const seen: number[][] = [];
+    const heightAt = (x: number, z: number) => {
+      seen.push([x, z]);
+      return 10;
+    };
+    const withTerrain = await buildLevel3d({ scene, heightAt }, map);
+    expect(seen.length).toBeGreaterThan(0);
+    expect(withTerrain.spawns[0]!.position[1]).toBe(10);
+    const flat = await buildLevel3d({ scene }, map);
+    expect(flat.spawns[0]!.position[1]).toBe(0.5);
+    const placed = flat.entities[0] as { object: { position: { y: number } } };
+    // elevation 2 + half of the default 3 m height.
+    expect(placed.object.position.y).toBe(3.5);
   });
 });

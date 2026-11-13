@@ -127,6 +127,7 @@ export const mediaGameMain = defineFeatureMain<MediaGameMainServices>({
     handle(CHANNELS.gamesSettingsSet, schemas.GamesSettingsSetRequest, (patch) => service.settings.set(patch), (issue) => failure(issue));
     handleBare(CHANNELS.gamesList, async () => ({ games: await service.list() }));
     handle(CHANNELS.gamesCreate, schemas.GamesCreateRequest, (req) => service.create(req), (issue) => failure(issue));
+    handle(CHANNELS.gamesAdd, schemas.GamesAddRequest, ({ path }) => service.add(path), (issue) => failure(issue));
     handle(
       CHANNELS.gamesGetManifest,
       schemas.GamesGetManifestRequest,
@@ -167,6 +168,17 @@ export const mediaGameMain = defineFeatureMain<MediaGameMainServices>({
     handle(CHANNELS.gamesPopOut, schemas.GamesPopOutRequest, ({ gameId }) => service.popOut(gameId), (issue) => failure(issue));
     handleBare(CHANNELS.gamesPopped, () => service.popped());
     handle(CHANNELS.gamesKitUpgrade, schemas.GamesKitUpgradeRequest, ({ gameId }) => service.kitUpgrade(gameId), (issue) => failure(issue));
+
+    // Levels (Phase 132 Theme C).
+    handle(CHANNELS.gamesLevels, schemas.GamesLevelsRequest, ({ gameId }) => service.levels.list(gameId), (issue) => failure(issue));
+    handle(CHANNELS.gamesLevelGet, schemas.GamesLevelGetRequest, ({ gameId, scene }) => service.levels.get(gameId, scene), (issue) => failure(issue));
+    handle(
+      CHANNELS.gamesLevelSet,
+      schemas.GamesLevelSetRequest,
+      ({ gameId, scene, level, create }) => service.levels.set(gameId, scene, level, create === undefined ? {} : { create }),
+      (issue) => failure(issue),
+    );
+    handle(CHANNELS.gamesGoto, schemas.GamesGotoRequest, ({ gameId, scene }) => service.goto(gameId, scene), (issue) => failure(issue));
 
     // Create and iterate (Theme M).
     handle(

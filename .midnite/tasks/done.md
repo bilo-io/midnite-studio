@@ -2,6 +2,42 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 89 Theme K (part) — renderer variant seam e2e
+
+One Playwright e2e in `knowledge-canvas.spec.ts`: pick Telemetry HUD from the default Atlas, the sigma canvas layers are replaced by the 3D engine's canvas, and the choice survives a reload. Needs a real canvas mount and `page.reload()` persistence of `rendererVariant`. `MAX_DECLARED_E2E` 485 -> 486. Still open in Theme K: bundle ceilings, idle CPU, the three visual baselines, the full gate.
+
+## 2026-11-13 — Phase 132 Theme D (e2e) — level editor, real pointer input
+
+`packages/app/e2e/game-level-editor.spec.ts`: over the mock bridge, opens a game's Level editor tab, paints three cells with real pointer drags on the canvas (hit-tested through `getBoundingClientRect` and the fitted view), paints a fourth and undoes it, saves, and asserts the one `level-set` payload holds exactly the three cells. The mock gained `games.levels` (list, get, set recorded as `levelSet`) and `games.goto`. `MAX_DECLARED_E2E` 485 to 486 with its reason. No screenshot.
+
+## 2026-11-13 — Phase 132 Theme E — 3D placement editor
+
+The Level editor tab edits 3D levels in plan view on the 2D editor's canvas, model and picker: Select / Move, Place, Volume (a `prop` box, `sizeY` 3), Path and Rotate (yaw as Tiled's `rotation`, about the centre), a metre grid, footprints with a yaw tick, the terrain as an outline over its drape (`levelGet` reads it from the pack manifest), and an inspector for elevation, sizeY, pitch, roll, scale, model, collider and a light's fields with the world position from `levelEntityToWorld`. New scene makes a 3D scene. Not done: the canvas look and the third-person human pass (Theme H).
+
+## 2026-11-13 — Phase 132 Theme F — starters read their levels from files
+
+Every base and 3D genre scene builds from `levels/level.tmj` and keeps its procedural look; fps, crime and rts moved their layout into the file, shooter and soulslike read spawns from it, new games get `levels` in the manifest, and the 2D palette image is drawn at scaffold time and never committed. `starter-levels.test.ts` pins validity, the layout and the no-PNG rule.
+
+## 2026-11-13 — Phase 132 Theme G — level tools for agents
+
+`game_level_list`, `game_level_get`, `game_level_set` and `game_goto` on the midnite MCP server (reads open whenever the server is on, writes behind `allowGames`, all four in an agent run's private server), adapters over the level service and runner `goto`, the tool-manifest pin, and a Levels section with the pre-0.12 migration recipe in the game-build skill (seven mirrored copies). Not done: the editor (D, E), starters reading levels (F), the human check (H).
+
+## 2026-11-13 — Phase 132 Theme D (part) — 2D level editor and scene picker
+
+The Level editor tab: a pure edit model (paint, erase, rectangle, pick, entities, typed properties, layers, a 100-step undo with one step per drag, `serialise` keeping untouched fields), a canvas drawn with Sprites' `map-view.ts`, layer list, palettes and inspector, Save as one `level-set` commit. The scene picker in the tab strip opens a level and jumps the game, asking first when dirty; New scene makes a blank level by perspective and can opt the game into `levels.start`. Not done: Start from a map asset (needs a renderer read of `assets/map/`), the one e2e, and the canvas look (human check, Theme H).
+
+## 2026-11-13 — Phase 132 Theme C — level format and scene jump
+
+Levels are Tiled JSON at `levels/<scene>.tmj`: shared `game-level.ts` (loose parse, 2D/3D conventions, world mapping), additive Tiled fields, `cellAt`, the manifest's `levels` key, kit 0.12.0 (`level.js`, Phaser and three builders, `goto`, `getState().level`), main-side level list/get/set (one single-file commit per save) and the runner's `goto`. Not done: starters still hard-code their layout (F), no editor yet (D, E), no MCP tools (G).
+
+## 2026-11-13 — Phase 132 Theme A — Open Game
+
+An Open Game button beside New game: a main-side folder dialog, `resolveGameFolder` (git root, plain refusals), `service.add` (`added` / `listed` / `cancelled`) over the host's repo port; Gamer keeps `opened-games.json`. Not done: the human check (Theme H); Remove from list (Decision 17).
+
+## 2026-11-13 — Phase 132 Theme B — centre tabs
+
+Level editor (placeholder) and Play mode tabs, the native view hidden under the editor, a pause-when-editing policy and setting, run controls centred in the top bar, and a gradient Play button with a hover glow. Not done: the human check (folded into H).
+
 ## 2026-11-13 — Phase 89 Theme K (part) — licence audit
 
 One table of the four variant dependencies' licences and closures. Not done: the seam e2e, bundle and idle-CPU ceilings, visual baselines, full gate; reasons in the phase doc.

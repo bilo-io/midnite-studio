@@ -356,6 +356,8 @@ import {
   GameAgentRunRequestSchema,
   GameAgentRunResultSchema,
   GameAgentUndoRequestSchema,
+  GameAddRequestSchema,
+  GameAddResultSchema,
   GameCreateRequestSchema,
   GameCreateResultSchema,
   GameIdRequest as GameIdRequestSchema,
@@ -377,6 +379,16 @@ import {
   GameJuiceSettingsSchema,
   GameVisibleRequest as GameVisibleRequestSchema,
 } from '../media-game';
+import {
+  GameLevelsRequestSchema,
+  GameLevelsResultSchema,
+  GameLevelGetRequestSchema,
+  GameLevelGetResultSchema,
+  GameLevelSetRequestSchema,
+  GameLevelSetResultSchema,
+  GameGotoRequestSchema,
+  GameGotoResultSchema,
+} from '../game-level';
 import {
   ModelExportRequestSchema,
   ModelGenerateProgressEventSchema,
@@ -5473,6 +5485,8 @@ export const GamesSettingsSetResponse = GitOpResultOf(GamesSettingsReadSchema);
 export const GamesListResponse = GamesListSchema;
 export const GamesCreateRequest = GameCreateRequestSchema;
 export const GamesCreateResponse = GitOpResultOf(GameCreateResultSchema);
+export const GamesAddRequest = GameAddRequestSchema;
+export const GamesAddResponse = GitOpResultOf(GameAddResultSchema);
 export const GamesGetManifestRequest = GameIdRequestSchema;
 export const GamesGetManifestResponse = GameManifestGetResponseSchema;
 export const GamesSetManifestRequest = GameManifestSetRequestSchema;
@@ -5494,6 +5508,14 @@ export const GamesConsolePayload = GameConsolePayloadSchema;
 export const GamesKitUpgradeRequest = GameIdRequestSchema;
 export const GamesKitUpgradeResultSchema = z.object({ branch: z.string() });
 export const GamesKitUpgradeResponse = GitOpResultOf(GamesKitUpgradeResultSchema);
+export const GamesLevelsRequest = GameLevelsRequestSchema;
+export const GamesLevelsResponse = GitOpResultOf(GameLevelsResultSchema);
+export const GamesLevelGetRequest = GameLevelGetRequestSchema;
+export const GamesLevelGetResponse = GitOpResultOf(GameLevelGetResultSchema);
+export const GamesLevelSetRequest = GameLevelSetRequestSchema;
+export const GamesLevelSetResponse = GitOpResultOf(GameLevelSetResultSchema);
+export const GamesGotoRequest = GameGotoRequestSchema;
+export const GamesGotoResponse = GitOpResultOf(GameGotoResultSchema);
 export const GamesPopOutRequest = GameIdRequestSchema;
 export const GamesPoppedResponse = GamePoppedResponseSchema;
 export const GamesPopStatePayload = GamePopStateSchema;

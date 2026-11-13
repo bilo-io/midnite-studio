@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [132 · Game level editor and Open Game](phases/phase-132-game-level-editor.md) | ◻ TODO | x1 | 0/62 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
+| [132 · Game level editor and Open Game](phases/phase-132-game-level-editor.md) | 🔄 WIP | x1 | 48/62 | `████████░░` | 77% | — | H |
 | [131 · Per-app changelogs](phases/phase-131-per-app-changelogs.md) | 🔄 WIP | x1 | 39/42 | `█████████░` | 93% | — | — |
 | [130 · Startup app](phases/phase-130-startup.md) | 🔄 WIP | x1 | 55/57 | `██████████` | 96% | — | — |
 | [129 · Accountant module](phases/phase-129-accountant.md) | 🔄 WIP | x1 | 58/62 | `█████████░` | 94% | — | — |
@@ -51,7 +51,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [92 · Agentic execution from Projects](phases/phase-92-agentic-execution-from-projects.md) | ✅ DONE | — | 36/36 | `██████████` | 100% | — | — |
 | [91 · Security hardening and CVE readiness](phases/phase-91-security-hardening.md) | 🔄 WIP | — | 77/95 | `████████░░` | 81% | — | (acceptance + human passes) |
 | [90 · Multi-forge integration and account switching](phases/phase-90-multi-forge-integration.md) | 🔄 WIP | — | 88/110 | `████████░░` | 80% | — | — |
-| [89 · Knowledge graph visualisation variants](phases/phase-89-knowledge-graph-variants.md) | 🔄 WIP | — | 55/89 | `██████░░░░` | 62% | — | J K |
+| [89 · Knowledge graph visualisation variants](phases/phase-89-knowledge-graph-variants.md) | 🔄 WIP | — | 56/89 | `██████░░░░` | 63% | — | J K |
 | [88 · xterm v6 upgrade](phases/phase-88-xterm-v6-upgrade.md) | 🔄 WIP | — | 26/34 | `████████░░` | 76% | — | G |
 | [87 · Knowledge: the graph the repo already has](phases/phase-87-knowledge-graph-panel.md) | ✅ DONE | — | 51/60 | `█████████░` | 85% | A B C D E F G | (9 verification lines — packaged-app network trace, cache/staleness/GPU-leak checks, the Knowledge-view-specific idle-cpu reading, the committed visual baseline, one human eyeball pass — deferred, non-blocking) |
 | [86 · The way back in, and somewhere to write it down](phases/phase-86-the-way-back-in.md) | 🔄 WIP | — | 61/64 | `██████████` | 95% | — | (3 human passes) |

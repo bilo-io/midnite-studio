@@ -103,6 +103,13 @@ async function pickTiledMap(): Promise<string | null> {
   return picked.canceled || !picked.filePaths[0] ? null : picked.filePaths[0];
 }
 
+/** Open Game (Phase 132 Theme A): one folder, an absolute path or null when dismissed. */
+async function pickGameFolder(): Promise<string | null> {
+  const options = { title: 'Open a game', properties: ['openDirectory' as const] };
+  const picked = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+  return picked.canceled || !picked.filePaths[0] ? null : picked.filePaths[0];
+}
+
 /** The Animations tab's pickers (Phase 125): clip files, or one folder of them. */
 async function pickAnimationPaths(kind: 'files' | 'folder'): Promise<string[] | null> {
   const options = {
@@ -241,6 +248,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
         contents: gamePageContents,
         getWindow: asGameWindow(() => win),
         templateDir: bundled('templates/media-game', ['..', '..', '..', 'templates', 'media-game']),
+        pickFolder: pickGameFolder,
         enginesDir: process.env['MSTUDIO_GAME_ENGINES_DIR'] ?? bundled('game-engines', ['..', '..', '..', 'packages', 'desktop', 'resources', 'game-engines']),
       },
       log: (line) => {

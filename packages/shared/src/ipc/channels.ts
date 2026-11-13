@@ -958,6 +958,7 @@ export const CHANNELS = {
   gamesSettingsSet: 'mstudio:games:settings-set',
   gamesList: 'mstudio:games:list',
   gamesCreate: 'mstudio:games:create',
+  gamesAdd: 'mstudio:games:add',
   gamesGetManifest: 'mstudio:games:get-manifest',
   gamesSetManifest: 'mstudio:games:set-manifest',
   gamesRun: 'mstudio:games:run',
@@ -969,6 +970,11 @@ export const CHANNELS = {
   gamesJuice: 'mstudio:games:juice',
   gamesLogs: 'mstudio:games:logs',
   gamesKitUpgrade: 'mstudio:games:kit-upgrade',
+  /** Levels (Phase 132 Theme C): `levels/<scene>.tmj` list, read, write-and-commit, and the scene jump. */
+  gamesLevels: 'mstudio:games:levels',
+  gamesLevelGet: 'mstudio:games:level-get',
+  gamesLevelSet: 'mstudio:games:level-set',
+  gamesGoto: 'mstudio:games:goto',
   /** Move a game's runner view into the `game` popout window (Theme B). */
   gamesPopOut: 'mstudio:games:pop-out',
   /** Which game the `game` popout hosts, if any. */

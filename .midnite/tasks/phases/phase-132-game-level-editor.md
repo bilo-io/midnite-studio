@@ -71,19 +71,19 @@ over them, defines how a 2D and a 3D level live in Tiled JSON, teaches the kit t
 to jump to a scene on request, and gives agents the same level tools over MCP. Planned 2026-11-13; build order **A**
 first, then **B** and **C** in parallel, then **D**, **F**, **G**, then **E**, then **H**.
 
-**Theme A — Open Game.** ◻ An **Open Game** button beside **New game**: a folder dialog in main, the folder resolved to its game root, registered through the host's repo port (Gamer gets a small opened-games store behind it), refused with a plain reason when it is not a game.
+**Theme A — Open Game.** ✅ An **Open Game** button beside **New game** (and in the empty state): `mstudio:games:add`, a folder dialog in main, `resolveGameFolder` resolving the folder to its repository root with the plain refusals of Decision 7, `service.add` answering `added`, `listed` or `cancelled`, registered through the host's repo port. Studio wires its dialog and `registerRepo`; Gamer gets `opened-games.json` behind the same two ports. Not done: the human check (folded into Theme H); "Remove from list" stays open under Decision 17.
 
-**Theme B — Centre layout: Level editor and Play mode tabs.** ◻ Clicking a game opens a **Level editor** tab in the centre; **Run** opens **Play mode** beside it with the runner and console drawer moved under it; the run controls move to the centre of the top bar, led by a gradient-bordered Play button.
+**Theme B — Centre layout: Level editor and Play mode tabs.** ✅ The centre is a `GameCenter` with a **Level editor** tab (an empty-state placeholder until Theme D) and a **Play mode** tab holding the runner and console drawer; both panels stay mounted and `GameRunnerHost` takes `active` so the native view hides under the editor. `useGameMode` keeps the tab per game (a game opens on the editor) and the pause policy: leaving Play pauses only a run the Play button started, `pauseWhenEditing` (default on, Settings ▸ Games switch) gates it, and return resumes only that auto-pause. The run controls moved to the centre of the top bar (name left, export right), led by a gradient-bordered Run/Play button with a hover glow. Human check stays in H.
 
-**Theme C — Level format, kit loader and the scene jump.** ◻ `shared/src/game-level.ts` (the 2D and 3D conventions over Tiled JSON), additive Tiled schema fields, `kit/core/level.js` plus Phaser and three builders, `window.__midnite.goto(scene)`, kit 0.12.0, and the main-side level list/get/set and goto ops.
+**Theme C — Level format, kit loader and the scene jump.** ✅ `shared/src/game-level.ts` (loose `parseGameLevel`, the 2D and 3D conventions, `levelEntityToWorld`, the level IPC schemas), additive Tiled property/class/polyline fields and `cellAt`, the manifest's `levels` key and `GameSceneNameSchema`, `kit/core/level.js` with Phaser (`preloadLevel`, `buildLevel`, `KitLevelScene`) and three (`buildLevel3d`) builders, `window.__midnite.goto` (in place for a Phaser `level` scene, else a reload on `?midnite-level=`) and `getState().level`, kit 0.12.0, `game-levels.ts` (list/get/set confined to `levels/`, one pathspec commit per save) and the runner's `goto` (`hook` / `reload` / `next-run`) behind four channels, Studio's preload and Gamer's bridge. `GAME_ENGINE_VERSIONS.three` is left at 0.186.1 (desktop pins 0.187.0): that mismatch predates this theme and a vendored-engine bump is its own change.
 
-**Theme D — 2D tile and entity editor, and the scene picker.** ◻ A canvas editor for platformer, top-down, isometric and raycaster levels (paint, erase, rectangle, pick, place and edit entities, layers, undo), Save as one commit, and a scene picker that opens a level and jumps the running game to it.
+**Theme D — 2D tile and entity editor, and the scene picker.** ✅ (part; the e2e has landed) The Level editor tab is a canvas editor over a pure edit model (`level-edit-model.ts`: paint, erase, rectangle, pick, entities, typed properties, layers, a 100-step undo where a drag is one step, `serialise` keeping fields it never touched). It draws with Sprites' `map-view.ts` and hit-tests with `cellAt`, isometric included; wheel zoom 0.25x-8x, Space or middle-drag pan; B/E/R/I/O/V and Mod+Z act only with the canvas focused. A layer list, tile palette, entity palette and inspector sit around it; Save is one `level-set` commit, no autosave. The scene picker sits in B's `sceneSlot`: picking opens the level and calls `goto`, a dirty level asks Save/Discard/Cancel, `next-run` says so; the open level and its undo live in a per-game store. New scene makes a blank level by perspective and can opt the game into `levels.start`. A tileset image that is missing does not make a level read-only (only a parse issue does); 3D levels open read-only until E. Not done: **Start from a map asset** (no renderer read for `assets/map/`), the canvas look, which stays a human check in H.
 
-**Theme E — 3D placement editor.** ◻ The same canvas in plan view for first-person, third-person and the 3D genres: place, move and rotate entities and volumes, edit elevation, size, model and collider, with the terrain kept separate and shown only as an extent.
+**Theme E — 3D placement editor.** ✅ The Level editor tab opens a 3D level (`midnite.dimension` `3d`) in plan view on the same canvas, edit model and picker: tile tools, the tile palette and the Tile layer button give way to **Select / Move** (V), **Place** (O), **Volume** (R, drag a rectangle into a `prop` box with `sizeY` 3), **Path** (P, click points, Enter finishes a polyline `path`) and **Rotate** (Y, drag around the object, Shift snaps to 15°). Yaw is Tiled's own `rotation`, turned about the footprint's centre so its world position does not move. The canvas draws a metre grid (1 m lines, every tenth bold, thinned when zoomed out), footprints as rotated rectangles with a yaw tick, and the terrain only as a dashed outline over its drape image: `levelGet` gained an optional `terrain` (`game-level-terrain.ts` reads `assets/index.json`, the pack's `terrain.manifest.json` bounds and its drape, confined to the game). The inspector adds elevation (empty snaps to ground), sizeY, pitch, roll, scale, a model select over the game's `model` assets, collider, a light's intensity, range and colour, and a read-only world position from `levelEntityToWorld`. New scene makes a 3D scene (80 × 80 m, objects layer with one spawn, `3d` dimension, one metre a tile); the read-only banner for 3D is gone (only a non-orthogonal 3D level stays read-only). Tests: the 3D model ops, plan geometry, the editor's 3D tools and inspector, `readLevelTerrain`, and an agreement test that the editor's placements map to the same world position in `levelEntityToWorld` and the kit's `toWorld3d`. Not done: the canvas look and the human pass on a third-person game, which stay in H.
 
-**Theme F — Starters read their levels from files.** ◻ Every base and 3D genre scene moves its hard-coded layout into `levels/level.tmj` and builds from it (visuals unchanged), new games get `levels` in their manifest, and existing games keep working until they opt in.
+**Theme F — Starters read their levels from files.** ✅ Every base and 3D genre scene builds from `levels/level.tmj` (2D scenes extend `KitLevelScene`, preload the file and read it from the tilemap cache; 3D scenes `buildLevel3d` it and re-skin the boxes by name), keeping their procedural textures, lights and juice. fps and crime moved their ASCII and city rule into the file, rts reads `home`, `enemy-home` and `mineral` objects, and shooter and soulslike read their spawns, bonfire and boss. `composeStarter` writes the 2D palette image, `createGame` sets `levels: { dir: 'levels', start: 'level' }` in the manifest, and existing games are untouched. The palette PNG is never committed (Decision 18). Not done: the visual "unchanged" check (Theme H), `arpg` (procedural dungeon), rts ridges and the shooter's extra crates (still code).
 
-**Theme G — Level tools for agents.** ◻ `game_level_list`, `game_level_get`, `game_level_set` and `game_goto` on the midnite MCP server, and a Levels section in the game-build skill with the migration recipe.
+**Theme G — Level tools for agents.** ✅ `game_level_list`, `game_level_get`, `game_level_set` and `game_goto` are on the midnite MCP server, as thin adapters over Theme C's level service and the runner's `goto`. The two reads answer whenever the server is on; the two writes are refused with `GAMES_OFF_MESSAGE` while `allowGames` is off, and an agent run's private server gets all four. `game_level_get` returns the JSON and its issues, never the images; a refused level or a missing scene comes back as a named tool error. A **Levels** section (where levels live, the 2D and 3D conventions, the four tools, and the pre-0.12 migration recipe) went into `midnite-media-game-build`, in all seven byte-identical copies the copies test pins, not just the four the doc named.
 
 **Theme H — Verification.** ◻ The CI gate, and a human pass in Studio and Gamer over Open Game, the tabs, a 2D and a 3D edit, and the scene jump.
 
@@ -106,7 +106,7 @@ keep editing scenes as code.
 
 ### A — Open Game [S · 1-2h]
 
-- [ ] Contract in [`media-game.ts`](../../../packages/shared/src/media-game.ts) and the IPC files
+- [x] Contract in [`media-game.ts`](../../../packages/shared/src/media-game.ts) and the IPC files
   - `GameAddRequestSchema = z.object({ path: z.string().min(1).optional() })` — `path` absent means "show the folder
     dialog in main"; present is how a test (and a future drag-and-drop) adds a known folder.
   - `GameAddResultSchema = z.discriminatedUnion('status', [z.object({ status: z.literal('added'), gameId: z.string(),
@@ -117,7 +117,7 @@ keep editing scenes as code.
     `gamesCreate`. **Not** `gamesOpen`: `EVENT_CHANNELS.gamesOpen` is already the agent's reveal event.
   - `schemas.GamesAddRequest` in `ipc/schemas.ts`; `games.add(req: GameAddRequest): Promise<GitOpResult<GameAddResult>>`
     in [`ipc/bridge.ts`](../../../packages/shared/src/ipc/bridge.ts).
-- [ ] Net-new `packages/features/media-game/main/games/game-open.ts` — `resolveGameFolder(path): Promise<GitOpResult<{ root: string }>>`
+- [x] Net-new `packages/features/media-game/main/games/game-open.ts` — `resolveGameFolder(path): Promise<GitOpResult<{ root: string }>>`
   - Checks in this order, each refusal a `failure(message)` with these exact messages (`<name>` is `basename`):
     not absolute → `Choose a full folder path.`; not a directory → `"<name>" is not a folder.`;
     `workTreeTop(path)` is null → `"<name>" is not a git repository. A game is its own repository — run git init in
@@ -129,7 +129,7 @@ keep editing scenes as code.
     invalid game with its first issue, and this is how a user gets to fix one.
   - A folder outside the games root is the point of the feature and is allowed; a folder nested deeper than one level
     inside the games root (not found by the scan) is registered like any other.
-- [ ] `service.add(path?: string): Promise<GitOpResult<GameAddResult>>` in [`game-service.ts`](../../../packages/features/media-game/main/games/game-service.ts)
+- [x] `service.add(path?: string): Promise<GitOpResult<GameAddResult>>` in [`game-service.ts`](../../../packages/features/media-game/main/games/game-service.ts)
   - `path` absent → `deps.pickFolder?.()`; no picker → `failure('Open Game is not available here.')`; `null` →
     `ok({ status: 'cancelled' })`.
   - `resolveGameFolder`; then if `listGames(...)` already holds a game whose `realpath` equals the root's →
@@ -141,7 +141,7 @@ keep editing scenes as code.
   - Handler in [`media-game/main/index.ts`](../../../packages/features/media-game/main/index.ts):
     `handle(CHANNELS.gamesAdd, schemas.GamesAddRequest, ({ path }) => service.add(path), (issue) => failure(issue))`;
     `CHANNELS.gamesAdd` appended to [`media-game/manifest.ts`](../../../packages/features/media-game/manifest.ts) `ipc`.
-- [ ] Host wiring
+- [x] Host wiring
   - Studio: `pickFolder` in [`desktop/src/main/index.ts`](../../../packages/desktop/src/main/index.ts)'s `createGamesRuntime`
     call — `dialog.showOpenDialog(win, { title: 'Open a game', properties: ['openDirectory'], defaultPath:
     (await games.service.settings.get()).resolvedRoot })`, `null` on cancel. `registerRepo` is unchanged, so an opened
@@ -157,7 +157,7 @@ keep editing scenes as code.
     and [`modules/gamer/main/bridge.ts`](../../../packages/modules/gamer/main/bridge.ts).
   - Known effect, accepted: Gamer's asset bridge scans `listRepoPaths` for media sources, so an opened game with a
     `.midnite/media/` folder becomes a source. That is the behaviour Studio already has.
-- [ ] Renderer
+- [x] Renderer
   - [`game-explorer.tsx`](../../../packages/features/media-game/renderer/game-explorer.tsx): header gets **Open Game**
     (`LuFolderOpen`, same pill styling as **New game**) immediately left of **New game**; new prop `onOpen`. The empty
     state reads `No games yet. Create one from a starter, or open one you already have.` with both buttons.
@@ -167,7 +167,7 @@ keep editing scenes as code.
   - [`game-tab.tsx`](../../../packages/features/media-game/renderer/game-tab.tsx): `onOpen` runs the mutation and, on
     `added`/`listed`, calls `select(gameId)` so the opened game is selected (Theme B then opens its editor tab). The
     button shows a spinner and is disabled while the mutation is pending.
-- [ ] Tests (vitest)
+- [x] Tests (vitest)
   - Net-new `game-open.test.ts` (node, temp dirs with `git init`): each refusal message; a `src/` pick resolves to the
     top; an invalid manifest still resolves; a folder outside the root resolves.
   - `game-service` add cases (in a net-new `game-service-add.test.ts` over a fake runner and fake deps): `cancelled`
@@ -183,7 +183,7 @@ keep editing scenes as code.
 
 ### B — Centre layout: Level editor and Play mode tabs [M · 2-4h]
 
-- [ ] Net-new `renderer/game-center.tsx` — `GameCenter({ game, mode, onMode, resolution, sceneSlot })`
+- [x] Net-new `renderer/game-center.tsx` — `GameCenter({ game, mode, onMode, resolution, sceneSlot })`
   - A `role="tablist"` strip (`aria-label="Game view"`) with two `role="tab"` buttons: **Level editor** (`LuPencilRuler`)
     and **Play mode** (`LuGamepad2`), `aria-selected` on the active one, arrow keys move between them. Right of the tabs,
     `sceneSlot` (Theme D puts the scene picker there; empty until then).
@@ -194,17 +194,17 @@ keep editing scenes as code.
     available for this game yet.`, body `Press Run to play it.`).
   - While a run is live and the editor tab is showing, the Play tab label carries a small live dot
     (`role="img" aria-label="Running"`), so a run started by an agent is never invisible.
-- [ ] Mode state in [`game-tab.tsx`](../../../packages/features/media-game/renderer/game-tab.tsx)
+- [x] Mode state in [`game-tab.tsx`](../../../packages/features/media-game/renderer/game-tab.tsx)
   - `mode: 'editor' | 'play'` per `gameId` (a `Map` in a `useState`, not persisted). Selecting a game in the list
     (or via `useMediaOpenFor`) sets that game's mode to `editor` — clicking a game opens its level editor.
   - A run started by the Play button sets `play`. A run started elsewhere (an agent's `game_run`, a play-test, MCP)
     does not switch tabs; the live dot shows it.
-- [ ] The native view must hide under the editor tab
+- [x] The native view must hide under the editor tab
   - `GameRunnerHost` gains `active: boolean`; `useGameBounds` folds it in: `visible = live && pageVisible && !occluded
     && active`. With `active` false it sends `setVisible(false)` exactly as an occluder does today; switching back sends
     the bounds again. Without this the `WebContentsView` floats over the editor canvas.
   - The popout (`hosted` false) is unaffected: a popped-out game keeps its own window.
-- [ ] Pause policy (Decision 10)
+- [x] Pause policy (Decision 10)
   - Leaving Play for the editor pauses the run (`games.toolbar({ gameId, action: 'pause' })`) **only** when the run was
     started by this window's Play button, it is `running`, it is not popped out, and the `pauseWhenEditing` setting is
     on; the tab remembers it paused it. Returning to Play resumes only a run it paused itself — a run the user paused
@@ -214,7 +214,7 @@ keep editing scenes as code.
     default. Studio's Settings ▸ Games section
     ([`games-root-section.tsx`](../../../packages/app/src/features/settings/settings-pages/games-root-section.tsx)) gets a
     switch, `Pause the game while editing levels`. Gamer has no Games settings page and uses the default.
-- [ ] Run controls in the centre of the top bar
+- [x] Run controls in the centre of the top bar
   - `game-tab.tsx`'s toolbar node becomes `grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center
     gap-3`: left cell the game name (left-aligned, `truncate`, today's `title`), centre cell `GameRunnerToolbar`, right
     cell `GameExportBar` with `justify-self-end`. The name moves from centre to left.
@@ -223,7 +223,7 @@ keep editing scenes as code.
     export bar at the narrowest supported width; pad the outer cells if they do.
   - The popout's own bar ([`game-popout-pane.tsx`](../../../packages/features/media-game/renderer/game-popout-pane.tsx))
     keeps its current layout.
-- [ ] The Play button — first control in [`GameRunnerToolbar`](../../../packages/features/media-game/renderer/game-runner-toolbar.tsx)
+- [x] The Play button — first control in [`GameRunnerToolbar`](../../../packages/features/media-game/renderer/game-runner-toolbar.tsx)
   - New prop `onPlay: () => void`. Not live → label **Run** (`LuPlay`), starts `useRunGame` and calls `onPlay`. Live →
     label **Play** (`aria-label="Show the running game"`), calls `onPlay` (which switches to the Play tab and resumes an
     auto-paused run). Disabled with no game selected. In the popout `onPlay` is absent and the button only runs.
@@ -237,7 +237,7 @@ keep editing scenes as code.
     `html[data-motion='reduced']`); the glow itself is static, and its fade is `motion-safe:transition-shadow` only.
   - The existing Restart, Stop, resolution, mute, overlay, DevTools, Juice, Playtests and Pop out controls keep their
     order after it.
-- [ ] Tests (vitest/jsdom)
+- [x] Tests (vitest/jsdom)
   - Net-new `game-center.test.tsx`: two tabs with roles and `aria-selected`; the inactive panel is `hidden`; arrow keys
     move selection; the live dot appears when the run store says live and the editor tab is active.
   - Net-new `game-tab-mode.test.tsx` (mock bridge): selecting a game shows the editor tab; Run calls `games.run` and
@@ -253,7 +253,7 @@ keep editing scenes as code.
 
 ### C — Level format, kit loader and the scene jump [L · 4-8h]
 
-- [ ] Net-new `packages/shared/src/game-level.ts` (zod only; exported from the shared barrel)
+- [x] Net-new `packages/shared/src/game-level.ts` (zod only; exported from the shared barrel)
   - `GAME_LEVELS_DIR = 'levels'`, `GAME_LEVEL_EXT = '.tmj'`, `GAME_LEVEL_PARAM = 'midnite-level'` (beside
     `GAME_DETERMINISM_PARAMS`), `GAME_LEVEL_MAX_BYTES = 4 * 1024 * 1024`, `GAME_LEVEL_IMAGES_MAX_BYTES = 8 * 1024 * 1024`.
   - `GameSceneNameSchema = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/, 'use lowercase letters, digits, - and _')` —
@@ -276,14 +276,14 @@ keep editing scenes as code.
     against the kit's copy by an agreement test (below).
   - `GameManifestSchema` gains `levels: z.object({ dir: z.literal('levels').default('levels'), start:
     GameSceneNameSchema }).optional()` — present means "this game's code reads its levels from files" (Decision 14).
-- [ ] Additive fields in [`shared/src/sprite/tiled.ts`](../../../packages/shared/src/sprite/tiled.ts): `TiledPropertySchema =
+- [x] Additive fields in [`shared/src/sprite/tiled.ts`](../../../packages/shared/src/sprite/tiled.ts): `TiledPropertySchema =
   z.object({ name: z.string().min(1), type: z.enum(['string', 'int', 'float', 'bool', 'color', 'file']).default('string'),
   value: z.unknown() })`; `TiledObjectSchema` gains optional `properties`, `class` and `polyline: z.array(z.object({ x,
   y }))`; `TiledMapSchema` and both layer kinds gain optional `properties`. `buildTmj` output is byte-identical (no
   new keys written), so Sprites' tests and exports do not move.
-- [ ] `cellAt(map, px, py): { x: number; y: number } | null` in [`map-view.ts`](../../../packages/shared/src/sprite/map-view.ts),
+- [x] `cellAt(map, px, py): { x: number; y: number } | null` in [`map-view.ts`](../../../packages/shared/src/sprite/map-view.ts),
   the inverse of `cellOrigin` for both orientations (`null` off the map), with cases in `map-view.test.ts`.
-- [ ] Kit — engine-free net-new `templates/media-game/kit/core/level.js`
+- [x] Kit — engine-free net-new `templates/media-game/kit/core/level.js`
   - `currentLevel(fallback)` reads `?midnite-level=` (validated with the same regex; anything else → `fallback`);
     `levelUrl(name)` → `levels/${name}.tmj`; `fetchLevel(name)` → parsed JSON (a 404 rejects with `Level "<name>" not
     found in levels/.`).
@@ -292,7 +292,7 @@ keep editing scenes as code.
     `class`, as `tiled-objects.js` already does), `toWorld3d(entity, map)` → `{ position: [x, y | null, z], yaw, pitch,
     roll, scale, size: [x, y, z] }` (`y` null when `elevation` is absent: snap to ground).
   - `tiled-objects.js` is unchanged; `level.js` re-exports `tiledObjects` and `collisionGrid` so starters import one module.
-- [ ] Kit — engine builders
+- [x] Kit — engine builders
   - Net-new `kit/phaser/level.js`: `preloadLevel(scene, name)` (queues `levelUrl(name)` under key `level:<name>`);
     `buildLevel(scene, name, { render })` → `render: true` delegates to `buildTiledMap` (tile layers drawn, `collision`
     solid and hidden); `render: false` (layout mode, what the starters use — Decision 13) returns `{ map, grid(layer),
@@ -304,7 +304,7 @@ keep editing scenes as code.
     and gets a box collider of its bounds unless `collider: 'none'`; a `light` becomes a point light (`intensity`,
     `range`, `color` properties); a `path` returns its world XZ points; `elevation` absent → `heightAt(x, z)` (the
     terrain's sampler, from `kit/core/heightfield.js`) or `midnite.groundY`. Returns `{ spawns, entities, paths }`.
-- [ ] Kit — `goto` on the hook
+- [x] Kit — `goto` on the hook
   - [`hook.js`](../../../templates/media-game/kit/core/hook.js) default: `goto(name)` validates `name`, rewrites
     `location.search` with `midnite-level=<name>` (every other param, determinism included, kept) and
     `location.replace(...)`; returns `true`. Allowed by the runner's `will-navigate` guard (same scheme and host).
@@ -315,7 +315,7 @@ keep editing scenes as code.
     `GameStateSchema` gains `level: z.string().optional()`. `scene` keeps meaning the engine's scene key.
   - `KIT_VERSION` and `GAME_KIT_VERSION` → `'0.12.0'`; `kit-hash.json` regenerated (`kit-hash.test.ts` says how);
     `HOOK_VERSION` stays `1` — `goto` is additive and main feature-detects it.
-- [ ] Main — level ops in a net-new `packages/features/media-game/main/games/game-levels.ts`, exposed on the service
+- [x] Main — level ops in a net-new `packages/features/media-game/main/games/game-levels.ts`, exposed on the service
   - Every op resolves the game with `service.resolve(gameId)`, validates `scene` with `GameSceneNameSchema`, and confines
     every path to `<game>/levels/` (a resolved path outside it → `failure('That level is outside the game\'s levels
     folder.')`). Nothing throws.
@@ -333,7 +333,7 @@ keep editing scenes as code.
     other uncommitted work out of the commit; unchanged content makes no commit. Sends `gamesChanged { reason:
     'level' }` (`GamesChangedSchema` gains `'level'`). Answers `ok({ sha: string | null })`.
   - `goto(gameId, scene)` → runner `goto`, below.
-- [ ] Main — runner
+- [x] Main — runner
   - `RunnableGame.level?: string`; `gameEntryUrl` adds `midnite-level=<scene>` when set (with or without determinism).
   - `runner.goto(gameId, scene): Promise<GitOpResult<{ via: 'hook' | 'reload' | 'next-run' }>>` — not running →
     remember `nextLevel[gameId]` for the next `run` and answer `next-run` (picking a scene never starts a stopped game);
@@ -343,11 +343,11 @@ keep editing scenes as code.
     same way (the view is the same).
   - The watcher is unchanged: a level save hot-reloads a running game at its current URL, which is how an edit to the
     scene being played shows up (Decision 12).
-- [ ] IPC: `gamesLevels: 'mstudio:games:levels'`, `gamesLevelGet: 'mstudio:games:level-get'`, `gamesLevelSet:
+- [x] IPC: `gamesLevels: 'mstudio:games:levels'`, `gamesLevelGet: 'mstudio:games:level-get'`, `gamesLevelSet:
   'mstudio:games:level-set'`, `gamesGoto: 'mstudio:games:goto'` (channels, request schemas in `ipc/schemas.ts`, the
   `games.levels.{list,get,set}` and `games.goto` bridge methods, handlers in `media-game/main/index.ts`, the manifest's
   `ipc` list, Studio's preload and Gamer's bridge)
-- [ ] Tests (vitest)
+- [x] Tests (vitest)
   - Net-new `game-level.test.ts`: a Sprites `buildTmj` map parses as a 2D level; a 3D fixture parses with
     `dimension: '3d'`; an external tileset, an infinite map and a bad scene name each give their issue;
     `levelEntityToWorld` for point, rotated rectangle and `metresPerTile: 2` cases.
@@ -366,10 +366,10 @@ keep editing scenes as code.
 
 ### D — 2D tile and entity editor, and the scene picker [L · 4-8h]
 
-- [ ] Net-new `renderer/level/use-levels.ts`: `GAME_KEYS.levels(gameId)` (`['games', 'levels', gameId]`) and `GAME_KEYS.level(gameId, scene)` (`['games', 'levels', gameId, scene]`, under the same prefix) queries over
+- [x] Net-new `renderer/level/use-levels.ts`: `GAME_KEYS.levels(gameId)` (`['games', 'levels', gameId]`) and `GAME_KEYS.level(gameId, scene)` (`['games', 'levels', gameId, scene]`, under the same prefix) queries over
   the C bridge; `useSaveLevel` (invalidates both and the list); `useGotoScene`. `gamesChanged { reason: 'level' }`
   invalidates `['games', 'levels']` in `useGameEvents`.
-- [ ] Net-new `renderer/level/level-edit-model.ts` — pure, no React
+- [x] Net-new `renderer/level/level-edit-model.ts` — pure, no React
   - State: the level JSON, active layer id, selection, `dirty`, an undo stack capped at 100 entries (oldest dropped).
   - Ops: `paint(layer, cells, gid)`, `erase(layer, cells)`, `fillRect(layer, from, to, gid)`, `pick(layer, cell)`,
     `addObject(layer, { type, x, y, width?, height? })` (id from `nextobjectid`, which it bumps), `moveObject`,
@@ -377,12 +377,12 @@ keep editing scenes as code.
     (typed: string, int, float, bool), `addLayer(kind, name)`, `renameLayer`, `toggleVisible`, `undo`, `redo`,
     `serialise()` (the level with every field it did not touch preserved).
   - Snapping: 2D objects snap to the cell centre unless Alt is held.
-- [ ] Net-new `renderer/level/level-canvas.tsx` — draws with `map-view.ts` (`tileOf`, `sourceRect`, `cellOrigin`,
+- [x] Net-new `renderer/level/level-canvas.tsx` — draws with `map-view.ts` (`tileOf`, `sourceRect`, `cellOrigin`,
   `cellAt`, `collisionAt`) so it matches Sprites' preview; `collision` cells get a translucent red overlay; object
   layers draw typed markers (`spawn` green, `exit` blue, others neutral, using existing theme tokens) with the name
   under them; the hovered cell is outlined. Wheel zooms around the pointer (0.25× – 8×), Space-drag or middle-drag pans.
   Isometric maps draw and hit-test through the same functions.
-- [ ] Net-new `renderer/level/level-editor.tsx` — the editor tab's content
+- [x] Net-new `renderer/level/level-editor.tsx` — the editor tab's content
   - Toolbar: tools **Paint** (`B`), **Erase** (`E`), **Rectangle** (`R`), **Pick** (`I`), **Entity** (`O`),
     **Select** (`V`) as a `role="radiogroup"`; undo/redo buttons; **Save** (disabled when clean, shows `Saving…`).
     The letter keys and `Mod+z` / `Mod+Shift+z` act only while the canvas has focus — they are not added to the global
@@ -396,7 +396,7 @@ keep editing scenes as code.
   - A level with issues opens read-only with the first issue in a banner; the picker can still jump to it.
   - Loading → skeleton; no scenes → `EmptyState` `No levels yet` with **New scene**; a get failure → its message with
     **Retry**.
-- [ ] Net-new `renderer/level/scene-picker.tsx` in B's `sceneSlot` (Decision 9)
+- [x] Net-new `renderer/level/scene-picker.tsx` in B's `sceneSlot` (Decision 9)
   - A select labelled **Scene**, listing `levels/*.tmj` names with the manifest's `start` scene marked `(start)`, and a
     trailing **New scene…** item. Disabled with no game.
   - Picking a scene: if the open level is dirty, a confirm (`Save changes to <scene>?` — **Save**, **Discard**,
@@ -406,19 +406,22 @@ keep editing scenes as code.
     picker does not follow — the game's own level is in `getState().level`.
   - Switching tabs keeps the open level and its undo stack (a per-`gameId` zustand store); switching games or scenes
     goes through the dirty confirm.
-- [ ] Net-new `renderer/level/new-scene-dialog.tsx`
+- [x] Net-new `renderer/level/new-scene-dialog.tsx`
   - Name (validated live with `GameSceneNameSchema`, `A scene named "<x>" already exists.` against the list), size in
     tiles and tile size prefilled from the manifest's perspective: platformer 50×17 @ 32 px, top-down 40×30 @ 32,
     isometric 20×20 @ 64×32 (isometric orientation), raycaster 24×12 @ 64 with a `walls` layer instead of `ground`;
     3D (Theme E) 80×80 @ 32 with `midnite.metresPerTile = 1` and no tile layers.
-  - **Start from**: Blank (a `ground` (or `walls`) tile layer, a `collision` tile layer, an `objects` layer with one
-    `spawn`, the template's palette tileset embedded — F ships it), or any `map` asset already imported into this game
-    (`manifest.assets` kind `map`, read from `assets/map/<name>/map.tmj`), copied with its tileset `image` paths
-    rewritten relative to `levels/`. Creates with `levelSet(..., { create: true })`, then opens it.
+  - **Start from** Blank: a `ground` (or `walls`) tile layer, a `collision` tile layer, an `objects` layer with one
+    `spawn` (the template's palette tileset joins it when F ships one). Creates with `levelSet(..., { create: true })`,
+    then opens it.
   - When the game has no `levels` key yet, creating the first scene also offers **Make this the start scene**
     (unchecked by default), which sets `levels: { dir: 'levels', start: <scene> }` through `games.manifest.set` — the
     explicit opt-in of Decision 14.
-- [ ] Tests (vitest/jsdom)
+- [ ] **Start from a map asset** in the New scene dialog: any `map` asset already imported into this game
+  (`manifest.assets` kind `map`, `assets/map/<name>/map.tmj`), copied with its tileset `image` paths rewritten relative
+  to `levels/`. Not built in this pass: the renderer has no channel that reads a game file outside `levels/`, so it
+  needs a small read op first (`rewriteTilesetImages` in `new-scene-model.ts` is the pure half, tested).
+- [x] Tests (vitest/jsdom)
   - Net-new `level-edit-model.test.ts`: paint/erase/rect produce the right `data`; undo/redo round-trip and the 100 cap;
     object ids follow `nextobjectid`; `serialise` keeps unknown fields; the result passes `parseGameLevel`.
   - Net-new `scene-picker.test.tsx`: picking calls `level-get` then `goto`; a dirty level prompts and **Cancel** leaves
@@ -427,56 +430,52 @@ keep editing scenes as code.
     for `readsLevels: false`, the read-only banner for an invalid level, the empty state's **New scene**.
   - Net-new `new-scene-dialog.test.tsx`: name validation, perspective defaults, the map-asset path rewrite, the start
     scene manifest write.
-- [ ] One functional e2e, `packages/app/e2e/game-level-editor.spec.ts`, over the mock bridge: paint three cells by
+- [x] One functional e2e, `packages/app/e2e/game-level-editor.spec.ts`, over the mock bridge: paint three cells by
   pointer drag, undo once, save, and assert the `level-set` payload. Header comment names the capability it needs:
   **real canvas pointer input and `getBoundingClientRect` hit-testing**. Declared in the e2e budget
   (`scripts/e2e-budget.mjs`) with that reason. No screenshot assertion.
 
 ### E — 3D placement editor [M · 2-4h]
 
-- [ ] `level-editor.tsx` switches to plan-view placement mode when `parseGameLevel` says `dimension: '3d'`; tile tools
+- [x] `level-editor.tsx` switches to plan-view placement mode when `parseGameLevel` says `dimension: '3d'`; tile tools
   and the tileset palette are hidden (a 3D level has object layers only — Decision 3).
-- [ ] Canvas: a metres grid (1 m lines, 10 m bold) from `midnite.metresPerTile`; +X right, +Z down, as seen from above;
+- [x] Canvas: a metres grid (1 m lines, 10 m bold) from `midnite.metresPerTile`; +X right, +Z down, as seen from above;
   an outline of the terrain's extent when `midnite.terrain` names a terrain asset whose pack manifest gives one (and the
   pack's preview image under it when the pack carries one — the builder checks the pack format, and draws only the
   outline otherwise). Entities draw as footprints (rectangles) or markers (points) with a yaw tick.
-- [ ] Tools: **Select/Move** (`V`, drag), **Place** (`O`, point entities from `GAME_LEVEL_ENTITY_TYPES_3D`), **Volume**
+- [x] Tools: **Select/Move** (`V`, drag), **Place** (`O`, point entities from `GAME_LEVEL_ENTITY_TYPES_3D`), **Volume**
   (`R`, drag a rectangle → a `prop` box, `sizeY` 3 m), **Path** (`P`, click points, Enter to finish → a polyline
   `path`), **Rotate** (drag around the entity; 15° steps with Shift). Yaw writes Tiled's own `rotation`.
-- [ ] Inspector adds: elevation (m; empty = snap to ground), sizeY (m), pitch, roll (degrees), scale, model (a select of
+- [x] Inspector adds: elevation (m; empty = snap to ground), sizeY (m), pitch, roll (degrees), scale, model (a select of
   this game's `model` assets from `manifest.assets`; empty = box), collider (`box` / `none`), and for `light`:
   intensity, range, colour. World coordinates read-only, from shared `levelEntityToWorld`, so what the inspector says
   is what the kit builds.
-- [ ] `level-edit-model.ts` 3D ops: `rotateObject` (snap), `setVolume`, `addPathPoint` / `finishPath`, all undoable.
-- [ ] Tests (vitest): model cases (yaw ↔ `rotation` sign, snap, volume default `sizeY`, path finish); an inspector
+- [x] `level-edit-model.ts` 3D ops: `rotateObject` (snap), `setVolume`, `addPathPoint` / `finishPath`, all undoable.
+- [x] Tests (vitest): model cases (yaw ↔ `rotation` sign, snap, volume default `sizeY`, path finish); an inspector
   case that the world position shown equals `levelEntityToWorld`; the editor hides tile tools for a 3D level.
 
 ### F — Starters read their levels from files [L · 4-8h]
 
-- [ ] Template palette for 2D: `templates/media-game/common/levels/palette.png` and its embedded tileset — one flat
-  32 px tile per layout kind (`ground`, `ledge`, `oneway`, `wall`, `door`, `water`, `hazard`, `decor`), each tile
-  carrying a `kind` property. A small committed PNG, generated once by a script documented in the template's README
-  (not a screenshot or baseline). The editor draws with it; the starters do not render it (layout mode).
-- [ ] 2D bases — each `bases/<base>/levels/level.tmj` holds today's layout exactly, and `src/scenes/level.js` builds
+- [x] 2D bases — each `bases/<base>/levels/level.tmj` holds today's layout exactly, and `src/scenes/level.js` builds
   from it through `kit/phaser/level.js` in layout mode, keeping every procedural texture, light and juice call:
   [`platformer`](../../../templates/media-game/bases/platformer/src/scenes/level.js) (ground row, the three one-way
   ledges, three coins, the walker, the spawn at 64,400), `top-down`, `isometric`, `raycaster`.
-- [ ] 2D genres — fps's `LEVEL_ASCII` and crime's `city.js` emit their `.tmj` once into `genres/<g>/levels/level.tmj`;
+- [x] 2D genres — fps's `LEVEL_ASCII` and crime's `city.js` emit their `.tmj` once into `genres/<g>/levels/level.tmj`;
   `genre/index.js` reads the file through `fetchLevel` with the same `collisionGrid` / `tiledObjects` calls; the ASCII
   stays as a comment for reference. `rts` and `arpg` read their spawns and points from the base level's `objects`.
-- [ ] 3D bases and genres — `first-person`, `third-person` and the six 3D genre scenes
+- [x] 3D bases and genres — `first-person`, `third-person` and the six 3D genre scenes
   (`character-action`, `fighter`, `open-world`, `rpg`, `shooter`, `soulslike`) move their crates, ramps, arenas,
   enemies and spawns into `levels/level.tmj` (3D conventions) and call `buildLevel3d`; boxes keep their materials by
   `type`/`name` (the scene maps them, not the file). `open-world` sets `midnite.terrain = 'world'` (its `TERRAIN`
   asset) and leaves the heightfield in the terrain pack.
-- [ ] Every composed starter's manifest gets `levels: { dir: 'levels', start: 'level' }` (written where
+- [x] Every composed starter's manifest gets `levels: { dir: 'levels', start: 'level' }` (written where
   [`game-scaffold.ts`](../../../packages/features/media-game/main/games/game-scaffold.ts) /
   [`compose.ts`](../../../packages/features/media-game/main/games/compose.ts) write the rest), and composition copies
   the right `levels/` (genre over base, as `src/` already layers).
-- [ ] Existing games: nothing rewrites their `src/`. After a kit upgrade (0.12.0) they have `level.js`, the builders and
+- [x] Existing games: nothing rewrites their `src/`. After a kit upgrade (0.12.0) they have `level.js`, the builders and
   `goto`; their hard-coded scenes keep running; the editor shows the D banner until their manifest has `levels`. The
   game-build skill (Theme G) carries the migration recipe an agent follows on request.
-- [ ] Tests (vitest)
+- [x] Tests (vitest)
   - Net-new `starter-levels.test.ts`: for every base × allowed genre composition, `levels/level.tmj` passes
     `parseGameLevel` with the right dimension, the manifest's `levels.start` names an existing file, and the scene
     source imports `kit/phaser/level.js` or `kit/three/level.js`.
@@ -488,9 +487,16 @@ keep editing scenes as code.
     `game-scaffold.test.ts` stay green; where they assert scene source that moved into the file, update the assertion to
     the file, not delete it.
 
+> Landed notes: the palette is `PALETTE_KINDS` in `level-palette.ts` (nine tiles: the eight kinds plus a second wall, since
+> the raycaster's wall ids run 1 to 9), drawn through the runtime's `encodePngRgba8` by `composeStarter` into a 2D game's
+> `levels/palette.png`. The `level.tmj` files carry the embedded tileset (`image: palette.png`). Crime's solid layer is
+> `buildings` and the raycaster family's is `walls`, so a base scene never builds a genre's own world from `collision`. 3D
+> levels are origin-centred, so their objects have negative pixel coordinates. `arpg` stays procedural (its dungeon is
+> generated, there is no layout to move), `rts` keeps its ridges in code, and the shooter's extra cover crates stay in its genre module.
+
 ### G — Level tools for agents [M · 2-4h]
 
-- [ ] Four tools appended to `GAME_MCP_TOOL_IDS` in [`media-game-mcp.ts`](../../../packages/shared/src/media-game-mcp.ts)
+- [x] Four tools appended to `GAME_MCP_TOOL_IDS` in [`media-game-mcp.ts`](../../../packages/shared/src/media-game-mcp.ts)
   and the id union in [`mcp.ts`](../../../packages/shared/src/mcp.ts)
   - `game_level_list` `{ game }` → `{ scenes, start, readsLevels }` (read).
   - `game_level_get` `{ game, scene }` → `{ level, issues }` — the JSON only, no images (read).
@@ -500,11 +506,11 @@ keep editing scenes as code.
   - `GAME_MCP_READ_TOOL_IDS` gains the two reads; the writes are refused with `GAMES_OFF_MESSAGE` while
     `allowGames` is off, like every other write. `GAME_AGENT_TOOL_IDS` picks all four up by derivation, so an agent run
     can edit levels. None is slow.
-- [ ] Adapters in [`game-mcp.ts`](../../../packages/features/media-game/main/games/game-mcp.ts) over the C service ops;
+- [x] Adapters in [`game-mcp.ts`](../../../packages/features/media-game/main/games/game-mcp.ts) over the C service ops;
   a failure becomes `McpToolError('invalid', message)` (or `not-found` for an unknown game or scene).
-- [ ] `mcp.test.ts`'s write set gains `game_level_set` and `game_goto`; the MCP tool-list tests that enumerate game tools
+- [x] `mcp.test.ts`'s write set gains `game_level_set` and `game_goto`; the MCP tool-list tests that enumerate game tools
   (and Gamer's shim list, derived from `GAME_AGENT_TOOL_IDS`) stay green by derivation.
-- [ ] Skill: a **Levels** section in `midnite-media-game-build` — the four copies
+- [x] Skill: a **Levels** section in `midnite-media-game-build` — the four copies
   ([`.claude`](../../../.claude/skills/midnite-media-game-build/SKILL.md), `.agents`, `.codex`, and the one games ship
   with, [`templates/media-game/skills/midnite-media-game-build/SKILL.md`](../../../templates/media-game/skills/midnite-media-game-build/SKILL.md),
   same edit in all four): where levels live, the 2D and 3D conventions, the four tools, "save then the hot reload shows
@@ -548,7 +554,7 @@ keep editing scenes as code.
 | [`games-root-section.tsx`](../../../packages/app/src/features/settings/settings-pages/games-root-section.tsx) | B | edited — the pause switch |
 | `templates/media-game/kit/core/level.js` · `kit/phaser/level.js` · `kit/three/level.js` | C | **net-new** |
 | [`kit/core/hook.js`](../../../templates/media-game/kit/core/hook.js) · [`kit/phaser/boot.js`](../../../templates/media-game/kit/phaser/boot.js) · [`kit/three/loop.js`](../../../templates/media-game/kit/three/loop.js) | C | edited — `goto`, `level` in state, `KIT_VERSION` |
-| `templates/media-game/{bases,genres}/*/levels/level.tmj` · `common/levels/palette.png` | F | **net-new** |
+| `templates/media-game/{bases,genres}/*/levels/level.tmj` · `main/games/level-palette.ts` (the palette image, generated at scaffold, never committed) | F | **net-new** |
 | `templates/media-game/{bases,genres}/*/src/scenes/level.js` · `genres/{fps,crime}/src/genre/*` | F | edited — build from the file |
 | [`game-scaffold.ts`](../../../packages/features/media-game/main/games/game-scaffold.ts) · [`compose.ts`](../../../packages/features/media-game/main/games/compose.ts) | F | edited — `levels` in the manifest, copy `levels/` |
 | `.claude/` · `.agents/` · `.codex/` · `templates/media-game/` `skills/midnite-media-game-build/SKILL.md` | G | edited (same edit ×4) |
@@ -564,7 +570,7 @@ keep editing scenes as code.
   `goto` cases, `map-view` `cellAt` (C).
 - [ ] `level-edit-model.test.ts`, `scene-picker.test.tsx`, `level-editor.test.tsx`, `new-scene-dialog.test.tsx` and the
   one e2e (D); the 3D model and inspector cases (E).
-- [ ] `starter-levels.test.ts` and the layout regression; existing template tests green (F).
+- [x] `starter-levels.test.ts` and the layout regression; existing template tests green (F).
 - [ ] The MCP id, read-set and write-set tests (G).
 - [ ] **Open, for a human:** the passes listed under H.
 
@@ -655,3 +661,7 @@ the coordinator relayed 9–11 from the user as layout requirements.
 17. **Open — should Theme A also offer "Remove from list"?** Recommended: not now. In Studio a game leaves with its
     repo in the repos panel; Gamer would need a `forget` op and a row menu. It is small, but A was asked to stay
     small; if wanted, it is one more channel and one menu item in A.
+18. **Resolved — the template palette image is generated at scaffold time and never committed.** Agreed with the user: the
+    2D starters' tile palette (`palette.png`) is drawn from code by `composeStarter` when a game is created, using the
+    runtime's PNG encoder, so the template tree carries no binary for it and a test asserts no `*.png` sits under any
+    `templates/media-game/**/levels/`. The `.tmj` embeds the tileset and names the image; a scaffolded game gets the file.

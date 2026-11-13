@@ -16,6 +16,7 @@ import * as THREE from 'three';
 import { createFixedStep } from '../core/clock.js';
 import { determinism } from '../core/determinism.js';
 import { HOOK_VERSION, installHook, markReady, startSeed } from '../core/hook.js';
+import { currentLevel } from '../core/level.js';
 import { beforeKitStep } from '../core/replay.js';
 
 /**
@@ -135,6 +136,7 @@ export function startLoop(options) {
     getState: () => ({
       version: HOOK_VERSION,
       scene: typeof options.sceneName === 'function' ? options.sceneName() : options.sceneName ?? 'main',
+      level: currentLevel('main'),
       frame,
       time: loop.time,
       ...(options.state?.() ?? {}),

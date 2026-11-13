@@ -41,7 +41,7 @@ describe('tool listing per installed set', () => {
     expect(listMcpToolIds(installedSet([]))).toEqual(expect.arrayContaining(GAMER_TOOLS));
     expect(listMcpToolIds(installedSet([]), MANIFESTS).some((id) => GAMER_TOOLS.includes(id))).toBe(false);
     // Pinned count: a new tool must be deliberately placed (and this number bumped).
-    expect(MCP_TOOL_IDS).toHaveLength(128);
+    expect(MCP_TOOL_IDS).toHaveLength(132);
     const histogram: Record<string, number> = {};
     for (const id of MCP_TOOL_IDS) histogram[ownerOf(id)] = (histogram[ownerOf(id)] ?? 0) + 1;
     expect(histogram).toMatchInlineSnapshot(`
@@ -49,7 +49,7 @@ describe('tool listing per installed set', () => {
         "agents": 4,
         "creator": 16,
         "frame": 21,
-        "gamer": 87,
+        "gamer": 91,
       }
     `);
   });

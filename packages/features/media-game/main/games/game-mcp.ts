@@ -52,7 +52,7 @@ export type GameImage = {
 };
 
 export type GameMcpDeps = {
-  service: Pick<GameService, 'resolve' | 'list' | 'create' | 'manifestGet' | 'manifestSet' | 'run' | 'stop' | 'reload' | 'logs' | 'emit' | 'isRunning'>;
+  service: Pick<GameService, 'resolve' | 'list' | 'levels' | 'goto' | 'create' | 'manifestGet' | 'manifestSet' | 'run' | 'stop' | 'reload' | 'logs' | 'emit' | 'isRunning'>;
   /** The running game's web contents, or `null` when it is not running. */
   webContents: (gameId: string) => GamePageContents | null;
   /** The asset bridge's import (Theme N). */
@@ -82,7 +82,11 @@ export type GameMcpTools = {
     | 'game_replay_play'
     | 'game_assert_state'
     | 'game_assert_frame'
-    | 'game_playtest']: (input: McpToolInput<K>) => Promise<McpToolOutput<K>>;
+    | 'game_playtest'
+    | 'game_level_list'
+    | 'game_level_get'
+    | 'game_level_set'
+    | 'game_goto']: (input: McpToolInput<K>) => Promise<McpToolOutput<K>>;
 };
 
 export { GAME_STATE_TIMEOUT_MS } from './game-state';
@@ -140,6 +144,13 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
   const unwrap = <T>(result: { ok: true; value: T } | { ok: true } | { ok: false; kind: string; message?: string }): T => {
     if (!result.ok) throw new McpToolError('error', 'message' in result && result.message ? result.message : 'That did not work.');
     return ('value' in result ? result.value : undefined) as T;
+  };
+
+  /** A level op's failure becomes a tool error: `not-found` for a missing scene, `error` otherwise. */
+  const unwrapLevel = <T>(result: { ok: true; value: T } | { ok: false; kind: string; message?: string }): T => {
+    if (result.ok) return result.value;
+    const text = result.message ?? 'That did not work.';
+    throw new McpToolError(/no level|not found|does not exist/i.test(text) ? 'not-found' : 'error', clip(text));
   };
 
   const playtests = (): Playtests => {
@@ -315,6 +326,29 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
         blocks.push({ type: 'image', data, mimeType: 'image/png' });
       }
       return { [MCP_CONTENT_KEY]: blocks };
+    },
+
+    async game_level_list({ game }) {
+      const found = await need(game);
+      return unwrapLevel(await deps.service.levels.list(found.gameId));
+    },
+
+    async game_level_get({ game, scene }) {
+      const found = await need(game);
+      const { level, issues } = unwrapLevel(await deps.service.levels.get(found.gameId, scene));
+      return { level, issues };
+    },
+
+    async game_level_set({ game, scene, level, create }) {
+      const found = await need(game);
+      const written = unwrapLevel(await deps.service.levels.set(found.gameId, scene, level, create === undefined ? {} : { create }));
+      return { ok: true as const, gameId: found.gameId, sha: written.sha };
+    },
+
+    async game_goto({ game, scene }) {
+      const found = await need(game);
+      const jumped = unwrapLevel(await deps.service.goto(found.gameId, scene));
+      return { gameId: found.gameId, via: jumped.via };
     },
 
     async game_state({ game }) {

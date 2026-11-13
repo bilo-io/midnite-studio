@@ -1,6 +1,7 @@
 import type {
   GameAssetSourceTab,
   GameAssetSourcesResult,
+  GameAddResult,
   GameCreateRequest,
   GameImportAssetRequest,
   GameImportAssetResult,
@@ -31,6 +32,9 @@ export const GAME_KEYS = {
   assetSources: (tab: string) => ['games', 'asset-sources', tab] as const,
   /** Theme O: `playtests/*.json` with their last results. */
   playtests: (gameId: string) => ['games', 'playtests', gameId] as const,
+  /** Phase 132 Theme D: `levels/*.tmj`, and one scene under the same prefix. */
+  levels: (gameId: string) => ['games', 'levels', gameId] as const,
+  level: (gameId: string, scene: string) => ['games', 'levels', gameId, scene] as const,
 };
 
 /**
@@ -101,6 +105,22 @@ export function useCreateGame() {
   });
 }
 
+/** Open Game (Phase 132 Theme A): the folder dialog lives in main; `added` and `listed` both leave the game in the list. */
+export function useAddGame() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async () => (await bridge()?.games.add({})) ?? noBridge<GameAddResult>(),
+    onSuccess: (result) => {
+      // Narrowed first: `GitOpResult<T>` distributes over a union `T`, which a union result is not assignable to.
+      if (!result.ok) reportFailure(result);
+      if (result.ok && result.value.status !== 'cancelled') {
+        void client.invalidateQueries({ queryKey: GAME_KEYS.list });
+        void client.invalidateQueries({ queryKey: REPOS_KEY });
+      }
+    },
+  });
+}
+
 export function useRunGame() {
   return useMutation({
     mutationFn: async (gameId: string) => (await bridge()?.games.run({ gameId })) ?? noBridge<{ runId: string }>(),
@@ -137,9 +157,10 @@ export function useGameEvents(): void {
     const offs = [
       api.games.onRunState((event) => useGameRunStore.getState().applyRunState(event)),
       api.games.onConsole((event) => useGameRunStore.getState().appendLogs(event.gameId, event.runId, event.entries)),
-      api.games.onChanged(() => {
+      api.games.onChanged((event) => {
         void client.invalidateQueries({ queryKey: GAME_KEYS.list });
         void client.invalidateQueries({ queryKey: ['games', 'assets'] });
+        if (event.reason === 'level') void client.invalidateQueries({ queryKey: ['games', 'levels'] });
       }),
       // A source in the media store changed: the "N assets changed" badge may need to move.
       api.media.onChanged(() => {

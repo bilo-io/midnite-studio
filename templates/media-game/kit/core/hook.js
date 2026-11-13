@@ -13,10 +13,11 @@
  */
 
 import { determinism } from './determinism.js';
+import { isSceneName, LEVEL_PARAM } from './level.js';
 import { virtualGamepad } from './input-map.js';
 import { replayer } from './replay.js';
 
-export const KIT_VERSION = '0.11.0';
+export const KIT_VERSION = '0.12.0';
 /** `window.__midnite.version`; bumped when the hook's shape changes. */
 export const HOOK_VERSION = 1;
 
@@ -28,8 +29,21 @@ export const HOOK_VERSION = 1;
  *   step?: (n: number) => void,
  *   setSeed?: (seed: number) => void,
  *   setOverlay?: (on: boolean) => void,
+ *   goto?: (name: string) => boolean,
  * }} HookImpl
  */
+
+/**
+ * The default `goto`: reload this page on level `name`, keeping every other query param (determinism included).
+ * @param {string} name
+ */
+function gotoByReload(name) {
+  if (!isSceneName(name) || typeof location === 'undefined') return false;
+  const query = new URLSearchParams(location.search);
+  query.set(LEVEL_PARAM, name);
+  location.replace(`${location.pathname}?${query.toString()}${location.hash}`);
+  return true;
+}
 
 /** Extra properties other kit modules hang on the hook (`juice`, `fx`); they survive a re-install. @type {Record<string, unknown>} */
 const extensions = {};
@@ -63,6 +77,8 @@ export function installHook(impl = {}) {
     step: (/** @type {number} */ _n) => {},
     setSeed: (/** @type {number} */ seed) => determinism.reseed(seed),
     setOverlay: (/** @type {boolean} */ _on) => {},
+    /** Jump to level `name` (`levels/<name>.tmj`): reloads on `?midnite-level=` unless the engine loop restarts in place. */
+    goto: gotoByReload,
     input: {
       gamepad: (/** @type {number} */ button, /** @type {boolean} */ pressed) => virtualGamepad.set(button, pressed),
     },

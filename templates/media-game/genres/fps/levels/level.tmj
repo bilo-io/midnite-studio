@@ -1,0 +1,351 @@
+{
+  "type": "map",
+  "version": "1.10",
+  "tiledversion": "1.10.2",
+  "orientation": "orthogonal",
+  "renderorder": "right-down",
+  "infinite": false,
+  "width": 24,
+  "height": 12,
+  "tilewidth": 64,
+  "tileheight": 64,
+  "nextlayerid": 4,
+  "nextobjectid": 15,
+  "properties": [
+    {
+      "name": "midnite.level",
+      "type": "int",
+      "value": 1
+    },
+    {
+      "name": "midnite.dimension",
+      "type": "string",
+      "value": "2d"
+    }
+  ],
+  "tilesets": [
+    {
+      "firstgid": 1,
+      "name": "palette",
+      "tilewidth": 32,
+      "tileheight": 32,
+      "tilecount": 9,
+      "columns": 9,
+      "margin": 0,
+      "spacing": 0,
+      "image": "palette.png",
+      "imagewidth": 288,
+      "imageheight": 32,
+      "tiles": [
+        {
+          "id": 0,
+          "properties": [
+            {
+              "name": "kind",
+              "type": "string",
+              "value": "ground"
+            }
+          ]
+        },
+        {
+          "id": 1,
+          "properties": [
+            {
+              "name": "kind",
+              "type": "string",
+              "value": "ledge"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "properties": [
+            {
+              "name": "kind",
+              "type": "string",
+              "value": "oneway"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "properties": [
+            {
+              "name": "kind",
+              "type": "string",
+              "value": "wall"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "properties": [
+            {
+              "name": "kind",
+              "type": "string",
+              "value": "door"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "properties": [
+            {
+              "name": "kind",
+              "type": "string",
+              "value": "water"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "properties": [
+            {
+              "name": "kind",
+              "type": "string",
+              "value": "hazard"
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "properties": [
+            {
+              "name": "kind",
+              "type": "string",
+              "value": "decor"
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "properties": [
+            {
+              "name": "kind",
+              "type": "string",
+              "value": "wall"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "layers": [
+    {
+      "id": 1,
+      "name": "walls",
+      "type": "tilelayer",
+      "width": 24,
+      "height": 12,
+      "opacity": 1,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "data": [
+        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+        1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,
+        1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,
+        1,0,0,0,0,0,9,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,1,
+        1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,
+        1,1,1,9,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,
+        1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,
+        1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,
+        1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,5,0,0,0,0,0,0,0,1,
+        1,0,0,0,0,0,9,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,
+        1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,
+        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+      ]
+    },
+    {
+      "id": 2,
+      "name": "sky",
+      "type": "tilelayer",
+      "width": 24,
+      "height": 12,
+      "opacity": 1,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "data": [
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,8,8,0,8,8,8,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,8,8,0,8,8,8,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,8,8,8,8,8,8,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,8,8,0,8,8,8,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+      ]
+    },
+    {
+      "id": 3,
+      "name": "objects",
+      "type": "objectgroup",
+      "draworder": "topdown",
+      "opacity": 1,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "objects": [
+        {
+          "id": 1,
+          "name": "player",
+          "type": "spawn",
+          "x": 96,
+          "y": 96,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 2,
+          "name": "ammo",
+          "type": "pickup",
+          "x": 288,
+          "y": 96,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 3,
+          "name": "violet-key",
+          "type": "pickup",
+          "x": 1248,
+          "y": 96,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 4,
+          "name": "grunt",
+          "type": "enemy",
+          "x": 672,
+          "y": 160,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 5,
+          "name": "health",
+          "type": "pickup",
+          "x": 1248,
+          "y": 160,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 6,
+          "name": "grunt",
+          "type": "enemy",
+          "x": 224,
+          "y": 288,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 7,
+          "name": "grunt",
+          "type": "enemy",
+          "x": 1248,
+          "y": 288,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 8,
+          "name": "rocket",
+          "type": "pickup",
+          "x": 672,
+          "y": 352,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 9,
+          "name": "health",
+          "type": "pickup",
+          "x": 224,
+          "y": 480,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 10,
+          "name": "grunt",
+          "type": "enemy",
+          "x": 1248,
+          "y": 480,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 11,
+          "name": "grunt",
+          "type": "enemy",
+          "x": 224,
+          "y": 608,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 12,
+          "name": "shotgun",
+          "type": "pickup",
+          "x": 672,
+          "y": 608,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 13,
+          "name": "red-key",
+          "type": "pickup",
+          "x": 224,
+          "y": 672,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 14,
+          "name": "ammo",
+          "type": "pickup",
+          "x": 1248,
+          "y": 672,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        }
+      ]
+    }
+  ]
+}

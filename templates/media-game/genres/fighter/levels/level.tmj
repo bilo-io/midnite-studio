@@ -1,0 +1,197 @@
+{
+  "type": "map",
+  "version": "1.10",
+  "tiledversion": "1.10.2",
+  "orientation": "orthogonal",
+  "renderorder": "right-down",
+  "infinite": false,
+  "width": 80,
+  "height": 80,
+  "tilewidth": 32,
+  "tileheight": 32,
+  "nextlayerid": 3,
+  "nextobjectid": 13,
+  "properties": [
+    {
+      "name": "midnite.level",
+      "type": "int",
+      "value": 1
+    },
+    {
+      "name": "midnite.dimension",
+      "type": "string",
+      "value": "3d"
+    },
+    {
+      "name": "midnite.metresPerTile",
+      "type": "int",
+      "value": 1
+    },
+    {
+      "name": "midnite.groundY",
+      "type": "int",
+      "value": 0
+    }
+  ],
+  "tilesets": [],
+  "layers": [
+    {
+      "id": 1,
+      "name": "objects",
+      "type": "objectgroup",
+      "draworder": "topdown",
+      "opacity": 1,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "objects": [
+        {
+          "id": 1,
+          "name": "lantern",
+          "type": "prop",
+          "x": 320,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "light",
+              "type": "bool",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "name": "lantern",
+          "type": "prop",
+          "x": 277.1281,
+          "y": 160,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 3,
+          "name": "lantern",
+          "type": "prop",
+          "x": 160,
+          "y": 277.1281,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 4,
+          "name": "lantern",
+          "type": "prop",
+          "x": 0,
+          "y": 320,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 5,
+          "name": "lantern",
+          "type": "prop",
+          "x": -160,
+          "y": 277.1281,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 6,
+          "name": "lantern",
+          "type": "prop",
+          "x": -277.1281,
+          "y": 160,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 7,
+          "name": "lantern",
+          "type": "prop",
+          "x": -320,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "light",
+              "type": "bool",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "name": "lantern",
+          "type": "prop",
+          "x": -277.1281,
+          "y": -160,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 9,
+          "name": "lantern",
+          "type": "prop",
+          "x": -160,
+          "y": -277.1281,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 10,
+          "name": "lantern",
+          "type": "prop",
+          "x": 0,
+          "y": -320,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 11,
+          "name": "lantern",
+          "type": "prop",
+          "x": 160,
+          "y": -277.1281,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 12,
+          "name": "lantern",
+          "type": "prop",
+          "x": 277.1281,
+          "y": -160,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        }
+      ]
+    }
+  ]
+}
