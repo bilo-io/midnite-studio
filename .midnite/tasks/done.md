@@ -15808,6 +15808,10 @@ Docs PR. Ran the named tests locally (`module-simulator`, `module-health`, `modu
 
 HIBP, Whisper, release notes, GM samples, Stable Audio and SF3D installers now go through `guardedFetchFor`; owner-scoped registry lookup so two features can register one host; CDN redirect hosts registered. Ratchet shrank by six.
 
+## 2026-11-13 — Phase 115 Theme E (partial) — signed LAN stream URLs, CSP without `'unsafe-inline'`
+
+LAN streams/posters/transcodes take `?e=&s=` signed, six-hour URLs; packaged `script-src` is hash-based. Socket tokens deferred.
+
 ## 2026-11-13 — Tracker fixes (113 H, 126–130)
 
 Docs only. 126 reopened as 🔄 WIP at 41/43: its two open boxes are the CI `gate-node` run (billing-locked, not verifiable locally) and a human install check. 127/128/130 progress bars set to the 10-cell form the checker derives. 113 Theme H closed out: Cleaner is now `packages/modules/cleaner`, nothing left to build; only human release tests remain.

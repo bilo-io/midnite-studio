@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { FfmpegPort, TranscodeProcess } from './ffmpeg';
 import type { LibraryLanController } from './lan';
+import { signStreamPath } from './lan-signature';
 import { createLanStreamServer, parseRange, type LanListen } from './lan-server';
 import { createLibraryService, type LibraryService } from './library-service';
 
@@ -175,6 +176,16 @@ function get(
 }
 
 const k = (token: string) => `k=${encodeURIComponent(token)}`;
+/** The escaped, signed form of `path` as it appears in a served page. */
+const signedAttr = (path: string) => new RegExp(`${path.replace(/[/?]/g, '\\$&')}\\?e=\\d+&amp;s=[\\w-]+`);
+/** A signed stream URL for `path`, as the server's own pages mint them. */
+const signed = (path: string, token: string, nowMs = Date.now(), ttl?: number) => signStreamPath(path, token, nowMs, ttl);
+/** Signs what the server will see after URL normalisation (and adds the token), so a hostile path still reaches the jail. */
+const signedRaw = (raw: string, token: string) => {
+  const url = new URL(raw, 'http://lan.invalid');
+  const sig = signStreamPath(url.pathname, token, Date.now());
+  return `${raw.split('?')[0]}${sig.slice(sig.indexOf('?'))}&${k(token)}`;
+};
 
 describe('binding', () => {
   it('refuses 0.0.0.0, loopback, a public address and one no interface holds — before listening', async () => {
@@ -299,8 +310,8 @@ describe('pages', () => {
     const page = await get(port, `/item/${film.id}?${k(token)}`);
     expect(page.status).toBe(200);
     expect(page.body).toContain(`<video controls`);
-    expect(page.body).toContain(`src="/media/${film.id}?${k(token)}"`);
-    expect(page.body).toContain(`poster="/art/${film.id}?${k(token)}"`);
+    expect(page.body).toMatch(signedAttr(`/media/${film.id}`));
+    expect(page.body).toMatch(signedAttr(`/art/${film.id}`));
 
     const created = await library.createPlaylist({
       name: 'Night & day',
@@ -312,9 +323,45 @@ describe('pages', () => {
     expect(index.body).toContain('Night &amp; day');
     const list = await get(port, `/playlist/${created.value.playlist.id}?${k(token)}`);
     expect(list.status).toBe(200);
-    expect(list.body).toContain(`data-src="/media/${film.id}?${k(token)}"`);
+    expect(list.body).toMatch(signedAttr(`/media/${film.id}`));
     expect(list.body).toContain('<script>');
     expect(String(list.headers['content-security-policy'])).toMatch(/script-src 'sha256-/);
+  });
+});
+
+describe('signed stream URLs', () => {
+  it('refuses a stream with only the long-lived token, a bad or mismatched signature, or an expired one', async () => {
+    const { port, token, byPath } = await setup();
+    const id = byPath('.mp4').id;
+    const other = byPath('.mkv').id;
+    const good = signed(`/media/${id}`, token);
+    expect((await get(port, good)).status).toBe(200);
+    const sig = new URL(good, 'http://x').searchParams;
+    for (const path of [
+      `/media/${id}?${k(token)}`,
+      `/art/${id}?${k(token)}`,
+      `/media/${id}?e=${sig.get('e')}&s=${sig.get('s')}x`,
+      `/media/${id}?e=${Number(sig.get('e')) + 60}&s=${sig.get('s')}`,
+      `/media/${other}?e=${sig.get('e')}&s=${sig.get('s')}`,
+      `/art/${id}?e=${sig.get('e')}&s=${sig.get('s')}`,
+      signed(`/media/${id}`, token, Date.now() - 7 * 3600 * 1000),
+      signed(`/media/${id}`, token, Date.now(), -1),
+    ]) {
+      const reply = await get(port, path);
+      expect(reply.status, path).toBe(401);
+      expect(reply.body, path).toBe('');
+    }
+  });
+
+  it('stops working when the token is regenerated, and the browse pages mint expiring links', async () => {
+    const { port, token, byPath } = await setup();
+    const id = byPath('.mp4').id;
+    const good = signed(`/media/${id}`, token);
+    const page = await get(port, `/item/${id}?${k(token)}`);
+    expect(page.body).toMatch(new RegExp(`src="/media/${id}\\?e=\\d+&amp;s=[\\w-]+"`));
+    expect(page.body).not.toContain(`/media/${id}?k=`);
+    await lan!.regenerateToken();
+    expect((await get(port, good)).status).toBe(401);
   });
 });
 
@@ -322,22 +369,22 @@ describe('the path jail', () => {
   it('serves an indexed file with Range, and nothing else', async () => {
     const { port, token, byPath } = await setup();
     const id = byPath('.mp4').id;
-    const whole = await get(port, `/media/${id}?${k(token)}`);
+    const whole = await get(port, `${signed(`/media/${id}`, token)}`);
     expect(whole).toMatchObject({ status: 200, body: '0123456789' });
     expect(whole.headers['accept-ranges']).toBe('bytes');
     expect(whole.headers['content-type']).toBe('video/mp4');
     expect(whole.headers['content-security-policy']).toBe("default-src 'none'; sandbox");
-    const part = await get(port, `/media/${id}?${k(token)}`, { headers: { Range: 'bytes=2-5' } });
+    const part = await get(port, `${signed(`/media/${id}`, token)}`, { headers: { Range: 'bytes=2-5' } });
     expect(part).toMatchObject({ status: 206, body: '2345' });
     expect(part.headers['content-range']).toBe('bytes 2-5/10');
-    const tail = await get(port, `/media/${id}?${k(token)}`, { headers: { Range: 'bytes=-3' } });
+    const tail = await get(port, `${signed(`/media/${id}`, token)}`, { headers: { Range: 'bytes=-3' } });
     expect(tail.body).toBe('789');
-    const bad = await get(port, `/media/${id}?${k(token)}`, { headers: { Range: 'bytes=50-' } });
+    const bad = await get(port, `${signed(`/media/${id}`, token)}`, { headers: { Range: 'bytes=50-' } });
     expect(bad.status).toBe(416);
-    const head = await get(port, `/media/${id}?${k(token)}`, { method: 'HEAD' });
+    const head = await get(port, `${signed(`/media/${id}`, token)}`, { method: 'HEAD' });
     expect(head).toMatchObject({ status: 200, body: '' });
     expect(head.headers['content-length']).toBe('10');
-    expect((await get(port, `/art/${id}?${k(token)}`)).body).toBe('jpeg');
+    expect((await get(port, `${signed(`/art/${id}`, token)}`)).body).toBe('jpeg');
   });
 
   it('refuses traversal, encoded traversal, absolute paths and unindexed files', async () => {
@@ -361,7 +408,7 @@ describe('the path jail', () => {
       `/media/${'0'.repeat(20)}/x?${t}`,
       `/files/?${t}`,
       `/Films/?${t}`,
-    ]) {
+    ].map((path) => (path.startsWith('/media') ? signedRaw(path, token) : path))) {
       const reply = await get(port, path);
       expect([400, 404], path).toContain(reply.status);
       expect(reply.body, path).not.toContain('top secret');
@@ -375,7 +422,7 @@ describe('the path jail', () => {
     const { port, token, byPath } = await setup();
     const id = byPath('.mp4').id;
     const spy = vi.spyOn(library, 'resolveFile').mockResolvedValue(null);
-    expect((await get(port, `/media/${id}?${k(token)}`)).status).toBe(404);
+    expect((await get(port, `${signed(`/media/${id}`, token)}`)).status).toBe(404);
     expect(spy).toHaveBeenCalled();
   });
 
@@ -383,7 +430,7 @@ describe('the path jail', () => {
     const { port, token, byPath } = await setup();
     for (const method of ['POST', 'PUT', 'DELETE', 'PATCH'])
       expect(
-        (await get(port, `/media/${byPath('.mp4').id}?${k(token)}`, { method })).status,
+        (await get(port, `${signed(`/media/${byPath('.mp4').id}`, token)}`, { method })).status,
         method,
       ).toBe(405);
   });
@@ -398,7 +445,7 @@ describe('transcoding', () => {
   it('is off until the user turns it on, and spawns nothing until then', async () => {
     const ffmpeg = fakeFfmpeg(HEVC);
     const { port, token, byPath } = await setup({ ffmpeg });
-    expect((await get(port, `/transcode/${byPath('.mkv').id}?${k(token)}`)).status).toBe(404);
+    expect((await get(port, `${signed(`/transcode/${byPath('.mkv').id}`, token)}`)).status).toBe(404);
     expect((await get(port, `/item/${byPath('.mkv').id}?${k(token)}`)).body).toContain(
       'cannot play',
     );
@@ -411,12 +458,12 @@ describe('transcoding', () => {
     const { port, token, byPath } = await setup({ ffmpeg, transcode: true });
     const mkv = byPath('.mkv');
     const page = await get(port, `/item/${mkv.id}?${k(token)}`);
-    expect(page.body).toContain(`src="/transcode/${mkv.id}?${k(token)}"`);
+    expect(page.body).toMatch(signedAttr(`/transcode/${mkv.id}`));
     await get(port, `/item/${mkv.id}?${k(token)}`);
     expect(ffmpeg.port.probe).toHaveBeenCalledTimes(1);
     expect(await library.cachedProbe(mkv.id)).toMatchObject({ video: 'hevc' });
 
-    const reply = await get(port, `/transcode/${mkv.id}?${k(token)}`, {
+    const reply = await get(port, `${signed(`/transcode/${mkv.id}`, token)}`, {
       keep: () => ffmpeg.procs[0]?.kill(),
     });
     expect(reply.status).toBe(200);
@@ -438,7 +485,7 @@ describe('transcoding', () => {
       () =>
         new Promise<() => void>((resolve) => {
           const req = request(
-            { host: '127.0.0.1', port, path: `/transcode/${id}?${k(token)}`, agent: false },
+            { host: '127.0.0.1', port, path: `${signed(`/transcode/${id}`, token)}`, agent: false },
             (res) => res.once('data', () => resolve(() => req.destroy())),
           );
           req.on('error', () => undefined);
@@ -448,7 +495,7 @@ describe('transcoding', () => {
     const aborts = await Promise.all(holders);
     expect((await lan!.status()).transcodes).toBe(2);
     // …so a third is told to wait.
-    expect((await get(port, `/transcode/${id}?${k(token)}`)).status).toBe(503);
+    expect((await get(port, `${signed(`/transcode/${id}`, token)}`)).status).toBe(503);
     // Which request spawned which process is a race, so count the killed ones rather than index them.
     const killed = () => ffmpeg.procs.filter((proc) => proc.killed).length;
     aborts[0]!();
