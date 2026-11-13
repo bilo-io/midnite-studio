@@ -185,7 +185,7 @@ with the remaining hubs pruned by a temporary patch named in its README.
 ### D — The re-runnable extract (midnite-studio) [L · 4-8h]
 
 - [ ] `scripts/ekko-extract/` with `extract.mjs`, `include.json` (the package list), `rename.json` (the rename map) and
-  `README.md`. `node scripts/ekko-extract/extract.mjs --target <path-to-ekko-studio> [--branch extract/<date>]`. [M]
+  `README.md`. `node scripts/ekko-extract/extract.mjs [--target ~/Dev/ekko-v3/ekko-studio] [--branch extract/<date>]`. [M]
 - [ ] **Include set:**
   - core: `shared`, `frame`, `runtime`, `git-engine`, `app`, `desktop`
   - features: terminal, loops, monitor, notes, forge, tasks, councils, workflows, mcp-tools, media-core, media-video
@@ -215,6 +215,14 @@ with the remaining hubs pruned by a temporary patch named in its README.
 ### E — Repo bootstrap (ekko-studio) [M · 2-4h]
 
 - [ ] Create `bilo-ekko/ekko-studio`, **private**, with a single root commit; nothing from this repo's history. [XS]
+  - Created as **bilo-ekko**, not the active `gh` account: `GH_TOKEN=$(gh auth token -u bilo-ekko) gh repo create
+    bilo-ekko/ekko-studio --private`. Every push and `gh` call for ekko-studio passes that token the same way; never
+    `gh auth switch`.
+  - Local checkout at **`~/Dev/ekko-v3/ekko-studio`**, beside the other ekko repos. It is the extract's default
+    `--target`.
+  - Commits are authored with the **ekko work identity**, pinned in the clone's local git config, and the same
+    `pre-commit` identity guard as here rejects the personal `bilo-io` identity. The global `~/.gitconfig` is
+    currently the personal one, so the local pin is required.
 - [ ] Toolchain: `.prototools` (node 22.12.0 / pnpm 9.15.0 / moon 2.3.4), `.npmrc` for `@bilo-io` on GitHub Packages
   (`GITHUB_PACKAGES_TOKEN`), and `moon run :typecheck :lint :test`. [S]
 - [ ] CI: one `gate` job on `macos-14` (typecheck, lint, test, leak guard) and one `e2e` smoke job. Commit identity and
@@ -396,7 +404,8 @@ with the remaining hubs pruned by a temporary patch named in its README.
 
 1. **Extraction model — resolved:** a re-runnable extract (copy + rename + composition), with the seams built here
    first rather than a patch queue or a hand-pruned fork.
-2. **Repo home — resolved:** `bilo-ekko/ekko-studio`, private.
+2. **Repo home — resolved:** `bilo-ekko/ekko-studio`, private, created with the bilo-ekko account; local checkout at
+   `~/Dev/ekko-v3/ekko-studio`, with commits under the ekko work identity.
 3. **Toggles — resolved:** per feature, live where possible. Core (Terminal, Settings, Accounts) is always on.
 4. **Graphs — resolved:** Agent Graphs (the workflows feature). The knowledge-graph viewer is not included.
 5. **Timeline — resolved:** the commit graph with the lite profile (B), plus changes/stage/commit, diff and stash.
