@@ -15847,3 +15847,7 @@ The launcher honours its update and catalog switches and the master; map, image,
 ## 2026-11-13 — Phase 116 Theme C (header sweep) — every e2e spec names its browser capability
 
 All 110 functional specs open with `// e2e-capability:` or `// e2e-candidate:` (35 candidates); `e2e-budget` enforces it. No test deleted or run; Wave C1/C2 migrations still wait on an `app:e2e` run.
+
+## 2026-11-13 — Phase 116 Theme C (Wave C1 twins, partial) — Vitest twins beside the e2e tests
+
+New `midnite-menu.test.tsx`, four readout tests in `monitor-cluster.test.tsx`, and `// vitest-twin:` markers on the twinned e2e tests (midnite-menu, footer-monitor, titlebar-agents). No e2e test deleted; cap stays 483.

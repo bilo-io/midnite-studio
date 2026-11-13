@@ -40,6 +40,7 @@ async function open(page: Page, over: Partial<MockFixtures> = {}): Promise<void>
 }
 
 test.describe('footer monitor', () => {
+  // vitest-twin: packages/app/src/features/monitor/monitor-cluster.test.tsx
   test('renders a readout per metric the machine can report', async ({ page }) => {
     await open(page);
 
@@ -83,6 +84,7 @@ test.describe('footer monitor', () => {
     await expect(disk).toHaveAttribute('aria-label', /(?:Disk|HDD) 72 percent/);
   });
 
+  // vitest-twin: packages/app/src/features/monitor/monitor-cluster.test.tsx
   test('an unreadable GPU renders three readouts, not a zero', async ({ page }) => {
     // This is the state the whole optional-fields design exists for: a machine
     // whose GPU counter cannot be read must look different from one whose GPU
@@ -96,12 +98,14 @@ test.describe('footer monitor', () => {
     await expect(page.getByTestId('monitor-cluster')).not.toContainText('GPU');
   });
 
+  // vitest-twin: packages/app/src/features/monitor/monitor-cluster.test.tsx
   test('a genuinely idle GPU still renders, because 0 is a reading', async ({ page }) => {
     await open(page, { metricsSamples: EVEN.map((s, i) => full(i, { gpu: 0 })) });
     await expect(page.getByTestId('metric-gpu')).toBeVisible();
     await expect(page.getByTestId('metric-gpu')).toHaveText(/0%/);
   });
 
+  // vitest-twin: packages/app/src/features/monitor/monitor-cluster.test.tsx
   test('nothing is drawn before the first sample arrives', async ({ page }) => {
     // Four zeroes that then jump to real values would be worse than a beat of
     // empty footer.
