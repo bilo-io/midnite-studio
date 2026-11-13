@@ -13,6 +13,7 @@ import {
   type ControlReply,
   type Frame,
 } from './protocol';
+import { readSocketToken, removeSocketToken, writeSocketToken } from '../security/socket-token';
 import { brokerSocketName, fingerprintFile, isSocketPathTooLong } from './socket-name';
 import { createQueuedSocketWriter, type QueuedSocketWriter } from './socket-write-queue';
 
@@ -366,7 +367,7 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
    * answers without them, which reads as a healthy broker of unknown build —
    * exactly right for a legacy one.
    */
-  async function attemptHandshake(s: net.Socket, timeoutMs = 1000): Promise<Handshake | null> {
+  async function attemptHandshake(s: net.Socket, timeoutMs = 1000, token: string | null = null): Promise<Handshake | null> {
     const decoder = createFrameDecoder();
     return new Promise((resolve) => {
       let settled = false;
@@ -416,6 +417,7 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
             buildId,
             role: guest ? 'guest' : 'host',
             ...(deps.appId ? { appId: deps.appId } : {}),
+            ...(token !== null ? { token } : {}),
           }),
         );
       } catch {
@@ -435,7 +437,7 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
     } catch {
       return null;
     }
-    const handshake = await attemptHandshake(s, 1000);
+    const handshake = await attemptHandshake(s, 1000, readSocketToken(path));
     if (!handshake) {
       s.destroy();
       return null;
@@ -572,6 +574,17 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
       // Use stdout
     }
 
+    /*
+      Phase 115 Theme E: the broker's secret, written (0600) before the child exists so it is there when the
+      child reads it at start. Only a fresh spawn mints one — connecting to a live broker reads the file it
+      already has — and a retired stale primary's was copied to its new path before this point.
+    */
+    try {
+      writeSocketToken(socketPath);
+    } catch (err) {
+      log(`[broker] could not write the socket token: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
     const maxAttempts = deps.spawnMaxAttempts ?? 3;
     const connectTimeout = deps.spawnConnectTimeoutMs ?? 2000;
 
@@ -641,6 +654,7 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
           } catch {
             // Ignore
           }
+          removeSocketToken(legacyPath);
           continue;
         }
         const peer = adoptLegacy(legacyPath, found.socket);

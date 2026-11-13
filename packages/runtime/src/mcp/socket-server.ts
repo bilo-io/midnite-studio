@@ -7,6 +7,7 @@ import { MCP_MAX_REQUEST_BYTES, MCP_MAX_RESPONSE_BYTES, provenanceFor, type McpR
 import type { DispatchResult, ScopedDispatch } from '../agent-run/host';
 import { createFrameDecoder, encodeJsonFrame } from '../broker/protocol';
 import { isSocketPathTooLong } from '../broker/socket-name';
+import { removeSocketToken, socketTokenMatches, writeSocketToken } from '../security/socket-token';
 
 /**
  * The Unix-socket transport behind every Midnite MCP server (Phase 57 Theme B; moved here in Phase 113
@@ -31,6 +32,13 @@ export type StartMcpSocketServerOptions = {
   dispatch: ScopedDispatch;
   log?: (line: string) => void;
   /** Called after each answered request — Studio's audit ring and its `[mcp]` log line. */
+  /**
+   * Phase 115 Theme E: write a per-launch token beside the socket (`<socket>.token`, `0600`) and require
+   * the first frame of every connection to be `{auth: <token>}`; anything else is dropped silently, no
+   * reply, so a probe learns nothing. Off by default — Gamer's per-run server lives in a private `0700`
+   * per-run directory and stays tokenless.
+   */
+  requireToken?: boolean;
   onCall?: (call: { tool: string; input: unknown; result: DispatchResult; ms: number }) => void;
 };
 
@@ -55,6 +63,7 @@ export async function startMcpSocketServer(opts: StartMcpSocketServerOptions): P
     }
   }
 
+  const token = opts.requireToken ? writeSocketToken(socketPath) : null;
   const connections = new Set<net.Socket>();
   const write = (socket: net.Socket, response: McpResponse): void => {
     try {
@@ -86,6 +95,7 @@ export async function startMcpSocketServer(opts: StartMcpSocketServerOptions): P
       return;
     }
     connections.add(socket);
+    let authed = token === null;
     const decoder = createFrameDecoder(MCP_MAX_REQUEST_BYTES);
     socket.on('data', (chunk) => {
       let frames;
@@ -100,6 +110,14 @@ export async function startMcpSocketServer(opts: StartMcpSocketServerOptions): P
       }
       for (const frame of frames) {
         if (frame.type !== 0x00) continue;
+        if (!authed) {
+          if (token !== null && socketTokenMatches(token, (frame.message as unknown as { auth?: unknown }).auth)) {
+            authed = true;
+            continue;
+          }
+          socket.destroy();
+          return;
+        }
         // The decoder types this as the broker's control message; what arrives is unvalidated MCP JSON.
         void handleRequest(socket, frame.message as unknown as Partial<McpRequest>);
       }
@@ -135,6 +153,7 @@ export async function startMcpSocketServer(opts: StartMcpSocketServerOptions): P
     for (const socket of connections) socket.destroy();
     connections.clear();
     const stopped = new Promise<void>((resolve) => server.close(() => resolve()));
+    if (token !== null) removeSocketToken(socketPath);
     try {
       if (existsSync(socketPath)) unlinkSync(socketPath);
     } catch {

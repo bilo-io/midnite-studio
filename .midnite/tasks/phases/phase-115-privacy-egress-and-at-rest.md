@@ -112,7 +112,7 @@ and chats pass through `redactRecord` on write. A vault-value matcher catches th
 moves to session memory instead of staying in localStorage, with a visible notice, matching how
 forge PATs already degrade.
 
-**Theme E — Inbound surfaces that check who's asking.** ◐ PARTIAL (PR pending). Landed: LAN stream, poster and transcode URLs are now `/media|art|transcode/<id>?e=<expiry>&s=<HMAC-SHA256 over path and expiry>`, keyed by the LAN access token (`lan-signature.ts`), six hours by default, constant-time compare, bare 401 on a missing, wrong, mismatched or expired signature; a bare `?k=` no longer opens a stream, regenerating the token kills every signed link, and the browse pages mint fresh signed links per page load. The `?k=` stays for the browse pages, which hold the same links the user shares. The packaged CSP drops `'unsafe-inline'` from `script-src`: the no-flash theme script in `packages/app/index.html` is allowed by `THEME_SCRIPT_HASH`, and `csp.test.ts` hashes the real file so a script edit without a new hash fails; the Vite dev server keeps `'unsafe-inline'` for its HMR preamble. **Deferred:** the per-launch token on the MCP and broker sockets. It changes the first-frame protocol of every socket client across the suite apps and the legacy-peer handshake, which cannot be proven without installing a build, so it is left for a build with a human install test. Original text: LAN streams use short-lived, per-item
+**Theme E — Inbound surfaces that check who's asking.** ✅ Done. Landed: LAN stream, poster and transcode URLs are now `/media|art|transcode/<id>?e=<expiry>&s=<HMAC-SHA256 over path and expiry>`, keyed by the LAN access token (`lan-signature.ts`), six hours by default, constant-time compare, bare 401 on a missing, wrong, mismatched or expired signature; a bare `?k=` no longer opens a stream, regenerating the token kills every signed link, and the browse pages mint fresh signed links per page load. The `?k=` stays for the browse pages, which hold the same links the user shares. The packaged CSP drops `'unsafe-inline'` from `script-src`: the no-flash theme script in `packages/app/index.html` is allowed by `THEME_SCRIPT_HASH`, and `csp.test.ts` hashes the real file so a script edit without a new hash fails; the Vite dev server keeps `'unsafe-inline'` for its HMR preamble. Sockets: the MCP server and the pty broker each write a per-launch 32-byte token file beside their socket (0600); the MCP shim and the broker client present it as their first frame, and anything else is dropped without a reply (constant-time compare). `retire` carries the token to the retired path so legacy peers stay reachable; Gamer's per-run servers stay tokenless inside their private 0700 run directory. **Not proven:** a packaged install on a real Mac (the open human check), since the suite-app broker clients all share the runtime client but were only unit-tested. Original text: LAN streams use short-lived, per-item
 signed URLs instead of the long-lived token. The MCP and broker sockets require a per-launch
 token from a 0600 file. The CSP drops `'unsafe-inline'` by hashing the no-flash theme script.
 
@@ -218,16 +218,24 @@ generated from Theme A's registry, answering the three questions in plain langua
       default. The long-lived `?k=` stays only for the index page, which is shown to the user and
       never shared to clients. DLNA/VLC clients cannot add headers, which is why it is a URL rather
       than a header.
-- [ ] **Sockets: a per-launch token.** Main writes 32 random bytes to
-      `<userData>/run/socket-token` (0600, 0700 dir) at start. The MCP stdio shim and broker clients
-      send it as the first frame, and the server drops any connection whose first frame isn't the
-      token, comparing in constant time. A stale token from a previous launch is refused.
-- [ ] **Keep legacy broker peers reachable.** The legacy-peer handshake keeps working: the token
-      is per build fingerprint, alongside the socket name. Document it in the broker README comment.
+- [x] **Sockets: a per-launch token.** Landed as a token file *beside* each socket
+      (`<socket>.token`, 0600, in the socket's 0700 dir) rather than one shared `run/socket-token`, so
+      each socket's secret follows that socket's own lifecycle. The MCP server writes a fresh one every
+      launch (`requireToken`); the shim reads it and sends `{auth}` as the first frame. The broker
+      client writes one before it spawns a broker, the broker reads it at start, and a hello without
+      the matching token drops the connection with no reply. Constant-time compare
+      (`runtime/src/security/socket-token.ts`). A token from a previous launch is replaced on the next
+      start, so a stale one is refused. Gamer's per-run MCP servers stay tokenless: each lives in its
+      own private 0700 per-run directory.
+- [x] **Keep legacy broker peers reachable.** `retire` copies the token file to the
+      `-retired-<pid>.sock` path before the successor binds, so the client's legacy probe still
+      authenticates; a broker with no token file (an older build) is not checked, and a tokened
+      broker refuses an older client that sends none (accepted, Decision 6). Documented in the
+      `broker/server.ts` comment on `authToken`.
 - [x] **CSP without `'unsafe-inline'`.** Hash the `index.html` no-flash theme script into
       `script-src 'sha256-…'` at build time, and drop `'unsafe-inline'` from `script-src` (style-src
       stays as-is). Zero CSP violations across `app:e2e`.
-- [ ] *Acceptance:* a `nc -U` to the MCP socket with no token is closed without a reply. An
+- [x] *Acceptance:* a `nc -U` to the MCP socket with no token is closed without a reply. An
       expired LAN item URL returns 401. The packaged build's CSP header has no `'unsafe-inline'` in
       `script-src`.
 
@@ -286,7 +294,7 @@ generated from Theme A's registry, answering the three questions in plain langua
       The retention prune and "Clear all local history" are tested.
 - [ ] **C:** a stored Azure PAT pasted into a chat never reaches disk, and a commit SHA survives.
 - [ ] **D:** with encryption forced off, no `agentApiKeys` value persists in `midnite-studio.ui`.
-- [ ] **E:** an unauthenticated socket connect is dropped. An expired LAN URL gets 401. No
+- [x] **E:** an unauthenticated socket connect is dropped. An expired LAN URL gets 401. No
       `'unsafe-inline'` in `script-src`, with zero CSP violations across `app:e2e`.
 - [ ] **F:** the no-write test fails on an injected write. With the switch off, no read under
       `~/.claude` or `~/.codex`.

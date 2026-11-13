@@ -31,6 +31,8 @@ export type ControlMessage =
       role?: BrokerRole;
       /** The app this connection speaks for — stamped as the `owner` of every session it creates. */
       appId?: string;
+      /** Phase 115 Theme E: the secret from `<socket>.token`. A broker that has a token file drops a first message without it. */
+      token?: string;
     }
   | { t: 'list'; id?: number }
   | {

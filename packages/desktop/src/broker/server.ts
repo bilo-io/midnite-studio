@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 
 import { SCROLLBACK_BYTES, perfEnabled } from '@midnite/studio-shared';
 
+import { readSocketToken, socketTokenMatches, socketTokenPath } from '@midnite/studio-runtime/security/socket-token';
 import { writePrivateFile } from '@midnite/studio-runtime/private-files';
 import { isProfilePath, removeProfileFile, wrapWithSandbox } from '@midnite/studio-runtime/broker/confine-wrap';
 
@@ -142,6 +143,14 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
   let socketPath = options.socketPath;
   let pidPath = options.pidPath ?? `${socketPath}.pid`;
   const scrollbackDir = join(userDataDir, 'scrollback');
+
+  /*
+    Phase 115 Theme E: read once at start. A token file beside the socket (written by the host's client before
+    it spawned us) means every connection's first message must be a `hello` carrying it; no file means a
+    legacy launch and no check. The token follows the broker when it retires (see `retire`).
+  */
+  const authToken = readSocketToken(socketPath);
+  const authed = new WeakSet<net.Socket>();
 
   const socketDir = dirname(socketPath);
   mkdirSync(socketDir, { mode: 0o700, recursive: true });
@@ -421,6 +430,16 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
       }
 
       for (const frame of frames) {
+        if (authToken !== null && !authed.has(socket)) {
+          const first = frame.type === 0x00 ? (frame.message as { t?: unknown; token?: unknown }) : null;
+          if (first?.t === 'hello' && socketTokenMatches(authToken, first.token)) {
+            authed.add(socket);
+          } else {
+            log('[broker] dropped a connection that did not present the socket token');
+            socket.destroy();
+            return;
+          }
+        }
         if (frame.type === 0x00) {
           handleControlMessage(socket, frame.message);
         } else if (frame.type === 0x01) {
@@ -499,6 +518,14 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
       if (existsSync(pidPath)) unlinkSync(pidPath);
     } catch {
       // Ignored
+    }
+    if (authToken !== null) {
+      try {
+        writeFileSync(socketTokenPath(retiredPath), authToken, { mode: 0o600 });
+        chmodSync(socketTokenPath(retiredPath), 0o600);
+      } catch {
+        // A client that cannot read it simply cannot reattach to this legacy peer.
+      }
     }
     socketPath = retiredPath;
     pidPath = `${retiredPath}.pid`;
@@ -951,6 +978,11 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
 
     try {
       if (existsSync(socketPath)) unlinkSync(socketPath);
+    } catch {
+      // Ignored
+    }
+    try {
+      if (authToken !== null && existsSync(socketTokenPath(socketPath))) unlinkSync(socketTokenPath(socketPath));
     } catch {
       // Ignored
     }

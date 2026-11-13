@@ -28,6 +28,7 @@
       "@midnite/studio-knowledge/*": ["./packages/knowledge/src/*"],
       "@midnite/studio-runtime": ["./packages/runtime/src/index.ts"],
       "@midnite/studio-runtime/private-files": ["./packages/runtime/src/private-files.ts"],
+      "@midnite/studio-runtime/security/socket-token": ["./packages/runtime/src/security/socket-token.ts"],
       "@midnite/studio-runtime/broker/*": ["./packages/runtime/src/broker/*"],
       "@midnite/studio-runtime/app-main/*": ["./packages/runtime/src/app-main/*"],
       "@midnite/studio-runtime/agent-run/*": ["./packages/runtime/src/agent-run/*"],
