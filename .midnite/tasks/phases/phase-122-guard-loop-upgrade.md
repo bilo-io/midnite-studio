@@ -118,9 +118,7 @@ for candidate files, an installed-`node_modules` resolver, and the `poisoned-pac
 workflow live in `bilo-io/midnite-apps`, so `THREAT_FEED_PUBLIC_KEY_PEM` is empty and no feed is trusted yet; the
 plugins/skills re-scan; the installed-package resolver now descends into pnpm's `node_modules/.pnpm` and the `installedPackages` and `mcpServers` inputs have resolvers (PR pending), but while `THREAT_FEED_PUBLIC_KEY_PEM` is empty the `threatFeed` input is skipped, so all three checks are recorded as skipped in each sweep rather than reporting clean. The loader keeps serving the last verified feed when a download fails verification and refuses a validly signed feed with a lower `version` than the cached one.
 
-**Theme D — The Mac itself.** ◻ Listening ports, outdated software, FileVault/firewall/
-Gatekeeper/SIP/remote-login state, SSH key modes and passphrases, secrets in dotfiles and `.env`
-files, `~/.npmrc`/`~/.netrc` tokens, stale `authorized_keys` — each a finding with a fix.
+**Theme D — The Mac itself.** ◐ PARTIAL (PR pending). `runtime/src/guard/checks/`: `mac-ports` (wildcard listeners from a process that is neither Apple-signed nor a known dev/suite process; `medium`, `high` unsigned; `kill-process-group`), `mac-config` (FileVault, firewall, Gatekeeper, SIP, Remote Login, Screen Sharing, automatic updates, pending security updates — each with a copyable fix, never sudo), `ssh-keys` (0600 `chmod-600`, passphrase-less keys tried on a private copy removed straight away, `authorized_keys` options as `info` without key material, `~/.gnupg` modes) and `secrets-outside-vault` (the shared `scanText` over shell profiles, tool credentials and open repos' `.env*`; evidence is file, line and pattern kind, never the value), with probes in `guard/mac-probes.ts` over the injected `exec`. The pending-security-updates probe is held back: `softwareupdate -l` asks Apple's servers, which the egress registry does not carry yet (Theme H). Not done: the opt-in `git log -p` history pass (needs the composer checkbox, Theme G), the `move-to-vault` / `redact-line` / `open-system-settings` actions (the enum grows in Theme G, so fixes ride as text and `command` evidence), `authorized_keys` age (a line carries no date), and the ports parser is Guard's own, since the runtime layer may not import Vanguard's.
 
 **Theme E — Sites the browser visited.** ◻ The browser feature's history checked offline against
 the ClickFix domain list, HTTP-only origins, known-phishing feeds with usable licences, and sites
@@ -229,31 +227,31 @@ repo.
 
 ### D — The Mac itself [L · 1–2d]
 
-- [ ] **Ports.** `lsof -iTCP -sTCP:LISTEN -nP` parsed (the parser shared with Phase 120 E); a
+- [x] **Ports.** `lsof -iTCP -sTCP:LISTEN -nP` parsed (the parser shared with Phase 120 E); a
       listener bound to `0.0.0.0`/`::` from a process that is not the suite's own, a known dev
       server (Vite, Next, Storybook, the broker, Ollama on `127.0.0.1`) or a signed Apple
       binary is `medium`, `high` if unsigned, with `kill-process-group` as the action and the
       process's signer in the evidence. [M]
-- [ ] **Configuration.** `fdesetup status` (FileVault off: `high`), `socketfilterfw
+- [~] **Configuration.** `fdesetup status` (FileVault off: `high`), `socketfilterfw
       --getglobalstate` (firewall off: `medium`), `spctl --status` (Gatekeeper off: `high`),
       `csrutil status` (SIP off: `high`), `systemsetup -getremotelogin` (on: `medium`), screen
       sharing and remote management via `launchctl print system`, `softwareupdate -l` (pending
       security updates: `high`), automatic updates off in
       `/Library/Preferences/com.apple.SoftwareUpdate.plist` (`medium`). Each with a one-line fix the
       user runs (the app never calls `sudo`), as `open-system-settings {pane}` or a copied command. [M]
-- [ ] **Keys.** `~/.ssh/*` modes (a private key not 0600: `high`, action `chmod-600`); a private
+- [x] **Keys.** `~/.ssh/*` modes (a private key not 0600: `high`, action `chmod-600`); a private
       key without a passphrase (detected by `ssh-keygen -y -P ''` succeeding on a copy, never
       modifying the key: `medium`); `authorized_keys` entries older than a year or with
       `command=`/`from=` options the user did not set (`info`, listed); `~/.gnupg` modes; the
       vault's own files at 0600 (Phase 91 G) re-asserted. [S]
-- [ ] **Secrets outside the vault.** `SECRET_PATTERNS` over `~/.zshrc`, `~/.zprofile`,
+- [~] **Secrets outside the vault.** `SECRET_PATTERNS` over `~/.zshrc`, `~/.zprofile`,
       `~/.bashrc`, `~/.profile`, `~/.npmrc`, `~/.netrc`, `~/.pypirc`, `~/.docker/config.json`,
       `~/.aws/credentials`, `~/.config/gh/hosts.yml`, and every open repo's `.env*` files and
       untracked files at the root; each hit `high` with `move-to-vault` (Phase 118's import path)
       and `redact-line` as actions and the pattern kind as evidence — never the value. Opt-in
       deeper pass: `git log -p` over the last 200 commits of each open repo for the same patterns
       (`high`, action `rotate`), behind a composer checkbox because it is slow. [M]
-- [ ] **Tests.** Each probe against captured output fixtures (on, off, unavailable); a fixture home
+- [x] **Tests.** Each probe against captured output fixtures (on, off, unavailable); a fixture home
       with a 0644 key, a passphrase-less key, an `.npmrc` token and a clean `.zshrc`; the `sudo`
       ban as a grep test over `guard/`. [S]
 
@@ -350,7 +348,7 @@ repo.
       is `critical`; a suppressed advisory is `info`.
 - [ ] **C:** a tampered feed is refused; a fixture poisoned version in `node_modules` is `critical`
       with its campaign link; `threat-feed-check.mjs` fails on a missing `ref`.
-- [ ] **D:** every probe fixture classifies as the table says; no `sudo` anywhere under `guard/`;
+- [x] **D:** every probe fixture classifies as the table says; no `sudo` anywhere under `guard/`;
       the passphrase check never writes to the key.
 - [ ] **E:** the ClickFix fixture origin is `critical` and links to its tab; a clean history yields
       nothing.
