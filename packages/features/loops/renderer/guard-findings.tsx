@@ -49,6 +49,7 @@ export function GuardFindings() {
   const { findings, loaded } = useGuardFindings();
   const [open, setOpen] = useState(true);
   const [sweeping, setSweeping] = useState(false);
+  const [sweepNote, setSweepNote] = useState<string | null>(null);
   const [filter, setFilter] = useState<GuardFindingFilter>(DEFAULT_GUARD_FILTER);
   const visible = useMemo(() => filterGuardFindings(findings, filter), [findings, filter]);
   const groups = useMemo(() => groupBySeverity(visible), [visible]);
@@ -56,8 +57,10 @@ export function GuardFindings() {
 
   const sweepNow = useCallback((): void => {
     setSweeping(true);
+    setSweepNote(null);
     void Promise.resolve(bridge()?.guardSweepNow?.())
-      .catch(() => undefined)
+      .then((r) => setSweepNote(r && !r.ok ? (r.message ?? 'The sweep did not run.') : null))
+      .catch(() => setSweepNote('The sweep did not run.'))
       .finally(() => setSweeping(false));
   }, []);
 
@@ -106,6 +109,11 @@ export function GuardFindings() {
               {sweeping ? 'Sweeping…' : 'Sweep now'}
             </button>
           </div>
+          {sweepNote ? (
+            <p role="status" className="mb-1 text-[10px] text-muted-foreground">
+              {sweepNote}
+            </p>
+          ) : null}
           {!loaded ? null : groups.length === 0 ? (
             <p className="py-1 text-[11px] text-muted-foreground">No findings from the last sweep.</p>
           ) : (

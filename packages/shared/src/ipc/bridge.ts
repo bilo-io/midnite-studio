@@ -813,13 +813,14 @@ export type MidniteStudioBridge = {
     onChanged: (handler: (event: z.infer<typeof S.CaptureChangedPayload>) => void) => Unsubscribe;
   };
 
+  /** Run a Guard sweep now. Resolves once it has finished; `ok: false` carries why it did not run (Phase 122 Theme H). */
+  guardSweepNow: () => Promise<{ ok: boolean; message?: string }>;
+
   /**
    * Vanguard (Phase 120): the findings ledger (list, set status, act) and the sensor host (state, run now,
    * settings). `onChanged` fires on either, carrying nothing; re-fetch. Findings are the wire shape only:
    * evidence and remediation are typed, never a shell string.
    */
-  /** Run a Guard sweep now. Resolves once it has finished; `ok: false` carries why it did not run (Phase 122 Theme H). */
-  guardSweepNow: () => Promise<{ ok: boolean; message?: string }>;
   vanguard: {
     findings: {
       list: (req: In<typeof S.SecurityFindingsListRequest>) => Promise<z.infer<typeof S.SecurityFindingsListResponse>>;
