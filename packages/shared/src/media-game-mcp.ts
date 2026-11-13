@@ -29,7 +29,9 @@ import {
   GameReplaySchema,
   GameStateAssertOpSchema,
   GAME_REPLAY_MAX_FRAMES,
+  GameSceneNameSchema,
 } from './media-game';
+import { GameGotoResultSchema, GameLevelsResultSchema } from './game-level';
 
 /** Ids of the tools, in the order an agent meets them. Themes N and O append their own. */
 export const GAME_MCP_TOOL_IDS = [
@@ -51,6 +53,10 @@ export const GAME_MCP_TOOL_IDS = [
   'game_assert_state',
   'game_assert_frame',
   'game_playtest',
+  'game_level_list',
+  'game_level_get',
+  'game_level_set',
+  'game_goto',
 ] as const;
 export type GameMcpToolId = (typeof GAME_MCP_TOOL_IDS)[number];
 export const isGameMcpToolId = (value: string): value is GameMcpToolId =>
@@ -70,6 +76,8 @@ export const GAME_MCP_READ_TOOL_IDS: readonly GameMcpToolId[] = [
   'game_logs',
   'game_screenshot',
   'game_state',
+  'game_level_list',
+  'game_level_get',
 ];
 
 /** Tools that outlast the shim's default 60 s call timeout (a run boots a renderer, a burst waits between frames). */
@@ -232,6 +240,26 @@ export const GamePlaytestInputSchema = GameToolTargetSchema.extend({
   name: GamePlaytestNameSchema.optional(),
   playtest: GamePlaytestSchema.optional(),
 });
+
+// --- level tools (Phase 132 Theme G) ------------------------------------------------
+
+export const GameLevelGetInputSchema = GameToolTargetSchema.extend({ scene: GameSceneNameSchema });
+/** `level` is the Tiled JSON as stored (no images); `issues` is empty when it parses as a Midnite level. */
+export const GameLevelGetOutputSchema = z.object({
+  level: z.unknown(),
+  issues: z.array(z.object({ path: z.string(), message: z.string() })),
+});
+export const GameLevelSetInputSchema = GameToolTargetSchema.extend({
+  scene: GameSceneNameSchema,
+  /** The whole Tiled JSON map, validated like the editor's save; it replaces the file. */
+  level: z.unknown(),
+  /** Required to write a scene that has no file yet. */
+  create: z.boolean().optional(),
+});
+export const GameLevelSetOutputSchema = z.object({ ok: z.literal(true), gameId: z.string(), sha: z.string().nullable() });
+export const GameGotoInputSchema = GameToolTargetSchema.extend({ scene: GameSceneNameSchema });
+export const GameGotoOutputSchema = GameGotoResultSchema.extend({ gameId: z.string() });
+export const GameLevelListOutputSchema = GameLevelsResultSchema;
 
 /** `game_assert_frame` and `game_playtest` answer a JSON text block, then any diff or failure images. */
 export const GameContentOutputSchema = z.object({ _content: z.array(z.unknown()) });

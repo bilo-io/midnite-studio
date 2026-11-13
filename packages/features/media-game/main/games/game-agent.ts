@@ -262,7 +262,7 @@ export function buildGamePassPrompt(req: {
     pass === 1
       ? `This is pass 1 of ${of}. Make the change with your file tools, then play-test it.`
       : `This is pass ${pass} of ${of}. Play-test the game, then fix what is wrong or move it closer to the request. If it already does what was asked, make no edits.`,
-    `Play-test through the midnite MCP tools, always with game "${game.gameId}": game_run, game_screenshot, game_logs, game_input, game_state, game_reload, game_stop; game_playtest runs playtests/*.json deterministically, and game_replay_play, game_assert_state and game_assert_frame check a replay at a frame.`,
+    `Play-test through the midnite MCP tools, always with game "${game.gameId}": game_run, game_screenshot, game_logs, game_input, game_state, game_reload, game_stop; game_level_list, game_level_get and game_level_set read and write levels/<scene>.tmj and game_goto jumps the running game to a scene; game_playtest runs playtests/*.json deterministically, and game_replay_play, game_assert_state and game_assert_frame check a replay at a frame.`,
     'Rules: edit only files inside this folder; never edit vendor/ or kit/ (extend the kit from src/); keep getState() truthful; there is no shell, so do not try to run commands.',
     'Finish with one sentence saying what you changed.',
   ].join('\n');
@@ -284,6 +284,10 @@ const ACTION_LABELS: Partial<Record<GameMcpToolId, string>> = {
   game_assert_state: 'Checked the game state',
   game_assert_frame: 'Compared a frame',
   game_playtest: 'Ran the play-tests',
+  game_level_list: 'Listed the levels',
+  game_level_get: 'Read a level',
+  game_level_set: 'Saved a level',
+  game_goto: 'Jumped to a scene',
 };
 
 /**

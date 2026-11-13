@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 132 Theme G — level tools for agents
+
+`game_level_list`, `game_level_get`, `game_level_set` and `game_goto` on the midnite MCP server (reads open whenever the server is on, writes behind `allowGames`, all four in an agent run's private server), adapters over the level service and runner `goto`, the tool-manifest pin, and a Levels section with the pre-0.12 migration recipe in the game-build skill (seven mirrored copies). Not done: the editor (D, E), starters reading levels (F), the human check (H).
+
 ## 2026-11-13 — Phase 132 Theme C — level format and scene jump
 
 Levels are Tiled JSON at `levels/<scene>.tmj`: shared `game-level.ts` (loose parse, 2D/3D conventions, world mapping), additive Tiled fields, `cellAt`, the manifest's `levels` key, kit 0.12.0 (`level.js`, Phaser and three builders, `goto`, `getState().level`), main-side level list/get/set (one single-file commit per save) and the runner's `goto`. Not done: starters still hard-code their layout (F), no editor yet (D, E), no MCP tools (G).
