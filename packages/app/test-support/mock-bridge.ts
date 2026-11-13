@@ -765,6 +765,8 @@ export type MockFixtures = {
     playtestRun?: { passed: boolean; runs: GamePlaytestResult[] };
     /** The juice settings a game starts with (default: the kit's). */
     juice?: Record<string, unknown>;
+    /** Phase 132 Theme D: `levels/<scene>.tmj` per game id (raw Tiled JSON). `levels.set` records `levelSet` calls. */
+    levels?: Record<string, Record<string, unknown>>;
     /** Theme P: what an export answers (default: success at a path built from the format and `dest`). */
     exportResult?: { ok: false; message: string } | { ok: true; warnings?: string[] };
   };
@@ -3381,6 +3383,27 @@ export function buildMockBridge(data: MockFixtures) {
       manifest: {
         get: async () => ({ manifest: null, issues: [] }),
         set: async () => ({ ok: true as const }),
+      },
+      // Phase 132 Theme D: scenes by game id from `data.games.levels`; a `set` is recorded and stored.
+      levels: {
+        list: async (req: { gameId: string }) => {
+          const scenes = Object.keys(gamesLevels[req.gameId] ?? {}).sort();
+          return { ok: true as const, value: { scenes: scenes.map((scene) => ({ scene, bytes: 1, dimension: '2d' as const, issue: null })), start: scenes[0] ?? null, readsLevels: true } };
+        },
+        get: async (req: { gameId: string; scene: string }) => {
+          const level = gamesLevels[req.gameId]?.[req.scene];
+          if (level === undefined) return { ok: false as const, kind: 'error' as const, message: 'No such scene.' };
+          return { ok: true as const, value: { level, issues: [], images: [] } };
+        },
+        set: async (req: { gameId: string; scene: string; level: unknown; create?: boolean }) => {
+          gamesCalls.push({ call: 'levelSet', ...req });
+          gamesLevels[req.gameId] = { ...(gamesLevels[req.gameId] ?? {}), [req.scene]: req.level };
+          return { ok: true as const, value: { sha: 'l3v3l01' } };
+        },
+      },
+      goto: async (req: { gameId: string; scene: string }) => {
+        gamesCalls.push({ call: 'goto', ...req });
+        return { ok: true as const, value: { via: 'next-run' as const } };
       },
       run: async (req: { gameId: string }) => {
         gamesCalls.push({ call: 'run', ...req });
@@ -6353,6 +6376,8 @@ export function buildMockBridge(data: MockFixtures) {
   /** Every `games.run`/`stop`/`toolbar`/`setBounds`/`setVisible` call — the spec's assertion surface. */
   // eslint-disable-next-line no-var
   var gamesCalls: Array<Record<string, unknown>> = [];
+  // eslint-disable-next-line no-var
+  var gamesLevels: Record<string, Record<string, unknown>> = { ...(data.games?.levels ?? {}) };
   // eslint-disable-next-line no-var
   var gamesRunStateHandlers: Array<(event: unknown) => void> = [];
   // eslint-disable-next-line no-var
