@@ -36,14 +36,14 @@ export function renderPrivacyDoc(entries: readonly EgressHost[] = EGRESS_ENTRIES
 
 # Privacy
 
-Midnite Studio is a desktop app. It has no account, no analytics and no telemetry, and it runs no server of
-ours. This page answers three questions: what leaves your Mac, what stays on it and how it is kept, and who can
-reach in.
+Midnite Studio is a desktop app that runs on your Mac and needs no account with us. This page answers three
+questions: what leaves your Mac, what stays on it and how it is kept, and who can reach in.
 
 ## 1. What leaves this Mac
 
-Every outbound host is listed in one registry in the source, and the app refuses to contact a host that is not
-on it. The tables below are generated from that registry, so they cannot drift from what the app does.
+Every outbound host is listed in one registry in the source. Most requests go through one gate that refuses a host
+that is not on it, and a test stops new code from bypassing it; a short list of older clients is still being moved
+onto the gate. The tables below are generated from the registry, so they cannot drift from it.
 
 **Settings ▸ Privacy ▸ Automatic network calls** has one switch per automatic call and a master switch,
 "Turn off all automatic network", which overrides the rest without changing their saved positions.
@@ -93,6 +93,6 @@ does not read those switches yet, so today they run at start regardless.
 - **The terminal broker and the MCP server** are Unix sockets guarded by file permissions, so only your macOS
   user can reach them. A process already running as you can connect; see \`SECURITY.md\`.
 - **The app window** runs under a content-security policy that allows scripts only from the app itself and its
-  one startup theme script, and allows network connections only to the hosts above.
+  one startup theme script, and lets the window's own scripts connect only to the app itself and the few hosts the window calls directly (today the weather and location lookups).
 `;
 }
