@@ -9,6 +9,7 @@ import { canonicalizeMcpConfig } from '../security/mcp-trust';
 import type { VanguardFindingRef } from './checks/behaviour';
 import { pinnedMajor, type ElectronPin } from './checks/electron-freshness';
 import { parseSuppressions, type AuditSuppression } from './checks/lockfile-cves';
+import { resolveLocalLockfileChanges } from './checks/lockfile-changes';
 import type { GuardMcpServer } from './checks/threat-feed-checks';
 import { createOsvClient, type FeedFetch } from './feeds/osv';
 import { loadElectronMajors } from './feeds/electron-releases';
@@ -23,6 +24,9 @@ import { resolveInstalledNodeModules } from './lockfiles/node-modules';
 
 /** Where the signed feed will be published (the publishing workflow is still open in Theme C); `<url>.sig` sits beside it. Nothing is trusted until a key is built in. */
 export const THREAT_FEED_URL = 'https://raw.githubusercontent.com/bilo-io/midnite-apps/main/midnite-studio/threat-feed/threat-feed.json';
+
+/** Unpushed lockfile commits are looked for over a week, so a change does not read as resolved after one quiet day. */
+const LOCKFILE_CHANGE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface GuardResolverOptions {
   userData: string;
@@ -116,6 +120,7 @@ export function createGuardResolvers(options: GuardResolverOptions): Record<stri
           ports: () => resolveListeningPorts(exec),
           macConfig: () => resolveMacConfig(exec),
           sshKeys: () => resolveSshInputs(exec, options.home),
+          localLockfileChanges: async () => resolveLocalLockfileChanges(exec, await repos(), (options.now ?? Date.now)() - LOCKFILE_CHANGE_WINDOW_MS),
         }
       : {}),
     ...(options.readBrowserHistory
