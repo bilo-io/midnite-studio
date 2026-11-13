@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { CHAT_COLUMN, InjectionBanner, useInjectionScans } from '@midnite/studio-frame';
 import { isCouncilRunLive, type CouncilRun, type GitOpResult } from '@midnite/studio-shared';
 
+import { useCouncilDraft } from './council-draft-store';
 import { useCouncilsHost } from './host';
 import { useCancelCouncilRun, useContinueCouncilRun, useStartCouncilRun } from './use-council-run';
 
@@ -33,7 +34,7 @@ export function CouncilComposer({
   const start = useStartCouncilRun();
   const followUp = useContinueCouncilRun();
   const cancel = useCancelCouncilRun();
-  const [prompt, setPrompt] = useState('');
+  const [prompt, setPrompt] = useCouncilDraft(councilId);
   const scanItems = useMemo(() => [{ id: 'prompt', text: prompt }], [prompt]);
   const flagged = useInjectionScans(scanItems)['prompt'];
   const [proceededWith, setProceededWith] = useState<string | null>(null);

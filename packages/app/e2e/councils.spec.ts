@@ -1,4 +1,4 @@
-// e2e-capability: computed CSS
+// e2e-capability: computed CSS, real pointer hit-testing (accordion header controls)
 import { expect, test } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
@@ -44,7 +44,7 @@ async function open(page: import('@playwright/test').Page, data: MockFixtures = 
   }).toPass({ timeout: 5000 });
 }
 
-test('creating a council seeds it with starter members', async ({ page }) => {
+test('creating a council seeds it with starter members, as accordions whose header works collapsed', async ({ page }) => {
   await open(page);
 
   await page.getByRole('button', { name: 'New council' }).click();
@@ -53,12 +53,27 @@ test('creating a council seeds it with starter members', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: 'Architecture review' })).toBeVisible();
 
-  // Member names render as editable inputs, not plain text — read their
-  // values rather than text content.
-  const nameInputs = page.getByRole('textbox', { name: 'Member name' });
-  await expect(nameInputs).toHaveCount(4);
+  // Members start collapsed (Phase 134 Theme C): the name inputs sit in hidden
+  // accordion bodies, so read them with the hidden ones included.
+  const nameInputs = page.getByRole('textbox', { name: 'Member name', includeHidden: true });
+  await expect(nameInputs).toHaveCount(3);
   const names = await nameInputs.evaluateAll((els) => els.map((el) => (el as HTMLInputElement).value));
-  expect(names).toEqual(['Optimist', 'Skeptic', 'Pragmatist', 'Visionary']);
+  expect(names).toEqual(['Optimist', 'Skeptic', 'Pragmatist']);
+  await expect(page.getByRole('textbox', { name: 'Member name' })).toHaveCount(0);
+
+  // The header's own controls are real hit targets while the row is collapsed:
+  // the agent picker opens, and the trash removes the member.
+  const first = page.getByTestId('council-member').first();
+  await first.getByTestId('council-member-picker-0-provider').click();
+  await expect(page.getByRole('listbox', { name: 'Providers' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(first.locator('[aria-controls^="council-member-body-"]')).toHaveAttribute('aria-expanded', 'false');
+  await first.getByRole('button', { name: 'Remove Optimist' }).click();
+  await expect(page.getByTestId('council-member')).toHaveCount(2);
+
+  // The toggle expands the body in place.
+  await page.getByRole('button', { name: 'Skeptic', exact: true, expanded: false }).click();
+  await expect(page.getByRole('textbox', { name: 'Member name' })).toHaveValue('Skeptic');
 });
 
 test('running a consultation renders member answers and a synthesis', async ({ page }) => {
@@ -115,7 +130,7 @@ test('the panel-stack navigates list → council → run, and back/forward retra
   // its member list stay put), and the centre pane is a new thread's composer
   // — only the `list` entry shows the empty state.
   await page.getByRole('main').getByRole('button', { name: 'Back', exact: true }).click();
-  await expect(page.getByRole('textbox', { name: 'Member name' }).first()).toBeVisible();
+  await expect(page.getByTestId('council-synthesizer')).toBeVisible();
   // The breadcrumb trail still shows "Run" here — it renders the whole
   // stack, forward tail included, so a still-navigable entry stays clickable
   // rather than disappearing the moment it is no longer current.
