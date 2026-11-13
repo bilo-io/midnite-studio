@@ -122,7 +122,7 @@ export const FEATURE_TOGGLES = {
     views: ['notes'],
     settingsPages: [],
     commands: ['notes.toggle'],
-    data: { files: ['notes'], storeKeys: [], vault: [] },
+    data: { files: ['notes', 'notes-review'], storeKeys: [], vault: [] },
   },
   chats: {
     label: 'Chats',
@@ -133,7 +133,7 @@ export const FEATURE_TOGGLES = {
     views: ['chats'],
     settingsPages: [],
     commands: ['view.chats'],
-    data: { files: [], storeKeys: ['midnite.chats.composer'], vault: [] },
+    data: { files: ['chats'], storeKeys: ['midnite.chats.composer'], vault: [] },
   },
   sessions: {
     label: 'Sessions',
