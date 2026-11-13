@@ -72,7 +72,9 @@ export class CytoscapeRenderer extends Base2DRenderer {
   /** What each element currently wears, so a repaint touches only the elements that changed. */
   private appliedClass = new Map<string, string>();
   private appliedColor = new Map<string, string>();
-  private appliedAt = new Map<string, string>();
+  private appliedAt = new Map<string, { x: number; y: number }>();
+  /** The paint the class loops last ran for: an intro or layout frame moves positions only, so re-deriving 15k node and 37k edge class strings every frame would cost more than the burst. */
+  private classesFor: unknown = null;
   private fadeStep = EDGE_FADE_STEPS;
 
   protected mountEngine(): void {
@@ -126,6 +128,7 @@ export class CytoscapeRenderer extends Base2DRenderer {
     const model = this.model;
     if (!cy || !model) return;
     cy.style(stylesheet());
+    this.classesFor = null;
     // Edge colour is the source node's, copied into data at feed time — re-copy it from the re-read colours.
     cy.batch(() => {
       for (const link of model.links) {
@@ -138,17 +141,18 @@ export class CytoscapeRenderer extends Base2DRenderer {
     const cy = this.cy;
     const paint = this.paint;
     if (!cy || !paint) return;
+    const classesStale = this.classesFor !== paint;
+    this.classesFor = paint;
     cy.batch(() => {
       for (const [id, ele] of this.nodeEles) {
         const node = this.model!.nodeById.get(id)!;
         const at = this.positions.get(id);
-        if (at) {
-          const key = `${at.x},${at.y}`;
-          if (this.appliedAt.get(id) !== key) {
-            this.appliedAt.set(id, key);
-            ele.position({ x: at.x, y: at.y });
-          }
+        // Landed nodes keep the same point object between samples, so reference equality skips them.
+        if (at && this.appliedAt.get(id) !== at) {
+          this.appliedAt.set(id, at);
+          ele.position({ x: at.x, y: at.y });
         }
+        if (!classesStale) continue;
         if (this.appliedColor.get(id) !== node.color) {
           this.appliedColor.set(id, node.color);
           ele.data('color', node.color);
@@ -164,7 +168,7 @@ export class CytoscapeRenderer extends Base2DRenderer {
           .join(' ');
         this.applyClasses(id, ele, classes);
       }
-      for (const [id, ele] of this.edgeEles) {
+      for (const [id, ele] of classesStale ? this.edgeEles : []) {
         const classes = [
           paint.linkVisible.get(id) === false ? 'hidden' : '',
           paint.linkEmphasised.has(id) ? 'emph' : (paint.linkAlpha.get(id) ?? 1) < 0.1 ? 'dim' : '',
@@ -202,6 +206,7 @@ export class CytoscapeRenderer extends Base2DRenderer {
     this.appliedClass.clear();
     this.appliedColor.clear();
     this.appliedAt.clear();
+    this.classesFor = null;
     this.fadeStep = EDGE_FADE_STEPS;
   }
 
