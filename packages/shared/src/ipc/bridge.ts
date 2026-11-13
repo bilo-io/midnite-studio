@@ -1613,6 +1613,16 @@ export type MidniteStudioBridge = {
     juice: (req: In<typeof S.GamesJuiceRequest>) => Promise<z.infer<typeof S.GamesJuiceResponse>>;
     logs: (req: In<typeof S.GamesLogsRequest>) => Promise<z.infer<typeof S.GamesLogsResponse>>;
     kitUpgrade: (req: In<typeof S.GamesKitUpgradeRequest>) => Promise<z.infer<typeof S.GamesKitUpgradeResponse>>;
+    /**
+     * Levels (Phase 132 Theme C): `levels/<scene>.tmj`. `set` writes one file and makes one commit naming only
+     * it; `goto` restarts a running game at a scene, or sets where the next run starts.
+     */
+    levels: {
+      list: (req: In<typeof S.GamesLevelsRequest>) => Promise<z.infer<typeof S.GamesLevelsResponse>>;
+      get: (req: In<typeof S.GamesLevelGetRequest>) => Promise<z.infer<typeof S.GamesLevelGetResponse>>;
+      set: (req: In<typeof S.GamesLevelSetRequest>) => Promise<z.infer<typeof S.GamesLevelSetResponse>>;
+    };
+    goto: (req: In<typeof S.GamesGotoRequest>) => Promise<z.infer<typeof S.GamesGotoResponse>>;
     /** Move a game's runner into the `game` popout window; closing that window docks it back. */
     popOut: (req: In<typeof S.GamesPopOutRequest>) => Promise<GitOpResult>;
     /** Which game the `game` popout hosts — how the popout's own renderer learns what to show. */

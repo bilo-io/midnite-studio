@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 132 Theme C — level format and scene jump
+
+Levels are Tiled JSON at `levels/<scene>.tmj`: shared `game-level.ts` (loose parse, 2D/3D conventions, world mapping), additive Tiled fields, `cellAt`, the manifest's `levels` key, kit 0.12.0 (`level.js`, Phaser and three builders, `goto`, `getState().level`), main-side level list/get/set (one single-file commit per save) and the runner's `goto`. Not done: starters still hard-code their layout (F), no editor yet (D, E), no MCP tools (G).
+
 ## 2026-11-13 — Phase 132 Theme A — Open Game
 
 An Open Game button beside New game: a main-side folder dialog, `resolveGameFolder` (git root, plain refusals), `service.add` (`added` / `listed` / `cancelled`) over the host's repo port; Gamer keeps `opened-games.json`. Not done: the human check (Theme H); Remove from list (Decision 17).

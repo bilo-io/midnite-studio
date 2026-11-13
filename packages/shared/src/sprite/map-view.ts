@@ -97,6 +97,27 @@ export function cellOrigin(map: Pick<Tmj, 'orientation' | 'height' | 'tilewidth'
   return { x: x * map.tilewidth, y: y * map.tileheight };
 }
 
+/**
+ * The cell under the map-space point `(px, py)` — the inverse of {@link cellOrigin} for both orientations — or
+ * `null` off the map. An isometric cell is the diamond inscribed in its grid box, so the hit test is exact.
+ */
+export function cellAt(map: Pick<Tmj, 'orientation' | 'width' | 'height' | 'tilewidth' | 'tileheight'>, px: number, py: number): { x: number; y: number } | null {
+  let x: number;
+  let y: number;
+  if (map.orientation === 'isometric') {
+    // cellOrigin: ox = (x - y + h - 1) * tw / 2, oy = (x + y) * th / 2 — the box's top-left; the diamond's centre is
+    // (ox + tw / 2, oy + th / 2). Solve for fractional cell coordinates of the point.
+    const a = (px * 2) / map.tilewidth - map.height; // x - y
+    const b = (py * 2) / map.tileheight - 1; // x + y
+    x = Math.floor((a + b) / 2 + 0.5);
+    y = Math.floor((b - a) / 2 + 0.5);
+  } else {
+    x = Math.floor(px / map.tilewidth);
+    y = Math.floor(py / map.tileheight);
+  }
+  return Number.isFinite(x) && Number.isFinite(y) && x >= 0 && y >= 0 && x < map.width && y < map.height ? { x, y } : null;
+}
+
 /** A cell's collision flag, from the `collision` property of whichever tile is on it in `layer`. */
 export function collisionAt(map: Pick<Tmj, 'tilesets'>, layer: TmjTileLayer, index: number): string | null {
   const hit = tileOf(map.tilesets, layer.data[index] ?? 0);

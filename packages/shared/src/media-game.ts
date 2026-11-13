@@ -51,7 +51,7 @@ export const GAME_ENGINE_VERSIONS = {
 } as const;
 
 /** The current kit version (Theme C). Bumped whenever `templates/media-game/kit/` changes. */
-export const GAME_KIT_VERSION = '0.11.0';
+export const GAME_KIT_VERSION = '0.12.0';
 
 // --- enums -------------------------------------------------------------------
 
@@ -195,6 +195,9 @@ export type GameOptions = z.infer<typeof GameOptionsSchema>;
 export type GameOptionsInput = z.input<typeof GameOptionsSchema>;
 
 
+/** A scene is a level file, `levels/<scene>.tmj` (Phase 132 Theme C); this is its name, which is also a file name. */
+export const GameSceneNameSchema = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/, 'use lowercase letters, digits, - and _');
+
 /**
  * `midnite-game.json`. `.passthrough()` so an agent may add keys of its own;
  * everything the app reads is below.
@@ -228,6 +231,8 @@ export const GameManifestSchema = z
     keepSaveData: z.boolean().default(false),
     /** Wizard fine-tune options; absent on games made before the wizard. */
     options: GameOptionsSchema.optional(),
+    /** Present means "this game's scenes read their layout from `levels/<scene>.tmj`" (Phase 132, Decision 14). */
+    levels: z.object({ dir: z.literal('levels').default('levels'), start: GameSceneNameSchema }).optional(),
   })
   .passthrough();
 export type GameManifest = z.infer<typeof GameManifestSchema>;
@@ -460,7 +465,7 @@ export const GameLogsResponse = z.object({
 });
 
 /** Pushed when the set of games on disk changes (create, remove, manifest edit). */
-export const GamesChangedSchema = z.object({ reason: z.enum(['created', 'added', 'manifest', 'removed']) });
+export const GamesChangedSchema = z.object({ reason: z.enum(['created', 'added', 'manifest', 'removed', 'level']) });
 export type GamesChangedEvent = z.infer<typeof GamesChangedSchema>;
 
 // --- play-test state (Theme D) ---------------------------------------------------
@@ -485,6 +490,8 @@ export const GameStateSchema = z
   .object({
     version: z.literal(1).optional(),
     scene: z.string().optional(),
+    /** The level the game is on (`levels/<level>.tmj`); `scene` stays the engine's scene key. */
+    level: z.string().optional(),
     frame: z.number().int().nonnegative().optional(),
     time: z.number().nonnegative().optional(),
     player: GamePlayerStateSchema.optional(),
@@ -775,6 +782,9 @@ export const GAME_DETERMINISM_PARAMS = {
   seed: 'midnite-seed',
   paused: 'midnite-paused',
 } as const;
+
+/** The query param naming the level a run starts on, read by `kit/core/level.js` (Phase 132 Theme C). */
+export const GAME_LEVEL_PARAM = 'midnite-level';
 
 /** A replay longer than this (ten minutes at 60 Hz) is refused. */
 export const GAME_REPLAY_MAX_FRAMES = 36_000;
