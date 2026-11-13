@@ -368,14 +368,6 @@ import {
   GamePopStateSchema,
   GamePoppedResponseSchema,
   GamesChangedSchema,
-  GameLevelsRequestSchema,
-  GameLevelsResultSchema,
-  GameLevelGetRequestSchema,
-  GameLevelGetResultSchema,
-  GameLevelSetRequestSchema,
-  GameLevelSetResultSchema,
-  GameGotoRequestSchema,
-  GameGotoResultSchema,
   GamesOpenEventSchema,
   GamesListSchema,
   GamesSettingsReadSchema,
@@ -385,6 +377,16 @@ import {
   GameJuiceSettingsSchema,
   GameVisibleRequest as GameVisibleRequestSchema,
 } from '../media-game';
+import {
+  GameLevelsRequestSchema,
+  GameLevelsResultSchema,
+  GameLevelGetRequestSchema,
+  GameLevelGetResultSchema,
+  GameLevelSetRequestSchema,
+  GameLevelSetResultSchema,
+  GameGotoRequestSchema,
+  GameGotoResultSchema,
+} from '../game-level';
 import {
   ModelExportRequestSchema,
   ModelGenerateProgressEventSchema,

@@ -92,6 +92,11 @@ export type GameRunner<V extends GameView = GameView> = {
   setBounds(gameId: string, bounds: BrowserBounds): void;
   setVisible(gameId: string, visible: boolean): void;
   toolbar(gameId: string, action: ToolbarAction, value?: string | number | boolean): Promise<GitOpResult>;
+  /**
+   * Jump a running game to the level `scene`: through its hook, else by reloading with `?midnite-level=`. A
+   * stopped game only remembers it for the next `run` (picking a scene never starts a game).
+   */
+  goto(gameId: string, scene: string): Promise<GitOpResult<GameGotoResult>>;
   /** Read or change the game's juice settings through `window.__midnite.juice` (`get`, `set` a patch, or `reset`). */
   juice(gameId: string, action: 'get' | 'set' | 'reset', patch?: GameJuicePatch): Promise<GitOpResult<GameJuiceSettings>>;
   logs(gameId: string, since?: number): { runId: string | null; entries: GameLogEntry[] };

@@ -196,7 +196,7 @@ describe('createGameRunner', () => {
     const wc = viewOf('ga').webContents;
     wc.loadURL.mockClear();
     expect(await runner.goto('ga', 'cave')).toEqual({ ok: true, value: { via: 'hook' } });
-    expect(String(wc.executeJavaScript.mock.calls.at(-1)?.[0])).toContain('m.goto("cave")');
+    expect(String((wc.executeJavaScript.mock.calls as unknown[][]).at(-1)?.[0])).toContain('m.goto("cave")');
     expect(wc.loadURL).not.toHaveBeenCalled();
   });
 

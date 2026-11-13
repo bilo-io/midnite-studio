@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { TempRepo } from '@midnite/studio-git-engine';
 import { EVENT_CHANNELS, GAME_LEVEL_MAX_BYTES, GAME_MANIFEST_FILE, parseGameManifest, type GameSummary } from '@midnite/studio-shared';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { createGameLevels } from './game-levels';
 
@@ -26,7 +26,7 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 describe('createGameLevels (Phase 132 Theme C)', () => {
   let repo: TempRepo;
   let game: GameSummary;
-  let send: ReturnType<typeof vi.fn>;
+  let send: Mock<(channel: string, payload: unknown) => void>;
   let goto: ReturnType<typeof vi.fn>;
   let levels: ReturnType<typeof createGameLevels>;
 
@@ -42,7 +42,7 @@ describe('createGameLevels (Phase 132 Theme C)', () => {
     await repo.git(['add', '.']);
     await repo.git(['commit', '-m', 'Initial commit']);
     game = { gameId: 'g1', name: 'G', path: repo.path, engine: 'phaser', dimension: '2d', starter: 'blank', dirty: false, valid: true, issue: null };
-    send = vi.fn();
+    send = vi.fn<(channel: string, payload: unknown) => void>();
     goto = vi.fn(async () => ({ ok: true, value: { via: 'hook' } }));
     levels = createGameLevels({
       resolve: async (id) => (id === 'g1' ? game : null),
