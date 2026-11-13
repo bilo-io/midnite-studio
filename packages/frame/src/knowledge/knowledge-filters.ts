@@ -138,7 +138,7 @@ export function distinctCommunityNames(
   return [...new Set(nodes.map((node) => node.communityName))].sort();
 }
 
-/** How many of `links` pass the current filter — the panel's "N of 36,032 shown" count. */
+/** How many of `links` pass the current filter — the panel's "N of 37,036 shown" count. */
 export function countVisibleLinks(
   links: readonly Pick<KnowledgeGraphLink, 'source' | 'target' | 'relation' | 'weight' | 'confidence'>[],
   communityByNodeId: ReadonlyMap<string, string>,
