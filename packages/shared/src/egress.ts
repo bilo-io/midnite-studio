@@ -89,7 +89,6 @@ export const EGRESS_ENTRIES: readonly EgressHost[] = [
   entry({ host: '*.hf.co', owner: 'media-audio', sends: 'GET only: the redirect target of the model download', trigger: 'user' }),
   entry({ host: 'huggingface.co', owner: 'media-model', sends: 'GET only: the Stable Fast 3D model the user asked for', trigger: 'user' }),
   entry({ host: '*.hf.co', owner: 'media-model', sends: 'GET only: the redirect target of the model download', trigger: 'user' }),
-  entry({ host: '*.hf.co', owner: 'models', sends: 'GET only: the redirect target of the model download', trigger: 'user' }),
   entry({ host: 'release-assets.githubusercontent.com', owner: 'app', sends: 'GET only: the redirect target of the speech-model download', trigger: 'user' }),
   entry({ host: 'api.pwnedpasswords.com', owner: 'vault', sends: 'the first five hex characters of a SHA-1 of the password; never the password, never the hash', trigger: 'user', description: 'Have I Been Pwned Pwned Passwords k-anonymity breach check' }),
   entry({ host: 'overpass-api.de', owner: 'media-map', sends: 'a bounding box, for roads and buildings', trigger: 'user' }),

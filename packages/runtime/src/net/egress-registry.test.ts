@@ -341,7 +341,7 @@ describe('guardedFetch redirects', () => {
 });
 
 describe('owner-scoped registry lookup', () => {
-  it('lets two owners register the same host and follows a redirect on its owner’s entry', () => {
+  it('resolves a host shared by two owners, and a redirect host, on the caller’s own entry', () => {
     expect(resolveEgress('companion', 'https://api.openai.com/v1/audio/transcriptions')?.owner).toBe('companion');
     expect(resolveEgress('media-images', 'https://api.openai.com/v1/images')?.owner).toBe('media-images');
     expect(resolveEgress('media-audio', 'https://cas-bridge.xethub.hf.co/x')?.owner).toBe('media-audio');
