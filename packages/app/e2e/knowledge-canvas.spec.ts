@@ -235,3 +235,41 @@ test('picking a member in the community tree flies the camera to it, so the cent
   await expect(nodePanel(page)).toBeVisible();
   await expect(page.getByText('src/east.ts')).toBeVisible();
 });
+
+// Phase 89 Theme K — the renderer-variant seam. Browser capability needed:
+// a real <canvas> mount/unmount across a variant switch (sigma's stacked WebGL
+// layers vs the 3D variant's single canvas) and real `page.reload()`
+// persistence of `rendererVariant` through the persisted ui store (localStorage).
+// jsdom has neither WebGL nor a canvas to re-mount. Only the seam is covered
+// here, not each engine.
+test('picking another renderer re-mounts the canvas, and the choice survives a reload', async ({
+  page,
+}) => {
+  await openKnowledge(page);
+  const canvases = page.locator('[data-testid="knowledge-canvas"] canvas');
+  const threeD = page.getByTestId('knowledge-3d-canvas');
+
+  // Default is Atlas (sigma): several stacked layers, no 3D canvas.
+  expect(await canvases.count()).toBeGreaterThan(1);
+  await expect(threeD).toHaveCount(0);
+
+  async function pickTelemetry(): Promise<void> {
+    const pill = page.getByRole('button', { name: 'Telemetry HUD', exact: true });
+    if (await pill.count()) {
+      await pill.click();
+      return;
+    }
+    await page.getByRole('button', { name: 'More renderers' }).click();
+    await page.getByRole('menuitemradio', { name: 'Telemetry HUD' }).click();
+  }
+  await pickTelemetry();
+
+  // sigma is gone, the 3D engine's single canvas is mounted in its place.
+  await expect(threeD).toHaveCount(1);
+  await expect(canvases).toHaveCount(1);
+
+  await page.reload();
+  await clickRailLink(page, 'Knowledge');
+  await expect(page.getByTestId('knowledge-3d-canvas')).toHaveCount(1);
+  await expect(canvases).toHaveCount(1);
+});
