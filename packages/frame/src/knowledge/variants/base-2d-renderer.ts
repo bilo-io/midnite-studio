@@ -81,6 +81,8 @@ export abstract class Base2DRenderer implements KnowledgeRenderer {
   protected abstract draw(): void;
   protected abstract flyTo(node: Node2D, animate: boolean): void;
   protected onResize(): void {}
+  /** The theme tokens changed and `Node2D.color` was re-read — drop anything cached from them. Called before `draw()`. */
+  protected onRecolor(): void {}
 
   // --- KnowledgeRenderer ------------------------------------------------------------------------
   mount(
@@ -252,6 +254,7 @@ export abstract class Base2DRenderer implements KnowledgeRenderer {
   private recolor(): void {
     if (!this.model) return;
     for (const node of this.model.nodes) node.color = this.env.colorFor(node.community);
+    this.onRecolor();
     this.draw();
   }
 

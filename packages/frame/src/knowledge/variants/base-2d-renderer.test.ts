@@ -25,10 +25,12 @@ class Probe extends Base2DRenderer {
   mounted = 0;
   unmounted = 0;
   modelCalls = 0;
+  recolors = 0;
   flown: Array<[string, boolean]> = [];
   protected mountEngine() { this.mounted++; }
   protected unmountEngine() { this.unmounted++; }
   protected modelChanged() { this.modelCalls++; }
+  protected override onRecolor() { this.recolors++; }
   protected draw() {
     this.draws.push(Object.fromEntries([...this.positions].map(([id, p]) => [id, p.x])));
   }
@@ -121,6 +123,16 @@ describe('Base2DRenderer', () => {
     expect(mid.b).toBeLessThan(200);
     advance(400);
     expect(probe.draws.at(-1)).toEqual({ a: 0, b: 200 });
+  });
+
+  it('re-reads colours and tells the engine when the theme attributes change', async () => {
+    const { probe, mount } = setup(true);
+    mount();
+    document.documentElement.setAttribute('data-theme', 'light');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(probe.recolors).toBe(1);
+    probe.dispose();
+    document.documentElement.removeAttribute('data-theme');
   });
 
   it('flies animated unless paused', () => {
