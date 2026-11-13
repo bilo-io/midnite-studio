@@ -1,4 +1,4 @@
-// e2e-capability: getBoundingClientRect, pointer drag, xterm
+// e2e-capability: getBoundingClientRect, pointer drag
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';

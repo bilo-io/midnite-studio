@@ -1,4 +1,4 @@
-// e2e-capability: xterm, canvas/WebGL
+// e2e-capability: xterm
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';

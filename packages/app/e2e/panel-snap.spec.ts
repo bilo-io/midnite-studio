@@ -1,4 +1,4 @@
-// e2e-capability: getBoundingClientRect, pointer drag, canvas/WebGL, real pointer hover
+// e2e-capability: getBoundingClientRect, pointer drag, real pointer hover
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
