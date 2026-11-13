@@ -6,6 +6,10 @@
 
 Per-variant `maxNodes` / `maxEdges`, a disabled pill naming the reason, the stored preference kept and announced; stale graph counts corrected. Not done: the bake-off harness and numbers, so no limit is set on any variant yet.
 
+## 2026-11-13 — Phase 89 Theme I — live d3-force variant
+
+`d3-force` (ISC) simulated in the renderer on our own canvas; hand-driven with a per-frame budget and a hard settle ceiling, paused halts it. Not done: gating by node count (Theme J), a real-browser look, frame-rate numbers.
+
 ## 2026-11-13 — Phase 89 Theme H — vis-network variant
 
 PR #1209, stacked on #1208. `vis-network` (Apache-2.0 OR MIT) from npm behind its own dynamic `import()`, with Phase 87's CDN rejection qualified in the code. Not done: the packaged-app network trace; a real-browser look.

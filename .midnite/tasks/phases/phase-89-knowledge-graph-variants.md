@@ -33,7 +33,7 @@ against sigma's own four looks has something for the libraries to fit into.
 
 **Theme H — vis-network.** ✅ (PR [#1209](https://github.com/bilo-io/midnite-studio/pull/1209)) — the `vis-network` variant from the npm `standalone` build, with a docblock at the top of `vis-network-renderer.ts` naming `graphify-out/graph.html:6` and Phase 87's "one trap" so the next reader does not delete it. Physics off, worker coordinates as the layout, `moveNode` for the intro. Lazy chunk 658 KB, nothing CDN in it. Still open for a human: the packaged-app network trace.
 
-**Theme I — d3-force, live.** ◻ `d3-force` live: a simulation you watch settle, on our own canvas, with a hard settle ceiling
+**Theme I — d3-force, live.** ✅ (code, PR open) — `d3-force` 3.0.1 (ISC) run in the renderer on our own canvas. The simulation is driven by hand from one frame callback with an 8 ms per-frame budget and stops at a hard ceiling (alpha floor, 300 ticks, or 5 s; 120 ticks on a collapse re-settle), after which no frame is scheduled. Pause halts it; unpause resumes. `consumesWorkerLayout: false`. Still open: the gated-by-J box, and a real-browser look and frame-rate numbers (Theme J).
 
 **Theme J — The gate, and the bake-off.** 🔄 (gate mechanism landed, bake-off open) — `KnowledgeVariant` takes optional `maxNodes` / `maxEdges`; `knowledge-variant-gate.ts` holds the pure arithmetic and `effectiveVariant`. Over a limit the pill is disabled with a tooltip naming the reason and counts, the stored preference is never rewritten, a visible notice says the default renders instead, and a smaller graph restores it. No variant declares a limit yet: the limits must come from TTFP / FPS / memory measured on the packaged app, and none has been run, so none is guessed. Stale 14,881 / 36,032 counts in `types.ts` and `projection.ts` and the node panel now say 15,292 / 37,036 (the measured 6,066 and 35,763 edge figures in `knowledge-filters.ts` are kept: they were measured on the older graph). Open: the `MSTUDIO_PERF=1` harness, the numbers, `budgets.json`, the per-variant limits and the written verdict.
 
@@ -283,18 +283,19 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ### I — d3-force, live (M)
 
-- [ ] A variant that runs `d3-force` **in the renderer** against our own 2D canvas draw, so you watch
+- [x] A variant that runs `d3-force` **in the renderer** against our own 2D canvas draw, so you watch
       the simulation settle. Distinct from every other pill by construction: it is the only one where
       the layout is happening in front of you.
-- [ ] `playIntro` is the simulation start — nodes seeded at the centroid with a small jitter, alpha
+- [x] `playIntro` is the simulation start — nodes seeded at the centroid with a small jitter, alpha
       decaying to rest. The ask's expand-from-a-core comes free here; the work is making it *stop*
       cheaply.
-- [ ] A hard iteration/time ceiling and an explicit "settled" state that stops the loop. A live sim
+- [x] A hard iteration/time ceiling and an explicit "settled" state that stops the loop. A live sim
       that never stops is precisely the idle-CPU cost Phase 84 spent eleven themes removing, and
       `paused` must halt it, not just snap it.
-- [ ] Own canvas draw reusing
+- [x] Own canvas draw reusing
       [`knowledge-canvas-draw.ts`](../../../packages/app/src/features/knowledge/knowledge-canvas-draw.ts)'s
       theming helpers where they fit, and the same community colours.
+      *Reused: the shared model/paint (`computePaint2D`), `liveCommunityColor`, `cssToken`, `straightAlpha`. Not reused: `knowledge-canvas-draw.ts` itself, which is sigma's node program; this canvas batches edges into three paths and caches fill strings instead.*
 - [ ] Almost certainly gated by Theme J at this node count. Ship it gated rather than not at all —
       the graph a user opens may be a tenth this size.
 

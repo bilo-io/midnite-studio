@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_VARIANT_ID, resolveVariant, VARIANTS } from './renderer-contract';
 
 describe('renderer-contract', () => {
-  it('registers Theme D’s four sigma looks, the 3D presentation styles Theme F’s force-graph Theme G’s cytoscape and Theme H’s vis-network', () => {
+  it('registers Theme D’s four sigma looks, the 3D presentation styles Theme F’s force-graph Theme G’s cytoscape Theme H’s vis-network and Theme I’s d3-force', () => {
     expect(VARIANTS.map((v) => v.id)).toEqual([
       'atlas',
       'constellation',
@@ -20,6 +20,7 @@ describe('renderer-contract', () => {
       'force-graph',
       'cytoscape',
       'vis-network',
+      'd3-force',
     ]);
     expect(DEFAULT_VARIANT_ID).toBe('atlas');
   });

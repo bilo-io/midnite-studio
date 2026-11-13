@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 
-import { LuActivity, LuBoxes, LuNetwork, LuOrbit, LuRadar, LuSparkles, LuShare2, LuWaypoints, LuWorkflow } from 'react-icons/lu';
+import { LuActivity, LuAtom, LuBoxes, LuNetwork, LuOrbit, LuRadar, LuSparkles, LuShare2, LuWaypoints, LuWorkflow } from 'react-icons/lu';
 
 import type { KnowledgeGraphPayload } from '@midnite/studio-shared';
 
@@ -184,6 +184,7 @@ const loadSigma = () => import('./use-sigma-graph');
 const load3D = () => import('./use-3d-graph');
 const loadCytoscape = () => import('./variants/use-cytoscape');
 const loadVisNetwork = () => import('./variants/use-vis-network');
+const loadD3Force = () => import('./variants/use-d3-force');
 const loadForceGraph = () => import('./variants/use-force-graph');
 
 /**
@@ -281,6 +282,15 @@ export const VARIANTS: readonly KnowledgeVariant[] = [
     engine: 'vis-network',
     consumesWorkerLayout: true,
     load: loadVisNetwork,
+  },
+  {
+    id: 'd3-force',
+    label: 'd3-force live',
+    icon: LuAtom,
+    engine: 'd3-force',
+    // The simulation computes its own layout, so a worker layout pill does nothing here.
+    consumesWorkerLayout: false,
+    load: loadD3Force,
   },
 ];
 
