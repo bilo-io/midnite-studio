@@ -1,39 +1,40 @@
 ---
 name: midnite-address-issue
-description: Triage the Midnite Studio issue board, recommend the highest-impact issue (plus 3 alternatives), agree a fix plan interactively, then build it in a worktree and open a linked PR. Stops at the PR — never merges.
+description: Triage this repo's issue board, recommend the highest-impact issue (plus 3 alternatives), agree a fix plan interactively, then build it in a worktree and open a linked PR. Stops at the PR — never merges.
 ---
 
 **Invoke with:** [optional: issue number, label, or keyword]
 
-End-to-end "fix a reported issue" for **Midnite Studio**, driven by the repo's issue board.
+End-to-end "fix a reported issue" for **this repo**, driven by its issue board.
 
 **Conversation style — enforced.** Be terse to save time and tokens. No preamble, no recap of these instructions, no narrating what you're *about* to do. Report results, not intentions; bullets over prose. Stay silent on no-op stages. Spend tokens on the root cause, the diff, and the decisions — not commentary.
 
 ## The boards — read this first
 
-Two boards, two audiences — this skill now scans and writes to both:
+One board: the repo's own forge. Resolve it once and use it everywhere:
 
-- **`bilo-io/midnite-studio` (this repo) — the internal engineering backlog.** Issues and code
-  live in the same repo here, so a bare `gh issue`/`gh pr` call hits the right repo with no `-R`,
-  and `Fixes #N` in a PR body **auto-closes** the issue on merge.
-- **`bilo-io/midnite-apps` (public) — the user-facing board.** Real bug/feature reports filed by
-  the in-app "Report a bug"/"Request a feature" composer land *here*, not in this repo. Every `gh`
-  call against it needs an explicit **`-R bilo-io/midnite-apps`** — nothing defaults to it the
-  way a same-repo call does — and the closing keyword is the cross-repo form,
-  **`Fixes bilo-io/midnite-apps#<N>`**. That auto-closes on merge only because both repos share
-  the `bilo-io` owner and the PR author has write access to both — true today; if that ever stops
-  holding, fall back to a manual `gh issue close -R bilo-io/midnite-apps <N>` plus the Stage 12
-  wrap-up comment instead of relying on the keyword.
+```bash
+gh repo view --json nameWithOwner -q .nameWithOwner   # e.g. <owner>/<repo>
+```
+
+- Issues and code live in the same repo, so a bare `gh issue`/`gh pr` call hits the right repo
+  with no `-R`, and `Fixes #N` in a PR body **auto-closes** the issue on merge.
+- If this repo's convention file names a **separate user-facing issue board** (reports filed from
+  an in-app composer or a public tracker), scan it too: every `gh` call against it needs an
+  explicit **`-R <owner>/<repo>`**, filtered by whatever label scopes it to this product, and the
+  closing keyword is the cross-repo form, **`Fixes <owner>/<repo>#<N>`**. That only auto-closes
+  when the PR author has write access there; otherwise close it by hand with the Stage 12 wrap-up
+  comment. If the convention file names none, ignore this bullet.
 
 Still comment the claim on the issue (Stage 4) and a human-readable wrap-up after merge
 (Stage 12) — auto-close tells the reporter *that* it closed, not *what* changed for them.
 
-If `gh` says *"Could not resolve repository"*, the active account flipped: `gh auth switch --user bilo-io`.
+If `gh` says *"Could not resolve repository"*, the active `gh` account flipped; switch to the account that owns this repo (`gh auth status`).
 
 ## Respect
 
-- `CLAUDE.md` = conventions (package boundaries — `shared ◀ git-engine ◀ desktop`, `shared ◀ app`; commit style; pre-push gate). `docs/INITIAL_PLAN.md` is the design source of truth. Re-read the relevant bits before coding.
-- Parallel work → git worktrees in the repo-root **`.worktrees/<branch>/`** dir (git-ignored; **never** under `.git/` — that path gets pruned by parallel `git worktree` runs and Vite denies `.git/**`). Keep the primary checkout (`/Users/bilolwabona/Dev/midnite-studio`) as home base; all multi-file work happens in the worktree.
+- The repo's convention file (`CLAUDE.md`, `AGENTS.md` or `GEMINI.md`) = conventions (package boundaries, commit style, pre-push gate), and its design doc, if it names one, is the source of truth. Re-read the relevant bits before coding.
+- Parallel work → git worktrees in the repo-root **`.worktrees/<branch>/`** dir (git-ignored; **never** under `.git/` — that path gets pruned by parallel `git worktree` runs and some dev servers deny `.git/**`). Keep the primary checkout as home base; all multi-file work happens in the worktree.
 - **Every writing tool call must be rooted at the worktree path** — absolute paths rooted at the primary checkout silently edit the wrong tree, and the local gate then passes on stale code.
 - `.midnite/tasks/` is the *roadmap* tracker and is **not** the driver here — the issue board is. Only touch `.midnite/tasks/` if the fix happens to close out an existing phase item, and say so if it does.
 
@@ -42,35 +43,35 @@ If `gh` says *"Could not resolve repository"*, the active account flipped: `gh a
 ```bash
 gh issue list --state open --limit 50 \
   --json number,title,labels,createdAt,updatedAt,comments,author,url
-gh issue list -R bilo-io/midnite-apps --label "app: midnite-studio" --state open --limit 50 \
+# only if the convention file names a separate user-facing board (see "The boards")
+gh issue list -R <owner>/<repo> --label "<this product's label>" --state open --limit 50 \
   --json number,title,labels,createdAt,updatedAt,comments,author,url
 ```
 
-The second call is scoped to `app: midnite-studio` — `midnite-apps` is shared across every app
-in that portfolio, and an unfiltered list would pull in reports for apps this skill can't fix.
+Scope the second call by label — a shared board holds reports for other products this skill can't fix.
 
 Then read the **body** of every plausible candidate — `gh issue view <n> --comments` for a
-same-repo issue, `gh issue view <n> -R bilo-io/midnite-apps --comments` for one from the apps
-board — the reporter's environment details (app version, OS, repo size/shape) are the
+same-repo issue, `gh issue view <n> -R <owner>/<repo> --comments` for one from the
+separate board — the reporter's environment details (app version, OS, repo size/shape) are the
 reproduction recipe.
 
 Filter out, silently:
 
 - `wontfix` · `duplicate` · `invalid` · `question` with no defect behind it.
-- **Already claimed / in flight.** Check both sides: a claim comment on the issue, *and* an open PR that names it — `gh pr list --state open --search "#<n>"` plus a plain `gh pr list --state open` skim (add `-R bilo-io/midnite-apps` for that board's candidates). A claim comment is **not a lock**: re-check recently merged PRs (`gh pr list --state merged --limit 15`) before starting, since a parallel session may have already shipped it.
+- **Already claimed / in flight.** Check both sides: a claim comment on the issue, *and* an open PR that names it — `gh pr list --state open --search "#<n>"` plus a plain `gh pr list --state open` skim (add `-R <owner>/<repo>` for the separate board's candidates). A claim comment is **not a lock**: re-check recently merged PRs (`gh pr list --state merged --limit 15`) before starting, since a parallel session may have already shipped it.
 - Anything already fixed on `main` but not yet released — verify against the code before believing a stale report. Say so and move on if that's the case.
 
 Emit a tight digest: one line per surviving candidate, tagged with its board so a user-filed
 report and an internal backlog item read distinctly — `#N · title · labels · age · reporter
-signal · [studio|apps]`. A `midnite-apps` candidate carries different reporter-cost weight in
-Stage 2's scoring: it's a stranger who filed through the in-app composer, not an internal note.
+signal · [internal|external]`. A candidate from a separate user-facing board carries different
+reporter-cost weight in Stage 2's scoring: it's a stranger who filed through a public channel, not an internal note.
 
 ## 2 · Score for impact
 
 Rank candidates on, in order of weight:
 
-1. **Correctness/trust** — does it show users *wrong git state* or corrupt/lose their work? (A graph drawing the wrong topology, a stage/discard hitting the wrong file, is worse than a visual nit.)
-2. **Blast radius** — how many users / how central is the surface? A crash or the graph/status panel beats a corner case.
+1. **Correctness/trust** — does it show users *wrong data* or corrupt/lose their work? (Wrong output, or an action hitting the wrong target, is worse than a visual nit.)
+2. **Blast radius** — how many users / how central is the surface? A crash or a core surface beats a corner case.
 3. **Frequency** — every session vs. rarely.
 4. **Fix confidence × cost** — a well-understood one-file fix with a clear test beats a speculative refactor of equal notional value. Prefer landing real value today.
 5. **Reporter cost** — a report left silent for weeks is a trust cost of its own.
@@ -101,7 +102,7 @@ Mark the recommendation `(Recommended)` and say in one line *why it beats the ot
 1. Rename the session so it's visible in Claude Desktop:
 
    ```bash
-   printf '\033]0;Loop: exec-issue #%s - %s\007' "<N>" "<short-slug>"
+   printf '\033]0;Loop: address-issue #%s - %s\007' "<N>" "<short-slug>"
    ```
 
 2. Claim on the issue (this is also the reporter's first sign of life — write it for them, not for us):
@@ -111,10 +112,10 @@ Mark the recommendation `(Recommended)` and say in one line *why it beats the ot
    gh issue edit <N> --add-label "size/<S>"   # create the label first if absent
    ```
 
-   For a `midnite-apps` candidate, add `-R bilo-io/midnite-apps` to **both** calls — neither
+   For a candidate from a separate board, add `-R <owner>/<repo>` to **both** calls — neither
    defaults to that repo.
 
-   Add the label only if it exists or you create it (`gh label create size/M --color 5D9801`, same `-R` if it's an apps-board issue); never let a missing label abort the run.
+   Add the label only if it exists or you create it (`gh label create size/M --color 5D9801`, same `-R` if it's a separate-board issue); never let a missing label abort the run.
 3. Don't self-assign unless the user asks — assignment reads as a commitment.
 
 ## 5 · Sanitize, reproduce & find the root cause — before any plan
@@ -128,20 +129,20 @@ Mark the recommendation `(Recommended)` and say in one line *why it beats the ot
 
 This is the stage that makes or breaks the fix. **Do not plan a fix you can't explain.**
 
-- Replay the reporter's environment: which panel/surface (graph, sidebar, status, terminal), packaged app vs `desktop:start`, and the shape of the repo that triggers it (huge history? worktrees? in-progress merge?). Build a minimal scratch repo that reproduces it where possible.
+- Replay the reporter's environment: which surface or entry point, packaged/deployed build vs the dev run, version, OS, and the shape of the data or repo that triggers it. Build a minimal scratch case that reproduces it where possible.
 - Locate the real code (Grep/Glob, or delegate a search to a dedicated read-only sub-task, if your CLI supports spawning one, when the surface is unclear — but you own the conclusion).
-- For a wrong-data bug, find where the value is *produced*, not where it's rendered — usually a `git-engine` parser or the lane layout, not the React row. Check the raw git output the parser saw before blaming the UI.
+- For a wrong-data bug, find where the value is *produced*, not where it's rendered — usually a parser, query or transform upstream of the UI. Check the raw input that stage saw before blaming the view.
 - **Report the root cause in this thread in 2–4 bullets, with `file:line` refs, before Stage 6.** If you genuinely can't find it, stop and say so, with what you ruled out — a wrong fix on a public issue is worse than an honest "needs more digging".
 
 ## 6 · Plan — STOP for the human
 
-Present the consequential choices as separate **a direct question to the user** calls. **Minimum 3; use 5+ for anything `[M]` or larger, or when the fix touches a contract in `shared`.** Always include:
+Present the consequential choices as separate **a direct question to the user** calls. **Minimum 3; use 5+ for anything `[M]` or larger, or when the fix touches a shared contract (API, schema, wire format).** Always include:
 
 - **Fix approach** — the competing ways to correct the root cause (the cheap patch vs. the correct-at-the-source fix). Never hide the honest tradeoff.
-- **Scope boundary** — fix only the reported symptom, or the whole class of it (sibling parsers/panels with the same bug)? Say which siblings you found.
+- **Scope boundary** — fix only the reported symptom, or the whole class of it (sibling code paths with the same bug)? Say which siblings you found.
 - **Test proof** — what test pins it, at which layer.
 
-Then, as the task warrants: IPC contract change in `shared`, git-version sensitivity (dugite vs system git output), destructive-op safety (confirm gating), fallback/error UX.
+Then, as the task warrants: a contract change, environment or version sensitivity, destructive-op safety (confirm gating), fallback/error UX.
 
 Tag every option with a **dominant nature** and its size:
 `[recommended]` · `[correctness]` · `[simplicity]` · `[minimal]` · `[performance]` · `[DX]` · `[future-proof]` · `[scope+]`
@@ -165,7 +166,7 @@ the dead tree down first (`git worktree remove --force <path>`) so it can't be p
 ```bash
 git fetch origin
 git worktree add .worktrees/issue-<N>-<slug> -b fix/issue-<N>-<slug> origin/main
-cd .worktrees/issue-<N>-<slug> && pnpm install
+cd .worktrees/issue-<N>-<slug> && <the repo's install command>
 ```
 
 Branch prefix: `fix/` for a bug, `feature/` for an enhancement.
@@ -191,21 +192,15 @@ stage below checks it never got committed.
 ## 8 · Build — the failing test comes first
 
 - **Write the regression test before the fix and watch it fail.** That failure is the proof you found the real cause; a test written after a fix proves nothing. Report both states (red → green) in the thread.
-- Layer it right: parser/layout/engine logic → Vitest in `git-engine` (fixture strings or temp repos) · `app` component → RTL · visual/flow change → extend the Playwright suite under `packages/app/e2e/`.
-- Fix at the source per the agreed plan. Follow `CLAUDE.md` (shared = the IPC contract; zod-validate IPC payloads; `git-engine` stays electron-free; `app` never imports git-engine/electron).
-- Small conventional commits. **Never add a `Co-Authored-By`, `Signed-off-by` or any other attribution trailer to a commit message.** GitHub credits such a commit to whichever account claims the trailer's email — see [`CLAUDE.md`](../../../CLAUDE.md). `.githooks/commit-msg` strips them as a backstop. Reference the issue in the body as `#<N>`.
+- Layer it right, per the repo's testing doc: pure logic → the unit-test runner · UI component → its component-test setup · visual/flow change → the e2e or visual suite.
+- Fix at the source per the agreed plan. Follow the repo's convention file, including its package-boundary and contract rules.
+- Small conventional commits. **Never add a `Co-Authored-By`, `Signed-off-by` or any other attribution trailer to a commit message.** GitHub credits such a commit to whichever account claims the trailer's email — check the repo's convention file for its commit rules; a commit-msg hook may strip them as a backstop. Reference the issue in the body as `#<N>`.
 
 ## 9 · Verify
 
-- **Visual change → before/after Playwright screenshots** against the Vite renderer (`moon run app:dev`, mocked bridge) or the real app via `moon run desktop:start`; `pnpm exec playwright install chromium` if the browser is missing. Read the PNGs so they render inline in this thread; the same shots go in the PR body.
-- **Packaged-app-only bug → verify in a packaged build** (`desktop:install-local`), not just dev, or say plainly that you couldn't and what remains unverified.
-- Pre-push gate, in the worktree, all green — never push red:
-
-  ```bash
-  moon run :typecheck && moon run :lint && moon run :test
-  ```
-
-  Redirect output to a file and check moon's own exit code; piping to `tail` masks failures. If a spec fails only under the full suite, re-run the file alone and confirm against `main` before calling it a regression.
+- **Visual change → before/after Playwright screenshots** against the dev server or the real app, started as the repo's convention file describes, using a headless browser such as Playwright. Read the PNGs so they render inline in this thread; the same shots go in the PR body.
+- **Packaged-app-only bug → verify in a packaged build** (the repo's local-install or build task), not just dev, or say plainly that you couldn't and what remains unverified.
+- Pre-push gate, in the worktree, all green — never push red. Run the repo's gate (typecheck, lint, tests — see its convention file), redirecting output to a file and checking the runner's own exit code; piping to `tail` masks failures. If a spec fails only under the full suite, re-run the file alone and confirm against `main` before calling it a regression.
 
 ## 10 · Open the PR + link it back
 
@@ -215,16 +210,16 @@ stage below checks it never got committed.
   sees the change the moment the PR exists. Never open a visual PR without them and promise
   images later. If a shot genuinely can't be captured (packaged-only, needs hardware), the body
   says which one is missing and why.
-- **Title:** `fix(<pkg>): <what> [<size> · <time>]`
+- **Title:** `fix(<scope>): <what> [<size> · <time>]`
 - **Body:**
   - **Issue:** `Fixes #<N>` on its own line for a same-repo issue — it **will** auto-close on
-    merge. For a `midnite-apps` candidate, use the cross-repo keyword instead:
-    **`Fixes bilo-io/midnite-apps#<N>`** — see "The boards" above for why that still auto-closes.
+    merge. For a candidate from a separate board, use the cross-repo keyword instead:
+    **`Fixes <owner>/<repo>#<N>`** — see "The boards" above for when that auto-closes.
   - **Root cause** in 1–3 bullets with `file:line` refs — the *why*, not a list of touched files.
   - **The proof:** the regression test and what it asserts.
-  - Embedded before/after screenshots for a visual change. Commit the PNGs on the branch under `docs/screenshots/issue-<N>/` and reference them with **commit-pinned** raw URLs (`https://github.com/<owner>/<repo>/raw/<sha>/docs/screenshots/...`) so they survive a squash-merge + branch delete.
+  - Embedded before/after screenshots for a visual change. Commit the PNGs on the branch under the repo's screenshots folder (e.g. `docs/screenshots/issue-<N>/`) — unless its convention file says screenshots are never committed, in which case embed them from the session instead and reference them with **commit-pinned** raw URLs (`https://github.com/<owner>/<repo>/raw/<sha>/docs/screenshots/...`) so they survive a squash-merge + branch delete.
   - The `🤖 Generated with [Claude Code]` trailer.
-- **Self-review your own diff** before marking it ready: fidelity to the agreed plan → `CLAUDE.md` conventions → correctness & coverage → anything the fix could regress elsewhere. Fix what's material, re-run Stage 9, push.
+- **Self-review your own diff** before marking it ready: fidelity to the agreed plan → the repo's conventions → correctness & coverage → anything the fix could regress elsewhere. Fix what's material, re-run Stage 9, push.
 - **Drive CI green:** `gh pr checks <n> --watch`. On failure `gh run view <id> --log-failed` → fix in the worktree → re-run the local gate → push. If genuinely stuck (flaky infra, outage, product call), stop and say exactly what's wrong.
 - **Retire the scratchpad.** `SCRATCHPAD.md` was never meant to be committed, but one `git add -A`
   anywhere on the branch swallows it. **Before `gh pr ready`**, check — and un-track it if it
@@ -270,14 +265,14 @@ If the session ends before it fires, nothing is lost — Stage 13's sweep catche
 ## 12 · Only if the user says merge
 
 - `gh pr merge <n> --squash --delete-branch` (always squash). `Fixes #<N>` (or
-  `Fixes bilo-io/midnite-apps#<N>`) auto-closes the issue.
+  `Fixes <owner>/<repo>#<N>`) auto-closes the issue.
 - **Still leave a human-readable wrap-up comment** on the issue — auto-close doesn't tell the reporter what changed:
 
   ```bash
   gh issue comment <N> --body "Fixed in <PR title> — merged to \`main\`. <one line on what changed for the user.> Ships in the next release."
   ```
 
-  Add `-R bilo-io/midnite-apps` if the issue lives there — this call doesn't default to it either.
+  Add `-R <owner>/<repo>` if the issue lives on the separate board — this call doesn't default to it either.
 
   Keep it written for the reporter: what was wrong, what they'll see now, when. No internal jargon.
 - Consider a `CHANGELOG.md` entry under the unreleased section if the fix is user-facing.

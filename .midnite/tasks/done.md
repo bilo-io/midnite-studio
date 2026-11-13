@@ -15931,3 +15931,7 @@ All nine terminal e2e specs the phase names pass locally against xterm 6.0.0 (no
 ## 2026-11-13 — Ad hoc (skills) — midnite-swarm split into agents, fleet, swarm and orchestrate
 
 The old "one agent per phase" swarm is now `midnite-fleet`; `midnite-swarm` is one problem put through staged agents, `midnite-orchestrate` is the shared core and `midnite-agents` the umbrella (Fleet default). Mirrored into the three skill dirs and the onboarding kit, the convention files name them, and the app's Swarm command now defaults to `/midnite-fleet` (ui-store v40 migrates saved `/midnite-swarm`).
+
+## 2026-11-13 — Ad hoc (templates) — kit's address-issue and verify skills made project-agnostic
+
+The onboarding kit's `midnite-address-issue` and `midnite-verify` no longer name Midnite Studio, its repos, moon tasks or packages; they point at the onboarded repo's own forge, convention file, gate and testing doc. Mirrored across the three `templates/midnite` skill dirs.
