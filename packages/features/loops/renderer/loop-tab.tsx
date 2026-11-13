@@ -18,6 +18,7 @@ import { ResizeHandle, useResizable } from '@midnite/studio-frame';
 import { useLoopsHost } from './host';
 import { LoopComposer } from './loop-composer';
 import { loopFormRange, resolveLoopFormHeight } from './loop-form-size';
+import { GuardFindings } from './guard-findings';
 import { LoopHistory } from './loop-history';
 import { contributorOptions } from './loop-option-row';
 import { useLoopStatus } from './loop-status';
@@ -175,7 +176,7 @@ export function LoopTab({
       : loop.agentId;
   // The roster's own command, not the id — see `useLoopSession`'s note.
   const command = agents.agents.find((a) => a.id === agentId)?.command ?? agentId;
-  const { start, stop } = useLoopSession(runLoop, {
+  const { start, fixFinding, stop } = useLoopSession(runLoop, {
     repoId: selectedRepoId,
     cwd,
     basePrompt,
@@ -301,6 +302,7 @@ export function LoopTab({
             onStart={start}
             onStop={stop}
           />
+          {loop.id === 'guard' ? <GuardFindings runs={runs} onFixWithAgent={selectedRepoId && cwd ? fixFinding : undefined} /> : null}
           <LoopHistory runs={runs} />
         </div>
       </div>

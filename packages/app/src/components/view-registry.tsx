@@ -67,6 +67,8 @@ const loadModelsView = () => modelsViews.models();
 const ModelsView = lazy(() => loadModelsView().then((Component) => ({ default: Component })));
 const loadDatabaseView = () => databaseViews.database();
 const DatabaseView = lazy(() => loadDatabaseView().then((Component) => ({ default: Component })));
+const loadBooksView = () => import('@midnite/studio-feature-ledger/renderer');
+const BooksView = lazy(() => loadBooksView().then((m) => ({ default: m.LedgerWorkspace })));
 const loadDashboardView = () => import('../features/dashboard/dashboard-view');
 const DashboardView = lazy(() => loadDashboardView().then((m) => ({ default: m.DashboardView })));
 const loadFilesView = () => import('../features/files/files-view');
@@ -173,6 +175,8 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
   // to be reachable ahead of the `!selectedRepoId` guard.
   landing: { Component: LandingView, global: true },
   dashboard: { Component: DashboardView, cascade: true },
+  // Global (Phase 129): books are app-wide files on this computer, not a checkout's.
+  books: { Component: BooksView, global: true },
   // Global (Phase 86 Theme E): pinned directly under Dashboard, and notes are
   // per-repo (`notesForRepo`) but a rail row that greys out with no repo open
   // would be a poor first impression right beside Dashboard's own. The

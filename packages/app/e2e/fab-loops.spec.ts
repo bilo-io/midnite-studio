@@ -1,7 +1,9 @@
+// e2e-capability: getBoundingClientRect, computed CSS, xterm, paint/z-order
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
 import { installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
+import { settle } from './shots-helper';
 
 /**
  * The FAB loop console (Phase 35).
@@ -35,11 +37,8 @@ async function openFab(page: Page, tab?: string): Promise<void> {
   await page.keyboard.press('l');
   await expect(page.getByRole('button', { name: 'Guard', exact: true })).toBeVisible();
   if (tab) await page.getByRole('button', { name: tab, exact: true }).click();
-  await page.waitForTimeout(SETTLE_WAIT_MS);
+  await settle(page);
 }
-
-/** The reveal tween's own duration (`REVEAL_MS` in `use-reveal.ts`), plus slack. */
-const SETTLE_WAIT_MS = 300;
 
 /**
  * Every colour-stop position in a computed conic-gradient, in degrees.
@@ -139,7 +138,7 @@ test.describe('FAB loop console', () => {
     await expect(page.getByRole('button', { name: 'Open quick access panel' })).toHaveCount(0);
 
     await page.getByLabel('Close the Loops Panel').click();
-    await page.waitForTimeout(SETTLE_WAIT_MS);
+    await settle(page);
 
     await expect(page.locator('[data-fab-panel-frame]')).toHaveCount(0);
     // The large FAB reclaims the corner exactly as it does for the statusbar
@@ -427,7 +426,7 @@ test.describe('FAB loop console', () => {
     await openFab(page, 'Ideate');
     await page.getByTestId('loop-composer-innovate').getByTestId('loop-extras-send').click();
     await page.getByRole('button', { name: 'Create', exact: true }).click();
-    await page.waitForTimeout(SETTLE_WAIT_MS);
+    await settle(page);
     await page.getByTestId('loop-composer-automate').getByTestId('loop-extras-send').click();
 
     const halo = page.getByTestId('fab-loop-halo');
@@ -458,7 +457,7 @@ test.describe('FAB loop console', () => {
     // [0, 360] — the arc's start lives in `from`, never in a stop.
     await page.getByRole('button', { name: 'Medic', exact: true }).click();
     await expect(halo).toHaveAttribute('data-fab-tab', 'medic');
-    await page.waitForTimeout(600); // the 0.5s arc sweep
+    await page.waitForTimeout(600); // allow-timeout: the 0.5s arc sweep; rAF/CSS tween with no DOM completion signal — the 0.5s arc sweep
     const masks = await page.evaluate(() => ({
       halo: getComputedStyle(document.querySelector('[data-testid="fab-loop-halo"]')!).maskImage,
       ring: getComputedStyle(document.querySelector('[aria-label="Close quick access panel"]')!)
@@ -1314,7 +1313,7 @@ test.describe('FAB loop tab styling & indicators', () => {
 
     // 3. Start a loop on Patrol
     await page.getByRole('button', { name: 'Patrol', exact: true }).click();
-    await page.waitForTimeout(SETTLE_WAIT_MS);
+    await settle(page);
     await expect(page.getByRole('button', { name: 'Patrol', exact: true })).toHaveClass(/is-selected/);
 
     const composer = page.getByTestId('loop-composer-watchdog');

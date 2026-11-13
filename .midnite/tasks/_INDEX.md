@@ -14,19 +14,26 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [132 · Game level editor and Open Game](phases/phase-132-game-level-editor.md) | 🔄 WIP | x1 | 48/62 | `████████░░` | 77% | — | H |
+| [131 · Per-app changelogs](phases/phase-131-per-app-changelogs.md) | 🔄 WIP | x1 | 39/42 | `█████████░` | 93% | — | — |
+| [130 · Startup app](phases/phase-130-startup.md) | 🔄 WIP | x1 | 55/57 | `██████████` | 96% | — | — |
+| [129 · Accountant module](phases/phase-129-accountant.md) | 🔄 WIP | x1 | 58/62 | `█████████░` | 94% | — | — |
+| [128 · Health app](phases/phase-128-health.md) | 🔄 WIP | x1 | 41/43 | `██████████` | 95% | — | — |
+| [127 · Simulator module](phases/phase-127-simulator.md) | 🔄 WIP | x1 | 39/40 | `██████████` | 98% | — | — |
+| [126 · Science app](phases/phase-126-science.md) | 🔄 WIP | x1 | 41/43 | `██████████` | 95% | — | — |
 | [125 · Media ▸ Animations: a library of animation clips](phases/phase-125-animations-library.md) | 🔄 WIP | — | 38/41 | `█████████░` | 93% | — | H |
 | [124 · Merge suite apps into modules](phases/phase-124-apps-into-modules.md) | ✅ DONE | — | 47/47 | `██████████` | 100% | — | — |
 | [123 · One shell for every suite app](phases/phase-123-suite-shell.md) | ✅ DONE | x1 | 56/56 | `██████████` | 100% | — | — |
-| [122 · Guard loop upgrade](phases/phase-122-guard-loop-upgrade.md) | 🔄 WIP | — | 12/41 | `███░░░░░░░` | 29% | B C | D E F G H |
+| [122 · Guard loop upgrade](phases/phase-122-guard-loop-upgrade.md) | 🔄 WIP | — | 27/37 | `███████░░░` | 73% | E | — |
 | [121 · Agents security](phases/phase-121-agents-security.md) | ✅ DONE | — | 51/51 | `██████████` | 100% | — | — |
 | [120 · Vanguard: antivirus and agentic self-defense](phases/phase-120-vanguard.md) | ✅ DONE | — | 46/46 | `██████████` | 100% | — | — |
 | [119 · Midnite Git: a self-hosted forge and local CI runners](phases/phase-119-midnite-git.md) | 🔄 WIP | — | 3/56 | `█░░░░░░░░░` | 5% | A | B C D E F G H |
 | [118 · Vault security hardening](phases/phase-118-vault-security-hardening.md) | ✅ DONE | — | 51/51 | `██████████` | 100% | — | — |
 | [117 · Browser security hardening](phases/phase-117-browser-security-hardening.md) | 🔄 WIP | — | 52/60 | `█████████░` | 87% | — | — |
-| [116 · Test suite diet and screenshot purge](phases/phase-116-test-suite-diet-and-screenshot-purge.md) | 🔄 WIP | — | 14/28 | `█████░░░░░` | 50% | — | C E |
-| [115 · Privacy: data leaving the Mac and data at rest](phases/phase-115-privacy-egress-and-at-rest.md) | 🔄 WIP | — | 23/44 | `█████░░░░░` | 52% | — | A E G |
+| [116 · Test suite diet and screenshot purge](phases/phase-116-test-suite-diet-and-screenshot-purge.md) | 🔄 WIP | — | 17/28 | `██████░░░░` | 61% | C | E |
+| [115 · Privacy: data leaving the Mac and data at rest](phases/phase-115-privacy-egress-and-at-rest.md) | 🔄 WIP | — | 39/46 | `████████░░` | 85% | — | — |
 | [114 · App-wide settings by voice](phases/phase-114-app-wide-settings-by-voice.md) | ◻ TODO | — | 0/34 | `░░░░░░░░░░` | 0% | — | A B C D E F |
-| [113 · Midnite Apps suite split](phases/phase-113-midnite-apps-suite-split.md) | 🔄 WIP | — | 74/78 | `█████████░` | 95% | H | — |
+| [113 · Midnite Apps suite split](phases/phase-113-midnite-apps-suite-split.md) | 🔄 WIP | — | 74/78 | `█████████░` | 95% | — | — |
 | [112 · Companion deep navigation: open any resource](phases/phase-112-companion-deep-navigation.md) | 🔄 WIP | — | 39/48 | `████████░░` | 81% | — | — |
 | [111 · Voice agent and model switching](phases/phase-111-voice-agent-and-model-switching.md) | 🔄 WIP | — | 20/24 | `████████░░` | 83% | — | — |
 | [110 · Prompt & Context Lab](phases/phase-110-prompt-and-context-lab.md) | ◻ TODO | — | 0/33 | `░░░░░░░░░░` | 0% | — | A B C D E F |
@@ -50,8 +57,8 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [92 · Agentic execution from Projects](phases/phase-92-agentic-execution-from-projects.md) | ✅ DONE | — | 36/36 | `██████████` | 100% | — | — |
 | [91 · Security hardening and CVE readiness](phases/phase-91-security-hardening.md) | 🔄 WIP | — | 77/95 | `████████░░` | 81% | — | (acceptance + human passes) |
 | [90 · Multi-forge integration and account switching](phases/phase-90-multi-forge-integration.md) | 🔄 WIP | — | 88/110 | `████████░░` | 80% | — | — |
-| [89 · Knowledge graph visualisation variants](phases/phase-89-knowledge-graph-variants.md) | 🔄 WIP | — | 36/89 | `████░░░░░░` | 40% | — | F G H I J K |
-| [88 · xterm v6 upgrade](phases/phase-88-xterm-v6-upgrade.md) | 🔄 WIP | — | 22/34 | `██████░░░░` | 65% | — | G |
+| [89 · Knowledge graph visualisation variants](phases/phase-89-knowledge-graph-variants.md) | 🔄 WIP | — | 56/89 | `██████░░░░` | 63% | — | J K |
+| [88 · xterm v6 upgrade](phases/phase-88-xterm-v6-upgrade.md) | 🔄 WIP | — | 26/34 | `████████░░` | 76% | — | G |
 | [87 · Knowledge: the graph the repo already has](phases/phase-87-knowledge-graph-panel.md) | ✅ DONE | — | 51/60 | `█████████░` | 85% | A B C D E F G | (9 verification lines — packaged-app network trace, cache/staleness/GPU-leak checks, the Knowledge-view-specific idle-cpu reading, the committed visual baseline, one human eyeball pass — deferred, non-blocking) |
 | [86 · The way back in, and somewhere to write it down](phases/phase-86-the-way-back-in.md) | 🔄 WIP | — | 61/64 | `██████████` | 95% | — | (3 human passes) |
 | [85 · The monitor that lied, and the memory it hid](phases/phase-85-the-monitor-that-lied.md) | 🔄 WIP | x1 | 56/59 | `█████████░` | 95% | — | (3 human passes) |

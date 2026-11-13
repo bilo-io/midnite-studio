@@ -75,6 +75,36 @@ describe('apps/money (Theme P)', () => {
   });
 });
 
+describe('apps/science (Phase 126)', () => {
+  const has = (dir) => existsSync(path.join(repoRoot, dir, 'moon.yml'));
+  const apps = allApps(readdirSync(path.join(repoRoot, 'apps')), has);
+  it('is in the --all matrix, as app-science, with the icon a release needs to pack it', () => {
+    expect(bundleMatrix(apps, has).include).toContainEqual({ app: 'science', project: 'app-science', dir: 'apps/science' });
+    const icns = readFileSync(path.join(repoRoot, 'apps/science/resources/icon.icns'));
+    expect(icns.subarray(0, 4).toString('ascii')).toBe('icns');
+  });
+});
+
+describe('apps/health (Phase 128)', () => {
+  const has = (dir) => existsSync(path.join(repoRoot, dir, 'moon.yml'));
+  const apps = allApps(readdirSync(path.join(repoRoot, 'apps')), has);
+  it('is in the --all matrix, as app-health, with the icon a release needs to pack it', () => {
+    expect(bundleMatrix(apps, has).include).toContainEqual({ app: 'health', project: 'app-health', dir: 'apps/health' });
+    const icns = readFileSync(path.join(repoRoot, 'apps/health/resources/icon.icns'));
+    expect(icns.subarray(0, 4).toString('ascii')).toBe('icns');
+  });
+});
+
+describe('apps/startup (Phase 130 Theme A)', () => {
+  const has = (dir) => existsSync(path.join(repoRoot, dir, 'moon.yml'));
+  const apps = allApps(readdirSync(path.join(repoRoot, 'apps')), has);
+  it('is in the --all matrix, as app-startup, with the icon a release needs to pack it', () => {
+    expect(bundleMatrix(apps, has).include).toContainEqual({ app: 'startup', project: 'app-startup', dir: 'apps/startup' });
+    const icns = readFileSync(path.join(repoRoot, 'apps/startup/resources/icon.icns'));
+    expect(icns.subarray(0, 4).toString('ascii')).toBe('icns');
+  });
+});
+
 describe('apps/gamer (Theme S)', () => {
   const has = (dir) => existsSync(path.join(repoRoot, dir, 'moon.yml'));
   const apps = allApps(readdirSync(path.join(repoRoot, 'apps')), has);

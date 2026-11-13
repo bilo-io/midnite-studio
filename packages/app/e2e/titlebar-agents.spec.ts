@@ -1,3 +1,4 @@
+// e2e-capability: getBoundingClientRect, computed CSS, pointer drag, real pointer hover
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
@@ -105,6 +106,7 @@ test('the agent cluster lives inside the title bar, not the status bar', async (
 });
 
 /** "Before the other right-hand elements" — the date/weather pill leads the rest. */
+// vitest-twin: packages/app/src/components/title-bar-agents.test.tsx (pre-existing)
 test('the cluster precedes the status pill, and its hairline sits between them', async ({
   page,
 }) => {
@@ -129,6 +131,7 @@ test('the cluster precedes the status pill, and its hairline sits between them',
  * `chrome` draws when the count appears. The strip's collapsed glyph is what
  * keeps the cluster non-empty, so the rule always has something on its left.
  */
+// vitest-twin: packages/app/src/components/title-bar-agents.test.tsx (pre-existing)
 test('the hairline holds with no agents running', async ({ page }) => {
   await open(page);
 
@@ -381,6 +384,7 @@ test('the theme toggle stays in the window once full no longer fits', async ({ p
  * permanently-visible bar is noise, so it collapses instead. Kept on the move
  * into the title bar, where the corner is the window's highest-attention one.
  */
+// vitest-twin: packages/features/loops/renderer/fab-launchers.test.tsx (pre-existing)
 test('the loop strip rests as one glyph and expands to six on hover', async ({ page }) => {
   await open(page);
   const strip = page.getByTestId('fab-launchers');
@@ -394,6 +398,7 @@ test('the loop strip rests as one glyph and expands to six on hover', async ({ p
   }
 });
 
+// vitest-twin: packages/features/loops/renderer/fab-launchers.test.tsx (pre-existing)
 test('a launcher opens the FAB console on its own tab', async ({ page }) => {
   await open(page);
   await page.getByTestId('fab-launchers').hover();
@@ -405,6 +410,7 @@ test('a launcher opens the FAB console on its own tab', async ({ page }) => {
   );
 });
 
+// vitest-twin: packages/features/loops/renderer/fab-launchers.test.tsx (pre-existing)
 test('clicking the open tab’s launcher closes the panel', async ({ page }) => {
   await open(page);
   await page.getByTestId('fab-launchers').hover();

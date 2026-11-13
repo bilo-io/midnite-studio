@@ -646,6 +646,8 @@ export const LoopRunRecordSchema = z.object({
   exitCode: z.number().int().optional(),
   status: LoopRunStatusSchema,
   findingsSummary: LoopRunFindingsSummarySchema.optional(),
+  /** The one finding a *Fix with agent* run was scoped to (Phase 122 Theme G); absent on every other run. */
+  findingFingerprint: z.string().min(1).optional(),
   /**
    * The suite app that started the run. Never stored — each app's ledger file is named for it —
    * and set by the merged read (`listLoopRuns`), so a run in the list says whose it was.
@@ -719,8 +721,11 @@ export const AUTONOMY_CHOICE: LoopChoice = {
  * The six loops the FAB ships with. Ids match the historical `FabTab` union
  * so persisted `activeFabTab` values keep meaning what they meant.
  *
- * **Guard** runs security sweeps — secret scanning, dependency audits and
- * vulnerability reviews. **Ideate** brainstorms new phase docs. **Create**
+ * **Guard** is the recurring security sweep: deterministic checks the runtime runs on the loop's schedule with
+ * or without an agent (lockfile CVEs, the threat feed, the Mac's settings and keys, secrets outside the vault,
+ * visited sites, agent behaviour), each finding in the shared ledger with a severity and an action; the model pass
+ * on top triages and fixes. Guard feeds the ledger and never acts; Vanguard is the always-on hand that does.
+ * **Ideate** brainstorms new phase docs. **Create**
  * executes the backlog. **Patrol** walks the pull requests. **Medic** treats
  * what is already sick: the dependency bots' PRs and the issue backlog.
  * **Overhaul** is the performance loop — it profiles, measures and fixes.

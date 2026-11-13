@@ -8,6 +8,9 @@
 
 import { rendererConnectOrigins } from '@midnite/studio-shared';
 
+/** `sha256-…` of the inline no-flash theme script in `packages/app/index.html` (its text between the tags). */
+export const THEME_SCRIPT_HASH = 'sha256-wp5rofKRJaJIX6c6GuCPJi/EoAd18bYUsoZBDkWg0Oc=';
+
 export type CspBuildOptions = {
   /** When true, widen `script-src` and `connect-src` for Vite HMR. */
   dev: boolean;
@@ -25,10 +28,13 @@ function normaliseOrigin(raw: string): string {
 
 /** Builds the CSP header value for the app renderer. */
 export function buildCsp(opts: CspBuildOptions): string {
-  // index.html's no-flash theme script is intentionally inline and runs before
-  // the bundle — same accepted weakening as `style-src 'unsafe-inline'`.
+  // index.html's no-flash theme script is inline and runs before the bundle. Packaged, it is allowed by its
+  // hash (Phase 115 Theme E), so `script-src` has no 'unsafe-inline'; `csp.test.ts` fails when the script changes
+  // and the hash does not. The dev server keeps 'unsafe-inline' because Vite injects its own inline HMR preamble.
   // Shiki's WASM engine needs `wasm-unsafe-eval` (Phase 64 / diff-view e2e).
-  const scriptSrc = ["'self'", "'unsafe-inline'", "'wasm-unsafe-eval'"];
+  const scriptSrc = opts.dev
+    ? ["'self'", "'unsafe-inline'", "'wasm-unsafe-eval'"]
+    : ["'self'", `'${THEME_SCRIPT_HASH}'`, "'wasm-unsafe-eval'"];
   const connectSrc = [
     "'self'",
     'mstudio-file:',

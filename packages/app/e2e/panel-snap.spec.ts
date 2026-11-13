@@ -1,7 +1,9 @@
+// e2e-capability: getBoundingClientRect, pointer drag, real pointer hover
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
 import { installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
+import { settle } from './shots-helper';
 
 /**
  * Dragging a splitter past its own bound, and what that does.
@@ -24,9 +26,6 @@ async function open(page: Page, over: Partial<MockFixtures> = {}): Promise<void>
   await page.goto('/');
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 }
-
-/** The reveal tween's own duration (`REVEAL_MS` in `use-reveal.ts`), plus slack. */
-const SETTLE_WAIT_MS = 300;
 
 const repos = (page: Page) => page.getByRole('complementary', { name: 'Repositories' });
 const frame = (page: Page) => page.locator('[data-terminal-frame]');
@@ -57,13 +56,13 @@ async function dragSeparator(page: Page, name: string, to: { x?: number; y?: num
   await page.mouse.down();
   await page.mouse.move(to.x ?? from.x, to.y ?? from.y, { steps: 10 });
   await page.mouse.up();
-  await page.waitForTimeout(SETTLE_WAIT_MS);
+  await settle(page);
 }
 
 /** `Ctrl+\`` on every platform — macOS reserves Cmd+\` for window cycling. */
 async function toggleTerminal(page: Page): Promise<void> {
   await page.keyboard.press('Control+`');
-  await page.waitForTimeout(SETTLE_WAIT_MS);
+  await settle(page);
 }
 
 test('dragging the repositories splitter past its minimum closes the panel', async ({ page }) => {
@@ -125,7 +124,7 @@ test(
     // And back down, past the bottom of the window: the panel closes rather than
     // sitting at its minimum height.
     await page.getByRole('button', { name: 'Restore terminal height' }).click();
-    await page.waitForTimeout(SETTLE_WAIT_MS);
+    await settle(page);
     await dragSeparator(page, 'Resize terminal', { y: viewport.height - 4 });
 
     await expect(frame(page)).toHaveCount(0);
@@ -141,7 +140,7 @@ test('the FAB panel drags out to 60% of the window, and past its minimum it clos
   await page.getByRole('button', { name: 'Open quick access panel' }).click();
   await page.keyboard.press('l');
   await expect(fabPanel(page)).toBeVisible();
-  await page.waitForTimeout(SETTLE_WAIT_MS);
+  await settle(page);
 
   const viewport = page.viewportSize()!;
   const box = page.locator('[data-fab-panel-frame]');

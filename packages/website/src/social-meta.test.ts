@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
  * `scripts/website-og-image.mjs` and committed.
  */
 const ENTRIES = import.meta.glob<string>(
-  ['../index.html', '../apps/index.html', '../download/index.html', '../pricing/index.html'],
+  ['../index.html', '../apps/index.html', '../download/index.html', '../pricing/index.html', '../privacy/index.html'],
   { eager: true, query: '?raw', import: 'default' },
 );
 
@@ -19,8 +19,8 @@ const content = (html: string, attr: 'property' | 'name', key: string): string |
   new RegExp(`<meta\\s+${attr}="${key}"\\s+content="([^"]*)"`).exec(html)?.[1];
 
 describe('social meta', () => {
-  it('reads all four HTML entries', () => {
-    expect(Object.keys(ENTRIES)).toHaveLength(4);
+  it('reads all five HTML entries', () => {
+    expect(Object.keys(ENTRIES)).toHaveLength(5);
   });
 
   it('ships the card it points at', () => {

@@ -50,6 +50,9 @@ export const PLACEMENT_APPS = [
   'media',
   'gamer',
   'vanguard',
+  'science',
+  'startup',
+  'health',
 ];
 
 /** Studio, the internal superset that composes every feature (Decision 5). */

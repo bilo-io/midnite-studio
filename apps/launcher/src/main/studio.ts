@@ -5,6 +5,7 @@ import type { StudioInstall, StudioStatus } from '../common/bridge';
 import { STUDIO_BUNDLE_ID, studioSearchPaths } from './constants';
 import { fetchStudioRelease } from './feed';
 import { bundleVersionFromPlist } from './plist';
+import { FEED_OFF } from './privacy';
 import { isAppRunning } from './running';
 
 /** The first installed copy of Studio on the search path, or `null`. */
@@ -31,10 +32,12 @@ export function isStudioRunning(): Promise<boolean> {
   return isAppRunning(STUDIO_BUNDLE_ID);
 }
 
-export async function studioStatus(): Promise<StudioStatus> {
+export async function studioStatus(options: { feedOff?: boolean } = {}): Promise<StudioStatus> {
+  // Phase 115 Theme A: an automatic status with the update switch off reads local state only.
+  const skipped = { release: null, error: FEED_OFF } as const;
   const [installed, feed, running] = await Promise.all([
     findStudio(),
-    fetchStudioRelease(),
+    options.feedOff === true ? Promise.resolve(skipped) : fetchStudioRelease(),
     isStudioRunning(),
   ]);
   return { installed, latest: feed.release, feedError: feed.error, running, checkedAt: Date.now() };

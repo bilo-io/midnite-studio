@@ -44,6 +44,17 @@ beforeEach(() => {
 });
 
 describe('release notes handler', () => {
+  it('adds the newest sections when `latest` is asked for', async () => {
+    registerReleaseNotesHandlers(respond(CHANGELOG));
+    const res = (await invoke({ version: '1.2.3', latest: 2 })) as { sections: { version: string }[] };
+    expect(res.sections.map((x) => x.version)).toEqual(['1.2.3', '1.2.2']);
+  });
+
+  it('rejects an out-of-range `latest`', async () => {
+    registerReleaseNotesHandlers(respond(CHANGELOG));
+    await expect(invoke({ version: '1.2.3', latest: 99 })).resolves.toMatchObject({ notes: null });
+  });
+
   it('returns just this version’s section', async () => {
     registerReleaseNotesHandlers(respond(CHANGELOG));
     await expect(invoke({ version: '1.2.3' })).resolves.toEqual({

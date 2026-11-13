@@ -1,10 +1,12 @@
 // @ts-check
 import { extendHook } from 'kit/core/hook.js';
+import { levelEntities, levelGrid } from 'kit/core/level.js';
 import { createJuiceSettings } from 'kit/core/juice-settings.js';
 import { createAudio } from 'kit/phaser/audio.js';
 import { applyPostFx, createJuice, createLighting, litTexture } from 'kit/phaser/juice.js';
 import { createPlatformer } from 'kit/phaser/presets/platformer.js';
-import { KitScene, placeholderTexture } from 'kit/phaser/scenes.js';
+import { KitLevelScene, preloadLevel } from 'kit/phaser/level.js';
+import { placeholderTexture } from 'kit/phaser/scenes.js';
 
 import { installGenre } from '../genre/index.js';
 
@@ -25,14 +27,23 @@ const backdrop = (scene) => {
   scene.add.image(0, 0, 'backdrop').setOrigin(0).setScrollFactor(0.1, 0).setDisplaySize(960 + WORLD_W * 0.1, WORLD_H).setDepth(-10);
 };
 
-export class Level extends KitScene {
+// The layout (ground row, one-way ledges, coins, the walker, the spawn) is `levels/level.tmj`; the textures, lights and juice are here.
+export class Level extends KitLevelScene {
   constructor() {
     super('level');
     this.deaths = 0;
     this.coins = 0;
   }
 
+  preload() {
+    preloadLevel(this, this.levelName);
+  }
+
   create() {
+    const map = this.cache.tilemap.get(`level:${this.levelName}`)?.data ?? {};
+    const entities = levelEntities(map);
+    const ground = levelGrid(map, 'ground');
+    const spawn = entities.find((e) => e.type === 'spawn') ?? { x: 64, y: 400 };
     this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
     backdrop(this);
 
@@ -43,26 +54,30 @@ export class Level extends KitScene {
     this.settings.subscribe(() => this.audio.sfx.setVolume(this.settings.resolved().volume));
     this.juice = createJuice(this, { settings: this.settings, sfx: this.audio.sfx, floorY: WORLD_H - 32 });
     this.lighting = createLighting(this, { ambient: 0xb4bcd6 });
-    this.glow = this.lighting.add(64, 400, { radius: 420, intensity: 1.1 });
+    this.glow = this.lighting.add(spawn.x, spawn.y, { radius: 420, intensity: 1.1 });
     applyPostFx(this, this.settings);
 
-    const ground = litTexture(this, 'ground', 'stone', { size: 32, base: 0x5b6577, accent: 0x8b95a8, normalStrength: 1.1 });
+    const groundTexture = litTexture(this, 'ground', 'stone', { size: 32, base: 0x5b6577, accent: 0x8b95a8, normalStrength: 1.1 });
     const ledge = litTexture(this, 'ledge', 'wood', { size: 32, normalStrength: 1.2 });
     const solids = this.physics.add.staticGroup();
-    for (let x = 0; x < WORLD_W; x += 32) this.lighting.lit(solids.create(x + 16, WORLD_H - 16, ground));
+    // Ground cells are anchored to the bottom of the world, so a world height that is not a multiple of 32 still sits on the floor.
+    ground.forEach((row, ry) => row.forEach((gid, rx) => {
+      if (gid) this.lighting.lit(solids.create(rx * 32 + 16, WORLD_H - (ground.length - ry) * 32 + 16, groundTexture));
+    }));
     const oneWay = this.physics.add.staticGroup();
-    for (const [x, y] of [[300, 400], [520, 330], [760, 260]]) {
-      for (let i = 0; i < 4; i += 1) this.lighting.lit(oneWay.create(x + i * 32, y, ledge).setDisplaySize(32, 12).refreshBody());
+    for (const ledgeObject of entities.filter((e) => e.type === 'oneway')) {
+      const y = ledgeObject.y + ledgeObject.height / 2;
+      for (let i = 0; i < Math.floor(ledgeObject.width / 32); i += 1) this.lighting.lit(oneWay.create(ledgeObject.x + 16 + i * 32, y, ledge).setDisplaySize(32, 12).refreshBody());
     }
 
-    this.rig = createPlatformer(this, { x: 64, y: 400, solids, oneWay });
+    this.rig = createPlatformer(this, { x: spawn.x, y: spawn.y, solids, oneWay });
     this.lighting.lit(this.rig.player);
     this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H).startFollow(this.rig.player, true, 0.1, 0.1);
 
     // Coins on the ledges: collect one for a pickup chime, sparks and a "+1".
     const coinTexture = placeholderTexture(this, 'coin', 12, 12, 0xffd84a);
     this.coinGroup = this.physics.add.staticGroup();
-    for (const [x, y] of [[332, 372], [552, 302], [792, 232]]) this.lighting.lit(this.coinGroup.create(x, y, coinTexture));
+    for (const coin of entities.filter((e) => e.name === 'coin')) this.lighting.lit(this.coinGroup.create(coin.x, coin.y, coinTexture));
     this.physics.add.overlap(this.rig.player, this.coinGroup, (_player, coin) => {
       coin.destroy();
       this.coins += 1;
@@ -70,15 +85,17 @@ export class Level extends KitScene {
     });
 
     // One hazard: a walker that patrols the floor. Touching it sends the player back to the start.
-    const walker = this.physics.add.sprite(900, WORLD_H - 48, placeholderTexture(this, 'walker', 24, 24, 0xe5484d));
-    this.lighting.lit(walker);
-    walker.setCollideWorldBounds(true).setBounce(1, 0).setVelocityX(80);
-    this.physics.add.collider(walker, solids);
-    this.physics.add.overlap(this.rig.player, walker, () => {
-      this.deaths += 1;
-      this.juice.trigger('hurt', { target: this.rig.player, x: this.rig.player.x, y: this.rig.player.y, text: '-1', textKind: 'crit' });
-      this.rig.player.setPosition(64, 400).setVelocity(0, 0);
-    });
+    for (const home of entities.filter((e) => e.name === 'walker')) {
+      const walker = this.physics.add.sprite(home.x, home.y, placeholderTexture(this, 'walker', 24, 24, 0xe5484d));
+      this.lighting.lit(walker);
+      walker.setCollideWorldBounds(true).setBounce(1, 0).setVelocityX(80);
+      this.physics.add.collider(walker, solids);
+      this.physics.add.overlap(this.rig.player, walker, () => {
+        this.deaths += 1;
+        this.juice.trigger('hurt', { target: this.rig.player, x: this.rig.player.x, y: this.rig.player.y, text: '-1', textKind: 'crit' });
+        this.rig.player.setPosition(spawn.x, spawn.y).setVelocity(0, 0);
+      });
+    }
     this.wasOnGround = true;
     this.fell = 0;
     extendHook('fx', { trigger: (name) => this.juice.trigger(name, { target: this.rig.player, x: this.rig.player.x, y: this.rig.player.y + 12 }), state: () => this.juice.state() });
@@ -103,6 +120,6 @@ export class Level extends KitScene {
   }
 
   kitState() {
-    return { ...this.rig.state(), deaths: this.deaths, coins: this.coins, juice: this.juice.state(), ...this.genre.state() };
+    return { ...super.kitState(), ...this.rig.state(), deaths: this.deaths, coins: this.coins, juice: this.juice.state(), ...this.genre.state() };
   }
 }

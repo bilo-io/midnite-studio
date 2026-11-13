@@ -27,6 +27,7 @@ const PORT = Number(process.env.MSTUDIO_E2E_PORT ?? 5273);
  * The suite apps' own Vite servers (Phase 123 Theme I): `e2e/suite-shell/` drives the shell Vanguard and
  * Agents render, which Studio's server does not serve. Overridable for the same reason `PORT` is.
  */
+const STARTUP_PORT = Number(process.env.MSTUDIO_E2E_STARTUP_PORT ?? 5298);
 const VANGUARD_PORT = Number(process.env.MSTUDIO_E2E_VANGUARD_PORT ?? 5292);
 const AGENTS_PORT = Number(process.env.MSTUDIO_E2E_AGENTS_PORT ?? 5290);
 
@@ -169,6 +170,13 @@ export default defineConfig({
       command: `pnpm exec vite --port ${AGENTS_PORT} --strictPort`,
       cwd: '../../apps/agents',
       url: `http://localhost:${AGENTS_PORT}`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+    {
+      command: `pnpm exec vite --port ${STARTUP_PORT} --strictPort`,
+      cwd: '../../apps/startup',
+      url: `http://localhost:${STARTUP_PORT}`,
       reuseExistingServer: false,
       timeout: 120_000,
     },

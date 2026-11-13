@@ -85,7 +85,7 @@ export type LauncherApp = {
   vision: string;
   /** Where "Open" lands when no feature is picked. */
   home: StudioTarget;
-  /** The modules this app hosts, its own first. Empty for an app with none yet (Startup, Health). */
+  /** The modules this app hosts, its own first. Empty for an app with none yet (Health). */
   modules: readonly LauncherModule[];
   /** Every module's features, flattened in module order (an app with no modules lists its own). */
   features: readonly AppFeature[];
@@ -341,13 +341,12 @@ const MODULES = {
     tagline: 'Accounting, tax calculation and bookkeeping',
     vision:
       'Automated bookkeeping, ledger management, and intelligent tax calculations tailored for freelancers, contractors, and growing teams.',
-    home: view('landing'),
+    home: view('books'),
     features: [
-      { id: 'accounting', label: 'Accounting', blurb: 'Double-entry bookkeeping and ledger tracking', target: view('landing') },
-      { id: 'tax', label: 'Tax Calculation', blurb: 'Automated deductions, estimates and filing prep', target: view('landing') },
-      { id: 'reports', label: 'Financial Reports', blurb: 'Balance sheets, P&L and cash flow', target: view('landing') },
+      { id: 'accounting', label: 'Accounting', blurb: 'Double-entry bookkeeping and ledger tracking', target: view('books') },
+      { id: 'tax', label: 'Tax Calculation', blurb: 'Automated deductions, estimates and filing prep', target: view('books') },
+      { id: 'reports', label: 'Financial Reports', blurb: 'Balance sheets, P&L and cash flow', target: view('books') },
     ],
-    comingSoon: true,
   },
   science: {
     id: 'science',
@@ -355,9 +354,9 @@ const MODULES = {
     tagline: 'Maths, physics, chemistry, biology and 3D visualization',
     home: view('landing'),
     features: [
-      { id: 'research', label: 'Research', blurb: 'Maths, physics, chemistry and biology tabs', target: view('landing') },
-      { id: 'visualization', label: 'Visualization', blurb: '3D visualisations and embedded artifacts', target: view('landing') },
-      { id: 'templates', label: 'Templates', blurb: 'Reusable scientific notebook components', target: view('landing') },
+      { id: 'research', label: 'Research', blurb: 'Notebooks with LaTeX, units and matrices', target: view('landing') },
+      { id: 'visualization', label: 'Visualization', blurb: 'Function plots and 3D molecules', target: view('landing') },
+      { id: 'templates', label: 'Templates', blurb: 'Starter notebooks per discipline', target: view('landing') },
     ],
   },
   simulator: {
@@ -372,7 +371,29 @@ const MODULES = {
       { id: 'worlds', label: 'Virtual Worlds', blurb: 'Solar systems, celestial physics and gravity', target: view('landing') },
       { id: 'emergence', label: 'Emergence', blurb: 'Cellular automata and Conway\'s Game of Life', target: view('landing') },
     ],
-    comingSoon: true,
+  },
+  startup: {
+    id: 'startup',
+    name: 'Startup',
+    tagline: 'Roadmap, costs and lightweight ERP',
+    home: view('landing'),
+    features: [
+      { id: 'roadmap', label: 'Roadmap', blurb: 'Milestones, dependencies and product timeline', target: view('landing') },
+      { id: 'costs', label: 'Costs & Runway', blurb: 'Live burn tracking and financial modeling', target: view('landing') },
+      { id: 'erp', label: 'ERP', blurb: 'Invoicing, vendor management and contracts', target: view('landing') },
+    ],
+  },
+  health: {
+    id: 'health',
+    name: 'Health',
+    tagline: 'Body metrics, meals, workouts and trends',
+    home: view('landing'),
+    features: [
+      { id: 'biometrics', label: 'Biometrics', blurb: 'Optional profile, weight and body measurements', target: view('landing') },
+      { id: 'nutrition', label: 'Nutrition', blurb: 'Meal log, saved foods and a calorie target', target: view('landing') },
+      { id: 'workouts', label: 'Workout Plans', blurb: 'Weekly plans with automatic progressive overload', target: view('landing') },
+      { id: 'progress', label: 'Progress', blurb: 'Trend charts and a weekly report', target: view('landing') },
+    ],
   },
   browser: {
     id: 'browser',
@@ -469,7 +490,7 @@ const RAW_APPS: readonly RawApp[] = [
     tagline: 'Stocks, investments, crypto, trading and the books',
     like: 'Like Robinhood, Yahoo Finance and QuickBooks',
     vision:
-      'Every account you hold in one view — brokerage, crypto and cash — with live prices, allocation and performance over time, and the trades themselves a click away, with an agent to explain what moved and why. Bookkeeping and tax follow as the Accountant module.',
+      'Every account you hold in one view — brokerage, crypto and cash — with live prices, allocation and performance over time, and the trades themselves a click away, with an agent to explain what moved and why. Bookkeeping and tax estimates sit beside it in the Accountant module.',
     home: view('dashboard'),
     modules: [MODULES.money, MODULES.accountant],
     runsIn: 'studio',
@@ -512,7 +533,6 @@ const RAW_APPS: readonly RawApp[] = [
     home: view('landing'),
     modules: [MODULES.science, MODULES.simulator],
     runsIn: 'studio',
-    comingSoon: true,
   },
   {
     id: 'vanguard',
@@ -537,14 +557,8 @@ const RAW_APPS: readonly RawApp[] = [
     vision:
       'All the foundational tooling for early-stage companies: clear milestone roadmaps, live burn rate and runway modeling, and modular lightweight ERP.',
     home: view('landing'),
-    modules: [],
-    features: [
-      { id: 'roadmap', label: 'Roadmap', blurb: 'Milestones, dependencies and product timeline', target: view('landing') },
-      { id: 'costs', label: 'Costs & Runway', blurb: 'Live burn tracking and financial modeling', target: view('landing') },
-      { id: 'erp', label: 'ERP', blurb: 'Invoicing, vendor management and contracts', target: view('landing') },
-    ],
+    modules: [MODULES.startup, MODULES.accountant],
     runsIn: 'studio',
-    comingSoon: true,
   },
   {
     id: 'health',
@@ -556,15 +570,8 @@ const RAW_APPS: readonly RawApp[] = [
     vision:
       'Track your personal wellness with total privacy: log biometrics, record meals and calories, plan progressive workout routines, and analyze long-term trends.',
     home: view('landing'),
-    modules: [],
-    features: [
-      { id: 'biometrics', label: 'Biometrics', blurb: 'Optional height, weight, age and body metrics', target: view('landing') },
-      { id: 'nutrition', label: 'Nutrition', blurb: 'Meal logger and calorie counter', target: view('landing') },
-      { id: 'workouts', label: 'Workout Plans', blurb: 'Custom training schedules and progressive overload', target: view('landing') },
-      { id: 'progress', label: 'Progress', blurb: 'Trend analytics and wellness reports', target: view('landing') },
-    ],
+    modules: [MODULES.health],
     runsIn: 'studio',
-    comingSoon: true,
   },
 ];
 

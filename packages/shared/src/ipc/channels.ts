@@ -958,6 +958,7 @@ export const CHANNELS = {
   gamesSettingsSet: 'mstudio:games:settings-set',
   gamesList: 'mstudio:games:list',
   gamesCreate: 'mstudio:games:create',
+  gamesAdd: 'mstudio:games:add',
   gamesGetManifest: 'mstudio:games:get-manifest',
   gamesSetManifest: 'mstudio:games:set-manifest',
   gamesRun: 'mstudio:games:run',
@@ -969,6 +970,11 @@ export const CHANNELS = {
   gamesJuice: 'mstudio:games:juice',
   gamesLogs: 'mstudio:games:logs',
   gamesKitUpgrade: 'mstudio:games:kit-upgrade',
+  /** Levels (Phase 132 Theme C): `levels/<scene>.tmj` list, read, write-and-commit, and the scene jump. */
+  gamesLevels: 'mstudio:games:levels',
+  gamesLevelGet: 'mstudio:games:level-get',
+  gamesLevelSet: 'mstudio:games:level-set',
+  gamesGoto: 'mstudio:games:goto',
   /** Move a game's runner view into the `game` popout window (Theme B). */
   gamesPopOut: 'mstudio:games:pop-out',
   /** Which game the `game` popout hosts, if any. */
@@ -1027,6 +1033,14 @@ export const CHANNELS = {
   mediaSfx: 'mstudio:media:sfx',
   /** Media ▸ Animations (Phase 125) — the global clip library; see `AnimationRequestSchema`. */
   mediaAnimation: 'mstudio:media:model-animation',
+  /** Science notebooks (Phase 126) — one `op` union; see `ScienceRequestSchema`. */
+  science: 'mstudio:science:notebook',
+  /** Health logs, foods and plans (Phase 128) — one `op` union; see `HealthRequestSchema`. */
+  health: 'mstudio:health:op',
+  /** Simulator scenarios (Phase 127) — one `op` union; see `SimulatorRequestSchema`. */
+  simulator: 'mstudio:simulator:scenario',
+  /** Double-entry books (Phase 129) — one `op` union; see `LedgerRequestSchema`. */
+  ledger: 'mstudio:ledger:op',
   // General MIDI instrument samples (Phase 101 Theme D) — cached per program under `userData`.
   mediaGmStatus: 'mstudio:media:gm-status',
   mediaGmEnsure: 'mstudio:media:gm-ensure',
@@ -1714,6 +1728,8 @@ export const CHANNELS = {
   vanguardSensors: 'mstudio:vanguard:sensors',
   /** Run one sensor now. */
   vanguardSensorRun: 'mstudio:vanguard:sensor-run',
+  /** Run a Guard sweep now (Phase 122 Theme H): the tab's Sweep now button and the `guard.sweep` command. */
+  guardSweepNow: 'mstudio:guard:sweep-now',
   /** Read the persisted Vanguard settings. */
   vanguardSettingsGet: 'mstudio:vanguard:settings-get',
   /** Merge a partial update into the persisted Vanguard settings. */
@@ -1749,6 +1765,11 @@ export const CHANNELS = {
   // --- suite-link (retired-link landing) --------------------------------------
   /** The landing a launcher link asked for, once (`SuiteLinkLanding | null`): a cold start's renderer takes what arrived before it mounted. */
   suiteLinkTake: 'mstudio:suite-link:take',
+  /** The suite app's own release notes (Phase 131 Theme E): main answers for itself, so the request names no app or version. */
+  suiteReleaseNotes: 'mstudio:suite:release-notes',
+  // --- startup (Phase 130 Theme B) --------------------------------------------
+  /** Midnite Startup's one channel: a `StartupRequest` (`op` union) in, a `StartupResult` out. */
+  startup: 'mstudio:startup:op',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */
@@ -1888,6 +1909,8 @@ export const EVENT_CHANNELS = {
   mediaAnimationChanged: 'mstudio:media:model-animation-changed',
   /** A bulk animation import advanced — see `AnimationProgressEventSchema`. */
   mediaAnimationProgress: 'mstudio:media:model-animation-progress',
+  /** A book's revision moved (Phase 129) — see `LedgerChangedPayloadSchema`. */
+  ledgerChanged: 'mstudio:ledger:changed',
   /** A General MIDI sample set is downloading — see `GmProgressSchema`. */
   mediaGmProgress: 'mstudio:media:gm-progress',
   /** A 3D model generation advanced — see `ModelGenerateProgressEventSchema`. */
@@ -2011,6 +2034,8 @@ export const EVENT_CHANNELS = {
   suitePrefsChanged: 'mstudio:suite-prefs:changed',
   /** A launcher link reached an already-running host (its `second-instance` argv). Carries a SuiteLinkLanding. */
   suiteLinkOpen: 'mstudio:suite-link:open',
+  /** The Startup workspace was written. Carries a StartupChangedEvent. */
+  startupChanged: 'mstudio:startup:changed',
 } as const;
 
 /**

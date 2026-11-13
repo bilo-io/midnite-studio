@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { LauncherBridge } from '../common/bridge';
-import { APPS, SECTION_ORDER } from '../common/catalog';
+import { APPS, SECTION_ORDER, appById } from '../common/catalog';
 import { App } from './app';
 import { createMockBridge } from './mock-bridge';
 
@@ -30,7 +30,7 @@ describe('<App>', () => {
     await waitFor(() => expect(screen.getAllByLabelText(/^Install Midnite /)).toHaveLength(installableApps.length));
     expect(within(screen.getByLabelText('Filter apps')).getByRole('button', { name: `All ${APPS.length}` })).toBeDefined();
     expect(screen.getAllByText('Runs in Studio')).toHaveLength(installableApps.length - 1);
-    expect(screen.getAllByRole('button', { name: 'Coming soon' })).toHaveLength(APPS.length - installableApps.length);
+    expect(screen.queryAllByRole('button', { name: 'Coming soon' })).toHaveLength(APPS.length - installableApps.length);
   });
 
   it('opens an app in Studio on its own view once Studio is installed', async () => {
@@ -120,6 +120,7 @@ describe('<App>', () => {
     const sheet = screen.getByRole('dialog');
     expect(sheet.getAttribute('aria-label')).toBe('Midnite Gamer');
     expect(within(sheet).getByText('Vision')).toBeDefined();
+    expect(await within(sheet).findByText('gamer fixture')).toBeDefined();
     fireEvent.click(within(sheet).getByRole('button', { name: 'Open Terrains' }));
     expect(open).toHaveBeenCalledWith('gamer', 'terrains');
     fireEvent.keyDown(document, { key: 'Escape' });
@@ -154,16 +155,16 @@ describe('<App>', () => {
     expect(open).toHaveBeenCalledWith('vanguard', 'secrets');
   });
 
-  it('lists a coming-soon module with no way to open it', async () => {
-    mount('installed');
+  it('opens the Accountant module from the Money tile', async () => {
+    const { open } = mount('installed');
     await screen.findByLabelText('Open Midnite Money');
     const tile = screen.getAllByRole('article').find((el) => within(el).queryByLabelText('Open Midnite Money'))!;
     fireEvent.click(within(tile).getAllByRole('button', { name: /Details/ })[0]!);
     const sheet = screen.getByRole('dialog');
-    const accountant = within(sheet).getByRole('region', { name: 'Accountant module' });
-    expect(within(accountant).getByText('Coming soon')).toBeDefined();
-    expect(within(accountant).queryByRole('button')).toBeNull();
+    expect(within(sheet).queryByText('Coming soon')).toBeNull();
     expect(within(sheet).getByRole('button', { name: 'Open Money module' })).toBeDefined();
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Open Accountant module' }));
+    expect(open).toHaveBeenCalledWith('money', 'module:accountant');
   });
 
   it('switches to the table and remembers it', async () => {
@@ -191,32 +192,41 @@ describe('<App>', () => {
   });
 
   it('renders coming-soon apps with disabled button, limited menu, and safe detail view', async () => {
-    mount('installed');
-    await screen.findByLabelText('Open Midnite Agents');
-    const scienceTile = screen.getAllByRole('article').find((a) => within(a).queryByLabelText('More for Midnite Science'))!;
-    expect(within(scienceTile).getAllByText('Coming soon').length).toBeGreaterThanOrEqual(2);
-    expect(within(scienceTile).queryByText('Runs in Studio')).toBeNull();
-    const comingSoonBtn = within(scienceTile).getByRole('button', { name: 'Coming soon' });
-    expect(comingSoonBtn.getAttribute('disabled')).not.toBeNull();
-    expect(comingSoonBtn.getAttribute('aria-disabled')).toBe('true');
+    // No catalog app is coming soon any more, so Health is flagged for the length of the test.
+    const flagged = appById('health') as { comingSoon?: boolean };
+    flagged.comingSoon = true;
+    try {
+      mount('installed');
+      await screen.findByLabelText('Open Midnite Agents');
+      const healthTile = screen.getAllByRole('article').find((a) => within(a).queryByLabelText('More for Midnite Health'))!;
+      expect(within(healthTile).getAllByText('Coming soon').length).toBeGreaterThanOrEqual(2);
+      expect(within(healthTile).queryByText('Runs in Studio')).toBeNull();
+      const comingSoonBtn = within(healthTile).getByRole('button', { name: 'Coming soon' });
+      expect(comingSoonBtn.getAttribute('disabled')).not.toBeNull();
+      expect(comingSoonBtn.getAttribute('aria-disabled')).toBe('true');
 
-    // Menu only has About this app
-    fireEvent.click(within(scienceTile).getByLabelText('More for Midnite Science'));
-    const menuItems = within(screen.getByRole('menu')).getAllByRole('menuitem');
-    expect(menuItems).toHaveLength(1);
-    expect(menuItems[0]!.textContent).toBe('About this app');
+      // Menu only has About this app
+      fireEvent.click(within(healthTile).getByLabelText('More for Midnite Health'));
+      const menuItems = within(screen.getByRole('menu')).getAllByRole('menuitem');
+      expect(menuItems).toHaveLength(1);
+      expect(menuItems[0]!.textContent).toBe('About this app');
 
-    // Details sheet
-    fireEvent.click(menuItems[0]!);
-    const sheet = screen.getByRole('dialog');
-    expect(sheet.getAttribute('aria-label')).toBe('Midnite Science');
-    expect(within(sheet).getByText('Vision')).toBeDefined();
-    // No feature Open buttons
-    expect(within(sheet).queryByRole('button', { name: /^Open / })).toBeNull();
-    // No "runs in Studio" note
-    expect(within(sheet).queryByText(/runs inside Midnite Studio/)).toBeNull();
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByRole('dialog')).toBeNull();
+      // Details sheet
+      fireEvent.click(menuItems[0]!);
+      const sheet = screen.getByRole('dialog');
+      expect(sheet.getAttribute('aria-label')).toBe('Midnite Health');
+      expect(within(sheet).getByText('Vision')).toBeDefined();
+      // No What's new section for a coming-soon app
+      expect(within(sheet).queryByLabelText('What’s new')).toBeNull();
+      // No feature Open buttons
+      expect(within(sheet).queryByRole('button', { name: /^Open / })).toBeNull();
+      // No "runs in Studio" note
+      expect(within(sheet).queryByText(/runs inside Midnite Studio/)).toBeNull();
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByRole('dialog')).toBeNull();
+    } finally {
+      delete flagged.comingSoon;
+    }
   });
 
   it('switches theme from the top bar, remembers it, and tells main', async () => {
@@ -279,5 +289,18 @@ describe('<App>', () => {
     mount(null);
     await screen.findAllByLabelText(/^Install Midnite /);
     expect(screen.getByRole('button', { name: 'Move all apps to Trash…' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('opens Release notes on the app it was picked on, and the launcher\'s notes from the footer version', async () => {
+    const { bridge } = mount('installed');
+    const latest = vi.spyOn(bridge.changelog, 'latest');
+    fireEvent.click(await screen.findByLabelText('More for Midnite Agents'));
+    fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: 'Release notes' }));
+    expect(await screen.findByRole('heading', { name: 'What’s new in Midnite Agents' })).toBeDefined();
+    expect(latest).toHaveBeenCalledWith('agents');
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.click(screen.getByTitle('Midnite Apps release notes'));
+    expect(await screen.findByRole('heading', { name: 'What’s new in Midnite Apps' })).toBeDefined();
+    expect(latest).toHaveBeenCalledWith('launcher');
   });
 });

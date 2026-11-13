@@ -92,6 +92,7 @@ const windowChrome: WindowChromeBridge = createWindowChromeBridge(
  */
 const bridge: Pick<
   MidniteStudioBridge,
+  | 'guardSweepNow'
   | 'homeDir'
   | 'lock'
   | 'hostname'
@@ -137,6 +138,7 @@ const bridge: Pick<
   | 'finance'
   | 'financeAccounts'
   | 'markets'
+  | 'ledger'
   | 'apiClient'
   | 'video'
   | 'games'
@@ -355,6 +357,7 @@ const bridge: Pick<
     importFromApp: (req) => call(CHANNELS.captureImport, req),
     onChanged: (handler) => subscribe(EVENT_CHANNELS.captureChanged, handler),
   },
+  guardSweepNow: () => call(CHANNELS.guardSweepNow),
   vanguard: {
     findings: {
       list: (req) => call(CHANNELS.securityFindingsList, req),
@@ -616,6 +619,25 @@ const bridge: Pick<
     remove: (req) => call(CHANNELS.financeAccountRemove, req),
     snapshots: (req) => call(CHANNELS.financeAccountSnapshots, req),
   },
+  ledger: {
+    listBooks: () => call(CHANNELS.ledger, { op: 'listBooks' }),
+    getBook: (req) => call(CHANNELS.ledger, { op: 'getBook', ...req }),
+    createBook: (req) => call(CHANNELS.ledger, { op: 'createBook', ...req }),
+    updateBook: (req) => call(CHANNELS.ledger, { op: 'updateBook', ...req }),
+    upsertAccount: (req) => call(CHANNELS.ledger, { op: 'upsertAccount', ...req }),
+    archiveAccount: (req) => call(CHANNELS.ledger, { op: 'archiveAccount', ...req }),
+    post: (req) => call(CHANNELS.ledger, { op: 'post', ...req }),
+    reverse: (req) => call(CHANNELS.ledger, { op: 'reverse', ...req }),
+    journal: (req) => call(CHANNELS.ledger, { op: 'journal', ...req }),
+    balances: (req) => call(CHANNELS.ledger, { op: 'balances', ...req }),
+    report: (req) => call(CHANNELS.ledger, { op: 'report', ...req }),
+    exportReport: (req) => call(CHANNELS.ledger, { op: 'exportReport', ...req }),
+    importPick: (req) => call(CHANNELS.ledger, { op: 'importPick', ...req }),
+    importPreview: (req) => call(CHANNELS.ledger, { op: 'importPreview', ...req }),
+    importCommit: (req) => call(CHANNELS.ledger, { op: 'importCommit', ...req }),
+    taxEstimate: (req) => call(CHANNELS.ledger, { op: 'taxEstimate', ...req }),
+    onChanged: (handler) => subscribe(EVENT_CHANNELS.ledgerChanged, handler),
+  },
   markets: {
     series: (req) => call(CHANNELS.marketsSeries, req),
     quotes: (req) => call(CHANNELS.marketsQuotes, req),
@@ -690,6 +712,7 @@ const bridge: Pick<
     },
     list: () => call(CHANNELS.gamesList),
     create: (req) => call(CHANNELS.gamesCreate, req),
+    add: (req) => call(CHANNELS.gamesAdd, req),
     manifest: {
       get: (req) => call(CHANNELS.gamesGetManifest, req),
       set: (req) => call(CHANNELS.gamesSetManifest, req),
@@ -704,6 +727,12 @@ const bridge: Pick<
     juice: (req) => call(CHANNELS.gamesJuice, req),
     logs: (req) => call(CHANNELS.gamesLogs, req),
     kitUpgrade: (req) => call(CHANNELS.gamesKitUpgrade, req),
+    levels: {
+      list: (req) => call(CHANNELS.gamesLevels, req),
+      get: (req) => call(CHANNELS.gamesLevelGet, req),
+      set: (req) => call(CHANNELS.gamesLevelSet, req),
+    },
+    goto: (req) => call(CHANNELS.gamesGoto, req),
     popOut: (req) => call(CHANNELS.gamesPopOut, req),
     popped: () => call(CHANNELS.gamesPopped),
     onPopState: (handler) => subscribe(EVENT_CHANNELS.gamesPopState, handler),

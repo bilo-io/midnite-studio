@@ -79,6 +79,7 @@ describe('games settings', () => {
       defaultEngine: 'phaser',
       defaultNetwork: 'off',
       squashRunCommits: false,
+      pauseWhenEditing: true,
     });
     expect(GamesSettingsSchema.safeParse(DEFAULT_GAMES_SETTINGS).success).toBe(true);
   });

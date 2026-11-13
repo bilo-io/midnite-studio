@@ -91,6 +91,23 @@ describe('SuiteAppShell', () => {
     expect(mounts).toBe(2);
   });
 
+  it('holds the version pill in the rail footer, after the Settings row', () => {
+    (window as { midniteStudio?: unknown }).midniteStudio = {
+      appVersion: '0.0.7',
+      suiteReleaseNotes: { get: async () => ({ version: '0.0.7', notes: null, error: null }) },
+    };
+    renderShell();
+    const strip = screen.getByTestId('suite-rail-version');
+    const settings = screen.getByRole('button', { name: 'Settings' });
+    expect(within(strip).getByTestId('suite-version-pill').textContent).toBe('v0.0.7');
+    expect(settings.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('draws no version strip without a version', () => {
+    renderShell();
+    expect(screen.queryByTestId('suite-rail-version')).toBeNull();
+  });
+
   it('offers no terminal, companion or FAB host without `panels` (gated off until a suite app has a pty host)', () => {
     const { container } = renderShell();
     expect(container.querySelector('[data-shell-panel]')).toBeNull();

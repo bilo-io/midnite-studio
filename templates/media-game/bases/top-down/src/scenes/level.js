@@ -1,7 +1,8 @@
 // @ts-check
 import { extendHook } from 'kit/core/hook.js';
+import { levelEntities, levelGrid } from 'kit/core/level.js';
 import { createTopDown } from 'kit/phaser/presets/top-down.js';
-import { KitScene } from 'kit/phaser/scenes.js';
+import { KitLevelScene, preloadLevel } from 'kit/phaser/level.js';
 
 import { createFx } from '../fx.js';
 import { installGenre } from '../genre/index.js';
@@ -11,13 +12,22 @@ const WORLD_W = 1600;
 const WORLD_H = 1200;
 const STRIDE = 46; // px between footsteps
 
-export class Level extends KitScene {
+// The layout (spawn, walls, torch, gem, drifter) is `levels/level.tmj`; the lit textures, lights and juice are here.
+export class Level extends KitLevelScene {
   constructor() {
     super('level');
     this.score = 0;
   }
 
+  preload() {
+    preloadLevel(this, this.levelName);
+  }
+
   create() {
+    const map = this.cache.tilemap.get(`level:${this.levelName}`)?.data ?? {};
+    const entities = levelEntities(map);
+    const at = (/** @type {string} */ name) => entities.filter((e) => e.name === name);
+    const spawn = entities.find((e) => e.type === 'spawn') ?? { x: 96, y: 96 };
     this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
     // Fidelity kit: Light2D normal-mapped surfaces from generated textures, juice and sound on by default.
     this.fx = createFx(this, { name: 'top-down', ambient: 0xb4bcd6, postfx: 'vignette' });
@@ -39,40 +49,49 @@ export class Level extends KitScene {
     const wall = blockTexture(flat, this, 'wall', 'brick', { seed: 9 });
     const shadow = shadowTexture(this);
     const solids = this.physics.add.staticGroup();
-    for (const [x, y] of [[400, 300], [464, 300], [528, 300], [800, 600], [800, 664], [1100, 400]]) {
+    // A wall is a 64 px block: a `wall` object (centred on its rectangle) or a painted cell of the `collision` layer.
+    const blocks = at('wall').map((w) => ({ x: w.x + w.width / 2, y: w.y + w.height / 2 }));
+    levelGrid(map, 'collision').forEach((row, cy) => row.forEach((gid, cx) => gid && blocks.push({ x: cx * 64 + 32, y: cy * 64 + 32 })));
+    for (const { x, y } of blocks) {
       this.add.image(x + 8, y + 12, shadow).setDisplaySize(96, 56).setDepth(-10);
       lighting.lit(solids.create(x, y, wall));
     }
 
     const hero = domeTexture(this, 'hero', { size: 32, color: 0x6ea8ff, eyes: true });
-    this.rig = createTopDown(this, { x: 96, y: 96, solids, texture: hero });
+    this.rig = createTopDown(this, { x: spawn.x, y: spawn.y, solids, texture: hero });
     this.rig.player.setDisplaySize(30, 30);
     lighting.lit(this.rig.player);
     this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H).startFollow(this.rig.player, true, 0.1, 0.1);
-    this.glow = lighting.add(96, 96, { radius: 420, intensity: 1.8 });
+    this.glow = lighting.add(spawn.x, spawn.y, { radius: 420, intensity: 1.8 });
     // A fixed torch by the wall block, flickering without a random call.
-    this.torch = lighting.add(430, 360, { radius: 240, intensity: 1.2, color: 0xff9a4a });
+    const torch = at('torch')[0];
+    this.torch = lighting.add(torch?.x ?? 430, torch?.y ?? 360, { radius: 240, intensity: 1.2, color: 0xff9a4a });
 
     // One pickup and one obstacle-enemy that drifts back and forth.
     const gemTexture = domeTexture(this, 'gem', { size: 20, color: 0xf5d90a, ring: 0.2 });
-    const gem = lighting.lit(this.physics.add.staticSprite(1000, 200, gemTexture));
-    const gemGlow = lighting.add(1000, 200, { radius: 120, intensity: 1.4, color: 0xffd84a });
-    this.physics.add.overlap(this.rig.player, gem, () => {
-      this.score += 1;
-      juice.trigger('pickup', { x: gem.x, y: gem.y, text: '+1', textKind: 'heal' });
-      lighting.lights.removeLight(gemGlow);
-      gem.destroy();
-    });
-    const drifter = lighting.lit(this.physics.add.sprite(600, 500, domeTexture(this, 'drifter', { size: 32, color: 0xe5484d, eyes: true })));
-    drifter.setDisplaySize(26, 26).setBounce(1, 1).setCollideWorldBounds(true).setVelocity(90, 60);
-    this.drifter = drifter;
-    this.physics.add.collider(drifter, solids, () => this.fx.play('block', { x: drifter.x, power: 0.35, volume: 0.5 }));
+    for (const spot of at('gem')) {
+      const gem = lighting.lit(this.physics.add.staticSprite(spot.x, spot.y, gemTexture));
+      const gemGlow = lighting.add(spot.x, spot.y, { radius: 120, intensity: 1.4, color: 0xffd84a });
+      this.physics.add.overlap(this.rig.player, gem, () => {
+        this.score += 1;
+        juice.trigger('pickup', { x: gem.x, y: gem.y, text: '+1', textKind: 'heal' });
+        lighting.lights.removeLight(gemGlow);
+        gem.destroy();
+      });
+    }
     this.hurtAt = -1e9;
-    this.physics.add.collider(this.rig.player, drifter, () => {
-      if (this.time.now - this.hurtAt < 700) return;
-      this.hurtAt = this.time.now;
-      juice.trigger('hurt', { target: this.rig.player, x: this.rig.player.x, y: this.rig.player.y, text: '-1', textKind: 'crit' });
-    });
+    this.drifter = null;
+    for (const home of at('drifter')) {
+      const drifter = lighting.lit(this.physics.add.sprite(home.x, home.y, domeTexture(this, 'drifter', { size: 32, color: 0xe5484d, eyes: true })));
+      drifter.setDisplaySize(26, 26).setBounce(1, 1).setCollideWorldBounds(true).setVelocity(90, 60);
+      this.drifter ??= drifter;
+      this.physics.add.collider(drifter, solids, () => this.fx.play('block', { x: drifter.x, power: 0.35, volume: 0.5 }));
+      this.physics.add.collider(this.rig.player, drifter, () => {
+        if (this.time.now - this.hurtAt < 700) return;
+        this.hurtAt = this.time.now;
+        juice.trigger('hurt', { target: this.rig.player, x: this.rig.player.x, y: this.rig.player.y, text: '-1', textKind: 'crit' });
+      });
+    }
 
     this.stride = 0;
     this.last = { x: this.rig.player.x, y: this.rig.player.y };
@@ -110,8 +129,8 @@ export class Level extends KitScene {
       this.fx.play('swing', { x: player.x });
       juice.burst('spark', sx, sy, { dir: [fx, fy], count: 6, scale: 0.7 });
       this.fx.ring(sx, sy, { radius: 40, ms: 220, color: 0xfff2b0, squash: 1 });
-      const d = Math.hypot(this.drifter.x - sx, this.drifter.y - sy);
-      if (d < 46) {
+      const d = this.drifter ? Math.hypot(this.drifter.x - sx, this.drifter.y - sy) : Infinity;
+      if (this.drifter && d < 46) {
         juice.trigger('hit', { target: this.drifter, x: this.drifter.x, y: this.drifter.y, dir: [fx, fy], text: 8 });
         this.drifter.setVelocity((fx / len) * 220, (fy / len) * 220);
       }
@@ -119,6 +138,6 @@ export class Level extends KitScene {
   }
 
   kitState() {
-    return { ...this.rig.state(), score: this.score, juice: this.fx.juice.state(), ...this.genre.state() };
+    return { ...super.kitState(), ...this.rig.state(), score: this.score, juice: this.fx.juice.state(), ...this.genre.state() };
   }
 }

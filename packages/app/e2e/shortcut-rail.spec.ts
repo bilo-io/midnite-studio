@@ -1,3 +1,4 @@
+// e2e-capability: getBoundingClientRect, real pointer hover
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
@@ -20,7 +21,7 @@ async function narrowUntilDensity(
 ): Promise<number> {
   for (let width = from; width >= to; width -= step) {
     await page.setViewportSize({ width, height: 800 });
-    await page.waitForTimeout(50);
+    await page.waitForTimeout(50); // allow-timeout: one reflow after setViewportSize before measuring
     if ((await bar.getAttribute('data-density')) === target) return width;
   }
   throw new Error(`bar never reached density="${target}" narrowing ${from}px → ${to}px`);

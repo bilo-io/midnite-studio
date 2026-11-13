@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -313,12 +314,15 @@ describe('fps/weapon-table.js and sight.js', () => {
 describe('genres/fps level (Tiled-shaped)', () => {
   const levels = pathToFileURL(resolve(__dirname, '../../../../../templates/media-game/genres/fps/src/genre/levels.js')).href;
 
+  // The level is `levels/level.tmj` since Phase 132 Theme F; the scene hands the genre the parsed file.
+  const loadFpsMap = async () => JSON.parse(await readFile(resolve(__dirname, '../../../../../templates/media-game/genres/fps/levels/level.tmj'), 'utf8'));
+
   it('is rectangular, spawns on floor and every object is reachable through its doors', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JS module
-    const { levelMap, wallGrid, levelObjects, LEVEL_ASCII } = (await import(levels)) as any;
-    const map = levelMap();
+    const { wallGrid, levelObjects } = (await import(levels)) as any;
+    const map = await loadFpsMap();
     const grid: number[][] = wallGrid(map);
-    expect(new Set(LEVEL_ASCII.map((r: string) => r.length)).size).toBe(1);
+    expect(new Set(grid.map((r) => r.length)).size).toBe(1);
     const objects = levelObjects(map) as { name: string; type: string; x: number; y: number }[];
     const spawn = objects.find((o) => o.type === 'spawn')!;
     expect(grid[Math.floor(spawn.y)]![Math.floor(spawn.x)]).toBe(0);
@@ -340,8 +344,8 @@ describe('genres/fps level (Tiled-shaped)', () => {
 
   it('the red key is reachable without opening the red door, the violet key without the violet one', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JS module
-    const { levelMap, wallGrid, levelObjects } = (await import(levels)) as any;
-    const map = levelMap();
+    const { wallGrid, levelObjects } = (await import(levels)) as any;
+    const map = await loadFpsMap();
     const grid: number[][] = wallGrid(map);
     const objects = levelObjects(map) as { name: string; type: string; x: number; y: number }[];
     const spawn = objects.find((o) => o.type === 'spawn')!;

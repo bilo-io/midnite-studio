@@ -1,11 +1,11 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { app, BrowserWindow, ipcMain, shell, clipboard, Menu, type MenuItemConstructorOptions } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell, clipboard, Menu, type MenuItemConstructorOptions } from 'electron';
 
 import { guardAppWindow, createFileSink, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
 
-import { registerMoneyHandlers } from '@midnite/studio-module-money/main';
+import { registerMoneyHost } from './host';
 import { MONEY_NAME, SMOKE_READY_LINE, USER_DATA_ENV, isSmoke, moneyUserData, moneyVaultDirectory } from './identity';
 import { registerReport, reportMenuTemplate } from './report';
 import { moneyPairing } from './pairing';
@@ -50,6 +50,8 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   void app.whenReady().then(() => {
     suite = registerSuiteMain({
       ipcMain,
+      app: 'money',
+      appVersion: app.getVersion(),
       runtimeDirectory: suiteRuntimeDirectory(app.getPath('appData'), process.env[USER_DATA_ENV]),
       getWindow: () => win,
       argv: process.argv,
@@ -99,7 +101,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
     );
     const vaultDirectory = moneyVaultDirectory(app.getPath('appData'), override);
     mkdirSync(vaultDirectory, { recursive: true });
-    registerMoneyHandlers({
+    const host = registerMoneyHost({
       ipcMain,
       trashItem: (path) => shell.trashItem(path),
       send: (channel, payload) => {
@@ -109,8 +111,22 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       // The runtime host's vault, over its socket: Money never reaches the keychain itself.
       vaultDirectory,
       pairing: moneyPairing(app.getPath('userData'), smoke),
+      appDataBase: app.getPath('appData'),
+      pickCsv: async () => {
+        const result = await dialog.showOpenDialog({ title: 'Choose a bank statement', filters: [{ name: 'CSV', extensions: ['csv', 'txt'] }], properties: ['openFile'] });
+        return result.canceled ? null : (result.filePaths[0] ?? null);
+      },
+      saveCsv: async (defaultName) => {
+        const result = await dialog.showSaveDialog({ defaultPath: defaultName, filters: [{ name: 'CSV', extensions: ['csv'] }] });
+        return result.canceled ? null : (result.filePath ?? null);
+      },
       // eslint-disable-next-line no-console
       warn: (message) => console.warn(message),
+    });
+    // Releases the books' writer locks, and stops the background rate refresh.
+    app.on('will-quit', () => {
+      host.stopRates();
+      void host.dispose();
     });
     openWindow();
   });
@@ -123,7 +139,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
 
 function openWindow(): void {
   // Frameless where the platform allows (Phase 123 Theme A): the shell's title bar is the drag region.
-  const { additionalArguments, ...frame } = suiteWindowOptions(process.platform);
+  const { additionalArguments, ...frame } = suiteWindowOptions(process.platform, app.getVersion());
   win = new BrowserWindow({
     width: 1280,
     height: 860,

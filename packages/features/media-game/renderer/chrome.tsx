@@ -34,6 +34,16 @@ const useOwnOcclusion = create<{ open: number; add: (delta: 1 | -1) => void }>((
   add: (delta) => set((s) => ({ open: Math.max(0, s.open + delta) })),
 }));
 
+/** Count a feature-owned overlay (a dialog) while `open`, so the native game view hides under it. */
+export function useOccludeWhile(open: boolean): void {
+  const add = useOwnOcclusion((s) => s.add);
+  useEffect(() => {
+    if (!open) return undefined;
+    add(1);
+    return () => add(-1);
+  }, [open, add]);
+}
+
 /** Whether something covers the game stage and the native view must hide. */
 export function useGameOccluded(): boolean {
   const host = useGameHost();

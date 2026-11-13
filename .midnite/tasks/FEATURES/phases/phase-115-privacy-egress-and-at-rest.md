@@ -94,7 +94,7 @@ Scope guardrails:
 and a test says so.* Born from a security reviewer's three questions, and from the answers being
 true without anything to prove them. (0% · 0/46) — **Planned 2026-10-19.**
 
-**Theme A — One list of every outbound host.** ◐ PARTIAL ([PR #1045](https://github.com/bilo-io/midnite-studio/pull/1045)). First slice landed: `EGRESS_ENTRIES` (and the host-keyed `EGRESS_HOSTS` the Vanguard sensor reads) in `shared/src/egress.ts` now carries `owner`, `switch`, `renderer` and a `PRIVACY_SWITCHES` id list; `guardedFetch`/`guardedFetchFor` in `runtime/src/net/guarded-fetch.ts` refuse an unregistered host (`EgressUnregisteredError`) or one whose switch is off (`EgressBlockedError`), reading the switches from a new `egress` field on the settings mirror. Moved onto it: Guard's OSV/KEV fetch, Finance markets, TMDB, Ollama library search, sherpa model download, the API client and the workflow HTTP node (the last two register once as `host: '*'`). `buildCsp`'s renderer hosts come from the registry. Settings ▸ Privacy gains "Automatic network calls": a master "Turn off all automatic network" plus one generated switch per automatic entry (weather now has its own, gating the forecast as well as the IP lookup). `egress-registry.test.ts` scans main-side code for raw `fetch`/`net.fetch`/`https.get`, with a commented `UNMIGRATED` ratchet. Two gaps from that slice are closed: `guardedFetch` now follows redirects itself (transport called with `redirect: 'manual'`, at most 5 hops, each `Location` re-checked against the registry and switches, 303/301/302-POST turned into a body-less GET, a caller's own `manual`/`error` passed through; a follow-up hardening narrows a cross-origin hop to a header safelist (`accept*`, `user-agent`, plus `content-type`/`content-language` on 307/308) and refuses an https-to-http downgrade, and the network sensor fails closed on switchable hosts until the first settings sync, matching `guardedFetch`), and Vanguard's network sensor reads the same settings mirror so an address only a switched-off host resolves to is a `medium` finding rather than "expected" (an address an enabled host also resolves to stays allowed). Still open: the launcher's update/catalog switches (off the graph, own settings), map tiles/Overpass, forges, image providers, Whisper and the two model downloads still hold raw clients (listed in the test's ratchet), user-supplied-host registration for forges, Alpaca and Kraken, and the idle e2e with everything off. Original text: An `EGRESS_HOSTS` registry in `shared` (host,
+**Theme A — One list of every outbound host.** ✅ DONE ([PR #1045](https://github.com/bilo-io/midnite-studio/pull/1045)). First slice landed: `EGRESS_ENTRIES` (and the host-keyed `EGRESS_HOSTS` the Vanguard sensor reads) in `shared/src/egress.ts` now carries `owner`, `switch`, `renderer` and a `PRIVACY_SWITCHES` id list; `guardedFetch`/`guardedFetchFor` in `runtime/src/net/guarded-fetch.ts` refuse an unregistered host (`EgressUnregisteredError`) or one whose switch is off (`EgressBlockedError`), reading the switches from a new `egress` field on the settings mirror. Moved onto it: Guard's OSV/KEV fetch, Finance markets, TMDB, Ollama library search, sherpa model download, the API client and the workflow HTTP node (the last two register once as `host: '*'`). `buildCsp`'s renderer hosts come from the registry. Settings ▸ Privacy gains "Automatic network calls": a master "Turn off all automatic network" plus one generated switch per automatic entry (weather now has its own, gating the forecast as well as the IP lookup). `egress-registry.test.ts` scans main-side code for raw `fetch`/`net.fetch`/`https.get`, with a commented `UNMIGRATED` ratchet. Two gaps from that slice are closed: `guardedFetch` now follows redirects itself (transport called with `redirect: 'manual'`, at most 5 hops, each `Location` re-checked against the registry and switches, 303/301/302-POST turned into a body-less GET, a caller's own `manual`/`error` passed through; a follow-up hardening narrows a cross-origin hop to a header safelist (`accept*`, `user-agent`, plus `content-type`/`content-language` on 307/308) and refuses an https-to-http downgrade, and the network sensor fails closed on switchable hosts until the first settings sync, matching `guardedFetch`), and Vanguard's network sensor reads the same settings mirror so an address only a switched-off host resolves to is a `medium` finding rather than "expected" (an address an enabled host also resolves to stays allowed). Still open: the launcher's update/catalog switches (off the graph, own settings), map tiles/Overpass, forges, image providers, Whisper and the two model downloads still hold raw clients (listed in the test's ratchet), user-supplied-host registration for forges, Alpaca and Kraken, and the idle e2e with everything off. **Second slice (PR pending):** six more raw clients moved onto `guardedFetchFor` and left the `UNMIGRATED` ratchet — the HIBP breach check (`vault`), OpenAI Whisper (`companion`), the release-notes fetch (`app`), the General MIDI sample download and the Stable Audio installer (`media-audio`), and the SF3D installer (`media-model`). The registry now lets two owners register the same host (`findEgressEntry(url, owner)` prefers the caller's own entry; `EGRESS_HOSTS` keys a shared host to its first entry), and the download CDN hops (`*.hf.co`, `release-assets.githubusercontent.com`) are registered per owner so a followed redirect passes the per-hop check. Still open: the launcher switches, map tiles/Overpass, forges, image providers, the Monitor/Models loopback Ollama clients, the `file://` protocol handlers, user-supplied-host registration, and the idle e2e. **Third slice (PR pending):** Theme A is done. The launcher reads its own `launcher-updates` / `launcher-catalog` switches and the master from `<userData>/privacy.json` (`apps/launcher/src/main/privacy.ts`, the registry's `privacySwitchOn` taken by source path): off means no `checkForUpdates`, no start-time bundle pass, no catalog or release-feed read on mount or focus, while Check again (`manual: true` over the bridge) still asks; a shield button in its top bar opens the dialog. Map tiles, Overpass and geocoding (`media-map`, three new tile hosts), the image providers (`media-images`), the forge HTTP client, the Browser reputation feeds, loopback Ollama in Models and Monitor, and the Gamer, Media and Creator composers now go through `guardedFetchFor`; user-chosen hosts register once as `*` for `models`, `media-images`, `monitor` and `forge`, and Kraken and Alpaca are registered for `finance`. `guardedFetch` hands a `URL` to its transport unchanged. `privacy-network.spec.ts` gains an idle-30s test with the master on and a control; running it found an ungated third-party call, so author pictures (Gravatar by email hash, GitHub by login, any remote `src`) gained an `avatars` switch (default on) that the frame's `avatarFor` and `UserAvatar` both honour. The `UNMIGRATED` ratchet is now the file:// protocol handlers, the seam and the launcher only. Original text: An `EGRESS_HOSTS` registry in `shared` (host,
 owner, what is sent, automatic or user-initiated, the switch that gates it). A test fails on a
 fetch to an unregistered host. Settings ▸ Privacy is generated from the registry, with a switch per
 automatic call and one master switch. The launcher gets the same switches for its update and
@@ -112,7 +112,7 @@ and chats pass through `redactRecord` on write. A vault-value matcher catches th
 moves to session memory instead of staying in localStorage, with a visible notice, matching how
 forge PATs already degrade.
 
-**Theme E — Inbound surfaces that check who's asking.** ◻ LAN streams use short-lived, per-item
+**Theme E — Inbound surfaces that check who's asking.** ✅ Done. Landed: LAN stream, poster and transcode URLs are now `/media|art|transcode/<id>?e=<expiry>&s=<HMAC-SHA256 over path and expiry>`, keyed by the LAN access token (`lan-signature.ts`), six hours by default, constant-time compare, bare 401 on a missing, wrong, mismatched or expired signature; a bare `?k=` no longer opens a stream, regenerating the token kills every signed link, and the browse pages mint fresh signed links per page load. The `?k=` stays for the browse pages, which hold the same links the user shares. The packaged CSP drops `'unsafe-inline'` from `script-src`: the no-flash theme script in `packages/app/index.html` is allowed by `THEME_SCRIPT_HASH`, and `csp.test.ts` hashes the real file so a script edit without a new hash fails; the Vite dev server keeps `'unsafe-inline'` for its HMR preamble. Sockets: the MCP server and the pty broker each write a per-launch 32-byte token file beside their socket (0600); the MCP shim and the broker client present it as their first frame, and anything else is dropped without a reply (constant-time compare). `retire` carries the token to the retired path so legacy peers stay reachable; Gamer's per-run servers stay tokenless inside their private 0700 run directory. **Not proven:** a packaged install on a real Mac (the open human check), since the suite-app broker clients all share the runtime client but were only unit-tested. Original text: LAN streams use short-lived, per-item
 signed URLs instead of the long-lived token. The MCP and broker sockets require a per-launch
 token from a 0600 file. The CSP drops `'unsafe-inline'` by hashing the no-flash theme script.
 
@@ -120,7 +120,7 @@ token from a 0600 file. The CSP drops `'unsafe-inline'` by hashing the no-flash 
 `~/.claude*`, `.mcp.json` or `~/.codex/config.toml`. Reading `~/.claude`/`~/.codex` transcripts is
 disclosed in Settings ▸ Privacy, with an off switch (default on).
 
-**Theme G — A privacy statement anyone can read.** ◻ `docs/PRIVACY.md` and a website page,
+**Theme G — A privacy statement anyone can read.** ✅ Done. Landed: `renderPrivacyDoc` in `shared/src/privacy-doc.ts` renders `docs/PRIVACY.md` from `EGRESS_ENTRIES` (automatic calls and scheduled feeds with their switch and default, then user-initiated hosts) plus hand-written storage and inbound sections for Themes B to F; `privacy-doc.test.ts` fails when the committed file is stale and rewrites it under `PRIVACY_DOC_WRITE=1`, which is what `moon run root:privacy-doc` (`scripts/privacy-doc.mjs`) sets — a vitest rather than a TS loader, so the check also runs in `shared:test`. `SECURITY.md` links the statement. The doc says plainly that the Launcher does not read its update/catalog switches yet (Theme A's open item). The website serves it at `/privacy/` (a new HTML entry, route, footer link), built from the generated `docs/PRIVACY.md` taken as text at build time, with the repository pointer stripped and a test that the page names and links no repository; Settings ▸ Privacy ends with a link to it. Original text: `docs/PRIVACY.md` and a website page,
 generated from Theme A's registry, answering the three questions in plain language.
 
 ## Deliverables
@@ -132,11 +132,11 @@ generated from Theme A's registry, answering the three questions in plain langua
       sentence: "GET only, no identifiers", "coordinates", "the user's prompt"), `trigger`
       (`automatic` | `user`) and `switch` (a `PrivacySwitchId`, required when `trigger` is
       `automatic`). zod schema, no other imports, per `shared`'s boundary.
-- [~] **Populate it from Finding 1.** Every host in Finding 1, plus every user-triggered provider
+- [x] **Populate it from Finding 1.** Every host in Finding 1, plus every user-triggered provider
       (OpenAI, Gemini, Ollama cloud, the forges, Alpaca, Kraken). The API client and workflow HTTP
       executor go to user-supplied URLs, so they register once as `owner: 'api-client'`/`'workflows'`
       with `host: '*'` and `trigger: 'user'`.
-- [~] **One egress seam in main.** A `guardedFetch(owner, url, init)` in `runtime` that looks the
+- [x] **One egress seam in main.** A `guardedFetch(owner, url, init)` in `runtime` that looks the
       host up in `EGRESS_HOSTS`, refuses (with a typed error) when the entry's switch is off, and
       otherwise calls `fetch`. Move every main-side `fetch` in Finding 1 onto it. The renderer's
       direct calls (weather) move behind main or check the same switch.
@@ -153,14 +153,14 @@ generated from Theme A's registry, answering the three questions in plain langua
       [`privacy-page.tsx`](../../../packages/app/src/features/settings/settings-pages/privacy-page.tsx)
       and keeps Phase 76 D's `ipwho.is` switch.
 - [x] **Open-Meteo gets its own switch.** Today only the IP-location fallback is gated.
-- [ ] **The launcher's update and catalog checks get switches.** Stored in the launcher's own
+- [x] **The launcher's update and catalog checks get switches.** Stored in the launcher's own
       settings (off the graph — it takes the switch ids from `shared` by source path, as it does
       `studio-link`). Off means no request at start. A manual "Check now" stays.
-- [ ] **Idle e2e with everything off.** Extend
+- [x] **Idle e2e with everything off.** Extend
       [`privacy-network.spec.ts`](../../../packages/app/e2e/privacy-network.spec.ts): master switch
       off → zero outbound requests over 30 s of idle on the dashboard. Header names the browser
       capability: real network interception.
-- [ ] *Acceptance:* adding a `fetch('https://example.com')` to any main-side file fails the
+- [x] *Acceptance:* adding a `fetch('https://example.com')` to any main-side file fails the
       registry test; flipping the master switch stops every automatic request in the e2e test.
 
 ### B — History that is yours alone [M · ~1d]
@@ -213,21 +213,29 @@ generated from Theme A's registry, answering the three questions in plain langua
 
 ### E — Inbound surfaces that check who's asking [M · ~1d]
 
-- [ ] **LAN: short-lived signed URLs.** Each stream URL becomes `/i/<itemId>?e=<expiry>&s=<hmac>`
+- [x] **LAN: short-lived signed URLs.** Each stream URL becomes `/i/<itemId>?e=<expiry>&s=<hmac>`
       with an HMAC over item and expiry, keyed by the existing LAN secret, expiring in 6 h by
       default. The long-lived `?k=` stays only for the index page, which is shown to the user and
       never shared to clients. DLNA/VLC clients cannot add headers, which is why it is a URL rather
       than a header.
-- [ ] **Sockets: a per-launch token.** Main writes 32 random bytes to
-      `<userData>/run/socket-token` (0600, 0700 dir) at start. The MCP stdio shim and broker clients
-      send it as the first frame, and the server drops any connection whose first frame isn't the
-      token, comparing in constant time. A stale token from a previous launch is refused.
-- [ ] **Keep legacy broker peers reachable.** The legacy-peer handshake keeps working: the token
-      is per build fingerprint, alongside the socket name. Document it in the broker README comment.
-- [ ] **CSP without `'unsafe-inline'`.** Hash the `index.html` no-flash theme script into
+- [x] **Sockets: a per-launch token.** Landed as a token file *beside* each socket
+      (`<socket>.token`, 0600, in the socket's 0700 dir) rather than one shared `run/socket-token`, so
+      each socket's secret follows that socket's own lifecycle. The MCP server writes a fresh one every
+      launch (`requireToken`); the shim reads it and sends `{auth}` as the first frame. The broker
+      client writes one before it spawns a broker, the broker reads it at start, and a hello without
+      the matching token drops the connection with no reply. Constant-time compare
+      (`runtime/src/security/socket-token.ts`). A token from a previous launch is replaced on the next
+      start, so a stale one is refused. Gamer's per-run MCP servers stay tokenless: each lives in its
+      own private 0700 per-run directory.
+- [x] **Keep legacy broker peers reachable.** `retire` copies the token file to the
+      `-retired-<pid>.sock` path before the successor binds, so the client's legacy probe still
+      authenticates; a broker with no token file (an older build) is not checked, and a tokened
+      broker refuses an older client that sends none (accepted, Decision 6). Documented in the
+      `broker/server.ts` comment on `authToken`.
+- [x] **CSP without `'unsafe-inline'`.** Hash the `index.html` no-flash theme script into
       `script-src 'sha256-…'` at build time, and drop `'unsafe-inline'` from `script-src` (style-src
       stays as-is). Zero CSP violations across `app:e2e`.
-- [ ] *Acceptance:* a `nc -U` to the MCP socket with no token is closed without a reply. An
+- [x] *Acceptance:* a `nc -U` to the MCP socket with no token is closed without a reply. An
       expired LAN item URL returns 401. The packaged build's CSP header has no `'unsafe-inline'` in
       `script-src`.
 
@@ -250,16 +258,19 @@ generated from Theme A's registry, answering the three questions in plain langua
 
 ### G — A privacy statement anyone can read [S · ≤ 2h]
 
-- [ ] **`docs/PRIVACY.md`, generated.** A `scripts/privacy-doc.mjs` (moon `root:privacy-doc`)
+- [x] **`docs/PRIVACY.md`, generated.** A `scripts/privacy-doc.mjs` (moon `root:privacy-doc`)
       renders the three answers. The outbound table comes from `EGRESS_HOSTS`. Storage comes from a
       short hand-written section on credentials (vault/Keychain), history (Theme B), redaction
       (Theme C) and the Claude/Codex guarantee (Theme F). A check mode fails CI when the committed
       file is stale.
-- [ ] **A website page.** `packages/website` gets a Privacy page built from the same generated
+- [x] **A website page.** `packages/website` gets a Privacy page built from the same generated
       markdown. Mind the website's boundary: it may import `shared` (zod-only) for `EGRESS_HOSTS`
-      and nothing else, and must not link to this repo.
-- [ ] **Link it.** `SECURITY.md` and the app's Settings ▸ Privacy footer link to the statement.
-- [ ] *Acceptance:* adding a registry entry and running the generator changes `PRIVACY.md`. A stale
+      and nothing else, and must not link to this repo. (Landed as a `?raw` import of the generated
+      `docs/PRIVACY.md` at build time, rendered by a small markdown subset renderer, so the page can
+      never differ from the document; the website imports nothing from `shared` for it, and the
+      `SECURITY.md` pointer is stripped at render.)
+- [x] **Link it.** `SECURITY.md` and the app's Settings ▸ Privacy footer link to the statement.
+- [x] *Acceptance:* adding a registry entry and running the generator changes `PRIVACY.md`. A stale
       file fails the check.
 
 ## Files this phase touches
@@ -286,11 +297,11 @@ generated from Theme A's registry, answering the three questions in plain langua
       The retention prune and "Clear all local history" are tested.
 - [ ] **C:** a stored Azure PAT pasted into a chat never reaches disk, and a commit SHA survives.
 - [ ] **D:** with encryption forced off, no `agentApiKeys` value persists in `midnite-studio.ui`.
-- [ ] **E:** an unauthenticated socket connect is dropped. An expired LAN URL gets 401. No
+- [x] **E:** an unauthenticated socket connect is dropped. An expired LAN URL gets 401. No
       `'unsafe-inline'` in `script-src`, with zero CSP violations across `app:e2e`.
 - [ ] **F:** the no-write test fails on an injected write. With the switch off, no read under
       `~/.claude` or `~/.codex`.
-- [ ] **G:** `PRIVACY.md` regenerates from the registry, and the stale check fails CI.
+- [x] **G:** `PRIVACY.md` regenerates from the registry, and the stale check fails CI.
 - [ ] **Open, for a human:** one packaged-app pass on a real Mac with a network monitor (Little
       Snitch or `nettop`), master switch off, 10 minutes idle, and zero connections. A LAN stream
       to a real TV or VLC client still plays through a signed URL.

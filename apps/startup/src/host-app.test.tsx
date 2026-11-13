@@ -1,0 +1,63 @@
+// vitest/jsdom: the host's rail and view router over a mock bridge — nothing here needs a real browser.
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { firstViewOfModule, moduleOfView, navConfigProblems, suiteShellTestBridge } from '@midnite/studio-frame';
+import { APP_MODULES } from '@midnite/studio-shared';
+
+import { STARTUP_PANES, StartupHostApp } from './host-app';
+import { STARTUP_HOST_NAV } from './host-nav';
+
+beforeEach(() => {
+  const workspace = { version: 1, company: { name: 'Acme', currency: 'GBP', address: '', invoicePrefix: 'INV-', paymentTermsDays: 30, openingCash: { minor: 0, asOf: '2026-11-01' } }, milestones: [], lines: [], scenarios: [], customers: [], invoices: [], vendors: [], contracts: [], invoiceCounter: 0, ledger: null };
+  window.midniteStudio = suiteShellTestBridge({
+    startup: { get: vi.fn().mockResolvedValue({ ok: true, value: { workspace, revision: 0, readOnly: false } }), onChanged: () => () => undefined },
+    report: {
+      logPath: vi.fn().mockResolvedValue({ path: '/tmp/startup.log' }),
+      bundle: vi.fn().mockResolvedValue({ text: 'boot' }),
+      ghStatus: vi.fn().mockResolvedValue({ reason: 'ready', binPath: '/usr/bin/gh', hint: '' }),
+      onOpen: () => () => undefined,
+    },
+  }) as unknown as typeof window.midniteStudio;
+});
+
+afterEach(() => {
+  cleanup();
+  window.midniteStudio = undefined;
+});
+
+describe('Startup host nav', () => {
+  it('has one group per module in APP_MODULES.startup, in order, and a sound config', () => {
+    expect(STARTUP_HOST_NAV.groups?.map((g) => g.id)).toEqual([...APP_MODULES.startup]);
+    expect(navConfigProblems(STARTUP_HOST_NAV)).toEqual([]);
+  });
+
+  it('has a pane for every group, and routes every view to its group', () => {
+    for (const group of STARTUP_HOST_NAV.groups ?? []) {
+      expect(STARTUP_PANES[group.id]).toBeTypeOf('function');
+      for (const view of group.views) expect(moduleOfView(STARTUP_HOST_NAV, view.id)).toBe(group.id);
+    }
+  });
+
+  it("lands a module link on that module's first view", () => {
+    expect(firstViewOfModule(STARTUP_HOST_NAV, 'startup')).toBe('startup.overview');
+  });
+});
+
+describe('Startup host', () => {
+  it("lists Startup's five views and the Books group in the rail, and opens on Overview", async () => {
+    const { container } = render(<StartupHostApp />);
+    await waitFor(() => expect(screen.getByRole('main', { name: 'Overview' })).toBeTruthy());
+    const views = new Set([...container.querySelectorAll('[data-view]')].map((el) => el.getAttribute('data-view')));
+    for (const view of ['startup.invoices', 'startup.overview', 'startup.roadmap', 'startup.runway', 'startup.vendors']) expect(views, view).toContain(view);
+    const accountant = STARTUP_HOST_NAV.groups?.find((g) => g.id === 'accountant');
+    expect(accountant?.views.length).toBeGreaterThan(0);
+    for (const view of accountant?.views ?? []) expect(views, view.id).toContain(view.id);
+  });
+
+  it('switches view from the rail', async () => {
+    const { container } = render(<StartupHostApp />);
+    fireEvent.click(container.querySelector('[data-view="startup.roadmap"]')!);
+    await waitFor(() => expect(screen.getByRole('main', { name: 'Roadmap' })).toBeTruthy());
+  });
+});

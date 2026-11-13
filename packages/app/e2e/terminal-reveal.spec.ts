@@ -1,7 +1,9 @@
+// e2e-capability: xterm
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
 import { installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
+import { settle } from './shots-helper';
 
 /**
  * The blank-pane-on-reveal defect, and the fit-once-at-the-end contract that
@@ -38,9 +40,6 @@ async function open(page: Page, over: Partial<MockFixtures> = {}): Promise<void>
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 }
 
-/** The reveal tween's own duration (`REVEAL_MS` in `use-reveal.ts`), plus slack. */
-const SETTLE_WAIT_MS = 300;
-
 test.describe('terminal reveal', () => {
   test('revealing a live session replays its buffer with one resize, not one per frame', async ({
     page,
@@ -57,14 +56,14 @@ test.describe('terminal reveal', () => {
     // Collapse, and wait past the exit tween: the frame stays mounted for the
     // length of the exit (so it can animate), and only unmounts after.
     await toggleTerminal(page);
-    await page.waitForTimeout(SETTLE_WAIT_MS);
+    await settle(page);
     await expect(page.locator('[data-terminal-frame]')).toHaveCount(0);
 
     // Reveal again. The frame remounts, and the pane inside it is a NEW xterm —
     // this is exactly the moment the old code left blank.
     await toggleTerminal(page);
     await expect(page.locator('[data-terminal-frame]')).toHaveCount(1);
-    await page.waitForTimeout(SETTLE_WAIT_MS);
+    await settle(page);
 
     const after = await ptyCalls(page);
     // Main's ring buffer was read, not the disk-restored transcript —

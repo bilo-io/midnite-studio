@@ -106,6 +106,7 @@ export { DelayedFallback } from './layout/delayed-fallback';
 export { Spinner, WidgetLoader, type SpinnerMode, type SpinnerVariant } from './layout/spinner';
 export { EmptyState, EmptyStateButton } from './layout/empty-state';
 export { MARKDOWN_PROSE_CLASSES } from './layout/markdown-prose';
+export { ReleaseNotesPanel, type ReleaseNotesPanelProps } from './shell/version/release-notes-panel';
 export { motionMs, REVEAL_MS } from './layout/motion';
 // Reveal tweens and the shared clock (Phase 123 Theme E — moved out of packages/app for the terminal feature).
 export {
@@ -284,6 +285,7 @@ export {
   initialsFor,
   markAvatarMissing,
   normaliseEmail,
+  setRemoteAvatarsEnabled,
   subscribeAvatars,
   type AvatarState,
 } from './lib/avatars';

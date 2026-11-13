@@ -1,3 +1,4 @@
+// e2e-capability: getBoundingClientRect, pointer drag, canvas/WebGL, network/CSP interception
 import { expect, test, type Page } from '@playwright/test';
 
 import { clickRailLink, fixtures, installMockBridge, type MockFixtures, settle } from './shots-helper';

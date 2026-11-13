@@ -3,6 +3,7 @@ import * as net from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { writeSocketToken } from '@midnite/studio-runtime/security/socket-token';
 import type { McpRequest } from '@midnite/studio-shared';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -70,6 +71,30 @@ describe('callMcpTool', () => {
     const response = await callMcpTool('repo.list', {}, { socketPath });
     expect(response.ok).toBe(true);
     expect(response.ok && response.value).toEqual(['a', 'b']);
+  });
+
+  it('sends the socket token as its first frame when a token file sits beside the socket (Phase 115 Theme E)', async () => {
+    const socketPath = await tempSocketPath();
+    const token = writeSocketToken(socketPath);
+    const seen: unknown[] = [];
+    const server = trackedServer((socket) => {
+      const decoder = createFrameDecoder();
+      socket.on('data', (chunk) => {
+        for (const frame of decoder.push(chunk)) {
+          if (frame.type !== 0x00) continue;
+          seen.push(frame.message);
+          const request = frame.message as unknown as McpRequest;
+          if (request.tool) socket.write(encodeJsonFrame({ id: request.id, ok: true, value: 1 }));
+        }
+      });
+    });
+    servers.push(server);
+    await new Promise<void>((resolve) => server.listen(socketPath, resolve));
+
+    const response = await callMcpTool('repo.list', {}, { socketPath });
+    expect(response.ok).toBe(true);
+    expect(seen[0]).toEqual({ auth: token });
+    expect(seen[1]).toMatchObject({ tool: 'repo.list' });
   });
 
   it('answers not-running if the server never replies, within the call timeout', async () => {

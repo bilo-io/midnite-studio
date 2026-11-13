@@ -1,3 +1,4 @@
+// e2e-capability: getBoundingClientRect, pointer drag, real pointer hover
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
@@ -101,7 +102,7 @@ test.describe('nav rail chord tooltips', () => {
     await hoverRailRow(page, 'Dashboard');
     // Long enough to clear the tooltip's own open delay — an assertion that
     // resolved instantly would pass before a bubble could have appeared.
-    await page.waitForTimeout(700);
+    await page.waitForTimeout(700); // allow-timeout: proves a negative (nothing may happen in this window): clears the tooltip's open delay
     await expect(page.getByRole('tooltip')).toHaveCount(0);
   });
 

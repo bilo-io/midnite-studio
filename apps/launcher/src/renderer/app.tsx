@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { LuLayoutGrid, LuMonitor, LuMoon, LuRefreshCw, LuSearch, LuSun, LuTable, LuTrash2, LuX } from 'react-icons/lu';
+import { LuLayoutGrid, LuMonitor, LuMoon, LuRefreshCw, LuSearch, LuShield, LuSun, LuTable, LuTrash2, LuX } from 'react-icons/lu';
+
+import type { ChangelogAppId } from '@midnite/studio-shared/release';
 
 import type { LauncherResult, LauncherSelfStatus, ThemeSource } from '../common/bridge';
 import { APPS, SECTION_LABELS, appById, type AppId, type LauncherApp } from '../common/catalog';
 import { compareVersions } from '../common/version';
 import { getBridge } from './bridge';
+import { PrivacyDialog } from './components/privacy-dialog';
 import { AppDetail } from './components/app-detail';
 import type { MenuItem } from './components/app-menu';
+import { ChangelogList, changelogAppOf, useChangelog } from './components/changelog';
 import { AppTable } from './components/app-table';
 import { AppTile } from './components/app-tile';
 import { LauncherWordmark } from './components/wordmark';
@@ -25,6 +29,13 @@ import { useApps } from './use-apps';
 
 type Layout = 'grid' | 'table';
 const STUDIO_APP = appById('studio');
+
+/** The dialog title's app: Studio, the launcher itself, or `Midnite <catalog name>`. */
+function notesTitle(id: ChangelogAppId): string {
+  if (id === 'studio') return 'Midnite Studio';
+  if (id === 'launcher') return 'Midnite Apps';
+  return `Midnite ${appById(id as AppId).name}`;
+}
 
 const THEME_OPTIONS: readonly { value: ThemeSource; label: string; Icon: typeof LuSun }[] = [
   { value: 'system', label: 'System theme', Icon: LuMonitor },
@@ -63,20 +74,32 @@ export function App() {
   const [sort, setSort] = useState<SortKey>('suite');
   const [query, setQuery] = useState('');
   const [detail, setDetail] = useState<LauncherApp | null>(null);
+  const [notesFor, setNotesFor] = useState<ChangelogAppId | null>(null);
+  const changelog = useChangelog(notesFor);
+  useEffect(() => {
+    if (notesFor === null) return;
+    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && setNotesFor(null);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [notesFor]);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [confirmUninstall, setConfirmUninstall] = useState<LauncherApp | null>(null);
   const [confirmRemoveAll, setConfirmRemoveAll] = useState(false);
   const [removingAll, setRemovingAll] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; tone: 'error' | 'info' } | null>(null);
   const [self, setSelf] = useState<LauncherSelfStatus | null>(null);
   /** The version whose banner was dismissed — a newer one found by Check again shows again. */
   const [selfBannerDismissed, setSelfBannerDismissed] = useState<string | null>(null);
   const [selfUpdating, setSelfUpdating] = useState(false);
 
-  const checkSelf = useCallback(() => {
-    void bridge.self.status().then(setSelf, () => undefined);
-  }, [bridge]);
-  useEffect(checkSelf, [checkSelf]);
+  const checkSelf = useCallback(
+    (manual = false) => {
+      void bridge.self.status({ manual }).then(setSelf, () => undefined);
+    },
+    [bridge],
+  );
+  useEffect(() => checkSelf(false), [checkSelf]);
   useEffect(
     () =>
       bridge.self.onFailed((message) => {
@@ -138,7 +161,7 @@ export function App() {
     }
     const base: MenuItem[] = [
       { id: 'details', label: 'About this app', onSelect: () => setDetail(app) },
-      { id: 'notes', label: 'Release notes', onSelect: () => void bridge.links.open('notes') },
+      ...(changelogAppOf(app.id) ? [{ id: 'notes', label: 'Release notes', onSelect: () => setNotesFor(changelogAppOf(app.id)) }] : []),
     ];
     if (view.source === 'bundle') {
       // Its own bundle: every action here touches this one app and nothing else.
@@ -255,11 +278,20 @@ export function App() {
             aria-label="Check again"
             onClick={() => {
               void apps.refresh();
-              checkSelf();
+              checkSelf(true);
             }}
             disabled={apps.refreshing}
           >
             <LuRefreshCw size={15} className={apps.refreshing ? 'spin' : undefined} />
+          </button>
+          <button
+            type="button"
+            className="btn btn-icon topbar-privacy"
+            aria-label="Privacy: automatic network calls"
+            title="Privacy: automatic network calls"
+            onClick={() => setPrivacyOpen(true)}
+          >
+            <LuShield size={15} />
           </button>
           <button
             type="button"
@@ -280,6 +312,9 @@ export function App() {
             <span className="pill pill-solid">Update</span>
             <span className="banner-text">Midnite Apps {self.latest.version} is available.</span>
             <div className="banner-actions">
+              <button type="button" className="link" onClick={() => setNotesFor('launcher')}>
+                What’s new ↗
+              </button>
               <button type="button" className="btn btn-primary btn-compact" onClick={updateSelf} disabled={selfUpdateDisabled} title={selfUpdateTitle}>
                 {selfUpdating ? 'Updating…' : 'Update launcher'}
               </button>
@@ -294,7 +329,7 @@ export function App() {
             <span className="pill pill-solid">Update</span>
             <span className="banner-text">Midnite Studio {studio.status.latest.version} is available.</span>
             <div className="banner-actions">
-              <button type="button" className="link" onClick={() => void bridge.links.open('notes')}>
+              <button type="button" className="link" onClick={() => setNotesFor('studio')}>
                 What’s new ↗
               </button>
               <button type="button" className="btn btn-primary btn-compact" onClick={() => handlers.onInstall(STUDIO_APP)} disabled={studio.installing}>
@@ -373,9 +408,9 @@ export function App() {
             {APPS.length} apps · macOS {bridge.platform.arch}
           </span>
           <span className="statusbar-version">
-            <span className="eyebrow statusbar-version-number" title="Midnite Apps version">
+            <button type="button" className="link eyebrow statusbar-version-number" title="Midnite Apps release notes" onClick={() => setNotesFor('launcher')}>
               v{bridge.launcherVersion}
-            </span>
+            </button>
             <button
               type="button"
               className="link eyebrow"
@@ -397,6 +432,20 @@ export function App() {
           onRemoveReplaced={(id) => void apps.removeReplaced(id).then((r) => report(r, 'Moved the old app to the Trash.'))}
           onClose={() => setDetail(null)}
         />
+      )}
+
+      {notesFor !== null && (
+        <div className="sheet-backdrop sheet-backdrop-center" onMouseDown={(e) => e.target === e.currentTarget && setNotesFor(null)}>
+          <div className="dialog dialog-changelog" role="dialog" aria-modal="true" aria-labelledby="notes-title">
+            <h2 id="notes-title" className="dialog-title">What’s new in {notesTitle(notesFor)}</h2>
+            <ChangelogList result={changelog} onFull={() => void bridge.changelog.openFull(notesFor)} />
+            <div className="dialog-actions">
+              <button type="button" className="btn" onClick={() => setNotesFor(null)} autoFocus>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {confirmUninstall && (
@@ -469,6 +518,8 @@ export function App() {
           </div>
         </div>
       )}
+
+      {privacyOpen && <PrivacyDialog bridge={bridge} onClose={() => setPrivacyOpen(false)} />}
 
       {toast && (
         <div className="toast" data-tone={toast.tone} role={toast.tone === 'error' ? 'alert' : 'status'}>

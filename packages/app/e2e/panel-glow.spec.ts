@@ -1,3 +1,4 @@
+// e2e-capability: getBoundingClientRect, computed CSS
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
@@ -54,7 +55,7 @@ for (const { trigger, panel } of PANELS) {
 
     // The whole bug lived in the gap between "it mounted" and "it is still
     // here": the dismiss came from a scroll event one frame later.
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(1000); // allow-timeout: proves a negative (nothing may happen in this window)
     await expect(target).toBeVisible();
   });
 
@@ -121,7 +122,7 @@ test('scrolling inside a panel does not dismiss it', async ({ page }) => {
     el.scrollTop = 1;
     el.dispatchEvent(new Event('scroll', { bubbles: false }));
   });
-  await page.waitForTimeout(100);
+  await page.waitForTimeout(100); // allow-timeout: one frame for the dispatched scroll handler to run
   await expect(target).toBeVisible();
 });
 

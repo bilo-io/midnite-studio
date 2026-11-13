@@ -32,6 +32,9 @@ export const PlacementAppIdSchema = z.enum([
   'media',
   'gamer',
   'vanguard',
+  'science',
+  'startup',
+  'health',
 ]);
 export type PlacementAppId = z.infer<typeof PlacementAppIdSchema>;
 
@@ -111,6 +114,7 @@ export const FEATURE_PLACEMENT = {
   tasks: 'coder',
   tests: 'coder',
   finance: 'money',
+  ledger: ['money', 'startup'],
   slides: 'creator',
   media: ['creator', 'media', 'gamer'],
 } as const satisfies Readonly<Record<string, Placement>>;

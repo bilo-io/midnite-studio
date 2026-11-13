@@ -23,6 +23,18 @@ helps; please do not test against accounts or data that are not yours.
   credit you in the release notes unless you prefer otherwise. If a fix needs longer, we will say so
   and agree a date with you.
 
+## Guard's sweep and its feeds
+
+Midnite Studio's Guard loop runs a scheduled sweep of deterministic checks, with or without an agent installed: the
+lockfiles of every open repository against OSV and CISA's Known Exploited Vulnerabilities list, the installed
+software, the Mac's settings, SSH keys and shell files, the sites the browser visited, and the agent audit trail. Each
+finding goes into the local findings ledger with a severity; Guard never kills, quarantines or pauses anything
+(Vanguard does, behind a confirm). The only data a sweep sends off the machine is package names and versions to
+`api.osv.dev`; the CISA and Electron lists are plain downloads. Every outbound host is in the egress registry and
+behind the Settings > Privacy switch for Guard's feeds. The threat feed (poisoned packages, MCP servers, ClickFix
+domains) is a signed file pulled whole, so nothing about your packages is sent to fetch it; no feed is trusted until a
+public key is built in.
+
 ## Out of scope
 
 Two positions are held deliberately; please read them before spending time on one.
@@ -33,6 +45,8 @@ Two positions are held deliberately; please read them before spending time on on
 - **Same-user access to the broker and MCP sockets.** The terminal broker and MCP server are Unix
   sockets guarded by file modes (`0600`/umask `0o177`), the boundary macOS offers. A process already
   running as the same user can reach them.
+
+What the app sends, stores and exposes, in plain language, is in [`docs/PRIVACY.md`](docs/PRIVACY.md).
 
 Findings from our own audits, and their status, are indexed in
 [`docs/security/README.md`](docs/security/README.md).

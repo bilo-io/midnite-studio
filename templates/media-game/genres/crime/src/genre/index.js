@@ -20,7 +20,7 @@ import { createWorld2d } from 'kit/phaser/world2d.js';
 
 import config from '../game.config.js';
 import { blockTexture, domeTexture, gridImage, shadowTexture, tileTexture } from '../lit.js';
-import { COLS, ROWS, TILE, cityMap, isRoad } from './city.js';
+import { TILE, isRoad, sceneLevel } from './city.js';
 
 const WALK = 4; // tiles/s
 
@@ -65,8 +65,10 @@ function carTexture(scene, key, color) {
 
 /** @param {Phaser.Scene} scene @param {{ rig?: any, fx: any, glow: Phaser.GameObjects.Light }} ctx */
 export function installGenre(scene, ctx) {
-  const map = cityMap();
-  const solid = collisionGrid(map);
+  const map = sceneLevel(scene);
+  const COLS = Number(map.width) || 1;
+  const ROWS = Number(map.height) || 1;
+  const solid = collisionGrid(map, 'buildings');
   const objects = tiledObjects(map);
   const world = createWorld2d(scene, { perspective: config.perspective, cols: COLS, rows: ROWS });
   world.cover();

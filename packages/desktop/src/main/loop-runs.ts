@@ -96,6 +96,7 @@ export async function startLoopRun(req: {
   checkedModifierIds: string[];
   model?: LoopModel | undefined;
   findingsSummary?: LoopRunFindingsSummary | undefined;
+  findingFingerprint?: string | undefined;
 }): Promise<LoopRunRecord> {
   const findingsSummary =
     req.findingsSummary ?? (req.loopId === 'guard' ? await guardSummaryProvider?.().catch(() => undefined) : undefined);
@@ -113,6 +114,7 @@ export async function startLoopRun(req: {
       // JSON round-trip as a present-but-empty property in the ledger file.
       ...(req.model === undefined ? {} : { model: req.model }),
       ...(findingsSummary === undefined ? {} : { findingsSummary }),
+      ...(req.findingFingerprint === undefined ? {} : { findingFingerprint: req.findingFingerprint }),
       status: 'running',
     };
     /*

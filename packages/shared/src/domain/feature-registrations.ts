@@ -36,6 +36,7 @@ export type FeatureIds = readonly [string, ...string[]];
 export const FEATURE_VIEWS = {
   landing: ['landing'],
   dashboard: ['dashboard'],
+  ledger: ['books'],
   notes: ['notes'],
   chats: ['chats'],
   sessions: ['sessions'],
@@ -120,6 +121,7 @@ export type RegisteredSettingsPageId = IdsOf<typeof FEATURE_SETTINGS_PAGES>;
 export const STUDIO_VIEW_ORDER = [
   'landing',
   'dashboard',
+  'ledger',
   'notes',
   'chats',
   'sessions',

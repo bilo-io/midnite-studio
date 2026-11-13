@@ -1,17 +1,32 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import {
   appDocumentUrlPatterns,
   buildCsp,
   installCsp,
+  THEME_SCRIPT_HASH,
   type HeadersReceivedDetails,
 } from './csp';
+
+describe('the inline theme script hash', () => {
+  it('matches the only inline script in packages/app/index.html', () => {
+    const html = readFileSync(join(__dirname, '..', '..', '..', 'app', 'index.html'), 'utf8');
+    const inline = [...html.matchAll(/<script(?![^>]*\ssrc=)[^>]*>([\s\S]*?)<\/script>/g)];
+    expect(inline).toHaveLength(1);
+    expect(`sha256-${createHash('sha256').update(inline[0]![1]!).digest('base64')}`).toBe(THEME_SCRIPT_HASH);
+  });
+});
 
 describe('buildCsp', () => {
   it('packaged policy blocks broad img https and omits finance hosts after Theme D', () => {
     const csp = buildCsp({ dev: false });
     expect(csp).toContain("default-src 'self'");
-    expect(csp).toContain("script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'");
+    expect(csp).toContain(`script-src 'self' '${THEME_SCRIPT_HASH}' 'wasm-unsafe-eval'`);
+    expect(csp.split('; ').find((d) => d.startsWith('script-src'))).not.toContain("'unsafe-inline'");
     expect(csp).toContain("img-src 'self' data: blob: mstudio-file: mstudio-tile: https:");
     expect(csp).toContain("style-src 'self' 'unsafe-inline'");
     expect(csp).toContain("worker-src 'self' blob: data:");

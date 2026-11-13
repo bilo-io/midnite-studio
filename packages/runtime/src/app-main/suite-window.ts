@@ -1,4 +1,4 @@
-import { EVENT_CHANNELS, WINDOW_FRAMELESS_ARG } from '@midnite/studio-shared';
+import { APP_VERSION_ARG, EVENT_CHANNELS, WINDOW_FRAMELESS_ARG } from '@midnite/studio-shared';
 
 /**
  * The suite's window chrome (Phase 123 Theme A): the options that make an app's window frameless, and
@@ -32,16 +32,18 @@ export type SuiteWindowOptions = {
 
 /**
  * Spread into `new BrowserWindow({ ... })`; merge `additionalArguments` with the window's own
- * (`webPreferences.additionalArguments`) rather than replacing them.
+ * (`webPreferences.additionalArguments`) rather than replacing them. `appVersion` (`app.getVersion()`) rides
+ * as `APP_VERSION_ARG` so the preload can hand the renderer its own version (Phase 131 Theme E).
  */
-export function suiteWindowOptions(platform: NodeJS.Platform): SuiteWindowOptions {
+export function suiteWindowOptions(platform: NodeJS.Platform, appVersion?: string): SuiteWindowOptions {
+  const version = appVersion === undefined ? [] : [`${APP_VERSION_ARG}${appVersion}`];
   return windowFrameless(platform)
     ? {
         titleBarStyle: 'hidden',
         trafficLightPosition: { ...TRAFFIC_LIGHT_POSITION },
-        additionalArguments: [`${WINDOW_FRAMELESS_ARG}1`],
+        additionalArguments: [`${WINDOW_FRAMELESS_ARG}1`, ...version],
       }
-    : { additionalArguments: [`${WINDOW_FRAMELESS_ARG}0`] };
+    : { additionalArguments: [`${WINDOW_FRAMELESS_ARG}0`, ...version] };
 }
 
 export type WindowState = { maximized: boolean; fullScreen: boolean; focused: boolean };

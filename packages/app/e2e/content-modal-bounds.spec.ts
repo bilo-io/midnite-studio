@@ -1,3 +1,4 @@
+// e2e-capability: getBoundingClientRect, paint/z-order, real pointer hover
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
@@ -20,7 +21,7 @@ async function open(page: Page): Promise<void> {
   await page.keyboard.press('Control+`');
   await expect(page.locator('[data-terminal-frame]')).toBeVisible();
   // Let the reveal tween settle so the measured terminal box is final.
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(400); // allow-timeout: rAF/CSS tween with no DOM completion signal
 }
 
 async function boxOf(page: Page, selector: string): Promise<Box> {

@@ -3,6 +3,7 @@ import * as THREE from 'three';
 
 import { moveRelativeToYaw } from 'kit/core/cameras.js';
 import { extendHook } from 'kit/core/hook.js';
+import { currentLevel, fetchLevel } from 'kit/core/level.js';
 import { createJuiceSettings } from 'kit/core/juice-settings.js';
 import { THREE_BINDINGS } from 'kit/core/three-defaults.js';
 import { createAudio } from 'kit/three/audio.js';
@@ -14,6 +15,7 @@ import { createInput } from 'kit/three/input.js';
 import { createJuice } from 'kit/three/juice.js';
 import { createRenderer, startLoop } from 'kit/three/loop.js';
 import { createMaterials, repeatFor } from 'kit/three/materials.js';
+import { buildLevel3d } from 'kit/three/level.js';
 import { initPhysics } from 'kit/three/physics.js';
 import { createPostFx } from 'kit/three/postfx.js';
 
@@ -101,40 +103,38 @@ export async function startLevel() {
   floor.receiveShadow = true;
   scene.add(floor);
 
-  // Perimeter walls: normal-mapped brick, solid colliders.
-  for (const [size, pos] of /** @type {[number[], number[]][]} */ ([
-    [[80, 4, 1], [0, 2, -40]], [[80, 4, 1], [0, 2, 40]], [[1, 4, 80], [-40, 2, 0]], [[1, 4, 80], [40, 2, 0]],
-  ])) {
-    const wall = box(size, materials.get('brick', { repeat: [Math.max(size[0] ?? 1, size[2] ?? 1) / 3, 1.3] }), pos);
-    scene.add(wall);
-    physics.addBox(pos, [(size[0] ?? 1) / 2, (size[1] ?? 1) / 2, (size[2] ?? 1) / 2]);
-  }
-
-  // The arena: three crates and a ramp, all static colliders.
-  for (const [x, z] of [[-5, -6], [0, -10], [5, -6]]) {
-    scene.add(box([2, 2, 2], materials.get('wood', { repeat: [1, 1], tint: 0xc9a77c }), [x, 1, z]));
-    physics.addBox([x, 1, z], [1, 1, 1]);
-  }
-  const ramp = box([4, 0.3, 6], materials.get('metal', { repeat: [2, 3] }), [9, 0.6, 2]);
-  ramp.rotation.x = -0.2;
-  scene.add(ramp);
-  physics.addMesh(ramp);
+  // The layout (walls, crates, ramp, door, enemy and spawn) is `levels/level.tmj`; the materials and the door's moving collider are here.
+  const levelName = currentLevel('level');
+  const level = await buildLevel3d({ scene, physics }, await fetchLevel(levelName));
+  const named = (/** @type {string} */ name) => level.entities.filter((p) => p.entity.name === name);
+  /** Re-skin the meshes the builder made for `name`: it draws a plain box, the scene owns the look. */
+  const skin = (/** @type {string} */ name, /** @type {(size: number[]) => THREE.Material} */ material) => {
+    for (const part of named(name)) if (part.object instanceof THREE.Mesh) part.object.material = material(part.world.size);
+  };
+  skin('wall', ([w, , d]) => materials.get('brick', { repeat: [Math.max(w ?? 1, d ?? 1) / 3, 1.3] }));
+  skin('crate', () => materials.get('wood', { repeat: [1, 1], tint: 0xc9a77c }));
+  skin('ramp', () => materials.get('metal', { repeat: [2, 3] }));
+  for (const ramp of named('ramp')) if (ramp.object instanceof THREE.Mesh) physics.addMesh(ramp.object);
   // Stone pillars to look past.
-  for (const [x, z] of [[-12, -4], [12, -12], [-8, -20]]) scene.add(box([1.4, 5, 1.4], materials.get('stone', { repeat: [1, 3.5] }), [x, 2.5, z]));
+  skin('pillar', () => materials.get('stone', { repeat: [1, 3.5] }));
 
   // The interactable: a door that opens on `interact` when the player is close.
-  const door = box([2, 3, 0.3], materials.get('wood', { repeat: [1, 1.5] }), [0, 1.5, -3]);
-  scene.add(door);
-  const doorCollider = physics.addBox([0, 1.5, -3], [1, 1.5, 0.15]);
+  skin('door', () => materials.get('wood', { repeat: [1, 1.5] }));
+  const doorPart = named('door')[0];
+  const door = /** @type {THREE.Object3D | null} */ (doorPart?.object ?? null);
+  const doorClosed = door ? door.position.clone() : new THREE.Vector3();
+  const doorCollider = doorPart ? physics.addBox([doorClosed.x, doorClosed.y, doorClosed.z], doorPart.world.size.map((v) => v / 2)) : null;
   let doorOpen = false;
 
   // One enemy: a red cube that patrols side to side. Shoot it: it has a few hits, then bursts.
-  const enemy = box([1, 1, 1], new THREE.MeshStandardMaterial({ color: 0xe5484d, roughness: 0.5 }), [-3, 0.5, 4]);
+  const enemyHome = named('enemy')[0]?.world.position ?? [-3, 0.5, 4];
+  const enemy = box([1, 1, 1], new THREE.MeshStandardMaterial({ color: 0xe5484d, roughness: 0.5 }), [enemyHome[0], enemyHome[1] ?? 0.5, enemyHome[2]]);
   scene.add(enemy);
   let enemyHealth = ENEMY_HEALTH;
   let respawn = 0;
 
-  const character = createCharacter(physics, { position: [0, 0.1, 6] });
+  const spawn = level.spawns[0]?.position ?? [0, 0.1, 6];
+  const character = createCharacter(physics, { position: spawn });
   const input = createInput(THREE_BINDINGS);
   const canvas = /** @type {HTMLCanvasElement} */ (renderer.domElement);
   const rig = createCameraRig({ mode: MODE, physics, exclude: character.collider, allowed: config.cameras, canvas });
@@ -227,7 +227,7 @@ export async function startLevel() {
       // A genre may reshape the step's movement (a dodge roll, rooted attacks, facing a lock-on target).
       character.move(genre.intent ? genre.intent(wish, dt, frame) : wish, dt);
       physics.step();
-      enemy.position.x = -3 + Math.sin(frame / 60) * 3;
+      enemy.position.x = enemyHome[0] + Math.sin(frame / 60) * 3;
       if (respawn > 0) {
         respawn -= dt;
         if (respawn <= 0) {
@@ -285,11 +285,11 @@ export async function startLevel() {
       gun.light.intensity = lit * 14;
 
       const [px, , pz] = character.position;
-      if (input.justPressed('interact') && Math.hypot(px - 0, pz + 3) < 3) {
+      if (door && doorCollider && input.justPressed('interact') && Math.hypot(px - doorClosed.x, pz - doorClosed.z) < 3) {
         doorOpen = !doorOpen;
-        door.position.y = doorOpen ? 4.5 : 1.5;
-        doorCollider.setTranslation({ x: 0, y: doorOpen ? 4.5 : 1.5, z: -3 });
-        audio.sfx.play('door', { position: [0, 1.5, -3] });
+        door.position.y = doorClosed.y + (doorOpen ? 3 : 0);
+        doorCollider.setTranslation({ x: doorClosed.x, y: door.position.y, z: doorClosed.z });
+        audio.sfx.play('door', { position: [doorClosed.x, doorClosed.y, doorClosed.z] });
       }
       rig.update(dt, { pivot: character.head(), look, speed: character.speed });
       env.follow(character.position);
@@ -299,6 +299,7 @@ export async function startLevel() {
     state: () => ({
       player: { position: character.position.map((v) => Number(v.toFixed(3))) },
       animation: animationState(character),
+      level: levelName,
       doorOpen,
       camera: 'first-person',
       weapon: { ammo, reloading: reloading > 0, shots },

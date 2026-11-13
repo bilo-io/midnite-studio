@@ -5,7 +5,7 @@ import type { WatchKind } from '@midnite/studio-shared';
 import { withFsActivity } from '../exec/fs-activity';
 import { writeQueue } from '../exec/write-queue';
 import { TempRepo } from '../testing/temp-repo';
-import { RepoWatcher, isNoise } from './repo-watcher';
+import { RepoWatcher, classifyWorktreeAdminEvent, isNoise, linkedWorktreeName } from './repo-watcher';
 
 describe('isNoise', () => {
   it('ignores .git — it is watched precisely, not through the worktree', () => {
@@ -44,6 +44,51 @@ describe('isNoise', () => {
   it('treats an empty filename as noise', () => {
     // fs.watch can report a null filename on some platforms.
     expect(isNoise('')).toBe(true);
+  });
+});
+
+describe('linkedWorktreeName', () => {
+  it('names the linked worktree a git dir belongs to', () => {
+    expect(linkedWorktreeName('/r/.git', '/r/.git/worktrees/feat')).toBe('feat');
+  });
+
+  it('is null for the main worktree, whose git dir is the common dir', () => {
+    expect(linkedWorktreeName('/r/.git', '/r/.git')).toBeNull();
+  });
+
+  it('still names it when the two paths are spelled through different symlinks', () => {
+    expect(linkedWorktreeName('/tmp/r/.git', '/private/tmp/r/.git/worktrees/feat')).toBe('feat');
+  });
+});
+
+describe('classifyWorktreeAdminEvent', () => {
+  it("drops a sibling worktree's index, reflog, state and locks", () => {
+    // The noise this exists for: a `git status` in another worktree rewrites
+    // its index, and that used to re-stream the graph in this window.
+    for (const file of ['sib/index', 'sib/logs/HEAD', 'sib/ORIG_HEAD', 'sib/HEAD.lock', 'sib/index.lock', 'sib/rebase-merge/done']) {
+      expect(classifyWorktreeAdminEvent(file, null)).toBeNull();
+      expect(classifyWorktreeAdminEvent(file, 'own')).toBeNull();
+    }
+  });
+
+  it("reports a sibling's checkout and the worktree list changing", () => {
+    expect(classifyWorktreeAdminEvent('sib/HEAD', null)).toBe('head');
+    expect(classifyWorktreeAdminEvent('sib/gitdir', null)).toBe('head');
+    expect(classifyWorktreeAdminEvent('sib/locked', null)).toBe('head');
+    // `worktree add` / `remove`: the admin dir itself appears or goes.
+    expect(classifyWorktreeAdminEvent('sib', null)).toBe('head');
+  });
+
+  it("classifies a linked worktree's own admin files as before", () => {
+    expect(classifyWorktreeAdminEvent('own/index', 'own')).toBe('index');
+    expect(classifyWorktreeAdminEvent('own/logs/HEAD', 'own')).toBe('refs');
+    expect(classifyWorktreeAdminEvent('own/HEAD', 'own')).toBe('head');
+    expect(classifyWorktreeAdminEvent('own/rebase-merge/done', 'own')).toBe('head');
+    expect(classifyWorktreeAdminEvent('own/index.lock', 'own')).toBeNull();
+  });
+
+  it('treats an empty filename as nothing', () => {
+    expect(classifyWorktreeAdminEvent('', null)).toBeNull();
   });
 });
 
@@ -260,6 +305,32 @@ describe('RepoWatcher', () => {
     await wait(300);
 
     expect(events).toEqual([]);
+  });
+
+  it("stays silent while a sibling worktree only stages, and reports its checkout", async () => {
+    const { join } = await import('node:path');
+    const { mkdtemp, realpath, rm } = await import('node:fs/promises');
+    const { tmpdir } = await import('node:os');
+    const parent = await realpath(await mkdtemp(join(tmpdir(), 'mstudio-sib-')));
+    const sibling = join(parent, 'wt');
+    await repo.git(['worktree', 'add', '-q', '-b', 'sib', sibling]);
+    await startWatching();
+
+    // Staging in the sibling writes `.git/worktrees/wt/index` — nothing this
+    // checkout shows.
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(join(sibling, 'b.txt'), 'x\n', 'utf8');
+    await repo.git(['-C', sibling, 'add', 'b.txt']);
+    await wait(400);
+    expect(events).toEqual([]);
+
+    // A checkout there moves its HEAD, which the worktree rows show.
+    await repo.git(['-C', sibling, 'checkout', '-q', '-b', 'sib-2']);
+    await wait(400);
+    expect(events).toContain('head');
+
+    await repo.git(['worktree', 'remove', '--force', sibling]);
+    await rm(parent, { recursive: true, force: true });
   });
 
   it('starts without throwing on a repo that has no packed-refs or worktrees', async () => {

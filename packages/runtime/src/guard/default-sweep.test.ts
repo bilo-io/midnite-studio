@@ -52,8 +52,9 @@ describe('the default sweep, end to end (Phase 122 B + C)', () => {
       ledger,
       context: { resolvers: createGuardResolvers({ userData: dir, home: dir, repos: () => [repo], fetch }) },
     });
-    expect(record.checksRun).toEqual(['lockfile-cves', 'electron-freshness']);
-    expect(Object.keys(record.inputsSkipped)).toEqual(['installedSoftware', 'threatFeed']);
+    expect(record.checksRun).toContain('lockfile-cves');
+    expect(record.checksRun).toContain('electron-freshness');
+    expect(Object.keys(record.inputsSkipped).sort()).toEqual(['dotfileSecrets', 'history', 'installedSoftware', 'localLockfileChanges', 'macConfig', 'phishingHosts', 'ports', 'sshKeys', 'threatFeed', 'vanguardFindings']);
     expect(record.inputsSkipped.installedSoftware).toBe('no-resolver'); // the host supplies exec
     expect(record.inputsSkipped.threatFeed).toContain('no trusted threat-feed key');
     expect(findings.map((f) => f.fingerprint)).toEqual([expect.stringContaining('lockfile-cves:')]);

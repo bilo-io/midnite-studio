@@ -1,0 +1,75 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# Simulator module package (Phase 127 Theme A): deterministic sandboxes (automata, gravity, agents) the Science host mounts.
+id: 'module-simulator'
+language: 'typescript'
+layer: 'library'
+
+# `app-<id>` names the apps that mount this module: its host and Studio. `scripts/affected-apps.mjs` reads them.
+tags:
+  - 'layer-module'
+  - 'app-science'
+  - 'app-studio'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+  - 'runtime'
+
+tasks:
+  # Only the main half emits; the renderer half is compiled by the app.
+  build:
+    command: 'pnpm exec tsc -b tsconfig.main.json'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+      - 'shared:build'
+      - 'runtime:build'
+    inputs:
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'tsconfig.main.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/runtime/src/**/*'
+    outputs:
+      - 'dist'
+
+  typecheck:
+    command: 'pnpm run typecheck'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'shared:build'
+      - 'runtime:build'
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'tsconfig.json'
+      - 'tsconfig.main.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/frame/src/**/*'
+
+  test:
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/frame/src/**/*'
+
+  lint:
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - '*.ts'
+      - '/eslint.config.mjs'

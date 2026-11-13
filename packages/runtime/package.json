@@ -18,6 +18,10 @@
       "types": "./dist/broker/*.d.ts",
       "default": "./dist/broker/*.js"
     },
+    "./security/socket-token": {
+      "types": "./dist/security/socket-token.d.ts",
+      "default": "./dist/security/socket-token.js"
+    },
     "./agent-run/*": {
       "types": "./dist/agent-run/*.d.ts",
       "default": "./dist/agent-run/*.js"

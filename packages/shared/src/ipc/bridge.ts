@@ -28,6 +28,7 @@ import type { ToolApprovalHookInfo, ToolApprovalRequest, ToolApprovalResolved } 
 import type { CompanionDigest, CompanionSnapshot } from '../companion';
 import type { CommandId } from '../keybindings';
 import type { SuiteLinkLanding } from '../suite-link';
+import type { StartupChangedEvent, StartupLedgerSummary, StartupPdfExport, StartupRequest, StartupResult, StartupSnapshot } from '../startup';
 import type { SuitePrefsSetRequest, SuitePrefsSetResponse, SuitePrefsSnapshot } from '../suite-prefs';
 import type { SongChat } from '../media-music-chat';
 import type { ModelLibraryMigrateResult, ModelLibraryNode } from '../media-model-library';
@@ -47,6 +48,23 @@ import type {
   SketchfabSearchResult,
   SketchfabStatusResult,
 } from '../media-animation';
+import type { SimKind, SimScenario, SimScenarioDraft, SimScenarioId, SimScenarioSummary } from '../simulator';
+import type {
+  ImportMapping, ImportCommitRow, ImportCommitResult, ImportPick, ImportPreview, JournalEntry, LedgerAccountInput, LedgerBook, LedgerPostInput, LedgerReportKind,
+  LedgerResult, LedgerTaxEstimate, TaxJurisdictionId, LedgerEntity, LedgerAccount, LedgerChangedPayload,
+} from '../ledger';
+import type { LedgerReport } from '../ledger-reports';
+import type {
+  HealthDate,
+  HealthDay,
+  HealthFood,
+  HealthFoodId,
+  HealthMonthLog,
+  HealthPlan,
+  HealthPlanId,
+  HealthProfile,
+} from '../health';
+import type { ScienceDiscipline, ScienceNotebook, ScienceNotebookId, ScienceNotebookSummary, ScienceCell } from '../science';
 import type { SfxGenerateRequest, SfxGenerateResult, SfxProgressEvent, SfxStatus } from '../media-sfx';
 import type { PerfMark } from '../perf';
 import type * as S from './schemas';
@@ -111,6 +129,83 @@ export type SfxBridge = {
   generate: (req: SfxGenerateRequest) => Promise<GitOpResult<SfxGenerateResult>>;
   cancelGenerate: (req: { generationId: string }) => Promise<GitOpResult>;
   onProgress: (handler: (event: SfxProgressEvent) => void) => Unsubscribe;
+};
+
+/** `health`'s `op` union (Health, Phase 128), one typed method per op. */
+export type HealthBridge = {
+  getProfile: () => Promise<GitOpResult<{ profile: HealthProfile | null }>>;
+  putProfile: (req: { profile: HealthProfile }) => Promise<GitOpResult>;
+  getMonths: (req: { from: string; to: string }) => Promise<GitOpResult<{ months: HealthMonthLog[]; quarantined: number }>>;
+  putDay: (req: { date: HealthDate; day: HealthDay }) => Promise<GitOpResult<{ updatedAt: string }>>;
+  getFoods: () => Promise<GitOpResult<{ foods: HealthFood[] }>>;
+  upsertFood: (req: { food: HealthFood }) => Promise<GitOpResult>;
+  removeFood: (req: { id: HealthFoodId }) => Promise<GitOpResult>;
+  listPlans: () => Promise<GitOpResult<{ plans: HealthPlan[]; quarantined: number }>>;
+  writePlan: (req: { plan: HealthPlan }) => Promise<GitOpResult>;
+  removePlan: (req: { id: HealthPlanId }) => Promise<GitOpResult>;
+  exportAll: () => Promise<GitOpResult<{ path: string } | { cancelled: true }>>;
+  eraseAll: () => Promise<GitOpResult>;
+};
+
+/** `science`'s `op` union (Science notebooks, Phase 126), one typed method per op. */
+export type ScienceBridge = {
+  list: () => Promise<GitOpResult<{ notebooks: ScienceNotebookSummary[]; quarantined: number }>>;
+  read: (req: { id: ScienceNotebookId }) => Promise<GitOpResult<{ notebook: ScienceNotebook }>>;
+  create: (req: { title: string; discipline: ScienceDiscipline; cells: ScienceCell[] }) => Promise<GitOpResult<{ notebook: ScienceNotebook }>>;
+  write: (req: { notebook: ScienceNotebook }) => Promise<GitOpResult<{ updatedAt: string }>>;
+  rename: (req: { id: ScienceNotebookId; title: string }) => Promise<GitOpResult>;
+  remove: (req: { id: ScienceNotebookId }) => Promise<GitOpResult>;
+  importStructure: () => Promise<GitOpResult<{ name: string; format: 'xyz' | 'pdb' | 'mol'; text: string } | { cancelled: true }>>;
+};
+
+/** `simulator`'s `op` union (Simulator scenarios, Phase 127), one typed method per op. */
+export type SimulatorBridge = {
+  list: (req?: { kind?: SimKind }) => Promise<GitOpResult<{ scenarios: SimScenarioSummary[]; quarantined: number }>>;
+  read: (req: { id: SimScenarioId }) => Promise<GitOpResult<{ scenario: SimScenario }>>;
+  save: (req: { id?: SimScenarioId; scenario: SimScenarioDraft }) => Promise<GitOpResult<{ scenario: SimScenario }>>;
+  rename: (req: { id: SimScenarioId; title: string }) => Promise<GitOpResult>;
+  remove: (req: { id: SimScenarioId }) => Promise<GitOpResult>;
+};
+
+/** `ledger`'s `op` union (Double-entry books, Phase 129), one typed method per op. Every method answers `LedgerResult`. */
+export type LedgerBridge = {
+  listBooks: () => Promise<LedgerResult<{ books: LedgerBookSummary[] }>>;
+  getBook: (req: { bookId: string }) => Promise<LedgerResult<LedgerBookDetail>>;
+  createBook: (req: { name: string; entity: LedgerEntity; currency: string; fiscalYearStart: { month: number; day: number }; template: LedgerEntity }) => Promise<LedgerResult<{ book: LedgerBook }>>;
+  updateBook: (req: { bookId: string; patch: { name?: string; lockedThrough?: string | null; jurisdiction?: TaxJurisdictionId | null } }) => Promise<LedgerResult<{ book: LedgerBook }>>;
+  upsertAccount: (req: { bookId: string; account: LedgerAccountInput }) => Promise<LedgerResult<{ account: LedgerAccount }>>;
+  archiveAccount: (req: { bookId: string; accountId: string }) => Promise<LedgerResult<{ account: LedgerAccount }>>;
+  post: (req: { bookId: string; entry: LedgerPostInput }) => Promise<LedgerResult<{ entry: JournalEntry }>>;
+  reverse: (req: { bookId: string; entryId: string; date: string; reason: string }) => Promise<LedgerResult<{ entry: JournalEntry }>>;
+  journal: (req: { bookId: string; from?: string; to?: string; accountId?: string; query?: string; cursor?: string; limit?: number }) => Promise<LedgerResult<{ entries: JournalEntry[]; nextCursor: string | null }>>;
+  balances: (req: { bookId: string; asOf: string }) => Promise<LedgerResult<{ balances: { accountId: string; debit: number; credit: number }[] }>>;
+  report: (req: { bookId: string; kind: LedgerReportKind; from: string; to: string }) => Promise<LedgerResult<LedgerReport>>;
+  exportReport: (req: { bookId: string; kind: LedgerReportKind; from: string; to: string }) => Promise<LedgerResult<{ path: string | null }>>;
+  importPick: (req: { bookId: string }) => Promise<LedgerResult<ImportPick | null>>;
+  importPreview: (req: { bookId: string; mapping: ImportMapping }) => Promise<LedgerResult<ImportPreview>>;
+  importCommit: (req: { bookId: string; mapping: ImportMapping; rows: ImportCommitRow[] }) => Promise<LedgerResult<ImportCommitResult>>;
+  /** `taxYear` is the year the tax year starts in: `2026` is 2026-27. */
+  taxEstimate: (req: { bookId: string; taxYear: number }) => Promise<LedgerResult<LedgerTaxEstimate>>;
+  /** Fires after any write to a book (this window's or another app's, once seen): `{ bookId, revision }`. */
+  onChanged: (handler: (event: LedgerChangedPayload) => void) => Unsubscribe;
+};
+
+/** A book as the picker lists it: no accounts, plus whether this process can write it. */
+export type LedgerBookSummary = Pick<LedgerBook, 'id' | 'name' | 'entity' | 'currency'> & {
+  readOnly: boolean;
+  revision: number;
+  /** Journal lines that failed their schema (1-based; empty when `book.json` itself is unreadable) and the book folder to look in. */
+  corrupt?: { lines: number[]; path: string };
+};
+
+/** One book in full: its chart of accounts and whether this process can write it (`getBook`). */
+export type LedgerBookDetail = {
+  book: LedgerBook;
+  readOnly: boolean;
+  /** The app holding the writer lock when this process is read-only for that reason. */
+  lockedBy: string | null;
+  revision: number;
+  corrupt?: { lines: number[]; path: string };
 };
 
 /** `mediaAnimation`'s `op` union (Media ▸ Animations, Phase 125), one typed method per op. */
@@ -718,6 +813,9 @@ export type MidniteStudioBridge = {
     onChanged: (handler: (event: z.infer<typeof S.CaptureChangedPayload>) => void) => Unsubscribe;
   };
 
+  /** Run a Guard sweep now. Resolves once it has finished; `ok: false` carries why it did not run (Phase 122 Theme H). */
+  guardSweepNow: () => Promise<{ ok: boolean; message?: string }>;
+
   /**
    * Vanguard (Phase 120): the findings ledger (list, set status, act) and the sensor host (state, run now,
    * settings). `onChanged` fires on either, carrying nothing; re-fetch. Findings are the wire shape only:
@@ -1081,6 +1179,18 @@ export type MidniteStudioBridge = {
     onChanged: (handler: (snapshot: SuitePrefsSnapshot) => void) => Unsubscribe;
   };
 
+  /** Science notebooks (Phase 126). Optional, like `suiteLink`: only the Science host carries it (Decision 4). */
+  science?: ScienceBridge;
+
+  /** Health logs, foods and plans (Phase 128). Optional, like `science?`: only the Health host carries it. */
+  health?: HealthBridge;
+
+  /** Simulator scenarios (Phase 127). Optional, like `science?`: only a host mounting the Simulator module carries it. */
+  simulator?: SimulatorBridge;
+
+  /** Double-entry books (Phase 129). Optional: only a host mounting the Accountant module carries it. */
+  ledger?: LedgerBridge;
+
   /**
    * Where a launcher link asked this host to land (module and/or view). `take` hands over, once, what
    * arrived before the renderer mounted; `onOpen` fires for a link that reaches the running host.
@@ -1089,6 +1199,14 @@ export type MidniteStudioBridge = {
   suiteLink?: {
     take: () => Promise<SuiteLinkLanding | null>;
     onOpen: (handler: (landing: SuiteLinkLanding) => void) => Unsubscribe;
+  };
+
+  /**
+   * This suite app's own release notes (Phase 131 Theme E). Optional, like `suiteLink`: only the suite hosts carry
+   * it (`registerSuiteMain`); Studio reads its notes through `update.releaseNotes`.
+   */
+  suiteReleaseNotes?: {
+    get: (req: In<typeof S.SuiteReleaseNotesRequest>) => Promise<z.infer<typeof S.ReleaseNotesResponse>>;
   };
 
   loopRuns: {
@@ -1478,6 +1596,7 @@ export type MidniteStudioBridge = {
     };
     list: () => Promise<z.infer<typeof S.GamesListResponse>>;
     create: (req: In<typeof S.GamesCreateRequest>) => Promise<z.infer<typeof S.GamesCreateResponse>>;
+    add: (req: In<typeof S.GamesAddRequest>) => Promise<z.infer<typeof S.GamesAddResponse>>;
     manifest: {
       get: (req: In<typeof S.GamesGetManifestRequest>) => Promise<z.infer<typeof S.GamesGetManifestResponse>>;
       set: (req: In<typeof S.GamesSetManifestRequest>) => Promise<GitOpResult>;
@@ -1494,6 +1613,16 @@ export type MidniteStudioBridge = {
     juice: (req: In<typeof S.GamesJuiceRequest>) => Promise<z.infer<typeof S.GamesJuiceResponse>>;
     logs: (req: In<typeof S.GamesLogsRequest>) => Promise<z.infer<typeof S.GamesLogsResponse>>;
     kitUpgrade: (req: In<typeof S.GamesKitUpgradeRequest>) => Promise<z.infer<typeof S.GamesKitUpgradeResponse>>;
+    /**
+     * Levels (Phase 132 Theme C): `levels/<scene>.tmj`. `set` writes one file and makes one commit naming only
+     * it; `goto` restarts a running game at a scene, or sets where the next run starts.
+     */
+    levels: {
+      list: (req: In<typeof S.GamesLevelsRequest>) => Promise<z.infer<typeof S.GamesLevelsResponse>>;
+      get: (req: In<typeof S.GamesLevelGetRequest>) => Promise<z.infer<typeof S.GamesLevelGetResponse>>;
+      set: (req: In<typeof S.GamesLevelSetRequest>) => Promise<z.infer<typeof S.GamesLevelSetResponse>>;
+    };
+    goto: (req: In<typeof S.GamesGotoRequest>) => Promise<z.infer<typeof S.GamesGotoResponse>>;
     /** Move a game's runner into the `game` popout window; closing that window docks it back. */
     popOut: (req: In<typeof S.GamesPopOutRequest>) => Promise<GitOpResult>;
     /** Which game the `game` popout hosts — how the popout's own renderer learns what to show. */
@@ -2226,6 +2355,39 @@ export type MidniteStudioBridge = {
     onLayoutProgress: (
       handler: (e: z.infer<typeof S.KnowledgeLayoutProgressEvent>) => void,
     ) => Unsubscribe;
+  };
+
+  /**
+   * Midnite Startup's workspace (Phase 130): one `invoke` channel with an `op` union, one method per op,
+   * and `onChanged`, which fires after every write. Optional because only the Startup app (and Studio, once
+   * it renders a Startup view) provides it. Ops never throw: a refusal is `{ ok: false, kind, message }`.
+   */
+  startup?: {
+    get: () => Promise<StartupResult<StartupSnapshot>>;
+    updateCompany: (req: Omit<Extract<StartupRequest, { op: 'updateCompany' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    upsertMilestone: (req: Omit<Extract<StartupRequest, { op: 'upsertMilestone' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    removeMilestone: (req: Omit<Extract<StartupRequest, { op: 'removeMilestone' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    upsertLine: (req: Omit<Extract<StartupRequest, { op: 'upsertLine' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    removeLine: (req: Omit<Extract<StartupRequest, { op: 'removeLine' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    upsertScenario: (req: Omit<Extract<StartupRequest, { op: 'upsertScenario' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    removeScenario: (req: Omit<Extract<StartupRequest, { op: 'removeScenario' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    projection: (req: Omit<Extract<StartupRequest, { op: 'projection' }>, 'op'>) => Promise<StartupResult<unknown>>;
+    upsertVendor: (req: Omit<Extract<StartupRequest, { op: 'upsertVendor' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    removeVendor: (req: Omit<Extract<StartupRequest, { op: 'removeVendor' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    upsertContract: (req: Omit<Extract<StartupRequest, { op: 'upsertContract' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    removeContract: (req: Omit<Extract<StartupRequest, { op: 'removeContract' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    attachContractFile: (req: Omit<Extract<StartupRequest, { op: 'attachContractFile' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    openContractFile: (req: Omit<Extract<StartupRequest, { op: 'openContractFile' }>, 'op'>) => Promise<StartupResult<unknown>>;
+    upsertCustomer: (req: Omit<Extract<StartupRequest, { op: 'upsertCustomer' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    removeCustomer: (req: Omit<Extract<StartupRequest, { op: 'removeCustomer' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    upsertInvoice: (req: Omit<Extract<StartupRequest, { op: 'upsertInvoice' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    issueInvoice: (req: Omit<Extract<StartupRequest, { op: 'issueInvoice' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    markPaid: (req: Omit<Extract<StartupRequest, { op: 'markPaid' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    voidInvoice: (req: Omit<Extract<StartupRequest, { op: 'voidInvoice' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    exportInvoicePdf: (req: Omit<Extract<StartupRequest, { op: 'exportInvoicePdf' }>, 'op'>) => Promise<StartupResult<StartupPdfExport>>;
+    linkBook: (req: Omit<Extract<StartupRequest, { op: 'linkBook' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    ledgerSummary: () => Promise<StartupResult<StartupLedgerSummary>>;
+    onChanged: (handler: (e: StartupChangedEvent) => void) => Unsubscribe;
   };
 
   /**

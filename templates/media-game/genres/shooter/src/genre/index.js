@@ -39,7 +39,8 @@ const SHOOTER_BINDINGS = {
 
 const PLAYER_HP = 100;
 const ENEMY = { hp: 60, speed: 2.4, radius: 0.45, height: 1.8, range: 22, keepAway: 7, shotEvery: 1.1, damage: 6, accuracy: 0.35, hurtMemory: 3 };
-const SPAWNS = /** @type {const} */ ([[-12, -20], [12, -20], [0, -24], [-16, -8], [16, -8]]);
+// Where each wave appears: `wave-spawn` points in `levels/level.tmj`, these when a level has none.
+const DEFAULT_SPAWNS = /** @type {const} */ ([[-12, -20], [12, -20], [0, -24], [-16, -8], [16, -8]]);
 /** Extra crates for cover, on top of the base arena's three boxes. */
 const CRATES = /** @type {const} */ ([[-9, -14, 1.2], [9, -14, 1.2], [-3, -18, 1], [4, -21, 1], [0, -15, 0.8]]);
 
@@ -53,9 +54,11 @@ const CRATES = /** @type {const} */ ([[-9, -14, 1.2], [9, -14, 1.2], [-3, -18, 1
  *   input: ReturnType<typeof import('kit/three/input.js').createInput>,
  *   fx: ReturnType<typeof import('./fx.js').createFx>,
  *   avatar: THREE.Object3D | null,
+ *   waveSpawns?: readonly (readonly [number, number])[],
  * }} ctx
  */
 export function installGenre(scene, ctx) {
+  const SPAWNS = ctx.waveSpawns?.length ? ctx.waveSpawns : DEFAULT_SPAWNS;
   const { physics, character, rig, hud, input, fx } = ctx;
   const { juice, moment, pop } = fx;
   const extra = createInput(SHOOTER_BINDINGS);

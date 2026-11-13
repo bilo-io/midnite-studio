@@ -21,14 +21,14 @@
  */
 
 /** Feature packages (`packages/features/<name>`) Studio composes. */
-export const STUDIO_FEATURES = ['optimizer', 'monitor', 'vault', 'notes', 'finance', 'media-core', 'media-docs', 'media-images', 'media-library', 'models', 'councils', 'chats', 'companion', 'media-audio', 'media-video', 'slides', 'workflows', 'mcp-tools', 'tests', 'forge', 'media-map', 'media-terrain', 'media-sprite', 'media-model', 'media-game', 'api-client', 'database', 'sessions', 'tasks', 'browser', 'capture', 'report', 'vanguard', 'forge-host', 'terminal', 'loops'] as const;
+export const STUDIO_FEATURES = ['optimizer', 'monitor', 'vault', 'notes', 'finance', 'media-core', 'media-docs', 'media-images', 'media-library', 'models', 'councils', 'chats', 'companion', 'media-audio', 'media-video', 'slides', 'workflows', 'mcp-tools', 'tests', 'forge', 'media-map', 'media-terrain', 'media-sprite', 'media-model', 'media-game', 'api-client', 'database', 'sessions', 'tasks', 'browser', 'capture', 'report', 'vanguard', 'forge-host', 'terminal', 'loops', 'ledger'] as const;
 
 /**
  * Module packages (`packages/modules/<id>`) Studio composes (Phase 124 Theme E). A module owns its
  * features; `STUDIO_FEATURES` stays the complete list of feature packages, because Studio's own renderer
  * (`packages/app`) still composes each directly. The "every module is listed" test holds this list.
  */
-export const STUDIO_MODULES = ['agents', 'coder', 'creator', 'media', 'gamer', 'vanguard', 'vault', 'cleaner', 'monitor', 'mind', 'capture', 'money', 'browser'] as const;
+export const STUDIO_MODULES = ['agents', 'coder', 'creator', 'media', 'gamer', 'vanguard', 'vault', 'cleaner', 'monitor', 'mind', 'capture', 'money', 'browser', 'science', 'startup', 'simulator', 'accountant', 'health'] as const;
 
 export const STUDIO_COMPOSITION = {
   id: 'studio',

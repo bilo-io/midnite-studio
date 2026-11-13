@@ -25,6 +25,11 @@ describe('routeFor', () => {
     expect(routeFor('/pricing/')).toBe('pricing');
   });
 
+  it('resolves the privacy page with and without a trailing slash', () => {
+    expect(routeFor('/privacy')).toBe('privacy');
+    expect(routeFor('/privacy/')).toBe('privacy');
+  });
+
   it('resolves the landing page from the root', () => {
     expect(routeFor('/')).toBe('landing');
     expect(routeFor('')).toBe('landing');
@@ -44,6 +49,7 @@ describe('href helpers', () => {
     expect(hrefFor('apps')).toBe('/apps/');
     expect(hrefFor('download')).toBe('/download/');
     expect(hrefFor('pricing')).toBe('/pricing/');
+    expect(hrefFor('privacy')).toBe('/privacy/');
   });
 
   it('builds anchors against the landing page, so they work from either page', () => {

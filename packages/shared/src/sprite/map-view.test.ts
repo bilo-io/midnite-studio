@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { cellOrigin, collisionAt, collisionLayer, mapPixelSize, readTmj, sourceRect, stepZoom, tileOf, type TmjTileLayer } from './map-view';
+import { cellAt, cellOrigin, collisionAt, collisionLayer, mapPixelSize, readTmj, sourceRect, stepZoom, tileOf, type TmjTileLayer } from './map-view';
 
 const map = readTmj({
   type: 'map',
@@ -41,6 +41,22 @@ describe('map view', () => {
     expect(cellOrigin(map, 1, 0)).toEqual({ x: 48, y: 8 });
     expect(cellOrigin(map, 0, 2)).toEqual({ x: 0, y: 16 });
     expect(cellOrigin({ ...map, orientation: 'orthogonal' }, 2, 1)).toEqual({ x: 64, y: 16 });
+  });
+
+  it('cellAt inverts cellOrigin for both orientations and is null off the map', () => {
+    const ortho = { ...map, orientation: 'orthogonal' as const };
+    for (let y = 0; y < map.height; y += 1) {
+      for (let x = 0; x < map.width; x += 1) {
+        const o = cellOrigin(ortho, x, y);
+        expect(cellAt(ortho, o.x + 1, o.y + 1)).toEqual({ x, y });
+        const iso = cellOrigin(map, x, y);
+        // The centre of the diamond sits half a box in from the origin.
+        expect(cellAt(map, iso.x + map.tilewidth / 2, iso.y + map.tileheight / 2)).toEqual({ x, y });
+      }
+    }
+    expect(cellAt(ortho, -1, 0)).toBeNull();
+    expect(cellAt(ortho, map.width * map.tilewidth, 0)).toBeNull();
+    expect(cellAt(map, 0, 0)).toBeNull();
   });
 
   it('reads collision from the tile on a cell', () => {

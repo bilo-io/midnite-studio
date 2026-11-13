@@ -18,7 +18,7 @@ import {
 
 import type { CaptureWorkerHandle } from '@midnite/studio-feature-media-map/main';
 import type { TerrainWorkerHandle } from '@midnite/studio-feature-media-terrain/main';
-import { guardAppWindow, createFileSink, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
+import { guardAppWindow, guardedFetchFor, createFileSink, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
 import { MSTUDIO_FILE_SCHEME, MSTUDIO_GAME_SCHEME, MSTUDIO_TILE_SCHEME, type FfmpegStatus } from '@midnite/studio-shared';
 
 import { createGamerAgentHost, type GamerAgentHost, gamerMediaRoot, type GamerServices } from '@midnite/studio-module-gamer/main';
@@ -103,6 +103,13 @@ async function pickTiledMap(): Promise<string | null> {
   return picked.canceled || !picked.filePaths[0] ? null : picked.filePaths[0];
 }
 
+/** Open Game (Phase 132 Theme A): one folder, an absolute path or null when dismissed. */
+async function pickGameFolder(): Promise<string | null> {
+  const options = { title: 'Open a game', properties: ['openDirectory' as const] };
+  const picked = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+  return picked.canceled || !picked.filePaths[0] ? null : picked.filePaths[0];
+}
+
 /** The Animations tab's pickers (Phase 125): clip files, or one folder of them. */
 async function pickAnimationPaths(kind: 'files' | 'folder'): Promise<string[] | null> {
   const options = {
@@ -138,6 +145,8 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   void app.whenReady().then(() => {
     suite = registerSuiteMain({
       ipcMain,
+      app: 'gamer',
+      appVersion: app.getVersion(),
       runtimeDirectory: suiteRuntimeDirectory(app.getPath('appData'), process.env[USER_DATA_ENV]),
       getWindow: () => win,
       argv: process.argv,
@@ -202,7 +211,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       pickTiledMap,
       pickAnimationPaths,
       ffmpegStatus,
-      fetch: (url, init) => net.fetch(url, init),
+      fetch: guardedFetchFor('media-map') as typeof fetch,
       userAgent: `MidniteGamer/${app.getVersion()} (+https://github.com/bilo-io/midnite-apps)`,
       // JPEG and WebP: `nativeImage` yields BGRA, which the capture worker's DEM decode wants as RGBA.
       nativeDecode: async (bytes) => {
@@ -239,6 +248,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
         contents: gamePageContents,
         getWindow: asGameWindow(() => win),
         templateDir: bundled('templates/media-game', ['..', '..', '..', 'templates', 'media-game']),
+        pickFolder: pickGameFolder,
         enginesDir: process.env['MSTUDIO_GAME_ENGINES_DIR'] ?? bundled('game-engines', ['..', '..', '..', 'packages', 'desktop', 'resources', 'game-engines']),
       },
       log: (line) => {
@@ -287,7 +297,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
 
 function openWindow(): void {
   // Frameless where the platform allows (Phase 123 Theme A): the shell's title bar is the drag region.
-  const { additionalArguments, ...frame } = suiteWindowOptions(process.platform);
+  const { additionalArguments, ...frame } = suiteWindowOptions(process.platform, app.getVersion());
   win = new BrowserWindow({
     width: 1280,
     height: 820,

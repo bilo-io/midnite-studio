@@ -50,6 +50,10 @@ import {
   gameAssertState,
   gameAssertFrame,
   gamePlaytest,
+  gameLevelList,
+  gameLevelGet,
+  gameLevelSet,
+  gameGoto,
   gameStop,
 } from './game-tools';
 import {
@@ -206,6 +210,10 @@ export const MCP_HANDLERS: {
   game_assert_state: gameAssertState,
   game_assert_frame: gameAssertFrame,
   game_playtest: gamePlaytest,
+  game_level_list: gameLevelList,
+  game_level_get: gameLevelGet,
+  game_level_set: gameLevelSet,
+  game_goto: gameGoto,
   terrain_list: terrainList,
   terrain_open: terrainOpen,
   terrain_get_spec: terrainGetSpec,

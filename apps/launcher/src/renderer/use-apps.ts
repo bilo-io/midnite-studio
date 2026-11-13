@@ -40,25 +40,27 @@ export function useApps(): AppsController {
   const [busy, setBusy] = useState<Partial<Record<AppId, InstallProgress | null>>>({});
   const [refreshingApps, setRefreshingApps] = useState(false);
 
-  const refreshApps = useCallback(async () => {
+  // Phase 115 Theme A: start and focus are automatic (a switch can turn them off); `refreshApps` is a click.
+  const loadApps = useCallback(async (manual: boolean) => {
     setRefreshingApps(true);
     try {
-      setStatus(await getBridge().apps.status());
+      setStatus(await getBridge().apps.status({ manual }));
     } finally {
       setRefreshingApps(false);
     }
   }, []);
+  const refreshApps = useCallback(() => loadApps(true), [loadApps]);
 
   useEffect(() => {
-    void refreshApps();
+    void loadApps(false);
     const unsub = getBridge().apps.onProgress(({ id, progress }) => setBusy((b) => (id in b ? { ...b, [id]: progress } : b)));
-    const onFocus = () => void refreshApps();
+    const onFocus = () => void loadApps(false);
     window.addEventListener('focus', onFocus);
     return () => {
       unsub();
       window.removeEventListener('focus', onFocus);
     };
-  }, [refreshApps]);
+  }, [loadApps]);
 
   const { refresh: refreshStudio } = studio;
   const refresh = useCallback(async () => {

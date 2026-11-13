@@ -1,3 +1,4 @@
+// e2e-capability: getBoundingClientRect, real pointer hover
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
@@ -158,7 +159,7 @@ async function stableX(locator: Locator): Promise<number> {
     const x = box?.x ?? Number.NaN;
     if (x === last) return x;
     last = x;
-    await locator.page().waitForTimeout(50);
+    await locator.page().waitForTimeout(50); // allow-timeout: polling loop: sample the box position every 50ms until it stops moving
   }
   throw new Error('layout never settled');
 }

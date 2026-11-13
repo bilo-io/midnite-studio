@@ -1,0 +1,48 @@
+#!/usr/bin/env node
+/**
+ * Bundle Science's main + preload into `dist/main.cjs` and `dist/preload.cjs`, beside the renderer
+ * `vite build` wrote there — the bundle zip is `dist/` plus an icon and a package.json naming
+ * `main.cjs`. Everything but `electron` is inlined (the runtime, the science module's main half, zod), so
+ * the installed bundle carries no workspace symlinks. Run after `vite build`: that empties `dist/`.
+ */
+import { fileURLToPath } from 'node:url';
+
+import { build } from 'esbuild';
+
+const at = (p) => fileURLToPath(new URL(p, import.meta.url));
+const common = {
+  bundle: true,
+  platform: 'node',
+  target: 'node20',
+  format: 'cjs',
+  external: ['electron'],
+  logLevel: 'warning',
+  minify: process.env.NODE_ENV === 'production',
+  // The module's `./main` export points at tsc output; bundle its source so no prior tsc build is needed.
+  alias: {
+    '@midnite/studio-feature-report/bridge': at('../../../packages/features/report/bridge.ts'),
+    '@midnite/studio-module-science/bridge': at('../../../packages/modules/science/main/bridge.ts'),
+    '@midnite/studio-module-science/main': at('../../../packages/modules/science/main/index.ts'),
+    '@midnite/studio-module-simulator/bridge': at('../../../packages/modules/simulator/main/bridge.ts'),
+    '@midnite/studio-module-simulator/main': at('../../../packages/modules/simulator/main/index.ts'),
+    '@midnite/studio-feature-report/main': at('../../../packages/features/report/main/index.ts'),
+    '@midnite/studio-feature-monitor/main': at('../../../packages/features/monitor/main/index.ts'),
+    '@midnite/studio-feature-monitor/bridge': at('../../../packages/features/monitor/bridge.ts'),
+    // The channel names alone, by source path: the shared barrel drags every zod schema (~400 KB) into the preload.
+    '@midnite/studio-shared/ipc/channels': at('../../../packages/shared/src/ipc/channels.ts'),
+    // Likewise the bridge helper alone: the runtime barrel imports shared, which would pull the barrel back in.
+    '@midnite/studio-runtime/app-main/bridge-slice': at('../../../packages/runtime/src/app-main/bridge-slice.ts'),
+    '@midnite/studio-runtime/app-main/suite-preload': at('../../../packages/runtime/src/app-main/suite-preload.ts'),
+  },
+};
+
+await Promise.all([
+  build({ ...common, entryPoints: [at('../main/index.ts')], outfile: at('../dist/main.cjs') }),
+  build({
+    ...common,
+    // The preload reads channel names only; the barrel would add every zod schema (the runtime's preload slices import it).
+    alias: { ...common.alias, '@midnite/studio-shared': at('../../../packages/shared/src/ipc/channels.ts') },
+    entryPoints: [at('../main/preload.ts')],
+    outfile: at('../dist/preload.cjs'),
+  }),
+]);

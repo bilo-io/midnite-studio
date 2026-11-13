@@ -1,3 +1,4 @@
+// e2e-capability: getBoundingClientRect, pointer drag, focus order, real pointer hover
 import { expect, test } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
@@ -95,6 +96,8 @@ test('the version pill opens this build’s release notes', async ({ page }) => 
   await expect(panel).toContainText("What's new in v1.2.3");
   await expect(panel).toContainText('A version pill in the rail.');
   await expect(panel.getByText('Full changelog')).toBeVisible();
+  // The previous releases ride beneath it, collapsed.
+  await expect(panel.getByTestId('earlier-releases')).toContainText('v1.2.2');
 
   /*
     And it sits ABOVE the pill rather than over it. The panel is anchored by

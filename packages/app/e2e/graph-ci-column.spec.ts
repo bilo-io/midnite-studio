@@ -1,3 +1,4 @@
+// e2e-capability: getBoundingClientRect, paint/z-order
 import { expect, test } from '@playwright/test';
 
 import { openCiGraph } from './graph-ci-fixture';

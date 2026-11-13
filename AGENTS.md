@@ -247,11 +247,16 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   spec's own header comment. Unit tests must never assert wall-clock bounds
   (`expect(elapsed).toBeLessThan(...)`), which flakes under CI load. `scripts/e2e-budget.mjs`
   enforces the ratchet on declared e2e tests and visual baselines in CI.
-- **Screenshots are taken with the git repos side panel closed, like the terminal — unless the
-  shot is about that panel.** `installMockBridge` from `e2e/shots-helper.ts` seeds
-  `reposOpen: false` for every `*-shots.spec.ts` (merged into `midnite-studio.ui`, never
-  clobbering a spec's own seed); pass `{ reposOpen: true }` to opt a repos-panel shot back in.
-  Visual and functional specs are untouched, so baselines do not move.
+- **PR screenshots are never committed, and `*-shots.spec.ts` is retired.** Phase 116 deleted the
+  158 shots specs and ~1,470 PNGs; a verification shot is captured into the session scratchpad
+  (or `/tmp/midnite-shots-<slice>/`) and shown in the thread, never added to git. Appearance
+  belongs to `app:visual`. `scripts/e2e-budget.mjs` fails the gate on a `*-shots.spec.ts`, on a
+  `.screenshot({ path })` in a functional spec, on an image under `docs/screenshots/` that
+  `README.md`, `docs/*.md` or `packages/website/` does not reference, and on a `waitForTimeout(`
+  that is not routed through `settle()` or marked `// allow-timeout: <reason>`.
+  `moon run root:test-node` (one Vitest `projects` pass over the node-portable packages) and
+  `moon run root:lint-all` (`eslint . --cache`) are what `gate-node` runs; the per-package
+  `<pkg>:test` / `<pkg>:lint` tasks stay for focused local runs.
 - **Perf claims come with a number, from `scripts/perf/`.** `startup-report.mjs` (cold-start
   marks, `--runs=5` for the median), `bundle-report.mjs` (entry chunk / total JS, read from
   Vite's `.vite/manifest.json`) and `idle-cpu.mjs` (percent of one core over a chosen window,

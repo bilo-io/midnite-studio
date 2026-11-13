@@ -1,6 +1,6 @@
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
-import { aliasTargetFor, preferredTargets } from '@midnite/studio-runtime';
+import { aliasTargetFor, guardedFetch, preferredTargets } from '@midnite/studio-runtime';
 import { homedir } from 'node:os';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -96,7 +96,7 @@ export const fetchOllamaPort: OllamaPort = {
     return `http://${raw.replace(/\/+$/, '')}`;
   },
   async version({ baseUrl, timeoutMs }) {
-    const res = await fetch(`${baseUrl}/api/version`, { signal: AbortSignal.timeout(timeoutMs) });
+    const res = await guardedFetch('monitor', `${baseUrl}/api/version`, { signal: AbortSignal.timeout(timeoutMs) });
     if (!res.ok) throw new Error(`Ollama /api/version returned ${res.status}.`);
     const body = (await res.json()) as { version?: unknown };
     if (typeof body.version !== 'string' || !body.version) throw new Error('Ollama /api/version returned no version.');

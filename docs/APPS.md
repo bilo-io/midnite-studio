@@ -14,7 +14,7 @@ a folder that is gone, or when a row below disagrees with the const.
 |---|---|
 | **runtime** | The headless main-process services no window owns: the vault (all credentials), the pty broker, the `midnite` CLI and MCP server, the link router, the updater, the app registry, window and Dock identity, and the `version`. |
 | **frame** | The renderer chrome every app wears: layout, title bar and status bar, terminal, companion, loops, quick access, palette, the browser panel, files, search, themes, setup, settings, the git graph and its write ops, the knowledge graph, each app's landing, and the dashboard grid. |
-| **app** | One installable product that owns one area of work, a *host* of modules: Agents, Media, Gamer, Vanguard, Mind, Money, Browser (and Science, so far catalog-only). Studio is every module composed, the internal superset and dev harness. Coder, Creator, Cleaner, Vault, Monitor and Capture were apps until Phase 124 and are modules now ([Modules and hosts](#modules-and-hosts)). |
+| **app** | One installable product that owns one area of work, a *host* of modules: Agents, Media, Gamer, Vanguard, Mind, Money, Browser (and Science). Studio is every module composed, the internal superset and dev harness. Coder, Creator, Cleaner, Vault, Monitor and Capture were apps until Phase 124 and are modules now ([Modules and hosts](#modules-and-hosts)). |
 | **module** | One composable slice a host mounts: `packages/modules/<id>`, with a renderer half, a main half and a `manifest.ts`. It composes features and the frame; an app composes modules. |
 | **feature** | One folder of `packages/app/src/features/`: a view or panel plus its stores and tests. Each feature is placed in the frame or in exactly one owning app. Once a feature is extracted, it becomes its own package, `packages/features/<name>/` ([Packages](#packages)). |
 
@@ -391,11 +391,13 @@ MCP tool owners are derived from it. The host's own module comes first.
 | Vanguard | Vanguard, Vault, Cleaner, Monitor |
 | Mind | Mind, Capture |
 | Money | Money, Accountant (coming soon) |
-| Science | Science, Simulator (both coming soon) |
+| Science | Science, Simulator |
+| Startup | Startup, Accountant (coming soon) |
+| Health | Health |
 | Browser | Browser |
 | Studio | every module |
 
-Startup and Health carry no modules. **The six standalone apps are retired**: Coder, Creator, Cleaner,
+Health hosts its own module. **The six standalone apps are retired**: Coder, Creator, Cleaner,
 Vault, Monitor and Capture no longer have an `apps/<id>` (Accountant and Simulator were catalog entries
 only). `RETIRED_APP_ALIASES` maps each old id to its host and module, so an old `midnite://open?app=coder`
 link opens Agents on the Coder module, and `importRetiredAppData` copies a retired app's per-app files into
@@ -520,6 +522,34 @@ crashes without. Appearance is `e2e/visual/suite-shell.spec.ts`: framed, framele
 ## App compositions
 
 Each app in `apps/` composes the frame, its modules, its assigned features, and its host ports into an installable desktop product. The compositions below were written when Cleaner, Capture, Creator and Coder were apps of their own; their code now lives in `packages/modules/<id>`, and the notes still describe how it is composed.
+
+### App: Science (`apps/science`) — Phase 126
+
+The notebook and simulation app. A host of the `science` module (`packages/modules/science`) and the `simulator`
+module (`packages/modules/simulator`, Phase 127). Notebooks are one `nb-<12 chars>.json` per notebook under
+`<userData>/notebooks/`, written atomically with 0600 permissions by the runtime's `createJsonDirStore` (a
+file that fails to parse or whose content id differs from its name is quarantined, never deleted). The wire
+contract is `shared/src/science.ts`: a versioned `ScienceNotebook` (`version: 1`, migrated by
+`migrateScienceNotebook`) of markdown, compute, plot and molecule cells, and the one channel
+`mstudio:science:notebook` with an `op` union. `science?` on `MidniteStudioBridge` is optional because only
+this host carries it.
+
+**The worker rule:** every expression a notebook holds is untrusted input (a notebook can arrive as a
+file), so compute and plot cells are evaluated by mathjs inside an inline Web Worker
+(`?worker&inline`, for the packaged `file://` renderer), never on the render thread. A run is posted 300 ms
+after the last edit, always from the top in a fresh scope, and a run that does not answer in 2 s terminates
+and respawns the worker. `import`, `createUnit`, `reviver`, `evaluate`, `parse` and `compile` are refused by
+a guard on the parsed expression. Molecule files are read by main through a native picker, capped at 10 MB.
+
+**Simulator (Phase 127).** Five deterministic sandboxes behind one `SimEngine` contract (`init`/`step`/`snapshot`/`serialise`/`restore`): Life-like and elementary cellular automata (Emergence), n-body gravity (Virtual worlds), and boids and predator-prey (Agent environments). Engines run in a Web Worker on a fixed timestep; the worker and the renderer ping-pong two transferable buffers, so a frame is never copied, and every random draw goes through a seeded `mulberry32` (`Math.random` is banned in sim code). Scenarios are one `sim-<12 chars>.json` per scenario under `<userData>/simulations/` through the same `createJsonDirStore`, on the channel `mstudio:simulator:scenario` (`shared/src/simulator.ts`, versioned, 8 MB cap, remove goes to the Trash); `simulator?` on `MidniteStudioBridge` is optional like `science?`. Params and state are opaque on the wire and validated per kind by the renderer on load (`sims/scenario-codec.ts`; cell grids travel as base64).
+
+### App: Health (`apps/health`) — Phase 128
+
+The body-metrics, meals and workouts app. A host of the `health` module (`packages/modules/health`). Everything it stores is private JSON under `<userData>/data/` (`~/Library/Application Support/Midnite Runtime/apps/health/data`), written atomically with 0600 permissions by the runtime's `createJsonDirStore`: `profile.json`, `foods.json`, `plans/plan-<id>.json` and **one file per calendar month** (`logs/log-YYYY-MM.json`) holding that month's days (weigh-ins, meals, sessions). A file that fails to parse is quarantined, never deleted, and every mutation runs through one promise chain. The wire contract is `shared/src/health.ts` (versioned, migrated by `migrate*`) and one channel, `mstudio:health:op` (`CHANNELS.health`), with an `op` union; `health?` on `MidniteStudioBridge` is optional because only this host carries it.
+
+**No network.** Health data never leaves the machine: `packages/modules/health/privacy.test.ts` fails on `fetch(`, XHR, WebSocket, EventSource, `sendBeacon`, network node modules and any feature import other than report/monitor. Export writes one JSON file through a save dialog, and Erase moves the whole data folder to the Trash behind a blast-radius confirm. No log line or issue report carries Health values (the channel handler logs the op and an error code only).
+
+**Not medical advice.** BMI, BMR, TDEE and the calorie target are estimates shown as such; the target never goes below 1200 kcal and the overload rule only suggests the next session's weight and reps.
 
 ### App 5: Browser (`apps/browser`) — Phase 113 Theme L
 

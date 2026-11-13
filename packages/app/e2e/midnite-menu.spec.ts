@@ -1,3 +1,4 @@
+// e2e-capability: getBoundingClientRect, computed CSS, real pointer hover
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
@@ -139,6 +140,7 @@ const rowNames = (menu: Locator): Promise<(string | null)[]> =>
  * the previous shape had all eleven verbs on this plane, so a test that only
  * looked for "Tasks" would have passed against a menu that still showed them.
  */
+// vitest-twin: packages/app/src/features/agent/midnite-menu.test.tsx
 test('the top level is the five groups, each opening its own verbs', async ({ page }) => {
   await open(page);
   await page.getByRole('button', { name: `Run a midnite skill on ${REPO}` }).click();
@@ -224,6 +226,7 @@ test('the top level is the five groups, each opening its own verbs', async ({ pa
  * and so does a screen reader that would otherwise announce a sentence where a
  * label belongs.
  */
+// vitest-twin: packages/app/src/features/agent/midnite-menu.test.tsx
 test('every row carries a sub-text description, without it becoming the row name', async ({
   page,
 }) => {

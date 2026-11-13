@@ -107,6 +107,14 @@ export function buildTsj(input: TsjInput): TiledTileset {
 
 // --- maps -----------------------------------------------------------------------
 
+/** A Tiled custom property (map, layer or object). Wider than a tileset tile's: levels also carry `color` and `file`. */
+export const TiledPropertySchema = z.object({
+  name: z.string().min(1),
+  type: z.enum(['string', 'int', 'float', 'bool', 'color', 'file']).default('string'),
+  value: z.unknown(),
+});
+export type TiledProperty = z.infer<typeof TiledPropertySchema>;
+
 const TiledObjectSchema = z.object({
   id: z.number().int().positive(),
   name: z.string(),
@@ -118,6 +126,9 @@ const TiledObjectSchema = z.object({
   rotation: z.number(),
   visible: z.boolean(),
   point: z.boolean().optional(),
+  properties: z.array(TiledPropertySchema).optional(),
+  class: z.string().optional(),
+  polyline: z.array(z.object({ x: z.number(), y: z.number() })).optional(),
 });
 
 const TiledLayerSchema = z.discriminatedUnion('type', [
@@ -132,6 +143,7 @@ const TiledLayerSchema = z.discriminatedUnion('type', [
     opacity: z.number(),
     visible: z.boolean(),
     data: z.array(z.number().int().min(0)),
+    properties: z.array(TiledPropertySchema).optional(),
   }),
   z.object({
     id: z.number().int().positive(),
@@ -143,6 +155,7 @@ const TiledLayerSchema = z.discriminatedUnion('type', [
     visible: z.boolean(),
     draworder: z.literal('topdown'),
     objects: z.array(TiledObjectSchema),
+    properties: z.array(TiledPropertySchema).optional(),
   }),
 ]);
 
@@ -164,6 +177,7 @@ export const TiledMapSchema = z.object({
   nextobjectid: z.number().int().positive(),
   layers: z.array(TiledLayerSchema).min(1),
   tilesets: z.array(TiledMapTilesetSchema).min(1),
+  properties: z.array(TiledPropertySchema).optional(),
 });
 export type TiledMap = z.infer<typeof TiledMapSchema>;
 

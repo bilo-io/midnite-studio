@@ -1,3 +1,4 @@
+// e2e-capability: getBoundingClientRect
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
@@ -166,7 +167,7 @@ test('the panel animates open and shut, the rows below follow it, and the lanes 
 test('a row scrolled far away and back keeps its panel, settled, at the same geometry', async ({ page }) => {
   await openGraph(page);
   await row(page, 3).click();
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(400); // allow-timeout: rAF/CSS tween with no DOM completion signal
   const settled = (await expander(page).boundingBox())!.height;
 
   const grid = page.getByRole('grid');

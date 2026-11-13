@@ -28,8 +28,7 @@ describe('the 11-app catalog (Phase 124 Theme F)', () => {
       const expected = host === 'studio' ? ['studio'] : APP_MODULES[host];
       expect(appById(host).modules.map((m) => m.id)).toEqual(expected);
     }
-    expect(appById('startup').modules).toEqual([]);
-    expect(appById('health').modules).toEqual([]);
+    expect(appById('health').modules.map((m) => m.id)).toEqual(['health']);
   });
 
   it('flattens each app\'s features from its modules, with unique ids', () => {
@@ -39,12 +38,25 @@ describe('the 11-app catalog (Phase 124 Theme F)', () => {
     }
   });
 
-  it('marks Accountant and Simulator coming soon at module level, with Money still installable', () => {
+  it('launches Accountant and Simulator, opening Accountant on the books view', () => {
     const module = (app: Parameters<typeof appById>[0], id: string) => appById(app).modules.find((m) => m.id === id)!;
-    expect(module('money', 'accountant').comingSoon).toBe(true);
-    expect(module('science', 'simulator').comingSoon).toBe(true);
+    expect(module('money', 'accountant').comingSoon).toBeUndefined();
+    expect(module('money', 'accountant').home).toEqual({ kind: 'view', view: 'books' });
+    expect(appById('money').modules.some((m) => m.comingSoon)).toBe(false);
+    expect(module('science', 'simulator').comingSoon).toBeUndefined();
     expect(appById('money').comingSoon).toBeUndefined();
+    expect(appById('science').comingSoon).toBeUndefined();
     expect(module('money', 'money').comingSoon).toBeUndefined();
+  });
+
+  it('launches Startup with its own module and the Accountant', () => {
+    expect(appById('startup').comingSoon).toBeUndefined();
+    expect(appById('startup').modules.map((m) => m.id)).toEqual(['startup', 'accountant']);
+  });
+
+  it('launches Health, with no coming-soon app left', () => {
+    expect(appById('health').comingSoon).toBeUndefined();
+    expect(appById('health').modules.some((m) => m.comingSoon)).toBe(false);
   });
 
   it('folds each absorbed app\'s tagline and vision into its module', () => {

@@ -36,7 +36,7 @@ import {
   SetupProbeRequest,
   SetupRevealRequest,
 } from '@midnite/studio-shared';
-import { BrowserWindow, app, ipcMain, powerMonitor, safeStorage, session, shell, type WebContentsView } from 'electron';
+import { BrowserWindow, app, dialog, ipcMain, powerMonitor, safeStorage, session, shell, type OpenDialogOptions, type OpenDialogReturnValue, type WebContentsView } from 'electron';
 import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
 import { animationLibrary, animationLibraryRoot } from './ipc/media-animation-handlers';
@@ -63,6 +63,7 @@ import { registerConflictHandlers } from './ipc/conflict-handlers';
 import { registerCouncilHandlers } from './ipc/council-handlers';
 import { registerApiClientFeatureHandlers, shutdownApiClientFeature } from './ipc/api-client-feature-handlers';
 import { registerFinanceHandlers } from './ipc/finance-handlers';
+import { registerLedgerHandlers, releaseLedgerOnQuit } from './ipc/ledger-handlers';
 import { configureSecrets, configureVaultGrants, registerSecretsHandlers } from './ipc/secrets-handlers';
 import { createSecretsVault } from './secrets-vault';
 import {
@@ -133,7 +134,7 @@ import {
 import { registerLoopRunsHandlers } from './ipc/loop-runs-handlers';
 import { registerSuitePrefsHandlers } from './ipc/suite-prefs-handlers';
 import { configureLoopRuns, emitChanged as emitLoopRunsChanged, noteSessionExit, setGuardSummaryProvider } from './loop-runs';
-import { latestGuardSweepSummary, startGuardSweeps, stopGuardSweeps } from './guard-sweep-wiring';
+import { latestGuardSweepSummary, startGuardSweeps, stopGuardSweeps, sweepGuardNow } from './guard-sweep-wiring';
 import { createTerminalStore } from './terminal-store';
 import {
   configureTerminals,
@@ -647,6 +648,7 @@ export const startStudioMain: StartStudioMain = () => {
       registerOllamaHandlers(getMainWindow);
       registerSecretsHandlers();
       registerFinanceHandlers();
+      releaseLedgerOnQuit(registerLedgerHandlers());
       registerApiClientFeatureHandlers(getMainWindow);
       registerMcpHandlers();
       registerCompanionHandlers();
@@ -838,6 +840,7 @@ export const startStudioMain: StartStudioMain = () => {
       // Phase 122: the scheduled Guard sweep (checks and resolvers of Themes B and C) and its summary on a Guard run's record.
       setGuardSummaryProvider(latestGuardSweepSummary);
       startGuardSweeps({ userData });
+      handleBare(CHANNELS.guardSweepNow, sweepGuardNow);
       void startVanguardSensors(userData).catch((error: unknown) => defaultLogger.warn(`vanguard sensors failed to start: ${String(error)}`));
       configureVideo(createVideoProjectsStore(userData), {
         emit: (channel, payload) => {
@@ -870,6 +873,14 @@ export const startStudioMain: StartStudioMain = () => {
           return { ok: true };
         },
         listRepoPaths: async () => (await listRepos()).map((repo) => repo.path),
+        // Open Game (Phase 132 Theme A): the folder dialog; an opened game is registered like a repo opened in the panel.
+        // Annotated: `games` is referenced inside its own initializer, so inference would cycle.
+        pickFolder: async (): Promise<string | null> => {
+          const win = getMainWindow();
+          const options: OpenDialogOptions = { title: 'Open a game', properties: ['openDirectory'], defaultPath: (await games.service.settings.get()).resolvedRoot };
+          const picked: OpenDialogReturnValue = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+          return picked.canceled || !picked.filePaths[0] ? null : picked.filePaths[0];
+        },
         repoIdOf: async (path) => (await listRepos()).find((repo) => repo.path === path)?.id ?? null,
         // Pop out (Theme B): the `game` role window hosts one game's view.
         openPopoutWindow: asPopoutWindow(() => createRoleWindow('game', defaultLogger)),

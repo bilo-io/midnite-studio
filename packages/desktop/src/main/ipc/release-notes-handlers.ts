@@ -3,6 +3,7 @@ import {
   RELEASE_CHANGELOG_RAW_URL,
   ReleaseNotesRequest,
   extractChangelogSection,
+  extractLatestSections,
   type ReleaseNotes,
 } from '@midnite/studio-shared';
 
@@ -21,15 +22,16 @@ import { handle } from './handle';
  * tag publishes — so a "no notes" answer memoised at first open would outlive
  * the reason for it, and a relaunch is not a reasonable price for a reload.
  */
+import { guardedFetchFor } from '@midnite/studio-runtime';
 const TIMEOUT_MS = 8_000;
 
 export function registerReleaseNotesHandlers(
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch = guardedFetchFor('app'),
 ): void {
   handle<typeof ReleaseNotesRequest, ReleaseNotes>(
     CHANNELS.updateReleaseNotes,
     ReleaseNotesRequest,
-    async ({ version }) => {
+    async ({ version, latest }) => {
       try {
         const res = await fetchImpl(RELEASE_CHANGELOG_RAW_URL, {
           // The mirror is a branch tip, so a CDN copy of it can be minutes stale
@@ -38,7 +40,13 @@ export function registerReleaseNotesHandlers(
           signal: AbortSignal.timeout(TIMEOUT_MS),
         });
         if (!res.ok) return { version, notes: null, error: `changelog: HTTP ${res.status}` };
-        return { version, notes: extractChangelogSection(await res.text(), version), error: null };
+        const text = await res.text();
+        return {
+          version,
+          notes: extractChangelogSection(text, version),
+          error: null,
+          ...(latest ? { sections: extractLatestSections(text, latest) } : {}),
+        };
       } catch (err) {
         return { version, notes: null, error: err instanceof Error ? err.message : 'unreachable' };
       }

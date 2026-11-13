@@ -58,6 +58,15 @@ describe('runLauncherUpdates', () => {
     expect(order).toEqual(['runtime', 'bundles']);
   });
 
+  it('with the update switch off it makes no feed request, and the bundle pass still runs', async () => {
+    const check = vi.fn(async () => null);
+    const updater = fakeUpdater(check);
+    const updateBundles = vi.fn(async () => undefined);
+    await runLauncherUpdates({ updater, isPackaged: true, adHocSigned: false, updateBundles, checkRuntime: false });
+    expect(check).not.toHaveBeenCalled();
+    expect(updateBundles).toHaveBeenCalledOnce();
+  });
+
   it('an ad-hoc build only checks, and a failed check still lets the bundles update', async () => {
     const updater = fakeUpdater(async () => Promise.reject(new Error('offline')));
     const errors: string[] = [];

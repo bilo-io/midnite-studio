@@ -1,40 +1,42 @@
 // @ts-check
 import { extendHook } from 'kit/core/hook.js';
+import { levelEntities, levelGrid } from 'kit/core/level.js';
 import { castRay } from 'kit/core/raycast.js';
 import { createRaycaster } from 'kit/phaser/presets/raycaster.js';
-import { KitScene } from 'kit/phaser/scenes.js';
+import { KitLevelScene, preloadLevel } from 'kit/phaser/level.js';
 
 import { createFx } from '../fx.js';
 import { installGenre } from '../genre/index.js';
 import { createRaycastView } from '../render.js';
 
-// 1-8 wall materials (render.js), 9 a door. A straight corridor with a door, then a room.
-const MAP = [
-  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-  [1, 0, 0, 0, 0, 0, 0, 9, 0, 0, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 1, 0, 2, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
-  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-];
-
 const STRIDE = 0.85; // cells between footsteps
 
-export class Level extends KitScene {
+// The layout is `levels/level.tmj`: a `walls` layer whose gid is the wall material (1-8, render.js; 9 a door), and the
+// spawn and enemy objects in pixels, so cell = pixel / tile size. A straight corridor with a door, then a room.
+export class Level extends KitLevelScene {
   constructor() {
     super('level');
   }
 
+  preload() {
+    preloadLevel(this, this.levelName);
+  }
+
   create() {
+    const map = this.cache.tilemap.get(`level:${this.levelName}`)?.data ?? {};
+    const cell = Number(map.tilewidth) || 64;
+    const entities = levelEntities(map);
+    const spawn = entities.find((e) => e.type === 'spawn');
+    const enemies = entities.filter((e) => e.type === 'enemy' && e.name === 'grunt');
     // Fidelity kit: juice (shake, hit-stop, particles, numbers), sound effects and post effects, on by default.
     this.fx = createFx(this, { name: 'raycaster', ambient: null });
     this.juice = this.fx.juice;
 
     // One enemy billboard in the far room. The preset has no physics, so the enemy is scenery until a genre adds shooting.
     this.rig = createRaycaster(this, {
-      map: MAP,
-      start: { x: 1.5, y: 1.5, angle: 0 },
-      sprites: [{ x: 9.5, y: 3.5, color: '#e5484d', kind: 'grunt', scale: 0.8 }],
+      map: levelGrid(map, 'walls'),
+      start: { x: (spawn?.x ?? 96) / cell, y: (spawn?.y ?? 96) / cell, angle: 0 },
+      sprites: enemies.map((e) => ({ x: e.x / cell, y: e.y / cell, color: String(e.properties.color ?? '#e5484d'), kind: 'grunt', scale: Number(e.properties.scale ?? 0.8) })),
       minimap: false,
     });
     // The preset draws flat walls; this view reads the same map and sprites and paints them textured, normal-mapped and torch-lit.
@@ -76,6 +78,6 @@ export class Level extends KitScene {
   }
 
   kitState() {
-    return { ...this.rig.state(), juice: this.juice.state(), ...this.genre.state() };
+    return { ...super.kitState(), ...this.rig.state(), juice: this.juice.state(), ...this.genre.state() };
   }
 }

@@ -745,6 +745,7 @@ export type MockFixtures = {
       defaultEngine?: 'phaser' | 'three';
       defaultNetwork?: 'off' | 'on';
       squashRunCommits?: boolean;
+      pauseWhenEditing?: boolean;
     };
     resolvedRoot?: string;
     rootProblem?: string | null;
@@ -764,6 +765,8 @@ export type MockFixtures = {
     playtestRun?: { passed: boolean; runs: GamePlaytestResult[] };
     /** The juice settings a game starts with (default: the kit's). */
     juice?: Record<string, unknown>;
+    /** Phase 132 Theme D: `levels/<scene>.tmj` per game id (raw Tiled JSON). `levels.set` records `levelSet` calls. */
+    levels?: Record<string, Record<string, unknown>>;
     /** Theme P: what an export answers (default: success at a path built from the format and `dest`). */
     exportResult?: { ok: false; message: string } | { ok: true; warnings?: string[] };
   };
@@ -3381,6 +3384,27 @@ export function buildMockBridge(data: MockFixtures) {
         get: async () => ({ manifest: null, issues: [] }),
         set: async () => ({ ok: true as const }),
       },
+      // Phase 132 Theme D: scenes by game id from `data.games.levels`; a `set` is recorded and stored.
+      levels: {
+        list: async (req: { gameId: string }) => {
+          const scenes = Object.keys(gamesLevels[req.gameId] ?? {}).sort();
+          return { ok: true as const, value: { scenes: scenes.map((scene) => ({ scene, bytes: 1, dimension: '2d' as const, issue: null })), start: scenes[0] ?? null, readsLevels: true } };
+        },
+        get: async (req: { gameId: string; scene: string }) => {
+          const level = gamesLevels[req.gameId]?.[req.scene];
+          if (level === undefined) return { ok: false as const, kind: 'error' as const, message: 'No such scene.' };
+          return { ok: true as const, value: { level, issues: [], images: [] } };
+        },
+        set: async (req: { gameId: string; scene: string; level: unknown; create?: boolean }) => {
+          gamesCalls.push({ call: 'levelSet', ...req });
+          gamesLevels[req.gameId] = { ...(gamesLevels[req.gameId] ?? {}), [req.scene]: req.level };
+          return { ok: true as const, value: { sha: 'l3v3l01' } };
+        },
+      },
+      goto: async (req: { gameId: string; scene: string }) => {
+        gamesCalls.push({ call: 'goto', ...req });
+        return { ok: true as const, value: { via: 'next-run' as const } };
+      },
       run: async (req: { gameId: string }) => {
         gamesCalls.push({ call: 'run', ...req });
         const runId = `r${gamesCalls.length}`;
@@ -5141,10 +5165,20 @@ export function buildMockBridge(data: MockFixtures) {
       restart: noop,
       setChannel: noop,
       onState: unsubscribe,
-      releaseNotes: async (req: { version: string }) => ({
+      releaseNotes: async (req: { version: string; latest?: number }) => ({
         version: req.version,
         notes: data.releaseNotesOverride ?? '### Added\n\n- A version pill in the rail.',
         error: null,
+        ...(req.latest
+          ? {
+              sections: [
+                { version: req.version, date: '2026-10-12', body: '### Added\n\n- A version pill in the rail.' },
+                { version: '1.2.2', date: '2026-09-28', body: '### Fixed\n\n- The rail hairline.' },
+                { version: '1.2.1', date: '2026-09-10', body: '### Added\n\n- Media Maps.' },
+                { version: '1.2.0', date: '2026-08-30', body: '### Added\n\n- Gamer showreels.' },
+              ].slice(0, req.latest),
+            }
+          : {}),
       }),
     },
     // Phase 98 Theme D: every catalogue id the fixture profile has — brew and git.
@@ -6336,11 +6370,14 @@ export function buildMockBridge(data: MockFixtures) {
     defaultEngine: 'phaser',
     defaultNetwork: 'off',
     squashRunCommits: false,
+    pauseWhenEditing: true,
     ...(data.games?.settings ?? {}),
   };
   /** Every `games.run`/`stop`/`toolbar`/`setBounds`/`setVisible` call — the spec's assertion surface. */
   // eslint-disable-next-line no-var
   var gamesCalls: Array<Record<string, unknown>> = [];
+  // eslint-disable-next-line no-var
+  var gamesLevels: Record<string, Record<string, unknown>> = { ...(data.games?.levels ?? {}) };
   // eslint-disable-next-line no-var
   var gamesRunStateHandlers: Array<(event: unknown) => void> = [];
   // eslint-disable-next-line no-var
@@ -7389,6 +7426,32 @@ export function buildMockBridge(data: MockFixtures) {
           failed: [] as string[],
         },
       }),
+    };
+  }
+
+  // Phase 129 — the books. buildMockBridge is serialised into a Playwright page, so it cannot import the ledger
+  // feature's in-memory bridge (`createMemoryLedger`, which RTL tests use); here no book exists, and Theme H
+  // seeds the shots spec's book through the page. Every op answers the envelope: an empty list or a plain error.
+  {
+    const unavailable = async () => ({ ok: false as const, kind: 'io' as const, message: 'Books are not available in this mock yet.' });
+    (bridge as Record<string, unknown>).ledger = {
+      listBooks: async () => ({ ok: true as const, value: { books: [] as unknown[] } }),
+      getBook: unavailable,
+      createBook: unavailable,
+      updateBook: unavailable,
+      upsertAccount: unavailable,
+      archiveAccount: unavailable,
+      post: unavailable,
+      reverse: unavailable,
+      journal: unavailable,
+      balances: unavailable,
+      report: unavailable,
+      exportReport: unavailable,
+      importPick: unavailable,
+      importPreview: unavailable,
+      importCommit: unavailable,
+      taxEstimate: unavailable,
+      onChanged: () => () => undefined,
     };
   }
 

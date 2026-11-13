@@ -32,6 +32,7 @@ import { KnowledgeVariantPills } from './knowledge-variant-pills';
 import { useKnowledgeLayoutProgress } from './use-knowledge-layout-progress';
 import { useKnowledgeLayoutSwitch } from './use-knowledge-layout-switch';
 import { KnowledgeNodePanel } from './knowledge-node-panel';
+import { effectiveVariant } from './knowledge-variant-gate';
 import { resolveVariant } from './renderer-contract';
 import { useKnowledgeGraph } from './use-knowledge-graph';
 import { type KnowledgeLayoutProgress } from './use-knowledge-layout-progress';
@@ -97,14 +98,23 @@ export function KnowledgeView() {
   const detailId = useKnowledgeFiltersStore((s) => s.detailId);
   const setDetailId = useKnowledgeFiltersStore((s) => s.setDetailId);
   const maxNodes = resolveDetailLevel(detailId).maxNodes;
+  const graphCounts = useMemo(
+    () => (state.kind === 'ready' ? { nodes: state.graph.nodes.length, edges: state.graph.links.length } : null),
+    [state],
+  );
+  // Theme J: the stored preference is never rewritten; a gated one just renders the default, announced.
+  const shownVariant = useMemo(
+    () => (graphCounts ? effectiveVariant(rendererVariant, graphCounts) : { id: rendererVariant, gatedReason: null }),
+    [rendererVariant, graphCounts],
+  );
   // Decision 9: the layout row is offered only for a variant whose engine
   // actually consumes worker `positions` — d3-force's future live-sim
   // variant (Theme I) computes its own layout, and a permanently visible
   // layout row with disabled entries costs height on every variant to
   // explain one, per the phase doc's own recommendation.
   const showLayoutPills = useMemo(
-    () => resolveVariant(rendererVariant).consumesWorkerLayout,
-    [rendererVariant],
+    () => resolveVariant(shownVariant.id).consumesWorkerLayout,
+    [shownVariant.id],
   );
   const handleSelectLayout = useCallback(
     (id: string) => {
@@ -272,7 +282,16 @@ export function KnowledgeView() {
               label="Resize knowledge graph filters"
             />
             <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
-              <KnowledgeVariantPills activeId={rendererVariant} onSelect={setRendererVariant} />
+              <KnowledgeVariantPills
+                activeId={rendererVariant}
+                onSelect={setRendererVariant}
+                counts={{ nodes: state.graph.nodes.length, edges: state.graph.links.length }}
+              />
+              {shownVariant.gatedReason ? (
+                <p role="status" className="border-b border-border px-3 py-1 text-xs text-muted-foreground">
+                  {shownVariant.gatedReason} Showing {resolveVariant(shownVariant.id).label} instead; your choice is kept.
+                </p>
+              ) : null}
               {showLayoutPills || showDetailPills ? (
                 <div className="flex min-w-0 items-center gap-1.5 border-b border-border px-3 py-1.5">
                   {showLayoutPills ? (
@@ -290,7 +309,7 @@ export function KnowledgeView() {
                 </div>
               ) : null}
               <KnowledgeCanvas
-                rendererVariant={rendererVariant}
+                rendererVariant={shownVariant.id}
                 payload={state.graph}
                 filters={filters}
                 focusNodeId={focusNodeId}

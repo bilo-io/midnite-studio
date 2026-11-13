@@ -23,6 +23,7 @@ node scripts/perf/bundle-report.mjs                   # entry chunk, total JS, t
 node scripts/perf/bundle-report.mjs --assert          # ...and fail on a budget breach
 node scripts/perf/idle-cpu.mjs --seconds=300          # focused idle, % of one core
 node scripts/perf/idle-cpu.mjs --seconds=300 --blurred # blurred idle (what the gates key on)
+node scripts/perf/guard-sweep.mjs --offline        # Guard sweep wall-clock, cold then warm (no packaged app needed)
 node scripts/perf/broker-load.mjs --seconds=10        # broker CPU per MB under `yes`
 node scripts/perf/memory-report.mjs --action=terminal # retention: bytes retained per cycle
 node scripts/perf/memory-report.mjs --action=terminal --assert # ...and fail on a budget breach

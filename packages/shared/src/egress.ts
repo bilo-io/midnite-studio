@@ -14,9 +14,10 @@ import { z } from 'zod';
 /** Switches that gate an `automatic` entry. A switch id is the stored key's name in Settings ▸ Privacy. */
 export const PRIVACY_SWITCHES = {
   weather: 'Title-bar weather (Open-Meteo)',
+  avatars: 'Author avatars (Gravatar, GitHub)',
   'locate-by-ip': 'Locate me by IP (ipwho.is)',
   markets: 'Market prices, FX and finance news',
-  'guard-feeds': 'Guard vulnerability feeds (OSV, CISA KEV)',
+  'guard-feeds': 'Guard vulnerability feeds (OSV, CISA KEV, NVD, npm, PyPI, URLhaus)',
   'launcher-updates': 'Launcher: check for Studio updates at start',
   'launcher-catalog': 'Launcher: refresh the app catalog at start',
   'reputation-urlhaus': 'Browser reputation feed: URLhaus',
@@ -74,32 +75,60 @@ export const EGRESS_ENTRIES: readonly EgressHost[] = [
   entry({ host: 'api.osv.dev', owner: 'guard', sends: 'package names and versions found in the user’s repositories, to look up advisories', trigger: 'automatic', switch: 'guard-feeds' }),
   entry({ host: 'www.cisa.gov', owner: 'guard', sends: 'GET only: the public Known Exploited Vulnerabilities list', trigger: 'automatic', switch: 'guard-feeds' }),
   entry({ host: 'electronjs.org', owner: 'guard', sends: 'GET only: the public Electron release index, no identifiers', trigger: 'automatic', switch: 'guard-feeds' }),
+  entry({ host: 'services.nvd.nist.gov', owner: 'guard', sends: 'a CVE id or a package coordinate, to look up its public record', trigger: 'automatic', switch: 'guard-feeds' }),
+  entry({ host: 'registry.npmjs.org', owner: 'guard', sends: 'GET only: the public metadata of a package name found in the user’s repositories', trigger: 'automatic', switch: 'guard-feeds' }),
+  entry({ host: 'pypi.org', owner: 'guard', sends: 'GET only: the public metadata of a package name found in the user’s repositories', trigger: 'automatic', switch: 'guard-feeds' }),
+  entry({ host: 'urlhaus.abuse.ch', owner: 'guard', sends: 'nothing about the user — a plain GET of the public online-URL list (CC0), matched on this Mac', trigger: 'automatic', switch: 'guard-feeds' }),
   entry({ host: 'cdn.jsdelivr.net', owner: 'media-video', sends: 'GET only: a pinned animation library, loaded by a video render the user started, no identifiers', trigger: 'user' }),
   entry({ host: 'midnite-apps.vercel.app', owner: 'launcher', sends: 'GET only: the app catalog, no identifiers', trigger: 'automatic', switch: 'launcher-catalog' }),
-  entry({ host: 'raw.githubusercontent.com', owner: 'launcher', sends: 'GET only: the Studio update feed, no identifiers', trigger: 'automatic', switch: 'launcher-updates' }),
+  entry({ host: 'raw.githubusercontent.com', owner: 'launcher', sends: 'GET only: the Studio update feed and each app’s public changelog, no identifiers', trigger: 'automatic', switch: 'launcher-updates' }),
   // ── scheduled feeds (Phase 117 Theme C: pulled whole, matched on this Mac, off by default) ──
   entry({ host: 'urlhaus.abuse.ch', owner: 'browser', sends: 'nothing about the user — a plain GET of the public online-URL list (CC0)', trigger: 'feed', switch: 'reputation-urlhaus', description: 'URLhaus malware URL feed for the Browser app' }),
   entry({ host: 'openphish.com', owner: 'browser', sends: 'nothing about the user — a plain GET of the public community feed', trigger: 'feed', switch: 'reputation-openphish', description: 'OpenPhish community phishing feed for the Browser app' }),
   // ── user-initiated ──
+  entry({ host: 'api.openai.com', owner: 'companion', sends: 'the recorded audio and the user’s OpenAI key, for transcription they asked for', trigger: 'user' }),
+  entry({ host: 'raw.githubusercontent.com', owner: 'app', sends: 'GET only: Studio’s public changelog, for the update dialog the user opened', trigger: 'user' }),
+  entry({ host: 'github.com', owner: 'media-audio', sends: 'GET only: the General MIDI sample set the user asked for', trigger: 'user' }),
+  entry({ host: 'release-assets.githubusercontent.com', owner: 'media-audio', sends: 'GET only: the redirect target of the sample download', trigger: 'user' }),
+  entry({ host: 'huggingface.co', owner: 'media-audio', sends: 'GET only: the Stable Audio model the user asked for', trigger: 'user' }),
+  entry({ host: '*.hf.co', owner: 'media-audio', sends: 'GET only: the redirect target of the model download', trigger: 'user' }),
+  entry({ host: 'huggingface.co', owner: 'media-model', sends: 'GET only: the Stable Fast 3D model the user asked for', trigger: 'user' }),
+  entry({ host: '*.hf.co', owner: 'media-model', sends: 'GET only: the redirect target of the model download', trigger: 'user' }),
+  entry({ host: 'release-assets.githubusercontent.com', owner: 'app', sends: 'GET only: the redirect target of the speech-model download', trigger: 'user' }),
   entry({ host: 'api.pwnedpasswords.com', owner: 'vault', sends: 'the first five hex characters of a SHA-1 of the password; never the password, never the hash', trigger: 'user', description: 'Have I Been Pwned Pwned Passwords k-anonymity breach check' }),
   entry({ host: 'overpass-api.de', owner: 'media-map', sends: 'a bounding box, for roads and buildings', trigger: 'user' }),
   entry({ host: 'ollama.com', owner: 'models', sends: 'the model search text', trigger: 'user' }),
   entry({ host: 'api.themoviedb.org', owner: 'media-library', sends: 'a title search text and the user’s TMDB key', trigger: 'user' }),
   entry({ host: 'image.tmdb.org', owner: 'media-library', sends: 'GET only: poster paths', trigger: 'user' }),
   entry({ host: 'github.com', owner: 'app', sends: 'GET only: a model download the user asked for (speech model)', trigger: 'user' }),
+  // Pictures load as <img>, not through the seam; a separate owner keeps them from gating the app's own github.com downloads.
+  entry({ host: 'gravatar.com', owner: 'avatars', sends: 'a hash of a commit author’s email address, to look up their picture', trigger: 'automatic', switch: 'avatars' }),
+  entry({ host: 'github.com', owner: 'avatars', sends: 'GET only: a GitHub login’s public avatar image', trigger: 'automatic', switch: 'avatars' }),
+  entry({ host: 'avatars.githubusercontent.com', owner: 'avatars', sends: 'GET only: the redirect target of a GitHub avatar', trigger: 'automatic', switch: 'avatars' }),
   entry({ host: 'api.openai.com', owner: 'media-images', sends: 'the user’s image prompt and API key', trigger: 'user' }),
   entry({ host: 'generativelanguage.googleapis.com', owner: 'media-images', sends: 'the user’s image prompt and API key', trigger: 'user' }),
   entry({ host: 'api.maptiler.com', owner: 'media-map', sends: 'tile coordinates and the user’s MapTiler key', trigger: 'user' }),
   entry({ host: 'tiles.openfreemap.org', owner: 'media-map', sends: 'GET only: map tile coordinates', trigger: 'user' }),
   entry({ host: 'huggingface.co', owner: 'models', sends: 'GET only: a model download the user asked for', trigger: 'user' }),
   entry({ host: '*', owner: 'finance', sends: 'a plain GET of an RSS feed URL the user added to the news list', trigger: 'automatic', switch: 'markets' }),
+  entry({ host: 'geocoding-api.open-meteo.com', owner: 'media-map', sends: 'the place name typed into the map search', trigger: 'user' }),
+  entry({ host: 's3.amazonaws.com', owner: 'media-map', sends: 'GET only: elevation tile coordinates (AWS Terrain Tiles), for a terrain capture', trigger: 'user' }),
+  entry({ host: 'tiles.maps.eox.at', owner: 'media-map', sends: 'GET only: satellite tile coordinates (Sentinel-2 cloudless), for a terrain capture', trigger: 'user' }),
+  entry({ host: '*', owner: 'models', sends: 'model lists, pulls and chat requests to the Ollama server you configured (this Mac, unless OLLAMA_HOST says otherwise)', trigger: 'user' }),
+  entry({ host: '*', owner: 'media-images', sends: 'the image prompt to the Ollama server you configured (this Mac, unless OLLAMA_HOST says otherwise)', trigger: 'user' }),
+  entry({ host: '*', owner: 'monitor', sends: 'GET only: the version of the Ollama server you configured, for the health probe', trigger: 'user' }),
+  entry({ host: '*', owner: 'forge', sends: 'API requests with your access token, to the forge host you added (GitHub, GitLab, Bitbucket, Azure DevOps or a self-hosted one)', trigger: 'user' }),
+  entry({ host: 'api.kraken.com', owner: 'finance', sends: 'read-only balance requests, signed with the Kraken key you added', trigger: 'user' }),
+  entry({ host: 'api.alpaca.markets', owner: 'finance', sends: 'read-only account and position requests, with the Alpaca key you added', trigger: 'user' }),
+  entry({ host: 'paper-api.alpaca.markets', owner: 'finance', sends: 'read-only paper-account requests, with the Alpaca key you added', trigger: 'user' }),
   entry({ host: '*', owner: 'api-client', sends: 'whatever request the user composes, to the URL they typed', trigger: 'user' }),
   entry({ host: '*', owner: 'workflows', sends: 'whatever the workflow’s HTTP node is set to send, to its URL', trigger: 'user' }),
 ];
 
 /** The concrete hosts, keyed by host (the Vanguard sensor resolves these names; a `*` has nothing to resolve). */
 export const EGRESS_HOSTS: Record<string, EgressHost> = Object.fromEntries(
-  EGRESS_ENTRIES.filter((e) => !e.host.includes('*')).map((e) => [e.host, e]),
+  // A host two owners register keys to its first entry, the same one `findEgressEntry(url)` returns without an owner.
+  [...EGRESS_ENTRIES.filter((e) => !e.host.includes('*'))].reverse().map((e) => [e.host, e]),
 );
 
 function hostMatches(pattern: string, host: string): boolean {
@@ -109,13 +138,17 @@ function hostMatches(pattern: string, host: string): boolean {
 }
 
 /** The entry for a URL's host (exact beats wildcard), or `undefined` when unregistered. `*` never matches here. */
-export function findEgressEntry(url: string | URL): EgressHost | undefined {
+export function findEgressEntry(url: string | URL, owner?: string): EgressHost | undefined {
   let host: string;
   try {
     host = (typeof url === 'string' ? new URL(url) : url).hostname.toLowerCase();
   } catch {
     return undefined;
   }
+  // With an owner, its own entry for the host wins, so two features may each register the same host.
+  const pool = owner === undefined ? EGRESS_ENTRIES : EGRESS_ENTRIES.filter((e) => e.owner === owner);
+  const own = pool.find((e) => e.host === host) ?? pool.find((e) => e.host !== '*' && hostMatches(e.host, host));
+  if (own || owner === undefined) return own;
   return EGRESS_ENTRIES.find((e) => e.host === host) ?? EGRESS_ENTRIES.find((e) => e.host !== '*' && hostMatches(e.host, host));
 }
 
@@ -149,6 +182,7 @@ export type EgressSettings = z.infer<typeof EgressSettingsSchema>;
 
 export const PRIVACY_SWITCH_DEFAULTS: Record<PrivacySwitchId, boolean> = {
   weather: true,
+  avatars: true,
   'locate-by-ip': false,
   markets: true,
   'guard-feeds': true,

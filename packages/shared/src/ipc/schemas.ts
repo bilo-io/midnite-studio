@@ -356,6 +356,8 @@ import {
   GameAgentRunRequestSchema,
   GameAgentRunResultSchema,
   GameAgentUndoRequestSchema,
+  GameAddRequestSchema,
+  GameAddResultSchema,
   GameCreateRequestSchema,
   GameCreateResultSchema,
   GameIdRequest as GameIdRequestSchema,
@@ -377,6 +379,16 @@ import {
   GameJuiceSettingsSchema,
   GameVisibleRequest as GameVisibleRequestSchema,
 } from '../media-game';
+import {
+  GameLevelsRequestSchema,
+  GameLevelsResultSchema,
+  GameLevelGetRequestSchema,
+  GameLevelGetResultSchema,
+  GameLevelSetRequestSchema,
+  GameLevelSetResultSchema,
+  GameGotoRequestSchema,
+  GameGotoResultSchema,
+} from '../game-level';
 import {
   ModelExportRequestSchema,
   ModelGenerateProgressEventSchema,
@@ -2282,6 +2294,8 @@ export const LoopRunStartRequest = z.object({
    * a renderer that predates the picker sends none.
    */
   model: LoopModelSchema.optional(),
+  /** Set by *Fix with agent*: the fingerprint of the one finding the run is scoped to. */
+  findingFingerprint: z.string().min(1).optional(),
 });
 export const LoopRunStartResponse = GitOpResultOf(LoopRunRecordSchema);
 
@@ -3030,13 +3044,25 @@ export type UpdateState = z.infer<typeof UpdateStateSchema>;
  * not reach the mirror", because the popover says different things about each
  * and the links below it stand either way.
  */
-export const ReleaseNotesRequest = z.object({ version: z.string().min(1) });
+export const ReleaseNotesRequest = z.object({
+  version: z.string().min(1),
+  /** Also return the newest N released sections (1-10); absent keeps the single-version reply. */
+  latest: z.number().int().min(1).max(10).optional(),
+});
 export const ReleaseNotesResponse = z.object({
   version: z.string(),
   notes: z.string().nullable(),
   error: z.string().nullable(),
+  /** Newest released sections, only when `latest` was asked for. */
+  sections: z
+    .array(z.object({ version: z.string(), date: z.string().optional(), body: z.string() }))
+    .optional(),
 });
 export type ReleaseNotes = z.infer<typeof ReleaseNotesResponse>;
+/** A suite app's own notes (Phase 131 Theme E): no app or version on the wire, main answers for itself. */
+export const SuiteReleaseNotesRequest = z.object({
+  latest: z.number().int().min(1).max(10).optional(),
+});
 
 // --- system health (Phase 33) ----------------------------------------------
 export const ToolchainBinarySchema = z.object({
@@ -5459,6 +5485,8 @@ export const GamesSettingsSetResponse = GitOpResultOf(GamesSettingsReadSchema);
 export const GamesListResponse = GamesListSchema;
 export const GamesCreateRequest = GameCreateRequestSchema;
 export const GamesCreateResponse = GitOpResultOf(GameCreateResultSchema);
+export const GamesAddRequest = GameAddRequestSchema;
+export const GamesAddResponse = GitOpResultOf(GameAddResultSchema);
 export const GamesGetManifestRequest = GameIdRequestSchema;
 export const GamesGetManifestResponse = GameManifestGetResponseSchema;
 export const GamesSetManifestRequest = GameManifestSetRequestSchema;
@@ -5480,6 +5508,14 @@ export const GamesConsolePayload = GameConsolePayloadSchema;
 export const GamesKitUpgradeRequest = GameIdRequestSchema;
 export const GamesKitUpgradeResultSchema = z.object({ branch: z.string() });
 export const GamesKitUpgradeResponse = GitOpResultOf(GamesKitUpgradeResultSchema);
+export const GamesLevelsRequest = GameLevelsRequestSchema;
+export const GamesLevelsResponse = GitOpResultOf(GameLevelsResultSchema);
+export const GamesLevelGetRequest = GameLevelGetRequestSchema;
+export const GamesLevelGetResponse = GitOpResultOf(GameLevelGetResultSchema);
+export const GamesLevelSetRequest = GameLevelSetRequestSchema;
+export const GamesLevelSetResponse = GitOpResultOf(GameLevelSetResultSchema);
+export const GamesGotoRequest = GameGotoRequestSchema;
+export const GamesGotoResponse = GitOpResultOf(GameGotoResultSchema);
 export const GamesPopOutRequest = GameIdRequestSchema;
 export const GamesPoppedResponse = GamePoppedResponseSchema;
 export const GamesPopStatePayload = GamePopStateSchema;
@@ -5539,3 +5575,9 @@ export {
   formatCodexHookSnippet,
 } from '../tool-policy';
 
+// Midnite Startup's one channel (Phase 130 Theme B).
+export {
+  StartupChangedEventSchema as StartupChangedPayload,
+  StartupRequestSchema as StartupOpRequest,
+  StartupSnapshotSchema as StartupSnapshotResponse,
+} from '../startup';

@@ -84,7 +84,10 @@ describe('sensor handlers', () => {
     };
     expect(state.quarantineDir).toBe(service.quarantineDir);
     expect(state.quarantine).toEqual([]);
-    expect(Object.keys(state.unavailable).sort()).toEqual(['open-in-agents', 'pause-session', 'pin-package', 'remove-package', 'revoke-mcp-server', 'update-package']);
+    expect(Object.keys(state.unavailable).sort()).toEqual([
+      'close-tab', 'forget-origin', 'move-to-vault', 'open-in-agents', 'open-system-settings', 'open-tab', 'pause-session', 'pin-package',
+      'redact-line', 'revoke-mcp-server', 'rotate',
+    ]);
   });
 
   it('serves the network sensor’s last snapshot', async () => {

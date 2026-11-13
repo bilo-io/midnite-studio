@@ -96,7 +96,7 @@ fetched inputs, run on the loop's schedule by main with or without an agent, wri
 Phase 120's ledger; the agent pass receives the findings file; the run record gains a findings
 summary.
 
-**Theme B — CVEs against the lockfiles and the installed software.** ◐ PARTIAL (PR pending). Landed in
+**Theme B — CVEs against the lockfiles and the installed software.** ◐ PARTIAL, remainder deferred (GHSA via the forge credential, NVD with an API key, OSV ranges for installed software). Landed in
 `runtime/src/guard/`: lockfile parsers (`lockfiles/`: pnpm v5/v6/v9, package-lock v1–v3, yarn classic,
 requirements.txt, Cargo.lock, go.sum — line parsers, no YAML dependency), an OSV client (`feeds/osv.ts`: batches
 of 500, `next_page_token` pagination, per-advisory cache keyed by `modified`) that takes an *injected* fetch because
@@ -108,7 +108,7 @@ Phase 115 A's `guardedFetch` is not in the tree yet, CISA KEV (`feeds/kev.ts`), 
 *before* resolving, so no feed is fetched for a check that cannot run; the `.pnpm` store scan reads 32 folders at a
 time. The `installed-software` check landed (PR pending): `software.ts` inventories `brew outdated --json=v2`, each `/Applications` bundle's `CFBundleShortVersionString` (PlistBuddy) and `sw_vers` through an injected `exec` (desktop wires `execFile`; no sudo), and the check rates an outdated item `low`, KEV-named `high`, and `critical` when overdue or ransomware-linked. KEV carries no version ranges, so it only raises items already behind. A later PR landed the Electron-freshness check (`checks/electron-freshness.ts`: `electronPins` reads the `electron` range from each open repo's root, `packages/*` and `apps/*` package.json; `electronMajors` is the three highest majors of `electronjs.org/headers/index.json`, cached, new `guard-feeds` egress entry; a pin outside them is one `high` finding with an `update-package` action) and `GuardCheck.optional`, so `installed-software` marks `kev` optional and keeps reporting outdated software when the KEV switch is off (the skip is still recorded in `inputsSkipped`). Still open: GHSA/NVD and OSV matching for installed software.
 
-**Theme C — The threat feed.** ◐ PARTIAL (PR pending). Landed: `ThreatFeedSchema` in `shared/src/threat-feed.ts`
+**Theme C — The threat feed.** ◐ PARTIAL, remainder deferred (the signed feed and its workflow live in `bilo-io/midnite-apps`; the plugins/skills re-scan). Landed: `ThreatFeedSchema` in `shared/src/threat-feed.ts`
 (every entry carries an https `ref`), an Ed25519 detached-signature verifier and cached loader
 (`guard/feeds/threat-feed.ts`; the signature covers `canonicalJson`, a tampered byte or a malformed entry rejects the
 whole file, and a bad signature is reported rather than papered over with an older copy), `scripts/threat-feed-check.mjs`
@@ -118,25 +118,15 @@ for candidate files, an installed-`node_modules` resolver, and the `poisoned-pac
 workflow live in `bilo-io/midnite-apps`, so `THREAT_FEED_PUBLIC_KEY_PEM` is empty and no feed is trusted yet; the
 plugins/skills re-scan; the installed-package resolver now descends into pnpm's `node_modules/.pnpm` and the `installedPackages` and `mcpServers` inputs have resolvers (PR pending), but while `THREAT_FEED_PUBLIC_KEY_PEM` is empty the `threatFeed` input is skipped, so all three checks are recorded as skipped in each sweep rather than reporting clean. The loader keeps serving the last verified feed when a download fails verification and refuses a validly signed feed with a lower `version` than the cached one.
 
-**Theme D — The Mac itself.** ◻ Listening ports, outdated software, FileVault/firewall/
-Gatekeeper/SIP/remote-login state, SSH key modes and passphrases, secrets in dotfiles and `.env`
-files, `~/.npmrc`/`~/.netrc` tokens, stale `authorized_keys` — each a finding with a fix.
+**Theme D — The Mac itself.** ◐ PARTIAL (PR pending). `runtime/src/guard/checks/`: `mac-ports` (wildcard listeners from a process that is neither Apple-signed nor a known dev/suite process; `medium`, `high` unsigned; `kill-process-group`), `mac-config` (FileVault, firewall, Gatekeeper, SIP, Remote Login, Screen Sharing, automatic updates, pending security updates — each with a copyable fix, never sudo), `ssh-keys` (0600 `chmod-600`, passphrase-less keys tried on a private copy removed straight away, `authorized_keys` options as `info` without key material, `~/.gnupg` modes) and `secrets-outside-vault` (the shared `scanText` over shell profiles, tool credentials and open repos' `.env*`; evidence is file, line and pattern kind, never the value), with probes in `guard/mac-probes.ts` over the injected `exec`. The pending-security-updates probe is held back: `softwareupdate -l` asks Apple's servers, which the egress registry does not carry yet (Theme H). Not done: the opt-in `git log -p` history pass (needs the composer checkbox, Theme G), the `move-to-vault` / `redact-line` / `open-system-settings` actions (the enum grows in Theme G, so fixes ride as text and `command` evidence), `authorized_keys` age (a line carries no date), and the ports parser is Guard's own, since the runtime layer may not import Vanguard's.
 
-**Theme E — Sites the browser visited.** ◻ The browser feature's history checked offline against
-the ClickFix domain list, HTTP-only origins, known-phishing feeds with usable licences, and sites
-whose server headers announce an end-of-life stack; findings link back to the tab.
+**Theme E — Sites the browser visited.** ◐ PARTIAL (PR pending). `guard/checks/sites.ts`: a ClickFix-listed origin (`critical`, with the tab when still open), a phishing/malware-listed host (`critical`), an `http:` origin that showed a login form (`medium`) and an end-of-life `Server`/`X-Powered-By` header (`low`), plus the URLhaus host parser; the feed inputs are optional, so the local rules run with them off. The check reads a `history` input that `createGuardResolvers` takes from a composer-supplied `readBrowserHistory(sinceMs)` (7-day window), so Guard imports no feature. **Open decision (user):** whether to persist a visited-origins history so this check has input. **Not wired:** the browser feature keeps no readable origin history (`host-first-seen` stores salted digests only), so the desktop passes no reader and the check is recorded as skipped (`no-resolver`) until a visited-origins store exists, which stores browsing history and is a privacy decision for the user. Also open: fetching the URLhaus feed (needs a Phase 115 egress entry, Theme H), and the `open-tab` / `close-tab` / `forget-origin` actions (Theme G).
 
-**Theme F — Suspicious behaviour over the window.** ◻ Phase 121's audit trail and Phase 120's
-sensor history correlated across the sweep window: sessions outside the user's hours, a
-persistence item during a session, a new outbound host, a lockfile change with no PR.
+**Theme F — Suspicious behaviour over the window.** ✅ (PR pending). `guard/checks/behaviour.ts` correlates Phase 121's audit trail (read by the runtime reader: the window plus 30 days of baseline) with Vanguard's ledger findings: a session that started in an hour holding at most 5% of the last 30 days' sessions (`low`, needs 10 baseline sessions), a Vanguard persistence or network finding first seen inside a session (`high`, names both fingerprints), a `limit-trip` record (`medium`) and more than three denied approvals in one session (`medium`). Desktop passes `readVanguardFindings` from the shared ledger. A quiet week yields nothing. **Lockfile rule (stacked on the H PR).** `guard/checks/lockfile-changes.ts` reads it from git instead of the forge: a commit that touched a lockfile in the last 7 days and is reachable from no remote ref has not been pushed, so no PR can cover it (`medium`, one finding per repo, resolves once pushed). Read-only `git remote` and `git log -z`; a repo with no remote is skipped. A pushed branch with no PR is not caught, which needs the forge. **Not done:** the linked-findings link is by fingerprint in the detail, not a ledger field.
 
-**Theme G — Findings in the Guard tab, with a button.** ◻ The tab lists the last sweep's findings by
-severity with a diff against the previous sweep; each remediation action renders through the shared
-enum; "Fix with agent" composes the finding into a Guard run with *Report only* off.
+**Theme G — Findings in the Guard tab, with a button.** ✅ (PR pending). The Guard tab's Findings section, filters, *new* mark, confirmed actions, `package-argv.ts` and the defanged `guardFixPrompt` landed earlier. This PR runs `update-package` and `remove-package` end to end (`vanguard/main/response/package-fix.ts`, planned in `actions.ts` so Guard and Vanguard share one preview-and-confirm): the lockfile or `node_modules` path in the evidence picks the manager, a throwaway `git worktree` on `guard/<action>-<pkg>` is made from HEAD under userData, the manager runs there with scripts off and `--lockfile-only` where it has the flag (pnpm, npm), the tracked changes are committed with the repo's hooks off, and the worktree is removed; a failure removes the branch it made. The confirm lists every command exactly as it will run; nothing runs at preview, nothing is pushed, no PR is opened, no sudo anywhere, and the user's working tree and branch are untouched. Both ids left `REMEDIATION_PENDING`; `pin-package` and the other new ids stay pending. *Fix with agent* is a button on each finding that starts a terminal agent session with the one-fingerprint, untrusted-tagged prompt and records `findingFingerprint` on the loop-run record, which the finding's row reads back as *Agent run <status>*. Vanguard's page already lists `guard` findings (Source filter) and now offers the same two actions. **Deviations:** no forge PR is opened (it needs a push and a credential), so the result names the branch to push; the Fix with agent session is not tracked as the tab's own session, so the tab's Stop does not control it.
 
-**Theme H — Schedule, cost and disclosure.** ◻ Default daily on wake, each feed behind its
-switch, a Privacy row that says what leaves, and a sweep that finishes in under a minute on this
-repo.
+**Theme H — Schedule, cost and disclosure.** ✅ (PR pending). `guard.sweep` ("Guard: Sweep now", chord-free) and the tab's *Sweep now* button landed earlier; this PR adds Guard's own default schedule (`GUARD_DEFAULT_SCHEDULE`: daily, off until the user turns it on, because enabling it is what lets the feeds be called), a scheduler `shouldDefer` gate that holds a scheduled sweep 15 minutes while the window is blurred and the Mac is on battery below 20% (`sweep-gate.ts`, `pmset -g batt`; *Sweep now* is never held), egress entries for NVD, the npm and PyPI registries and URLhaus under the `guard-feeds` switch (renamed to name them), `docs/PRIVACY.md` regenerated with them, and `scripts/perf/guard-sweep.mjs` (esbuild-bundled real sweep, cold then warm, `--assert` against `budgets.json`'s `guardSweep`). Offline on this repo: 5.8 s cold, 1.2 s warm; the feeds-on run needs the network and is the human check. The midnite-apps feed has no caller until Themes B/C land, so it has no registry entry yet.
 
 ## Deliverables
 
@@ -229,41 +219,41 @@ repo.
 
 ### D — The Mac itself [L · 1–2d]
 
-- [ ] **Ports.** `lsof -iTCP -sTCP:LISTEN -nP` parsed (the parser shared with Phase 120 E); a
+- [x] **Ports.** `lsof -iTCP -sTCP:LISTEN -nP` parsed (the parser shared with Phase 120 E); a
       listener bound to `0.0.0.0`/`::` from a process that is not the suite's own, a known dev
       server (Vite, Next, Storybook, the broker, Ollama on `127.0.0.1`) or a signed Apple
       binary is `medium`, `high` if unsigned, with `kill-process-group` as the action and the
       process's signer in the evidence. [M]
-- [ ] **Configuration.** `fdesetup status` (FileVault off: `high`), `socketfilterfw
+- [~] **Configuration.** `fdesetup status` (FileVault off: `high`), `socketfilterfw
       --getglobalstate` (firewall off: `medium`), `spctl --status` (Gatekeeper off: `high`),
       `csrutil status` (SIP off: `high`), `systemsetup -getremotelogin` (on: `medium`), screen
       sharing and remote management via `launchctl print system`, `softwareupdate -l` (pending
       security updates: `high`), automatic updates off in
       `/Library/Preferences/com.apple.SoftwareUpdate.plist` (`medium`). Each with a one-line fix the
       user runs (the app never calls `sudo`), as `open-system-settings {pane}` or a copied command. [M]
-- [ ] **Keys.** `~/.ssh/*` modes (a private key not 0600: `high`, action `chmod-600`); a private
+- [x] **Keys.** `~/.ssh/*` modes (a private key not 0600: `high`, action `chmod-600`); a private
       key without a passphrase (detected by `ssh-keygen -y -P ''` succeeding on a copy, never
       modifying the key: `medium`); `authorized_keys` entries older than a year or with
       `command=`/`from=` options the user did not set (`info`, listed); `~/.gnupg` modes; the
       vault's own files at 0600 (Phase 91 G) re-asserted. [S]
-- [ ] **Secrets outside the vault.** `SECRET_PATTERNS` over `~/.zshrc`, `~/.zprofile`,
+- [~] **Secrets outside the vault.** `SECRET_PATTERNS` over `~/.zshrc`, `~/.zprofile`,
       `~/.bashrc`, `~/.profile`, `~/.npmrc`, `~/.netrc`, `~/.pypirc`, `~/.docker/config.json`,
       `~/.aws/credentials`, `~/.config/gh/hosts.yml`, and every open repo's `.env*` files and
       untracked files at the root; each hit `high` with `move-to-vault` (Phase 118's import path)
       and `redact-line` as actions and the pattern kind as evidence — never the value. Opt-in
       deeper pass: `git log -p` over the last 200 commits of each open repo for the same patterns
       (`high`, action `rotate`), behind a composer checkbox because it is slow. [M]
-- [ ] **Tests.** Each probe against captured output fixtures (on, off, unavailable); a fixture home
+- [x] **Tests.** Each probe against captured output fixtures (on, off, unavailable); a fixture home
       with a 0644 key, a passphrase-less key, an `.npmrc` token and a clean `.zshrc`; the `sudo`
       ban as a grep test over `guard/`. [S]
 
 ### E — Sites the browser visited [M · ~1d]
 
-- [ ] **The input.** The browser feature's history and open tabs through its main half's existing
+- [~] **The input.** The browser feature's history and open tabs through its main half's existing
       store (the feature exposes a read seam; Guard never imports `features/browser` — the
       composer hands `guard/inputs.ts` a `readBrowserHistory()` function, the layer rule's way),
       origins only, for the sweep window. [S]
-- [ ] **The checks.** `guard/checks/sites.ts`: an origin on the threat feed's `clickfixDomains`
+- [~] **The checks.** `guard/checks/sites.ts`: an origin on the threat feed's `clickfixDomains`
       (`critical`, with the visit time and the tab if still open); an `http:` origin that served a
       login form (the browser's own sign-in detection in
       [`web-app-sign-ins.ts`](../../../packages/features/browser/main/web-app-sign-ins.ts) already
@@ -273,28 +263,28 @@ repo.
       headers, captured by Phase 117's response hook (`low`). [M]
 - [ ] **The action.** `open-tab {url}` to look, `close-tab {tabId}`, `forget-origin {origin}` (clears
       the browser's storage for it, through the browser feature's existing clear-data seam). [S]
-- [ ] **Tests.** A fixture history with one ClickFix domain, one `http:` login, one clean origin;
+- [x] **Tests.** A fixture history with one ClickFix domain, one `http:` login, one clean origin;
       the URLhaus parser on a captured feed. [S]
 
 ### F — Suspicious behaviour over the window [S · ≤ 2h]
 
-- [ ] **Correlations.** `guard/checks/behaviour.ts` over Phase 121 G's trail and Phase 120's
+- [x] **Correlations.** `guard/checks/behaviour.ts` over Phase 121 G's trail and Phase 120's
       ledger for the sweep window: an agent session active outside the hours the user's sessions
       usually run (learned from the last 30 days; `low`); a persistence or network finding from
       Vanguard whose time falls inside a session (`high`, the two findings linked); a lockfile
       change in a repo with no PR opened from it within the window (`medium`); a run that tripped a
       Phase 121 F limit (`medium`); more than N approvals denied in a session (`medium`). [S]
-- [ ] **Tests.** Fixture trails for each correlation; a quiet week yields nothing. [S]
+- [x] **Tests.** Fixture trails for each correlation; a quiet week yields nothing. [S]
 
 ### G — Findings in the Guard tab, with a button [M · ~1d]
 
-- [ ] **The list.** The Guard tab's history pane ([`loop-history.tsx`](../../../packages/app/src/features/loops/loop-history.tsx))
+- [x] **The list.** The Guard tab's history pane ([`loop-history.tsx`](../../../packages/app/src/features/loops/loop-history.tsx))
       gains a Findings section above the runs: grouped by severity, each row with its category
       glyph, title, subject, `count`, and a *new since last sweep* mark from the sweep diff; filters
       by category and status; a row expands to the evidence and the actions. Reads
       `CHANNELS.securityFindingsList` with `source: 'guard'`; the same rows appear in Vanguard's
       view, which owns the full ledger. [M]
-- [ ] **Actions.** Every action id from Phase 120 H's enum renders through the one component; a
+- [x] **Actions.** Every action id from Phase 120 H's enum renders through the one component; a
       Guard-specific set is added to the enum here: `update-package`, `pin-package`,
       `remove-package`, `open-system-settings`, `copy-fix-command`, `move-to-vault`,
       `redact-line`, `rotate` (opens the forge or provider page), `open-tab`, `close-tab`,
@@ -302,28 +292,28 @@ repo.
       [`process-runner.ts`](../../../packages/runtime/src/process-runner.ts) with the repo's
       package manager detected from the lockfile, on a branch, and open a PR via the forge feature
       — never on `main`. Each behind the confirm. [M]
-- [ ] **Fix with agent.** A finding's "Fix with agent" composes a Guard run whose prompt is the
+- [x] **Fix with agent.** A finding's "Fix with agent" composes a Guard run whose prompt is the
       finding (tagged untrusted) plus *Fix the sweep's findings*, scoped to that one fingerprint;
       the run record links back to the finding and the finding's row shows the run. [S]
-- [ ] **Tests.** The grouped list from a fixture ledger; the diff mark; `update-package` builds the
+- [x] **Tests.** The grouped list from a fixture ledger; the diff mark; `update-package` builds the
       right argv for pnpm, npm, yarn and cargo fixtures; the composed prompt carries the fingerprint. [S]
 
 ### H — Schedule, cost and disclosure [S · ≤ 2h]
 
-- [ ] **Defaults.** Guard's schedule default becomes daily, in the user's active window, on the
+- [x] **Defaults.** Guard's schedule default becomes daily, in the user's active window, on the
       first wake after it is due; a sweep with every feed off still runs Themes D, E (local parts)
       and F. `Sweep now` is in the tab and the command palette (`guard.sweep`, chord-free, in
       `COMMANDS`). [S]
-- [ ] **Egress entries and switches.** Phase 115 A registry entries for OSV, GitHub (reusing the
+- [x] **Egress entries and switches.** Phase 115 A registry entries for OSV, GitHub (reusing the
       forge's), NVD, CISA, the npm and PyPI registry metadata endpoints and the midnite-apps feed,
       each with *what is sent* (package coordinates; CVE ids; nothing else) and its switch; the
       sweep's `inputsSkipped` names the switch that skipped an input so the tab can say "OSV is
       off". [S]
-- [ ] **A budget.** The sweep on this repo (one 1 695-entry lockfile, a dozen open repos'
+- [x] **A budget.** The sweep on this repo (one 1 695-entry lockfile, a dozen open repos'
       histories, a day of trail) completes in under 60 s wall-clock with warm caches and under
       5 minutes cold, measured by a `scripts/perf/guard-sweep.mjs` in the Phase 82 style; a sweep
       never runs while the window is blurred *and* on battery below 20%. [S]
-- [ ] **Docs.** `docs/PRIVACY.md` (Phase 115 G) gains the Guard row; `SECURITY.md` names the
+- [x] **Docs.** `docs/PRIVACY.md` (Phase 115 G) gains the Guard row; `SECURITY.md` names the
       sweep and the feed; the loop's docblock in `loops.ts` is rewritten to say what Guard now is. [S]
 
 ## Files this phase touches
@@ -350,7 +340,7 @@ repo.
       is `critical`; a suppressed advisory is `info`.
 - [ ] **C:** a tampered feed is refused; a fixture poisoned version in `node_modules` is `critical`
       with its campaign link; `threat-feed-check.mjs` fails on a missing `ref`.
-- [ ] **D:** every probe fixture classifies as the table says; no `sudo` anywhere under `guard/`;
+- [x] **D:** every probe fixture classifies as the table says; no `sudo` anywhere under `guard/`;
       the passphrase check never writes to the key.
 - [ ] **E:** the ClickFix fixture origin is `critical` and links to its tab; a clean history yields
       nothing.

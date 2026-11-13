@@ -6,6 +6,7 @@ import { SiGrapheneos, SiMagic, SiOllama } from 'react-icons/si';
 import {
   LuActivity,
   LuAudioLines,
+  LuBookOpen,
   LuBot,
   LuCircleUserRound,
   LuDatabase,
@@ -62,6 +63,8 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
    */
   landing: LuHouse,
   dashboard: LuLayoutDashboard,
+  // Phase 129 — the books (double-entry ledger), pinned under Dashboard.
+  books: LuBookOpen,
   // Phase 86 Theme E — pinned directly under Dashboard, so it wears a glyph
   // that reads as "notes" rather than the file/document mark `files` already
   // owns.

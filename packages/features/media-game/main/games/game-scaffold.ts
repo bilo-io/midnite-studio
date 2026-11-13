@@ -61,6 +61,7 @@ export function initialManifest(
   req: ReturnType<typeof GameCreateRequestSchema.parse>,
   network: 'off' | 'on',
   vendored: Record<string, string> = {},
+  readsLevels = false,
 ): GameManifest {
   return {
     version: 1,
@@ -79,6 +80,8 @@ export function initialManifest(
     deterministic: false,
     keepSaveData: false,
     ...(req.options ? { options: req.options } : {}),
+    // The starter's scenes read `levels/level.tmj` (Phase 132, Decision 14); a blank game has none and does not opt in.
+    ...(readsLevels ? { levels: { dir: 'levels' as const, start: 'level' } } : {}),
   };
 }
 
@@ -138,7 +141,8 @@ export async function createGame(
     }
     await seedGameSkills(deps.templateDir, temp);
     const vendored = await vendorEngines(req.engine, temp, deps.enginesDir);
-    const manifest = initialManifest(req, req.network ?? deps.defaultNetwork, vendored);
+    const readsLevels = await stat(join(temp, 'levels', 'level.tmj')).then(() => true, () => false);
+    const manifest = initialManifest(req, req.network ?? deps.defaultNetwork, vendored, readsLevels);
     await writeFile(join(temp, GAME_MANIFEST_FILE), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
     await rm(target, { recursive: true, force: true }); // an empty folder is fine to replace
     await rename(temp, target);

@@ -24,7 +24,9 @@ export const MODULE_IDS = [
   'accountant',
   'science',
   'simulator',
+  'health',
   'browser',
+  'startup',
   'studio',
 ] as const;
 export type ModuleId = (typeof MODULE_IDS)[number];
@@ -39,7 +41,9 @@ export const MODULE_HOST_IDS = [
   'mind',
   'money',
   'science',
+  'health',
   'browser',
+  'startup',
 ] as const;
 export type ModuleHostId = (typeof MODULE_HOST_IDS)[number];
 
@@ -54,6 +58,8 @@ export const APP_MODULES: Record<ModuleHostId, readonly ModuleId[]> = {
   money: ['money', 'accountant'],
   science: ['science', 'simulator'],
   browser: ['browser'],
+  startup: ['startup', 'accountant'],
+  health: ['health'],
 };
 
 /** Apps merged into a host by Phase 124. */

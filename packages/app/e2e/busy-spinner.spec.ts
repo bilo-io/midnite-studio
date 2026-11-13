@@ -1,3 +1,4 @@
+// e2e-candidate: pure DOM — migrate to Vitest
 import { expect, test, type Page } from '@playwright/test';
 
 import {

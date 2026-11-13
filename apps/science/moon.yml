@@ -1,0 +1,93 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# Midnite Science (Phase 126 Theme A) — a module host that ships as its own bundle: `packages/modules/science` +
+# `packages/frame` + `shared`, composed in src/. `resources/icon.icns` is what makes a release pack it
+# (`moon run launcher:icons` writes it from the launcher's tile logo).
+id: 'app-science'
+language: 'typescript'
+
+tags:
+  - 'layer-app'
+  - 'app-science'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+  - 'runtime'
+  - 'feature-report'
+  - 'module-science'
+  - 'module-simulator'
+
+tasks:
+  build:
+    command: 'pnpm run build'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+    inputs:
+      - 'src/**/*'
+      - 'main/**/*'
+      - 'scripts/bundle-main.mjs'
+      - 'vite.config.ts'
+      - 'tailwind.config.ts'
+      - 'postcss.config.js'
+      - 'tsconfig.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/bridge.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/modules/science/main/**/*'
+      - '/packages/modules/simulator/main/**/*'
+      - '/packages/modules/science/renderer/**/*'
+      - '/packages/modules/simulator/renderer/**/*'
+      - '/packages/modules/science/manifest.ts'
+      - '/packages/modules/simulator/manifest.ts'
+    outputs:
+      - 'dist'
+
+  typecheck:
+    inputs:
+      - '@group(sources)'
+      - '@group(configs)'
+      - 'vite.config.ts'
+      - 'vitest.config.ts'
+      - 'tailwind.config.ts'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/bridge.ts'
+      - '/packages/features/report/main/**/*'
+      - 'main/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/modules/science/main/**/*'
+      - '/packages/modules/simulator/main/**/*'
+      - '/packages/modules/science/renderer/**/*'
+      - '/packages/modules/simulator/renderer/**/*'
+      - '/packages/modules/science/manifest.ts'
+      - '/packages/modules/simulator/manifest.ts'
+
+  test:
+    inputs:
+      - 'src/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/bridge.ts'
+      - '/packages/features/report/main/**/*'
+      - 'main/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/modules/science/main/**/*'
+      - '/packages/modules/simulator/main/**/*'
+      - '/packages/modules/science/renderer/**/*'
+      - '/packages/modules/simulator/renderer/**/*'
+      - '/packages/modules/science/manifest.ts'
+      - '/packages/modules/simulator/manifest.ts'

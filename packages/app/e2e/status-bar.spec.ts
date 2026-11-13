@@ -1,3 +1,4 @@
+// e2e-capability: getBoundingClientRect, computed CSS
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
@@ -22,7 +23,7 @@ async function narrowUntilDensity(
 ): Promise<number> {
   for (let width = from; width >= to; width -= step) {
     await page.setViewportSize({ width, height: 800 });
-    await page.waitForTimeout(50);
+    await page.waitForTimeout(50); // allow-timeout: one reflow after setViewportSize before measuring
     if ((await bar.getAttribute('data-density')) === target) return width;
   }
   throw new Error(`bar never reached density="${target}" narrowing ${from}px → ${to}px`);
@@ -138,7 +139,7 @@ test("the bar's left edge does not move with the repositories panel", async ({ p
   const aside = page.locator('aside[aria-label="Repositories"]');
   await expect(bar).toBeVisible();
   await expect(aside).toBeVisible();
-  await page.waitForTimeout(250); // settle past the initial paint before measuring
+  await page.waitForTimeout(250); // allow-timeout: rAF/CSS tween with no DOM completion signal — settle past the initial paint before measuring
 
   const openBox = (await bar.boundingBox())!;
   const asideBox = (await aside.boundingBox())!;
@@ -148,7 +149,7 @@ test("the bar's left edge does not move with the repositories panel", async ({ p
   // regardless of what the row's other child is doing.
   await page.getByRole('button', { name: 'Toggle Repositories' }).click();
   await expect(aside).toHaveCount(0);
-  await page.waitForTimeout(250); // the panel's 200ms reveal transition
+  await page.waitForTimeout(250); // allow-timeout: rAF/CSS tween with no DOM completion signal — the panel's 200ms reveal transition
   const shutBox = (await bar.boundingBox())!;
   expect(shutBox.x).toBeCloseTo(openBox.x, 0);
 
@@ -156,10 +157,10 @@ test("the bar's left edge does not move with the repositories panel", async ({ p
   // invariant at any width in between, and the max is the sharpest case.
   await page.getByRole('button', { name: 'Toggle Repositories' }).click();
   await expect(aside).toBeVisible();
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(250); // allow-timeout: rAF/CSS tween with no DOM completion signal
   await page.getByRole('separator', { name: 'Resize repositories sidebar' }).focus();
   await page.keyboard.press('End');
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(250); // allow-timeout: rAF/CSS tween with no DOM completion signal
   const resizedBox = (await bar.boundingBox())!;
   expect(resizedBox.x).toBeCloseTo(openBox.x, 0);
 });

@@ -2,9 +2,13 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { __resetAvatars } from '../services/avatars';
+import { useUiStore } from '../store/ui-store';
 import { UserAvatar } from './user-avatar';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  useUiStore.setState({ egressAllAutomaticOff: false, egressSwitches: {} });
+});
 
 describe('UserAvatar', () => {
   beforeEach(() => {
@@ -16,6 +20,19 @@ describe('UserAvatar', () => {
     const img = container.querySelector('img');
     expect(img).not.toBeNull();
     expect(img?.getAttribute('src')).toBe('https://github.com/octocat.png?size=48');
+  });
+
+  it('loads no remote picture with the avatars switch or the master off, and still shows a local src', () => {
+    useUiStore.setState({ egressSwitches: { avatars: false } });
+    const off = render(<UserAvatar login="octocat" src="https://example.org/a.png" size={24} />);
+    expect(off.container.querySelector('img')).toBeNull();
+    off.unmount();
+    const local = render(<UserAvatar login="octocat" src="data:image/png;base64,AAAA" size={24} />);
+    expect(local.container.querySelector('img')?.getAttribute('src')).toBe('data:image/png;base64,AAAA');
+    local.unmount();
+    useUiStore.setState({ egressSwitches: {}, egressAllAutomaticOff: true });
+    const master = render(<UserAvatar login="octocat" size={24} />);
+    expect(master.container.querySelector('img')).toBeNull();
   });
 
   it('falls back to initials with deterministic background on GitHub image error', () => {

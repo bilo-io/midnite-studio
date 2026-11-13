@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { moveRelativeToYaw } from 'kit/core/cameras.js';
 import { extendHook } from 'kit/core/hook.js';
 import { createJuiceSettings } from 'kit/core/juice-settings.js';
+import { currentLevel, fetchLevel } from 'kit/core/level.js';
 import { THREE_BINDINGS } from 'kit/core/three-defaults.js';
 import { createAudio } from 'kit/three/audio.js';
 import { createCameraRig } from 'kit/three/cameras.js';
@@ -21,6 +22,7 @@ import { createInput } from 'kit/three/input.js';
 import { createJuice } from 'kit/three/juice.js';
 import { createRenderer, startLoop } from 'kit/three/loop.js';
 import { createMaterials, repeatFor } from 'kit/three/materials.js';
+import { buildLevel3d } from 'kit/three/level.js';
 import { initPhysics } from 'kit/three/physics.js';
 import { createPostFx } from 'kit/three/postfx.js';
 
@@ -52,7 +54,10 @@ export async function startLevel() {
   square.receiveShadow = true;
   scene.add(square);
 
-  const character = createCharacter(physics, { position: [0, 0.1, 6] });
+  // Where the player starts is `levels/level.tmj`'s; the village, its people and its quests are the genre's.
+  const levelName = currentLevel('level');
+  const level = await buildLevel3d({ scene, physics }, await fetchLevel(levelName));
+  const character = createCharacter(physics, { position: level.spawns[0]?.position ?? [0, 0.1, 6] });
   const avatar = new THREE.Group();
   const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.35, 1.1, 4, 12), new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.4 }));
   torso.position.y = 0.9;
@@ -139,6 +144,7 @@ export async function startLevel() {
     },
     state: () => ({
       player: { position: character.position.map((v) => Number(v.toFixed(3))) },
+      level: levelName,
       animation: animationState(character),
       camera: MODE === 'third-person' ? rig.preset : 'first-person',
       juice: juice.state(),

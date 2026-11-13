@@ -27,17 +27,17 @@ against sigma's own four looks has something for the libraries to fit into.
 
 **Theme E — Layout variants in the worker.** ✅ layout variants in the worker (circlepack, hierarchical, noverlap), layout id in the cache key, tweened transitions ([PR #439](https://github.com/bilo-io/midnite-studio/pull/439))
 
-**Theme F — force-graph.** ◻ the `force-graph` variant (WebGL; the one alternative with a shot at 15k nodes)
+**Theme F — force-graph.** ✅ (PR [#1205](https://github.com/bilo-io/midnite-studio/pull/1205)) — the `force-graph` variant, and under it the engine-neutral layer Themes G–I reuse: `variants/knowledge-2d-model.ts` (detail budget, collapse, community colours, the Theme C alpha values as one pure `computePaint2D`) and `base-2d-renderer.ts` (intro via `IntroTracker`, layout tween via `LayoutTransition`, `paused` snap, reduced motion). The grounding was wrong on one point: `force-graph` draws on Canvas 2D, not WebGL. Its own d3 simulation is off — the worker's coordinates are the layout. Lazy chunk 151 KB; the entry chunk does not contain it.
 
-**Theme G — cytoscape.js.** ◻ the `cytoscape.js` variant
+**Theme G — cytoscape.js.** ✅ (PR [#1208](https://github.com/bilo-io/midnite-studio/pull/1208)) — the `cytoscape` variant as an adapter over Theme F's shared 2D layer, in cytoscape's own idiom: the Theme C alpha states are stylesheet classes (`node.dim`, `.neighbor`, `.focus`, `edge.emph`), `preset` layout from the worker's coordinates, `haystack` edges and `hideEdgesOnViewport` per its performance guide. Lazy chunk 444 KB. Built honestly, not tuned: it is the slowest engine at 15k nodes and Theme J's gate is what keeps it off graphs it cannot carry. Stacked on #1205.
 
-**Theme H — vis-network.** ◻ the `vis-network` variant, with Phase 87's CDN-not-library rejection qualified in the code
+**Theme H — vis-network.** ✅ (PR [#1209](https://github.com/bilo-io/midnite-studio/pull/1209)) — the `vis-network` variant from the npm `standalone` build, with a docblock at the top of `vis-network-renderer.ts` naming `graphify-out/graph.html:6` and Phase 87's "one trap" so the next reader does not delete it. Physics off, worker coordinates as the layout, `moveNode` for the intro. Lazy chunk 658 KB, nothing CDN in it. Still open for a human: the packaged-app network trace.
 
-**Theme I — d3-force, live.** ◻ `d3-force` live: a simulation you watch settle, on our own canvas, with a hard settle ceiling
+**Theme I — d3-force, live.** ✅ (code, PR open) — `d3-force` 3.0.1 (ISC) run in the renderer on our own canvas. The simulation is driven by hand from one frame callback with an 8 ms per-frame budget and stops at a hard ceiling (alpha floor, 300 ticks, or 5 s; 120 ticks on a collapse re-settle), after which no frame is scheduled. Pause halts it; unpause resumes. `consumesWorkerLayout: false`. Still open: the gated-by-J box, and a real-browser look and frame-rate numbers (Theme J).
 
-**Theme J — The gate, and the bake-off.** ◻ the capability gate and the bake-off: TTFP/FPS/memory per variant on the real graph, thresholds from measurement, stale counts fixed
+**Theme J — The gate, and the bake-off.** 🔄 (gate mechanism landed, bake-off open) — `KnowledgeVariant` takes optional `maxNodes` / `maxEdges`; `knowledge-variant-gate.ts` holds the pure arithmetic and `effectiveVariant`. Over a limit the pill is disabled with a tooltip naming the reason and counts, the stored preference is never rewritten, a visible notice says the default renders instead, and a smaller graph restores it. No variant declares a limit yet: the limits must come from TTFP / FPS / memory measured on the packaged app, and none has been run, so none is guessed. Stale 14,881 / 36,032 counts in `types.ts` and `projection.ts` and the node panel now say 15,292 / 37,036 (the measured 6,066 and 35,763 edge figures in `knowledge-filters.ts` are kept: they were measured on the older graph). Open: the `MSTUDIO_PERF=1` harness, the numbers, `budgets.json`, the per-variant limits and the written verdict.
 
-**Theme K — Verification and budgets.** ◻ verification: pure-layer units, one seam e2e, three baselines (not nine), bundle and idle-CPU budgets, licence audit
+**Theme K — Verification and budgets.** 🔄 (licence audit and seam e2e landed; the rest open) — the four dependencies' licences are recorded in one table at the foot of Theme K. The seam e2e (`knowledge-canvas.spec.ts`: Atlas to Telemetry HUD re-mounts the canvas, and `rendererVariant` survives a reload) is done. The entry-chunk and Knowledge-chunk ceilings, idle-CPU per animated variant, the three visual baselines and the full gate are open, with the reasons stated there; the registry/fallback and view-mock boxes were already satisfied by earlier themes.
 
 ## What the grounding changed
 
@@ -243,55 +243,59 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       for sigma today.
 - [x] `packages/knowledge` stays electron-free. Boundary unchanged, vitest coverage per layout.
 
-### F — force-graph (M)
+### F — force-graph (M) ✅ DONE (PR #1205, 2026-11-13)
 
-- [ ] `force-graph` behind its own dynamic `import()`, implementing `KnowledgeRenderer`. WebGL, so it
-      is the one alternative with a plausible shot at 15,292 nodes.
-- [ ] Consumes `payload.nodes` / `payload.links` / `payload.positions` **directly** — no graphology
+- [x] `force-graph` behind its own dynamic `import()`, implementing `KnowledgeRenderer`. **Correction: `force-graph` is Canvas 2D, not WebGL** (`3d-force-graph` is the WebGL sibling, out of scope). It is still the large-graph slot: plain arrays in, off-screen culling, and `autoPauseRedraw` stops it drawing when nothing changes.
+- [x] Consumes `payload.nodes` / `payload.links` / `payload.positions` **directly** — no graphology
       instance. The wire payload is plain arrays plus a positions record precisely so an engine can
       take it as-is.
-- [ ] Node colour from the same
+- [x] Node colour from the same
       [`knowledge-community-colors.ts`](../../../packages/app/src/features/knowledge/knowledge-community-colors.ts)
       tokens, so a community is the same colour in every variant. A variant that invents its own
       palette breaks the one thing the pills are supposed to make comparable.
-- [ ] `playIntro`, `applyFilters`, `applyHighlight` (including the C alpha model), `focusNode`,
+- [x] `playIntro`, `applyFilters`, `applyHighlight` (including the C alpha model), `focusNode`,
       `setPaused` — all of it, or the pill does not ship.
-- [ ] Licence recorded in the theme's notes and checked against the repo's existing constraints.
+- [x] Licence recorded in the theme's notes and checked against the repo's existing constraints.
+      Recorded: `force-graph@1.52.0` is MIT, and its 31-package dependency closure is MIT (14), ISC (16) and BSD-3-Clause (1).
+      Not done: alpha *ramping* (Theme C's `AlphaRampTracker`) — the new engines share C's alpha *values* (`computePaint2D`) and snap between them.
 
-### G — cytoscape.js (M)
+### G — cytoscape.js (M) ✅ DONE (PR #1208, 2026-11-13)
 
-- [ ] `cytoscape` behind its own dynamic `import()`, same contract, same colour tokens.
-- [ ] Canvas-based, so expect it to be the first variant the Theme J gate catches. Build it honestly
+- [x] `cytoscape` behind its own dynamic `import()`, same contract, same colour tokens.
+- [x] Canvas-based, so expect it to be the first variant the Theme J gate catches. Build it honestly
       rather than tuning it into a number it cannot hold — the gate exists for exactly this.
-- [ ] Map the contract onto cytoscape's own idioms (stylesheet selectors for the alpha states,
+- [x] Map the contract onto cytoscape's own idioms (stylesheet selectors for the alpha states,
       `layout.run()` for the intro) rather than fighting the library into sigma's shape.
-- [ ] Licence recorded and checked.
+- [x] Licence recorded and checked.
+      Recorded: `cytoscape@3.35.0` is MIT with no dependencies; it ships its own types.
 
-### H — vis-network (M)
+### H — vis-network (M) ✅ DONE (PR #1209, 2026-11-13)
 
-- [ ] `vis-network` from npm, behind its own dynamic `import()`, same contract, same colour tokens.
-- [ ] **A comment at the top of the variant module qualifying Phase 87's rejection**, naming the file
+- [x] `vis-network` from npm, behind its own dynamic `import()`, same contract, same colour tokens.
+- [x] **A comment at the top of the variant module qualifying Phase 87's rejection**, naming the file
       and line: `graph.html` loaded `vis-network@9.1.6` from `unpkg.com` via a `<script src>`, which
       is a blank pane offline and a Phase 76 CSP violation. Bundling it from npm has neither problem.
       Without this note the next reader deletes the variant citing the phase doc that rejected it.
 - [ ] Verify by network trace in the packaged app that the bundled build fetches nothing — the
       original objection deserves to be closed with evidence, not an argument.
-- [ ] Licence recorded and checked.
+- [x] Licence recorded and checked.
+      Recorded: `vis-network@10.1.5` is `(Apache-2.0 OR MIT)`; its auto-installed peers are `vis-data` and `vis-util` and `keycharm` (all `(Apache-2.0 OR MIT)`), `component-emitter` and `uuid` and `@egjs/hammerjs` (MIT). The network-trace box stays open for a human in the packaged app; the static half is done: the built chunk holds no `unpkg`/CDN URL, only licence-comment links.
 
 ### I — d3-force, live (M)
 
-- [ ] A variant that runs `d3-force` **in the renderer** against our own 2D canvas draw, so you watch
+- [x] A variant that runs `d3-force` **in the renderer** against our own 2D canvas draw, so you watch
       the simulation settle. Distinct from every other pill by construction: it is the only one where
       the layout is happening in front of you.
-- [ ] `playIntro` is the simulation start — nodes seeded at the centroid with a small jitter, alpha
+- [x] `playIntro` is the simulation start — nodes seeded at the centroid with a small jitter, alpha
       decaying to rest. The ask's expand-from-a-core comes free here; the work is making it *stop*
       cheaply.
-- [ ] A hard iteration/time ceiling and an explicit "settled" state that stops the loop. A live sim
+- [x] A hard iteration/time ceiling and an explicit "settled" state that stops the loop. A live sim
       that never stops is precisely the idle-CPU cost Phase 84 spent eleven themes removing, and
       `paused` must halt it, not just snap it.
-- [ ] Own canvas draw reusing
+- [x] Own canvas draw reusing
       [`knowledge-canvas-draw.ts`](../../../packages/app/src/features/knowledge/knowledge-canvas-draw.ts)'s
       theming helpers where they fit, and the same community colours.
+      *Reused: the shared model/paint (`computePaint2D`), `liveCommunityColor`, `cssToken`, `straightAlpha`. Not reused: `knowledge-canvas-draw.ts` itself, which is sigma's node program; this canvas batches edges into three paths and caches fill strings instead.*
 - [ ] Almost certainly gated by Theme J at this node count. Ship it gated rather than not at all —
       the graph a user opens may be a tenth this size.
 
@@ -311,9 +315,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       [`diff-toolbar.tsx`](../../../packages/app/src/features/diff/diff-toolbar.tsx)'s
       `canSplit(diff) && !tooNarrowForSplit ? pref : 'unified'` precedent, where a stored preference
       falls back when the content cannot support it.
-- [ ] A gated variant never silently becomes another variant: the stored preference is kept, the pill
+- [x] A gated variant never silently becomes another variant: the stored preference is kept, the pill
       stays visible and disabled, and returning to a smaller repo restores it.
-- [ ] Fix the stale node counts in
+- [x] Fix the stale node counts in
       [`types.ts`](../../../packages/knowledge/src/types.ts),
       [`layout.ts`](../../../packages/knowledge/src/layout.ts) and `use-sigma-graph.ts:38` — they
       still say 14,881 / 36,032.
@@ -328,7 +332,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [ ] `knowledge-view.test.tsx` already mocks `./knowledge-canvas` (`:14`) with a stub — extend the
       mock to the variant seam rather than mocking each engine, so adding a variant does not mean
       touching the view test.
-- [ ] **One** e2e, for the seam only: pick a variant, confirm the canvas re-mounts and the preference
+- [x] **One** e2e, for the seam only: pick a variant, confirm the canvas re-mounts and the preference
       survives. Per Phase 82's decision rule, the header comment names which browser capability it
       needs. The four engines are not each given an e2e.
 - [ ] **Three** visual baselines, not nine: Atlas, Constellation, Clusters. Decision 6.
@@ -339,11 +343,29 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [ ] `idle-cpu.mjs --blurred` with each animated variant open is indistinguishable from the view
       closed. The d3-force live sim is the one most likely to fail this; it is why Theme I has a
       settle ceiling.
-- [ ] Licence audit of all four new dependencies recorded in one place.
+- [x] Licence audit of all four new dependencies recorded in one place — see the table below.
 - [ ] `moon run :typecheck :lint :test` green; `moon run root:tracker-check` exits 0.
 - [ ] **Open, for a human:** switch through every pill on a repo you know well and say which one you
       reach for. Nine variants that all render correctly and none of which you prefer is a failure
       this phase cannot assert against.
+
+**Licence audit (read from each package's own `package.json` in `node_modules`).** Every one is permissive; none needs attribution beyond the notices already in the package.
+
+| Package | Version | Licence | Transitive closure | Theme |
+|---|---|---|---|---|
+| `force-graph` | 1.52.0 | MIT | MIT 14, ISC 16, BSD-3-Clause 1 (as recorded in PR #1205) | F |
+| `cytoscape` | 3.35.0 | MIT | none | G |
+| `vis-network` | 10.1.5 | Apache-2.0 OR MIT | `vis-data`, `vis-util`, `keycharm` (Apache-2.0 OR MIT); `component-emitter`, `uuid`, `@egjs/hammerjs` (MIT) | H |
+| `d3-force` | 3.0.1 | ISC | `d3-dispatch`, `d3-quadtree`, `d3-timer` (ISC); `@types/d3-force` 3.0.10 (MIT, dev) | I |
+
+**What Theme K did not do, and why.** The seam e2e is done: `knowledge-canvas.spec.ts` picks Telemetry HUD from
+Atlas, asserts sigma's stacked canvases are replaced by the 3D engine's single canvas, then reloads and asserts the
+choice held (`MAX_DECLARED_E2E` 485 -> 486). Still open: the entry-chunk and Knowledge-chunk ceilings across all
+engines, `idle-cpu.mjs --blurred` per animated variant, the three visual baselines (never committed from
+a session; `app:visual` owns them), and the full `moon run :typecheck :lint :test`. Already covered by
+earlier themes: the variant registry and fallback (`renderer-contract.test.ts`), the gate arithmetic
+(Theme J), and `knowledge-view.test.tsx` already mocks the single `./knowledge-canvas` seam rather than
+any engine, so adding a variant touches no view test.
 
 ---
 

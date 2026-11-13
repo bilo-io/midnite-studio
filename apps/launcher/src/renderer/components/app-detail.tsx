@@ -4,9 +4,11 @@ import { LuArrowUpRight, LuX } from 'react-icons/lu';
 
 import { FRAME_PARTS, MODULE_FEATURE_PREFIX, type AppFeature, type LauncherApp, type LegacyBundleAppId } from '../../common/catalog';
 import { joinNames, replacesLine, swapOffer } from '../../common/migration';
+import { getBridge } from '../bridge';
 import { MODULE_GLYPHS } from '../app-glyphs';
 import { appNumber } from '../model';
 import type { AppView } from '../use-apps';
+import { ChangelogList, changelogAppOf, useChangelog } from './changelog';
 import { AppIcon } from './app-icon';
 import { PrimaryAction, type ActionHandlers } from './primary-action';
 import { StatusPill } from './status-pill';
@@ -61,6 +63,8 @@ export function AppDetail({
   onClose: () => void;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const changelogApp = view.state === 'coming-soon' ? null : changelogAppOf(app.id);
+  const changelog = useChangelog(changelogApp);
   const groups = featureGroups(app);
   const canOpen = view.state === 'installed' || view.state === 'update';
   const offer = swapOffer(view.replaces, canOpen && view.source === 'bundle');
@@ -128,6 +132,13 @@ export function AppDetail({
           <h3 className="eyebrow">Vision</h3>
           <p className="sheet-vision">{app.vision}</p>
         </section>
+
+        {changelogApp !== null && (
+          <section className="sheet-section" aria-label="What’s new">
+            <h3 className="eyebrow">What’s new</h3>
+            <ChangelogList result={changelog} onFull={() => void getBridge().changelog.openFull(changelogApp)} />
+          </section>
+        )}
 
         {groups.map((group) => (
           <section key={group.id} className="sheet-section" aria-label={group.heading ? `${group.heading} module` : 'Features'}>

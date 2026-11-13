@@ -1,5 +1,5 @@
 import { watch, type FSWatcher } from 'node:fs';
-import { basename, join, sep } from 'node:path';
+import { basename, dirname, join, sep } from 'node:path';
 
 import type { WatchKind } from '@midnite/studio-shared';
 
@@ -129,6 +129,12 @@ export class RepoWatcher {
       '--git-common-dir',
     ]);
     const gitDir = gitDirResult.exitCode === 0 ? gitDirResult.stdout.trim() : join(repoPath, '.git');
+    // This checkout's own admin dir: `<common>/worktrees/<name>` for a linked
+    // worktree, the common dir itself for the main one. It is how the
+    // `worktrees` watch below tells this checkout's own files from a sibling's.
+    const ownGitDirResult = await execGit(repoPath, ['rev-parse', '--absolute-git-dir']);
+    const ownWorktree =
+      ownGitDirResult.exitCode === 0 ? linkedWorktreeName(gitDir, ownGitDirResult.stdout.trim()) : null;
 
     this.releaseQueueListener = writeQueue.onActivity((active) => {
       const now = Date.now();
@@ -151,26 +157,26 @@ export class RepoWatcher {
     });
 
     this.watchPath(join(gitDir, 'HEAD'), () => 'head');
-    this.watchPath(join(gitDir, 'index'), () => 'index');
+    // The common dir's `index` is the MAIN worktree's. A linked worktree's own
+    // index lives in its admin dir (the `worktrees` watch below), and the main
+    // checkout staging a file cannot change this one's status.
+    this.watchPath(join(gitDir, 'index'), () => (ownWorktree === null ? 'index' : null));
     this.watchPath(join(gitDir, 'packed-refs'), () => 'refs');
-    this.watchPath(join(gitDir, 'refs'), () => 'refs', true);
+    // `<ref>.lock` is git's own scratch file for a ref update: the rename that
+    // ends the update fires its own event, so the lock adds nothing but noise.
+    this.watchPath(join(gitDir, 'refs'), (file) => (isLockFile(file) ? null : 'refs'), true);
     // The reflog (Phase 22 Theme G's History view). Rides the existing
     // `'refs'` kind rather than growing `WatchKindSchema` — a branch's reflog
     // living under `logs/refs/heads/<branch>` in the COMMON dir is watched
     // here; a linked worktree's own `logs/HEAD` is per-worktree (see the
     // `worktrees` watch below for why that needs its own classifier).
-    this.watchPath(join(gitDir, 'logs'), () => 'refs', true);
-    // A linked worktree's HEAD (and, since git 2.5, its own HEAD reflog) live
-    // under `.git/worktrees/<name>/HEAD` / `.../logs/HEAD`, so a checkout —
-    // or the reflog entry it writes — in another worktree is invisible
-    // without this. `logs/HEAD` specifically is classified `'refs'`, same as
-    // the common-dir reflog watch above; everything else under a worktree's
-    // admin dir stays `'head'`.
-    this.watchPath(
-      join(gitDir, 'worktrees'),
-      (file) => (file.split(sep).includes('logs') ? 'refs' : 'head'),
-      true,
-    );
+    this.watchPath(join(gitDir, 'logs'), (file) => (isLockFile(file) ? null : 'refs'), true);
+    // Every linked worktree's admin dir lives under `.git/worktrees/<name>/`,
+    // so a checkout in another worktree — or a `worktree add`/`remove` — is
+    // invisible without this. `classifyWorktreeAdminEvent` decides which of
+    // those files can change what THIS checkout shows; see it for why most of
+    // a sibling's churn is dropped.
+    this.watchPath(join(gitDir, 'worktrees'), (file) => classifyWorktreeAdminEvent(file, ownWorktree), true);
 
     // The working tree itself. Recursive, and filtered hard — this is the noisy
     // one, and the filter is what stops `node_modules` churn from reaching the UI.
@@ -238,6 +244,58 @@ export class RepoWatcher {
 
     for (const kind of kinds) this.options.onEvent(kind);
   }
+}
+
+/**
+ * The linked-worktree name `ownGitDir` belongs to, or `null` for the main
+ * worktree (whose git dir IS the common dir).
+ */
+export function linkedWorktreeName(commonDir: string, ownGitDir: string): string | null {
+  if (ownGitDir === commonDir) return null;
+  // By shape, not by prefix: the two paths come from different git queries,
+  // and a symlinked path (`/tmp` vs `/private/tmp`) can spell them differently.
+  return basename(dirname(ownGitDir)) === 'worktrees' ? basename(ownGitDir) || null : null;
+}
+
+function isLockFile(file: string): boolean {
+  return file.endsWith('.lock');
+}
+
+/**
+ * Classify an event under `.git/worktrees/` (`file` is relative to it:
+ * `<name>` or `<name>/<path>`), from the point of view of the checkout whose
+ * linked-worktree name is `ownWorktree` (`null` for the main worktree).
+ *
+ * Every checkout of a repo shares that directory, so a session running several
+ * worktrees at once — agents committing, staging and running `git status` in
+ * each — writes into it constantly. A sibling's `index` is rewritten by a plain
+ * `git status`, and it used to classify as `'head'`: a full refetch plus a graph
+ * re-stream in every window showing this repo, several times a second while
+ * agents worked, for changes that cannot alter anything this checkout shows.
+ *
+ *  - the `<name>` directory itself appearing or going, or a sibling's `HEAD`,
+ *    `gitdir` or `locked` changing: the worktree list (rows, badges, where a
+ *    sibling's HEAD sits) moved → `'head'`.
+ *  - a sibling's `index`, reflog, `ORIG_HEAD`, rebase/merge state, locks:
+ *    nothing this checkout shows → dropped. Branch moves a sibling makes still
+ *    arrive, through the shared `refs` watch.
+ *  - this checkout's OWN admin dir (a linked worktree's): `index` → `'index'`,
+ *    `logs/` → `'refs'` (its HEAD reflog, the History view), anything else
+ *    (HEAD, rebase/merge state) → `'head'`; lock files dropped.
+ */
+export function classifyWorktreeAdminEvent(file: string, ownWorktree: string | null): WatchKind | null {
+  if (file.length === 0) return null;
+  const [name, ...rest] = file.split(sep);
+  if (!name) return null;
+  if (rest.length === 0) return 'head';
+  if (isLockFile(file)) return null;
+  const path = rest.join('/');
+  if (name === ownWorktree) {
+    if (path === 'index') return 'index';
+    if (rest[0] === 'logs') return 'refs';
+    return 'head';
+  }
+  return path === 'HEAD' || path === 'gitdir' || path === 'locked' ? 'head' : null;
 }
 
 /**

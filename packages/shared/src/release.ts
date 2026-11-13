@@ -16,13 +16,52 @@
  * the human-readable pages.
  */
 
+/**
+ * Every app that keeps a changelog: Studio (the root `CHANGELOG.md`), the launcher, then each
+ * `apps/<id>` with a `moon.yml`, alphabetical. Pinned to the directories by `changelog-files.test.mjs`.
+ */
+export const CHANGELOG_APP_IDS = [
+  'studio',
+  'launcher',
+  'agents',
+  'browser',
+  'gamer',
+  'health',
+  'media',
+  'mind',
+  'money',
+  'science',
+  'startup',
+  'vanguard',
+] as const;
+
+export type ChangelogAppId = (typeof CHANGELOG_APP_IDS)[number];
+
+/** Where an app's changelog is written in this repo. Studio's stays the root file. */
+export function changelogSourcePath(app: ChangelogAppId): string {
+  return app === 'studio' ? 'CHANGELOG.md' : `apps/${app}/CHANGELOG.md`;
+}
+
+/** The folder an app's published files live in, in the public feed (`midnite-<id>`). */
+export function changelogFeedDir(app: ChangelogAppId): string {
+  return `midnite-${app}`;
+}
+
 /** The raw changelog main fetches. Unauthenticated — the mirror repo is public. */
-export const RELEASE_CHANGELOG_RAW_URL =
-  'https://raw.githubusercontent.com/bilo-io/midnite-apps/main/midnite-studio/CHANGELOG.md';
+export function changelogRawUrl(app: ChangelogAppId): string {
+  return `https://raw.githubusercontent.com/bilo-io/midnite-apps/main/${changelogFeedDir(app)}/CHANGELOG.md`;
+}
 
 /** The same file, rendered — the popover's "full changelog" link. */
-export const RELEASE_CHANGELOG_PAGE_URL =
-  'https://github.com/bilo-io/midnite-apps/blob/main/midnite-studio/CHANGELOG.md';
+export function changelogPageUrl(app: ChangelogAppId): string {
+  return `https://github.com/bilo-io/midnite-apps/blob/main/${changelogFeedDir(app)}/CHANGELOG.md`;
+}
+
+/** Studio's raw changelog. */
+export const RELEASE_CHANGELOG_RAW_URL = changelogRawUrl('studio');
+
+/** Studio's changelog, rendered. */
+export const RELEASE_CHANGELOG_PAGE_URL = changelogPageUrl('studio');
 
 /** Every Midnite Studio release, newest first. The fallback when no tag matches. */
 export const RELEASE_LIST_URL =
@@ -226,6 +265,16 @@ export function releasePageUrl(version: string): string {
   return `https://github.com/bilo-io/midnite-apps/releases/tag/midnite-studio/v${version}`;
 }
 
+/**
+ * The release page for one app's version. Studio has its own tag; every other app ships in the
+ * `midnite-launcher/vX.Y.Z` release, which is where every bundle zip is attached.
+ */
+export function appReleasePageUrl(app: ChangelogAppId, version: string): string {
+  return app === 'studio'
+    ? releasePageUrl(version)
+    : `https://github.com/bilo-io/midnite-apps/releases/tag/midnite-launcher/v${version}`;
+}
+
 /** `## [1.2.3]`, `## [1.2.3] - 2026-01-01`, `## 1.2.3` — all four shapes in the wild. */
 const HEADING = /^##\s+\[?([^\]\s]+)\]?/;
 
@@ -272,4 +321,52 @@ function body(lines: string[]): string | null {
     .join('\n')
     .trim();
   return text.length > 0 ? text : null;
+}
+
+/** One released section of the changelog. */
+export interface ChangelogSection {
+  version: string;
+  /** `YYYY-MM-DD` when the heading carries one. */
+  date?: string;
+  body: string;
+}
+
+/**
+ * The newest `n` released sections, in file order (Keep a Changelog is newest
+ * first). `[Unreleased]` is skipped — it is not a release. Empty sections are
+ * dropped, CRLF is tolerated and a malformed file yields `[]`.
+ */
+export function extractLatestSections(markdown: string, n: number): ChangelogSection[] {
+  if (!Number.isFinite(n) || n < 1) return [];
+  const lines = markdown.replace(/\r\n?/g, '\n').split('\n');
+  const out: ChangelogSection[] = [];
+  let fenced = false;
+  let current: { version: string; date?: string; start: number } | null = null;
+
+  const close = (end: number): void => {
+    if (!current) return;
+    const text = body(lines.slice(current.start, end));
+    if (text !== null && !/^unreleased$/i.test(current.version)) {
+      out.push({
+        version: current.version.replace(/^v/, ''),
+        ...(current.date ? { date: current.date } : {}),
+        body: text,
+      });
+    }
+    current = null;
+  };
+
+  for (let i = 0; i < lines.length && out.length < n; i += 1) {
+    const line = lines[i] ?? '';
+    if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
+    if (fenced) continue;
+    const match = HEADING.exec(line);
+    if (!match) continue;
+    close(i);
+    if (out.length >= n) break;
+    const date = /(\d{4}-\d{2}-\d{2})/.exec(line)?.[1];
+    current = { version: match[1] ?? '', ...(date ? { date } : {}), start: i + 1 };
+  }
+  if (out.length < n) close(lines.length);
+  return out.slice(0, n);
 }

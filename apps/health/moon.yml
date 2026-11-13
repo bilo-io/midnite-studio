@@ -1,0 +1,83 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# Midnite Health (Phase 128 Theme A) — a module host that ships as its own bundle: `packages/modules/health` +
+# `packages/frame` + `shared`, composed in src/. `resources/icon.icns` is what makes a release pack it
+# (`moon run launcher:icons` writes it from the launcher's tile logo).
+id: 'app-health'
+language: 'typescript'
+
+tags:
+  - 'layer-app'
+  - 'app-health'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+  - 'runtime'
+  - 'feature-report'
+  - 'module-health'
+
+tasks:
+  build:
+    command: 'pnpm run build'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+    inputs:
+      - 'src/**/*'
+      - 'main/**/*'
+      - 'scripts/bundle-main.mjs'
+      - 'vite.config.ts'
+      - 'tailwind.config.ts'
+      - 'postcss.config.js'
+      - 'tsconfig.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/bridge.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/modules/health/main/**/*'
+      - '/packages/modules/health/renderer/**/*'
+      - '/packages/modules/health/manifest.ts'
+    outputs:
+      - 'dist'
+
+  typecheck:
+    inputs:
+      - '@group(sources)'
+      - '@group(configs)'
+      - 'vite.config.ts'
+      - 'vitest.config.ts'
+      - 'tailwind.config.ts'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/bridge.ts'
+      - '/packages/features/report/main/**/*'
+      - 'main/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/modules/health/main/**/*'
+      - '/packages/modules/health/renderer/**/*'
+      - '/packages/modules/health/manifest.ts'
+
+  test:
+    inputs:
+      - 'src/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/bridge.ts'
+      - '/packages/features/report/main/**/*'
+      - 'main/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/modules/health/main/**/*'
+      - '/packages/modules/health/renderer/**/*'
+      - '/packages/modules/health/manifest.ts'

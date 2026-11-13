@@ -29,6 +29,15 @@ import {
   PS,
   type GroupPsRow,
 } from './response/process-table';
+import {
+  describeFix,
+  locatePackageTarget,
+  packageFixArgv,
+  packageFixBranch,
+  runPackageFix,
+  worktreeDirFor,
+  type PackageFixAction,
+} from './response/package-fix';
 import type { QuarantineStore } from './response/quarantine';
 import {
   checkFileTarget,
@@ -92,6 +101,8 @@ export interface ResponseActionDeps {
    * to how many entries it cleared. Absent where the app keeps no allowlist.
    */
   revokeMcpServer?: (serverName: string, repoId?: string) => Promise<number>;
+  /** The app's userData; Guard's package fixes make their temporary worktrees beneath it. Absent: those two actions are unavailable. */
+  userData?: string;
   /** The issue form's App dropdown value. */
   issueApp?: string;
   retentionDays: () => number;
@@ -223,6 +234,11 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
     const out: Record<string, RemediationUnavailable> = { ...REMEDIATION_PENDING };
     if (!deps.sessions || !deps.interrupt) {
       out['pause-session'] = { reason: 'This app has no terminal sessions it can reach, so it cannot pause one.' };
+    }
+    if (!deps.userData) {
+      const reason = 'This app has nowhere to make the fix’s temporary worktree, so it cannot change packages.';
+      out['update-package'] = { reason };
+      out['remove-package'] = { reason };
     }
     if (!deps.revokeMcpServer) {
       out['revoke-mcp-server'] = { reason: 'This app keeps no MCP allowlist, so there is nothing to revoke from.' };
@@ -549,6 +565,35 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
     };
   };
 
+  // --- update-package / remove-package (Phase 122 Theme G) ---------------------------------------------
+  const packageFix = async (finding: SecurityFinding, action: PackageFixAction): Promise<Plan> => {
+    const userData = deps.userData;
+    if (!userData) return { kind: 'unavailable', unavailable: unavailable()[action.id]! };
+    const target = await locatePackageTarget(finding, home);
+    if (!target) return { kind: 'refused', error: 'The finding does not point at a lockfile Guard can drive (pnpm, npm, yarn or cargo).' };
+    const argv = packageFixArgv(action, target.manager);
+    if (!argv) return { kind: 'refused', error: `“${action.name}” is not a plain package name or version, so no command is built for it.` };
+    const branch = packageFixBranch(action.id === 'update-package' ? 'update' : 'remove', action.name, action.id === 'update-package' ? action.to : undefined);
+    const worktree = worktreeDirFor(userData, branch);
+    const plan = describeFix(action, target, branch, worktree, argv);
+    return {
+      kind: 'ready',
+      radius: radius(action.id, {
+        title: plan.title,
+        confirmLabel: action.id === 'update-package' ? 'Update on a branch' : 'Remove on a branch',
+        summary: plan.summary,
+        moves: plan.commands,
+        warnings: plan.warnings,
+      }),
+      identity: `${target.dir}\n${plan.commands.join('\n')}`,
+      run: async () => {
+        const again = await locatePackageTarget(finding, home);
+        if (!again || again.dir !== target.dir || again.manager !== target.manager) return { ok: false, error: 'The lockfile moved since the preview; nothing was changed.' };
+        return runPackageFix({ action, target, argv, branch, worktree, runProcess: deps.runProcess });
+      },
+    };
+  };
+
   return {
     now,
     unavailable,
@@ -593,8 +638,17 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
         case 'revoke-mcp-server':
           return revokeMcp(action, finding);
         case 'update-package':
-        case 'pin-package':
         case 'remove-package':
+          return packageFix(finding, action);
+        case 'pin-package':
+        case 'open-system-settings':
+        case 'copy-fix-command':
+        case 'move-to-vault':
+        case 'redact-line':
+        case 'rotate':
+        case 'open-tab':
+        case 'close-tab':
+        case 'forget-origin':
         case 'open-in-agents':
           // Unreachable while REMEDIATION_PENDING names it; kept so a new id cannot slip past the switch.
           return { kind: 'unavailable', unavailable: { reason: 'This action is not available yet.' } };

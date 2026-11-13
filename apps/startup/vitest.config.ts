@@ -1,0 +1,38 @@
+import { fileURLToPath } from 'node:url';
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vitest/config';
+
+const at = (p: string) => fileURLToPath(new URL(p, import.meta.url));
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@midnite/studio-feature-report/bridge': at('../../packages/features/report/bridge.ts'),
+      '@midnite/studio-feature-ledger/main': at('../../packages/features/ledger/main/index.ts'),
+      '@midnite/studio-feature-ledger/renderer': at('../../packages/features/ledger/renderer/index.ts'),
+      '@midnite/studio-module-accountant/bridge': at('../../packages/modules/accountant/main/bridge.ts'),
+      '@midnite/studio-module-accountant/main': at('../../packages/modules/accountant/main/index.ts'),
+      '@midnite/studio-module-accountant/renderer': at('../../packages/modules/accountant/renderer/index.ts'),
+      '@midnite/studio-module-startup/bridge': at('../../packages/modules/startup/main/bridge.ts'),
+      '@midnite/studio-module-startup/main': at('../../packages/modules/startup/main/index.ts'),
+      '@midnite/studio-module-startup/renderer': at('../../packages/modules/startup/renderer/index.ts'),
+      '@midnite/studio-feature-monitor/renderer': at('../../packages/features/monitor/renderer/index.ts'),
+      '@midnite/studio-feature-monitor/main': at('../../packages/features/monitor/main/index.ts'),
+      '@midnite/studio-feature-monitor/bridge': at('../../packages/features/monitor/bridge.ts'),
+      '@midnite/studio-shared/ipc/channels': at('../../packages/shared/src/ipc/channels.ts'),
+      '@midnite/studio-runtime/app-main/bridge-slice': at('../../packages/runtime/src/app-main/bridge-slice.ts'),
+      '@midnite/studio-runtime/app-main/suite-preload': at('../../packages/runtime/src/app-main/suite-preload.ts'),
+      '@midnite/studio-shared': at('../../packages/shared/src/index.ts'),
+      '@midnite/studio-feature-report/main': at('../../packages/features/report/main/index.ts'),
+      '@midnite/studio-feature-report/renderer': at('../../packages/features/report/renderer/index.ts'),
+      '@midnite/studio-frame': at('../../packages/frame/src/index.ts'),
+      '@midnite/studio-runtime': at('../../packages/runtime/src/index.ts'),
+    },
+  },
+  test: {
+    include: ['src/**/*.test.{ts,tsx}', 'main/**/*.test.ts'],
+    environment: 'jsdom',
+    setupFiles: [at('../../packages/frame/src/vitest-setup.ts')],
+  },
+});

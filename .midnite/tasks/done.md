@@ -2,6 +2,262 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 89 Theme K (part) — renderer variant seam e2e
+
+One Playwright e2e in `knowledge-canvas.spec.ts`: pick Telemetry HUD from the default Atlas, the sigma canvas layers are replaced by the 3D engine's canvas, and the choice survives a reload. Needs a real canvas mount and `page.reload()` persistence of `rendererVariant`. `MAX_DECLARED_E2E` 485 -> 486. Still open in Theme K: bundle ceilings, idle CPU, the three visual baselines, the full gate.
+
+## 2026-11-13 — Phase 132 Theme D (e2e) — level editor, real pointer input
+
+`packages/app/e2e/game-level-editor.spec.ts`: over the mock bridge, opens a game's Level editor tab, paints three cells with real pointer drags on the canvas (hit-tested through `getBoundingClientRect` and the fitted view), paints a fourth and undoes it, saves, and asserts the one `level-set` payload holds exactly the three cells. The mock gained `games.levels` (list, get, set recorded as `levelSet`) and `games.goto`. `MAX_DECLARED_E2E` 485 to 486 with its reason. No screenshot.
+
+## 2026-11-13 — Phase 132 Theme E — 3D placement editor
+
+The Level editor tab edits 3D levels in plan view on the 2D editor's canvas, model and picker: Select / Move, Place, Volume (a `prop` box, `sizeY` 3), Path and Rotate (yaw as Tiled's `rotation`, about the centre), a metre grid, footprints with a yaw tick, the terrain as an outline over its drape (`levelGet` reads it from the pack manifest), and an inspector for elevation, sizeY, pitch, roll, scale, model, collider and a light's fields with the world position from `levelEntityToWorld`. New scene makes a 3D scene. Not done: the canvas look and the third-person human pass (Theme H).
+
+## 2026-11-13 — Phase 132 Theme F — starters read their levels from files
+
+Every base and 3D genre scene builds from `levels/level.tmj` and keeps its procedural look; fps, crime and rts moved their layout into the file, shooter and soulslike read spawns from it, new games get `levels` in the manifest, and the 2D palette image is drawn at scaffold time and never committed. `starter-levels.test.ts` pins validity, the layout and the no-PNG rule.
+
+## 2026-11-13 — Phase 132 Theme G — level tools for agents
+
+`game_level_list`, `game_level_get`, `game_level_set` and `game_goto` on the midnite MCP server (reads open whenever the server is on, writes behind `allowGames`, all four in an agent run's private server), adapters over the level service and runner `goto`, the tool-manifest pin, and a Levels section with the pre-0.12 migration recipe in the game-build skill (seven mirrored copies). Not done: the editor (D, E), starters reading levels (F), the human check (H).
+
+## 2026-11-13 — Phase 132 Theme D (part) — 2D level editor and scene picker
+
+The Level editor tab: a pure edit model (paint, erase, rectangle, pick, entities, typed properties, layers, a 100-step undo with one step per drag, `serialise` keeping untouched fields), a canvas drawn with Sprites' `map-view.ts`, layer list, palettes and inspector, Save as one `level-set` commit. The scene picker in the tab strip opens a level and jumps the game, asking first when dirty; New scene makes a blank level by perspective and can opt the game into `levels.start`. Not done: Start from a map asset (needs a renderer read of `assets/map/`), the one e2e, and the canvas look (human check, Theme H).
+
+## 2026-11-13 — Phase 132 Theme C — level format and scene jump
+
+Levels are Tiled JSON at `levels/<scene>.tmj`: shared `game-level.ts` (loose parse, 2D/3D conventions, world mapping), additive Tiled fields, `cellAt`, the manifest's `levels` key, kit 0.12.0 (`level.js`, Phaser and three builders, `goto`, `getState().level`), main-side level list/get/set (one single-file commit per save) and the runner's `goto`. Not done: starters still hard-code their layout (F), no editor yet (D, E), no MCP tools (G).
+
+## 2026-11-13 — Phase 132 Theme A — Open Game
+
+An Open Game button beside New game: a main-side folder dialog, `resolveGameFolder` (git root, plain refusals), `service.add` (`added` / `listed` / `cancelled`) over the host's repo port; Gamer keeps `opened-games.json`. Not done: the human check (Theme H); Remove from list (Decision 17).
+
+## 2026-11-13 — Phase 132 Theme B — centre tabs
+
+Level editor (placeholder) and Play mode tabs, the native view hidden under the editor, a pause-when-editing policy and setting, run controls centred in the top bar, and a gradient Play button with a hover glow. Not done: the human check (folded into H).
+
+## 2026-11-13 — Phase 89 Theme K (part) — licence audit
+
+One table of the four variant dependencies' licences and closures. Not done: the seam e2e, bundle and idle-CPU ceilings, visual baselines, full gate; reasons in the phase doc.
+
+## 2026-11-13 — Phase 89 Theme J (part) — capability gate
+
+Per-variant `maxNodes` / `maxEdges`, a disabled pill naming the reason, the stored preference kept and announced; stale graph counts corrected. Not done: the bake-off harness and numbers, so no limit is set on any variant yet.
+
+## 2026-11-13 — Phase 89 Theme I — live d3-force variant
+
+`d3-force` (ISC) simulated in the renderer on our own canvas; hand-driven with a per-frame budget and a hard settle ceiling, paused halts it. Not done: gating by node count (Theme J), a real-browser look, frame-rate numbers.
+
+## 2026-11-13 — Phase 89 Theme H — vis-network variant
+
+PR #1209, stacked on #1208. `vis-network` (Apache-2.0 OR MIT) from npm behind its own dynamic `import()`, with Phase 87's CDN rejection qualified in the code. Not done: the packaged-app network trace; a real-browser look.
+
+## 2026-11-13 — Phase 89 Theme G — cytoscape variant
+
+PR #1208. `cytoscape` (MIT, no deps) behind its own dynamic `import()` over the shared 2D layer; alpha states as stylesheet classes. Not done: a real-browser look; frame-rate numbers (Theme J).
+
+## 2026-11-13 — Phase 89 Theme F — force-graph variant + shared 2D engine layer
+
+PR #1205. `force-graph` (MIT) behind its own dynamic `import()`, over a shared engine-neutral model and renderer base the next three engines reuse. Canvas 2D, not WebGL as the doc said. Not done: alpha ramping on the new engines; a real-browser look.
+
+## 2026-11-13 — Phase 122 Theme G (remainder) — Guard: package fixes on a branch, Fix with agent
+
+PR (see the Phase 122 package-actions PR). `update-package` and `remove-package` run behind the confirm on a new branch in a throwaway worktree (scripts off, no sudo, nothing pushed); a *Fix with agent* button starts a one-finding agent run linked back on the finding's row. Not done: opening the PR through the forge, `pin-package`.
+
+## 2026-11-13 — Phase 122 Theme F (remainder) — Guard: lockfile changed with nothing pushed
+
+PR (see the Phase 122 lockfile-rule PR). A `lockfile-changes` check: a lockfile commit in the last 7 days on no remote branch is a `medium` finding per repo, read from git (no forge call). Not done: a pushed branch that has no PR.
+
+## 2026-11-13 — Phase 122 Theme H (remainder) — Guard: daily default, power gate, egress, perf
+
+PR (see the Phase 122 remainder H PR). Guard's own daily default schedule (off until enabled), a scheduler gate that holds a scheduled sweep while the window is blurred and the Mac is on battery below 20%, egress entries for NVD, npm, PyPI and URLhaus, `docs/PRIVACY.md` regenerated, and `scripts/perf/guard-sweep.mjs` with its budget. Not done: the midnite-apps feed entry (waits on Themes B/C).
+
+## 2026-11-13 — Phase 122 Theme H (partial) — Guard: schedule, cost and disclosure
+
+PR (see the Phase 122 H PR). `guard.sweep` command and `guardSweepNow` channel, a Guard paragraph in `SECURITY.md`, and the rewritten Guard docblock. Open: the tab button, daily default schedule, the extra egress entries, the perf script and the battery gate (see the phase doc).
+
+## 2026-11-13 — Phase 122 Theme G — Guard: findings in the Guard tab
+
+PR (see the Phase 122 G PR). A Findings section in the Guard tab (severity groups, filters, new mark, evidence, confirmed actions), eight new remediation ids with pending reasons, the package-manager argv builder and the one-fingerprint agent prompt. Package fixes end to end and the Fix-with-agent button are still open.
+
+## 2026-11-13 — Phase 122 Theme E — Guard: sites the browser visited
+
+PR (see the Phase 122 E PR). The offline `sites` check (ClickFix, phishing, http login forms, end-of-life headers), the URLhaus parser and a `readBrowserHistory` seam in the resolvers. Not wired in desktop: the browser keeps no readable origin history yet (open decision, see the phase doc).
+
+## 2026-11-13 — Phase 116 Theme E (partial) — budget guards
+
+PR (see the Phase 116 E PR, stacked on C). `e2e-budget` now bans shots specs, disk screenshots, orphaned `docs/screenshots/` images (196 deleted) and un-allowlisted `waitForTimeout`; cap lowered 486 → 483; fixed an un-awaited fallback count; TESTING.md and the three convention files synced. The ≤ 200 cap waits on Theme C's Vitest waves.
+
+## 2026-11-13 — Phase 116 Theme C (partial) — shots purge repeat and `waitForTimeout` purge
+
+PR (see the Phase 116 C PR). Five re-grown `*-shots.spec.ts` files and `animation-player`'s disk screenshot removed; every bare `page.waitForTimeout` in e2e specs is now polled, routed through `settle()`, or marked `// allow-timeout: <reason>`. The Vitest migration waves (477 → ≤ 200) are not done: they need Playwright runs that CI-lock and RAM rule out here.
+
+## 2026-11-13 — Phase 122 Theme F — Guard: suspicious behaviour over the window
+
+PR (see the Phase 122 F PR). The `behaviour` check correlates Phase 121's audit trail with Vanguard's ledger (unusual-hours session, persistence/network finding during a session, limit trip, repeated denied approvals); desktop passes `readVanguardFindings`. The lockfile-change-without-a-PR rule needs the forge and is not built.
+
+## 2026-11-13 — Phase 122 Theme D — Guard: the Mac itself
+
+PR (see the Phase 122 D PR). Four deterministic checks (listening ports, macOS security settings, SSH and GPG key hygiene, secrets outside the vault) with read-only probes over the injected `exec`, wired into `defaultGuardChecks` and `createGuardResolvers`. No sudo anywhere (grep-tested). Held back: the pending-security-updates probe (egress), the deep `git log -p` pass and the new action ids (Theme G).
+
+## 2026-11-12 — Phase 128 Theme H — Launch: catalog, website, docs
+
+PR (see the Phase 128 H PR). Health's `comingSoon` removed from the launcher catalog and module, blurbs updated, Health added to the website catalog with its logo, and `docs/APPS.md` documents the app. Manual checks outstanding: packaged-app pass over export and erase.
+
+## 2026-11-12 — Phase 128 Theme G — Privacy: export and erase
+
+PR (see the Phase 128 G PR). A "Your data" card on Biometrics with Export… (save dialog, 0600 file) and Erase all Health data… (files blast-radius confirm, folder to the Trash, queries invalidated), plus `privacy.test.ts`, the no-network source guard. Manual check outstanding: export and erase in the packaged app.
+
+## 2026-11-12 — Phase 128 Theme F — Today and Progress
+
+PR (see the Phase 128 F PR). The Today dashboard (calorie ring, quick weigh-in with 7-day average, today's plan day with Log session, first-run card, error and damaged-file states), trend maths (moving average, weekly rate, ISO weeks, weekly summary), the `TimeChart` primitive with nice ticks, and the Progress view with range tabs, weekly report card and four charts.
+
+## 2026-11-12 — Phase 129 Theme H — Verification and the catalog flip
+
+PR (see the Phase 129 H PR). Shots spec over the in-Node memory ledger, the Accountant module's `comingSoon` removed (home and features on the `books` view), the launcher tests rewritten, and the missing Books rail row in Studio added under Dashboard. The packaged-app pass and the CI gate remain open.
+
+## 2026-11-12 — Phase 128 Theme E — Workout plans and progressive overload
+
+PR (see the Phase 128 E PR). Double-progression `nextPrescription` (start, increase, hold, deload) with worked tests, three starter plans, the plans list and editor (debounced save, weekday uniqueness, reorder, Trash-confirm delete) and the session sheet that prefills from history and stores kilograms.
+
+## 2026-11-12 — Phase 128 Themes C + D — Profile, biometrics and nutrition logger
+
+PR (see the Phase 128 C+D PR). Pure BMI / Mifflin-St Jeor BMR / TDEE / calorie-target calculations (1200 kcal floor, override wins) and unit conversion, the all-optional profile form with its estimates, the measurement log, the four-slot meal logger against the daily target, and the saved-foods library.
+
+## 2026-11-12 — Phase 128 Theme B — Health data store and IPC
+
+PR (see the Phase 128 B PR). `shared/src/health.ts` schemas and request union, the `health` channel and `HealthBridge`, a month-per-file store over `createJsonDirStore` with a write chain, IPC handlers that log no payload, and renderer data hooks (optimistic `usePutDay`). Also fixes the Health host's `registerSuiteMain` call for Phase 131 E.
+
+## 2026-11-12 — Phase 129 Theme G — Tax estimates
+
+PR (see the Phase 129 G PR). `TaxJurisdiction` interface and registry, the UK (England, Wales, Northern Ireland) rule set with its rates as one data table, the `taxEstimate` op and the Tax tab. Sole trader: income tax with the tapered allowance plus Class 4 NIC and payments on account; company: corporation tax with marginal relief. Every state carries the not-tax-advice notice.
+
+## 2026-11-12 — Phase 128 Theme A — Health app and module scaffold
+
+PR (see the Phase 128 A PR). New `packages/modules/health` (manifest, five-row nav group, pane with empty views, main half and report-only bridge) and `apps/health` (host cloned from the Science scaffold: identity, `registerHealthHost` with a save dialog port, preload, rail, bundle script, icon, changelog); `health` added to every app/module id list, the release matrix and the changelog lists. Still "Coming soon" on the launcher.
+
+## 2026-11-12 — Phase 130 Theme G — Verification and the catalog flip
+
+PR (see the Phase 130 G PR). `suite-shell/startup.spec.ts` (arrow endpoints on bar edges, first-run form, shots), Startup out of `comingSoon` in the launcher with its two modules, a website listing, `lineNet` symmetric for negative products. Packaged-app pass left for a human.
+
+## 2026-11-12 — Phase 130 Theme F — Invoicing posted to the books
+
+PR (see the Phase 130 F PR). Startup mounts the Accountant module as its Books group; a `StartupLedgerPort` (host-implemented over the shared books) carries invoice posting, reversal, cash and monthly net. Gapless invoice numbers at issue, draft to issued to paid or void each one ledger call, PDF export, Invoices, Customers, Overview and Settings ▸ Company ▸ Books, and Theme D's actuals from the book.
+
+## 2026-11-12 — Phase 129 Theme E — Bank CSV import and rules
+
+PR (see the Phase 129 E PR). `parseCsv` and the import service in the ledger feature's main (`importPick`, `importPreview`, `importCommit`; rules by priority, idempotent by statement-row hash, one bad row never aborts the batch) and the Import tab. Adds `ImportCommitRow.remember`, `LedgerService.snapshot` and `addImportRules`.
+
+## 2026-11-12 — Phase 129 Theme F — Financial reports
+
+PR (see the Phase 129 F PR). Trial balance, profit and loss, balance sheet and cash flow (`shared/src/ledger-reports.ts`, exact `BigInt` sums), the `report` and `exportReport` ops with CSV export, and the Reports tab with range presets. Import commit now emits one `ledgerChanged` per commit, not per row.
+
+## 2026-11-12 — Phase 131 Theme F — Verification (packaged pass still open)
+
+Shots of the launcher's per-app What's new and a suite app's version drop-up; the dry-run release artifact check run locally (ten `midnite-<id>/CHANGELOG.md`, idempotent). No release cut; the packaged pass on the first real tag stays a manual check.
+
+## 2026-11-12 — Phase 131 Theme E — A version pill and drop-up in every suite app
+
+PR (see the Phase 131 E PR). `suiteReleaseNotes` channel, `fetchAppReleaseNotes` and an app version argument in the runtime; a frame `ReleaseNotesPanel` and `SuiteVersionPill` in every suite app's rail footer; Studio's `VersionNotesPanel` now wraps the same panel.
+
+## 2026-11-12 — Phase 131 Theme D — Launcher: What's new for every app, and its own
+
+[PR #1165](https://github.com/bilo-io/midnite-studio/pull/1165). The launcher's changelog channel takes an app id with a per-app cache (404 = not published yet); every released app's detail sheet shows its own notes, the Release notes dialog follows its app, and the launcher's version and update banner open the launcher's notes.
+
+## 2026-11-12 — Phase 131 Theme C — The feed publishes every app's changelog
+
+[PR #1164](https://github.com/bilo-io/midnite-studio/pull/1164). `mirrorMissingSections` and a `--all` mode in `publish-feed-changelog.mjs`; `publish-suite` mirrors and commits `midnite-<id>/CHANGELOG.md` beside `catalog.json`.
+
+## 2026-11-12 — Phase 131 Theme B — Release-prep drafts every app's section
+
+[PR #1162](https://github.com/bilo-io/midnite-studio/pull/1162). `changelog-attribution.mjs` (commits to apps via moon `app-<id>` tags), per-app drafting in the release-prep skill, and a warn-only `changelog-sections-check.mjs` step in `publish-feed`.
+
+## 2026-11-12 — Phase 131 Theme A — Per-app changelog files and the shared contract
+
+[PR #1161](https://github.com/bilo-io/midnite-studio/pull/1161). `CHANGELOG_APP_IDS` and per-app path/URL helpers in `release.ts`, ten new `apps/<id>/CHANGELOG.md` files (0.0.6 back-filled), and `changelog-files.test.mjs` guarding them.
+
+## 2026-11-12 — Phase 127 Theme G — Launch
+
+[PR #1158](https://github.com/bilo-io/midnite-studio/pull/1158). Simulator no longer coming soon in the launcher; APPS.md and the website's Science entry updated.
+
+## 2026-11-12 — Phase 127 Theme F — Scenarios: save and load
+
+[PR #1157](https://github.com/bilo-io/midnite-studio/pull/1157). Versioned scenario schema, `simulator` channel and Trash-backed JSON store, and a scenario panel in the Emergence and Worlds views.
+
+## 2026-11-12 — Phase 127 Theme E — Agent environments: flocking and predator–prey
+
+[PR #1156](https://github.com/bilo-io/midnite-studio/pull/1156). Spatial hash, boids and predator–prey engines, a Sparkline, and the Agent environments view with an environment toggle and parameter sliders.
+
+## 2026-11-12 — Phase 127 Theme C — Emergence: cellular automata
+
+[PR #1155](https://github.com/bilo-io/midnite-studio/pull/1155). Life-like and elementary engines, RLE parser and built-in patterns, the Emergence view with drawing, zoom/pan and a settings panel.
+
+## 2026-11-12 — Phase 127 Theme D — Virtual worlds: n-body gravity
+
+[PR #1154](https://github.com/bilo-io/midnite-studio/pull/1154). Velocity-Verlet n-body engine with energy-drift stats, four presets, and a 3D Virtual worlds view with trails and a body panel.
+
+## 2026-11-12 — Phase 127 Theme B — Simulation runtime
+
+[PR #1152](https://github.com/bilo-io/midnite-studio/pull/1152). Engine contract, seeded 1158G, fixed-timestep worker loop with buffer ping-pong, `useSim`, transport bar; `Math.random` banned in sim code.
+
+## 2026-11-12 — Phase 127 Theme A — Module scaffold and mount in Science
+
+Simulator module package (manifest, nav group with `sim-` view ids, pane with placeholder views, empty main half and bridge) mounted as the Science host's second module; Studio and gate id lists extended.
+
+## 2026-11-11 — Phase 126 Theme H — Launch
+
+[PR #1150](https://github.com/bilo-io/midnite-studio/pull/1150). Science leaves coming soon in the launcher catalog, gets its website entry and tile image, and `docs/APPS.md` records the app. Phase 126 is done.
+
+## 2026-11-11 — Phase 126 Theme F — Molecule viewer cells
+
+[PR #1149](https://github.com/bilo-io/midnite-studio/pull/1149). XYZ, PDB and MOL/SDF parsers, Jmol CPK elements, spatial-hash bond inference, an instanced ball-and-stick R3F canvas, an `importStructure` op (native picker, 10 MB cap) and the Caffeine template.
+
+## 2026-11-11 — Phase 130 Theme E — Startup vendors and contracts
+
+[PR #1148](https://github.com/bilo-io/midnite-studio/pull/1148). Vendors and contracts with pure date maths (`contractStatus`, `noticeDeadline`, in shared so the view reuses it), an Action needed strip, an attached file copied by content hash into the app's folder through a host-injected picker and opener, and one linked plan line per priced contract.
+
+## 2026-11-11 — Phase 126 Theme G — Templates
+
+[PR #1147](https://github.com/bilo-io/midnite-studio/pull/1147). Seven built-in starter notebooks and a Templates view with discipline filter and "Use template" (fresh cell ids).
+
+## 2026-11-11 — Phase 130 Theme D — Startup costs and runway
+
+[PR #1144](https://github.com/bilo-io/midnite-studio/pull/1144). Pure `projectRunway` (cadence, growth, scenario multipliers, burn, runway, zero-cash month, default alive), the `projection` op, and the Runway view with lines table, scenario tabs, horizon, headline cards and an inline-SVG cash chart. Actuals from the books wait for Theme F.
+
+## 2026-11-11 — Phase 126 Theme E — Plot cells
+
+[PR #1145](https://github.com/bilo-io/midnite-studio/pull/1145). Plot cells sampled in the compute worker against the notebook scope and drawn as an SVG with nice ticks, percentile auto-range and asymptote breaks; series, x and y range editor.
+
+## 2026-11-11 — Phase 126 Theme D — Compute cells in a worker
+
+[PR #1142](https://github.com/bilo-io/midnite-studio/pull/1142). mathjs evaluator with the JavaScript-reaching functions disabled, run in an inline worker with a 300 ms debounce and a 2 s terminate-and-respawn budget; compute cells show KaTeX and the value or `Line N: message`.
+
+## 2026-11-11 — Phase 130 Theme C — Startup roadmap and milestones
+
+[PR #1141](https://github.com/bilo-io/midnite-studio/pull/1141). Milestone list and timeline with dependency cycle rejection, At risk and Overdue badges, and a remembered view mode.
+
+## 2026-11-11 — Phase 130 Theme B — Startup workspace store and contract
+
+[PR #1139](https://github.com/bilo-io/midnite-studio/pull/1139). The `startup` zod contract and channel, a versioned atomically written `workspace.json` with newer-version read-only and corrupt-file recovery, referential-integrity refusals, a react-query data layer, the first-run company form and Settings ▸ Company.
+
+## 2026-11-11 — Phase 126 Theme C — Notebook editor: text and maths cells
+
+[PR #1140](https://github.com/bilo-io/midnite-studio/pull/1140). Notebook list and editor in the Science module: discipline filter, rename, Trash-confirmed delete, autosaving draft store, markdown cells with KaTeX maths, persisted last-open notebook.
+
+## 2026-11-11 — Phase 126 Theme B — Notebook store and IPC
+
+[PR #1138](https://github.com/bilo-io/midnite-studio/pull/1138). Versioned notebook/cell/request schemas in `shared/src/science.ts`, the `mstudio:science:notebook` channel and `ScienceBridge`, the runtime's generic `createJsonDirStore` (atomic 0600 writes, corrupt-file quarantine, id jail), and the Science module's notebook store (Trash on remove) with its registration.
+
+## 2026-11-11 — Phase 126 Theme A — Science app and module scaffold
+
+[PR #1136](https://github.com/bilo-io/midnite-studio/pull/1136). New `packages/modules/science` (manifest, nav group, pane with empty notebooks state, main half and report-only bridge) and `apps/science` (host cloned from Mind: identity, `registerScienceHost`, preload, rail, shell, bundle script, icon); `science` added to every app/module id list and the release-bundle matrix; template zod pin fixed. The launcher tile stays Coming soon until Theme H.
+
+## 2026-11-11 — Phase 130 Theme A — Startup app scaffold
+
+[PR #1137](https://github.com/bilo-io/midnite-studio/pull/1137). `apps/startup` and `packages/modules/startup` (manifest, main half, bridge, nav, placeholder panes), `startup` appended to every id list, release case, icon and lockfile; the launcher tile lists `MODULES.startup` and stays coming soon.
+
 ## 2026-11-02 — Phase 125 Theme E — Sketchfab search and download
 
 [PR #1123](https://github.com/bilo-io/midnite-studio/pull/1123). Search Sketchfab's Data API and download an animated model's GLB into the library from Media ▸ Animations, with the user's own token (vault, main-only, sent only to api.sketchfab.com), licence filtering, author and licence recorded. The egress-registry item stays open (no registry exists).
@@ -658,7 +914,6 @@ read back and confirmed. They are never dictated.
 - **No raw dictation:** `tune`/`tweak` intents carry no text, a `setting` intent for either field is
   schema-invalid, and `persona` is stripped from router replies. The page gains "Try: …" hints for both fields.
 
-
 ## 2026-10-11 — Phase 112 Themes A, B — ResourceRef and the revealResource engine
 
 [PR #823](https://github.com/bilo-io/midnite-studio/pull/823). [Phase 112](phases/phase-112-companion-deep-navigation.md)
@@ -1066,7 +1321,6 @@ FPS, RTS, ARPG and top-down crime as genre modules over the Theme G bases, with 
 
 - [x] FPS, RTS, ARPG, top-down crime starters, and vitest for the engine-free systems (`kit-genres.test.ts`, `compose.test.ts`).
 - [ ] The per-genre e2e smoke run waits for Theme O's replay runner (see `outstanding.md`).
-
 
 ## 2026-10-06 — Phase 104 Theme B — Primitives to mesh
 
@@ -5152,7 +5406,6 @@ auto-submit** in Theme F's transcript item belongs to Theme D/E's `autoSend` pat
 the transcript unsent, which is the phase's stated default, and `companionHandsFree` is read
 nowhere in it.
 
-
 ## 2026-09-08 — Phase 79 Themes C, H — the companion panel, the FAB's four looks and its Settings page
 
 [PR #270](https://github.com/bilo-io/midnite-studio/pull/270). Moves Phase 79 12/67 → 27/67
@@ -5222,7 +5475,6 @@ Loops shut that is the companion, directly on top of its send and mic buttons. H
 Loops panel's own answer) was rejected: watching it run listening → thinking → handoff → speaking
 is this theme's entire point, and hiding it would leave that visible only while the panel was
 closed. The input bar reserves the 56px corner instead.
-
 
 ## 2026-09-08 — Phase 79 Themes A, B — the companion's state, its words and its grounding
 
@@ -10424,7 +10676,6 @@ qualifier became Studio and the pitch broadened with it.
 - [x] **Docs + phase 33.** README/`CLAUDE.md`/`AGENTS.md`/`GEMINI.md` ledes broadened; the planned
       CLI binary and deep-link scheme become `midnite-studio` / `midnite-studio://`.
 
-
 ## 2026-08-30 — Phase 32 Themes A–D — The browser gets a real engine, tabs and groups
 
 Merged to `main` locally (this repo has no git remote, so no PR link). Phase 27 shipped browser
@@ -10452,8 +10703,6 @@ fills the body and pays that condition in the same change.
 - [x] **Theme F — Left-side Review Comments.** Added `leftSideLines` and per-side thread maps in `comment-anchors.ts`; enabled left-side deleted line comment affordances in `DiffCell` and `DiffView`; added `LEFT`/`RIGHT` line badges to thread headers.
 - [x] **Theme G — Commit Workbench Tab.** Added `commit` workbench tab kind, header `Open commit in tab` button, graph context menu verb, and full-width rendering in `workbench.tsx`.
 - [x] **Theme H — PR Image Diffs.** Added `baseSha` to `ForgePullDetailSchema`, `gh-cli.ts`, and `gh-parse.ts`; wired `baseSha` into `imageDiffSources` in `PrFileAccordion`.
-
-
 
 ## 2026-08-30 — Phase 25 Themes D–F — CodePreview line rework, blame gutter, FilterInput, find bar & Search settings
 
@@ -10484,9 +10733,7 @@ Landed on `main`. Phase 25 delivers git search everywhere (commit pickaxe, git g
 - [x] **D — A stash you can read.** Commit detail inspector integrates stash selectors with a stash badge and action buttons (apply, branch, drop) in the header, rendering the stash commit and diffs via `DiffView`.
 - [x] **E — Stash from the Changes view.** Changes panel header gains a Stash button; prompts for optional message with checkboxes for `--include-untracked` and `--keep-index`; disabled when there are no changes to stash.
 
-
 ## 2026-08-28 — Phase 30 Themes F, G — the activity indicator that never span, and a detector that can be wrong out loud
-
 
 Merged locally on `feature/p30-fg` — no PR link, no GitHub remote on this checkout. Phase 30 is
 now feature-complete — all seven themes (A–G) have landed; only the "Open, for a human" manual
@@ -12495,7 +12742,6 @@ landed**, rather than the one F was written against:
 - **A fixed epoch in a screenshot fixture ages.** The flyout's shot read "Measured 24366 hours
   ago", which is what `ranAt: 1_700_000_000_000` becomes three years later.
 
-
 ## 2026-08-26 — Phase 19 · Theme A — The nav rail becomes the app's table of contents
 
 Landed on `feature/phase-19-nav-shell` (squash-merged — this repository still has no remote, so
@@ -13255,7 +13501,6 @@ Unicode glyph is now a lucide icon, and motion is a two-keyframe vocabulary disa
 been declared with chords and menu items since Phase 9 finally have handlers. 304 tests green.
 **Not verified visually** — Electron cannot reach the macOS window server from the agent's shell,
 so the manual smoke and the screenshot are outstanding.
-
 
 ## 2026-08-25 — Sidebar: flush delimiters, collapsible sections, and a smoke run that works
 
@@ -15242,8 +15487,6 @@ role's queries are ever mounted" already held by construction. H.4: `memory-repo
 
 **Ad-hoc: knowledge view spinner** ([PR #427](https://github.com/bilo-io/midnite-studio/pull/427)) — The Knowledge view could sit on "Reading the knowledge graph…" indefinitely with nothing in `main.log`. Now every way the layout worker can end settles `runLayoutInWorker` (a 60 s stall watchdog, a clean exit that never posted `done`, a spawn failure), every `getGraph` stage is logged through the log seam, `fetchKnowledgeGraph` gives the renderer its own 90 s progress-reset silence budget so the query settles even if main never answers, the view offers Retry on an error and after 30 s on the spinner, and the layout cache's temp file carries a random suffix so two concurrent writes for one repo no longer collide. Measured on this repo's graph (15,199 nodes / 36,772 links) in the packaged app: ~10-12 s cold, <2 s on a cache hit.
 
-
-
 ---
 
 ### Ad-hoc: Knowledge view freeze on a dense graph, and a detail budget (Phase 89 follow-up)
@@ -15287,7 +15530,6 @@ the variant's ceiling.
 ### Phase 86 Theme D — The pane that shows a live terminal ([PR #387](https://github.com/bilo-io/midnite-studio/pull/387))
 
 **Theme D.** Selecting a closed session in the Sessions view still shows `transcript-view.tsx` (read-only, no WebGL). Selecting a **running** session now shows its real, interactive xterm on the right — one xterm per pty, via `revealSession(sessionId)` rather than mounting a second view of the same pty (Phases 45 and 84 not regressed). A new `sendInputToSession(id, text)` action in `terminal-store` lets the Sessions pane send input without needing a mounted `TerminalView` (which previously held the only reference to `sendInputRef`). `revealSession()` returns `false` and the row shows "lives in the ___ panel" for sessions in non-`main` surfaces (fab, kanban, board) rather than silently doing nothing. The pane tears down cleanly on view switch, repo switch and window close — asserted in e2e (real xterm, named in the spec's header per `docs/TESTING.md`).
-
 
 **Ad-hoc: resizable side panels everywhere** ([PR #449](https://github.com/bilo-io/midnite-studio/pull/449)) — The GitHub Projects Board view, the Database connections list, and Settings' inner page nav all gained resizable left/right side panels, plus a keyboard-propagation fix in `useResizable`.
 
@@ -15458,7 +15700,6 @@ centre shows the build's stats until Theme D's viewport lands. Tested in vitest:
 (bit-exact 16-bit, five filters, three literal refusals), resample/normals/LOD crack-freedom, the broker, the service and a
 real build into a temp folder, and the tab through the mock bridge. No viewport, noise, satellite or road handling yet.
 
-
 ### Phase 107 Themes A + B — Game repos, the Games tab and the sandboxed runner (2026-10-04)
 
 Media gains a **Games** tab. A game is its own git repo under `~/Midnite Games` (configurable in Settings ▸ Media ▸ Games,
@@ -15491,7 +15732,6 @@ Vendors exact-pinned Phaser 3 (`phaser@3.90.0`), three.js (`three@0.186.1`), Rap
 
 Satellite imagery can now be resampled into `build/drape.png` (RGBA8, 1K–8K power of two) through `TerrainAlignment` (offset X/Z, scale X/Z, rotation about centre). The viewport shaded mode applies the drape as an albedo texture, and an interactive Align toggle (`LuMove` / `LuLockOpen`) provides an onion-skin quad overlay over the height ramp with opacity control and `TransformControls` gizmos (move, rotate, scale) that commit to `terrain.json` on release. Roads can optionally follow the satellite alignment (`alignment.roads === 'satellite'`). A deterministic land-cover classifier (`shared/src/terrain/classify.ts`) evaluates ExG variance (trees vs grass), slope (rock), flat sub-sea-level elevation (water), and Lab k-means (roads, buildings, bare ground) to output `build/landcover.png` and `landcover.json`. An optional Ollama vision relabeling pass (`createVisionCall`) refines regional classification. The interactive class brush (`B` key / `LuBrush`, 1–64px radius, erase + 8 classes) rasterizes overrides to `overrides/landcover.png` and re-bakes. `generateSplatMap` outputs `build/splat.png` with 4-way material weights (grass, rock, dirt, snow with configurable `snowLineM`), blended via a custom Three.js shader using four CC0 tiled PBR materials (`resources/terrain-materials/{grass,rock,dirt,snow}`) with distance-based fading to drape albedo. Tested in vitest (alignment matrix/UV transforms, deterministic classifier, splat weight calculations, 8-bit grey PNG encoding, vision relabeling pass, build pipeline drape/landcover/splat stages, brush paint rasterization, viewport shader and UI controls).
 
-
 ### Phase 105 Themes G + H — Foliage, buildings and roads from the land cover and the roads mask (2026-10-06)
 
 The build gains four stages after the splat: `roads` keys the roads image (dominant saturated hue, luminance fallback), cleans the mask and turns it into a graph (Zhang–Suen skeleton, junction clustering, spur pruning, node merge, Catmull-Rom splines, width from the distance transform, path/street/avenue); `conform` levels the ground under each road (30 m moving average, `blendM` falloff, clamped cut/fill with at most ten warnings); `foliage` scatters trees and grass with a seeded Bridson pass per class, kept off water, roads, buildings and the cleaned roads mask; `buildings` traces footprints (open/close, Moore tracing, Douglas-Peucker, right-angle snap, min area), extrudes them over a seeded height range and flattens the ground beneath them after the roads, before foliage is re-seated on the final field. Outputs are data — `build/roads-mask.png`, `roads.json`, `foliage.json`, `buildings.json` — and the viewer meshes them itself (`terrain-layers.tsx`: one merged road geometry, vertex-coloured buildings, one `InstancedMesh` per asset per chunk with a 600 m draw distance). `media.terrain.roadKey` previews the keyed mask at 512² without a build and samples the panel's eyedropper in main. The panel gains Roads (swatch with Auto/detected colour, `LuPipette` eyedropper, debounced live tolerance preview, width scale), Foliage (densities, slope limit, seed, built-in asset toggles per class) and Buildings (height range, min area, scale by area). Build rasters now load with `flipY = false`, fixing a z-mirror of the drape, land cover, splat and road mask against the heightfield that dated from Theme E. The scatter's candidate test got cheaper (neighbour test before slope, tan(limit) instead of atan). Deferred: the **Add from Models…** foliage asset picker (`outstanding.md`). Tested in vitest across the shared kernels, the desktop build pipeline (G + H end-to-end through the overrides layer) and `roadKey`, the app panel sections and the layer data helpers.
@@ -15519,7 +15759,6 @@ PR #975. One `SiteVerdict` per browser tab, built in main and pushed as a `verdi
 ### Phase 120 Theme A — One finding, one ledger (2026-10-22)
 
 `SecurityFindingSchema`, typed evidence schemas, remediation schemas in `@midnite/studio-shared`, append-only monthly NDJSON ledger (`findings-<yyyy-mm>.ndjson`) under `<userData>/security` with directory 0700 / file 0600 permissions, `redactRecord` on write, deduplication by fingerprint for open findings, serialized through `withLock`. Feature package `@midnite/studio-feature-vanguard` with findings handlers (`securityFindingsList`, `securityFindingsSetStatus`, `securityFindingsAct`) and `securityFindingsChanged` event wired into desktop main.
-
 
 ### Phase 120 Theme B — The feature and the app (2026-10-23)
 
@@ -15560,7 +15799,6 @@ An HMAC-SHA256 integrity manager over all vault files (`vault-integrity.json` un
 ### Phase 122 Theme A — The sweep runner (2026-10-27)
 
 `packages/runtime/src/guard/` (`check.ts` defining `GuardCheck` with pure `run(inputs)` and stable `<checkId>:<subject>` fingerprints producing `SecurityFinding`s, `inputs.ts` resolving named inputs once per sweep with privacy switch gating, `sweeps-store.ts` managing `guard-sweeps.json` and `<userData>/security/sweeps/<id>.json`, `runner.ts` running eligible checks, recording into findings ledger with deduplication and `resolvedBy: 'sweep'`, and `scheduler.ts` scheduling main-side sweeps on Guard's `LoopSchedule` with persisted `nextWake` surviving reloads). Guard loop prompt composition attaches sweep findings JSON with untrusted provenance per Phase 121 A, and adds *Fix the sweep's findings* modifier beside *Report only*.
-
 
 ### Phase 124 Theme C — Coder and Creator become modules (2026-10-29)
 
@@ -15625,3 +15863,63 @@ A `midnite://open?app=<host>&module=…&view=…` link (and a retired id such as
 ### Ad hoc — `/midnite-sanitize` security-audit skill (2026-11-01)
 
 A new skill audits a third-party skill, plugin, MCP server or repo before install (or `--installed` / `--self`) without running its code. It clones into the scratchpad with checkout hooks off, checks provenance, runs a stdlib-only `scan.py` (agent-surface files, invisible/bidi text, HTML comments, injection phrases, `allowed-tools` breadth, trigger collisions with installed skills, network/exec/credential/persistence/obfuscation sites, symlinks escaping the tree), requires a manual read of every SKILL.md and spawn site, reports a verdict plus what it does that it doesn't advertise, then interviews the user about a pinned install. It is mirrored in `.claude`/`.agents`/`.codex` with a copies test, and the midnite menu shows it as **Reviews ▸ Sanitize** (`sanitize` → `/midnite-sanitize`).
+
+### Phase 129 Theme B — Money amounts and the ledger contract (2026-11-12)
+
+`shared/src/money-amount.ts` (integer minor units, string-based `parseAmount`, BigInt `percentOfMinor`, largest-remainder `allocateMinor`) and `shared/src/ledger.ts` (accounts, books, balanced journal entries, the `ledger` op union with a manual-only renderer `post`, `LedgerResult`), plus `CHANNELS.ledger`, `EVENT_CHANNELS.ledgerChanged` and an optional `ledger` bridge. Vitest in shared; no e2e.
+
+### Phase 129 Theme A — Module scaffold, and Money as a two-module host (2026-11-12)
+
+New `feature-ledger` (manifest, `ledgerMain` routing the op union to a `LedgerService`, `LedgerWorkspace` empty state) and `module-accountant` (main bridge, services, nav group, pane). Money is now a two-module host (`registerMoneyHost`, `host-nav`, `host-app`, preload union); Studio shows a global `books` view and registers the ledger handlers as `studio`. The service is a stand-in until Theme C; the catalog stays `comingSoon`. Vitest at each layer; no e2e.
+
+### Phase 129 Theme C — Book store and posting engine (2026-11-12)
+
+`book-store.ts` (NDJSON journal + `book.json`, one writer per book by `writer.lock`, torn-tail truncation, corrupt middle line opens read-only, balanced / archived / locked-period checks, idempotent `source.ref`, reversal), `ledger-service.ts` (`createLedgerService`: list/create/update books, accounts, post, reverse, journal with cursor, balances, `ledgerChanged` events) and `chart-templates.ts` (personal, sole-trader, company). Money's host and Studio's `registerLedgerHandlers` now run the real service under `<appData>/Midnite Runtime/books`. Vitest over temp dirs, including a dead-pid lock takeover.
+
+### Phase 129 Theme D — Books, accounts and journal UI (2026-11-12)
+
+Overview (book picker, create-book form, four headline numbers, read-only and corrupt banners, book settings with a confirmed lock), Accounts (chart by type, balances, add/edit/archive sheet) and Journal (filters, paging, expandable lines, New entry sheet with live difference, reversal with a required reason, N / arrows / Enter keys) in the ledger feature's renderer, over react-query on `bridge().ledger` and a persisted `ledger-ui-store`. New `getBook` op and `onChanged` subscription; `createBook` now writes `book.json` temp + rename. RTL over `createMemoryLedger`.
+
+## 2026-11-13 — Phases 127–131 — automated verification pass
+
+Docs PR. Ran the named tests locally (`module-simulator`, `module-health`, `module-startup`, `module-science`, `module-money`, `module-accountant`, `shared`, `app-science`, `app-money`, `app-startup`, `launcher`, `studio`, `root:test`, `gate-projects-check`) and ticked 34 passing boxes across 127 (15), 128 (11), 129 (3) and 130 (5); cleared Theme F from 131's TODO cell. Left open: CI gates (billing-locked), human checks, 128's `apps/health` `host-app.test.tsx` (failing: expects text `Nothing logged today`) and 130's `contracts.test.ts` (no such file). No phase marked DONE.
+
+## 2026-11-13 — Phase 115 Theme A (second slice) — six more clients on `guardedFetch`
+
+HIBP, Whisper, release notes, GM samples, Stable Audio and SF3D installers now go through `guardedFetchFor`; owner-scoped registry lookup so two features can register one host; CDN redirect hosts registered. Ratchet shrank by six.
+
+## 2026-11-13 — Phase 115 Theme E (partial) — signed LAN stream URLs, CSP without `'unsafe-inline'`
+
+LAN streams/posters/transcodes take `?e=&s=` signed, six-hour URLs; packaged `script-src` is hash-based. Socket tokens deferred.
+
+## 2026-11-13 — Phase 115 Theme G (partial) — generated `docs/PRIVACY.md`
+
+`renderPrivacyDoc` from the egress registry, a stale-file test, `moon run root:privacy-doc`, SECURITY.md link. Website page and Settings footer link deferred.
+
+## 2026-11-13 — Tracker fixes (113 H, 126–130)
+
+Docs only. 126 reopened as 🔄 WIP at 41/43: its two open boxes are the CI `gate-node` run (billing-locked, not verifiable locally) and a human install check. 127/128/130 progress bars set to the 10-cell form the checker derives. 113 Theme H closed out: Cleaner is now `packages/modules/cleaner`, nothing left to build; only human release tests remain.
+
+## 2026-11-13 — Phase 115 Theme A (third slice) — launcher switches, every client on the registry, idle e2e
+
+The launcher honours its update and catalog switches and the master; map, image, forge, Browser feed and Ollama clients go through `guardedFetchFor`; user-chosen hosts register as `*`; an idle e2e with the master on sees no request (and found Gravatar/GitHub avatars, now behind an `avatars` switch). Theme A is done.
+
+## 2026-11-13 — Phase 116 Theme C (header sweep) — every e2e spec names its browser capability
+
+All 110 functional specs open with `// e2e-capability:` or `// e2e-candidate:` (35 candidates); `e2e-budget` enforces it. No test deleted or run; Wave C1/C2 migrations still wait on an `app:e2e` run.
+
+## 2026-11-13 — Phase 115 Theme E (sockets) — a per-launch token on the MCP and broker sockets
+
+The MCP server and the pty broker each write a 32-byte token file beside their socket (0600); the MCP shim and the broker client send it as the first frame and a connection that does not is dropped with no reply (constant-time compare, `runtime/src/security/socket-token.ts`). `retire` copies the token to the retired path so legacy peers stay reachable; Gamer's per-run servers stay tokenless in their private run directory. Tests: socket-server, shim client and a new broker `socket-token.test.ts`. Packaged-install check is the open human item.
+
+## 2026-11-13 — Phase 115 Theme G (website page and Settings link) — the privacy statement on the site
+
+The website serves `/privacy/` (new HTML entry, route, footer link), rendered from the generated `docs/PRIVACY.md` taken as text at build time with the repository pointer stripped; a test holds it to naming and linking no repository. Settings ▸ Privacy ends with a link to it. Theme G is done.
+
+## 2026-11-13 — Phase 116 Theme C (Wave C1 twins, partial) — Vitest twins beside the e2e tests
+
+New `midnite-menu.test.tsx`, four readout tests in `monitor-cluster.test.tsx`, and `// vitest-twin:` markers on the twinned e2e tests (midnite-menu, footer-monitor, titlebar-agents). No e2e test deleted; cap stays 483.
+
+## 2026-11-13 — Phase 88 Theme G (verification, automated half) — terminal e2e and entry-chunk exclusion
+
+All nine terminal e2e specs the phase names pass locally against xterm 6.0.0 (no CI; one spec at a time, except `kanban` and `notes`, which ran together), and the entry chunk (1118.3 KB) holds no xterm or addon string; its static import closure is one chunk. `bundle-budget.spec.ts`'s total-JS test fails at 44448.7 KB against 15950 KB, unrelated to xterm and recorded in the phase doc. The human pass stays open, listed in the phase's Theme G Headlines.

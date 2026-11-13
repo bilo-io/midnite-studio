@@ -110,6 +110,27 @@ export function createMockBridge(mode: string | null): LauncherBridge {
       onFailed: () => () => undefined,
     },
     links: { open: ok },
+    changelog: {
+      latest: async (app) => ({
+        sections: [
+          { version: '0.4.1', date: '2026-10-12', body: `### Added\n\n- ${app} fixture\n- A **version drop-up** lists the last few releases.\n\n### Fixed\n\n- The rail hairline no longer flickers.` },
+          { version: '0.4.0', date: '2026-09-28', body: '### Added\n\n- Media Maps.\n- Gamer showreels.' },
+          { version: '0.3.9', date: '2026-09-10', body: '### Fixed\n\n- Terminal reconnect after sleep.' },
+        ],
+        error: null,
+      }),
+      openFull: ok,
+    },
+    privacy: (() => {
+      let privacy = { allAutomaticOff: false, switches: { 'launcher-updates': true, 'launcher-catalog': true } };
+      return {
+        get: async () => privacy,
+        set: async (next) => {
+          privacy = next;
+          return privacy;
+        },
+      };
+    })(),
     theme: { set: () => undefined },
   };
 }
