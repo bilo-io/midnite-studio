@@ -92,6 +92,7 @@ const windowChrome: WindowChromeBridge = createWindowChromeBridge(
  */
 const bridge: Pick<
   MidniteStudioBridge,
+  | 'guardSweepNow'
   | 'homeDir'
   | 'lock'
   | 'hostname'
