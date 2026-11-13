@@ -76,13 +76,13 @@ export const FEATURE_VIEWS = {
  *   action, over the `optimizerTrash*` channels.
  * - `agent` owns `mcp` — MCP tool management goes to the Agents app
  *   (Phase 113 Theme N).
- * - `settings` (the frame) owns `privacy` and `cli`: frame-wide policy and a
+ * - `settings` (the frame) owns `privacy`, `cli` and `features` (Phase 135): frame-wide policy and a
  *   runtime service, neither of which belongs to one app.
  */
 export const FEATURE_SETTINGS_PAGES = {
   themes: ['appearance'],
   activity: ['activity'],
-  settings: ['privacy', 'cli'],
+  settings: ['privacy', 'cli', 'features'],
   graph: ['graph', 'gitSafety'],
   diff: ['diff'],
   repos: ['sidebar'],
@@ -177,6 +177,7 @@ export const STUDIO_SETTINGS_PAGE_ORDER = [
   'api-client',
   'monitor',
   'browser',
+  'settings',
   'settings',
   'version',
   'diagnostics',

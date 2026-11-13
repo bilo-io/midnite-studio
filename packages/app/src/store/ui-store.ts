@@ -279,6 +279,7 @@ import type { SettingsGroupId } from '@midnite/studio-frame';
  */
 export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: SettingsGroupId }[] = [
   { id: 'appearance', label: 'Appearance', group: 'general' },
+  { id: 'features', label: 'Features', group: 'general' },
   { id: 'activity', label: 'Activity', group: 'general' },
   { id: 'privacy', label: 'Privacy', group: 'general' },
   { id: 'sidebar', label: 'Sidebar', group: 'general' },
