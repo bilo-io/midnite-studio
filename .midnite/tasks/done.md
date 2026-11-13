@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 122 Theme E — Guard: sites the browser visited
+
+PR (see the Phase 122 E PR, stacked on D). The offline `sites` check (ClickFix, phishing, http login forms, end-of-life headers), the URLhaus parser and a `readBrowserHistory` seam in the resolvers. Not wired in desktop: the browser keeps no readable origin history yet.
+
 ## 2026-11-13 — Phase 122 Theme D — Guard: the Mac itself
 
 PR (see the Phase 122 D PR). Four deterministic checks (listening ports, macOS security settings, SSH and GPG key hygiene, secrets outside the vault) with read-only probes over the injected `exec`, wired into `defaultGuardChecks` and `createGuardResolvers`. No sudo anywhere (grep-tested). Held back: the pending-security-updates probe (egress), the deep `git log -p` pass and the new action ids (Theme G).

@@ -120,9 +120,7 @@ plugins/skills re-scan; the installed-package resolver now descends into pnpm's 
 
 **Theme D — The Mac itself.** ◐ PARTIAL (PR pending). `runtime/src/guard/checks/`: `mac-ports` (wildcard listeners from a process that is neither Apple-signed nor a known dev/suite process; `medium`, `high` unsigned; `kill-process-group`), `mac-config` (FileVault, firewall, Gatekeeper, SIP, Remote Login, Screen Sharing, automatic updates, pending security updates — each with a copyable fix, never sudo), `ssh-keys` (0600 `chmod-600`, passphrase-less keys tried on a private copy removed straight away, `authorized_keys` options as `info` without key material, `~/.gnupg` modes) and `secrets-outside-vault` (the shared `scanText` over shell profiles, tool credentials and open repos' `.env*`; evidence is file, line and pattern kind, never the value), with probes in `guard/mac-probes.ts` over the injected `exec`. The pending-security-updates probe is held back: `softwareupdate -l` asks Apple's servers, which the egress registry does not carry yet (Theme H). Not done: the opt-in `git log -p` history pass (needs the composer checkbox, Theme G), the `move-to-vault` / `redact-line` / `open-system-settings` actions (the enum grows in Theme G, so fixes ride as text and `command` evidence), `authorized_keys` age (a line carries no date), and the ports parser is Guard's own, since the runtime layer may not import Vanguard's.
 
-**Theme E — Sites the browser visited.** ◻ The browser feature's history checked offline against
-the ClickFix domain list, HTTP-only origins, known-phishing feeds with usable licences, and sites
-whose server headers announce an end-of-life stack; findings link back to the tab.
+**Theme E — Sites the browser visited.** ◐ PARTIAL (PR pending). `guard/checks/sites.ts`: a ClickFix-listed origin (`critical`, with the tab when still open), a phishing/malware-listed host (`critical`), an `http:` origin that showed a login form (`medium`) and an end-of-life `Server`/`X-Powered-By` header (`low`), plus the URLhaus host parser; the feed inputs are optional, so the local rules run with them off. The check reads a `history` input that `createGuardResolvers` takes from a composer-supplied `readBrowserHistory(sinceMs)` (7-day window), so Guard imports no feature. **Not wired:** the browser feature keeps no readable origin history (`host-first-seen` stores salted digests only), so the desktop passes no reader and the check is recorded as skipped (`no-resolver`) until a visited-origins store exists, which stores browsing history and is a privacy decision for the user. Also open: fetching the URLhaus feed (needs a Phase 115 egress entry, Theme H), and the `open-tab` / `close-tab` / `forget-origin` actions (Theme G).
 
 **Theme F — Suspicious behaviour over the window.** ◻ Phase 121's audit trail and Phase 120's
 sensor history correlated across the sweep window: sessions outside the user's hours, a
@@ -257,11 +255,11 @@ repo.
 
 ### E — Sites the browser visited [M · ~1d]
 
-- [ ] **The input.** The browser feature's history and open tabs through its main half's existing
+- [~] **The input.** The browser feature's history and open tabs through its main half's existing
       store (the feature exposes a read seam; Guard never imports `features/browser` — the
       composer hands `guard/inputs.ts` a `readBrowserHistory()` function, the layer rule's way),
       origins only, for the sweep window. [S]
-- [ ] **The checks.** `guard/checks/sites.ts`: an origin on the threat feed's `clickfixDomains`
+- [~] **The checks.** `guard/checks/sites.ts`: an origin on the threat feed's `clickfixDomains`
       (`critical`, with the visit time and the tab if still open); an `http:` origin that served a
       login form (the browser's own sign-in detection in
       [`web-app-sign-ins.ts`](../../../packages/features/browser/main/web-app-sign-ins.ts) already
@@ -271,7 +269,7 @@ repo.
       headers, captured by Phase 117's response hook (`low`). [M]
 - [ ] **The action.** `open-tab {url}` to look, `close-tab {tabId}`, `forget-origin {origin}` (clears
       the browser's storage for it, through the browser feature's existing clear-data seam). [S]
-- [ ] **Tests.** A fixture history with one ClickFix domain, one `http:` login, one clean origin;
+- [x] **Tests.** A fixture history with one ClickFix domain, one `http:` login, one clean origin;
       the URLhaus parser on a captured feed. [S]
 
 ### F — Suspicious behaviour over the window [S · ≤ 2h]
