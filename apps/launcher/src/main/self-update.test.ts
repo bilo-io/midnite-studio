@@ -97,6 +97,14 @@ describe('launcherSelfStatus', () => {
     });
   });
 
+  it('with the automatic switch off it asks nobody', async () => {
+    const fetchImpl = vi.fn();
+    const status = await launcherSelfStatus({ current: '0.0.5', isPackaged: true, fetchImpl: fetchImpl as unknown as typeof fetch, feedOff: true });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(status).toMatchObject({ latest: null, canUpdate: true });
+    expect(status.feedError).toMatch(/off/);
+  });
+
   it('carries the feed error when offline', async () => {
     const fetchImpl = vi.fn(async () => {
       throw new Error('offline');

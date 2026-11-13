@@ -66,8 +66,9 @@ These happen because you started something: a search, a download, a request you 
 
 ${table(head, rows(user, false))}
 
-The Launcher is a separate app. Its update and catalog checks are listed above under their switches; the Launcher
-does not read those switches yet, so today they run at start regardless.
+The Launcher is a separate app. Its update and catalog checks are listed above under their switches, and it reads
+them from its own Privacy dialog (the shield in its top bar): with a switch off, or with "Turn off all automatic
+network" on, nothing is requested at start, and its Check again button still asks when you click it.
 
 ## 2. What stays on this Mac, and how it is kept
 

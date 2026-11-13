@@ -22,6 +22,8 @@
  * module builds the header.
  */
 
+import { guardedFetch } from '@midnite/studio-runtime';
+
 export type ForgeHttpAuth =
   | { kind: 'bearer'; token: string }
   | { kind: 'basic'; username: string; password: string }
@@ -165,7 +167,7 @@ function extractErrorMessage(parsed: unknown, fallback: string): string {
  */
 export type ForgeFetch = (input: URL | string, init: RequestInit) => Promise<Response>;
 
-let forgeFetch: ForgeFetch = (input, init) => fetch(input, init);
+let forgeFetch: ForgeFetch = (input, init) => guardedFetch('forge', input, init);
 
 export function configureForgeFetch(next: ForgeFetch): void {
   forgeFetch = next;

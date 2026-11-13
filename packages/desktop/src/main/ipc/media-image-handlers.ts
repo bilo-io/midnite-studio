@@ -8,7 +8,7 @@ import {
   mediaImagesMain,
   openaiImageProvider,
 } from '@midnite/studio-feature-media-images/main';
-import type { FeatureMainContext } from '@midnite/studio-runtime';
+import { guardedFetchFor, type FeatureMainContext } from '@midnite/studio-runtime';
 import { EVENT_CHANNELS, failure, MediaTabSchema, ok } from '@midnite/studio-shared';
 import { getConfiguredOllamaHost, ollamaShow, ollamaTags, resolveOllamaBaseUrl } from '@midnite/studio-feature-models/main';
 import { broadcastToAllWindows } from '../window-manager';
@@ -49,7 +49,7 @@ export const imageService = createImageService({
   readKey: readSecret,
   writeFile: (req) => mediaStore.writeFile(req),
   emit: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaImageProgress, event),
-  fetch: (input, init) => fetch(input, init),
+  fetch: guardedFetchFor('media-images') as typeof fetch,
   discoverOllamaModels: discoverOllamaImageModels,
   agyAvailable: isAgyInstalled,
   readReference: async (repoId, path) => {

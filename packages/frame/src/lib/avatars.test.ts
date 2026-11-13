@@ -9,6 +9,8 @@ import {
   initialsFor,
   markAvatarMissing,
   normaliseEmail,
+  setRemoteAvatarsEnabled,
+  subscribeAvatars,
 } from './avatars';
 
 describe('normaliseEmail', () => {
@@ -136,5 +138,23 @@ describe('size is not baked into the cache', () => {
 
     expect(gravatarUrl(state.hash, 18)).toContain('s=36');
     expect(gravatarUrl(state.hash, 24)).toContain('s=48');
+  });
+});
+
+describe('remote avatars switched off (Phase 115 Theme A)', () => {
+  beforeEach(() => __resetAvatars());
+
+  it('answers none without starting a lookup, and tells subscribers when the switch flips', () => {
+    let notified = 0;
+    const off = subscribeAvatars(() => (notified += 1));
+    setRemoteAvatarsEnabled(false);
+    expect(notified).toBe(1);
+    expect(avatarFor('ada@example.com')).toEqual({ status: 'none' });
+    expect(avatarFor('ada@example.com')).toBe(avatarFor('grace@example.com'));
+    setRemoteAvatarsEnabled(false);
+    expect(notified).toBe(1);
+    setRemoteAvatarsEnabled(true);
+    expect(avatarFor('ada@example.com')).toEqual({ status: 'pending' });
+    off();
   });
 });

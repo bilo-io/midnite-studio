@@ -8,6 +8,7 @@ export {
   initialsFor,
   markAvatarMissing,
   normaliseEmail,
+  setRemoteAvatarsEnabled,
   subscribeAvatars,
   type AvatarState,
 } from '@midnite/studio-frame';

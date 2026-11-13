@@ -52,6 +52,14 @@ describe('apps ops', () => {
     });
   });
 
+  it('an automatic status with the catalog switch off never fetches the catalog', async () => {
+    const fetchCatalog = vi.fn(async () => catalog);
+    const { ops } = harness({ fetchCatalog });
+    expect((await ops.status({ catalogOff: true })).catalog).toBeNull();
+    expect(fetchCatalog).not.toHaveBeenCalled();
+    expect((await ops.status()).catalog).not.toBeNull();
+  });
+
   it('reports a null catalog when it is missing or its fetch throws, and canManageBundles false in dev', async () => {
     const { ops } = harness({
       fetchCatalog: async () => {

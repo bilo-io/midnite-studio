@@ -285,6 +285,7 @@ export {
   initialsFor,
   markAvatarMissing,
   normaliseEmail,
+  setRemoteAvatarsEnabled,
   subscribeAvatars,
   type AvatarState,
 } from './lib/avatars';

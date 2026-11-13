@@ -18,7 +18,7 @@ import {
 
 import type { CaptureWorkerHandle } from '@midnite/studio-feature-media-map/main';
 import type { TerrainWorkerHandle } from '@midnite/studio-feature-media-terrain/main';
-import { guardAppWindow, createFileSink, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
+import { guardAppWindow, guardedFetchFor, createFileSink, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
 import { MSTUDIO_FILE_SCHEME, MSTUDIO_GAME_SCHEME, MSTUDIO_TILE_SCHEME, type FfmpegStatus } from '@midnite/studio-shared';
 
 import { createGamerAgentHost, type GamerAgentHost, gamerMediaRoot, type GamerServices } from '@midnite/studio-module-gamer/main';
@@ -204,7 +204,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       pickTiledMap,
       pickAnimationPaths,
       ffmpegStatus,
-      fetch: (url, init) => net.fetch(url, init),
+      fetch: guardedFetchFor('media-map') as typeof fetch,
       userAgent: `MidniteGamer/${app.getVersion()} (+https://github.com/bilo-io/midnite-apps)`,
       // JPEG and WebP: `nativeImage` yields BGRA, which the capture worker's DEM decode wants as RGBA.
       nativeDecode: async (bytes) => {
