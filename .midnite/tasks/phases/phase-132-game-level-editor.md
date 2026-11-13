@@ -205,7 +205,7 @@ keep editing scenes as code.
     the bounds again. Without this the `WebContentsView` floats over the editor canvas.
   - The popout (`hosted` false) is unaffected: a popped-out game keeps its own window.
 - [ ] Pause policy (Decision 10)
-  - Leaving Play for the editor pauses the run (`games.toolbar({ action: 'pause' })`) **only** when the run was
+  - Leaving Play for the editor pauses the run (`games.toolbar({ gameId, action: 'pause' })`) **only** when the run was
     started by this window's Play button, it is `running`, it is not popped out, and the `pauseWhenEditing` setting is
     on; the tab remembers it paused it. Returning to Play resumes only a run it paused itself — a run the user paused
     stays paused.
@@ -241,7 +241,7 @@ keep editing scenes as code.
   - Net-new `game-center.test.tsx`: two tabs with roles and `aria-selected`; the inactive panel is `hidden`; arrow keys
     move selection; the live dot appears when the run store says live and the editor tab is active.
   - Net-new `game-tab-mode.test.tsx` (mock bridge): selecting a game shows the editor tab; Run calls `games.run` and
-    shows Play; leaving Play calls `games.toolbar({ action: 'pause' })` once for a run started by Run and not for a run
+    shows Play; leaving Play calls `games.toolbar({ gameId, action: 'pause' })` once for a run started by Run and not for a run
     seeded into the store as started elsewhere; returning resumes only the auto-paused run; `pauseWhenEditing: false`
     sends nothing.
   - `game-runner-host` case: `active={false}` sends `setVisible({ visible: false })`.
@@ -337,7 +337,7 @@ keep editing scenes as code.
   - `RunnableGame.level?: string`; `gameEntryUrl` adds `midnite-level=<scene>` when set (with or without determinism).
   - `runner.goto(gameId, scene): Promise<GitOpResult<{ via: 'hook' | 'reload' | 'next-run' }>>` — not running →
     remember `nextLevel[gameId]` for the next `run` and answer `next-run` (picking a scene never starts a stopped game);
-    running → `evalWithTimeout` of `(() => { const m = window.__midnite; if (m && typeof m.goto === 'function') {
+    running → the runner's `exec` helper (only a literal `true` counts) over `(() => { const m = window.__midnite; if (m && typeof m.goto === 'function') {
     m.goto(${JSON.stringify(scene)}); return true; } return false; })()` → `hook`; `false` (a pre-0.12 kit, or a
     hand-written game) → `loadURL(gameEntryUrl({ ...game, level: scene }))` → `reload`. A popped-out run is reached the
     same way (the view is the same).
@@ -366,7 +366,7 @@ keep editing scenes as code.
 
 ### D — 2D tile and entity editor, and the scene picker [L · 4-8h]
 
-- [ ] Net-new `renderer/level/use-levels.ts`: `GAME_KEYS.levels(gameId)` and `GAME_KEYS.level(gameId, scene)` queries over
+- [ ] Net-new `renderer/level/use-levels.ts`: `GAME_KEYS.levels(gameId)` (`['games', 'levels', gameId]`) and `GAME_KEYS.level(gameId, scene)` (`['games', 'levels', gameId, scene]`, under the same prefix) queries over
   the C bridge; `useSaveLevel` (invalidates both and the list); `useGotoScene`. `gamesChanged { reason: 'level' }`
   invalidates `['games', 'levels']` in `useGameEvents`.
 - [ ] Net-new `renderer/level/level-edit-model.ts` — pure, no React
@@ -416,7 +416,7 @@ keep editing scenes as code.
     (`manifest.assets` kind `map`, read from `assets/map/<name>/map.tmj`), copied with its tileset `image` paths
     rewritten relative to `levels/`. Creates with `levelSet(..., { create: true })`, then opens it.
   - When the game has no `levels` key yet, creating the first scene also offers **Make this the start scene**
-    (unchecked by default), which sets `levels: { dir: 'levels', start: <scene> }` through `games.setManifest` — the
+    (unchecked by default), which sets `levels: { dir: 'levels', start: <scene> }` through `games.manifest.set` — the
     explicit opt-in of Decision 14.
 - [ ] Tests (vitest/jsdom)
   - Net-new `level-edit-model.test.ts`: paint/erase/rect produce the right `data`; undo/redo round-trip and the 100 cap;
