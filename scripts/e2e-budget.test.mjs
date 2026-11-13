@@ -108,6 +108,31 @@ describe('scanSpecSource', () => {
   });
 });
 
+describe('spec header guard', () => {
+  const scan = (src) => scanSpecSource('packages/app/e2e/x.spec.ts', src);
+
+  it('accepts a capability or candidate header on the first lines', () => {
+    expect(scan('// e2e-capability: computed CSS\nimport x;').headerless).toBe(false);
+    expect(scan('// e2e-candidate: pure DOM — migrate to Vitest\nimport x;').headerless).toBe(false);
+  });
+
+  it('flags a spec with no header, or an empty one', () => {
+    expect(scan("import { test } from '@playwright/test';\n").headerless).toBe(true);
+    expect(scan('// e2e-capability:\nimport x;').headerless).toBe(true);
+  });
+
+  it('fails the budget naming the headerless spec', () => {
+    const r = checkE2eBudget({
+      declaredCount: 1,
+      visualSizes: [],
+      unitTimingViolations: [],
+      headerViolations: [{ file: 'packages/app/e2e/x.spec.ts', line: 1, lineContent: '' }],
+    });
+    expect(r.ok).toBe(false);
+    expect(r.message).toContain('without a capability header');
+  });
+});
+
 describe('findOrphans', () => {
   it('keeps an image whose docs/screenshots path is mentioned and drops the rest', () => {
     const corpus = '![x](docs/screenshots/website-wordmark/candidates.png) and ../screenshots/a.png';

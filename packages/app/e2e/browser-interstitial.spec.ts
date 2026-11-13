@@ -1,3 +1,4 @@
+// e2e-capability: getBoundingClientRect, pointer drag
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer, type Server } from 'node:https';

@@ -1,3 +1,4 @@
+// e2e-capability: getBoundingClientRect
 import { expect, test, type Page } from '@playwright/test';
 
 import { AGENTS_EMPTY_ANSWERS, installSuiteBridge, SUITE_APP_URLS, VANGUARD_EMPTY_ANSWERS } from '../../test-support/suite-bridge';

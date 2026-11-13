@@ -1,3 +1,4 @@
+// e2e-capability: pointer drag
 import { expect, test, type Page } from '@playwright/test';
 
 import {

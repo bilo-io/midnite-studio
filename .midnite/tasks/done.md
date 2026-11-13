@@ -15839,3 +15839,7 @@ LAN streams/posters/transcodes take `?e=&s=` signed, six-hour URLs; packaged `sc
 ## 2026-11-13 — Tracker fixes (113 H, 126–130)
 
 Docs only. 126 reopened as 🔄 WIP at 41/43: its two open boxes are the CI `gate-node` run (billing-locked, not verifiable locally) and a human install check. 127/128/130 progress bars set to the 10-cell form the checker derives. 113 Theme H closed out: Cleaner is now `packages/modules/cleaner`, nothing left to build; only human release tests remain.
+
+## 2026-11-13 — Phase 116 Theme C (header sweep) — every e2e spec names its browser capability
+
+All 110 functional specs open with `// e2e-capability:` or `// e2e-candidate:` (34 candidates); `e2e-budget` enforces it. No test deleted or run; Wave C1/C2 migrations still wait on an `app:e2e` run.

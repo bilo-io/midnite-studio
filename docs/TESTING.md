@@ -108,6 +108,7 @@ The functional E2E suite is governed by a committed ratchet in `scripts/e2e-budg
   1. **No disk screenshots in functional E2E.** No `*-shots.spec.ts` (retired, along with `MSTUDIO_SHOTS`) and no `.screenshot({ path })` in `packages/app/e2e/*.spec.ts`. An in-memory `.screenshot()` compared in the test is fine.
   2. **No orphaned `docs/screenshots/` images.** Each must be referenced (as `screenshots/<path>`) from `README.md`, `docs/*.md` or `packages/website/`; PR verification shots live in the session scratchpad.
   3. **No bare `waitForTimeout`.** Prefer `expect.poll` / `expect(locator)`; a reveal-tween settle goes through `settle(page)` in `e2e/shots-helper.ts`; a deliberate sleep (negative proof, debounce) carries `// allow-timeout: <reason>` on the same or preceding line.
+  4. **Every functional spec opens with a capability header.** The first lines read `// e2e-capability: <what a real browser is needed for>` (getBoundingClientRect, computed CSS, pointer drag, xterm, canvas/WebGL, focus order, paint/z-order, network/CSP), or `// e2e-candidate: pure DOM — migrate to Vitest` when none applies; candidates are the next Vitest migration targets.
 - The cap tracks the real count, so it only ever goes down as tests migrate; the phase target is <= 200 (Theme C's Vitest waves).
 
 ---
