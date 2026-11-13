@@ -531,14 +531,17 @@ export async function collectSpecViolations(root = repoRoot) {
   const disk = [];
   /** @type {SpecViolation[]} */
   const timeouts = [];
-  const entries = await readdir(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    if (!entry.isFile() || !entry.name.endsWith('.spec.ts')) continue;
-    const rel = `${E2E_DIR}/${entry.name}`;
-    if (entry.name.endsWith('-shots.spec.ts')) {
+  // Functional specs live at the top level and in feature folders (e.g. `suite-shell/`). `visual/` is
+  // the screenshot-comparison layer and `perf/` measures wall-clock by design, so both are exempt.
+  const files = (await listFiles(dir, new Set(['node_modules', 'dist', 'visual', 'perf', '__screenshots__']))).filter(
+    (f) => f.endsWith('.spec.ts'),
+  );
+  for (const full of files) {
+    const rel = path.relative(root, full).split(path.sep).join('/');
+    if (full.endsWith('-shots.spec.ts')) {
       disk.push({ file: rel, line: 0, lineContent: '*-shots.spec.ts files are retired' });
     }
-    const found = scanSpecSource(rel, await readFile(path.join(dir, entry.name), 'utf8'));
+    const found = scanSpecSource(rel, await readFile(full, 'utf8'));
     disk.push(...found.disk);
     timeouts.push(...found.timeouts);
   }
@@ -548,8 +551,8 @@ export async function collectSpecViolations(root = repoRoot) {
 const IMAGE_RE = /\.(png|jpe?g|gif|webp|svg|avif)$/i;
 const TEXT_RE = /\.(md|mdx|ts|tsx|js|jsx|mjs|html|css|json)$/i;
 
-/** @param {string} dir @returns {Promise<string[]>} absolute file paths, recursively */
-async function listFiles(dir) {
+/** @param {string} dir @param {Set<string>} [skip] directory names to skip @returns {Promise<string[]>} absolute file paths, recursively */
+async function listFiles(dir, skip = new Set(['node_modules', 'dist'])) {
   const out = [];
   let entries;
   try {
@@ -560,8 +563,8 @@ async function listFiles(dir) {
   for (const entry of entries) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (entry.name === 'node_modules' || entry.name === 'dist') continue;
-      out.push(...(await listFiles(full)));
+      if (skip.has(entry.name)) continue;
+      out.push(...(await listFiles(full, skip)));
     } else if (entry.isFile()) {
       out.push(full);
     }
