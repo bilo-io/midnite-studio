@@ -13,7 +13,7 @@ describe('ai-models', () => {
     expect(cheapModelFor('claude')).toBe('haiku');
     expect(cheapModelFor('codex')).toBe('gpt-5-mini');
     expect(cheapModelFor('gemini')).toBe('gemini-2.5-flash');
-    expect(cheapModelFor('agy')).toBe('gemini-2.5-flash');
+    expect(cheapModelFor('agy')).toBe('gemini-3.8-flash-low');
   });
 
   it('resolves the fast model for a covered provider', () => {
@@ -53,6 +53,13 @@ describe('ai-models', () => {
       expect(models).toEqual([
         { id: 'gpt-5-mini', label: 'gpt-5-mini', cliModel: 'gpt-5-mini', tier: 'cheap' },
       ]);
+    });
+
+    it("lists Antigravity's own tiers, cheapest first, as CLI words", () => {
+      const models = modelsForAgent('agy');
+      expect(models[0]).toEqual({ id: 'gemini-3.8-flash-low', label: 'Gemini 3.8 Flash (Low)', tier: 'fast', cliModel: 'gemini-3.8-flash-low' });
+      expect(models.every((m) => m.cliModel === m.id)).toBe(true);
+      expect(models.some((m) => m.id === 'gemini-2.5-flash')).toBe(false);
     });
 
     it('merges Ollama models when provided', () => {

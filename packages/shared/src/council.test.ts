@@ -4,6 +4,8 @@ import {
   COUNCIL_MEMBER_PROVIDERS,
   CouncilRunSchema,
   CouncilSchema,
+  councilThreadTitle,
+  councilTurnCount,
   createStarterMembers,
 } from './council';
 
@@ -35,12 +37,44 @@ describe('CouncilSchema', () => {
     const council = {
       id: 'c1',
       name: 'Test',
-      members: [{ id: 'm1', name: 'X', provider: 'claude', role: 'role' }],
+      members: [{ id: 'm1', name: 'X', provider: 'grok', role: 'role' }],
       synthProvider: 'agy',
       createdAt: 1,
       updatedAt: 1,
     };
     expect(CouncilSchema.safeParse(council).success).toBe(false);
+  });
+
+  it('accepts Claude as a member and a model on members and the synthesizer (Phase 133)', () => {
+    const council = {
+      id: 'c1',
+      name: 'Test',
+      members: [{ id: 'm1', name: 'X', provider: 'claude', role: 'role', model: 'haiku' }],
+      synthProvider: 'agy',
+      synthModel: 'gemini-3.8-flash-low',
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    expect(CouncilSchema.parse(council)).toEqual(council);
+  });
+});
+
+describe('a run persisted before Phase 133', () => {
+  it('reads with no turns as a one-turn thread', () => {
+    const run = CouncilRunSchema.parse({
+      id: 'r1',
+      councilId: 'c1',
+      prompt: 'topic',
+      format: 'brainstorm',
+      status: 'completed',
+      synthProvider: 'agy',
+      members: [],
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    expect(run.turns).toEqual([]);
+    expect(councilTurnCount(run)).toBe(1);
+    expect(councilThreadTitle(run)).toBe('topic');
   });
 });
 
