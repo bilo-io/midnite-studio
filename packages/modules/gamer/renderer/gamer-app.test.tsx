@@ -82,7 +82,9 @@ describe('Midnite Gamer', () => {
     render(<GamerApp />);
     expect(screen.getByRole('img', { name: 'Midnite Gamer' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Settings' })).toBeTruthy();
-    expect(screen.queryAllByRole('tab')).toEqual([]);
+    // The media shell's strip is plain buttons, not tabs: the only `tab`s on the page are the Games tab's own
+    // Level editor | Play mode pair (Phase 132 Theme B), inside its "Game view" tablist.
+    for (const tab of screen.queryAllByRole('tab')) expect(tab.closest('[role="tablist"]')?.getAttribute('aria-label')).toBe('Game view');
     await waitFor(() => {
       for (const label of ['Games', 'Maps', 'Terrain', 'Models', 'Sprites', 'Animations']) expect(screen.getAllByLabelText(label).length).toBeGreaterThan(0);
     });

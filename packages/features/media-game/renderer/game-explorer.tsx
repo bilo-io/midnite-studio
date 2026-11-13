@@ -1,8 +1,8 @@
 import type { GameSummary } from '@midnite/studio-shared';
-import { LuBox, LuLayers, LuPlus, LuTriangleAlert } from 'react-icons/lu';
+import { LuBox, LuFolderOpen, LuLayers, LuPlus, LuTriangleAlert } from 'react-icons/lu';
 
 import { EmptyState, EmptyStateButton } from '@midnite/studio-frame';
-import { LoadingRegion, Skeleton } from '@midnite/studio-frame';
+import { LoadingRegion, RingSpinner as Spinner, Skeleton } from '@midnite/studio-frame';
 import { GameAssetsBadge } from './game-assets-panel';
 import { useGames } from './use-games';
 
@@ -17,10 +17,16 @@ export function GameExplorer({
   selectedId,
   onSelect,
   onNew,
+  onOpen,
+  opening = false,
 }: {
   selectedId: string | null;
   onSelect: (gameId: string) => void;
   onNew: () => void;
+  /** Open Game: add a game that already exists on disk. */
+  onOpen: () => void;
+  /** The Open Game dialog is up or its answer is being applied. */
+  opening?: boolean;
 }) {
   const games = useGames();
 
@@ -28,14 +34,25 @@ export function GameExplorer({
     <div className="flex h-full min-h-0 flex-col" data-testid="game-explorer">
       <div className="flex h-9 shrink-0 items-center justify-between border-b border-border px-2">
         <span className="text-xs font-medium text-muted-foreground">Games</span>
-        <button
-          type="button"
-          onClick={onNew}
-          className="flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-[11px] hover:bg-accent"
-        >
-          <LuPlus aria-hidden className="h-3 w-3" />
-          New game
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onOpen}
+            disabled={opening}
+            className="flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-[11px] hover:bg-accent disabled:opacity-60"
+          >
+            {opening ? <Spinner className="h-3 w-3" /> : <LuFolderOpen aria-hidden className="h-3 w-3" />}
+            Open Game
+          </button>
+          <button
+            type="button"
+            onClick={onNew}
+            className="flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-[11px] hover:bg-accent"
+          >
+            <LuPlus aria-hidden className="h-3 w-3" />
+            New game
+          </button>
+        </div>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
         {games.isPending ? (
@@ -47,8 +64,13 @@ export function GameExplorer({
           </LoadingRegion>
         ) : (games.data ?? []).length === 0 ? (
           <EmptyState
-            title="No games yet. Create one from a starter."
-            action={<EmptyStateButton icon={LuPlus} label="New game" onClick={onNew} />}
+            title="No games yet. Create one from a starter, or open one you already have."
+            action={
+              <div className="flex items-center gap-2">
+                <EmptyStateButton icon={LuPlus} label="New game" onClick={onNew} />
+                <EmptyStateButton icon={LuFolderOpen} label="Open Game" onClick={onOpen} />
+              </div>
+            }
           />
         ) : (
           <ul>

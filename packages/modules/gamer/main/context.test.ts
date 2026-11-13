@@ -93,6 +93,7 @@ async function setup(options: { granted?: boolean; paired?: boolean; host?: Game
         },
       },
       contents: () => null,
+      pickFolder: async () => null,
       getWindow: () => null,
       templateDir: join(dir, 'no-templates'),
       enginesDir: join(dir, 'no-engines'),

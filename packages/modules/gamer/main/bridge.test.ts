@@ -35,9 +35,10 @@ describe('createGamerBridge', () => {
     await media.project.list({ repoId: 'gamer', tab: 'map' });
     await media.terrain.library({ op: 'list', repoId: 'gamer' } as never);
     await games.list();
+    await games.add({});
     await media.animation.list();
     games.setBounds({ gameId: 'g', bounds: { x: 0, y: 0, width: 1, height: 1 } } as never);
-    expect(vi.mocked(ipc.invoke).mock.calls.map((c) => c[0])).toEqual([CHANNELS.mediaProjectList, CHANNELS.mediaTerrainLibrary, CHANNELS.gamesList, CHANNELS.mediaAnimation]);
+    expect(vi.mocked(ipc.invoke).mock.calls.map((c) => c[0])).toEqual([CHANNELS.mediaProjectList, CHANNELS.mediaTerrainLibrary, CHANNELS.gamesList, CHANNELS.gamesAdd, CHANNELS.mediaAnimation]);
     expect(vi.mocked(ipc.send).mock.calls.map((c) => c[0])).toEqual([CHANNELS.gamesSetBounds]);
   });
 });
