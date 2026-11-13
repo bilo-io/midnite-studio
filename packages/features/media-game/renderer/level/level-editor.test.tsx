@@ -335,4 +335,33 @@ describe('LevelEditor, 3D plan view (Phase 132 Theme E)', () => {
     expect(screen.getByTestId('level-banner-readonly').textContent).toContain('orthogonal');
     expect((screen.getByRole('radio', { name: 'Place' }) as HTMLButtonElement).disabled).toBe(true);
   });
+
+  it('fits and edits a level whose objects sit at negative pixels', async () => {
+    const level = blankLevel3d();
+    level.layers[0]!.objects![0] = { ...level.layers[0]!.objects![0]!, x: -480, y: -320 };
+    const { planBounds } = await import('./level-plan');
+    const { fitView } = await import('./level-view');
+    const b = planBounds(level);
+    expect([b.minX, b.minY]).toEqual([-480, -320]);
+    const v = fitView({ width: 640, height: 400 }, b.maxX - b.minX, b.maxY - b.minY);
+    const view = { zoom: v.zoom, x: v.x - b.minX * v.zoom, y: v.y - b.minY * v.zoom };
+    const atMap = (mx: number, my: number) => ({ clientX: view.x + view.zoom * mx, clientY: view.y + view.zoom * my, button: 0, pointerId: 1 });
+    get.mockResolvedValue({ ok: true, value: { level, issues: [], images: [] } });
+    list.mockResolvedValue(listed({ scenes: [{ scene: 'level', bytes: 1, dimension: '3d', issue: null }] }));
+    renderEditor();
+    await ready();
+    const canvas = screen.getByTestId('level-canvas');
+    const wrap = screen.getByTestId('level-canvas-wrap');
+    // The fitted view is only measured when a real resize happens, so drive the first-fit view through the same maths
+    // the canvas uses: initial state fits a 640 x 400 box.
+    fireEvent.pointerDown(canvas, atMap(-480, -320));
+    fireEvent.pointerUp(canvas, atMap(-480, -320));
+    expect(useLevelStore.getState().byGame.g1!.edit.selection).not.toBeNull();
+    fireEvent.keyDown(wrap, { key: 'o' });
+    fireEvent.pointerDown(canvas, atMap(-200.4, -100.2));
+    fireEvent.pointerUp(canvas, atMap(-200.4, -100.2));
+    const placed = useLevelStore.getState().byGame.g1!.edit.level.layers[0]!.objects!.at(-1)!;
+    expect(placed.x).toBeCloseTo(-208, 5);
+    expect(placed.y).toBeCloseTo(-96, 5);
+  });
 });

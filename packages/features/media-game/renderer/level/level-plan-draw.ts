@@ -1,7 +1,7 @@
 import type { GameLevelTerrain } from '@midnite/studio-shared';
 
 import type { EditLevel, EditSelection, PlanPoint } from './level-edit-model';
-import { footprintCorners, gridLines, pathPoints, terrainRect, yawTipPoint } from './level-plan';
+import { footprintCorners, gridLines, pathPoints, planBounds, terrainRect, yawTipPoint } from './level-plan';
 import type { View } from './level-view';
 
 /** What the plan view draws besides the level: the terrain's extent and the path being drawn. */
@@ -31,6 +31,7 @@ export function drawPlan(
   const { level, view, selection, overlay, outline, text } = input;
   const px = 1 / view.zoom;
   const mapW = level.width * level.tilewidth, mapH = level.height * level.tileheight;
+  const bounds = planBounds(level, overlay.terrain);
 
   if (overlay.terrain) {
     const r = terrainRect(level, overlay.terrain);
@@ -50,20 +51,20 @@ export function drawPlan(
     ctx.fillText(`terrain: ${overlay.terrain.name}`, r.x + 4 * px, r.y + 14 * px);
   }
 
-  const grid = gridLines(level, view.zoom);
+  const grid = gridLines(level, view.zoom, 6, bounds);
   for (const bold of [false, true]) {
     ctx.strokeStyle = bold ? 'rgba(128,128,128,0.55)' : 'rgba(128,128,128,0.2)';
     ctx.lineWidth = (bold ? 1.25 : 1) * px;
     ctx.beginPath();
     for (const g of grid.x) {
       if (g.bold !== bold) continue;
-      ctx.moveTo(g.at, 0);
-      ctx.lineTo(g.at, mapH);
+      ctx.moveTo(g.at, bounds.minY);
+      ctx.lineTo(g.at, bounds.maxY);
     }
     for (const g of grid.z) {
       if (g.bold !== bold) continue;
-      ctx.moveTo(0, g.at);
-      ctx.lineTo(mapW, g.at);
+      ctx.moveTo(bounds.minX, g.at);
+      ctx.lineTo(bounds.maxX, g.at);
     }
     ctx.stroke();
   }

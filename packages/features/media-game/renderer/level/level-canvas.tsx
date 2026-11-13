@@ -5,7 +5,7 @@ import { cellAt, cellOrigin, collisionAt, collisionLayer, mapPixelSize, readTmj,
 import type { GameLevelTerrain } from '@midnite/studio-shared';
 
 import { objectToMapPoint, mapPointToObject, type Cell, type EditLevel, type EditSelection, type LevelObject, type PlanPoint } from './level-edit-model';
-import { hitPlan, levelMetresPerTile } from './level-plan';
+import { hitPlan, levelMetresPerTile, planBounds } from './level-plan';
 import { drawPlan, type PlanOverlay } from './level-plan-draw';
 import { fitView, screenToMap, zoomAround, type View } from './level-view';
 
@@ -120,7 +120,14 @@ export function LevelCanvas({
   const tmj = useMemo(() => readTmj(level), [level]);
   const { map: tilesetImages, loaded } = useTilesetImages(images);
   const [size, setSize] = useState({ width: 640, height: 400 });
-  const [view, setView] = useState<View>(() => fitView({ width: 640, height: 400 }, mapPixelSize(level).width, mapPixelSize(level).height));
+  /** What the first fit frames: the map, or for a plan its real bounds (a level may sit at negative pixels). */
+  const frame = (box: { width: number; height: number }): View => {
+    if (!plan) return fitView(box, mapPixelSize(level).width, mapPixelSize(level).height);
+    const b = planBounds(level, plan.terrain);
+    const v = fitView(box, b.maxX - b.minX, b.maxY - b.minY);
+    return { ...v, x: v.x - b.minX * v.zoom, y: v.y - b.minY * v.zoom };
+  };
+  const [view, setView] = useState<View>(() => frame({ width: 640, height: 400 }));
   const [hover, setHover] = useState<Cell | null>(null);
   const [cursor, setCursor] = useState<PlanPoint | null>(null);
   const { image: terrainImage, loaded: terrainLoaded } = useTerrainImage(plan?.terrain?.preview);
@@ -138,8 +145,7 @@ export function LevelCanvas({
       // The first real measurement fits the map; later resizes keep the user's view.
       if (!fitted.current) {
         fitted.current = true;
-        const px = mapPixelSize(level);
-        setView(fitView({ width, height }, px.width, px.height));
+        setView(frame({ width, height }));
       }
     });
     ro.observe(el);

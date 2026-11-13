@@ -27,7 +27,8 @@ export function metresToPlan(level: Pick<EditLevel, 'properties' | 'tilewidth' |
 export function snapPlan(level: Pick<EditLevel, 'properties' | 'tilewidth' | 'tileheight'>, p: PlanPoint, alt = false): PlanPoint {
   if (alt) return p;
   const ppm = pixelsPerMetre(level);
-  return { x: Math.round((p.x / ppm.x) * 2) / 2 * ppm.x, y: Math.round((p.y / ppm.z) * 2) / 2 * ppm.z };
+  // `+ 0` turns a rounded -0 into 0.
+  return { x: (Math.round((p.x / ppm.x) * 2) / 2) * ppm.x + 0, y: (Math.round((p.y / ppm.z) * 2) / 2) * ppm.z + 0 };
 }
 
 /** The terrain's extent as a map-pixel rectangle. */
@@ -93,22 +94,54 @@ export function hitPlan(level: EditLevel, p: PlanPoint, zoom: number): NonNullab
   return null;
 }
 
-/** The metre grid to draw over a rectangle of the plan, as pixel positions: 1 m lines, every tenth bold. Lines closer than `minGapPx` on screen are dropped. */
+export type PlanBounds = { minX: number; minY: number; maxX: number; maxY: number };
+
+/**
+ * The rectangle the plan view fits and grids, in map pixels: the map's frame, every object (footprints and paths
+ * included) and the terrain's extent. A level need not start at the origin (a starter is centred on it, so its
+ * objects sit at negative pixels), so nothing here treats (0, 0) as the top-left corner.
+ */
+export function planBounds(level: EditLevel, terrain?: Pick<GameLevelTerrain, 'minX' | 'minZ' | 'maxX' | 'maxZ'> | null): PlanBounds {
+  const b: PlanBounds = { minX: 0, minY: 0, maxX: level.width * level.tilewidth, maxY: level.height * level.tileheight };
+  const add = (p: PlanPoint) => {
+    b.minX = Math.min(b.minX, p.x);
+    b.minY = Math.min(b.minY, p.y);
+    b.maxX = Math.max(b.maxX, p.x);
+    b.maxY = Math.max(b.maxY, p.y);
+  };
+  for (const layer of level.layers) {
+    if (layer.type !== 'objectgroup') continue;
+    for (const o of layer.objects ?? []) {
+      const corners = footprintCorners(o);
+      if (corners) corners.forEach(add);
+      else add({ x: o.x, y: o.y });
+      pathPoints(o).forEach(add);
+    }
+  }
+  if (terrain) {
+    const r = terrainRect(level, terrain);
+    add({ x: r.x, y: r.y });
+    add({ x: r.x + r.width, y: r.y + r.height });
+  }
+  return b;
+}
+
+/** The metre grid to draw over `bounds` (default: the map's frame), as pixel positions: 1 m lines, every tenth bold. Lines closer than `minGapPx` on screen are dropped. */
 export function gridLines(
   level: Pick<EditLevel, 'properties' | 'tilewidth' | 'tileheight' | 'width' | 'height'>,
   zoom: number,
   minGapPx = 6,
+  bounds?: PlanBounds,
 ): { x: Array<{ at: number; bold: boolean }>; z: Array<{ at: number; bold: boolean }> } {
   const ppm = pixelsPerMetre(level);
-  const mpt = levelMetresPerTile(level);
-  const widthM = level.width * mpt, depthM = level.height * mpt;
+  const box = bounds ?? { minX: 0, minY: 0, maxX: level.width * level.tilewidth, maxY: level.height * level.tileheight };
   // Show every metre when they are far enough apart, else every 10 m, else nothing.
   const step = ppm.x * zoom >= minGapPx ? 1 : ppm.x * zoom * 10 >= minGapPx ? 10 : 0;
   if (step === 0) return { x: [], z: [] };
-  const axis = (lengthM: number, scale: number) => {
+  const axis = (min: number, max: number, scale: number) => {
     const out: Array<{ at: number; bold: boolean }> = [];
-    for (let m = 0; m <= Math.floor(lengthM); m += step) out.push({ at: m * scale, bold: m % 10 === 0 });
+    for (let m = Math.ceil(min / scale / step) * step; m * scale <= max; m += step) out.push({ at: m * scale, bold: ((m % 10) + 10) % 10 === 0 });
     return out;
   };
-  return { x: axis(widthM, ppm.x), z: axis(depthM, ppm.z) };
+  return { x: axis(box.minX, box.maxX, ppm.x), z: axis(box.minY, box.maxY, ppm.z) };
 }

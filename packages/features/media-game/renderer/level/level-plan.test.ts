@@ -3,7 +3,7 @@ import { levelEntityToWorld } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { addObject, createEditState, objectCentre, rotateObject, setVolume, type EditLevel } from './level-edit-model';
-import { footprintCorners, gridLines, hitPlan, metresToPlan, pathPoints, pixelsPerMetre, snapPlan, terrainRect, yawTipPoint } from './level-plan';
+import { footprintCorners, gridLines, hitPlan, metresToPlan, pathPoints, pixelsPerMetre, planBounds, snapPlan, terrainRect, yawTipPoint } from './level-plan';
 import { buildBlankLevel } from './new-scene-model';
 
 const level3d = (mpt = 1): EditLevel => {
@@ -100,5 +100,42 @@ describe('gridLines', () => {
   it('thins to 10 m lines when zoomed out and to none when too small', () => {
     expect(gridLines(level3d(), 0.1).x.every((l) => l.bold)).toBe(true);
     expect(gridLines(level3d(), 0.01).x).toEqual([]);
+  });
+});
+
+describe('a level centred on the origin (negative pixels)', () => {
+  const centred = (): EditLevel => {
+    let s = createEditState(level3d());
+    const id = s.level.layers[0]!.id!;
+    s = addObject(s, id, { type: 'prop', x: -320, y: -192 });
+    s = setVolume(s, id, { x: -640, y: -96 }, { x: -480, y: 32 });
+    return s.level;
+  };
+
+  it('bounds the map, every object and the terrain, not just the map frame', () => {
+    expect(planBounds(level3d())).toEqual({ minX: 0, minY: 0, maxX: 640, maxY: 640 });
+    expect(planBounds(centred())).toEqual({ minX: -640, minY: -192, maxX: 640, maxY: 640 });
+    expect(planBounds(level3d(), { minX: -30, minZ: -20, maxX: 5, maxZ: 5 })).toEqual({ minX: -960, minY: -640, maxX: 640, maxY: 640 });
+  });
+
+  it('hits points and footprints at negative coordinates', () => {
+    const level = centred();
+    const id = level.layers[0]!.id!;
+    const objects = level.layers[0]!.objects!;
+    expect(hitPlan(level, { x: -318, y: -190 }, 1)).toEqual({ layerId: id, objectId: objects[1]!.id });
+    expect(hitPlan(level, { x: -560, y: -30 }, 1)).toEqual({ layerId: id, objectId: objects[2]!.id });
+    expect(hitPlan(level, { x: -560, y: 200 }, 1)).toBeNull();
+  });
+
+  it('snaps to the half metre on both sides of zero', () => {
+    expect(snapPlan(level3d(), { x: -50, y: -70 })).toEqual({ x: -48, y: -64 });
+    expect(snapPlan(level3d(), { x: -8, y: 8 })).toEqual({ x: 0, y: 16 });
+  });
+
+  it('grids negative metres, with the bold lines on every tenth including 0 and -10', () => {
+    const g = gridLines(level3d(), 1, 6, { minX: -640, minY: -192, maxX: 640, maxY: 640 });
+    expect(g.x[0]).toEqual({ at: -640, bold: true });
+    expect(g.x.filter((l) => l.bold).map((l) => l.at)).toEqual([-640, -320, 0, 320, 640]);
+    expect(g.z[0]).toEqual({ at: -192, bold: false });
   });
 });
