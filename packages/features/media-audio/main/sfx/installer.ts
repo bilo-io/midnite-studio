@@ -40,6 +40,7 @@ import {
  * - The optional Hugging Face token comes from the secrets vault (`readToken`, the same `media.huggingFaceToken`
  *   SF3D reads) and only ever travels in the `Authorization` header — the port is not gated, so it is usually absent.
  */
+import { guardedFetchFor } from '@midnite/studio-runtime';
 export type SfxInstallerDeps = {
   /** `<userData>/sfx`. */
   directory: string;
@@ -79,7 +80,7 @@ async function hashFile(path: string, hash: ReturnType<typeof createHash>, signa
 }
 
 export function createSfxInstaller(deps: SfxInstallerDeps) {
-  const doFetch = deps.fetch ?? fetch;
+  const doFetch = deps.fetch ?? guardedFetchFor('media-audio');
   const now = deps.now ?? (() => new Date());
   const manifest = deps.manifest ?? SFX_PINNED_MANIFEST;
   const url = deps.url ?? ((path: string) => sfxFileUrl(path));

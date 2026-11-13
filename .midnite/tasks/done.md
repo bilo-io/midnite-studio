@@ -15795,3 +15795,7 @@ Overview (book picker, create-book form, four headline numbers, read-only and co
 ## 2026-11-13 — Phases 127–131 — automated verification pass
 
 Docs PR. Ran the named tests locally (`module-simulator`, `module-health`, `module-startup`, `module-science`, `module-money`, `module-accountant`, `shared`, `app-science`, `app-money`, `app-startup`, `launcher`, `studio`, `root:test`, `gate-projects-check`) and ticked 34 passing boxes across 127 (15), 128 (11), 129 (3) and 130 (5); cleared Theme F from 131's TODO cell. Left open: CI gates (billing-locked), human checks, 128's `apps/health` `host-app.test.tsx` (failing: expects text `Nothing logged today`) and 130's `contracts.test.ts` (no such file). No phase marked DONE.
+
+## 2026-11-13 — Phase 115 Theme A (second slice) — six more clients on `guardedFetch`
+
+HIBP, Whisper, release notes, GM samples, Stable Audio and SF3D installers now go through `guardedFetchFor`; owner-scoped registry lookup so two features can register one host; CDN redirect hosts registered. Ratchet shrank by six.

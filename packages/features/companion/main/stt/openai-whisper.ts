@@ -20,6 +20,7 @@ import { SttError, type SttProvider } from './types';
  * for a function call. `fetch`, `FormData`, `Blob` and `AbortSignal` are all
  * globals in the Node the packaged Electron ships.
  */
+import { guardedFetchFor } from '@midnite/studio-runtime';
 export const OPENAI_TRANSCRIPTIONS_URL = 'https://api.openai.com/v1/audio/transcriptions';
 
 /**
@@ -135,7 +136,7 @@ function extractErrorMessage(body: string): string {
 }
 
 export function createOpenAiWhisperProvider(key: string, deps: OpenAiWhisperDeps = {}): SttProvider {
-  const doFetch = deps.fetch ?? globalThis.fetch;
+  const doFetch = deps.fetch ?? guardedFetchFor('companion');
   const url = deps.url ?? OPENAI_TRANSCRIPTIONS_URL;
   const model = deps.model ?? OPENAI_WHISPER_MODEL;
 

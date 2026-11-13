@@ -81,6 +81,16 @@ export const EGRESS_ENTRIES: readonly EgressHost[] = [
   entry({ host: 'urlhaus.abuse.ch', owner: 'browser', sends: 'nothing about the user — a plain GET of the public online-URL list (CC0)', trigger: 'feed', switch: 'reputation-urlhaus', description: 'URLhaus malware URL feed for the Browser app' }),
   entry({ host: 'openphish.com', owner: 'browser', sends: 'nothing about the user — a plain GET of the public community feed', trigger: 'feed', switch: 'reputation-openphish', description: 'OpenPhish community phishing feed for the Browser app' }),
   // ── user-initiated ──
+  entry({ host: 'api.openai.com', owner: 'companion', sends: 'the recorded audio and the user’s OpenAI key, for transcription they asked for', trigger: 'user' }),
+  entry({ host: 'raw.githubusercontent.com', owner: 'app', sends: 'GET only: Studio’s public changelog, for the update dialog the user opened', trigger: 'user' }),
+  entry({ host: 'github.com', owner: 'media-audio', sends: 'GET only: the General MIDI sample set the user asked for', trigger: 'user' }),
+  entry({ host: 'release-assets.githubusercontent.com', owner: 'media-audio', sends: 'GET only: the redirect target of the sample download', trigger: 'user' }),
+  entry({ host: 'huggingface.co', owner: 'media-audio', sends: 'GET only: the Stable Audio model the user asked for', trigger: 'user' }),
+  entry({ host: '*.hf.co', owner: 'media-audio', sends: 'GET only: the redirect target of the model download', trigger: 'user' }),
+  entry({ host: 'huggingface.co', owner: 'media-model', sends: 'GET only: the Stable Fast 3D model the user asked for', trigger: 'user' }),
+  entry({ host: '*.hf.co', owner: 'media-model', sends: 'GET only: the redirect target of the model download', trigger: 'user' }),
+  entry({ host: '*.hf.co', owner: 'models', sends: 'GET only: the redirect target of the model download', trigger: 'user' }),
+  entry({ host: 'release-assets.githubusercontent.com', owner: 'app', sends: 'GET only: the redirect target of the speech-model download', trigger: 'user' }),
   entry({ host: 'api.pwnedpasswords.com', owner: 'vault', sends: 'the first five hex characters of a SHA-1 of the password; never the password, never the hash', trigger: 'user', description: 'Have I Been Pwned Pwned Passwords k-anonymity breach check' }),
   entry({ host: 'overpass-api.de', owner: 'media-map', sends: 'a bounding box, for roads and buildings', trigger: 'user' }),
   entry({ host: 'ollama.com', owner: 'models', sends: 'the model search text', trigger: 'user' }),
@@ -99,7 +109,8 @@ export const EGRESS_ENTRIES: readonly EgressHost[] = [
 
 /** The concrete hosts, keyed by host (the Vanguard sensor resolves these names; a `*` has nothing to resolve). */
 export const EGRESS_HOSTS: Record<string, EgressHost> = Object.fromEntries(
-  EGRESS_ENTRIES.filter((e) => !e.host.includes('*')).map((e) => [e.host, e]),
+  // A host two owners register keys to its first entry, the same one `findEgressEntry(url)` returns without an owner.
+  [...EGRESS_ENTRIES.filter((e) => !e.host.includes('*'))].reverse().map((e) => [e.host, e]),
 );
 
 function hostMatches(pattern: string, host: string): boolean {
@@ -109,13 +120,17 @@ function hostMatches(pattern: string, host: string): boolean {
 }
 
 /** The entry for a URL's host (exact beats wildcard), or `undefined` when unregistered. `*` never matches here. */
-export function findEgressEntry(url: string | URL): EgressHost | undefined {
+export function findEgressEntry(url: string | URL, owner?: string): EgressHost | undefined {
   let host: string;
   try {
     host = (typeof url === 'string' ? new URL(url) : url).hostname.toLowerCase();
   } catch {
     return undefined;
   }
+  // With an owner, its own entry for the host wins, so two features may each register the same host.
+  const pool = owner === undefined ? EGRESS_ENTRIES : EGRESS_ENTRIES.filter((e) => e.owner === owner);
+  const own = pool.find((e) => e.host === host) ?? pool.find((e) => e.host !== '*' && hostMatches(e.host, host));
+  if (own || owner === undefined) return own;
   return EGRESS_ENTRIES.find((e) => e.host === host) ?? EGRESS_ENTRIES.find((e) => e.host !== '*' && hostMatches(e.host, host));
 }
 
