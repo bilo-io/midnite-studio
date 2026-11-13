@@ -174,9 +174,9 @@ test('a run picked from the left rail navigates the centre pane (Theme E)', asyn
   // Picking the council again lands back on its run list in the rail, and
   // selecting the run from there (not the old centre tab strip, which no
   // longer exists) drives the centre pane the same way starting one did.
-  // The council-list row's full name ("Roadmap 4 members") disambiguates it
+  // The council-list row's full name ("Roadmap 3 members") disambiguates it
   // from the breadcrumb's own "Roadmap" crumb, still on screen from before.
-  await page.getByRole('button', { name: 'Roadmap 4 members' }).click();
+  await page.getByRole('button', { name: 'Roadmap 3 members' }).click();
   await page.getByRole('button', { name: /First question/ }).click();
   await expect(activePane.getByRole('tab', { name: /^Optimist/ })).toBeVisible();
 });
