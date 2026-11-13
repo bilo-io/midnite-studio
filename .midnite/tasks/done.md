@@ -6,6 +6,10 @@
 
 The Level editor tab edits 3D levels in plan view on the 2D editor's canvas, model and picker: Select / Move, Place, Volume (a `prop` box, `sizeY` 3), Path and Rotate (yaw as Tiled's `rotation`, about the centre), a metre grid, footprints with a yaw tick, the terrain as an outline over its drape (`levelGet` reads it from the pack manifest), and an inspector for elevation, sizeY, pitch, roll, scale, model, collider and a light's fields with the world position from `levelEntityToWorld`. New scene makes a 3D scene. Not done: the canvas look and the third-person human pass (Theme H).
 
+## 2026-11-13 — Phase 132 Theme F — starters read their levels from files
+
+Every base and 3D genre scene builds from `levels/level.tmj` and keeps its procedural look; fps, crime and rts moved their layout into the file, shooter and soulslike read spawns from it, new games get `levels` in the manifest, and the 2D palette image is drawn at scaffold time and never committed. `starter-levels.test.ts` pins validity, the layout and the no-PNG rule.
+
 ## 2026-11-13 — Phase 132 Theme G — level tools for agents
 
 `game_level_list`, `game_level_get`, `game_level_set` and `game_goto` on the midnite MCP server (reads open whenever the server is on, writes behind `allowGames`, all four in an agent run's private server), adapters over the level service and runner `goto`, the tool-manifest pin, and a Levels section with the pre-0.12 migration recipe in the game-build skill (seven mirrored copies). Not done: the editor (D, E), starters reading levels (F), the human check (H).

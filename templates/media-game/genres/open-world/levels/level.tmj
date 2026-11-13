@@ -1,0 +1,121 @@
+{
+  "type": "map",
+  "version": "1.10",
+  "tiledversion": "1.10.2",
+  "orientation": "orthogonal",
+  "renderorder": "right-down",
+  "infinite": false,
+  "width": 80,
+  "height": 80,
+  "tilewidth": 32,
+  "tileheight": 32,
+  "nextlayerid": 3,
+  "nextobjectid": 5,
+  "properties": [
+    {
+      "name": "midnite.level",
+      "type": "int",
+      "value": 1
+    },
+    {
+      "name": "midnite.dimension",
+      "type": "string",
+      "value": "3d"
+    },
+    {
+      "name": "midnite.metresPerTile",
+      "type": "int",
+      "value": 1
+    },
+    {
+      "name": "midnite.groundY",
+      "type": "int",
+      "value": 0
+    },
+    {
+      "name": "midnite.terrain",
+      "type": "string",
+      "value": "world"
+    }
+  ],
+  "tilesets": [],
+  "layers": [
+    {
+      "id": 1,
+      "name": "objects",
+      "type": "objectgroup",
+      "draworder": "topdown",
+      "opacity": 1,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "objects": [
+        {
+          "id": 1,
+          "name": "player",
+          "type": "spawn",
+          "x": 70.4,
+          "y": 992,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 2,
+          "name": "car",
+          "type": "prop",
+          "x": 144,
+          "y": 832,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "color",
+              "type": "string",
+              "value": "#d1453b"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "name": "car",
+          "type": "prop",
+          "x": -144,
+          "y": -960,
+          "width": 0,
+          "height": 0,
+          "rotation": -180,
+          "visible": true,
+          "properties": [
+            {
+              "name": "color",
+              "type": "string",
+              "value": "#3b82f6"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "name": "car",
+          "type": "prop",
+          "x": 960,
+          "y": 144,
+          "width": 0,
+          "height": 0,
+          "rotation": -90,
+          "visible": true,
+          "properties": [
+            {
+              "name": "color",
+              "type": "string",
+              "value": "#eab308"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -14,10 +14,12 @@
  */
 import * as THREE from 'three';
 
+import { currentLevel, fetchLevel } from 'kit/core/level.js';
 import { createCameraRig } from 'kit/three/cameras.js';
 import { createEnvironment } from 'kit/three/environment.js';
 import { createHud } from 'kit/three/hud.js';
 import { createInput } from 'kit/three/input.js';
+import { buildLevel3d } from 'kit/three/level.js';
 import { createRenderer, startLoop } from 'kit/three/loop.js';
 import { repeatFor } from 'kit/three/materials.js';
 
@@ -59,10 +61,11 @@ export async function startLevel() {
   const baseMaterial = materials.get('stone', { repeat: [1, 1], tint: 0x8a8498 });
   /** @type {THREE.PointLight[]} */
   const lights = [];
-  for (let i = 0; i < 12; i += 1) {
-    const a = (i / 12) * Math.PI * 2;
-    const x = Math.cos(a) * 10;
-    const z = Math.sin(a) * 10;
+  // The lantern posts are `lantern` entities in `levels/level.tmj` (a `light` property marks the ones that carry a real light).
+  const levelName = currentLevel('level');
+  const level = await buildLevel3d({ scene }, await fetchLevel(levelName));
+  for (const { entity, world } of level.entities.filter((p) => p.entity.name === 'lantern')) {
+    const [x, , z] = world.position;
     const post = new THREE.Mesh(new THREE.BoxGeometry(0.3, 3, 0.3), postMaterial);
     post.position.set(x, 1.5, z);
     post.castShadow = true;
@@ -73,7 +76,7 @@ export async function startLevel() {
     lamp.scale.y = 1.25;
     scene.add(post, base, lamp);
     // A real light on every sixth lantern (two warm pools on the floor is plenty).
-    if (i % 6 === 0) {
+    if (entity.properties.light) {
       const light = new THREE.PointLight(0xff9a3c, 14, 16, 1.6);
       light.position.set(x * 0.9, 2.8, z * 0.9);
       scene.add(light);
@@ -114,7 +117,7 @@ export async function startLevel() {
       rig.update(realDt, genre.cameraFrame());
       lights.forEach((l, i) => (l.intensity = 8 + flickerOf(clock, i * 2.1) * 3));
     },
-    state: () => ({ camera: rig.mode, juice: juice.state(), ...genre.state() }),
+    state: () => ({ level: levelName, camera: rig.mode, juice: juice.state(), ...genre.state() }),
   });
   // Shutdown ends the crowd bed and releases the sky along with the loop.
   const stopLoop = loop.stop;

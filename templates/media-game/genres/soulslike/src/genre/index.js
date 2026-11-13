@@ -36,10 +36,11 @@ const ATTACKS = {
   heavy: { hitAt: 0.55, duration: 0.95, damage: 28, reach: 2.7, arcDeg: 80 },
 };
 const HOLLOW = { hp: 40, speed: 1.9, aggro: 10, reach: 1.8, windup: 0.8, active: 0.2, recovery: 0.8, damage: 15 };
-const BOSS = { hp: 300, speed: 1.6, wake: 14, home: /** @type {[number, number, number]} */ ([0, 0, -20]) };
-const HOLLOW_SPAWNS = /** @type {const} */ ([[-8, -2], [8, -2], [-10, -12]]);
-const BONFIRE = /** @type {const} */ ([-4, 0, 8]);
-const PLAYER_SPAWN = /** @type {const} */ ([0, 0.1, 6]);
+// Where things stand comes from `levels/level.tmj` (the `boss`, `hollow` and `bonfire` entities and the spawn); these are the fallback.
+const DEFAULT_BOSS = { hp: 300, speed: 1.6, wake: 14, home: /** @type {[number, number, number]} */ ([0, 0, -20]) };
+const DEFAULT_HOLLOW_SPAWNS = /** @type {const} */ ([[-8, -2], [8, -2], [-10, -12]]);
+const DEFAULT_BONFIRE = /** @type {const} */ ([-4, 0, 8]);
+const DEFAULT_PLAYER_SPAWN = /** @type {const} */ ([0, 0.1, 6]);
 
 /** Unit `[x, z]` facing for a body yaw (0 looks down -z). */
 const facingOf = (/** @type {number} */ yaw) => [-Math.sin(yaw), -Math.cos(yaw)];
@@ -72,10 +73,16 @@ const inArc = (from, facing, target, reach, arcDeg) => {
  *   input: ReturnType<typeof import('kit/three/input.js').createInput>,
  *   fx: ReturnType<typeof import('./fx.js').createFx>,
  *   avatar: import('three').Object3D,
+ *   layout?: { spawn?: [number, number, number], bonfire?: [number, number, number], boss?: [number, number, number], hollows?: [number, number][] },
  * }} ctx
  */
 export function installGenre(scene, ctx) {
   const { character, rig, hud, input, fx, avatar } = ctx;
+  const layout = ctx.layout ?? {};
+  const BOSS = { ...DEFAULT_BOSS, home: /** @type {[number, number, number]} */ ([...(layout.boss ?? DEFAULT_BOSS.home)]) };
+  const HOLLOW_SPAWNS = layout.hollows?.length ? layout.hollows : DEFAULT_HOLLOW_SPAWNS;
+  const BONFIRE = layout.bonfire ?? DEFAULT_BONFIRE;
+  const PLAYER_SPAWN = layout.spawn ?? DEFAULT_PLAYER_SPAWN;
   const { juice, moment } = fx;
   const curtain = createCurtain(fx);
   const extra = createInput(SOULS_BINDINGS);
