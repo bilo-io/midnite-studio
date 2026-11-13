@@ -636,3 +636,110 @@ describe('chmod-600', () => {
     expect((await stat(path)).mode & 0o777).toBe(0o644);
   });
 });
+
+describe('update-package and remove-package (Phase 122 Theme G)', () => {
+  let git: { diffExit: number; managerExit: number; branchExists: boolean };
+  const proc: SensorRunProcess = async (command, args) => {
+    calls.push({ command, args });
+    if (command === 'git') {
+      const rest = args.slice(2); // after `-C <dir>`
+      if (rest[0] === 'rev-parse' && rest[1] === '--show-toplevel') return ok(`${root}/repo\n`);
+      if (rest[0] === 'rev-parse') return ok('', git.branchExists ? 0 : 1);
+      if (rest[0] === 'diff') return ok('', git.diffExit);
+      return ok();
+    }
+    if (command === 'pnpm' || command === 'cargo') return ok('', git.managerExit, git.managerExit ? 'ERR_PNPM_NO_MATCHING_VERSION' : '');
+    return { ok: false, reason: 'not-installed', hint: command };
+  };
+  const lockfilePath = (): string => join(root, 'repo', 'pnpm-lock.yaml');
+  const finding = async (): Promise<SecurityFinding> => {
+    await mkdir(join(root, 'repo'), { recursive: true });
+    await writeFile(lockfilePath(), 'lockfileVersion: 9\n');
+    return record({
+      source: 'guard',
+      category: 'vulnerability',
+      evidence: [{ kind: 'path', path: lockfilePath() }],
+      remediation: [{ id: 'update-package', name: 'lodash', from: '4.17.20', to: '4.17.21' }, { id: 'remove-package', name: 'evil-pkg', version: '1.0.0' }],
+    });
+  };
+  const update = { id: 'update-package', name: 'lodash', from: '4.17.20', to: '4.17.21' } as const;
+  const actionsFor = (over: Partial<ResponseActionDeps> = {}) => createResponseActions(deps({ runProcess: proc, userData, ...over }));
+  const named = (command: string) => calls.filter((c) => c.command === command).map((c) => c.args.join(' '));
+
+  beforeEach(() => {
+    git = { diffExit: 1, managerExit: 0, branchExists: false };
+  });
+
+  it('shows every command it will run, and runs nothing at preview', async () => {
+    const f = await finding();
+    const preview = await previewAction(ledger, actionsFor(), f.id, update);
+    expect(preview).toMatchObject({ ok: true, value: { actionId: 'update-package', confirm: true, title: expect.stringContaining('lodash') } });
+    const moves = preview.ok ? preview.value.moves : [];
+    expect(moves.some((m) => m.includes('pnpm up lodash@4.17.21 --ignore-scripts --lockfile-only'))).toBe(true);
+    expect(moves.some((m) => m.startsWith('git worktree add -b guard/update-lodash-4-17-21'))).toBe(true);
+    expect(calls.filter((c) => c.command === 'pnpm' || named('git').some((a) => a.includes('worktree add')))).toEqual([]);
+  });
+
+  it('refuses to act without the preview’s digest', async () => {
+    const f = await finding();
+    const result = await runActionConfirmed(ledger, actionsFor(), f.id, update, undefined);
+    expect(result).toMatchObject({ ok: false });
+    expect(named('pnpm')).toEqual([]);
+  });
+
+  it('makes the branch in a worktree, runs the manager there with scripts off, commits, and never uses sudo', async () => {
+    const f = await finding();
+    const result = await runAction(ledger, actionsFor(), f.id, update);
+    expect(result).toMatchObject({ ok: true, value: { actionId: 'update-package', detail: expect.stringContaining('guard/update-lodash-4-17-21') } });
+    expect(named('pnpm')).toEqual(['up lodash@4.17.21 --ignore-scripts --lockfile-only']);
+    const pnpm = calls.find((c) => c.command === 'pnpm')!;
+    expect(pnpm.args.join(' ')).not.toContain('sudo');
+    expect(calls.some((c) => c.command === 'sudo' || c.args.includes('sudo'))).toBe(false);
+    const gitArgs = named('git');
+    expect(gitArgs.some((a) => a.includes('worktree add -b guard/update-lodash-4-17-21'))).toBe(true);
+    expect(gitArgs.some((a) => a.includes('-c core.hooksPath=/dev/null commit'))).toBe(true);
+    expect(gitArgs.some((a) => a.includes('worktree remove --force'))).toBe(true);
+    expect(gitArgs.some((a) => a.includes('branch -D'))).toBe(false);
+    expect(gitArgs.some((a) => /push|checkout|switch/.test(a))).toBe(false);
+  });
+
+  it('removes a package the same way', async () => {
+    const f = await finding();
+    const result = await runAction(ledger, actionsFor(), f.id, { id: 'remove-package', name: 'evil-pkg', version: '1.0.0' });
+    expect(result).toMatchObject({ ok: true });
+    expect(named('pnpm')).toEqual(['remove evil-pkg --ignore-scripts --lockfile-only']);
+  });
+
+  it('removes the worktree and the branch it made when the manager fails', async () => {
+    git.managerExit = 1;
+    const f = await finding();
+    const result = await runAction(ledger, actionsFor(), f.id, update);
+    expect(result).toMatchObject({ ok: false, message: expect.stringContaining('ERR_PNPM_NO_MATCHING_VERSION') });
+    expect(named('git').some((a) => a.includes('branch -D guard/update-lodash-4-17-21'))).toBe(true);
+  });
+
+  it('cleans up and says so when nothing changed', async () => {
+    git.diffExit = 0;
+    const f = await finding();
+    const result = await runAction(ledger, actionsFor(), f.id, update);
+    expect(result).toMatchObject({ ok: false, message: expect.stringContaining('nothing to commit') });
+    expect(named('git').some((a) => a.includes('branch -D'))).toBe(true);
+  });
+
+  it('refuses when the fix branch already exists, and an action the finding does not carry', async () => {
+    git.branchExists = true;
+    const f = await finding();
+    expect(await runAction(ledger, actionsFor(), f.id, update)).toMatchObject({ ok: false, message: expect.stringContaining('already exists') });
+    expect(named('pnpm')).toEqual([]);
+    expect(await runAction(ledger, actionsFor(), f.id, { id: 'update-package', name: 'lodash', from: '1.0.0', to: '9.9.9' })).toMatchObject({ ok: false });
+  });
+
+  it('answers calmly where the app has no userData, and refuses a finding with no lockfile', async () => {
+    const f = await finding();
+    const none = actionsFor({ userData: undefined as never });
+    expect(none.unavailable()).toHaveProperty('update-package');
+    expect(await previewAction(ledger, none, f.id, update)).toMatchObject({ ok: true, value: { unavailable: { reason: expect.stringContaining('worktree') } } });
+    const bare = await record({ source: 'guard', evidence: [{ kind: 'path', path: join(root, 'notes.txt') }], remediation: [update] });
+    expect(await previewAction(ledger, actionsFor(), bare.id, update)).toMatchObject({ ok: false });
+  });
+});

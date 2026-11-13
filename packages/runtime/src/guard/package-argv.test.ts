@@ -29,3 +29,13 @@ describe('package fix argv', () => {
     expect(packageFixBranch('remove', 'evil')).toBe('guard/remove-evil');
   });
 });
+
+describe('lockfileOnly (Phase 122 Theme G)', () => {
+  it('adds the manager’s lockfile-only flag where it has one', () => {
+    expect(updatePackageArgv('pnpm', 'lodash', '4.17.21', { lockfileOnly: true })?.args).toEqual(['up', 'lodash@4.17.21', '--ignore-scripts', '--lockfile-only']);
+    expect(updatePackageArgv('npm', 'lodash', '4.17.21', { lockfileOnly: true })?.args).toContain('--package-lock-only');
+    expect(removePackageArgv('pnpm', 'evil', { lockfileOnly: true })?.args).toEqual(['remove', 'evil', '--ignore-scripts', '--lockfile-only']);
+    expect(updatePackageArgv('yarn', 'a', '1.0.0', { lockfileOnly: true })?.args).toEqual(['up', 'a@1.0.0']);
+    expect(updatePackageArgv('cargo', 'serde', '1.0.200', { lockfileOnly: true })?.args).toEqual(['update', '-p', 'serde', '--precise', '1.0.200']);
+  });
+});

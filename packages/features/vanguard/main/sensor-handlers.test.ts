@@ -86,7 +86,7 @@ describe('sensor handlers', () => {
     expect(state.quarantine).toEqual([]);
     expect(Object.keys(state.unavailable).sort()).toEqual([
       'close-tab', 'forget-origin', 'move-to-vault', 'open-in-agents', 'open-system-settings', 'open-tab', 'pause-session', 'pin-package',
-      'redact-line', 'remove-package', 'revoke-mcp-server', 'rotate', 'update-package',
+      'redact-line', 'revoke-mcp-server', 'rotate',
     ]);
   });
 

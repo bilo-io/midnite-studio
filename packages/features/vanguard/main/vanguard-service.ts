@@ -144,6 +144,7 @@ export async function createVanguardService(
     ...(r.interrupt ? { interrupt: r.interrupt } : {}),
     ...(r.revokeMcpServer ? { revokeMcpServer: r.revokeMcpServer } : {}),
     ...(r.issueApp ? { issueApp: r.issueApp } : {}),
+    userData: options.userData,
     retentionDays,
   });
   // Files past their retention go at start; the response-state read purges again, so a long-running app does too.

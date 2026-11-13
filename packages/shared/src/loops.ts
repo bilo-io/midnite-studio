@@ -646,6 +646,8 @@ export const LoopRunRecordSchema = z.object({
   exitCode: z.number().int().optional(),
   status: LoopRunStatusSchema,
   findingsSummary: LoopRunFindingsSummarySchema.optional(),
+  /** The one finding a *Fix with agent* run was scoped to (Phase 122 Theme G); absent on every other run. */
+  findingFingerprint: z.string().min(1).optional(),
   /**
    * The suite app that started the run. Never stored — each app's ledger file is named for it —
    * and set by the merged read (`listLoopRuns`), so a run in the list says whose it was.

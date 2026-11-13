@@ -2282,6 +2282,8 @@ export const LoopRunStartRequest = z.object({
    * a renderer that predates the picker sends none.
    */
   model: LoopModelSchema.optional(),
+  /** Set by *Fix with agent*: the fingerprint of the one finding the run is scoped to. */
+  findingFingerprint: z.string().min(1).optional(),
 });
 export const LoopRunStartResponse = GitOpResultOf(LoopRunRecordSchema);
 
