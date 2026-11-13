@@ -46,6 +46,13 @@ import {
   GameScreenshotInputSchema,
   GameSetManifestInputSchema,
   GameStateOutputSchema,
+  GameLevelGetInputSchema,
+  GameLevelGetOutputSchema,
+  GameLevelListOutputSchema,
+  GameLevelSetInputSchema,
+  GameLevelSetOutputSchema,
+  GameGotoInputSchema,
+  GameGotoOutputSchema,
   GameToolTargetSchema,
   GameAssertFrameInputSchema,
   GameAssertStateInputSchema,
@@ -288,6 +295,10 @@ type McpToolEntry = {
     | 'game_assert_state'
     | 'game_assert_frame'
     | 'game_playtest'
+    | 'game_level_list'
+    | 'game_level_get'
+    | 'game_level_set'
+    | 'game_goto'
     | 'terrain_list'
     | 'terrain_open'
     | 'terrain_get_spec'
@@ -1119,6 +1130,42 @@ export const MCP_TOOLS = {
       'Runs `playtests/*.json` (by name, inline, or all) deterministically, answering pass/fail per assertion with failure screenshots — use instead of a hand-driven play session; refused unless its Settings switch is on.',
     input: GamePlaytestInputSchema,
     output: GameContentOutputSchema,
+    readOnly: false,
+  },
+  game_level_list: {
+    id: 'game_level_list',
+    title: 'List a game’s levels',
+    description:
+      'Lists the scenes in a game’s `levels/` folder with their size and 2D or 3D kind, the start scene, and whether the game reads its levels from files — use instead of listing the folder yourself.',
+    input: GameToolTargetSchema,
+    output: GameLevelListOutputSchema,
+    readOnly: true,
+  },
+  game_level_get: {
+    id: 'game_level_get',
+    title: 'Read a game level',
+    description:
+      'Reads one level (`levels/<scene>.tmj`, Tiled JSON) with the problems found in it, no images — use instead of reading the file when you need to know what the editor would show.',
+    input: GameLevelGetInputSchema,
+    output: GameLevelGetOutputSchema,
+    readOnly: true,
+  },
+  game_level_set: {
+    id: 'game_level_set',
+    title: 'Write a game level',
+    description:
+      'Validates a Tiled JSON level and writes it to `levels/<scene>.tmj` as one commit of that file; `create` is needed for a new scene — use instead of editing the file, so a bad level is refused with its reason; refused unless its Settings switch is on.',
+    input: GameLevelSetInputSchema,
+    output: GameLevelSetOutputSchema,
+    readOnly: false,
+  },
+  game_goto: {
+    id: 'game_goto',
+    title: 'Jump a game to a scene',
+    description:
+      'Jumps the running game to a scene through its hook, or reloads or arms the next run when it cannot — use after `game_level_set` to see the level; refused unless its Settings switch is on.',
+    input: GameGotoInputSchema,
+    output: GameGotoOutputSchema,
     readOnly: false,
   },
   /*
