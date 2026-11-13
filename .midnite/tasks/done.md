@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Ad hoc — onboarding kit skills made project-agnostic
+
+The kit's `midnite-plan`, `-build`, `-build-adhoc`, `-test`, `-maintain`, `-deploy` and `-design` (all three mirrors) no longer name Midnite Studio, its moon commands, Electron or its release tags; they defer to the target repo's convention file and testing doc.
+
 ## 2026-11-13 — Phase 89 Theme K (part) — renderer variant seam e2e
 
 One Playwright e2e in `knowledge-canvas.spec.ts`: pick Telemetry HUD from the default Atlas, the sigma canvas layers are replaced by the 3D engine's canvas, and the choice survives a reload. Needs a real canvas mount and `page.reload()` persistence of `rendererVariant`. `MAX_DECLARED_E2E` 485 -> 486. Still open in Theme K: bundle ceilings, idle CPU, the three visual baselines, the full gate.
@@ -15923,6 +15927,14 @@ New `midnite-menu.test.tsx`, four readout tests in `monitor-cluster.test.tsx`, a
 ## 2026-11-13 — Phase 88 Theme G (verification, automated half) — terminal e2e and entry-chunk exclusion
 
 All nine terminal e2e specs the phase names pass locally against xterm 6.0.0 (no CI; one spec at a time, except `kanban` and `notes`, which ran together), and the entry chunk (1118.3 KB) holds no xterm or addon string; its static import closure is one chunk. `bundle-budget.spec.ts`'s total-JS test fails at 44448.7 KB against 15950 KB, unrelated to xterm and recorded in the phase doc. The human pass stays open, listed in the phase's Theme G Headlines.
+
+## 2026-11-13 — Ad hoc (skills) — midnite-swarm split into agents, fleet, swarm and orchestrate
+
+The old "one agent per phase" swarm is now `midnite-fleet`; `midnite-swarm` is one problem put through staged agents, `midnite-orchestrate` is the shared core and `midnite-agents` the umbrella (Fleet default). Mirrored into the three skill dirs and the onboarding kit, the convention files name them, and the app's Swarm command now defaults to `/midnite-fleet` (ui-store v40 migrates saved `/midnite-swarm`).
+
+## 2026-11-13 — Ad hoc (templates) — kit's address-issue and verify skills made project-agnostic
+
+The onboarding kit's `midnite-address-issue` and `midnite-verify` no longer name Midnite Studio, its repos, moon tasks or packages; they point at the onboarded repo's own forge, convention file, gate and testing doc. Mirrored across the three `templates/midnite` skill dirs.
 
 ## 2026-11-13 — Phase 133 (Themes A–E) — councils as threads, a synthesis that finishes
 

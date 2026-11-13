@@ -99,7 +99,7 @@ import { useFileEditorStore } from './file-editor-store';
 import { cycleBrowserLayout, type BrowserLayout } from '@midnite/studio-feature-browser/renderer/store';
 import { bridge } from '../services/bridge';
 import { adoptRenamedPersistKey } from './persist-rename';
-import { migrateBuildPlanSkills, migratePrSkills, renameLegacySkillsIn } from './migrate-skill-renames';
+import { migrateBuildPlanSkills, migrateSwarmFleetSkills, migratePrSkills, renameLegacySkillsIn } from './migrate-skill-renames';
 import { migrateLoopSwitch } from './migrate-loop-switch';
 import { mergeCustomLoops, migrateCustomLoops, omitKey } from './migrate-custom-loops';
 import { migrateAppsToWebApps } from './migrate-web-apps';
@@ -3522,7 +3522,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 39,
+      version: 40,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         chatsWidthMode: state.chatsWidthMode,
@@ -3996,6 +3996,7 @@ export const useUiStore = create<UiState>()(
         if (version < 37) state.chatsWidthMode ??= DEFAULT_CHAT_WIDTH_MODE;
         if (version < 38) migratePrSkills(state);
         if (version < 39) migrateBuildPlanSkills(state);
+        if (version < 40) migrateSwarmFleetSkills(state);
         return state as PersistedUi;
       },
       /**

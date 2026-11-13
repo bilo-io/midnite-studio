@@ -5,13 +5,13 @@ description: End-to-end release automation combining release-prep and release-co
 
 **Invoke with:** [optional: 'major' | 'minor' | 'patch' | 'dry-run']
 
-You are running the **deployment and release** pipeline for **Midnite Studio**. This skill combines release preparation (version analysis, changelog drafting, lockstep bumping) and release finalization (tagging, merging to main, pushing, and GitHub release creation) into one seamless workflow.
+You are running the **deployment and release** pipeline for **this repo**. This skill combines release preparation (version analysis, changelog drafting, lockstep bumping) and release finalization (tagging, merging to main, pushing, and GitHub release creation) into one seamless workflow.
 
 ## Release Policy & Constraints
 
-- **Lockstep rule:** Every workspace package shares the same `MAJOR.MINOR` version (e.g. `0.0.x`).
+- **Versioning rule:** follow the repo's release scheme (its convention file or release doc) — e.g. whether workspace packages bump in lockstep, and how tags are named.
 - **Clean state:** Working tree must be clean before beginning.
-- **Verification:** `moon run :typecheck :lint :test && moon run root:version-check` must pass green.
+- **Verification:** the repo's gate (typecheck, lint, tests) and any version-consistency check it has must pass green.
 - **Confirmation:** Halts with a summary before irreversible steps (pushing tags or merging to main) unless `--auto` or explicit user confirmation is given.
 
 ---
@@ -23,17 +23,17 @@ You are running the **deployment and release** pipeline for **Midnite Studio**. 
    - Fetch tags: `git fetch origin --tags --quiet`.
    - Ensure up-to-date main: `git switch main && git pull --ff-only`.
 2. **Find last release & gather commits:**
-   - Base tag: `git describe --tags --abbrev=0 --match 'v*'` (or `previous = null` if no tags).
+   - Base tag: the latest release tag under the repo's tag scheme, e.g. `git describe --tags --abbrev=0 --match '<tag-pattern>'` (or `previous = null` if no tags). Do not assume bare `vX.Y.Z`; a repo that shares a release feed with others may namespace its tags.
    - Commits since base: `git log <base>..HEAD --no-merges --format='%H%x09%s%x09%b'`.
    - PR context: query merged PRs via `gh pr list --state merged`.
 3. **Determine version bump:**
    - Auto-detect bump level from conventional commits (`breaking` → major, `feat` → minor, `fix` → patch), or honor `$ARGUMENTS` override (`major`/`minor`/`patch`).
-   - Bump target version across `package.json` in root and all workspace packages (`packages/*`, `apps/*`).
+   - Bump the target version in every manifest the release scheme covers (e.g. `package.json` files, `Cargo.toml`, `pyproject.toml`).
 4. **Draft CHANGELOG.md:**
    - Add new version header: `## [X.Y.Z] - YYYY-MM-DD`.
    - Curate commits into Features, Fixes, Architecture, Documentation sections with PR links.
 5. **Verify Lockstep:**
-   - Run `node scripts/version-check.mjs`.
+   - Run the repo's version-consistency check, if it has one.
 
 ---
 
@@ -43,7 +43,7 @@ Show the release plan:
 - Target version: `vX.Y.Z` (bump type: major/minor/patch).
 - Curated changelog preview.
 - List of packages bumped.
-- Pre-release gate results (`moon run :typecheck :lint :test`).
+- Pre-release gate results.
 
 Stop for user go-ahead before executing irreversible steps.
 
@@ -53,7 +53,7 @@ Stop for user go-ahead before executing irreversible steps.
 
 1. **Commit release:**
    ```bash
-   git add package.json packages/*/package.json apps/*/package.json CHANGELOG.md
+   git add <the bumped manifests> CHANGELOG.md
    git commit -m "chore(release): vX.Y.Z"
    ```
 2. **Tag release:**
@@ -67,6 +67,7 @@ Stop for user go-ahead before executing irreversible steps.
    ```
 4. **Publish GitHub Release:**
    - Extract section from CHANGELOG for `X.Y.Z`.
+   - Create the release on the repo's forge, with the tag name its release scheme dictates (shown here as `vX.Y.Z`). If releases are published to a different repo or feed, or an updater/installer manifest must be written, follow the repo's release doc for that step.
    - Run:
      ```bash
      gh release create "vX.Y.Z" --title "vX.Y.Z" --notes-file <notes_file>

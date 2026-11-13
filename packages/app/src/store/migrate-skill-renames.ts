@@ -91,6 +91,40 @@ export function migrateBuildPlanSkills(state: Record<string, unknown>): Record<s
   return state;
 }
 
+/**
+ * v39 → v40: `/midnite-swarm` was the "one agent per phase" fan-out, which is now `/midnite-fleet`;
+ * `/midnite-swarm` itself means something else (one problem, one agent per stage). Every saved
+ * `/midnite-swarm` was typed or seeded under the old meaning, so it becomes `/midnite-fleet`. Same
+ * fields as the v39 arm.
+ */
+const SWARM_FLEET_RENAMES: readonly (readonly [RegExp, string])[] = [
+  [/(?<![\w-])midnite-swarm(?![\w-])/g, 'midnite-fleet'],
+];
+
+export function renameSwarmFleetSkills(prompt: string): string {
+  return SWARM_FLEET_RENAMES.reduce((out, [pattern, next]) => out.replace(pattern, next), prompt);
+}
+
+function renameSwarmFleetSkillsDeep(value: unknown, onlyKeys?: ReadonlySet<string>, key?: string): unknown {
+  if (typeof value === 'string') return onlyKeys && !(key && onlyKeys.has(key)) ? value : renameSwarmFleetSkills(value);
+  if (Array.isArray(value)) return value.map((inner) => renameSwarmFleetSkillsDeep(inner, onlyKeys, key));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([k, inner]) => [k, renameSwarmFleetSkillsDeep(inner, onlyKeys, k)]),
+    );
+  }
+  return value;
+}
+
+/** The v40 arm. */
+export function migrateSwarmFleetSkills(state: Record<string, unknown>): Record<string, unknown> {
+  for (const key of ['agentSkills', 'loopModifierSkills', 'cardSkillByTask', 'columnSkillByProject']) {
+    if (state[key] !== undefined) state[key] = renameSwarmFleetSkillsDeep(state[key]);
+  }
+  if (state.customLoops !== undefined) state.customLoops = renameSwarmFleetSkillsDeep(state.customLoops, CUSTOM_LOOP_SKILL_KEYS);
+  return state;
+}
+
 export function renameLegacySkills(prompt: string): string {
   return SKILL_RENAMES.reduce((out, [pattern, next]) => out.replace(pattern, next), prompt);
 }

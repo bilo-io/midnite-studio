@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   migrateBuildPlanSkills,
+  migrateSwarmFleetSkills,
+  renameSwarmFleetSkills,
   migratePrSkills,
   renameBuildPlanSkills,
   renameLegacySkills,
@@ -92,5 +94,28 @@ describe('build/plan skill renames (v38 → v39)', () => {
     expect(migrated.agentSkills).toEqual({ execBacklog: '/midnite-build', brainstorm: '/midnite-plan' });
     expect(migrated.columnSkillByProject).toEqual({ p: { 'in progress': '/midnite-build' } });
     expect(migrated.customLoops).toEqual([{ label: 'midnite-create fans', fallbackPrompt: '/loop /midnite-build' }]);
+  });
+});
+
+describe('swarm → fleet skill rename (v39 → v40)', () => {
+  it('renames midnite-swarm and leaves lookalikes and the new skills alone', () => {
+    expect(renameSwarmFleetSkills('/midnite-swarm 91 101')).toBe('/midnite-fleet 91 101');
+    expect(renameSwarmFleetSkills('/loop /midnite-swarm')).toBe('/loop /midnite-fleet');
+    expect(renameSwarmFleetSkills('/my-midnite-swarm')).toBe('/my-midnite-swarm');
+    expect(renameSwarmFleetSkills('/midnite-swarm-x')).toBe('/midnite-swarm-x');
+    expect(renameSwarmFleetSkills('/midnite-fleet')).toBe('/midnite-fleet');
+  });
+
+  it('rewrites every persisted skill field, and only the skill keys of a custom loop', () => {
+    const migrated = migrateSwarmFleetSkills({
+      agentSkills: { execSwarm: '/midnite-swarm', prReview: '/midnite-pr-review' },
+      cardSkillByTask: { t1: '/midnite-swarm' },
+      columnSkillByProject: { p: { 'in progress': '/midnite-swarm' } },
+      customLoops: [{ label: 'midnite-swarm fans', fallbackPrompt: '/loop /midnite-swarm' }],
+    });
+    expect(migrated.agentSkills).toEqual({ execSwarm: '/midnite-fleet', prReview: '/midnite-pr-review' });
+    expect(migrated.cardSkillByTask).toEqual({ t1: '/midnite-fleet' });
+    expect(migrated.columnSkillByProject).toEqual({ p: { 'in progress': '/midnite-fleet' } });
+    expect(migrated.customLoops).toEqual([{ label: 'midnite-swarm fans', fallbackPrompt: '/loop /midnite-fleet' }]);
   });
 });
