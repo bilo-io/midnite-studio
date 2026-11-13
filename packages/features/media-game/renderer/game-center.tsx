@@ -4,6 +4,7 @@ import { LuGamepad2, LuPencilRuler } from 'react-icons/lu';
 import { EmptyState } from '@midnite/studio-frame';
 
 import { GameConsoleDrawer } from './game-console-drawer';
+import { LevelEditor } from './level/level-editor';
 import { isLive, useGameRunStore } from './game-run-store';
 import { GameRunnerHost, type GameResolution } from './game-runner-host';
 import type { GameMode } from './use-game-mode';
@@ -93,7 +94,7 @@ export function GameCenter({
         hidden={mode !== 'editor'}
         className="min-h-0 flex-1"
       >
-        <EmptyState icon={LuPencilRuler} title="Level editing is not available for this game yet." body="Press Run to play it." />
+        {gameId ? <LevelEditor gameId={gameId} /> : <EmptyState icon={LuPencilRuler} title="No game selected" body="Pick a game from the list to edit its levels." />}
       </div>
       <div
         role="tabpanel"

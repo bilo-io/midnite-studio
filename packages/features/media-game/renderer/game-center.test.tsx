@@ -9,6 +9,7 @@ import { useGameRunStore } from './game-run-store';
 import type { GameMode } from './use-game-mode';
 
 vi.mock('./game-runner-host', () => ({ GameRunnerHost: () => <div data-testid="runner" /> }));
+vi.mock('./level/level-editor', () => ({ LevelEditor: () => <div data-testid="level-editor" /> }));
 vi.mock('./game-console-drawer', () => ({ GameConsoleDrawer: () => <div data-testid="console" /> }));
 
 beforeEach(() => useGameRunStore.setState({ runs: {}, logs: {}, clearedAt: {}, popped: null }));
@@ -31,7 +32,7 @@ describe('GameCenter', () => {
     expect(document.getElementById('game-panel-editor')?.hidden).toBe(false);
     // Both panels stay mounted.
     expect(screen.getByTestId('runner')).toBeTruthy();
-    expect(screen.getByText('Level editing is not available for this game yet.')).toBeTruthy();
+    expect(screen.getByTestId('level-editor')).toBeTruthy();
     expect(screen.getByText('scenes')).toBeTruthy();
   });
 

@@ -1,0 +1,545 @@
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  LuEraser,
+  LuEye,
+  LuEyeOff,
+  LuMapPin,
+  LuMousePointer2,
+  LuPaintbrush,
+  LuPipette,
+  LuPencilRuler,
+  LuPlus,
+  LuRedo2,
+  LuSave,
+  LuSquare,
+  LuTrash2,
+  LuTriangleAlert,
+  LuUndo2,
+} from 'react-icons/lu';
+import { useQueryClient } from '@tanstack/react-query';
+
+import { GAME_LEVEL_ENTITY_TYPES_2D } from '@midnite/studio-shared';
+import { EmptyState, EmptyStateButton, Skeleton } from '@midnite/studio-frame';
+
+import { LevelCanvas, type CanvasPointer } from './level-canvas';
+import {
+  addLayer,
+  addObject,
+  beginStroke,
+  cellCentre,
+  deleteObject,
+  endStroke,
+  erase,
+  fillRect,
+  findObject,
+  isLevel3d,
+  layerById,
+  moveObject,
+  paint,
+  pick,
+  redo,
+  removeProperty,
+  renameLayer,
+  select,
+  setActiveLayer,
+  setObjectField,
+  setProperty,
+  toggleVisible,
+  undo,
+  rectCells,
+  type Cell,
+  type EditLevel,
+  type EditState,
+  type LevelObject,
+  type LevelProperty,
+  type ObjectField,
+} from './level-edit-model';
+import { blockingIssues, useLevelStore, type OpenLevel } from './level-store';
+import { lineCells } from './level-view';
+import { fetchLevel, useLevel, useLevels, useSaveOpenLevel } from './use-levels';
+
+export type LevelTool = 'paint' | 'erase' | 'rect' | 'pick' | 'entity' | 'select';
+
+const TOOLS: readonly { tool: LevelTool; label: string; key: string; icon: typeof LuPaintbrush }[] = [
+  { tool: 'paint', label: 'Paint', key: 'b', icon: LuPaintbrush },
+  { tool: 'erase', label: 'Erase', key: 'e', icon: LuEraser },
+  { tool: 'rect', label: 'Rectangle', key: 'r', icon: LuSquare },
+  { tool: 'pick', label: 'Pick', key: 'i', icon: LuPipette },
+  { tool: 'entity', label: 'Entity', key: 'o', icon: LuMapPin },
+  { tool: 'select', label: 'Select', key: 'v', icon: LuMousePointer2 },
+];
+
+const CUSTOM = '__custom__';
+
+type Updater = (fn: (state: EditState) => EditState) => void;
+
+/**
+ * The Level editor tab's content (Phase 132 Theme D): a toolbar, the layer list, the canvas and a palette with
+ * the entity inspector. The open level and its undo stack live in the per-game {@link useLevelStore}, so
+ * switching tabs, scenes or games loses nothing. The letter keys and `Mod+z` act only while the canvas has
+ * focus; they are deliberately not in the app's command registry.
+ */
+export function LevelEditor({ gameId }: { gameId: string | null }) {
+  const client = useQueryClient();
+  const levels = useLevels(gameId);
+  const entry = useLevelStore((s) => (gameId ? s.byGame[gameId] : undefined));
+  const openNewScene = useLevelStore((s) => s.openNewScene);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const tried = useRef<string | null>(null);
+
+  const list = levels.data;
+  const first = list ? (list.start && list.scenes.some((s) => s.scene === list.start) ? list.start : list.scenes[0]?.scene) : undefined;
+
+  const openScene = async (scene: string) => {
+    if (!gameId) return;
+    setLoadError(null);
+    try {
+      useLevelStore.getState().open(gameId, scene, await fetchLevel(client, gameId, scene));
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  // A game with levels opens on its start scene. This only opens the file: the running game is not moved.
+  useEffect(() => {
+    if (!gameId || entry || !first || tried.current === `${gameId}:${first}`) return;
+    tried.current = `${gameId}:${first}`;
+    void openScene(first);
+    // `openScene` closes over the client and game only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameId, entry, first]);
+
+  if (!gameId) return <EmptyState icon={LuPencilRuler} title="No game selected" body="Pick a game from the list to edit its levels." />;
+  if (levels.isLoading) return <div className="p-4" data-testid="level-loading"><Skeleton className="h-8 w-48" /><Skeleton className="mt-3 h-64 w-full" /></div>;
+  if (levels.isError) return <LoadFailure message={levels.error instanceof Error ? levels.error.message : 'Levels could not be read.'} onRetry={() => void levels.refetch()} />;
+  if (loadError) return <LoadFailure message={loadError} onRetry={() => void (first ? openScene(entry?.scene ?? first) : levels.refetch())} />;
+  if (!entry) {
+    if (list && list.scenes.length === 0) {
+      return (
+        <EmptyState
+          icon={LuPencilRuler}
+          title="No levels yet"
+          body="A level is a Tiled map in levels/."
+          action={<EmptyStateButton icon={LuPlus} label="New scene" onClick={() => openNewScene(gameId)} />}
+        />
+      );
+    }
+    return <div className="p-4" data-testid="level-loading"><Skeleton className="h-8 w-48" /><Skeleton className="mt-3 h-64 w-full" /></div>;
+  }
+  return <OpenEditor key={`${gameId}:${entry.scene}`} gameId={gameId} entry={entry} readsLevels={list?.readsLevels ?? false} />;
+}
+
+function LoadFailure({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <EmptyState icon={LuTriangleAlert} title="The level could not be opened" body={message} action={<EmptyStateButton label="Retry" onClick={onRetry} />} />
+  );
+}
+
+function Banner({ children, testId }: { children: string; testId: string }) {
+  return (
+    <p role="status" data-testid={testId} className="flex shrink-0 items-start gap-2 border-b border-border bg-amber-500/10 px-3 py-1.5 text-xs text-foreground">
+      <LuTriangleAlert aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+      {children}
+    </p>
+  );
+}
+
+function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: OpenLevel; readsLevels: boolean }) {
+  const { edit } = entry;
+  const level = edit.level as EditLevel;
+  const save = useSaveOpenLevel(gameId);
+  const [saving, setSaving] = useState(false);
+  const [tool, setTool] = useState<LevelTool>('paint');
+  const [gid, setGid] = useState(1);
+  const [entityType, setEntityType] = useState<string>('spawn');
+  const [custom, setCustom] = useState('');
+  const [preview, setPreview] = useState<Cell[] | null>(null);
+  const drag = useRef<{ from: Cell; last: Cell } | { move: NonNullable<typeof edit.selection> } | null>(null);
+
+  const blocking = blockingIssues(entry);
+  const is3d = isLevel3d(level);
+  const readOnly = entry.unreadable || blocking.length > 0 || is3d;
+  const update: Updater = (fn) => useLevelStore.getState().update(gameId, fn);
+
+  // A scene changed on disk by someone else (an agent, Tiled) shows up when there is nothing of ours to lose.
+  const fresh = useLevel(gameId, entry.scene);
+  useEffect(() => {
+    const data = fresh.data;
+    if (!data || edit.dirty) return;
+    if (JSON.stringify(data.level) === JSON.stringify(edit.level)) return;
+    useLevelStore.getState().open(gameId, entry.scene, data);
+    // Only a new fetch can change what is on disk.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fresh.dataUpdatedAt]);
+
+  const activeLayer = layerById(level, edit.activeLayerId);
+  const objectLayerId = activeLayer?.type === 'objectgroup' ? activeLayer.id! : (level.layers.find((l) => l.type === 'objectgroup')?.id ?? null);
+  const tileLayerId = activeLayer?.type === 'tilelayer' ? activeLayer.id! : null;
+  const selected = findObject(level, edit.selection);
+  const entityName = entityType === CUSTOM ? custom.trim() : entityType;
+
+  const tilesets = level.tilesets;
+  const tiles = useMemo(() => paletteTiles({ tilesets }), [tilesets]);
+
+  const onPointer = (e: CanvasPointer) => {
+    if (readOnly) return;
+    const snap = (p: CanvasPointer) => (p.alt || !p.cell ? p.object : cellCentre(level, p.cell));
+    if (e.phase === 'down') {
+      if (tool === 'paint' || tool === 'erase') {
+        if (tileLayerId === null || !e.cell) return;
+        drag.current = { from: e.cell, last: e.cell };
+        update((s) => (tool === 'paint' ? paint(beginStroke(s), tileLayerId, [e.cell!], gid) : erase(beginStroke(s), tileLayerId, [e.cell!])));
+      } else if (tool === 'rect') {
+        if (!e.cell) return;
+        drag.current = { from: e.cell, last: e.cell };
+        setPreview([e.cell]);
+      } else if (tool === 'pick') {
+        if (tileLayerId === null || !e.cell) return;
+        const found = pick(edit, tileLayerId, e.cell);
+        if (found > 0) {
+          setGid(found);
+          setTool('paint');
+        }
+      } else if (tool === 'entity') {
+        if (objectLayerId === null || !entityName) return;
+        const at = snap(e);
+        update((s) => addObject(setActiveLayer(s, objectLayerId), objectLayerId, { type: entityName, x: at.x, y: at.y }));
+      } else if (tool === 'select') {
+        if (e.hit) {
+          drag.current = { move: e.hit };
+          update((s) => beginStroke(select(s, e.hit)));
+        } else update((s) => select(s, null));
+      }
+    } else if (e.phase === 'move') {
+      const d = drag.current;
+      if (!d) return;
+      if ('move' in d) {
+        const at = snap(e);
+        update((s) => moveObject(s, d.move, at.x, at.y));
+      } else if (e.cell) {
+        if (tool === 'rect') setPreview(rectCells(level, d.from, e.cell));
+        else if (tileLayerId !== null) {
+          const cells = lineCells(d.last, e.cell);
+          d.last = e.cell;
+          update((s) => (tool === 'paint' ? paint(s, tileLayerId, cells, gid) : erase(s, tileLayerId, cells)));
+        }
+      }
+    } else {
+      const d = drag.current;
+      drag.current = null;
+      if (!d) return;
+      if ('move' in d) update(endStroke);
+      else if (tool === 'rect') {
+        setPreview(null);
+        if (tileLayerId !== null && e.cell) update((s) => endStroke(fillRect(beginStroke(s), tileLayerId, d.from, e.cell!, gid)));
+      } else update(endStroke);
+    }
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const mod = event.metaKey || event.ctrlKey;
+    if (mod && event.key.toLowerCase() === 'z') {
+      event.preventDefault();
+      update(event.shiftKey ? redo : undo);
+      return;
+    }
+    if (mod || event.altKey) return;
+    if ((event.key === 'Delete' || event.key === 'Backspace') && edit.selection && !readOnly) {
+      event.preventDefault();
+      const sel = edit.selection;
+      update((s) => deleteObject(s, sel));
+      return;
+    }
+    const hit = TOOLS.find((t) => t.key === event.key.toLowerCase());
+    if (hit && !readOnly) {
+      event.preventDefault();
+      setTool(hit.tool);
+    }
+  };
+
+  const doSave = async () => {
+    setSaving(true);
+    try {
+      await save();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const firstIssue = entry.unreadable || blocking.length > 0 ? (blocking[0] ?? entry.issues[0]) : null;
+
+  return (
+    <div className="flex h-full min-h-0 flex-col" data-testid="level-editor">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-2 py-1">
+        <div role="radiogroup" aria-label="Tool" className="flex items-center gap-0.5">
+          {TOOLS.map(({ tool: t, label, key, icon: Icon }) => (
+            <button
+              key={t}
+              type="button"
+              role="radio"
+              aria-checked={tool === t}
+              aria-label={label}
+              title={`${label} (${key.toUpperCase()})`}
+              disabled={readOnly}
+              onClick={() => setTool(t)}
+              className={`rounded p-1.5 disabled:opacity-40 ${tool === t ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}
+            >
+              <Icon aria-hidden className="h-3.5 w-3.5" />
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-0.5">
+          <button type="button" aria-label="Undo" title="Undo (Mod+Z)" disabled={edit.past.length === 0} onClick={() => update(undo)} className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40">
+            <LuUndo2 aria-hidden className="h-3.5 w-3.5" />
+          </button>
+          <button type="button" aria-label="Redo" title="Redo (Mod+Shift+Z)" disabled={edit.future.length === 0} onClick={() => update(redo)} className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40">
+            <LuRedo2 aria-hidden className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        <span className="truncate text-xs text-muted-foreground" data-testid="level-scene-name">{entry.scene}{edit.dirty ? ' •' : ''}</span>
+        <button
+          type="button"
+          disabled={!edit.dirty || saving || readOnly}
+          onClick={() => void doSave()}
+          className="ml-auto flex items-center gap-1.5 rounded bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground disabled:opacity-40"
+        >
+          <LuSave aria-hidden className="h-3.5 w-3.5" />
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+      {!readsLevels ? (
+        <Banner testId="level-banner-no-reads">
+          This game does not read level files yet. Edits are saved, but Play will not show them until its scenes load levels/ — the game-build skill has the recipe.
+        </Banner>
+      ) : null}
+      {is3d ? <Banner testId="level-banner-readonly">This is a 3D level. The placement editor is not available yet, so it opens read-only.</Banner> : null}
+      {firstIssue ? <Banner testId="level-banner-readonly">{`This level opens read-only: ${firstIssue}`}</Banner> : null}
+      {entry.issues.filter((i) => !blocking.includes(i)).length > 0 ? <Banner testId="level-banner-images">{entry.issues.find((i) => !blocking.includes(i))!}</Banner> : null}
+      <div className="flex min-h-0 flex-1">
+        <LayerList level={level} activeLayerId={edit.activeLayerId} readOnly={readOnly} update={update} />
+        <div className="min-w-0 flex-1">
+          <LevelCanvas
+            level={level}
+            images={entry.images}
+            selection={edit.selection}
+            hoverEnabled={!readOnly && tool !== 'select'}
+            preview={preview}
+            onPointer={onPointer}
+            onKeyDown={onKeyDown}
+            label={`Level canvas, ${level.width} × ${level.height} tiles. Tools: B paint, E erase, R rectangle, I pick, O entity, V select.`}
+          />
+        </div>
+        <aside className="flex w-56 shrink-0 flex-col gap-3 overflow-y-auto border-l border-border p-2 text-xs" aria-label="Palette and inspector">
+          {tool === 'entity' ? (
+            <div role="radiogroup" aria-label="Entity type" className="flex flex-wrap gap-1">
+              {[...GAME_LEVEL_ENTITY_TYPES_2D, CUSTOM].map((t) => (
+                <button key={t} type="button" role="radio" aria-checked={entityType === t} onClick={() => setEntityType(t)} className={`rounded border px-1.5 py-0.5 ${entityType === t ? 'border-primary text-foreground' : 'border-border text-muted-foreground'}`}>
+                  {t === CUSTOM ? 'Custom…' : t}
+                </button>
+              ))}
+              {entityType === CUSTOM ? <input aria-label="Custom entity type" value={custom} onChange={(e) => setCustom(e.target.value)} className="mt-1 w-full rounded border border-border bg-background px-1.5 py-0.5" /> : null}
+            </div>
+          ) : (
+            <TilePalette tiles={tiles} images={entry.images} gid={gid} onGid={(g) => { setGid(g); if (tool === 'erase') setTool('paint'); }} />
+          )}
+          {selected && edit.selection ? <Inspector object={selected} readOnly={readOnly} onField={(f, v) => update((s) => setObjectField(s, edit.selection!, f, v))} onProperty={(n, t, v) => update((s) => setProperty(s, edit.selection!, n, t, v))} onRemove={(n) => update((s) => removeProperty(s, edit.selection!, n))} onDelete={() => update((s) => deleteObject(s, edit.selection!))} properties={selected.properties ?? []} /> : null}
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function LayerList({ level, activeLayerId, readOnly, update }: { level: EditLevel; activeLayerId: number | null; readOnly: boolean; update: Updater }) {
+  const [renaming, setRenaming] = useState<number | null>(null);
+  // The top layer first, as Tiled lists them.
+  const layers = [...level.layers].reverse();
+  return (
+    <aside className="flex w-44 shrink-0 flex-col border-r border-border text-xs" aria-label="Layers">
+      <ul className="min-h-0 flex-1 overflow-y-auto py-1">
+        {layers.map((layer) => {
+          const id = layer.id!;
+          const active = id === activeLayerId;
+          return (
+            <li key={id} className={`group flex items-center gap-1 px-1.5 py-1 ${active ? 'bg-accent text-foreground' : 'text-muted-foreground'}`}>
+              <button type="button" aria-label={`${layer.visible === false ? 'Show' : 'Hide'} layer ${layer.name}`} aria-pressed={layer.visible !== false} onClick={() => update((s) => toggleVisible(s, id))} className="shrink-0 rounded p-0.5 hover:text-foreground">
+                {layer.visible === false ? <LuEyeOff aria-hidden className="h-3.5 w-3.5" /> : <LuEye aria-hidden className="h-3.5 w-3.5" />}
+              </button>
+              {renaming === id ? (
+                <input
+                  autoFocus
+                  aria-label={`Rename layer ${layer.name}`}
+                  defaultValue={layer.name}
+                  className="min-w-0 flex-1 rounded border border-border bg-background px-1"
+                  onBlur={(e) => {
+                    update((s) => renameLayer(s, id, e.target.value));
+                    setRenaming(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') e.currentTarget.blur();
+                    else if (e.key === 'Escape') setRenaming(null);
+                  }}
+                />
+              ) : (
+                <button type="button" aria-label={`Layer ${layer.name}`} aria-current={active ? 'true' : undefined} onClick={() => update((s) => setActiveLayer(s, id))} onDoubleClick={() => !readOnly && setRenaming(id)} className="min-w-0 flex-1 truncate text-left">
+                  {layer.name}
+                  <span className="ml-1 opacity-60">{layer.type === 'objectgroup' ? '◆' : '▦'}</span>
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <div className="flex gap-1 border-t border-border p-1.5">
+        <button type="button" disabled={readOnly} onClick={() => update((s) => addLayer(s, 'tile', 'tiles'))} className="flex flex-1 items-center justify-center gap-1 rounded border border-border px-1 py-0.5 hover:bg-accent disabled:opacity-40">
+          <LuPlus aria-hidden className="h-3 w-3" />Tile layer
+        </button>
+        <button type="button" disabled={readOnly} onClick={() => update((s) => addLayer(s, 'object', 'objects'))} className="flex flex-1 items-center justify-center gap-1 rounded border border-border px-1 py-0.5 hover:bg-accent disabled:opacity-40">
+          <LuPlus aria-hidden className="h-3 w-3" />Object layer
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+type PaletteTile = { gid: number; image: string; x: number; y: number; w: number; h: number; sheetW: number; sheetH: number };
+const PALETTE_CAP = 1024;
+
+/** Every embedded tileset's tiles with where each sits in its image (columns × rows from `tilecount`). */
+export function paletteTiles(level: Pick<EditLevel, 'tilesets'>): PaletteTile[] {
+  const out: PaletteTile[] = [];
+  for (const t of level.tilesets) {
+    const image = t.image;
+    const firstgid = Number(t.firstgid ?? 1), columns = Number(t.columns ?? 0), count = Number(t.tilecount ?? 0);
+    const w = Number(t.tilewidth ?? 0), h = Number(t.tileheight ?? 0);
+    const margin = Number(t.margin ?? 0), spacing = Number(t.spacing ?? 0);
+    if (typeof image !== 'string' || columns < 1 || count < 1 || w < 1 || h < 1) continue;
+    const rows = Math.ceil(count / columns);
+    for (let i = 0; i < count && out.length < PALETTE_CAP; i += 1) {
+      out.push({ gid: firstgid + i, image, x: margin + (i % columns) * (w + spacing), y: margin + Math.floor(i / columns) * (h + spacing), w, h, sheetW: margin * 2 + columns * w + (columns - 1) * spacing, sheetH: margin * 2 + rows * h + (rows - 1) * spacing });
+    }
+  }
+  return out;
+}
+
+function TilePalette({ tiles, images, gid, onGid }: { tiles: PaletteTile[]; images: ReadonlyArray<{ path: string; dataUrl: string }>; gid: number; onGid: (gid: number) => void }) {
+  if (tiles.length === 0) return <p className="text-muted-foreground">This level has no tileset to paint with.</p>;
+  const url = new Map(images.map((i) => [i.path, i.dataUrl]));
+  return (
+    <div role="radiogroup" aria-label="Tiles" className="flex flex-wrap gap-0.5">
+      {tiles.map((t) => {
+        const scale = Math.min(2, 32 / Math.max(t.w, t.h));
+        return (
+          <button
+            key={t.gid}
+            type="button"
+            role="radio"
+            aria-checked={gid === t.gid}
+            aria-label={`Tile ${t.gid}`}
+            onClick={() => onGid(t.gid)}
+            className={`shrink-0 rounded-sm ${gid === t.gid ? 'ring-2 ring-primary' : 'ring-1 ring-border'}`}
+            style={{
+              width: t.w * scale,
+              height: t.h * scale,
+              backgroundImage: url.has(t.image) ? `url("${url.get(t.image)}")` : undefined,
+              backgroundSize: `${t.sheetW * scale}px ${t.sheetH * scale}px`,
+              backgroundPosition: `${-t.x * scale}px ${-t.y * scale}px`,
+              imageRendering: 'pixelated',
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+const FIELDS: readonly { field: ObjectField; label: string; numeric: boolean }[] = [
+  { field: 'name', label: 'Name', numeric: false },
+  { field: 'type', label: 'Type', numeric: false },
+  { field: 'x', label: 'X', numeric: true },
+  { field: 'y', label: 'Y', numeric: true },
+  { field: 'width', label: 'Width', numeric: true },
+  { field: 'height', label: 'Height', numeric: true },
+  { field: 'rotation', label: 'Rotation', numeric: true },
+];
+
+function Inspector({
+  object,
+  properties,
+  readOnly,
+  onField,
+  onProperty,
+  onRemove,
+  onDelete,
+}: {
+  object: LevelObject;
+  properties: readonly LevelProperty[];
+  readOnly: boolean;
+  onField: (field: ObjectField, value: string | number) => void;
+  onProperty: (name: string, type: 'string' | 'int' | 'float' | 'bool', value: string | number | boolean) => void;
+  onRemove: (name: string) => void;
+  onDelete: () => void;
+}) {
+  const [name, setName] = useState('');
+  const [type, setType] = useState<'string' | 'int' | 'float' | 'bool'>('string');
+  const [value, setValue] = useState('');
+  return (
+    <section aria-label="Entity inspector" className="flex flex-col gap-1.5 border-t border-border pt-2">
+      {FIELDS.map(({ field, label, numeric }) => {
+        const current = field === 'type' ? (object.type || object.class || '') : (object[field] ?? (numeric ? 0 : ''));
+        return (
+          <label key={`${object.id}-${field}-${String(current)}`} className="flex items-center gap-1.5">
+            <span className="w-14 shrink-0 text-muted-foreground">{label}</span>
+            <input
+              aria-label={label}
+              type={numeric ? 'number' : 'text'}
+              defaultValue={String(current)}
+              disabled={readOnly}
+              className="min-w-0 flex-1 rounded border border-border bg-background px-1.5 py-0.5"
+              onBlur={(e) => onField(field, numeric ? Number(e.target.value) : e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.currentTarget.blur();
+                e.stopPropagation();
+              }}
+            />
+          </label>
+        );
+      })}
+      <ul aria-label="Custom properties" className="flex flex-col gap-0.5">
+        {properties.map((p) => (
+          <li key={p.name} className="flex items-center gap-1">
+            <span className="min-w-0 flex-1 truncate" title={`${p.name} (${p.type})`}>{p.name}: {String(p.value)}</span>
+            <button type="button" aria-label={`Remove property ${p.name}`} disabled={readOnly} onClick={() => onRemove(p.name)} className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-40">
+              <LuTrash2 aria-hidden className="h-3 w-3" />
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className="flex gap-1">
+        <input aria-label="Property name" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.stopPropagation()} className="min-w-0 flex-1 rounded border border-border bg-background px-1.5 py-0.5" />
+        <select aria-label="Property type" value={type} onChange={(e) => setType(e.target.value as typeof type)} className="rounded border border-border bg-background px-1 py-0.5">
+          {['string', 'int', 'float', 'bool'].map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
+      </div>
+      <div className="flex gap-1">
+        <input aria-label="Property value" value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={(e) => e.stopPropagation()} className="min-w-0 flex-1 rounded border border-border bg-background px-1.5 py-0.5" />
+        <button
+          type="button"
+          disabled={readOnly || name.trim() === ''}
+          onClick={() => {
+            onProperty(name.trim(), type, value);
+            setName('');
+            setValue('');
+          }}
+          className="rounded border border-border px-1.5 py-0.5 hover:bg-accent disabled:opacity-40"
+        >
+          Add
+        </button>
+      </div>
+      <button type="button" disabled={readOnly} onClick={onDelete} className="flex items-center justify-center gap-1 rounded border border-border px-1.5 py-0.5 hover:bg-accent disabled:opacity-40">
+        <LuTrash2 aria-hidden className="h-3 w-3" />Delete entity
+      </button>
+    </section>
+  );
+}
