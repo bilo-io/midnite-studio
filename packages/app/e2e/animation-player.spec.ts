@@ -1,12 +1,9 @@
-import { mkdirSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
 import { clickRailLink, type MockFixtures } from '../test-support/mock-bridge';
-import { installMockBridge, prepareForVisualCapture } from './shots-helper';
+import { installMockBridge } from './shots-helper';
 
 /**
  * Playwright: the Animations timeline player in Studio's real Media shell (Phase 125 Theme D).
@@ -17,7 +14,6 @@ import { installMockBridge, prepareForVisualCapture } from './shots-helper';
  * vitest (`player-state`, `bone-names`, `clip-lanes`, `clip-player.test.tsx`); this spec scrubs, steps and drags,
  * and writes the review shots.
  */
-const SHOTS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../docs/screenshots/p125-d');
 
 type Joint = { name: string; offset: [number, number, number]; children?: Joint[] };
 const BODY: Joint = {
@@ -113,7 +109,7 @@ test('scrubs, steps and drags the range on the real ruler, with a WebGL preview 
 
   // The WebGL pane redraws with the playhead: the stage looks different after a scrub (a blank or frozen canvas would not).
   const stage = page.getByTestId('clip-canvas');
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(300); // allow-timeout: WebGL canvas repaints on the next frames; no DOM signal
   const before = await stage.screenshot();
 
   // A click half way along the ruler lands on half the clip (real layout width -> time).
@@ -122,7 +118,7 @@ test('scrubs, steps and drags the range on the real ruler, with a WebGL preview 
   const mid = (await readout(page).textContent())!;
   expect(Number(/^([\d.]+)s/.exec(mid)![1])).toBeGreaterThan(0.4);
   expect(Number(/^([\d.]+)s/.exec(mid)![1])).toBeLessThan(0.6);
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(300); // allow-timeout: WebGL canvas repaints on the next frames; no DOM signal
   expect((await stage.screenshot()).equals(before)).toBe(false);
 
   // Keys act on the focused player: step, then set the range from the playhead.
@@ -148,8 +144,4 @@ test('scrubs, steps and drags the range on the real ruler, with a WebGL preview 
   await expect(readout(page)).not.toHaveText('0.00s · frame 0 / 30');
   await page.getByRole('button', { name: 'Pause' }).click();
 
-  mkdirSync(SHOTS, { recursive: true });
-  await prepareForVisualCapture(page);
-  await page.mouse.click(ruler.x + ruler.width * 0.3, ruler.y + ruler.height / 2);
-  await page.getByTestId('clip-player').screenshot({ path: path.join(SHOTS, 'player.png') });
 });

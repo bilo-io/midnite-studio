@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
 import { installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
+import { settle } from './shots-helper';
 
 /**
  * Phase 15's verification pass, as far as a browser can take it.
@@ -116,9 +117,6 @@ async function emitActivity(
 const panel = (page: Page) => page.locator('[data-terminal-panel]');
 /** The session list's rows. `IconButton` renders its label twice, so count these. */
 const rows = (page: Page) => page.locator('[data-session-row]');
-
-/** The reveal tween's own duration (`REVEAL_MS` in `use-reveal.ts`), plus slack. */
-const SETTLE_WAIT_MS = 300;
 
 /**
  * What crossed the bridge.
@@ -625,7 +623,7 @@ test.describe('terminal panel', () => {
     // Narrow, so the tail alone is wider than the room left by the buttons —
     // at a full-width window it fits and nothing is proven.
     await page.setViewportSize({ width: 460, height: 800 });
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(300); // allow-timeout: reflow after setViewportSize
 
     const header = page.locator('[data-terminal-header]');
     const box = (await header.boundingBox())!;
@@ -701,7 +699,7 @@ test.describe('terminal panel', () => {
     await emitOsc7(page, 'file://build-server/var/www');
     await emitOsc7(page, 'file:///Users/x/%');
     await emitOsc7(page, 'not-a-uri');
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(200); // allow-timeout: proves a negative (nothing may happen in this window): malformed OSC 7 must be ignored
 
     await expect(path).toHaveText('~/midnite-studio');
   });
@@ -735,7 +733,7 @@ test.describe('terminal panel', () => {
     const resizesBefore = (await ptyCalls(page)).resizes.length;
 
     await page.getByRole('button', { name: 'Expand terminal' }).click();
-    await page.waitForTimeout(SETTLE_WAIT_MS);
+    await settle(page);
     const tall = await height();
     expect(tall).toBeGreaterThan(normal);
     // The graph is what it takes the room from.
@@ -751,7 +749,7 @@ test.describe('terminal panel', () => {
     }
 
     await page.getByRole('button', { name: 'Restore terminal height' }).click();
-    await page.waitForTimeout(SETTLE_WAIT_MS);
+    await settle(page);
     expect(await height()).toBeCloseTo(normal, 0);
     await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 
@@ -776,7 +774,7 @@ test.describe('terminal panel', () => {
     await open(page, { terminalSessions: RESTORED });
     await toggleTerminal(page);
     await page.getByRole('button', { name: 'Expand terminal' }).click();
-    await page.waitForTimeout(SETTLE_WAIT_MS);
+    await settle(page);
 
     const frame = page.locator('[data-terminal-frame]');
     const before = (await frame.boundingBox())!.height;
@@ -790,7 +788,7 @@ test.describe('terminal panel', () => {
     // Well inside one `motionMs()` tween (200ms): a genuinely instant apply
     // reaches (most of) the new height by here; an eased one is still only a
     // fraction of the way through it.
-    await page.waitForTimeout(60);
+    await page.waitForTimeout(60); // allow-timeout: proves the height change is eased, not instant
 
     const after = (await frame.boundingBox())!.height;
     // Some slack for the stack's own layout (title bar, footer) not growing
@@ -1149,7 +1147,7 @@ test.describe('terminal panel', () => {
     await open(page, { terminalSessions: RESTORED });
     await toggleTerminal(page);
     await expect(rows(page)).toHaveCount(3);
-    await page.waitForTimeout(250);
+    await page.waitForTimeout(250); // allow-timeout: rAF/CSS tween with no DOM completion signal
 
     /*
       One entry per row, not one per span: a row carries two labels since
@@ -1178,7 +1176,7 @@ test.describe('terminal panel', () => {
     // Past the 6px constraint, then down in steps so dnd-kit sees movement.
     await page.mouse.move(first.x + first.width / 2, first.y + first.height / 2 + 10);
     await page.mouse.move(first.x + first.width / 2, third.y + third.height - 2, { steps: 15 });
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(100); // allow-timeout: mid-drag pause so the drag sensor engages
     await page.mouse.up();
 
     expect(await titles()).toEqual([
@@ -1276,7 +1274,7 @@ test.describe('phase 21 screenshots', () => {
     await page.locator('.xterm-screen').first().click();
     await page.keyboard.press('Enter');
     await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(200); // allow-timeout: main's agent probe is async with no DOM signal
 
     const header = page.locator('[data-terminal-header]');
     // Wide: the whole path fits, `~`-collapsed, with the worktree and what is
@@ -1308,7 +1306,7 @@ test.describe('phase 21 screenshots', () => {
     await page.getByRole('menuitem', { name: 'Claude', exact: true }).click();
     await expect(rows(page)).toHaveCount(2);
     await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(2);
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(200); // allow-timeout: main's agent probe is async with no DOM signal
 
     // What main's probe found: Codex running in the plain shell, and nothing at
     // all in the session that was opened for Claude Code.

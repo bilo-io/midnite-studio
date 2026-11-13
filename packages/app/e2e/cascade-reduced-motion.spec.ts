@@ -104,12 +104,12 @@ test('the Actions run list is pixel-identical immediately and after settling, un
   // One short settle for the mocked bridge's own async data to land — this
   // test is about animation, not about the data arriving, and those two are
   // independent races under a mocked bridge.
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(300); // allow-timeout: mocked bridge data lands on an independent race
 
   const immediate = await runList.screenshot();
   // Comfortably past a full cascade's settle window (K.7's ~400ms budget)
   // even before accounting for reduced motion turning it off outright.
-  await page.waitForTimeout(800);
+  await page.waitForTimeout(800); // allow-timeout: past a full cascade window; proving reduced motion adds none
   const settled = await runList.screenshot();
 
   expect(immediate.equals(settled)).toBe(true);
@@ -135,7 +135,7 @@ test('the same list visibly settles under full motion — the cascade this prove
   // Captured as early as possible, mid-cascade — the whole set arms on
   // reveal (K.1) and stays mid-flight for `(steps + 1) * stepMs + 250ms`.
   const midCascade = await runList.screenshot();
-  await page.waitForTimeout(800); // past the settle window for this list's row count.
+  await page.waitForTimeout(800); // allow-timeout: past the cascade settle window — past the settle window for this list's row count.
   const settled = await runList.screenshot();
 
   expect(midCascade.equals(settled)).toBe(false);

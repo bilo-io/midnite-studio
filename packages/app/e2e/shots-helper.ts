@@ -277,6 +277,12 @@ export async function prepareForVisualCapture(page: Page): Promise<void> {
   await freezeClock(page);
 }
 
+/**
+ * Let a JS-driven reveal tween finish (`REVEAL_MS` in `use-reveal.ts`, plus slack).
+ * The tween is rAF-driven and publishes no DOM signal, so a fixed wait is the only
+ * honest option — and this is the one place a spec's tween settle may sleep
+ * (`scripts/e2e-budget.mjs` bans `waitForTimeout` in `*.spec.ts`).
+ */
 export async function settle(page: Page, ms = 300): Promise<void> {
   await page.waitForTimeout(ms);
 }

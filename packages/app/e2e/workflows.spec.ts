@@ -277,7 +277,7 @@ test('running a workflow, viewing it in history, and returning to editing', asyn
   // The mock's `workflow.run()` reads the last **saved** workflow, exactly
   // as the real IPC does — wait out the auto-save debounce so Run doesn't
   // fire against the pre-edit (0-node-config) snapshot.
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(600); // allow-timeout: auto-save debounce; the mock reads the last saved workflow
   await page.getByRole('button', { name: 'Run', exact: true }).click();
 
   await page.getByRole('button', { name: 'Run history' }).click();
@@ -310,7 +310,7 @@ test('the "Run Graph" palette command runs the currently open workflow', async (
   await addNode(page, 'HTTP');
   await page.locator('[data-node-id]').first().click();
   await page.getByLabel('URL').fill('https://example.com');
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(600); // allow-timeout: auto-save debounce; the mock reads the last saved workflow
 
   await page.keyboard.press('Meta+k');
   await page.getByRole('combobox', { name: 'Command palette search' }).fill('run graph');
