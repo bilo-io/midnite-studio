@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-13 — Phase 132 Theme G — level tools for agents
+
+`game_level_list`, `game_level_get`, `game_level_set` and `game_goto` on the midnite MCP server (reads open whenever the server is on, writes behind `allowGames`, all four in an agent run's private server), adapters over the level service and runner `goto`, the tool-manifest pin, and a Levels section with the pre-0.12 migration recipe in the game-build skill (seven mirrored copies). Not done: the editor (D, E), starters reading levels (F), the human check (H).
+
 ## 2026-11-13 — Phase 132 Theme D (part) — 2D level editor and scene picker
 
 The Level editor tab: a pure edit model (paint, erase, rectangle, pick, entities, typed properties, layers, a 100-step undo with one step per drag, `serialise` keeping untouched fields), a canvas drawn with Sprites' `map-view.ts`, layer list, palettes and inspector, Save as one `level-set` commit. The scene picker in the tab strip opens a level and jumps the game, asking first when dirty; New scene makes a blank level by perspective and can opt the game into `levels.start`. Not done: Start from a map asset (needs a renderer read of `assets/map/`), the one e2e, and the canvas look (human check, Theme H).

@@ -1,5 +1,5 @@
 {
-  "hash": "56bc33a549fdd5836419ca40c3bc8c05a4c7eb2fa1d59f06f9b12aaee1bf7b23",
+  "hash": "e41098475e2089d5a8d968e95d13808e889074558410a5d5bc93ddea60ed13c3",
   "tools": {
     "repo.list": "c2254fa779e5cb87",
     "repo.resolve": "b39c228fe331d5d8",
@@ -72,6 +72,10 @@
     "game_assert_state": "749e4a3cde4a2e10",
     "game_assert_frame": "fb81840c56be9fb0",
     "game_playtest": "385d03e1955a0066",
+    "game_level_list": "e7e364dc53cfef6c",
+    "game_level_get": "472c220c91eaae39",
+    "game_level_set": "3034ea4d677811a6",
+    "game_goto": "c659083c24dc2a93",
     "terrain_list": "4a01b835d44535a3",
     "terrain_open": "a4eb168d956b7c63",
     "terrain_get_spec": "a9f14c76bf2155cb",

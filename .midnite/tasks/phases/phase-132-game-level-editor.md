@@ -83,7 +83,7 @@ first, then **B** and **C** in parallel, then **D**, **F**, **G**, then **E**, t
 
 **Theme F — Starters read their levels from files.** ◻ Every base and 3D genre scene moves its hard-coded layout into `levels/level.tmj` and builds from it (visuals unchanged), new games get `levels` in their manifest, and existing games keep working until they opt in.
 
-**Theme G — Level tools for agents.** ◻ `game_level_list`, `game_level_get`, `game_level_set` and `game_goto` on the midnite MCP server, and a Levels section in the game-build skill with the migration recipe.
+**Theme G — Level tools for agents.** ✅ `game_level_list`, `game_level_get`, `game_level_set` and `game_goto` are on the midnite MCP server, as thin adapters over Theme C's level service and the runner's `goto`. The two reads answer whenever the server is on; the two writes are refused with `GAMES_OFF_MESSAGE` while `allowGames` is off, and an agent run's private server gets all four. `game_level_get` returns the JSON and its issues, never the images; a refused level or a missing scene comes back as a named tool error. A **Levels** section (where levels live, the 2D and 3D conventions, the four tools, and the pre-0.12 migration recipe) went into `midnite-media-game-build`, in all seven byte-identical copies the copies test pins, not just the four the doc named.
 
 **Theme H — Verification.** ◻ The CI gate, and a human pass in Studio and Gamer over Open Game, the tabs, a 2D and a 3D edit, and the scene jump.
 
@@ -493,7 +493,7 @@ keep editing scenes as code.
 
 ### G — Level tools for agents [M · 2-4h]
 
-- [ ] Four tools appended to `GAME_MCP_TOOL_IDS` in [`media-game-mcp.ts`](../../../packages/shared/src/media-game-mcp.ts)
+- [x] Four tools appended to `GAME_MCP_TOOL_IDS` in [`media-game-mcp.ts`](../../../packages/shared/src/media-game-mcp.ts)
   and the id union in [`mcp.ts`](../../../packages/shared/src/mcp.ts)
   - `game_level_list` `{ game }` → `{ scenes, start, readsLevels }` (read).
   - `game_level_get` `{ game, scene }` → `{ level, issues }` — the JSON only, no images (read).
@@ -503,11 +503,11 @@ keep editing scenes as code.
   - `GAME_MCP_READ_TOOL_IDS` gains the two reads; the writes are refused with `GAMES_OFF_MESSAGE` while
     `allowGames` is off, like every other write. `GAME_AGENT_TOOL_IDS` picks all four up by derivation, so an agent run
     can edit levels. None is slow.
-- [ ] Adapters in [`game-mcp.ts`](../../../packages/features/media-game/main/games/game-mcp.ts) over the C service ops;
+- [x] Adapters in [`game-mcp.ts`](../../../packages/features/media-game/main/games/game-mcp.ts) over the C service ops;
   a failure becomes `McpToolError('invalid', message)` (or `not-found` for an unknown game or scene).
-- [ ] `mcp.test.ts`'s write set gains `game_level_set` and `game_goto`; the MCP tool-list tests that enumerate game tools
+- [x] `mcp.test.ts`'s write set gains `game_level_set` and `game_goto`; the MCP tool-list tests that enumerate game tools
   (and Gamer's shim list, derived from `GAME_AGENT_TOOL_IDS`) stay green by derivation.
-- [ ] Skill: a **Levels** section in `midnite-media-game-build` — the four copies
+- [x] Skill: a **Levels** section in `midnite-media-game-build` — the four copies
   ([`.claude`](../../../.claude/skills/midnite-media-game-build/SKILL.md), `.agents`, `.codex`, and the one games ship
   with, [`templates/media-game/skills/midnite-media-game-build/SKILL.md`](../../../templates/media-game/skills/midnite-media-game-build/SKILL.md),
   same edit in all four): where levels live, the 2D and 3D conventions, the four tools, "save then the hot reload shows

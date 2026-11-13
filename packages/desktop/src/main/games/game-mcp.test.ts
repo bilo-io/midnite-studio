@@ -58,6 +58,8 @@ function setup(
     manifest?: Record<string, unknown>;
     importAsset?: Parameters<typeof createGameMcpTools>[0]['importAsset'];
     playtests?: Parameters<typeof createGameMcpTools>[0]['playtests'];
+    levels?: Partial<Parameters<typeof createGameMcpTools>[0]['service']['levels']>;
+    goto?: Parameters<typeof createGameMcpTools>[0]['service']['goto'];
   } = {},
 ) {
   const emitted: Array<[string, unknown]> = [];
@@ -66,6 +68,13 @@ function setup(
     service: {
       resolve: async (target) => (target === GAME.gameId || target === GAME.path ? GAME : null),
       list: async () => [GAME],
+      levels: {
+        list: async () => ({ ok: true as const, value: { scenes: [{ scene: 'level', bytes: 9, dimension: '2d' as const, issue: null }], start: 'level', readsLevels: true } }),
+        get: async () => ({ ok: true as const, value: { level: { type: 'map' }, issues: [], images: [{ path: 't.png', dataUrl: 'data:image/png;base64,AAAA' }] } }),
+        set: async () => ({ ok: true as const, value: { sha: 'abc123' } }),
+        ...opts.levels,
+      },
+      goto: opts.goto ?? (async () => ({ ok: true as const, value: { via: 'hook' as const } })),
       create: async () => ({ ok: true as const, value: { path: '/games/new', gameId: 'gnew' } }),
       manifestGet: async () => ({ manifest: (opts.manifest ?? { kitVersion: '0.1.0', vendored: { phaser: '3.80.1' } }) as never, issues: [] }),
       manifestSet,
@@ -192,6 +201,8 @@ describe('game_* over the global MCP dispatcher', () => {
       ['game_assert_state', { game: 'gabc', frame: 1, path: '$.scene', op: 'exists' }],
       ['game_assert_frame', { game: 'gabc', frame: 1, name: 'start' }],
       ['game_playtest', { game: 'gabc' }],
+      ['game_level_set', { game: 'gabc', scene: 'level', level: {} }],
+      ['game_goto', { game: 'gabc', scene: 'level' }],
     ] as const) {
       expect(await dispatchMcpCall(tool, input), tool).toEqual({ ok: false, kind: 'refused', message: GAMES_OFF_MESSAGE });
     }
@@ -374,5 +385,41 @@ describe('game_* over the global MCP dispatcher', () => {
       expect(await pending).toEqual({ ok: true, value: { sent: 1 } });
       expect(calls.at(-1)).toBe('window.__midnite.input.gamepad(3, true)');
     });
+  });
+});
+
+describe('level tools (Phase 132 Theme G)', () => {
+  beforeEach(() => resetMcpAllowUiStateForTests());
+  afterEach(() => setGameTools(null));
+
+  it('answers the two reads with the switch off, and the level without its images', async () => {
+    setup(null);
+    expect(await dispatchMcpCall('game_level_list', { game: 'gabc' })).toMatchObject({ ok: true, value: { start: 'level', readsLevels: true } });
+    expect(await dispatchMcpCall('game_level_get', { game: 'gabc', scene: 'level' })).toEqual({ ok: true, value: { level: { type: 'map' }, issues: [] } });
+  });
+
+  it('writes a level and jumps to it once the switch is on, answering the gameId', async () => {
+    const set = vi.fn(async () => ({ ok: true as const, value: { sha: 'abc123' } }));
+    setup(null, { levels: { set } });
+    setMcpAllowGamesState(true);
+    expect(await dispatchMcpCall('game_level_set', { game: '/games/demo', scene: 'level-2', level: { type: 'map' }, create: true })).toEqual({
+      ok: true,
+      value: { ok: true, gameId: 'gabc', sha: 'abc123' },
+    });
+    expect(set).toHaveBeenCalledWith('gabc', 'level-2', { type: 'map' }, { create: true });
+    expect(await dispatchMcpCall('game_goto', { game: 'gabc', scene: 'level-2' })).toEqual({ ok: true, value: { gameId: 'gabc', via: 'hook' } });
+  });
+
+  it('turns a refused level into an error and a missing scene into not-found', async () => {
+    setup(null, {
+      levels: {
+        set: async () => ({ ok: false as const, kind: 'error' as const, message: 'layers: Required' }),
+        get: async () => ({ ok: false as const, kind: 'error' as const, message: 'Level "x" not found in levels/.' }),
+      },
+    });
+    setMcpAllowGamesState(true);
+    expect(await dispatchMcpCall('game_level_set', { game: 'gabc', scene: 'level', level: {} })).toMatchObject({ ok: false, kind: 'error', message: 'layers: Required' });
+    expect(await dispatchMcpCall('game_level_get', { game: 'gabc', scene: 'x' })).toMatchObject({ ok: false, kind: 'not-found' });
+    expect(await dispatchMcpCall('game_level_get', { game: 'nope', scene: 'x' })).toMatchObject({ ok: false, kind: 'not-found' });
   });
 });

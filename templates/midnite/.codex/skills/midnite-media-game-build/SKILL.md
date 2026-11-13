@@ -79,6 +79,23 @@ The tools:
 3. `game_replay_play` restarts and plays a replay (`speed: "max"` or `1` to watch), answering the final state.
 4. `game_assert_state` and `game_assert_frame` step the running game forward to a frame and check it there; a frame already passed is an error, so replay first.
 
+## Levels
+
+A level is a Tiled JSON map, one file per scene: `levels/<scene>.tmj` (scene names are `a-z0-9_-`, up to 64 characters). The manifest's `levels: { dir: 'levels', start: '<scene>' }` says "my scenes read these files"; a game without that key still has hard-coded scenes and is edited in code. Read levels with the kit, never by hand-copying numbers into `src/`: `kit/phaser/level.js` (`preloadLevel`, `buildLevel`, `KitLevelScene`) for 2D, `kit/three/level.js` (`buildLevel3d`) for 3D, and `kit/core/level.js` (`currentLevel(start)`, `fetchLevel`, `levelGrid`, `levelEntities`, `toWorld3d`) under both.
+
+- **2D** (platformer, top-down, isometric, raycaster): tile layers for the ground plus an object layer named `objects`. Entity `type` is one of `spawn`, `exit`, `enemy`, `pickup`, `hazard`, `checkpoint`, `trigger`, `npc`; custom properties carry the rest.
+- **3D** (first-person, third-person, the 3D genres): a plan-view map of object layers. +X is right and +Z is down; `midnite.metresPerTile` turns pixels into metres; a point is a position, a rectangle a footprint, a polyline a path; height lives in custom properties (`elevation`, `sizeY`, `pitch`, `roll`, `scale`, `model`, `collider`); yaw is Tiled's own `rotation`. Entity `type` is one of `spawn`, `exit`, `prop`, `enemy`, `pickup`, `light`, `checkpoint`, `trigger`, `npc`, `path`. The terrain stays separate: the map only names it (`midnite.terrain`, `midnite.groundY`).
+
+Tools: `game_level_list` (`{ game }`) answers `{ scenes, start, readsLevels }`; `game_level_get` (`{ game, scene }`) answers the level JSON and its `issues`, no images; `game_level_set` (`{ game, scene, level, create? }`) validates the whole map, refuses a bad one with its reason, and writes the file as one commit naming only that file (`create: true` for a scene with no file yet); `game_goto` (`{ game, scene }`) jumps the running game to a scene and answers `via` (`hook`, `reload` or `next-run`). `game_level_set` and `game_goto` are writes, so they need the "Let agents run and edit games" switch. Save, then the hot reload shows it: after `game_level_set`, call `game_goto` (or `game_reload`) and check with `game_screenshot` and `game_state`. A level opened in the Games tab's editor is the same file, so a human can keep editing it.
+
+Migrating a game from before the level files (kit older than 0.12.0):
+
+1. Upgrade the kit from the Games tab (Upgrade kit), which adds `level.js`, the builders and `goto`. Nothing rewrites your `src/`.
+2. Move the hard-coded layout (tile grid, spawn, exits, enemies, pickups, or for 3D the props, volumes and paths) into `levels/level.tmj`, following the convention above. Write it with `game_level_set` and `create: true`, not by hand.
+3. Build the scene from it with the kit builders (`buildLevel` or `buildLevel3d`) in place of the literals, keeping the visuals the same.
+4. Add `levels: { dir: 'levels', start: 'level' }` to the manifest with `game_set_manifest`.
+5. Check: `game_run`, `game_goto` to the scene, then `game_state` (its `level` names the scene) and `game_screenshot`; the game should look as it did.
+
 ## Assets
 
 `assets/index.json` (`{ version: 1, assets: [{ name, kind, path, entry? }] }`) is the one lookup for assets; `kit/core/asset-index.js` reads it. `loadAssetIndex()` fetches it and `createAssetIndex(json)` wraps it: `assetUrl(name, file?)` is the URL to load by name alone (the asset's `entry` file, such as `terrain.manifest.json` or `atlas.json`, unless you name a `file`; `null` when the name is unknown), `url(kind, name, file?)`, `get(kind, name)`, `byName(name)` and `list(kind)` are the longer forms. Names are unique across kinds. Never hard-code a path under `assets/`: web export rewrites assets through the index.
