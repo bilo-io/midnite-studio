@@ -20,6 +20,7 @@ import {
   LOOP_RUNS_DIRECTORY_NAME,
   runtimeHostDirectory,
   setDiskRedactionSecrets,
+  vaultFilesPresent,
   sweepProfileFiles,
   VAULT_GRANTS_FILE,
   tightenHistoryModes,
@@ -204,6 +205,7 @@ import { bootMark } from './perf-marks';
 import { startHeapSampler } from '../heap-sampler';
 import { ensureLoginShellPathAsync } from './shell-path';
 import { applyAppWebContentsPolicy } from './web-contents-policy';
+import { whenKeychainMayBeTouched } from './keychain-gate';
 import { createWindow } from './window';
 import { registerWindowChrome } from './window-chrome';
 import { registerLockHandlers } from './ipc/lock-handlers';
@@ -1042,14 +1044,23 @@ export const startStudioMain: StartStudioMain = () => {
             }
           });
       };
-      refreshDiskSecrets();
+      // Both boot reads below go through the vault, i.e. the keychain; see keychain-gate.ts for when they may run.
+      const keychainGate = whenKeychainMayBeTouched(
+        () => {
+          refreshDiskSecrets();
+          void ensureCanaries({ vault: studioVault, homeDir: app.getPath('home') }).catch((error: unknown) =>
+            defaultLogger.warn(`canary setup failed: ${String(error)}`),
+          );
+        },
+        {
+          vaultPresent: () => vaultFilesPresent(userData),
+          onFirstAccess: (listener) => vaultService.onFirstAccess(listener),
+        },
+      );
       vaultService.onEntriesChanged(refreshDiskSecrets);
       vaultService.onLockedChange((isLocked) => {
         if (!isLocked) refreshDiskSecrets();
       });
-      void ensureCanaries({ vault: studioVault, homeDir: app.getPath('home') }).catch((error: unknown) =>
-        defaultLogger.warn(`canary setup failed: ${String(error)}`),
-      );
       /*
         The account registry (Phase 90 Theme B) — wired here beside every other
         userData store. `configureForgeAccounts` itself kicks off the on-disk
@@ -1250,6 +1261,7 @@ export const startStudioMain: StartStudioMain = () => {
       mainWindow = createWindow();
       bootMark('create-window');
       registerMainWindow(mainWindow);
+      keychainGate.attachWindow(mainWindow);
       // Detached windows that were open at the last shutdown (Notes) come back.
       void restoreReopenedPopouts(defaultLogger);
       mainWindow.on('closed', () => {
