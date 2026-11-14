@@ -36,7 +36,7 @@ export function buildRecoveryActions(seams: RecoverySeams = {}): readonly Monito
     {
       id: 'clean-system',
       label: 'Clean system',
-      description: 'Sweep system caches and leftover broker files, with a confirm before anything is removed',
+      description: 'Open the Optimizer to sweep system caches (nothing is removed without a confirm)',
       Icon: LuSparkles,
       run: cleanSystem,
     },
