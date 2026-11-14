@@ -13,6 +13,7 @@ import type { CommandId, CompanionAccess } from '@midnite/studio-shared';
 export const PALETTE_SAFE: readonly CommandId[] = [
   'terminal.toggle',
   'terminal.focus',
+  'terminal.repaint',
   // Only adds rows for processes that are already running; ends nothing.
   'terminal.recoverDetached',
   // `terminal.new`/`terminal.close` are deliberately absent, same as
@@ -167,6 +168,7 @@ export const COMMAND_ACCESS: Record<CommandId, CompanionAccess> = {
   'terminal.toggleHalfMaximized': 'direct',
   'terminal.toggleDock': 'direct',
   'terminal.focus': 'direct',
+  'terminal.repaint': 'direct',
   'terminal.new': 'direct',
   'terminal.close': 'confirm',
   'terminal.recoverDetached': 'direct',

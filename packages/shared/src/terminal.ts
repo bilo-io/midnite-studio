@@ -9,6 +9,7 @@
  */
 import { z } from 'zod';
 
+import { UnifiedSessionViewModeSchema } from './chats';
 import { SuiteAppIdSchema, type SuiteAppId } from './suite-apps';
 
 /**
@@ -583,17 +584,20 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
 ] as const;
 
 /**
- * Build the CLI arguments needed to resume an agent conversation (Phase 86 Theme C).
+ * Build the CLI arguments needed to resume an agent conversation (Phase 86 Theme C,
+ * extended for `agy` in Phase 146 Theme B).
  *
- * For agents where exact-conversation resume is supported ('claude' and 'codex')
+ * For agents where exact-conversation resume is supported ('claude', 'codex', and 'agy')
  * and an agent-native conversation ID is provided, returns the exact resume argv:
  * - 'claude': ['--resume', conversationId]
  * - 'codex': ['resume', conversationId]
+ * - 'agy': ['--conversation', conversationId]
  *
  * Otherwise, falls back to the agent's defined `resume` args (e.g. ['--continue']
  * or ['resume', '--last']) if present and non-empty.
  *
- * Returns `null` if the agent has no resume mechanism configured (such as 'agy' or 'cline').
+ * Returns `null` if the agent has no resume mechanism configured (such as 'agy' without
+ * a conversationId, or 'openclaude').
  */
 export function buildResumeCommand(
   agent: AgentDefinition,
@@ -606,6 +610,9 @@ export function buildResumeCommand(
     }
     if (agent.id === 'codex') {
       return ['resume', trimmedId];
+    }
+    if (agent.id === 'agy') {
+      return ['--conversation', trimmedId];
     }
   }
 
@@ -730,6 +737,10 @@ export const TerminalSessionSchema = z
      * migrates; read it through {@link sessionAppId}.
      */
     appId: SuiteAppIdSchema.optional(),
+    /** Chat id linked to this terminal session for unified session view switching (Phase 146). */
+    linkedChatId: z.string().min(1).optional(),
+    /** Preferred view mode when opening this unified session (Phase 146). */
+    preferredView: UnifiedSessionViewModeSchema.optional(),
   })
   .superRefine(agentIdMatchesKind);
 export type TerminalSession = z.infer<typeof TerminalSessionSchema>;

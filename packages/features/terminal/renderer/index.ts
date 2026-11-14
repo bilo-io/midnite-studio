@@ -7,6 +7,7 @@
  * xterm into its entry chunk.
  */
 export { terminalManifest, type TerminalManifest } from '../manifest';
+export { repaintAllTerminals } from './xterm-atlas-guard';
 export {
   closeSessionWithConfirm,
 } from './close-session';

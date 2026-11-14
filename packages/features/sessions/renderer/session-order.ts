@@ -1,4 +1,11 @@
-import type { ClosedSession, TerminalSession, TerminalSessionKind, TerminalSurface } from '@midnite/studio-shared';
+import type {
+  ChatSummary,
+  ClosedSession,
+  TerminalSession,
+  TerminalSessionKind,
+  TerminalSurface,
+  UnifiedSessionViewMode,
+} from '@midnite/studio-shared';
 
 /** Coarse relative age — lives in the frame now (Phase 113 Theme N); re-exported for this file's importers. */
 export { relativeAge } from '@midnite/studio-frame';
@@ -42,6 +49,18 @@ export type ManagedLiveSession = {
   workflowRunRef?: { workflowId: string; runId: string; nodeId: string };
   /** Runs under a sandbox profile (Phase 121 Theme E) — the lock. */
   confined?: boolean;
+  /** Underlying terminal session id when backed by a terminal (Phase 146). */
+  terminalId?: string;
+  /** Underlying chat id when backed by or linked to a chat (Phase 146). */
+  chatId?: string;
+  /** Linked chat id from TerminalSession (Phase 146). */
+  linkedChatId?: string;
+  /** Linked terminal id from ChatSummary (Phase 146). */
+  linkedTerminalId?: string;
+  /** Preferred unified view mode (Phase 146). */
+  preferredView?: UnifiedSessionViewMode;
+  /** Last update timestamp when backed by a chat (Phase 146). */
+  updatedAt?: number;
 };
 
 /**
@@ -60,37 +79,112 @@ export function isClosedManagedSession(session: ManagedSession): session is Mana
   return session.liveness === 'closed';
 }
 
+/** Resolve which surface a live/unified row should display. */
+export function resolveManagedActiveView(session: ManagedLiveSession): UnifiedSessionViewMode {
+  return session.preferredView ?? (session.terminalId ? 'terminal' : 'chat');
+}
+
+/** Match a row by primary id or either half of a linked chat/terminal pair. */
+export function matchesSessionId(session: ManagedSession, id: string | null): boolean {
+  if (id === null) return false;
+  if (session.id === id) return true;
+  if (!isClosedManagedSession(session)) {
+    return session.chatId === id || session.terminalId === id;
+  }
+  return false;
+}
+
 /**
- * Merge the terminal store's live rows and the closed-session history into
- * one list — the "one list, one truth" a manager needs instead of two
- * surfaces reading two different stores. Live rows come first, in the order
- * `useTerminalStore` already has them (including a manual drag-reorder);
- * closed rows follow, unsorted here — {@link groupSessionsByRepo} does the
- * per-repo ordering both kinds actually need to be shown in.
+ * Merge the terminal store's live rows, closed-session history, and (optionally)
+ * chat summaries into one unified list (Phase 86 Theme A + Phase 146 Theme D).
+ * Linked terminal/chat pairs (`linkedChatId` / `linkedTerminalId`) are deduplicated
+ * into a single row so they never appear twice in the sidebar.
  */
 export function mergeManagedSessions(
   live: readonly TerminalSession[],
   closed: readonly ClosedSession[],
+  chats: readonly ChatSummary[] = [],
 ): ManagedSession[] {
-  const liveRows: ManagedSession[] = live.map((session) => ({
-    id: session.id,
-    kind: session.kind,
-    liveness: session.asleep === true ? 'asleep' : 'running',
-    ...(session.agentId === undefined ? {} : { agentId: session.agentId }),
-    ...(session.agentConversationId === undefined ? {} : { agentConversationId: session.agentConversationId }),
-    title: session.title,
-    ...(session.name === undefined ? {} : { name: session.name }),
-    cwd: session.cwd,
-    repoId: session.repoId,
-    createdAt: session.createdAt,
-    ...(session.surface === undefined ? {} : { surface: session.surface }),
-    ...(session.workflowRunRef === undefined ? {} : { workflowRunRef: session.workflowRunRef }),
-    ...(session.confined === true ? { confined: true } : {}),
-  }));
+  const chatById = new Map(chats.map((c) => [c.id, c]));
+  const chatByLinkedTerminal = new Map<string, ChatSummary>();
+  for (const chat of chats) {
+    if (chat.linkedTerminalId) chatByLinkedTerminal.set(chat.linkedTerminalId, chat);
+  }
+  const consumedChatIds = new Set<string>();
+
+  const liveRows: ManagedSession[] = live.map((session) => {
+    const linkedChat =
+      (session.linkedChatId ? chatById.get(session.linkedChatId) : undefined) ??
+      chatByLinkedTerminal.get(session.id);
+
+    if (linkedChat) {
+      consumedChatIds.add(linkedChat.id);
+    }
+
+    const preferredView =
+      session.preferredView ??
+      linkedChat?.preferredView ??
+      (session.kind === 'agent' ? 'terminal' : undefined);
+
+    const liveness: 'running' | 'asleep' =
+      linkedChat?.running ? 'running' : session.asleep === true ? 'asleep' : 'running';
+
+    return {
+      id: session.id,
+      terminalId: session.id,
+      ...(linkedChat
+        ? { chatId: linkedChat.id, linkedChatId: linkedChat.id, linkedTerminalId: session.id }
+        : session.linkedChatId
+          ? { chatId: session.linkedChatId, linkedChatId: session.linkedChatId }
+          : {}),
+      kind: session.kind,
+      liveness,
+      ...(session.agentId !== undefined
+        ? { agentId: session.agentId }
+        : linkedChat
+          ? { agentId: linkedChat.engine }
+          : {}),
+      ...(session.agentConversationId === undefined ? {} : { agentConversationId: session.agentConversationId }),
+      title: session.title || linkedChat?.repoName || 'General',
+      ...(session.name !== undefined
+        ? { name: session.name }
+        : linkedChat
+          ? { name: linkedChat.title }
+          : {}),
+      cwd: session.cwd,
+      repoId: session.repoId || linkedChat?.repoId || '__general__',
+      createdAt: linkedChat ? Math.min(session.createdAt, linkedChat.createdAt) : session.createdAt,
+      ...(linkedChat ? { updatedAt: linkedChat.updatedAt } : {}),
+      ...(session.surface === undefined ? {} : { surface: session.surface }),
+      ...(session.workflowRunRef === undefined ? {} : { workflowRunRef: session.workflowRunRef }),
+      ...(session.confined === true ? { confined: true } : {}),
+      ...(preferredView === undefined ? {} : { preferredView }),
+    };
+  });
+
+  const chatRows: ManagedSession[] = [];
+  for (const chat of chats) {
+    if (consumedChatIds.has(chat.id)) continue;
+    chatRows.push({
+      id: chat.id,
+      chatId: chat.id,
+      ...(chat.linkedTerminalId ? { linkedTerminalId: chat.linkedTerminalId } : {}),
+      kind: 'agent',
+      liveness: chat.running ? 'running' : 'asleep',
+      agentId: chat.engine,
+      title: chat.repoName ?? 'General',
+      name: chat.title,
+      cwd: chat.worktree?.path ?? '',
+      repoId: chat.repoId ?? '__general__',
+      createdAt: chat.createdAt,
+      updatedAt: chat.updatedAt,
+      preferredView: chat.preferredView ?? 'chat',
+    });
+  }
 
   const closedRows: ManagedSession[] = closed.map((record) => ({ ...record, liveness: 'closed' }));
 
-  return [...liveRows, ...closedRows];
+  return [...liveRows, ...chatRows, ...closedRows];
 }
 
 /** One repo's sessions — live rows above closed, newest first within each. */

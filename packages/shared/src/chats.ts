@@ -48,6 +48,30 @@ export const CHAT_MODES: readonly { id: ChatMode; label: string; description: st
   { id: 'edit', label: 'Edit', description: 'May change files — you review every change before it lands' },
 ];
 
+// --- unified session view (Phase 146) --------------------------------------
+
+/** Which surface a unified agent session is currently displayed in. */
+export const UnifiedSessionViewModeSchema = z.enum(['chat', 'terminal']);
+export type UnifiedSessionViewMode = z.infer<typeof UnifiedSessionViewModeSchema>;
+
+/**
+ * How an agent provider supports switching between Chat and Terminal views:
+ * - `bidirectional`: native session resume in both directions (Claude, Codex, Agy)
+ * - `handoff-only`: summary/context handoff without shared native session id
+ * - `chat-only`: runs in Chat view only (local Ollama models)
+ */
+export const ProviderSyncTierSchema = z.enum(['bidirectional', 'handoff-only', 'chat-only']);
+export type ProviderSyncTier = z.infer<typeof ProviderSyncTierSchema>;
+
+const BIDIRECTIONAL_SYNC_AGENTS = new Set(['claude', 'codex', 'agy']);
+
+/** Classify an agent/engine id by its unified chat/terminal sync capability. */
+export function getProviderSyncTier(agentId: string): ProviderSyncTier {
+  if (BIDIRECTIONAL_SYNC_AGENTS.has(agentId)) return 'bidirectional';
+  if (agentId === CHAT_ENGINE_OLLAMA) return 'chat-only';
+  return 'handoff-only';
+}
+
 // --- change sets -------------------------------------------------------------
 
 export const ChatHunkStatusSchema = z.enum(['pending', 'accepted', 'rejected']);
@@ -219,6 +243,10 @@ export const ChatSummarySchema = z.object({
   pendingChanges: z.boolean(),
   /** The chat's worktree, once an editing turn has made one. Absent on older chats. */
   worktree: ChatWorktreeSchema.nullable().optional(),
+  /** Terminal session id linked to this chat for unified session view switching (Phase 146). */
+  linkedTerminalId: z.string().min(1).optional(),
+  /** Preferred view mode when opening this unified session (Phase 146). */
+  preferredView: UnifiedSessionViewModeSchema.optional(),
 });
 export type ChatSummary = z.infer<typeof ChatSummarySchema>;
 

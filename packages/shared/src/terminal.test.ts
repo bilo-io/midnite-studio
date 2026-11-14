@@ -527,6 +527,17 @@ describe('buildResumeCommand (Phase 86 Theme C)', () => {
       ]);
     });
 
+    it('returns [--conversation, id] for agy when conversationId is provided', () => {
+      expect(buildResumeCommand(agy, 'conv-12345678')).toEqual([
+        '--conversation',
+        'conv-12345678',
+      ]);
+      expect(buildResumeCommand(agy, '  conv-trimmed  ')).toEqual([
+        '--conversation',
+        'conv-trimmed',
+      ]);
+    });
+
     it('trims whitespace around conversationId', () => {
       expect(buildResumeCommand(claude, '  trimmed-uuid  ')).toEqual([
         '--resume',
@@ -557,10 +568,12 @@ describe('buildResumeCommand (Phase 86 Theme C)', () => {
   });
 
   describe('no-resume (null) case', () => {
-    it('returns null for agy which has no resume args', () => {
+    it('returns null for agy when conversationId is absent or blank', () => {
       expect(buildResumeCommand(agy)).toBeNull();
-      expect(buildResumeCommand(agy, 'some-uuid')).toBeNull();
+      expect(buildResumeCommand(agy, undefined)).toBeNull();
       expect(buildResumeCommand(agy, null)).toBeNull();
+      expect(buildResumeCommand(agy, '')).toBeNull();
+      expect(buildResumeCommand(agy, '   ')).toBeNull();
     });
 
     it('returns null for an agent with no resume defined or empty resume array', () => {
@@ -669,5 +682,28 @@ describe('the session app (Phase 123 Theme E)', () => {
   it('keeps an app that stamped itself, and rejects one that is not a suite app', () => {
     expect(sessionAppId(TerminalSessionSchema.parse({ ...base, appId: 'browser' }))).toBe('browser');
     expect(TerminalSessionSchema.safeParse({ ...base, appId: 'launcher' }).success).toBe(false);
+  });
+});
+
+describe('unified session view on TerminalSessionSchema (Phase 146 Theme A)', () => {
+  const base = { id: 's-1', kind: 'agent' as const, agentId: 'claude', title: 'midnite', cwd: '/repos/midnite', repoId: 'repo:midnite', createdAt: 1 };
+
+  it('keeps linkedChatId and preferredView optional for backwards compatibility', () => {
+    const parsed = TerminalSessionSchema.parse(base);
+    expect(parsed.linkedChatId).toBeUndefined();
+    expect(parsed.preferredView).toBeUndefined();
+  });
+
+  it('accepts linkedChatId and preferredView when set and rejects invalid values', () => {
+    const parsed = TerminalSessionSchema.parse({
+      ...base,
+      linkedChatId: 'chat-123',
+      preferredView: 'chat',
+    });
+    expect(parsed.linkedChatId).toBe('chat-123');
+    expect(parsed.preferredView).toBe('chat');
+
+    expect(TerminalSessionSchema.safeParse({ ...base, linkedChatId: '' }).success).toBe(false);
+    expect(TerminalSessionSchema.safeParse({ ...base, preferredView: 'invalid' }).success).toBe(false);
   });
 });

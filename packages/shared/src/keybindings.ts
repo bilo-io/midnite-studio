@@ -92,6 +92,11 @@ export const COMMANDS = [
   { id: 'terminal.toggleDock', label: 'Dock Terminal to Bottom / Right', group: 'terminal' },
   { id: 'terminal.focus', label: 'Focus Terminal', group: 'terminal' },
   /**
+   * Chord-free escape hatch for WebGL glyph-atlas corruption: clears the glyph
+   * atlas and repaints every mounted terminal. See `xterm-atlas-guard.ts`.
+   */
+  { id: 'terminal.repaint', label: 'Repaint Terminals', group: 'terminal' },
+  /**
    * `Mod+w` closes whichever session is selected (with the same "still
    * running" confirm the session list's own close button shows). `app`
    * scope, same reasoning as `repos.toggle`: it needs no reach through
