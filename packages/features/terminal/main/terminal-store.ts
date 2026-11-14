@@ -134,7 +134,9 @@ function isSession(value: unknown): value is TerminalSession {
     s.cwd.length > 0 &&
     typeof s.repoId === 'string' &&
     typeof s.createdAt === 'number' &&
-    (s.agentId === undefined || typeof s.agentId === 'string')
+    (s.agentId === undefined || typeof s.agentId === 'string') &&
+    (s.linkedChatId === undefined || (typeof s.linkedChatId === 'string' && s.linkedChatId.length > 0)) &&
+    (s.preferredView === undefined || s.preferredView === 'chat' || s.preferredView === 'terminal')
   );
 }
 
