@@ -300,7 +300,7 @@ export const FEATURE_TOGGLES = {
       'media.audio.editor',
       'media.audio.generator',
     ],
-    data: { files: ['animation-library', 'sf3d', 'sfx', 'audio-models', 'games-settings.json', 'video-settings.json', 'map-settings.json'], storeKeys: ['mstudio.media.audio-prefs', 'mstudio.media.image-prefs', 'mstudio.media.model-prefs', 'midnite-studio.game-juice'], vault: [] },
+    data: { files: ['animation-library', 'sf3d', 'sfx', 'audio-models', 'games-settings.json', 'video-settings.json', 'map-settings.json'], storeKeys: ['mstudio.media.audio-prefs', 'mstudio.media.image-prefs', 'mstudio.media.model-prefs', 'midnite-studio.game-juice', 'midnite-studio.level-view'], vault: [] },
   },
   models: {
     label: 'Models',
