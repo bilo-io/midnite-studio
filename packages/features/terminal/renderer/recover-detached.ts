@@ -4,10 +4,13 @@ import { useTerminalStore } from './terminal-store';
 
 /**
  * "Recover Detached Sessions" (`terminal.recoverDetached`): have main re-adopt every live session in any
- * broker and rebuild the rows it lost, then re-read the list so they appear. Reusable — a later phase's
- * status-bar widget calls this same entry point. Resolves with main's envelope, or `null` with no bridge.
+ * broker and rebuild the rows it lost, then re-read the list so they appear. Full recovery (Phase 148 Theme D) calls this
+ * with `silent` and reports in its own summary dialog. Resolves with main's envelope, or `null` with no bridge.
  */
-export async function recoverDetachedSessions(dialogs?: Pick<FrameDialogs, 'notify'>) {
+export async function recoverDetachedSessions(
+  dialogs?: Pick<FrameDialogs, 'notify'>,
+  options: { silent?: boolean } = {},
+) {
   const api = bridge();
   if (!api) return null;
   const result = await api.terminal.recoverDetached();
@@ -17,6 +20,7 @@ export async function recoverDetachedSessions(dialogs?: Pick<FrameDialogs, 'noti
   }
   // `refresh`, not `hydrate`: hydrate runs once per launch, and this is a re-read on demand.
   await useTerminalStore.getState().refresh();
+  if (options.silent) return result;
   const n = result.recovered.length;
   dialogs?.notify({
     title: n === 0 ? 'No detached sessions' : `Recovered ${n} detached session${n === 1 ? '' : 's'}`,

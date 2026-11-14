@@ -40,7 +40,7 @@ The status bar's system monitor (the CPU/RAM/GPU/disk cluster) can show that the
 
 **Theme C — Free RAM (`PR-3`, M).** ◻ TODO. Two new IPC ops, `resources:free-ram-plan` (a dry run) and `resources:free-ram` (execute). They gather previous-build sessions, lost brokers, hidden browser tabs and renderer caches behind one confirm, then report the RSS freed, measured from two `ps` snapshots and the `vm_stat` free-memory delta. A zero result is reported as zero.
 
-**Theme D — Full recovery (`PR-4`, M).** ◻ TODO. Runs #1259's `recoverDetachedSessions`, then reads Theme B's inventory for anything still unreachable. It shows one summary grouped by repo (recovered rows with Reveal, previous-build rows with End…, unreachable brokers with Manage resources). `terminal.recoverDetached` is repointed to this flow, so the palette and the widget run the same thing and no second command is added.
+**Theme D — Full recovery (`PR-4`, M).** 🔄 Landed except D.4. `runFullRecovery(dialogs)` (`app/src/features/monitor/full-recovery.ts`) runs #1259's `recoverDetachedSessions` silently, re-reads the session list, reads Theme B's `lost: 'unreachable'` rows when the inventory carries them (none before B, so that section stays hidden), and opens one summary dialog: recovered sessions grouped by repo with Reveal, previous-build sessions with End…, unreachable brokers with Manage resources, and a "N sessions running" footer; nothing to report reads "Everything is attached". `terminal.recoverDetached` and the flyout's Full recovery button both run it (no second command), and the amber badge now counts #1259's `previousBuildSessions()`. Other-app ownership is filtered in main by #1259's `studioPtys()`; the recover envelope carries no owner, so the "Belongs to <app>" count (148.D.4) is deferred. The acceptance run on the packaged app is also deferred, so this theme's checklist is not fully ticked.
 
 **Theme E — Clean system (`PR-5`, S).** ◻ TODO. Runs the optimizer's existing consent-gated system-cache scan and clean (`runSystemScan`, `runSystemClean`) from the widget, plus an on-demand broker-dir sweep. The sweep reuses #1259's `staleBrokerFiles` and adds log files of versions with no live broker. One confirm lists entries and sizes, and the result reports bytes reclaimed.
 
@@ -104,15 +104,15 @@ The status bar's system monitor (the CPU/RAM/GPU/disk cluster) can show that the
 
 ### Theme D — Full recovery (`M`)
 
-- [ ] **148.D.1** Add `packages/app/src/features/monitor/full-recovery.ts`. It calls #1259's `bridge.terminal.recoverDetached()` and then `useTerminalStore.refresh()`, as `recover-detached.ts` does, but returns the result instead of showing a toast. It then calls `optimizer.processes()` and keeps the rows with `lost === 'unreachable'` (Theme B). With B not yet landed, that section is skipped.
-- [ ] **148.D.2** Summary dialog (frame dialog, not a toast), in three sections, each hidden when empty:
+- [x] **148.D.1** Add `packages/app/src/features/monitor/full-recovery.ts`. It calls #1259's `bridge.terminal.recoverDetached()` and then `useTerminalStore.refresh()`, as `recover-detached.ts` does, but returns the result instead of showing a toast. It then calls `optimizer.processes()` and keeps the rows with `lost === 'unreachable'` (Theme B). With B not yet landed, that section is skipped.
+- [x] **148.D.2** Summary dialog (frame dialog, not a toast), in three sections, each hidden when empty:
   - **Recovered (N):** grouped by `DetachedSession.repoId`, each row with title, cwd and **Reveal**. Reveal reuses `reveal-session.ts`, which switches the selected repo and focuses the row.
   - **Still on a previous build (N):** **End…** → #1259's `endSessionsWithConfirm`.
   - **Unreachable (N · X GB):** **Manage resources** → B.7.
   - The footer reads "N sessions running".
-- [ ] **148.D.3** Repoint the `terminal.recoverDetached` handler (`use-command-handlers.ts:226`) to `runFullRecovery(dialogs)`, so the palette, the widget and any MCP caller share one flow. Keep the command id and label. Do **not** add a second command.
+- [x] **148.D.3** Repoint the `terminal.recoverDetached` handler (`use-command-handlers.ts:226`) to `runFullRecovery(dialogs)`, so the palette, the widget and any MCP caller share one flow. Keep the command id and label. Do **not** add a second command.
 - [ ] **148.D.4** Sessions owned by another app (`owner` ≠ `studio`) are counted under "Belongs to <app>" and never adopted, matching #1259's `studioPtys()` filter.
-- [ ] **148.D.5** Tests (vitest), in `full-recovery.test.ts` with mock-bridge:
+- [x] **148.D.5** Tests (vitest), in `full-recovery.test.ts` with mock-bridge:
   - grouping by repo
   - empty-state copy ("Everything is attached")
   - the unreachable section only when B data is present

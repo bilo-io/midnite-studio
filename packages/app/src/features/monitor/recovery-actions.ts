@@ -1,3 +1,4 @@
+import { previousBuildSessions } from '@midnite/studio-feature-terminal/renderer';
 import type { MonitorAction } from '@midnite/studio-frame';
 import { LuGauge, LuLifeBuoy, LuMemoryStick, LuSparkles } from 'react-icons/lu';
 
@@ -16,7 +17,7 @@ export type RecoverySeams = {
   manageResources?: () => void;
   /** Theme C. */
   freeRam?: () => void;
-  /** Theme D, over PR #1259's `recoverDetachedSessions`. */
+  /** Theme D: `runFullRecoveryFromWidget`, over PR #1259's recovery. */
   fullRecovery?: () => void;
 };
 
@@ -24,9 +25,15 @@ const noop = (): void => undefined;
 
 const openOptimizer = (): void => void requestHandoff({ app: 'cleaner', view: 'optimizer' });
 
+/**
+ * The one way to Manage resources: the flyout's action and the Full recovery dialog both call it, so
+ * Theme B's Lost filter (B.7) lands in a single place and applies to both.
+ */
+export const openManageResources = (): void => openOptimizer();
+
 const DEFAULT_SEAMS: Required<Pick<RecoverySeams, 'cleanSystem' | 'manageResources'>> = {
   cleanSystem: openOptimizer,
-  manageResources: openOptimizer,
+  manageResources: openManageResources,
 };
 
 /** The four actions in their fixed order: Clean system, Manage resources, Free RAM, Full recovery. */
@@ -36,7 +43,8 @@ export function buildRecoveryActions(seams: RecoverySeams = {}): readonly Monito
     {
       id: 'clean-system',
       label: 'Clean system',
-      description: 'Open the Optimizer to sweep system caches (nothing is removed without a confirm)',
+      description:
+        'Open the Optimizer to sweep system caches (nothing is removed without a confirm)',
       Icon: LuSparkles,
       run: cleanSystem,
     },
@@ -71,13 +79,15 @@ export function buildRecoveryActions(seams: RecoverySeams = {}): readonly Monito
 }
 
 /**
- * How many sessions in the sidebar belong to a previous build — read from the terminal store's
- * `legacy` map, counted against the sessions that still exist so ending one clears it. A hook
- * (it subscribes), called from the cluster's render. PR #1259 supplies `previousBuildSessions()`;
- * this swaps to it then, with no change to the badge.
+ * How many sessions still run in a previous build's broker — #1259's `previousBuildSessions()`, so the
+ * badge and the End… confirm agree on the list. It reads the store outside React, so the three slices it
+ * depends on are subscribed here to re-render the cluster when any of them changes.
  */
 export function usePreviousBuildCount(): number {
-  return useTerminalStore((state) => state.sessions.filter((session) => state.legacy[session.id]).length);
+  useTerminalStore((state) => state.sessions);
+  useTerminalStore((state) => state.legacy);
+  useTerminalStore((state) => state.states);
+  return previousBuildSessions().length;
 }
 
 /** The cluster's attention line: `null` when nothing is running from a previous build. */
