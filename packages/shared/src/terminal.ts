@@ -584,17 +584,20 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
 ] as const;
 
 /**
- * Build the CLI arguments needed to resume an agent conversation (Phase 86 Theme C).
+ * Build the CLI arguments needed to resume an agent conversation (Phase 86 Theme C,
+ * extended for `agy` in Phase 146 Theme B).
  *
- * For agents where exact-conversation resume is supported ('claude' and 'codex')
+ * For agents where exact-conversation resume is supported ('claude', 'codex', and 'agy')
  * and an agent-native conversation ID is provided, returns the exact resume argv:
  * - 'claude': ['--resume', conversationId]
  * - 'codex': ['resume', conversationId]
+ * - 'agy': ['--conversation', conversationId]
  *
  * Otherwise, falls back to the agent's defined `resume` args (e.g. ['--continue']
  * or ['resume', '--last']) if present and non-empty.
  *
- * Returns `null` if the agent has no resume mechanism configured (such as 'agy' or 'cline').
+ * Returns `null` if the agent has no resume mechanism configured (such as 'agy' without
+ * a conversationId, or 'openclaude').
  */
 export function buildResumeCommand(
   agent: AgentDefinition,
@@ -607,6 +610,9 @@ export function buildResumeCommand(
     }
     if (agent.id === 'codex') {
       return ['resume', trimmedId];
+    }
+    if (agent.id === 'agy') {
+      return ['--conversation', trimmedId];
     }
   }
 
