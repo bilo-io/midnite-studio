@@ -2427,6 +2427,49 @@ export const PrivacyHistoryClearResponse = z.object({
 /** `fdesetup status`, read without admin: `unknown` when the probe could not run. */
 export const PrivacyFileVaultResponse = z.object({ status: z.enum(['on', 'off', 'unknown']) });
 
+// --- Settings ▸ Permissions: live macOS grants (Phase 2 Theme B) -------------
+
+/** The grants the page lists. `automation`, `files` and `notifications` have no read that never prompts. */
+export const MacPermissionIdSchema = z.enum([
+  'screen',
+  'microphone',
+  'camera',
+  'accessibility',
+  'fullDisk',
+  'automation',
+  'files',
+  'notifications',
+]);
+export type MacPermissionId = z.infer<typeof MacPermissionIdSchema>;
+/** `unchecked`: macOS offers no read that does not itself raise the prompt, so none is attempted. */
+export const MacPermissionStateSchema = z.enum([
+  'granted',
+  'denied',
+  'not-determined',
+  'restricted',
+  'unknown',
+  'unchecked',
+]);
+export type MacPermissionState = z.infer<typeof MacPermissionStateSchema>;
+export const PermissionRow = z.object({
+  id: MacPermissionIdSchema,
+  state: MacPermissionStateSchema,
+  checkedAt: z.number().int().nonnegative(),
+  /** The System Settings pane's `x-apple.systempreferences:` URL. */
+  paneUrl: z.string(),
+  /** Whether `tccutil reset` has a service for this row. */
+  resettable: z.boolean(),
+});
+export const PermissionsStatusResponse = z.object({
+  /** False off macOS: every row is `unknown` and the page says so. */
+  supported: z.boolean(),
+  /** The bundle id a reset targets; shown in the confirm so the blast radius is explicit. */
+  bundleId: z.string(),
+  rows: z.array(PermissionRow),
+});
+export const PermissionsPaneRequest = z.object({ id: MacPermissionIdSchema });
+export const PermissionsResetRequest = z.object({ id: MacPermissionIdSchema });
+
 // --- feature toggles: a switched-off feature's data (Phase 135 Theme F) -------
 
 export const FeatureDataRequest = z.object({

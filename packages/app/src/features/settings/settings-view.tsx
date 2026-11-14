@@ -31,6 +31,7 @@ import { McpToolsView } from '@midnite/studio-feature-mcp-tools/renderer';
 import { useActiveWorktree } from '../../services/use-status';
 import { MonitorPage } from './settings-pages/monitor-page';
 import { OllamaSettingsPage } from './settings-pages/ollama-page';
+import { PermissionsPage } from './settings-pages/permissions-page';
 import { PrivacyPage } from './settings-pages/privacy-page';
 import { ProjectsPage } from './settings-pages/projects-page';
 import { ReviewsPage } from './settings-pages/reviews-page';
@@ -60,6 +61,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   appearance: () => <AppearancePage />,
   activity: () => <ActivityPage />,
   privacy: () => <PrivacyPage />,
+  permissions: () => <PermissionsPage />,
   features: () => <FeaturesPage />,
   graph: () => <GraphPage />,
   diff: () => <DiffPage />,

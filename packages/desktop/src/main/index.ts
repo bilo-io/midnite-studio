@@ -95,6 +95,7 @@ import { configureCompanionTtsBroker, disposeCompanionTtsBroker } from '@midnite
 import { createSttCredentials } from '@midnite/studio-feature-companion/main/stt/credentials';
 import { configureUiBridge } from '@midnite/studio-feature-companion/main/ui-bridge';
 import { registerCompanionHandlers } from './ipc/companion-handlers';
+import { registerPermissionsHandlers } from './ipc/permissions-handlers';
 import { configurePrivacy, registerPrivacyHandlers } from './ipc/privacy-handlers';
 import { registerFeatureDataHandlers } from './ipc/feature-data-handlers';
 import { configureSessions, registerSessionsHandlers } from './ipc/sessions-handlers';
@@ -599,6 +600,7 @@ export const startStudioMain: StartStudioMain = () => {
       registerDiagHandlers();
       registerSessionsHandlers();
       registerPrivacyHandlers();
+      registerPermissionsHandlers();
       registerFeatureDataHandlers();
       registerNotesHandlers();
       registerChatsHandlers();
