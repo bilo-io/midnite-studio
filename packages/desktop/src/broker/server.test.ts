@@ -85,13 +85,7 @@ async function waitFor(check: () => boolean, timeoutMs = 2000): Promise<void> {
   }
 }
 
-const LEAKED_HOST_ENV = {
-  NO_COLOR: '1',
-  CLAUDECODE: '1',
-  CLAUDE_CODE_CHILD_SESSION: '1',
-  CLAUDE_CODE_MESSAGING_TOKEN: 'secret',
-  KEEP_ME: 'yes',
-};
+const SESSION_ENV_OVERRIDES = { CLAUDE_CODE_USE_BEDROCK: '1', KEEP_ME: 'yes' };
 
 describe('broker server', () => {
   it('rejects hello with protocol mismatch and closes the socket', async () => {
@@ -263,7 +257,7 @@ describe('broker server', () => {
     await new Promise((r) => setTimeout(r, 20));
 
     const create = (id: number) =>
-      encodeControl({ t: 'create', id, sessionId: `s-${id}`, cwd: '/tmp', cols: 80, rows: 24, env: LEAKED_HOST_ENV });
+      encodeControl({ t: 'create', id, sessionId: `s-${id}`, cwd: '/tmp', cols: 80, rows: 24, env: SESSION_ENV_OVERRIDES });
     const hello = encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid, role: 'host' });
 
     // Healthy: the spawn goes through.
@@ -276,10 +270,9 @@ describe('broker server', () => {
       GIT_TERMINAL_PROMPT: '1',
       KEEP_ME: 'yes',
     });
-    // A host agent's markers never reach the pty, even if the client sent them.
-    const spawnedEnv = spawnPty.mock.calls[0]?.[2]?.env ?? {};
-    expect(spawnedEnv).not.toHaveProperty('NO_COLOR');
-    expect(Object.keys(spawnedEnv).filter((k) => k.startsWith('CLAUDE_CODE_') || k === 'CLAUDECODE')).toEqual([]);
+    // The broker passes the client's env through untouched: main scrubs the ambient env, and an explicit per-session
+    // override (here a CLAUDE_CODE_* setting the user chose) must survive.
+    expect(spawnPty.mock.calls[0]?.[2]?.env).toMatchObject({ CLAUDE_CODE_USE_BEDROCK: '1' });
     healthy.socket.destroy();
 
     // The bundle moved under this process: refuse BEFORE trying to spawn.

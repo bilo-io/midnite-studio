@@ -7,7 +7,6 @@ import { SCROLLBACK_BYTES, perfEnabled } from '@midnite/studio-shared';
 
 import { readSocketToken, socketTokenMatches, socketTokenPath } from '@midnite/studio-runtime/security/socket-token';
 import { writePrivateFile } from '@midnite/studio-runtime/private-files';
-import { scrubHostAgentEnv } from '@midnite/studio-runtime/broker/agent-env';
 import { isProfilePath, removeProfileFile, wrapWithSandbox } from '@midnite/studio-runtime/broker/confine-wrap';
 
 import { startHeapSampler } from '../heap-sampler';
@@ -684,8 +683,9 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
             cwd,
             env: {
               COLORTERM: 'truecolor',
-              // A main from before the scrub still sends its ambient env; drop a host agent's markers here too.
-              ...scrubHostAgentEnv(env ?? {}),
+              // Not scrubbed here: `env` is main's already-scrubbed ambient env plus the user's explicit per-session
+              // overrides (which may legitimately name a CLAUDE_CODE_* setting). Main owns the scrub.
+              ...env,
               TERM_PROGRAM: 'midnite-studio',
               GIT_TERMINAL_PROMPT: '1',
             },
