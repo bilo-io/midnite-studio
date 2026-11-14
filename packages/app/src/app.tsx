@@ -36,6 +36,7 @@ import {
 // pieces below are the first to leave this file for it.
 import { AppShell, DelayedFallback, FrameChromeProvider, NavLockToggle, TitleBarBattery, TitleBarStatus, ToolApprovalHost, useDisabledFeatures, useKnowledgeGraphExists } from '@midnite/studio-frame';
 import { DialogHost } from './components/dialog-host';
+import { FullRecoveryHost } from './features/monitor/full-recovery-dialog';
 import { STUDIO_FORGE_HOST } from './compose/forge-host';
 import { STUDIO_CHROME } from './compose/studio-chrome';
 import { STUDIO_TASKS_HOST } from './compose/tasks-host';
@@ -2115,6 +2116,8 @@ export function App() {
               <ToolApprovalHost />
               {/* Phase 120 Theme G: an agent paused by a critical finding asks resume or kill, whichever view is up. */}
               <AgentPauseModal />
+              {/* Phase 148 Theme D: the Full recovery summary, from the palette or the monitor flyout. */}
+              <FullRecoveryHost />
             </StudioProviders>
             {/*
               Silent, like Slides below: an overlay whose chunk fails to load

@@ -2,6 +2,7 @@ import type { MonitorAction } from '@midnite/studio-frame';
 import { LuGauge, LuLifeBuoy, LuMemoryStick, LuSparkles } from 'react-icons/lu';
 
 import { requestHandoff } from '../../services/handoff';
+import { previousBuildSessions } from '@midnite/studio-feature-terminal/renderer';
 import { useTerminalStore } from '../terminal/terminal-store';
 
 /**
@@ -16,7 +17,7 @@ export type RecoverySeams = {
   manageResources?: () => void;
   /** Theme C. */
   freeRam?: () => void;
-  /** Theme D, over PR #1259's `recoverDetachedSessions`. */
+  /** Theme D: `runFullRecoveryFromWidget`, over PR #1259's recovery. */
   fullRecovery?: () => void;
 };
 
@@ -71,13 +72,15 @@ export function buildRecoveryActions(seams: RecoverySeams = {}): readonly Monito
 }
 
 /**
- * How many sessions in the sidebar belong to a previous build — read from the terminal store's
- * `legacy` map, counted against the sessions that still exist so ending one clears it. A hook
- * (it subscribes), called from the cluster's render. PR #1259 supplies `previousBuildSessions()`;
- * this swaps to it then, with no change to the badge.
+ * How many sessions still run in a previous build's broker — #1259's `previousBuildSessions()`, so the
+ * badge and the End… confirm agree on the list. It reads the store outside React, so the three slices it
+ * depends on are subscribed here to re-render the cluster when any of them changes.
  */
 export function usePreviousBuildCount(): number {
-  return useTerminalStore((state) => state.sessions.filter((session) => state.legacy[session.id]).length);
+  useTerminalStore((state) => state.sessions);
+  useTerminalStore((state) => state.legacy);
+  useTerminalStore((state) => state.states);
+  return previousBuildSessions().length;
 }
 
 /** The cluster's attention line: `null` when nothing is running from a previous build. */
