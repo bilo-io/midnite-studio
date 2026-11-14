@@ -146,7 +146,10 @@ test("a PR opened from repo A's Reviews view and one from repo B land in two dif
   // — close it so the second repo's tree is clickable again.
   await page.getByRole('button', { name: 'Close browser' }).click();
 
-  const openSecond = await openPullFromRepoTree(page, 'other-repo', 'Second repo PR', 99);
+  const openSecond = await (async () => {
+    await page.getByRole('button', { name: 'Show all repositories' }).click();
+    return openPullFromRepoTree(page, 'other-repo', 'Second repo PR', 99);
+  })();
   await openSecond.click();
 
   await expect(browserTabs(page)).toHaveCount(2);
