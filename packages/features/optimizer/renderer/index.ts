@@ -27,6 +27,7 @@ export {
   type OptimizerHost,
   type OptimizerSettingsState,
 } from './host';
+export { openOptimizerAt, type MemoryFilter, type OptimizerTab } from './optimizer-store';
 
 type ViewIds = OptimizerManifest['views'][number]['id'];
 type SettingsPageIds = OptimizerManifest['settingsPages'][number];
