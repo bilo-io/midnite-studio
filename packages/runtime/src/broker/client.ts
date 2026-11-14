@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdirSync, openSync, readdirSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, openSync, readdirSync, readFileSync, statSync, unlinkSync } from 'node:fs';
 import * as net from 'node:net';
 import { basename, join } from 'node:path';
 
@@ -16,6 +16,7 @@ import {
 import { readSocketToken, removeSocketToken, writeSocketToken } from '../security/socket-token';
 import { brokerSocketName, fingerprintFile, isSocketPathTooLong } from './socket-name';
 import { createQueuedSocketWriter, type QueuedSocketWriter } from './socket-write-queue';
+import { isPidAlive, staleBrokerFiles, type BrokerDirEntry } from './stale-files';
 
 /**
  * The pty broker client — `desktop/src/main/broker-client.ts` until Phase 113
@@ -662,9 +663,40 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
         log(`[broker] connected to legacy broker at ${legacyPath} (${list.length} session(s))`);
         if (list.length === 0) retireLegacy(peer);
       }
+      if (!guest) removeStaleBrokerFiles();
     } catch {
       // Ignore
     }
+  }
+
+  /** Delete the pid and token files no live broker owns — see `stale-files.ts`. Host only. */
+  function removeStaleBrokerFiles(): void {
+    const entries: BrokerDirEntry[] = [];
+    for (const name of readdirSync(brokerDir)) {
+      if (!name.endsWith('.sock.pid') && !name.endsWith('.sock.token') && !name.endsWith('.sock')) continue;
+      try {
+        const path = join(brokerDir, name);
+        const pid = name.endsWith('.pid') ? Number.parseInt(readFileSync(path, 'utf8').trim(), 10) : NaN;
+        entries.push({ name, mtimeMs: statSync(path).mtimeMs, pid: Number.isInteger(pid) ? pid : null });
+      } catch {
+        // Gone between the listing and the stat — nothing to clean.
+      }
+    }
+    const stale = staleBrokerFiles(entries, {
+      ownSocketName: socketName,
+      isPidAlive,
+      now: Date.now(),
+    });
+    let removed = 0;
+    for (const name of stale) {
+      try {
+        unlinkSync(join(brokerDir, name));
+        removed++;
+      } catch {
+        // Already gone.
+      }
+    }
+    if (removed > 0) log(`[broker] removed ${removed} stale broker file(s) from dead brokers`);
   }
 
   async function connectOrSpawn(): Promise<boolean> {
