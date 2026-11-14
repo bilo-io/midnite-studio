@@ -96,8 +96,10 @@ export function runFullRecoveryFromWidget(): void {
   if (dialogs) void runFullRecovery(dialogs);
 }
 
-/** Reveal = select the session's repo, then focus its row. Resolves false when the row is gone. */
+/** Reveal = focus the session's row and select its repo. Resolves false when the row is gone. */
 export function revealRecovered(session: RecoveredSession): boolean {
+  // Focus the row first: a row that is gone must not leave the user on a different repo.
+  if (!revealSession(session.sessionId)) return false;
   useUiStore.getState().selectRepo(session.repoId);
-  return revealSession(session.sessionId);
+  return true;
 }
