@@ -2,7 +2,8 @@
  * Folders macOS guards with TCC (Transparency, Consent and Control). Entering one from a process with no
  * prior grant raises a system prompt, and a prompt nobody asked for reads as the app spying. Code that can
  * run at boot, on a timer or in the background must stay out of them; code a user started may enter one.
- * Plain constants, no zod: the main process and the `scripts/tcc-guard.mjs` check both read them.
+ * Plain constants, no zod. `scripts/tcc-guard.mjs` keeps its own copy of the folder names (plain node cannot load
+ * this TypeScript); a test asserts the two lists match.
  */
 
 /** Top-level home folders that prompt on first entry. */
@@ -15,9 +16,26 @@ export const PROTECTED_HOME_FOLDERS = ['Desktop', 'Documents', 'Downloads', 'Pic
 export const PROTECTED_LIBRARY_PATHS = [
   'Pictures/Photos Library.photoslibrary',
   'Music/Music',
+  'Pictures/Photo Booth Library',
+  'Music/iTunes',
+  // Private app stores (Full Disk Access; Apple's "Control access to files and folders on Mac" and the
+  // Full Disk Access list in System Settings). Containers and Group Containers prompt as "access data from
+  // other apps" on macOS 14+; Mobile Documents is iCloud Drive.
   'Library/Mail',
   'Library/Messages',
   'Library/Safari',
+  'Library/Containers',
+  'Library/Group Containers',
+  'Library/Mobile Documents',
+  'Library/Calendars',
+  'Library/Reminders',
+  'Library/Cookies',
+  'Library/HomeKit',
+  'Library/Suggestions',
+  'Library/Application Support/AddressBook',
+  'Library/Application Support/CallHistoryDB',
+  'Library/Application Support/MobileSync',
+  'Library/Application Support/com.apple.TCC',
 ] as const;
 
 const trimSlash = (p: string): string => (p.length > 1 ? p.replace(/\/+$/, '') : p);

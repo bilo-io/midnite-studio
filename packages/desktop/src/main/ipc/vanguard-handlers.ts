@@ -21,6 +21,7 @@ import { EVENT_CHANNELS } from '@midnite/studio-shared';
 import { app, BrowserWindow, shell } from 'electron';
 
 import { agentAuditTrail } from '../agent-audit';
+import { createFullDiskAccessProbe } from '../full-disk-access';
 import { defaultLogger } from '../log';
 import { listRepos } from '../repo-registry';
 import { broadcastToAllWindows } from '../window-manager';
@@ -111,9 +112,13 @@ export async function startVanguardSensors(userData: string): Promise<void> {
     announce: (prompt) => broadcastToAllWindows(EVENT_CHANNELS.vanguardAgentPaused, prompt),
     onError: (error) => defaultLogger.warn(`vanguard auto-pause: ${String(error)}`),
   });
+  const fullDiskAccess = createFullDiskAccessProbe(app.getPath('home'));
+  // The user may flip the switch in System Settings and come back: re-probe when a window regains focus.
+  app.on('browser-window-focus', () => void fullDiskAccess.refresh());
   serviceInstance = await createVanguardService({
     userData,
     homeDir: app.getPath('home'),
+    fullDiskAccess,
     runProcess: createSensorRunProcess({ defaultCwd: userData }),
     record: (finding) => ledger.record(finding),
     autostart: 'after-view-opened',
