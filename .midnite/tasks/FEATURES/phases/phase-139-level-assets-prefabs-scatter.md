@@ -1,6 +1,10 @@
 # Phase 139 — Level asset browser, prefabs and scatter
 
+**Refined: x1** · 2026-11-14 · file map, contracts, MCP, testing, UI/UX
+
 Planned 2026-11-14 by an unattended agent · grounded against the tree as of `9e395a8df`.
+
+**Model:** every theme is a spec'd build for sonnet; no theme needs `Model: opus`.
 
 A level today is built one object at a time from a fixed palette (`spawn`, `exit`, `prop`, …), and a model prop
 gets its `.glb` by typing its asset name into the inspector's `model` field. Every engine solves the same three
@@ -205,7 +209,7 @@ export function dropToObject(payload: AssetDragPayload & { kind: 'asset' }, at: 
 ```
 
 - HTML5 DnD with a custom MIME (the browser carries it across the panel and the canvas; no library). The ghost is a
-  translucent box (plan) or the model at 50 % opacity (3D) at the snapped point (137 Theme F's `snapPoint`; the
+  translucent box (plan) or the model at 50 % opacity (3D) at the snapped point (137 Theme F's `planSnapStep`; the
   ground plane via 137 Theme G's `groundPoint`).
 - Drop of a `model` asset on a 3D level adds a `prop` (`model` = the asset name) on the active object layer, selects
   it; on a 2D level a model is refused with a `useNotify` notice "Models place in 3D levels." **2D sprite drops are
@@ -434,7 +438,7 @@ export function scatterPoints(area: { cx: number; cy: number; radius: number } |
 - [ ] Targeted checks green: `tsc --noEmit` for shared, media-game, desktop; eslint on changed files; vitest on the
   touched suites; the one e2e; `scripts/skill-copies.test.mjs`; `tool-manifest-pin.test.ts`; `node
   scripts/tracker-check.mjs`.
-- [ ] **Gate — the built app, throwaway `--user-data-dir`**, a third-person game with three imported models: open
+- [ ] **Open, for a human:** gate on the built app, throwaway `--user-data-dir`**, a third-person game with three imported models: open
   the asset panel, see three thumbnails, drag one into 3D, save a 4-object selection as a prefab, place it twice,
   edit one instance's field, Update from prefab (override kept), scatter 40 trees in one stroke and undo it in one
   `Mod+Z`; from a terminal agent `game_level_scatter` with a seed. Shots under `/tmp/midnite-shots-p139/`.
@@ -454,20 +458,20 @@ export function scatterPoints(area: { cx: number; cy: number; radius: number } |
 
 All resolved; unattended, the conventional option was taken in each case.
 
-1. **Baked instances, not references** — Tiled templates and LDtk entity instances store full objects; the kit and
+1. **Resolved — Baked instances, not references.** Tiled templates and LDtk entity instances store full objects; the kit and
    exports need no change, and an instance stays a readable Tiled object. Unity-style live links would need kit
    resolution at load time and break `game_level_get` readers.
-2. **Overrides are a field list** (`midnite.prefabOverrides`), the Unity model reduced to field granularity: simple
+2. **Resolved — Overrides are a field list.** (`midnite.prefabOverrides`), the Unity model reduced to field granularity: simple
    to show (a dot per field), simple to revert.
-3. **The browser is a bottom panel**, like Unity's Project window and Unreal's Content Browser drawer, reusing the
+3. **Resolved — The browser is a bottom panel.** Like Unity's Project window and Unreal's Content Browser drawer, reusing the
    frame's `BottomPanel` (resizable, collapsible, persisted) instead of a fixed aside.
-4. **Thumbnails are rendered in the renderer, cached in memory only.** A disk thumbnail cache would be a second
+4. **Resolved — Thumbnails are rendered in the renderer, cached in memory only.** A disk thumbnail cache would be a second
    source of truth beside the manifest's `sha256`; 200 × 128 px is cheap to redraw per session.
-5. **Scatter is seeded and Poisson-spaced** (Bridson), as Unreal's foliage and Houdini's scatter are: reproducible
+5. **Resolved — Scatter is seeded and Poisson-spaced.** (Bridson), as Unreal's foliage and Houdini's scatter are: reproducible
    for an agent, and visually even rather than clumped.
-6. **One undo step per stroke**, matching every paint tool in every engine and the edit model's existing
+6. **Resolved — One undo step per stroke.** Matching every paint tool in every engine and the edit model's existing
    `beginStroke` / `endStroke`.
-7. **Prefabs live in `levels/prefabs/`** next to the scenes they serve, one JSON per prefab, so git diffs stay
+7. **Resolved — Prefabs live in `levels/prefabs/`.** Next to the scenes they serve, one JSON per prefab, so git diffs stay
    readable and `levels.list` (which reads `levels/*.tmj`) is unaffected.
-8. **No chord for Save as prefab** — the level's local key table (137 J) has no free, obvious letter; Unity and
+8. **Resolved — No chord for Save as prefab.** The level's local key table (137 J) has no free, obvious letter; Unity and
    Godot also make it a menu/drag action.
