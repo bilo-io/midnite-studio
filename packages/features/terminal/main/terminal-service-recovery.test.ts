@@ -264,6 +264,15 @@ describe('endSessions / endPreviousBuildSessions', () => {
     expect(await savedIds(dir)).toEqual([]);
   });
 
+  it("refuses to end another app's pty and kills nothing", async () => {
+    const dir = await seeded([row('mine')]);
+    live.push(pty('mine'), pty('guest-one', { owner: 'agents' }));
+    await expect(endSessions(['mine', 'guest-one'])).rejects.toThrow(/guest-one/);
+    expect(killed).toEqual([]);
+    await shutdownTerminals();
+    expect(await savedIds(dir)).toEqual(['mine']);
+  });
+
   it('ends only the previous-build sessions', async () => {
     const dir = await seeded([row('mine'), row('old')]);
     live.push(pty('mine', { legacy: false }), pty('old', { legacy: true }), pty('orphan-old', { legacy: true }));

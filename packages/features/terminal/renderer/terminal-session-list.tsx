@@ -26,11 +26,11 @@ import {
   LuFolderGit2,
   LuHistory,
   LuLayers,
-  LuPower,
   LuMoon,
   LuPanelLeft,
   LuPanelRight,
   LuPencil,
+  LuPower,
   LuRotateCcw,
   LuX,
 } from 'react-icons/lu';

@@ -3,7 +3,7 @@ import { bridge, type FrameDialogs } from '@midnite/studio-frame';
 import { useTerminalStore } from './terminal-store';
 
 /**
- * "Recover Detached Agents" (`terminal.recoverDetached`): have main re-adopt every live session in any
+ * "Recover Detached Sessions" (`terminal.recoverDetached`): have main re-adopt every live session in any
  * broker and rebuild the rows it lost, then re-read the list so they appear. Reusable — a later phase's
  * status-bar widget calls this same entry point. Resolves with main's envelope, or `null` with no bridge.
  */

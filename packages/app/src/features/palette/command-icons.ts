@@ -4,7 +4,6 @@ import { GoIssueOpened } from 'react-icons/go';
 import { SiMagic, SiOllama } from 'react-icons/si';
 import {
   LuActivity,
-  LuHistory,
   LuArrowRightLeft,
   LuBot,
   LuChevronLeft,
@@ -28,6 +27,7 @@ import {
   LuGitCommitHorizontal,
   LuGitCommitVertical,
   LuGlobe,
+  LuHistory,
   LuLink,
   LuLock,
   LuMessageSquare,

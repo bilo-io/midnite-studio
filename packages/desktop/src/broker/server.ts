@@ -573,8 +573,9 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
     let ino: number | null = null;
     try {
       ino = statSync(socketPath).ino;
-    } catch {
-      // Missing — unlinked under us.
+    } catch (err) {
+      // Only ENOENT means unlinked under us; a transient EIO/EACCES waits for the next tick.
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') return 'owned';
     }
     if (ino === boundIno) return 'owned';
 

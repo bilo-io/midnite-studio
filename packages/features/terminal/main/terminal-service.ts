@@ -285,6 +285,8 @@ function recoverOrphanedPtys(): DetachedSession[] {
  * recovering it here would duplicate it, and ending it is that app's call.
  */
 function studioPtys(): NonNullable<ReturnType<NonNullable<TerminalPtyPort['liveBrokerSessions']>>> {
+  // A broker built between #890 (guests) and #894 (owners stamped, 2026-10-17) stamps no owner, so a guest's
+  // pty from that window reads as ours; those brokers are a month old and the window was a day.
   return (port().pty.liveBrokerSessions?.() ?? []).filter((p) => !p.owner || p.owner === 'studio');
 }
 
@@ -321,12 +323,22 @@ export async function recoverDetachedSessions(): Promise<{
  * previous-build broker shuts down once its last one goes) and remove its row, archived as closed.
  * Resolves with the ids that existed. The renderer's own close does the same through `pty.kill` and
  * `terminal.forget`; a caller of this re-reads the list afterwards.
+ *
+ * Same owner filter as recovery and end-all: an id whose pty belongs to another app throws before
+ * anything is killed (the IPC handler turns it into an `{ok:false}` envelope). The confirm dialog lives
+ * in the renderer (Phase 148 Theme C); this is the guard main enforces regardless of caller.
  */
 export async function endSessions(sessionIds: readonly string[]): Promise<string[]> {
   await ensureLoaded();
+  const ids = [...new Set(sessionIds)];
+  const owned = new Map(studioPtys().map((p) => [p.sessionId, p]));
+  const foreign = ids.filter((id) => !owned.has(id) && port().pty.livePtyFor(id));
+  if (foreign.length > 0) {
+    throw new Error(`Not a Studio session: ${foreign.join(', ')}`);
+  }
   const ended: string[] = [];
-  for (const sessionId of new Set(sessionIds)) {
-    const pty = port().pty.livePtyFor(sessionId);
+  for (const sessionId of ids) {
+    const pty = owned.get(sessionId);
     const hasRow = sessions.some((s) => s.id === sessionId);
     if (!pty && !hasRow) continue;
     if (pty) port().pty.killPty?.(pty.ptyId);
@@ -412,6 +424,7 @@ export async function getTerminal(sessionId: string): Promise<TerminalSession | 
 
 /** Insert or update one row, keeping its position if it already exists. */
 export function saveTerminal(session: TerminalSession): void {
+  forgottenBeforeLoad.delete(session.id);
   const index = sessions.findIndex((s) => s.id === session.id);
   if (index === -1) sessions.push(session);
   else sessions[index] = session;
@@ -421,6 +434,7 @@ export function saveTerminal(session: TerminalSession): void {
 /** Insert or update one row and flush `terminals.json` immediately (Phase 146). */
 export async function saveTerminalNow(session: TerminalSession): Promise<void> {
   await ensureLoaded();
+  forgottenBeforeLoad.delete(session.id);
   const index = sessions.findIndex((s) => s.id === session.id);
   if (index === -1) sessions.push(session);
   else sessions[index] = session;
@@ -428,7 +442,7 @@ export async function saveTerminalNow(session: TerminalSession): Promise<void> {
     clearTimeout(saveTimer);
     saveTimer = null;
   }
-  await store.save(sessions);
+  await persist();
 }
 
 /**
@@ -606,14 +620,25 @@ export async function shutdownTerminals(): Promise<void> {
   await whenArchivesSettle();
   // Never save a list that was never loaded — that is what used to wipe `terminals.json` on quit.
   await ensureLoaded();
-  await Promise.all([store.save(sessions), flushScrollback()]);
+  await Promise.all([persist(), flushScrollback()]);
+}
+
+/**
+ * Every write of `terminals.json` goes through one chain, snapshotting `sessions` when its turn comes,
+ * so an older snapshot can never rename in after a newer one.
+ */
+let saveChain: Promise<void> = Promise.resolve();
+function persist(): Promise<void> {
+  const next = saveChain.then(() => store.save(sessions));
+  saveChain = next.catch(() => {});
+  return next;
 }
 
 function scheduleSave(): void {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveTimer = null;
-    void ensureLoaded().then(() => store.save(sessions));
+    void ensureLoaded().then(persist);
   }, SAVE_DEBOUNCE_MS);
   saveTimer.unref?.();
 }
@@ -623,6 +648,7 @@ export function resetTerminalsForTest(): void {
   sessions = [];
   loaded = false;
   loading = null;
+  saveChain = Promise.resolve();
   forgottenBeforeLoad.clear();
   store = nullTerminalStore;
   history = nullSessionHistoryStore;
