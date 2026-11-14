@@ -23,6 +23,8 @@ function services(overrides: Partial<OptimizerMainServices> = {}): OptimizerMain
     scanSystemCaches: vi.fn(async () => ({}) as never),
     cleanSystemCaches: vi.fn(async () => ({ freedBytes: 0, skipped: [] })),
     runReclaimCommand: vi.fn(async () => ({ ok: false as const, message: 'no' })),
+    brokerSweepPlan: vi.fn(() => ({ entries: [], totalBytes: 0 })),
+    brokerSweep: vi.fn(() => ({ removed: 0, freedBytes: 0, skipped: [] })),
     ...overrides,
   };
 }
@@ -99,5 +101,27 @@ describe('optimizerMain', () => {
     );
     await expect(ctx.invoke(CHANNELS.optimizerKill, { pid: 'nope' })).resolves.toMatchObject({ ok: false });
     await expect(ctx.invoke(CHANNELS.optimizerGpu)).resolves.toEqual({ ok: false, message: 'no gpu' });
+  });
+
+  it('answers the broker sweep plan and sweep through the services, an empty name list as an error', async () => {
+    const ctx = createRecordingContext();
+    const brokerSweep = vi.fn(() => ({ removed: 1, freedBytes: 5, skipped: [] }));
+    optimizerMain.register(
+      ctx,
+      services({
+        brokerSweepPlan: () => ({ entries: [{ name: 'a.sock.pid', kind: 'pid', bytes: 5 }], totalBytes: 5 }),
+        brokerSweep,
+      }),
+    );
+    await expect(ctx.invoke(CHANNELS.optimizerBrokerSweepPlan)).resolves.toEqual({
+      ok: true,
+      value: { entries: [{ name: 'a.sock.pid', kind: 'pid', bytes: 5 }], totalBytes: 5 },
+    });
+    await expect(ctx.invoke(CHANNELS.optimizerBrokerSweep, { names: ['a.sock.pid'] })).resolves.toEqual({
+      ok: true,
+      value: { removed: 1, freedBytes: 5, skipped: [] },
+    });
+    expect(brokerSweep).toHaveBeenCalledWith(['a.sock.pid']);
+    await expect(ctx.invoke(CHANNELS.optimizerBrokerSweep, { names: [] })).resolves.toMatchObject({ ok: false });
   });
 });

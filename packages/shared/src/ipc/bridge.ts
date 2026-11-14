@@ -2264,6 +2264,12 @@ export type MidniteStudioBridge = {
     systemReclaim: (
       req: In<typeof S.OptimizerSystemReclaimRequest>,
     ) => Promise<z.infer<typeof S.OptimizerSystemReclaimResponse>>;
+    /** Phase 148 E: what a broker-dir sweep would delete, with sizes. Deletes nothing. */
+    brokerSweepPlan: () => Promise<z.infer<typeof S.OptimizerBrokerSweepPlanResponse>>;
+    /** Phase 148 E: unlink the named leftovers that are still stale. */
+    brokerSweep: (
+      req: In<typeof S.OptimizerBrokerSweepRequest>,
+    ) => Promise<z.infer<typeof S.OptimizerBrokerSweepResponse>>;
   };
 
   protocol: {

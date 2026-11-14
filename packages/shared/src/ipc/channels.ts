@@ -510,6 +510,10 @@ export const CHANNELS = {
   optimizerSystemClean: 'mstudio:optimizer:system-clean',
   /** Runs one `DEFAULT_RECLAIM_COMMANDS` entry through `runProcess`, by `entryId` only. */
   optimizerSystemReclaim: 'mstudio:optimizer:system-reclaim',
+  /** What a broker-dir sweep would delete (stale pid/token files, old logs) with sizes — deletes nothing. Phase 148 E. */
+  optimizerBrokerSweepPlan: 'mstudio:optimizer:broker-sweep-plan',
+  /** Unlinks the named files that the rules still call stale; never a path, only bare names in the broker dir. */
+  optimizerBrokerSweep: 'mstudio:optimizer:broker-sweep',
 
   // --- stash -----------------------------------------------------------------
   /** Every stash entry for one checkout, newest first — same shape `for-each-ref` gets. */

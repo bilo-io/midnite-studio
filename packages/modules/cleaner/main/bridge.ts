@@ -40,6 +40,8 @@ export function createCleanerBridge(ipc: RendererIpc): CleanerBridge {
         subscribe(EVENT_CHANNELS.optimizerSystemScanProgress, handler),
       systemClean: (req) => call(CHANNELS.optimizerSystemClean, req),
       systemReclaim: (req) => call(CHANNELS.optimizerSystemReclaim, req),
+      brokerSweepPlan: () => call(CHANNELS.optimizerBrokerSweepPlan),
+      brokerSweep: (req) => call(CHANNELS.optimizerBrokerSweep, req),
     },
     metrics: {
       start: (req) => send(CHANNELS.metricsStart, req),
