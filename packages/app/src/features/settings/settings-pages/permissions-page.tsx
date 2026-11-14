@@ -171,7 +171,7 @@ export function PermissionsPage() {
                     </button>
                   ) : null}
                 </div>
-                {row.resettable && status.supported ? (
+                {row.resettable && row.state !== 'unchecked' && status.supported ? (
                   <details className="ml-7 text-[11px] text-muted-foreground">
                     <summary className="cursor-pointer select-none">Shows on in System Settings but off here?</summary>
                     <div className="mt-1.5 space-y-1.5">
