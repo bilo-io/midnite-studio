@@ -858,3 +858,8 @@ The detector's discount for code spans and quotation marks is bypassable by wrap
 ## Accordion header polish (#1272) — stale Linux visual baseline
 
 - **`sessions-list-live-and-closed-linux.png` predates the taller, tinted `ExplorerGroup` header.** The `visual` lane is opt-in (`cross-platform` label) and regenerating needs Docker, which was not running when #1272 merged. Next time that lane runs, regenerate with `MSTUDIO_CROSS_PLATFORM=1 moon run root:visual-regen` and commit the new baseline.
+
+## Phase 146 — deferred at planning
+
+- **DNS tracker audit for LAN devices.** Read a Pi-hole query log (its API or an exported file) or a router's DNS log, attribute each query to a device from the Devices view, and classify the hosts against the bundled easyprivacy list (`features/browser/main/data/easyprivacy.generated.ts`) — the "which ad servers is the TV talking to" half of the 2026-11-14 LG TV investigation. Left out to keep Phase 146 to four directions.
+- **LG privacy writes over the luna bridge** (Live Plus, ad tracking, home promotions). Undocumented and model-specific; Phase 146 reads them and gives the menu path. Revisit only with a verified key map per firmware.
