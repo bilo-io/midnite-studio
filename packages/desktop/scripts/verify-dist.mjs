@@ -74,6 +74,24 @@ if (!plistContent.includes('midnite-studio')) {
   process.exit(1);
 }
 
+// ISSUES Phase 2 Theme D: the protected-folder and library usage strings. Without one macOS shows a
+// bare system prompt with no reason, and a build that dropped them would look fine until a user hit it.
+console.log('Verifying Info.plist folder usage strings...');
+for (const key of [
+  'NSDocumentsFolderUsageDescription',
+  'NSDesktopFolderUsageDescription',
+  'NSDownloadsFolderUsageDescription',
+  'NSRemovableVolumesUsageDescription',
+  'NSNetworkVolumesUsageDescription',
+  'NSPhotoLibraryUsageDescription',
+  'NSAppleMusicUsageDescription',
+]) {
+  if (!plistContent.includes(`<key>${key}</key>`)) {
+    console.error(`Info.plist missing ${key}`);
+    process.exit(1);
+  }
+}
+
 // Phase 49 Theme E: the one `templateRoot()` failure mode dev mode can't
 // catch — `electron-builder.yml`'s `extraResources` entry for `templates/`
 // silently producing nothing (a typo'd `from`, a glob that matches zero

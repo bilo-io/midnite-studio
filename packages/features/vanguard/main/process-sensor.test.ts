@@ -40,6 +40,7 @@ describe('process sensor', () => {
     const { recorded, ctx } = harness(() => table);
     const store = new Map<string, string[]>();
     const sensor = createProcessSensor({
+      fullDiskAccess: () => true,
       agentSessions: () => new Map([[400, 'sess-1']]),
       load: async (f) => store.get(f) ?? null,
       save: async (f, p) => void store.set(f, p),
@@ -74,5 +75,49 @@ describe('process sensor', () => {
       runProcess: async () => ({ ok: false, reason: 'timed-out', hint: 'slow' }),
     };
     await expect(sensor.run!(failing)).rejects.toThrow(/ps failed/);
+  });
+
+  it('does not open a binary under a protected folder without Full Disk Access, and says it is unverified', async () => {
+    let table = ps();
+    const calls: string[] = [];
+    const base = harness(() => table);
+    const ctx: SensorContext = {
+      ...base.ctx,
+      runProcess: async (cmd, ...rest) => {
+        calls.push(cmd);
+        return base.ctx.runProcess(cmd, ...rest);
+      },
+    };
+    const store = new Map<string, string[]>();
+    const sensor = createProcessSensor({
+      load: async (f) => store.get(f) ?? null,
+      save: async (f, p) => void store.set(f, p),
+    });
+    await sensor.start!(ctx);
+    await sensor.run!(ctx);
+    table = ps('  900   400   501 /Users/dev/Downloads/payload /Users/dev/Downloads/payload -x\n');
+    expect(await sensor.run!(ctx)).toEqual({ findings: 1 });
+    expect(calls.filter((c) => c !== 'ps')).toEqual([]);
+    const f = base.recorded[0]!;
+    expect(f).toMatchObject({ severity: 'info', fingerprint: 'process:/Users/dev/Downloads/payload' });
+    expect(f.detail).toContain('unverified (protected folder)');
+    // no path evidence, so the malware queue is never fed this file
+    expect(f.evidence.some((e) => e.kind === 'path')).toBe(false);
+  });
+
+  it('inspects a protected-folder binary as before when Full Disk Access is granted', async () => {
+    let table = ps();
+    const { recorded, ctx } = harness(() => table);
+    const store = new Map<string, string[]>();
+    const sensor = createProcessSensor({
+      fullDiskAccess: () => true,
+      load: async (f) => store.get(f) ?? null,
+      save: async (f, p) => void store.set(f, p),
+    });
+    await sensor.start!(ctx);
+    await sensor.run!(ctx);
+    table = ps('  900   400   501 /Users/dev/Downloads/payload /Users/dev/Downloads/payload -x\n');
+    await sensor.run!(ctx);
+    expect(recorded[0]!.evidence.some((e) => e.kind === 'path')).toBe(true);
   });
 });

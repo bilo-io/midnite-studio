@@ -244,6 +244,11 @@ jobs:
       - name: E2E budget and visual ratchet
         run: pnpm exec moon run root:e2e-budget
 
+      # Boot and background code stays out of macOS's protected folders (ISSUES Phase 2
+      # Theme D). Node-only, runs in gate-node: no macOS job added.
+      - name: TCC guard
+        run: pnpm exec moon run root:tcc-guard
+
       # Explicit project-scoped targets, not `:typecheck :lint :test` — that
       # form runs EVERY project, which is exactly what this split undoes.
       # `root:test` runs the repo-wide scripts/*.test.mjs suite (tracker-check,
