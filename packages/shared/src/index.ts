@@ -44,6 +44,7 @@ export * from './ipc';
 export * from './keybindings';
 export * from './loops';
 export * from './custom-loops';
+export * from './macos-protected-paths';
 export * from './markdown-image';
 export * from './markets';
 export * from './markets-portfolio';

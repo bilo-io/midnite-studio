@@ -24,6 +24,11 @@ import {
 export interface VanguardServiceOptions {
   userData: string;
   homeDir?: string;
+  /**
+   * Whether the app holds Full Disk Access. Absent means "not granted": the full scan leaves macOS-protected
+   * folders alone and the process sensor does not open binaries inside them. Injected by the desktop main.
+   */
+  fullDiskAccess?: () => boolean | Promise<boolean>;
   runProcess: SensorRunProcess;
   record: (finding: NewSecurityFinding) => Promise<SecurityFinding>;
   /** Studio: `'after-view-opened'`. Vanguard's own app: `'always'`. */
@@ -98,12 +103,21 @@ export async function createVanguardService(
     userData: options.userData,
     ...(options.homeDir !== undefined ? { homeDir: options.homeDir } : {}),
     runProcess: options.runProcess,
+    ...(options.fullDiskAccess ? { fullDiskAccess: options.fullDiskAccess } : {}),
     ...(options.sensorDeps?.malware?.probe ? { probe: options.sensorDeps.malware.probe } : {}),
     record: (finding) => options.record({ ...finding, source: 'vanguard' }),
     ...(repos ? { repos } : {}),
     onChanged: options.onChanged,
     onQueued: () => void hostRef?.runNow(MALWARE_SENSOR_ID),
   });
+  const processFda = options.fullDiskAccess
+    ? {
+        persistenceProcess: {
+          ...options.sensorDeps?.persistenceProcess,
+          processes: { ...options.sensorDeps?.persistenceProcess?.processes, fullDiskAccess: options.fullDiskAccess },
+        },
+      }
+    : {};
   const host = createSensorHost({
     userData: options.userData,
     ...(options.homeDir !== undefined ? { homeDir: options.homeDir } : {}),
@@ -121,7 +135,7 @@ export async function createVanguardService(
   });
   const connections = createConnectionStore();
   hostRef = host;
-  for (const def of options.sensors ?? builtinSensors({ ...options.sensorDeps, connections }, scanner)) host.register(def);
+  for (const def of options.sensors ?? builtinSensors({ ...options.sensorDeps, connections, ...processFda }, scanner)) host.register(def);
   const quarantineDir = `${options.userData}/vanguard/quarantine`;
   const retentionDays = (): number => settings.get().quarantineRetentionDays;
   const quarantine = createQuarantineStore({ quarantineDir, runProcess: options.runProcess, now: Date.now, retentionDays });
