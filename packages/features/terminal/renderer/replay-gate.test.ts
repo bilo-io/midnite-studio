@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createReplayGate, gateLiveWrite, replayLiveHandoff } from './replay-gate';
+import { createReplayGate, gateLiveWrite, replayLiveHandoff, writeAtSourceSize } from './replay-gate';
 
 const bytes = (s: string) => new TextEncoder().encode(s);
 const decode = (b: Uint8Array) => new TextDecoder().decode(b);
@@ -133,5 +133,62 @@ describe('replayLiveHandoff (Phase 84 Theme E.3 — the rehydrate hand-off)', ()
 
     expect(onSnapshot).toHaveBeenCalledWith(new Uint8Array(0));
     expect(gate.open).toBe(true);
+  });
+});
+
+describe('replayLiveHandoff onReleased', () => {
+  it('calls onSnapshot, then held chunks, then onReleased', async () => {
+    const order: string[] = [];
+    const gate = replayLiveHandoff(
+      () => Promise.resolve(bytes('s')),
+      () => order.push('snapshot'),
+      (chunk) => order.push(`live:${decode(chunk)}`),
+      () => false,
+      () => order.push('released'),
+    );
+    gateLiveWrite(gate, bytes('held'), () => order.push('direct'));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(order).toEqual(['snapshot', 'live:held', 'released']);
+  });
+
+  it('does not call onReleased when cancelled', async () => {
+    const onReleased = vi.fn();
+    replayLiveHandoff(() => Promise.resolve(bytes('s')), () => {}, () => {}, () => true, onReleased);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(onReleased).not.toHaveBeenCalled();
+  });
+});
+
+describe('writeAtSourceSize', () => {
+  const fake = () => {
+    const calls: string[] = [];
+    return {
+      calls,
+      term: {
+        resize: (c: number, r: number) => calls.push(`resize:${c}x${r}`),
+        write: (d: Uint8Array) => calls.push(`write:${decode(d)}`),
+      },
+    };
+  };
+
+  it('resizes to the snapshot size then writes', () => {
+    const { calls, term } = fake();
+    writeAtSourceSize(term, { bytes: bytes('x'), cols: 120, rows: 40 });
+    expect(calls).toEqual(['resize:120x40', 'write:x']);
+  });
+
+  it('skips resize when cols or rows is absent', () => {
+    const { calls, term } = fake();
+    writeAtSourceSize(term, { bytes: bytes('x'), cols: 120 });
+    writeAtSourceSize(term, { bytes: bytes('y') });
+    expect(calls).toEqual(['write:x', 'write:y']);
+  });
+
+  it('skips write on empty bytes', () => {
+    const { calls, term } = fake();
+    writeAtSourceSize(term, { bytes: new Uint8Array(0), cols: 80, rows: 24 });
+    expect(calls).toEqual(['resize:80x24']);
   });
 });
