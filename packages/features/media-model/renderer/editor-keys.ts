@@ -1,5 +1,5 @@
 import type { EditorAction, EditorState } from './editor-state';
-import { nudgeDistance } from './snap';
+import { nudgeDistance } from '@midnite/studio-frame/viewport3d';
 
 /** What a key press means in the editor: a document edit, or a change to the view / tool. */
 export type KeyOutcome =

@@ -564,14 +564,14 @@ keep editing scenes as code.
 ## Verification
 
 - [ ] `moon run :typecheck :lint :test` green in CI.
-- [ ] `game-open.test.ts`, `game-service-add.test.ts`, `opened-games.test.ts`, `game-explorer.test.tsx` (A).
-- [ ] `game-center.test.tsx`, `game-tab-mode.test.tsx`, the runner-host, toolbar and settings-store cases (B).
-- [ ] `game-level.test.ts`, `kit-level.test.ts` (including the kit ↔ shared agreement), `game-levels.test.ts`, the runner
+- [x] `game-open.test.ts`, `game-service-add.test.ts`, `opened-games.test.ts`, `game-explorer.test.tsx` (A).
+- [x] `game-center.test.tsx`, `game-tab-mode.test.tsx`, the runner-host, toolbar and settings-store cases (B).
+- [x] `game-level.test.ts`, `kit-level.test.ts` (including the kit ↔ shared agreement), `game-levels.test.ts`, the runner
   `goto` cases, `map-view` `cellAt` (C).
-- [ ] `level-edit-model.test.ts`, `scene-picker.test.tsx`, `level-editor.test.tsx`, `new-scene-dialog.test.tsx` and the
+- [x] `level-edit-model.test.ts`, `scene-picker.test.tsx`, `level-editor.test.tsx`, `new-scene-dialog.test.tsx` and the
   one e2e (D); the 3D model and inspector cases (E).
 - [x] `starter-levels.test.ts` and the layout regression; existing template tests green (F).
-- [ ] The MCP id, read-set and write-set tests (G).
+- [x] The MCP id, read-set and write-set tests (G).
 - [ ] **Open, for a human:** the passes listed under H.
 
 ## Not in this phase

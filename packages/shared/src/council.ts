@@ -9,12 +9,13 @@
  * literal below), anonymized/blind formats, and per-repo scoping — a council
  * here is **global**, exactly like the agent roster it draws members from.
  *
- * A council member's `provider` is restricted to the three roster agents that
- * already have a defined non-interactive invocation in
- * {@link agentHeadlessArgs} (`agy`, `codex`, `opencode`) — every other
- * roster agent (including `claude` itself) has no headless flag today, so it
- * cannot be trusted to answer one prompt and exit rather than opening its own
- * interactive REPL.
+ * A council member's `provider` is restricted to the roster agents with a
+ * print mode in {@link agentHeadlessArgs} that this feature has verified answers
+ * one prompt and exits (`agy`, `claude`, `codex`, `opencode`).
+ *
+ * Phase 133 made a run a **thread**: the top-level prompt/members/synthesis
+ * fields are the latest turn, and `turns` holds the earlier ones, oldest
+ * first, so a run written before then parses as a one-turn thread.
  */
 import { z } from 'zod';
 
@@ -29,22 +30,41 @@ import { z } from 'zod';
  * Widening this list is a `start-agent.ts`/`agentHeadlessArgs` change first,
  * not a councils one.
  */
-export const COUNCIL_MEMBER_PROVIDERS = ['agy', 'codex', 'opencode'] as const;
+export const COUNCIL_MEMBER_PROVIDERS = ['agy', 'claude', 'codex', 'opencode'] as const;
 export const CouncilMemberProviderSchema = z.enum(COUNCIL_MEMBER_PROVIDERS);
 export type CouncilMemberProvider = z.infer<typeof CouncilMemberProviderSchema>;
 
-// --- format --------------------------------------------------------------
+// --- synthesis types ---------------------------------------------------------
 
 /**
- * The only synthesis format this phase ships.
- *
- * Written as a one-value literal rather than a placeholder enum, so adding a
- * second format later (`debate`, with its anonymize/shuffle/de-anonymize
- * mechanic) is an honest, visible schema change instead of a value slotting
- * into a union nobody widened on purpose.
+ * How a council's synthesizer combines its members' answers (Phase 134 Theme A).
+ * Four presets, each with its own instructions and members
+ * (`council-presets.ts`), plus `custom`, whose instructions the user writes or
+ * generates. Members stay attributed in every type: no shuffle or anonymising.
  */
-export const CouncilFormatSchema = z.literal('brainstorm');
+export const COUNCIL_SYNTHESIS_TYPES = ['brainstorm', 'debate', 'promote-demote', 'review', 'custom'] as const;
+export const CouncilSynthesisTypeSchema = z.enum(COUNCIL_SYNTHESIS_TYPES);
+export type CouncilSynthesisType = z.infer<typeof CouncilSynthesisTypeSchema>;
+
+/**
+ * A run's format: the council's synthesis type, snapshotted at run start. Phase
+ * 133 and earlier only wrote `'brainstorm'`, which still parses.
+ */
+export const CouncilFormatSchema = CouncilSynthesisTypeSchema;
 export type CouncilFormat = z.infer<typeof CouncilFormatSchema>;
+
+/** The longest synthesizer instructions a council stores. */
+export const COUNCIL_SYNTH_INSTRUCTIONS_MAX = 4_000;
+
+/** The member-count range (Phase 134 Theme D): free councils hold up to 3, Pro up to 6. */
+export const COUNCIL_MIN_MEMBERS = 2;
+export const COUNCIL_FREE_MEMBERS = 3;
+export const COUNCIL_PRO_MEMBERS = 6;
+
+/** How many members a council may grow to, given whether `councils.pro` is on. */
+export function councilMemberCap(pro: boolean): number {
+  return pro ? COUNCIL_PRO_MEMBERS : COUNCIL_FREE_MEMBERS;
+}
 
 // --- council + members -----------------------------------------------------
 
@@ -54,6 +74,8 @@ export const CouncilMemberSchema = z.object({
   provider: CouncilMemberProviderSchema,
   /** Free-text instruction for how this member should answer — e.g. "argue the contrary view". */
   role: z.string().min(1),
+  /** A `modelsForAgent` id for `provider`; absent means the CLI's own default (Phase 133 Theme B). */
+  model: z.string().min(1).optional(),
 });
 export type CouncilMember = z.infer<typeof CouncilMemberSchema>;
 
@@ -63,13 +85,19 @@ export const CouncilSchema = z.object({
   description: z.string().optional(),
   members: z.array(CouncilMemberSchema),
   synthProvider: CouncilMemberProviderSchema,
+  /** The synthesizer's model, as {@link CouncilMemberSchema}'s `model`. */
+  synthModel: z.string().min(1).optional(),
+  /** How the synthesizer combines the answers (Phase 134 Theme A); a council from before reads as brainstorm. */
+  synthesisType: CouncilSynthesisTypeSchema.default('brainstorm'),
+  /** The synthesizer's instructions; absent means the preset's own (Custom without any falls back to brainstorm's). */
+  synthInstructions: z.string().max(COUNCIL_SYNTH_INSTRUCTIONS_MAX).optional(),
   createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),
 });
 export type Council = z.infer<typeof CouncilSchema>;
 
 /**
- * Four starter personas, seeded on every new council — mirrors upstream's own
+ * Three starter personas, seeded on every new council — mirrors upstream's own
  * `COUNCIL_STARTER_MEMBERS` so a fresh council is immediately useful rather
  * than an empty list the user has to populate before it means anything.
  *
@@ -82,7 +110,6 @@ export function createStarterMembers(): CouncilMember[] {
     { id: crypto.randomUUID(), name: 'Optimist', provider: 'agy', role: 'Argue the best case — what could go right, and why this is worth doing.' },
     { id: crypto.randomUUID(), name: 'Skeptic', provider: 'codex', role: 'Find the strongest objection — what breaks, what is being assumed away.' },
     { id: crypto.randomUUID(), name: 'Pragmatist', provider: 'opencode', role: 'Focus on what is actually achievable given real constraints — time, cost, complexity.' },
-    { id: crypto.randomUUID(), name: 'Visionary', provider: 'agy', role: 'Ignore near-term constraints — what is the most ambitious version of this?' },
   ];
 }
 
@@ -94,11 +121,29 @@ export const CouncilMemberStatusSchema = z.enum([
   'failed',
   'timeout',
   'skipped',
+  /** The whole run was cancelled while this member was still answering (Phase 133). */
+  'cancelled',
 ]);
 export type CouncilMemberStatus = z.infer<typeof CouncilMemberStatusSchema>;
 
-export const CouncilRunStatusSchema = z.enum(['running', 'synthesizing', 'completed', 'failed']);
+/**
+ * A run's own state. `completed`, `failed`, `timeout` and `cancelled` are
+ * terminal; `timeout` and `cancelled` say what stopped the synthesis (or the
+ * whole run) rather than folding both into `failed`.
+ */
+export const CouncilRunStatusSchema = z.enum(['running', 'synthesizing', 'completed', 'failed', 'timeout', 'cancelled']);
 export type CouncilRunStatus = z.infer<typeof CouncilRunStatusSchema>;
+
+/** The run statuses that end a turn. */
+export const COUNCIL_RUN_TERMINAL: readonly CouncilRunStatus[] = ['completed', 'failed', 'timeout', 'cancelled'];
+
+export function isCouncilRunLive(status: CouncilRunStatus): boolean {
+  return status === 'running' || status === 'synthesizing';
+}
+
+/** What happened to a turn's synthesis itself, apart from the run (Phase 133). */
+export const CouncilSynthesisStatusSchema = z.enum(['running', 'succeeded', 'failed', 'timeout', 'cancelled']);
+export type CouncilSynthesisStatus = z.infer<typeof CouncilSynthesisStatusSchema>;
 
 /**
  * One member's result within a run.
@@ -126,8 +171,32 @@ export const CouncilRunMemberSchema = z.object({
   startedAt: z.number().int().nonnegative(),
   endedAt: z.number().int().nonnegative().optional(),
   ptyId: z.string().min(1).optional(),
+  /** The model snapshot, as {@link CouncilMemberSchema}'s `model`. */
+  model: z.string().min(1).optional(),
+  /** The CLI's own session id, from its JSON answer — what a follow-up turn resumes (Phase 133 Theme D). */
+  sessionId: z.string().min(1).optional(),
 });
 export type CouncilRunMember = z.infer<typeof CouncilRunMemberSchema>;
+
+/**
+ * One earlier turn of a thread (Phase 133 Theme D): what was asked, what each
+ * member answered and what the synthesis said. Kept whole so the thread view
+ * can draw every turn; the follow-up prompt reads only an excerpt of the
+ * synthesis from it.
+ */
+export const CouncilTurnSchema = z.object({
+  prompt: z.string().min(1),
+  status: CouncilRunStatusSchema,
+  members: z.array(CouncilRunMemberSchema.omit({ ptyId: true })),
+  synthProvider: CouncilMemberProviderSchema,
+  synthModel: z.string().min(1).optional(),
+  synthesisStatus: CouncilSynthesisStatusSchema.optional(),
+  synthesisOutput: z.string().optional(),
+  synthesisError: z.string().optional(),
+  createdAt: z.number().int().nonnegative(),
+  endedAt: z.number().int().nonnegative(),
+});
+export type CouncilTurn = z.infer<typeof CouncilTurnSchema>;
 
 /**
  * A single run of a council against one prompt.
@@ -151,14 +220,70 @@ export const CouncilRunSchema = z.object({
   status: CouncilRunStatusSchema,
   synthProvider: CouncilMemberProviderSchema,
   members: z.array(CouncilRunMemberSchema),
+  synthModel: z.string().min(1).optional(),
+  /** The synthesizer's instructions as resolved at run start (Phase 134 Theme A). */
+  synthInstructions: z.string().max(COUNCIL_SYNTH_INSTRUCTIONS_MAX).optional(),
+  synthesisStatus: CouncilSynthesisStatusSchema.optional(),
   synthesisOutput: z.string().optional(),
   synthesisTruncated: z.boolean().optional(),
   synthesisError: z.string().optional(),
   synthesisPtyId: z.string().min(1).optional(),
+  /** The synthesizer's CLI session, resumed by the next turn. */
+  synthSessionId: z.string().min(1).optional(),
+  /** Earlier turns of this thread, oldest first; the top-level fields are the latest turn. */
+  turns: z.array(CouncilTurnSchema).default([]),
+  /** When the latest turn started — `createdAt` is when the thread did. */
+  turnStartedAt: z.number().int().nonnegative().optional(),
   createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),
 });
 export type CouncilRun = z.infer<typeof CouncilRunSchema>;
+
+/** How many turns a thread has, the latest included. */
+export function councilTurnCount(run: Pick<CouncilRun, 'turns'>): number {
+  return (run.turns?.length ?? 0) + 1;
+}
+
+/** The thread's title: its first prompt. */
+export function councilThreadTitle(run: Pick<CouncilRun, 'turns' | 'prompt'>): string {
+  return run.turns?.[0]?.prompt ?? run.prompt;
+}
+
+// --- recommend (Phase 133 Theme E) -------------------------------------------
+
+/** One member a small model proposed; the user edits it before anything is created. */
+export const CouncilRecommendedMemberSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  role: z.string().trim().min(1).max(600),
+  provider: CouncilMemberProviderSchema,
+  /** A catalogue model for `provider` (Phase 134 Theme E/F); absent is the CLI's default. */
+  model: z.string().trim().min(1).optional(),
+});
+export type CouncilRecommendedMember = z.infer<typeof CouncilRecommendedMemberSchema>;
+
+export const CouncilRecommendationSchema = z.object({
+  description: z.string().trim().max(300).optional(),
+  members: z.array(CouncilRecommendedMemberSchema).min(2).max(6),
+  synthProvider: CouncilMemberProviderSchema,
+});
+export type CouncilRecommendation = z.infer<typeof CouncilRecommendationSchema>;
+
+/**
+ * "Generate with AI" for a Custom council (Phase 134 Theme E): the
+ * synthesizer's instructions and the members, held to what is available here.
+ */
+export const CouncilGeneratedSchema = z.object({
+  instructions: z.string().trim().min(1).max(COUNCIL_SYNTH_INSTRUCTIONS_MAX),
+  members: z.array(CouncilRecommendedMemberSchema).min(COUNCIL_MIN_MEMBERS).max(COUNCIL_PRO_MEMBERS),
+});
+export type CouncilGenerated = z.infer<typeof CouncilGeneratedSchema>;
+
+/** One provider Generate may use, and the catalogue models it may pick for it. */
+export const CouncilAvailableProviderSchema = z.object({
+  provider: CouncilMemberProviderSchema,
+  models: z.array(z.string().min(1)).max(40),
+});
+export type CouncilAvailableProvider = z.infer<typeof CouncilAvailableProviderSchema>;
 
 // --- tunables ----------------------------------------------------------------
 
@@ -168,7 +293,21 @@ export type CouncilRun = z.infer<typeof CouncilRunSchema>;
  * forever. A hardcoded constant for this phase rather than a Settings-exposed
  * value — see the phase doc's "Decisions" section for why.
  */
-export const COUNCIL_RUN_TIMEOUT_MS = 120_000;
+export const COUNCIL_RUN_TIMEOUT_MS = 300_000;
+
+/**
+ * How much of the previous synthesis a follow-up turn carries (Phase 133
+ * Theme D): an excerpt that says where the council landed, not every
+ * member's transcript — each member's own session already holds its history.
+ */
+export const COUNCIL_FOLLOW_UP_EXCERPT_CHARS = 1_500;
+
+/**
+ * How much of one member's answer the synthesis prompt carries. The capture
+ * cap bounds storage; this bounds the prompt, so a council of six verbose
+ * members cannot hand the synthesizer megabytes.
+ */
+export const COUNCIL_SYNTHESIS_ENTRY_CHARS = 12_000;
 
 /**
  * Captured output past this many bytes is truncated (see

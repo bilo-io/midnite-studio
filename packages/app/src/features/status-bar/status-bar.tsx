@@ -1,11 +1,11 @@
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 
-import { StatusBar as FrameStatusBar, StatusBarChromeProvider } from '@midnite/studio-frame';
+import { StatusBar as FrameStatusBar, StatusBarChromeProvider, useDisabledFeatures } from '@midnite/studio-frame';
 
 import { STUDIO_STATUS_BAR_CHROME } from '../../compose/status-bar-chrome';
 import { InProgressLiveRegion } from './in-progress';
 import { OpProgressLiveRegion } from './op-progress';
-import { STATUS_SEGMENTS } from './segments';
+import { segmentsFor } from './segments';
 
 /**
  * Studio's status bar: the frame's segment host (Phase 123 Theme J) over
@@ -13,10 +13,12 @@ import { STATUS_SEGMENTS } from './segments';
  * and the two live regions that must survive every density.
  */
 export function StatusBar({ fab = null }: { fab?: ReactNode } = {}) {
+  const disabled = useDisabledFeatures();
+  const segments = useMemo(() => segmentsFor(disabled), [disabled]);
   return (
     <StatusBarChromeProvider chrome={STUDIO_STATUS_BAR_CHROME}>
       <FrameStatusBar
-        segments={STATUS_SEGMENTS}
+        segments={segments}
         fab={fab}
         liveRegions={
           <>

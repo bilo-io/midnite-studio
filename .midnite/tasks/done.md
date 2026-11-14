@@ -2,6 +2,18 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-14 — Phase 135 — Feature toggles
+
+[#1230](https://github.com/bilo-io/midnite-studio/pull/1230): Settings ▸ Features switches any of 24 features off (Terminal, Settings and Accounts always on). Off hides it from the rail, palette, chords, settings, dashboard, status bar and quick-access menu, lands deep links on an off state, answers its IPC with the error envelope, stops its background work at runtime and refuses its MCP tools; data stays until "Delete this feature's data" trashes it behind the destructive confirm. Dependencies prompt (Chats → Councils). Deferred: the MCP shim's static tool list, Sidebar marks, the empty-workspace browser shortcut and lock-screen finance/monitor widgets, Books/Loops runtime-dir data.
+
+## 2026-11-13 — Phase 134 — Councils synthesizer presets
+
+[#1229](https://github.com/bilo-io/midnite-studio/pull/1229): a council picks a synthesis type (Brainstorm, Debate, Promote / Demote, Review / Red team, Custom) in a synthesizer card above the members, with a heuristic recommendation and editable instructions that reach the synthesis prompt; presets bring their members in a cascade; members are accordions with the picker and trash usable while collapsed; a 2–6 slider capped at 3 behind the local `councils.pro` flag opens "Upgrade to Pro"; "Generate with AI" writes a Custom council's instructions and members; the new-council modal shows provider marks. Gated on the built app with a real Debate turn and a real Generate.
+
+## 2026-11-13 — Ad hoc — onboarding kit skills made project-agnostic
+
+The kit's `midnite-plan`, `-build`, `-build-adhoc`, `-test`, `-maintain`, `-deploy` and `-design` (all three mirrors) no longer name Midnite Studio, its moon commands, Electron or its release tags; they defer to the target repo's convention file and testing doc.
+
 ## 2026-11-13 — Phase 89 Theme K (part) — renderer variant seam e2e
 
 One Playwright e2e in `knowledge-canvas.spec.ts`: pick Telemetry HUD from the default Atlas, the sigma canvas layers are replaced by the 3D engine's canvas, and the choice survives a reload. Needs a real canvas mount and `page.reload()` persistence of `rendererVariant`. `MAX_DECLARED_E2E` 485 -> 486. Still open in Theme K: bundle ceilings, idle CPU, the three visual baselines, the full gate.
@@ -15923,3 +15935,19 @@ New `midnite-menu.test.tsx`, four readout tests in `monitor-cluster.test.tsx`, a
 ## 2026-11-13 — Phase 88 Theme G (verification, automated half) — terminal e2e and entry-chunk exclusion
 
 All nine terminal e2e specs the phase names pass locally against xterm 6.0.0 (no CI; one spec at a time, except `kanban` and `notes`, which ran together), and the entry chunk (1118.3 KB) holds no xterm or addon string; its static import closure is one chunk. `bundle-budget.spec.ts`'s total-JS test fails at 44448.7 KB against 15950 KB, unrelated to xterm and recorded in the phase doc. The human pass stays open, listed in the phase's Theme G Headlines.
+
+## 2026-11-13 — Ad hoc (skills) — midnite-swarm split into agents, fleet, swarm and orchestrate
+
+The old "one agent per phase" swarm is now `midnite-fleet`; `midnite-swarm` is one problem put through staged agents, `midnite-orchestrate` is the shared core and `midnite-agents` the umbrella (Fleet default). Mirrored into the three skill dirs and the onboarding kit, the convention files name them, and the app's Swarm command now defaults to `/midnite-fleet` (ui-store v40 migrates saved `/midnite-swarm`).
+
+## 2026-11-13 — Ad hoc (templates) — kit's address-issue and verify skills made project-agnostic
+
+The onboarding kit's `midnite-address-issue` and `midnite-verify` no longer name Midnite Studio, its repos, moon tasks or packages; they point at the onboarded repo's own forge, convention file, gate and testing doc. Mirrored across the three `templates/midnite` skill dirs.
+
+## 2026-11-13 — Phase 133 (Themes A–E) — councils as threads, a synthesis that finishes
+
+Council prompts go to a `0600` temp file a short `run.sh` reads, so the shell never redraws a long line; agy and claude answer in print-mode JSON; timeout, cancelled and interrupted read as themselves. Members and the synthesizer pick a model; the centre pane is a chat thread with Chats' composer docked under it (the chat column, copy button and stick-to-bottom helpers moved into the frame); follow-ups resume each CLI's session; thread rows show turn counts; the new-council modal can ask a small model for a panel. Gate passed in the built app on a throwaway profile: two Antigravity members on Gemini 3.8 Flash (Low) and a Claude Haiku 4.5 synthesizer answered two turns, 12 s each.
+
+## 2026-11-14 — Phase 136 (Themes A–G) — level editor 3D view
+
+A 3D level now has a Floorplan | 3D switch: the lazy-loaded 3D view eases its camera down from the plan's framing into an orbit with the model editor's gizmo, axis widget and snap bar (now shared from `packages/frame/src/viewport3d/`), edits through the same edit model (click select, W/E/R gizmo as one undo step on release, Place on the ground, F, Delete, undo), and stays fast on thousands of props — one instanced mesh, a 16 m spatial grid with frustum culling on camera change, LOD, fog at a draw distance that follows the focus, lazy `.glb` models over a new `level-model` channel with a 30 s dispose. A persisted 1–5 Optimisation slider and an fps / draw-call / visible-object readout. Gate passed in the built app on a throwaway profile and a New-game repo in a temp folder with 3,014 seeded objects: transition both ways, gizmo move and yaw mirrored in plan and inspector, undo, Save as one commit; street view steps 1 / 3 / 5 drew 757 / 57 / 25 calls and 1,157 / 1,152 / 608 objects at 120 fps.

@@ -1,4 +1,4 @@
-/** Snapping maths for the editor: grid steps for moving, angle steps for rotating, steps for scaling. */
+/** Snapping maths shared by the 3D editors (Models, the level editor): grid steps for moving, angle steps for rotating, steps for scaling. */
 export const GRID_STEPS = [0, 0.01, 0.05, 0.1, 0.25, 0.5, 1] as const;
 export const ANGLE_STEPS = [0, 1, 5, 15, 45, 90] as const;
 export const SCALE_STEPS = [0, 0.01, 0.05, 0.1, 0.25] as const;

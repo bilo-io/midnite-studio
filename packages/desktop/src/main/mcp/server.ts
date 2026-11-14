@@ -14,6 +14,7 @@ import {
 import { defaultLogger, type Logger } from '../log';
 import { mcpSocketName } from '../socket-name';
 import { createRunToolGuard, evaluateHookCall, POLICY_EVALUATE_TOOL } from '../tool-policy-wiring';
+import { mcpToolOffMessage } from '../feature-gate';
 import { recordMcpCall } from './audit';
 import { dispatchMcpCall, type McpDispatchResult } from './dispatch';
 import { MCP_TOOL_MANIFESTS } from './tool-manifests';
@@ -101,10 +102,14 @@ export async function startMcpServer(opts: StartMcpServerOptions): Promise<Start
   const inner =
     opts.dispatch && privateGuard
       ? privateGuard.wrap(opts.dispatch)
-      : async (tool: string, input: unknown): Promise<McpDispatchResult> =>
-          isMcpToolId(tool) && !listing.isListed(tool)
-            ? { ok: false, kind: 'refused', message: `"${tool}" belongs to an app that is not installed.` }
-            : dispatchMcpCall(tool, input);
+      : async (tool: string, input: unknown): Promise<McpDispatchResult> => {
+          if (isMcpToolId(tool) && !listing.isListed(tool)) {
+            return { ok: false, kind: 'refused', message: `"${tool}" belongs to an app that is not installed.` };
+          }
+          // Phase 135 Theme E: a switched-off feature's tools refuse rather than run.
+          const off = mcpToolOffMessage(tool);
+          return off ? { ok: false, kind: 'refused', message: off } : dispatchMcpCall(tool, input);
+        };
   const dispatch = async (tool: string, input: unknown): Promise<McpDispatchResult> =>
     tool === POLICY_EVALUATE_TOOL && !opts.dispatch ? evaluateHookCall(input) : inner(tool, input);
 

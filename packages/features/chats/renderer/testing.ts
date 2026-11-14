@@ -11,5 +11,6 @@ export { ChatComposer, type ChatSettings } from './chat-composer';
 export { coalesceEvents, isStreaming, mergeStreamed, reduceChatEvent, resetChatsStore, useChatsStore } from './chats-store';
 export { useChatEvents } from './use-chat-events';
 export { ChatChangesCard } from './chat-changes-card';
-export { ChatThread, isNearBottom, scrollToBottom } from './chat-thread';
+export { ChatThread } from './chat-thread';
+export { isNearBottom, scrollToBottom } from '@midnite/studio-frame';
 export { formatElapsed, formatTokens, ThinkingPanel } from './thinking-panel';

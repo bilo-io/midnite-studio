@@ -9,6 +9,7 @@ import {
   GAME_LEVEL_EXT,
   GAME_LEVEL_IMAGES_MAX_BYTES,
   GAME_LEVEL_MAX_BYTES,
+  GAME_LEVEL_MODEL_MAX_BYTES,
   GAME_LEVELS_DIR,
   GameMapAssetNameSchema,
   GameSceneNameSchema,
@@ -17,6 +18,7 @@ import {
   type GameGotoResult,
   type GameLevelGetResult,
   type GameLevelMapAssetResult,
+  type GameLevelModelResult,
   type GameLevelSetResult,
   type GameLevelsResult,
   type GameManifest,
@@ -265,7 +267,29 @@ export function createGameLevels(deps: GameLevelsDeps) {
     return deps.runner.goto(gameId, name.data);
   }
 
-  return { list: levels, get: levelGet, set: levelSet, mapAsset, goto };
+  /**
+   * A `model` asset's `.glb` for the 3D view (Phase 136 Theme F): looked up by name in the manifest's assets,
+   * confined to the game folder (a symlink out of it is refused), capped at {@link GAME_LEVEL_MODEL_MAX_BYTES}.
+   */
+  async function levelModel(gameId: string, name: string): Promise<GitOpResult<GameLevelModelResult>> {
+    const game = await deps.resolve(gameId);
+    if (!game) return failure('That game was not found.');
+    const { manifest } = await deps.readManifest(game.path);
+    const asset = manifest?.assets.find((a) => a.kind === 'model' && a.name === name);
+    if (!asset) return failure(`No model asset named "${name}".`);
+    if (extname(asset.path).toLowerCase() !== '.glb') return failure(`Model "${name}" is not a .glb file.`);
+    const real = await confineToRoot(game.path, asset.path);
+    if (real === null) return failure(`Model "${name}" is missing or outside the game folder.`);
+    try {
+      const bytes = (await stat(real)).size;
+      if (bytes > GAME_LEVEL_MODEL_MAX_BYTES) return failure(`Model "${name}" is over ${GAME_LEVEL_MODEL_MAX_BYTES / 1048576} MB.`);
+      return ok({ name, bytes, data: (await readFile(real)).toString('base64') });
+    } catch (error) {
+      return failure(`Model "${name}" could not be read: ${message(error)}`);
+    }
+  }
+
+  return { list: levels, get: levelGet, set: levelSet, mapAsset, goto, model: levelModel };
 }
 
 export type GameLevels = ReturnType<typeof createGameLevels>;

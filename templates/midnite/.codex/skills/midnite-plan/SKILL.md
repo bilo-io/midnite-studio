@@ -5,7 +5,7 @@ description: Interactively plan and refine a brand-new .midnite/tasks/ phase doc
 
 **Invoke with:** [optional: category and topic/theme to seed the new phase, e.g. 'FEATURES mobile app' or 'SECURITY cve audit']
 
-You are running the **plan** workflow for the **Midnite Studio** repo: an interactive, human-in-the-loop session that lands a **new `.midnite/tasks/<CATEGORY>/phases/phase-N-*.md`** plan. It is a back-and-forth — propose, let the user steer, refine over a few rounds, and specify the plan with sufficient detail that simpler/fast models can execute it without ambiguity. **Do not write the phase file until the user has converged on a direction** (Stage 5).
+You are running the **plan** workflow for **this repo**: an interactive, human-in-the-loop session that lands a **new `.midnite/tasks/<CATEGORY>/phases/phase-N-*.md`** plan. It is a back-and-forth — propose, let the user steer, refine over a few rounds, and specify the plan with sufficient detail that simpler/fast models can execute it without ambiguity. **Do not write the phase file until the user has converged on a direction** (Stage 5).
 
 ## Context you must respect
 
@@ -16,7 +16,7 @@ You are running the **plan** workflow for the **Midnite Studio** repo: an intera
   - Completed work is logged append-only in `done.md`; deferred scope lives in `outstanding.md`.
 - Match the **house style** of existing phase docs: a `# Phase N — Title` heading; blockquote framing (`> **Builds on:** ...`, `> **Scope guardrails:** ...`); a **`## Headlines`** section (lead paragraph with `Planned <date>` + one `**Theme X — <name>.** ◻ <one-liner>` paragraph per theme); a **Deliverables** checklist (`- [ ]` items grouped into lettered Themes); a **Verification** checklist; crib-file references.
 - **Refinement for simpler models:** Every deliverable must be concrete and actionable. Specify target file paths, schema shapes, export names, and edge cases so models without deep repo context can execute without hallucinating.
-- Respect `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` and `docs/INITIAL_PLAN.md` (package boundaries — `shared ◀ git-engine ◀ desktop`, `shared ◀ frame ◀ feature ◀ app`; shared is the wire contract).
+- Respect the repo's convention files (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`) and its design doc if it has one: package/module boundaries, wire contracts and any I/O-boundary validation rule.
 - Checkboxes start unchecked (`- [ ]`) in a fresh plan.
 
 ---
@@ -48,7 +48,7 @@ Print an overview table first thing — before any question — from the index:
 1. Take the user's choice and go deeper: sketch the themes it contains, surface trade-offs, identify boundary constraints.
 2. Iterate over 3–5 rounds of questions to nail down exact deliverables:
    - What packages and modules are touched?
-   - What IPC channels or shared zod schemas need adding?
+   - What interfaces, contracts or schemas (API, IPC, events) need adding?
    - What automated tests will prove each theme?
 3. Ensure every checklist item is crystal clear so a simpler model will not guess or drift.
 
@@ -71,7 +71,7 @@ Print an overview table first thing — before any question — from the index:
    - Add row at top of `## Phases` table:
      `| [N · Title](phases/phase-N-<slug>.md) | ◻ TODO | — | 0/<total> | \`░░░░░░░░░░\` | 0% | — | <all theme letters> |`
 3. Also ensure top-level `.midnite/tasks/_INDEX.md` reflects active categories.
-4. Run drift guard: `moon run root:tracker-check` (must exit 0).
+4. Run the tracker drift guard if the repo has one (its convention file names it; it must exit 0).
 
 ## ✅ Stage 6 — Commit & clean up
 

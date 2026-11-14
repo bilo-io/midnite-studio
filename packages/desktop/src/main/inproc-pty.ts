@@ -135,6 +135,7 @@ export function inprocCreatePty(
       cwd: options.cwd,
       env: {
         ...process.env,
+        COLORTERM: 'truecolor',
         TERM_PROGRAM: 'midnite-studio',
         GIT_TERMINAL_PROMPT: '1',
         ...agentFingerprintEnv(options.kind, options.sessionId, options.agentId),

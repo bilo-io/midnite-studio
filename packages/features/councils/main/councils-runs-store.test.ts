@@ -30,6 +30,7 @@ function makeRun(id: string): CouncilRun {
     status: 'completed',
     synthProvider: 'agy',
     members: [],
+    turns: [],
     createdAt: 1,
     updatedAt: 1,
   };

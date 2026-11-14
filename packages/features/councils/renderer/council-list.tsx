@@ -2,8 +2,8 @@ import type { Council } from '@midnite/studio-shared';
 import { useState } from 'react';
 import { LuPlus, LuUsers } from 'react-icons/lu';
 
-import { CouncilCreateDialog } from './council-create-dialog';
-import { useCouncils, useCreateCouncil } from './use-council';
+import { NewCouncilDialog } from './council-create-dialog';
+import { useCouncils } from './use-council';
 import { EmptyState } from '@midnite/studio-frame';
 import { IconButton } from './ui';
 
@@ -16,7 +16,6 @@ export function CouncilList({
 }) {
   const [creating, setCreating] = useState(false);
   const councils = useCouncils();
-  const create = useCreateCouncil();
   const rows: Council[] = councils.data ?? [];
 
   return (
@@ -64,20 +63,11 @@ export function CouncilList({
       </div>
 
       {creating ? (
-        <CouncilCreateDialog
+        <NewCouncilDialog
           onCancel={() => setCreating(false)}
-          onCreate={(name, description) => {
-            create.mutate(
-              { name, description },
-              {
-                onSuccess: (result) => {
-                  if (result.ok) {
-                    onSelect(result.value.id);
-                    setCreating(false);
-                  }
-                },
-              },
-            );
+          onCreated={(id) => {
+            setCreating(false);
+            onSelect(id);
           }}
         />
       ) : null}

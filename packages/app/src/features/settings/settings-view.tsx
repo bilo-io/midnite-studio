@@ -1,6 +1,8 @@
-import { SettingsView as FrameSettingsView, type SettingsPageDef } from '@midnite/studio-frame';
+import { SettingsView as FrameSettingsView, useDisabledFeatures, type SettingsPageDef } from '@midnite/studio-frame';
+import { featureForSettingsPage } from '@midnite/studio-shared';
 import { optimizerSettingsPages } from '@midnite/studio-feature-optimizer/renderer';
 
+import { FeatureOffState } from '../../components/feature-off-state';
 import { SETTINGS_PAGE_ICON } from '../../components/nav-icons';
 import {
   SETTINGS_PAGES,
@@ -20,6 +22,7 @@ import { BrowserPage } from './settings-pages/browser-page';
 import { CliPage } from './settings-pages/cli-page';
 import { CompanionPage } from './settings-pages/companion-page';
 import { DiffPage } from './settings-pages/diff-page';
+import { FeaturesPage } from './settings-pages/features-page';
 import { GitSafetyPage } from './settings-pages/git-safety-page';
 import { GraphPage } from './settings-pages/graph-page';
 import { HealthPage } from './settings-pages/health-page';
@@ -57,6 +60,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   appearance: () => <AppearancePage />,
   activity: () => <ActivityPage />,
   privacy: () => <PrivacyPage />,
+  features: () => <FeaturesPage />,
   graph: () => <GraphPage />,
   diff: () => <DiffPage />,
   sidebar: () => <SidebarPage />,
@@ -91,8 +95,16 @@ const STUDIO_PAGES: SettingsPageDef[] = SETTINGS_PAGES.map((entry) => ({
   ...entry,
   scope: 'app' as const,
   icon: SETTINGS_PAGE_ICON[entry.id],
-  Page: () => <>{PAGE_CONTENT[entry.id]()}</>,
+  Page: () => <GatedPage id={entry.id} />,
 }));
+
+/** A page whose feature is switched off draws the off state instead (Phase 135 Theme C). */
+function GatedPage({ id }: { id: SettingsPageId }) {
+  const disabled = useDisabledFeatures();
+  const feature = featureForSettingsPage(id);
+  if (feature !== undefined && disabled.includes(feature)) return <FeatureOffState feature={feature} />;
+  return <>{PAGE_CONTENT[id]()}</>;
+}
 
 export function SettingsView() {
   const page = useUiStore((s) => s.settingsPage);
@@ -101,10 +113,16 @@ export function SettingsView() {
   const toggleGroup = useUiStore((s) => s.toggleSettingsGroup);
   const layout = useUiStore((s) => s.layout);
   const setLayout = useUiStore((s) => s.setLayout);
+  const disabled = useDisabledFeatures();
+  // A switched-off feature's pages leave the list — except the one already open, which shows why it is off.
+  const pages = STUDIO_PAGES.filter((entry) => {
+    const feature = featureForSettingsPage(entry.id as SettingsPageId);
+    return feature === undefined || !disabled.includes(feature) || entry.id === page;
+  });
 
   return (
     <FrameSettingsView
-      pages={STUDIO_PAGES}
+      pages={pages}
       activePage={page}
       onPageChange={(id) => setPage(id as SettingsPageId)}
       collapsedGroups={collapsed as SettingsGroupId[]}

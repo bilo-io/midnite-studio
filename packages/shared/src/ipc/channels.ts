@@ -584,6 +584,10 @@ export const CHANNELS = {
   privacyFileVault: 'mstudio:privacy:file-vault',
   /** Phase 115 B: open System Settings ▸ Privacy & Security ▸ FileVault. */
   privacyOpenFileVault: 'mstudio:privacy:open-file-vault',
+  /** Phase 135 F: the files a switched-off feature keeps under userData, with sizes — "Delete this feature's data"'s blast radius. */
+  featuresDataDescribe: 'mstudio:features:data-describe',
+  /** Phase 135 F: move those files to the Trash; refused while the feature is on. */
+  featuresDataDelete: 'mstudio:features:data-delete',
 
   // --- session history (Phase 67) ------------------------------------------
   // The sessions you *closed*. `terminal:*` above owns rows that still exist;
@@ -845,6 +849,10 @@ export const CHANNELS = {
   councilRunListForCouncil: 'mstudio:council:run-list',
   councilRunSkipMember: 'mstudio:council:run-skip-member',
   councilRunRetryMember: 'mstudio:council:run-retry-member',
+  councilRunCancel: 'mstudio:council:run-cancel',
+  councilRunContinue: 'mstudio:council:run-continue',
+  councilRecommend: 'mstudio:council:recommend',
+  councilGenerate: 'mstudio:council:generate',
 
   // --- FAB loop runs (Phase 35) ----------------------------------------------
   // The durable trace of the FAB panel's loop runs. `start` is announced by the
@@ -975,6 +983,8 @@ export const CHANNELS = {
   gamesLevelGet: 'mstudio:games:level-get',
   gamesLevelSet: 'mstudio:games:level-set',
   gamesLevelMapAsset: 'mstudio:games:level-map-asset',
+  /** A game's `model` asset bytes for the level editor's 3D view (Phase 136 Theme F). */
+  gamesLevelModel: 'mstudio:games:level-model',
   gamesGoto: 'mstudio:games:goto',
   /** Move a game's runner view into the `game` popout window (Theme B). */
   gamesPopOut: 'mstudio:games:pop-out',

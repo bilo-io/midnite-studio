@@ -4,7 +4,7 @@ import type { Chat, ChatWidthMode } from '@midnite/studio-shared';
 import { LuArrowDown } from 'react-icons/lu';
 
 import { AssistantMessage, UserMessage } from './chat-message';
-import { chatThreadColumn, chatThreadGutter } from './chat-column';
+import { chatThreadColumn, chatThreadGutter, isNearBottom, scrollToBottom, threadMotionReduced } from '@midnite/studio-frame';
 import { ThinkingPanel } from './thinking-panel';
 import type { ChatEngine } from './use-chat-engines';
 
@@ -23,22 +23,6 @@ import type { ChatEngine } from './use-chat-engines';
  * holds the announcement while a reply is mid-stream so a screen reader is not
  * read every chunk — it hears the finished message.
  */
-
-/** Distance from the bottom, in px, within which the thread counts as "at the bottom". */
-const NEAR_BOTTOM_PX = 96;
-
-const reducedMotion = (): boolean =>
-  typeof document !== 'undefined' && document.documentElement.getAttribute('data-motion') === 'reduced';
-
-export function scrollToBottom(el: HTMLElement, smooth: boolean): void {
-  const top = el.scrollHeight;
-  if (typeof el.scrollTo === 'function') el.scrollTo({ top, behavior: smooth && !reducedMotion() ? 'smooth' : 'auto' });
-  else el.scrollTop = top;
-}
-
-export function isNearBottom(el: Pick<HTMLElement, 'scrollHeight' | 'scrollTop' | 'clientHeight'>, threshold = NEAR_BOTTOM_PX): boolean {
-  return el.scrollHeight - el.scrollTop - el.clientHeight <= threshold;
-}
 
 export function ChatThread({
   chat,
@@ -70,7 +54,7 @@ export function ChatThread({
   /** A smooth scroll fires scroll events from far above the bottom; those must not unpin the view. */
   const ignoreScrollUntil = useRef(0);
   const follow = useCallback((el: HTMLElement, smooth: boolean) => {
-    if (smooth && !reducedMotion()) ignoreScrollUntil.current = Date.now() + 700;
+    if (smooth && !threadMotionReduced()) ignoreScrollUntil.current = Date.now() + 700;
     scrollToBottom(el, smooth);
   }, []);
 

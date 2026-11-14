@@ -29,6 +29,7 @@ import {
   systemPreferences,
 } from 'electron';
 
+import { bindFeatureLifecycle } from '../feature-gate';
 import { setCaptureFileResolver } from '../fs-protocol';
 import { broadcastToAllWindows } from '../window-manager';
 import { handle, handleBare, handleSend } from './handle';
@@ -147,7 +148,14 @@ export function registerCaptureHandlers(getMainWindow: () => BrowserWindow | nul
     trashItem: (path) => shell.trashItem(path),
   };
   captureMain.register(ctx, { capture: service });
-  void service.start();
+  // Phase 135: the chord and the clipboard watch run only while Capture is switched on.
+  const current = service;
+  bindFeatureLifecycle(
+    'capture',
+    'capture chord and clipboard watch',
+    () => void current.start(),
+    () => void current.dispose(),
+  );
 }
 
 /** Releases the chord, stops clipboard polling and drops an unfinished recording — on quit. */

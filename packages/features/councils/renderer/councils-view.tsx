@@ -1,12 +1,14 @@
 import { LuChevronLeft, LuUsers } from 'react-icons/lu';
 
+import { CouncilComposer } from './council-composer';
 import { CouncilConfigPanel } from './council-config-panel';
+import { useCouncilDraft } from './council-draft-store';
 import { CouncilList } from './council-list';
 import { CouncilRunList } from './council-run-list';
-import { CouncilRunView } from './council-run-view';
+import { CouncilRunView, CouncilThreadEmpty } from './council-thread';
 import { councilIdOf, useCouncilsHistory, type CouncilEntry } from './councils-history-store';
 import { useCouncil, useCouncils } from './use-council';
-import { useCouncilRuns } from './use-council-run';
+import { useCouncilRun } from './use-council-run';
 import { EmptyState, PanelHeader, PanelStack, ResizeHandle, useRegisterActivePanel, useResizable } from '@midnite/studio-frame';
 import { useCouncilsHost } from './host';
 import { PageDetachMark } from './ui';
@@ -110,7 +112,9 @@ export function CouncilsView() {
                 councilName={councils?.find((c) => c.id === entryCouncilId)?.name ?? 'Council'}
                 activeRunId={entry.kind === 'run' ? entry.id : null}
                 onSelectRun={(runId) => history.push({ kind: 'run', id: runId, councilId: entryCouncilId })}
+                onNewThread={() => history.push({ kind: 'council', id: entryCouncilId })}
                 onBack={() => history.push({ kind: 'list' })}
+                onCouncilCreated={(id) => history.push({ kind: 'council', id })}
               />
             );
           }}
@@ -130,7 +134,11 @@ export function CouncilsView() {
               body="Pick a council on the left, or create a new one to get started."
             />
           ) : (
-            <CouncilOutput councilId={entryCouncilId} requestedRunId={entry.kind === 'run' ? entry.id : null} />
+            <CouncilOutput
+              councilId={entryCouncilId}
+              runId={entry.kind === 'run' ? entry.id : null}
+              onRunStarted={(runId) => history.push({ kind: 'run', id: runId, councilId: entryCouncilId })}
+            />
           );
         }}
       />
@@ -151,10 +159,8 @@ export function CouncilsView() {
             <div className="shrink-0" style={{ width: config.current }}>
               <CouncilConfigWrapper
                 councilId={currentCouncilId}
+                runId={history.current.kind === 'run' ? history.current.id : null}
                 onDeleted={() => history.reset()}
-                onRunStarted={(runId) =>
-                  history.push({ kind: 'run', id: runId, councilId: currentCouncilId })
-                }
               />
             </div>
           </>
@@ -164,34 +170,66 @@ export function CouncilsView() {
   );
 }
 
-/** Resolves `requestedRunId` against the council's live run list, falling back to the latest. */
+/**
+ * The centre pane for a council (Phase 133 Theme C): the open thread above the
+ * composer. A council entry with no thread selected is a new thread — the
+ * composer starts one — rather than the latest run, so there is always a way
+ * to ask something new.
+ */
 function CouncilOutput({
   councilId,
-  requestedRunId,
-}: {
-  councilId: string;
-  requestedRunId: string | null;
-}) {
-  const runs = useCouncilRuns(councilId);
-  const runsData = runs.data ?? [];
-  const activeRunId =
-    (requestedRunId !== null && runsData.some((r) => r.id === requestedRunId) ? requestedRunId : null) ??
-    runsData[runsData.length - 1]?.id ??
-    null;
-
-  return <CouncilRunView activeRunId={activeRunId} />;
-}
-
-function CouncilConfigWrapper({
-  councilId,
-  onDeleted,
+  runId,
   onRunStarted,
 }: {
   councilId: string;
-  onDeleted: () => void;
+  runId: string | null;
   onRunStarted: (runId: string) => void;
 }) {
   const { data: council } = useCouncil(councilId);
+  const { data: run, isLoading } = useCouncilRun(runId);
+  const openRun = run && run.councilId === councilId ? run : null;
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      {openRun ? (
+        <CouncilRunView run={openRun} />
+      ) : runId !== null && isLoading ? (
+        <EmptyState title="Loading run…" />
+      ) : (
+        <div className="min-h-0 flex-1">
+          <CouncilThreadEmpty />
+        </div>
+      )}
+      <CouncilComposer
+        councilId={councilId}
+        run={openRun}
+        canStart={(council?.members.length ?? 0) > 0}
+        onRunStarted={onRunStarted}
+      />
+    </div>
+  );
+}
+
+/**
+ * The config pane for a council. Its topic — what the synthesis recommendation
+ * and "Generate with AI" read (Phase 134) — is the composer's unsent draft, else
+ * the open thread's first prompt, else the council's description.
+ */
+function CouncilConfigWrapper({
+  councilId,
+  runId,
+  onDeleted,
+}: {
+  councilId: string;
+  runId: string | null;
+  onDeleted: () => void;
+}) {
+  const { data: council } = useCouncil(councilId);
+  const { data: run } = useCouncilRun(runId);
+  const [draft] = useCouncilDraft(councilId);
   if (!council) return <EmptyState icon={LuUsers} title="Loading council…" />;
-  return <CouncilConfigPanel council={council} onDeleted={onDeleted} onRunStarted={onRunStarted} />;
+  const openRun = run && run.councilId === councilId ? run : null;
+  const firstPrompt = openRun ? (openRun.turns[0]?.prompt ?? openRun.prompt) : '';
+  const topic = draft.trim() || firstPrompt || council.description || '';
+  return <CouncilConfigPanel council={council} topic={topic} onDeleted={onDeleted} />;
 }

@@ -1,4 +1,4 @@
-// e2e-capability: computed CSS
+// e2e-capability: computed CSS, real pointer hit-testing (accordion header controls)
 import { expect, test } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
@@ -11,10 +11,19 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * `desktop/src/main/council-runner.test.ts` — what only the assembled app can
  * show is that creating a council seeds its starter members, that editing a
  * member persists through `council.updateMembers`, and that running a
- * consultation renders member tabs and a synthesis. The mock's `run.start`
+ * consultation renders member tabs and a synthesis. Since Phase 133 Theme C
+ * the prompt is the chat composer docked under the thread in the centre pane,
+ * and each member is a `tab`. The mock's `run.start`
  * answers with an already-`completed` run rather than choreographing a fake
  * multi-process race — see its own comment in `mock-bridge.ts`.
  */
+
+/** Types into the centre pane's composer and sends — the composer in the pane that is not sliding out. */
+async function ask(page: import('@playwright/test').Page, prompt: string): Promise<void> {
+  const activePane = page.locator('.panel-stack-pane:not([aria-hidden])');
+  await activePane.getByRole('textbox', { name: 'Council prompt' }).fill(prompt);
+  await activePane.getByTestId('council-composer-send').click();
+}
 
 async function open(page: import('@playwright/test').Page, data: MockFixtures = fixtures): Promise<void> {
   await installMockBridge(page, data);
@@ -35,7 +44,7 @@ async function open(page: import('@playwright/test').Page, data: MockFixtures = 
   }).toPass({ timeout: 5000 });
 }
 
-test('creating a council seeds it with starter members', async ({ page }) => {
+test('creating a council seeds it with starter members, as accordions whose header works collapsed', async ({ page }) => {
   await open(page);
 
   await page.getByRole('button', { name: 'New council' }).click();
@@ -44,12 +53,27 @@ test('creating a council seeds it with starter members', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: 'Architecture review' })).toBeVisible();
 
-  // Member names render as editable inputs, not plain text — read their
-  // values rather than text content.
-  const nameInputs = page.getByRole('textbox', { name: 'Member name' });
-  await expect(nameInputs).toHaveCount(4);
+  // Members start collapsed (Phase 134 Theme C): the name inputs sit in hidden
+  // accordion bodies, so read them with the hidden ones included.
+  const nameInputs = page.getByRole('textbox', { name: 'Member name', includeHidden: true });
+  await expect(nameInputs).toHaveCount(3);
   const names = await nameInputs.evaluateAll((els) => els.map((el) => (el as HTMLInputElement).value));
-  expect(names).toEqual(['Optimist', 'Skeptic', 'Pragmatist', 'Visionary']);
+  expect(names).toEqual(['Optimist', 'Skeptic', 'Pragmatist']);
+  await expect(page.getByRole('textbox', { name: 'Member name' })).toHaveCount(0);
+
+  // The header's own controls are real hit targets while the row is collapsed:
+  // the agent picker opens, and the trash removes the member.
+  const first = page.getByTestId('council-member').first();
+  await first.getByTestId('council-member-picker-0-provider').click();
+  await expect(page.getByRole('listbox', { name: 'Providers' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(first.locator('[aria-controls^="council-member-body-"]')).toHaveAttribute('aria-expanded', 'false');
+  await first.getByRole('button', { name: 'Remove Optimist' }).click();
+  await expect(page.getByTestId('council-member')).toHaveCount(2);
+
+  // The toggle expands the body in place.
+  await page.getByRole('button', { name: 'Skeptic', exact: true, expanded: false }).click();
+  await expect(page.getByRole('textbox', { name: 'Member name' })).toHaveValue('Skeptic');
 });
 
 test('running a consultation renders member answers and a synthesis', async ({ page }) => {
@@ -60,8 +84,7 @@ test('running a consultation renders member answers and a synthesis', async ({ p
   await page.getByRole('button', { name: 'Create' }).click();
   await expect(page.getByRole('heading', { name: 'Ship it?' })).toBeVisible();
 
-  await page.getByPlaceholder('What should the council answer?').fill('Should we ship the new onboarding flow?');
-  await page.getByRole('button', { name: 'Run', exact: true }).click();
+  await ask(page, 'Should we ship the new onboarding flow?');
 
   /*
     Starting a run navigates the centre pane's panel-stack (Phase 42 Theme D)
@@ -74,11 +97,11 @@ test('running a consultation renders member answers and a synthesis', async ({ p
   */
   const activePane = page.locator('.panel-stack-pane:not([aria-hidden])');
 
-  await expect(activePane.getByRole('button', { name: /^Optimist/ })).toBeVisible();
-  await activePane.getByRole('button', { name: 'Synthesis' }).click();
+  await expect(activePane.getByRole('tab', { name: /^Optimist/ })).toBeVisible();
+  await activePane.getByRole('tab', { name: 'Synthesis' }).click();
   await expect(activePane.getByText(/Synthesis of the panel's views on/)).toBeVisible();
 
-  await activePane.getByRole('button', { name: /^Optimist/ }).click();
+  await activePane.getByRole('tab', { name: /^Optimist/ }).click();
   await expect(activePane.getByText(/Optimist's answer to/)).toBeVisible();
 });
 
@@ -98,16 +121,16 @@ test('the panel-stack navigates list → council → run, and back/forward retra
   await expect(page.getByRole('main').getByRole('button', { name: 'Back', exact: true })).toBeEnabled();
   await expect(page.getByRole('main').getByRole('button', { name: 'Forward', exact: true })).toBeDisabled();
 
-  await page.getByPlaceholder('What should the council answer?').fill('Ship it?');
-  await page.getByRole('button', { name: 'Run', exact: true }).click();
-  await expect(activePane.getByRole('button', { name: /^Optimist/ })).toBeVisible();
+  await ask(page, 'Ship it?');
+  await expect(activePane.getByRole('tab', { name: /^Optimist/ })).toBeVisible();
   // list → council → run: a third crumb, and the stack is now 3 deep.
   await expect(nav.getByText('Run', { exact: true })).toBeVisible();
 
   // Back once: run → council. Still a council selected (the config panel and
-  // its member list stay put) — only the `list` entry shows the empty state.
+  // its member list stay put), and the centre pane is a new thread's composer
+  // — only the `list` entry shows the empty state.
   await page.getByRole('main').getByRole('button', { name: 'Back', exact: true }).click();
-  await expect(page.getByRole('textbox', { name: 'Member name' }).first()).toBeVisible();
+  await expect(page.getByTestId('council-synthesizer')).toBeVisible();
   // The breadcrumb trail still shows "Run" here — it renders the whole
   // stack, forward tail included, so a still-navigable entry stays clickable
   // rather than disappearing the moment it is no longer current.
@@ -123,7 +146,7 @@ test('the panel-stack navigates list → council → run, and back/forward retra
   // Forward twice retraces exactly back to the run.
   await page.getByRole('main').getByRole('button', { name: 'Forward', exact: true }).click();
   await page.getByRole('main').getByRole('button', { name: 'Forward', exact: true }).click();
-  await expect(activePane.getByRole('button', { name: /^Optimist/ })).toBeVisible();
+  await expect(activePane.getByRole('tab', { name: /^Optimist/ })).toBeVisible();
   await expect(page.getByRole('main').getByRole('button', { name: 'Forward', exact: true })).toBeDisabled();
 });
 
@@ -139,9 +162,8 @@ test('a run picked from the left rail navigates the centre pane (Theme E)', asyn
 
   // Starting a run auto-navigates the rail from the council list into this
   // council's run list — the same PanelStack, driven by the same push.
-  await page.getByPlaceholder('What should the council answer?').fill('First question');
-  await page.getByRole('button', { name: 'Run', exact: true }).click();
-  await expect(activePane.getByRole('button', { name: /^Optimist/ })).toBeVisible();
+  await ask(page, 'First question');
+  await expect(activePane.getByRole('tab', { name: /^Optimist/ })).toBeVisible();
 
   // "Back to councils" in the rail returns to the council picker without
   // touching the centre/config panes' own selection.
@@ -152,11 +174,11 @@ test('a run picked from the left rail navigates the centre pane (Theme E)', asyn
   // Picking the council again lands back on its run list in the rail, and
   // selecting the run from there (not the old centre tab strip, which no
   // longer exists) drives the centre pane the same way starting one did.
-  // The council-list row's full name ("Roadmap 4 members") disambiguates it
+  // The council-list row's full name ("Roadmap 3 members") disambiguates it
   // from the breadcrumb's own "Roadmap" crumb, still on screen from before.
-  await page.getByRole('button', { name: 'Roadmap 4 members' }).click();
+  await page.getByRole('button', { name: 'Roadmap 3 members' }).click();
   await page.getByRole('button', { name: /First question/ }).click();
-  await expect(activePane.getByRole('button', { name: /^Optimist/ })).toBeVisible();
+  await expect(activePane.getByRole('tab', { name: /^Optimist/ })).toBeVisible();
 });
 
 test('the navigation stack survives leaving Councils and coming back (Theme E)', async ({ page }) => {

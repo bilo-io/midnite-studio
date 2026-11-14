@@ -2,7 +2,17 @@ import { defineFeatureMain } from '@midnite/studio-runtime';
 import { CHANNELS, failure, ok, schemas } from '@midnite/studio-shared';
 
 import { councilsManifest } from '../manifest';
-import { configureCouncilRunner, retryMember, skipMember, startRun, type CouncilRunnerPorts } from './council-runner';
+import { generateCouncil, recommendCouncil } from './council-recommend';
+import {
+  cancelRun,
+  configureCouncilRunner,
+  continueRun,
+  reconcileRun,
+  retryMember,
+  skipMember,
+  startRun,
+  type CouncilRunnerPorts,
+} from './council-runner';
 import {
   createCouncil,
   getCouncil,
@@ -30,7 +40,8 @@ export { createCouncilsStore, nullCouncilsStore, type CouncilsStore } from './co
 /**
  * The councils feature's main half (Phase 113 Theme N).
  *
- * Agent councils (Phase 34) — global CRUD plus run lifecycle. A member's or
+ * Agent councils (Phase 34) — global CRUD plus run lifecycle, follow-up turns,
+ * cancel and recommend (Phase 133). A member's or
  * the synthesizer's live output rides the existing `pty:*` channels, filtered
  * by the `ptyId` a running `councilRunGet` answer carries, so there is no
  * separate council-scoped event channel here.
@@ -64,15 +75,19 @@ export const councilsMain = defineFeatureMain<CouncilsMainServices>({
     ipc.handle(
       CHANNELS.councilCreate,
       schemas.CouncilCreateRequest,
-      async ({ name, description }) => ok(await createCouncil(name, description)),
+      async ({ name, description, members, synthProvider, synthModel, synthesisType, synthInstructions }) =>
+        ok(await createCouncil(name, description, { members, synthProvider, synthModel, synthesisType, synthInstructions })),
       (issue) => failure(issue),
     );
 
     ipc.handle(
       CHANNELS.councilUpdateMembers,
       schemas.CouncilUpdateMembersRequest,
-      async ({ id, members, synthProvider }) => {
-        const updated = await updateCouncilMembers(id, members, synthProvider);
+      async ({ id, members, synthProvider, synthModel, synthesisType, synthInstructions }) => {
+        const updated = await updateCouncilMembers(id, members, synthProvider, synthModel, {
+          type: synthesisType,
+          instructions: synthInstructions,
+        });
         return updated ? ok(updated) : failure('Council not found.');
       },
       (issue) => failure(issue),
@@ -98,14 +113,17 @@ export const councilsMain = defineFeatureMain<CouncilsMainServices>({
     ipc.handle(
       CHANNELS.councilRunGet,
       schemas.CouncilRunGetRequest,
-      async ({ runId }) => ({ run: await getRun(runId) }),
+      async ({ runId }) => {
+        const run = await getRun(runId);
+        return { run: run ? await reconcileRun(run) : null };
+      },
       () => ({ run: null }),
     );
 
     ipc.handle(
       CHANNELS.councilRunListForCouncil,
       schemas.CouncilRunListRequest,
-      async ({ councilId }) => ({ runs: await listRunsForCouncil(councilId) }),
+      async ({ councilId }) => ({ runs: await Promise.all((await listRunsForCouncil(councilId)).map(reconcileRun)) }),
       () => ({ runs: [] }),
     );
 
@@ -120,6 +138,34 @@ export const councilsMain = defineFeatureMain<CouncilsMainServices>({
       CHANNELS.councilRunRetryMember,
       schemas.CouncilRunRetryMemberRequest,
       async ({ runId, memberId }) => retryMember(runId, memberId),
+      (issue) => failure(issue),
+    );
+
+    ipc.handle(
+      CHANNELS.councilRunCancel,
+      schemas.CouncilRunCancelRequest,
+      async ({ runId }) => cancelRun(runId),
+      (issue) => failure(issue),
+    );
+
+    ipc.handle(
+      CHANNELS.councilRunContinue,
+      schemas.CouncilRunContinueRequest,
+      async ({ runId, prompt }) => continueRun(runId, prompt),
+      (issue) => failure(issue),
+    );
+
+    ipc.handle(
+      CHANNELS.councilRecommend,
+      schemas.CouncilRecommendRequest,
+      async (request) => recommendCouncil(request),
+      (issue) => failure(issue),
+    );
+
+    ipc.handle(
+      CHANNELS.councilGenerate,
+      schemas.CouncilGenerateRequest,
+      async (request) => generateCouncil(request),
       (issue) => failure(issue),
     );
   },

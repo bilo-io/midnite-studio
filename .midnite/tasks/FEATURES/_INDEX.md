@@ -8,6 +8,19 @@ Completed work is logged append-only in [`../done.md`](../done.md). Deferred sco
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [145 · Level history, review and polish](phases/phase-145-level-history-polish.md) | ◻ TODO | x1 | 0/31 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
+| [144 · Level lighting, environment and structure](phases/phase-144-level-lighting-environment.md) | ◻ TODO | x1 | 0/28 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
+| [143 · 2D tile editing parity](phases/phase-143-level-2d-tile-parity.md) | ◻ TODO | x1 | 0/31 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
+| [142 · Level gameplay logic and validation](phases/phase-142-level-gameplay-logic.md) | ◻ TODO | x1 | 0/33 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
+| [141 · Terrain-aware 3D level editing](phases/phase-141-level-terrain-aware-3d.md) | ◻ TODO | x1 | 0/25 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
+| [140 · Play in editor](phases/phase-140-level-play-in-editor.md) | ◻ TODO | x1 | 0/30 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
+| [139 · Level asset browser, prefabs and scatter](phases/phase-139-level-assets-prefabs-scatter.md) | ◻ TODO | x1 | 0/40 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
+| [138 · MCP level tools v2](phases/phase-138-mcp-level-tools-v2.md) | ◻ TODO | x1 | 0/50 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
+| [137 · Level editor editing essentials](phases/phase-137-level-editor-editing-essentials.md) | ◻ TODO | x1 | 0/58 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
+| [136 · Level editor 3D view](phases/phase-136-level-editor-3d-view.md) | ✅ DONE | — | 30/30 | `██████████` | 100% | — | — |
+| [135 · Feature toggles](phases/phase-135-feature-toggles.md) | ✅ DONE | — | 25/25 | `██████████` | 100% | — | — |
+| [134 · Councils synthesizer presets](phases/phase-134-councils-synthesizer-presets.md) | ✅ DONE | — | 28/28 | `██████████` | 100% | — | — |
+| [133 · Councils threads and synthesis](phases/phase-133-councils-threads-and-synthesis.md) | ✅ DONE | x1 | 35/35 | `██████████` | 100% | — | — |
 | [132 · Game level editor and Open Game](phases/phase-132-game-level-editor.md) | 🔄 WIP | x1 | 48/62 | `████████░░` | 77% | — | H |
 | [131 · Per-app changelogs](phases/phase-131-per-app-changelogs.md) | 🔄 WIP | x1 | 39/42 | `█████████░` | 93% | — | — |
 | [130 · Startup app](phases/phase-130-startup.md) | 🔄 WIP | x1 | 55/57 | `██████████` | 96% | — | — |

@@ -983,6 +983,12 @@ export type MidniteStudioBridge = {
     openFileVault: () => Promise<void>;
   };
 
+  /** A switched-off feature's on-disk data, for Settings ▸ Features' delete (Phase 135 Theme F). */
+  features: {
+    describeData: (req: In<typeof S.FeatureDataRequest>) => Promise<z.infer<typeof S.FeatureDataDescribeResponse>>;
+    deleteData: (req: In<typeof S.FeatureDataRequest>) => Promise<z.infer<typeof S.FeatureDataDeleteResponse>>;
+  };
+
   sessions: {
     history: () => Promise<z.infer<typeof S.SessionsHistoryResponse>>;
     transcript: (
@@ -1146,6 +1152,12 @@ export type MidniteStudioBridge = {
       req: In<typeof S.CouncilUpdateMembersRequest>,
     ) => Promise<z.infer<typeof S.CouncilUpdateMembersResponse>>;
     remove: (req: In<typeof S.CouncilRemoveRequest>) => Promise<GitOpResult>;
+    recommend: (
+      req: In<typeof S.CouncilRecommendRequest>,
+    ) => Promise<z.infer<typeof S.CouncilRecommendResponse>>;
+    generate: (
+      req: In<typeof S.CouncilGenerateRequest>,
+    ) => Promise<z.infer<typeof S.CouncilGenerateResponse>>;
     run: {
       start: (
         req: In<typeof S.CouncilRunStartRequest>,
@@ -1158,6 +1170,10 @@ export type MidniteStudioBridge = {
       ) => Promise<z.infer<typeof S.CouncilRunListResponse>>;
       skipMember: (req: In<typeof S.CouncilRunSkipMemberRequest>) => Promise<GitOpResult>;
       retryMember: (req: In<typeof S.CouncilRunRetryMemberRequest>) => Promise<GitOpResult>;
+      cancel: (req: In<typeof S.CouncilRunCancelRequest>) => Promise<GitOpResult>;
+      continue: (
+        req: In<typeof S.CouncilRunContinueRequest>,
+      ) => Promise<z.infer<typeof S.CouncilRunContinueResponse>>;
     };
   };
 
@@ -1622,6 +1638,8 @@ export type MidniteStudioBridge = {
       get: (req: In<typeof S.GamesLevelGetRequest>) => Promise<z.infer<typeof S.GamesLevelGetResponse>>;
       set: (req: In<typeof S.GamesLevelSetRequest>) => Promise<z.infer<typeof S.GamesLevelSetResponse>>;
       mapAsset: (req: In<typeof S.GamesLevelMapAssetRequest>) => Promise<z.infer<typeof S.GamesLevelMapAssetResponse>>;
+      /** A `model` asset's bytes for the 3D view (Phase 136 Theme F). */
+      model: (req: In<typeof S.GamesLevelModelRequest>) => Promise<z.infer<typeof S.GamesLevelModelResponse>>;
     };
     goto: (req: In<typeof S.GamesGotoRequest>) => Promise<z.infer<typeof S.GamesGotoResponse>>;
     /** Move a game's runner into the `game` popout window; closing that window docks it back. */

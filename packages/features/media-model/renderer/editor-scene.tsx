@@ -8,13 +8,13 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { movableSelection, type EditorAction, type EditorState } from './editor-state';
 import type { LightingPreset } from './lighting';
 import { boundsOf, centreOf, distanceBetween, formatSize, orthoZoom, sizeOf, VIEW_DIRECTIONS, VIEW_PLANE, type CameraView } from './scene-bounds';
-import { effectiveStep, type SnapSettings } from './snap';
+import { effectiveStep, type SnapSettings, type TransformMode } from '@midnite/studio-frame/viewport3d';
 import { assetTexture, mapTexture, useModelMapEpoch } from './model-assets';
 import { editorScene, meshGeometry, type EditorScene } from './spec-geometry';
 import { anchorWorld, withDescendants } from './spec-edit';
 import { framingFor } from './model-utils';
 
-export type TransformMode = 'translate' | 'rotate' | 'scale';
+export type { TransformMode };
 export type ShadeMode = 'solid' | 'wireframe' | 'normals';
 export type MeasurePoints = [number, number, number][];
 

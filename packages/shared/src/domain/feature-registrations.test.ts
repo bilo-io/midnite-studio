@@ -73,6 +73,7 @@ const LEGACY_SETTINGS_PAGE_IDS = [
   'monitor',
   'browser',
   'cli',
+  'features',
   'updates',
   'health',
   'optimizer',

@@ -205,6 +205,14 @@ export const GameLevelGetResultSchema = z.object({
 });
 export type GameLevelGetResult = z.infer<typeof GameLevelGetResultSchema>;
 
+/** The largest model the level editor's 3D view reads (Phase 136 Theme F). */
+export const GAME_LEVEL_MODEL_MAX_BYTES = 64 * 1024 * 1024;
+/** A game's `model` asset by name, for the level editor's 3D view. */
+export const GameLevelModelRequestSchema = z.object({ gameId: z.string().min(1), name: z.string().min(1).max(200) });
+/** The asset's `.glb` bytes, base64: the game folder is not always a registered repo, so no file URL can serve it. */
+export const GameLevelModelResultSchema = z.object({ name: z.string(), bytes: z.number().int().nonnegative(), data: z.string() });
+export type GameLevelModelResult = z.infer<typeof GameLevelModelResultSchema>;
+
 export const GameLevelSetRequestSchema = z.object({
   gameId: z.string().min(1),
   scene: GameSceneNameSchema,

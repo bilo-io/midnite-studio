@@ -183,6 +183,7 @@ const bridge: Pick<
   | 'vanguard'
   | 'toolApproval'
   | 'privacy'
+  | 'features'
 > = {
   /*
     A plain value, not a channel: it never changes for the life of the process,
@@ -514,6 +515,10 @@ const bridge: Pick<
     fileVault: () => call(CHANNELS.privacyFileVault),
     openFileVault: () => call(CHANNELS.privacyOpenFileVault),
   },
+  features: {
+    describeData: (req) => call(CHANNELS.featuresDataDescribe, req),
+    deleteData: (req) => call(CHANNELS.featuresDataDelete, req),
+  },
   agent: {
     list: () => call(CHANNELS.agentList),
     recheck: () => call(CHANNELS.agentRecheck),
@@ -529,12 +534,16 @@ const bridge: Pick<
     create: (req) => call(CHANNELS.councilCreate, req),
     updateMembers: (req) => call(CHANNELS.councilUpdateMembers, req),
     remove: (req) => call(CHANNELS.councilRemove, req),
+    recommend: (req) => call(CHANNELS.councilRecommend, req),
+    generate: (req) => call(CHANNELS.councilGenerate, req),
     run: {
       start: (req) => call(CHANNELS.councilRunStart, req),
       get: (req) => call(CHANNELS.councilRunGet, req),
       list: (req) => call(CHANNELS.councilRunListForCouncil, req),
       skipMember: (req) => call(CHANNELS.councilRunSkipMember, req),
       retryMember: (req) => call(CHANNELS.councilRunRetryMember, req),
+      cancel: (req) => call(CHANNELS.councilRunCancel, req),
+      continue: (req) => call(CHANNELS.councilRunContinue, req),
     },
   },
   workflow: {
@@ -732,6 +741,7 @@ const bridge: Pick<
       get: (req) => call(CHANNELS.gamesLevelGet, req),
       set: (req) => call(CHANNELS.gamesLevelSet, req),
       mapAsset: (req) => call(CHANNELS.gamesLevelMapAsset, req),
+      model: (req) => call(CHANNELS.gamesLevelModel, req),
     },
     goto: (req) => call(CHANNELS.gamesGoto, req),
     popOut: (req) => call(CHANNELS.gamesPopOut, req),

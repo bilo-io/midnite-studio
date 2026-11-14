@@ -46,9 +46,9 @@ let getWindowThunk: () => RuntimeWindow | null = () => null;
 //
 // The main window is NOT opt-in, though it also calls `pty.subscribe` for
 // symmetry: `use-session-exits.ts` (mounted for the app's whole life, exactly
-// so a FAB loop's exit is never missed while its panel is collapsed) and
-// `CouncilLiveOutput` both read `pty.onData`/`pty.onExit` for a ptyId they
-// never explicitly subscribed to, on the pre-Phase-55 guarantee that main
+// so a FAB loop's exit is never missed while its panel is collapsed) reads
+// `pty.onExit` for a ptyId it never explicitly subscribed to (councils' live
+// pty view did too, until Phase 133 replaced it with a thread), on the pre-Phase-55 guarantee that main
 // always got everything. `subscribersFor` restores that guarantee by
 // unioning the explicit set with the main window, rather than requiring
 // every such consumer to learn about subscribe/unsubscribe.
@@ -643,6 +643,7 @@ async function createPtyUnconfined(options: {
       ...(confineProfile ? { confine: { profile: confineProfile } } : {}),
       env: {
         ...process.env,
+        COLORTERM: 'truecolor',
         TERM_PROGRAM: 'midnite-studio',
         GIT_TERMINAL_PROMPT: '1',
         ...agentFingerprintEnv(options.kind, options.sessionId, options.agentId),

@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { SecretFindingSchema } from '../scan-secrets';
 import { VANGUARD_TABS } from '../vanguard';
+import { FEATURE_TOGGLE_IDS, type FeatureToggleId } from '../feature-toggles';
 
 import {
   MapCaptureCancelRequestSchema,
@@ -294,6 +295,13 @@ import { SuiteAppIdSchema } from '../suite-apps';
 import {
   CouncilMemberProviderSchema,
   CouncilMemberSchema,
+  CouncilAvailableProviderSchema,
+  CouncilGeneratedSchema,
+  CouncilRecommendationSchema,
+  CouncilSynthesisTypeSchema,
+  COUNCIL_PRO_MEMBERS,
+  COUNCIL_MIN_MEMBERS,
+  COUNCIL_SYNTH_INSTRUCTIONS_MAX,
   CouncilRunSchema,
   CouncilSchema,
 } from '../council';
@@ -384,6 +392,8 @@ import {
   GameLevelsResultSchema,
   GameLevelGetRequestSchema,
   GameLevelGetResultSchema,
+  GameLevelModelRequestSchema,
+  GameLevelModelResultSchema,
   GameLevelSetRequestSchema,
   GameLevelSetResultSchema,
   GameLevelMapAssetRequestSchema,
@@ -2238,6 +2248,13 @@ export const CouncilGetResponse = z.object({ council: CouncilSchema.nullable() }
 export const CouncilCreateRequest = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
+  /** A council the user accepted from `recommend` (Phase 133 Theme E); absent seeds the starter members. */
+  members: z.array(CouncilMemberSchema).optional(),
+  synthProvider: CouncilMemberProviderSchema.optional(),
+  synthModel: z.string().min(1).optional(),
+  /** Phase 134 Theme A: the synthesis type and its instructions; absent is brainstorm with the preset's own. */
+  synthesisType: CouncilSynthesisTypeSchema.optional(),
+  synthInstructions: z.string().max(COUNCIL_SYNTH_INSTRUCTIONS_MAX).optional(),
 });
 export const CouncilCreateResponse = GitOpResultOf(CouncilSchema);
 
@@ -2245,6 +2262,12 @@ export const CouncilUpdateMembersRequest = z.object({
   id: z.string().min(1),
   members: z.array(CouncilMemberSchema),
   synthProvider: CouncilMemberProviderSchema,
+  /** Absent clears it back to the CLI's default. */
+  synthModel: z.string().min(1).optional(),
+  /** Phase 134 Theme A. Absent keeps the council's current type. */
+  synthesisType: CouncilSynthesisTypeSchema.optional(),
+  /** Absent clears it back to the preset's own instructions. */
+  synthInstructions: z.string().max(COUNCIL_SYNTH_INSTRUCTIONS_MAX).optional(),
 });
 export const CouncilUpdateMembersResponse = GitOpResultOf(CouncilSchema);
 
@@ -2274,6 +2297,41 @@ export const CouncilRunRetryMemberRequest = z.object({
   memberId: z.string().min(1),
 });
 export const CouncilRunRetryMemberResponse = GitOpResultSchema;
+
+/** Stop every live member and the synthesis of a run's latest turn (Phase 133 Theme A). */
+export const CouncilRunCancelRequest = z.object({ runId: z.string().min(1) });
+export const CouncilRunCancelResponse = GitOpResultSchema;
+
+/** A follow-up turn on a settled thread (Phase 133 Theme D). */
+export const CouncilRunContinueRequest = z.object({
+  runId: z.string().min(1),
+  prompt: z.string().min(1),
+});
+export const CouncilRunContinueResponse = GitOpResultOf(CouncilRunSchema);
+
+/** Ask a small, fast model for a council to start from (Phase 133 Theme E). */
+export const CouncilRecommendRequest = z.object({
+  name: z.string().min(1).max(120),
+  brief: z.string().max(2_000).optional(),
+  /** The providers installed here, in the order to try them; absent tries every council provider. */
+  providers: z.array(CouncilMemberProviderSchema).optional(),
+  /** The most members to propose: the member cap (Phase 134 Theme D/F); absent is 5. */
+  maxMembers: z.number().int().min(COUNCIL_MIN_MEMBERS).max(COUNCIL_PRO_MEMBERS).optional(),
+  /** The catalogue models each provider may use; a model outside them is dropped. */
+  models: z.array(CouncilAvailableProviderSchema).max(8).optional(),
+});
+export const CouncilRecommendResponse = GitOpResultOf(CouncilRecommendationSchema);
+
+/** "Generate with AI" for a Custom council (Phase 134 Theme E). */
+export const CouncilGenerateRequest = z.object({
+  name: z.string().min(1).max(120),
+  /** The prompt or brief the council is for. */
+  topic: z.string().max(2_000).optional(),
+  count: z.number().int().min(COUNCIL_MIN_MEMBERS).max(COUNCIL_PRO_MEMBERS),
+  /** The installed providers, fastest first, and the catalogue models each may use. */
+  providers: z.array(CouncilAvailableProviderSchema).min(1).max(8),
+});
+export const CouncilGenerateResponse = GitOpResultOf(CouncilGeneratedSchema);
 
 // --- FAB loop runs (Phase 35) ------------------------------------------------
 
@@ -2325,6 +2383,20 @@ export const PrivacyHistoryClearResponse = z.object({
 });
 /** `fdesetup status`, read without admin: `unknown` when the probe could not run. */
 export const PrivacyFileVaultResponse = z.object({ status: z.enum(['on', 'off', 'unknown']) });
+
+// --- feature toggles: a switched-off feature's data (Phase 135 Theme F) -------
+
+export const FeatureDataRequest = z.object({
+  feature: z.enum(FEATURE_TOGGLE_IDS as [FeatureToggleId, ...FeatureToggleId[]]),
+});
+/** One file or folder under userData that a feature keeps, as it is on disk now. Absent ones are left out. */
+export const FeatureDataFileSchema = z.object({ path: z.string(), bytes: z.number().int().nonnegative() });
+export const FeatureDataDescribeResponse = z.object({ files: z.array(FeatureDataFileSchema) });
+/** `ok:false` while the feature is still on, or when a move to the Trash failed part way. */
+export const FeatureDataDeleteResponse = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), removedFiles: z.number().int().nonnegative(), removedBytes: z.number().int().nonnegative() }),
+  z.object({ ok: z.literal(false), kind: z.literal('error'), message: z.string() }),
+]);
 /**
  * Update runs to completion in main; chunks stream on the event channel while
  * it does. Failures resolve — the settings page renders them like any other.
@@ -5514,6 +5586,8 @@ export const GamesLevelsRequest = GameLevelsRequestSchema;
 export const GamesLevelsResponse = GitOpResultOf(GameLevelsResultSchema);
 export const GamesLevelGetRequest = GameLevelGetRequestSchema;
 export const GamesLevelGetResponse = GitOpResultOf(GameLevelGetResultSchema);
+export const GamesLevelModelRequest = GameLevelModelRequestSchema;
+export const GamesLevelModelResponse = GitOpResultOf(GameLevelModelResultSchema);
 export const GamesLevelSetRequest = GameLevelSetRequestSchema;
 export const GamesLevelSetResponse = GitOpResultOf(GameLevelSetResultSchema);
 export const GamesLevelMapAssetRequest = GameLevelMapAssetRequestSchema;

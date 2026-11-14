@@ -262,6 +262,11 @@ describe('broker server', () => {
     const healthy = await connectAndSend(socketPath, [hello, create(2)]);
     expect(healthy.frames[1]).toMatchObject({ message: { id: 2, ok: true } });
     expect(spawnPty).toHaveBeenCalledTimes(1);
+    expect(spawnPty.mock.calls[0]?.[2]?.env).toMatchObject({
+      COLORTERM: 'truecolor',
+      TERM_PROGRAM: 'midnite-studio',
+      GIT_TERMINAL_PROMPT: '1',
+    });
     healthy.socket.destroy();
 
     // The bundle moved under this process: refuse BEFORE trying to spawn.

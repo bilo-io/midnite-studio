@@ -464,9 +464,14 @@ scratchpad and make every cross-agent contract change go through it *before* it 
 doc or a file. Sitrep rows then have something real to report, and the orchestrator — never a
 worker — owns the shared files (`_INDEX.md`, the git commit) so parallel writers cannot race.
 
-A multi-phase fan-out is exactly the case this format is for:
-[`midnite-swarm`](.agents/skills/midnite-swarm/SKILL.md) launches one subagent per phase
-and drives this same recurring-table report until every one of them has merged.
+A multi-phase fan-out is exactly the case this format is for. Agent groups start from
+[`midnite-agents`](.agents/skills/midnite-agents/SKILL.md), the umbrella, which asks which mode:
+[`midnite-fleet`](.agents/skills/midnite-fleet/SKILL.md) (the default) runs separate tasks, one subagent
+per phase or task, each to its own merged PR; [`midnite-swarm`](.agents/skills/midnite-swarm/SKILL.md)
+puts one problem through staged subagents (research, plan, design, refine, dev, review, test,
+report). Both run on [`midnite-orchestrate`](.agents/skills/midnite-orchestrate/SKILL.md), the shared
+core (settings interview, cap, board, sitreps, rotation, unsticking, wrap-up), and drive this same
+recurring-table report until the work has landed.
 
 ## Phase workflow
 

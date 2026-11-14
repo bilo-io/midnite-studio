@@ -4,9 +4,9 @@ import type { CouncilsManifest } from '../manifest';
 
 /**
  * The councils feature's renderer half (Phase 113 Theme N). Needs the frame
- * (bridge, panel stack, resizable panes, chrome port) and its own
- * {@link CouncilsHost} for what sits on app state: the persisted pane widths
- * and the occluder count.
+ * (bridge, panel stack, resizable panes, chrome port, the AI-thread kit) and its
+ * own {@link CouncilsHost} for what sits on app state: the persisted pane widths,
+ * the occluder count, and Chats' composer, picker, markdown and agent roster.
  *
  * `sideEffects: false` keeps an app that imports only the view loader from
  * pulling the stores into its entry chunk.
@@ -15,9 +15,13 @@ export { councilsManifest, type CouncilsManifest } from '../manifest';
 export {
   CouncilsHostProvider,
   useCouncilsHost,
+  type CouncilsAiComposerProps,
   type CouncilsHost,
   type CouncilsLayout,
   type CouncilsPaneWidth,
+  type CouncilsPickerModel,
+  type CouncilsPickerProvider,
+  type CouncilsProviderModelPickerProps,
 } from './host';
 
 export {
@@ -32,10 +36,13 @@ export {
   useCouncil,
   useCouncils,
   useCreateCouncil,
+  useRecommendCouncil,
   useRemoveCouncil,
   useUpdateCouncilMembers,
 } from './use-council';
 export {
+  useCancelCouncilRun,
+  useContinueCouncilRun,
   useCouncilRun,
   useCouncilRuns,
   useRetryCouncilMember,

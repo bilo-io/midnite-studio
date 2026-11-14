@@ -237,4 +237,23 @@ describe('createGameLevels (Phase 132 Theme C)', () => {
       expect(goto).toHaveBeenCalledTimes(1);
     });
   });
+  describe('model (Phase 136 Theme F)', () => {
+    const asset = (name: string, path: string) => ({ name, kind: 'model', path, source: { tab: 'model', repoId: null, path: 'x.glb' }, sha256: 'x', importedAt: '2026-11-14T00:00:00Z' });
+    const GLB = Buffer.from('glTF-fake-bytes');
+
+    it('answers a model asset as base64, by name', async () => {
+      await repo.writeFile(GAME_MANIFEST_FILE, manifest({ assets: [asset('house', 'assets/model/house.glb')] }));
+      await repo.writeFile('assets/model/house.glb', '');
+      await writeFile(join(repo.path, 'assets/model/house.glb'), GLB);
+      const result = await levels.model('g1', 'house');
+      expect(result).toEqual({ ok: true, value: { name: 'house', bytes: GLB.length, data: GLB.toString('base64') } });
+    });
+
+    it('refuses an unknown name, a non-glb, a missing file and a symlink out of the game', async () => {
+      await symlink('/etc/hosts', join(repo.path, 'escape.glb'));
+      await repo.writeFile(GAME_MANIFEST_FILE, manifest({ assets: [asset('obj', 'assets/model/a.obj'), asset('gone', 'assets/model/gone.glb'), asset('out', 'escape.glb')] }));
+      for (const name of ['nope', 'obj', 'gone', 'out']) expect(await levels.model('g1', name)).toMatchObject({ ok: false, kind: 'error' });
+      expect(await levels.model('nope', 'house')).toMatchObject({ ok: false });
+    });
+  });
 });

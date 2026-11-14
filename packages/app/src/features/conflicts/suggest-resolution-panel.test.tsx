@@ -22,6 +22,7 @@ function runAt(status: CouncilRun['status'], overrides: Partial<CouncilRun> = {}
     status,
     synthProvider: 'agy',
     members: [],
+    turns: [],
     createdAt: 0,
     updatedAt: 0,
     ...overrides,

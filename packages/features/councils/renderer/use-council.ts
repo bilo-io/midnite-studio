@@ -1,4 +1,12 @@
-import type { Council, CouncilMember, CouncilMemberProvider } from '@midnite/studio-shared';
+import type {
+  Council,
+  CouncilAvailableProvider,
+  CouncilGenerated,
+  CouncilMember,
+  CouncilMemberProvider,
+  CouncilRecommendation,
+  CouncilSynthesisType,
+} from '@midnite/studio-shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { bridge, noBridge, reportFailure } from '@midnite/studio-frame';
 
@@ -33,8 +41,15 @@ export function useCouncil(id: string | null) {
 export function useCreateCouncil() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { name: string; description?: string }) =>
-      (await bridge()?.council.create(input)) ?? noBridge<Council>(),
+    mutationFn: async (input: {
+      name: string;
+      description?: string;
+      members?: CouncilMember[];
+      synthProvider?: CouncilMemberProvider;
+      synthModel?: string;
+      synthesisType?: CouncilSynthesisType;
+      synthInstructions?: string;
+    }) => (await bridge()?.council.create(input)) ?? noBridge<Council>(),
     onSuccess: (result) => {
       reportFailure<Council>(result);
       if (result.ok) void client.invalidateQueries({ queryKey: COUNCIL_KEYS.list });
@@ -49,6 +64,9 @@ export function useUpdateCouncilMembers() {
       id: string;
       members: CouncilMember[];
       synthProvider: CouncilMemberProvider;
+      synthModel?: string;
+      synthesisType?: CouncilSynthesisType;
+      synthInstructions?: string;
     }) => (await bridge()?.council.updateMembers(input)) ?? noBridge<Council>(),
     onSuccess: (result, variables) => {
       reportFailure<Council>(result);
@@ -68,5 +86,33 @@ export function useRemoveCouncil() {
       reportFailure<void>(result);
       if (result.ok) void client.invalidateQueries({ queryKey: COUNCIL_KEYS.list });
     },
+  });
+}
+
+/**
+ * "Recommend a council" (Phase 133 Theme E): main asks a small, fast model.
+ * A failure is a normal answer the dialog shows, not a toast.
+ */
+export function useRecommendCouncil() {
+  return useMutation({
+    mutationFn: async (input: {
+      name: string;
+      brief?: string;
+      providers?: CouncilMemberProvider[];
+      maxMembers?: number;
+      models?: CouncilAvailableProvider[];
+    }) => (await bridge()?.council.recommend(input)) ?? noBridge<CouncilRecommendation>(),
+  });
+}
+
+/**
+ * "Generate with AI" for a Custom council (Phase 134 Theme E): instructions
+ * and members from the fastest installed CLI, held in main to what is
+ * available. A failure is an answer the synthesizer card shows.
+ */
+export function useGenerateCouncil() {
+  return useMutation({
+    mutationFn: async (input: { name: string; topic?: string; count: number; providers: CouncilAvailableProvider[] }) =>
+      (await bridge()?.council.generate(input)) ?? noBridge<CouncilGenerated>(),
   });
 }

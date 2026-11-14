@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { canUndo, editorReducer, initialEditorState, movableSelection, type EditorAction, type EditorState } from './editor-state';
 import { lightingById, LIGHTING_PRESETS } from './lighting';
 import { SHORTCUTS } from './shortcuts';
-import { ANGLE_STEPS, effectiveStep, GRID_STEPS, nudgeDistance, snapValue, snapVec, stepAlong } from './snap';
+import { ANGLE_STEPS, effectiveStep, GRID_STEPS, nudgeDistance, snapValue, snapVec, stepAlong } from '@midnite/studio-frame/viewport3d';
 
 const spec = ModelSpecSchema.parse({
   name: 'rig',
