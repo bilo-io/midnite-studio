@@ -42,10 +42,10 @@ Folders (never probed; asked on first use) — each with a deep link into System
 but reads off, a **Reset** (`tccutil reset <Service> io.bilo.midnite-studio`) plus **Relaunch**. It says plainly that
 agents in Studio's terminals inherit these grants.
 
-**Theme C — Nags point at the page; legacy terminals say why.** ◻ (S) The capture, microphone and Finder-automation
+**Theme C — Nags point at the page; legacy terminals say why.** 🔍 In review. (S) The capture, microphone and Finder-automation
 messages stop saying "reopen the app" and link to Settings ▸ Permissions. The existing legacy-session banner explains
 that terminals from a previous build don't get this build's permissions, and it is visible without opening the session
-list.
+list. The notice (`terminal-notices.tsx`) now says macOS grants do not apply and has a Permissions link through a new optional `actions.openPermissions` host action; the list opens once per launch when a previous-build session exists. Capture, mic and Finder messages name Settings ▸ Permissions, and the capture panel has an "Open Settings ▸ Permissions" button through an optional `CaptureHost.openPermissions`. No broker code changed.
 
 **Theme D — No unprompted protected-folder access; folder usage strings.** 🔍 In review (#1262). (M) An audit of every boot- and
 timer-driven path that can reach `~/Desktop|Documents|Downloads|Pictures|Music|Movies`; `isProtectedPath` in `shared`;
@@ -76,9 +76,9 @@ remediation.
 - [x] Tests (in review, #1266; reset logic tested in `reset.test.ts`): `probe.test.ts`, `permissions-handlers.test.ts`, `permissions-page.test.tsx`; `mock-bridge.ts` entry.
 
 ### C — Nags point at the page; legacy terminals say why
-- [ ] `terminal-session-list.tsx:319` banner copy + Permissions link; `terminal-panel.tsx:155-157` makes it visible when `hasLegacy`.
-- [ ] Copy + link in `capture/main/service.ts:169`, `capture/renderer/permission-panel.tsx:40,57`, `companion/renderer/recorder.ts:59,87`, `companion/renderer/web-speech.ts:137`, `desktop/src/main/trash-service.ts:159`.
-- [ ] Tests: banner renders without a toggle; nag copy names Settings ▸ Permissions; `broker-client.test.ts` still proves `retireLegacy`.
+- [x] `terminal-notices.tsx` banner (was `terminal-session-list.tsx:319`) copy + Permissions link; `terminal-panel.tsx` opens the list once per launch when `hasLegacy`.
+- [x] Copy + link in `capture/main/service.ts:169`, `capture/renderer/permission-panel.tsx:40,57`, `companion/renderer/recorder.ts:59,87`, `companion/renderer/web-speech.ts:137`, `desktop/src/main/trash-service.ts:159`.
+- [x] Tests: banner copy and Permissions link; nag copy names Settings ▸ Permissions. (`broker-client.test.ts` unchanged, not re-run locally: desktop vitest needs built feature packages.)
 
 ### D — No unprompted protected-folder access; usage strings
 - [x] Audit table (boot / timer / user-started; can it reach a protected folder?) in the PR body for every suspect in the plan.
