@@ -60,6 +60,8 @@ describe('createPty env', () => {
     vi.stubEnv('CLAUDECODE', '1');
     vi.stubEnv('CLAUDE_CODE_MESSAGING_SOCKET', '/tmp/cc-socks/1.sock');
     vi.stubEnv('CLAUDE_CODE_SESSION_ID', 'abc');
+    vi.stubEnv('CLAUDE_CODE_USE_BEDROCK', '1');
+    vi.stubEnv('CLAUDE_CODE_OAUTH_TOKEN', 'tok');
     vi.stubEnv('CLAUDE_CONFIG_DIR', '/Users/x/.claude-alt');
     vi.stubEnv('TERM', 'xterm-256color');
     const create = vi.fn(async (_opts: { env?: Record<string, string> }) => ({ ok: false as const, message: 'stop' }));
@@ -72,6 +74,7 @@ describe('createPty env', () => {
     expect(env).toMatchObject({ COLORTERM: 'truecolor', TERM: 'xterm-256color', CLAUDE_CONFIG_DIR: '/Users/x/.claude-alt' });
     expect(env).not.toHaveProperty('NO_COLOR');
     expect(env).not.toHaveProperty('CLAUDECODE');
-    expect(Object.keys(env).filter((k) => k.startsWith('CLAUDE_CODE_'))).toEqual([]);
+    expect(env).not.toHaveProperty('CLAUDE_CODE_MESSAGING_SOCKET');
+    expect(env).toMatchObject({ CLAUDE_CODE_USE_BEDROCK: '1', CLAUDE_CODE_OAUTH_TOKEN: 'tok' });
   });
 });

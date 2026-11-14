@@ -18,6 +18,8 @@ describe('inprocCreatePty env', () => {
     vi.stubEnv('NO_COLOR', '1');
     vi.stubEnv('CLAUDECODE', '1');
     vi.stubEnv('CLAUDE_CODE_MESSAGING_TOKEN', 'secret');
+    vi.stubEnv('CLAUDE_CODE_USE_BEDROCK', '1');
+    vi.stubEnv('CLAUDE_CODE_OAUTH_TOKEN', 'tok');
     vi.stubEnv('CLAUDE_CONFIG_DIR', '/Users/x/.claude-alt');
     const spawn = vi.fn(() => ({ onData: vi.fn(), onExit: vi.fn(), pid: 1, kill: vi.fn() }));
     const realRequire = Module.prototype.require;
@@ -34,6 +36,7 @@ describe('inprocCreatePty env', () => {
     expect(opts.env).toMatchObject({ COLORTERM: 'truecolor', TERM_PROGRAM: 'midnite-studio', CLAUDE_CONFIG_DIR: '/Users/x/.claude-alt' });
     expect(opts.env).not.toHaveProperty('NO_COLOR');
     expect(opts.env).not.toHaveProperty('CLAUDECODE');
-    expect(Object.keys(opts.env).filter((k) => k.startsWith('CLAUDE_CODE_'))).toEqual([]);
+    expect(opts.env).not.toHaveProperty('CLAUDE_CODE_MESSAGING_TOKEN');
+    expect(opts.env).toMatchObject({ CLAUDE_CODE_USE_BEDROCK: '1', CLAUDE_CODE_OAUTH_TOKEN: 'tok' });
   });
 });
