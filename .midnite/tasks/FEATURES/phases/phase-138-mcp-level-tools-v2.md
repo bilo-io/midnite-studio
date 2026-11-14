@@ -182,9 +182,9 @@ export function queryLevel(level: unknown, query: z.infer<typeof LevelQuerySchem
   ops are collected (up to 20 errors) and `ok: false` returns with the input level untouched. A transaction is a
   transaction: half a batch is never applied (Unity's and Godot's undo groups, a database transaction).
 - `add` goes to the named layer (id or name), else the first `objectgroup`; a tile layer target is an error. A new id
-  is `max(nextobjectid, max id + 1)`; `nextobjectid` advances. `ref` maps to the new id in `refs` so later ops in the
-  same batch can name it as `id: refs[ref]` — not supported inside the batch (ids are numeric); `ref` exists for the
-  caller's reply only.
+  is `max(nextobjectid, max id + 1)`; `nextobjectid` advances. `ref` is a caller label: `refs[ref]` in the result
+  gives the new id, so an agent can name what it made in its next call (ops inside one batch address existing
+  objects by numeric id only).
 - `type` must be in `ctx.entityTypes` (Phase 142 widens this list from the manifest), else an error naming the
   allowed types.
 - `update.set.properties` merges by name; `unset` removes properties by name. A property keeps its declared Tiled
@@ -259,11 +259,11 @@ export const LEVEL_ISSUES_MAX = 500;
 
 | File | Change |
 |---|---|
-| `packages/shared/src/ipc/channels.ts` | edit: `CHANNELS.gamesLevelEditorReply = 'mstudio:games:level-editor-reply'`, `EVENT_CHANNELS.gamesLevelEditorRequest = 'mstudio:games:level-editor-request'` |
+| `packages/shared/src/ipc/channels.ts` | edit: `CHANNELS.gamesLevelEditorReply = 'mstudio:games:level-editor-reply'`, `CHANNELS.gamesLevelEditorOpen = 'mstudio:games:level-editor-open'`, `EVENT_CHANNELS.gamesLevelEditorRequest = 'mstudio:games:level-editor-request'` |
 | `packages/shared/src/ipc/schemas.ts` | edit: the request / reply schemas below |
-| `packages/shared/src/ipc/bridge.ts` | edit: `games.levels.onEditorRequest(handler)`, `games.levels.editorReply(payload)` |
+| `packages/shared/src/ipc/bridge.ts` | edit: `games.levels.onEditorRequest(handler)`, `games.levels.editorReply(payload)`, `games.levels.editorOpen(scene \| null)` |
 | `packages/desktop/src/preload/index.ts` | edit: implement both (the `games` block, ~L717) |
-| `packages/features/media-game/manifest.ts` | edit: the reply channel in `ipc` |
+| `packages/features/media-game/manifest.ts` | edit: the reply and open channels in `ipc` |
 | `packages/features/media-game/main/games/level-editor-bridge.ts` | net-new |
 | `packages/features/media-game/main/games/level-editor-bridge.test.ts` | net-new |
 | `packages/features/media-game/main/games/game-service.ts` | edit: `levelEditor: createLevelEditorBridge({ send: deps.send })` on the service |
@@ -303,11 +303,13 @@ export function createLevelEditorBridge(deps: { send: (channel: string, payload:
 - Pending map keyed by `randomUUID()`, one timer per request; timeout resolves `failure('the level editor did not
   answer')`; a late reply for an unknown id is dropped. Exactly Companion's `ui-bridge.ts` behaviour, re-written in
   the games feature (no cross-feature import).
-- The renderer answers in `useLevelEditorBridge(gameId)`: it ignores requests for another `gameId` **only when
-  another editor instance claims them** — with a single editor mounted, a request whose `gameId`/`scene` is not the
-  open one answers `{ handled: false, reason: 'not-open' }`. Only the editor whose `useLevelStore().byGame[gameId]`
-  holds `scene` handles it; if no editor is mounted at all, nobody answers and main's timeout fires — so main first
-  checks a cheap flag: the renderer sends nothing, main treats a timeout exactly like `not-open`.
+- The renderer answers in `useLevelEditorBridge(gameId)`, mounted by the one Level editor. It answers a request only
+  when `useLevelStore().byGame[gameId]?.scene === request.scene`; otherwise `{ handled: false, reason: 'not-open' }`.
+  **Presence, so a closed editor costs no timeout:** the hook also sends one-way
+  `mstudio:games:level-editor-open` (`CHANNELS.gamesLevelEditorOpen`, payload `{ gameId, scene } | null`) on mount,
+  on scene change and on unmount; the bridge keeps `open: { gameId; scene } | null` and answers a request for any
+  other scene `{ handled: false, reason: 'not-open' }` at once, without a round trip. A timeout (renderer hung) is
+  still treated like `not-open` by every caller.
 - `snapshot` answers `{ level: serialise(edit), dirty: edit.dirty }`.
 - Read-only (`OpenLevel.unreadable` or the editor's read-only banner state) answers `handled: false, reason:
   'read-only'` for `apply`, `handled: true` for every read kind.
@@ -317,6 +319,7 @@ export function createLevelEditorBridge(deps: { send: (channel: string, payload:
 - [ ] C1. `request` resolves with the renderer's result when `resolve(id, …)` is called, and with
   `failure('the level editor did not answer')` after the timeout (fake timers).
 - [ ] C2. A `resolve` for an unknown id is a no-op; a second `resolve` for the same id is a no-op.
+- [ ] C2b. With `open` set to another scene (or `null`), `request` answers `not-open` without calling `send`.
 - [ ] C3. The renderer hook answers `snapshot` for the open scene with the serialised edit level and `dirty`, and
   `not-open` for another scene.
 - [ ] C4. `apply` on a read-only level answers `handled: false, reason: 'read-only'`.
@@ -356,7 +359,7 @@ export async function readLevelForTool(deps: { levels: GameLevels; levelEditor: 
 
 **Acceptance.**
 
-- [ ] D1. With the editor not answering (no reply), `game_level_query` reads the file and reports `source: 'file'`.
+- [ ] D1. With no editor open (presence `null`), `game_level_query` reads the file and reports `source: 'file'`.
 - [ ] D2. With a mocked bridge answering `snapshot`, the query sees an unsaved object and reports `source: 'editor',
   dirty: true`.
 - [ ] D3. `game_level_validate` returns `counts` equal to the per-severity tallies of `issues`.
