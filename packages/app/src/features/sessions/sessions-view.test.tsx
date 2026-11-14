@@ -821,13 +821,17 @@ describe('SessionsView', () => {
 
     renderView();
 
-    const loopRow = screen.getByText('loop-launched').closest('.group');
     const plainRow = screen.getByText('plain-shell').closest('.group');
-
-    await waitFor(() => {
-      expect(loopRow?.querySelector('[aria-label="Started by the Guard loop"]')).toBeTruthy();
-    });
     expect(plainRow?.querySelector('[aria-label^="Started by"]')).toBeNull();
+
+    // Once loopRunsList resolves, the loop-launched session moves to the Loops tab.
+    await waitFor(() => {
+      expect(screen.queryByText('loop-launched')).toBeNull();
+    });
+    fireEvent.click(screen.getByTestId('sessions-category-loops'));
+
+    const loopRow = screen.getByText('loop-launched').closest('.group');
+    expect(loopRow?.querySelector('[aria-label="Started by the Guard loop"]')).toBeTruthy();
   });
 
   it('gives every list item the same shared row-height class — live, asleep and closed alike', () => {
@@ -1328,6 +1332,128 @@ describe('SessionsView', () => {
 
       const countBtn = screen.getByTestId('session-commit-count');
       expect(countBtn.textContent).toBe('1 commit');
+    });
+  });
+
+  describe('layout and category toggle', () => {
+    it('renders the top bar full-width above the resizable left panel and detail pane split', () => {
+      historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
+
+      renderView();
+
+      const topBar = screen.getByTestId('sessions-top-bar');
+      const listPanel = screen.getByTestId('sessions-list-panel');
+
+      // Top bar must sit outside the resizable left panel container, with filters/actions inside it.
+      expect(listPanel.contains(topBar)).toBe(false);
+      expect(within(topBar).getByRole('heading', { name: 'Sessions' })).toBeTruthy();
+      expect(within(topBar).getByRole('button', { name: 'All states' })).toBeTruthy();
+      expect(within(topBar).getByRole('button', { name: 'All providers' })).toBeTruthy();
+      expect(within(topBar).getByRole('button', { name: 'Refresh sessions' })).toBeTruthy();
+      expect(within(topBar).getByRole('button', { name: 'Clear history' })).toBeTruthy();
+
+      // Top bar is a sibling above the split row containing listPanel and the ResizeHandle.
+      const splitRow = listPanel.parentElement;
+      expect(splitRow).not.toBeNull();
+      expect(topBar.parentElement).toBe(splitRow?.parentElement);
+      expect(within(splitRow!).getByRole('separator', { name: 'Resize the sessions list' })).toBeTruthy();
+    });
+
+    it('toggles between Sessions and Loops and renders Workflows and Councils as disabled TBA tabs', async () => {
+      historyResult.mockReturnValue({
+        data: [
+          closedSession({
+            id: 'normal-closed',
+            repoId: 'r1',
+            title: 'repo-one',
+            name: 'normal-session',
+            createdAt: 1000,
+            closedAt: 2000,
+          }),
+          closedSession({
+            id: 'loop-closed',
+            repoId: 'r1',
+            title: 'repo-one',
+            name: 'loop-session',
+            createdAt: 1000,
+            closedAt: 3000,
+          }),
+        ],
+        isPending: false,
+        isError: false,
+      });
+      loopRunsList.mockResolvedValueOnce({
+        runs: [
+          {
+            id: 'run-1',
+            loopId: 'guard',
+            sessionId: 'loop-closed',
+            startedAt: 1,
+            composedPrompt: 'x',
+            checkedModifierIds: [],
+            status: 'completed',
+          },
+        ],
+      });
+
+      renderView();
+
+      const sessionsTab = screen.getByTestId('sessions-category-sessions');
+      const loopsTab = screen.getByTestId('sessions-category-loops');
+      const workflowsTab = screen.getByTestId('sessions-category-workflows') as HTMLButtonElement;
+      const councilsTab = screen.getByTestId('sessions-category-councils') as HTMLButtonElement;
+
+      // Workflows and Councils are disabled with TBA badges.
+      expect(workflowsTab.disabled).toBe(true);
+      expect(workflowsTab.textContent).toContain('TBA');
+      expect(councilsTab.disabled).toBe(true);
+      expect(councilsTab.textContent).toContain('TBA');
+
+      // Wait for loopRunsList to separate loop-closed from normal-closed.
+      await waitFor(() => {
+        expect(sessionsTab.textContent).toContain('1');
+        expect(loopsTab.textContent).toContain('1');
+      });
+
+      // Default tab is Sessions: shows normal-session, hides loop-session.
+      expect(sessionsTab.getAttribute('aria-selected')).toBe('true');
+      expect(screen.getByText('normal-session')).toBeTruthy();
+      expect(screen.queryByText('loop-session')).toBeNull();
+      expect(within(screen.getByTestId('sessions-top-bar')).getByText('1')).toBeTruthy();
+
+      // Clicking disabled TBA tabs does nothing.
+      fireEvent.click(workflowsTab);
+      expect(sessionsTab.getAttribute('aria-selected')).toBe('true');
+
+      // Switch to Loops: shows loop-session, hides normal-session.
+      fireEvent.click(loopsTab);
+      expect(loopsTab.getAttribute('aria-selected')).toBe('true');
+      expect(screen.getByText('loop-session')).toBeTruthy();
+      expect(screen.queryByText('normal-session')).toBeNull();
+      expect(screen.getByTestId('transcript').textContent).toBe('loop-closed');
+    });
+
+    it('shows loop-specific empty state when Loops has no sessions', () => {
+      historyResult.mockReturnValue({
+        data: [
+          closedSession({
+            id: 'normal-only',
+            repoId: 'r1',
+            title: 'repo-one',
+            name: 'normal-only',
+            createdAt: 1000,
+            closedAt: 2000,
+          }),
+        ],
+        isPending: false,
+        isError: false,
+      });
+
+      renderView();
+
+      fireEvent.click(screen.getByTestId('sessions-category-loops'));
+      expect(screen.getByText('No loop sessions')).toBeTruthy();
+      expect(screen.queryByText('normal-only')).toBeNull();
     });
   });
 });
