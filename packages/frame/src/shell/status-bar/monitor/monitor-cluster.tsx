@@ -2,6 +2,7 @@ import { useState, type ComponentType } from 'react';
 
 import { METRIC_IDS, type MetricId } from '@midnite/studio-shared';
 
+import type { IconComponent } from '../../../chrome/types';
 import { MetricDonut } from '../../../metrics/metric-donut';
 import { isLevelMetric } from '../../../metrics/metric-geometry';
 import { METRIC_ICONS } from '../../../metrics/metric-icons';
@@ -20,13 +21,40 @@ import { useStatusBarChrome } from '../status-bar-chrome';
  * is each app's own hand-off (Studio navigates in process, a standalone app asks the launcher,
  * the Monitor app navigates in place).
  */
-export type MonitorFlyoutProps = { onOpenMonitor: () => void };
+export type MonitorFlyoutProps = {
+  onOpenMonitor: () => void;
+  /** Recovery actions the host composed (Phase 148 Theme A). Absent or empty renders no section. */
+  actions?: readonly MonitorAction[];
+};
+
+/**
+ * One recovery action in the flyout's actions grid. The frame knows nothing about what `run` does
+ * (terminals, the optimizer): the host composes it and passes it down as data and a callback.
+ */
+export type MonitorAction = {
+  id: string;
+  label: string;
+  /** The tooltip, and the reason when `disabled`. */
+  description: string;
+  Icon: IconComponent;
+  run: () => void;
+  disabled?: boolean;
+};
 
 export type MonitorSegmentOptions = {
   /** The monitor feature's `MonitorFlyout`: CPU/RAM/GPU timelines and the capacity gauge. */
   Flyout: ComponentType<MonitorFlyoutProps>;
   /** The "Open Monitor" button — in practice `requestHandoff({ app: 'monitor', view: 'monitor' })`. */
   openMonitor: () => void;
+  /** Recovery actions shown in the flyout. Suite apps pass none. */
+  actions?: readonly MonitorAction[];
+  /**
+   * A host-supplied attention line (e.g. "2 sessions from a previous build"), or `null` for none.
+   * Called during render of the cluster, so it may read a store through a hook. While it returns a
+   * string the trigger shows an amber dot with that text as its tooltip; the frame stays ignorant
+   * of what the line is about.
+   */
+  attention?: () => string | null;
 };
 
 /**
@@ -37,14 +65,15 @@ export type MonitorSegmentOptions = {
  * "GPU —" would imply something is temporarily wrong, and "GPU 0%" would be a plain lie. Before
  * the first sample the whole segment renders nothing.
  */
-export function createMonitorSegment({ Flyout, openMonitor }: MonitorSegmentOptions): ComponentType {
+export function createMonitorSegment({ Flyout, openMonitor, actions, attention }: MonitorSegmentOptions): ComponentType {
   function MonitorCluster() {
     const [open, setOpen] = useState(false);
-    const { Popover } = useStatusBarChrome();
+    const { Popover, Tooltip } = useStatusBarChrome();
     const latest = useMetricsStore((state) => state.latest);
     const series = useMetricsStore((state) => state.series);
     const hidden = useMonitorPrefsStore((state) => state.hiddenMetrics);
     const idleIntervalMs = useMonitorPrefsStore((state) => state.metricsIdleIntervalMs);
+    const attentionLine = attention?.() ?? null;
 
     // Cadence is a consequence of what is on screen — the flyout escalates to 2s — with the
     // closed-flyout figure taken from preferences.
@@ -66,11 +95,38 @@ export function createMonitorSegment({ Flyout, openMonitor }: MonitorSegmentOpti
         testId="monitor-cluster"
         panelClassName="max-w-[calc(100vw-1rem)]"
         triggerClassName="status-graphs-on-hover flex items-center gap-3 rounded px-1 transition-colors hover:bg-accent hover:text-foreground data-[open=true]:bg-accent"
-        trigger={present.map((id) => (
-          <MetricReadout key={id} id={id} value={latest![id]!} points={series[id]} />
-        ))}
+        trigger={
+          <>
+            {present.map((id) => (
+              <MetricReadout key={id} id={id} value={latest![id]!} points={series[id]} />
+            ))}
+            {attentionLine === null ? null : (
+              <Tooltip label={attentionLine} side="top">
+                <span
+                  role="img"
+                  aria-label={attentionLine}
+                  data-testid="monitor-attention"
+                  className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500"
+                />
+              </Tooltip>
+            )}
+          </>
+        }
       >
         <Flyout
+          // Running an action closes the popover first, as Open Monitor does: most of them open
+          // a dialog or another view, which the flyout would otherwise sit on top of.
+          {...(actions
+            ? {
+                actions: actions.map((action) => ({
+                  ...action,
+                  run: () => {
+                    setOpen(false);
+                    action.run();
+                  },
+                })),
+              }
+            : {})}
           onOpenMonitor={() => {
             setOpen(false);
             openMonitor();
