@@ -9,6 +9,7 @@ import {
   activityFor,
   agentIdFor,
   dropScrollback,
+  liveBrokerSessions,
   livePtyFor,
   onSessionExit,
   readScrollback,
@@ -17,7 +18,17 @@ import {
 } from './pty-service';
 
 setTerminalPorts({
-  pty: { activityFor, agentIdFor, dropScrollback, livePtyFor, onSessionExit, readScrollback, scrollbackSessionIds, seedScrollback },
+  pty: {
+    activityFor,
+    agentIdFor,
+    dropScrollback,
+    liveBrokerSessions,
+    livePtyFor,
+    onSessionExit,
+    readScrollback,
+    scrollbackSessionIds,
+    seedScrollback,
+  },
   locateAgentConversation,
   log: defaultLogger,
 });

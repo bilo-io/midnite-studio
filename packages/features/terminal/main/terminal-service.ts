@@ -1,5 +1,9 @@
+import { homedir } from 'node:os';
+import { basename } from 'node:path';
+
 import {
   closedFromSession,
+  SuiteAppIdSchema,
   type AgentDefinition,
   type ClosedSession,
   type SessionActivity,
@@ -25,6 +29,11 @@ export type TerminalPtyPort = {
   agentIdFor?(ptyId: string): string | null;
   dropScrollback(sessionId: string): void;
   livePtyFor(sessionId: string): { ptyId: string; pid: number; cols: number; rows: number; legacy: boolean } | null;
+  /**
+   * Every pty the connected brokers hold, primary and legacy alike. Optional so a stub can omit it; without
+   * it, a live pty whose row was lost cannot be recovered into the list.
+   */
+  liveBrokerSessions?(): { sessionId: string; ptyId: string; pid: number; cols: number; rows: number; cwd: string; legacy: boolean; owner?: string | null }[];
   onSessionExit(hook: (sessionId: string, exitCode: number) => void): () => void;
   readScrollback(sessionId: string): Uint8Array;
   scrollbackSessionIds(): string[];
@@ -74,6 +83,40 @@ let sessions: TerminalSession[] = [];
 let dataDir: string | null = null;
 
 /**
+ * Whether `sessions` has been merged with `terminals.json` yet.
+ *
+ * The list used to load lazily behind `if (sessions.length === 0)`, while `saveTerminal`, `forgetTerminal`,
+ * the debounced save and the quit-time save all wrote `sessions` without loading it first. A launch that
+ * never asked for the list (a window that failed to load its renderer, a quit before the first restore) or
+ * a save that beat the first `list` rewrote `terminals.json` with only what that launch had touched —
+ * every other row gone, with no history entry, while their ptys kept running in the broker with nothing
+ * left that named them. Every read and every write now goes through {@link ensureLoaded} first.
+ */
+let loaded = false;
+let loading: Promise<void> | null = null;
+/** Rows forgotten before the load landed — the merge must not bring them back from disk. */
+const forgottenBeforeLoad = new Set<string>();
+
+async function ensureLoaded(): Promise<void> {
+  if (loaded) return;
+  loading ??= (async () => {
+    const disk = await store.load();
+    // Anything this launch already wrote wins over its saved copy; saved rows it never touched are kept.
+    const touched = new Map(sessions.map((s) => [s.id, s]));
+    const onDisk = new Set(disk.map((s) => s.id));
+    sessions = [
+      ...disk.filter((s) => !forgottenBeforeLoad.has(s.id)).map((s) => touched.get(s.id) ?? s),
+      ...sessions.filter((s) => !onDisk.has(s.id)),
+    ];
+    forgottenBeforeLoad.clear();
+    loaded = true;
+  })().finally(() => {
+    loading = null;
+  });
+  await loading;
+}
+
+/**
  * The last exit code seen per session, so a close can say *how* it ended.
  *
  * A process exiting does not end a session — the row stays and `sessionPhase()`
@@ -121,6 +164,7 @@ export function configureTerminals(
   historyStore: SessionHistoryStore = nullSessionHistoryStore,
 ): void {
   store = terminalStore;
+  loaded = false;
   history = historyStore;
   agents = createAgentsStore(userDataDir);
   dataDir = userDataDir;
@@ -142,7 +186,7 @@ export function watchSessionExits(): void {
 
 /** Ids of every saved or live session — the scrollback retention and "Clear" must never touch (Phase 115 B). */
 export async function listSessionIds(): Promise<string[]> {
-  if (sessions.length === 0) sessions = await store.load();
+  await ensureLoaded();
   return sessions.map((s) => s.id);
 }
 
@@ -168,7 +212,8 @@ export async function listTerminals(): Promise<
     legacy?: boolean;
   }[]
 > {
-  if (sessions.length === 0) sessions = await store.load();
+  await ensureLoaded();
+  recoverOrphanedPtys();
 
   return Promise.all(
     sessions.map(async (session) => {
@@ -204,9 +249,58 @@ export async function listTerminals(): Promise<
   );
 }
 
+/**
+ * Give every live broker pty that has no row one, so it lists, reattaches and can be ended.
+ *
+ * A pty is only ever reached through its row: the renderer binds a pane, a close button and a kill to a
+ * session it was told about. A pty whose row is gone — `terminals.json` rewritten without it (see
+ * {@link ensureLoaded}), or a row from another build's list — keeps running in its broker, unseen and
+ * unkillable. The broker still knows its session id and spawn cwd, which is enough to rebuild a row the
+ * user can recognise and end. Saved like any other row so a rename or reorder sticks.
+ */
+function recoverOrphanedPtys(): void {
+  const live = port().pty.liveBrokerSessions?.() ?? [];
+  const known = new Set(sessions.map((s) => s.id));
+  let recovered = 0;
+  for (const pty of live) {
+    if (known.has(pty.sessionId)) continue;
+    known.add(pty.sessionId);
+    sessions.push(recoveredSession(pty.sessionId, pty.cwd, pty.owner ?? null));
+    recovered++;
+  }
+  if (recovered > 0) {
+    port().log(`[terminal] recovered ${recovered} live session(s) that had no saved row`);
+    scheduleSave();
+  }
+}
+
+/**
+ * The row a recovered pty gets: its spawn cwd (home when the broker had none), that folder's repo id, and
+ * the app that created it when that was not Studio. A shell row — the agent watcher's live guess still
+ * draws the agent's icon, and a guessed roster id would fail `agentIdMatchesKind` if it were wrong.
+ */
+export function recoveredSession(
+  sessionId: string,
+  cwd: string,
+  owner: string | null = null,
+  now = Date.now(),
+): TerminalSession {
+  const folder = cwd.trim() === '' ? homedir() : cwd;
+  const app = SuiteAppIdSchema.safeParse(owner);
+  return {
+    id: sessionId,
+    kind: 'shell',
+    title: basename(folder) || folder,
+    cwd: folder,
+    repoId: `repo:${folder}`,
+    createdAt: now,
+    ...(app.success && app.data !== 'studio' ? { appId: app.data } : {}),
+  };
+}
+
 /** Persisted `agentId` for `sessionId` (or `null` when plain shell / unknown), for seeding `agentWatcher.track`. */
 export async function declaredAgentIdFor(sessionId: string): Promise<string | null> {
-  if (sessions.length === 0) sessions = await store.load();
+  await ensureLoaded();
   return sessions.find((s) => s.id === sessionId)?.agentId ?? null;
 }
 
@@ -218,7 +312,7 @@ export async function declaredAgentIdFor(sessionId: string): Promise<string | nu
 export async function liveAgentSessions(): Promise<
   { sessionId: string; repoId: string; pid: number; title: string }[]
 > {
-  if (sessions.length === 0) sessions = await store.load();
+  await ensureLoaded();
   return sessions.flatMap((session) => {
     if (session.kind !== 'agent') return [];
     const live = port().pty.livePtyFor(session.id);
@@ -235,7 +329,7 @@ export async function liveAgentSessions(): Promise<
 export async function agentSessionDetail(
   sessionId: string,
 ): Promise<{ id: string; agentId: string; title: string; cwd: string; agentConversationId?: string } | null> {
-  if (sessions.length === 0) sessions = await store.load();
+  await ensureLoaded();
   const session = sessions.find((s) => s.id === sessionId);
   if (!session || session.kind !== 'agent' || !session.agentId) return null;
   return {
@@ -287,6 +381,7 @@ export function forgetTerminal(sessionId: string, intent: ForgetIntent = 'closed
   // Take the row out synchronously so the renderer's next `list` cannot race
   // the archive and see a session it just closed.
   sessions = sessions.filter((s) => s.id !== sessionId);
+  if (!loaded) forgottenBeforeLoad.add(sessionId);
   scheduleSave();
 
   const archive = archiveSession(session, intent).finally(() => {
@@ -427,6 +522,8 @@ export async function shutdownTerminals(): Promise<void> {
   // The archives first: a session closed a moment before the quit has a record
   // to write, and `store.save` must not race it to `terminals.json`.
   await whenArchivesSettle();
+  // Never save a list that was never loaded — that is what used to wipe `terminals.json` on quit.
+  await ensureLoaded();
   await Promise.all([store.save(sessions), flushScrollback()]);
 }
 
@@ -434,7 +531,7 @@ function scheduleSave(): void {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveTimer = null;
-    void store.save(sessions);
+    void ensureLoaded().then(() => store.save(sessions));
   }, SAVE_DEBOUNCE_MS);
   saveTimer.unref?.();
 }
@@ -442,6 +539,9 @@ function scheduleSave(): void {
 /** Reset module state. Tests only — the app has exactly one session list. */
 export function resetTerminalsForTest(): void {
   sessions = [];
+  loaded = false;
+  loading = null;
+  forgottenBeforeLoad.clear();
   store = nullTerminalStore;
   history = nullSessionHistoryStore;
   agents = null;
@@ -462,7 +562,7 @@ export function noteSessionExitForTest(sessionId: string, exitCode: number): voi
  */
 export async function getOrLocateConversationId(sessionId: string): Promise<string | null> {
   // 1 — Check live sessions
-  if (sessions.length === 0) sessions = await store.load();
+  await ensureLoaded();
   const live = sessions.find((s) => s.id === sessionId);
   if (live) {
     if (live.agentConversationId) return live.agentConversationId;
