@@ -18,6 +18,7 @@ import { outboundSecrets } from '../outbound-secrets';
 import { readAgentApiKey } from './secrets-handlers';
 import { getRepo } from '../repo-registry';
 import { listAgents } from '../terminal-service';
+import { getUnifiedSessionCoordinator } from '../unified-session-host';
 import { broadcastToAllWindows } from '../window-manager';
 import { handle, handleBare, handleSend } from './handle';
 
@@ -58,9 +59,15 @@ const deps: ChatsRuntimeDeps = {
         timeoutMs: 15_000,
       },
     ),
+  beforeSend: (chat) => getUnifiedSessionCoordinator().beforeChatSend(chat),
+  onTurnEnd: (chat) => getUnifiedSessionCoordinator().onChatTurnEnd(chat),
 };
 
 let runtime: ChatsRuntime = createChatsRuntime(null, deps);
+
+export function getChatsRuntime(): ChatsRuntime {
+  return runtime;
+}
 
 export function configureChats(userDataDir: string): void {
   runtime = createChatsRuntime(userDataDir, deps);

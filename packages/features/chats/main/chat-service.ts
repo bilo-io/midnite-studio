@@ -38,6 +38,7 @@ import {
   type ChatChangeDecision,
   type ChatChangedFile,
   type ChatChangeSet,
+  type ChatEngineSession,
   type ChatEvent,
   type ChatMessage,
   type ChatMode,
@@ -50,6 +51,7 @@ import {
   type NewAgentAuditRecord,
   type OutboundSecret,
   type Redaction,
+  type UnifiedSessionViewMode,
   siblingWorktreePath,
 } from '@midnite/studio-shared';
 
@@ -164,6 +166,10 @@ export type ChatServiceDeps = {
   newId?: () => string;
   /** The git-engine seam — injectable so a test need not make real worktrees. */
   git?: Partial<GitSeam> | undefined;
+  /** Pre-flight guard before starting a turn (e.g. unified session runner lock, Phase 146). */
+  beforeSend?: ((chat: Chat) => Promise<GitOpResult> | GitOpResult) | undefined;
+  /** Called after a turn settles (used by unified session coordinator to release ownership / sync session id). */
+  onTurnEnd?: ((chat: Chat) => Promise<void> | void) | undefined;
 };
 
 export type GitSeam = {
@@ -252,6 +258,8 @@ export function createChatService(deps: ChatServiceDeps) {
       running: running.has(chat.id),
       pendingChanges: needsReview(chat),
       worktree: chat.worktree ?? null,
+      ...(chat.linkedTerminalId ? { linkedTerminalId: chat.linkedTerminalId } : {}),
+      ...(chat.preferredView ? { preferredView: chat.preferredView } : {}),
     };
   };
 
@@ -353,6 +361,9 @@ export function createChatService(deps: ChatServiceDeps) {
     model?: string | null | undefined;
     mode?: ChatMode | undefined;
     repoId?: string | null | undefined;
+    linkedTerminalId?: string | undefined;
+    preferredView?: UnifiedSessionViewMode | undefined;
+    session?: ChatEngineSession | null | undefined;
   }): Promise<GitOpResult<{ chat: Chat }>> {
     await ensureLoaded();
     const chat = chats.get(req.id);
@@ -362,6 +373,9 @@ export function createChatService(deps: ChatServiceDeps) {
 
     if (req.title !== undefined) chat.title = req.title;
     if (req.pinned !== undefined) chat.pinned = req.pinned;
+    if (req.linkedTerminalId !== undefined) chat.linkedTerminalId = req.linkedTerminalId;
+    if (req.preferredView !== undefined) chat.preferredView = req.preferredView;
+    if (req.session !== undefined) chat.session = req.session;
     if (req.engine !== undefined && req.engine !== chat.engine) {
       chat.engine = req.engine;
       // A model id means nothing to a different engine, and its session cannot resume.
@@ -439,6 +453,10 @@ export function createChatService(deps: ChatServiceDeps) {
     const chat = chats.get(req.chatId);
     if (!chat) return failure('That chat no longer exists.');
     if (running.has(chat.id)) return failure('This chat is already answering. Stop it first.');
+    if (deps.beforeSend) {
+      const guard = await deps.beforeSend(chat);
+      if (!guard.ok) return guard;
+    }
 
     let text = req.text;
     let attachments = req.attachments;
@@ -491,6 +509,7 @@ export function createChatService(deps: ChatServiceDeps) {
     void runTurn(chat, history, user, assistant, handle).finally(() => {
       running.delete(chat.id);
       emitChat(chat.id);
+      void Promise.resolve(deps.onTurnEnd?.(chat)).catch(() => undefined);
     });
     return ok({ messageId: assistant.id });
   }
@@ -1008,5 +1027,7 @@ export function createChatService(deps: ChatServiceDeps) {
     while (running.size > 0) await new Promise((resolve) => setTimeout(resolve, 5));
   }
 
-  return { list, get, create, update, remove, send, cancel, changeDiffs, resolveChanges, shutdown, idle };
+  const isRunning = (chatId: string): boolean => running.has(chatId);
+
+  return { list, get, create, update, remove, send, cancel, isRunning, changeDiffs, resolveChanges, shutdown, idle };
 }

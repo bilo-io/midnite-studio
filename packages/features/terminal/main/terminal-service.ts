@@ -247,12 +247,31 @@ export async function agentSessionDetail(
   };
 }
 
+/** Look up a single terminal session without reading scrollback files (Phase 146). */
+export async function getTerminal(sessionId: string): Promise<TerminalSession | null> {
+  if (sessions.length === 0) sessions = await store.load();
+  return sessions.find((s) => s.id === sessionId) ?? null;
+}
+
 /** Insert or update one row, keeping its position if it already exists. */
 export function saveTerminal(session: TerminalSession): void {
   const index = sessions.findIndex((s) => s.id === session.id);
   if (index === -1) sessions.push(session);
   else sessions[index] = session;
   scheduleSave();
+}
+
+/** Insert or update one row and flush `terminals.json` immediately (Phase 146). */
+export async function saveTerminalNow(session: TerminalSession): Promise<void> {
+  if (sessions.length === 0) sessions = await store.load();
+  const index = sessions.findIndex((s) => s.id === session.id);
+  if (index === -1) sessions.push(session);
+  else sessions[index] = session;
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  await store.save(sessions);
 }
 
 /**
