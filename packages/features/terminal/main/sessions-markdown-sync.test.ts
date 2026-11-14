@@ -146,6 +146,34 @@ describe('renderSessionsMarkdown and extractPreservedTail', () => {
 
     expect(extractPreservedTail('# Title\n\nNo outside section\n')).toBeNull();
   });
+
+  it('escapes pipes and newlines in agent labels and resume commands', () => {
+    const md = renderSessionsMarkdown({
+      now: Date.UTC(2026, 10, 14, 12, 0),
+      agents: [...BUILTIN_AGENTS],
+      active: [
+        {
+          session: makeSession({
+            agentId: 'custom|agent\nid',
+            cwd: '/Users/me/repo|one\ntwo',
+          }),
+          live: { pid: 101, legacy: false },
+          exitCode: null,
+        },
+      ],
+      closed: [
+        makeClosed({
+          agentId: 'custom|closed\nid',
+          cwd: '/Users/me/closed|one\ntwo',
+        }),
+      ],
+    });
+
+    expect(md).toContain('`custom\\|agent id`');
+    expect(md).toContain("`cd '/Users/me/repo\\|one two'`");
+    expect(md).toContain('`custom\\|closed id`');
+    expect(md).toContain("`cd '/Users/me/closed\\|one two'`");
+  });
 });
 
 describe('createSessionsMarkdownSync', () => {
@@ -329,5 +357,35 @@ describe('createSessionsMarkdownSync', () => {
     expect(content).toContain('Run 3');
     const files = await readdir(root);
     expect(files).toEqual(['MIDNITE_SESSIONS.md']);
+  });
+
+  it('logs and recovers cleanly when readSnapshot() rejects', async () => {
+    const targetPath = join(root, 'MIDNITE_SESSIONS.md');
+    const log = vi.fn();
+    let call = 0;
+
+    const sync = createSessionsMarkdownSync({
+      targetPath,
+      readSnapshot: async () => {
+        call += 1;
+        if (call === 1) {
+          throw new Error('snapshot boom');
+        }
+        return {
+          now: Date.UTC(2026, 10, 14, 12, 0),
+          agents: [...BUILTIN_AGENTS],
+          active: [{ session: makeSession({ title: 'Recovered' }), live: { pid: 7, legacy: false }, exitCode: null }],
+          closed: [],
+        };
+      },
+      log,
+    });
+
+    await expect(sync.flush()).resolves.toBeUndefined();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('snapshot boom'));
+
+    await expect(sync.flush()).resolves.toBeUndefined();
+    const content = await readFile(targetPath, 'utf8');
+    expect(content).toContain('Recovered');
   });
 });

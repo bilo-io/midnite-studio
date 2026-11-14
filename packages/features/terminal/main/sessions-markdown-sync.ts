@@ -110,7 +110,7 @@ function renderActiveTable(rows: readonly MarkdownSessionRow[], agents: readonly
   ];
   for (const row of rows) {
     const effectiveAgentId = row.session.agentId ?? row.detectedAgentId;
-    const agentLabel = effectiveAgentId ?? 'shell';
+    const agentLabel = escapeMarkdownCell(effectiveAgentId ?? 'shell');
     const agentDef =
       row.session.kind === 'shell' && !effectiveAgentId
         ? null
@@ -120,7 +120,9 @@ function renderActiveTable(rows: readonly MarkdownSessionRow[], agents: readonly
     const repo = formatRepoName(row.session.cwd);
     const started = formatLocalTimestamp(row.session.createdAt);
     const topic = escapeMarkdownCell(row.session.name ?? row.session.title);
-    const cmd = formatShellResumeCommand(row.session.cwd, agentDef, row.session.agentConversationId);
+    const cmd = escapeMarkdownCell(
+      formatShellResumeCommand(row.session.cwd, agentDef, row.session.agentConversationId),
+    );
     lines.push(
       `| ${status} | \`${agentLabel}\` | ${pid} | ${repo} | ${started} | ${topic} | \`${cmd}\` |`,
     );
@@ -137,7 +139,7 @@ function renderClosedTable(rows: readonly MarkdownClosedRow[], agents: readonly 
     '|---|---|---|---|---|---|',
   ];
   for (const row of rows) {
-    const agentLabel = row.agentId ?? 'shell';
+    const agentLabel = escapeMarkdownCell(row.agentId ?? 'shell');
     const agentDef =
       row.kind === 'shell' && !row.agentId
         ? null
@@ -146,7 +148,9 @@ function renderClosedTable(rows: readonly MarkdownClosedRow[], agents: readonly 
     const closed = formatLocalTimestamp(row.closedAt);
     const repo = formatRepoName(row.cwd);
     const topic = escapeMarkdownCell(row.name ?? row.title);
-    const cmd = formatShellResumeCommand(row.cwd, agentDef, row.agentConversationId);
+    const cmd = escapeMarkdownCell(
+      formatShellResumeCommand(row.cwd, agentDef, row.agentConversationId),
+    );
     lines.push(
       `| ${status} | \`${agentLabel}\` | ${closed} | ${repo} | ${topic} | \`${cmd}\` |`,
     );
@@ -239,7 +243,14 @@ export function createSessionsMarkdownSync(
       }
     }
 
-    const snapshot = await options.readSnapshot();
+    let snapshot: MarkdownSnapshot;
+    try {
+      snapshot = await options.readSnapshot();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      options.log(`sessions-markdown-sync: failed to read snapshot for ${targetPath}: ${message}`);
+      return;
+    }
     if (stopped) return;
 
     const existing = await readFile(targetPath, 'utf8').catch(() => null);
@@ -280,7 +291,7 @@ export function createSessionsMarkdownSync(
         clearTimeout(timer);
         timer = null;
       }
-      writeChain = writeChain.then(() => performWrite());
+      writeChain = writeChain.catch(() => undefined).then(() => performWrite());
       return writeChain;
     },
 
