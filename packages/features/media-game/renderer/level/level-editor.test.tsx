@@ -6,9 +6,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { levelEntityToWorld } from '@midnite/studio-shared';
 
+import type { Level3dViewProps } from './3d/level-3d-view';
+import { useLevelViewStore } from './3d/level-view-store';
 import { LevelEditor } from './level-editor';
 import { useLevelStore } from './level-store';
 import { blankLevel, blankLevel3d, installBridge, newClient, removeBridge, stubCanvas, stubPointerEvents } from './test-helpers';
+
+// The 3D view itself needs WebGL (a real browser, the real-run gate); here a stub stands in for the lazy module,
+// recording its props and answering the editor's exit handshake at once.
+const view3d = vi.hoisted(() => ({ props: null as unknown, exits: 0 }));
+vi.mock('./3d/level-3d-view', () => ({
+  default: (props: Level3dViewProps) => {
+    view3d.props = props;
+    props.handle.current = {
+      exit: (done) => {
+        view3d.exits++;
+        done({ target: [8, 0, 8], span: 12, pitch: Math.PI / 2, yaw: 0, fov: 2 });
+      },
+    };
+    return <div data-testid="level-3d-view" data-tool={props.tool} data-enter={props.enterFrom ? 'plan' : 'orbit'} />;
+  },
+}));
 
 const list = vi.fn();
 const get = vi.fn();
@@ -25,6 +43,9 @@ beforeEach(() => {
   set.mockResolvedValue({ ok: true, value: { sha: 'abc' } });
   installBridge({ list, get, set });
   useLevelStore.setState({ byGame: {}, newSceneFor: null });
+  useLevelViewStore.setState({ modeByGame: {}, optimisation: 3, stats: false });
+  view3d.props = null;
+  view3d.exits = 0;
 });
 afterEach(() => {
   cleanup();
@@ -363,5 +384,75 @@ describe('LevelEditor, 3D plan view (Phase 132 Theme E)', () => {
     const placed = useLevelStore.getState().byGame.g1!.edit.level.layers[0]!.objects!.at(-1)!;
     expect(placed.x).toBeCloseTo(-208, 5);
     expect(placed.y).toBeCloseTo(-96, 5);
+  });
+});
+
+describe('LevelEditor, Floorplan | 3D switch (Phase 136 Theme E)', () => {
+  const open3d = async (level = blankLevel3d()) => {
+    get.mockResolvedValue({ ok: true, value: { level, issues: [], images: [] } });
+    list.mockResolvedValue(listed({ scenes: [{ scene: 'level', bytes: 1, dimension: '3d', issue: null }] }));
+    renderEditor();
+    await ready();
+  };
+  const viewRadio = (name: string) => screen.getByRole('radio', { name });
+
+  it('a 2D level has no view switch', async () => {
+    renderEditor();
+    await ready();
+    expect(screen.queryByRole('radiogroup', { name: 'View' })).toBeNull();
+  });
+
+  it('opens on Floorplan, switches to 3D from the plan framing, and keeps only the tools the 3D view has', async () => {
+    await open3d();
+    expect(viewRadio('Floorplan').getAttribute('aria-checked')).toBe('true');
+    expect(screen.queryByTestId('level-3d-view')).toBeNull();
+    fireEvent.keyDown(screen.getByTestId('level-canvas-wrap'), { key: 'r' });
+    fireEvent.click(viewRadio('3D'));
+    const view = await screen.findByTestId('level-3d-view');
+    expect(view.dataset.enter).toBe('plan');
+    // Volume has no 3D form: the switch drops back to Select.
+    expect(view.dataset.tool).toBe('select');
+    const labels = Array.from(screen.getByRole('radiogroup', { name: 'Tool' }).querySelectorAll('[role=radio]')).map((r) => r.getAttribute('aria-label'));
+    expect(labels).toEqual(['Select / Move', 'Place']);
+    expect(useLevelViewStore.getState().modeByGame).toEqual({ g1: '3d' });
+  });
+
+  it('switching back eases out through the 3D view, then shows the plan', async () => {
+    await open3d();
+    fireEvent.click(viewRadio('3D'));
+    await screen.findByTestId('level-3d-view');
+    fireEvent.click(viewRadio('Floorplan'));
+    expect(view3d.exits).toBe(1);
+    await waitFor(() => expect(screen.queryByTestId('level-3d-view')).toBeNull());
+    expect(useLevelViewStore.getState().modeByGame).toEqual({ g1: 'plan' });
+    expect(screen.getAllByRole('radio', { name: 'Volume' })).toHaveLength(1);
+  });
+
+  it('reopens a game in the view it was left in, straight into orbit', async () => {
+    useLevelViewStore.setState({ modeByGame: { g1: '3d' } });
+    await open3d();
+    const view = await screen.findByTestId('level-3d-view');
+    expect(view.dataset.enter).toBe('orbit');
+    expect(viewRadio('3D').getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('edits made through the 3D view land in the same undo stack and Save', async () => {
+    await open3d();
+    fireEvent.click(viewRadio('3D'));
+    await screen.findByTestId('level-3d-view');
+    const props = view3d.props as Level3dViewProps;
+    const { gizmoEdit, levelWorldItems } = await import('./3d/level-world');
+    const item = levelWorldItems(props.level)[0]!;
+    props.update((st) => gizmoEdit(st, item.sel, { centre: [5, 5] }));
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Undo' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(set).toHaveBeenCalledTimes(1));
+  });
+
+  it('a read-only 3D level (not orthogonal) offers no 3D view', async () => {
+    useLevelViewStore.setState({ modeByGame: { g1: '3d' } });
+    await open3d({ ...blankLevel3d(), orientation: 'isometric' });
+    expect(screen.queryByRole('radiogroup', { name: 'View' })).toBeNull();
+    expect(screen.queryByTestId('level-3d-view')).toBeNull();
   });
 });

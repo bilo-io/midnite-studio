@@ -3487,6 +3487,7 @@ export function buildMockBridge(data: MockFixtures) {
           gamesLevels[req.gameId] = { ...(gamesLevels[req.gameId] ?? {}), [req.scene]: req.level };
           return { ok: true as const, value: { sha: 'l3v3l01' } };
         },
+        model: async (req: { gameId: string; name: string }) => ({ ok: false as const, kind: 'error' as const, message: `No model asset named "${req.name}".` }),
       },
       goto: async (req: { gameId: string; scene: string }) => {
         gamesCalls.push({ call: 'goto', ...req });

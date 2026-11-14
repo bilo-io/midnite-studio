@@ -9,7 +9,8 @@
     ".": "./src/index.ts",
     "./knowledge": "./src/knowledge/index.ts",
     "./graph": "./src/graph/index.ts",
-    "./diff": "./src/diff/index.ts"
+    "./diff": "./src/diff/index.ts",
+    "./viewport3d": "./src/viewport3d/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
