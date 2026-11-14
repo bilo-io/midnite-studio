@@ -47,7 +47,7 @@ Agents get `game_play_from`, `game_entities` and `game_debug_overlay`.
 ## Headlines
 
 **Theme A — The kit's spawn override.** ◻ `?midnite-spawn=x,y[,z]` (and `__midnite.spawnAt(x, y, z)`) places the
-player there instead of at the scene's `spawn`; kit bump to 0.13.0.
+player there instead of at the scene's `spawn`; a kit bump.
 
 **Theme B — Play from here.** ◻ `F5` / a gradient "Play from here" button runs the open, unsaved level in the
 runner from the cursor or the selection, through an in-memory preview overlay the protocol handler serves; no
@@ -75,8 +75,8 @@ running game (Phaser graphics, three.js line segments), and the nav-mesh is fetc
 1. **A** (kit) → **B** (needs A) → **C** (independent; small).
 2. **D** (kit + main) → **E**.
 3. **F** (editor only) → **G** (kit, reuses F's overlay model).
-4. **H** last. A, D and G share **one** kit bump if they land together (0.13.0); landed separately, each bumps the
-   patch (0.13.0, 0.13.1, 0.13.2).
+4. **H** last. A, D and G share **one** kit bump if they land together; landed separately, each takes the next patch.
+   Versions below say `0.13.0` assuming no other phase bumped the kit first; otherwise use the next free version.
 
 ## Deliverables
 
@@ -245,7 +245,7 @@ export const GAME_ENTITY_POLL_MS = 250;
 - Toggle **Live** in the toolbar (`IconButton`, `LuRadio`), enabled only while the game runs. On, a chip shows
   `StateDot` (`packages/frame/src/layout/state-dot.tsx`) green-pulsing (static under reduced motion — the dot's own
   guard) + "Live · 23 entities".
-- Ghosts: plan — a hollow circle in `hsl(var(--primary) / 0.7)` with the type's initial; 3D — a translucent capsule.
+- Ghosts: plan — a hollow circle in `themeColour('primary', …)` (Phase 138 F) at 70 % alpha with the type's initial; 3D — a translucent capsule.
   A ghost whose `id` matches a level object draws a thin dashed line from the authored position to the live one
   (Unreal's "simulate" diff, Godot's remote tree), so drift is visible.
 - **Copy live position**: on an object with a live twin, sets its `x`/`y` (and 3D height) from the snapshot, one
@@ -272,8 +272,8 @@ export const GAME_ENTITY_POLL_MS = 250;
 | `packages/features/media-game/renderer/level/level-editor.tsx` | edit: a **View** `Popover` with three `SwitchRow`s (`packages/frame/src/form/toggle-rows.tsx`) |
 
 - Colliders: tile cells whose tileset `kind` is solid (`ground`, `wall`, `ledge`, `oneway` as one-way) in 2D;
-  `volume` objects with `solid` in 3D. Triggers: `exit`, `checkpoint`, `trigger`, `hazard`. Colours (HSL tokens in `packages/app/src/styles.css`): colliders
-  `hsl(var(--health-warn))`, triggers `hsl(var(--callout-note))`, 30 % fill + 1 px stroke.
+  `volume` objects with `solid` in 3D. Triggers: `exit`, `checkpoint`, `trigger`, `hazard`. Colours via Phase 138 F's `themeColour` (HSL tokens in `packages/app/src/styles.css`): colliders
+  `--health-warn`, triggers `--callout-note`, 30 % fill + 1 px stroke.
 - An agreement test runs `colliderShapes` and the kit's `collisionGrid` over the starter fixtures and asserts the
   same solid cells.
 

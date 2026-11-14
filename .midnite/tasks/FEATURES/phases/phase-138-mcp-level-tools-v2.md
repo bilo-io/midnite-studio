@@ -463,7 +463,7 @@ export function applyAgentOps(state: EditState, ops: readonly LevelOp[], ctx: Le
   edits — use Mod+Z"), **Keep** (`LuCheck`; dismisses). Several sets stack as "+2 more" on the right that opens a
   `Popover` (`chrome.tsx`) listing them.
 - **Pulse**: the change set's ids get a highlight ring for 2.4 s — plan: an expanding, fading circle drawn per frame in
-  `drawPlan` from `highlight: { ids: number[]; startedAt: number }`; 3D: an `Edges` outline in `hsl(var(--primary))`
+  `drawPlan` from `highlight: { ids: number[]; startedAt: number }`; 3D: an `Edges` outline in the `--primary` token's colour
   whose opacity eases. **Reduced motion** (`document.documentElement.dataset.motion === 'reduced'`, or
   `matchMedia('(prefers-reduced-motion: reduce)')` without `data-motion="full"` — the app's convention): a static
   2 px ring for the same 2.4 s, no animation frames requested.
@@ -471,6 +471,12 @@ export function applyAgentOps(state: EditState, ops: readonly LevelOp[], ctx: Le
   JSON deep-equals `serialise(edit)` → `markSaved` (the agent saved what is on screen); if the editor is clean →
   reload as today; if dirty and different → a `useNotify` notice "The level changed on disk while you have unsaved
   edits — Save keeps yours, Reload takes the file" with a Reload action in the banner area.
+- **Theme colours on a canvas.** A 2D canvas and `THREE.Color` cannot read `hsl(var(--token))`, which is why
+  `level-plan-draw.ts` holds hex constants (`PLAN_COLOURS`, L18). This theme adds `themeColour(token, fallback)` to
+  `level-plan-draw.ts`: it reads `getComputedStyle(document.documentElement).getPropertyValue('--' + token)` (an HSL
+  triplet such as `38 92% 50%`), converts it with a pure `hslTripletToHex`, caches per theme (`data-theme` change
+  clears the cache) and falls back to the hex when the token is missing (tests, jsdom). Every later phase that names
+  a token for the plan or the 3D view resolves it through `themeColour`.
 - A failed `apply` (validation errors) changes nothing and shows nothing; the agent gets the errors.
 
 **Acceptance.**
@@ -482,8 +488,9 @@ export function applyAgentOps(state: EditState, ops: readonly LevelOp[], ctx: Le
   strokes a static ring.
 - [ ] F5. After a `gamesChanged` whose file equals the open level, `dirty` becomes false without a reload.
 - [ ] F6. Dirty + different file → the notice appears and the edit state is unchanged.
+- [ ] F7. `hslTripletToHex('38 92% 50%')` is `#f59f0a` (± 1 per channel); `themeColour` falls back to the hex under jsdom.
 
-**Done when** F1–F6 pass.
+**Done when** F1–F7 pass.
 
 ### G — Select and frame tools (S)
 

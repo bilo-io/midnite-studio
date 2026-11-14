@@ -21,7 +21,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [141 · Terrain-aware 3D level editing](phases/phase-141-level-terrain-aware-3d.md) | ◻ TODO | x1 | 0/25 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
 | [140 · Play in editor](phases/phase-140-level-play-in-editor.md) | ◻ TODO | x1 | 0/30 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [139 · Level asset browser, prefabs and scatter](phases/phase-139-level-assets-prefabs-scatter.md) | ◻ TODO | x1 | 0/40 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
-| [138 · MCP level tools v2](phases/phase-138-mcp-level-tools-v2.md) | ◻ TODO | x1 | 0/49 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
+| [138 · MCP level tools v2](phases/phase-138-mcp-level-tools-v2.md) | ◻ TODO | x1 | 0/50 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
 | [137 · Level editor editing essentials](phases/phase-137-level-editor-editing-essentials.md) | ◻ TODO | x1 | 0/58 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
 | [136 · Level editor 3D view](phases/phase-136-level-editor-3d-view.md) | ✅ DONE | — | 30/30 | `██████████` | 100% | — | — |
 | [135 · Feature toggles](phases/phase-135-feature-toggles.md) | ✅ DONE | — | 25/25 | `██████████` | 100% | — | — |

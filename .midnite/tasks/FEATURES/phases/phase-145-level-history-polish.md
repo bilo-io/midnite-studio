@@ -150,7 +150,7 @@ export const GameLevelAtRequestSchema = z.object({ gameId: z.string().min(1), sc
   loading, `EmptyState` "Not saved yet" for a new scene. Paging on scroll.
 - Selecting a row fetches that version and overlays `diffLevels(version, current)`; the overlay legend and the
   semantic list (A's deltas, clickable to select and frame) sit in the panel's right half. Colours from the app's
-  HSL tokens (`--health-ok` added, `--health-fail` removed, `--health-warn` moved, `--callout-note` changed); shapes
+  HSL tokens, resolved with Phase 138 F's `themeColour` (`--health-ok` added, `--health-fail` removed, `--health-warn` moved, `--callout-note` changed); shapes
   differ too (solid / dashed ghost / arrow / ring), so colour is never the only cue.
 - **Open read-only**: the editor shows that version with a banner "Viewing <short sha> — read-only" and buttons
   **Back to current** and **Copy selection to current** (pastes through 137 B's clipboard), never a reset.
@@ -204,7 +204,7 @@ export const GameLevelNotesSchema = z.object({ version: z.literal(1), pins: z.ar
 low-detail `drawPlanThumb`), `level-editor.tsx`, `3d/level-view-store.ts` (`minimap: boolean`, default true).
 
 - 160 × 120 px, bottom-right of the canvas, `bg-background/80` with a 1 px border; redrawn on edit (debounced 250
-  ms) and viewport change; the viewport rectangle (plan) or camera frustum footprint (3D) in `hsl(var(--primary))`.
+  ms) and viewport change; the viewport rectangle (plan) or camera frustum footprint (3D) in `themeColour('primary', …)` (Phase 138 F).
   Click centres the view; drag pans. `role="img"` with an `aria-label` "Minimap". The toggle is a toolbar
   `IconButton` `LuMap` with no key (`M` is Measure, Theme F).
 
