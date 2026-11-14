@@ -211,6 +211,8 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
   const viewMode: LevelViewMode = can3d ? storedMode : 'plan';
   /** The 3D view is mounted: from the switch until its ease back to the plan has finished. */
   const [mounted3d, setMounted3d] = useState(viewMode === '3d');
+  /** Bumped on every switch to 3D, so a switch back mid-way through the exit ease starts a fresh view. */
+  const [enterKey, setEnterKey] = useState(0);
   const [enterFrom, setEnterFrom] = useState<{ target: [number, number, number]; span: number } | null>(null);
   const [planViewIn, setPlanViewIn] = useState<View | null>(null);
   const planViewOut = useRef<{ view: View; size: { width: number; height: number } } | null>(null);
@@ -223,10 +225,13 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
       const plan = planViewOut.current;
       setEnterFrom(plan ? planViewToFocus(plan.view, plan.size, planScale, groundY(level)) : null);
       if (!TOOLS_IN_3D.has(tool)) chooseTool('select');
+      setEnterKey((k) => k + 1);
       setMounted3d(true);
       return;
     }
     const finish = (pose: { target: [number, number, number]; span: number }) => {
+      // The user switched back to 3D before the ease finished: that view stays.
+      if (levelViewMode(useLevelViewStore.getState(), gameId) === '3d') return;
       const plan = planViewOut.current;
       if (plan) setPlanViewIn(focusToPlanView(pose.target, pose.span, plan.size, planScale));
       setMounted3d(false);
@@ -507,6 +512,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
             <div className="absolute inset-0">
               <Suspense fallback={<div className="h-full w-full" data-testid="level-3d-loading" />}>
                 <Level3dView
+                  key={enterKey}
                   gameId={gameId}
                   level={level}
                   terrain={entry.terrain}

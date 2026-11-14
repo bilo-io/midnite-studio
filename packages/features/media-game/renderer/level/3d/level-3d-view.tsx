@@ -178,7 +178,7 @@ export default function Level3dView(props: Level3dViewProps) {
       onKeyDown={onKeyDown}
       onPointerDown={(e) => e.currentTarget.focus()}
     >
-      <Canvas frameloop={statsOn ? 'always' : 'demand'} dpr={Math.min(preset.pixelRatio, typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1)} gl={{ antialias: true }} onPointerMissed={() => undefined}>
+      <Canvas frameloop={statsOn ? 'always' : 'demand'} dpr={Math.min(preset.pixelRatio, typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1)} gl={{ antialias: true }}>
         <LevelScene
           items={items}
           grid={grid}

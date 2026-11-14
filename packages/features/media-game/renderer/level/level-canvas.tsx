@@ -141,7 +141,9 @@ export function LevelCanvas({
   const pan = useRef<{ sx: number; sy: number; view: View } | null>(null);
   const tool = useRef(false);
   const fitted = useRef(false);
-  if (viewOut) viewOut.current = { view, size };
+  useEffect(() => {
+    if (viewOut) viewOut.current = { view, size };
+  }, [viewOut, view, size]);
   useEffect(() => {
     if (!viewIn) return;
     fitted.current = true;
