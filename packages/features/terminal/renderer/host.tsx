@@ -105,6 +105,8 @@ export type TerminalHost = {
   actions: TerminalPanelActions;
   /** The registered repositories, for naming a session's path. A hook. */
   useRepos: () => readonly RepoDescriptor[] | undefined;
+  /** Detected favicon/logo data URL for a registered repository, or `null`. A hook. */
+  useRepoLogo?: (repoId: string | undefined) => string | null;
   /** Switch the app's selected repository to match a clicked session. Absent: clicking a row does not switch repos. */
   onSelectRepo?: (target: { repoId?: string; cwd?: string }) => void;
   /**

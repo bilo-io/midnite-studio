@@ -37,6 +37,7 @@ import { useShowAllApps, visibleInApp } from './app-filter';
 import { useTerminalHost } from './host';
 import { closeSessionWithConfirm } from './close-session';
 import { NewSessionPicker } from './new-session-picker';
+import { resolveRepoForPath } from './resolve-repo-for-path';
 import { TerminalNotices } from './terminal-notices';
 import { terminalPanelElement } from './terminal-panel-element';
 import {
@@ -88,6 +89,20 @@ export function groupSessionsByFolder(
 }
 
 /**
+ * Flatten repo groups in `reorderedGroupIds` order into a session-id list,
+ * preserving each group's internal session order.
+ */
+export function reorderSessionsByGroupOrder(
+  repoGroups: readonly { repoId: string; items: readonly TerminalSession[] }[],
+  reorderedGroupIds: readonly string[],
+): string[] {
+  const byGroupId = new Map(repoGroups.map((group) => [group.repoId, group]));
+  return reorderedGroupIds.flatMap((groupId) =>
+    (byGroupId.get(groupId)?.items ?? []).map((session) => session.id),
+  );
+}
+
+/**
  * The list of open terminals, VS Code style.
  *
  * Rendered only past one session: a list of one is chrome that explains
@@ -110,6 +125,7 @@ export function TerminalSessionList({
   const host = useTerminalHost();
   const { useDialogs } = useFrameChrome();
   const dialogs = useDialogs();
+  const repos = host.useRepos();
   // Main-surface and Kanban sessions — a FAB loop's session (Phase 35) never
   // lists here, because it renders in the FAB's own tab.
   const panelSessions = useTerminalStore((s) => s.sessions).filter(inMainPanel);
@@ -232,61 +248,33 @@ export function TerminalSessionList({
       onKeyDown={onKeyDown}
     >
       <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto pb-1">
-        {repoGroups.map((group) => (
-          <ExplorerGroup
-            key={group.repoId}
-            title={group.title}
-            count={group.items.length}
-            open={isOpen(group.repoId)}
-            onToggle={() => toggle(group.repoId)}
-            bodyId={`terminal-repo-${group.repoId}`}
-            leading={<LuFolderGit2 aria-hidden className="h-3 w-3 shrink-0" />}
-            trailing={
-              group.cwd ? (
-                <span onClick={(e) => e.stopPropagation()} className="shrink-0">
-                  <NewSessionPicker
-                    agents={agents}
-                    status={agentStatus}
-                    hasWorktree
-                    label={`New session in ${group.title}`}
-                    testId={`folder-new-session-${group.title}`}
-                    triggerClassName="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[open=true]:bg-accent"
-                    onNewTerminal={() => openInFolder(group)}
-                    onNewAgent={(agent) => openInFolder(group, agent)}
-                    onConfigure={(candidate) => host.actions.configureAgent?.(candidate.id)}
-                  />
-                </span>
-              ) : undefined
-            }
-          >
-            <SortableList
-              ids={group.items.map((s) => s.id)}
-              onReorder={(reorderedGroupIds) => {
-                const allIds = sessions.map((s) => s.id);
-                const groupIdSet = new Set(reorderedGroupIds);
-                let idx = 0;
-                const nextAllIds = allIds.map((id) =>
-                  groupIdSet.has(id) ? reorderedGroupIds[idx++]! : id,
-                );
-                useTerminalStore.getState().reorder(nextAllIds);
-              }}
-            >
-              {group.items.map((session) => (
-                <SessionRow
-                  key={session.id}
-                  session={session}
-                  active={session.id === activeId}
-                  agent={agents.find((a) => a.id === session.agentId)}
-                  runningAgent={agents.find((a) => a.id === resolveSessionAgentId(session, liveAgentId))}
-                  resolvedAgentId={resolveSessionAgentId(session, liveAgentId)}
-                  isAgentRow={isAgentRow(session, liveAgentId)}
-                  legacy={Boolean(legacy[session.id])}
-                  appTag={tagApps ? sessionAppId(session) : undefined}
-                />
-              ))}
-            </SortableList>
-          </ExplorerGroup>
-        ))}
+        <SortableList
+          ids={repoGroups.map((group) => group.repoId)}
+          onReorder={(reorderedGroupIds) => {
+            useTerminalStore
+              .getState()
+              .reorder(reorderSessionsByGroupOrder(repoGroups, reorderedGroupIds));
+          }}
+        >
+          {repoGroups.map((group) => (
+            <RepoGroupRow
+              key={group.repoId}
+              group={group}
+              resolvedRepoId={resolveRepoForPath(group.cwd, repos)?.repoId ?? group.items[0]?.repoId}
+              open={isOpen(group.repoId)}
+              onToggle={() => toggle(group.repoId)}
+              activeId={activeId}
+              agents={agents}
+              agentStatus={agentStatus}
+              liveAgentId={liveAgentId}
+              legacy={legacy}
+              tagApps={tagApps}
+              sessions={sessions}
+              onConfigureAgent={host.actions.configureAgent}
+              onOpenInFolder={openInFolder}
+            />
+          ))}
+        </SortableList>
       </div>
       {hasForeign ? (
         <button
@@ -304,6 +292,115 @@ export function TerminalSessionList({
       ) : null}
       {showNotices ? <TerminalNotices sessions={sessions} /> : null}
     </div>
+  );
+}
+
+function RepoGroupRow({
+  group,
+  resolvedRepoId,
+  open,
+  onToggle,
+  activeId,
+  agents,
+  agentStatus,
+  liveAgentId,
+  legacy,
+  tagApps,
+  sessions,
+  onConfigureAgent,
+  onOpenInFolder,
+}: {
+  group: { repoId: string; title: string; cwd: string; items: TerminalSession[] };
+  resolvedRepoId: string | undefined;
+  open: boolean;
+  onToggle: () => void;
+  activeId: string | null;
+  agents: AgentDefinition[];
+  agentStatus: AgentStatus[];
+  liveAgentId: Record<string, string | null>;
+  legacy: Record<string, boolean>;
+  tagApps: boolean;
+  sessions: TerminalSession[];
+  onConfigureAgent?: (agentId: string) => void;
+  onOpenInFolder: (
+    group: { repoId: string; title: string; cwd: string; items: TerminalSession[] },
+    agent?: AgentDefinition,
+  ) => void;
+}) {
+  const host = useTerminalHost();
+  const logoUrl = host.useRepoLogo?.(resolvedRepoId) ?? null;
+  const drag = useSortableRow(group.repoId);
+
+  return (
+    <ExplorerGroup
+      title={group.title}
+      count={group.items.length}
+      open={open}
+      onToggle={onToggle}
+      bodyId={`terminal-repo-${group.repoId}`}
+      wrapperRef={drag.setNodeRef}
+      style={drag.style}
+      headerAttributes={drag.attributes}
+      headerListeners={drag.listeners}
+      isDragging={drag.isDragging}
+      leading={
+        logoUrl ? (
+          <img
+            src={logoUrl}
+            alt=""
+            aria-hidden
+            data-testid="terminal-repo-logo"
+            className="h-3 w-3 shrink-0 rounded-[2px] object-contain"
+          />
+        ) : (
+          <LuFolderGit2 aria-hidden className="h-3 w-3 shrink-0" />
+        )
+      }
+      trailing={
+        group.cwd ? (
+          <span onClick={(e) => e.stopPropagation()} className="shrink-0">
+            <NewSessionPicker
+              agents={agents}
+              status={agentStatus}
+              hasWorktree
+              label={`New session in ${group.title}`}
+              testId={`folder-new-session-${group.title}`}
+              triggerClassName="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[open=true]:bg-accent"
+              onNewTerminal={() => onOpenInFolder(group)}
+              onNewAgent={(agent) => onOpenInFolder(group, agent)}
+              onConfigure={(candidate) => onConfigureAgent?.(candidate.id)}
+            />
+          </span>
+        ) : undefined
+      }
+    >
+      <SortableList
+        ids={group.items.map((s) => s.id)}
+        onReorder={(reorderedGroupIds) => {
+          const allIds = sessions.map((s) => s.id);
+          const groupIdSet = new Set(reorderedGroupIds);
+          let idx = 0;
+          const nextAllIds = allIds.map((id) =>
+            groupIdSet.has(id) ? reorderedGroupIds[idx++]! : id,
+          );
+          useTerminalStore.getState().reorder(nextAllIds);
+        }}
+      >
+        {group.items.map((session) => (
+          <SessionRow
+            key={session.id}
+            session={session}
+            active={session.id === activeId}
+            agent={agents.find((a) => a.id === session.agentId)}
+            runningAgent={agents.find((a) => a.id === resolveSessionAgentId(session, liveAgentId))}
+            resolvedAgentId={resolveSessionAgentId(session, liveAgentId)}
+            isAgentRow={isAgentRow(session, liveAgentId)}
+            legacy={Boolean(legacy[session.id])}
+            appTag={tagApps ? sessionAppId(session) : undefined}
+          />
+        ))}
+      </SortableList>
+    </ExplorerGroup>
   );
 }
 
