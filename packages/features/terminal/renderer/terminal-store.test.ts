@@ -411,6 +411,7 @@ describe('useTerminalStore', () => {
           cols: number;
           rows: number;
           activity?: 'thinking' | 'waiting' | 'idle' | null;
+          agentId?: string | null;
         } | null;
         legacy?: boolean;
       }[],
@@ -547,6 +548,28 @@ describe('useTerminalStore', () => {
       // reports live — not asleep just because it came from a legacy peer.
       const restored = state.sessions.find((s) => s.id === 's-legacy');
       expect(sessionPhase(restored!, state.states['s-legacy'])).toBe('live');
+    });
+
+    it('seeds liveAgentId from live.agentId on hydrate', async () => {
+      mockBridge(
+        [
+          {
+            session: session('s-agent'),
+            scrollback: new Uint8Array(),
+            live: { ptyId: 'pty-agent', pid: 789, cols: 80, rows: 24, agentId: 'claude' },
+          },
+          {
+            session: session('s-shell'),
+            scrollback: new Uint8Array(),
+            live: { ptyId: 'pty-shell', pid: 790, cols: 80, rows: 24, agentId: null },
+          },
+        ],
+        vi.fn(),
+      );
+
+      await useTerminalStore.getState().hydrate();
+      expect(useTerminalStore.getState().liveAgentId['s-agent']).toBe('claude');
+      expect(useTerminalStore.getState().liveAgentId['s-shell']).toBeNull();
     });
   });
 });

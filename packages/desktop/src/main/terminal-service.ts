@@ -7,6 +7,7 @@ import { locateAgentConversation } from './agent-conversation';
 import { defaultLogger } from './log';
 import {
   activityFor,
+  agentIdFor,
   dropScrollback,
   livePtyFor,
   onSessionExit,
@@ -16,7 +17,7 @@ import {
 } from './pty-service';
 
 setTerminalPorts({
-  pty: { activityFor, dropScrollback, livePtyFor, onSessionExit, readScrollback, scrollbackSessionIds, seedScrollback },
+  pty: { activityFor, agentIdFor, dropScrollback, livePtyFor, onSessionExit, readScrollback, scrollbackSessionIds, seedScrollback },
   locateAgentConversation,
   log: defaultLogger,
 });
@@ -24,6 +25,7 @@ setTerminalPorts({
 export {
   agentSessionDetail,
   configureTerminals,
+  declaredAgentIdFor,
   flushScrollback,
   forgetTerminal,
   getOrLocateConversationId,

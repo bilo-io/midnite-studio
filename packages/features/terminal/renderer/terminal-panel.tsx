@@ -196,7 +196,7 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
               style={listTween.style}
             >
               <div className="h-full" style={{ width: list.current }}>
-                <TerminalSessionList agents={agents} width={list.current} />
+                <TerminalSessionList agents={agents} agentStatus={status} width={list.current} />
               </div>
             </div>
             <ResizeHandle resizable={list} axis="x" label="Resize terminal sessions" />

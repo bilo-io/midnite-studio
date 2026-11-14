@@ -42,9 +42,13 @@ beforeEach(() => {
       set,
       onChanged: () => () => undefined,
     },
+    terminal: {
+      save: vi.fn(),
+    },
   };
   useTerminalStore.setState({
     sessions: [row('own', 'browser'), row('studio-one'), row('mind-one', 'mind')],
+    liveCwd: {},
     activeId: null,
   });
 });
@@ -150,8 +154,8 @@ describe('TerminalSessionList — per-repo accordions', () => {
     expect(alphaHeader.getAttribute('aria-expanded')).toBe('true');
     expect(betaHeader.getAttribute('aria-expanded')).toBe('true');
 
-    const alphaBody = container.querySelector('#terminal-repo-repo\\:a') as HTMLElement;
-    const betaBody = container.querySelector('#terminal-repo-repo\\:b') as HTMLElement;
+    const alphaBody = container.querySelector('[id="terminal-repo-/repos/alpha"]') as HTMLElement;
+    const betaBody = container.querySelector('[id="terminal-repo-/repos/beta"]') as HTMLElement;
     expect(alphaBody.textContent).toContain('Fix bug');
     expect(alphaBody.textContent).toContain('Sleeping work');
     expect(betaBody.textContent).toContain('Add tests');
@@ -199,5 +203,91 @@ describe('TerminalSessionList — per-repo accordions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Expand beta' }));
     expect(screen.getByRole('button', { name: 'Collapse beta' }).getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('moves and merges sessions across folder accordions when liveCwd or cwd changes', () => {
+    useTerminalStore.setState({
+      sessions: [
+        { ...agentRow('s1', 'repo:a', 'alpha', 'First'), cwd: '/Users/dev/alpha/' },
+        { ...agentRow('s2', 'repo:b', 'beta', 'Second'), cwd: '/Users/dev/beta' },
+      ],
+      states: { s1: 'open', s2: 'open' },
+      activeId: 's1',
+    });
+
+    const { container } = render(
+      <FrameChromeProvider chrome={createFrameChrome().chrome}>
+        <TerminalHostProvider host={createDefaultTerminalHost('studio')}>
+          <TerminalSessionList agents={[claude]} width={220} />
+        </TerminalHostProvider>
+      </FrameChromeProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Collapse alpha' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Collapse beta' })).toBeTruthy();
+
+    // `cd /Users/dev/beta/` via OSC 7 merges s1 into beta's accordion
+    act(() => {
+      useTerminalStore.getState().setLiveCwd('s1', '/Users/dev/beta/');
+    });
+
+    expect(screen.queryByRole('button', { name: 'Collapse alpha' })).toBeNull();
+    const betaBody = container.querySelector('[id="terminal-repo-/Users/dev/beta"]') as HTMLElement;
+    expect(betaBody.textContent).toContain('First');
+    expect(betaBody.textContent).toContain('Second');
+
+    // `cd /Users/dev/gamma` creates a new open accordion with folder basename 'gamma'
+    act(() => {
+      useTerminalStore.getState().setLiveCwd('s1', '/Users/dev/gamma');
+    });
+
+    const gammaHeader = screen.getByRole('button', { name: 'Collapse gamma' });
+    expect(gammaHeader.getAttribute('aria-expanded')).toBe('true');
+    const gammaBody = container.querySelector('[id="terminal-repo-/Users/dev/gamma"]') as HTMLElement;
+    expect(gammaBody.textContent).toContain('First');
+    expect(betaBody.textContent).not.toContain('First');
+  });
+
+  it('opens a searchable flyout from a folder accordion + button without toggling it and creates a session in that folder', () => {
+    useTerminalStore.setState({
+      sessions: [
+        { ...agentRow('s1', 'repo:a', 'old-title', 'First'), cwd: '/Users/dev/alpha' },
+        { ...agentRow('s2', 'repo:b', 'beta', 'Second'), cwd: '/Users/dev/beta' },
+      ],
+      states: { s1: 'open', s2: 'open' },
+      activeId: 's2',
+    });
+
+    render(
+      <FrameChromeProvider chrome={createFrameChrome().chrome}>
+        <TerminalHostProvider host={createDefaultTerminalHost('studio')}>
+          <TerminalSessionList
+            agents={[claude]}
+            agentStatus={[{ id: 'claude', installed: true, resolvedPath: '/usr/local/bin/claude' }]}
+            width={220}
+          />
+        </TerminalHostProvider>
+      </FrameChromeProvider>,
+    );
+
+    const alphaHeader = screen.getByRole('button', { name: 'Collapse alpha' });
+    const addBtn = screen.getByRole('button', { name: 'New session in alpha' });
+    fireEvent.click(addBtn);
+
+    // Accordion stays expanded
+    expect(alphaHeader.getAttribute('aria-expanded')).toBe('true');
+
+    // Searchable flyout opens
+    const search = screen.getByPlaceholderText('Find a CLI…');
+    expect(search).toBeTruthy();
+
+    fireEvent.change(search, { target: { value: 'claude' } });
+    fireEvent.click(screen.getByRole('menuitem', { name: /Claude/ }));
+
+    const created = useTerminalStore.getState().sessions.find((s) => s.id !== 's1' && s.id !== 's2');
+    expect(created).toBeDefined();
+    expect(created?.cwd).toBe('/Users/dev/alpha');
+    expect(created?.title).toBe('alpha');
+    expect(created?.agentId).toBe('claude');
   });
 });

@@ -40,6 +40,7 @@ export {
 export {
   agentSessionDetail,
   configureTerminals,
+  declaredAgentIdFor,
   flushScrollback,
   forgetTerminal,
   getOrLocateConversationId,

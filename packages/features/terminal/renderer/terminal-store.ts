@@ -467,7 +467,14 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       const live = state.sessions.filter((open) => !restored.some((s) => s.id === open.id));
       const liveEntries = sessions.flatMap((e) =>
         e.live
-          ? [{ sessionId: e.session.id, ptyId: e.live.ptyId, activity: e.live.activity ?? null }]
+          ? [
+              {
+                sessionId: e.session.id,
+                ptyId: e.live.ptyId,
+                activity: e.live.activity ?? null,
+                agentId: e.live.agentId,
+              },
+            ]
           : [],
       );
       const legacyMap = Object.fromEntries(
@@ -522,6 +529,12 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
             liveEntries.flatMap((e) => (e.activity ? [[e.sessionId, Date.now()]] : [])),
           ),
           ...state.activityAt,
+        },
+        liveAgentId: {
+          ...Object.fromEntries(
+            liveEntries.flatMap((e) => (e.agentId !== undefined ? [[e.sessionId, e.agentId]] : [])),
+          ),
+          ...state.liveAgentId,
         },
         replay: Object.fromEntries(
           sessions
