@@ -178,6 +178,7 @@ export const mediaGameMain = defineFeatureMain<MediaGameMainServices>({
       ({ gameId, scene, level, create }) => service.levels.set(gameId, scene, level, create === undefined ? {} : { create }),
       (issue) => failure(issue),
     );
+    handle(CHANNELS.gamesLevelMapAsset, schemas.GamesLevelMapAssetRequest, ({ gameId, assetName }) => service.levels.mapAsset(gameId, assetName), (issue) => failure(issue));
     handle(CHANNELS.gamesGoto, schemas.GamesGotoRequest, ({ gameId, scene }) => service.goto(gameId, scene), (issue) => failure(issue));
 
     // Create and iterate (Theme M).

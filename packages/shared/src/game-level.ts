@@ -214,6 +214,23 @@ export const GameLevelSetRequestSchema = z.object({
 export const GameLevelSetResultSchema = z.object({ sha: z.string().nullable() });
 export type GameLevelSetResult = z.infer<typeof GameLevelSetResultSchema>;
 
+/** Map asset folder name under `assets/map/<name>/map.tmj` (single path segment, no traversal). */
+export const GameMapAssetNameSchema = z
+  .string()
+  .min(1)
+  .max(100)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/, 'Not a valid map asset name.');
+
+export const GameLevelMapAssetRequestSchema = z.object({
+  gameId: z.string().min(1),
+  assetName: GameMapAssetNameSchema,
+});
+export const GameLevelMapAssetResultSchema = z.object({
+  level: z.unknown(),
+  issues: z.array(IssueSchema),
+});
+export type GameLevelMapAssetResult = z.infer<typeof GameLevelMapAssetResultSchema>;
+
 export const GameGotoRequestSchema = z.object({ gameId: z.string().min(1), scene: GameSceneNameSchema });
 export const GameGotoResultSchema = z.object({ via: z.enum(['hook', 'reload', 'next-run']) });
 export type GameGotoResult = z.infer<typeof GameGotoResultSchema>;

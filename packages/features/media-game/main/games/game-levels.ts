@@ -10,11 +10,13 @@ import {
   GAME_LEVEL_IMAGES_MAX_BYTES,
   GAME_LEVEL_MAX_BYTES,
   GAME_LEVELS_DIR,
+  GameMapAssetNameSchema,
   GameSceneNameSchema,
   ok,
   parseGameLevel,
   type GameGotoResult,
   type GameLevelGetResult,
+  type GameLevelMapAssetResult,
   type GameLevelSetResult,
   type GameLevelsResult,
   type GameManifest,
@@ -212,6 +214,49 @@ export function createGameLevels(deps: GameLevelsDeps) {
     return result;
   }
 
+  async function mapAsset(gameId: string, assetName: string): Promise<GitOpResult<GameLevelMapAssetResult>> {
+    const game = await deps.resolve(gameId);
+    if (!game) return failure('That game was not found.');
+    const name = GameMapAssetNameSchema.safeParse(assetName);
+    if (!name.success) return failure(`"${assetName}" is not a map asset name (${name.error.issues[0]?.message ?? 'invalid'}).`);
+    const mapRoot = await confineToRoot(game.path, 'assets/map');
+    if (mapRoot === null) return failure(`Map asset "${name.data}" not found in assets/map/.`);
+    try {
+      const realGame = await realpath(game.path);
+      if (mapRoot !== join(realGame, 'assets', 'map')) return failure(`Map asset "${name.data}" is outside assets/map/.`);
+    } catch {
+      return failure(`Map asset "${name.data}" not found in assets/map/.`);
+    }
+    const assetDir = joinWithin(mapRoot, name.data);
+    const file = assetDir === null ? null : joinWithin(assetDir, 'map.tmj');
+    if (assetDir === null || file === null) return failure(`Map asset "${name.data}" is outside assets/map/.`);
+    try {
+      if ((await lstat(assetDir)).isSymbolicLink() || (await lstat(file)).isSymbolicLink()) {
+        return failure(`Map asset "${name.data}" is outside assets/map/.`);
+      }
+    } catch {
+      return failure(`Map asset "${name.data}" has no map.tmj.`);
+    }
+    const confined = await confineToRoot(mapRoot, `${name.data}/map.tmj`);
+    if (confined === null) return failure(`Map asset "${name.data}" is outside assets/map/.`);
+    let raw: string;
+    try {
+      const bytes = (await stat(confined)).size;
+      if (bytes > GAME_LEVEL_MAX_BYTES) return failure(`That map asset is over ${GAME_LEVEL_MAX_BYTES / 1048576} MB.`);
+      raw = await readFile(confined, 'utf8');
+    } catch {
+      return failure(`Map asset "${name.data}" has no map.tmj.`);
+    }
+    let level: unknown;
+    try {
+      level = JSON.parse(raw);
+    } catch (error) {
+      return ok({ level: null, issues: [{ path: '(root)', message: `Not valid JSON: ${message(error)}` }] });
+    }
+    const parsed = parseGameLevel(level);
+    return ok({ level, issues: parsed.ok ? [] : parsed.issues });
+  }
+
   async function goto(gameId: string, scene: string): Promise<GitOpResult<GameGotoResult>> {
     const game = await deps.resolve(gameId);
     if (!game) return failure('That game was not found.');
@@ -220,7 +265,7 @@ export function createGameLevels(deps: GameLevelsDeps) {
     return deps.runner.goto(gameId, name.data);
   }
 
-  return { list: levels, get: levelGet, set: levelSet, goto };
+  return { list: levels, get: levelGet, set: levelSet, mapAsset, goto };
 }
 
 export type GameLevels = ReturnType<typeof createGameLevels>;

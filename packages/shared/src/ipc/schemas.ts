@@ -386,6 +386,8 @@ import {
   GameLevelGetResultSchema,
   GameLevelSetRequestSchema,
   GameLevelSetResultSchema,
+  GameLevelMapAssetRequestSchema,
+  GameLevelMapAssetResultSchema,
   GameGotoRequestSchema,
   GameGotoResultSchema,
 } from '../game-level';
@@ -5514,6 +5516,8 @@ export const GamesLevelGetRequest = GameLevelGetRequestSchema;
 export const GamesLevelGetResponse = GitOpResultOf(GameLevelGetResultSchema);
 export const GamesLevelSetRequest = GameLevelSetRequestSchema;
 export const GamesLevelSetResponse = GitOpResultOf(GameLevelSetResultSchema);
+export const GamesLevelMapAssetRequest = GameLevelMapAssetRequestSchema;
+export const GamesLevelMapAssetResponse = GitOpResultOf(GameLevelMapAssetResultSchema);
 export const GamesGotoRequest = GameGotoRequestSchema;
 export const GamesGotoResponse = GitOpResultOf(GameGotoResultSchema);
 export const GamesPopOutRequest = GameIdRequestSchema;

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { readFile, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { TempRepo } from '@midnite/studio-git-engine';
@@ -183,6 +183,48 @@ describe('createGameLevels (Phase 132 Theme C)', () => {
       await repo.git(['rm', '-rq', 'levels']);
       await symlink(join(repo.path, '..'), join(repo.path, 'levels'));
       expect(await levels.set('g1', 'x', level(), { create: true })).toMatchObject({ ok: false, message: "That level is outside the game's levels folder." });
+    });
+  });
+
+  describe('mapAsset', () => {
+    it('reads a valid map asset TMJ from assets/map/<name>/map.tmj', async () => {
+      await repo.writeFile('assets/map/Cave_1/map.tmj', JSON.stringify(level()));
+      const result = await levels.mapAsset('g1', 'Cave_1');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.issues).toEqual([]);
+      expect(result.value.level).toMatchObject({ type: 'map', width: 2, height: 1 });
+    });
+
+    it('reports issues when map.tmj is invalid JSON or invalid level', async () => {
+      await repo.writeFile('assets/map/bad-json/map.tmj', '{nope');
+      const r1 = await levels.mapAsset('g1', 'bad-json');
+      expect(r1.ok).toBe(true);
+      if (r1.ok) {
+        expect(r1.value.level).toBeNull();
+        expect(r1.value.issues[0]?.message).toContain('Not valid JSON');
+      }
+
+      await repo.writeFile('assets/map/inf/map.tmj', JSON.stringify(level({ infinite: true })));
+      const r2 = await levels.mapAsset('g1', 'inf');
+      expect(r2.ok).toBe(true);
+      if (r2.ok) expect(r2.value.issues[0]?.message).toContain('Infinite maps are not supported');
+    });
+
+    it('refuses path traversal, missing assets, symlinks out of the game and oversized files', async () => {
+      for (const bad of ['../levels', '..', 'a/b', '.hidden', '']) {
+        expect(await levels.mapAsset('g1', bad)).toMatchObject({ ok: false });
+      }
+      expect(await levels.mapAsset('nope', 'cave')).toMatchObject({ ok: false });
+      expect(await levels.mapAsset('g1', 'missing')).toMatchObject({ ok: false });
+
+      await mkdir(join(repo.path, 'assets', 'map', 'linked'), { recursive: true });
+      await symlink('/etc/hosts', join(repo.path, 'assets', 'map', 'linked', 'map.tmj'));
+      expect(await levels.mapAsset('g1', 'linked')).toMatchObject({ ok: false });
+
+      const huge = level({ properties: [{ name: 'x', type: 'string', value: 'y'.repeat(GAME_LEVEL_MAX_BYTES) }] });
+      await repo.writeFile('assets/map/huge/map.tmj', JSON.stringify(huge));
+      expect(await levels.mapAsset('g1', 'huge')).toMatchObject({ ok: false });
     });
   });
 

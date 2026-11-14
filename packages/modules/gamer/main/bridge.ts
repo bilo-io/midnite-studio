@@ -50,6 +50,7 @@ export function createGamerBridge(ipc: RendererIpc): GamerBridge {
         list: (req) => call(CHANNELS.gamesLevels, req),
         get: (req) => call(CHANNELS.gamesLevelGet, req),
         set: (req) => call(CHANNELS.gamesLevelSet, req),
+        mapAsset: (req) => call(CHANNELS.gamesLevelMapAsset, req),
       },
       goto: (req) => call(CHANNELS.gamesGoto, req),
       popOut: (req) => call(CHANNELS.gamesPopOut, req),

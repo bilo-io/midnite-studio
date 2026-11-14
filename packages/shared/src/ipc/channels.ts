@@ -974,6 +974,7 @@ export const CHANNELS = {
   gamesLevels: 'mstudio:games:levels',
   gamesLevelGet: 'mstudio:games:level-get',
   gamesLevelSet: 'mstudio:games:level-set',
+  gamesLevelMapAsset: 'mstudio:games:level-map-asset',
   gamesGoto: 'mstudio:games:goto',
   /** Move a game's runner view into the `game` popout window (Theme B). */
   gamesPopOut: 'mstudio:games:pop-out',
