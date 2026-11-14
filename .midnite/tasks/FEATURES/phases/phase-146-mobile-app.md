@@ -1,6 +1,6 @@
 # Phase 146 — Midnite Mobile
 
-Planned 2026-11-14 with the user (`/midnite-plan`) · grounded against the tree as of `2d4626d71`.
+Planned 2026-11-14 with the user (`/midnite-plan`) · Refined: x1 (2026-11-14) · grounded against the tree as of `2d4626d71`.
 
 Midnite has no phone surface today. This phase adds one: **`apps/mobile`**, an Expo + TypeScript React Native app on
 **`@bilo-io/ui-native`** (the midnite design system's React Native companion, `midnite-ui/packages/ui-native`). It is a
@@ -129,8 +129,7 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
   A 56 dp minimum height (72 dp with a subtitle) and a hairline divider token. Test: press and long-press.
 - [ ] **A7 · `Badge` and `Chip`** (S): `Badge { tone: 'neutral' | 'primary' | 'success' | 'warning' | 'danger'; children }`.
   `Chip { label: string; color?: string /* hex, e.g. a project field option colour */; selected?: boolean; onPress?: () => void; leading?: ReactNode }`.
-  `Chip` picks a readable text colour against `color` (WCAG contrast ≥ 4.5 against the chip background). Test: tones,
-  and contrast on a light and a dark colour.
+  `Chip` picks a readable text colour against `color` via relative luminance (`contrastTextForHex(hex)`: `L > 0.179` → `'#000000'`, else `'#ffffff'`, guaranteeing WCAG contrast ≥ 4.5). Test: tones, and contrast on a light (`#facc15`) and a dark (`#1e293b`) colour.
 - [ ] **A8 · `Avatar`** (XS): `{ uri?: string; name: string; size?: 24 | 32 | 40 }`. Falls back to initials on a
   `colors.muted` disc when `uri` is missing or fails to load (`onError`). Test: initials fallback.
 - [ ] **A9 · `SegmentedControl`** (S): `{ segments: { key: string; label: string; icon?: ReactNode }[]; value: string; onChange: (k: string) => void }`.
@@ -171,8 +170,9 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
   (a dev-only check in `app/_layout.tsx` is not acceptable; verify with `npx expo export --dump-sourcemap` once and note
   the result in Decisions).
 - [ ] **B4 · moon tasks** (S): `apps/mobile/moon.yml` with `start` (`expo start`), `typecheck` (`tsc --noEmit`), `lint`
-  (eslint on `src/**` and `app/**`) and `test` (vitest). Add the package to the root `vitest.node-gate.config.ts`
-  projects so `moon run root:test-node` covers it.
+  (eslint on `src/**` and `app/**`) and `test` (vitest). Add `'./apps/mobile/vitest.config.ts'` explicitly to
+  `NODE_GATE_PROJECTS` in root `vitest.node-gate.config.ts` (`NODE_PROJECTS` in `scripts/gate-projects-check.mjs` only
+  scans `packages/*`, not `apps/*`) so `moon run root:test-node` covers it.
 - [ ] **B5 · vitest + react-native-web** (S): `apps/mobile/vitest.config.ts` aliases `react-native` →
   `react-native-web` and stubs `expo-secure-store`, `expo-web-browser`, `expo-router` and `expo-clipboard` with
   `vi.mock` setup files in `apps/mobile/test/mocks/`, following ui-native's own vitest setup. jsdom environment.
@@ -180,34 +180,37 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
   `ThemeProvider` (ui-native; scheme from the More ▸ Theme pref, Theme J) → `QueryClientProvider` → `AuthGate`
   (Theme E) → `<Slot />`.
 - [ ] **B7 · eslint boundary** (S): a `// --- Boundary: mobile (apps/mobile) ---` block in `eslint.config.mjs`, modelled
-  on the launcher block. It denies `@midnite/studio-app*`, `@midnite/studio-desktop*`, `@midnite/studio-frame*`,
-  `@midnite/studio-runtime*`, `@midnite/studio-knowledge*`, `@midnite/studio-db-engine*`, every `@midnite/feature-*`
-  and `@midnite/module-*` and `@midnite/app-*`, `electron`, `node-pty`, `node:*`, `react-dom`, `react-icons*` and
-  `lucide-react*`. It allows `@midnite/studio-git-engine/diff` and denies every other git-engine specifier with the
-  message "Mobile takes only the pure diff parser from git-engine (`@midnite/studio-git-engine/diff`)." Add matching
-  cases to `scripts/layer-boundaries.test.mjs`.
+  on the launcher block, and update the suite-app globs (`apps/!(launcher)/...`) to `apps/!(launcher|mobile)/...` so
+  suite-app rules do not also fire on `apps/mobile`. It denies `@midnite/studio-app*`, `@midnite/studio-desktop*`,
+  `@midnite/studio-frame*`, `@midnite/studio-runtime*`, `@midnite/studio-knowledge*`, `@midnite/studio-db-engine*`,
+  every `@midnite/feature-*` and `@midnite/module-*` and `@midnite/app-*`, `electron`, `node-pty`, `node:*`, `react-dom`,
+  `react-icons*` and `lucide-react*`. It allows `@midnite/studio-git-engine/diff` and denies every other git-engine
+  specifier with the message "Mobile takes only the pure diff parser from git-engine (`@midnite/studio-git-engine/diff`)."
+  Add matching cases to `scripts/layer-boundaries.test.mjs`.
 - [ ] **B8 · Boots** (XS): `moon run mobile:start` opens in Expo Go on an iOS simulator and an Android emulator and
   shows the themed empty shell. A screenshot of each goes in the PR thread (not committed).
 
 ### C — `packages/tasks-core` (M)
 
 - [ ] **C1 · Package** (S): `packages/tasks-core` with `"name": "@midnite/tasks-core"`, `moon.yml`, `tsconfig.json`,
-  `vitest.config.ts` and `src/index.ts`, depending on `@midnite/studio-shared` only. Add to
-  `vitest.node-gate.config.ts`. eslint block: it may import `@midnite/studio-shared` and nothing else in the workspace,
-  and no `react`, `react-dom` or `react-native`.
+  `vitest.config.ts` and `src/index.ts`, depending on `@midnite/studio-shared` only. Add `'tasks-core'` to
+  `NODE_PROJECTS` in `scripts/gate-projects-check.mjs` (which feeds `vitest.node-gate.config.ts`) and add its targets
+  to `.github/workflows/ci.yml`'s `gate-node` job. eslint block: it may import `@midnite/studio-shared` and nothing else
+  in the workspace, and no `react`, `react-dom` or `react-native`.
 - [ ] **C2 · Move the pure files with `git mv`** (M), keeping their tests beside them: `resolve-group-field.ts`,
   `graph-layout.ts`, `graph-filter.ts`, `graph-blockers.ts`, `filter.ts`, `sort.ts`, `status-stroke.ts`,
   `field-option-colors.ts` and `issue-order.ts`, into `packages/tasks-core/src/{board,graph,issue}/` mirroring their
   current folders.
 - [ ] **C3 · Cut the frame edges** (S): `graph-layout.ts` imports `Rect` and `Viewport` types from `@midnite/studio-frame`.
-  Declare structurally identical `Rect` / `Viewport` types in `tasks-core/src/graph/geometry.ts` (they are plain
-  object types, so frame values still satisfy them). `edge-appearance.ts` imports `CardGlowState` from the board, so it
-  **stays** in `features/tasks`.
+  Declare structurally identical `Rect` / `Viewport` types and `rectsIntersect(a: Rect, b: Rect): boolean` in
+  `tasks-core/src/graph/geometry.ts` (with a unit test; they are plain object types, so frame values still satisfy
+  them). `edge-appearance.ts` imports `CardGlowState` from the board, so it **stays** in `features/tasks`.
 - [ ] **C4 · Split `board-derive.ts`** (M): it imports `sessionPhase` / `ConnectionState` from the frame and
-  `BUILTIN_AGENTS`. Move the session-free grouping (columns from the resolved group field, item placement, ordering)
-  to `tasks-core/src/board/board-columns.ts` as `deriveBoardColumns(items, fields, groupFieldId)`. Keep the
-  session-aware decoration in `features/tasks/renderer/board/board-derive.ts`, now calling `deriveBoardColumns`.
-  Existing `board-derive.test.ts` assertions keep passing unchanged; new `board-columns.test.ts` covers the pure part.
+  `BUILTIN_AGENTS`. Move the session-free grouping (`deriveColumns(items, fields, groupFieldId)`, `BoardColumn`,
+  `NO_STATUS_COLUMN_ID`) to `tasks-core/src/board/board-columns.ts`. Keep the session-aware decoration and skill
+  helpers (`composeCardPrompt`, `sessionsToRehome`, `countLiveCardSessions`, `resolveMostRecentAgentId`) in
+  `features/tasks/renderer/board/board-derive.ts`, importing `deriveColumns` from `@midnite/tasks-core`. Existing
+  `board-derive.test.ts` assertions keep passing unchanged; new `board-columns.test.ts` covers the pure part.
 - [ ] **C5 · Re-point desktop** (S): every import of a moved file in `packages/features/tasks` (and any other importer
   found with `grep -rn` on each filename) now imports from `@midnite/tasks-core`. Add `@midnite/tasks-core` to
   `features/tasks/package.json`. No re-export shims are left behind in the old paths.
@@ -218,7 +221,8 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
 ### D — `packages/forge-github-core` (L)
 
 - [ ] **D1 · Package** (S): `packages/forge-github-core` with `"name": "@midnite/forge-github-core"`, depending on
-  `@midnite/studio-shared` only, and with the same eslint and vitest wiring as C1.
+  `@midnite/studio-shared` only, and with the same `NODE_PROJECTS` (`scripts/gate-projects-check.mjs`), `ci.yml`
+  `gate-node`, eslint and vitest wiring as C1.
 - [ ] **D2 · Move the pure GraphQL pieces** (M): from `gh-project.ts` move the query documents used by `listProjects` /
   `projectFields` / `projectItems`, plus `parseProjectList`, `parseFields`, `parseItemsPage` and `scopeErrorKind`. From
   `gh-graphql.ts` move `reviewCommentCountsQuery`, `parseReviewCommentCounts`, `parseReviewThreads`,
@@ -239,28 +243,33 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
     `repository.pullRequests(states: OPEN)`).
   - `pullDetailQuery(owner, name, number)` → `parsePullDetail(data): ForgePullDetail` (checks rollup, review decision,
     reviewers, body, head and base refs).
-  - `issuesQuery` / `issueDetailQuery` → `parseIssues` / `parseIssueDetail` onto `ForgeIssue` / `ForgeIssueDetail`.
+  - `issuesQuery(owner, name, first, after)` → `parseIssues(data): { issues: ForgeIssue[]; endCursor: string | null; hasNextPage: boolean }`
+    and `issueDetailQuery(owner, name, number)` → `parseIssueDetail(data): ForgeIssueDetail`.
   - `repoListQuery(first, after)` (viewer repos + `viewer.organizations.repositories`, sorted by `PUSHED_AT`) →
     `parseRepoList(data): { owner: string; name: string; defaultBranch: string; pushedAt: string; isPrivate: boolean }[]`.
   - `branchesQuery(owner, name, first, after)` → `parseBranches(data): string[]`.
 - [ ] **D5 · Mutations** (M): `submitReviewMutation(pullId, event: ForgeReviewEvent, body)`,
   `addPullCommentMutation(subjectId, body)`, `replyToThreadMutation(threadId, body)`, `setProjectFieldMutation` (single
-  select, matching desktop's `gh-project-write.ts` input shape), `createIssueMutation(repoId, title, body)` and
+  select, matching desktop's `gh-project-write.ts` input shape), `addProjectItemMutation(projectId, contentId)` (for H6),
+  `setIssueStateMutation(issueId, state: 'OPEN' | 'CLOSED')` (for H5), `createIssueMutation(repoId, title, body)` and
   `addCommentMutation(subjectId, body)`. Each is a document plus a `parse…Result(data)` returning `GitOpResult`-style
   `{ ok: true } | { ok: false; kind: 'error'; message: string }` using `describeGraphqlFailure` for `errors[]`.
 - [ ] **D6 · `git-engine` `./diff` subpath** (S): add `"./diff": { "types": "./dist/parsers/diff-parser.d.ts", "default": "./dist/parsers/diff-parser.js" }`
-  to `packages/git-engine/package.json` `exports` (and the matching source path for TS project references /
-  `customConditions`, mirroring how `shared` exposes `./studio-link`). Assert in a test that `diff-parser.ts` still
-  imports only `@midnite/studio-shared`.
+  to `packages/git-engine/package.json` `exports`, and wire `paths` / `customConditions` in `apps/mobile/tsconfig.json`
+  and `apps/mobile/vitest.config.ts` so Metro, tsc and vitest resolve `@midnite/studio-git-engine/diff` to
+  `packages/git-engine/src/parsers/diff-parser.ts` without a pre-built `dist/`. Assert in a test that `diff-parser.ts`
+  still imports only `@midnite/studio-shared`.
 
 ### E — The GitHub data source (L)
 
-- [ ] **E1 · `MobileDataSource` interface** (S): `apps/mobile/src/data/source.ts`. Every method returns
+- [ ] **E1 · `MobileDataSource` interface** (S): `apps/mobile/src/data/source.ts`. Exports
+  `type RepoRef = { owner: string; name: string }` and `MobileDataSource`. Every method returns
   `Promise<Result<T>>` where `Result<T> = { ok: true; value: T } | { ok: false; kind: 'auth' | 'scope' | 'network' | 'error'; message: string }`
   (never throws, matching the IPC envelope rule). Methods: `viewer()`, `listRepos(cursor?)`,
   `listBranches(repo, cursor?)`, `history(repo, ref, cursor?)`, `commit(repo, sha)` (→ `{ commit: Commit; files: FileDiff[] }`),
   `listProjects(repo)`, `projectFields(projectId)`, `projectItems(projectId, cursor?)`, `projectGraph(projectId)`
-  (→ `ForgeGraph`), `setItemField(...)`, `issue(repo, n)`, `issueComments(repo, n)`, `createIssue(...)`,
+  (→ `ForgeGraph`), `setItemField(...)`, `addProjectItem(projectId, contentId)`, `listIssues(repo, cursor?)`,
+  `issue(repo, n)`, `issueComments(repo, n)`, `createIssue(...)`, `setIssueState(repo, n, state: 'OPEN' | 'CLOSED')`,
   `commentIssue(...)`, `listPulls(repo, scope, cursor?)`, `pull(repo, n)`, `pullFiles(repo, n)` (→ `FileDiff[]`),
   `pullThreads(repo, n)`, `submitReview(...)`, `commentPull(...)` and `replyToThread(...)`. A comment on the interface
   states that a future `DesktopPairedDataSource` implements the same interface.
@@ -285,9 +294,11 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
   logged, never in React Query keys, and never in error messages. A test greps the module's log calls.
 - [ ] **E6 · `AuthGate` + query hooks** (M): `AuthGate` renders the sign-in screen until a token exists. A `kind: 'auth'`
   result from any call clears the token and returns to sign-in with "Your GitHub session ended — sign in again."
-  `apps/mobile/src/data/queries.ts` holds one TanStack Query hook per source method (`useHistory`, `useProjectItems`,
-  `usePulls`, …) with keys `[method, repoKey, ...args]` and `staleTime: 30_000`; list hooks use `useInfiniteQuery` on
-  the cursor. Mutations invalidate the matching list and detail keys.
+  `apps/mobile/src/data/queries.ts` exports `mobileQueryKeys` and one TanStack Query hook per source method (`useHistory`,
+  `useProjectItems`, `usePulls`, …) with keys `[method, repoKey, ...args]` and `staleTime: 30_000`; list hooks use
+  `useInfiniteQuery` on the cursor. Mutations invalidate matching keys: `setItemField` → `projectItems` +
+  `projectGraph`; `submitReview` / `commentPull` / `replyToThread` → `pull` + `pullThreads` + `pulls`; `createIssue` /
+  `setIssueState` / `commentIssue` → `issues` + `issue` + `projectItems`.
 - [ ] **E7 · GitHub OAuth App** (XS, user action): register a GitHub OAuth App with Device Flow enabled. Its client ID is
   public and is set as `EXPO_PUBLIC_GITHUB_CLIENT_ID` in `apps/mobile/.env` (git-ignored) and documented in
   `docs/MOBILE.md`. There is no client secret anywhere.
@@ -314,8 +325,10 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
   last-used provider, Theme J, or the Agents tab if none), **Switch repo** (→ the F3 sheet), and **Notes** (disabled,
   "Coming soon"), mirroring desktop's quick-access leaves. Hidden on full-screen detail routes.
 - [ ] **F6 · Prefs store** (XS): `apps/mobile/src/state/prefs.ts`, a tiny zustand store persisted to `expo-secure-store`
-  under one non-secret key `mobile.prefs` (current repo, branch per repo, theme, last provider, last tasks view per
-  project). zod-validated on read; unknown keys are dropped.
+  under one non-secret key `mobile.prefs`. Validated on read with `MobilePrefsSchema` (`version: 1`, `currentRepo:
+  { owner, name, defaultBranch } | null`, `recentRepos: [...]` capped at 5, `branchByRepo: Record<string, string>`,
+  `theme: 'system' | 'light' | 'dark'`, `lastProvider: AgentProviderId | null`, `tasksViewByProject: Record<string,
+  'board' | 'list' | 'graph'>`, `seenAgentHint: boolean`); unknown keys are stripped and invalid blobs reset to defaults.
 
 ### G — History (M)
 
@@ -337,7 +350,7 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
 - [ ] **H1 · Project picker + view switch** (S): `app/(tabs)/tasks/index.tsx`. A header `Chip` names the project (opens a
   sheet over `useProjects`). A `SegmentedControl` offers `board | list | graph`, persisted per project (F6). No projects
   → `EmptyState` ("This repo has no GitHub Projects", a link to the repo's Issues list as a plain list).
-- [ ] **H2 · Board** (L): `apps/mobile/src/tasks/board-view.tsx` takes columns from `deriveBoardColumns` (tasks-core)
+- [ ] **H2 · Board** (L): `apps/mobile/src/tasks/board-view.tsx` takes columns from `deriveColumns` (`@midnite/tasks-core`)
   over the group field resolved by `resolveGroupField`. It is a horizontal paged `FlatList` (`pagingEnabled`,
   `snapToInterval` = 88% of screen width so the next column peeks) with a column header (option colour `Chip` + count)
   and a vertical list of `TaskCard`s (`apps/mobile/src/tasks/task-card.tsx`: number, title, labels as `Chip`s, assignee
@@ -352,8 +365,8 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
   geometry desktop uses) and nodes are absolutely positioned `View`s (compact cards: number + title + status stroke)
   inside a container transformed by a pinch + pan gesture (`react-native-gesture-handler` `Gesture.Simultaneous(Pinch, Pan)`,
   scale clamped 0.3 to 2.5). Initial viewport from `topAlignedViewport`. Tapping a node opens issue detail. Off-screen
-  nodes are culled with `rectsIntersect` against the viewport (port of desktop's margin rule; the pure helper lives in
-  tasks-core if it is not there already).
+  nodes are culled with `rectsIntersect` (from `@midnite/tasks-core`, added in C3) against the viewport (port of
+  desktop's margin rule).
 - [ ] **H5 · Issue detail** (M): `app/tasks/issue/[number].tsx` shows title, state `Badge`, labels, assignees, the
   project field values as `Chip`s (tap one → change it in a sheet), the body rendered as plain text with links tappable
   (no markdown renderer this phase), the comment list, and a composer (`Textarea` + Send) → `commentIssue`. Close/Reopen
@@ -404,8 +417,9 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
 - [ ] **J4 · More tab** (S): `app/(tabs)/more/index.tsx` with sections **Accounts** (signed-in login + Avatar, token
   scopes, Sign out → deletes the SecureStore key and clears the query cache), **Appearance** (`SegmentedControl`
   system / light / dark → F6 → `ThemeProvider scheme`), and **About** (app version from `expo-constants`, Expo SDK,
-  ui-native version, and a "Report an issue" link opening the public issue form URL used by the website in the in-app
-  browser, never naming the repo).
+  ui-native version, and a "Report an issue" link opening `https://github.com/bilo-io/midnite-apps/issues/new` (the
+  public issue repo used by the website and `features/report`, never naming `bilo-io/midnite-studio`) in the in-app
+  browser).
 
 ### K — Docs and guards (S)
 
@@ -417,9 +431,10 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
 - [ ] **K2 · Convention files** (S): add `apps/mobile` to the package-boundaries section of `CLAUDE.md`, `AGENTS.md` and
   `GEMINI.md` (identical text): what it may import, that it is Expo Go-only, that generic components go to
   `@bilo-io/ui-native` first, and the two pure cores in the layer diagram.
-- [ ] **K3 · Tests in the gate** (XS): `apps/mobile`, `packages/tasks-core` and `packages/forge-github-core` are in
-  `root:test-node`'s projects. Confirm in a CI run on the PR that `gate-node` picks them up. No new CI job is added and
-  the macOS job count stays at 5.
+- [ ] **K3 · Tests in the gate** (XS): `apps/mobile` is in `vitest.node-gate.config.ts` (`NODE_GATE_PROJECTS`), and
+  `packages/tasks-core` + `packages/forge-github-core` are in `NODE_PROJECTS` (`scripts/gate-projects-check.mjs`) and
+  `.github/workflows/ci.yml`'s `gate-node` job. Confirm in a CI run on the PR that `gate-node` and `gate-audit` pass.
+  No new CI job is added and the macOS job count stays at 5.
 - [ ] **K4 · Outstanding** (XS): append to `.midnite/tasks/outstanding.md`: desktop pairing data source, GHE / GitLab /
   Bitbucket / Azure on mobile, markdown rendering, push notifications, EAS builds and store release, board drag and
   drop, native-app handoff for agent providers, and a lane graph on History.
@@ -432,7 +447,7 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
 | Mobile app | `apps/mobile/**` (new) |
 | Pure cores | `packages/tasks-core/**`, `packages/forge-github-core/**` (new) |
 | Desktop re-points | `packages/features/tasks/renderer/**`, `packages/features/forge/main/github/**`, `packages/git-engine/package.json` |
-| Workspace | `eslint.config.mjs`, `scripts/layer-boundaries.test.mjs`, `vitest.node-gate.config.ts`, `pnpm-lock.yaml` |
+| Workspace | `eslint.config.mjs`, `scripts/layer-boundaries.test.mjs`, `scripts/gate-projects-check.mjs`, `.github/workflows/ci.yml`, `vitest.node-gate.config.ts`, `pnpm-lock.yaml` |
 | Docs | `docs/MOBILE.md`, `docs/APPS.md`, `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `.midnite/tasks/outstanding.md` |
 
 ## Verification
