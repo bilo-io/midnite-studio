@@ -11,3 +11,4 @@ export * from './service';
 export * from './shared';
 export * from './socket-name';
 export * from './socket-write-queue';
+export * from './sweep';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isPidAlive, STALE_FILE_MIN_AGE_MS, staleBrokerFiles, type BrokerDirEntry } from './stale-files';
+import { isPidAlive, STALE_FILE_MIN_AGE_MS, staleBrokerFiles, staleBrokerLogs, type BrokerDirEntry } from './stale-files';
 
 const NOW = 10_000_000;
 const OLD = NOW - STALE_FILE_MIN_AGE_MS - 1;
@@ -54,5 +54,43 @@ describe('isPidAlive', () => {
     expect(isPidAlive(process.pid)).toBe(true);
     expect(isPidAlive(0)).toBe(false);
     expect(isPidAlive(-5)).toBe(false);
+  });
+});
+
+describe('staleBrokerLogs', () => {
+  const logs = (entries: BrokerDirEntry[], ownVersion = '0.0.6'): string[] =>
+    staleBrokerLogs(entries, { ownVersion, isPidAlive: (pid) => LIVE.has(pid), now: NOW });
+
+  it('removes the logs of a version with no broker, rotations included', () => {
+    expect(logs([file('0.0.4.log'), file('0.0.4.log.1'), file('0.0.4-dev.log.2')]).sort()).toEqual([
+      '0.0.4-dev.log.2',
+      '0.0.4.log',
+      '0.0.4.log.1',
+    ]);
+  });
+
+  it('keeps the own version, a version with a live broker and a version with a socket on disk', () => {
+    expect(
+      logs([
+        file('0.0.6.log'),
+        file('0.0.6-dev.log.1'),
+        file('0.0.5.log'),
+        file('0.0.5-a.sock.pid', 111),
+        file('0.0.3.log'),
+        file('0.0.3-b.sock'),
+      ]),
+    ).toEqual([]);
+  });
+
+  it('removes a version whose only pid file names a dead pid', () => {
+    expect(logs([file('0.0.5.log'), file('0.0.5-a.sock.pid', 999)])).toEqual(['0.0.5.log']);
+  });
+
+  it('does not confuse 0.0.1 with 0.0.10', () => {
+    expect(logs([file('0.0.1.log'), file('0.0.10-a.sock')])).toEqual(['0.0.1.log']);
+  });
+
+  it('keeps a young log and ignores unrelated files', () => {
+    expect(logs([file('0.0.4.log', null, NOW - 1_000), file('main.log'), file('notes.txt')])).toEqual([]);
   });
 });
