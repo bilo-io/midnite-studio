@@ -12,6 +12,7 @@ import {
   TIMELINE_METRICS,
   useMetricsStore,
   type ChartSeries,
+  type MonitorAction,
 } from '@midnite/studio-frame';
 
 /**
@@ -27,7 +28,10 @@ import {
  * on one set of axes invites a comparison ("the GPU is above the CPU") that
  * means nothing.
  */
-export function MonitorFlyout({ onOpenMonitor }: { onOpenMonitor?: () => void } = {}) {
+export function MonitorFlyout({
+  onOpenMonitor,
+  actions,
+}: { onOpenMonitor?: () => void; actions?: readonly MonitorAction[] } = {}) {
   const series = useMetricsStore((state) => state.series);
   const latest = useMetricsStore((state) => state.latest);
 
@@ -138,6 +142,24 @@ export function MonitorFlyout({ onOpenMonitor }: { onOpenMonitor?: () => void } 
       >
         Sampling every 2s while this is open. A dashed rule marks where the interval changed.
       </p>
+      {actions && actions.length > 0 ? (
+        <div role="group" aria-label="Recovery actions" className="mt-3 grid grid-cols-2 gap-1.5">
+          {actions.map(({ id, label, description, Icon, run, disabled }) => (
+            <button
+              key={id}
+              type="button"
+              title={description}
+              disabled={disabled}
+              onClick={run}
+              data-testid={`monitor-action-${id}`}
+              className="flex items-center gap-1.5 rounded border border-border px-2 py-1.5 text-left text-[11px] hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+            >
+              <Icon aria-hidden className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{label}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       {onOpenMonitor ? (
         <button
           type="button"

@@ -500,6 +500,7 @@ export {
 export { seedMonitorSample, suiteShellTestBridge } from './shell/suite-shell-test-bridge';
 export {
   createMonitorSegment,
+  type MonitorAction,
   type MonitorFlyoutProps,
   type MonitorSegmentOptions,
 } from './shell/status-bar/monitor/monitor-cluster';
