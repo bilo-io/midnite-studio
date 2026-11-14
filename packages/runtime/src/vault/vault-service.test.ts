@@ -365,3 +365,96 @@ describe('runtime vault — locking, re-auth and VaultRead (Phase 118 Theme B)',
     });
   });
 });
+
+describe('runtime vault — lazy keychain access', () => {
+  const counting = (): { cipher: FakeCipher; calls: () => number } => {
+    const base = createFakeCipher();
+    let n = 0;
+    const tick = <A extends unknown[], R>(fn: (...args: A) => R) => (...args: A): R => {
+      n += 1;
+      return fn(...args);
+    };
+    return {
+      cipher: {
+        ...base,
+        isEncryptionAvailable: tick(base.isEncryptionAvailable),
+        encryptString: tick(base.encryptString),
+        decryptString: tick(base.decryptString),
+      },
+      calls: () => n,
+    };
+  };
+
+  it('makes no cipher call until the first real read', async () => {
+    const { cipher: counted, calls } = counting();
+    const service = createVaultService({ directory: dir, cipher: counted });
+    const studio = service.forApp('studio');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls()).toBe(0);
+    await studio.read('secrets', 'nothing');
+    expect(calls()).toBeGreaterThan(0);
+  });
+
+  it('fires onFirstAccess once, at the first operation, and immediately afterwards', async () => {
+    const service = createVaultService({ directory: dir, cipher });
+    const first = vi.fn();
+    service.onFirstAccess(first);
+    expect(first).not.toHaveBeenCalled();
+    await service.forApp('studio').has('secrets', 'a');
+    await service.forApp('studio').has('secrets', 'b');
+    expect(first).toHaveBeenCalledTimes(1);
+    const late = vi.fn();
+    service.onFirstAccess(late);
+    expect(late).toHaveBeenCalledTimes(1);
+  });
+
+  it('locks before answering when the first read finds a tampered file', async () => {
+    const writer = createVaultService({ directory: dir, cipher });
+    await writer.forApp('studio').set('secrets', 'k', 'plaintext-value');
+    const file = join(dir, VAULT_NAMESPACES.secrets.fileName);
+    const enc = Buffer.from('enc:evil').toString('base64');
+    await writeFile(file, JSON.stringify({ version: 1, entries: { k: { encrypted: enc } } }));
+
+    const reader = createVaultService({ directory: dir, cipher: createFakeCipher() });
+    const result = await reader.forApp('studio').read('secrets', 'k');
+    expect(result).toEqual({ ok: false, kind: 'locked' });
+    expect(reader.isLocked()).toBe(true);
+  });
+
+  it('makes no cipher call before first access on a populated profile', async () => {
+    const writer = createVaultService({ directory: dir, cipher });
+    await writer.forApp('studio').set('secrets', 'k', 'v');
+    const { cipher: counted, calls } = counting();
+    const service = createVaultService({ directory: dir, cipher: counted });
+    service.forApp('studio');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls()).toBe(0);
+  });
+
+  it('answers every concurrent first read locked on a tampered file', async () => {
+    const writer = createVaultService({ directory: dir, cipher });
+    await writer.forApp('studio').set('secrets', 'k', 'v');
+    const enc = Buffer.from('enc:evil').toString('base64');
+    await writeFile(
+      join(dir, VAULT_NAMESPACES.secrets.fileName),
+      JSON.stringify({ version: 1, entries: { k: { encrypted: enc } } }),
+    );
+    const studio = createVaultService({ directory: dir, cipher: createFakeCipher() }).forApp('studio');
+    const results = await Promise.all([studio.read('secrets', 'k'), studio.read('secrets', 'k'), studio.read('secrets', 'k')]);
+    for (const r of results) expect(r).toEqual({ ok: false, kind: 'locked' });
+  });
+
+  it('does not launder a forged audit file when lock and unlock run before any read', async () => {
+    const writer = createVaultService({ directory: dir, cipher });
+    await writer.forApp('studio').set('secrets', 'k', 'v');
+    await writeFile(join(dir, 'vault-audit.ndjson'), '{"forged":true}\n', { flag: 'a' });
+
+    const { cipher: counted, calls } = counting();
+    const service = createVaultService({ directory: dir, cipher: counted });
+    service.lock('suspend');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls()).toBe(0);
+    await service.unlock();
+    expect(await service.forApp('studio').read('secrets', 'k')).toEqual({ ok: false, kind: 'locked' });
+  });
+});
