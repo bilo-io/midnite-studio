@@ -50,6 +50,7 @@ export * from './markets-portfolio';
 export * from './mcp';
 export * from './mcp-tool-owners';
 export * from './media';
+export * from './macos-protected-paths';
 export * from './media-library';
 export * from './capture';
 export * from './game';
