@@ -160,6 +160,7 @@ export const STUDIO_SETTINGS_PAGE_ORDER = [
   'themes',
   'activity',
   'settings',
+  'settings',
   'graph',
   'diff',
   'repos',

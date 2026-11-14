@@ -32,6 +32,7 @@ import {
   LuServer,
   LuSettings,
   LuShieldAlert,
+  LuLockKeyhole,
   LuShieldCheck,
   LuSparkles,
   LuListTodo,
@@ -134,6 +135,7 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   // (Phase 95 Theme B), so a "shine" mark reads truer than a heartbeat.
   activity: LuSparkles,
   privacy: LuShield,
+  permissions: LuLockKeyhole,
   // Phase 135: switch whole features on and off.
   features: LuToggleRight,
   graph: LuGitCommitVertical,

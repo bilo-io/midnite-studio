@@ -7,7 +7,7 @@ import { TCC_SERVICES } from './probe';
 export type ExecFilePort = (
   file: string,
   args: string[],
-  cb: (err: (Error & { code?: number | string }) | null, stdout: string, stderr: string) => void,
+  cb: (err: Error | null, stdout: string, stderr: string) => void,
 ) => void;
 
 const defaultExec: ExecFilePort = (file, args, cb) => {

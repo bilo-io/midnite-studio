@@ -42,6 +42,7 @@ export const SETTINGS_SECTIONS: Record<SettingsPageId, readonly SettingsSection[
   privacy: [
     section('Location'),
   ],
+  permissions: [section('macOS permissions', 'screen recording', 'microphone', 'camera', 'accessibility', 'full disk access', 'tccutil')],
   // The group sections are drawn from `FEATURE_TOGGLE_GROUPS`, so only the static one is anchored here.
   features: [section('Always on', 'feature', 'toggle', 'terminal', 'accounts')],
   graph: [
