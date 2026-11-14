@@ -67,6 +67,12 @@ describe('PermissionsPage', () => {
     expect(screen.queryByRole('button', { name: 'Reset Notifications', hidden: true })).toBeNull();
   });
 
+  it('offers reset on a resettable row macOS cannot read (unchecked)', async () => {
+    renderPage();
+    await screen.findByTestId('permission-row-automation');
+    expect(screen.getByRole('button', { name: 'Reset Automation', hidden: true })).toBeTruthy();
+  });
+
   it('does not reset until the destructive confirm is accepted', async () => {
     const p = install();
     renderPage();

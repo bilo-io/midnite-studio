@@ -49,6 +49,7 @@ export function registerPermissionsHandlers(): void {
 
   handleBare(CHANNELS.permissionsRelaunch, () => {
     app.relaunch();
-    app.exit(0);
+    // quit, not exit: before-quit/will-quit flush sessions, prefs and sockets.
+    app.quit();
   });
 }
