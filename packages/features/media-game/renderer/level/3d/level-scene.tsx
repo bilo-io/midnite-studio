@@ -244,11 +244,23 @@ export function LevelScene(props: LevelSceneProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [controls]);
 
+  // The axis widget renders its own pass, and three resets `info` per render call: counted by hand, the readout
+  // covers the whole frame instead of the widget's last pass.
+  useEffect(() => {
+    const before = gl.info.autoReset;
+    gl.info.autoReset = false;
+    return () => {
+      gl.info.autoReset = before;
+    };
+  }, [gl]);
+  const frameInfo = useRef({ calls: 0, triangles: 0 });
   const frustum = useMemo(() => new Frustum(), []);
   const stats = useRef({ frames: 0, since: performance.now(), visible: 0, models: 0, sweptAt: performance.now() });
 
   useFrame(() => {
     const now = performance.now();
+    frameInfo.current = { calls: gl.info.render.calls, triangles: gl.info.render.triangles };
+    gl.info.reset();
     if (!placed.current && controls) {
       placed.current = true;
       const pose = props.initialPose;
@@ -390,7 +402,7 @@ export function LevelScene(props: LevelSceneProps) {
     stats.current.frames++;
     const elapsed = now - stats.current.since;
     if (elapsed >= 500) {
-      props.onStats({ fps: (stats.current.frames * 1000) / elapsed, calls: gl.info.render.calls, triangles: gl.info.render.triangles, visible: stats.current.visible, total: items.length, models: stats.current.models });
+      props.onStats({ fps: (stats.current.frames * 1000) / elapsed, calls: frameInfo.current.calls, triangles: frameInfo.current.triangles, visible: stats.current.visible, total: items.length, models: stats.current.models });
       stats.current.frames = 0;
       stats.current.since = now;
     }
