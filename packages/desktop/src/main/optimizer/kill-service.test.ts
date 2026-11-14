@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { parsePsTable, type ProcessRow } from '../agent-process';
 import { classifyBrokers, EMPTY_INVENTORY } from './broker-inventory';
-import { getProcessTableResult, killProcess, killTree } from './kill-service';
+import { agentOwnerLabels, getProcessTableResult, killProcess, killTree } from './kill-service';
 
 describe('killProcess', () => {
   const midnitePid = 1000;
@@ -369,5 +369,26 @@ describe('killProcess / killTree over the lost-process inventory (Phase 148 B)',
     expect(by.get(100)).toMatchObject({ ours: false, lost: null, brokerPid: 100 });
     expect(by.get(204)).toMatchObject({ ours: true, lost: 'previous-build', brokerPid: 200 });
     expect(by.get(303)).toMatchObject({ ours: true, lost: 'unreachable', brokerPid: 300 });
+  });
+});
+
+describe('agentOwnerLabels (Phase 148 B)', () => {
+  it('labels a pty tree "<repo> · <agent>" when an agent runs in it', () => {
+    const rows: ProcessRow[] = [
+      { pid: 10, ppid: 1, stat: 'S', rssBytes: 1, cpuPercent: 0, args: '/bin/zsh -l' },
+      { pid: 11, ppid: 10, stat: 'S+', rssBytes: 1, cpuPercent: 0, args: 'claude' },
+      { pid: 20, ppid: 1, stat: 'S', rssBytes: 1, cpuPercent: 0, args: '/bin/zsh -l' },
+    ];
+    const labels = agentOwnerLabels(
+      rows,
+      [
+        { pid: 10, sessionId: 'a', owner: 'studio', cwd: '/code/midnite-studio' },
+        { pid: 20, sessionId: 'b', owner: 'studio', cwd: '/code/other' },
+      ],
+      [{ id: 'claude', label: 'Claude Code', command: 'claude', args: [] } as never],
+    );
+    expect(labels.get(10)).toBe('midnite-studio · Claude Code');
+    expect(labels.get(11)).toBe('midnite-studio · Claude Code');
+    expect(labels.has(20)).toBe(false);
   });
 });

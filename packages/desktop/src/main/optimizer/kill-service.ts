@@ -248,15 +248,17 @@ export async function getProcessTableResult(
   const inventory = opts.inventory ?? (await readBrokerInventory(rows));
   stampLostProcesses(processes, rows, inventory, descendantsOf);
 
+  const brokerSessions = opts.brokerSessions ?? liveBrokerSessions();
   let agents: readonly AgentDefinition[] = opts.agents ?? [];
-  if (!opts.agents) {
+  // The roster is a file read: only pay for it when there is a broker pty to label.
+  if (!opts.agents && brokerSessions.length > 0) {
     try {
       agents = await listAgents();
     } catch {
       agents = [];
     }
   }
-  const agentLabels = agentOwnerLabels(rows, opts.brokerSessions ?? liveBrokerSessions(), agents);
+  const agentLabels = agentOwnerLabels(rows, brokerSessions, agents);
   for (const proc of processes) {
     const label = agentLabels.get(proc.pid);
     if (label) proc.owner = label;
