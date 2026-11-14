@@ -989,6 +989,16 @@ export type MidniteStudioBridge = {
     openFileVault: () => Promise<void>;
   };
 
+  /** Settings ▸ Permissions: what macOS reports for this build, read without prompting. */
+  permissions: {
+    status: () => Promise<z.infer<typeof S.PermissionsStatusResponse>>;
+    openPane: (req: In<typeof S.PermissionsPaneRequest>) => Promise<GitOpResult>;
+    /** `tccutil reset` for this app's bundle id only; the renderer confirms first. */
+    reset: (req: In<typeof S.PermissionsResetRequest>) => Promise<GitOpResult>;
+    /** Quit and reopen, so the next use re-asks macOS with the current signature. */
+    relaunch: () => Promise<void>;
+  };
+
   /** A switched-off feature's on-disk data, for Settings ▸ Features' delete (Phase 135 Theme F). */
   features: {
     describeData: (req: In<typeof S.FeatureDataRequest>) => Promise<z.infer<typeof S.FeatureDataDescribeResponse>>;

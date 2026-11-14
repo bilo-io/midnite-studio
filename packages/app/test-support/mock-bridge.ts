@@ -2510,6 +2510,27 @@ export function buildMockBridge(data: MockFixtures) {
         `purge` mutates the seeded array rather than no-op'ing, because the one
         thing worth asserting about a delete is that the row went.
       */
+    permissions: {
+      status: async () => ({
+        supported: true,
+        bundleId: 'io.bilo.midnite-studio',
+        rows: (
+          [
+            ['screen', 'granted', true],
+            ['microphone', 'not-determined', true],
+            ['camera', 'denied', true],
+            ['accessibility', 'granted', true],
+            ['fullDisk', 'denied', true],
+            ['automation', 'unchecked', true],
+            ['files', 'unchecked', true],
+            ['notifications', 'unchecked', false],
+          ] as const
+        ).map(([id, state, resettable]) => ({ id, state, checkedAt: 0, paneUrl: `x-apple.systempreferences:${id}`, resettable })),
+      }),
+      openPane: async () => ({ ok: true as const }),
+      reset: async () => ({ ok: true as const }),
+      relaunch: async () => undefined,
+    },
     privacy: {
       historyStats: async () => ({ files: 148, bytes: 52_428_800 }),
       clearHistory: async () => ({ removedFiles: 148, removedBytes: 52_428_800 }),
