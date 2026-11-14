@@ -1,6 +1,10 @@
 # Phase 140 — Play in editor
 
+**Refined: x1** · 2026-11-14 · file map, contracts, MCP, testing, UI/UX
+
 Planned 2026-11-14 by an unattended agent · grounded against the tree as of `9e395a8df`.
+
+**Model:** every theme is a spec'd build for sonnet; no theme needs `Model: opus`.
 
 Testing a level today means Save (a commit), switch to the game tab, Run, walk from the scene's spawn to the bit
 being tested, and on any file change sit through a full page reload. Every engine shortens that loop the same way —
@@ -210,8 +214,8 @@ export const GAME_ENTITY_POLL_MS = 250;
 ```
 
 - The poller runs only while at least one subscriber (`watch`) is active and the game is running and **not paused**
-  (a paused game's last snapshot stays); it stops on window blur (`visibilityState`-style gate the app already uses
-  for idle CPU, Phase 25) and on Stop. Each tick sends one `gamesEntityState` event; a slow game (eval > 200 ms)
+  (a paused game's last snapshot stays); it stops on window blur (`document.visibilityState` via the renderer's
+  `watch` subscription, which unsubscribes while the window is hidden) and on Stop. Each tick sends one `gamesEntityState` event; a slow game (eval > 200 ms)
   skips ticks rather than queueing.
 - Old kits (no `entities`) answer `{ entities: [], truncated: false }` with a one-time `useNotify` in the editor
   "Update the game's kit to see live entities" and an Upgrade button (the existing `kitUpgrade`).
@@ -357,7 +361,7 @@ export const GAME_ENTITY_POLL_MS = 250;
   touched suites including `kit-level.test.ts`, `kit-core-three.test.ts`, `kit-hash.test.ts`,
   `game-protocol.test.ts`, `game-runner.test.ts`; `scripts/skill-copies.test.mjs`; the pin test; `node
   scripts/tracker-check.mjs`.
-- [ ] **Gate — the built app, throwaway `--user-data-dir`**: a platformer with an unsaved moved platform → F5 from a
+- [ ] **Open, for a human:** gate on the built app, throwaway `--user-data-dir`**: a platformer with an unsaved moved platform → F5 from a
   selected object starts there and shows the moved platform; `git status` clean; Save → the game restarts the scene
   without a page reload (the console shows no reload); Live on → ghosts move; Copy live position on an enemy;
   View ▸ Colliders on in both editor and game; third-person: Nav on draws the nav-mesh in both. Shots under
@@ -375,14 +379,14 @@ export const GAME_ENTITY_POLL_MS = 250;
 
 All resolved; unattended, the conventional option was taken in each case.
 
-1. **Preview through an in-memory overlay**, not a temp file or a stash: nothing touches the repo, a crash leaves
+1. **Resolved — Preview through an in-memory overlay.** Not a temp file or a stash: nothing touches the repo, a crash leaves
    nothing behind, and the protocol handler is already the single choke point every byte passes through.
-2. **Play from here** is Unreal's name for it and `F5` is Visual Studio's and Godot's run key (Godot: F5 project, F6
+2. **Resolved — Play from here.** Is Unreal's name for it and `F5` is Visual Studio's and Godot's run key (Godot: F5 project, F6
    current scene; here F5 plays the current scene because the level editor has no other run target).
-3. **Scene restart, not page reload, for level edits** — Godot's "reload current scene", and it keeps the audio
+3. **Resolved — Scene restart, not page reload, for level edits.** Godot's "reload current scene", and it keeps the audio
    context and DevTools attached. Code changes still reload the page (a module graph cannot be hot-swapped safely).
-4. **Entities are polled, not pushed**, at 4 Hz with a pause/blur gate: a push stream from the sandbox would need a
+4. **Resolved — Entities are polled, not pushed.** At 4 Hz with a pause/blur gate: a push stream from the sandbox would need a
    new preload in the game's view; `executeJavaScript` already exists and is bounded by `evalWithTimeout`.
-5. **The nav-mesh comes from the kit**, never recomputed in the editor, so what is drawn is what the AI uses.
-6. **One kit bump if A, D and G land together** — every bump makes existing games offer an upgrade; batching keeps
+5. **Resolved — The nav-mesh comes from the kit.** Never recomputed in the editor, so what is drawn is what the AI uses.
+6. **Resolved — One kit bump if A, D and G land together.** Every bump makes existing games offer an upgrade; batching keeps
    that prompt to one.
