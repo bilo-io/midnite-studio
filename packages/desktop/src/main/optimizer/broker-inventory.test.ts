@@ -1,3 +1,5 @@
+import { basename } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import { descendantsOf, type ProcessRow } from '../agent-process';
@@ -11,6 +13,7 @@ import {
 const DIR = '/Users/me/Library/Application Support/Midnite Studio/broker';
 const PRIMARY = `${DIR}/0.4.0-cafe0001.sock`;
 const OLD = `${DIR}/0.3.9-dead0002.sock`;
+const GONE = `${DIR}/0.3.8-beef0003.sock`;
 const ELECTRON = '/Applications/Midnite Studio.app/Contents/MacOS/Midnite Studio';
 const SCRIPT = '/Applications/Midnite Studio.app/Contents/Resources/app.asar.unpacked/dist/broker.js';
 
@@ -32,8 +35,12 @@ const rows: ProcessRow[] = [
   row(200, 1, brokerArgs(OLD)), // previous build, reachable
   row(201, 200, '/bin/zsh -l'),
   row(202, 201, 'claude'),
-  row(300, 1, brokerArgs(PRIMARY)), // retired off the primary path, unreachable
+  // On the primary path, with a `-retired-300` pid file but no live retired socket: not provably
+  // retired, so it stays protected as primary.
+  row(300, 1, brokerArgs(PRIMARY)),
   row(301, 300, '/bin/zsh -l'),
+  row(350, 1, brokerArgs(GONE)), // an older build whose socket is gone: unreachable
+  row(351, 350, '/bin/zsh -l'),
   row(400, 1, '/usr/bin/some-daemon'),
 ];
 
@@ -44,6 +51,7 @@ const base = (over: Partial<ClassifyBrokersInput> = {}): ClassifyBrokersInput =>
     { socketName: '0.4.0-cafe0001.sock', pid: 100 },
     { socketName: '0.3.9-dead0002.sock', pid: 200 },
     { socketName: '0.4.0-cafe0001-retired-300.sock', pid: 300 },
+    { socketName: '0.3.8-beef0003.sock', pid: 350 },
   ],
   socketNames: new Set(['0.4.0-cafe0001.sock', '0.3.9-dead0002.sock']),
   rows,
@@ -67,9 +75,46 @@ describe('brokerArgvSocket', () => {
 });
 
 describe('classifyBrokers', () => {
-  it('names the primary, a previous build and an unreachable retired broker', () => {
-    expect(reasonOf(base())).toEqual({ 100: 'primary', 200: 'previous-build', 300: 'unreachable' });
+  it('names the primary, a previous build, an unreachable broker, and keeps an unproven retire primary', () => {
+    expect(reasonOf(base())).toEqual({ 100: 'primary', 200: 'previous-build', 300: 'primary', 350: 'unreachable' });
     expect(classifyBrokers(base()).primaryPid).toBe(100);
+  });
+
+  it('honours a retire only while the retired socket exists and is connected', () => {
+    const retired = `${DIR}/0.4.0-cafe0001-retired-300.sock`;
+    const live = base({
+      socketNames: new Set(['0.4.0-cafe0001.sock', '0.3.9-dead0002.sock', basename(retired)]),
+      connectedPeers: [PRIMARY, OLD, retired],
+    });
+    expect(reasonOf(live)[300]).toBeNull();
+    // Socket file there but nothing connected: not proven, still protected.
+    expect(reasonOf(base({ socketNames: new Set([basename(retired)]) }))[300]).toBe('primary');
+  });
+
+  it('keeps the live primary primary when a stale retired pid file names its reused pid (regression)', () => {
+    // A broker retired to `…-retired-100.sock`, died uncleanly, and the new primary reused pid 100.
+    const pidFiles = [
+      { socketName: '0.4.0-cafe0001.sock', pid: 100 },
+      { socketName: '0.4.0-cafe0001-retired-100.sock', pid: 100 },
+      { socketName: '0.3.9-dead0002.sock', pid: 200 },
+    ];
+    const inventory = classifyBrokers(base({ pidFiles }));
+    expect(inventory.brokers.find((b) => b.pid === 100)).toMatchObject({ primary: true, lost: null });
+    expect(inventory.primaryPid).toBe(100);
+  });
+
+  it('treats the client’s handshake pid as primary whatever the files say', () => {
+    expect(reasonOf(base({ clientPrimaryPid: 200 }))[200]).toBe('primary');
+  });
+
+  it('reads the build of a twice-retired socket', () => {
+    const pidFiles = [
+      { socketName: '0.4.0-cafe0001.sock', pid: 100 },
+      { socketName: '0.4.0-cafe0001-retired-7-retired-200.sock', pid: 200 },
+    ];
+    const name = '0.4.0-cafe0001-retired-7-retired-200.sock';
+    const inv = base({ pidFiles, socketNames: new Set(['0.4.0-cafe0001.sock', name]), connectedPeers: [PRIMARY, `${DIR}/${name}`] });
+    expect(reasonOf(inv)[200]).toBeNull();
   });
 
   it('never marks the primary lost, even when the client is not connected to it', () => {
@@ -106,7 +151,7 @@ describe('classifyBrokers', () => {
     expect(reasonOf(base({ pidFiles }))[200]).toBe('previous-build');
   });
 
-  it('keeps a broker on the primary path protected unless it visibly retired', () => {
+  it('keeps a broker on the primary path protected when it has no pid file', () => {
     // No pid file at all for 300: argv alone says primary path, so it is treated as the primary.
     const pidFiles = base().pidFiles.filter((f) => f.pid !== 300);
     expect(reasonOf(base({ pidFiles }))[300]).toBe('primary');
@@ -139,7 +184,8 @@ describe('stampLostProcesses', () => {
     expect(by[100]).toMatchObject({ ours: false, lost: null, brokerPid: 100 });
     expect(by[101]).toMatchObject({ ours: true, lost: null, brokerPid: 100 });
     for (const pid of [200, 201, 202]) expect(by[pid]).toMatchObject({ ours: true, lost: 'previous-build', brokerPid: 200 });
-    for (const pid of [300, 301]) expect(by[pid]).toMatchObject({ ours: true, lost: 'unreachable', brokerPid: 300 });
+    for (const pid of [300, 301]) expect(by[pid]).toMatchObject({ ours: false, lost: null, brokerPid: 300 });
+    for (const pid of [350, 351]) expect(by[pid]).toMatchObject({ ours: true, lost: 'unreachable', brokerPid: 350 });
     expect(by[400]).toMatchObject({ ours: false, lost: null, brokerPid: null });
   });
 

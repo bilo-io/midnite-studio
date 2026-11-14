@@ -49,7 +49,7 @@ export type InventoryBroker = {
 
 export type BrokerInventory = {
   brokers: InventoryBroker[];
-  /** The primary broker's pid, when one is running; refused by every kill. */
+  /** The lowest-pid primary broker, when one is running. Kills refuse every `primary` broker, not just this one. */
   primaryPid: number | null;
   /** Pty roots under a reachable broker whose session no `terminals.json` row names. */
   noRowPtys: { pid: number; brokerPid: number }[];
@@ -79,19 +79,22 @@ export type ClassifyBrokersInput = {
   /** Ids of every `terminals.json` row; `null` when they could not be read, which skips `no-row`. */
   sessionRows: ReadonlySet<string> | null;
   brokerSessions: readonly BrokerSessionRef[];
+  /** The pid the primary reported in its handshake (`primaryBrokerPid()`): always primary, whatever else says. */
+  clientPrimaryPid?: number | null;
 };
 
 const BROKER_ARGV = /[/\\]broker\.js --socket (.+?\.sock)(?: |$)/;
 const RETIRED_SUFFIX = /-retired-(\d+)\.sock$/;
+const ANY_RETIRED_SUFFIX = /(?:-retired-\d+)+\.sock$/;
 
 /** The `--socket` path a broker's argv names, or `null` when the argv is not a broker's. */
 export function brokerArgvSocket(args: string): string | null {
   return BROKER_ARGV.exec(args)?.[1] ?? null;
 }
 
-/** `1.2.3-abcd1234-dev-retired-42.sock` → `1.2.3-abcd1234-dev.sock`: the build a socket belongs to. */
+/** `1.2.3-abcd1234-dev-retired-42.sock` → `1.2.3-abcd1234-dev.sock`: the build a socket belongs to (any retire depth). */
 function buildSocketName(socketName: string): string {
-  return socketName.replace(RETIRED_SUFFIX, '.sock');
+  return socketName.replace(ANY_RETIRED_SUFFIX, '.sock');
 }
 
 const isStudioOwned = (owner: string | null): boolean => !owner || owner === 'studio';
@@ -128,13 +131,18 @@ export function classifyBrokers(input: ClassifyBrokersInput): BrokerInventory {
 
   const brokers: InventoryBroker[] = [];
   for (const [pid, { socketName, argvSocket, row }] of candidates) {
-    // Protection-biased: the primary's pid file names it, and a broker started on the primary's path
-    // counts as primary unless it has visibly retired off it (its own `-retired-<pid>` name).
-    const retiredSelf = RETIRED_SUFFIX.exec(socketName)?.[1] === String(pid);
-    const primary = socketName === primarySocketName || (argvSocket === primarySocket && !retiredSelf);
+    const reachable = input.socketNames.has(socketName) && connected.has(join(brokerDir, socketName));
+    // Protection-biased: the client's own handshake pid and the primary's pid file name it, and a broker
+    // started on the primary's path counts as primary unless it has provably retired off it — its own
+    // `-retired-<pid>` socket still there and still connected. A pid file alone proves nothing: one left
+    // by an unclean exit names whatever later reuses that pid, the new primary included.
+    const retiredSelf = RETIRED_SUFFIX.exec(socketName)?.[1] === String(pid) && reachable;
+    const primary =
+      pid === input.clientPrimaryPid ||
+      socketName === primarySocketName ||
+      (argvSocket === primarySocket && !retiredSelf);
     let lost: BrokerLostReason | null = null;
     if (!primary) {
-      const reachable = input.socketNames.has(socketName) && connected.has(join(brokerDir, socketName));
       if (!reachable) lost = 'unreachable';
       else if (buildSocketName(socketName) !== primarySocketName) lost = 'previous-build';
     }

@@ -293,6 +293,7 @@ describe('killProcess / killTree over the lost-process inventory (Phase 148 B)',
     midnitePid,
     inventory: inv,
     signalFn,
+    clientPrimaryPid: null as number | null,
   });
 
   it('kills a ppid-1 previous-build broker with SIGTERM to the broker alone', async () => {
@@ -320,6 +321,65 @@ describe('killProcess / killTree over the lost-process inventory (Phase 148 B)',
     for (const res of [
       await killProcess(100, brokerArgs(PRIMARY), true, opts(signalFn)),
       await killTree(100, brokerArgs(PRIMARY), true, opts(signalFn)),
+    ]) {
+      expect(res.ok).toBe(false);
+      if (!res.ok) expect(res.message).toContain('current terminal broker');
+    }
+    expect(signalFn).not.toHaveBeenCalled();
+  });
+
+  it('refuses the live primary when a stale retired pid file names its reused pid (review CRITICAL)', async () => {
+    // A broker once retired to `…-retired-100.sock` and died uncleanly; the new primary got pid 100.
+    const inv = classifyBrokers({
+      brokerDir: DIR,
+      primarySocket: PRIMARY,
+      pidFiles: [
+        { socketName: '0.4.0-cafe0001.sock', pid: 100 },
+        { socketName: '0.4.0-cafe0001-retired-100.sock', pid: 100 },
+      ],
+      socketNames: new Set(['0.4.0-cafe0001.sock']),
+      rows,
+      connectedPeers: [PRIMARY],
+      sessionRows: null,
+      brokerSessions: [],
+    });
+    expect(inv.primaryPid).toBe(100);
+    const signalFn = vi.fn();
+    for (const res of [
+      await killProcess(100, brokerArgs(PRIMARY), false, opts(signalFn, inv)),
+      await killTree(100, brokerArgs(PRIMARY), true, opts(signalFn, inv)),
+    ]) {
+      expect(res.ok).toBe(false);
+    }
+    expect(signalFn).not.toHaveBeenCalled();
+  });
+
+  it('refuses the client’s handshake primary pid even when the inventory calls it lost', async () => {
+    const signalFn = vi.fn();
+    const inv = inventory();
+    expect(inv.brokers.find((b) => b.pid === 200)?.primary).toBe(false);
+    const withClient = { ...opts(signalFn, inv), clientPrimaryPid: 200 };
+    for (const res of [
+      await killProcess(200, brokerArgs(OLD_A), false, withClient),
+      await killTree(200, brokerArgs(OLD_A), true, withClient),
+    ]) {
+      expect(res.ok).toBe(false);
+      if (!res.ok) expect(res.message).toContain('current terminal broker');
+    }
+    expect(signalFn).not.toHaveBeenCalled();
+  });
+
+  it('refuses every broker marked primary, not just the lowest pid (two primaries)', async () => {
+    const inv = inventory();
+    const twoPrimaries = {
+      ...inv,
+      brokers: inv.brokers.map((b) => (b.pid === 300 ? { ...b, primary: true, lost: null } : b)),
+      primaryPid: 100,
+    };
+    const signalFn = vi.fn();
+    for (const res of [
+      await killProcess(300, brokerArgs(OLD_B), false, opts(signalFn, twoPrimaries)),
+      await killTree(300, brokerArgs(OLD_B), true, opts(signalFn, twoPrimaries)),
     ]) {
       expect(res.ok).toBe(false);
       if (!res.ok) expect(res.message).toContain('current terminal broker');

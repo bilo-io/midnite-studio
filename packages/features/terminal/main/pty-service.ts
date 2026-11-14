@@ -612,6 +612,12 @@ export function connectedBrokerSockets(): string[] {
   return brokerClient.peerPaths?.() ?? [];
 }
 
+/** The pid the primary broker reported in its handshake; `null` in-process or with no live primary. */
+export function primaryBrokerPid(): number | null {
+  if (!brokerClient || brokerClient.getStatus().mode !== 'broker') return null;
+  return brokerClient.primaryPid?.() ?? null;
+}
+
 export function getBrokerStatus(): BrokerStatus {
   return brokerClient ? brokerClient.getStatus() : { mode: 'inproc', reason: 'uninitialized' };
 }

@@ -27,6 +27,7 @@ import {
   listAgents,
   listSessionIds,
   liveBrokerSessions,
+  primaryBrokerPid,
 } from '../pty-service';
 import { getWindowOwners } from '../window-manager';
 import {
@@ -116,6 +117,7 @@ export async function readBrokerInventory(rows: readonly ProcessRow[]): Promise<
       connectedPeers: connectedBrokerSockets(),
       sessionRows,
       brokerSessions: liveBrokerSessions(),
+      clientPrimaryPid: primaryBrokerPid(),
     });
   } catch {
     return EMPTY_INVENTORY;
@@ -286,6 +288,8 @@ export type KillOptions = {
   midnitePid?: number;
   /** The lost-process inventory; read fresh against the same `ps` snapshot when omitted. */
   inventory?: BrokerInventory;
+  /** The primary's handshake pid; read from the broker client when omitted. */
+  clientPrimaryPid?: number | null;
 };
 
 const PROTECTED = 'This process is protected and cannot be terminated.';
@@ -315,6 +319,23 @@ async function inventoryFor(rows: readonly ProcessRow[], options?: KillOptions):
 }
 
 /**
+ * Every pid no kill may touch as a broker: each broker the inventory marks primary, and — independent of
+ * that classifier — the pid the client's own primary reported in its handshake.
+ */
+function primaryBrokerPids(inventory: BrokerInventory, options?: KillOptions): Set<number> {
+  const pids = new Set(inventory.brokers.filter((b) => b.primary).map((b) => b.pid));
+  if (inventory.primaryPid !== null) pids.add(inventory.primaryPid);
+  let clientPid: number | null;
+  try {
+    clientPid = options && 'clientPrimaryPid' in options ? (options.clientPrimaryPid ?? null) : primaryBrokerPid();
+  } catch {
+    clientPid = null;
+  }
+  if (clientPid !== null) pids.add(clientPid);
+  return pids;
+}
+
+/**
  * End a lost terminal broker and everything it runs (Phase 148 Theme B).
  *
  * Only a broker the inventory lists and that is **not** the current primary qualifies, and only when
@@ -338,7 +359,8 @@ export async function killTree(
   if (!target) return { ok: false, message: 'Process no longer exists.' };
 
   const inventory = await inventoryFor(rows, options);
-  if (brokerPid === inventory.primaryPid) return { ok: false, message: PRIMARY_BROKER };
+  const primaries = primaryBrokerPids(inventory, options);
+  if (primaries.has(brokerPid)) return { ok: false, message: PRIMARY_BROKER };
   const broker = inventory.brokers.find((b) => b.pid === brokerPid);
   if (!broker || broker.primary) {
     return { ok: false, message: 'Only a terminal broker from this app, other than the current one, can be ended.' };
@@ -356,7 +378,7 @@ export async function killTree(
 
   const deepestFirst = [...tree].sort((a, b) => b.depth - a.depth);
   for (const { row } of deepestFirst) {
-    if (row.pid === midnitePid || row.pid === inventory.primaryPid) continue;
+    if (row.pid === midnitePid || primaries.has(row.pid)) continue;
     sendSignal(row.pid, 'SIGKILL', signalProcess);
   }
   return sendSignal(brokerPid, 'SIGKILL', signalProcess);
@@ -397,7 +419,8 @@ export async function killProcess(
 
   // 4. The current primary broker, and any session another app owns (Phase 148 Theme B)
   const inventory = await inventoryFor(rows, options);
-  if (pid === inventory.primaryPid) {
+  const primaries = primaryBrokerPids(inventory, options);
+  if (primaries.has(pid)) {
     return { ok: false, message: PRIMARY_BROKER };
   }
   if (foreignSessionTree(rows, inventory, descendantsOf).has(pid)) {
@@ -410,7 +433,7 @@ export async function killProcess(
 
   // 5. Ownership validation (Decision 1: strictly Midnite-owned processes)
   const ptyPids = options?.ptyPids ?? activePtyPids();
-  const brokerRoots = inventory.brokers.filter((b) => !b.primary).map((b) => b.pid);
+  const brokerRoots = inventory.brokers.filter((b) => !b.primary && !primaries.has(b.pid)).map((b) => b.pid);
   const ours = isOurProcess(pid, rows, ptyPids, midnitePid, brokerRoots);
   if (!ours) {
     return { ok: false, message: 'Only Midnite-spawned processes can be terminated.' };
