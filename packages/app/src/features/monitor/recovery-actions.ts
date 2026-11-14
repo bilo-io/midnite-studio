@@ -1,8 +1,8 @@
+import { previousBuildSessions } from '@midnite/studio-feature-terminal/renderer';
 import type { MonitorAction } from '@midnite/studio-frame';
 import { LuGauge, LuLifeBuoy, LuMemoryStick, LuSparkles } from 'react-icons/lu';
 
 import { requestHandoff } from '../../services/handoff';
-import { previousBuildSessions } from '@midnite/studio-feature-terminal/renderer';
 import { useTerminalStore } from '../terminal/terminal-store';
 
 /**
@@ -25,9 +25,15 @@ const noop = (): void => undefined;
 
 const openOptimizer = (): void => void requestHandoff({ app: 'cleaner', view: 'optimizer' });
 
+/**
+ * The one way to Manage resources: the flyout's action and the Full recovery dialog both call it, so
+ * Theme B's Lost filter (B.7) lands in a single place and applies to both.
+ */
+export const openManageResources = (): void => openOptimizer();
+
 const DEFAULT_SEAMS: Required<Pick<RecoverySeams, 'cleanSystem' | 'manageResources'>> = {
   cleanSystem: openOptimizer,
-  manageResources: openOptimizer,
+  manageResources: openManageResources,
 };
 
 /** The four actions in their fixed order: Clean system, Manage resources, Free RAM, Full recovery. */
@@ -37,7 +43,8 @@ export function buildRecoveryActions(seams: RecoverySeams = {}): readonly Monito
     {
       id: 'clean-system',
       label: 'Clean system',
-      description: 'Open the Optimizer to sweep system caches (nothing is removed without a confirm)',
+      description:
+        'Open the Optimizer to sweep system caches (nothing is removed without a confirm)',
       Icon: LuSparkles,
       run: cleanSystem,
     },

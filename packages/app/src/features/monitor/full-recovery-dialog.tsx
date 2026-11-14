@@ -1,13 +1,16 @@
 import { useEffect } from 'react';
 
-import { endSessionsWithConfirm, previousBuildSessions } from '@midnite/studio-feature-terminal/renderer';
+import {
+  endSessionsWithConfirm,
+  previousBuildSessions,
+} from '@midnite/studio-feature-terminal/renderer';
 
 import { useDialogs } from '../../components/dialog-host';
 import { Modal } from '../../components/modal';
-import { requestHandoff } from '../../services/handoff';
 import { useRepos } from '../../services/queries';
 import { useTerminalStore } from '../terminal/terminal-store';
 import { formatBytes } from './format-bytes';
+import { openManageResources } from './recovery-actions';
 import {
   groupByRepo,
   isAllAttached,
@@ -33,6 +36,8 @@ export function FullRecoveryHost() {
   const repos = useRepos().data;
   // Subscribed so ending a session from this dialog drops its row.
   useTerminalStore((s) => s.sessions);
+  useTerminalStore((s) => s.legacy);
+  useTerminalStore((s) => s.states);
 
   useEffect(() => {
     setDialogs(dialogs);
@@ -46,20 +51,38 @@ export function FullRecoveryHost() {
 
   const reveal = (session: RecoveredSession): void => {
     if (revealRecovered(session)) close();
-    else dialogs.notify({ title: 'Session is gone', body: `${session.title} is no longer in the session list.` });
+    else
+      dialogs.notify({
+        title: 'Session is gone',
+        body: `${session.title} is no longer in the session list.`,
+      });
   };
 
   return (
-    <Modal open onClose={close} title="Full recovery" size="md" scope="window" testId="full-recovery-dialog">
+    <Modal
+      open
+      onClose={close}
+      title="Full recovery"
+      size="md"
+      scope="window"
+      testId="full-recovery-dialog"
+    >
       <div className="flex flex-col gap-4 p-4 text-sm">
         <h2 className="text-base font-semibold">Full recovery</h2>
-        {isAllAttached(summary) && <p>Everything is attached</p>}
+        {isAllAttached(summary, stale.length) && <p>Everything is attached</p>}
         {summary.recovered.length > 0 && (
           <section aria-label="Recovered">
             <h3 className="mb-1 font-medium">Recovered ({summary.recovered.length})</h3>
             {groupByRepo(summary.recovered).map((group) => (
-              <div key={group.repoId} className="mb-2" role="group" aria-label={repoName(group.repoId)}>
-                <div className="text-xs uppercase text-muted-foreground">{repoName(group.repoId)}</div>
+              <div
+                key={group.repoId}
+                className="mb-2"
+                role="group"
+                aria-label={repoName(group.repoId)}
+              >
+                <div className="text-xs uppercase text-muted-foreground">
+                  {repoName(group.repoId)}
+                </div>
                 <ul>
                   {group.sessions.map((session) => (
                     <li key={session.sessionId} className="flex items-center gap-2 py-0.5">
@@ -81,7 +104,16 @@ export function FullRecoveryHost() {
             <h3 className="mb-1 font-medium">Still on a previous build ({stale.length})</h3>
             <div className="flex items-center gap-2">
               <span className="flex-1">These keep their old broker alive until they end.</span>
-              <button type="button" className={BUTTON} onClick={() => endSessionsWithConfirm(dialogs, previousBuildSessions())}>
+              <button
+                type="button"
+                className={BUTTON}
+                onClick={() => {
+                  // The confirm mounts inside the terminal panel at the same z-index as this modal, which
+                  // would paint over it; close the summary first so the confirm is the only dialog.
+                  close();
+                  endSessionsWithConfirm(dialogs, stale);
+                }}
+              >
                 End…
               </button>
             </div>
@@ -99,7 +131,7 @@ export function FullRecoveryHost() {
                 className={BUTTON}
                 onClick={() => {
                   close();
-                  void requestHandoff({ app: 'cleaner', view: 'optimizer' });
+                  openManageResources();
                 }}
               >
                 Manage resources
@@ -107,7 +139,9 @@ export function FullRecoveryHost() {
             </div>
           </section>
         )}
-        <footer className="text-xs text-muted-foreground">{plural(summary.live, 'session')} running</footer>
+        <footer className="text-xs text-muted-foreground">
+          {plural(summary.live, 'session')} running
+        </footer>
       </div>
     </Modal>
   );

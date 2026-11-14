@@ -1,16 +1,16 @@
+import { recoverDetachedSessions } from '@midnite/studio-feature-terminal/renderer';
 import type { FrameDialogs } from '@midnite/studio-frame';
-import type { z } from 'zod';
 import type { DetachedSessionSchema } from '@midnite/studio-shared';
 import { create } from 'zustand';
+import type { z } from 'zod';
 
 import { bridge } from '../../services/bridge';
 import { useUiStore } from '../../store/ui-store';
 import { revealSession } from '../terminal/reveal-session';
-import { recoverDetachedSessions } from '@midnite/studio-feature-terminal/renderer';
 
 export type RecoveredSession = z.infer<typeof DetachedSessionSchema>;
 
-/** A broker's process tree the inventory (Phase 148 Theme B) classed `unreachable`. */
+/** A broker the inventory (Phase 148 Theme B) classed `unreachable` (the broker itself, not its children). */
 export type UnreachableProcess = { pid: number; name: string; rssBytes: number };
 
 export type RecoverySummary = {
@@ -32,8 +32,13 @@ export async function readUnreachable(): Promise<UnreachableProcess[]> {
   try {
     const result = await bridge()?.optimizer.processes();
     if (!result?.ok) return [];
+    // B stamps `lost` on a broker and every descendant; only the broker root (`brokerPid === pid`) is one
+    // thing this build cannot attach to, so only roots are counted.
     return result.value.processes
-      .filter((row) => (row as { lost?: string | null }).lost === 'unreachable')
+      .filter((row) => {
+        const r = row as { lost?: string | null; brokerPid?: number | null };
+        return r.lost === 'unreachable' && r.brokerPid === row.pid;
+      })
       .map((row) => ({ pid: row.pid, name: row.name, rssBytes: row.rssBytes ?? 0 }));
   } catch {
     return [];
@@ -41,7 +46,9 @@ export async function readUnreachable(): Promise<UnreachableProcess[]> {
 }
 
 /** Group recovered sessions by `repoId`, keeping the order each repo first appears in. */
-export function groupByRepo(sessions: readonly RecoveredSession[]): { repoId: string; sessions: RecoveredSession[] }[] {
+export function groupByRepo(
+  sessions: readonly RecoveredSession[],
+): { repoId: string; sessions: RecoveredSession[] }[] {
   const groups = new Map<string, RecoveredSession[]>();
   for (const session of sessions) {
     const bucket = groups.get(session.repoId);
@@ -51,8 +58,12 @@ export function groupByRepo(sessions: readonly RecoveredSession[]): { repoId: st
   return [...groups].map(([repoId, list]) => ({ repoId, sessions: list }));
 }
 
-export const isAllAttached = (s: RecoverySummary): boolean =>
-  s.recovered.length === 0 && s.previousBuild === 0 && s.unreachable.length === 0;
+/**
+ * `staleCount` is the renderer's live `previousBuildSessions().length`, the same list the dialog's section
+ * renders, so "Everything is attached" and that section can never disagree.
+ */
+export const isAllAttached = (s: RecoverySummary, staleCount: number): boolean =>
+  s.recovered.length === 0 && staleCount === 0 && s.unreachable.length === 0;
 
 type FullRecoveryState = {
   summary: RecoverySummary | null;
@@ -76,7 +87,17 @@ export const useFullRecoveryStore = create<FullRecoveryState>((set) => ({
  * session list, then one summary dialog. The palette's `terminal.recoverDetached` and the monitor flyout's
  * Full recovery button both run this. An error envelope shows a notify and no dialog.
  */
-export async function runFullRecovery(dialogs?: Dialogs): Promise<RecoverySummary | null> {
+let inFlight: Promise<RecoverySummary | null> | null = null;
+
+export function runFullRecovery(dialogs?: Dialogs): Promise<RecoverySummary | null> {
+  // A double click joins the run in progress instead of starting a second one.
+  inFlight ??= runOnce(dialogs).finally(() => {
+    inFlight = null;
+  });
+  return inFlight;
+}
+
+async function runOnce(dialogs?: Dialogs): Promise<RecoverySummary | null> {
   // No toast of its own: the summary dialog is the report.
   const result = await recoverDetachedSessions(dialogs, { silent: true });
   if (!result || !result.ok) return null;
@@ -93,7 +114,13 @@ export async function runFullRecovery(dialogs?: Dialogs): Promise<RecoverySummar
 /** The flyout's seam: runs the flow with the host's dialogs, a no-op before the host has mounted. */
 export function runFullRecoveryFromWidget(): void {
   const dialogs = useFullRecoveryStore.getState().dialogs;
-  if (dialogs) void runFullRecovery(dialogs);
+  if (!dialogs) return;
+  runFullRecovery(dialogs).catch((error: unknown) =>
+    dialogs.notify({
+      title: 'Could not recover sessions',
+      body: error instanceof Error ? error.message : String(error),
+    }),
+  );
 }
 
 /** Reveal = focus the session's row and select its repo. Resolves false when the row is gone. */
