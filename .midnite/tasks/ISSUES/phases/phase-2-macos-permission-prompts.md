@@ -36,7 +36,7 @@ before anything is served. The boot-time disk-redaction refresh and canary plant
 access, or for the window's first show + focus + idle — and never run when no vault file exists. A launch with nothing
 secret open makes no keychain call. Lock and unlock before first access queue their audit line until verification has run, so a forged audit file cannot be re-baselined. A profile with no vault files gets no canaries until its first vault op (a vault-less user has no tripwire until then).
 
-**Theme B — Settings ▸ Permissions.** ◻ (M–L) A frame-owned settings page lists the macOS grants Studio uses — Screen
+**Theme B — Settings ▸ Permissions.** 🔍 In review, [#1266](https://github.com/bilo-io/midnite-studio/pull/1266) (M–L) A frame-owned settings page lists the macOS grants Studio uses — Screen
 Recording, Microphone, Camera, Accessibility, Full Disk Access (read live, re-read on focus), Automation and Files &
 Folders (never probed; asked on first use) — each with a deep link into System Settings and, for a toggle that shows on
 but reads off, a **Reset** (`tccutil reset <Service> io.bilo.midnite-studio`) plus **Relaunch**. It says plainly that
@@ -69,10 +69,10 @@ remediation.
 - [x] Tests: `vault-service.test.ts` (zero cipher calls until first read; tamper on first read → locked), `vault-files-present.test.ts`, `keychain-gate.test.ts`.
 
 ### B — Settings ▸ Permissions
-- [ ] `shared`: `permissionsStatus` / `permissionsOpenPane` / `permissionsReset` channels, `MacPermissionId` / `MacPermissionState` / `PermissionRow` schemas, bridge type.
-- [ ] `desktop/src/main/permissions/probe.ts` (pure, injected port) + `ipc/permissions-handlers.ts`, registered beside `registerPrivacyHandlers()`; preload.
-- [ ] `feature-registrations.ts:85` + `ui-store.ts:284` register `permissions`; `settings-pages/permissions-page.tsx` with focus/visibility re-check, deep links, Reset + Relaunch, FDA recommendation.
-- [ ] Tests: `probe.test.ts`, `permissions-handlers.test.ts`, `permissions-page.test.tsx`; `mock-bridge.ts` entry.
+- [x] `shared`: `permissionsStatus` / `permissionsOpenPane` / `permissionsReset` channels, `MacPermissionId` / `MacPermissionState` / `PermissionRow` schemas, bridge type.
+- [x] `desktop/src/main/permissions/probe.ts` (pure, injected port) + `ipc/permissions-handlers.ts`, registered beside `registerPrivacyHandlers()`; preload.
+- [x] `feature-registrations.ts:85` + `ui-store.ts:284` register `permissions`; `settings-pages/permissions-page.tsx` with focus/visibility re-check, deep links, Reset + Relaunch, FDA recommendation.
+- [x] Tests (in review, #1266; reset logic tested in `reset.test.ts`): `probe.test.ts`, `permissions-handlers.test.ts`, `permissions-page.test.tsx`; `mock-bridge.ts` entry.
 
 ### C — Nags point at the page; legacy terminals say why
 - [ ] `terminal-session-list.tsx:319` banner copy + Permissions link; `terminal-panel.tsx:155-157` makes it visible when `hasLegacy`.
