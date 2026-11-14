@@ -12,12 +12,19 @@ vi.mock('electron', () => ({
   },
 }));
 
-const { mockGetOrLocate } = vi.hoisted(() => ({
+const { mockGetOrLocate, mockSwitchView } = vi.hoisted(() => ({
   mockGetOrLocate: vi.fn(),
+  mockSwitchView: vi.fn(),
 }));
 
 vi.mock('../terminal-service', () => ({
   getOrLocateConversationId: (...args: unknown[]) => mockGetOrLocate(...args),
+}));
+
+vi.mock('../unified-session-host', () => ({
+  getUnifiedSessionCoordinator: () => ({
+    switchView: (...args: unknown[]) => mockSwitchView(...args),
+  }),
 }));
 
 import {
@@ -30,6 +37,7 @@ describe('sessions-handlers', () => {
   beforeEach(() => {
     invokeHandlers.clear();
     mockGetOrLocate.mockReset();
+    mockSwitchView.mockReset();
     resetSessionsHandlersForTest();
     registerSessionsHandlers();
   });
@@ -93,6 +101,35 @@ describe('sessions-handlers', () => {
       expect(await transcriptHandler!({}, { sessionId: 's1' })).toEqual({
         bytes: new Uint8Array([1, 2, 3]),
       });
+    });
+  });
+
+  describe('sessionSwitchView', () => {
+    it('routes validated switchView requests through UnifiedSessionCoordinator', async () => {
+      mockSwitchView.mockResolvedValueOnce({
+        ok: true,
+        value: { targetView: 'terminal', chatId: 'c1', terminalId: 't1', syncTier: 'bidirectional' },
+      });
+      const handler = invokeHandlers.get(CHANNELS.sessionSwitchView);
+      expect(handler).toBeDefined();
+
+      const result = await handler!({}, { sessionId: 'c1', targetView: 'terminal' });
+      expect(result).toEqual({
+        ok: true,
+        value: { targetView: 'terminal', chatId: 'c1', terminalId: 't1', syncTier: 'bidirectional' },
+      });
+      expect(mockSwitchView).toHaveBeenCalledWith({
+        sessionId: 'c1',
+        targetView: 'terminal',
+        handoffMode: 'auto',
+      });
+    });
+
+    it('returns failure envelope on invalid payload', async () => {
+      const handler = invokeHandlers.get(CHANNELS.sessionSwitchView);
+      const result = await handler!({}, { sessionId: '', targetView: 'invalid' });
+      expect(result).toMatchObject({ ok: false, kind: 'error' });
+      expect(mockSwitchView).not.toHaveBeenCalled();
     });
   });
 });

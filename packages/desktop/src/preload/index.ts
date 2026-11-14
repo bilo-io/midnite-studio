@@ -450,6 +450,7 @@ const bridge: Pick<
     transcript: (req) => call(CHANNELS.sessionsTranscript, req),
     purge: (req) => call(CHANNELS.sessionsPurge, req),
     conversationId: (req) => call(CHANNELS.sessionsConversationId, req),
+    switchView: (req) => call(CHANNELS.sessionSwitchView, req),
   },
   notes: {
     list: (req) => call(CHANNELS.notesList, req),
