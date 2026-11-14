@@ -55,6 +55,7 @@ const LEGACY_SETTINGS_PAGE_IDS = [
   'appearance',
   'activity',
   'privacy',
+  'permissions',
   'graph',
   'diff',
   'sidebar',

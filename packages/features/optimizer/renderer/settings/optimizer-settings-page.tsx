@@ -7,6 +7,7 @@ import { Field, SettingsAccordion, SettingsSwitchRow, useFrameChrome } from '@mi
 import { useOptimizerStore } from '../optimizer-store';
 import { useOptimizerSettings } from '../host';
 import { ECOSYSTEM_LABELS, ECOSYSTEM_ORDER } from '../category-palette';
+import { requestSystemCacheConsent } from '../system-cache-consent';
 import { loadSystemCatalogue } from '../use-optimizer';
 
 /** Every ecosystem except `'git'` — stale worktrees are not an opt-out. */
@@ -115,21 +116,11 @@ function SystemCachesSection() {
       setAllowSystemCacheClean(true);
       return;
     }
-    dialogs.confirm({
-      title: 'Allow Midnite to clean caches outside your repos?',
-      body: 'Midnite can now scan and clean caches outside any repo it manages, in your home directory. Nothing outside the named list below is ever touched, deletes still go to the Trash first, and this never reaches Photos, Documents, Desktop, or any repo’s actual source.',
-      confirmLabel: 'I understand — allow it',
-      danger: true,
-      // Explicitly null: nothing has been scanned yet, and an absent
-      // blastRadius renders "Checking what this affects…", which would be a
-      // lie here. `null` skips straight to body + warnings.
-      blastRadius: null,
-      warnings: labels,
-      onConfirm: () => {
-        setAllowSystemCacheClean(true);
-        setSystemCacheConsentGiven(true);
-      },
-    });
+    requestSystemCacheConsent(
+      dialogs,
+      { setAllowSystemCacheClean, setSystemCacheConsentGiven },
+      labels,
+    );
   };
 
   return (

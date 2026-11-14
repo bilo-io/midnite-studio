@@ -510,6 +510,10 @@ export const CHANNELS = {
   optimizerSystemClean: 'mstudio:optimizer:system-clean',
   /** Runs one `DEFAULT_RECLAIM_COMMANDS` entry through `runProcess`, by `entryId` only. */
   optimizerSystemReclaim: 'mstudio:optimizer:system-reclaim',
+  /** What a broker-dir sweep would delete (stale pid/token files, old logs) with sizes — deletes nothing. Phase 148 E. */
+  optimizerBrokerSweepPlan: 'mstudio:optimizer:broker-sweep-plan',
+  /** Unlinks the named files that the rules still call stale; never a path, only bare names in the broker dir. */
+  optimizerBrokerSweep: 'mstudio:optimizer:broker-sweep',
 
   // --- stash -----------------------------------------------------------------
   /** Every stash entry for one checkout, newest first — same shape `for-each-ref` gets. */
@@ -1111,6 +1115,11 @@ export const CHANNELS = {
   mediaLibraryLanChooseFfmpeg: 'mstudio:media:library-lan-choose-ffmpeg',
   // Capture (Phase 113 Theme K) — stills, recordings, the shortcut, clipboard history and Send to (`capture.ts`).
   // Every still and stream is for a source the user picked; bytes are served on `mstudio-file://capture/…`.
+  // Settings ▸ Permissions: live macOS TCC reads (never prompting), deep links, and a gated `tccutil reset`.
+  permissionsStatus: 'mstudio:permissions:status',
+  permissionsOpenPane: 'mstudio:permissions:open-pane',
+  permissionsReset: 'mstudio:permissions:reset',
+  permissionsRelaunch: 'mstudio:permissions:relaunch',
   captureStatus: 'mstudio:capture:status',
   captureRequestPermission: 'mstudio:capture:request-permission',
   captureOpenPermissionSettings: 'mstudio:capture:open-permission-settings',

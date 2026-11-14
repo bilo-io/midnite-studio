@@ -25,6 +25,12 @@ describe('buildRecoveryActions', () => {
     expect(fullRecovery).toHaveBeenCalledTimes(1);
   });
 
+  it('runs the cleanSystem seam for Clean system', () => {
+    const cleanSystem = vi.fn();
+    buildRecoveryActions({ cleanSystem }).find((a) => a.id === 'clean-system')!.run();
+    expect(cleanSystem).toHaveBeenCalledTimes(1);
+  });
+
   it('opens the Optimizer on Memory ▸ Lost for Manage resources', () => {
     useOptimizerStore.setState({ tab: 'smartScan', memoryFilter: 'all' });
     const spy = vi.spyOn(handoff, 'requestHandoff').mockResolvedValue({ ok: true, via: 'in-process' } as never);
@@ -61,6 +67,7 @@ describe('Studio monitor cluster recovery wiring', () => {
     useTerminalStore.setState({
       sessions: [{ id: 's1' }] as never,
       legacy: { s1: true },
+      states: { s1: 'open' },
     });
     mount();
     expect(screen.getByTestId('monitor-attention').getAttribute('aria-label')).toBe('1 session from a previous build');

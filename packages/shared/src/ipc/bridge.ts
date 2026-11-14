@@ -989,6 +989,16 @@ export type MidniteStudioBridge = {
     openFileVault: () => Promise<void>;
   };
 
+  /** Settings ▸ Permissions: what macOS reports for this build, read without prompting. */
+  permissions: {
+    status: () => Promise<z.infer<typeof S.PermissionsStatusResponse>>;
+    openPane: (req: In<typeof S.PermissionsPaneRequest>) => Promise<GitOpResult>;
+    /** `tccutil reset` for this app's bundle id only; the renderer confirms first. */
+    reset: (req: In<typeof S.PermissionsResetRequest>) => Promise<GitOpResult>;
+    /** Quit and reopen, so the next use re-asks macOS with the current signature. */
+    relaunch: () => Promise<void>;
+  };
+
   /** A switched-off feature's on-disk data, for Settings ▸ Features' delete (Phase 135 Theme F). */
   features: {
     describeData: (req: In<typeof S.FeatureDataRequest>) => Promise<z.infer<typeof S.FeatureDataDescribeResponse>>;
@@ -2264,6 +2274,12 @@ export type MidniteStudioBridge = {
     systemReclaim: (
       req: In<typeof S.OptimizerSystemReclaimRequest>,
     ) => Promise<z.infer<typeof S.OptimizerSystemReclaimResponse>>;
+    /** Phase 148 E: what a broker-dir sweep would delete, with sizes. Deletes nothing. */
+    brokerSweepPlan: () => Promise<z.infer<typeof S.OptimizerBrokerSweepPlanResponse>>;
+    /** Phase 148 E: unlink the named leftovers that are still stale. */
+    brokerSweep: (
+      req: In<typeof S.OptimizerBrokerSweepRequest>,
+    ) => Promise<z.infer<typeof S.OptimizerBrokerSweepResponse>>;
   };
 
   protocol: {

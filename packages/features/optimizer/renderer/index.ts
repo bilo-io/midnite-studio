@@ -29,6 +29,8 @@ export {
 } from './host';
 export { openOptimizerAt, type MemoryFilter, type OptimizerTab } from './optimizer-store';
 
+export { runCleanSystem, type CleanSystemDeps } from './clean-system';
+
 type ViewIds = OptimizerManifest['views'][number]['id'];
 type SettingsPageIds = OptimizerManifest['settingsPages'][number];
 

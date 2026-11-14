@@ -36,7 +36,7 @@ before anything is served. The boot-time disk-redaction refresh and canary plant
 access, or for the window's first show + focus + idle — and never run when no vault file exists. A launch with nothing
 secret open makes no keychain call. Lock and unlock before first access queue their audit line until verification has run, so a forged audit file cannot be re-baselined. A profile with no vault files gets no canaries until its first vault op (a vault-less user has no tripwire until then).
 
-**Theme B — Settings ▸ Permissions.** ◻ (M–L) A frame-owned settings page lists the macOS grants Studio uses — Screen
+**Theme B — Settings ▸ Permissions.** 🔍 In review, [#1266](https://github.com/bilo-io/midnite-studio/pull/1266) (M–L) A frame-owned settings page lists the macOS grants Studio uses — Screen
 Recording, Microphone, Camera, Accessibility, Full Disk Access (read live, re-read on focus), Automation and Files &
 Folders (never probed; asked on first use) — each with a deep link into System Settings and, for a toggle that shows on
 but reads off, a **Reset** (`tccutil reset <Service> io.bilo.midnite-studio`) plus **Relaunch**. It says plainly that
@@ -47,11 +47,12 @@ messages stop saying "reopen the app" and link to Settings ▸ Permissions. The 
 that terminals from a previous build don't get this build's permissions, and it is visible without opening the session
 list.
 
-**Theme D — No unprompted protected-folder access; folder usage strings.** ◻ (M) An audit of every boot- and
+**Theme D — No unprompted protected-folder access; folder usage strings.** 🔍 In review (#1262). (M) An audit of every boot- and
 timer-driven path that can reach `~/Desktop|Documents|Downloads|Pictures|Music|Movies`; `isProtectedPath` in `shared`;
 Vanguard's full scan skips Photos/Music/Mail/Messages/Safari libraries without Full Disk Access; a `tcc-guard` script
 fails CI on a new unmarked protected-folder access. Info.plist gains the seven folder/library usage strings, so the
-prompts that remain say why.
+prompts that remain say why. The audit found no boot or timer path entering a protected folder; the full scan was the one
+offender (`tcc-guard` is the regression net). Prompts from commands run in a terminal stay attributed to Studio.
 
 **Theme E — A stable code identity.** ◻ (M) *(a) Developer ID:* CI signs and notarises with the cert behind a `release`
 Environment (App Store Connect API key), the ad-hoc re-sign is skipped when an identity signs, local builds pick up the
@@ -69,10 +70,10 @@ remediation.
 - [x] Tests: `vault-service.test.ts` (zero cipher calls until first read; tamper on first read → locked), `vault-files-present.test.ts`, `keychain-gate.test.ts`.
 
 ### B — Settings ▸ Permissions
-- [ ] `shared`: `permissionsStatus` / `permissionsOpenPane` / `permissionsReset` channels, `MacPermissionId` / `MacPermissionState` / `PermissionRow` schemas, bridge type.
-- [ ] `desktop/src/main/permissions/probe.ts` (pure, injected port) + `ipc/permissions-handlers.ts`, registered beside `registerPrivacyHandlers()`; preload.
-- [ ] `feature-registrations.ts:85` + `ui-store.ts:284` register `permissions`; `settings-pages/permissions-page.tsx` with focus/visibility re-check, deep links, Reset + Relaunch, FDA recommendation.
-- [ ] Tests: `probe.test.ts`, `permissions-handlers.test.ts`, `permissions-page.test.tsx`; `mock-bridge.ts` entry.
+- [x] `shared`: `permissionsStatus` / `permissionsOpenPane` / `permissionsReset` channels, `MacPermissionId` / `MacPermissionState` / `PermissionRow` schemas, bridge type.
+- [x] `desktop/src/main/permissions/probe.ts` (pure, injected port) + `ipc/permissions-handlers.ts`, registered beside `registerPrivacyHandlers()`; preload.
+- [x] `feature-registrations.ts:85` + `ui-store.ts:284` register `permissions`; `settings-pages/permissions-page.tsx` with focus/visibility re-check, deep links, Reset + Relaunch, FDA recommendation.
+- [x] Tests (in review, #1266; reset logic tested in `reset.test.ts`): `probe.test.ts`, `permissions-handlers.test.ts`, `permissions-page.test.tsx`; `mock-bridge.ts` entry.
 
 ### C — Nags point at the page; legacy terminals say why
 - [ ] `terminal-session-list.tsx:319` banner copy + Permissions link; `terminal-panel.tsx:155-157` makes it visible when `hasLegacy`.
@@ -80,12 +81,12 @@ remediation.
 - [ ] Tests: banner renders without a toggle; nag copy names Settings ▸ Permissions; `broker-client.test.ts` still proves `retireLegacy`.
 
 ### D — No unprompted protected-folder access; usage strings
-- [ ] Audit table (boot / timer / user-started; can it reach a protected folder?) in the PR body for every suspect in the plan.
-- [ ] `shared/src/macos-protected-paths.ts` (`PROTECTED_HOME_FOLDERS`, `PROTECTED_LIBRARY_PATHS`, `isProtectedPath`).
-- [ ] `vanguard/main/malware/scanner.ts:228` full scan skips protected libraries without FDA; any boot/timer offender guarded or made lazy.
-- [ ] `scripts/tcc-guard.mjs` + test, wired into a node gate; `// tcc-ok:` on the two legitimate sites.
-- [ ] `packages/desktop/electron-builder.yml:181` and `apps/launcher/electron-builder.yml` `extendInfo`: seven usage strings; stubs keep them.
-- [ ] Tests: `macos-protected-paths.test.ts`, `scanner.test.ts`, `tcc-guard.test.mjs`.
+- [x] Audit table (boot / timer / user-started; can it reach a protected folder?) in the PR body for every suspect in the plan.
+- [x] `shared/src/macos-protected-paths.ts` (`PROTECTED_HOME_FOLDERS`, `PROTECTED_LIBRARY_PATHS`, `isProtectedPath`).
+- [x] `vanguard/main/malware/scanner.ts:228` full scan skips protected libraries without FDA; any boot/timer offender guarded or made lazy.
+- [x] `scripts/tcc-guard.mjs` + test, wired into a node gate; `// tcc-ok:` on the two legitimate sites.
+- [x] `packages/desktop/electron-builder.yml:181` and `apps/launcher/electron-builder.yml` `extendInfo`: seven usage strings; stubs keep them.
+- [x] Tests: `macos-protected-paths.test.ts`, `scanner.test.ts`, `tcc-guard.test.mjs`.
 
 ### E — A stable code identity *(keep the chosen variant)*
 - [ ] *(a)* `release.yml` `environment: release`, API-key notarisation env; `notarize.cjs` (both) prefers the API key.

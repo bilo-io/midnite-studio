@@ -2,6 +2,18 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-15 — Phase 148 Theme B — Lost processes
+
+[#1268](https://github.com/bilo-io/midnite-studio/pull/1268): the Optimizer's Memory tab gains a Lost filter — previous-build brokers, unreachable brokers and rowless ptys, classified by `broker-inventory.ts` from argv (`broker.js --socket <userData>/broker/…`) and the client's own handshake pid — with reason badges, a tree confirm (pid · RSS · argv, total RSS, session count) and "End all lost"; Manage resources now lands on Memory ▸ Lost. `killTree` sends SIGTERM to the broker and, on a forced second confirm, SIGKILL deepest-first. The primary broker is refused four ways (handshake pid, any broker classified primary, inventory fails closed, UI marks it Protected); a retire counts only while its `-retired-<pid>` socket exists and answers. Surviving-session force-kill and other-app guard in unreachable brokers are in `outstanding.md`.
+
+## 2026-11-15 — Phase 148 Theme E — Clean system
+
+[#1269](https://github.com/bilo-io/midnite-studio/pull/1269): the flyout's Clean system (and the chord-free `system.cleanSystem` palette command) scans the Optimizer's system caches and plans a broker-dir sweep together, behind one confirm listing each cache, the broker leftovers (dead brokers' `.sock.pid`/`.sock.token`, logs of versions with no live broker) and the total. Caches go to the Trash; leftovers are unlinked only when main's fresh re-plan still lists them (bare names, `lstat`, live pids, sockets on disk and this build's own files kept). Consent-first when system-cache consent is missing; Optimizer off opens the Optimizer. No process is ended.
+
+## 2026-11-15 — Phase 148 Theme D — Full recovery
+
+[#1264](https://github.com/bilo-io/midnite-studio/pull/1264): the performance flyout's Full recovery and the `terminal.recoverDetached` palette command run one flow: #1259's recovery (silent), a re-read of the session list, then one summary dialog with recovered sessions grouped by repo (Reveal), sessions still on a previous build (End… behind the existing confirm, opened after the summary closes so it is never covered), and unreachable broker roots (Manage resources, lit once Theme B lands). The amber badge counts `previousBuildSessions()`. Deferred: D.4's per-app owner count and the packaged-app acceptance run. Merged on targeted local checks while GitHub CI was billing-locked.
+
 ## 2026-11-15 — Phase 148 Theme A — Performance widget recovery actions
 
 [#1263](https://github.com/bilo-io/midnite-studio/pull/1263): the status-bar performance monitor flyout gains a "Recovery actions" grid (Clean system, Manage resources, Free RAM, Full recovery) and an amber "N sessions from a previous build" badge counted against live sessions. Clean system and Manage resources hand off to the Optimizer; Free RAM and Full recovery ship disabled behind the `RecoverySeams` slot until Themes C and D wire them. Suite apps pass no actions. Merged on targeted local checks while GitHub CI was billing-locked.

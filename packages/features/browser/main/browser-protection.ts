@@ -21,6 +21,7 @@ export const DOWNLOADS_LEDGER_FILE = 'downloads.ndjson';
 export const TRACKER_EXCEPTIONS_FILE = 'browser-tracker-exceptions.json';
 
 export function defaultQuarantineFolder(): string {
+  // tcc-ok: a path string only; the folder is created when the user, having opted in, downloads a file
   return join(homedir(), 'Downloads', 'Midnite Quarantine');
 }
 

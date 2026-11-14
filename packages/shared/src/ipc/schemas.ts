@@ -2427,6 +2427,49 @@ export const PrivacyHistoryClearResponse = z.object({
 /** `fdesetup status`, read without admin: `unknown` when the probe could not run. */
 export const PrivacyFileVaultResponse = z.object({ status: z.enum(['on', 'off', 'unknown']) });
 
+// --- Settings ▸ Permissions: live macOS grants (Phase 2 Theme B) -------------
+
+/** The grants the page lists. `automation`, `files` and `notifications` have no read that never prompts. */
+export const MacPermissionIdSchema = z.enum([
+  'screen',
+  'microphone',
+  'camera',
+  'accessibility',
+  'fullDisk',
+  'automation',
+  'files',
+  'notifications',
+]);
+export type MacPermissionId = z.infer<typeof MacPermissionIdSchema>;
+/** `unchecked`: macOS offers no read that does not itself raise the prompt, so none is attempted. */
+export const MacPermissionStateSchema = z.enum([
+  'granted',
+  'denied',
+  'not-determined',
+  'restricted',
+  'unknown',
+  'unchecked',
+]);
+export type MacPermissionState = z.infer<typeof MacPermissionStateSchema>;
+export const PermissionRow = z.object({
+  id: MacPermissionIdSchema,
+  state: MacPermissionStateSchema,
+  checkedAt: z.number().int().nonnegative(),
+  /** The System Settings pane's `x-apple.systempreferences:` URL. */
+  paneUrl: z.string(),
+  /** Whether `tccutil reset` has a service for this row. */
+  resettable: z.boolean(),
+});
+export const PermissionsStatusResponse = z.object({
+  /** False off macOS: every row is `unknown` and the page says so. */
+  supported: z.boolean(),
+  /** The bundle id a reset targets; shown in the confirm so the blast radius is explicit. */
+  bundleId: z.string(),
+  rows: z.array(PermissionRow),
+});
+export const PermissionsPaneRequest = z.object({ id: MacPermissionIdSchema });
+export const PermissionsResetRequest = z.object({ id: MacPermissionIdSchema });
+
 // --- feature toggles: a switched-off feature's data (Phase 135 Theme F) -------
 
 export const FeatureDataRequest = z.object({
@@ -3424,6 +3467,30 @@ export const OptimizerSystemReclaimResponse = OptimizerResultOf(
     stdout: z.string(),
     stderr: z.string(),
     exitCode: z.number().int().nullable(),
+  }),
+);
+
+/** Phase 148 Theme E: the broker dir's leftovers. Bare file names, never paths. */
+export const BrokerSweepEntrySchema = z.object({
+  name: z.string().min(1),
+  kind: z.enum(['pid', 'token', 'log']),
+  bytes: z.number().int().nonnegative(),
+});
+export const OptimizerBrokerSweepPlanResponse = OptimizerResultOf(
+  z.object({
+    entries: z.array(BrokerSweepEntrySchema),
+    totalBytes: z.number().int().nonnegative(),
+  }),
+);
+export const OptimizerBrokerSweepRequest = z.object({
+  /** Names the plan returned; main re-checks each against the rules and refuses any that no longer match. */
+  names: z.array(z.string().min(1).max(256)).min(1).max(5000),
+});
+export const OptimizerBrokerSweepResponse = OptimizerResultOf(
+  z.object({
+    removed: z.number().int().nonnegative(),
+    freedBytes: z.number().int().nonnegative(),
+    skipped: z.array(z.object({ name: z.string(), reason: z.string() })),
   }),
 );
 

@@ -183,6 +183,7 @@ const bridge: Pick<
   | 'vanguard'
   | 'toolApproval'
   | 'privacy'
+  | 'permissions'
   | 'features'
 > = {
   /*
@@ -512,6 +513,12 @@ const bridge: Pick<
     activate: (req) => ipcRenderer.send(CHANNELS.webAppsActivate, req),
     signIns: (req) => call(CHANNELS.webAppsSignIns, req),
     signOut: (req) => call(CHANNELS.webAppsSignOut, req),
+  },
+  permissions: {
+    status: () => call(CHANNELS.permissionsStatus),
+    openPane: (req) => call(CHANNELS.permissionsOpenPane, req),
+    reset: (req) => call(CHANNELS.permissionsReset, req),
+    relaunch: () => call(CHANNELS.permissionsRelaunch),
   },
   privacy: {
     historyStats: () => call(CHANNELS.privacyHistoryStats),
@@ -1161,6 +1168,8 @@ const bridge: Pick<
       subscribe(EVENT_CHANNELS.optimizerSystemScanProgress, handler),
     systemClean: (req) => call(CHANNELS.optimizerSystemClean, req),
     systemReclaim: (req) => call(CHANNELS.optimizerSystemReclaim, req),
+    brokerSweepPlan: () => call(CHANNELS.optimizerBrokerSweepPlan),
+    brokerSweep: (req) => call(CHANNELS.optimizerBrokerSweep, req),
   },
   protocol: {
     onDeepLink: (handler) => subscribe(EVENT_CHANNELS.deepLink, handler),
