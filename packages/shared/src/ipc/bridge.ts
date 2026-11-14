@@ -998,6 +998,10 @@ export type MidniteStudioBridge = {
     conversationId: (
       req: In<typeof S.SessionsConversationIdRequest>,
     ) => Promise<z.infer<typeof S.SessionsConversationIdResponse>>;
+    /** Switch a unified agent session between Chat and Terminal views (Phase 146). */
+    switchView?: (
+      req: In<typeof S.SessionSwitchViewRequest>,
+    ) => Promise<z.infer<typeof S.SessionSwitchViewResponse>>;
   };
 
   /**

@@ -9,6 +9,7 @@
  */
 import { z } from 'zod';
 
+import { UnifiedSessionViewModeSchema } from './chats';
 import { SuiteAppIdSchema, type SuiteAppId } from './suite-apps';
 
 /**
@@ -730,6 +731,10 @@ export const TerminalSessionSchema = z
      * migrates; read it through {@link sessionAppId}.
      */
     appId: SuiteAppIdSchema.optional(),
+    /** Chat id linked to this terminal session for unified session view switching (Phase 146). */
+    linkedChatId: z.string().min(1).optional(),
+    /** Preferred view mode when opening this unified session (Phase 146). */
+    preferredView: UnifiedSessionViewModeSchema.optional(),
   })
   .superRefine(agentIdMatchesKind);
 export type TerminalSession = z.infer<typeof TerminalSessionSchema>;

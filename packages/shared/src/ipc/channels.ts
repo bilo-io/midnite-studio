@@ -615,6 +615,10 @@ export const CHANNELS = {
    */
   sessionsConversationId: 'mstudio:sessions:conversation-id',
 
+  // --- unified session view (Phase 146) ------------------------------------
+  /** Switch a unified agent session between Chat and Terminal views. */
+  sessionSwitchView: 'mstudio:session:switch-view',
+
   // --- notes (Phase 86 Theme F) --------------------------------------------
   /** Every saved note for a repository (or all repositories when omitted). */
   notesList: 'mstudio:notes:list',
