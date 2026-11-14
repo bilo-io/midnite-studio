@@ -1,6 +1,10 @@
 # Phase 144 — Level lighting, environment and structure
 
+**Refined: x1** · 2026-11-14 · file map, contracts, MCP, testing, UI/UX
+
 Planned 2026-11-14 by an unattended agent · grounded against the tree as of `9e395a8df`.
+
+**Model:** every theme is a spec'd build for sonnet; no theme needs `Model: opus`.
 
 The kit already knows how to light a 3D world — `kit/core/sky.js` (`SKY_PRESETS` day/dawn/dusk/night/overcast,
 `skyAtTime`, `sunDirection`), `kit/three/environment.js` (`createEnvironment`: sky dome, hemisphere + sun, shadows,
@@ -296,7 +300,7 @@ hysteresis, build, dispose })`), `kit/three/level.js` (builds sections lazily wh
 - [ ] Targeted checks green: `tsc --noEmit` (shared, media-game, desktop); eslint on changed files; vitest on the
   touched suites incl. the sky agreement and kit tests; the pin test; `scripts/skill-copies.test.mjs`; `node
   scripts/tracker-check.mjs`.
-- [ ] **Gate — the built app, throwaway `--user-data-dir`**: an open-world game — set dusk at 18:30 with fog in the
+- [ ] **Open, for a human:** gate on the built app, throwaway `--user-data-dir`**: an open-world game — set dusk at 18:30 with fog in the
   panel and see the 3D view change; play (Phase 140) and see the same sky; place three lights and tune a range by
   handle; shadows on; a two-floor interior with PageUp / PageDown; split the map into four sections with a 60 m
   stream radius and watch sections load in the game's debug draw. Shots under `/tmp/midnite-shots-p144/`.
@@ -312,11 +316,11 @@ hysteresis, build, dispose })`), `kit/three/level.js` (builds sections lazily wh
 
 All resolved; unattended, the conventional option was taken in each case.
 
-1. **Environment as map properties**, the Tiled-native place (Godot's `WorldEnvironment` per scene, Unity's
+1. **Resolved — Environment as map properties.** The Tiled-native place (Godot's `WorldEnvironment` per scene, Unity's
    per-scene Lighting settings); a level stays one self-describing file.
-2. **Port the kit's sky, prove it equal** — the editor must show the game's sky, not an approximation.
-3. **Lit / Unlit toggle** — Unreal's view modes; editing a night level needs to see.
-4. **Floors as tagged layers**, not separate files: one level, one undo stack, one commit.
-5. **Sections as Tiled groups** with streaming opt-in by one property — World Partition's idea at the scale of a
+2. **Resolved — Port the kit's sky, prove it equal.** The editor must show the game's sky, not an approximation.
+3. **Resolved — Lit / Unlit toggle.** Unreal's view modes; editing a night level needs to see.
+4. **Resolved — Floors as tagged layers.** Not separate files: one level, one undo stack, one commit.
+5. **Resolved — Sections as Tiled groups.** With streaming opt-in by one property — World Partition's idea at the scale of a
    Tiled map; no level is streamed unless it asks.
-6. **One `game_level_environment` tool with optional `set`** rather than a get/set pair: the agent reads and writes one shape, and the consent check runs only when `set` is present.
+6. **Resolved — One `game_level_environment` tool with optional `set`.** Rather than a get/set pair: the agent reads and writes one shape, and the consent check runs only when `set` is present.
