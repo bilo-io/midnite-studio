@@ -14,6 +14,7 @@ export {
   useSessionsHost,
   type SessionConnectionState,
   type SessionLiveStatus,
+  type SessionsChatsPort,
   type SessionsGraphPort,
   type SessionsHistoryPort,
   type SessionsHost,

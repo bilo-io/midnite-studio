@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { LuGitBranch } from 'react-icons/lu';
 
 import type { Chat, ChatAttachment, ChatMode, ChatWidthMode } from '@midnite/studio-shared';
@@ -29,7 +29,7 @@ const NEW_KEY = '__new__';
 
 type DraftText = { text: string; attachments: ChatAttachment[] };
 
-export function ChatPane({ selectedId }: { selectedId: string | null }) {
+export function ChatPane({ selectedId, headerActions }: { selectedId: string | null; headerActions?: ReactNode }) {
   const chat = useChatsStore((s) => (selectedId === null ? undefined : s.chats[selectedId]));
   const loadError = useChatsStore((s) => s.loadError);
   const draft = useChatsStore((s) => s.draft);
@@ -257,13 +257,25 @@ export function ChatPane({ selectedId }: { selectedId: string | null }) {
   return (
     <section className="relative flex min-h-0 min-w-0 flex-1 flex-col" aria-label={chat ? chat.title : 'New chat'} data-testid="chat-pane">
       {chat ? (
-        <ChatHeader chat={chat} engine={engine} streaming={streaming} widthMode={widthMode} onWidthModeChange={setWidthMode} />
+        <ChatHeader
+          chat={chat}
+          engine={engine}
+          streaming={streaming}
+          widthMode={widthMode}
+          onWidthModeChange={setWidthMode}
+          headerActions={headerActions}
+        />
       ) : selectedId === null ? (
         // No header before the first message: the toggle keeps its top-right seat over the new-chat
         // screen. Not over "Opening chat…" or a load error — there is no thread to size there.
-        <div className="absolute right-4 top-2 z-10">
+        <div className="absolute right-4 top-2 z-10 flex items-center gap-2">
           <ChatWidthToggle mode={widthMode} onChange={setWidthMode} />
+          {headerActions}
         </div>
+      ) : headerActions ? (
+        <header className="flex shrink-0 items-center justify-end gap-2 border-b border-border px-4 py-1.5 text-xs">
+          {headerActions}
+        </header>
       ) : null}
       {body}
       {selectedId !== null && !chat ? null : composer}
@@ -293,12 +305,14 @@ function ChatHeader({
   streaming,
   widthMode,
   onWidthModeChange,
+  headerActions,
 }: {
   chat: Chat;
   engine: ChatEngine | null;
   streaming: boolean;
   widthMode: ChatWidthMode;
   onWidthModeChange: (mode: ChatWidthMode) => void;
+  headerActions?: ReactNode;
 }) {
   return (
     <header className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-1.5 text-xs">
@@ -315,7 +329,10 @@ function ChatHeader({
           Answering…
         </span>
       ) : null}
-      <ChatWidthToggle mode={widthMode} onChange={onWidthModeChange} className="ml-auto" />
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <ChatWidthToggle mode={widthMode} onChange={onWidthModeChange} />
+        {headerActions}
+      </div>
     </header>
   );
 }

@@ -237,6 +237,8 @@ type TerminalState = {
   suppressAutoFocus: boolean;
 
   hydrate: () => Promise<void>;
+  /** Re-sync the session list and live PTYs from main without the one-shot `hydrated` guard. */
+  refresh: () => Promise<void>;
   openSession: (request: NewSessionRequest) => TerminalSession;
   /**
    * Adopt a session **main already created and persisted** (Phase 95 Theme
@@ -409,6 +411,10 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
    */
   hydrate: async () => {
     if (get().hydrated) return;
+    await get().refresh();
+  },
+
+  refresh: async () => {
     const api = bridge();
     if (!api) {
       set({ hydrated: true });
