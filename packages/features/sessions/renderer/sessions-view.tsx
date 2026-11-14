@@ -1194,7 +1194,7 @@ function SessionRow({
       <button
         type="button"
         onClick={onSelect}
-        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-left"
       >
         <Tooltip label={dotTooltip}>
           <span
