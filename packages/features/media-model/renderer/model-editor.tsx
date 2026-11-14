@@ -39,7 +39,7 @@ import { clipNamed, poseAt, posedScene, rigModel } from './rig-pose';
 import { INITIAL_RIG_VIEW, type RigView } from './rig-view';
 import { boundsOf, distanceBetween, formatSize, sizeOf, type CameraView } from './scene-bounds';
 import { ShortcutHelp } from './shortcut-help';
-import { DEFAULT_SNAP, GRID_STEPS, stepAlong, type SnapSettings } from './snap';
+import { DEFAULT_SNAP, GRID_STEPS, stepAlong, type SnapSettings } from '@midnite/studio-frame/viewport3d';
 import { useModelAssetEpoch } from './model-assets';
 import { editorScene } from './spec-geometry';
 import { withDescendants } from './spec-edit';

@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ViewportWidgets } from './viewport-widgets';
-import { DEFAULT_SNAP } from './snap';
+import { DEFAULT_SNAP } from '@midnite/studio-frame/viewport3d';
 
 afterEach(cleanup);
 
