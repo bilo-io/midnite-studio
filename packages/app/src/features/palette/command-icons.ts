@@ -64,6 +64,7 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'terminal.toggleHalfMaximized': LuSquareTerminal,
   'terminal.toggleDock': LuSquareTerminal,
   'terminal.focus': LuSquareTerminal,
+  'terminal.repaint': LuSquareTerminal,
   'terminal.new': LuSquareTerminal,
   'terminal.close': LuX,
   'repos.toggle': LuPanelLeft,

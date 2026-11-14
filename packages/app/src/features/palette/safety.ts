@@ -13,6 +13,7 @@ import type { CommandId, CompanionAccess } from '@midnite/studio-shared';
 export const PALETTE_SAFE: readonly CommandId[] = [
   'terminal.toggle',
   'terminal.focus',
+  'terminal.repaint',
   // `terminal.new`/`terminal.close` are deliberately absent, same as
   // `browser.newTab`/`browser.closeTab`: they share a chord with a command
   // whose meaning depends on runtime state (which terminal is selected, or
@@ -165,6 +166,7 @@ export const COMMAND_ACCESS: Record<CommandId, CompanionAccess> = {
   'terminal.toggleHalfMaximized': 'direct',
   'terminal.toggleDock': 'direct',
   'terminal.focus': 'direct',
+  'terminal.repaint': 'direct',
   'terminal.new': 'direct',
   'terminal.close': 'confirm',
   'repos.toggle': 'direct',
