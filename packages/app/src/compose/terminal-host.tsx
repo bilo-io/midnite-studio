@@ -16,6 +16,7 @@ import { revealSession } from '../features/terminal/reveal-session';
 import { openLinkFromEvent } from '../services/open-in-midnite';
 import { useRepos } from '../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../store/ui-store';
+import { selectRepoForSessionOrChat } from './select-repo-for-item';
 import { STUDIO_CHROME } from './studio-chrome';
 
 /**
@@ -80,6 +81,7 @@ export const STUDIO_TERMINAL_HOST = {
     },
   },
   useRepos: () => useRepos().data,
+  onSelectRepo: selectRepoForSessionOrChat,
   terminalTheme: (mode) => resolveTerminalPalette(mode).terminal,
   subscribeTheme: (listener) => usePaletteStore.subscribe(listener),
   openLink: (url, event) => openLinkFromEvent(url, event, { preferInAppRoute: true }),

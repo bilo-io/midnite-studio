@@ -25,6 +25,7 @@ import { requestHandoff } from '../services/handoff';
 import { useRefreshSessionHistory, useSessionHistory } from '../services/queries';
 import { useSessionsStore } from '../store/sessions-store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../store/ui-store';
+import { selectRepoForSessionOrChat } from './select-repo-for-item';
 
 /**
  * Studio's side of the sessions feature's host port (Phase 113 Theme O slice 4).
@@ -139,4 +140,5 @@ export const STUDIO_SESSIONS_HOST = {
   // deliberate exception to `startAgent`'s `autoSend: false` default.
   resume: ({ repoId, cwd, title, agent, args }) =>
     startAgent({ repoId, cwd, title, agentId: agent.id, command: agent.command, extraArgs: args, autoSend: true }),
+  onSelectRepo: selectRepoForSessionOrChat,
 } satisfies SessionsHost;

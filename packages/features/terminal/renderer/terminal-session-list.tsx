@@ -511,7 +511,11 @@ function SessionRow({
         pulsing ? 'session-row-pulse' : ''
       }`}
       onContextMenu={showMenu}
-      onClick={() => useTerminalStore.getState().setActive(session.id)}
+      onClick={() => {
+        useTerminalStore.getState().setActive(session.id);
+        const currentCwd = useTerminalStore.getState().liveCwd[session.id] ?? session.cwd;
+        host.onSelectRepo?.({ repoId: session.repoId, cwd: currentCwd });
+      }}
       onDoubleClick={rename}
     >
       <div className="flex min-w-0 flex-1 items-center gap-1 text-left">

@@ -109,6 +109,8 @@ export type SessionsHost = {
   useKill?: () => ((session: TerminalSession) => void) | null;
   /** Start an agent again on a conversation. Absent → no resume control. */
   resume?: (request: { repoId: string; cwd: string; title: string; agent: AgentDefinition; args: string[] }) => void;
+  /** Switch the app's selected repository to match a clicked session. Absent: clicking a row does not switch repos. */
+  onSelectRepo?: (target: { repoId?: string; cwd?: string }) => void;
 };
 
 const SessionsHostContext = createContext<SessionsHost | null>(null);

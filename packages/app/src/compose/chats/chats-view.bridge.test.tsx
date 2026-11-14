@@ -503,4 +503,29 @@ describe('reviewing changes', () => {
     await act(async () => {});
     expect(screen.queryByTestId('chat-changes-card')).toBeNull();
   });
+
+  it('switches the selected repository when clicking a chat row', async () => {
+    const { keys } = await import('../../services/queries');
+    const { appQueryClient } = await import('../../services/query-client');
+
+    appQueryClient.setQueryData(keys.repos, [
+      { id: 'repo:/x/app', name: 'app', path: '/x/app', worktrees: [] },
+      { id: 'repo:/x/other', name: 'other', path: '/x/other', worktrees: [] },
+    ]);
+    useUiStore.setState({ selectedRepoId: 'repo:/x/other' });
+
+    const repoChat = seedChat('c-repo', {
+      title: 'Repo chat',
+      repoId: 'repo:/x/app',
+      repoName: 'app',
+      repoPath: '/x/app',
+    });
+    await open({ seed: [repoChat] });
+    await waitFor(() => expect(rows()).toHaveLength(1));
+
+    fireEvent.click(within(rows()[0]!).getByRole('button', { name: /Repo chat/ }));
+
+    expect(useUiStore.getState().selectedRepoId).toBe('repo:/x/app');
+    appQueryClient.clear();
+  });
 });

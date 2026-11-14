@@ -1456,5 +1456,38 @@ describe('SessionsView', () => {
       expect(screen.queryByText('normal-only')).toBeNull();
     });
   });
+
+  it('switches the selected repository when clicking a session row', async () => {
+    const { keys } = await import('../../services/queries');
+    const { appQueryClient } = await import('../../services/query-client');
+
+    appQueryClient.setQueryData(keys.repos, [
+      { id: 'r1', name: 'repo-one', path: '/Users/dev/repo-one', worktrees: [] },
+      { id: 'r2', name: 'repo-two', path: '/Users/dev/repo-two', worktrees: [] },
+    ]);
+    useUiStore.setState({ selectedRepoId: 'r1' });
+
+    historyResult.mockReturnValue({
+      data: [
+        closedSession({
+          id: 'closed-2',
+          repoId: 'r2',
+          title: 'repo-two',
+          name: 'second-session',
+          cwd: '/Users/dev/repo-two/packages',
+          createdAt: 1000,
+          closedAt: 2000,
+        }),
+      ],
+      isPending: false,
+      isError: false,
+    });
+
+    renderView();
+    fireEvent.click(screen.getByText('second-session'));
+
+    expect(useUiStore.getState().selectedRepoId).toBe('r2');
+    appQueryClient.clear();
+  });
 });
 
