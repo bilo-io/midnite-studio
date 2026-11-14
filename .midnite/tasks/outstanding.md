@@ -846,4 +846,6 @@ The detector's discount for code spans and quotation marks is bypassable by wrap
 
 - **The sync `safeStorage` calls must become async before the Electron 46 bump.** Electron 45 deprecates `safeStorage.encryptString` / `decryptString` / `isEncryptionAvailable`, and 46 removes them in favour of the async forms. Every vault (`runtime/src/vault/`, the forge, database and secrets namespaces) still calls the sync ones. The move touches each vault's read and write path, so it is its own PR, not part of the 45 bump.
 
+## Phase 148 Theme A — monitor flyout actions
+
 - **Suite apps' monitor flyout recovery actions (Phase 148 Theme A).** Agents, Media and the other suite apps pass no `actions` to `createSuiteMonitorSegment`. Manage resources and Full recovery need cross-process deep links: `midnite://open` carrying an optimizer tab/filter and a "recover" verb, which needs a launcher link param.
