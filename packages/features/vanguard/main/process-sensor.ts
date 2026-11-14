@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import type { EvidenceItem, RemediationAction } from '@midnite/studio-shared';
+import { isProtectedPath, type EvidenceItem, type RemediationAction } from '@midnite/studio-shared';
 
 import { inspectExecutable } from './code-signing';
 import {
@@ -37,6 +37,12 @@ export interface ProcessSensorDeps {
   /** Persistence seam for the known set; defaults to a JSON file under `<userData>/vanguard/`. */
   load?: (file: string) => Promise<string[] | null>;
   save?: (file: string, paths: string[]) => Promise<void>;
+  /**
+   * Whether the app holds Full Disk Access. Without it the sensor never opens a binary under a macOS-protected
+   * folder (codesign, spctl, hashing and the malware queue would all read it in the background and raise a
+   * prompt); it records an info finding saying so instead. Absent means "not granted".
+   */
+  fullDiskAccess?: () => boolean | Promise<boolean>;
 }
 
 const defaultLoad = async (file: string): Promise<string[] | null> => {
@@ -85,8 +91,33 @@ export function createProcessSensor(deps: ProcessSensorDeps = {}): SensorDefinit
       const sessions = (await deps.agentSessions?.()) ?? new Map<number, string>();
       const roots = new Set(sessions.keys());
       let n = 0;
+      const fda = home !== '' && (await deps.fullDiskAccess?.()) === true;
       for (const row of fresh.slice(0, INSPECT_CAP)) {
         known.add(row.comm);
+        if (!fda && home !== '' && isProtectedPath(row.comm, home)) {
+          const agentSpawned = underAgentSession(row.pid, table, roots);
+          const sessionId = agentSpawned ? sessionOf(row.pid, table, sessions) : undefined;
+          await ctx.record({
+            fingerprint: `process:${row.comm}`,
+            severity: agentSpawned ? 'medium' : 'info',
+            category: 'process',
+            title: `New executable running: ${row.comm.split('/').pop() ?? row.comm}`,
+            detail: `${row.comm} appeared in the process table (pid ${row.pid})${agentSpawned ? ', started under an agent session' : ''}: unverified (protected folder). Its signature was not checked because that would read a macOS-protected folder in the background; scan it by hand or grant Full Disk Access.`,
+            // A command item, not a path item: a path would queue the file for the background malware scan.
+            evidence: [
+              { kind: 'pid', pid: row.pid, command: row.comm, ppid: row.ppid, uid: row.uid },
+              { kind: 'command', command: `unverified (protected folder): ${row.comm}` },
+            ],
+            remediation: [
+              { id: 'kill-process-group', pid: row.pid },
+              ...(sessionId !== undefined ? [{ id: 'pause-session' as const, sessionId }] : []),
+              { id: 'mute' },
+            ],
+            ...(sessionId !== undefined ? { sessionId } : {}),
+          });
+          n += 1;
+          continue;
+        }
         const signature = await inspectExecutable(ctx.runProcess, row.comm, ctx.signal);
         const agentSpawned = underAgentSession(row.pid, table, roots);
         const parent = table.find((r) => r.pid === row.ppid);

@@ -133,6 +133,8 @@ export const MalwareScanSummarySchema = z.object({
   errors: z.array(z.string()),
   /** The user stopped the scan; `detections` and `files` cover what was examined before that. */
   cancelled: z.boolean().optional(),
+  /** Paths a scan stepped around on purpose (the Photos and Music libraries without Full Disk Access). */
+  skipped: z.array(z.string()).optional(),
 });
 export type MalwareScanSummary = z.infer<typeof MalwareScanSummarySchema>;
 

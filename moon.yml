@@ -152,6 +152,13 @@ tasks:
     options:
       cache: false
 
+  # tcc-guard (ISSUES Phase 2 Theme D): fails on source that enters a macOS TCC-protected
+  # folder (Documents, Downloads, Pictures, ...) without a `// tcc-ok: <user action>` mark.
+  tcc-guard:
+    command: 'node scripts/tcc-guard.mjs'
+    options:
+      cache: false
+
   # test-node (Phase 116 Theme A): workspace-level Vitest multi-project run
   # covering all 35 node-portable packages plus scripts/**/*.test.mjs in a single
   # shared process pool, cutting gate-node from 35 cold Vite boots to 1.
