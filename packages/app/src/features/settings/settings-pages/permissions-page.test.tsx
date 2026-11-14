@@ -67,6 +67,14 @@ describe('PermissionsPage', () => {
     expect(screen.queryByRole('button', { name: 'Reset Notifications', hidden: true })).toBeNull();
   });
 
+  it('does not reset until the destructive confirm is accepted', async () => {
+    const p = install();
+    renderPage();
+    await screen.findByTestId('permission-row-screen');
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Screen Recording', hidden: true }));
+    expect(p.reset).not.toHaveBeenCalled();
+  });
+
   it('says it is macOS-only and hides the actions when unsupported', async () => {
     install({ status: vi.fn(async () => ({ supported: false, bundleId: 'x', rows: ROWS.map((r) => ({ ...r, state: 'unknown' })) })) });
     renderPage();
