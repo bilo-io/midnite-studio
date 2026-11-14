@@ -1,6 +1,10 @@
 # Phase 145 — Level history, review and polish
 
+**Refined: x1** · 2026-11-14 · file map, contracts, MCP, testing, UI/UX
+
 Planned 2026-11-14 by an unattended agent · grounded against the tree as of `9e395a8df`.
+
+**Model:** every theme is a spec'd build for sonnet; no theme needs `Model: opus`.
 
 Every level save is a git commit (`game-levels.ts` `levelSet`: write queue + a pathspec commit), so a level already
 has a full history — but the editor cannot show it. Two people (or a person and an agent) cannot see what changed
@@ -317,7 +321,7 @@ too:
 - [ ] Targeted checks green: `tsc --noEmit` (shared, media-game, desktop); eslint on changed files; vitest on the
   touched suites incl. `a11y.test.tsx`; the pin test; `scripts/skill-copies.test.mjs`; `node
   scripts/tracker-check.mjs`.
-- [ ] **Gate — the built app, throwaway `--user-data-dir`**: edit and save a level three times (one by an agent);
+- [ ] **Open, for a human:** gate on the built app, throwaway `--user-data-dir`**: edit and save a level three times (one by an agent);
   History lists three with the agent badge; select the oldest and see the overlay and semantic list; open it
   read-only and copy an object back; add two pins and resolve one; minimap pans; measure a jump gap; VoiceOver reads
   the toolbar and panels. Theme I's four passes. Shots under `/tmp/midnite-shots-p145/`.
@@ -334,13 +338,13 @@ too:
 
 All resolved; unattended, the conventional option was taken in each case.
 
-1. **Semantic diff by object id** — Tiled ids are stable per map, the same identity Unreal's map diff uses per actor.
-2. **History is git**, not a second store: every save is already a commit; the panel is a view onto it.
-3. **Read-only versions, never a reset** — destructive operations need a blast-radius confirm in this repo; copying
+1. **Resolved — Semantic diff by object id.** Tiled ids are stable per map, the same identity Unreal's map diff uses per actor.
+2. **Resolved — History is git.** Not a second store: every save is already a commit; the panel is a view onto it.
+3. **Resolved — Read-only versions, never a reset.** Destructive operations need a blast-radius confirm in this repo; copying
    forward is non-destructive and covers the need.
-4. **Pins in a sidecar file**, committed on their own: review notes must not dirty the level or ride along with an
+4. **Resolved — Pins in a sidecar file.** Committed on their own: review notes must not dirty the level or ride along with an
    unrelated save, and the kit never loads them.
-5. **`M` is Measure** (Unreal's ruler is middle-drag; Tiled shows sizes in the status bar; `M` is the common
+5. **Resolved — `M` is Measure.** (Unreal's ruler is middle-drag; Tiled shows sizes in the status bar; `M` is the common
    graphics-tool key); the minimap toggle has no key.
-6. **Accessibility as a closing pass with tests**, so every later surface inherits the checks (`a11y.test.tsx` grows
+6. **Resolved — Accessibility as a closing pass with tests.** So every later surface inherits the checks (`a11y.test.tsx` grows
    with each panel).
