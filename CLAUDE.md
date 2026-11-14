@@ -471,7 +471,9 @@ per phase or task, each to its own merged PR; [`midnite-swarm`](.claude/skills/m
 puts one problem through staged subagents (research, plan, design, refine, dev, review, test,
 report). Both run on [`midnite-orchestrate`](.claude/skills/midnite-orchestrate/SKILL.md), the shared
 core (settings interview, cap, board, sitreps, rotation, unsticking, wrap-up), and drive this same
-recurring-table report until the work has landed.
+recurring-table report until the work has landed. [`midnite-agents-handover`](.claude/skills/midnite-agents-handover/SKILL.md) is the clean stop:
+every agent finishes its step, commits, writes a `## HANDOFF` above its verbatim brief in
+`SCRATCHPAD.md`, frees its servers and stops, ready for a fresh agent to resume.
 
 ## Phase workflow
 
