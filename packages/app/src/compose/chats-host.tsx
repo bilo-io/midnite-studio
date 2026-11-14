@@ -17,6 +17,7 @@ import { useAgents } from '../features/terminal/use-agents';
 import { useRepos } from '../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../store/ui-store';
 import { CompanionToggle } from './chats/companion-toggle';
+import { selectRepoForSessionOrChat } from './select-repo-for-item';
 
 /**
  * Studio's side of the chats feature's host port (Phase 113 Theme N).
@@ -75,4 +76,5 @@ export const STUDIO_CHATS_HOST = {
   resolveAgentIcon,
   CompanionToggle,
   openWorkingCopyInGraph: (target) => useUiStore.getState().openWorkingCopyInGraph(target),
+  onSelectRepo: selectRepoForSessionOrChat,
 } satisfies ChatsHost;

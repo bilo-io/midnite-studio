@@ -224,6 +224,8 @@ export type ChatsHost = {
   CompanionToggle?: ComponentType;
   /** Takes the graph to a chat's worktree. Absent where the app has no graph. */
   openWorkingCopyInGraph?: (target: { repoId: string; worktreePath: string }) => void;
+  /** Switch the app's selected repository to match a clicked chat. Absent: clicking a chat does not switch repos. */
+  onSelectRepo?: (target: { repoId?: string; cwd?: string }) => void;
 };
 
 const ChatsHostContext = createContext<ChatsHost | null>(null);

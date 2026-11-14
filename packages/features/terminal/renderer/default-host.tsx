@@ -94,6 +94,7 @@ export function createDefaultTerminalHost(appId: SuiteAppId, options: DefaultTer
       setSidebarSide: (side) => set({ side }),
     },
     useRepos: () => undefined,
+    onSelectRepo: () => {},
     terminalTheme: () => undefined,
     subscribeTheme: () => () => {},
     openLink: (url) => {

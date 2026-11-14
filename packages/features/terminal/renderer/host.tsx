@@ -105,6 +105,8 @@ export type TerminalHost = {
   actions: TerminalPanelActions;
   /** The registered repositories, for naming a session's path. A hook. */
   useRepos: () => readonly RepoDescriptor[] | undefined;
+  /** Switch the app's selected repository to match a clicked session. Absent: clicking a row does not switch repos. */
+  onSelectRepo?: (target: { repoId?: string; cwd?: string }) => void;
   /**
    * The xterm theme for the resolved light/dark mode, or `undefined` for the
    * feature's built-in fallback. Read on every theme change.

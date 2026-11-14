@@ -458,6 +458,7 @@ function SessionsManager({
     } else {
       selectLiveSession(session.id);
     }
+    host.onSelectRepo?.({ repoId: session.repoId, cwd: session.cwd });
   };
 
   // Phase 95 Theme J — a workflow node's session is pulled OUT of the

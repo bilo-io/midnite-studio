@@ -290,4 +290,35 @@ describe('TerminalSessionList — per-repo accordions', () => {
     expect(created?.title).toBe('alpha');
     expect(created?.agentId).toBe('claude');
   });
+
+  it('invokes host.onSelectRepo with liveCwd (falling back to session.cwd) when clicking a session row', () => {
+    const onSelectRepo = vi.fn();
+    const host = { ...createDefaultTerminalHost('studio'), onSelectRepo };
+
+    useTerminalStore.setState({
+      sessions: [
+        { ...row('s1', 'studio'), cwd: '/Users/dev/alpha', repoId: 'repo:a', title: 'alpha' },
+        { ...row('s2', 'studio'), cwd: '/Users/dev/beta', repoId: 'repo:b', title: 'beta' },
+      ],
+      liveCwd: { s2: '/Users/dev/gamma' },
+      states: { s1: 'open', s2: 'open' },
+      activeId: 's1',
+    });
+
+    render(
+      <FrameChromeProvider chrome={createFrameChrome().chrome}>
+        <TerminalHostProvider host={host}>
+          <TerminalSessionList agents={[]} width={220} />
+        </TerminalHostProvider>
+      </FrameChromeProvider>,
+    );
+
+    const rows = document.querySelectorAll('[data-session-row]');
+    fireEvent.click(rows[0]!);
+    expect(onSelectRepo).toHaveBeenCalledWith({ repoId: 'repo:a', cwd: '/Users/dev/alpha' });
+
+    fireEvent.click(rows[1]!);
+    expect(onSelectRepo).toHaveBeenCalledWith({ repoId: 'repo:b', cwd: '/Users/dev/gamma' });
+    expect(useTerminalStore.getState().activeId).toBe('s2');
+  });
 });
