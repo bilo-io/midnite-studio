@@ -313,3 +313,72 @@ describe('forgetTerminal', () => {
     expect(updatedList[0]?.agentConversationId).toBe('uuid-closed-on-demand');
   });
 });
+
+describe('terminal-service markdown session sync', () => {
+  it('writes MIDNITE_SESSIONS.md on saveTerminal, conversation discovery, exit, and forget', async () => {
+    const dir = await tempDir();
+    const mdPath = join(dir, 'MIDNITE_SESSIONS.md');
+    const history = createSessionHistoryStore(dir);
+    configureTerminals(createTerminalStore(dir), dir, history, {
+      sessionsMarkdownPath: mdPath,
+    });
+    watchSessionExits();
+
+    saveTerminal(
+      session({
+        id: 'sess-agy',
+        kind: 'agent',
+        agentId: 'agy',
+        title: 'Swarm Dev',
+      }),
+    );
+    await shutdownTerminals();
+
+    let md = await readFile(mdPath, 'utf8');
+    expect(md).toContain('Swarm Dev');
+    expect(md).toContain('`cd /Users/x/Dev/midnite && agy --continue`');
+
+    // Discover conversation UUID
+    mockLocate.mockResolvedValueOnce('50ed5e0a-230d-4806-aaf1-21fc70805e27');
+    await getOrLocateConversationId('sess-agy');
+    await shutdownTerminals();
+
+    md = await readFile(mdPath, 'utf8');
+    expect(md).toContain(
+      '`cd /Users/x/Dev/midnite && agy --conversation 50ed5e0a-230d-4806-aaf1-21fc70805e27`',
+    );
+
+    // Exit event marks session exited and triggers discovery for agents without a UUID
+    saveTerminal(
+      session({
+        id: 'sess-claude',
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'Claude Task',
+      }),
+    );
+    mockLocate.mockClear();
+    mockLocate.mockResolvedValueOnce('b6f784d3-9702-4202-8d5e-ab7344aac211');
+    exitHooks[0]?.('sess-claude', 0);
+    await vi.waitFor(() => expect(mockLocate).toHaveBeenCalledTimes(1));
+    await shutdownTerminals();
+
+    md = await readFile(mdPath, 'utf8');
+    expect(md).toContain('⏹️ exited (0)');
+    expect(md).toContain(
+      '`cd /Users/x/Dev/midnite && claude --resume b6f784d3-9702-4202-8d5e-ab7344aac211`',
+    );
+
+    // Forget moves session to Recently Closed Sessions
+    forgetTerminal('sess-agy', 'closed');
+    await settle();
+    await shutdownTerminals();
+
+    md = await readFile(mdPath, 'utf8');
+    expect(md).toContain('## Recently Closed Sessions');
+    expect(md).toContain('Swarm Dev');
+    expect(md).toContain(
+      '`cd /Users/x/Dev/midnite && agy --conversation 50ed5e0a-230d-4806-aaf1-21fc70805e27`',
+    );
+  });
+});

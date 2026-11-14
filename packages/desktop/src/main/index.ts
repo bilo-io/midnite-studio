@@ -834,7 +834,17 @@ export const startStudioMain: StartStudioMain = () => {
       const sessionHistory = createSessionHistoryStore(userData);
       configureSessions(sessionHistory);
       configurePrivacy(sessionHistory);
-      configureTerminals(createTerminalStore(userData), userData, sessionHistory);
+      const resolveSessionsMarkdownPath = (): string | null => {
+        const override = process.env.MSTUDIO_SESSIONS_MD;
+        if (override !== undefined) {
+          const trimmed = override.trim();
+          return trimmed.length > 0 ? trimmed : null;
+        }
+        return join(app.getPath('home'), 'Dev', 'midnite', 'MIDNITE_SESSIONS.md');
+      };
+      configureTerminals(createTerminalStore(userData), userData, sessionHistory, {
+        sessionsMarkdownPath: resolveSessionsMarkdownPath(),
+      });
       configureCouncils(createCouncilsStore(userData), createCouncilsRunsStore(userData));
       /*
         Wired here beside councils rather than in a boot chain: it is synchronous
