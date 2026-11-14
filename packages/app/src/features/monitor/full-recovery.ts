@@ -22,6 +22,8 @@ export type RecoverySummary = {
 };
 
 type Dialogs = Pick<FrameDialogs, 'notify'>;
+/** What the dialog host lends the widget: enough for Full recovery's notify and Clean system's confirm. */
+export type WidgetDialogs = Pick<FrameDialogs, 'confirm' | 'notify'>;
 
 /**
  * Rows Theme B's inventory marks `lost: 'unreachable'`. Before B lands the field does not exist on the
@@ -68,10 +70,10 @@ export const isAllAttached = (s: RecoverySummary, staleCount: number): boolean =
 type FullRecoveryState = {
   summary: RecoverySummary | null;
   /** The host's dialogs, so the widget (which has none of its own) runs the same flow as the palette. */
-  dialogs: Dialogs | null;
+  dialogs: WidgetDialogs | null;
   open: (summary: RecoverySummary) => void;
   close: () => void;
-  setDialogs: (dialogs: Dialogs | null) => void;
+  setDialogs: (dialogs: WidgetDialogs | null) => void;
 };
 
 export const useFullRecoveryStore = create<FullRecoveryState>((set) => ({

@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-15 — Phase 148 Theme E — Clean system
+
+[#1269](https://github.com/bilo-io/midnite-studio/pull/1269): the flyout's Clean system (and the chord-free `system.cleanSystem` palette command) scans the Optimizer's system caches and plans a broker-dir sweep together, behind one confirm listing each cache, the broker leftovers (dead brokers' `.sock.pid`/`.sock.token`, logs of versions with no live broker) and the total. Caches go to the Trash; leftovers are unlinked only when main's fresh re-plan still lists them (bare names, `lstat`, live pids, sockets on disk and this build's own files kept). Consent-first when system-cache consent is missing; Optimizer off opens the Optimizer. No process is ended.
+
 ## 2026-11-15 — Phase 148 Theme D — Full recovery
 
 [#1264](https://github.com/bilo-io/midnite-studio/pull/1264): the performance flyout's Full recovery and the `terminal.recoverDetached` palette command run one flow: #1259's recovery (silent), a re-read of the session list, then one summary dialog with recovered sessions grouped by repo (Reveal), sessions still on a previous build (End… behind the existing confirm, opened after the summary closes so it is never covered), and unreachable broker roots (Manage resources, lit once Theme B lands). The amber badge counts `previousBuildSessions()`. Deferred: D.4's per-app owner count and the packaged-app acceptance run. Merged on targeted local checks while GitHub CI was billing-locked.

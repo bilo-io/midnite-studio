@@ -24,6 +24,12 @@ describe('buildRecoveryActions', () => {
     expect(fullRecovery).toHaveBeenCalledTimes(1);
   });
 
+  it('runs the cleanSystem seam for Clean system', () => {
+    const cleanSystem = vi.fn();
+    buildRecoveryActions({ cleanSystem }).find((a) => a.id === 'clean-system')!.run();
+    expect(cleanSystem).toHaveBeenCalledTimes(1);
+  });
+
   it('opens the Optimizer for Manage resources', () => {
     const spy = vi.spyOn(handoff, 'requestHandoff').mockResolvedValue({ ok: true, via: 'in-process' } as never);
     buildRecoveryActions().find((a) => a.id === 'manage-resources')!.run();

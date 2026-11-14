@@ -12,7 +12,7 @@ import { useTerminalStore } from '../terminal/terminal-store';
  * recovery) fill these in; nothing here depends on them landing first.
  */
 export type RecoverySeams = {
-  /** Theme E's confirm-gated system clean. Until then the Optimizer's own sweep is the entry point. */
+  /** Theme E's confirm-gated system clean (`runCleanSystemFromWidget`); the Optimizer is the fallback. */
   cleanSystem?: () => void;
   manageResources?: () => void;
   /** Theme C. */
@@ -44,7 +44,7 @@ export function buildRecoveryActions(seams: RecoverySeams = {}): readonly Monito
       id: 'clean-system',
       label: 'Clean system',
       description:
-        'Open the Optimizer to sweep system caches (nothing is removed without a confirm)',
+        'Sweep system caches and leftover broker files (one confirm lists everything first)',
       Icon: LuSparkles,
       run: cleanSystem,
     },

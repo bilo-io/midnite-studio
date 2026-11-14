@@ -124,6 +124,11 @@ export const COMMANDS = [
    */
   { id: 'terminal.recoverDetached', label: 'Recover Detached Sessions', group: 'terminal' },
   /**
+   * Chord-free (Phase 148 Theme E): the monitor flyout's Clean system. Scans the Optimizer's system
+   * caches and the broker directory's leftovers, then asks one confirm before anything is removed.
+   */
+  { id: 'system.cleanSystem', label: 'Clean System', group: 'view' },
+  /**
    * Mod+g ("G" for Git). `app` scope, unlike the terminal toggle: showing the
    * repository list while the terminal has focus is not something you reach
    * for mid-command.

@@ -64,3 +64,35 @@ export function isPidAlive(pid: number): boolean {
     return (err as NodeJS.ErrnoException).code === 'EPERM';
   }
 }
+
+/** `<version>[-dev].log` and its rotated generations `.log.1`, `.log.2`. */
+const BROKER_LOG = /^(\d[^/]*?)(-dev)?\.log(?:\.\d+)?$/;
+
+/**
+ * The broker logs to delete: those of a version that has no live broker (and is not this build's own
+ * version, whose log the spawn path is about to open or has open). A version is live while any `.sock`
+ * named `<version>-…` is on disk, or any `<version>-….sock.pid` names a live pid. Young files stay, as
+ * for the pid and token files.
+ */
+export function staleBrokerLogs(
+  entries: readonly BrokerDirEntry[],
+  options: { ownVersion: string; isPidAlive: (pid: number) => boolean; now: number },
+): string[] {
+  const liveSockets = entries.filter(
+    (e) =>
+      e.name.endsWith('.sock') || (e.name.endsWith('.sock.pid') && e.pid !== null && options.isPidAlive(e.pid)),
+  );
+  const isLive = (version: string): boolean => liveSockets.some((e) => e.name.startsWith(`${version}-`));
+
+  const stale: string[] = [];
+  for (const entry of entries) {
+    const match = BROKER_LOG.exec(entry.name);
+    if (!match) continue;
+    const version = match[1] as string;
+    if (version === options.ownVersion) continue;
+    if (options.now - entry.mtimeMs < STALE_FILE_MIN_AGE_MS) continue;
+    if (isLive(version)) continue;
+    stale.push(entry.name);
+  }
+  return stale;
+}

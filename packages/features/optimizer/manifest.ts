@@ -44,6 +44,8 @@ export const optimizerManifest = defineFeatureManifest({
     CHANNELS.optimizerSystemScan,
     CHANNELS.optimizerSystemClean,
     CHANNELS.optimizerSystemReclaim,
+    CHANNELS.optimizerBrokerSweepPlan,
+    CHANNELS.optimizerBrokerSweep,
     CHANNELS.optimizerKill,
     // `optimizerTrashSummary`/`optimizerTrashEmpty` are deliberately absent:
     // they stay registered by desktop's `trash-handlers.ts` over

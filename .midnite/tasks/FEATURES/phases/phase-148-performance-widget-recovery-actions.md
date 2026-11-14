@@ -42,7 +42,7 @@ The status bar's system monitor (the CPU/RAM/GPU/disk cluster) can show that the
 
 **Theme D — Full recovery (`PR-4`, M).** 🔄 Landed except D.4. `runFullRecovery(dialogs)` (`app/src/features/monitor/full-recovery.ts`) runs #1259's `recoverDetachedSessions` silently, re-reads the session list, reads Theme B's `lost: 'unreachable'` rows when the inventory carries them (none before B, so that section stays hidden), and opens one summary dialog: recovered sessions grouped by repo with Reveal, previous-build sessions with End…, unreachable brokers with Manage resources, and a "N sessions running" footer; nothing to report reads "Everything is attached". `terminal.recoverDetached` and the flyout's Full recovery button both run it (no second command), and the amber badge now counts #1259's `previousBuildSessions()`. Other-app ownership is filtered in main by #1259's `studioPtys()`; the recover envelope carries no owner, so the "Belongs to <app>" count (148.D.4) is deferred. The acceptance run on the packaged app is also deferred, so this theme's checklist is not fully ticked.
 
-**Theme E — Clean system (`PR-5`, S).** ◻ TODO. Runs the optimizer's existing consent-gated system-cache scan and clean (`runSystemScan`, `runSystemClean`) from the widget, plus an on-demand broker-dir sweep. The sweep reuses #1259's `staleBrokerFiles` and adds log files of versions with no live broker. One confirm lists entries and sizes, and the result reports bytes reclaimed.
+**Theme E — Clean system (`PR-5`, S).** ✅ Landed in draft. The flyout's Clean system runs the optimizer's consent-gated system-cache scan beside an on-demand broker-dir sweep plan, behind one confirm listing each cache with its size, a "Broker leftovers (N files · X MB)" line and the total, then reports bytes reclaimed. The sweep is `runtime/src/broker/sweep.ts`: #1259's `staleBrokerFiles` plus `staleBrokerLogs` (logs of a version with no live broker, never this build's own), and `sweepBrokerDir` re-derives staleness fresh and unlinks only names that are in both the confirmed list and the current plan. Deviation: `resources-handlers.ts` does not exist on main, so the two channels are `mstudio:optimizer:broker-sweep-plan|broker-sweep`, registered by the optimizer feature's main half and bound to the live broker location by `desktop/src/main/optimizer/broker-sweep-service.ts`. The consent dialog became `requestSystemCacheConsent`, shared with Settings. Optimizer switched off falls back to opening the Optimizer.
 
 ## Deliverables
 
@@ -123,14 +123,14 @@ The status bar's system monitor (the CPU/RAM/GPU/disk cluster) can show that the
 
 ### Theme E — Clean system (`S`)
 
-- [ ] **148.E.1** Main: add `brokerSweepPlan` / `brokerSweep` (`mstudio:resources:broker-sweep-plan|broker-sweep`) in `resources-handlers.ts`. The plan lists `staleBrokerFiles(...)` (#1259 `runtime/src/broker/stale-files.ts`) plus `<version>[-dev].log*` files whose version has no live broker pid, with their sizes. The sweep unlinks only paths the plan returned that still match the same rule.
-- [ ] **148.E.2** Renderer action:
+- [x] **148.E.1** Main: add `brokerSweepPlan` / `brokerSweep` (`mstudio:resources:broker-sweep-plan|broker-sweep`) in `resources-handlers.ts`. The plan lists `staleBrokerFiles(...)` (#1259 `runtime/src/broker/stale-files.ts`) plus `<version>[-dev].log*` files whose version has no live broker pid, with their sizes. The sweep unlinks only paths the plan returned that still match the same rule.
+- [x] **148.E.2** Renderer action:
   - If system-cache consent is not given (Phase 73's consent, `use-optimizer.ts:200` catalogue), open that consent first.
   - Otherwise run `runSystemScan()` (`use-optimizer.ts:107`) and the broker sweep plan together, and show one confirm with each entry's label and size, the "Broker leftovers (N files · X MB)" line, and the total.
   - On confirm, run `runSystemClean(entryIds)` (`:131`, which moves items to the Trash) and `brokerSweep`.
   - The toast reports bytes reclaimed.
-- [ ] **148.E.3** Add a chord-free command `system.cleanSystem` "Clean System".
-- [ ] **148.E.4** Tests (vitest):
+- [x] **148.E.3** Add a chord-free command `system.cleanSystem` "Clean System".
+- [x] **148.E.4** Tests (vitest):
   - the broker sweep plan: logs of a live version are kept; a young file is kept, per `STALE_FILE_MIN_AGE_MS`
   - the action's consent-first branch
   - confirm contents

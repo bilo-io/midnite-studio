@@ -14,6 +14,7 @@ import { useSetupStore } from '../../features/setup/setup-store';
 import { useSlidesStore } from '@midnite/studio-feature-slides/renderer';
 import { syncAffordances } from '../../features/status/sync-availability';
 import { repaintAllTerminals } from '@midnite/studio-feature-terminal/renderer';
+import { runCleanSystemWith } from '../../features/monitor/clean-system';
 import { runFullRecovery } from '../../features/monitor/full-recovery';
 import { closeSessionWithConfirm } from '../../features/terminal/close-session';
 import { onMainSurface, useTerminalStore } from '../../features/terminal/terminal-store';
@@ -242,6 +243,7 @@ export function useCommandHandlers(): CommandRuntime {
         );
       },
     },
+    'system.cleanSystem': { enabled: true, run: () => runCleanSystemWith(dialogs) },
     'repos.toggle': { enabled: true, run: () => useUiStore.getState().toggleRepos() },
     'browser.toggle': {
       enabled: true,
