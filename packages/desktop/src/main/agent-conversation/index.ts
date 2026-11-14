@@ -1,3 +1,4 @@
+import { createAgyConversationAdapter } from './agy';
 import { createClaudeConversationAdapter } from './claude';
 import { agentHistoryReadsEnabled } from '../settings-mirror';
 import { createCodexConversationAdapter } from './codex';
@@ -5,12 +6,15 @@ import type { AgentConversationAdapter } from './types';
 
 export * from './types';
 export * from './slugify';
+export * from './agy';
 export * from './claude';
 export * from './codex';
 
 export type AgentConversationLocatorOptions = {
   claudeProjectsDir?: string;
   codexSessionsDir?: string;
+  agyBrainDir?: string;
+  agyHistoryPath?: string;
 };
 
 /**
@@ -28,6 +32,13 @@ export function getAgentConversationAdapter(
   if (agentId === 'codex') {
     return createCodexConversationAdapter(
       options?.codexSessionsDir ? { sessionsDir: options.codexSessionsDir } : undefined,
+    );
+  }
+  if (agentId === 'agy') {
+    return createAgyConversationAdapter(
+      options?.agyBrainDir || options?.agyHistoryPath
+        ? { brainDir: options?.agyBrainDir, historyPath: options?.agyHistoryPath }
+        : undefined,
     );
   }
   return null;
