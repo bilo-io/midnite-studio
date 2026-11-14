@@ -61,8 +61,8 @@ first frame; a small frame editor in the tile inspector.
 **Theme H — Start from a map asset.** ◻ New scene ▸ "From a map asset": `mstudio:games:map-asset-get` reads an
 imported `map` asset; `rewriteTilesetImages` re-roots its images; saved as a new scene.
 
-**Theme I — Isometric polish.** ◻ Diamond cell highlight, isometric rectangle and fill, depth-sorted objects and a
-correct grid for staggered maps (read-only for staggered).
+**Theme I — Isometric polish.** ◻ Diamond cell highlight, isometric rectangle and fill, depth-sorted objects, a diamond grid,
+and a plain message for the unsupported staggered and hexagonal maps.
 
 **Theme J — MCP.** ◻ `game_tiles_paint`, `game_tiles_fill`, `game_tiles_autotile`, a `tiles` level op; the skill.
 
