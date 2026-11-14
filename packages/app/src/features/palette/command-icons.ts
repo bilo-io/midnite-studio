@@ -69,6 +69,7 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'terminal.new': LuSquareTerminal,
   'terminal.close': LuX,
   'terminal.recoverDetached': LuHistory,
+  'system.cleanSystem': LuSparkles,
   'repos.toggle': LuPanelLeft,
   'browser.toggle': LuGlobe,
   'fab.toggle': LuPanelRight,

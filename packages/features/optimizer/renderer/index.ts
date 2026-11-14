@@ -28,6 +28,8 @@ export {
   type OptimizerSettingsState,
 } from './host';
 
+export { runCleanSystem, type CleanSystemDeps } from './clean-system';
+
 type ViewIds = OptimizerManifest['views'][number]['id'];
 type SettingsPageIds = OptimizerManifest['settingsPages'][number];
 
