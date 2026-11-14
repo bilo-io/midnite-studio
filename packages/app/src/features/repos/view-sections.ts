@@ -336,7 +336,7 @@ export function useViewSections(): ViewSections {
 }
 
 /**
- * Fold/unfold one of a repo's `SectionKey` headings.
+ * Fold/unfold one of a repo's `SectionKey` headings in the shared config.
  *
  * The typed wrapper around `useUiStore`'s untyped `toggleRepoSectionKey` —
  * living here rather than on the store because `ui-store.ts` cannot import
@@ -344,6 +344,6 @@ export function useViewSections(): ViewSections {
  * `remotes:<name>` keys call `toggleRepoSectionKey` directly instead; they are
  * not `SectionKey`s and have no typed wrapper to go through.
  */
-export function toggleRepoSection(repoId: string, key: SectionKey): void {
-  useUiStore.getState().toggleRepoSectionKey(repoId, key);
+export function toggleRepoSection(key: SectionKey): void {
+  useUiStore.getState().toggleRepoSectionKey(key);
 }
