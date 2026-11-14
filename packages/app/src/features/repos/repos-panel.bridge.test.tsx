@@ -7,6 +7,7 @@ import { renderView } from '../../../test-support/render';
 import { ToastHost } from '../../components/toast-host';
 import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { useOpsJournalStore } from '../../store/ops-journal-store';
+import { useUiStore } from '../../store/ui-store';
 import { JournalList } from '../history/journal-list';
 import { ReposPanel } from './repos-panel';
 
@@ -262,5 +263,72 @@ describe('branch delete/rename undo, assembled through the real bridge', () => {
         },
       ]),
     );
+  });
+});
+
+describe('ReposPanel showAllRepos toggle', () => {
+  const twoRepoFixtures: MockFixtures = {
+    ...fixtures,
+    extraRepos: [{ id: 'repo-2', name: 'other-repo', path: '/tmp/other-repo' }],
+  };
+
+  beforeEach(() => {
+    useUiStore.setState({ showAllRepos: false, selectedRepoId: 'repo-1' });
+  });
+
+  it('defaults to showing only the active repository and toggles to show all', async () => {
+    renderView(
+      <ToastHost>
+        <ReposPanel />
+      </ToastHost>,
+      { fixtures: twoRepoFixtures, uiState: { selectedRepoId: 'repo-1', showAllRepos: false } },
+    );
+
+    await screen.findByRole('heading', { name: 'Worktrees' });
+    expect(screen.getByRole('button', { name: 'midnite-studio' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'other-repo' })).toBeNull();
+
+    const toggle = screen.getByRole('button', { name: 'Show all repositories' });
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(toggle);
+
+    expect(await screen.findByRole('button', { name: 'other-repo' })).toBeTruthy();
+    const activeToggle = screen.getByRole('button', {
+      name: 'Showing all repositories — show current only',
+    });
+    expect(activeToggle.getAttribute('aria-pressed')).toBe('true');
+
+    fireEvent.click(activeToggle);
+    expect(screen.queryByRole('button', { name: 'other-repo' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'midnite-studio' })).toBeTruthy();
+  });
+
+  it('places the show-all toggle on the left of the toolbar next to Collapse all repositories', async () => {
+    renderView(
+      <ToastHost>
+        <ReposPanel />
+      </ToastHost>,
+      { fixtures: twoRepoFixtures, uiState: { selectedRepoId: 'repo-1', showAllRepos: false } },
+    );
+
+    await screen.findByRole('heading', { name: 'Worktrees' });
+    const showAllBtn = screen.getByRole('button', { name: 'Show all repositories' });
+    const collapseAllBtn = screen.getByRole('button', { name: 'Collapse all repositories' });
+    const toolbar = showAllBtn.parentElement!;
+    const buttons = Array.from(toolbar.querySelectorAll('button'));
+    expect(buttons[0]).toBe(showAllBtn);
+    expect(buttons[1]).toBe(collapseAllBtn);
+  });
+
+  it('falls back to all scoped repositories when selectedRepoId is null or missing', async () => {
+    renderView(
+      <ToastHost>
+        <ReposPanel />
+      </ToastHost>,
+      { fixtures: twoRepoFixtures, uiState: { selectedRepoId: 'missing-id', showAllRepos: false } },
+    );
+
+    expect(await screen.findByRole('button', { name: 'midnite-studio' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'other-repo' })).toBeTruthy();
   });
 });

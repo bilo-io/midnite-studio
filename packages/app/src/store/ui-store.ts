@@ -737,6 +737,11 @@ export type UiState = {
    * that started with no repository picker would look broken.
    */
   reposOpen: boolean;
+  /**
+   * Whether the Git Repos sidebar lists every registered repository or only the
+   * active one (`selectedRepoId`). Defaults to `false` on fresh load.
+   */
+  showAllRepos: boolean;
   terminalOpen: boolean;
   /** Terminal fills everything below the title bar, hiding the graph. */
   terminalMaximized: boolean;
@@ -1346,6 +1351,7 @@ export type UiState = {
   selectConflict: (path: string | null) => void;
   toggleRepos: () => void;
   setReposOpen: (open: boolean) => void;
+  toggleShowAllRepos: () => void;
   toggleTerminal: () => void;
   setTerminalOpen: (open: boolean) => void;
   toggleTerminalMaximized: () => void;
@@ -2785,6 +2791,7 @@ export const useUiStore = create<UiState>()(
       graphSelection: null,
       graphWorkingCopyReveal: 0,
       reposOpen: true,
+      showAllRepos: false,
       terminalOpen: false,
       terminalMaximized: false,
       terminalDock: 'bottom',
@@ -3168,6 +3175,7 @@ export const useUiStore = create<UiState>()(
         set({ graphSelection: path === null ? null : { kind: 'conflict', path } }),
       toggleRepos: () => set((state) => ({ reposOpen: !state.reposOpen })),
       setReposOpen: (reposOpen) => set({ reposOpen }),
+      toggleShowAllRepos: () => set((state) => ({ showAllRepos: !state.showAllRepos })),
       toggleTerminal: () => set((state) => ({ terminalOpen: !state.terminalOpen })),
       setTerminalOpen: (terminalOpen) => set({ terminalOpen }),
       toggleTerminalMaximized: () =>

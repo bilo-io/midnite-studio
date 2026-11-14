@@ -27,6 +27,7 @@ import {
   LuFolderX,
   LuGitBranch,
   LuGripVertical,
+  LuLayers,
   LuListFilter,
   LuEllipsisVertical,
   LuPackage,
@@ -235,6 +236,9 @@ export function ReposPanel() {
   const { data: repos = [], isLoading } = useRepos();
   const reorderRepos = useReorderRepos();
   const reorderRepoGroups = useUiStore((s) => s.reorderRepoGroups);
+  const selectedRepoId = useUiStore((s) => s.selectedRepoId);
+  const showAllRepos = useUiStore((s) => s.showAllRepos);
+  const toggleShowAllRepos = useUiStore((s) => s.toggleShowAllRepos);
   const [error, setError] = useState<string | null>(null);
   const [addRepoOpen, setAddRepoOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -250,7 +254,12 @@ export function ReposPanel() {
     account scoping has no opinion on.
   */
   const { visible: scopedRepos } = useAccountScopedRepos(repos);
-  const { matched, favourites, ungrouped, groups } = useGroupedRepos(scopedRepos, query);
+  const visibleRepos = useMemo(() => {
+    if (showAllRepos || !selectedRepoId) return scopedRepos;
+    const active = scopedRepos.filter((repo) => repo.id === selectedRepoId);
+    return active.length > 0 ? active : scopedRepos;
+  }, [scopedRepos, showAllRepos, selectedRepoId]);
+  const { matched, favourites, ungrouped, groups } = useGroupedRepos(visibleRepos, query);
   const client = useQueryClient();
   /*
     Theme K.2: `ReposPanel` fully unmounts whenever the sidebar closes
@@ -317,6 +326,16 @@ export function ReposPanel() {
   */
   const toolbar = (
     <>
+      {repos.length > 0 ? (
+        <IconButton
+          icon={LuLayers}
+          label={showAllRepos ? 'Showing all repositories — show current only' : 'Show all repositories'}
+          aria-pressed={showAllRepos}
+          size="sm"
+          onClick={toggleShowAllRepos}
+          className={showAllRepos ? 'text-primary' : ''}
+        />
+      ) : null}
       {/*
         One button for both directions, not two.
 
