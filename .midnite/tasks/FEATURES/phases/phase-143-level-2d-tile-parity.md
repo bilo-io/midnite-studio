@@ -1,6 +1,10 @@
 # Phase 143 — 2D tile editing parity
 
+**Refined: x1** · 2026-11-14 · file map, contracts, MCP, testing, UI/UX
+
 Planned 2026-11-14 by an unattended agent · grounded against the tree as of `9e395a8df`.
+
+**Model:** every theme is a spec'd build for sonnet; no theme needs `Model: opus`.
 
 The 2D level editor paints one tile id at a time: Paint (`B`), Erase (`E`), Rectangle (`R`), Pick (`I`) over
 `level-edit-model.ts`'s `paint` / `fillRect`. That was enough for the starters' nine-colour palette and is far from
@@ -311,7 +315,7 @@ commit, through 138 E's `writeLevelOps`):
 
 - [ ] Targeted checks green: `tsc --noEmit` (shared, media-game, desktop); eslint on changed files; vitest on the
   touched suites incl. kit tests; the pin test; `scripts/skill-copies.test.mjs`; `node scripts/tracker-check.mjs`.
-- [ ] **Gate — the built app, throwaway `--user-data-dir`**: import a Tiled map with a corner wangset and animated
+- [ ] **Open, for a human:** gate on the built app, throwaway `--user-data-dir`**: import a Tiled map with a corner wangset and animated
   water (a CC0 sample), New scene ▸ From a map asset, paint grass with `T` and see edges resolve, take a stamp and
   flip it, bucket-fill, watch the water animate (and stop with Reduce motion on), Save, open the saved `.tmj` in
   Tiled 1.11 and see the same map. Shots under `/tmp/midnite-shots-p143/`.
@@ -328,12 +332,12 @@ commit, through 138 E's `writeLevelOps`):
 
 All resolved; unattended, the conventional option was taken in each case.
 
-1. **Wangsets, not a home-grown rule format** — Tiled's own terrain model, so the data round-trips through Tiled and
+1. **Resolved — Wangsets, not a home-grown rule format.** Tiled's own terrain model, so the data round-trips through Tiled and
    the kit already loads Tiled JSON.
-2. **Tiled's keys** — `T` terrain brush, `G` bucket fill, `X` / `Y` / `Z` flip and rotate — because Tiled is the
+2. **Resolved — Tiled's keys.** `T` terrain brush, `G` bucket fill, `X` / `Y` / `Z` flip and rotate — because Tiled is the
    tool this format comes from and its users will reach for them.
-3. **Flip bits decoded everywhere a gid is read** — today they are not stripped at all, which already mis-renders
+3. **Resolved — Flip bits decoded everywhere a gid is read.** Today they are not stripped at all, which already mis-renders
    Tiled maps that use flips.
-4. **Animated tiles respect reduced motion in both editor and kit** — the app's motion convention extends to the
+4. **Resolved — Animated tiles respect reduced motion in both editor and kit.** The app's motion convention extends to the
    games it makes.
-5. **Staggered maps stay unsupported** with a plain message — a half-right render invites corrupting saves.
+5. **Resolved — Staggered maps stay unsupported.** With a plain message — a half-right render invites corrupting saves.
