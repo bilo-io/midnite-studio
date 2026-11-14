@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-15 — Phase 148 Theme A — Performance widget recovery actions
+
+[#1263](https://github.com/bilo-io/midnite-studio/pull/1263): the status-bar performance monitor flyout gains a "Recovery actions" grid (Clean system, Manage resources, Free RAM, Full recovery) and an amber "N sessions from a previous build" badge counted against live sessions. Clean system and Manage resources hand off to the Optimizer; Free RAM and Full recovery ship disabled behind the `RecoverySeams` slot until Themes C and D wire them. Suite apps pass no actions. Merged on targeted local checks while GitHub CI was billing-locked.
+
 ## 2026-11-14 — Phase 135 — Feature toggles
 
 [#1230](https://github.com/bilo-io/midnite-studio/pull/1230): Settings ▸ Features switches any of 24 features off (Terminal, Settings and Accounts always on). Off hides it from the rail, palette, chords, settings, dashboard, status bar and quick-access menu, lands deep links on an off state, answers its IPC with the error envelope, stops its background work at runtime and refuses its MCP tools; data stays until "Delete this feature's data" trashes it behind the destructive confirm. Dependencies prompt (Chats → Councils). Deferred: the MCP shim's static tool list, Sidebar marks, the empty-workspace browser shortcut and lock-screen finance/monitor widgets, Books/Loops runtime-dir data.

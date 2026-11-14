@@ -14,6 +14,8 @@ export const PALETTE_SAFE: readonly CommandId[] = [
   'terminal.toggle',
   'terminal.focus',
   'terminal.repaint',
+  // Only adds rows for processes that are already running; ends nothing.
+  'terminal.recoverDetached',
   // `terminal.new`/`terminal.close` are deliberately absent, same as
   // `browser.newTab`/`browser.closeTab`: they share a chord with a command
   // whose meaning depends on runtime state (which terminal is selected, or
@@ -169,6 +171,7 @@ export const COMMAND_ACCESS: Record<CommandId, CompanionAccess> = {
   'terminal.repaint': 'direct',
   'terminal.new': 'direct',
   'terminal.close': 'confirm',
+  'terminal.recoverDetached': 'direct',
   'repos.toggle': 'direct',
   'browser.toggle': 'direct',
   'fab.toggle': 'direct',

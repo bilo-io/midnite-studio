@@ -14,6 +14,8 @@ export {
 export {
   collapseHome,
 } from './collapse-home';
+export { describeSession, endSessionsWithConfirm, previousBuildSessions } from './end-sessions';
+export { recoverDetachedSessions } from './recover-detached';
 export {
   DEFAULT_TERMINAL_LIST_WIDTH,
   createDefaultTerminalHost,

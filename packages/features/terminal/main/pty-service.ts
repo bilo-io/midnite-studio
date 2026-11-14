@@ -408,6 +408,10 @@ type SessionInfo = {
   rows: number;
   /** Served by a legacy broker peer rather than the current primary — see `BrokerSessionInfo.legacy`. */
   legacy: boolean;
+  /** The cwd the pty was spawned in, as the broker reported it — what a recovered row falls back to. */
+  cwd: string;
+  /** The app the broker stamped as the session's creator; `null` reads as Studio. */
+  owner: string | null;
 };
 
 const sessions = new Map<string, SessionInfo>();
@@ -555,23 +559,44 @@ export async function initPtyService(deps: {
   });
 
   // Re-hydrate running sessions if any
-  if (brokerClient.getStatus().mode === 'broker') {
-    const running = await brokerClient.listSessions();
-    for (const r of running) {
-      sessions.set(r.ptyId, {
-        ptyId: r.ptyId,
-        sessionId: r.sessionId,
-        pid: r.pid,
-        cols: r.cols,
-        rows: r.rows,
-        legacy: r.legacy,
-      });
-      sessionIdByPty.set(r.ptyId, r.sessionId);
-      if (agentWatcher) {
-        await trackWithWatcher(agentWatcher, r.ptyId, r.pid, r.sessionId);
-      }
+  if (brokerClient.getStatus().mode === 'broker') await adoptBrokerSessions();
+}
+
+/** Record every pty the connected brokers report that this service does not hold yet; resolves with the new ones. */
+async function adoptBrokerSessions(): Promise<number> {
+  if (!brokerClient) return 0;
+  const running = await brokerClient.listSessions();
+  let adopted = 0;
+  for (const r of running) {
+    if (sessions.has(r.ptyId)) continue;
+    sessions.set(r.ptyId, {
+      ptyId: r.ptyId,
+      sessionId: r.sessionId,
+      pid: r.pid,
+      cols: r.cols,
+      rows: r.rows,
+      legacy: r.legacy,
+      cwd: r.cwd,
+      owner: r.owner,
+    });
+    sessionIdByPty.set(r.ptyId, r.sessionId);
+    adopted++;
+    if (agentWatcher) {
+      await trackWithWatcher(agentWatcher, r.ptyId, r.pid, r.sessionId);
     }
   }
+  return adopted;
+}
+
+/**
+ * Look for brokers this process is not yet connected to (one retired or re-bound since boot) and take
+ * on every pty any connected broker holds — the first half of "recover detached sessions". No-op
+ * in-process: there is no broker to have lost anything to.
+ */
+export async function rescanBrokerSessions(): Promise<void> {
+  if (!brokerClient || brokerClient.getStatus().mode !== 'broker') return;
+  await brokerClient.rescanPeers();
+  await adoptBrokerSessions();
 }
 
 let brokerLocation: { socketPath: string; directory: string } | null = null;
@@ -696,6 +721,8 @@ async function createPtyUnconfined(options: {
         // A pty this call just created is always on the primary — `createPty`
         // has no legacy-peer branch (see `broker-client.ts`'s own `createPty`).
         legacy: false,
+        cwd: options.cwd,
+        owner: null,
       });
       sessionIdByPty.set(result.ptyId, options.sessionId);
       agentWatcher?.track(result.ptyId, result.pid, options.agentId ?? null);
@@ -788,6 +815,25 @@ export function livePtyFor(
     return null;
   }
   return ports().inproc.livePtyFor(sessionId);
+}
+
+/**
+ * Every pty a connected broker holds — the primary's and every legacy peer's — so the session list can
+ * recover one whose row `terminals.json` lost. Broker mode only: an in-process pty dies with this process,
+ * so it can never outlive its row.
+ */
+export function liveBrokerSessions(): {
+  sessionId: string;
+  ptyId: string;
+  pid: number;
+  cols: number;
+  rows: number;
+  cwd: string;
+  legacy: boolean;
+  owner: string | null;
+}[] {
+  if (!brokerClient || brokerClient.getStatus().mode !== 'broker') return [];
+  return [...sessions.values()].map((s) => ({ ...s }));
 }
 
 export function activePtyPids(): number[] {
