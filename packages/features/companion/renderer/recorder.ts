@@ -56,7 +56,7 @@ export class RecorderError extends Error {
 export function recorderErrorMessage(kind: RecorderErrorKind): string {
   switch (kind) {
     case 'denied':
-      return 'I could not use the microphone — permission was refused. Allow microphone access for Midnite Studio in System Settings, Privacy & Security.';
+      return 'I could not use the microphone — permission was refused. Check Settings ▸ Permissions in Midnite Studio.';
     case 'no-device':
       return 'I could not find a microphone. Connect one, then try again.';
     case 'unsupported':
@@ -84,7 +84,7 @@ export function micDeniedMessage(access: MicrophoneAccess | undefined): string {
     case 'granted':
       return 'I could not use the microphone. macOS allows it, but Midnite Studio refused its own request — that is a bug in the app, not a setting you need to change.';
     case 'denied':
-      return 'I could not use the microphone — macOS has it turned off for Midnite Studio. Turn it on in System Settings, Privacy & Security, Microphone, then quit and reopen Midnite Studio.';
+      return 'I could not use the microphone — macOS has it turned off for Midnite Studio. Turn it on from Settings ▸ Permissions in Midnite Studio.';
     case 'restricted':
       return 'I could not use the microphone — a device policy restricts it on this Mac. Type instead, and the rest still works.';
     default:

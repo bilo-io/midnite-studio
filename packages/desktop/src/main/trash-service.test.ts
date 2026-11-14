@@ -293,6 +293,7 @@ describe('emptyTrash', () => {
     const result = await promise;
     expect(result.ok).toBe(false);
     expect(!result.ok && result.message).toMatch(/isn't allowed to control Finder/);
+    expect(!result.ok && result.message).toMatch(/Settings ▸ Permissions/);
   });
 
   it('maps -128 (user cancelled) to a non-error message', async () => {
