@@ -26,6 +26,10 @@ import { ReposPanel } from './repos-panel';
  */
 
 const REPO = 'midnite-studio';
+const multiRepoFixtures = {
+  ...fixtures,
+  extraRepos: [{ id: 'repo-2', name: 'other-repo', path: '/tmp/other-repo' }],
+};
 
 afterEach(cleanup);
 
@@ -35,7 +39,7 @@ describe('repo favourites', () => {
       <ToastHost>
         <ReposPanel />
       </ToastHost>,
-      { fixtures },
+      { fixtures: multiRepoFixtures, uiState: { showAllRepos: true } },
     );
 
     // Initially, no Favourites section is present.
@@ -80,7 +84,7 @@ describe('repo favourites', () => {
       <ToastHost>
         <ReposPanel />
       </ToastHost>,
-      { fixtures },
+      { fixtures: multiRepoFixtures, uiState: { showAllRepos: true } },
     );
 
     const repoBtn = await screen.findByRole('button', { name: REPO });

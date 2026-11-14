@@ -691,6 +691,18 @@ export { DEFAULT_PROJECT_VIEW, type ProjectViewState };
  *
  * Persisted selectively — see `partialize` below.
  */
+/**
+ * Default collapsed repo sections: everything collapsed except `tags` and `forge`.
+ * Shared as one config across both single-repo view and all-repos view.
+ */
+export const DEFAULT_COLLAPSED_REPO_SECTIONS: readonly string[] = [
+  'worktrees',
+  'branches',
+  'local',
+  'remotes',
+  'stashes',
+];
+
 export type UiState = {
   activeView: ViewId;
   /**
@@ -1186,7 +1198,15 @@ export type UiState = {
    * `SectionKey` directly because `view-sections.ts` already imports from this
    * store, and the reverse import would cycle.
    */
-  collapsedRepoSections: Record<string, string[]>;
+  /**
+   * Shared set of closed section keys for the Git Repos tree (`worktrees`,
+   * `branches`, `local`, `remotes`, `tags`, `stashes`, `forge`, `remotes:<name>`).
+   * Stored as one config applied to whichever repo is shown in single-repo view
+   * and to all repos simultaneously in all-repos view.
+   *
+   * Defaults to everything collapsed except `tags` and `forge`.
+   */
+  collapsedRepoSections: string[];
   /**
    * Per-view override of whether the repositories sidebar is narrowed to what
    * the view is about — the "Show all sections" escape hatch.
@@ -1418,9 +1438,7 @@ export type UiState = {
    * `toggleRepoSection` (`features/repos/view-sections.ts`) at a normal
    * `SectionKey` call site — this exists for the one caller that cannot use it.
    */
-  toggleRepoSectionKey: (repoId: string, key: string) => void;
-  /** Drops a repo's entry entirely once it leaves the workspace. */
-  pruneRepoSections: (repoId: string) => void;
+  toggleRepoSectionKey: (key: string) => void;
   /** Flip one view's sidebar between "what this view needs" and the whole tree. */
   setSectionFilter: (view: ViewId, filtered: boolean) => void;
   /**
@@ -3073,7 +3091,7 @@ export const useUiStore = create<UiState>()(
             : [...state.collapsedAccordionSections, key],
         })),
       collapsedSettingsGroups: [],
-      collapsedRepoSections: {},
+      collapsedRepoSections: [...DEFAULT_COLLAPSED_REPO_SECTIONS],
       sectionFilters: {},
       navVisibility: {},
       setNavViewVisible: (view, visible) =>
@@ -3302,24 +3320,12 @@ export const useUiStore = create<UiState>()(
             ? state.collapsedSettingsGroups.filter((k) => k !== key)
             : [...state.collapsedSettingsGroups, key],
         })),
-      toggleRepoSectionKey: (repoId, key) =>
-        set((state) => {
-          const closed = state.collapsedRepoSections[repoId] ?? [];
-          return {
-            collapsedRepoSections: {
-              ...state.collapsedRepoSections,
-              [repoId]: closed.includes(key)
-                ? closed.filter((k) => k !== key)
-                : [...closed, key],
-            },
-          };
-        }),
-      pruneRepoSections: (repoId) =>
-        set((state) => {
-          if (!(repoId in state.collapsedRepoSections)) return {};
-          const { [repoId]: _dropped, ...rest } = state.collapsedRepoSections;
-          return { collapsedRepoSections: rest };
-        }),
+      toggleRepoSectionKey: (key) =>
+        set((state) => ({
+          collapsedRepoSections: state.collapsedRepoSections.includes(key)
+            ? state.collapsedRepoSections.filter((k) => k !== key)
+            : [...state.collapsedRepoSections, key],
+        })),
       setSectionFilter: (view, filtered) =>
         set((state) => ({ sectionFilters: { ...state.sectionFilters, [view]: filtered } })),
       resetSectionFilters: () => set({ sectionFilters: {} }),
@@ -3531,7 +3537,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 40,
+      version: 41,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         chatsWidthMode: state.chatsWidthMode,
@@ -3814,7 +3820,7 @@ export const useUiStore = create<UiState>()(
         const state = (persisted ?? {}) as Record<string, unknown> & {
           enabledWebApps?: WebAppId[];
           graphColumns?: Record<string, number>;
-          collapsedRepoSections?: Record<string, string[]>;
+          collapsedRepoSections?: Record<string, string[]> | string[];
           repoGroups?: unknown[];
           repoGroupMembership?: Record<string, string>;
           collapsedRepoGroups?: string[];
@@ -3871,7 +3877,7 @@ export const useUiStore = create<UiState>()(
           state.graphColumns = rest;
         }
         if (version < 3) {
-          state.collapsedRepoSections = {};
+          state.collapsedRepoSections = [...DEFAULT_COLLAPSED_REPO_SECTIONS];
         }
         if (version < 4) {
           state.repoGroups = [];
@@ -4006,6 +4012,9 @@ export const useUiStore = create<UiState>()(
         if (version < 38) migratePrSkills(state);
         if (version < 39) migrateBuildPlanSkills(state);
         if (version < 40) migrateSwarmFleetSkills(state);
+        if (version < 41 || !Array.isArray(state.collapsedRepoSections)) {
+          state.collapsedRepoSections = [...DEFAULT_COLLAPSED_REPO_SECTIONS];
+        }
         return state as PersistedUi;
       },
       /**

@@ -21,8 +21,12 @@ test.describe('repo favourites', () => {
   test('adds repo to favourites, shows Favourites section at top, and removes from favourites', async ({
     page,
   }) => {
-    await installMockBridge(page, fixtures);
+    await installMockBridge(page, {
+      ...fixtures,
+      extraRepos: [{ id: 'repo-2', name: 'other-repo', path: '/tmp/other-repo' }],
+    });
     await page.goto('/');
+    await panel(page).getByRole('button', { name: 'Show all repositories' }).click();
 
     // Initially, no Favourites section is present
     await expect(panel(page).getByTestId('repo-favourites-section')).not.toBeVisible();
