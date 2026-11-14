@@ -1295,6 +1295,7 @@ export const startStudioMain: StartStudioMain = () => {
         if (BrowserWindow.getAllWindows().length === 0) {
           mainWindow = createWindow();
           registerMainWindow(mainWindow);
+          keychainGate.attachWindow(mainWindow);
           void restoreReopenedPopouts(defaultLogger);
           mainWindow.on('closed', () => {
             closeAllPopouts();

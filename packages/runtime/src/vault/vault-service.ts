@@ -301,7 +301,7 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
   const pendingAudit: Parameters<typeof audit.log>[0][] = [];
   const logAudit = (record: Parameters<typeof audit.log>[0]) => {
     if (verified) void audit.log(record);
-    else pendingAudit.push(record);
+    else pendingAudit.push({ ...record, t: Date.now() });
   };
   // The file watcher stays armed from construction, so a vault-file write before first access
   // still runs verifyFile (a keychain read). That is deliberate: tamper detection must not wait.
@@ -401,8 +401,9 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
     const firstVerification = verification === null;
     await ensureVerified();
     if (firstVerification && integrity.getTamperedFile() !== null) {
-      // Tamper found by this very call: the tamper audit line re-baselines the audit file, so a
-      // second verifyAll would pass. Refuse rather than let that launder the forgery.
+      // Tamper found by this very call: refuse this unlock. The tamper audit line re-baselines the
+      // audit file, so a later unlock can still succeed (as on main); the forgery stays recorded in
+      // the audit log rather than being prevented.
       logAudit({
         op: 'unlock-failed',
         app: 'vault',
