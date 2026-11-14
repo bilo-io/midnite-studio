@@ -257,7 +257,7 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
         </div>
       </div>
 
-      {!showList ? <ReattachedNote /> : null}
+      {showList && listTween.mounted ? null : <ReattachedNote />}
     </div>
   );
 }

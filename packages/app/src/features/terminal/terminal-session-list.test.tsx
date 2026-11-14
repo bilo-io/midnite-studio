@@ -352,4 +352,15 @@ describe('TerminalSessionList — notices stack', () => {
       expect(el.querySelectorAll('button')).toHaveLength(2);
     }
   });
+
+  it('renders no notices when showNotices is false', () => {
+    seedBoth();
+    render(
+      <DialogHost>
+        <TerminalSessionList agents={[]} width={220} showNotices={false} />
+      </DialogHost>,
+    );
+    expect(screen.queryByTestId('terminal-notices')).toBeNull();
+    expect(screen.queryByTestId('reattached-note')).toBeNull();
+  });
 });

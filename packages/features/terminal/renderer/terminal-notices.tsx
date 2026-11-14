@@ -1,15 +1,21 @@
 import { PanelNotice } from './panel-notice';
-import { ReattachedNote, noteText } from './reattached-note';
+import { ReattachedNote, useReattachedNoteVisible } from './reattached-note';
 import { useTerminalStore } from './terminal-store';
 import type { TerminalSession } from '@midnite/studio-shared';
 
 /** Offers to restart sessions that reattached from an older build's broker. */
+export function useLegacyNoticeVisible(): boolean {
+  const legacy = useTerminalStore((s) => s.legacy);
+  const dismissed = useTerminalStore((s) => s.legacyBannerDismissed);
+  return Object.values(legacy).some(Boolean) && !dismissed;
+}
+
 export function LegacyNotice({ sessions }: { sessions: TerminalSession[] }) {
   const legacy = useTerminalStore((s) => s.legacy);
-  const legacyBannerDismissed = useTerminalStore((s) => s.legacyBannerDismissed);
   const dismissLegacyBanner = useTerminalStore((s) => s.dismissLegacyBanner);
+  const visible = useLegacyNoticeVisible();
 
-  if (!Object.values(legacy).some(Boolean) || legacyBannerDismissed) return null;
+  if (!visible) return null;
 
   return (
     <PanelNotice tone="warning" role="alert">
@@ -52,13 +58,8 @@ export function LegacyNotice({ sessions }: { sessions: TerminalSession[] }) {
 
 /** The docked stack under the session list: legacy notice, then the reattached note. */
 export function TerminalNotices({ sessions }: { sessions: TerminalSession[] }) {
-  const legacy = useTerminalStore((s) => s.legacy);
-  const legacyBannerDismissed = useTerminalStore((s) => s.legacyBannerDismissed);
-  const reattachedCount = useTerminalStore((s) => s.reattachedCount);
-  const reattachedDismissed = useTerminalStore((s) => s.reattachedDismissed);
-
-  const showLegacy = Object.values(legacy).some(Boolean) && !legacyBannerDismissed;
-  const showReattached = noteText(reattachedCount) !== null && !reattachedDismissed;
+  const showLegacy = useLegacyNoticeVisible();
+  const showReattached = useReattachedNoteVisible();
   if (!showLegacy && !showReattached) return null;
 
   return (

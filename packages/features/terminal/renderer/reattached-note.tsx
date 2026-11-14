@@ -7,6 +7,12 @@ export function noteText(count: number): string | null {
   return `Reattached ${count} session${count === 1 ? '' : 's'}`;
 }
 
+export function useReattachedNoteVisible(): boolean {
+  const count = useTerminalStore((s) => s.reattachedCount);
+  const dismissed = useTerminalStore((s) => s.reattachedDismissed);
+  return noteText(count) !== null && !dismissed;
+}
+
 /**
  * Notice shown when sessions survive and reattach across a relaunch. It docks
  * in the session list's notices stack under the legacy notice, or at the panel

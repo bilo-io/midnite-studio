@@ -1,7 +1,7 @@
-import { DialogHost } from '../../components/dialog-host';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { DialogHost } from '../../components/dialog-host';
 import { useUiStore } from '../../store/ui-store';
 import { useTerminalStore } from './terminal-store';
 import { TerminalPanel } from './terminal-panel';
@@ -24,6 +24,8 @@ describe('TerminalPanel with ReattachedNote', () => {
       sessions: [],
       activeId: null,
       states: {},
+      legacy: {},
+      legacyBannerDismissed: false,
       reattachedCount: 0,
       reattachedSessionIds: [],
       reattachedDismissed: false,
@@ -108,6 +110,7 @@ describe('TerminalPanel with ReattachedNote', () => {
     );
     const list = container.querySelector('[data-session-list]');
     expect(list).not.toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
     expect(list?.contains(screen.getByTestId('reattached-note'))).toBe(true);
     expect(screen.getAllByTestId('reattached-note')).toHaveLength(1);
   });
