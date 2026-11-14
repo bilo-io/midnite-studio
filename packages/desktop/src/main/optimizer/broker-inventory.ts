@@ -190,3 +190,56 @@ export function readBrokerDir(brokerDir: string): { pidFiles: BrokerPidFile[]; s
   }
   return { pidFiles, socketNames };
 }
+
+/** What {@link stampLostProcesses} writes onto one process row. */
+type Stampable = { pid: number; ours: boolean; owner: string | null; lost?: ProcessLostReason | null; brokerPid?: number | null };
+
+/**
+ * Stamp `lost` and `brokerPid` on every broker and every process in its tree, and widen `ours` to the
+ * non-primary brokers' trees so the Memory tab offers them a kill. The primary keeps whatever `ours` the
+ * old rule gave it (its broker process: false — no kill button), and a session another app owns is
+ * never `ours`, wherever it runs. Mutates and returns `processes`.
+ */
+export function stampLostProcesses<T extends Stampable>(
+  processes: T[],
+  rows: readonly ProcessRow[],
+  inventory: BrokerInventory,
+  descendants: (rows: readonly ProcessRow[], rootPid: number) => readonly { row: ProcessRow }[],
+): T[] {
+  const stamp = new Map<number, { lost: ProcessLostReason | null; brokerPid: number; widen: boolean }>();
+  const treeOf = (root: number) => [root, ...descendants(rows, root).map((d) => d.row.pid)];
+
+  for (const broker of inventory.brokers) {
+    for (const pid of treeOf(broker.pid)) {
+      stamp.set(pid, { lost: broker.lost, brokerPid: broker.pid, widen: !broker.primary });
+    }
+  }
+  for (const pty of inventory.noRowPtys) {
+    for (const pid of treeOf(pty.pid)) {
+      const prior = stamp.get(pid);
+      if (prior?.lost) continue;
+      stamp.set(pid, { lost: 'no-row', brokerPid: pty.brokerPid, widen: prior?.widen ?? false });
+    }
+  }
+  const foreign = new Set(inventory.foreignSessionPids.flatMap(treeOf));
+
+  for (const proc of processes) {
+    const s = stamp.get(proc.pid);
+    proc.lost = s?.lost ?? null;
+    proc.brokerPid = s?.brokerPid ?? null;
+    if (foreign.has(proc.pid)) proc.ours = false;
+    else if (s?.widen) proc.ours = true;
+  }
+  return processes;
+}
+
+/** Every pid in a foreign-owned session's tree — what the kill guard refuses outright. */
+export function foreignSessionTree(
+  rows: readonly ProcessRow[],
+  inventory: BrokerInventory,
+  descendants: (rows: readonly ProcessRow[], rootPid: number) => readonly { row: ProcessRow }[],
+): Set<number> {
+  return new Set(
+    inventory.foreignSessionPids.flatMap((pid) => [pid, ...descendants(rows, pid).map((d) => d.row.pid)]),
+  );
+}
