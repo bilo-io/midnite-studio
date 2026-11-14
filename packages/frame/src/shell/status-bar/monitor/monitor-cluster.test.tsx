@@ -3,16 +3,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useMetricsStore } from '../../../metrics/metrics-store';
 import { useMonitorPrefsStore } from '../../../prefs/monitor-prefs-store';
-import { createMonitorSegment } from './monitor-cluster';
+import { createMonitorSegment, type MonitorFlyoutProps, type MonitorSegmentOptions } from './monitor-cluster';
 
-function setup() {
+function setup(extra: Partial<MonitorSegmentOptions> = {}) {
   const openMonitor = vi.fn();
-  const Flyout = ({ onOpenMonitor }: { onOpenMonitor: () => void }) => (
-    <button type="button" onClick={onOpenMonitor}>
-      Open Monitor
-    </button>
+  const Flyout = ({ onOpenMonitor, actions }: MonitorFlyoutProps) => (
+    <div>
+      <button type="button" onClick={onOpenMonitor}>
+        Open Monitor
+      </button>
+      {actions?.map((action) => (
+        <button key={action.id} type="button" onClick={action.run}>
+          {action.label}
+        </button>
+      ))}
+    </div>
   );
-  const MonitorCluster = createMonitorSegment({ Flyout, openMonitor });
+  const MonitorCluster = createMonitorSegment({ Flyout, openMonitor, ...extra });
   const view = render(<MonitorCluster />);
   return { openMonitor, ...view };
 }
@@ -60,5 +67,35 @@ describe('the frame monitor segment', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Open Monitor' }));
     expect(openMonitor).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('button', { name: 'Open Monitor' })).toBeNull();
+  });
+
+  it('closes the popover before an action runs, and runs it once', async () => {
+    useMetricsStore.getState().push({ at: Date.now(), cpu: 45 });
+    const run = vi.fn(() => {
+      // by the time the action runs the flyout is already closing
+      expect(screen.queryByRole('button', { name: 'Open Monitor' })).not.toBeNull();
+    });
+    setup({ actions: [{ id: 'a', label: 'Do it', description: 'd', Icon: () => null, run }] });
+    fireEvent.click(screen.getByTestId('monitor-cluster'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Do it' }));
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: 'Do it' })).toBeNull();
+  });
+
+  it('shows the attention dot while the host reports a line, and clears with it', () => {
+    useMetricsStore.getState().push({ at: Date.now(), cpu: 45 });
+    let line: string | null = '2 sessions from a previous build';
+    const { rerender } = setup({ attention: () => line });
+    expect(screen.getByTestId('monitor-attention').getAttribute('aria-label')).toBe('2 sessions from a previous build');
+    line = null;
+    const MonitorCluster = createMonitorSegment({ Flyout: () => null, openMonitor: vi.fn(), attention: () => line });
+    rerender(<MonitorCluster />);
+    expect(screen.queryByTestId('monitor-attention')).toBeNull();
+  });
+
+  it('shows no dot without an attention option', () => {
+    useMetricsStore.getState().push({ at: Date.now(), cpu: 45 });
+    setup();
+    expect(screen.queryByTestId('monitor-attention')).toBeNull();
   });
 });
