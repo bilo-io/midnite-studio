@@ -8,6 +8,7 @@ Completed work is logged append-only in [`../done.md`](../done.md). Deferred sco
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [146 · Unified sessions and chats](phases/phase-146-unified-sessions-and-chats.md) | ◻ TODO | — | 0/22 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [145 · Level history, review and polish](phases/phase-145-level-history-polish.md) | ◻ TODO | x1 | 0/31 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
 | [144 · Level lighting, environment and structure](phases/phase-144-level-lighting-environment.md) | ◻ TODO | x1 | 0/28 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
 | [143 · 2D tile editing parity](phases/phase-143-level-2d-tile-parity.md) | ◻ TODO | x1 | 0/31 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
