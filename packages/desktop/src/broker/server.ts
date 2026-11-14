@@ -682,6 +682,7 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
             rows,
             cwd,
             env: {
+              COLORTERM: 'truecolor',
               ...env,
               TERM_PROGRAM: 'midnite-studio',
               GIT_TERMINAL_PROMPT: '1',
