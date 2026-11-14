@@ -1359,6 +1359,15 @@ describe('terminal and pty schemas', () => {
       invalid: [['no ptyId', {}], ['empty ptyId', { ptyId: '' }]],
     },
     {
+      name: 'PtySnapshotResponse',
+      schema: schemas.PtySnapshotResponse,
+      valid: { bytes: new Uint8Array(2), cols: 120, rows: 40 },
+      invalid: [
+        ['zero cols', { bytes: new Uint8Array(0), cols: 0, rows: 40 }],
+        ['fractional cols', { bytes: new Uint8Array(0), cols: 120.5, rows: 40 }],
+      ],
+    },
+    {
       name: 'PtySubscribeRequest',
       schema: schemas.PtySubscribeRequest,
       valid: { ptyId: 'p1' },
@@ -1690,6 +1699,10 @@ describe('terminal and pty schemas', () => {
    * Every `pty:*` and `terminal:*` channel must appear above by name. A new
    * channel added without a row fails here, rather than shipping unvalidated.
    */
+  it('PtySnapshotResponse still parses bytes alone', () => {
+    expect(schemas.PtySnapshotResponse.safeParse({ bytes: new Uint8Array(1) }).success).toBe(true);
+  });
+
   it('covers every pty and terminal channel', () => {
     const covered = new Set(CASES.map((c) => c.name));
     const expected: Record<string, string[]> = {
