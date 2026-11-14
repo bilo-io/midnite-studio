@@ -1,4 +1,5 @@
 import type { MonitorAction } from '@midnite/studio-frame';
+import { openOptimizerAt } from '@midnite/studio-feature-optimizer/renderer';
 import { LuGauge, LuLifeBuoy, LuMemoryStick, LuSparkles } from 'react-icons/lu';
 
 import { requestHandoff } from '../../services/handoff';
@@ -24,9 +25,15 @@ const noop = (): void => undefined;
 
 const openOptimizer = (): void => void requestHandoff({ app: 'cleaner', view: 'optimizer' });
 
+/** Theme B: land on Memory ▸ Lost — old-build brokers, unreachable brokers and rowless ptys. */
+export const manageLostResources = (): void => {
+  openOptimizerAt({ tab: 'memory', memoryFilter: 'lost' });
+  openOptimizer();
+};
+
 const DEFAULT_SEAMS: Required<Pick<RecoverySeams, 'cleanSystem' | 'manageResources'>> = {
   cleanSystem: openOptimizer,
-  manageResources: openOptimizer,
+  manageResources: manageLostResources,
 };
 
 /** The four actions in their fixed order: Clean system, Manage resources, Free RAM, Full recovery. */
@@ -43,7 +50,7 @@ export function buildRecoveryActions(seams: RecoverySeams = {}): readonly Monito
     {
       id: 'manage-resources',
       label: 'Manage resources',
-      description: 'Open the Optimizer to see which processes hold your memory',
+      description: 'Open the Optimizer on lost processes: old-build terminal brokers and sessions nothing lists',
       Icon: LuGauge,
       run: manageResources,
     },
