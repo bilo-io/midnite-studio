@@ -41,6 +41,8 @@ export function endSessionsWithConfirm(
     body: one
       ? 'Its process is killed and the session is removed. Unsaved work in it is lost.'
       : 'Each process below is killed and its session removed. Unsaved work in them is lost.',
+    // The sessions ARE the blast radius, listed as warnings; null says there is nothing left to count.
+    blastRadius: null,
     warnings: sessions.map(describeSession),
     confirmLabel: one ? 'End session' : `End ${sessions.length} sessions`,
     danger: true,
