@@ -1,6 +1,10 @@
 # Phase 137 — Level editor editing essentials
 
+**Refined: x1** · 2026-11-14 · file map, contracts, MCP, testing, UI/UX
+
 Planned 2026-11-14 by an unattended agent · grounded against the tree as of `9e395a8df`.
+
+**Model:** every theme is a spec'd build for sonnet; no theme needs `Model: opus`.
 
 Media ▸ Games ▸ **Level editor** (Phase 132 Themes D–E, Phase 136) edits one object at a time, draws volumes and
 paths only in the Floorplan, and has no outliner, clipboard, context menu or shortcut list. This phase brings it to the
@@ -647,7 +651,7 @@ The `midnite-media-game-build` skill needs no change for this phase.
   `renderer/level`, `scripts/layer-boundaries.test.mjs`, `node scripts/tracker-check.mjs`, `node
   scripts/e2e-budget.mjs`.
 - [ ] `packages/app/src/components/icons/icon-names.test.ts` green (every new `Lu*` name resolves).
-- [ ] **Gate — the built app, a throwaway `--user-data-dir`, no mocks**, on a new third-person game and a new
+- [ ] **Open, for a human:** gate on the built app, a throwaway `--user-data-dir`, no mocks**, on a new third-person game and a new
   platformer in a temp folder: marquee + Shift + Mod selection in both views; Mod+C / Mod+V / Mod+D; group move,
   rotate about Centre and Pivot, scale; align left and distribute; snap at ½ tile and 45°; surface snap a crate onto a
   crate; Volume, Path and Rotate in 3D; outliner search, hide, lock and range select; each context menu; the `?`
@@ -666,31 +670,31 @@ The `midnite-media-game-build` skill needs no change for this phase.
 
 All resolved; unattended, the conventional option was taken in each case.
 
-1. **Selection = primary + set.** `selection` stays the primary ref and `selected` holds all; Unity's
+1. **Resolved — Selection = primary + set.** `selection` stays the primary ref and `selected` holds all; Unity's
    `Selection.activeObject` + `Selection.objects` and Godot's editor selection both separate the active object from
    the set. Keeping `selection` avoids touching every inspector call site.
-2. **Marquee takes only fully enclosed objects** (Unity, Godot): partially crossing a large floor volume must not
+2. **Resolved — Marquee takes only fully enclosed objects.** (Unity, Godot): partially crossing a large floor volume must not
    select it.
-3. **Undo and redo keep the selection**, filtered to objects that still exist (Unity, Godot). Clearing it, as Phase
+3. **Resolved — Undo and redo keep the selection.** Filtered to objects that still exist (Unity, Godot). Clearing it, as Phase
    132 did, loses the user's place after every undo.
-4. **Duplicate in place, paste at the pointer.** Unity's Ctrl+D and Godot's Ctrl+D duplicate in place and select the
+4. **Resolved — Duplicate in place, paste at the pointer.** Unity's Ctrl+D and Godot's Ctrl+D duplicate in place and select the
    copy; Tiled and LDtk paste at the cursor. A fallback paste offset of one tile keeps a paste from hiding under the
    original.
-5. **The clipboard is versioned JSON on the system clipboard**, with an in-memory fallback, so copying between two
+5. **Resolved — The clipboard is versioned JSON on the system clipboard.** With an in-memory fallback, so copying between two
    games works and a stale or foreign clipboard parses to `null`, never throws.
-6. **Pivot vs Centre and Local vs World on Z and X** — Unity's toggles and keys. Godot's equivalent is per-tool; one
+6. **Resolved — Pivot vs Centre and Local vs World on Z and X.** Unity's toggles and keys. Godot's equivalent is per-tool; one
    pair of radios is simpler and matches the existing W/E/R from Unity.
-7. **Align against the selection bounds**, no key-object mode (Figma, Unreal's default). One rule, no state.
-8. **Alt inverts snapping.** The plan already reads Alt as "free"; 3D adopts the same rule so one modifier means the
+7. **Resolved — Align against the selection bounds.** No key-object mode (Figma, Unreal's default). One rule, no state.
+8. **Resolved — Alt inverts snapping.** The plan already reads Alt as "free"; 3D adopts the same rule so one modifier means the
    same thing in both views. Shift stays the frame's fine step.
-9. **Surface snap uses box tops only**, on release. Mesh raycasts need loaded models (Phase 136 loads them lazily);
+9. **Resolved — Surface snap uses box tops only.** On release. Mesh raycasts need loaded models (Phase 136 loads them lazily);
    terrain arrives in Phase 141.
-10. **Hide and lock are editor-only and persisted per scene in the renderer** (`midnite-studio.level-outliner`), as
+10. **Resolved — Hide and lock are editor-only and persisted per scene in the renderer.** (`midnite-studio.level-outliner`), as
     Unity keeps Scene Visibility out of the scene file. The existing layer eye stays a saved Tiled flag because Phase
     132 shipped it that way; the tooltips say which is which.
-11. **The shortcut table is the dispatcher.** One `LEVEL_SHORTCUTS` array feeds both `matchShortcut` and the
+11. **Resolved — The shortcut table is the dispatcher.** One `LEVEL_SHORTCUTS` array feeds both `matchShortcut` and the
     cheat-sheet, so the sheet cannot drift from the keys (the model editor's `SHORTCUTS` precedent).
-12. **3D marquee needs Shift.** A plain drag on empty ground is an orbit (Phase 136); stealing it would break
+12. **Resolved — 3D marquee needs Shift.** A plain drag on empty ground is an orbit (Phase 136); stealing it would break
     navigation, and a screen-space Shift-marquee is how Unreal's viewport box-select (Ctrl+Alt drag) avoids the same
     conflict.
-13. **One new e2e spec** (marquee + group drag needs real pointer drag on a canvas); everything else is vitest.
+13. **Resolved — One new e2e spec.** (marquee + group drag needs real pointer drag on a canvas); everything else is vitest.
