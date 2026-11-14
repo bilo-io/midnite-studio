@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import {
   LuEraser,
   LuEye,
   LuEyeOff,
+  LuMap,
   LuMapPin,
   LuMousePointer2,
   LuPaintbrush,
@@ -21,7 +22,7 @@ import {
 } from 'react-icons/lu';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { GAME_LEVEL_ENTITY_TYPES_2D, GAME_LEVEL_ENTITY_TYPES_3D, levelEntityToWorld, levelProperties } from '@midnite/studio-shared';
+import { GAME_LEVEL_ENTITY_TYPES_2D, GAME_LEVEL_ENTITY_TYPES_3D, levelEntityToWorld, levelProperties, metresPerTile } from '@midnite/studio-shared';
 import { EmptyState, EmptyStateButton, Skeleton } from '@midnite/studio-frame';
 
 import { LevelCanvas, type CanvasPointer } from './level-canvas';
@@ -68,7 +69,11 @@ import {
 } from './level-edit-model';
 import { snapPlan } from './level-plan';
 import { blockingIssues, useLevelStore, type OpenLevel } from './level-store';
-import { lineCells } from './level-view';
+import { lineCells, type View } from './level-view';
+import { focusToPlanView, planViewToFocus } from './3d/camera-transition';
+import type { Level3dHandle } from './3d/level-3d-view';
+import { levelViewMode, useLevelViewStore, type LevelViewMode } from './3d/level-view-store';
+import { groundY } from './3d/level-world';
 import { fetchLevel, useGameManifest, useLevel, useLevels, useSaveOpenLevel } from './use-levels';
 
 export type LevelTool = 'paint' | 'erase' | 'rect' | 'pick' | 'entity' | 'select' | 'volume' | 'path' | 'rotate';
@@ -97,6 +102,11 @@ const MANAGED_3D = ['elevation', 'sizeY', 'pitch', 'roll', 'scale', 'model', 'co
 const ROTATE_STEP = 15;
 
 const CUSTOM = '__custom__';
+
+/** three and the scene load only when a 3D level's 3D view first opens. */
+const Level3dView = lazy(() => import('./3d/level-3d-view'));
+/** The plan-view tools the 3D view has (the rest draw in plan only). */
+const TOOLS_IN_3D: ReadonlySet<LevelTool> = new Set(['select', 'entity']);
 
 type Updater = (fn: (state: EditState) => EditState) => void;
 
@@ -195,7 +205,37 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
   // A 3D level is a top-down orthogonal map; an isometric one has no plan to place on.
   const planBroken = is3d && level.orientation !== 'orthogonal';
   const readOnly = entry.unreadable || blocking.length > 0 || planBroken;
-  const tools = is3d ? TOOLS_3D : TOOLS;
+  // Floorplan | 3D (Phase 136 Theme E): persisted per game; the switch eases the camera between the two.
+  const can3d = is3d && !planBroken;
+  const storedMode = useLevelViewStore((s) => levelViewMode(s, gameId));
+  const viewMode: LevelViewMode = can3d ? storedMode : 'plan';
+  /** The 3D view is mounted: from the switch until its ease back to the plan has finished. */
+  const [mounted3d, setMounted3d] = useState(viewMode === '3d');
+  const [enterFrom, setEnterFrom] = useState<{ target: [number, number, number]; span: number } | null>(null);
+  const [planViewIn, setPlanViewIn] = useState<View | null>(null);
+  const planViewOut = useRef<{ view: View; size: { width: number; height: number } } | null>(null);
+  const handle3d = useRef<Level3dHandle | null>(null);
+  const planScale = { tilewidth: level.tilewidth, tileheight: level.tileheight, mpt: metresPerTile(level) };
+  const switchView = (next: LevelViewMode) => {
+    if (next === viewMode || !can3d) return;
+    useLevelViewStore.getState().setMode(gameId, next);
+    if (next === '3d') {
+      const plan = planViewOut.current;
+      setEnterFrom(plan ? planViewToFocus(plan.view, plan.size, planScale, groundY(level)) : null);
+      if (!TOOLS_IN_3D.has(tool)) chooseTool('select');
+      setMounted3d(true);
+      return;
+    }
+    const finish = (pose: { target: [number, number, number]; span: number }) => {
+      const plan = planViewOut.current;
+      if (plan) setPlanViewIn(focusToPlanView(pose.target, pose.span, plan.size, planScale));
+      setMounted3d(false);
+    };
+    if (handle3d.current) handle3d.current.exit(finish);
+    else setMounted3d(false);
+  };
+  const in3d = viewMode === '3d';
+  const tools = is3d ? (in3d ? TOOLS_3D.filter((t) => TOOLS_IN_3D.has(t.tool)) : TOOLS_3D) : TOOLS;
   const chooseTool = (next: LevelTool) => {
     setDraft([]);
     setVolumeDrag(null);
@@ -394,6 +434,28 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
             </button>
           ))}
         </div>
+        {can3d ? (
+          <div role="radiogroup" aria-label="View" className="flex items-center rounded border border-border p-0.5" data-testid="level-view-switch">
+            {(
+              [
+                ['plan', 'Floorplan', LuMap],
+                ['3d', '3D', LuBox],
+              ] as const
+            ).map(([m, label, Icon]) => (
+              <button
+                key={m}
+                type="button"
+                role="radio"
+                aria-checked={viewMode === m}
+                onClick={() => switchView(m)}
+                className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-xs ${viewMode === m ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}
+              >
+                <Icon aria-hidden className="h-3.5 w-3.5" />
+                {label}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <div className="flex items-center gap-0.5">
           <button type="button" aria-label="Undo" title="Undo (Mod+Z)" disabled={edit.past.length === 0} onClick={() => update(undo)} className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40">
             <LuUndo2 aria-hidden className="h-3.5 w-3.5" />
@@ -423,7 +485,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
       {entry.issues.filter((i) => !blocking.includes(i)).length > 0 ? <Banner testId="level-banner-images">{entry.issues.find((i) => !blocking.includes(i))!}</Banner> : null}
       <div className="flex min-h-0 flex-1">
         <LayerList level={level} activeLayerId={edit.activeLayerId} readOnly={readOnly} update={update} is3d={is3d} />
-        <div className="min-w-0 flex-1">
+        <div className="relative min-w-0 flex-1">
           <LevelCanvas
             level={level}
             images={entry.images}
@@ -433,12 +495,34 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
             preview={preview}
             onPointer={onPointer}
             onKeyDown={onKeyDown}
+            viewOut={planViewOut}
+            viewIn={planViewIn}
             label={
               is3d
                 ? 'Level plan view, seen from above. Tools: V select and move, O place, R volume, P path (Enter finishes), Y rotate (Shift snaps to 15 degrees).'
                 : `Level canvas, ${level.width} × ${level.height} tiles. Tools: B paint, E erase, R rectangle, I pick, O entity, V select.`
             }
           />
+          {can3d && mounted3d ? (
+            <div className="absolute inset-0">
+              <Suspense fallback={<div className="h-full w-full" data-testid="level-3d-loading" />}>
+                <Level3dView
+                  gameId={gameId}
+                  level={level}
+                  terrain={entry.terrain}
+                  selection={edit.selection}
+                  readOnly={readOnly}
+                  tool={tool}
+                  entityName={entityName}
+                  objectLayerId={objectLayerId}
+                  update={update}
+                  enterFrom={enterFrom}
+                  handle={handle3d}
+                  onEditorKey={onKeyDown}
+                />
+              </Suspense>
+            </div>
+          ) : null}
         </div>
         <aside className="flex w-56 shrink-0 flex-col gap-3 overflow-y-auto border-l border-border p-2 text-xs" aria-label="Palette and inspector">
           {tool === 'entity' ? (

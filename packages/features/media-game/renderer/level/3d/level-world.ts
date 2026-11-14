@@ -41,6 +41,8 @@ export type WorldItem = {
   bounds: { minX: number; minZ: number; maxX: number; maxZ: number };
   /** A path's points in world X/Z. */
   path?: Array<[number, number]>;
+  /** A `light` entity's props, as the inspector writes them. */
+  light?: { intensity: number; range: number; color: string };
 };
 
 /** A point entity (spawn, light, a prop placed with one click) is drawn as a marker this wide, metres. */
@@ -92,6 +94,10 @@ export function levelWorldItems(level: EditLevel): WorldItem[] {
         model: typeof props.model === 'string' && props.model !== '' ? props.model : null,
         bounds: { minX: px - reach, minZ: pz - reach, maxX: px + reach, maxZ: pz + reach },
       };
+      if (item.type === 'light') {
+        const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+        item.light = { intensity: num(props.intensity, 1), range: num(props.range, 10), color: typeof props.color === 'string' && props.color !== '' ? props.color : '#ffffff' };
+      }
       if (kind === 'path') {
         const pts = (o.polyline ?? o.polygon) as Array<{ x: number; y: number }>;
         item.path = pts.map((p) => [((o.x + p.x) / level.tilewidth) * mpt, ((o.y + p.y) / level.tileheight) * mpt]);

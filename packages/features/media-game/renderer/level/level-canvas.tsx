@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent } from 'react';
 
 import { cellAt, cellOrigin, collisionAt, collisionLayer, mapPixelSize, readTmj, sourceRect, tileOf, type TmjTileLayer } from '@midnite/studio-shared';
 
@@ -102,6 +102,8 @@ export function LevelCanvas({
   onKeyDown,
   label,
   plan,
+  viewOut,
+  viewIn,
 }: {
   level: EditLevel;
   images: ReadonlyArray<{ path: string; dataUrl: string }>;
@@ -114,6 +116,10 @@ export function LevelCanvas({
   label: string;
   /** Set for a 3D level: the canvas draws the plan view instead of tiles. */
   plan?: PlanView;
+  /** Kept current with the view and canvas size, so the 3D switch starts its camera where the plan is (Phase 136 E). */
+  viewOut?: MutableRefObject<{ view: View; size: { width: number; height: number } } | null>;
+  /** A view to jump to: where the 3D view's camera ended when the switch eased back to the plan. */
+  viewIn?: View | null;
 }) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -135,6 +141,12 @@ export function LevelCanvas({
   const pan = useRef<{ sx: number; sy: number; view: View } | null>(null);
   const tool = useRef(false);
   const fitted = useRef(false);
+  if (viewOut) viewOut.current = { view, size };
+  useEffect(() => {
+    if (!viewIn) return;
+    fitted.current = true;
+    setView(viewIn);
+  }, [viewIn]);
 
   useEffect(() => {
     const el = wrap.current;
