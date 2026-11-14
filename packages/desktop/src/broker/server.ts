@@ -546,6 +546,9 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
     }
     socketPath = retiredPath;
     pidPath = `${retiredPath}.pid`;
+    // Until the new listener reports in, there is no inode to own — the ownership check must not
+    // mistake the gap for a stolen path.
+    boundIno = null;
     server = net.createServer(onConnection);
     listenOn(retiredPath);
     log(`[broker] retired to ${retiredPath}`);
@@ -601,6 +604,12 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
     socketPath = nextPath;
     pidPath = `${nextPath}.pid`;
     server = net.createServer(onConnection);
+    // A failed bind must not take the sessions down with an unhandled 'error': log it, and let the
+    // next check try again (`-1` never matches a real inode).
+    server.once('error', (err) => {
+      log(`[broker] could not re-bind to ${nextPath}: ${err.message}; retrying`);
+      boundIno = -1;
+    });
     listenOn(nextPath);
     return 'rebound';
   }

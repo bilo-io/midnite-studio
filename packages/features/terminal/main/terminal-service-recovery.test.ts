@@ -207,14 +207,25 @@ describe('a live broker pty with no saved row', () => {
 });
 
 describe('recoveredSession', () => {
-  it("stamps another app's session as that app's", () => {
-    expect(recoveredSession('s', '/x', 'agents', 1).appId).toBe('agents');
+  it('names the row after its folder', () => {
+    expect(recoveredSession('s', '/Users/x/Dev/bilo', 1)).toEqual({
+      id: 's',
+      kind: 'shell',
+      title: 'bilo',
+      cwd: '/Users/x/Dev/bilo',
+      repoId: 'repo:/Users/x/Dev/bilo',
+      createdAt: 1,
+    });
   });
+});
 
-  it('leaves a Studio-owned or ownerless session unstamped', () => {
-    expect(recoveredSession('s', '/x', 'studio', 1).appId).toBeUndefined();
-    expect(recoveredSession('s', '/x', null, 1).appId).toBeUndefined();
-    expect(recoveredSession('s', '/x', 'not-an-app', 1).appId).toBeUndefined();
+describe("a guest app's pty on the shared broker", () => {
+  it('is neither recovered into Studio’s list nor ended by end-all', async () => {
+    await seeded([]);
+    live.push(pty('guest', { owner: 'agents' }), pty('ownerless', { owner: null }));
+    expect((await listTerminals()).map((s) => s.session.id)).toEqual(['ownerless']);
+    expect(await endPreviousBuildSessions()).toEqual(['ownerless']);
+    expect(killed).toEqual(['pty-ownerless']);
   });
 });
 

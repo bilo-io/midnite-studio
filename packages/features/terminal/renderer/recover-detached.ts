@@ -15,7 +15,8 @@ export async function recoverDetachedSessions(dialogs?: Pick<FrameDialogs, 'noti
     dialogs?.notify({ title: 'Could not recover sessions', body: result.message });
     return result;
   }
-  await useTerminalStore.getState().hydrate();
+  // `refresh`, not `hydrate`: hydrate runs once per launch, and this is a re-read on demand.
+  await useTerminalStore.getState().refresh();
   const n = result.recovered.length;
   dialogs?.notify({
     title: n === 0 ? 'No detached sessions' : `Recovered ${n} detached session${n === 1 ? '' : 's'}`,

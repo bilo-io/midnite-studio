@@ -117,6 +117,19 @@ describe('socket path ownership', () => {
     await broker.close();
   });
 
+  it('does not mistake its own retire for a stolen path', async () => {
+    const { tmp, broker, client } = await brokerWithSession();
+    client.write(encodeControl({ t: 'retire', id: 9 }));
+    const retired = join(tmp, `b-retired-${process.pid}.sock`);
+    // Checked straight away and again once the retired listener is up: owned both times.
+    await waitFor(() => broker.socketPath === retired);
+    expect(broker.checkSocketOwnership()).toBe('owned');
+    await waitFor(() => existsSync(`${retired}.pid`));
+    expect(broker.checkSocketOwnership()).toBe('owned');
+    client.destroy();
+    await broker.close();
+  });
+
   it('exits without touching the successor files when it has no sessions', async () => {
     const tmp = mkdtempSync(join(tmpdir(), 'mstudio-broker-own-'));
     const socketPath = join(tmp, 'b.sock');

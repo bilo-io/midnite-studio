@@ -3,7 +3,6 @@ import { basename } from 'node:path';
 
 import {
   closedFromSession,
-  SuiteAppIdSchema,
   type AgentDefinition,
   type ClosedSession,
   type SessionActivity,
@@ -263,13 +262,13 @@ export async function listTerminals(): Promise<
  * user can recognise and end. Saved like any other row so a rename or reorder sticks.
  */
 function recoverOrphanedPtys(): DetachedSession[] {
-  const live = port().pty.liveBrokerSessions?.() ?? [];
+  const live = studioPtys();
   const known = new Set(sessions.map((s) => s.id));
   const recovered: DetachedSession[] = [];
   for (const pty of live) {
     if (known.has(pty.sessionId)) continue;
     known.add(pty.sessionId);
-    const row = recoveredSession(pty.sessionId, pty.cwd, pty.owner ?? null);
+    const row = recoveredSession(pty.sessionId, pty.cwd);
     sessions.push(row);
     recovered.push(detached(row, pty.legacy));
   }
@@ -278,6 +277,15 @@ function recoverOrphanedPtys(): DetachedSession[] {
     scheduleSave();
   }
   return recovered;
+}
+
+/**
+ * The broker ptys this list answers for: Studio's own (owner `studio`, or none from a broker that
+ * predates owners). A guest app's session lives on the shared broker too, but its row is that app's —
+ * recovering it here would duplicate it, and ending it is that app's call.
+ */
+function studioPtys(): NonNullable<ReturnType<NonNullable<TerminalPtyPort['liveBrokerSessions']>>> {
+  return (port().pty.liveBrokerSessions?.() ?? []).filter((p) => !p.owner || p.owner === 'studio');
 }
 
 export type DetachedSession = { sessionId: string; title: string; cwd: string; repoId: string; legacy: boolean };
@@ -304,7 +312,7 @@ export async function recoverDetachedSessions(): Promise<{
   await port().pty.rescanBrokerSessions?.();
   await ensureLoaded();
   const recovered = recoverOrphanedPtys();
-  const live = port().pty.liveBrokerSessions?.() ?? [];
+  const live = studioPtys();
   return { recovered, live: live.length, previousBuild: live.filter((p) => p.legacy).length };
 }
 
@@ -330,23 +338,19 @@ export async function endSessions(sessionIds: readonly string[]): Promise<string
 
 /** End every session still running in a previous build's broker — see {@link endSessions}. */
 export async function endPreviousBuildSessions(): Promise<string[]> {
-  const previous = (port().pty.liveBrokerSessions?.() ?? []).filter((p) => p.legacy).map((p) => p.sessionId);
+  const previous = studioPtys()
+    .filter((p) => p.legacy)
+    .map((p) => p.sessionId);
   return previous.length === 0 ? [] : endSessions(previous);
 }
 
 /**
- * The row a recovered pty gets: its spawn cwd (home when the broker had none), that folder's repo id, and
- * the app that created it when that was not Studio. A shell row — the agent watcher's live guess still
- * draws the agent's icon, and a guessed roster id would fail `agentIdMatchesKind` if it were wrong.
+ * The row a recovered pty gets: its spawn cwd (home when the broker had none) and that folder's repo id.
+ * A shell row — the agent watcher's live guess still draws the agent's icon, and a guessed roster id
+ * would fail `agentIdMatchesKind` if it were wrong.
  */
-export function recoveredSession(
-  sessionId: string,
-  cwd: string,
-  owner: string | null = null,
-  now = Date.now(),
-): TerminalSession {
+export function recoveredSession(sessionId: string, cwd: string, now = Date.now()): TerminalSession {
   const folder = cwd.trim() === '' ? homedir() : cwd;
-  const app = SuiteAppIdSchema.safeParse(owner);
   return {
     id: sessionId,
     kind: 'shell',
@@ -354,7 +358,6 @@ export function recoveredSession(
     cwd: folder,
     repoId: `repo:${folder}`,
     createdAt: now,
-    ...(app.success && app.data !== 'studio' ? { appId: app.data } : {}),
   };
 }
 
