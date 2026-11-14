@@ -403,7 +403,7 @@ export async function agentSessionDetail(
 
 /** Look up a single terminal session without reading scrollback files (Phase 146). */
 export async function getTerminal(sessionId: string): Promise<TerminalSession | null> {
-  if (sessions.length === 0) sessions = await store.load();
+  await ensureLoaded();
   return sessions.find((s) => s.id === sessionId) ?? null;
 }
 
@@ -417,7 +417,7 @@ export function saveTerminal(session: TerminalSession): void {
 
 /** Insert or update one row and flush `terminals.json` immediately (Phase 146). */
 export async function saveTerminalNow(session: TerminalSession): Promise<void> {
-  if (sessions.length === 0) sessions = await store.load();
+  await ensureLoaded();
   const index = sessions.findIndex((s) => s.id === session.id);
   if (index === -1) sessions.push(session);
   else sessions[index] = session;
