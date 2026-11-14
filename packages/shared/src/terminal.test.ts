@@ -527,6 +527,17 @@ describe('buildResumeCommand (Phase 86 Theme C)', () => {
       ]);
     });
 
+    it('returns [--conversation, id] for agy when conversationId is provided', () => {
+      expect(buildResumeCommand(agy, 'conv-12345678')).toEqual([
+        '--conversation',
+        'conv-12345678',
+      ]);
+      expect(buildResumeCommand(agy, '  conv-trimmed  ')).toEqual([
+        '--conversation',
+        'conv-trimmed',
+      ]);
+    });
+
     it('trims whitespace around conversationId', () => {
       expect(buildResumeCommand(claude, '  trimmed-uuid  ')).toEqual([
         '--resume',
@@ -557,10 +568,12 @@ describe('buildResumeCommand (Phase 86 Theme C)', () => {
   });
 
   describe('no-resume (null) case', () => {
-    it('returns null for agy which has no resume args', () => {
+    it('returns null for agy when conversationId is absent or blank', () => {
       expect(buildResumeCommand(agy)).toBeNull();
-      expect(buildResumeCommand(agy, 'some-uuid')).toBeNull();
+      expect(buildResumeCommand(agy, undefined)).toBeNull();
       expect(buildResumeCommand(agy, null)).toBeNull();
+      expect(buildResumeCommand(agy, '')).toBeNull();
+      expect(buildResumeCommand(agy, '   ')).toBeNull();
     });
 
     it('returns null for an agent with no resume defined or empty resume array', () => {
