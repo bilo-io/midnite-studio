@@ -24,11 +24,13 @@ import {
 } from '@midnite/studio-shared';
 import {
   LuFolderGit2,
+  LuHistory,
   LuLayers,
   LuMoon,
   LuPanelLeft,
   LuPanelRight,
   LuPencil,
+  LuPower,
   LuRotateCcw,
   LuX,
 } from 'react-icons/lu';
@@ -36,6 +38,7 @@ import {
 import { useShowAllApps, visibleInApp } from './app-filter';
 import { useTerminalHost } from './host';
 import { closeSessionWithConfirm } from './close-session';
+import { endSessionsWithConfirm, previousBuildSessions } from './end-sessions';
 import { NewSessionPicker } from './new-session-picker';
 import { resolveRepoForPath } from './resolve-repo-for-path';
 import { TerminalNotices } from './terminal-notices';
@@ -64,6 +67,8 @@ export function normalizeFolderPath(cwd: string): { key: string; label: string }
   return { key: normalized, label: label || normalized };
 }
 
+const OTHER_GROUP = '__other__';
+
 /** Group sessions by their current folder (`liveCwd` if known, else `session.cwd`), falling back to `repoId`/`title`. */
 export function groupSessionsByFolder(
   sessions: readonly TerminalSession[],
@@ -73,8 +78,10 @@ export function groupSessionsByFolder(
   for (const session of sessions) {
     const currentCwd = liveCwd[session.id] ?? session.cwd;
     const folder = normalizeFolderPath(currentCwd);
-    const key = folder ? folder.key : session.repoId;
-    const title = folder ? folder.label : session.title || session.repoId;
+    // No usable folder (a recovered row whose broker reported none): its repo, then one "Other" group —
+    // a session is never dropped for lack of a place to put it.
+    const key = folder ? folder.key : session.repoId || OTHER_GROUP;
+    const title = folder ? folder.label : session.title || 'Other';
     const cwd = folder ? folder.key : session.cwd;
     const existing = byFolder.get(key);
     if (existing) existing.items.push(session);
@@ -168,6 +175,7 @@ export function TerminalSessionList({
    */
   const showDockMenu = (event: React.MouseEvent) => {
     event.preventDefault();
+    const previous = previousBuildSessions();
     dialogs.openMenu?.(event, [
       {
         label: side === 'left' ? 'Move to right' : 'Move to left',
@@ -175,6 +183,17 @@ export function TerminalSessionList({
         onSelect: () =>
           host.actions.setSidebarSide(side === 'left' ? 'right' : 'left'),
       },
+      // Only offered while one exists — an always-present, always-disabled entry is noise.
+      ...(previous.length > 0
+        ? [
+            { type: 'separator' as const },
+            {
+              label: `End all previous-build sessions (${previous.length})…`,
+              icon: LuPower,
+              onSelect: () => endSessionsWithConfirm(dialogs, previous),
+            },
+          ]
+        : []),
     ]);
   };
 
@@ -529,6 +548,15 @@ function SessionRow({
         disabledReason: 'Only a live session can be slept.',
         onSelect: () => useTerminalStore.getState().sleepSession(session.id),
       },
+      ...(legacy && live
+        ? [
+            {
+              label: 'End session…',
+              icon: LuPower,
+              onSelect: () => endSessionsWithConfirm(dialogs, [session]),
+            },
+          ]
+        : []),
       { type: 'separator' },
       {
         label: side === 'left' ? 'Move to right' : 'Move to left',
@@ -585,10 +613,11 @@ function SessionRow({
           // first and independently of `phase`. Falls back to the ordinary
           // asleep mark only when the row is neither.
           legacy ? (
-            <LuMoon
-              className="h-3 w-3 shrink-0 text-muted-foreground"
-              aria-label="From a previous run"
-              title="From a previous run"
+            <LuHistory
+              data-testid="terminal-session-previous-build"
+              className="h-3 w-3 shrink-0 text-amber-400/80"
+              aria-label="Running under a previous build"
+              title="Running under a previous build — right-click to end it"
             />
           ) : phase === 'asleep' ? (
             <LuMoon className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Asleep" />

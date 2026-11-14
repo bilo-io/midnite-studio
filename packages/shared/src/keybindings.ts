@@ -119,6 +119,11 @@ export const COMMANDS = [
   { id: 'terminal.new', label: 'New Terminal', group: 'terminal', chord: 'Mod+t' },
   { id: 'terminal.close', label: 'Close Terminal', group: 'terminal', chord: 'Mod+w' },
   /**
+   * Chord-free: a rare repair, not a reflex. Re-adopts every live session in any broker (a previous
+   * build's included) and rebuilds the rows `terminals.json` lost, so detached agents list again.
+   */
+  { id: 'terminal.recoverDetached', label: 'Recover Detached Sessions', group: 'terminal' },
+  /**
    * Mod+g ("G" for Git). `app` scope, unlike the terminal toggle: showing the
    * repository list while the terminal has focus is not something you reach
    * for mid-command.

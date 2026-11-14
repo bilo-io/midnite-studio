@@ -28,6 +28,9 @@ export const terminalManifest = defineFeatureManifest({
     CHANNELS.terminalSave,
     CHANNELS.terminalForget,
     CHANNELS.terminalReorder,
+    CHANNELS.terminalRecoverDetached,
+    CHANNELS.terminalEndSessions,
+    CHANNELS.terminalEndPreviousBuild,
   ],
   /** One-way: a keystroke has no answer worth awaiting. */
   sends: [CHANNELS.ptyInput],

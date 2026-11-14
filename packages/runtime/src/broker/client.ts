@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdirSync, openSync, readdirSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, openSync, readdirSync, readFileSync, statSync, unlinkSync } from 'node:fs';
 import * as net from 'node:net';
 import { basename, join } from 'node:path';
 
@@ -16,6 +16,7 @@ import {
 import { readSocketToken, removeSocketToken, writeSocketToken } from '../security/socket-token';
 import { brokerSocketName, fingerprintFile, isSocketPathTooLong } from './socket-name';
 import { createQueuedSocketWriter, type QueuedSocketWriter } from './socket-write-queue';
+import { isPidAlive, staleBrokerFiles, type BrokerDirEntry } from './stale-files';
 
 /**
  * The pty broker client — `desktop/src/main/broker-client.ts` until Phase 113
@@ -137,6 +138,11 @@ export type BrokerClient = {
   resizePty: (ptyId: string, cols: number, rows: number) => Promise<boolean>;
   killPty: (ptyId: string) => Promise<boolean>;
   listSessions: () => Promise<BrokerSessionInfo[]>;
+  /**
+   * Look in the broker dir again for live brokers this client is not yet connected to — one retired or
+   * re-bound since boot — and adopt them as legacy peers. Resolves with how many it adopted.
+   */
+  rescanPeers: () => Promise<number>;
   snapshot: (sessionId: string) => Promise<Uint8Array>;
   /** Tell the broker to drop its own `scrollbackBySession` entries — Phase 45 Theme C. */
   forgetScrollback: (sessionIds: string[]) => void;
@@ -426,23 +432,39 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
     });
   }
 
+  /**
+   * Connect and shake hands. `gone` means nothing is listening (`ECONNREFUSED` / `ENOENT`) — the
+   * only outcome that proves a socket file is dead. A timeout or a failed handshake is
+   * `unreachable`: a busy broker looks exactly like that, and unlinking its file would strand it.
+   */
+  async function probeExisting(
+    path: string,
+    connectTimeoutMs: number,
+  ): Promise<
+    { kind: 'live'; socket: net.Socket; handshake: Handshake } | { kind: 'gone' } | { kind: 'unreachable' }
+  > {
+    let s: net.Socket;
+    try {
+      s = await tryConnect(path, connectTimeoutMs);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      return code === 'ECONNREFUSED' || code === 'ENOENT' ? { kind: 'gone' } : { kind: 'unreachable' };
+    }
+    const handshake = await attemptHandshake(s, 1000, readSocketToken(path));
+    if (!handshake) {
+      s.destroy();
+      return { kind: 'unreachable' };
+    }
+    return { kind: 'live', socket: s, handshake };
+  }
+
   /** Connect and shake hands, or `null` (with the socket destroyed) if either fails. */
   async function connectExisting(
     path: string,
     connectTimeoutMs: number,
   ): Promise<{ socket: net.Socket; handshake: Handshake } | null> {
-    let s: net.Socket;
-    try {
-      s = await tryConnect(path, connectTimeoutMs);
-    } catch {
-      return null;
-    }
-    const handshake = await attemptHandshake(s, 1000, readSocketToken(path));
-    if (!handshake) {
-      s.destroy();
-      return null;
-    }
-    return { socket: s, handshake };
+    const r = await probeExisting(path, connectTimeoutMs);
+    return r.kind === 'live' ? { socket: r.socket, handshake: r.handshake } : null;
   }
 
   function attach(peer: Peer): void {
@@ -638,17 +660,21 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
    * previous install, or a retired one from this build. Adopt the live ones so
    * their terminals reattach; unlink the dead ones; shut down the empty ones.
    */
-  async function probeLegacyBrokers(): Promise<void> {
+  async function runLegacyProbe(): Promise<number> {
+    let adopted = 0;
     try {
-      if (!existsSync(brokerDir)) return;
+      if (!existsSync(brokerDir)) return 0;
       const entries = readdirSync(brokerDir);
       for (const entry of entries) {
         if (!entry.endsWith('.sock') || entry === socketName) continue;
         const legacyPath = join(brokerDir, entry);
-        const found = await connectExisting(legacyPath, 500);
-        if (!found) {
-          // Dead legacy socket, unlink — the host's job; a guest leaves the directory as it found it.
-          if (guest) continue;
+        // Already connected (a rescan after boot, or the primary that retired to this path itself).
+        if (legacy.has(legacyPath) || primary?.path === legacyPath) continue;
+        const probe = await probeExisting(legacyPath, 500);
+        if (probe.kind !== 'live') {
+          // Only a refused or missing socket is dead. A timeout is a busy broker: leave its file be,
+          // or its sessions become unreachable for good. Unlinking is the host's job, never a guest's.
+          if (guest || probe.kind === 'unreachable') continue;
           try {
             unlinkSync(legacyPath);
           } catch {
@@ -657,14 +683,56 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
           removeSocketToken(legacyPath);
           continue;
         }
-        const peer = adoptLegacy(legacyPath, found.socket);
+        const peer = adoptLegacy(legacyPath, probe.socket);
         const list = await syncPeerSessions(peer);
         log(`[broker] connected to legacy broker at ${legacyPath} (${list.length} session(s))`);
         if (list.length === 0) retireLegacy(peer);
+        else adopted++;
       }
+      if (!guest) removeStaleBrokerFiles();
     } catch {
       // Ignore
     }
+    return adopted;
+  }
+
+  /** One probe at a time: overlapping rescans share it instead of connecting to a peer twice. */
+  let probing: Promise<number> | null = null;
+  function probeLegacyBrokers(): Promise<number> {
+    probing ??= runLegacyProbe().finally(() => {
+      probing = null;
+    });
+    return probing;
+  }
+
+  /** Delete the pid and token files no live broker owns — see `stale-files.ts`. Host only. */
+  function removeStaleBrokerFiles(): void {
+    const entries: BrokerDirEntry[] = [];
+    for (const name of readdirSync(brokerDir)) {
+      if (!name.endsWith('.sock.pid') && !name.endsWith('.sock.token') && !name.endsWith('.sock')) continue;
+      try {
+        const path = join(brokerDir, name);
+        const pid = name.endsWith('.pid') ? Number.parseInt(readFileSync(path, 'utf8').trim(), 10) : NaN;
+        entries.push({ name, mtimeMs: statSync(path).mtimeMs, pid: Number.isInteger(pid) ? pid : null });
+      } catch {
+        // Gone between the listing and the stat — nothing to clean.
+      }
+    }
+    const stale = staleBrokerFiles(entries, {
+      ownSocketName: socketName,
+      isPidAlive,
+      now: Date.now(),
+    });
+    let removed = 0;
+    for (const name of stale) {
+      try {
+        unlinkSync(join(brokerDir, name));
+        removed++;
+      } catch {
+        // Already gone.
+      }
+    }
+    if (removed > 0) log(`[broker] removed ${removed} stale broker file(s) from dead brokers`);
   }
 
   async function connectOrSpawn(): Promise<boolean> {
@@ -725,6 +793,8 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
       await connectOrSpawn();
       await probeLegacyBrokers();
     },
+
+    rescanPeers: () => probeLegacyBrokers(),
 
     getStatus(): BrokerStatus {
       return status;
