@@ -9,6 +9,7 @@ import {
   ResizeHandle,
   StateDot,
   useActivityGlow,
+  useCollapsedGroups,
   useFrameChrome,
   useResizable,
   type ActivityGlowSessionInput,
@@ -31,6 +32,7 @@ import {
   LuBot,
   LuExternalLink,
   LuFilter,
+  LuFolderGit2,
   LuOctagonX,
   LuPlay,
   LuRefreshCw,
@@ -261,8 +263,8 @@ function SessionsManager({
   const [reasons, setReasons] = useState<ClosedSession['reason'][]>([]);
   const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
   const [selectedLiveness, setSelectedLiveness] = useState<ManagedSessionLiveness[]>([]);
-  const [collapsedRepos, setCollapsedRepos] = useState<ReadonlySet<string>>(() => new Set());
-  const [collapsedWorkflowRuns, setCollapsedWorkflowRuns] = useState<ReadonlySet<string>>(() => new Set());
+  const repoGroupsCollapse = useCollapsedGroups();
+  const workflowRunCollapse = useCollapsedGroups();
   const [query, setQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
 
@@ -270,22 +272,6 @@ function SessionsManager({
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (!next.delete(id)) next.add(id);
-      return next;
-    });
-  };
-
-  const toggleWorkflowRunCollapse = (key: string) => {
-    setCollapsedWorkflowRuns((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(key)) next.add(key);
-      return next;
-    });
-  };
-
-  const toggleRepoCollapse = (repoId: string) => {
-    setCollapsedRepos((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(repoId)) next.add(repoId);
       return next;
     });
   };
@@ -635,9 +621,9 @@ function SessionsManager({
                   key={key}
                   group={group}
                   workflowName={workflowNames?.get(group.workflowId)}
-                  open={!collapsedWorkflowRuns.has(key)}
+                  open={workflowRunCollapse.isOpen(key)}
                   bodyId={`sessions-workflow-run-group-${key}`}
-                  onToggleCollapse={() => toggleWorkflowRunCollapse(key)}
+                  onToggleCollapse={() => workflowRunCollapse.toggle(key)}
                   agents={agents}
                   selectedId={selectedId}
                   onSelect={selectRow}
@@ -656,9 +642,9 @@ function SessionsManager({
                 key={group.repoId}
                 group={group}
                 groupIndex={groupIndex}
-                open={!collapsedRepos.has(group.repoId)}
+                open={repoGroupsCollapse.isOpen(group.repoId)}
                 bodyId={`sessions-repo-group-${group.repoId}`}
-                onToggleCollapse={() => toggleRepoCollapse(group.repoId)}
+                onToggleCollapse={() => repoGroupsCollapse.toggle(group.repoId)}
                 agents={agents}
                 selectedId={selectedId}
                 onSelect={selectRow}
@@ -850,6 +836,7 @@ function RepoSessionsGroup({
       open={open}
       onToggle={onToggleCollapse}
       bodyId={bodyId}
+      leading={<LuFolderGit2 aria-hidden className="h-3 w-3 shrink-0" />}
       className={cascading ? 'animate-fade-in-up cascade-delay' : ''}
       {...(groupCascadeStyle ? { style: groupCascadeStyle } : {})}
     >

@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { useCallback, useState, type CSSProperties, type ReactNode } from 'react';
 
 import { Collapse } from '@bilo-io/ui';
 import { LuChevronRight, LuSearch, LuX } from 'react-icons/lu';
@@ -134,4 +134,42 @@ export function ExplorerNotice({
       </p>
     </div>
   );
+}
+
+/** One repository bucket produced by {@link groupItemsByRepo}. */
+export type RepoGroup<T> = {
+  repoId: string;
+  title: string;
+  items: T[];
+};
+
+/** Group repo-scoped items by `repoId`, preserving first-seen repo and item order. */
+export function groupItemsByRepo<T extends { repoId: string; title: string }>(
+  items: readonly T[],
+): RepoGroup<T>[] {
+  const byRepo = new Map<string, T[]>();
+  for (const item of items) {
+    const existing = byRepo.get(item.repoId);
+    if (existing) existing.push(item);
+    else byRepo.set(item.repoId, [item]);
+  }
+  return [...byRepo.entries()].map(([repoId, grouped]) => ({
+    repoId,
+    title: grouped[0]?.title || repoId,
+    items: grouped,
+  }));
+}
+
+/** Track per-group collapsed state for {@link ExplorerGroup} accordions (all open by default). */
+export function useCollapsedGroups() {
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
+  const toggle = useCallback((key: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
+  }, []);
+  const isOpen = useCallback((key: string) => !collapsed.has(key), [collapsed]);
+  return { collapsed, isOpen, toggle };
 }

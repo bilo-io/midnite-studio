@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { CHAT_DATE_BUCKETS, CHAT_DATE_BUCKET_LABEL, type ChatSummary } from '@midnite/studio-shared';
 import { LuBot, LuCalendar, LuFileDiff, LuFolderGit2, LuMessageSquarePlus, LuPencil, LuPin, LuPinOff, LuTrash2 } from 'react-icons/lu';
@@ -14,7 +14,7 @@ import {
 } from './chats-filter';
 import { useLoopingTypewriter } from './use-looping-typewriter';
 import type { ChatEngine } from './use-chat-engines';
-import { EmptyState, ExplorerGroup, ExplorerNotice, ExplorerSearch, StateDot, relativeAge, useFrameChrome } from '@midnite/studio-frame';
+import { EmptyState, ExplorerGroup, ExplorerNotice, ExplorerSearch, StateDot, relativeAge, useCollapsedGroups, useFrameChrome } from '@midnite/studio-frame';
 import { IconButton, MultiSelectMenu, PageDetachMark, Tooltip } from './ui';
 import { type ChatsMultiSelectOption as MultiSelectOption } from './host';
 
@@ -61,7 +61,7 @@ export function ChatsExplorer({
   onDelete: (chat: ChatSummary) => void;
 }) {
   const dialogs = useFrameChrome().useDialogs();
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
+  const { isOpen, toggle } = useCollapsedGroups();
   const now = Date.now();
   const loadingText = useLoopingTypewriter('Loading chats…');
 
@@ -105,13 +105,6 @@ export function ChatsExplorer({
         meta: <span className="tabular-nums text-[10px] text-muted-foreground">{count}</span>,
       }));
   }, [chats]);
-
-  const toggle = (key: string) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(key)) next.add(key);
-      return next;
-    });
 
   const rename = (chat: ChatSummary) =>
     dialogs.prompt?.({
@@ -240,7 +233,7 @@ export function ChatsExplorer({
               key={group.key}
               title={group.label}
               count={group.chats.length}
-              open={!collapsed.has(group.key)}
+              open={isOpen(group.key)}
               onToggle={() => toggle(group.key)}
               bodyId={`chats-group-${group.key}`}
               leading={

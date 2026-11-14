@@ -1,7 +1,10 @@
 import {
   useFrameChrome,
+  ExplorerGroup,
   SortableList,
   useSortableRow,
+  useCollapsedGroups,
+  groupItemsByRepo,
   StateDot,
   RingSpinner as Spinner,
   useActivityGlow,
@@ -20,7 +23,7 @@ import {
   type TerminalSession,
 } from '@midnite/studio-shared';
 import {
-  LuChevronRight,
+  LuFolderGit2,
   LuLayers,
   LuMoon,
   LuPanelLeft,
@@ -76,8 +79,17 @@ export function TerminalSessionList({
   */
   const [showAllApps, setShowAllApps] = useShowAllApps();
   const hasForeign = panelSessions.some((s) => sessionAppId(s) !== host.appId);
-  const sessions = panelSessions.filter((s) => visibleInApp(s, host.appId, showAllApps));
+  const sessions = useMemo(
+    () => panelSessions.filter((s) => visibleInApp(s, host.appId, showAllApps)),
+    [panelSessions, host.appId, showAllApps],
+  );
   const tagApps = hasForeign && showAllApps;
+  const repoGroups = useMemo(() => groupItemsByRepo(sessions), [sessions]);
+  const { isOpen, toggle } = useCollapsedGroups();
+  const visibleSessions = useMemo(
+    () => repoGroups.filter((g) => isOpen(g.repoId)).flatMap((g) => g.items),
+    [repoGroups, isOpen],
+  );
 
   /*
     Subscribed once for the whole list rather than per row: the probe reports a
@@ -117,13 +129,13 @@ export function TerminalSessionList({
    * actually in the terminal, not to this list.
    */
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (sessions.length === 0) return;
-    const index = sessions.findIndex((s) => s.id === activeId);
+    if (visibleSessions.length === 0) return;
+    const index = visibleSessions.findIndex((s) => s.id === activeId);
 
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
       const delta = event.key === 'ArrowDown' ? 1 : -1;
-      const next = sessions[Math.min(Math.max(index + delta, 0), sessions.length - 1)];
+      const next = visibleSessions[Math.min(Math.max(index + delta, 0), visibleSessions.length - 1)];
       if (next) useTerminalStore.getState().setActiveFromListNav(next.id);
       return;
     }
@@ -167,24 +179,44 @@ export function TerminalSessionList({
       onKeyDown={onKeyDown}
     >
       <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto pb-1">
-        <SortableList
-          ids={sessions.map((s) => s.id)}
-          onReorder={(ids) => useTerminalStore.getState().reorder(ids)}
-        >
-          {sessions.map((session) => (
-            <SessionRow
-              key={session.id}
-              session={session}
-              active={session.id === activeId}
-              agent={agents.find((a) => a.id === session.agentId)}
-              runningAgent={agents.find((a) => a.id === resolveSessionAgentId(session, liveAgentId))}
-              resolvedAgentId={resolveSessionAgentId(session, liveAgentId)}
-              isAgentRow={isAgentRow(session, liveAgentId)}
-              legacy={Boolean(legacy[session.id])}
-              appTag={tagApps ? sessionAppId(session) : undefined}
-            />
-          ))}
-        </SortableList>
+        {repoGroups.map((group) => (
+          <ExplorerGroup
+            key={group.repoId}
+            title={group.title}
+            count={group.items.length}
+            open={isOpen(group.repoId)}
+            onToggle={() => toggle(group.repoId)}
+            bodyId={`terminal-repo-${group.repoId}`}
+            leading={<LuFolderGit2 aria-hidden className="h-3 w-3 shrink-0" />}
+          >
+            <SortableList
+              ids={group.items.map((s) => s.id)}
+              onReorder={(reorderedGroupIds) => {
+                const allIds = sessions.map((s) => s.id);
+                const groupIdSet = new Set(reorderedGroupIds);
+                let idx = 0;
+                const nextAllIds = allIds.map((id) =>
+                  groupIdSet.has(id) ? reorderedGroupIds[idx++]! : id,
+                );
+                useTerminalStore.getState().reorder(nextAllIds);
+              }}
+            >
+              {group.items.map((session) => (
+                <SessionRow
+                  key={session.id}
+                  session={session}
+                  active={session.id === activeId}
+                  agent={agents.find((a) => a.id === session.agentId)}
+                  runningAgent={agents.find((a) => a.id === resolveSessionAgentId(session, liveAgentId))}
+                  resolvedAgentId={resolveSessionAgentId(session, liveAgentId)}
+                  isAgentRow={isAgentRow(session, liveAgentId)}
+                  legacy={Boolean(legacy[session.id])}
+                  appTag={tagApps ? sessionAppId(session) : undefined}
+                />
+              ))}
+            </SortableList>
+          </ExplorerGroup>
+        ))}
       </div>
       {hasForeign ? (
         <button
@@ -444,31 +476,6 @@ function SessionRow({
             <LuMoon className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Asleep" />
           ) : null
         }
-        {/*
-          The repo name, then the session's own name — "Claude · Claude" for
-          every agent session (Phase 19's shape) said the same thing twice and
-          named neither session. Shrinking the repo name rather than the
-          session name keeps the part that actually tells two Claude sessions
-          apart from being what truncates first.
-        */}
-        <span
-          /*
-            Shrinks four times faster than the session name beside it. Phase 19
-            said this in words — "shrinking the repo name rather than the
-            session name keeps the part that actually tells two Claude sessions
-            apart from being what truncates first" — and then wrote the opposite
-            in CSS: this span was `shrink` (basis auto, so content-sized until
-            something overflows) while the name was `flex-1` (basis ZERO, so it
-            only ever got the leftovers). At the list's default 176px the repo
-            name rendered in full and the session name became a single letter
-            and an ellipsis, which is the one half that cannot be guessed —
-            especially now that there are four agents it could be naming.
-          */
-          className={`min-w-0 shrink-[4] truncate ${live ? 'text-muted-foreground' : 'text-muted-foreground/60'}`}
-        >
-          {session.title}
-        </span>
-        <LuChevronRight aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground/50" />
         <span
           /*
             Named for the e2e suite. Phase 19 split this row into a repo name
@@ -478,7 +485,7 @@ function SessionRow({
             carries the session's own identity is what stops that recurring.
           */
           data-session-name
-          className={`min-w-0 shrink truncate ${live ? '' : 'text-muted-foreground'}`}
+          className={`min-w-0 flex-1 truncate ${live ? '' : 'text-muted-foreground'}`}
         >
           {name}
         </span>
