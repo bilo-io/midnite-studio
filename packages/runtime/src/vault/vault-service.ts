@@ -297,6 +297,11 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
   let verification: Promise<void> | null = null;
   const ensureVerified = (): Promise<void> => {
     if (!verification) {
+      // Memoise before notifying: a listener that reads the vault re-enters here and must find it.
+      verification = integrity.verifyAll().then(
+        () => undefined,
+        () => undefined,
+      );
       for (const listener of firstAccessListeners) {
         try {
           listener();
@@ -304,10 +309,6 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
           // A listener must never fail a vault operation.
         }
       }
-      verification = integrity.verifyAll().then(
-        () => undefined,
-        () => undefined,
-      );
     }
     return verification;
   };
