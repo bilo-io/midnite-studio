@@ -86,6 +86,33 @@ describe('broker client and retired peers', () => {
     await primary.close();
   });
 
+  it('rescanPeers adopts a broker that appeared after boot, once', async () => {
+    const tmp = mkdtempSync('/tmp/msq-');
+    const brokerDir = join(tmp, 'broker');
+    const primaryPath = join(brokerDir, brokerSocketName('0.0.6', 'new', false));
+    const primary = createBrokerServer({ socketPath: primaryPath, userDataDir: tmp, spawnPty: () => fakePty(3), ownershipCheckMs: 0 });
+    await tick(30);
+    const client = createBrokerClient({ userDataDir: tmp, appVersion: '0.0.6', isPackaged: false, buildId: 'new' });
+    await client.init();
+    expect(await client.listSessions()).toEqual([]);
+
+    // A broker re-bound to a retired path after this client booted.
+    const late = join(brokerDir, `${brokerSocketName('0.0.6', 'old', false).replace(/\.sock$/, '')}-retired-9.sock`);
+    const lateBroker = createBrokerServer({ socketPath: late, userDataDir: tmp, spawnPty: () => fakePty(9), ownershipCheckMs: 0 });
+    await tick(30);
+    await seedSession(late, 'late-agent');
+
+    expect(await client.rescanPeers()).toBe(1);
+    expect(await client.rescanPeers()).toBe(0);
+    expect(lateBroker.clientCount()).toBe(1);
+    const listed = await client.listSessions();
+    expect(listed.map((s) => [s.sessionId, s.legacy])).toEqual([['late-agent', true]]);
+
+    await client.disconnect();
+    await lateBroker.close();
+    await primary.close();
+  });
+
   it('sweeps the pid and token files of dead brokers and keeps those of live ones', async () => {
     const tmp = mkdtempSync('/tmp/mss-');
     const brokerDir = join(tmp, 'broker');
