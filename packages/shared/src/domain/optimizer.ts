@@ -116,6 +116,10 @@ export const ScanResultSchema = z.object({
 });
 export type ScanResult = z.infer<typeof ScanResultSchema>;
 
+/** Phase 148 Theme B — see {@link ProcessInfoSchema}'s `lost`. */
+export const ProcessLostReasonSchema = z.enum(['previous-build', 'unreachable', 'no-row']);
+export type ProcessLostReason = z.infer<typeof ProcessLostReasonSchema>;
+
 export const ProcessInfoSchema = z.object({
   /**
    * macOS `kernel_task` is pid 0, and `ps -ax` lists it — but the six-column
@@ -145,6 +149,14 @@ export const ProcessInfoSchema = z.object({
    * Null when not owned by or associated with any active registry.
    */
   owner: z.string().nullable(),
+  /**
+   * Why this process counts as *lost* (Phase 148 Theme B): it sits in the tree of a terminal broker
+   * from an older build, of a broker no socket reaches, or under a pty no sidebar row names. `null`
+   * (or absent, from an older main) when it is none of those. The current primary broker is never lost.
+   */
+  lost: ProcessLostReasonSchema.nullable().optional(),
+  /** The terminal broker whose tree this process sits in, the broker itself included; `null` for none. */
+  brokerPid: z.number().int().positive().nullable().optional(),
 });
 export type ProcessInfo = z.infer<typeof ProcessInfoSchema>;
 

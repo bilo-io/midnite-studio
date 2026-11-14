@@ -143,6 +143,12 @@ export type BrokerClient = {
    * re-bound since boot — and adopt them as legacy peers. Resolves with how many it adopted.
    */
   rescanPeers: () => Promise<number>;
+  /**
+   * The socket paths of every broker this client is connected to right now, primary first — what the
+   * lost-process inventory (Phase 148 Theme B) reads to tell a reachable broker from one nothing reaches.
+   * Optional so a hand-rolled fake client need not carry it.
+   */
+  peerPaths?: () => string[];
   snapshot: (sessionId: string) => Promise<Uint8Array>;
   /** Tell the broker to drop its own `scrollbackBySession` entries — Phase 45 Theme C. */
   forgetScrollback: (sessionIds: string[]) => void;
@@ -795,6 +801,8 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
     },
 
     rescanPeers: () => probeLegacyBrokers(),
+
+    peerPaths: () => peers().filter((peer) => !peer.socket.destroyed).map((peer) => peer.path),
 
     getStatus(): BrokerStatus {
       return status;

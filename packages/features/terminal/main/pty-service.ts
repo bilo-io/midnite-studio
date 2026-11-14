@@ -606,6 +606,12 @@ export function getSharedBrokerLocation(): { socketPath: string; directory: stri
   return brokerClient?.getStatus().mode === 'broker' ? brokerLocation : null;
 }
 
+/** The socket paths of every broker this service is connected to (primary first); empty in-process. */
+export function connectedBrokerSockets(): string[] {
+  if (!brokerClient || brokerClient.getStatus().mode !== 'broker') return [];
+  return brokerClient.peerPaths?.() ?? [];
+}
+
 export function getBrokerStatus(): BrokerStatus {
   return brokerClient ? brokerClient.getStatus() : { mode: 'inproc', reason: 'uninitialized' };
 }
