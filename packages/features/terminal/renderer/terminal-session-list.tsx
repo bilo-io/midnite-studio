@@ -37,6 +37,7 @@ import { useShowAllApps, visibleInApp } from './app-filter';
 import { useTerminalHost } from './host';
 import { closeSessionWithConfirm } from './close-session';
 import { NewSessionPicker } from './new-session-picker';
+import { TerminalNotices } from './terminal-notices';
 import { terminalPanelElement } from './terminal-panel-element';
 import {
   inMainPanel,
@@ -98,10 +99,13 @@ export function TerminalSessionList({
   agents,
   agentStatus = [],
   width,
+  showNotices = true,
 }: {
   agents: AgentDefinition[];
   agentStatus?: AgentStatus[];
   width: number;
+  /** Dock the notices stack under the rows; the panel turns it off when the list isn't shown. */
+  showNotices?: boolean;
 }) {
   const host = useTerminalHost();
   const { useDialogs } = useFrameChrome();
@@ -187,10 +191,6 @@ export function TerminalSessionList({
   };
 
   const legacy = useTerminalStore((s) => s.legacy);
-  const legacyBannerDismissed = useTerminalStore((s) => s.legacyBannerDismissed);
-  const dismissLegacyBanner = useTerminalStore((s) => s.dismissLegacyBanner);
-
-  const hasLegacy = Object.values(legacy).some(Boolean);
 
   const openInFolder = (
     group: { repoId: string; title: string; cwd: string; items: TerminalSession[] },
@@ -302,60 +302,7 @@ export function TerminalSessionList({
           Show all apps
         </button>
       ) : null}
-      {hasLegacy && !legacyBannerDismissed ? (
-        /*
-          A docked footer strip below every row, not a card floating above them
-          (Phase adhoc). No `mx`/`my` — it spans the panel edge to edge like
-          `conflict-banner.tsx`'s own bordered strip, with only inner padding
-          keeping its text off the border. `bg-amber-500/5` rather than the
-          `/10` `conflict-banner.tsx` uses for a bordered strip: this one sits
-          docked at the bottom under the session rows rather than pinned above
-          the whole view, so a lighter tint reads as attached chrome instead of
-          another opaque panel competing with the rows for attention.
-        */
-        <div
-          role="alert"
-          className="shrink-0 border-t border-amber-500/20 bg-amber-500/5 px-2 py-2 text-xs text-amber-200"
-        >
-          <p className="font-medium">From a previous version — restart sessions?</p>
-          {/*
-            Dismiss is primary and comes first (left), Restart is secondary and
-            comes second (right) — Dismiss is the safe default that leaves
-            every session as it reattached, while Restart reopens live shells.
-          */}
-          <div className="mt-1.5 flex gap-2">
-            <button
-              type="button"
-              onClick={dismissLegacyBanner}
-              className="rounded bg-primary px-2 py-0.5 font-medium text-primary-foreground hover:bg-primary/90"
-            >
-              Dismiss
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const store = useTerminalStore.getState();
-                for (const session of sessions) {
-                  if (legacy[session.id]) {
-                    store.closeSession(session.id);
-                    store.openSession({
-                      kind: session.kind,
-                      agentId: session.agentId,
-                      title: session.title,
-                      cwd: session.cwd,
-                      repoId: session.repoId,
-                    });
-                  }
-                }
-                dismissLegacyBanner();
-              }}
-              className="rounded px-2 py-0.5 font-medium text-muted-foreground hover:text-foreground"
-            >
-              Restart
-            </button>
-          </div>
-        </div>
-      ) : null}
+      {showNotices ? <TerminalNotices sessions={sessions} /> : null}
     </div>
   );
 }

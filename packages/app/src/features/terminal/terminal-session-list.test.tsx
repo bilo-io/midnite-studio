@@ -13,6 +13,9 @@ afterEach(() => {
     states: {},
     legacy: {},
     legacyBannerDismissed: false,
+    reattachedCount: 0,
+    reattachedSessionIds: [],
+    reattachedDismissed: false,
   });
 });
 
@@ -121,8 +124,10 @@ describe('TerminalSessionList — legacy banner docking and actions', () => {
     expect(alert).not.toBeNull();
     expect(alert.className).toContain('shrink-0');
 
-    // Alert should be docked at the bottom: it is the last child of [data-session-list]
-    expect(listContainer.lastElementChild).toBe(alert);
+    // Docked at the bottom: the notices stack is the last child, holding the alert
+    const notices = screen.getByTestId('terminal-notices');
+    expect(listContainer.lastElementChild).toBe(notices);
+    expect(notices.contains(alert)).toBe(true);
 
     // And the previous sibling is the scrollable session rows wrapper
     const scrollWrapper = listContainer.firstElementChild as HTMLElement;
@@ -277,3 +282,85 @@ describe('TerminalSessionList — the row icon wears the activity glow (Phase 95
   });
 });
 
+
+describe('TerminalSessionList — notices stack', () => {
+  const session = (id: string): TerminalSession => ({
+    id,
+    kind: 'shell',
+    title: 'repo',
+    cwd: '/repo',
+    repoId: 'repo:1',
+    createdAt: 0,
+  });
+
+  const seedBoth = () =>
+    useTerminalStore.setState({
+      sessions: [session('s-legacy'), session('s-2')],
+      states: { 's-legacy': 'open', 's-2': 'open' },
+      legacy: { 's-legacy': true },
+      legacyBannerDismissed: false,
+      reattachedCount: 2,
+      reattachedSessionIds: ['s-legacy', 's-2'],
+      reattachedDismissed: false,
+    });
+
+  it('renders no notices node when neither notice applies', () => {
+    useTerminalStore.setState({ sessions: [session('s-2')], states: { 's-2': 'open' } });
+    render(
+      <DialogHost>
+        <TerminalSessionList agents={[]} width={220} />
+      </DialogHost>,
+    );
+    expect(screen.queryByTestId('terminal-notices')).toBeNull();
+  });
+
+  it('stacks the reattached note directly under the legacy notice', () => {
+    seedBoth();
+    render(
+      <DialogHost>
+        <TerminalSessionList agents={[]} width={220} />
+      </DialogHost>,
+    );
+    const notices = screen.getByTestId('terminal-notices');
+    const alert = screen.getByRole('alert');
+    const note = screen.getByTestId('reattached-note');
+    expect(notices.contains(alert)).toBe(true);
+    expect(notices.contains(note)).toBe(true);
+    expect(alert.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(alert.nextElementSibling).toBe(note);
+  });
+
+  it('gives both notices the same shell and structure', () => {
+    seedBoth();
+    render(
+      <DialogHost>
+        <TerminalSessionList agents={[]} width={220} />
+      </DialogHost>,
+    );
+    const alert = screen.getByRole('alert');
+    const note = screen.getByTestId('reattached-note');
+    expect(alert.hasAttribute('data-panel-notice')).toBe(true);
+    expect(note.hasAttribute('data-panel-notice')).toBe(true);
+    const shell = (el: HTMLElement) =>
+      el.className
+        .split(/\s+/)
+        .filter((c) => !/^(border-amber|bg-amber|text-amber|border-border|bg-muted|text-muted|animate-)/.test(c))
+        .sort();
+    expect(shell(note)).toEqual(shell(alert));
+    for (const el of [alert, note]) {
+      expect(el.querySelectorAll('p.font-medium')).toHaveLength(1);
+      expect(el.querySelectorAll('button')).toHaveLength(2);
+    }
+  });
+
+  it('renders no notices when showNotices is false', () => {
+    seedBoth();
+    render(
+      <DialogHost>
+        <TerminalSessionList agents={[]} width={220} showNotices={false} />
+      </DialogHost>,
+    );
+    expect(screen.queryByTestId('terminal-notices')).toBeNull();
+    expect(screen.queryByTestId('reattached-note')).toBeNull();
+  });
+});

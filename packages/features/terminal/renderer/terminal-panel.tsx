@@ -196,7 +196,12 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
               style={listTween.style}
             >
               <div className="h-full" style={{ width: list.current }}>
-                <TerminalSessionList agents={agents} agentStatus={status} width={list.current} />
+                <TerminalSessionList
+                  agents={agents}
+                  agentStatus={status}
+                  width={list.current}
+                  showNotices={showList}
+                />
               </div>
             </div>
             <ResizeHandle resizable={list} axis="x" label="Resize terminal sessions" />
@@ -252,7 +257,7 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
         </div>
       </div>
 
-      <ReattachedNote />
+      {showList && listTween.mounted ? null : <ReattachedNote />}
     </div>
   );
 }
