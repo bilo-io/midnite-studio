@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-15 — Phase 148 Theme D — Full recovery
+
+[#1264](https://github.com/bilo-io/midnite-studio/pull/1264): the performance flyout's Full recovery and the `terminal.recoverDetached` palette command run one flow: #1259's recovery (silent), a re-read of the session list, then one summary dialog with recovered sessions grouped by repo (Reveal), sessions still on a previous build (End… behind the existing confirm, opened after the summary closes so it is never covered), and unreachable broker roots (Manage resources, lit once Theme B lands). The amber badge counts `previousBuildSessions()`. Deferred: D.4's per-app owner count and the packaged-app acceptance run. Merged on targeted local checks while GitHub CI was billing-locked.
+
 ## 2026-11-15 — Phase 148 Theme A — Performance widget recovery actions
 
 [#1263](https://github.com/bilo-io/midnite-studio/pull/1263): the status-bar performance monitor flyout gains a "Recovery actions" grid (Clean system, Manage resources, Free RAM, Full recovery) and an amber "N sessions from a previous build" badge counted against live sessions. Clean system and Manage resources hand off to the Optimizer; Free RAM and Full recovery ship disabled behind the `RecoverySeams` slot until Themes C and D wire them. Suite apps pass no actions. Merged on targeted local checks while GitHub CI was billing-locked.

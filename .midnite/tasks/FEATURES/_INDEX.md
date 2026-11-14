@@ -8,7 +8,7 @@ Completed work is logged append-only in [`../done.md`](../done.md). Deferred sco
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [148 · Performance widget recovery actions](phases/phase-148-performance-widget-recovery-actions.md) | 🔄 WIP | — | 6/30 | `██░░░░░░░░` | 20% | — | B C D E |
+| [148 · Performance widget recovery actions](phases/phase-148-performance-widget-recovery-actions.md) | 🔄 WIP | — | 10/33 | `███░░░░░░░` | 30% | — | B C E |
 | [147 · Unified sessions and chats](phases/phase-147-unified-sessions-and-chats.md) | ◻ TODO | — | 0/22 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [146 · Midnite Mobile](phases/phase-146-mobile-app.md) | ◻ TODO | x1 | 0/76 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K |
 | [145 · Level history, review and polish](phases/phase-145-level-history-polish.md) | ◻ TODO | x1 | 0/31 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
