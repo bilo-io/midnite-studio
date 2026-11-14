@@ -100,6 +100,8 @@ import {
   ChatSkillSchema,
   ChatSummarySchema,
   DEFAULT_CHAT_MODE,
+  ProviderSyncTierSchema,
+  UnifiedSessionViewModeSchema,
 } from '../chats';
 import {
   MarketAssetSchema,
@@ -4189,6 +4191,25 @@ export const ChatsFilesRequest = z.object({
 });
 export const ChatsFilesResponse = GitOpResultOf(z.object({ files: z.array(z.string()), truncated: z.boolean() }));
 export const ChatsEventPayload = ChatEventSchema;
+
+// --- unified session view (Phase 146) -----------------------------------------
+
+export const SessionHandoffModeSchema = z.enum(['auto', 'resume', 'handoff', 'fresh']);
+export type SessionHandoffMode = z.infer<typeof SessionHandoffModeSchema>;
+
+export const SessionSwitchViewRequest = z.object({
+  sessionId: z.string().min(1).max(120),
+  targetView: UnifiedSessionViewModeSchema,
+  handoffMode: SessionHandoffModeSchema.default('auto'),
+});
+export const SessionSwitchViewResponse = GitOpResultOf(
+  z.object({
+    targetView: UnifiedSessionViewModeSchema,
+    chatId: z.string().min(1).optional(),
+    terminalId: z.string().min(1).optional(),
+    syncTier: ProviderSyncTierSchema.optional(),
+  }),
+);
 
 // --- database (Phase 61) -----------------------------------------------------
 
