@@ -420,4 +420,41 @@ describe('runtime vault — lazy keychain access', () => {
     expect(result).toEqual({ ok: false, kind: 'locked' });
     expect(reader.isLocked()).toBe(true);
   });
+
+  it('makes no cipher call before first access on a populated profile', async () => {
+    const writer = createVaultService({ directory: dir, cipher });
+    await writer.forApp('studio').set('secrets', 'k', 'v');
+    const { cipher: counted, calls } = counting();
+    const service = createVaultService({ directory: dir, cipher: counted });
+    service.forApp('studio');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls()).toBe(0);
+  });
+
+  it('answers every concurrent first read locked on a tampered file', async () => {
+    const writer = createVaultService({ directory: dir, cipher });
+    await writer.forApp('studio').set('secrets', 'k', 'v');
+    const enc = Buffer.from('enc:evil').toString('base64');
+    await writeFile(
+      join(dir, VAULT_NAMESPACES.secrets.fileName),
+      JSON.stringify({ version: 1, entries: { k: { encrypted: enc } } }),
+    );
+    const studio = createVaultService({ directory: dir, cipher: createFakeCipher() }).forApp('studio');
+    const results = await Promise.all([studio.read('secrets', 'k'), studio.read('secrets', 'k'), studio.read('secrets', 'k')]);
+    for (const r of results) expect(r).toEqual({ ok: false, kind: 'locked' });
+  });
+
+  it('does not launder a forged audit file when lock and unlock run before any read', async () => {
+    const writer = createVaultService({ directory: dir, cipher });
+    await writer.forApp('studio').set('secrets', 'k', 'v');
+    await writeFile(join(dir, 'vault-audit.ndjson'), '{"forged":true}\n', { flag: 'a' });
+
+    const { cipher: counted, calls } = counting();
+    const service = createVaultService({ directory: dir, cipher: counted });
+    service.lock('suspend');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls()).toBe(0);
+    await service.unlock();
+    expect(await service.forApp('studio').read('secrets', 'k')).toEqual({ ok: false, kind: 'locked' });
+  });
 });

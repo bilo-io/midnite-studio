@@ -295,13 +295,31 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
   // file still locks the vault before the first read is answered.
   const firstAccessListeners = new Set<() => void>();
   let verification: Promise<void> | null = null;
+  // Audit writes re-baseline the audit file's HMAC (and read the key), so none may happen before
+  // verifyAll has judged the files. A lock before first access queues its line here.
+  let verified = false;
+  const pendingAudit: Parameters<typeof audit.log>[0][] = [];
+  const logAudit = (record: Parameters<typeof audit.log>[0]) => {
+    if (verified) void audit.log(record);
+    else pendingAudit.push(record);
+  };
+  // The file watcher stays armed from construction, so a vault-file write before first access
+  // still runs verifyFile (a keychain read). That is deliberate: tamper detection must not wait.
   const ensureVerified = (): Promise<void> => {
     if (!verification) {
       // Memoise before notifying: a listener that reads the vault re-enters here and must find it.
-      verification = integrity.verifyAll().then(
-        () => undefined,
-        () => undefined,
-      );
+      verification = integrity
+        .verifyAll()
+        .then(
+          () => false,
+          () => true,
+        )
+        .then((failed) => {
+          // A verification that could not run fails closed.
+          if (failed) lock('integrity verification failed');
+          verified = true;
+          for (const record of pendingAudit.splice(0)) void audit.log(record);
+        });
       for (const listener of firstAccessListeners) {
         try {
           listener();
@@ -375,11 +393,25 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
       locked = true;
       recentUnlockAt = null;
       for (const listener of lockListeners) listener(true);
-      void audit.log({ op: 'lock', app: 'vault', principal: 'system', result: 'ok', reason });
+      logAudit({ op: 'lock', app: 'vault', principal: 'system', result: 'ok', reason });
     }
   };
 
   const unlock = async (proof?: unknown): Promise<boolean> => {
+    const firstVerification = verification === null;
+    await ensureVerified();
+    if (firstVerification && integrity.getTamperedFile() !== null) {
+      // Tamper found by this very call: the tamper audit line re-baselines the audit file, so a
+      // second verifyAll would pass. Refuse rather than let that launder the forgery.
+      logAudit({
+        op: 'unlock-failed',
+        app: 'vault',
+        principal: 'user',
+        result: 'failed',
+        reason: `Tamper detected in ${integrity.getTamperedFile()}`,
+      });
+      return false;
+    }
     if (integrity.getTamperedFile() !== null) {
       const check = await integrity.verifyAll();
       if (!check.valid) {
@@ -584,8 +616,8 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
       },
 
       set: async (namespace, key, value, setOptions) => {
-        demand(namespace, key, 'write');
         await ensureVerified();
+        demand(namespace, key, 'write');
         const spec = VAULT_NAMESPACES[namespace];
         const fingerprint = setOptions?.fingerprint;
         if (spec.fingerprinted && fingerprint === undefined) {
@@ -607,8 +639,8 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
       },
 
       delete: async (namespace, key) => {
-        demand(namespace, key, 'delete');
         await ensureVerified();
+        demand(namespace, key, 'delete');
         sessionOnly.get(namespace)?.delete(key);
         await storeFor(namespace).delete(key);
         await audit.log({ op: 'delete', namespace, id: key, app: appId, principal: 'user', result: 'ok' });
@@ -671,7 +703,11 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
     onLockedChange,
     onFirstAccess: (listener) => {
       if (verification) {
-        listener();
+        try {
+          listener();
+        } catch {
+          // A listener must never fail a vault operation.
+        }
         return () => {};
       }
       firstAccessListeners.add(listener);
