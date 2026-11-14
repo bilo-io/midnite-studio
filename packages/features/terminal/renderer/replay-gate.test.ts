@@ -161,7 +161,48 @@ describe('replayLiveHandoff onReleased', () => {
   });
 });
 
+describe('replayLiveHandoff failure', () => {
+  it('a rejected snapshot still releases held chunks and calls onReleased', async () => {
+    const order: string[] = [];
+    const gate = replayLiveHandoff(
+      () => Promise.reject(new Error('nope')),
+      () => order.push('snapshot'),
+      (chunk) => order.push(`live:${decode(chunk)}`),
+      () => false,
+      () => order.push('released'),
+    );
+    gateLiveWrite(gate, bytes('held'), () => {});
+    await new Promise((r) => setTimeout(r, 0));
+    expect(order).toEqual(['live:held', 'released']);
+    expect(gate.open).toBe(true);
+  });
+
+  it('a throwing onSnapshot still releases and calls onReleased', async () => {
+    const order: string[] = [];
+    replayLiveHandoff(
+      () => Promise.resolve(bytes('s')),
+      () => {
+        throw new Error('bad write');
+      },
+      () => {},
+      () => false,
+      () => order.push('released'),
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    expect(order).toEqual(['released']);
+  });
+});
+
 describe('writeAtSourceSize', () => {
+  it('falls back to a plain write for a zero size', () => {
+    const calls: string[] = [];
+    writeAtSourceSize(
+      { resize: () => calls.push('resize'), write: () => calls.push('write') },
+      { bytes: bytes('x'), cols: 0, rows: 24 },
+    );
+    expect(calls).toEqual(['write']);
+  });
+
   const fake = () => {
     const calls: string[] = [];
     return {

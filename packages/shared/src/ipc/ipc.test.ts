@@ -1693,16 +1693,16 @@ describe('terminal and pty schemas', () => {
    */
   const UNVALIDATED_BY_DESIGN = ['ptyData'];
 
+  it('PtySnapshotResponse still parses bytes alone', () => {
+    expect(schemas.PtySnapshotResponse.safeParse({ bytes: new Uint8Array(1) }).success).toBe(true);
+  });
+
   /**
    * The reason this block is a table.
    *
    * Every `pty:*` and `terminal:*` channel must appear above by name. A new
    * channel added without a row fails here, rather than shipping unvalidated.
    */
-  it('PtySnapshotResponse still parses bytes alone', () => {
-    expect(schemas.PtySnapshotResponse.safeParse({ bytes: new Uint8Array(1) }).success).toBe(true);
-  });
-
   it('covers every pty and terminal channel', () => {
     const covered = new Set(CASES.map((c) => c.name));
     const expected: Record<string, string[]> = {

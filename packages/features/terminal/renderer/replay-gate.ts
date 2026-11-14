@@ -99,12 +99,27 @@ export function replayLiveHandoff<T = Uint8Array>(
   onReleased?: () => void,
 ): ReplayGate {
   const gate = createReplayGate();
-  void fetchSnapshot().then((snapshot) => {
-    if (isCancelled()) return;
-    onSnapshot(snapshot);
-    gate.release(write);
-    onReleased?.();
-  });
+  // Whatever happens to the snapshot, the gate must open and onReleased must
+  // run: otherwise held chunks never flush and the size controller stays
+  // suspended, leaving the pane unable to resize ever again.
+  void fetchSnapshot()
+    .then(
+      (snapshot) => {
+        if (isCancelled()) return false;
+        try {
+          onSnapshot(snapshot);
+        } catch {
+          // A failed snapshot write must not strand the gate.
+        }
+        return true;
+      },
+      () => !isCancelled(),
+    )
+    .then((proceed) => {
+      if (!proceed) return;
+      gate.release(write);
+      onReleased?.();
+    });
   return gate;
 }
 
@@ -118,6 +133,6 @@ export function writeAtSourceSize(
   term: { resize(cols: number, rows: number): void; write(data: Uint8Array): void },
   snap: { bytes: Uint8Array; cols?: number | undefined; rows?: number | undefined },
 ): void {
-  if (snap.cols !== undefined && snap.rows !== undefined) term.resize(snap.cols, snap.rows);
+  if (snap.cols !== undefined && snap.rows !== undefined && snap.cols > 0 && snap.rows > 0) term.resize(snap.cols, snap.rows);
   if (snap.bytes.length > 0) term.write(snap.bytes);
 }

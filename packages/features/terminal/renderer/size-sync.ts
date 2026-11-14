@@ -23,12 +23,20 @@ export type SyncReason =
   | 'replayed';
 
 /** Reasons that always send, even at an unchanged size (the pty may have been resized by another view). */
-const FORCED: ReadonlySet<SyncReason> = new Set(['bind', 'active', 'visible', 'replayed', 'renderer']);
+const FORCED: ReadonlySet<SyncReason> = new Set(['bind', 'active', 'replayed']);
+/**
+ * Forced only for the view that owns the pty's size (the active pane). A hidden
+ * pane or card terminal on the same pty must never push its own size under the
+ * visible one; for it these reasons fit, repaint and dedupe like any other.
+ */
+const FORCED_FOR_OWNER: ReadonlySet<SyncReason> = new Set(['visible', 'renderer']);
 /** Reasons that invalidate the glyph atlas, which must happen before the fit measures cells. */
 const CLEARS_ATLAS: ReadonlySet<SyncReason> = new Set(['dpr', 'font', 'fontsLoaded', 'renderer']);
 
 export type SizeSyncDeps = {
   isMeasurable: () => boolean;
+  /** Whether this view is the one the user is looking at (owns the pty's size). */
+  isOwner: () => boolean;
   /** `fitAddon.fit()`, then the terminal's size. */
   fit: () => { cols: number; rows: number };
   /** `false` = no ptyId yet, nothing was sent. */
@@ -45,17 +53,25 @@ export type SizeSync = {
   suspend(): void;
   /** Leave suspension, then `sync('replayed')` once. No-op when not suspended. */
   resume(): void;
+  /** Unmount: drop suspension, the pending clear and the size record, without syncing. */
+  reset(): void;
   last(): { cols: number; rows: number } | null;
 };
 
 export function createSizeSync(deps: SizeSyncDeps): SizeSync {
   let last: { cols: number; rows: number } | null = null;
   let suspended = false;
+  /** An atlas clear that could not run (suspended or 0x0 pane); applied on the next real fit. */
+  let pendingClear = false;
 
   const sync = (reason: SyncReason): void => {
+    if (CLEARS_ATLAS.has(reason)) pendingClear = true;
     if (suspended) return;
     if (!deps.isMeasurable()) return;
-    if (CLEARS_ATLAS.has(reason)) deps.clearAtlas();
+    if (pendingClear) {
+      pendingClear = false;
+      deps.clearAtlas();
+    }
     let size: { cols: number; rows: number };
     try {
       size = deps.fit();
@@ -63,7 +79,8 @@ export function createSizeSync(deps: SizeSyncDeps): SizeSync {
       return;
     }
     const unchanged = last !== null && last.cols === size.cols && last.rows === size.rows;
-    if (FORCED.has(reason) || !unchanged) {
+    const forced = FORCED.has(reason) || (FORCED_FOR_OWNER.has(reason) && deps.isOwner());
+    if (forced || !unchanged) {
       if (deps.send(size.cols, size.rows)) last = { cols: size.cols, rows: size.rows };
     }
     if (reason !== 'observe') deps.repaint();
@@ -81,6 +98,11 @@ export function createSizeSync(deps: SizeSyncDeps): SizeSync {
       if (!suspended) return;
       suspended = false;
       sync('replayed');
+    },
+    reset: () => {
+      suspended = false;
+      pendingClear = false;
+      last = null;
     },
     last: () => last,
   };

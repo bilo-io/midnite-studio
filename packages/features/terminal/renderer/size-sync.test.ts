@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import { createSizeSync, type SyncReason } from './size-sync';
 
-const setup = (over: { measurable?: boolean; sendOk?: boolean; fitThrows?: boolean } = {}) => {
+const setup = (over: { measurable?: boolean; sendOk?: boolean; fitThrows?: boolean; owner?: boolean } = {}) => {
   const calls: string[] = [];
   const state = { size: { cols: 100, rows: 30 }, measurable: over.measurable ?? true, sendOk: over.sendOk ?? true, fitThrows: over.fitThrows ?? false };
   const s = createSizeSync({
     isMeasurable: () => state.measurable,
+    isOwner: () => over.owner ?? true,
     fit: () => {
       calls.push('fit');
       if (state.fitThrows) throw new Error('boom');
@@ -69,13 +70,49 @@ describe('createSizeSync', () => {
     expect(calls).toEqual(['fit']);
   });
 
-  it('active and visible send at an unchanged size', () => {
-    const { s, calls } = setup();
+  it('active pane: active, visible and renderer send at an unchanged size', () => {
+    const { s, calls } = setup({ owner: true });
     s.sync('observe');
     calls.length = 0;
     s.sync('active');
     s.sync('visible');
-    expect(calls.filter((c) => c.startsWith('send'))).toHaveLength(2);
+    s.sync('renderer');
+    expect(calls.filter((c) => c.startsWith('send'))).toHaveLength(3);
+  });
+
+  it('inactive pane: visible and renderer send nothing at an unchanged size, but fit and repaint', () => {
+    const { s, calls } = setup({ owner: false });
+    s.sync('observe');
+    calls.length = 0;
+    s.sync('visible');
+    s.sync('renderer');
+    expect(calls.filter((c) => c.startsWith('send'))).toHaveLength(0);
+    expect(calls.filter((c) => c === 'repaint')).toHaveLength(2);
+  });
+
+  it('inactive pane still sends on a genuine size change', () => {
+    const { s, calls, state } = setup({ owner: false });
+    s.sync('observe');
+    state.size = { cols: 50, rows: 10 };
+    calls.length = 0;
+    s.sync('visible');
+    expect(calls).toContain('send:50x10');
+  });
+
+  it('applies a missed atlas clear on the next real fit (suspended or unmeasurable)', () => {
+    const { s, calls, state } = setup();
+    s.suspend();
+    s.sync('dpr');
+    expect(calls).toEqual([]);
+    s.resume();
+    expect(calls.slice(0, 2)).toEqual(['clear', 'fit']);
+    state.measurable = false;
+    calls.length = 0;
+    s.sync('font');
+    expect(calls).toEqual([]);
+    state.measurable = true;
+    s.sync('observe');
+    expect(calls.slice(0, 2)).toEqual(['clear', 'fit']);
   });
 
   it('records last only when send returns true, so a later bind sends', () => {

@@ -288,9 +288,12 @@ export function TerminalView({
    * while a live replay is in flight. Built once; its deps read refs at
    * call time.
    */
+  const activeRef = useRef(active);
+  activeRef.current = active;
   const sizeSyncRef = useRef<SizeSync | null>(null);
   if (!sizeSyncRef.current) {
     sizeSyncRef.current = createSizeSync({
+      isOwner: () => activeRef.current,
       isMeasurable: () =>
         Boolean(
           fitRef.current &&
@@ -438,8 +441,9 @@ export function TerminalView({
     sizeSync.sync('bind');
   }, [ptyId, ready, sizeSync]);
 
-  // The pane the user is looking at takes the pty's size back (another view
-  // - the Sessions page, a popout - may have resized the same pty).
+  // The pane the user is looking at takes the pty's size back when it becomes
+  // active (another mounted view of the same pty may have resized it). Only
+  // the active pane forces a send; hidden panes dedupe (see size-sync.ts).
   useEffect(() => {
     if (ready && active) sizeSync.sync('active');
   }, [active, ready, sizeSync]);
@@ -837,6 +841,7 @@ export function TerminalView({
       fitCoalescer.cancel();
       document.removeEventListener('visibilitychange', onVisibilityChange);
       document.fonts?.removeEventListener?.('loadingdone', onFonts);
+      sizeSync.reset();
       if (cwdTimer) clearTimeout(cwdTimer);
       dataSub?.dispose();
       links.dispose();
