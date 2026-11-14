@@ -108,7 +108,11 @@ export function createProcessSensor(deps: ProcessSensorDeps = {}): SensorDefinit
               { kind: 'pid', pid: row.pid, command: row.comm, ppid: row.ppid, uid: row.uid },
               { kind: 'command', command: `unverified (protected folder): ${row.comm}` },
             ],
-            remediation: [{ id: 'kill-process-group', pid: row.pid }, { id: 'mute' }],
+            remediation: [
+              { id: 'kill-process-group', pid: row.pid },
+              ...(sessionId !== undefined ? [{ id: 'pause-session' as const, sessionId }] : []),
+              { id: 'mute' },
+            ],
             ...(sessionId !== undefined ? { sessionId } : {}),
           });
           n += 1;
