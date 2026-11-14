@@ -19,6 +19,7 @@ import {
   ensureCanaries,
   LOOP_RUNS_DIRECTORY_NAME,
   runtimeHostDirectory,
+  scrubHostAgentProcessEnv,
   setDiskRedactionSecrets,
   vaultFilesPresent,
   sweepProfileFiles,
@@ -344,6 +345,14 @@ export const startStudioMain: StartStudioMain = () => {
   */
   bootMark('modules-loaded');
   startHeapSampler({ enabled: perfEnabled(process.env), processName: 'main', log: defaultLogger });
+
+  /*
+    If an agent CLI restarted Studio from its shell tool, main inherited that session's env (NO_COLOR, CLAUDE_CODE_*
+    and its messaging token). Drop it once, before the pty broker or any child is spawned from process.env, so a
+    new broker starts clean. Key names only are logged, never values.
+  */
+  const scrubbedEnvKeys = scrubHostAgentProcessEnv();
+  if (scrubbedEnvKeys.length > 0) defaultLogger.info(`scrubbed inherited host-agent env: ${scrubbedEnvKeys.join(', ')}`);
 
   app.setName('Midnite Studio');
 
