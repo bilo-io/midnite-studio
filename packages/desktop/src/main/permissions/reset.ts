@@ -10,7 +10,9 @@ export type ExecFilePort = (
   cb: (err: (Error & { code?: number | string }) | null, stdout: string, stderr: string) => void,
 ) => void;
 
-const defaultExec: ExecFilePort = (file, args, cb) => execFile(file, args, { timeout: 10_000 }, cb);
+const defaultExec: ExecFilePort = (file, args, cb) => {
+  execFile(file, args, { timeout: 10_000 }, (err, stdout, stderr) => cb(err, String(stdout), String(stderr)));
+};
 
 /**
  * `tccutil reset <Service> <bundle id>` for this app only, one service at a time. Never `sudo`: a service
