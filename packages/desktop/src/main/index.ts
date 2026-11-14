@@ -1044,7 +1044,7 @@ export const startStudioMain: StartStudioMain = () => {
             }
           });
       };
-      // Both boot reads below go through the vault, i.e. the keychain; see keychain-gate.ts for when they may run.
+      // Both boot reads and writes below (refreshDiskSecrets reads, ensureCanaries reads and writes) go through the vault, i.e. the keychain; see keychain-gate.ts for when they may run.
       const keychainGate = whenKeychainMayBeTouched(
         () => {
           refreshDiskSecrets();

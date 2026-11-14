@@ -53,10 +53,14 @@ export function whenKeychainMayBeTouched(fn: () => void, options: KeychainGateOp
     attachWindow(window) {
       if (ran || !options.vaultPresent()) return;
       window.once('ready-to-show', () => {
-        window.once('focus', () => {
+        let scheduled = false;
+        const schedule = (): void => {
+          if (scheduled) return;
+          scheduled = true;
           setTimer(run, idleMs);
-        });
-        if (window.isFocused?.()) setTimer(run, idleMs);
+        };
+        window.once('focus', schedule);
+        if (window.isFocused?.()) schedule();
       });
     },
   };

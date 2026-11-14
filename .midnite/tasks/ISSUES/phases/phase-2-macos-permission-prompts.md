@@ -30,11 +30,11 @@ started, and make a stale grant explain itself.
 
 ## Headlines
 
-**Theme A — No keychain access on the boot path.** ◻ (S–M) `createVaultService` no longer verifies integrity in its
+**Theme A — No keychain access on the boot path.** 🔄 in review, PR #1254 (S–M) `createVaultService` no longer verifies integrity in its
 constructor; a memoised `ensureVerified()` runs before the first ciphertext read or write, and still locks on tamper
 before anything is served. The boot-time disk-redaction refresh and canary planting wait for the vault's first real
 access, or for the window's first show + focus + idle — and never run when no vault file exists. A launch with nothing
-secret open makes no keychain call.
+secret open makes no keychain call. Lock and unlock before first access queue their audit line until verification has run, so a forged audit file cannot be re-baselined. A profile with no vault files gets no canaries until its first vault op (a vault-less user has no tripwire until then).
 
 **Theme B — Settings ▸ Permissions.** ◻ (M–L) A frame-owned settings page lists the macOS grants Studio uses — Screen
 Recording, Microphone, Camera, Accessibility, Full Disk Access (read live, re-read on focus), Automation and Files &
@@ -63,10 +63,10 @@ remediation.
 ## Deliverables
 
 ### A — No keychain access on the boot path
-- [ ] `runtime/src/vault/vault-service.ts:286-288`: constructor `verifyAll()` → memoised `ensureVerified()` awaited by read / set / delete / keys / has / export / restore; tamper still locks before serving.
-- [ ] `VaultService.onFirstAccess(cb)`; `vaultFilesPresent(directory)` (stat only) exported from `runtime/src/vault/index.ts`.
-- [ ] `desktop/src/main/keychain-gate.ts` `whenKeychainMayBeTouched(fn)`; `index.ts:1045` (`refreshDiskSecrets()`) and `:1050` (`ensureCanaries`) moved behind it.
-- [ ] Tests: `vault-service.test.ts` (zero cipher calls until first read; tamper on first read → locked), `vault-files-present.test.ts`, `keychain-gate.test.ts`.
+- [x] `runtime/src/vault/vault-service.ts:286-288`: constructor `verifyAll()` → memoised `ensureVerified()` awaited by read / set / delete / keys / has / export / restore; tamper still locks before serving.
+- [x] `VaultService.onFirstAccess(cb)`; `vaultFilesPresent(directory)` (stat only) exported from `runtime/src/vault/index.ts`.
+- [x] `desktop/src/main/keychain-gate.ts` `whenKeychainMayBeTouched(fn)`; `index.ts:1045` (`refreshDiskSecrets()`) and `:1050` (`ensureCanaries`) moved behind it.
+- [x] Tests: `vault-service.test.ts` (zero cipher calls until first read; tamper on first read → locked), `vault-files-present.test.ts`, `keychain-gate.test.ts`.
 
 ### B — Settings ▸ Permissions
 - [ ] `shared`: `permissionsStatus` / `permissionsOpenPane` / `permissionsReset` channels, `MacPermissionId` / `MacPermissionState` / `PermissionRow` schemas, bridge type.
