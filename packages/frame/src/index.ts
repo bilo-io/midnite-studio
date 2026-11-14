@@ -118,7 +118,14 @@ export {
   type RevealSize,
 } from './layout/use-reveal';
 export { __nowSubscriberCount, __nowTimerCount, useNow } from './lib/use-now';
-export { ExplorerGroup, ExplorerNotice, ExplorerSearch } from './layout/explorer';
+export {
+  ExplorerGroup,
+  ExplorerNotice,
+  ExplorerSearch,
+  groupItemsByRepo,
+  useCollapsedGroups,
+  type RepoGroup,
+} from './layout/explorer';
 export { StateDot, type DotState } from './layout/state-dot';
 export { TREE_INDENT } from './layout/tree-indent';
 export { LoadingRegion, Skeleton, Spinner as RingSpinner } from './layout/skeleton';

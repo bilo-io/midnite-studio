@@ -1,7 +1,7 @@
 // vitest/jsdom: the list's per-app filter and its "Show all apps" toggle (Phase 123 Theme E), under the default host.
 import { createFrameChrome, FrameChromeProvider } from '@midnite/studio-frame';
-import type { TerminalSession } from '@midnite/studio-shared';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { BUILTIN_AGENTS, type TerminalSession } from '@midnite/studio-shared';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { __resetAppFilter } from './app-filter';
@@ -101,5 +101,103 @@ describe('openSession stamps the window’s app', () => {
     useTerminalStore.getState().setAppId('studio');
     const b = useTerminalStore.getState().openSession({ kind: 'shell', title: 'y', cwd: '/y', repoId: 'r' });
     expect('appId' in b).toBe(false);
+  });
+});
+
+describe('TerminalSessionList — per-repo accordions', () => {
+  const claude = BUILTIN_AGENTS.find((a) => a.id === 'claude')!;
+
+  const agentRow = (
+    id: string,
+    repoId: string,
+    title: string,
+    name: string,
+    opts?: { asleep?: boolean },
+  ): TerminalSession => ({
+    id,
+    kind: 'agent',
+    agentId: 'claude',
+    title,
+    name,
+    cwd: `/repos/${title}`,
+    repoId,
+    createdAt: 1,
+    ...(opts?.asleep ? { asleep: true } : {}),
+  });
+
+  it('groups active and sleeping sessions per repo and excludes dismissed sessions', () => {
+    useTerminalStore.setState({
+      sessions: [
+        agentRow('s1', 'repo:a', 'alpha', 'Fix bug'),
+        agentRow('s2', 'repo:b', 'beta', 'Add tests'),
+        agentRow('s3', 'repo:a', 'alpha', 'Sleeping work', { asleep: true }),
+      ],
+      states: { s1: 'open', s2: 'open', s3: 'exited' },
+      activity: { s1: 'thinking' },
+      activeId: 's1',
+    });
+
+    const { container } = render(
+      <FrameChromeProvider chrome={createFrameChrome().chrome}>
+        <TerminalHostProvider host={createDefaultTerminalHost('studio')}>
+          <TerminalSessionList agents={[claude]} width={220} />
+        </TerminalHostProvider>
+      </FrameChromeProvider>,
+    );
+
+    const alphaHeader = screen.getByRole('button', { name: 'Collapse alpha' });
+    const betaHeader = screen.getByRole('button', { name: 'Collapse beta' });
+    expect(alphaHeader.getAttribute('aria-expanded')).toBe('true');
+    expect(betaHeader.getAttribute('aria-expanded')).toBe('true');
+
+    const alphaBody = container.querySelector('#terminal-repo-repo\\:a') as HTMLElement;
+    const betaBody = container.querySelector('#terminal-repo-repo\\:b') as HTMLElement;
+    expect(alphaBody.textContent).toContain('Fix bug');
+    expect(alphaBody.textContent).toContain('Sleeping work');
+    expect(betaBody.textContent).toContain('Add tests');
+
+    // Existing lifecycle states and activity indicator are preserved
+    expect(alphaBody.querySelectorAll('[data-phase="live"]')).toHaveLength(1);
+    expect(alphaBody.querySelectorAll('[data-phase="asleep"]')).toHaveLength(1);
+    expect(alphaBody.querySelector('[data-activity="thinking"]')).not.toBeNull();
+
+    // Dismissing a session removes it from its repo group
+    act(() => {
+      useTerminalStore.setState((state) => ({
+        sessions: state.sessions.filter((s) => s.id !== 's3'),
+      }));
+    });
+    expect(alphaBody.textContent).not.toContain('Sleeping work');
+  });
+
+  it('toggles collapse/expand when clicking a repo header and skips collapsed groups in keyboard nav', () => {
+    useTerminalStore.setState({
+      sessions: [
+        agentRow('s1', 'repo:a', 'alpha', 'First'),
+        agentRow('s2', 'repo:b', 'beta', 'Second'),
+        agentRow('s3', 'repo:c', 'gamma', 'Third'),
+      ],
+      states: { s1: 'open', s2: 'open', s3: 'open' },
+      activeId: 's1',
+    });
+
+    const { container } = render(
+      <FrameChromeProvider chrome={createFrameChrome().chrome}>
+        <TerminalHostProvider host={createDefaultTerminalHost('studio')}>
+          <TerminalSessionList agents={[claude]} width={220} />
+        </TerminalHostProvider>
+      </FrameChromeProvider>,
+    );
+
+    const betaHeader = screen.getByRole('button', { name: 'Collapse beta' });
+    fireEvent.click(betaHeader);
+    expect(screen.getByRole('button', { name: 'Expand beta' }).getAttribute('aria-expanded')).toBe('false');
+
+    const listEl = container.querySelector('[data-session-list]') as HTMLElement;
+    fireEvent.keyDown(listEl, { key: 'ArrowDown' });
+    expect(useTerminalStore.getState().activeId).toBe('s3');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand beta' }));
+    expect(screen.getByRole('button', { name: 'Collapse beta' }).getAttribute('aria-expanded')).toBe('true');
   });
 });
