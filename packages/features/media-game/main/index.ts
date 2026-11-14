@@ -172,6 +172,7 @@ export const mediaGameMain = defineFeatureMain<MediaGameMainServices>({
     // Levels (Phase 132 Theme C).
     handle(CHANNELS.gamesLevels, schemas.GamesLevelsRequest, ({ gameId }) => service.levels.list(gameId), (issue) => failure(issue));
     handle(CHANNELS.gamesLevelGet, schemas.GamesLevelGetRequest, ({ gameId, scene }) => service.levels.get(gameId, scene), (issue) => failure(issue));
+    handle(CHANNELS.gamesLevelModel, schemas.GamesLevelModelRequest, ({ gameId, name }) => service.levels.model(gameId, name), (issue) => failure(issue));
     handle(
       CHANNELS.gamesLevelSet,
       schemas.GamesLevelSetRequest,

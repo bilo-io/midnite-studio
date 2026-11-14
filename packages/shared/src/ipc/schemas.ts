@@ -392,6 +392,8 @@ import {
   GameLevelsResultSchema,
   GameLevelGetRequestSchema,
   GameLevelGetResultSchema,
+  GameLevelModelRequestSchema,
+  GameLevelModelResultSchema,
   GameLevelSetRequestSchema,
   GameLevelSetResultSchema,
   GameGotoRequestSchema,
@@ -5582,6 +5584,8 @@ export const GamesLevelsRequest = GameLevelsRequestSchema;
 export const GamesLevelsResponse = GitOpResultOf(GameLevelsResultSchema);
 export const GamesLevelGetRequest = GameLevelGetRequestSchema;
 export const GamesLevelGetResponse = GitOpResultOf(GameLevelGetResultSchema);
+export const GamesLevelModelRequest = GameLevelModelRequestSchema;
+export const GamesLevelModelResponse = GitOpResultOf(GameLevelModelResultSchema);
 export const GamesLevelSetRequest = GameLevelSetRequestSchema;
 export const GamesLevelSetResponse = GitOpResultOf(GameLevelSetResultSchema);
 export const GamesGotoRequest = GameGotoRequestSchema;

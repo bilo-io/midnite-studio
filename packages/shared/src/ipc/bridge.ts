@@ -1637,6 +1637,8 @@ export type MidniteStudioBridge = {
       list: (req: In<typeof S.GamesLevelsRequest>) => Promise<z.infer<typeof S.GamesLevelsResponse>>;
       get: (req: In<typeof S.GamesLevelGetRequest>) => Promise<z.infer<typeof S.GamesLevelGetResponse>>;
       set: (req: In<typeof S.GamesLevelSetRequest>) => Promise<z.infer<typeof S.GamesLevelSetResponse>>;
+      /** A `model` asset's bytes for the 3D view (Phase 136 Theme F). */
+      model: (req: In<typeof S.GamesLevelModelRequest>) => Promise<z.infer<typeof S.GamesLevelModelResponse>>;
     };
     goto: (req: In<typeof S.GamesGotoRequest>) => Promise<z.infer<typeof S.GamesGotoResponse>>;
     /** Move a game's runner into the `game` popout window; closing that window docks it back. */

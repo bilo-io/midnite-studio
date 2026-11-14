@@ -243,7 +243,7 @@ export function createGameService(deps: GameServiceDeps) {
     logs: (gameId: string, since?: number): { runId: string | null; entries: GameLogEntry[] } =>
       deps.runner.logs(gameId, since),
     /** `levels/<scene>.tmj` (Phase 132 Theme C): list, read, write-and-commit; and the jump to a scene. */
-    levels: { list: levels.list, get: levels.get, set: levels.set },
+    levels: { list: levels.list, get: levels.get, set: levels.set, model: levels.model },
     goto: levels.goto,
     async kitUpgrade(gameId: string): Promise<GitOpResult<{ branch: string }>> {
       const game = await find(gameId);
