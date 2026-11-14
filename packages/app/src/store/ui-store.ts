@@ -282,6 +282,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'features', label: 'Features', group: 'general' },
   { id: 'activity', label: 'Activity', group: 'general' },
   { id: 'privacy', label: 'Privacy', group: 'general' },
+  { id: 'permissions', label: 'Permissions', group: 'general' },
   { id: 'sidebar', label: 'Sidebar', group: 'general' },
   { id: 'search', label: 'Search', group: 'general' },
   { id: 'screenLock', label: 'Screen Lock', group: 'general' },
