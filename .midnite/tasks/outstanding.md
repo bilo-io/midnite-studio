@@ -845,3 +845,8 @@ The detector's discount for code spans and quotation marks is bypassable by wrap
 ## Phase 76 Theme A — before Electron 46
 
 - **The sync `safeStorage` calls must become async before the Electron 46 bump.** Electron 45 deprecates `safeStorage.encryptString` / `decryptString` / `isEncryptionAvailable`, and 46 removes them in favour of the async forms. Every vault (`runtime/src/vault/`, the forge, database and secrets namespaces) still calls the sync ones. The move touches each vault's read and write path, so it is its own PR, not part of the 45 bump.
+
+## Phase 146 — deferred at planning
+
+- **DNS tracker audit for LAN devices.** Read a Pi-hole query log (its API or an exported file) or a router's DNS log, attribute each query to a device from the Devices view, and classify the hosts against the bundled easyprivacy list (`features/browser/main/data/easyprivacy.generated.ts`) — the "which ad servers is the TV talking to" half of the 2026-11-14 LG TV investigation. Left out to keep Phase 146 to four directions.
+- **LG privacy writes over the luna bridge** (Live Plus, ad tracking, home promotions). Undocumented and model-specific; Phase 146 reads them and gives the menu path. Revisit only with a verified key map per firmware.

@@ -129,3 +129,22 @@ describe('midnite-sanitize skill copies', () => {
     });
   }
 });
+
+// `midnite-lan-devices` (Phase 146 Theme G) ships in the repo's three mirrors with its scripts and
+// references beside it. Those are byte-identical everywhere; the `.agents`/`.codex` SKILL.md drops the
+// Claude-only frontmatter keys, like the sitrep family it reports through.
+describe('midnite-lan-devices skill copies', () => {
+  const dir = (copy) => join(root, copy, 'skills', 'midnite-lan-devices');
+  const files = ['scripts/discover.py', 'scripts/procedure.py', 'references/playbooks.md', 'references/procedures.json'];
+
+  for (const copy of ['.agents', '.codex']) {
+    it(`${copy} matches .claude`, () => {
+      for (const file of files) {
+        const reference = readFileSync(join(dir('.claude'), file));
+        expect(readFileSync(join(dir(copy), file)).equals(reference), `${copy} ${file} differs`).toBe(true);
+      }
+      const reference = withoutClaudeOnlyKeys(readFileSync(join(dir('.claude'), 'SKILL.md'), 'utf8'));
+      expect(readFileSync(join(dir(copy), 'SKILL.md'), 'utf8')).toBe(reference);
+    });
+  }
+});

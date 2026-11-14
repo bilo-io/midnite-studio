@@ -1,0 +1,53 @@
+{
+  "_doc": "Step DAGs per playbook, read by scripts/procedure.py. A step runs once every step in `needs` is done or skipped and at least one is done; a `decision` step's `branches` pick which child runs, and steps reachable only through an untaken branch are skipped. `changesDevice` steps never run without the user's OK for that step. `expectedS` is a planning estimate in seconds. Playbooks with no entry use `generic`. Midnite Studio Phase 146 Theme C encodes the same DAGs.",
+  "lg-webos": {
+    "label": "LG webOS TV",
+    "steps": [
+      {"id": "identify", "label": "identify model", "kind": "read", "needs": [], "expectedS": 3, "how": "curl -s -m 3 $LOCATION → friendlyName, modelName; suffix UR=2023, UT=2024, UQ=2022"},
+      {"id": "latency", "label": "network latency", "kind": "probe", "needs": ["identify"], "expectedS": 5, "how": "ping -c 20 -i 0.2 $IP → avg / max / jitter / loss"},
+      {"id": "ports", "label": "port exposure", "kind": "probe", "needs": ["identify"], "expectedS": 8, "how": "nc -z -G 1 $IP <port> over the stock set; 🚩 on 22/23"},
+      {"id": "ssap-port", "label": "SSAP 3001 open?", "kind": "decision", "needs": ["ports"], "expectedS": 1, "how": "nc -z -G 1 $IP 3001", "branches": [{"when": "open", "next": "pair"}, {"when": "closed", "next": "enable-mobile"}]},
+      {"id": "enable-mobile", "label": "enable TV On With Mobile", "kind": "manual", "needs": ["ssap-port"], "expectedS": 60, "manualPath": "Settings ▸ General ▸ Devices ▸ External Devices ▸ TV On With Mobile — then re-run the procedure"},
+      {"id": "pair", "label": "pair (prompt on TV)", "kind": "prompt", "changesDevice": true, "needs": ["ssap-port"], "expectedS": 30, "how": "SSAP register over wss://$IP:3001; the user accepts on the TV with the remote"},
+      {"id": "paired", "label": "pairing accepted?", "kind": "decision", "needs": ["pair"], "expectedS": 1, "branches": [{"when": "accepted", "next": "read-firmware"}, {"when": "declined", "next": "fixes"}]},
+      {"id": "read-firmware", "label": "read firmware", "kind": "read", "needs": ["paired"], "expectedS": 2, "how": "ssap://com.webos.service.update/getCurrentSWInformation"},
+      {"id": "read-settings", "label": "read privacy settings", "kind": "read", "needs": ["read-firmware"], "expectedS": 2, "how": "ssap://settings/getSystemSettings (option, other); a missing key is 'not readable', never guessed"},
+      {"id": "list-apps", "label": "list installed apps", "kind": "read", "needs": ["read-firmware"], "expectedS": 2, "how": "ssap://com.webos.applicationManager/listApps"},
+      {"id": "audit", "label": "audit findings", "kind": "read", "needs": ["read-settings", "list-apps"], "expectedS": 5, "how": "Live Plus / ads / promos on? unused apps? firmware current? latency jitter?"},
+      {"id": "fixes", "label": "fixes checklist", "kind": "manual", "needs": ["audit", "paired", "enable-mobile", "latency"], "expectedS": 10, "manualPath": "60 s unplug · Additional Settings ▸ Live Plus · Advertisement ▸ Limit Ad Tracking · Home Settings ▸ Home Promotion · Support ▸ Privacy & Terms ▸ User Agreements · Home ▸ Edit apps · Support ▸ Software Update"}
+    ]
+  },
+  "cast": {
+    "label": "Chromecast / Google TV",
+    "steps": [
+      {"id": "identify", "label": "identify model", "kind": "read", "needs": [], "expectedS": 3, "how": "curl -s -m 3 http://$IP:8008/setup/eureka_info?params=name,device_info,build_info"},
+      {"id": "eureka", "label": "eureka answered?", "kind": "decision", "needs": ["identify"], "expectedS": 1, "branches": [{"when": "yes", "next": "apps"}, {"when": "auth-only", "next": "report"}]},
+      {"id": "apps", "label": "what's playing", "kind": "read", "needs": ["eureka"], "expectedS": 2, "how": "curl -s -m 3 http://$IP:8008/apps/"},
+      {"id": "latency", "label": "network latency", "kind": "probe", "needs": ["identify"], "expectedS": 5, "how": "ping -c 20 -i 0.2 $IP"},
+      {"id": "report", "label": "report", "kind": "read", "needs": ["apps", "eureka", "latency"], "expectedS": 2}
+    ]
+  },
+  "router": {
+    "label": "Router / gateway",
+    "steps": [
+      {"id": "identify", "label": "identify model", "kind": "read", "needs": [], "expectedS": 3, "how": "UPnP description from $LOCATION; curl -sI -m 3 http://$IP/"},
+      {"id": "igd", "label": "UPnP IGD on?", "kind": "decision", "needs": ["identify"], "expectedS": 1, "branches": [{"when": "yes", "next": "mappings"}, {"when": "no", "next": "report"}]},
+      {"id": "mappings", "label": "port-forward audit", "kind": "read", "needs": ["igd"], "expectedS": 10, "how": "SOAP GetGenericPortMappingEntry index 0.. until error"},
+      {"id": "admin", "label": "admin exposure", "kind": "probe", "needs": ["identify"], "expectedS": 4, "how": "80 vs 443, Server header, title"},
+      {"id": "dns", "label": "DNS resolver?", "kind": "probe", "needs": ["identify"], "expectedS": 1, "how": "nc -z -G 1 $IP 53"},
+      {"id": "report", "label": "report", "kind": "read", "needs": ["mappings", "igd", "admin", "dns"], "expectedS": 2}
+    ]
+  },
+  "generic": {
+    "label": "Unknown device",
+    "steps": [
+      {"id": "ports", "label": "common ports", "kind": "probe", "needs": [], "expectedS": 15, "how": "connect-only probe of ~100 common ports"},
+      {"id": "http", "label": "HTTP banner", "kind": "probe", "needs": ["ports"], "expectedS": 3, "how": "curl -sI -m 3 http://$IP/"},
+      {"id": "ssh", "label": "SSH banner", "kind": "probe", "needs": ["ports"], "expectedS": 2, "how": "nc -w 2 $IP 22 </dev/null"},
+      {"id": "upnp", "label": "UPnP description", "kind": "read", "needs": ["ports"], "expectedS": 3},
+      {"id": "identified", "label": "identified?", "kind": "decision", "needs": ["http", "ssh", "upnp"], "expectedS": 1, "branches": [{"when": "yes", "next": "switch"}, {"when": "no", "next": "report"}]},
+      {"id": "switch", "label": "switch playbook", "kind": "manual", "needs": ["identified"], "expectedS": 1, "manualPath": "re-run the procedure with the matching playbook id"},
+      {"id": "report", "label": "report", "kind": "read", "needs": ["identified", "switch"], "expectedS": 2}
+    ]
+  }
+}
