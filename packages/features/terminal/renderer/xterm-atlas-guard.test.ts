@@ -10,22 +10,37 @@ import {
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
-/** Terminals sharing one atlas, as xterm's CharAtlasCache hands out. */
+/**
+ * Terminals sharing one atlas, as xterm's CharAtlasCache hands out. Every
+ * renderer forwards the shared atlas's page events (WebglRenderer.ts), so a
+ * page added or removed on the shared atlas reaches every terminal's listener
+ * with the same canvas.
+ */
 function world() {
   const log: string[] = [];
   const detach: Array<() => void> = [];
+  const allAdd = new Set<(canvas: object) => void>();
+  const allRemove = new Set<(canvas: object) => void>();
   function terminal(name: string, opts: { maxPages?: number } = {}) {
-    const add = new Set<() => void>();
-    const remove = new Set<() => void>();
-    const sub = (set: Set<() => void>) => (cb: () => void) => {
-      set.add(cb);
-      return { dispose: () => void set.delete(cb) };
-    };
+    const add = new Set<(canvas: object) => void>();
+    const remove = new Set<(canvas: object) => void>();
+    const sub =
+      (own: Set<(canvas: object) => void>, all: Set<(canvas: object) => void>) =>
+      (cb: (canvas: object) => void) => {
+        own.add(cb);
+        all.add(cb);
+        return {
+          dispose: () => {
+            own.delete(cb);
+            all.delete(cb);
+          },
+        };
+      };
     // Faithful to WebglAddon 0.19: clearing wipes the shared pages and resets
     // this terminal's own model. It fires no add/remove atlas event.
     const webgl: AtlasAddonLike = {
-      onAddTextureAtlasCanvas: sub(add),
-      onRemoveTextureAtlasCanvas: sub(remove),
+      onAddTextureAtlasCanvas: sub(add, allAdd),
+      onRemoveTextureAtlasCanvas: sub(remove, allRemove),
       clearTextureAtlas: () => void log.push(`clear ${name}`),
     };
     const element = document.createElement('div');
@@ -36,8 +51,14 @@ function world() {
     };
     detach.push(attachAtlasGuard(webgl, term, { debounceMs: 100, ...opts }));
     return {
-      addPage: () => add.forEach((h) => h()),
-      removePage: () => remove.forEach((h) => h()),
+      addPage: () => {
+        const canvas = {};
+        allAdd.forEach((h) => h(canvas));
+      },
+      removePage: () => {
+        const canvas = {};
+        allRemove.forEach((h) => h(canvas));
+      },
       element,
       subs: () => add.size + remove.size,
     };
@@ -90,6 +111,34 @@ describe('shared atlas fan-out', () => {
     vi.advanceTimersByTime(40);
     expect(w.log.filter((l) => l.startsWith('clear'))).toEqual(['clear a', 'clear b']);
     w.cleanup();
+  });
+
+  it('one shared page seen by N terminals counts once', () => {
+    const w = world();
+    const a = w.terminal('a', { maxPages: 2 });
+    w.terminal('b', { maxPages: 2 });
+    w.terminal('c', { maxPages: 2 });
+    w.terminal('d', { maxPages: 2 });
+    a.addPage();
+    vi.advanceTimersByTime(1000);
+    expect(w.log).toEqual([]);
+    a.addPage();
+    vi.advanceTimersByTime(100);
+    expect(w.log.filter((l) => l.startsWith('clear'))).toHaveLength(4);
+    w.cleanup();
+  });
+
+  it('resets the page count when the last terminal detaches', () => {
+    const w1 = world();
+    const a = w1.terminal('a', { maxPages: 2 });
+    a.addPage();
+    w1.cleanup();
+    const w2 = world();
+    const b = w2.terminal('b', { maxPages: 2 });
+    b.addPage();
+    vi.advanceTimersByTime(1000);
+    expect(w2.log).toEqual([]);
+    w2.cleanup();
   });
 
   it('page growth counts since the last clear, not per terminal', () => {

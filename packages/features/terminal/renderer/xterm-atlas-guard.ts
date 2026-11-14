@@ -29,8 +29,8 @@ export const ATLAS_REPAINT_DEBOUNCE_MS = 400;
 
 /** The slice of `WebglAddon` the guard uses. */
 export interface AtlasAddonLike {
-  onAddTextureAtlasCanvas: (cb: () => void) => { dispose: () => void };
-  onRemoveTextureAtlasCanvas: (cb: () => void) => { dispose: () => void };
+  onAddTextureAtlasCanvas: (cb: (canvas: object) => void) => { dispose: () => void };
+  onRemoveTextureAtlasCanvas: (cb: (canvas: object) => void) => { dispose: () => void };
   clearTextureAtlas: () => void;
 }
 
@@ -49,6 +49,11 @@ interface Entry {
 const live = new Set<Entry>();
 let timer: ReturnType<typeof setTimeout> | null = null;
 let addedSinceClear = 0;
+/**
+ * Every renderer forwards the shared atlas's page events, so one new page
+ * reaches every attached terminal's listener. Count each canvas once.
+ */
+let countedPages = new WeakSet<object>();
 
 /**
  * Clear the shared atlas and refresh every live WebGL terminal, now. All
@@ -60,6 +65,7 @@ export function clearAllAtlases(): void {
     timer = null;
   }
   addedSinceClear = 0;
+  countedPages = new WeakSet<object>();
   const entries = [...live];
   for (const e of entries) {
     try {
@@ -108,7 +114,9 @@ export function attachAtlasGuard(
   const entry: Entry = { webgl, term };
   const schedule = () => scheduleClearAllAtlases(debounceMs);
   const subs = [
-    webgl.onAddTextureAtlasCanvas(() => {
+    webgl.onAddTextureAtlasCanvas((canvas) => {
+      if (countedPages.has(canvas)) return;
+      countedPages.add(canvas);
       addedSinceClear += 1;
       if (addedSinceClear >= maxPages) schedule();
     }),
@@ -121,9 +129,11 @@ export function attachAtlasGuard(
     live.delete(entry);
     for (const s of subs) s.dispose();
     el?.removeEventListener('webglcontextrestored', schedule, true);
-    if (live.size === 0 && timer !== null) {
-      clearTimeout(timer);
+    if (live.size === 0) {
+      if (timer !== null) clearTimeout(timer);
       timer = null;
+      addedSinceClear = 0;
+      countedPages = new WeakSet<object>();
     }
   };
 }
