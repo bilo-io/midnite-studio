@@ -269,7 +269,11 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // neither layout nor real pointer input, so one drag-paint, undo and Save flow needs a real browser.
 //
 // Raised 486 -> 487 for Phase 89 Theme K's renderer seam test in `knowledge-canvas.spec.ts` (reason at the test).
-export const MAX_DECLARED_E2E = 487;
+//
+// Raised 487 -> 488 for Phase 146 Theme E's `unified-sessions-chats.spec.ts`: verifies unified
+// Sessions + Chats sidebar selection and `Chat | Terminal` view toggling with a real `@xterm/xterm`
+// instance mounted across the preload bridge.
+export const MAX_DECLARED_E2E = 488;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four
