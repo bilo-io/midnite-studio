@@ -1,6 +1,10 @@
 # Phase 141 — Terrain-aware 3D level editing
 
+**Refined: x1** · 2026-11-14 · file map, contracts, MCP, testing, UI/UX
+
 Planned 2026-11-14 by an unattended agent · grounded against the tree as of `9e395a8df`.
+
+**Model:** every theme is a spec'd build for sonnet; no theme needs `Model: opus`.
 
 A 3D level can name a terrain (`midnite.terrain`), and the editor's 3D view (Phase 136) draws it as **flat** ground
 tiles textured with the terrain's drape image: `readLevelTerrain` (`game-level-terrain.ts`) returns only the extent
@@ -172,7 +176,7 @@ export function raycastHeightfield(s: HeightSampler, origin: [number, number, nu
 | File | Change |
 |---|---|
 | `packages/features/media-game/renderer/level/3d/level-ground.ts` (137 G) (+ test) | edit: `groundPoint` raycasts the terrain when a sampler is present |
-| `packages/features/media-game/renderer/level/level-snap.ts` (137 F) (+ test) | edit: `surface` snap uses `heightAt` |
+| `packages/features/media-game/renderer/level/level-snap.ts` (137 F) (+ test) | edit: `surfaceElevation` takes the terrain height under the footprint (`heightAt`) in place of `groundY` when a sampler exists |
 | `packages/features/media-game/renderer/level/level-edit-model.ts` (+ test) | edit: `dropToGround(state, refs)`, `bakeGroundHeight(state, refs, sampler)`, each one commit |
 | `packages/features/media-game/renderer/level/3d/level-3d-view.tsx` | edit: `End` key; a "Conform" toggle in the gizmo bar |
 | `packages/features/media-game/renderer/level/level-shortcuts.ts` (137 J) | edit: `End` — "Drop to ground" |
@@ -196,7 +200,7 @@ export function raycastHeightfield(s: HeightSampler, origin: [number, number, nu
 - [ ] D2. `dropToGround` removes `elevation` from the selection in one undo step; `bakeGroundHeight` (`Shift+End`)
   writes the sampler's height (volume: lowest corner).
 - [ ] D3. Conform on move keeps a dragged object's height above the terrain constant.
-- [ ] D3b. An object without `elevation` renders at `heightAt(x, z)` (scene placement test).
+- [ ] D5. An object without `elevation` renders at `heightAt(x, z)` (scene placement test).
 - [ ] D4. Scatter on terrain adds objects without `elevation` that render on the surface (skipped with a note if
   139 H is absent).
 
@@ -290,7 +294,7 @@ skill's `## Levels` (seven copies).
 - [ ] Targeted checks green: `tsc --noEmit` (shared, media-game, desktop); eslint on changed files; vitest on the
   touched suites incl. the agreement test; the pin test; `scripts/skill-copies.test.mjs`; `node
   scripts/tracker-check.mjs`.
-- [ ] **Gate — the built app, throwaway `--user-data-dir`**: a third-person game on a hilly imported terrain — the 3D
+- [ ] **Open, for a human:** gate on the built app, throwaway `--user-data-dir`**: a third-person game on a hilly imported terrain — the 3D
   view shows the relief; a prop dropped on a slope sits on it; `End` on five floating props drops them; Conform on
   move follows a ridge; the Floorplan hillshade reads as the 3D relief; Play from here (Phase 140, if landed) shows
   the prop at the same height in the game. Frame-time with the Optimisation slider at Balanced stays within 10 % of
@@ -308,13 +312,13 @@ skill's `## Levels` (seven copies).
 
 All resolved; unattended, the conventional option was taken in each case.
 
-1. **Decode in main**, not in the renderer: the file is in the game repo, main already confines paths, and
+1. **Resolved — Decode in main.** Not in the renderer: the file is in the game repo, main already confines paths, and
    `node:zlib` is there; the renderer gets plain samples.
-2. **One sampler, proven equal to the kit's**, because "the prop floats in the game" is exactly the bug this phase
+2. **Resolved — One sampler, proven equal to the kit's.** Because "the prop floats in the game" is exactly the bug this phase
    exists to kill; the agreement test is the contract.
-3. **On the ground means no `elevation`** — the kit's existing rule (`y: null` snaps to the terrain), so a terrain
+3. **Resolved — On the ground means no `elevation`.** The kit's existing rule (`y: null` snaps to the terrain), so a terrain
    re-export never strands props; baking a height is the explicit exception (Unreal's "snap to floor" writes Z;
    here both are offered).
-4. **`End` drops to ground** — Unreal's binding, the best-known one; Unity has no default, Godot uses a plugin.
-5. **Skirts, not stitching**, for LOD seams: simpler, robust, what Unreal Landscape and most open-source terrains do.
-6. **Conform on move is opt-in** — an always-on conform fights the user who wants a floating platform.
+4. **Resolved — `End` drops to ground.** Unreal's binding, the best-known one; Unity has no default, Godot uses a plugin.
+5. **Resolved — Skirts, not stitching.** For LOD seams: simpler, robust, what Unreal Landscape and most open-source terrains do.
+6. **Resolved — Conform on move is opt-in.** An always-on conform fights the user who wants a floating platform.
