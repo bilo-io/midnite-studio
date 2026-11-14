@@ -8,6 +8,7 @@ Completed work is logged append-only in [`../done.md`](../done.md). Deferred sco
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [136 · Level editor 3D view](phases/phase-136-level-editor-3d-view.md) | ◻ TODO | — | 0/30 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
 | [135 · Feature toggles](phases/phase-135-feature-toggles.md) | ✅ DONE | — | 25/25 | `██████████` | 100% | — | — |
 | [134 · Councils synthesizer presets](phases/phase-134-councils-synthesizer-presets.md) | ✅ DONE | — | 28/28 | `██████████` | 100% | — | — |
 | [133 · Councils threads and synthesis](phases/phase-133-councils-threads-and-synthesis.md) | ✅ DONE | x1 | 35/35 | `██████████` | 100% | — | — |
