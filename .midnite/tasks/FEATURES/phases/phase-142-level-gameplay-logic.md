@@ -1,6 +1,10 @@
 # Phase 142 — Level gameplay logic and validation
 
+**Refined: x1** · 2026-11-14 · file map, contracts, MCP, testing, UI/UX
+
 Planned 2026-11-14 by an unattended agent · grounded against the tree as of `9e395a8df`.
+
+**Model:** every theme is a spec'd build for sonnet; no theme needs `Model: opus`.
 
 A level's objects are typed by a hard-coded list (`GAME_LEVEL_ENTITY_TYPES_2D` / `_3D` in
 `packages/shared/src/game-level.ts`), and their properties are whatever the user types into the inspector's free
@@ -337,7 +341,7 @@ platformer and third-person starters' door/switch and enemy/patrol code under `t
 - [ ] Targeted checks green: `tsc --noEmit` (shared, media-game, desktop); eslint on changed files; vitest on the
   touched suites incl. `kit-level.test.ts` and `kit-hash.test.ts`; the pin test; `scripts/skill-copies.test.mjs`;
   `node scripts/tracker-check.mjs`.
-- [ ] **Gate — the built app, throwaway `--user-data-dir`**: a platformer — add a `door` type in the manifest via an
+- [ ] **Open, for a human:** gate on the built app, throwaway `--user-data-dir`**: a platformer — add a `door` type in the manifest via an
   agent (`game_entity_types_set`), place a switch and a door, link them with `L`, play (Phase 140 if landed) and the
   switch opens the door; delete the door and the link clears; raise a wall and the Problems panel flags the exit
   within a second; Save still saves. Shots under `/tmp/midnite-shots-p142/`.
@@ -355,14 +359,14 @@ platformer and third-person starters' door/switch and enemy/patrol code under `t
 
 All resolved; unattended, the conventional option was taken in each case.
 
-1. **Schemas live in the manifest** (`midnite-game.json`), like LDtk's entity defs in the project file and Tiled's
+1. **Resolved — Schemas live in the manifest.** (`midnite-game.json`), like LDtk's entity defs in the project file and Tiled's
    custom types in the project — one place an agent and the user both read.
-2. **Links are Tiled `object` properties** — Tiled's own reference type, so a level stays a valid Tiled map and Tiled
+2. **Resolved — Links are Tiled `object` properties.** Tiled's own reference type, so a level stays a valid Tiled map and Tiled
    itself shows the link.
-3. **Never coerce, never delete** — a value outside its schema stays and is flagged (Godot keeps unknown props;
+3. **Resolved — Never coerce, never delete.** A value outside its schema stays and is flagged (Godot keeps unknown props;
    Unity keeps serialized data it cannot show). Data loss is worse than a warning.
-4. **Never block Save** — Unity and Godot warn; a half-built level is normal.
-5. **Delete clears inbound links** in the same undo step, preventing the most common dangling reference at the
+4. **Resolved — Never block Save.** Unity and Godot warn; a half-built level is normal.
+5. **Resolved — Delete clears inbound links.** In the same undo step, preventing the most common dangling reference at the
    source rather than only flagging it.
-6. **2D reachability by flood fill** with a simple jump model, the cheap check LDtk users run as a plugin; it is a
+6. **Resolved — 2D reachability by flood fill.** With a simple jump model, the cheap check LDtk users run as a plugin; it is a
    warning, not truth.
