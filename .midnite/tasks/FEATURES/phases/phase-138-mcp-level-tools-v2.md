@@ -1,6 +1,10 @@
 # Phase 138 — MCP level tools v2
 
+**Refined: x1** · 2026-11-14 · file map, contracts, MCP, testing, UI/UX
+
 Planned 2026-11-14 by an unattended agent · grounded against the tree as of `9e395a8df`.
+
+**Model:** every theme is a spec'd build for sonnet; no theme needs `Model: opus`.
 
 Agents edit a level today only through Phase 132 Theme G's `game_level_get` / `game_level_set`: read the whole Tiled
 JSON, rewrite it, commit it. That is a blind, whole-file swap: it cannot query, it does not validate gameplay, it
@@ -319,7 +323,7 @@ export function createLevelEditorBridge(deps: { send: (channel: string, payload:
 - [ ] C1. `request` resolves with the renderer's result when `resolve(id, …)` is called, and with
   `failure('the level editor did not answer')` after the timeout (fake timers).
 - [ ] C2. A `resolve` for an unknown id is a no-op; a second `resolve` for the same id is a no-op.
-- [ ] C2b. With `open` set to another scene (or `null`), `request` answers `not-open` without calling `send`.
+- [ ] C7. With `open` set to another scene (or `null`), `request` answers `not-open` without calling `send`.
 - [ ] C3. The renderer hook answers `snapshot` for the open scene with the serialised edit level and `dirty`, and
   `not-open` for another scene.
 - [ ] C4. `apply` on a read-only level answers `handled: false, reason: 'read-only'`.
@@ -634,7 +638,7 @@ export const GameLevelViewInputSchema = GameToolTargetSchema.extend({
   eslint on changed files; vitest on the touched suites (shared, media-game renderer/level, desktop `main/mcp` and
   `main/games`); `scripts/skill-copies.test.mjs`; `scripts/layer-boundaries.test.mjs`; `tool-manifest-pin.test.ts`;
   `node scripts/tracker-check.mjs`.
-- [ ] **Gate — the built app, a throwaway `--user-data-dir`, no mocks**, Settings ▸ MCP ▸ "Let agents run and edit
+- [ ] **Open, for a human:** gate on the built app, a throwaway `--user-data-dir`, no mocks**, Settings ▸ MCP ▸ "Let agents run and edit
   games" on, a third-person game open in the Level editor with an unsaved edit: from a terminal agent (`claude` with
   the `midnite` server) run `game_level_query` (sees the unsaved edit), a `game_entity_batch` of 5 adds (banner, pulse,
   one Mod+Z reverts), `game_level_select` + `game_level_frame`, `game_level_view` preset `iso` (image returned),
@@ -655,28 +659,28 @@ export const GameLevelViewInputSchema = GameToolTargetSchema.extend({
 
 All resolved; unattended, the conventional option was taken in each case.
 
-1. **Tool names keep the `game_` prefix** (`game_level_query`, `game_entity_batch`, …) rather than the roadmap's bare
+1. **Resolved — Tool names keep the `game_` prefix.** (`game_level_query`, `game_entity_batch`, …) rather than the roadmap's bare
    `level_query`: ownership (`manifest.ts` `mcpTools: [...GAME_MCP_TOOL_IDS]`), the private agent server and
    `skills.test.ts` all key on `GAME_MCP_TOOL_IDS`, and every existing game tool is prefixed.
-2. **One op language for everyone.** `applyLevelOps` lives in `shared` (pure, zod-only) so main's file path and the
+2. **Resolved — One op language for everyone.** `applyLevelOps` lives in `shared` (pure, zod-only) so main's file path and the
    renderer's live path apply byte-identical semantics; a second implementation would drift.
-3. **Batches are all-or-nothing** — a transaction, like Unity's undo groups and Godot's `UndoRedo` actions. A partial
+3. **Resolved — Batches are all-or-nothing.** A transaction, like Unity's undo groups and Godot's `UndoRedo` actions. A partial
    batch would leave a level no agent meant to make.
-4. **Live first, file second.** An open editor is where the user is looking, so an agent edit lands there as one undo
+4. **Resolved — Live first, file second.** An open editor is where the user is looking, so an agent edit lands there as one undo
    step and stays unsaved for the user to review; a closed editor gets one commit (git is the review trail, as Phase
    132 Theme G set).
-5. **The renderer never auto-saves an agent change on the global server**; the private game-agent server does,
+5. **Resolved — The renderer never auto-saves an agent change on the global server.** The private game-agent server does,
    because its runs are commit-based and its own Undo reverts the last agent commit (`game-agent-service.ts`).
-6. **The bridge copies Companion's `ui-bridge.ts` pattern** (uuid pending map, timeout, `failure()` envelope) inside
+6. **Resolved — The bridge copies Companion's `ui-bridge.ts` pattern.** (uuid pending map, timeout, `failure()` envelope) inside
    the games feature: features never import features, and the pattern is 60 lines.
-7. **Select, frame are gated by `allowGames`** though they change no data: they steer the user's screen, which is a
+7. **Resolved — Select, frame are gated by `allowGames`.** Though they change no data: they steer the user's screen, which is a
    consent matter (as `allowUi` gates `ui.reveal`). `game_level_view` is a read and is not gated; it may switch
    Floorplan → 3D, which is visible and harmless.
-8. **Metres are opt-in (`unit: 'm'`)**; pixels stay the default because the file is Tiled JSON and
+8. **Resolved — Metres are opt-in (`unit: 'm'`).** Pixels stay the default because the file is Tiled JSON and
    `game_level_get` returns pixels.
-9. **Validation is deterministic** (sorted by severity, rule, object id): an agent can diff two runs, and a test can
+9. **Resolved — Validation is deterministic.** (sorted by severity, rule, object id): an agent can diff two runs, and a test can
    assert an exact array.
-10. **The silent-ignore bug is fixed here**: an external level change while the editor is dirty now asks instead of
+10. **Resolved — The silent-ignore bug is fixed here.** An external level change while the editor is dirty now asks instead of
     being dropped, and a change equal to the open level marks it saved.
-11. **3D capture uses a render target and a temporary camera**, never the live camera, so the user's view does not
+11. **Resolved — 3D capture uses a render target and a temporary camera.** Never the live camera, so the user's view does not
     jump; `game_screenshot` (the running game) and `model_render_preview` (software raster) stay as they are.
