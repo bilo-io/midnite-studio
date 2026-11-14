@@ -257,6 +257,11 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   `moon run root:test-node` (one Vitest `projects` pass over the node-portable packages) and
   `moon run root:lint-all` (`eslint . --cache`) are what `gate-node` runs; the per-package
   `<pkg>:test` / `<pkg>:lint` tasks stay for focused local runs.
+- **Clean up every spawned agent, terminal, and broker after Playwright runs.** Whenever a
+  Playwright test or verification screenshot run spawns or attaches to agent/terminal sessions (or
+  starts a pty broker or Electron instance), you MUST explicitly exit every spawned session and
+  close/kill the test broker, Electron process, and any throwaway `--user-data-dir` in `finally` /
+  `afterEach` / teardown so no orphaned `claude` / `agy` / broker processes are left running.
 - **Perf claims come with a number, from `scripts/perf/`.** `startup-report.mjs` (cold-start
   marks, `--runs=5` for the median), `bundle-report.mjs` (entry chunk / total JS, read from
   Vite's `.vite/manifest.json`) and `idle-cpu.mjs` (percent of one core over a chosen window,
