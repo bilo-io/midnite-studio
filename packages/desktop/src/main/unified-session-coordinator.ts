@@ -4,12 +4,14 @@ import { join } from 'node:path';
 import type { ChatService } from '@midnite/studio-feature-chats/main';
 import type { CreateResult } from '@midnite/studio-feature-terminal/main';
 import {
+  agentInteractiveArgs,
   buildResumeCommand,
   failure,
   getProviderSyncTier,
   ok,
   type AgentDefinition,
   type Chat,
+  type ChatMessage,
   type GitOpResult,
   type ProviderSyncTier,
   type SessionActivity,
@@ -52,6 +54,49 @@ export type UnifiedSessionCoordinatorDeps = {
 };
 
 export type UnifiedSessionCoordinator = ReturnType<typeof createUnifiedSessionCoordinator>;
+
+export const HANDOFF_MAX_TURNS = 6;
+export const HANDOFF_MAX_CHARS = 2_400;
+const HANDOFF_PER_TURN_MAX_CHARS = 500;
+
+/**
+ * Format a concise one-way context summary from recent Chat turns for
+ * `handoff-only` providers (`cursor`, `copilot`, `aider`, etc.) when
+ * switching from Chat to Terminal.
+ */
+export function buildTranscriptHandoffPrompt(
+  messages: readonly ChatMessage[],
+  options: { maxTurns?: number; maxChars?: number } = {},
+): string {
+  const maxTurns = options.maxTurns ?? HANDOFF_MAX_TURNS;
+  const maxChars = options.maxChars ?? HANDOFF_MAX_CHARS;
+
+  const replayable = messages.filter(
+    (m) => (m.role === 'user' || m.status === 'done') && m.text.trim().length > 0,
+  );
+  if (replayable.length === 0) return '';
+
+  const recent = replayable.slice(-maxTurns);
+  const lines: string[] = [];
+  let total = 0;
+
+  // Keep newest turns first when capping total length.
+  for (let i = recent.length - 1; i >= 0; i -= 1) {
+    const m = recent[i]!;
+    const role = m.role === 'user' ? 'User' : 'Assistant';
+    const collapsed = m.text.replace(/\s+/g, ' ').trim();
+    const truncated =
+      collapsed.length > HANDOFF_PER_TURN_MAX_CHARS
+        ? `${collapsed.slice(0, HANDOFF_PER_TURN_MAX_CHARS - 1)}…`
+        : collapsed;
+    const line = `${role}: ${truncated}`;
+    if (total + line.length > maxChars && lines.length > 0) break;
+    total += line.length;
+    lines.unshift(line);
+  }
+
+  return `Continue from this prior chat context:\n${lines.join('\n')}`;
+}
 
 function shellQuote(arg: string): string {
   if (/^[a-zA-Z0-9_./:-]+$/.test(arg)) return arg;
@@ -160,6 +205,8 @@ export function createUnifiedSessionCoordinator(deps: UnifiedSessionCoordinatorD
     agentId: string,
     engineSessionId: string | null,
     handoffMode: SessionHandoffMode,
+    syncTier: ProviderSyncTier,
+    messages: readonly ChatMessage[] = [],
   ): Promise<string | undefined> {
     const roster = await deps.listAgents();
     const agent = roster.find((a) => a.id === agentId);
@@ -167,6 +214,15 @@ export function createUnifiedSessionCoordinator(deps: UnifiedSessionCoordinatorD
 
     if (handoffMode === 'fresh') {
       return `${[agent.command, ...(agent.args ?? [])].map(shellQuote).join(' ')}\r`;
+    }
+
+    if (syncTier === 'handoff-only') {
+      const handoffPrompt = buildTranscriptHandoffPrompt(messages);
+      if (!handoffPrompt) {
+        return `${[agent.command, ...(agent.args ?? [])].map(shellQuote).join(' ')}\r`;
+      }
+      const interactiveArgs = agentInteractiveArgs(agent.id);
+      return `${[agent.command, ...(agent.args ?? []), ...interactiveArgs, handoffPrompt].map(shellQuote).join(' ')}\r`;
     }
 
     const resumeArgs =
@@ -243,10 +299,16 @@ export function createUnifiedSessionCoordinator(deps: UnifiedSessionCoordinatorD
       });
     }
 
-    if (syncTier === 'bidirectional') {
+    if (syncTier === 'bidirectional' || syncTier === 'handoff-only') {
       const live = deps.livePtyFor(nextTerminal.id);
       if (!live) {
-        const initialInput = await buildTerminalInitialInput(agentId, initialEngineSessionId, handoffMode);
+        const initialInput = await buildTerminalInitialInput(
+          agentId,
+          initialEngineSessionId,
+          handoffMode,
+          syncTier,
+          chat?.messages ?? [],
+        );
         const ptyRes = await deps.createPty({
           sessionId: nextTerminal.id,
           kind: 'agent',

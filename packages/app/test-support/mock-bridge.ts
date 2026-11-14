@@ -1548,6 +1548,7 @@ export function buildMockBridge(data: MockFixtures) {
   }> = [];
   const syncStatusHandlers: ((e: unknown) => void)[] = [];
 
+  const mockChats = createMockChats();
   const bridge = {
     /*
         `/tmp` so the fixture repo at `/tmp/midnite-studio` sits inside "home" and
@@ -2517,6 +2518,115 @@ export function buildMockBridge(data: MockFixtures) {
         closedSessions =
           req.sessionId === null ? [] : closedSessions.filter((r) => r.id !== req.sessionId);
       },
+      switchView: async (req: { sessionId: string; targetView: 'chat' | 'terminal'; handoffMode?: string }) => {
+        const chatsApi = mockChats;
+        let chatRes = await chatsApi.get({ id: req.sessionId });
+        const termEntries = (data.terminalSessions ??= []);
+        let termEntry = termEntries.find((e) => String(e.session['id']) === req.sessionId);
+        if (!chatRes.ok && termEntry?.session['linkedChatId']) {
+          chatRes = await chatsApi.get({ id: String(termEntry.session['linkedChatId']) });
+        }
+        if (chatRes.ok && !termEntry && chatRes.value.chat['linkedTerminalId']) {
+          const linkedId = String(chatRes.value.chat['linkedTerminalId']);
+          termEntry = termEntries.find((e) => String(e.session['id']) === linkedId);
+        }
+        if (!chatRes.ok && !termEntry) {
+          return { ok: false as const, kind: 'error' as const, message: 'Session not found.' };
+        }
+        const chat = chatRes.ok ? chatRes.value.chat : null;
+        const agentId = String(chat?.['engine'] ?? termEntry?.session['agentId'] ?? 'claude');
+        const syncTier =
+          agentId === 'claude' || agentId === 'codex' || agentId === 'agy'
+            ? ('bidirectional' as const)
+            : agentId === 'ollama'
+              ? ('chat-only' as const)
+              : ('handoff-only' as const);
+        if (req.targetView === 'terminal' && syncTier === 'chat-only') {
+          return { ok: false as const, kind: 'error' as const, message: 'This provider only supports Chat view.' };
+        }
+        if (req.targetView === 'terminal') {
+          const terminalId = termEntry ? String(termEntry.session['id']) : `term-${req.sessionId}`;
+          if (!termEntry && chat) {
+            const ptyId = `pty-${terminalId}`;
+            const newSession = {
+              id: terminalId,
+              kind: 'agent',
+              agentId,
+              title: String(chat['title'] ?? 'Agent Session'),
+              cwd: String(chat['repoPath'] ?? '/tmp/midnite-studio'),
+              repoId: String(chat['repoId'] ?? ''),
+              createdAt: Date.now(),
+              linkedChatId: String(chat['id']),
+              preferredView: 'terminal',
+            };
+            termEntry = {
+              session: newSession,
+              scrollback: `${agentId}$ `,
+              live: { ptyId, pid: 5200, cols: 80, rows: 24 },
+            };
+            termEntries.push(termEntry);
+            ptySessions[ptyId] = terminalId;
+            outputLog[ptyId] = [encode(`${agentId}$ `)];
+          } else if (termEntry) {
+            termEntry.session['preferredView'] = 'terminal';
+            if (chat) termEntry.session['linkedChatId'] = String(chat['id']);
+            if (!termEntry.live) {
+              const ptyId = `pty-${terminalId}`;
+              termEntry.live = { ptyId, pid: 5200, cols: 80, rows: 24 };
+              ptySessions[ptyId] = terminalId;
+              outputLog[ptyId] ??= [encode(`${agentId}$ `)];
+            }
+          }
+          if (chat) {
+            await chatsApi.update({
+              id: String(chat['id']),
+              linkedTerminalId: terminalId,
+              preferredView: 'terminal',
+            });
+          }
+          return {
+            ok: true as const,
+            value: {
+              targetView: 'terminal' as const,
+              ...(chat ? { chatId: String(chat['id']) } : {}),
+              terminalId,
+              syncTier,
+            },
+          };
+        }
+        // targetView === 'chat'
+        let chatId = chat ? String(chat['id']) : '';
+        if (!chat && termEntry) {
+          const created = await chatsApi.create({
+            engine: agentId,
+            model: null,
+            mode: 'edit',
+            repoId: String(termEntry.session['repoId'] ?? '') || null,
+          });
+          if (!created.ok) return created;
+          chatId = String(created.value.chat['id']);
+        }
+        if (chatId) {
+          await chatsApi.update({
+            id: chatId,
+            ...(termEntry ? { linkedTerminalId: String(termEntry.session['id']) } : {}),
+            preferredView: 'chat',
+          });
+        }
+        if (termEntry) {
+          termEntry.session['preferredView'] = 'chat';
+          if (chatId) termEntry.session['linkedChatId'] = chatId;
+        }
+        return {
+          ok: true as const,
+          value: {
+            targetView: 'chat' as const,
+            chatId,
+            ...(termEntry ? { terminalId: String(termEntry.session['id']) } : {}),
+            syncTier,
+          },
+        };
+      },
     },
     /**
      * Phase 87 Theme G — the Knowledge canvas's own bridge. `getGraph`
@@ -3104,7 +3214,7 @@ export function buildMockBridge(data: MockFixtures) {
       history: async () => ({ ok: true as const, value: [] }),
     },
     markets: createMockMarkets(),
-    chats: createMockChats(),
+    chats: mockChats,
     loopRuns: {
       list: async () => ({ runs: loopRuns }),
       start: async (req: {
@@ -7018,6 +7128,8 @@ export function buildMockBridge(data: MockFixtures) {
         running: messages.some((m) => m['status'] === 'streaming'),
         pendingChanges: messages.some((m) => m['changeSet'] && needsReview(m['changeSet'])),
         worktree: chat['worktree'] ?? null,
+        ...(chat['linkedTerminalId'] ? { linkedTerminalId: chat['linkedTerminalId'] } : {}),
+        ...(chat['preferredView'] ? { preferredView: chat['preferredView'] } : {}),
       };
     };
 
@@ -7136,7 +7248,7 @@ export function buildMockBridge(data: MockFixtures) {
       update: async (req: Record<string, any>) => {
         const chat = store.get(req['id']);
         if (!chat) return err('That chat no longer exists.');
-        for (const key of ['title', 'pinned', 'engine', 'model', 'mode', 'repoId']) {
+        for (const key of ['title', 'pinned', 'engine', 'model', 'mode', 'repoId', 'linkedTerminalId', 'preferredView']) {
           if (req[key] !== undefined) chat[key] = req[key];
         }
         if (req['repoId'] !== undefined) {

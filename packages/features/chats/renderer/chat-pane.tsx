@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { LuGitBranch } from 'react-icons/lu';
+import { LuGitBranch, LuInfo } from 'react-icons/lu';
 
-import type { Chat, ChatAttachment, ChatMode, ChatWidthMode } from '@midnite/studio-shared';
+import { getProviderSyncTier, type Chat, type ChatAttachment, type ChatMode, type ChatWidthMode } from '@midnite/studio-shared';
 
 import { decisionsFor } from './chat-changes';
 import { ChatChangesModal } from './chat-changes-modal';
@@ -276,6 +276,18 @@ export function ChatPane({ selectedId, headerActions }: { selectedId: string | n
         <header className="flex shrink-0 items-center justify-end gap-2 border-b border-border px-4 py-1.5 text-xs">
           {headerActions}
         </header>
+      ) : null}
+      {chat && chat.linkedTerminalId && getProviderSyncTier(chat.engine) === 'handoff-only' ? (
+        <div
+          role="status"
+          data-testid="chat-handoff-only-banner"
+          className="flex shrink-0 items-center gap-2 border-b border-border bg-muted/40 px-4 py-1.5 text-xs text-muted-foreground"
+        >
+          <LuInfo aria-hidden className="h-3.5 w-3.5 shrink-0" />
+          <span>
+            {engine?.label ?? chat.engine} uses one-way handoff — interactive Terminal turns are not synced back into this Chat thread.
+          </span>
+        </div>
       ) : null}
       {body}
       {selectedId !== null && !chat ? null : composer}
