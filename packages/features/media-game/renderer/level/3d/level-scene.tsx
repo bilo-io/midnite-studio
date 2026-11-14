@@ -32,8 +32,8 @@ import {
 
 import { blendPose, cameraPosition, dollyOffset, poseFromCamera, TRANSITION_MS, type CameraPose } from './camera-transition';
 import { cull, groundTiles, itemRadius, tileInReach, type GroundTile, type ViewStats } from './level-cull';
-import { fogRange } from './level-lod';
-import type { GizmoChange, WorldItem } from './level-world';
+import { fogRange, viewOffset } from './level-lod';
+import { nearestEuler, type GizmoChange, type WorldItem } from './level-world';
 import type { ModelCache } from './model-cache';
 import type { OptimisationPreset } from './optimisation';
 import type { SpatialGrid } from './spatial-grid';
@@ -79,6 +79,9 @@ const v = new Vector3();
 const s = new Vector3();
 const colour = new Color();
 const sphere = new Sphere();
+/** A press that travelled further than this (px) was an orbit or a gizmo drag, not a click. */
+const CLICK_SLOP_PX = 4;
+const wasDrag = (event: ThreeEvent<MouseEvent>): boolean => event.delta > CLICK_SLOP_PX;
 
 function composeItem(item: WorldItem, out: Matrix4): Matrix4 {
   e.set(item.pitch, item.yaw, item.roll, 'YXZ');
@@ -230,21 +233,11 @@ export function LevelScene(props: LevelSceneProps) {
   );
 
   // --- the camera: initial pose, controls changes, moves ------------------------------------
-  useLayoutEffect(() => {
-    const pose = props.initialPose;
-    camera.fov = pose.fov;
-    camera.position.set(...cameraPosition(pose));
-    camera.updateProjectionMatrix();
-    if (controls) {
-      controls.target.set(...pose.target);
-      controls.update();
-    }
-    markDirty();
-    // Only the first pose: later ones come through `move`.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [controls]);
+  /** The first pose lands on the first frame with controls, on whichever camera is the default by then. */
+  const placed = useRef(false);
   useEffect(() => {
     if (!controls) return;
+    markDirty();
     const onChange = () => markDirty();
     controls.addEventListener('change', onChange);
     return () => controls.removeEventListener('change', onChange);
@@ -256,6 +249,17 @@ export function LevelScene(props: LevelSceneProps) {
 
   useFrame(() => {
     const now = performance.now();
+    if (!placed.current && controls) {
+      placed.current = true;
+      const pose = props.initialPose;
+      camera.fov = pose.fov;
+      camera.position.set(...cameraPosition(pose));
+      controls.target.set(...pose.target);
+      camera.lookAt(controls.target);
+      camera.updateProjectionMatrix();
+      controls.update();
+      dirty.current = true;
+    }
     const move = props.move.current;
     if (move && controls) {
       if (move.startedAt === null) move.startedAt = now;
@@ -279,8 +283,8 @@ export function LevelScene(props: LevelSceneProps) {
 
     if (dirty.current) {
       dirty.current = false;
-      const offset = dollyOffset(pose);
       const distance = camera.position.distanceTo(target);
+      const offset = viewOffset(distance, dollyOffset(pose), preset.drawDistance);
       camera.near = Math.max(0.05, distance / 2000);
       camera.far = distance + preset.drawDistance * 1.5 + 50;
       camera.updateProjectionMatrix();
@@ -363,6 +367,8 @@ export function LevelScene(props: LevelSceneProps) {
         const tile = tiles[i]?.tile;
         child.visible = tile ? tileInReach(tile, focus, preset.drawDistance) : false;
       });
+      // The 1 m grid only close in: from far off its lines alias into stripes.
+      if (grids.length > 1) grids[0]!.visible = distance - offset < 120;
       sun.position.set(target.x + 40, target.y + 80, target.z + 30);
       sun.target.position.copy(target);
       sun.target.updateMatrixWorld();
@@ -395,6 +401,7 @@ export function LevelScene(props: LevelSceneProps) {
   });
 
   const pickModel = (event: ThreeEvent<MouseEvent>) => {
+    if (wasDrag(event)) return;
     let o: Object3D | null = event.object;
     while (o && typeof o.userData.itemIndex !== 'number') o = o.parent;
     if (!o) return;
@@ -422,6 +429,7 @@ export function LevelScene(props: LevelSceneProps) {
             receiveShadow
             onClick={(event) => {
               event.stopPropagation();
+              if (wasDrag(event)) return;
               if (props.placing) props.onPlace(event.point.x, event.point.z);
               else props.onPick(null);
             }}
@@ -438,7 +446,7 @@ export function LevelScene(props: LevelSceneProps) {
         object={boxes}
         onClick={(event: ThreeEvent<MouseEvent>) => {
           const index = event.instanceId === undefined ? undefined : boxItems.current[event.instanceId];
-          if (index === undefined) return;
+          if (index === undefined || wasDrag(event)) return;
           event.stopPropagation();
           props.onPick(index);
         }}
@@ -490,10 +498,11 @@ function Selected(props: LevelSceneProps & { item: WorldItem }) {
     const eps = 1e-4;
     if (Math.abs(p.position.x - item.position[0]) > eps || Math.abs(p.position.z - item.position[2]) > eps) change.centre = [p.position.x, p.position.z];
     if (Math.abs(p.position.y - item.position[1]) > eps) change.elevation = p.position.y;
-    const r = new Euler().setFromQuaternion(p.quaternion, 'YXZ');
-    if (Math.abs(r.y - item.yaw) > eps) change.yaw = r.y;
-    if (Math.abs(r.x - item.pitch) > eps) change.pitch = r.x;
-    if (Math.abs(r.z - item.roll) > eps) change.roll = r.z;
+    const e3 = new Euler().setFromQuaternion(p.quaternion, 'YXZ');
+    const r = nearestEuler({ yaw: e3.y, pitch: e3.x, roll: e3.z }, item);
+    if (Math.abs(r.yaw - item.yaw) > eps) change.yaw = r.yaw;
+    if (Math.abs(r.pitch - item.pitch) > eps) change.pitch = r.pitch;
+    if (Math.abs(r.roll - item.roll) > eps) change.roll = r.roll;
     if (Math.abs(p.scale.x - 1) > eps || Math.abs(p.scale.y - 1) > eps || Math.abs(p.scale.z - 1) > eps) {
       if (item.kind === 'point') change.scale = (item.scale * (p.scale.x + p.scale.y + p.scale.z)) / 3;
       else change.size = [item.size[0] * p.scale.x, item.size[1] * p.scale.y, item.size[2] * p.scale.z];

@@ -31,5 +31,14 @@ export function fogRange(drawDistance: number, dollyOffset: number): { near: num
   return { near: dollyOffset + drawDistance * 0.6, far: dollyOffset + drawDistance };
 }
 
+/**
+ * How far the draw distance is pushed out from the camera. Close in it is the camera's own reach, as in a game; once
+ * the camera backs off past 40% of the draw distance (zoomed out over a big level, or the far narrow-lens plan
+ * camera's dolly), the band follows the focus instead, so what the camera looks at is never fogged away.
+ */
+export function viewOffset(cameraDistance: number, dolly: number, drawDistance: number): number {
+  return Math.max(0, dolly, cameraDistance - drawDistance * 0.4);
+}
+
 /** Seconds a model must stay out of range before it is disposed (Theme F). */
 export const MODEL_DISPOSE_AFTER_S = 30;

@@ -5,8 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { addObject, createEditState, findObject, rotateObject, setOptionalNumber, setVolume, undo } from '../level-edit-model';
 import { buildBlankLevel } from '../new-scene-model';
 import { blendPose, cameraPosition, distanceFor, dollyOffset, focusToPlanView, orbitPose, planPose, planViewToFocus, poseFromCamera, PLAN_FOV } from './camera-transition';
-import { gizmoEdit, levelWorldItems, POINT_SIZE, worldToObjectPoint } from './level-world';
-import { fogRange, lodFor, projectedPx } from './level-lod';
+import { gizmoEdit, levelWorldItems, nearestEuler, POINT_SIZE, worldToObjectPoint } from './level-world';
+import { fogRange, lodFor, projectedPx, viewOffset } from './level-lod';
 import { OPTIMISATION_PRESETS, pixelRatioFor, presetFor } from './optimisation';
 import { SpatialGrid, xzRect } from './spatial-grid';
 
@@ -228,5 +228,41 @@ describe('the Floorplan ↔ 3D camera', () => {
     expect(back.span).toBeCloseTo(20);
     expect(back.pitch).toBeCloseTo(pose.pitch);
     expect(back.yaw).toBeCloseTo(0.7);
+  });
+});
+
+describe('viewOffset (Phase 136 Theme C)', () => {
+  it('is the camera reach close in, and follows the focus once the camera backs off', () => {
+    expect(viewOffset(50, 0, 250)).toBe(0);
+    expect(viewOffset(860, 0, 250)).toBe(760);
+    // The plan camera's dolly wins when it is larger.
+    expect(viewOffset(23_000, 22_500, 250)).toBe(22_900);
+    expect(viewOffset(100, 300, 250)).toBe(300);
+  });
+
+  it('keeps an orbit over a big level drawing at its focus at every step', () => {
+    for (const step of [1, 3, 5]) {
+      const preset = presetFor(step);
+      const offset = viewOffset(860, 0, preset.drawDistance);
+      expect(lodFor({ radius: 2, distance: 860, focusDistance: 860 - offset, fovDeg: 50, viewportHeight: 4000 }, preset)).not.toBe('hidden');
+      expect(fogRange(preset.drawDistance, offset).far).toBeGreaterThan(860);
+    }
+  });
+});
+
+describe('nearestEuler (Phase 136 Theme D)', () => {
+  const d = Math.PI / 180;
+  it('keeps a tip past upright as a pitch, not a yaw flip with roll 180', () => {
+    // Pitch 120° about a yaw of 46° reads back from three as yaw 226°, pitch 60°, roll 180°.
+    const r = nearestEuler({ yaw: -134 * d, pitch: 60 * d, roll: 180 * d }, { yaw: 46 * d, pitch: 0, roll: 0 });
+    expect(r.yaw / d).toBeCloseTo(46, 6);
+    expect(r.pitch / d).toBeCloseTo(120, 6);
+    expect(r.roll / d).toBeCloseTo(0, 6);
+  });
+
+  it('leaves an ordinary turn alone and keeps it near the previous angle', () => {
+    const r = nearestEuler({ yaw: -170 * d, pitch: 10 * d, roll: 0 }, { yaw: 170 * d, pitch: 0, roll: 0 });
+    expect(r.yaw / d).toBeCloseTo(190, 6);
+    expect(r.pitch / d).toBeCloseTo(10, 6);
   });
 });

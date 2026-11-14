@@ -132,6 +132,22 @@ export type GizmoChange = {
 };
 
 const round = (n: number, places = 4): number => Math.round(n * 10 ** places) / 10 ** places;
+
+const wrap = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
+const turn = (a: number, from: number): number => Math.abs(wrap(a - from));
+
+/**
+ * A YXZ rotation read back off the gizmo, in whichever of its two equivalent forms is closer to where the object
+ * was: three answers pitch within ±90°, so tipping a box past upright would otherwise come back as yaw + 180°,
+ * pitch mirrored and roll 180° — the same pose, but not the edit the user made.
+ */
+export function nearestEuler(r: { yaw: number; pitch: number; roll: number }, prev: { yaw: number; pitch: number; roll: number }): { yaw: number; pitch: number; roll: number } {
+  const alt = { yaw: wrap(r.yaw + Math.PI), pitch: wrap(Math.PI - r.pitch), roll: wrap(r.roll + Math.PI) };
+  const cost = (e: typeof r) => turn(e.yaw, prev.yaw) + turn(e.pitch, prev.pitch) + turn(e.roll, prev.roll);
+  const best = cost(alt) + 1e-9 < cost(r) ? alt : r;
+  // Keep each angle on the same side of ±180° as before, so a small turn stays a small number.
+  return { yaw: prev.yaw + wrap(best.yaw - prev.yaw), pitch: prev.pitch + wrap(best.pitch - prev.pitch), roll: prev.roll + wrap(best.roll - prev.roll) };
+}
 const deg = (rad: number): number => (rad * 180) / Math.PI;
 
 /**
