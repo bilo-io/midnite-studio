@@ -185,6 +185,11 @@ export interface VaultService {
   lock(reason?: string): void;
   unlock(proof?: unknown): boolean | Promise<boolean>;
   onLockedChange(listener: (locked: boolean) => void): () => void;
+  /**
+   * Fires once, at the vault's first real operation (the moment integrity verification, and with it
+   * the keychain, is first reached). Fires immediately when that has already happened.
+   */
+  onFirstAccess(listener: () => void): () => void;
   /** Fires after any entry is set or deleted in any namespace (Phase 115 Theme C: refreshes the write-scrubber's values). */
   onEntriesChanged(listener: () => void): () => void;
   readonly recentUnlockAt: number | null;
@@ -284,8 +289,29 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
 
   const breachChecker = createBreachChecker(directory);
 
-  // Verify on startup and start watcher
-  void integrity.verifyAll();
+  // Integrity verification reads the HMAC key, which on macOS is a keychain access. It therefore
+  // runs on the first real vault operation (memoised), never at construction: a boot that touches
+  // no secret must not prompt. Every entry point awaits it before serving anything, so a tampered
+  // file still locks the vault before the first read is answered.
+  const firstAccessListeners = new Set<() => void>();
+  let verification: Promise<void> | null = null;
+  const ensureVerified = (): Promise<void> => {
+    if (!verification) {
+      // Memoise before notifying: a listener that reads the vault re-enters here and must find it.
+      verification = integrity.verifyAll().then(
+        () => undefined,
+        () => undefined,
+      );
+      for (const listener of firstAccessListeners) {
+        try {
+          listener();
+        } catch {
+          // A listener must never fail a vault operation.
+        }
+      }
+    }
+    return verification;
+  };
   integrity.startWatch();
 
   const stores = new Map<VaultNamespace, SecureJsonStore<StoredEntry>>();
@@ -334,6 +360,7 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
   const isAvailable = (): boolean => cipher.isEncryptionAvailable();
 
   const internalRead = async (namespace: VaultNamespace, key: string): Promise<string | null> => {
+    await ensureVerified();
     const held = sessionOnly.get(namespace)?.get(key);
     if (held !== undefined) return held;
     const entry = await storeFor(namespace).get(key);
@@ -427,6 +454,7 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
     namespace: VaultNamespace,
     key: string,
   ): Promise<{ ok: true; value: string } | { ok: false; error: string }> => {
+    await ensureVerified();
     if (locked) {
       await audit.log({ op: 'reveal', namespace, id: key, app: 'vault', principal: 'user', result: 'locked' });
       return { ok: false, error: 'Vault is locked' };
@@ -466,6 +494,7 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
     clipboard: ClipboardAdapter,
     options?: { timeoutSeconds?: number },
   ): Promise<{ ok: boolean; error?: string; timeoutSeconds?: number }> => {
+    await ensureVerified();
     if (locked) {
       await audit.log({ op: 'copy', namespace, id: key, app: 'vault', principal: 'user', result: 'locked' });
       return { ok: false, error: 'Vault is locked' };
@@ -517,12 +546,14 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
       isAvailable,
 
       has: async (namespace, key) => {
+        await ensureVerified();
         if (!allowed(namespace, key, 'read')) return false;
         if (sessionOnly.get(namespace)?.has(key)) return true;
         return (await storeFor(namespace).get(key)) !== null;
       },
 
       read: async (namespace, key): Promise<VaultRead> => {
+        await ensureVerified();
         if (locked) {
           await audit.log({ op: 'get', namespace, id: key, app: appId, principal: 'guest', result: 'locked' });
           return { ok: false, kind: 'locked' };
@@ -554,6 +585,7 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
 
       set: async (namespace, key, value, setOptions) => {
         demand(namespace, key, 'write');
+        await ensureVerified();
         const spec = VAULT_NAMESPACES[namespace];
         const fingerprint = setOptions?.fingerprint;
         if (spec.fingerprinted && fingerprint === undefined) {
@@ -576,6 +608,7 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
 
       delete: async (namespace, key) => {
         demand(namespace, key, 'delete');
+        await ensureVerified();
         sessionOnly.get(namespace)?.delete(key);
         await storeFor(namespace).delete(key);
         await audit.log({ op: 'delete', namespace, id: key, app: appId, principal: 'user', result: 'ok' });
@@ -583,12 +616,14 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
       },
 
       keys: async (namespace) => {
+        await ensureVerified();
         const ids = new Set(await storeFor(namespace).keys());
         for (const id of sessionOnly.get(namespace)?.keys() ?? []) ids.add(id);
         return [...ids].filter((id) => allowed(namespace, id, 'read'));
       },
 
       fingerprint: async (namespace, key) => {
+        await ensureVerified();
         if (!allowed(namespace, key, 'read')) return null;
         return (await storeFor(namespace).get(key))?.fingerprint ?? null;
       },
@@ -598,6 +633,7 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
         key: string,
         fn: (secret: Buffer) => Promise<T> | T,
       ): Promise<T | null> => {
+        await ensureVerified();
         if (locked) {
           await audit.log({ op: 'get', namespace, id: key, app: appId, principal: 'guest', result: 'locked' });
           return null;
@@ -633,6 +669,16 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
     lock,
     unlock,
     onLockedChange,
+    onFirstAccess: (listener) => {
+      if (verification) {
+        listener();
+        return () => {};
+      }
+      firstAccessListeners.add(listener);
+      return () => {
+        firstAccessListeners.delete(listener);
+      };
+    },
     onEntriesChanged: (listener) => {
       entryListeners.add(listener);
       return () => {

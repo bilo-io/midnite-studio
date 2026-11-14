@@ -125,6 +125,8 @@ export function createVaultIntegrity(options: VaultIntegrityOptions): VaultInteg
 
   const loadRecordSync = (): IntegrityRecord => {
     if (cachedRecord) return cachedRecord;
+    ensureBaseline();
+    if (cachedRecord) return cachedRecord;
     try {
       if (existsSync(integrityFilePath)) {
         const raw = readFileSync(integrityFilePath, 'utf8');
@@ -157,7 +159,7 @@ export function createVaultIntegrity(options: VaultIntegrityOptions): VaultInteg
       if (!existsSync(directory)) return;
       const files = readdirSync(directory);
       const record: IntegrityRecord = { version: 1, files: {} };
-      const key = getKeySync();
+      let key: Buffer | null = null;
       for (const file of files) {
         if (!isVaultFile(file)) continue;
         const fullPath = join(directory, file);
@@ -165,6 +167,7 @@ export function createVaultIntegrity(options: VaultIntegrityOptions): VaultInteg
           const st = statSync(fullPath);
           if (st.isFile()) {
             const content = readFileSync(fullPath);
+            key ??= getKeySync();
             record.files[file] = calculateHmac(key, content);
           }
         } catch {}
@@ -173,8 +176,14 @@ export function createVaultIntegrity(options: VaultIntegrityOptions): VaultInteg
     } catch {}
   };
 
-  // Baseline on initialization if directory exists
-  baseline();
+  // The baseline reads (or mints) the HMAC key, which on macOS is a keychain access, so it runs on
+  // first use of the record rather than at construction.
+  let baselined = false;
+  function ensureBaseline(): void {
+    if (baselined) return;
+    baselined = true;
+    baseline();
+  }
 
   const handleTamperDetected = async (fileName: string) => {
     tamperedFile = fileName;
