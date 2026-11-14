@@ -20,12 +20,17 @@ import {
   BUILTIN_AGENTS,
   CHAT_ENGINE_OLLAMA,
   type AgentDefinition,
+  type Chat,
+  type ChatMessage,
   type SessionActivity,
   type TerminalSession,
 } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createUnifiedSessionCoordinator } from './unified-session-coordinator';
+import {
+  buildTranscriptHandoffPrompt,
+  createUnifiedSessionCoordinator,
+} from './unified-session-coordinator';
 
 function makeAgentRoster(): AgentDefinition[] {
   return BUILTIN_AGENTS.map((a) => ({ ...a }));
@@ -57,6 +62,7 @@ describe('UnifiedSessionCoordinator', () => {
     activity?: SessionActivity | null;
     locatedConversationId?: string | null;
     chatRunning?: boolean;
+    seedChats?: Chat[];
   }) {
     const terminals = new Map<string, TerminalSession>();
     let livePty = options?.initialPty ?? null;
@@ -72,6 +78,9 @@ describe('UnifiedSessionCoordinator', () => {
     let idSeq = 0;
 
     const store = createMemoryChatStore();
+    for (const chat of options?.seedChats ?? []) {
+      store.chats.set(chat.id, chat);
+    }
     const chatSvc: ChatService = createChatService({
       store,
       agents: async () => makeAgentRoster(),
@@ -409,5 +418,104 @@ describe('UnifiedSessionCoordinator', () => {
     const summaries = await chatSvc2.list();
     expect(summaries[0]?.linkedTerminalId).toBe(terminalId);
     expect(summaries[0]?.preferredView).toBe('terminal');
+  });
+
+  it('seeds a one-way transcript handoff prompt into PTY initialInput for handoff-only providers', async () => {
+    const h = setupTestHarness({
+      seedChats: [
+        {
+          id: 'chat-aider-1',
+          title: 'Auth inspection',
+          engine: 'aider',
+          model: null,
+          mode: 'edit',
+          repoId: 'repo-1',
+          repoName: 'repo-1',
+          repoPath: '/tmp/repo-1',
+          pinned: false,
+          createdAt: 1000,
+          updatedAt: 1100,
+          session: null,
+          messages: [
+            { id: 'm1', role: 'user', text: 'Inspect the auth middleware', createdAt: 1000, status: 'done' },
+            { id: 'm2', role: 'assistant', text: 'Found a missing null check on req.user.', createdAt: 1100, status: 'done' },
+          ],
+        },
+      ],
+    });
+
+    const switched = await h.coordinator.switchView({
+      sessionId: 'chat-aider-1',
+      targetView: 'terminal',
+      handoffMode: 'auto',
+    });
+    expect(switched.ok).toBe(true);
+    if (!switched.ok) return;
+
+    expect(switched.value.syncTier).toBe('handoff-only');
+    expect(h.createdPtys).toHaveLength(1);
+    const initialInput = h.createdPtys[0]?.initialInput ?? '';
+    expect(initialInput).toContain('aider --message ');
+    expect(initialInput).toContain('Continue from this prior chat context:');
+    expect(initialInput).toContain('User: Inspect the auth middleware');
+    expect(initialInput).toContain('Assistant: Found a missing null check on req.user.');
+    expect(initialInput.endsWith('\r')).toBe(true);
+  });
+
+  it('launches handoff-only provider without transcript prompt when handoffMode is fresh or chat is empty', async () => {
+    const h = setupTestHarness();
+    const created = await h.chatSvc.create({ engine: 'cursor', model: null, mode: 'edit', repoId: 'repo-1' });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const chatId = created.value.chat.id;
+
+    const switched = await h.coordinator.switchView({
+      sessionId: chatId,
+      targetView: 'terminal',
+      handoffMode: 'auto',
+    });
+    expect(switched.ok).toBe(true);
+    expect(h.createdPtys).toHaveLength(1);
+    expect(h.createdPtys[0]?.initialInput).toBe('cursor-agent\r');
+  });
+});
+
+describe('buildTranscriptHandoffPrompt', () => {
+  it('returns empty string when there are no replayable messages', () => {
+    expect(buildTranscriptHandoffPrompt([])).toBe('');
+    const streamingOnly: ChatMessage[] = [
+      { id: 'm1', role: 'assistant', text: 'partial', createdAt: 1000, status: 'streaming' },
+      { id: 'm2', role: 'user', text: '   ', createdAt: 1100, status: 'done' },
+    ];
+    expect(buildTranscriptHandoffPrompt(streamingOnly)).toBe('');
+  });
+
+  it('formats recent turns in chronological order and respects maxTurns and maxChars', () => {
+    const messages: ChatMessage[] = Array.from({ length: 8 }, (_, idx) => ({
+      id: `m${idx}`,
+      role: idx % 2 === 0 ? ('user' as const) : ('assistant' as const),
+      text: `Turn ${idx + 1} content`,
+      createdAt: 1000 + idx * 100,
+      status: 'done' as const,
+    }));
+
+    const prompt = buildTranscriptHandoffPrompt(messages, { maxTurns: 4, maxChars: 500 });
+    expect(prompt).toContain('Continue from this prior chat context:');
+    expect(prompt).not.toContain('Turn 1 content');
+    expect(prompt).not.toContain('Turn 4 content');
+    expect(prompt).toContain('User: Turn 5 content');
+    expect(prompt).toContain('Assistant: Turn 6 content');
+    expect(prompt).toContain('User: Turn 7 content');
+    expect(prompt).toContain('Assistant: Turn 8 content');
+  });
+
+  it('caps total characters while always keeping at least the latest turn', () => {
+    const messages: ChatMessage[] = [
+      { id: 'm1', role: 'user', text: 'Older turn ' + 'a'.repeat(120), createdAt: 1000, status: 'done' },
+      { id: 'm2', role: 'assistant', text: 'Latest turn ' + 'b'.repeat(80), createdAt: 2000, status: 'done' },
+    ];
+    const prompt = buildTranscriptHandoffPrompt(messages, { maxTurns: 6, maxChars: 110 });
+    expect(prompt).not.toContain('Older turn');
+    expect(prompt).toContain('Assistant: Latest turn');
   });
 });
