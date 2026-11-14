@@ -1409,9 +1409,11 @@ test.describe('phase 21 screenshots', () => {
 
     const alert = page.getByRole('alert');
     await expect(alert).toBeVisible();
-    await expect(alert).toContainText('From a previous version');
+    await expect(alert).toContainText('Sessions from a previous build are still running');
 
-    await page.getByRole('button', { name: 'Restart' }).click();
+    // Restart ends the old process, so it confirms first with the session listed.
+    await page.getByRole('button', { name: 'Restart…' }).click();
+    await page.getByRole('dialog', { name: 'End this session?' }).getByRole('button', { name: 'End session' }).click();
     await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
     await expect(alert).not.toBeVisible();
   });

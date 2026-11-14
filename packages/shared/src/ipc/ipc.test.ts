@@ -1476,6 +1476,37 @@ describe('terminal and pty schemas', () => {
       ],
     },
     {
+      name: 'TerminalRecoverDetachedResponse',
+      schema: schemas.TerminalRecoverDetachedResponse,
+      valid: {
+        ok: true,
+        recovered: [{ sessionId: 's1', title: 'bilo', cwd: '/Users/x/bilo', repoId: 'repo:/Users/x/bilo', legacy: true }],
+        live: 3,
+        previousBuild: 1,
+      },
+      invalid: [
+        ['a recovered row with no cwd', { ok: true, recovered: [{ sessionId: 's1', title: '', cwd: '', repoId: 'r', legacy: true }], live: 1, previousBuild: 1 }],
+        ['a negative count', { ok: true, recovered: [], live: -1, previousBuild: 0 }],
+        ['an error without its message', { ok: false, kind: 'error' }],
+      ],
+    },
+    {
+      name: 'TerminalEndSessionsRequest',
+      schema: schemas.TerminalEndSessionsRequest,
+      valid: { sessionIds: ['s1'] },
+      invalid: [
+        // Nothing to end is a caller bug, not a no-op to answer.
+        ['no ids', { sessionIds: [] }],
+        ['an empty id', { sessionIds: [''] }],
+      ],
+    },
+    {
+      name: 'TerminalEndSessionsResponse',
+      schema: schemas.TerminalEndSessionsResponse,
+      valid: { ok: true, ended: ['s1', 's2'] },
+      invalid: [['ended as a count', { ok: true, ended: 2 }]],
+    },
+    {
       name: 'NotesListResponse',
       schema: schemas.NotesListResponse,
       valid: {
@@ -1721,6 +1752,9 @@ describe('terminal and pty schemas', () => {
       terminalSave: ['TerminalSaveRequest'],
       terminalForget: ['TerminalForgetRequest'],
       terminalReorder: ['TerminalReorderRequest'],
+      terminalRecoverDetached: ['TerminalRecoverDetachedResponse'],
+      terminalEndSessions: ['TerminalEndSessionsRequest', 'TerminalEndSessionsResponse'],
+      terminalEndPreviousBuild: ['TerminalEndSessionsResponse'],
     };
 
     const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)]

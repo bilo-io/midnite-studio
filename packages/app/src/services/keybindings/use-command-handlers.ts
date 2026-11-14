@@ -13,7 +13,7 @@ import { useDisabledFeatures, useGraphStore, type CommandEntry } from '@midnite/
 import { useSetupStore } from '../../features/setup/setup-store';
 import { useSlidesStore } from '@midnite/studio-feature-slides/renderer';
 import { syncAffordances } from '../../features/status/sync-availability';
-import { repaintAllTerminals } from '@midnite/studio-feature-terminal/renderer';
+import { recoverDetachedSessions, repaintAllTerminals } from '@midnite/studio-feature-terminal/renderer';
 import { closeSessionWithConfirm } from '../../features/terminal/close-session';
 import { onMainSurface, useTerminalStore } from '../../features/terminal/terminal-store';
 import { useAgents } from '../../features/terminal/use-agents';
@@ -222,6 +222,7 @@ export function useCommandHandlers(): CommandRuntime {
           run: () => closeSessionWithConfirm(dialogs, activeTerminalSession),
         }
       : { enabled: false, disabledReason: 'No terminal selected', run: () => {} },
+    'terminal.recoverDetached': { enabled: true, run: () => void recoverDetachedSessions(dialogs) },
     'repos.toggle': { enabled: true, run: () => useUiStore.getState().toggleRepos() },
     'browser.toggle': {
       enabled: true,
