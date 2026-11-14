@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { openBrokerClient } from './client';
+import { createFrameDecoder, encodeControl, PROTOCOL } from './protocol';
 
 let dir: string;
 let sockPath: string;
@@ -65,5 +66,46 @@ describe('legacy broker probe', () => {
     await vi.advanceTimersByTimeAsync(600);
     await Promise.all([a, b]);
     expect(connects).toBe(1);
+  });
+});
+
+describe('primaryPid (Phase 148 B review)', () => {
+  it('reports the pid the primary broker sent in its hello reply', async () => {
+    rmSync(sockPath);
+    const primarySock = join(dir, 'primary.sock');
+    const server = net.createServer((socket) => {
+      const decoder = createFrameDecoder();
+      socket.on('data', (chunk) => {
+        for (const f of decoder.push(chunk)) {
+          if (f.type !== 0x00) continue;
+          const msg = f.message as { t: string; id?: number };
+          if (msg.id === undefined) continue;
+          const extra = msg.t === 'hello' ? { protocol: PROTOCOL, pid: 4242, stale: false } : { sessions: [] };
+          socket.write(encodeControl({ t: 'reply', id: msg.id, ok: true, ...extra } as never));
+        }
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(primarySock, resolve));
+    const spawnBrokerProcess = vi.fn(() => {
+      throw new Error('must not spawn');
+    });
+    const c = openBrokerClient({
+      brokerDir: dir,
+      dataDir: dir,
+      appVersion: '0.0.0-test',
+      isPackaged: false,
+      brokerScriptPath: join(dir, 'broker.js'),
+      buildId: 'new-build',
+      socketPath: primarySock,
+      spawnBrokerProcess,
+    });
+    try {
+      await c.init();
+      expect(spawnBrokerProcess).not.toHaveBeenCalled();
+      expect(c.primaryPid?.()).toBe(4242);
+    } finally {
+      await c.disconnect();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 });
