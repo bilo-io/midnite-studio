@@ -138,7 +138,7 @@ describe('runCleanSystem', () => {
     await vi.waitFor(() => expect(addToast).toHaveBeenCalled());
     expect(runSystemClean).toHaveBeenCalledWith(['cargo']);
     expect(fake.sweep).toHaveBeenCalledWith({ names: ['0.1.0-a.sock.pid', '0.1.0.log'] });
-    expect(addToast.mock.calls[0]?.[0].message).toContain('Reclaimed 3 MB');
+    expect(addToast.mock.calls[0]?.[0].message).toContain('Cleaned 3 MB');
   });
 
   it('cleans broker leftovers alone, without a cache blast radius', async () => {

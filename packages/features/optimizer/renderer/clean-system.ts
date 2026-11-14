@@ -133,7 +133,7 @@ async function clean(entryIds: string[], leftovers: BrokerLeftovers): Promise<vo
     brokerFiles > 0 ? `${brokerFiles} broker ${brokerFiles === 1 ? 'file' : 'files'} removed (${formatBytes(brokerBytes)})` : null,
   ].filter((p): p is string => p !== null);
   useToastStore.getState().addToast({
-    message: parts.length > 0 ? `Reclaimed ${formatBytes(freed)}: ${parts.join(', ')}.` : 'Nothing was cleaned.',
+    message: parts.length > 0 ? `Cleaned ${formatBytes(freed)}: ${parts.join(', ')}.` : 'Nothing was cleaned.',
     status: 'info',
   });
 }

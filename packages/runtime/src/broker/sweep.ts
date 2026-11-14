@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync, unlinkSync } from 'node:fs';
+import { lstatSync, readdirSync, readFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -55,7 +55,7 @@ function listEntries(brokerDir: string): BrokerDirEntry[] {
     if (!RELEVANT.test(name)) continue;
     try {
       const path = join(brokerDir, name);
-      const stat = statSync(path);
+      const stat = lstatSync(path);
       if (!stat.isFile() && !name.endsWith('.sock')) continue;
       const pid = name.endsWith('.sock.pid') ? Number.parseInt(readFileSync(path, 'utf8').trim(), 10) : NaN;
       entries.push({ name, mtimeMs: stat.mtimeMs, pid: Number.isInteger(pid) ? pid : null });
@@ -81,7 +81,7 @@ export function planBrokerSweep(options: BrokerSweepOptions): BrokerSweepPlan {
   const entries: BrokerSweepEntry[] = [];
   for (const name of names) {
     try {
-      entries.push({ name, kind: kindOf(name), bytes: statSync(join(options.brokerDir, name)).size });
+      entries.push({ name, kind: kindOf(name), bytes: lstatSync(join(options.brokerDir, name)).size });
     } catch {
       // Gone already.
     }
@@ -100,7 +100,7 @@ export function sweepBrokerDir(options: BrokerSweepOptions, confirmed: readonly 
     }
     const path = join(options.brokerDir, name);
     try {
-      const bytes = statSync(path).size;
+      const bytes = lstatSync(path).size;
       unlinkSync(path);
       outcome.removed++;
       outcome.freedBytes += bytes;
