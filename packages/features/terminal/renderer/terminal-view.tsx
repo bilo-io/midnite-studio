@@ -22,6 +22,7 @@ import { sessionPhase, useTerminalStore } from './terminal-store';
 import { useAgents } from './use-agents';
 import { useDevicePixelRatio } from './use-device-pixel-ratio';
 import { useTerminalIpc } from './use-terminal-ipc';
+import { attachAtlasGuard } from './xterm-atlas-guard';
 import { grantedWebglKeys, useXtermBudget, useXtermWebglSlot } from './xterm-budget';
 
 /**
@@ -395,6 +396,16 @@ export function TerminalView({
           sizeSync.sync('renderer');
         });
         term.loadAddon(webgl);
+        // Debounced clearTextureAtlas + refresh when the atlas grows, merges, or
+        // the context is (re)acquired/restored — see xterm-atlas-guard.ts.
+        const detachAtlasGuard = attachAtlasGuard(webgl, term);
+        // Every dispose path (budget eviction, context loss, terminal teardown)
+        // runs addon.dispose(); the guard goes with it.
+        const disposeAddon = webgl.dispose.bind(webgl);
+        webgl.dispose = () => {
+          detachAtlasGuard();
+          disposeAddon();
+        };
         webglRef.current = webgl;
         setRenderer(session.id, 'webgl');
       } catch {

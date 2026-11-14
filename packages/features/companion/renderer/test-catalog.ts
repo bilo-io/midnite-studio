@@ -109,6 +109,7 @@ export const TEST_COMMAND_ACCESS: Record<CommandId, CompanionAccess> = {
   'terminal.toggleHalfMaximized': 'direct',
   'terminal.toggleDock': 'direct',
   'terminal.focus': 'direct',
+  'terminal.repaint': 'direct',
   'terminal.new': 'direct',
   'terminal.close': 'confirm',
   'repos.toggle': 'direct',
