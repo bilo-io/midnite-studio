@@ -5,9 +5,13 @@ import {
   chatTitleFromText,
   chatWorktreeBranch,
   ChatSchema,
+  ChatSummarySchema,
+  ProviderSyncTierSchema,
+  UnifiedSessionViewModeSchema,
   changeSetNeedsReview,
   deriveChangeSetStatus,
   deriveFileStatus,
+  getProviderSyncTier,
   reduceChangeSet,
   type ChatChangedFile,
   type ChatChangeSet,
@@ -260,5 +264,105 @@ describe('chats wire contract', () => {
     });
     expect(chat.session).toBeNull();
     expect(chat.messages[0]!.status).toBe('done');
+  });
+});
+
+describe('unified session view (Phase 146 Theme A)', () => {
+  it('validates UnifiedSessionViewModeSchema and ProviderSyncTierSchema', () => {
+    expect(UnifiedSessionViewModeSchema.options).toEqual(['chat', 'terminal']);
+    expect(UnifiedSessionViewModeSchema.safeParse('chat').success).toBe(true);
+    expect(UnifiedSessionViewModeSchema.safeParse('terminal').success).toBe(true);
+    expect(UnifiedSessionViewModeSchema.safeParse('split').success).toBe(false);
+
+    expect(ProviderSyncTierSchema.options).toEqual(['bidirectional', 'handoff-only', 'chat-only']);
+    expect(ProviderSyncTierSchema.safeParse('bidirectional').success).toBe(true);
+    expect(ProviderSyncTierSchema.safeParse('handoff-only').success).toBe(true);
+    expect(ProviderSyncTierSchema.safeParse('chat-only').success).toBe(true);
+    expect(ProviderSyncTierSchema.safeParse('none').success).toBe(false);
+  });
+
+  it('classifies agent sync tiers via getProviderSyncTier', () => {
+    expect(getProviderSyncTier('claude')).toBe('bidirectional');
+    expect(getProviderSyncTier('codex')).toBe('bidirectional');
+    expect(getProviderSyncTier('agy')).toBe('bidirectional');
+    expect(getProviderSyncTier('ollama')).toBe('chat-only');
+    expect(getProviderSyncTier('cursor')).toBe('handoff-only');
+    expect(getProviderSyncTier('aider')).toBe('handoff-only');
+    expect(getProviderSyncTier('unknown-agent')).toBe('handoff-only');
+  });
+
+  it('keeps linkedTerminalId and preferredView optional and backwards-compatible on ChatSchema and ChatSummarySchema', () => {
+    const baseSummary = {
+      id: 'c1',
+      title: 't',
+      engine: 'claude',
+      model: null,
+      mode: 'edit' as const,
+      repoId: null,
+      repoName: null,
+      pinned: false,
+      createdAt: 1,
+      updatedAt: 1,
+      messageCount: 0,
+      preview: '',
+      running: false,
+      pendingChanges: false,
+    };
+    const oldSummary = ChatSummarySchema.parse(baseSummary);
+    expect(oldSummary.linkedTerminalId).toBeUndefined();
+    expect(oldSummary.preferredView).toBeUndefined();
+
+    const linkedSummary = ChatSummarySchema.parse({
+      ...baseSummary,
+      linkedTerminalId: 'term-1',
+      preferredView: 'terminal',
+    });
+    expect(linkedSummary.linkedTerminalId).toBe('term-1');
+    expect(linkedSummary.preferredView).toBe('terminal');
+
+    const linkedChat = ChatSchema.parse({
+      id: 'c1',
+      title: 't',
+      engine: 'claude',
+      model: null,
+      mode: 'edit',
+      repoId: null,
+      repoName: null,
+      pinned: false,
+      createdAt: 1,
+      updatedAt: 1,
+      repoPath: null,
+      messages: [],
+      linkedTerminalId: 'term-1',
+      preferredView: 'chat',
+    });
+    expect(linkedChat.linkedTerminalId).toBe('term-1');
+    expect(linkedChat.preferredView).toBe('chat');
+    expect(ChatSchema.safeParse({ ...linkedChat, linkedTerminalId: '' }).success).toBe(false);
+    expect(ChatSchema.safeParse({ ...linkedChat, preferredView: 'other' }).success).toBe(false);
+  });
+
+  it('wires session:switch-view channel and request/response schemas', () => {
+    expect(CHANNELS.sessionSwitchView).toBe('mstudio:session:switch-view');
+    expect(schemas.SessionSwitchViewRequest.parse({ sessionId: 's1', targetView: 'terminal' })).toEqual({
+      sessionId: 's1',
+      targetView: 'terminal',
+      handoffMode: 'auto',
+    });
+    expect(
+      schemas.SessionSwitchViewRequest.parse({ sessionId: 's1', targetView: 'chat', handoffMode: 'resume' }),
+    ).toEqual({
+      sessionId: 's1',
+      targetView: 'chat',
+      handoffMode: 'resume',
+    });
+    expect(schemas.SessionSwitchViewRequest.safeParse({ sessionId: '', targetView: 'chat' }).success).toBe(false);
+    expect(schemas.SessionSwitchViewRequest.safeParse({ sessionId: 's1', targetView: 'invalid' }).success).toBe(false);
+    expect(
+      schemas.SessionSwitchViewResponse.parse({
+        ok: true,
+        value: { targetView: 'terminal', chatId: 'c1', terminalId: 't1', syncTier: 'bidirectional' },
+      }).ok,
+    ).toBe(true);
   });
 });

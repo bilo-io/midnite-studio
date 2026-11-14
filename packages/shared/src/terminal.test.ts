@@ -671,3 +671,26 @@ describe('the session app (Phase 123 Theme E)', () => {
     expect(TerminalSessionSchema.safeParse({ ...base, appId: 'launcher' }).success).toBe(false);
   });
 });
+
+describe('unified session view on TerminalSessionSchema (Phase 146 Theme A)', () => {
+  const base = { id: 's-1', kind: 'agent' as const, agentId: 'claude', title: 'midnite', cwd: '/repos/midnite', repoId: 'repo:midnite', createdAt: 1 };
+
+  it('keeps linkedChatId and preferredView optional for backwards compatibility', () => {
+    const parsed = TerminalSessionSchema.parse(base);
+    expect(parsed.linkedChatId).toBeUndefined();
+    expect(parsed.preferredView).toBeUndefined();
+  });
+
+  it('accepts linkedChatId and preferredView when set and rejects invalid values', () => {
+    const parsed = TerminalSessionSchema.parse({
+      ...base,
+      linkedChatId: 'chat-123',
+      preferredView: 'chat',
+    });
+    expect(parsed.linkedChatId).toBe('chat-123');
+    expect(parsed.preferredView).toBe('chat');
+
+    expect(TerminalSessionSchema.safeParse({ ...base, linkedChatId: '' }).success).toBe(false);
+    expect(TerminalSessionSchema.safeParse({ ...base, preferredView: 'invalid' }).success).toBe(false);
+  });
+});
