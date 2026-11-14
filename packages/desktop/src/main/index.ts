@@ -148,6 +148,7 @@ import { latestGuardSweepSummary, startGuardSweeps, stopGuardSweeps, sweepGuardN
 import { createTerminalStore } from './terminal-store';
 import {
   configureTerminals,
+  declaredAgentIdFor,
   listAgents,
   listTerminals,
   shutdownTerminals,
@@ -1126,6 +1127,7 @@ export const startStudioMain: StartStudioMain = () => {
             isPackaged: app.isPackaged,
             getWindow: getMainWindow,
             log: (msg) => defaultLogger(msg),
+            declaredAgentId: declaredAgentIdFor,
           }),
         )
         .then(async () => {

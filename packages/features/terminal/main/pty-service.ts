@@ -32,6 +32,7 @@ export function isPidAlive(pid: number): boolean {
 type AgentWatcher = PtyAgentWatcher;
 
 let agentWatcher: AgentWatcher | null = null;
+let declaredAgentIdProvider: ((sessionId: string) => Promise<string | null> | string | null) | null = null;
 let brokerClient: BrokerClient | null = null;
 let getWindowThunk: () => RuntimeWindow | null = () => null;
 
@@ -205,9 +206,31 @@ function notifySessionExit(sessionId: string | undefined, exitCode: number): voi
   for (const hook of sessionExitHooks) hook(sessionId, exitCode);
 }
 
+async function trackWithWatcher(
+  watcher: AgentWatcher,
+  ptyId: string,
+  pid: number,
+  sessionId: string,
+): Promise<void> {
+  const declared = declaredAgentIdProvider ? await declaredAgentIdProvider(sessionId) : null;
+  if (agentWatcher !== watcher || !sessions.has(ptyId)) return;
+  watcher.track(ptyId, pid, declared);
+  watcher.noteOutput(ptyId);
+}
+
+/** The agent currently tracked for `ptyId`, or `null` when none is recognised. */
+export function agentIdFor(ptyId: string): string | null {
+  return agentWatcher?.currentAgentId(ptyId) ?? null;
+}
+
 export function setAgentWatcher(watcher: AgentWatcher | null): void {
   agentWatcher = watcher;
   ports().inproc.setAgentWatcher(watcher);
+  if (watcher) {
+    for (const s of sessions.values()) {
+      void trackWithWatcher(watcher, s.ptyId, s.pid, s.sessionId);
+    }
+  }
 }
 
 export function setWindowProvider(provider: () => RuntimeWindow | null): void {
@@ -487,8 +510,10 @@ export async function initPtyService(deps: {
   isPackaged: boolean;
   getWindow: () => RuntimeWindow | null;
   log?: (message: string) => void;
+  declaredAgentId?: (sessionId: string) => Promise<string | null> | string | null;
 }): Promise<void> {
   getWindowThunk = deps.getWindow;
+  declaredAgentIdProvider = deps.declaredAgentId ?? null;
   brokerClient = ports().broker.create(deps);
   brokerLocation = ports().broker.location(deps);
   await brokerClient.init();
@@ -541,6 +566,9 @@ export async function initPtyService(deps: {
         legacy: r.legacy,
       });
       sessionIdByPty.set(r.ptyId, r.sessionId);
+      if (agentWatcher) {
+        await trackWithWatcher(agentWatcher, r.ptyId, r.pid, r.sessionId);
+      }
     }
   }
 }

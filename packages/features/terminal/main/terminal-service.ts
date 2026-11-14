@@ -22,6 +22,7 @@ import {
  */
 export type TerminalPtyPort = {
   activityFor(ptyId: string): SessionActivity | null;
+  agentIdFor?(ptyId: string): string | null;
   dropScrollback(sessionId: string): void;
   livePtyFor(sessionId: string): { ptyId: string; pid: number; cols: number; rows: number; legacy: boolean } | null;
   onSessionExit(hook: (sessionId: string, exitCode: number) => void): () => void;
@@ -172,12 +173,20 @@ export async function listTerminals(): Promise<
   return Promise.all(
     sessions.map(async (session) => {
       const bound = port().pty.livePtyFor(session.id);
+      const agentId = bound === null ? undefined : port().pty.agentIdFor?.(bound.ptyId);
       // The current activity guess rides along so a reloaded renderer can seed
       // its session list — `pty:activity` only ever announces changes.
       const live =
         bound === null
           ? null
-          : { ptyId: bound.ptyId, pid: bound.pid, cols: bound.cols, rows: bound.rows, activity: port().pty.activityFor(bound.ptyId) };
+          : {
+              ptyId: bound.ptyId,
+              pid: bound.pid,
+              cols: bound.cols,
+              rows: bound.rows,
+              activity: port().pty.activityFor(bound.ptyId),
+              ...(agentId !== undefined ? { agentId } : {}),
+            };
       // `legacy` is a wire-level sibling of `live`, not a field on it
       // (`RestoredTerminalSession`, `schemas.ts`) — `sessionPhase` reads it
       // off the restored session row itself, so a legacy pty still reports
@@ -193,6 +202,12 @@ export async function listTerminals(): Promise<
       return { session, scrollback: saved, live, ...legacy };
     }),
   );
+}
+
+/** Persisted `agentId` for `sessionId` (or `null` when plain shell / unknown), for seeding `agentWatcher.track`. */
+export async function declaredAgentIdFor(sessionId: string): Promise<string | null> {
+  if (sessions.length === 0) sessions = await store.load();
+  return sessions.find((s) => s.id === sessionId)?.agentId ?? null;
 }
 
 /**

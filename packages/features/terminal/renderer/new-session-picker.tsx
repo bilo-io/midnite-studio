@@ -21,6 +21,12 @@ export type NewSessionPickerProps = {
    * (and failing) to start a session with it.
    */
   onConfigure: (agent: AgentDefinition) => void;
+  /** Accessible label for the `+` trigger button; defaults to `'New terminal or agent'`. */
+  label?: string;
+  /** Test id for the popover; defaults to `'new-session-picker'`. */
+  testId?: string;
+  /** Override className for the `+` trigger button. */
+  triggerClassName?: string;
 };
 
 /**
@@ -43,6 +49,9 @@ export function NewSessionPicker({
   onNewTerminal,
   onNewAgent,
   onConfigure,
+  label = 'New terminal or agent',
+  testId = 'new-session-picker',
+  triggerClassName = 'inline-flex h-6 shrink-0 items-center rounded-md px-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[open=true]:bg-accent',
 }: NewSessionPickerProps) {
   const [open, setOpen] = useState(false);
   const { Popover } = useTerminalHost();
@@ -53,10 +62,10 @@ export function NewSessionPicker({
       onOpenChange={setOpen}
       side="bottom"
       align="end"
-      label="New terminal or agent"
-      testId="new-session-picker"
+      label={label}
+      testId={testId}
       panelClassName="w-72"
-      triggerClassName="inline-flex h-6 shrink-0 items-center rounded-md px-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[open=true]:bg-accent"
+      triggerClassName={triggerClassName}
       trigger={<LuPlus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />}
     >
       {/*

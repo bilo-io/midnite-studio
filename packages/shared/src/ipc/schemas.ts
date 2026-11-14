@@ -2092,6 +2092,13 @@ export const RestoredTerminalSession = z.object({
        * tracked yet).
        */
       activity: SessionActivitySchema.nullable().optional(),
+      /**
+       * The agent watcher's current guess for this pty (`claude`, `codex`, …,
+       * or `null` when probed with nothing recognised running), so `hydrate()`
+       * can seed `liveAgentId` immediately — `pty:agentChanged` only announces
+       * changes.
+       */
+      agentId: z.string().nullable().optional(),
     })
     .nullable(),
   /**

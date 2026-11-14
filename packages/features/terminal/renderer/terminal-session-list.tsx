@@ -4,7 +4,6 @@ import {
   SortableList,
   useSortableRow,
   useCollapsedGroups,
-  groupItemsByRepo,
   StateDot,
   RingSpinner as Spinner,
   useActivityGlow,
@@ -19,6 +18,7 @@ import {
   commitsForLiveSession,
   sessionAppId,
   type AgentDefinition,
+  type AgentStatus,
   type SuiteAppId,
   type TerminalSession,
 } from '@midnite/studio-shared';
@@ -36,6 +36,7 @@ import {
 import { useShowAllApps, visibleInApp } from './app-filter';
 import { useTerminalHost } from './host';
 import { closeSessionWithConfirm } from './close-session';
+import { NewSessionPicker } from './new-session-picker';
 import { terminalPanelElement } from './terminal-panel-element';
 import {
   inMainPanel,
@@ -50,6 +51,41 @@ import {
 /** A stable empty `sessions` array — `useActivityGlow` does no memoising of its own, so a fresh `[]` literal every render would defeat nothing here, but a shared reference costs nothing to reach for either. */
 const EMPTY_GLOW_SESSIONS: readonly ActivityGlowSessionInput[] = [];
 
+/** Normalize a folder path (strip trailing slashes while keeping `/`) and extract its basename. */
+export function normalizeFolderPath(cwd: string): { key: string; label: string } | null {
+  const trimmed = cwd.trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.replace(/\/+$/, '') || '/';
+  if (normalized === '/') return { key: '/', label: '/' };
+  const slash = normalized.lastIndexOf('/');
+  const label = slash >= 0 ? normalized.slice(slash + 1) : normalized;
+  return { key: normalized, label: label || normalized };
+}
+
+/** Group sessions by their current folder (`liveCwd` if known, else `session.cwd`), falling back to `repoId`/`title`. */
+export function groupSessionsByFolder(
+  sessions: readonly TerminalSession[],
+  liveCwd: Record<string, string>,
+): { repoId: string; title: string; cwd: string; items: TerminalSession[] }[] {
+  const byFolder = new Map<string, { title: string; cwd: string; items: TerminalSession[] }>();
+  for (const session of sessions) {
+    const currentCwd = liveCwd[session.id] ?? session.cwd;
+    const folder = normalizeFolderPath(currentCwd);
+    const key = folder ? folder.key : session.repoId;
+    const title = folder ? folder.label : session.title || session.repoId;
+    const cwd = folder ? folder.key : session.cwd;
+    const existing = byFolder.get(key);
+    if (existing) existing.items.push(session);
+    else byFolder.set(key, { title, cwd, items: [session] });
+  }
+  return [...byFolder.entries()].map(([repoId, { title, cwd, items }]) => ({
+    repoId,
+    title,
+    cwd,
+    items,
+  }));
+}
+
 /**
  * The list of open terminals, VS Code style.
  *
@@ -60,9 +96,11 @@ const EMPTY_GLOW_SESSIONS: readonly ActivityGlowSessionInput[] = [];
  */
 export function TerminalSessionList({
   agents,
+  agentStatus = [],
   width,
 }: {
   agents: AgentDefinition[];
+  agentStatus?: AgentStatus[];
   width: number;
 }) {
   const host = useTerminalHost();
@@ -84,7 +122,8 @@ export function TerminalSessionList({
     [panelSessions, host.appId, showAllApps],
   );
   const tagApps = hasForeign && showAllApps;
-  const repoGroups = useMemo(() => groupItemsByRepo(sessions), [sessions]);
+  const liveCwd = useTerminalStore((s) => s.liveCwd);
+  const repoGroups = useMemo(() => groupSessionsByFolder(sessions, liveCwd), [sessions, liveCwd]);
   const { isOpen, toggle } = useCollapsedGroups();
   const visibleSessions = useMemo(
     () => repoGroups.filter((g) => isOpen(g.repoId)).flatMap((g) => g.items),
@@ -153,6 +192,20 @@ export function TerminalSessionList({
 
   const hasLegacy = Object.values(legacy).some(Boolean);
 
+  const openInFolder = (
+    group: { repoId: string; title: string; cwd: string; items: TerminalSession[] },
+    agent?: AgentDefinition,
+  ) => {
+    if (!group.cwd) return;
+    useTerminalStore.getState().openSession({
+      kind: agent ? 'agent' : 'shell',
+      ...(agent ? { agentId: agent.id } : {}),
+      title: group.title,
+      cwd: group.cwd,
+      repoId: group.items[0]?.repoId ?? group.repoId,
+    });
+  };
+
   return (
     <div
       /*
@@ -188,6 +241,23 @@ export function TerminalSessionList({
             onToggle={() => toggle(group.repoId)}
             bodyId={`terminal-repo-${group.repoId}`}
             leading={<LuFolderGit2 aria-hidden className="h-3 w-3 shrink-0" />}
+            trailing={
+              group.cwd ? (
+                <span onClick={(e) => e.stopPropagation()} className="shrink-0">
+                  <NewSessionPicker
+                    agents={agents}
+                    status={agentStatus}
+                    hasWorktree
+                    label={`New session in ${group.title}`}
+                    testId={`folder-new-session-${group.title}`}
+                    triggerClassName="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[open=true]:bg-accent"
+                    onNewTerminal={() => openInFolder(group)}
+                    onNewAgent={(agent) => openInFolder(group, agent)}
+                    onConfigure={(candidate) => host.actions.configureAgent?.(candidate.id)}
+                  />
+                </span>
+              ) : undefined
+            }
           >
             <SortableList
               ids={group.items.map((s) => s.id)}

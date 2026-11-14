@@ -30,11 +30,23 @@ export function useAgentActivity(): void {
     const api = bridge();
     if (!api) return;
 
-    return api.pty.onActivity(({ ptyId, activity }) => {
+    const offActivity = api.pty.onActivity(({ ptyId, activity }) => {
       const store = useTerminalStore.getState();
       const sessionId = Object.keys(store.ptyIds).find((id) => store.ptyIds[id] === ptyId);
       if (!sessionId) return;
       store.setActivity(sessionId, activity ?? undefined);
     });
+
+    const offAgent = api.pty.onAgentChanged?.(({ ptyId, agentId }) => {
+      const store = useTerminalStore.getState();
+      const sessionId = Object.keys(store.ptyIds).find((id) => store.ptyIds[id] === ptyId);
+      if (!sessionId) return;
+      store.setLiveAgentId(sessionId, agentId);
+    });
+
+    return () => {
+      offActivity();
+      offAgent?.();
+    };
   }, []);
 }
