@@ -22,7 +22,7 @@ import { sessionPhase, useTerminalStore } from './terminal-store';
 import { useAgents } from './use-agents';
 import { useDevicePixelRatio } from './use-device-pixel-ratio';
 import { useTerminalIpc } from './use-terminal-ipc';
-import { attachAtlasGuard } from './xterm-atlas-guard';
+import { attachAtlasGuard, clearAllAtlases } from './xterm-atlas-guard';
 import { grantedWebglKeys, useXtermBudget, useXtermWebglSlot } from './xterm-budget';
 
 /**
@@ -314,11 +314,9 @@ export function TerminalView({
         if (t) t.refresh(0, t.rows - 1);
       },
       clearAtlas: () => {
-        try {
-          webglRef.current?.clearTextureAtlas();
-        } catch {
-          // Addon already disposed (a lost GPU context) - nothing to clear.
-        }
+        // The atlas is shared by every WebGL terminal: clearing it from one
+        // alone garbles the rest, so clear and refresh them all together.
+        if (webglRef.current) clearAllAtlases();
       },
     });
   }
@@ -396,8 +394,8 @@ export function TerminalView({
           sizeSync.sync('renderer');
         });
         term.loadAddon(webgl);
-        // Debounced clearTextureAtlas + refresh when the atlas grows, merges, or
-        // the context is (re)acquired/restored — see xterm-atlas-guard.ts.
+        // Shared-atlas clear + refresh of every WebGL terminal when the atlas
+        // grows, merges or its context is restored — see xterm-atlas-guard.ts.
         const detachAtlasGuard = attachAtlasGuard(webgl, term);
         // Every dispose path (budget eviction, context loss, terminal teardown)
         // runs addon.dispose(); the guard goes with it.
