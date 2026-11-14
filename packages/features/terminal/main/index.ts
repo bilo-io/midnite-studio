@@ -6,6 +6,7 @@ import {
   createPty,
   fetchScrollbackSnapshot,
   killPty,
+  livePtyFor,
   resizePty,
   sessionIdFor,
   subscribeWindowToPty,
@@ -150,7 +151,10 @@ export const terminalMain = defineFeatureMain<TerminalMainServices>({
       async ({ ptyId }) => {
         const sessionId = sessionIdFor(ptyId);
         if (!sessionId) return { bytes: new Uint8Array(0) };
-        return { bytes: trimScrollback(await fetchScrollbackSnapshot(sessionId), SCROLLBACK_BYTES) };
+        const bytes = trimScrollback(await fetchScrollbackSnapshot(sessionId), SCROLLBACK_BYTES);
+        // The size the pty last had, so the renderer parses these bytes at the width they were written for.
+        const live = livePtyFor(sessionId);
+        return { bytes, ...(live ? { cols: live.cols, rows: live.rows } : {}) };
       },
       () => ({ bytes: new Uint8Array(0) }),
     );

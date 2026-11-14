@@ -1359,6 +1359,15 @@ describe('terminal and pty schemas', () => {
       invalid: [['no ptyId', {}], ['empty ptyId', { ptyId: '' }]],
     },
     {
+      name: 'PtySnapshotResponse',
+      schema: schemas.PtySnapshotResponse,
+      valid: { bytes: new Uint8Array(2), cols: 120, rows: 40 },
+      invalid: [
+        ['zero cols', { bytes: new Uint8Array(0), cols: 0, rows: 40 }],
+        ['fractional cols', { bytes: new Uint8Array(0), cols: 120.5, rows: 40 }],
+      ],
+    },
+    {
       name: 'PtySubscribeRequest',
       schema: schemas.PtySubscribeRequest,
       valid: { ptyId: 'p1' },
@@ -1683,6 +1692,10 @@ describe('terminal and pty schemas', () => {
    * instead of an omission nobody notices.
    */
   const UNVALIDATED_BY_DESIGN = ['ptyData'];
+
+  it('PtySnapshotResponse still parses bytes alone', () => {
+    expect(schemas.PtySnapshotResponse.safeParse({ bytes: new Uint8Array(1) }).success).toBe(true);
+  });
 
   /**
    * The reason this block is a table.

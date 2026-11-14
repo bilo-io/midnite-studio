@@ -2005,7 +2005,12 @@ export const PtyKillRequest = z.object({ ptyId: z.string() });
  * resolving.
  */
 export const PtySnapshotRequest = z.object({ ptyId: z.string().min(1) });
-export const PtySnapshotResponse = z.object({ bytes: z.instanceof(Uint8Array) });
+export const PtySnapshotResponse = z.object({
+  bytes: z.instanceof(Uint8Array),
+  /** The pty's current size, so the replay can be parsed at the width the bytes were written for. */
+  cols: z.number().int().positive().optional(),
+  rows: z.number().int().positive().optional(),
+});
 export const PtyExitEvent = z.object({
   ptyId: z.string(),
   exitCode: z.number().int(),

@@ -241,10 +241,15 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
     if (id) bridge()?.pty.input({ ptyId: id, data });
   }, []);
 
-  const sendResize = useCallback((cols: number, rows: number) => {
+  /** `true` only when the resize was actually handed to the bridge (a ptyId was bound). */
+  const sendResize = useCallback((cols: number, rows: number): boolean => {
     const id = ptyIdRef.current;
-    if (id) bridge()?.pty.resize({ ptyId: id, cols, rows });
+    if (!id) return false;
+    const b = bridge();
+    if (!b) return false;
+    b.pty.resize({ ptyId: id, cols, rows });
+    return true;
   }, []);
 
-  return { connectionState, error, start, sendInput, sendResize, hasPty: Boolean(ptyId) };
+  return { connectionState, error, start, sendInput, sendResize, hasPty: Boolean(ptyId), ptyId };
 }

@@ -90,17 +90,49 @@ export function gateLiveWrite(
  * a fresh `session-mount-policy.ts` eviction before this fetch resolves)
  * must never write into it.
  */
-export function replayLiveHandoff(
-  fetchSnapshot: () => Promise<Uint8Array>,
-  onSnapshot: (bytes: Uint8Array) => void,
+export function replayLiveHandoff<T = Uint8Array>(
+  fetchSnapshot: () => Promise<T>,
+  onSnapshot: (snapshot: T) => void,
   write: (bytes: Uint8Array) => void,
   isCancelled: () => boolean,
+  /** Runs right after the held live chunks were written (snapshot and chunks are queued, not yet parsed). */
+  onReleased?: () => void,
 ): ReplayGate {
   const gate = createReplayGate();
-  void fetchSnapshot().then((bytes) => {
-    if (isCancelled()) return;
-    onSnapshot(bytes);
-    gate.release(write);
-  });
+  // Whatever happens to the snapshot, the gate must open and onReleased must
+  // run: otherwise held chunks never flush and the size controller stays
+  // suspended, leaving the pane unable to resize ever again.
+  void fetchSnapshot()
+    .then(
+      (snapshot) => {
+        if (isCancelled()) return false;
+        try {
+          onSnapshot(snapshot);
+        } catch {
+          // A failed snapshot write must not strand the gate.
+        }
+        return true;
+      },
+      () => !isCancelled(),
+    )
+    .then((proceed) => {
+      if (!proceed) return;
+      gate.release(write);
+      onReleased?.();
+    });
   return gate;
+}
+
+/**
+ * Write a snapshot at the size its bytes were produced for: resize the
+ * terminal to the pty's `cols`/`rows` first (only when both are known), so
+ * xterm wraps the replay exactly as the program drew it, then write.
+ * A snapshot without a size (older main, guest handler) just writes.
+ */
+export function writeAtSourceSize(
+  term: { resize(cols: number, rows: number): void; write(data: Uint8Array): void },
+  snap: { bytes: Uint8Array; cols?: number | undefined; rows?: number | undefined },
+): void {
+  if (snap.cols !== undefined && snap.rows !== undefined && snap.cols > 0 && snap.rows > 0) term.resize(snap.cols, snap.rows);
+  if (snap.bytes.length > 0) term.write(snap.bytes);
 }

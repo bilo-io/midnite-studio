@@ -13,7 +13,8 @@ import { createFitCoalescer } from './fit-coalescer';
 import { createInputQueue, type InputQueue } from './input-queue';
 import { isXtermFocusReport, isXtermMouseReport, shouldWakeDeadPane } from './is-xterm-focus-report';
 import { parseOsc7 } from './parse-osc7';
-import { createReplayGate, gateLiveWrite, replayLiveHandoff, type ReplayGate } from './replay-gate';
+import { createReplayGate, gateLiveWrite, replayLiveHandoff, writeAtSourceSize, type ReplayGate } from './replay-gate';
+import { createSizeSync, type SizeSync } from './size-sync';
 import { attachTerminalLinks } from './terminal-links';
 import { agentInput } from './terminal-panel';
 import { terminalFontOptions } from './terminal-font';
@@ -203,18 +204,6 @@ export function TerminalView({
     fontSize: terminalFontSize,
     lineHeight: terminalLineHeight,
   } = host.useFont();
-  /**
-   * The last size actually sent to the shell, so `safeFit` can skip a resize
-   * that would repeat it.
-   *
-   * The two-nested-box tween pins this component's own container at its
-   * final size for the length of a reveal — only the ANCESTOR's clip region
-   * grows — so both the ResizeObserver (on mount) and the settle-triggered
-   * `fitSignal` effect below can end up calling `safeFit` for the same
-   * dimensions. Sending the SIGWINCH once per genuine size change, not once
-   * per caller, is the guardrail this dedupes against.
-   */
-  const lastSentRef = useRef<{ cols: number; rows: number } | null>(null);
 
   /**
    * Holds output that arrives while a live-rebind snapshot is in flight.
@@ -244,7 +233,7 @@ export function TerminalView({
     [writeToTerm],
   );
 
-  const { connectionState, error, start, sendInput, sendResize } = useTerminalIpc(session, write);
+  const { connectionState, error, start, sendInput, sendResize, ptyId } = useTerminalIpc(session, write);
 
   // Refs so the mount effect can stay dependency-free and run exactly once.
   const sendInputRef = useRef(sendInput);
@@ -294,28 +283,45 @@ export function TerminalView({
   if (foregroundCommand) sawForegroundCommandRef.current = true;
 
   /**
-   * Fit and send one resize, only if the container currently measures.
-   *
-   * Hoisted to component scope (rather than declared inside the mount effect)
-   * so `fitSignal`'s own effect below can call the same function the mount
-   * effect and the `ResizeObserver` use — every fit path in this component is
-   * this one function.
+   * Every fit in this component goes through this one controller (see
+   * `size-sync.ts`): it fits, tells the pty, repaints, and is suspended
+   * while a live replay is in flight. Built once; its deps read refs at
+   * call time.
    */
-  const safeFit = useCallback(() => {
-    const el = containerRef.current;
-    if (!fitRef.current || !termRef.current || !el) return;
-    if (el.clientWidth === 0 || el.clientHeight === 0) return;
-    try {
-      fitRef.current.fit();
-      const { cols, rows } = termRef.current;
-      const last = lastSentRef.current;
-      if (last && last.cols === cols && last.rows === rows) return;
-      lastSentRef.current = { cols, rows };
-      sendResizeRef.current(cols, rows);
-    } catch {
-      // Container stopped being measurable mid-fit.
-    }
-  }, []);
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const sizeSyncRef = useRef<SizeSync | null>(null);
+  if (!sizeSyncRef.current) {
+    sizeSyncRef.current = createSizeSync({
+      isOwner: () => activeRef.current,
+      isMeasurable: () =>
+        Boolean(
+          fitRef.current &&
+            termRef.current &&
+            containerRef.current &&
+            containerRef.current.clientWidth > 0 &&
+            containerRef.current.clientHeight > 0,
+        ),
+      fit: () => {
+        fitRef.current?.fit();
+        const t = termRef.current!;
+        return { cols: t.cols, rows: t.rows };
+      },
+      send: (cols, rows) => sendResizeRef.current(cols, rows),
+      repaint: () => {
+        const t = termRef.current;
+        if (t) t.refresh(0, t.rows - 1);
+      },
+      clearAtlas: () => {
+        try {
+          webglRef.current?.clearTextureAtlas();
+        } catch {
+          // Addon already disposed (a lost GPU context) - nothing to clear.
+        }
+      },
+    });
+  }
+  const sizeSync = sizeSyncRef.current;
 
   /**
    * Fit and repaint once a reveal tween settles.
@@ -323,19 +329,17 @@ export function TerminalView({
    * A tween resizes the CONTAINER continuously without a `ResizeObserver`
    * firing per frame (the two-nested-box trick — the outer box animates, the
    * inner one is pinned at its final size throughout), so nothing else calls
-   * `safeFit` while the animation runs. This is what tells the shell its new
+   * `sizeSync` while the animation runs. This is what tells the shell its new
    * size exactly once, at the end, rather than never.
    */
   useEffect(() => {
-    safeFit();
-    const term = termRef.current;
-    if (term) term.refresh(0, term.rows - 1);
-  }, [fitSignal, safeFit]);
+    sizeSync.sync('fitSignal');
+  }, [fitSignal, sizeSync]);
 
   /**
    * A DPR change (moved to a display with a different scale factor, or the
    * OS changed scaling on the current one) leaves the WebGL glyph atlas
-   * rasterised for the wrong pixel grid — `safeFit()` alone can't rescue it,
+   * rasterised for the wrong pixel grid — a plain fit can't rescue it,
    * since it early-returns when `cols`/`rows` are unchanged, which a DPR
    * change at a constant window size leaves them.
    *
@@ -347,16 +351,9 @@ export function TerminalView({
    */
   const dpr = useDevicePixelRatio();
   useEffect(() => {
-    const term = termRef.current;
-    if (!term) return;
-    try {
-      webglRef.current?.clearTextureAtlas();
-    } catch {
-      // Addon already disposed (a lost GPU context) — nothing to clear.
-    }
-    safeFit();
-    term.refresh(0, term.rows - 1);
-  }, [dpr, safeFit]);
+    if (!termRef.current) return;
+    sizeSync.sync('dpr');
+  }, [dpr, sizeSync]);
 
   /**
    * Attempts to (re)acquire the WebGL addon on the CURRENT `termRef.current`,
@@ -395,6 +392,7 @@ export function TerminalView({
             retried = true;
             attempt();
           }
+          sizeSync.sync('renderer');
         });
         term.loadAddon(webgl);
         webglRef.current = webgl;
@@ -426,10 +424,29 @@ export function TerminalView({
       webglRef.current.dispose();
       webglRef.current = null;
       useXtermBudget.getState().setRenderer(session.id, 'dom');
+      sizeSync.sync('renderer');
     } else if (grantedWebgl && !webglRef.current) {
       acquireWebglRef.current();
+      // The renderer changed under a live terminal: refit and repaint so no
+      // glyph is left misdrawn until a manual resize.
+      sizeSync.sync('renderer');
     }
-  }, [grantedWebgl, ready, session.id]);
+  }, [grantedWebgl, ready, session.id, sizeSync]);
+
+  // A new pty bound (first start, or a restart): the old size record no
+  // longer describes it, so forget it and tell the new pty our size.
+  useEffect(() => {
+    if (!ready || !ptyId) return;
+    sizeSync.invalidate();
+    sizeSync.sync('bind');
+  }, [ptyId, ready, sizeSync]);
+
+  // The pane the user is looking at takes the pty's size back when it becomes
+  // active (another mounted view of the same pty may have resized it). Only
+  // the active pane forces a send; hidden panes dedupe (see size-sync.ts).
+  useEffect(() => {
+    if (ready && active) sizeSync.sync('active');
+  }, [active, ready, sizeSync]);
 
   /**
    * A `Settings ▸ Terminal` font/line-height change reaches every already-
@@ -449,9 +466,8 @@ export function TerminalView({
         lineHeight: terminalLineHeight,
       }),
     );
-    safeFit();
-    term.refresh(0, term.rows - 1);
-  }, [terminalFontFamily, terminalFontSize, terminalLineHeight, safeFit]);
+    sizeSync.sync('font');
+  }, [terminalFontFamily, terminalFontSize, terminalLineHeight, sizeSync]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -627,7 +643,7 @@ export function TerminalView({
 
       term.open(el);
       termRef.current = term;
-      // Must load after open() and before the first `safeFit()` below — a
+      // Must load after open() and before the first size sync below — a
       // fit computed against the DOM renderer's own metrics, followed later
       // by one against the WebGL renderer's slightly different ones, reads
       // as a genuine size change and sends a spurious resize even though the
@@ -637,7 +653,6 @@ export function TerminalView({
       // a race with the very first fit.
       acquireWebglRef.current();
       fitRef.current = fit;
-      safeFit();
 
       /**
        * A live session replays main's CURRENT ring buffer, not the saved
@@ -658,21 +673,33 @@ export function TerminalView({
         const ptyId = useTerminalStore.getState().ptyIds[session.id];
         const api = bridge();
         if (ptyId && api) {
+          // Replay at the width the pty had: hold every size sync (no pty
+          // resize before the bytes are parsed), size xterm to the container
+          // without sending, parse the snapshot at the pty's own size, then
+          // resume once xterm has parsed it and refit + SIGWINCH exactly once.
+          sizeSync.suspend();
+          try {
+            fit.fit();
+          } catch {
+            // Container stopped being measurable mid-fit.
+          }
           replayGateRef.current = replayLiveHandoff(
-            () => api.pty.snapshot({ ptyId }).then(({ bytes }) => bytes),
-            (bytes) => {
-              if (bytes.length > 0) {
-                term.write(bytes);
-              }
-              setReplayed(true);
-            },
+            () => api.pty.snapshot({ ptyId }),
+            (snap) => writeAtSourceSize(term, snap),
             writeToTerm,
             () => cancelled,
+            () =>
+              term.write('', () => {
+                if (cancelled) return;
+                sizeSync.resume();
+                setReplayed(true);
+              }),
           );
         } else {
           const gate = createReplayGate();
           gate.release(writeToTerm);
           replayGateRef.current = gate;
+          sizeSync.sync('mount');
           setReplayed(true);
         }
       } else {
@@ -689,6 +716,7 @@ export function TerminalView({
           term.write(replay);
           term.write(RESET_MODES);
         }
+        sizeSync.sync('mount');
         setReplayed(true);
       }
 
@@ -769,17 +797,25 @@ export function TerminalView({
      * At most one `fit()` per animation frame — a drag-resize can fire this
      * observer's callback faster than once per frame, and `fit()` is a full
      * xterm re-measure plus reflow, not something to run per observation.
-     * `lastSentRef` (inside `safeFit`) still dedupes the IPC `resize` this
+     * `createSizeSync` still dedupes the IPC `resize` this
      * produces when cols/rows land unchanged; that guard runs after the
      * measurement and does nothing about the measurement storm itself.
      */
-    const fitCoalescer = createFitCoalescer(safeFit);
+    const fitCoalescer = createFitCoalescer(() => sizeSync.sync('observe'));
     const observer = new ResizeObserver(() => {
       if (!termRef.current) openWhenSized();
       else fitCoalescer.schedule();
     });
     observer.observe(container);
     openWhenSized();
+
+    // A web font that finishes loading after the first fit changes the cell
+    // size without the container moving. jsdom has no `document.fonts`.
+    const onFonts = () => {
+      if (!cancelled) sizeSync.sync('fontsLoaded');
+    };
+    void document.fonts?.ready.then(onFonts);
+    document.fonts?.addEventListener?.('loadingdone', onFonts);
 
     /**
      * Force a repaint when the window comes back from being minimized.
@@ -791,12 +827,11 @@ export function TerminalView({
      * that transition (Electron ties `document.hidden` to the window's
      * minimized state) and `refresh` forces every row to redraw regardless of
      * whether the size actually changed — which is why an actual resize,
-     * which does go through `safeFit`, has always been enough to fix it.
+     * which does go through `sizeSync`, has always been enough to fix it.
      */
     const onVisibilityChange = () => {
       if (document.hidden || !termRef.current) return;
-      safeFit();
-      termRef.current.refresh(0, termRef.current.rows - 1);
+      sizeSync.sync('visible');
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
 
@@ -805,6 +840,8 @@ export function TerminalView({
       observer.disconnect();
       fitCoalescer.cancel();
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      document.fonts?.removeEventListener?.('loadingdone', onFonts);
+      sizeSync.reset();
       if (cwdTimer) clearTimeout(cwdTimer);
       dataSub?.dispose();
       links.dispose();
