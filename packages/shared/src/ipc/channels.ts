@@ -566,6 +566,15 @@ export const CHANNELS = {
   terminalSave: 'mstudio:terminal:save',
   terminalForget: 'mstudio:terminal:forget',
   terminalReorder: 'mstudio:terminal:reorder',
+  /**
+   * Re-adopt every live session in any broker — legacy and retired peers included — and give each one
+   * `terminals.json` lost a recovered row. Answers what it recovered plus live/previous-build totals.
+   */
+  terminalRecoverDetached: 'mstudio:terminal:recover-detached',
+  /** End sessions by id from main (kill the pty, archive the row) — for callers outside the panel. */
+  terminalEndSessions: 'mstudio:terminal:end-sessions',
+  /** End every session still running in a previous build's broker. */
+  terminalEndPreviousBuild: 'mstudio:terminal:end-previous-build',
   /** Built-in agents merged with the user's `agents.json`. */
   agentList: 'mstudio:agent:list',
   /** Force an install re-probe (bypasses the TTL); answers with the fresh snapshot. */

@@ -441,6 +441,9 @@ const bridge: Pick<
     save: (req) => ipcRenderer.send(CHANNELS.terminalSave, req),
     forget: (req) => ipcRenderer.send(CHANNELS.terminalForget, req),
     reorder: (req) => ipcRenderer.send(CHANNELS.terminalReorder, req),
+    recoverDetached: () => call(CHANNELS.terminalRecoverDetached),
+    endSessions: (req) => call(CHANNELS.terminalEndSessions, req),
+    endPreviousBuild: () => call(CHANNELS.terminalEndPreviousBuild),
   },
   sessions: {
     // All `invoke`, including purge: unlike `terminal.forget`, a dropped purge

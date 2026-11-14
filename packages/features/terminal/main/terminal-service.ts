@@ -34,6 +34,10 @@ export type TerminalPtyPort = {
    * it, a live pty whose row was lost cannot be recovered into the list.
    */
   liveBrokerSessions?(): { sessionId: string; ptyId: string; pid: number; cols: number; rows: number; cwd: string; legacy: boolean; owner?: string | null }[];
+  /** Connect to brokers found since boot and take on their ptys — see `recoverDetachedSessions`. */
+  rescanBrokerSessions?(): Promise<void>;
+  /** End a pty — for `endSessions`, which ends a session without the renderer. */
+  killPty?(ptyId: string): void;
   onSessionExit(hook: (sessionId: string, exitCode: number) => void): () => void;
   readScrollback(sessionId: string): Uint8Array;
   scrollbackSessionIds(): string[];
@@ -258,20 +262,76 @@ export async function listTerminals(): Promise<
  * unkillable. The broker still knows its session id and spawn cwd, which is enough to rebuild a row the
  * user can recognise and end. Saved like any other row so a rename or reorder sticks.
  */
-function recoverOrphanedPtys(): void {
+function recoverOrphanedPtys(): DetachedSession[] {
   const live = port().pty.liveBrokerSessions?.() ?? [];
   const known = new Set(sessions.map((s) => s.id));
-  let recovered = 0;
+  const recovered: DetachedSession[] = [];
   for (const pty of live) {
     if (known.has(pty.sessionId)) continue;
     known.add(pty.sessionId);
-    sessions.push(recoveredSession(pty.sessionId, pty.cwd, pty.owner ?? null));
-    recovered++;
+    const row = recoveredSession(pty.sessionId, pty.cwd, pty.owner ?? null);
+    sessions.push(row);
+    recovered.push(detached(row, pty.legacy));
   }
-  if (recovered > 0) {
-    port().log(`[terminal] recovered ${recovered} live session(s) that had no saved row`);
+  if (recovered.length > 0) {
+    port().log(`[terminal] recovered ${recovered.length} live session(s) that had no saved row`);
     scheduleSave();
   }
+  return recovered;
+}
+
+export type DetachedSession = { sessionId: string; title: string; cwd: string; repoId: string; legacy: boolean };
+
+const detached = (row: TerminalSession, legacy: boolean): DetachedSession => ({
+  sessionId: row.id,
+  title: row.name ?? row.title,
+  cwd: row.cwd,
+  repoId: row.repoId,
+  legacy,
+});
+
+/**
+ * Full recovery, callable from anywhere (the palette's `terminal.recoverDetached`, and the status-bar
+ * widget a later phase adds): connect to every live broker in the broker dir — legacy and retired ones
+ * found since boot included — take on their ptys, and give each one without a row a recovered row
+ * grouped under its cwd's repo. Resolves with what it recovered plus the live and previous-build totals.
+ */
+export async function recoverDetachedSessions(): Promise<{
+  recovered: DetachedSession[];
+  live: number;
+  previousBuild: number;
+}> {
+  await port().pty.rescanBrokerSessions?.();
+  await ensureLoaded();
+  const recovered = recoverOrphanedPtys();
+  const live = port().pty.liveBrokerSessions?.() ?? [];
+  return { recovered, live: live.length, previousBuild: live.filter((p) => p.legacy).length };
+}
+
+/**
+ * End sessions without the renderer: kill each one's pty (routed to whichever broker owns it, so a
+ * previous-build broker shuts down once its last one goes) and remove its row, archived as closed.
+ * Resolves with the ids that existed. The renderer's own close does the same through `pty.kill` and
+ * `terminal.forget`; a caller of this re-reads the list afterwards.
+ */
+export async function endSessions(sessionIds: readonly string[]): Promise<string[]> {
+  await ensureLoaded();
+  const ended: string[] = [];
+  for (const sessionId of new Set(sessionIds)) {
+    const pty = port().pty.livePtyFor(sessionId);
+    const hasRow = sessions.some((s) => s.id === sessionId);
+    if (!pty && !hasRow) continue;
+    if (pty) port().pty.killPty?.(pty.ptyId);
+    if (hasRow) forgetTerminal(sessionId, 'closed');
+    ended.push(sessionId);
+  }
+  return ended;
+}
+
+/** End every session still running in a previous build's broker — see {@link endSessions}. */
+export async function endPreviousBuildSessions(): Promise<string[]> {
+  const previous = (port().pty.liveBrokerSessions?.() ?? []).filter((p) => p.legacy).map((p) => p.sessionId);
+  return previous.length === 0 ? [] : endSessions(previous);
 }
 
 /**

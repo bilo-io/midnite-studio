@@ -2139,6 +2139,35 @@ export const TerminalForgetRequest = z.object({
 /** The full ordered id list, not a moved-from/moved-to pair — idempotent on replay. */
 export const TerminalReorderRequest = z.object({ sessionIds: z.array(z.string().min(1)) });
 
+/** The envelope every terminal recovery op answers in — an error is a value, never a throw across IPC. */
+const TerminalOpError = z.object({ ok: z.literal(false), kind: z.literal('error'), message: z.string() });
+
+/** A session `terminal.recoverDetached` gave a row back to. */
+export const DetachedSessionSchema = z.object({
+  sessionId: z.string().min(1),
+  title: z.string(),
+  cwd: z.string().min(1),
+  repoId: z.string().min(1),
+  /** Running in a previous build's broker rather than the current one. */
+  legacy: z.boolean(),
+});
+export const TerminalRecoverDetachedResponse = z.discriminatedUnion('ok', [
+  z.object({
+    ok: z.literal(true),
+    recovered: z.array(DetachedSessionSchema),
+    /** Every pty the connected brokers hold, after recovery. */
+    live: z.number().int().nonnegative(),
+    /** How many of those run in a previous build's broker. */
+    previousBuild: z.number().int().nonnegative(),
+  }),
+  TerminalOpError,
+]);
+export const TerminalEndSessionsRequest = z.object({ sessionIds: z.array(z.string().min(1)).min(1) });
+export const TerminalEndSessionsResponse = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), ended: z.array(z.string().min(1)) }),
+  TerminalOpError,
+]);
+
 // --- session history (Phase 67) ---------------------------------------------
 
 /** Every archived session, newest first. */

@@ -558,25 +558,44 @@ export async function initPtyService(deps: {
   });
 
   // Re-hydrate running sessions if any
-  if (brokerClient.getStatus().mode === 'broker') {
-    const running = await brokerClient.listSessions();
-    for (const r of running) {
-      sessions.set(r.ptyId, {
-        ptyId: r.ptyId,
-        sessionId: r.sessionId,
-        pid: r.pid,
-        cols: r.cols,
-        rows: r.rows,
-        legacy: r.legacy,
-        cwd: r.cwd,
-        owner: r.owner,
-      });
-      sessionIdByPty.set(r.ptyId, r.sessionId);
-      if (agentWatcher) {
-        await trackWithWatcher(agentWatcher, r.ptyId, r.pid, r.sessionId);
-      }
+  if (brokerClient.getStatus().mode === 'broker') await adoptBrokerSessions();
+}
+
+/** Record every pty the connected brokers report that this service does not hold yet; resolves with the new ones. */
+async function adoptBrokerSessions(): Promise<number> {
+  if (!brokerClient) return 0;
+  const running = await brokerClient.listSessions();
+  let adopted = 0;
+  for (const r of running) {
+    if (sessions.has(r.ptyId)) continue;
+    sessions.set(r.ptyId, {
+      ptyId: r.ptyId,
+      sessionId: r.sessionId,
+      pid: r.pid,
+      cols: r.cols,
+      rows: r.rows,
+      legacy: r.legacy,
+      cwd: r.cwd,
+      owner: r.owner,
+    });
+    sessionIdByPty.set(r.ptyId, r.sessionId);
+    adopted++;
+    if (agentWatcher) {
+      await trackWithWatcher(agentWatcher, r.ptyId, r.pid, r.sessionId);
     }
   }
+  return adopted;
+}
+
+/**
+ * Look for brokers this process is not yet connected to (one retired or re-bound since boot) and take
+ * on every pty any connected broker holds — the first half of "recover detached sessions". No-op
+ * in-process: there is no broker to have lost anything to.
+ */
+export async function rescanBrokerSessions(): Promise<void> {
+  if (!brokerClient || brokerClient.getStatus().mode !== 'broker') return;
+  await brokerClient.rescanPeers();
+  await adoptBrokerSessions();
 }
 
 let brokerLocation: { socketPath: string; directory: string } | null = null;

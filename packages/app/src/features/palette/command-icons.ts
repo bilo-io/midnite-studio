@@ -4,6 +4,7 @@ import { GoIssueOpened } from 'react-icons/go';
 import { SiMagic, SiOllama } from 'react-icons/si';
 import {
   LuActivity,
+  LuHistory,
   LuArrowRightLeft,
   LuBot,
   LuChevronLeft,
@@ -66,6 +67,7 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'terminal.focus': LuSquareTerminal,
   'terminal.new': LuSquareTerminal,
   'terminal.close': LuX,
+  'terminal.recoverDetached': LuHistory,
   'repos.toggle': LuPanelLeft,
   'browser.toggle': LuGlobe,
   'fab.toggle': LuPanelRight,

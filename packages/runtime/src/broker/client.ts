@@ -138,6 +138,11 @@ export type BrokerClient = {
   resizePty: (ptyId: string, cols: number, rows: number) => Promise<boolean>;
   killPty: (ptyId: string) => Promise<boolean>;
   listSessions: () => Promise<BrokerSessionInfo[]>;
+  /**
+   * Look in the broker dir again for live brokers this client is not yet connected to — one retired or
+   * re-bound since boot — and adopt them as legacy peers. Resolves with how many it adopted.
+   */
+  rescanPeers: () => Promise<number>;
   snapshot: (sessionId: string) => Promise<Uint8Array>;
   /** Tell the broker to drop its own `scrollbackBySession` entries — Phase 45 Theme C. */
   forgetScrollback: (sessionIds: string[]) => void;
@@ -639,13 +644,16 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
    * previous install, or a retired one from this build. Adopt the live ones so
    * their terminals reattach; unlink the dead ones; shut down the empty ones.
    */
-  async function probeLegacyBrokers(): Promise<void> {
+  async function probeLegacyBrokers(): Promise<number> {
+    let adopted = 0;
     try {
-      if (!existsSync(brokerDir)) return;
+      if (!existsSync(brokerDir)) return 0;
       const entries = readdirSync(brokerDir);
       for (const entry of entries) {
         if (!entry.endsWith('.sock') || entry === socketName) continue;
         const legacyPath = join(brokerDir, entry);
+        // Already connected (a rescan after boot, or the primary that retired to this path itself).
+        if (legacy.has(legacyPath) || primary?.path === legacyPath) continue;
         const found = await connectExisting(legacyPath, 500);
         if (!found) {
           // Dead legacy socket, unlink — the host's job; a guest leaves the directory as it found it.
@@ -662,11 +670,13 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
         const list = await syncPeerSessions(peer);
         log(`[broker] connected to legacy broker at ${legacyPath} (${list.length} session(s))`);
         if (list.length === 0) retireLegacy(peer);
+        else adopted++;
       }
       if (!guest) removeStaleBrokerFiles();
     } catch {
       // Ignore
     }
+    return adopted;
   }
 
   /** Delete the pid and token files no live broker owns — see `stale-files.ts`. Host only. */
@@ -757,6 +767,8 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
       await connectOrSpawn();
       await probeLegacyBrokers();
     },
+
+    rescanPeers: () => probeLegacyBrokers(),
 
     getStatus(): BrokerStatus {
       return status;

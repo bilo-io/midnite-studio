@@ -963,6 +963,12 @@ export type MidniteStudioBridge = {
     save: (req: In<typeof S.TerminalSaveRequest>) => void;
     forget: (req: In<typeof S.TerminalForgetRequest>) => void;
     reorder: (req: In<typeof S.TerminalReorderRequest>) => void;
+    /** Re-adopt every live broker session and recover the rows `terminals.json` lost. */
+    recoverDetached: () => Promise<z.infer<typeof S.TerminalRecoverDetachedResponse>>;
+    /** End sessions by id (kill + archive), for callers outside the panel; re-read the list after. */
+    endSessions: (req: In<typeof S.TerminalEndSessionsRequest>) => Promise<z.infer<typeof S.TerminalEndSessionsResponse>>;
+    /** End every session still running in a previous build's broker. */
+    endPreviousBuild: () => Promise<z.infer<typeof S.TerminalEndSessionsResponse>>;
   };
 
   /**

@@ -13,7 +13,16 @@ import {
   unsubscribeWindowFromPty,
   writePty,
 } from './pty-service';
-import { forgetTerminal, listAgents, listTerminals, reorderTerminals, saveTerminal } from './terminal-service';
+import {
+  endPreviousBuildSessions,
+  endSessions,
+  forgetTerminal,
+  listAgents,
+  listTerminals,
+  recoverDetachedSessions,
+  reorderTerminals,
+  saveTerminal,
+} from './terminal-service';
 import { trimScrollback } from './terminal-store';
 
 export { terminalManifest, type TerminalManifest } from '../manifest';
@@ -95,6 +104,9 @@ export const terminalMain = defineFeatureMain<TerminalMainServices>({
   feature: terminalManifest.feature,
   channels: [
     CHANNELS.terminalList,
+    CHANNELS.terminalRecoverDetached,
+    CHANNELS.terminalEndSessions,
+    CHANNELS.terminalEndPreviousBuild,
     CHANNELS.agentList,
     CHANNELS.agentRecheck,
     CHANNELS.ptyCreate,
@@ -137,6 +149,39 @@ export const terminalMain = defineFeatureMain<TerminalMainServices>({
       warn,
     );
     ipc.send(CHANNELS.terminalReorder, schemas.TerminalReorderRequest, ({ sessionIds }) => reorderTerminals(sessionIds), warn);
+
+    // Recovery and ending, as envelopes: a broker that is down is an answer to render, not a throw.
+    const failed = (error: unknown) => ({
+      ok: false as const,
+      kind: 'error' as const,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    ipc.handleBare(CHANNELS.terminalRecoverDetached, async () => {
+      try {
+        return { ok: true as const, ...(await recoverDetachedSessions()) };
+      } catch (error) {
+        return failed(error);
+      }
+    });
+    ipc.handle(
+      CHANNELS.terminalEndSessions,
+      schemas.TerminalEndSessionsRequest,
+      async ({ sessionIds }) => {
+        try {
+          return { ok: true as const, ended: await endSessions(sessionIds) };
+        } catch (error) {
+          return failed(error);
+        }
+      },
+      (issue) => failed(issue),
+    );
+    ipc.handleBare(CHANNELS.terminalEndPreviousBuild, async () => {
+      try {
+        return { ok: true as const, ended: await endPreviousBuildSessions() };
+      } catch (error) {
+        return failed(error);
+      }
+    });
 
     ipc.handle(CHANNELS.ptyCreate, schemas.PtyCreateRequest, (req) => createPty(req), (issue) => ({
       ok: false as const,

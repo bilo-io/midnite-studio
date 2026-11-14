@@ -2495,6 +2495,9 @@ export function buildMockBridge(data: MockFixtures) {
       },
       forget: noop,
       reorder: noop,
+      recoverDetached: async () => ({ ok: true as const, recovered: [], live: 0, previousBuild: 0 }),
+      endSessions: async (req: { sessionIds: string[] }) => ({ ok: true as const, ended: req.sessionIds }),
+      endPreviousBuild: async () => ({ ok: true as const, ended: [] }),
     },
     /*
         Closed-session history (Phase 67). Empty unless a spec seeds it, so the

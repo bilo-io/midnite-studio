@@ -9,8 +9,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTerminalStore } from './terminal-store';
 import {
   configureTerminals,
+  endPreviousBuildSessions,
+  endSessions,
   forgetTerminal,
   listTerminals,
+  recoverDetachedSessions,
   recoveredSession,
   resetTerminalsForTest,
   saveTerminal,
@@ -27,13 +30,26 @@ import {
  */
 type LivePty = ReturnType<NonNullable<TerminalPtyPort['liveBrokerSessions']>>[number];
 
-const { live } = vi.hoisted(() => ({ live: [] as LivePty[] }));
+const { live, rescan, killed } = vi.hoisted(() => ({
+  live: [] as LivePty[],
+  /** Brokers a rescan "finds" — moved into `live` when it runs. */
+  rescan: [] as LivePty[],
+  killed: [] as string[],
+}));
 
 setTerminalPorts({
   pty: {
     activityFor: () => null,
     dropScrollback: () => {},
     liveBrokerSessions: () => live,
+    rescanBrokerSessions: async () => {
+      live.push(...rescan.splice(0));
+    },
+    killPty: (ptyId) => {
+      killed.push(ptyId);
+      const index = live.findIndex((p) => p.ptyId === ptyId);
+      if (index !== -1) live.splice(index, 1);
+    },
     livePtyFor: (sessionId) => {
       const pty = live.find((p) => p.sessionId === sessionId);
       return pty ? { ptyId: pty.ptyId, pid: pty.pid, cols: pty.cols, rows: pty.rows, legacy: pty.legacy } : null;
@@ -87,6 +103,8 @@ const savedIds = async (dir: string): Promise<string[]> =>
 
 beforeEach(() => {
   live.length = 0;
+  rescan.length = 0;
+  killed.length = 0;
 });
 
 afterEach(async () => {
@@ -197,5 +215,59 @@ describe('recoveredSession', () => {
     expect(recoveredSession('s', '/x', 'studio', 1).appId).toBeUndefined();
     expect(recoveredSession('s', '/x', null, 1).appId).toBeUndefined();
     expect(recoveredSession('s', '/x', 'not-an-app', 1).appId).toBeUndefined();
+  });
+});
+
+describe('recoverDetachedSessions', () => {
+  it('adopts brokers found since boot and returns the recovered rows with totals', async () => {
+    const dir = await seeded([row('a')]);
+    live.push(pty('a', { legacy: false }));
+    rescan.push(pty('late-1', { cwd: '/Users/x/Dev/bilo' }), pty('late-2', { cwd: '/Users/x/Dev/midnite' }));
+
+    const result = await recoverDetachedSessions();
+
+    expect(result.recovered).toEqual([
+      { sessionId: 'late-1', title: 'bilo', cwd: '/Users/x/Dev/bilo', repoId: 'repo:/Users/x/Dev/bilo', legacy: true },
+      { sessionId: 'late-2', title: 'midnite', cwd: '/Users/x/Dev/midnite', repoId: 'repo:/Users/x/Dev/midnite', legacy: true },
+    ]);
+    expect(result).toMatchObject({ live: 3, previousBuild: 2 });
+    await shutdownTerminals();
+    expect(await savedIds(dir)).toEqual(['a', 'late-1', 'late-2']);
+  });
+
+  it('recovers nothing twice', async () => {
+    await seeded([]);
+    live.push(pty('orphan'));
+    expect((await recoverDetachedSessions()).recovered).toHaveLength(1);
+    expect((await recoverDetachedSessions()).recovered).toHaveLength(0);
+  });
+});
+
+describe('endSessions / endPreviousBuildSessions', () => {
+  it('kills each live pty and removes its row', async () => {
+    const dir = await seeded([row('a'), row('b')]);
+    live.push(pty('a'));
+    expect(await endSessions(['a', 'b', 'unknown'])).toEqual(['a', 'b']);
+    expect(killed).toEqual(['pty-a']);
+    await shutdownTerminals();
+    expect(await savedIds(dir)).toEqual([]);
+  });
+
+  it('ends only the previous-build sessions', async () => {
+    const dir = await seeded([row('mine'), row('old')]);
+    live.push(pty('mine', { legacy: false }), pty('old', { legacy: true }), pty('orphan-old', { legacy: true }));
+    await listTerminals();
+
+    expect((await endPreviousBuildSessions()).sort()).toEqual(['old', 'orphan-old']);
+    expect(killed.sort()).toEqual(['pty-old', 'pty-orphan-old']);
+    await shutdownTerminals();
+    expect(await savedIds(dir)).toEqual(['mine']);
+  });
+
+  it('is a no-op when no previous-build session runs', async () => {
+    await seeded([row('mine')]);
+    live.push(pty('mine', { legacy: false }));
+    expect(await endPreviousBuildSessions()).toEqual([]);
+    expect(killed).toEqual([]);
   });
 });
