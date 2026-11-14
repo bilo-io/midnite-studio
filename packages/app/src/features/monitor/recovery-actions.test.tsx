@@ -58,6 +58,7 @@ describe('Studio monitor cluster recovery wiring', () => {
     useTerminalStore.setState({
       sessions: [{ id: 's1' }] as never,
       legacy: { s1: true },
+      states: { s1: 'open' },
     });
     mount();
     expect(screen.getByTestId('monitor-attention').getAttribute('aria-label')).toBe('1 session from a previous build');
