@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { LuBot } from 'react-icons/lu';
 import { create } from 'zustand';
 
@@ -40,6 +41,45 @@ function DefaultAgentAvatar({ agent }: TerminalAgentAvatarProps) {
 }
 
 const defaultAgentIcon: IconComponent = LuBot;
+
+const repoLogoCache = new Map<string, string | null>();
+
+function useDefaultRepoLogo(repoId: string | undefined): string | null {
+  const [logoUrl, setLogoUrl] = useState<string | null>(() =>
+    repoId ? (repoLogoCache.get(repoId) ?? null) : null,
+  );
+
+  useEffect(() => {
+    if (!repoId) {
+      setLogoUrl(null);
+      return;
+    }
+    if (repoLogoCache.has(repoId)) {
+      setLogoUrl(repoLogoCache.get(repoId) ?? null);
+      return;
+    }
+    const fetchLogo = bridge()?.repos?.logo;
+    if (!fetchLogo) {
+      setLogoUrl(null);
+      return;
+    }
+    let cancelled = false;
+    void fetchLogo({ repoId })
+      .then((res) => {
+        const url = res?.dataUrl ?? null;
+        repoLogoCache.set(repoId, url);
+        if (!cancelled) setLogoUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setLogoUrl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [repoId]);
+
+  return logoUrl;
+}
 
 export type DefaultTerminalHostOptions = {
   /** Hides the panel — the app shell's own toggle. */
@@ -94,6 +134,7 @@ export function createDefaultTerminalHost(appId: SuiteAppId, options: DefaultTer
       setSidebarSide: (side) => set({ side }),
     },
     useRepos: () => undefined,
+    useRepoLogo: useDefaultRepoLogo,
     onSelectRepo: () => {},
     terminalTheme: () => undefined,
     subscribeTheme: () => () => {},

@@ -14,7 +14,7 @@ import { usePaletteStore } from '../features/themes/palette-store';
 import { resolveTerminalPalette } from '../features/themes/resolve-palette';
 import { revealSession } from '../features/terminal/reveal-session';
 import { openLinkFromEvent } from '../services/open-in-midnite';
-import { useRepos } from '../services/queries';
+import { useRepoLogo, useRepos } from '../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../store/ui-store';
 import { selectRepoForSessionOrChat } from './select-repo-for-item';
 import { STUDIO_CHROME } from './studio-chrome';
@@ -81,6 +81,7 @@ export const STUDIO_TERMINAL_HOST = {
     },
   },
   useRepos: () => useRepos().data,
+  useRepoLogo: (repoId) => useRepoLogo(repoId).data ?? null,
   onSelectRepo: selectRepoForSessionOrChat,
   terminalTheme: (mode) => resolveTerminalPalette(mode).terminal,
   subscribeTheme: (listener) => usePaletteStore.subscribe(listener),
