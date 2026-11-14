@@ -130,3 +130,13 @@ CI trust depends on determinism. Common flake patterns and their mitigations:
    `ResizeObserver` stubs fire callbacks via `queueMicrotask`, not synchronously. When asserting
    content whose rendering depends on an observer callback, use `await findByRole(...)` or
    `waitFor(...)` rather than synchronous queries.
+
+---
+
+## 7. Playwright Session & Broker Cleanup
+
+Whenever a Playwright test or verification screenshot run spawns or attaches to agent/terminal
+sessions (or starts a pty broker or Electron instance), you **must** explicitly exit every spawned
+session and close/kill the test broker, Electron process, and any throwaway `--user-data-dir` in
+`finally` / `afterEach` / teardown so no orphaned `claude` / `agy` / broker processes are left
+running.
