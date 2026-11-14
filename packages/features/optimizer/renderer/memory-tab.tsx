@@ -17,6 +17,7 @@ import { formatBytes, type ConfirmRequest, useFrameChrome } from '@midnite/studi
 import { CircularGauge } from './components/circular-gauge';
 import { OptimizerMetrics } from './components/optimizer-metrics';
 import {
+  isKillableBroker,
   isLost,
   isLostBroker,
   LOST_REASON_LABEL,
@@ -269,7 +270,7 @@ export function MemoryTab() {
 
   const handlePromptKill = (proc: ProcessInfo) => {
     const isForce = sentSigtermPids.has(proc.pid);
-    if (isLostBroker(proc)) {
+    if (isKillableBroker(proc)) {
       setConfirmReq(lostTreeConfirm(processes, [proc], isForce, () => void killBrokers([proc], isForce)));
       return;
     }

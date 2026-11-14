@@ -325,6 +325,23 @@ describe('MemoryTab — Lost filter and lost-broker kills (Phase 148 B)', () => 
     expect(kill).not.toHaveBeenCalled();
   });
 
+  it('a retired broker of this build (not lost) still gets the tree confirm', () => {
+    installBridge();
+    const retired: ProcessInfo[] = [
+      proc({ pid: 500, name: 'Midnite Studio', argv: 'broker.js --socket retired.sock', ours: true, lost: null, brokerPid: 500 }),
+      proc({ pid: 501, ppid: 500, name: 'zsh', argv: '/bin/zsh -l', ours: true, lost: null, brokerPid: 500 }),
+    ];
+    useOptimizerStore.setState({ processes: retired, memory: null });
+    render(<MemoryTab />, { wrapper: StudioProviders });
+    const row = Array.from(document.querySelectorAll('tbody tr')).find(
+      (r) => r.querySelectorAll('td')[1]?.textContent === '500',
+    )!;
+    fireEvent.click(row.querySelector('button')!);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.textContent).toContain('1 terminal session will be ended');
+    expect(dialog.textContent).toContain('501 · ');
+  });
+
   it('End all lost names the brokers and their total RSS, then kills each broker once', async () => {
     const kill = renderLost();
     fireEvent.click(screen.getByRole('button', { name: /End all lost \(1 · / }));

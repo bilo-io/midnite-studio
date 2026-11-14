@@ -20,6 +20,12 @@ export const isLost = (proc: ProcessInfo): boolean => proc.lost != null;
 export const isLostBroker = (proc: ProcessInfo): boolean =>
   proc.ours && proc.brokerPid === proc.pid && (proc.lost === 'previous-build' || proc.lost === 'unreachable');
 
+/**
+ * Any broker row this app may end — a lost one, or a retired broker of this build still serving its
+ * sessions (`lost: null`). Either way main ends it as a tree, so its confirm lists the tree.
+ */
+export const isKillableBroker = (proc: ProcessInfo): boolean => proc.ours && proc.brokerPid === proc.pid;
+
 /** The broker and every process in its tree, broker first. */
 export function brokerTree(processes: readonly ProcessInfo[], brokerPid: number): ProcessInfo[] {
   return processes
@@ -61,7 +67,7 @@ export function lostTreeConfirm(
   const one = brokers.length === 1;
   const subject = one ? `broker ${brokers[0]?.pid}` : `${brokers.length} lost brokers`;
   return {
-    title: force ? `Force kill ${subject}` : one ? `End lost broker (PID ${brokers[0]?.pid})` : `End all lost brokers`,
+    title: force ? `Force kill ${subject}` : one ? `End terminal broker (PID ${brokers[0]?.pid})` : `End all lost brokers`,
     body: `${force ? 'SIGKILL every process' : 'SIGTERM the broker; its shutdown hangs up every session'} below — ${tree.length} ${
       tree.length === 1 ? 'process' : 'processes'
     }, ${formatBytes(rssBytes)} held. Unsaved work in them is lost.`,
