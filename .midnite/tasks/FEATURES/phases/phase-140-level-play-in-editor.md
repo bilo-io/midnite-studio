@@ -369,7 +369,7 @@ export const GAME_ENTITY_POLL_MS = 250;
   sandboxed runner; the editor shows ghosts, not the game.
 - **Editing the running game's state** (move an entity live). Copy live position goes one way, game → level.
 - **Breakpoints and a scripted debugger** — DevTools on the runner already exists.
-- **Recording play sessions** — `game_record` / replays are Phase 107/116 territory.
+- **Recording play sessions** — `game_replay_record` / `game_replay_play` already cover it.
 
 ## Decisions / open questions
 
