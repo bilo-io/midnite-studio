@@ -37,6 +37,8 @@ export {
 // The pieces other surfaces reuse: the chat store the graph and the companion
 // read, the message bubbles the song chat renders, and the engine list.
 export { useChatsStore } from './chats-store';
+export { ChatPane } from './chat-pane';
+export { useChatEvents } from './use-chat-events';
 export { AssistantMessage, UserMessage } from './chat-message';
 export { pickEngine, pickerModel, useChatEngines, wireModel, type ChatEngine } from './use-chat-engines';
 

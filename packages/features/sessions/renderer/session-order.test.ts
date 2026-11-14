@@ -1,12 +1,14 @@
-import type { ClosedSession, TerminalSession } from '@midnite/studio-shared';
+import type { ChatSummary, ClosedSession, TerminalSession } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import {
   groupSessionsByRepo,
   groupSessionsByWorkflowRun,
   isClosedManagedSession,
+  matchesSessionId,
   mergeManagedSessions,
   pickInitialClosedSession,
+  resolveManagedActiveView,
 } from './session-order';
 
 function closed(overrides: Partial<ClosedSession> & Pick<ClosedSession, 'id' | 'repoId' | 'title' | 'createdAt' | 'closedAt'>): ClosedSession {
@@ -224,5 +226,110 @@ describe('groupSessionsByWorkflowRun (Phase 95 Theme J)', () => {
   it('produces nothing when no session carries a workflowRunRef', () => {
     const merged = mergeManagedSessions([live({ id: 'plain', repoId: 'r1', title: 'repo', createdAt: 1 })], []);
     expect(groupSessionsByWorkflowRun(merged)).toEqual([]);
+  });
+});
+
+function chatSummary(overrides: Partial<ChatSummary> & Pick<ChatSummary, 'id' | 'engine' | 'title'>): ChatSummary {
+  return {
+    model: null,
+    mode: 'edit',
+    repoId: 'r1',
+    repoName: 'repo-one',
+    pinned: false,
+    createdAt: 1000,
+    updatedAt: 2000,
+    messageCount: 1,
+    preview: 'hi',
+    running: false,
+    pendingChanges: false,
+    ...overrides,
+  };
+}
+
+describe('mergeManagedSessions (unified chats + terminals)', () => {
+  it('deduplicates linked terminal/chat pairs via linkedChatId into one row', () => {
+    const term = live({
+      id: 't1',
+      kind: 'agent',
+      agentId: 'claude',
+      repoId: 'r1',
+      title: 'repo-one',
+      name: 'Fix bug',
+      createdAt: 1000,
+      linkedChatId: 'c1',
+      preferredView: 'chat',
+    });
+    const chat = chatSummary({
+      id: 'c1',
+      engine: 'claude',
+      title: 'Fix bug',
+      linkedTerminalId: 't1',
+      preferredView: 'chat',
+    });
+
+    const merged = mergeManagedSessions([term], [], [chat]);
+    expect(merged).toHaveLength(1);
+    const row = merged[0]!;
+    expect(isClosedManagedSession(row)).toBe(false);
+    if (!isClosedManagedSession(row)) {
+      expect(row.id).toBe('t1');
+      expect(row.terminalId).toBe('t1');
+      expect(row.chatId).toBe('c1');
+      expect(resolveManagedActiveView(row)).toBe('chat');
+      expect(matchesSessionId(row, 'c1')).toBe(true);
+      expect(matchesSessionId(row, 't1')).toBe(true);
+    }
+  });
+
+  it('deduplicates linked pairs when only ChatSummary carries linkedTerminalId', () => {
+    const term = live({
+      id: 't2',
+      kind: 'agent',
+      agentId: 'codex',
+      repoId: 'r1',
+      title: 'repo-one',
+      createdAt: 1500,
+    });
+    const chat = chatSummary({
+      id: 'c2',
+      engine: 'codex',
+      title: 'Codex thread',
+      linkedTerminalId: 't2',
+      preferredView: 'terminal',
+    });
+
+    const merged = mergeManagedSessions([term], [], [chat]);
+    expect(merged).toHaveLength(1);
+    const row = merged[0]!;
+    if (!isClosedManagedSession(row)) {
+      expect(row.id).toBe('t2');
+      expect(row.chatId).toBe('c2');
+      expect(resolveManagedActiveView(row)).toBe('terminal');
+    }
+  });
+
+  it('includes standalone chats as unified rows with chat preferredView and general repo fallback', () => {
+    const standalone = chatSummary({
+      id: 'c-ollama',
+      engine: 'ollama',
+      title: 'Local Ollama',
+      repoId: null,
+      repoName: null,
+      running: true,
+    });
+
+    const merged = mergeManagedSessions([], [], [standalone]);
+    expect(merged).toHaveLength(1);
+    const row = merged[0]!;
+    if (!isClosedManagedSession(row)) {
+      expect(row.id).toBe('c-ollama');
+      expect(row.chatId).toBe('c-ollama');
+      expect(row.terminalId).toBeUndefined();
+      expect(row.agentId).toBe('ollama');
+      expect(row.repoId).toBe('__general__');
+      expect(row.title).toBe('General');
+      expect(row.liveness).toBe('running');
+      expect(resolveManagedActiveView(row)).toBe('chat');
+    }
   });
 });

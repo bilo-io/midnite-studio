@@ -6,7 +6,18 @@ import type {
   GitTooltipProps,
   IconComponent,
 } from '@midnite/studio-frame';
-import type { AgentDefinition, ClosedSession, Commit, SessionActivity, TerminalSession } from '@midnite/studio-shared';
+import type {
+  AgentDefinition,
+  ChatSummary,
+  ClosedSession,
+  Commit,
+  GitOpResult,
+  ProviderSyncTier,
+  SessionActivity,
+  SessionHandoffMode,
+  TerminalSession,
+  UnifiedSessionViewMode,
+} from '@midnite/studio-shared';
 
 import type { ManagedLiveSession, ManagedSession } from './session-order';
 
@@ -80,6 +91,29 @@ export type SessionsLoopsPort = {
   loopIcon: (icon: string) => IconComponent;
 };
 
+/** Unified chats integration (Phase 146). Absent → terminal-only Sessions view. */
+export type SessionsChatsPort = {
+  /** All chat summaries for unified sidebar merging. A hook. */
+  useChats: () => readonly ChatSummary[];
+  /** Sync the active chat id into the chats store (loads the thread and targets composer sends). */
+  selectChat: (chatId: string | null) => void;
+  /** The chat pane, rendered when a unified session is in Chat mode. */
+  ChatPane: ComponentType<{ selectedId: string | null; headerActions?: ReactNode }>;
+  /** Switch a unified session between Chat and Terminal views via IPC and refresh stores. */
+  switchView: (request: {
+    sessionId: string;
+    targetView: UnifiedSessionViewMode;
+    handoffMode?: SessionHandoffMode;
+  }) => Promise<
+    GitOpResult<{
+      targetView: UnifiedSessionViewMode;
+      chatId?: string;
+      terminalId?: string;
+      syncTier?: ProviderSyncTier;
+    }>
+  >;
+};
+
 export type SessionsHost = {
   /** Every live (running or asleep) session the app knows. A hook; it may hydrate on first mount. */
   useLiveSessions: () => readonly TerminalSession[];
@@ -105,6 +139,7 @@ export type SessionsHost = {
   graph?: SessionsGraphPort;
   workflows?: SessionsWorkflowPort;
   loops?: SessionsLoopsPort;
+  chats?: SessionsChatsPort;
   /** A hook answering how to end a live session (with the app's own confirm), or null when this app may not. */
   useKill?: () => ((session: TerminalSession) => void) | null;
   /** Start an agent again on a conversation. Absent → no resume control. */

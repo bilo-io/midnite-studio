@@ -18,7 +18,7 @@ export function useChatEvents(): void {
   useEffect(() => {
     void useChatsStore.getState().refreshList();
     const api = bridge();
-    if (!api) return undefined;
+    if (!api?.chats?.onEvent) return undefined;
 
     let buffer: ChatEvent[] = [];
     let handle: number | ReturnType<typeof setTimeout> | null = null;
