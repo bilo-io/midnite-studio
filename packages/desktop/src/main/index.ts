@@ -19,7 +19,9 @@ import {
   ensureCanaries,
   LOOP_RUNS_DIRECTORY_NAME,
   runtimeHostDirectory,
+  scrubHostAgentProcessEnv,
   setDiskRedactionSecrets,
+  vaultFilesPresent,
   sweepProfileFiles,
   VAULT_GRANTS_FILE,
   tightenHistoryModes,
@@ -204,6 +206,7 @@ import { bootMark } from './perf-marks';
 import { startHeapSampler } from '../heap-sampler';
 import { ensureLoginShellPathAsync } from './shell-path';
 import { applyAppWebContentsPolicy } from './web-contents-policy';
+import { whenKeychainMayBeTouched } from './keychain-gate';
 import { createWindow } from './window';
 import { registerWindowChrome } from './window-chrome';
 import { registerLockHandlers } from './ipc/lock-handlers';
@@ -342,6 +345,14 @@ export const startStudioMain: StartStudioMain = () => {
   */
   bootMark('modules-loaded');
   startHeapSampler({ enabled: perfEnabled(process.env), processName: 'main', log: defaultLogger });
+
+  /*
+    If an agent CLI restarted Studio from its shell tool, main inherited that session's env (NO_COLOR, CLAUDE_CODE_*
+    and its messaging token). Drop it once, before the pty broker or any child is spawned from process.env, so a
+    new broker starts clean. Key names only are logged, never values.
+  */
+  const scrubbedEnvKeys = scrubHostAgentProcessEnv();
+  if (scrubbedEnvKeys.length > 0) defaultLogger.info(`scrubbed inherited host-agent env: ${scrubbedEnvKeys.join(', ')}`);
 
   app.setName('Midnite Studio');
 
@@ -823,7 +834,17 @@ export const startStudioMain: StartStudioMain = () => {
       const sessionHistory = createSessionHistoryStore(userData);
       configureSessions(sessionHistory);
       configurePrivacy(sessionHistory);
-      configureTerminals(createTerminalStore(userData), userData, sessionHistory);
+      const resolveSessionsMarkdownPath = (): string | null => {
+        const override = process.env.MSTUDIO_SESSIONS_MD;
+        if (override !== undefined) {
+          const trimmed = override.trim();
+          return trimmed.length > 0 ? trimmed : null;
+        }
+        return join(app.getPath('home'), 'Dev', 'midnite', 'MIDNITE_SESSIONS.md');
+      };
+      configureTerminals(createTerminalStore(userData), userData, sessionHistory, {
+        sessionsMarkdownPath: resolveSessionsMarkdownPath(),
+      });
       configureCouncils(createCouncilsStore(userData), createCouncilsRunsStore(userData));
       /*
         Wired here beside councils rather than in a boot chain: it is synchronous
@@ -1042,14 +1063,23 @@ export const startStudioMain: StartStudioMain = () => {
             }
           });
       };
-      refreshDiskSecrets();
+      // Both boot reads and writes below (refreshDiskSecrets reads, ensureCanaries reads and writes) go through the vault, i.e. the keychain; see keychain-gate.ts for when they may run.
+      const keychainGate = whenKeychainMayBeTouched(
+        () => {
+          refreshDiskSecrets();
+          void ensureCanaries({ vault: studioVault, homeDir: app.getPath('home') }).catch((error: unknown) =>
+            defaultLogger.warn(`canary setup failed: ${String(error)}`),
+          );
+        },
+        {
+          vaultPresent: () => vaultFilesPresent(userData),
+          onFirstAccess: (listener) => vaultService.onFirstAccess(listener),
+        },
+      );
       vaultService.onEntriesChanged(refreshDiskSecrets);
       vaultService.onLockedChange((isLocked) => {
         if (!isLocked) refreshDiskSecrets();
       });
-      void ensureCanaries({ vault: studioVault, homeDir: app.getPath('home') }).catch((error: unknown) =>
-        defaultLogger.warn(`canary setup failed: ${String(error)}`),
-      );
       /*
         The account registry (Phase 90 Theme B) — wired here beside every other
         userData store. `configureForgeAccounts` itself kicks off the on-disk
@@ -1250,6 +1280,7 @@ export const startStudioMain: StartStudioMain = () => {
       mainWindow = createWindow();
       bootMark('create-window');
       registerMainWindow(mainWindow);
+      keychainGate.attachWindow(mainWindow);
       // Detached windows that were open at the last shutdown (Notes) come back.
       void restoreReopenedPopouts(defaultLogger);
       mainWindow.on('closed', () => {
@@ -1283,6 +1314,7 @@ export const startStudioMain: StartStudioMain = () => {
         if (BrowserWindow.getAllWindows().length === 0) {
           mainWindow = createWindow();
           registerMainWindow(mainWindow);
+          keychainGate.attachWindow(mainWindow);
           void restoreReopenedPopouts(defaultLogger);
           mainWindow.on('closed', () => {
             closeAllPopouts();

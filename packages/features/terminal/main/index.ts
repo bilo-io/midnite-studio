@@ -69,6 +69,7 @@ export {
   startTerminalFlush,
   watchSessionExits,
   whenArchivesSettle,
+  type ConfigureTerminalsOptions,
   type ForgetIntent,
   type TerminalPorts,
   type TerminalPtyPort,

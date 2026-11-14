@@ -35,13 +35,11 @@ remaining one too. Keep prose agent-neutral (say "the agent" or "a session", not
 "Antigravity") except where the guidance is genuinely specific to one CLI's own behavior —
 that stays named, in the one file it actually applies to.
 
-## Where to work — ask before the first edit
+## Where to work — default to a worktree
 
-**At the start of every session, and again at the start of every new task, ask the user
-whether to work in the primary checkout (`/Users/bilolwabona/Dev/midnite-studio`) or in a
-worktree — and say that a worktree is the default.** Ask before the first file edit or
-branch switch, not after. The prompt is one line, e.g. _"Worktree (default) or the primary
-checkout for this one?"_.
+**Always create and work in a fresh worktree by default — do not ask the user.** Only work
+directly in the primary checkout (`/Users/bilo-ekko/Dev/midnite/midnite-studio`) if the user
+explicitly asks to in this session.
 
 Why: several sessions can be live at once. A session that quietly checks out a branch or
 edits files in the primary checkout stomps on whatever the human has open there — and the

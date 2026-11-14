@@ -70,6 +70,10 @@ export function ExplorerGroup({
   trailing,
   className = '',
   style,
+  wrapperRef,
+  headerAttributes,
+  headerListeners,
+  isDragging = false,
   children,
 }: {
   title: string;
@@ -82,11 +86,23 @@ export function ExplorerGroup({
   trailing?: ReactNode;
   className?: string;
   style?: CSSProperties;
+  wrapperRef?: (node: HTMLElement | null) => void;
+  headerAttributes?: Record<string, unknown>;
+  headerListeners?: Record<string, unknown>;
+  isDragging?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div className={`border-b border-border/40 last:border-b-0 ${className}`} style={style}>
-      <div className="sticky top-0 z-10 flex h-7 items-center gap-1 bg-background/95 px-2 text-[11px] font-medium text-muted-foreground backdrop-blur">
+    <div
+      ref={wrapperRef}
+      className={`border-b border-border/40 last:border-b-0 ${isDragging ? 'opacity-80' : ''} ${className}`}
+      style={style}
+    >
+      <div
+        className="sticky top-0 z-10 flex h-7 items-center gap-1 bg-background/95 px-2 text-[11px] font-medium text-muted-foreground backdrop-blur"
+        {...headerAttributes}
+        {...headerListeners}
+      >
         <button
           type="button"
           onClick={onToggle}

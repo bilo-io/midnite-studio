@@ -332,6 +332,7 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     label: 'Antigravity',
     command: 'agy',
     args: [],
+    resume: ['--continue'],
     accent: '#4285F4',
     icon: 'antigravity',
     install: 'curl -fsSL https://antigravity.google/cli/install.sh | bash',
@@ -596,11 +597,10 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
  * Otherwise, falls back to the agent's defined `resume` args (e.g. ['--continue']
  * or ['resume', '--last']) if present and non-empty.
  *
- * Returns `null` if the agent has no resume mechanism configured (such as 'agy' without
- * a conversationId, or 'openclaude').
+ * Returns `null` if the agent has no resume mechanism configured (such as 'cline').
  */
 export function buildResumeCommand(
-  agent: AgentDefinition,
+  agent: Pick<AgentDefinition, 'id' | 'resume'>,
   conversationId?: string | null,
 ): string[] | null {
   const trimmedId = conversationId?.trim();
@@ -621,6 +621,39 @@ export function buildResumeCommand(
   }
 
   return null;
+}
+
+const SAFE_POSIX_ARG_RE = /^[A-Za-z0-9._:/@-]+$/;
+
+/**
+ * Quote a single POSIX shell argument using single quotes when it contains
+ * whitespace, shell metacharacters, or is empty.
+ */
+export function quotePosixArg(value: string): string {
+  if (SAFE_POSIX_ARG_RE.test(value)) {
+    return value;
+  }
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+/**
+ * Format a copy-pasteable POSIX shell command to `cd` into `cwd` and resume
+ * the given agent conversation when a resume command is available.
+ */
+export function formatShellResumeCommand(
+  cwd: string,
+  agent?: Pick<AgentDefinition, 'id' | 'command' | 'resume'> | null,
+  conversationId?: string | null,
+): string {
+  const cdPart = `cd ${quotePosixArg(cwd)}`;
+  if (!agent) {
+    return cdPart;
+  }
+  const resumeArgs = buildResumeCommand(agent, conversationId);
+  if (!resumeArgs || resumeArgs.length === 0) {
+    return cdPart;
+  }
+  return `${cdPart} && ${quotePosixArg(agent.command)} ${resumeArgs.map(quotePosixArg).join(' ')}`;
 }
 
 /**

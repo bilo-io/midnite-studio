@@ -71,10 +71,10 @@ function useStudioGraphActions(onError: (message: string) => void, refs: readonl
 }
 
 /** The sidebar's own Stashes section, opened and unfolded — both folds independently hide it. */
-function revealStashes(repoId: string): void {
+function revealStashes(_repoId: string): void {
   const ui = useUiStore.getState();
   if (!ui.reposOpen) ui.setReposOpen(true);
-  if (ui.collapsedRepoSections[repoId]?.includes('stashes')) toggleRepoSection(repoId, 'stashes');
+  if (ui.collapsedRepoSections.includes('stashes')) toggleRepoSection('stashes');
 }
 
 function RunGlyph({ run }: { run: ForgeRun }) {

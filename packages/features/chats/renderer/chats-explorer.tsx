@@ -318,11 +318,25 @@ function ChatRow({
         icon={chat.pinned ? LuPinOff : LuPin}
         label={chat.pinned ? 'Unpin chat' : 'Pin chat'}
         size="sm"
-        className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+        className={`shrink-0 transition-opacity transition-colors group-hover:opacity-100 group-focus-within:opacity-100 hover:opacity-100 hover:text-amber-400 ${
+          chat.pinned ? 'opacity-90 text-amber-400' : 'opacity-50'
+        }`}
         onClick={onPin}
       />
-      <IconButton icon={LuPencil} label="Rename chat" size="sm" className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" onClick={onRename} />
-      <IconButton icon={LuTrash2} label="Delete chat" size="sm" className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" onClick={onDelete} />
+      <IconButton
+        icon={LuPencil}
+        label="Rename chat"
+        size="sm"
+        className="shrink-0 opacity-50 transition-opacity transition-colors group-hover:opacity-100 group-focus-within:opacity-100 hover:opacity-100 hover:text-sky-400"
+        onClick={onRename}
+      />
+      <IconButton
+        icon={LuTrash2}
+        label="Delete chat"
+        size="sm"
+        className="shrink-0 opacity-50 transition-opacity transition-colors group-hover:opacity-100 group-focus-within:opacity-100 hover:opacity-100 hover:text-rose-400"
+        onClick={onDelete}
+      />
     </div>
   );
 }

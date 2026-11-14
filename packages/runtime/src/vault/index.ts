@@ -4,6 +4,7 @@
  */
 export * from './secure-store';
 export * from './vault-service';
+export * from './vault-files-present';
 export { createFakeCipher, startTestVaultHost, testPairingIdentity, type FakeCipher, type TestVaultHost } from './testing';
 
 export * from './grants';

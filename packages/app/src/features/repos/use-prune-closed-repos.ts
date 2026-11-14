@@ -27,9 +27,6 @@ export function usePruneClosedRepos(): void {
     for (const tab of useApiClientStore.getState().tabs) {
       if (!open.has(tab.repoId)) useApiClientStore.getState().closeRepoTabs(tab.repoId);
     }
-    for (const repoId of Object.keys(useUiStore.getState().collapsedRepoSections)) {
-      if (!open.has(repoId)) useUiStore.getState().pruneRepoSections(repoId);
-    }
     const currentSelected = useUiStore.getState().selectedRepoId;
     if (currentSelected && !open.has(currentSelected)) {
       useUiStore.getState().selectRepo(null);

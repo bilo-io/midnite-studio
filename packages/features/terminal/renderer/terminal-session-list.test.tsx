@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { __resetAppFilter } from './app-filter';
 import { createDefaultTerminalHost } from './default-host';
 import { TerminalHostProvider } from './host';
-import { TerminalSessionList } from './terminal-session-list';
+import { reorderSessionsByGroupOrder, TerminalSessionList } from './terminal-session-list';
 import { useTerminalStore } from './terminal-store';
 
 const row = (id: string, appId?: TerminalSession['appId']): TerminalSession => ({
@@ -320,5 +320,76 @@ describe('TerminalSessionList — per-repo accordions', () => {
     fireEvent.click(rows[1]!);
     expect(onSelectRepo).toHaveBeenCalledWith({ repoId: 'repo:b', cwd: '/Users/dev/gamma' });
     expect(useTerminalStore.getState().activeId).toBe('s2');
+  });
+
+  it('renders detected repo favicon in the header when useRepoLogo returns a URL and falls back to LuFolderGit2 when null', () => {
+    const svgUrl = 'data:image/svg+xml;base64,PHN2Zy8+';
+    const host = {
+      ...createDefaultTerminalHost('studio'),
+      useRepos: () => [
+        {
+          id: 'repo-alpha',
+          name: 'alpha',
+          path: '/Users/dev/alpha',
+          worktrees: [],
+        } as never,
+      ],
+      useRepoLogo: (repoId: string | undefined) => (repoId === 'repo-alpha' ? svgUrl : null),
+    };
+
+    useTerminalStore.setState({
+      sessions: [
+        { ...row('s1', 'studio'), cwd: '/Users/dev/alpha', repoId: 'repo-alpha', title: 'alpha' },
+        { ...row('s2', 'studio'), cwd: '/Users/dev/beta', repoId: 'repo-beta', title: 'beta' },
+      ],
+      states: { s1: 'open', s2: 'open' },
+      activeId: 's1',
+    });
+
+    render(
+      <FrameChromeProvider chrome={createFrameChrome().chrome}>
+        <TerminalHostProvider host={host}>
+          <TerminalSessionList agents={[]} width={220} />
+        </TerminalHostProvider>
+      </FrameChromeProvider>,
+    );
+
+    const alphaHeader = screen.getByRole('button', { name: 'Collapse alpha' });
+    const alphaImg = alphaHeader.querySelector('[data-testid="terminal-repo-logo"]') as HTMLImageElement | null;
+    expect(alphaImg).not.toBeNull();
+    expect(alphaImg?.getAttribute('src')).toBe(svgUrl);
+    // Logo appears before the repo title span
+    const alphaTitle = alphaHeader.querySelector('span.truncate');
+    expect(alphaImg!.compareDocumentPosition(alphaTitle!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    const betaHeader = screen.getByRole('button', { name: 'Collapse beta' });
+    expect(betaHeader.querySelector('[data-testid="terminal-repo-logo"]')).toBeNull();
+    // Fallback icon SVG (chevron + LuFolderGit2 = 2 SVGs)
+    expect(betaHeader.querySelectorAll('svg')).toHaveLength(2);
+  });
+
+  it('reorderSessionsByGroupOrder reorders repo groups while preserving each group’s internal session order', () => {
+    const groups = [
+      {
+        repoId: '/repos/alpha',
+        items: [row('a1', 'studio'), row('a2', 'studio')],
+      },
+      {
+        repoId: '/repos/beta',
+        items: [row('b1', 'studio')],
+      },
+      {
+        repoId: '/repos/gamma',
+        items: [row('g1', 'studio'), row('g2', 'studio')],
+      },
+    ];
+
+    expect(reorderSessionsByGroupOrder(groups, ['/repos/gamma', '/repos/alpha', '/repos/beta'])).toEqual([
+      'g1',
+      'g2',
+      'a1',
+      'a2',
+      'b1',
+    ]);
   });
 });

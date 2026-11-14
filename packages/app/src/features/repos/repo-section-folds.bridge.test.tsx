@@ -87,7 +87,7 @@ beforeEach(() => {
   // `collapsedRepoSections` lives on `ui-store`'s module singleton, which
   // outlives any one test — reset it so a fold from one test cannot leak
   // into the next the way a per-mount `useState` never could.
-  useUiStore.setState({ collapsedRepoSections: {} });
+  useUiStore.setState({ collapsedRepoSections: [] });
 });
 
 afterEach(cleanup);

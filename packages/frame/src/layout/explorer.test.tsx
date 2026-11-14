@@ -79,4 +79,65 @@ describe('ExplorerGroup', () => {
     fireEvent.click(button);
     expect(screen.getByRole('button', { name: 'Expand midnite-studio' }).getAttribute('aria-expanded')).toBe('false');
   });
+
+  it('attaches wrapperRef, headerAttributes, headerListeners, and opacity-80 when isDragging', () => {
+    let capturedNode: HTMLElement | null = null;
+    let toggleCount = 0;
+
+    const { rerender } = render(
+      <ExplorerGroup
+        title="midnite-studio"
+        count={1}
+        open={true}
+        onToggle={() => {
+          toggleCount += 1;
+        }}
+        bodyId="g2"
+        wrapperRef={(node) => {
+          capturedNode = node;
+        }}
+        headerAttributes={{ 'data-header-attr': 'yes' }}
+        headerListeners={{ 'data-header-listener': 'yes' }}
+        isDragging={false}
+      >
+        <div data-testid="child-row">row-1</div>
+      </ExplorerGroup>,
+    );
+
+    expect(capturedNode).not.toBeNull();
+    expect(capturedNode!.className).not.toContain('opacity-80');
+
+    const header = screen.getByRole('button', { name: 'Collapse midnite-studio' }).parentElement!;
+    expect(header.getAttribute('data-header-attr')).toBe('yes');
+    expect(header.getAttribute('data-header-listener')).toBe('yes');
+
+    const child = screen.getByTestId('child-row');
+    expect(child.getAttribute('data-header-attr')).toBeNull();
+    expect(child.getAttribute('data-header-listener')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse midnite-studio' }));
+    expect(toggleCount).toBe(1);
+
+    rerender(
+      <ExplorerGroup
+        title="midnite-studio"
+        count={1}
+        open={true}
+        onToggle={() => {
+          toggleCount += 1;
+        }}
+        bodyId="g2"
+        wrapperRef={(node) => {
+          capturedNode = node;
+        }}
+        headerAttributes={{ 'data-header-attr': 'yes' }}
+        headerListeners={{ 'data-header-listener': 'yes' }}
+        isDragging={true}
+      >
+        <div data-testid="child-row">row-1</div>
+      </ExplorerGroup>,
+    );
+
+    expect(capturedNode!.className).toContain('opacity-80');
+  });
 });

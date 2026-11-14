@@ -4,6 +4,7 @@ import { EVENT_CHANNELS, SCROLLBACK_BYTES, type SessionActivity } from '@midnite
 import {
   createActivityClock,
   createActivityState,
+  scrubHostAgentEnv,
   type ActivityDetector,
   type ActivityState,
   type BrokerClient,
@@ -695,7 +696,8 @@ async function createPtyUnconfined(options: {
       ...options,
       ...(confineProfile ? { confine: { profile: confineProfile } } : {}),
       env: {
-        ...process.env,
+        // Never inherit the session markers of an agent that happened to launch Studio.
+        ...scrubHostAgentEnv(process.env),
         COLORTERM: 'truecolor',
         TERM_PROGRAM: 'midnite-studio',
         GIT_TERMINAL_PROMPT: '1',

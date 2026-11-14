@@ -766,6 +766,9 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
             cwd,
             env: {
               COLORTERM: 'truecolor',
+              // Not scrubbed here: `env` is main's already-scrubbed ambient env plus the user's explicit per-session
+              // overrides (which may legitimately name a CLAUDE_CODE_* setting). Main owns the scrub: every host app's main should call
+              // scrubHostAgentProcessEnv at boot (only Studio's does so far).
               ...env,
               TERM_PROGRAM: 'midnite-studio',
               GIT_TERMINAL_PROMPT: '1',

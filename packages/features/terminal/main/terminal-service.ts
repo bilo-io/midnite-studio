@@ -12,6 +12,11 @@ import {
 import { createAgentsStore, type AgentsStore } from './agents-store';
 import { nullSessionHistoryStore, type SessionHistoryStore } from './session-history-store';
 import {
+  createSessionsMarkdownSync,
+  type MarkdownSnapshot,
+  type SessionsMarkdownSync,
+} from './sessions-markdown-sync';
+import {
   nullTerminalStore,
   scrollbackPath,
   trimScrollback,
@@ -161,16 +166,58 @@ const FLUSH_INTERVAL_MS = 15_000;
 let saveTimer: NodeJS.Timeout | null = null;
 let flushTimer: NodeJS.Timeout | null = null;
 
+const nullMarkdownSync: SessionsMarkdownSync = {
+  schedule: () => {},
+  flush: () => Promise.resolve(),
+  stop: () => {},
+};
+let markdownSync: SessionsMarkdownSync = nullMarkdownSync;
+
+export type ConfigureTerminalsOptions = {
+  sessionsMarkdownPath?: string | null;
+  requireExistingMarkdownDir?: boolean;
+};
+
+async function buildMarkdownSnapshot(): Promise<MarkdownSnapshot> {
+  if (sessions.length === 0) sessions = await store.load();
+  const [closed, agentList] = await Promise.all([history.list(), listAgents()]);
+  const active = sessions.map((session) => {
+    const bound = port().pty.livePtyFor(session.id);
+    const detectedAgentId =
+      bound === null ? undefined : (port().pty.agentIdFor?.(bound.ptyId) ?? undefined);
+    return {
+      session,
+      live: bound === null ? null : { pid: bound.pid, legacy: bound.legacy },
+      detectedAgentId,
+      exitCode: lastExit.get(session.id) ?? null,
+    };
+  });
+  return {
+    now: Date.now(),
+    active,
+    closed,
+    agents: agentList,
+  };
+}
+
 export function configureTerminals(
   terminalStore: TerminalStore,
   userDataDir: string,
   historyStore: SessionHistoryStore = nullSessionHistoryStore,
+  options: ConfigureTerminalsOptions = {},
 ): void {
   store = terminalStore;
   loaded = false;
   history = historyStore;
   agents = createAgentsStore(userDataDir);
   dataDir = userDataDir;
+  markdownSync.stop();
+  markdownSync = createSessionsMarkdownSync({
+    targetPath: options.sessionsMarkdownPath ?? null,
+    requireExistingParentDir: options.requireExistingMarkdownDir ?? true,
+    readSnapshot: buildMarkdownSnapshot,
+    log: (msg) => port().log(msg),
+  });
 }
 
 /**
@@ -184,6 +231,11 @@ export function watchSessionExits(): void {
   if (stopExitWatch) return;
   stopExitWatch = port().pty.onSessionExit((sessionId, exitCode) => {
     lastExit.set(sessionId, exitCode);
+    markdownSync.schedule();
+    const exited = sessions.find((s) => s.id === sessionId);
+    if (exited && exited.kind === 'agent' && exited.agentId && !exited.agentConversationId) {
+      void getOrLocateConversationId(sessionId).catch(() => undefined);
+    }
   });
 }
 
@@ -429,6 +481,7 @@ export function saveTerminal(session: TerminalSession): void {
   if (index === -1) sessions.push(session);
   else sessions[index] = session;
   scheduleSave();
+  markdownSync.schedule();
 }
 
 /** Insert or update one row and flush `terminals.json` immediately (Phase 146). */
@@ -479,11 +532,13 @@ export function forgetTerminal(sessionId: string, intent: ForgetIntent = 'closed
   sessions = sessions.filter((s) => s.id !== sessionId);
   if (!loaded) forgottenBeforeLoad.add(sessionId);
   scheduleSave();
+  markdownSync.schedule();
 
   const archive = archiveSession(session, intent).finally(() => {
     port().pty.dropScrollback(sessionId);
     lastExit.delete(sessionId);
     inFlightArchives.delete(archive);
+    markdownSync.schedule();
   });
   inFlightArchives.add(archive);
 }
@@ -575,6 +630,7 @@ export function reorderTerminals(sessionIds: readonly string[]): void {
   }
   sessions = [...ordered, ...byId.values()];
   scheduleSave();
+  markdownSync.schedule();
 }
 
 export async function listAgents(): Promise<AgentDefinition[]> {
@@ -620,7 +676,7 @@ export async function shutdownTerminals(): Promise<void> {
   await whenArchivesSettle();
   // Never save a list that was never loaded — that is what used to wipe `terminals.json` on quit.
   await ensureLoaded();
-  await Promise.all([persist(), flushScrollback()]);
+  await Promise.all([persist(), flushScrollback(), markdownSync.flush()]);
 }
 
 /**
@@ -645,6 +701,16 @@ function scheduleSave(): void {
 
 /** Reset module state. Tests only — the app has exactly one session list. */
 export function resetTerminalsForTest(): void {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  if (flushTimer) {
+    clearInterval(flushTimer);
+    flushTimer = null;
+  }
+  markdownSync.stop();
+  markdownSync = nullMarkdownSync;
   sessions = [];
   loaded = false;
   loading = null;
@@ -684,6 +750,7 @@ export async function getOrLocateConversationId(sessionId: string): Promise<stri
       if (id) {
         live.agentConversationId = id;
         scheduleSave();
+        markdownSync.schedule();
         return id;
       }
     }
@@ -705,6 +772,7 @@ export async function getOrLocateConversationId(sessionId: string): Promise<stri
       if (id) {
         closed.agentConversationId = id;
         await history.update(closed);
+        markdownSync.schedule();
         return id;
       }
     }

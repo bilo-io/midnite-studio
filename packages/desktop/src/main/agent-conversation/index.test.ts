@@ -40,4 +40,25 @@ describe('locateAgentConversation and the Read Claude and Codex history switch',
     applySettingsSync({ autoFetchEnabled: true, autoFetchIntervalMs: 60_000, readAgentHistory: false });
     expect(await locateAgentConversation('claude', cwd, 5_000, 15_000, { claudeProjectsDir: root })).toBeNull();
   });
+
+  it('locates agy conversations only when the history reads switch is on', async () => {
+    const agyBrain = join(root, 'agy-brain');
+    const agyUuid = '88888888-8888-4888-8888-888888888888';
+    await mkdir(join(agyBrain, agyUuid), { recursive: true });
+    await utimes(join(agyBrain, agyUuid), 10, 10);
+
+    expect(
+      await locateAgentConversation('agy', cwd, 5_000, 15_000, { agyBrainDir: agyBrain }),
+    ).toBeNull();
+
+    applySettingsSync({ autoFetchEnabled: true, autoFetchIntervalMs: 60_000, readAgentHistory: true });
+    expect(
+      await locateAgentConversation('agy', cwd, 5_000, 15_000, { agyBrainDir: agyBrain }),
+    ).toBe(agyUuid);
+
+    applySettingsSync({ autoFetchEnabled: true, autoFetchIntervalMs: 60_000, readAgentHistory: false });
+    expect(
+      await locateAgentConversation('agy', cwd, 5_000, 15_000, { agyBrainDir: agyBrain }),
+    ).toBeNull();
+  });
 });
