@@ -14,6 +14,7 @@ type Bridge = {
   list?: ReturnType<typeof vi.fn>;
   get?: ReturnType<typeof vi.fn>;
   set?: ReturnType<typeof vi.fn>;
+  mapAsset?: ReturnType<typeof vi.fn>;
   goto?: ReturnType<typeof vi.fn>;
   manifestGet?: ReturnType<typeof vi.fn>;
   manifestSet?: ReturnType<typeof vi.fn>;
@@ -22,7 +23,7 @@ type Bridge = {
 export function installBridge(b: Bridge): void {
   (window as unknown as { midniteStudio: unknown }).midniteStudio = {
     games: {
-      levels: { list: b.list ?? vi.fn(), get: b.get ?? vi.fn(), set: b.set ?? vi.fn() },
+      levels: { list: b.list ?? vi.fn(), get: b.get ?? vi.fn(), set: b.set ?? vi.fn(), mapAsset: b.mapAsset ?? vi.fn() },
       goto: b.goto ?? vi.fn(),
       manifest: { get: b.manifestGet ?? vi.fn(), set: b.manifestSet ?? vi.fn() },
     },

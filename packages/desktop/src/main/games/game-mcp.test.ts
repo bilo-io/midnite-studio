@@ -72,6 +72,7 @@ function setup(
         list: async () => ({ ok: true as const, value: { scenes: [{ scene: 'level', bytes: 9, dimension: '2d' as const, issue: null }], start: 'level', readsLevels: true } }),
         get: async () => ({ ok: true as const, value: { level: { type: 'map' }, issues: [], images: [{ path: 't.png', dataUrl: 'data:image/png;base64,AAAA' }] } }),
         set: async () => ({ ok: true as const, value: { sha: 'abc123' } }),
+        mapAsset: async () => ({ ok: true as const, value: { level: { type: 'map' }, issues: [] } }),
         ...opts.levels,
       },
       goto: opts.goto ?? (async () => ({ ok: true as const, value: { via: 'hook' as const } })),

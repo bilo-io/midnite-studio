@@ -32,6 +32,7 @@ export const mediaGameManifest = defineFeatureManifest({
     CHANNELS.gamesLevels,
     CHANNELS.gamesLevelGet,
     CHANNELS.gamesLevelSet,
+    CHANNELS.gamesLevelMapAsset,
     CHANNELS.gamesLevelModel,
     CHANNELS.gamesGoto,
     CHANNELS.gamesPopOut,

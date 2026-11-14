@@ -982,6 +982,7 @@ export const CHANNELS = {
   gamesLevels: 'mstudio:games:levels',
   gamesLevelGet: 'mstudio:games:level-get',
   gamesLevelSet: 'mstudio:games:level-set',
+  gamesLevelMapAsset: 'mstudio:games:level-map-asset',
   /** A game's `model` asset bytes for the level editor's 3D view (Phase 136 Theme F). */
   gamesLevelModel: 'mstudio:games:level-model',
   gamesGoto: 'mstudio:games:goto',

@@ -740,6 +740,7 @@ const bridge: Pick<
       list: (req) => call(CHANNELS.gamesLevels, req),
       get: (req) => call(CHANNELS.gamesLevelGet, req),
       set: (req) => call(CHANNELS.gamesLevelSet, req),
+      mapAsset: (req) => call(CHANNELS.gamesLevelMapAsset, req),
       model: (req) => call(CHANNELS.gamesLevelModel, req),
     },
     goto: (req) => call(CHANNELS.gamesGoto, req),

@@ -77,7 +77,7 @@ first, then **B** and **C** in parallel, then **D**, **F**, **G**, then **E**, t
 
 **Theme C — Level format, kit loader and the scene jump.** ✅ `shared/src/game-level.ts` (loose `parseGameLevel`, the 2D and 3D conventions, `levelEntityToWorld`, the level IPC schemas), additive Tiled property/class/polyline fields and `cellAt`, the manifest's `levels` key and `GameSceneNameSchema`, `kit/core/level.js` with Phaser (`preloadLevel`, `buildLevel`, `KitLevelScene`) and three (`buildLevel3d`) builders, `window.__midnite.goto` (in place for a Phaser `level` scene, else a reload on `?midnite-level=`) and `getState().level`, kit 0.12.0, `game-levels.ts` (list/get/set confined to `levels/`, one pathspec commit per save) and the runner's `goto` (`hook` / `reload` / `next-run`) behind four channels, Studio's preload and Gamer's bridge. `GAME_ENGINE_VERSIONS.three` is left at 0.186.1 (desktop pins 0.187.0): that mismatch predates this theme and a vendored-engine bump is its own change.
 
-**Theme D — 2D tile and entity editor, and the scene picker.** ✅ (part; the e2e has landed) The Level editor tab is a canvas editor over a pure edit model (`level-edit-model.ts`: paint, erase, rectangle, pick, entities, typed properties, layers, a 100-step undo where a drag is one step, `serialise` keeping fields it never touched). It draws with Sprites' `map-view.ts` and hit-tests with `cellAt`, isometric included; wheel zoom 0.25x-8x, Space or middle-drag pan; B/E/R/I/O/V and Mod+Z act only with the canvas focused. A layer list, tile palette, entity palette and inspector sit around it; Save is one `level-set` commit, no autosave. The scene picker sits in B's `sceneSlot`: picking opens the level and calls `goto`, a dirty level asks Save/Discard/Cancel, `next-run` says so; the open level and its undo live in a per-game store. New scene makes a blank level by perspective and can opt the game into `levels.start`. A tileset image that is missing does not make a level read-only (only a parse issue does); 3D levels open read-only until E. Not done: **Start from a map asset** (no renderer read for `assets/map/`), the canvas look, which stays a human check in H.
+**Theme D — 2D tile and entity editor, and the scene picker.** ✅ The Level editor tab is a canvas editor over a pure edit model (`level-edit-model.ts`: paint, erase, rectangle, pick, entities, typed properties, layers, a 100-step undo where a drag is one step, `serialise` keeping fields it never touched). It draws with Sprites' `map-view.ts` and hit-tests with `cellAt`, isometric included; wheel zoom 0.25x-8x, Space or middle-drag pan; B/E/R/I/O/V and Mod+Z act only with the canvas focused. A layer list, tile palette, entity palette and inspector sit around it; Save is one `level-set` commit, no autosave. The scene picker sits in B's `sceneSlot`: picking opens the level and calls `goto`, a dirty level asks Save/Discard/Cancel, `next-run` says so; the open level and its undo live in a per-game store. New scene makes a blank level by perspective, can start from an imported `map` asset (`mstudio:games:level-map-asset` confined to `assets/map/<name>/map.tmj`, rewriting tileset `image` paths with `rewriteTilesetImages`), and can opt the game into `levels.start`. A tileset image that is missing does not make a level read-only (only a parse issue does); 3D levels open read-only until E. Not done: the canvas look, which stays a human check in H.
 
 **Theme E — 3D placement editor.** ✅ The Level editor tab opens a 3D level (`midnite.dimension` `3d`) in plan view on the same canvas, edit model and picker: tile tools, the tile palette and the Tile layer button give way to **Select / Move** (V), **Place** (O), **Volume** (R, drag a rectangle into a `prop` box with `sizeY` 3), **Path** (P, click points, Enter finishes a polyline `path`) and **Rotate** (Y, drag around the object, Shift snaps to 15°). Yaw is Tiled's own `rotation`, turned about the footprint's centre so its world position does not move. The canvas draws a metre grid (1 m lines, every tenth bold, thinned when zoomed out), footprints as rotated rectangles with a yaw tick, and the terrain only as a dashed outline over its drape image: `levelGet` gained an optional `terrain` (`game-level-terrain.ts` reads `assets/index.json`, the pack's `terrain.manifest.json` bounds and its drape, confined to the game). The inspector adds elevation (empty snaps to ground), sizeY, pitch, roll, scale, a model select over the game's `model` assets, collider, a light's intensity, range and colour, and a read-only world position from `levelEntityToWorld`. New scene makes a 3D scene (80 × 80 m, objects layer with one spawn, `3d` dimension, one metre a tile); the read-only banner for 3D is gone (only a non-orthogonal 3D level stays read-only). Tests: the 3D model ops, plan geometry, the editor's 3D tools and inspector, `readLevelTerrain`, and an agreement test that the editor's placements map to the same world position in `levelEntityToWorld` and the kit's `toWorld3d`. Not done: the canvas look and the human pass on a third-person game, which stay in H.
 
@@ -417,10 +417,10 @@ keep editing scenes as code.
   - When the game has no `levels` key yet, creating the first scene also offers **Make this the start scene**
     (unchecked by default), which sets `levels: { dir: 'levels', start: <scene> }` through `games.manifest.set` — the
     explicit opt-in of Decision 14.
-- [ ] **Start from a map asset** in the New scene dialog: any `map` asset already imported into this game
-  (`manifest.assets` kind `map`, `assets/map/<name>/map.tmj`), copied with its tileset `image` paths rewritten relative
-  to `levels/`. Not built in this pass: the renderer has no channel that reads a game file outside `levels/`, so it
-  needs a small read op first (`rewriteTilesetImages` in `new-scene-model.ts` is the pure half, tested).
+- [x] **Start from a map asset** in the New scene dialog: any `map` asset already imported into this game
+  (`manifest.assets` kind `map`, `assets/map/<name>/map.tmj`), read through `mstudio:games:level-map-asset` (confined
+  to `assets/map/<name>/map.tmj`) and copied with its tileset `image` paths rewritten relative to `levels/` via
+  `rewriteTilesetImages`.
 - [x] Tests (vitest/jsdom)
   - Net-new `level-edit-model.test.ts`: paint/erase/rect produce the right `data`; undo/redo round-trip and the 100 cap;
     object ids follow `nextobjectid`; `serialise` keeps unknown fields; the result passes `parseGameLevel`.
@@ -564,14 +564,14 @@ keep editing scenes as code.
 ## Verification
 
 - [ ] `moon run :typecheck :lint :test` green in CI.
-- [ ] `game-open.test.ts`, `game-service-add.test.ts`, `opened-games.test.ts`, `game-explorer.test.tsx` (A).
-- [ ] `game-center.test.tsx`, `game-tab-mode.test.tsx`, the runner-host, toolbar and settings-store cases (B).
-- [ ] `game-level.test.ts`, `kit-level.test.ts` (including the kit ↔ shared agreement), `game-levels.test.ts`, the runner
+- [x] `game-open.test.ts`, `game-service-add.test.ts`, `opened-games.test.ts`, `game-explorer.test.tsx` (A).
+- [x] `game-center.test.tsx`, `game-tab-mode.test.tsx`, the runner-host, toolbar and settings-store cases (B).
+- [x] `game-level.test.ts`, `kit-level.test.ts` (including the kit ↔ shared agreement), `game-levels.test.ts`, the runner
   `goto` cases, `map-view` `cellAt` (C).
-- [ ] `level-edit-model.test.ts`, `scene-picker.test.tsx`, `level-editor.test.tsx`, `new-scene-dialog.test.tsx` and the
+- [x] `level-edit-model.test.ts`, `scene-picker.test.tsx`, `level-editor.test.tsx`, `new-scene-dialog.test.tsx` and the
   one e2e (D); the 3D model and inspector cases (E).
 - [x] `starter-levels.test.ts` and the layout regression; existing template tests green (F).
-- [ ] The MCP id, read-set and write-set tests (G).
+- [x] The MCP id, read-set and write-set tests (G).
 - [ ] **Open, for a human:** the passes listed under H.
 
 ## Not in this phase
