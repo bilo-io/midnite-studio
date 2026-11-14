@@ -550,6 +550,34 @@ describe('useTerminalStore', () => {
       expect(sessionPhase(restored!, state.states['s-legacy'])).toBe('live');
     });
 
+    it('keeps every legacy row — recovered ones included — bound live and marked legacy', async () => {
+      mockBridge(
+        [
+          {
+            session: session('s-legacy-a'),
+            scrollback: new Uint8Array(),
+            live: { ptyId: 'pty-a', pid: 1, cols: 80, rows: 24 },
+            legacy: true,
+          },
+          {
+            // A row main rebuilt from the broker alone: home folder, no repo of its own.
+            session: { ...session('s-legacy-b'), title: 'me', cwd: '/Users/me', repoId: 'repo:/Users/me' },
+            scrollback: new Uint8Array(),
+            live: { ptyId: 'pty-b', pid: 2, cols: 80, rows: 24 },
+            legacy: true,
+          },
+        ],
+        vi.fn(),
+      );
+
+      await useTerminalStore.getState().hydrate();
+
+      const state = useTerminalStore.getState();
+      expect(state.sessions.map((s) => s.id)).toEqual(['s-legacy-a', 's-legacy-b']);
+      expect(state.legacy).toMatchObject({ 's-legacy-a': true, 's-legacy-b': true });
+      expect(state.ptyIds).toMatchObject({ 's-legacy-a': 'pty-a', 's-legacy-b': 'pty-b' });
+    });
+
     it('seeds liveAgentId from live.agentId on hydrate', async () => {
       mockBridge(
         [
