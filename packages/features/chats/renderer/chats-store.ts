@@ -225,7 +225,7 @@ export const useChatsStore = create<ChatsState>()((set, get) => ({
 
   refreshList: async () => {
     const api = bridge();
-    if (!api) {
+    if (!api?.chats?.list) {
       set({ listStatus: 'ready' });
       return;
     }

@@ -12,6 +12,7 @@ import {
   useCollapsedGroups,
   useFrameChrome,
   useResizable,
+  useToastStore,
   type ActivityGlowSessionInput,
   type DotState,
   type GitMultiSelectOption as MultiSelectOption,
@@ -21,11 +22,15 @@ import {
   commitsForLiveSession,
   commitsForSession,
   DEFAULT_LOOPS,
+  getProviderSyncTier,
   WORKFLOW_SESSION_REPO_ID,
   type AgentDefinition,
+  type ChatSummary,
   type ClosedSession,
   type Commit,
   type SessionActivity,
+  type TerminalSession,
+  type UnifiedSessionViewMode,
 } from '@midnite/studio-shared';
 import {
   LuActivity,
@@ -33,6 +38,7 @@ import {
   LuExternalLink,
   LuFilter,
   LuFolderGit2,
+  LuMessageSquare,
   LuOctagonX,
   LuPlay,
   LuRefreshCw,
@@ -44,6 +50,7 @@ import {
 import {
   useSessionsHost,
   type SessionConnectionState as ConnectionState,
+  type SessionsChatsPort,
   type SessionsGraphPort,
   type SessionsHistoryPort,
   type SessionsLoopsPort,
@@ -53,9 +60,11 @@ import {
   groupSessionsByRepo,
   groupSessionsByWorkflowRun,
   isClosedManagedSession,
+  matchesSessionId,
   mergeManagedSessions,
   pickInitialClosedSession,
   relativeAge,
+  resolveManagedActiveView,
   type ManagedLiveSession,
   type ManagedSession,
   type ManagedSessionLiveness,
@@ -77,6 +86,8 @@ const NO_GRAPH: SessionsGraphPort = { useCommits: () => NO_COMMITS, showCommits:
 const NO_LOOPS: Pick<SessionsLoopsPort, 'useLoopIdBySession'> = { useLoopIdBySession: () => NO_LOOP_RUNS };
 const NO_WORKFLOW_NAMES = () => undefined;
 const NO_KILL = () => null;
+const EMPTY_CHATS: readonly ChatSummary[] = [];
+const NO_CHATS_HOOK = () => EMPTY_CHATS;
 
 /** An agent's display label, or `undefined` for a plain terminal or an agent the roster does not know. */
 function agentLabelFor(agentId: string | undefined, agents: readonly AgentDefinition[]): string | undefined {
@@ -250,10 +261,12 @@ function SessionsManager({
   const groupCascade = host.useCascadeReveal({ revealKey: 'sessions' });
 
   const historyPort = host.history;
+  const chatsPort = host.chats;
   const history = (historyPort?.useHistory ?? EMPTY_HISTORY)();
   const refresh = (historyPort?.useRefresh ?? (() => NO_REFRESH))();
   const agents = host.useAgents();
   const liveSessions = host.useLiveSessions();
+  const chatSummaries = (chatsPort?.useChats ?? NO_CHATS_HOOK)();
 
   /**
    * `sessionId → loopId` for every session a loop ever launched — the same ledger the FAB tab strip's
@@ -273,7 +286,8 @@ function SessionsManager({
   const kill = (host.useKill ?? NO_KILL)();
   const killSession = kill
     ? (session: ManagedLiveSession) => {
-        const raw = liveSessions.find((s) => s.id === session.id);
+        const targetId = session.terminalId ?? session.id;
+        const raw = liveSessions.find((s) => s.id === targetId);
         if (raw) kill(raw);
       }
     : undefined;
@@ -309,8 +323,8 @@ function SessionsManager({
 
   const closedAll = useMemo(() => history.data ?? [], [history.data]);
   const all = useMemo(
-    () => mergeManagedSessions(liveSessions, closedAll),
-    [liveSessions, closedAll],
+    () => mergeManagedSessions(liveSessions, closedAll, chatSummaries),
+    [liveSessions, closedAll, chatSummaries],
   );
 
   const normalSessions = useMemo(
@@ -446,10 +460,23 @@ function SessionsManager({
   // mounted keeps the same id (`closedFromSession`), so the pane flips
   // itself from a live placeholder to the transcript with no extra wiring.
   const selectedId = useMemo(() => {
-    if (storedLive !== null && rows.some((row) => row.id === storedLive)) return storedLive;
+    if (storedLive !== null) {
+      const matched = rows.find((row) => matchesSessionId(row, storedLive));
+      if (matched) return matched.id;
+    }
     return selectedClosedId;
   }, [storedLive, rows, selectedClosedId]);
   const selected = rows.find((row) => row.id === selectedId) ?? null;
+
+  const [switchingTarget, setSwitchingTarget] = useState<UnifiedSessionViewMode | null>(null);
+
+  // Keep the chats store synced whenever a unified row in Chat mode is active.
+  useEffect(() => {
+    if (!chatsPort || !selected || isClosedManagedSession(selected)) return;
+    if (resolveManagedActiveView(selected) === 'chat' && selected.chatId) {
+      chatsPort.selectChat(selected.chatId);
+    }
+  }, [chatsPort, selected]);
 
   const selectRow = (session: ManagedSession) => {
     if (isClosedManagedSession(session)) {
@@ -457,8 +484,42 @@ function SessionsManager({
       selectClosedSession(session.id);
     } else {
       selectLiveSession(session.id);
+      if (session.chatId && resolveManagedActiveView(session) === 'chat') {
+        chatsPort?.selectChat(session.chatId);
+      }
     }
-    host.onSelectRepo?.({ repoId: session.repoId, cwd: session.cwd });
+    host.onSelectRepo?.({
+      repoId: session.repoId === '__general__' ? undefined : session.repoId,
+      cwd: session.cwd || undefined,
+    });
+  };
+
+  const handleSwitchView = async (session: ManagedLiveSession, targetView: UnifiedSessionViewMode) => {
+    if (!chatsPort || switchingTarget !== null) return;
+    if (resolveManagedActiveView(session) === targetView) return;
+    if (targetView === 'terminal' && session.agentId && getProviderSyncTier(session.agentId) === 'chat-only') {
+      return;
+    }
+
+    const sessionId = session.terminalId ?? session.chatId ?? session.id;
+    setSwitchingTarget(targetView);
+    try {
+      const result = await chatsPort.switchView({ sessionId, targetView, handoffMode: 'auto' });
+      if (!result.ok) {
+        useToastStore
+          .getState()
+          .addToast({ message: result.kind === 'error' ? result.message : 'Could not switch view.', status: 'error' });
+        return;
+      }
+      if (result.value.targetView === 'terminal' && result.value.terminalId) {
+        selectLiveSession(result.value.terminalId);
+      } else if (result.value.targetView === 'chat' && result.value.chatId) {
+        selectLiveSession(result.value.terminalId ?? result.value.chatId);
+        chatsPort.selectChat(result.value.chatId);
+      }
+    } finally {
+      setSwitchingTarget(null);
+    }
   };
 
   // Phase 95 Theme J — a workflow node's session is pulled OUT of the
@@ -769,10 +830,19 @@ function SessionsManager({
           <Notice>{historyPort ? 'Select a session to read its transcript.' : 'Select a session to attach to it.'}</Notice>
         ) : isClosedManagedSession(selected) ? (
           historyPort ? <historyPort.TranscriptPane sessionId={selected.id} /> : null
-        ) : (
+        ) : !selected.agentId || !chatsPort ? (
           <host.LivePane
             session={selected}
-            rawSession={liveSessions.find((s) => s.id === selected.id) ?? null}
+            rawSession={liveSessions.find((s) => s.id === (selected.terminalId ?? selected.id)) ?? null}
+          />
+        ) : (
+          <UnifiedSessionContent
+            session={selected}
+            liveSessions={liveSessions}
+            agents={agents}
+            chatsPort={chatsPort}
+            switchingTarget={switchingTarget}
+            onSwitchView={(targetView) => void handleSwitchView(selected, targetView)}
           />
         )}
       </div>
@@ -949,7 +1019,7 @@ function RepoSessionsGroup({
             selected={record.id === selectedId}
             onSelect={() => onSelect(record)}
             onPurge={isClosedManagedSession(record) ? () => purgeOne(record) : undefined}
-            onKill={isClosedManagedSession(record) || !onKill ? undefined : () => onKill(record)}
+            onKill={isClosedManagedSession(record) || !onKill || !record.terminalId ? undefined : () => onKill(record)}
             onResume={onResume ? () => onResume(record) : undefined}
             loopId={loopIdBySession.get(record.id)}
             checked={selectedIds.has(record.id)}
@@ -1009,7 +1079,7 @@ function SessionRow({
   const label = managedSessionLabel(record, agentLabel);
   const closed = isClosedManagedSession(record);
   // Commit counts need the graph's commits; an app without the graph draws none rather than "0 commits".
-  const countsCommits = record.kind === 'agent' && host.graph !== undefined;
+  const countsCommits = record.kind === 'agent' && host.graph !== undefined && (closed || Boolean(record.terminalId));
 
   const sessionCommits = useMemo(() => {
     if (!countsCommits) return [];
@@ -1074,7 +1144,7 @@ function SessionRow({
   // Resume starts an agent, so it is offered only where the app may start one (Coder starts nothing).
   const resume = host.resume;
   const resumeArgs =
-    agent && record.kind === 'agent' && (resume || onResume)
+    agent && record.kind === 'agent' && (closed || Boolean(record.terminalId)) && (resume || onResume)
       ? buildResumeCommand(agent, conversationId)
       : null;
 
@@ -1176,6 +1246,9 @@ function SessionRow({
           </Tooltip>
         ) : null}
         <span className="min-w-0 flex-1 truncate">{label}</span>
+        {!closed && record.agentId !== undefined ? (
+          <SessionModeBadge activeView={resolveManagedActiveView(record)} />
+        ) : null}
         {closed ? (
           <span className="shrink-0 text-[11px] text-muted-foreground">
             {formatDuration(record.closedAt - record.createdAt)} · {relativeAge(record.closedAt, Date.now())}
@@ -1235,6 +1308,178 @@ function SessionRow({
           className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
           onClick={onPurge}
         />
+      ) : null}
+    </div>
+  );
+}
+
+function SessionModeBadge({ activeView }: { activeView: UnifiedSessionViewMode }) {
+  return (
+    <span
+      data-testid="session-mode-badge"
+      className="inline-flex shrink-0 items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+    >
+      {activeView === 'chat' ? (
+        <>
+          <LuMessageSquare aria-hidden className="h-3 w-3" />
+          <span>Chat</span>
+        </>
+      ) : (
+        <>
+          <LuTerminal aria-hidden className="h-3 w-3" />
+          <span>Terminal</span>
+        </>
+      )}
+    </span>
+  );
+}
+
+function SessionViewToggle({
+  agentId,
+  activeView,
+  switching,
+  onSwitch,
+}: {
+  agentId: string;
+  activeView: UnifiedSessionViewMode;
+  switching: UnifiedSessionViewMode | null;
+  onSwitch: (target: UnifiedSessionViewMode) => void;
+}) {
+  const host = useSessionsHost();
+  const Tooltip = host.Tooltip;
+  const terminalDisabled = getProviderSyncTier(agentId) === 'chat-only';
+  const busy = switching !== null;
+
+  const terminalButton = (
+    <button
+      type="button"
+      aria-pressed={activeView === 'terminal'}
+      aria-disabled={terminalDisabled ? 'true' : undefined}
+      disabled={!terminalDisabled && busy}
+      data-testid="session-view-toggle-terminal"
+      onClick={(e) => {
+        if (terminalDisabled) {
+          e.preventDefault();
+          return;
+        }
+        onSwitch('terminal');
+      }}
+      className={
+        terminalDisabled
+          ? 'inline-flex cursor-not-allowed items-center gap-1.5 rounded px-2 py-1 text-xs font-medium text-muted-foreground/50 opacity-60 hover:text-muted-foreground/50'
+          : `inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground aria-pressed:bg-accent aria-pressed:text-foreground ${
+              switching === 'terminal' ? 'opacity-70' : ''
+            }`
+      }
+    >
+      <LuTerminal aria-hidden className="h-3.5 w-3.5" />
+      <span>Terminal</span>
+    </button>
+  );
+
+  return (
+    <div
+      role="group"
+      aria-label="Session view"
+      data-testid="session-view-toggle"
+      className="flex shrink-0 items-center rounded-md border border-border p-0.5"
+    >
+      <button
+        type="button"
+        aria-pressed={activeView === 'chat'}
+        disabled={busy}
+        data-testid="session-view-toggle-chat"
+        onClick={() => onSwitch('chat')}
+        className={`inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground aria-pressed:bg-accent aria-pressed:text-foreground ${
+          switching === 'chat' ? 'opacity-70' : ''
+        }`}
+      >
+        <LuMessageSquare aria-hidden className="h-3.5 w-3.5" />
+        <span>Chat</span>
+      </button>
+      {terminalDisabled ? (
+        <Tooltip label="Ollama runs in Chat mode only — no interactive terminal CLI">
+          <span className="inline-flex">{terminalButton}</span>
+        </Tooltip>
+      ) : (
+        terminalButton
+      )}
+    </div>
+  );
+}
+
+function UnifiedSessionContent({
+  session,
+  liveSessions,
+  agents,
+  chatsPort,
+  switchingTarget,
+  onSwitchView,
+}: {
+  session: ManagedLiveSession;
+  liveSessions: readonly TerminalSession[];
+  agents: readonly AgentDefinition[];
+  chatsPort: SessionsChatsPort;
+  switchingTarget: UnifiedSessionViewMode | null;
+  onSwitchView: (target: UnifiedSessionViewMode) => void;
+}) {
+  const host = useSessionsHost();
+  const activeView = resolveManagedActiveView(session);
+  const agentId = session.agentId ?? 'agent';
+  const agentLabel = agentLabelFor(agentId, agents) ?? agentId;
+  const title = managedSessionLabel(session, agentLabel);
+
+  const viewToggle = (
+    <SessionViewToggle
+      agentId={agentId}
+      activeView={activeView}
+      switching={switchingTarget}
+      onSwitch={onSwitchView}
+    />
+  );
+
+  const contentHeader = (
+    <header
+      data-testid="session-content-header"
+      className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-1.5"
+    >
+      <div className="flex min-w-0 items-center gap-2">
+        <h2 className="min-w-0 truncate text-sm font-medium">{title}</h2>
+        <span className="shrink-0 text-xs text-muted-foreground">
+          {agentLabel}
+          {session.title ? ` · ${session.title}` : ''}
+        </span>
+      </div>
+      {viewToggle}
+    </header>
+  );
+
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-testid="unified-session-content">
+      {session.chatId ? (
+        <div
+          className={activeView === 'chat' ? 'flex min-h-0 min-w-0 flex-1 flex-col' : 'hidden'}
+          data-testid="unified-chat-pane-wrapper"
+        >
+          <chatsPort.ChatPane
+            selectedId={session.chatId}
+            headerActions={activeView === 'chat' ? viewToggle : undefined}
+          />
+        </div>
+      ) : activeView === 'chat' ? (
+        <>
+          {contentHeader}
+          <Notice>Opening chat…</Notice>
+        </>
+      ) : null}
+      {activeView === 'terminal' ? (
+        <>
+          {contentHeader}
+          <host.LivePane
+            session={session}
+            rawSession={liveSessions.find((s) => s.id === (session.terminalId ?? session.id)) ?? null}
+          />
+        </>
       ) : null}
     </div>
   );
