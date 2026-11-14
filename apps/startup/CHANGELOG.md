@@ -8,5 +8,8 @@ Released sections are mirrored to the public release feed by the release flow.
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-11-13
+
 ### Added
 - **Midnite Startup** (Phase 130): a roadmap, costs and runway, and vendors and contracts.
+

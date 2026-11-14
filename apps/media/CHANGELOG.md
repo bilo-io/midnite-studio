@@ -8,6 +8,19 @@ Released sections are mirrored to the public release feed by the release flow.
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-11-13
+
+### Added
+- **Release notes in the app** (Phase 131): a version pill in the status bar opens this app's notes for the running version.
+- **Media ▸ SFX**: local sound effects with Stable Audio Open Small.
+- The console and bottom panels collapse and resize.
+
+### Changed
+- **Privacy** (Phase 115): LAN stream URLs are signed and expire.
+
+### Fixed
+- Security updates to the validation library (zod 4).
+
 ## [0.0.6] - 2026-10-31
 
 ### Added

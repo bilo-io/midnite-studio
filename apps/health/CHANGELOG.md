@@ -8,5 +8,8 @@ Released sections are mirrored to the public release feed by the release flow.
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-11-13
+
 ### Added
 - **Midnite Health** (Phase 128): body metrics, meals, workouts and trends, all stored privately on this Mac.
+

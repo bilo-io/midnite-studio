@@ -20,6 +20,34 @@ that mirror is what the in-app release-notes popover actually reads (see
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-11-13
+
+### Added
+- **Midnite Science** (Phases 126–127): notebooks with text, maths, compute, plot and molecule cells, and templates, plus the **Simulator** module (n-body gravity, cellular automata, boids and predator-prey, saved scenarios).
+- **Midnite Health** (Phase 128): profile, biometrics, nutrition, workout plans with progressive overload, a Today dashboard and Progress charts, and export and erase. Health data stays on this Mac, with no network access.
+- **Accountant** (Phase 129), a second module in Money: books, accounts and a journal, chart-of-accounts templates, bank CSV import with rules, financial reports with CSV export, and UK tax estimates. Studio gets a Books view.
+- **Midnite Startup** (Phase 130): roadmap and milestones, costs and runway, vendors and contracts, and invoices posted to the books.
+- **Release notes in every app** (Phase 131): a version pill with a release-notes drop-up, fed by per-app changelogs published with each release.
+- **Guard** (Phase 122): checks of the Mac itself, unusual agent behaviour from the audit trail, and lockfile changes with no pull request. Findings come with copyable fixes and agent prompts, plus package update or remove on a throwaway branch. Run a sweep with **Sweep now**, or turn on the daily sweep (off by default; it waits while on battery).
+- **Media ▸ SFX**: local sound effects with Stable Audio Open Small, which games and videos can use through MCP tools.
+- **Animations** (Phase 125): a clip library with bulk import, a timeline player with retargeted preview, Sketchfab search and download, and import into a game.
+- **Image → 3D (SF3D)**: every setting in the form, a background cut-out, continue a model with Claude, auto-rig and auto-play clips.
+- Games export as a zip or folder that runs with `npm start`.
+- Media's console and bottom panels collapse and resize.
+- `/midnite-sanitize` audits skills and plugins before you install them.
+- A privacy page on the website, linked from Settings.
+
+### Changed
+- **Privacy** (Phase 115): every remaining network client now goes through the outbound host registry, and the launcher gets its own switches, including one for avatars. The MCP server and terminal broker require a per-launch token, and LAN stream URLs are signed and expire.
+
+### Fixed
+- Image → 3D (SF3D) no longer crashes.
+- The Maps tab no longer flashes.
+- Game play-tests paint before each capture and run one at a time per game. An opened game repo now appears in the Games list.
+- A `null` recent origin no longer blanks the Browser window.
+- The Midnite wordmark is set in Damion (SIL OFL), replacing a font licensed for personal use only.
+- Security updates: zod 4, mathjs 15, katex 0.19.
+
 ## [0.0.6] - 2026-10-31
 
 > **Using the 0.0.5 launcher?** It cannot update itself and its Studio install can fail with `ditto: Couldn't read pkzip signature`. Reinstall it once from a terminal: `curl -fsSL https://midnite-apps.vercel.app/install.sh | sh`.
@@ -131,7 +159,8 @@ Covers everything since 0.0.1; the 0.0.2 test release shipped without notes.
 - User-level skills management option accessible via the Midnite menu.
 - Full two-pane Notes manager with Monaco code editor, Markdown preview, and persistent disk storage.
 
-[Unreleased]: https://github.com/bilo-io/midnite-studio/compare/v0.0.6...HEAD
+[Unreleased]: https://github.com/bilo-io/midnite-studio/compare/v0.0.7...HEAD
+[0.0.7]: https://github.com/bilo-io/midnite-studio/releases/tag/v0.0.7
 [0.0.6]: https://github.com/bilo-io/midnite-studio/releases/tag/v0.0.6
 [0.0.5]: https://github.com/bilo-io/midnite-studio/releases/tag/v0.0.5
 [0.0.4]: https://github.com/bilo-io/midnite-studio/releases/tag/v0.0.4

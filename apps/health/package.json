@@ -1,6 +1,6 @@
 {
   "name": "@midnite/app-health",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "private": true,
   "description": "Midnite Health - body metrics, meals, workouts and trends, as their own app.",
   "type": "module",

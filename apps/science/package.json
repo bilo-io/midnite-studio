@@ -1,6 +1,6 @@
 {
   "name": "@midnite/app-science",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "private": true,
   "description": "Midnite Science - notebooks for maths, physics, chemistry and biology, as their own app.",
   "type": "module",
