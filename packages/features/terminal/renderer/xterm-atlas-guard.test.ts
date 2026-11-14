@@ -60,8 +60,7 @@ describe('createAtlasGuard', () => {
 
   it('ignores atlas events fired by its own clear and resets its page count', () => {
     const calls: string[] = [];
-    let g!: ReturnType<typeof guard>;
-    g = createAtlasGuard({
+    const g = createAtlasGuard({
       clear: () => {
         calls.push('clear');
         g.pageRemoved();
