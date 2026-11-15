@@ -25,4 +25,7 @@ export const CLEANER_OPTIMIZER_SERVICES: OptimizerMainServices = {
   // The broker directory is Studio's; a standalone Cleaner has none to sweep.
   brokerSweepPlan: () => notPorted(),
   brokerSweep: () => notPorted(),
+  // Free RAM ends Studio's brokers and tabs; a standalone Cleaner owns none.
+  freeRamPlan: async () => notPorted(),
+  freeRam: async () => notPorted(),
 };

@@ -3494,6 +3494,43 @@ export const OptimizerBrokerSweepResponse = OptimizerResultOf(
   }),
 );
 
+/**
+ * Phase 148 Theme C — Free RAM. A candidate is something main would end or discard. The renderer never
+ * names a pid: it echoes back candidate ids, and main re-derives and re-guards each one.
+ */
+export const FreeRamCandidateSchema = z.object({
+  id: z.string().min(1).max(256),
+  kind: z.enum(['previous-build-session', 'lost-broker', 'hidden-tab', 'renderer-cache']),
+  label: z.string(),
+  command: z.string().nullable(),
+  rssBytes: z.number().int().nonnegative().nullable(),
+  /** Ends a process (pre-checked in the confirm); false means a tab or cache that is rebuilt on demand. */
+  destructive: z.boolean(),
+});
+export const OptimizerFreeRamPlanResponse = OptimizerResultOf(
+  z.object({
+    candidates: z.array(FreeRamCandidateSchema),
+    totalRssBytes: z.number().int().nonnegative(),
+  }),
+);
+export const OptimizerFreeRamRequest = z.object({
+  candidateIds: z.array(z.string().min(1).max(256)).min(1).max(5000),
+});
+export const OptimizerFreeRamResponse = OptimizerResultOf(
+  z.object({
+    ended: z.array(z.string()),
+    measured: z.object({
+      /** Σ RSS of Midnite-owned processes before and after; `freedRssBytes` is `max(0, before - after)`. */
+      beforeRssBytes: z.number().int().nonnegative(),
+      afterRssBytes: z.number().int().nonnegative(),
+      freedRssBytes: z.number().int().nonnegative(),
+      /** vm_stat free+inactive after minus before; signed, `null` when either read failed. */
+      machineFreeDeltaBytes: z.number().int().nullable(),
+    }),
+    failures: z.array(z.object({ id: z.string(), message: z.string() })),
+  }),
+);
+
 // --- deep link (Phase 33) --------------------------------------------------
 export const DeepLinkSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('open'), repo: z.string() }),

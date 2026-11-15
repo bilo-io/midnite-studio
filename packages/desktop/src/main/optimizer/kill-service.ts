@@ -322,7 +322,7 @@ async function inventoryFor(rows: readonly ProcessRow[], options?: KillOptions):
  * Every pid no kill may touch as a broker: each broker the inventory marks primary, and — independent of
  * that classifier — the pid the client's own primary reported in its handshake.
  */
-function primaryBrokerPids(inventory: BrokerInventory, options?: KillOptions): Set<number> {
+export function primaryBrokerPids(inventory: BrokerInventory, options?: KillOptions): Set<number> {
   const pids = new Set(inventory.brokers.filter((b) => b.primary).map((b) => b.pid));
   if (inventory.primaryPid !== null) pids.add(inventory.primaryPid);
   let clientPid: number | null;

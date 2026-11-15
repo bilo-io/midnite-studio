@@ -2280,6 +2280,10 @@ export type MidniteStudioBridge = {
     brokerSweep: (
       req: In<typeof S.OptimizerBrokerSweepRequest>,
     ) => Promise<z.infer<typeof S.OptimizerBrokerSweepResponse>>;
+    /** Phase 148 C: what Free RAM would end or discard, with RSS. Signals nothing. */
+    freeRamPlan: () => Promise<z.infer<typeof S.OptimizerFreeRamPlanResponse>>;
+    /** Phase 148 C: end the confirmed candidates and report the RSS actually freed. */
+    freeRam: (req: In<typeof S.OptimizerFreeRamRequest>) => Promise<z.infer<typeof S.OptimizerFreeRamResponse>>;
   };
 
   protocol: {

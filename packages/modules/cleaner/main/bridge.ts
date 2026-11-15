@@ -42,6 +42,8 @@ export function createCleanerBridge(ipc: RendererIpc): CleanerBridge {
       systemReclaim: (req) => call(CHANNELS.optimizerSystemReclaim, req),
       brokerSweepPlan: () => call(CHANNELS.optimizerBrokerSweepPlan),
       brokerSweep: (req) => call(CHANNELS.optimizerBrokerSweep, req),
+      freeRamPlan: () => call(CHANNELS.optimizerFreeRamPlan),
+      freeRam: (req) => call(CHANNELS.optimizerFreeRam, req),
     },
     metrics: {
       start: (req) => send(CHANNELS.metricsStart, req),
