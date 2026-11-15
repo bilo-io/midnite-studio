@@ -211,6 +211,32 @@ describe('planFreeRam', () => {
 });
 
 describe('runFreeRam', () => {
+  it('keeps the ended list and marks the measurement unavailable when measuring throws', async () => {
+    const h = harness();
+    let calls = 0;
+    h.deps.snapshotRss = async () => {
+      if (calls++ > 0) throw new Error('ps exploded');
+      return 100 * MB;
+    };
+    const outcome = await runFreeRam(h.deps, ['session:s-old-1', CACHE_ID]);
+    expect(outcome.ended.sort()).toEqual([CACHE_ID, 'session:s-old-1']);
+    expect(outcome.measurementUnavailable).toBe(true);
+    expect(outcome.measured).toMatchObject({ beforeRssBytes: 100 * MB, afterRssBytes: 100 * MB, freedRssBytes: 0 });
+  });
+
+  it('keeps the ended list when the settle loop throws', async () => {
+    const h = harness();
+    let reads = 0;
+    const real = h.deps.readRows;
+    h.deps.readRows = async () => {
+      if (++reads > 1) throw new Error('ps gone');
+      return real();
+    };
+    const outcome = await runFreeRam(h.deps, ['session:s-old-1']);
+    expect(outcome.ended).toEqual(['session:s-old-1']);
+    expect(outcome.measurementUnavailable).toBe(true);
+  });
+
   it('ends sessions, then brokers, then tabs, then caches, and reports what it ended', async () => {
     const h = harness();
     const order: string[] = [];

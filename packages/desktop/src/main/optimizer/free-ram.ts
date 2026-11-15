@@ -44,6 +44,8 @@ export type FreeRamOutcome = {
     machineFreeDeltaBytes: number | null;
   };
   failures: { id: string; message: string }[];
+  /** Set when settling or measuring threw after the destructive steps; `measured` then falls back to the before value. */
+  measurementUnavailable?: boolean;
 };
 
 /** A pty the connected brokers hold, as `liveBrokerSessions()` reports it. */
@@ -281,22 +283,32 @@ export async function runFreeRam(deps: FreeRamDeps, candidateIds: readonly strin
     }
   }
 
-  for (let step = 0; step < SETTLE_STEPS && gone.length > 0; step += 1) {
-    const rows = await deps.readRows();
-    if (!rows || !gone.some((pid) => rows.some((r) => r.pid === pid))) break;
-    await deps.sleep(SETTLE_STEP_MS);
-  }
+  // The destructive steps are done; nothing below may turn the run into a plain error and lose `ended`.
+  try {
+    for (let step = 0; step < SETTLE_STEPS && gone.length > 0; step += 1) {
+      const rows = await deps.readRows();
+      if (!rows || !gone.some((pid) => rows.some((r) => r.pid === pid))) break;
+      await deps.sleep(SETTLE_STEP_MS);
+    }
 
-  const afterRss = (await deps.snapshotRss()) ?? beforeRss;
-  const freeAfter = await deps.freeBytes();
-  return {
-    ended,
-    measured: {
-      beforeRssBytes: beforeRss,
-      afterRssBytes: afterRss,
-      freedRssBytes: Math.max(0, beforeRss - afterRss),
-      machineFreeDeltaBytes: freeBefore === null || freeAfter === null ? null : Math.round(freeAfter - freeBefore),
-    },
-    failures,
-  };
+    const afterRss = (await deps.snapshotRss()) ?? beforeRss;
+    const freeAfter = await deps.freeBytes();
+    return {
+      ended,
+      measured: {
+        beforeRssBytes: beforeRss,
+        afterRssBytes: afterRss,
+        freedRssBytes: Math.max(0, beforeRss - afterRss),
+        machineFreeDeltaBytes: freeBefore === null || freeAfter === null ? null : Math.round(freeAfter - freeBefore),
+      },
+      failures,
+    };
+  } catch {
+    return {
+      ended,
+      measured: { beforeRssBytes: beforeRss, afterRssBytes: beforeRss, freedRssBytes: 0, machineFreeDeltaBytes: null },
+      failures,
+      measurementUnavailable: true,
+    };
+  }
 }

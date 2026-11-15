@@ -58,7 +58,7 @@ describe('confirm contents', () => {
     const lines = confirmLines([session, broker, tab, cache], 2 * GB + 512 * MB + 150 * MB);
     expect(lines).toEqual([
       'app · previous-build session — claude --resume · 2.0 GB',
-      'Terminal broker 200 (unreachable) — node broker.js --socket /u/broker/old.sock · 512 MB',
+      'Terminal broker 200 (unreachable) — node broker.js --socket /u/broker/old.sock · 512 MB · may hold live sessions',
       'Also: Docs · 150 MB',
       'Also: Renderer and HTTP caches',
       expect.stringMatching(/^≈2\.\d+ GB held$/),
@@ -66,7 +66,27 @@ describe('confirm contents', () => {
   });
 });
 
+describe('unreachable brokers', () => {
+  it('labels an unreachable broker as possibly holding live sessions', () => {
+    expect(confirmLines([broker], 512 * MB)[0]).toContain('may hold live sessions');
+    const previous = { ...broker, label: 'Terminal broker 200 (previous build)' };
+    expect(confirmLines([previous], 512 * MB)[0]).not.toContain('may hold live sessions');
+  });
+
+  it('counts sessions only in the blast radius when only a broker is offered', async () => {
+    const d = dialogs();
+    fake.plan.mockResolvedValue(planOf([broker, cache]));
+    await runFreeRam({ dialogs: d });
+    expect(d.confirm.mock.calls[0]?.[0]).toMatchObject({ danger: true, blastRadius: null });
+  });
+});
+
 describe('result copy', () => {
+  it('says the measurement was unavailable', () => {
+    const m = { beforeRssBytes: 3 * GB, afterRssBytes: 3 * GB, freedRssBytes: 0, machineFreeDeltaBytes: null };
+    expect(resultMessage(m, 0, true)).toBe('Freed RAM · the measurement was unavailable');
+  });
+
   it('reads the measured freed figure and the before and after', () => {
     expect(resultMessage({ beforeRssBytes: 14.2 * GB, afterRssBytes: 2.4 * GB, freedRssBytes: 11.8 * GB, machineFreeDeltaBytes: null }, 0)).toBe(
       'Freed 11.8 GB · Midnite processes 14.2 GB → 2.4 GB',
@@ -96,7 +116,7 @@ describe('runFreeRam', () => {
     await runFreeRam({ dialogs: d });
     expect(d.confirm).toHaveBeenCalledTimes(1);
     const request = d.confirm.mock.calls[0]?.[0];
-    expect(request).toMatchObject({ title: 'Free RAM?', danger: true, blastRadius: { count: 2, sample: [] }, blastRadiusKind: 'sessions' });
+    expect(request).toMatchObject({ title: 'Free RAM?', danger: true, blastRadius: { count: 1, sample: [{ sha: 'session', subject: 'app · previous-build session' }] }, blastRadiusKind: 'sessions' });
     expect(fake.freeRam).not.toHaveBeenCalled();
 
     request.onConfirm();

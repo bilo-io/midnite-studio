@@ -38,7 +38,9 @@ export function confirmLines(candidates: readonly FreeRamCandidate[], totalRssBy
   const lines: string[] = [];
   for (const c of candidates.filter((x) => x.destructive)) {
     const rss = c.rssBytes === null ? '' : ` · ${formatBytes(c.rssBytes)}`;
-    lines.push(`${c.label} — ${c.command ? clip(c.command) : 'no command'}${rss}`);
+    // An unreachable broker's ptys are not listed, yet ending the broker ends them.
+    const maybeLive = c.kind === 'lost-broker' && c.label.includes('unreachable') ? ' · may hold live sessions' : '';
+    lines.push(`${c.label} — ${c.command ? clip(c.command) : 'no command'}${rss}${maybeLive}`);
   }
   for (const c of candidates.filter((x) => !x.destructive)) {
     const rss = c.rssBytes === null ? '' : ` · ${formatBytes(c.rssBytes)}`;
@@ -49,14 +51,16 @@ export function confirmLines(candidates: readonly FreeRamCandidate[], totalRssBy
 }
 
 /** The toast: the figure is the measured one, and a zero says zero. */
-export function resultMessage(measured: FreeRamMeasured, failureCount: number): string {
-  const head =
-    measured.freedRssBytes > 0
+export function resultMessage(measured: FreeRamMeasured, failureCount: number, unavailable = false): string {
+  const head = unavailable
+    ? 'Freed RAM · the measurement was unavailable'
+    : measured.freedRssBytes > 0
       ? `Freed ${formatBytes(measured.freedRssBytes)} · Midnite processes ${formatBytes(measured.beforeRssBytes)} → ${formatBytes(measured.afterRssBytes)}`
       : `Nothing to free · Midnite processes ${formatBytes(measured.afterRssBytes)}`;
   return failureCount > 0 ? `${head} · ${failureCount} could not be ended` : head;
 }
 
+/** Guards planning only: once the confirm is open `runOnce` has returned; main serialises the execution itself. */
 let inFlight = false;
 
 export async function runFreeRam(deps: FreeRamDeps): Promise<void> {
@@ -87,12 +91,16 @@ async function runOnce({ dialogs }: FreeRamDeps): Promise<void> {
     return;
   }
   const destructive = candidates.filter((c) => c.destructive).length;
+  // Sessions only in the count; brokers are listed in the warnings (confirmLines).
+  const sessionSample = candidates
+    .filter((c) => c.kind === 'previous-build-session')
+    .map((c) => ({ sha: c.id.slice(0, 7), subject: c.label }));
   dialogs.confirm({
     title: 'Free RAM?',
     body: 'Idle sessions of this build are left alone. Hidden tabs reload when you open them.',
     confirmLabel: 'Free RAM',
     danger: destructive > 0,
-    blastRadius: destructive > 0 ? { count: destructive, sample: [] } : null,
+    blastRadius: sessionSample.length > 0 ? { count: sessionSample.length, sample: sessionSample.slice(0, 5) } : null,
     blastRadiusKind: 'sessions',
     warnings: confirmLines(candidates, totalRssBytes),
     onConfirm: () => void execute(candidates.map((c) => c.id), dialogs),
@@ -108,9 +116,9 @@ async function execute(candidateIds: string[], dialogs: Pick<FrameDialogs, 'noti
       toast.addToast({ message: result.message, status: 'error' });
       return;
     }
-    const { measured, failures, ended } = result.value;
+    const { measured, failures, ended, measurementUnavailable } = result.value;
     toast.addToast({
-      message: resultMessage(measured, failures.length),
+      message: resultMessage(measured, failures.length, measurementUnavailable === true),
       status: failures.length > 0 && ended.length === 0 ? 'error' : 'info',
     });
   } catch (error) {

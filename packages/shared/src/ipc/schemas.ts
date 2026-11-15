@@ -3528,6 +3528,8 @@ export const OptimizerFreeRamResponse = OptimizerResultOf(
       machineFreeDeltaBytes: z.number().int().nullable(),
     }),
     failures: z.array(z.object({ id: z.string(), message: z.string() })),
+    /** True when the settle wait or a snapshot threw after the steps ran; `measured` is then not a real measurement. */
+    measurementUnavailable: z.boolean().optional(),
   }),
 );
 
