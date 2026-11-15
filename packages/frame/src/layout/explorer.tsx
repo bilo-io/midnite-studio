@@ -103,7 +103,7 @@ export function ExplorerGroup({
         {...headerAttributes}
         {...headerListeners}
       >
-        {/* A faint tint over the opaque base, so the header reads as its own band without letting rows show through. */}
+        {/* Faint tint painted under the header content (-z-10 inside its sticky stacking context). */}
         <span aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-foreground/[0.04]" />
         <button
           type="button"
