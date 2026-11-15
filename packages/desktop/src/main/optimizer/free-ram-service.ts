@@ -1,10 +1,10 @@
 import { listHiddenBrowserTabs, discardBrowserTab } from '@midnite/studio-feature-browser/main';
 import { probeReclaimableBytes } from '@midnite/studio-feature-monitor/main';
+import { EVENT_CHANNELS } from '@midnite/studio-shared';
 
 import { readProcessRows } from '../agent-process';
 import { liveBrokerSessions } from '../pty-service';
 import { endSessions } from '../terminal-service';
-import { EVENT_CHANNELS } from '@midnite/studio-shared';
 import { windowForRole } from '../window-manager';
 import {
   planFreeRam,
@@ -55,6 +55,15 @@ export function freeRamPlan(): Promise<FreeRamPlan> {
   return planFreeRam(DEPS);
 }
 
+let running: Promise<FreeRamOutcome> | null = null;
+
+/**
+ * One run at a time: a second window's click while one is ending processes would otherwise race it on the
+ * same pids. The second caller gets the run in progress, not a second pass.
+ */
 export function freeRam(candidateIds: readonly string[]): Promise<FreeRamOutcome> {
-  return runFreeRam(DEPS, candidateIds);
+  running ??= runFreeRam(DEPS, candidateIds).finally(() => {
+    running = null;
+  });
+  return running;
 }
