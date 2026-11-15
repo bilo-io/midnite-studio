@@ -8,7 +8,7 @@ import { useActivityGlow, type ActivityGlowSessionInput } from '@midnite/studio-
 import { useTasksCardPlay, useTasksTerminal } from '../terminal';
 import { CardAssignees, CardFieldChips, CardNumberRow, CardTitleRow, CONTENT_ICON } from './card-chrome';
 import { IssuePills, useOpenIssue } from '../issue-pills';
-import type { StatusStroke } from '../status-stroke';
+import type { StatusStroke } from '@midnite/tasks-core';
 import { StatusBorder } from './status-border';
 import { cardGlowStateFromActivity, taskGlowClass } from './glow-state';
 import { useCardHandoff } from './use-card-handoff';

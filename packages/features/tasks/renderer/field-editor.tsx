@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import type { ForgeProjectField, ForgeProjectFieldValue, ForgeProjectWriteResult } from '@midnite/studio-shared';
 
-import { fieldOptionChipStyle, fieldOptionColor } from './field-option-colors';
+import { fieldOptionChipStyle, fieldOptionColor } from '@midnite/tasks-core';
 import { isRepoIssuesField } from './repo-issues-source';
 import { useSetProjectItemField } from './queries';
 import { useTasksUi } from './ui';

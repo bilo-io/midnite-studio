@@ -1,8 +1,8 @@
 import type { ForgeGraph, ForgeGraphEdge, ForgeGraphNode } from '@midnite/studio-shared';
 
-import type { Rect, Viewport } from '@midnite/studio-frame';
+import type { Rect, Viewport } from './geometry';
 
-export type { Rect } from '@midnite/studio-frame';
+export type { Rect } from './geometry';
 
 /**
  * Ranks a dependency graph left-to-right with blockers upstream, and packs

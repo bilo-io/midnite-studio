@@ -50,8 +50,8 @@ import {
   sessionsToRehome,
   type BoardColumn,
 } from './board-derive';
-import { fieldOptionColor } from '../field-option-colors';
-import { findStatusField, itemStatusStroke } from '../status-stroke';
+import { fieldOptionColor } from '@midnite/tasks-core';
+import { findStatusField, itemStatusStroke } from '@midnite/tasks-core';
 import { TaskCard } from './task-card';
 
 /**

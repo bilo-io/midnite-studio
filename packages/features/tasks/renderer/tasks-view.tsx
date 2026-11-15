@@ -66,7 +66,7 @@ import { selectedCardFor, useBoardSelectionStore } from './board-selection-store
 import { taskGlowClass } from './board/glow-state';
 import { StatusRule } from './board/status-border';
 import { CardPanelStack } from './board/card-panel-stack';
-import { groupableFields, resolveGroupField } from './board/resolve-group-field';
+import { groupableFields, resolveGroupField } from '@midnite/tasks-core';
 import { ProjectFieldCell } from './field-editor';
 import {
   filterProjectItems,
@@ -74,13 +74,13 @@ import {
   selectProjectItem,
   type ItemFilterState,
   type ProjectItemFilterState,
-} from './filter';
-import { apiFieldBlockersFor, blockedItemIds } from './graph/graph-blockers';
-import { DEFAULT_GRAPH_FACETS, isDefaultGraphFacets, type ProjectGraphFacets } from './graph/graph-filter';
+} from '@midnite/tasks-core';
+import { apiFieldBlockersFor, blockedItemIds } from '@midnite/tasks-core';
+import { DEFAULT_GRAPH_FACETS, isDefaultGraphFacets, type ProjectGraphFacets } from '@midnite/tasks-core';
 import { useGraphAgentStates, type GraphNodeActivity } from './graph/use-graph-agent-states';
 import { ProjectGraphView } from './graph/project-graph-view';
-import { nextSortState, sortItems, type SortState } from './sort';
-import { findStatusField, itemStatusStroke } from './status-stroke';
+import { nextSortState, sortItems, type SortState } from '@midnite/tasks-core';
+import { findStatusField, itemStatusStroke } from '@midnite/tasks-core';
 import { useTasksHost } from './host';
 import { ProjectDialog, type ProjectDialogMode } from './project-dialog';
 import { PlanWithAiBar } from './plan/plan-with-ai-bar';

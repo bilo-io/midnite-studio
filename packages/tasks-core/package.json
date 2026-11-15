@@ -1,0 +1,23 @@
+{
+  "name": "@midnite/tasks-core",
+  "version": "0.0.6",
+  "private": true,
+  "description": "Pure Tasks derivations (Phase 146 Theme C): board grouping, graph layout, filter, sort, status stroke, field colours and issue order. React-free and electron-free; consumed from source by desktop's Tasks feature and by the mobile app.",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@midnite/studio-shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.6.3",
+    "vitest": "^4.0.0"
+  }
+}

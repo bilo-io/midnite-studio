@@ -1,7 +1,7 @@
 import type { ForgeGraphEdge, ForgeGraphNode } from '@midnite/studio-shared';
 
 import type { CardGlowState } from '../board/glow-state';
-import type { StatusStroke } from '../status-stroke';
+import type { StatusStroke } from '@midnite/tasks-core';
 
 /**
  * The dependency graph's edge styling (Phase 75 Theme E) — a pure function

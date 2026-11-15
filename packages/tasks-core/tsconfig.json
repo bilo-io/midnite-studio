@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    // Source-only: consumers compile this package, so nothing here emits.
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "types": ["node"],
+    "paths": {
+      "@midnite/studio-shared": ["../shared/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*", "vitest.config.ts"],
+  "exclude": ["node_modules"]
+}
