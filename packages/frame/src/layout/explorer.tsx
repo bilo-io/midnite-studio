@@ -136,7 +136,7 @@ export function ExplorerGroup({
       style={style}
     >
       <div
-        className="sticky top-0 z-10 flex min-h-9 items-center gap-1 bg-background/95 py-1.5 pl-0.5 pr-2 text-[11px] font-medium text-muted-foreground backdrop-blur"
+        className="group/explorer-header sticky top-0 z-10 flex min-h-9 items-center gap-1 bg-background/95 py-1.5 pl-0.5 pr-2 text-[11px] font-medium text-muted-foreground backdrop-blur"
         data-pulse={pulse ? 'true' : undefined}
         {...headerAttributes}
         {...headerListeners}
@@ -155,7 +155,7 @@ export function ExplorerGroup({
           aria-label={open ? `Collapse ${title}` : `Expand ${title}`}
           className="flex min-w-0 flex-1 items-center gap-1.5 rounded text-left transition-colors hover:text-foreground"
         >
-          {/* The orb: the group's logo sits behind the chevron, so the logo itself is what pulses. */}
+          {/* The orb: the group's logo is what pulses; the chevron swaps in over it on hover. */}
           <span
             aria-hidden
             data-testid="explorer-group-orb"
@@ -171,14 +171,20 @@ export function ExplorerGroup({
               <span
                 ref={pulse ? syncPulse : undefined}
                 data-testid="explorer-group-orb-logo"
-                className={`absolute inset-0 grid place-items-center opacity-70 [&>*]:!size-5 ${pulse ? 'explorer-logo-shimmer' : ''}`}
+                className={`absolute inset-0 grid place-items-center transition-opacity duration-150 group-hover/explorer-header:opacity-0 group-has-[:focus-visible]/explorer-header:opacity-0 [&>*]:!size-5 ${pulse ? 'explorer-logo-shimmer' : ''}`}
               >
                 {leading}
               </span>
             ) : null}
+            {/* With a logo, the chevron hides behind it and swaps in on hover or keyboard focus. */}
             <LuChevronRight
-              className={`relative h-4 w-4 text-foreground drop-shadow-[0_0_2px_hsl(var(--background))] transition-transform duration-150 ease-in-out ${
+              data-testid="explorer-group-chevron"
+              className={`relative h-4 w-4 text-foreground transition-[transform,opacity] duration-150 ease-in-out ${
                 open ? 'rotate-90' : ''
+              } ${
+                leading
+                  ? 'opacity-0 group-hover/explorer-header:opacity-100 group-has-[:focus-visible]/explorer-header:opacity-100'
+                  : ''
               }`}
             />
           </span>
@@ -207,7 +213,7 @@ export function ExplorerGroup({
         {trailing ? (
           <span
             ref={pulse ? syncPulse : undefined}
-            className={`flex shrink-0 items-center ${pulse ? 'explorer-trailing-shimmer' : ''}`}
+            className={`flex shrink-0 items-center gap-1 ${pulse ? 'explorer-trailing-shimmer' : ''}`}
           >
             {trailing}
           </span>
