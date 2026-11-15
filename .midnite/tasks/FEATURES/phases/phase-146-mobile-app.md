@@ -1,6 +1,6 @@
 # Phase 146 — Midnite Mobile
 
-Planned 2026-11-14 with the user (`/midnite-plan`) · Refined: x1 (2026-11-14) · grounded against the tree as of `2d4626d71`.
+Planned 2026-11-14 with the user (`/midnite-plan`) · Refined: x1 (2026-11-14) · Designed: 2026-11-15 (`/midnite-design`) · grounded against the tree as of `2d4626d71`.
 
 Midnite has no phone surface today. This phase adds one: **`apps/mobile`**, an Expo + TypeScript React Native app on
 **`@bilo-io/ui-native`** (the midnite design system's React Native companion, `midnite-ui/packages/ui-native`). It is a
@@ -45,13 +45,15 @@ the app consumes it.
 
 ## Headlines
 
-Planned 2026-11-14. Eleven themes: the component library release (A), the app scaffold (B), two pure-core extractions
-(C, D), the GitHub data source (E), the shell (F), then the four tabs' screens (G History, H Tasks, I Reviews, J Agents
-and More) and the docs and guards (K).
+Planned 2026-11-14, designed 2026-11-15. Twelve themes: the component library release (A), the app scaffold (B), two
+pure-core extractions (C, D), the GitHub data source (E), the shell (F), then the four tabs' screens (G History, H Tasks,
+I Reviews, J Agents and More), the docs and guards (K), and the app-level visual pass (L).
 
-**Theme A — `@bilo-io/ui-native` 0.5.0.** ◻ AppBar, BottomNav, Fab + SpeedDial, Sheet (left and bottom), ListRow,
-Badge, Chip, Avatar, SegmentedControl, IconButton, EmptyState and Skeleton land in `midnite-ui`, each with a test and a
-showcase Mobile entry, and are released to GitHub Packages.
+**Theme A — `@bilo-io/ui-native` 0.5.0.** ◻ The spacing, typography, elevation and motion placeholders in
+`@bilo-io/ui/tokens` get real values, and ui-native's theme exposes them along with the existing status and kind accent
+hues. AppBar, BottomNav, Fab + SpeedDial, Sheet (left and bottom), ListRow, Badge, Chip, Avatar, SegmentedControl,
+IconButton, EmptyState and Skeleton land in `midnite-ui`, each with a test and a showcase Mobile entry, and are released
+to GitHub Packages.
 
 **Theme B — The `apps/mobile` scaffold.** ◻ Expo + expo-router + strict TypeScript as a pnpm workspace member with moon
 tasks, a Metro config that resolves the workspace, an eslint boundary block, and `ThemeProvider` at the root. It boots
@@ -88,6 +90,11 @@ last-used provider and a sign-in hint. More holds accounts, theme and about.
 **Theme K — Docs and guards.** ◻ `docs/MOBILE.md`, the boundary paragraph in `CLAUDE.md` / `AGENTS.md` / `GEMINI.md`,
 the layer-boundaries test cases, and the mobile tests folded into `root:test-node`.
 
+**Theme L — The visual pass.** ◻ No colour literals in the app (a test enforces it), one Feather icon map checked
+against the glyph map, a shared `ScreenState` for loading, empty and error states, pressed and focus states on every
+composite row, the compact / medium / expanded layout classes, Dynamic Type and reduce-motion support, and the diff
+palette.
+
 ## Build order
 
 1. **A** first, in `midnite-ui`. F to J consume its release. B, C and D can start alongside it.
@@ -96,14 +103,238 @@ the layer-boundaries test cases, and the mobile tests folded into `root:test-nod
 4. **F** needs A 0.5.0 published, B and E.
 5. **G, H, I, J** in parallel once F lands (H needs C as well).
 6. **K** last, though its boundary test cases land with B.
+7. **L1 to L4** land with F (every screen builds on them). **L5 to L7** land with each screen theme (G to J), since
+   each screen's PR carries its own states, layout classes and screenshots.
+
+## Visual & UI/UX Design
+
+> Every value below comes from `@bilo-io/ui/tokens` through ui-native's `useTheme()`. Nothing in `apps/mobile` names a
+> hex, `rgb()` or `hsl()` literal (L1 enforces this). Token names are the ones A14 / A15 add.
+
+### Tokens (A14 fills them upstream, A15 exposes them)
+
+| Scale | Values (dp, equal to the Tailwind defaults web already uses) | Exposed as |
+|---|---|---|
+| Spacing | `0:0 · 0.5:2 · 1:4 · 2:8 · 3:12 · 4:16 · 5:20 · 6:24 · 8:32 · 10:40 · 12:48` | `theme.space[n]` |
+| Type | `xs 12/16 · sm 14/20 · base 16/24 · lg 18/28 · xl 20/28 · 2xl 24/32`; weights `regular 400 · medium 500 · semibold 600`; families `sans` (system), `mono` (iOS `Menlo`, Android `monospace`) | `theme.type.{size}`, `theme.font.{weight\|mono}` |
+| Elevation | `0` none · `1` y1 r2 o.05 (cards) · `2` y2 r6 o.10 (sheets, popovers) · `3` y6 r12 o.15 (FAB) · Android `elevation` 0/1/3/6 | `theme.elevation[n]` (a ready-made style object) |
+| Motion | `fast 120 · base 200 · slow 320` ms; `standard` easing `bezier(0.2, 0, 0, 1)` | `theme.motion` |
+| Radius | existing `sm 4 · md 6 · lg 8`, plus `full 9999` | `theme.radius` |
+| Overlay | `scrim` = black at 0.5 (both schemes) | `theme.scrim` |
+| Accents | existing `accentHues.status` (backlog, todo, wip, waiting, done, abandoned) and `accentHues.kind` (bug, feature, question, chore, unknown), per scheme | `theme.accents.status.*`, `theme.accents.kind.*` |
+
+**Semantic mapping** (decided with the user: accents are reused, and no new colour tokens are added):
+
+| Meaning | Token |
+|---|---|
+| Success, diff add, checks passed, Approved | `colors.success` |
+| Warning, checks pending, Changes requested | `accents.status.wip` |
+| Error text, diff remove, checks failed | `accents.kind.bug` |
+| Destructive buttons (Sign out, Request changes submit) | `colors.destructive` / `destructiveForeground` (buttons only; too dim in dark mode for text) |
+| Info, links, Open state | `accents.status.todo` |
+| Draft, closed, muted metadata | `colors.mutedForeground` |
+| Merged | `accents.kind.feature` |
+
+### Shell geometry
+
+```
+┌─────────────────────────────────────────┐ ← status bar (safe-area top inset)
+│ ◧   bilo-io/midnite-studio ▾       (●)  │  AppBar 56dp · bg background · hairline border bottom
+│     ⎇ main                              │  title base/semibold · subtitle xs/mutedForeground
+├─────────────────────────────────────────┤
+│                                         │
+│              screen content             │  horizontal padding space[4] (16)
+│                                         │
+│                                   ╭───╮ │  FAB 56dp circle · primary bg · plus 24dp in
+│                                   │ + │ │  primaryForeground · elevation 3 · right space[4],
+│                                   ╰───╯ │  bottom = nav height + inset + space[4]
+├─────────────────────────────────────────┤
+│  ⌾      ▦      ⇄      ⚙      ⋯          │  BottomNav 56dp + bottom inset · bg background
+│ History Tasks Reviews Agents  More      │  icon 22dp · label xs/medium · hairline top
+└─────────────────────────────────────────┘
+```
+
+- **AppBar:** leading `IconButton` 40dp (`sidebar`), title block flex 1, trailing `Avatar` 32. The title text has
+  `numberOfLines={1}` with middle ellipsis for long `owner/name`. The ▾ chevron (`chevron-down` 16dp,
+  `mutedForeground`) marks it as a switcher.
+- **BottomNav:** five equal items. The active item gets a 56×28 `radius.full` pill in `colors.accent` behind the icon,
+  with icon and label in `colors.foreground`. Inactive items are `mutedForeground`. A numeric badge is a 16dp-high
+  `primary` pill with `xs/semibold` `primaryForeground` text (`99+` cap) and a 2dp `background` ring, offset top-right
+  of the icon. A boolean badge is an 8dp dot of the same colour. `primary` is used rather than a red because no red
+  token holds 4.5:1 text contrast in both schemes.
+- **FAB (plain primary, decided):** a circle `radius.full`. Pressed: scale 0.96 + opacity 0.9 over `motion.fast`. When
+  open, the icon rotates 45° (plus → ×) over `motion.base`.
+- **SpeedDial open:** a full-screen `scrim` sits above the content and below the nav. Actions stack upward from the FAB
+  with `space[3]` gaps. Each action is a 40dp `secondary` disc with a 20dp `secondaryForeground` icon, and a label pill
+  to its left (`popover` bg, `sm/medium`, `space[3]` horizontal padding, elevation 2). They enter staggered 30ms apart,
+  translating 8dp up and fading in over `motion.base`. Disabled actions sit at 0.4 opacity with a "Coming soon" `xs`
+  label suffix.
+
+```
+                       ┌───────────────┐ ╭──╮
+                       │ Notes · soon  │ │✎ │   (disabled, 0.4)
+                       └───────────────┘ ╰──╯
+                       ┌───────────────┐ ╭──╮
+                       │ Switch repo   │ │⇆ │
+                       └───────────────┘ ╰──╯
+                       ┌───────────────┐ ╭──╮
+                       │ Open agent    │ │⌁ │
+                       └───────────────┘ ╰──╯
+                       ┌───────────────┐ ╭──╮
+                       │ New issue     │ │+ │
+                       └───────────────┘ ╰──╯
+                                        ╭────╮
+                                        │ ×  │  FAB, rotated
+                                        ╰────╯
+```
+
+- **Left sheet (forge panel):** width `min(86%, 360)`, `popover` bg, elevation 2, slides in from the left over
+  `motion.base`, with the scrim behind it. Header: Avatar 40 + login `base/semibold` + `@host` `xs/mutedForeground`,
+  `space[6]` padding. Sections use `xs/semibold` uppercase `mutedForeground` headings with `space[2]` letter-spacing 0.5.
+- **Bottom sheet:** top radius 16 (`radius.lg` × 2), `popover` bg, a 36×4 `colors.border` grabber centred `space[2]`
+  from the top, title `lg/semibold`, content padding `space[4]`. Snap points come from A5.
+
+### Screens
+
+**History** (G)
+
+```
+┌ AppBar ─────────────────────────────────┐
+│ TODAY                                   │  section header xs/semibold mutedForeground, sticky
+│ ●─ feat(app): switch selected repo …    │  rail 24dp col: 10dp dot (success fill = head,
+│ │  (B) bilo-io · 2h            2d4626d  │  border-coloured otherwise; hollow ring = merge)
+│ │                                       │  subject sm/medium 2 lines · meta xs mutedForeground
+│ ○─ Merge pull request #1240 …           │  sha: mono xs Chip, muted bg
+│ │  (B) bilo-io · 5h            ce3a70b  │
+│ YESTERDAY                               │
+│ ●─ fix(terminal): group sessions …      │  row min 64dp · pressed bg accent
+└─────────────────────────────────────────┘
+```
+
+**Tasks: board** (H2). Columns are `min(88% width, 340)` wide with a `space[3]` gap, so the next column peeks.
+
+```
+│ [▦ Midnite Roadmap ▾]   [Board|List|Graph] │  project Chip + SegmentedControl, space[3] row
+│ ● ● ○ ○ ○                                  │  column position dots, 6dp, active foreground
+│ ┌ Todo · 12 ──────────┐ ┌ In progress · 3 ─│  column header: option-colour Chip + count xs
+│ │▌#1241 Switch repo … │ │▌#1238 Sessions … │  TaskCard: card bg, radius.lg, elevation 1,
+│ │▌ ui  app   (B)(K)   │ │▌ (B)             │  3dp left stroke = status accent, space[3] pad,
+│ └─────────────────────┘ └──────────────────│  title sm/medium 3 lines, label Chips xs,
+│ ┌─────────────────────┐                    │  Avatars 24 stacked −6dp overlap (max 3, +n)
+```
+
+Long-press (400ms) lifts the card (scale 1.02, elevation 2) and opens the "Move to…" bottom sheet. Each option is a
+`ListRow` with a 10dp status dot, and a check marks the current one.
+
+**Tasks: list** (H3). The search `Input` (`search` icon leading) sits above horizontally scrolling filter `Chip`s
+(selected = `accent` bg + `check` 14dp), then `SectionList` rows (`ListRow`: 3dp status stroke leading, `#n` mono xs
+meta, title, label chips in subtitle).
+
+**Tasks: graph** (H4). The canvas has a `muted` bg with a 16dp dot grid at 0.5 alpha, `border` (`accents.kind.bug` for
+blocking) edges at 1.5dp, and 200×64 node cards with the same chrome as TaskCard (compact). A zoom-level pill sits
+bottom-left (`xs`, `popover`, "75%"), with a ⤢ fit button beside it. Selected node: a 2dp `ring` outline.
+
+**Reviews: list** (I1)
+
+```
+│ [Requested | Mine | All]                   │
+│ #1249 docs: Phase 146 — Midnite Mobile …   │  title sm/medium 2 lines
+│ (B) bilo-io · Draft · ✓ 9/9 · Approved     │  status glyphs: check-circle success /
+│ +494 −0 · 3 files · 2h                     │  x-circle bug / clock wip; decision Badge
+```
+
+**Reviews: PR detail + diff** (I2 to I5)
+
+```
+┌ ‹  #1249 · Open ───────────────────── ⋯ ┐  detail AppBar: back chevron-left, state Badge
+│ docs: Phase 146 — Midnite Mobile plan   │  title lg/semibold
+│ feature/phase-146 → main · bilo-io      │  xs mono branch chips
+│ [Overview | Files 3 | Conversation 4]   │
+│ ┌ .midnite/tasks/…/phase-146.md  +492 ┐ │  sticky file header: sm mono, +/− coloured
+│ │ @@ -0,0 +1,492 @@                     │ │  hunk header: muted bg, xs mono mutedForeground
+│ │   1 │+# Phase 146 — Midnite Mobile    │ │  gutter 2×32dp xs mono mutedForeground;
+│ │   2 │+                                │ │  add row success@0.14 bg, sign in success;
+│ │   3 │-old line                        │ │  remove row bug@0.14 bg, sign in bug;
+│ └─────────────────────────────────────┘ │  intraline: same hue @0.32; body xs mono, wrapped
+├─────────────────────────────────────────┤
+│ [Comment] [Request changes] [ Approve ] │  sticky review bar, elevation 2, popover bg;
+└─────────────────────────────────────────┘  Approve = primary Button, others outline
+```
+
+**Agents** (J2). There is one `Card` per provider (radius.lg, elevation 1, `space[4]`) with a provider glyph in a 40dp
+`muted` disc, label `base/semibold`, blurb `sm/mutedForeground`, and an `Open` outline Button with `external-link`
+14dp. "Last used" is a `primary` `Badge` top-right. The one-time hint card sits above the list (`accent` bg, `info`
+icon, dismiss ×).
+
+**More** (J4). Grouped `ListRow`s in inset cards (iOS-settings style): section heading `xs/semibold` uppercase, rows
+`sm`, values right-aligned `mutedForeground`. Sign out is a full-width `destructive` Button at the bottom of Accounts.
+
+**Sign in** (E3 / E6). Centred: `Wordmark` (ui-native, Damion), a `sm/mutedForeground` line, then a code card with the
+`user_code` in `2xl` mono letter-spaced and a `copy` IconButton, a primary "Open GitHub" Button and a spinner row
+"Waiting for approval…". "Use a personal access token" is a text link.
+
+### State matrix
+
+| Surface | Loading | Empty | Error (by `Result.kind`) | Pressed / focus |
+|---|---|---|---|---|
+| History | 8 Skeleton rows (dot 10, line 70%, line 40%) | `git-commit` "No commits on {branch}" | network → inline retry row, others → ScreenState | row bg `accent`; focus 2dp `ring` inset |
+| Board | 3 skeleton columns × 3 cards | `trello` "No items in this project" + New issue | ScreenState; move failure → top banner `bug`, card snaps back | card scale 0.98; focus ring |
+| List | 10 Skeleton ListRows | "No items match" + Clear filters | ScreenState | ListRow bg `accent` |
+| Graph | centred spinner + "Laying out N items" | "No dependencies in this project" + View as list | ScreenState | node ring 2dp |
+| Reviews list | 6 Skeleton rows | per scope: "Nothing waiting on you 🎉" / "You have no open PRs" / "No open PRs" | ScreenState | row bg `accent` |
+| PR detail | header skeleton + 12 diff-line skeletons | binary / too large → EmptyState in the file slot | ScreenState; submit failure → sheet stays open with an inline `bug` message | — |
+| Agents | none (static) | — | `openBrowserAsync` reject → banner "Couldn't open {provider}" | card bg `accent` |
+| Repo / branch sheets | 6 Skeleton rows | "No repositories" / "No branches match" | inline retry | — |
+
+**`ScreenState` copy by error kind** (L4):
+
+| `kind` | Icon | Title | Action |
+|---|---|---|---|
+| `auth` | `lock` | "Your GitHub session ended" | Sign in again (AuthGate) |
+| `scope` | `shield-off` | "This needs the `{scope}` permission" | Re-authorise |
+| `network` | `wifi-off` | "You're offline" | Retry (after two consecutive network failures, an app-wide top banner also shows until a fetch succeeds) |
+| `error` | `alert-triangle` | "Something went wrong" + message `xs mono` | Retry |
+
+### Icon map (Feather, `apps/mobile/src/ui/icons.ts`)
+
+| Use | Glyph | Use | Glyph |
+|---|---|---|---|
+| History tab | `git-commit` | Forge panel toggle | `sidebar` |
+| Tasks tab | `trello` | Repo switcher chevron | `chevron-down` |
+| Reviews tab | `git-pull-request` | Branch | `git-branch` |
+| Agents tab | `cpu` | Private repo | `lock` |
+| More tab | `more-horizontal` | Back | `chevron-left` |
+| FAB | `plus` | New issue | `plus-square` |
+| Open agent | `zap` | Switch repo | `repeat` |
+| Notes (disabled) | `edit-3` | Checks passed / failed / pending | `check-circle` / `x-circle` / `clock` |
+| Board / List / Graph | `columns` / `list` / `share-2` | Copy | `copy` |
+| Search | `search` | External link | `external-link` |
+| Offline / error | `wifi-off` / `alert-triangle` | Comment / reply | `message-square` / `corner-down-right` |
+
+### Adaptations
+
+- **Layout classes** (`useLayoutClass()`): `compact` < 600dp, `medium` 600 to 899, `expanded` ≥ 900. Board columns are
+  `min(88%, 340)`, so medium shows about 2 and expanded about 3 columns with no peek. PR detail on `expanded` splits
+  a 320dp file list beside the diff. Sheets are capped at 560dp wide and centred on medium and expanded.
+- **Landscape phone:** AppBar drops the subtitle (branch appears in the title as `owner/name · branch`), and the
+  BottomNav stays.
+- **Dynamic Type:** body text scales freely. Chrome (nav labels, chips, badges, gutter) sets
+  `maxFontSizeMultiplier={1.4}`. At a font scale ≥ 1.3 the nav hides labels and keeps `accessibilityLabel`.
+- **Reduce motion:** Skeleton pulse, SpeedDial stagger and sheet slide all switch to an instant opacity change.
+- **Dark / light:** every colour is a token, so both schemes come free. The diff palette's alphas (0.14 / 0.32) are
+  checked against both by the contrast test (A15).
+- **Accessibility:** a 44dp minimum hit target everywhere. Focus order is AppBar (leading → title → avatar) → content
+  → FAB → BottomNav. Each `CommitRow`, `TaskCard` and `PullRow` reads as one sentence
+  (`accessibilityLabel` composed, children `accessible={false}`).
 
 ## Deliverables
 
 ### A — `@bilo-io/ui-native` 0.5.0 (XL) · repo `bilo-io/midnite-ui`
 
 Every component goes in `packages/ui-native/src/components/<kebab>.tsx` with a sibling `<kebab>.test.tsx` (vitest +
-react-native-web, as the existing ones are). Each is styled only through `useTheme()` (`colors`, `alpha`, `radius`),
-takes an optional `style` and `testID`, sets `accessibilityRole` / `accessibilityLabel` through `lib/a11y.ts`, and is
+react-native-web, as the existing ones are). Each is styled only through `useTheme()` (`colors`, `alpha`, `radius`,
+and A15's `space`, `type`, `font`, `elevation`, `motion`, `accents`, `scrim`; the values are in
+[Visual & UI/UX Design](#visual--uiux-design)), takes an optional `style` and `testID`, sets `accessibilityRole` / `accessibilityLabel` through `lib/a11y.ts`, and is
 exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the library takes no icon dependency.
 
 - [ ] **A1 · `AppBar`** (S): `{ title: ReactNode; subtitle?: string; leading?: ReactNode; trailing?: ReactNode; onTitlePress?: () => void }`.
@@ -111,12 +342,15 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
   title is pressable when `onTitlePress` is set (`accessibilityRole="button"`). Test: renders title and subtitle, and
   fires `onTitlePress`.
 - [ ] **A2 · `BottomNav`** (M): `{ items: { key: string; label: string; icon: ReactNode; badge?: number | boolean }[];
-  activeKey: string; onChange: (key: string) => void; insetBottom?: number }`. Equal-width items, the active one in
-  `colors.primary`, `accessibilityRole="tablist"` on the bar and `"tab"` plus `accessibilityState.selected` per item.
+  activeKey: string; onChange: (key: string) => void; insetBottom?: number; hideLabels?: boolean }`. Equal-width items,
+  styled per the Shell geometry spec (the active item gets a `radius.full` `accent` pill behind its icon, with icon and
+  label in `foreground`; inactive items in `mutedForeground`), `accessibilityRole="tablist"` on the bar and `"tab"` plus `accessibilityState.selected` per item.
   A numeric badge over 99 renders `99+`. It must be usable as an expo-router `tabBar` with no adapter beyond mapping
   props. Test: the active state, `onChange`, and badge clamping.
 - [ ] **A3 · `Fab`** (S): `{ icon: ReactNode; label: string; onPress: () => void; position?: 'bottom-right' | 'bottom-left'; offsetBottom?: number }`.
-  56 dp, absolutely positioned, an elevation/shadow token, `label` as `accessibilityLabel`. Test: press and label.
+  A 56 dp `radius.full` disc in `colors.primary` with the icon in `primaryForeground` (**plain primary, no gradient**:
+  decided with the user), absolutely positioned, `elevation[3]`, `label` as `accessibilityLabel`. Pressed: scale 0.96 and
+  opacity 0.9 over `motion.fast`. Test: press and label.
 - [ ] **A4 · `SpeedDial`** (M): `{ open: boolean; onOpenChange: (o: boolean) => void; actions: { key: string; label: string; icon: ReactNode; onPress: () => void; disabled?: boolean }[]; icon: ReactNode; openIcon?: ReactNode }`.
   It wraps `Fab`. When open, a scrim (`alpha(colors.background, 0.6)`) appears and the actions stack upward with
   labels to their left. Tapping the scrim or an action closes it. The animation uses React Native `Animated` (no
@@ -127,7 +361,13 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
   scrim press closes, and `onRequestClose` closes.
 - [ ] **A6 · `ListRow`** (S): `{ title: string; subtitle?: string; leading?: ReactNode; trailing?: ReactNode; meta?: string; onPress?: () => void; onLongPress?: () => void; numberOfLines?: number }`.
   A 56 dp minimum height (72 dp with a subtitle) and a hairline divider token. Test: press and long-press.
-- [ ] **A7 · `Badge` and `Chip`** (S): `Badge { tone: 'neutral' | 'primary' | 'success' | 'warning' | 'danger'; children }`.
+- [ ] **A7 · `Badge` and `Chip`** (S): `Badge { tone: 'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'info'; children }`.
+  Tones map through the Semantic mapping table: `neutral` → `muted`/`mutedForeground`, `primary` →
+  `primary`/`primaryForeground`, `success` → `success`, `warning` → `accents.status.wip`, `danger` →
+  `accents.kind.bug`, and `info` → `accents.status.todo`. Each non-neutral tone is the hue at 0.15 alpha as background,
+  a 6dp leading dot at full strength, and text in **`foreground`, never the hue**: light-mode amber (`status.wip`,
+  L 50%) cannot reach 4.5:1 as text on white, and the dot carries the tone instead. It is `xs/medium`, `radius.full`
+  and `space[2]` horizontal padding.
   `Chip { label: string; color?: string /* hex, e.g. a project field option colour */; selected?: boolean; onPress?: () => void; leading?: ReactNode }`.
   `Chip` picks a readable text colour against `color` via relative luminance (`contrastTextForHex(hex)`: `L > 0.179` → `'#000000'`, else `'#ffffff'`, guaranteeing WCAG contrast ≥ 4.5). Test: tones, and contrast on a light (`#facc15`) and a dark (`#1e293b`) colour.
 - [ ] **A8 · `Avatar`** (XS): `{ uri?: string; name: string; size?: 24 | 32 | 40 }`. Falls back to initials on a
@@ -147,6 +387,23 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
   `react/jsx-runtime` and `react-native`). Bump `packages/ui-native/package.json` to `0.5.0`, add a README section
   listing the new components, and publish to GitHub Packages through that repo's own release flow. Record the
   published version in this doc's Decisions.
+- [ ] **A14 · Fill the token placeholders in `@bilo-io/ui/tokens`** (M): replace `spacing`, `typography`, `shadow` and
+  `motion` (all `{ placeholder: true }` today) in `packages/ui/src/tokens/index.ts` with the values in the Tokens table
+  (rem strings for lengths so `toDp` reads them, e.g. `spacing['4'] = '1rem'`). Add `radius.full`, `zIndex.fab = 40`,
+  `zIndex.scrim = 45`, `zIndex.sheet = 50` and `overlay.scrim = { hsl: '0 0% 0%', alpha: 0.5 }`. The values equal
+  Tailwind's defaults, so no web consumer changes. Extend `tokens.test.ts` to assert that no `placeholder: true`
+  remains on the four scales, and that every spacing and type value parses with `toDp`.
+- [ ] **A15 · Expose them on ui-native's theme** (M): `createTheme` adds `space`, `type` (`{ fontSize, lineHeight }` per
+  step), `font` (`regular`, `medium`, `semibold`, `mono`, with `mono` resolved via `Platform.select`), `elevation`
+  (ready style objects with iOS shadow keys + Android `elevation`), `motion` (`{ fast, base, slow, easing }`, with
+  easing as `Easing.bezier(0.2, 0, 0, 1)`), `accents` (`status` and `kind` from `accentHues[scheme]`) and `scrim` (an
+  `hsla` string). Add `theme/contrast.ts` (`contrastRatio(a, b)` over WCAG relative luminance) and `contrast.test.ts`
+  asserting, for both schemes: `foreground`/`background` ≥ 7, `mutedForeground`/`background` ≥ 4.5, `foreground`
+  over each Badge tint (0.15 alpha composited on `background`) ≥ 4.5, and `foreground` over the diff add and remove
+  tints at 0.14 and 0.32 ≥ 4.5. Each `accents.status.*` and `accents.kind.*` against `background` is computed. Pairs
+  under 3:1 (the WCAG 1.4.11 floor for strokes and dots; light-mode `status.wip` is expected to be one) are exported as
+  `LOW_CONTRAST_ACCENTS`, and the test pins that list. Components drawing such an accent as a stroke or dot add a 1dp
+  `border` outline. A failing text pair adjusts the alpha in the spec, never the token.
 
 ### B — The `apps/mobile` scaffold (M)
 
@@ -389,8 +646,9 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
   `replyToThread`. Resolved threads are collapsed under "N resolved". A general comment composer at the bottom →
   `commentPull`.
 - [ ] **I4 · Diff viewer** (L): `apps/mobile/src/diff/diff-view.tsx` renders one `FileDiff` as a unified diff:
-  monospace, hunk headers as sticky section headers, a two-number gutter (old/new), added/removed backgrounds from the
-  theme's success/danger at `alpha(…, 0.15)`, intraline ranges (`IntralineRange`) emphasised, long lines **wrapped**
+  monospace (`font.mono`, `xs`), hunk headers as sticky section headers, a two-number gutter (old/new, 32dp each),
+  added rows on `success` at 0.14 alpha and removed rows on `accents.kind.bug` at 0.14 alpha (sign glyph at full
+  strength), intraline ranges (`IntralineRange`) at 0.32 alpha of the same hue, long lines **wrapped**
   (a "No wrap" toggle switches to horizontal scroll), and a `FlatList` per line for large files (>2,000 lines show a
   "Load full diff" gate). Binary and too-large files show an `EmptyState`. Pure helpers (`gutterNumbers`,
   `rowsForHunk`) are tested. Used by G3, I2 and I3.
@@ -439,11 +697,49 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
   Bitbucket / Azure on mobile, markdown rendering, push notifications, EAS builds and store release, board drag and
   drop, native-app handoff for agent providers, and a lane graph on History.
 
+### L — The visual pass (M)
+
+Specified in full under [Visual & UI/UX Design](#visual--uiux-design). L1 to L4 land with Theme F, and L5 to L7 land
+with each screen theme's PR.
+
+- [ ] **L1 · No colour literals** (S): `apps/mobile/test/no-ad-hoc-colors.test.ts` scans `apps/mobile/{app,src}/**/*.tsx?`
+  and fails on any `#[0-9a-f]{3,8}\b`, `rgb(`, `rgba(`, `hsl(` or `hsla(` literal, or a named colour string
+  (`'white'`, `'black'`, `'red'`, …) as a style value. Every colour comes from `useTheme()`. The test names the file and
+  line of each hit.
+- [ ] **L2 · Icon map** (S): `apps/mobile/src/ui/icons.ts` exports `ICONS`, a `Record<IconName, FeatherGlyph>` holding
+  exactly the Icon map table, plus `<Icon name size? color? />` (size default 20, colour default `foreground`). No
+  other file imports `@expo/vector-icons` (eslint `no-restricted-imports` inside `apps/mobile`, except `icons.ts`).
+  `icons.test.ts` asserts every value exists in Feather's glyph map
+  (`@expo/vector-icons/build/vendor/react-native-vector-icons/glyphmaps/Feather.json`), mirroring desktop's
+  `icon-names.test.ts`.
+- [ ] **L3 · Shell styling** (M): the title bar, BottomNav, FAB / SpeedDial, left forge sheet and bottom sheets match
+  the Shell geometry spec and its two wireframes (sizes, tokens, motion, scrim, z-order: content < scrim < FAB actions <
+  sheets). The FAB hides with a `motion.fast` fade on detail routes and while the keyboard is up.
+- [ ] **L4 · `ScreenState`** (M): `apps/mobile/src/ui/screen-state.tsx` is `<ScreenState query={useInfiniteQuery|useQuery result} skeleton={ReactNode} empty={{ icon, title, body?, action? }}>{children}</ScreenState>`.
+  It renders the skeleton while `isPending`, `EmptyState` when the data is empty, and the error copy table by
+  `Result.kind` with its action. Pull to refresh refetches. The app-wide offline banner
+  (`apps/mobile/src/ui/offline-banner.tsx`) shows after two consecutive `network` failures and hides on the next
+  success, sitting under the AppBar and `accents.status.wip`-tinted. Tests: each state renders, each kind shows its
+  copy and action, and the banner's two-failure threshold works.
+- [ ] **L5 · Row and card states** (M): `CommitRow`, `TaskCard`, `PullRow`, graph nodes and settings rows implement
+  the State matrix's pressed and focus column. Pressed is `accent` bg (rows) or scale 0.98 (cards) over
+  `motion.fast`. Focus (hardware keyboard, switch access) is a 2dp `ring` outline via Pressable `onFocus` / `onBlur`.
+  Each row composes one `accessibilityLabel` sentence (e.g. "Commit 2d4626d, feat(app): switch selected repo, by
+  bilo-io, 2 hours ago, merge commit") with children `accessible={false}`. Tests: the composed label for each row type.
+- [ ] **L6 · Layout classes** (M): `apps/mobile/src/ui/layout-class.ts` exports `layoutClassFor(width)` (pure, tested
+  at 599/600/899/900) and `useLayoutClass()` over `useWindowDimensions`. Board column width, PR detail split
+  (`expanded`), sheet max width (560) and landscape AppBar (branch folded into the title) follow the Adaptations spec.
+- [ ] **L7 · Dynamic Type and reduce motion** (S): chrome text sets `maxFontSizeMultiplier={1.4}`, the BottomNav
+  passes `hideLabels` when `PixelRatio.getFontScale() >= 1.3`, and one `useReducedMotion()` hook
+  (`AccessibilityInfo.isReduceMotionEnabled` + its change event) switches SpeedDial stagger, sheet slide and Skeleton
+  pulse to instant opacity. Tests: the hook's change event, and nav labels hidden at scale 1.3.
+
 ## Files this phase touches
 
 | Area | Files |
 |---|---|
-| ui-native (other repo) | `midnite-ui/packages/ui-native/src/components/{app-bar,bottom-nav,fab,speed-dial,sheet,list-row,badge,chip,avatar,segmented-control,icon-button,empty-state,skeleton}.tsx` + tests, `src/index.ts`, `package.json`, `README.md`, `packages/showcase/**` |
+| ui-native (other repo) | `midnite-ui/packages/ui-native/src/components/{app-bar,bottom-nav,fab,speed-dial,sheet,list-row,badge,chip,avatar,segmented-control,icon-button,empty-state,skeleton}.tsx` + tests, `src/theme/{palette,contrast}.ts` + tests, `src/index.ts`, `package.json`, `README.md`, `packages/showcase/**` |
+| ui tokens (other repo) | `midnite-ui/packages/ui/src/tokens/index.ts`, `tokens.test.ts` |
 | Mobile app | `apps/mobile/**` (new) |
 | Pure cores | `packages/tasks-core/**`, `packages/forge-github-core/**` (new) |
 | Desktop re-points | `packages/features/tasks/renderer/**`, `packages/features/forge/main/github/**`, `packages/git-engine/package.json` |
@@ -469,6 +765,18 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
   signed in. Repeat for Gemini (Google account) and Codex.
 - [ ] Manual: sign out clears the token (re-opening the app lands on sign-in), and a revoked token returns to sign-in
   with the "session ended" message instead of a crash.
+- [ ] Visual checks, per `docs/TESTING.md`'s "screenshots are never committed" rule: every screen in the Screens
+  section plus the SpeedDial-open and forge-panel-open states, in **light and dark**, on an iOS simulator and an
+  Android emulator. They are captured to the session scratchpad and shown in each screen theme's PR thread, and
+  compared against the wireframes. The ui-native showcase's Mobile mode (react-native-web) shows the same components
+  in both schemes.
+- [ ] Contrast: ui-native `contrast.test.ts` (A15) passes for both schemes, and `LOW_CONTRAST_ACCENTS` is pinned with
+  the outline rule applied where those accents are drawn.
+- [ ] Accessibility, manual: a VoiceOver (iOS) and TalkBack (Android) pass over History, Board, a PR diff and More
+  confirms the focus order AppBar → content → FAB → BottomNav, that each row reads as one sentence, and that every
+  control has a label. With a hardware keyboard on the iPad simulator, Tab shows the 2dp `ring` focus outline on every
+  row and card. At the largest Dynamic Type size, nav labels hide and nothing clips. With Reduce Motion on, the
+  SpeedDial and sheets appear without sliding.
 
 ## Not in this phase
 
@@ -505,3 +813,16 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
 10. **ui-native published version:** to be recorded by A13.
 11. **Open:** the GitHub OAuth App's owner (the `bilo-io` user or an org). This is needed before E3 can be exercised
     end to end, and E7 is the user's action.
+12. **Token scales are filled upstream** (decided with the user, 2026-11-15, `/midnite-design`). Spacing, typography,
+    elevation and motion become real values in `@bilo-io/ui/tokens` (A14), equal to the Tailwind defaults web already
+    renders, so web and native read one source and web changes nothing. The alternative, a ui-native-only
+    `metrics.ts`, was rejected because the two would drift.
+13. **FAB: plain primary** (decided with the user). It is a solid `primary` disc with a `primaryForeground` icon and no
+    brand gradient, so ui-native keeps its zero-dependency rule and the FAB reads the same in both schemes.
+14. **Title bar: compact, a fixed 56dp** (decided with the user). It is one row on every tab (panel toggle, repo +
+    branch, avatar). The tab name lives only in the BottomNav, which leaves the most vertical room for the board and
+    diffs. Large collapsing titles were rejected.
+15. **Status colours reuse `accentHues`** (decided with the user). There are no new `warning` / `info` / diff tokens:
+    the Semantic mapping table maps them onto `success`, `accents.status.*` and `accents.kind.*`. `destructive` stays
+    on destructive buttons only, because its dark value (L 30.6%) is too dim for text. Badge text is always
+    `foreground` with a tone dot, because light amber cannot carry text contrast.

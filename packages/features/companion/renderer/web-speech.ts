@@ -134,7 +134,7 @@ export function webSpeechErrorMessage(code: string | undefined): string {
       return 'The built-in browser speech engine could not reach its recognition service — this is expected in Electron. Switch back to the offline engine in Settings ▸ Companion ▸ Microphone.';
     case 'not-allowed':
     case 'service-not-allowed':
-      return 'I could not use the microphone — permission was refused. Allow microphone access for Midnite Studio in System Settings, Privacy & Security.';
+      return 'I could not use the microphone — permission was refused. Check Settings ▸ Permissions in Midnite Studio.';
     case 'no-speech':
       return 'I did not catch that. Try again, a little closer to the microphone.';
     case 'audio-capture':

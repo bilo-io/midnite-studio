@@ -59,6 +59,8 @@ export type TerminalPanelActions = {
    */
   revealSession?: (sessionId: string) => void;
   /** The session row's commit count, clicked: show those commits. Absent: the count is not a button. */
+  /** Opens Settings ▸ Permissions (the previous-build notice's link). Absent: the notice has no link. */
+  openPermissions?: () => void;
   showSessionCommits?: (sessionId: string, shas: readonly string[]) => void;
 };
 

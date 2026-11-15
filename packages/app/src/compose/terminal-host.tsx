@@ -70,6 +70,11 @@ export const STUDIO_TERMINAL_HOST = {
     setSidebarSide: (side) => useUiStore.getState().setTerminalSidebarSide(side),
     // Same "route to Settings ▸ Agents" the title bar's own picker uses.
     configureAgent: (agentId) => useUiStore.getState().focusAgentInSettings(agentId),
+    openPermissions: () => {
+      const ui = useUiStore.getState();
+      ui.setActiveView('settings');
+      ui.setSettingsPage('permissions');
+    },
     revealSession: (sessionId) => {
       revealSession(sessionId);
     },

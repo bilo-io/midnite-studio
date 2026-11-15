@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-15 — ISSUES Phase 2 (Themes A–D) — macOS permission prompts
+
+[#1254](https://github.com/bilo-io/midnite-studio/pull/1254), [#1262](https://github.com/bilo-io/midnite-studio/pull/1262), [#1266](https://github.com/bilo-io/midnite-studio/pull/1266), [#1270](https://github.com/bilo-io/midnite-studio/pull/1270): the vault no longer touches the keychain on the boot path (lazy verify and integrity baseline behind `whenKeychainMayBeTouched`); the Vanguard scan and process sensor skip protected Library/Photos/Music paths without Full Disk Access, with seven Info.plist usage strings and a `root:tcc-guard` check; Settings ▸ Permissions lists each macOS grant with its live state, the exact System Settings pane and a `tccutil` reset for Studio's own bundle id; capture, microphone and trash nags point at that page, and previous-build terminals say macOS grants don't apply to them. Theme E (a stable code identity) is still to do.
+
 ## 2026-11-15 — Phase 148 Theme B — Lost processes
 
 [#1268](https://github.com/bilo-io/midnite-studio/pull/1268): the Optimizer's Memory tab gains a Lost filter — previous-build brokers, unreachable brokers and rowless ptys, classified by `broker-inventory.ts` from argv (`broker.js --socket <userData>/broker/…`) and the client's own handshake pid — with reason badges, a tree confirm (pid · RSS · argv, total RSS, session count) and "End all lost"; Manage resources now lands on Memory ▸ Lost. `killTree` sends SIGTERM to the broker and, on a forced second confirm, SIGKILL deepest-first. The primary broker is refused four ways (handshake pid, any broker classified primary, inventory fails closed, UI marks it Protected); a retire counts only while its `-retired-<pid>` socket exists and answers. Surviving-session force-kill and other-app guard in unreachable brokers are in `outstanding.md`.
