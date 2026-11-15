@@ -201,4 +201,27 @@ describe('ExplorerGroup', () => {
     }
     expect(screen.getByTestId('explorer-group-guide-shimmer').style.animationDelay).toMatch(/ms$/);
   });
+  it('puts the logo inside the orb and wraps trailing controls for the active sweep', () => {
+    const { container } = render(
+      <ExplorerGroup
+        title="repo"
+        count={1}
+        open={true}
+        onToggle={() => {}}
+        bodyId="g-logo"
+        guideLine="active"
+        leading={<img alt="" data-testid="logo" />}
+        trailing={<button type="button">add</button>}
+      >
+        <div>row</div>
+      </ExplorerGroup>,
+    );
+    expect(screen.getByTestId('explorer-group-orb').contains(screen.getByTestId('logo'))).toBe(true);
+    // Logo shows by default; the chevron is hidden until the header is hovered or focused.
+    expect(screen.getByTestId('explorer-group-chevron').getAttribute('class')).toContain('opacity-0');
+    expect(screen.getByTestId('explorer-group-orb-logo').className).toContain('group-hover/explorer-header:opacity-0');
+    const trailing = container.querySelector<HTMLElement>('.explorer-trailing-shimmer');
+    expect(trailing?.contains(screen.getByText('add'))).toBe(true);
+    expect(trailing?.style.getPropertyValue('--pulse-delay')).toMatch(/ms$/);
+  });
 });
