@@ -514,6 +514,10 @@ export const CHANNELS = {
   optimizerBrokerSweepPlan: 'mstudio:optimizer:broker-sweep-plan',
   /** Unlinks the named files that the rules still call stale; never a path, only bare names in the broker dir. */
   optimizerBrokerSweep: 'mstudio:optimizer:broker-sweep',
+  /** What Free RAM would end or discard, with RSS — a dry run that signals nothing. Phase 148 C. */
+  optimizerFreeRamPlan: 'mstudio:optimizer:free-ram-plan',
+  /** Ends the confirmed candidates through the existing guarded paths and reports the RSS actually freed. Phase 148 C. */
+  optimizerFreeRam: 'mstudio:optimizer:free-ram',
 
   // --- stash -----------------------------------------------------------------
   /** Every stash entry for one checkout, newest first — same shape `for-each-ref` gets. */
@@ -1986,6 +1990,8 @@ export const EVENT_CHANNELS = {
   optimizerScanProgress: 'mstudio:optimizer:scan-progress',
   /** The system-cache walk advanced — its own event, its own single-flight controller. */
   optimizerSystemScanProgress: 'mstudio:optimizer:system-scan-progress',
+  /** Free RAM asks the renderer to drop its in-memory resource caches (the preload runs `webFrame.clearCache()`). Phase 148 C. */
+  optimizerClearRendererCache: 'mstudio:optimizer:clear-renderer-cache',
   updateState: 'mstudio:update:state',
   deepLink: 'mstudio:protocol:deep-link',
   /**

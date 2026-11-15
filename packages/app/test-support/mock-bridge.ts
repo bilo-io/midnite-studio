@@ -975,6 +975,17 @@ export type MockFixtures = {
       ecosystem: string;
       reclaim: string;
     }>;
+    freeRamPlan?: {
+      candidates: Array<{
+        id: string;
+        kind: 'previous-build-session' | 'lost-broker' | 'hidden-tab' | 'renderer-cache';
+        label: string;
+        command: string | null;
+        rssBytes: number | null;
+        destructive: boolean;
+      }>;
+      totalRssBytes: number;
+    };
     brokerSweepPlan?: {
       entries: Array<{ name: string; kind: 'pid' | 'token' | 'log'; bytes: number }>;
       totalBytes: number;
@@ -5575,6 +5586,18 @@ export function buildMockBridge(data: MockFixtures) {
       brokerSweepPlan: async () => ({
         ok: true as const,
         value: data.optimizer?.brokerSweepPlan ?? { entries: [], totalBytes: 0 },
+      }),
+      freeRamPlan: async () => ({
+        ok: true as const,
+        value: data.optimizer?.freeRamPlan ?? { candidates: [], totalRssBytes: 0 },
+      }),
+      freeRam: async () => ({
+        ok: true as const,
+        value: {
+          ended: [],
+          measured: { beforeRssBytes: 0, afterRssBytes: 0, freedRssBytes: 0, machineFreeDeltaBytes: null },
+          failures: [],
+        },
       }),
       brokerSweep: async (req: { names: string[] }) => ({
         ok: true as const,

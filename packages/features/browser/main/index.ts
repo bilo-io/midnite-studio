@@ -79,6 +79,8 @@ export {
   discardBrowserTab,
   getBrowserPermissionStore,
   getBrowserTabOwners,
+  listHiddenBrowserTabs,
+  type HiddenBrowserTab,
   listBrowserPermissions,
   ownerWindowForBrowserTab,
   reparentBrowserTabs,

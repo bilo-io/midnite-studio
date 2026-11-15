@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webFrame } from 'electron';
 
 import { createReportBridge } from '@midnite/studio-feature-report/bridge';
 import { createWindowChromeBridge } from '@midnite/studio-runtime/app-main/window-chrome-preload';
@@ -50,6 +50,16 @@ function subscribe<T>(channel: string, handler: (payload: T) => void): Unsubscri
     ipcRenderer.removeListener(channel, listener);
   };
 }
+
+// Free RAM (Phase 148 Theme C): `webFrame` exists only here, so main asks and the preload clears. Nothing
+// is exposed to the page: the renderer cannot trigger this, only receive it.
+ipcRenderer.on(EVENT_CHANNELS.optimizerClearRendererCache, () => {
+  try {
+    webFrame.clearCache();
+  } catch {
+    // A frame mid-teardown has nothing left to clear.
+  }
+});
 
 // Same route, same reason: only main can ask Electron for the packaged app's
 // version, and the renderer's own package.json is a different fact that happens
@@ -1170,6 +1180,8 @@ const bridge: Pick<
     systemReclaim: (req) => call(CHANNELS.optimizerSystemReclaim, req),
     brokerSweepPlan: () => call(CHANNELS.optimizerBrokerSweepPlan),
     brokerSweep: (req) => call(CHANNELS.optimizerBrokerSweep, req),
+    freeRamPlan: () => call(CHANNELS.optimizerFreeRamPlan),
+    freeRam: (req) => call(CHANNELS.optimizerFreeRam, req),
   },
   protocol: {
     onDeepLink: (handler) => subscribe(EVENT_CHANNELS.deepLink, handler),

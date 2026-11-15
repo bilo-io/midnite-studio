@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-15 — Phase 148 Theme C — Free RAM
+
+[#1271](https://github.com/bilo-io/midnite-studio/pull/1271): the flyout's Free RAM plans then, behind one confirm, ends previous-build sessions (`endSessions`), lost brokers (Theme B's guarded `killTree`; an unreachable one is labelled "may hold live sessions"), discards hidden browser tabs and clears the HTTP and webFrame caches. It never ends a current-build session; the renderer sends candidate ids only and main re-derives the plan from a fresh `ps`, excluding the handshake primary, every primary broker's tree and other apps' sessions. The toast reports RSS freed from two `ps` snapshots plus the `vm_stat` delta, "Nothing to free" on zero, and keeps the ended list when measuring fails. The `--action=free-ram` perf number and the packaged-app run are still to do.
+
 ## 2026-11-15 — ISSUES Phase 2 (Themes A–D) — macOS permission prompts
 
 [#1254](https://github.com/bilo-io/midnite-studio/pull/1254), [#1262](https://github.com/bilo-io/midnite-studio/pull/1262), [#1266](https://github.com/bilo-io/midnite-studio/pull/1266), [#1270](https://github.com/bilo-io/midnite-studio/pull/1270): the vault no longer touches the keychain on the boot path (lazy verify and integrity baseline behind `whenKeychainMayBeTouched`); the Vanguard scan and process sensor skip protected Library/Photos/Music paths without Full Disk Access, with seven Info.plist usage strings and a `root:tcc-guard` check; Settings ▸ Permissions lists each macOS grant with its live state, the exact System Settings pane and a `tccutil` reset for Studio's own bundle id; capture, microphone and trash nags point at that page, and previous-build terminals say macOS grants don't apply to them. Theme E (a stable code identity) is still to do.
