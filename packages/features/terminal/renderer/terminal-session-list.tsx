@@ -577,7 +577,7 @@ function SessionRow({
       // are both inside it and neither is the drag handle.
       data-session-row
       data-phase={phase}
-      className={`group flex w-full cursor-pointer select-none items-center gap-1.5 px-2 py-1.5 text-xs ${
+      className={`group flex w-full cursor-pointer select-none items-center gap-1.5 py-1.5 pl-4 pr-2 text-xs ${
         active ? 'bg-accent/60' : 'hover:bg-accent/30'
       } ${isDragging ? 'opacity-80' : ''} ${phase !== 'live' ? 'opacity-60' : ''} ${
         pulsing ? 'session-row-pulse' : ''
