@@ -100,7 +100,15 @@ export type OptimizerMainServices = {
   }) => Promise<SystemScanResult>;
   cleanSystemCaches: (entryIds: readonly string[], trash: Trash) => Promise<OptimizerCleanOutcome>;
   runReclaimCommand: (entryId: string) => Promise<OptimizerReclaimOutcome>;
+  /** Phase 148 E: what the broker dir's sweep would delete. Bound by the composer, which knows the dir. */
+  brokerSweepPlan: () => BrokerSweepPlan;
+  /** Phase 148 E: unlink the confirmed names that are still stale. */
+  brokerSweep: (names: readonly string[]) => BrokerSweepOutcome;
 };
+
+/** The sweep's wire shapes, structurally the runtime's (this package does not import the runtime's broker). */
+export type BrokerSweepPlan = { entries: { name: string; kind: 'pid' | 'token' | 'log'; bytes: number }[]; totalBytes: number };
+export type BrokerSweepOutcome = { removed: number; freedBytes: number; skipped: { name: string; reason: string }[] };
 
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
 const failed = (issue: string) => ({ ok: false as const, message: issue });
@@ -225,6 +233,27 @@ export const optimizerMain = defineFeatureMain<OptimizerMainServices>({
       async (req) => {
         try {
           return await services.runReclaimCommand(req.entryId);
+        } catch (error) {
+          return failed(message(error));
+        }
+      },
+      failed,
+    );
+
+    ipc.handleBare(CHANNELS.optimizerBrokerSweepPlan, async () => {
+      try {
+        return { ok: true as const, value: services.brokerSweepPlan() };
+      } catch (error) {
+        return failed(message(error));
+      }
+    });
+
+    ipc.handle(
+      CHANNELS.optimizerBrokerSweep,
+      schemas.OptimizerBrokerSweepRequest,
+      async (req) => {
+        try {
+          return { ok: true as const, value: services.brokerSweep(req.names) };
         } catch (error) {
           return failed(message(error));
         }

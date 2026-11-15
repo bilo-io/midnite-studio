@@ -975,6 +975,10 @@ export type MockFixtures = {
       ecosystem: string;
       reclaim: string;
     }>;
+    brokerSweepPlan?: {
+      entries: Array<{ name: string; kind: 'pid' | 'token' | 'log'; bytes: number }>;
+      totalBytes: number;
+    };
     systemScanResult?: {
       totalBytes: number;
       approximate: boolean;
@@ -5568,6 +5572,14 @@ export function buildMockBridge(data: MockFixtures) {
           .reduce((sum, item) => sum + item.bytes, 0);
         return { ok: true as const, value: { freedBytes, skipped: [] } };
       },
+      brokerSweepPlan: async () => ({
+        ok: true as const,
+        value: data.optimizer?.brokerSweepPlan ?? { entries: [], totalBytes: 0 },
+      }),
+      brokerSweep: async (req: { names: string[] }) => ({
+        ok: true as const,
+        value: { removed: req.names.length, freedBytes: 0, skipped: [] },
+      }),
       systemReclaim: async (_req: { entryId: string }) => ({
         ok: true as const,
         value: { stdout: 'done', stderr: '', exitCode: 0 },

@@ -7,6 +7,7 @@ import {
 } from '@midnite/studio-feature-optimizer/main';
 import { sendToLiveWindow, type FeatureMainContext } from '@midnite/studio-runtime';
 
+import { brokerSweep, brokerSweepPlan } from '../optimizer/broker-sweep-service';
 import { getGpuStats } from '../optimizer/gpu-service';
 import { getProcessTableResult, killProcess } from '../optimizer/kill-service';
 import { cleanItems, knownRoots, scanWorkspace } from '../optimizer/scan-service';
@@ -50,6 +51,8 @@ export const DESKTOP_OPTIMIZER_SERVICES: OptimizerMainServices = {
   scanSystemCaches,
   cleanSystemCaches: (entryIds, trash) => cleanSystemCaches(entryIds, trash),
   runReclaimCommand,
+  brokerSweepPlan,
+  brokerSweep,
 };
 
 export function registerOptimizerHandlers(getWindow: () => BrowserWindow | null): void {

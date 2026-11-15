@@ -3470,6 +3470,30 @@ export const OptimizerSystemReclaimResponse = OptimizerResultOf(
   }),
 );
 
+/** Phase 148 Theme E: the broker dir's leftovers. Bare file names, never paths. */
+export const BrokerSweepEntrySchema = z.object({
+  name: z.string().min(1),
+  kind: z.enum(['pid', 'token', 'log']),
+  bytes: z.number().int().nonnegative(),
+});
+export const OptimizerBrokerSweepPlanResponse = OptimizerResultOf(
+  z.object({
+    entries: z.array(BrokerSweepEntrySchema),
+    totalBytes: z.number().int().nonnegative(),
+  }),
+);
+export const OptimizerBrokerSweepRequest = z.object({
+  /** Names the plan returned; main re-checks each against the rules and refuses any that no longer match. */
+  names: z.array(z.string().min(1).max(256)).min(1).max(5000),
+});
+export const OptimizerBrokerSweepResponse = OptimizerResultOf(
+  z.object({
+    removed: z.number().int().nonnegative(),
+    freedBytes: z.number().int().nonnegative(),
+    skipped: z.array(z.object({ name: z.string(), reason: z.string() })),
+  }),
+);
+
 // --- deep link (Phase 33) --------------------------------------------------
 export const DeepLinkSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('open'), repo: z.string() }),

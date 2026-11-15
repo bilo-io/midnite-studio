@@ -1168,6 +1168,8 @@ const bridge: Pick<
       subscribe(EVENT_CHANNELS.optimizerSystemScanProgress, handler),
     systemClean: (req) => call(CHANNELS.optimizerSystemClean, req),
     systemReclaim: (req) => call(CHANNELS.optimizerSystemReclaim, req),
+    brokerSweepPlan: () => call(CHANNELS.optimizerBrokerSweepPlan),
+    brokerSweep: (req) => call(CHANNELS.optimizerBrokerSweep, req),
   },
   protocol: {
     onDeepLink: (handler) => subscribe(EVENT_CHANNELS.deepLink, handler),

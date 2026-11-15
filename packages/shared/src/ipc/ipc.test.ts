@@ -866,6 +866,8 @@ describe('optimizer contract (Phase 59, 73)', () => {
       optimizerSystemScanProgress: ['OptimizerSystemScanProgressEventSchema'],
       optimizerSystemClean: ['OptimizerSystemCleanRequest', 'OptimizerSystemCleanResponse'],
       optimizerSystemReclaim: ['OptimizerSystemReclaimRequest', 'OptimizerSystemReclaimResponse'],
+      optimizerBrokerSweepPlan: ['OptimizerBrokerSweepPlanResponse'],
+      optimizerBrokerSweep: ['OptimizerBrokerSweepRequest', 'OptimizerBrokerSweepResponse'],
     };
     const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)].filter((key) =>
       key.startsWith('optimizer'),
