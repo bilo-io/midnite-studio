@@ -16,7 +16,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 |-------|--------|---------|------|----------|---|--------|--------|
 | [148 · Performance widget recovery actions](FEATURES/phases/phase-148-performance-widget-recovery-actions.md) | 🔄 WIP | — | 14/33 | `████░░░░░░` | 42% | — | B C |
 | [147 · Unified sessions and chats](FEATURES/phases/phase-147-unified-sessions-and-chats.md) | ◻ TODO | — | 0/22 | `░░░░░░░░░░` | 0% | — | A B C D E |
-| [146 · Midnite Mobile](phases/phase-146-mobile-app.md) | ◻ TODO | x1 | 0/76 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K |
+| [146 · Midnite Mobile](phases/phase-146-mobile-app.md) | ◻ TODO | x1 | 0/88 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K L |
 | [2 · macOS permission prompts](ISSUES/phases/phase-2-macos-permission-prompts.md) | 🔄 WIP | — | 0/29 | `░░░░░░░░░░` | 0% | A | B C D E |
 | [145 · Level history, review and polish](phases/phase-145-level-history-polish.md) | ◻ TODO | x1 | 0/31 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
 | [144 · Level lighting, environment and structure](phases/phase-144-level-lighting-environment.md) | ◻ TODO | x1 | 0/28 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
