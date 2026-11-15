@@ -30,24 +30,24 @@ started, and make a stale grant explain itself.
 
 ## Headlines
 
-**Theme A — No keychain access on the boot path.** 🔄 in review, PR #1254 (S–M) `createVaultService` no longer verifies integrity in its
+**Theme A — No keychain access on the boot path.** ✅ [#1254](https://github.com/bilo-io/midnite-studio/pull/1254) (S–M) `createVaultService` no longer verifies integrity in its
 constructor; a memoised `ensureVerified()` runs before the first ciphertext read or write, and still locks on tamper
 before anything is served. The boot-time disk-redaction refresh and canary planting wait for the vault's first real
 access, or for the window's first show + focus + idle — and never run when no vault file exists. A launch with nothing
 secret open makes no keychain call. Lock and unlock before first access queue their audit line until verification has run, so a forged audit file cannot be re-baselined. A profile with no vault files gets no canaries until its first vault op (a vault-less user has no tripwire until then).
 
-**Theme B — Settings ▸ Permissions.** 🔍 In review, [#1266](https://github.com/bilo-io/midnite-studio/pull/1266) (M–L) A frame-owned settings page lists the macOS grants Studio uses — Screen
+**Theme B — Settings ▸ Permissions.** ✅ [#1266](https://github.com/bilo-io/midnite-studio/pull/1266) (M–L) A frame-owned settings page lists the macOS grants Studio uses — Screen
 Recording, Microphone, Camera, Accessibility, Full Disk Access (read live, re-read on focus), Automation and Files &
 Folders (never probed; asked on first use) — each with a deep link into System Settings and, for a toggle that shows on
 but reads off, a **Reset** (`tccutil reset <Service> io.bilo.midnite-studio`) plus **Relaunch**. It says plainly that
 agents in Studio's terminals inherit these grants.
 
-**Theme C — Nags point at the page; legacy terminals say why.** 🔍 In review. (S) The capture, microphone and Finder-automation
+**Theme C — Nags point at the page; legacy terminals say why.** ✅ [#1270](https://github.com/bilo-io/midnite-studio/pull/1270). (S) The capture, microphone and Finder-automation
 messages stop saying "reopen the app" and link to Settings ▸ Permissions. The existing legacy-session banner explains
 that terminals from a previous build don't get this build's permissions, and it is visible without opening the session
 list. The notice (`terminal-notices.tsx`) now says macOS grants do not apply and has a Permissions link through a new optional `actions.openPermissions` host action; the list opens once per launch when a previous-build session exists. Capture, mic and Finder messages name Settings ▸ Permissions, and the capture panel has an "Open Settings ▸ Permissions" button through an optional `CaptureHost.openPermissions`. No broker code changed.
 
-**Theme D — No unprompted protected-folder access; folder usage strings.** 🔍 In review (#1262). (M) An audit of every boot- and
+**Theme D — No unprompted protected-folder access; folder usage strings.** ✅ [#1262](https://github.com/bilo-io/midnite-studio/pull/1262). (M) An audit of every boot- and
 timer-driven path that can reach `~/Desktop|Documents|Downloads|Pictures|Music|Movies`; `isProtectedPath` in `shared`;
 Vanguard's full scan skips Photos/Music/Mail/Messages/Safari libraries without Full Disk Access; a `tcc-guard` script
 fails CI on a new unmarked protected-folder access. Info.plist gains the seven folder/library usage strings, so the

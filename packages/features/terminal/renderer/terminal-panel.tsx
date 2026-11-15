@@ -10,9 +10,13 @@ import { TerminalSessionList } from './terminal-session-list';
 import { brokerStatusText, inMainPanel, resolveSessionAgentId, useTerminalStore } from './terminal-store';
 import { LazyTerminalView } from './lazy-terminal-view';
 import { ReattachedNote } from './reattached-note';
+import { createRevealOnce } from './legacy-reveal';
 import { useLegacyNoticeVisible } from './terminal-notices';
 import { useAgents } from './use-agents';
 import { YieldedToSessionsPage } from './yielded-to-sessions-page';
+
+/** Per renderer launch: a previous-build notice opens the list once, never re-forced after the user closes it. */
+const revealLegacyListOnce = createRevealOnce();
 
 /**
  * The terminal pane: chrome, the session list, and every session's xterm.
@@ -23,9 +27,6 @@ import { YieldedToSessionsPage } from './yielded-to-sessions-page';
  * unmount-when-hidden rule — which existed because a hidden shell had no UI to
  * see or stop it. The session list is that UI.
  */
-/** Per renderer launch: the list is opened once for a previous-build notice, never re-forced after the user closes it. */
-let legacyListRevealed = false;
-
 export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPanelProps) {
   // The panel and the session list show main-surface sessions plus Kanban
   // ones (`inMainPanel`) — a FAB loop's session (Phase 35) renders inside the
@@ -162,11 +163,10 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
   const noticeVisible = useLegacyNoticeVisible();
   // A previous-build notice lives in the session list; opened once per launch so it is seen without a click.
   useEffect(() => {
-    if (!noticeVisible || legacyListRevealed) return;
-    legacyListRevealed = true;
-    if (!listOpen) host.actions.toggleList();
+    // Gated on hasLegacy too: the notice reads the store's legacy map, the list needs a legacy session.
+    if (revealLegacyListOnce(noticeVisible && hasLegacy) && !listOpen) host.actions.toggleList();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [noticeVisible]);
+  }, [noticeVisible, hasLegacy]);
   /*
     Width-tweened rather than `{showList ? … : null}`: the toggle can flip on
     `sessions.length` crossing 1, not just a click, and either way the rows

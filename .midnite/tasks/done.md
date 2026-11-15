@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-15 — ISSUES Phase 2 (Themes A–D) — macOS permission prompts
+
+[#1254](https://github.com/bilo-io/midnite-studio/pull/1254), [#1262](https://github.com/bilo-io/midnite-studio/pull/1262), [#1266](https://github.com/bilo-io/midnite-studio/pull/1266), [#1270](https://github.com/bilo-io/midnite-studio/pull/1270): the vault no longer touches the keychain on the boot path (lazy verify and integrity baseline behind `whenKeychainMayBeTouched`); the Vanguard scan and process sensor skip protected Library/Photos/Music paths without Full Disk Access, with seven Info.plist usage strings and a `root:tcc-guard` check; Settings ▸ Permissions lists each macOS grant with its live state, the exact System Settings pane and a `tccutil` reset for Studio's own bundle id; capture, microphone and trash nags point at that page, and previous-build terminals say macOS grants don't apply to them. Theme E (a stable code identity) is still to do.
+
 ## 2026-11-15 — Phase 148 Theme D — Full recovery
 
 [#1264](https://github.com/bilo-io/midnite-studio/pull/1264): the performance flyout's Full recovery and the `terminal.recoverDetached` palette command run one flow: #1259's recovery (silent), a re-read of the session list, then one summary dialog with recovered sessions grouped by repo (Reveal), sessions still on a previous build (End… behind the existing confirm, opened after the summary closes so it is never covered), and unreachable broker roots (Manage resources, lit once Theme B lands). The amber badge counts `previousBuildSessions()`. Deferred: D.4's per-app owner count and the packaged-app acceptance run. Merged on targeted local checks while GitHub CI was billing-locked.
