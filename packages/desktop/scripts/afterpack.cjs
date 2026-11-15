@@ -15,6 +15,28 @@ exports.default = async function afterPack(context) {
   const root = context.appOutDir;
 
   /**
+   * 0. Refuse a bundle with no renderer.
+   *
+   * `extraResources` copies `../app/dist` as-is; when it is missing or being
+   * rewritten by a concurrent `app:build`, electron-builder copies nothing and
+   * says nothing. The app then launches to a black window
+   * (ERR_FILE_NOT_FOUND on Resources/renderer/index.html).
+   */
+  if (context.electronPlatformName === 'darwin') {
+    const indexHtml = join(
+      root,
+      `${context.packager.appInfo.productFilename}.app`,
+      'Contents',
+      'Resources',
+      'renderer',
+      'index.html',
+    );
+    if (!existsSync(indexHtml)) {
+      throw new Error(`[afterPack] no renderer in the bundle (${indexHtml}) — run \`moon run app:build\` and package again`);
+    }
+  }
+
+  /**
    * 1. Restore the executable bit.
    *
    * node-pty's `spawn-helper` and dugite's entire `git` tree are executables

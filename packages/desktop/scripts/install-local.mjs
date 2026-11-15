@@ -30,6 +30,12 @@ if (!existsSync(source)) {
   process.exit(1);
 }
 
+// A bundle without its renderer launches to a black window — never install one.
+if (!existsSync(join(source, 'Contents', 'Resources', 'renderer', 'index.html'))) {
+  console.error(`${source} has no Resources/renderer/index.html. Run \`moon run app:build desktop:dist\` again.`);
+  process.exit(1);
+}
+
 // Replacing a bundle under a live Electron app crashes it mid-run, so quit it
 // first — gracefully, never with a kill (a close guard may be holding unsaved
 // work). The pty broker runs the same executable but is deliberately left alone.
