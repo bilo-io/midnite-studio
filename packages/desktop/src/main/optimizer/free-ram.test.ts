@@ -82,7 +82,11 @@ const dropTree = (rows: ProcessRow[], root: number): ProcessRow[] => {
   const dead = new Set([root]);
   for (let grew = true; grew; ) {
     grew = false;
-    for (const r of rows) if (!dead.has(r.pid) && dead.has(r.ppid)) (dead.add(r.pid), (grew = true));
+    for (const r of rows) {
+      if (dead.has(r.pid) || !dead.has(r.ppid)) continue;
+      dead.add(r.pid);
+      grew = true;
+    }
   }
   return rows.filter((r) => !dead.has(r.pid));
 };

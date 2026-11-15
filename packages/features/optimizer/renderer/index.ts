@@ -30,6 +30,7 @@ export {
 export { openOptimizerAt, type MemoryFilter, type OptimizerTab } from './optimizer-store';
 
 export { runCleanSystem, type CleanSystemDeps } from './clean-system';
+export { runFreeRam, type FreeRamDeps } from './free-ram';
 
 type ViewIds = OptimizerManifest['views'][number]['id'];
 type SettingsPageIds = OptimizerManifest['settingsPages'][number];

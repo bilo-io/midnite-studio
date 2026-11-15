@@ -16,7 +16,7 @@ export type RecoverySeams = {
   /** Theme E's confirm-gated system clean (`runCleanSystemFromWidget`); the Optimizer is the fallback. */
   cleanSystem?: () => void;
   manageResources?: () => void;
-  /** Theme C. */
+  /** Theme C's confirm-gated Free RAM (`runFreeRamFromWidget`). */
   freeRam?: () => void;
   /** Theme D: `runFullRecoveryFromWidget`, over PR #1259's recovery. */
   fullRecovery?: () => void;
