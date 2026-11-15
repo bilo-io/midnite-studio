@@ -74,6 +74,7 @@ export function ExplorerGroup({
   headerAttributes,
   headerListeners,
   isDragging = false,
+  guideLine,
   children,
 }: {
   title: string;
@@ -90,6 +91,8 @@ export function ExplorerGroup({
   headerAttributes?: Record<string, unknown>;
   headerListeners?: Record<string, unknown>;
   isDragging?: boolean;
+  /** Optional vertical indent guide aligned with the chevron center when expanded. */
+  guideLine?: 'active' | 'muted';
   children: ReactNode;
 }) {
   return (
@@ -127,7 +130,36 @@ export function ExplorerGroup({
         {trailing}
       </div>
       <Collapse open={open} id={bodyId} aria-label={title}>
-        {children}
+        {guideLine ? (
+          <div className="relative" data-guide-line={guideLine}>
+            {/* Aligned with the center of the 12px chevron inside px-2 (8px + 6px = 14px). */}
+            <div
+              aria-hidden
+              data-testid="explorer-group-guide"
+              className="pointer-events-none absolute top-0 bottom-0 left-[14px] flex w-3 -translate-x-1/2 justify-center overflow-hidden"
+            >
+              <div
+                className={
+                  guideLine === 'active'
+                    ? 'h-full w-px bg-primary/40'
+                    : 'h-full w-px bg-border/60'
+                }
+              />
+              {guideLine === 'active' ? (
+                <div
+                  data-testid="explorer-group-guide-shimmer"
+                  className="session-guide-shimmer pointer-events-none absolute inset-x-0 top-0 flex h-14 flex-col items-center"
+                >
+                  <div className="h-full w-px bg-gradient-to-b from-transparent via-primary to-transparent opacity-90" />
+                  <div className="absolute top-1/2 left-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,hsl(var(--primary)/0.85)_0%,hsl(var(--primary)/0.3)_45%,transparent_72%)] blur-[1px]" />
+                </div>
+              ) : null}
+            </div>
+            {children}
+          </div>
+        ) : (
+          children
+        )}
       </Collapse>
     </div>
   );

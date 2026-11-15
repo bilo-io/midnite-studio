@@ -280,6 +280,45 @@ html[data-motion='reduced'] .pill-shimmer {
   animation: none;
 }
 
+@keyframes session-guide-shimmer {
+  0% {
+    top: -36px;
+    opacity: 0;
+  }
+  6% {
+    opacity: 1;
+  }
+  32% {
+    opacity: 1;
+  }
+  38% {
+    top: calc(100% + 36px);
+    opacity: 0;
+  }
+  100% {
+    top: calc(100% + 36px);
+    opacity: 0;
+  }
+}
+
+.session-guide-shimmer {
+  animation: session-guide-shimmer 6s ease-in-out infinite paused;
+}
+
+html:not([data-window-focused='false']) .session-guide-shimmer {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .session-guide-shimmer {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .session-guide-shimmer {
+  animation: none;
+}
+
 /*
  * Theme K.6: the cascade's own reduced-motion guard, app-owned rather than
  * borrowed from `@bilo-io/shell`'s universal `html[data-motion='reduced'] *`

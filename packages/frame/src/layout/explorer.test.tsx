@@ -140,4 +140,43 @@ describe('ExplorerGroup', () => {
 
     expect(capturedNode!.className).toContain('opacity-80');
   });
+
+  it('renders an aligned guide line with shimmer only when guideLine is active', () => {
+    const { rerender } = render(
+      <ExplorerGroup title="active-repo" count={1} open={true} onToggle={() => {}} bodyId="g-guide">
+        <div>row</div>
+      </ExplorerGroup>,
+    );
+    expect(screen.queryByTestId('explorer-group-guide')).toBeNull();
+
+    rerender(
+      <ExplorerGroup
+        title="active-repo"
+        count={1}
+        open={true}
+        onToggle={() => {}}
+        bodyId="g-guide"
+        guideLine="active"
+      >
+        <div>row</div>
+      </ExplorerGroup>,
+    );
+    expect(screen.getByTestId('explorer-group-guide')).toBeTruthy();
+    expect(screen.getByTestId('explorer-group-guide-shimmer')).toBeTruthy();
+
+    rerender(
+      <ExplorerGroup
+        title="other-repo"
+        count={1}
+        open={true}
+        onToggle={() => {}}
+        bodyId="g-guide"
+        guideLine="muted"
+      >
+        <div>row</div>
+      </ExplorerGroup>,
+    );
+    expect(screen.getByTestId('explorer-group-guide')).toBeTruthy();
+    expect(screen.queryByTestId('explorer-group-guide-shimmer')).toBeNull();
+  });
 });
