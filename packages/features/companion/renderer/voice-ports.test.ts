@@ -385,7 +385,7 @@ describe('push-to-talk', () => {
     companionPorts().micPressStart();
     await settle();
 
-    expect(useCompanionStore.getState().transcript[0]?.text).toContain('System Settings');
+    expect(useCompanionStore.getState().transcript[0]?.text).toContain('Settings ▸ Permissions');
   });
 
   it('reports a failed transcription rather than silently dropping it', async () => {

@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-15 — ISSUES Phase 2 (Themes A–D) — macOS permission prompts
+
+[#1254](https://github.com/bilo-io/midnite-studio/pull/1254), [#1262](https://github.com/bilo-io/midnite-studio/pull/1262), [#1266](https://github.com/bilo-io/midnite-studio/pull/1266), [#1270](https://github.com/bilo-io/midnite-studio/pull/1270): the vault no longer touches the keychain on the boot path (lazy verify and integrity baseline behind `whenKeychainMayBeTouched`); the Vanguard scan and process sensor skip protected Library/Photos/Music paths without Full Disk Access, with seven Info.plist usage strings and a `root:tcc-guard` check; Settings ▸ Permissions lists each macOS grant with its live state, the exact System Settings pane and a `tccutil` reset for Studio's own bundle id; capture, microphone and trash nags point at that page, and previous-build terminals say macOS grants don't apply to them. Theme E (a stable code identity) is still to do.
+
 ## 2026-11-15 — Phase 148 Theme E — Clean system
 
 [#1269](https://github.com/bilo-io/midnite-studio/pull/1269): the flyout's Clean system (and the chord-free `system.cleanSystem` palette command) scans the Optimizer's system caches and plans a broker-dir sweep together, behind one confirm listing each cache, the broker leftovers (dead brokers' `.sock.pid`/`.sock.token`, logs of versions with no live broker) and the total. Caches go to the Trash; leftovers are unlinked only when main's fresh re-plan still lists them (bare names, `lstat`, live pids, sockets on disk and this build's own files kept). Consent-first when system-cache consent is missing; Optimizer off opens the Optimizer. No process is ended.

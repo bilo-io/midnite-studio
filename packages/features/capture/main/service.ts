@@ -165,8 +165,8 @@ const message = (error: unknown) => (error instanceof Error ? error.message : St
 
 const permissionMessage = (permission: CapturePermission) =>
   permission === 'not-determined'
-    ? 'Capture needs the Screen Recording permission first.'
-    : 'Screen Recording is off for this app. Turn it on in System Settings ▸ Privacy & Security ▸ Screen Recording.';
+    ? 'Capture needs the Screen Recording permission first. See Settings ▸ Permissions.'
+    : 'Screen Recording is off for this app. Open Settings ▸ Permissions in Midnite Studio to turn it on.';
 
 export function createCaptureService(deps: CaptureServiceDeps): CaptureService {
   const el = deps.electron;
