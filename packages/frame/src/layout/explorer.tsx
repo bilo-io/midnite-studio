@@ -69,7 +69,10 @@ function syncPulse(node: HTMLElement | null) {
 }
 
 function lockPhase(node: HTMLElement) {
-  node.style.animationDelay = `${-(performance.now() % PULSE_MS)}ms`;
+  const delay = `${-(performance.now() % PULSE_MS)}ms`;
+  node.style.animationDelay = delay;
+  // Inherited by descendants a rule animates directly (the trailing icons' strokes).
+  node.style.setProperty('--pulse-delay', delay);
 }
 
 // The loops pause while the window is blurred and the clock does not, so on
@@ -133,7 +136,7 @@ export function ExplorerGroup({
       style={style}
     >
       <div
-        className="sticky top-0 z-10 flex min-h-9 items-center gap-1 bg-background/95 py-1.5 pl-1.5 pr-2 text-[11px] font-medium text-muted-foreground backdrop-blur"
+        className="sticky top-0 z-10 flex min-h-9 items-center gap-1 bg-background/95 py-1.5 pl-0.5 pr-2 text-[11px] font-medium text-muted-foreground backdrop-blur"
         data-pulse={pulse ? 'true' : undefined}
         {...headerAttributes}
         {...headerListeners}
@@ -141,7 +144,7 @@ export function ExplorerGroup({
         {pulse ? (
           // The sweep leaves the chevron's halo each time it releases a ring.
           <span aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-            <span ref={syncPulse} className="explorer-header-sweep absolute inset-y-0 w-2/5" />
+            <span ref={syncPulse} className="explorer-header-sweep absolute inset-y-0 w-1/2" />
           </span>
         ) : null}
         <button
@@ -152,10 +155,11 @@ export function ExplorerGroup({
           aria-label={open ? `Collapse ${title}` : `Expand ${title}`}
           className="flex min-w-0 flex-1 items-center gap-1.5 rounded text-left transition-colors hover:text-foreground"
         >
+          {/* The orb: the group's logo sits behind the chevron, so the logo itself is what pulses. */}
           <span
             aria-hidden
             data-testid="explorer-group-orb"
-            className="relative grid size-4 shrink-0 place-items-center rounded-full bg-[radial-gradient(circle,hsl(var(--primary)/0.22)_0%,hsl(var(--primary)/0.08)_60%,transparent_100%)] shadow-[0_0_6px_hsl(var(--primary)/0.3)]"
+            className="relative grid size-6 shrink-0 place-items-center rounded-full bg-[radial-gradient(circle,hsl(var(--primary)/0.22)_0%,hsl(var(--primary)/0.08)_60%,transparent_100%)] shadow-[0_0_8px_hsl(var(--primary)/0.3)]"
           >
             {pulse ? (
               <>
@@ -163,23 +167,27 @@ export function ExplorerGroup({
                 <span ref={syncPulse} className="explorer-orb-ring absolute inset-0 rounded-full border border-primary/60" />
               </>
             ) : null}
+            {leading ? (
+              <span
+                ref={pulse ? syncPulse : undefined}
+                data-testid="explorer-group-orb-logo"
+                className={`absolute inset-0 grid place-items-center opacity-70 [&>*]:!size-5 ${pulse ? 'explorer-logo-shimmer' : ''}`}
+              >
+                {leading}
+              </span>
+            ) : null}
             <LuChevronRight
-              className={`relative h-3.5 w-3.5 text-muted-foreground transition-transform duration-150 ease-in-out ${
+              className={`relative h-4 w-4 text-foreground drop-shadow-[0_0_2px_hsl(var(--background))] transition-transform duration-150 ease-in-out ${
                 open ? 'rotate-90' : ''
               }`}
             />
           </span>
           <span className="relative flex min-w-0 flex-1 items-center gap-1.5">
-            {/* Very faint band behind the logo and name, fading out to the right. */}
+            {/* Very faint band behind the name, fading out to the right. */}
             <span
               aria-hidden
               className="pointer-events-none absolute -left-1 inset-y-0 right-0 -z-10 rounded-sm bg-gradient-to-r from-primary/[0.08] via-primary/[0.02] to-transparent"
             />
-            {leading ? (
-              <span ref={pulse ? syncPulse : undefined} className={`flex shrink-0 ${pulse ? 'explorer-logo-shimmer' : ''}`}>
-                {leading}
-              </span>
-            ) : null}
             <span className="relative min-w-0 truncate font-semibold uppercase tracking-wide">
               {title}
               {pulse ? (
@@ -196,12 +204,19 @@ export function ExplorerGroup({
             <span className="tabular-nums text-muted-foreground/70">{count}</span>
           </span>
         </button>
-        {trailing}
+        {trailing ? (
+          <span
+            ref={pulse ? syncPulse : undefined}
+            className={`flex shrink-0 items-center ${pulse ? 'explorer-trailing-shimmer' : ''}`}
+          >
+            {trailing}
+          </span>
+        ) : null}
       </div>
       <Collapse open={open} id={bodyId} aria-label={title}>
         {guideLine ? (
           <div className="relative" data-guide-line={guideLine}>
-            {/* Aligned with the chevron orb's centre: pl-1.5 (6px) + half the 16px orb = 14px. */}
+            {/* Aligned with the orb's centre: pl-0.5 (2px) + half the 24px orb = 14px. */}
             <div
               aria-hidden
               data-testid="explorer-group-guide"
