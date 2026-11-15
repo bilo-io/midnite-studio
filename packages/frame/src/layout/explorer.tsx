@@ -63,7 +63,24 @@ const PULSE_MS = 6000;
  */
 function syncPulse(node: HTMLElement | null) {
   if (!node || typeof performance === 'undefined') return;
+  node.dataset.pulseSync = '';
+  lockPhase(node);
+  installFocusResync();
+}
+
+function lockPhase(node: HTMLElement) {
   node.style.animationDelay = `${-(performance.now() % PULSE_MS)}ms`;
+}
+
+// The loops pause while the window is blurred and the clock does not, so on
+// focus every pulse element is re-locked together.
+let focusResyncInstalled = false;
+function installFocusResync() {
+  if (focusResyncInstalled || typeof window === 'undefined') return;
+  focusResyncInstalled = true;
+  window.addEventListener('focus', () => {
+    document.querySelectorAll<HTMLElement>('[data-pulse-sync]').forEach(lockPhase);
+  });
 }
 
 /**

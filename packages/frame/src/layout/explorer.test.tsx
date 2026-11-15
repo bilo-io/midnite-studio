@@ -179,4 +179,26 @@ describe('ExplorerGroup', () => {
     expect(screen.getByTestId('explorer-group-guide')).toBeTruthy();
     expect(screen.queryByTestId('explorer-group-guide-shimmer')).toBeNull();
   });
+  it('gives every header a chevron orb and pulses only the active group, phase-locked', () => {
+    const { container, rerender } = render(
+      <ExplorerGroup title="repo" count={1} open={true} onToggle={() => {}} bodyId="g-orb" guideLine="muted">
+        <div>row</div>
+      </ExplorerGroup>,
+    );
+    expect(screen.getByTestId('explorer-group-orb')).toBeTruthy();
+    expect(container.querySelector('.explorer-orb-ring')).toBeNull();
+    expect(container.querySelector('.explorer-title-stroke')).toBeNull();
+
+    rerender(
+      <ExplorerGroup title="repo" count={1} open={true} onToggle={() => {}} bodyId="g-orb" guideLine="active">
+        <div>row</div>
+      </ExplorerGroup>,
+    );
+    for (const cls of ['explorer-orb-halo', 'explorer-orb-ring', 'explorer-header-sweep', 'explorer-title-stroke']) {
+      const el = container.querySelector<HTMLElement>(`.${cls}`);
+      expect(el, cls).not.toBeNull();
+      expect(el!.style.animationDelay).toMatch(/^-?[\d.]+ms$/);
+    }
+    expect(screen.getByTestId('explorer-group-guide-shimmer').style.animationDelay).toMatch(/ms$/);
+  });
 });
