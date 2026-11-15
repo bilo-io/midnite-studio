@@ -16,6 +16,14 @@ import { formatBytes, type ConfirmRequest, useFrameChrome } from '@midnite/studi
 
 import { CircularGauge } from './components/circular-gauge';
 import { OptimizerMetrics } from './components/optimizer-metrics';
+import {
+  isKillableBroker,
+  isLost,
+  isLostBroker,
+  LOST_REASON_LABEL,
+  lostTreeConfirm,
+  lostTreeSummary,
+} from './lost-processes';
 import { useOptimizerStore } from './optimizer-store';
 import { killOptimizerProcess, loadOptimizerProcesses } from './use-optimizer';
 
@@ -136,7 +144,8 @@ export function MemoryTab() {
   const processesError = useOptimizerStore((s) => s.processesError);
 
   const [query, setQuery] = useState('');
-  const [ownOnly, setOwnOnly] = useState(false);
+  const memoryFilter = useOptimizerStore((s) => s.memoryFilter);
+  const setMemoryFilter = useOptimizerStore((s) => s.setMemoryFilter);
   const [sort, setSort] = useState<Sort>({ key: 'rss', dir: 'desc' });
   const [confirmReq, setConfirmReq] = useState<ConfirmRequest | null>(null);
   const [sentSigtermPids, setSentSigtermPids] = useState<Set<number>>(new Set());
@@ -193,8 +202,10 @@ export function MemoryTab() {
 
   const filtered = useMemo(() => {
     let list = processes;
-    if (ownOnly) {
+    if (memoryFilter === 'ours') {
       list = list.filter((p) => p.ours);
+    } else if (memoryFilter === 'lost') {
+      list = list.filter(isLost);
     }
     const q = query.trim().toLowerCase();
     const matched = !q
@@ -207,7 +218,11 @@ export function MemoryTab() {
             String(p.pid).includes(q),
         );
     return [...matched].sort((a, b) => compareProcesses(a, b, sort));
-  }, [processes, ownOnly, query, sort]);
+  }, [processes, memoryFilter, query, sort]);
+
+  const lostCount = useMemo(() => processes.filter(isLost).length, [processes]);
+  const lostBrokers = useMemo(() => processes.filter(isLostBroker), [processes]);
+  const lostBrokerRss = useMemo(() => lostTreeSummary(processes, lostBrokers).rssBytes, [processes, lostBrokers]);
 
   const { totalRssBytes, totalCpuPercent, hasCpu } = useMemo(() => {
     let rss = 0;
@@ -238,8 +253,27 @@ export function MemoryTab() {
         : { key, dir: DEFAULT_DIR[key] },
     );
 
+  const killBrokers = async (brokers: readonly ProcessInfo[], force: boolean) => {
+    setConfirmReq(null);
+    for (const broker of brokers) {
+      const outcome = await killOptimizerProcess(broker.pid, broker.argv, force);
+      if (outcome.ok && !force) setSentSigtermPids((prev) => new Set(prev).add(broker.pid));
+    }
+    // The tree's rows go with the broker; re-read rather than guess which exited.
+    void loadOptimizerProcesses();
+  };
+
+  const handlePromptEndAllLost = () => {
+    if (lostBrokers.length === 0) return;
+    setConfirmReq(lostTreeConfirm(processes, lostBrokers, false, () => void killBrokers(lostBrokers, false)));
+  };
+
   const handlePromptKill = (proc: ProcessInfo) => {
     const isForce = sentSigtermPids.has(proc.pid);
+    if (isKillableBroker(proc)) {
+      setConfirmReq(lostTreeConfirm(processes, [proc], isForce, () => void killBrokers([proc], isForce)));
+      return;
+    }
     setConfirmReq({
       title: isForce ? `Force Kill Process (PID ${proc.pid})` : `Terminate Process (PID ${proc.pid})`,
       body: isForce
@@ -352,11 +386,37 @@ export function MemoryTab() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {lostBrokers.length > 0 ? (
+              <button
+                type="button"
+                onClick={handlePromptEndAllLost}
+                className="inline-flex items-center gap-1 rounded-md border border-destructive/40 px-2 py-1 text-[11px] font-medium text-destructive hover:bg-destructive/10"
+              >
+                <LuTrash2 aria-hidden className="h-3 w-3" />
+                End all lost ({lostBrokers.length} · {formatBytes(lostBrokerRss)})
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              aria-pressed={memoryFilter === 'lost'}
+              onClick={() => setMemoryFilter(memoryFilter === 'lost' ? 'all' : 'lost')}
+              title="Processes from an older build's terminal broker, a broker nothing reaches, or a terminal with no sidebar row"
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs ${
+                memoryFilter === 'lost'
+                  ? 'border-amber-500/60 bg-amber-500/15 text-foreground'
+                  : 'border-border text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Lost
+              <span className="rounded-full bg-muted px-1.5 font-mono text-[10px]">{lostCount}</span>
+            </button>
+
             <label className="flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground hover:text-foreground select-none">
               <input
                 type="checkbox"
-                checked={ownOnly}
-                onChange={(e) => setOwnOnly(e.target.checked)}
+                checked={memoryFilter === 'ours'}
+                onChange={(e) => setMemoryFilter(e.target.checked ? 'ours' : 'all')}
                 className="h-3.5 w-3.5 rounded border-input bg-background text-primary focus:ring-1 focus:ring-primary"
               />
               <span>Own processes only</span>
@@ -430,7 +490,14 @@ export function MemoryTab() {
                     >
                       <td className="max-w-xs truncate px-4 py-2.5 sm:max-w-sm">
                         <div className="flex flex-col">
-                          <span className="font-medium text-foreground">{proc.name}</span>
+                          <span className="flex items-center gap-1.5">
+                            <span className="font-medium text-foreground">{proc.name}</span>
+                            {proc.lost ? (
+                              <span className="rounded-sm bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                                {LOST_REASON_LABEL[proc.lost]}
+                              </span>
+                            ) : null}
+                          </span>
                           <span
                             title={proc.argv}
                             className="truncate font-mono text-[10px] text-muted-foreground"

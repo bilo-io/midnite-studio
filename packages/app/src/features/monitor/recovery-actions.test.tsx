@@ -1,3 +1,4 @@
+import { useOptimizerStore } from '@midnite/studio-feature-optimizer/renderer/testing';
 import { StatusBarChromeProvider } from '@midnite/studio-frame';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -30,9 +31,11 @@ describe('buildRecoveryActions', () => {
     expect(cleanSystem).toHaveBeenCalledTimes(1);
   });
 
-  it('opens the Optimizer for Manage resources', () => {
+  it('opens the Optimizer on Memory ▸ Lost for Manage resources', () => {
+    useOptimizerStore.setState({ tab: 'smartScan', memoryFilter: 'all' });
     const spy = vi.spyOn(handoff, 'requestHandoff').mockResolvedValue({ ok: true, via: 'in-process' } as never);
     buildRecoveryActions().find((a) => a.id === 'manage-resources')!.run();
+    expect(useOptimizerStore.getState()).toMatchObject({ tab: 'memory', memoryFilter: 'lost' });
     expect(spy).toHaveBeenCalledWith({ app: 'cleaner', view: 'optimizer' });
     spy.mockRestore();
   });

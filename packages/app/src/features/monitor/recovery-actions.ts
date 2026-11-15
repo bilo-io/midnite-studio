@@ -1,5 +1,6 @@
 import { previousBuildSessions } from '@midnite/studio-feature-terminal/renderer';
 import type { MonitorAction } from '@midnite/studio-frame';
+import { openOptimizerAt } from '@midnite/studio-feature-optimizer/renderer';
 import { LuGauge, LuLifeBuoy, LuMemoryStick, LuSparkles } from 'react-icons/lu';
 
 import { requestHandoff } from '../../services/handoff';
@@ -26,10 +27,13 @@ const noop = (): void => undefined;
 const openOptimizer = (): void => void requestHandoff({ app: 'cleaner', view: 'optimizer' });
 
 /**
- * The one way to Manage resources: the flyout's action and the Full recovery dialog both call it, so
- * Theme B's Lost filter (B.7) lands in a single place and applies to both.
+ * The one way to Manage resources: the flyout's action and the Full recovery dialog both call it.
+ * Theme B: it lands on Memory ▸ Lost (old-build brokers, unreachable brokers and rowless ptys).
  */
-export const openManageResources = (): void => openOptimizer();
+export const openManageResources = (): void => {
+  openOptimizerAt({ tab: 'memory', memoryFilter: 'lost' });
+  openOptimizer();
+};
 
 const DEFAULT_SEAMS: Required<Pick<RecoverySeams, 'cleanSystem' | 'manageResources'>> = {
   cleanSystem: openOptimizer,
@@ -51,7 +55,7 @@ export function buildRecoveryActions(seams: RecoverySeams = {}): readonly Monito
     {
       id: 'manage-resources',
       label: 'Manage resources',
-      description: 'Open the Optimizer to see which processes hold your memory',
+      description: 'Open the Optimizer on lost processes: old-build terminal brokers and sessions nothing lists',
       Icon: LuGauge,
       run: manageResources,
     },

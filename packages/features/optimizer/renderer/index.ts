@@ -27,6 +27,7 @@ export {
   type OptimizerHost,
   type OptimizerSettingsState,
 } from './host';
+export { openOptimizerAt, type MemoryFilter, type OptimizerTab } from './optimizer-store';
 
 export { runCleanSystem, type CleanSystemDeps } from './clean-system';
 
