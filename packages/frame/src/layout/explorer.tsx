@@ -99,10 +99,12 @@ export function ExplorerGroup({
       style={style}
     >
       <div
-        className="sticky top-0 z-10 flex h-7 items-center gap-1 bg-background/95 px-2 text-[11px] font-medium text-muted-foreground backdrop-blur"
+        className="sticky top-0 z-10 flex min-h-9 items-center gap-1 bg-background/95 px-2 py-1.5 text-[11px] font-medium text-muted-foreground backdrop-blur"
         {...headerAttributes}
         {...headerListeners}
       >
+        {/* A faint tint over the opaque base, so the header reads as its own band without letting rows show through. */}
+        <span aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-foreground/[0.04]" />
         <button
           type="button"
           onClick={onToggle}
@@ -113,7 +115,7 @@ export function ExplorerGroup({
         >
           <LuChevronRight
             aria-hidden
-            className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150 ease-in-out ${
+            className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ease-in-out ${
               open ? 'rotate-90' : ''
             }`}
           />
