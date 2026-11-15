@@ -14,6 +14,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [149 · Skill scripts and local LLM offload](FEATURES/phases/phase-149-skill-scripts-and-local-llm.md) | ◻ TODO | — | 0/30 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [148 · Performance widget recovery actions](FEATURES/phases/phase-148-performance-widget-recovery-actions.md) | 🔄 WIP | — | 28/33 | `████████░░` | 85% | — | — |
 | [147 · Unified sessions and chats](FEATURES/phases/phase-147-unified-sessions-and-chats.md) | ◻ TODO | — | 0/22 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [146 · Midnite Mobile](phases/phase-146-mobile-app.md) | ◻ TODO | x1 | 0/88 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K L |
