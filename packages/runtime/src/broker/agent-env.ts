@@ -35,6 +35,12 @@
  *     session marker. Dropping it would silently log an agent out of the account the user configured.
  *   - `ANTHROPIC_*`, `OPENAI_*`, `GEMINI_*`: credentials and endpoints the user configured.
  *
+ * Also removed: a *moon task's* env. Studio started with `moon run desktop:start` from a worktree inherits every
+ * `MOON_*` var moon sets on a task (`MOON_WORKSPACE_ROOT`, `MOON_PROJECT_*`, `MOON_TASK_*`, `MOON_CACHE_DIR`, ...;
+ * observed 2026-11-15). Every terminal then pins moon to that worktree, and once it is removed `moon run` fails with
+ * `app::missing_workspace`. Gated on `MOON_TARGET` / `MOON_TASK_ID` (set only inside a task), and then every `MOON_*`
+ * goes: a user's own `MOON_LOG`/`MOON_THEME` from their rc file comes back with the pty's login shell.
+ *
  * Other agent CLIs (Codex, Gemini, Antigravity) are deliberately not listed: no marker for them could be verified
  * against a real environment or in this repo, and guessing names would strip variables a user may rely on.
  * Add one here once it has been observed.
@@ -53,14 +59,19 @@ const SESSION_KEYS: ReadonlySet<string> = new Set([
   'CLAUDE_CODE_INVOKED_SKILLS',
 ]);
 
+const isMoonTask = (env: Record<string, string | undefined>): boolean =>
+  'MOON_TARGET' in env || 'MOON_TASK_ID' in env;
+
 const AI_AGENT_RE = /^claude-code[_/].+[_/]agent$/;
 
 export function scrubHostAgentEnv<T extends Record<string, string | undefined>>(env: T): T {
   const aiAgentMarked = AI_AGENT_RE.test(env.AI_AGENT ?? '');
   const hostAgent = env.CLAUDECODE === '1' || 'CLAUDE_CODE_SESSION_ID' in env || aiAgentMarked;
+  const moonTask = isMoonTask(env);
   const out: Record<string, string | undefined> = {};
   for (const [key, value] of Object.entries(env)) {
     if (SESSION_KEYS.has(key)) continue;
+    if (moonTask && key.startsWith('MOON_')) continue;
     if (key === 'AI_AGENT' && aiAgentMarked) continue;
     if (hostAgent) {
       if (key === 'NO_COLOR') continue;
