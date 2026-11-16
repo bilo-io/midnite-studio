@@ -81,7 +81,7 @@ export const Footer = () => (
                 the decorative wordmark below. */}
             <TypeIn
               leadMs={0}
-              text="One launcher for the midnite apps: code, agents, media, money and the machine underneath, on one shared frame. macOS on Apple silicon."
+              text="One launcher for the midnyte apps: code, agents, media, money and the machine underneath, on one shared frame. macOS on Apple silicon."
             />
           </p>
         </div>
@@ -111,7 +111,7 @@ export const Footer = () => (
 
       {/*
         The wordmark. `select-none` and `aria-hidden`: it is a texture, and a
-        reader who selects the whole page should not get "MIDNITE STUDIO" in
+        reader who selects the whole page should not get "MIDNYTE STUDIO" in
         70pt letters pasted into whatever they were writing.
 
         **The gradient is the brand rainbow, faded into the page.** It is the

@@ -9,7 +9,7 @@ const STEPS: readonly Step[] = [
   {
     icon: <LuDownload />,
     title: 'Install the launcher',
-    body: 'One app in /Applications, from one command or one download. It lists every midnite app and what each one is for.',
+    body: 'One app in /Applications, from one command or one download. It lists every midnyte app and what each one is for.',
   },
   {
     icon: <LuLayoutGrid />,
@@ -34,7 +34,7 @@ export const Launcher = () => {
     <Section id="launcher" label="Launcher" className="bg-bg-sunken">
       <Reveal>
         <div className="flex flex-col items-start gap-4">
-          <Eyebrow>Midnite Apps</Eyebrow>
+          <Eyebrow>Midnyte Apps</Eyebrow>
           <Heading level={2} typeIn>
             One place to get them all
           </Heading>
@@ -67,7 +67,7 @@ export const Launcher = () => {
 
       <Reveal className="mt-8">
         <p className="max-w-prose text-sm text-fg-subtle">
-          Today every app runs inside Midnite Studio, the app that holds all of them in one
+          Today every app runs inside Midnyte Studio, the app that holds all of them in one
           window: opening Coder from the launcher opens Studio on Coder. As each app ships as its
           own bundle, the launcher installs that one instead, and its tile stays where it is.
         </p>

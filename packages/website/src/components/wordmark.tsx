@@ -70,7 +70,7 @@ export const Wordmark = ({
       applied per line-box, which is the same problem again.
 
       **`pr-[0.15em]` is not spacing, it is headroom for the clip itself.**
-      The brand face's glyphs are wider than their advance: summing "Midnite"
+      The brand face's glyphs are wider than their advance: summing "Midnyte"
       over Damion's own metrics gives a 2.896em advance against ink reaching
       3.000em, so its ink runs **0.104em** past the box `inline-block` sizes to
       (the final `e`'s tail is the culprit). A gradient clipped to *text* still
@@ -86,13 +86,13 @@ export const Wordmark = ({
         tone === 'rainbow' ? 'ws-rainbow-text ws-brand-glow' : ''
       } font-brand`}
     >
-      Midnite
+      Midnyte
     </span>
     {/*
       **A real space, not only a margin — the mark's `textContent` has to say
-      "Midnite Studio".** The app separates the two halves with `ml-1.5` alone,
+      "Midnyte Studio".** The app separates the two halves with `ml-1.5` alone,
       which is invisible to everything that reads the DOM: the string comes out
-      `MidniteStudio`, and here that would land in the hero's `<h1>` and become
+      `MidnyteStudio`, and here that would land in the hero's `<h1>` and become
       the page's accessible name. So the space is a text node and the margin is
       only the optical nudge on top of it.
 

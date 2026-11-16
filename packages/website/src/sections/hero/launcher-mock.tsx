@@ -44,7 +44,7 @@ export const LauncherMock = ({ className = '' }: LauncherMockProps) => {
         <span aria-hidden="true" className="h-3 w-3 rounded-full bg-[#ff5f57]" />
         <span aria-hidden="true" className="h-3 w-3 rounded-full bg-[#febc2e]" />
         <span aria-hidden="true" className="h-3 w-3 rounded-full bg-[#28c840]" />
-        <span className="ml-3 text-xs font-medium text-white/70">Midnite Apps</span>
+        <span className="ml-3 text-xs font-medium text-white/70">Midnyte Apps</span>
       </div>
 
       <div className="relative flex flex-col gap-5 p-5 sm:p-6">
