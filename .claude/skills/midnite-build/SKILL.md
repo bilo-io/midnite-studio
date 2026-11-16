@@ -15,11 +15,7 @@ Run `scripts/skills/worktree-lifecycle.sh create <slug>` (brief-first SCRATCHPAD
 
 ## Respect
 - `AGENTS.md` = conventions (Claude Code reads them through `CLAUDE.md`) (package boundaries — `shared ◀ git-engine ◀ desktop`, `shared ◀ frame ◀ feature ◀ app`; commit style; pre-push gate). Re-read relevant sections before coding. `docs/INITIAL_PLAN.md` is design source of truth.
-- `.midnite/tasks/` = tracker divided into category folders:
-  - **`FEATURES/`** (`FEATURES/_INDEX.md`, `FEATURES/phases/phase-N-*.md`)
-  - **`SECURITY/`** (`SECURITY/_INDEX.md`, `SECURITY/phases/phase-N-*.md`)
-  - **`ISSUES/`** (`ISSUES/_INDEX.md`, `ISSUES/phases/phase-N-*.md`)
-  - Completed work is logged append-only in `done.md`; deferred scope in `outstanding.md`.
+- The tracker is **GitHub issues** ([`docs/TRACKER.md`](../../../docs/TRACKER.md)): a phase is an issue labelled `phase` + `features` / `security` / `issues`, each theme a sub-issue, deferred scope labelled `deferred`. Nothing about the plan is committed; `.midnite/tasks/` is git-ignored scratch.
 - Parallel work → git worktrees in repo-root **`.worktrees/<branch>/`** directory. Keep primary checkout clean.
 - Every worktree keeps an untracked `SCRATCHPAD.md` recording task, decisions, done, next, and gotchas.
 
@@ -27,14 +23,11 @@ Run `scripts/skills/worktree-lifecycle.sh create <slug>` (brief-first SCRATCHPAD
 
 ## 1 · Scan — all category indexes
 
-**Pass 1 — Category `_INDEX.md` files.** Read the index files across all relevant task folders:
-- **[`.midnite/tasks/FEATURES/_INDEX.md`](../../../.midnite/tasks/FEATURES/_INDEX.md)**
-- **[`.midnite/tasks/SECURITY/_INDEX.md`](../../../.midnite/tasks/SECURITY/_INDEX.md)**
-- **[`.midnite/tasks/ISSUES/_INDEX.md`](../../../.midnite/tasks/ISSUES/_INDEX.md)**
+**Pass 1 — the open phase issues.** `gh issue list --label phase --state open --limit 500 --json number,title,labels,assignees`, plus the project board's Status column.
 
-Do **not** read individual phase docs yet. Status, Done/%, and `🔄 WIP` / `◻ TODO` theme letters are right in the `## Phases` tables. Scan them to find unblocked candidate work across categories. Anything marked `🔄 WIP` or with an active open PR is already claimed.
+Do **not** read individual phase issues yet. Scan the list to find unblocked candidate work across categories. A theme sub-issue that is assigned, labelled `wip`, or has an open PR linked is already claimed.
 
-**Pass 2 — Candidate phase docs.** Open only the matching `phases/phase-{N}-*.md` files (at most 4 across categories) to inspect theme deliverables and `## Headlines`.
+**Pass 2 — Candidate phases.** Open only the matching phase issues and their sub-issues (at most 4 phases) to inspect theme deliverables and `## Headlines`.
 
 ---
 
@@ -50,11 +43,9 @@ Do **not** read individual phase docs yet. Status, Done/%, and `🔄 WIP` / `◻
 ## 3 · Worktree Setup
 
 1. Check for existing/abandoned `SCRATCHPAD.md` in `.worktrees/`. If resuming an existing worktree, pick up from its `Next` line; otherwise clean up.
-2. Claim chosen themes in the respective category's `_INDEX.md` on `main`:
+2. Claim chosen themes on GitHub (no commit):
    ```bash
-   git add .midnite/tasks/<CATEGORY>/_INDEX.md
-   git commit -m "chore(todo): claim <CATEGORY> Phase <N> Theme <X> (WIP)"
-   git push origin main
+   gh issue edit <theme-issue> --add-assignee @me --add-label wip
    ```
 3. Create worktree and install dependencies:
    ```bash
@@ -70,7 +61,7 @@ Do **not** read individual phase docs yet. Status, Done/%, and `🔄 WIP` / `◻
 
 ## 4 · Build (Implementation Sub-Agent)
 
-- Implement each theme in the batch in accordance with the phase doc and recorded decisions.
+- Implement each theme in the batch in accordance with the theme sub-issue and recorded decisions.
 - Maintain strict package boundaries:
   - `packages/shared` has wire contracts only.
   - `packages/git-engine` touches git and never imports Electron.
@@ -94,7 +85,7 @@ Do **not** read individual phase docs yet. Status, Done/%, and `🔄 WIP` / `◻
 
 Run the local gate inside the worktree:
 ```bash
-moon run :typecheck && moon run :lint && moon run :test && moon run root:tracker-check
+moon run :typecheck && moon run :lint && moon run :test
 ```
 All checks must pass green before moving to review.
 
@@ -124,11 +115,11 @@ Never mark ready or request review before completing the two-subagent self-revie
 
 ## 9 · Mark Ready & Merge
 
-1. Run final gate: `moon run :typecheck :lint :test && moon run root:tracker-check`.
-2. Update phase doc: mark completed items `- [x]` and update `## Headlines` with landed narrative and PR link.
-3. Update category `_INDEX.md`: update `Done`, `%`, progress bar, remove theme from `🔄 WIP`.
+1. Run final gate: `moon run :typecheck :lint :test`.
+2. Make sure the PR body says `Closes #<theme-issue>` for each theme it lands, and tick the sub-issue's `- [x]` items.
+3. Update the phase issue's `## Headlines` paragraph with the landed narrative and PR link (`gh issue edit <phase> --body-file …`), and drop the `wip` label.
 4. Check that `SCRATCHPAD.md` is untracked (`git ls-files --error-unmatch SCRATCHPAD.md`).
-5. Commit tracker updates to branch.
+5. Nothing tracker-related is committed.
 6. Mark PR ready: `gh pr ready <n>`.
 7. Once CI checks pass green, squash-merge PR, delete remote branch, and remove local worktree:
    ```bash

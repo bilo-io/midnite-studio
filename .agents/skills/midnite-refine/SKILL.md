@@ -1,12 +1,12 @@
 ---
 name: midnite-refine
-description: Deepen an existing, uncompleted .midnite/tasks/ phase doc — pick the phase, choose which areas to expand via option sheets, resolve the open decisions, then rewrite the doc to a standard any model can execute. Stamps "Refined: xN" on the doc and the index.
+description: Deepen an existing, uncompleted phase issue on GitHub — pick the phase, choose which areas to expand via option sheets, resolve the open decisions, then rewrite the issue and its theme sub-issues to a standard any model can execute. Stamps a `refined-N` label.
 ---
 
 **Invoke with:** [optional: phase number, or an area hint, e.g. '24' or '26 perf+testing']
 
 You are running the **refine** workflow for **Midnite Studio**. It takes one *existing, uncompleted*
-`.midnite/tasks/phases/phase-N-*.md` and makes it **deeper**, not longer for its own sake — the goal is a plan whose
+phase issue (and its theme sub-issues) on GitHub and makes it **deeper**, not longer for its own sake — the goal is a plan whose
 every item can be built by a model with no access to this conversation.
 
 `/midnite-plan` invents a phase. `/midnite-build` builds a slice of one. **`/midnite-refine` sits between them** and is
@@ -38,32 +38,30 @@ only to vagueness.
 
 ## Context you must respect
 
-- Phase plans live in **`.midnite/tasks/`** (not `docs/todo/`). [`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md) is
-  the status-only roll-up (a table, no prose; each phase's narrative is the `## Headlines` section
-  at the top of its own doc), [`.midnite/tasks/done.md`](../../../.midnite/tasks/done.md) is the append-only landed log,
-  [`.midnite/tasks/outstanding.md`](../../../.midnite/tasks/outstanding.md) is deferred scope.
+- Phase plans live on **GitHub issues** ([`docs/TRACKER.md`](../../../docs/TRACKER.md)): a `phase` issue whose body
+  carries the `## Headlines` narrative, one sub-issue per theme holding its `- [ ]` deliverables, closed
+  sub-issues as the landed log, and `deferred` issues as deferred scope. `.midnite/tasks/` is git-ignored
+  scratch: never commit a plan as markdown.
   [`docs/INITIAL_PLAN.md`](../../../docs/INITIAL_PLAN.md) is the design source of truth.
 - **House style** (read the doc you are refining before changing a word of it): `# Phase N — Title`,
   a framing prose section (builds-on + scope guardrails + effort-tag legend), `## Headlines` (one
   lead paragraph + one `**Theme X — Name.**` paragraph per theme), `## Deliverables` split
   into lettered `### A — Theme (S|M|L)` sections of `- [ ]` items, `## Files this phase touches`
-  (a table), `## Verification`, `## Not in this phase`, `## Decisions / open questions`. Recent docs
-  ([phase-25](../../../.midnite/tasks/phases/phase-25-search-everywhere.md),
-  [phase-26](../../../.midnite/tasks/phases/phase-26-side-by-side-diffs.md)) are the reference depth.
+  (a table), `## Verification`, `## Not in this phase`, `## Decisions / open questions`. The most
+  recently refined phase issues (label `refined-*`) are the reference depth.
 - Respect `CLAUDE.md` boundaries (`shared ◀ git-engine ◀ desktop`, `shared ◀ app`; git-engine is
   electron-free; the renderer only reaches main via `window.midniteStudio`; NUL-delimited parsing; the
   per-repo write queue; `GitOpResult` envelopes). A refinement that would need a boundary exception
   is wrong — refine it into an IPC channel instead.
-- **Never tick a box.** Everything you write stays `- [ ]`. Never touch `done.md`.
-- **This is doc-only work and lands on `main`** — like `/midnite-plan`. Do not ask the worktree
-  question, do not open a PR.
+- **Never tick a box.** Everything you write stays `- [ ]`. Never close an issue.
+- **This is planning-only work on GitHub** — like `/midnite-plan`. No worktree, no commit, no PR.
 
 ---
 
 ## 🔭 Stage 1 — Find the refineable phases
 
-Read **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md)** only. Do **not** read every phase doc; the index
-is what replaces that.
+List the open phase issues only (`gh issue list --label phase --state open --json number,title,labels`).
+Do **not** read every phase issue; the list is what replaces that.
 
 A phase is **refineable** if it has open (`- [ ]`) in-scope items — i.e. Status is `◻ TODO` or
 `🔄 WIP` and `%` < 100. Rank candidates:
@@ -98,7 +96,7 @@ Option labels carry the shape: `Phase 26 — Side by side [68 open · never refi
 
 ## 🔬 Stage 3 — Audit the doc, on evidence
 
-1. **Read the chosen phase doc in full.** All of it. This is the one place in this skill where you
+1. **Read the chosen phase issue and its sub-issues in full.** All of it. This is the one place in this skill where you
    read a whole large file into this conversation — everything downstream depends on it.
 2. **Ground it in the repo, in parallel.** Dispatch **2–4 read-only subagents** (`Explore`) — one per
    area cluster the doc leans on — and keep the file dumps out of this thread. Each returns *facts*,
@@ -200,9 +198,10 @@ Play back a **terse** change list before touching the file: per theme, `+N items
 resolved, the verification lines added, anything corrected as stale. Get a go-ahead. If they want
 changes, loop back to Stage 6.
 
-## 📝 Stage 8 — Rewrite the doc
+## 📝 Stage 8 — Rewrite the issue
 
-Edit `.midnite/tasks/phases/phase-N-<slug>.md` **in place**, preserving its voice and its structure.
+Copy the phase issue body and its sub-issue bodies into the session scratchpad and edit them there,
+preserving their voice and structure. Stage 9 pushes them back.
 
 **Rules of the rewrite**
 
@@ -236,65 +235,29 @@ Edit `.midnite/tasks/phases/phase-N-<slug>.md` **in place**, preserving its voic
   `**Resolved — <the decision>.**` entry carrying the *reason*, not just the choice. Anything still
   open keeps `**Open — …**` with an explicit `*Recommendation:*`.
 - Use clickable relative markdown links for every file reference, per repo convention.
-- **Nothing is ticked. `done.md` is not touched. No code is written.**
+- **Nothing is ticked. No issue is closed. No code is written.**
 
-## 🗂️ Stage 9 — Sync `_INDEX.md` — MANDATORY
+## 🗂️ Stage 9 — Sync the issues — MANDATORY
 
-A refinement that doesn't reach the index is invisible, and — because refining changes the item
-count — leaves every progress number wrong.
+A refinement that doesn't reach GitHub is invisible.
 
-1. **Recompute the counts.** The `Done` cell is `<checked>/<total in-scope>`; refinement almost
-   always raises the total. Recount `- [x]`/`✅` and `- [ ]` in the doc, excluding `❌ OUT OF SCOPE`
-   and `⏳ deferred`, then redraw the 10-cell bar (`█` × `round(done/total × 10)`, remainder `░`) and
-   the `%`. **Status and the WIP/TODO theme letters do not change** — refining does no work.
-2. **The `Refined` column.** The `## Phases` table needs a `Refined` column immediately after
-   `Status`. If it isn't there yet, add it once and backfill `—` for every phase:
+1. **Push the bodies.** `gh issue edit <phase> --body-file <scratchpad>/phase.md`, and the same for
+   every theme sub-issue whose deliverables changed. A new theme becomes a new sub-issue.
+2. **Stamp it.** Replace any `refined-*` label on the phase issue with `refined-N`
+   (`gh issue edit <phase> --remove-label refined-<N-1> --add-label refined-N`).
+3. **Headlines — in the phase issue body.** Rewrite the affected `**Theme X — …**` paragraphs so they
+   describe what the theme now says. Status does not change; refining does no work.
 
-   ```bash
-   # header + separator, then every phase row
-   sed -i '' -E 's/^\| Phase \| Status \|/| Phase | Status | Refined |/' .midnite/tasks/_INDEX.md
-   sed -i '' -E 's/^\|-------\|--------\|/|-------|--------|---------|/' .midnite/tasks/_INDEX.md
-   sed -i '' -E 's/^\| (\[[0-9]+ · [^|]*) \| ([^|]*) \|/| \1 | \2 | — |/' .midnite/tasks/_INDEX.md
-   ```
+## ✅ Stage 10 — Report
 
-   **Then `git diff .midnite/tasks/_INDEX.md` and check every row has the same cell count** before going on —
-   a mangled table is worse than no column. Set this phase's cell to `x1` (or `x2`, …), matching the
-   doc's stamp exactly.
-3. **Headlines — in the phase doc, not the index.** Rewrite the affected `**Theme X — …**`
-   paragraphs in the doc's own `## Headlines` so they describe what the theme now says. Touch its
-   lead paragraph only if the refinement materially changed what the phase is — usually it doesn't,
-   so don't churn it. Status marks do not change. **Nothing but this phase's row changes in
-   `_INDEX.md`.**
-4. **Drift guard — run it, it must exit 0:**
+Nothing is committed: the plan lives on GitHub, and `.midnite/tasks/` is git-ignored scratch.
 
-   ```bash
-   moon run root:tracker-check
-   ```
-
-## ✅ Stage 10 — Commit to `main` & report
-
-Doc-only, source-of-truth change — same landing path as `/midnite-plan`. No PR.
-
-1. Commit against `main`, staging **by explicit path** (never `git add -A` — it sweeps worktree admin
-   files and other loops' work):
-
-   ```bash
-   git add .midnite/tasks/phases/phase-N-<slug>.md .midnite/tasks/_INDEX.md
-   git commit -m "docs: refine phase-N <slug> (xN) — <areas>"
-   git push origin main
-   ```
-
-   **Never add a `Co-Authored-By`, `Signed-off-by` or any other attribution trailer to a commit message.**
-
-   (If the push races another loop's `_INDEX.md`
-   edit: `git pull --rebase origin main`, reconcile the table, re-push.)
-2. `git status` must be clean, with only those two files changed. Remove any scratch files. If
-   anything unexpected is staged, **stop and show the user** rather than committing it.
-3. Report, terse: the doc path · `Refined: xN` · items `before → after` per theme · the opens
-   resolved · the commit/push result · and the one line that matters — **what a `/midnite-build` run can now
+1. Remove any scratch files.
+2. Report, terse: the phase issue link · `Refined: xN` · items `before → after` per theme · the opens
+   resolved · and the one line that matters — **what a `/midnite-build` run can now
    do without asking a question it would have had to ask before**.
 
 ---
 
 Stages 2, 4, 5, 6 and 7 stop for the human — that is the whole point; do not guess through them.
-Stages 1, 3, 8, 9 and 10 are autonomous. Never write code, never open a PR, never tick a box.
+Stages 1, 3, 8, 9 and 10 are autonomous. Never write code, never commit, never open a PR, never tick a box.
