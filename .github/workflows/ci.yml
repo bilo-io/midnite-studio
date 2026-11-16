@@ -208,7 +208,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
           cache: pnpm
 
       # @bilo-io/ui and @bilo-io/shell come from GitHub Packages, which requires
@@ -339,7 +339,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
           cache: pnpm
 
       - name: Install
@@ -381,7 +381,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
           cache: pnpm
 
       - name: Install
@@ -419,7 +419,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
           cache: pnpm
 
       - name: Install
@@ -575,7 +575,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
           cache: pnpm
 
       - name: Install
@@ -724,7 +724,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
           cache: pnpm
 
       - name: Install
@@ -933,7 +933,7 @@ jobs:
           version: 10.34.9
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
           cache: pnpm
 
       - name: Install
