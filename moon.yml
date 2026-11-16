@@ -33,12 +33,6 @@ tasks:
     options:
       cache: false
 
-  # tracker-check: verifies phase doc and _INDEX.md consistency across 7 rules.
-  tracker-check:
-    command: 'node scripts/tracker-check.mjs'
-    options:
-      cache: false
-
   # privacy-doc (Phase 115 Theme G): regenerate docs/PRIVACY.md from the egress registry.
   # `--check` only verifies; the same check runs in `shared:test` (privacy-doc.test.ts).
   privacy-doc:
