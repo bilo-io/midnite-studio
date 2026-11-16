@@ -632,10 +632,12 @@ export function findOrphans(images, corpus) {
 
 /** @param {string} root */
 export async function collectOrphanedScreenshots(root = repoRoot) {
-  const base = path.join(root, 'docs/screenshots');
-  const images = (await listFiles(base))
-    .filter((f) => IMAGE_RE.test(f))
-    .map((f) => path.relative(base, f).split(path.sep).join('/'));
+  // docs/screenshots/ is git-ignored, so only a force-added (tracked) image can be an orphan;
+  // a local capture sitting in the ignored folder is nobody's business.
+  const images = execFileSync('git', ['ls-files', '-z', '--', 'docs/screenshots'], { cwd: root, encoding: 'utf8' })
+    .split('\0')
+    .filter((f) => f && IMAGE_RE.test(f))
+    .map((f) => f.slice('docs/screenshots/'.length));
   if (images.length === 0) return [];
   const docFiles = (await readdir(path.join(root, 'docs'), { withFileTypes: true }))
     .filter((e) => e.isFile() && e.name.endsWith('.md'))

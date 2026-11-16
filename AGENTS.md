@@ -9,18 +9,17 @@ its centre, with an integrated terminal and agent roster, an embedded browser, a
 carries the architecture, IPC contract, data model, and the verified research constraints
 (licensing, registry auth, native-module ABI) that every phase assumes.
 
-**Progress tracker: [`.midnite/tasks/`](.midnite/tasks/)** — `_INDEX.md` is the phase table across category folders (`FEATURES/`, `SECURITY/`, `ISSUES/`), `done.md` is the
-append-only landed log, `outstanding.md` is deliberately-deferred scope.
+**Progress tracker: GitHub issues on this repo's forge — never markdown files in git.** A phase is
+an issue labelled `phase` (plus `features`, `security` or `issues` for its category), each theme a
+sub-issue of it, and deferred scope an issue labelled `deferred`. The issue body's `## Headlines`
+section carries the per-theme narrative that used to live in the phase doc; the GitHub Project
+board is the index (Status, theme letters), and closed issues are the landed log. Read a phase's
+issue only once that phase is picked; when a theme lands, close its sub-issue and update the
+parent's Headlines paragraph.
 
-**`_INDEX.md` is status only — scan category tables, nothing else.** Its `## Phases` table (Status, Done,
-`🔄 WIP` and `◻ TODO` theme letters) across `FEATURES/_INDEX.md`, `SECURITY/_INDEX.md`, and
-`ISSUES/_INDEX.md` is all a session needs to find what is TODO, in flight or
-done. Each phase's narrative — why it exists, what landed, per-theme notes — lives in the
-`## Headlines` section at the top of its own category phase doc (e.g. `FEATURES/phases/phase-N-*.md`), one short paragraph per theme
-(`**Theme A — <name>.** ✅ …`). Read a phase's Headlines only once that phase is picked; when a
-theme lands or a phase is refined, verified or created, write the narrative into that doc's
-Headlines paragraph and touch only the phase's *row* in the category `_INDEX.md`. The index was 438 KB before
-the move; keeping prose out of it is what keeps the first read of every session cheap.
+**Local markdown plans are scratch files and stay out of git.** `.midnite/tasks/` and `todo/` are
+git-ignored. A session may draft a plan there, but it becomes real only once it is filed as issues;
+the pre-2026-11 tracker files remain on disk locally as history and are not updated any more.
 
 ## One convention file: `AGENTS.md`
 
@@ -253,8 +252,8 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   158 shots specs and ~1,470 PNGs; a verification shot is captured into the session scratchpad
   (or `/tmp/midnite-shots-<slice>/`) and shown in the thread, never added to git. Appearance
   belongs to `app:visual`. `scripts/e2e-budget.mjs` fails the gate on a `*-shots.spec.ts`, on a
-  `.screenshot({ path })` in a functional spec, on an image under `docs/screenshots/` that
-  `README.md`, `docs/*.md` or `packages/website/` does not reference, and on a `waitForTimeout(`
+  `.screenshot({ path })` in a functional spec, on a force-added (tracked) image under the git-ignored
+  `docs/screenshots/` that `README.md`, `docs/*.md` or `packages/website/` does not reference, and on a `waitForTimeout(`
   that is not routed through `settle()` or marked `// allow-timeout: <reason>`.
   `moon run root:test-node` (one Vitest `projects` pass over the node-portable packages) and
   `moon run root:lint-all` (`eslint . --cache`) are what `gate-node` runs; the per-package
@@ -323,8 +322,8 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   The bundled command is `midnite` (`resources/bin/midnite`) and the MCP server registers as `midnite`
   (`MCP_SERVER_NAME` in `shared/src/media-model-mcp.ts` — the shim's `Server` and every Claude
   `mcp__midnite__*` allowlist or Codex `mcp_servers.midnite.*` key derive from it, so they cannot drift).
-  `midnite-studio` stays as a forwarding alias for one release (removal is tracked in
-  `outstanding.md`). The original midnite app ships its own `midnite` CLI, so the installer
+  `midnite-studio` stays as a forwarding alias for one release (removal is tracked as a
+  `deferred` issue). The original midnite app ships its own `midnite` CLI, so the installer
   (`runtime/src/cli/cli-installer.ts` since Phase 113 Theme D, bound by `main/ipc/cli-handlers.ts`; the MCP tool list is filtered per installed app by `shared/src/mcp-tool-owners.ts`) only replaces a `midnite` whose symlink resolves into this app's bundle;
   a foreign one is left untouched, only the alias is installed, and the reason comes back in
   `CliStatusResponse.notice`. The app name, the `midnite-studio://` protocol and release tags are unchanged.
@@ -370,10 +369,8 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   [`scripts/no-quick-kiss.mjs`](scripts/no-quick-kiss.mjs) fails the release on any built bundle
   (Studio's `.app`, the launcher, every suite app) that carries it. **The binding constraint is
   the licence, not the ranking**: twenty OFL/Apache script faces were once rendered against Quick
-  Kiss and Kaushan Script won that sheet, with Damion fourth — Damion was picked directly, and the
-  sheet stays committed at
-  [`docs/screenshots/website-wordmark/candidates.png`](docs/screenshots/website-wordmark/candidates.png)
-  so a re-pick starts from rendered type. The wordmark's split lives in the app's `brand.tsx` and
+  Kiss and Kaushan Script won that sheet, with Damion fourth — Damion was picked directly. The
+  comparison sheet is no longer committed (screenshots stay out of git), so a re-pick re-renders it. The wordmark's split lives in the app's `brand.tsx` and
   the site's `packages/website/src/components/wordmark.tsx`; a gradient-clipped "Midnite" needs
   `0.15em` of right padding as clip headroom, measured **per face** (Damion's ink runs 0.104em past
   its advance box over "Midnite"), so a face swap re-measures it.
@@ -469,7 +466,7 @@ first:
 When several agents run in parallel, give them a **shared append-only board file** in the session
 scratchpad and make every cross-agent contract change go through it *before* it is written into a
 doc or a file. Sitrep rows then have something real to report, and the orchestrator — never a
-worker — owns the shared files (`_INDEX.md`, the git commit) so parallel writers cannot race.
+worker — owns the shared state (the phase issue, the project board, the git commit) so parallel writers cannot race.
 
 A multi-phase fan-out is exactly the case this format is for. Agent groups start from
 [`midnite-agents`](.agents/skills/midnite-agents/SKILL.md), the umbrella, which asks which mode:
@@ -482,10 +479,10 @@ recurring-table report until the work has landed.
 
 ## Phase workflow
 
-One phase per PR where practical. Work the checklist in `.midnite/tasks/<CATEGORY>/phases/phase-N-*.md` (`FEATURES/`,
-`SECURITY/`, or `ISSUES/`), leave `moon run :typecheck :lint :test` green, append an entry to `.midnite/tasks/done.md`,
-update the phase doc's own `## Headlines` paragraph for each theme that landed, and update the phase's row in
-the table in `.midnite/tasks/<CATEGORY>/_INDEX.md` and top-level `.midnite/tasks/_INDEX.md` (the row only — no prose goes in the index).
+One phase per PR where practical. Work the theme sub-issues of the phase's `phase` issue, leave
+`moon run :typecheck :lint :test` green, link the PR to the sub-issue it closes (`Closes #n`),
+update the parent issue's `## Headlines` paragraph for each theme that landed, and move the card on
+the project board. Nothing about the plan is committed to the repo.
 
 - **The core skill family (`midnite-plan`, `midnite-design`, `midnite-build`, `midnite-test`, `midnite-maintain`, `midnite-deploy`) drives the lifecycle.** Self-review runs through `midnite-check-yourself` before any PR leaves draft.
 - **The PR skill family (`midnite-pr-review`, `-pr-feedback`, `-check-yourself`, `-pr-create`, `-pr-description`, `-pr-description-image`) is the repo's own PR workflow, and the midnite menu's review and PR entries invoke it.**
@@ -520,7 +517,7 @@ three of this repo's thirteen skills are deliberately left out.
 
 ## graphify
 
-This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+This project has a knowledge graph at graphify-out/ (git-ignored, built locally) with god nodes, community structure, and cross-file relationships.
 
 When the user types `/graphify`, use the installed graphify skill or instructions before doing anything else.
 
