@@ -36,7 +36,7 @@ Fetch them all before writing anything. The repo is `bilo-io/midnite-studio`. Wh
 | Layer | What it is | Where it lives |
 |---|---|---|
 | **L0 · Request** | the user's own words | this session's transcript (`~/.claude/projects/<cwd-slug>/<session>.jsonl`, the `type=="user"` entries), else the issue as the user first wrote it |
-| **L1 · Phase** | the theme's deliverables and its contract row | `.midnite/tasks/phases/phase-<N>-*.md`: `## Headlines`, `## Deliverables` (the `Contract` row), `## Verification` |
+| **L1 · Phase** | the theme's deliverables and its contract row | the `Phase <N>` issue and the theme sub-issue the PR closes: `## Headlines`, the deliverables (the `Contract` row), `## Verification` |
 | **L2 · Issue** | what the task promised | `gh pr view <n> --json closingIssuesReferences`, then `gh issue view <i> --json title,body,comments` |
 | **L3 · PR body** | what the author claims | `gh pr view <n> --json title,body,files,baseRefName,headRefName` |
 | **L4 · Code** | what actually ships | the PR's head in its worktree (`git worktree list`, under `.worktrees/`), or `gh pr diff <n>` |

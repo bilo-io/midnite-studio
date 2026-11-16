@@ -21,7 +21,7 @@ Run `scripts/skills/orchestrate-cap.sh --running <n>` before each spawn, `script
 
 ## 1 · Scope — option sheets, as many pages as it takes (skip what the invocation answers)
 
-Scan `.midnite/tasks/_INDEX.md` — **Pass 1 only**, its `## Phases` table; no `phase-*.md` — for
+Scan the open `phase` issues on GitHub — **Pass 1 only**, the list; no issue bodies — for
 unblocked candidates, and `gh pr list --state open` to skip anything in flight. Present them as
 multi-select checkboxes: up to 4 options per question and up to 4
 questions per page, so 16 per page; keep paging until every candidate has been offered. The human
@@ -47,9 +47,9 @@ Each worker:
 - Invokes the `midnite-build` skill (or `midnite-build-adhoc` for an ad
   hoc task) for **that task only**, capped to §2.
 - Runs unattended: skips `/midnite-build`'s own questions, takes the conventional choice or the
-  phase doc's *Decisions*, and records what it chose in the PR body.
-- Claims its row in `_INDEX.md` on `main` before branching (`git pull --rebase origin main` on a push
-  race); writes what landed into its phase doc's `## Headlines`, touching only its own index row.
+  phase issue's *Decisions*, and records what it chose in the PR body.
+- Claims its theme sub-issue on GitHub before branching (`gh issue edit <n> --add-assignee @me --add-label wip`);
+  writes what landed into its phase issue's `## Headlines`, and its PR closes the sub-issue.
 - Uses a worktree slug that cannot collide: `.worktrees/p<N>-<letters>`.
 - Opens the PR as a draft, self-reviews with `/midnite-check-yourself`, readies it, watches CI.
 

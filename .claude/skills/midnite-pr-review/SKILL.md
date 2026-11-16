@@ -104,9 +104,9 @@ Apply only the sections the diff touches.
 - Nothing in the local loop starts a container.
 
 ### Tracker and docs hygiene
-- A phase PR leaves `.midnite/tasks/` consistent: an entry appended to `done.md`, the theme's
-  narrative in the phase doc's `## Headlines` paragraph, and **only the row** touched in
-  `_INDEX.md`. Prose added to `_INDEX.md` is a WARNING.
+- A phase PR closes its theme sub-issue (`Closes #<n>`). A PR that commits plan files
+  (`.midnite/tasks/`, `todo/`) or screenshots (`docs/screenshots/`) is a WARNING: they are git-ignored
+  and live on GitHub.
 - **Conventions live in `AGENTS.md` only.** `CLAUDE.md` is an `@AGENTS.md` import plus Claude-only
   notes; a convention added to `CLAUDE.md`, or a `GEMINI.md` brought back: WARNING.
 - Skills ship as byte-identical copies in `.claude/` and `.agents/`

@@ -46,7 +46,7 @@ gathered commits (this is exactly what its unit tests pin):
   built from the current version. The commits are *not* consulted, because "since the last release"
   is the entire history and would categorise as `minor` on the first `feat` it meets — a rehearsal
   against this repo (799 commits, 0 tags, every package `0.1.0`) planned **v0.2.0** for what
-  [Phase 53](../../../.midnite/tasks/phases/phase-53-first-release.md) settled as **v0.1.0**.
+  Phase 53 settled as **v0.1.0**.
   `planRelease` encodes this; skip to the *Show the reasoning* paragraph with its answer. Every
   package must already sit on one version — it throws otherwise, since there is no baseline to name.
 - **Categorise** each commit subject with `parseConventionalCommit` (type / scope / `!` / `BREAKING CHANGE`).
@@ -94,7 +94,7 @@ Honour an explicit `$ARGUMENTS` override but still show what auto-detect picked.
   - Move the curated `## [Unreleased]` content into a new `## [X.Y.Z] - YYYY-MM-DD` section (today's date), grouped **Added / Changed / Fixed / Removed** (feat→Added, fix→Fixed, refactor/perf→Changed, revert→Removed; the non-user-facing types — docs/chore/test/build/ci/style — are omitted). **Curate** — merge related commits into one readable line, drop noise; this is release notes, not a `git log` dump.
   - Flag any **breaking** change prominently in the section.
   - Re-seed an empty `## [Unreleased]` stub above it, and update the compare/tag link refs at the bottom (`[Unreleased]: …compare/vX.Y.Z...HEAD`, add `[X.Y.Z]: …/releases/tag/vX.Y.Z`).
-  - Keep this separate from `.midnite/tasks/done.md` (phase tracker, not release notes).
+  - Keep this separate from the closed phase issues (the tracker, not release notes).
 - **Draft every app's changelog too (Phase 131):** run `node scripts/changelog-attribution.mjs --base <base-tag>` — it attributes each commit to the apps it touched through the moon `app-<id>` tags (JSON, one list per id in `CHANGELOG_APP_IDS`, `suite: true` for commits that reach every app through `app-all`). For each id **other than `studio`** (Studio's is the root file above), move that app's `apps/<id>/CHANGELOG.md` `## [Unreleased]` content into `## [X.Y.Z] - YYYY-MM-DD` and add curated lines for the user-facing commits listed under it — same Added/Changed/Fixed/Removed mapping and the same "curate, don't dump" rule. A `suite: true` commit goes into an app only when the change is visible in that app.
   - **An app with nothing user-facing still gets a section**, holding exactly `### Changed` and `- Released in lockstep with the suite; no changes specific to Midnite <Name>.` (`Midnite Apps` for the launcher), so its in-app drop-up has notes for the running version.
   - An app with no released section yet (a first release) takes its `[Unreleased]` launch lines as the section.

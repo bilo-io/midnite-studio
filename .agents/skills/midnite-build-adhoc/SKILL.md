@@ -1,11 +1,11 @@
 ---
 name: midnite-build-adhoc
-description: Execute a one-off ad hoc task outside the .midnite/tasks/ phase tracker — clarify scope, build it in a worktree, conduct self-review with subagents, screenshot visual changes, open a PR, drive CI green, and merge.
+description: Execute a one-off ad hoc task outside the phase issues on GitHub — clarify scope, build it in a worktree, conduct self-review with subagents, screenshot visual changes, open a PR, drive CI green, and merge.
 ---
 
 **Invoke with:** <a description of the adhoc task to build>
 
-End-to-end "execute a described task" for **Midnite Studio**, for work that isn't a `.midnite/tasks/` phase item — a bug someone just mentioned, a small feature sketched in chat, a cleanup nobody wrote down.
+End-to-end "execute a described task" for **Midnite Studio**, for work that isn't a theme of a `phase` issue — a bug someone just mentioned, a small feature sketched in chat, a cleanup nobody wrote down.
 **[`/midnite-build`](../midnite-build/SKILL.md) picks from category backlogs; this skill takes a task you already have in mind** and runs the same build → review → PR → CI machinery against it.
 
 **Conversation style — enforced.** Be terse to save time and tokens. Report results, not intentions; bullets over prose.

@@ -18,7 +18,7 @@ Run `node scripts/skills/pr-description.mjs [--base origin/main] [--self-review 
 
 From the branch: `git log origin/main..HEAD --oneline`, `git diff origin/main...HEAD --stat`, and the
 diff itself. From the tracker: the phase doc named by the branch or commits
-(`.midnite/tasks/phases/phase-<N>-*.md`, its `## Headlines`), and the linked issue if any. Read the
+(the `Phase <N>` issue, its `## Headlines`, and the theme sub-issue the PR closes), and the linked issue if any. Read the
 diff; do not just paraphrase the commit messages.
 
 ## Title

@@ -1,6 +1,6 @@
 ---
 name: midnite-design
-description: Extend a planned .midnite/tasks/ phase doc with visual design, UI/UX architecture, layout, design tokens, component hierarchy, and design verification criteria.
+description: Extend a planned phase issue on GitHub with visual design, UI/UX architecture, layout, design tokens, component hierarchy, and design verification criteria.
 argument-hint: "[phase number, e.g. '125', or phase slug, e.g. 'phase-125-animations-library']"
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, TodoWrite, Agent
 ---
@@ -32,11 +32,10 @@ Run `node scripts/skills/verify-phase.mjs --phase N --json`. It reads the phase 
 
 ---
 
-## 🎨 Stage 1 — Locate and read the planned doc
+## 🎨 Stage 1 — Locate and read the planned phase
 
-1. Identify target phase doc:
-   - Check `.midnite/tasks/FEATURES/phases/phase-<N>-*.md`, `.midnite/tasks/SECURITY/phases/`, or `.midnite/tasks/ISSUES/phases/`.
-2. Read the doc's Headlines, Deliverables, and existing Themes.
+1. Identify the target phase issue: `gh issue list --label phase --state open`, then `gh issue view <n>` and its sub-issues.
+2. Read the issue's Headlines, Deliverables, and existing Themes.
 3. Check existing UI components in `packages/app/` or `packages/features/` that overlap.
 
 ## 📐 Stage 2 — Design System & Component Breakdown
@@ -49,25 +48,20 @@ Run `node scripts/skills/verify-phase.mjs --phase N --json`. It reads the phase 
 2. Review interactive states (keyboard navigation, shortcuts, hover tooltips).
 3. Confirm with user via AskUserQuestion.
 
-## ✍️ Stage 3 — Extend the Phase Doc in Place
+## ✍️ Stage 3 — Extend the phase issue
 
-Edit `.midnite/tasks/<CATEGORY>/phases/phase-N-<slug>.md` in place:
+Edit the phase issue body (and the affected theme sub-issues) in the session scratchpad, then push with `gh issue edit <n> --body-file …`:
 1. Append or integrate a **`## Visual & UI/UX Design`** section with component wireframes and ASCII layout diagrams.
 2. Extend the **`## Deliverables`** checklist with design items:
    - Concrete styling checklist (`- [ ] Styled with Tailwind dark theme tokens...`).
    - Component state handling (`- [ ] Empty and error state banners with retry...`).
    - Icon assignments (`- [ ] Integrated react-icons/lu icons...`).
 3. Extend the **`## Verification`** checklist:
-   - `- [ ] Visual appearance covered by an `app:visual` baseline (screenshots are shown in the thread, never committed)`.
+   - `- [ ] Playwright visual baselines (`app:visual`) updated; verification shots attached to the PR, never committed`.
    - `- [ ] Contrast and keyboard focus order verified`.
-4. Reconcile checklist counts and update `.midnite/tasks/<CATEGORY>/_INDEX.md` (counts: done/total).
-5. Run drift guard: `moon run root:tracker-check`.
+4. Nothing is committed: `.midnite/tasks/` is git-ignored scratch.
 
 ## ✅ Stage 4 — Commit & Report
 
-Commit doc changes to git:
-```bash
-git add .midnite/tasks/<CATEGORY>/phases/phase-N-<slug>.md .midnite/tasks/<CATEGORY>/_INDEX.md
-git commit -m "docs: extend phase-N <slug> with visual design specs"
-```
+Nothing to commit: the design lives in the phase issue.
 Report the extended sections and suggest running `/midnite-build` to implement the phase.

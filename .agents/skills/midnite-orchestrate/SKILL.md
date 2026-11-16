@@ -37,7 +37,7 @@ answer on the board (§2) so each tick applies the same numbers.
 
 Create `<session scratchpad>/BOARD.md` before the first launch: the roster with each unit's model,
 worktree and status; the resolved settings; and an append-only log. **The orchestrator owns shared
-files** (`_INDEX.md`, the board's roster, any merge into a shared branch); workers append to the
+files** (the phase issues and project board, the board's roster, any merge into a shared branch); workers append to the
 log only. Every cross-agent contract change goes through the board *before* it is written into a
 doc or a file.
 

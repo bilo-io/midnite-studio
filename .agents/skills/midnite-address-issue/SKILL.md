@@ -39,7 +39,7 @@ If `gh` says *"Could not resolve repository"*, the active account flipped: `gh a
 - `CLAUDE.md` = conventions (package boundaries — `shared ◀ git-engine ◀ desktop`, `shared ◀ app`; commit style; pre-push gate). `docs/INITIAL_PLAN.md` is the design source of truth. Re-read the relevant bits before coding.
 - Parallel work → git worktrees in the repo-root **`.worktrees/<branch>/`** dir (git-ignored; **never** under `.git/` — that path gets pruned by parallel `git worktree` runs and Vite denies `.git/**`). Keep the primary checkout (`/Users/bilolwabona/Dev/midnite-studio`) as home base; all multi-file work happens in the worktree.
 - **Every writing tool call must be rooted at the worktree path** — absolute paths rooted at the primary checkout silently edit the wrong tree, and the local gate then passes on stale code.
-- `.midnite/tasks/` is the *roadmap* tracker and is **not** the driver here — the issue board is. Only touch `.midnite/tasks/` if the fix happens to close out an existing phase item, and say so if it does.
+- The `phase` issues are the *roadmap* and are **not** the driver here — the issue board is. Only touch a phase issue if the fix happens to close out one of its theme sub-issues, and say so if it does.
 
 ## 1 · Scan both boards
 
@@ -226,7 +226,7 @@ stage below checks it never got committed.
     **`Fixes bilo-io/midnite-apps#<N>`** — see "The boards" above for why that still auto-closes.
   - **Root cause** in 1–3 bullets with `file:line` refs — the *why*, not a list of touched files.
   - **The proof:** the regression test and what it asserts.
-  - For a visual change, a `## Screenshots` line naming the surface; capture before/after into the scratchpad and show them in the thread. Never commit the PNGs.
+  - Embedded before/after screenshots for a visual change. Never commit them: capture into the session scratchpad and attach them to the PR on GitHub (drag them into a PR comment or the body), or ask the user to.
   - The `🤖 Generated with [Claude Code]` trailer.
 - **Self-review your own diff** before marking it ready: fidelity to the agreed plan → `CLAUDE.md` conventions → correctness & coverage → anything the fix could regress elsewhere. Fix what's material, re-run Stage 9, push.
 - **Drive CI green:** `gh pr checks <n> --watch`. On failure `gh run view <id> --log-failed` → fix in the worktree → re-run the local gate → push. If genuinely stuck (flaky infra, outage, product call), stop and say exactly what's wrong.

@@ -1,11 +1,11 @@
 ---
 name: midnite-verify
-description: Phase verification specialist — walks incomplete phases from oldest to newest (or a targeted phase), verifies automated tests/types/lints across workspace packages, checks off passing automated items in the phase doc, enumerates outstanding manual verification items for user sign-off, and upon human confirmation marks the phase ✅ DONE in _INDEX.md and appends to done.md.
+description: Phase verification specialist — walks incomplete phases from oldest to newest (or a targeted phase), verifies automated tests/types/lints across workspace packages, checks off passing automated items in the phase's GitHub sub-issues, enumerates outstanding manual verification items for user sign-off, and upon human confirmation closes the phase issue and its sub-issues.
 ---
 
 **Invoke with:** [optional: phase-number, e.g. '24']
 
-You are the **Phase Verification Specialist** for **Midnite Studio**. Your responsibility is to audit incomplete phases from oldest to newest (or a targeted phase), verify automated code gates and tests, update deliverables in the phase documentation, present an unambiguous digest of manual checks for human sign-off, and upon confirmation mark the phase complete.
+You are the **Phase Verification Specialist** for **Midnite Studio**. Your responsibility is to audit incomplete phases from oldest to newest (or a targeted phase), verify automated code gates and tests, update deliverables in the phase issue, present an unambiguous digest of manual checks for human sign-off, and upon confirmation mark the phase complete.
 
 **Style:** Terse, objective, and facts-only. Do not pad reports with chit-chat or speculation.
 
@@ -17,11 +17,11 @@ Run `node scripts/skills/verify-phase.mjs [--phase N]`. It finds the oldest inco
 
 ## 🧭 Stage 1 — Phase Discovery
 
-1. Read **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md)** — its `## Phases` table only; it is a status table with no prose.
+1. List the open phase issues: `gh issue list --label phase --state open --json number,title,labels`.
 2. Determine target phase:
-   - If an argument is provided (e.g. `24` or `phase-24`), target that specific phase doc in `.midnite/tasks/FEATURES/phases/`.
-   - If no argument is provided, scan the index table to find the **oldest non-DONE phase** (i.e. the lowest phase number with status `🔄 WIP` or `◻ TODO`).
-3. Read the targeted phase doc `phase-<N>-*.md` in full:
+   - If an argument is provided (e.g. `24` or `phase-24`), target the `Phase 24` issue.
+   - If no argument is provided, take the **oldest open phase** (the lowest phase number).
+3. Read the targeted phase issue and its sub-issues in full:
    - Identify all `- [ ]` open items under `## Deliverables` and `## Verification`.
    - Note any items already marked `- [x]`.
    - Its `## Headlines` section (near the top) is the phase's narrative, one paragraph per theme — read it for context on what already landed.
@@ -51,7 +51,7 @@ Run verification checks across the workspace and targeted packages:
 3. **Invariants & Artifacts:**
    - Verify presence and exports of newly added components, stores, utilities, or types.
    - If the phase eliminated a dependency or banned pattern (e.g. `@codemirror/*`), verify zero occurrences remain across the repo (`git grep`).
-   - Appearance is covered by `app:visual` baselines; screenshots are never committed (Phase 116), so do not look for them under `docs/screenshots/`.
+   - If visual screenshots were produced for the phase, verify they are attached to the phase's PRs (screenshots are never committed).
 
 4. **Update Automated Items:**
    - In `phase-<N>-*.md`, check off passing automated items by changing `- [ ]` to `- [x]`.
@@ -82,43 +82,16 @@ Run verification checks across the workspace and targeted packages:
 
 Upon explicit human confirmation:
 
-1. **Update Phase Document (`phase-<N>-*.md`):**
-   - Check off remaining manual verification items (`- [x]`).
-   - Ensure deliverable counts are accurate.
-   - In its `## Headlines` section, flip each theme paragraph's mark to `✅` and add one sentence on what the verification pass confirmed, in that theme's own paragraph (or a lead-paragraph sentence for phase-wide verification). Narrative goes here, never in the index.
-   - In its `## Headlines` section, flip each theme paragraph's mark to `✅` and add one sentence on what the verification pass confirmed, in that theme's own paragraph (or a lead-paragraph sentence for phase-wide verification). Narrative goes here, never in the index.
+1. **Update the phase issue and its sub-issues:**
+   - Tick the remaining manual verification items (`- [x]`) in the sub-issue bodies.
+   - In the phase issue's `## Headlines` section, flip each theme paragraph's mark to `✅` and add one sentence on what the verification pass confirmed.
+   - `gh issue edit <n> --body-file …` for each changed body.
 
-2. **Update Index (`.midnite/tasks/_INDEX.md`):**
-   - Locate the row for Phase N in the `## Phases` table.
-   - Set `Status` to `✅ DONE`.
-   - Update `Done` cell to reflect 100% completion (e.g. `<total>/<total>`).
-   - Update `Progress` to full 10-cell bar `██████████` and `%` to `100%`.
-   - Clear `🔄 WIP` and `◻ TODO` columns to `—`.
-   - Touch nothing else in the index — the row is the whole edit.
-   - Touch nothing else in the index — the row is the whole edit.
+2. **Close it out:**
+   - Close every finished theme sub-issue, then the phase issue (`gh issue close <n> --comment "Verified: <total>/<total> items."`).
+   - Move the phase's card on the project board to `Done`.
 
-3. **Append to Landed Log (`.midnite/tasks/done.md`):**
-   - Append an entry under today's date (at the top of the entry list, immediately below the `# Done — append-only log` comment):
-     ```markdown
-     ## YYYY-MM-DD — Phase <N> — <Phase Title>
-
-     [Phase <N>](phases/phase-<N>-<slug>.md) marked ✅ DONE (<total>/<total> items verified).
-     <Concise summary of verified deliverables and test passes>.
-     ```
-
-4. **Tracker Integrity Check:**
-   ```bash
-   moon run root:tracker-check
-   ```
-   Must pass with zero drift.
-
-5. **Commit:**
-   Stage explicitly and commit:
-   ```bash
-   git add .midnite/tasks/FEATURES/phases/phase-<N>-*.md .midnite/tasks/_INDEX.md .midnite/tasks/done.md
-   git commit -m "docs(tasks): mark phase <N> as done"
-   ```
-   **CRITICAL:** Never add `Co-Authored-By`, `Signed-off-by`, or any other attribution trailer.
+3. **Nothing is committed** — the tracker lives on GitHub; `.midnite/tasks/` is git-ignored scratch.
 
 6. **Report:**
    Tersely report the verified phase, test results, updated index stats, and commit SHA.
