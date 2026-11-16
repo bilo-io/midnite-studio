@@ -17,7 +17,7 @@ Run `node scripts/skills/pr-description.mjs [--base origin/main] [--self-review 
 ## Gather
 
 From the branch: `git log origin/main..HEAD --oneline`, `git diff origin/main...HEAD --stat`, and the
-diff itself. From the tracker: the phase doc named by the branch or commits
+diff itself. From the tracker: the phase issue named by the branch or commits
 (the `Phase <N>` issue, its `## Headlines`, and the theme sub-issue the PR closes), and the linked issue if any. Read the
 diff; do not just paraphrase the commit messages.
 
@@ -65,7 +65,7 @@ What it found and fixed, or "nothing to fix".
   newcomer" section, no restating the diff file by file.
 - **Link everything referable.** Repo files as markdown links to the file on the PR's head
   (`[agent-commands.ts](https://github.com/bilo-io/midnite-studio/blob/<branch>/path)`), PRs and
-  issues as `#n`, phase docs as links.
+  issues as `#n`, phase issues as links.
 - **Plain claims.** "Menu entries now point at the midnite skills", not "refactors the skill
   indirection layer". A number beats an adjective.
 - **Why is the problem**, not the history. **What landed** is outcomes, not a changelog: the bold

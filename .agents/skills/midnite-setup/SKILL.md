@@ -17,7 +17,7 @@ Run `node scripts/skills/sync-skills.mjs`. It audits the .agents/.claude skill m
 - **Do not scaffold anything until the user has answered the questions and confirmed the blueprint (Stage 4).** This is a one-human-in-the-loop bootstrap, not an autonomous build.
 - The **target** is a *new* repo, not midnite-studio. Never write into the midnite-studio tree except to *read* [`templates/midnite/`](../../../templates/midnite/), the tree you copy out. Resolve the target dir in Stage 0.
 - Keep the question count to **~10** — terse, mostly **AskUserQuestion** (it batches up to 4 per call, always offers **"Other"**, and supports `multiSelect` for checkbox-style picks). Always invite the user to extend/replace any option.
-- **Tailor everything to the answers.** Don't ask theming/i18n/look-and-feel questions if there's no frontend app; don't ask the API-language question if there's no API. Don't scaffold a mobile phase doc if there's no mobile app.
+- **Tailor everything to the answers.** Don't ask theming/i18n/look-and-feel questions if there's no frontend app; don't ask the API-language question if there's no API. Don't scaffold a mobile phase issue if there's no mobile app.
 - The skills you copy track phases as GitHub issues (a `phase` issue + one sub-issue per theme; see this repo's `docs/TRACKER.md`) and an `AGENTS.md` of conventions (with a `CLAUDE.md` that imports it) — `templates/midnite/` already carries the skeleton of both, so Stage 5 is filling those in, not inventing the shape from scratch.
 
 ---
@@ -58,7 +58,7 @@ Play back a tight summary and get a clear go-ahead before writing anything:
 - **Context**: product type, pricing, legal docs, socials, i18n, theming, look & feel.
 - **What I'll scaffold** (the file list from Stage 5).
 - **Subagents** I'll generate.
-- **Phase docs** (one per app) + how they connect.
+- **Phase issues** (one per app) + how they connect.
 
 If the user wants changes, loop back. Only proceed once they confirm.
 

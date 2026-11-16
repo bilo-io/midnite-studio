@@ -3,7 +3,7 @@
 Phase 113 Theme B. Reproduce with
 [`scripts/spikes/dock-identity/dock-identity.mjs`](../../scripts/spikes/dock-identity/dock-identity.mjs)
 (macOS arm64, Electron 33.4.11, macOS 26 / Darwin 25.6, APFS). Plan context:
-[phase 113, Theme B](../../.midnite/tasks/phases/phase-113-midnite-apps-suite-split.md#theme-b--process-model-and-dock-identity-spike-m).
+phase 113, Theme B.
 
 ## Question
 

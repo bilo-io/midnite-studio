@@ -1,6 +1,6 @@
 # Midnite Apps — layers and placement
 
-[Phase 113](../.midnite/tasks/phases/phase-113-midnite-apps-suite-split.md) turns the launcher's tiles
+Phase 113 turns the launcher's tiles
 into separately installable apps that share one runtime. This page is the vocabulary and the placement
 map every later theme assumes. Its machine-readable twin is
 [`packages/shared/src/domain/placement.ts`](../packages/shared/src/domain/placement.ts); a vitest
@@ -348,7 +348,7 @@ A new suite app (`apps/<id>`) writes its composition, not its chrome:
 
 ## Modules and hosts
 
-[Phase 124](../.midnite/tasks/phases/phase-124-apps-into-modules.md) merged the apps that overlapped a
+Phase 124 merged the apps that overlapped a
 sibling into that sibling. The suite went from 19 catalog entries to 11 apps, and **every app is now a list
 of modules**.
 

@@ -21,7 +21,7 @@ Run `node scripts/skills/sitrep.mjs timeline [--cap N] [--pr 12,13 | --input row
 2. **Durations.**
    - A live row's remaining time is its ETA.
    - A row not started is sized from this session's *observed* pace for the same effort tag
-     (S / M / L in a phase doc): build time plus a real CI run, plus the merge.
+     (S / M / L in a phase issue): build time plus a real CI run, plus the merge.
    - Only with no observation at all, fall back to the tag (S ≈ 1h, M ≈ 2h, L ≈ 4h end to end) and
      say so under the chart.
 3. **Schedule.**

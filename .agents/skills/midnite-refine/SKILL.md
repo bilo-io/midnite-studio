@@ -18,7 +18,7 @@ Run `node scripts/skills/verify-phase.mjs --phase N --json`. It partitions the p
 
 ## The bar this skill exists to clear — the Sonnet test
 
-> **A refined phase doc must be executable by Claude Sonnet, working alone, as well as by Opus —
+> **A refined phase issue must be executable by Claude Sonnet, working alone, as well as by Opus —
 > because every judgement call Opus would have made silently is written down.**
 
 Apply it to **every** item you touch. An item passes only if all five hold:

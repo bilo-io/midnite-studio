@@ -5,7 +5,7 @@ argument-hint: "[phase number, e.g. '125', or phase slug, e.g. 'phase-125-animat
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, TodoWrite, Agent
 ---
 
-You are running the **design** workflow for **Midnite Studio**: an interactive session that extends a planned phase doc with comprehensive UI/UX, visual styling, responsive states, design tokens, and frontend component architecture.
+You are running the **design** workflow for **Midnite Studio**: an interactive session that extends a planned phase issue with comprehensive UI/UX, visual styling, responsive states, design tokens, and frontend component architecture.
 
 While `/midnite-plan` focuses on functional requirements, deliverables, and backend/IPC boundaries, **`/midnite-design` extends the planned doc** to ensure the visual and interaction design is fully specified before build begins.
 
