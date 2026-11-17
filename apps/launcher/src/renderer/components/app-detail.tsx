@@ -85,7 +85,7 @@ export function AppDetail({
         className="sheet"
         role="dialog"
         aria-modal="true"
-        aria-label={`Midnite ${app.name}`}
+        aria-label={`Midnyte ${app.name}`}
         style={{ ['--accent' as string]: app.accent }}
       >
         <header className="sheet-head">
@@ -116,13 +116,13 @@ export function AppDetail({
             <h3 className="eyebrow">{replacesLine(view.replaces)}</h3>
             <p className="sheet-note">
               {offer === 'install-host'
-                ? `Midnite ${app.name} now carries what ${joinNames(view.replaces)} did. Install it to move over; your old app keeps working until then.`
-                : `Midnite ${app.name} has everything ${joinNames(view.replaces)} had. Your data is already here; the old app can go.`}
+                ? `Midnyte ${app.name} now carries what ${joinNames(view.replaces)} did. Install it to move over; your old app keeps working until then.`
+                : `Midnyte ${app.name} has everything ${joinNames(view.replaces)} had. Your data is already here; the old app can go.`}
             </p>
             {offer === 'remove-old' &&
               view.replaces.map((r) => (
                 <button key={r.id} type="button" className="btn" onClick={() => onRemoveReplaced?.(r.id)}>
-                  Move Midnite {r.name} to Trash
+                  Move Midnyte {r.name} to Trash
                 </button>
               ))}
           </section>
@@ -187,7 +187,7 @@ export function AppDetail({
         ))}
 
         <section className="sheet-section">
-          <h3 className="eyebrow">Built on the Midnite frame</h3>
+          <h3 className="eyebrow">Built on the Midnyte frame</h3>
           <ul className="shell-list">
             {FRAME_PARTS.map((part) => (
               <li key={part.label} title={part.blurb}>
@@ -199,8 +199,8 @@ export function AppDetail({
 
         {app.id !== 'studio' && view.source === 'studio' && !app.comingSoon && (
           <p className="sheet-note">
-            Midnite {app.name} runs inside Midnite Studio for now. Open lands on
-            {homeFeature ? ` ${homeFeature.label}` : ' its home'} in Studio; once Midnite {app.name} ships on its
+            Midnyte {app.name} runs inside Midnyte Studio for now. Open lands on
+            {homeFeature ? ` ${homeFeature.label}` : ' its home'} in Studio; once Midnyte {app.name} ships on its
             own, this tile installs it directly.
           </p>
         )}
