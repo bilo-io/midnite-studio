@@ -4,7 +4,7 @@
 //
 //   node scripts/skills/sitrep.mjs <view> [--pr 12,13 | --input rows.json | (open PRs)] [--repo o/r]
 //        [--cap N] [--target <task|#n>] [--metric diff,ci,age,stage] [--since ISO] [--now ISO]
-//        [--log-failed] [--no-llm] [--no-num] [--json]
+//        [--log-failed] [--no-llm] [--no-num] [--json]   (`--input -` reads the rows from stdin)
 //   views: table | graph | timeline | histogram | sequence | ci | all
 //
 // Rows are `gh pr view --json …` objects (plus optional extras, see `normalizeRow`) or already-normalised
@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { bar, diffCell, duration, mdTable } from './lib/format.mjs';
-import { defaultRun as ghRun, ghJson, prChecks, prList, prView, runList } from './lib/gh.mjs';
+import { defaultRun as ghRun, prChecks, prList, prView, runList } from './lib/gh.mjs';
 import { isNoLlm, run as llm } from './lib/ollama.mjs';
 
 export const MACOS_CAP = 5;
@@ -243,7 +243,7 @@ export function renderTable(rows, { now = Date.now(), notes, num = true } = {}) 
 function etaMin(text) {
   const m = /~(\d+(?:\.\d+)?)h(?:(\d+))?|~(\d+)m/.exec(text);
   if (!m) return 0;
-  return m[3] ? Number(m[3]) : Number(m[1]) * 60 + (m[2] ? Number(m[2]) : m[0].includes('.5') ? 0 : 0);
+  return m[3] ? Number(m[3]) : Number(m[1]) * 60 + (m[2] ? Number(m[2]) : 0);
 }
 
 // ───────────────────────── view: graph ─────────────────────────
@@ -322,7 +322,6 @@ export function renderGraph(rows, { scope = 'sitrep', target } = {}) {
         .map((e) => (softSeen.add(e), ` ┄┄ #${(e.a === r ? e.b : e.a).number} (${abbrevFiles(e.files)})`))
         .join('');
       const head = seen.has(r) ? `#${r.number}` : full(r);
-      const indent = ' '.repeat(2 + [...head].length + 1);
       if (!kids.length) {
         if (!(seen.has(r) && head.startsWith('#') && !softSuffix)) out.push(`  ${pad(head, width)}${softSuffix}`.trimEnd());
         continue;
@@ -330,8 +329,7 @@ export function renderGraph(rows, { scope = 'sitrep', target } = {}) {
       kids.forEach((k, idx) => {
         const lead = kids.length === 1 ? '───▶' : idx === 0 ? '─┬─▶' : idx === kids.length - 1 ? '└──▶' : '├──▶';
         const child = seen.has(k) ? `#${k.number}` : full(k);
-        out.push(idx === 0 ? `  ${pad(head, width)} ${lead} ${child}${softSuffix}` : `  ${' '.repeat(width + 1)} ${lead} ${child}`.replace(/^ {2}/, '  '));
-        void indent;
+        out.push(idx === 0 ? `  ${pad(head, width)} ${lead} ${child}${softSuffix}` : `  ${' '.repeat(width)} ${lead} ${child}`);
       });
     }
     out.push('');
@@ -402,7 +400,7 @@ export function schedule(rows, { cap = 3, now = Date.now(), target } = {}) {
     return n;
   };
   const plan = new Map();
-  const live = todo.filter((r) => (hasPr(r) || progressOf(r) > 0) && !(r.isDraft && false));
+  const live = todo.filter((r) => hasPr(r) || progressOf(r) > 0);
   for (const r of live) plan.set(r, { row: r, start: 0, finish: dur(r), wait: 0, elapsed: Number.isFinite(r.createdAt) ? minutes(r.createdAt, now) : 0, live: true });
   const pending = todo.filter((r) => !plan.has(r));
   const finishOf = (d) => (d.merged ? 0 : plan.get(d)?.finish);
@@ -791,7 +789,7 @@ async function main(argv) {
     console.error(`sitrep: unknown view "${view}" (${VIEWS.join(' | ')})`);
     return 1;
   }
-  const stdin = process.stdin.isTTY || arg(argv, '--input') ? undefined : await new Promise((res) => {
+  const stdin = arg(argv, '--input') !== '-' ? undefined : await new Promise((res) => {
     let s = '';
     process.stdin.on('data', (d) => (s += d)).on('end', () => res(s.trim() || undefined));
   });
@@ -825,4 +823,3 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1])
     (e) => (console.error(`sitrep: ${e.message}`), process.exit(1)),
   );
 
-export { ghJson };
