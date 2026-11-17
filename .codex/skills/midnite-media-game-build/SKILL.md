@@ -7,6 +7,10 @@ description: Orient an agent in a Midnite Studio game repo — manifest, kit, th
 
 A game repo is the game: plain ES modules, no bundler, no build step. Midnite Studio serves it in a sandbox and reads two things back: what the game prints with `console.log`, and what `window.__midnite.getState()` returns. What a game must have for every Games feature to work is written down in the Midnite game standard (`docs/GAME_STANDARD.md` in the Midnite Studio repo); the game doctor checks a game against it.
 
+## Standard
+
+The Midnite game standard (`docs/GAME_STANDARD.md` in the Midnite Studio repo) is what a game must have for every Games feature to work: a valid manifest, a runnable entry, the kit, declared levels, listed assets. In an unfamiliar game, run `game_doctor` first: it answers every gap with its rule, level and message, and a `fixId` where a safe fix exists. `game_doctor_fix` applies that one fix as a commit on `midnite-game.json` (`upgrade-kit` makes a branch instead) and answers the fresh diagnosis; it refuses while the manifest has uncommitted changes. Fix what the doctor names before building on top of it.
+
 ## Layout
 
 ```
