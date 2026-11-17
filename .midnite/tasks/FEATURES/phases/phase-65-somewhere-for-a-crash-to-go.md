@@ -127,7 +127,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 **Theme C — The renderer learns to report.** ✅ The renderer learns to report: `lib/report.ts` in `lib/perf.ts`'s shape, dedupe + a session cap so a render loop cannot storm IPC, `error`/`unhandledrejection` listeners in `main.tsx` covering both roles, and the one exported function Phase 60's `componentDidCatch` will call. The renderer has **no logging channel at all** — `console.error` and `console.warn` return **zero** hits in `packages/app/src`, enforced by `no-console: 'error'`, and there is no `window.onerror`, no `unhandledrejection` and no `componentDidCatch` anywhere.
 
-**Theme D — Main's own crashes reach the same sink.** ✅ Main's own crashes reach the same sink: `uncaughtException`, `unhandledRejection`, `child-process-gone`, `unresponsive` on app windows (bound only for browser tabs today), the three existing `render-process-gone` binds moved to `log.error`, and a boot line identifying the build. Main catches almost none of its own crashes: no `uncaughtException`, no `unhandledRejection`, no `child-process-gone`, no `crashReporter`.
+**Theme D — Main's own crashes reach the same sink.** ✅ (Audit build: the three hooks now live in `desktop/src/main/crash-hooks.ts` as `installMainCrashHooks(log, process, app)`, log lines unchanged, with `crash-hooks.test.ts`; `installGlobalErrorReporting` is covered in `report.test.ts`.) Main's own crashes reach the same sink: `uncaughtException`, `unhandledRejection`, `child-process-gone`, `unresponsive` on app windows (bound only for browser tabs today), the three existing `render-process-gone` binds moved to `log.error`, and a boot line identifying the build. Main catches almost none of its own crashes: no `uncaughtException`, no `unhandledRejection`, no `child-process-gone`, no `crashReporter`.
 
 **Theme E — A user can get at it in two clicks.** ✅ ([PR #178](https://github.com/bilo-io/midnite-studio/pull/178)) — A user can get at it in two clicks: Reveal log (with the path printed beside it — a support thread asks *where* it is), Copy diagnostics and Report a bug inside the Diagnostics accordion that already exists (not an 18th settings page), plus the bug link in the release-notes panel. Both copies on purpose: `version-pill.tsx` hides on `'0.0.0'`, so the panel never opens in a dev build. There is no **"report a bug"** link anywhere (**0** hits) even though the tracker lives in `bilo-io/midnite-apps` and `release.ts` already holds four URLs into it. This adds two buttons in the Diagnostics accordion that already exists.
 
@@ -370,7 +370,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       - **Pass:** one record `{"t":…,"level":"error","msg":"[renderer] boundary main/graph: Error: p65-probe…"}`
         (shape from `formatReport`); trigger the same throw 4 more times → exactly 3 `p65-probe` records
         plus one `ReportCapReached` record, and no more after that.
-- [ ] `Promise.reject(new Error('x'))` unhandled in the renderer, and again in main, each produce
+- [x] `Promise.reject(new Error('x'))` unhandled in the renderer, and again in main, each produce
       exactly one record with the right `source`. **Refined for a build (S)** — neither half has a test
       today: [`installGlobalErrorReporting`](../../../packages/app/src/lib/report.ts) (`report.ts:229-239`)
       is never exercised, and Studio main's hooks are inline in
