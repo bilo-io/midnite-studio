@@ -2,7 +2,7 @@ import type { ForgeJob, ForgePull, ForgeRun } from '@midnite/studio-shared';
 import { ForgeJobSchema, ForgePullSchema, ForgeRunSchema } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { jobStatus, pullStatus, runStatus } from './forge-status';
+import { jobStatus, mergeVerb, prState, prStateDescription, pullStatus, runStatus } from './forge-status';
 
 /*
   Built through the schema rather than as an object literal, for the same
@@ -140,5 +140,30 @@ describe('runStatus / jobStatus: spin vs. pulse', () => {
 
     expect(flags(runStatus(parentRun))).toEqual({ spin: true, pulse: false });
     expect(flags(jobStatus(waitingJob))).toEqual({ spin: false, pulse: true });
+  });
+});
+
+describe('prState / prStateDescription / mergeVerb', () => {
+  it('names the four GitHub states, merged and closed winning over draft', () => {
+    expect(prState(pull({ state: 'open', isDraft: false }))).toBe('open');
+    expect(prState(pull({ state: 'open', isDraft: true }))).toBe('draft');
+    expect(prState(pull({ state: 'merged', isDraft: true }))).toBe('merged');
+    expect(prState(pull({ state: 'closed', isDraft: true }))).toBe('closed');
+  });
+
+  it('keeps the review verdict in the hover sentence, not the pill', () => {
+    expect(prStateDescription(pull({ reviewDecision: 'REVIEW_REQUIRED' }))).toBe('This pull request is open and needs a review.');
+    expect(prStateDescription(pull({ reviewDecision: 'APPROVED' }))).toBe('This pull request is open and approved.');
+    expect(prStateDescription(pull({ reviewDecision: 'CHANGES_REQUESTED' }))).toBe('This pull request is open — changes were requested.');
+    expect(prStateDescription(pull({ reviewDecision: null }))).toBe('This pull request is open.');
+    expect(prStateDescription(pull({ isDraft: true }))).toBe('This pull request is a draft — it is not ready for review yet.');
+    expect(prStateDescription(pull({ state: 'merged' }))).toBe('This pull request is merged — there is nothing left to review.');
+    expect(prStateDescription(pull({ state: 'closed' }))).toBe('This pull request is closed — there is nothing left to review.');
+  });
+
+  it('uses GitHub\'s byline verb per state', () => {
+    expect(mergeVerb({ state: 'open' })).toBe('wants to merge');
+    expect(mergeVerb({ state: 'merged' })).toBe('merged');
+    expect(mergeVerb({ state: 'closed' })).toBe('wanted to merge');
   });
 });

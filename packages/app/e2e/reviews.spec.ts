@@ -195,12 +195,10 @@ test('the PR header reads from the listing, then fills in from the detail fetch'
   const header = page.getByRole('region', { name: 'Pull request #42' });
   await expect(header.getByRole('heading', { name: /#42 Reviews page/ })).toBeVisible();
   /*
-    `getByRole('img', …)`, not `getByText`: a settled status renders as a bare
-    coloured glyph now, so its word survives only as the mark's accessible
-    name. Asserting on the name rather than on visible text is also the stronger
-    check — it fails if the pill loses the label a screen reader needs.
+    The header's state pill keeps GitHub's word on screen and the review verdict
+    in its accessible name (the same sentence its hover shows).
   */
-  await expect(header.getByRole('img', { name: 'Approved', exact: true })).toBeVisible();
+  await expect(header.getByLabel('Open. This pull request is open and approved.', { exact: true })).toHaveText('Open');
 
   /*
     The second fetch's half: base branch and line counts. The description is
