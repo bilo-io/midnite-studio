@@ -102,8 +102,8 @@ export function registerIpc(getWindow: () => BrowserWindow | null, apps: AppsIpc
   // Moves Studio to the Trash, never `rm` — an uninstall from a launcher should be undoable from Finder.
   ipcMain.handle(LAUNCHER_CHANNELS.studioUninstall, async (): Promise<LauncherResult> => {
     const installed = await findStudio();
-    if (installed === null) return failure('Midnite Studio is not installed.');
-    if (await isStudioRunning()) return failure('Midnite Studio is running — quit it first.');
+    if (installed === null) return failure('Midnyte Studio is not installed.');
+    if (await isStudioRunning()) return failure('Midnyte Studio is running — quit it first.');
     try {
       await shell.trashItem(installed.path);
       return { ok: true };
@@ -114,7 +114,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null, apps: AppsIpc
 
   ipcMain.handle(LAUNCHER_CHANNELS.studioReveal, async (): Promise<LauncherResult> => {
     const installed = await findStudio();
-    if (installed === null) return failure('Midnite Studio is not installed.');
+    if (installed === null) return failure('Midnyte Studio is not installed.');
     shell.showItemInFolder(installed.path);
     return { ok: true };
   });
@@ -129,7 +129,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null, apps: AppsIpc
       const stub = await apps.findBundle(parsed.data.id);
       if (stub !== null && (await shell.openPath(stub)) === '') return { ok: true };
     }
-    if ((await findStudio()) === null) return failure('Install Midnite Studio first — every app runs in it for now.');
+    if ((await findStudio()) === null) return failure('Install Midnyte Studio first — every app runs in it for now.');
     try {
       await shell.openExternal(appLink(parsed.data.id, parsed.data.featureId));
       return { ok: true };
