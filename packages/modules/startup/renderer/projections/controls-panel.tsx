@@ -42,9 +42,10 @@ export function TemplateSelects({ value, onChange, disabled, idPrefix, compact =
       <label className="flex flex-col gap-1">
         <span className={LABEL}>Hardware</span>
         <select aria-label="Hardware" id={`${idPrefix}-hw`} className={FIELD} disabled={disabled} value={value.hardwareId} onChange={(e) => onChange({ hardwareId: e.target.value })}>
+          {catalog.hardware.some((h) => h.id === value.hardwareId) ? null : <option value={value.hardwareId}>{`Missing (${value.hardwareId})`}</option>}
           {catalog.hardware.filter((h) => !h.hidden || h.id === value.hardwareId).map((h) => (
             <option key={h.id} value={h.id}>
-              {compact ? `${h.label} · ${formatCompactMoney(h.priceMinor, currency)} · ${h.watts.toLocaleString('en-US')} W` : hardwareOptionLabel(h, currency)}
+              {(compact ? `${h.label} · ${formatCompactMoney(h.priceMinor, currency)} · ${h.watts.toLocaleString('en-US')} W` : hardwareOptionLabel(h, currency)) + (h.hidden ? ' (hidden)' : '')}
             </option>
           ))}
         </select>
@@ -52,9 +53,10 @@ export function TemplateSelects({ value, onChange, disabled, idPrefix, compact =
       <label className="flex flex-col gap-1">
         <span className={LABEL}>API tier</span>
         <select aria-label="API tier" id={`${idPrefix}-api`} className={FIELD} disabled={disabled} value={value.apiTierId} onChange={(e) => onChange({ apiTierId: e.target.value })}>
+          {catalog.apiTiers.some((t) => t.id === value.apiTierId) ? null : <option value={value.apiTierId}>{`Missing (${value.apiTierId})`}</option>}
           {catalog.apiTiers.filter((t) => !t.hidden || t.id === value.apiTierId).map((t) => (
             <option key={t.id} value={t.id}>
-              {apiOptionLabel(t, currency)}
+              {apiOptionLabel(t, currency) + (t.hidden ? ' (hidden)' : '')}
             </option>
           ))}
         </select>
@@ -134,7 +136,7 @@ export function ControlsPanel({ draft, update, readOnly }: { draft: FleetProject
           </button>
         </div>
       </section>
-      <p className="text-[11px] text-muted-foreground">Illustrative list prices.</p>
+      <p className="text-[11px] text-muted-foreground">Illustrative list prices — edit them in Settings ▸ Catalog.</p>
     </div>
   );
 }

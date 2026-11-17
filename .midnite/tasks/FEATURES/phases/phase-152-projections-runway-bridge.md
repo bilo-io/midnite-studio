@@ -57,8 +57,11 @@ formatter and the model through a `MoneyProvider` that `ProjectionsView` fills (
 six components). `computeFleetProjection(p, catalog)` has no default catalog, wires the energy switch (energy follows
 the grown utilisation, so 70 % busy draws × 0.7), and a missing catalog entry prices at zero and is listed in `missing`.
 
-**Theme C — Editable catalog.** ◻ A Startup Settings ▸ Catalog page to add, edit and hide hardware and API tiers.
-Built-in entries come seeded in USD-style amounts, and every dropdown reads the workspace catalog.
+**Theme C — Editable catalog.** ✅ Settings ▸ Catalog edits hardware and API tiers (add, rename, price in the company
+currency, hide; delete for custom rows only, refused inline when a node uses it), saved through `upsertFleetCatalog`
+after 400 ms; main refuses duplicate ids (`invalid`) and a removed id still in use (`in-use`). Dropdowns show a hidden
+selected entry as `(hidden)` and an unknown id as `Missing (<id>)`. Changing the company currency does not re-seed or
+convert the catalog (no FX); Restore defaults re-seeds the built-ins in the current currency and keeps custom rows.
 
 **Theme D — Send to Runway.** ◻ A pure `fleetToRunwayLines`, a send dialog with a start month, linked lines (split
 where utilisation caps out), "Update Runway", a stale badge in both views, and a delete prompt that can take the
@@ -210,7 +213,7 @@ set `version: 3`. **Numbers are not converted:** no release carried v2 (checked 
 
 ### C — Editable catalog (M)
 
-- [ ] `renderer/settings/catalog-settings.tsx` (net-new), added to `STARTUP_SETTINGS` as `{ id: 'app:startup-catalog',
+- [x] `renderer/settings/catalog-settings.tsx` (net-new), added to `STARTUP_SETTINGS` as `{ id: 'app:startup-catalog',
   label: 'Catalog', group: 'general', scope: 'app', icon: LuServer }`.
   - Two tables, Hardware and API tiers. Each row has: label, price (a text input parsed with `toMinor(text,
     currency)`), watts (hardware only), a Hidden switch, and Delete (custom rows only; built-ins can only be hidden).
@@ -221,15 +224,15 @@ set `version: 3`. **Numbers are not converted:** no release carried v2 (checked 
     `role="alert"`.
   - Delete is refused inline ("In use by N nodes — hide it instead.") when any projection's node or template uses
     the id; `main` enforces the same rule with `fail('in-use', …)`.
-- [ ] `service.ts` `upsertFleetCatalog`:
+- [x] `service.ts` `upsertFleetCatalog`:
   - Validates the schema.
   - Refuses a removed id that is still referenced (`in-use`).
   - Refuses duplicate ids (`invalid`).
-- [ ] Dropdowns in `controls-panel.tsx` and `node-card.tsx` (`TemplateSelects`) list catalog entries where
+- [x] Dropdowns in `controls-panel.tsx` and `node-card.tsx` (`TemplateSelects`) list catalog entries where
   `hidden === false`, **plus** the currently selected id even when it is hidden (labelled `<label> (hidden)`). A
   missing id renders as `Missing (<id>)`. Option labels use `formatMoney` / `formatCompactMoney`.
-- [ ] The footer copy becomes "Illustrative list prices — edit them in Settings ▸ Catalog."
-- [ ] Tests: `catalog-settings.test.tsx` covers adding, hiding, deleting a custom row, the delete refusal when in
+- [x] The footer copy becomes "Illustrative list prices — edit them in Settings ▸ Catalog."
+- [x] Tests: `catalog-settings.test.tsx` covers adding, hiding, deleting a custom row, the delete refusal when in
   use, restore-defaults confirm, and a JPY workspace parsing `6500` to `6_500`. `service.test.ts` covers
   `upsertFleetCatalog`'s `in-use` and duplicate-id refusals.
 
@@ -250,12 +253,12 @@ set `version: 3`. **Numbers are not converted:** no release carried v2 (checked 
       **revenue-capped** line follows with `start = start + c`, `minor = round(revenue at the cap)` and growth 0.
     - Negative growth never caps, so it is a single line.
   - Lines whose `minor` is 0 are omitted, except that capex is always written.
-- [ ] `service.ts` `sendFleetProjectionToRunway`: one `store.mutate` that removes every line whose
+- [x] `service.ts` `sendFleetProjectionToRunway`: one `store.mutate` that removes every line whose
   `source.projectionId` matches, then appends `fleetToRunwayLines(…)`. This makes send and update the same op.
   - Errors: unknown projection → `not-found`.
   - No company → `fail('invalid', 'Set up your company first — Runway needs it.')`.
   - Lines land in the **base** plan (`ws.lines`), not a scenario.
-- [ ] `service.ts` `unlinkFleetProjectionLines { removeLines }`: `true` deletes the linked lines; `false` strips
+- [x] `service.ts` `unlinkFleetProjectionLines { removeLines }`: `true` deletes the linked lines; `false` strips
   `source` so they become ordinary lines.
 - [ ] Projections UI:
   - **Send to Runway** in the results header (`LuSend`). It opens a dialog (the module's sheet pattern, like
@@ -270,7 +273,7 @@ set `version: 3`. **Numbers are not converted:** no release carried v2 (checked 
   unlinks this line from its projection." and saves without `source`.
 - [ ] Deleting a projection that has linked lines: the existing confirm gains a choice, "Also remove its N Runway
   lines" (default on). The handler calls `unlinkFleetProjectionLines` before `removeFleetProjection`.
-- [ ] Tests:
+- [x] Tests:
   - `fleet-runway.test.ts` checks to the minor unit:
     - The basic 3-line case.
     - The cap split: 70 % utilisation and +10 %/mo caps at month 4 → revenue `end` = start+3, then capped revenue
@@ -297,7 +300,7 @@ set `version: 3`. **Numbers are not converted:** no release carried v2 (checked 
       with plain `<path>`s; Recharts is renderer-only.
     - The node table.
     - Self-contained styles, no external requests, no scripts (the hidden print window is script-less).
-- [ ] `service.ts` handlers:
+- [x] `service.ts` handlers:
   - `exportFleetProjectionCsv` / `exportRunwayCsv` write through a new `StartupServiceDeps.csv?: { saveCsv:
     (defaultName) => Promise<string | null> }`, wired in `apps/startup/main/host.ts` from the existing
     `StartupHostElectron.saveCsv`.
@@ -310,7 +313,7 @@ set `version: 3`. **Numbers are not converted:** no release carried v2 (checked 
     `STARTUP_CHROME.IconButton`s.
   - Runway view: **Export CSV** beside the horizon switch.
   - A failure shows inline as `role="alert"`; success shows nothing (the file is where the user chose).
-- [ ] Tests: `fleet-export.test.ts` covers a CSV snapshot for the B fixture (USD), quoting of a node named
+- [x] Tests: `fleet-export.test.ts` covers a CSV snapshot for the B fixture (USD), quoting of a node named
   `Node, "A"`, the BOM and `\r\n`, JPY with no decimals, and the HTML containing no `<script` and no `http`.
   `service.test.ts` covers export with a stub port: cancel gives `saved: false`, and the temp dir is removed on
   both success and failure.
@@ -324,7 +327,7 @@ set `version: 3`. **Numbers are not converted:** no release carried v2 (checked 
     the copy directly after the source.
   - Rows use a roving tabindex: the selected row is `tabIndex=0` and the others `-1`. Up/Down still move, Tab leaves
     the list, and each row's action buttons are reachable with Tab from that row.
-- [ ] Tests: `controls-panel.test.tsx` checks the switch toggles the field; `projection-list.test.tsx` checks
+- [x] Tests: `controls-panel.test.tsx` checks the switch toggles the field; `projection-list.test.tsx` checks
   duplicate selects the copy and that only one row has `tabIndex=0`.
 
 ### G — Verification (M)
