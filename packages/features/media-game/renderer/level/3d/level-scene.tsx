@@ -94,6 +94,8 @@ export type LevelSceneProps = {
   /** Bumps whenever something outside the camera changes what is drawn (a model landed). */
   dirtyTick: number;
   onPick: (index: number | null, modifier: 'replace' | 'add' | 'toggle') => void;
+  /** The item under the pointer (null over ground or nothing): feeds the right-click menu. */
+  onHover?: (index: number | null) => void;
   onPlace: (x: number, z: number) => void;
   onGizmoEnd: (change: GizmoChange, inverted: boolean) => void;
   onGroupEnd: (delta: GroupDelta, pivot: GroupPivot, inverted: boolean) => void;
@@ -508,6 +510,7 @@ export function LevelScene(props: LevelSceneProps) {
             geometry={geometry}
             material={groundMaterial}
             receiveShadow
+            onPointerMove={() => props.onHover?.(null)}
             onClick={(event) => {
               event.stopPropagation();
               if (wasDrag(event)) return;
@@ -525,6 +528,10 @@ export function LevelScene(props: LevelSceneProps) {
       </lineSegments>
       <primitive
         object={boxes}
+        onPointerMove={(event: ThreeEvent<PointerEvent>) => {
+          event.stopPropagation();
+          props.onHover?.(event.instanceId === undefined ? null : (boxItems.current[event.instanceId] ?? null));
+        }}
         onClick={(event: ThreeEvent<MouseEvent>) => {
           const index = event.instanceId === undefined ? undefined : boxItems.current[event.instanceId];
           if (index === undefined || wasDrag(event)) return;
@@ -532,7 +539,16 @@ export function LevelScene(props: LevelSceneProps) {
           props.onPick(index, modifierOf(event));
         }}
       />
-      <group ref={modelsGroup} onClick={pickModel} />
+      <group
+        ref={modelsGroup}
+        onClick={pickModel}
+        onPointerMove={(event: ThreeEvent<PointerEvent>) => {
+          event.stopPropagation();
+          let o: Object3D | null = event.object;
+          while (o && typeof o.userData.itemIndex !== 'number') o = o.parent;
+          props.onHover?.(o ? (o.userData.itemIndex as number) : null);
+        }}
+      />
       {selected.length === 1 && items[selected[0]!] ? <Selected key={selected[0]} {...props} item={items[selected[0]!]!} /> : null}
       {selected.length > 1 && props.pivot ? <GroupSelected {...props} members={selected.map((i) => items[i]!).filter(Boolean)} pivot={props.pivot} /> : null}
       <DraftView draft={props.draft} ground={props.ground} />

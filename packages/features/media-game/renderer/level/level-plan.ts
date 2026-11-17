@@ -78,7 +78,7 @@ function distanceToSegment(p: PlanPoint, a: PlanPoint, b: PlanPoint): number {
 export const PLAN_HIT_RADIUS_PX = 10;
 
 /** The topmost object at a map-pixel point: inside a footprint, on a path, or within reach of a point. */
-export function hitPlan(level: EditLevel, p: PlanPoint, zoom: number): NonNullable<EditSelection> | null {
+export function hitPlan(level: EditLevel, p: PlanPoint, zoom: number, skip?: (ref: { layerId: number; objectId: number }) => boolean): NonNullable<EditSelection> | null {
   const reach = PLAN_HIT_RADIUS_PX / zoom;
   for (let i = level.layers.length - 1; i >= 0; i -= 1) {
     const layer = level.layers[i]!;
@@ -86,6 +86,7 @@ export function hitPlan(level: EditLevel, p: PlanPoint, zoom: number): NonNullab
     const objects = layer.objects ?? [];
     for (let j = objects.length - 1; j >= 0; j -= 1) {
       const o = objects[j]!;
+      if (skip?.({ layerId: layer.id, objectId: o.id })) continue;
       const corners = footprintCorners(o);
       const path = pathPoints(o);
       let hit = false;

@@ -175,7 +175,7 @@ const typeOf = (o: { type?: string; class?: string }): string => o.type || o.cla
  */
 export function drawPlan(
   ctx: CanvasRenderingContext2D,
-  input: { level: EditLevel; view: View; selection: EditSelection; selected?: readonly ObjectRef[]; marquee?: PlanRect | null; overlay: PlanOverlay; outline: string; text: string; highlight?: PlanHighlight | null; now?: number },
+  input: { level: EditLevel; view: View; selection: EditSelection; selected?: readonly ObjectRef[]; marquee?: PlanRect | null; hidden?: ReadonlySet<string>; overlay: PlanOverlay; outline: string; text: string; highlight?: PlanHighlight | null; now?: number },
 ): void {
   const { level, view, selection, overlay, outline, text } = input;
   const selected = input.selected ?? (selection ? [selection] : []);
@@ -229,6 +229,8 @@ export function drawPlan(
   for (const layer of level.layers) {
     if (layer.type !== 'objectgroup' || layer.visible === false) continue;
     for (const o of layer.objects ?? []) {
+      // An object hidden in the outliner (Phase 137 Theme H) is editor-only: not drawn, never in the file.
+      if (input.hidden?.has(`${layer.id}:${o.id}`)) continue;
       const colour = PLAN_COLOURS[typeOf(o)] ?? NEUTRAL;
       const corners = footprintCorners(o);
       const path = pathPoints(o);

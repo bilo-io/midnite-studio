@@ -1,7 +1,7 @@
 // vitest/jsdom: the editor's tools and keys, Save, the banners and the empty state. Canvas drawing needs a real
 // browser and is a human check (Theme H); hit-testing is exercised here through the pointer events jsdom can send.
 import { QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createFrameChrome, FrameChromeProvider } from '@midnite/studio-frame';
@@ -13,6 +13,7 @@ import { DEFAULT_LEVEL_SNAP } from './level-snap';
 import { LevelEditor } from './level-editor';
 import { useDoctorRequest } from '../game-doctor-store';
 import { addObject, selectOnly } from './level-edit-model';
+import { useLevelOutlinerStore } from './level-outliner-store';
 import { useLevelStore } from './level-store';
 import { blankLevel, blankLevel3d, installBridge, newClient, removeBridge, stubCanvas, stubPointerEvents } from './test-helpers';
 
@@ -197,7 +198,7 @@ describe('LevelEditor', () => {
   it('lists layers top first and toggles one', async () => {
     renderEditor();
     await ready();
-    const layers = screen.getByRole('complementary', { name: 'Layers' });
+    const layers = screen.getByRole('complementary', { name: 'Outliner' });
     const names = Array.from(layers.querySelectorAll('button[aria-label^="Layer "]')).map((b) => b.getAttribute('aria-label'));
     expect(names).toEqual(['Layer objects', 'Layer collision', 'Layer ground']);
     fireEvent.click(screen.getByRole('button', { name: 'Hide layer ground' }));
@@ -657,5 +658,105 @@ describe('LevelEditor, multi-select, clipboard and align (Phase 137 B, C, E)', (
     expect((screen.getByRole('button', { name: 'Distribute horizontally' }) as HTMLButtonElement).disabled).toBe(false);
     fireEvent.keyDown(wrap, { key: 'Escape' });
     expect(screen.queryByTestId('level-align-bar')).toBeNull();
+  });
+});
+
+describe('LevelEditor, outliner and context menus (Phase 137 H, I)', () => {
+  const entry = () => useLevelStore.getState().byGame.g1!;
+  const objects = () => entry().edit.level.layers[0]!.objects!;
+  const selectedIds = () => entry().edit.selected.map((r) => r.objectId);
+  const open = async () => {
+    get.mockResolvedValue({ ok: true, value: { level: blankLevel3d(), issues: [], images: [] } });
+    list.mockResolvedValue(listed({ scenes: [{ scene: 'level', bytes: 1, dimension: '3d', issue: null }] }));
+    renderEditor();
+    await ready();
+    const layerId = entry().edit.level.layers[0]!.id!;
+    for (const [x, y] of [[100, 100], [200, 100], [400, 300]] as const) useLevelStore.getState().update('g1', (s) => addObject(s, layerId, { type: 'prop', x, y }));
+    const ids = objects().filter((o) => o.type === 'prop').map((o) => o.id);
+    useLevelStore.getState().update('g1', (s) => selectOnly(s, null));
+    return { canvas: screen.getByTestId('level-canvas'), layerId, ids };
+  };
+  const row = (id: number) => {
+    const key = `${entry().edit.level.layers[0]!.id}:${id}`;
+    return Array.from(document.querySelectorAll<HTMLElement>('[data-rowkey]')).find((el) => el.dataset.rowkey === key)!;
+  };
+  const click = (canvas: HTMLElement, mx: number, my: number, mods: Record<string, boolean> = {}) => {
+    fireEvent.pointerDown(canvas, { ...at(mx, my), ...mods });
+    fireEvent.pointerUp(canvas, { ...at(mx, my), ...mods });
+  };
+  beforeEach(() => useLevelOutlinerStore.setState({ hiddenByScene: {}, lockedByScene: {}, width: 224, collapsed: false }));
+
+  it('H5: a row selects the object and Shift-click a range', async () => {
+    const { ids } = await open();
+    fireEvent.click(row(ids[0]!));
+    expect(selectedIds()).toEqual([ids[0]]);
+    fireEvent.click(row(ids[2]!), { shiftKey: true });
+    expect(selectedIds().sort()).toEqual([...ids].sort());
+  });
+
+  it('H6: arrow keys move focus between rows and Enter selects', async () => {
+    const { ids } = await open();
+    const rows = screen.getAllByRole('treeitem');
+    rows[0]!.focus();
+    const tree = screen.getByRole('tree');
+    fireEvent.keyDown(rows[0]!, { key: 'ArrowDown' });
+    await waitFor(() => expect(document.activeElement).toBe(screen.getAllByRole('treeitem')[1]));
+    fireEvent.keyDown(document.activeElement!, { key: 'Enter' });
+    expect(selectedIds()).toHaveLength(1);
+    expect(tree).toBeTruthy();
+    expect(ids.length).toBe(3);
+  });
+
+  it('H3/H4: hiding an object keeps it out of hits and the file; locking only out of hits', async () => {
+    const { canvas, ids } = await open();
+    const dirtyBefore = entry().edit.dirty;
+    fireEvent.mouseEnter(row(ids[0]!));
+    fireEvent.click(within(row(ids[0]!)).getByRole('button', { name: 'Hide in editor' }));
+    click(canvas, 100, 100);
+    expect(selectedIds()).toEqual([]);
+    fireEvent.click(within(row(ids[1]!)).getByRole('button', { name: 'Lock' }));
+    click(canvas, 200, 100);
+    expect(selectedIds()).toEqual([]);
+    expect(entry().edit.dirty).toBe(dirtyBefore);
+    expect(useLevelOutlinerStore.getState().hiddenByScene['g1/level']).toHaveLength(1);
+    // A locked object is still selectable from the outliner.
+    fireEvent.click(row(ids[1]!));
+    expect(selectedIds()).toEqual([ids[1]]);
+  });
+
+  it('H3: a marquee skips hidden and locked objects', async () => {
+    const { canvas, ids } = await open();
+    useLevelOutlinerStore.getState().toggleHidden('g1/level', [`${entry().edit.level.layers[0]!.id}:${ids[0]}`]);
+    fireEvent.pointerDown(canvas, at(50, 50));
+    fireEvent.pointerMove(canvas, at(250, 150));
+    fireEvent.pointerUp(canvas, at(250, 150));
+    expect(selectedIds()).toEqual([ids[1]]);
+  });
+
+  it('H7: dragging the handle below the minimum collapses the aside to a strip', async () => {
+    await open();
+    const handle = screen.getByRole('separator', { name: 'Resize outliner' });
+    Object.assign(handle, { setPointerCapture: vi.fn(), releasePointerCapture: vi.fn() });
+    fireEvent.pointerDown(handle, { clientX: 224, pointerId: 1 });
+    fireEvent.pointerMove(handle, { clientX: 20, pointerId: 1 });
+    fireEvent.pointerUp(handle, { clientX: 20, pointerId: 1 });
+    expect(screen.getByTestId('level-outliner-strip')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Show outliner' }));
+    expect(screen.getByTestId('level-outliner')).toBeTruthy();
+  });
+
+  it('shows an empty state for a level with no object layers', async () => {
+    const level = blankLevel();
+    get.mockResolvedValue({ ok: true, value: { level: { ...level, layers: level.layers.filter((l) => l.type !== 'objectgroup') }, issues: [], images: [] } });
+    renderEditor();
+    await ready();
+    expect(screen.getByText('No object layers')).toBeTruthy();
+  });
+
+  it('I5: right-clicking an unselected object selects it before the menu opens', async () => {
+    const { canvas, ids } = await open();
+    expect(selectedIds()).toEqual([]);
+    fireEvent.contextMenu(canvas, at(100, 100));
+    await waitFor(() => expect(selectedIds()).toEqual([ids[0]]));
   });
 });
