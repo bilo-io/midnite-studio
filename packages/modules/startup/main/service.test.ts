@@ -36,6 +36,22 @@ describe('fleet catalog', () => {
     await run(s, { op: 'get' });
     expect(s.snapshot().revision).toBe(1);
   });
+  it('upsertFleetCatalog saves, refuses duplicate ids, and refuses removing an id a node uses', async () => {
+    const s = await open();
+    await run(s, { op: 'get' });
+    const cat = s.snapshot().workspace.fleetCatalog!;
+    const custom = { id: 'x-1', label: 'Custom', priceMinor: 100, watts: 10, builtIn: false, hidden: false };
+    expect((await run(s, { op: 'upsertFleetCatalog', catalog: { ...cat, hardware: [...cat.hardware, custom] } })).ok).toBe(true);
+    expect(s.snapshot().workspace.fleetCatalog?.hardware.some((h) => h.id === 'x-1')).toBe(true);
+    expect(await run(s, { op: 'upsertFleetCatalog', catalog: { ...cat, hardware: [...cat.hardware, custom, custom] } })).toMatchObject({ ok: false, kind: 'invalid' });
+    const p = buildFleetStarter('gpu-cluster', { projectionId: u(1), nodeId: () => u(9000) }, '2020-01-01T00:00:00.000Z', 'P');
+    await run(s, { op: 'upsertFleetProjection', projection: p });
+    const used = p.nodes[0]!.hardwareId;
+    const without = { ...cat, hardware: cat.hardware.filter((h) => h.id !== used) };
+    expect(await run(s, { op: 'upsertFleetCatalog', catalog: without })).toMatchObject({ ok: false, kind: 'in-use' });
+    const hidden = { ...cat, hardware: cat.hardware.map((h) => (h.id === used ? { ...h, hidden: true } : h)) };
+    expect((await run(s, { op: 'upsertFleetCatalog', catalog: hidden })).ok).toBe(true);
+  });
   it('answers the not-yet ops with a refusal', async () => {
     const s = await open();
     expect(await run(s, { op: 'exportFleetProjectionCsv', projectionId: u(1) })).toMatchObject({ ok: false, kind: 'invalid' });
