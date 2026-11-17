@@ -26,7 +26,7 @@ All 47 `midnite-*` skills currently spend 60–80% of their frontier LLM tokens 
 
 ## Headlines
 
-**Theme A — Skill runtime library & Ollama router (`PR-1`, M).** ◻ TODO. Shared `scripts/skills/lib/` modules (`ollama.mjs`, `git.mjs`, `gh.mjs`, `tasks-index.mjs`, `format.mjs`) plus `scripts/skills/sync-skills.mjs` so all downstream scripts share NUL-safe git/gh wrappers, `_INDEX.md`/checkbox/bar math, and `localhost:11434` Ollama routing with `--no-llm` fallback.
+**Theme A — Skill runtime library & Ollama router (`PR-1`, M).** ✅ Landed. `scripts/skills/lib/` holds `ollama.mjs` (`run({task,prompt,fallback})` routes classify/note to `gemma4:e2b`→`ministral-3:3b` and draft/audit to `qwen3.5:9b` (`-64k` past 8k chars), probes `MSTUDIO_OLLAMA_URL`, and always resolves with the deterministic fallback under `--no-llm`/`MSTUDIO_NO_LLM=1`/daemon down/model missing), NUL-safe `git.mjs`, envelope-returning `gh.mjs`, `format.mjs` (bars, diff cell, tables) and `tasks-index.mjs` (`_INDEX.md` row parse/update, checkbox counts). `scripts/skills/sync-skills.mjs` audits the three skill mirrors, treating `argument-hint`/`allowed-tools`/`AskUserQuestion`/`Invoke with:` as intentional variants, and `--write` propagates bodies while keeping each target's frontmatter. Every wrapper takes an injectable runner/fetch, so the 46 tests need no git, gh or Ollama; they run in `root:test-node` via the existing `scripts/**/*.test.mjs` glob.
 
 **Theme B — Sitrep & forge triage CLI (`PR-2`, M).** ◻ TODO. Replaces LLM table/graph/timeline/histogram/sequence-diagram/CI rendering and `midnite-triage` with `scripts/skills/sitrep.mjs` and `scripts/skills/triage.mjs`, yielding the single highest recurring token savings across sessions.
 
@@ -42,11 +42,11 @@ All 47 `midnite-*` skills currently spend 60–80% of their frontier LLM tokens 
 
 ### Theme A — Skill runtime library & Ollama router (`M`)
 
-- [ ] **151.A.1** Create `scripts/skills/lib/ollama.mjs`: probes `http://localhost:11434/api/tags` (configurable via `MSTUDIO_OLLAMA_URL`), routes `classify`/`note` tasks to `gemma4:e2b` or `ministral-3:3b` and `draft`/`audit` tasks to `qwen3.5:9b` (or `qwen3.5:9b-64k` for >8k chars), enforces `--no-llm` flag / `MSTUDIO_NO_LLM=1`, and invokes a caller-supplied deterministic `fallback()` when Ollama is unreachable.
-- [ ] **151.A.2** Create `scripts/skills/lib/git.mjs` and `scripts/skills/lib/gh.mjs`: NUL-delimited (`-z`, `%x00`) git helpers (`shortstat`, `logRange`, `worktreeList`, `isTracked`) and batched `gh` JSON wrappers (`prView`, `prList`, `prChecks`, `issueList`, `runList`) with clear auth/rate-limit error envelopes.
-- [ ] **151.A.3** Create `scripts/skills/lib/tasks-index.mjs` and `scripts/skills/lib/format.mjs`: parses/updates `.midnite/tasks/<CATEGORY>/_INDEX.md` tables, counts `- [x]`/`- [ ]` checkboxes in `phase-*.md`, renders 10-cell/20-cell progress bars (`█`/`░`), `🟩 +A 🟥 -D 📄 F` diffs, and markdown tables.
-- [ ] **151.A.4** Create `scripts/skills/sync-skills.mjs`: audits `.agents/skills/`, `.claude/skills/`, and `.codex/skills/` parity while preserving intentional Claude-specific frontmatter (`argument-hint`, `allowed-tools`) and `AskUserQuestion` vs runtime-neutral prompts.
-- [ ] **151.A.5** Add unit tests (`scripts/skills/lib/*.test.mjs`) covering Ollama fallback/routing, NUL-delimited git parsing, progress bar math, and `_INDEX.md` table round-tripping.
+- [x] **151.A.1** Create `scripts/skills/lib/ollama.mjs`: probes `http://localhost:11434/api/tags` (configurable via `MSTUDIO_OLLAMA_URL`), routes `classify`/`note` tasks to `gemma4:e2b` or `ministral-3:3b` and `draft`/`audit` tasks to `qwen3.5:9b` (or `qwen3.5:9b-64k` for >8k chars), enforces `--no-llm` flag / `MSTUDIO_NO_LLM=1`, and invokes a caller-supplied deterministic `fallback()` when Ollama is unreachable.
+- [x] **151.A.2** Create `scripts/skills/lib/git.mjs` and `scripts/skills/lib/gh.mjs`: NUL-delimited (`-z`, `%x00`) git helpers (`shortstat`, `logRange`, `worktreeList`, `isTracked`) and batched `gh` JSON wrappers (`prView`, `prList`, `prChecks`, `issueList`, `runList`) with clear auth/rate-limit error envelopes.
+- [x] **151.A.3** Create `scripts/skills/lib/tasks-index.mjs` and `scripts/skills/lib/format.mjs`: parses/updates `.midnite/tasks/<CATEGORY>/_INDEX.md` tables, counts `- [x]`/`- [ ]` checkboxes in `phase-*.md`, renders 10-cell/20-cell progress bars (`█`/`░`), `🟩 +A 🟥 -D 📄 F` diffs, and markdown tables.
+- [x] **151.A.4** Create `scripts/skills/sync-skills.mjs`: audits `.agents/skills/`, `.claude/skills/`, and `.codex/skills/` parity while preserving intentional Claude-specific frontmatter (`argument-hint`, `allowed-tools`) and `AskUserQuestion` vs runtime-neutral prompts.
+- [x] **151.A.5** Add unit tests (`scripts/skills/lib/*.test.mjs`) covering Ollama fallback/routing, NUL-delimited git parsing, progress bar math, and `_INDEX.md` table round-tripping.
 
 ### Theme B — Sitrep & forge triage CLI (`M`)
 
