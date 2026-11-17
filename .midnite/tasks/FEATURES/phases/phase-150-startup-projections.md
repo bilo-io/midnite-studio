@@ -80,9 +80,7 @@ Planned 2026-11-17; refined x1 the same day. Build order: **wave 1 = A ‖ B** (
 
 **Theme A — Contract and store.** ✅ `shared/src/startup-fleet.ts` (schemas, catalogs, starters) landed first; the workspace is at schema v2 with `fleetProjections` and an explicit v1 → v2 step in `migrateWorkspace`; `upsertFleetProjection`, `removeFleetProjection` and `duplicateFleetProjection` run through the write queue, bridge and bridge type, with tests.
 
-**Theme B — Projection model and ZAR formatting.** ◻ A pure `computeFleetProjection` (CapEx, full-draw energy, API,
-revenue with demand growth, net margin, payback, month series, per-node figures) and `formatZar` /
-`formatCompactZar` that print `R ` in every locale; hand-worked fixtures to the cent.
+**Theme B — Projection model and ZAR formatting.** ✅ Pure `computeFleetProjection` and `formatZar` / `formatCompactZar` landed with the hand-worked fixture checked to the cent and `Intl`-free output proven under `de_DE`.
 
 **Theme C — Projections view frame and list.** ◻ `startup.projections` first in the rail and the home view,
 rendered before the company gate; three panes (list 240 px, centre, controls 340 px) with resizable,
@@ -291,21 +289,21 @@ Values stay unrounded floats in the result; **only `formatZar` rounds** (to whol
 
 ### B — Projection model and ZAR formatting (S)
 
-- [ ] `packages/modules/startup/renderer/projections/fleet-model.ts` (net-new) exports
+- [x] `packages/modules/startup/renderer/projections/fleet-model.ts` (net-new) exports
   `computeFleetProjection(p: FleetProjection): FleetProjectionResult` and the result types exactly as **Data model**.
   - Disabled nodes contribute 0 everywhere, and still appear in `perNode` with zeros.
   - No nodes (or all disabled) → every figure 0, `marginPct: null`, `paybackMonths: null`, `series` of `horizonMonths`
     zero months (cumulative 0).
   - CapEx 0 with net ≥ 0 at month 0 → `paybackMonths: 1`.
   - Pure: no `Date`, no randomness, no rounding, no mutation of `p` (deep-freeze it in a test).
-- [ ] `packages/modules/startup/renderer/projections/format-zar.ts` (net-new):
+- [x] `packages/modules/startup/renderer/projections/format-zar.ts` (net-new):
   `formatZar(cents: number, opts?: { decimals?: 0 | 2 }): string` and `formatCompactZar(cents: number): string`.
   - Rounds half away from zero to the chosen decimals; groups thousands with `,` by hand (no `Intl` currency or locale
     formatting), so the output is identical under any `LANG`.
   - Negative → U+2212 before the `R`: `−R 4,200`. Zero → `R 0`. `-0` → `R 0`. `NaN`/`±Infinity` → `—`.
   - Compact: `< R 1,000` → `R 950`; `< R 1m` → `R 450k` (one decimal when < 10k: `R 4.5k`); else `R 1.2m`; same sign rule.
   - Does **not** replace Runway's `formatMinor` (`runway-types.ts:24`); that stays untouched.
-- [ ] Tests — `fleet-model.test.ts` (net-new), a hand-worked fixture checked to the cent: one node, dual-4090 (R 120,000,
+- [x] Tests — `fleet-model.test.ts` (net-new), a hand-worked fixture checked to the cent: one node, dual-4090 (R 120,000,
   1,200 W), pro tier (R 7,500), qty 1, 70 %, R 25/h, scale 100 %, R 3.20/kWh, growth 0, horizon 12:
   CapEx `12_000_000`; energy `1200 × 0.73 × 320 = 280_320`; API `750_000`; OpEx `1_030_320`;
   revenue `2_500 × 730 × 0.7 = 1_277_500`; net `247_180`; payback needs 49 months → `null` at horizons 12 and 36.
@@ -313,7 +311,7 @@ Values stay unrounded floats in the result; **only `formatZar` rounds** (to whol
   M3 `239_040` → `paybackMonths: 3`.
   Plus: scale 200 % doubles CapEx/OpEx/revenue; growth 50 % caps `u` at 1.0 by month 1 (70 → 100); growth −20 % decays;
   a disabled node zeroes its `perNode` entry; input object unchanged (frozen).
-- [ ] Tests — `format-zar.test.ts` (net-new): `0 → 'R 0'`, `1_500_000 → 'R 15,000'`, `123_450 with decimals 2 →
+- [x] Tests — `format-zar.test.ts` (net-new): `0 → 'R 0'`, `1_500_000 → 'R 15,000'`, `123_450 with decimals 2 →
   'R 1,234.50'`, `-420_000 → '−R 4,200'`, `150 → 'R 2'` (half away from zero), `NaN → '—'`, compact `45_000_000 →
   'R 450k'`, `120_000_000 → 'R 1.2m'`; and the same outputs with `process.env.LANG = 'de_DE.UTF-8'` and
   `Intl.NumberFormat` stubbed to throw (proves no `Intl`).
