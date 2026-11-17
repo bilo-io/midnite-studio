@@ -96,10 +96,14 @@ exists. The Level editor's "No levels yet" state says *why* (from `levels.*` fin
 **Theme H — Verification and adoption.** ◻ The CI gate, plus a human pass adopting Starbreaker (manifest fixes),
 SynthSurf (Open Game → build entry) and GTACT (kit upgrade → doctor shows the levels migration as the only gap).
 
-**Theme I — Game management: rename, remove, reveal, delete.** ◻ A context menu on every game row (right-click and a
-⋯ button): **Rename…**, **Reveal in Finder**, **Copy path**, **Remove from list**, and **Delete game…**, which moves the
-folder to the Trash after a confirm that shows the blast radius (uncommitted files, unpushed commits) and makes you type
-the game's name. Closes Phase 132 Decision 17.
+**Theme I — Game management: rename, remove, reveal, delete.** ✅ A context menu on every game row (right-click and a
+⋯ button on hover/focus): **Rename…** (inline, Enter commits `chore(midnite): rename to <name>` for `manifest.name` only),
+**Reveal in Finder**, **Copy path**, **Remove from list** (disabled with the doc's tooltip for a game directly under the
+games root; in Studio it also leaves the repos panel and the label says so) and **Delete game…** (type-the-name confirm
+showing path, size, uncommitted files and unpushed commits, or "No remote" in red; always `shell.trashItem`, never `rm`,
+and a refused Trash puts the game back in the list). New channels `gamesRename/Forget/Reveal/DeleteInfo/Delete`, ports
+`forgetRepo`/`revealPath`/`trashPath` wired in Studio and Gamer, `createOpenedGamesStore().remove`. "Run doctor" joins the
+menu when Theme G supplies a handler. Closes Phase 132 Decision 17.
 
 ## Build order
 
@@ -309,7 +313,7 @@ today.
 
 ### I — Game management: rename, remove, reveal, delete [M · 3-4h]
 
-- [ ] Contract in `media-game.ts` and the IPC files:
+- [x] Contract in `media-game.ts` and the IPC files:
   - `CHANNELS.gamesRename: 'mstudio:games:rename'` — `{ gameId, name: z.string().trim().min(1).max(80) }`. Writes
     `manifest.name` only (the folder is **not** renamed), as one commit `chore(midnite): rename to <name>`, and emits
     `gamesChanged { reason: 'manifest' }`.
@@ -322,23 +326,23 @@ today.
   - `CHANNELS.gamesDelete: 'mstudio:games:delete'` — `{ gameId, confirmName: string }`. Refuses unless `confirmName ===
     name`. Stops a running game first, forgets it, then `shell.trashItem(path)` through a host port (**Trash, never
     `rm`**), and emits `removed`.
-- [ ] `GamesRuntimeDeps` gains `forgetRepo(path): Promise<GitOpResult>`, `revealPath(path): void` and
+- [x] `GamesRuntimeDeps` gains `forgetRepo(path): Promise<GitOpResult>`, `revealPath(path): void` and
       `trashPath(path): Promise<GitOpResult>`.
   - Studio wires `forgetRepo` to the repos panel's own remove (the game's repo leaves the repos panel too, and the
     menu item says so: **Remove from list (and repos panel)**).
   - Gamer wires it to `createOpenedGamesStore().remove(path)` (net-new `remove`).
   - A game under the games root is still found by `listGames`'s directory scan, so **Remove from list** on such a game
     is disabled, with the tooltip `Games in the games folder always list — move or delete it to remove it.`
-- [ ] Renderer: net-new `renderer/game-row-menu.tsx`, used by `game-explorer.tsx` on `onContextMenu` and on a ⋯ button
+- [x] Renderer: net-new `renderer/game-row-menu.tsx`, used by `game-explorer.tsx` on `onContextMenu` and on a ⋯ button
       shown on row hover/focus. Items, in order: **Rename…** (inline edit in the row; Enter saves, Esc cancels),
       **Reveal in Finder**, **Copy path**, separator, **Run doctor** (G's panel), separator, **Remove from list**, and
       **Delete game…** (destructive styling).
-- [ ] Net-new `renderer/delete-game-dialog.tsx`, the blast-radius confirm the repo convention asks for:
+- [x] Net-new `renderer/delete-game-dialog.tsx`, the blast-radius confirm the repo convention asks for:
   - Shows the path, the size, `N uncommitted files`, and `N commits not pushed` (or `No remote — this is the only
     copy` in red when `hasRemote` is false).
   - States that it moves the folder to the Trash.
   - Has a text field reading `Type <name> to confirm`, and a **Move to Trash** button enabled only on an exact match.
-- [ ] Tests: `game-service-manage.test.ts` (rename commit, forget, delete refuses a wrong name, delete calls
+- [x] Tests: `game-service-manage.test.ts` (rename commit, forget, delete refuses a wrong name, delete calls
       `trashPath` once and never `rm`, delete stops a running game), `opened-games.test.ts` (`remove`),
       `game-row-menu.test.tsx` (items, the disabled Remove under the games root, keyboard open via ⋯) and
       `delete-game-dialog.test.tsx` (blast radius text, exact-match gating).
