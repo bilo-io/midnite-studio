@@ -1,6 +1,8 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
+import { MIDNITE_SITE_ORIGIN, WEBSITE_SITE_ORIGIN } from '@midnite/studio-shared/install-command';
+
 /**
  * Where Midnite Studio is published and installed — the same constants
  * `apps/launcher/install.sh` uses, because the launcher's Install is
@@ -31,12 +33,12 @@ export function studioZipUrl(version: string): string {
 export const MIN_FRAMEWORK_BYTES = 100 * 1024 * 1024;
 
 /** The website the launcher links to. */
-export const SITE_URL = 'https://midnyte.studio';
+export const SITE_URL = WEBSITE_SITE_ORIGIN;
 /**
  * Where the installer script is curled from: the Vercel host, which serves the same build
  * as `SITE_URL` and stays up for the launchers already installed that curl it.
  */
-export const INSTALLER_HOST = 'https://midnite-apps.vercel.app';
+export const INSTALLER_HOST = MIDNITE_SITE_ORIGIN;
 export const RELEASES_URL = `https://github.com/${RELEASES_REPO}/releases`;
 export const DOWNLOAD_URL = `${SITE_URL}/download/`;
 
