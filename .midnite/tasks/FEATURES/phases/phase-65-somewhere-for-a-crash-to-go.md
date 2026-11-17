@@ -363,8 +363,8 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
         left is the end-to-end pass.
       - **Build:** dev (`moon run studio:start`) — View ▸ Toggle DevTools exists only when
         `devToolsAllowed(app.isPackaged)` is true ([`menu.ts:152`](../../../packages/desktop/src/main/menu.ts)).
-      - **Steps:** open Graph; in DevTools pick the renderer and, from the Components/React tab or by
-        temporarily editing a view to `throw new Error('p65-probe')` in render, make one view throw. Note
+      - **Steps:** temporarily add `throw new Error('p65-probe')` to the Graph view's render (do not
+        commit it), open Graph so the boundary catches it. Note
         the path printed beside **Reveal log** in Settings ▸ Monitor & Diagnostics ▸ Diagnostics.
         `tail -n 5` that file.
       - **Pass:** one record `{"t":…,"level":"error","msg":"[renderer] boundary main/graph: Error: p65-probe…"}`
@@ -390,9 +390,8 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
            exactly one report, `source: 'unhandled-rejection'`, `message: 'x'`.
         3. Edge: `new ErrorEvent('error', { message: 'Script error.' })` (no `error`, the cross-origin
            shape) → one report whose `message` is `'Script error.'` — not dropped.
-        4. Edge: a rejection whose `reason` is the string `'nope'` → one report (non-Error reasons are
-           stringified by `describe`, as the existing "reports a thrown non-Error" test proves for
-           `reportError`).
+        4. Edge: a rejection whose `reason` is the string `'nope'` → one report with
+           `name: 'thrown-string'`, `message: 'nope'` (`describe` at `report.ts:80-82`).
       - **Main half — lift, then test; behaviour and message text unchanged.** Net-new
         `packages/desktop/src/main/crash-hooks.ts` exporting
         `installMainCrashHooks(log: Logger, proc: CrashEventSource, appEvents: ChildProcessGoneSource): void`
@@ -420,8 +419,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
           `'[main] child-process-gone type=GPU reason=crashed exit=139'`, and with `name:'Video Capture'`
           appended `' name=Video Capture'`; and `vi.spyOn(process, 'exit')` is never called (the hooks
           record, they never exit — Theme D's rule).
-      - **Done when:** both test files pass under `moon run app:test` / `moon run desktop:test` (focused
-        runs only), `git diff` of `index.ts` is the deletion plus one call line plus one import, and
+      - **Done when:** both test files pass under focused runs —
+        `pnpm -C packages/app exec vitest run src/lib/report.test.ts` and
+        `pnpm -C packages/desktop exec vitest run src/main/crash-hooks.test.ts` (no workspace-wide run), `git diff` of `index.ts` is the deletion plus one call line plus one import, and
         `grep -n "process.on('uncaughtException'" packages/desktop/src/main/index.ts` returns nothing.
 - [x] Write 3 MB through the sink: exactly `generations + 1` files exist, the newest is under
       `maxBytes`, and the oldest is gone.
