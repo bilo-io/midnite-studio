@@ -9,6 +9,10 @@ You are running the **design** workflow for **Midnite Studio**: an interactive s
 
 While `/midnite-plan` focuses on functional requirements, deliverables, and backend/IPC boundaries, **`/midnite-design` extends the planned doc** to ensure the visual and interaction design is fully specified before build begins.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/verify-phase.mjs --phase N --json`. It reads the phase doc checklist and runs the tracker check (read-only). You still make the design decisions with the user and extend the doc. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Design Context & Rules
 
 - **Design Tokens & System:**
@@ -54,7 +58,7 @@ Edit `.midnite/tasks/<CATEGORY>/phases/phase-N-<slug>.md` in place:
    - Component state handling (`- [ ] Empty and error state banners with retry...`).
    - Icon assignments (`- [ ] Integrated react-icons/lu icons...`).
 3. Extend the **`## Verification`** checklist:
-   - `- [ ] Playwright visual screenshots committed under docs/screenshots/`.
+   - `- [ ] Visual appearance covered by an `app:visual` baseline (screenshots are shown in the thread, never committed)`.
    - `- [ ] Contrast and keyboard focus order verified`.
 4. Reconcile checklist counts and update `.midnite/tasks/<CATEGORY>/_INDEX.md` (counts: done/total).
 5. Run drift guard: `moon run root:tracker-check`.

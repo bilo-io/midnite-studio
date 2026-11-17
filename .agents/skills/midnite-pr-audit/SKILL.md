@@ -15,6 +15,10 @@ end and made only when the user says so.
 **Conversation style.** Terse. No preamble, and no narrating the `gh` calls. The report is the
 five sections below, in that order, then the questions.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/pr-audit.mjs <pr> [--json]`. It lays out the four levels (phase doc, issue, PR claims, diff) and the wire contract, and surfaces the mechanical mismatches. You still judge drift and whether each claim has evidence. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 1 · Scope
 
 - Take the PRs from the invocation. A phase or theme (`99 E`) resolves through that phase doc's

@@ -7,6 +7,10 @@ description: Build 2D game assets in Midnite Studio's Media ▸ Sprites page thr
 
 A sprite asset is a folder with a `sprite.json` spec. The app generates, normalises (keyed, aligned on one anchor, one scale per direction), validates and packs the frames itself. Never hand-write frames, atlases or `.tmj` files; edit the spec and run jobs.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/media/sprite-calc.mjs --frames N --directions N [--reroll N]` then `node scripts/skills/media/poll-job.mjs --kind sprite --cmd '<status command>'`. The first checks the 200-request spend cap and picks the method; the second polls the job to a terminal state. You still decide the art direction and judge the frames. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Layout
 
 ```

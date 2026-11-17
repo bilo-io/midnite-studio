@@ -26,6 +26,10 @@ NIT. Give PRAISE where it is earned.
 **Severity follows the cost of the fix.** A mechanical slip fixed in seconds that CI catches at
 once (a stale snapshot, an unsorted import) is a NIT.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/pr-review-lint.mjs [--base origin/main | --diff <file|->] [--strict]`. It lists the mechanical rubric hits in the added lines (NUL-delimited git, write queue, lucide-react, Quick Kiss, hardcoded chords, wall-clock asserts, SCRATCHPAD, trailers). You still read the diff, judge severity, and write the findings. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Rubric: this repo's conventions
 
 Apply only the sections the diff touches.

@@ -9,6 +9,10 @@ You are running the **setup** workflow: an interactive, human-in-the-loop sessio
 
 This skill is modelled on how **midnite-studio** itself is laid out (moon + proto monorepo, `.claude`/`.agents`/`.codex` skill mirrors, a `.midnite/tasks/` phase tracker) — and it emits **exactly** [`templates/midnite/`](../../../templates/midnite/), the same checked-in onboarding kit the app's own Setup menu leaf copies into a repo (Phase 49 Theme A). One layout, one source of truth: this skill and the app must never describe two different shapes of "an onboarded repo" again. The output is a *seed*, not a finished product — one MVP phase doc per app, connected where the apps depend on each other, ready for `/midnite-build` to pick up.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/sync-skills.mjs`. It audits the .agents/.claude/.codex skill mirrors you are about to emit, so the three copies stay in step. You still ask the questions, confirm the blueprint and scaffold the repo. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Context you must respect
 - **Do not scaffold anything until the user has answered the questions and confirmed the blueprint (Stage 4).** This is a one-human-in-the-loop bootstrap, not an autonomous build.
 - The **target** is a *new* repo, not midnite-studio. Never write into the midnite-studio tree except to *read* [`templates/midnite/`](../../../templates/midnite/), the tree you copy out. Resolve the target dir in Stage 0.

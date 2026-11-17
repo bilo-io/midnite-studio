@@ -21,6 +21,10 @@ if preconditions aren't met.
 
 **Style:** terse — report the checks + the plan, then act once confirmed.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/release-complete.mjs [ephemeral]`. It checks the preconditions and prints the plan, changing nothing; the irreversible steps run only with `--confirm vX.Y.Z` (the exact tag) after the human has reviewed the release branch, and `--verify vX.Y.Z` runs the post-publish checks. You never pass `--confirm` without the user's explicit go-ahead, and merging the release PR stays a human step. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 1 · Preconditions — refuse if any fail
 Gather, and **stop with a clear message** on the first failure (nothing has changed yet):
 - **Branch / Mode:**

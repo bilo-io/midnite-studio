@@ -19,6 +19,10 @@ gathered, and the vocabulary every view uses. Each view has its own skill with i
 | timeline | [`midnite-sitrep-timeline`](../midnite-sitrep-timeline/SKILL.md) | When is all of it done, wave by wave? | When asked |
 | ci | [`midnite-sitrep-ci`](../midnite-sitrep-ci/SKILL.md) | Which job is slow, failing or stuck in the queue? | When asked |
 
+## 0 · Run the script first
+
+Run `node scripts/skills/sitrep.mjs table [--pr 12,13 | --input rows.json] [--repo o/r] [--cap N]` (views: `table|graph|timeline|histogram|sequence|ci|all`; `--input -` reads rows from stdin). It renders the table and whichever extra views the rows call for exactly as specified below. You still decide which view to add, and supply the rows the script cannot see (subagents, worktrees, ETAs from observed pace, the board). Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 0 · Routing
 
 - **No view named:** the table, then the graph if any row has a hard dependency on another — a

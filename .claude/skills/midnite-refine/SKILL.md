@@ -12,6 +12,10 @@ every item can be built by a model with no access to this conversation.
 `/midnite-plan` invents a phase. `/midnite-build` builds a slice of one. **`/midnite-refine` sits between them** and is
 run *separately from* an exec run: it never writes code, never opens a PR, never ticks a checkbox.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/verify-phase.mjs --phase N --json`. It partitions the phase checklist into automated and human items and runs the tracker check (read-only). You still resolve the open decisions and rewrite the doc. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## The bar this skill exists to clear — the Sonnet test
 
 > **A refined phase doc must be executable by Claude Sonnet, working alone, as well as by Opus —

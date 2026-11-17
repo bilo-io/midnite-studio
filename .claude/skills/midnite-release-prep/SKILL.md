@@ -18,6 +18,10 @@ don't invent new ones.
 
 **Style:** terse — report findings + decisions, don't narrate the gathering.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/release-prep.mjs [major|minor|patch|ephemeral]`. It prints the read-only plan (preconditions, base tag, bump level, tags, drafted changelog); `--apply` creates the release branch, bumps versions and commits, and never tags or pushes. You still confirm the version with the user before `--apply` and curate the changelog. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 1 · Preconditions
 - `git fetch origin --tags --quiet`. Work from an up-to-date `main`: `git switch main && git pull --ff-only` (or note if the user is intentionally elsewhere).
 - Working tree must be **clean** — `git status --porcelain` empty. If dirty, stop and say so.

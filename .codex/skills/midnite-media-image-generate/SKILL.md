@@ -7,6 +7,10 @@ description: Plan and organise image generation for Midnite Studio's Media ▸ I
 
 The Images page generates pictures from a prompt through a provider chosen in the page (`gemini`, `openai`, `agy`, `ollama`; default `agy`). Generation runs in the app, not in the agent.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/media/validate.mjs image '<json>'`. It checks the request against the documented constraints before you spend a generation (`${S}media/scaffold.sh image <project>` creates the project folder). You still write the prompt, generate, and judge the result. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Layout
 
 ```

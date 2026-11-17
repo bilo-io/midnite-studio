@@ -7,6 +7,10 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, TodoWrite, 
 
 You are running the **plan** workflow for the **Midnite Studio** repo: an interactive, human-in-the-loop session that lands a **new `.midnite/tasks/<CATEGORY>/phases/phase-N-*.md`** plan. It is a back-and-forth — propose, let the user steer, refine over a few rounds, and specify the plan with sufficient detail that simpler/fast models can execute it without ambiguity. **Do not write the phase file until the user has converged on a direction** (Stage 5).
 
+## 0 · Run the script first
+
+Run `node scripts/skills/verify-phase.mjs --json`. It reads the category indexes and lists incomplete phases and their checklists (read-only), so the status overview does not need a long scan; run `node scripts/tracker-check.mjs` after writing the doc. You still riff with the user and write the phase doc. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Context you must respect
 
 - Phase plans live in **`.midnite/tasks/`** divided into category folders:
