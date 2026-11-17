@@ -27,11 +27,12 @@ export function withBaseScenario(workspace: StartupWorkspace): StartupWorkspace 
   return { ...workspace, scenarios: [base, ...workspace.scenarios] };
 }
 
-/** Version 1 is the identity; a version above it is read-only, and anything that fails the schema is corrupt. */
+/** v1 → v2 adds `fleetProjections: []`; a version above current is read-only; anything failing the schema is corrupt. */
 export function migrateWorkspace(raw: unknown): MigrateResult {
   const version = typeof raw === 'object' && raw !== null ? (raw as { version?: unknown }).version : undefined;
   if (typeof version === 'number' && Number.isInteger(version) && version > STARTUP_WORKSPACE_VERSION) return { ok: false, reason: 'newer-version' };
-  const parsed = StartupWorkspaceSchema.safeParse(raw);
+  const input = version === 1 ? { ...(raw as object), version: 2 } : raw;
+  const parsed = StartupWorkspaceSchema.safeParse(input);
   if (!parsed.success) return { ok: false, reason: 'corrupt' };
   return { ok: true, workspace: withBaseScenario(parsed.data) };
 }

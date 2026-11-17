@@ -78,10 +78,7 @@ saved in the Startup workspace, so several variants can sit side by side in the 
 Planned 2026-11-17; refined x1 the same day. Build order: **wave 1 = A ‖ B** (B stacks on A's first commit),
 **wave 2 = C + D + E + F** in one PR.
 
-**Theme A — Contract and store.** ◻ `shared/src/startup-fleet.ts` (schemas, constant catalogs, starters) lands as
-the first commit; the workspace gains `fleetProjections` at schema v2 with an explicit v1 → v2 step in
-`migrateWorkspace`; three ops (`upsertFleetProjection`, `removeFleetProjection`, `duplicateFleetProjection`) through
-the existing write queue, bridge and bridge type.
+**Theme A — Contract and store.** ✅ `shared/src/startup-fleet.ts` (schemas, catalogs, starters) landed first; the workspace is at schema v2 with `fleetProjections` and an explicit v1 → v2 step in `migrateWorkspace`; `upsertFleetProjection`, `removeFleetProjection` and `duplicateFleetProjection` run through the write queue, bridge and bridge type, with tests.
 
 **Theme B — Projection model and ZAR formatting.** ◻ A pure `computeFleetProjection` (CapEx, full-draw energy, API,
 revenue with demand growth, net margin, payback, month series, per-node figures) and `formatZar` /
@@ -243,29 +240,29 @@ Values stay unrounded floats in the result; **only `formatZar` rounds** (to whol
 
 ### A — Contract and store (M)
 
-- [ ] **First commit, alone:** `packages/shared/src/startup-fleet.ts` verbatim from **Data model**, plus
+- [x] **First commit, alone:** `packages/shared/src/startup-fleet.ts` verbatim from **Data model**, plus
   `export * from './startup-fleet';` in [`shared/src/index.ts`](../../../packages/shared/src/index.ts) after `:142`. Push it
   immediately — agent 2 branches from it.
   - `buildFleetStarter` implemented as specified; `HARDWARE_IDS`/`API_TIER_IDS` equality with the catalogs asserted in
     the test below.
   - Accept: `pnpm --filter @midnite/studio-shared typecheck` passes on that commit alone.
-- [ ] Workspace v2 in [`shared/src/startup.ts`](../../../packages/shared/src/startup.ts):
+- [x] Workspace v2 in [`shared/src/startup.ts`](../../../packages/shared/src/startup.ts):
   `STARTUP_WORKSPACE_VERSION = 2`; `StartupWorkspaceSchema` gains
   `fleetProjections: z.array(FleetProjectionSchema).max(MAX_FLEET_PROJECTIONS).default([])` (imported from
   `./startup-fleet`).
   - Why bump although the field defaults: a v1 build reading a v2 file would strip `fleetProjections` (zod drops
     unknown keys) and write the file back without them. With v2, that build opens it read-only.
-- [ ] Explicit v1 → v2 step in [`migrateWorkspace`](../../../packages/modules/startup/main/workspace-store.ts) (`:30-37`):
+- [x] Explicit v1 → v2 step in [`migrateWorkspace`](../../../packages/modules/startup/main/workspace-store.ts) (`:30-37`):
   before `safeParse`, if `raw` is an object whose `version === 1`, parse `{ ...raw, version: 2 }` instead. Nothing else
   changes. Without this step every v1 file fails `z.literal(2)` and is renamed `workspace.corrupt-*.json` — **data loss**.
   - Update the doc comment above `migrateWorkspace` to "v1 → v2 adds `fleetProjections: []`; a version above
     current is read-only; anything failing the schema is corrupt".
   - The next write persists `version: 2` (the store writes `current`).
-- [ ] Three ops appended to `StartupRequestSchema` (after `ledgerSummary`):
+- [x] Three ops appended to `StartupRequestSchema` (after `ledgerSummary`):
   `z.object({ op: z.literal('upsertFleetProjection'), projection: FleetProjectionSchema })`,
   `z.object({ op: z.literal('removeFleetProjection'), id })`,
   `z.object({ op: z.literal('duplicateFleetProjection'), id, name: z.string().trim().min(1).max(80) })`.
-- [ ] Handlers in [`service.ts`](../../../packages/modules/startup/main/service.ts) `handleStartupRequest`, each a
+- [x] Handlers in [`service.ts`](../../../packages/modules/startup/main/service.ts) `handleStartupRequest`, each a
   `case` returning `store.mutate((ws) => …)`, copying `upsertScenario`'s shape (`:117-122`):
   - `upsertFleetProjection`: `isNew` + `ws.fleetProjections.length >= MAX_FLEET_PROJECTIONS` →
     `fail('invalid', 'A company has at most 50 projections.')`. Sets `updatedAt = (deps.now?.() ?? new Date()).toISOString()`;
@@ -274,16 +271,16 @@ Values stay unrounded floats in the result; **only `formatZar` rounds** (to whol
   - `duplicateFleetProjection`: unknown id → the same `not-found`; at the cap → the same `invalid`; else appends a
     copy with `id: crypto.randomUUID()`, every node `id: crypto.randomUUID()`, the request's `name`, and `createdAt` =
     `updatedAt` = now. The copy is inserted **directly after** the source in the array.
-- [ ] Bridge: `upsertFleetProjection: op('upsertFleetProjection')`, `removeFleetProjection: op(...)`,
+- [x] Bridge: `upsertFleetProjection: op('upsertFleetProjection')`, `removeFleetProjection: op(...)`,
   `duplicateFleetProjection: op(...)` in [`main/bridge.ts`](../../../packages/modules/startup/main/bridge.ts), and three lines in
   the `startup?: { … }` block of [`shared/src/ipc/bridge.ts`](../../../packages/shared/src/ipc/bridge.ts) (`:2414-2441`), each
   `(req: Omit<Extract<StartupRequest, { op: '<name>' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;`.
-- [ ] Tests — `packages/shared/src/startup-fleet.test.ts` (net-new):
+- [x] Tests — `packages/shared/src/startup-fleet.test.ts` (net-new):
   - `FleetProjectionSchema` rejects `quantity: 0`, `utilisationPct: 101`, `scalePct: 5`, `horizonMonths: 18`,
     an unknown `hardwareId`, a whitespace-only name, and 201 nodes.
   - Every starter parses; `gpu-cluster` has 4 enabled nodes; ids come from the supplied `nodeId()`.
   - `HARDWARE_IDS` equals `HARDWARE_CATALOG.map(h => h.id)` (and the same for API tiers).
-- [ ] Tests — [`service.test.ts`](../../../packages/modules/startup/main/service.test.ts) gains `describe('fleet projections')`
+- [x] Tests — [`service.test.ts`](../../../packages/modules/startup/main/service.test.ts) gains `describe('fleet projections')`
   (reusing `open()`, `run()`, `u(n)`): upsert inserts and sets `updatedAt` from an injected `now`; upsert of an
   existing id keeps `createdAt`; the 51st insert answers `invalid`; remove/duplicate of `u(999)` answer `not-found`;
   duplicate yields new projection and node ids, sits at source index + 1, and leaves the source unchanged.

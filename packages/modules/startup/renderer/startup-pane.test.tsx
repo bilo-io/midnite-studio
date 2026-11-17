@@ -9,7 +9,7 @@ import { StartupPane } from './startup-pane';
 
 const company = { name: 'Acme', currency: 'GBP', address: '', invoicePrefix: 'INV-', paymentTermsDays: 30, openingCash: { minor: 10000000, asOf: '2026-11-01' } };
 const snapshot = (withCompany: boolean, extra: Partial<StartupSnapshot> = {}): StartupSnapshot => ({
-  workspace: { version: 1, company: withCompany ? company : null, milestones: [], lines: [], scenarios: [], customers: [], invoices: [], vendors: [], contracts: [], invoiceCounter: 0, ledger: null },
+  workspace: { version: 2, fleetProjections: [], company: withCompany ? company : null, milestones: [], lines: [], scenarios: [], customers: [], invoices: [], vendors: [], contracts: [], invoiceCounter: 0, ledger: null },
   revision: 0,
   readOnly: false,
   ...extra,

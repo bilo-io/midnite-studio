@@ -17,14 +17,24 @@ const add =
   (ws: ReturnType<typeof emptyWorkspace>): Mutation => ({ ok: true, workspace: { ...ws, milestones: [...ws.milestones, m] } });
 
 describe('migrateWorkspace', () => {
-  it('treats version 1 as the identity and always has a Base scenario', () => {
+  it('migrates version 1 and always has a Base scenario', () => {
     const result = migrateWorkspace({ version: 1 });
     expect(result.ok && result.workspace.scenarios.map((s) => s.id)).toEqual([BASE_SCENARIO_ID]);
   });
   it('flags a newer version and a corrupt file', () => {
-    expect(migrateWorkspace({ version: 2 })).toEqual({ ok: false, reason: 'newer-version' });
+    expect(migrateWorkspace({ version: 3 })).toEqual({ ok: false, reason: 'newer-version' });
     expect(migrateWorkspace({ version: 1, milestones: 'nope' })).toEqual({ ok: false, reason: 'corrupt' });
     expect(migrateWorkspace(null)).toEqual({ ok: false, reason: 'corrupt' });
+    expect(migrateWorkspace({ version: 2, fleetProjections: [{ id: 'bad' }] })).toEqual({ ok: false, reason: 'corrupt' });
+  });
+  it('migrates v1 to v2 with empty fleetProjections and intact data', () => {
+    const result = migrateWorkspace({ version: 1, milestones: [milestone(1)] });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.workspace.version).toBe(2);
+      expect(result.workspace.fleetProjections).toEqual([]);
+      expect(result.workspace.milestones).toEqual([milestone(1)]);
+    }
   });
 });
 
@@ -61,12 +71,12 @@ describe('openWorkspaceStore', () => {
   it('opens a version 2 file read-only and never rewrites it', async () => {
     const d = await dir();
     const file = join(d, 'workspace.json');
-    await writeFile(file, JSON.stringify({ version: 2, hello: 'future' }));
+    await writeFile(file, JSON.stringify({ version: 3, hello: 'future' }));
     const store = await openWorkspaceStore({ dir: d });
     expect(store.snapshot().readOnly).toBe(true);
     const result = await store.mutate(add(milestone(1)));
     expect(result).toMatchObject({ ok: false, kind: 'newer-version', message: 'This workspace was written by a newer Midnite Startup.' });
-    expect(JSON.parse(await readFile(file, 'utf8'))).toEqual({ version: 2, hello: 'future' });
+    expect(JSON.parse(await readFile(file, 'utf8'))).toEqual({ version: 3, hello: 'future' });
   });
 
   it('moves a garbage file aside and starts empty', async () => {

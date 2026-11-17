@@ -2446,6 +2446,9 @@ export type MidniteStudioBridge = {
     exportInvoicePdf: (req: Omit<Extract<StartupRequest, { op: 'exportInvoicePdf' }>, 'op'>) => Promise<StartupResult<StartupPdfExport>>;
     linkBook: (req: Omit<Extract<StartupRequest, { op: 'linkBook' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
     ledgerSummary: () => Promise<StartupResult<StartupLedgerSummary>>;
+    upsertFleetProjection: (req: Omit<Extract<StartupRequest, { op: 'upsertFleetProjection' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    removeFleetProjection: (req: Omit<Extract<StartupRequest, { op: 'removeFleetProjection' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    duplicateFleetProjection: (req: Omit<Extract<StartupRequest, { op: 'duplicateFleetProjection' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
     onChanged: (handler: (e: StartupChangedEvent) => void) => Unsubscribe;
   };
 

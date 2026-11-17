@@ -2,6 +2,7 @@ import { tmpdir } from 'node:os';
 
 import {
   BASE_SCENARIO_ID,
+  MAX_FLEET_PROJECTIONS,
   MAX_SCENARIOS,
   milestoneCycle,
   type Contract,
@@ -126,6 +127,45 @@ export async function handleStartupRequest(
         return ws.scenarios.some((s) => s.id === request.id)
           ? done({ ...ws, scenarios: ws.scenarios.filter((s) => s.id !== request.id) })
           : fail('not-found', 'That scenario no longer exists.');
+      });
+
+    case 'upsertFleetProjection':
+      return store.mutate((ws) => {
+        const existing = ws.fleetProjections.find((p) => p.id === request.projection.id);
+        if (!existing && ws.fleetProjections.length >= MAX_FLEET_PROJECTIONS) {
+          return fail('invalid', `A company has at most ${MAX_FLEET_PROJECTIONS} projections.`);
+        }
+        const projection = {
+          ...request.projection,
+          createdAt: existing ? existing.createdAt : request.projection.createdAt,
+          updatedAt: (deps.now?.() ?? new Date()).toISOString(),
+        };
+        return done({ ...ws, fleetProjections: upsert(ws.fleetProjections, projection) });
+      });
+    case 'removeFleetProjection':
+      return store.mutate((ws) =>
+        ws.fleetProjections.some((p) => p.id === request.id)
+          ? done({ ...ws, fleetProjections: ws.fleetProjections.filter((p) => p.id !== request.id) })
+          : fail('not-found', 'That projection no longer exists.'),
+      );
+    case 'duplicateFleetProjection':
+      return store.mutate((ws) => {
+        const index = ws.fleetProjections.findIndex((p) => p.id === request.id);
+        if (index < 0) return fail('not-found', 'That projection no longer exists.');
+        if (ws.fleetProjections.length >= MAX_FLEET_PROJECTIONS) {
+          return fail('invalid', `A company has at most ${MAX_FLEET_PROJECTIONS} projections.`);
+        }
+        const source = ws.fleetProjections[index]!;
+        const now = (deps.now?.() ?? new Date()).toISOString();
+        const copy = {
+          ...source,
+          id: crypto.randomUUID(),
+          name: request.name,
+          createdAt: now,
+          updatedAt: now,
+          nodes: source.nodes.map((n) => ({ ...n, id: crypto.randomUUID() })),
+        };
+        return done({ ...ws, fleetProjections: [...ws.fleetProjections.slice(0, index + 1), copy, ...ws.fleetProjections.slice(index + 1)] });
       });
 
     case 'upsertVendor':
