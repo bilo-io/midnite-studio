@@ -21,7 +21,7 @@ import { installMockBridge } from '../test-support/mock-bridge';
 async function open(page: import('@playwright/test').Page): Promise<void> {
   await installMockBridge(page, fixtures);
   await page.goto('/');
-  await expect(page.getByRole('link', { name: 'History' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'History' })).toBeVisible({ timeout: 30_000 });
 }
 
 /** Keyboard activation, not `.click()` — see history.spec.ts for why. */

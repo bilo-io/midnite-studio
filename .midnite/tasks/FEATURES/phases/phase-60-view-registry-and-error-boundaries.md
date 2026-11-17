@@ -92,6 +92,8 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 **Audit — 2026-11-17.** Re-checked every open item against main: **1 ticked as landed** (the `ViewId` typecheck probe — `VIEW_COMPONENT` is annotated `Record<ViewId, ViewEntry>`, and a `tsc --strict` probe of that exact shape fails with TS2741 on a missing key), **0 struck**, **1 human** (the dist-reinstall chunk-404 pass, rewritten as exact steps), **4 refined for sonnet** (the `error-boundary.spec.ts` e2e item; the rail-stays-interactive verification it proves; Copy details, now backed by a vitest plus the e2e clipboard assertion; and a three-file `todo/` docblock sweep with the verification grep narrowed to exclude test fixtures). Item count unchanged at 34. The framing's stale claims (sessions as placeholder, the two retired modals, primitives moved to the frame, the graph keep-alive exception) are corrected in the audit note under the title. Remaining work is all Theme B plus verification — about an hour or two.
 
+**Theme B — landed (2026-11-18).** ✅ `e2e/error-boundary.spec.ts` (2 tests: rail survives a throw and the view remounts fresh on return, with Copy details read back through `window.__mstudioClipboard`; Try again recovers in place), a Copy-details vitest in `error-boundary.test.tsx` with `copyText` mocked, and the three `todo/outstanding.md` docblocks pointed at `.midnite/tasks/outstanding.md`. E2e cap 491 → 493. Only the human dist-reinstall pass remains.
+
 **Theme A — One record, not a seventeen-branch ternary.** ✅ One record, not a ternary: `components/view-registry.tsx`'s `Record<ViewId, ViewEntry>` with a `global` flag replacing the load-bearing branch order, so a new `ViewId` fails typecheck instead of falling through to `Placeholder` (which is also how the stale `todo/` copy gets fixed). The view switch is a 17-branch ternary sitting beside three per-`ViewId` records that already do the job declaratively, which is how `sessions` fell through to a `Placeholder` still pointing users at a `todo/` directory that no longer exists.
 
 **Theme B — A boundary per view.** ✅ A boundary per view: `components/error-boundary.tsx`, reset on `activeView`, an `EmptyState` fallback with Try-again and Copy-details, mounted outside the view `Suspense`, on the three optional modals (silent `null`) and on the detached root. The renderer has **zero** error boundaries against eighteen `lazy()` calls, so one render throw or one 404'd chunk after an in-place reinstall blanks the whole window.
@@ -198,7 +200,7 @@ not know.
       then succeeds ends up rendering its content); changing `resetKey` clears the error; the
       `console.error` call is asserted via a `vi.spyOn(console, 'error')` that is also what keeps
       the suite output clean.
-- [ ] Playwright: extend [`packages/app/e2e/`](../../../packages/app/e2e/) with `error-boundary.spec.ts`
+- [x] Playwright: extend [`packages/app/e2e/`](../../../packages/app/e2e/) with `error-boundary.spec.ts`
       — navigate to a view, force a throw through a `window.__mstudioTestThrow` hook the boundary
       test-build honours, assert the rail is still interactive and a different view still renders.
       **If the throw hook cannot be added without shipping test code, drop this item** and say so in
@@ -306,7 +308,7 @@ This theme is the checklist of views that never called them.
       object literal, not `Partial`/`satisfies Partial`; a `tsc --noEmit --strict` probe of that exact
       shape with one union member left out fails with `TS2741: Property 'probe' is missing`. The
       runtime twin is `view-registry.test.ts` › *has exactly one entry per VIEW_IDS member*.)
-- [ ] A view component that throws on render leaves the nav rail interactive; navigating to
+- [x] A view component that throws on render leaves the nav rail interactive; navigating to
       another view and back renders the broken view again, freshly.
       - Proven by Test 1 of `e2e/error-boundary.spec.ts` (Theme B, last item): throw in `History`,
         navigate to `Timeline` (alert count 0), back to `History` (`Journal` tab visible, no alert).
@@ -318,7 +320,7 @@ This theme is the checklist of views that never called them.
 - [x] The three optional modals still render `null` — not an error card — when their chunk fails.
 - [x] Each of the six previously-bare views shows exactly one of error / empty / skeleton for the
       matching query state, never two at once.
-- [ ] Clicking **Copy details** puts `message` + `stack` on the clipboard.
+- [x] Clicking **Copy details** puts `message` + `stack` on the clipboard.
       - Not covered today: `error-boundary.test.tsx` has no Copy-details case (audited 2026-11-17).
       - **Vitest (add to** [`components/error-boundary.test.tsx`](../../../packages/app/src/components/error-boundary.test.tsx)**):**
         `vi.mock('../services/queries', () => ({ copyText: vi.fn(async () => true) }))` beside the
@@ -330,7 +332,7 @@ This theme is the checklist of views that never called them.
         test must not stub `navigator.clipboard`. Clear the mock in the existing `beforeEach`.
       - **E2e:** Test 1 of `e2e/error-boundary.spec.ts` asserts the same through the mock bridge's
         `window.__mstudioClipboard`. Tick this line when both land.
-- [ ] `grep -rn "todo/" packages/app/src` returns nothing. **Still open after this batch:** the
+- [x] `grep -rn "todo/" packages/app/src` returns nothing. **Still open after this batch:** the
       `Placeholder` copy itself is fixed (`SessionsPlaceholder` in `view-registry.tsx` names
       `.midnite/tasks/`), but eight unrelated `todo/` references survive in docblocks and one
       markdown-link test fixture — `checks-verdict.ts`, `branch-health.ts`, `repos-panel.tsx`,
