@@ -68,7 +68,7 @@ export type LevelSceneProps = {
   dirtyTick: number;
   onPick: (index: number | null) => void;
   onPlace: (x: number, z: number) => void;
-  onGizmoEnd: (change: GizmoChange) => void;
+  onGizmoEnd: (change: GizmoChange, inverted: boolean) => void;
   onStats: (stats: ViewStats) => void;
 };
 
@@ -494,7 +494,8 @@ function Selected(props: LevelSceneProps & { item: WorldItem }) {
     invalidate();
   }, [item, invalidate]);
   useEffect(() => {
-    const down = (ev: KeyboardEvent) => (shift.current = ev.shiftKey);
+    // Shift (the frame's fine step) and Alt (Phase 137 Theme F) both invert snapping for the gesture.
+    const down = (ev: KeyboardEvent) => (shift.current = ev.shiftKey || ev.altKey);
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', down);
     return () => {
@@ -519,7 +520,7 @@ function Selected(props: LevelSceneProps & { item: WorldItem }) {
       if (item.kind === 'point') change.scale = (item.scale * (p.scale.x + p.scale.y + p.scale.z)) / 3;
       else change.size = [item.size[0] * p.scale.x, item.size[1] * p.scale.y, item.size[2] * p.scale.z];
     }
-    if (Object.keys(change).length > 0) props.onGizmoEnd(change);
+    if (Object.keys(change).length > 0) props.onGizmoEnd(change, shift.current);
   };
 
   const step = (value: number, fallback: number) => effectiveStep(value, shift.current, fallback);

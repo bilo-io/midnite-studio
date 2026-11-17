@@ -7,12 +7,13 @@ import { LuActivity } from 'react-icons/lu';
 import type { Object3D } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-import { addObject, select, setActiveLayer, type EditLevel, type EditSelection, type EditState } from '../level-edit-model';
+import { addObject, select, setActiveLayer, setOptionalNumber, type EditLevel, type EditSelection, type EditState } from '../level-edit-model';
 import { orbitPose, planPose, type CameraPose } from './camera-transition';
 import { formatStats, type GroundTile, type ViewStats } from './level-cull';
+import { footprintBox, gizmoSteps, surfaceElevation } from '../level-snap';
 import { disposeTree, LevelScene, SCENE_BACKGROUND, type CameraMove } from './level-scene';
 import { useLevelViewStore } from './level-view-store';
-import { gizmoEdit, groundY, levelWorldItems, worldToObjectPoint, type GizmoChange } from './level-world';
+import { gizmoEdit, groundY, levelWorldItems, POINT_SIZE, worldToObjectPoint, type GizmoChange } from './level-world';
 import { ModelCache } from './model-cache';
 import { OPTIMISATION_PRESETS, presetFor } from './optimisation';
 import { SpatialGrid } from './spatial-grid';
@@ -73,7 +74,10 @@ export default function Level3dView(props: Level3dViewProps) {
   const statsOn = useLevelViewStore((s) => s.stats);
   const preset = presetFor(step);
   const [mode, setMode] = useState<TransformMode>('translate');
-  const [snap, setSnap] = useState<SnapSettings>(DEFAULT_SNAP);
+  const levelSnap = useLevelViewStore((s) => s.snap);
+  const setLevelSnap = useLevelViewStore((s) => s.setSnap);
+  const snap = useMemo<SnapSettings>(() => ({ ...gizmoSteps(levelSnap), scale: DEFAULT_SNAP.scale }), [levelSnap]);
+  const setSnap = (next: SnapSettings) => setLevelSnap({ grid: next.grid, angle: next.angle, enabled: next.grid > 0 || next.angle > 0 });
   const [stats, setStats] = useState<ViewStats | null>(null);
   const [dirtyTick, setDirtyTick] = useState(0);
   const [shown, setShown] = useState(false);
@@ -203,11 +207,24 @@ export default function Level3dView(props: Level3dViewProps) {
             const layer = props.objectLayerId;
             if (layer === null) return;
             const at = worldToObjectPoint(level, x, z);
-            update((s) => addObject(setActiveLayer(s, layer), layer, { type: props.entityName, x: at.x, y: at.y }));
+            const drop = levelSnap.enabled && levelSnap.surface ? surfaceElevation(items, footprintBox([x, z], [POINT_SIZE, POINT_SIZE], 0), new Set(), ground) : ground;
+            update((s) => {
+              const added = addObject(setActiveLayer(s, layer), layer, { type: props.entityName, x: at.x, y: at.y });
+              return drop !== ground && added.selection ? setOptionalNumber(added, added.selection, 'elevation', String(drop)) : added;
+            });
           }}
-          onGizmoEnd={(change: GizmoChange) => {
+          onGizmoEnd={(change: GizmoChange, inverted: boolean) => {
             const sel = props.selection;
-            if (sel) update((s) => gizmoEdit(s, sel, change));
+            if (!sel) return;
+            const item = selected !== null ? items[selected] : undefined;
+            let next = change;
+            // Surface snap (Phase 137 Theme F) runs on release: the object drops onto the top under its new footprint.
+            if (item && levelSnap.surface && levelSnap.enabled !== inverted && change.elevation === undefined && (change.centre || change.size)) {
+              const size = change.size ?? item.size;
+              const box = footprintBox(change.centre ?? [item.position[0], item.position[2]], [size[0], size[2]], change.yaw ?? item.yaw);
+              next = { ...change, elevation: surfaceElevation(items, box, new Set([sel.objectId]), ground) };
+            }
+            update((s) => gizmoEdit(s, sel, next));
           }}
           onStats={(s) => {
             if (statsOnRef.current) setStats(s);

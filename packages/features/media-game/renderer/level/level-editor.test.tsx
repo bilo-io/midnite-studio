@@ -1,7 +1,7 @@
 // vitest/jsdom: the editor's tools and keys, Save, the banners and the empty state. Canvas drawing needs a real
 // browser and is a human check (Theme H); hit-testing is exercised here through the pointer events jsdom can send.
 import { QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createFrameChrome, FrameChromeProvider } from '@midnite/studio-frame';
@@ -9,6 +9,7 @@ import { levelEntityToWorld } from '@midnite/studio-shared';
 
 import type { Level3dViewProps } from './3d/level-3d-view';
 import { useLevelViewStore } from './3d/level-view-store';
+import { DEFAULT_LEVEL_SNAP } from './level-snap';
 import { LevelEditor } from './level-editor';
 import { useDoctorRequest } from '../game-doctor-store';
 import { addObject, selectOnly } from './level-edit-model';
@@ -51,7 +52,8 @@ beforeEach(() => {
   set.mockResolvedValue({ ok: true, value: { sha: 'abc' } });
   installBridge({ list, get, set, doctor, doctorFix });
   useLevelStore.setState({ byGame: {}, newSceneFor: null });
-  useLevelViewStore.setState({ modeByGame: {}, optimisation: 3, stats: false });
+  // Half a tile is the half metre the older 3D plan tests were written against.
+  useLevelViewStore.setState({ modeByGame: {}, optimisation: 3, stats: false, snap: { ...DEFAULT_LEVEL_SNAP, planStep: 0.5 } });
   view3d.props = null;
   view3d.exits = 0;
 });
@@ -266,6 +268,23 @@ describe('LevelEditor, 3D plan view (Phase 132 Theme E)', () => {
     fireEvent.pointerUp(canvas, at(100, 150));
     // 100 px is 3.125 m, 150 px is 4.6875 m: both snap to the half metre.
     expect(lastObject()).toMatchObject({ type: 'prop', x: 96, y: 144 });
+  });
+
+  it('F5 places on whole tiles by default, on half tiles at 0.5, and freely with Alt', async () => {
+    const { canvas, wrap } = await open3d();
+    fireEvent.keyDown(wrap, { key: 'o' });
+    fireEvent.click(screen.getByRole('radio', { name: 'prop' }));
+    act(() => useLevelViewStore.setState({ snap: DEFAULT_LEVEL_SNAP }));
+    fireEvent.pointerDown(canvas, at(100, 150));
+    fireEvent.pointerUp(canvas, at(100, 150));
+    expect(lastObject()).toMatchObject({ x: 96, y: 160 });
+    act(() => useLevelViewStore.setState({ snap: { ...DEFAULT_LEVEL_SNAP, planStep: 0.5 } }));
+    fireEvent.pointerDown(canvas, at(100, 150));
+    fireEvent.pointerUp(canvas, at(100, 150));
+    expect(lastObject()).toMatchObject({ x: 96, y: 144 });
+    fireEvent.pointerDown(canvas, { ...at(100, 150), altKey: true });
+    fireEvent.pointerUp(canvas, { ...at(100, 150), altKey: true });
+    expect(lastObject().x).not.toBe(96);
   });
 
   it('drags a volume into a prop box with sizeY 3', async () => {

@@ -23,12 +23,16 @@ export function metresToPlan(level: Pick<EditLevel, 'properties' | 'tilewidth' |
   return { x: x * ppm.x, y: z * ppm.z };
 }
 
-/** Snap a map-pixel point to a half-metre grid; `alt` leaves it free. */
-export function snapPlan(level: Pick<EditLevel, 'properties' | 'tilewidth' | 'tileheight'>, p: PlanPoint, alt = false): PlanPoint {
-  if (alt) return p;
+/**
+ * Snap a map-pixel point. `step` is the Floorplan's snap step in map pixels (Theme F's `planSnapStep`); `null`
+ * leaves the point free, and with no step given it snaps to a half metre. `alt` leaves it free either way.
+ */
+export function snapPlan(level: Pick<EditLevel, 'properties' | 'tilewidth' | 'tileheight'>, p: PlanPoint, alt = false, step?: { x: number; y: number } | null): PlanPoint {
+  if (alt || step === null) return p;
   const ppm = pixelsPerMetre(level);
+  const sx = step?.x ?? ppm.x / 2, sy = step?.y ?? ppm.z / 2;
   // `+ 0` turns a rounded -0 into 0.
-  return { x: (Math.round((p.x / ppm.x) * 2) / 2) * ppm.x + 0, y: (Math.round((p.y / ppm.z) * 2) / 2) * ppm.z + 0 };
+  return { x: Math.round(p.x / sx) * sx + 0, y: Math.round(p.y / sy) * sy + 0 };
 }
 
 /** The terrain's extent as a map-pixel rectangle. */
