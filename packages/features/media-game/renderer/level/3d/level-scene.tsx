@@ -33,7 +33,9 @@ import {
 import { blendPose, cameraPosition, dollyOffset, poseFromCamera, TRANSITION_MS, type CameraPose } from './camera-transition';
 import { cull, groundTiles, itemRadius, tileInReach, type GroundTile, type ViewStats } from './level-cull';
 import { fogRange, viewOffset } from './level-lod';
-import { nearestEuler, type GizmoChange, type WorldItem } from './level-world';
+import type { ScreenPoint } from './level-marquee';
+import type { GizmoPivot, GizmoSpace } from './level-view-store';
+import { nearestEuler, type GizmoChange, type GroupDelta, type GroupPivot, type WorldItem } from './level-world';
 import type { ModelCache } from './model-cache';
 import type { OptimisationPreset } from './optimisation';
 import type { SpatialGrid } from './spatial-grid';
@@ -52,7 +54,18 @@ export type LevelSceneProps = {
   bounds: GroundTile;
   ground: number;
   drape: string | null;
-  selected: number | null;
+  /** Item indices of every selected object; every one gets an amber outline. */
+  selected: readonly number[];
+  /** The selection's pivot (Theme D): where the group gizmo sits when two or more are selected. */
+  pivot: GroupPivot | null;
+  pivotMode: GizmoPivot;
+  space: GizmoSpace;
+  /** False while Shift is held with the Select tool: the 3D marquee owns that drag. */
+  orbit: boolean;
+  /** Set while a gizmo is being dragged, so the marquee leaves the gesture alone. */
+  gizmoDragging: MutableRefObject<boolean>;
+  /** Projects a world point to the canvas (px), for the marquee. */
+  project: MutableRefObject<((p: [number, number, number]) => ScreenPoint) | null>;
   /** `null`: no gizmo (read-only, or Place). */
   gizmo: TransformMode | null;
   snap: SnapSettings;
@@ -66,9 +79,10 @@ export type LevelSceneProps = {
   poseOut: MutableRefObject<CameraPose | null>;
   /** Bumps whenever something outside the camera changes what is drawn (a model landed). */
   dirtyTick: number;
-  onPick: (index: number | null) => void;
+  onPick: (index: number | null, modifier: 'replace' | 'add' | 'toggle') => void;
   onPlace: (x: number, z: number) => void;
   onGizmoEnd: (change: GizmoChange, inverted: boolean) => void;
+  onGroupEnd: (delta: GroupDelta, pivot: GroupPivot, inverted: boolean) => void;
   onStats: (stats: ViewStats) => void;
 };
 
@@ -82,6 +96,8 @@ const sphere = new Sphere();
 /** A press that travelled further than this (px) was an orbit or a gizmo drag, not a click. */
 const CLICK_SLOP_PX = 4;
 const wasDrag = (event: ThreeEvent<MouseEvent>): boolean => event.delta > CLICK_SLOP_PX;
+/** Mod toggles an object in or out of the selection; Shift adds it (Phase 137 Theme D). */
+const modifierOf = (event: ThreeEvent<MouseEvent>): 'replace' | 'add' | 'toggle' => (event.metaKey || event.ctrlKey ? 'toggle' : event.shiftKey ? 'add' : 'replace');
 
 function composeItem(item: WorldItem, out: Matrix4): Matrix4 {
   e.set(item.pitch, item.yaw, item.roll, 'YXZ');
@@ -131,12 +147,29 @@ export function LevelScene(props: LevelSceneProps) {
   const invalidate = useThree((st) => st.invalidate);
   const controls = useThree((st) => st.controls) as unknown as { target: Vector3; update: () => void; addEventListener: (t: string, f: () => void) => void; removeEventListener: (t: string, f: () => void) => void } | null;
 
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
   const dirty = useRef(true);
   const markDirty = () => {
     dirty.current = true;
     invalidate();
   };
   useEffect(markDirty, [items, preset, selected, props.dirtyTick, size.width, size.height]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The marquee's projection: a world point to canvas pixels, and whether it is in front of the camera.
+  useEffect(() => {
+    const p = new Vector3();
+    props.project.current = (point) => {
+      camera.updateMatrixWorld();
+      p.set(point[0], point[1], point[2]).applyMatrix4(camera.matrixWorldInverse);
+      const inFront = p.z < 0;
+      p.set(point[0], point[1], point[2]).project(camera);
+      return { x: (p.x * 0.5 + 0.5) * size.width, y: (-p.y * 0.5 + 0.5) * size.height, inFront };
+    };
+    return () => {
+      props.project.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [camera, size.width, size.height]);
 
   // --- what is drawn: instanced boxes, model clones, lights, ground tiles ---------------------
   const unitBox = useMemo(() => new BoxGeometry(1, 1, 1).translate(0, 0.5, 0), []);
@@ -312,7 +345,7 @@ export function LevelScene(props: LevelSceneProps) {
         fovDeg: camera.fov,
         viewportHeight: size.height,
         preset,
-        exclude: selected,
+        exclude: selectedSet,
         modelFailed: (name) => props.cache.failed(name),
         inFrustum: (item) => frustum.intersectsSphere(sphere.set(v.set(item.position[0], item.position[1] + item.size[1] / 2, item.position[2]), itemRadius(item))),
       });
@@ -394,7 +427,7 @@ export function LevelScene(props: LevelSceneProps) {
         fog.near = range.near;
         fog.far = range.far;
       }
-      stats.current.visible = boxList.length + drawn.size + (selected !== null ? 1 : 0);
+      stats.current.visible = boxList.length + drawn.size + selected.length;
       stats.current.models = drawn.size;
     }
 
@@ -418,7 +451,7 @@ export function LevelScene(props: LevelSceneProps) {
     while (o && typeof o.userData.itemIndex !== 'number') o = o.parent;
     if (!o) return;
     event.stopPropagation();
-    props.onPick(o.userData.itemIndex as number);
+    props.onPick(o.userData.itemIndex as number, modifierOf(event));
   };
 
   return (
@@ -443,7 +476,7 @@ export function LevelScene(props: LevelSceneProps) {
               event.stopPropagation();
               if (wasDrag(event)) return;
               if (props.placing) props.onPlace(event.point.x, event.point.z);
-              else props.onPick(null);
+              else if (modifierOf(event) === 'replace') props.onPick(null, 'replace');
             }}
           />
         ))}
@@ -460,12 +493,13 @@ export function LevelScene(props: LevelSceneProps) {
           const index = event.instanceId === undefined ? undefined : boxItems.current[event.instanceId];
           if (index === undefined || wasDrag(event)) return;
           event.stopPropagation();
-          props.onPick(index);
+          props.onPick(index, modifierOf(event));
         }}
       />
       <group ref={modelsGroup} onClick={pickModel} />
-      {selected !== null && items[selected] ? <Selected key={selected} {...props} item={items[selected]} /> : null}
-      <OrbitControls makeDefault enableDamping={false} maxPolarAngle={Math.PI / 2 - 0.02} />
+      {selected.length === 1 && items[selected[0]!] ? <Selected key={selected[0]} {...props} item={items[selected[0]!]!} /> : null}
+      {selected.length > 1 && props.pivot ? <GroupSelected {...props} members={selected.map((i) => items[i]!).filter(Boolean)} pivot={props.pivot} /> : null}
+      <OrbitControls makeDefault enabled={props.orbit} enableDamping={false} maxPolarAngle={Math.PI / 2 - 0.02} />
       <GizmoHelper alignment="bottom-right" margin={[56, 56]}>
         <GizmoViewport axisColors={['#e5484d', '#30a46c', '#3e63dd']} labelColor="white" />
       </GizmoHelper>
@@ -482,9 +516,6 @@ function Selected(props: LevelSceneProps & { item: WorldItem }) {
   const proxy = useRef<Group>(null);
   const shift = useRef(false);
   const invalidate = useThree((st) => st.invalidate);
-  const template = item.model ? props.cache.request(item.model) : null;
-  const model = useMemo(() => (template ? template.clone(true) : null), [template]);
-
   useLayoutEffect(() => {
     const p = proxy.current;
     if (!p) return;
@@ -527,15 +558,7 @@ function Selected(props: LevelSceneProps & { item: WorldItem }) {
   return (
     <>
       <group ref={proxy}>
-        {model ? (
-          <primitive object={model} scale={item.scale} />
-        ) : (
-          <mesh position={[0, item.size[1] / 2, 0]} scale={[Math.max(item.size[0], 0.01), Math.max(item.size[1], 0.01), Math.max(item.size[2], 0.01)]} castShadow>
-            <boxGeometry />
-            <meshStandardMaterial color={colourOf(item.type)} roughness={0.8} />
-            <Edges color="#f5a524" />
-          </mesh>
-        )}
+        <ItemVisual item={item} cache={props.cache} />
       </group>
       {props.gizmo && proxy.current ? (
         <TransformControls
@@ -545,7 +568,121 @@ function Selected(props: LevelSceneProps & { item: WorldItem }) {
           translationSnap={step(props.snap.grid, 0.1) || null}
           rotationSnap={step(props.snap.angle, 15) ? (step(props.snap.angle, 15) * Math.PI) / 180 : null}
           scaleSnap={step(props.snap.scale, 0.05) || null}
-          onMouseUp={commit}
+          onMouseDown={() => (props.gizmoDragging.current = true)}
+          onMouseUp={() => {
+            props.gizmoDragging.current = false;
+            commit();
+          }}
+        />
+      ) : (
+        <GizmoReady />
+      )}
+    </>
+  );
+}
+
+/** A selected item as drawn under a gizmo: its model clone, else its box with the amber outline. */
+function ItemVisual({ item, cache }: { item: WorldItem; cache: ModelCache<Object3D> }) {
+  const template = item.model ? cache.request(item.model) : null;
+  const model = useMemo(() => (template ? template.clone(true) : null), [template]);
+  return model ? (
+    <primitive object={model} scale={item.scale} />
+  ) : (
+    <mesh position={[0, item.size[1] / 2, 0]} scale={[Math.max(item.size[0], 0.01), Math.max(item.size[1], 0.01), Math.max(item.size[2], 0.01)]} castShadow>
+      <boxGeometry />
+      <meshStandardMaterial color={colourOf(item.type)} roughness={0.8} />
+      <Edges color="#f5a524" />
+    </mesh>
+  );
+}
+
+const wrapAngle = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
+const degrees = (rad: number): number => (rad * 180) / Math.PI;
+const radians = (deg: number): number => (deg * Math.PI) / 180;
+
+/**
+ * Two or more selected objects under one gizmo (Phase 137 Theme D). Every member is drawn as a child of a pivot
+ * group; the gizmo drags that group, so a drag moves only these proxies (Decision 8), and releasing commits one
+ * `gizmoEditGroup`. The pivot's frame is its yaw in Local, axis-aligned in World.
+ */
+function GroupSelected(props: LevelSceneProps & { members: WorldItem[]; pivot: GroupPivot }) {
+  const { members, pivot } = props;
+  const group = useRef<Group>(null);
+  const kids = useRef<Array<Group | null>>([]);
+  const shift = useRef(false);
+  const invalidate = useThree((st) => st.invalidate);
+  const local = props.space === 'local';
+  /** The frame the gizmo is oriented by: the pivot's yaw in Local, none in World (three's yaw is Tiled's negated). */
+  const frame: GroupPivot = { centre: pivot.centre, yaw: local ? pivot.yaw : 0 };
+  const frameYaw = -radians(frame.yaw);
+
+  useLayoutEffect(() => {
+    const g = group.current;
+    if (!g) return;
+    g.position.set(...pivot.centre);
+    g.rotation.set(0, frameYaw, 0);
+    g.scale.set(1, 1, 1);
+    g.updateMatrixWorld(true);
+    const inverse = new Matrix4().copy(g.matrixWorld).invert();
+    const euler = new Euler(0, 0, 0, 'YXZ');
+    members.forEach((item, i) => {
+      const kid = kids.current[i];
+      if (!kid) return;
+      euler.set(item.pitch, item.yaw, item.roll, 'YXZ');
+      const world = new Matrix4().compose(new Vector3(...item.position), new Quaternion().setFromEuler(euler), new Vector3(1, 1, 1));
+      new Matrix4().multiplyMatrices(inverse, world).decompose(kid.position, kid.quaternion, kid.scale);
+    });
+    invalidate();
+  }, [members, pivot, frameYaw, invalidate]);
+  useEffect(() => {
+    const down = (ev: KeyboardEvent) => (shift.current = ev.shiftKey || ev.altKey);
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', down);
+    return () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', down);
+    };
+  }, []);
+
+  const commit = () => {
+    const g = group.current;
+    if (!g) return;
+    const eps = 1e-4;
+    const delta: GroupDelta = {};
+    const t: [number, number, number] = [g.position.x - pivot.centre[0], g.position.y - pivot.centre[1], g.position.z - pivot.centre[2]];
+    if (t.some((n) => Math.abs(n) > eps)) delta.translate = t;
+    const turn = wrapAngle(new Euler().setFromQuaternion(g.quaternion, 'YXZ').y - frameYaw);
+    if (Math.abs(turn) > eps) delta.rotateYaw = Math.round(-degrees(turn) * 1000) / 1000;
+    if ([g.scale.x, g.scale.y, g.scale.z].some((n) => Math.abs(n - 1) > eps)) delta.scale = [g.scale.x, g.scale.y, g.scale.z];
+    if (Object.keys(delta).length > 0) props.onGroupEnd(delta, frame, shift.current);
+  };
+
+  const step = (value: number, fallback: number) => effectiveStep(value, shift.current, fallback);
+  const mode = props.gizmo;
+  return (
+    <>
+      <group ref={group}>
+        {members.map((item, i) => (
+          <group key={item.index} ref={(el) => (kids.current[i] = el)}>
+            <ItemVisual item={item} cache={props.cache} />
+          </group>
+        ))}
+      </group>
+      {mode && group.current ? (
+        <TransformControls
+          object={group.current}
+          mode={mode}
+          space={local ? 'local' : 'world'}
+          showX={mode !== 'rotate'}
+          showZ={mode !== 'rotate'}
+          translationSnap={step(props.snap.grid, 0.1) || null}
+          rotationSnap={step(props.snap.angle, 15) ? (step(props.snap.angle, 15) * Math.PI) / 180 : null}
+          scaleSnap={step(props.snap.scale, 0.05) || null}
+          onMouseDown={() => (props.gizmoDragging.current = true)}
+          onMouseUp={() => {
+            props.gizmoDragging.current = false;
+            commit();
+          }}
         />
       ) : (
         <GizmoReady />

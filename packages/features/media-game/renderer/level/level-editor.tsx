@@ -732,6 +732,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
                   level={level}
                   terrain={entry.terrain}
                   selection={edit.selection}
+                  selected={edit.selected}
                   readOnly={readOnly}
                   tool={tool}
                   entityName={entityName}
