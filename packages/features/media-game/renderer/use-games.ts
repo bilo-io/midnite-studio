@@ -128,7 +128,7 @@ export function useRenameGame() {
   return useMutation({
     mutationFn: async (req: { gameId: string; name: string }) => (await bridge()?.games.rename(req)) ?? noBridge<void>(),
     onSuccess: (result) => {
-      reportFailure(result);
+      if (!result.ok) reportFailure(result);
       void client.invalidateQueries({ queryKey: GAME_KEYS.list });
     },
   });
@@ -137,7 +137,9 @@ export function useRenameGame() {
 export function useRevealGame() {
   return useMutation({
     mutationFn: async (gameId: string) => (await bridge()?.games.reveal({ gameId })) ?? noBridge<void>(),
-    onSuccess: (result) => reportFailure(result),
+    onSuccess: (result) => {
+      if (!result.ok) reportFailure(result);
+    },
   });
 }
 
@@ -146,7 +148,7 @@ export function useForgetGame() {
   return useMutation({
     mutationFn: async (gameId: string) => (await bridge()?.games.forget({ gameId })) ?? noBridge<void>(),
     onSuccess: (result) => {
-      reportFailure(result);
+      if (!result.ok) reportFailure(result);
       void client.invalidateQueries({ queryKey: GAME_KEYS.list });
       // In Studio the game's repo left the repos panel too.
       void client.invalidateQueries({ queryKey: REPOS_KEY });
@@ -172,7 +174,7 @@ export function useDeleteGame() {
   return useMutation({
     mutationFn: async (req: { gameId: string; confirmName: string }) => (await bridge()?.games.delete(req)) ?? noBridge<void>(),
     onSuccess: (result) => {
-      reportFailure(result);
+      if (!result.ok) reportFailure(result);
       void client.invalidateQueries({ queryKey: GAME_KEYS.list });
       void client.invalidateQueries({ queryKey: REPOS_KEY });
     },
