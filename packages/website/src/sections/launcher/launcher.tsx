@@ -3,6 +3,8 @@ import { LuDownload, LuLayoutGrid, LuShieldCheck } from 'react-icons/lu';
 
 import { Eyebrow, GlowCard, Heading, Lede, Reveal, Section, useInView } from '../../components';
 
+import { LauncherClip } from './launcher-clip';
+
 type Step = { icon: ReactNode; title: string; body: string };
 
 const STEPS: readonly Step[] = [
@@ -43,6 +45,10 @@ export const Launcher = () => {
             to download and nothing to keep track of by hand.
           </Lede>
         </div>
+      </Reveal>
+
+      <Reveal className="mt-10">
+        <LauncherClip />
       </Reveal>
 
       <ol ref={ref} className={`mt-12 grid gap-5 md:grid-cols-3 ${inView ? 'ws-cascade-in' : ''}`}>
