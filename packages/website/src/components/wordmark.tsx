@@ -71,8 +71,8 @@ export const Wordmark = ({
 
       **`pr-[0.15em]` is not spacing, it is headroom for the clip itself.**
       The brand face's glyphs are wider than their advance: summing "Midnyte"
-      over Damion's own metrics gives a 2.896em advance against ink reaching
-      3.000em, so its ink runs **0.104em** past the box `inline-block` sizes to
+      over Damion's own metrics gives a 3.099em advance against ink reaching
+      3.203em, so its ink runs **0.104em** past the box `inline-block` sizes to
       (the final `e`'s tail is the culprit). A gradient clipped to *text* still
       only paints inside the *element's* box, so without this the tail's
       overshoot fell outside it and read as the name being cut off. `0.15em`

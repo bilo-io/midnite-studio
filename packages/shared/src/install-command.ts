@@ -18,7 +18,10 @@
  * uses the default — the live deployment every published download page names.
  */
 
-/** The public site's live root, and the default every builder below falls back to. */
+/**
+ * The Vercel deployment the apps curl their installers from, and the default
+ * every builder below falls back to.
+ */
 export const MIDNITE_SITE_ORIGIN = 'https://midnite-apps.vercel.app';
 
 /**
