@@ -75,10 +75,10 @@ export function ChangelogView({
           <div className="changelog-title-row">
             <LuHistory size={20} className="changelog-title-icon" aria-hidden="true" />
             <h1 className="changelog-title">Changelog</h1>
-            <span className="changelog-suite-badge">Midnite Studio Suite</span>
+            <span className="changelog-suite-badge">Midnyte Studio Suite</span>
           </div>
           <p className="changelog-subtitle">
-            User-facing updates across Midnite Studio and individual apps.
+            User-facing updates across Midnyte Studio and individual apps.
           </p>
         </div>
 
@@ -113,7 +113,7 @@ export function ChangelogView({
             aria-pressed={selectedApp === 'all' || selectedApp === 'studio'}
             onClick={() => setSelectedApp('all')}
           >
-            All (Midnite Studio)
+            All (Midnyte Studio)
             <span className="filter-count">{appCounts.all ?? 0}</span>
           </button>
           {APPS.filter((a) => a.id !== 'studio').map((app) => (

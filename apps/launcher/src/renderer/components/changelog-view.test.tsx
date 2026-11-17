@@ -33,7 +33,7 @@ describe('Changelog in Launcher', () => {
     // Expect Changelog header and suite badge
     await waitFor(() => {
       expect(screen.getByRole('heading', { level: 1, name: 'Changelog' })).toBeDefined();
-      expect(screen.getByText('Midnite Studio Suite')).toBeDefined();
+      expect(screen.getByText('Midnyte Studio Suite')).toBeDefined();
     });
 
     // Both Vanguard and Agents items from mock changelog should be visible
@@ -49,8 +49,8 @@ describe('Changelog in Launcher', () => {
     expect(screen.getByText('Vanguard: Fleet policy dashboard')).toBeDefined();
     expect(screen.queryByText('Agents: Subagent fan-out orchestration')).toBeNull();
 
-    // Click "All (Midnite Studio)"
-    const allFilter = within(filterGroup).getByRole('button', { name: /All \(Midnite Studio\)/ });
+    // Click "All (Midnyte Studio)"
+    const allFilter = within(filterGroup).getByRole('button', { name: /All \(Midnyte Studio\)/ });
     fireEvent.click(allFilter);
 
     // Both should be visible again
@@ -70,7 +70,7 @@ describe('Changelog in Launcher', () => {
     render(<App />);
 
     // Open Vanguard detail sheet
-    const vanguardTile = screen.getByRole('article', { name: /Midnite Vanguard/ });
+    const vanguardTile = screen.getByRole('article', { name: /Midnyte Vanguard/ });
     fireEvent.click(within(vanguardTile).getByText('Details ↗'));
 
     const dialog = screen.getByRole('dialog');
