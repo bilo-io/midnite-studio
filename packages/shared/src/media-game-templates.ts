@@ -1,4 +1,11 @@
-import { GAME_PERSPECTIVES, type GameDimension, type GameGenre, type GamePerspective } from './media-game';
+import {
+  GAME_PERSPECTIVES,
+  type GameDimension,
+  type GameGenre,
+  type GamePerspective,
+  type StarterGenre,
+  hasStarter,
+} from './media-game';
 
 /**
  * Phase 107 Theme K — the perspective × genre matrix. A starter is a perspective
@@ -30,7 +37,7 @@ export type GameTemplateCell = {
   refusal: string;
 };
 
-export const GAME_TEMPLATE_MATRIX: Readonly<Record<GameGenre, GameTemplateCell>> = {
+export const GAME_TEMPLATE_MATRIX: Readonly<Record<StarterGenre, GameTemplateCell>> = {
   fps: {
     dimension: '2d',
     native: 'raycaster',
@@ -148,6 +155,7 @@ export function isValidStarter(id: string): { ok: true } | { ok: false; reason: 
   const parsed = parseStarterId(id);
   if (parsed === null) return { ok: false, reason: `"${id}" is not a starter.` };
   if (parsed.genre === null) return { ok: true };
+  if (!hasStarter(parsed.genre)) return { ok: false, reason: GAME_GENRE_UNAVAILABLE_REASON };
   const cell = GAME_TEMPLATE_MATRIX[parsed.genre];
   if (dimensionOf(parsed.perspective) !== cell.dimension) return { ok: false, reason: cell.refusal };
   if (parsed.perspective === cell.native || cell.also.includes(parsed.perspective)) return { ok: true };
@@ -168,7 +176,7 @@ export function isStarterAvailable(id: string): { ok: true } | { ok: false; reas
 /** Every valid starter id, bases first. */
 export function allStarterIds(): string[] {
   const ids: string[] = [...GAME_PERSPECTIVES];
-  for (const [genre, cell] of Object.entries(GAME_TEMPLATE_MATRIX) as [GameGenre, GameTemplateCell][]) {
+  for (const [genre, cell] of Object.entries(GAME_TEMPLATE_MATRIX) as [StarterGenre, GameTemplateCell][]) {
     for (const p of [cell.native, ...cell.also]) ids.push(starterId(p, genre));
   }
   return ids;
