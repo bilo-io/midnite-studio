@@ -5,6 +5,9 @@ import type {
   GameAddResult,
   GameCreateRequest,
   GameDeleteInfo,
+  GameDiagnosis,
+  GameFixRequest,
+  GameFixResult,
   GameImportAssetRequest,
   GameImportAssetResult,
   GamePlaytestEntry,
@@ -37,6 +40,8 @@ export const GAME_KEYS = {
   /** Phase 132 Theme D: `levels/*.tmj`, and one scene under the same prefix. */
   levels: (gameId: string) => ['games', 'levels', gameId] as const,
   level: (gameId: string, scene: string) => ['games', 'levels', gameId, scene] as const,
+  /** Phase 149 Theme G: the game doctor's diagnosis. */
+  doctor: (gameId: string) => ['games', 'doctor', gameId] as const,
 };
 
 /**
@@ -225,6 +230,7 @@ export function useGameEvents(): void {
       api.games.onChanged((event) => {
         void client.invalidateQueries({ queryKey: GAME_KEYS.list });
         void client.invalidateQueries({ queryKey: ['games', 'assets'] });
+        void client.invalidateQueries({ queryKey: ['games', 'doctor'] });
         if (event.reason === 'level') void client.invalidateQueries({ queryKey: ['games', 'levels'] });
       }),
       // A source in the media store changed: the "N assets changed" badge may need to move.
@@ -330,6 +336,37 @@ export function useRunPlaytests() {
     onSuccess: (result, req) => {
       reportFailure(result);
       void client.invalidateQueries({ queryKey: GAME_KEYS.playtests(req.gameId) });
+    },
+  });
+}
+
+/** The game doctor's diagnosis (Phase 149 Theme C); refetched on `gamesChanged` and by the panel's Re-check. */
+export function useGameDiagnosis(gameId: string | null, enabled = true) {
+  return useQuery<GameDiagnosis | null>({
+    queryKey: gameId ? GAME_KEYS.doctor(gameId) : ['games', 'doctor', 'none'],
+    enabled: enabled && gameId !== null,
+    queryFn: async () => {
+      const result = await bridge()?.games.doctor({ gameId: gameId! });
+      if (!result) return null;
+      if (!result.ok) throw new Error(result.kind === 'error' ? result.message : 'The doctor could not run.');
+      return result.value;
+    },
+  });
+}
+
+/**
+ * Apply one doctor fix (Theme D). A refusal comes back as the result for the panel to show inline; the fresh
+ * diagnosis it answers replaces the cached one, and the list refreshes for the status dot.
+ */
+export function useDoctorFix(gameId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (req: Omit<GameFixRequest, 'gameId' | 'path'>) =>
+      (await bridge()?.games.doctorFix({ ...req, gameId })) ?? noBridge<GameFixResult>(),
+    onSuccess: (result) => {
+      if (result.ok) client.setQueryData(GAME_KEYS.doctor(gameId), result.value.diagnosis);
+      void client.invalidateQueries({ queryKey: GAME_KEYS.list });
+      void client.invalidateQueries({ queryKey: ['games', 'levels', gameId] });
     },
   });
 }
