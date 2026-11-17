@@ -2,7 +2,7 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { GamesLevelEditorReply } from '@midnite/studio-shared';
+import { GamesLevelEditorReply, type LevelEditorRequest } from '@midnite/studio-shared';
 
 import { answerLevelEditorRequest, useLevelEditorBridge } from './use-level-editor-bridge';
 import { useLevelStore } from './level-store';
@@ -24,7 +24,7 @@ describe('answerLevelEditorRequest', () => {
 
   it('C4: apply on a read-only level answers read-only, while a read still answers', () => {
     useLevelStore.getState().open('g1', 'level', data(blankLevel(), [{ path: 'layers', message: 'bad' }]));
-    const apply = { kind: 'apply', gameId: 'g1', scene: 'level', ops: [{ op: 'delete', id: 1 }], unit: 'px', label: 'x', select: false } as const;
+    const apply: LevelEditorRequest = { kind: 'apply', gameId: 'g1', scene: 'level', ops: [{ op: 'delete', id: 1 }], unit: 'px', label: 'x', select: false };
     expect(answerLevelEditorRequest(apply)).toEqual({ handled: false, reason: 'read-only' });
     expect(answerLevelEditorRequest({ kind: 'snapshot', gameId: 'g1', scene: 'level' })).toMatchObject({ handled: true });
   });
