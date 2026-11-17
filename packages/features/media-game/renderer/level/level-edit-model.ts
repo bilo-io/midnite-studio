@@ -5,6 +5,8 @@
  */
 import { GAME_LEVEL_PROPS } from '@midnite/studio-shared';
 
+import { objectExtentPoints, refKey, sameRef } from './level-selection';
+
 export type LevelProperty = { name: string; type: 'string' | 'int' | 'float' | 'bool' | 'color' | 'file'; value: unknown };
 
 export type LevelObject = {
@@ -53,14 +55,25 @@ export type EditLevel = {
 export const UNDO_LIMIT = 100;
 
 export type Cell = { x: number; y: number };
-export type EditSelection = { layerId: number; objectId: number } | null;
+/** One object, addressed by its layer and its id (Tiled ids are unique per map, but the layer keeps lookups O(layer)). */
+export type ObjectRef = { layerId: number; objectId: number };
+export type EditSelection = ObjectRef | null;
+/** A rectangle in map pixels; `width` and `height` are normalised to be at least 0. */
+export type PlanRect = { x: number; y: number; width: number; height: number };
 
 export type EditState = {
   level: EditLevel;
   /** The level as last loaded or saved: `dirty` is `level !== saved`. */
   saved: EditLevel;
   activeLayerId: number | null;
+  /**
+   * The PRIMARY selected object: the inspector's subject and the gizmo's pivot object. Invariant (every op keeps it,
+   * `level-edit-model.test.ts` asserts it): `selection === null` iff `selected` is empty, and a set `selection` is
+   * an element of `selected`. Read `selected` for "what is selected", `selection` for "which one is active".
+   */
   selection: EditSelection;
+  /** Every selected object, in the order they were added; the primary is normally the last. Never holds duplicates. */
+  selected: readonly ObjectRef[];
   dirty: boolean;
   past: EditLevel[];
   future: EditLevel[];
@@ -82,7 +95,7 @@ function withLayerIds(level: EditLevel): EditLevel {
 export function createEditState(level: EditLevel): EditState {
   const prepared = withLayerIds(level);
   const first = prepared.layers.find(isTile) ?? prepared.layers[0];
-  return { level: prepared, saved: prepared, activeLayerId: first?.id ?? null, selection: null, dirty: false, past: [], future: [], stroke: null };
+  return { level: prepared, saved: prepared, activeLayerId: first?.id ?? null, selection: null, selected: [], dirty: false, past: [], future: [], stroke: null };
 }
 
 export const layerById = (level: EditLevel, id: number | null): LevelLayer | undefined => level.layers.find((l) => l.id === id);
@@ -121,9 +134,98 @@ const mapLayers = (level: EditLevel, id: number, fn: (layer: LevelLayer) => Leve
 export const beginStroke = (state: EditState): EditState => ({ ...state, stroke: { pushed: false } });
 export const endStroke = (state: EditState): EditState => (state.stroke ? { ...state, stroke: null } : state);
 export const setActiveLayer = (state: EditState, layerId: number): EditState =>
-  layerById(state.level, layerId) ? { ...state, activeLayerId: layerId, selection: null } : state;
-export const select = (state: EditState, selection: EditSelection): EditState => ({ ...state, selection });
+  layerById(state.level, layerId) ? { ...state, activeLayerId: layerId, selection: null, selected: [] } : state;
 export const markSaved = (state: EditState): EditState => ({ ...state, saved: state.level, dirty: false });
+
+// --- selection (Phase 137 Theme A) -----------------------------------------------------
+//
+// Selection is not an undo step: it never touches `past`, and every op returns the same reference when the
+// selection would not change. `primary` is kept when it survives, else the last ref becomes primary.
+
+const NO_SELECTION: Pick<EditState, 'selection' | 'selected'> = { selection: null, selected: [] };
+
+/** The state with `refs` selected (deduplicated, order kept). Same reference when nothing changed. */
+function withSelected(state: EditState, refs: readonly ObjectRef[], primary: ObjectRef | null): EditState {
+  const seen = new Set<string>();
+  const list = refs.filter((r) => (seen.has(refKey(r)) ? false : (seen.add(refKey(r)), true)));
+  const nextPrimary = list.length === 0 ? null : (primary && list.find((r) => sameRef(r, primary))) || list[list.length - 1]!;
+  const same =
+    list.length === state.selected.length && list.every((r, i) => sameRef(r, state.selected[i]!)) && sameRef(nextPrimary, state.selection);
+  if (same) return state;
+  return { ...state, ...(list.length === 0 ? NO_SELECTION : { selection: nextPrimary, selected: list }) };
+}
+
+/** Select exactly `ref` (or clear with `null`); it is the primary. A plain click. */
+export const selectOnly = (state: EditState, ref: ObjectRef | null): EditState => withSelected(state, ref ? [ref] : [], ref);
+
+/** The pre-137 name for {@link selectOnly}; the signature is unchanged. */
+export const select = (state: EditState, selection: EditSelection): EditState => selectOnly(state, selection);
+
+/** Mod-click: add an absent ref (it becomes primary) or remove a present one (the last remaining ref becomes primary). */
+export function toggleSelected(state: EditState, ref: ObjectRef): EditState {
+  if (state.selected.some((r) => sameRef(r, ref))) return withSelected(state, state.selected.filter((r) => !sameRef(r, ref)), state.selection);
+  return withSelected(state, [...state.selected, ref], ref);
+}
+
+/** Shift-click or an additive marquee: add `refs` that resolve to an object; the last one added becomes primary. */
+export function addSelected(state: EditState, refs: readonly ObjectRef[]): EditState {
+  const live = refs.filter((r) => findObject(state.level, r));
+  if (live.length === 0) return state;
+  return withSelected(state, [...state.selected.filter((s) => !live.some((r) => sameRef(r, s))), ...live], live[live.length - 1]!);
+}
+
+/** Every object of `layerId` that sits fully inside `rect` (the marquee rule: a big floor that merely crosses the edge stays out). */
+function objectsInRect(level: EditLevel, layerIds: readonly number[], rect: PlanRect, filter?: (ref: ObjectRef) => boolean): ObjectRef[] {
+  const out: ObjectRef[] = [];
+  for (const layer of level.layers) {
+    if (!isObjects(layer) || typeof layer.id !== 'number' || !layerIds.includes(layer.id)) continue;
+    for (const o of layer.objects ?? []) {
+      const ref = { layerId: layer.id, objectId: o.id };
+      if (filter && !filter(ref)) continue;
+      const points = objectExtentPoints(o);
+      if (points.every((p) => p.x >= rect.x && p.x <= rect.x + rect.width && p.y >= rect.y && p.y <= rect.y + rect.height)) out.push(ref);
+    }
+  }
+  return out;
+}
+
+/**
+ * A marquee over `layerIds`: `'replace'` selects exactly what the rectangle encloses, `'add'` (Shift) unions it with the
+ * selection, `'toggle'` (Mod) flips each enclosed object. `filter` is Theme H's `isSelectable` (hidden / locked refs).
+ * The last enclosed object becomes primary; a marquee that encloses nothing leaves `'add'` / `'toggle'` untouched and
+ * clears on `'replace'`.
+ */
+export function selectInRect(state: EditState, layerIds: readonly number[], rect: PlanRect, mode: 'replace' | 'add' | 'toggle', filter?: (ref: ObjectRef) => boolean): EditState {
+  const hit = objectsInRect(state.level, layerIds, rect, filter);
+  if (mode === 'replace') return withSelected(state, hit, hit[hit.length - 1] ?? null);
+  if (hit.length === 0) return state;
+  if (mode === 'add') return addSelected(state, hit);
+  return hit.reduce((s, ref) => toggleSelected(s, ref), state);
+}
+
+/** Mod+A: every object on `layerId` (empty for a tile layer or an unknown id, which clears nothing). */
+export function selectAllInLayer(state: EditState, layerId: number): EditState {
+  const layer = layerById(state.level, layerId);
+  if (!layer || !isObjects(layer)) return state;
+  const refs = (layer.objects ?? []).map((o) => ({ layerId, objectId: o.id }));
+  return refs.length === 0 ? state : withSelected(state, refs, refs[refs.length - 1]!);
+}
+
+/** The selected objects with their refs, in selection order; a ref that no longer resolves is skipped. A query. */
+export function selectedObjects(state: EditState): Array<{ ref: ObjectRef; object: LevelObject }> {
+  const out: Array<{ ref: ObjectRef; object: LevelObject }> = [];
+  for (const ref of state.selected) {
+    const object = findObject(state.level, ref);
+    if (object) out.push({ ref, object });
+  }
+  return out;
+}
+
+/** `selected` restricted to refs that still resolve in `level`; the primary survives when it does. */
+function pruneSelected(state: EditState, level: EditLevel): EditState {
+  const live = state.selected.filter((r) => findObject(level, r));
+  return withSelected(state, live, state.selection);
+}
 
 // --- tiles ---------------------------------------------------------------------------
 
@@ -199,7 +301,7 @@ export function addObject(
     ...(input.properties ? { properties: input.properties } : {}),
   };
   const level = mapLayers(state.level, layerId, (l) => ({ ...l, objects: [...(l.objects ?? []), object] }));
-  return commit(state, { ...level, nextobjectid: id + 1 }, { selection: { layerId, objectId: id } });
+  return commit(state, { ...level, nextobjectid: id + 1 }, { selection: { layerId, objectId: id }, selected: [{ layerId, objectId: id }] });
 }
 
 function mapObject(state: EditState, sel: NonNullable<EditSelection>, fn: (o: LevelObject) => LevelObject): EditState {
@@ -220,10 +322,49 @@ function mapObject(state: EditState, sel: NonNullable<EditSelection>, fn: (o: Le
 export const moveObject = (state: EditState, sel: NonNullable<EditSelection>, x: number, y: number): EditState =>
   mapObject(state, sel, (o) => (o.x === x && o.y === y ? o : { ...o, x, y }));
 
-export function deleteObject(state: EditState, sel: NonNullable<EditSelection>): EditState {
-  const level = mapLayers(state.level, sel.layerId, (l) => (l.objects?.some((o) => o.id === sel.objectId) ? { ...l, objects: l.objects.filter((o) => o.id !== sel.objectId) } : l));
-  const patch: Partial<EditState> = state.selection && state.selection.objectId === sel.objectId && state.selection.layerId === sel.layerId ? { selection: null } : {};
-  return commit(state, level, patch);
+/**
+ * Apply `fn` to every ref'd object in one pass (`null` deletes it). Returns the SAME level when nothing changed, so
+ * the caller's `commit` records nothing; otherwise a single new level, which is what makes a group op one undo step.
+ */
+function mapRefs(level: EditLevel, refs: readonly ObjectRef[], fn: (o: LevelObject) => LevelObject | null): EditLevel {
+  const byLayer = new Map<number, Set<number>>();
+  for (const r of refs) (byLayer.get(r.layerId) ?? byLayer.set(r.layerId, new Set()).get(r.layerId)!).add(r.objectId);
+  let out = level;
+  for (const [layerId, ids] of byLayer) {
+    out = mapLayers(out, layerId, (l) => {
+      if (!l.objects) return l;
+      let changed = false;
+      const objects: LevelObject[] = [];
+      for (const o of l.objects) {
+        if (!ids.has(o.id)) { objects.push(o); continue; }
+        const next = fn(o);
+        if (next !== o) changed = true;
+        if (next) objects.push(next);
+      }
+      return changed ? { ...l, objects } : l;
+    });
+  }
+  return out;
+}
+
+/** Move every ref'd object by `(dx, dy)` object coordinates, as one undo step; the selection is untouched. */
+export function moveObjects(state: EditState, refs: readonly ObjectRef[], dx: number, dy: number): EditState {
+  if (!Number.isFinite(dx) || !Number.isFinite(dy) || (dx === 0 && dy === 0)) return state;
+  return commit(state, mapRefs(state.level, refs, (o) => ({ ...o, x: o.x + dx, y: o.y + dy })));
+}
+
+/** {@link moveObjects}, named for the arrow keys. */
+export const nudgeObjects = moveObjects;
+
+export const deleteObject = (state: EditState, sel: NonNullable<EditSelection>): EditState => deleteObjects(state, [sel]);
+
+/** Delete every ref that resolves, as one undo step. They leave the selection; the remaining selection keeps its primary. */
+export function deleteObjects(state: EditState, refs: readonly ObjectRef[]): EditState {
+  const level = mapRefs(state.level, refs, (_o) => null);
+  if (level === state.level) return state;
+  const kept = state.selected.filter((s) => !refs.some((r) => sameRef(r, s)));
+  const patch = withSelected(state, kept, state.selection);
+  return commit(state, level, { selection: patch.selection, selected: patch.selected });
 }
 
 export type ObjectField = 'name' | 'type' | 'x' | 'y' | 'width' | 'height' | 'rotation';
@@ -380,7 +521,7 @@ export function addLayer(state: EditState, kind: 'tile' | 'object', name: string
     kind === 'tile'
       ? { ...common, type: 'tilelayer', width: state.level.width, height: state.level.height, data: new Array<number>(state.level.width * state.level.height).fill(0) }
       : { ...common, type: 'objectgroup', draworder: 'topdown', objects: [] };
-  return commit(state, { ...state.level, layers: [...state.level.layers, layer], nextlayerid: id + 1 }, { activeLayerId: id, selection: null });
+  return commit(state, { ...state.level, layers: [...state.level.layers, layer], nextlayerid: id + 1 }, { activeLayerId: id, selection: null, selected: [] });
 }
 
 export const renameLayer = (state: EditState, layerId: number, name: string): EditState =>
@@ -394,13 +535,13 @@ export const toggleVisible = (state: EditState, layerId: number): EditState =>
 export function undo(state: EditState): EditState {
   const previous = state.past[state.past.length - 1];
   if (!previous) return state;
-  return { ...state, level: previous, past: state.past.slice(0, -1), future: [state.level, ...state.future], dirty: previous !== state.saved, selection: null, stroke: null };
+  return pruneSelected({ ...state, level: previous, past: state.past.slice(0, -1), future: [state.level, ...state.future], dirty: previous !== state.saved, stroke: null }, previous);
 }
 
 export function redo(state: EditState): EditState {
   const next = state.future[0];
   if (!next) return state;
-  return { ...state, level: next, past: [...state.past, state.level], future: state.future.slice(1), dirty: next !== state.saved, selection: null, stroke: null };
+  return pruneSelected({ ...state, level: next, past: [...state.past, state.level], future: state.future.slice(1), dirty: next !== state.saved, stroke: null }, next);
 }
 
 /** The level to write: every field the editor did not touch is exactly as it was read. */
