@@ -1,7 +1,7 @@
 // vitest/jsdom: the editor's tools and keys, Save, the banners and the empty state. Canvas drawing needs a real
 // browser and is a human check (Theme H); hit-testing is exercised here through the pointer events jsdom can send.
 import { QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createFrameChrome, FrameChromeProvider } from '@midnite/studio-frame';
@@ -9,6 +9,7 @@ import { levelEntityToWorld } from '@midnite/studio-shared';
 
 import type { Level3dViewProps } from './3d/level-3d-view';
 import { useLevelViewStore } from './3d/level-view-store';
+import { DEFAULT_LEVEL_SNAP } from './level-snap';
 import { LevelEditor } from './level-editor';
 import { useDoctorRequest } from '../game-doctor-store';
 import { addObject, selectOnly } from './level-edit-model';
@@ -51,7 +52,7 @@ beforeEach(() => {
   set.mockResolvedValue({ ok: true, value: { sha: 'abc' } });
   installBridge({ list, get, set, doctor, doctorFix });
   useLevelStore.setState({ byGame: {}, newSceneFor: null });
-  useLevelViewStore.setState({ modeByGame: {}, optimisation: 3, stats: false });
+  useLevelViewStore.setState({ modeByGame: {}, optimisation: 3, stats: false, snap: DEFAULT_LEVEL_SNAP });
   view3d.props = null;
   view3d.exits = 0;
 });
@@ -222,6 +223,8 @@ describe('LevelEditor', () => {
 const at = (mx: number, my: number) => ({ clientX: 130 + 0.59375 * mx, clientY: 10 + 0.59375 * my, button: 0, pointerId: 1 });
 
 describe('LevelEditor, 3D plan view (Phase 132 Theme E)', () => {
+  // Half a tile is the half metre these tests were written against.
+  beforeEach(() => useLevelViewStore.setState({ snap: { ...DEFAULT_LEVEL_SNAP, planStep: 0.5 } }));
   const lastObject = () => {
     const entry = useLevelStore.getState().byGame.g1!;
     return entry.edit.level.layers.find((l) => l.type === 'objectgroup')!.objects!.at(-1)!;
@@ -266,6 +269,32 @@ describe('LevelEditor, 3D plan view (Phase 132 Theme E)', () => {
     fireEvent.pointerUp(canvas, at(100, 150));
     // 100 px is 3.125 m, 150 px is 4.6875 m: both snap to the half metre.
     expect(lastObject()).toMatchObject({ type: 'prop', x: 96, y: 144 });
+  });
+
+  it('F5 places on whole tiles by default, on half tiles at 0.5, and freely with Alt', async () => {
+    const { canvas, wrap } = await open3d();
+    fireEvent.keyDown(wrap, { key: 'o' });
+    fireEvent.click(screen.getByRole('radio', { name: 'prop' }));
+    act(() => useLevelViewStore.setState({ snap: DEFAULT_LEVEL_SNAP }));
+    fireEvent.pointerDown(canvas, at(100, 150));
+    fireEvent.pointerUp(canvas, at(100, 150));
+    expect(lastObject()).toMatchObject({ x: 96, y: 160 });
+    act(() => useLevelViewStore.setState({ snap: { ...DEFAULT_LEVEL_SNAP, planStep: 0.5 } }));
+    fireEvent.pointerDown(canvas, at(100, 150));
+    fireEvent.pointerUp(canvas, at(100, 150));
+    expect(lastObject()).toMatchObject({ x: 96, y: 144 });
+    fireEvent.pointerDown(canvas, { ...at(100, 150), altKey: true });
+    fireEvent.pointerUp(canvas, { ...at(100, 150), altKey: true });
+    expect(lastObject().x).not.toBe(96);
+  });
+
+  it('F: an arrow key nudges a 3D level by the snap step (half a tile here)', async () => {
+    const { canvas, wrap } = await open3d();
+    fireEvent.keyDown(wrap, { key: 'v' });
+    fireEvent.pointerDown(canvas, at(336, 336));
+    fireEvent.pointerUp(canvas, at(336, 336));
+    fireEvent.keyDown(wrap, { key: 'ArrowRight' });
+    expect(lastObject().x).toBe(352);
   });
 
   it('drags a volume into a prop box with sizeY 3', async () => {
@@ -431,7 +460,7 @@ describe('LevelEditor, Floorplan | 3D switch (Phase 136 Theme E)', () => {
     expect(screen.queryByRole('radiogroup', { name: 'View' })).toBeNull();
   });
 
-  it('opens on Floorplan, switches to 3D from the plan framing, and keeps only the tools the 3D view has', async () => {
+  it('opens on Floorplan, switches to 3D from the plan framing, and keeps the active tool (every tool works in 3D)', async () => {
     await open3d();
     expect(viewRadio('Floorplan').getAttribute('aria-checked')).toBe('true');
     expect(screen.queryByTestId('level-3d-view')).toBeNull();
@@ -439,10 +468,11 @@ describe('LevelEditor, Floorplan | 3D switch (Phase 136 Theme E)', () => {
     fireEvent.click(viewRadio('3D'));
     const view = await screen.findByTestId('level-3d-view');
     expect(view.dataset.enter).toBe('plan');
-    // Volume has no 3D form: the switch drops back to Select.
-    expect(view.dataset.tool).toBe('select');
+    // G2: every tool has a 3D form, so the switch keeps Volume.
+    expect(view.dataset.tool).toBe('volume');
+    expect(screen.getByRole('radio', { name: 'Volume' }).getAttribute('aria-checked')).toBe('true');
     const labels = Array.from(screen.getByRole('radiogroup', { name: 'Tool' }).querySelectorAll('[role=radio]')).map((r) => r.getAttribute('aria-label'));
-    expect(labels).toEqual(['Select / Move', 'Place']);
+    expect(labels).toEqual(['Select / Move', 'Place', 'Volume', 'Path', 'Rotate']);
     expect(useLevelViewStore.getState().modeByGame).toEqual({ g1: '3d' });
   });
 

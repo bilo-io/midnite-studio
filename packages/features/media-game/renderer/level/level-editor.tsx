@@ -89,6 +89,8 @@ import {
 } from './level-edit-model';
 import { sameRef } from './level-selection';
 import { snapPlan } from './level-plan';
+import { planSnapStep } from './level-snap';
+import { LevelSnapPopover } from './level-snap-popover';
 import { blockingIssues, useLevelStore, type OpenLevel } from './level-store';
 import { lineCells, type View } from './level-view';
 import { focusToPlanView, planViewToFocus } from './3d/camera-transition';
@@ -127,7 +129,7 @@ const CUSTOM = '__custom__';
 /** three and the scene load only when a 3D level's 3D view first opens. */
 const Level3dView = lazy(() => import('./3d/level-3d-view'));
 /** The plan-view tools the 3D view has (the rest draw in plan only). */
-const TOOLS_IN_3D: ReadonlySet<LevelTool> = new Set(['select', 'entity']);
+const TOOLS_IN_3D: ReadonlySet<LevelTool> = new Set(TOOLS_3D.map((t) => t.tool));
 
 type Updater = (fn: (state: EditState) => EditState) => void;
 
@@ -319,6 +321,8 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
     else setMounted3d(false);
   };
   const in3d = viewMode === '3d';
+  const snapSettings = useLevelViewStore((st) => st.snap);
+  const setSnapSettings = useLevelViewStore((st) => st.setSnap);
   const tools = is3d ? (in3d ? TOOLS_3D.filter((t) => TOOLS_IN_3D.has(t.tool)) : TOOLS_3D) : TOOLS;
   const chooseTool = (next: LevelTool) => {
     setDraft([]);
@@ -399,7 +403,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
     }
     if (e.phase === 'move') {
       // A 3D level snaps the grabbed point to the half-metre grid; a tile level drops the object on the cell under the pointer.
-      const to = is3d ? snapPlan(level, { x: e.object.x - d.grab.x, y: e.object.y - d.grab.y }, e.alt) : e.alt || !e.cell ? e.object : cellCentre(level, e.cell);
+      const to = is3d ? snapPlan(level, { x: e.object.x - d.grab.x, y: e.object.y - d.grab.y }, e.alt, planSnapStep(level, snapSettings)) : e.alt || !e.cell ? e.object : cellCentre(level, e.cell);
       const total = { x: to.x - d.start.x, y: to.y - d.start.y };
       const dx = total.x - d.applied.x, dy = total.y - d.applied.y;
       d.applied = total;
@@ -412,7 +416,8 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
 
   /** Plan-view input for a 3D level: the same canvas, a different set of tools. Map pixels are object coordinates here. */
   const onPlanPointer = (e: CanvasPointer) => {
-    const at = snapPlan(level, e.object, e.alt);
+    const planStep = planSnapStep(level, snapSettings);
+    const at = snapPlan(level, e.object, e.alt, planStep);
     const sel = e.hit;
     if (e.phase === 'down') {
       if (tool === 'rotate') {
@@ -548,9 +553,10 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
     if (mod || event.altKey) return;
     if (!readOnly && edit.selected.length > 0 && event.key.startsWith('Arrow')) {
       event.preventDefault();
-      // One grid step (a tile; Theme F's plan step once it lands), ten with Shift. An isometric map's objects are measured in tile-height units.
+      // One snap step (Theme F's plan step on a 3D level; a tile otherwise or when snapping is off), ten with Shift. An isometric map's objects are measured in tile-height units.
       const step = event.shiftKey ? 10 : 1;
-      const sx = (level.orientation === 'isometric' ? level.tileheight : level.tilewidth) * step, sy = level.tileheight * step;
+      const planStep = is3d ? planSnapStep(level, snapSettings) : null;
+      const sx = (planStep?.x ?? (level.orientation === 'isometric' ? level.tileheight : level.tilewidth)) * step, sy = (planStep?.y ?? level.tileheight) * step;
       const dx = event.key === 'ArrowLeft' ? -sx : event.key === 'ArrowRight' ? sx : 0;
       const dy = event.key === 'ArrowUp' ? -sy : event.key === 'ArrowDown' ? sy : 0;
       update((s) => nudgeObjects(s, s.selected, dx, dy));
@@ -642,6 +648,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
             ))}
           </div>
         ) : null}
+        {is3d ? <LevelSnapPopover snap={snapSettings} onChange={setSnapSettings} is3d={in3d} /> : null}
         <div className="flex items-center gap-0.5">
           <button type="button" aria-label="Undo" title="Undo (Mod+Z)" disabled={edit.past.length === 0} onClick={() => update(undo)} className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40">
             <LuUndo2 aria-hidden className="h-3.5 w-3.5" />
@@ -725,10 +732,13 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
                   level={level}
                   terrain={entry.terrain}
                   selection={edit.selection}
+                  selected={edit.selected}
                   readOnly={readOnly}
                   tool={tool}
                   entityName={entityName}
                   objectLayerId={objectLayerId}
+                  pathDraft={draft}
+                  onPathPoint={(p) => setDraft((d) => addPathPoint(d, p))}
                   update={update}
                   enterFrom={enterFrom}
                   handle={handle3d}

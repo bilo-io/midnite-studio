@@ -2,17 +2,21 @@ import { Canvas } from '@react-three/fiber';
 import { DEFAULT_SNAP, TransformModeBar, transformModeForKey, type SnapSettings, type TransformMode } from '@midnite/studio-frame/viewport3d';
 import { bridge } from '@midnite/studio-frame';
 import { metresPerTile, type GameLevelTerrain } from '@midnite/studio-shared';
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MutableRefObject } from 'react';
-import { LuActivity } from 'react-icons/lu';
+import { useEffect, useMemo, useRef, useState, type ComponentType, type KeyboardEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent } from 'react';
+import { LuActivity, LuBox, LuCrosshair, LuGlobe, LuGroup } from 'react-icons/lu';
 import type { Object3D } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-import { addObject, select, setActiveLayer, type EditLevel, type EditSelection, type EditState } from '../level-edit-model';
+import { addObject, addSelected, select, setActiveLayer, setOptionalNumber, toggleSelected, type EditLevel, type EditSelection, type EditState, type ObjectRef, type PlanPoint } from '../level-edit-model';
 import { orbitPose, planPose, type CameraPose } from './camera-transition';
 import { formatStats, type GroundTile, type ViewStats } from './level-cull';
-import { disposeTree, LevelScene, SCENE_BACKGROUND, type CameraMove } from './level-scene';
-import { useLevelViewStore } from './level-view-store';
-import { gizmoEdit, groundY, levelWorldItems, worldToObjectPoint, type GizmoChange } from './level-world';
+import { footprintBox, gizmoSteps, surfaceElevation } from '../level-snap';
+import type { LevelSceneProps } from './level-scene';
+import { disposeTree, LevelScene, NO_DRAFT, SCENE_BACKGROUND, type CameraMove, type ToolDraft } from './level-scene';
+import { commitVolume, groundPoint, rayHitsItem, rotateToward, snappedPlanPoint, volumeFromDrag, worldPointFromPlan } from './level-ground';
+import { marqueeHits, type ScreenPoint, type ScreenRect } from './level-marquee';
+import { useLevelViewStore, type GizmoPivot, type GizmoSpace } from './level-view-store';
+import { gizmoEdit, gizmoEditGroup, groundY, groupPivot, levelWorldItems, POINT_SIZE, worldToObjectPoint, type GizmoChange, type GroupDelta, type GroupPivot } from './level-world';
 import { ModelCache } from './model-cache';
 import { OPTIMISATION_PRESETS, presetFor } from './optimisation';
 import { SpatialGrid } from './spatial-grid';
@@ -25,11 +29,16 @@ export type Level3dViewProps = {
   level: EditLevel;
   terrain: GameLevelTerrain | null;
   selection: EditSelection;
+  /** Every selected object (Phase 137 Theme A); `selection` is the primary among them. */
+  selected: readonly ObjectRef[];
   readOnly: boolean;
   /** `select` shows the gizmo; `entity` places `entityName` where the ground is clicked. */
   tool: string;
   entityName: string;
   objectLayerId: number | null;
+  /** The path being drawn (map pixels); the editor owns it, so Enter, Escape and Backspace work in both views. */
+  pathDraft: readonly PlanPoint[];
+  onPathPoint: (point: PlanPoint) => void;
   update: (fn: (s: EditState) => EditState) => void;
   /** Where the camera starts: the plan view's own framing when the switch animates in, else an orbit over the level. */
   enterFrom: { target: [number, number, number]; span: number } | null;
@@ -37,6 +46,11 @@ export type Level3dViewProps = {
   /** Keys the 3D view does not own (undo, delete, tool keys) go back to the editor. */
   onEditorKey: (event: KeyboardEvent<HTMLDivElement>) => void;
 };
+
+type LevelSceneRayRef = LevelSceneProps['ray'];
+
+/** A Shift press that travels further than this (px) is a marquee, not a click. */
+const MARQUEE_SLOP_PX = 4;
 
 function decodeBase64(data: string): ArrayBuffer {
   const bin = atob(data);
@@ -62,21 +76,43 @@ export default function Level3dView(props: Level3dViewProps) {
   const grid = useMemo(() => new SpatialGrid(items), [items]);
   const bounds = useMemo(() => levelBounds(level, props.terrain), [level, props.terrain]);
   const ground = groundY(level);
-  const selected = useMemo(() => {
-    const sel = props.selection;
-    if (!sel) return null;
-    const i = items.findIndex((it) => it.sel.layerId === sel.layerId && it.sel.objectId === sel.objectId);
-    return i < 0 ? null : i;
-  }, [items, props.selection]);
+  /** Item indices of the selection, primary first-class via `props.selection`. */
+  const selectedIdx = useMemo(() => {
+    const out: number[] = [];
+    for (const ref of props.selected) {
+      const i = items.findIndex((it) => it.sel.layerId === ref.layerId && it.sel.objectId === ref.objectId);
+      if (i >= 0) out.push(i);
+    }
+    return out;
+  }, [items, props.selected]);
+  /** The lone selected item, which `F` frames and the single-object gizmo drives. */
+  const selected = selectedIdx.length === 1 ? selectedIdx[0]! : null;
+  const pivotMode = useLevelViewStore((s) => s.pivot);
+  const space = useLevelViewStore((s) => s.space);
+  const setPivotMode = useLevelViewStore((s) => s.setPivot);
+  const setSpace = useLevelViewStore((s) => s.setSpace);
+  const selectedRefs = useMemo(() => selectedIdx.map((i) => items[i]!.sel), [items, selectedIdx]);
+  const pivot = useMemo(() => (selectedRefs.length > 1 ? groupPivot(level, selectedRefs, props.selection ?? selectedRefs[0]!, pivotMode) : null), [level, selectedRefs, props.selection, pivotMode]);
 
   const step = useLevelViewStore((s) => s.optimisation);
   const statsOn = useLevelViewStore((s) => s.stats);
   const preset = presetFor(step);
   const [mode, setMode] = useState<TransformMode>('translate');
-  const [snap, setSnap] = useState<SnapSettings>(DEFAULT_SNAP);
+  const levelSnap = useLevelViewStore((s) => s.snap);
+  const setLevelSnap = useLevelViewStore((s) => s.setSnap);
+  const snap = useMemo<SnapSettings>(() => ({ ...gizmoSteps(levelSnap), scale: DEFAULT_SNAP.scale }), [levelSnap]);
+  const setSnap = (next: SnapSettings) => setLevelSnap({ grid: next.grid, angle: next.angle, enabled: next.grid > 0 || next.angle > 0 });
   const [stats, setStats] = useState<ViewStats | null>(null);
   const [dirtyTick, setDirtyTick] = useState(0);
   const [shown, setShown] = useState(false);
+  const gizmoDragging = useRef(false);
+  const project = useRef<((p: [number, number, number]) => ScreenPoint) | null>(null);
+  const [marquee, setMarquee] = useState<ScreenRect | null>(null);
+  const [shiftDown, setShiftDown] = useState(false);
+  const ray: LevelSceneRayRef = useRef(null);
+  const setOrbit = useRef<((on: boolean) => void) | null>(null);
+  const [volumeDraft, setVolumeDraft] = useState<ToolDraft['volume']>(null);
+  const [aimDraft, setAimDraft] = useState<ToolDraft['aim']>(null);
   const statsOnRef = useRef(statsOn);
   statsOnRef.current = statsOn;
 
@@ -150,6 +186,12 @@ export default function Level3dView(props: Level3dViewProps) {
         setMode(next);
         return;
       }
+      if ((key === 'z' || key === 'x') && !props.readOnly) {
+        event.preventDefault();
+        if (key === 'z') setPivotMode(pivotMode === 'pivot' ? 'centre' : 'pivot');
+        else setSpace(space === 'world' ? 'local' : 'world');
+        return;
+      }
       if (key === 'f') {
         event.preventDefault();
         frame();
@@ -165,6 +207,125 @@ export default function Level3dView(props: Level3dViewProps) {
 
   const editable = !props.readOnly;
   const gizmo = editable && props.tool === 'select' ? mode : null;
+  const marqueeOn = editable && props.tool === 'select';
+  // Shift hands the plain drag to the marquee: the orbit controls stand down while it is held.
+  useEffect(() => {
+    const track = (ev: globalThis.KeyboardEvent) => setShiftDown(ev.shiftKey);
+    window.addEventListener('keydown', track);
+    window.addEventListener('keyup', track);
+    return () => {
+      window.removeEventListener('keydown', track);
+      window.removeEventListener('keyup', track);
+    };
+  }, []);
+
+  const pathWorld = useMemo(() => props.pathDraft.map((p) => worldPointFromPlan(level, p)), [props.pathDraft, level]);
+  const draft = useMemo<ToolDraft>(() => (volumeDraft || aimDraft || pathWorld.length > 0 ? { volume: volumeDraft, path: pathWorld, aim: aimDraft } : NO_DRAFT), [volumeDraft, aimDraft, pathWorld]);
+
+  /**
+   * Volume, Path and Rotate in 3D (Phase 137 Theme G). The pointer's ray is cast at the ground; a Volume or Rotate drag
+   * holds the orbit controls still, a Path click leaves them alone (a press that travelled is an orbit, as in Phase 136).
+   * Runs in the capture phase so the controls are off before they see the press.
+   */
+  const toolDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const tool = props.tool;
+    if (!editable || event.button !== 0 || event.shiftKey || !(event.target instanceof HTMLCanvasElement)) return;
+    if (tool !== 'volume' && tool !== 'path' && tool !== 'rotate') return;
+    const cast = (x: number, y: number): [number, number, number] | null => {
+      const r = ray.current?.(x, y);
+      return r ? groundPoint(r.origin, r.dir, ground) : null;
+    };
+    const start = cast(event.clientX, event.clientY);
+    const layer = props.objectLayerId;
+    const x0 = event.clientX, y0 = event.clientY;
+    const travelled = (ev: PointerEvent) => Math.hypot(ev.clientX - x0, ev.clientY - y0) > MARQUEE_SLOP_PX;
+    const track = (onMove: (ev: PointerEvent, at: [number, number, number] | null) => void, onUp: (ev: PointerEvent, at: [number, number, number] | null) => void) => {
+      const move = (ev: PointerEvent) => onMove(ev, cast(ev.clientX, ev.clientY));
+      const up = (ev: PointerEvent) => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        setOrbit.current?.(true);
+        setVolumeDraft(null);
+        setAimDraft(null);
+        onUp(ev, cast(ev.clientX, ev.clientY));
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+    };
+
+    if (tool === 'volume') {
+      if (!start || layer === null) return;
+      setOrbit.current?.(false);
+      const snapped = (at: [number, number, number], invert: boolean) => volumeFromDrag(level, [start[0], start[2]], [at[0], at[2]], levelSnap, invert);
+      track(
+        (ev, at) => {
+          if (!at || !travelled(ev)) return;
+          const d = snapped(at, ev.altKey);
+          const a = worldPointFromPlan(level, d.from), b = worldPointFromPlan(level, d.to);
+          setVolumeDraft({ x0: a[0], z0: a[1], x1: b[0], z1: b[1] });
+        },
+        (ev, at) => {
+          if (at && travelled(ev)) update((s) => commitVolume(s, layer, snapped(at, ev.altKey)));
+        },
+      );
+    } else if (tool === 'path') {
+      if (!start || layer === null) return;
+      track(
+        () => undefined,
+        (ev, at) => {
+          if (at && !travelled(ev)) props.onPathPoint(snappedPlanPoint(level, at[0], at[2], levelSnap, ev.altKey));
+        },
+      );
+    } else {
+      const r = ray.current?.(event.clientX, event.clientY);
+      const refs = selectedRefs;
+      const grabbed = r ? selectedIdx.map((i) => items[i]!).find((it) => rayHitsItem(r.origin, r.dir, it)) : undefined;
+      if (!grabbed || refs.length === 0) return;
+      setOrbit.current?.(false);
+      const from: [number, number] = [grabbed.position[0], grabbed.position[2]];
+      const angle = (ev: PointerEvent) => (levelSnap.enabled !== (ev.altKey || ev.shiftKey) ? levelSnap.angle : 0);
+      track(
+        (ev, at) => {
+          if (at && travelled(ev)) setAimDraft({ from, to: [at[0], at[2]] });
+        },
+        (ev, at) => {
+          if (at && travelled(ev)) update((s) => rotateToward(s, refs, level, [at[0], at[2]], angle(ev)));
+        },
+      );
+    }
+  };
+
+  const startMarquee = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.currentTarget.focus();
+    if (!marqueeOn || !event.shiftKey || event.button !== 0) return;
+    const box = event.currentTarget.getBoundingClientRect();
+    const from = { x: event.clientX - box.left, y: event.clientY - box.top };
+    let active = false;
+    const rectAt = (ev: PointerEvent): ScreenRect => ({ x0: from.x, y0: from.y, x1: ev.clientX - box.left, y1: ev.clientY - box.top });
+    const move = (ev: PointerEvent) => {
+      if (gizmoDragging.current) return;
+      const r = rectAt(ev);
+      if (!active && Math.hypot(r.x1 - r.x0, r.y1 - r.y0) <= MARQUEE_SLOP_PX) return;
+      active = true;
+      setMarquee(r);
+    };
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      setMarquee(null);
+      const projectPoint = project.current;
+      if (!active || gizmoDragging.current || !projectPoint) return;
+      const hits = marqueeHits(
+        items.map((it) => ({ id: it.index, centre: [it.position[0], it.position[1] + it.size[1] / 2, it.position[2]] as [number, number, number] })),
+        projectPoint,
+        rectAt(ev),
+      );
+      const refs = hits.map((i) => items[i]!.sel);
+      if (refs.length > 0) update((s) => addSelected(s, refs));
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
   const placing = editable && props.tool === 'entity' && props.objectLayerId !== null && props.entityName !== '';
 
   return (
@@ -173,10 +334,11 @@ export default function Level3dView(props: Level3dViewProps) {
       style={{ background: SCENE_BACKGROUND, opacity: shown ? 1 : 0, transition: 'opacity 180ms ease-out' }}
       tabIndex={0}
       role="application"
-      aria-label="Level 3D view. Drag to orbit, right-drag to pan, wheel to zoom. W move, E rotate, R scale, F frame, Escape deselects."
+      aria-label="Level 3D view. Drag to orbit, right-drag to pan, wheel to zoom. W move, E rotate, R scale, Z pivot or centre, X local or world, Shift-drag selects several, F frame, Escape deselects."
       data-testid="level-3d-view"
       onKeyDown={onKeyDown}
-      onPointerDown={(e) => e.currentTarget.focus()}
+      onPointerDownCapture={toolDown}
+      onPointerDown={startMarquee}
     >
       <Canvas frameloop={statsOn ? 'always' : 'demand'} dpr={Math.min(preset.pixelRatio, typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1)} gl={{ antialias: true }}>
         <LevelScene
@@ -185,7 +347,16 @@ export default function Level3dView(props: Level3dViewProps) {
           bounds={bounds}
           ground={ground}
           drape={props.terrain?.preview ?? null}
-          selected={selected}
+          selected={selectedIdx}
+          pivot={pivot}
+          pivotMode={pivotMode}
+          space={space}
+          orbit={!(shiftDown && marqueeOn)}
+          gizmoDragging={gizmoDragging}
+          ray={ray}
+          setOrbit={setOrbit}
+          draft={draft}
+          project={project}
           gizmo={gizmo}
           snap={snap}
           preset={preset}
@@ -195,32 +366,58 @@ export default function Level3dView(props: Level3dViewProps) {
           move={move}
           poseOut={poseOut}
           dirtyTick={dirtyTick}
-          onPick={(index) => {
+          onPick={(index, modifier) => {
             const sel = index === null ? null : (items[index]?.sel ?? null);
-            update((s) => select(s, sel));
+            update((s) => (sel && modifier === 'toggle' ? toggleSelected(s, sel) : sel && modifier === 'add' ? addSelected(s, [sel]) : select(s, sel)));
+          }}
+          onGroupEnd={(delta: GroupDelta, framePivot: GroupPivot) => {
+            update((s) => gizmoEditGroup(s, selectedRefs, framePivot, delta));
           }}
           onPlace={(x, z) => {
             const layer = props.objectLayerId;
             if (layer === null) return;
             const at = worldToObjectPoint(level, x, z);
-            update((s) => addObject(setActiveLayer(s, layer), layer, { type: props.entityName, x: at.x, y: at.y }));
+            const drop = levelSnap.enabled && levelSnap.surface ? surfaceElevation(items, footprintBox([x, z], [POINT_SIZE, POINT_SIZE], 0), new Set(), ground) : ground;
+            update((s) => {
+              const added = addObject(setActiveLayer(s, layer), layer, { type: props.entityName, x: at.x, y: at.y });
+              return drop !== ground && added.selection ? setOptionalNumber(added, added.selection, 'elevation', String(drop)) : added;
+            });
           }}
-          onGizmoEnd={(change: GizmoChange) => {
+          onGizmoEnd={(change: GizmoChange, inverted: boolean) => {
             const sel = props.selection;
-            if (sel) update((s) => gizmoEdit(s, sel, change));
+            if (!sel) return;
+            const item = selected !== null ? items[selected] : undefined;
+            let next = change;
+            // Surface snap (Phase 137 Theme F) runs on release: the object drops onto the top under its new footprint.
+            if (item && levelSnap.surface && levelSnap.enabled !== inverted && change.elevation === undefined && (change.centre || change.size)) {
+              const size = change.size ?? item.size;
+              const box = footprintBox(change.centre ?? [item.position[0], item.position[2]], [size[0], size[2]], change.yaw ?? item.yaw);
+              const drop = surfaceElevation(items, box, new Set([sel.objectId]), ground);
+              // An object already resting there keeps its (absent) elevation property.
+              if (Math.abs(drop - item.position[1]) > 1e-3) next = { ...change, elevation: drop };
+            }
+            update((s) => gizmoEdit(s, sel, next));
           }}
           onStats={(s) => {
             if (statsOnRef.current) setStats(s);
           }}
         />
       </Canvas>
-      <ViewBar mode={mode} onMode={setMode} snap={snap} onSnap={setSnap} readOnly={props.readOnly} stats={statsOn ? stats : null} />
+      {marquee ? (
+        <div
+          aria-hidden
+          data-testid="level-marquee"
+          className="pointer-events-none absolute border border-dashed border-primary bg-primary/10"
+          style={{ left: Math.min(marquee.x0, marquee.x1), top: Math.min(marquee.y0, marquee.y1), width: Math.abs(marquee.x1 - marquee.x0), height: Math.abs(marquee.y1 - marquee.y0) }}
+        />
+      ) : null}
+      <ViewBar mode={mode} onMode={setMode} snap={snap} onSnap={setSnap} pivot={pivotMode} onPivot={setPivotMode} space={space} onSpace={setSpace} readOnly={props.readOnly} stats={statsOn ? stats : null} />
     </div>
   );
 }
 
 /** The floating bar: gizmo modes and snap (shared with the model editor), the Optimisation slider and the readout. */
-function ViewBar({ mode, onMode, snap, onSnap, readOnly, stats }: { mode: TransformMode; onMode: (m: TransformMode) => void; snap: SnapSettings; onSnap: (s: SnapSettings) => void; readOnly: boolean; stats: ViewStats | null }) {
+export function ViewBar({ mode, onMode, snap, onSnap, pivot, onPivot, space, onSpace, readOnly, stats }: { mode: TransformMode; onMode: (m: TransformMode) => void; snap: SnapSettings; onSnap: (s: SnapSettings) => void; pivot: GizmoPivot; onPivot: (p: GizmoPivot) => void; space: GizmoSpace; onSpace: (s: GizmoSpace) => void; readOnly: boolean; stats: ViewStats | null }) {
   const step = useLevelViewStore((s) => s.optimisation);
   const statsOn = useLevelViewStore((s) => s.stats);
   const setOptimisation = useLevelViewStore((s) => s.setOptimisation);
@@ -229,6 +426,12 @@ function ViewBar({ mode, onMode, snap, onSnap, readOnly, stats }: { mode: Transf
     <>
       <div className="absolute left-2 top-2 flex flex-wrap items-center gap-2 rounded-md border border-border bg-background/85 px-2 py-1 text-xs backdrop-blur" onKeyDown={(e) => e.stopPropagation()}>
         {readOnly ? null : <TransformModeBar mode={mode} onModeChange={onMode} snap={snap} onSnapChange={onSnap} />}
+        {readOnly ? null : (
+          <>
+            <Radios label="Gizmo pivot" value={pivot} onChange={onPivot} options={[['pivot', 'Pivot', LuCrosshair, 'Pivot: the primary object (Z)'], ['centre', 'Centre', LuGroup, 'Centre: the middle of the selection (Z)']]} />
+            <Radios label="Gizmo space" value={space} onChange={onSpace} options={[['local', 'Local', LuBox, 'Local: turn with the pivot (X)'], ['world', 'World', LuGlobe, 'World: axis-aligned (X)']]} />
+          </>
+        )}
         <label className="flex items-center gap-1.5 text-muted-foreground" title="1 favours quality, 5 favours speed: draw distance, detail, shadows, lights and resolution.">
           <span>Optimisation</span>
           <input
@@ -262,5 +465,27 @@ function ViewBar({ mode, onMode, snap, onSnap, readOnly, stats }: { mode: Transf
         </div>
       ) : null}
     </>
+  );
+}
+
+/** A small icon radio group, as the 3D bar draws its Pivot / Centre and Local / World toggles. */
+function Radios<T extends string>({ label, value, onChange, options }: { label: string; value: T; onChange: (v: T) => void; options: ReadonlyArray<readonly [T, string, ComponentType<{ className?: string; 'aria-hidden'?: boolean }>, string]> }) {
+  return (
+    <div role="radiogroup" aria-label={label} className="flex items-center gap-0.5">
+      {options.map(([id, name, Icon, title]) => (
+        <button
+          key={id}
+          type="button"
+          role="radio"
+          aria-checked={value === id}
+          aria-label={name}
+          title={title}
+          onClick={() => onChange(id)}
+          className={`flex h-6 w-6 items-center justify-center rounded-md ${value === id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'}`}
+        >
+          <Icon aria-hidden className="h-3.5 w-3.5" />
+        </button>
+      ))}
+    </div>
   );
 }
