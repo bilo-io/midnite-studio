@@ -14,7 +14,7 @@ export const Studio = () => (
     <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-center lg:gap-14">
       <Reveal>
         <div className="flex flex-col items-start gap-4">
-          <Eyebrow>Midnite Studio</Eyebrow>
+          <Eyebrow>Midnyte Studio</Eyebrow>
           <Heading level={2} typeIn>
             Or have all of it at once
           </Heading>

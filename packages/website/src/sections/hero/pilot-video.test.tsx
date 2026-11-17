@@ -34,7 +34,7 @@ describe('PilotVideo', () => {
   it('gives the player a real accessible name', () => {
     render(<PilotVideo />);
     const video = screen.getByTestId('pilot-video');
-    expect(video.getAttribute('aria-label')).toMatch(/Midnite Studio introduction/);
+    expect(video.getAttribute('aria-label')).toMatch(/Midnyte Studio introduction/);
   });
 
   it('has native controls, so playback is keyboard-operable once it starts', () => {

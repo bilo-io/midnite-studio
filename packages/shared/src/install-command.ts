@@ -18,8 +18,19 @@
  * uses the default — the live deployment every published download page names.
  */
 
-/** The public site's live root, and the default every builder below falls back to. */
+/**
+ * The Vercel deployment the apps curl their installers from, and the default
+ * every builder below falls back to.
+ */
 export const MIDNITE_SITE_ORIGIN = 'https://midnite-apps.vercel.app';
+
+/**
+ * The website's own public root, on the Midnyte domain. The site's social cards
+ * and printed install commands use it; the apps keep curling
+ * `MIDNITE_SITE_ORIGIN`, the Vercel deployment, which serves the same files and
+ * stays up as the fallback host.
+ */
+export const WEBSITE_SITE_ORIGIN = 'https://midnyte.studio';
 
 /** The site's two installers, each a byte-for-byte copy of its upstream script. */
 export type InstallerFile = 'install.sh' | 'install-studio.sh';
