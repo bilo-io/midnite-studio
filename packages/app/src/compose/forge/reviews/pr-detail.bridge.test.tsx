@@ -387,7 +387,13 @@ describe('PrDetail — the review write path, assembled through the real bridge'
     // No enabling needed — the bar is absent on a closed PR whatever the
     // setting says, because approving a merged PR is not a permission problem
     // but an action that stopped making sense.
-    expect(await screen.findByText(/there is nothing left to review/)).toBeTruthy();
+    // The state lives in the header pill, with the sentence on hover only.
+    const pill = await screen.findByLabelText(/^Merged\. This pull request is merged — there is nothing left to review\.$/);
+    expect(pill.textContent).toBe('Merged');
+    expect(screen.queryByText(/there is nothing left to review/)).toBeNull();
+    const header = pill.closest('header');
+    expect(header?.textContent).toMatch(/ merged \S/);
+    expect(header?.textContent).not.toMatch(/wants to merge/);
     expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
   });
 

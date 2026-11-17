@@ -18,7 +18,7 @@ import { ReviewActionBar } from './review-action-bar';
 import type { FrameMenuItem as MenuItem } from '@midnite/studio-frame';
 import { formatNumber, MARKDOWN_PROSE_CLASSES, useFrameChrome } from '@midnite/studio-frame';
 import { useAddReviewComment, useForgePullComments, useForgePullDetail, useForgePullFiles, useForgePulls, useForgePullThreads, useForgeRuns, useReplyToReviewComment, useSetThreadResolved } from '../queries/forge-queries';
-import { checksStatus, pullStatus, StatusPill } from '../status/forge-status';
+import { checksStatus, mergeVerb, PrStatePill, StatusPill } from '../status/forge-status';
 import { useForgeHost } from '../host';
 import {
   ExternalLink,
@@ -190,9 +190,12 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
         open. Inside Conversation — GitHub's own placement — Merge would be
         hidden behind a tab.
       */}
-      <div className="shrink-0 px-3 py-2">
-        <ReviewActionBar repoId={repoId} pull={pull} detail={detail} />
-      </div>
+      {/* Only an open PR has anything to act on; a merged or closed one says so in the header pill's hover instead. */}
+      {pull.state === 'open' ? (
+        <div className="shrink-0 px-3 py-2">
+          <ReviewActionBar repoId={repoId} pull={pull} detail={detail} />
+        </div>
+      ) : null}
 
       <div
         role="tablist"
@@ -439,9 +442,11 @@ function PrHeader({
   const checks = checksStatus(pull);
 
   return (
-    <header className="shrink-0 border-b border-border px-4 py-2.5">
+    <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2.5">
+      {/* GitHub's state pill, alone in its column beside both rows; its hover carries the sentence that used to sit under the header. */}
+      <PrStatePill pull={pull} />
+      <div className="min-w-0 flex-1">
       <div className="flex min-w-0 items-center gap-2">
-        <StatusPill status={pullStatus(pull)} />
         {checks ? <StatusPill status={checks} /> : null}
         <h2 className="truncate text-sm font-semibold" data-selectable>
           <span className="text-muted-foreground">
@@ -468,7 +473,7 @@ function PrHeader({
         <span data-selectable className="inline-flex items-center gap-1.5">
           {pull.author ? <UserAvatar login={pull.author} size={16} detail="PR author" /> : null}
           <span>
-            {pull.author || 'someone'} wants to merge{' '}
+            {pull.author || 'someone'} {mergeVerb(pull)}{' '}
             <span className="text-foreground">{pull.headBranch}</span>
             {detail !== null && detail.baseBranch.length > 0 ? (
               <>
@@ -519,9 +524,11 @@ function PrHeader({
           <span className="text-destructive">Conflicts with the base branch</span>
         ) : null}
       </p>
+      </div>
     </header>
   );
 }
+
 
 /**
  * The preview-deploy affordance (Phase 71 Theme D) — absent for zero

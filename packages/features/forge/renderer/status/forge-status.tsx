@@ -226,6 +226,88 @@ export function pullStatus(pull: ForgePull): ForgeStatus {
   }
 }
 
+/** A pull request's lifecycle state as GitHub's own header pill names it: four words, nothing about reviews. */
+export type PrState = 'open' | 'draft' | 'merged' | 'closed';
+
+export function prState(pull: Pick<ForgePull, 'state' | 'isDraft'>): PrState {
+  if (pull.state === 'merged') return 'merged';
+  if (pull.state === 'closed') return 'closed';
+  return pull.isDraft ? 'draft' : 'open';
+}
+
+/**
+ * What the state pill says on hover. The review verdict lives here rather than
+ * on the pill, so the pill keeps GitHub's four words and a PR that needs a
+ * review still reads "Open" at a glance.
+ */
+export function prStateDescription(pull: Pick<ForgePull, 'state' | 'isDraft' | 'reviewDecision'>): string {
+  switch (prState(pull)) {
+    case 'merged':
+      return 'This pull request is merged — there is nothing left to review.';
+    case 'closed':
+      return 'This pull request is closed — there is nothing left to review.';
+    case 'draft':
+      return 'This pull request is a draft — it is not ready for review yet.';
+    case 'open':
+      switch (pull.reviewDecision) {
+        case 'REVIEW_REQUIRED':
+          return 'This pull request is open and needs a review.';
+        case 'APPROVED':
+          return 'This pull request is open and approved.';
+        case 'CHANGES_REQUESTED':
+          return 'This pull request is open — changes were requested.';
+        default:
+          return 'This pull request is open.';
+      }
+  }
+}
+
+/** GitHub's byline verb: a merged PR "merged", a closed one "wanted to merge", an open or draft one "wants to merge". */
+export function mergeVerb(pull: Pick<ForgePull, 'state'>): string {
+  if (pull.state === 'merged') return 'merged';
+  if (pull.state === 'closed') return 'wanted to merge';
+  return 'wants to merge';
+}
+
+/** GitHub's solid fills: the state pill is the one place that copies the forge's colours rather than the tone set. */
+const PR_STATE_PILL: Record<PrState, { label: string; icon: IconComponent; className: string }> = {
+  open: { label: 'Open', icon: LuGitPullRequest, className: 'bg-green-600 text-white' },
+  draft: { label: 'Draft', icon: LuGitPullRequestDraft, className: 'bg-zinc-500 text-white' },
+  merged: { label: 'Merged', icon: LuGitMerge, className: 'bg-purple-600 text-white' },
+  closed: { label: 'Closed', icon: LuGitPullRequestClosed, className: 'bg-red-600 text-white' },
+};
+
+/**
+ * The PR header's state pill — icon and word on GitHub's fill, with the full
+ * sentence (`prStateDescription`) only on hover. Focusable, unlike the row
+ * glyphs, so the sentence is reachable from the keyboard too: there is one of
+ * these per screen, not forty.
+ */
+export function PrStatePill({
+  pull,
+  className = '',
+}: {
+  pull: Pick<ForgePull, 'state' | 'isDraft' | 'reviewDecision'>;
+  className?: string;
+}) {
+  const state = prState(pull);
+  const { label, icon: Icon, className: fill } = PR_STATE_PILL[state];
+  const description = prStateDescription(pull);
+  return (
+    <Tooltip label={description} side="bottom">
+      <span
+        tabIndex={0}
+        data-pr-state={state}
+        aria-label={`${label}. ${description}`}
+        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium leading-none outline-none focus-visible:ring-2 focus-visible:ring-ring ${fill} ${className}`}
+      >
+        <Icon className="size-3.5" strokeWidth={2.5} aria-hidden />
+        {label}
+      </span>
+    </Tooltip>
+  );
+}
+
 /**
  * The checks rollup, when a PR has one. `null` renders nothing.
  *
