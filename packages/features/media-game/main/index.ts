@@ -128,6 +128,12 @@ export const mediaGameMain = defineFeatureMain<MediaGameMainServices>({
     handleBare(CHANNELS.gamesList, async () => ({ games: await service.list() }));
     handle(CHANNELS.gamesCreate, schemas.GamesCreateRequest, (req) => service.create(req), (issue) => failure(issue));
     handle(CHANNELS.gamesAdd, schemas.GamesAddRequest, ({ path }) => service.add(path), (issue) => failure(issue));
+    // Game management (Phase 149 Theme I).
+    handle(CHANNELS.gamesRename, schemas.GamesRenameRequest, ({ gameId, name }) => service.rename(gameId, name), (issue) => failure(issue));
+    handle(CHANNELS.gamesForget, schemas.GamesForgetRequest, ({ gameId }) => service.forget(gameId), (issue) => failure(issue));
+    handle(CHANNELS.gamesReveal, schemas.GamesRevealRequest, ({ gameId }) => service.reveal(gameId), (issue) => failure(issue));
+    handle(CHANNELS.gamesDeleteInfo, schemas.GamesDeleteInfoRequest, ({ gameId }) => service.deleteInfo(gameId), (issue) => failure(issue));
+    handle(CHANNELS.gamesDelete, schemas.GamesDeleteRequest, ({ gameId, confirmName }) => service.delete(gameId, confirmName), (issue) => failure(issue));
     handle(
       CHANNELS.gamesGetManifest,
       schemas.GamesGetManifestRequest,

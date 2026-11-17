@@ -28,6 +28,7 @@ import type { Logger } from './logger';
 import { resolveGameFolder } from './game-open';
 import { listGames } from './game-list';
 import { createGameLevels } from './game-levels';
+import { createGameManage } from './game-manage';
 import { createGame, gameIdForPath } from './game-scaffold';
 import type { GamePopout } from './game-popout';
 import type { GameRunner, ToolbarAction } from './game-runner';
@@ -51,6 +52,10 @@ export type GameServiceDeps = {
   /** Push an event to the renderer(s). */
   send: (channel: string, payload: unknown) => void;
   log: Logger;
+  /** Game management (Phase 149 Theme I): the host's ports. Each absent one makes its op answer "not available". */
+  forgetRepo?: (path: string) => Promise<GitOpResult>;
+  revealPath?: (path: string) => void;
+  trashPath?: (path: string) => Promise<GitOpResult>;
   /** Pop out (Theme B). Absent in tests that never pop a game out. */
   popout?: GamePopout;
   /** Where games live until the user picks a folder. Defaults to `~/Midnite Games`; a smoke run points it at its userData. */
@@ -104,6 +109,19 @@ export function createGameService(deps: GameServiceDeps) {
   }
 
   const levels = createGameLevels({ resolve, readManifest, runner: deps.runner, send: deps.send, log: deps.log });
+
+  const manage = createGameManage({
+    resolve,
+    gamesRoot: async () => (await read()).root,
+    isRunning: (gameId) => deps.runner.isRunning(gameId),
+    stop: (gameId) => deps.runner.stop(gameId),
+    ...(deps.forgetRepo ? { forgetRepo: deps.forgetRepo } : {}),
+    registerRepo: deps.registerRepo,
+    ...(deps.revealPath ? { revealPath: deps.revealPath } : {}),
+    ...(deps.trashPath ? { trashPath: deps.trashPath } : {}),
+    send: deps.send,
+    log: deps.log,
+  });
 
   return {
     resolve,
@@ -177,6 +195,13 @@ export function createGameService(deps: GameServiceDeps) {
       deps.log.info(`game added ${gameId} path=${root}`);
       return ok({ status: 'added', gameId, path: root });
     },
+
+    /** Rename, forget, reveal and delete-to-Trash (Phase 149 Theme I). */
+    rename: manage.rename,
+    forget: manage.forget,
+    reveal: manage.reveal,
+    deleteInfo: manage.deleteInfo,
+    delete: manage.delete,
 
     async manifestGet(gameId: string): Promise<{ manifest: GameManifest | null; issues: GameManifestIssue[] }> {
       const game = await find(gameId);

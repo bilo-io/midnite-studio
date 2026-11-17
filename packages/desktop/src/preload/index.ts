@@ -743,6 +743,11 @@ const bridge: Pick<
     list: () => call(CHANNELS.gamesList),
     create: (req) => call(CHANNELS.gamesCreate, req),
     add: (req) => call(CHANNELS.gamesAdd, req),
+    rename: (req) => call(CHANNELS.gamesRename, req),
+    forget: (req) => call(CHANNELS.gamesForget, req),
+    reveal: (req) => call(CHANNELS.gamesReveal, req),
+    deleteInfo: (req) => call(CHANNELS.gamesDeleteInfo, req),
+    delete: (req) => call(CHANNELS.gamesDelete, req),
     manifest: {
       get: (req) => call(CHANNELS.gamesGetManifest, req),
       set: (req) => call(CHANNELS.gamesSetManifest, req),

@@ -355,6 +355,23 @@ export const GameAddResultSchema = z.discriminatedUnion('status', [
 ]);
 export type GameAddResult = z.infer<typeof GameAddResultSchema>;
 
+// --- manage (Phase 149 Theme I) ---------------------------------------------------
+/** Rename writes `manifest.name` only; the folder keeps its name. */
+export const GameRenameRequestSchema = z.object({ gameId: z.string().min(1), name: z.string().trim().min(1).max(80) });
+/** What a delete would lose: the blast radius the confirm dialog shows. `unpushed` is null with no upstream. */
+export const GameDeleteInfoSchema = z.object({
+  path: z.string(),
+  name: z.string(),
+  uncommitted: z.number().int().nonnegative(),
+  unpushed: z.number().int().nonnegative().nullable(),
+  hasRemote: z.boolean(),
+  bytes: z.number().int().nonnegative(),
+});
+export type GameDeleteInfo = z.infer<typeof GameDeleteInfoSchema>;
+/** Refused unless `confirmName` equals the game's name exactly. */
+export const GameDeleteRequestSchema = z.object({ gameId: z.string().min(1), confirmName: z.string() });
+// --- end manage -------------------------------------------------------------------
+
 export const GameIdRequest = z.object({ gameId: z.string().min(1) });
 export const GameManifestGetResponse = z.object({
   manifest: GameManifestSchema.nullable(),

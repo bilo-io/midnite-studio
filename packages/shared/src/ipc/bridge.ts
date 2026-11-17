@@ -1633,6 +1633,12 @@ export type MidniteStudioBridge = {
     list: () => Promise<z.infer<typeof S.GamesListResponse>>;
     create: (req: In<typeof S.GamesCreateRequest>) => Promise<z.infer<typeof S.GamesCreateResponse>>;
     add: (req: In<typeof S.GamesAddRequest>) => Promise<z.infer<typeof S.GamesAddResponse>>;
+    /** Game management (Phase 149 Theme I). Delete moves the folder to the Trash, never `rm`. */
+    rename: (req: In<typeof S.GamesRenameRequest>) => Promise<GitOpResult>;
+    forget: (req: In<typeof S.GamesForgetRequest>) => Promise<GitOpResult>;
+    reveal: (req: In<typeof S.GamesRevealRequest>) => Promise<GitOpResult>;
+    deleteInfo: (req: In<typeof S.GamesDeleteInfoRequest>) => Promise<z.infer<typeof S.GamesDeleteInfoResponse>>;
+    delete: (req: In<typeof S.GamesDeleteRequest>) => Promise<GitOpResult>;
     manifest: {
       get: (req: In<typeof S.GamesGetManifestRequest>) => Promise<z.infer<typeof S.GamesGetManifestResponse>>;
       set: (req: In<typeof S.GamesSetManifestRequest>) => Promise<GitOpResult>;

@@ -988,6 +988,12 @@ export const CHANNELS = {
   gamesList: 'mstudio:games:list',
   gamesCreate: 'mstudio:games:create',
   gamesAdd: 'mstudio:games:add',
+  /** Game management (Phase 149 Theme I). */
+  gamesRename: 'mstudio:games:rename',
+  gamesForget: 'mstudio:games:forget',
+  gamesReveal: 'mstudio:games:reveal',
+  gamesDeleteInfo: 'mstudio:games:delete-info',
+  gamesDelete: 'mstudio:games:delete',
   gamesGetManifest: 'mstudio:games:get-manifest',
   gamesSetManifest: 'mstudio:games:set-manifest',
   gamesRun: 'mstudio:games:run',
