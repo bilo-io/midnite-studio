@@ -75,21 +75,29 @@ tile (Shift ten), one undo step each press. `CanvasPointer` gained `mod`; `drawP
 selected object in `#f5a524` (primary 3 px, others 2 px) and `drawSelectionExtras` adds the dashed group bounds and the
 marquee. Marquee rectangles are in object coordinates (an isometric map draws them through `objectToMapPoint`).
 
-**Theme D — 3D multi-select and the group gizmo.** ◻ Shift / Mod click and a screen-space marquee in the 3D view; the
-gizmo drives the whole selection about a **Pivot** or **Centre** origin in **Local** or **World** space (Unity's Z and
-X toggles), one `gizmoEditGroup` undo step per drag.
+**Theme D — 3D multi-select and the group gizmo.** ✅ Shift click adds, Mod click toggles, Shift-drag draws a screen
+marquee (`marqueeHits`; the orbit controls stand down while Shift is held). Two or more selected objects share one gizmo
+on a pivot group: `groupPivot` (primary origin + yaw, or the AABB centre) and `gizmoEditGroup` (scale, then rotate, then
+translate, one undo step; `GroupPivot.yaw` and `rotateYaw` are in Tiled's clockwise sense, scale is in the pivot's frame).
+Z / X flip Pivot / Centre and Local / World (persisted in the view store). Paths translate with a group but do not turn or
+stretch; group surface snap is not applied. D2 reads "swaps positions" loosely: 180 swaps, 90 puts the boxes on the z axis.
 
 **Theme E — Align and distribute.** ✅ Pure `alignObjects` (min / centre / max on X or Y, against the selection bounds)
 and `distributeObjects` (even centres between the extremes, three or more) in `level-align.ts`, each one undo step via
 the edit model's new `translateObjects`. `LevelAlignBar` renders in the toolbar after Redo at two or more selected
 objects; both distribute buttons are disabled below three. All eight Lucide names resolve, so no fallback icons.
 
-**Theme F — Snap settings.** ◻ One snap popover for both views: grid (tile fractions in the plan, the frame's
-`GRID_STEPS` in 3D), angle (`ANGLE_STEPS`), and **surface** snap that drops a moved or placed object onto the top of
-the box under it. Persisted in `midnite-studio.level-view`.
+**Theme F — Snap settings.** ✅ `level-snap.ts` (`LevelSnap`, `planSnapStep`, `surfaceElevation`, `gizmoSteps`) and the
+toolbar `LevelSnapPopover` (master switch, Floorplan step Tile / ½ / ¼ / Off, 3D grid and angle, snap to surfaces),
+persisted and merge-sanitised in the view store. `snapPlan` takes the step (map px; none = legacy half metre, `null` =
+free), the 3D gizmo reads the same settings, Alt inverts snapping in both views, arrow-key nudges follow the plan step.
+Surface snap runs on gizmo release and on Place; `surfaceElevation` returns an absolute world Y (the `elevation` property).
 
-**Theme G — Every tool in 3D.** ◻ Volume (drag a rectangle on the ground), Path (click points, Enter finishes) and
-Rotate (drag to aim) work in the 3D view over a ground raycast; `TOOLS_IN_3D` becomes every 3D tool.
+**Theme G — Every tool in 3D.** ✅ Volume (drag a rubber-band box, orbit held still), Path (a click appends; a press that
+travels is an orbit) and Rotate (press a selected object, drag, every selected object turns to face the ground point,
+snapped by the angle step) run over a ground raycast the scene exposes; `level-ground.ts` holds `groundPoint`,
+`planPointFromWorld`, `volumeFromDrag`, `rotateToward`, `rayHitsItem`. The path draft stays in the editor so Enter /
+Escape / Backspace work in both views; `TOOLS_IN_3D` is every 3D tool. Real-pointer 3D passes stay with the human gate.
 
 **Theme H — The outliner.** ◻ The left aside becomes a resizable, collapsible outliner: layers with their objects as a
 tree, a search box, per-row hide and lock (editor-only, persisted per scene), click / Shift / Mod selection shared
@@ -323,13 +331,13 @@ export function marqueeHits(items: readonly { id: number; centre: [number, numbe
 
 **Acceptance.**
 
-- [ ] D1. `groupPivot(…, 'centre')` of two boxes at x = 0 and x = 10 m returns centre x = 5.
-- [ ] D2. `gizmoEditGroup` with `rotateYaw: 90` about a centre pivot swaps the two boxes' positions and adds 90 to each
+- [x] D1. `groupPivot(…, 'centre')` of two boxes at x = 0 and x = 10 m returns centre x = 5.
+- [x] D2. `gizmoEditGroup` with `rotateYaw: 90` about a centre pivot swaps the two boxes' positions and adds 90 to each
   `rotation`; `past.length` grows by 1.
-- [ ] D3. `gizmoEditGroup` with `scale: [2,1,2]` doubles each box's footprint and its distance from the pivot.
-- [ ] D4. `marqueeHits` excludes an item behind the camera (`inFront: false`) and one outside the rect.
-- [ ] D5. The store persists `pivot` and `space`; a corrupt value falls back to `'pivot'` / `'world'`.
-- [ ] D6. Pressing Z and X with the 3D view focused flips the radios' `aria-checked`.
+- [x] D3. `gizmoEditGroup` with `scale: [2,1,2]` doubles each box's footprint and its distance from the pivot.
+- [x] D4. `marqueeHits` excludes an item behind the camera (`inFront: false`) and one outside the rect.
+- [x] D5. The store persists `pivot` and `space`; a corrupt value falls back to `'pivot'` / `'world'`.
+- [x] D6. Pressing Z and X with the 3D view focused flips the radios' `aria-checked`.
 
 **Done when** D1–D6 pass. Real-gizmo dragging is covered by the Verification gate (WebGL is not driven in e2e here).
 
@@ -415,12 +423,12 @@ export function surfaceElevation(items: readonly WorldItem[], footprint: { minX:
 
 **Acceptance.**
 
-- [ ] F1. `planSnapStep` returns a half-tile step for `planStep: 0.5` and `null` for `0` or `enabled: false`.
-- [ ] F2. `surfaceElevation` returns the top of a 2 m crate under the footprint and `0` over open ground; the moved
+- [x] F1. `planSnapStep` returns a half-tile step for `planStep: 0.5` and `null` for `0` or `enabled: false`.
+- [x] F2. `surfaceElevation` returns the top of a 2 m crate under the footprint and `0` over open ground; the moved
   object itself is excluded.
-- [ ] F3. The store round-trips `snap`; a corrupt `snap.grid` falls back to `DEFAULT_LEVEL_SNAP.grid`.
-- [ ] F4. Changing the angle select in the popover changes the value `TransformModeBar` receives.
-- [ ] F5. A synthetic plan drag with `planStep: 0.5` lands on half-tile positions; with Alt held it lands unsnapped.
+- [x] F3. The store round-trips `snap`; a corrupt `snap.grid` falls back to `DEFAULT_LEVEL_SNAP.grid`.
+- [x] F4. Changing the angle select in the popover changes the value `TransformModeBar` receives.
+- [x] F5. A synthetic plan drag with `planStep: 0.5` lands on half-tile positions; with Alt held it lands unsnapped.
 
 **Done when** F1–F5 pass.
 
@@ -455,11 +463,11 @@ export function planPointFromWorld(level: EditLevel, x: number, z: number): Plan
 
 **Acceptance.**
 
-- [ ] G1. `groundPoint` returns the intersection for a downward ray and `null` for a ray parallel to the ground.
-- [ ] G2. Switching to 3D with Volume, Path or Rotate active keeps that tool (the toolbar radio stays checked).
-- [ ] G3. A Volume gesture fed through the view's pure gesture reducer (`volumeFromDrag(from, to, snap)`, exported
+- [x] G1. `groundPoint` returns the intersection for a downward ray and `null` for a ray parallel to the ground.
+- [x] G2. Switching to 3D with Volume, Path or Rotate active keeps that tool (the toolbar radio stays checked).
+- [x] G3. A Volume gesture fed through the view's pure gesture reducer (`volumeFromDrag(from, to, snap)`, exported
   for the test) produces the same `setVolume` arguments as the plan for equal ground points.
-- [ ] G4. Rotate over 2 selected objects sets both `rotation`s toward the same ground point in one undo step.
+- [x] G4. Rotate over 2 selected objects sets both `rotation`s toward the same ground point in one undo step.
 
 **Done when** G1–G4 pass and the Verification gate's 3D tool pass is ticked.
 
