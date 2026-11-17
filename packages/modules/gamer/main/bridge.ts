@@ -51,6 +51,7 @@ export function createGamerBridge(ipc: RendererIpc): GamerBridge {
       reveal: (req) => call(CHANNELS.gamesReveal, req),
       deleteInfo: (req) => call(CHANNELS.gamesDeleteInfo, req),
       delete: (req) => call(CHANNELS.gamesDelete, req),
+      doctor: (req) => call(CHANNELS.gamesDoctor, req),
       levels: {
         list: (req) => call(CHANNELS.gamesLevels, req),
         get: (req) => call(CHANNELS.gamesLevelGet, req),

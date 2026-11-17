@@ -374,6 +374,8 @@ import {
   GameCreateRequestSchema,
   GameCreateResultSchema,
   GameIdRequest as GameIdRequestSchema,
+  GameDiagnosisSchema,
+  GameDoctorRequestSchema,
   GameLogsRequest as GameLogsRequestSchema,
   GameLogsResponse as GameLogsResponseSchema,
   GameManifestGetResponse as GameManifestGetResponseSchema,
@@ -5759,6 +5761,9 @@ export const GamesConsolePayload = GameConsolePayloadSchema;
 export const GamesKitUpgradeRequest = GameIdRequestSchema;
 export const GamesKitUpgradeResultSchema = z.object({ branch: z.string() });
 export const GamesKitUpgradeResponse = GitOpResultOf(GamesKitUpgradeResultSchema);
+// Phase 149 Theme C — the game doctor.
+export const GamesDoctorRequest = GameDoctorRequestSchema;
+export const GamesDoctorResponse = GitOpResultOf(GameDiagnosisSchema);
 export const GamesLevelsRequest = GameLevelsRequestSchema;
 export const GamesLevelsResponse = GitOpResultOf(GameLevelsResultSchema);
 export const GamesLevelGetRequest = GameLevelGetRequestSchema;

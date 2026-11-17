@@ -186,3 +186,22 @@ export const GAME_FIX_IDS = [
 ] as const;
 export const GameFixIdSchema = z.enum(GAME_FIX_IDS);
 export type GameFixId = z.infer<typeof GameFixIdSchema>;
+
+/**
+ * Compare two `x.y.z` versions (a `-pre`/`+build` suffix is ignored for the numbers; a pre-release sorts before its
+ * release). Negative when `a < b`, `0` when equal, positive when `a > b`; `null` when either is not a version.
+ */
+export function compareSemver(a: string, b: string): number | null {
+  const parse = (v: string): { nums: [number, number, number]; pre: boolean } | null => {
+    const m = /^(\d+)\.(\d+)\.(\d+)(-[\w.-]+)?(?:\+[\w.-]+)?$/.exec(v.trim());
+    return m ? { nums: [Number(m[1]), Number(m[2]), Number(m[3])], pre: m[4] !== undefined } : null;
+  };
+  const pa = parse(a);
+  const pb = parse(b);
+  if (!pa || !pb) return null;
+  for (let i = 0; i < 3; i += 1) {
+    const d = pa.nums[i]! - pb.nums[i]!;
+    if (d !== 0) return d;
+  }
+  return pa.pre === pb.pre ? 0 : pa.pre ? -1 : 1;
+}

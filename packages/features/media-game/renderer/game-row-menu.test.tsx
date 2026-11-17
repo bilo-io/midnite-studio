@@ -18,6 +18,8 @@ const game = (over: Partial<GameSummary> = {}): GameSummary => ({
   dirty: false,
   valid: true,
   issue: null,
+  status: null,
+  findingCount: 0,
   ...over,
 });
 

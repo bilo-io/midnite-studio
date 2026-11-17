@@ -41,6 +41,7 @@ export const gameState = async (input: McpToolInput<'game_state'>): Promise<McpT
 
 export const gameLevelList = async (input: McpToolInput<'game_level_list'>): Promise<McpToolOutput<'game_level_list'>> =>
   tools().game_level_list(input);
+export const gameDoctor = async (input: McpToolInput<'game_doctor'>): Promise<McpToolOutput<'game_doctor'>> => tools().game_doctor(input);
 export const gameLevelGet = async (input: McpToolInput<'game_level_get'>): Promise<McpToolOutput<'game_level_get'>> =>
   tools().game_level_get(input);
 export const gameLevelSet = async (input: McpToolInput<'game_level_set'>): Promise<McpToolOutput<'game_level_set'>> => {

@@ -30,6 +30,7 @@ import {
   GameStateAssertOpSchema,
   GAME_REPLAY_MAX_FRAMES,
   GameSceneNameSchema,
+  GameDiagnosisSchema,
 } from './media-game';
 import { GameGotoResultSchema, GameLevelsResultSchema } from './game-level';
 
@@ -57,6 +58,8 @@ export const GAME_MCP_TOOL_IDS = [
   'game_level_get',
   'game_level_set',
   'game_goto',
+  // Phase 149 Theme C.
+  'game_doctor',
 ] as const;
 export type GameMcpToolId = (typeof GAME_MCP_TOOL_IDS)[number];
 export const isGameMcpToolId = (value: string): value is GameMcpToolId =>
@@ -78,6 +81,7 @@ export const GAME_MCP_READ_TOOL_IDS: readonly GameMcpToolId[] = [
   'game_state',
   'game_level_list',
   'game_level_get',
+  'game_doctor',
 ];
 
 /** Tools that outlast the shim's default 60 s call timeout (a run boots a renderer, a burst waits between frames). */
@@ -260,6 +264,8 @@ export const GameLevelSetOutputSchema = z.object({ ok: z.literal(true), gameId: 
 export const GameGotoInputSchema = GameToolTargetSchema.extend({ scene: GameSceneNameSchema });
 export const GameGotoOutputSchema = GameGotoResultSchema.extend({ gameId: z.string() });
 export const GameLevelListOutputSchema = GameLevelsResultSchema;
+/** `game_doctor` (Phase 149 Theme C): the game's diagnosis against the Midnite game standard. */
+export const GameDoctorOutputSchema = GameDiagnosisSchema;
 
 /** `game_assert_frame` and `game_playtest` answer a JSON text block, then any diff or failure images. */
 export const GameContentOutputSchema = z.object({ _content: z.array(z.unknown()) });

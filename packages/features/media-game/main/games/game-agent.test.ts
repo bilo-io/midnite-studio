@@ -349,6 +349,8 @@ describe('createGameAgentService', () => {
     dirty: false,
     valid: true,
     issue: null,
+    status: null,
+    findingCount: 0,
   });
 
   function setup(
