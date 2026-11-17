@@ -64,6 +64,19 @@ describe.skipIf(process.platform !== 'darwin')('dev-app.mjs (darwin)', () => {
       stdio: ['ignore', 'pipe', 'pipe'],
     }).trim();
 
+  it('signs with the given identity, else ad hoc', () => {
+    const input = { electronApp: '/e/Electron.app', frameworks: ['Electron Framework.framework'], icon: '/i.icns', stubPath: '/o/Midnite Apps.app' };
+    const signs = (steps: ReturnType<typeof planDevStub>) =>
+      steps.filter((x) => x.kind === 'exec' && x.args.includes('--sign')).map((x) => (x.kind === 'exec' ? x.args[x.args.indexOf('--sign') + 1] : ''));
+    expect(signs(planDevStub(input))).toEqual(['-']);
+    expect(signs(planDevStub({ ...input, signIdentity: 'Developer ID Application: X (T)' }))).toEqual(['Developer ID Application: X (T)']);
+  });
+
+  it('the stamp differs by signing identity', () => {
+    expect(devStubStamp('1', 'a')).toBe(devStubStamp('1', 'a', '-'));
+    expect(devStubStamp('1', 'a')).not.toBe(devStubStamp('1', 'a', 'Developer ID Application: X (T)'));
+  });
+
   it('builds a signed stub with the launcher identity, then reuses it', () => {
     const exe = run();
     expect(exe).toBe(join(out, 'Midnite Apps.app', 'Contents', 'MacOS', 'Midnite Apps'));

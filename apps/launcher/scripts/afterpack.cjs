@@ -19,6 +19,7 @@ const { join } = require('node:path');
 const { flipFuses } = require('@electron/fuses');
 
 const { fuseConfig, fuseMismatches } = require('./lib/fuses.cjs');
+const { resolveSigning, listKeychainIdentities, afterPackSignArg } = require('../../../scripts/lib/signing-identity.cjs');
 
 exports.default = async function afterPack(context) {
   if (context.electronPlatformName !== 'darwin') return;
@@ -31,7 +32,16 @@ exports.default = async function afterPack(context) {
   if (mismatches.length > 0) throw new Error(`[afterPack] fuses not as asked:\n  ${mismatches.join('\n  ')}`);
   console.log('[afterPack] flipped and verified Electron fuses');
 
-  execFileSync('codesign', ['--force', '--deep', '--sign', '-', appPath], { stdio: 'inherit' });
+  // With a Developer ID that electron-builder signs, the bundle is unsealed until builder signs after
+  // this hook (the release's verify-signature.mjs checks the final zip), so neither the ad-hoc pass
+  // nor the --verify runs. With no identity it is today's ad-hoc seal.
+  const resolved = resolveSigning(process.env, listKeychainIdentities);
+  const signArg = afterPackSignArg(resolved);
+  if (signArg === null) {
+    console.log(`[afterPack] skipping ad-hoc sign — ${resolved.name} signs after this hook`);
+    return;
+  }
+  execFileSync('codesign', ['--force', '--deep', '--sign', signArg, appPath], { stdio: 'inherit' });
   execFileSync('codesign', ['--verify', '--deep', '--strict', appPath], { stdio: 'inherit' });
-  console.log(`[afterPack] ad-hoc signed ${appName}`);
+  console.log(`[afterPack] ${signArg === '-' ? 'ad-hoc ' : ''}signed ${appName}`);
 };
