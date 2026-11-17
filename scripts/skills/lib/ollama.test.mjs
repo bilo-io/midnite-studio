@@ -1,4 +1,4 @@
-// vitest/jsdom-free node test: Ollama routing and fallback with a mocked fetch (no daemon).
+// Node-only test: Ollama routing and fallback with a mocked fetch (no daemon).
 import { describe, expect, it, vi } from 'vitest';
 
 import { isNoLlm, ollamaUrl, probe, routeModels, run } from './ollama.mjs';

@@ -15,8 +15,8 @@ export const defaultRun = (args, { cwd, env } = {}) =>
 export function classifyError(text) {
   const t = String(text);
   if (/rate limit|API rate|secondary rate/i.test(t)) return 'rate-limit';
-  if (/auth|gh auth login|not logged in|bad credentials|HTTP 401|GH_TOKEN/i.test(t)) return 'auth';
-  if (/not found|HTTP 404|Could not resolve/i.test(t)) return 'not-found';
+  if (/\bauth(?:entication|orization)?\b|gh auth login|not logged in|bad credentials|HTTP 401|GH_TOKEN/i.test(t)) return 'auth';
+  if (/not found|HTTP 404|Could not resolve to/i.test(t)) return 'not-found';
   return 'error';
 }
 
