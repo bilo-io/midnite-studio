@@ -1275,6 +1275,179 @@ export async function runHiddenTabsRss({ repo, tabs = 8 }) {
   }
 }
 
+/**
+ * Phase 84 G.5 — pure summary of the warm/cold time-to-first-row samples.
+ * `speedup` = cold / warm, one decimal. Throws on an empty array.
+ */
+export function summarizeGraphReturn({ warmMs, coldMs }) {
+  if (!warmMs?.length || !coldMs?.length) throw new Error('summarizeGraphReturn: empty samples');
+  const warmMedianMs = median(warmMs);
+  const coldMedianMs = median(coldMs);
+  const speedup = Math.round((coldMedianMs / warmMedianMs) * 10) / 10;
+  return { warmMedianMs, coldMedianMs, speedup };
+}
+
+/**
+ * Phase 84 G.5 — the `--assert` verdict for the kept-Graph heap.
+ * 0 = ok, 1 = over budget, 2 = budget unset.
+ */
+export function checkGraphReturnBudget(keptHeapKb, limit) {
+  if (typeof limit !== 'number') return 2;
+  return keptHeapKb > limit ? 1 : 0;
+}
+
+/**
+ * Phase 84 Theme G.5 — Graph -> Files -> Graph time-to-first-row, warm
+ * (Graph kept alive) vs cold (Graph -> Changes -> Files -> Graph, so Changes
+ * displaced the kept Graph), plus the kept Graph's renderer heap before and
+ * after TTL eviction. Needs a >=19k-commit repo (`make-big-repo.sh`); against
+ * a 25k repo it only proves the G.3 row ceiling (`ceilingEvicted`).
+ *
+ * `useGraphStore`'s rows are store-global and outlive the view, so the
+ * kept/evicted heap delta is the kept view's React/DOM cost, not the row buffer.
+ */
+export async function runGraphReturn({ repo, runs = 5 }) {
+  requireBuilt();
+  const expected = getExpectedMarks();
+  const profile = await seedProfile(repo, expected, { tmpPrefix: '/tmp/mstudio-perf-' });
+
+  let devtoolsUrl = null;
+  process.stderr.write('launching with CDP for the graph-return measurement…\n');
+  const run = await launch({
+    profile,
+    repo,
+    extraArgs: ['--remote-debugging-port=0', '--js-flags=--expose-gc'],
+    until: (marks) => expected.every((n) => marks.has(n)) && devtoolsUrl !== null,
+    onLine: (line) => {
+      const m = DEVTOOLS_LINE.exec(line.trim());
+      if (m) devtoolsUrl = m[1];
+    },
+  });
+  if (!run.child.pid || !devtoolsUrl) {
+    await stop(run.child, profile);
+    discardProfile(profile);
+    throw new Error('the app did not start, or never printed a DevTools endpoint');
+  }
+
+  const browser = await chromiumModule().connectOverCDP(devtoolsUrl);
+  try {
+    const page = browser.contexts()[0]?.pages().find((p) => !p.url().startsWith('devtools://'));
+    if (!page) throw new Error('CDP connected but no app page was found');
+    const cdp = await page.context().newCDPSession(page);
+
+    await page.evaluate(async (path) => {
+      const opened = await window.midniteStudio.repos.open({ path });
+      if (!opened.ok) throw new Error(`repos.open (setup) failed: ${opened.message}`);
+    }, repo);
+
+    const go = (view) =>
+      page.evaluate((v) => {
+        const a = document.querySelector(`a[href="/${v}"]`);
+        if (!a) throw new Error(`no nav link for /${v}`);
+        a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      }, view);
+    const slot = (attr = '') => `[data-view-slot="graph"]${attr}`;
+    const present = (sel) => page.evaluate((s) => document.querySelector(s) !== null, sel);
+    const heapUsed = async () => (await cdp.send('Runtime.getHeapUsage')).usedSize;
+    const gcHeapKb = async () => {
+      await cdp.send('HeapProfiler.collectGarbage');
+      return Math.round((await heapUsed()) / 1024);
+    };
+    // Stream settled: two heap reads 2 s apart within 2 %, 60 s cap.
+    const settle = async () => {
+      const deadline = Date.now() + 60_000;
+      let prev = await heapUsed();
+      while (Date.now() < deadline) {
+        await sleep(2_000);
+        const cur = await heapUsed();
+        if (Math.abs(cur - prev) <= prev * 0.02) return;
+        prev = cur;
+      }
+      throw new Error('graph stream did not settle within 60 s');
+    };
+    // Time to first row, measured inside the renderer (CDP round-trips excluded).
+    const timedReturn = () =>
+      page.evaluate(
+        () =>
+          new Promise((resolve, reject) => {
+            const t0 = performance.now();
+            document
+              .querySelector('a[href="/graph"]')
+              ?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            const tick = () => {
+              const now = performance.now();
+              if (
+                document.querySelector(
+                  '[data-view-slot="graph"]:not(.hidden) [data-index] [role="row"]',
+                )
+              ) {
+                resolve(now - t0);
+              } else if (now - t0 > 30_000) {
+                reject(new Error('graph never showed a first row within 30 s'));
+              } else {
+                requestAnimationFrame(tick);
+              }
+            };
+            requestAnimationFrame(tick);
+          }),
+      );
+
+    await go('graph');
+    await sleep(3_000);
+    await settle();
+
+    // Ceiling probe: over 20k rows the Graph unmounts on leaving, within 2 s.
+    await go('files');
+    await sleep(2_000);
+    const keptAfterLeave = await present(slot('[data-kept-alive]'));
+    const gone = !(await present(slot()));
+    if (gone && !keptAfterLeave) {
+      // Evicted straight away: this repo is over the ceiling (or kept-alive is off).
+      return { warmMs: [], coldMs: [], keptHeapKb: 0, evictedHeapKb: 0, ceilingEvicted: true };
+    }
+
+    const warmMs = [];
+    const coldMs = [];
+    for (let i = 0; i < runs; i++) {
+      // Warm: Graph -> Files, Graph kept, then back.
+      if (!(await present(slot('[data-kept-alive]')))) {
+        throw new Error('warm run: Graph was not kept alive on Files');
+      }
+      warmMs.push(await timedReturn());
+      await settle();
+      // Cold: Graph -> Changes -> Files, Changes displaces the kept Graph (G.4).
+      await go('changes');
+      await sleep(1_000);
+      await go('files');
+      await sleep(1_000);
+      if (await present(slot())) throw new Error('cold run: Graph was still mounted');
+      coldMs.push(await timedReturn());
+      await settle();
+      await go('files');
+      await sleep(1_000);
+    }
+
+    // Heap, once: kept (on Files, Graph kept) then after TTL eviction.
+    await go('graph');
+    await settle();
+    await go('files');
+    await sleep(1_000);
+    if (!(await present(slot('[data-kept-alive]')))) throw new Error('heap: Graph not kept');
+    const keptHeapKb = await gcHeapKb();
+    const deadline = Date.now() + 6 * 60_000;
+    while (await present(slot())) {
+      if (Date.now() > deadline) throw new Error('kept Graph never evicted within 6 min');
+      await sleep(2_000);
+    }
+    const evictedHeapKb = await gcHeapKb();
+    return { warmMs, coldMs, keptHeapKb, evictedHeapKb, ceilingEvicted: null };
+  } finally {
+    await browser.close();
+    await stop(run.child, profile);
+    discardProfile(profile);
+  }
+}
+
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
   const { flag, value } = cli(process.argv.slice(2));
@@ -1283,6 +1456,8 @@ if (isMain) {
   const popoutRole = value('popout', '');
   const hiddenSessions = value('hidden-sessions', '');
   const hiddenTabs = value('hidden-tabs', '');
+  const isGraphReturn = flag('graph-return');
+  const runs = Number(value('runs', '5'));
   const isSoak = flag('soak');
   const isIdle = flag('idle');
   const heapDiff = flag('heap-diff');
@@ -1290,9 +1465,9 @@ if (isMain) {
   const doAssert = flag('assert');
   const repo = mainWorktree(resolve(value('repo', REPO_ROOT)));
 
-  if (!actionName && !popoutRole && !hiddenSessions && !hiddenTabs && !isSoak && !isIdle) {
+  if (!actionName && !popoutRole && !hiddenSessions && !hiddenTabs && !isGraphReturn && !isSoak && !isIdle) {
     console.error(
-      `--action, --popout, --hidden-sessions, --hidden-tabs, --soak or --idle is required. Known actions: ` +
+      `--action, --popout, --hidden-sessions, --hidden-tabs, --graph-return, --soak or --idle is required. Known actions: ` +
         `${Object.keys(ACTIONS).join(', ')}`,
     );
     process.exit(2);
@@ -1385,6 +1560,53 @@ if (isMain) {
         process.exit(1);
       }
       console.log('hidden-session RSS budget ok');
+    }
+    process.exit(0);
+  }
+
+  if (isGraphReturn) {
+    let res;
+    try {
+      res = await runGraphReturn({ repo, runs });
+    } catch (err) {
+      console.error(err.message);
+      process.exit(2);
+    }
+    if (res.ceilingEvicted === true) {
+      console.log('graph-return: Graph evicted on leaving (over the row ceiling) - G.3 holds');
+      process.exit(0);
+    }
+    const summary = summarizeGraphReturn(res);
+    const deltaKb = res.keptHeapKb - res.evictedHeapKb;
+    if (asJson) {
+      console.log(JSON.stringify({ ...res, ...summary, deltaKb }, null, 2));
+    } else {
+      console.log(`\ngraph return - Graph -> Files -> Graph, median of ${runs}\n`);
+      console.log(
+        `  time to first row: warm=${summary.warmMedianMs.toFixed(0)}ms ` +
+          `cold=${summary.coldMedianMs.toFixed(0)}ms (${summary.speedup}x)`,
+      );
+      console.log(
+        `  renderer heap: kept=${res.keptHeapKb}KB evicted=${res.evictedHeapKb}KB delta=${deltaKb}KB`,
+      );
+      console.log(
+        '  (rows live in the store-global graph buffer, so the delta is the kept view\'s React/DOM cost, not the row buffer)\n',
+      );
+    }
+    if (doAssert) {
+      const budgets = JSON.parse(readFileSync(join(REPO_ROOT, 'scripts', 'perf', 'budgets.json'), 'utf8'));
+      const code = checkGraphReturnBudget(res.keptHeapKb, budgets.keptGraphHeapKb);
+      if (code === 2) {
+        console.error(`--assert needs budgets.json's keptGraphHeapKb, which is not set.`);
+        process.exit(2);
+      }
+      if (code === 1) {
+        console.error(
+          `kept-Graph heap budget breached: ${res.keptHeapKb}KB > ${budgets.keptGraphHeapKb}KB`,
+        );
+        process.exit(1);
+      }
+      console.log('kept-Graph heap budget ok');
     }
     process.exit(0);
   }
