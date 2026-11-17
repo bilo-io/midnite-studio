@@ -1005,6 +1005,8 @@ export const CHANNELS = {
   gamesJuice: 'mstudio:games:juice',
   gamesLogs: 'mstudio:games:logs',
   gamesKitUpgrade: 'mstudio:games:kit-upgrade',
+  /** Phase 149 Theme C: diagnose a game against the Midnite game standard (read-only). */
+  gamesDoctor: 'mstudio:games:doctor',
   /** Levels (Phase 132 Theme C): `levels/<scene>.tmj` list, read, write-and-commit, and the scene jump. */
   gamesLevels: 'mstudio:games:levels',
   gamesLevelGet: 'mstudio:games:level-get',

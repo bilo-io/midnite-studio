@@ -18,6 +18,7 @@ describe('game_* MCP tools', () => {
     const registered = Object.keys(MCP_TOOLS).filter((id) => id.startsWith('game_'));
     expect(registered.sort()).toEqual([...GAME_MCP_TOOL_IDS].sort());
     expect(GAME_MCP_READ_TOOL_IDS.slice().sort()).toEqual(GAME_MCP_TOOL_IDS.filter((id) => MCP_TOOLS[id].readOnly).sort());
+    expect(GAME_MCP_READ_TOOL_IDS).toContain('game_doctor');
     expect(isGameMcpToolId('game_run')).toBe(true);
     expect(isGameMcpToolId('model_save')).toBe(false);
   });

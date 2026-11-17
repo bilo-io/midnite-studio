@@ -13,6 +13,7 @@
  */
 import { z } from 'zod';
 
+import { GameFixIdSchema, GameRuleAreaSchema, GameRuleIdSchema, GameRuleLevelSchema } from './game-standard';
 import { LoopModelSchema } from './loops';
 import { MediaTabSchema } from './media';
 
@@ -364,6 +365,10 @@ export type GamesSettingsPatch = z.infer<typeof GamesSettingsPatchSchema>;
 
 // --- list / create -----------------------------------------------------------
 
+/** A game's standard status (Phase 149 Theme C): the worst finding's level, `ok` when none is above `info`. */
+export const GameDiagnosisStatusSchema = z.enum(['ok', 'warn', 'error']);
+export type GameDiagnosisStatus = z.infer<typeof GameDiagnosisStatusSchema>;
+
 export const GameSummarySchema = z.object({
   gameId: z.string(),
   name: z.string(),
@@ -375,6 +380,11 @@ export const GameSummarySchema = z.object({
   valid: z.boolean(),
   /** The first manifest issue, shown as the tooltip on an invalid row. */
   issue: z.string().nullable(),
+  // --- Phase 149 Theme C: from the cheap diagnosis (manifest, entry, kit) ---
+  /** `null` when no diagnosis ran (a host or test that does not diagnose). */
+  status: GameDiagnosisStatusSchema.nullable(),
+  findingCount: z.number().int().min(0),
+  // --- end Phase 149 Theme C ---
 });
 export type GameSummary = z.infer<typeof GameSummarySchema>;
 
@@ -429,6 +439,40 @@ export type GameDeleteInfo = z.infer<typeof GameDeleteInfoSchema>;
 /** Refused unless `confirmName` equals the game's name exactly. */
 export const GameDeleteRequestSchema = z.object({ gameId: z.string().min(1), confirmName: z.string() });
 // --- end manage -------------------------------------------------------------------
+
+// --- doctor (Phase 149 Theme C) ---------------------------------------------
+
+/** One gap between a game and the Midnite game standard (`docs/GAME_STANDARD.md`). */
+export const GameFindingSchema = z.object({
+  rule: GameRuleIdSchema,
+  /** Usually `GAME_RULES[rule].level`; the doctor lowers it where the context makes the gap harmless. */
+  level: GameRuleLevelSchema,
+  area: GameRuleAreaSchema,
+  message: z.string(),
+  /** The game-relative file the finding is about, or `null` when it is about the game as a whole. */
+  path: z.string().nullable(),
+  /** The safe one-click fix (Theme D), when one exists. */
+  fixId: GameFixIdSchema.nullable(),
+});
+export type GameFinding = z.infer<typeof GameFindingSchema>;
+
+export const GameDiagnosisSchema = z.object({
+  path: z.string(),
+  hasManifest: z.boolean(),
+  findings: z.array(GameFindingSchema),
+  counts: z.object({ error: z.number().int().min(0), warn: z.number().int().min(0), info: z.number().int().min(0) }),
+  /** `error` if any error, else `warn` if any warn, else `ok`. */
+  status: GameDiagnosisStatusSchema,
+});
+export type GameDiagnosis = z.infer<typeof GameDiagnosisSchema>;
+
+/** A listed game by `gameId`, or an absolute folder (Open Game, before it is listed): exactly one. */
+export const GameDoctorRequestSchema = z
+  .object({ gameId: z.string().min(1).optional(), path: z.string().min(1).optional() })
+  .refine((req) => (req.gameId === undefined) !== (req.path === undefined), 'Give exactly one of gameId or path.');
+export type GameDoctorRequest = z.input<typeof GameDoctorRequestSchema>;
+
+// --- end doctor --------------------------------------------------------------
 
 export const GameIdRequest = z.object({ gameId: z.string().min(1) });
 export const GameManifestGetResponse = z.object({

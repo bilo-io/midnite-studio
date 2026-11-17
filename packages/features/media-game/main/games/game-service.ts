@@ -1,4 +1,4 @@
-import { readFile, realpath, writeFile } from 'node:fs/promises';
+import { readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve as resolvePath } from 'node:path';
 
 import {
@@ -11,6 +11,7 @@ import {
   type GameAddResult,
   type GameCreateRequest,
   type GameCreateResult,
+  type GameDiagnosis,
   type GameJuicePatch,
   type GameJuiceSettings,
   type GameLogEntry,
@@ -25,6 +26,7 @@ import {
 } from '@midnite/studio-shared';
 
 import type { Logger } from './logger';
+import { diagnoseGame } from './game-doctor';
 import { resolveGameFolder } from './game-open';
 import { listGames } from './game-list';
 import { createGameLevels } from './game-levels';
@@ -287,6 +289,29 @@ export function createGameService(deps: GameServiceDeps) {
       return result;
     },
     stopAll: (): void => deps.runner.stopAll(),
+
+    // --- Phase 149 Theme C: the game doctor ---
+    /**
+     * Diagnose a game against the Midnite game standard. `gameId` names a listed game; `path` (Open Game, before
+     * the folder is listed) must be an existing absolute directory. Read-only.
+     */
+    async doctor(req: { gameId?: string; path?: string }): Promise<GitOpResult<GameDiagnosis>> {
+      if (req.gameId !== undefined) {
+        const game = await resolve(req.gameId);
+        if (!game) return failure('That game was not found.');
+        return ok(await diagnoseGame(game.path));
+      }
+      if (req.path === undefined || !isAbsolute(req.path)) return failure('Give a game id or an absolute folder path.');
+      let real: string;
+      try {
+        real = await realpath(resolvePath(req.path));
+        if (!(await stat(real)).isDirectory()) return failure('That path is not a folder.');
+      } catch {
+        return failure('That folder does not exist.');
+      }
+      return ok(await diagnoseGame(real));
+    },
+    // --- end Phase 149 Theme C ---
 
     async popOut(gameId: string): Promise<GitOpResult> {
       if (!deps.popout) return failure('Pop out is not available.');

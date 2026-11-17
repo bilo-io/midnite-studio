@@ -53,6 +53,7 @@ import {
   GameLevelSetOutputSchema,
   GameGotoInputSchema,
   GameGotoOutputSchema,
+  GameDoctorOutputSchema,
   GameToolTargetSchema,
   GameAssertFrameInputSchema,
   GameAssertStateInputSchema,
@@ -299,6 +300,7 @@ type McpToolEntry = {
     | 'game_level_get'
     | 'game_level_set'
     | 'game_goto'
+    | 'game_doctor'
     | 'terrain_list'
     | 'terrain_open'
     | 'terrain_get_spec'
@@ -1167,6 +1169,15 @@ export const MCP_TOOLS = {
     input: GameGotoInputSchema,
     output: GameGotoOutputSchema,
     readOnly: false,
+  },
+  game_doctor: {
+    id: 'game_doctor',
+    title: 'Diagnose a game',
+    description:
+      'Checks a game against the Midnite game standard and answers every finding (rule id, level, message, file, fix id) with a status — use before changing a game Studio did not create, or when a Games feature does not work for it.',
+    input: GameToolTargetSchema,
+    output: GameDoctorOutputSchema,
+    readOnly: true,
   },
   /*
    * Media ▸ Terrain (Phase 105 Theme J) — shape a terrain iteratively: pick a height source, build,

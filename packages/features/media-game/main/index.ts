@@ -174,6 +174,8 @@ export const mediaGameMain = defineFeatureMain<MediaGameMainServices>({
     handle(CHANNELS.gamesPopOut, schemas.GamesPopOutRequest, ({ gameId }) => service.popOut(gameId), (issue) => failure(issue));
     handleBare(CHANNELS.gamesPopped, () => service.popped());
     handle(CHANNELS.gamesKitUpgrade, schemas.GamesKitUpgradeRequest, ({ gameId }) => service.kitUpgrade(gameId), (issue) => failure(issue));
+    // Phase 149 Theme C: the game doctor (read-only).
+    handle(CHANNELS.gamesDoctor, schemas.GamesDoctorRequest, (req) => service.doctor(req), (issue) => failure(issue));
 
     // Levels (Phase 132 Theme C).
     handle(CHANNELS.gamesLevels, schemas.GamesLevelsRequest, ({ gameId }) => service.levels.list(gameId), (issue) => failure(issue));

@@ -214,7 +214,7 @@ describe('createGameExport on a composed platformer', () => {
     await writeFile(join(path, '.env'), 'SECRET=1');
     await writeFile(join(tmp, 'outside.txt'), 'outside');
     await symlink(join(tmp, 'outside.txt'), join(path, 'src', 'link.txt'));
-    const game: GameSummary = { gameId: 'g1', name: 'Moon Rover', path, engine: 'phaser', dimension: '2d', starter: 'platformer', dirty: false, valid: true, issue: null };
+    const game: GameSummary = { gameId: 'g1', name: 'Moon Rover', path, engine: 'phaser', dimension: '2d', starter: 'platformer', dirty: false, valid: true, issue: null, status: null, findingCount: 0 };
     return { path, exporter: createGameExport({ resolve: async (id) => (id === 'g1' ? game : null) }) };
   }
 

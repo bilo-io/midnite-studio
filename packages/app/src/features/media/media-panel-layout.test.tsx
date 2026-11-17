@@ -24,6 +24,8 @@ const GAME: GameSummary = {
   dirty: false,
   valid: true,
   issue: null,
+  status: null,
+  findingCount: 0,
 };
 
 afterEach(cleanup);

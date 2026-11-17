@@ -9,6 +9,7 @@ import {
   type GameSummary,
 } from '@midnite/studio-shared';
 
+import { diagnoseGameCheap } from './game-doctor';
 import { gameIdForPath } from './game-scaffold';
 
 /** Read a folder's manifest file, or `null` when it has none. */
@@ -44,6 +45,13 @@ async function isDirty(folder: string): Promise<boolean> {
 
 /** One game folder as the explorer shows it; an invalid manifest still lists. */
 async function summarise(folder: string): Promise<GameSummary> {
+  // Phase 149 Theme C: the row's status dot comes from the cheap diagnosis (manifest, entry, kit).
+  const diagnosis = await diagnoseGameCheap(folder);
+  const health = { status: diagnosis.status, findingCount: diagnosis.findings.length };
+  return { ...(await summariseManifest(folder)), ...health };
+}
+
+async function summariseManifest(folder: string): Promise<Omit<GameSummary, 'status' | 'findingCount'>> {
   const gameId = await gameIdForPath(folder);
   const raw = (await readManifestFile(folder)) ?? '';
   let value: unknown;

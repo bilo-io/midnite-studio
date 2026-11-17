@@ -52,7 +52,7 @@ export type GameImage = {
 };
 
 export type GameMcpDeps = {
-  service: Pick<GameService, 'resolve' | 'list' | 'levels' | 'goto' | 'create' | 'manifestGet' | 'manifestSet' | 'run' | 'stop' | 'reload' | 'logs' | 'emit' | 'isRunning'>;
+  service: Pick<GameService, 'resolve' | 'list' | 'levels' | 'goto' | 'doctor' | 'create' | 'manifestGet' | 'manifestSet' | 'run' | 'stop' | 'reload' | 'logs' | 'emit' | 'isRunning'>;
   /** The running game's web contents, or `null` when it is not running. */
   webContents: (gameId: string) => GamePageContents | null;
   /** The asset bridge's import (Theme N). */
@@ -86,7 +86,8 @@ export type GameMcpTools = {
     | 'game_level_list'
     | 'game_level_get'
     | 'game_level_set'
-    | 'game_goto']: (input: McpToolInput<K>) => Promise<McpToolOutput<K>>;
+    | 'game_goto'
+    | 'game_doctor']: (input: McpToolInput<K>) => Promise<McpToolOutput<K>>;
 };
 
 export { GAME_STATE_TIMEOUT_MS } from './game-state';
@@ -349,6 +350,11 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
       const found = await need(game);
       const jumped = unwrapLevel(await deps.service.goto(found.gameId, scene));
       return { gameId: found.gameId, via: jumped.via };
+    },
+
+    async game_doctor({ game }) {
+      const found = await need(game);
+      return unwrap(await deps.service.doctor({ gameId: found.gameId }));
     },
 
     async game_state({ game }) {
