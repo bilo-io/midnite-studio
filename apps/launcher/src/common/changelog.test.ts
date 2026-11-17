@@ -70,6 +70,10 @@ describe('changelog parser', () => {
     expect(browserIds).toContain('studio');
   });
 
+  it('does not tag an app from a generic word in passing', () => {
+    expect(detectAppIds('Notes open in a new tab on the web, with a permission prompt and an MCP skill')).toEqual(['studio']);
+  });
+
   it('filters changelog by app', () => {
     const releases = parseChangelog(SAMPLE_CHANGELOG);
 

@@ -27,7 +27,7 @@ import {
 } from './model';
 import { applyTheme, readTheme } from './theme';
 import { useApps } from './use-apps';
-import { useChangelog as useChangelogFeed } from './use-changelog';
+import { useSuiteChangelog } from './use-changelog';
 
 type Layout = 'grid' | 'table';
 const STUDIO_APP = appById('studio');
@@ -74,7 +74,7 @@ export function App() {
   };
   const [viewTab, setViewTab] = useState<'launcher' | 'changelog'>('launcher');
   const [changelogAppFilter, setChangelogAppFilter] = useState<AppId | 'all'>('all');
-  const changelogFeed = useChangelogFeed();
+  const changelogFeed = useSuiteChangelog();
   const [filter, setFilter] = useState<Filter>('all');
   const [sort, setSort] = useState<SortKey>('suite');
   const [query, setQuery] = useState('');
@@ -388,7 +388,6 @@ export function App() {
           <ChangelogView
             changelog={changelogFeed}
             initialAppId={changelogAppFilter}
-            onOpenAppDetail={(appId) => setDetail(APPS.find((a) => a.id === appId) ?? null)}
             onOpenExternalLink={(link) => void bridge.links.open(link)}
           />
         ) : (

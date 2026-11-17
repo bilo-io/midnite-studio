@@ -49,8 +49,8 @@ describe('Changelog in Launcher', () => {
     expect(screen.getByText('Vanguard: Fleet policy dashboard')).toBeDefined();
     expect(screen.queryByText('Agents: Subagent fan-out orchestration')).toBeNull();
 
-    // Click "All (Midnyte Studio)"
-    const allFilter = within(filterGroup).getByRole('button', { name: /All \(Midnyte Studio\)/ });
+    // Click "All"
+    const allFilter = within(filterGroup).getByRole('button', { name: /^All/ });
     fireEvent.click(allFilter);
 
     // Both should be visible again

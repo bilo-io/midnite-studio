@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
-import { ipcMain, nativeTheme, shell, type BrowserWindow } from 'electron';
+import { resolve } from 'node:path';
+import { app, ipcMain, nativeTheme, shell, type BrowserWindow } from 'electron';
 import { changelogPageUrl } from '@midnite/studio-shared/release';
 import { z } from 'zod';
 
@@ -179,13 +179,10 @@ export function registerIpc(getWindow: () => BrowserWindow | null, apps: AppsIpc
   });
 
   ipcMain.handle(LAUNCHER_CHANNELS.changelogGet, async (): Promise<ChangelogPayload> => {
-    // 1. Try local CHANGELOG.md files on disk (dev / monorepo / bundled)
-    const candidatePaths = [
-      resolve(__dirname, '../../../../CHANGELOG.md'),
-      resolve(__dirname, '../../../CHANGELOG.md'),
-      resolve(process.cwd(), '../../CHANGELOG.md'),
-      resolve(process.cwd(), 'CHANGELOG.md'),
-    ];
+    // Dev reads the repo's CHANGELOG.md; a packaged build never trusts cwd and goes to the feed.
+    const candidatePaths = app.isPackaged
+      ? []
+      : [resolve(__dirname, '../../../../CHANGELOG.md'), resolve(__dirname, '../../../CHANGELOG.md')];
     let md: string | null = null;
     for (const p of candidatePaths) {
       try {
@@ -199,7 +196,6 @@ export function registerIpc(getWindow: () => BrowserWindow | null, apps: AppsIpc
       }
     }
 
-    // 2. Fallback to network fetch if local not found or empty
     if (!md) {
       try {
         const res = await fetch(CHANGELOG_RAW_URL, { signal: AbortSignal.timeout(6000) });

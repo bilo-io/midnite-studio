@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from 'react';
 import type { AppId } from '../common/catalog';
 import {
   appChangelogSummary,
-  filterChangelogByApp,
   searchChangelog,
   type ChangelogItem,
   type ChangelogRelease,
@@ -30,7 +29,7 @@ export function resetChangelogCache(): void {
   cachedPayload = null;
 }
 
-export function useChangelog(): ChangelogController {
+export function useSuiteChangelog(): ChangelogController {
   const [releases, setReleases] = useState<ChangelogRelease[]>(cachedPayload?.releases ?? []);
   const [rawMarkdown, setRawMarkdown] = useState<string>(cachedPayload?.rawMarkdown ?? '');
   const [error, setError] = useState<string | null>(cachedPayload?.error ?? null);

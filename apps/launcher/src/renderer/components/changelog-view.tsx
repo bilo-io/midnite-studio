@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import {
-  LuArrowUpRight,
   LuExternalLink,
   LuHistory,
   LuRefreshCw,
@@ -9,17 +8,12 @@ import {
 } from 'react-icons/lu';
 
 import { APPS, appById, type AppId } from '../../common/catalog';
-import type {
-  ChangelogCategory,
-  ChangelogItem,
-  ChangelogRelease,
-} from '../../common/changelog';
+import type { ChangelogCategory } from '../../common/changelog';
 import type { ChangelogController } from '../use-changelog';
 
 export type ChangelogViewProps = {
   changelog: ChangelogController;
   initialAppId?: AppId | 'all';
-  onOpenAppDetail?: (appId: AppId) => void;
   onOpenExternalLink: (link: 'changelog' | 'website') => void;
 };
 
@@ -35,7 +29,6 @@ const CATEGORY_ORDER: readonly ChangelogCategory[] = [
 export function ChangelogView({
   changelog,
   initialAppId = 'all',
-  onOpenAppDetail,
   onOpenExternalLink,
 }: ChangelogViewProps) {
   const [selectedApp, setSelectedApp] = useState<AppId | 'all'>(initialAppId);
@@ -46,10 +39,6 @@ export function ChangelogView({
   const filteredReleases = useMemo(() => {
     return filter(query, selectedApp);
   }, [filter, query, selectedApp]);
-
-  const totalEntriesCount = useMemo(() => {
-    return filteredReleases.reduce((acc, r) => acc + r.items.length, 0);
-  }, [filteredReleases]);
 
   // Compute item count per app for badges
   const appCounts = useMemo(() => {
@@ -94,7 +83,7 @@ export function ChangelogView({
           </button>
           <button
             type="button"
-            className="btn btn-icon btn-compact"
+            className="btn btn-icon btn-compact changelog-refresh"
             aria-label="Refresh changelog"
             title="Refresh changelog"
             onClick={() => void refresh()}
@@ -109,25 +98,20 @@ export function ChangelogView({
         <div className="changelog-app-filter-scroll" role="group" aria-label="Filter by app">
           <button
             type="button"
-            className={`filter ${selectedApp === 'all' || selectedApp === 'studio' ? 'filter-active' : ''}`}
+            className="filter"
             aria-pressed={selectedApp === 'all' || selectedApp === 'studio'}
             onClick={() => setSelectedApp('all')}
           >
-            All (Midnyte Studio)
+            All
             <span className="filter-count">{appCounts.all ?? 0}</span>
           </button>
           {APPS.filter((a) => a.id !== 'studio').map((app) => (
             <button
               key={app.id}
               type="button"
-              className={`filter ${selectedApp === app.id ? 'filter-active' : ''}`}
+              className="filter"
               aria-pressed={selectedApp === app.id}
               onClick={() => setSelectedApp(app.id)}
-              style={
-                selectedApp === app.id
-                  ? { borderColor: app.accent, color: 'var(--fg)' }
-                  : undefined
-              }
             >
               <span
                 className="changelog-app-dot"
@@ -175,7 +159,7 @@ export function ChangelogView({
         {error && (
           <div className="banner" role="alert">
             <span className="pill pill-solid">Notice</span>
-            <span className="banner-text">Could not load local changelog: {error}</span>
+            <span className="banner-text">Changelog unavailable: {error}</span>
             <button type="button" className="btn btn-compact" onClick={() => void refresh()}>
               Retry
             </button>

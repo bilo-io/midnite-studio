@@ -28,12 +28,12 @@ export type ChangelogPayload = {
 const APP_PATTERNS: Record<AppId, RegExp> = {
   // Studio is the parent suite/shell hosting all apps, so it covers everything.
   studio: /.*/,
-  agents: /\b(agents?|coder|patrol|loops?|prompt injection|mcp|skills?|cli policy|agentic)\b/i,
-  gamer: /\b(gamer|games?|gameplay|3d|physics|terrain|procedural)\b/i,
-  media: /\b(media|creator|video|audio|sprite|remotion|visualizer|orb|explainer|voiceover|music|sound)\b/i,
-  money: /\b(money|accountant|crypto|finance|wallet|balance|portfolio)\b/i,
-  mind: /\b(mind|capture|knowledge graph|circlepack|companion|notes?)\b/i,
-  browser: /\b(browser|chromium|permission|tabs?|cookie|web)\b/i,
+  agents: /\b(agents?|coder|patrol|loops?|prompt injection|cli policy|agentic)\b/i,
+  gamer: /\b(gamer|games?|gameplay|physics|terrain|procedural)\b/i,
+  media: /\b(media|creator|video|audio|sprite|remotion|visualizer|explainer|voiceover|music)\b/i,
+  money: /\b(money|accountant|crypto|finance|wallet|portfolio)\b/i,
+  mind: /\b(mind|capture|knowledge graph|circlepack|companion)\b/i,
+  browser: /\b(browser|chromium|cookies?)\b/i,
   science: /\b(science|simulator|simulation)\b/i,
   vanguard: /\b(vanguard|antivirus|malware|vault|cleaner|monitor|quarantine|supply-chain|sensors?|egress|slopsquat|threat|cisa|osv)\b/i,
   startup: /\b(startup|founder|pitch)\b/i,

@@ -1701,3 +1701,18 @@ button:disabled {
   color: var(--fg-muted);
   line-height: 1.35;
 }
+
+/* App filters stay one line each; the row scrolls instead of wrapping. */
+.changelog-app-filter-scroll .filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  white-space: nowrap;
+}
+
+/* Square like the other icon buttons: btn-compact's min-width would stretch it. */
+.btn-icon.changelog-refresh {
+  width: 32px;
+  min-width: 0;
+}
