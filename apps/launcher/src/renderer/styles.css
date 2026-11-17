@@ -211,6 +211,9 @@ button:disabled {
   display: inline-block;
   font-size: 1.45em;
   padding-right: 0.15em;
+  /* Clip headroom for the "y" descender (0.29em below the baseline); the margin keeps the layout. */
+  padding-bottom: 0.15em;
+  margin-bottom: -0.15em;
 }
 
 .launcher-wordmark-name {
@@ -789,6 +792,8 @@ button:disabled {
   display: inline-block;
   font-size: 1.15em;
   padding-right: 0.15em;
+  padding-bottom: 0.15em;
+  margin-bottom: -0.15em;
 }
 
 .tile-tagline {
