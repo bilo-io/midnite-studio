@@ -11,7 +11,6 @@ import {
   starterId,
   type GameDimension,
   type GameFeatureKey,
-  type GameGenre,
   type GamePerspective,
 } from '@midnite/studio-shared';
 import { useEffect, useRef, type Dispatch } from 'react';

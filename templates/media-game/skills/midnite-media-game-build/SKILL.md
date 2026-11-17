@@ -5,7 +5,7 @@ description: Orient an agent in a Midnite Studio game repo — manifest, kit, th
 
 # Media ▸ Games — build
 
-A game repo is the game: plain ES modules, no bundler, no build step. Midnite Studio serves it in a sandbox and reads two things back: what the game prints with `console.log`, and what `window.__midnite.getState()` returns.
+A game repo is the game: plain ES modules, no bundler, no build step. Midnite Studio serves it in a sandbox and reads two things back: what the game prints with `console.log`, and what `window.__midnite.getState()` returns. What a game must have for every Games feature to work is written down in the Midnite game standard (`docs/GAME_STANDARD.md` in the Midnite Studio repo); the game doctor checks a game against it.
 
 ## Layout
 
