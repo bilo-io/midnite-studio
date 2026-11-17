@@ -50,7 +50,7 @@ Only if any were taken unattended. One bullet each, with the reason.
 Only if something in scope was left.
 
 ## Screenshots
-Only for visual changes. Commit-pinned raw URLs; see midnite-pr-description-image.
+Only for visual changes. One line naming the surface; the image itself is shown in the thread, never committed (see midnite-pr-description-image).
 
 ## Verification
 Tests added or changed, plus CI state.

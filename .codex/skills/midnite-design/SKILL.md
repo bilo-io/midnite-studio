@@ -58,7 +58,7 @@ Edit `.midnite/tasks/<CATEGORY>/phases/phase-N-<slug>.md` in place:
    - Component state handling (`- [ ] Empty and error state banners with retry...`).
    - Icon assignments (`- [ ] Integrated react-icons/lu icons...`).
 3. Extend the **`## Verification`** checklist:
-   - `- [ ] Playwright visual screenshots committed under docs/screenshots/`.
+   - `- [ ] Visual appearance covered by an `app:visual` baseline (screenshots are shown in the thread, never committed)`.
    - `- [ ] Contrast and keyboard focus order verified`.
 4. Reconcile checklist counts and update `.midnite/tasks/<CATEGORY>/_INDEX.md` (counts: done/total).
 5. Run drift guard: `moon run root:tracker-check`.

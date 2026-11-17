@@ -50,9 +50,9 @@ Commits carry **no `Co-Authored-By`, `Signed-off-by` or other attribution traile
 ## 5 · Screenshots first, when the change is visual
 
 If the PR changes what a user sees, run
-[`midnite-pr-description-image`](../midnite-pr-description-image/SKILL.md) now: capture, commit, push
-and get the commit-pinned URL **before the PR exists**. Screenshots are embedded at creation, never
-added later. If it decides there is no image, carry on.
+[`midnite-pr-description-image`](../midnite-pr-description-image/SKILL.md) now: capture it into the
+scratchpad and show it in the thread **before the PR exists** (screenshots are never committed). The
+`## Screenshots` section names the surface and says the capture is in the thread. If it decides there is no image, carry on.
 
 ## 6 · Write the body
 

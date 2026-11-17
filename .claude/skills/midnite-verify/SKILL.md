@@ -51,7 +51,7 @@ Run verification checks across the workspace and targeted packages:
 3. **Invariants & Artifacts:**
    - Verify presence and exports of newly added components, stores, utilities, or types.
    - If the phase eliminated a dependency or banned pattern (e.g. `@codemirror/*`), verify zero occurrences remain across the repo (`git grep`).
-   - If visual screenshots were produced for the phase, verify their presence under `docs/screenshots/phase-<N>-*`.
+   - Appearance is covered by `app:visual` baselines; screenshots are never committed (Phase 116), so do not look for them under `docs/screenshots/`.
 
 4. **Update Automated Items:**
    - In `phase-<N>-*.md`, check off passing automated items by changing `- [ ]` to `- [x]`.

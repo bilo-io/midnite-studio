@@ -226,7 +226,7 @@ stage below checks it never got committed.
     **`Fixes bilo-io/midnite-apps#<N>`** — see "The boards" above for why that still auto-closes.
   - **Root cause** in 1–3 bullets with `file:line` refs — the *why*, not a list of touched files.
   - **The proof:** the regression test and what it asserts.
-  - Embedded before/after screenshots for a visual change. Commit the PNGs on the branch under `docs/screenshots/issue-<N>/` and reference them with **commit-pinned** raw URLs (`https://github.com/<owner>/<repo>/raw/<sha>/docs/screenshots/...`) so they survive a squash-merge + branch delete.
+  - For a visual change, a `## Screenshots` line naming the surface; capture before/after into the scratchpad and show them in the thread. Never commit the PNGs.
   - The `🤖 Generated with [Claude Code]` trailer.
 - **Self-review your own diff** before marking it ready: fidelity to the agreed plan → `CLAUDE.md` conventions → correctness & coverage → anything the fix could regress elsewhere. Fix what's material, re-run Stage 9, push.
 - **Drive CI green:** `gh pr checks <n> --watch`. On failure `gh run view <id> --log-failed` → fix in the worktree → re-run the local gate → push. If genuinely stuck (flaky infra, outage, product call), stop and say exactly what's wrong.
