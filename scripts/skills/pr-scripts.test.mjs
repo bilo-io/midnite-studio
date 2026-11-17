@@ -156,7 +156,7 @@ describe('address-issue', () => {
 describe('sanitize-wrap.sh (no network: rejects before any clone)', () => {
   const sh = (...args) => spawnSync('bash', [join(here, 'sanitize-wrap.sh'), ...args], { encoding: 'utf8', env: { ...process.env, MSTUDIO_NO_LLM: '1' } });
   it('refuses option-looking, traversal and non-github targets', () => {
-    for (const bad of ['--upload-pack=evil', 'owner/../x', 'ext::sh -c id', 'https://evil.com/a/b', 'justaname', '/etc/passwd', 'a/b;rm']) {
+    for (const bad of ['--upload-pack=evil', 'owner/../x', 'https://github.com/a/..', 'https://github.com/../b', 'ext::sh -c id', 'https://evil.com/a/b', 'justaname', '/etc/passwd', 'a/b;rm']) {
       const r = sh(bad);
       expect(r.status, bad).toBe(2);
       expect(r.stderr, bad).toMatch(/sanitize-wrap:/);

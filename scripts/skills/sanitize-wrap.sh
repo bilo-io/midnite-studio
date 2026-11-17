@@ -26,6 +26,7 @@ normalise_target() {
     https://github.com/*) t="${t#https://github.com/}" ;;
     -*|*..*|*[!A-Za-z0-9_./-]*) die "refusing target: $1" ;;
   esac
+  case "$t" in *..*|.*/*|*/.) die "refusing target: $1" ;; esac
   [[ "$t" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || die "expected owner/repo or a github.com URL, got: $1"
   SLUG="$t"
   CLONE_URL="https://github.com/$t.git"
