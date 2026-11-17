@@ -66,7 +66,7 @@ export function fleetToRunwayLines(
   });
 
   const out: PlanLine[] = [];
-  const name = p.name.slice(0, 80 - ' — running costs'.length);
+  const name = p.name.slice(0, 80 - ' — running costs (at capacity)'.length);
   out.push(line('capex', 'cost', `${name} — hardware`, 'hardware', 'one-off', r.capexMinor, start));
 
   const c = capMonth(p);

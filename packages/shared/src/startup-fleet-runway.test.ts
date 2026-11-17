@@ -71,6 +71,15 @@ describe('fleetToRunwayLines', () => {
   });
 });
 
+describe('long names', () => {
+  it('keeps every line name within the 80-character plan limit', () => {
+    const p = { ...proj({ demandGrowthPct: 10, energyScalesWithUtilisation: true }, [node({ utilisationPct: 70 })]), name: 'x'.repeat(80) };
+    const lines = fleetToRunwayLines(p, catalog, '2026-12', NOW, gen());
+    expect(lines.length).toBeGreaterThan(4);
+    expect(lines.every((l) => l.name.length <= 80)).toBe(true);
+  });
+});
+
 describe('addYearMonths', () => {
   it('rolls over years', () => {
     expect(addYearMonths('2026-11', 3)).toBe('2027-02');
