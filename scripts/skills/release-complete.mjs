@@ -112,8 +112,12 @@ export function checkCatalog(text, version) {
 /** Fetch + check the three propagation targets. `ghApi.ghJson` / `fetchRaw(path)` injectable; never throws. */
 export async function verifyPublished(version, { ghApi = gh, fetchRaw } = {}) {
   const raw = fetchRaw ?? (async (p) => {
-    const r = await ghApi.ghJson(['api', `repos/${APPS_REPO}/contents/${p}`, '-H', 'Accept: application/vnd.github.raw']).catch(() => null);
-    return r?.ok ? (typeof r.data === 'string' ? r.data : JSON.stringify(r.data)) : null;
+    // ghJson would JSON.parse latest-mac.yml and fail, so the raw media type goes through the plain runner.
+    try {
+      return await gh.defaultRun(['api', `repos/${APPS_REPO}/contents/${p}`, '-H', 'Accept: application/vnd.github.raw']);
+    } catch {
+      return null;
+    }
   });
   const out = [];
   const rel = await ghApi.ghJson(['release', 'view', `midnite-studio/v${version}`, '--repo', APPS_REPO, '--json', 'assets,url']);

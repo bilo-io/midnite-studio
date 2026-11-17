@@ -128,7 +128,11 @@ export async function prep({ root = repoRoot, args = [], run = defaultRun, share
   }
   const lock = checkLockstep(readWorkspace(root).map((w) => ({ name: w.name, version: w.version })));
   if (!lock.ok) return { ...out, ok: false, stage: 'version-check', failures: [lock.message], branch: branchName };
-  await run(['add', '-A', '--', '.'], { cwd: root });
+  // Explicit paths, never `add -A`: only the files this step wrote are staged.
+  const touched = [...ws.map((w) => w.file), rootChangelog, ...shared.CHANGELOG_APP_IDS.filter((x) => x !== 'studio').map((id) => path.join(root, shared.changelogSourcePath(id)))]
+    .filter((f) => readText(f) !== null)
+    .map((f) => path.relative(root, f));
+  await run(['add', '--', ...touched], { cwd: root });
   await run(['commit', '-m', `chore(release): prepare v${version}`], { cwd: root });
   return { ...out, applied: true, branch: branchName, next: `run release-complete.mjs on ${branchName} (dry-run workflow first); nothing irreversible has happened` };
 }
