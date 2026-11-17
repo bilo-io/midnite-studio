@@ -350,18 +350,19 @@ This theme is the checklist of views that never called them.
         `git grep -n "todo/" -- packages/app/src ':!*.test.ts' ':!*.test.tsx'` prints nothing.
 - [ ] **Open, for a human (human):** a lazy chunk that 404s after an in-place reinstall shows the
       boundary card, not a blank window.
-      1. On `main`, `moon run desktop:dist`; install `packages/desktop/release/*.dmg` (drag to
+      1. On `main`, `moon run desktop:dist`; install `packages/desktop/release/midnite-studio-<version>-arm64.dmg` (drag to
          `/Applications`, replacing any copy) and launch it. Open a repo. Do **not** visit
          `History` or `Settings` yet (their lazy chunks must not be cached in the window).
-      2. With that window still open, make any one-line renderer change on a scratch branch (so
-         chunk hashes differ), `moon run desktop:dist` again, and install the new dmg over
+      2. With that window still open, make any one-line renderer change in a throwaway
+         `git worktree add --detach <scratchpad>/p60-dist main` (so chunk hashes differ; never in
+         the primary checkout), `moon run desktop:dist` there, and install the new dmg over
          `/Applications/Midnite Studio.app` **without quitting** the running app.
       3. In the still-open window, click `History` in the rail.
       4. Pass: a card titled **History stopped rendering** with the import error as body, and
          **Try again** / **Copy details** buttons; the rail still navigates. Fail: a blank
          window, or a spinner that never resolves (that would mean the boundary moved inside the
          `Suspense`).
-      5. `Mod+r` reloads onto the new build; confirm `History` renders. Discard the scratch branch.
+      5. `Mod+r` reloads onto the new build; confirm `History` renders. Remove the throwaway worktree (`git worktree remove --force`).
 
 ---
 
