@@ -68,6 +68,7 @@ describe('MCP_TOOLS', () => {
     'game_playtest',
     'game_level_set',
     'game_goto',
+    'game_doctor_fix',
     'terrain_open',
     'terrain_set_spec',
     'terrain_set_input',
