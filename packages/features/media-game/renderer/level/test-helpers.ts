@@ -18,6 +18,8 @@ type Bridge = {
   goto?: ReturnType<typeof vi.fn>;
   manifestGet?: ReturnType<typeof vi.fn>;
   manifestSet?: ReturnType<typeof vi.fn>;
+  doctor?: ReturnType<typeof vi.fn>;
+  doctorFix?: ReturnType<typeof vi.fn>;
 };
 
 export function installBridge(b: Bridge): void {
@@ -25,6 +27,8 @@ export function installBridge(b: Bridge): void {
     games: {
       levels: { list: b.list ?? vi.fn(), get: b.get ?? vi.fn(), set: b.set ?? vi.fn(), mapAsset: b.mapAsset ?? vi.fn() },
       goto: b.goto ?? vi.fn(),
+      doctor: b.doctor ?? vi.fn().mockResolvedValue({ ok: false, kind: 'error', message: 'no doctor' }),
+      doctorFix: b.doctorFix ?? vi.fn(),
       manifest: { get: b.manifestGet ?? vi.fn(), set: b.manifestSet ?? vi.fn() },
     },
   };

@@ -41,7 +41,7 @@ describe('createGameLevels (Phase 132 Theme C)', () => {
     await writeFile(join(repo.path, 'levels', 'tiles.png'), PNG);
     await repo.git(['add', '.']);
     await repo.git(['commit', '-m', 'Initial commit']);
-    game = { gameId: 'g1', name: 'G', path: repo.path, engine: 'phaser', dimension: '2d', starter: 'blank', dirty: false, valid: true, issue: null };
+    game = { gameId: 'g1', name: 'G', path: repo.path, engine: 'phaser', dimension: '2d', starter: 'blank', dirty: false, valid: true, issue: null, status: null, findingCount: 0 };
     send = vi.fn<(channel: string, payload: unknown) => void>();
     goto = vi.fn(async () => ({ ok: true, value: { via: 'hook' } }));
     levels = createGameLevels({

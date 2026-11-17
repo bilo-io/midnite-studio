@@ -30,14 +30,14 @@ describe('Showreel', () => {
     expect(video.hasAttribute('autoplay')).toBe(false);
     expect(window.HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Play the Midnite Apps showreel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Play the Midnyte Apps showreel' }));
     expect(window.HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
   });
 
   it('names the player and the section', () => {
     render(<Showreel />);
     expect(screen.getByTestId('showreel-video').getAttribute('aria-label')).toMatch(
-      /Midnite Apps showreel/,
+      /Midnyte Apps showreel/,
     );
     expect(screen.getByRole('region', { name: 'Showreel' })).toBeTruthy();
   });

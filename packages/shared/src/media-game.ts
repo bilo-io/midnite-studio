@@ -13,6 +13,7 @@
  */
 import { z } from 'zod';
 
+import { GameFixIdSchema, GameRuleAreaSchema, GameRuleIdSchema, GameRuleLevelSchema } from './game-standard';
 import { LoopModelSchema } from './loops';
 import { MediaTabSchema } from './media';
 
@@ -89,9 +90,35 @@ export const GAME_GENRES = [
   'rpg',
   'character-action',
   'open-world',
+  // Phase 149 Theme B: appended, never reordered. No starter template yet (see GENRES_WITH_STARTER).
+  'shmup',
+  'platformer-action',
+  'racing',
+  'puzzle',
+  'arcade',
 ] as const;
 export const GameGenreSchema = z.enum(GAME_GENRES);
 export type GameGenre = z.infer<typeof GameGenreSchema>;
+
+/**
+ * The genres that have a starter template. The wizard offers only these, so adding a
+ * genre to `GAME_GENRES` never shows an empty template.
+ */
+export const GENRES_WITH_STARTER = [
+  'fps',
+  'rts',
+  'arpg',
+  'crime',
+  'shooter',
+  'fighter',
+  'soulslike',
+  'rpg',
+  'character-action',
+  'open-world',
+] as const satisfies readonly GameGenre[];
+export type StarterGenre = (typeof GENRES_WITH_STARTER)[number];
+export const hasStarter = (genre: GameGenre): genre is StarterGenre =>
+  (GENRES_WITH_STARTER as readonly string[]).includes(genre);
 
 /** The five third-person cameras (3D only). */
 export const GAME_CAMERA_IDS = [
@@ -209,6 +236,7 @@ export const GameManifestSchema = z
     engine: GameEngineSchema,
     dimension: GameDimensionSchema,
     perspective: GamePerspectiveSchema,
+    /** `null` means custom: no genre template applies. */
     genre: GameGenreSchema.nullable(),
     /** The starter this game was composed from (Theme K's id; `blank` until starters land). */
     starter: z.string().min(1),
@@ -216,13 +244,17 @@ export const GameManifestSchema = z
     cameraPresets: z.array(GameCameraIdSchema).default([]),
     entry: z.literal('index.html').default('index.html'),
     kitVersion: z.string().regex(/^\d+\.\d+\.\d+(?:[-+][\w.-]+)?$/, 'must be a semver version'),
+    /** `true` is a legacy shape, normalised to `{}`; see `rawManifestHasLegacyVendored`. */
     vendored: z
-      .object({
-        phaser: z.string().optional(),
-        three: z.string().optional(),
-        rapier: z.string().optional(),
-        recast: z.string().optional(),
-      })
+      .union([
+        z.literal(true).transform(() => ({}) as Record<string, never>),
+        z.object({
+          phaser: z.string().optional(),
+          three: z.string().optional(),
+          rapier: z.string().optional(),
+          recast: z.string().optional(),
+        }),
+      ])
       .prefault({}),
     assets: z.array(GameAssetProvenanceSchema).default([]),
     network: GameNetworkSchema.default('off'),
@@ -233,14 +265,41 @@ export const GameManifestSchema = z
     options: GameOptionsSchema.optional(),
     /** Present means "this game's scenes read their layout from `levels/<scene>.tmj`" (Phase 132, Decision 14). */
     levels: z.object({ dir: z.literal('levels').default('levels'), start: GameSceneNameSchema }).optional(),
+    /** A bundled game: run `command` in the repo, then serve `out` (relative, inside the game). */
+    build: z
+      .object({
+        command: z.string().min(1).max(500),
+        out: z
+          .string()
+          .min(1)
+          .regex(/^[^/][^\0]*$/, 'must be relative')
+          .refine((v) => !v.split(/[\\/]/).includes('..'), 'must stay inside the game'),
+      })
+      .optional(),
   })
   .passthrough();
 export type GameManifest = z.infer<typeof GameManifestSchema>;
+
+// --- build (Phase 149 Theme E) ---
+/** The `source` of a console entry that is a line of the game's build output. */
+export const GAME_BUILD_SOURCE = 'build';
+/** Marks a run state `reason` as a failed build, so the runner host shows its output rather than "crashed". */
+export const GAME_BUILD_REASON_PREFIX = 'build-failed:';
+/** How many trailing build lines a failed build carries into the runner host. */
+export const GAME_BUILD_TAIL_LINES = 20;
+/** A build that runs longer than this is killed. */
+export const GAME_BUILD_TIMEOUT_MS = 5 * 60 * 1000;
+// --- end build ---
 
 export type GameManifestIssue = { path: string; message: string };
 export type GameManifestParse =
   | { ok: true; manifest: GameManifest }
   | { ok: false; issues: GameManifestIssue[] };
+
+/** True when the raw manifest uses the legacy `vendored: true` (parses as `{}`; the doctor flags it). */
+export function rawManifestHasLegacyVendored(raw: unknown): boolean {
+  return typeof raw === 'object' && raw !== null && (raw as { vendored?: unknown }).vendored === true;
+}
 
 /** Never throws — an agent may have hand-edited the file. */
 export function parseGameManifest(value: unknown): GameManifestParse {
@@ -306,6 +365,10 @@ export type GamesSettingsPatch = z.infer<typeof GamesSettingsPatchSchema>;
 
 // --- list / create -----------------------------------------------------------
 
+/** A game's standard status (Phase 149 Theme C): the worst finding's level, `ok` when none is above `info`. */
+export const GameDiagnosisStatusSchema = z.enum(['ok', 'warn', 'error']);
+export type GameDiagnosisStatus = z.infer<typeof GameDiagnosisStatusSchema>;
+
 export const GameSummarySchema = z.object({
   gameId: z.string(),
   name: z.string(),
@@ -317,6 +380,11 @@ export const GameSummarySchema = z.object({
   valid: z.boolean(),
   /** The first manifest issue, shown as the tooltip on an invalid row. */
   issue: z.string().nullable(),
+  // --- Phase 149 Theme C: from the cheap diagnosis (manifest, entry, kit) ---
+  /** `null` when no diagnosis ran (a host or test that does not diagnose). */
+  status: GameDiagnosisStatusSchema.nullable(),
+  findingCount: z.number().int().min(0),
+  // --- end Phase 149 Theme C ---
 });
 export type GameSummary = z.infer<typeof GameSummarySchema>;
 
@@ -344,7 +412,14 @@ export const GameCreateResultSchema = z.object({ path: z.string(), gameId: z.str
 export type GameCreateResult = z.infer<typeof GameCreateResultSchema>;
 
 /** Open Game: `path` absent means "show the folder dialog in main". */
-export const GameAddRequestSchema = z.object({ path: z.string().min(1).optional() });
+export const GameAddRequestSchema = z.object({
+  path: z.string().min(1).optional(),
+  /**
+   * Phase 149 Theme F: a folder with no `midnite-game.json` answers `needs-manifest` with a proposal. Sending the
+   * (possibly edited) manifest back writes it through the `write-manifest` fix, then registers the game.
+   */
+  confirmManifest: GameManifestSchema.optional(),
+});
 export type GameAddRequest = z.input<typeof GameAddRequestSchema>;
 
 /** `listed` means the game was already in the list and nothing was written. */
@@ -352,8 +427,89 @@ export const GameAddResultSchema = z.discriminatedUnion('status', [
   z.object({ status: z.literal('added'), gameId: z.string(), path: z.string() }),
   z.object({ status: z.literal('listed'), gameId: z.string(), path: z.string() }),
   z.object({ status: z.literal('cancelled') }),
+  /** Phase 149 Theme F: the folder has no manifest; nothing is written or registered until `confirmManifest`. */
+  z.object({
+    status: z.literal('needs-manifest'),
+    path: z.string(),
+    proposed: GameManifestSchema,
+    diagnosis: z.lazy(() => GameDiagnosisSchema),
+  }),
 ]);
 export type GameAddResult = z.infer<typeof GameAddResultSchema>;
+
+// --- manage (Phase 149 Theme I) ---------------------------------------------------
+/** Rename writes `manifest.name` only; the folder keeps its name. */
+export const GameRenameRequestSchema = z.object({ gameId: z.string().min(1), name: z.string().trim().min(1).max(80) });
+/** What a delete would lose: the blast radius the confirm dialog shows. `unpushed` is null with no upstream. */
+export const GameDeleteInfoSchema = z.object({
+  path: z.string(),
+  name: z.string(),
+  uncommitted: z.number().int().nonnegative(),
+  unpushed: z.number().int().nonnegative().nullable(),
+  hasRemote: z.boolean(),
+  bytes: z.number().int().nonnegative(),
+});
+export type GameDeleteInfo = z.infer<typeof GameDeleteInfoSchema>;
+/** Refused unless `confirmName` equals the game's name exactly. */
+export const GameDeleteRequestSchema = z.object({ gameId: z.string().min(1), confirmName: z.string() });
+// --- end manage -------------------------------------------------------------------
+
+// --- doctor (Phase 149 Theme C) ---------------------------------------------
+
+/** One gap between a game and the Midnite game standard (`docs/GAME_STANDARD.md`). */
+export const GameFindingSchema = z.object({
+  rule: GameRuleIdSchema,
+  /** Usually `GAME_RULES[rule].level`; the doctor lowers it where the context makes the gap harmless. */
+  level: GameRuleLevelSchema,
+  area: GameRuleAreaSchema,
+  message: z.string(),
+  /** The game-relative file the finding is about, or `null` when it is about the game as a whole. */
+  path: z.string().nullable(),
+  /** The safe one-click fix (Theme D), when one exists. */
+  fixId: GameFixIdSchema.nullable(),
+});
+export type GameFinding = z.infer<typeof GameFindingSchema>;
+
+export const GameDiagnosisSchema = z.object({
+  path: z.string(),
+  hasManifest: z.boolean(),
+  findings: z.array(GameFindingSchema),
+  counts: z.object({ error: z.number().int().min(0), warn: z.number().int().min(0), info: z.number().int().min(0) }),
+  /** `error` if any error, else `warn` if any warn, else `ok`. */
+  status: GameDiagnosisStatusSchema,
+});
+export type GameDiagnosis = z.infer<typeof GameDiagnosisSchema>;
+
+/** A listed game by `gameId`, or an absolute folder (Open Game, before it is listed): exactly one. */
+export const GameDoctorRequestSchema = z
+  .object({ gameId: z.string().min(1).optional(), path: z.string().min(1).optional() })
+  .refine((req) => (req.gameId === undefined) !== (req.path === undefined), 'Give exactly one of gameId or path.');
+export type GameDoctorRequest = z.input<typeof GameDoctorRequestSchema>;
+
+/**
+ * Phase 149 Theme D: apply one safe fix. A listed game by `gameId` or an absolute folder `path` (exactly one);
+ * `genre` is for `set-genre`, `build` for `add-build` (the inferred one when absent).
+ */
+export const GameFixRequestSchema = z
+  .object({
+    gameId: z.string().min(1).optional(),
+    path: z.string().min(1).optional(),
+    fixId: GameFixIdSchema,
+    genre: GameGenreSchema.nullable().optional(),
+    build: z.object({ command: z.string().min(1).max(500), out: z.string().min(1) }).optional(),
+  })
+  .refine((req) => (req.gameId === undefined) !== (req.path === undefined), 'Give exactly one of gameId or path.');
+export type GameFixRequest = z.input<typeof GameFixRequestSchema>;
+
+/** What a fix answers: its commit (`null` when nothing needed writing), the kit-upgrade `branch`, and the fresh diagnosis. */
+export const GameFixResultSchema = z.object({
+  commit: z.string().nullable(),
+  branch: z.string().optional(),
+  diagnosis: GameDiagnosisSchema,
+});
+export type GameFixResult = z.infer<typeof GameFixResultSchema>;
+
+// --- end doctor --------------------------------------------------------------
 
 export const GameIdRequest = z.object({ gameId: z.string().min(1) });
 export const GameManifestGetResponse = z.object({

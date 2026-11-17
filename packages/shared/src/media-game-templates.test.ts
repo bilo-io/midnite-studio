@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { GAME_GENRES } from './media-game';
+import { GAME_GENRES, GENRES_WITH_STARTER } from './media-game';
 import {
   allStarterIds,
   GAME_GENRES_2D,
@@ -16,8 +16,9 @@ import {
 
 describe('GAME_TEMPLATE_MATRIX', () => {
   it('covers every genre exactly once', () => {
-    expect([...GAME_GENRES_2D, ...GAME_GENRES_3D].sort()).toEqual([...GAME_GENRES].sort());
-    expect(Object.keys(GAME_TEMPLATE_MATRIX).sort()).toEqual([...GAME_GENRES].sort());
+    expect([...GAME_GENRES_2D, ...GAME_GENRES_3D].sort()).toEqual([...GENRES_WITH_STARTER].sort());
+    expect(Object.keys(GAME_TEMPLATE_MATRIX).sort()).toEqual([...GENRES_WITH_STARTER].sort());
+    for (const genre of GENRES_WITH_STARTER) expect(GAME_GENRES).toContain(genre);
   });
   it('keeps each genre inside its dimension', () => {
     for (const genre of GAME_GENRES_2D) {

@@ -36,6 +36,25 @@ describe('GameCenter', () => {
     expect(screen.getByText('scenes')).toBeTruthy();
   });
 
+  it('lays the pane toggles out in the bar, before the tabs and after the scene picker', () => {
+    render(
+      <GameCenter
+        game={{ gameId: 'g1' }}
+        mode="editor"
+        onMode={() => undefined}
+        resolution="fit"
+        sceneSlot={<span>scenes</span>}
+        leading={<button type="button">Hide games</button>}
+        trailing={<button type="button">Hide details</button>}
+      />,
+    );
+    const bar = screen.getByRole('tablist', { name: 'Game view' }).parentElement!;
+    const order = [...bar.querySelectorAll('button, span')]
+      .map((el) => el.textContent)
+      .filter((text) => text === 'Hide games' || text === 'Level editor' || text === 'scenes' || text === 'Hide details');
+    expect(order).toEqual(['Hide games', 'Level editor', 'scenes', 'Hide details']);
+  });
+
   it('switches on click and moves with the arrow keys', () => {
     render(<Harness />);
     fireEvent.click(screen.getByRole('tab', { name: 'Play mode' }));

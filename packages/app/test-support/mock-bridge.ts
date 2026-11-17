@@ -2108,6 +2108,26 @@ export function buildMockBridge(data: MockFixtures) {
     forgeAccounts: {
       list: async () => data.forgeAccounts ?? [],
       add: async () => ({ ok: false as const, error: 'not implemented in the mock bridge' }),
+      rename: async (req: { gameId: string; name: string }) => {
+        gamesCalls.push({ call: 'rename', ...req });
+        return { ok: true as const };
+      },
+      forget: async (req: { gameId: string }) => {
+        gamesCalls.push({ call: 'forget', ...req });
+        return { ok: true as const };
+      },
+      reveal: async (req: { gameId: string }) => {
+        gamesCalls.push({ call: 'reveal', ...req });
+        return { ok: true as const };
+      },
+      deleteInfo: async () => ({
+        ok: true as const,
+        value: { path: '/games/mock', name: 'Mock', uncommitted: 0, unpushed: 0, hasRemote: true, bytes: 1024 },
+      }),
+      delete: async (req: { gameId: string; confirmName: string }) => {
+        gamesCalls.push({ call: 'delete', ...req });
+        return { ok: true as const };
+      },
       remove: async () => ({ ok: false }),
       switch: async (req: { id: string | null }) => ({ ok: true, activeAccountId: req.id }),
       capabilities: async (req: { kind: ForgeKind }): Promise<ForgeCapability> => {
@@ -3677,6 +3697,14 @@ export function buildMockBridge(data: MockFixtures) {
       },
       logs: async () => ({ runId: null, entries: [] }),
       kitUpgrade: async () => ({ ok: true as const, value: { branch: 'kit-upgrade/0.1.0' } }),
+      doctor: async (req: { gameId?: string; path?: string }) => ({
+        ok: true as const,
+        value: { path: req.path ?? `/games/${req.gameId ?? 'game'}`, hasManifest: true, findings: [], counts: { error: 0, warn: 0, info: 0 }, status: 'ok' as const },
+      }),
+      doctorFix: async (req: { gameId?: string; path?: string }) => ({
+        ok: true as const,
+        value: { commit: null, diagnosis: { path: req.path ?? `/games/${req.gameId ?? 'game'}`, hasManifest: true, findings: [], counts: { error: 0, warn: 0, info: 0 }, status: 'ok' as const } },
+      }),
       popOut: async (req: { gameId: string }) => {
         gamesCalls.push({ call: 'popOut', ...req });
         gamesPopped = req.gameId;

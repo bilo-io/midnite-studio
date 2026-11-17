@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "name": "Legacy 3D",
+  "engine": "three",
+  "dimension": "3d",
+  "perspective": "third-person",
+  "genre": "open-world",
+  "starter": "open-world@third-person",
+  "cameraPresets": ["behind"],
+  "entry": "index.html",
+  "kitVersion": "0.11.0",
+  "vendored": { "three": "0.186.1" },
+  "assets": [],
+  "network": "off",
+  "deterministic": false,
+  "keepSaveData": false
+}

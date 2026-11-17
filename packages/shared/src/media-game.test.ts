@@ -16,7 +16,11 @@ import {
   GameManifestSchema,
   GamesSettingsSchema,
   gameSlug,
+  GAME_GENRES,
+  GENRES_WITH_STARTER,
+  hasStarter,
   parseGameManifest,
+  rawManifestHasLegacyVendored,
 } from './media-game';
 
 const manifest = {
@@ -68,6 +72,47 @@ describe('GameManifestSchema', () => {
 
   it('rejects a name longer than 80 characters', () => {
     expect(GameManifestSchema.safeParse({ ...manifest, name: 'x'.repeat(81) }).success).toBe(false);
+  });
+});
+
+describe('Phase 149 Theme B — manifest additions', () => {
+  // Starbreaker's literal manifest: `vendored: true` and a `shmup` genre.
+  const starbreaker = { ...manifest, name: 'Starbreaker', genre: 'shmup', vendored: true };
+
+  it("parses Starbreaker's manifest, normalising vendored: true to {}", () => {
+    const parsed = parseGameManifest(starbreaker);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.manifest.vendored).toEqual({});
+      expect(parsed.manifest.genre).toBe('shmup');
+    }
+    expect(rawManifestHasLegacyVendored(starbreaker)).toBe(true);
+    expect(rawManifestHasLegacyVendored({ ...manifest, vendored: { phaser: '3.80.1' } })).toBe(false);
+    expect(rawManifestHasLegacyVendored(null)).toBe(false);
+  });
+
+  it('still refuses vendored: false and an unknown genre, with the genre path', () => {
+    expect(parseGameManifest({ ...manifest, vendored: false }).ok).toBe(false);
+    const parsed = parseGameManifest({ ...manifest, genre: 'nonsense' });
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) expect(parsed.issues.map((i) => i.path)).toContain('genre');
+  });
+
+  it('appends the new genres and keeps starter genres a subset', () => {
+    expect(GAME_GENRES.slice(-5)).toEqual(['shmup', 'platformer-action', 'racing', 'puzzle', 'arcade']);
+    expect(GENRES_WITH_STARTER.length).toBe(10);
+    expect(hasStarter('shmup')).toBe(false);
+    expect(hasStarter('fps')).toBe(true);
+  });
+
+  it('accepts a relative build block and refuses one that escapes the game', () => {
+    const ok = parseGameManifest({ ...manifest, build: { command: 'npm run build', out: 'dist' } });
+    expect(ok.ok).toBe(true);
+    for (const out of ['../x', '/abs', 'a/../../x', '']) {
+      const bad = parseGameManifest({ ...manifest, build: { command: 'npm run build', out } });
+      expect(bad.ok, out).toBe(false);
+    }
+    expect(parseGameManifest({ ...manifest, build: { command: '', out: 'dist' } }).ok).toBe(false);
   });
 });
 

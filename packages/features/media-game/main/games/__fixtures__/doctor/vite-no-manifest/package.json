@@ -1,0 +1,8 @@
+{
+  "name": "vite-no-manifest",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "tsc --noEmit && vite build" },
+  "dependencies": { "three": "^0.185.1" },
+  "devDependencies": { "typescript": "^5.9.0", "vite": "^7.0.0" }
+}

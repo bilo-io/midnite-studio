@@ -1,4 +1,4 @@
-import { readFile, realpath, writeFile } from 'node:fs/promises';
+import { readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve as resolvePath } from 'node:path';
 
 import {
@@ -11,6 +11,9 @@ import {
   type GameAddResult,
   type GameCreateRequest,
   type GameCreateResult,
+  type GameDiagnosis,
+  type GameFixRequest,
+  type GameFixResult,
   type GameJuicePatch,
   type GameJuiceSettings,
   type GameLogEntry,
@@ -25,9 +28,13 @@ import {
 } from '@midnite/studio-shared';
 
 import type { Logger } from './logger';
+import { diagnoseGame } from './game-doctor';
+import { applyGameFix } from './game-fixes';
+import { inferManifest } from './infer-manifest';
 import { resolveGameFolder } from './game-open';
 import { listGames } from './game-list';
 import { createGameLevels } from './game-levels';
+import { createGameManage } from './game-manage';
 import { createGame, gameIdForPath } from './game-scaffold';
 import type { GamePopout } from './game-popout';
 import type { GameRunner, ToolbarAction } from './game-runner';
@@ -51,6 +58,10 @@ export type GameServiceDeps = {
   /** Push an event to the renderer(s). */
   send: (channel: string, payload: unknown) => void;
   log: Logger;
+  /** Game management (Phase 149 Theme I): the host's ports. Each absent one makes its op answer "not available". */
+  forgetRepo?: (path: string) => Promise<GitOpResult>;
+  revealPath?: (path: string) => void;
+  trashPath?: (path: string) => Promise<GitOpResult>;
   /** Pop out (Theme B). Absent in tests that never pop a game out. */
   popout?: GamePopout;
   /** Where games live until the user picks a folder. Defaults to `~/Midnite Games`; a smoke run points it at its userData. */
@@ -75,7 +86,7 @@ export function createGameService(deps: GameServiceDeps) {
   /** Find a listed game by id. */
   async function find(gameId: string): Promise<GameSummary | null> {
     const { root } = await read();
-    const games = await listGames(root, await deps.listRepoPaths());
+    const games = await listGames(root, await deps.listRepoPaths(), { diagnose: false });
     return games.find((game) => game.gameId === gameId) ?? null;
   }
 
@@ -97,13 +108,26 @@ export function createGameService(deps: GameServiceDeps) {
    */
   async function resolve(target: string): Promise<GameSummary | null> {
     const { root } = await read();
-    const games = await listGames(root, await deps.listRepoPaths());
+    const games = await listGames(root, await deps.listRepoPaths(), { diagnose: false });
     if (!isAbsolute(target)) return games.find((game) => game.gameId === target) ?? null;
     const wanted = resolvePath(target);
     return games.find((game) => resolvePath(game.path) === wanted) ?? null;
   }
 
   const levels = createGameLevels({ resolve, readManifest, runner: deps.runner, send: deps.send, log: deps.log });
+
+  const manage = createGameManage({
+    resolve,
+    gamesRoot: async () => (await read()).root,
+    isRunning: (gameId) => deps.runner.isRunning(gameId),
+    stop: (gameId) => deps.runner.stop(gameId),
+    ...(deps.forgetRepo ? { forgetRepo: deps.forgetRepo } : {}),
+    registerRepo: deps.registerRepo,
+    ...(deps.revealPath ? { revealPath: deps.revealPath } : {}),
+    ...(deps.trashPath ? { trashPath: deps.trashPath } : {}),
+    send: deps.send,
+    log: deps.log,
+  });
 
   return {
     resolve,
@@ -151,7 +175,7 @@ export function createGameService(deps: GameServiceDeps) {
      * Open Game (Phase 132 Theme A): add an existing game folder to the list. `path` absent shows the host's
      * folder dialog. A game already listed answers `listed` and nothing is written.
      */
-    async add(path?: string): Promise<GitOpResult<GameAddResult>> {
+    async add(path?: string, confirmManifest?: GameManifest): Promise<GitOpResult<GameAddResult>> {
       let picked = path;
       if (picked === undefined) {
         if (!deps.pickFolder) return failure('Open Game is not available here.');
@@ -164,11 +188,21 @@ export function createGameService(deps: GameServiceDeps) {
       const { root } = resolved.value;
       const { root: gamesRoot } = await read();
       const real = await realpath(root).catch(() => root);
-      const games = await listGames(gamesRoot, await deps.listRepoPaths());
+      const games = await listGames(gamesRoot, await deps.listRepoPaths(), { diagnose: false });
       for (const game of games) {
         if ((await realpath(game.path).catch(() => game.path)) === real) {
           return ok({ status: 'listed', gameId: game.gameId, path: game.path });
         }
+      }
+      if (resolved.value.needsManifest) {
+        // Phase 149 Theme F: nothing is written or registered until the user confirms a manifest.
+        if (confirmManifest === undefined) {
+          const proposed = await inferManifest(root);
+          if (!proposed.ok) return proposed;
+          return ok({ status: 'needs-manifest', path: root, proposed: proposed.value, diagnosis: await diagnoseGame(root) });
+        }
+        const written = await applyGameFix(root, { fixId: 'write-manifest', manifest: confirmManifest }, { templateDir: deps.templateDir, enginesDir: deps.enginesDir, send: deps.send });
+        if (!written.ok) return written;
       }
       const registered = await deps.registerRepo(root);
       if (!registered.ok) return registered;
@@ -177,6 +211,13 @@ export function createGameService(deps: GameServiceDeps) {
       deps.log.info(`game added ${gameId} path=${root}`);
       return ok({ status: 'added', gameId, path: root });
     },
+
+    /** Rename, forget, reveal and delete-to-Trash (Phase 149 Theme I). */
+    rename: manage.rename,
+    forget: manage.forget,
+    reveal: manage.reveal,
+    deleteInfo: manage.deleteInfo,
+    delete: manage.delete,
 
     async manifestGet(gameId: string): Promise<{ manifest: GameManifest | null; issues: GameManifestIssue[] }> {
       const game = await find(gameId);
@@ -223,6 +264,7 @@ export function createGameService(deps: GameServiceDeps) {
       return deps.runner.run({
         gameId,
         root: game.path,
+        build: manifest.build ?? null,
         network: manifest.network,
         keepSaveData: manifest.keepSaveData,
         determinism: opts.determinism ?? (manifest.deterministic ? { seed: 1, paused: false } : null),
@@ -261,6 +303,50 @@ export function createGameService(deps: GameServiceDeps) {
       return result;
     },
     stopAll: (): void => deps.runner.stopAll(),
+
+    // --- Phase 149 Theme C: the game doctor ---
+    /**
+     * Diagnose a game against the Midnite game standard. `gameId` names a listed game; `path` (Open Game, before
+     * the folder is listed) must be an existing absolute directory. Read-only.
+     */
+    async doctor(req: { gameId?: string; path?: string }): Promise<GitOpResult<GameDiagnosis>> {
+      if (req.gameId !== undefined) {
+        const game = await resolve(req.gameId);
+        if (!game) return failure('That game was not found.');
+        return ok(await diagnoseGame(game.path));
+      }
+      if (req.path === undefined || !isAbsolute(req.path)) return failure('Give a game id or an absolute folder path.');
+      let real: string;
+      try {
+        real = await realpath(resolvePath(req.path));
+        if (!(await stat(real)).isDirectory()) return failure('That path is not a folder.');
+      } catch {
+        return failure('That folder does not exist.');
+      }
+      return ok(await diagnoseGame(real));
+    },
+    // --- end Phase 149 Theme C ---
+
+    // --- Phase 149 Theme D: safe doctor fixes ---
+    /** Apply one fix to a listed game (`gameId`) or an existing absolute folder (`path`); answers the fresh diagnosis. */
+    async doctorFix(req: GameFixRequest): Promise<GitOpResult<GameFixResult>> {
+      const { gameId, path, ...fix } = req;
+      let target: string;
+      if (gameId !== undefined) {
+        const game = await resolve(gameId);
+        if (!game) return failure('That game was not found.');
+        target = game.path;
+      } else {
+        if (path === undefined || !isAbsolute(path)) return failure('Give a game id or an absolute folder path.');
+        const top = await resolveGameFolder(path);
+        if (!top.ok) return top;
+        target = top.value.root;
+      }
+      const result = await applyGameFix(target, fix, { templateDir: deps.templateDir, enginesDir: deps.enginesDir, send: deps.send });
+      if (result.ok) deps.log.info(`game doctor fix ${fix.fixId} path=${target} commit=${result.value.commit ?? 'none'}`);
+      return result;
+    },
+    // --- end Phase 149 Theme D ---
 
     async popOut(gameId: string): Promise<GitOpResult> {
       if (!deps.popout) return failure('Pop out is not available.');

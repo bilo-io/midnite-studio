@@ -62,7 +62,7 @@ export const SITE_APPS: readonly SiteApp[] = [
     section: 'suite',
     accent: '#8b5cf6',
     spectrum: ['#2b3a8f', '#4f7cf7', '#8245ba', '#c056d6'],
-    tagline: 'Every midnite app in one window',
+    tagline: 'Every midnyte app in one window',
     like: 'The whole suite, for power users',
     vision:
       'The master tool: every app beside it, in one desktop application with one rail. It is what the suite is built from today, and it stays the place for anyone who would rather have all of it at once.',
@@ -275,7 +275,7 @@ export const SITE_APPS: readonly SiteApp[] = [
     tagline: 'Secrets and credentials for every app',
     like: 'Like 1Password, for keys and tokens',
     vision:
-      'One encrypted home for the API keys, forge tokens, database logins and model provider keys every midnite app needs: unlocked once, shared with the apps you allow, and never written into a settings file in plain text.',
+      'One encrypted home for the API keys, forge tokens, database logins and model provider keys every midnyte app needs: unlocked once, shared with the apps you allow, and never written into a settings file in plain text.',
     features: [
       { label: 'Secrets', blurb: 'API keys and provider tokens' },
       { label: 'Accounts', blurb: 'Forge and database logins' },

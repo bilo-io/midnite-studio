@@ -6,6 +6,7 @@ import {
   type GameGenre,
   type GameOptions,
   type GamePerspective,
+  hasStarter,
 } from './media-game';
 import { GAME_TEMPLATE_MATRIX } from './media-game-templates';
 
@@ -46,7 +47,8 @@ export const emptyGameOptions = (): GameOptions => ({ ...NONE, dayNight: { ...NO
 
 type Defaults = Partial<Omit<GameOptions, 'dayNight'>> & { dayNight?: boolean };
 
-const GENRE_DEFAULTS: Record<GameGenre, Defaults> = {
+/** A genre without a starter (Phase 149) has no entry and starts from everything off. */
+const GENRE_DEFAULTS: Partial<Record<GameGenre, Defaults>> = {
   fps: { enemies: true },
   rts: { enemies: true, missions: true },
   arpg: { enemies: true, bosses: true, npcs: true, missions: true },
@@ -63,7 +65,7 @@ const GENRE_DEFAULTS: Record<GameGenre, Defaults> = {
 export function defaultGameOptions(genre: GameGenre | null): GameOptions {
   const options = emptyGameOptions();
   if (genre === null) return options;
-  const d = GENRE_DEFAULTS[genre];
+  const d = GENRE_DEFAULTS[genre] ?? {};
   return {
     ...options,
     ...Object.fromEntries(GAME_FEATURE_KEYS.map((k) => [k, d[k] ?? false])),
@@ -84,7 +86,7 @@ export function gameOptionAvailability(
   ctx: { genre: GameGenre | null; perspective: GamePerspective },
   options?: GameOptions,
 ): GameOptionAvailability {
-  const fighter = ctx.genre !== null && GAME_TEMPLATE_MATRIX[ctx.genre].versus === true;
+  const fighter = ctx.genre !== null && hasStarter(ctx.genre) && GAME_TEMPLATE_MATRIX[ctx.genre].versus === true;
   switch (key) {
     case 'dayNight':
       if (fighter) return { available: false, reason: 'A one-on-one fighter plays on a single stage with no passing time.' };

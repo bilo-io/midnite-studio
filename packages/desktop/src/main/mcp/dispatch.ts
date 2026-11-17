@@ -54,6 +54,8 @@ import {
   gameLevelGet,
   gameLevelSet,
   gameGoto,
+  gameDoctor,
+  gameDoctorFix,
   gameStop,
 } from './game-tools';
 import {
@@ -214,6 +216,8 @@ export const MCP_HANDLERS: {
   game_level_get: gameLevelGet,
   game_level_set: gameLevelSet,
   game_goto: gameGoto,
+  game_doctor: gameDoctor,
+  game_doctor_fix: gameDoctorFix,
   terrain_list: terrainList,
   terrain_open: terrainOpen,
   terrain_get_spec: terrainGetSpec,

@@ -25,6 +25,8 @@ const GAME: GameSummary = {
   dirty: false,
   valid: true,
   issue: null,
+  status: null,
+  findingCount: 0,
 };
 
 const withGames = (games: NonNullable<typeof fixtures.games>) => ({ ...fixtures, games: { ...fixtures.games, ...games } });

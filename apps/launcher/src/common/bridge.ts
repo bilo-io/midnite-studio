@@ -1,6 +1,7 @@
 import type { ChangelogAppId } from '@midnite/studio-shared/release';
 
 import type { AppId, BundleAppId } from './catalog';
+import type { ChangelogPayload } from './changelog';
 import type { LockstepReason } from './lockstep';
 
 /**
@@ -45,6 +46,7 @@ export const LAUNCHER_CHANNELS = {
   /** Opens one app's full changelog page in the browser. */
   changelogOpen: 'launcher:changelog:open',
   themeSet: 'launcher:theme:set',
+  changelogGet: 'launcher:changelog:get',
 } as const;
 
 /** An installed copy of Midnite Studio. `version` is `null` when its Info.plist would not say. */
@@ -108,7 +110,7 @@ export type AppsStatus = {
 
 export type AppInstallProgress = { id: AppId; progress: InstallProgress };
 
-export const EXTERNAL_LINKS = ['website', 'releases', 'notes', 'download'] as const;
+export const EXTERNAL_LINKS = ['website', 'releases', 'notes', 'download', 'changelog', 'issues'] as const;
 export type ExternalLink = (typeof EXTERNAL_LINKS)[number];
 
 export const THEME_SOURCES = ['system', 'light', 'dark'] as const;
@@ -164,6 +166,8 @@ export type LauncherBridge = {
     /** Never throws: offline is `{ sections: [], error }`; not published yet is `{ sections: [], error: null }`. */
     latest(app: ChangelogAppId): Promise<ChangelogResult>;
     openFull(app: ChangelogAppId): Promise<LauncherResult>;
+    /** Studio's whole CHANGELOG.md, parsed for the Changelog tab. Never throws. */
+    get(): Promise<ChangelogPayload>;
   };
   privacy: {
     get(): Promise<LauncherPrivacy>;

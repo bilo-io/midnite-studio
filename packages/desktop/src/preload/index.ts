@@ -743,6 +743,11 @@ const bridge: Pick<
     list: () => call(CHANNELS.gamesList),
     create: (req) => call(CHANNELS.gamesCreate, req),
     add: (req) => call(CHANNELS.gamesAdd, req),
+    rename: (req) => call(CHANNELS.gamesRename, req),
+    forget: (req) => call(CHANNELS.gamesForget, req),
+    reveal: (req) => call(CHANNELS.gamesReveal, req),
+    deleteInfo: (req) => call(CHANNELS.gamesDeleteInfo, req),
+    delete: (req) => call(CHANNELS.gamesDelete, req),
     manifest: {
       get: (req) => call(CHANNELS.gamesGetManifest, req),
       set: (req) => call(CHANNELS.gamesSetManifest, req),
@@ -757,6 +762,8 @@ const bridge: Pick<
     juice: (req) => call(CHANNELS.gamesJuice, req),
     logs: (req) => call(CHANNELS.gamesLogs, req),
     kitUpgrade: (req) => call(CHANNELS.gamesKitUpgrade, req),
+    doctor: (req) => call(CHANNELS.gamesDoctor, req),
+    doctorFix: (req) => call(CHANNELS.gamesDoctorFix, req),
     levels: {
       list: (req) => call(CHANNELS.gamesLevels, req),
       get: (req) => call(CHANNELS.gamesLevelGet, req),

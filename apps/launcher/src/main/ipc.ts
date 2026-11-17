@@ -1,12 +1,15 @@
-import { ipcMain, nativeTheme, shell, type BrowserWindow } from 'electron';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { app, ipcMain, nativeTheme, shell, type BrowserWindow } from 'electron';
 import { changelogPageUrl } from '@midnite/studio-shared/release';
 import { z } from 'zod';
 
 import { EXTERNAL_LINKS, LAUNCHER_CHANNELS, THEME_SOURCES, type LauncherPrivacy, type LauncherResult, type LauncherSelfStatus } from '../common/bridge';
 import { APP_IDS, type AppId } from '../common/catalog';
+import { parseChangelog, type ChangelogPayload } from '../common/changelog';
 import type { createAppsOps } from './bundles/apps-ops';
-import { DOWNLOAD_URL, RELEASES_URL, SITE_URL } from './constants';
 import { ChangelogRequestSchema, answerChangelogLatest } from './changelog';
+import { CHANGELOG_PAGE_URL, CHANGELOG_RAW_URL, DOWNLOAD_URL, ISSUES_URL, RELEASES_URL, SITE_URL } from './constants';
 import { fetchStudioRelease } from './feed';
 import { installStudio } from './install';
 import { LauncherPrivacySchema } from './privacy';
@@ -102,8 +105,8 @@ export function registerIpc(getWindow: () => BrowserWindow | null, apps: AppsIpc
   // Moves Studio to the Trash, never `rm` — an uninstall from a launcher should be undoable from Finder.
   ipcMain.handle(LAUNCHER_CHANNELS.studioUninstall, async (): Promise<LauncherResult> => {
     const installed = await findStudio();
-    if (installed === null) return failure('Midnite Studio is not installed.');
-    if (await isStudioRunning()) return failure('Midnite Studio is running — quit it first.');
+    if (installed === null) return failure('Midnyte Studio is not installed.');
+    if (await isStudioRunning()) return failure('Midnyte Studio is running — quit it first.');
     try {
       await shell.trashItem(installed.path);
       return { ok: true };
@@ -114,7 +117,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null, apps: AppsIpc
 
   ipcMain.handle(LAUNCHER_CHANNELS.studioReveal, async (): Promise<LauncherResult> => {
     const installed = await findStudio();
-    if (installed === null) return failure('Midnite Studio is not installed.');
+    if (installed === null) return failure('Midnyte Studio is not installed.');
     shell.showItemInFolder(installed.path);
     return { ok: true };
   });
@@ -129,7 +132,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null, apps: AppsIpc
       const stub = await apps.findBundle(parsed.data.id);
       if (stub !== null && (await shell.openPath(stub)) === '') return { ok: true };
     }
-    if ((await findStudio()) === null) return failure('Install Midnite Studio first — every app runs in it for now.');
+    if ((await findStudio()) === null) return failure('Install Midnyte Studio first — every app runs in it for now.');
     try {
       await shell.openExternal(appLink(parsed.data.id, parsed.data.featureId));
       return { ok: true };
@@ -164,8 +167,59 @@ export function registerIpc(getWindow: () => BrowserWindow | null, apps: AppsIpc
       case 'notes':
         url = (await fetchStudioRelease()).release?.notesUrl ?? RELEASES_URL;
         break;
+      case 'changelog':
+        url = CHANGELOG_PAGE_URL;
+        break;
+      case 'issues':
+        url = ISSUES_URL;
+        break;
     }
     await shell.openExternal(url);
     return { ok: true };
+  });
+
+  ipcMain.handle(LAUNCHER_CHANNELS.changelogGet, async (): Promise<ChangelogPayload> => {
+    // Dev reads the repo's CHANGELOG.md; a packaged build never trusts cwd and goes to the feed.
+    const candidatePaths = app.isPackaged
+      ? []
+      : [resolve(__dirname, '../../../../CHANGELOG.md'), resolve(__dirname, '../../../CHANGELOG.md')];
+    let md: string | null = null;
+    for (const p of candidatePaths) {
+      try {
+        const text = await readFile(p, 'utf8');
+        if (text && text.trim().length > 0) {
+          md = text;
+          break;
+        }
+      } catch {
+        // continue
+      }
+    }
+
+    if (!md) {
+      try {
+        const res = await fetch(CHANGELOG_RAW_URL, { signal: AbortSignal.timeout(6000) });
+        if (res.ok) {
+          md = await res.text();
+        }
+      } catch {
+        // network fetch failed
+      }
+    }
+
+    if (!md) {
+      return { releases: [], rawMarkdown: '', error: 'Could not load changelog.' };
+    }
+
+    try {
+      const releases = parseChangelog(md);
+      return { releases, rawMarkdown: md, error: null };
+    } catch (err) {
+      return {
+        releases: [],
+        rawMarkdown: md,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
   });
 }

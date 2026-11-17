@@ -26,7 +26,7 @@ async function makeRepo(files: Record<string, string>) {
     await mkdir(join(path, rel, '..'), { recursive: true });
     await writeFile(join(path, rel), text);
   }
-  const game: GameSummary = { gameId: 'g1', name: 'Tact Game', path, engine: 'phaser', dimension: '2d', starter: 'platformer', dirty: false, valid: true, issue: null };
+  const game: GameSummary = { gameId: 'g1', name: 'Tact Game', path, engine: 'phaser', dimension: '2d', starter: 'platformer', dirty: false, valid: true, issue: null, status: null, findingCount: 0 };
   return createGameExport({ resolve: async (id) => (id === 'g1' ? game : null) });
 }
 

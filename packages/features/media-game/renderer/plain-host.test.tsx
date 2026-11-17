@@ -23,6 +23,8 @@ const BROKEN: GameSummary = {
   dirty: false,
   valid: false,
   issue: 'name is required',
+  status: null,
+  findingCount: 0,
 };
 
 function Shell({ children }: { children: ReactNode }) {

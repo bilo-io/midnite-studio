@@ -1633,6 +1633,12 @@ export type MidniteStudioBridge = {
     list: () => Promise<z.infer<typeof S.GamesListResponse>>;
     create: (req: In<typeof S.GamesCreateRequest>) => Promise<z.infer<typeof S.GamesCreateResponse>>;
     add: (req: In<typeof S.GamesAddRequest>) => Promise<z.infer<typeof S.GamesAddResponse>>;
+    /** Game management (Phase 149 Theme I). Delete moves the folder to the Trash, never `rm`. */
+    rename: (req: In<typeof S.GamesRenameRequest>) => Promise<GitOpResult>;
+    forget: (req: In<typeof S.GamesForgetRequest>) => Promise<GitOpResult>;
+    reveal: (req: In<typeof S.GamesRevealRequest>) => Promise<GitOpResult>;
+    deleteInfo: (req: In<typeof S.GamesDeleteInfoRequest>) => Promise<z.infer<typeof S.GamesDeleteInfoResponse>>;
+    delete: (req: In<typeof S.GamesDeleteRequest>) => Promise<GitOpResult>;
     manifest: {
       get: (req: In<typeof S.GamesGetManifestRequest>) => Promise<z.infer<typeof S.GamesGetManifestResponse>>;
       set: (req: In<typeof S.GamesSetManifestRequest>) => Promise<GitOpResult>;
@@ -1649,6 +1655,10 @@ export type MidniteStudioBridge = {
     juice: (req: In<typeof S.GamesJuiceRequest>) => Promise<z.infer<typeof S.GamesJuiceResponse>>;
     logs: (req: In<typeof S.GamesLogsRequest>) => Promise<z.infer<typeof S.GamesLogsResponse>>;
     kitUpgrade: (req: In<typeof S.GamesKitUpgradeRequest>) => Promise<z.infer<typeof S.GamesKitUpgradeResponse>>;
+    /** Phase 149 Theme C: the game doctor — every finding against the Midnite game standard. Read-only. */
+    doctor: (req: In<typeof S.GamesDoctorRequest>) => Promise<z.infer<typeof S.GamesDoctorResponse>>;
+    /** Phase 149 Theme D: apply one safe fix (one commit on `midnite-game.json`), answering the fresh diagnosis. */
+    doctorFix: (req: In<typeof S.GamesDoctorFixRequest>) => Promise<z.infer<typeof S.GamesDoctorFixResponse>>;
     /**
      * Levels (Phase 132 Theme C): `levels/<scene>.tmj`. `set` writes one file and makes one commit naming only
      * it; `goto` restarts a running game at a scene, or sets where the next run starts.
@@ -2436,6 +2446,9 @@ export type MidniteStudioBridge = {
     exportInvoicePdf: (req: Omit<Extract<StartupRequest, { op: 'exportInvoicePdf' }>, 'op'>) => Promise<StartupResult<StartupPdfExport>>;
     linkBook: (req: Omit<Extract<StartupRequest, { op: 'linkBook' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
     ledgerSummary: () => Promise<StartupResult<StartupLedgerSummary>>;
+    upsertFleetProjection: (req: Omit<Extract<StartupRequest, { op: 'upsertFleetProjection' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    removeFleetProjection: (req: Omit<Extract<StartupRequest, { op: 'removeFleetProjection' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    duplicateFleetProjection: (req: Omit<Extract<StartupRequest, { op: 'duplicateFleetProjection' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
     onChanged: (handler: (e: StartupChangedEvent) => void) => Unsubscribe;
   };
 

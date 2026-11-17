@@ -33,6 +33,7 @@ export function matchesQuery(app: LauncherApp, query: string): boolean {
   if (q === '') return true;
   const haystack = [
     `midnite ${app.name}`,
+    `midnyte ${app.name}`,
     app.tagline,
     app.like,
     ...app.modules.flatMap((m) => [m.name, m.tagline]),
@@ -95,6 +96,6 @@ export function removalSummary(results: readonly { app: LauncherApp; result: { o
   const skipped = results.filter((r) => !r.result.ok);
   const noun = (n: number) => (n === 1 ? 'app' : 'apps');
   if (skipped.length === 0) return { message: `Moved ${moved} ${noun(moved)} to the Trash.`, tone: 'info' };
-  const reasons = skipped.map(({ app, result }) => `Midnite ${app.name}: ${result.message ?? 'could not be removed.'}`).join(' ');
+  const reasons = skipped.map(({ app, result }) => `Midnyte ${app.name}: ${result.message ?? 'could not be removed.'}`).join(' ');
   return { message: `Moved ${moved} of ${results.length} ${noun(results.length)} to the Trash. Skipped — ${reasons}`, tone: 'error' };
 }

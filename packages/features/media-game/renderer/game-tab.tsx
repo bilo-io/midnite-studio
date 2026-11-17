@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react';
+
+import type { GameAddResult } from '@midnite/studio-shared';
 import { LuGamepad2 } from 'react-icons/lu';
 
 import { EmptyState, useMediaKit } from '@midnite/studio-frame';
 
+import { AdoptGameSheet } from './adopt-game-sheet';
 import { GameCenter } from './game-center';
 import { GameCreatePanel } from './game-create-panel';
+import { GameDoctorPanel } from './game-doctor-panel';
+import { useDoctorRequest } from './game-doctor-store';
 import { GameDetailPanel } from './game-detail-panel';
 import { GameExportBar } from './game-export-bar';
 import { GameExplorer } from './game-explorer';
@@ -31,7 +36,7 @@ const noEvents = (): void => undefined;
  *   selected game's details over the create-and-iterate agent panel (Theme M).
  */
 export function GameTab() {
-  const { MediaLayout, useMediaOpenFor, clearMediaOpenRequest } = useMediaKit();
+  const { MediaLayout, MediaPaneToggles, useMediaOpenFor, clearMediaOpenRequest } = useMediaKit();
   const { agent } = useGameHost();
   useGameEvents();
   (agent?.useEvents ?? noEvents)();
@@ -52,65 +57,120 @@ export function GameTab() {
     // `setMode` follows the mode map; the request is consumed once, here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openRequest, clearMediaOpenRequest]);
+  // Phase 149 Theme G: the Doctor panel replaces the detail panel for one game until it is closed.
+  const [doctorFor, setDoctorFor] = useState<string | null>(null);
+  const doctorRequest = useDoctorRequest((s) => s.requested);
+  const clearDoctorRequest = useDoctorRequest((s) => s.clear);
+  useEffect(() => {
+    if (!doctorRequest) return;
+    setSelectedId(doctorRequest);
+    setCreating(false);
+    setDoctorFor(doctorRequest);
+    clearDoctorRequest();
+  }, [doctorRequest, clearDoctorRequest]);
   const selected = (games.data ?? []).find((game) => game.gameId === selectedId) ?? null;
 
   const select = (gameId: string) => {
     setSelectedId(gameId);
     setMode(gameId, 'editor');
     setCreating(false);
+    setDoctorFor(null);
   };
 
   const addGame = useAddGame();
-  const openGame = () =>
-    addGame.mutate(undefined, {
-      onSuccess: (result) => {
-        if (result.ok && result.value.status !== 'cancelled') select(result.value.gameId);
-      },
-    });
+  // Phase 149 Theme F: a folder with no manifest comes back as a proposal the user confirms in the sheet.
+  const [adopting, setAdopting] = useState<Extract<
+    GameAddResult,
+    { status: 'needs-manifest' }
+  > | null>(null);
+  const onAdded = (result: { ok: true; value: GameAddResult } | { ok: false }) => {
+    if (!result.ok) return;
+    const added = result.value;
+    if (added.status === 'needs-manifest') setAdopting(added);
+    else if (added.status !== 'cancelled') {
+      setAdopting(null);
+      select(added.gameId);
+    }
+  };
+  const openGame = () => addGame.mutate(undefined, { onSuccess: onAdded });
 
   return (
-    <MediaLayout
-      tab="game"
-      explorerLabel="Games"
-      detailLabel="Game details"
-      detailName="details"
-      toolbar={
-        <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
-          <span className="min-w-0 truncate text-left text-xs font-semibold" title={selected?.name}>
-            {selected?.name ?? ''}
-          </span>
-          <GameRunnerToolbar
-            gameId={selected?.gameId ?? null}
-            resolution={resolution}
-            onResolution={setResolution}
-            onPlay={(started) => selected && onPlay(selected.gameId, started)}
-          />
-          <div className="justify-self-end">
-            <GameExportBar gameId={selected?.gameId ?? null} />
-          </div>
-        </div>
-      }
-      explorer={<GameExplorer selectedId={selectedId} onSelect={select} onNew={() => setCreating(true)} onOpen={openGame} opening={addGame.isPending} />}
-      content={
-        <GameCenter
-          game={selected}
-          mode={modeOf(selected?.gameId ?? null)}
-          onMode={(next) => selected && setMode(selected.gameId, next)}
-          resolution={resolution}
-          sceneSlot={<ScenePicker gameId={selected?.gameId ?? null} />}
+    <>
+      {adopting ? (
+        <AdoptGameSheet
+          path={adopting.path}
+          proposed={adopting.proposed}
+          diagnosis={adopting.diagnosis}
+          busy={addGame.isPending}
+          onCancel={() => setAdopting(null)}
+          onConfirm={(confirmManifest) =>
+            addGame.mutate({ path: adopting.path, confirmManifest }, { onSuccess: onAdded })
+          }
         />
-      }
-      detail={
-        creating || !selected ? (
-          creating || (games.data ?? []).length === 0 ? (
-            <GameCreatePanel onCreated={select} />
+      ) : null}
+      <MediaLayout
+        tab="game"
+        explorerLabel="Games"
+        detailLabel="Game details"
+        detailName="details"
+        floatingToggles={false}
+        toolbar={
+          <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
+            <span
+              className="min-w-0 truncate text-left text-xs font-semibold"
+              title={selected?.name}
+            >
+              {selected?.name ?? ''}
+            </span>
+            <GameRunnerToolbar
+              gameId={selected?.gameId ?? null}
+              resolution={resolution}
+              onResolution={setResolution}
+              onPlay={(started) => selected && onPlay(selected.gameId, started)}
+            />
+            <div className="justify-self-end">
+              <GameExportBar gameId={selected?.gameId ?? null} />
+            </div>
+          </div>
+        }
+        explorer={
+          <GameExplorer
+            selectedId={selectedId}
+            onSelect={select}
+            onNew={() => setCreating(true)}
+            onOpen={openGame}
+            opening={addGame.isPending}
+          />
+        }
+        content={
+          <GameCenter
+            game={selected}
+            mode={modeOf(selected?.gameId ?? null)}
+            onMode={(next) => selected && setMode(selected.gameId, next)}
+            resolution={resolution}
+            sceneSlot={<ScenePicker gameId={selected?.gameId ?? null} />}
+            leading={<MediaPaneToggles tab="game" hasDetail side="start" explorerName="games" />}
+            trailing={<MediaPaneToggles tab="game" hasDetail side="end" detailName="details" />}
+          />
+        }
+        detail={
+          creating || !selected ? (
+            creating || (games.data ?? []).length === 0 ? (
+              <GameCreatePanel onCreated={select} />
+            ) : (
+              <EmptyState
+                icon={LuGamepad2}
+                title="No game selected"
+                body="Pick one from the list to see its details."
+              />
+            )
+          ) : doctorFor === selected.gameId ? (
+            <GameDoctorPanel key={selected.gameId} gameId={selected.gameId} name={selected.name} onClose={() => setDoctorFor(null)} />
           ) : (
-            <EmptyState icon={LuGamepad2} title="No game selected" body="Pick one from the list to see its details." />
+            <GameDetailPanel game={selected} />
           )
-        ) : (
-          <GameDetailPanel game={selected} />
-        )
-      }
-    />
+        }
+      />
+    </>
   );
 }

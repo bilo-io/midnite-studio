@@ -988,6 +988,12 @@ export const CHANNELS = {
   gamesList: 'mstudio:games:list',
   gamesCreate: 'mstudio:games:create',
   gamesAdd: 'mstudio:games:add',
+  /** Game management (Phase 149 Theme I). */
+  gamesRename: 'mstudio:games:rename',
+  gamesForget: 'mstudio:games:forget',
+  gamesReveal: 'mstudio:games:reveal',
+  gamesDeleteInfo: 'mstudio:games:delete-info',
+  gamesDelete: 'mstudio:games:delete',
   gamesGetManifest: 'mstudio:games:get-manifest',
   gamesSetManifest: 'mstudio:games:set-manifest',
   gamesRun: 'mstudio:games:run',
@@ -999,6 +1005,10 @@ export const CHANNELS = {
   gamesJuice: 'mstudio:games:juice',
   gamesLogs: 'mstudio:games:logs',
   gamesKitUpgrade: 'mstudio:games:kit-upgrade',
+  /** Phase 149 Theme C: diagnose a game against the Midnite game standard (read-only). */
+  gamesDoctor: 'mstudio:games:doctor',
+  /** Phase 149 Theme D: apply one safe doctor fix — one commit on `midnite-game.json` (or a kit-upgrade branch). */
+  gamesDoctorFix: 'mstudio:games:doctor-fix',
   /** Levels (Phase 132 Theme C): `levels/<scene>.tmj` list, read, write-and-commit, and the scene jump. */
   gamesLevels: 'mstudio:games:levels',
   gamesLevelGet: 'mstudio:games:level-get',

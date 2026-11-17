@@ -368,9 +368,16 @@ import {
   GameAgentUndoRequestSchema,
   GameAddRequestSchema,
   GameAddResultSchema,
+  GameRenameRequestSchema,
+  GameDeleteInfoSchema,
+  GameDeleteRequestSchema,
   GameCreateRequestSchema,
   GameCreateResultSchema,
   GameIdRequest as GameIdRequestSchema,
+  GameDiagnosisSchema,
+  GameDoctorRequestSchema,
+  GameFixRequestSchema,
+  GameFixResultSchema,
   GameLogsRequest as GameLogsRequestSchema,
   GameLogsResponse as GameLogsResponseSchema,
   GameManifestGetResponse as GameManifestGetResponseSchema,
@@ -5729,6 +5736,12 @@ export const GamesCreateRequest = GameCreateRequestSchema;
 export const GamesCreateResponse = GitOpResultOf(GameCreateResultSchema);
 export const GamesAddRequest = GameAddRequestSchema;
 export const GamesAddResponse = GitOpResultOf(GameAddResultSchema);
+export const GamesRenameRequest = GameRenameRequestSchema;
+export const GamesForgetRequest = GameIdRequestSchema;
+export const GamesRevealRequest = GameIdRequestSchema;
+export const GamesDeleteInfoRequest = GameIdRequestSchema;
+export const GamesDeleteInfoResponse = GitOpResultOf(GameDeleteInfoSchema);
+export const GamesDeleteRequest = GameDeleteRequestSchema;
 export const GamesGetManifestRequest = GameIdRequestSchema;
 export const GamesGetManifestResponse = GameManifestGetResponseSchema;
 export const GamesSetManifestRequest = GameManifestSetRequestSchema;
@@ -5750,6 +5763,12 @@ export const GamesConsolePayload = GameConsolePayloadSchema;
 export const GamesKitUpgradeRequest = GameIdRequestSchema;
 export const GamesKitUpgradeResultSchema = z.object({ branch: z.string() });
 export const GamesKitUpgradeResponse = GitOpResultOf(GamesKitUpgradeResultSchema);
+// Phase 149 Theme C — the game doctor.
+export const GamesDoctorRequest = GameDoctorRequestSchema;
+export const GamesDoctorResponse = GitOpResultOf(GameDiagnosisSchema);
+// Phase 149 Theme D — safe doctor fixes.
+export const GamesDoctorFixRequest = GameFixRequestSchema;
+export const GamesDoctorFixResponse = GitOpResultOf(GameFixResultSchema);
 export const GamesLevelsRequest = GameLevelsRequestSchema;
 export const GamesLevelsResponse = GitOpResultOf(GameLevelsResultSchema);
 export const GamesLevelGetRequest = GameLevelGetRequestSchema;

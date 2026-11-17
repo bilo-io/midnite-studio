@@ -64,6 +64,8 @@ const summary = (): GameSummary => ({
   dirty: false,
   valid: true,
   issue: null,
+  status: null,
+  findingCount: 0,
 });
 
 const bridge = (overrides: Partial<Parameters<typeof createAssetBridge>[0]> = {}) =>

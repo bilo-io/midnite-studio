@@ -12,8 +12,8 @@ import { AppsPage } from './apps-page';
  * left to the browser; here every move goes through a control.
  */
 
-const carousel = () => screen.getByRole('region', { name: 'The midnite apps' });
-const slides = () => within(carousel()).getAllByRole('group', { name: /of \d+: Midnite/ });
+const carousel = () => screen.getByRole('region', { name: 'The midnyte apps' });
+const slides = () => within(carousel()).getAllByRole('group', { name: /of \d+: Midnyte/ });
 const activeSlide = () => slides().find((slide) => slide.dataset.active === 'true');
 const thumbs = () => within(screen.getByRole('group', { name: 'Choose an app' })).getAllByRole('button');
 
@@ -36,7 +36,7 @@ describe('AppsPage', () => {
     expect(slides()).toHaveLength(SITE_APPS.length);
     expect(thumbs()).toHaveLength(SITE_APPS.length);
     for (const app of SITE_APPS) {
-      expect(screen.getByRole('heading', { level: 2, name: `Midnite ${app.name}` })).toBeTruthy();
+      expect(screen.getByRole('heading', { level: 2, name: `Midnyte ${app.name}` })).toBeTruthy();
     }
   });
 
@@ -60,7 +60,7 @@ describe('AppsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next app' }));
     expect(activeSlide()?.id).toBe(SITE_APPS[1]!.id);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show Midnite Money' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show Midnyte Money' }));
     expect(activeSlide()?.id).toBe('money');
     expect(window.location.hash).toBe('#money');
 

@@ -53,6 +53,9 @@ import {
   GameLevelSetOutputSchema,
   GameGotoInputSchema,
   GameGotoOutputSchema,
+  GameDoctorOutputSchema,
+  GameDoctorFixInputSchema,
+  GameDoctorFixOutputSchema,
   GameToolTargetSchema,
   GameAssertFrameInputSchema,
   GameAssertStateInputSchema,
@@ -299,6 +302,8 @@ type McpToolEntry = {
     | 'game_level_get'
     | 'game_level_set'
     | 'game_goto'
+    | 'game_doctor'
+    | 'game_doctor_fix'
     | 'terrain_list'
     | 'terrain_open'
     | 'terrain_get_spec'
@@ -1166,6 +1171,24 @@ export const MCP_TOOLS = {
       'Jumps the running game to a scene, reloading or arming the next run when it cannot — use after `game_level_set` to see the level; refused unless its Settings switch is on.',
     input: GameGotoInputSchema,
     output: GameGotoOutputSchema,
+    readOnly: false,
+  },
+  game_doctor: {
+    id: 'game_doctor',
+    title: 'Diagnose a game',
+    description:
+      'Checks a game against the Midnite game standard, answering each finding with its rule id, level, file and fix id — use instead of guessing why Run or `game_level_list` does not work for a game.',
+    input: GameToolTargetSchema,
+    output: GameDoctorOutputSchema,
+    readOnly: true,
+  },
+  game_doctor_fix: {
+    id: 'game_doctor_fix',
+    title: 'Apply a game doctor fix',
+    description:
+      'Applies the fix a `game_doctor` finding named by its fixId, as one commit on midnite-game.json (or a kit-upgrade branch), refusing while that file is uncommitted',
+    input: GameDoctorFixInputSchema,
+    output: GameDoctorFixOutputSchema,
     readOnly: false,
   },
   /*

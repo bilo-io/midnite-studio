@@ -137,6 +137,7 @@ export function TerminalSessionList({
   // lists here, because it renders in the FAB's own tab.
   const panelSessions = useTerminalStore((s) => s.sessions).filter(inMainPanel);
   const activeId = useTerminalStore((s) => s.activeId);
+  const activeRepoId = useGraphStore((s) => s.repoId);
   /*
     Each app lists its own sessions; "Show all apps" lists every one the broker
     holds (Phase 123 Theme E). The toggle only appears once another app's
@@ -275,24 +276,33 @@ export function TerminalSessionList({
               .reorder(reorderSessionsByGroupOrder(repoGroups, reorderedGroupIds));
           }}
         >
-          {repoGroups.map((group) => (
-            <RepoGroupRow
-              key={group.repoId}
-              group={group}
-              resolvedRepoId={resolveRepoForPath(group.cwd, repos)?.repoId ?? group.items[0]?.repoId}
-              open={isOpen(group.repoId)}
-              onToggle={() => toggle(group.repoId)}
-              activeId={activeId}
-              agents={agents}
-              agentStatus={agentStatus}
-              liveAgentId={liveAgentId}
-              legacy={legacy}
-              tagApps={tagApps}
-              sessions={sessions}
-              onConfigureAgent={host.actions.configureAgent}
-              onOpenInFolder={openInFolder}
-            />
-          ))}
+          {repoGroups.map((group) => {
+            const resolvedRepoId =
+              resolveRepoForPath(group.cwd, repos)?.repoId ?? group.items[0]?.repoId;
+            const isActiveRepo =
+              activeRepoId !== null
+                ? resolvedRepoId === activeRepoId
+                : group.items.some((s) => s.id === activeId);
+            return (
+              <RepoGroupRow
+                key={group.repoId}
+                group={group}
+                resolvedRepoId={resolvedRepoId}
+                isActiveRepo={isActiveRepo}
+                open={isOpen(group.repoId)}
+                onToggle={() => toggle(group.repoId)}
+                activeId={activeId}
+                agents={agents}
+                agentStatus={agentStatus}
+                liveAgentId={liveAgentId}
+                legacy={legacy}
+                tagApps={tagApps}
+                sessions={sessions}
+                onConfigureAgent={host.actions.configureAgent}
+                onOpenInFolder={openInFolder}
+              />
+            );
+          })}
         </SortableList>
       </div>
       {hasForeign ? (
@@ -317,6 +327,7 @@ export function TerminalSessionList({
 function RepoGroupRow({
   group,
   resolvedRepoId,
+  isActiveRepo,
   open,
   onToggle,
   activeId,
@@ -331,6 +342,7 @@ function RepoGroupRow({
 }: {
   group: { repoId: string; title: string; cwd: string; items: TerminalSession[] };
   resolvedRepoId: string | undefined;
+  isActiveRepo: boolean;
   open: boolean;
   onToggle: () => void;
   activeId: string | null;
@@ -362,6 +374,7 @@ function RepoGroupRow({
       headerAttributes={drag.attributes}
       headerListeners={drag.listeners}
       isDragging={drag.isDragging}
+      guideLine={isActiveRepo ? 'active' : 'muted'}
       leading={
         logoUrl ? (
           <img
@@ -577,7 +590,7 @@ function SessionRow({
       // are both inside it and neither is the drag handle.
       data-session-row
       data-phase={phase}
-      className={`group flex w-full cursor-pointer select-none items-center gap-1.5 px-2 py-1.5 text-xs ${
+      className={`group flex w-full cursor-pointer select-none items-center gap-1.5 py-1.5 pl-6 pr-2 text-xs ${
         active ? 'bg-accent/60' : 'hover:bg-accent/30'
       } ${isDragging ? 'opacity-80' : ''} ${phase !== 'live' ? 'opacity-60' : ''} ${
         pulsing ? 'session-row-pulse' : ''

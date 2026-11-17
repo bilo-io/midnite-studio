@@ -158,7 +158,7 @@ import {
   startTerminalFlush,
   watchSessionExits,
 } from './terminal-service';
-import { configureRegistry, listRepos, openRepo, restoreRepos } from './repo-registry';
+import { closeRepo, configureRegistry, listRepos, openRepo, restoreRepos } from './repo-registry';
 import { reconcileWatchers, stopAllWatchers } from './watch-service';
 import { initFetchScheduler, reconcileFetchScheduler } from './fetch-scheduler';
 import { registerSettingsHandlers } from './ipc/settings-handlers';
@@ -934,6 +934,25 @@ export const startStudioMain: StartStudioMain = () => {
           return { ok: true };
         },
         listRepoPaths: async () => (await listRepos()).map((repo) => repo.path),
+        // Game management (Phase 149 Theme I): Remove from list is the repos panel's own remove, so the game's
+        // repo leaves the panel too; Reveal and Delete go through the OS (Delete is the Trash, never `rm`).
+        forgetRepo: async (path) => {
+          const repo = (await listRepos()).find((entry) => entry.path === path);
+          if (repo) await closeRepo(repo.id);
+          const repos = (await listRepos()).map((entry) => ({ id: entry.id, path: entry.path }));
+          await reconcileWatchers(repos);
+          reconcileFetchScheduler(repos);
+          return { ok: true };
+        },
+        revealPath: (path) => shell.showItemInFolder(path),
+        trashPath: async (path) => {
+          try {
+            await shell.trashItem(path);
+            return { ok: true };
+          } catch (error) {
+            return { ok: false, kind: 'error', message: `Could not move it to the Trash: ${error instanceof Error ? error.message : String(error)}` };
+          }
+        },
         // Open Game (Phase 132 Theme A): the folder dialog; an opened game is registered like a repo opened in the panel.
         // Annotated: `games` is referenced inside its own initializer, so inference would cycle.
         pickFolder: async (): Promise<string | null> => {

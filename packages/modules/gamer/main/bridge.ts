@@ -46,6 +46,13 @@ export function createGamerBridge(ipc: RendererIpc): GamerBridge {
       juice: (req) => call(CHANNELS.gamesJuice, req),
       logs: (req) => call(CHANNELS.gamesLogs, req),
       kitUpgrade: (req) => call(CHANNELS.gamesKitUpgrade, req),
+      rename: (req) => call(CHANNELS.gamesRename, req),
+      forget: (req) => call(CHANNELS.gamesForget, req),
+      reveal: (req) => call(CHANNELS.gamesReveal, req),
+      deleteInfo: (req) => call(CHANNELS.gamesDeleteInfo, req),
+      delete: (req) => call(CHANNELS.gamesDelete, req),
+      doctor: (req) => call(CHANNELS.gamesDoctor, req),
+      doctorFix: (req) => call(CHANNELS.gamesDoctorFix, req),
       levels: {
         list: (req) => call(CHANNELS.gamesLevels, req),
         get: (req) => call(CHANNELS.gamesLevelGet, req),

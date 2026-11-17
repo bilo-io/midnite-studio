@@ -9,6 +9,7 @@ import { levelEntityToWorld } from '@midnite/studio-shared';
 import type { Level3dViewProps } from './3d/level-3d-view';
 import { useLevelViewStore } from './3d/level-view-store';
 import { LevelEditor } from './level-editor';
+import { useDoctorRequest } from '../game-doctor-store';
 import { useLevelStore } from './level-store';
 import { blankLevel, blankLevel3d, installBridge, newClient, removeBridge, stubCanvas, stubPointerEvents } from './test-helpers';
 
@@ -31,17 +32,22 @@ vi.mock('./3d/level-3d-view', () => ({
 const list = vi.fn();
 const get = vi.fn();
 const set = vi.fn();
+const doctor = vi.fn();
+const doctorFix = vi.fn();
+const finding = (rule: string, area: string, fixId: string | null = null) => ({ rule, level: 'info', area, message: `${rule} message`, path: null, fixId });
+const diagnosed = (...findings: ReturnType<typeof finding>[]) => ({ ok: true, value: { path: '/g', hasManifest: true, findings, counts: { error: 0, warn: 0, info: findings.length }, status: 'ok' } });
 
 const listed = (over: Record<string, unknown> = {}) => ({ ok: true, value: { scenes: [{ scene: 'level', bytes: 1, dimension: '2d', issue: null }], start: 'level', readsLevels: true, ...over } });
 
 beforeEach(() => {
   stubCanvas();
   stubPointerEvents();
-  for (const m of [list, get, set]) m.mockReset();
+  for (const m of [list, get, set, doctor, doctorFix]) m.mockReset();
+  doctor.mockResolvedValue(diagnosed());
   list.mockResolvedValue(listed());
   get.mockResolvedValue({ ok: true, value: { level: blankLevel(), issues: [], images: [] } });
   set.mockResolvedValue({ ok: true, value: { sha: 'abc' } });
-  installBridge({ list, get, set });
+  installBridge({ list, get, set, doctor, doctorFix });
   useLevelStore.setState({ byGame: {}, newSceneFor: null });
   useLevelViewStore.setState({ modeByGame: {}, optimisation: 3, stats: false });
   view3d.props = null;
@@ -154,6 +160,27 @@ describe('LevelEditor', () => {
     expect(await screen.findByText('No levels yet')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /New scene/ }));
     expect(useLevelStore.getState().newSceneFor).toBe('g1');
+  });
+
+  it('says the levels are in code, with Open Doctor, when the doctor reports levels.none and an outdated kit', async () => {
+    list.mockResolvedValue(listed({ scenes: [], start: null }));
+    doctor.mockResolvedValue(diagnosed(finding('levels.none', 'levels'), finding('kit.outdated', 'kit', 'upgrade-kit')));
+    useDoctorRequest.setState({ requested: null });
+    renderEditor();
+    expect(await screen.findByText('This game builds its levels in code')).toBeTruthy();
+    expect(screen.queryByText('No levels yet')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Open Doctor/ }));
+    expect(useDoctorRequest.getState().requested).toBe('g1');
+  });
+
+  it('offers Declare levels when level files exist but the manifest does not declare them', async () => {
+    doctor.mockResolvedValue(diagnosed(finding('levels.not-declared', 'levels', 'declare-levels')));
+    doctorFix.mockResolvedValue({ ok: true, value: { commit: 'abc1234', diagnosis: { path: '/g', hasManifest: true, findings: [], counts: { error: 0, warn: 0, info: 0 }, status: 'ok' } } });
+    renderEditor();
+    expect((await screen.findByTestId('level-not-declared')).textContent).toContain('Levels found but not declared');
+    fireEvent.click(screen.getByRole('button', { name: 'Declare levels' }));
+    await waitFor(() => expect(doctorFix).toHaveBeenCalledWith({ fixId: 'declare-levels', gameId: 'g1' }));
+    await waitFor(() => expect(screen.queryByTestId('level-not-declared')).toBeNull());
   });
 
   it('shows a failure with Retry', async () => {

@@ -57,6 +57,7 @@ export const STUDIO_GAME_HOST = {
   useNotify,
   useOccluded: () => useUiStore((s) => s.occluders > 0),
   Popover,
+  removesRepo: true,
   agent: {
     useEvents: useGameAgentEvents,
     EngineFields: GameEngineFields,

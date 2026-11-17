@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { BASE_SCENARIO_ID, type StartupRequest } from '@midnite/studio-shared';
+import { BASE_SCENARIO_ID, buildFleetStarter, MAX_FLEET_PROJECTIONS, type StartupRequest } from '@midnite/studio-shared';
 
 import { handleStartupRequest } from './service';
 import { openWorkspaceStore, type WorkspaceStore } from './workspace-store';
@@ -87,6 +87,64 @@ describe('scenarios', () => {
     expect(await run(s, { op: 'removeScenario', id: BASE_SCENARIO_ID })).toMatchObject({ ok: false, kind: 'invalid' });
     for (const n of [61, 62]) expect((await run(s, { op: 'upsertScenario', scenario: { id: u(n), name: `S${n}`, costMultiplierBp: 10000, revenueMultiplierBp: 10000, extraLines: [] } })).ok).toBe(true);
     expect(await run(s, { op: 'upsertScenario', scenario: { id: u(63), name: 'S63', costMultiplierBp: 10000, revenueMultiplierBp: 10000, extraLines: [] } })).toMatchObject({ ok: false, kind: 'invalid' });
+  });
+});
+
+describe('fleet projections', () => {
+  const T0 = new Date('2026-11-17T10:00:00.000Z');
+  const T1 = new Date('2026-11-18T10:00:00.000Z');
+  const proj = (n: number, starter: 'blank' | 'gpu-cluster' = 'gpu-cluster') => {
+    let k = n * 100;
+    return buildFleetStarter(starter, { projectionId: u(n), nodeId: () => u(5000 + k++) }, '2020-01-01T00:00:00.000Z', `P${n}`);
+  };
+  const withClock = (store: WorkspaceStore, at: Date) => (request: StartupRequest) => handleStartupRequest(store, request, { now: () => at });
+  const list = (store: WorkspaceStore) => store.snapshot().workspace.fleetProjections;
+
+  it('inserts with updatedAt from the injected clock, and keeps createdAt on update', async () => {
+    const s = await open();
+    expect((await withClock(s, T0)({ op: 'upsertFleetProjection', projection: proj(1) })).ok).toBe(true);
+    expect(list(s)[0]).toMatchObject({ updatedAt: T0.toISOString(), createdAt: '2020-01-01T00:00:00.000Z' });
+    await withClock(s, T1)({ op: 'upsertFleetProjection', projection: { ...proj(1), name: 'Renamed', createdAt: '2030-01-01T00:00:00.000Z' } });
+    expect(list(s)).toHaveLength(1);
+    expect(list(s)[0]).toMatchObject({ name: 'Renamed', createdAt: '2020-01-01T00:00:00.000Z', updatedAt: T1.toISOString() });
+  });
+
+  it('refuses the 51st projection on insert and on duplicate, but still updates an existing one', async () => {
+    const s = await open();
+    for (let n = 1; n <= MAX_FLEET_PROJECTIONS; n++) expect((await run(s, { op: 'upsertFleetProjection', projection: proj(n, 'blank') })).ok).toBe(true);
+    expect(await run(s, { op: 'upsertFleetProjection', projection: proj(MAX_FLEET_PROJECTIONS + 1, 'blank') })).toMatchObject({ ok: false, kind: 'invalid' });
+    expect(await run(s, { op: 'duplicateFleetProjection', id: u(1), name: 'Copy' })).toMatchObject({ ok: false, kind: 'invalid' });
+    expect((await run(s, { op: 'upsertFleetProjection', projection: proj(1, 'blank') })).ok).toBe(true);
+  });
+
+  it('answers not-found for an unknown id on remove and duplicate', async () => {
+    const s = await open();
+    expect(await run(s, { op: 'removeFleetProjection', id: u(999) })).toMatchObject({ ok: false, kind: 'not-found' });
+    expect(await run(s, { op: 'duplicateFleetProjection', id: u(999), name: 'Copy' })).toMatchObject({ ok: false, kind: 'not-found' });
+  });
+
+  it('removes a projection', async () => {
+    const s = await open();
+    await run(s, { op: 'upsertFleetProjection', projection: proj(1) });
+    expect((await run(s, { op: 'removeFleetProjection', id: u(1) })).ok).toBe(true);
+    expect(list(s)).toEqual([]);
+  });
+
+  it('duplicates with new ids, directly after the source, leaving the source unchanged', async () => {
+    const s = await open();
+    for (const n of [1, 2]) await withClock(s, T0)({ op: 'upsertFleetProjection', projection: proj(n) });
+    const source = structuredClone(list(s)[0]!);
+    await withClock(s, T1)({ op: 'duplicateFleetProjection', id: u(1), name: 'Copy of P1' });
+    const after = list(s);
+    expect(after.map((p) => p.name)).toEqual(['P1', 'Copy of P1', 'P2']);
+    expect(after[0]).toEqual(source);
+    const copy = after[1]!;
+    expect(copy.id).not.toBe(source.id);
+    expect(copy).toMatchObject({ createdAt: T1.toISOString(), updatedAt: T1.toISOString() });
+    expect(copy.nodes).toHaveLength(source.nodes.length);
+    const sourceIds = new Set(source.nodes.map((n) => n.id));
+    expect(copy.nodes.every((n) => !sourceIds.has(n.id))).toBe(true);
+    expect(copy.nodes.map(({ id: _id, ...rest }) => rest)).toEqual(source.nodes.map(({ id: _id, ...rest }) => rest));
   });
 });
 

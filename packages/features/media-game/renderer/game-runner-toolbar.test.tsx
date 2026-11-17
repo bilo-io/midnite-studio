@@ -8,11 +8,13 @@ import { useGameRunStore } from './game-run-store';
 import { GameRunnerToolbar } from './game-runner-toolbar';
 
 const runMock = vi.fn(async () => ({ ok: true, value: { runId: 'r9' } }));
+const stopMock = vi.fn(async () => ({ ok: true, value: undefined }));
 
 beforeEach(() => {
-  (window as unknown as { midniteStudio: unknown }).midniteStudio = { games: { run: runMock } };
+  (window as unknown as { midniteStudio: unknown }).midniteStudio = { games: { run: runMock, stop: stopMock } };
   useGameRunStore.setState({ runs: {}, logs: {}, clearedAt: {}, popped: null });
   runMock.mockClear();
+  stopMock.mockClear();
 });
 afterEach(() => {
   cleanup();
@@ -37,15 +39,28 @@ describe('GameRunnerToolbar Play button', () => {
     expect(first.className).toContain('gradient-border');
     expect(first.className).toContain('gradient-border--hover');
     expect(first.className).toContain('motion-safe:transition-shadow');
+    expect(first.className).toContain('hover:shadow-[');
+    expect(first.className).not.toMatch(/(^| )shadow-\[/);
   });
 
-  it('is named Show the running game while live, and only calls onPlay', () => {
+  it('turns into Stop in place while live, glows, and stops the game', async () => {
     useGameRunStore.setState({ runs: { g1: { runId: 'r1', state: 'running' } } });
     const onPlay = vi.fn();
     view(onPlay);
-    fireEvent.click(screen.getByRole('button', { name: 'Show the running game' }));
-    expect(onPlay).toHaveBeenCalledTimes(1);
+    const first = screen.getByRole('toolbar', { name: 'Game controls' }).firstElementChild as HTMLElement;
+    expect(first.getAttribute('aria-label')).toBe('Stop');
+    expect(first.textContent).toBe('Stop');
+    expect(first.className).toMatch(/(^| )shadow-\[/);
+    fireEvent.click(first);
+    await waitFor(() => expect(stopMock).toHaveBeenCalledWith({ gameId: 'g1' }));
     expect(runMock).not.toHaveBeenCalled();
+    expect(onPlay).not.toHaveBeenCalled();
+  });
+
+  it('has no separate Stop button, and dividers fence off Juice and Playtests', () => {
+    view();
+    expect(screen.queryAllByRole('button', { name: /^Stop$/ })).toHaveLength(0);
+    expect(screen.getAllByRole('separator')).toHaveLength(2);
   });
 
   it('runs the game and calls onPlay when idle', async () => {
