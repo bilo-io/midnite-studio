@@ -1,5 +1,5 @@
 import { Canvas } from '@react-three/fiber';
-import { DEFAULT_SNAP, TransformModeBar, transformModeForKey, type SnapSettings, type TransformMode } from '@midnite/studio-frame/viewport3d';
+import { DEFAULT_SNAP, TransformModeBar, type SnapSettings, type TransformMode } from '@midnite/studio-frame/viewport3d';
 import { bridge } from '@midnite/studio-frame';
 import { metresPerTile, type GameLevelTerrain } from '@midnite/studio-shared';
 import { useEffect, useMemo, useRef, useState, type ComponentType, type KeyboardEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent } from 'react';
@@ -15,6 +15,7 @@ import type { LevelSceneProps } from './level-scene';
 import { disposeTree, LevelScene, NO_DRAFT, SCENE_BACKGROUND, type CameraMove, type ToolDraft } from './level-scene';
 import { commitVolume, groundPoint, rayHitsItem, rotateToward, snappedPlanPoint, volumeFromDrag, worldPointFromPlan } from './level-ground';
 import { marqueeHits, type ScreenPoint, type ScreenRect } from './level-marquee';
+import { isMac, matchShortcut } from '../level-shortcuts';
 import { useLevelViewStore, type GizmoPivot, type GizmoSpace } from './level-view-store';
 import { gizmoEdit, gizmoEditGroup, groundY, groupPivot, levelWorldItems, POINT_SIZE, worldToObjectPoint, type GizmoChange, type GroupDelta, type GroupPivot } from './level-world';
 import { ModelCache } from './model-cache';
@@ -190,30 +191,27 @@ export default function Level3dView(props: Level3dViewProps) {
   frameRef.current = frame;
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const mod = event.metaKey || event.ctrlKey;
-    if (!mod && !event.altKey) {
-      const key = event.key.toLowerCase();
-      const next = transformModeForKey(key);
-      if (next && !props.readOnly) {
-        event.preventDefault();
-        setMode(next);
-        return;
-      }
-      if ((key === 'z' || key === 'x') && !props.readOnly) {
-        event.preventDefault();
-        if (key === 'z') setPivotMode(pivotMode === 'pivot' ? 'centre' : 'pivot');
-        else setSpace(space === 'world' ? 'local' : 'world');
-        return;
-      }
-      if (key === 'f') {
-        event.preventDefault();
-        frame();
-        return;
-      }
-      if (key === 'escape') {
-        update((s) => select(s, null));
-        return;
-      }
+    const cmd = matchShortcut(event, { view: '3d', dimension: '3d', mac: isMac() });
+    const next = cmd === 'gizmo.translate' ? 'translate' : cmd === 'gizmo.rotate' ? 'rotate' : cmd === 'gizmo.scale' ? 'scale' : null;
+    if (next && !props.readOnly) {
+      event.preventDefault();
+      setMode(next);
+      return;
+    }
+    if ((cmd === 'gizmo.pivot' || cmd === 'gizmo.space') && !props.readOnly) {
+      event.preventDefault();
+      if (cmd === 'gizmo.pivot') setPivotMode(pivotMode === 'pivot' ? 'centre' : 'pivot');
+      else setSpace(space === 'world' ? 'local' : 'world');
+      return;
+    }
+    if (cmd === 'view.frame') {
+      event.preventDefault();
+      frame();
+      return;
+    }
+    if (cmd === 'select.none') {
+      update((s) => select(s, null));
+      return;
     }
     props.onEditorKey(event);
   };

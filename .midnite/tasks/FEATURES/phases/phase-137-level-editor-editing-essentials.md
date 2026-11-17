@@ -112,8 +112,7 @@ align. Landed: `level-context-menu.ts` (pure), opened through the chrome's `open
 (now exported from the frame); right-clicking an unselected object selects it first; the 3D view reports its hovered item
 so a right-click knows what is under it. Hide / Lock act on the whole selection from the menu.
 
-**Theme J — Shortcut cheat-sheet.** ◻ `LEVEL_SHORTCUTS` is the one table the key handler dispatches from and the `?`
-cheat-sheet renders, grouped Tools / Selection / Edit / View, with the chord in `<kbd>` chips.
+**Theme J — Shortcut cheat-sheet.** ✅ `level-shortcuts.ts`: `LEVEL_SHORTCUTS` is the one table the key handlers dispatch from (`matchShortcut`, per view and dimension) and the `?` cheat-sheet (`LevelShortcutHelp`, a `FrameModal` opened by `?` or the toolbar keyboard button) renders, grouped Tools / Selection / Edit / View, chords in `<kbd>` chips (`⌘D` on mac). The editor's and the 3D view's `onKeyDown` now switch on the command id; behaviour is unchanged. Added `path.finish` (Enter) to the command ids; Delete and Backspace are two rows of `edit.delete`.
 
 ## Build order
 
@@ -626,11 +625,11 @@ export function matchShortcut(e: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKe
 
 **Acceptance.**
 
-- [ ] J1. Every key the handler acted on before this phase has a `LEVEL_SHORTCUTS` row (a test lists the pre-phase
+- [x] J1. Every key the handler acted on before this phase has a `LEVEL_SHORTCUTS` row (a test lists the pre-phase
   keys: B E R I O V P Y, Mod+Z, Mod+Shift+Z, Delete, Backspace, Enter, Escape, W E R F in 3D).
-- [ ] J2. No two rows with overlapping `views` and `dimension` share a chord (test).
-- [ ] J3. `matchShortcut` maps Cmd+D (mac) and Ctrl+D (non-mac) to `edit.duplicate`.
-- [ ] J4. `?` opens the modal; it lists Mod+D as "⌘D" on mac; Escape closes it and focus returns to the canvas.
+- [x] J2. No two rows with overlapping `views` and `dimension` share a chord (test).
+- [x] J3. `matchShortcut` maps Cmd+D (mac) and Ctrl+D (non-mac) to `edit.duplicate`.
+- [x] J4. `?` opens the modal; it lists Mod+D as "⌘D" on mac; Escape closes it and focus returns to the canvas.
 
 **Done when** J1–J4 pass.
 

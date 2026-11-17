@@ -584,6 +584,15 @@ describe('LevelEditor, multi-select, clipboard and align (Phase 137 B, C, E)', (
     expect(selectedIds()).toEqual([ids[0], ids[1]]);
   });
 
+  it('J4: ? opens the shortcut sheet, Escape closes it and focus returns to the canvas', async () => {
+    const { wrap } = await open();
+    fireEvent.keyDown(wrap, { key: '?', shiftKey: true });
+    expect(await screen.findByRole('dialog', { name: 'Level editor shortcuts' })).toBeTruthy();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Level editor shortcuts' })).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(wrap));
+  });
+
   it('C5: Mod+A selects the layer, arrows nudge one tile, Shift+arrow ten, Escape clears, Delete removes', async () => {
     const { wrap, ids } = await open();
     fireEvent.keyDown(wrap, { key: 'a', metaKey: true });
