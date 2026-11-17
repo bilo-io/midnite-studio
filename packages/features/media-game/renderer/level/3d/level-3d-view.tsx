@@ -7,11 +7,13 @@ import { LuActivity, LuBox, LuCrosshair, LuGlobe, LuGroup } from 'react-icons/lu
 import type { Object3D } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-import { addObject, addSelected, select, setActiveLayer, setOptionalNumber, toggleSelected, type EditLevel, type EditSelection, type EditState, type ObjectRef } from '../level-edit-model';
+import { addObject, addSelected, select, setActiveLayer, setOptionalNumber, toggleSelected, type EditLevel, type EditSelection, type EditState, type ObjectRef, type PlanPoint } from '../level-edit-model';
 import { orbitPose, planPose, type CameraPose } from './camera-transition';
 import { formatStats, type GroundTile, type ViewStats } from './level-cull';
 import { footprintBox, gizmoSteps, surfaceElevation } from '../level-snap';
-import { disposeTree, LevelScene, SCENE_BACKGROUND, type CameraMove } from './level-scene';
+import type { LevelSceneProps } from './level-scene';
+import { disposeTree, LevelScene, NO_DRAFT, SCENE_BACKGROUND, type CameraMove, type ToolDraft } from './level-scene';
+import { commitVolume, groundPoint, rayHitsItem, rotateToward, snappedPlanPoint, volumeFromDrag, worldPointFromPlan } from './level-ground';
 import { marqueeHits, type ScreenPoint, type ScreenRect } from './level-marquee';
 import { useLevelViewStore, type GizmoPivot, type GizmoSpace } from './level-view-store';
 import { gizmoEdit, gizmoEditGroup, groundY, groupPivot, levelWorldItems, POINT_SIZE, worldToObjectPoint, type GizmoChange, type GroupDelta, type GroupPivot } from './level-world';
@@ -34,6 +36,9 @@ export type Level3dViewProps = {
   tool: string;
   entityName: string;
   objectLayerId: number | null;
+  /** The path being drawn (map pixels); the editor owns it, so Enter, Escape and Backspace work in both views. */
+  pathDraft: readonly PlanPoint[];
+  onPathPoint: (point: PlanPoint) => void;
   update: (fn: (s: EditState) => EditState) => void;
   /** Where the camera starts: the plan view's own framing when the switch animates in, else an orbit over the level. */
   enterFrom: { target: [number, number, number]; span: number } | null;
@@ -41,6 +46,8 @@ export type Level3dViewProps = {
   /** Keys the 3D view does not own (undo, delete, tool keys) go back to the editor. */
   onEditorKey: (event: KeyboardEvent<HTMLDivElement>) => void;
 };
+
+type LevelSceneRayRef = LevelSceneProps['ray'];
 
 /** A Shift press that travels further than this (px) is a marquee, not a click. */
 const MARQUEE_SLOP_PX = 4;
@@ -102,6 +109,10 @@ export default function Level3dView(props: Level3dViewProps) {
   const project = useRef<((p: [number, number, number]) => ScreenPoint) | null>(null);
   const [marquee, setMarquee] = useState<ScreenRect | null>(null);
   const [shiftDown, setShiftDown] = useState(false);
+  const ray: LevelSceneRayRef = useRef(null);
+  const setOrbit = useRef<((on: boolean) => void) | null>(null);
+  const [volumeDraft, setVolumeDraft] = useState<ToolDraft['volume']>(null);
+  const [aimDraft, setAimDraft] = useState<ToolDraft['aim']>(null);
   const statsOnRef = useRef(statsOn);
   statsOnRef.current = statsOn;
 
@@ -208,6 +219,82 @@ export default function Level3dView(props: Level3dViewProps) {
     };
   }, []);
 
+  const pathWorld = useMemo(() => props.pathDraft.map((p) => worldPointFromPlan(level, p)), [props.pathDraft, level]);
+  const draft = useMemo<ToolDraft>(() => (volumeDraft || aimDraft || pathWorld.length > 0 ? { volume: volumeDraft, path: pathWorld, aim: aimDraft } : NO_DRAFT), [volumeDraft, aimDraft, pathWorld]);
+
+  /**
+   * Volume, Path and Rotate in 3D (Phase 137 Theme G). The pointer's ray is cast at the ground; a Volume or Rotate drag
+   * holds the orbit controls still, a Path click leaves them alone (a press that travelled is an orbit, as in Phase 136).
+   * Runs in the capture phase so the controls are off before they see the press.
+   */
+  const toolDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const tool = props.tool;
+    if (!editable || event.button !== 0 || event.shiftKey || !(event.target instanceof HTMLCanvasElement)) return;
+    if (tool !== 'volume' && tool !== 'path' && tool !== 'rotate') return;
+    const cast = (x: number, y: number): [number, number, number] | null => {
+      const r = ray.current?.(x, y);
+      return r ? groundPoint(r.origin, r.dir, ground) : null;
+    };
+    const start = cast(event.clientX, event.clientY);
+    const layer = props.objectLayerId;
+    const x0 = event.clientX, y0 = event.clientY;
+    const travelled = (ev: PointerEvent) => Math.hypot(ev.clientX - x0, ev.clientY - y0) > MARQUEE_SLOP_PX;
+    const track = (onMove: (ev: PointerEvent, at: [number, number, number] | null) => void, onUp: (ev: PointerEvent, at: [number, number, number] | null) => void) => {
+      const move = (ev: PointerEvent) => onMove(ev, cast(ev.clientX, ev.clientY));
+      const up = (ev: PointerEvent) => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        setOrbit.current?.(true);
+        setVolumeDraft(null);
+        setAimDraft(null);
+        onUp(ev, cast(ev.clientX, ev.clientY));
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+    };
+
+    if (tool === 'volume') {
+      if (!start || layer === null) return;
+      setOrbit.current?.(false);
+      const snapped = (at: [number, number, number], invert: boolean) => volumeFromDrag(level, [start[0], start[2]], [at[0], at[2]], levelSnap, invert);
+      track(
+        (ev, at) => {
+          if (!at || !travelled(ev)) return;
+          const d = snapped(at, ev.altKey);
+          const a = worldPointFromPlan(level, d.from), b = worldPointFromPlan(level, d.to);
+          setVolumeDraft({ x0: a[0], z0: a[1], x1: b[0], z1: b[1] });
+        },
+        (ev, at) => {
+          if (at && travelled(ev)) update((s) => commitVolume(s, layer, snapped(at, ev.altKey)));
+        },
+      );
+    } else if (tool === 'path') {
+      if (!start || layer === null) return;
+      track(
+        () => undefined,
+        (ev, at) => {
+          if (at && !travelled(ev)) props.onPathPoint(snappedPlanPoint(level, at[0], at[2], levelSnap, ev.altKey));
+        },
+      );
+    } else {
+      const r = ray.current?.(event.clientX, event.clientY);
+      const refs = selectedRefs;
+      const grabbed = r ? selectedIdx.map((i) => items[i]!).find((it) => rayHitsItem(r.origin, r.dir, it)) : undefined;
+      if (!grabbed || refs.length === 0) return;
+      setOrbit.current?.(false);
+      const from: [number, number] = [grabbed.position[0], grabbed.position[2]];
+      const angle = (ev: PointerEvent) => (levelSnap.enabled !== (ev.altKey || ev.shiftKey) ? levelSnap.angle : 0);
+      track(
+        (ev, at) => {
+          if (at && travelled(ev)) setAimDraft({ from, to: [at[0], at[2]] });
+        },
+        (ev, at) => {
+          if (at && travelled(ev)) update((s) => rotateToward(s, refs, level, [at[0], at[2]], angle(ev)));
+        },
+      );
+    }
+  };
+
   const startMarquee = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.currentTarget.focus();
     if (!marqueeOn || !event.shiftKey || event.button !== 0) return;
@@ -250,6 +337,7 @@ export default function Level3dView(props: Level3dViewProps) {
       aria-label="Level 3D view. Drag to orbit, right-drag to pan, wheel to zoom. W move, E rotate, R scale, Z pivot or centre, X local or world, Shift-drag selects several, F frame, Escape deselects."
       data-testid="level-3d-view"
       onKeyDown={onKeyDown}
+      onPointerDownCapture={toolDown}
       onPointerDown={startMarquee}
     >
       <Canvas frameloop={statsOn ? 'always' : 'demand'} dpr={Math.min(preset.pixelRatio, typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1)} gl={{ antialias: true }}>
@@ -265,6 +353,9 @@ export default function Level3dView(props: Level3dViewProps) {
           space={space}
           orbit={!(shiftDown && marqueeOn)}
           gizmoDragging={gizmoDragging}
+          ray={ray}
+          setOrbit={setOrbit}
+          draft={draft}
           project={project}
           gizmo={gizmo}
           snap={snap}

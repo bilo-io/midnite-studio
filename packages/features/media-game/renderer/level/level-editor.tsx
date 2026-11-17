@@ -129,7 +129,7 @@ const CUSTOM = '__custom__';
 /** three and the scene load only when a 3D level's 3D view first opens. */
 const Level3dView = lazy(() => import('./3d/level-3d-view'));
 /** The plan-view tools the 3D view has (the rest draw in plan only). */
-const TOOLS_IN_3D: ReadonlySet<LevelTool> = new Set(['select', 'entity']);
+const TOOLS_IN_3D: ReadonlySet<LevelTool> = new Set(TOOLS_3D.map((t) => t.tool));
 
 type Updater = (fn: (state: EditState) => EditState) => void;
 
@@ -737,6 +737,8 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
                   tool={tool}
                   entityName={entityName}
                   objectLayerId={objectLayerId}
+                  pathDraft={draft}
+                  onPathPoint={(p) => setDraft((d) => addPathPoint(d, p))}
                   update={update}
                   enterFrom={enterFrom}
                   handle={handle3d}

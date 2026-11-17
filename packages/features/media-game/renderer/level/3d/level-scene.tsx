@@ -34,6 +34,7 @@ import { blendPose, cameraPosition, dollyOffset, poseFromCamera, TRANSITION_MS, 
 import { cull, groundTiles, itemRadius, tileInReach, type GroundTile, type ViewStats } from './level-cull';
 import { fogRange, viewOffset } from './level-lod';
 import type { ScreenPoint } from './level-marquee';
+import { DEFAULT_SIZE_Y } from '../level-edit-model';
 import type { GizmoPivot, GizmoSpace } from './level-view-store';
 import { nearestEuler, type GizmoChange, type GroupDelta, type GroupPivot, type WorldItem } from './level-world';
 import type { ModelCache } from './model-cache';
@@ -45,6 +46,14 @@ const TYPE_COLOURS: Record<string, string> = { spawn: '#22c55e', exit: '#3b82f6'
 const colourOf = (type: string): string => TYPE_COLOURS[type] ?? '#c084fc';
 /** Tiled writes `#aarrggbb`; three reads `#rrggbb`. */
 const cssColour = (c: string): string => (/^#[0-9a-f]{8}$/i.test(c) ? `#${c.slice(3)}` : c);
+
+/** What the Volume, Path and Rotate tools are drawing right now, in world metres (Phase 137 Theme G). */
+export type ToolDraft = {
+  volume: { x0: number; z0: number; x1: number; z1: number } | null;
+  path: ReadonlyArray<readonly [number, number]>;
+  aim: { from: readonly [number, number]; to: readonly [number, number] } | null;
+};
+export const NO_DRAFT: ToolDraft = { volume: null, path: [], aim: null };
 
 export type CameraMove = { from: CameraPose; to: CameraPose; startedAt: number | null; onDone?: () => void };
 
@@ -64,6 +73,11 @@ export type LevelSceneProps = {
   orbit: boolean;
   /** Set while a gizmo is being dragged, so the marquee leaves the gesture alone. */
   gizmoDragging: MutableRefObject<boolean>;
+  /** The pointer's ray for a client position (the tools cast it at the ground and at items). */
+  ray: MutableRefObject<((clientX: number, clientY: number) => { origin: [number, number, number]; dir: [number, number, number] } | null) | null>;
+  /** Switches the orbit controls on or off for a tool gesture (they stay off while Shift marquees). */
+  setOrbit: MutableRefObject<((on: boolean) => void) | null>;
+  draft: ToolDraft;
   /** Projects a world point to the canvas (px), for the marquee. */
   project: MutableRefObject<((p: [number, number, number]) => ScreenPoint) | null>;
   /** `null`: no gizmo (read-only, or Place). */
@@ -154,6 +168,28 @@ export function LevelScene(props: LevelSceneProps) {
     invalidate();
   };
   useEffect(markDirty, [items, preset, selected, props.dirtyTick, size.width, size.height]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const orbitAllowed = useRef(props.orbit);
+  orbitAllowed.current = props.orbit;
+  useEffect(() => {
+    props.setOrbit.current = (on) => {
+      if (controls) (controls as unknown as { enabled: boolean }).enabled = on && orbitAllowed.current;
+    };
+    props.ray.current = (clientX, clientY) => {
+      const box = gl.domElement.getBoundingClientRect();
+      if (box.width === 0 || box.height === 0) return null;
+      camera.updateMatrixWorld();
+      const near = new Vector3(((clientX - box.left) / box.width) * 2 - 1, -(((clientY - box.top) / box.height) * 2 - 1), 0.5).unproject(camera);
+      const dir = near.sub(camera.position).normalize();
+      return { origin: [camera.position.x, camera.position.y, camera.position.z], dir: [dir.x, dir.y, dir.z] };
+    };
+    return () => {
+      props.setOrbit.current = null;
+      props.ray.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [controls, camera, gl]);
+  useEffect(markDirty, [props.draft]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The marquee's projection: a world point to canvas pixels, and whether it is in front of the camera.
   useEffect(() => {
@@ -499,6 +535,7 @@ export function LevelScene(props: LevelSceneProps) {
       <group ref={modelsGroup} onClick={pickModel} />
       {selected.length === 1 && items[selected[0]!] ? <Selected key={selected[0]} {...props} item={items[selected[0]!]!} /> : null}
       {selected.length > 1 && props.pivot ? <GroupSelected {...props} members={selected.map((i) => items[i]!).filter(Boolean)} pivot={props.pivot} /> : null}
+      <DraftView draft={props.draft} ground={props.ground} />
       <OrbitControls makeDefault enabled={props.orbit} enableDamping={false} maxPolarAngle={Math.PI / 2 - 0.02} />
       <GizmoHelper alignment="bottom-right" margin={[56, 56]}>
         <GizmoViewport axisColors={['#e5484d', '#30a46c', '#3e63dd']} labelColor="white" />
@@ -577,6 +614,42 @@ function Selected(props: LevelSceneProps & { item: WorldItem }) {
       ) : (
         <GizmoReady />
       )}
+    </>
+  );
+}
+
+const DRAFT_COLOUR = '#f59e0b';
+
+/** The tools' rubber bands: a translucent volume box, the path so far with its points, and the rotate aim line. */
+function DraftView({ draft, ground }: { draft: ToolDraft; ground: number }) {
+  const lines = useMemo(() => {
+    const pts: number[] = [];
+    const seg = (a: readonly [number, number], b: readonly [number, number], y: number) => pts.push(a[0], y, a[1], b[0], y, b[1]);
+    for (let i = 1; i < draft.path.length; i++) seg(draft.path[i - 1]!, draft.path[i]!, ground + 0.08);
+    if (draft.aim) seg(draft.aim.from, draft.aim.to, ground + 0.1);
+    const g = new BufferGeometry();
+    g.setAttribute('position', new Float32BufferAttribute(pts, 3));
+    return g;
+  }, [draft.path, draft.aim, ground]);
+  useEffect(() => () => lines.dispose(), [lines]);
+  const v = draft.volume;
+  return (
+    <>
+      {v ? (
+        <mesh position={[(v.x0 + v.x1) / 2, ground + DEFAULT_SIZE_Y / 2, (v.z0 + v.z1) / 2]} scale={[Math.max(Math.abs(v.x1 - v.x0), 0.01), DEFAULT_SIZE_Y, Math.max(Math.abs(v.z1 - v.z0), 0.01)]}>
+          <boxGeometry />
+          <meshBasicMaterial color={DRAFT_COLOUR} transparent opacity={0.25} depthWrite={false} />
+        </mesh>
+      ) : null}
+      <lineSegments geometry={lines}>
+        <lineBasicMaterial color={DRAFT_COLOUR} />
+      </lineSegments>
+      {draft.path.map((p, i) => (
+        <mesh key={i} position={[p[0], ground + 0.1, p[1]]}>
+          <sphereGeometry args={[0.15, 8, 8]} />
+          <meshBasicMaterial color={DRAFT_COLOUR} />
+        </mesh>
+      ))}
     </>
   );
 }

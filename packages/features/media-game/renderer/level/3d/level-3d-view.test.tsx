@@ -9,7 +9,7 @@ import Level3dView from './level-3d-view';
 import { useLevelViewStore } from './level-view-store';
 
 vi.mock('@react-three/fiber', () => ({ Canvas: () => null }));
-vi.mock('./level-scene', () => ({ LevelScene: () => null, SCENE_BACKGROUND: '#000', disposeTree: () => undefined }));
+vi.mock('./level-scene', () => ({ LevelScene: () => null, NO_DRAFT: { volume: null, path: [], aim: null }, SCENE_BACKGROUND: '#000', disposeTree: () => undefined }));
 
 afterEach(() => {
   cleanup();
@@ -29,6 +29,8 @@ const mount = () => {
       tool="select"
       entityName="prop"
       objectLayerId={null}
+      pathDraft={[]}
+      onPathPoint={() => undefined}
       update={() => undefined}
       enterFrom={null}
       handle={{ current: null }}

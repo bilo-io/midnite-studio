@@ -7,6 +7,9 @@ import { buildBlankLevel } from '../new-scene-model';
 import { blendPose, cameraPosition, distanceFor, dollyOffset, focusToPlanView, orbitPose, planPose, planViewToFocus, poseFromCamera, PLAN_FOV } from './camera-transition';
 import { gizmoEdit, gizmoEditGroup, groupPivot, levelWorldItems, nearestEuler, POINT_SIZE, worldToObjectPoint } from './level-world';
 import { marqueeHits } from './level-marquee';
+import { groundPoint, rayHitsItem, rotateToward, snappedPlanPoint, volumeFromDrag } from './level-ground';
+import { DEFAULT_LEVEL_SNAP } from '../level-snap';
+import { snapPlan } from '../level-plan';
 import { fogRange, lodFor, projectedPx, viewOffset } from './level-lod';
 import { OPTIMISATION_PRESETS, pixelRatioFor, presetFor } from './optimisation';
 import { SpatialGrid, xzRect } from './spatial-grid';
@@ -333,5 +336,54 @@ describe('the group gizmo (Phase 137 Theme D)', () => {
       { id: 3, centre: [90, 10, 1] as [number, number, number] },
     ];
     expect(marqueeHits(items, project, { x0: 50, y0: 50, x1: 0, y1: 0 })).toEqual([1]);
+  });
+});
+
+
+describe('every tool in 3D (Phase 137 Theme G)', () => {
+  it('G1 groundPoint meets a downward ray and rejects a parallel or upward one', () => {
+    expect(groundPoint([0, 10, 0], [1, -1, 0], 0)).toEqual([10, 0, 0]);
+    expect(groundPoint([0, 10, 0], [1, 0, 0], 0)).toBeNull();
+    expect(groundPoint([0, 10, 0], [1, 1, 0], 0)).toBeNull();
+  });
+
+  it('G3 volumeFromDrag gives the plan the same setVolume arguments for equal ground points', () => {
+    const level = level3d();
+    const snap = { ...DEFAULT_LEVEL_SNAP, planStep: 0.5 as const };
+    // Ground points (2.1 m, 3.3 m) to (5.9 m, 4.6 m); the plan reads them as map pixels and snaps the same way.
+    const { from, to } = volumeFromDrag(level, [2.1, 3.3], [5.9, 4.6], snap);
+    const step = { x: 16, y: 16 };
+    expect(from).toEqual(snapPlan(level, { x: 2.1 * 32, y: 3.3 * 32 }, false, step));
+    expect(to).toEqual(snapPlan(level, { x: 5.9 * 32, y: 4.6 * 32 }, false, step));
+    expect(snappedPlanPoint(level, 2.1, 3.3, snap, true)).toEqual({ x: 2.1 * 32, y: 3.3 * 32 });
+    const s0 = createEditState(level);
+    const layerId = s0.level.layers[0]!.id!;
+    expect(setVolume(s0, layerId, from, to).level).toEqual(setVolume(s0, layerId, snapPlan(level, { x: 67.2, y: 105.6 }, false, step), snapPlan(level, { x: 188.8, y: 147.2 }, false, step)).level);
+  });
+
+  it('G4 rotating two objects sets both toward the same ground point in one undo step', () => {
+    const level = level3d();
+    let s = createEditState(level);
+    const layerId = s.level.layers[0]!.id!;
+    s = setVolume(s, layerId, { x: 0, y: 0 }, { x: 64, y: 64 });
+    const a = s.selection!;
+    s = setVolume(s, layerId, { x: 320, y: 0 }, { x: 384, y: 64 });
+    const b = s.selection!;
+    const before = s.past.length;
+    // Centres at (1 m, 1 m) and (11 m, 1 m); the point (6 m, 11 m) is below (+Z) both.
+    const next = rotateToward(s, [a, b], level, [6, 11], 0);
+    expect(next.past.length).toBe(before + 1);
+    expect(findObject(next.level, a)!.rotation).toBeCloseTo(153.435, 2);
+    expect(findObject(next.level, b)!.rotation).toBeCloseTo(206.565, 2);
+    expect(undo(next).level).toBe(s.level);
+    // Snapped to 45 degrees.
+    expect(findObject(rotateToward(s, [a], level, [6, 11], 45).level, a)!.rotation).toBe(135);
+  });
+
+  it('a ray finds a box under its yaw, and misses beside it', () => {
+    const item = { position: [0, 0, 0] as [number, number, number], size: [4, 2, 1] as [number, number, number], yaw: Math.PI / 2 };
+    // Turned a quarter-turn, the box is 1 m wide in X and 4 m long in Z.
+    expect(rayHitsItem([0, 5, 1.5], [0, -1, 0], item)).toBe(true);
+    expect(rayHitsItem([1.5, 5, 0], [0, -1, 0], item)).toBe(false);
   });
 });

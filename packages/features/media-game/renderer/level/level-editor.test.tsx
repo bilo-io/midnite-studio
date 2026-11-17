@@ -460,7 +460,7 @@ describe('LevelEditor, Floorplan | 3D switch (Phase 136 Theme E)', () => {
     expect(screen.queryByRole('radiogroup', { name: 'View' })).toBeNull();
   });
 
-  it('opens on Floorplan, switches to 3D from the plan framing, and keeps only the tools the 3D view has', async () => {
+  it('opens on Floorplan, switches to 3D from the plan framing, and keeps the active tool (every tool works in 3D)', async () => {
     await open3d();
     expect(viewRadio('Floorplan').getAttribute('aria-checked')).toBe('true');
     expect(screen.queryByTestId('level-3d-view')).toBeNull();
@@ -468,10 +468,11 @@ describe('LevelEditor, Floorplan | 3D switch (Phase 136 Theme E)', () => {
     fireEvent.click(viewRadio('3D'));
     const view = await screen.findByTestId('level-3d-view');
     expect(view.dataset.enter).toBe('plan');
-    // Volume has no 3D form: the switch drops back to Select.
-    expect(view.dataset.tool).toBe('select');
+    // G2: every tool has a 3D form, so the switch keeps Volume.
+    expect(view.dataset.tool).toBe('volume');
+    expect(screen.getByRole('radio', { name: 'Volume' }).getAttribute('aria-checked')).toBe('true');
     const labels = Array.from(screen.getByRole('radiogroup', { name: 'Tool' }).querySelectorAll('[role=radio]')).map((r) => r.getAttribute('aria-label'));
-    expect(labels).toEqual(['Select / Move', 'Place']);
+    expect(labels).toEqual(['Select / Move', 'Place', 'Volume', 'Path', 'Rotate']);
     expect(useLevelViewStore.getState().modeByGame).toEqual({ g1: '3d' });
   });
 
