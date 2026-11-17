@@ -30,6 +30,8 @@ import {
   type Texture,
 } from 'three';
 
+import type { LevelViewCamera } from '@midnite/studio-shared';
+import { captureScene, type CapturedPixels } from './level-capture';
 import { blendPose, cameraPosition, dollyOffset, poseFromCamera, TRANSITION_MS, type CameraPose } from './camera-transition';
 import { cull, groundTiles, itemRadius, tileInReach, type GroundTile, type ViewStats } from './level-cull';
 import { fogRange, viewOffset } from './level-lod';
@@ -78,6 +80,8 @@ export type LevelSceneProps = {
   /** Switches the orbit controls on or off for a tool gesture (they stay off while Shift marquees). */
   setOrbit: MutableRefObject<((on: boolean) => void) | null>;
   draft: ToolDraft;
+  /** Draws the scene once through a temporary camera (`game_level_view`); the live camera never moves. */
+  capture: MutableRefObject<((view: LevelViewCamera, width: number, height: number) => CapturedPixels & { visible: number }) | null>;
   /** Projects a world point to the canvas (px), for the marquee. */
   project: MutableRefObject<((p: [number, number, number]) => ScreenPoint) | null>;
   /** `null`: no gizmo (read-only, or Place). */
@@ -192,6 +196,19 @@ export function LevelScene(props: LevelSceneProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [controls, camera, gl]);
   useEffect(markDirty, [props.draft]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    props.capture.current = (view, width, height) => {
+      // The culling pass ran for the live camera; a fresh pass for the temporary one is not worth a second scene walk.
+      const captured = captureScene(gl, scene, view, width, height);
+      markDirty();
+      return { ...captured, visible: stats.current.visible };
+    };
+    return () => {
+      props.capture.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gl, scene]);
 
   // The marquee's projection: a world point to canvas pixels, and whether it is in front of the camera.
   useEffect(() => {

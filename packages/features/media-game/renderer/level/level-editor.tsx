@@ -31,6 +31,9 @@ import { useDoctorFix, useGameDiagnosis } from '../use-games';
 import { LevelAlignBar } from './level-align-bar';
 import { alignObjects, distributeObjects, type AlignAxis, type AlignEdge } from './level-align';
 import { useLevelEditorBridge } from './use-level-editor-bridge';
+import { registerEditorControls } from './level-editor-controls';
+import { frameView } from './level-frame';
+import { capturePlan } from './level-plan-capture';
 import { AgentChangeBanner } from './agent-change-banner';
 import { decideReload } from './level-reload';
 import { LevelCanvas, type CanvasPointer } from './level-canvas';
@@ -87,6 +90,7 @@ import {
   type ObjectRef,
   type PlanPoint,
   type PlanRect,
+  objectToMapPoint,
 } from './level-edit-model';
 import { refKey, sameRef } from './level-selection';
 import { snapPlan } from './level-plan';
@@ -338,6 +342,60 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
     else setMounted3d(false);
   };
   const in3d = viewMode === '3d';
+  const canvasBox = useRef<HTMLDivElement | null>(null);
+  // What the agent bridge may do to this screen (Phase 138 Themes G, H). Registered afresh each render, and reading
+  // the store at call time, so a request that follows an edit in the same tick still sees it.
+  useEffect(
+    () =>
+      registerEditorControls(gameId, {
+        mode: () => (can3d && levelViewMode(useLevelViewStore.getState(), gameId) === '3d' && handle3d.current ? '3d' : 'plan'),
+        can3d: () => can3d,
+        terrain: () => useLevelStore.getState().byGame[gameId]?.terrain ?? null,
+        frame: (rect, refs) => {
+          if (can3d && levelViewMode(useLevelViewStore.getState(), gameId) === '3d' && handle3d.current) {
+            handle3d.current.frameTo(rect, refs);
+            return;
+          }
+          const size = planViewOut.current?.size;
+          const current = useLevelStore.getState().byGame[gameId]?.edit.level;
+          if (!size || !current) return;
+          // Object coordinates to map pixels (the two differ on an isometric map), then the box they span.
+          const corners = [[rect.x, rect.y], [rect.x + rect.width, rect.y], [rect.x, rect.y + rect.height], [rect.x + rect.width, rect.y + rect.height]].map(([x, y]) => objectToMapPoint(current, x!, y!));
+          const xs = corners.map((c) => c.x), ys = corners.map((c) => c.y);
+          const box = { x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) };
+          setPlanViewIn(frameView(box, size));
+        },
+        show3d: async (timeoutMs) => {
+          if (!can3d) return false;
+          if (!handle3d.current) switchView('3d');
+          const until = Date.now() + timeoutMs;
+          while (!handle3d.current && Date.now() < until) await new Promise((r) => setTimeout(r, 50)); // allow-timeout: polling for the lazy 3D view to mount
+          return handle3d.current !== null;
+        },
+        capture3d: async (req) => (handle3d.current ? handle3d.current.capture(req) : null),
+        capturePlan: async (req) => {
+          const now = useLevelStore.getState().byGame[gameId];
+          if (!now) return null;
+          const objects = now.edit.level.layers.reduce((n, l) => n + (l.type === 'objectgroup' ? (l.objects?.length ?? 0) : 0), 0);
+          if (!is3d) {
+            // A tile level draws on the canvas the user sees: its picture is that canvas as it is.
+            const canvas = canvasBox.current?.querySelector('canvas');
+            if (!canvas) return null;
+            return { png: canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, ''), camera: null, objects, width: canvas.width, height: canvas.height };
+          }
+          const png = await capturePlan({
+            level: now.edit.level,
+            overlay: { terrain: now.terrain, terrainImage: null, draft: [], cursor: null, volume: null },
+            selection: now.edit.selection,
+            selected: now.edit.selected,
+            rect: req.rect,
+            width: req.width,
+            height: req.height,
+          });
+          return { png, camera: null, objects, width: req.width, height: req.height };
+        },
+      }),
+  );
   const snapSettings = useLevelViewStore((st) => st.snap);
   const setSnapSettings = useLevelViewStore((st) => st.setSnap);
   const tools = is3d ? (in3d ? TOOLS_3D.filter((t) => TOOLS_IN_3D.has(t.tool)) : TOOLS_3D) : TOOLS;
@@ -810,6 +868,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
       {firstIssue ? <Banner testId="level-banner-readonly">{`This level opens read-only: ${firstIssue}`}</Banner> : null}
       {entry.issues.filter((i) => !blocking.includes(i)).length > 0 ? <Banner testId="level-banner-images">{entry.issues.find((i) => !blocking.includes(i))!}</Banner> : null}
       <div className="flex min-h-0 flex-1">
+<<<<<<< HEAD
         <LevelOutliner
           gameId={gameId}
           scene={entry.scene}
@@ -824,6 +883,10 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
           onContextMenu={(e, target) => void openLevelMenu(e, target)}
         />
         <div className="relative min-w-0 flex-1">
+=======
+        <LayerList level={level} activeLayerId={edit.activeLayerId} readOnly={readOnly} update={update} is3d={is3d} />
+        <div ref={canvasBox} className="relative min-w-0 flex-1">
+>>>>>>> c2f889144 (feat(level-editor): select, frame and view requests answered by the editor (phase 138 G H))
           <LevelCanvas
             level={level}
             images={entry.images}
