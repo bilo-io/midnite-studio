@@ -37,7 +37,7 @@ third-party request for it.
 
 **Damion's ink runs further past its advance box than Kaushan Script's did**,
 which is why `components/wordmark.tsx` pads the brand half by `0.15em` rather
-than `0.08em`. Measured over "Midnite" on a 2048-upm em: the advance sum is
+than `0.08em`. Measured over "Midnyte" on a 2048-upm em: the advance sum is
 2.896em and the right-most ink reaches 3.000em — a **0.104em** overshoot, twice
 Kaushan's 0.051em. A gradient clipped to *text* still only paints inside the
 *element's* box, so the padding is headroom for the clip, not spacing.

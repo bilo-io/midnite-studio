@@ -20,7 +20,7 @@ import { Wordmark } from './wordmark';
  * `toHaveClass` — this suite has no jest-dom, deliberately.
  */
 
-const brandHalf = () => screen.getByText('Midnite');
+const brandHalf = () => screen.getByText('Midnyte');
 const qualifierHalf = () => screen.getByText('Studio');
 
 describe('Wordmark', () => {
@@ -34,13 +34,13 @@ describe('Wordmark', () => {
     expect(qualifierHalf().classList.contains('font-medium')).toBe(true);
   });
 
-  it('reads as "Midnite Studio" to anything that takes the text content', () => {
+  it('reads as "Midnyte Studio" to anything that takes the text content', () => {
     // The space between the halves is a real text node, not only the optical
     // margin: this string is the hero <h1>'s accessible name, and a CSS-only
     // gap would make that "MidniteStudio is …".
     render(<Wordmark data-testid="mark" />);
 
-    expect(screen.getByTestId('mark').textContent).toBe('Midnite Studio');
+    expect(screen.getByTestId('mark').textContent).toBe('Midnyte Studio');
   });
 
   it('puts the rainbow fill and the letterform glow on the name, and only the name', () => {
@@ -69,12 +69,12 @@ describe('Wordmark', () => {
     // what a screen reader announces, and it must still say the product's name
     // even though the visible name is now two differently-faced spans.
     render(
-      <a href="/" aria-label="Midnite Studio">
+      <a href="/" aria-label="Midnyte Studio">
         <Logo />
       </a>,
     );
 
-    expect(screen.getByRole('link', { name: 'Midnite Studio' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Midnyte Studio' })).toBeTruthy();
     expect(brandHalf().classList.contains('font-brand')).toBe(true);
   });
 });
