@@ -14,6 +14,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [153 · Startup for agents](FEATURES/phases/phase-153-startup-for-agents.md) | ◻ TODO | — | 0/35 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [152 · Projections ↔ Runway](FEATURES/phases/phase-152-projections-runway-bridge.md) | ◻ TODO | — | 0/39 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
 | [151 · Skill scripts and local LLM offload](FEATURES/phases/phase-151-skill-scripts-and-local-llm.md) | 🔄 WIP | — | 27/30 | `█████████░` | 90% | F | — |
 | [150 · Startup projections](FEATURES/phases/phase-150-startup-projections.md) | 🔄 WIP | x1 | 39/41 | `██████████` | 95% | F | — |
