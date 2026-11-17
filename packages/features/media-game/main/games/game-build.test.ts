@@ -33,7 +33,7 @@ describe('runGameBuild', () => {
   it('keeps only the last 20 lines', async () => {
     const result = await runGameBuild(root, { command: 'seq 1 50; exit 2', out: 'dist' }, () => undefined, new AbortController().signal, noPath);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.stderr?.split('\n')).toEqual(Array.from({ length: 20 }, (_, i) => String(31 + i)));
+    if (!result.ok && result.kind === 'error') expect(result.stderr?.split('\n')).toEqual(Array.from({ length: 20 }, (_, i) => String(31 + i)));
   });
 
   it('times out after the limit and kills the build', async () => {
