@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { addObject, createEditState, findObject, rotateObject, setOptionalNumber, setVolume, undo } from '../level-edit-model';
 import { buildBlankLevel } from '../new-scene-model';
 import { blendPose, cameraPosition, distanceFor, dollyOffset, focusToPlanView, orbitPose, planPose, planViewToFocus, poseFromCamera, PLAN_FOV } from './camera-transition';
-import { gizmoEdit, levelWorldItems, nearestEuler, POINT_SIZE, worldToObjectPoint } from './level-world';
+import { gizmoEdit, gizmoEditGroup, groupPivot, levelWorldItems, nearestEuler, POINT_SIZE, worldToObjectPoint } from './level-world';
+import { marqueeHits } from './level-marquee';
 import { fogRange, lodFor, projectedPx, viewOffset } from './level-lod';
 import { OPTIMISATION_PRESETS, pixelRatioFor, presetFor } from './optimisation';
 import { SpatialGrid, xzRect } from './spatial-grid';
@@ -264,5 +265,73 @@ describe('nearestEuler (Phase 136 Theme D)', () => {
     const r = nearestEuler({ yaw: -170 * d, pitch: 10 * d, roll: 0 }, { yaw: 170 * d, pitch: 0, roll: 0 });
     expect(r.yaw / d).toBeCloseTo(190, 6);
     expect(r.pitch / d).toBeCloseTo(10, 6);
+  });
+});
+
+
+describe('the group gizmo (Phase 137 Theme D)', () => {
+  /** Two 2 m boxes, centres at x = 0 and x = 10 m (32 px a metre), z = 0. */
+  const twoBoxes = () => {
+    let s = createEditState(level3d());
+    const layerId = s.level.layers[0]!.id!;
+    s = setVolume(s, layerId, { x: -32, y: -32 }, { x: 32, y: 32 });
+    const a = s.selection!;
+    s = setVolume(s, layerId, { x: 288, y: -32 }, { x: 352, y: 32 });
+    const b = s.selection!;
+    return { s, refs: [a, b], a, b };
+  };
+  const centreOf = (s: ReturnType<typeof twoBoxes>['s'], ref: { layerId: number; objectId: number }) => {
+    const p = levelEntityToWorld(findObject(s.level, ref) as never, s.level as never).position;
+    return [Math.round(p[0] * 1000) / 1000 + 0, Math.round(p[2] * 1000) / 1000 + 0];
+  };
+
+  it('D1 groupPivot: Centre is the middle of the boxes, Pivot the primary object', () => {
+    const { s, refs, a, b } = twoBoxes();
+    expect(groupPivot(s.level, refs, a, 'centre')).toMatchObject({ centre: [5, 1.5, 0], yaw: 0 });
+    expect(groupPivot(s.level, refs, b, 'pivot').centre[0]).toBe(10);
+  });
+
+  it('D2 a 180 turn about the centre swaps the boxes; a 90 turn puts them on the z axis; each adds the turn to its rotation, one undo step', () => {
+    const { s, refs, a, b } = twoBoxes();
+    const pivot = groupPivot(s.level, refs, a, 'centre');
+    const half = gizmoEditGroup(s, refs, pivot, { rotateYaw: 180 });
+    expect(centreOf(half, a)).toEqual([10, 0]);
+    expect(centreOf(half, b)).toEqual([0, 0]);
+    const quarter = gizmoEditGroup(s, refs, pivot, { rotateYaw: 90 });
+    expect(centreOf(quarter, a)).toEqual([5, -5]);
+    expect(centreOf(quarter, b)).toEqual([5, 5]);
+    expect(findObject(quarter.level, a)!.rotation).toBe(90);
+    expect(findObject(quarter.level, b)!.rotation).toBe(90);
+    expect(quarter.past.length).toBe(s.past.length + 1);
+    expect(undo(quarter).level).toBe(s.level);
+  });
+
+  it('D3 scale [2,1,2] doubles each footprint and its distance from the pivot', () => {
+    const { s, refs, a, b } = twoBoxes();
+    const next = gizmoEditGroup(s, refs, groupPivot(s.level, refs, a, 'centre'), { scale: [2, 1, 2] });
+    expect(centreOf(next, a)).toEqual([-5, 0]);
+    expect(centreOf(next, b)).toEqual([15, 0]);
+    expect(findObject(next.level, a)).toMatchObject({ width: 128, height: 128 });
+    expect(next.past.length).toBe(s.past.length + 1);
+  });
+
+  it('translates every item by one delta and raises elevation, as one step', () => {
+    const { s, refs, a, b } = twoBoxes();
+    const next = gizmoEditGroup(s, refs, groupPivot(s.level, refs, a, 'pivot'), { translate: [2, 1, 0] });
+    expect(centreOf(next, a)).toEqual([2, 0]);
+    expect(centreOf(next, b)).toEqual([12, 0]);
+    expect(levelWorldItems(next.level).filter((i) => i.kind === 'box').map((i) => i.position[1])).toEqual([1, 1]);
+    expect(next.past.length).toBe(s.past.length + 1);
+    expect(gizmoEditGroup(s, refs, groupPivot(s.level, refs, a, 'pivot'), {})).toBe(s);
+  });
+
+  it('D4 marqueeHits drops an item behind the camera and one outside the rectangle', () => {
+    const project = (p: [number, number, number]) => ({ x: p[0], y: p[1], inFront: p[2] > 0 });
+    const items = [
+      { id: 1, centre: [10, 10, 1] as [number, number, number] },
+      { id: 2, centre: [10, 10, -1] as [number, number, number] },
+      { id: 3, centre: [90, 10, 1] as [number, number, number] },
+    ];
+    expect(marqueeHits(items, project, { x0: 50, y0: 50, x1: 0, y1: 0 })).toEqual([1]);
   });
 });
