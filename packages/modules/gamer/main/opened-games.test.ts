@@ -42,4 +42,21 @@ describe('opened games store', () => {
     await store.add(join(dir, 'gone'));
     expect(await store.list()).toEqual([join(dir, 'gone')]);
   });
+
+  it('removes a path by realpath, leaves the others and the folder alone, and tolerates an unknown path', async () => {
+    const a = join(dir, 'a');
+    const b = join(dir, 'b');
+    await mkdir(a);
+    await mkdir(b);
+    const link = join(dir, 'a-link');
+    await symlink(a, link);
+    const store = createOpenedGamesStore(dir);
+    await store.add(a);
+    await store.add(b);
+    expect(await store.remove(link)).toEqual({ ok: true });
+    expect(await store.list()).toEqual([b]);
+    expect(await store.remove(join(dir, 'never-added'))).toEqual({ ok: true });
+    expect(await store.list()).toEqual([b]);
+    await expect(realpath(a)).resolves.toBe(a);
+  });
 });

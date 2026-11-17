@@ -1,10 +1,15 @@
 import type { GameSummary } from '@midnite/studio-shared';
-import { LuBox, LuFolderOpen, LuLayers, LuPlus, LuTriangleAlert } from 'react-icons/lu';
+import { useRef, useState, type KeyboardEvent } from 'react';
+import { LuBox, LuEllipsis, LuFolderOpen, LuLayers, LuPlus, LuTriangleAlert } from 'react-icons/lu';
 
 import { EmptyState, EmptyStateButton } from '@midnite/studio-frame';
 import { LoadingRegion, RingSpinner as Spinner, Skeleton } from '@midnite/studio-frame';
+import { useNotify } from './chrome';
+import { DeleteGameDialog } from './delete-game-dialog';
 import { GameAssetsBadge } from './game-assets-panel';
-import { useGames } from './use-games';
+import { GameRowMenu, gameRowMenuItems } from './game-row-menu';
+import { useGameHost } from './host';
+import { useDeleteGame, useForgetGame, useGames, useGamesSettings, useRenameGame, useRevealGame } from './use-games';
 
 /**
  * The Games explorer (Phase 107 Theme A): game repos found under the games
@@ -29,6 +34,25 @@ export function GameExplorer({
   opening?: boolean;
 }) {
   const games = useGames();
+  const settings = useGamesSettings();
+  const { removesRepo = false } = useGameHost();
+  const notify = useNotify();
+  const rename = useRenameGame();
+  const reveal = useRevealGame();
+  const forget = useForgetGame();
+  const deleteGame = useDeleteGame();
+  const [menu, setMenu] = useState<{ game: GameSummary; x: number; y: number } | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<GameSummary | null>(null);
+
+  const copyPath = async (game: GameSummary): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(game.path);
+      notify('Path copied');
+    } catch {
+      notify('Could not copy the path', { danger: true });
+    }
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="game-explorer">
@@ -75,11 +99,59 @@ export function GameExplorer({
         ) : (
           <ul>
             {(games.data ?? []).map((game) => (
-              <GameRow key={game.gameId} game={game} selected={game.gameId === selectedId} onSelect={onSelect} />
+              <GameRow
+                key={game.gameId}
+                game={game}
+                selected={game.gameId === selectedId}
+                onSelect={onSelect}
+                renaming={renamingId === game.gameId}
+                onMenu={(x, y) => setMenu({ game, x, y })}
+                onRenameDone={(name) => {
+                  setRenamingId(null);
+                  if (name !== null && name !== game.name) rename.mutate({ gameId: game.gameId, name });
+                }}
+              />
             ))}
           </ul>
         )}
       </div>
+      {menu ? (
+        <GameRowMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={gameRowMenuItems({
+            game: menu.game,
+            gamesRoot: settings.data?.resolvedRoot,
+            removesRepo,
+            handlers: {
+              onRename: () => setRenamingId(menu.game.gameId),
+              onReveal: () => reveal.mutate(menu.game.gameId),
+              onCopyPath: () => void copyPath(menu.game),
+              onForget: () => forget.mutate(menu.game.gameId),
+              onDelete: () => setDeleting(menu.game),
+            },
+          })}
+        />
+      ) : null}
+      {deleting ? (
+        <DeleteGameDialog
+          gameId={deleting.gameId}
+          name={deleting.name}
+          busy={deleteGame.isPending}
+          onCancel={() => setDeleting(null)}
+          onConfirm={(confirmName) =>
+            deleteGame.mutate(
+              { gameId: deleting.gameId, confirmName },
+              {
+                onSuccess: (result) => {
+                  if (result.ok) setDeleting(null);
+                },
+              },
+            )
+          }
+        />
+      ) : null}
     </div>
   );
 }
@@ -88,14 +160,58 @@ function GameRow({
   game,
   selected,
   onSelect,
+  renaming,
+  onMenu,
+  onRenameDone,
 }: {
   game: GameSummary;
   selected: boolean;
   onSelect: (gameId: string) => void;
+  renaming: boolean;
+  /** Open the row's menu at a viewport point (right-click, or the ⋯ button). */
+  onMenu: (x: number, y: number) => void;
+  /** Inline rename finished: the new name, or `null` when cancelled. */
+  onRenameDone: (name: string | null) => void;
 }) {
   const EngineIcon = game.dimension === '3d' ? LuBox : LuLayers;
+  const dots = useRef<HTMLButtonElement>(null);
+  const settled = useRef(false);
+  const onRenameKey = (event: KeyboardEvent<HTMLInputElement>): void => {
+    if (event.key === 'Enter') {
+      settled.current = true;
+      onRenameDone(event.currentTarget.value.trim() || null);
+    } else if (event.key === 'Escape') {
+      settled.current = true;
+      onRenameDone(null);
+    }
+  };
+  if (renaming) {
+    return (
+      <li className="px-2 py-1">
+        <input
+          autoFocus
+          aria-label={`Rename ${game.name}`}
+          defaultValue={game.name}
+          maxLength={80}
+          onKeyDown={onRenameKey}
+          // Leaving the field cancels: a rename commits on Enter only, because it writes a commit.
+          onBlur={() => {
+            if (!settled.current) onRenameDone(null);
+          }}
+          onFocus={(event) => event.currentTarget.select()}
+          className="w-full rounded border border-border bg-background px-1.5 py-1 text-xs"
+        />
+      </li>
+    );
+  }
   return (
-    <li>
+    <li
+      className="group relative"
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onMenu(event.clientX, event.clientY);
+      }}
+    >
       <button
         type="button"
         aria-current={selected || undefined}
@@ -117,6 +233,19 @@ function GameRow({
         {game.dirty ? (
           <span role="img" aria-label="Uncommitted changes" className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
         ) : null}
+      </button>
+      <button
+        ref={dots}
+        type="button"
+        aria-label={`Actions for ${game.name}`}
+        aria-haspopup="menu"
+        onClick={() => {
+          const box = dots.current?.getBoundingClientRect();
+          onMenu(box ? box.left : 0, box ? box.bottom : 0);
+        }}
+        className="absolute right-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded bg-card/80 text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+      >
+        <LuEllipsis aria-hidden className="h-3.5 w-3.5" />
       </button>
     </li>
   );
