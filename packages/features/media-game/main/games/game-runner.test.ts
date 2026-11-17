@@ -1,11 +1,16 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { EVENT_CHANNELS, GAMES_MAX_RUNNING } from '@midnite/studio-shared';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { EVENT_CHANNELS, failure, GAMES_MAX_RUNNING, ok } from '@midnite/studio-shared';
 
 import type { GameElectron, GameWindow } from './game-electron';
 import {
   createGameRunner,
+  GAME_BUILD_DEBOUNCE_MS,
   gameEntryUrl,
   gamePartition,
   isGamePermissionAllowed,
@@ -496,7 +501,150 @@ describe('isReloadTrigger', () => {
     ['playtests/a.json', false],
     ['playtests/baselines/smoke@60.png', false],
     ['playtestsuite.js', true],
+    ['.vite/deps/a.js', false],
+    ['.turbo/log', false],
   ])('%s -> %s', (path, expected) => {
     expect(isReloadTrigger(path)).toBe(expected);
+  });
+
+  it.each([
+    ['dist/index.html', 'dist', false],
+    ['dist', 'dist', false],
+    ['dist/assets/a.js', './dist/', false],
+    ['src/main.ts', 'dist', true],
+    ['distinct/a.ts', 'dist', true],
+    ['index.html', '.', true],
+  ])('%s with build.out %s -> %s (Phase 149 Theme E)', (path, out, expected) => {
+    expect(isReloadTrigger(path, out)).toBe(expected);
+  });
+});
+
+describe('createGameRunner with a build (Phase 149 Theme E)', () => {
+  let win: ReturnType<typeof fakeWindow>;
+  let send: Mock<(channel: string, payload: unknown) => void>;
+  const build = vi.fn(async (..._args: unknown[]): Promise<ReturnType<typeof ok<{ ms: number }>> | ReturnType<typeof failure<{ ms: number }>>> => ok({ ms: 5 }));
+  let runner: ReturnType<typeof createGameRunner>;
+  const spec = { command: 'vite build', out: 'dist' };
+  const viewOf = (gameId: string): FakeView => runner.view(gameId) as unknown as FakeView;
+
+  beforeEach(() => {
+    fakeSessions.clear();
+    build.mockClear();
+    build.mockImplementation(async () => ok({ ms: 5 }));
+    win = fakeWindow();
+    send = vi.fn<(channel: string, payload: unknown) => void>();
+    runner = createGameRunner({ getWindow: () => win, electron, log: logger, send, build: build as never });
+  });
+  afterEach(() => {
+    runner.stopAll();
+    vi.clearAllMocks();
+  });
+
+  it('serves build.out, not the repo root', async () => {
+    const repo = await mkdtemp(join(tmpdir(), 'game-serve-'));
+    try {
+      await mkdir(join(repo, 'dist'));
+      await writeFile(join(repo, 'index.html'), '<html>source</html>');
+      await writeFile(join(repo, 'dist', 'index.html'), '<html>built</html>');
+      (electron.fetchFile as Mock).mockResolvedValue(new Response('ok'));
+      await runner.run(game('ga', { root: repo, build: spec }));
+      const session = [...fakeSessions.values()][0]!;
+      const handler = session.protocol.handle.mock.calls[0]![1] as (r: Request) => Promise<Response>;
+      expect((await handler(new Request('mstudio-game://ga/index.html'))).status).toBe(200);
+      expect((electron.fetchFile as Mock).mock.calls[0]![0]).toMatch(/\/dist\/index\.html$/);
+      // The sources beside it are outside what is served.
+      await writeFile(join(repo, 'secret.txt'), 's');
+      expect((await handler(new Request('mstudio-game://ga/secret.txt'))).status).toBe(404);
+    } finally {
+      runner.stopAll();
+      await rm(repo, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses a build.out that escapes the game', async () => {
+    const result = await runner.run(game('ga', { root: '/games/ga', build: { command: 'x', out: '../etc' } }));
+    expect(result).toMatchObject({ ok: false, message: 'Build output is outside the game.' });
+    expect(build).not.toHaveBeenCalled();
+    expect(runner.isRunning('ga')).toBe(false);
+  });
+
+  it('builds first, streams lines as source build, then loads', async () => {
+    build.mockImplementation(async (...args: unknown[]) => {
+      (args[2] as (l: string) => void)('compiling');
+      return ok({ ms: 5 });
+    });
+    await runner.run(game('ga', { root: '/games/ga', build: spec }));
+    await vi.waitFor(() => expect(viewOf('ga').webContents.loadURL).toHaveBeenCalledWith('mstudio-game://ga/index.html'));
+    expect(build).toHaveBeenCalledWith('/games/ga', spec, expect.any(Function), expect.any(AbortSignal));
+    const entries = runner.logs('ga').entries.filter((e) => e.source === 'build');
+    expect(entries.map((e) => e.text)).toEqual(['$ vite build', 'compiling', 'Built in 5 ms.']);
+  });
+
+  it('a failed build never loads and puts the last lines in the crashed reason', async () => {
+    build.mockImplementation(async () => failure('Build failed (exit 1).', 'line a\nline b'));
+    await runner.run(game('ga', { root: '/games/ga', build: spec }));
+    await vi.waitFor(() => expect(runner.runState('ga')?.state).toBe('crashed'));
+    expect(runner.runState('ga')?.reason).toBe('build-failed:Build failed (exit 1).\nline a\nline b');
+    expect(viewOf('ga').webContents.loadURL).not.toHaveBeenCalled();
+    // Reload after a failure rebuilds; success then loads and clears the error.
+    build.mockImplementation(async () => ok({ ms: 1 }));
+    expect(runner.reload('ga')).toEqual({ ok: true });
+    await vi.waitFor(() => expect(viewOf('ga').webContents.loadURL).toHaveBeenCalledTimes(1));
+    expect(runner.runState('ga')?.state).toBe('starting');
+  });
+
+  it('a plain reload of a clean build game does not rebuild', async () => {
+    await runner.run(game('ga', { root: '/games/ga', build: spec }));
+    await vi.waitFor(() => expect(viewOf('ga').webContents.loadURL).toHaveBeenCalled());
+    runner.reload('ga');
+    expect(build).toHaveBeenCalledTimes(1);
+    expect(viewOf('ga').webContents.reloadIgnoringCache).toHaveBeenCalledTimes(1);
+  });
+
+  describe('watcher', () => {
+    let root: string;
+    beforeEach(async () => {
+      root = await mkdtemp(join(tmpdir(), 'game-runner-'));
+      await mkdir(join(root, 'src'));
+      await mkdir(join(root, 'dist'));
+    });
+    afterEach(async () => {
+      runner.stopAll();
+      await rm(root, { recursive: true, force: true });
+    });
+
+    it('rebuilds then reloads on a source change, and ignores writes under build.out', async () => {
+      await runner.run(game('ga', { root, build: spec }));
+      await vi.waitFor(() => expect(viewOf('ga').webContents.loadURL).toHaveBeenCalled());
+      // The directories made above may still be reporting; let them settle, then count from zero.
+      await new Promise((resolve) => setTimeout(resolve, GAME_BUILD_DEBOUNCE_MS * 3)); // allow-timeout: fs events arrive on their own clock
+      await vi.waitFor(() => expect(viewOf('ga').webContents.loadURL).toHaveBeenCalled());
+      build.mockClear();
+
+      await writeFile(join(root, 'dist', 'bundle.js'), 'x');
+      await new Promise((resolve) => setTimeout(resolve, GAME_BUILD_DEBOUNCE_MS * 2)); // allow-timeout: a negative needs real time to elapse
+      expect(build).not.toHaveBeenCalled();
+
+      await writeFile(join(root, 'src', 'main.ts'), 'y');
+      await vi.waitFor(() => expect(build).toHaveBeenCalledTimes(1), { timeout: 4000 });
+      await vi.waitFor(() => expect(viewOf('ga').webContents.reloadIgnoringCache).toHaveBeenCalled());
+    });
+
+    it('cancels a build in flight when another source change arrives', async () => {
+      const signals: AbortSignal[] = [];
+      build.mockImplementation(async (...args: unknown[]) => {
+        const signal = args[3] as AbortSignal;
+        signals.push(signal);
+        if (signals.length === 2) await new Promise((resolve) => signal.addEventListener('abort', resolve));
+        return ok({ ms: 1 });
+      });
+      await runner.run(game('ga', { root, build: spec }));
+      await vi.waitFor(() => expect(viewOf('ga').webContents.loadURL).toHaveBeenCalled());
+      await writeFile(join(root, 'src', 'a.ts'), '1');
+      await vi.waitFor(() => expect(signals).toHaveLength(2), { timeout: 4000 });
+      await writeFile(join(root, 'src', 'b.ts'), '2');
+      await vi.waitFor(() => expect(signals).toHaveLength(3), { timeout: 4000 });
+      expect(signals[1]!.aborted).toBe(true);
+    });
   });
 });
