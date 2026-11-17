@@ -1,4 +1,4 @@
-import { WEBSITE_SITE_ORIGIN } from '@midnite/studio-shared/install-command';
+import { MIDNITE_SITE_ORIGIN } from '@midnite/studio-shared/install-command';
 
 /**
  * The site's own public root URL — where a visitor's browser is, as an absolute
@@ -29,7 +29,7 @@ import { WEBSITE_SITE_ORIGIN } from '@midnite/studio-shared/install-command';
  * fallback is read here — from `shared`, because the app's "Update Midnite
  * Studio" action curls the same installer and must name the same default.
  */
-const DEFAULT_SITE_ORIGIN = WEBSITE_SITE_ORIGIN;
+const DEFAULT_SITE_ORIGIN = MIDNITE_SITE_ORIGIN;
 
 /** The site root, with any trailing slash removed so `${SITE_ORIGIN}/x` is safe. */
 export const SITE_ORIGIN: string = (__SITE_ORIGIN__ || DEFAULT_SITE_ORIGIN).replace(/\/+$/, '');

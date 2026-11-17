@@ -27,7 +27,7 @@ export const PrivacyPage = () => (
         <div className="flex flex-col items-start gap-5">
           <Heading level={1}>Privacy</Heading>
           <Lede>
-            Midnyte Studio runs on your Mac and needs no account with us. This is what it sends out, what it keeps and
+            Midnite Studio runs on your Mac and needs no account with us. This is what it sends out, what it keeps and
             how, and who can reach in.
           </Lede>
         </div>

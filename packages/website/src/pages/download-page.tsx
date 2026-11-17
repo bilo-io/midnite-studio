@@ -22,9 +22,9 @@ const STEPS: readonly { title: string; detail: string }[] = [
       'Invitations go out in waves. When yours is ready you are sent the install instructions directly, not a public link.',
   },
   {
-    title: 'Install Midnyte Apps',
+    title: 'Install Midnite Apps',
     detail:
-      'Midnyte Apps is the launcher: it installs to /Applications, then installs and opens each midnyte app, Midnyte Studio included. macOS on Apple silicon only.',
+      'Midnite Apps is the launcher: it installs to /Applications, then installs and opens each midnite app, Midnite Studio included. macOS on Apple silicon only.',
   },
   {
     title: 'Stay up to date',
@@ -60,9 +60,9 @@ export const DownloadPage = () => (
         />
         <Container className="pb-16 pt-20 sm:pt-28">
           <div className="flex flex-col items-start gap-5">
-            <Heading level={1}>Get Midnyte</Heading>
+            <Heading level={1}>Get Midnite</Heading>
             <Lede>
-              Midnyte Apps is the launcher that installs and opens each midnyte app, Midnyte Studio
+              Midnite Apps is the launcher that installs and opens each midnite app, Midnite Studio
               included. Access is invitation-only for now: request it and you will be sent
               everything you need.
             </Lede>

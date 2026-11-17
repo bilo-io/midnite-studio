@@ -63,7 +63,7 @@ export const AppPills = ({ app, version, startIndex = 0 }: AppPillsProps) => {
   let i = startIndex;
 
   return (
-    <ul className="flex flex-wrap items-center gap-2" aria-label={`About Midnyte ${app.name}`}>
+    <ul className="flex flex-wrap items-center gap-2" aria-label={`About Midnite ${app.name}`}>
       <Pill index={i++} label="Status: available">
         <span aria-hidden="true" className="ws-live-dot h-2 w-2 rounded-full bg-emerald-400" />
         Available

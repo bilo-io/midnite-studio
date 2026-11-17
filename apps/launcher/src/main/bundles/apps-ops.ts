@@ -53,13 +53,13 @@ export function createAppsOps(deps: AppsOpsDeps) {
     async install(raw: BundleAppId): Promise<LauncherResult> {
       try {
         const identity = (BUNDLE_APP_IDS as readonly string[]).includes(raw) ? deps.identityFor(raw) : null;
-        if (identity === null) return fail('Midnyte Studio installs as a full app, not a bundle.');
+        if (identity === null) return fail('Midnite Studio installs as a full app, not a bundle.');
         const bundleDeps = deps.bundleDeps();
-        if (bundleDeps === null) return fail('Installing apps needs the packaged Midnyte Apps launcher.');
+        if (bundleDeps === null) return fail('Installing apps needs the packaged Midnite Apps launcher.');
         const catalog = await deps.fetchCatalog().catch(() => null);
         const entry = catalog?.apps.find((a) => a.id === raw);
         if (entry === undefined) {
-          return fail(`${identity.displayName} has no published build yet — it runs in Midnyte Studio for now.`);
+          return fail(`${identity.displayName} has no published build yet — it runs in Midnite Studio for now.`);
         }
         return await deps.install(entry, identity, {
           ...bundleDeps,
@@ -74,9 +74,9 @@ export function createAppsOps(deps: AppsOpsDeps) {
     async uninstall(raw: BundleAppId): Promise<LauncherResult> {
       try {
         const identity = (BUNDLE_APP_IDS as readonly string[]).includes(raw) ? deps.identityFor(raw) : null;
-        if (identity === null) return fail('Use Midnyte Studio’s own Move to Trash for Studio.');
+        if (identity === null) return fail('Use Midnite Studio’s own Move to Trash for Studio.');
         const bundleDeps = deps.bundleDeps();
-        if (bundleDeps === null) return fail('Removing apps needs the packaged Midnyte Apps launcher.');
+        if (bundleDeps === null) return fail('Removing apps needs the packaged Midnite Apps launcher.');
         return await deps.uninstall(identity, bundleDeps);
       } catch (error) {
         return fail(asMessage(error));

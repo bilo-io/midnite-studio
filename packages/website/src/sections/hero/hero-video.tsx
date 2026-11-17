@@ -100,7 +100,7 @@ export const HeroVideo = ({ className = '' }: HeroVideoProps) => {
       <picture className={frame} data-testid="hero-poster">
         <img
           src={assetHref(theme === 'light' ? POSTER_LIGHT : POSTER)}
-          alt="Midnyte Studio: the commit graph, the worktree sidebar and the integrated terminal in one window."
+          alt="Midnite Studio: the commit graph, the worktree sidebar and the integrated terminal in one window."
           className="block h-full w-full object-cover"
           loading="lazy"
           decoding="async"
@@ -123,7 +123,7 @@ export const HeroVideo = ({ className = '' }: HeroVideoProps) => {
       // Fires on the element when no source could be used, which is the case
       // that matters: an empty `public/video/`.
       onError={() => setFailed(true)}
-      aria-label="Midnyte Studio in use: the commit graph, the worktree sidebar and the integrated terminal."
+      aria-label="Midnite Studio in use: the commit graph, the worktree sidebar and the integrated terminal."
     >
       <source src={assetHref('video/hero.mp4')} type="video/mp4" onError={() => setFailed(true)} />
     </video>

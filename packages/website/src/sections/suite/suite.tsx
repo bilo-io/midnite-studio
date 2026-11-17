@@ -52,7 +52,7 @@ const SuiteGroup = ({ group }: { group: SiteAppSection }) => {
                   className="h-12 w-12 shrink-0 select-none rounded-[0.85rem]"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-fg">Midnyte {app.name}</p>
+                  <p className="font-semibold text-fg">Midnite {app.name}</p>
                   <p className="text-sm text-fg-muted">{app.tagline}</p>
                 </div>
                 <LuArrowUpRight aria-hidden="true" className="shrink-0 text-fg-subtle" />

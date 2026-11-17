@@ -82,7 +82,7 @@ describe('<Footer>', () => {
   it('reveals the wordmark without putting it in the accessibility tree', () => {
     render(<Footer />);
     const wordmark = screen.getByTestId('footer-wordmark');
-    expect(wordmark.textContent).toBe('Midnyte Apps');
+    expect(wordmark.textContent).toBe('Midnite Apps');
     expect(wordmark.getAttribute('aria-hidden')).toBe('true');
   });
 

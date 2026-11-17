@@ -113,7 +113,7 @@ async function exclusive(id: string, op: () => Promise<LauncherResult>): Promise
 function friendly(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error);
   if (/clonefile|cross-device|not supported/i.test(text)) {
-    return 'Could not clone the runtime into the app — it has to be installed on the same APFS volume as Midnyte Apps.';
+    return 'Could not clone the runtime into the app — it has to be installed on the same APFS volume as Midnite Apps.';
   }
   return text;
 }

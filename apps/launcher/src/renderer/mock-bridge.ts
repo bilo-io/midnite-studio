@@ -78,7 +78,7 @@ export function createMockBridge(mode: string | null): LauncherBridge {
       open: ok,
       status: async () => appsStatus(),
       install: async (id) => {
-        if (!published.includes(id)) return { ok: false, message: `Midnyte ${id} has no published build yet.` };
+        if (!published.includes(id)) return { ok: false, message: `Midnite ${id} has no published build yet.` };
         const total = 40 * 1024 * 1024;
         for (let i = 1; i <= 5; i++) {
           appListeners.forEach((l) => l({ id, progress: { phase: 'download', received: (total * i) / 5, total } }));

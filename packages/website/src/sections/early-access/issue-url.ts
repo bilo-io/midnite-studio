@@ -90,7 +90,7 @@ export const composeIssueBody = ({ email, useCase, agentIds }: EarlyAccessReques
     '',
     '---',
     '',
-    'Filed from the Midnyte Studio site’s early-access form.',
+    'Filed from the Midnite Studio site’s early-access form.',
   ].join('\n');
 };
 

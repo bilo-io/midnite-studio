@@ -30,11 +30,11 @@ import { useApps } from './use-apps';
 type Layout = 'grid' | 'table';
 const STUDIO_APP = appById('studio');
 
-/** The dialog title's app: Studio, the launcher itself, or `Midnyte <catalog name>`. */
+/** The dialog title's app: Studio, the launcher itself, or `Midnite <catalog name>`. */
 function notesTitle(id: ChangelogAppId): string {
-  if (id === 'studio') return 'Midnyte Studio';
-  if (id === 'launcher') return 'Midnyte Apps';
-  return `Midnyte ${appById(id as AppId).name}`;
+  if (id === 'studio') return 'Midnite Studio';
+  if (id === 'launcher') return 'Midnite Apps';
+  return `Midnite ${appById(id as AppId).name}`;
 }
 
 const THEME_OPTIONS: readonly { value: ThemeSource; label: string; Icon: typeof LuSun }[] = [
@@ -149,7 +149,7 @@ export function App() {
     },
     onInstall: (app: LauncherApp) => {
       const hosted = app.id === 'studio' || viewOf(app).source === 'studio';
-      void apps.install(app).then((r) => report(r, hosted ? 'Midnyte Studio is installed.' : `Midnyte ${app.name} is installed.`));
+      void apps.install(app).then((r) => report(r, hosted ? 'Midnite Studio is installed.' : `Midnite ${app.name} is installed.`));
     },
     onDetails: (app: LauncherApp) => setDetail(app),
   };
@@ -171,12 +171,12 @@ export function App() {
         ...(has
           ? [
               ...(view.state === 'update'
-                ? [{ id: 'update', label: `Update Midnyte ${app.name}`, onSelect: () => handlers.onInstall(app), disabled: view.installing }]
+                ? [{ id: 'update', label: `Update Midnite ${app.name}`, onSelect: () => handlers.onInstall(app), disabled: view.installing }]
                 : []),
-              { id: 'uninstall', label: `Move Midnyte ${app.name} to Trash…`, danger: true, onSelect: () => setConfirmUninstall(app) },
+              { id: 'uninstall', label: `Move Midnite ${app.name} to Trash…`, danger: true, onSelect: () => setConfirmUninstall(app) },
             ]
           : view.studioFallback
-            ? [{ id: 'open-studio', label: `Open in Midnyte Studio`, onSelect: () => handlers.onOpen(app) }]
+            ? [{ id: 'open-studio', label: `Open in Midnite Studio`, onSelect: () => handlers.onOpen(app) }]
             : []),
       ];
     }
@@ -186,13 +186,13 @@ export function App() {
       ...base,
       ...(hosted
         ? [
-            { id: 'reveal', label: 'Show Midnyte Studio in Finder', onSelect: () => void bridge.studio.reveal().then((r) => report(r)) },
+            { id: 'reveal', label: 'Show Midnite Studio in Finder', onSelect: () => void bridge.studio.reveal().then((r) => report(r)) },
             ...(view.state === 'update'
-              ? [{ id: 'update', label: 'Update Midnyte Studio', onSelect: () => handlers.onInstall(app), disabled: view.installing }]
+              ? [{ id: 'update', label: 'Update Midnite Studio', onSelect: () => handlers.onInstall(app), disabled: view.installing }]
               : []),
             {
               id: 'uninstall',
-              label: 'Move Midnyte Studio to Trash…',
+              label: 'Move Midnite Studio to Trash…',
               danger: true,
               onSelect: () => setConfirmUninstall(STUDIO_APP),
             },
@@ -206,7 +206,7 @@ export function App() {
     setSelfUpdating(true);
     void bridge.self.update().then((r) => {
       if (!r.ok) setSelfUpdating(false);
-      report(r, 'Updating Midnyte Apps — it will quit and reopen in a moment.');
+      report(r, 'Updating Midnite Apps — it will quit and reopen in a moment.');
     });
   };
   const selfBehind = self?.latest != null && compareVersions(self.latest.version, self.current) > 0;
@@ -219,8 +219,8 @@ export function App() {
       : anyInstalling
         ? 'Wait for the install in progress to finish'
         : selfBehind
-          ? `Update to Midnyte Apps ${self?.latest?.version}`
-          : 'Re-install the latest Midnyte Apps';
+          ? `Update to Midnite Apps ${self?.latest?.version}`
+          : 'Re-install the latest Midnite Apps';
 
   const removable = useMemo(() => removableApps(viewOf), [viewOf]);
   // One at a time, through the same per-app ops as each tile's own Move to Trash, so every guard
@@ -310,7 +310,7 @@ export function App() {
         {selfBehind && self?.latest && selfBannerDismissed !== self.latest.version && (
           <div className="banner" role="status">
             <span className="pill pill-solid">Update</span>
-            <span className="banner-text">Midnyte Apps {self.latest.version} is available.</span>
+            <span className="banner-text">Midnite Apps {self.latest.version} is available.</span>
             <div className="banner-actions">
               <button type="button" className="link" onClick={() => setNotesFor('launcher')}>
                 What’s new ↗
@@ -327,7 +327,7 @@ export function App() {
         {showBanner && studio.status?.latest && (
           <div className="banner" role="status">
             <span className="pill pill-solid">Update</span>
-            <span className="banner-text">Midnyte Studio {studio.status.latest.version} is available.</span>
+            <span className="banner-text">Midnite Studio {studio.status.latest.version} is available.</span>
             <div className="banner-actions">
               <button type="button" className="link" onClick={() => setNotesFor('studio')}>
                 What’s new ↗
@@ -408,7 +408,7 @@ export function App() {
             {APPS.length} apps · macOS {bridge.platform.arch}
           </span>
           <span className="statusbar-version">
-            <button type="button" className="link eyebrow statusbar-version-number" title="Midnyte Apps release notes" onClick={() => setNotesFor('launcher')}>
+            <button type="button" className="link eyebrow statusbar-version-number" title="Midnite Apps release notes" onClick={() => setNotesFor('launcher')}>
               v{bridge.launcherVersion}
             </button>
             <button
@@ -452,12 +452,12 @@ export function App() {
         <div className="sheet-backdrop sheet-backdrop-center">
           <div className="dialog" role="alertdialog" aria-modal="true" aria-labelledby="uninstall-title">
             <h2 id="uninstall-title" className="dialog-title">
-              Move Midnyte {confirmUninstall.name} to the Trash?
+              Move Midnite {confirmUninstall.name} to the Trash?
             </h2>
             <p className="dialog-body">
               {confirmUninstall.id === 'studio'
-                ? `Every app in this launcher runs in Midnyte Studio today, so all ${APPS.length} of them go with it. Your settings, repositories and media stay where they are, and you can put it back from the Trash.`
-                : `Only Midnyte ${confirmUninstall.name} is removed — its app and its Dock icon. The other apps and Midnyte Studio stay, your data stays where it is, and you can put it back from the Trash.`}
+                ? `Every app in this launcher runs in Midnite Studio today, so all ${APPS.length} of them go with it. Your settings, repositories and media stay where they are, and you can put it back from the Trash.`
+                : `Only Midnite ${confirmUninstall.name} is removed — its app and its Dock icon. The other apps and Midnite Studio stay, your data stays where it is, and you can put it back from the Trash.`}
             </p>
             <div className="dialog-actions">
               <button type="button" className="btn" onClick={() => setConfirmUninstall(null)} autoFocus>
@@ -469,7 +469,7 @@ export function App() {
                 onClick={() => {
                   const target = confirmUninstall;
                   setConfirmUninstall(null);
-                  void apps.uninstall(target).then((r) => report(r, `Midnyte ${target.name} moved to the Trash.`));
+                  void apps.uninstall(target).then((r) => report(r, `Midnite ${target.name} moved to the Trash.`));
                 }}
               >
                 Move to Trash
@@ -488,16 +488,16 @@ export function App() {
             <ul className="dialog-list">
               {removable.map((app) => (
                 <li key={app.id}>
-                  Midnyte {app.name}
+                  Midnite {app.name}
                   {app.id === 'studio' && studio.status?.running ? ' — running, will be skipped' : ''}
                 </li>
               ))}
             </ul>
             <p className="dialog-body">
               {removable.some((app) => app.id === 'studio')
-                ? `Every app in this launcher runs in Midnyte Studio today, so they all go with it. `
+                ? `Every app in this launcher runs in Midnite Studio today, so they all go with it. `
                 : ''}
-              An app that is running is skipped — quit it first. Midnyte Apps stays, your settings, repositories and media stay where
+              An app that is running is skipped — quit it first. Midnite Apps stays, your settings, repositories and media stay where
               they are, and you can put any of them back from the Trash.
             </p>
             <div className="dialog-actions">

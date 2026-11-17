@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 
-import { WEBSITE_SITE_ORIGIN } from '../shared/src/install-command';
+import { MIDNITE_SITE_ORIGIN } from '../shared/src/install-command';
 
 /**
  * The public marketing site.
@@ -73,7 +73,7 @@ const siteOrigin = process.env['WEBSITE_ORIGIN'] ?? '';
  * restated, so the card and the install command cannot name different hosts.
  */
 const socialMeta = (): Plugin => {
-  const origin = (siteOrigin || WEBSITE_SITE_ORIGIN).replace(/\/+$/, '');
+  const origin = (siteOrigin || MIDNITE_SITE_ORIGIN).replace(/\/+$/, '');
   return {
     name: 'website-social-meta',
     transformIndexHtml: (html) => html.replaceAll('%SITE_ORIGIN%', origin),

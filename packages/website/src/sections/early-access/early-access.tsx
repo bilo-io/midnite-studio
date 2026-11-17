@@ -91,7 +91,7 @@ export const EarlyAccess = () => {
             Ask for a build.
           </Heading>
           <Lede typeIn>
-            The midnyte apps are usable and unfinished. Tell us which ones you would use and which
+            The midnite apps are usable and unfinished. Tell us which ones you would use and which
             agents you already run. You go on the list and get asked first when the thing
             you asked about ships.
           </Lede>

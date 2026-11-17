@@ -10,7 +10,7 @@ describe('Suite', () => {
   it('links a card per app to that app’s slide on the Apps page', () => {
     render(<Suite />);
     for (const app of SITE_APPS) {
-      const card = screen.getByRole('link', { name: new RegExp(`^Midnyte ${app.name}\\b`) });
+      const card = screen.getByRole('link', { name: new RegExp(`^Midnite ${app.name}\\b`) });
       expect(card.getAttribute('href')).toBe(`/apps/#${app.id}`);
     }
   });

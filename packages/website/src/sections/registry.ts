@@ -51,7 +51,7 @@ export type SectionEntry = {
  * not either, for the obvious reason.
  */
 export const SECTIONS: readonly SectionEntry[] = [
-  { id: 'hero', label: 'Midnyte Apps', Component: Hero },
+  { id: 'hero', label: 'Midnite Apps', Component: Hero },
   { id: 'showreel', label: 'Showreel', Component: Showreel },
   { id: 'suite', label: 'Suite', Component: Suite, nav: true },
   { id: 'launcher', label: 'Launcher', Component: Launcher, nav: true },

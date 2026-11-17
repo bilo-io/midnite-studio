@@ -33,13 +33,13 @@ export function checkLockstep(input: { runtimeVersion: string; bundleVersion: st
     return {
       ok: false,
       reason: 'bundle-ahead',
-      message: `${who} is version ${bundleVersion} but Midnyte Apps is ${runtimeVersion} — update Midnyte Apps first.`,
+      message: `${who} is version ${bundleVersion} but Midnite Apps is ${runtimeVersion} — update Midnite Apps first.`,
     };
   }
   return {
     ok: false,
     reason: 'bundle-behind',
-    message: `${who} is version ${bundleVersion} but Midnyte Apps is ${runtimeVersion} — it needs updating to match.`,
+    message: `${who} is version ${bundleVersion} but Midnite Apps is ${runtimeVersion} — it needs updating to match.`,
   };
 }
 

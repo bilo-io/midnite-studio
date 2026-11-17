@@ -9,7 +9,7 @@ export type ActionHandlers = {
 
 /**
  * The tile's one big button. Install pulls the app's own bundle when the catalog
- * publishes one; for an app nothing has published yet it installs Midnyte Studio,
+ * publishes one; for an app nothing has published yet it installs Midnite Studio,
  * which runs it today. Open launches the bundle's stub, or lands in Studio on the
  * app's own view.
  */
@@ -47,8 +47,8 @@ export function PrimaryAction({
           type="button"
           className={cls}
           onClick={() => handlers.onInstall(app)}
-          aria-label={`Install Midnyte ${app.name}`}
-          title={view.source === 'studio' && app.id !== 'studio' ? `Installs Midnyte Studio, which runs Midnyte ${app.name} today` : undefined}
+          aria-label={`Install Midnite ${app.name}`}
+          title={view.source === 'studio' && app.id !== 'studio' ? `Installs Midnite Studio, which runs Midnite ${app.name} today` : undefined}
         >
           Install
         </button>
@@ -56,7 +56,7 @@ export function PrimaryAction({
     case 'installed':
     case 'update':
       return (
-        <button type="button" className={cls} onClick={() => handlers.onOpen(app)} aria-label={`Open Midnyte ${app.name}`}>
+        <button type="button" className={cls} onClick={() => handlers.onOpen(app)} aria-label={`Open Midnite ${app.name}`}>
           Open
         </button>
       );

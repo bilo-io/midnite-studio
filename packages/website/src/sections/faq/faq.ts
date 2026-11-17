@@ -36,17 +36,17 @@ export type FaqEntry = {
 export const FAQ: readonly FaqEntry[] = [
   {
     slug: 'what-is-it',
-    question: 'What is Midnyte Apps?',
+    question: 'What is Midnite Apps?',
     answer: [
-      'The launcher for the midnyte suite: one desktop app that lists, installs, updates and opens every midnyte app. Coder for the loop around a repository, Agents for every agent CLI you use, Gamer, Creator, Media, Money and Mind for the rest of the day, and four small utilities (Cleaner, Vault, Capture and Monitor) for the machine underneath.',
+      'The launcher for the midnite suite: one desktop app that lists, installs, updates and opens every midnite app. Coder for the loop around a repository, Agents for every agent CLI you use, Gamer, Creator, Media, Money and Mind for the rest of the day, and four small utilities (Cleaner, Vault, Capture and Monitor) for the machine underneath.',
       'Every app is built on the same frame, so the things you reach for constantly come with each of them: a terminal that survives restarts, a docked browser, the companion, recurring agent loops, and the commit graph for any repo you open.',
     ],
   },
   {
     slug: 'apps-and-studio',
-    question: 'How do the apps relate to Midnyte Studio?',
+    question: 'How do the apps relate to Midnite Studio?',
     answer: [
-      'Midnyte Studio is the superset: every app beside every other one, in one window with one rail. Today it is also what the others run inside. Opening Coder from the launcher opens Studio on Coder, so installing the launcher and Studio gives you the whole suite.',
+      'Midnite Studio is the superset: every app beside every other one, in one window with one rail. Today it is also what the others run inside. Opening Coder from the launcher opens Studio on Coder, so installing the launcher and Studio gives you the whole suite.',
       'As each app ships as its own bundle, the launcher installs that one instead, and nothing about its tile changes for you. Studio stays, for anyone who would rather have all of it at once.',
     ],
   },

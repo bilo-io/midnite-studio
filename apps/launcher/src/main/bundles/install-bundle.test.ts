@@ -190,7 +190,7 @@ describe('installAppBundle', () => {
     const fetchImpl = (async () => { fetched = true; return new Response(''); }) as unknown as typeof fetch;
     // Runtime 0.2.0, bundle 0.3.0: the launcher must update first.
     const ahead = await install('0.3.0', await deps({ fetchImpl }, '0.2.0'));
-    expect(ahead).toEqual({ ok: false, reason: 'bundle-ahead', message: expect.stringMatching(/update Midnyte Apps first/) });
+    expect(ahead).toEqual({ ok: false, reason: 'bundle-ahead', message: expect.stringMatching(/update Midnite Apps first/) });
     // Runtime 0.3.0, bundle 0.2.0: a stale bundle is never installed fresh onto a newer runtime.
     const behind = await install('0.2.0', await deps({ fetchImpl }, '0.3.0'));
     expect(behind).toEqual({ ok: false, reason: 'bundle-behind', message: expect.stringMatching(/needs updating/) });

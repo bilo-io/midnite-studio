@@ -21,7 +21,7 @@ function mount(extra: string[]) {
   return { uninstall };
 }
 
-const tile = (name: string) => screen.getByRole('article', { name: new RegExp(`Midnyte ${name}`) });
+const tile = (name: string) => screen.getByRole('article', { name: new RegExp(`Midnite ${name}`) });
 
 afterEach(() => {
   cleanup();
@@ -33,12 +33,12 @@ describe('a host tile whose retired app is installed (Phase 124 Theme G.3)', () 
   it('says what it replaces and offers the host while it is not installed', async () => {
     mount(['cleaner', 'vault']);
     await waitFor(() => expect(within(tile('Vanguard')).getByText('Replaces Cleaner and Vault')).toBeDefined());
-    expect(within(tile('Vanguard')).getByLabelText('Install Midnyte Vanguard')).toBeDefined();
+    expect(within(tile('Vanguard')).getByLabelText('Install Midnite Vanguard')).toBeDefined();
     // Another host has nothing to replace.
     expect(within(tile('Mind')).queryByText(/^Replaces/)).toBeNull();
     fireEvent.click(within(tile('Vanguard')).getByText('Details ↗'));
     expect(within(screen.getByRole('dialog')).getByText(/Install it to move over/)).toBeDefined();
-    expect(within(screen.getByRole('dialog')).queryByText('Move Midnyte Cleaner to Trash')).toBeNull();
+    expect(within(screen.getByRole('dialog')).queryByText('Move Midnite Cleaner to Trash')).toBeNull();
   });
 
   it('offers to remove the old bundle once the host is installed, and removes only that bundle', async () => {
@@ -48,7 +48,7 @@ describe('a host tile whose retired app is installed (Phase 124 Theme G.3)', () 
     fireEvent.click(within(tile('Mind')).getByText('Details ↗'));
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByText(/the old app can go/)).toBeDefined();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Move Midnyte Capture to Trash' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Move Midnite Capture to Trash' }));
     expect(uninstall).toHaveBeenCalledWith('capture');
   });
 });

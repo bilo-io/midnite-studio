@@ -86,7 +86,7 @@ export function useApps(): AppsController {
 
   const install = useCallback(
     async (app: LauncherApp): Promise<LauncherResult> => {
-      if (app.comingSoon) return { ok: false, message: `Midnyte ${app.name} is coming soon.` };
+      if (app.comingSoon) return { ok: false, message: `Midnite ${app.name} is coming soon.` };
       if (app.id === 'studio' || deriveAppState(app.id, studio.status, status).source === 'studio') return studio.install();
       setBusy((b) => ({ ...b, [app.id]: { phase: 'download', received: 0, total: null } }));
       try {

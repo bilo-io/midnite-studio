@@ -35,7 +35,7 @@ export type AppFeature = {
 export type AppSection = 'suite' | 'utilities';
 
 export const SECTION_LABELS: Record<AppSection, string> = {
-  suite: 'Midnyte Apps',
+  suite: 'Midnite Apps',
   utilities: 'Utilities',
 };
 
@@ -268,7 +268,7 @@ const MODULES = {
     name: 'Vault',
     tagline: 'Secrets and credentials for every app',
     vision:
-      'One encrypted home for the API keys, forge tokens, database logins and model-provider keys every midnyte app needs — unlocked once, shared with the apps you allow, and never written into a settings file in plain text.',
+      'One encrypted home for the API keys, forge tokens, database logins and model-provider keys every midnite app needs — unlocked once, shared with the apps you allow, and never written into a settings file in plain text.',
     home: view('vault'),
     features: [
       { id: 'secrets', label: 'Secrets', blurb: 'API keys and provider tokens', target: view('vault') },
@@ -412,7 +412,7 @@ const MODULES = {
   studio: {
     id: 'studio',
     name: 'Studio',
-    tagline: 'Every midnyte app in one window',
+    tagline: 'Every midnite app in one window',
     home: view('landing'),
     features: [
       { id: 'home', label: 'Home', blurb: 'The landing page', target: view('landing') },
@@ -434,7 +434,7 @@ const RAW_APPS: readonly RawApp[] = [
     section: 'suite',
     accent: '#8b5cf6',
     gradient: 'brand',
-    tagline: 'Every midnyte app in one window',
+    tagline: 'Every midnite app in one window',
     like: 'The whole suite, for power users',
     vision:
       'The master tool: every app beside it, in one desktop application with one rail. It is what the suite is built from today, and it stays the place for anyone who would rather have all of it at once.',

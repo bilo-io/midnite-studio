@@ -116,7 +116,7 @@ export async function installStudio(deps: InstallDeps): Promise<LauncherResult> 
   };
 
   try {
-    if (await deps.isRunning()) return fail('Midnyte Studio is running — quit it first, then install.');
+    if (await deps.isRunning()) return fail('Midnite Studio is running — quit it first, then install.');
     if (!(await canWrite(installDir, dest))) {
       return fail(`${installDir} isn't writable by this account. Install from Terminal instead — the download page has the one-line command.`);
     }

@@ -2,7 +2,7 @@
 @import './apps.css';
 
 /*
-  The brand face: Damion (SIL OFL), the face every midnyte surface wears — the
+  The brand face: Damion (SIL OFL), the face every midnite surface wears — the
   desktop app ships the same subset. It replaced Quick Kiss, a personal-use face
   that can never be served from a public origin. See
   `src/fonts/damion/README.md` for the subsetting command and
@@ -335,7 +335,7 @@
     A glow that follows the letterforms of the brand face, for the one word
     that *is* the brand. Worn together with `.ws-rainbow-text` — see
     `components/wordmark.tsx`, which is the only place either is applied to
-    "Midnyte".
+    "Midnite".
 
     **`filter: drop-shadow()`, not `text-shadow`, and that is forced.**
     `.ws-rainbow-text` fills the glyphs by clipping a gradient to them, which

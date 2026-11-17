@@ -3,7 +3,7 @@
 This file lives beside the package rather than in `public/video/` on purpose: Vite copies
 everything in `public/` into the deployed site, so a README there would be served to visitors.
 
-Five clips, all committed, all **MP4 (H.264) only**.
+Three clips, all committed, all **MP4 (H.264) only**.
 
 ## Why no WebM
 
@@ -65,23 +65,3 @@ ffmpeg -ss 0.1 -i "$SRC" -frames:v 1 -vf "scale=1280:-2" -q:v 4 hero-poster.jpg
 
 `+faststart` moves the `moov` atom to the front so playback can begin before the
 whole file has downloaded.
-
-## `launcher-dark.mp4` + `launcher-light.mp4` (stills in `public/img/launcher/`)
-
-The silent loop in the Launcher section (`sections/launcher/launcher-clip.tsx`), one take per
-theme, picked by `useResolvedTheme()`. Each still is the clip's poster and the reduced-motion and
-error fallback.
-
-Source: the launcher's renderer on its mock bridge (`moon run launcher:dev`, `?studio=bundles`),
-driven by Playwright at 1280×820 @2x with Chromium's CDP screencast: grid, scroll, open Gamer's
-details panel, close it, scroll back (~10 s). Two edits at capture time keep the frames clean,
-neither in the launcher's source: the mock changelog's `${app} fixture` bullet is dropped, and
-the footer's feed note is hidden, because the site may not name that repo.
-
-```sh
-# frames-<theme>/list.txt is an ffmpeg concat list with each frame's real duration
-ffmpeg -f concat -safe 0 -i frames-$T/list.txt \
-  -vf "scale=1920:-2:flags=lanczos,fps=30,format=yuv420p" \
-  -c:v libx264 -preset slow -crf 22 -movflags +faststart -an launcher-$T.mp4   # ~1.5 MB
-ffmpeg -i launcher-$T.png -vf scale=1920:-2:flags=lanczos -q:v 3 launcher-$T.jpg  # ~330 KB
-```

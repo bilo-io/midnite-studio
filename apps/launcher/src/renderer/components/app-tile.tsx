@@ -55,7 +55,7 @@ export function AppTile({ app, view, handlers, menuItems }: TileProps) {
       </button>
 
       {app.modules.length > 1 && (
-        <ul className="tile-modules" aria-label={`Midnyte ${app.name} modules`}>
+        <ul className="tile-modules" aria-label={`Midnite ${app.name} modules`}>
           {app.modules.map((m) => {
             const Glyph = MODULE_GLYPHS[m.id];
             return (
@@ -70,7 +70,7 @@ export function AppTile({ app, view, handlers, menuItems }: TileProps) {
 
       {view.replaces.length > 0 && <p className="tile-replaces">{replacesLine(view.replaces)}</p>}
 
-      <ul className="tile-features" aria-label={`Midnyte ${app.name} features`}>
+      <ul className="tile-features" aria-label={`Midnite ${app.name} features`}>
         {app.features.map((f) => (
           <li key={f.id}>{f.label}</li>
         ))}

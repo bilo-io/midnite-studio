@@ -165,7 +165,7 @@ export const AppsCarousel = ({ apps, active, onActiveChange, version }: AppsCaro
   return (
     <section
       aria-roledescription="carousel"
-      aria-label="The midnyte apps"
+      aria-label="The midnite apps"
       onKeyDown={onKeyDown}
       className="relative"
     >
@@ -179,7 +179,7 @@ export const AppsCarousel = ({ apps, active, onActiveChange, version }: AppsCaro
             }}
             role="group"
             aria-roledescription="slide"
-            aria-label={`${index + 1} of ${apps.length}: Midnyte ${app.name}`}
+            aria-label={`${index + 1} of ${apps.length}: Midnite ${app.name}`}
             data-active={index === active ? 'true' : 'false'}
             className="ws-app-slide"
           >
@@ -205,7 +205,7 @@ export const AppsCarousel = ({ apps, active, onActiveChange, version }: AppsCaro
             <span className="font-mono text-fg">{String(active + 1).padStart(2, '0')}</span>
             <span className="mx-1.5 text-fg-subtle">/</span>
             <span className="font-mono">{String(apps.length).padStart(2, '0')}</span>
-            <span className="ml-3 font-medium text-fg">{current ? `Midnyte ${current.name}` : ''}</span>
+            <span className="ml-3 font-medium text-fg">{current ? `Midnite ${current.name}` : ''}</span>
           </p>
 
           <button
@@ -233,9 +233,9 @@ export const AppsCarousel = ({ apps, active, onActiveChange, version }: AppsCaro
               }}
               type="button"
               onClick={() => go(index)}
-              aria-label={`Show Midnyte ${app.name}`}
+              aria-label={`Show Midnite ${app.name}`}
               aria-current={index === active ? 'true' : undefined}
-              title={`Midnyte ${app.name}`}
+              title={`Midnite ${app.name}`}
               className="ws-thumb shrink-0 rounded-[0.9rem]"
               style={spectrumVars(app.spectrum) as CSSProperties}
             >

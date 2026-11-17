@@ -1,11 +1,11 @@
 /*
-  Midnyte Apps — the launcher's one stylesheet.
+  Midnite Apps — the launcher's one stylesheet.
 
   The colours are the website's tokens (`packages/website/src/styles/tokens.css`)
   re-declared here, not imported: the launcher shares no build with the site.
   The layout borrows ArtCraft's launcher — hairline grid, monospace uppercase
   labels, a numbered chip per app — and the brand rule is the site's: the
-  rainbow is for the Midnyte wordmark only; each app's own accent carries its
+  rainbow is for the Midnite wordmark only; each app's own accent carries its
   identity everywhere else.
 
   The brand face is Damion (SIL OFL, `fonts/damion/OFL.txt`), as on the site —
@@ -211,9 +211,6 @@ button:disabled {
   display: inline-block;
   font-size: 1.45em;
   padding-right: 0.15em;
-  /* Clip headroom for the "y" descender (0.29em below the baseline); the margin keeps the layout. */
-  padding-bottom: 0.15em;
-  margin-bottom: -0.15em;
 }
 
 .launcher-wordmark-name {
@@ -792,8 +789,6 @@ button:disabled {
   display: inline-block;
   font-size: 1.15em;
   padding-right: 0.15em;
-  padding-bottom: 0.15em;
-  margin-bottom: -0.15em;
 }
 
 .tile-tagline {
