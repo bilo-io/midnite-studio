@@ -31,8 +31,8 @@ describe('ResultsPanel', () => {
 
   it('KPI tiles show formatZar values, never a dollar sign, and payback copy for no payback', () => {
     const { container } = show();
-    expect(screen.getByRole('group', { name: 'CapEx' }).textContent).toContain(formatZar(result.capexCents));
-    expect(screen.getByRole('group', { name: 'Net margin /mo' }).textContent).toContain(formatZar(result.netMarginMonthlyCents));
+    expect(screen.getByRole('group', { name: 'CapEx' }).textContent).toContain(formatZar(result.capexMinor));
+    expect(screen.getByRole('group', { name: 'Net margin /mo' }).textContent).toContain(formatZar(result.netMarginMonthlyMinor));
     expect(screen.getByRole('group', { name: 'Payback' }).textContent).toContain('Not within 12 mo');
     expect(container.textContent).not.toContain('$');
     expect(result.series).toHaveLength(12);

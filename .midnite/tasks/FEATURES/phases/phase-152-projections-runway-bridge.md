@@ -49,9 +49,7 @@ _One model, not two._ A projection built in Projections lands in Runway as real 
 linked, and says when it has drifted. Prices come from a catalog the user can edit, in the company's own currency.
 Planned 2026-11-18; build order **A**, then **B ‖ C**, then **D ‖ E**, then **F**, then **G**.
 
-**Theme A — Workspace v3 and the money currency.** ◻ Save format v3. Projections read the workspace money currency
-(company currency, else USD). The `…Cents` fields become `…Minor`. The catalog moves into the workspace. Globals
-gain an energy switch, and Runway lines gain a link back to their projection.
+**Theme A — Workspace v3 and the money currency.** ✅ Workspace v3 with a seeded, workspace-held fleet catalog, `…Minor` money fields, the energy switch, `PlanLine.source`, and all six new ops declared (unimplemented ones answer `invalid`). Renderer runs on an interim USD-seeded catalog adapter until Theme B.
 
 **Theme B — Model and money formatting.** ◻ `formatMoney` / `formatCompactMoney` replace the ZAR-only formatter,
 still locale-proof. `computeFleetProjection` takes the catalog and the energy switch, and a missing catalog entry
@@ -159,14 +157,14 @@ set `version: 3`. **Numbers are not converted:** no release carried v2 (checked 
 
 ### A — Workspace v3 and the money currency (M)
 
-- [ ] **First commit, alone:** `startup-fleet.ts` reshaped as in **Data model** (catalog schemas, `BUILT_IN_*`,
+- [x] **First commit, alone:** `startup-fleet.ts` reshaped as in **Data model** (catalog schemas, `BUILT_IN_*`,
   `seedFleetCatalog`, `moneyCurrency`, renamed fields, energy switch). `HARDWARE_CATALOG`, `API_TIERS`,
   `HARDWARE_IDS`, `API_TIER_IDS`, `hardwareById` and `apiTierById` are **deleted**, and their importers move to the
   catalog. Push the commit immediately.
   - `seedFleetCatalog` multiplies major units by `10 ** minorExponent(currency)`. Move `minorExponent` from
     `renderer/money-input.ts` into `shared/src/startup-fleet.ts` (or a new `shared/src/money-exponent.ts`) and
     re-export it from `money-input.ts`, so both halves share one table.
-- [ ] `startup.ts`: version 3, `fleetCatalog`, `PlanLineSchema.source`, and **all** of this phase's new ops declared
+- [x] `startup.ts`: version 3, `fleetCatalog`, `PlanLineSchema.source`, and **all** of this phase's new ops declared
   now (D and E only implement them):
   - `upsertFleetCatalog { catalog }`
   - `sendFleetProjectionToRunway { projectionId, start: YearMonthSchema }`
@@ -176,10 +174,10 @@ set `version: 3`. **Numbers are not converted:** no release carried v2 (checked 
   - `exportFleetProjectionPdf { projectionId }`
   - Bridge type lines are added to `shared/src/ipc/bridge.ts`, and bridge methods to `main/bridge.ts`. Unimplemented
     handlers return `fail('invalid', NOT_YET)`, the existing `service.ts:33` constant.
-- [ ] `migrateWorkspace`: the v2 → v3 step as specified. `get` in `service.ts` seeds the catalog when
+- [x] `migrateWorkspace`: the v2 → v3 step as specified. `get` in `service.ts` seeds the catalog when
   `fleetCatalog === null`, through one `store.mutate` using `seedFleetCatalog(moneyCurrency(ws.company))`, so every
   later read has one.
-- [ ] Tests:
+- [x] Tests:
   - `workspace-store.test.ts`: a v2 file with one projection migrates to v3. The renamed fields keep their values,
     `energyScalesWithUtilisation` is false, and `fleetCatalog` is null. A v1 file goes all the way to v3. v4 opens
     read-only.

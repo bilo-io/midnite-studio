@@ -38,6 +38,6 @@ describe('createStartupBridge', () => {
 
   it('names an op method for every op of the request union', () => {
     const { startup } = createStartupBridge(fakeIpc());
-    expect(Object.keys(startup).filter((k) => k !== 'onChanged').length).toBe(27);
+    expect(Object.keys(startup).filter((k) => k !== 'onChanged').length).toBe(33);
   });
 });
