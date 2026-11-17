@@ -1,6 +1,6 @@
 import type { GameLevelTerrain } from '@midnite/studio-shared';
 
-import type { EditLevel, EditSelection, ObjectRef, PlanPoint, PlanRect } from './level-edit-model';
+import { objectCentre, type EditLevel, type EditSelection, type LevelObject, type ObjectRef, type PlanPoint, type PlanRect } from './level-edit-model';
 import { footprintCorners, gridLines, pathPoints, planBounds, terrainRect, yawTipPoint } from './level-plan';
 import { selectionBounds } from './level-selection';
 import type { View } from './level-view';
@@ -67,6 +67,103 @@ export function drawSelectionExtras(
   }
 }
 
+// --- theme colours on a canvas (Phase 138 Theme F) ------------------------------------
+
+/** `'38 92% 50%'` (a shadcn-style HSL triplet) as `#rrggbb`; `null` when it is not one. */
+export function hslTripletToHex(triplet: string): string | null {
+  const m = /^\s*(-?\d+(?:\.\d+)?)(?:deg)?[\s,]+(\d+(?:\.\d+)?)%[\s,]+(\d+(?:\.\d+)?)%\s*$/.exec(triplet);
+  if (!m) return null;
+  const h = (((Number(m[1]) % 360) + 360) % 360) / 360;
+  const sat = Math.min(100, Number(m[2])) / 100;
+  const l = Math.min(100, Number(m[3])) / 100;
+  const q = l < 0.5 ? l * (1 + sat) : l + sat - l * sat;
+  const p = 2 * l - q;
+  const channel = (t0: number): number => {
+    const t = t0 < 0 ? t0 + 1 : t0 > 1 ? t0 - 1 : t0;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  const hex = (v: number): string => Math.round(v * 255).toString(16).padStart(2, '0');
+  return `#${hex(channel(h + 1 / 3))}${hex(channel(h))}${hex(channel(h - 1 / 3))}`;
+}
+
+const colourCache = new Map<string, string>();
+let colourCacheTheme: string | null = null;
+
+/**
+ * A theme token (`'primary'`) as a hex a 2D canvas or `THREE.Color` can use, read from the root element's custom
+ * property, cached per theme (a `data-theme` change clears the cache) and falling back to `fallback` when the token
+ * is missing (tests, jsdom).
+ */
+export function themeColour(token: string, fallback: string): string {
+  if (typeof document === 'undefined' || typeof getComputedStyle !== 'function') return fallback;
+  const theme = document.documentElement.dataset.theme ?? '';
+  if (theme !== colourCacheTheme) {
+    colourCache.clear();
+    colourCacheTheme = theme;
+  }
+  const cached = colourCache.get(token);
+  if (cached) return cached;
+  const hex = hslTripletToHex(getComputedStyle(document.documentElement).getPropertyValue(`--${token}`));
+  if (!hex) return fallback;
+  colourCache.set(token, hex);
+  return hex;
+}
+
+// --- the agent change pulse ---------------------------------------------------------
+
+/** Objects an agent change set touched, ringed for {@link PULSE_MS}. */
+export type PlanHighlight = { ids: readonly number[]; startedAt: number };
+export const PULSE_MS = 2400;
+
+/** Whether the user asked for less motion: `data-motion="reduced"`, or the OS setting without `data-motion="full"`. */
+export function prefersReducedMotion(): boolean {
+  if (typeof document === 'undefined') return false;
+  const motion = document.documentElement.dataset.motion;
+  if (motion === 'reduced') return true;
+  if (motion === 'full') return false;
+  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/** The ring at `now`: `null` once the pulse is over; reduced motion is a static, full-strength ring. */
+export function pulseFrame(highlight: PlanHighlight, now: number, reduced: boolean): { grow: number; alpha: number } | null {
+  const t = (now - highlight.startedAt) / PULSE_MS;
+  if (t < 0 || t >= 1) return null;
+  if (reduced) return { grow: 0, alpha: 1 };
+  return { grow: (t * 3) % 1, alpha: 1 - t };
+}
+
+/**
+ * Ring every highlighted object: an expanding, fading circle (a static 2 px ring under reduced motion). `toMap`
+ * carries the object's coordinate into the drawn space. Draws nothing once the pulse is over.
+ */
+export function drawHighlight(
+  ctx: CanvasRenderingContext2D,
+  input: { level: EditLevel; view: View; highlight: PlanHighlight; now: number; reduced: boolean; toMap?: (p: PlanPoint) => PlanPoint },
+): void {
+  const frame = pulseFrame(input.highlight, input.now, input.reduced);
+  if (!frame) return;
+  const px = 1 / input.view.zoom;
+  const toMap = input.toMap ?? ((p: PlanPoint) => p);
+  const ids = new Set(input.highlight.ids);
+  ctx.strokeStyle = themeColour('primary', '#6366f1');
+  ctx.lineWidth = (input.reduced ? 2 : 3) * px;
+  ctx.globalAlpha = frame.alpha;
+  for (const layer of input.level.layers) {
+    for (const o of layer.objects ?? []) {
+      if (!ids.has(o.id)) continue;
+      const c = toMap(objectCentre(o as LevelObject));
+      const base = Math.max(10 * px, Math.max(o.width ?? 0, o.height ?? 0) / 2 + 4 * px);
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, base + frame.grow * 18 * px, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
 export const PLAN_COLOURS: Record<string, string> = { spawn: '#22c55e', exit: '#3b82f6', prop: '#f59e0b', enemy: '#ef4444', pickup: '#eab308', light: '#fde047', checkpoint: '#14b8a6', trigger: '#a855f7', npc: '#06b6d4', path: '#ec4899' };
 const NEUTRAL = '#e5e7eb';
 const typeOf = (o: { type?: string; class?: string }): string => o.type || o.class || '';
@@ -78,7 +175,7 @@ const typeOf = (o: { type?: string; class?: string }): string => o.type || o.cla
  */
 export function drawPlan(
   ctx: CanvasRenderingContext2D,
-  input: { level: EditLevel; view: View; selection: EditSelection; selected?: readonly ObjectRef[]; marquee?: PlanRect | null; overlay: PlanOverlay; outline: string; text: string },
+  input: { level: EditLevel; view: View; selection: EditSelection; selected?: readonly ObjectRef[]; marquee?: PlanRect | null; overlay: PlanOverlay; outline: string; text: string; highlight?: PlanHighlight | null; now?: number },
 ): void {
   const { level, view, selection, overlay, outline, text } = input;
   const selected = input.selected ?? (selection ? [selection] : []);
@@ -184,6 +281,7 @@ export function drawPlan(
   }
 
   drawSelectionExtras(ctx, { level, view, selected, marquee: input.marquee ?? null, outline });
+  if (input.highlight) drawHighlight(ctx, { level, view, highlight: input.highlight, now: input.now ?? Date.now(), reduced: prefersReducedMotion() });
   ctx.setLineDash([]);
   ctx.strokeStyle = outline;
   ctx.lineWidth = 1.5 * px;

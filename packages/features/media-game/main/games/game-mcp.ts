@@ -10,6 +10,7 @@ import {
   type GameInputEvent,
   type GameLogLevel,
   type GameSummary,
+  type LevelOp,
   type McpContentBlock,
   type McpToolInput,
   type McpToolOutput,
@@ -18,6 +19,7 @@ import {
 import { McpToolError } from '@midnite/studio-runtime';
 
 import { readLevelForTool } from './game-level-source';
+import { writeLevelOps } from './level-agent-writes';
 import type { GameService } from './game-service';
 import { clipError, readGameState } from './game-state';
 import type { Playtests } from './playtest';
@@ -92,6 +94,10 @@ export type GameMcpTools = {
     | 'game_level_set'
     | 'game_level_query'
     | 'game_level_validate'
+    | 'game_entity_batch'
+    | 'game_entity_add'
+    | 'game_entity_update'
+    | 'game_entity_delete'
     | 'game_goto'
     | 'game_doctor'
     | 'game_doctor_fix']: (input: McpToolInput<K>) => Promise<McpToolOutput<K>>;
@@ -159,6 +165,27 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
     if (result.ok) return result.value;
     const text = result.message ?? 'That did not work.';
     throw new McpToolError(/no level|not found|does not exist/i.test(text) ? 'not-found' : 'error', clip(text));
+  };
+
+  /** The `game_entity_*` write path: ops from the tool's input, applied in the editor or to the file (Theme E). */
+  const writeEntityOps = async (
+    input: { game: string; scene: string; unit: 'px' | 'm'; label?: string | undefined; save?: boolean | undefined; select: boolean },
+    ops: LevelOp[],
+  ): Promise<McpToolOutput<'game_entity_batch'>> => {
+    const found = await need(input.game);
+    return unwrapLevel(
+      await writeLevelOps(
+        {
+          levels: deps.service.levels,
+          levelEditor: deps.service.levelEditor,
+          modelAssets: async (gameId) => {
+            const { manifest } = await deps.service.manifestGet(gameId);
+            return manifest ? manifest.assets.filter((a) => a.kind === 'model').map((a) => a.name) : null;
+          },
+        },
+        { gameId: found.gameId, scene: input.scene, ops, unit: input.unit, label: input.label, save: input.save ?? false, select: input.select },
+      ),
+    );
   };
 
   const playtests = (): Playtests => {
@@ -357,6 +384,31 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
       const found = await need(game);
       const read = unwrapLevel(await readLevelForTool(deps.service, found.gameId, scene));
       return { source: read.source, dirty: read.dirty, ...queryLevel(read.level, query) };
+    },
+
+    async game_entity_batch(input) {
+      return writeEntityOps(input, input.ops);
+    },
+
+    async game_entity_add(input) {
+      return writeEntityOps(
+        input,
+        input.entities.map((entity): LevelOp => ({ op: 'add', entity, ...(input.layer === undefined ? {} : { layer: input.layer }) })),
+      );
+    },
+
+    async game_entity_update(input) {
+      return writeEntityOps(
+        input,
+        input.updates.map((u): LevelOp => ({ op: 'update', id: u.id, set: u.set, ...(u.unset ? { unset: u.unset } : {}) })),
+      );
+    },
+
+    async game_entity_delete(input) {
+      return writeEntityOps(
+        input,
+        input.ids.map((id): LevelOp => ({ op: 'delete', id })),
+      );
     },
 
     async game_level_validate({ game, scene }) {

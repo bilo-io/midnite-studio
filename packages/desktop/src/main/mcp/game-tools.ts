@@ -56,6 +56,22 @@ export const gameLevelQuery = async (input: McpToolInput<'game_level_query'>): P
   tools().game_level_query(input);
 export const gameLevelValidate = async (input: McpToolInput<'game_level_validate'>): Promise<McpToolOutput<'game_level_validate'>> =>
   tools().game_level_validate(input);
+export const gameEntityBatch = async (input: McpToolInput<'game_entity_batch'>): Promise<McpToolOutput<'game_entity_batch'>> => {
+  allowed();
+  return tools().game_entity_batch(input);
+};
+export const gameEntityAdd = async (input: McpToolInput<'game_entity_add'>): Promise<McpToolOutput<'game_entity_add'>> => {
+  allowed();
+  return tools().game_entity_add(input);
+};
+export const gameEntityUpdate = async (input: McpToolInput<'game_entity_update'>): Promise<McpToolOutput<'game_entity_update'>> => {
+  allowed();
+  return tools().game_entity_update(input);
+};
+export const gameEntityDelete = async (input: McpToolInput<'game_entity_delete'>): Promise<McpToolOutput<'game_entity_delete'>> => {
+  allowed();
+  return tools().game_entity_delete(input);
+};
 export const gameGoto = async (input: McpToolInput<'game_goto'>): Promise<McpToolOutput<'game_goto'>> => {
   allowed();
   return tools().game_goto(input);

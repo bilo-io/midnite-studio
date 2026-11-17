@@ -13,7 +13,7 @@
  */
 import { z } from 'zod';
 
-import { LevelQuerySchema } from './game-level-ops';
+import { LEVEL_OPS_MAX, LevelEntityFieldsSchema, LevelOpSchema, LevelQuerySchema } from './game-level-ops';
 
 import {
   GameAgentEngineSchema,
@@ -65,6 +65,11 @@ export const GAME_MCP_TOOL_IDS = [
   // Phase 138 Theme D.
   'game_level_query',
   'game_level_validate',
+  // Phase 138 Theme E.
+  'game_entity_batch',
+  'game_entity_add',
+  'game_entity_update',
+  'game_entity_delete',
   'game_goto',
   // Phase 149 Theme C.
   'game_doctor',
@@ -313,6 +318,67 @@ export const GameLevelValidateOutputSchema = z.object({
   counts: z.object({ error: z.number().int(), warning: z.number().int(), info: z.number().int() }),
   issues: z.array(LevelIssueSchema),
 });
+// --- entity write tools (Phase 138 Theme E) ---------------------------------------------
+
+const LevelWriteOptions = {
+  unit: z.enum(['px', 'm']).default('px'),
+  label: z.string().min(1).max(80).optional(),
+  /** Save the open editor's level to disk after applying. Unset: the caller's default (the agent run saves, the global server does not). */
+  save: z.boolean().optional(),
+  select: z.boolean().default(true),
+};
+export const GameEntityBatchInputSchema = GameToolTargetSchema.extend({
+  scene: GameSceneNameSchema,
+  ops: z.array(LevelOpSchema).min(1).max(LEVEL_OPS_MAX),
+  ...LevelWriteOptions,
+});
+export const GameEntityAddInputSchema = GameToolTargetSchema.extend({
+  scene: GameSceneNameSchema,
+  entities: z.array(LevelEntityFieldsSchema).min(1).max(200),
+  layer: z.union([z.number().int(), z.string().min(1)]).optional(),
+  ...LevelWriteOptions,
+});
+export const GameEntityUpdateInputSchema = GameToolTargetSchema.extend({
+  scene: GameSceneNameSchema,
+  updates: z
+    .array(
+      z.object({
+        id: z.number().int().positive(),
+        set: LevelEntityFieldsSchema.partial().default({}),
+        unset: z.array(z.string()).max(64).optional(),
+      }),
+    )
+    .min(1)
+    .max(LEVEL_OPS_MAX),
+  ...LevelWriteOptions,
+});
+export const GameEntityDeleteInputSchema = GameToolTargetSchema.extend({
+  scene: GameSceneNameSchema,
+  ids: z.array(z.number().int().positive()).min(1).max(LEVEL_OPS_MAX),
+  ...LevelWriteOptions,
+});
+/** `applied` says where the change landed: the open editor (one undoable change set) or the file (one commit). */
+export const GameEntityWriteOutputSchema = z.object({
+  applied: GameLevelSourceSchema,
+  changeSetId: z.string().nullable(),
+  added: z.array(z.number()),
+  updated: z.array(z.number()),
+  deleted: z.array(z.number()),
+  refs: z.record(z.string(), z.number()),
+  saved: z.boolean(),
+  sha: z.string().nullable(),
+  issues: z.array(LevelIssueSchema).max(50),
+});
+export type GameEntityWriteOutput = z.infer<typeof GameEntityWriteOutputSchema>;
+/** The renderer's answer to an `apply` request. */
+export const LevelApplyValueSchema = z.object({
+  changeSetId: z.string(),
+  added: z.array(z.number()),
+  updated: z.array(z.number()),
+  deleted: z.array(z.number()),
+  refs: z.record(z.string(), z.number()),
+});
+export type LevelApplyValue = z.infer<typeof LevelApplyValueSchema>;
 export const GameGotoInputSchema = GameToolTargetSchema.extend({ scene: GameSceneNameSchema });
 export const GameGotoOutputSchema = GameGotoResultSchema.extend({ gameId: z.string() });
 export const GameLevelListOutputSchema = GameLevelsResultSchema;

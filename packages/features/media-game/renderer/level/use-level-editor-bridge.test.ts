@@ -65,3 +65,44 @@ describe('useLevelEditorBridge', () => {
     expect(editorOpen).toHaveBeenLastCalledWith(null);
   });
 });
+
+describe('apply (Phase 138 Theme F)', () => {
+  beforeEach(() => useLevelStore.setState({ byGame: {} }));
+  const apply = (ops: Extract<LevelEditorRequest, { kind: 'apply' }>['ops'], label = 'Add 2 objects'): LevelEditorRequest => ({
+    kind: 'apply',
+    gameId: 'g1',
+    scene: 'level',
+    ops,
+    unit: 'px',
+    label,
+    select: true,
+  });
+  const objects = () => useLevelStore.getState().byGame.g1!.edit.level.layers.flatMap((l) => l.objects ?? []);
+
+  it('lands the batch as one undo step, selects the new objects and records the change set', () => {
+    useLevelStore.getState().open('g1', 'level', data(blankLevel()));
+    const before = useLevelStore.getState().byGame.g1!.edit.past.length;
+    const answer = answerLevelEditorRequest(
+      apply([
+        { op: 'add', entity: { type: 'pickup', x: 10, y: 10 }, ref: 'a' },
+        { op: 'add', entity: { type: 'pickup', x: 20, y: 20 }, ref: 'b' },
+      ]),
+    );
+    expect(answer).toMatchObject({ handled: true, value: { added: [expect.any(Number), expect.any(Number)], refs: { a: expect.any(Number) } } });
+    const entry = useLevelStore.getState().byGame.g1!;
+    expect(entry.edit.past.length).toBe(before + 1);
+    expect(entry.edit.selected).toHaveLength(2);
+    expect(entry.agentChanges[0]).toMatchObject({ label: 'Add 2 objects', undoDepth: before + 1 });
+    expect(entry.highlight?.ids).toHaveLength(2);
+    expect(objects().filter((o) => o.type === 'pickup')).toHaveLength(2);
+  });
+
+  it('a failing batch changes nothing and answers the errors', () => {
+    useLevelStore.getState().open('g1', 'level', data(blankLevel()));
+    const before = useLevelStore.getState().byGame.g1!;
+    const answer = answerLevelEditorRequest(apply([{ op: 'delete', id: 999 }]));
+    expect(answer).toMatchObject({ ok: false, message: expect.stringContaining('op 0 (delete)') });
+    expect(useLevelStore.getState().byGame.g1!.edit).toBe(before.edit);
+    expect(useLevelStore.getState().byGame.g1!.agentChanges).toEqual([]);
+  });
+});

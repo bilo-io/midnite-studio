@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
 
-import { type LevelEditorFailure, type LevelEditorRequest, type LevelEditorResult, type LevelEditorSnapshot } from '@midnite/studio-shared';
+import { levelEntityTypes, type LevelApplyValue, type LevelEditorFailure, type LevelEditorRequest, type LevelEditorResult, type LevelEditorSnapshot } from '@midnite/studio-shared';
 import { bridge } from '@midnite/studio-frame';
 
-import { serialise } from './level-edit-model';
+import { applyAgentOps, serialise } from './level-edit-model';
 import { blockingIssues, useLevelStore, type OpenLevel } from './level-store';
 
 export type LevelEditorAnswer = LevelEditorResult | LevelEditorFailure;
@@ -13,6 +13,33 @@ const NOT_OPEN: LevelEditorResult = { handled: false, reason: 'not-open' };
 
 /** The editor cannot be written to: the level is unreadable, or has a problem that opens it read-only. */
 export const isReadOnlyLevel = (entry: OpenLevel): boolean => entry.unreadable || blockingIssues(entry).length > 0;
+
+const joinErrors = (errors: readonly { index: number; op: string; message: string }[]): string =>
+  errors.map((e) => `op ${e.index} (${e.op}): ${e.message}`).join('; ');
+
+/**
+ * `apply` (Phase 138 Theme F): the batch is all-or-nothing and lands as one undo step; the change set is recorded
+ * for the banner. A failed batch changes nothing and the errors go back to the agent.
+ */
+function applyAgentRequest(request: Extract<LevelEditorRequest, { kind: 'apply' }>, entry: OpenLevel): LevelEditorAnswer {
+  const store = useLevelStore.getState();
+  const entityTypes = levelEntityTypes(serialise(entry.edit));
+  const { state, result } = applyAgentOps(entry.edit, request.ops, { unit: request.unit, entityTypes, select: request.select });
+  if (!result.ok) return failure(joinErrors(result.errors));
+  store.update(request.gameId, () => state);
+  const changeSetId = crypto.randomUUID();
+  store.recordAgentChange(request.gameId, {
+    id: changeSetId,
+    label: request.label || 'Agent edit',
+    added: result.added,
+    updated: result.updated,
+    deleted: result.deleted,
+    at: Date.now(),
+    undoDepth: state.past.length,
+  });
+  const value: LevelApplyValue = { changeSetId, added: result.added, updated: result.updated, deleted: result.deleted, refs: result.refs };
+  return { handled: true, value };
+}
 
 /**
  * Answer one main -> renderer request (Phase 138 Theme C). Pure over the store so it is testable without a
@@ -30,7 +57,7 @@ export function answerLevelEditorRequest(request: LevelEditorRequest): LevelEdit
     }
     case 'apply':
       if (isReadOnlyLevel(entry)) return { handled: false, reason: 'read-only' };
-      return failure('this editor build cannot apply agent edits yet');
+      return applyAgentRequest(request, entry);
     default:
       return failure(`this editor build does not handle "${request.kind}" requests yet`);
   }

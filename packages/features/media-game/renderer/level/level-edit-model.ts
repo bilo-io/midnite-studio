@@ -3,7 +3,7 @@
  * never writes must survive), every op returns a new {@link EditState} and shares structure with the old one, so
  * undo is a stack of references and "dirty" is a reference comparison with the last saved level.
  */
-import { GAME_LEVEL_PROPS } from '@midnite/studio-shared';
+import { GAME_LEVEL_PROPS, applyLevelOps, type LevelOp, type LevelOpsContext, type LevelOpsResult } from '@midnite/studio-shared';
 
 import { objectExtentPoints, refKey, sameRef } from './level-selection';
 
@@ -588,6 +588,30 @@ export function redo(state: EditState): EditState {
   const next = state.future[0];
   if (!next) return state;
   return pruneSelected({ ...state, level: next, past: [...state.past, state.level], future: state.future.slice(1), dirty: next !== state.saved, stroke: null }, next);
+}
+
+/**
+ * Apply an agent's op batch (Phase 138 Theme F) as ONE undo step: `applyLevelOps` is all-or-nothing, and its resulting
+ * level is committed once, so `undo` reverts the whole batch. A failed batch returns the state unchanged. With
+ * `select` the added and updated objects become the selection (the last one primary).
+ */
+export function applyAgentOps(
+  state: EditState,
+  ops: readonly LevelOp[],
+  ctx: LevelOpsContext & { select?: boolean },
+): { state: EditState; result: LevelOpsResult } {
+  const result = applyLevelOps(serialise(state), ops, { unit: ctx.unit, entityTypes: ctx.entityTypes });
+  if (!result.ok) return { state, result };
+  let next = commit(state, result.level as EditLevel);
+  if (ctx.select) {
+    const refs: ObjectRef[] = [];
+    for (const id of [...result.added, ...result.updated]) {
+      const layer = next.level.layers.find((l) => l.objects?.some((o) => o.id === id));
+      if (layer && typeof layer.id === 'number') refs.push({ layerId: layer.id, objectId: id });
+    }
+    next = addSelected(selectOnly(next, null), refs);
+  }
+  return { state: next, result };
 }
 
 /** The level to write: every field the editor did not touch is exactly as it was read. */

@@ -23,7 +23,7 @@ import {
 } from 'react-icons/lu';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { GAME_LEVEL_ENTITY_TYPES_2D, GAME_LEVEL_ENTITY_TYPES_3D, levelEntityToWorld, levelProperties, metresPerTile } from '@midnite/studio-shared';
+import { GAME_LEVEL_ENTITY_TYPES_2D, GAME_LEVEL_ENTITY_TYPES_3D, levelEntityToWorld, levelProperties, metresPerTile, type GameLevelGetResult } from '@midnite/studio-shared';
 import { EmptyState, EmptyStateButton, Skeleton } from '@midnite/studio-frame';
 
 import { useNotify } from '../chrome';
@@ -32,6 +32,8 @@ import { useDoctorFix, useGameDiagnosis } from '../use-games';
 import { LevelAlignBar } from './level-align-bar';
 import { alignObjects, distributeObjects, type AlignAxis, type AlignEdge } from './level-align';
 import { useLevelEditorBridge } from './use-level-editor-bridge';
+import { AgentChangeBanner } from './agent-change-banner';
+import { decideReload } from './level-reload';
 import { LevelCanvas, type CanvasPointer } from './level-canvas';
 import { copySelection, duplicateSelection, pasteClipboard, readClipboard, writeClipboard } from './level-clipboard';
 import {
@@ -48,6 +50,7 @@ import {
   finishPath,
   findObject,
   isLevel3d,
+  markSaved,
   layerById,
   moveObjects,
   nudgeObjects,
@@ -326,10 +329,22 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
 
   // A scene changed on disk by someone else (an agent, Tiled) shows up when there is nothing of ours to lose.
   const fresh = useLevel(gameId, entry.scene);
+  const [diskConflict, setDiskConflict] = useState<GameLevelGetResult | null>(null);
   useEffect(() => {
     const data = fresh.data;
-    if (!data || edit.dirty) return;
-    if (JSON.stringify(data.level) === JSON.stringify(edit.level)) return;
+    if (!data) return;
+    const decision = decideReload(data.level, edit);
+    if (decision === 'same') {
+      // The agent saved what is on screen: nothing to reload, only the dirty mark to clear.
+      setDiskConflict(null);
+      if (edit.dirty) update(markSaved);
+      return;
+    }
+    if (decision === 'conflict') {
+      setDiskConflict(data);
+      return;
+    }
+    setDiskConflict(null);
     useLevelStore.getState().open(gameId, entry.scene, data);
     // Only a new fetch can change what is on disk.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -653,6 +668,23 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
           {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
+      <AgentChangeBanner gameId={gameId} entry={entry} />
+      {diskConflict && edit.dirty ? (
+        <p role="status" data-testid="level-banner-disk-changed" className="flex shrink-0 items-center gap-2 border-b border-border bg-amber-500/10 px-3 py-1.5 text-xs text-foreground">
+          <LuTriangleAlert aria-hidden className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+          The level changed on disk while you have unsaved edits — Save keeps yours, Reload takes the file.
+          <button
+            type="button"
+            onClick={() => {
+              useLevelStore.getState().open(gameId, entry.scene, diskConflict);
+              setDiskConflict(null);
+            }}
+            className="ml-auto rounded border border-border px-2 py-0.5 hover:bg-accent"
+          >
+            Reload
+          </button>
+        </p>
+      ) : null}
       {!readsLevels ? (
         <Banner testId="level-banner-no-reads">
           This game does not read level files yet. Edits are saved, but Play will not show them until its scenes load levels/ — the game-build skill has the recipe.
@@ -669,6 +701,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
             images={entry.images}
             selection={edit.selection}
             selected={edit.selected}
+            highlight={entry.highlight}
             marquee={marquee}
             hoverEnabled={!readOnly && !is3d && tool !== 'select'}
             plan={is3d && !planBroken ? { terrain: entry.terrain, draft, volume: volumeDrag } : undefined}
