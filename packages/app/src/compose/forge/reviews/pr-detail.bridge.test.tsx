@@ -391,9 +391,9 @@ describe('PrDetail — the review write path, assembled through the real bridge'
     const pill = await screen.findByLabelText(/^Merged\. This pull request is merged — there is nothing left to review\.$/);
     expect(pill.textContent).toBe('Merged');
     expect(screen.queryByText(/there is nothing left to review/)).toBeNull();
-    const header = pill.closest('header');
-    expect(header?.textContent).toMatch(/ merged \S/);
-    expect(header?.textContent).not.toMatch(/wants to merge/);
+    const byline = pill.closest('header')?.querySelector('p');
+    expect(byline?.textContent).toMatch(/ merged feature\/\S+/);
+    expect(byline?.textContent).not.toMatch(/wants to merge/);
     expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
   });
 

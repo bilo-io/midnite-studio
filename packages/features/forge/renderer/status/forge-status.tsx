@@ -271,7 +271,7 @@ export function mergeVerb(pull: Pick<ForgePull, 'state'>): string {
 
 /** GitHub's solid fills: the state pill is the one place that copies the forge's colours rather than the tone set. */
 const PR_STATE_PILL: Record<PrState, { label: string; icon: IconComponent; className: string }> = {
-  open: { label: 'Open', icon: LuGitPullRequest, className: 'bg-green-600 text-white' },
+  open: { label: 'Open', icon: LuGitPullRequest, className: 'bg-green-700 text-white' },
   draft: { label: 'Draft', icon: LuGitPullRequestDraft, className: 'bg-zinc-500 text-white' },
   merged: { label: 'Merged', icon: LuGitMerge, className: 'bg-purple-600 text-white' },
   closed: { label: 'Closed', icon: LuGitPullRequestClosed, className: 'bg-red-600 text-white' },
@@ -283,13 +283,7 @@ const PR_STATE_PILL: Record<PrState, { label: string; icon: IconComponent; class
  * glyphs, so the sentence is reachable from the keyboard too: there is one of
  * these per screen, not forty.
  */
-export function PrStatePill({
-  pull,
-  className = '',
-}: {
-  pull: Pick<ForgePull, 'state' | 'isDraft' | 'reviewDecision'>;
-  className?: string;
-}) {
+export function PrStatePill({ pull }: { pull: Pick<ForgePull, 'state' | 'isDraft' | 'reviewDecision'> }) {
   const state = prState(pull);
   const { label, icon: Icon, className: fill } = PR_STATE_PILL[state];
   const description = prStateDescription(pull);
@@ -299,7 +293,7 @@ export function PrStatePill({
         tabIndex={0}
         data-pr-state={state}
         aria-label={`${label}. ${description}`}
-        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium leading-none outline-none focus-visible:ring-2 focus-visible:ring-ring ${fill} ${className}`}
+        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium leading-none outline-none focus-visible:ring-2 focus-visible:ring-ring ${fill}`}
       >
         <Icon className="size-3.5" strokeWidth={2.5} aria-hidden />
         {label}
