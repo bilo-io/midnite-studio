@@ -75,7 +75,7 @@ Completed work is logged append-only in [`../done.md`](../done.md). Deferred sco
 | [87 · Knowledge: the graph the repo already has](phases/phase-87-knowledge-graph-panel.md) | ✅ DONE | — | 51/60 | `█████████░` | 85% | A B C D E F G | (9 verification lines — packaged-app network trace, cache/staleness/GPU-leak checks, the Knowledge-view-specific idle-cpu reading, the committed visual baseline, one human eyeball pass — deferred, non-blocking) |
 | [86 · The way back in, and somewhere to write it down](phases/phase-86-the-way-back-in.md) | 🔄 WIP | — | 61/64 | `██████████` | 95% | — | (3 human passes) |
 | [85 · The monitor that lied, and the memory it hid](phases/phase-85-the-monitor-that-lied.md) | 🔄 WIP | x1 | 56/59 | `█████████░` | 95% | — | (3 human passes) |
-| [84 · Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md) | 🔄 WIP | — | 61/68 | `█████████░` | 90% | F | — |
+| [84 · Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md) | 🔄 WIP | x1 | 64/68 | `█████████░` | 94% | G | — |
 | [83 · Third-party apps rail](phases/phase-83-third-party-apps-rail.md) | 🔄 WIP | — | 23/25 | `█████████░` | 92% | — | (2 human passes) |
 | [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | 🔄 WIP | — | 57/75 | `████████░░` | 76% | — | C D G |
 | [81 · Where the companion can take you, and what it may touch](phases/phase-81-where-the-companion-can-take-you.md) | 🔄 WIP | — | 50/53 | `█████████░` | 94% | — | — |
@@ -94,12 +94,12 @@ Completed work is logged append-only in [`../done.md`](../done.md). Deferred sco
 | [68 · Where focus goes when the dialog closes](phases/phase-68-where-focus-goes.md) | 🔄 WIP | — | 32/37 | `█████████░` | 86% | — | — |
 | [67 · The sessions you closed](phases/phase-67-the-sessions-you-closed.md) | 🔄 WIP | x1 | 44/64 | `███████░░░` | 69% | — | Verification (human/e2e passes) |
 | [66 · API Client](phases/phase-66-api-client.md) | 🔄 WIP | x1 | 71/73 | `██████████` | 97% | — | H (2 human passes only) |
-| [65 · Somewhere for a crash to go](phases/phase-65-somewhere-for-a-crash-to-go.md) | 🔄 WIP | — | 43/49 | `█████████░` | 88% | — | Verification (human passes) |
+| [65 · Somewhere for a crash to go](phases/phase-65-somewhere-for-a-crash-to-go.md) | 🔄 WIP | x1 | 44/49 | `█████████░` | 90% | — | Verification (human passes) |
 | [64 · Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md) | 🔄 WIP | x1 | 66/72 | `█████████░` | 92% | — | G (3 human passes, jsdelivr string, 5-surface frame) |
 | [63 · The preferences with nowhere to live](phases/phase-63-settings-diff-and-orphan-preferences.md) | ✅ DONE | x1 | 32/32 | `██████████` | 100% | — | — |
 | [62 · One Escape, one dismissal](phases/phase-62-one-escape-one-dismissal.md) | 🔄 WIP | — | 29/33 | `█████████░` | 88% | — | — |
 | [61 · Database Explorer](phases/phase-61-database-explorer.md) | 🔄 WIP | x1 | 75/94 | `████████░░` | 80% | — | Verification (human passes) |
-| [60 · A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md) | 🔄 WIP | — | 28/34 | `████████░░` | 82% | — | — |
+| [60 · A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md) | 🔄 WIP | x1 | 29/34 | `█████████░` | 85% | — | — |
 | [59 · Workspace Optimizer](phases/phase-59-workspace-optimizer.md) | ✅ DONE | x1 | 70/70 | `██████████` | 100% | — | — |
 | [58 · Notes, and the menu that holds them](phases/phase-58-notes-and-the-menu.md) | 🔄 WIP | x1 | 76/78 | `██████████` | 97% | — | — |
 | [57 · Midnite Studio speaks MCP](phases/phase-57-mcp-server.md) | 🔄 WIP | x1 | 73/76 | `██████████` | 96% | — | Verification (3 human passes) |
@@ -108,7 +108,7 @@ Completed work is logged append-only in [`../done.md`](../done.md). Deferred sco
 | [54 · An Issues view](phases/phase-54-issues-view.md) | 🔄 WIP | — | 43/45 | `██████████` | 96% | — | Verification (2 human passes) |
 | [53 · The first release](phases/phase-53-first-release.md) | 🔄 WIP | x1 | 45/59 | `████████░░` | 76% | — | — |
 | [52 · Projects, the Board, and Workflows, navigable](phases/phase-52-projects-navigation.md) | 🔄 WIP | — | 40/43 | `█████████░` | 93% | — | Verification (3 human passes) |
-| [51 · The terminal, made steady](phases/phase-51-terminal-steadiness.md) | 🔄 WIP | — | 31/37 | `████████░░` | 84% | — | human verification pass (6 items) |
+| [51 · The terminal, made steady](phases/phase-51-terminal-steadiness.md) | 🔄 WIP | x1 | 31/37 | `████████░░` | 84% | — | human verification pass (6 items) |
 | [50 · Kanban & Projects, Follow-Through](phases/phase-50-kanban-projects-followthrough.md) | 🔄 WIP | — | 15/17 | `█████████░` | 88% | — | F (codex human pass), Verification (2 human passes) |
 | [49 · Onboarding a repo: Setup and Update](phases/phase-49-repo-onboarding.md) | 🔄 WIP | — | 31/33 | `█████████░` | 94% | — | Verification (2 human passes) |
 | [48 · Apply suggested-change blocks](phases/phase-48-apply-suggested-changes.md) | 🔄 WIP | — | 19/20 | `██████████` | 95% | — | E (human round-trip verification) |
