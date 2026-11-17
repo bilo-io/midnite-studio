@@ -35,6 +35,7 @@ export const mediaGameManifest = defineFeatureManifest({
     CHANNELS.gamesLogs,
     CHANNELS.gamesKitUpgrade,
     CHANNELS.gamesDoctor,
+    CHANNELS.gamesDoctorFix,
     CHANNELS.gamesLevels,
     CHANNELS.gamesLevelGet,
     CHANNELS.gamesLevelSet,

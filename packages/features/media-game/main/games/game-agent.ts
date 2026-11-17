@@ -289,6 +289,7 @@ const ACTION_LABELS: Partial<Record<GameMcpToolId, string>> = {
   game_level_set: 'Saved a level',
   game_goto: 'Jumped to a scene',
   game_doctor: 'Diagnosed the game',
+  game_doctor_fix: 'Applied a doctor fix',
 };
 
 /**

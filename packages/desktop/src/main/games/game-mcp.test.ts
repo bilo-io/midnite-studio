@@ -87,6 +87,8 @@ function setup(
       },
       goto: opts.goto ?? (async () => ({ ok: true as const, value: { via: 'hook' as const } })),
       doctor: async (req) => (req.gameId === GAME.gameId || req.path === GAME.path ? { ok: true as const, value: DIAGNOSIS } : { ok: false as const, kind: 'error' as const, message: 'That game was not found.' }),
+      doctorFix: async (req) =>
+        req.path === GAME.path ? { ok: true as const, value: { commit: 'abc1234', diagnosis: DIAGNOSIS } } : { ok: false as const, kind: 'error' as const, message: 'That game was not found.' },
       create: async () => ({ ok: true as const, value: { path: '/games/new', gameId: 'gnew' } }),
       manifestGet: async () => ({ manifest: (opts.manifest ?? { kitVersion: '0.1.0', vendored: { phaser: '3.80.1' } }) as never, issues: [] }),
       manifestSet,
@@ -445,5 +447,26 @@ describe('game_doctor (Phase 149 Theme C)', () => {
     expect(await dispatchMcpCall('game_doctor', { game: 'gabc' })).toEqual({ ok: true, value: DIAGNOSIS });
     expect(await dispatchMcpCall('game_doctor', { game: '/games/demo' })).toEqual({ ok: true, value: DIAGNOSIS });
     expect(await dispatchMcpCall('game_doctor', { game: 'nope' })).toMatchObject({ ok: false });
+  });
+});
+
+describe('game_doctor_fix (Phase 149 Theme D)', () => {
+  beforeEach(() => resetMcpAllowUiStateForTests());
+  afterEach(() => setGameTools(null));
+
+  it('is a write: refused while Let agents run and edit games is off', async () => {
+    setup(null);
+    expect(await dispatchMcpCall('game_doctor_fix', { game: 'gabc', fixId: 'set-genre', genre: null })).toMatchObject({ ok: false, kind: 'refused' });
+  });
+
+  it('applies the fix by the resolved path and answers the commit and the fresh diagnosis', async () => {
+    setup(null);
+    setMcpAllowGamesState(true);
+    expect(await dispatchMcpCall('game_doctor_fix', { game: 'gabc', fixId: 'normalise-vendored' })).toEqual({
+      ok: true,
+      value: { commit: 'abc1234', diagnosis: DIAGNOSIS },
+    });
+    expect(await dispatchMcpCall('game_doctor_fix', { game: 'nope', fixId: 'normalise-vendored' })).toMatchObject({ ok: false });
+    expect(await dispatchMcpCall('game_doctor_fix', { game: 'gabc', fixId: 'bogus' })).toMatchObject({ ok: false });
   });
 });

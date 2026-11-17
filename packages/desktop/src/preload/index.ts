@@ -763,6 +763,7 @@ const bridge: Pick<
     logs: (req) => call(CHANNELS.gamesLogs, req),
     kitUpgrade: (req) => call(CHANNELS.gamesKitUpgrade, req),
     doctor: (req) => call(CHANNELS.gamesDoctor, req),
+    doctorFix: (req) => call(CHANNELS.gamesDoctorFix, req),
     levels: {
       list: (req) => call(CHANNELS.gamesLevels, req),
       get: (req) => call(CHANNELS.gamesLevelGet, req),

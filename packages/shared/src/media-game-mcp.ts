@@ -31,7 +31,10 @@ import {
   GAME_REPLAY_MAX_FRAMES,
   GameSceneNameSchema,
   GameDiagnosisSchema,
+  GameFixResultSchema,
+  GameGenreSchema,
 } from './media-game';
+import { GameFixIdSchema } from './game-standard';
 import { GameGotoResultSchema, GameLevelsResultSchema } from './game-level';
 
 /** Ids of the tools, in the order an agent meets them. Themes N and O append their own. */
@@ -60,6 +63,8 @@ export const GAME_MCP_TOOL_IDS = [
   'game_goto',
   // Phase 149 Theme C.
   'game_doctor',
+  // Phase 149 Theme D.
+  'game_doctor_fix',
 ] as const;
 export type GameMcpToolId = (typeof GAME_MCP_TOOL_IDS)[number];
 export const isGameMcpToolId = (value: string): value is GameMcpToolId =>
@@ -266,6 +271,13 @@ export const GameGotoOutputSchema = GameGotoResultSchema.extend({ gameId: z.stri
 export const GameLevelListOutputSchema = GameLevelsResultSchema;
 /** `game_doctor` (Phase 149 Theme C): the game's diagnosis against the Midnite game standard. */
 export const GameDoctorOutputSchema = GameDiagnosisSchema;
+/** `game_doctor_fix` (Phase 149 Theme D): apply one named safe fix; `genre` is for `set-genre`, `build` for `add-build`. */
+export const GameDoctorFixInputSchema = GameToolTargetSchema.extend({
+  fixId: GameFixIdSchema,
+  genre: GameGenreSchema.nullable().optional(),
+  build: z.object({ command: z.string().min(1).max(500), out: z.string().min(1) }).optional(),
+});
+export const GameDoctorFixOutputSchema = GameFixResultSchema;
 
 /** `game_assert_frame` and `game_playtest` answer a JSON text block, then any diff or failure images. */
 export const GameContentOutputSchema = z.object({ _content: z.array(z.unknown()) });

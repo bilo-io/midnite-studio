@@ -412,7 +412,14 @@ export const GameCreateResultSchema = z.object({ path: z.string(), gameId: z.str
 export type GameCreateResult = z.infer<typeof GameCreateResultSchema>;
 
 /** Open Game: `path` absent means "show the folder dialog in main". */
-export const GameAddRequestSchema = z.object({ path: z.string().min(1).optional() });
+export const GameAddRequestSchema = z.object({
+  path: z.string().min(1).optional(),
+  /**
+   * Phase 149 Theme F: a folder with no `midnite-game.json` answers `needs-manifest` with a proposal. Sending the
+   * (possibly edited) manifest back writes it through the `write-manifest` fix, then registers the game.
+   */
+  confirmManifest: GameManifestSchema.optional(),
+});
 export type GameAddRequest = z.input<typeof GameAddRequestSchema>;
 
 /** `listed` means the game was already in the list and nothing was written. */
@@ -420,6 +427,13 @@ export const GameAddResultSchema = z.discriminatedUnion('status', [
   z.object({ status: z.literal('added'), gameId: z.string(), path: z.string() }),
   z.object({ status: z.literal('listed'), gameId: z.string(), path: z.string() }),
   z.object({ status: z.literal('cancelled') }),
+  /** Phase 149 Theme F: the folder has no manifest; nothing is written or registered until `confirmManifest`. */
+  z.object({
+    status: z.literal('needs-manifest'),
+    path: z.string(),
+    proposed: GameManifestSchema,
+    diagnosis: z.lazy(() => GameDiagnosisSchema),
+  }),
 ]);
 export type GameAddResult = z.infer<typeof GameAddResultSchema>;
 
@@ -471,6 +485,29 @@ export const GameDoctorRequestSchema = z
   .object({ gameId: z.string().min(1).optional(), path: z.string().min(1).optional() })
   .refine((req) => (req.gameId === undefined) !== (req.path === undefined), 'Give exactly one of gameId or path.');
 export type GameDoctorRequest = z.input<typeof GameDoctorRequestSchema>;
+
+/**
+ * Phase 149 Theme D: apply one safe fix. A listed game by `gameId` or an absolute folder `path` (exactly one);
+ * `genre` is for `set-genre`, `build` for `add-build` (the inferred one when absent).
+ */
+export const GameFixRequestSchema = z
+  .object({
+    gameId: z.string().min(1).optional(),
+    path: z.string().min(1).optional(),
+    fixId: GameFixIdSchema,
+    genre: GameGenreSchema.nullable().optional(),
+    build: z.object({ command: z.string().min(1).max(500), out: z.string().min(1) }).optional(),
+  })
+  .refine((req) => (req.gameId === undefined) !== (req.path === undefined), 'Give exactly one of gameId or path.');
+export type GameFixRequest = z.input<typeof GameFixRequestSchema>;
+
+/** What a fix answers: its commit (`null` when nothing needed writing), the kit-upgrade `branch`, and the fresh diagnosis. */
+export const GameFixResultSchema = z.object({
+  commit: z.string().nullable(),
+  branch: z.string().optional(),
+  diagnosis: GameDiagnosisSchema,
+});
+export type GameFixResult = z.infer<typeof GameFixResultSchema>;
 
 // --- end doctor --------------------------------------------------------------
 

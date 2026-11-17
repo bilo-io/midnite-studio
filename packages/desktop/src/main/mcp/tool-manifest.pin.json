@@ -1,5 +1,5 @@
 {
-  "hash": "a24aa18a3a2e3134a48d0c3642ef4b6e6143432d4c9863e4649750811d7207e5",
+  "hash": "dc7b3fc42335f60724c22950340245bcbae80c7965bd0a9492c7b044a4bb8cc6",
   "tools": {
     "repo.list": "c2254fa779e5cb87",
     "repo.resolve": "b39c228fe331d5d8",
@@ -77,6 +77,7 @@
     "game_level_set": "3034ea4d677811a6",
     "game_goto": "c659083c24dc2a93",
     "game_doctor": "d1ce3252dafba7bf",
+    "game_doctor_fix": "f91519619043a599",
     "terrain_list": "4a01b835d44535a3",
     "terrain_open": "a4eb168d956b7c63",
     "terrain_get_spec": "a9f14c76bf2155cb",

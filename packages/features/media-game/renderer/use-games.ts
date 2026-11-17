@@ -1,6 +1,7 @@
 import type {
   GameAssetSourceTab,
   GameAssetSourcesResult,
+  GameAddRequest,
   GameAddResult,
   GameCreateRequest,
   GameDeleteInfo,
@@ -106,15 +107,19 @@ export function useCreateGame() {
   });
 }
 
-/** Open Game (Phase 132 Theme A): the folder dialog lives in main; `added` and `listed` both leave the game in the list. */
+/**
+ * Open Game (Phase 132 Theme A): the folder dialog lives in main; `added` and `listed` both leave the game in the list.
+ * A folder with no manifest answers `needs-manifest` and registers nothing (Phase 149 Theme F); call again with the
+ * `path` and the confirmed `confirmManifest`.
+ */
 export function useAddGame() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async () => (await bridge()?.games.add({})) ?? noBridge<GameAddResult>(),
+    mutationFn: async (req: GameAddRequest | undefined) => (await bridge()?.games.add(req ?? {})) ?? noBridge<GameAddResult>(),
     onSuccess: (result) => {
       // Narrowed first: `GitOpResult<T>` distributes over a union `T`, which a union result is not assignable to.
       if (!result.ok) reportFailure(result);
-      if (result.ok && result.value.status !== 'cancelled') {
+      if (result.ok && result.value.status !== 'cancelled' && result.value.status !== 'needs-manifest') {
         void client.invalidateQueries({ queryKey: GAME_KEYS.list });
         void client.invalidateQueries({ queryKey: REPOS_KEY });
       }

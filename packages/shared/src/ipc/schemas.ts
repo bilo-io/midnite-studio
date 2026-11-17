@@ -376,6 +376,8 @@ import {
   GameIdRequest as GameIdRequestSchema,
   GameDiagnosisSchema,
   GameDoctorRequestSchema,
+  GameFixRequestSchema,
+  GameFixResultSchema,
   GameLogsRequest as GameLogsRequestSchema,
   GameLogsResponse as GameLogsResponseSchema,
   GameManifestGetResponse as GameManifestGetResponseSchema,
@@ -5764,6 +5766,9 @@ export const GamesKitUpgradeResponse = GitOpResultOf(GamesKitUpgradeResultSchema
 // Phase 149 Theme C — the game doctor.
 export const GamesDoctorRequest = GameDoctorRequestSchema;
 export const GamesDoctorResponse = GitOpResultOf(GameDiagnosisSchema);
+// Phase 149 Theme D — safe doctor fixes.
+export const GamesDoctorFixRequest = GameFixRequestSchema;
+export const GamesDoctorFixResponse = GitOpResultOf(GameFixResultSchema);
 export const GamesLevelsRequest = GameLevelsRequestSchema;
 export const GamesLevelsResponse = GitOpResultOf(GameLevelsResultSchema);
 export const GamesLevelGetRequest = GameLevelGetRequestSchema;

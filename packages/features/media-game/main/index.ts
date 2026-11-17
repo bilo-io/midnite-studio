@@ -127,7 +127,7 @@ export const mediaGameMain = defineFeatureMain<MediaGameMainServices>({
     handle(CHANNELS.gamesSettingsSet, schemas.GamesSettingsSetRequest, (patch) => service.settings.set(patch), (issue) => failure(issue));
     handleBare(CHANNELS.gamesList, async () => ({ games: await service.list() }));
     handle(CHANNELS.gamesCreate, schemas.GamesCreateRequest, (req) => service.create(req), (issue) => failure(issue));
-    handle(CHANNELS.gamesAdd, schemas.GamesAddRequest, ({ path }) => service.add(path), (issue) => failure(issue));
+    handle(CHANNELS.gamesAdd, schemas.GamesAddRequest, ({ path, confirmManifest }) => service.add(path, confirmManifest), (issue) => failure(issue));
     // Game management (Phase 149 Theme I).
     handle(CHANNELS.gamesRename, schemas.GamesRenameRequest, ({ gameId, name }) => service.rename(gameId, name), (issue) => failure(issue));
     handle(CHANNELS.gamesForget, schemas.GamesForgetRequest, ({ gameId }) => service.forget(gameId), (issue) => failure(issue));
@@ -176,6 +176,8 @@ export const mediaGameMain = defineFeatureMain<MediaGameMainServices>({
     handle(CHANNELS.gamesKitUpgrade, schemas.GamesKitUpgradeRequest, ({ gameId }) => service.kitUpgrade(gameId), (issue) => failure(issue));
     // Phase 149 Theme C: the game doctor (read-only).
     handle(CHANNELS.gamesDoctor, schemas.GamesDoctorRequest, (req) => service.doctor(req), (issue) => failure(issue));
+    // Phase 149 Theme D: one safe fix, one commit.
+    handle(CHANNELS.gamesDoctorFix, schemas.GamesDoctorFixRequest, (req) => service.doctorFix(req), (issue) => failure(issue));
 
     // Levels (Phase 132 Theme C).
     handle(CHANNELS.gamesLevels, schemas.GamesLevelsRequest, ({ gameId }) => service.levels.list(gameId), (issue) => failure(issue));
