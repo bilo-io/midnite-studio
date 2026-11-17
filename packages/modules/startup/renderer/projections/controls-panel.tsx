@@ -1,7 +1,7 @@
 import { API_TIERS, HARDWARE_CATALOG, MAX_FLEET_NODES, type ApiTierId, type FleetNodeConfig, type FleetProjection, type HardwareId } from '@midnite/studio-shared';
 
 import { STARTUP_CHROME } from '../compose/startup-chrome';
-import { formatZar } from './format-zar';
+import { formatCompactZar, formatZar } from './format-zar';
 import { SliderField, parseNumber } from './slider-field';
 import { BUTTON, BUTTON_PRIMARY, FIELD, GRADIENT, LABEL } from './styles';
 
@@ -33,7 +33,8 @@ export function nextNodeName(names: readonly string[]): string {
   return `Node ${max + 1}`;
 }
 
-export function TemplateSelects({ value, onChange, disabled, idPrefix }: { value: FleetNodeConfig; onChange: (change: Partial<FleetNodeConfig>) => void; disabled: boolean; idPrefix: string }) {
+export function TemplateSelects({ value, onChange, disabled, idPrefix, compact = false }: {
+  compact?: boolean; value: FleetNodeConfig; onChange: (change: Partial<FleetNodeConfig>) => void; disabled: boolean; idPrefix: string }) {
   return (
     <>
       <label className="flex flex-col gap-1">
@@ -41,7 +42,7 @@ export function TemplateSelects({ value, onChange, disabled, idPrefix }: { value
         <select aria-label="Hardware" id={`${idPrefix}-hw`} className={FIELD} disabled={disabled} value={value.hardwareId} onChange={(e) => onChange({ hardwareId: e.target.value as HardwareId })}>
           {HARDWARE_CATALOG.map((h) => (
             <option key={h.id} value={h.id}>
-              {hardwareOptionLabel(h)}
+              {compact ? `${h.label} · ${formatCompactZar(h.priceCents)} · ${h.watts.toLocaleString('en-US')} W` : hardwareOptionLabel(h)}
             </option>
           ))}
         </select>

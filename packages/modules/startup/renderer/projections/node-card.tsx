@@ -48,7 +48,7 @@ export function NodeCard({ node, template, figures, update, readOnly }: { node: 
           {problem}
         </p>
       ) : null}
-      <TemplateSelects idPrefix={node.id} value={node} disabled={readOnly} onChange={change} />
+      <TemplateSelects compact idPrefix={node.id} value={node} disabled={readOnly} onChange={change} />
       <ConfigSliders idPrefix={node.id} value={node} disabled={readOnly} onChange={change} />
       <dl className="grid grid-cols-3 gap-2 text-xs">
         {(

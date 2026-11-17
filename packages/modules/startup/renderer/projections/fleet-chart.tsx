@@ -12,15 +12,16 @@ export default function FleetChart({ result, horizon }: { result: FleetProjectio
         <ComposedChart data={series}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
           <XAxis dataKey="month" tickFormatter={(m: number) => `M${m + 1}`} tick={{ fontSize: 11 }} />
-          <YAxis tickFormatter={(v: number) => formatCompactZar(v)} tick={{ fontSize: 11 }} width={64} />
+          <YAxis yAxisId="monthly" tickFormatter={(v: number) => formatCompactZar(v)} tick={{ fontSize: 11 }} width={64} />
+          <YAxis yAxisId="cumulative" orientation="right" tickFormatter={(v: number) => formatCompactZar(v)} tick={{ fontSize: 11 }} width={64} />
           <Tooltip formatter={(v) => formatZar(Number(v))} labelFormatter={(m) => `Month ${Number(m) + 1}`} />
           <Legend />
-          <Area isAnimationActive={false} type="monotone" dataKey="energy" name="Energy" stackId="cost" stroke="#6366f1" fill="#6366f1" fillOpacity={0.5} />
-          <Area isAnimationActive={false} type="monotone" dataKey="api" name="API" stackId="cost" stroke="#a855f7" fill="#a855f7" fillOpacity={0.5} />
-          <Area isAnimationActive={false} type="monotone" dataKey="revenue" name="Revenue" stroke="#ec4899" fill="#ec4899" fillOpacity={0.15} />
-          <Line isAnimationActive={false} type="monotone" dataKey="cumulative" name="Cumulative cash" stroke="hsl(var(--foreground))" strokeWidth={2} dot={false} />
-          <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" />
-          {paybackMonths !== null ? <ReferenceLine x={paybackMonths - 1} stroke="#ec4899" strokeDasharray="4 2" label={{ value: 'Payback', fontSize: 11, fill: 'hsl(var(--foreground))' }} /> : null}
+          <Area isAnimationActive={false} type="monotone" yAxisId="monthly" dataKey="energy" name="Energy" stackId="cost" stroke="#6366f1" fill="#6366f1" fillOpacity={0.5} />
+          <Area isAnimationActive={false} type="monotone" yAxisId="monthly" dataKey="api" name="API" stackId="cost" stroke="#a855f7" fill="#a855f7" fillOpacity={0.5} />
+          <Area isAnimationActive={false} type="monotone" yAxisId="monthly" dataKey="revenue" name="Revenue" stroke="#ec4899" fill="#ec4899" fillOpacity={0.15} />
+          <Line isAnimationActive={false} type="monotone" yAxisId="cumulative" dataKey="cumulative" name="Cumulative cash" stroke="hsl(var(--foreground))" strokeWidth={2} dot={false} />
+          <ReferenceLine yAxisId="cumulative" y={0} stroke="hsl(var(--muted-foreground))" />
+          {paybackMonths !== null ? <ReferenceLine yAxisId="cumulative" x={paybackMonths - 1} stroke="#ec4899" strokeDasharray="4 2" label={{ value: 'Payback', fontSize: 11, fill: 'hsl(var(--foreground))' }} /> : null}
         </ComposedChart>
       </ResponsiveContainer>
     </div>

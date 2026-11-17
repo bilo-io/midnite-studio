@@ -425,9 +425,10 @@ Values stay unrounded floats in the result; **only `formatZar` rounds** (to whol
   - `recharts@^3` added to [`packages/modules/startup/package.json`](../../../packages/modules/startup/package.json)
     `dependencies` (v3 for React 19 support; check its peer range against React 19.2 at install).
   - `<ResponsiveContainer width="100%" height={320}><ComposedChart data={series}>`: `Area` energy and `Area` api with
-    `stackId="cost"`, `Area` revenue (unstacked, low opacity), `Line` cumulative (`strokeWidth={2}`, `dot={false}`),
-    `ReferenceLine y={0}`, and `ReferenceLine x={paybackMonths - 1}` labelled `Payback` when not null.
-    `XAxis dataKey="month"` with `tickFormatter={(m) => `M${m + 1}`}`, `YAxis tickFormatter={formatCompactZar}`,
+    `stackId="cost"`, `Area` revenue (unstacked, low opacity) — all on a left `YAxis yAxisId="monthly"` — and `Line` cumulative
+    (`strokeWidth={2}`, `dot={false}`) on its own right `YAxis yAxisId="cumulative" orientation="right"`,
+    `ReferenceLine y={0}` and `ReferenceLine x={paybackMonths - 1}` (labelled `Payback` when not null) on the cumulative axis.
+    `XAxis dataKey="month"` with `tickFormatter={(m) => `M${m + 1}`}`, both `YAxis` with `tickFormatter={formatCompactZar}`,
     `Tooltip formatter={(v) => formatZar(v)}`, `Legend`. `isAnimationActive={false}` on every series (dragging a
     slider must not replay the animation).
   - Colours: indigo-500 energy, purple-500 api, pink-500 revenue, `hsl(var(--foreground))` cumulative.
@@ -576,3 +577,4 @@ Values stay unrounded floats in the result; **only `formatZar` rounds** (to whol
     share `projections-view.tsx`, so splitting wave 2 would only buy merge friction.
 14. **Resolved — no new logging.** Failures surface as inline `role="alert"` text where the action happened, matching
     the rest of the module; there is no diagnostics surface for Startup.
+15. **Resolved — cumulative cash on its own right axis (screenshot review, user agreed).** Cumulative cash runs to the negative of CapEx, which squashed the monthly cost and revenue series into a thin band at R 0 on a shared axis. Node-card hardware options use the compact form (`<label> · R 120k · 1,200 W`) so they do not clip at wide widths, and the list row keeps its monthly figure on one line.

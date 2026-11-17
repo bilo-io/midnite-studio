@@ -110,9 +110,11 @@ function Row({ projection, selected, renaming, readOnly, onSelect, onStartRename
         <span className="truncate text-sm font-medium">{projection.name}</span>
       )}
       <span className="flex items-center justify-between gap-2">
-        <span className={LABEL}>
-          {projection.nodes.length} {projection.nodes.length === 1 ? 'node' : 'nodes'} ·{' '}
-          <span className={net >= 0 ? 'text-success' : 'text-destructive'}>{formatZar(net)} /mo</span>
+        <span className={`${LABEL} flex flex-wrap gap-x-1`}>
+          <span className="whitespace-nowrap">
+            {projection.nodes.length} {projection.nodes.length === 1 ? 'node' : 'nodes'} ·
+          </span>
+          <span className={`whitespace-nowrap ${net >= 0 ? 'text-success' : 'text-destructive'}`}>{formatZar(net)} /mo</span>
         </span>
         <span className="flex" onClick={(e) => e.stopPropagation()}>
           <IconButton icon={LuPencil} label="Rename" disabled={readOnly} onClick={onStartRename} />
