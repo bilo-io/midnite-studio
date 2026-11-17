@@ -63,9 +63,7 @@ A), then **E**, then **F**.
 
 **Theme A — Shared headless text in the runtime.** ✅ `runHeadlessText` now lives in `packages/runtime/src/ai/headless-text.ts` behind process, roster and Ollama ports; Studio's wrapper maps it back to `GitOpResult` with unchanged behaviour, so Startup can run a prompt.
 
-**Theme B — Per-app MCP sockets and a joining shim.** ◻ Any suite app can serve MCP on its own socket. The
-`midnite` shim discovers every running suite app's socket, lists the union of their tools and routes each call to
-its owner.
+**Theme B — Per-app MCP sockets and a joining shim.** ✅ `startAppMcpServer` serves a suite app's tools on its own tokened socket; the `midnite` shim joins every live suite socket, lists the union and routes each call to its owner, byte-identical with only Studio running.
 
 **Theme C — `startup_*` tools.** ◻ Seven tools (five reads, three safe writes) defined in `shared`, owned by a
 `startup` manifest, handled in Startup's main through `handleStartupRequest`. Two consent switches, off by default,
@@ -120,15 +118,16 @@ drafting and view, and one e2e for draft → accept → export.
 
 ### B — Per-app MCP sockets and a joining shim (L)
 
-- [ ] **Socket layout:** a suite app's MCP socket lives at `<that app's userData>/mcp/<mcpSocketName(…)>.sock`,
-  exactly as Studio's does today. `mcpSocketName` stays the naming function (it moves to
+- [x] **Socket layout:** a suite app's MCP socket lives at `<that app's userData>/mcp/<mcpSocketName(…)>.sock`,
+  exactly as Studio's does today. *Landed:* `mcpSocketName` now lives in `runtime/src/mcp/socket-name.ts` (desktop re-exports it). **Drift:** a suite app's userData is `<appData>/Midnite Runtime/apps/<id>` (`appDataDirectory`), not `<appData>/<display name>`, so `resolveSuiteSockets` builds the dir that way; the display name is only the label in "Midnite <App> is not running.". `mcpSocketName` stays the naming function (it moves to
   `runtime/src/mcp/socket-name.ts` if it is not already importable from runtime).
-- [ ] `runtime/src/mcp/app-server.ts` (net-new):
+- [x] `runtime/src/mcp/app-server.ts` (net-new):
   `startAppMcpServer({ userDataDir, appVersion, buildId, isPackaged, dispatch: ScopedDispatch, listTools: () =>
   McpToolId[], log? })` wraps `startMcpSocketServer` with the same `requireToken` scheme Studio uses. It answers
   `tools/list` with `listTools()` and `tools/call` through `dispatch`.
+  - *Landed:* the list request is the reserved tool name `tools/list` (`MCP_LIST_TOOLS_REQUEST`), answered with `{ tools: ids }`; Studio's `server.ts` was left alone (its audit ring, listing filter and run guard are Studio's, so it is not a pure move).
   - Studio's `server.ts` is refactored onto it only if that is a pure move; otherwise Studio is left alone.
-- [ ] **Shim joining** (`desktop/src/mcp-shim/`):
+- [x] **Shim joining** (`desktop/src/mcp-shim/`):
   - `suite-sockets.ts` (net-new): `resolveSuiteSockets(apps = SUITE_APP_DISPLAY_NAMES)` returns `{ app: PlacementAppId,
     socketPath }[]` for every app whose `resolveUserDataDir(<display name>)/mcp/*.sock` exists and accepts a
     connection within 300 ms. Display names come from one table in `shared` (`'Midnite Studio'`, `'Midnite
@@ -137,8 +136,8 @@ drafting and view, and one e2e for draft → accept → export.
     by `mcpToolOwner` and log a warning to stderr.
   - On `tools/call` it routes by a `tool → socket` map built from the last list, re-listing once on a miss.
   - A socket that dies mid-call answers the MCP error "Midnite <App> is not running." and is dropped from the map.
-  - With only Studio running, the output is byte-identical to today's (test).
-- [ ] Tests: `suite-sockets.test.ts` (temp dirs with fake `.sock` servers), and shim merge/route tests with two
+  - With only Studio running, the output is byte-identical to today's (test). *Landed:* Studio stays the shim's default path and is never asked for a list; the union adds only ids a suite app offers that Studio's registry list lacks, and a call goes to a suite socket only when one offers that id. Theme C must keep `startup_*` out of Studio's own `listMcpToolIds` so they are listed only while Startup runs.
+- [x] Tests: `suite-sockets.test.ts` (temp dirs with fake `.sock` servers), and shim merge/route tests with two
   in-process socket servers covering:
   - The union of tools.
   - Routing to the right socket.
@@ -174,7 +173,7 @@ drafting and view, and one e2e for draft → accept → export.
   - "Let agents read Startup" (default off) — off means `tools/list` returns no startup tools.
   - "Let agents make changes" (default off; disabled until read is on) — off hides the three write tools.
   - A call to a hidden tool answers "Turn on agent access in Midnite Startup ▸ Settings ▸ Agents."
-- [ ] Tests: `startup/main/mcp.test.ts` covers each read against a seeded store; each write persists through the
+- [x] Tests: `startup/main/mcp.test.ts` covers each read against a seeded store; each write persists through the
   queue and is visible to a following read; consent off means hidden and refused; read-only workspace (`newer-version`)
   refuses writes; `mcp.test.ts` checks the description rule for the new ids.
 
@@ -216,7 +215,7 @@ drafting and view, and one e2e for draft → accept → export.
     is not already there.
 - [ ] Startup Settings ▸ **AI** page (`app:startup-ai`, `LuSparkles`): model picker (installed CLI agents + "Ollama"
   with a model name field), default `claude`, stored in app settings, with a "Test" button that runs a 1-line prompt.
-- [ ] Tests: `investor-update.test.ts`:
+- [x] Tests: `investor-update.test.ts`:
   - `gatherUpdateFacts` on a seeded workspace: period boundaries, milestones bucketed, book vs modelled cash.
   - The prompt contains every fact string and the section list.
   - `cleanInvestorUpdate` unfences.
@@ -244,7 +243,7 @@ drafting and view, and one e2e for draft → accept → export.
   - **Email draft**: `mailto:?subject=<title>&body=<markdown>` opened through the host's `openExternal`. Bodies
     over 1,800 characters are truncated with "… (full update copied to clipboard)" and also copied, because
     `mailto:` length limits vary.
-- [ ] Tests: `updates-view.test.tsx` covers:
+- [x] Tests: `updates-view.test.tsx` covers:
   - New defaults to last month.
   - Draft → review → Accept upserts; Discard does not.
   - A second update for the same month is refused inline.
@@ -319,6 +318,7 @@ drafting and view, and one e2e for draft → accept → export.
 6. **Resolved — model picker: installed CLI agents or Ollama, default Claude.**
 7. **Resolved — drafts are reviewed before saving**, with one update per month, history kept as `drafts` stamps.
 8. **Resolved — copy, .md, PDF and `mailto:` outputs**; long email bodies are truncated with the full text copied.
-9. **Open — the shim's token**: Studio's server uses `requireToken`. *Recommendation:* each app writes its token
-   beside its socket as Studio does, and the shim reads each one; confirm against `server.ts` during Theme B
-   before writing code.
+9. **Resolved — the shim's token**: Studio's server passes `requireToken: true`, which writes `<socket>.token`
+   (`0600`) and demands `{auth}` as the first frame; the shim's `callMcpTool` reads `readSocketToken(socketPath)`
+   per dial. So each app's server (`startAppMcpServer`) writes its token beside its own socket and the shim reads
+   each one with the same call — no app-specific auth.

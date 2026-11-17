@@ -20,6 +20,7 @@ export const RELIST_MIN_MS = 2000;
 /** The shim's half of the suite join: which running app owns which tool, learnt from each app's own list. */
 export class SuiteRouter {
   private routes = new Map<string, SuiteSocket>();
+  private pending: Promise<void> | null = null;
   private listedAt = Number.NEGATIVE_INFINITY;
 
   constructor(private readonly deps: SuiteRouterDeps) {}
@@ -29,7 +30,18 @@ export class SuiteRouter {
    * apps offer that `baseIds` (Studio's own list) does not already carry, in socket order. A tool id two
    * apps both offer stays with its owner (`ownerOf`), else the first; the other is logged to stderr.
    */
-  async extraTools(baseIds: ReadonlySet<string>): Promise<string[]> {
+  extraTools(baseIds: ReadonlySet<string>): Promise<string[]> {
+    const run = this.rebuild(baseIds);
+    // A call that arrives while a list is in flight waits for it rather than racing a half-built map.
+    const settled = run.then(() => undefined, () => undefined);
+    this.pending = settled;
+    void settled.then(() => {
+      if (this.pending === settled) this.pending = null;
+    });
+    return run;
+  }
+
+  private async rebuild(baseIds: ReadonlySet<string>): Promise<string[]> {
     this.listedAt = Date.now();
     const sockets = await this.deps.resolve();
     const lists = await Promise.all(
@@ -57,6 +69,7 @@ export class SuiteRouter {
    * not dial every app each time.
    */
   async routeOf(tool: string): Promise<SuiteSocket | null> {
+    if (this.pending) await this.pending;
     const held = this.routes.get(tool);
     if (held) return held;
     if (Date.now() - this.listedAt < RELIST_MIN_MS) return null;
