@@ -86,7 +86,7 @@ function setup(
         ...opts.levels,
       },
       goto: opts.goto ?? (async () => ({ ok: true as const, value: { via: 'hook' as const } })),
-      doctor: async (req) => (req.gameId === GAME.gameId ? { ok: true as const, value: DIAGNOSIS } : { ok: false as const, kind: 'error' as const, message: 'That game was not found.' }),
+      doctor: async (req) => (req.gameId === GAME.gameId || req.path === GAME.path ? { ok: true as const, value: DIAGNOSIS } : { ok: false as const, kind: 'error' as const, message: 'That game was not found.' }),
       create: async () => ({ ok: true as const, value: { path: '/games/new', gameId: 'gnew' } }),
       manifestGet: async () => ({ manifest: (opts.manifest ?? { kitVersion: '0.1.0', vendored: { phaser: '3.80.1' } }) as never, issues: [] }),
       manifestSet,

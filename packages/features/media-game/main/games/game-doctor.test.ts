@@ -142,6 +142,15 @@ describe('diagnoseGame — each check', () => {
     expect(rules(await diagnoseGameCheap(root))).toEqual(['entry.missing']);
   });
 
+  it('a plain relative module src is not a bundler entry, even beside a TypeScript devDependency', async () => {
+    const root = await game();
+    await writeFile(join(root, 'index.html'), '<script type="module" src="src/main.js"></script>', 'utf8');
+    await writeFile(join(root, 'package.json'), JSON.stringify({ devDependencies: { typescript: '5.9.0' } }), 'utf8');
+    expect(rules(await diagnoseGameCheap(root))).toEqual([]);
+    await writeFile(join(root, 'index.html'), '<script type="module">import { boot } from "phaser-kit";</script>', 'utf8');
+    expect(rules(await diagnoseGameCheap(root))).toEqual(['entry.bundled-without-build']);
+  });
+
   it('a build game: build-out-missing is info, and a missing kit is info', async () => {
     const root = await game({ build: { command: 'pnpm build', out: 'dist' } });
     await rm(join(root, 'kit'), { recursive: true });
@@ -229,6 +238,8 @@ describe('listGames and the service', () => {
       ['Legacy 3D', 'warn', 1],
       ['Shmup Legacy', 'warn', 2],
     ]);
+    const lookup = await listGames(root, [join(FIXTURES, 'legacy-3d')], { diagnose: false });
+    expect(lookup.map((g) => [g.status, g.findingCount])).toEqual([[null, 0]]);
   });
 
   function service(repos: string[] = []) {

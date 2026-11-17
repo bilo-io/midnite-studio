@@ -44,10 +44,10 @@ async function isDirty(folder: string): Promise<boolean> {
 }
 
 /** One game folder as the explorer shows it; an invalid manifest still lists. */
-async function summarise(folder: string): Promise<GameSummary> {
+async function summarise(folder: string, diagnose: boolean): Promise<GameSummary> {
   // Phase 149 Theme C: the row's status dot comes from the cheap diagnosis (manifest, entry, kit).
-  const diagnosis = await diagnoseGameCheap(folder);
-  const health = { status: diagnosis.status, findingCount: diagnosis.findings.length };
+  const diagnosis = diagnose ? await diagnoseGameCheap(folder) : null;
+  const health = { status: diagnosis?.status ?? null, findingCount: diagnosis?.findings.length ?? 0 };
   return { ...(await summariseManifest(folder)), ...health };
 }
 
@@ -98,7 +98,12 @@ async function summariseManifest(folder: string): Promise<Omit<GameSummary, 'sta
  * The games the explorer lists: direct children of the games root carrying a
  * manifest, plus any registered repo whose root has one, deduped by realpath.
  */
-export async function listGames(gamesRoot: string, registeredRepoPaths: readonly string[]): Promise<GameSummary[]> {
+export async function listGames(
+  gamesRoot: string,
+  registeredRepoPaths: readonly string[],
+  /** `diagnose: false` for a lookup by id or path: `status` stays `null`, so a hot path pays no doctor reads. */
+  opts: { diagnose?: boolean } = {},
+): Promise<GameSummary[]> {
   const candidates = [...(await childGameFolders(gamesRoot))];
   for (const path of registeredRepoPaths) {
     if ((await readManifestFile(path)) !== null) candidates.push(path);
@@ -116,6 +121,6 @@ export async function listGames(gamesRoot: string, registeredRepoPaths: readonly
     seen.add(real);
     unique.push(folder);
   }
-  const summaries = await Promise.all(unique.map((folder) => summarise(folder)));
+  const summaries = await Promise.all(unique.map((folder) => summarise(folder, opts.diagnose ?? true)));
   return summaries.sort((a, b) => a.name.localeCompare(b.name));
 }

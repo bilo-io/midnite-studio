@@ -82,7 +82,7 @@ export function createGameService(deps: GameServiceDeps) {
   /** Find a listed game by id. */
   async function find(gameId: string): Promise<GameSummary | null> {
     const { root } = await read();
-    const games = await listGames(root, await deps.listRepoPaths());
+    const games = await listGames(root, await deps.listRepoPaths(), { diagnose: false });
     return games.find((game) => game.gameId === gameId) ?? null;
   }
 
@@ -104,7 +104,7 @@ export function createGameService(deps: GameServiceDeps) {
    */
   async function resolve(target: string): Promise<GameSummary | null> {
     const { root } = await read();
-    const games = await listGames(root, await deps.listRepoPaths());
+    const games = await listGames(root, await deps.listRepoPaths(), { diagnose: false });
     if (!isAbsolute(target)) return games.find((game) => game.gameId === target) ?? null;
     const wanted = resolvePath(target);
     return games.find((game) => resolvePath(game.path) === wanted) ?? null;
@@ -184,7 +184,7 @@ export function createGameService(deps: GameServiceDeps) {
       const { root } = resolved.value;
       const { root: gamesRoot } = await read();
       const real = await realpath(root).catch(() => root);
-      const games = await listGames(gamesRoot, await deps.listRepoPaths());
+      const games = await listGames(gamesRoot, await deps.listRepoPaths(), { diagnose: false });
       for (const game of games) {
         if ((await realpath(game.path).catch(() => game.path)) === real) {
           return ok({ status: 'listed', gameId: game.gameId, path: game.path });

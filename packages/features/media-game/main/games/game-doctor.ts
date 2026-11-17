@@ -150,7 +150,6 @@ function htmlNeedsBundler(html: string): boolean {
     if (!/\btype\s*=\s*["']module["']/i.test(attrs)) continue;
     const src = /\bsrc\s*=\s*["']([^"']+)["']/i.exec(attrs)?.[1];
     if (src !== undefined && /\.tsx?(?:[?#].*)?$/i.test(src)) return true;
-    if (src !== undefined && !/^(?:\.{0,2}\/|[a-z][a-z0-9+.-]*:)/i.test(src)) return true;
     for (const m of body.matchAll(/\bimport\s*(?:[^'"()]*?\s*from\s*)?['"]([^'"]+)['"]/g)) {
       const spec = m[1] ?? '';
       if (!/^(?:\.{0,2}\/|[a-z][a-z0-9+.-]*:)/i.test(spec)) return true;

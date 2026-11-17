@@ -354,7 +354,8 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
 
     async game_doctor({ game }) {
       const found = await need(game);
-      return unwrap(await deps.service.doctor({ gameId: found.gameId }));
+      // By path: `need` already resolved the game, so this skips a second listing.
+      return unwrap(await deps.service.doctor({ path: found.path }));
     },
 
     async game_state({ game }) {
