@@ -1,6 +1,6 @@
 // Money formatting for the fleet projections. Amounts are integer minor units in the company currency. Hand-rolled
 // on purpose: no `Intl` currency or locale formatting, so the output is identical under any LANG.
-import { minorExponent } from '@midnite/studio-shared';
+import { minorExponent } from './startup-fleet';
 
 const MINUS = '−';
 const DASH = '—';

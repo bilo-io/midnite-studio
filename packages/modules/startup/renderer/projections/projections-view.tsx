@@ -6,6 +6,7 @@ import type { FleetCatalog, FleetProjection, PlanLine } from '@midnite/studio-sh
 import { MoneyProvider } from './money-context';
 import { ControlsPanel } from './controls-panel';
 import { ProjectionList, StarterButtons, useCreateProjection } from './projection-list';
+import { ExportButtons } from './export-buttons';
 import { ResultsPanel } from './results-panel';
 import { SendToRunway } from './send-to-runway';
 import { PANE } from './styles';
@@ -40,7 +41,14 @@ function ProjectionsBody({ projections, readOnly, lines, hasCompany }: { project
       <section aria-label="Results" className="flex min-w-[480px] flex-1 flex-col gap-3 overflow-y-auto px-3">
         {readOnly ? <p className="text-xs text-amber-500">{READ_ONLY_TEXT}</p> : null}
         {draft !== null && result !== null ? (
-          <ResultsPanel draft={draft} result={result} update={update} pending={pending} problem={problem} readOnly={readOnly} actions={source !== null ? <SendToRunway projection={source} lines={lines} hasCompany={hasCompany} readOnly={readOnly} /> : undefined} />
+          <ResultsPanel draft={draft} result={result} update={update} pending={pending} problem={problem} readOnly={readOnly} actions={
+              source !== null ? (
+                <>
+                  <ExportButtons projectionId={source.id} readOnly={readOnly} />
+                  <SendToRunway projection={source} lines={lines} hasCompany={hasCompany} readOnly={readOnly} />
+                </>
+              ) : undefined
+            } />
         ) : (
           <EmptyState
             icon={LuChartArea}

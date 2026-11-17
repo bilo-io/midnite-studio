@@ -71,8 +71,14 @@ with it or keep them. The fleet maths and the lines function moved to `packages/
 `startup-fleet-runway.ts`) because a module's main and renderer halves may not import each other; the old paths
 re-export them.
 
-**Theme E — Export.** ◻ A projection CSV (month series plus a node table), a runway CSV and a one-page projection
-PDF, all saved in main through the existing save-dialog and PDF ports.
+**Theme E — Export.** ✅ A projection CSV (month series, then a node table), a runway CSV and a one-page A4-landscape
+projection PDF, all written in main (`fleet-export.ts` builds the text, `fleet-export-ops.ts` owns the dialogs and files).
+CSVs are UTF-8 with a BOM, CRLF, RFC 4180 quoted, amounts in decimal major units (JPY has none). The PDF page is
+script-less with an inline-SVG chart and goes through the same hidden-window port as the invoice. The Projections
+results header gets an Export CSV / PDF pair, and Runway gets Export CSV beside the horizon switch; a cancelled dialog
+shows nothing and a failure shows inline. `formatMoney` moved to `packages/shared` (`startup-format-money.ts`) so the PDF
+can use it; the renderer path re-exports it. The Phase 150-era ticks on the service handlers and tests were false (the
+ops still returned "not available") and are now real.
 
 **Theme F — Energy switch and Phase 150 polish.** ◻ "Scale energy with utilisation" in Global controls. Duplicate
 selects the copy, and list rows become individually focusable.
@@ -290,7 +296,7 @@ set `version: 3`. **Numbers are not converted:** no release carried v2 (checked 
 
 ### E — Export (M)
 
-- [ ] `packages/modules/startup/main/fleet-export.ts` (net-new):
+- [x] `packages/modules/startup/main/fleet-export.ts` (net-new):
   - `fleetProjectionCsv(p, result, currency): string` — two sections separated by a blank line.
     - `month,energy,api,opex,revenue,net,cumulative`, with amounts as **decimal major units** (`(minor / 10**exp).toFixed(exp)`).
     - Then `node,hardware,api tier,quantity,utilisation %,price per hour,capex,opex,net`.
@@ -312,7 +318,7 @@ set `version: 3`. **Numbers are not converted:** no release carried v2 (checked 
   - All three return `StartupResult<{ saved: boolean }>`; a cancelled dialog is `{ saved: false }`.
   - Default names: `<projection name>.csv`, `runway-<YYYY-MM>.csv`, `<projection name>.pdf`, sanitised to
     `[\w .-]`.
-- [ ] Buttons:
+- [x] Buttons:
   - Projections results header: an **Export** pair, CSV (`LuFileSpreadsheet`) and PDF (`LuFileDown`), as
     `STARTUP_CHROME.IconButton`s.
   - Runway view: **Export CSV** beside the horizon switch.

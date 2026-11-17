@@ -105,6 +105,7 @@ export function RunwayView({
   const [problem, setProblem] = useState<string | null>(null);
   const addScenario = useStartupWrite((bridge, next: RunwayScenario) => bridge.upsertScenario({ scenario: next }));
   const removeScenario = useStartupWrite((bridge, id: string) => bridge.removeScenario({ id }));
+  const exportCsv = useStartupWrite((bridge, args: { scenarioId: string; months: Horizon }) => bridge.exportRunwayCsv(args));
   const others = scenarios.filter((s) => s.id !== BASE_SCENARIO_ID);
   const active = others.find((s) => s.id === scenarioId) ?? null;
   const activeId = active?.id ?? BASE_SCENARIO_ID;
@@ -112,6 +113,11 @@ export function RunwayView({
   const money = (minor: number): string => formatMinor(minor, company.currency);
   const data = projection.data;
   const book = useLedgerSummary(linked).data ?? null;
+
+  function exportRunway(): void {
+    setProblem(null);
+    exportCsv.mutate({ scenarioId: activeId, months: horizon }, { onError: (e) => setProblem(e.message) });
+  }
 
   function newScenario(): void {
     const next: RunwayScenario = { id: crypto.randomUUID(), name: `Scenario ${others.length + 1}`, costMultiplierBp: 10000, revenueMultiplierBp: 10000, extraLines: [] };
@@ -133,6 +139,9 @@ export function RunwayView({
               ))}
             </select>
           </label>
+          <button type="button" disabled={exportCsv.isPending} onClick={exportRunway} className="h-8 rounded-md border border-border px-3 text-sm">
+            Export CSV
+          </button>
           <button type="button" onClick={() => setSheet({ line: null })} className="ml-auto h-8 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground">
             Add line
           </button>
