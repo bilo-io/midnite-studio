@@ -1,6 +1,8 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
+import { MIDNITE_SITE_ORIGIN, WEBSITE_SITE_ORIGIN } from '@midnite/studio-shared/install-command';
+
 /**
  * Where Midnite Studio is published and installed — the same constants
  * `apps/launcher/install.sh` uses, because the launcher's Install is
@@ -30,7 +32,13 @@ export function studioZipUrl(version: string): string {
 /** The Electron framework binary is ~150 MB; anything under 100 MB is a truncated copy (install.sh's guard). */
 export const MIN_FRAMEWORK_BYTES = 100 * 1024 * 1024;
 
-export const SITE_URL = 'https://midnite-apps.vercel.app';
+/** The website the launcher links to. */
+export const SITE_URL = WEBSITE_SITE_ORIGIN;
+/**
+ * Where the installer script is curled from: the Vercel host, which serves the same build
+ * as `SITE_URL` and stays up for the launchers already installed that curl it.
+ */
+export const INSTALLER_HOST = MIDNITE_SITE_ORIGIN;
 export const RELEASES_URL = `https://github.com/${RELEASES_REPO}/releases`;
 export const DOWNLOAD_URL = `${SITE_URL}/download/`;
 export const CHANGELOG_RAW_URL = `https://raw.githubusercontent.com/${RELEASES_REPO}/main/midnite-studio/CHANGELOG.md`;
@@ -40,6 +48,6 @@ export const ISSUES_URL = `https://github.com/${RELEASES_REPO}/issues/new/choose
 /** The launcher's own release feed — `midnite-launcher/version.json`, written per release beside Studio's. */
 export const LAUNCHER_VERSION_URL = `https://raw.githubusercontent.com/${RELEASES_REPO}/main/midnite-launcher/version.json`;
 /** The launcher installer the website serves (a verbatim copy of `midnite-launcher/install.sh`) — what Update re-runs. */
-export const LAUNCHER_INSTALL_URL = `${SITE_URL}/install.sh`;
+export const LAUNCHER_INSTALL_URL = `${INSTALLER_HOST}/install.sh`;
 /** Where `install.sh` puts the launcher (`$DEST/$APP`). */
 export const LAUNCHER_BUNDLE_PATH = join(INSTALL_DIR, 'Midnite Apps.app');

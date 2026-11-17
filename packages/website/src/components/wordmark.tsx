@@ -80,9 +80,16 @@ export const Wordmark = ({
       size this mark is set at. **It is a per-face number** — Kaushan Script,
       which this replaced, overshot by only 0.051em and wanted `0.08em`, so a
       future face swap re-measures rather than inheriting this value.
+
+      **`pb-[0.15em] -mb-[0.15em]` is the same headroom, downwards.** Under
+      `leading-none` the box ends 0.177em below the baseline (Damion's 1.374em
+      content area squeezed into a 1em line), but the "y" of "Midnyte" descends
+      0.290em, so 0.113em of its tail was clipped off. The padding grows the clip
+      box past it; the equal negative margin hands the space back so nothing
+      around the mark moves.
     */}
     <span
-      className={`inline-block text-[1.35em] tracking-wide pr-[0.15em] ${
+      className={`inline-block text-[1.35em] tracking-wide pr-[0.15em] pb-[0.15em] -mb-[0.15em] ${
         tone === 'rainbow' ? 'ws-rainbow-text ws-brand-glow' : ''
       } font-brand`}
     >

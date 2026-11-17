@@ -27,7 +27,7 @@ describe('<App>', () => {
 
   it('lists every app with Install while Studio is missing, and Coming soon for comingSoon apps', async () => {
     mount(null);
-    await waitFor(() => expect(screen.getAllByLabelText(/^Install Midnite /)).toHaveLength(installableApps.length));
+    await waitFor(() => expect(screen.getAllByLabelText(/^Install Midnyte /)).toHaveLength(installableApps.length));
     expect(within(screen.getByLabelText('Filter apps')).getByRole('button', { name: `All ${APPS.length}` })).toBeDefined();
     expect(screen.getAllByText('Runs in Studio')).toHaveLength(installableApps.length - 1);
     expect(screen.queryAllByRole('button', { name: 'Coming soon' })).toHaveLength(APPS.length - installableApps.length);
@@ -35,7 +35,7 @@ describe('<App>', () => {
 
   it('opens an app in Studio on its own view once Studio is installed', async () => {
     const { open } = mount('installed');
-    const button = await screen.findByLabelText('Open Midnite Agents');
+    const button = await screen.findByLabelText('Open Midnyte Agents');
     fireEvent.click(button);
     expect(open).toHaveBeenCalledWith('agents', undefined);
   });
@@ -50,15 +50,15 @@ describe('<App>', () => {
     bridge.apps.takePending = async () => 'agents';
     window.midniteLauncher = bridge as LauncherBridge;
     render(<App />);
-    expect(await screen.findByText(/Midnite Agents/, { selector: '[role="dialog"] *' })).toBeDefined();
+    expect(await screen.findByText(/Midnyte Agents/, { selector: '[role="dialog"] *' })).toBeDefined();
     act(() => show('money'));
-    expect(await screen.findByText(/Midnite Money/, { selector: '[role="dialog"] *' })).toBeDefined();
+    expect(await screen.findByText(/Midnyte Money/, { selector: '[role="dialog"] *' })).toBeDefined();
   });
 
   it('offers to update the launcher itself when its feed is newer, and always from the status bar', async () => {
     const { bridge } = mount('launcher-update');
     const update = vi.spyOn(bridge.self, 'update');
-    expect(await screen.findByText('Midnite Apps 0.0.2 is available.')).toBeDefined();
+    expect(await screen.findByText('Midnyte Apps 0.0.2 is available.')).toBeDefined();
     const buttons = screen.getAllByRole('button', { name: 'Update launcher' });
     expect(buttons).toHaveLength(2);
     fireEvent.click(buttons[0]!);
@@ -75,7 +75,7 @@ describe('<App>', () => {
     };
     window.midniteLauncher = bridge as LauncherBridge;
     render(<App />);
-    await screen.findByText('Midnite Apps 0.0.2 is available.');
+    await screen.findByText('Midnyte Apps 0.0.2 is available.');
     const [banner] = screen.getAllByRole('button', { name: 'Update launcher' });
     fireEvent.click(banner!);
     await waitFor(() => expect(screen.getAllByRole('button', { name: 'Updating…' })).toHaveLength(2));
@@ -86,26 +86,26 @@ describe('<App>', () => {
 
   it('shows no launcher banner when the launcher is current, but keeps the status-bar Update', async () => {
     mount('installed');
-    await screen.findByLabelText('Open Midnite Agents');
-    expect(screen.queryByText(/Midnite Apps .* is available/)).toBeNull();
+    await screen.findByLabelText('Open Midnyte Agents');
+    expect(screen.queryByText(/Midnyte Apps .* is available/)).toBeNull();
     const update = screen.getByRole('button', { name: 'Update launcher' });
     // The version sits beside its Update, without the redundant "Launcher" label.
     expect(update.parentElement?.textContent).toBe('v0.0.1Update launcher');
     expect(screen.queryByText(/Launcher 0\.0\.1/)).toBeNull();
-    expect(screen.queryByText('Midnite app suite')).toBeNull();
+    expect(screen.queryByText('Midnyte app suite')).toBeNull();
     expect(screen.queryByRole('button', { name: /GitHub/ })).toBeNull();
   });
 
   it('shows the update banner and the Updates filter count when Studio is behind', async () => {
     mount('update');
-    expect(await screen.findByText('Midnite Studio 0.4.1 is available.')).toBeDefined();
+    expect(await screen.findByText('Midnyte Studio 0.4.1 is available.')).toBeDefined();
     fireEvent.click(within(screen.getByLabelText('Filter apps')).getByRole('button', { name: `Updates ${installableApps.length}` }));
     expect(screen.getAllByRole('article')).toHaveLength(installableApps.length);
   });
 
   it('filters by search and says so when nothing matches', async () => {
     mount('installed');
-    await screen.findByLabelText('Open Midnite Gamer');
+    await screen.findByLabelText('Open Midnyte Gamer');
     fireEvent.change(screen.getByLabelText('Search apps'), { target: { value: 'terrain' } });
     expect(screen.getAllByRole('article')).toHaveLength(1);
     fireEvent.change(screen.getByLabelText('Search apps'), { target: { value: 'zzz' } });
@@ -114,11 +114,11 @@ describe('<App>', () => {
 
   it('opens a detail sheet whose features open Studio straight onto them', async () => {
     const { open } = mount('installed');
-    await screen.findByLabelText('Open Midnite Gamer');
-    const tile = screen.getAllByRole('article').find((a) => within(a).queryByLabelText('Open Midnite Gamer'))!;
+    await screen.findByLabelText('Open Midnyte Gamer');
+    const tile = screen.getAllByRole('article').find((a) => within(a).queryByLabelText('Open Midnyte Gamer'))!;
     fireEvent.click(within(tile).getByRole('button', { name: /Details/ }));
     const sheet = screen.getByRole('dialog');
-    expect(sheet.getAttribute('aria-label')).toBe('Midnite Gamer');
+    expect(sheet.getAttribute('aria-label')).toBe('Midnyte Gamer');
     expect(within(sheet).getByText('Vision')).toBeDefined();
     expect(await within(sheet).findByText('gamer fixture')).toBeDefined();
     fireEvent.click(within(sheet).getByRole('button', { name: 'Open Terrains' }));
@@ -129,21 +129,21 @@ describe('<App>', () => {
 
   it('shows module chips on a multi-module tile and none on a single-module one', async () => {
     mount('installed');
-    await screen.findByLabelText('Open Midnite Agents');
-    const agents = screen.getAllByRole('article').find((el) => within(el).queryByLabelText('Open Midnite Agents'))!;
-    expect(within(within(agents).getByLabelText('Midnite Agents modules')).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+    await screen.findByLabelText('Open Midnyte Agents');
+    const agents = screen.getAllByRole('article').find((el) => within(el).queryByLabelText('Open Midnyte Agents'))!;
+    expect(within(within(agents).getByLabelText('Midnyte Agents modules')).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
       'Agents',
       'Coder',
       'Creator',
     ]);
-    const browser = screen.getAllByRole('article').find((el) => within(el).queryByLabelText('Open Midnite Browser'))!;
-    expect(within(browser).queryByLabelText('Midnite Browser modules')).toBeNull();
+    const browser = screen.getAllByRole('article').find((el) => within(el).queryByLabelText('Open Midnyte Browser'))!;
+    expect(within(browser).queryByLabelText('Midnyte Browser modules')).toBeNull();
   });
 
   it('groups the detail sheet by module and opens a module on its own', async () => {
     const { open } = mount('installed');
-    await screen.findByLabelText('Open Midnite Vanguard');
-    const tile = screen.getAllByRole('article').find((el) => within(el).queryByLabelText('Open Midnite Vanguard'))!;
+    await screen.findByLabelText('Open Midnyte Vanguard');
+    const tile = screen.getAllByRole('article').find((el) => within(el).queryByLabelText('Open Midnyte Vanguard'))!;
     fireEvent.click(within(tile).getAllByRole('button', { name: /Details/ })[0]!);
     const sheet = screen.getByRole('dialog');
     for (const name of ['Vanguard', 'Vault', 'Cleaner', 'Monitor']) {
@@ -157,8 +157,8 @@ describe('<App>', () => {
 
   it('opens the Accountant module from the Money tile', async () => {
     const { open } = mount('installed');
-    await screen.findByLabelText('Open Midnite Money');
-    const tile = screen.getAllByRole('article').find((el) => within(el).queryByLabelText('Open Midnite Money'))!;
+    await screen.findByLabelText('Open Midnyte Money');
+    const tile = screen.getAllByRole('article').find((el) => within(el).queryByLabelText('Open Midnyte Money'))!;
     fireEvent.click(within(tile).getAllByRole('button', { name: /Details/ })[0]!);
     const sheet = screen.getByRole('dialog');
     expect(within(sheet).queryByText('Coming soon')).toBeNull();
@@ -169,7 +169,7 @@ describe('<App>', () => {
 
   it('switches to the table and remembers it', async () => {
     mount('installed');
-    await screen.findByLabelText('Open Midnite Agents');
+    await screen.findByLabelText('Open Midnyte Agents');
     fireEvent.click(within(screen.getByLabelText('Layout')).getByRole('button', { name: 'Table' }));
     expect(screen.getAllByRole('table')).toHaveLength(SECTION_ORDER.length);
     expect(localStorage.getItem('midnite-launcher.layout')).toBe('table');
@@ -178,9 +178,9 @@ describe('<App>', () => {
   it('asks before moving Studio to the Trash, naming what goes with it', async () => {
     const { bridge } = mount('installed');
     const uninstall = vi.spyOn(bridge.studio, 'uninstall');
-    await screen.findByLabelText('Open Midnite Agents');
-    fireEvent.click(screen.getByLabelText('More for Midnite Agents'));
-    fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: /Move Midnite Studio to Trash/ }));
+    await screen.findByLabelText('Open Midnyte Agents');
+    fireEvent.click(screen.getByLabelText('More for Midnyte Agents'));
+    fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: /Move Midnyte Studio to Trash/ }));
     const dialog = screen.getByRole('alertdialog');
     expect(within(dialog).getByText(`all ${APPS.length} of them go with it`, { exact: false })).toBeDefined();
     expect(uninstall).not.toHaveBeenCalled();
@@ -188,7 +188,7 @@ describe('<App>', () => {
       fireEvent.click(within(dialog).getByRole('button', { name: 'Move to Trash' }));
     });
     expect(uninstall).toHaveBeenCalled();
-    expect(await screen.findAllByLabelText(/^Install Midnite /)).toHaveLength(installableApps.length);
+    expect(await screen.findAllByLabelText(/^Install Midnyte /)).toHaveLength(installableApps.length);
   });
 
   it('renders coming-soon apps with disabled button, limited menu, and safe detail view', async () => {
@@ -197,8 +197,8 @@ describe('<App>', () => {
     flagged.comingSoon = true;
     try {
       mount('installed');
-      await screen.findByLabelText('Open Midnite Agents');
-      const healthTile = screen.getAllByRole('article').find((a) => within(a).queryByLabelText('More for Midnite Health'))!;
+      await screen.findByLabelText('Open Midnyte Agents');
+      const healthTile = screen.getAllByRole('article').find((a) => within(a).queryByLabelText('More for Midnyte Health'))!;
       expect(within(healthTile).getAllByText('Coming soon').length).toBeGreaterThanOrEqual(2);
       expect(within(healthTile).queryByText('Runs in Studio')).toBeNull();
       const comingSoonBtn = within(healthTile).getByRole('button', { name: 'Coming soon' });
@@ -206,7 +206,7 @@ describe('<App>', () => {
       expect(comingSoonBtn.getAttribute('aria-disabled')).toBe('true');
 
       // Menu only has About this app
-      fireEvent.click(within(healthTile).getByLabelText('More for Midnite Health'));
+      fireEvent.click(within(healthTile).getByLabelText('More for Midnyte Health'));
       const menuItems = within(screen.getByRole('menu')).getAllByRole('menuitem');
       expect(menuItems).toHaveLength(1);
       expect(menuItems[0]!.textContent).toBe('About this app');
@@ -214,14 +214,14 @@ describe('<App>', () => {
       // Details sheet
       fireEvent.click(menuItems[0]!);
       const sheet = screen.getByRole('dialog');
-      expect(sheet.getAttribute('aria-label')).toBe('Midnite Health');
+      expect(sheet.getAttribute('aria-label')).toBe('Midnyte Health');
       expect(within(sheet).getByText('Vision')).toBeDefined();
       // No What's new section for a coming-soon app
       expect(within(sheet).queryByLabelText('What’s new')).toBeNull();
       // No feature Open buttons
       expect(within(sheet).queryByRole('button', { name: /^Open / })).toBeNull();
       // No "runs in Studio" note
-      expect(within(sheet).queryByText(/runs inside Midnite Studio/)).toBeNull();
+      expect(within(sheet).queryByText(/runs inside Midnyte Studio/)).toBeNull();
       fireEvent.keyDown(document, { key: 'Escape' });
       expect(screen.queryByRole('dialog')).toBeNull();
     } finally {
@@ -232,7 +232,7 @@ describe('<App>', () => {
   it('switches theme from the top bar, remembers it, and tells main', async () => {
     const { bridge } = mount('installed');
     const setNative = vi.spyOn(bridge.theme, 'set');
-    await screen.findByLabelText('Open Midnite Agents');
+    await screen.findByLabelText('Open Midnyte Agents');
     const themes = screen.getByLabelText('Theme');
     expect(within(themes).getByLabelText('System theme').getAttribute('aria-pressed')).toBe('true');
 
@@ -257,9 +257,9 @@ describe('<App>', () => {
     const dialog = screen.getByRole('alertdialog');
     expect(within(dialog).getByText('Move all 3 apps to the Trash?')).toBeDefined();
     expect(within(dialog).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
-      'Midnite Gamer',
-      'Midnite Mind',
-      'Midnite Studio',
+      'Midnyte Gamer',
+      'Midnyte Mind',
+      'Midnyte Studio',
     ]);
     expect(removeBundle).not.toHaveBeenCalled();
     await act(async () => {
@@ -273,7 +273,7 @@ describe('<App>', () => {
 
   it('skips an app that refuses, keeps going, and says which and why', async () => {
     const { bridge } = mount('bundles');
-    vi.spyOn(bridge.studio, 'uninstall').mockResolvedValue({ ok: false, message: 'Midnite Studio is running — quit it first.' });
+    vi.spyOn(bridge.studio, 'uninstall').mockResolvedValue({ ok: false, message: 'Midnyte Studio is running — quit it first.' });
     const button = screen.getByRole('button', { name: 'Move all apps to Trash…' });
     await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
     fireEvent.click(button);
@@ -282,25 +282,25 @@ describe('<App>', () => {
     });
     const toast = await screen.findByRole('alert');
     expect(toast.textContent).toContain('Moved 2 of 3 apps to the Trash.');
-    expect(toast.textContent).toContain('Midnite Studio: Midnite Studio is running — quit it first.');
+    expect(toast.textContent).toContain('Midnyte Studio: Midnyte Studio is running — quit it first.');
   });
 
   it('offers nothing to remove while no app is installed', async () => {
     mount(null);
-    await screen.findAllByLabelText(/^Install Midnite /);
+    await screen.findAllByLabelText(/^Install Midnyte /);
     expect(screen.getByRole('button', { name: 'Move all apps to Trash…' }).hasAttribute('disabled')).toBe(true);
   });
 
   it('opens Release notes on the app it was picked on, and the launcher\'s notes from the footer version', async () => {
     const { bridge } = mount('installed');
     const latest = vi.spyOn(bridge.changelog, 'latest');
-    fireEvent.click(await screen.findByLabelText('More for Midnite Agents'));
+    fireEvent.click(await screen.findByLabelText('More for Midnyte Agents'));
     fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: 'Release notes' }));
-    expect(await screen.findByRole('heading', { name: 'What’s new in Midnite Agents' })).toBeDefined();
+    expect(await screen.findByRole('heading', { name: 'What’s new in Midnyte Agents' })).toBeDefined();
     expect(latest).toHaveBeenCalledWith('agents');
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-    fireEvent.click(screen.getByTitle('Midnite Apps release notes'));
-    expect(await screen.findByRole('heading', { name: 'What’s new in Midnite Apps' })).toBeDefined();
+    fireEvent.click(screen.getByTitle('Midnyte Apps release notes'));
+    expect(await screen.findByRole('heading', { name: 'What’s new in Midnyte Apps' })).toBeDefined();
     expect(latest).toHaveBeenCalledWith('launcher');
   });
 });
