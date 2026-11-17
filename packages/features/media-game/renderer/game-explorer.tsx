@@ -198,7 +198,11 @@ function GameRow({
           onBlur={() => {
             if (!settled.current) onRenameDone(null);
           }}
-          onFocus={(event) => event.currentTarget.select()}
+          onFocus={(event) => {
+            // The row stays mounted between renames, so a fresh edit starts unsettled.
+            settled.current = false;
+            event.currentTarget.select();
+          }}
           className="w-full rounded border border-border bg-background px-1.5 py-1 text-xs"
         />
       </li>
