@@ -20,6 +20,9 @@ export function csvField(value: string): string {
   return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }
 
+/** A text cell a spreadsheet could read as a formula gets a leading apostrophe (OWASP); amounts never go through here. */
+export const textCell = (value: string): string => (/^[=+\-@\t\r]/.test(value) ? `'${value}` : value);
+
 const csvRow = (cells: readonly string[]): string => cells.map(csvField).join(',') + EOL;
 
 /** Decimal major units from minor units (`1234` USD -> `12.34`, JPY has no decimals). */
@@ -39,9 +42,9 @@ export function fleetProjectionCsv(p: FleetProjection, result: FleetProjectionRe
   for (const n of p.nodes) {
     const f = result.perNode[n.id] ?? { capex: 0, opex: 0, revenue: 0, net: 0 };
     out += csvRow([
-      n.name,
-      catalog.hardware.find((h) => h.id === n.hardwareId)?.label ?? `Missing (${n.hardwareId})`,
-      catalog.apiTiers.find((t) => t.id === n.apiTierId)?.label ?? `Missing (${n.apiTierId})`,
+      textCell(n.name),
+      textCell(catalog.hardware.find((h) => h.id === n.hardwareId)?.label ?? `Missing (${n.hardwareId})`),
+      textCell(catalog.apiTiers.find((t) => t.id === n.apiTierId)?.label ?? `Missing (${n.apiTierId})`),
       String(n.quantity),
       String(n.utilisationPct),
       m(n.pricePerHourMinor),

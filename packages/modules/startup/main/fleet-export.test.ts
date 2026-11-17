@@ -39,6 +39,12 @@ describe('fleetProjectionCsv', () => {
   it('quotes a node named Node, "A"', () => {
     expect(csv(projection('Node, "A"'))).toContain('"Node, ""A""",Dual RTX 4090 server');
   });
+  it('neutralises formula-looking text cells but leaves amounts raw', () => {
+    expect(csv(projection('=HYPERLINK("x")'))).toContain(`"'=HYPERLINK(""x"")",Dual RTX 4090 server`);
+    expect(csv(projection('-foo'))).toContain("'-foo,Dual RTX 4090 server");
+    expect(csv(projection()).slice(1).split('\r\n')[1]).toContain(',-12727.80');
+    expect(majorUnits(-12300, 'USD')).toBe('-123.00');
+  });
   it('JPY has no decimals', () => {
     expect(majorUnits(1234, 'JPY')).toBe('1234');
     expect(majorUnits(1234, 'USD')).toBe('12.34');
