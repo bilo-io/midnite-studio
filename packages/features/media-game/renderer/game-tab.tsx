@@ -31,7 +31,7 @@ const noEvents = (): void => undefined;
  *   selected game's details over the create-and-iterate agent panel (Theme M).
  */
 export function GameTab() {
-  const { MediaLayout, useMediaOpenFor, clearMediaOpenRequest } = useMediaKit();
+  const { MediaLayout, MediaPaneToggles, useMediaOpenFor, clearMediaOpenRequest } = useMediaKit();
   const { agent } = useGameHost();
   useGameEvents();
   (agent?.useEvents ?? noEvents)();
@@ -74,6 +74,7 @@ export function GameTab() {
       explorerLabel="Games"
       detailLabel="Game details"
       detailName="details"
+      floatingToggles={false}
       toolbar={
         <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
           <span className="min-w-0 truncate text-left text-xs font-semibold" title={selected?.name}>
@@ -98,6 +99,8 @@ export function GameTab() {
           onMode={(next) => selected && setMode(selected.gameId, next)}
           resolution={resolution}
           sceneSlot={<ScenePicker gameId={selected?.gameId ?? null} />}
+          leading={<MediaPaneToggles tab="game" hasDetail side="start" explorerName="games" />}
+          trailing={<MediaPaneToggles tab="game" hasDetail side="end" detailName="details" />}
         />
       }
       detail={
