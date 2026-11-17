@@ -65,13 +65,13 @@ _Any game can say what it is, any game can be told what it is missing, and any g
 Planned 2026-11-17. Build order: **A** and **B** first, in parallel. Then **C** and **I** in parallel. Then **D**,
 **E** and **F**. Then **G**, then **H**.
 
-**Theme A — The Midnite game standard.** ◻ `docs/GAME_STANDARD.md`: the contract, one rule per section, each with a
+**Theme A — The Midnite game standard.** ✅ `docs/GAME_STANDARD.md`: the contract, one rule per section, each with a
 stable rule id (`manifest.*`, `entry.*`, `kit.*`, `levels.*`, `assets.*`), a level (`error` / `warn` / `info`), what it
-unlocks and how to fix it. The same ids are exported from `shared` so the doc, the doctor and the skill cannot drift.
+unlocks and how to fix it. The same ids are exported from `shared` (`game-standard.ts`: `GAME_RULE_IDS`, `GAME_RULES`, `GameFixIdSchema`) and `game-standard.test.ts` fails if the doc's rule table drifts. The `midnite-media-game-build` skill links it from all seven copies.
 
-**Theme B — Manifest schema additions.** ◻ An optional `build: { command, out }`, `shmup` and other genres added to
+**Theme B — Manifest schema additions.** ✅ An optional `build: { command, out }`, `shmup` and other genres added to
 `GAME_GENRES`, `genre: null` documented as "custom", and `vendored: true` accepted as a legacy shape and normalised to
-`{}`, with a doctor finding to replace it.
+`{}`, with a doctor finding to replace it. Landed: five genres appended, `GENRES_WITH_STARTER`/`hasStarter` (the template matrix is keyed by `StarterGenre`; the wizard filters by it), `rawManifestHasLegacyVendored`, and `build` with a no-`..` refine.
 
 **Theme C — The game doctor.** ◻ `game-doctor.ts` in main: `diagnoseGame(path) → GameDiagnosis` (findings, a
 per-area score, a summary), behind `mstudio:games:doctor` and the read-only `game_doctor` MCP tool. Each finding names
@@ -118,7 +118,7 @@ today.
 
 ### A — The Midnite game standard [S · 1-2h]
 
-- [ ] Net-new `docs/GAME_STANDARD.md`, linked from `docs/APPS.md` and from the `midnite-media-game-build` skill's
+- [x] Net-new `docs/GAME_STANDARD.md`, linked from `docs/APPS.md` and from the `midnite-media-game-build` skill's
       opening paragraph. Sections, in order:
   1. **What a Midnite game is**: its own git repo, with `midnite-game.json` at the root.
   2. **Manifest**: required fields, the engine/dimension/perspective/genre enums, `vendored` as an object, `entry`,
@@ -131,7 +131,7 @@ today.
      skill's migration recipe.
   6. **Assets**: `assets/<kind>/…`, each listed in `manifest.assets` with `sha256`.
   7. **Rule table**: every rule id, level, one-line check, and fix (the table generated in the next item must match).
-- [ ] Net-new `packages/shared/src/game-standard.ts`, re-exported from the `shared` barrel:
+- [x] Net-new `packages/shared/src/game-standard.ts`, re-exported from the `shared` barrel:
   - `GAME_RULE_IDS` (as const) — exactly:
     `manifest.missing`, `manifest.invalid-json`, `manifest.schema` (one finding per schema issue),
     `manifest.vendored-legacy`, `manifest.genre-unknown`,
@@ -144,23 +144,23 @@ today.
     string; unlocks: string; fix: string }>`. `unlocks` names the feature that needs the rule: "Run", "Level editor",
     "Scene jump", "Asset resync", and so on.
   - `GameFixIdSchema = z.enum(['write-manifest','normalise-vendored','set-genre','add-build','declare-levels','upgrade-kit'])`.
-- [ ] `game-standard.test.ts`: every id has a `GAME_RULES` entry; every rule id appears in `docs/GAME_STANDARD.md`'s
+- [x] `game-standard.test.ts`: every id has a `GAME_RULES` entry; every rule id appears in `docs/GAME_STANDARD.md`'s
       rule table (read the file with `fs`, as the skills-copies test does).
 
 ### B — Manifest schema additions [M · 2-3h]
 
-- [ ] `GAME_GENRES` gains `shmup`, `platformer-action`, `racing`, `puzzle` and `arcade`. Append them; never reorder.
+- [x] `GAME_GENRES` gains `shmup`, `platformer-action`, `racing`, `puzzle` and `arcade`. Append them; never reorder.
       The wizard's genre list (`game-wizard-model.ts`) does **not** show them until a starter exists. Filter it by
       `GENRES_WITH_STARTER`, a new const beside `GAME_GENRES`.
-- [ ] `GameManifestSchema.genre` stays `GameGenreSchema.nullable()`. JSDoc: `null` means custom, so no genre template
+- [x] `GameManifestSchema.genre` stays `GameGenreSchema.nullable()`. JSDoc: `null` means custom, so no genre template
       applies.
-- [ ] `vendored`: `z.union([z.literal(true).transform(() => ({})), <existing object>]).prefault({})`. Parsing
+- [x] `vendored`: `z.union([z.literal(true).transform(() => ({})), <existing object>]).prefault({})`. Parsing
       Starbreaker's manifest succeeds, and `rawManifestHasLegacyVendored(raw: unknown): boolean` (exported) lets the
       doctor raise `manifest.vendored-legacy`.
-- [ ] Optional `build: z.object({ command: z.string().min(1).max(500), out: z.string().min(1).regex(/^[^/][^\0]*$/,
+- [x] Optional `build: z.object({ command: z.string().min(1).max(500), out: z.string().min(1).regex(/^[^/][^\0]*$/,
       'must be relative') }).optional()`. `out` must not contain `..` segments (a `refine`), so it resolves inside the
       game.
-- [ ] `media-game.test.ts` cases: Starbreaker's literal manifest parses, a `shmup` genre parses, `build.out` of
+- [x] `media-game.test.ts` cases: Starbreaker's literal manifest parses, a `shmup` genre parses, `build.out` of
       `../x` or `/abs` is refused, and an unknown genre still fails with its path `genre`.
 
 ### C — The game doctor [M · 3-4h]
