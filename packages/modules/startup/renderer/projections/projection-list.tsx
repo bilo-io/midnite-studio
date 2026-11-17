@@ -73,7 +73,9 @@ function Row({ projection, selected, renaming, readOnly, onSelect, onStartRename
       settled.current = false;
       setValue(projection.name);
     }
-  }, [renaming, projection.name]);
+    // Only entering rename seeds the input; a name change mid-edit must not wipe what was typed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [renaming]);
   return (
     <li
       role="option"
