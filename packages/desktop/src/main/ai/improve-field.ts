@@ -27,10 +27,8 @@ import { runOllamaPrompt, type OllamaHeadlessDeps } from './ollama-headless';
  * flag inserted ahead of the prompt — a rewrite is exactly the short,
  * disposable call that should not spend a flagship model's price on it.
  *
- * `resolveHeadlessAgent` is imported from `companion/ask.ts` rather than
- * reimplemented — the "preferred id first, then anything on the roster with
- * a known print mode" walk is identical for both callers, and a second copy
- * would drift the moment one of them changed it.
+ * The headless-agent walk (`resolveHeadlessAgent`, from `shared`) now runs inside the runtime's
+ * `runHeadlessText`, so every caller shares one copy.
  */
 
 /** Same ceiling `askCompanion` uses (`COMPANION_ASK_TIMEOUT_MS`) — a wand
