@@ -33,6 +33,9 @@ export const MIN_FRAMEWORK_BYTES = 100 * 1024 * 1024;
 export const SITE_URL = 'https://midnite-apps.vercel.app';
 export const RELEASES_URL = `https://github.com/${RELEASES_REPO}/releases`;
 export const DOWNLOAD_URL = `${SITE_URL}/download/`;
+export const CHANGELOG_RAW_URL = `https://raw.githubusercontent.com/${RELEASES_REPO}/main/midnite-studio/CHANGELOG.md`;
+export const CHANGELOG_PAGE_URL = `https://github.com/${RELEASES_REPO}/blob/main/midnite-studio/CHANGELOG.md`;
+export const ISSUES_URL = `https://github.com/${RELEASES_REPO}/issues/new/choose`;
 
 /** The launcher's own release feed — `midnite-launcher/version.json`, written per release beside Studio's. */
 export const LAUNCHER_VERSION_URL = `https://raw.githubusercontent.com/${RELEASES_REPO}/main/midnite-launcher/version.json`;

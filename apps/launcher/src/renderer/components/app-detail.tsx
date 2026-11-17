@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
 import type { IconType } from 'react-icons';
-import { LuArrowUpRight, LuX } from 'react-icons/lu';
+import { LuArrowUpRight, LuHistory, LuX } from 'react-icons/lu';
 
 import { FRAME_PARTS, MODULE_FEATURE_PREFIX, type AppFeature, type LauncherApp, type LegacyBundleAppId } from '../../common/catalog';
+import type { ChangelogItem } from '../../common/changelog';
 import { joinNames, replacesLine, swapOffer } from '../../common/migration';
 import { getBridge } from '../bridge';
 import { MODULE_GLYPHS } from '../app-glyphs';
@@ -52,12 +53,20 @@ export function AppDetail({
   app,
   view,
   handlers,
+  changelogSummary,
+  onViewInChangelog,
   onRemoveReplaced,
   onClose,
 }: {
   app: LauncherApp;
   view: AppView;
   handlers: ActionHandlers;
+  changelogSummary?: {
+    latestVersion: string | null;
+    latestItems: ChangelogItem[];
+    totalItems: number;
+  };
+  onViewInChangelog?: (appId: LauncherApp['id']) => void;
   /** Moves a retired app's old bundle to the Trash (offered once this host is installed). */
   onRemoveReplaced?: (id: LegacyBundleAppId) => void;
   onClose: () => void;
@@ -185,6 +194,43 @@ export function AppDetail({
             </ul>
           </section>
         ))}
+
+        {changelogSummary && changelogSummary.totalItems > 0 && (
+          <section className="sheet-section sheet-changelog" aria-label="Recent updates">
+            <div className="module-head">
+              <h3 className="eyebrow">
+                <LuHistory size={13} aria-hidden="true" />
+                {app.id === 'studio' ? 'Suite Changelog' : "What's New"}
+                {changelogSummary.latestVersion && (
+                  <span className="changelog-version-tag">v{changelogSummary.latestVersion}</span>
+                )}
+              </h3>
+              {onViewInChangelog && (
+                <button
+                  type="button"
+                  className="link"
+                  onClick={() => onViewInChangelog(app.id)}
+                  aria-label={`View ${app.name} in changelog`}
+                >
+                  View in Changelog ({changelogSummary.totalItems}) <LuArrowUpRight size={12} aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            <ul className="changelog-sheet-list">
+              {changelogSummary.latestItems.map((item) => (
+                <li key={item.id} className="changelog-sheet-item">
+                  <span className={`changelog-pill pill-${item.category.toLowerCase()}`}>
+                    {item.category}
+                  </span>
+                  <div className="changelog-sheet-item-body">
+                    <span className="changelog-sheet-item-title">{item.title}</span>
+                    {item.body && <span className="changelog-sheet-item-text">{item.body}</span>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         <section className="sheet-section">
           <h3 className="eyebrow">Built on the Midnite frame</h3>

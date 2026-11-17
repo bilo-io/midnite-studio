@@ -1,12 +1,15 @@
+import { readFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { ipcMain, nativeTheme, shell, type BrowserWindow } from 'electron';
 import { changelogPageUrl } from '@midnite/studio-shared/release';
 import { z } from 'zod';
 
 import { EXTERNAL_LINKS, LAUNCHER_CHANNELS, THEME_SOURCES, type LauncherPrivacy, type LauncherResult, type LauncherSelfStatus } from '../common/bridge';
 import { APP_IDS, type AppId } from '../common/catalog';
+import { parseChangelog, type ChangelogPayload } from '../common/changelog';
 import type { createAppsOps } from './bundles/apps-ops';
-import { DOWNLOAD_URL, RELEASES_URL, SITE_URL } from './constants';
 import { ChangelogRequestSchema, answerChangelogLatest } from './changelog';
+import { CHANGELOG_PAGE_URL, CHANGELOG_RAW_URL, DOWNLOAD_URL, ISSUES_URL, RELEASES_URL, SITE_URL } from './constants';
 import { fetchStudioRelease } from './feed';
 import { installStudio } from './install';
 import { LauncherPrivacySchema } from './privacy';
@@ -164,8 +167,63 @@ export function registerIpc(getWindow: () => BrowserWindow | null, apps: AppsIpc
       case 'notes':
         url = (await fetchStudioRelease()).release?.notesUrl ?? RELEASES_URL;
         break;
+      case 'changelog':
+        url = CHANGELOG_PAGE_URL;
+        break;
+      case 'issues':
+        url = ISSUES_URL;
+        break;
     }
     await shell.openExternal(url);
     return { ok: true };
+  });
+
+  ipcMain.handle(LAUNCHER_CHANNELS.changelogGet, async (): Promise<ChangelogPayload> => {
+    // 1. Try local CHANGELOG.md files on disk (dev / monorepo / bundled)
+    const candidatePaths = [
+      resolve(__dirname, '../../../../CHANGELOG.md'),
+      resolve(__dirname, '../../../CHANGELOG.md'),
+      resolve(process.cwd(), '../../CHANGELOG.md'),
+      resolve(process.cwd(), 'CHANGELOG.md'),
+    ];
+    let md: string | null = null;
+    for (const p of candidatePaths) {
+      try {
+        const text = await readFile(p, 'utf8');
+        if (text && text.trim().length > 0) {
+          md = text;
+          break;
+        }
+      } catch {
+        // continue
+      }
+    }
+
+    // 2. Fallback to network fetch if local not found or empty
+    if (!md) {
+      try {
+        const res = await fetch(CHANGELOG_RAW_URL, { signal: AbortSignal.timeout(6000) });
+        if (res.ok) {
+          md = await res.text();
+        }
+      } catch {
+        // network fetch failed
+      }
+    }
+
+    if (!md) {
+      return { releases: [], rawMarkdown: '', error: 'Could not load changelog.' };
+    }
+
+    try {
+      const releases = parseChangelog(md);
+      return { releases, rawMarkdown: md, error: null };
+    } catch (err) {
+      return {
+        releases: [],
+        rawMarkdown: md,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
   });
 }

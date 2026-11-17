@@ -120,6 +120,36 @@ export function createMockBridge(mode: string | null): LauncherBridge {
         error: null,
       }),
       openFull: ok,
+      get: async () => ({
+        releases: [
+          {
+            version: '0.0.6',
+            date: '2026-10-31',
+            items: [
+              {
+                id: '0.0.6-Added-0',
+                version: '0.0.6',
+                category: 'Added',
+                title: 'Vanguard: Fleet policy dashboard',
+                body: 'Interactive fleet overview and enforcement.',
+                raw: '- **Vanguard**: Fleet policy dashboard.',
+                appIds: ['vanguard', 'studio'],
+              },
+              {
+                id: '0.0.6-Added-1',
+                version: '0.0.6',
+                category: 'Added',
+                title: 'Agents: Subagent fan-out orchestration',
+                body: 'Autonomous delegation across agent swarms.',
+                raw: '- **Agents**: Subagent fan-out orchestration.',
+                appIds: ['agents', 'studio'],
+              },
+            ],
+          },
+        ],
+        rawMarkdown: '## [0.0.6] - 2026-10-31\n\n### Added\n- **Vanguard**: Fleet policy dashboard.\n- **Agents**: Subagent fan-out orchestration.',
+        error: null,
+      }),
     },
     privacy: (() => {
       let privacy = { allAutomaticOff: false, switches: { 'launcher-updates': true, 'launcher-catalog': true } };
