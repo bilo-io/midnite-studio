@@ -4,7 +4,10 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { MCP_TOOLS, MCP_TOOL_IDS, VIEW_IDS } from '@midnite/studio-shared';
+import { isStartupMcpToolId, MCP_TOOLS, MCP_TOOL_IDS as ALL_MCP_TOOL_IDS, VIEW_IDS } from '@midnite/studio-shared';
+
+/** What Studio's own list carries: Startup's tools come from Startup's socket (Phase 153 Theme C), so they are never in it. */
+const MCP_TOOL_IDS = ALL_MCP_TOOL_IDS.filter((id) => !isStartupMcpToolId(id));
 import { z } from 'zod';
 
 import { startFakeApp } from './suite-test-helpers';
@@ -356,5 +359,26 @@ describe('mcp stdio shim — suite joining (Phase 153 Theme B)', () => {
       await rm(home, { recursive: true, force: true });
     }
   }, 20_000);
-});
 
+  it('lists startup_* only while Startup runs, and routes them to its socket (Phase 153 Theme C)', async () => {
+    const home = await shortHome();
+    const base = join(home, 'Library', 'Application Support');
+    const startup = await startFakeApp(base, 'startup', ['startup_summary']);
+    try {
+      const call = { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'startup_summary', arguments: {} } };
+      const listed = await runShim([...handshake, { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }, call], { homeDir: home });
+      const names = ((listed.parsed.find((m) => m.id === 2)?.result as { tools: { name: string }[] }).tools).map((t) => t.name);
+      expect(names.filter((n) => n.startsWith('startup_'))).toEqual(['startup_summary']);
+      const text = (listed.parsed.find((m) => m.id === 3)?.result as { content: Array<{ text: string }> }).content[0]?.text;
+      expect(JSON.parse(text ?? '{}')).toMatchObject({ from: 'startup', tool: 'startup_summary' });
+
+      await startup.close();
+      const gone = await runShim([...handshake, { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }], { homeDir: home });
+      const none = ((gone.parsed.find((m) => m.id === 2)?.result as { tools: { name: string }[] }).tools).filter((t) => t.name.startsWith('startup_'));
+      expect(none).toEqual([]);
+    } finally {
+      await startup.close();
+      await rm(home, { recursive: true, force: true });
+    }
+  }, 20_000);
+});

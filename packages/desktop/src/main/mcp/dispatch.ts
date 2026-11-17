@@ -1,4 +1,4 @@
-import { isMcpToolId, MCP_TOOLS, type McpToolId } from '@midnite/studio-shared';
+import { isMcpToolId, MCP_TOOLS, STARTUP_OPEN_APP_MESSAGE, type McpToolId } from '@midnite/studio-shared';
 import { z } from 'zod';
 
 import {
@@ -141,6 +141,8 @@ import {
 import { mapCaptureTerrain, mapGoto, mapList, mapMeasure } from './map-tools';
 import { sfxGenerate, sfxStatus } from './sfx-tools';
 import { musicAddCc, musicAddNotes, musicAddPitchbends, musicAddTrack, musicGetInfo, musicGetNotes, musicGetTrack, musicGetTracks, musicList, musicOpen, musicRemoveNotes, musicRenderPreview, musicSave, musicSetTempo } from './music-tools';
+
+const startupElsewhere = async (): Promise<unknown> => ({ error: STARTUP_OPEN_APP_MESSAGE });
 
 /**
  * `MCP_HANDLERS` — a mapped type over the registry, so a tool added to
@@ -293,6 +295,16 @@ export const MCP_HANDLERS: {
   companion_agent_get: companionAgentGet,
   companion_agent_set: companionAgentSet,
   companion_models_list: companionModelsList,
+  // Startup's tools are served from Startup's own socket and the shim routes them there; this map is exhaustive,
+  // so Studio answers the same words if one ever lands here (Phase 153 Theme C).
+  startup_summary: startupElsewhere,
+  startup_runway: startupElsewhere,
+  startup_milestones: startupElsewhere,
+  startup_projections: startupElsewhere,
+  startup_projection: startupElsewhere,
+  startup_upsert_milestone: startupElsewhere,
+  startup_upsert_projection: startupElsewhere,
+  startup_send_projection_to_runway: startupElsewhere,
 };
 
 export type McpDispatchResult =

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
 
-import { CHANNELS } from '@midnite/studio-shared';
+import { CHANNELS, StartupRequestSchema } from '@midnite/studio-shared';
 
 import { createStartupBridge, type RendererIpc } from './bridge';
 
@@ -38,6 +38,6 @@ describe('createStartupBridge', () => {
 
   it('names an op method for every op of the request union', () => {
     const { startup } = createStartupBridge(fakeIpc());
-    expect(Object.keys(startup).filter((k) => k !== 'onChanged').length).toBe(33);
+    expect(Object.keys(startup).filter((k) => k !== 'onChanged').sort()).toEqual(StartupRequestSchema.options.map((o) => o.shape.op.value).sort());
   });
 });

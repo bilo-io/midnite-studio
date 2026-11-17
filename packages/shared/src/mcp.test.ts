@@ -107,6 +107,9 @@ describe('MCP_TOOLS', () => {
     'companion_profile_switch',
     'companion_profile_delete',
     'companion_agent_set',
+    'startup_upsert_milestone',
+    'startup_upsert_projection',
+    'startup_send_projection_to_runway',
   ]);
 
   it('every entry has the readOnly flag its own kind calls for', () => {
@@ -357,6 +360,22 @@ describe('MCP_TOOLS', () => {
     companion_agent_get: { primaryAgent: 'claude', model: null, agents: [], locked: false },
     companion_agent_set: { status: 'applied', next: { agentId: 'codex', modelId: null } },
     companion_models_list: { agentId: 'claude', models: [], selected: null },
+    startup_summary: { company: null, currency: 'USD', cash: null, burn: null, runwayMonths: null, defaultAlive: null,
+      counts: { milestones: 0, projections: 0, scenarios: 0, customers: 0, invoices: 0, vendors: 0, contracts: 0 }, readOnly: false },
+    startup_runway: { currency: 'USD', scenarioId: 'base', months: [{ month: '2026-12', revenue: { minor: 0, currency: 'USD', formatted: '$0' }, cost: { minor: 0, currency: 'USD', formatted: '$0' }, net: { minor: 0, currency: 'USD', formatted: '$0' }, cash: { minor: 0, currency: 'USD', formatted: '$0' } }], burn: { minor: 0, currency: 'USD', formatted: '$0' }, runwayMonths: null, zeroCashMonth: null, defaultAlive: true },
+    startup_milestones: { milestones: [] },
+    startup_projections: { currency: 'USD', projections: [] },
+    startup_projection: {
+      currency: 'USD', month0: { capex: { minor: 0, currency: 'USD', formatted: '$0' }, opexMonthly: { minor: 0, currency: 'USD', formatted: '$0' }, revenueMonthly: { minor: 0, currency: 'USD', formatted: '$0' }, netMarginMonthly: { minor: 0, currency: 'USD', formatted: '$0' }, paybackMonths: null }, series: [], missing: [],
+      projection: {
+        id: '11111111-1111-4111-8111-111111111111', name: 'p', createdAt: '2026-11-18T00:00:00.000Z', updatedAt: '2026-11-18T00:00:00.000Z', nodes: [],
+        globals: { electricityRateMinor: 1, scalePct: 100, demandGrowthPct: 0, horizonMonths: 12, energyScalesWithUtilisation: false },
+        template: { hardwareId: 'h', apiTierId: 't', quantity: 1, pricePerHourMinor: 1, utilisationPct: 50 },
+      },
+    },
+    startup_upsert_milestone: { revision: 1 },
+    startup_upsert_projection: { revision: 1 },
+    startup_send_projection_to_runway: { revision: 1, planLines: 4 },
   };
 
   it('every output schema parses a minimal well-formed value', () => {
@@ -502,6 +521,15 @@ describe('MCP_TOOLS', () => {
       map_get: { ...base, group: 'maps', asset: 'isle-20261004-120000' },
       map_patch: { ...base, group: 'maps', asset: 'isle-20261004-120000', ops: [{ op: 'set', x: 1, y: 1, terrain: 'water' }, { op: 'refill' }] },
       sprite_export: { ...base, group: 'maps', asset: 'isle-20261004-120000', dest: 'game/assets' },
+      // Startup's tools are not repo-scoped (Phase 153 Theme C).
+      startup_projection: { id: '11111111-1111-4111-8111-111111111111' },
+      startup_upsert_milestone: { id: '11111111-1111-4111-8111-111111111111', title: 'Launch', status: 'planned', due: '2026-12-01', dependsOn: [] },
+      startup_upsert_projection: {
+        id: '11111111-1111-4111-8111-111111111111', name: 'p', createdAt: '2026-11-18T00:00:00.000Z', updatedAt: '2026-11-18T00:00:00.000Z', nodes: [],
+        globals: { electricityRateMinor: 1, scalePct: 100, demandGrowthPct: 0, horizonMonths: 12 },
+        template: { hardwareId: 'h', apiTierId: 't', quantity: 1, pricePerHourMinor: 1, utilisationPct: 50 },
+      },
+      startup_send_projection_to_runway: { projectionId: '11111111-1111-4111-8111-111111111111', start: '2026-12' },
     };
     for (const id of MCP_TOOL_IDS) {
       const input = perTool[id] ?? base;

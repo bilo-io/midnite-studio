@@ -203,6 +203,22 @@ import {
   MusicSetTempoInputSchema,
 } from './media-music-mcp';
 import type { ContentProvenance } from './provenance';
+import {
+  StartupMilestonesInputSchema,
+  StartupMilestonesResultSchema,
+  StartupProjectionInputSchema,
+  StartupProjectionResultSchema,
+  StartupProjectionsInputSchema,
+  StartupProjectionsResultSchema,
+  StartupRunwayInputSchema,
+  StartupRunwayResultSchema,
+  StartupSendProjectionInputSchema,
+  StartupSummaryInputSchema,
+  StartupSummaryResultSchema,
+  StartupUpsertMilestoneInputSchema,
+  StartupUpsertProjectionInputSchema,
+  StartupWriteResultSchema,
+} from './startup-mcp';
 import { WorkflowGateDecisionSchema } from './workflow';
 
 /**
@@ -383,7 +399,15 @@ type McpToolEntry = {
     | 'companion_profile_delete'
     | 'companion_agent_get'
     | 'companion_agent_set'
-    | 'companion_models_list';
+    | 'companion_models_list'
+    | 'startup_summary'
+    | 'startup_runway'
+    | 'startup_milestones'
+    | 'startup_projections'
+    | 'startup_projection'
+    | 'startup_upsert_milestone'
+    | 'startup_upsert_projection'
+    | 'startup_send_projection_to_runway';
   title: string;
   /**
    * The text a model actually reads to decide whether to call this tool.
@@ -1861,6 +1885,84 @@ export const MCP_TOOLS = {
     input: CompanionModelsListInputSchema,
     output: CompanionModelsListOutputSchema,
     readOnly: true,
+  },
+  /*
+   * Midnite Startup (Phase 153 Theme C). Served from Startup's own socket, so they are listed only while
+   * Startup runs and only after Startup ▸ Settings ▸ Agents says yes (reads first, then changes). The three
+   * writes change a milestone, a fleet projection or the plan's lines — never an invoice or the ledger.
+   * Schemas: `startup-mcp.ts`.
+   */
+  startup_summary: {
+    id: 'startup_summary',
+    title: 'Summarise the company and its runway',
+    description:
+      'Summarises the company, cash, burn, runway months, default-alive flag and record counts from Midnite Startup — use instead of reading `startup.json` by hand; read-only.',
+    input: StartupSummaryInputSchema,
+    output: StartupSummaryResultSchema,
+    readOnly: true,
+  },
+  startup_runway: {
+    id: 'startup_runway',
+    title: 'Project the runway',
+    description:
+      'Projects cash month by month for a scenario over 12, 24 or 36 months — use instead of a hand-built `spreadsheet` of burn; money comes as minor units, currency and text; read-only.',
+    input: StartupRunwayInputSchema,
+    output: StartupRunwayResultSchema,
+    readOnly: true,
+  },
+  startup_milestones: {
+    id: 'startup_milestones',
+    title: 'List roadmap milestones',
+    description:
+      'Lists the roadmap milestones with their status, due date and dependencies, optionally by status — use instead of reading `ROADMAP.md`; read-only.',
+    input: StartupMilestonesInputSchema,
+    output: StartupMilestonesResultSchema,
+    readOnly: true,
+  },
+  startup_projections: {
+    id: 'startup_projections',
+    title: 'List fleet projections',
+    description:
+      'Lists the fleet projections with their month-0 capex, running cost, revenue, margin and payback — use instead of recomputing a `fleet` model by hand; read-only.',
+    input: StartupProjectionsInputSchema,
+    output: StartupProjectionsResultSchema,
+    readOnly: true,
+  },
+  startup_projection: {
+    id: 'startup_projection',
+    title: 'Get one fleet projection',
+    description:
+      'Gets one fleet projection with its nodes, globals and full month-by-month result — use after `startup_projections` to read a single model; read-only.',
+    input: StartupProjectionInputSchema,
+    output: StartupProjectionResultSchema,
+    readOnly: true,
+  },
+  startup_upsert_milestone: {
+    id: 'startup_upsert_milestone',
+    title: 'Create or update a milestone',
+    description:
+      'Creates or updates a roadmap milestone by id, refusing a dependency loop — use instead of editing `ROADMAP.md`; refused unless Startup ▸ Settings ▸ Agents allows changes.',
+    input: StartupUpsertMilestoneInputSchema,
+    output: StartupWriteResultSchema,
+    readOnly: false,
+  },
+  startup_upsert_projection: {
+    id: 'startup_upsert_projection',
+    title: 'Create or update a fleet projection',
+    description:
+      'Creates or updates a fleet projection by id, nodes and globals included — use after `startup_projection` to change a model; refused unless Startup ▸ Settings ▸ Agents allows changes.',
+    input: StartupUpsertProjectionInputSchema,
+    output: StartupWriteResultSchema,
+    readOnly: false,
+  },
+  startup_send_projection_to_runway: {
+    id: 'startup_send_projection_to_runway',
+    title: 'Send a projection to the runway',
+    description:
+      'Sends a fleet projection to the runway plan from a start month as plan lines — use after `startup_projection`; refused unless Startup ▸ Settings ▸ Agents allows changes.',
+    input: StartupSendProjectionInputSchema,
+    output: StartupWriteResultSchema,
+    readOnly: false,
   },
 } satisfies Record<string, McpToolEntry>;
 

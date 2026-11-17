@@ -58,6 +58,8 @@ export function createStartupBridge(ipc: RendererIpc): StartupBridge {
       exportFleetProjectionCsv: op('exportFleetProjectionCsv'),
       exportRunwayCsv: op('exportRunwayCsv'),
       exportFleetProjectionPdf: op('exportFleetProjectionPdf'),
+      getAgentConsent: op('getAgentConsent'),
+      setAgentConsent: op('setAgentConsent'),
       onChanged: (handler: (payload: unknown) => void) => subscribe(EVENT_CHANNELS.startupChanged, handler),
     } as unknown as StartupBridge['startup'],
     report: createReportBridge(slice),

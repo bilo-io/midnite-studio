@@ -1352,6 +1352,9 @@ importers:
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../frame
+      '@midnite/studio-module-startup':
+        specifier: workspace:*
+        version: link:../modules/startup
       '@midnite/studio-shared':
         specifier: workspace:*
         version: link:../shared
@@ -1745,6 +1748,9 @@ importers:
       '@midnite/studio-knowledge':
         specifier: workspace:*
         version: link:../knowledge
+      '@midnite/studio-module-startup':
+        specifier: workspace:*
+        version: link:../modules/startup
       '@midnite/studio-runtime':
         specifier: workspace:*
         version: link:../runtime

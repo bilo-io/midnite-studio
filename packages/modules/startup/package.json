@@ -5,6 +5,7 @@
   "description": "The startup module (Phase 130): roadmap, runway and a lightweight ERP, composed as one module its app mounts as a nav group.",
   "sideEffects": false,
   "exports": {
+    "./mcp-manifest": "./mcp-manifest.ts",
     "./renderer": "./renderer/index.ts",
     "./bridge": "./main/bridge.ts",
     "./main": {

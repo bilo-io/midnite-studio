@@ -222,6 +222,14 @@ export const StartupSnapshotSchema = z.object({
 });
 export type StartupSnapshot = z.infer<typeof StartupSnapshotSchema>;
 
+/** Startup's agent-access switches, kept in the app's own settings (never the workspace). Both default off. */
+export const StartupAgentConsentSchema = z.object({
+  read: z.boolean().default(false),
+  write: z.boolean().default(false),
+});
+export type StartupAgentConsent = z.infer<typeof StartupAgentConsentSchema>;
+export const DEFAULT_STARTUP_AGENT_CONSENT: StartupAgentConsent = { read: false, write: false };
+
 // --- the channel ------------------------------------------------------------------
 
 const id = z.uuid();
@@ -259,6 +267,9 @@ export const StartupRequestSchema = z.discriminatedUnion('op', [
   z.object({ op: z.literal('exportFleetProjectionCsv'), projectionId: id }),
   z.object({ op: z.literal('exportRunwayCsv'), scenarioId: id, months: z.union([z.literal(12), z.literal(24), z.literal(36)]) }),
   z.object({ op: z.literal('exportFleetProjectionPdf'), projectionId: id }),
+  // Startup's agent-access switches (Phase 153 Theme C) live in the app's settings, not the workspace.
+  z.object({ op: z.literal('getAgentConsent') }),
+  z.object({ op: z.literal('setAgentConsent'), consent: StartupAgentConsentSchema }),
 ]);
 export type StartupRequest = z.infer<typeof StartupRequestSchema>;
 export type StartupOp = StartupRequest['op'];

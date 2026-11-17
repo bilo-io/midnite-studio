@@ -20,8 +20,13 @@ const GAMER = (id: McpToolId) =>
   /^(model|game|terrain|sprite|map)_/.test(id) || id === 'tileset_generate' || id === 'background_generate';
 
 describe('MCP_TOOL_MANIFESTS', () => {
-  it('Studio lists exactly the registry, in order', () => {
-    expect(listMcpToolIds(ALL_APPS_INSTALLED, MCP_TOOL_MANIFESTS)).toEqual([...MCP_TOOL_IDS]);
+  it('Studio lists the registry in order, minus Startup\'s tools (served from Startup\'s own socket)', () => {
+    expect(listMcpToolIds(ALL_APPS_INSTALLED, MCP_TOOL_MANIFESTS)).toEqual(MCP_TOOL_IDS.filter((id) => !id.startsWith('startup_')));
+    expect(listMcpToolIds(ALL_APPS_INSTALLED, MCP_TOOL_MANIFESTS, { includeSuiteServed: true })).toEqual([...MCP_TOOL_IDS]);
+  });
+
+  it('claims every startup_* tool for Startup', () => {
+    for (const id of MCP_TOOL_IDS.filter((x) => x.startsWith('startup_'))) expect(mcpToolOwner(id, MCP_TOOL_MANIFESTS), id).toBe('startup');
   });
 
   it('claims every Gamer tool for Gamer and every music tool for Creator, so none reads as a frame tool', () => {
