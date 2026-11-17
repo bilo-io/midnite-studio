@@ -279,6 +279,17 @@ export const GameManifestSchema = z
   .passthrough();
 export type GameManifest = z.infer<typeof GameManifestSchema>;
 
+// --- build (Phase 149 Theme E) ---
+/** The `source` of a console entry that is a line of the game's build output. */
+export const GAME_BUILD_SOURCE = 'build';
+/** Marks a run state `reason` as a failed build, so the runner host shows its output rather than "crashed". */
+export const GAME_BUILD_REASON_PREFIX = 'build-failed:';
+/** How many trailing build lines a failed build carries into the runner host. */
+export const GAME_BUILD_TAIL_LINES = 20;
+/** A build that runs longer than this is killed. */
+export const GAME_BUILD_TIMEOUT_MS = 5 * 60 * 1000;
+// --- end build ---
+
 export type GameManifestIssue = { path: string; message: string };
 export type GameManifestParse =
   | { ok: true; manifest: GameManifest }
