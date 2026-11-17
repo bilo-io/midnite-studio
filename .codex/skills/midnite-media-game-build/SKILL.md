@@ -92,6 +92,19 @@ A level is a Tiled JSON map, one file per scene: `levels/<scene>.tmj` (scene nam
 
 Tools: `game_level_list` (`{ game }`) answers `{ scenes, start, readsLevels }`; `game_level_get` (`{ game, scene }`) answers the level JSON and its `issues`, no images; `game_level_set` (`{ game, scene, level, create? }`) validates the whole map, refuses a bad one with its reason, and writes the file as one commit naming only that file (`create: true` for a scene with no file yet); `game_goto` (`{ game, scene }`) jumps the running game to a scene and answers `via` (`hook`, `reload` or `next-run`). `game_level_set` and `game_goto` are writes, so they need the "Let agents run and edit games" switch. Save, then the hot reload shows it: after `game_level_set`, call `game_goto` (or `game_reload`) and check with `game_screenshot` and `game_state`. A level opened in the Games tab's editor is the same file, so a human can keep editing it.
 
+### Editing a level with the user
+
+When the Games tab's level editor is open on the scene, these tools edit the live level as one undoable change the user sees in a banner; with it closed they edit the file. Prefer them to `game_level_set`, which replaces the whole file and is for creating a scene or a migration. All the tools below take `{ game, scene }`.
+
+1. **Look first**: `game_level_query` (filters `type`, `layer`, `ids`, `name`, `region`; pass `unit: 'm'` in 3D) answers the objects, `source` (`editor` or `file`) and `dirty`.
+2. **Change in batches**: `game_entity_batch` takes `ops` (`add`, `update`, `delete`) and is all-or-nothing, so one batch per intent with a `label` the user will read in the banner (`game_entity_add`, `game_entity_update` and `game_entity_delete` are the short forms). Give an `add` a `ref` and later ops in the batch, and the answer's `refs`, name the new id. It answers the new ids and the `issues` found afterwards.
+3. **Show it**: `game_level_select` (`ids`) highlights objects and frames them; `game_level_frame` (`ids` or `region`) moves the camera alone.
+4. **Look at it**: `game_level_view` (`view`, `preset`: `top`, `iso`, `selection`) answers a PNG of the editor, so check a change by eye.
+5. **Validate**: `game_level_validate` answers `counts` and `issues` with stable `rule` ids; fix every error, then validate again.
+6. **Save only when asked**: leave saving to the user (their Save button) unless they ask; then pass `save: true` on the batch. Undo is theirs too.
+
+The write tools need the "Let agents run and edit games" switch; `game_level_query`, `game_level_validate` and `game_level_view` do not change anything. After a save, `game_goto` and `game_screenshot` show it running.
+
 Migrating a game from before the level files (kit older than 0.12.0):
 
 1. Upgrade the kit from the Games tab (Upgrade kit), which adds `level.js`, the builders and `goto`. Nothing rewrites your `src/`.

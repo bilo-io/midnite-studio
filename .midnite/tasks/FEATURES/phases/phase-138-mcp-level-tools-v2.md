@@ -100,8 +100,7 @@ level: `drawPlan` over an `OffscreenCanvas` (`level-plan-capture.ts`); a tile le
 Main passes the 15 s timeout and halves an over-3 MB image until it fits. Left for later: the 3D pass reuses the live
 camera's culling, so a far-off preset can omit distant objects.
 
-**Theme I — Skill and agent prompt.** ◻ `midnite-media-game-build`'s `## Levels` teaches query → batch → select →
-view → validate → save; the game agent's system prompt and `ACTION_LABELS` name the new tools.
+**Theme I — Skill and agent prompt.** ✅ `midnite-media-game-build`'s `## Levels` gains "Editing a level with the user" (query → batch → select/frame → view → validate → save only when asked, preferring these to `game_level_set`), byte-identical across all seven copies; the game agent's system prompt names the new tools.
 
 ## Build order
 
@@ -610,9 +609,9 @@ export const GameLevelViewInputSchema = GameToolTargetSchema.extend({
 
 **Acceptance.**
 
-- [ ] I1. All seven copies are byte-identical (`scripts/skill-copies.test.mjs`).
-- [ ] I2. `skills.test.ts` "names only game_* tools that exist" passes with the new names.
-- [ ] I3. `game-scaffold.test.ts` (seeded copy) passes.
+- [x] I1. All seven copies are byte-identical (`scripts/skill-copies.test.mjs`).
+- [x] I2. `skills.test.ts` "names only game_* tools that exist" passes with the new names.
+- [x] I3. `game-scaffold.test.ts` (seeded copy) passes.
 
 **Done when** I1–I3 pass.
 
