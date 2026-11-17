@@ -121,5 +121,5 @@ export const StartupProjectionResultSchema = z.object({
 export const StartupUpsertMilestoneInputSchema = MilestoneSchema;
 export const StartupUpsertProjectionInputSchema = FleetProjectionSchema;
 export const StartupSendProjectionInputSchema = z.object({ projectionId: z.uuid(), start: YearMonthSchema });
-/** `revision` is the workspace revision after the write; `detail` carries whatever the op answered beyond it. */
-export const StartupWriteResultSchema = z.object({ revision: z.int().nonnegative(), detail: z.unknown().optional() });
+/** `revision` is the workspace revision after the write; `planLines` (send to Runway only) is how many plan lines the projection now owns. */
+export const StartupWriteResultSchema = z.object({ revision: z.int().nonnegative(), planLines: z.int().nonnegative().optional() });

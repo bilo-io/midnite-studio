@@ -65,9 +65,7 @@ A), then **E**, then **F**.
 
 **Theme B — Per-app MCP sockets and a joining shim.** ✅ `startAppMcpServer` serves a suite app's tools on its own tokened socket; the `midnite` shim joins every live suite socket, lists the union and routes each call to its owner, byte-identical with only Studio running.
 
-**Theme C — `startup_*` tools.** ◻ Seven tools (five reads, three safe writes) defined in `shared`, owned by a
-`startup` manifest, handled in Startup's main through `handleStartupRequest`. Two consent switches, off by default,
-live in Startup Settings ▸ Agents.
+**Theme C — `startup_*` tools.** ✅ Eight tools (five reads, three safe writes) are defined in `shared`, owned by a `startup` manifest and served by Startup's own socket through `startupMcpDispatch` over `handleStartupRequest`, so an agent's write goes through the same queue as the window's. Two consent switches in Settings ▸ Agents, off by default and kept outside the workspace, decide what `tools/list` offers; Studio's own list leaves the tools out, so they appear only while Startup runs.
 
 **Theme D — Investor updates: data and drafting.** ◻ Workspace v4 `investorUpdates`, a pure fact-gatherer, a prompt
 builder and a `draftInvestorUpdate` op that runs the chosen model. Startup Settings ▸ AI picks the model.
@@ -146,7 +144,7 @@ drafting and view, and one e2e for draft → accept → export.
 
 ### C — `startup_*` tools (M)
 
-- [ ] Tool definitions appended to `MCP_TOOLS` in `shared/src/mcp.ts` (descriptions follow the `:381` rule):
+- [x] Tool definitions appended to `MCP_TOOLS` in `shared/src/mcp.ts` (descriptions follow the `:381` rule):
   - `startup_summary` (read): company, money currency, cash, burn, runway months, default-alive, counts.
   - `startup_runway` (read): `{ scenarioId?, months: 12 | 24 | 36 }` → the `projectRunway` months.
   - `startup_milestones` (read): `{ status? }` → milestones with dependsOn.
@@ -157,22 +155,25 @@ drafting and view, and one e2e for draft → accept → export.
   - `startup_send_projection_to_runway` (write): `{ projectionId, start }` (needs Phase 152).
   - Reads are `readOnly: true`. Money is returned as minor units plus a `currency` field and a formatted string,
     so an agent never has to guess the exponent.
-- [ ] Ownership: `packages/modules/startup/mcp-manifest.ts` (net-new) is a `FeatureManifest`-shaped object with
+  - *Landed:* ids and schemas in `shared/src/startup-mcp.ts`; the writes answer `{ revision, planLines? }` (a send says how many plan lines the projection now owns), not the whole snapshot.
+- [x] Ownership: `packages/modules/startup/mcp-manifest.ts` (net-new) is a `FeatureManifest`-shaped object with
   `owner: 'startup'` and `mcpTools: [...STARTUP_MCP_TOOL_IDS]`, imported by every consumer that passes manifests
   (`desktop/src/main/mcp/tool-manifests.ts`, `packages/app/src/compose/mcp-tool-manifests.ts`, the shim).
+  - *Landed — drift:* the manifest is `Pick<FeatureManifest, 'owner' | 'mcpTools'>` (a module has no `PlacedFeature` to name), imported by Studio's `tool-manifests.ts`, the app's `mcp-tool-manifests.ts` and, through the first, the shim; `defaultMcpToolOwner` also names `startup_*` so a caller without it stays right. **Studio's own list leaves them out:** `listMcpToolIds` skips the tools of `SUITE_SERVED_APPS` (`['startup']`) unless `{ includeSuiteServed: true }`, so the shim lists them only while Startup runs; Studio refuses a stray call with the placeholder text.
   - Studio's `MCP_HANDLERS` gets entries for the startup ids that answer `{ error: 'Open Midnite Startup to use
     this tool.' }`, because the map is exhaustive. Studio never serves them in practice: the shim routes them to
     Startup's socket.
-- [ ] `packages/modules/startup/main/mcp.ts` (net-new) exports `startupMcpDispatch(store, deps, consent):
+- [x] `packages/modules/startup/main/mcp.ts` (net-new) exports `startupMcpDispatch(store, deps, consent):
   ScopedDispatch`. Each tool maps onto `handleStartupRequest` ops, so there is one code path. Write tools go through
   the store queue like the UI.
-- [ ] `apps/startup/main/index.ts` starts `startAppMcpServer` on app ready with `startupMcpDispatch`, closes it on
+- [x] `apps/startup/main/index.ts` starts `startAppMcpServer` on app ready with `startupMcpDispatch`, closes it on
   quit, and passes `listTools` filtered by consent.
-- [ ] **Consent:** Startup Settings ▸ **Agents** page (`app:startup-agents`, `LuBot`) with two switches stored in
+- [x] **Consent:** Startup Settings ▸ **Agents** page (`app:startup-agents`, `LuBot`) with two switches stored in
   Startup's app settings (not the workspace):
   - "Let agents read Startup" (default off) — off means `tools/list` returns no startup tools.
   - "Let agents make changes" (default off; disabled until read is on) — off hides the three write tools.
   - A call to a hidden tool answers "Turn on agent access in Midnite Startup ▸ Settings ▸ Agents."
+  - *Landed — drift:* the switches ride two new ops on the one `startup` channel (`getAgentConsent`/`setAgentConsent`) over `<userData>/startup/agent-consent.json`, outside `workspace.json`; "changes" is stored off whenever read is. The module hands the host its store via `onReady`, so the MCP server and the window share one store and write queue.
 - [x] Tests: `startup/main/mcp.test.ts` covers each read against a seeded store; each write persists through the
   queue and is visible to a following read; consent off means hidden and refused; read-only workspace (`newer-version`)
   refuses writes; `mcp.test.ts` checks the description rule for the new ids.
@@ -291,7 +292,7 @@ drafting and view, and one e2e for draft → accept → export.
   named in each PR).
 - [ ] A — commit messages and doc edits behave exactly as before; Startup runs a prompt through a stub and a real CLI.
 - [ ] B — with Studio and Startup both running, one `midnite` server lists both apps' tools and routes each call; with Studio alone the listing is unchanged.
-- [ ] C — tools are invisible until consent; writes refused until the second switch; a write made by an agent shows in the open app.
+- [x] C — tools are invisible until consent; writes refused until the second switch; a write made by an agent shows in the open app.
 - [ ] D — a draft never saves itself; the prompt carries only gathered facts; v3 workspaces reach v4.
 - [ ] E — draft → accept → copy/export/email works; read-only disables.
 - [ ] **Open, for a human:** with the packaged Startup app running, connect Claude Code to `midnite`, ask "what's

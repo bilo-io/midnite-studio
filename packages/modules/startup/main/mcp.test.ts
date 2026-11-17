@@ -38,9 +38,11 @@ async function seeded(onChanged?: (r: number) => void) {
   return store;
 }
 const dispatchFor = (store: WorkspaceStore, consent: StartupAgentConsent) => startupMcpDispatch(store, { now: () => new Date('2026-11-18T10:00:00Z') }, () => consent);
+// A test reads nested fields off the tool's JSON answer; the shapes are pinned by the schemas, not here.
 const value = async (d: ReturnType<typeof dispatchFor>, tool: string, input: unknown = {}) => {
   const r = await d(tool, input);
   if (!r.ok) throw new Error(`${tool}: ${r.message}`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return r.value as Record<string, any>;
 };
 
@@ -127,11 +129,13 @@ describe('startup MCP writes', () => {
     expect((r as { message: string }).message).toMatch(/loop/);
   });
 
-  it('startup_send_projection_to_runway passes through whatever the op answers', async () => {
-    const r = await dispatchFor(await seeded(), ALL)('startup_send_projection_to_runway', { projectionId: u(90), start: '2026-12' });
-    // Until Phase 152 Theme D lands the op answers a refusal; either way the answer is the op's, never invented here.
-    if (r.ok) expect(r.value).toHaveProperty('revision');
-    else expect(r.message.length).toBeGreaterThan(0);
+  it('startup_send_projection_to_runway writes the projection\'s lines into the plan and says how many', async () => {
+    const store = await seeded();
+    const d = dispatchFor(store, ALL);
+    const out = await value(d, 'startup_send_projection_to_runway', { projectionId: u(90), start: '2026-12' });
+    expect(out['planLines']).toBeGreaterThan(0);
+    expect(store.snapshot().workspace.lines).toHaveLength(out['planLines']);
+    expect(await d('startup_send_projection_to_runway', { projectionId: u(91), start: '2026-12' })).toMatchObject({ ok: false, kind: 'not-found' });
   });
 
   it('a read-only workspace (newer-version) refuses writes but still reads', async () => {

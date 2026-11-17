@@ -190,9 +190,11 @@ export function startupMcpDispatch(
     else request = { op: 'sendFleetProjectionToRunway', projectionId: input['projectionId'] as string, start: input['start'] as string };
     const r = await ops(store, request);
     if (!r.ok) return fromRefusal(r);
-    // The op's own answer rides along (the send op's, once it lands); the snapshots every upsert answers are not repeated.
-    const detail = tool === 'startup_send_projection_to_runway' ? r.value : undefined;
-    return { ok: true, value: { revision: store.snapshot().revision, ...(detail !== undefined ? { detail } : {}) } };
+    const revision = store.snapshot().revision;
+    // The snapshot every op answers is not repeated; a send says how many plan lines the projection now owns.
+    if (tool !== 'startup_send_projection_to_runway') return { ok: true, value: { revision } };
+    const planLines = store.snapshot().workspace.lines.filter((l) => l.source?.projectionId === input['projectionId']).length;
+    return { ok: true, value: { revision, planLines } };
   }
 
   return async (tool, input) => {

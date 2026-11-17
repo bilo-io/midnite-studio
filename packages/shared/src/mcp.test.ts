@@ -375,7 +375,7 @@ describe('MCP_TOOLS', () => {
     },
     startup_upsert_milestone: { revision: 1 },
     startup_upsert_projection: { revision: 1 },
-    startup_send_projection_to_runway: { revision: 1, detail: null },
+    startup_send_projection_to_runway: { revision: 1, planLines: 4 },
   };
 
   it('every output schema parses a minimal well-formed value', () => {
