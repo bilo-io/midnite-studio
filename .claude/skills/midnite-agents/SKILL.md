@@ -11,7 +11,8 @@ The one entry point for agent groups.
 /midnite-agents
  ├─ Fleet  → /midnite-fleet   separate tasks, one agent each, each to its own merged PR
  ├─ Swarm  → /midnite-swarm   one problem, one agent per stage, handing work forward
- └─ both   → /midnite-orchestrate   settings, cap, board, sitreps, RAM, rotation, unsticking, wrap-up
+ ├─ both   → /midnite-orchestrate   settings, cap, board, sitreps, RAM, rotation, unsticking, wrap-up
+ └─ stop   → /midnite-agents-handover   every agent commits, writes its HANDOFF, frees its servers, stops
 ```
 
 ## 1 · Mode — option sheet (skip if `$ARGUMENTS` starts with `fleet` or `swarm`)
