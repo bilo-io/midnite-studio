@@ -66,7 +66,6 @@ import {
   rotateObject,
   rotationToward,
   objectCentre,
-  objectToMapPoint,
   select,
   selectAllInLayer,
   selectInRect,
@@ -353,7 +352,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
         terrain: () => useLevelStore.getState().byGame[gameId]?.terrain ?? null,
         frame: (rect, refs) => {
           if (can3d && levelViewMode(useLevelViewStore.getState(), gameId) === '3d' && handle3d.current) {
-            handle3d.current.frameTo(rect, refs);
+            handle3d.current.frameTo?.(rect, refs);
             return;
           }
           const size = planViewOut.current?.size;
@@ -372,7 +371,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
           while (!handle3d.current && Date.now() < until) await new Promise((r) => setTimeout(r, 50)); // allow-timeout: polling for the lazy 3D view to mount
           return handle3d.current !== null;
         },
-        capture3d: async (req) => (handle3d.current ? handle3d.current.capture(req) : null),
+        capture3d: async (req) => (handle3d.current?.capture ? handle3d.current.capture(req) : null),
         capturePlan: async (req) => {
           const now = useLevelStore.getState().byGame[gameId];
           if (!now) return null;

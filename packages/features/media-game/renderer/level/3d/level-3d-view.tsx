@@ -29,11 +29,11 @@ import { SpatialGrid } from './spatial-grid';
 export type Level3dHandle = {
   exit: (done: (pose: CameraPose) => void) => void;
   /** Ease the camera over `refs` (else the ground under `rect`, map pixels): `game_level_frame` and the banner's Show. */
-  frameTo: (rect: PlanRect, refs: readonly ObjectRef[]) => void;
+  frameTo?: (rect: PlanRect, refs: readonly ObjectRef[]) => void;
   /** Ease the camera onto the selected object (the outliner's double-click). */
   frame?: () => void;
   /** A PNG of the level from a preset or camera, drawn through a temporary camera (`game_level_view`). */
-  capture: (req: LevelCaptureRequest) => Promise<LevelCaptured>;
+  capture?: (req: LevelCaptureRequest) => Promise<LevelCaptured>;
 };
 
 export type Level3dViewProps = {

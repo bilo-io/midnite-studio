@@ -30,9 +30,9 @@ export function captureScene(gl: WebGLRenderer, scene: Scene, view: LevelViewCam
 }
 
 /** Flip GL's bottom-up rows to top-down. */
-export function flipRows(pixels: Uint8Array, width: number, height: number): Uint8ClampedArray {
+export function flipRows(pixels: Uint8Array, width: number, height: number): Uint8ClampedArray<ArrayBuffer> {
   const stride = width * 4;
-  const out = new Uint8ClampedArray(pixels.length);
+  const out = new Uint8ClampedArray(new ArrayBuffer(pixels.length));
   for (let row = 0; row < height; row += 1) out.set(pixels.subarray((height - 1 - row) * stride, (height - row) * stride), row * stride);
   return out;
 }
