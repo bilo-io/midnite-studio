@@ -8,7 +8,7 @@ const ordinal = (ym: string): number => {
   return y * 12 + (m - 1);
 };
 /** `YYYY-MM` shifted by `by` months. */
-export function addMonths(ym: string, by: number): string {
+export function addYearMonths(ym: string, by: number): string {
   const o = ordinal(ym) + by;
   return `${Math.floor(o / 12)}-${String((o % 12) + 1).padStart(2, '0')}`;
 }
@@ -81,8 +81,8 @@ export function fleetToRunwayLines(
   const opexGrows = p.globals.energyScalesWithUtilisation && g !== 0;
   if (Math.round(opex(0)) > 0) {
     if (opexGrows && c !== null) {
-      out.push(line('opex', 'cost', `${name} — running costs`, 'other', 'monthly', opex(0), start, { end: addMonths(start, c - 1), growthBpPerMonth: fitted(opex, c - 1) }));
-      if (Math.round(opex(c)) > 0) out.push(line('opex', 'cost', `${name} — running costs (at capacity)`, 'other', 'monthly', opex(c), addMonths(start, c)));
+      out.push(line('opex', 'cost', `${name} — running costs`, 'other', 'monthly', opex(0), start, { end: addYearMonths(start, c - 1), growthBpPerMonth: fitted(opex, c - 1) }));
+      if (Math.round(opex(c)) > 0) out.push(line('opex', 'cost', `${name} — running costs (at capacity)`, 'other', 'monthly', opex(c), addYearMonths(start, c)));
     } else {
       out.push(line('opex', 'cost', `${name} — running costs`, 'other', 'monthly', opex(0), start, { growthBpPerMonth: opexGrows ? fitted(opex, r.series.length - 1) : 0 }));
     }
@@ -90,8 +90,8 @@ export function fleetToRunwayLines(
 
   if (Math.round(rev(0)) > 0) {
     if (c !== null) {
-      out.push(line('revenue', 'revenue', `${name} — revenue`, 'revenue', 'monthly', rev(0), start, { end: addMonths(start, c - 1), growthBpPerMonth: g }));
-      if (Math.round(rev(c)) > 0) out.push(line('revenue-capped', 'revenue', `${name} — revenue (at capacity)`, 'revenue', 'monthly', rev(c), addMonths(start, c)));
+      out.push(line('revenue', 'revenue', `${name} — revenue`, 'revenue', 'monthly', rev(0), start, { end: addYearMonths(start, c - 1), growthBpPerMonth: g }));
+      if (Math.round(rev(c)) > 0) out.push(line('revenue-capped', 'revenue', `${name} — revenue (at capacity)`, 'revenue', 'monthly', rev(c), addYearMonths(start, c)));
     } else {
       out.push(line('revenue', 'revenue', `${name} — revenue`, 'revenue', 'monthly', rev(0), start, { growthBpPerMonth: g }));
     }

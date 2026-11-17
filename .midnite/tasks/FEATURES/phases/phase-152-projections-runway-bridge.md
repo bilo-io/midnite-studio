@@ -63,9 +63,13 @@ after 400 ms; main refuses duplicate ids (`invalid`) and a removed id still in u
 selected entry as `(hidden)` and an unknown id as `Missing (<id>)`. Changing the company currency does not re-seed or
 convert the catalog (no FX); Restore defaults re-seeds the built-ins in the current currency and keeps custom rows.
 
-**Theme D — Send to Runway.** ◻ A pure `fleetToRunwayLines`, a send dialog with a start month, linked lines (split
-where utilisation caps out), "Update Runway", a stale badge in both views, and a delete prompt that can take the
-lines with it.
+**Theme D — Send to Runway.** ✅ A pure `fleetToRunwayLines` (hardware, running costs, revenue; revenue and capped
+OpEx split in two where utilisation caps out), an idempotent send/update and an unlink op in one `store.mutate` each, a
+Send / Update Runway dialog with a start month and a line preview, a `Linked · synced` status and Stale pill in the
+results header, a `From <projection>` badge and Stale pill on Runway lines, and a delete prompt that can take the lines
+with it or keep them. The fleet maths and the lines function moved to `packages/shared` (`startup-fleet-model.ts`,
+`startup-fleet-runway.ts`) because a module's main and renderer halves may not import each other; the old paths
+re-export them.
 
 **Theme E — Export.** ◻ A projection CSV (month series plus a node table), a runway CSV and a one-page projection
 PDF, all saved in main through the existing save-dialog and PDF ports.
@@ -238,7 +242,7 @@ set `version: 3`. **Numbers are not converted:** no release carried v2 (checked 
 
 ### D — Send to Runway (L)
 
-- [ ] `packages/modules/startup/main/fleet-runway.ts` (net-new, pure) exports
+- [x] `packages/modules/startup/main/fleet-runway.ts` (net-new, pure) exports
   `fleetToRunwayLines(p: FleetProjection, catalog: FleetCatalog, start: YearMonth, now: string, ids: () => string):
   PlanLine[]`. Every line carries `source: { kind: 'fleetProjection', projectionId: p.id, part, syncedAt: now }`.
   - **capex**: `kind: 'cost'`, `category: 'hardware'`, `cadence: 'one-off'`, `minor = round(capexMinor)`, `start`,
@@ -260,18 +264,18 @@ set `version: 3`. **Numbers are not converted:** no release carried v2 (checked 
   - Lines land in the **base** plan (`ws.lines`), not a scenario.
 - [x] `service.ts` `unlinkFleetProjectionLines { removeLines }`: `true` deletes the linked lines; `false` strips
   `source` so they become ordinary lines.
-- [ ] Projections UI:
+- [x] Projections UI:
   - **Send to Runway** in the results header (`LuSend`). It opens a dialog (the module's sheet pattern, like
     `line-sheet.tsx`) with a `<input type="month">` defaulting to next month and the list of lines it will create
     (from `fleetToRunwayLines`, previewed in the renderer by importing the pure function through a renderer re-export).
   - Once linked, the button reads **Update Runway** and the header shows `Linked to Runway · synced <date>`.
   - When `projection.updatedAt > min(line.source.syncedAt)`, the header shows a **Stale** amber pill instead.
   - Disabled with reason "Set up your company first" when `company === null`.
-- [ ] Runway UI: linked lines show a small `From <projection name>` badge (`LuChartArea`) and a Stale pill when out
+- [x] Runway UI: linked lines show a small `From <projection name>` badge (`LuChartArea`) and a Stale pill when out
   of date. Clicking the badge navigates to `startup.projections` with that projection selected (through
   `onView` + `useProjectionsUi.setSelected`). Editing a linked line in `line-sheet.tsx` shows the note "Editing
   unlinks this line from its projection." and saves without `source`.
-- [ ] Deleting a projection that has linked lines: the existing confirm gains a choice, "Also remove its N Runway
+- [x] Deleting a projection that has linked lines: the existing confirm gains a choice, "Also remove its N Runway
   lines" (default on). The handler calls `unlinkFleetProjectionLines` before `removeFleetProjection`.
 - [x] Tests:
   - `fleet-runway.test.ts` checks to the minor unit:

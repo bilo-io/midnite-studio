@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildFleetStarter, seedFleetCatalog, type FleetNode, type FleetProjection } from './startup-fleet';
-import { addMonths, fleetToRunwayLines } from './startup-fleet-runway';
+import { addYearMonths, fleetToRunwayLines } from './startup-fleet-runway';
 
 const u = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const NOW = '2026-11-18T09:00:00.000Z';
@@ -71,9 +71,9 @@ describe('fleetToRunwayLines', () => {
   });
 });
 
-describe('addMonths', () => {
+describe('addYearMonths', () => {
   it('rolls over years', () => {
-    expect(addMonths('2026-11', 3)).toBe('2027-02');
-    expect(addMonths('2026-12', 0)).toBe('2026-12');
+    expect(addYearMonths('2026-11', 3)).toBe('2027-02');
+    expect(addYearMonths('2026-12', 0)).toBe('2026-12');
   });
 });
