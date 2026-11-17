@@ -89,9 +89,35 @@ export const GAME_GENRES = [
   'rpg',
   'character-action',
   'open-world',
+  // Phase 149 Theme B: appended, never reordered. No starter template yet (see GENRES_WITH_STARTER).
+  'shmup',
+  'platformer-action',
+  'racing',
+  'puzzle',
+  'arcade',
 ] as const;
 export const GameGenreSchema = z.enum(GAME_GENRES);
 export type GameGenre = z.infer<typeof GameGenreSchema>;
+
+/**
+ * The genres that have a starter template. The wizard offers only these, so adding a
+ * genre to `GAME_GENRES` never shows an empty template.
+ */
+export const GENRES_WITH_STARTER = [
+  'fps',
+  'rts',
+  'arpg',
+  'crime',
+  'shooter',
+  'fighter',
+  'soulslike',
+  'rpg',
+  'character-action',
+  'open-world',
+] as const satisfies readonly GameGenre[];
+export type StarterGenre = (typeof GENRES_WITH_STARTER)[number];
+export const hasStarter = (genre: GameGenre): genre is StarterGenre =>
+  (GENRES_WITH_STARTER as readonly string[]).includes(genre);
 
 /** The five third-person cameras (3D only). */
 export const GAME_CAMERA_IDS = [
@@ -209,6 +235,7 @@ export const GameManifestSchema = z
     engine: GameEngineSchema,
     dimension: GameDimensionSchema,
     perspective: GamePerspectiveSchema,
+    /** `null` means custom: no genre template applies. */
     genre: GameGenreSchema.nullable(),
     /** The starter this game was composed from (Theme K's id; `blank` until starters land). */
     starter: z.string().min(1),
@@ -216,13 +243,17 @@ export const GameManifestSchema = z
     cameraPresets: z.array(GameCameraIdSchema).default([]),
     entry: z.literal('index.html').default('index.html'),
     kitVersion: z.string().regex(/^\d+\.\d+\.\d+(?:[-+][\w.-]+)?$/, 'must be a semver version'),
+    /** `true` is a legacy shape, normalised to `{}`; see `rawManifestHasLegacyVendored`. */
     vendored: z
-      .object({
-        phaser: z.string().optional(),
-        three: z.string().optional(),
-        rapier: z.string().optional(),
-        recast: z.string().optional(),
-      })
+      .union([
+        z.literal(true).transform(() => ({}) as Record<string, never>),
+        z.object({
+          phaser: z.string().optional(),
+          three: z.string().optional(),
+          rapier: z.string().optional(),
+          recast: z.string().optional(),
+        }),
+      ])
       .prefault({}),
     assets: z.array(GameAssetProvenanceSchema).default([]),
     network: GameNetworkSchema.default('off'),
@@ -233,6 +264,17 @@ export const GameManifestSchema = z
     options: GameOptionsSchema.optional(),
     /** Present means "this game's scenes read their layout from `levels/<scene>.tmj`" (Phase 132, Decision 14). */
     levels: z.object({ dir: z.literal('levels').default('levels'), start: GameSceneNameSchema }).optional(),
+    /** A bundled game: run `command` in the repo, then serve `out` (relative, inside the game). */
+    build: z
+      .object({
+        command: z.string().min(1).max(500),
+        out: z
+          .string()
+          .min(1)
+          .regex(/^[^/][^\0]*$/, 'must be relative')
+          .refine((v) => !v.split(/[\\/]/).includes('..'), 'must stay inside the game'),
+      })
+      .optional(),
   })
   .passthrough();
 export type GameManifest = z.infer<typeof GameManifestSchema>;
@@ -241,6 +283,11 @@ export type GameManifestIssue = { path: string; message: string };
 export type GameManifestParse =
   | { ok: true; manifest: GameManifest }
   | { ok: false; issues: GameManifestIssue[] };
+
+/** True when the raw manifest uses the legacy `vendored: true` (parses as `{}`; the doctor flags it). */
+export function rawManifestHasLegacyVendored(raw: unknown): boolean {
+  return typeof raw === 'object' && raw !== null && (raw as { vendored?: unknown }).vendored === true;
+}
 
 /** Never throws — an agent may have hand-edited the file. */
 export function parseGameManifest(value: unknown): GameManifestParse {

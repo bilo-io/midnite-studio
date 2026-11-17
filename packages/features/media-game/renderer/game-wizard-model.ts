@@ -2,6 +2,7 @@ import {
   GAME_CAMERA_IDS,
   GAME_TEMPLATE_MATRIX,
   defaultGameOptions,
+  hasStarter,
   emptyGameOptions,
   isStarterAvailable,
   isValidStarter,
@@ -12,6 +13,7 @@ import {
   type GameGenre,
   type GameOptions,
   type GamePerspective,
+  type StarterGenre,
 } from '@midnite/studio-shared';
 
 import { genresOf, perspectivesOf } from './game-labels';
@@ -65,7 +67,7 @@ export type WizardAction =
 const asGenre = (g: WizardGenre | null): GameGenre | null => (g === null || g === 'blank' ? null : g);
 
 /** Genres a perspective offers, in the catalogue's order. */
-export function genresFor(dimension: GameDimension, perspective: GamePerspective): GameGenre[] {
+export function genresFor(dimension: GameDimension, perspective: GamePerspective): StarterGenre[] {
   return genresOf(dimension).filter((g) => {
     const id = starterId(perspective, g);
     return isValidStarter(id).ok && isStarterAvailable(id).ok;
@@ -139,7 +141,7 @@ export function deriveWizard(state: WizardState, defaultDimension: GameDimension
   const perspective = perspectiveChosen ? state.perspective! : perspectivesOf(dimension)[0]!;
   const genreChosen = perspectiveChosen && state.genre !== null;
   const genre = genreChosen ? asGenre(state.genre) : null;
-  const versus = genre !== null && GAME_TEMPLATE_MATRIX[genre].versus === true;
+  const versus = genre !== null && hasStarter(genre) && GAME_TEMPLATE_MATRIX[genre].versus === true;
   return {
     dimension,
     perspective,

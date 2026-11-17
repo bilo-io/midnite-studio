@@ -11,7 +11,6 @@ import {
   starterId,
   type GameDimension,
   type GameFeatureKey,
-  type GameGenre,
   type GamePerspective,
 } from '@midnite/studio-shared';
 import { useEffect, useRef, type Dispatch } from 'react';
@@ -139,7 +138,7 @@ function GenreStep({ wizard }: { wizard: Wizard }) {
         selected={state.genre === 'blank'}
         onPick={() => dispatch({ type: 'genre', value: 'blank' })}
       />
-      {genresFor(derived.dimension, p).map((g: GameGenre) => (
+      {genresFor(derived.dimension, p).map((g) => (
         <PickCard
           key={g}
           title={GENRE_LABEL[g]}

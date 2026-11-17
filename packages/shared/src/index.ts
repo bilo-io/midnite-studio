@@ -63,6 +63,7 @@ export * from './media-model-library';
 export * from './media-model-mesh';
 export * from './media-music-gm';
 export * from './media-game-mcp';
+export * from './game-standard';
 export * from './media-model-mcp';
 export * from './media-model-rig';
 export * from './media-model-sdf';
