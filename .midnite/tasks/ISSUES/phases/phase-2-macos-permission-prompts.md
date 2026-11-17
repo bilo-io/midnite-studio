@@ -72,7 +72,7 @@ hold: every file they name is where they say (`desktop/src/main/keychain-gate.ts
 `features/terminal/renderer/terminal-notices.tsx`, `shared/src/macos-protected-paths.ts`, `scripts/tcc-guard.mjs`,
 `features/vanguard/main/malware/scanner.ts`), and `node scripts/tcc-guard.mjs` prints `tcc-guard: ok`. Of the 12 open
 items: **0** ticked as landed (no Theme E code exists on main: both `afterpack.cjs` still sign `-` unconditionally,
-`RELEASES_ARE_NOTARISED = false`), **1** struck (the E(b) self-signed spike, ruled out by the Developer ID decision), **5**
+`RELEASES_ARE_NOTARISED = false`), **1** struck (the E(b) self-signed spike, ruled out by the Developer ID decision; the (b) arms of E2/E4 and E3's end-user `stub.ts` half are struck inline), **5**
 rewritten as precise `(human)` checks (the smoke pass, three done lines, the remediation hand-over — the swarm's
 `plan.md` it pointed at no longer exists, so the remediation is now inline), **6** refined for sonnet (E1–E4, E6 and
 the CI line, which A–D could not meet: #1254/#1262/#1266/#1270 merged while Actions was billing-locked). Both open
@@ -199,8 +199,10 @@ inside E4, and the `outstanding.md` strike) is a second, tiny PR that merges onl
 
 ## Verification
 - [ ] Theme E's PRs gate green (`gate-node`, `gate-node-app-test`, `gate-native`, `e2e`) and `tcc-guard` passes. *(Narrowed 2026-11-17 from "every theme's PR": #1254, #1262, #1266 and #1270 merged while Actions was billing-locked — every job failed at start-up — so A–D can never show green; `node scripts/tcc-guard.mjs` prints `tcc-guard: ok` on `2615c1c60`.)*
-  - While Actions stays locked, the E PRs merge on the focused local gate instead: `moon run root:test-node` scoped
-    to `scripts/lib/*.test.mjs`, `moon run launcher:test`, `node scripts/tcc-guard.mjs`, `node scripts/tracker-check.mjs`
+  - While Actions stays locked, the E PRs merge on the focused local gate instead (never a workspace-wide moon run —
+    it exhausts RAM): `pnpm exec vitest run scripts/lib/signing-identity.test.mjs scripts/lib/notarize-options.test.mjs`,
+    `pnpm -C apps/launcher exec vitest run src/main/bundles/dev-stub.test.ts src/main/updater.test.ts`,
+    `pnpm exec eslint <changed files>`, `node scripts/tcc-guard.mjs`, `node scripts/tracker-check.mjs`
     — and a `gh workflow run release.yml -f dry_run=true` once Actions returns, to prove the cert-less path is unchanged.
 - [ ] **Done line 1 (human):** after "Always allow" on signed build N, installing N+1 and relaunching twice raises no keychain prompt.
   - Builds: two consecutive Developer-ID-signed releases N and N+1. Install N, launch, open anything that reads the
