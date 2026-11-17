@@ -118,7 +118,7 @@ const defaultExec = (cmd, { cwd }) => {
 };
 
 /** Run the verification. `exec` is injectable for tests. */
-export function verify({ root, phase, full = false, run = false, exec = defaultExec } = {}) {
+export function verify({ root, phase, full = false, exec = defaultExec } = {}) {
   const row = phase != null ? findPhase(root, phase) : oldestIncomplete(root);
   if (!row) return { ok: false, error: phase != null ? `phase ${phase} not found in any _INDEX.md` : 'no incomplete phase' };
   const docPath = join(root, '.midnite/tasks', row.category, row.path);
@@ -165,7 +165,7 @@ function render(r) {
 export function main(argv = process.argv.slice(2), out = (s) => process.stdout.write(`${s}\n`)) {
   const root = arg(argv, '--root') ?? join(dirname(fileURLToPath(import.meta.url)), '..', '..');
   const phase = arg(argv, '--phase');
-  const base = { root, phase: phase != null ? Number(phase) : undefined, full: argv.includes('--full'), run: argv.includes('--run') };
+  const base = { root, phase: phase != null ? Number(phase) : undefined, full: argv.includes('--full') };
   const tick = arg(argv, '--tick');
   if (tick != null || argv.includes('--complete')) {
     if (phase == null) return out('--tick/--complete need --phase N'), 2;
