@@ -8,3 +8,4 @@ export * from './service';
 export * from './workspace-store';
 export { startupManifest } from '../manifest';
 export * from './mcp';
+export { openAgentConsent, type AgentConsentStore } from './agent-consent';

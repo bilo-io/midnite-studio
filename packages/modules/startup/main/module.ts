@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { defineFeatureMain, type IpcContextElectron } from '@midnite/studio-runtime';
 import { CHANNELS, EVENT_CHANNELS, schemas, type StartupResult } from '@midnite/studio-shared';
 
+import { openAgentConsent } from './agent-consent';
 import type { ContractFilePort } from './contract-files';
 import type { InvoicePdfPort } from './invoice-pdf';
 import type { StartupLedgerPort } from './ledger-port';
@@ -52,6 +53,7 @@ export const startupModuleMain = defineFeatureMain<StartupMainServices>({
     });
     const deps: StartupServiceDeps = {
       contractsDir: join(electron.userData, 'startup', 'contracts'),
+      agentConsent: openAgentConsent(join(electron.userData, 'startup'), electron.warn),
       ledger: ledger ?? null,
       ...(pdf ? { pdf } : {}),
       ...(electron.pickContractFile && electron.openPath ? { files: { pickContractFile: electron.pickContractFile, openPath: electron.openPath } } : {}),

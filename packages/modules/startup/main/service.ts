@@ -15,6 +15,7 @@ import {
   type StartupWorkspace,
 } from '@midnite/studio-shared';
 
+import { agentConsentOp, type AgentConsentStore } from './agent-consent';
 import { fleetToRunwayLines } from './fleet-runway';
 import { ledgerSummary, linkBook } from './books';
 import { attachContractFile, confinedAttachmentPath, type ContractFilePort } from './contract-files';
@@ -53,6 +54,8 @@ export type StartupServiceDeps = {
   /** Where a PDF's temp page is written; the OS temp folder by default. */
   tmpDir?: string;
   now?: () => Date;
+  /** Startup's agent-access switches (app settings, not the workspace); absent in a bare test. */
+  agentConsent?: AgentConsentStore;
 };
 
 /** The one cost (vendor) or revenue (customer) line a priced contract keeps in the plan, or `null` when it has no price. */
@@ -344,5 +347,9 @@ export async function handleStartupRequest(
       const problem = await files.openPath(path);
       return problem === '' ? { ok: true, value: null } : { ok: false, kind: 'io', message: problem };
     }
+
+    case 'getAgentConsent':
+    case 'setAgentConsent':
+      return agentConsentOp(deps.agentConsent, request);
   }
 }

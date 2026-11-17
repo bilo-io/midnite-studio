@@ -1,6 +1,13 @@
 import { createAccountantServices, accountantModuleMain } from '@midnite/studio-module-accountant/main';
-import { startupModuleMain, type InvoicePdfPort, type StartupElectron } from '@midnite/studio-module-startup/main';
-import { createIpcContext, mountModuleMains } from '@midnite/studio-runtime';
+import {
+  startupMcpDispatch,
+  startupModuleMain,
+  type InvoicePdfPort,
+  type StartupElectron,
+  type StartupMainServices,
+} from '@midnite/studio-module-startup/main';
+import { createIpcContext, mountModuleMains, type ScopedDispatch } from '@midnite/studio-runtime';
+import { DEFAULT_STARTUP_AGENT_CONSENT, startupToolsForConsent, STARTUP_AGENTS_OFF_MESSAGE, type McpToolId } from '@midnite/studio-shared';
 
 import { createStartupLedgerPort } from './ledger-port';
 
@@ -20,7 +27,13 @@ export type StartupHostElectron = StartupElectron & {
  * group shows. Startup holds no secret, so there is no vault connection and no pairing. Report an Issue stays the
  * app's own (`report.ts`). `dispose` releases the book locks.
  */
-export function registerStartupHost(el: StartupHostElectron): { dispose: () => Promise<void> } {
+type StartupReady = Parameters<NonNullable<StartupMainServices['onReady']>>[0];
+
+/** What Startup's own MCP server serves (Phase 153 Theme C): the dispatch over the window's store, and the consent-filtered list. */
+export type StartupHostMcp = { dispatch: ScopedDispatch; listTools: () => readonly McpToolId[] };
+
+export function registerStartupHost(el: StartupHostElectron): { dispose: () => Promise<void>; mcp: StartupHostMcp } {
+  let ready: StartupReady | null = null;
   const accountant = createAccountantServices({
     appDataBase: el.appDataBase,
     appId: 'startup',
@@ -30,8 +43,19 @@ export function registerStartupHost(el: StartupHostElectron): { dispose: () => P
     ...(el.warn ? { warn: el.warn } : {}),
   });
   mountModuleMains(createIpcContext(el), [
-    { module: startupModuleMain, services: { electron: el, ledger: createStartupLedgerPort(accountant.service), ...(el.pdf ? { pdf: el.pdf } : {}) } },
+    { module: startupModuleMain, services: { electron: el, ledger: createStartupLedgerPort(accountant.service), ...(el.pdf ? { pdf: el.pdf } : {}), onReady: (r: StartupReady) => { ready = r; } } },
     { module: accountantModuleMain, services: accountant },
   ]);
-  return { dispose: () => accountant.service.dispose() };
+  // One store, one write queue, one consent: the agent's calls and the window's are the same code path on the same state.
+  const consent = () => ready?.deps.agentConsent?.get() ?? DEFAULT_STARTUP_AGENT_CONSENT;
+  let dispatch: ScopedDispatch | null = null;
+  const mcp: StartupHostMcp = {
+    dispatch: async (tool, input) => {
+      if (ready === null) return { ok: false, kind: 'refused', message: STARTUP_AGENTS_OFF_MESSAGE };
+      dispatch ??= startupMcpDispatch(ready.store, ready.deps, consent);
+      return dispatch(tool, input);
+    },
+    listTools: () => startupToolsForConsent(consent()),
+  };
+  return { dispose: () => accountant.service.dispose(), mcp };
 }

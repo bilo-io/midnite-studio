@@ -28,7 +28,7 @@ import type { ToolApprovalHookInfo, ToolApprovalRequest, ToolApprovalResolved } 
 import type { CompanionDigest, CompanionSnapshot } from '../companion';
 import type { CommandId } from '../keybindings';
 import type { SuiteLinkLanding } from '../suite-link';
-import type { StartupChangedEvent, StartupLedgerSummary, StartupPdfExport, StartupRequest, StartupResult, StartupSnapshot } from '../startup';
+import type { StartupAgentConsent, StartupChangedEvent, StartupLedgerSummary, StartupPdfExport, StartupRequest, StartupResult, StartupSnapshot } from '../startup';
 import type { SuitePrefsSetRequest, SuitePrefsSetResponse, SuitePrefsSnapshot } from '../suite-prefs';
 import type { SongChat } from '../media-music-chat';
 import type { ModelLibraryMigrateResult, ModelLibraryNode } from '../media-model-library';
@@ -2461,6 +2461,8 @@ export type MidniteStudioBridge = {
     exportFleetProjectionCsv: (req: Omit<Extract<StartupRequest, { op: 'exportFleetProjectionCsv' }>, 'op'>) => Promise<StartupResult<StartupPdfExport>>;
     exportRunwayCsv: (req: Omit<Extract<StartupRequest, { op: 'exportRunwayCsv' }>, 'op'>) => Promise<StartupResult<StartupPdfExport>>;
     exportFleetProjectionPdf: (req: Omit<Extract<StartupRequest, { op: 'exportFleetProjectionPdf' }>, 'op'>) => Promise<StartupResult<StartupPdfExport>>;
+    getAgentConsent: () => Promise<StartupResult<StartupAgentConsent>>;
+    setAgentConsent: (req: Omit<Extract<StartupRequest, { op: 'setAgentConsent' }>, 'op'>) => Promise<StartupResult<StartupAgentConsent>>;
     onChanged: (handler: (e: StartupChangedEvent) => void) => Unsubscribe;
   };
 

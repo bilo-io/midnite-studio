@@ -11,7 +11,7 @@
  */
 import { z } from 'zod';
 
-import { MilestoneSchema, MILESTONE_STATUSES, StartupCurrencySchema, YearMonthSchema } from './startup';
+import { MilestoneSchema, MILESTONE_STATUSES, StartupCurrencySchema, YearMonthSchema, type StartupAgentConsent } from './startup';
 import { FleetProjectionSchema } from './startup-fleet';
 
 /** The ids, in the order an agent meets them. */
@@ -34,14 +34,6 @@ export const STARTUP_MCP_WRITE_TOOL_IDS: readonly StartupMcpToolId[] = [
   'startup_upsert_projection',
   'startup_send_projection_to_runway',
 ];
-
-/** Startup's agent-access switches, kept in the app's own settings (never the workspace). Both default off. */
-export const StartupAgentConsentSchema = z.object({
-  read: z.boolean().default(false),
-  write: z.boolean().default(false),
-});
-export type StartupAgentConsent = z.infer<typeof StartupAgentConsentSchema>;
-export const DEFAULT_STARTUP_AGENT_CONSENT: StartupAgentConsent = { read: false, write: false };
 
 /** The exact refusal a call to a hidden tool answers with. */
 export const STARTUP_AGENTS_OFF_MESSAGE = 'Turn on agent access in Midnite Startup ▸ Settings ▸ Agents.';
