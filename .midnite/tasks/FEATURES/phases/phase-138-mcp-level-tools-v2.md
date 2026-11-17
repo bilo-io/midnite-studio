@@ -56,11 +56,11 @@ leaves Save to the user.
 
 ## Headlines
 
-**Theme A — Level operations.** ◻ `packages/shared/src/game-level-ops.ts`: zod `LevelOpSchema` (`add`, `update`,
+**Theme A — Level operations.** ✅ `packages/shared/src/game-level-ops.ts`: zod `LevelOpSchema` (`add`, `update`,
 `delete`) and a pure, all-or-nothing `applyLevelOps(level, ops, ctx)` used by main (closed editor) and the renderer
-(open editor) alike, with pixel or metre coordinates; plus `queryLevel`.
+(open editor) alike, with pixel or metre coordinates; plus `queryLevel`. Batches are transactions (up to 500 ops, 20 errors reported); an `add` lands in the named or first object layer with a fresh id and an optional `ref` label; `LevelQuerySchema`/`queryLevel` filter by type, layer, id, name and region. The input is cloned, never mutated.
 
-**Theme B — The validator core.** ◻ `packages/shared/src/game-level-validate.ts`: `validateLevel(level, ctx)` →
+**Theme B — The validator core.** ✅ `packages/shared/src/game-level-validate.ts`: `validateLevel(level, ctx)` →
 deterministically ordered `LevelIssue`s with stable rule ids (`level/no-spawn`, `level/duplicate-id`, …), the
 registry Phase 142 extends.
 
@@ -202,16 +202,16 @@ export function queryLevel(level: unknown, query: z.infer<typeof LevelQuerySchem
 
 **Acceptance.**
 
-- [ ] A1. `add` of a `coin` to a 2D platformer fixture returns a fresh id, `added: [id]`, and leaves the input deep-equal
+- [x] A1. `add` of a `coin` to a 2D platformer fixture returns a fresh id, `added: [id]`, and leaves the input deep-equal
   to before (frozen input does not throw).
-- [ ] A2. A batch `[add ok, update id 9999]` returns `ok: false` with `errors[0].index === 1` and no level.
-- [ ] A3. `update` merges `properties`, keeps an existing property's declared type, and `unset` removes one.
-- [ ] A4. `delete` of an unknown id is an error; of a known id removes exactly that object.
-- [ ] A5. `unit: 'm'` with `metresPerTile = 2` and 32 px tiles turns `x: 10` into `x: 160`.
-- [ ] A6. An unknown `type` errors with a message listing `ctx.entityTypes`.
-- [ ] A7. `queryLevel` filters by types, layer, name and region (centre inside), truncates at `limit`, reports `total`,
+- [x] A2. A batch `[add ok, update id 9999]` returns `ok: false` with `errors[0].index === 1` and no level.
+- [x] A3. `update` merges `properties`, keeps an existing property's declared type, and `unset` removes one.
+- [x] A4. `delete` of an unknown id is an error; of a known id removes exactly that object.
+- [x] A5. `unit: 'm'` with `metresPerTile = 2` and 32 px tiles turns `x: 10` into `x: 160`.
+- [x] A6. An unknown `type` errors with a message listing `ctx.entityTypes`.
+- [x] A7. `queryLevel` filters by types, layer, name and region (centre inside), truncates at `limit`, reports `total`,
   and adds `world` only for a 3D level.
-- [ ] A8. `LevelOpSchema.parse` rejects `NaN`, `Infinity`, a 65-character type and a 1,001-point polyline.
+- [x] A8. `LevelOpSchema.parse` rejects `NaN`, `Infinity`, a 65-character type and a 1,001-point polyline.
 
 **Done when** A1–A8 pass under `pnpm -C packages/shared exec vitest run src/game-level-ops.test.ts`.
 
@@ -249,11 +249,11 @@ export const LEVEL_ISSUES_MAX = 500;
 
 **Acceptance.**
 
-- [ ] B1. A fixture with no spawn, two objects sharing id 4, and a `dragon` type yields exactly three issues in the
+- [x] B1. A fixture with no spawn, two objects sharing id 4, and a `dragon` type yields exactly three issues in the
   documented order.
-- [ ] B2. `validateLevel` on a shuffled copy of the same level returns an identical array.
-- [ ] B3. `modelAssets: null` skips `level/missing-model`; `['crate']` flags a `model: 'barrel'` prop.
-- [ ] B4. Output is capped at `LEVEL_ISSUES_MAX`.
+- [x] B2. `validateLevel` on a shuffled copy of the same level returns an identical array.
+- [x] B3. `modelAssets: null` skips `level/missing-model`; `['crate']` flags a `model: 'barrel'` prop.
+- [x] B4. Output is capped at `LEVEL_ISSUES_MAX`.
 
 **Done when** B1–B4 pass.
 
