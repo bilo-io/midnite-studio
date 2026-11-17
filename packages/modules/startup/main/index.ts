@@ -7,3 +7,4 @@ export type { StartupBookAccount, StartupLedgerPort, StartupPostSource } from '.
 export * from './service';
 export * from './workspace-store';
 export { startupManifest } from '../manifest';
+export * from './mcp';

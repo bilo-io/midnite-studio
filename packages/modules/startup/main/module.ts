@@ -6,8 +6,8 @@ import { CHANNELS, EVENT_CHANNELS, schemas, type StartupResult } from '@midnite/
 import type { ContractFilePort } from './contract-files';
 import type { InvoicePdfPort } from './invoice-pdf';
 import type { StartupLedgerPort } from './ledger-port';
-import { handleStartupRequest } from './service';
-import { openWorkspaceStore } from './workspace-store';
+import { handleStartupRequest, type StartupServiceDeps } from './service';
+import { openWorkspaceStore, type WorkspaceStore } from './workspace-store';
 
 /** The electron pieces Startup's main needs, injected so registration is testable under bare vitest. */
 export type StartupElectron = IpcContextElectron & {
@@ -25,6 +25,12 @@ export type StartupMainServices = {
   ledger?: StartupLedgerPort | null;
   /** Prints an invoice page to PDF and asks where to save it; the host's hidden window and save dialog. */
   pdf?: InvoicePdfPort;
+  /**
+   * Hands the host the one workspace store and the service deps the IPC handler runs with, once, at registration —
+   * so the host's MCP server (Phase 153 Theme C) answers from the same store and write queue as the window, never a
+   * second copy of the file.
+   */
+  onReady?: (ready: { store: Promise<WorkspaceStore>; deps: StartupServiceDeps }) => void;
 };
 
 const invalid = (message: string): StartupResult<never> => ({ ok: false, kind: 'invalid', message });
@@ -37,23 +43,24 @@ const invalid = (message: string): StartupResult<never> => ({ ok: false, kind: '
 export const startupModuleMain = defineFeatureMain<StartupMainServices>({
   feature: 'startup',
   channels: [CHANNELS.startup],
-  register(ctx, { electron, now, ledger, pdf }) {
+  register(ctx, { electron, now, ledger, pdf, onReady }) {
     const store = openWorkspaceStore({
       dir: join(electron.userData, 'startup'),
       ...(now ? { now } : {}),
       ...(electron.warn ? { warn: electron.warn } : {}),
       onChanged: (revision) => ctx.emit(EVENT_CHANNELS.startupChanged, { revision }),
     });
+    const deps: StartupServiceDeps = {
+      contractsDir: join(electron.userData, 'startup', 'contracts'),
+      ledger: ledger ?? null,
+      ...(pdf ? { pdf } : {}),
+      ...(electron.pickContractFile && electron.openPath ? { files: { pickContractFile: electron.pickContractFile, openPath: electron.openPath } } : {}),
+    };
+    onReady?.({ store, deps });
     ctx.ipc.handle(
       CHANNELS.startup,
       schemas.StartupOpRequest,
-      async (request) =>
-        handleStartupRequest(await store, request, {
-          contractsDir: join(electron.userData, 'startup', 'contracts'),
-          ledger: ledger ?? null,
-          ...(pdf ? { pdf } : {}),
-          ...(electron.pickContractFile && electron.openPath ? { files: { pickContractFile: electron.pickContractFile, openPath: electron.openPath } } : {}),
-        }),
+      async (request) => handleStartupRequest(await store, request, deps),
       (issue) => invalid(issue),
     );
   },
