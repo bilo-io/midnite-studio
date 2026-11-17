@@ -485,6 +485,12 @@ task.**
 - [x] Note that [`afterpack.cjs:87`](../../../packages/desktop/scripts/afterpack.cjs) only
       `console.warn`s when the ad-hoc `codesign` fails rather than throwing — a failed sign surfaces
       two steps later at `verify-dist`'s `codesign --verify`, with a misleading proximate cause.
+- [ ] **(owner, on the release list — agreed 2026-11-18)** Buy an Apple Developer Program membership
+      ($99/yr) and create one **Developer ID Application** certificate for every midnite app, plus an
+      App Store Connect API key for notarisation. Put them into the six secrets `docs/RELEASING.md`
+      names. This is the one release blocker no agent can clear; it unblocks the box below and
+      [ISSUES Phase 2 Theme E](../../ISSUES/phases/phase-2-macos-permission-prompts.md) (stable
+      signing identity, so macOS stops re-asking for permissions after every update).
 - [ ] Flip `notarize: true` and require the signed path **only once a Developer ID exists**. Until
       then this box stays unticked on purpose, and the phase does not pretend otherwise. **Blocked
       on a purchased Apple Developer ID membership** — not something an agent session can buy.
@@ -630,7 +636,7 @@ task.**
 
 - **Windows and Linux targets.** node-pty needs a matching runner; [Phase 33](phase-33-installable-app-and-cli-integration.md)'s
   deferral is unchanged and this phase adds no reason to revisit it.
-- **Buying a Developer ID.** Theme H wires everything around it and stops there.
+- ~~**Buying a Developer ID.** Theme H wires everything around it and stops there.~~ Moved into Theme H as an owner action on 2026-11-18 — it is on the release list now.
 - **A force-update floor.** midnite has one (`floor.ts`, a `minSupported` field); this app's
   `version.json` shape has no such field and does not need a hard cutover before its first release.
 - **A marketing site or download page.** The receiving repo's README plus a curl one-liner is the
