@@ -18,6 +18,14 @@
       "types": "./dist/broker/*.d.ts",
       "default": "./dist/broker/*.js"
     },
+    "./mcp/*": {
+      "types": "./dist/mcp/*.d.ts",
+      "default": "./dist/mcp/*.js"
+    },
+    "./data-directory": {
+      "types": "./dist/data-directory.d.ts",
+      "default": "./dist/data-directory.js"
+    },
     "./security/socket-token": {
       "types": "./dist/security/socket-token.d.ts",
       "default": "./dist/security/socket-token.js"

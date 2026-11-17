@@ -50,6 +50,7 @@ export * from './markets';
 export * from './markets-portfolio';
 export * from './mcp';
 export * from './mcp-tool-owners';
+export * from './mcp-suite-apps';
 export * from './media';
 export * from './media-library';
 export * from './capture';

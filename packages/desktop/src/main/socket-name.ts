@@ -12,7 +12,5 @@ export {
   SUN_PATH_MAX_BYTES,
 } from '@midnite/studio-runtime/broker/socket-name';
 
-/** The MCP server's own socket name — same fingerprint scheme, separate namespace from the broker's. */
-export function mcpSocketName(appVersion: string, buildId: string, isPackaged: boolean): string {
-  return `${appVersion}-${buildId}${isPackaged ? '' : '-dev'}.sock`;
-}
+/** The MCP server's own socket name — lives in the runtime since Phase 153 Theme B, so a suite app names its socket the same way. */
+export { mcpSocketName } from '@midnite/studio-runtime/mcp/socket-name';
