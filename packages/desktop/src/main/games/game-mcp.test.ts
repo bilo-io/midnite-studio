@@ -28,6 +28,16 @@ const GAME: GameSummary = {
   dirty: false,
   valid: true,
   issue: null,
+  status: 'warn',
+  findingCount: 1,
+};
+
+const DIAGNOSIS = {
+  path: '/games/demo',
+  hasManifest: true,
+  findings: [{ rule: 'kit.outdated' as const, level: 'warn' as const, area: 'kit' as const, message: 'Kit 0.1.0 is older.', path: 'kit', fixId: 'upgrade-kit' as const }],
+  counts: { error: 0, warn: 1, info: 0 },
+  status: 'warn' as const,
 };
 
 function fakeImage(width = 800, height = 600): GameImage {
@@ -76,6 +86,7 @@ function setup(
         ...opts.levels,
       },
       goto: opts.goto ?? (async () => ({ ok: true as const, value: { via: 'hook' as const } })),
+      doctor: async (req) => (req.gameId === GAME.gameId ? { ok: true as const, value: DIAGNOSIS } : { ok: false as const, kind: 'error' as const, message: 'That game was not found.' }),
       create: async () => ({ ok: true as const, value: { path: '/games/new', gameId: 'gnew' } }),
       manifestGet: async () => ({ manifest: (opts.manifest ?? { kitVersion: '0.1.0', vendored: { phaser: '3.80.1' } }) as never, issues: [] }),
       manifestSet,
@@ -422,5 +433,17 @@ describe('level tools (Phase 132 Theme G)', () => {
     expect(await dispatchMcpCall('game_level_set', { game: 'gabc', scene: 'level', level: {} })).toMatchObject({ ok: false, kind: 'error', message: 'layers: Required' });
     expect(await dispatchMcpCall('game_level_get', { game: 'gabc', scene: 'x' })).toMatchObject({ ok: false, kind: 'not-found' });
     expect(await dispatchMcpCall('game_level_get', { game: 'nope', scene: 'x' })).toMatchObject({ ok: false, kind: 'not-found' });
+  });
+});
+
+describe('game_doctor (Phase 149 Theme C)', () => {
+  beforeEach(() => resetMcpAllowUiStateForTests());
+  afterEach(() => setGameTools(null));
+
+  it('is a read: answers the diagnosis with the switch off, by id or path', async () => {
+    setup(null);
+    expect(await dispatchMcpCall('game_doctor', { game: 'gabc' })).toEqual({ ok: true, value: DIAGNOSIS });
+    expect(await dispatchMcpCall('game_doctor', { game: '/games/demo' })).toEqual({ ok: true, value: DIAGNOSIS });
+    expect(await dispatchMcpCall('game_doctor', { game: 'nope' })).toMatchObject({ ok: false });
   });
 });

@@ -1174,7 +1174,7 @@ export const MCP_TOOLS = {
     id: 'game_doctor',
     title: 'Diagnose a game',
     description:
-      'Checks a game against the Midnite game standard and answers every finding (rule id, level, message, file, fix id) with a status — use before changing a game Studio did not create, or when a Games feature does not work for it.',
+      'Checks a game against the Midnite game standard, answering each finding with its rule id, level, file and fix id — use instead of guessing why Run or `game_level_list` does not work for a game.',
     input: GameToolTargetSchema,
     output: GameDoctorOutputSchema,
     readOnly: true,
