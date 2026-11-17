@@ -868,7 +868,6 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
       {firstIssue ? <Banner testId="level-banner-readonly">{`This level opens read-only: ${firstIssue}`}</Banner> : null}
       {entry.issues.filter((i) => !blocking.includes(i)).length > 0 ? <Banner testId="level-banner-images">{entry.issues.find((i) => !blocking.includes(i))!}</Banner> : null}
       <div className="flex min-h-0 flex-1">
-<<<<<<< HEAD
         <LevelOutliner
           gameId={gameId}
           scene={entry.scene}
@@ -882,11 +881,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
           onFrame={frameObject}
           onContextMenu={(e, target) => void openLevelMenu(e, target)}
         />
-        <div className="relative min-w-0 flex-1">
-=======
-        <LayerList level={level} activeLayerId={edit.activeLayerId} readOnly={readOnly} update={update} is3d={is3d} />
         <div ref={canvasBox} className="relative min-w-0 flex-1">
->>>>>>> c2f889144 (feat(level-editor): select, frame and view requests answered by the editor (phase 138 G H))
           <LevelCanvas
             level={level}
             images={entry.images}
