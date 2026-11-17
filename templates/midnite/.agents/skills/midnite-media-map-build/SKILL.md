@@ -7,6 +7,10 @@ description: Frame a real place in Midnite Studio's Media ▸ Maps page through 
 
 Maps is an interactive slippy map. Its headline job is **Capture for Terrain**: a square of the real world becomes a 16-bit heightmap, a satellite image, a roads layer and building footprints with heights, handed to a new Terrain with `worldSize` and `heightRange` already set in metres. Never fetch tiles or write heightmaps by hand; call the tools.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/media/map-calc.mjs --side <metres> [--size 513] [--target-mpp 10]`. It computes side bounds, valid grid sizes, metres per pixel and per-layer limits (`${S}media/scaffold.sh map <project>` creates the folder). You still find and frame the place and hand the layers to a Terrain. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Layout
 
 ```
