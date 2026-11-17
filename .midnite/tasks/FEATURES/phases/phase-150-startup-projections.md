@@ -516,9 +516,9 @@ Values stay unrounded floats in the result; **only `formatZar` rounds** (to whol
 ## Verification
 
 - [ ] `moon run :typecheck :lint :test` green in CI (no `lucide-react`; per-set `react-icons/lu` imports only).
-- [ ] A — `startup-fleet.test.ts`, `service.test.ts › fleet projections`, `workspace-store.test.ts › migrateWorkspace` (v1 → v2
+- [x] A — `startup-fleet.test.ts`, `service.test.ts › fleet projections`, `workspace-store.test.ts › migrateWorkspace` (v1 → v2
   keeps milestones; v3 read-only; bad v2 corrupt) and `bridge.test.ts` pass.
-- [ ] B — `fleet-model.test.ts` hits the hand-worked fixture to the cent; `format-zar.test.ts` passes with `Intl` stubbed
+- [x] B — `fleet-model.test.ts` hits the hand-worked fixture to the cent; `format-zar.test.ts` passes with `Intl` stubbed
   to throw and `LANG=de_DE.UTF-8`.
 - [x] C — with no company, Startup opens on Projections and shows no setup form; the other five views still gate.
 - [x] C — `use-fleet-draft.test.ts`: one save per 400 ms burst; draft not clobbered while dirty; flush on unmount.
