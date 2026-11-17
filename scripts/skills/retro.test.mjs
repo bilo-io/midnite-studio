@@ -97,7 +97,7 @@ describe('llmRefine', () => {
   });
   it('falls back with no daemon', async () => {
     const fetch = vi.fn(async () => { throw new Error('ECONNREFUSED'); });
-    expect(await llmRefine(prs, [], { fetch })).toMatchObject({ source: 'fallback', reason: 'unreachable' });
+    expect(await llmRefine(prs, [], { fetch, noLlm: false })).toMatchObject({ source: 'fallback', reason: 'unreachable' });
   });
   it('is skipped under --no-llm without touching fetch', async () => {
     const fetch = vi.fn();
@@ -108,7 +108,7 @@ describe('llmRefine', () => {
     const reply = JSON.stringify({ novel: [{ i: 0, evidence: 'first WASM use' }], themes: [] });
     const fetch = vi.fn(async (url) => (String(url).endsWith('/api/tags') ? { ok: true, json: async () => ({ models: [{ name: 'qwen3.5:9b' }] }) } : { ok: true, json: async () => ({ response: reply }) }));
     const p = prepare([pr(1, 'feat: a')], 'o/r').prs;
-    const r = await llmRefine(p, [], { fetch });
+    const r = await llmRefine(p, [], { fetch, noLlm: false });
     expect(r.source).toBe('ollama');
     expect(p[0].novelty).toBe('first WASM use');
   });

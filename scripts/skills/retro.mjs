@@ -143,7 +143,7 @@ export async function llmRefine(prs, groups, { noLlm, ...opts } = {}) {
     'A PR is novel ONLY with evidence: first of its kind, new technology, different approach, measured number, enabling work, or exploratory. Prefer an empty list to padding.',
     ...prs.map((p, i) => `${i}. [${p.repo}] ${p.title}`),
   ].join('\n');
-  const res = await ollama({ task: 'classify', prompt, noLlm, fallback: () => null, ...opts });
+  const res = await ollama({ task: 'draft', prompt, noLlm, fallback: () => null, ...opts });
   if (res.source !== 'ollama') return { source: 'fallback', reason: res.reason };
   const json = parseModelJson(res.text);
   if (!json) return { source: 'fallback', reason: 'bad-json' };
