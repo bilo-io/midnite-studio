@@ -10,7 +10,7 @@ const books = [
   { id: 'usd', name: 'US Books', entity: 'company', currency: 'USD', readOnly: false, revision: 0 },
 ];
 function install(linkBook: ReturnType<typeof vi.fn> = vi.fn(async () => ({ ok: true, value: {} }))) {
-  const workspace = { version: 1, company, milestones: [], lines: [], scenarios: [], customers: [], invoices: [], vendors: [], contracts: [], invoiceCounter: 0, ledger: null };
+  const workspace = { version: 2, fleetProjections: [], company, milestones: [], lines: [], scenarios: [], customers: [], invoices: [], vendors: [], contracts: [], invoiceCounter: 0, ledger: null };
   window.midniteStudio = {
     startup: { get: vi.fn(async () => ({ ok: true, value: { workspace, revision: 0, readOnly: false } })), linkBook, updateCompany: vi.fn(), onChanged: () => () => undefined },
     ledger: { listBooks: vi.fn(async () => ({ ok: true, value: { books } })) },

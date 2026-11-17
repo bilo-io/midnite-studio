@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { FleetProjectionSchema, MAX_FLEET_PROJECTIONS } from './startup-fleet';
+
 /**
  * Midnite Startup's wire contract (Phase 130 Theme B): the company, its roadmap, its plan lines and runway
  * scenarios, its customers and invoices, its vendors and contracts, and the one `startup` channel whose
@@ -159,7 +161,7 @@ export type Invoice = z.infer<typeof InvoiceSchema>;
 
 // --- the workspace ----------------------------------------------------------------
 
-export const STARTUP_WORKSPACE_VERSION = 1;
+export const STARTUP_WORKSPACE_VERSION = 2;
 
 /** The ledger book an invoice posts into, and the four accounts it uses (Theme F; null until a book is linked). */
 export const StartupLedgerLinkSchema = z.object({
@@ -184,6 +186,7 @@ export const StartupWorkspaceSchema = z.object({
   contracts: z.array(ContractSchema).default([]),
   invoiceCounter: z.int().min(0).default(0),
   ledger: StartupLedgerLinkSchema.nullable().default(null),
+  fleetProjections: z.array(FleetProjectionSchema).max(MAX_FLEET_PROJECTIONS).default([]),
 });
 export type StartupWorkspace = z.infer<typeof StartupWorkspaceSchema>;
 
@@ -236,6 +239,9 @@ export const StartupRequestSchema = z.discriminatedUnion('op', [
   z.object({ op: z.literal('exportInvoicePdf'), id }),
   z.object({ op: z.literal('linkBook'), bookId: z.string().min(1).max(80).nullable() }),
   z.object({ op: z.literal('ledgerSummary') }),
+  z.object({ op: z.literal('upsertFleetProjection'), projection: FleetProjectionSchema }),
+  z.object({ op: z.literal('removeFleetProjection'), id }),
+  z.object({ op: z.literal('duplicateFleetProjection'), id, name: z.string().trim().min(1).max(80) }),
 ]);
 export type StartupRequest = z.infer<typeof StartupRequestSchema>;
 export type StartupOp = StartupRequest['op'];
