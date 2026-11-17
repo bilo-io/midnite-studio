@@ -61,9 +61,7 @@ milestones and projections, and can make the small, safe changes. The app drafts
 own model and keeps the history. Planned 2026-11-18; build order **A ‖ B**, then **C**, then **D** (after Phase 152
 A), then **E**, then **F**.
 
-**Theme A — Shared headless text in the runtime.** ◻ `runHeadlessText` moves to `packages/runtime/src/ai/` behind
-injected ports (process runner, agent roster, Ollama), and Studio's callers adapt with unchanged behaviour. Startup
-can now run a prompt.
+**Theme A — Shared headless text in the runtime.** ✅ `runHeadlessText` now lives in `packages/runtime/src/ai/headless-text.ts` behind process, roster and Ollama ports; Studio's wrapper maps it back to `GitOpResult` with unchanged behaviour, so Startup can run a prompt.
 
 **Theme B — Per-app MCP sockets and a joining shim.** ◻ Any suite app can serve MCP on its own socket. The
 `midnite` shim discovers every running suite app's socket, lists the union of their tools and routes each call to
@@ -95,7 +93,7 @@ drafting and view, and one e2e for draft → accept → export.
 
 ### A — Shared headless text in the runtime (M)
 
-- [ ] `packages/runtime/src/ai/headless-text.ts` (net-new), the body of `runHeadlessText` moved verbatim apart from
+- [x] `packages/runtime/src/ai/headless-text.ts` (net-new), the body of `runHeadlessText` moved verbatim apart from
   its imports:
   ```ts
   export type HeadlessTextPorts = {
@@ -110,10 +108,10 @@ drafting and view, and one e2e for draft → accept → export.
   - The runtime may import neither `electron` nor a feature (layer rule), hence the ports. The result is a plain
     envelope; Studio wraps it into `GitOpResult` at its call site.
   - Exported from `runtime/src/index.ts`.
-- [ ] `desktop/src/main/ai/improve-field.ts` keeps a thin `runHeadlessText` wrapper that builds the ports from
+- [x] `desktop/src/main/ai/improve-field.ts` keeps a thin `runHeadlessText` wrapper that builds the ports from
   `process-runner`, `terminal-service.listAgents` and `features/models` `runOllamaPrompt`, and maps the envelope
   back to `GitOpResult`. `commit-message.ts`, `doc-edit.ts` and `plan-blueprint.ts` are **unchanged**.
-- [ ] Tests: `runtime/src/ai/headless-text.test.ts` with stub ports covers:
+- [x] Tests: `runtime/src/ai/headless-text.test.ts` with stub ports covers:
   - The CLI path passes `modelArgs(agentId)` and returns trimmed text.
   - An empty reply is `{ ok: false }`.
   - No CLI installed gives the "no CLI" sentence naming `what`.
