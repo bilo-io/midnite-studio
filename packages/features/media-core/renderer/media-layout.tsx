@@ -43,41 +43,45 @@ export function MediaPaneToggles({
   hasDetail,
   explorerName = 'explorer',
   detailName = 'composer',
+  side,
 }: {
   tab: MediaTab;
   hasDetail: boolean;
   explorerName?: string;
   detailName?: string;
+  side?: 'start' | 'end';
 }) {
   const { IconButton } = useFrameChrome();
   const host = useMediaHost();
   const explorerCollapsed = host.usePaneCollapsed(tab, 'explorer');
   const detailCollapsed = host.usePaneCollapsed(tab, 'detail');
   const setCollapsed = host.setPaneCollapsed;
+  const explorerToggle = (
+    <IconButton
+      icon={explorerCollapsed ? LuPanelLeftOpen : LuPanelLeftClose}
+      label={explorerCollapsed ? `Show ${explorerName}` : `Hide ${explorerName}`}
+      size="sm"
+      tooltipSide="bottom"
+      aria-expanded={!explorerCollapsed}
+      onClick={() => setCollapsed(tab, 'explorer', !explorerCollapsed)}
+    />
+  );
+  const detailToggle = hasDetail ? (
+    <IconButton
+      icon={detailCollapsed ? LuPanelRightOpen : LuPanelRightClose}
+      label={detailCollapsed ? `Show ${detailName}` : `Hide ${detailName}`}
+      size="sm"
+      tooltipSide="bottom"
+      aria-expanded={!detailCollapsed}
+      onClick={() => setCollapsed(tab, 'detail', !detailCollapsed)}
+    />
+  ) : null;
+  if (side === 'start') return explorerToggle;
+  if (side === 'end') return detailToggle;
   return (
     <div className="pointer-events-none absolute inset-x-2 top-2 z-20 flex items-start justify-between">
-      <span className={FLOATING_TOGGLE}>
-        <IconButton
-          icon={explorerCollapsed ? LuPanelLeftOpen : LuPanelLeftClose}
-          label={explorerCollapsed ? `Show ${explorerName}` : `Hide ${explorerName}`}
-          size="sm"
-          tooltipSide="bottom"
-          aria-expanded={!explorerCollapsed}
-          onClick={() => setCollapsed(tab, 'explorer', !explorerCollapsed)}
-        />
-      </span>
-      {hasDetail ? (
-        <span className={FLOATING_TOGGLE}>
-          <IconButton
-            icon={detailCollapsed ? LuPanelRightOpen : LuPanelRightClose}
-            label={detailCollapsed ? `Show ${detailName}` : `Hide ${detailName}`}
-            size="sm"
-            tooltipSide="bottom"
-            aria-expanded={!detailCollapsed}
-            onClick={() => setCollapsed(tab, 'detail', !detailCollapsed)}
-          />
-        </span>
-      ) : null}
+      <span className={FLOATING_TOGGLE}>{explorerToggle}</span>
+      {detailToggle ? <span className={FLOATING_TOGGLE}>{detailToggle}</span> : null}
     </div>
   );
 }

@@ -28,8 +28,21 @@ const RESOLUTIONS: readonly { value: GameResolution; label: string }[] = [
 ];
 
 /**
- * The runner's controls (Phase 107 Theme B): play/pause (the kit's
- * `__midnite` hook), restart, stop, a resolution preset, mute, the fps overlay,
+ * The layered violet / blue / pink glow the Run button wears on hover and for as long as its game runs.
+ * Literal class strings, so Tailwind sees both.
+ */
+const RUN_GLOW_HOVER =
+  'hover:shadow-[0_0_0_1px_rgba(139,92,246,0.35),0_0_14px_-2px_rgba(59,130,246,0.55),0_0_26px_-4px_rgba(236,72,153,0.5)]';
+const RUN_GLOW_LIVE =
+  'shadow-[0_0_0_1px_rgba(139,92,246,0.35),0_0_14px_-2px_rgba(59,130,246,0.55),0_0_26px_-4px_rgba(236,72,153,0.5)]';
+
+function Divider() {
+  return <span role="separator" aria-orientation="vertical" className="mx-1 h-4 w-px shrink-0 bg-border" />;
+}
+
+/**
+ * The runner's controls (Phase 107 Theme B): Run, which turns into Stop in place while the game runs,
+ * pause (the kit's `__midnite` hook), restart, a resolution preset, mute, the fps overlay,
  * DevTools, the Juice settings popover, the Playtests menu (Theme O) and Pop out. The popout window renders the same bar without Pop out —
  * its frame's own Re-dock button is the way back.
  */
@@ -74,7 +87,7 @@ export function GameRunnerToolbar({
   const playClick = () => {
     if (!gameId) return;
     if (live) {
-      onPlay?.();
+      stop.mutate(gameId);
       return;
     }
     const started = run
@@ -88,13 +101,14 @@ export function GameRunnerToolbar({
     <div role="toolbar" aria-label="Game controls" className="flex items-center gap-1">
       <button
         type="button"
-        aria-label={live ? 'Show the running game' : 'Run'}
-        disabled={!gameId}
+        aria-label={live ? 'Stop' : 'Run'}
+        data-live={live || undefined}
+        disabled={!gameId || stop.isPending}
         onClick={playClick}
-        className="gradient-border gradient-border--always gradient-border--hover mr-1 flex h-7 items-center gap-1.5 rounded-md px-3 text-xs font-semibold hover:shadow-[0_0_0_1px_rgba(139,92,246,0.28),0_0_12px_-2px_rgba(59,130,246,0.35),0_0_22px_-6px_rgba(236,72,153,0.3)] motion-safe:transition-shadow disabled:opacity-50"
+        className={`gradient-border gradient-border--always gradient-border--hover mr-1 flex h-7 items-center gap-1.5 rounded-md px-3 text-xs font-semibold ${RUN_GLOW_HOVER} ${live ? RUN_GLOW_LIVE : ''} motion-safe:transition-shadow disabled:opacity-50`}
       >
-        <LuPlay aria-hidden className="h-3.5 w-3.5" />
-        {live ? 'Play' : 'Run'}
+        {live ? <LuSquare aria-hidden className="h-3.5 w-3.5" /> : <LuPlay aria-hidden className="h-3.5 w-3.5" />}
+        {live ? 'Stop' : 'Run'}
       </button>
       <IconButton
         icon={paused ? LuPlay : LuPause}
@@ -109,13 +123,6 @@ export function GameRunnerToolbar({
         size="sm"
         disabled={!gameId}
         onClick={() => gameId && run.mutate(gameId)}
-      />
-      <IconButton
-        icon={LuSquare}
-        label="Stop"
-        size="sm"
-        disabled={!live}
-        onClick={() => gameId && stop.mutate(gameId)}
       />
       <span className="w-28">
         <SelectField<GameResolution>
@@ -146,16 +153,20 @@ export function GameRunnerToolbar({
         }}
       />
       <IconButton icon={LuBug} label="DevTools" size="sm" disabled={!live} onClick={() => void toolbar('devtools')} />
+      <Divider />
       <GameJuiceMenu gameId={gameId} live={live} />
       <PlaytestsMenu gameId={gameId} />
       {inPopout ? null : (
-        <IconButton
-          icon={LuExternalLink}
-          label={gameId !== null && popped === gameId ? 'Show game window' : 'Pop out'}
-          size="sm"
-          disabled={!gameId || popOut.isPending}
-          onClick={() => gameId && popOut.mutate(gameId)}
-        />
+        <>
+          <Divider />
+          <IconButton
+            icon={LuExternalLink}
+            label={gameId !== null && popped === gameId ? 'Show game window' : 'Pop out'}
+            size="sm"
+            disabled={!gameId || popOut.isPending}
+            onClick={() => gameId && popOut.mutate(gameId)}
+          />
+        </>
       )}
     </div>
   );
