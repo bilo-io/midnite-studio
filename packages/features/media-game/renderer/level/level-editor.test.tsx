@@ -52,8 +52,7 @@ beforeEach(() => {
   set.mockResolvedValue({ ok: true, value: { sha: 'abc' } });
   installBridge({ list, get, set, doctor, doctorFix });
   useLevelStore.setState({ byGame: {}, newSceneFor: null });
-  // Half a tile is the half metre the older 3D plan tests were written against.
-  useLevelViewStore.setState({ modeByGame: {}, optimisation: 3, stats: false, snap: { ...DEFAULT_LEVEL_SNAP, planStep: 0.5 } });
+  useLevelViewStore.setState({ modeByGame: {}, optimisation: 3, stats: false, snap: DEFAULT_LEVEL_SNAP });
   view3d.props = null;
   view3d.exits = 0;
 });
@@ -224,6 +223,8 @@ describe('LevelEditor', () => {
 const at = (mx: number, my: number) => ({ clientX: 130 + 0.59375 * mx, clientY: 10 + 0.59375 * my, button: 0, pointerId: 1 });
 
 describe('LevelEditor, 3D plan view (Phase 132 Theme E)', () => {
+  // Half a tile is the half metre these tests were written against.
+  beforeEach(() => useLevelViewStore.setState({ snap: { ...DEFAULT_LEVEL_SNAP, planStep: 0.5 } }));
   const lastObject = () => {
     const entry = useLevelStore.getState().byGame.g1!;
     return entry.edit.level.layers.find((l) => l.type === 'objectgroup')!.objects!.at(-1)!;
@@ -285,6 +286,15 @@ describe('LevelEditor, 3D plan view (Phase 132 Theme E)', () => {
     fireEvent.pointerDown(canvas, { ...at(100, 150), altKey: true });
     fireEvent.pointerUp(canvas, { ...at(100, 150), altKey: true });
     expect(lastObject().x).not.toBe(96);
+  });
+
+  it('F: an arrow key nudges a 3D level by the snap step (half a tile here)', async () => {
+    const { canvas, wrap } = await open3d();
+    fireEvent.keyDown(wrap, { key: 'v' });
+    fireEvent.pointerDown(canvas, at(336, 336));
+    fireEvent.pointerUp(canvas, at(336, 336));
+    fireEvent.keyDown(wrap, { key: 'ArrowRight' });
+    expect(lastObject().x).toBe(352);
   });
 
   it('drags a volume into a prop box with sizeY 3', async () => {
