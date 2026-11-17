@@ -73,9 +73,13 @@ unlocks and how to fix it. The same ids are exported from `shared` (`game-standa
 `GAME_GENRES`, `genre: null` documented as "custom", and `vendored: true` accepted as a legacy shape and normalised to
 `{}`, with a doctor finding to replace it. Landed: five genres appended, `GENRES_WITH_STARTER`/`hasStarter` (the template matrix is keyed by `StarterGenre`; the wizard filters by it), `rawManifestHasLegacyVendored`, and `build` with a no-`..` refine.
 
-**Theme C — The game doctor.** ◻ `game-doctor.ts` in main: `diagnoseGame(path) → GameDiagnosis` (findings, a
-per-area score, a summary), behind `mstudio:games:doctor` and the read-only `game_doctor` MCP tool. Each finding names
-its rule id and a fix hint, and when one exists, a `fixId`.
+**Theme C — The game doctor.** ✅ `game-doctor.ts` in main: `diagnoseGame(path) → GameDiagnosis` (findings, counts,
+status) and `diagnoseGameCheap` (manifest, entry and kit only), behind `mstudio:games:doctor` (`games.doctor` in Studio
+and Gamer) and the read-only `game_doctor` MCP tool. Each finding names its rule id, the game-relative file, a message
+and, where Theme D has one, a `fixId`. `listGames` fills the new `GameSummary.status`/`findingCount` from the cheap
+diagnosis; `compareSemver` joined `game-standard.ts`. Three fixtures (`legacy-3d`, `shmup-legacy`, `vite-no-manifest`)
+plus a composed `top-down` starter that answers `ok`. Landed: the hook check also accepts an import of the kit's engine
+entry (`kit/phaser/boot`, `kit/three/loop`), since starters call `installHook` from inside the kit.
 
 **Theme D — Safe fixes.** ◻ `applyGameFix(path, fixId)`, one commit per fix: write a missing manifest, normalise
 `vendored`, set the genre, add a `build` block, add `levels` once `levels/*.tmj` exists, and start a kit upgrade
@@ -174,7 +178,7 @@ today.
 
 ### C — The game doctor [M · 3-4h]
 
-- [ ] Contract in `media-game.ts`:
+- [x] Contract in `media-game.ts`:
   - `GameFindingSchema = z.object({ rule: GameRuleIdSchema, level: GameRuleLevelSchema, area, message: z.string(),
     path: z.string().nullable(), fixId: GameFixIdSchema.nullable() })`.
   - `GameDiagnosisSchema = z.object({ path, hasManifest: z.boolean(), findings: z.array(GameFindingSchema),
@@ -182,7 +186,7 @@ today.
   - `CHANNELS.gamesDoctor: 'mstudio:games:doctor'` (after `gamesKitUpgrade`); `schemas.GamesDoctorRequest = {
     gameId?: string; path?: string }` (exactly one); `games.doctor(req)` on the bridge, in Studio's preload and
     Gamer's bridge.
-- [ ] Net-new `packages/features/media-game/main/games/game-doctor.ts`:
+- [x] Net-new `packages/features/media-game/main/games/game-doctor.ts`:
       `diagnoseGame(path: string): Promise<GameDiagnosis>`. It never throws (any fs error becomes a finding or is
       skipped). Each check, in order:
   - **manifest**: missing → `manifest.missing` (`fixId: 'write-manifest'`); not JSON → `manifest.invalid-json`; each
@@ -205,14 +209,14 @@ today.
     is missing → `assets.missing-file`; a `sha256` mismatch → `assets.hash-mismatch`. Hash only files ≤ 50 MB, and skip
     the rest with no finding.
   - `status`: `error` if any error, else `warn` if any warn, else `ok`.
-- [ ] The games service: `doctor(req)` resolves `gameId` through `resolve`, or takes `path` (used by F, before a game is
+- [x] The games service: `doctor(req)` resolves `gameId` through `resolve`, or takes `path` (used by F, before a game is
       listed), and confines `path` to an existing absolute directory.
-- [ ] `GameSummarySchema` gains `status: z.enum(['ok','warn','error']).nullable()` and `findingCount: z.number()`.
+- [x] `GameSummarySchema` gains `status: z.enum(['ok','warn','error']).nullable()` and `findingCount: z.number()`.
       `listGames` fills them from a **cheap** diagnosis (manifest, entry and kit only; no asset hashing or source walk),
       so the list stays fast. `issue` stays for back-compat.
-- [ ] MCP: `game_doctor` (`{ game }` → the diagnosis JSON) in `GAME_MCP_TOOL_IDS` and `GAME_MCP_READ_TOOL_IDS`, and
+- [x] MCP: `game_doctor` (`{ game }` → the diagnosis JSON) in `GAME_MCP_TOOL_IDS` and `GAME_MCP_READ_TOOL_IDS`, and
       the adapter in `game-mcp.ts`. The id union in `shared/src/mcp.ts` updates. `mcp.test.ts`'s read set gains it.
-- [ ] `game-doctor.test.ts` against three fixtures under `main/games/__fixtures__/doctor/`: `legacy-3d` (GTACT-shaped:
+- [x] `game-doctor.test.ts` against three fixtures under `main/games/__fixtures__/doctor/`: `legacy-3d` (GTACT-shaped:
       kit 0.11, no levels), `shmup-legacy` (Starbreaker-shaped manifest) and `vite-no-manifest` (SynthSurf-shaped:
       `package.json` with vite and typescript, `index.html` with `src/main.ts`). Assert exact rule ids per fixture, and
       a clean fixture made by `composeStarter` that answers `status: 'ok'` with no `error`/`warn`.
