@@ -51,10 +51,13 @@ menus**, and a **shortcut cheat-sheet** that reads the same table the key handle
 
 ## Headlines
 
-**Theme A — Multi-selection in the edit model.** ◻ `EditState` gains `selected: ObjectRef[]` beside the primary
-`selection`; pure `selectOnly`, `toggleSelected`, `addSelected`, `selectInRect`, `selectAllInLayer`,
-`selectedObjects`, and group `moveObjects` / `deleteObjects` / `nudgeObjects`, each one undo step. Undo and redo keep
-the selection, dropping refs that no longer exist.
+**Theme A — Multi-selection in the edit model.** ✅ `EditState.selected: readonly ObjectRef[]` sits beside the primary
+`selection` (invariant: `selection === null` iff `selected` is empty; a set `selection` is an element of `selected`).
+Pure `selectOnly` (`select` is its alias), `toggleSelected`, `addSelected`, `selectInRect` (fully-enclosed rule, optional
+`filter` for Theme H), `selectAllInLayer`, `selectedObjects`, and group `moveObjects` / `nudgeObjects` / `deleteObjects`,
+each one undo step; `level-selection.ts` holds `refKey`, `sameRef`, `objectExtentPoints` and `selectionBounds`. Undo and
+redo keep the selection, dropping refs that no longer resolve; selecting is never an undo step, so it leaves the redo
+stack alone. `addObject` selects the new object only; `setActiveLayer` / `addLayer` clear both fields.
 
 **Theme B — Clipboard and duplicate.** ◻ `copySelection` → a versioned `LevelClipboard` JSON, written to the system
 clipboard with an in-memory fallback; `pasteClipboard` at the pointer or in place +1 cell; `duplicateSelection` in
@@ -158,16 +161,16 @@ loses the user's place.
 
 **Acceptance.**
 
-- [ ] A1. `createEditState(level).selected` is `[]`; `selectOnly(s, ref)` gives `selected: [ref]`, `selection: ref`.
-- [ ] A2. `toggleSelected` adds an absent ref (it becomes primary) and removes a present one; removing the primary
+- [x] A1. `createEditState(level).selected` is `[]`; `selectOnly(s, ref)` gives `selected: [ref]`, `selection: ref`.
+- [x] A2. `toggleSelected` adds an absent ref (it becomes primary) and removes a present one; removing the primary
   makes the last remaining ref primary; removing the last ref gives `selection: null`.
-- [ ] A3. `selectInRect` with `'replace'` / `'add'` / `'toggle'` returns the documented sets for a fixture of 3
+- [x] A3. `selectInRect` with `'replace'` / `'add'` / `'toggle'` returns the documented sets for a fixture of 3
   objects where one straddles the rect edge (never selected).
-- [ ] A4. `moveObjects` over 3 refs changes `past.length` by exactly 1, and `undo` restores all three positions with
+- [x] A4. `moveObjects` over 3 refs changes `past.length` by exactly 1, and `undo` restores all three positions with
   the selection intact.
-- [ ] A5. `deleteObjects` over 2 refs is one undo step; after `undo` both objects are back and `selected` holds both.
-- [ ] A6. A ref whose object was deleted by redo is dropped from `selected` and the invariant holds.
-- [ ] A7. Every existing `level-edit-model.test.ts` case passes unchanged (`select` keeps its signature).
+- [x] A5. `deleteObjects` over 2 refs is one undo step; after `undo` both objects are back and `selected` holds both.
+- [x] A6. A ref whose object was deleted by redo is dropped from `selected` and the invariant holds.
+- [x] A7. Every existing `level-edit-model.test.ts` case passes unchanged (`select` keeps its signature).
 
 **Tests.** `level-selection.test.ts` (bounds of box / point / path mixes, `refKey`), new cases in
 `level-edit-model.test.ts` for A1–A6.
