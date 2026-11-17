@@ -40,16 +40,16 @@ describe('Startup host nav', () => {
   });
 
   it("lands a module link on that module's first view", () => {
-    expect(firstViewOfModule(STARTUP_HOST_NAV, 'startup')).toBe('startup.overview');
+    expect(firstViewOfModule(STARTUP_HOST_NAV, 'startup')).toBe('startup.projections');
   });
 });
 
 describe('Startup host', () => {
-  it("lists Startup's five views and the Books group in the rail, and opens on Overview", async () => {
+  it("lists Startup's six views and the Books group in the rail, and opens on Projections", async () => {
     const { container } = render(<StartupHostApp />);
-    await waitFor(() => expect(screen.getByRole('main', { name: 'Overview' })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('main', { name: 'Projections' })).toBeTruthy());
     const views = new Set([...container.querySelectorAll('[data-view]')].map((el) => el.getAttribute('data-view')));
-    for (const view of ['startup.invoices', 'startup.overview', 'startup.roadmap', 'startup.runway', 'startup.vendors']) expect(views, view).toContain(view);
+    for (const view of ['startup.projections', 'startup.invoices', 'startup.overview', 'startup.roadmap', 'startup.runway', 'startup.vendors']) expect(views, view).toContain(view);
     const accountant = STARTUP_HOST_NAV.groups?.find((g) => g.id === 'accountant');
     expect(accountant?.views.length).toBeGreaterThan(0);
     for (const view of accountant?.views ?? []) expect(views, view.id).toContain(view.id);

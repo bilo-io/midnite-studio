@@ -1,3 +1,5 @@
+import { Suspense, lazy } from 'react';
+
 import { useStartupSnapshot } from '../data/use-startup';
 import { InvoicesView } from '../invoices/invoices-view';
 import { RoadmapView } from '../roadmap/roadmap-view';
@@ -6,7 +8,11 @@ import { VendorsView } from '../vendors/vendors-view';
 import { CompanyForm } from './company-form';
 import { Overview } from './overview';
 
+// Projections is the heaviest view and the home view; its own chunk keeps the app's entry small.
+const ProjectionsView = lazy(() => import('../projections/projections-view'));
+
 const TITLES: Readonly<Record<string, string>> = {
+  'startup.projections': 'Projections',
   'startup.overview': 'Overview',
   'startup.roadmap': 'Roadmap',
   'startup.runway': 'Runway',
@@ -37,6 +43,12 @@ export function StartupHome({ view, onView }: { view: string; onView: (view: str
     );
   }
   const { workspace, readOnly } = snapshot.data;
+  // Projections needs no company, so it renders before the setup gate.
+  if (view === 'startup.projections') return (
+      <Suspense fallback={<p className="p-6 text-xs text-muted-foreground">Loading…</p>}>
+        <ProjectionsView projections={workspace.fleetProjections} readOnly={readOnly} />
+      </Suspense>
+    );
   if (workspace.company === null) {
     return (
       <main className="flex h-full min-h-0 flex-col overflow-y-auto" aria-label={title}>

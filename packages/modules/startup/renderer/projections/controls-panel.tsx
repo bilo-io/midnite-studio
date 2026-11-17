@@ -1,0 +1,136 @@
+import { API_TIERS, HARDWARE_CATALOG, MAX_FLEET_NODES, type ApiTierId, type FleetNodeConfig, type FleetProjection, type HardwareId } from '@midnite/studio-shared';
+
+import { STARTUP_CHROME } from '../compose/startup-chrome';
+import { formatCompactZar, formatZar } from './format-zar';
+import { SliderField, parseNumber } from './slider-field';
+import { BUTTON, BUTTON_PRIMARY, FIELD, GRADIENT, LABEL } from './styles';
+
+type Update = (fn: (p: FleetProjection) => FleetProjection) => void;
+
+const HORIZONS = [12, 24, 36] as const;
+
+export const hardwareOptionLabel = (h: (typeof HARDWARE_CATALOG)[number]) => `${h.label} — ${formatZar(h.priceCents)} · ${h.watts.toLocaleString('en-US')} W`;
+export const apiOptionLabel = (t: (typeof API_TIERS)[number]) => `${t.label} — ${formatZar(t.monthlyCents)} /mo`;
+
+const fmtPct = (v: number) => `${v} %`;
+const fmtRate = (v: number) => `${formatZar(v, { decimals: 2 })} /kWh`;
+const fmtGrowth = (v: number) => `${v > 0 ? '+' : ''}${v} %/mo`;
+const fmtHour = (v: number) => `${formatZar(v, { decimals: 2 })} /h`;
+const fmtInt = (v: number) => String(v);
+// A money field is typed in rands, held in cents.
+const parseCents = (t: string) => {
+  const n = parseNumber(t);
+  return n === null ? null : Math.round(n * 100);
+};
+
+/** The next free `Node <n>`: one past the highest existing suffix. */
+export function nextNodeName(names: readonly string[]): string {
+  let max = 0;
+  for (const n of names) {
+    const m = /^Node (\d+)$/.exec(n);
+    if (m !== null) max = Math.max(max, Number(m[1]));
+  }
+  return `Node ${max + 1}`;
+}
+
+export function TemplateSelects({ value, onChange, disabled, idPrefix, compact = false }: {
+  compact?: boolean; value: FleetNodeConfig; onChange: (change: Partial<FleetNodeConfig>) => void; disabled: boolean; idPrefix: string }) {
+  return (
+    <>
+      <label className="flex flex-col gap-1">
+        <span className={LABEL}>Hardware</span>
+        <select aria-label="Hardware" id={`${idPrefix}-hw`} className={FIELD} disabled={disabled} value={value.hardwareId} onChange={(e) => onChange({ hardwareId: e.target.value as HardwareId })}>
+          {HARDWARE_CATALOG.map((h) => (
+            <option key={h.id} value={h.id}>
+              {compact ? `${h.label} · ${formatCompactZar(h.priceCents)} · ${h.watts.toLocaleString('en-US')} W` : hardwareOptionLabel(h)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className={LABEL}>API tier</span>
+        <select aria-label="API tier" id={`${idPrefix}-api`} className={FIELD} disabled={disabled} value={value.apiTierId} onChange={(e) => onChange({ apiTierId: e.target.value as ApiTierId })}>
+          {API_TIERS.map((t) => (
+            <option key={t.id} value={t.id}>
+              {apiOptionLabel(t)}
+            </option>
+          ))}
+        </select>
+      </label>
+    </>
+  );
+}
+
+export function ConfigSliders({ value, onChange, disabled, idPrefix }: { value: FleetNodeConfig; onChange: (change: Partial<FleetNodeConfig>) => void; disabled: boolean; idPrefix: string }) {
+  return (
+    <>
+      <SliderField id={`${idPrefix}-qty`} label="Quantity" value={value.quantity} min={1} max={64} step={1} format={fmtInt} parse={parseNumber} disabled={disabled} onChange={(quantity) => onChange({ quantity })} />
+      <SliderField id={`${idPrefix}-util`} label="Utilisation" value={value.utilisationPct} min={0} max={100} step={1} format={fmtPct} parse={parseNumber} disabled={disabled} onChange={(utilisationPct) => onChange({ utilisationPct })} />
+      <SliderField id={`${idPrefix}-price`} label="Price per GPU-hour" value={value.pricePerHourCents} min={0} max={1_000_000} step={50} format={fmtHour} parse={parseCents} disabled={disabled} onChange={(pricePerHourCents) => onChange({ pricePerHourCents })} />
+    </>
+  );
+}
+
+/** The right pane: global assumptions, the master template, and the two actions that use it. Nothing collapses. */
+export function ControlsPanel({ draft, update, readOnly }: { draft: FleetProjection; update: Update; readOnly: boolean }) {
+  const dialogs = STARTUP_CHROME.useDialogs();
+  const { globals, template, nodes } = draft;
+  const setGlobals = (change: Partial<FleetProjection['globals']>) => update((p) => ({ ...p, globals: { ...p.globals, ...change } }));
+  const setTemplate = (change: Partial<FleetNodeConfig>) => update((p) => ({ ...p, template: { ...p.template, ...change } }));
+  const atCap = nodes.length >= MAX_FLEET_NODES;
+
+  function spawn(): void {
+    update((p) => ({ ...p, nodes: [...p.nodes, { ...p.template, id: crypto.randomUUID(), name: nextNodeName(p.nodes.map((n) => n.name)), enabled: true }] }));
+  }
+
+  function applyAll(): void {
+    dialogs.confirm({
+      title: 'Apply the template to all nodes?',
+      body: `Overwrites hardware, API tier, quantity, utilisation and price on ${nodes.length} nodes. Names and on/off stay.`,
+      confirmLabel: `Apply to ${nodes.length} nodes`,
+      danger: true,
+      onConfirm: () => update((p) => ({ ...p, nodes: p.nodes.map((n) => ({ ...n, ...p.template })) })),
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-4 p-3">
+      <section aria-labelledby="proj-global" className="flex flex-col gap-3">
+        <h3 id="proj-global" className="text-sm font-semibold">
+          Global
+        </h3>
+        <SliderField id="g-scale" label="Scale" value={globals.scalePct} min={10} max={500} step={10} format={fmtPct} parse={parseNumber} disabled={readOnly} onChange={(scalePct) => setGlobals({ scalePct })} />
+        <SliderField id="g-rate" label="Electricity" value={globals.electricityRateCents} min={0} max={10_000} step={10} format={fmtRate} parse={parseCents} disabled={readOnly} onChange={(electricityRateCents) => setGlobals({ electricityRateCents })} />
+        <SliderField id="g-growth" label="Demand growth" value={globals.demandGrowthPct} min={-20} max={50} step={1} format={fmtGrowth} parse={parseNumber} disabled={readOnly} onChange={(demandGrowthPct) => setGlobals({ demandGrowthPct })} />
+        <div className="flex flex-col gap-1">
+          <span id="g-horizon" className={LABEL}>
+            Horizon (months)
+          </span>
+          <div role="radiogroup" aria-labelledby="g-horizon" className="flex gap-1">
+            {HORIZONS.map((h) => (
+              <button key={h} type="button" role="radio" aria-checked={globals.horizonMonths === h} disabled={readOnly} onClick={() => setGlobals({ horizonMonths: h })} className={`flex-1 rounded-md border border-border px-2 py-1 text-xs disabled:opacity-50 ${globals.horizonMonths === h ? GRADIENT : 'hover:bg-accent'}`}>
+                {h}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+      <section aria-labelledby="proj-template" className="flex flex-col gap-3">
+        <h3 id="proj-template" className="text-sm font-semibold">
+          Master template
+        </h3>
+        <TemplateSelects idPrefix="tpl" value={template} onChange={setTemplate} disabled={readOnly} />
+        <ConfigSliders idPrefix="tpl" value={template} onChange={setTemplate} disabled={readOnly} />
+        <div className="flex flex-col gap-2">
+          <button type="button" className={BUTTON_PRIMARY} disabled={readOnly || atCap} title={atCap ? `A projection has at most ${MAX_FLEET_NODES} nodes.` : undefined} onClick={spawn}>
+            Spawn node
+          </button>
+          <button type="button" className={BUTTON} disabled={readOnly || nodes.length === 0} onClick={applyAll}>
+            Apply template to all
+          </button>
+        </div>
+      </section>
+      <p className="text-[11px] text-muted-foreground">Illustrative list prices.</p>
+    </div>
+  );
+}

@@ -46,6 +46,16 @@ describe('StartupPane', () => {
     expect(updateCompany.mock.calls[0]![0].company).toMatchObject({ name: 'Acme', currency: 'GBP', openingCash: { minor: 125050 } });
   });
 
+  it('opens Projections without a company, while the other views still gate', async () => {
+    install(() => ({ ok: true, value: snapshot(false) }));
+    const { unmount } = render(<StartupPane view="startup.projections" onView={() => undefined} />);
+    expect(await screen.findByRole('main', { name: 'Projections' })).toBeTruthy();
+    expect(screen.queryByText('Set up your company')).toBeNull();
+    unmount();
+    render(<StartupPane view="startup.roadmap" onView={() => undefined} />);
+    expect(await screen.findByText('Set up your company')).toBeTruthy();
+  });
+
   it('says why when the workspace cannot load', async () => {
     install(() => ({ ok: false, kind: 'io', message: 'Disk on fire' }));
     render(<StartupPane view="startup.overview" onView={() => undefined} />);

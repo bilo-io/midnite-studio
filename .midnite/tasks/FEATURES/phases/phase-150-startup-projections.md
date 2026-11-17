@@ -82,23 +82,13 @@ Planned 2026-11-17; refined x1 the same day. Build order: **wave 1 = A ‖ B** (
 
 **Theme B — Projection model and ZAR formatting.** ✅ Pure `computeFleetProjection` and `formatZar` / `formatCompactZar` landed with the hand-worked fixture checked to the cent and `Intl`-free output proven under `de_DE`.
 
-**Theme C — Projections view frame and list.** ◻ `startup.projections` first in the rail and the home view,
-rendered before the company gate; three panes (list 240 px, centre, controls 340 px) with resizable,
-never-collapsing sides whose widths persist; a draft hook where local edits win while dirty and save 400 ms after
-the last change; the list with new-from-starter, inline rename, duplicate, delete-with-confirm and a net-margin
-figure per row; read-only and error states; frame tokens with the gradient as the accent; Studio's Tailwind made to
-scan module renderers.
+**Theme C — Projections view frame and list.** ✅ `startup.projections` is first in the rail and the home view, rendered before the company gate; three resizable, never-collapsing panes with persisted widths and selection, a draft hook (draft wins while dirty, 400 ms debounced save), the list with create, rename, duplicate and confirmed delete, and Studio's Tailwind scanning module renderers. The view is lazy-loaded to keep the entry chunk small.
 
-**Theme D — Controls panel.** ◻ The right pane: Global (scale, R/kWh, growth, horizon) and Master template
-(hardware, API tier, quantity, utilisation, R/GPU-hour) groups, each slider paired with a clamped numeric input,
-"Spawn node" and "Apply template to all" (confirmed), all keyboard-reachable and labelled.
+**Theme D — Controls panel.** ✅ Global and Master template groups of clamped, snapping `SliderField`s, the horizon radio group, Spawn node and a confirmed Apply template to all.
 
-**Theme E — Results panel.** ◻ The centre: a six-tile KPI strip (Net margin largest), a lazy-loaded Recharts 3
-`ComposedChart` (stacked costs, revenue, cumulative cash, zero and payback lines), and a node card grid with
-per-node overrides, an override dot and per-node figures.
+**Theme E — Results panel.** ✅ Six KPI tiles (Net margin largest), a lazy Recharts 3 `ComposedChart` with animation off, and a node card grid with overrides, an override dot and per-node figures.
 
-**Theme F — Verification.** ◻ Vitest per component and hook with named assertions, a Recharts jsdom mock, a
-`STARTUP_FLEET_ANSWERS` suite-bridge fixture, and one functional e2e for pane dragging and a real SVG chart.
+**Theme F — Verification.** ✅ Vitest per component and hook, a Recharts jsdom mock, the `STARTUP_FLEET_ANSWERS` fixture and `startup-projections.spec.ts` (pane clamps, real SVG chart, keyboard Scale).
 
 ## Build order
 
@@ -318,7 +308,7 @@ Values stay unrounded floats in the result; **only `formatZar` rounds** (to whol
 
 ### C — Projections view frame and list (L — re-tagged from M: the draft hook, layout persistence and Studio CSS joined it)
 
-- [ ] Nav and home:
+- [x] Nav and home:
   - [`startup-nav.ts`](../../../packages/modules/startup/renderer/startup-nav.ts): `{ id: 'startup.projections', label:
     'Projections', icon: LuChartArea }` **first** in `views` (`LuChartArea` exists in react-icons 5.7.0).
   - [`startup-manifest.ts`](../../../packages/modules/startup/renderer/startup-manifest.ts): `home: 'startup.projections'`.
@@ -329,18 +319,18 @@ Values stay unrounded floats in the result; **only `formatZar` rounds** (to whol
     Projections works with no company profile.
   - Accept: `startup-pane.test.tsx` — with no company and view `startup.projections`, "Set up your company" is absent and
     the Projections heading is present; with view `startup.roadmap` the gate still shows.
-- [ ] `renderer/projections/projections-view.tsx` (net-new): `<main aria-label="Projections" className="flex h-full min-h-0">`
+- [x] `renderer/projections/projections-view.tsx` (net-new): `<main aria-label="Projections" className="flex h-full min-h-0">`
   holding `ProjectionList | ResizeHandle | ResultsPanel | ResizeHandle | ControlsPanel`.
   - Left: `useResizable({ size, onSize, axis: 'x', initial: 240, min: 200, max: 360 })`, `ResizeHandle label="Resize
     projection list"`. Right: `useResizable({ …, axis: 'x', edge: 'end', initial: 340, min: 300, max: 480 })`,
     `label="Resize controls"`. **Neither passes `onCollapse`/`onExpand`**, so a drag past the limit clamps.
   - Centre: `flex-1 min-w-[480px] overflow-y-auto`. Side panes: `overflow-y-auto`, `style={{ width: r.current }}`,
     `transition-[width]` only when not dragging (tasks-view pattern).
-- [ ] `renderer/projections/use-projections-ui.ts` (net-new), the `use-roadmap-ui.ts` pattern (plain zustand + `try/catch`
+- [x] `renderer/projections/use-projections-ui.ts` (net-new), the `use-roadmap-ui.ts` pattern (plain zustand + `try/catch`
   localStorage, no `persist`): keys `midnite-startup.projections.listWidth`, `.controlsWidth`, `.selectedId`.
   - `load` clamps stored widths into [min, max] and falls back to `initial` on garbage.
   - Selection resolves as: stored id if it exists in `projections`, else the first projection's id, else `null`.
-- [ ] `renderer/projections/use-fleet-draft.ts` (net-new):
+- [x] `renderer/projections/use-fleet-draft.ts` (net-new):
   `useFleetDraft(source: FleetProjection | null, readOnly: boolean): { draft: FleetProjection | null; result:
   FleetProjectionResult | null; update: (fn: (p: FleetProjection) => FleetProjection) => void; pending: boolean;
   problem: string | null }`.
@@ -352,7 +342,7 @@ Values stay unrounded floats in the result; **only `formatZar` rounds** (to whol
   - On `source.id` change and on unmount, a pending save is flushed immediately (not dropped).
   - On save error: keep the draft, set `problem` to the `StartupError.message`; the next successful save clears it.
   - `readOnly` → `update` is a no-op.
-- [ ] `renderer/projections/projection-list.tsx` (net-new), left pane:
+- [x] `renderer/projections/projection-list.tsx` (net-new), left pane:
   - Header row: `<h2>Projections</h2>` and a **New** `EmptyStateButton`-styled button; New toggles an inline starter
     row (three buttons from `FLEET_STARTERS`, rendered in the pane, not a popover) — choosing one calls
     `upsertFleetProjection` with `buildFleetStarter(id, { projectionId: crypto.randomUUID(), nodeId: () =>
@@ -372,7 +362,7 @@ Values stay unrounded floats in the result; **only `formatZar` rounds** (to whol
     to the next row (or the previous, or none).
   - At `MAX_FLEET_PROJECTIONS`: New and Duplicate are `disabled` with `disabledReason="You can have at most 50
     projections."`.
-- [ ] Empty, loading, error and read-only states:
+- [x] Empty, loading, error and read-only states:
   - No projections: the centre shows `EmptyState({ icon: LuChartArea, title: 'No projections yet', body: 'Start
     from a template to model a compute fleet.', action: <the three starter buttons> })`; the side panes still render
     (list header with New; the controls pane shows "Select a projection" in `text-muted-foreground`).
@@ -381,7 +371,7 @@ Values stay unrounded floats in the result; **only `formatZar` rounds** (to whol
     pane whose action failed (list for create/rename/duplicate/delete; results header for the draft save).
   - `readOnly`: the existing banner text ("This workspace was written by a newer Midnite Startup. It is read-only
     here.") renders at the top of the centre pane; every mutating control in all three panes is `disabled`.
-- [ ] Theming (Decision 3, hybrid), scoped to classes inside `renderer/projections/**`:
+- [x] Theming (Decision 3, hybrid), scoped to classes inside `renderer/projections/**`:
   - Panes: `bg-card/60 backdrop-blur-md border-border rounded-xl` (tokens, so light and dark both work).
   - Labels `text-xs text-muted-foreground`; values `text-foreground`.
   - The gradient `bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500` is used **only** for: the primary
@@ -389,20 +379,20 @@ Values stay unrounded floats in the result; **only `formatZar` rounds** (to whol
     series colours (Theme E). Text on the gradient is `text-white`.
   - Export the class strings as constants from `renderer/projections/styles.ts` (`PANE`, `LABEL`, `GRADIENT`,
     `GRADIENT_BORDER`), so D and E share one source.
-- [ ] Studio's Tailwind scans module renderers: in [`packages/app/tailwind.config.ts`](../../../packages/app/tailwind.config.ts)
+- [x] Studio's Tailwind scans module renderers: in [`packages/app/tailwind.config.ts`](../../../packages/app/tailwind.config.ts)
   add `'../modules/*/renderer/**/*.{ts,tsx}'` to `content`.
   - Accept: after `moon run app:build`, `grep -c 'via-purple-500' packages/app/dist/assets/*.css` ≥ 1 (a class used only
     by Projections). Note the finding in the PR body: whether other module views were missing classes in Studio before.
 
 ### D — Controls panel (M)
 
-- [ ] `renderer/projections/slider-field.tsx` (net-new) — one control used everywhere in D and E:
+- [x] `renderer/projections/slider-field.tsx` (net-new) — one control used everywhere in D and E:
   `SliderField({ id, label, value, min, max, step, format, parse, onChange, disabled })`, rendering
   `<label htmlFor>`, `<input type="range">`, and a numeric `<input type="text" inputMode="decimal" aria-label={label}>`.
   - The text input shows `format(value)`; on blur or Enter it `parse`s, clamps into [min, max], snaps to `step`, and
     calls `onChange`; unparsable input reverts to the previous value.
   - The range input calls `onChange` on every `input` event (the draft debounces the save).
-- [ ] `renderer/projections/controls-panel.tsx` (net-new), right pane, two `<section aria-labelledby>` groups, no
+- [x] `renderer/projections/controls-panel.tsx` (net-new), right pane, two `<section aria-labelledby>` groups, no
   collapsing:
   - **Global** — Scale (`scalePct` 10–500, step 10, `150 %`); Electricity (`electricityRateCents` 0–10,000, step 10,
     shown `R 3.20 /kWh`); Demand growth (`demandGrowthPct` −20–50, step 1, `+5 %/mo`); Horizon — three toggle buttons
@@ -417,32 +407,33 @@ Values stay unrounded floats in the result; **only `formatZar` rounds** (to whol
     tier, quantity, utilisation and price on <N> nodes. Names and on/off stay.', confirmLabel: 'Apply to <N> nodes',
     danger: true })`; disabled when there are no nodes.
   - Footer: `Illustrative list prices.` in `text-[11px] text-muted-foreground`.
-- [ ] Keyboard and accessibility: tab order is Global top to bottom, then Template, then actions; every control has an
+- [x] Keyboard and accessibility: tab order is Global top to bottom, then Template, then actions; every control has an
   accessible name equal to its visible label; the resize handles keep `useResizable`'s keyboard (arrows ±8 px,
   Shift ±64, Home/End).
 
 ### E — Results panel (L)
 
-- [ ] `renderer/projections/results-panel.tsx` (net-new), centre, top to bottom: header (projection name as `<h2>`, the
+- [x] `renderer/projections/results-panel.tsx` (net-new), centre, top to bottom: header (projection name as `<h2>`, the
   draft `problem` alert, "Saving…" in `text-muted-foreground` while `pending`), KPI strip, chart, node grid.
   - **KPI strip** — `grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-6 gap-3`, six `<div role="group"
     aria-label="<name>">` tiles: CapEx, OpEx /mo, Revenue /mo, **Net margin /mo**, Margin % (`—` when `null`),
     Payback (`<n> mo` or `Not within <horizon> mo`). Values `text-2xl font-semibold tabular-nums`; Net margin
     `text-3xl` inside a `GRADIENT_BORDER`, `text-success`/`text-destructive` by sign. These are the largest text in
     the view.
-- [ ] `renderer/projections/fleet-chart.tsx` (net-new), imported via `React.lazy(() => import('./fleet-chart'))` inside
+- [x] `renderer/projections/fleet-chart.tsx` (net-new), imported via `React.lazy(() => import('./fleet-chart'))` inside
   `<Suspense fallback={<Skeleton className="h-80 w-full" />}>`:
   - `recharts@^3` added to [`packages/modules/startup/package.json`](../../../packages/modules/startup/package.json)
     `dependencies` (v3 for React 19 support; check its peer range against React 19.2 at install).
   - `<ResponsiveContainer width="100%" height={320}><ComposedChart data={series}>`: `Area` energy and `Area` api with
-    `stackId="cost"`, `Area` revenue (unstacked, low opacity), `Line` cumulative (`strokeWidth={2}`, `dot={false}`),
-    `ReferenceLine y={0}`, and `ReferenceLine x={paybackMonths - 1}` labelled `Payback` when not null.
-    `XAxis dataKey="month"` with `tickFormatter={(m) => `M${m + 1}`}`, `YAxis tickFormatter={formatCompactZar}`,
+    `stackId="cost"`, `Area` revenue (unstacked, low opacity) — all on a left `YAxis yAxisId="monthly"` — and `Line` cumulative
+    (`strokeWidth={2}`, `dot={false}`) on its own right `YAxis yAxisId="cumulative" orientation="right"`,
+    `ReferenceLine y={0}` and `ReferenceLine x={paybackMonths - 1}` (labelled `Payback` when not null) on the cumulative axis.
+    `XAxis dataKey="month"` with `tickFormatter={(m) => `M${m + 1}`}`, both `YAxis` with `tickFormatter={formatCompactZar}`,
     `Tooltip formatter={(v) => formatZar(v)}`, `Legend`. `isAnimationActive={false}` on every series (dragging a
     slider must not replay the animation).
   - Colours: indigo-500 energy, purple-500 api, pink-500 revenue, `hsl(var(--foreground))` cumulative.
   - `role="img"` wrapper with `aria-label="Monthly costs, revenue and cumulative cash over <horizon> months"`.
-- [ ] `renderer/projections/node-card.tsx` (net-new), in `grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3`:
+- [x] `renderer/projections/node-card.tsx` (net-new), in `grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3`:
   - Header: inline-rename name input (`aria-label="Node name"`, same 1–60 rule), an on/off switch (`role="switch"`,
     `aria-checked`, label "Enabled"), a Remove `IconButton` (`LuTrash2`, "Remove node") with **no confirm** (Decision 9).
   - Body: Hardware and API tier selects, then `SliderField`s for Quantity, Utilisation and Price/hour, then three
@@ -450,7 +441,7 @@ Values stay unrounded floats in the result; **only `formatZar` rounds** (to whol
   - A 6 px dot with `title="Differs from the template"` when any `FleetNodeConfig` field ≠ `draft.template`.
   - Disabled node: card `opacity-50`, figures `R 0`, controls still editable.
   - Every edit goes through `update(p => ({ ...p, nodes: p.nodes.map(n => n.id === id ? { ...n, …change } : n) }))`.
-- [ ] Performance and bundle:
+- [x] Performance and bundle:
   - `computeFleetProjection` runs once per draft change (≤ 200 nodes × 36 months, no further memo needed); list rows
     are memoised per `id + updatedAt` (C).
   - Bundle: `moon run startup:build` (the Startup app's Vite build) before and after; read the entry chunk from its
@@ -459,11 +450,11 @@ Values stay unrounded floats in the result; **only `formatZar` rounds** (to whol
 
 ### F — Verification (M — re-tagged from S: fixtures, mocks and per-item assertions)
 
-- [ ] Test support: `renderer/projections/test-fixtures.ts` (net-new) exporting `fleetProjection(overrides?)` and
+- [x] Test support: `renderer/projections/test-fixtures.ts` (net-new) exporting `fleetProjection(overrides?)` and
   `fleetNode(n, overrides?)` built with `buildFleetStarter` and `u(n)`-style ids; and in
   [`test-support/suite-bridge`](../../../packages/app/test-support/) a `STARTUP_FLEET_ANSWERS` (the `get` answer carrying
   a v2 workspace with one `gpu-cluster` projection and `company: null`) beside `STARTUP_SEEDED_ANSWERS`.
-- [ ] Vitest (jsdom) — net-new files under `renderer/projections/`, one assertion set each:
+- [x] Vitest (jsdom) — net-new files under `renderer/projections/`, one assertion set each:
   - `projections-view.test.tsx`: no projections → "No projections yet" and three starter buttons; stored selected id
     missing → first projection selected; read-only → banner text present and every `button`/`input`/`select` in the
     view `disabled`.
@@ -484,7 +475,7 @@ Values stay unrounded floats in the result; **only `formatZar` rounds** (to whol
   - `results-panel.test.tsx` with `vi.mock('recharts', …)` replacing `ResponsiveContainer` by a fixed 800×320 `div`:
     KPI tiles show `formatZar` values for the B fixture; no `$` anywhere in `container.textContent`; payback copy
     `Not within 12 mo`.
-- [ ] Functional e2e `packages/app/e2e/suite-shell/startup-projections.spec.ts` (net-new), header
+- [x] Functional e2e `packages/app/e2e/suite-shell/startup-projections.spec.ts` (net-new), header
   `// e2e-capability: getBoundingClientRect, pointer drag` with a comment naming why (real pane widths, real SVG):
   - `installSuiteBridge(page, { frameless: true, answers: STARTUP_FLEET_ANSWERS })`, viewport 1440×900,
     `page.goto(SUITE_APP_URLS.startup)`.
@@ -494,7 +485,7 @@ Values stay unrounded floats in the result; **only `formatZar` rounds** (to whol
   - Move the Scale slider with the keyboard (focus, `ArrowRight` ×5) → the Net margin tile text changes.
   - Reuses the existing `pageErrors` afterEach assertion; no Electron or broker is started (Vite + bridge stub only).
   - Bump `scripts/e2e-budget.mjs`'s declared count if the ratchet requires it, in the same commit.
-- [ ] Existing tests kept green: [`startup-pane.test.tsx`](../../../packages/modules/startup/renderer/startup-pane.test.tsx),
+- [x] Existing tests kept green: [`startup-pane.test.tsx`](../../../packages/modules/startup/renderer/startup-pane.test.tsx),
   [`manifest.test.ts`](../../../packages/modules/startup/manifest.test.ts), and [`startup.spec.ts`](../../../packages/app/e2e/suite-shell/startup.spec.ts) — the
   latter's first test ("asks to set up the company before anything else") now lands on Projections; update it to
   `goto(page, 'startup.overview')` first, and say so in the PR.
@@ -529,13 +520,13 @@ Values stay unrounded floats in the result; **only `formatZar` rounds** (to whol
   keeps milestones; v3 read-only; bad v2 corrupt) and `bridge.test.ts` pass.
 - [ ] B — `fleet-model.test.ts` hits the hand-worked fixture to the cent; `format-zar.test.ts` passes with `Intl` stubbed
   to throw and `LANG=de_DE.UTF-8`.
-- [ ] C — with no company, Startup opens on Projections and shows no setup form; the other five views still gate.
-- [ ] C — `use-fleet-draft.test.ts`: one save per 400 ms burst; draft not clobbered while dirty; flush on unmount.
-- [ ] C — Studio's built CSS contains `via-purple-500`.
-- [ ] D — slider clamp/snap/revert and Apply-to-all confirm assertions pass.
-- [ ] E — no `$` in the rendered results; Net margin is the largest text (`text-3xl`); Startup entry chunk grows < 5 KB and
+- [x] C — with no company, Startup opens on Projections and shows no setup form; the other five views still gate.
+- [x] C — `use-fleet-draft.test.ts`: one save per 400 ms burst; draft not clobbered while dirty; flush on unmount.
+- [x] C — Studio's built CSS contains `via-purple-500`.
+- [x] D — slider clamp/snap/revert and Apply-to-all confirm assertions pass.
+- [x] E — no `$` in the rendered results; Net margin is the largest text (`text-3xl`); Startup entry chunk grows < 5 KB and
   Recharts sits in a lazy chunk (numbers in the PR).
-- [ ] F — `startup-projections.spec.ts` passes on the macOS e2e shard: pane widths clamp at 200/360 and 300/480, never 0;
+- [x] F — `startup-projections.spec.ts` passes on the macOS e2e shard: pane widths clamp at 200/360 and 300/480, never 0;
   chart SVG has paths; Scale via keyboard changes Net margin.
 - [ ] **Open, for a human:** screenshots at 3440×1440 and 1280×800 in light and dark (session scratchpad, not
   committed): every control visible without opening anything, no overlap, KPIs the most prominent text.
@@ -586,3 +577,4 @@ Values stay unrounded floats in the result; **only `formatZar` rounds** (to whol
     share `projections-view.tsx`, so splitting wave 2 would only buy merge friction.
 14. **Resolved — no new logging.** Failures surface as inline `role="alert"` text where the action happened, matching
     the rest of the module; there is no diagnostics surface for Startup.
+15. **Resolved — cumulative cash on its own right axis (screenshot review, user agreed).** Cumulative cash runs to the negative of CapEx, which squashed the monthly cost and revenue series into a thin band at R 0 on a shared axis. Node-card hardware options use the compact form (`<label> · R 120k · 1,200 W`) so they do not clip at wide widths, and the list row keeps its monthly figure on one line.
