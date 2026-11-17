@@ -1,5 +1,7 @@
 import { Suspense, lazy } from 'react';
 
+import { moneyCurrency, seedFleetCatalog, type FleetCatalog } from '@midnite/studio-shared';
+
 import { useStartupSnapshot } from '../data/use-startup';
 import { InvoicesView } from '../invoices/invoices-view';
 import { RoadmapView } from '../roadmap/roadmap-view';
@@ -7,6 +9,14 @@ import { RunwayView } from '../runway/runway-view';
 import { VendorsView } from '../vendors/vendors-view';
 import { CompanyForm } from './company-form';
 import { Overview } from './overview';
+
+// A workspace with no catalog of its own prices from the seeded built-ins; one object per currency keeps the model's memo stable.
+const SEEDED = new Map<string, FleetCatalog>();
+const seeded = (currency: string): FleetCatalog => {
+  let c = SEEDED.get(currency);
+  if (c === undefined) SEEDED.set(currency, (c = seedFleetCatalog(currency)));
+  return c;
+};
 
 // Projections is the heaviest view and the home view; its own chunk keeps the app's entry small.
 const ProjectionsView = lazy(() => import('../projections/projections-view'));
@@ -43,10 +53,11 @@ export function StartupHome({ view, onView }: { view: string; onView: (view: str
     );
   }
   const { workspace, readOnly } = snapshot.data;
+  const currency = moneyCurrency(workspace.company);
   // Projections needs no company, so it renders before the setup gate.
   if (view === 'startup.projections') return (
       <Suspense fallback={<p className="p-6 text-xs text-muted-foreground">Loading…</p>}>
-        <ProjectionsView projections={workspace.fleetProjections} readOnly={readOnly} />
+        <ProjectionsView projections={workspace.fleetProjections} readOnly={readOnly} currency={currency} catalog={workspace.fleetCatalog ?? seeded(currency)} />
       </Suspense>
     );
   if (workspace.company === null) {

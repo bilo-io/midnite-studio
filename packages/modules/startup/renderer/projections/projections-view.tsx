@@ -1,8 +1,9 @@
 import { LuChartArea } from 'react-icons/lu';
 
 import { EmptyState, ResizeHandle, useResizable } from '@midnite/studio-frame';
-import type { FleetProjection } from '@midnite/studio-shared';
+import type { FleetCatalog, FleetProjection } from '@midnite/studio-shared';
 
+import { MoneyProvider } from './money-context';
 import { ControlsPanel } from './controls-panel';
 import { ProjectionList, StarterButtons, useCreateProjection } from './projection-list';
 import { ResultsPanel } from './results-panel';
@@ -13,7 +14,15 @@ import { CONTROLS_BOUNDS, LIST_BOUNDS, selectedProjection, useProjectionsUi } fr
 const READ_ONLY_TEXT = 'This workspace was written by a newer Midnite Startup. It is read-only here.';
 
 /** Startup's first view: a saved list on the left, results in the centre, every control on the right. */
-export default function ProjectionsView({ projections, readOnly }: { projections: readonly FleetProjection[]; readOnly: boolean }) {
+export default function ProjectionsView({ projections, readOnly, catalog, currency }: { projections: readonly FleetProjection[]; readOnly: boolean; catalog: FleetCatalog; currency: string }) {
+  return (
+    <MoneyProvider currency={currency} catalog={catalog}>
+      <ProjectionsBody projections={projections} readOnly={readOnly} />
+    </MoneyProvider>
+  );
+}
+
+function ProjectionsBody({ projections, readOnly }: { projections: readonly FleetProjection[]; readOnly: boolean }) {
   const ui = useProjectionsUi();
   const source = selectedProjection(projections, ui.selectedId);
   const { draft, result, update, pending, problem } = useFleetDraft(source, readOnly);

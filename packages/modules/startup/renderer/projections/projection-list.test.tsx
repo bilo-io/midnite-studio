@@ -86,8 +86,8 @@ describe('ProjectionList', () => {
 
   it('prints a negative net margin in text-destructive', () => {
     show([fleetProjection({ nodes: [fleetNode(1, { utilisationPct: 0 })] })]);
-    const figure = screen.getByText(/R \d/, { selector: 'span.text-destructive' });
-    expect(figure.textContent).toMatch(/^−R /);
+    const figure = screen.getByText(/\$\d/, { selector: 'span.text-destructive' });
+    expect(figure.textContent).toMatch(/^−\$/);
   });
 
   it('disables New at the projection cap', () => {
