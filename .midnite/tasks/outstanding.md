@@ -478,7 +478,7 @@ matching the precedent set by Phases 22/23/24.
     (`gh-cli.ts`)/`listProjects` (`gh-project.ts`) the renderer's own `queries.ts` already uses — the
     doc's own module names were slightly ahead of what actually exists in this area, in the sense
     CLAUDE.md's "phase docs cite stale line numbers" note already warns about.
-  - ~~**The liveness dot's "amber because the last window is minimized" reason is not built.**~~ **Closed 2026-11-17 (phase 84 audit): dropped, not deferred** — the paused state exists only while no window is visible, so no dot can show it; see the phase doc's Decisions. Themes
+  - ~~**The liveness dot's "amber because the last window is minimized" reason is not built.**~~ **Closed 2026-11-17 (phase 84 audit): dropped, not deferred** — the paused state exists only while no window is visible or the OS reports the user idle/locked, so no one is looking at the dot; see the phase doc's Decisions. Themes
     B.2/C.3 both deliberately push nothing while merely paused (gate closed, no error) — a
     `syncStatus` event only fires on an actual failure, recovery, or backoff-window change — so there
     is no signal on the wire main could use to tell the renderer "paused, not failing" without
