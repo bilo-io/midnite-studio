@@ -51,9 +51,11 @@ Planned 2026-11-18; build order **A**, then **B ‖ C**, then **D ‖ E**, then 
 
 **Theme A — Workspace v3 and the money currency.** ✅ Workspace v3 with a seeded, workspace-held fleet catalog, `…Minor` money fields, the energy switch, `PlanLine.source`, and all six new ops declared (unimplemented ones answer `invalid`). Renderer runs on an interim USD-seeded catalog adapter until Theme B.
 
-**Theme B — Model and money formatting.** ◻ `formatMoney` / `formatCompactMoney` replace the ZAR-only formatter,
-still locale-proof. `computeFleetProjection` takes the catalog and the energy switch, and a missing catalog entry
-counts as zero, flagged, not as a crash.
+**Theme B — Model and money formatting.** ✅ `formatMoney` / `formatCompactMoney` replace the ZAR-only formatter (symbol
+table, exponent from `minorExponent`, still no `Intl`), and the company currency and workspace catalog reach every
+formatter and the model through a `MoneyProvider` that `ProjectionsView` fills (a context rather than a prop through
+six components). `computeFleetProjection(p, catalog)` has no default catalog, wires the energy switch (energy follows
+the grown utilisation, so 70 % busy draws × 0.7), and a missing catalog entry prices at zero and is listed in `missing`.
 
 **Theme C — Editable catalog.** ◻ A Startup Settings ▸ Catalog page to add, edit and hide hardware and API tiers.
 Built-in entries come seeded in USD-style amounts, and every dropdown reads the workspace catalog.
@@ -187,19 +189,19 @@ set `version: 3`. **Numbers are not converted:** no release carried v2 (checked 
 
 ### B — Model and money formatting (S)
 
-- [ ] `renderer/projections/format-money.ts` (net-new) replaces `format-zar.ts` (deleted, along with its test, which
+- [x] `renderer/projections/format-money.ts` (net-new) replaces `format-zar.ts` (deleted, along with its test, which
   is ported):
   - `formatMoney(minor: number, currency: string, opts?: { decimals?: 0 | 2 }): string`
   - `formatCompactMoney(minor: number, currency: string): string`
   - Symbol table: `USD '$'`, `EUR '€'`, `GBP '£'`, `ZAR 'R '`, `JPY '¥'`, anything else `'<CODE> '`.
   - The exponent comes from the shared `minorExponent`. Sign, grouping, rounding and `NaN` → `—` follow Phase 150's
     `formatZar` exactly, still with no `Intl`.
-- [ ] `computeFleetProjection(p, catalog)` per the changed formulas, with `missing: string[]`. Callers pass the
+- [x] `computeFleetProjection(p, catalog)` per the changed formulas, with `missing: string[]`. Callers pass the
   workspace catalog.
-- [ ] Every `formatZar` / `formatCompactZar` call site in `renderer/projections/**` moves to `formatMoney(…,
+- [x] Every `formatZar` / `formatCompactZar` call site in `renderer/projections/**` moves to `formatMoney(…,
   currency)`, with `currency = moneyCurrency(workspace.company)` threaded from `ProjectionsView` as a prop.
   - Accept: `grep -r "formatZar\|Zar\b" packages/modules/startup/renderer` finds nothing.
-- [ ] Tests:
+- [x] Tests:
   - `format-money.test.ts`: `USD 150_000 → '$1,500'`, `ZAR 1_500_000 → 'R 15,000'`, `JPY 6_500 → '¥6,500'`,
     `CHF 100 → 'CHF 1'`, negatives use U+2212, and output is identical under `LANG=de_DE.UTF-8` with `Intl` stubbed to
     throw.

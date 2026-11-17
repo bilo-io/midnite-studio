@@ -6,7 +6,8 @@ import type { FleetNode, FleetNodeConfig, FleetProjection } from '@midnite/studi
 import { STARTUP_CHROME } from '../compose/startup-chrome';
 import { ConfigSliders, TemplateSelects } from './controls-panel';
 import type { FleetNodeFigures } from './fleet-model';
-import { formatZar } from './format-zar';
+import { formatMoney } from './format-money';
+import { useMoney } from './money-context';
 import { ALERT, FIELD, LABEL, PANE } from './styles';
 
 type Update = (fn: (p: FleetProjection) => FleetProjection) => void;
@@ -16,6 +17,7 @@ export const differsFromTemplate = (node: FleetNode, template: FleetNodeConfig) 
 
 /** One node of the fleet: its own name, on/off switch, config overrides and month-0 figures. */
 export function NodeCard({ node, template, figures, update, readOnly }: { node: FleetNode; template: FleetNodeConfig; figures: FleetNodeFigures | undefined; update: Update; readOnly: boolean }) {
+  const { currency } = useMoney();
   const IconButton = STARTUP_CHROME.IconButton;
   const [name, setName] = useState(node.name);
   const [problem, setProblem] = useState<string | null>(null);
@@ -60,7 +62,7 @@ export function NodeCard({ node, template, figures, update, readOnly }: { node: 
         ).map(([label, value]) => (
           <div key={label}>
             <dt className={LABEL}>{label}</dt>
-            <dd className={`tabular-nums ${label === 'Net /mo' ? (value >= 0 ? 'text-success' : 'text-destructive') : ''}`}>{formatZar(value)}</dd>
+            <dd className={`tabular-nums ${label === 'Net /mo' ? (value >= 0 ? 'text-success' : 'text-destructive') : ''}`}>{formatMoney(value, currency)}</dd>
           </div>
         ))}
       </dl>

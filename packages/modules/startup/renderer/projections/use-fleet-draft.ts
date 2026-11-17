@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FleetProjection } from '@midnite/studio-shared';
 
 import { useStartupWrite } from '../data/use-startup';
+import { useMoney } from './money-context';
 import { computeFleetProjection, type FleetProjectionResult } from './fleet-model';
 
 export const SAVE_DEBOUNCE_MS = 400;
@@ -99,6 +100,7 @@ export function useFleetDraft(source: FleetProjection | null, readOnly: boolean)
 
   // Until the effect has re-seeded, never show a draft that belongs to another projection.
   const draft = state !== null && source !== null && state.id === source.id ? state : source === null ? null : source;
-  const result = useMemo(() => (draft === null ? null : computeFleetProjection(draft)), [draft]);
+  const { catalog } = useMoney();
+  const result = useMemo(() => (draft === null ? null : computeFleetProjection(draft, catalog)), [draft, catalog]);
   return { draft, result, update, pending, problem };
 }

@@ -6,7 +6,8 @@ import { FLEET_STARTERS, MAX_FLEET_PROJECTIONS, buildFleetStarter, type FleetPro
 import { STARTUP_CHROME } from '../compose/startup-chrome';
 import { useStartupWrite } from '../data/use-startup';
 import { computeFleetProjection } from './fleet-model';
-import { formatZar } from './format-zar';
+import { formatMoney } from './format-money';
+import { useMoney } from './money-context';
 import { ALERT, BUTTON, BUTTON_PRIMARY, LABEL, PANE } from './styles';
 
 /** `base`, then `base 2`, `base 3`… until no projection already has the name. */
@@ -55,7 +56,8 @@ function Row({ projection, selected, renaming, readOnly, onSelect, onStartRename
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
-  const net = useMemo(() => computeFleetProjection(projection).netMarginMonthlyMinor, [projection]);
+  const { currency, catalog } = useMoney();
+  const net = useMemo(() => computeFleetProjection(projection, catalog).netMarginMonthlyMinor, [projection, catalog]);
   const [value, setValue] = useState(projection.name);
   const settled = useRef(false);
   const IconButton = STARTUP_CHROME.IconButton;
@@ -114,7 +116,7 @@ function Row({ projection, selected, renaming, readOnly, onSelect, onStartRename
           <span className="whitespace-nowrap">
             {projection.nodes.length} {projection.nodes.length === 1 ? 'node' : 'nodes'} ·
           </span>
-          <span className={`whitespace-nowrap ${net >= 0 ? 'text-success' : 'text-destructive'}`}>{formatZar(net)} /mo</span>
+          <span className={`whitespace-nowrap ${net >= 0 ? 'text-success' : 'text-destructive'}`}>{formatMoney(net, currency)} /mo</span>
         </span>
         <span className="flex" onClick={(e) => e.stopPropagation()}>
           <IconButton icon={LuPencil} label="Rename" disabled={readOnly} onClick={onStartRename} />

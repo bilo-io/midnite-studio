@@ -3,7 +3,7 @@ import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import type { FleetProjection } from '@midnite/studio-shared';
+import { seedFleetCatalog, type FleetProjection } from '@midnite/studio-shared';
 
 import { computeFleetProjection } from './fleet-model';
 import { NodeCard } from './node-card';
@@ -17,7 +17,7 @@ function Host({ initial }: { initial: FleetProjection }) {
   const [draft, setDraft] = useState(initial);
   latest = draft;
   const node = draft.nodes[0];
-  const result = computeFleetProjection(draft);
+  const result = computeFleetProjection(draft, seedFleetCatalog('USD'));
   return node === undefined ? null : <NodeCard node={node} template={draft.template} figures={result.perNode[node.id]} update={(fn) => setDraft(fn)} readOnly={false} />;
 }
 
@@ -33,9 +33,9 @@ describe('NodeCard', () => {
 
   it('disabling zeroes the three figures', () => {
     renderWithChrome(<Host initial={one()} />);
-    expect(screen.queryAllByText('R 0')).toHaveLength(0);
+    expect(screen.queryAllByText('$0')).toHaveLength(0);
     fireEvent.click(screen.getByRole('switch', { name: 'Enabled' }));
-    expect(screen.getAllByText('R 0')).toHaveLength(3);
+    expect(screen.getAllByText('$0')).toHaveLength(3);
   });
 
   it('Remove drops the node with no dialog', () => {
