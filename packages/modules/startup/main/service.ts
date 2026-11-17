@@ -177,8 +177,37 @@ export async function handleStartupRequest(
         return done({ ...ws, fleetProjections: [...ws.fleetProjections.slice(0, index + 1), copy, ...ws.fleetProjections.slice(index + 1)] });
       });
 
-    // Phase 152: declared in Theme A, implemented by Themes C (catalog), D (bridge) and E (export).
     case 'upsertFleetCatalog':
+      return store.mutate((ws) => {
+        const { catalog } = request;
+        const dupe = (ids: readonly string[]): string | undefined => ids.find((id, i) => ids.indexOf(id) !== i);
+        const twice = dupe(catalog.hardware.map((h) => h.id)) ?? dupe(catalog.apiTiers.map((t) => t.id));
+        if (twice !== undefined) return fail('invalid', `The id "${twice}" appears more than once in the catalog.`);
+        // A removed id that a projection's node or template still uses cannot go: hide it instead.
+        const keptHw = new Set(catalog.hardware.map((h) => h.id));
+        const keptTier = new Set(catalog.apiTiers.map((t) => t.id));
+        const users = (pick: (c: { hardwareId: string; apiTierId: string }) => string, gone: (id: string) => boolean) => {
+          const counts = new Map<string, number>();
+          for (const p of ws.fleetProjections) {
+            for (const c of [...p.nodes, p.template]) {
+              const id = pick(c);
+              if (gone(id)) counts.set(id, (counts.get(id) ?? 0) + 1);
+            }
+          }
+          return counts;
+        };
+        const blocked = [
+          ...users((c) => c.hardwareId, (id) => !keptHw.has(id)),
+          ...users((c) => c.apiTierId, (id) => !keptTier.has(id)),
+        ];
+        if (blocked.length > 0) {
+          const [id, n] = blocked[0]!;
+          return fail('in-use', `"${id}" is in use by ${plural(n, 'node', 'nodes')} — hide it instead.`);
+        }
+        return done({ ...ws, fleetCatalog: catalog });
+      });
+
+    // Phase 152: declared in Theme A, implemented by Themes D (bridge) and E (export).
     case 'sendFleetProjectionToRunway':
     case 'unlinkFleetProjectionLines':
     case 'exportFleetProjectionCsv':

@@ -45,4 +45,11 @@ describe('ControlsPanel', () => {
     expect(latest.globals.horizonMonths).toBe(12);
     expect(screen.getAllByRole('radio').filter((r) => r.getAttribute('aria-checked') === 'true')).toHaveLength(1);
   });
+
+  it('offers a hidden selected entry labelled (hidden), and a missing id as Missing', () => {
+    const initial = fleetProjection({ template: { hardwareId: 'ghost-9', apiTierId: 'pro', quantity: 1, utilisationPct: 50, pricePerHourMinor: 100 } });
+    renderWithChrome(<Host initial={initial} />);
+    expect(screen.getByRole('option', { name: 'Missing (ghost-9)' })).toBeTruthy();
+    expect(screen.getByText(/Settings ▸ Catalog/)).toBeTruthy();
+  });
 });
