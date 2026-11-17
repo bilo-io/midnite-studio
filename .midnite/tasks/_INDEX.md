@@ -14,7 +14,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [151 · Skill scripts and local LLM offload](FEATURES/phases/phase-151-skill-scripts-and-local-llm.md) | 🔄 WIP | — | 13/30 | `████░░░░░░` | 43% | D E | F |
+| [151 · Skill scripts and local LLM offload](FEATURES/phases/phase-151-skill-scripts-and-local-llm.md) | 🔄 WIP | — | 22/30 | `███████░░░` | 73% | F | — |
 | [150 · Startup projections](FEATURES/phases/phase-150-startup-projections.md) | 🔄 WIP | x1 | 39/41 | `██████████` | 95% | F | — |
 | [149 · Midnite game standard, game doctor and game management](FEATURES/phases/phase-149-midnite-game-standard-doctor.md) | 🔄 WIP | — | 47/52 | `█████████░` | 90% | H | — |
 | [148 · Performance widget recovery actions](FEATURES/phases/phase-148-performance-widget-recovery-actions.md) | 🔄 WIP | — | 28/33 | `████████░░` | 85% | — | — |
