@@ -167,7 +167,7 @@ export function applyLevelOps(level: unknown, ops: readonly LevelOp[], ctx: Leve
     if (errors.length >= LEVEL_OP_ERRORS_MAX) return;
     if (op.op === 'add') {
       const { entity } = op;
-      const problem = checkType(entity.type) ?? checkPos('x', sx(entity.x)) ?? checkPos('y', sy(entity.y));
+      const problem = (op.ref !== undefined && op.ref in refs ? `Ref "${op.ref}" is already used in this batch.` : null) ?? checkType(entity.type) ?? checkPos('x', sx(entity.x)) ?? checkPos('y', sy(entity.y));
       if (problem) return fail(index, 'add', problem);
       const layer = resolveLayer(map, op.layer);
       if (typeof layer === 'string') return fail(index, 'add', layer);

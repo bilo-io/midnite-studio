@@ -91,6 +91,11 @@ describe('applyLevelOps', () => {
     expect(r.ok && r.added).toEqual([10]);
   });
 
+  it('rejects a ref reused in one batch', () => {
+    const r = applyLevelOps(base(), [add('coin', 1, 1, { ref: 'a' }), add('coin', 2, 2, { ref: 'a' })], ctx);
+    expect(r.ok).toBe(false);
+  });
+
   it('levelEntityTypes follows the dimension', () => {
     expect(levelEntityTypes(base())).not.toContain('prop');
     expect(levelEntityTypes(base([{ name: 'midnite.dimension', type: 'string', value: '3d' }]))).toContain('prop');
