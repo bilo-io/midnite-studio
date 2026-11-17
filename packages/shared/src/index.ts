@@ -56,6 +56,8 @@ export * from './capture';
 export * from './game';
 export * from './media-game';
 export * from './game-level';
+export * from './game-level-ops';
+export * from './game-level-validate';
 export * from './media-game-templates';
 export * from './media-game-options';
 export * from './media-model';
