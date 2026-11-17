@@ -1186,7 +1186,7 @@ export const MCP_TOOLS = {
     id: 'game_doctor_fix',
     title: 'Apply a game doctor fix',
     description:
-      'Applies one fix a `game_doctor` finding named by its fixId: one commit on midnite-game.json, or a kit-upgrade branch. Refuses while that file is uncommitted.',
+      'Applies the fix a `game_doctor` finding named by its fixId, as one commit on midnite-game.json (or a kit-upgrade branch), refusing while that file is uncommitted',
     input: GameDoctorFixInputSchema,
     output: GameDoctorFixOutputSchema,
     readOnly: false,
