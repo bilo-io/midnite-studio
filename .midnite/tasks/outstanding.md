@@ -80,7 +80,7 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   repo groups and session rows) are now wired with `useCascadeReveal` and `useRevealCount`, and
   `view-registry.tsx` registers `cascade: true` for all three views, pinned by `view-registry.test.ts`.
 
-- **Phase 84 Theme G.5's number.** "Graph → Files → Graph time-to-first-row before/after; heap of
+- **Phase 84 Theme G.5's number.** *(Refined 2026-11-17 into a buildable `memory-report.mjs --graph-return` spec in the phase doc — delete this entry when it lands.)* "Graph → Files → Graph time-to-first-row before/after; heap of
   the kept-alive Graph at 20k rows" was not measured in the Theme G/H PR. Unlike H.4's `popoutRss`
   (a before/after RSS delta reusing `memory-report.mjs`'s existing launch/CDP-attach shape almost
   verbatim), this needs two things that do not exist yet: a synthetic repo with ≥20k commits
@@ -462,7 +462,7 @@ matching the precedent set by Phases 22/23/24.
     grows to carry them when Themes E/F land their own main-side timers/services.
   - **C.4's rate-limit handling backs off on any repeated failure** (including one whose message
     names a rate limit — `looksRateLimited` in
-    [`forge-poller.ts`](../../packages/desktop/src/main/forge/forge-poller.ts)), but does not read a
+    [`forge-poller.ts`](../../packages/features/forge/main/forge-poller.ts)), but does not read a
     numeric `x-ratelimit-remaining`/`reset` pair the way the phase doc's C.4 text describes. `gh run
     list`/`gh pr list`/`gh issue list`/`gh project list` are wrapped CLI subcommands, not `gh api` —
     they do not surface HTTP response headers at all. Getting the real numbers would mean polling
@@ -478,7 +478,7 @@ matching the precedent set by Phases 22/23/24.
     (`gh-cli.ts`)/`listProjects` (`gh-project.ts`) the renderer's own `queries.ts` already uses — the
     doc's own module names were slightly ahead of what actually exists in this area, in the sense
     CLAUDE.md's "phase docs cite stale line numbers" note already warns about.
-  - **The liveness dot's "amber because the last window is minimized" reason is not built.** Themes
+  - ~~**The liveness dot's "amber because the last window is minimized" reason is not built.**~~ **Closed 2026-11-17 (phase 84 audit): dropped, not deferred** — the paused state exists only while no window is visible, so no dot can show it; see the phase doc's Decisions. Themes
     B.2/C.3 both deliberately push nothing while merely paused (gate closed, no error) — a
     `syncStatus` event only fires on an actual failure, recovery, or backoff-window change — so there
     is no signal on the wire main could use to tell the renderer "paused, not failing" without
