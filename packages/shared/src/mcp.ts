@@ -60,6 +60,11 @@ import {
   GameEntityUpdateInputSchema,
   GameEntityDeleteInputSchema,
   GameEntityWriteOutputSchema,
+  GameLevelSelectInputSchema,
+  GameLevelSelectOutputSchema,
+  GameLevelFrameInputSchema,
+  GameLevelFrameOutputSchema,
+  GameLevelViewInputSchema,
   GameGotoInputSchema,
   GameGotoOutputSchema,
   GameDoctorOutputSchema,
@@ -316,6 +321,9 @@ type McpToolEntry = {
     | 'game_entity_add'
     | 'game_entity_update'
     | 'game_entity_delete'
+    | 'game_level_select'
+    | 'game_level_frame'
+    | 'game_level_view'
     | 'game_goto'
     | 'game_doctor'
     | 'game_doctor_fix'
@@ -1232,6 +1240,33 @@ export const MCP_TOOLS = {
     input: GameEntityDeleteInputSchema,
     output: GameEntityWriteOutputSchema,
     readOnly: false,
+  },
+  game_level_select: {
+    id: 'game_level_select',
+    title: 'Select level objects in the editor',
+    description:
+      'Selects objects by id in the open Level editor and frames them, so the user sees what you mean — use after `game_level_query`; refused unless its Settings switch is on.',
+    input: GameLevelSelectInputSchema,
+    output: GameLevelSelectOutputSchema,
+    readOnly: false,
+  },
+  game_level_frame: {
+    id: 'game_level_frame',
+    title: 'Frame the level editor camera',
+    description:
+      'Moves the open Level editor camera to objects by id, a map region or the whole level, changing no data — pair with `game_level_select`; refused unless its Settings switch is on.',
+    input: GameLevelFrameInputSchema,
+    output: GameLevelFrameOutputSchema,
+    readOnly: false,
+  },
+  game_level_view: {
+    id: 'game_level_view',
+    title: 'See the open level as an image',
+    description:
+      'Returns a PNG of the open Level editor from a camera, a preset (`top`, `iso`, `selection`) or the plan — use after `game_entity_batch` to check what you built.',
+    input: GameLevelViewInputSchema,
+    output: GameContentOutputSchema,
+    readOnly: true,
   },
   game_goto: {
     id: 'game_goto',

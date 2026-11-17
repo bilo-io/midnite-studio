@@ -37,6 +37,7 @@ import {
   GameGenreSchema,
 } from './media-game';
 import { GameFixIdSchema } from './game-standard';
+import { LevelViewCameraSchema } from './game-level-editor-bridge';
 import { GameGotoResultSchema, GameLevelsResultSchema } from './game-level';
 
 /** Ids of the tools, in the order an agent meets them. Themes N and O append their own. */
@@ -70,6 +71,10 @@ export const GAME_MCP_TOOL_IDS = [
   'game_entity_add',
   'game_entity_update',
   'game_entity_delete',
+  // Phase 138 Theme G, H.
+  'game_level_select',
+  'game_level_frame',
+  'game_level_view',
   'game_goto',
   // Phase 149 Theme C.
   'game_doctor',
@@ -98,6 +103,7 @@ export const GAME_MCP_READ_TOOL_IDS: readonly GameMcpToolId[] = [
   'game_level_get',
   'game_level_query',
   'game_level_validate',
+  'game_level_view',
   'game_doctor',
 ];
 
@@ -379,6 +385,42 @@ export const LevelApplyValueSchema = z.object({
   refs: z.record(z.string(), z.number()),
 });
 export type LevelApplyValue = z.infer<typeof LevelApplyValueSchema>;
+// --- select, frame and view tools (Phase 138 Themes G, H) -------------------------------
+export const GameLevelSelectInputSchema = GameToolTargetSchema.extend({
+  scene: GameSceneNameSchema,
+  ids: z.array(z.number().int()).max(1000),
+  frame: z.boolean().default(true),
+});
+export const GameLevelSelectOutputSchema = z.object({ selected: z.array(z.number()), missing: z.array(z.number()) });
+export type GameLevelSelectOutput = z.infer<typeof GameLevelSelectOutputSchema>;
+export const GameLevelFrameInputSchema = GameToolTargetSchema.extend({
+  scene: GameSceneNameSchema,
+  ids: z.array(z.number().int()).max(1000).optional(),
+  region: LevelQuerySchema.shape.region,
+});
+export const GameLevelFrameOutputSchema = z.object({ framed: z.literal(true), view: z.enum(['plan', '3d']) });
+export type GameLevelFrameOutput = z.infer<typeof GameLevelFrameOutputSchema>;
+export const GameLevelViewInputSchema = GameToolTargetSchema.extend({
+  scene: GameSceneNameSchema,
+  view: z.enum(['plan', '3d', 'current']).default('current'),
+  camera: LevelViewCameraSchema.extend({ fov: z.number().min(20).max(90).default(50) }).optional(),
+  preset: z.enum(['top', 'iso', 'selection', 'current']).default('current'),
+  width: z.number().int().min(256).max(1600).default(960),
+  height: z.number().int().min(256).max(1200).default(600),
+});
+/** The renderer's answer to a `view` request: a base64 PNG and what it shows. */
+export const LevelViewValueSchema = z.object({
+  png: z.string().min(1),
+  view: z.enum(['plan', '3d']),
+  width: z.number().int(),
+  height: z.number().int(),
+  camera: LevelViewCameraSchema.nullable(),
+  objects: z.number().int(),
+});
+export type LevelViewValue = z.infer<typeof LevelViewValueSchema>;
+/** The renderer's answers to `select` and `frame`. */
+export const LevelFrameValueSchema = z.object({ view: z.enum(['plan', '3d']) });
+export type LevelFrameValue = z.infer<typeof LevelFrameValueSchema>;
 export const GameGotoInputSchema = GameToolTargetSchema.extend({ scene: GameSceneNameSchema });
 export const GameGotoOutputSchema = GameGotoResultSchema.extend({ gameId: z.string() });
 export const GameLevelListOutputSchema = GameLevelsResultSchema;

@@ -85,11 +85,20 @@ popover) and a 2.4 s pulse ring in the plan canvas, static under reduced motion 
 → a Reload banner. Left for later: the 3D view's `Edges` pulse (the selection outline shows there already) and **Show**
 framing the camera (Theme G's `frame`); Show selects and pulses.
 
-**Theme G — Select and frame tools.** ◻ `game_level_select` and `game_level_frame`: the agent points at objects in the
-open editor.
+**Theme G — Select and frame tools.** ✅ `game_level_select` and `game_level_frame` (behind `allowed()`): the renderer
+resolves ids in any object layer, selects the found ones (primary last), pulses them and frames them — plan: `frameView`
+(`level-frame.ts`, 10% margin, zoom at most 4); 3D: the `F` framing over their world box (`Level3dHandle.frame`). The bridge
+reaches the screen through `level-editor-controls.ts`, a per-game registry the mounted editor fills; the banner's **Show**
+now frames too. In `MCP_TOOLS` both are `readOnly: false` (not the doc's `true`): `mcp.test.ts` pins `readOnly` to the
+read-id list, and they are consent-gated like any steering tool.
 
-**Theme H — The view tool.** ◻ `game_level_view`: a PNG of the open level from a camera pose, a preset or the plan,
-captured by the renderer through the bridge and returned as an MCP image block.
+**Theme H — The view tool.** ✅ `game_level_view` (a read): a PNG of the open level from a camera, a preset (`top`, `iso`,
+`selection`) or the plan, captured by the renderer through the bridge (`view` answers asynchronously) and returned as a
+text block plus an `image/png` block. 3D: one render into a `WebGLRenderTarget` through a temporary camera
+(`3d/level-capture.ts`, `level-capture-pose.ts`); a Floorplan editor is switched to 3D first and stays there. Plan of a 3D
+level: `drawPlan` over an `OffscreenCanvas` (`level-plan-capture.ts`); a tile level returns the canvas as it is on screen.
+Main passes the 15 s timeout and halves an over-3 MB image until it fits. Left for later: the 3D pass reuses the live
+camera's culling, so a far-off preset can omit distant objects.
 
 **Theme I — Skill and agent prompt.** ◻ `midnite-media-game-build`'s `## Levels` teaches query → batch → select →
 view → validate → save; the game agent's system prompt and `ACTION_LABELS` name the new tools.
@@ -519,12 +528,12 @@ export const GameLevelFrameOutputSchema = z.object({ framed: z.literal(true), vi
 
 **Acceptance.**
 
-- [ ] G1. `select` of `[3, 999]` answers `selected: [3], missing: [999]` and the inspector shows object 3.
-- [ ] G2. `frame` of a region changes the plan `View`'s centre to the region's centre (pure `frameView` helper test).
-- [ ] G3. Both refuse with `GAMES_OFF_MESSAGE` while `allowGames` is off and fail with the "Open … first" message
+- [x] G1. `select` of `[3, 999]` answers `selected: [3], missing: [999]` and the inspector shows object 3.
+- [x] G2. `frame` of a region changes the plan `View`'s centre to the region's centre (pure `frameView` helper test).
+- [x] G3. Both refuse with `GAMES_OFF_MESSAGE` while `allowGames` is off and fail with the "Open … first" message
   when the scene is not open.
 
-**Done when** G1–G3 pass.
+**Done when** G1–G3 pass. ✅
 
 ### H — The view tool (M)
 
@@ -568,12 +577,12 @@ export const GameLevelViewInputSchema = GameToolTargetSchema.extend({
 
 **Acceptance.**
 
-- [ ] H1. `capturePlan` for preset `selection` computes the selection bounds + 10% margin as its source rectangle.
-- [ ] H2. The tool returns a `_content` array of a text block then an `image/png` block (mock bridge returns a 1×1
+- [x] H1. `capturePlan` for preset `selection` computes the selection bounds + 10% margin as its source rectangle.
+- [x] H2. The tool returns a `_content` array of a text block then an `image/png` block (mock bridge returns a 1×1
   PNG).
-- [ ] H3. A 3D request against a Floorplan editor calls `setMode(gameId, '3d')` before capturing (renderer test with a
+- [x] H3. A 3D request against a Floorplan editor calls `setMode(gameId, '3d')` before capturing (renderer test with a
   stub handle).
-- [ ] H4. An over-cap PNG is retried at half size (main test with a stub bridge that returns 4 MB then 1 MB).
+- [x] H4. An over-cap PNG is retried at half size (main test with a stub bridge that returns 4 MB then 1 MB).
 
 **Done when** H1–H4 pass and the Verification gate's `game_level_view` call returns a recognisable image.
 

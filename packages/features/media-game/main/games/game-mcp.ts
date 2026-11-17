@@ -5,11 +5,15 @@ import {
   queryLevel,
   validateLevel,
   MCP_CONTENT_KEY,
+  GameLevelSelectOutputSchema,
+  LevelFrameValueSchema,
+  LevelViewValueSchema,
   type GameImportAssetRequest,
   type GameImportAssetResult,
   type GameInputEvent,
   type GameLogLevel,
   type GameSummary,
+  type LevelEditorRequest,
   type LevelOp,
   type McpContentBlock,
   type McpToolInput,
@@ -17,8 +21,10 @@ import {
 } from '@midnite/studio-shared';
 
 import { McpToolError } from '@midnite/studio-runtime';
+import type { z } from 'zod';
 
 import { readLevelForTool } from './game-level-source';
+import { LEVEL_EDITOR_TIMEOUT_MESSAGE, LEVEL_EDITOR_VIEW_TIMEOUT_MS } from './level-editor-bridge';
 import { writeLevelOps } from './level-agent-writes';
 import type { GameService } from './game-service';
 import { clipError, readGameState } from './game-state';
@@ -98,6 +104,9 @@ export type GameMcpTools = {
     | 'game_entity_add'
     | 'game_entity_update'
     | 'game_entity_delete'
+    | 'game_level_select'
+    | 'game_level_frame'
+    | 'game_level_view'
     | 'game_goto'
     | 'game_doctor'
     | 'game_doctor_fix']: (input: McpToolInput<K>) => Promise<McpToolOutput<K>>;
@@ -109,6 +118,9 @@ export const GAME_INPUT_SETTLE_MS = 100;
 /** A screenshot burst stops adding frames once its base64 passes this (the response cap is 4 MB). */
 export const GAME_SCREENSHOT_BYTES_MAX = 3 * 1024 * 1024;
 const NOT_RUNNING = 'Run the game first.';
+const notOpenMessage = (scene: string): string => `Open ${scene} in Media ▸ Games ▸ Level editor first.`;
+/** `game_level_view` stops halving a too-large image at this width. */
+const LEVEL_VIEW_MIN_WIDTH = 128;
 const NOT_A_GAME_PATH = 'That folder is not a Midnite game.';
 const NO_GAMEPAD_HOOK = 'This game has no gamepad hook (window.__midnite.input.gamepad), so gamepad events cannot be sent.';
 
@@ -186,6 +198,22 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
         { gameId: found.gameId, scene: input.scene, ops, unit: input.unit, label: input.label, save: input.save ?? false, select: input.select },
       ),
     );
+  };
+
+  /**
+   * One request to the open Level editor (Phase 138 Themes G, H). A closed editor, an unread scene and a timeout all
+   * read the same to an agent: open the scene first. A failure the renderer reports (a capture error) keeps its message.
+   */
+  const askEditor = async <T>(request: LevelEditorRequest, schema: z.ZodType<T>, opts?: { timeoutMs?: number }): Promise<T> => {
+    const answer = await deps.service.levelEditor.request(request, opts);
+    if (!answer.ok) {
+      const text = 'message' in answer && answer.message ? answer.message : '';
+      throw new McpToolError('error', !text || text === LEVEL_EDITOR_TIMEOUT_MESSAGE ? notOpenMessage(request.scene) : clip(text));
+    }
+    if (!answer.value.handled) throw new McpToolError('error', notOpenMessage(request.scene));
+    const parsed = schema.safeParse(answer.value.value);
+    if (!parsed.success) throw new McpToolError('error', 'The level editor answered something this build cannot read.');
+    return parsed.data;
   };
 
   const playtests = (): Playtests => {
@@ -409,6 +437,42 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
         input,
         input.ids.map((id): LevelOp => ({ op: 'delete', id })),
       );
+    },
+
+    async game_level_select({ game, scene, ids, frame }) {
+      const found = await need(game);
+      return askEditor({ kind: 'select', gameId: found.gameId, scene, ids, frame }, GameLevelSelectOutputSchema);
+    },
+
+    async game_level_frame({ game, scene, ids, region }) {
+      const found = await need(game);
+      const framed = await askEditor(
+        { kind: 'frame', gameId: found.gameId, scene, ...(ids === undefined ? {} : { ids }), ...(region === undefined ? {} : { region }) },
+        LevelFrameValueSchema,
+      );
+      return { framed: true as const, view: framed.view };
+    },
+
+    async game_level_view({ game, scene, view, camera, preset, width, height }) {
+      const found = await need(game);
+      let w = width;
+      let h = height;
+      for (;;) {
+        const seen = await askEditor(
+          { kind: 'view', gameId: found.gameId, scene, view, ...(camera === undefined ? {} : { camera }), preset, width: w, height: h },
+          LevelViewValueSchema,
+          { timeoutMs: LEVEL_EDITOR_VIEW_TIMEOUT_MS },
+        );
+        // The response cap is on the base64; an over-size image is asked for again at half the size.
+        if (seen.png.length > GAME_SCREENSHOT_BYTES_MAX) {
+          if (w <= LEVEL_VIEW_MIN_WIDTH) throw new McpToolError('error', 'The level image is larger than the response limit even when small.');
+          w = Math.max(LEVEL_VIEW_MIN_WIDTH, Math.floor(w / 2));
+          h = Math.max(LEVEL_VIEW_MIN_WIDTH, Math.floor(h / 2));
+          continue;
+        }
+        const summary = { view: seen.view, camera: seen.camera, objects: seen.objects, width: seen.width, height: seen.height };
+        return { [MCP_CONTENT_KEY]: [{ type: 'text', text: JSON.stringify(summary) }, { type: 'image', data: seen.png, mimeType: 'image/png' }] satisfies McpContentBlock[] };
+      }
     },
 
     async game_level_validate({ game, scene }) {
