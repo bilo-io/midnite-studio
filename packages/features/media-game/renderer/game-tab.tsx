@@ -165,7 +165,7 @@ export function GameTab() {
               />
             )
           ) : doctorFor === selected.gameId ? (
-            <GameDoctorPanel gameId={selected.gameId} name={selected.name} onClose={() => setDoctorFor(null)} />
+            <GameDoctorPanel key={selected.gameId} gameId={selected.gameId} name={selected.name} onClose={() => setDoctorFor(null)} />
           ) : (
             <GameDetailPanel game={selected} />
           )
