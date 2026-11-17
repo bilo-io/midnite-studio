@@ -501,6 +501,8 @@ describe('isReloadTrigger', () => {
     ['playtests/a.json', false],
     ['playtests/baselines/smoke@60.png', false],
     ['playtestsuite.js', true],
+    ['.vite/deps/a.js', false],
+    ['.turbo/log', false],
   ])('%s -> %s', (path, expected) => {
     expect(isReloadTrigger(path)).toBe(expected);
   });

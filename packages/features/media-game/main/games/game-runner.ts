@@ -146,7 +146,8 @@ type Run<V extends GameView = GameView> = {
 };
 
 /** Path segments whose changes never reload the game. */
-const WATCH_IGNORED = ['.git', 'vendor', 'node_modules'];
+// Bundler caches are written by the build itself; reacting to them would rebuild forever (Phase 149 Theme E).
+const WATCH_IGNORED = ['.git', 'vendor', 'node_modules', '.vite', '.turbo', '.cache', '.parcel-cache'];
 // Play-tests write baselines, replays and results while the game runs (Theme O): none of it is game code.
 const WATCH_IGNORED_PREFIXES = ['playtests'];
 export const GAME_RELOAD_DEBOUNCE_MS = 200;
