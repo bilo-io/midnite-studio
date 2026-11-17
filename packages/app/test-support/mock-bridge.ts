@@ -3701,6 +3701,10 @@ export function buildMockBridge(data: MockFixtures) {
         ok: true as const,
         value: { path: req.path ?? `/games/${req.gameId ?? 'game'}`, hasManifest: true, findings: [], counts: { error: 0, warn: 0, info: 0 }, status: 'ok' as const },
       }),
+      doctorFix: async (req: { gameId?: string; path?: string }) => ({
+        ok: true as const,
+        value: { commit: null, diagnosis: { path: req.path ?? `/games/${req.gameId ?? 'game'}`, hasManifest: true, findings: [], counts: { error: 0, warn: 0, info: 0 }, status: 'ok' as const } },
+      }),
       popOut: async (req: { gameId: string }) => {
         gamesCalls.push({ call: 'popOut', ...req });
         gamesPopped = req.gameId;

@@ -173,7 +173,13 @@ export async function applyGameFix(path: string, input: GameFixInput, deps: Game
   };
 
   if (input.fixId === 'upgrade-kit') {
-    const upgraded = await upgradeKit(path, { templateDir: deps.templateDir, enginesDir: deps.enginesDir });
+    let upgraded: GitOpResult<{ branch: string }>;
+    try {
+      upgraded = await upgradeKit(path, { templateDir: deps.templateDir, enginesDir: deps.enginesDir });
+    } catch (error) {
+      // IPC ops never throw: a missing engine copy in the bundle becomes a refusal.
+      return failure(`Could not upgrade the kit: ${message(error)}`);
+    }
     if (!upgraded.ok) return upgraded;
     return finish(null, upgraded.value.branch);
   }
