@@ -22,6 +22,6 @@
       "@midnite/studio-runtime": ["../../runtime/src/index.ts"]
     }
   },
-  "include": ["renderer/**/*", "manifest.ts", "manifest.test.ts", "vitest.config.ts"],
+  "include": ["renderer/**/*", "manifest.ts", "mcp-manifest.ts", "manifest.test.ts", "vitest.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

@@ -67,6 +67,7 @@
     "@midnite/studio-feature-workflows": "workspace:*",
     "@midnite/studio-git-engine": "workspace:*",
     "@midnite/studio-knowledge": "workspace:*",
+    "@midnite/studio-module-startup": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
     "@recast-navigation/core": "0.44.0",
