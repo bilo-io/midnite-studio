@@ -1,11 +1,13 @@
 import { useState } from 'react';
+import { LuChartArea } from 'react-icons/lu';
 
-import { BASE_SCENARIO_ID, MAX_SCENARIOS, type CompanyProfile, type PlanLine, type RunwayScenario } from '@midnite/studio-shared';
+import { BASE_SCENARIO_ID, MAX_SCENARIOS, type CompanyProfile, type FleetProjection, type PlanLine, type RunwayScenario } from '@midnite/studio-shared';
 
 import { useStartupWrite } from '../data/use-startup';
 import { LineSheet } from './line-sheet';
 import { HORIZONS, chartPoints, formatMinor, runwayLabel, type Horizon, type RunwayProjectionView } from './runway-types';
 import { useProjection } from './use-projection';
+import { isStale, linkedLines } from '../projections/runway-link';
 import { useLedgerSummary } from '../ledger/use-summary';
 
 const CHART_W = 600;
@@ -56,8 +58,47 @@ function ScenarioTools({ scenario }: { scenario: RunwayScenario }) {
   );
 }
 
+/** `From <projection>` on a line a fleet projection wrote, with a Stale pill when the projection has moved on since. */
+function FromProjection({ line, lines, projections, onOpen }: { line: PlanLine; lines: readonly PlanLine[]; projections: readonly FleetProjection[]; onOpen: ((id: string) => void) | undefined }) {
+  const source = line.source;
+  if (source === undefined) return null;
+  const projection = projections.find((p) => p.id === source.projectionId);
+  const stale = projection !== undefined && isStale(projection, linkedLines(lines, projection.id));
+  return (
+    <span className="ml-2 inline-flex items-center gap-1.5 align-middle">
+      <button
+        type="button"
+        disabled={projection === undefined || onOpen === undefined}
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpen?.(source.projectionId);
+        }}
+        className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground disabled:hover:text-muted-foreground"
+      >
+        <LuChartArea aria-hidden /> From {projection?.name ?? 'a deleted projection'}
+      </button>
+      {stale ? <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-500">Stale</span> : null}
+    </span>
+  );
+}
+
 /** Costs and runway: the lines table, scenario tabs (Base plus at most two), a horizon, headline cards and the cash chart. */
-export function RunwayView({ company, lines, scenarios, linked = false }: { company: CompanyProfile; lines: readonly PlanLine[]; scenarios: readonly RunwayScenario[]; linked?: boolean }) {
+export function RunwayView({
+  company,
+  lines,
+  scenarios,
+  linked = false,
+  projections = [],
+  onOpenProjection,
+}: {
+  company: CompanyProfile;
+  lines: readonly PlanLine[];
+  scenarios: readonly RunwayScenario[];
+  linked?: boolean;
+  /** The saved fleet projections, to name and date-check the lines they wrote. */
+  projections?: readonly FleetProjection[];
+  onOpenProjection?: (id: string) => void;
+}) {
   const [scenarioId, setScenarioId] = useState(BASE_SCENARIO_ID);
   const [horizon, setHorizon] = useState<Horizon>(36);
   const [sheet, setSheet] = useState<{ line: PlanLine | null } | null>(null);
@@ -167,7 +208,10 @@ export function RunwayView({ company, lines, scenarios, linked = false }: { comp
             <tbody>
               {lines.map((l) => (
                 <tr key={l.id} className="cursor-pointer border-t border-border hover:bg-accent/40" onClick={() => setSheet({ line: l })}>
-                  <td className="py-1.5">{l.name}</td>
+                  <td className="py-1.5">
+                    {l.name}
+                    <FromProjection line={l} lines={lines} projections={projections} onOpen={onOpenProjection} />
+                  </td>
                   <td>{l.category}</td>
                   <td>{l.cadence}</td>
                   <td className={`text-right ${l.kind === 'revenue' ? 'text-emerald-500' : ''}`}>

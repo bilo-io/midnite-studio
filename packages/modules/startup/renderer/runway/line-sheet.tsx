@@ -43,6 +43,7 @@ export function LineSheet({ line, currency, onClose }: { line: PlanLine | null; 
     <aside className="flex w-80 shrink-0 flex-col gap-3 overflow-y-auto border-l border-border p-4" aria-label={line === null ? 'Add line' : 'Edit line'}>
       <form onSubmit={submit} className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold">{line === null ? 'Add line' : 'Edit line'}</h2>
+        {line?.source !== undefined ? <p className="text-xs text-muted-foreground">Editing unlinks this line from its projection.</p> : null}
         <label className={LABEL}>
           Kind
           <select className={FIELD} value={kind} onChange={(e) => setKind(e.target.value as PlanLine['kind'])}>

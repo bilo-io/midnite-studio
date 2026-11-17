@@ -25,6 +25,48 @@ const invoice = (status: 'draft' | 'issued' = 'draft') => ({
   lines: [{ description: 'Work', quantityMilli: 1000, unitMinor: 100, taxRateBp: 0 }],
 });
 
+describe('send to Runway', () => {
+  const seed = async (withCompany = true) => {
+    const s = await open();
+    if (withCompany) await run(s, { op: 'updateCompany', company: company('USD') });
+    await run(s, { op: 'get' });
+    const p = buildFleetStarter('gpu-cluster', { projectionId: u(1), nodeId: () => u(9000) }, '2020-01-01T00:00:00.000Z', 'P');
+    await run(s, { op: 'upsertFleetProjection', projection: p });
+    return s;
+  };
+  const linked = (s: WorkspaceStore) => s.snapshot().workspace.lines.filter((l) => l.source?.projectionId === u(1));
+  it('send twice leaves exactly one set of lines, beside hand-made ones', async () => {
+    const s = await seed();
+    const hand = { id: u(77), kind: 'cost' as const, name: 'Rent', category: 'premises' as const, minor: 500, cadence: 'monthly' as const, start: '2026-12', growthBpPerMonth: 0 };
+    await run(s, { op: 'upsertLine', line: hand });
+    expect((await run(s, { op: 'sendFleetProjectionToRunway', projectionId: u(1), start: '2026-12' })).ok).toBe(true);
+    const first = linked(s).length;
+    expect(first).toBeGreaterThanOrEqual(2);
+    await run(s, { op: 'sendFleetProjectionToRunway', projectionId: u(1), start: '2027-01' });
+    expect(linked(s)).toHaveLength(first);
+    expect(linked(s).every((l) => l.start === '2027-01')).toBe(true);
+    expect(s.snapshot().workspace.lines.some((l) => l.id === u(77))).toBe(true);
+    expect(s.snapshot().workspace.scenarios.every((sc) => sc.extraLines.length === 0)).toBe(true);
+  });
+  it('unlink keeps the lines as ordinary ones, or removes them', async () => {
+    const s = await seed();
+    await run(s, { op: 'sendFleetProjectionToRunway', projectionId: u(1), start: '2026-12' });
+    const n = linked(s).length;
+    await run(s, { op: 'unlinkFleetProjectionLines', projectionId: u(1), removeLines: false });
+    expect(linked(s)).toHaveLength(0);
+    expect(s.snapshot().workspace.lines).toHaveLength(n);
+    await run(s, { op: 'sendFleetProjectionToRunway', projectionId: u(1), start: '2026-12' });
+    await run(s, { op: 'unlinkFleetProjectionLines', projectionId: u(1), removeLines: true });
+    expect(linked(s)).toHaveLength(0);
+    expect(s.snapshot().workspace.lines).toHaveLength(n);
+  });
+  it('refuses without a company and for an unknown projection', async () => {
+    const s = await seed(false);
+    expect(await run(s, { op: 'sendFleetProjectionToRunway', projectionId: u(1), start: '2026-12' })).toMatchObject({ ok: false, kind: 'invalid', message: 'Set up your company first — Runway needs it.' });
+    expect(await run(s, { op: 'sendFleetProjectionToRunway', projectionId: u(2), start: '2026-12' })).toMatchObject({ ok: false, kind: 'not-found' });
+  });
+});
+
 describe('fleet catalog', () => {
   it('seeds exactly once on the first get, in the money currency', async () => {
     const s = await open();

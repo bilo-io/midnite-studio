@@ -5,6 +5,7 @@ import { moneyCurrency, seedFleetCatalog, type FleetCatalog } from '@midnite/stu
 import { useStartupSnapshot } from '../data/use-startup';
 import { InvoicesView } from '../invoices/invoices-view';
 import { RoadmapView } from '../roadmap/roadmap-view';
+import { useProjectionsUi } from '../projections/use-projections-ui';
 import { RunwayView } from '../runway/runway-view';
 import { VendorsView } from '../vendors/vendors-view';
 import { CompanyForm } from './company-form';
@@ -57,7 +58,7 @@ export function StartupHome({ view, onView }: { view: string; onView: (view: str
   // Projections needs no company, so it renders before the setup gate.
   if (view === 'startup.projections') return (
       <Suspense fallback={<p className="p-6 text-xs text-muted-foreground">Loading…</p>}>
-        <ProjectionsView projections={workspace.fleetProjections} readOnly={readOnly} currency={currency} catalog={workspace.fleetCatalog ?? seeded(currency)} />
+        <ProjectionsView projections={workspace.fleetProjections} readOnly={readOnly} currency={currency} catalog={workspace.fleetCatalog ?? seeded(currency)} lines={workspace.lines} hasCompany={workspace.company !== null} />
       </Suspense>
     );
   if (workspace.company === null) {
@@ -68,7 +69,17 @@ export function StartupHome({ view, onView }: { view: string; onView: (view: str
     );
   }
   if (view === 'startup.roadmap') return <RoadmapView milestones={workspace.milestones} />;
-  if (view === 'startup.runway') return <RunwayView company={workspace.company} lines={workspace.lines} scenarios={workspace.scenarios} linked={workspace.ledger !== null} />;
+  if (view === 'startup.runway') return <RunwayView
+        company={workspace.company}
+        lines={workspace.lines}
+        scenarios={workspace.scenarios}
+        linked={workspace.ledger !== null}
+        projections={workspace.fleetProjections}
+        onOpenProjection={(id) => {
+          useProjectionsUi.getState().select(id);
+          onView('startup.projections');
+        }}
+      />;
   if (view === 'startup.invoices') return <InvoicesView company={workspace.company} customers={workspace.customers} invoices={workspace.invoices} bookId={workspace.ledger?.bookId ?? null} />;
   if (view === 'startup.vendors') return <VendorsView company={workspace.company} vendors={workspace.vendors} contracts={workspace.contracts} />;
   return (

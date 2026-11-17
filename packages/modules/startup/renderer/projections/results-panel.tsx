@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, type ReactNode } from 'react';
 
 import { Skeleton } from '@midnite/studio-frame';
 import type { FleetProjection } from '@midnite/studio-shared';
@@ -19,6 +19,8 @@ export type ResultsProps = {
   pending: boolean;
   problem: string | null;
   readOnly: boolean;
+  /** Extra header controls (Runway link, export), each self-contained. */
+  actions?: ReactNode;
 };
 
 function Tile({ label, value, tone, big }: { label: string; value: string; tone?: 'good' | 'bad'; big?: boolean }) {
@@ -31,7 +33,7 @@ function Tile({ label, value, tone, big }: { label: string; value: string; tone?
 }
 
 /** The centre pane: headline figures, the chart and one card per node. */
-export function ResultsPanel({ draft, result, update, pending, problem, readOnly }: ResultsProps) {
+export function ResultsPanel({ draft, result, update, pending, problem, readOnly, actions }: ResultsProps) {
   const { currency } = useMoney();
   const net = result.netMarginMonthlyMinor;
   const payback = result.paybackMonths === null ? `Not within ${draft.globals.horizonMonths} mo` : `${result.paybackMonths} mo`;
@@ -40,6 +42,7 @@ export function ResultsPanel({ draft, result, update, pending, problem, readOnly
       <header className="flex items-baseline gap-3">
         <h2 className="text-lg font-semibold">{draft.name}</h2>
         {pending ? <span className="text-xs text-muted-foreground">Saving…</span> : null}
+        {actions}
       </header>
       {problem !== null ? (
         <p role="alert" className={ALERT}>

@@ -107,3 +107,34 @@ describe('RunwayView', () => {
     expect(screen.queryByText('Link a book to use actuals.')).toBeNull();
   });
 });
+
+describe('lines written by a projection', () => {
+  const pid = u(70);
+  const linked: PlanLine = { ...line, id: u(6), name: 'GPU — running costs', source: { kind: 'fleetProjection', projectionId: pid, part: 'opex', syncedAt: '2026-11-17T10:00:00.000Z' } };
+  const proj = { id: pid, name: 'GPU plan', updatedAt: '2026-11-18T10:00:00.000Z' };
+  const installWith = (lines: PlanLine[], fleetProjections: object[]) => {
+    install(lines, []);
+    const get = window.midniteStudio!.startup!.get as unknown as ReturnType<typeof vi.fn>;
+    get.mockImplementation(async () => {
+      const snap = snapshot(lines, []);
+      return { ...snap, value: { ...snap.value, workspace: { ...snap.value.workspace, fleetProjections } } };
+    });
+  };
+
+  it('shows a From badge and a Stale pill, and the sheet warns that editing unlinks', async () => {
+    installWith([linked, line], [proj]);
+    renderRunway();
+    expect(await screen.findByRole('button', { name: /From GPU plan/ })).toBeTruthy();
+    expect(screen.getAllByText('Stale')).toHaveLength(1);
+    fireEvent.click(screen.getByText('GPU — running costs'));
+    expect(screen.getByText('Editing unlinks this line from its projection.')).toBeTruthy();
+  });
+
+  it('shows no pill for a line that is up to date, and no badge on ordinary lines', async () => {
+    installWith([{ ...linked, source: { ...linked.source!, syncedAt: '2026-11-18T10:00:00.000Z' } }, line], [proj]);
+    renderRunway();
+    await screen.findByRole('button', { name: /From GPU plan/ });
+    expect(screen.queryByText('Stale')).toBeNull();
+    expect(screen.getAllByRole('button', { name: /From / })).toHaveLength(1);
+  });
+});
