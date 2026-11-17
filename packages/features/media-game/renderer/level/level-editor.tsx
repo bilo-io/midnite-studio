@@ -549,7 +549,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
     (kind === 'hidden' ? store.toggleHidden : store.toggleLocked)(sceneKey(gameId, entry.scene), refs.map(refKey));
   };
 
-  const menuActions = (at?: PlanPoint): Parameters<typeof levelContextMenu>[3] => ({
+  const menuActions = (edit: EditState, at?: PlanPoint): Parameters<typeof levelContextMenu>[3] => ({
     cut: () => {
       const clip = copySelection(edit);
       if (!clip) return;
@@ -594,7 +594,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
     }
     const clip = await readClipboard();
     const canPaste = clip !== null && clip.dimension === (is3d ? '3d' : '2d');
-    const items = levelContextMenu(state, target, { canPaste, readOnly }, menuActions(at), is3d);
+    const items = levelContextMenu(state, target, { canPaste, readOnly }, menuActions(state, at), is3d);
     if (items.length === 0) return;
     if (dialogs.openMenu) dialogs.openMenu(point, items);
     else setMenuAt({ x: point.clientX, y: point.clientY, items });
