@@ -368,6 +368,9 @@ import {
   GameAgentUndoRequestSchema,
   GameAddRequestSchema,
   GameAddResultSchema,
+  GameRenameRequestSchema,
+  GameDeleteInfoSchema,
+  GameDeleteRequestSchema,
   GameCreateRequestSchema,
   GameCreateResultSchema,
   GameIdRequest as GameIdRequestSchema,
@@ -5729,6 +5732,12 @@ export const GamesCreateRequest = GameCreateRequestSchema;
 export const GamesCreateResponse = GitOpResultOf(GameCreateResultSchema);
 export const GamesAddRequest = GameAddRequestSchema;
 export const GamesAddResponse = GitOpResultOf(GameAddResultSchema);
+export const GamesRenameRequest = GameRenameRequestSchema;
+export const GamesForgetRequest = GameIdRequestSchema;
+export const GamesRevealRequest = GameIdRequestSchema;
+export const GamesDeleteInfoRequest = GameIdRequestSchema;
+export const GamesDeleteInfoResponse = GitOpResultOf(GameDeleteInfoSchema);
+export const GamesDeleteRequest = GameDeleteRequestSchema;
 export const GamesGetManifestRequest = GameIdRequestSchema;
 export const GamesGetManifestResponse = GameManifestGetResponseSchema;
 export const GamesSetManifestRequest = GameManifestSetRequestSchema;

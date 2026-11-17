@@ -3,6 +3,7 @@ import type {
   GameAssetSourcesResult,
   GameAddResult,
   GameCreateRequest,
+  GameDeleteInfo,
   GameImportAssetRequest,
   GameImportAssetResult,
   GamePlaytestEntry,
@@ -117,6 +118,65 @@ export function useAddGame() {
         void client.invalidateQueries({ queryKey: GAME_KEYS.list });
         void client.invalidateQueries({ queryKey: REPOS_KEY });
       }
+    },
+  });
+}
+
+/** Game management (Phase 149 Theme I). A failure toasts; main sends `gamesChanged`, and the list refreshes on that. */
+export function useRenameGame() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (req: { gameId: string; name: string }) => (await bridge()?.games.rename(req)) ?? noBridge<void>(),
+    onSuccess: (result) => {
+      if (!result.ok) reportFailure(result);
+      void client.invalidateQueries({ queryKey: GAME_KEYS.list });
+    },
+  });
+}
+
+export function useRevealGame() {
+  return useMutation({
+    mutationFn: async (gameId: string) => (await bridge()?.games.reveal({ gameId })) ?? noBridge<void>(),
+    onSuccess: (result) => {
+      if (!result.ok) reportFailure(result);
+    },
+  });
+}
+
+export function useForgetGame() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (gameId: string) => (await bridge()?.games.forget({ gameId })) ?? noBridge<void>(),
+    onSuccess: (result) => {
+      if (!result.ok) reportFailure(result);
+      void client.invalidateQueries({ queryKey: GAME_KEYS.list });
+      // In Studio the game's repo left the repos panel too.
+      void client.invalidateQueries({ queryKey: REPOS_KEY });
+    },
+  });
+}
+
+/** What deleting would lose, read when the confirm opens. Never cached: the numbers must be current. */
+export function useGameDeleteInfo(gameId: string | null) {
+  return useQuery<GameDeleteInfo | null>({
+    queryKey: ['games', 'delete-info', gameId],
+    enabled: gameId !== null,
+    gcTime: 0,
+    queryFn: async () => {
+      const result = await bridge()?.games.deleteInfo({ gameId: gameId as string });
+      return result?.ok ? result.value : null;
+    },
+  });
+}
+
+export function useDeleteGame() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (req: { gameId: string; confirmName: string }) => (await bridge()?.games.delete(req)) ?? noBridge<void>(),
+    onSuccess: (result) => {
+      if (!result.ok) reportFailure(result);
+      void client.invalidateQueries({ queryKey: GAME_KEYS.list });
+      void client.invalidateQueries({ queryKey: REPOS_KEY });
     },
   });
 }
