@@ -10,6 +10,10 @@ allowed-tools: Bash, Read, Write, Skill, Glob, Grep
 Produces the title and body for a PR in `bilo-io/midnite-studio`. Short and factual: a reviewer
 should read it in under a minute. Every `gh` call uses `GH_TOKEN="$(gh auth token -u bilo-io)"`.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/pr-description.mjs [--base origin/main] [--self-review "..."]`. It drafts the title and house-template body from the commits and diffstat, scrubbing trailers and stray @-mentions. You still check the Why line and fill any section the script left out. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Gather
 
 From the branch: `git log origin/main..HEAD --oneline`, `git diff origin/main...HEAD --stat`, and the

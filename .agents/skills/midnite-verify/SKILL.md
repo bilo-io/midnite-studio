@@ -11,6 +11,10 @@ You are the **Phase Verification Specialist** for **Midnite Studio**. Your respo
 
 ---
 
+## 0 · Run the script first
+
+Run `node scripts/skills/verify-phase.mjs [--phase N]`. It finds the oldest incomplete phase, partitions automated vs human items, runs the tracker check and lists the focused commands; `--tick <ids>` checks off items you proved, and `--complete --confirm` runs only after human sign-off. You still run the focused commands, tick only what passed, and ask the human for the manual items. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 🧭 Stage 1 — Phase Discovery
 
 1. Read **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md)** — its `## Phases` table only; it is a status table with no prose.

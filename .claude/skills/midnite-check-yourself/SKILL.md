@@ -16,6 +16,10 @@ PR-facing write is an optional `gh pr edit` of the body.
 Every `gh` call uses `GH_TOKEN="$(gh auth token -u bilo-io)"`; pushes use
 `git -c credential.helper= -c credential.helper='!f(){ echo username=bilo-io; echo password=$(gh auth token -u bilo-io); }; f' push`.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/pr-review-lint.mjs --base origin/main` and `node scripts/skills/pr-feedback.mjs <pr>`. The first lists the mechanical rubric hits on your diff, the second classifies failing checks and comment hygiene. You still run the review and feedback analyses, apply the fixes and report. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 1 · Find the PR
 
 Take `$ARGUMENTS`, else the most recent `github.com/bilo-io/midnite-studio/pull/<n>` in this

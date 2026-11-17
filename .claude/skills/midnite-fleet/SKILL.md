@@ -15,6 +15,10 @@ cap, the board, launch rules, sitreps, rotation, unsticking and wrap-up. It does
 
 **Conversation style — enforced.** Terse; results, not intentions; tables over prose.
 
+## 0 · Run the script first
+
+Run `scripts/skills/orchestrate-cap.sh --running <n>` before each spawn, `scripts/skills/worktree-lifecycle.sh create <slug>` per task, `node scripts/skills/sitrep.mjs table` each tick. They give the cap line, the worktrees and the sitrep table. You still run the interview and own the board and merges (see midnite-orchestrate). Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 1 · Scope — option sheets, as many pages as it takes (skip what `$ARGUMENTS` answers)
 
 Scan `.midnite/tasks/_INDEX.md` — **Pass 1 only**, its `## Phases` table; no `phase-*.md` — for

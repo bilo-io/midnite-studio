@@ -14,6 +14,10 @@ rotates, unsticks, reports, and closes out.
 **Conversation style — enforced.** Terse. No preamble, no recap, no narrating intentions. Report
 results; bullets and tables over prose; silent on no-op steps.
 
+## 0 · Run the script first
+
+Run `scripts/skills/orchestrate-cap.sh --running <n>` each tick, `scripts/skills/worktree-lifecycle.sh <create|stalled|check|remove|list>`, and `node scripts/skills/sitrep.mjs table`. They compute the subagent cap (max of CPU and RAM, floor 2, ceiling 6; `--transcript` checks the context-rotation threshold), manage worktrees and stalled scratchpads, and render the sitrep. You still run the interview, own the board and decide what to stop, rotate or merge. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 1 · Run settings — one interview page (skip whatever the caller or `$ARGUMENTS` already answers)
 
 One `AskUserQuestion` call, up to four questions, each standalone:

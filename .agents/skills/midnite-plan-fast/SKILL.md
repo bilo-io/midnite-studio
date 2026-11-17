@@ -7,6 +7,10 @@ description: Fast, read-only feasibility and PR-breakdown plan rendered directly
 
 You are running the **fast plan** workflow for **Midnite Studio**. **Read-only:** do **not** write any `.midnite/tasks/` phase doc, do **not** edit `_INDEX.md`, and do **not** invoke `/midnite-plan`. Render the entire output directly in the chat/session response, then offer to promote it to `/midnite-plan` or refine it.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/sitrep.mjs graph --input rows.json` and `node scripts/skills/sitrep.mjs timeline --cap N --input rows.json`. It render the merge graph and wave timeline from the PR rows you draft (planned rows, no gh needed). You still estimate effort and sizes and write the feasibility read. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 1 · Quick feasibility check (read-only)
 
 Inspect only the relevant contracts, engines, and UI entry points (e.g. `packages/shared/src/`, `packages/features/*/`, `packages/desktop/src/main/`) to ground the answer in real code:

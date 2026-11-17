@@ -14,6 +14,10 @@ whether a screenshot belongs on this PR, and getting it into the body. It adds *
 For a visual PR the PNG is committed and embedded **before** `gh pr create`, never added later, so
 `midnite-pr-create` calls this skill first.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/pr-description.mjs [--base origin/main]`. It regenerates the body so you can slot the image under `## Screenshots`. You still decide whether the PR changes what a user sees, capture the shot, and edit the body. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 1 · Does the PR change what a user sees?
 
 Two gates, in order.
