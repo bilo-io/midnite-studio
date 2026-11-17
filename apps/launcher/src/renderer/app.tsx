@@ -13,6 +13,7 @@ import type { MenuItem } from './components/app-menu';
 import { ChangelogList, changelogAppOf, useChangelog } from './components/changelog';
 import { AppTable } from './components/app-table';
 import { AppTile } from './components/app-tile';
+import { ChangelogView } from './components/changelog-view';
 import { LauncherWordmark } from './components/wordmark';
 import {
   FILTER_LABELS,
@@ -26,6 +27,7 @@ import {
 } from './model';
 import { applyTheme, readTheme } from './theme';
 import { useApps } from './use-apps';
+import { useSuiteChangelog } from './use-changelog';
 
 type Layout = 'grid' | 'table';
 const STUDIO_APP = appById('studio');
@@ -70,6 +72,9 @@ export function App() {
     setThemeState(next);
     applyTheme(next);
   };
+  const [viewTab, setViewTab] = useState<'launcher' | 'changelog'>('launcher');
+  const [changelogAppFilter, setChangelogAppFilter] = useState<AppId | 'all'>('all');
+  const changelogFeed = useSuiteChangelog();
   const [filter, setFilter] = useState<Filter>('all');
   const [sort, setSort] = useState<SortKey>('suite');
   const [query, setQuery] = useState('');
@@ -245,15 +250,51 @@ export function App() {
         <div className="topbar-brand">
           <LauncherWordmark />
         </div>
-        <div className="topbar-tabs">
-          <span className="tab tab-active">Launcher</span>
+        <div className="topbar-tabs" role="tablist" aria-label="Views">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewTab === 'launcher'}
+            className={`tab ${viewTab === 'launcher' ? 'tab-active' : ''}`}
+            onClick={() => setViewTab('launcher')}
+          >
+            Launcher
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewTab === 'changelog'}
+            className={`tab ${viewTab === 'changelog' ? 'tab-active' : ''}`}
+            onClick={() => {
+              setChangelogAppFilter('all');
+              setViewTab('changelog');
+            }}
+          >
+            Changelog
+          </button>
         </div>
         <div className="topbar-right">
           <div className="segmented" role="group" aria-label="Layout">
-            <button type="button" className="tab" aria-pressed={layout === 'grid'} onClick={() => setLayout('grid')}>
+            <button
+              type="button"
+              className="tab"
+              aria-pressed={layout === 'grid'}
+              onClick={() => {
+                setLayout('grid');
+                if (viewTab !== 'launcher') setViewTab('launcher');
+              }}
+            >
               <LuLayoutGrid size={13} aria-hidden="true" /> Grid
             </button>
-            <button type="button" className="tab" aria-pressed={layout === 'table'} onClick={() => setLayout('table')}>
+            <button
+              type="button"
+              className="tab"
+              aria-pressed={layout === 'table'}
+              onClick={() => {
+                setLayout('table');
+                if (viewTab !== 'launcher') setViewTab('launcher');
+              }}
+            >
               <LuTable size={13} aria-hidden="true" /> Table
             </button>
           </div>
@@ -278,11 +319,12 @@ export function App() {
             aria-label="Check again"
             onClick={() => {
               void apps.refresh();
+              void changelogFeed.refresh();
               checkSelf(true);
             }}
-            disabled={apps.refreshing}
+            disabled={apps.refreshing || changelogFeed.loading}
           >
-            <LuRefreshCw size={15} className={apps.refreshing ? 'spin' : undefined} />
+            <LuRefreshCw size={15} className={apps.refreshing || changelogFeed.loading ? 'spin' : undefined} />
           </button>
           <button
             type="button"
@@ -342,58 +384,68 @@ export function App() {
           </div>
         )}
 
-        <div className="toolbar">
-          <div className="filters" role="group" aria-label="Filter apps">
-            {FILTERS.map((f) => (
-              <button key={f} type="button" className="filter" aria-pressed={filter === f} onClick={() => setFilter(f)}>
-                {FILTER_LABELS[f]} <span className="filter-count">{counts[f]}</span>
-              </button>
-            ))}
-          </div>
-          <div className="toolbar-right">
-            <label className="sort">
-              <span className="eyebrow">Sort</span>
-              <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
-                <option value="suite">Suite order</option>
-                <option value="name">Name</option>
-              </select>
-            </label>
-            <label className="search">
-              <LuSearch size={14} aria-hidden="true" />
-              <input
-                type="search"
-                placeholder="Search apps"
-                aria-label="Search apps"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </label>
-          </div>
-        </div>
-
-        {sections.length === 0 && <p className="empty">No apps match. Try another filter or search.</p>}
-
-        {sections.map((group, i) => (
-          <section key={group.section} className="section" aria-labelledby={`section-${group.section}`}>
-            <div className="section-head">
-              <h2 className="eyebrow" id={`section-${group.section}`}>
-                <span className="section-index">{String(i + 1).padStart(2, '0')} /</span> {SECTION_LABELS[group.section]}
-              </h2>
-              <span className="eyebrow">
-                {group.apps.length} {group.apps.length === 1 ? 'app' : 'apps'}
-              </span>
-            </div>
-            {layout === 'grid' ? (
-              <div className="grid">
-                {group.apps.map((app) => (
-                  <AppTile key={app.id} app={app} view={viewOf(app)} handlers={handlers} menuItems={menuItemsFor(app)} />
+        {viewTab === 'changelog' ? (
+          <ChangelogView
+            changelog={changelogFeed}
+            initialAppId={changelogAppFilter}
+            onOpenExternalLink={(link) => void bridge.links.open(link)}
+          />
+        ) : (
+          <>
+            <div className="toolbar">
+              <div className="filters" role="group" aria-label="Filter apps">
+                {FILTERS.map((f) => (
+                  <button key={f} type="button" className="filter" aria-pressed={filter === f} onClick={() => setFilter(f)}>
+                    {FILTER_LABELS[f]} <span className="filter-count">{counts[f]}</span>
+                  </button>
                 ))}
               </div>
-            ) : (
-              <AppTable apps={group.apps} viewOf={viewOf} handlers={handlers} menuItemsFor={menuItemsFor} />
-            )}
-          </section>
-        ))}
+              <div className="toolbar-right">
+                <label className="sort">
+                  <span className="eyebrow">Sort</span>
+                  <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+                    <option value="suite">Suite order</option>
+                    <option value="name">Name</option>
+                  </select>
+                </label>
+                <label className="search">
+                  <LuSearch size={14} aria-hidden="true" />
+                  <input
+                    type="search"
+                    placeholder="Search apps"
+                    aria-label="Search apps"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {sections.length === 0 && <p className="empty">No apps match. Try another filter or search.</p>}
+
+            {sections.map((group, i) => (
+              <section key={group.section} className="section" aria-labelledby={`section-${group.section}`}>
+                <div className="section-head">
+                  <h2 className="eyebrow" id={`section-${group.section}`}>
+                    <span className="section-index">{String(i + 1).padStart(2, '0')} /</span> {SECTION_LABELS[group.section]}
+                  </h2>
+                  <span className="eyebrow">
+                    {group.apps.length} {group.apps.length === 1 ? 'app' : 'apps'}
+                  </span>
+                </div>
+                {layout === 'grid' ? (
+                  <div className="grid">
+                    {group.apps.map((app) => (
+                      <AppTile key={app.id} app={app} view={viewOf(app)} handlers={handlers} menuItems={menuItemsFor(app)} />
+                    ))}
+                  </div>
+                ) : (
+                  <AppTable apps={group.apps} viewOf={viewOf} handlers={handlers} menuItemsFor={menuItemsFor} />
+                )}
+              </section>
+            ))}
+          </>
+        )}
       </main>
 
       <footer className="statusbar">
@@ -403,6 +455,23 @@ export function App() {
         <span className="statusbar-right">
           <button type="button" className="link eyebrow" onClick={() => void bridge.links.open('website')}>
             Website ↗
+          </button>
+          <button
+            type="button"
+            className="link eyebrow"
+            onClick={() => {
+              setChangelogAppFilter('all');
+              setViewTab('changelog');
+            }}
+          >
+            Changelog
+          </button>
+          <button
+            type="button"
+            className="link eyebrow"
+            onClick={() => void bridge.links.open('issues')}
+          >
+            Report issue ↗
           </button>
           <span className="eyebrow">
             {APPS.length} apps · macOS {bridge.platform.arch}
@@ -429,6 +498,12 @@ export function App() {
           app={detail}
           view={viewOf(detail)}
           handlers={handlers}
+          changelogSummary={changelogFeed.summaryForApp(detail.id)}
+          onViewInChangelog={(appId) => {
+            setChangelogAppFilter(appId);
+            setViewTab('changelog');
+            setDetail(null);
+          }}
           onRemoveReplaced={(id) => void apps.removeReplaced(id).then((r) => report(r, 'Moved the old app to the Trash.'))}
           onClose={() => setDetail(null)}
         />
