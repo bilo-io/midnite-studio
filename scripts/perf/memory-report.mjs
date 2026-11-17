@@ -1457,7 +1457,7 @@ if (isMain) {
   const hiddenSessions = value('hidden-sessions', '');
   const hiddenTabs = value('hidden-tabs', '');
   const isGraphReturn = flag('graph-return');
-  const runs = Number(value('runs', '5'));
+  const runs = Math.max(1, Math.floor(Number(value('runs', '5'))) || 5);
   const isSoak = flag('soak');
   const isIdle = flag('idle');
   const heapDiff = flag('heap-diff');
