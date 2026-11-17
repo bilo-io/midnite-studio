@@ -452,7 +452,7 @@ describe('TerminalSessionList — the Loops group', () => {
     expect(screen.queryByTestId('terminal-loops-arc')).toBeNull();
   });
 
-  it('orbits the whole group expanded, and wears the subtle tab arc collapsed, while a loop is live', () => {
+  it('orbits the group while a loop is live, expanded and collapsed alike', () => {
     useTerminalStore.setState({ states: { 'guard-a': 'open' } });
     renderWithLoopMark();
     const orbit = screen.getByTestId('terminal-loops-arc');
@@ -461,9 +461,8 @@ describe('TerminalSessionList — the Loops group', () => {
     expect(orbit.getAttribute('data-expanded')).toBe('true');
 
     fireEvent.click(screen.getByRole('button', { name: 'Collapse Loops' }));
-    const arc = screen.getByTestId('terminal-loops-arc');
-    expect(arc.className).toContain('tab-loop-active-arc');
-    expect(arc.className).not.toContain('loops-group-orbit');
-    expect(arc.getAttribute('data-expanded')).toBe('false');
+    const collapsed = screen.getByTestId('terminal-loops-arc');
+    expect(collapsed.className).toContain('loops-group-orbit');
+    expect(collapsed.getAttribute('data-expanded')).toBe('false');
   });
 });

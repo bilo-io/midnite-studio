@@ -1525,22 +1525,13 @@ html[data-motion='reduced'] .tab-loop-active-arc::after {
   animation: none;
 }
 
-/* The terminal list's "Loops" group, while any loop session is live.
- *
- * Collapsed, the header wears exactly the subtle arc a running loop tab
- * wears (`.tab-loop-active-arc` above, at its 120deg).
- *
- * Expanded, the whole group wears the Loops panel's own treatment
- * (`.gradient-frame`): a rainbow border ring with an inner rim glow, both cut
+/* The terminal list's "Loops" group, while any loop session is live, expanded
+ * or collapsed: the whole group (just its header, when collapsed) wears the
+ * Loops panel's own treatment (`.gradient-frame`): a rainbow border ring with an inner rim glow, both cut
  * to one arc that orbits the group. The arc is the overlay's own mask, so it
  * clips the ring (`::before`) and the glow (`::after`) alike and the two can
  * never drift apart. `--loops-orbit-angle` inherits, unlike the panel's
  * angles, so both pseudos read the rotation the host animates. */
-.loops-group-arc {
-  --fab-arc-from: 0deg;
-  --fab-arc-to: 120deg;
-}
-
 @property --loops-orbit-angle {
   syntax: '<angle>';
   inherits: true;

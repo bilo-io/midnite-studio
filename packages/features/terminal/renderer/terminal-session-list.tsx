@@ -506,20 +506,17 @@ function LoopsGroupRow({
   return (
     <div className="relative" data-testid="terminal-loops-group">
       {/*
-        While a loop is live the group glows (styles.css): expanded, the Loops
-        panel's own rainbow border ring and inner rim glow orbit the whole
-        group (`.loops-group-orbit`); collapsed, the header wears the running
-        loop tab's subtler arc (`.tab-loop-active-arc`). Drawn over the sticky
-        header (z-20), never catching a click.
+        While a loop is live, the Loops panel's own rainbow border ring and
+        inner rim glow orbit the group (`.loops-group-orbit` in styles.css) —
+        the whole group expanded, the header alone collapsed. Drawn over the
+        sticky header (z-20), never catching a click.
       */}
       {anyLive ? (
         <span
           aria-hidden
           data-testid="terminal-loops-arc"
           data-expanded={open ? 'true' : 'false'}
-          className={`pointer-events-none absolute inset-0 z-20 ${
-            open ? 'loops-group-orbit' : 'tab-loop-active-arc loops-group-arc'
-          }`}
+          className="loops-group-orbit pointer-events-none absolute inset-0 z-20"
         />
       ) : null}
       <ExplorerGroup
