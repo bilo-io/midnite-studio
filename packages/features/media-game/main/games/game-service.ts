@@ -248,6 +248,7 @@ export function createGameService(deps: GameServiceDeps) {
       return deps.runner.run({
         gameId,
         root: game.path,
+        build: manifest.build ?? null,
         network: manifest.network,
         keepSaveData: manifest.keepSaveData,
         determinism: opts.determinism ?? (manifest.deterministic ? { seed: 1, paused: false } : null),

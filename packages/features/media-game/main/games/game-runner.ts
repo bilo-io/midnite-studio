@@ -8,6 +8,8 @@ import {
   GAME_DETERMINISM_PARAMS,
   GAME_LEVEL_PARAM,
   GAMES_MAX_RUNNING,
+  GAME_BUILD_REASON_PREFIX,
+  GAME_BUILD_SOURCE,
   GameJuicePatchSchema,
   GameJuiceSettingsSchema,
   MSTUDIO_GAME_SCHEME,
@@ -25,6 +27,7 @@ import {
 
 import type { Logger } from './logger';
 import type { GameElectron, GameSession, GameView, GameWindow } from './game-electron';
+import { BUILD_OUTSIDE_MESSAGE, gameServeRoot, runGameBuild, type GameBuildSpec } from './game-build';
 import { gameProtocolHandler } from './game-protocol';
 import { LogRingBuffer, clipLogText } from './ring-buffer';
 
@@ -46,6 +49,8 @@ export type RunnableGame = {
   /** The game repo's root — the only folder its scheme can read. */
   root: string;
   network: GameNetwork;
+  /** A bundled game (Phase 149 Theme E): build before loading, then serve `build.out` instead of the root. */
+  build?: GameBuildSpec | null;
   /** `persist:game-<gameId>` instead of a fresh in-memory partition per run. */
   keepSaveData: boolean;
   /**
@@ -82,6 +87,8 @@ export type GameRunnerDeps<V extends GameView = GameView> = {
   log: Logger;
   /** Push an event to the renderer(s). */
   send: (channel: string, payload: unknown) => void;
+  /** Runs a bundled game's build; injected so tests need no shell. Defaults to {@link runGameBuild}. */
+  build?: typeof runGameBuild;
 };
 
 export type GameRunner<V extends GameView = GameView> = {
@@ -125,6 +132,14 @@ type Run<V extends GameView = GameView> = {
   watcher: FSWatcher | null;
   reloadTimer: ReturnType<typeof setTimeout> | null;
   startedAt: number;
+  /** What the scheme serves: the repo root, or `build.out` for a bundled game. */
+  serveRoot: string;
+  /** Aborts the build in flight, if any. */
+  buildAbort: AbortController | null;
+  /** The page has been asked to load at least once (a first build that failed leaves it blank). */
+  loaded: boolean;
+  /** A source changed since the build that produced what is on screen, or the last build failed. */
+  stale: boolean;
   state: GameRunState;
   /** Set once a crash was recorded, so `stop` does not overwrite it with `stopped`. */
   crashReason: string | null;
@@ -135,13 +150,18 @@ const WATCH_IGNORED = ['.git', 'vendor', 'node_modules'];
 // Play-tests write baselines, replays and results while the game runs (Theme O): none of it is game code.
 const WATCH_IGNORED_PREFIXES = ['playtests'];
 export const GAME_RELOAD_DEBOUNCE_MS = 200;
+/** A bundled game waits longer: a build is costlier than a reload. */
+export const GAME_BUILD_DEBOUNCE_MS = 400;
 
 /** Whether a changed path should trigger a hot reload. Pure — tested directly. */
-export function isReloadTrigger(relPath: string | null): boolean {
+export function isReloadTrigger(relPath: string | null, buildOut?: string | null): boolean {
   if (relPath === null) return true;
   const normal = relPath.split('\\').join('/');
   const segments = normal.split('/');
   if (segments.some((segment) => WATCH_IGNORED.includes(segment))) return false;
+  // A bundled game's own output changes on every build; reacting to it would loop.
+  const out = (buildOut ?? '').split('\\').join('/').replace(/^(\.\/)+/, '').replace(/\/+$/, '');
+  if (out !== '' && out !== '.' && (normal === out || normal.startsWith(`${out}/`))) return false;
   return !WATCH_IGNORED_PREFIXES.some((prefix) => normal === prefix || normal.startsWith(`${prefix}/`));
 }
 
@@ -224,8 +244,10 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
     deps.send(EVENT_CHANNELS.gamesConsole, { gameId: run.game.gameId, runId: run.runId, entries });
   };
 
-  function configureSession(ses: GameSession, game: RunnableGame): void {
-    ses.protocol.handle(MSTUDIO_GAME_SCHEME, gameProtocolHandler(game.root, game.gameId, game.network, deps.electron.fetchFile));
+  const buildGame = deps.build ?? runGameBuild;
+
+  function configureSession(ses: GameSession, game: RunnableGame, serveRoot: string): void {
+    ses.protocol.handle(MSTUDIO_GAME_SCHEME, gameProtocolHandler(serveRoot, game.gameId, game.network, deps.electron.fetchFile));
     ses.setPermissionRequestHandler((_wc, permission, callback, details) =>
       callback(isGamePermissionAllowed(permission, details as { mediaTypes?: readonly string[] })),
     );
@@ -313,13 +335,19 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
 
   function startWatcher(run: Run): void {
     try {
+      const build = run.game.build ?? null;
       run.watcher = watch(run.game.root, { recursive: true }, (_event, filename) => {
-        if (!isReloadTrigger(filename === null ? null : String(filename))) return;
+        if (!isReloadTrigger(filename === null ? null : String(filename), build?.out)) return;
+        if (build) run.stale = true;
         if (run.reloadTimer) clearTimeout(run.reloadTimer);
-        run.reloadTimer = setTimeout(() => {
-          run.reloadTimer = null;
-          if (!run.view.webContents.isDestroyed()) run.view.webContents.reloadIgnoringCache();
-        }, GAME_RELOAD_DEBOUNCE_MS);
+        run.reloadTimer = setTimeout(
+          () => {
+            run.reloadTimer = null;
+            if (build) void buildThenLoad(run);
+            else if (!run.view.webContents.isDestroyed()) run.view.webContents.reloadIgnoringCache();
+          },
+          build ? GAME_BUILD_DEBOUNCE_MS : GAME_RELOAD_DEBOUNCE_MS,
+        );
       });
       run.watcher.on('error', () => undefined);
     } catch {
@@ -327,7 +355,47 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
     }
   }
 
+  /**
+   * Build, then load (first time) or reload. A build already running is cancelled. A failed build leaves the
+   * runner host in its error state with the last lines; the next successful build clears it.
+   */
+  async function buildThenLoad(run: Run): Promise<void> {
+    const build = run.game.build;
+    if (!build) return;
+    run.buildAbort?.abort();
+    const controller = new AbortController();
+    run.buildAbort = controller;
+    run.stale = false;
+    const line = (text: string, level: GameLogEntry['level'] = 'log'): void =>
+      record(run, { level, text: clipLogText(text), source: GAME_BUILD_SOURCE });
+    line(`$ ${build.command}`);
+    const result = await buildGame(run.game.root, build, (text) => line(text), controller.signal);
+    if (controller.signal.aborted || runs.get(run.game.gameId) !== run) return; // superseded or stopped
+    run.buildAbort = null;
+    if (!result.ok) {
+      run.stale = true;
+      const message = result.kind === 'error' ? result.message : 'Build failed.';
+      const detail = result.kind === 'error' ? (result.stderr ?? '').trim() : '';
+      line(message, 'error');
+      const reason = `${GAME_BUILD_REASON_PREFIX}${message}${detail ? `\n${detail}` : ''}`;
+      run.crashReason = reason; // what `runState` hands a renderer that attaches later
+      flush(run);
+      emitState(run, 'crashed', reason);
+      return;
+    }
+    line(`Built in ${result.value.ms} ms.`);
+    if (run.view.webContents.isDestroyed()) return;
+    run.crashReason = null;
+    if (run.state === 'crashed') emitState(run, 'starting');
+    if (run.loaded) run.view.webContents.reloadIgnoringCache();
+    else {
+      run.loaded = true;
+      void run.view.webContents.loadURL(gameEntryUrl(run.game)).catch(() => undefined);
+    }
+  }
+
   function teardown(run: Run): void {
+    run.buildAbort?.abort();
     clearInterval(run.flushTimer);
     if (run.reloadTimer) clearTimeout(run.reloadTimer);
     run.watcher?.close();
@@ -379,12 +447,14 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
       }
       const win = hostFor(game.gameId);
       if (!win || win.isDestroyed()) return failure('There is no window to run the game in.');
+      const serveRoot = gameServeRoot(game.root, game.build);
+      if (serveRoot === null) return failure(BUILD_OUTSIDE_MESSAGE);
 
       nextLevel.delete(game.gameId); // spent only once the run is really starting
       const runId = `r${randomBytes(4).toString('hex')}`;
       const partition = gamePartition(game.gameId, runId, game.keepSaveData);
       const ses = deps.electron.sessionFromPartition(partition);
-      configureSession(ses, game);
+      configureSession(ses, game, serveRoot);
 
       const view = deps.electron.createView({
         webPreferences: {
@@ -411,6 +481,10 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
         watcher: null,
         reloadTimer: null,
         startedAt: Date.now(),
+        serveRoot,
+        buildAbort: null,
+        loaded: false,
+        stale: false,
         state: 'starting',
         crashReason: null,
       };
@@ -434,7 +508,11 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
         flush(run);
         emitState(run, 'crashed', description);
       });
-      void view.webContents.loadURL(gameEntryUrl(game)).catch(() => undefined);
+      if (game.build) void buildThenLoad(run);
+      else {
+        run.loaded = true;
+        void view.webContents.loadURL(gameEntryUrl(game)).catch(() => undefined);
+      }
       return ok({ runId });
     },
 
@@ -447,6 +525,10 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
     reload(gameId) {
       const run = runs.get(gameId);
       if (!run) return failure('That game is not running.');
+      if (run.game.build && (run.stale || !run.loaded)) {
+        void buildThenLoad(run); // a source changed or the last build failed: rebuild, then reload
+        return ok();
+      }
       run.crashReason = null;
       run.view.webContents.reloadIgnoringCache();
       return ok();

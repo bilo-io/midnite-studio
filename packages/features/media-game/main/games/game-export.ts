@@ -16,6 +16,7 @@ import {
 } from '@midnite/studio-shared';
 
 import { confineToRoot, joinWithin } from '@midnite/studio-runtime';
+import { gameServeRoot } from './game-build';
 import { buildRunPackage, buildServeScript, RUN_PACKAGE_FILE, RUN_README, RUN_README_FILE, RUN_SERVE_FILE } from './run-scaffold';
 import { buildSingleFile } from './single-file';
 import { writeZip, ZipTooLargeError } from './zip-writer';
@@ -61,21 +62,24 @@ export function createGameExport(deps: GameExportDeps) {
     return real === null ? null : readFile(real).catch(() => null);
   }
 
-  async function entryPage(root: string): Promise<string> {
-    const text = await readFile(join(root, GAME_MANIFEST_FILE), 'utf8').catch(() => null);
-    if (text === null) return 'index.html';
+  /** The manifest's `build` and `entry`; `index.html` and no build when it is missing or invalid. */
+  async function readLayout(repo: string): Promise<{ entry: string; build: { command: string; out: string } | null }> {
+    const text = await readFile(join(repo, GAME_MANIFEST_FILE), 'utf8').catch(() => null);
+    if (text === null) return { entry: 'index.html', build: null };
     try {
       const parsed = parseGameManifest(JSON.parse(text));
-      return parsed.ok ? parsed.manifest.entry : 'index.html';
+      return parsed.ok
+        ? { entry: parsed.manifest.entry, build: parsed.manifest.build ?? null }
+        : { entry: 'index.html', build: null };
     } catch {
-      return 'index.html';
+      return { entry: 'index.html', build: null };
     }
   }
 
   /** The run files the game does not already ship; a clash is skipped and reported, never overwritten. */
-  async function runScaffold(root: string, files: string[], slug: string): Promise<{ extra: { path: string; bytes: Buffer }[]; warnings: string[] }> {
+  async function runScaffold(entry: string, files: string[], slug: string): Promise<{ extra: { path: string; bytes: Buffer }[]; warnings: string[] }> {
     const wanted = [
-      { path: RUN_SERVE_FILE, text: buildServeScript(await entryPage(root)) },
+      { path: RUN_SERVE_FILE, text: buildServeScript(entry) },
       { path: RUN_PACKAGE_FILE, text: buildRunPackage(slug) },
       { path: RUN_README_FILE, text: RUN_README },
     ];
@@ -96,11 +100,16 @@ export function createGameExport(deps: GameExportDeps) {
       if (!req.dest) return failure(NEEDS_DEST);
       if (req.dest.includes('\0') || !isAbsolute(req.dest)) return failure('The destination must be an absolute path.');
       const dest = resolve(req.dest);
-      const root = resolve(game.path);
-      if (dest === root || dest.startsWith(root + sep)) return failure(INSIDE_GAME);
+      const repo = resolve(game.path);
+      if (dest === repo || dest.startsWith(repo + sep)) return failure(INSIDE_GAME);
+      // A bundled game ships its build output, not its sources (Phase 149 Theme E).
+      const { entry, build } = await readLayout(repo);
+      const root = gameServeRoot(repo, build);
+      if (root === null) return failure('Build output is outside the game.');
+      if (build && !(await stat(root).catch(() => null))?.isDirectory()) return failure(`Run the build first: ${build.out} does not exist.`);
       const slug = gameSlug(game.name);
 
-      if (req.format === 'game-folder') return await exportFolder(root, dest, slug);
+      if (req.format === 'game-folder') return await exportFolder(root, dest, slug, entry);
       if (await has(dest)) {
         if (!req.overwrite) return failure(gameExportExistsMessage(basename(dest)));
         const info = await lstat(dest);
@@ -108,14 +117,14 @@ export function createGameExport(deps: GameExportDeps) {
       }
       const parent = await stat(dirname(dest)).catch(() => null);
       if (!parent?.isDirectory()) return failure('The destination folder does not exist.');
-      return req.format === 'game-zip' ? await exportZip(root, dest, slug) : await exportHtml(root, dest);
+      return req.format === 'game-zip' ? await exportZip(root, dest, slug, entry) : await exportHtml(root, dest, entry);
     } catch (error) {
       if (error instanceof ZipTooLargeError) return failure(error.message);
       return failure(error instanceof Error ? error.message : String(error));
     }
   }
 
-  async function exportFolder(root: string, parent: string, slug: string): Promise<GitOpResult<GameExportResult>> {
+  async function exportFolder(root: string, parent: string, slug: string, entry: string): Promise<GitOpResult<GameExportResult>> {
     const info = await stat(parent).catch(() => null);
     if (!info?.isDirectory()) return failure('The destination folder does not exist.');
     const name = `${slug}-web`;
@@ -124,7 +133,7 @@ export function createGameExport(deps: GameExportDeps) {
     if (await has(target)) return failure(gameExportExistsMessage(name));
     const temp = join(parent, `.${name}.tmp-${process.pid}-${Date.now()}`);
     const files = await listGameFiles(root);
-    const { extra, warnings } = await runScaffold(root, files, slug);
+    const { extra, warnings } = await runScaffold(entry, files, slug);
     let bytes = 0;
     try {
       for (const { path, bytes: data } of extra) {
@@ -150,22 +159,21 @@ export function createGameExport(deps: GameExportDeps) {
     return ok({ path: target, bytes, files: files.length + extra.length, warnings });
   }
 
-  async function exportZip(root: string, dest: string, slug: string): Promise<GitOpResult<GameExportResult>> {
+  async function exportZip(root: string, dest: string, slug: string, entry: string): Promise<GitOpResult<GameExportResult>> {
     const entries: { path: string; bytes: Buffer }[] = [];
     const listed = await listGameFiles(root);
     for (const rel of listed) {
       const data = await readInRepo(root, rel);
       if (data !== null) entries.push({ path: rel, bytes: data });
     }
-    const { extra, warnings } = await runScaffold(root, listed, slug);
+    const { extra, warnings } = await runScaffold(entry, listed, slug);
     entries.push(...extra);
     const zip = writeZip(entries);
     await writeAtomically(dest, zip);
     return ok({ path: dest, bytes: zip.length, files: entries.length, warnings });
   }
 
-  async function exportHtml(root: string, dest: string): Promise<GitOpResult<GameExportResult>> {
-    const entry = await entryPage(root);
+  async function exportHtml(root: string, dest: string, entry: string): Promise<GitOpResult<GameExportResult>> {
     const page = await readInRepo(root, entry);
     if (page === null) return failure(`${entry} was not found in the game.`);
     const built = await buildSingleFile(page.toString('utf8'), {

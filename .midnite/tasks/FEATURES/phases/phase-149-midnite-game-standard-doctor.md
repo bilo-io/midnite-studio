@@ -81,9 +81,14 @@ its rule id and a fix hint, and when one exists, a `fixId`.
 `vendored`, set the genre, add a `build` block, add `levels` once `levels/*.tmj` exists, and start a kit upgrade
 (delegating to `upgradeKit`). Exposed as `mstudio:games:doctor-fix` and the write tool `game_doctor_fix`.
 
-**Theme E — Build-output entry.** ◻ A game with `build` runs `build.command` in its repo before Run (and on Reload when
-a source changed), streams the output to the console drawer, and serves `build.out` instead of the repo root. The
-watcher ignores `build.out` and rebuilds on a source change.
+**Theme E — Build-output entry.** ✅ A game with `build` runs `build.command` in its repo before Run, streams the output to
+the console drawer as `source: 'build'` entries, and serves `build.out` instead of the repo root. Landed: `serveRoot`
+(`gameServeRoot` in `game-build.ts`, via `joinWithin`) feeds the protocol handler and export; `runGameBuild` spawns
+with `shell: true`, the login-shell `PATH` and `MOON_*` stripped, a 5-minute timeout and an abort signal, and refuses
+with the install hint when `package.json` exists without `node_modules`; a failed build leaves the runner host in a
+build-failure state (`GAME_BUILD_REASON_PREFIX`) with the last 20 lines; the watcher ignores `build.out` and rebuilds
+then reloads on a 400 ms debounced source change, cancelling a build in flight; Reload rebuilds when a source changed
+or the last build failed.
 
 **Theme F — Adopt a folder with no manifest.** ◻ Open Game on a git repo with no `midnite-game.json` stops refusing.
 It answers `needs-manifest` with a manifest *inferred* from `package.json`, `index.html` and vendored engines, and the
@@ -247,22 +252,22 @@ today.
 
 ### E — Build-output entry [L · 4-6h]
 
-- [ ] `game-runner.ts`: when `manifest.build` is set, `serveRoot = joinWithin(root, build.out)` (refuse
+- [x] `game-runner.ts`: when `manifest.build` is set, `serveRoot = joinWithin(root, build.out)` (refuse
       `Build output is outside the game.` if it is null). `gameProtocolHandler(serveRoot, …)` for the session.
       `importMapHashes` reads `serveRoot/index.html`.
-- [ ] Net-new `main/games/game-build.ts`: `runGameBuild(root, build, onLine, signal): Promise<GitOpResult<{ ms }>>`.
+- [x] Net-new `main/games/game-build.ts`: `runGameBuild(root, build, onLine, signal): Promise<GitOpResult<{ ms }>>`.
   - Spawns `build.command` with `shell: true`, `cwd: root`, and the login-shell `PATH` (reuse the runtime's shell-env
     helper). Strip inherited `MOON_*` env (see commit `014fc9a62`).
   - Streams stdout/stderr lines to the console drawer as `source: 'build'` entries (`GameConsoleEntry` gains that
     source). Times out after 5 min (`Build took longer than 5 minutes.`). A non-zero exit → `failure('Build failed
     (exit N).', lastLines)`.
-- [ ] Run order for a build game: build, then load. If a build fails, Run stops in the runner host's existing error
+- [x] Run order for a build game: build, then load. If a build fails, Run stops in the runner host's existing error
       state with the last 20 lines. No `node_modules` → the first build line says `Run your package manager's install
       in <path> first.`, and the build refuses (never auto-install).
-- [ ] Watcher: ignore `build.out`. A change elsewhere (outside `.git`, `node_modules`, `vendor`, `playtests`) debounces
+- [x] Watcher: ignore `build.out`. A change elsewhere (outside `.git`, `node_modules`, `vendor`, `playtests`) debounces
       400 ms, rebuilds, then reloads. A rebuild already running is cancelled through its `AbortSignal`.
-- [ ] Export (`game-export.ts`) bundles from `serveRoot`.
-- [ ] Tests: `game-build.test.ts` (an `echo`/`exit 1` command, timeout via a fake timer, abort) and runner cases
+- [x] Export (`game-export.ts`) bundles from `serveRoot`.
+- [x] Tests: `game-build.test.ts` (an `echo`/`exit 1` command, timeout via a fake timer, abort) and runner cases
       (`serveRoot` used, `out` escaping refused, watcher ignores `out`).
 
 ### F — Adopt a folder with no manifest [M · 2-3h]
