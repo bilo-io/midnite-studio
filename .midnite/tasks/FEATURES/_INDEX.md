@@ -8,6 +8,7 @@ Completed work is logged append-only in [`../done.md`](../done.md). Deferred sco
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [152 · Projections ↔ Runway](phases/phase-152-projections-runway-bridge.md) | ◻ TODO | — | 0/39 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
 | [151 · Skill scripts and local LLM offload](phases/phase-151-skill-scripts-and-local-llm.md) | 🔄 WIP | — | 27/30 | `█████████░` | 90% | F | — |
 | [150 · Startup projections](phases/phase-150-startup-projections.md) | 🔄 WIP | x1 | 39/41 | `██████████` | 95% | F | — |
 | [149 · Midnite game standard, game doctor and game management](phases/phase-149-midnite-game-standard-doctor.md) | 🔄 WIP | — | 47/52 | `█████████░` | 90% | H | — |
