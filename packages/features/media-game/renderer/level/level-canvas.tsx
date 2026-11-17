@@ -6,7 +6,7 @@ import type { GameLevelTerrain } from '@midnite/studio-shared';
 
 import { objectToMapPoint, mapPointToObject, type Cell, type EditLevel, type EditSelection, type LevelObject, type ObjectRef, type PlanPoint, type PlanRect } from './level-edit-model';
 import { hitPlan, levelMetresPerTile, planBounds } from './level-plan';
-import { drawPlan, drawSelectionExtras, SELECTED_COLOUR, type PlanOverlay } from './level-plan-draw';
+import { drawHighlight, drawPlan, drawSelectionExtras, prefersReducedMotion, PULSE_MS, SELECTED_COLOUR, type PlanHighlight, type PlanOverlay } from './level-plan-draw';
 import { fitView, screenToMap, zoomAround, type View } from './level-view';
 
 /**
@@ -99,6 +99,7 @@ export function LevelCanvas({
   images,
   selection,
   selected,
+  highlight,
   marquee,
   hoverEnabled,
   preview,
@@ -115,6 +116,8 @@ export function LevelCanvas({
   selection: EditSelection;
   /** Every selected object (Phase 137 Theme C); defaults to the primary alone. */
   selected?: readonly ObjectRef[];
+  /** Objects an agent change set touched, ringed for {@link PULSE_MS} (Phase 138 Theme F). */
+  highlight?: PlanHighlight | null;
   /** The marquee being dragged, in object coordinates. */
   marquee?: PlanRect | null;
   hoverEnabled: boolean;
@@ -146,6 +149,26 @@ export function LevelCanvas({
   const [hover, setHover] = useState<Cell | null>(null);
   const [cursor, setCursor] = useState<PlanPoint | null>(null);
   const { image: terrainImage, loaded: terrainLoaded } = useTerrainImage(plan?.terrain?.preview);
+  /** Bumped while a pulse is running, so the draw effect repaints it. */
+  const [pulseTick, setPulseTick] = useState(0);
+  useEffect(() => {
+    if (!highlight) return undefined;
+    const left = highlight.startedAt + PULSE_MS - Date.now();
+    if (left <= 0) return undefined;
+    // Reduced motion: a static ring, repainted once more when it is over; no animation frames.
+    if (prefersReducedMotion()) {
+      const timer = setTimeout(() => setPulseTick((n) => n + 1), left + 20);
+      return () => clearTimeout(timer);
+    }
+    let raf = 0;
+    const step = () => {
+      setPulseTick((n) => n + 1);
+      if (Date.now() < highlight.startedAt + PULSE_MS) raf = requestAnimationFrame(step);
+      else setPulseTick((n) => n + 1);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [highlight]);
   const space = useRef(false);
   const pan = useRef<{ sx: number; sy: number; view: View } | null>(null);
   const tool = useRef(false);
@@ -199,7 +222,7 @@ export function LevelCanvas({
     };
     if (plan) {
       const overlay: PlanOverlay = { terrain: plan.terrain, terrainImage, draft: plan.draft, cursor: plan.draft.length > 0 ? cursor : null, volume: plan.volume };
-      drawPlan(ctx, { level, view, selection, selected, marquee, overlay, outline, text });
+      drawPlan(ctx, { level, view, selection, selected, marquee, overlay, outline, text, highlight });
       return;
     }
     const pixel = mapPixelSize(tmj);
@@ -264,6 +287,7 @@ export function LevelCanvas({
       }
     }
     drawSelectionExtras(ctx, { level, view, selected: selected ?? [], marquee: marquee ?? null, outline, toMap: (p) => objectToMapPoint(level, p.x, p.y) });
+    if (highlight) drawHighlight(ctx, { level, view, highlight, now: Date.now(), reduced: prefersReducedMotion(), toMap: (p) => objectToMapPoint(level, p.x, p.y) });
     ctx.strokeStyle = outline;
     ctx.lineWidth = 1.5 / view.zoom;
     if (hover && hoverEnabled) {
@@ -274,7 +298,7 @@ export function LevelCanvas({
       cellPath(c.x, c.y);
       ctx.stroke();
     }
-  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection, selected, marquee, plan, terrainImage, terrainLoaded, cursor]);
+  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection, selected, marquee, plan, terrainImage, terrainLoaded, cursor, highlight, pulseTick]);
 
   const local = (e: { clientX: number; clientY: number }) => {
     const rect = canvas.current?.getBoundingClientRect();

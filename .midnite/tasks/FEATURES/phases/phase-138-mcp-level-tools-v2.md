@@ -71,13 +71,19 @@ and `mstudio:games:level-editor-reply` (one-way send), modelled on Companion's `
 **Theme D — Query and validate tools.** ✅ `game_level_query` and `game_level_validate`, reading the editor's unsaved
 level when it is open (`source: 'editor'`) and the file otherwise (`readLevelForTool` in `game-level-source.ts`; model assets come from the manifest).
 
-**Theme E — Entity write tools.** ◻ `game_entity_add`, `game_entity_update`, `game_entity_delete` and
-`game_entity_batch`: one validated change set, applied live in the open editor or committed as one file write when
-it is closed; `save: true` also saves.
+**Theme E — Entity write tools.** ✅ `game_entity_batch`, `game_entity_add`, `game_entity_update` and `game_entity_delete`
+(`packages/features/media-game/main/games/level-agent-writes.ts`, `writeLevelOps`): the bridge's `apply` first, so an open
+editor takes the batch as one change set; a closed editor, or a timeout, falls to `applyLevelOps` plus one `levels.set` commit.
+`save: true` writes the editor's snapshot after applying. The agent run's private server defaults `save` to true
+(`createGameAgentDispatch`); the global server leaves it false. Output carries `applied`, `changeSetId`, the touched ids,
+`refs`, `saved`, `sha` and up to 50 validator issues of the result.
 
-**Theme F — The agent change set in the editor.** ◻ The renderer applies an `apply` request as one undo step, records
-an `AgentChangeSet`, shows a gradient-bordered review banner (Show · Undo · Keep) and pulses the changed objects in
-both views (a static ring under reduced motion).
+**Theme F — The agent change set in the editor.** ✅ `applyAgentOps` commits an `apply` batch as one undo step;
+`OpenLevel.agentChanges` (newest first, max 10) and `highlight` feed `agent-change-banner.tsx` (Show · Undo · Keep, `+N more`
+popover) and a 2.4 s pulse ring in the plan canvas, static under reduced motion (`level-plan-draw.ts`: `themeColour`,
+`hslTripletToHex`). `level-reload.ts` decides a disk change: equal file → `markSaved`, clean → reload, dirty and different
+→ a Reload banner. Left for later: the 3D view's `Edges` pulse (the selection outline shows there already) and **Show**
+framing the camera (Theme G's `frame`); Show selects and pulses.
 
 **Theme G — Select and frame tools.** ◻ `game_level_select` and `game_level_frame`: the agent points at objects in the
 open editor.
@@ -417,13 +423,13 @@ export async function writeLevelOps(deps: { levels: GameLevels; levelEditor: Lev
 
 **Acceptance.**
 
-- [ ] E1. Editor open (mock bridge answers `apply`): `applied: 'editor'`, no `levels.set` call, `saved: false`.
-- [ ] E2. Editor open with `save: true`: one `levels.set` call with the snapshot level; `saved: true`, `sha` set.
-- [ ] E3. Editor closed: one `levels.set` call, `applied: 'file'`, `saved: true`.
-- [ ] E4. An invalid batch writes nothing anywhere and the failure lists each bad op's index.
-- [ ] E5. `allowGames` off → each of the four tools answers `[refused] Game running and editing is off — …`.
-- [ ] E6. Through `createGameAgentDispatch`, a batch with no `save` saves.
-- [ ] E7. `game_entity_add` with 2 entities equals a batch of 2 `add` ops (same output shape).
+- [x] E1. Editor open (mock bridge answers `apply`): `applied: 'editor'`, no `levels.set` call, `saved: false`.
+- [x] E2. Editor open with `save: true`: one `levels.set` call with the snapshot level; `saved: true`, `sha` set.
+- [x] E3. Editor closed: one `levels.set` call, `applied: 'file'`, `saved: true`.
+- [x] E4. An invalid batch writes nothing anywhere and the failure lists each bad op's index.
+- [x] E5. `allowGames` off → each of the four tools answers `[refused] Game running and editing is off — …`.
+- [x] E6. Through `createGameAgentDispatch`, a batch with no `save` saves.
+- [x] E7. `game_entity_add` with 2 entities equals a batch of 2 `add` ops (same output shape).
 
 **Done when** E1–E7 pass.
 
@@ -481,14 +487,14 @@ export function applyAgentOps(state: EditState, ops: readonly LevelOp[], ctx: Le
 
 **Acceptance.**
 
-- [ ] F1. `applyAgentOps` with 3 ops grows `past` by exactly 1; `undo` reverts all three.
-- [ ] F2. An `apply` request renders the banner with the label and the counts; Keep removes it.
-- [ ] F3. Undo is enabled right after the change and disabled after a further user edit.
-- [ ] F4. Under `data-motion="reduced"`, the plan draw for a highlight issues no `requestAnimationFrame` (spy) and
+- [x] F1. `applyAgentOps` with 3 ops grows `past` by exactly 1; `undo` reverts all three.
+- [x] F2. An `apply` request renders the banner with the label and the counts; Keep removes it.
+- [x] F3. Undo is enabled right after the change and disabled after a further user edit.
+- [x] F4. Under `data-motion="reduced"`, the plan draw for a highlight issues no `requestAnimationFrame` (spy) and
   strokes a static ring.
-- [ ] F5. After a `gamesChanged` whose file equals the open level, `dirty` becomes false without a reload.
-- [ ] F6. Dirty + different file → the notice appears and the edit state is unchanged.
-- [ ] F7. `hslTripletToHex('38 92% 50%')` is `#f59f0a` (± 1 per channel); `themeColour` falls back to the hex under jsdom.
+- [x] F5. After a `gamesChanged` whose file equals the open level, `dirty` becomes false without a reload.
+- [x] F6. Dirty + different file → the notice appears and the edit state is unchanged.
+- [x] F7. `hslTripletToHex('38 92% 50%')` is `#f59f0a` (± 1 per channel); `themeColour` falls back to the hex under jsdom.
 
 **Done when** F1–F7 pass.
 

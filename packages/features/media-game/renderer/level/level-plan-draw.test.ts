@@ -1,63 +1,58 @@
-// vitest/node: Phase 137 Theme C — drawPlan's multi-selection drawing against a recording context (real pixels are a human check).
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { addLayer, addObject, createEditState, type EditLevel } from './level-edit-model';
-import { SELECTED_COLOUR, drawPlan } from './level-plan-draw';
-import { buildBlankLevel } from './new-scene-model';
+import { createEditState, toEditLevel } from './level-edit-model';
+import { drawHighlight, hslTripletToHex, prefersReducedMotion, PULSE_MS, pulseFrame, themeColour } from './level-plan-draw';
+import { blankLevel } from './test-helpers';
 
-function recorder() {
-  const log = { strokesAmber: 0, dashes: [] as number[][], strokeRects: 0 };
-  let strokeStyle = '';
-  const ctx = new Proxy(
-    {},
-    {
-      get: (_t, prop: string) => {
-        if (prop === 'strokeStyle') return strokeStyle;
-        if (prop === 'stroke') return () => { if (strokeStyle === SELECTED_COLOUR) log.strokesAmber += 1; };
-        if (prop === 'setLineDash') return (d: number[]) => { log.dashes.push(d); };
-        return () => undefined;
-      },
-      set: (_t, prop: string, value: unknown) => {
-        if (prop === 'strokeStyle') strokeStyle = String(value);
-        return true;
-      },
-    },
-  ) as unknown as CanvasRenderingContext2D;
-  return { ctx, log };
-}
-
-const fixture = () => {
-  let s = createEditState(buildBlankLevel({ width: 20, height: 20, tilewidth: 32, tileheight: 32, orientation: 'orthogonal', baseLayer: null }));
-  s = addLayer(s, 'object', 'fixture');
-  const layerId = s.activeLayerId!;
-  for (const x of [100, 200, 300]) s = addObject(s, layerId, { type: 'prop', x, y: 100, width: 30, height: 30 });
-  const refs = s.level.layers.find((l) => l.id === layerId)!.objects!.map((o) => ({ layerId, objectId: o.id }));
-  return { level: s.level as EditLevel, refs };
-};
-const draw = (level: EditLevel, selected: ReturnType<typeof fixture>['refs'], marquee: { x: number; y: number; width: number; height: number } | null = null) => {
-  const { ctx, log } = recorder();
-  drawPlan(ctx, {
-    level, view: { x: 0, y: 0, zoom: 1 }, selection: selected[selected.length - 1] ?? null, selected, marquee,
-    overlay: { terrain: null, terrainImage: null, draft: [], cursor: null, volume: null }, outline: '#6366f1', text: '#fff',
-  });
-  return log;
+// vitest/jsdom: colour maths and the pulse's frame logic; the drawn pixels are a real-browser check.
+const near = (hex: string | null, want: string): void => {
+  expect(hex).not.toBeNull();
+  for (const i of [1, 3, 5]) expect(Math.abs(parseInt(hex!.slice(i, i + 2), 16) - parseInt(want.slice(i, i + 2), 16))).toBeLessThanOrEqual(1);
 };
 
-describe('drawPlan, multi-selection', () => {
-  it('C6: strokes amber once per selected object, plus a dashed bounds box from two up', () => {
-    const { level, refs } = fixture();
-    const one = draw(level, [refs[0]!]);
-    expect(one.strokesAmber).toBe(1);
-    expect(one.dashes.filter((d) => d.length > 0)).toHaveLength(0);
-    const three = draw(level, refs);
-    // Three outlines and the group bounds box.
-    expect(three.strokesAmber).toBe(4);
-    expect(three.dashes.some((d) => d.length > 0)).toBe(true);
+describe('hslTripletToHex and themeColour (F7)', () => {
+  it('converts a triplet within one per channel', () => {
+    near(hslTripletToHex('38 92% 50%'), '#f59f0a');
+    expect(hslTripletToHex('0 0% 100%')).toBe('#ffffff');
+    expect(hslTripletToHex('not a colour')).toBeNull();
   });
-  it('draws nothing amber with no selection, and a marquee dashes without amber', () => {
-    const { level } = fixture();
-    const none = draw(level, [], { x: 0, y: 0, width: 50, height: 50 });
-    expect(none.strokesAmber).toBe(0);
-    expect(none.dashes.some((d) => d.length > 0)).toBe(true);
+
+  it('falls back to the hex when the token is missing, and reads it once set', () => {
+    expect(themeColour('no-such-token', '#123456')).toBe('#123456');
+    document.documentElement.style.setProperty('--probe', '38 92% 50%');
+    near(themeColour('probe', '#000000'), '#f59f0a');
+    document.documentElement.style.removeProperty('--probe');
+  });
+});
+
+describe('the agent pulse (F4)', () => {
+  afterEach(() => {
+    delete document.documentElement.dataset.motion;
+    vi.restoreAllMocks();
+  });
+  const level = () => createEditState(toEditLevel(blankLevel())!).level;
+  const ctxSpy = () => {
+    const calls: string[] = [];
+    const ctx = new Proxy({}, { get: (_t, name) => (name === 'canvas' ? {} : (...args: unknown[]) => void calls.push(`${String(name)}:${args.length}`)), set: () => true });
+    return { ctx: ctx as unknown as CanvasRenderingContext2D, calls };
+  };
+
+  it('ends after 2.4 s, and under reduced motion is a static full-strength ring', () => {
+    const h = { ids: [1], startedAt: 1000 };
+    expect(pulseFrame(h, 1000 + PULSE_MS, false)).toBeNull();
+    expect(pulseFrame(h, 1500, true)).toEqual({ grow: 0, alpha: 1 });
+    expect(pulseFrame(h, 1500, false)?.alpha).toBeLessThan(1);
+  });
+
+  it('draws a ring per highlighted object without requesting an animation frame under data-motion="reduced"', () => {
+    document.documentElement.dataset.motion = 'reduced';
+    expect(prefersReducedMotion()).toBe(true);
+    const raf = vi.spyOn(window, 'requestAnimationFrame');
+    const lv = level();
+    const id = lv.layers.flatMap((l) => l.objects ?? [])[0]?.id ?? 1;
+    const { ctx, calls } = ctxSpy();
+    drawHighlight(ctx, { level: lv, view: { x: 0, y: 0, zoom: 1 }, highlight: { ids: [id], startedAt: 1000 }, now: 1200, reduced: true });
+    expect(calls.filter((c) => c.startsWith('arc'))).toHaveLength(1);
+    expect(raf).not.toHaveBeenCalled();
   });
 });

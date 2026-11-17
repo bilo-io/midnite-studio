@@ -8,6 +8,7 @@ import {
   addLayer,
   addObject,
   addPathPoint,
+  applyAgentOps,
   beginStroke,
   cellCentre,
   createEditState,
@@ -497,5 +498,35 @@ describe('multi-selection (Phase 137 Theme A)', async () => {
     s = setActiveLayer(s, f.layerId);
     expect(s.selected).toEqual([]);
     expect(s.selection).toBeNull();
+  });
+});
+
+describe('applyAgentOps (Phase 138 Theme F)', () => {
+  it('F1: three ops are one undo step, and undo reverts all three', () => {
+    const state = createEditState(blank());
+    const layerId = state.level.layers.find((l) => l.type === 'objectgroup')?.id;
+    const seeded = addObject(state, layerId!, { type: 'enemy', x: 0, y: 0 });
+    const id = seeded.level.layers.flatMap((l) => l.objects ?? [])[0]!.id;
+    const before = seeded.level;
+    const { state: next, result } = applyAgentOps(
+      seeded,
+      [
+        { op: 'add', entity: { type: 'pickup', x: 8, y: 8 } },
+        { op: 'update', id, set: { x: 40 } },
+        { op: 'add', entity: { type: 'exit', x: 16, y: 16 } },
+      ],
+      { unit: 'px', entityTypes: ['pickup', 'exit', 'enemy'], select: true },
+    );
+    expect(result.ok).toBe(true);
+    expect(next.past.length).toBe(seeded.past.length + 1);
+    expect(next.selected).toHaveLength(3);
+    expect(undo(next).level).toBe(before);
+  });
+
+  it('a failing batch returns the state untouched', () => {
+    const state = createEditState(blank());
+    const { state: next, result } = applyAgentOps(state, [{ op: 'delete', id: 404 }], { unit: 'px', entityTypes: [] });
+    expect(result.ok).toBe(false);
+    expect(next).toBe(state);
   });
 });
