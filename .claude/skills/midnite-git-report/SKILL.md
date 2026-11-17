@@ -9,6 +9,10 @@ A git activity + phase-progress report for **Midnite Studio** over a chosen wind
 
 **Style:** terse — lead with the report, don't narrate the gathering.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/git-report.mjs [today|yesterday|YYYY-MM-DD|this-week|this-month|A..B] [--no-pdf]`. It computes the SAST window, merged PRs, phase progress from the category indexes and done.md items, and builds the PDF when Chrome exists. You still read the result, confirm the window with the user when the request is ambiguous, and polish the prose. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 1 · Pick the window
 If `$ARGUMENTS` already names a period (`today`, `yesterday`, a `YYYY-MM-DD`, `this-week`, `this-month`, or a `START..END` range), use it. Otherwise **AskUserQuestion** — one question, options **Today · Yesterday · This week · This month** (Other = a specific date or `START..END`).
 

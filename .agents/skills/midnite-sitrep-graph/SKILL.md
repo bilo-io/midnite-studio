@@ -7,6 +7,10 @@ The dependency view. Rows, gathering and the shared vocabulary come from
 [`midnite-sitrep`](../midnite-sitrep/SKILL.md) §1–§3. Read it first. **Read-only:** the graph
 names re-targets and rebases. It never performs them.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/sitrep.mjs graph [--pr 12,13 | --input rows.json]`. It renders the hard and soft edges, what can merge now and the numbered merge order. You still judge which soft edges matter and call out a cycle. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Derive the edges from external state, not memory
 
 - **Hard edges (`──▶`, must merge first):**

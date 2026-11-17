@@ -7,6 +7,10 @@ The CI view. Rows, gathering and the shared vocabulary come from
 [`midnite-sitrep`](../midnite-sitrep/SKILL.md) §1–§3. Read it first. **Read-only:** this view names
 runs worth cancelling. It never cancels or re-runs one. That is the orchestrator's call.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/sitrep.mjs ci [--log-failed] [--pr 12,13]`. It renders the job grid, stale-head detection, the macOS-cap queue and the billing-lock match. You still decide whether a failure is a code bug and what to do next. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Gather
 
 Use one shell invocation:
