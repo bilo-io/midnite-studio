@@ -8,5 +8,5 @@ Completed work is logged append-only in [`../done.md`](../done.md). Deferred sco
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [2 · macOS permission prompts](phases/phase-2-macos-permission-prompts.md) | 🔄 WIP | — | 17/29 | `██████░░░░` | 59% | — | E |
+| [2 · macOS permission prompts](phases/phase-2-macos-permission-prompts.md) | 🔄 WIP | x1 | 17/29 | `██████░░░░` | 59% | — | E |
 | [1 · GitHub Issue Triage & Remediation](phases/phase-1-github-issue-triage-and-remediation.md) | ◻ TODO | — | 0/10 | `░░░░░░░░░░` | 0% | — | A B C |
