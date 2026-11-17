@@ -1,5 +1,5 @@
 import type { TerminalSession } from '@midnite/studio-shared';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { findCardSession, inMainPanel, isLoopSession, onMainSurface, useTerminalStore } from './terminal-store';
 
@@ -296,5 +296,51 @@ describe('rehomeSession', () => {
 
   it('is a no-op for a session that does not exist', () => {
     expect(() => useTerminalStore.getState().rehomeSession('missing')).not.toThrow();
+  });
+});
+
+describe('ending a loop session finalises its run as stopped first', () => {
+  const calls: string[] = [];
+
+  beforeEach(() => {
+    calls.length = 0;
+    (window as unknown as { midniteStudio: unknown }).midniteStudio = {
+      pty: { kill: ({ ptyId }: { ptyId: string }) => calls.push(`kill:${ptyId}`) },
+      loopRuns: {
+        stop: ({ sessionId }: { sessionId: string }) => {
+          calls.push(`stop:${sessionId}`);
+          return Promise.resolve({ ok: true });
+        },
+      },
+      terminal: { save: () => undefined, forget: () => undefined },
+    };
+    useTerminalStore.setState({
+      sessions: [
+        session({ id: 'loop-1', loopId: 'guard' }),
+        session({ id: 'plain-1' }),
+      ],
+      ptyIds: { 'loop-1': 'pty-loop', 'plain-1': 'pty-plain' },
+      states: { 'loop-1': 'open', 'plain-1': 'open' },
+      activeId: null,
+    });
+  });
+
+  afterEach(() => {
+    delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
+  });
+
+  it('sleeping a loop session records the stop, then kills its pty', async () => {
+    useTerminalStore.getState().sleepSession('loop-1');
+    await vi.waitFor(() => expect(calls).toEqual(['stop:loop-1', 'kill:pty-loop']));
+  });
+
+  it('closing a loop session records the stop, then kills its pty', async () => {
+    useTerminalStore.getState().closeSession('loop-1');
+    await vi.waitFor(() => expect(calls).toEqual(['stop:loop-1', 'kill:pty-loop']));
+  });
+
+  it('any other session is killed straight away, with no run to stop', () => {
+    useTerminalStore.getState().sleepSession('plain-1');
+    expect(calls).toEqual(['kill:pty-plain']);
   });
 });

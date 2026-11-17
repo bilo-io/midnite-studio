@@ -380,15 +380,6 @@ function useHydrateOnOpen(isOpen: boolean): void {
 }
 
 /**
- * Close the session a tab superseded, once the user has left that tab.
- *
- * Start begins a fresh run but parks its predecessor rather than killing it
- * mid-read (`fabPrevSessions`). "You have navigated away" is the honest
- * moment to collect it: the transcript is no longer on screen, and holding it
- * any longer would leave dead sessions in `terminals.json` for a relaunch to
- * rehydrate.
- */
-/**
  * Keep the active tab inside the scrolling strip — on open, and whenever the
  * active tab changes (a click, "+", a toast's "Open …", a deleted neighbour).
  * `nearest` on both axes, so a tab already in view never moves the strip.
@@ -406,6 +397,12 @@ function useActiveTabInView(
   }, [stripRef, activeFabTab, isOpen]);
 }
 
+/**
+ * Close a session an older build parked as superseded (`fabPrevSessions`),
+ * once the user has left that tab. Nothing parks one any more — each Start is
+ * its own session in the terminal list — so this only drains entries a
+ * profile carried over from before.
+ */
 function usePruneSupersededSessions(activeFabTab: FabTab): void {
   useEffect(() => {
     const ui = useUiStore.getState();

@@ -217,6 +217,11 @@ export type LoopsHost = {
   terminalState: () => LoopsTerminalState;
   /** Resolves with the new session's id. */
   startAgent: (input: StartAgentInput) => Promise<string>;
+  /**
+   * Bring one session forward in the app's terminal panel — where a loop's
+   * sessions live. Absent: a loop's notices open its Loops tab instead.
+   */
+  revealSession?: (sessionId: string) => void;
 
   renderCompanionLauncher: () => ReactNode;
   companion?: LoopsCompanionPort;

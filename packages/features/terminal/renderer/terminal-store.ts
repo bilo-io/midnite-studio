@@ -609,7 +609,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   closeSession: (sessionId, intent = 'closed') => {
     const { ptyIds, sessions, activeId } = get();
     const ptyId = ptyIds[sessionId];
-    if (ptyId) bridge()?.pty.kill({ ptyId });
+    if (ptyId) killPty(sessions.find((s) => s.id === sessionId), sessionId, ptyId);
     bridge()?.terminal.forget({ sessionId, reason: intent });
 
     const remaining = sessions.filter((s) => s.id !== sessionId);
@@ -628,8 +628,8 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   sleepSession: (sessionId) => {
     const { ptyIds, sessions } = get();
     const ptyId = ptyIds[sessionId];
-    if (ptyId) bridge()?.pty.kill({ ptyId });
     const session = sessions.find((s) => s.id === sessionId);
+    if (ptyId) killPty(session, sessionId, ptyId);
     if (!session) return;
     const nextSession: TerminalSession = { ...session, asleep: true };
     get().unbindPty(sessionId);
@@ -849,6 +849,28 @@ export function brokerStatusText(broker: TerminalState['broker']): string | null
     return `Could not reach the terminal broker${broker.reason ? ` — ${broker.reason}` : ''}`;
   }
   return broker.reason ? `Sessions will not survive quit — ${broker.reason}` : 'Sessions will not survive quit';
+}
+
+/**
+ * Kill a session's pty — for a loop session, only once its run is finalised.
+ *
+ * A loop is ended from the terminal list now (sleep or close), the way every
+ * session is; the Loops panel's own Stop is gone. So this is where the run
+ * ledger hears "the user stopped it": `loopRuns.stop` marks the running record
+ * `stopped`, and it is AWAITED before the kill, because main also finalises
+ * off the pty's exit and the first one in wins — killing first would record a
+ * stop as `exited`. A session with no running record makes `stop` a no-op.
+ */
+function killPty(session: TerminalSession | undefined, sessionId: string, ptyId: string): void {
+  const api = bridge();
+  if (!api) return;
+  if (!session || !isLoopSession(session)) {
+    api.pty.kill({ ptyId });
+    return;
+  }
+  void Promise.resolve(api.loopRuns?.stop({ sessionId }))
+    .catch(() => undefined)
+    .finally(() => api.pty.kill({ ptyId }));
 }
 
 export function onMainSurface(session: Pick<TerminalSession, 'surface'>): boolean {

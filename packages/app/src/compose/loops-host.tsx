@@ -23,6 +23,7 @@ import { Tooltip } from '../components/tooltip';
 import { useDismissable } from '../components/use-dismissable';
 import { openNotes } from '../features/notes/notes-window';
 import { useSetupStore } from '../features/setup/setup-store';
+import { revealSession } from '../features/terminal/reveal-session';
 import { startAgent } from '../features/terminal/start-agent';
 import { useTerminalStore } from '../features/terminal/terminal-store';
 import { useAgents } from '../features/terminal/use-agents';
@@ -51,6 +52,9 @@ export const STUDIO_LOOPS_HOST = {
   // `async` so a synchronous throw from `startAgent` is a rejection the caller can handle.
   startAgent: async ({ extraArgs, ...input }) =>
     startAgent({ ...input, ...(extraArgs !== undefined ? { extraArgs: [...extraArgs] } : {}) }).id,
+  revealSession: (sessionId) => {
+    revealSession(sessionId);
+  },
   renderCompanionLauncher: () => <CompanionLauncher />,
   companion: {
     useStatus: () => {

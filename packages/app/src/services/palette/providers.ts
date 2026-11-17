@@ -344,16 +344,10 @@ export function createTerminalSource(
   return {
     key: 'sessions',
     items: () => {
-      // 1. Switch to existing terminal sessions
-      //
-      // `surface === 'fab'` rows are filtered out (Phase 67 Theme E,
-      // Decision 5): the panel excludes them via `inMainPanel`
-      // (`terminal-store.ts`), so selecting one here used to open the
-      // terminal panel to a blank pane — the palette's job is navigation,
-      // and it should not offer to navigate somewhere that renders nothing.
-      // Those sessions are reachable through Sessions history instead.
+      // 1. Switch to existing terminal sessions — every surface, loop
+      // sessions included: the panel lists them all (`inMainPanel`), so
+      // selecting any of them lands on a pane that renders it.
       const sessionItems: PaletteItem[] = sessions
-        .filter((sess) => sess.surface !== 'fab')
         .map((sess): PaletteItem => {
           let icon: IconComponent = LuSquareTerminal;
           if (sess.kind === 'agent' && sess.agentId) {
