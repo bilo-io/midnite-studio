@@ -31,7 +31,7 @@ function Harness({ onNew = () => undefined, onAdded = () => undefined }: { onNew
       onOpen={() =>
         addGame.mutate(undefined, {
           onSuccess: (result) => {
-            if (result.ok && result.value.status !== 'cancelled') onAdded(result.value.gameId);
+            if (result.ok && (result.value.status === 'added' || result.value.status === 'listed')) onAdded(result.value.gameId);
           },
         })
       }

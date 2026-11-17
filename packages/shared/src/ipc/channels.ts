@@ -1007,6 +1007,8 @@ export const CHANNELS = {
   gamesKitUpgrade: 'mstudio:games:kit-upgrade',
   /** Phase 149 Theme C: diagnose a game against the Midnite game standard (read-only). */
   gamesDoctor: 'mstudio:games:doctor',
+  /** Phase 149 Theme D: apply one safe doctor fix — one commit on `midnite-game.json` (or a kit-upgrade branch). */
+  gamesDoctorFix: 'mstudio:games:doctor-fix',
   /** Levels (Phase 132 Theme C): `levels/<scene>.tmj` list, read, write-and-commit, and the scene jump. */
   gamesLevels: 'mstudio:games:levels',
   gamesLevelGet: 'mstudio:games:level-get',

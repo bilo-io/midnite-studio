@@ -12,6 +12,8 @@ import {
   type GameCreateRequest,
   type GameCreateResult,
   type GameDiagnosis,
+  type GameFixRequest,
+  type GameFixResult,
   type GameJuicePatch,
   type GameJuiceSettings,
   type GameLogEntry,
@@ -27,6 +29,8 @@ import {
 
 import type { Logger } from './logger';
 import { diagnoseGame } from './game-doctor';
+import { applyGameFix } from './game-fixes';
+import { inferManifest } from './infer-manifest';
 import { resolveGameFolder } from './game-open';
 import { listGames } from './game-list';
 import { createGameLevels } from './game-levels';
@@ -171,7 +175,7 @@ export function createGameService(deps: GameServiceDeps) {
      * Open Game (Phase 132 Theme A): add an existing game folder to the list. `path` absent shows the host's
      * folder dialog. A game already listed answers `listed` and nothing is written.
      */
-    async add(path?: string): Promise<GitOpResult<GameAddResult>> {
+    async add(path?: string, confirmManifest?: GameManifest): Promise<GitOpResult<GameAddResult>> {
       let picked = path;
       if (picked === undefined) {
         if (!deps.pickFolder) return failure('Open Game is not available here.');
@@ -189,6 +193,16 @@ export function createGameService(deps: GameServiceDeps) {
         if ((await realpath(game.path).catch(() => game.path)) === real) {
           return ok({ status: 'listed', gameId: game.gameId, path: game.path });
         }
+      }
+      if (resolved.value.needsManifest) {
+        // Phase 149 Theme F: nothing is written or registered until the user confirms a manifest.
+        if (confirmManifest === undefined) {
+          const proposed = await inferManifest(root);
+          if (!proposed.ok) return proposed;
+          return ok({ status: 'needs-manifest', path: root, proposed: proposed.value, diagnosis: await diagnoseGame(root) });
+        }
+        const written = await applyGameFix(root, { fixId: 'write-manifest', manifest: confirmManifest }, { templateDir: deps.templateDir, enginesDir: deps.enginesDir, send: deps.send });
+        if (!written.ok) return written;
       }
       const registered = await deps.registerRepo(root);
       if (!registered.ok) return registered;
@@ -312,6 +326,27 @@ export function createGameService(deps: GameServiceDeps) {
       return ok(await diagnoseGame(real));
     },
     // --- end Phase 149 Theme C ---
+
+    // --- Phase 149 Theme D: safe doctor fixes ---
+    /** Apply one fix to a listed game (`gameId`) or an existing absolute folder (`path`); answers the fresh diagnosis. */
+    async doctorFix(req: GameFixRequest): Promise<GitOpResult<GameFixResult>> {
+      const { gameId, path, ...fix } = req;
+      let target: string;
+      if (gameId !== undefined) {
+        const game = await resolve(gameId);
+        if (!game) return failure('That game was not found.');
+        target = game.path;
+      } else {
+        if (path === undefined || !isAbsolute(path)) return failure('Give a game id or an absolute folder path.');
+        const top = await resolveGameFolder(path);
+        if (!top.ok) return top;
+        target = top.value.root;
+      }
+      const result = await applyGameFix(target, fix, { templateDir: deps.templateDir, enginesDir: deps.enginesDir, send: deps.send });
+      if (result.ok) deps.log.info(`game doctor fix ${fix.fixId} path=${target} commit=${result.value.commit ?? 'none'}`);
+      return result;
+    },
+    // --- end Phase 149 Theme D ---
 
     async popOut(gameId: string): Promise<GitOpResult> {
       if (!deps.popout) return failure('Pop out is not available.');

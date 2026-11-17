@@ -54,6 +54,8 @@ import {
   GameGotoInputSchema,
   GameGotoOutputSchema,
   GameDoctorOutputSchema,
+  GameDoctorFixInputSchema,
+  GameDoctorFixOutputSchema,
   GameToolTargetSchema,
   GameAssertFrameInputSchema,
   GameAssertStateInputSchema,
@@ -301,6 +303,7 @@ type McpToolEntry = {
     | 'game_level_set'
     | 'game_goto'
     | 'game_doctor'
+    | 'game_doctor_fix'
     | 'terrain_list'
     | 'terrain_open'
     | 'terrain_get_spec'
@@ -1178,6 +1181,15 @@ export const MCP_TOOLS = {
     input: GameToolTargetSchema,
     output: GameDoctorOutputSchema,
     readOnly: true,
+  },
+  game_doctor_fix: {
+    id: 'game_doctor_fix',
+    title: 'Apply a game doctor fix',
+    description:
+      'Applies one fix a `game_doctor` finding named by its fixId: one commit on midnite-game.json, or a kit-upgrade branch. Refuses while that file is uncommitted.',
+    input: GameDoctorFixInputSchema,
+    output: GameDoctorFixOutputSchema,
+    readOnly: false,
   },
   /*
    * Media ▸ Terrain (Phase 105 Theme J) — shape a terrain iteratively: pick a height source, build,

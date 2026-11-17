@@ -1657,6 +1657,8 @@ export type MidniteStudioBridge = {
     kitUpgrade: (req: In<typeof S.GamesKitUpgradeRequest>) => Promise<z.infer<typeof S.GamesKitUpgradeResponse>>;
     /** Phase 149 Theme C: the game doctor — every finding against the Midnite game standard. Read-only. */
     doctor: (req: In<typeof S.GamesDoctorRequest>) => Promise<z.infer<typeof S.GamesDoctorResponse>>;
+    /** Phase 149 Theme D: apply one safe fix (one commit on `midnite-game.json`), answering the fresh diagnosis. */
+    doctorFix: (req: In<typeof S.GamesDoctorFixRequest>) => Promise<z.infer<typeof S.GamesDoctorFixResponse>>;
     /**
      * Levels (Phase 132 Theme C): `levels/<scene>.tmj`. `set` writes one file and makes one commit naming only
      * it; `goto` restarts a running game at a scene, or sets where the next run starts.
