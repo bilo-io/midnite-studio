@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -94,9 +94,67 @@ describe('fleet catalog', () => {
     const hidden = { ...cat, hardware: cat.hardware.map((h) => (h.id === used ? { ...h, hidden: true } : h)) };
     expect((await run(s, { op: 'upsertFleetCatalog', catalog: hidden })).ok).toBe(true);
   });
-  it('answers the not-yet ops with a refusal', async () => {
+});
+
+describe('exports', () => {
+  const clock = () => new Date('2026-11-12T10:00:00Z');
+  const seed = async () => {
     const s = await open();
-    expect(await run(s, { op: 'exportFleetProjectionCsv', projectionId: u(1) })).toMatchObject({ ok: false, kind: 'invalid' });
+    await run(s, { op: 'updateCompany', company: company('USD') });
+    await run(s, { op: 'get' });
+    const p = buildFleetStarter('gpu-cluster', { projectionId: u(1), nodeId: () => u(9000) }, '2020-01-01T00:00:00.000Z', 'My: plan?');
+    await run(s, { op: 'upsertFleetProjection', projection: p });
+    return s;
+  };
+  const withOut = async () => ({ out: await mkdtemp(join(tmpdir(), 'startup-exp-')) });
+  it('an unknown projection is not-found for the CSV and the PDF', async () => {
+    const s = await open();
+    const deps = { csv: { saveCsv: async () => null }, pdf: { printToPdf: async () => Buffer.from(''), savePdf: async () => null } };
+    expect(await handleStartupRequest(s, { op: 'exportFleetProjectionCsv', projectionId: u(1) }, deps)).toMatchObject({ ok: false, kind: 'not-found' });
+    expect(await handleStartupRequest(s, { op: 'exportFleetProjectionPdf', projectionId: u(1) }, deps)).toMatchObject({ ok: false, kind: 'not-found' });
+  });
+  it('writes the projection CSV with a sanitised default name, and a cancel is not saved', async () => {
+    const s = await seed();
+    const { out } = await withOut();
+    let name = '';
+    const target = join(out, 'p.csv');
+    const csv = { saveCsv: async (n: string) => ((name = n), target) };
+    expect(await handleStartupRequest(s, { op: 'exportFleetProjectionCsv', projectionId: u(1) }, { csv })).toEqual({ ok: true, value: { saved: true } });
+    expect(name).toBe('My plan.csv');
+    expect((await readFile(target, 'utf8')).startsWith('\uFEFFmonth,energy')).toBe(true);
+    const cancelled = { saveCsv: async () => null };
+    expect(await handleStartupRequest(s, { op: 'exportFleetProjectionCsv', projectionId: u(1) }, { csv: cancelled })).toEqual({ ok: true, value: { saved: false } });
+    await rm(out, { recursive: true, force: true });
+  });
+  it('writes the runway CSV named by its first month', async () => {
+    const s = await seed();
+    const { out } = await withOut();
+    let name = '';
+    const target = join(out, 'r.csv');
+    const csv = { saveCsv: async (n: string) => ((name = n), target) };
+    const r = await handleStartupRequest(s, { op: 'exportRunwayCsv', scenarioId: BASE_SCENARIO_ID, months: 12 }, { csv, now: clock });
+    expect(r).toEqual({ ok: true, value: { saved: true } });
+    expect(name).toBe('runway-2026-11.csv');
+    expect((await readFile(target, 'utf8')).split('\r\n')).toHaveLength(14); // header + 12 rows + trailing empty
+    await rm(out, { recursive: true, force: true });
+  });
+  it('the PDF removes its temp dir on success and on failure', async () => {
+    const s = await seed();
+    const { out } = await withOut();
+    const tmp = await mkdtemp(join(tmpdir(), 'startup-exp-tmp-'));
+    const target = join(out, 'p.pdf');
+    let seen = '';
+    const ok = { savePdf: async () => target, printToPdf: async (f: string) => ((seen = f), Buffer.from('%PDF')) };
+    expect(await handleStartupRequest(s, { op: 'exportFleetProjectionPdf', projectionId: u(1) }, { pdf: ok, tmpDir: tmp, now: clock })).toEqual({ ok: true, value: { saved: true } });
+    expect(seen.endsWith('projection.html')).toBe(true);
+    expect(await readdir(tmp)).toEqual([]);
+    const boom = { savePdf: async () => target, printToPdf: async () => { throw new Error('no printer'); } };
+    expect(await handleStartupRequest(s, { op: 'exportFleetProjectionPdf', projectionId: u(1) }, { pdf: boom, tmpDir: tmp, now: clock })).toMatchObject({ ok: false, kind: 'io' });
+    expect(await readdir(tmp)).toEqual([]);
+    const cancelled = { savePdf: async () => null, printToPdf: async () => Buffer.from('') };
+    expect(await handleStartupRequest(s, { op: 'exportFleetProjectionPdf', projectionId: u(1) }, { pdf: cancelled, tmpDir: tmp })).toEqual({ ok: true, value: { saved: false } });
+    await rm(out, { recursive: true, force: true });
+    await rm(tmp, { recursive: true, force: true });
   });
 });
 

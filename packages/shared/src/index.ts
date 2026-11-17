@@ -149,6 +149,7 @@ export * from './startup-fleet';
 export * from './startup-fleet-model';
 export * from './startup-fleet-runway';
 export * from './startup-mcp';
+export * from './startup-format-money';
 export * from './invoice-math';
 export * from './contract-dates';
 export * from './guard-fix-prompt';
