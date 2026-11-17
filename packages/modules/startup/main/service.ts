@@ -15,6 +15,7 @@ import {
   type StartupWorkspace,
 } from '@midnite/studio-shared';
 
+import { fleetToRunwayLines } from './fleet-runway';
 import { ledgerSummary, linkBook } from './books';
 import { attachContractFile, confinedAttachmentPath, type ContractFilePort } from './contract-files';
 import { exportInvoicePdf, type InvoicePdfPort } from './invoice-pdf';
@@ -209,7 +210,28 @@ export async function handleStartupRequest(
 
     // Phase 152: declared in Theme A, implemented by Themes D (bridge) and E (export).
     case 'sendFleetProjectionToRunway':
+      return store.mutate((ws) => {
+        const projection = ws.fleetProjections.find((p) => p.id === request.projectionId);
+        if (projection === undefined) return fail('not-found', 'That projection no longer exists.');
+        if (ws.company === null) return fail('invalid', 'Set up your company first — Runway needs it.');
+        const catalog = ws.fleetCatalog ?? seedFleetCatalog(moneyCurrency(ws.company));
+        const lines = fleetToRunwayLines(projection, catalog, request.start, (deps.now?.() ?? new Date()).toISOString(), () => crypto.randomUUID());
+        // Send and update are one op: drop what this projection wrote before, then write it afresh, in the base plan.
+        const kept = ws.lines.filter((l) => l.source?.projectionId !== projection.id);
+        return done({ ...ws, lines: [...kept, ...lines] });
+      });
     case 'unlinkFleetProjectionLines':
+      return store.mutate((ws) => {
+        const linked = (l: PlanLine): boolean => l.source?.projectionId === request.projectionId;
+        const lines = request.removeLines
+          ? ws.lines.filter((l) => !linked(l))
+          : ws.lines.map((l) => {
+              if (!linked(l)) return l;
+              const { source: _source, ...rest } = l;
+              return rest;
+            });
+        return done({ ...ws, lines });
+      });
     case 'exportFleetProjectionCsv':
     case 'exportRunwayCsv':
     case 'exportFleetProjectionPdf':
