@@ -6,6 +6,7 @@ import { EmptyState, EmptyStateButton } from '@midnite/studio-frame';
 import { LoadingRegion, RingSpinner as Spinner, Skeleton } from '@midnite/studio-frame';
 import { useNotify } from './chrome';
 import { DeleteGameDialog } from './delete-game-dialog';
+import { useDoctorRequest } from './game-doctor-store';
 import { GameAssetsBadge } from './game-assets-panel';
 import { GameRowMenu, gameRowMenuItems } from './game-row-menu';
 import { useGameHost } from './host';
@@ -41,6 +42,7 @@ export function GameExplorer({
   const reveal = useRevealGame();
   const forget = useForgetGame();
   const deleteGame = useDeleteGame();
+  const requestDoctor = useDoctorRequest((s) => s.request);
   const [menu, setMenu] = useState<{ game: GameSummary; x: number; y: number } | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<GameSummary | null>(null);
@@ -106,6 +108,7 @@ export function GameExplorer({
                 onSelect={onSelect}
                 renaming={renamingId === game.gameId}
                 onMenu={(x, y) => setMenu({ game, x, y })}
+                onDoctor={() => requestDoctor(game.gameId)}
                 onRenameDone={(name) => {
                   setRenamingId(null);
                   if (name !== null && name !== game.name) rename.mutate({ gameId: game.gameId, name });
@@ -130,6 +133,7 @@ export function GameExplorer({
               onCopyPath: () => void copyPath(menu.game),
               onForget: () => forget.mutate(menu.game.gameId),
               onDelete: () => setDeleting(menu.game),
+              onRunDoctor: () => requestDoctor(menu.game.gameId),
             },
           })}
         />
@@ -162,6 +166,7 @@ function GameRow({
   onSelect,
   renaming,
   onMenu,
+  onDoctor,
   onRenameDone,
 }: {
   game: GameSummary;
@@ -170,6 +175,8 @@ function GameRow({
   renaming: boolean;
   /** Open the row's menu at a viewport point (right-click, or the ⋯ button). */
   onMenu: (x: number, y: number) => void;
+  /** The status dot was clicked: open the Doctor panel. */
+  onDoctor: () => void;
   /** Inline rename finished: the new name, or `null` when cancelled. */
   onRenameDone: (name: string | null) => void;
 }) {
@@ -238,6 +245,18 @@ function GameRow({
           <span role="img" aria-label="Uncommitted changes" className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
         ) : null}
       </button>
+      {(game.status === 'warn' || game.status === 'error') ? (
+        <button
+          type="button"
+          aria-label={`${game.findingCount} findings`}
+          title={`${game.findingCount} ${game.findingCount === 1 ? 'finding' : 'findings'} — open the doctor`}
+          data-status={game.status}
+          onClick={onDoctor}
+          className="absolute right-7 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded hover:bg-accent"
+        >
+          <span aria-hidden className={`h-2 w-2 rounded-full ${game.status === 'error' ? 'bg-red-500' : 'bg-amber-500'}`} />
+        </button>
+      ) : null}
       <button
         ref={dots}
         type="button"

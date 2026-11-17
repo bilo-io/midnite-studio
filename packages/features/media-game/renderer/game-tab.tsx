@@ -8,6 +8,8 @@ import { EmptyState, useMediaKit } from '@midnite/studio-frame';
 import { AdoptGameSheet } from './adopt-game-sheet';
 import { GameCenter } from './game-center';
 import { GameCreatePanel } from './game-create-panel';
+import { GameDoctorPanel } from './game-doctor-panel';
+import { useDoctorRequest } from './game-doctor-store';
 import { GameDetailPanel } from './game-detail-panel';
 import { GameExportBar } from './game-export-bar';
 import { GameExplorer } from './game-explorer';
@@ -55,12 +57,24 @@ export function GameTab() {
     // `setMode` follows the mode map; the request is consumed once, here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openRequest, clearMediaOpenRequest]);
+  // Phase 149 Theme G: the Doctor panel replaces the detail panel for one game until it is closed.
+  const [doctorFor, setDoctorFor] = useState<string | null>(null);
+  const doctorRequest = useDoctorRequest((s) => s.requested);
+  const clearDoctorRequest = useDoctorRequest((s) => s.clear);
+  useEffect(() => {
+    if (!doctorRequest) return;
+    setSelectedId(doctorRequest);
+    setCreating(false);
+    setDoctorFor(doctorRequest);
+    clearDoctorRequest();
+  }, [doctorRequest, clearDoctorRequest]);
   const selected = (games.data ?? []).find((game) => game.gameId === selectedId) ?? null;
 
   const select = (gameId: string) => {
     setSelectedId(gameId);
     setMode(gameId, 'editor');
     setCreating(false);
+    setDoctorFor(null);
   };
 
   const addGame = useAddGame();
@@ -150,6 +164,8 @@ export function GameTab() {
                 body="Pick one from the list to see its details."
               />
             )
+          ) : doctorFor === selected.gameId ? (
+            <GameDoctorPanel key={selected.gameId} gameId={selected.gameId} name={selected.name} onClose={() => setDoctorFor(null)} />
           ) : (
             <GameDetailPanel game={selected} />
           )

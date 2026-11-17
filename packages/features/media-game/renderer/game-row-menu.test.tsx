@@ -93,6 +93,7 @@ describe('GameExplorer row menu', () => {
       'Rename…',
       'Reveal in Finder',
       'Copy path',
+      'Run doctor',
       'Remove from list',
       'Delete game…',
     ]);

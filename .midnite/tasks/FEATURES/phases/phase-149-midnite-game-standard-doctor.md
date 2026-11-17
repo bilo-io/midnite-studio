@@ -94,12 +94,9 @@ or the last build failed.
 
 **Theme F — Adopt a folder with no manifest.** ✅ Open Game on a git repo with no `midnite-game.json` stops refusing: `resolveGameFolder` answers `needsManifest`, `service.add` answers `needs-manifest` with the inferred manifest and the diagnosis and registers nothing, and `adopt-game-sheet.tsx` (wired into `game-tab.tsx`) shows it as editable fields for **Write manifest and add**, which sends `confirmManifest` back so the service writes it through `applyGameFix('write-manifest')`, then registers. SynthSurf is the case it is built for.
 
-**Theme G — Doctor panel in the Games tab.** ◻ The ⚠️ tooltip becomes a status dot (red / amber / green) that opens a
-**Doctor** panel listing every finding, grouped by area, each with its fix hint and a **Fix** button where a `fixId`
-exists. The Level editor's "No levels yet" state says *why* (from `levels.*` findings) and links to the panel.
+**Theme G — Doctor panel in the Games tab.** ✅ The explorer's ⚠️ for findings is a status dot (`status` from the summary: `ok` hidden, amber `warn`, red `error`, `aria-label="<n> findings"`); clicking it, the row menu's **Run doctor** or the Level editor's **Open Doctor** requests the panel through `game-doctor-store.ts`, and `game-tab.tsx` shows `game-doctor-panel.tsx` in the detail slot. The panel groups `games.doctor` findings manifest → entry → kit → levels → assets with a level icon, the message, `unlocks` and the fix hint; **Fix** calls `games.doctorFix` (`set-genre` and `add-build` open an inline form first, `upgrade-kit` says it makes a branch), **Re-check** refetches, and a refusal shows inline as given. The Level editor says "This game builds its levels in code" (`levels.none` plus `kit.outdated`) with **Open Doctor**, and shows a **Declare levels** strip when `levels.not-declared`.
 
-**Theme H — Verification and adoption.** ◻ The CI gate, plus a human pass adopting Starbreaker (manifest fixes),
-SynthSurf (Open Game → build entry) and GTACT (kit upgrade → doctor shows the levels migration as the only gap).
+**Theme H — Verification and adoption.** ◻ The `midnite-media-game-build` skill (all seven copies) has its **Standard** section: `docs/GAME_STANDARD.md`, `game_doctor`, `game_doctor_fix` and "run `game_doctor` first in an unfamiliar game". CI green and the human passes in Studio and Gamer (Starbreaker, SynthSurf, GTACT) remain.
 
 **Theme I — Game management: rename, remove, reveal, delete.** ✅ A context menu on every game row (right-click and a
 ⋯ button on hover/focus): **Rename…** (inline, Enter commits `chore(midnite): rename to <name>` for `manifest.name` only),
@@ -289,18 +286,18 @@ today.
 
 ### G — Doctor panel in the Games tab [M · 2-3h]
 
-- [ ] `game-explorer.tsx`: replace the ⚠️ with a status dot (`status` from the summary: green `ok` is hidden, amber
+- [x] `game-explorer.tsx`: replace the ⚠️ with a status dot (`status` from the summary: green `ok` is hidden, amber
       `warn`, red `error`), with `aria-label="<n> findings"`. Clicking it opens the Doctor panel.
-- [ ] Net-new `renderer/game-doctor-panel.tsx` (a side panel in the right column, the same slot as the detail panel):
+- [x] Net-new `renderer/game-doctor-panel.tsx` (a side panel in the right column, the same slot as the detail panel):
       calls `games.doctor`, groups findings by area in the order manifest → entry → kit → levels → assets, and gives
       each row a level icon (`LuCircleX` / `LuTriangleAlert` / `LuInfo`), the message, `unlocks` in muted text, the fix
       hint, and a **Fix** button when `fixId` is set. `set-genre` and `add-build` open a small inline form first.
       `upgrade-kit` says it makes a branch. **Re-check** reruns the diagnosis.
-- [ ] Level editor empty state (`level/level-editor.tsx`): when the diagnosis has `levels.none` *and* the code has
+- [x] Level editor empty state (`level/level-editor.tsx`): when the diagnosis has `levels.none` *and* the code has
       scenes (`kit.outdated` or any `src/scenes/*.js`), the body reads "This game builds its levels in code. Move the
       layout into levels/ to edit it here." with **Open Doctor**. `levels.not-declared` → "Levels found but not
       declared" with a **Declare levels** fix button.
-- [ ] Tests: `game-doctor-panel.test.tsx` (grouping, the Fix call and a refresh, inline genre form),
+- [x] Tests: `game-doctor-panel.test.tsx` (grouping, the Fix call and a refresh, inline genre form),
       `game-explorer.test.tsx` (dot per status) and `level-editor.test.tsx` (the two new empty states).
 
 ### H — Verification and adoption [S · 1-2h]
@@ -313,7 +310,7 @@ today.
   - GTACT: the doctor shows `kit.outdated` and `levels.none`; Fix `upgrade-kit` makes its branch; the Level editor
     shows the "levels in code" state.
 - [ ] Human pass, Gamer: the same three, with the context menu's Remove from list and re-open (I).
-- [ ] `midnite-media-game-build` skill (all byte-identical copies): a **Standard** section pointing at
+- [x] `midnite-media-game-build` skill (all byte-identical copies): a **Standard** section pointing at
       `docs/GAME_STANDARD.md`, `game_doctor` and `game_doctor_fix`, and "run `game_doctor` first in an unfamiliar game".
 
 ### I — Game management: rename, remove, reveal, delete [M · 3-4h]

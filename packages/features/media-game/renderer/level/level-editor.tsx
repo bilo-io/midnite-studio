@@ -4,6 +4,7 @@ import {
   LuEye,
   LuEyeOff,
   LuMap,
+  LuStethoscope,
   LuMapPin,
   LuMousePointer2,
   LuPaintbrush,
@@ -25,6 +26,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { GAME_LEVEL_ENTITY_TYPES_2D, GAME_LEVEL_ENTITY_TYPES_3D, levelEntityToWorld, levelProperties, metresPerTile } from '@midnite/studio-shared';
 import { EmptyState, EmptyStateButton, Skeleton } from '@midnite/studio-frame';
 
+import { useDoctorRequest } from '../game-doctor-store';
+import { useDoctorFix, useGameDiagnosis } from '../use-games';
 import { LevelCanvas, type CanvasPointer } from './level-canvas';
 import {
   addLayer,
@@ -121,6 +124,8 @@ export function LevelEditor({ gameId }: { gameId: string | null }) {
   const levels = useLevels(gameId);
   const entry = useLevelStore((s) => (gameId ? s.byGame[gameId] : undefined));
   const openNewScene = useLevelStore((s) => s.openNewScene);
+  const diagnosis = useGameDiagnosis(gameId);
+  const requestDoctor = useDoctorRequest((s) => s.request);
   const [loadError, setLoadError] = useState<string | null>(null);
   const tried = useRef<string | null>(null);
 
@@ -152,6 +157,23 @@ export function LevelEditor({ gameId }: { gameId: string | null }) {
   if (loadError) return <LoadFailure message={loadError} onRetry={() => void (first ? openScene(entry?.scene ?? first) : levels.refetch())} />;
   if (!entry) {
     if (list && list.scenes.length === 0) {
+      // Phase 149 Theme G: say why. `kit.outdated` is the doctor's sign that the scenes are built in code.
+      const found = diagnosis.data?.findings ?? [];
+      if (found.some((f) => f.rule === 'levels.none') && found.some((f) => f.rule === 'kit.outdated')) {
+        return (
+          <EmptyState
+            icon={LuPencilRuler}
+            title="This game builds its levels in code"
+            body="Move the layout into levels/ to edit it here."
+            action={
+              <div className="flex items-center gap-2">
+                <EmptyStateButton icon={LuStethoscope} label="Open Doctor" onClick={() => requestDoctor(gameId)} />
+                <EmptyStateButton icon={LuPlus} label="New scene" onClick={() => openNewScene(gameId)} />
+              </div>
+            }
+          />
+        );
+      }
       return (
         <EmptyState
           icon={LuPencilRuler}
@@ -163,7 +185,37 @@ export function LevelEditor({ gameId }: { gameId: string | null }) {
     }
     return <div className="p-4" data-testid="level-loading"><Skeleton className="h-8 w-48" /><Skeleton className="mt-3 h-64 w-full" /></div>;
   }
-  return <OpenEditor key={`${gameId}:${entry.scene}`} gameId={gameId} entry={entry} readsLevels={list?.readsLevels ?? false} />;
+  const editor = <OpenEditor key={`${gameId}:${entry.scene}`} gameId={gameId} entry={entry} readsLevels={list?.readsLevels ?? false} />;
+  if (!(diagnosis.data?.findings ?? []).some((f) => f.rule === 'levels.not-declared')) return editor;
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <DeclareLevelsNotice gameId={gameId} />
+      <div className="min-h-0 flex-1">{editor}</div>
+    </div>
+  );
+}
+
+/** Level files exist but the manifest has no `levels`: say so, with the doctor's one-click fix. */
+function DeclareLevelsNotice({ gameId }: { gameId: string }) {
+  const fix = useDoctorFix(gameId);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <div role="status" data-testid="level-not-declared" className="flex shrink-0 items-center gap-2 border-b border-border bg-amber-500/10 px-3 py-1.5 text-xs">
+      <LuTriangleAlert aria-hidden className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+      <span className="min-w-0 flex-1">{error ?? 'Levels found but not declared in the manifest, so the game does not read them.'}</span>
+      <button
+        type="button"
+        disabled={fix.isPending}
+        onClick={() => {
+          setError(null);
+          fix.mutate({ fixId: 'declare-levels' }, { onSuccess: (result) => { if (!result.ok) setError('message' in result ? result.message : 'The fix could not be applied.'); } });
+        }}
+        className="shrink-0 rounded-md border border-border bg-background px-2 py-1 text-[11px] hover:bg-accent disabled:opacity-60"
+      >
+        Declare levels
+      </button>
+    </div>
+  );
 }
 
 function LoadFailure({ message, onRetry }: { message: string; onRetry: () => void }) {
