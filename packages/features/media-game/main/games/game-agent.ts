@@ -288,6 +288,10 @@ const ACTION_LABELS: Partial<Record<GameMcpToolId, string>> = {
   game_level_get: 'Read a level',
   game_level_query: 'Queried a level',
   game_level_validate: 'Validated a level',
+  game_entity_batch: 'Edited level objects',
+  game_entity_add: 'Added level objects',
+  game_entity_update: 'Updated level objects',
+  game_entity_delete: 'Deleted level objects',
   game_level_set: 'Saved a level',
   game_goto: 'Jumped to a scene',
   game_doctor: 'Diagnosed the game',
@@ -321,7 +325,7 @@ export function createGameAgentDispatch(opts: {
         message: `Invalid input for "${tool}": ${parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; ')}`,
       };
     }
-    const input = parsed.data as { game?: string };
+    const input = parsed.data as { game?: string; save?: boolean };
     if (tool !== 'game_list' && input.game !== opts.game.gameId && input.game !== opts.game.path) {
       return {
         ok: false,
@@ -340,7 +344,9 @@ export function createGameAgentDispatch(opts: {
       };
     try {
       const handler = opts.tools[tool] as (input: unknown) => Promise<unknown>;
-      const value = await handler(parsed.data);
+      // An agent run's passes are commits and its Undo is commit-based, so its entity writes save unless told not to.
+      const data = tool.startsWith('game_entity_') && input.save === undefined ? { ...input, save: true } : parsed.data;
+      const value = await handler(data);
       const label = ACTION_LABELS[tool];
       if (label) opts.onAction(label);
       return { ok: true, value };

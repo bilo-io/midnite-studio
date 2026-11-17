@@ -55,6 +55,11 @@ import {
   GameLevelQueryOutputSchema,
   GameLevelValidateInputSchema,
   GameLevelValidateOutputSchema,
+  GameEntityBatchInputSchema,
+  GameEntityAddInputSchema,
+  GameEntityUpdateInputSchema,
+  GameEntityDeleteInputSchema,
+  GameEntityWriteOutputSchema,
   GameGotoInputSchema,
   GameGotoOutputSchema,
   GameDoctorOutputSchema,
@@ -307,6 +312,10 @@ type McpToolEntry = {
     | 'game_level_set'
     | 'game_level_query'
     | 'game_level_validate'
+    | 'game_entity_batch'
+    | 'game_entity_add'
+    | 'game_entity_update'
+    | 'game_entity_delete'
     | 'game_goto'
     | 'game_doctor'
     | 'game_doctor_fix'
@@ -1187,6 +1196,42 @@ export const MCP_TOOLS = {
     input: GameLevelValidateInputSchema,
     output: GameLevelValidateOutputSchema,
     readOnly: true,
+  },
+  game_entity_batch: {
+    id: 'game_entity_batch',
+    title: 'Edit level objects in a batch',
+    description:
+      'Applies add, update and delete operations to a level all-or-nothing, as one undoable change in the open editor — use instead of `game_level_set`; refused unless its Settings switch is on.',
+    input: GameEntityBatchInputSchema,
+    output: GameEntityWriteOutputSchema,
+    readOnly: false,
+  },
+  game_entity_add: {
+    id: 'game_entity_add',
+    title: 'Add level objects',
+    description:
+      'Adds objects (spawns, exits, enemies, props…) to a level as one undoable change — sugar over `game_entity_batch`; refused unless its Settings switch is on.',
+    input: GameEntityAddInputSchema,
+    output: GameEntityWriteOutputSchema,
+    readOnly: false,
+  },
+  game_entity_update: {
+    id: 'game_entity_update',
+    title: 'Update level objects',
+    description:
+      'Moves or changes existing level objects by id as one undoable change — sugar over `game_entity_batch`; refused unless its Settings switch is on.',
+    input: GameEntityUpdateInputSchema,
+    output: GameEntityWriteOutputSchema,
+    readOnly: false,
+  },
+  game_entity_delete: {
+    id: 'game_entity_delete',
+    title: 'Delete level objects',
+    description:
+      'Removes level objects by id as one undoable change — sugar over `game_entity_batch`; refused unless its Settings switch is on.',
+    input: GameEntityDeleteInputSchema,
+    output: GameEntityWriteOutputSchema,
+    readOnly: false,
   },
   game_goto: {
     id: 'game_goto',

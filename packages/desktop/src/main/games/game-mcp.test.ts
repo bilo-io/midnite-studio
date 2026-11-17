@@ -218,6 +218,10 @@ describe('game_* over the global MCP dispatcher', () => {
       ['game_assert_frame', { game: 'gabc', frame: 1, name: 'start' }],
       ['game_playtest', { game: 'gabc' }],
       ['game_level_set', { game: 'gabc', scene: 'level', level: {} }],
+      ['game_entity_batch', { game: 'gabc', scene: 'level', ops: [{ op: 'delete', id: 1 }] }],
+      ['game_entity_add', { game: 'gabc', scene: 'level', entities: [{ type: 'pickup', x: 1, y: 1 }] }],
+      ['game_entity_update', { game: 'gabc', scene: 'level', updates: [{ id: 1, set: { x: 2 } }] }],
+      ['game_entity_delete', { game: 'gabc', scene: 'level', ids: [1] }],
       ['game_goto', { game: 'gabc', scene: 'level' }],
     ] as const) {
       expect(await dispatchMcpCall(tool, input), tool).toEqual({ ok: false, kind: 'refused', message: GAMES_OFF_MESSAGE });
@@ -528,5 +532,45 @@ describe('level query and validate tools (Phase 138 Theme D)', () => {
     expect(await dispatchMcpCall('game_level_query', { game: 'gabc', scene: 'level' })).toMatchObject({ ok: true });
     const v = await dispatchMcpCall('game_level_validate', { game: 'gabc', scene: 'level' });
     expect(v).toMatchObject({ ok: true });
+  });
+});
+
+describe('entity write tools (Phase 138 Theme E)', () => {
+  beforeEach(() => resetMcpAllowUiStateForTests());
+  afterEach(() => setGameTools(null));
+
+  const level = {
+    type: 'map',
+    infinite: false,
+    orientation: 'orthogonal',
+    width: 10,
+    height: 10,
+    tilewidth: 16,
+    tileheight: 16,
+    nextobjectid: 10,
+    tilesets: [],
+    layers: [{ id: 1, name: 'Entities', type: 'objectgroup', objects: [{ id: 1, name: '', type: 'spawn', x: 8, y: 8, width: 0, height: 0, rotation: 0, visible: true, point: true }] }],
+  };
+
+  it('E7: add of 2 entities equals a batch of 2 add ops, written to the file when no editor is open', async () => {
+    const set = vi.fn(async () => ({ ok: true as const, value: { sha: 'c0ffee' } }));
+    setup(null, { levels: { get: async () => ({ ok: true as const, value: { level, issues: [], images: [] } }), set } });
+    setMcpAllowGamesState(true);
+    const entities = [{ type: 'pickup', x: 16, y: 16 }, { type: 'pickup', x: 32, y: 16 }];
+    const viaAdd = await dispatchMcpCall('game_entity_add', { game: 'gabc', scene: 'level', entities });
+    const viaBatch = await dispatchMcpCall('game_entity_batch', { game: 'gabc', scene: 'level', ops: entities.map((entity) => ({ op: 'add', entity })) });
+    expect(viaAdd).toMatchObject({ ok: true, value: { applied: 'file', added: [10, 11], saved: true, sha: 'c0ffee' } });
+    expect(viaAdd).toEqual(viaBatch);
+    expect(set).toHaveBeenCalledTimes(2);
+  });
+
+  it('E4: an invalid batch is an error naming the op, and writes nothing', async () => {
+    const set = vi.fn(async () => ({ ok: true as const, value: { sha: 'x' } }));
+    setup(null, { levels: { get: async () => ({ ok: true as const, value: { level, issues: [], images: [] } }), set } });
+    setMcpAllowGamesState(true);
+    const result = await dispatchMcpCall('game_entity_delete', { game: 'gabc', scene: 'level', ids: [99] });
+    expect(result).toMatchObject({ ok: false, kind: 'error' });
+    expect(JSON.stringify(result)).toContain('op 0 (delete)');
+    expect(set).not.toHaveBeenCalled();
   });
 });

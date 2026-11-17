@@ -6,6 +6,9 @@ import {
   GAME_MCP_READ_TOOL_IDS,
   GAME_MCP_TOOL_IDS,
   GAME_SLOW_TOOL_IDS,
+  GameEntityAddInputSchema,
+  GameEntityDeleteInputSchema,
+  GameEntityUpdateInputSchema,
   GameInputInputSchema,
   GameLevelQueryInputSchema,
   GameLevelValidateOutputSchema,
@@ -76,3 +79,22 @@ describe('level query and validate tools (Phase 138 Theme D)', () => {
   });
 });
 
+
+describe('entity write tools (Phase 138 Theme E)', () => {
+  it('are writes with verb-led descriptions of at most 220 characters naming a command', () => {
+    for (const id of ['game_entity_batch', 'game_entity_add', 'game_entity_update', 'game_entity_delete'] as const) {
+      expect(GAME_MCP_READ_TOOL_IDS).not.toContain(id);
+      expect(MCP_TOOLS[id].readOnly).toBe(false);
+      expect(MCP_TOOLS[id].description.length).toBeLessThanOrEqual(220);
+      expect(MCP_TOOLS[id].description).toMatch(/refused unless its Settings switch is on/);
+    }
+  });
+
+  it('takes defaults (px, select) and leaves save unset for the caller to default', () => {
+    const parsed = GameEntityDeleteInputSchema.parse({ game: 'g1', scene: 'level', ids: [4] });
+    expect(parsed).toMatchObject({ unit: 'px', select: true });
+    expect(parsed.save).toBeUndefined();
+    expect(GameEntityAddInputSchema.safeParse({ game: 'g1', scene: 'level', entities: [] }).success).toBe(false);
+    expect(GameEntityUpdateInputSchema.parse({ game: 'g1', scene: 'level', updates: [{ id: 2 }] }).updates[0]?.set).toEqual({});
+  });
+});
