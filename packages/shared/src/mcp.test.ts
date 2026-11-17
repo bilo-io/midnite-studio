@@ -73,7 +73,6 @@ describe('MCP_TOOLS', () => {
     'game_entity_delete',
     'game_level_select',
     'game_level_frame',
-    'game_level_view',
     'game_goto',
     'game_doctor_fix',
     'terrain_open',
