@@ -70,6 +70,8 @@ export type NewSessionRequest = {
   surface?: TerminalSurface;
   /** `{ projectId, itemId }` — set only for `surface: 'kanban'` (Phase 41 Theme D). */
   taskRef?: { projectId: string; itemId: string };
+  /** The loop that dispatched this session — lists it under the session list's "Loops" group. */
+  loopId?: string;
   /** Stamped at launch (Phase 95 Theme H) — see `TerminalSessionSchema`'s own docs. */
   projectRef?: { projectId: string; forge: string };
   workflowRunRef?: { workflowId: string; runId: string; nodeId: string };
@@ -574,6 +576,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       createdAt: Date.now(),
       ...(request.surface === undefined ? {} : { surface: request.surface }),
       ...(request.taskRef === undefined ? {} : { taskRef: request.taskRef }),
+      ...(request.loopId === undefined ? {} : { loopId: request.loopId }),
       ...(request.projectRef === undefined ? {} : { projectRef: request.projectRef }),
       ...(request.workflowRunRef === undefined ? {} : { workflowRunRef: request.workflowRunRef }),
       ...(request.forgeAccountKey === undefined ? {} : { forgeAccountKey: request.forgeAccountKey }),
@@ -864,12 +867,19 @@ export function onMainSurface(session: Pick<TerminalSession, 'surface'>): boolea
  * is a trade nobody asked for; the panel lists them instead, and the card
  * keeps its binding.
  *
- * A `'fab'` loop session is still excluded, and for a reason that has not
- * changed: it renders inside the FAB panel's own tab, so listing it here
- * would mount a second xterm against the same pty.
+ * A `'fab'` loop session is listed too. It used to be excluded because the
+ * Loops panel drew its own xterm for it; that panel is now only the form that
+ * dispatches loops, and every loop session — the main-surface ones it starts
+ * today (tagged `loopId`) and any `'fab'` row persisted before — lives here,
+ * under the session list's "Loops" group.
  */
 export function inMainPanel(session: Pick<TerminalSession, 'surface'>): boolean {
-  return onMainSurface(session) || session.surface === 'kanban';
+  return onMainSurface(session) || session.surface === 'kanban' || session.surface === 'fab';
+}
+
+/** Whether a session was dispatched by a loop — grouped under "Loops" in the session list. */
+export function isLoopSession(session: Pick<TerminalSession, 'surface' | 'loopId'>): boolean {
+  return session.loopId !== undefined || session.surface === 'fab';
 }
 
 

@@ -44,6 +44,7 @@ export {
   type TerminalTooltipProps,
   type TerminalPopoverProps,
   type TerminalAgentAvatarProps,
+  type TerminalLoopMarkProps,
   type TerminalHost,
 } from './host';
 export {
@@ -139,6 +140,7 @@ export {
   useTerminalStore,
   onMainSurface,
   inMainPanel,
+  isLoopSession,
   isAgentRow,
   cleanAutoName,
   sessionLabel,

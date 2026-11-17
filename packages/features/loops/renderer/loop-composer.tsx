@@ -5,9 +5,7 @@ import {
   LOOP_MODELS,
   LOOP_WEEKDAYS,
   loopModelsFor,
-  loopModifierFragment,
   loopScheduleSummary,
-  normaliseLoopSkill,
   resolveLoopChoice,
   resolveLoopDays,
   type AgentDefinition,
@@ -31,7 +29,6 @@ import {
   LuCalendarDays,
   LuCalendarClock,
   LuChevronRight,
-  LuCircleStop,
   LuClock,
   LuListChecks,
   LuPlay,
@@ -86,12 +83,11 @@ const FREQUENCY_OPTIONS: IconSelectOption[] = LOOP_FREQUENCIES.map(
  * The controls above a loop's terminal: what the next run will be told, and
  * the one button that starts or stops it.
  *
- * Two shapes, not two components. Idle, it is the composer — the loop's
- * declared settings in labelled accordion sections, the model and schedule in
- * two more, and a free-text field under them. Running, it collapses to a slim
- * strip: the settings that are actually in force as read-only chips, so the
- * live run's instructions stay legible without giving up the terminal's
- * height, and the glowing Stop.
+ * The loop's declared settings in labelled accordion sections, the model and
+ * schedule in two more, and a free-text field under them with its own Send,
+ * then one wide rainbow button that does the same. The composer never turns
+ * into a running state: every press dispatches a fresh session to the
+ * terminal panel's "Loops" group, so the form stays ready for the next one.
  *
  * Every on/off option is a switch row (`LoopOptionRow`) — with a tooltip
  * saying what it does, a chevron showing the exact words it adds, and a skill
@@ -106,9 +102,6 @@ const FREQUENCY_OPTIONS: IconSelectOption[] = LOOP_FREQUENCIES.map(
  */
 export function LoopComposer({
   loop,
-  running,
-  waiting,
-  thinking,
   checked,
   choiceIds,
   agents,
@@ -121,7 +114,6 @@ export function LoopComposer({
   reviewUsers,
   contributorOptions,
   autoRotatePercent,
-  repeat,
   disabled,
   disabledReason,
   onToggle,
@@ -134,13 +126,8 @@ export function LoopComposer({
   onSchedule,
   onExtras,
   onStart,
-  onStop,
 }: {
   loop: LoopDefinition;
-  running: boolean;
-  waiting: boolean;
-  /** The agent is working — what makes the glow breathe rather than sit still. */
-  thinking: boolean;
   checked: Record<string, boolean>;
   /** choiceId → optionId. Unset ids resolve to the choice's own default. */
   choiceIds: Record<string, string>;
@@ -163,8 +150,6 @@ export function LoopComposer({
   contributorOptions: readonly IconSelectOption[];
   /** Rotate subagents at this percentage of their context ({@link LOOP_AUTO_ROTATE}). */
   autoRotatePercent: number;
-  /** The tab bar's "Loop" switch (`loopEnabled`): off runs the command once, without `/loop`. */
-  repeat: boolean;
   /** No repo selected — there is nowhere to run. */
   disabled: boolean;
   disabledReason: string | undefined;
@@ -177,8 +162,8 @@ export function LoopComposer({
   onModel: (model: LoopModel) => void;
   onSchedule: (schedule: LoopSchedule) => void;
   onExtras: (text: string) => void;
+  /** Dispatch one session of this loop — the extras field's Send and the wide button below it. */
   onStart: () => void;
-  onStop: () => void;
 }) {
   /*
     Which accordions are open, per composer instance.
@@ -229,30 +214,12 @@ export function LoopComposer({
 
   return (
     <div
-      className={`loop-composer-surface shrink-0 border-b border-border ${running ? 'px-2 py-2' : ''}`}
+      className="loop-composer-surface shrink-0 border-b border-border"
       data-testid={`loop-composer-${loop.id}`}
     >
-      {running ? (
-        <RunningStrip
-          loop={loop}
-          checked={checked}
-          choiceIds={choiceIds}
-          agents={agents}
-          agentId={agentId}
-          model={model}
-          schedule={schedule}
-          skills={skills}
-          reviewUsers={loop.reviewsPrs ? reviewUsers : []}
-          autoRotatePercent={autoRotatePercent}
-          repeat={repeat}
-          waiting={waiting}
-          thinking={thinking}
-          onStop={onStop}
-        />
-      ) : (
-        <div className="flex flex-col">
-          {isCustomLoop(loop) ? <CustomLoopHeader loop={loop} /> : null}
-          {/*
+      <div className="flex flex-col">
+        {isCustomLoop(loop) ? <CustomLoopHeader loop={loop} /> : null}
+        {/*
             Every accordion below renders its full content — no cap, no
             scrollbar of its own. The cap that keeps a tall loop's settings
             from pushing Start (and the terminal below this whole component)
@@ -261,89 +228,104 @@ export function LoopComposer({
             together: one scrollbar for that combined region instead of one
             here and a second inside history's own expanded list.
           */}
-          <div className="flex flex-col">
-            {isCustomLoop(loop) ? (
-              <CustomLoopSections loop={loop} closed={closed} toggleSection={toggleSection} rows={rowProps} />
-            ) : (
-              LOOP_GROUPS.map((group) => (
-                <SettingsGroup
-                  key={group.id}
-                  id={group.id}
-                  group={group.id}
-                  label={group.label}
-                  modifiers={loop.modifiers.filter((m) => m.group === group.id)}
-                  choices={loop.choices.filter((c) => c.group === group.id)}
-                  usersFilter={group.id === 'scope' && loop.reviewsPrs === true}
-                  open={!closed[group.id]}
-                  onToggle={() => toggleSection(group.id)}
-                  {...rowProps}
-                />
-              ))
-            )}
-          </div>
+        <div className="flex flex-col">
+          {isCustomLoop(loop) ? (
+            <CustomLoopSections
+              loop={loop}
+              closed={closed}
+              toggleSection={toggleSection}
+              rows={rowProps}
+            />
+          ) : (
+            LOOP_GROUPS.map((group) => (
+              <SettingsGroup
+                key={group.id}
+                id={group.id}
+                group={group.id}
+                label={group.label}
+                modifiers={loop.modifiers.filter((m) => m.group === group.id)}
+                choices={loop.choices.filter((c) => c.group === group.id)}
+                usersFilter={group.id === 'scope' && loop.reviewsPrs === true}
+                open={!closed[group.id]}
+                onToggle={() => toggleSection(group.id)}
+                {...rowProps}
+              />
+            ))
+          )}
+        </div>
 
-          {/*
+        {/*
             Model and Schedule sit outside the scroll region, not inside it.
             They are the two settings every loop has — the registry sections
             above are what varies per tab — so a tall loop scrolling its own
             declarations must never push "which model" and "when" out of reach.
             Their headings are always on screen; only the bodies collapse.
           */}
-          <ComposerSection
-            id="model"
-            title="Model"
-            meta={providerMeta}
-            open={!closed['model']}
-            onToggle={() => toggleSection('model')}
-          >
-            <ProviderModelRow
-              agents={agents}
-              agentId={agentId}
-              model={model}
-              onAgent={onAgent}
-              onModel={onModel}
-            />
-            <AutoRotateSlider percent={autoRotatePercent} onPercent={onAutoRotate} />
-          </ComposerSection>
+        <ComposerSection
+          id="model"
+          title="Model"
+          meta={providerMeta}
+          open={!closed['model']}
+          onToggle={() => toggleSection('model')}
+        >
+          <ProviderModelRow
+            agents={agents}
+            agentId={agentId}
+            model={model}
+            onAgent={onAgent}
+            onModel={onModel}
+          />
+          <AutoRotateSlider percent={autoRotatePercent} onPercent={onAutoRotate} />
+        </ComposerSection>
 
-          <ComposerSection
-            id="schedule"
-            title="Schedule"
-            meta={schedule.enabled ? (scheduleSummary ?? 'On') : 'Off'}
-            open={!closed['schedule']}
-            onToggle={() => toggleSection('schedule')}
-          >
-            <ScheduleRows loop={loop} schedule={schedule} onSchedule={onSchedule} />
-          </ComposerSection>
+        <ComposerSection
+          id="schedule"
+          title="Schedule"
+          meta={schedule.enabled ? (scheduleSummary ?? 'On') : 'Off'}
+          open={!closed['schedule']}
+          onToggle={() => toggleSection('schedule')}
+        >
+          <ScheduleRows loop={loop} schedule={schedule} onSchedule={onSchedule} />
+        </ComposerSection>
 
-          {/*
-            Start is the extras composer's own Send — there is no separate
-            Start button under it any more, so the panel has one way to launch
-            a loop rather than two that do the same thing.
+        {/*
+            The extras composer's own Send and the wide rainbow button under
+            it both dispatch: Send for a keyboard user finishing a sentence,
+            the button as the panel's one unmistakable primary action.
           */}
-          <div className="flex flex-col gap-2 border-t border-border/50 px-2 py-2">
-            {/*
+        <div className="flex flex-col gap-2 border-t border-border/50 px-2 py-2">
+          {/*
               A textarea, so a paragraph of standing instructions is written
               and re-read rather than scrolled through a one-line box — Return
               is therefore a newline, and Cmd/Ctrl+Return sends (= Start).
               Send and Mic sit inside the box, bottom-left, like every prompt.
             */}
-            <ExtrasComposer
-              value={extras}
-              onChange={onExtras}
-              onSend={onStart}
-              canSend={!disabled}
-              enterToSend={false}
-              rows={2}
-              placeholder="Extra instructions…"
-              ariaLabel={`Extra instructions for ${loopLabel(loop)}`}
-              sendAriaLabel={`Start ${loopLabel(loop)} with these instructions`}
-              sendTooltip={disabled ? disabledReason : 'Start (Cmd/Ctrl+Enter)'}
-              testIdPrefix="loop-extras"
-            />
-          </div>
+          <ExtrasComposer
+            value={extras}
+            onChange={onExtras}
+            onSend={onStart}
+            canSend={!disabled}
+            enterToSend={false}
+            rows={2}
+            placeholder="Extra instructions…"
+            ariaLabel={`Extra instructions for ${loopLabel(loop)}`}
+            sendAriaLabel={`Start ${loopLabel(loop)} with these instructions`}
+            sendTooltip={disabled ? disabledReason : 'Start (Cmd/Ctrl+Enter)'}
+            testIdPrefix="loop-extras"
+          />
+          <button
+            type="button"
+            onClick={onStart}
+            disabled={disabled}
+            title={disabled ? disabledReason : undefined}
+            data-testid="loop-start"
+            className="brand-gradient-button flex h-8 w-full items-center justify-center gap-1.5 rounded-md text-xs font-semibold disabled:cursor-not-allowed"
+          >
+            <LuPlay aria-hidden className="h-3.5 w-3.5" />
+            Start {loopLabel(loop)}
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -814,7 +796,10 @@ function ScheduleRows({
     <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1.5">
       <ScheduleLabel icon={LuClock} text="Window" title="Only work inside this window" />
       <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
-        <label className="relative flex cursor-pointer items-center" title="Only work inside this window">
+        <label
+          className="relative flex cursor-pointer items-center"
+          title="Only work inside this window"
+        >
           <span className="sr-only">Window</span>
           <input
             type="checkbox"
@@ -914,207 +899,5 @@ function ScheduleLabel({
       <Icon className="h-3 w-3 shrink-0" />
       {text}
     </span>
-  );
-}
-
-/**
- * What a live run is actually carrying, as chips.
- *
- * Every setting that reached the command line is here, not just the checkboxes:
- * a run on Opus inside a 22:00–06:00 window is a different run from the default
- * one, and the strip that claims to say what is in force has to say so.
- */
-function RunningStrip({
-  loop,
-  checked,
-  choiceIds,
-  agents,
-  agentId,
-  model,
-  schedule,
-  skills,
-  reviewUsers,
-  autoRotatePercent,
-  repeat,
-  waiting,
-  thinking,
-  onStop,
-}: {
-  loop: LoopDefinition;
-  checked: Record<string, boolean>;
-  choiceIds: Record<string, string>;
-  agents: readonly AgentDefinition[];
-  agentId: string;
-  model: LoopModel;
-  schedule: LoopSchedule;
-  skills: Record<string, string>;
-  reviewUsers: readonly string[];
-  autoRotatePercent: number;
-  repeat: boolean;
-  waiting: boolean;
-  thinking: boolean;
-  onStop: () => void;
-}) {
-  const chips: { key: string; label: string; title?: string }[] = [];
-
-  for (const group of LOOP_GROUPS) {
-    for (const modifier of loop.modifiers) {
-      if (modifier.group === group.id && checked[modifier.id]) {
-        // A picked skill is part of what is in force, so the chip says it.
-        const skill = modifier.skillTemplate ? normaliseLoopSkill(skills[modifier.id]) : '';
-        chips.push({
-          key: modifier.id,
-          label: skill ? `${modifier.label} · ${skill}` : modifier.label,
-          title: loopModifierFragment(modifier, skills[modifier.id]),
-        });
-      }
-    }
-    for (const choice of loop.choices) {
-      if (choice.group !== group.id) continue;
-      const option = resolveLoopChoice(choice, choiceIds[choice.id]);
-      // The neutral option adds nothing to the line, so it is not "in force".
-      if (option.promptFragment === undefined) continue;
-      chips.push({ key: choice.id, label: option.label, title: option.promptFragment });
-    }
-  }
-  if (reviewUsers.length > 0) {
-    chips.push({ key: 'review-users', label: `Users: ${reviewUsers.join(', ')}` });
-  }
-  // Only off the default: a chip on every strip would say nothing.
-  if (autoRotatePercent !== LOOP_AUTO_ROTATE.default) {
-    chips.push({ key: 'auto-rotate', label: `Rotate at ${autoRotatePercent}%` });
-  }
-  if (!repeat) {
-    chips.push({ key: 'once-off', label: 'Once-off' });
-  }
-
-  /*
-    The provider, but only when it is not the one the loop declares — the same
-    rule the model chip follows one line down. Every run carries an agent, so a
-    chip for the default one would be on every strip and would stop "Running
-    with defaults" from ever being the honest thing to say.
-  */
-  if (agentId !== loop.agentId) {
-    const agent = agents.find((entry) => entry.id === agentId);
-    chips.push({ key: 'agent', label: agent?.label ?? agentId });
-  }
-  /*
-    …and the model, but only one the chosen provider can actually be given.
-    `cliModel !== null` alone was the whole test, which made a strip claim
-    "Codex · Opus 5" for a run whose command line carried no `--model` at all —
-    the section heading two rows up already drops it, and the two must agree
-    about what the run costs. Same rule, one source: `loopModelsFor`.
-  */
-  const modelLabel = loopModelsFor(agentId).find((entry) => entry.id === model);
-  if (modelLabel && modelLabel.cliModel !== null) {
-    chips.push({ key: 'model', label: modelLabel.label });
-  }
-  /*
-    One chip for the whole schedule, and the same neutrality rule the composed
-    line uses — `loopScheduleSummary` returns null exactly when
-    `loopScheduleFragment` does, so the strip cannot claim a run is scheduled
-    on a line that says nothing about scheduling.
-  */
-  const window = loopScheduleSummary(schedule);
-  if (window !== null) {
-    chips.push({ key: 'schedule', label: window });
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
-        {chips.length === 0 ? (
-          <span className="text-[11px] text-muted-foreground">Running with defaults</span>
-        ) : (
-          chips.map((chip) => (
-            <span
-              key={chip.key}
-              title={chip.title}
-              className="rounded-full border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground"
-            >
-              {chip.label}
-            </span>
-          ))
-        )}
-      </div>
-      <StartStopButton
-        running
-        waiting={waiting}
-        thinking={thinking}
-        disabled={false}
-        onClick={onStop}
-      />
-    </div>
-  );
-}
-
-/**
- * One button in two states, rather than two buttons — the phase it reads is
- * derived from the session (`useLoopStatus`), so a loop that exits on its own
- * flips this back to Start with nothing else bookkeeping it.
- */
-function StartStopButton({
-  running,
-  waiting,
-  thinking,
-  fullWidth = false,
-  disabled,
-  disabledReason,
-  onClick,
-}: {
-  running: boolean;
-  waiting: boolean;
-  thinking: boolean;
-  /** Start, under the extras field. Stop keeps its place at the end of the strip. */
-  fullWidth?: boolean;
-  disabled: boolean;
-  disabledReason?: string | undefined;
-  onClick: () => void;
-}) {
-  /*
-    Three states, not two. A waiting loop drops the rotation for one steady
-    amber ring — the colour you can spot across six tabs. A thinking one
-    breathes. A live-but-idle one keeps the rainbow ring without the pulse, so
-    motion means "working" rather than merely "on".
-  */
-  const glow = !running
-    ? ''
-    : waiting
-      ? 'loop-run-glow is-waiting'
-      : thinking
-        ? 'loop-run-glow is-thinking'
-        : 'loop-run-glow';
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={disabled ? disabledReason : undefined}
-      data-testid={running ? 'loop-stop' : 'loop-start'}
-      data-running={running ? 'true' : undefined}
-      /*
-        Idle, the button wears `.loop-start-gradient`: the tab's own
-        sub-spectrum as a conic border at rest, and on hover the full-strength
-        ramp orbiting behind a pulsing glow. That class owns the border
-        longhand (the two-layer `background-clip` trick needs a transparent
-        one), so `border-border` is not co-applied — it would paint an opaque
-        line straight over the gradient, which is the same trap
-        `.gradient-border--always` documents further up `styles.css`.
-      */
-      className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-        fullWidth ? 'w-full justify-center' : 'shrink-0'
-      } ${glow} ${
-        running
-          ? 'text-foreground'
-          : 'loop-start-gradient text-foreground'
-      }`}
-    >
-      {running ? (
-        <LuCircleStop aria-hidden className="h-3.5 w-3.5" />
-      ) : (
-        <LuPlay aria-hidden className="h-3.5 w-3.5" />
-      )}
-      {running ? 'Stop' : 'Start'}
-    </button>
   );
 }

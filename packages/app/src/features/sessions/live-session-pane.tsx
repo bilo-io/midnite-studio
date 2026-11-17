@@ -5,8 +5,8 @@ import { ExplorerNotice as Notice } from '@midnite/studio-frame';
 import type { TerminalSession } from '@midnite/studio-shared';
 
 import { useUiStore } from '../../store/ui-store';
-import { revealFabSession, revealSession } from '../terminal/reveal-session';
-import { inMainPanel, useTerminalStore } from '../terminal/terminal-store';
+import { revealSession } from '../terminal/reveal-session';
+import { useTerminalStore } from '../terminal/terminal-store';
 import { LiveSessionTerminal } from './live-session-terminal';
 
 /**
@@ -18,24 +18,23 @@ import { LiveSessionTerminal } from './live-session-terminal';
  * (Phase 86 Theme D, reworked by an ad hoc follow-up) — closed rows go through the transcript pane and
  * are untouched.
  *
- * Every still-live session — plain terminal, Kanban-card agent, or a Loop running on the FAB surface —
- * can render here, in `LiveSessionTerminal`. The one rule is mutual exclusion, not a surface
+ * Every still-live session — plain terminal, Kanban-card agent, or a loop's session — can render here, in `LiveSessionTerminal`. The one rule is mutual exclusion, not a surface
  * distinction: two live xterms racing the same pty over `pty.resize` (not the read side — `pty:data`
  * already fans out to any number of subscribers, see `live-session-terminal.tsx`'s own doc) is a real
  * bug, so a session's xterm is mounted in exactly one host at a time. `terminal-store`'s
- * `sessionsPaneSessionId` is the lock: while this pane holds it, the terminal panel and the Loops tab
- * render `YieldedToSessionsPage` in that session's slot instead of their own `LazyTerminalView`, and
+ * `sessionsPaneSessionId` is the lock: while this pane holds it, the terminal panel
+ * renders `YieldedToSessionsPage` in that session's slot instead of their own `LazyTerminalView`, and
  * their "Focus it here" button hands it back.
  *
  * Whether this pane takes the lock is the user's call, made once per selected session
  * (`LiveSessionHost`, keyed by session id):
- * - Owning panel closed (`terminalOpen` / `fabPanelOpen` false) — nothing else has the session mounted,
+ * - Terminal panel closed (`terminalOpen` false) — nothing else has the session mounted,
  *   so the pane embeds straight away and holds the claim; opening the panel later yields to the pane,
  *   not the reverse.
- * - Owning panel open and docked — the pane offers **Focus it here** (primary, takes the claim and
- *   embeds) beside the older **Focus it there** / **Reveal in Loops** (secondary,
- *   `revealSession`/`revealFabSession`).
- * - Owning panel detached into its own window (`terminalDetached` / `fabDetached`) — that window has its
+ * - Terminal panel open and docked — the pane offers **Focus it here** (primary, takes the claim and
+ *   embeds) beside the older **Focus it there** (secondary, `revealSession`). Loop sessions included:
+ *   they list in the terminal panel's "Loops" group, not in a Loops-panel tab of their own.
+ * - Terminal panel detached into its own window (`terminalDetached`) — that window has its
  *   own store and cannot be told to yield, so only the reveal button is offered there.
  *
  * Four shapes, in order of precedence:
@@ -55,8 +54,6 @@ export function LiveSessionDetail({
 }) {
   const terminalOpen = useUiStore((s) => s.terminalOpen);
   const terminalDetached = useUiStore((s) => s.terminalDetached);
-  const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
-  const fabDetached = useUiStore((s) => s.fabDetached);
 
   if (session.liveness === 'asleep') {
     return <Notice>This session is asleep — no live process to show. Wake it from the terminal panel.</Notice>;
@@ -66,15 +63,13 @@ export function LiveSessionDetail({
     return <Notice>This session is running — open the terminal panel to interact with it.</Notice>;
   }
 
-  const isFabSession = !inMainPanel(rawSession);
-  const ownerDetached = isFabSession ? fabDetached : terminalDetached;
-  const ownerDocked = !ownerDetached && (isFabSession ? fabPanelOpen : terminalOpen);
+  const ownerDetached = terminalDetached;
+  const ownerDocked = !ownerDetached && terminalOpen;
 
   return (
     <LiveSessionHost
       key={rawSession.id}
       session={rawSession}
-      isFabSession={isFabSession}
       ownerDocked={ownerDocked}
       ownerDetached={ownerDetached}
     />
@@ -94,12 +89,10 @@ export function LiveSessionDetail({
  */
 function LiveSessionHost({
   session,
-  isFabSession,
   ownerDocked,
   ownerDetached,
 }: {
   session: TerminalSession;
-  isFabSession: boolean;
   /** The owning panel is open in this window and would mount the session itself. */
   ownerDocked: boolean;
   /** The owning panel lives in another window, out of this store's reach. */
@@ -125,7 +118,7 @@ function LiveSessionHost({
     return <LiveSessionTerminal key={session.id} session={session} />;
   }
 
-  const where = isFabSession ? 'the Loops panel' : 'the terminal panel';
+  const where = 'the terminal panel';
   return (
     <div className="grid min-h-0 flex-1 place-items-center p-8">
       <div className="max-w-md text-center text-sm leading-relaxed text-muted-foreground">
@@ -137,10 +130,10 @@ function LiveSessionHost({
         <div className="mt-3 flex items-center justify-center gap-2">
           <button
             type="button"
-            onClick={() => (isFabSession ? revealFabSession(session.id) : revealSession(session.id))}
+            onClick={() => revealSession(session.id)}
             className="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
-            {isFabSession ? 'Reveal in Loops' : 'Focus it there'}
+            Focus it there
           </button>
           {ownerDetached ? null : (
             <button

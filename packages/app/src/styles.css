@@ -1525,6 +1525,33 @@ html[data-motion='reduced'] .tab-loop-active-arc::after {
   animation: none;
 }
 
+/* The terminal list's "Loops" group, while any loop session is live. It
+ * borrows the running tab's arc above (same spin, same focus pause, same
+ * reduced-motion rules) and only sets how much of the ring it lights:
+ *
+ * - collapsed — the header alone, wearing exactly the subtle 120deg arc a
+ *   running loop tab wears;
+ * - expanded — the whole group, header and rows, behind a wider 240deg arc
+ *   with a thicker rim and a stronger glow, so the set of running loops reads
+ *   as one lit block in the list. */
+.loops-group-arc {
+  --fab-arc-from: 0deg;
+  --fab-arc-to: 120deg;
+}
+
+.loops-group-arc[data-expanded='true'] {
+  --fab-arc-to: 240deg;
+}
+
+.loops-group-arc[data-expanded='true']::before {
+  border-width: 2px;
+}
+
+.loops-group-arc[data-expanded='true']::after {
+  opacity: 1;
+  filter: blur(6px);
+}
+
 /* FAB Loop Tab Shimmer — only tabs without a running loop carry this gentle sweep,
  * half as frequent and moving half as fast (4.8s period).
  *

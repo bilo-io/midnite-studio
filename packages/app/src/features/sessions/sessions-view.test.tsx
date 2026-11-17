@@ -929,58 +929,29 @@ describe('SessionsView', () => {
     expect(useSessionsStore.getState().selectedLiveSessionId).toBeNull();
   });
 
-  it('hands off to the Loops panel instead of embedding a second live terminal while it is already open', () => {
+  it('hands a loop session off to the terminal panel, where it now lists, while that panel is open', () => {
     historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
     act(() => {
       useTerminalStore.setState({
         sessions: [
-          liveSession({ id: 'fab-2', repoId: 'r1', title: 'repo-one', name: 'loop-two', createdAt: 5000, surface: 'fab' }),
+          liveSession({ id: 'loop-2', repoId: 'r1', title: 'repo-one', name: 'loop-two', createdAt: 5000, loopId: 'guard' }),
         ],
       });
-      useUiStore.setState({ fabPanelOpen: true, fabSessions: { guard: 'fab-2' } });
+      useUiStore.setState({ terminalOpen: true, terminalDetached: false });
     });
 
     renderView();
 
     fireEvent.click(screen.getByRole('button', { name: /loop-two/ }));
 
-    expect(screen.getByText(/already open in the Loops panel/)).toBeTruthy();
-    expect(screen.queryByTestId('live-terminal')).toBeNull();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Reveal in Loops' }));
-    expect(useUiStore.getState().activeFabTab).toBe('guard');
+    expect(screen.getByText(/already open in the terminal panel/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Reveal in Loops' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Focus it here' }));
-    expect(screen.getByTestId('live-terminal').textContent).toBe('fab-2');
-    expect(useTerminalStore.getState().sessionsPaneSessionId).toBe('fab-2');
+    expect(screen.getByTestId('live-terminal').textContent).toBe('loop-2');
 
     act(() => {
-      useUiStore.setState({ fabPanelOpen: false, fabSessions: {} });
-    });
-  });
-
-  it('hands off to the Loops panel while it is detached into its own window too', () => {
-    historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
-    act(() => {
-      useTerminalStore.setState({
-        sessions: [
-          liveSession({ id: 'fab-3', repoId: 'r1', title: 'repo-one', name: 'loop-three', createdAt: 5000, surface: 'fab' }),
-        ],
-      });
-      useUiStore.setState({ fabPanelOpen: false, fabDetached: true, fabSessions: { guard: 'fab-3' } });
-    });
-
-    renderView();
-
-    fireEvent.click(screen.getByRole('button', { name: /loop-three/ }));
-
-    expect(screen.getByText(/open in the Loops panel, in its own window/)).toBeTruthy();
-    expect(screen.queryByTestId('live-terminal')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Focus it here' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Reveal in Loops' })).toBeTruthy();
-
-    act(() => {
-      useUiStore.setState({ fabDetached: false, fabSessions: {} });
+      useUiStore.setState({ terminalOpen: false });
     });
   });
 

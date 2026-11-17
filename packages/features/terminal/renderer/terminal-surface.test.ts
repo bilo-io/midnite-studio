@@ -1,7 +1,7 @@
 import type { TerminalSession } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { findCardSession, inMainPanel, onMainSurface, useTerminalStore } from './terminal-store';
+import { findCardSession, inMainPanel, isLoopSession, onMainSurface, useTerminalStore } from './terminal-store';
 
 function session(overrides: Partial<TerminalSession>): TerminalSession {
   return {
@@ -42,8 +42,23 @@ describe('inMainPanel', () => {
     expect(inMainPanel(session({ surface: 'kanban' }))).toBe(true);
   });
 
-  it('still excludes a FAB session — it renders in its loop tab, and a second xterm on the same pty is not a view', () => {
-    expect(inMainPanel(session({ surface: 'fab' }))).toBe(false);
+  it('lists a FAB session too — the Loops panel no longer draws an xterm of its own', () => {
+    expect(inMainPanel(session({ surface: 'fab' }))).toBe(true);
+  });
+});
+
+describe('isLoopSession', () => {
+  it('is a session a loop dispatched — tagged with its loop id', () => {
+    expect(isLoopSession(session({ loopId: 'guard' }))).toBe(true);
+  });
+
+  it('counts a FAB row persisted before loopId existed', () => {
+    expect(isLoopSession(session({ surface: 'fab' }))).toBe(true);
+  });
+
+  it('is not any other session', () => {
+    expect(isLoopSession(session({}))).toBe(false);
+    expect(isLoopSession(session({ surface: 'kanban' }))).toBe(false);
   });
 });
 
@@ -217,7 +232,7 @@ describe('closeSession', () => {
     useTerminalStore.setState({ sessions: [], activeId: null, states: {} });
   });
 
-  it('never hands the selection to a FAB session', () => {
+  it('hands the selection to the next row, a loop session included', () => {
     const store = useTerminalStore.getState();
     const a = store.openSession({ kind: 'shell', title: 'a', cwd: '/repo', repoId: 'r1' });
     store.openSession({
@@ -228,17 +243,17 @@ describe('closeSession', () => {
       repoId: 'r1',
       surface: 'fab',
     });
-    const b = store.openSession({ kind: 'shell', title: 'b', cwd: '/repo', repoId: 'r1' });
+    store.openSession({ kind: 'shell', title: 'b', cwd: '/repo', repoId: 'r1' });
 
     useTerminalStore.getState().setActive(a.id);
     useTerminalStore.getState().closeSession(a.id);
 
-    // The FAB row sits between them in the list; selecting it would leave the
-    // panel blank with nothing highlighted.
-    expect(useTerminalStore.getState().activeId).toBe(b.id);
+    // Loop sessions list in the panel now, so the row after `a` is the loop's.
+    const loop = useTerminalStore.getState().sessions.find((s) => s.title === 'loop')!;
+    expect(useTerminalStore.getState().activeId).toBe(loop.id);
   });
 
-  it('clears the selection when only a FAB session is left', () => {
+  it('keeps a selection while a loop session is left', () => {
     const store = useTerminalStore.getState();
     const a = store.openSession({ kind: 'shell', title: 'a', cwd: '/repo', repoId: 'r1' });
     store.openSession({
@@ -251,7 +266,7 @@ describe('closeSession', () => {
     });
 
     useTerminalStore.getState().closeSession(a.id);
-    expect(useTerminalStore.getState().activeId).toBeNull();
+    expect(useTerminalStore.getState().activeId).not.toBeNull();
   });
 });
 

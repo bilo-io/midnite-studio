@@ -84,6 +84,7 @@ export function startAgent({
   command,
   surface,
   taskRef,
+  loopId,
   projectRef,
   workflowRunRef,
   forgeAccountKey,
@@ -111,6 +112,8 @@ export function startAgent({
   surface?: TerminalSurface;
   /** `{ projectId, itemId }` — required alongside `surface: 'kanban'` (Phase 41 Theme D). */
   taskRef?: { projectId: string; itemId: string };
+  /** The loop dispatching this session — lists it under the session list's "Loops" group. */
+  loopId?: string;
   /** Session attribution (Phase 95 Theme H) — see `TerminalSessionSchema`'s own docs. */
   projectRef?: { projectId: string; forge: string };
   workflowRunRef?: { workflowId: string; runId: string; nodeId: string };
@@ -171,6 +174,7 @@ export function startAgent({
     repoId,
     ...(surface === undefined ? {} : { surface }),
     ...(taskRef === undefined ? {} : { taskRef }),
+    ...(loopId === undefined ? {} : { loopId }),
     ...(projectRef === undefined ? {} : { projectRef }),
     ...(workflowRunRef === undefined ? {} : { workflowRunRef }),
     ...(forgeAccountKey === undefined ? {} : { forgeAccountKey }),

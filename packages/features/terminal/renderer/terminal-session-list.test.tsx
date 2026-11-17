@@ -393,3 +393,73 @@ describe('TerminalSessionList — per-repo accordions', () => {
     ]);
   });
 });
+
+describe('TerminalSessionList — the Loops group', () => {
+  const loopRow = (id: string, loopId: string): TerminalSession => ({
+    ...row(id),
+    kind: 'agent',
+    agentId: 'claude',
+    name: id,
+    loopId,
+  });
+
+  function renderWithLoopMark() {
+    const host = {
+      ...createDefaultTerminalHost('studio'),
+      LoopMark: ({ session }: { session: TerminalSession }) => (
+        <span data-testid="loop-mark">{session.loopId}</span>
+      ),
+    };
+    return render(
+      <FrameChromeProvider chrome={createFrameChrome().chrome}>
+        <TerminalHostProvider host={host}>
+          <TerminalSessionList agents={[...BUILTIN_AGENTS]} width={200} />
+        </TerminalHostProvider>
+      </FrameChromeProvider>,
+    );
+  }
+
+  beforeEach(() => {
+    useTerminalStore.setState({
+      sessions: [row('plain'), loopRow('guard-a', 'guard'), loopRow('guard-b', 'guard')],
+      states: {},
+      liveCwd: {},
+      activeId: null,
+    });
+  });
+
+  it('lists every loop session under one "Loops" header, two runs of the same loop side by side', () => {
+    renderWithLoopMark();
+    const group = screen.getByTestId('terminal-loops-group');
+    expect(group.textContent).toContain('Loops');
+    expect(group.textContent).toContain('guard-a');
+    expect(group.textContent).toContain('guard-b');
+    expect(group.textContent).not.toContain('plain');
+  });
+
+  it('draws agent mark, then loop mark, then the name', () => {
+    renderWithLoopMark();
+    const name = screen.getByText('guard-a');
+    const rowEl = name.closest('[data-session-row]') as HTMLElement;
+    const mark = rowEl.querySelector('[data-testid="loop-mark"]')!;
+    // The loop mark comes after the avatar and before the name.
+    expect(mark.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(rowEl.firstElementChild!.firstElementChild).not.toBe(mark);
+  });
+
+  it('wears no arc while no loop session is live', () => {
+    renderWithLoopMark();
+    expect(screen.queryByTestId('terminal-loops-arc')).toBeNull();
+  });
+
+  it('wears the strong arc expanded and the subtle tab arc collapsed while a loop is live', () => {
+    useTerminalStore.setState({ states: { 'guard-a': 'open' } });
+    renderWithLoopMark();
+    const arc = screen.getByTestId('terminal-loops-arc');
+    expect(arc.className).toContain('tab-loop-active-arc');
+    expect(arc.getAttribute('data-expanded')).toBe('true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse Loops' }));
+    expect(screen.getByTestId('terminal-loops-arc').getAttribute('data-expanded')).toBe('false');
+  });
+});
