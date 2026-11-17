@@ -81,9 +81,7 @@ diagnosis; `compareSemver` joined `game-standard.ts`. Three fixtures (`legacy-3d
 plus a composed `top-down` starter that answers `ok`. Landed: the hook check also accepts an import of the kit's engine
 entry (`kit/phaser/boot`, `kit/three/loop`), since starters call `installHook` from inside the kit.
 
-**Theme D — Safe fixes.** ◻ `applyGameFix(path, fixId)`, one commit per fix: write a missing manifest, normalise
-`vendored`, set the genre, add a `build` block, add `levels` once `levels/*.tmj` exists, and start a kit upgrade
-(delegating to `upgradeKit`). Exposed as `mstudio:games:doctor-fix` and the write tool `game_doctor_fix`.
+**Theme D — Safe fixes.** ✅ `applyGameFix(path, input, deps)` in `game-fixes.ts`, one commit per fix naming only `midnite-game.json` through `writeQueue`: write a missing manifest, normalise `vendored`, set the genre, add a `build` block, declare `levels` once `levels/*.tmj` exists, and start a kit upgrade (delegating to `upgradeKit`, which answers its `branch`). Exposed as `mstudio:games:doctor-fix` (`games.doctorFix`, answering `{ commit, branch?, diagnosis }`) and the write tool `game_doctor_fix` (refused while `allowGames` is off). Landed: `infer-manifest.ts` (`inferManifest`, `inferBuild`, `inferVendored`); an already-fixed gap answers `commit: null` rather than failing; a throw from the kit upgrade becomes a refusal.
 
 **Theme E — Build-output entry.** ✅ A game with `build` runs `build.command` in its repo before Run, streams the output to
 the console drawer as `source: 'build'` entries, and serves `build.out` instead of the repo root. Landed: `serveRoot`
@@ -94,9 +92,7 @@ build-failure state (`GAME_BUILD_REASON_PREFIX`) with the last 20 lines; the wat
 then reloads on a 400 ms debounced source change, cancelling a build in flight; Reload rebuilds when a source changed
 or the last build failed.
 
-**Theme F — Adopt a folder with no manifest.** ◻ Open Game on a git repo with no `midnite-game.json` stops refusing.
-It answers `needs-manifest` with a manifest *inferred* from `package.json`, `index.html` and vendored engines, and the
-renderer shows it for a one-click "Write and add". SynthSurf is the case it is built for.
+**Theme F — Adopt a folder with no manifest.** ✅ Open Game on a git repo with no `midnite-game.json` stops refusing: `resolveGameFolder` answers `needsManifest`, `service.add` answers `needs-manifest` with the inferred manifest and the diagnosis and registers nothing, and `adopt-game-sheet.tsx` (wired into `game-tab.tsx`) shows it as editable fields for **Write manifest and add**, which sends `confirmManifest` back so the service writes it through `applyGameFix('write-manifest')`, then registers. SynthSurf is the case it is built for.
 
 **Theme G — Doctor panel in the Games tab.** ◻ The ⚠️ tooltip becomes a status dot (red / amber / green) that opens a
 **Doctor** panel listing every finding, grouped by area, each with its fix hint and a **Fix** button where a `fixId`
@@ -223,10 +219,10 @@ today.
 
 ### D — Safe fixes [M · 3-4h]
 
-- [ ] Contract: `CHANNELS.gamesDoctorFix: 'mstudio:games:doctor-fix'`, `GameFixRequestSchema = { gameId?: string;
+- [x] Contract: `CHANNELS.gamesDoctorFix: 'mstudio:games:doctor-fix'`, `GameFixRequestSchema = { gameId?: string;
       path?: string; fixId: GameFixIdSchema; genre?: GameGenre | null; build?: { command; out } }`, answering
       `GitOpResult<{ commit: string | null; branch?: string; diagnosis: GameDiagnosis }>`.
-- [ ] Net-new `main/games/infer-manifest.ts`: `inferManifest(path): Promise<GameManifest>`.
+- [x] Net-new `main/games/infer-manifest.ts`: `inferManifest(path): Promise<GameManifest>`.
   - name: `package.json` `name` humanised, else the folder name.
   - engine: a vendored or `package.json` `three` → `three`, `phaser` → `phaser`; neither → refuse with
     `Only Phaser and three.js games are supported.`
@@ -236,7 +232,7 @@ today.
     `kit.outdated`).
   - vendored: versions read from `vendor/` or `package.json`. build: from F's detection (`pnpm build` / `npm run
     build` / `yarn build` by lockfile, `out: 'dist'`, or `vite.config.*`'s `build.outDir` when it is a string literal).
-- [ ] Net-new `main/games/game-fixes.ts`: `applyGameFix(path, req, deps)`. Each fix:
+- [x] Net-new `main/games/game-fixes.ts`: `applyGameFix(path, req, deps)`. Each fix:
       reads, then changes only its fields, then writes the manifest with 2-space JSON and a trailing newline, keeping
       unknown keys (the schema is `passthrough`), then `git add -- midnite-game.json` and commits
       `chore(midnite): <fix title>` through `writeQueue`. A fix whose target file is dirty refuses with
@@ -249,9 +245,9 @@ today.
     alphabetically.
   - `upgrade-kit`: calls `upgradeKit` (its own branch and dirty-tree rule) and answers `{ branch }`.
   - After any fix: emit `gamesChanged { reason: 'manifest' }` and answer the fresh diagnosis.
-- [ ] MCP `game_doctor_fix` (`{ game, fixId, genre?, build? }`). It is a write, so it is refused while `allowGames` is
+- [x] MCP `game_doctor_fix` (`{ game, fixId, genre?, build? }`). It is a write, so it is refused while `allowGames` is
       off, and is in `GAME_AGENT_TOOL_IDS`.
-- [ ] Tests: `infer-manifest.test.ts` (the three fixtures, the non-phaser/three refusal) and `game-fixes.test.ts` (each
+- [x] Tests: `infer-manifest.test.ts` (the three fixtures, the non-phaser/three refusal) and `game-fixes.test.ts` (each
       fix on a temp repo: one commit, one path in it, unknown manifest keys kept, the dirty refusal).
 
 ### E — Build-output entry [L · 4-6h]
@@ -276,18 +272,18 @@ today.
 
 ### F — Adopt a folder with no manifest [M · 2-3h]
 
-- [ ] `resolveGameFolder`: when the work-tree top has no manifest (and `path` has none), answer
+- [x] `resolveGameFolder`: when the work-tree top has no manifest (and `path` has none), answer
       `ok({ root: top, needsManifest: true })` instead of the `No midnite-game.json` refusal. The other refusals are
       unchanged.
-- [ ] `GameAddResultSchema` gains `z.object({ status: z.literal('needs-manifest'), path, proposed: GameManifestSchema,
+- [x] `GameAddResultSchema` gains `z.object({ status: z.literal('needs-manifest'), path, proposed: GameManifestSchema,
       diagnosis: GameDiagnosisSchema })`. `service.add` answers it with `inferManifest(top)` and **does not register**
       the repo yet. An `inferManifest` refusal comes back as `failure`.
-- [ ] `GameAddRequestSchema` gains `confirmManifest?: GameManifest`. When present, the service writes it through
+- [x] `GameAddRequestSchema` gains `confirmManifest?: GameManifest`. When present, the service writes it through
       `applyGameFix('write-manifest')` (with the user's edits), then registers, and answers `added`.
-- [ ] Renderer: net-new `renderer/adopt-game-sheet.tsx`. It shows the proposed name, engine, dimension, perspective,
+- [x] Renderer: net-new `renderer/adopt-game-sheet.tsx`. It shows the proposed name, engine, dimension, perspective,
       genre (with a "Custom" option for `null`) and build command/out as editable fields, the diagnosis findings
       under them, and **Write manifest and add** / **Cancel**.
-- [ ] Tests: `game-open.test.ts` (the no-manifest folder now resolves with `needsManifest`),
+- [x] Tests: `game-open.test.ts` (the no-manifest folder now resolves with `needsManifest`),
       `game-service-add.test.ts` (`needs-manifest` then `confirmManifest` → one commit and `added`), and
       `adopt-game-sheet.test.tsx`.
 
