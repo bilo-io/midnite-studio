@@ -52,7 +52,7 @@ export function sanitizeIssueText(text) {
       }
       return true;
     });
-  return { text: kept.join('\n').trim(), stripped };
+  return { text: kept.join('\n').replace(/\n{3,}/g, '\n\n').trim(), stripped };
 }
 
 const labelNames = (i) => (i.labels ?? []).map((l) => (typeof l === 'string' ? l : l.name).toLowerCase());

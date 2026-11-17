@@ -40,7 +40,7 @@ export function buildTitle({ commits, branch }) {
   return `${head}${claim}${suffix}`;
 }
 
-export function buildBody({ commits, stat, branch, why, decisions = [], notDone = [], verification, selfReview, repoUrl = 'https://github.com/bilo-io/midnite-studio' }) {
+export function buildBody({ commits, stat, branch, why, decisions = [], notDone = [], verification, selfReview }) {
   const { phase } = phaseFromBranch(branch);
   const sections = [];
   const whyText = why || (phase ? `Closes a theme of phase ${phase}.` : 'See the changes below.');

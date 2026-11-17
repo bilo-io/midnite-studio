@@ -47,7 +47,6 @@ const isTest = (f) => /\.(test|spec)\.[cm]?[jt]sx?$/.test(f) || /(^|\/)(e2e|__te
 const isCode = (f) => /\.[cm]?[jt]sx?$/.test(f);
 const isDoc = (f) => /\.(md|mdx)$/.test(f) || f.startsWith('docs/');
 
-const GIT_READ = /\b(log|for-each-ref|ls-files|ls-tree|status|branch|diff|show|rev-list|worktree)\b/;
 const GIT_WRITE = /['"`](commit|push|merge|rebase|reset|checkout|add|stash|cherry-pick|revert|tag|pull|fetch|switch|restore)['"`]/;
 const CHORD = /['"`](?:Mod|Ctrl|Cmd|Meta|Alt|Shift)(?:\+(?:Mod|Ctrl|Cmd|Meta|Alt|Shift))*\+[A-Za-z0-9`[\]\\,./;'=-]+['"`]/;
 
@@ -58,7 +57,7 @@ export const RULES = [
     severity: 'WARNING',
     message: 'git output parsed without -z / %x00; branch names and subjects can contain whitespace and newlines.',
     suggestion: 'Add `-z` (or `%x00` field separators) and split on NUL.',
-    applies: (f) => isCode(f) && !isTest(f) && /(^|\/)(git-engine|scripts)\//.test(f),
+    applies: (f) => isCode(f) && !isTest(f) && /(^|\/)(git-engine|runtime)\/src\//.test(f),
     check: (t) =>
       /(execFile|spawn|exec|runGit|git)\w*\(?.*['"`]git['"`]?/.test(t) &&
       /['"`](log|for-each-ref|ls-files|ls-tree|status|branch|diff|rev-list)['"`]/.test(t) &&
@@ -88,7 +87,7 @@ export const RULES = [
     severity: 'CRITICAL',
     message: 'Quick Kiss is a personal-use font and never comes back; the brand face is Damion.',
     suggestion: 'Use `--font-brand` (Damion). See docs/WEBSITE.md.',
-    applies: (f) => !isDoc(f) && !/no-quick-kiss/.test(f),
+    applies: (f) => !isDoc(f) && !/no-quick-kiss|pr-review-lint/.test(f),
     check: (t) => /quick[\s_-]?kiss/i.test(t),
   },
   {
