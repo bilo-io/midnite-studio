@@ -1525,31 +1525,112 @@ html[data-motion='reduced'] .tab-loop-active-arc::after {
   animation: none;
 }
 
-/* The terminal list's "Loops" group, while any loop session is live. It
- * borrows the running tab's arc above (same spin, same focus pause, same
- * reduced-motion rules) and only sets how much of the ring it lights:
+/* The terminal list's "Loops" group, while any loop session is live.
  *
- * - collapsed — the header alone, wearing exactly the subtle 120deg arc a
- *   running loop tab wears;
- * - expanded — the whole group, header and rows, behind a wider 240deg arc
- *   with a thicker rim and a stronger glow, so the set of running loops reads
- *   as one lit block in the list. */
+ * Collapsed, the header wears exactly the subtle arc a running loop tab
+ * wears (`.tab-loop-active-arc` above, at its 120deg).
+ *
+ * Expanded, the whole group wears the Loops panel's own treatment
+ * (`.gradient-frame`): a rainbow border ring with an inner rim glow, both cut
+ * to one arc that orbits the group. The arc is the overlay's own mask, so it
+ * clips the ring (`::before`) and the glow (`::after`) alike and the two can
+ * never drift apart. `--loops-orbit-angle` inherits, unlike the panel's
+ * angles, so both pseudos read the rotation the host animates. */
 .loops-group-arc {
   --fab-arc-from: 0deg;
   --fab-arc-to: 120deg;
 }
 
-.loops-group-arc[data-expanded='true'] {
-  --fab-arc-to: 240deg;
+@property --loops-orbit-angle {
+  syntax: '<angle>';
+  inherits: true;
+  initial-value: 0deg;
 }
 
-.loops-group-arc[data-expanded='true']::before {
-  border-width: 2px;
+@keyframes loops-orbit-spin {
+  to {
+    --loops-orbit-angle: 360deg;
+  }
 }
 
-.loops-group-arc[data-expanded='true']::after {
-  opacity: 1;
-  filter: blur(6px);
+.loops-group-orbit {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  animation: loops-orbit-spin 4s linear infinite paused;
+  mask-image: conic-gradient(
+    from var(--loops-orbit-angle, 0deg),
+    #000 0deg,
+    #000 140deg,
+    transparent 175deg,
+    transparent 330deg,
+    #000 360deg
+  );
+  -webkit-mask-image: conic-gradient(
+    from var(--loops-orbit-angle, 0deg),
+    #000 0deg,
+    #000 140deg,
+    transparent 175deg,
+    transparent 330deg,
+    #000 360deg
+  );
+}
+
+/* The ring: the rainbow, shown only in a 2px band at the edge — the content box
+ * is cut out of the full box (`exclude`). */
+.loops-group-orbit::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(from var(--loops-orbit-angle, 0deg), var(--rainbow-ramp));
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+}
+
+/* The rim glow: the same rainbow, blurred, in an even band inside every edge
+ * (four linear ramps unioned — `.gradient-frame::before` explains why not one
+ * radial). */
+.loops-group-orbit::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(from var(--loops-orbit-angle, 0deg), var(--rainbow-ramp));
+  filter: blur(8px);
+  opacity: 0.55;
+  mask-image:
+    linear-gradient(to bottom, #000 0, transparent 16px),
+    linear-gradient(to top, #000 0, transparent 16px),
+    linear-gradient(to right, #000 0, transparent 16px),
+    linear-gradient(to left, #000 0, transparent 16px);
+  -webkit-mask-image:
+    linear-gradient(to bottom, #000 0, transparent 16px),
+    linear-gradient(to top, #000 0, transparent 16px),
+    linear-gradient(to right, #000 0, transparent 16px),
+    linear-gradient(to left, #000 0, transparent 16px);
+}
+
+html:not([data-window-focused='false']) .loops-group-orbit {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .loops-group-orbit {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .loops-group-orbit {
+  animation: none;
 }
 
 /* FAB Loop Tab Shimmer — only tabs without a running loop carry this gentle sweep,
