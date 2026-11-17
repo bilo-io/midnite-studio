@@ -17,6 +17,7 @@ import {
   LuSquare,
   LuTrash2,
   LuTriangleAlert,
+  LuKeyboard,
   LuUndo2,
 } from 'react-icons/lu';
 import { useQueryClient } from '@tanstack/react-query';
@@ -90,6 +91,8 @@ import {
 import { refKey, sameRef } from './level-selection';
 import { snapPlan } from './level-plan';
 import { planSnapStep } from './level-snap';
+import { LevelShortcutHelp } from './level-shortcut-help';
+import { isMac, matchShortcut } from './level-shortcuts';
 import { LevelSnapPopover } from './level-snap-popover';
 import { blockingIssues, useLevelStore, type OpenLevel } from './level-store';
 import { lineCells, type View } from './level-view';
@@ -277,6 +280,12 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
   /** Where the pointer last was over the canvas, in object coordinates: Mod+V pastes there. */
   const lastPointer = useRef<PlanPoint | null>(null);
   const notify = useNotify();
+  const [helpOpen, setHelpOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const closeHelp = () => {
+    setHelpOpen(false);
+    rootRef.current?.querySelector<HTMLElement>('[role="application"]')?.focus();
+  };
   const dialogs = useFrameChrome().useDialogs();
   const [menuAt, setMenuAt] = useState<{ x: number; y: number; items: FrameMenuEntry[] } | null>(null);
   /** The outliner's frame request: the plan view recentres on a point (map pixels). */
@@ -601,74 +610,94 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const mod = event.metaKey || event.ctrlKey;
-    if (mod && event.key.toLowerCase() === 'z') {
-      event.preventDefault();
-      update(event.shiftKey ? redo : undo);
-      return;
-    }
-    if (mod && !event.altKey) {
-      const key = event.key.toLowerCase();
-      if (key === 'a' && !readOnly && objectLayerId !== null) {
+    const cmd = matchShortcut(event, { view: in3d ? '3d' : 'plan', dimension: is3d ? '3d' : '2d', mac: isMac() });
+    if (cmd === null) return;
+    const pathing = is3d && tool === 'path' && !readOnly;
+    switch (cmd) {
+      case 'edit.undo':
+      case 'edit.redo':
         event.preventDefault();
-        update((s) => selectAllInLayer(s, objectLayerId));
-      } else if (key === 'c' || key === 'x') {
+        update(cmd === 'edit.redo' ? redo : undo);
+        return;
+      case 'select.all':
+        if (!readOnly && objectLayerId !== null) {
+          event.preventDefault();
+          update((s) => selectAllInLayer(s, objectLayerId));
+        }
+        return;
+      case 'edit.copy':
+      case 'edit.cut': {
         const clip = copySelection(edit);
         if (!clip) return;
         event.preventDefault();
         void writeClipboard(clip);
-        if (key === 'x' && !readOnly) update((s) => deleteObjects(s, s.selected));
-      } else if (key === 'v' && !readOnly) {
-        event.preventDefault();
-        void pasteFromClipboard();
-      } else if (key === 'd' && !readOnly && edit.selected.length > 0) {
-        event.preventDefault();
-        update(duplicateSelection);
+        if (cmd === 'edit.cut' && !readOnly) update((s) => deleteObjects(s, s.selected));
+        return;
       }
-      return;
-    }
-    if (mod || event.altKey) return;
-    if (!readOnly && edit.selected.length > 0 && event.key.startsWith('Arrow')) {
-      event.preventDefault();
-      // One snap step (Theme F's plan step on a 3D level; a tile otherwise or when snapping is off), ten with Shift. An isometric map's objects are measured in tile-height units.
-      const step = event.shiftKey ? 10 : 1;
-      const planStep = is3d ? planSnapStep(level, snapSettings) : null;
-      const sx = (planStep?.x ?? (level.orientation === 'isometric' ? level.tileheight : level.tilewidth)) * step, sy = (planStep?.y ?? level.tileheight) * step;
-      const dx = event.key === 'ArrowLeft' ? -sx : event.key === 'ArrowRight' ? sx : 0;
-      const dy = event.key === 'ArrowUp' ? -sy : event.key === 'ArrowDown' ? sy : 0;
-      update((s) => nudgeObjects(s, s.selected, dx, dy));
-      return;
-    }
-    if (event.key === 'Escape' && !(is3d && tool === 'path' && draft.length > 0)) {
-      update((s) => selectOnly(s, null));
-      return;
-    }
-    if (is3d && tool === 'path' && !readOnly) {
-      if (event.key === 'Enter') {
+      case 'edit.paste':
+        if (!readOnly) {
+          event.preventDefault();
+          void pasteFromClipboard();
+        }
+        return;
+      case 'edit.duplicate':
+        if (!readOnly && edit.selected.length > 0) {
+          event.preventDefault();
+          update(duplicateSelection);
+        }
+        return;
+      case 'select.nudge': {
+        if (readOnly || edit.selected.length === 0) return;
+        event.preventDefault();
+        // One snap step (Theme F's plan step on a 3D level; a tile otherwise or when snapping is off), ten with Shift. An isometric map's objects are measured in tile-height units.
+        const step = event.shiftKey ? 10 : 1;
+        const planStep = is3d ? planSnapStep(level, snapSettings) : null;
+        const sx = (planStep?.x ?? (level.orientation === 'isometric' ? level.tileheight : level.tilewidth)) * step, sy = (planStep?.y ?? level.tileheight) * step;
+        const dx = event.key === 'ArrowLeft' ? -sx : event.key === 'ArrowRight' ? sx : 0;
+        const dy = event.key === 'ArrowUp' ? -sy : event.key === 'ArrowDown' ? sy : 0;
+        update((s) => nudgeObjects(s, s.selected, dx, dy));
+        return;
+      }
+      case 'select.none':
+        if (pathing && draft.length > 0) setDraft([]);
+        else update((s) => selectOnly(s, null));
+        return;
+      case 'path.finish':
+        if (!pathing) return;
         event.preventDefault();
         if (objectLayerId !== null) update((s) => finishPath(s, objectLayerId, draft));
         setDraft([]);
         return;
-      }
-      if (event.key === 'Escape') {
-        setDraft([]);
+      case 'edit.delete':
+        if (pathing && event.key === 'Backspace' && draft.length > 0) {
+          event.preventDefault();
+          setDraft((d) => d.slice(0, -1));
+        } else if (edit.selected.length > 0 && !readOnly) {
+          event.preventDefault();
+          update((s) => deleteObjects(s, s.selected));
+        }
         return;
-      }
-      if (event.key === 'Backspace' && draft.length > 0) {
+      case 'help.shortcuts':
         event.preventDefault();
-        setDraft((d) => d.slice(0, -1));
+        setHelpOpen(true);
         return;
-      }
-    }
-    if ((event.key === 'Delete' || event.key === 'Backspace') && edit.selected.length > 0 && !readOnly) {
-      event.preventDefault();
-      update((s) => deleteObjects(s, s.selected));
-      return;
-    }
-    const hit = tools.find((t) => t.key === event.key.toLowerCase());
-    if (hit && !readOnly) {
-      event.preventDefault();
-      chooseTool(hit.tool);
+      case 'tool.select':
+      case 'tool.entity':
+      case 'tool.paint':
+      case 'tool.erase':
+      case 'tool.rect':
+      case 'tool.pick':
+      case 'tool.volume':
+      case 'tool.path':
+      case 'tool.rotate':
+        if (!readOnly) {
+          event.preventDefault();
+          chooseTool(cmd.slice('tool.'.length) as LevelTool);
+        }
+        return;
+      default:
+        // gizmo.* and view.frame belong to the 3D view, which handles them before this runs.
+        return;
     }
   };
 
@@ -684,7 +713,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
   const firstIssue = entry.unreadable || blocking.length > 0 ? (blocking[0] ?? entry.issues[0]) : null;
 
   return (
-    <div className="flex h-full min-h-0 flex-col" data-testid="level-editor">
+    <div ref={rootRef} className="flex h-full min-h-0 flex-col" data-testid="level-editor">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-2 py-1">
         <div role="radiogroup" aria-label="Tool" className="flex items-center gap-0.5">
           {tools.map(({ tool: t, label, key, icon: Icon }) => (
@@ -732,6 +761,9 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
           </button>
           <button type="button" aria-label="Redo" title="Redo (Mod+Shift+Z)" disabled={edit.future.length === 0} onClick={() => update(redo)} className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40">
             <LuRedo2 aria-hidden className="h-3.5 w-3.5" />
+          </button>
+          <button type="button" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick={() => setHelpOpen(true)} className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">
+            <LuKeyboard aria-hidden className="h-3.5 w-3.5" />
           </button>
         </div>
         {edit.selected.length >= 2 && !readOnly ? (
@@ -862,6 +894,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
           {selected && edit.selection ? <Inspector object={selected} readOnly={readOnly} onField={(f, v) => update((s) => setObjectField(s, edit.selection!, f, v))} onProperty={(n, t, v) => update((s) => setProperty(s, edit.selection!, n, t, v))} onRemove={(n) => update((s) => removeProperty(s, edit.selection!, n))} onDelete={() => update((s) => deleteObject(s, edit.selection!))} properties={selected.properties ?? []} plan={is3d ? { level, models, onNumber: (n, raw) => update((s) => setOptionalNumber(s, edit.selection!, n, raw)), onText: (n, raw) => update((s) => setOptionalText(s, edit.selection!, n, raw)) } : undefined} /> : null}
         </aside>
       </div>
+      <LevelShortcutHelp open={helpOpen} onClose={closeHelp} view={in3d ? '3d' : 'plan'} dimension={is3d ? '3d' : '2d'} />
       {menuAt ? <KitContextMenu x={menuAt.x} y={menuAt.y} items={menuAt.items} onClose={() => setMenuAt(null)} /> : null}
     </div>
   );
