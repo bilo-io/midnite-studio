@@ -1016,6 +1016,10 @@ export const CHANNELS = {
   gamesLevelMapAsset: 'mstudio:games:level-map-asset',
   /** A game's `model` asset bytes for the level editor's 3D view (Phase 136 Theme F). */
   gamesLevelModel: 'mstudio:games:level-model',
+  /** Phase 138 Theme C: the renderer's one-way answer to a main -> renderer level-editor request. */
+  gamesLevelEditorReply: 'mstudio:games:level-editor-reply',
+  /** Phase 138 Theme C: the renderer's one-way presence — which scene the level editor shows, or null. */
+  gamesLevelEditorOpen: 'mstudio:games:level-editor-open',
   gamesGoto: 'mstudio:games:goto',
   /** Move a game's runner view into the `game` popout window (Theme B). */
   gamesPopOut: 'mstudio:games:pop-out',
@@ -1926,6 +1930,8 @@ export const EVENT_CHANNELS = {
   videoRenderProgress: 'mstudio:video:render-progress',
   /** The games on disk changed — see `GamesChangedPayload`. */
   gamesChanged: 'mstudio:games:changed',
+  /** Phase 138 Theme C: main asks the open level editor something — see `GamesLevelEditorRequestPayload`. */
+  gamesLevelEditorRequest: 'mstudio:games:level-editor-request',
   /** A game run's lifecycle state changed — see `GameRunStatePayload`. */
   gamesRunState: 'mstudio:games:run-state',
   /** A batch of a run's console entries — see `GameConsolePayload`. */

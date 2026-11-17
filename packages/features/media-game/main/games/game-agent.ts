@@ -286,6 +286,8 @@ const ACTION_LABELS: Partial<Record<GameMcpToolId, string>> = {
   game_playtest: 'Ran the play-tests',
   game_level_list: 'Listed the levels',
   game_level_get: 'Read a level',
+  game_level_query: 'Queried a level',
+  game_level_validate: 'Validated a level',
   game_level_set: 'Saved a level',
   game_goto: 'Jumped to a scene',
   game_doctor: 'Diagnosed the game',

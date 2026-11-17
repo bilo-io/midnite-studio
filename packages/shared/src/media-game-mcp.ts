@@ -13,6 +13,8 @@
  */
 import { z } from 'zod';
 
+import { LevelQuerySchema } from './game-level-ops';
+
 import {
   GameAgentEngineSchema,
   GameAssetNameSchema,
@@ -60,6 +62,9 @@ export const GAME_MCP_TOOL_IDS = [
   'game_level_list',
   'game_level_get',
   'game_level_set',
+  // Phase 138 Theme D.
+  'game_level_query',
+  'game_level_validate',
   'game_goto',
   // Phase 149 Theme C.
   'game_doctor',
@@ -86,6 +91,8 @@ export const GAME_MCP_READ_TOOL_IDS: readonly GameMcpToolId[] = [
   'game_state',
   'game_level_list',
   'game_level_get',
+  'game_level_query',
+  'game_level_validate',
   'game_doctor',
 ];
 
@@ -266,6 +273,46 @@ export const GameLevelSetInputSchema = GameToolTargetSchema.extend({
   create: z.boolean().optional(),
 });
 export const GameLevelSetOutputSchema = z.object({ ok: z.literal(true), gameId: z.string(), sha: z.string().nullable() });
+// --- level query and validate (Phase 138 Theme D) --------------------------------------
+
+export const LevelObjectSummarySchema = z.object({
+  id: z.number().int(),
+  layerId: z.number().int(),
+  layer: z.string(),
+  type: z.string(),
+  name: z.string(),
+  x: z.number(),
+  y: z.number(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  rotation: z.number().optional(),
+  point: z.boolean().optional(),
+  properties: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
+  world: z.object({ x: z.number(), y: z.number(), z: z.number() }).optional(),
+});
+export const LevelIssueSchema = z.object({
+  rule: z.string(),
+  severity: z.enum(['error', 'warning', 'info']),
+  message: z.string(),
+  objectId: z.number().int().optional(),
+  layerId: z.number().int().optional(),
+});
+/** `source` says where the level came from: the open editor (unsaved edits included) or the committed file. */
+export const GameLevelSourceSchema = z.enum(['editor', 'file']);
+export const GameLevelQueryInputSchema = GameToolTargetSchema.extend({ scene: GameSceneNameSchema }).merge(LevelQuerySchema);
+export const GameLevelQueryOutputSchema = z.object({
+  source: GameLevelSourceSchema,
+  dirty: z.boolean(),
+  total: z.number().int(),
+  truncated: z.boolean(),
+  objects: z.array(LevelObjectSummarySchema),
+});
+export const GameLevelValidateInputSchema = GameToolTargetSchema.extend({ scene: GameSceneNameSchema });
+export const GameLevelValidateOutputSchema = z.object({
+  source: GameLevelSourceSchema,
+  counts: z.object({ error: z.number().int(), warning: z.number().int(), info: z.number().int() }),
+  issues: z.array(LevelIssueSchema),
+});
 export const GameGotoInputSchema = GameToolTargetSchema.extend({ scene: GameSceneNameSchema });
 export const GameGotoOutputSchema = GameGotoResultSchema.extend({ gameId: z.string() });
 export const GameLevelListOutputSchema = GameLevelsResultSchema;

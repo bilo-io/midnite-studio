@@ -7,6 +7,8 @@ import {
   GAME_MCP_TOOL_IDS,
   GAME_SLOW_TOOL_IDS,
   GameInputInputSchema,
+  GameLevelQueryInputSchema,
+  GameLevelValidateOutputSchema,
   GameLogsInputSchema,
   GameScreenshotInputSchema,
   isGameMcpToolId,
@@ -52,3 +54,25 @@ describe('game_* MCP tools', () => {
     expect(jsonDepth(deep)).toBe(100_000);
   });
 });
+
+describe('level query and validate tools (Phase 138 Theme D)', () => {
+  it('are read tools, and D5: their descriptions open with a verb and fit 220 characters', () => {
+    for (const id of ['game_level_query', 'game_level_validate'] as const) {
+      expect(GAME_MCP_READ_TOOL_IDS).toContain(id);
+      expect(MCP_TOOLS[id].readOnly).toBe(true);
+      expect(MCP_TOOLS[id].description.length).toBeLessThanOrEqual(220);
+    }
+  });
+
+  it('the query input takes the target, a scene and the LevelQuery filters, with its defaults', () => {
+    const parsed = GameLevelQueryInputSchema.parse({ game: 'g1', scene: 'level', types: ['crate'] });
+    expect(parsed).toMatchObject({ game: 'g1', scene: 'level', unit: 'px', limit: 200 });
+    expect(GameLevelQueryInputSchema.safeParse({ game: 'g1', scene: 'Bad Name' }).success).toBe(false);
+  });
+
+  it('the validate output shape holds counts and issues', () => {
+    const out = { source: 'file', counts: { error: 1, warning: 0, info: 0 }, issues: [{ rule: 'level/no-spawn', severity: 'error', message: 'x' }] };
+    expect(GameLevelValidateOutputSchema.safeParse(out).success).toBe(true);
+  });
+});
+

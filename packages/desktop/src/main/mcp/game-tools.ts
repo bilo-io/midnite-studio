@@ -52,6 +52,10 @@ export const gameLevelSet = async (input: McpToolInput<'game_level_set'>): Promi
   allowed();
   return tools().game_level_set(input);
 };
+export const gameLevelQuery = async (input: McpToolInput<'game_level_query'>): Promise<McpToolOutput<'game_level_query'>> =>
+  tools().game_level_query(input);
+export const gameLevelValidate = async (input: McpToolInput<'game_level_validate'>): Promise<McpToolOutput<'game_level_validate'>> =>
+  tools().game_level_validate(input);
 export const gameGoto = async (input: McpToolInput<'game_goto'>): Promise<McpToolOutput<'game_goto'>> => {
   allowed();
   return tools().game_goto(input);

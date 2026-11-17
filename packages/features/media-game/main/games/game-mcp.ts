@@ -1,6 +1,9 @@
 import {
   EVENT_CHANNELS,
   gameEngineWarnings,
+  levelEntityTypes,
+  queryLevel,
+  validateLevel,
   MCP_CONTENT_KEY,
   type GameImportAssetRequest,
   type GameImportAssetResult,
@@ -14,6 +17,7 @@ import {
 
 import { McpToolError } from '@midnite/studio-runtime';
 
+import { readLevelForTool } from './game-level-source';
 import type { GameService } from './game-service';
 import { clipError, readGameState } from './game-state';
 import type { Playtests } from './playtest';
@@ -52,7 +56,7 @@ export type GameImage = {
 };
 
 export type GameMcpDeps = {
-  service: Pick<GameService, 'resolve' | 'list' | 'levels' | 'goto' | 'doctor' | 'doctorFix' | 'create' | 'manifestGet' | 'manifestSet' | 'run' | 'stop' | 'reload' | 'logs' | 'emit' | 'isRunning'>;
+  service: Pick<GameService, 'resolve' | 'list' | 'levels' | 'levelEditor' | 'goto' | 'doctor' | 'doctorFix' | 'create' | 'manifestGet' | 'manifestSet' | 'run' | 'stop' | 'reload' | 'logs' | 'emit' | 'isRunning'>;
   /** The running game's web contents, or `null` when it is not running. */
   webContents: (gameId: string) => GamePageContents | null;
   /** The asset bridge's import (Theme N). */
@@ -86,6 +90,8 @@ export type GameMcpTools = {
     | 'game_level_list'
     | 'game_level_get'
     | 'game_level_set'
+    | 'game_level_query'
+    | 'game_level_validate'
     | 'game_goto'
     | 'game_doctor'
     | 'game_doctor_fix']: (input: McpToolInput<K>) => Promise<McpToolOutput<K>>;
@@ -345,6 +351,23 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
       const found = await need(game);
       const written = unwrapLevel(await deps.service.levels.set(found.gameId, scene, level, create === undefined ? {} : { create }));
       return { ok: true as const, gameId: found.gameId, sha: written.sha };
+    },
+
+    async game_level_query({ game, scene, ...query }) {
+      const found = await need(game);
+      const read = unwrapLevel(await readLevelForTool(deps.service, found.gameId, scene));
+      return { source: read.source, dirty: read.dirty, ...queryLevel(read.level, query) };
+    },
+
+    async game_level_validate({ game, scene }) {
+      const found = await need(game);
+      const read = unwrapLevel(await readLevelForTool(deps.service, found.gameId, scene));
+      const { manifest } = await deps.service.manifestGet(found.gameId);
+      const modelAssets = manifest ? manifest.assets.filter((a) => a.kind === 'model').map((a) => a.name) : null;
+      const issues = validateLevel(read.level, { entityTypes: levelEntityTypes(read.level), modelAssets });
+      const counts = { error: 0, warning: 0, info: 0 };
+      for (const issue of issues) counts[issue.severity]++;
+      return { source: read.source, counts, issues };
     },
 
     async game_goto({ game, scene }) {

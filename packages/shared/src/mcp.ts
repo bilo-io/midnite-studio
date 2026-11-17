@@ -51,6 +51,10 @@ import {
   GameLevelListOutputSchema,
   GameLevelSetInputSchema,
   GameLevelSetOutputSchema,
+  GameLevelQueryInputSchema,
+  GameLevelQueryOutputSchema,
+  GameLevelValidateInputSchema,
+  GameLevelValidateOutputSchema,
   GameGotoInputSchema,
   GameGotoOutputSchema,
   GameDoctorOutputSchema,
@@ -301,6 +305,8 @@ type McpToolEntry = {
     | 'game_level_list'
     | 'game_level_get'
     | 'game_level_set'
+    | 'game_level_query'
+    | 'game_level_validate'
     | 'game_goto'
     | 'game_doctor'
     | 'game_doctor_fix'
@@ -1163,6 +1169,24 @@ export const MCP_TOOLS = {
     input: GameLevelSetInputSchema,
     output: GameLevelSetOutputSchema,
     readOnly: false,
+  },
+  game_level_query: {
+    id: 'game_level_query',
+    title: 'Query a game level',
+    description:
+      'Finds objects in a level by type, layer, name, id or region, in pixels or metres, including unsaved edits open in the editor — use instead of `game_level_get` on a whole level.',
+    input: GameLevelQueryInputSchema,
+    output: GameLevelQueryOutputSchema,
+    readOnly: true,
+  },
+  game_level_validate: {
+    id: 'game_level_validate',
+    title: 'Validate a game level',
+    description:
+      'Checks a level for problems (no spawn, duplicate ids, unknown types, missing models), unsaved edits included — run after editing and before `game_level_set`.',
+    input: GameLevelValidateInputSchema,
+    output: GameLevelValidateOutputSchema,
+    readOnly: true,
   },
   game_goto: {
     id: 'game_goto',

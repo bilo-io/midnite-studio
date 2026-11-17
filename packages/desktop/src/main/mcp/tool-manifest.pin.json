@@ -1,5 +1,5 @@
 {
-  "hash": "dc7b3fc42335f60724c22950340245bcbae80c7965bd0a9492c7b044a4bb8cc6",
+  "hash": "165f415f0640ed08d7158e270491b25c2c76f81370d6f073e706e3416f879a6a",
   "tools": {
     "repo.list": "c2254fa779e5cb87",
     "repo.resolve": "b39c228fe331d5d8",
@@ -75,6 +75,8 @@
     "game_level_list": "e7e364dc53cfef6c",
     "game_level_get": "472c220c91eaae39",
     "game_level_set": "3034ea4d677811a6",
+    "game_level_query": "f2305d4e55a003b2",
+    "game_level_validate": "20bc803abe06fc70",
     "game_goto": "c659083c24dc2a93",
     "game_doctor": "d1ce3252dafba7bf",
     "game_doctor_fix": "f91519619043a599",
