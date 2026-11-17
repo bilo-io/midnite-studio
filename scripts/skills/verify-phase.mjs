@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 // Phase verification driver (Phase 151 Theme E) — the deterministic half of `midnite-verify`.
 //
-//   node scripts/skills/verify-phase.mjs [--phase N] [--root DIR] [--json] [--full] [--run]
+//   node scripts/skills/verify-phase.mjs [--phase N] [--root DIR] [--json] [--full]
 //   node scripts/skills/verify-phase.mjs --phase N --tick 151.E.1,151.E.2          # check off automated items
 //   node scripts/skills/verify-phase.mjs --phase N --complete --confirm [--summary "..."]   # after human sign-off
 //
 // Default: locate the oldest incomplete phase (or --phase), partition its checklist into automated vs human
-// items, run `tracker-check.mjs`, and LIST the gate commands to run. It never runs the full
-// `moon run :typecheck :lint :test` unless --full is passed (that gate exhausts RAM on the dev machine); other
-// gate commands only run with --run. Writes need explicit flags: --tick edits the phase doc, --complete (with
+// items, run `tracker-check.mjs`, and LIST the focused commands to run (they need the touched files, so they
+// are never run here). It never runs the full `moon run :typecheck :lint :test` unless --full is passed (that
+// gate exhausts RAM on the dev machine). Writes need explicit flags: --tick edits the phase doc, --complete (with
 // --confirm) flips the phase row to DONE in its category `_INDEX.md` and appends to `done.md`.
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -84,12 +84,11 @@ export function findPhase(root, phase) {
 }
 
 /** The gate: what runs by default, what is merely listed, and what --full adds. */
-export function planGate({ full = false, run = false } = {}) {
+export function planGate({ full = false } = {}) {
   const steps = [{ name: 'tracker-check', cmd: ['node', 'scripts/tracker-check.mjs'], run: true }];
   steps.push({ name: 'focused tests', cmd: ['npx', 'vitest', 'run', '<changed test files>'], run: false, note: 'run the tests of the packages the phase touched' });
   steps.push({ name: 'focused lint', cmd: ['npx', 'eslint', '<touched files>'], run: false });
   steps.push({ name: 'full gate', cmd: FULL_GATE, run: full, note: full ? undefined : 'opt-in (--full): exhausts RAM on the dev machine' });
-  if (!run) for (const s of steps) if (s.name !== 'tracker-check' && s.name !== 'full gate') s.run = false;
   return steps;
 }
 
@@ -128,7 +127,7 @@ export function verify({ root, phase, full = false, run = false, exec = defaultE
   const counts = countCheckboxes(text);
   const openAutomated = items.filter((i) => !i.done && i.kind === 'automated');
   const openHuman = items.filter((i) => !i.done && i.kind === 'human');
-  const gate = planGate({ full, run });
+  const gate = planGate({ full });
   const results = gate
     .filter((s) => s.run)
     .map((s) => ({ name: s.name, cmd: s.cmd.join(' '), ...exec(s.cmd, { cwd: root }) }))
