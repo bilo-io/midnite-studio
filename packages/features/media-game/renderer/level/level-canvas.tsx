@@ -69,7 +69,7 @@ export function useTilesetImages(images: ReadonlyArray<{ path: string; dataUrl: 
 }
 
 /** The topmost object within reach of a map-space point, over the visible object layers. */
-export function hitObject(level: EditLevel, mapPoint: { x: number; y: number }, zoom: number): NonNullable<EditSelection> | null {
+export function hitObject(level: EditLevel, mapPoint: { x: number; y: number }, zoom: number, skip?: (ref: ObjectRef) => boolean): NonNullable<EditSelection> | null {
   const reach = HIT_RADIUS_PX / zoom;
   for (let i = level.layers.length - 1; i >= 0; i -= 1) {
     const layer = level.layers[i]!;
@@ -77,6 +77,7 @@ export function hitObject(level: EditLevel, mapPoint: { x: number; y: number }, 
     const objects = layer.objects ?? [];
     for (let j = objects.length - 1; j >= 0; j -= 1) {
       const o = objects[j]!;
+      if (skip?.({ layerId: layer.id, objectId: o.id })) continue;
       const at = objectToMapPoint(level, o.x, o.y);
       const w = level.orientation === 'isometric' ? 0 : (o.width ?? 0), h = level.orientation === 'isometric' ? 0 : (o.height ?? 0);
       // A point is its marker; a rectangle (Tiled's y is its top edge) is its box, plus the marker's reach.
@@ -101,6 +102,10 @@ export function LevelCanvas({
   selected,
   highlight,
   marquee,
+  hidden,
+  locked,
+  centreOn,
+  onContextMenu,
   hoverEnabled,
   preview,
   onPointer,
@@ -120,6 +125,14 @@ export function LevelCanvas({
   highlight?: PlanHighlight | null;
   /** The marquee being dragged, in object coordinates. */
   marquee?: PlanRect | null;
+  /** Objects hidden in the outliner (refKeys): not drawn, not hit. Editor-only (Phase 137 Theme H). */
+  hidden?: ReadonlySet<string>;
+  /** Objects locked in the outliner (refKeys): drawn, not hit. */
+  locked?: ReadonlySet<string>;
+  /** Recentre the view on a map-pixel point at the current zoom; `n` makes each request distinct. */
+  centreOn?: { x: number; y: number; n: number } | null;
+  /** Right-click (Phase 137 Theme I): what is under the pointer, in object coordinates, and where it is on screen. */
+  onContextMenu?: (event: { clientX: number; clientY: number; hit: ObjectRef | null; object: PlanPoint }) => void;
   hoverEnabled: boolean;
   /** Cells outlined while a rectangle is being dragged. */
   preview: readonly Cell[] | null;
@@ -177,6 +190,13 @@ export function LevelCanvas({
     if (viewOut) viewOut.current = { view, size };
   }, [viewOut, view, size]);
   useEffect(() => {
+    if (!centreOn) return;
+    fitted.current = true;
+    setView((v) => ({ ...v, x: size.width / 2 - centreOn.x * v.zoom, y: size.height / 2 - centreOn.y * v.zoom }));
+    // Only a new request recentres; a resize after it keeps the user's view.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [centreOn?.n]);
+  useEffect(() => {
     if (!viewIn) return;
     fitted.current = true;
     setView(viewIn);
@@ -222,7 +242,7 @@ export function LevelCanvas({
     };
     if (plan) {
       const overlay: PlanOverlay = { terrain: plan.terrain, terrainImage, draft: plan.draft, cursor: plan.draft.length > 0 ? cursor : null, volume: plan.volume };
-      drawPlan(ctx, { level, view, selection, selected, marquee, overlay, outline, text, highlight });
+      drawPlan(ctx, { level, view, selection, selected, marquee, hidden, overlay, outline, text, highlight });
       return;
     }
     const pixel = mapPixelSize(tmj);
@@ -259,6 +279,7 @@ export function LevelCanvas({
     for (const layer of level.layers) {
       if (layer.type !== 'objectgroup' || layer.visible === false) continue;
       for (const o of layer.objects ?? []) {
+        if (hidden?.has(`${layer.id}:${o.id}`)) continue;
         const at = objectToMapPoint(level, o.x, o.y);
         const r = Math.max(3, tmj.tileheight / 4);
         const w = level.orientation === 'isometric' ? 0 : (o.width ?? 0), h = level.orientation === 'isometric' ? 0 : (o.height ?? 0);
@@ -298,11 +319,16 @@ export function LevelCanvas({
       cellPath(c.x, c.y);
       ctx.stroke();
     }
-  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection, selected, marquee, plan, terrainImage, terrainLoaded, cursor, highlight, pulseTick]);
+  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection, selected, marquee, hidden, plan, terrainImage, terrainLoaded, cursor, highlight, pulseTick]);
 
   const local = (e: { clientX: number; clientY: number }) => {
     const rect = canvas.current?.getBoundingClientRect();
     return { sx: e.clientX - (rect?.left ?? 0), sy: e.clientY - (rect?.top ?? 0) };
+  };
+
+  const unpickable = (ref: ObjectRef) => {
+    const key = `${ref.layerId}:${ref.objectId}`;
+    return !!hidden?.has(key) || !!locked?.has(key);
   };
 
   const emit = (e: ReactPointerEvent<HTMLCanvasElement>, phase: CanvasPointer['phase']) => {
@@ -317,7 +343,7 @@ export function LevelCanvas({
       phase,
       cell,
       object: plan ? { x: p.x, y: p.y } : mapPointToObject(level, p.x, p.y),
-      hit: plan ? hitPlan(level, p, view.zoom) : hitObject(level, p, view.zoom),
+      hit: plan ? hitPlan(level, p, view.zoom, unpickable) : hitObject(level, p, view.zoom, unpickable),
       alt: e.altKey,
       shift: e.shiftKey,
       mod: e.metaKey || e.ctrlKey,
@@ -389,6 +415,18 @@ export function LevelCanvas({
         onPointerCancel={onUp}
         onPointerLeave={() => setHover(null)}
         onAuxClick={(e) => e.preventDefault()}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          if (!onContextMenu) return;
+          const { sx, sy } = local(e);
+          const p = screenToMap(view, sx, sy);
+          onContextMenu({
+            clientX: e.clientX,
+            clientY: e.clientY,
+            hit: plan ? hitPlan(level, p, view.zoom, (r) => !!hidden?.has(`${r.layerId}:${r.objectId}`)) : hitObject(level, p, view.zoom, (r) => !!hidden?.has(`${r.layerId}:${r.objectId}`)),
+            object: plan ? { x: p.x, y: p.y } : mapPointToObject(level, p.x, p.y),
+          });
+        }}
       />
       <span className="pointer-events-none absolute bottom-1 right-2 text-[11px] tabular-nums text-muted-foreground" data-testid="level-zoom">
         {plan ? `${level.width * levelMetresPerTile(level)} × ${level.height * levelMetresPerTile(level)} m` : `${level.width} × ${level.height}`} · {Math.round(view.zoom * 100)}%

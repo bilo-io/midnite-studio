@@ -22,7 +22,7 @@ import { OPTIMISATION_PRESETS, presetFor } from './optimisation';
 import { SpatialGrid } from './spatial-grid';
 
 /** What the editor asks of the 3D view: ease back to the plan pose, then hand over the pose it ended on. */
-export type Level3dHandle = { exit: (done: (pose: CameraPose) => void) => void };
+export type Level3dHandle = { exit: (done: (pose: CameraPose) => void) => void; /** Ease the camera onto the selected object (the outliner's double-click). */ frame?: () => void };
 
 export type Level3dViewProps = {
   gameId: string;
@@ -45,6 +45,12 @@ export type Level3dViewProps = {
   handle: MutableRefObject<Level3dHandle | null>;
   /** Keys the 3D view does not own (undo, delete, tool keys) go back to the editor. */
   onEditorKey: (event: KeyboardEvent<HTMLDivElement>) => void;
+  /** Objects hidden in the outliner (refKeys): not drawn. Editor-only (Phase 137 Theme H). */
+  hidden?: ReadonlySet<string>;
+  /** Objects locked in the outliner (refKeys): drawn, but a click does not pick them. */
+  locked?: ReadonlySet<string>;
+  /** Right-click (Phase 137 Theme I): the object under the pointer, or null over the ground. */
+  onContextMenu?: (event: { clientX: number; clientY: number; hit: { layerId: number; objectId: number } | null }) => void;
 };
 
 type LevelSceneRayRef = LevelSceneProps['ray'];
@@ -72,7 +78,8 @@ export function levelBounds(level: EditLevel, terrain: GameLevelTerrain | null):
  */
 export default function Level3dView(props: Level3dViewProps) {
   const { level, gameId, update } = props;
-  const items = useMemo(() => levelWorldItems(level), [level]);
+  const hiddenKeys = props.hidden;
+  const items = useMemo(() => (hiddenKeys && hiddenKeys.size > 0 ? levelWorldItems(level).filter((it) => !hiddenKeys.has(`${it.sel.layerId}:${it.sel.objectId}`)) : levelWorldItems(level)), [level, hiddenKeys]);
   const grid = useMemo(() => new SpatialGrid(items), [items]);
   const bounds = useMemo(() => levelBounds(level, props.terrain), [level, props.terrain]);
   const ground = groundY(level);
@@ -158,6 +165,7 @@ export default function Level3dView(props: Level3dViewProps) {
         const to = planPose(now.target, now.span);
         move.current = { from: now, to, startedAt: null, onDone: () => done(to) };
       },
+      frame: () => frameRef.current(),
     };
     return () => {
       cancelAnimationFrame(id);
@@ -175,6 +183,11 @@ export default function Level3dView(props: Level3dViewProps) {
     move.current = { from: now, to, startedAt: null };
     setDirtyTick((t) => t + 1);
   };
+
+  /** The item under the pointer, for a right-click (the scene's pointer-move events set it). */
+  const pointerHit = useRef<{ layerId: number; objectId: number } | null>(null);
+  const frameRef = useRef(frame);
+  frameRef.current = frame;
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const mod = event.metaKey || event.ctrlKey;
@@ -320,7 +333,7 @@ export default function Level3dView(props: Level3dViewProps) {
         projectPoint,
         rectAt(ev),
       );
-      const refs = hits.map((i) => items[i]!.sel);
+      const refs = hits.map((i) => items[i]!.sel).filter((r) => !props.locked?.has(`${r.layerId}:${r.objectId}`));
       if (refs.length > 0) update((s) => addSelected(s, refs));
     };
     window.addEventListener('pointermove', move);
@@ -339,6 +352,11 @@ export default function Level3dView(props: Level3dViewProps) {
       onKeyDown={onKeyDown}
       onPointerDownCapture={toolDown}
       onPointerDown={startMarquee}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        if (!props.onContextMenu) return;
+        props.onContextMenu({ clientX: e.clientX, clientY: e.clientY, hit: pointerHit.current });
+      }}
     >
       <Canvas frameloop={statsOn ? 'always' : 'demand'} dpr={Math.min(preset.pixelRatio, typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1)} gl={{ antialias: true }}>
         <LevelScene
@@ -366,8 +384,12 @@ export default function Level3dView(props: Level3dViewProps) {
           move={move}
           poseOut={poseOut}
           dirtyTick={dirtyTick}
+          onHover={(index) => {
+            pointerHit.current = index === null ? null : (items[index]?.sel ?? null);
+          }}
           onPick={(index, modifier) => {
             const sel = index === null ? null : (items[index]?.sel ?? null);
+            if (sel && props.locked?.has(`${sel.layerId}:${sel.objectId}`)) return;
             update((s) => (sel && modifier === 'toggle' ? toggleSelected(s, sel) : sel && modifier === 'add' ? addSelected(s, [sel]) : select(s, sel)));
           }}
           onGroupEnd={(delta: GroupDelta, framePivot: GroupPivot) => {
