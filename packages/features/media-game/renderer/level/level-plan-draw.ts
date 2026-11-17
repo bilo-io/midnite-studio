@@ -1,7 +1,8 @@
 import type { GameLevelTerrain } from '@midnite/studio-shared';
 
-import type { EditLevel, EditSelection, PlanPoint } from './level-edit-model';
+import type { EditLevel, EditSelection, ObjectRef, PlanPoint, PlanRect } from './level-edit-model';
 import { footprintCorners, gridLines, pathPoints, planBounds, terrainRect, yawTipPoint } from './level-plan';
+import { selectionBounds } from './level-selection';
 import type { View } from './level-view';
 
 /** What the plan view draws besides the level: the terrain's extent and the path being drawn. */
@@ -15,6 +16,57 @@ export type PlanOverlay = {
   volume: { from: PlanPoint; to: PlanPoint } | null;
 };
 
+/** Every selected object's outline (Phase 137 Theme C): the 3D view's amber, so one colour means "selected" in both views. */
+export const SELECTED_COLOUR = '#f5a524';
+
+/** `rect`'s four corners, mapped into the space being drawn (the identity for a plan; isometric maps bend the rectangle). */
+function rectPath(ctx: CanvasRenderingContext2D, rect: PlanRect, toMap: (p: PlanPoint) => PlanPoint): void {
+  const corners = [
+    { x: rect.x, y: rect.y },
+    { x: rect.x + rect.width, y: rect.y },
+    { x: rect.x + rect.width, y: rect.y + rect.height },
+    { x: rect.x, y: rect.y + rect.height },
+  ].map(toMap);
+  ctx.beginPath();
+  corners.forEach((c, i) => (i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y)));
+  ctx.closePath();
+}
+
+/**
+ * What a multi-selection adds on top of the objects: a dashed 1 px bounds box around two or more selected objects, and
+ * the marquee being dragged (a dashed `outline` rectangle with a 10% fill). Rectangles are in object coordinates;
+ * `toMap` carries them into the drawn space.
+ */
+export function drawSelectionExtras(
+  ctx: CanvasRenderingContext2D,
+  input: { level: EditLevel; view: View; selected: readonly ObjectRef[]; marquee: PlanRect | null; outline: string; toMap?: (p: PlanPoint) => PlanPoint },
+): void {
+  const { level, view, selected, marquee, outline } = input;
+  const toMap = input.toMap ?? ((p: PlanPoint) => p);
+  const px = 1 / view.zoom;
+  const bounds = selected.length >= 2 ? selectionBounds(level, selected) : null;
+  if (bounds) {
+    ctx.strokeStyle = SELECTED_COLOUR;
+    ctx.lineWidth = px;
+    ctx.setLineDash([5 * px, 3 * px]);
+    rectPath(ctx, bounds, toMap);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  if (marquee) {
+    ctx.strokeStyle = outline;
+    ctx.fillStyle = outline;
+    ctx.lineWidth = px;
+    ctx.setLineDash([4 * px, 3 * px]);
+    rectPath(ctx, marquee, toMap);
+    ctx.globalAlpha = 0.1;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
 export const PLAN_COLOURS: Record<string, string> = { spawn: '#22c55e', exit: '#3b82f6', prop: '#f59e0b', enemy: '#ef4444', pickup: '#eab308', light: '#fde047', checkpoint: '#14b8a6', trigger: '#a855f7', npc: '#06b6d4', path: '#ec4899' };
 const NEUTRAL = '#e5e7eb';
 const typeOf = (o: { type?: string; class?: string }): string => o.type || o.class || '';
@@ -26,9 +78,11 @@ const typeOf = (o: { type?: string; class?: string }): string => o.type || o.cla
  */
 export function drawPlan(
   ctx: CanvasRenderingContext2D,
-  input: { level: EditLevel; view: View; selection: EditSelection; overlay: PlanOverlay; outline: string; text: string },
+  input: { level: EditLevel; view: View; selection: EditSelection; selected?: readonly ObjectRef[]; marquee?: PlanRect | null; overlay: PlanOverlay; outline: string; text: string },
 ): void {
   const { level, view, selection, overlay, outline, text } = input;
+  const selected = input.selected ?? (selection ? [selection] : []);
+  const chosenKeys = new Set(selected.map((r) => `${r.layerId}:${r.objectId}`));
   const px = 1 / view.zoom;
   const mapW = level.width * level.tilewidth, mapH = level.height * level.tileheight;
   const bounds = planBounds(level, overlay.terrain);
@@ -81,10 +135,11 @@ export function drawPlan(
       const colour = PLAN_COLOURS[typeOf(o)] ?? NEUTRAL;
       const corners = footprintCorners(o);
       const path = pathPoints(o);
-      const chosen = selection !== null && selection.layerId === layer.id && selection.objectId === o.id;
+      const chosen = chosenKeys.has(`${layer.id}:${o.id}`);
+      const primary = selection !== null && selection.layerId === layer.id && selection.objectId === o.id;
       ctx.strokeStyle = colour;
       ctx.fillStyle = `${colour}44`;
-      ctx.lineWidth = (chosen ? 2.5 : 1.5) * px;
+      ctx.lineWidth = (primary ? 2.5 : 1.5) * px;
       if (corners) {
         ctx.beginPath();
         corners.forEach((c, i) => (i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y)));
@@ -112,10 +167,15 @@ export function drawPlan(
         ctx.stroke();
       }
       if (chosen) {
-        ctx.strokeStyle = outline;
-        ctx.lineWidth = 2 * px;
+        // One amber outline per selected object, the primary a pixel heavier: the footprint, the path, or a ring round a marker.
+        ctx.strokeStyle = SELECTED_COLOUR;
+        ctx.lineWidth = (primary ? 3 : 2) * px;
         ctx.beginPath();
-        ctx.arc(o.x, o.y, markerR + 4 * px, 0, Math.PI * 2);
+        if (corners) {
+          corners.forEach((c, i) => (i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y)));
+          ctx.closePath();
+        } else if (path.length > 1) path.forEach((c, i) => (i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y)));
+        else ctx.arc(o.x, o.y, markerR + 4 * px, 0, Math.PI * 2);
         ctx.stroke();
       }
       ctx.fillStyle = text;
@@ -123,6 +183,8 @@ export function drawPlan(
     }
   }
 
+  drawSelectionExtras(ctx, { level, view, selected, marquee: input.marquee ?? null, outline });
+  ctx.setLineDash([]);
   ctx.strokeStyle = outline;
   ctx.lineWidth = 1.5 * px;
   if (overlay.volume) {

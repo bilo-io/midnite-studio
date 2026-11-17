@@ -26,10 +26,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { GAME_LEVEL_ENTITY_TYPES_2D, GAME_LEVEL_ENTITY_TYPES_3D, levelEntityToWorld, levelProperties, metresPerTile } from '@midnite/studio-shared';
 import { EmptyState, EmptyStateButton, Skeleton } from '@midnite/studio-frame';
 
+import { useNotify } from '../chrome';
 import { useDoctorRequest } from '../game-doctor-store';
 import { useDoctorFix, useGameDiagnosis } from '../use-games';
+import { LevelAlignBar } from './level-align-bar';
+import { alignObjects, distributeObjects, type AlignAxis, type AlignEdge } from './level-align';
 import { useLevelEditorBridge } from './use-level-editor-bridge';
 import { LevelCanvas, type CanvasPointer } from './level-canvas';
+import { copySelection, duplicateSelection, pasteClipboard, readClipboard, writeClipboard } from './level-clipboard';
 import {
   addLayer,
   addObject,
@@ -37,6 +41,7 @@ import {
   beginStroke,
   cellCentre,
   deleteObject,
+  deleteObjects,
   endStroke,
   erase,
   fillRect,
@@ -44,7 +49,8 @@ import {
   findObject,
   isLevel3d,
   layerById,
-  moveObject,
+  moveObjects,
+  nudgeObjects,
   paint,
   pick,
   redo,
@@ -54,12 +60,17 @@ import {
   rotationToward,
   objectCentre,
   select,
+  selectAllInLayer,
+  selectInRect,
+  selectOnly,
   setActiveLayer,
   setObjectField,
   setOptionalNumber,
   setOptionalText,
   setProperty,
   setVolume,
+  toggleSelected,
+  addSelected,
   toggleVisible,
   undo,
   rectCells,
@@ -69,8 +80,11 @@ import {
   type LevelObject,
   type LevelProperty,
   type ObjectField,
+  type ObjectRef,
   type PlanPoint,
+  type PlanRect,
 } from './level-edit-model';
+import { sameRef } from './level-selection';
 import { snapPlan } from './level-plan';
 import { blockingIssues, useLevelStore, type OpenLevel } from './level-store';
 import { lineCells, type View } from './level-view';
@@ -246,10 +260,18 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
   const [entityType, setEntityType] = useState<string>('spawn');
   const [custom, setCustom] = useState('');
   const [preview, setPreview] = useState<Cell[] | null>(null);
-  const drag = useRef<{ from: Cell; last: Cell } | { move: NonNullable<typeof edit.selection> } | null>(null);
-  const planDrag = useRef<
-    { kind: 'move'; sel: NonNullable<typeof edit.selection>; grab: PlanPoint } | { kind: 'rotate'; sel: NonNullable<typeof edit.selection>; centre: PlanPoint } | { kind: 'volume'; from: PlanPoint } | null
+  const drag = useRef<{ from: Cell; last: Cell } | null>(null);
+  const planDrag = useRef<{ kind: 'rotate'; sel: NonNullable<typeof edit.selection>; centre: PlanPoint } | { kind: 'volume'; from: PlanPoint } | null>(null);
+  // The Select tool's gesture (Phase 137 Theme C): a group drag of the selection, or a marquee from empty ground.
+  const selectDrag = useRef<
+    | { kind: 'group'; refs: readonly ObjectRef[]; start: PlanPoint; grab: PlanPoint; applied: PlanPoint }
+    | { kind: 'marquee'; from: PlanPoint; mode: 'replace' | 'add' | 'toggle' }
+    | null
   >(null);
+  const [marquee, setMarquee] = useState<PlanRect | null>(null);
+  /** Where the pointer last was over the canvas, in object coordinates: Mod+V pastes there. */
+  const lastPointer = useRef<PlanPoint | null>(null);
+  const notify = useNotify();
   const [draft, setDraft] = useState<PlanPoint[]>([]);
   const [volumeDrag, setVolumeDrag] = useState<{ from: PlanPoint; to: PlanPoint } | null>(null);
   const manifest = useGameManifest(gameId).data ?? null;
@@ -322,18 +344,66 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
   const tilesets = level.tilesets;
   const tiles = useMemo(() => paletteTiles({ tilesets }), [tilesets]);
 
+  /**
+   * The Select tool, both views (Phase 137 Theme C). Down on an object: Mod toggles it (no drag), Shift adds it, a plain
+   * click keeps an already-selected set (so a group drag works) or selects only it, and the drag moves every selected
+   * object as one undo step. Down on empty ground starts a marquee, which selects what it fully encloses.
+   */
+  const selectPointer = (e: CanvasPointer) => {
+    const grabbed = e.hit ? findObject(level, e.hit) : undefined;
+    if (e.phase === 'down') {
+      if (e.hit && grabbed) {
+        const ref = e.hit;
+        if (e.mod) {
+          update((s) => toggleSelected(s, ref));
+          return;
+        }
+        const held = edit.selected.some((r) => sameRef(r, ref));
+        const refs = e.shift ? [...edit.selected.filter((r) => !sameRef(r, ref)), ref] : held ? edit.selected : [ref];
+        selectDrag.current = { kind: 'group', refs, start: { x: grabbed.x, y: grabbed.y }, grab: { x: e.object.x - grabbed.x, y: e.object.y - grabbed.y }, applied: { x: 0, y: 0 } };
+        update((s) => beginStroke(e.shift ? addSelected(s, [ref]) : held ? s : selectOnly(s, ref)));
+      } else {
+        selectDrag.current = { kind: 'marquee', from: e.object, mode: e.shift ? 'add' : e.mod ? 'toggle' : 'replace' };
+        setMarquee({ x: e.object.x, y: e.object.y, width: 0, height: 0 });
+      }
+      return;
+    }
+    const d = selectDrag.current;
+    if (!d) return;
+    if (d.kind === 'marquee') {
+      const rect = { x: Math.min(d.from.x, e.object.x), y: Math.min(d.from.y, e.object.y), width: Math.abs(e.object.x - d.from.x), height: Math.abs(e.object.y - d.from.y) };
+      if (e.phase === 'move') {
+        setMarquee(rect);
+        return;
+      }
+      selectDrag.current = null;
+      setMarquee(null);
+      const layerIds = level.layers.filter((l) => l.type === 'objectgroup' && l.visible !== false && typeof l.id === 'number').map((l) => l.id!);
+      update((s) => selectInRect(s, layerIds, rect, d.mode));
+      return;
+    }
+    if (e.phase === 'move') {
+      // A 3D level snaps the grabbed point to the half-metre grid; a tile level drops the object on the cell under the pointer.
+      const to = is3d ? snapPlan(level, { x: e.object.x - d.grab.x, y: e.object.y - d.grab.y }, e.alt) : e.alt || !e.cell ? e.object : cellCentre(level, e.cell);
+      const total = { x: to.x - d.start.x, y: to.y - d.start.y };
+      const dx = total.x - d.applied.x, dy = total.y - d.applied.y;
+      d.applied = total;
+      update((s) => moveObjects(s, d.refs, dx, dy));
+      return;
+    }
+    selectDrag.current = null;
+    update(endStroke);
+  };
+
   /** Plan-view input for a 3D level: the same canvas, a different set of tools. Map pixels are object coordinates here. */
   const onPlanPointer = (e: CanvasPointer) => {
     const at = snapPlan(level, e.object, e.alt);
     const sel = e.hit;
     if (e.phase === 'down') {
-      if (tool === 'select' || tool === 'rotate') {
+      if (tool === 'rotate') {
         const found = sel ? findObject(level, sel) : undefined;
-        if (!sel || !found) {
-          if (tool === 'select') update((s) => select(s, null));
-          return;
-        }
-        planDrag.current = tool === 'select' ? { kind: 'move', sel, grab: { x: e.object.x - found.x, y: e.object.y - found.y } } : { kind: 'rotate', sel, centre: objectCentre(found) };
+        if (!sel || !found) return;
+        planDrag.current = { kind: 'rotate', sel, centre: objectCentre(found) };
         update((s) => beginStroke(select(s, sel)));
       } else if (tool === 'entity') {
         if (objectLayerId === null || !entityName) return;
@@ -349,10 +419,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
     } else if (e.phase === 'move') {
       const d = planDrag.current;
       if (!d) return;
-      if (d.kind === 'move') {
-        const to = snapPlan(level, { x: e.object.x - d.grab.x, y: e.object.y - d.grab.y }, e.alt);
-        update((s) => moveObject(s, d.sel, to.x, to.y));
-      } else if (d.kind === 'rotate') update((s) => rotateObject(s, d.sel, rotationToward(d.centre, e.object), e.shift ? ROTATE_STEP : 0));
+      if (d.kind === 'rotate') update((s) => rotateObject(s, d.sel, rotationToward(d.centre, e.object), e.shift ? ROTATE_STEP : 0));
       else setVolumeDrag({ from: d.from, to: at });
     } else {
       const d = planDrag.current;
@@ -366,7 +433,12 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
   };
 
   const onPointer = (e: CanvasPointer) => {
+    lastPointer.current = e.object;
     if (readOnly) return;
+    if (tool === 'select') {
+      selectPointer(e);
+      return;
+    }
     if (is3d) {
       onPlanPointer(e);
       return;
@@ -392,19 +464,11 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
         if (objectLayerId === null || !entityName) return;
         const at = snap(e);
         update((s) => addObject(setActiveLayer(s, objectLayerId), objectLayerId, { type: entityName, x: at.x, y: at.y }));
-      } else if (tool === 'select') {
-        if (e.hit) {
-          drag.current = { move: e.hit };
-          update((s) => beginStroke(select(s, e.hit)));
-        } else update((s) => select(s, null));
       }
     } else if (e.phase === 'move') {
       const d = drag.current;
       if (!d) return;
-      if ('move' in d) {
-        const at = snap(e);
-        update((s) => moveObject(s, d.move, at.x, at.y));
-      } else if (e.cell) {
+      if (e.cell) {
         if (tool === 'rect') setPreview(rectCells(level, d.from, e.cell));
         else if (tileLayerId !== null) {
           const cells = lineCells(d.last, e.cell);
@@ -416,12 +480,27 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
       const d = drag.current;
       drag.current = null;
       if (!d) return;
-      if ('move' in d) update(endStroke);
-      else if (tool === 'rect') {
+      if (tool === 'rect') {
         setPreview(null);
         if (tileLayerId !== null && e.cell) update((s) => endStroke(fillRect(beginStroke(s), tileLayerId, d.from, e.cell!, gid)));
       } else update(endStroke);
     }
+  };
+
+  /** Mod+V (Theme B): the clipboard lands at the pointer when it is over the plan or tile canvas, else one tile off the original. */
+  const pasteFromClipboard = async () => {
+    const clip = await readClipboard();
+    if (!clip) return;
+    const mine = is3d ? '3d' : '2d';
+    if (clip.dimension !== mine) {
+      const from = clip.dimension.toUpperCase();
+      notify(`Copied from a ${from} level — paste it into a ${from} level`);
+      return;
+    }
+    if (objectLayerId === null) return;
+    const pointer = in3d ? null : lastPointer.current;
+    const at = pointer ? (is3d ? snapPlan(level, pointer) : pointer) : { x: clip.origin.x + level.tilewidth, y: clip.origin.y + level.tileheight };
+    update((s) => pasteClipboard(s, clip, objectLayerId, at));
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -431,7 +510,41 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
       update(event.shiftKey ? redo : undo);
       return;
     }
+    if (mod && !event.altKey) {
+      const key = event.key.toLowerCase();
+      if (key === 'a' && !readOnly && objectLayerId !== null) {
+        event.preventDefault();
+        update((s) => selectAllInLayer(s, objectLayerId));
+      } else if (key === 'c' || key === 'x') {
+        const clip = copySelection(edit);
+        if (!clip) return;
+        event.preventDefault();
+        void writeClipboard(clip);
+        if (key === 'x' && !readOnly) update((s) => deleteObjects(s, s.selected));
+      } else if (key === 'v' && !readOnly) {
+        event.preventDefault();
+        void pasteFromClipboard();
+      } else if (key === 'd' && !readOnly && edit.selected.length > 0) {
+        event.preventDefault();
+        update(duplicateSelection);
+      }
+      return;
+    }
     if (mod || event.altKey) return;
+    if (!readOnly && edit.selected.length > 0 && event.key.startsWith('Arrow')) {
+      event.preventDefault();
+      // One grid step (a tile; Theme F's plan step once it lands), ten with Shift. An isometric map's objects are measured in tile-height units.
+      const step = event.shiftKey ? 10 : 1;
+      const sx = (level.orientation === 'isometric' ? level.tileheight : level.tilewidth) * step, sy = level.tileheight * step;
+      const dx = event.key === 'ArrowLeft' ? -sx : event.key === 'ArrowRight' ? sx : 0;
+      const dy = event.key === 'ArrowUp' ? -sy : event.key === 'ArrowDown' ? sy : 0;
+      update((s) => nudgeObjects(s, s.selected, dx, dy));
+      return;
+    }
+    if (event.key === 'Escape' && !(is3d && tool === 'path' && draft.length > 0)) {
+      update((s) => selectOnly(s, null));
+      return;
+    }
     if (is3d && tool === 'path' && !readOnly) {
       if (event.key === 'Enter') {
         event.preventDefault();
@@ -449,10 +562,9 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
         return;
       }
     }
-    if ((event.key === 'Delete' || event.key === 'Backspace') && edit.selection && !readOnly) {
+    if ((event.key === 'Delete' || event.key === 'Backspace') && edit.selected.length > 0 && !readOnly) {
       event.preventDefault();
-      const sel = edit.selection;
-      update((s) => deleteObject(s, sel));
+      update((s) => deleteObjects(s, s.selected));
       return;
     }
     const hit = tools.find((t) => t.key === event.key.toLowerCase());
@@ -523,6 +635,13 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
             <LuRedo2 aria-hidden className="h-3.5 w-3.5" />
           </button>
         </div>
+        {edit.selected.length >= 2 && !readOnly ? (
+          <LevelAlignBar
+            count={edit.selected.length}
+            onAlign={(axis: AlignAxis, edge: AlignEdge) => update((s) => alignObjects(s, s.selected, axis, edge))}
+            onDistribute={(axis: AlignAxis) => update((s) => distributeObjects(s, s.selected, axis))}
+          />
+        ) : null}
         <span className="truncate text-xs text-muted-foreground" data-testid="level-scene-name">{entry.scene}{edit.dirty ? ' •' : ''}</span>
         <button
           type="button"
@@ -549,6 +668,8 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
             level={level}
             images={entry.images}
             selection={edit.selection}
+            selected={edit.selected}
+            marquee={marquee}
             hoverEnabled={!readOnly && !is3d && tool !== 'select'}
             plan={is3d && !planBroken ? { terrain: entry.terrain, draft, volume: volumeDrag } : undefined}
             preview={preview}
