@@ -4,9 +4,9 @@ import { cellAt, cellOrigin, collisionAt, collisionLayer, mapPixelSize, readTmj,
 
 import type { GameLevelTerrain } from '@midnite/studio-shared';
 
-import { objectToMapPoint, mapPointToObject, type Cell, type EditLevel, type EditSelection, type LevelObject, type PlanPoint } from './level-edit-model';
+import { objectToMapPoint, mapPointToObject, type Cell, type EditLevel, type EditSelection, type LevelObject, type ObjectRef, type PlanPoint, type PlanRect } from './level-edit-model';
 import { hitPlan, levelMetresPerTile, planBounds } from './level-plan';
-import { drawPlan, type PlanOverlay } from './level-plan-draw';
+import { drawPlan, drawSelectionExtras, SELECTED_COLOUR, type PlanOverlay } from './level-plan-draw';
 import { fitView, screenToMap, zoomAround, type View } from './level-view';
 
 /**
@@ -25,6 +25,8 @@ export type CanvasPointer = {
   hit: NonNullable<EditSelection> | null;
   alt: boolean;
   shift: boolean;
+  /** Cmd (macOS) or Ctrl held: the toggle modifier of a multi-selection. */
+  mod: boolean;
 };
 
 /** Plan view (Theme E): a 3D level drawn from above, with the terrain's extent and what the tools are drawing. */
@@ -96,6 +98,8 @@ export function LevelCanvas({
   level,
   images,
   selection,
+  selected,
+  marquee,
   hoverEnabled,
   preview,
   onPointer,
@@ -107,7 +111,12 @@ export function LevelCanvas({
 }: {
   level: EditLevel;
   images: ReadonlyArray<{ path: string; dataUrl: string }>;
+  /** The primary selection (drawn heavier). */
   selection: EditSelection;
+  /** Every selected object (Phase 137 Theme C); defaults to the primary alone. */
+  selected?: readonly ObjectRef[];
+  /** The marquee being dragged, in object coordinates. */
+  marquee?: PlanRect | null;
   hoverEnabled: boolean;
   /** Cells outlined while a rectangle is being dragged. */
   preview: readonly Cell[] | null;
@@ -190,7 +199,7 @@ export function LevelCanvas({
     };
     if (plan) {
       const overlay: PlanOverlay = { terrain: plan.terrain, terrainImage, draft: plan.draft, cursor: plan.draft.length > 0 ? cursor : null, volume: plan.volume };
-      drawPlan(ctx, { level, view, selection, overlay, outline, text });
+      drawPlan(ctx, { level, view, selection, selected, marquee, overlay, outline, text });
       return;
     }
     const pixel = mapPixelSize(tmj);
@@ -241,9 +250,10 @@ export function LevelCanvas({
         ctx.beginPath();
         ctx.arc(at.x, at.y, r, 0, Math.PI * 2);
         ctx.fill();
-        if (selection && selection.layerId === layer.id && selection.objectId === o.id) {
-          ctx.strokeStyle = outline;
-          ctx.lineWidth = 2 / view.zoom;
+        const chosen = selected ? selected.some((r) => r.layerId === layer.id && r.objectId === o.id) : selection?.layerId === layer.id && selection?.objectId === o.id;
+        if (chosen) {
+          ctx.strokeStyle = SELECTED_COLOUR;
+          ctx.lineWidth = (selection && selection.layerId === layer.id && selection.objectId === o.id ? 3 : 2) / view.zoom;
           ctx.beginPath();
           ctx.arc(at.x, at.y, r + 3 / view.zoom, 0, Math.PI * 2);
           ctx.stroke();
@@ -253,6 +263,7 @@ export function LevelCanvas({
         ctx.fillText(o.name, at.x, at.y + r + tmj.tileheight / 2.5);
       }
     }
+    drawSelectionExtras(ctx, { level, view, selected: selected ?? [], marquee: marquee ?? null, outline, toMap: (p) => objectToMapPoint(level, p.x, p.y) });
     ctx.strokeStyle = outline;
     ctx.lineWidth = 1.5 / view.zoom;
     if (hover && hoverEnabled) {
@@ -263,7 +274,7 @@ export function LevelCanvas({
       cellPath(c.x, c.y);
       ctx.stroke();
     }
-  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection, plan, terrainImage, terrainLoaded, cursor]);
+  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection, selected, marquee, plan, terrainImage, terrainLoaded, cursor]);
 
   const local = (e: { clientX: number; clientY: number }) => {
     const rect = canvas.current?.getBoundingClientRect();
@@ -285,6 +296,7 @@ export function LevelCanvas({
       hit: plan ? hitPlan(level, p, view.zoom) : hitObject(level, p, view.zoom),
       alt: e.altKey,
       shift: e.shiftKey,
+      mod: e.metaKey || e.ctrlKey,
     });
   };
 

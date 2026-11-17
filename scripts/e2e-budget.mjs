@@ -278,7 +278,11 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // view's side panes clamp at 200/360 and 300/480 under a real pointer drag and never reach width 0, and its
 // Recharts chart must draw real SVG paths; jsdom has no layout and draws no chart. Figures, copy and the
 // draft hook are vitest.
-export const MAX_DECLARED_E2E = 490;
+//
+// Raised 490 -> 491 for Phase 137 Theme C's `level-multiselect.spec.ts`: a marquee from empty ground and a group drag
+// on the Level editor's `<canvas>` resolve a pointer to a map point through `getBoundingClientRect` and the fitted
+// view; jsdom has neither layout nor real pointer input. Selection and move rules are vitest.
+export const MAX_DECLARED_E2E = 491;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

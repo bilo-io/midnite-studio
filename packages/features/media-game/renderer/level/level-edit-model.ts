@@ -353,6 +353,52 @@ export function moveObjects(state: EditState, refs: readonly ObjectRef[], dx: nu
   return commit(state, mapRefs(state.level, refs, (o) => ({ ...o, x: o.x + dx, y: o.y + dy })));
 }
 
+/**
+ * Move each ref'd object by its own `(dx, dy)` (object coordinates), as one undo step; the selection is untouched.
+ * Align and distribute (Phase 137 Theme E) move every object by a different amount. Zero deltas change nothing.
+ */
+export function translateObjects(state: EditState, moves: ReadonlyArray<{ ref: ObjectRef; dx: number; dy: number }>): EditState {
+  const by = new Map<string, { dx: number; dy: number }>();
+  for (const m of moves) if (Number.isFinite(m.dx) && Number.isFinite(m.dy) && (m.dx !== 0 || m.dy !== 0)) by.set(refKey(m.ref), { dx: m.dx, dy: m.dy });
+  if (by.size === 0) return state;
+  let level = state.level;
+  for (const layerId of new Set(moves.map((m) => m.ref.layerId))) {
+    level = mapLayers(level, layerId, (l) => {
+      if (!l.objects) return l;
+      let changed = false;
+      const objects = l.objects.map((o) => {
+        const d = by.get(refKey({ layerId, objectId: o.id }));
+        if (!d) return o;
+        changed = true;
+        return { ...o, x: o.x + d.dx, y: o.y + d.dy };
+      });
+      return changed ? { ...l, objects } : l;
+    });
+  }
+  return commit(state, level);
+}
+
+/**
+ * Add new objects (paste and duplicate, Phase 137 Theme B) as ONE undo step. Each `object` is a template: its `id`
+ * is replaced by a fresh one, everything else is kept. An item whose layer is missing or not an object layer is
+ * skipped. The inserted objects become the selection, the last one primary.
+ */
+export function insertObjects(state: EditState, items: ReadonlyArray<{ layerId: number; object: Omit<LevelObject, 'id'> }>): EditState {
+  let level = state.level;
+  let id = nextObjectId(level);
+  const made: ObjectRef[] = [];
+  for (const { layerId, object } of items) {
+    const layer = layerById(level, layerId);
+    if (!layer || !isObjects(layer)) continue;
+    const next = { ...object, id } as LevelObject;
+    level = mapLayers(level, layerId, (l) => ({ ...l, objects: [...(l.objects ?? []), next] }));
+    made.push({ layerId, objectId: id });
+    id += 1;
+  }
+  if (made.length === 0) return state;
+  return commit(state, { ...level, nextobjectid: id }, { selection: made[made.length - 1]!, selected: made });
+}
+
 /** {@link moveObjects}, named for the arrow keys. */
 export const nudgeObjects = moveObjects;
 

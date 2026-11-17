@@ -4,12 +4,14 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { createFrameChrome, FrameChromeProvider } from '@midnite/studio-frame';
 import { levelEntityToWorld } from '@midnite/studio-shared';
 
 import type { Level3dViewProps } from './3d/level-3d-view';
 import { useLevelViewStore } from './3d/level-view-store';
 import { LevelEditor } from './level-editor';
 import { useDoctorRequest } from '../game-doctor-store';
+import { addObject, selectOnly } from './level-edit-model';
 import { useLevelStore } from './level-store';
 import { blankLevel, blankLevel3d, installBridge, newClient, removeBridge, stubCanvas, stubPointerEvents } from './test-helpers';
 
@@ -58,7 +60,7 @@ afterEach(() => {
   removeBridge();
 });
 
-const renderEditor = () => render(<QueryClientProvider client={newClient()}><LevelEditor gameId="g1" /></QueryClientProvider>);
+const renderEditor = () => render(<FrameChromeProvider chrome={createFrameChrome().chrome}><QueryClientProvider client={newClient()}><LevelEditor gameId="g1" /></QueryClientProvider></FrameChromeProvider>);
 const ready = () => screen.findByTestId('level-editor');
 
 describe('LevelEditor', () => {
@@ -481,5 +483,149 @@ describe('LevelEditor, Floorplan | 3D switch (Phase 136 Theme E)', () => {
     await open3d({ ...blankLevel3d(), orientation: 'isometric' });
     expect(screen.queryByRole('radiogroup', { name: 'View' })).toBeNull();
     expect(screen.queryByTestId('level-3d-view')).toBeNull();
+  });
+});
+
+// Phase 137 Themes B, C and E on the plan view: multi-select, the clipboard keys and the align bar. The 3D plan is used
+// because its map pixels equal object coordinates; the 2D canvas shares every code path.
+describe('LevelEditor, multi-select, clipboard and align (Phase 137 B, C, E)', () => {
+  const entry = () => useLevelStore.getState().byGame.g1!;
+  const objects = () => entry().edit.level.layers[0]!.objects!;
+  const xs = (ids: number[]) => ids.map((id) => objects().find((o) => o.id === id)!.x);
+  const open = async () => {
+    get.mockResolvedValue({ ok: true, value: { level: blankLevel3d(), issues: [], images: [] } });
+    list.mockResolvedValue(listed({ scenes: [{ scene: 'level', bytes: 1, dimension: '3d', issue: null }] }));
+    renderEditor();
+    await ready();
+    const layerId = entry().edit.level.layers[0]!.id!;
+    // Three props at (100,100) (200,100) (400,300), after the template's spawn at (336,336).
+    for (const [x, y] of [[100, 100], [200, 100], [400, 300]] as const) useLevelStore.getState().update('g1', (s) => addObject(s, layerId, { type: 'prop', x, y }));
+    const ids = objects().filter((o) => o.type === 'prop').map((o) => o.id);
+    useLevelStore.getState().update('g1', (s) => selectOnly(s, null));
+    return { canvas: screen.getByTestId('level-canvas'), wrap: screen.getByTestId('level-canvas-wrap'), layerId, ids };
+  };
+  const click = (canvas: HTMLElement, mx: number, my: number, mods: Record<string, boolean> = {}) => {
+    fireEvent.pointerDown(canvas, { ...at(mx, my), ...mods });
+    fireEvent.pointerUp(canvas, { ...at(mx, my), ...mods });
+  };
+  const selectedIds = () => entry().edit.selected.map((r) => r.objectId);
+
+  it('C1: clicking empty ground with Select clears the selection', async () => {
+    const { canvas, ids } = await open();
+    click(canvas, 100, 100);
+    expect(selectedIds()).toEqual([ids[0]]);
+    click(canvas, 500, 500);
+    expect(selectedIds()).toEqual([]);
+  });
+
+  it('C2: a marquee selects exactly the objects it fully encloses', async () => {
+    const { canvas, ids } = await open();
+    fireEvent.pointerDown(canvas, at(50, 50));
+    fireEvent.pointerMove(canvas, at(250, 150));
+    fireEvent.pointerUp(canvas, at(250, 150));
+    expect(selectedIds()).toEqual([ids[0], ids[1]]);
+  });
+
+  it('C3: Shift-click adds and Mod-click toggles', async () => {
+    const { canvas, ids } = await open();
+    click(canvas, 100, 100);
+    click(canvas, 200, 100, { shiftKey: true });
+    expect(selectedIds()).toEqual([ids[0], ids[1]]);
+    click(canvas, 400, 300, { metaKey: true });
+    expect(selectedIds()).toEqual([ids[0], ids[1], ids[2]]);
+    click(canvas, 100, 100, { metaKey: true });
+    expect(selectedIds()).toEqual([ids[1], ids[2]]);
+    expect(entry().edit.past).toHaveLength(3);
+  });
+
+  it('C4: dragging one of a selected group moves them all, as one undo step', async () => {
+    const { canvas, ids } = await open();
+    fireEvent.pointerDown(canvas, at(50, 50));
+    fireEvent.pointerMove(canvas, at(250, 150));
+    fireEvent.pointerUp(canvas, at(250, 150));
+    const before = entry().edit.past.length;
+    fireEvent.pointerDown(canvas, at(100, 100));
+    // The primary snaps to the half-metre grid (16 px), so a 32 px pointer move lands the group 28 px along.
+    fireEvent.pointerMove(canvas, at(132, 100));
+    fireEvent.pointerUp(canvas, at(132, 100));
+    expect(xs([ids[0]!, ids[1]!, ids[2]!])).toEqual([128, 228, 400]);
+    expect(entry().edit.past).toHaveLength(before + 1);
+    expect(selectedIds()).toEqual([ids[0], ids[1]]);
+  });
+
+  it('C5: Mod+A selects the layer, arrows nudge one tile, Shift+arrow ten, Escape clears, Delete removes', async () => {
+    const { wrap, ids } = await open();
+    fireEvent.keyDown(wrap, { key: 'a', metaKey: true });
+    expect(selectedIds()).toHaveLength(objects().length);
+    fireEvent.keyDown(wrap, { key: 'ArrowRight' });
+    expect(xs([ids[0]!])).toEqual([132]);
+    fireEvent.keyDown(wrap, { key: 'ArrowRight', shiftKey: true });
+    expect(xs([ids[0]!])).toEqual([452]);
+    fireEvent.keyDown(wrap, { key: 'ArrowDown' });
+    expect(objects().find((o) => o.id === ids[0])!.y).toBe(132);
+    fireEvent.keyDown(wrap, { key: 'Delete' });
+    expect(objects()).toHaveLength(0);
+    fireEvent.keyDown(wrap, { key: 'z', metaKey: true });
+    expect(objects()).toHaveLength(4);
+    fireEvent.keyDown(wrap, { key: 'Escape' });
+    expect(selectedIds()).toEqual([]);
+  });
+
+  it('B6: Mod+D duplicates the selection and Mod+Z removes the copies', async () => {
+    const { canvas, wrap, ids } = await open();
+    click(canvas, 100, 100);
+    const count = objects().length;
+    fireEvent.keyDown(wrap, { key: 'd', metaKey: true });
+    expect(objects()).toHaveLength(count + 1);
+    expect(selectedIds()).not.toContain(ids[0]);
+    fireEvent.keyDown(wrap, { key: 'z', metaKey: true });
+    expect(objects()).toHaveLength(count);
+  });
+
+  it('B: Mod+C then Mod+V pastes at the pointer; Mod+X cuts', async () => {
+    const { canvas, wrap, ids } = await open();
+    click(canvas, 100, 100);
+    fireEvent.keyDown(wrap, { key: 'c', metaKey: true });
+    fireEvent.pointerMove(canvas, at(300, 200));
+    const count = objects().length;
+    fireEvent.keyDown(wrap, { key: 'v', metaKey: true });
+    await waitFor(() => expect(objects()).toHaveLength(count + 1));
+    expect(objects().at(-1)).toMatchObject({ type: 'prop', x: 304, y: 208 });
+    expect(selectedIds()).toEqual([objects().at(-1)!.id]);
+    click(canvas, 200, 100);
+    fireEvent.keyDown(wrap, { key: 'x', metaKey: true });
+    expect(objects().some((o) => o.id === ids[1])).toBe(false);
+    fireEvent.keyDown(wrap, { key: 'v', metaKey: true });
+    await waitFor(() => expect(objects().at(-1)).toMatchObject({ type: 'prop' }));
+  });
+
+  it('B: a clipboard from the other dimension pastes nothing', async () => {
+    const { wrap } = await open();
+    const clip = { ...(await import('./level-clipboard')).copySelection(entry().edit) ?? { kind: 'midnite-level-clipboard', version: 1, origin: { x: 0, y: 0 }, objects: [{ id: 0, name: 'p', x: 0, y: 0 }] }, dimension: '2d' as const };
+    await (await import('./level-clipboard')).writeClipboard(clip as never);
+    const count = objects().length;
+    fireEvent.keyDown(wrap, { key: 'v', metaKey: true });
+    await new Promise((r) => setTimeout(r, 0)); // allow-timeout: let the async clipboard read settle
+    expect(objects()).toHaveLength(count);
+  });
+
+  it('E4: the align bar shows at two selected objects, distribute waits for three, and aligning is one step', async () => {
+    const { canvas, wrap, ids } = await open();
+    expect(screen.queryByTestId('level-align-bar')).toBeNull();
+    click(canvas, 100, 100);
+    expect(screen.queryByTestId('level-align-bar')).toBeNull();
+    click(canvas, 200, 100, { shiftKey: true });
+    expect(screen.getByTestId('level-align-bar')).toBeTruthy();
+    const few = screen.getAllByRole('button', { name: 'Select three or more to distribute' }) as HTMLButtonElement[];
+    expect(few).toHaveLength(2);
+    expect(few.every((b) => b.disabled)).toBe(true);
+    const before = entry().edit.past.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Align right' }));
+    expect(xs([ids[0]!, ids[1]!])).toEqual([200, 200]);
+    expect(entry().edit.past).toHaveLength(before + 1);
+    click(canvas, 400, 300, { shiftKey: true });
+    expect((screen.getByRole('button', { name: 'Distribute horizontally' }) as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.keyDown(wrap, { key: 'Escape' });
+    expect(screen.queryByTestId('level-align-bar')).toBeNull();
   });
 });
