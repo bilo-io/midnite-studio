@@ -368,13 +368,14 @@ today.
 ## Verification
 
 - [ ] `moon run :typecheck :lint :test` green in CI.
-- [ ] `game-standard.test.ts` (A); the `media-game.test.ts` schema cases (B).
-- [ ] `game-doctor.test.ts` over the four fixtures, and the MCP read-set test (C).
-- [ ] `infer-manifest.test.ts`, `game-fixes.test.ts`, and the MCP write-set and agent-set tests (D).
-- [ ] `game-build.test.ts` and the runner `serveRoot`/watcher cases (E).
-- [ ] `game-open.test.ts`, `game-service-add.test.ts` and `adopt-game-sheet.test.tsx` (F).
-- [ ] `game-doctor-panel.test.tsx`, `game-explorer.test.tsx` and `level-editor.test.tsx` (G).
-- [ ] `game-service-manage.test.ts`, `opened-games.test.ts`, `game-row-menu.test.tsx` and `delete-game-dialog.test.tsx` (I).
+- [x] `game-standard.test.ts` (A); the `media-game.test.ts` schema cases (B).
+- [x] `game-doctor.test.ts` over the four fixtures, and the MCP read-set test (C).
+- [x] `infer-manifest.test.ts`, `game-fixes.test.ts`, and the MCP write-set and agent-set tests (D).
+- [x] `game-build.test.ts` and the runner `serveRoot`/watcher cases (E).
+- [x] `game-open.test.ts`, `game-service-add.test.ts` and `adopt-game-sheet.test.tsx` (F).
+- [x] `game-doctor-panel.test.tsx`, `game-explorer.test.tsx` and `level-editor.test.tsx` (G).
+- [x] `game-service-manage.test.ts`, `opened-games.test.ts`, `game-row-menu.test.tsx` and `delete-game-dialog.test.tsx` (I).
+  _Lines A–I above were run locally per unit (focused vitest, tsc, eslint) because GitHub Actions was locked on billing; the full gate is the CI line above._
 - [ ] **Open, for a human:** the H passes in Studio and Gamer.
 
 ## Not in this phase
