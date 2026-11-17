@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { LuCopy, LuPencil, LuTrash2 } from 'react-icons/lu';
 
 import { FLEET_STARTERS, MAX_FLEET_PROJECTIONS, buildFleetStarter, type FleetProjection, type FleetStarterId } from '@midnite/studio-shared';
@@ -50,7 +50,7 @@ function Row({ projection, selected, renaming, readOnly, onSelect, onStartRename
   renameProblem: string | null;
   onSelect: () => void;
   onStartRename: () => void;
-  onRename: (name: string) => void;
+  onRename: (name: string) => boolean;
   onCancelRename: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -66,8 +66,14 @@ function Row({ projection, selected, renaming, readOnly, onSelect, onStartRename
       onCancelRename();
       return;
     }
-    onRename(value);
+    if (onRename(value)) settled.current = true;
   };
+  useEffect(() => {
+    if (renaming) {
+      settled.current = false;
+      setValue(projection.name);
+    }
+  }, [renaming, projection.name]);
   return (
     <li
       role="option"
@@ -140,16 +146,16 @@ export function ProjectionList({ projections, selectedId, readOnly, onSelect }: 
   const atCap = projections.length >= MAX_FLEET_PROJECTIONS;
   const capReason = `You can have at most ${MAX_FLEET_PROJECTIONS} projections.`;
 
-  function rename(p: FleetProjection, raw: string): void {
+  function rename(p: FleetProjection, raw: string): boolean {
     const name = raw.trim();
     if (name.length < 1 || name.length > 80) {
       setRenameProblem('Name must be 1–80 characters');
-      return;
+      return false;
     }
     setRenameProblem(null);
     setRenamingId(null);
-    if (name === p.name) return;
-    upsert.mutate({ ...p, name }, { onError: (e) => setProblem(e.message) });
+    if (name !== p.name) upsert.mutate({ ...p, name }, { onError: (e) => setProblem(e.message) });
+    return true;
   }
 
   function askDelete(p: FleetProjection): void {

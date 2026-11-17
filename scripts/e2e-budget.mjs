@@ -273,7 +273,12 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // Raised 487 -> 488 for Phase 146 Theme E's `unified-sessions-chats.spec.ts`: verifies unified
 // Sessions + Chats sidebar selection and `Chat | Terminal` view toggling with a real `@xterm/xterm`
 // instance mounted across the preload bridge.
-export const MAX_DECLARED_E2E = 488;
+//
+// Raised 488 -> 490 for Phase 150's `suite-shell/startup-projections.spec.ts` (2 tests): the Projections
+// view's side panes clamp at 200/360 and 300/480 under a real pointer drag and never reach width 0, and its
+// Recharts chart must draw real SVG paths; jsdom has no layout and draws no chart. Figures, copy and the
+// draft hook are vitest.
+export const MAX_DECLARED_E2E = 490;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

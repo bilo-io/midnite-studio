@@ -36,6 +36,8 @@ test.describe('Midnite Startup', () => {
 
   test('asks to set up the company before anything else', async ({ page }) => {
     await open(page, STARTUP_EMPTY_ANSWERS);
+    // Startup now opens on Projections, which needs no company; the gate is on every other view.
+    await goto(page, 'startup.overview');
     await expect(page.getByText('Set up your company').first()).toBeVisible();
     await goto(page, 'startup.roadmap');
     await expect(page.getByText('Set up your company').first()).toBeVisible();

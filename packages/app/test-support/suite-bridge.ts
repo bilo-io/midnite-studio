@@ -128,6 +128,26 @@ export const STARTUP_EMPTY_ANSWERS: Record<string, unknown> = {
   'startup.ledgerSummary': NO_BOOK,
 };
 
+/** Startup with no company and one `gpu-cluster` projection (four nodes): lands on Projections. */
+export const STARTUP_FLEET_ANSWERS: Record<string, unknown> = {
+  'startup.get': startupSnapshot({
+    ...STARTUP_BASE,
+    company: null,
+    fleetProjections: [
+      {
+        id: uid(500),
+        name: 'Projection',
+        createdAt: '2026-11-01T00:00:00.000Z',
+        updatedAt: '2026-11-01T00:00:00.000Z',
+        globals: { scalePct: 100, electricityRateCents: 320, demandGrowthPct: 0, horizonMonths: 24 },
+        template: { hardwareId: 'dual-4090', apiTierId: 'pro', quantity: 1, utilisationPct: 70, pricePerHourCents: 2500 },
+        nodes: [1, 2, 3, 4].map((n) => ({ id: uid(500 + n), name: `Node ${n}`, enabled: true, hardwareId: 'dual-4090', apiTierId: 'pro', quantity: 1, utilisationPct: 70, pricePerHourCents: 2500 })),
+      },
+    ],
+  }),
+  'startup.ledgerSummary': NO_BOOK,
+};
+
 /** Startup with a company, three milestones (two dependency edges), two runway scenarios and a draft invoice. */
 export const STARTUP_SEEDED_ANSWERS: Record<string, unknown> = {
   'startup.get': startupSnapshot({
