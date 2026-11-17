@@ -27,7 +27,7 @@ describe('ControlsPanel', () => {
   });
 
   it('Apply to all confirms, then rewrites configs but keeps names and enabled', async () => {
-    const initial = fleetProjection({ template: { hardwareId: 'a100-node', apiTierId: 'pro', quantity: 3, utilisationPct: 40, pricePerHourCents: 900 }, nodes: [fleetNode(1, { enabled: false, name: 'Keep me' }), fleetNode(2)] });
+    const initial = fleetProjection({ template: { hardwareId: 'a100-node', apiTierId: 'pro', quantity: 3, utilisationPct: 40, pricePerHourMinor: 900 }, nodes: [fleetNode(1, { enabled: false, name: 'Keep me' }), fleetNode(2)] });
     renderWithChrome(<Host initial={initial} />);
     fireEvent.click(screen.getByRole('button', { name: 'Apply template to all' }));
     expect(latest.nodes[0]!.hardwareId).toBe('dual-4090');

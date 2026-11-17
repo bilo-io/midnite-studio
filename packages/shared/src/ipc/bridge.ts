@@ -2455,6 +2455,12 @@ export type MidniteStudioBridge = {
     upsertFleetProjection: (req: Omit<Extract<StartupRequest, { op: 'upsertFleetProjection' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
     removeFleetProjection: (req: Omit<Extract<StartupRequest, { op: 'removeFleetProjection' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
     duplicateFleetProjection: (req: Omit<Extract<StartupRequest, { op: 'duplicateFleetProjection' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    upsertFleetCatalog: (req: Omit<Extract<StartupRequest, { op: 'upsertFleetCatalog' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    sendFleetProjectionToRunway: (req: Omit<Extract<StartupRequest, { op: 'sendFleetProjectionToRunway' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    unlinkFleetProjectionLines: (req: Omit<Extract<StartupRequest, { op: 'unlinkFleetProjectionLines' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    exportFleetProjectionCsv: (req: Omit<Extract<StartupRequest, { op: 'exportFleetProjectionCsv' }>, 'op'>) => Promise<StartupResult<StartupPdfExport>>;
+    exportRunwayCsv: (req: Omit<Extract<StartupRequest, { op: 'exportRunwayCsv' }>, 'op'>) => Promise<StartupResult<StartupPdfExport>>;
+    exportFleetProjectionPdf: (req: Omit<Extract<StartupRequest, { op: 'exportFleetProjectionPdf' }>, 'op'>) => Promise<StartupResult<StartupPdfExport>>;
     onChanged: (handler: (e: StartupChangedEvent) => void) => Unsubscribe;
   };
 

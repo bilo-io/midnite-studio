@@ -15,7 +15,7 @@ const ledger = { bookId: 'book-1', accounts: { receivable: 'a', sales: 'b', taxP
 
 const snapshot = (invoices: Invoice[], linked: boolean) => ({
   ok: true,
-  value: { workspace: { version: 2, fleetProjections: [], company, milestones: [], lines: [], scenarios: [], customers: [customer], invoices, vendors: [], contracts: [], invoiceCounter: 0, ledger: linked ? ledger : null }, revision: 0, readOnly: false },
+  value: { workspace: { version: 3, fleetProjections: [], company, milestones: [], lines: [], scenarios: [], customers: [customer], invoices, vendors: [], contracts: [], invoiceCounter: 0, ledger: linked ? ledger : null }, revision: 0, readOnly: false },
 });
 function install(invoices: Invoice[], linked: boolean, extra: Record<string, unknown> = {}) {
   window.midniteStudio = {

@@ -1,7 +1,7 @@
-/** How many minor-unit digits a currency has: yen has none, nearly everything else two. */
-export function minorExponent(currency: string): number {
-  return currency === 'JPY' ? 0 : 2;
-}
+import { minorExponent } from '@midnite/studio-shared';
+
+// One table for both halves: it lives in shared beside the catalog seed.
+export { minorExponent };
 
 /** `"1,250.50"` in a currency to integer minor units, or `null` when it is not a plain number. */
 export function toMinor(text: string, currency: string): number | null {

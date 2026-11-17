@@ -11,7 +11,7 @@ import { ALERT, FIELD, LABEL, PANE } from './styles';
 
 type Update = (fn: (p: FleetProjection) => FleetProjection) => void;
 
-const KEYS = ['hardwareId', 'apiTierId', 'quantity', 'utilisationPct', 'pricePerHourCents'] as const;
+const KEYS = ['hardwareId', 'apiTierId', 'quantity', 'utilisationPct', 'pricePerHourMinor'] as const;
 export const differsFromTemplate = (node: FleetNode, template: FleetNodeConfig) => KEYS.some((k) => node[k] !== template[k]);
 
 /** One node of the fleet: its own name, on/off switch, config overrides and month-0 figures. */

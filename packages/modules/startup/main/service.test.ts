@@ -25,6 +25,23 @@ const invoice = (status: 'draft' | 'issued' = 'draft') => ({
   lines: [{ description: 'Work', quantityMilli: 1000, unitMinor: 100, taxRateBp: 0 }],
 });
 
+describe('fleet catalog', () => {
+  it('seeds exactly once on the first get, in the money currency', async () => {
+    const s = await open();
+    expect(s.snapshot().workspace.fleetCatalog).toBeNull();
+    await run(s, { op: 'get' });
+    const first = s.snapshot();
+    expect(first.revision).toBe(1);
+    expect(first.workspace.fleetCatalog?.hardware.find((h) => h.id === 'dual-4090')?.priceMinor).toBe(650_000);
+    await run(s, { op: 'get' });
+    expect(s.snapshot().revision).toBe(1);
+  });
+  it('answers the not-yet ops with a refusal', async () => {
+    const s = await open();
+    expect(await run(s, { op: 'exportFleetProjectionCsv', projectionId: u(1) })).toMatchObject({ ok: false, kind: 'invalid' });
+  });
+});
+
 describe('company', () => {
   it('starts null and is set by updateCompany', async () => {
     const s = await open();

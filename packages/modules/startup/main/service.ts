@@ -5,6 +5,8 @@ import {
   MAX_FLEET_PROJECTIONS,
   MAX_SCENARIOS,
   milestoneCycle,
+  moneyCurrency,
+  seedFleetCatalog,
   type Contract,
   type PlanLine,
   type StartupRequest,
@@ -76,8 +78,15 @@ export async function handleStartupRequest(
   deps: StartupServiceDeps = {},
 ): Promise<StartupResult<StartupSnapshot | unknown>> {
   switch (request.op) {
-    case 'get':
-      return { ok: true, value: store.snapshot() };
+    case 'get': {
+      if (store.snapshot().workspace.fleetCatalog !== null) return { ok: true, value: store.snapshot() };
+      // Seed the catalog once, in the money currency, so every later read has one. A read-only (newer) workspace
+      // refuses the write and is served as it is.
+      const seeded = await store.mutate((ws) =>
+        ws.fleetCatalog === null ? done({ ...ws, fleetCatalog: seedFleetCatalog(moneyCurrency(ws.company)) }) : done(ws),
+      );
+      return seeded.ok ? seeded : { ok: true, value: store.snapshot() };
+    }
 
     case 'updateCompany':
       return store.mutate((ws) => {
@@ -167,6 +176,15 @@ export async function handleStartupRequest(
         };
         return done({ ...ws, fleetProjections: [...ws.fleetProjections.slice(0, index + 1), copy, ...ws.fleetProjections.slice(index + 1)] });
       });
+
+    // Phase 152: declared in Theme A, implemented by Themes C (catalog), D (bridge) and E (export).
+    case 'upsertFleetCatalog':
+    case 'sendFleetProjectionToRunway':
+    case 'unlinkFleetProjectionLines':
+    case 'exportFleetProjectionCsv':
+    case 'exportRunwayCsv':
+    case 'exportFleetProjectionPdf':
+      return { ok: false, kind: 'invalid', message: NOT_YET };
 
     case 'upsertVendor':
       return store.mutate((ws) => done({ ...ws, vendors: upsert(ws.vendors, request.vendor) }));

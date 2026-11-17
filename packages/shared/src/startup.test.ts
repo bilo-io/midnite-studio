@@ -19,10 +19,10 @@ import {
 const u = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
 describe('StartupWorkspaceSchema', () => {
-  it('parses an empty { version: 2 } into a full workspace', () => {
-    const ws = StartupWorkspaceSchema.parse({ version: 2 });
+  it('parses an empty { version: 3 } into a full workspace', () => {
+    const ws = StartupWorkspaceSchema.parse({ version: 3 });
     expect(ws).toEqual({
-      version: 2,
+      version: 3,
       company: null,
       milestones: [],
       lines: [],
@@ -34,11 +34,12 @@ describe('StartupWorkspaceSchema', () => {
       invoiceCounter: 0,
       ledger: null,
       fleetProjections: [],
+      fleetCatalog: null,
     });
   });
 
   it('refuses a version it does not know', () => {
-    expect(StartupWorkspaceSchema.safeParse({ version: 3 }).success).toBe(false);
+    expect(StartupWorkspaceSchema.safeParse({ version: 4 }).success).toBe(false);
   });
 });
 

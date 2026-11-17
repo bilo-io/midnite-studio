@@ -1,7 +1,8 @@
-import { API_TIERS, HARDWARE_CATALOG, MAX_FLEET_NODES, type ApiTierId, type FleetNodeConfig, type FleetProjection, type HardwareId } from '@midnite/studio-shared';
+import { MAX_FLEET_NODES, type FleetApiTier, type FleetHardware, type FleetNodeConfig, type FleetProjection } from '@midnite/studio-shared';
 
 import { STARTUP_CHROME } from '../compose/startup-chrome';
 import { formatCompactZar, formatZar } from './format-zar';
+import { DEFAULT_FLEET_CATALOG } from './fleet-model';
 import { SliderField, parseNumber } from './slider-field';
 import { BUTTON, BUTTON_PRIMARY, FIELD, GRADIENT, LABEL } from './styles';
 
@@ -9,8 +10,8 @@ type Update = (fn: (p: FleetProjection) => FleetProjection) => void;
 
 const HORIZONS = [12, 24, 36] as const;
 
-export const hardwareOptionLabel = (h: (typeof HARDWARE_CATALOG)[number]) => `${h.label} — ${formatZar(h.priceCents)} · ${h.watts.toLocaleString('en-US')} W`;
-export const apiOptionLabel = (t: (typeof API_TIERS)[number]) => `${t.label} — ${formatZar(t.monthlyCents)} /mo`;
+export const hardwareOptionLabel = (h: FleetHardware) => `${h.label} — ${formatZar(h.priceMinor)} · ${h.watts.toLocaleString('en-US')} W`;
+export const apiOptionLabel = (t: FleetApiTier) => `${t.label} — ${formatZar(t.monthlyMinor)} /mo`;
 
 const fmtPct = (v: number) => `${v} %`;
 const fmtRate = (v: number) => `${formatZar(v, { decimals: 2 })} /kWh`;
@@ -39,18 +40,18 @@ export function TemplateSelects({ value, onChange, disabled, idPrefix, compact =
     <>
       <label className="flex flex-col gap-1">
         <span className={LABEL}>Hardware</span>
-        <select aria-label="Hardware" id={`${idPrefix}-hw`} className={FIELD} disabled={disabled} value={value.hardwareId} onChange={(e) => onChange({ hardwareId: e.target.value as HardwareId })}>
-          {HARDWARE_CATALOG.map((h) => (
+        <select aria-label="Hardware" id={`${idPrefix}-hw`} className={FIELD} disabled={disabled} value={value.hardwareId} onChange={(e) => onChange({ hardwareId: e.target.value })}>
+          {DEFAULT_FLEET_CATALOG.hardware.filter((h) => !h.hidden || h.id === value.hardwareId).map((h) => (
             <option key={h.id} value={h.id}>
-              {compact ? `${h.label} · ${formatCompactZar(h.priceCents)} · ${h.watts.toLocaleString('en-US')} W` : hardwareOptionLabel(h)}
+              {compact ? `${h.label} · ${formatCompactZar(h.priceMinor)} · ${h.watts.toLocaleString('en-US')} W` : hardwareOptionLabel(h)}
             </option>
           ))}
         </select>
       </label>
       <label className="flex flex-col gap-1">
         <span className={LABEL}>API tier</span>
-        <select aria-label="API tier" id={`${idPrefix}-api`} className={FIELD} disabled={disabled} value={value.apiTierId} onChange={(e) => onChange({ apiTierId: e.target.value as ApiTierId })}>
-          {API_TIERS.map((t) => (
+        <select aria-label="API tier" id={`${idPrefix}-api`} className={FIELD} disabled={disabled} value={value.apiTierId} onChange={(e) => onChange({ apiTierId: e.target.value })}>
+          {DEFAULT_FLEET_CATALOG.apiTiers.filter((t) => !t.hidden || t.id === value.apiTierId).map((t) => (
             <option key={t.id} value={t.id}>
               {apiOptionLabel(t)}
             </option>
@@ -66,7 +67,7 @@ export function ConfigSliders({ value, onChange, disabled, idPrefix }: { value: 
     <>
       <SliderField id={`${idPrefix}-qty`} label="Quantity" value={value.quantity} min={1} max={64} step={1} format={fmtInt} parse={parseNumber} disabled={disabled} onChange={(quantity) => onChange({ quantity })} />
       <SliderField id={`${idPrefix}-util`} label="Utilisation" value={value.utilisationPct} min={0} max={100} step={1} format={fmtPct} parse={parseNumber} disabled={disabled} onChange={(utilisationPct) => onChange({ utilisationPct })} />
-      <SliderField id={`${idPrefix}-price`} label="Price per GPU-hour" value={value.pricePerHourCents} min={0} max={1_000_000} step={50} format={fmtHour} parse={parseCents} disabled={disabled} onChange={(pricePerHourCents) => onChange({ pricePerHourCents })} />
+      <SliderField id={`${idPrefix}-price`} label="Price per GPU-hour" value={value.pricePerHourMinor} min={0} max={1_000_000} step={50} format={fmtHour} parse={parseCents} disabled={disabled} onChange={(pricePerHourMinor) => onChange({ pricePerHourMinor })} />
     </>
   );
 }
@@ -100,7 +101,7 @@ export function ControlsPanel({ draft, update, readOnly }: { draft: FleetProject
           Global
         </h3>
         <SliderField id="g-scale" label="Scale" value={globals.scalePct} min={10} max={500} step={10} format={fmtPct} parse={parseNumber} disabled={readOnly} onChange={(scalePct) => setGlobals({ scalePct })} />
-        <SliderField id="g-rate" label="Electricity" value={globals.electricityRateCents} min={0} max={10_000} step={10} format={fmtRate} parse={parseCents} disabled={readOnly} onChange={(electricityRateCents) => setGlobals({ electricityRateCents })} />
+        <SliderField id="g-rate" label="Electricity" value={globals.electricityRateMinor} min={0} max={10_000} step={10} format={fmtRate} parse={parseCents} disabled={readOnly} onChange={(electricityRateMinor) => setGlobals({ electricityRateMinor })} />
         <SliderField id="g-growth" label="Demand growth" value={globals.demandGrowthPct} min={-20} max={50} step={1} format={fmtGrowth} parse={parseNumber} disabled={readOnly} onChange={(demandGrowthPct) => setGlobals({ demandGrowthPct })} />
         <div className="flex flex-col gap-1">
           <span id="g-horizon" className={LABEL}>

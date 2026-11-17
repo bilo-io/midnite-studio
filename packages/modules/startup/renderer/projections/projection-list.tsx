@@ -55,7 +55,7 @@ function Row({ projection, selected, renaming, readOnly, onSelect, onStartRename
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
-  const net = useMemo(() => computeFleetProjection(projection).netMarginMonthlyCents, [projection]);
+  const net = useMemo(() => computeFleetProjection(projection).netMarginMonthlyMinor, [projection]);
   const [value, setValue] = useState(projection.name);
   const settled = useRef(false);
   const IconButton = STARTUP_CHROME.IconButton;

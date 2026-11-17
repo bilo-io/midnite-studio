@@ -31,7 +31,7 @@ function Tile({ label, value, tone, big }: { label: string; value: string; tone?
 
 /** The centre pane: headline figures, the chart and one card per node. */
 export function ResultsPanel({ draft, result, update, pending, problem, readOnly }: ResultsProps) {
-  const net = result.netMarginMonthlyCents;
+  const net = result.netMarginMonthlyMinor;
   const payback = result.paybackMonths === null ? `Not within ${draft.globals.horizonMonths} mo` : `${result.paybackMonths} mo`;
   return (
     <div className="flex flex-col gap-3">
@@ -45,9 +45,9 @@ export function ResultsPanel({ draft, result, update, pending, problem, readOnly
         </p>
       ) : null}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6">
-        <Tile label="CapEx" value={formatZar(result.capexCents)} />
-        <Tile label="OpEx /mo" value={formatZar(result.opexMonthlyCents)} />
-        <Tile label="Revenue /mo" value={formatZar(result.revenueMonthlyCents)} />
+        <Tile label="CapEx" value={formatZar(result.capexMinor)} />
+        <Tile label="OpEx /mo" value={formatZar(result.opexMonthlyMinor)} />
+        <Tile label="Revenue /mo" value={formatZar(result.revenueMonthlyMinor)} />
         <Tile big label="Net margin /mo" value={formatZar(net)} tone={net >= 0 ? 'good' : 'bad'} />
         <Tile label="Margin %" value={result.marginPct === null ? '—' : `${result.marginPct.toFixed(1)} %`} />
         <Tile label="Payback" value={payback} />
