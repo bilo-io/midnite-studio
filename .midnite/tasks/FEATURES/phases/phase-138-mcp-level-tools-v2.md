@@ -64,12 +64,12 @@ leaves Save to the user.
 deterministically ordered `LevelIssue`s with stable rule ids (`level/no-spawn`, `level/duplicate-id`, …), the
 registry Phase 142 extends.
 
-**Theme C — The editor bridge.** ◻ A main → renderer request/reply over `mstudio:games:level-editor-request` (event)
+**Theme C — The editor bridge.** ✅ A main → renderer request/reply over `mstudio:games:level-editor-request` (event)
 and `mstudio:games:level-editor-reply` (one-way send), modelled on Companion's `ui-bridge.ts`: `snapshot`, `apply`,
-`select`, `frame`, `view`. A request for a scene the editor does not show answers `{ handled: false }`.
+`select`, `frame`, `view`. A request for a scene the editor does not show answers `{ handled: false }`; one-way presence (`mstudio:games:level-editor-open`) lets main answer `not-open` with no round trip. Wire shapes in `packages/shared/src/game-level-editor-bridge.ts`, main half `level-editor-bridge.ts` (`service.levelEditor`), renderer half `use-level-editor-bridge.ts` (`snapshot` answered; `apply`/`select`/`frame`/`view` answer a not-yet failure until F/G/H).
 
-**Theme D — Query and validate tools.** ◻ `game_level_query` and `game_level_validate`, reading the editor's unsaved
-level when it is open (`source: 'editor'`) and the file otherwise.
+**Theme D — Query and validate tools.** ✅ `game_level_query` and `game_level_validate`, reading the editor's unsaved
+level when it is open (`source: 'editor'`) and the file otherwise (`readLevelForTool` in `game-level-source.ts`; model assets come from the manifest).
 
 **Theme E — Entity write tools.** ◻ `game_entity_add`, `game_entity_update`, `game_entity_delete` and
 `game_entity_batch`: one validated change set, applied live in the open editor or committed as one file write when
@@ -320,15 +320,15 @@ export function createLevelEditorBridge(deps: { send: (channel: string, payload:
 
 **Acceptance.**
 
-- [ ] C1. `request` resolves with the renderer's result when `resolve(id, …)` is called, and with
+- [x] C1. `request` resolves with the renderer's result when `resolve(id, …)` is called, and with
   `failure('the level editor did not answer')` after the timeout (fake timers).
-- [ ] C2. A `resolve` for an unknown id is a no-op; a second `resolve` for the same id is a no-op.
-- [ ] C7. With `open` set to another scene (or `null`), `request` answers `not-open` without calling `send`.
-- [ ] C3. The renderer hook answers `snapshot` for the open scene with the serialised edit level and `dirty`, and
+- [x] C2. A `resolve` for an unknown id is a no-op; a second `resolve` for the same id is a no-op.
+- [x] C7. With `open` set to another scene (or `null`), `request` answers `not-open` without calling `send`.
+- [x] C3. The renderer hook answers `snapshot` for the open scene with the serialised edit level and `dirty`, and
   `not-open` for another scene.
-- [ ] C4. `apply` on a read-only level answers `handled: false, reason: 'read-only'`.
-- [ ] C5. `GamesLevelEditorReply` rejects a non-uuid id; main's one-way handler logs and drops it (`warnInvalid`).
-- [ ] C6. `packages/app/test-support/mock-bridge.ts` exposes `games.levels.onEditorRequest` and `editorReply`, and the
+- [x] C4. `apply` on a read-only level answers `handled: false, reason: 'read-only'`.
+- [x] C5. `GamesLevelEditorReply` rejects a non-uuid id; main's one-way handler logs and drops it (`warnInvalid`).
+- [x] C6. `packages/app/test-support/mock-bridge.ts` exposes `games.levels.onEditorRequest` and `editorReply`, and the
   existing app suites still build against it.
 
 **Done when** C1–C6 pass and `scripts/layer-boundaries.test.mjs` is green (no import from `features/companion`).
@@ -363,12 +363,12 @@ export async function readLevelForTool(deps: { levels: GameLevels; levelEditor: 
 
 **Acceptance.**
 
-- [ ] D1. With no editor open (presence `null`), `game_level_query` reads the file and reports `source: 'file'`.
-- [ ] D2. With a mocked bridge answering `snapshot`, the query sees an unsaved object and reports `source: 'editor',
+- [x] D1. With no editor open (presence `null`), `game_level_query` reads the file and reports `source: 'file'`.
+- [x] D2. With a mocked bridge answering `snapshot`, the query sees an unsaved object and reports `source: 'editor',
   dirty: true`.
-- [ ] D3. `game_level_validate` returns `counts` equal to the per-severity tallies of `issues`.
-- [ ] D4. Both tools answer while `allowGames` is off (they are reads).
-- [ ] D5. The pin file lists both ids; `mcp.test.ts`'s description rules pass.
+- [x] D3. `game_level_validate` returns `counts` equal to the per-severity tallies of `issues`.
+- [x] D4. Both tools answer while `allowGames` is off (they are reads).
+- [x] D5. The pin file lists both ids; `mcp.test.ts`'s description rules pass.
 
 **Done when** D1–D5 pass in `packages/desktop/src/main/games/game-mcp.test.ts` and `packages/shared/src/media-game-mcp.test.ts`.
 

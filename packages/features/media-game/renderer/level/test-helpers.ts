@@ -20,12 +20,20 @@ type Bridge = {
   manifestSet?: ReturnType<typeof vi.fn>;
   doctor?: ReturnType<typeof vi.fn>;
   doctorFix?: ReturnType<typeof vi.fn>;
+  /** Phase 138 Theme C: the editor bridge's members; the default records nothing and never pushes a request. */
+  onEditorRequest?: ReturnType<typeof vi.fn>;
+  editorReply?: ReturnType<typeof vi.fn>;
+  editorOpen?: ReturnType<typeof vi.fn>;
 };
 
 export function installBridge(b: Bridge): void {
   (window as unknown as { midniteStudio: unknown }).midniteStudio = {
     games: {
-      levels: { list: b.list ?? vi.fn(), get: b.get ?? vi.fn(), set: b.set ?? vi.fn(), mapAsset: b.mapAsset ?? vi.fn() },
+      levels: { list: b.list ?? vi.fn(), get: b.get ?? vi.fn(), set: b.set ?? vi.fn(), mapAsset: b.mapAsset ?? vi.fn(),
+        onEditorRequest: b.onEditorRequest ?? vi.fn(() => () => undefined),
+        editorReply: b.editorReply ?? vi.fn(),
+        editorOpen: b.editorOpen ?? vi.fn(),
+      },
       goto: b.goto ?? vi.fn(),
       doctor: b.doctor ?? vi.fn().mockResolvedValue({ ok: false, kind: 'error', message: 'no doctor' }),
       doctorFix: b.doctorFix ?? vi.fn(),

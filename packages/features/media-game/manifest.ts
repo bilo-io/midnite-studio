@@ -41,6 +41,8 @@ export const mediaGameManifest = defineFeatureManifest({
     CHANNELS.gamesLevelSet,
     CHANNELS.gamesLevelMapAsset,
     CHANNELS.gamesLevelModel,
+    CHANNELS.gamesLevelEditorReply,
+    CHANNELS.gamesLevelEditorOpen,
     CHANNELS.gamesGoto,
     CHANNELS.gamesPopOut,
     CHANNELS.gamesPopped,
@@ -54,7 +56,7 @@ export const mediaGameManifest = defineFeatureManifest({
     CHANNELS.gamesPlaytestRun,
     CHANNELS.gamesExport,
   ],
-  events: [EVENT_CHANNELS.gamesChanged, EVENT_CHANNELS.gamesRunState, EVENT_CHANNELS.gamesConsole, EVENT_CHANNELS.gamesOpen, EVENT_CHANNELS.gamesPopState, EVENT_CHANNELS.gamesAgentProgress],
+  events: [EVENT_CHANNELS.gamesChanged, EVENT_CHANNELS.gamesLevelEditorRequest, EVENT_CHANNELS.gamesRunState, EVENT_CHANNELS.gamesConsole, EVENT_CHANNELS.gamesOpen, EVENT_CHANNELS.gamesPopState, EVENT_CHANNELS.gamesAgentProgress],
   // The `game_*` tools. Gamer owns them (`FEATURE_PACKAGE_SPLITS`), so a Gamer-only install lists them and a
   // Creator-only one does not. Their handlers stay with the MCP server (Studio's `main/mcp`); only ownership lives here.
   mcpTools: [...GAME_MCP_TOOL_IDS],

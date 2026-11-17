@@ -3658,6 +3658,14 @@ export function buildMockBridge(data: MockFixtures) {
         },
         mapAsset: async () => ({ ok: false as const, kind: 'error' as const, message: 'No such map asset.' }),
         model: async (req: { gameId: string; name: string }) => ({ ok: false as const, kind: 'error' as const, message: `No model asset named "${req.name}".` }),
+        // Phase 138 Theme C: the editor bridge. Requests are never pushed here; replies and presence are recorded.
+        onEditorRequest: (_handler: (event: unknown) => void) => () => undefined,
+        editorReply: (payload: unknown) => {
+          gamesCalls.push({ call: 'levelEditorReply', payload });
+        },
+        editorOpen: (scene: unknown) => {
+          gamesCalls.push({ call: 'levelEditorOpen', scene });
+        },
       },
       goto: async (req: { gameId: string; scene: string }) => {
         gamesCalls.push({ call: 'goto', ...req });

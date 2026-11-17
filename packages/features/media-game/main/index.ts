@@ -151,6 +151,9 @@ export const mediaGameMain = defineFeatureMain<MediaGameMainServices>({
     handle(CHANNELS.gamesReload, schemas.GamesReloadRequest, ({ gameId }) => service.reload(gameId), (issue) => failure(issue));
 
     send(CHANNELS.gamesSetBounds, schemas.GamesSetBoundsRequest, ({ gameId, bounds }) => service.setBounds(gameId, bounds), warnInvalid);
+    // Phase 138 Theme C: the open level editor's one-way answers and presence.
+    send(CHANNELS.gamesLevelEditorReply, schemas.GamesLevelEditorReply, (reply) => service.levelEditor.resolve(reply.id, reply.result), warnInvalid);
+    send(CHANNELS.gamesLevelEditorOpen, schemas.GamesLevelEditorOpenPayload, (open) => service.levelEditor.setOpen(open), warnInvalid);
     send(CHANNELS.gamesSetVisible, schemas.GamesSetVisibleRequest, ({ gameId, visible }) => service.setVisible(gameId, visible), warnInvalid);
 
     handle(

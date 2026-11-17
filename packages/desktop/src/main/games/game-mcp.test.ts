@@ -70,6 +70,7 @@ function setup(
     playtests?: Parameters<typeof createGameMcpTools>[0]['playtests'];
     levels?: Partial<Parameters<typeof createGameMcpTools>[0]['service']['levels']>;
     goto?: Parameters<typeof createGameMcpTools>[0]['service']['goto'];
+    levelEditor?: Parameters<typeof createGameMcpTools>[0]['service']['levelEditor'];
   } = {},
 ) {
   const emitted: Array<[string, unknown]> = [];
@@ -85,12 +86,13 @@ function setup(
         mapAsset: async () => ({ ok: true as const, value: { level: { type: 'map' }, issues: [] } }),
         ...opts.levels,
       },
+      levelEditor: opts.levelEditor ?? { request: async () => ({ ok: true as const, value: { handled: false as const, reason: 'not-open' as const } }), resolve: () => undefined, setOpen: () => undefined, open: () => null },
       goto: opts.goto ?? (async () => ({ ok: true as const, value: { via: 'hook' as const } })),
       doctor: async (req) => (req.gameId === GAME.gameId || req.path === GAME.path ? { ok: true as const, value: DIAGNOSIS } : { ok: false as const, kind: 'error' as const, message: 'That game was not found.' }),
       doctorFix: async (req) =>
         req.path === GAME.path ? { ok: true as const, value: { commit: 'abc1234', diagnosis: DIAGNOSIS } } : { ok: false as const, kind: 'error' as const, message: 'That game was not found.' },
       create: async () => ({ ok: true as const, value: { path: '/games/new', gameId: 'gnew' } }),
-      manifestGet: async () => ({ manifest: (opts.manifest ?? { kitVersion: '0.1.0', vendored: { phaser: '3.80.1' } }) as never, issues: [] }),
+      manifestGet: async () => ({ manifest: (opts.manifest ?? { kitVersion: '0.1.0', vendored: { phaser: '3.80.1' }, assets: [] }) as never, issues: [] }),
       manifestSet,
       run: async () => ({ ok: true as const, value: { runId: 'r1' } }),
       stop: () => ({ ok: true as const }),
@@ -468,5 +470,63 @@ describe('game_doctor_fix (Phase 149 Theme D)', () => {
     });
     expect(await dispatchMcpCall('game_doctor_fix', { game: 'nope', fixId: 'normalise-vendored' })).toMatchObject({ ok: false });
     expect(await dispatchMcpCall('game_doctor_fix', { game: 'gabc', fixId: 'bogus' })).toMatchObject({ ok: false });
+  });
+});
+
+describe('level query and validate tools (Phase 138 Theme D)', () => {
+  beforeEach(() => resetMcpAllowUiStateForTests());
+  afterEach(() => setGameTools(null));
+
+  const map = (objects: unknown[]) => ({
+    type: 'map',
+    infinite: false,
+    orientation: 'orthogonal',
+    width: 10,
+    height: 10,
+    tilewidth: 16,
+    tileheight: 16,
+    nextobjectid: 10,
+    tilesets: [],
+    layers: [{ id: 1, name: 'Entities', type: 'objectgroup', objects }],
+  });
+  const crate = { id: 2, name: 'crate', type: 'crate', x: 16, y: 16, width: 16, height: 16 };
+  const snapshot = (level: unknown, dirty: boolean) => ({
+    request: async () => ({ ok: true as const, value: { handled: true as const, value: { level, dirty } } }),
+    resolve: () => undefined,
+    setOpen: () => undefined,
+    open: () => null,
+  });
+
+  it('D1: reads the file when no editor is open', async () => {
+    setup(null, { levels: { get: async () => ({ ok: true as const, value: { level: map([crate]), issues: [], images: [] } }) } });
+    const result = await dispatchMcpCall('game_level_query', { game: 'gabc', scene: 'level', types: ['crate'] });
+    expect(result).toMatchObject({ ok: true, value: { source: 'file', dirty: false, total: 1 } });
+  });
+
+  it('D2: sees an unsaved object through the editor bridge', async () => {
+    setup(null, { levelEditor: snapshot(map([crate, { ...crate, id: 3, name: 'new' }]), true) });
+    const result = await dispatchMcpCall('game_level_query', { game: 'gabc', scene: 'level' });
+    expect(result).toMatchObject({ ok: true, value: { source: 'editor', dirty: true, total: 2 } });
+  });
+
+  it('D3: validate counts match the per-severity tallies, and a missing file is not-found', async () => {
+    setup(null, { levelEditor: snapshot(map([crate, { ...crate, name: 'dup' }]), false) });
+    const result = await dispatchMcpCall('game_level_validate', { game: 'gabc', scene: 'level' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const value = result.value as { source: string; counts: Record<string, number>; issues: Array<{ rule: string; severity: string }> };
+    expect(value.source).toBe('editor');
+    expect(value.issues.some((i) => i.rule === 'level/duplicate-id')).toBe(true);
+    for (const severity of ['error', 'warning', 'info']) expect(value.counts[severity]).toBe(value.issues.filter((i) => i.severity === severity).length);
+
+    setup(null, { levels: { get: async () => ({ ok: false as const, kind: 'error' as const, message: 'Level "x" not found in levels/.' }) } });
+    expect(await dispatchMcpCall('game_level_validate', { game: 'gabc', scene: 'x' })).toMatchObject({ ok: false, kind: 'not-found' });
+  });
+
+  it('D4: both answer while the games switch is off', async () => {
+    setup(null);
+    expect(await dispatchMcpCall('game_level_query', { game: 'gabc', scene: 'level' })).toMatchObject({ ok: true });
+    const v = await dispatchMcpCall('game_level_validate', { game: 'gabc', scene: 'level' });
+    expect(v).toMatchObject({ ok: true });
   });
 });

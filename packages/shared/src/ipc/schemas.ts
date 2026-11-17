@@ -5779,6 +5779,8 @@ export const GamesLevelSetRequest = GameLevelSetRequestSchema;
 export const GamesLevelSetResponse = GitOpResultOf(GameLevelSetResultSchema);
 export const GamesLevelMapAssetRequest = GameLevelMapAssetRequestSchema;
 export const GamesLevelMapAssetResponse = GitOpResultOf(GameLevelMapAssetResultSchema);
+// Phase 138 Theme C — the main -> renderer level-editor bridge.
+export { GamesLevelEditorRequestPayload, GamesLevelEditorReply, GamesLevelEditorOpenPayload } from '../game-level-editor-bridge';
 export const GamesGotoRequest = GameGotoRequestSchema;
 export const GamesGotoResponse = GitOpResultOf(GameGotoResultSchema);
 export const GamesPopOutRequest = GameIdRequestSchema;

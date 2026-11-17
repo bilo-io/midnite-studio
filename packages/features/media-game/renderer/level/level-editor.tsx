@@ -28,6 +28,7 @@ import { EmptyState, EmptyStateButton, Skeleton } from '@midnite/studio-frame';
 
 import { useDoctorRequest } from '../game-doctor-store';
 import { useDoctorFix, useGameDiagnosis } from '../use-games';
+import { useLevelEditorBridge } from './use-level-editor-bridge';
 import { LevelCanvas, type CanvasPointer } from './level-canvas';
 import {
   addLayer,
@@ -128,6 +129,7 @@ export function LevelEditor({ gameId }: { gameId: string | null }) {
   const requestDoctor = useDoctorRequest((s) => s.request);
   const [loadError, setLoadError] = useState<string | null>(null);
   const tried = useRef<string | null>(null);
+  useLevelEditorBridge(gameId);
 
   const list = levels.data;
   const first = list ? (list.start && list.scenes.some((s) => s.scene === list.start) ? list.start : list.scenes[0]?.scene) : undefined;

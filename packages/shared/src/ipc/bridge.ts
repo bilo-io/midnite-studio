@@ -1670,6 +1670,12 @@ export type MidniteStudioBridge = {
       mapAsset: (req: In<typeof S.GamesLevelMapAssetRequest>) => Promise<z.infer<typeof S.GamesLevelMapAssetResponse>>;
       /** A `model` asset's bytes for the 3D view (Phase 136 Theme F). */
       model: (req: In<typeof S.GamesLevelModelRequest>) => Promise<z.infer<typeof S.GamesLevelModelResponse>>;
+      /** Phase 138 Theme C: main asks the open level editor something (snapshot, apply, select, frame, view). */
+      onEditorRequest: (handler: (event: z.infer<typeof S.GamesLevelEditorRequestPayload>) => void) => Unsubscribe;
+      /** One-way answer to an `onEditorRequest`. */
+      editorReply: (payload: z.input<typeof S.GamesLevelEditorReply>) => void;
+      /** One-way presence: the scene the editor shows (`null` once it closes). */
+      editorOpen: (scene: z.input<typeof S.GamesLevelEditorOpenPayload>) => void;
     };
     goto: (req: In<typeof S.GamesGotoRequest>) => Promise<z.infer<typeof S.GamesGotoResponse>>;
     /** Move a game's runner into the `game` popout window; closing that window docks it back. */

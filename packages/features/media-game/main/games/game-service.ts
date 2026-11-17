@@ -34,6 +34,7 @@ import { inferManifest } from './infer-manifest';
 import { resolveGameFolder } from './game-open';
 import { listGames } from './game-list';
 import { createGameLevels } from './game-levels';
+import { createLevelEditorBridge } from './level-editor-bridge';
 import { createGameManage } from './game-manage';
 import { createGame, gameIdForPath } from './game-scaffold';
 import type { GamePopout } from './game-popout';
@@ -114,6 +115,7 @@ export function createGameService(deps: GameServiceDeps) {
     return games.find((game) => resolvePath(game.path) === wanted) ?? null;
   }
 
+  const levelEditor = createLevelEditorBridge({ send: deps.send });
   const levels = createGameLevels({ resolve, readManifest, runner: deps.runner, send: deps.send, log: deps.log });
 
   const manage = createGameManage({
@@ -287,6 +289,8 @@ export function createGameService(deps: GameServiceDeps) {
     /** `levels/<scene>.tmj` (Phase 132 Theme C): list, read, write-and-commit; and the jump to a scene. */
     levels: { list: levels.list, get: levels.get, set: levels.set, mapAsset: levels.mapAsset, model: levels.model },
     goto: levels.goto,
+    /** The main -> renderer level-editor bridge (Phase 138 Theme C). */
+    levelEditor,
     async kitUpgrade(gameId: string): Promise<GitOpResult<{ branch: string }>> {
       const game = await find(gameId);
       if (!game) return failure('That game was not found.');
