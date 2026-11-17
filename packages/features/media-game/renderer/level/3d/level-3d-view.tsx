@@ -370,8 +370,7 @@ export default function Level3dView(props: Level3dViewProps) {
             const sel = index === null ? null : (items[index]?.sel ?? null);
             update((s) => (sel && modifier === 'toggle' ? toggleSelected(s, sel) : sel && modifier === 'add' ? addSelected(s, [sel]) : select(s, sel)));
           }}
-          onGroupEnd={(delta: GroupDelta, framePivot: GroupPivot, inverted: boolean) => {
-            void inverted;
+          onGroupEnd={(delta: GroupDelta, framePivot: GroupPivot) => {
             update((s) => gizmoEditGroup(s, selectedRefs, framePivot, delta));
           }}
           onPlace={(x, z) => {
@@ -393,7 +392,9 @@ export default function Level3dView(props: Level3dViewProps) {
             if (item && levelSnap.surface && levelSnap.enabled !== inverted && change.elevation === undefined && (change.centre || change.size)) {
               const size = change.size ?? item.size;
               const box = footprintBox(change.centre ?? [item.position[0], item.position[2]], [size[0], size[2]], change.yaw ?? item.yaw);
-              next = { ...change, elevation: surfaceElevation(items, box, new Set([sel.objectId]), ground) };
+              const drop = surfaceElevation(items, box, new Set([sel.objectId]), ground);
+              // An object already resting there keeps its (absent) elevation property.
+              if (Math.abs(drop - item.position[1]) > 1e-3) next = { ...change, elevation: drop };
             }
             update((s) => gizmoEdit(s, sel, next));
           }}
