@@ -9,7 +9,7 @@ Completed work is logged append-only in [`../done.md`](../done.md). Deferred sco
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [150 · Startup projections](phases/phase-150-startup-projections.md) | ◻ TODO | x1 | 0/41 | `░░░░░░░░░░` | 0% | — | A B C D E F |
-| [149 · Midnite game standard, game doctor and game management](phases/phase-149-midnite-game-standard-doctor.md) | 🔄 WIP | — | 13/52 | `███░░░░░░░` | 25% | C E | D F G H |
+| [149 · Midnite game standard, game doctor and game management](phases/phase-149-midnite-game-standard-doctor.md) | 🔄 WIP | — | 25/52 | `█████░░░░░` | 48% | D F | G H |
 | [148 · Performance widget recovery actions](phases/phase-148-performance-widget-recovery-actions.md) | 🔄 WIP | — | 28/33 | `████████░░` | 85% | — | — |
 | [147 · Unified sessions and chats](phases/phase-147-unified-sessions-and-chats.md) | ◻ TODO | — | 0/22 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [146 · Midnite Mobile](phases/phase-146-mobile-app.md) | ◻ TODO | x1 | 0/88 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K L |
