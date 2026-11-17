@@ -59,20 +59,30 @@ each one undo step; `level-selection.ts` holds `refKey`, `sameRef`, `objectExten
 redo keep the selection, dropping refs that no longer resolve; selecting is never an undo step, so it leaves the redo
 stack alone. `addObject` selects the new object only; `setActiveLayer` / `addLayer` clear both fields.
 
-**Theme B — Clipboard and duplicate.** ◻ `copySelection` → a versioned `LevelClipboard` JSON, written to the system
-clipboard with an in-memory fallback; `pasteClipboard` at the pointer or in place +1 cell; `duplicateSelection` in
-place. Mod+C / Mod+X / Mod+V / Mod+D in the local handler.
+**Theme B — Clipboard and duplicate.** ✅ `level-clipboard.ts`: `copySelection` → a versioned `LevelClipboard` JSON
+(positions relative to the selection bounds' top-left, `id: 0`), `parseClipboard` (never throws), `pasteClipboard` into
+the active object layer, `duplicateSelection` in place (each copy in its own layer), and `writeClipboard` /
+`readClipboard` over the system clipboard with an in-memory fallback. Paste lands at the last pointer position over the
+plan or tile canvas (snapped to the half-metre grid in 3D levels), else one tile off the original; a clipboard from the
+other dimension pastes nothing and says so. The edit model gained `insertObjects` (one undo step, selects what it adds).
+Mod+C / X / V / D live in the editor's local handler.
 
-**Theme C — Floorplan multi-select.** ◻ Marquee on empty ground with Select, Shift adds, Mod toggles, Mod+A selects
-the active layer, a group drag moves every selected object as one step, arrow keys nudge. Every selected object gets
-the 3D view's amber outline; the group gets a dashed bounds box.
+**Theme C — Floorplan multi-select.** ✅ One Select-tool gesture (`selectPointer` in `level-editor.tsx`) serves the tile
+canvas and the 3D level's plan: a marquee from empty ground (`selectInRect`, Shift adds, Mod toggles; a plain click on
+empty ground clears), Shift / Mod click, and a group drag through `moveObjects` (one undo step; the primary snaps, the
+rest keep their offsets). Mod+A selects the active object layer, Escape clears, Delete removes the set, arrows nudge a
+tile (Shift ten), one undo step each press. `CanvasPointer` gained `mod`; `drawPlan` and the tile canvas stroke every
+selected object in `#f5a524` (primary 3 px, others 2 px) and `drawSelectionExtras` adds the dashed group bounds and the
+marquee. Marquee rectangles are in object coordinates (an isometric map draws them through `objectToMapPoint`).
 
 **Theme D — 3D multi-select and the group gizmo.** ◻ Shift / Mod click and a screen-space marquee in the 3D view; the
 gizmo drives the whole selection about a **Pivot** or **Centre** origin in **Local** or **World** space (Unity's Z and
 X toggles), one `gizmoEditGroup` undo step per drag.
 
-**Theme E — Align and distribute.** ◻ Pure `alignObjects` (min / centre / max on X or Y) and `distributeObjects`
-(even centres) against the selection's bounds, from an align bar that appears at two or more selected objects.
+**Theme E — Align and distribute.** ✅ Pure `alignObjects` (min / centre / max on X or Y, against the selection bounds)
+and `distributeObjects` (even centres between the extremes, three or more) in `level-align.ts`, each one undo step via
+the edit model's new `translateObjects`. `LevelAlignBar` renders in the toolbar after Redo at two or more selected
+objects; both distribute buttons are disabled below three. All eight Lucide names resolve, so no fallback icons.
 
 **Theme F — Snap settings.** ◻ One snap popover for both views: grid (tile fractions in the plan, the frame's
 `GRID_STEPS` in 3D), angle (`ANGLE_STEPS`), and **surface** snap that drops a moved or placed object onto the top of
@@ -218,13 +228,13 @@ export async function readClipboard(): Promise<LevelClipboard | null>;          
 
 **Acceptance.**
 
-- [ ] B1. `copySelection` of 2 objects gives positions relative to their bounds' top-left and `id: 0`.
-- [ ] B2. `pasteClipboard` at `{x:100,y:50}` adds 2 objects with fresh, unique ids, selects them, one undo step.
-- [ ] B3. `duplicateSelection` adds copies at identical positions and selects the copies (not the originals).
-- [ ] B4. `parseClipboard('not json')` and a wrong `kind` return `null`.
-- [ ] B5. With `navigator.clipboard` undefined (jsdom), `writeClipboard` then `readClipboard` round-trips through
+- [x] B1. `copySelection` of 2 objects gives positions relative to their bounds' top-left and `id: 0`.
+- [x] B2. `pasteClipboard` at `{x:100,y:50}` adds 2 objects with fresh, unique ids, selects them, one undo step.
+- [x] B3. `duplicateSelection` adds copies at identical positions and selects the copies (not the originals).
+- [x] B4. `parseClipboard('not json')` and a wrong `kind` return `null`.
+- [x] B5. With `navigator.clipboard` undefined (jsdom), `writeClipboard` then `readClipboard` round-trips through
   memory.
-- [ ] B6. In `level-editor.test.tsx`, Mod+D with one selected object adds one object (count +1) and Mod+Z removes it.
+- [x] B6. In `level-editor.test.tsx`, Mod+D with one selected object adds one object (count +1) and Mod+Z removes it.
 
 **Done when** B1–B6 pass.
 
@@ -257,15 +267,15 @@ export async function readClipboard(): Promise<LevelClipboard | null>;          
 
 **Acceptance.**
 
-- [ ] C1. Clicking empty space with the Select tool and no drag clears the selection.
-- [ ] C2. A marquee over 2 of 3 fixture objects selects exactly those 2 (vitest drives `onPointer` with synthetic
+- [x] C1. Clicking empty space with the Select tool and no drag clears the selection.
+- [x] C2. A marquee over 2 of 3 fixture objects selects exactly those 2 (vitest drives `onPointer` with synthetic
   `CanvasPointer`s, no real drag).
-- [ ] C3. Shift-click adds, Mod-click toggles, as A2 states.
-- [ ] C4. A synthetic group drag of 2 selected objects by (32, 0) moves both and is one undo step.
-- [ ] C5. Mod+A selects every object in the active layer; arrow-right nudges them one tile; Shift+arrow-right ten.
-- [ ] C6. `drawPlan` with a mocked context strokes `#f5a524` once per selected object and calls `setLineDash` for the
+- [x] C3. Shift-click adds, Mod-click toggles, as A2 states.
+- [x] C4. A synthetic group drag of 2 selected objects by (32, 0) moves both and is one undo step.
+- [x] C5. Mod+A selects every object in the active layer; arrow-right nudges them one tile; Shift+arrow-right ten.
+- [x] C6. `drawPlan` with a mocked context strokes `#f5a524` once per selected object and calls `setLineDash` for the
   group bounds when 2+ are selected.
-- [ ] C7. The e2e spec marquee-selects two coins on a platformer starter and drags them; both positions change in the
+- [x] C7. The e2e spec marquee-selects two coins on a platformer starter and drags them; both positions change in the
   inspector's X field after re-selecting each.
 
 **Done when** C1–C7 pass and `scripts/e2e-budget.mjs` is updated for the one new spec.
@@ -355,10 +365,10 @@ export function distributeObjects(state: EditState, refs: readonly ObjectRef[], 
 
 **Acceptance.**
 
-- [ ] E1. Aligning three boxes on `x`/`min` sets each box's left footprint edge to the bounds' left; one undo step.
-- [ ] E2. `centre` aligns footprint centres, `max` right edges; a rotated box uses its rotated footprint.
-- [ ] E3. `distributeObjects` on 4 objects keeps the two extremes and spaces the middle two evenly by centre.
-- [ ] E4. The bar renders only at 2+ selected; the distribute buttons are disabled at exactly 2.
+- [x] E1. Aligning three boxes on `x`/`min` sets each box's left footprint edge to the bounds' left; one undo step.
+- [x] E2. `centre` aligns footprint centres, `max` right edges; a rotated box uses its rotated footprint.
+- [x] E3. `distributeObjects` on 4 objects keeps the two extremes and spaces the middle two evenly by centre.
+- [x] E4. The bar renders only at 2+ selected; the distribute buttons are disabled at exactly 2.
 
 **Done when** E1–E4 pass.
 

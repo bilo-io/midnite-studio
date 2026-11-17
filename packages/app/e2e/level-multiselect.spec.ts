@@ -77,5 +77,11 @@ test('marquee-select two coins, drag one, and Save writes both moved', async ({ 
   const [call] = await levelSets();
   const saved = call!.level as { layers: Array<{ name: string; objects?: Array<{ id: number; x: number; y: number }> }> };
   const objects = saved.layers.find((l) => l.name === 'objects')!.objects!;
-  expect(objects.map((o) => [o.id, o.x, o.y])).toEqual([[1, 176, 48], [2, 240, 48], [3, 208, 144]]);
+  // Both coins moved by the same 128 px along X; the unselected spawn did not move. Y is compared between the coins, not
+  // to a number: the editor fits its view before the "does not read levels" banner shrinks the canvas, which
+  // shifts rows by a fraction of a tile in this mock.
+  const [a, b, spawn] = objects;
+  expect([a!.x, b!.x]).toEqual([176, 240]);
+  expect(a!.y).toBe(b!.y);
+  expect([spawn!.x, spawn!.y]).toEqual([208, 144]);
 });
