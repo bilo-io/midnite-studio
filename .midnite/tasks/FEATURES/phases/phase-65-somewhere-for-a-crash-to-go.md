@@ -1,5 +1,18 @@
 # Phase 65 — Somewhere for a crash to go
 
+**Refined: x1** · 2026-11-17 · testing & verification, file-map precision, per-item acceptance criteria
+
+> **Audit note (2026-11-17).** The framing below — "four things are true", "Builds on" — describes
+> the repo *before* this phase, with the line numbers of that day; it is kept as the record of why
+> the phase exists. Paths have moved since: Phase 113 put the sink in
+> [`packages/runtime/src/log/`](../../../packages/runtime/src/log/log-sink.ts), the report handlers in the
+> [`report` feature](../../../packages/features/report/main/index.ts) (desktop's
+> [`report-handlers.ts`](../../../packages/desktop/src/main/ipc/report-handlers.ts) now only composes
+> it), `fingerprintFile` in [`runtime/src/broker/socket-name.ts`](../../../packages/runtime/src/broker/socket-name.ts),
+> the renderer's entry in [`boot.tsx`](../../../packages/app/src/boot.tsx), and the browser's
+> `browser-service.ts` in [`packages/features/browser/main/`](../../../packages/features/browser/main/browser-service.ts).
+> `## Files this phase touches` carries the current paths; trust it over the framing.
+
 [Phase 60](phase-60-view-registry-and-error-boundaries.md) builds the error boundaries. This phase
 builds the place their reports go, because today there is nowhere: **the renderer has no logging
 channel at all, and main's has no file.**
@@ -44,7 +57,7 @@ without a channel cannot hear the renderer.
    **0**. `crashReporter` → **0**. What does exist is three per-`webContents` `render-process-gone`
    binds — [`index.ts:129-136`](../../../packages/desktop/src/main/index.ts) (called at `:455` and
    `:486`), [`window-manager.ts:172-179`](../../../packages/desktop/src/main/window-manager.ts) and
-   [`browser-service.ts:139-141`](../../../packages/desktop/src/main/browser-service.ts) — each of
+   [`browser-service.ts:139-141`](../../../packages/features/browser/main/browser-service.ts) — each of
    which logs a good line into that same discarded stderr. The information is already being
    produced. It is only being thrown away.
 
@@ -104,7 +117,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Headlines
 
-*The sink and the channel Phase 60 Decision 3 deferred: structured levels on main's one 14-line log seam, a rotating file under `userData`, a renderer→main error-report path, main's own uncaught crashes, and two buttons plus a bug link so a user can actually hand any of it over.* (88% · 43/49, [PR #170](https://github.com/bilo-io/midnite-studio/pull/170) + [PR #178](https://github.com/bilo-io/midnite-studio/pull/178)) — **All five themes landed**; only human verification passes remain. [Phase 60](phase-60-view-registry-and-error-boundaries.md) builds the error boundaries; this is the place their reports go, because today there is nowhere. 49 items, five small themes, no new dependency, no telemetry, nothing leaves the machine without a button press.
+*The sink and the channel Phase 60 Decision 3 deferred: structured levels on main's one 14-line log seam, a rotating file under `userData`, a renderer→main error-report path, main's own uncaught crashes, and two buttons plus a bug link so a user can actually hand any of it over.* (90% · 44/49, [PR #170](https://github.com/bilo-io/midnite-studio/pull/170) + [PR #178](https://github.com/bilo-io/midnite-studio/pull/178)) — **All five themes landed**; only human verification passes remain. [Phase 60](phase-60-view-registry-and-error-boundaries.md) builds the error boundaries; this is the place their reports go, because today there is nowhere. 49 items, five small themes, no new dependency, no telemetry, nothing leaves the machine without a button press.
+
+**Audit + refine (2026-11-17).** Every deliverable had landed; the five open lines were all in `## Verification`. **1 ticked as landed** (Copy diagnostics redaction — `features/report/main/index.test.ts`), **0 struck** (one clause struck inside a kept item: "still one record" predates the per-signature cap of 3), **4 rewritten as precise `(human)` checks** (throw-in-a-view, Reveal in Finder, kill/hang the renderer, the packaged blank-window paste), **1 refined for sonnet** (the unhandled-rejection line: a jsdom test for `installGlobalErrorReporting` plus lifting Studio main's three crash hooks into a testable `crash-hooks.ts`, messages byte-identical). Decisions 9–11 marked resolved as landed; framing paths reconciled. 44/49.
 
 **Theme A — Levels on the one seam, and a file under it.** ✅ Levels on the one seam, and a file under it: `Logger` becomes a callable type with `info`/`warn`/`error` so all ~40 existing call sites compile unchanged; a directory-injected, size-capped, rotating NDJSON `log-sink.ts` that never throws into its caller; the stale `log.ts:6-9` header corrected; `fingerprintFile` lifted out of `broker-client.ts`. Main's seam is 14 lines (`Logger = (message: string) => void` over `console.warn`) with ~40 call sites writing to a stderr a packaged user never sees — and its own docstring wrongly claims the broker redirects it to a file, when `broker-client.ts:181` only redirects the *child process's* stdio. Nothing in `packages/desktop/src` rotates anything (**0** hits). This adds levels to the one seam (a callable type with methods, so all ~40 call sites compile unchanged) and a rotating NDJSON sink under `userData` following the injected-directory convention every other store uses.
 
@@ -228,7 +243,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       of 20 reports per session. A render loop that throws every frame must not turn into an IPC
       flood, and an error *inside* `reportError` is swallowed rather than re-reported.
 - [x] `window.addEventListener('error', …)` and `'unhandledrejection'` installed once in
-      [`main.tsx`](../../../packages/app/src/main.tsx) — before `createRoot` at `:23-25`, so a throw
+      [`main.tsx`](../../../packages/app/src/boot.tsx) — before `createRoot` at `:23-25`, so a throw
       during the first render is caught. **Both roles get them**: that file is the shared entry for
       `App` and `DetachedRoot`, so popouts are covered by the same two lines, and `role` goes on the
       report.
@@ -252,10 +267,10 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] The three existing `render-process-gone` binds move from the bare seam to `log.error`:
       [`index.ts:129-136`](../../../packages/desktop/src/main/index.ts),
       [`window-manager.ts:172-179`](../../../packages/desktop/src/main/window-manager.ts),
-      [`browser-service.ts:139-141`](../../../packages/desktop/src/main/browser-service.ts). Their
+      [`browser-service.ts:139-141`](../../../packages/features/browser/main/browser-service.ts). Their
       message strings are already good; only the level changes, and with it whether they survive.
 - [x] `webContents.on('unresponsive')` on the app's own windows. Today it is bound only for embedded
-      browser tabs ([`browser-service.ts:145`](../../../packages/desktop/src/main/browser-service.ts)),
+      browser tabs ([`browser-service.ts:145`](../../../packages/features/browser/main/browser-service.ts)),
       so a hung Studio window — the failure a user is most likely to actually report — logs nothing.
 - [x] A boot line at startup recording app version, Electron/Chrome/Node versions, platform, arch,
       `isPackaged` and the `fingerprint.ts` build id. Every log file's first line, so a pasted tail
@@ -302,22 +317,23 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 | File | What |
 |---|---|
 | [`packages/desktop/src/main/log.ts`](../../../packages/desktop/src/main/log.ts) | callable `Logger` + `info`/`warn`/`error`; the stale `:6-9` header corrected |
-| `packages/desktop/src/main/log-sink.ts` | **new** — NDJSON, size-capped, rotating, directory-injected, never throws |
-| `packages/desktop/src/main/log-sink.test.ts` · `log.test.ts` | **new** — rotation boundary, write-failure degradation, both call forms |
-| `packages/desktop/src/main/fingerprint.ts` | **new** — `fingerprintFile` lifted out of `broker-client.ts:105-113` |
+| [`packages/runtime/src/log/log-sink.ts`](../../../packages/runtime/src/log/log-sink.ts) · [`bundle.ts`](../../../packages/runtime/src/log/bundle.ts) | landed in desktop, moved to the runtime in Phase 113 — NDJSON, size-capped, rotating, directory-injected, never throws; `bundle.ts` formats the diagnostics block |
+| [`packages/runtime/src/log/log-sink.test.ts`](../../../packages/runtime/src/log/log-sink.test.ts) · [`packages/desktop/src/main/log.test.ts`](../../../packages/desktop/src/main/log.test.ts) | rotation boundary, write-failure degradation, both call forms |
+| [`packages/runtime/src/broker/socket-name.ts`](../../../packages/runtime/src/broker/socket-name.ts) | `fingerprintFile` (lifted out of `broker-client.ts`; no `fingerprint.ts` survives — re-exported via desktop's `socket-name.ts` and `broker-client.ts`) |
 | [`packages/desktop/src/main/broker-client.ts`](../../../packages/desktop/src/main/broker-client.ts) | re-export the lifted fn; cap the child log at `:507-511`. Nothing else — `brokerSocketName` is untouched |
-| [`packages/desktop/src/main/index.ts`](../../../packages/desktop/src/main/index.ts) | sink construction at `:309`; `uncaughtException`/`unhandledRejection`/`child-process-gone`; `:129-136` → `log.error`; handler registration by `:301` |
-| [`packages/desktop/src/main/window-manager.ts`](../../../packages/desktop/src/main/window-manager.ts) · [`browser-service.ts`](../../../packages/desktop/src/main/browser-service.ts) | `:172-179` and `:139-141` → `log.error`; `unresponsive` on app windows |
+| [`packages/desktop/src/main/index.ts`](../../../packages/desktop/src/main/index.ts) | sink construction (`:753`), boot line (`:768-778`); `uncaughtException`/`unhandledRejection`/`child-process-gone` at `:371-391` (**refined:** replaced by one `installMainCrashHooks` call); `render-process-gone`/`unresponsive` at `:294`/`:308` |
+| [`packages/desktop/src/main/window-manager.ts`](../../../packages/desktop/src/main/window-manager.ts) · [`browser-service.ts`](../../../packages/features/browser/main/browser-service.ts) (now in the browser feature) | `:172-179` and `:139-141` → `log.error`; `unresponsive` on app windows |
 | [`packages/desktop/src/main/ipc/handle.ts`](../../../packages/desktop/src/main/ipc/handle.ts) | **`handleSend`** — the missing `ipcMain.on` counterpart |
-| `packages/desktop/src/main/ipc/report-handlers.ts` | **new** — `error` (send), `log-path` / `bundle` / `reveal` (invoke) |
+| [`packages/features/report/main/index.ts`](../../../packages/features/report/main/index.ts) · [`packages/desktop/src/main/ipc/report-handlers.ts`](../../../packages/desktop/src/main/ipc/report-handlers.ts) | `error` (send), `log-path` / `bundle` / `reveal` (invoke) live in the report feature; desktop's file composes it with Electron's `shell`/`clipboard` |
 | [`packages/shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts) | four `mstudio:report:*` channels — **not** `mstudio:diag:*`, taken at `:430-438` |
 | [`packages/shared/src/ipc/schemas.ts`](../../../packages/shared/src/ipc/schemas.ts) | `ErrorReportSchema` with every string capped |
 | [`packages/shared/src/ipc/bridge.ts`](../../../packages/shared/src/ipc/bridge.ts) | the `report` group |
-| `packages/shared/src/redact.ts` | **new** — `redactPaths`, home dir → `~`, POSIX + Windows tested |
+| [`packages/shared/src/redact.ts`](../../../packages/shared/src/redact.ts) | `redactPaths`, home dir → `~`, POSIX + Windows tested |
 | [`packages/shared/src/release.ts`](../../../packages/shared/src/release.ts) | the issue URLs, beside the four release ones |
 | [`packages/desktop/src/preload/index.ts`](../../../packages/desktop/src/preload/index.ts) | `report` added to the `Pick` at `:99` |
-| `packages/app/src/lib/report.ts` · `report.test.ts` | **new** — dedupe, session cap, no-bridge no-op |
-| [`packages/app/src/main.tsx`](../../../packages/app/src/main.tsx) | the two global listeners, before `createRoot` at `:23-25`, covering both roles |
+| [`packages/app/src/lib/report.ts`](../../../packages/app/src/lib/report.ts) · [`report.test.ts`](../../../packages/app/src/lib/report.test.ts) | dedupe, per-signature cap, no-bridge no-op; **refined:** `report.test.ts` gains the `installGlobalErrorReporting` describe |
+| [`packages/app/src/boot.tsx`](../../../packages/app/src/boot.tsx) | the two global listeners (`installGlobalErrorReporting()` at `:31`), before `createRoot`, covering both roles — `main.tsx` became `boot.tsx` |
+| `packages/desktop/src/main/crash-hooks.ts` · `crash-hooks.test.ts` | **net-new (refined, open)** — `installMainCrashHooks(log, process, app)`, Studio main's three crash hooks lifted verbatim out of `index.ts:371-391`, plus their vitest |
 | [`packages/app/src/features/settings/settings-pages/monitor-page.tsx`](../../../packages/app/src/features/settings/settings-pages/monitor-page.tsx) | two buttons + the path, inside the `:96` Diagnostics accordion |
 | [`packages/app/src/features/version/version-notes-panel.tsx`](../../../packages/app/src/features/version/version-notes-panel.tsx) | the Report a bug link |
 | [`packages/app/src/components/error-boundary.tsx`](../../../packages/app/src/components/error-boundary.tsx) | (**not built here**) — [Phase 60](phase-60-view-registry-and-error-boundaries.md) Theme B owns it; this phase ships the function it calls |
@@ -335,26 +351,127 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       change, the type is wrong (Decision 1).
 - [x] `grep -rn "mstudio:diag" packages/shared/src/ipc/channels.ts` still returns only the five
       repo-lint channels at `:430-438` — no collision with the new group.
-- [ ] Throw in a view, and `<userData>/logs/main.log` gains one NDJSON record naming the view, the
-      role and the stack. Then throw the *same* error four more times: still one record.
+- [ ] **(human)** Throw in a view, and `<userData>/logs/main.log` gains one NDJSON record naming the view, the
+      role and the stack. ~~Then throw the *same* error four more times: still one record.~~ *(Superseded
+      by the Theme C landed note: the cap is 3 per signature, then one suppression record.)*
+      - The parts are unit-proven: boundary → `reportError('boundary', …)` at
+        [`error-boundary.tsx:140`](../../../packages/app/src/components/error-boundary.tsx); view/role
+        stamping and the 3-then-`ReportCapReached` cap in
+        [`lib/report.test.ts`](../../../packages/app/src/lib/report.test.ts) ("stamps the view…", "caps each
+        signature independently…"); main writes it at `error` in
+        [`features/report/main/index.test.ts`](../../../packages/features/report/main/index.test.ts). What is
+        left is the end-to-end pass.
+      - **Build:** dev (`moon run studio:start`) — View ▸ Toggle DevTools exists only when
+        `devToolsAllowed(app.isPackaged)` is true ([`menu.ts:152`](../../../packages/desktop/src/main/menu.ts)).
+      - **Steps:** temporarily add `throw new Error('p65-probe')` to the Graph view's render (do not
+        commit it), open Graph so the boundary catches it. Note
+        the path printed beside **Reveal log** in Settings ▸ Monitor & Diagnostics ▸ Diagnostics.
+        `tail -n 5` that file.
+      - **Pass:** one record `{"t":…,"level":"error","msg":"[renderer] boundary main/graph: Error: p65-probe…"}`
+        (shape from `formatReport`); trigger the same throw 4 more times → exactly 3 `p65-probe` records
+        plus one `ReportCapReached` record, and no more after that.
 - [ ] `Promise.reject(new Error('x'))` unhandled in the renderer, and again in main, each produce
-      exactly one record with the right `source`.
+      exactly one record with the right `source`. **Refined for a build (S)** — neither half has a test
+      today: [`installGlobalErrorReporting`](../../../packages/app/src/lib/report.ts) (`report.ts:229-239`)
+      is never exercised, and Studio main's hooks are inline in
+      [`desktop/src/main/index.ts:371-391`](../../../packages/desktop/src/main/index.ts), which no unit test
+      can import (it pulls `electron`).
+      - **Renderer half — test only, no source change.** In
+        [`packages/app/src/lib/report.test.ts`](../../../packages/app/src/lib/report.test.ts) add
+        `describe('installGlobalErrorReporting (Phase 65 Theme C)')` (vitest/jsdom). Import
+        `installGlobalErrorReporting` beside `reportError`. Call it **once** in a `beforeAll` — the
+        listeners live on the shared jsdom `window` and every extra call would double-report; keep the
+        file's existing `beforeEach` (`error.mockClear()` + `__resetErrorReports()`) and `installBridge()`.
+        Assertions:
+        1. `window.dispatchEvent(new ErrorEvent('error', { error: boom('win'), message: 'win' }))` →
+           `sent()` is exactly one report, `source: 'window-error'`, `message: 'win'`, `role: 'main'`.
+        2. jsdom has no `PromiseRejectionEvent`, so build the event as
+           `Object.assign(new Event('unhandledrejection'), { reason: new Error('x') })` and dispatch it →
+           exactly one report, `source: 'unhandled-rejection'`, `message: 'x'`.
+        3. Edge: `new ErrorEvent('error', { message: 'Script error.' })` (no `error`, the cross-origin
+           shape) → one report whose `message` is `'Script error.'` — not dropped.
+        4. Edge: a rejection whose `reason` is the string `'nope'` → one report with
+           `name: 'thrown-string'`, `message: 'nope'` (`describe` at `report.ts:80-82`).
+      - **Main half — lift, then test; behaviour and message text unchanged.** Net-new
+        `packages/desktop/src/main/crash-hooks.ts` exporting
+        `installMainCrashHooks(log: Logger, proc: CrashEventSource, appEvents: ChildProcessGoneSource): void`
+        and `export type ChildProcessGoneSource = { on(event: 'child-process-gone', listener: (event: unknown, details: { type: string; reason: string; exitCode: number; name?: string }) => void): unknown }`.
+        `Logger` from [`./log`](../../../packages/desktop/src/main/log.ts); `CrashEventSource` is the type
+        [`runtime/src/log/bundle.ts`](../../../packages/runtime/src/log/bundle.ts) already exports through
+        `@midnite/studio-runtime`. **No `electron` import** — `app` and `process` are passed in
+        structurally, which is what makes it testable under bare vitest (Decision 12).
+        - Body: move [`index.ts:371-391`](../../../packages/desktop/src/main/index.ts) verbatim — the
+          strings stay `'[main] uncaughtException'`, `'[main] unhandledRejection'` (both via
+          `log.error(msg, err)`) and
+          `` `[main] child-process-gone type=${type} reason=${reason} exit=${exitCode}${name === undefined ? '' : ` name=${name}`}` ``.
+          Move the explanatory block comment with it.
+        - `index.ts` replaces those lines with `installMainCrashHooks(defaultLogger, process, app);` at
+          **the same position** (before `whenReady`). Do **not** switch Studio to runtime's
+          `installCrashLogging`: its messages differ (`uncaught: …`) and it has no `child-process-gone`;
+          changing Studio's log lines is out of scope here.
+        - Net-new `packages/desktop/src/main/crash-hooks.test.ts` (vitest, node): fake sources record
+          listeners in a `Map` exactly as
+          [`runtime/src/log/bundle.test.ts:65-80`](../../../packages/runtime/src/log/bundle.test.ts) does;
+          fake `log` is a `vi.fn()` with `info`/`warn`/`error` `vi.fn()` methods attached. Assert:
+          `uncaughtException(err)` → `log.error` called once with `('[main] uncaughtException', err)`;
+          `unhandledRejection('nope')` → `('[main] unhandledRejection', 'nope')`; `child-process-gone`
+          with `{type:'GPU', reason:'crashed', exitCode:139}` → exactly
+          `'[main] child-process-gone type=GPU reason=crashed exit=139'`, and with `name:'Video Capture'`
+          appended `' name=Video Capture'`; and `vi.spyOn(process, 'exit')` is never called (the hooks
+          record, they never exit — Theme D's rule).
+      - **Done when:** both test files pass under focused runs —
+        `pnpm -C packages/app exec vitest run src/lib/report.test.ts` and
+        `pnpm -C packages/desktop exec vitest run src/main/crash-hooks.test.ts` (no workspace-wide run), `git diff` of `index.ts` is the deletion plus one call line plus one import, and
+        `grep -n "process.on('uncaughtException'" packages/desktop/src/main/index.ts` returns nothing.
 - [x] Write 3 MB through the sink: exactly `generations + 1` files exist, the newest is under
       `maxBytes`, and the oldest is gone.
 - [x] Point the sink at a read-only directory and boot: the app starts normally, logs the failure
       once, and every later `log.error` still reaches console.
-- [ ] **Copy diagnostics contains no home directory.** Run it on a path under
+- [x] **Copy diagnostics contains no home directory.** Run it on a path under
       `/Users/<name>/…` and assert the output has `~` and not the username — the redaction test that
-      matters, because this is the one string designed to be pasted in public.
-- [ ] Reveal log opens Finder on the real file, and `mstudio:report:reveal` rejects being handed a
+      matters, because this is the one string designed to be pasted in public. (— landed in PR #170 and
+      kept through the Phase 113 move: [`features/report/main/index.test.ts:95-102`](../../../packages/features/report/main/index.test.ts)
+      "bundles the boot line above the tail, with no home directory left in it" asserts `~/Dev/x.ts`
+      and `not.toContain('tester')`; also [`runtime/src/log/bundle.test.ts:17`](../../../packages/runtime/src/log/bundle.test.ts),
+      redaction on the way in at [`log-sink.test.ts:60`](../../../packages/runtime/src/log/log-sink.test.ts),
+      and [`shared/src/redact.test.ts`](../../../packages/shared/src/redact.test.ts).)
+- [ ] **(human)** Reveal log opens Finder on the real file, and `mstudio:report:reveal` rejects being handed a
       path at all (it takes none).
-- [ ] Kill the renderer (`render-process-gone`) and hang it (`unresponsive`): both leave a record
+      - The second half is proven: the channel is registered with `handleBare` (no payload parsed) at
+        [`features/report/main/index.ts:97`](../../../packages/features/report/main/index.ts), and
+        "reveals the file it owns, and fails rather than revealing nothing" in
+        [`index.test.ts:84`](../../../packages/features/report/main/index.test.ts) asserts `revealPath` gets
+        `sink.path` and is not called with no sink.
+      - **Build:** packaged (`moon run desktop:dist`, install the dmg).
+      - **Steps:** Settings ▸ Monitor & Diagnostics ▸ Diagnostics ▸ **Reveal log**.
+      - **Pass:** Finder opens `~/Library/Application Support/Midnite Studio/logs/` with `main.log`
+        selected, and the path printed beside the button is that same file.
+- [ ] **(human)** Kill the renderer (`render-process-gone`) and hang it (`unresponsive`): both leave a record
       where previously both left a discarded stderr line.
+      - Binds: [`index.ts:294`](../../../packages/desktop/src/main/index.ts) (`render-process-gone`),
+        `:308` (`unresponsive` → `log.error('[renderer] unresponsive')`, `responsive` →
+        `log.info`), and popouts at [`window-manager.ts:304`](../../../packages/desktop/src/main/window-manager.ts) / `:320`.
+      - **Build:** dev (`moon run studio:start`) for the hang, because it needs DevTools; packaged for the kill.
+      - **Kill:** `ps -ax | grep 'Midnite Studio Helper (Renderer)'`, `kill -9 <pid>` of the main
+        window's renderer. **Pass:** `main.log` gains an `error` record containing
+        `render-process-gone` with `reason=killed` (or `crashed`) and the exit code.
+      - **Hang:** in DevTools console run `const t = Date.now(); while (Date.now() - t < 40000) {}`.
+        **Pass:** within ~30 s an `error` record `[renderer] unresponsive`, then an `info` record
+        `[renderer] responsive again` once the loop ends.
 - [x] The Report a bug link opens `bilo-io/midnite-apps` issues and nothing else — the
       `shellOpenExternal` protocol restriction at `schemas.ts:884` is not bypassed.
 - [ ] **Open, for a human:** cause a blank window in a *packaged* build, press Copy diagnostics, and
       check the clipboard is something you would actually be willing to paste into a public issue —
-      complete enough to act on, with nothing in it you would not want a stranger to read.
+      complete enough to act on, with nothing in it you would not want a stranger to read. **(human)**
+      - **Build:** packaged (`moon run desktop:dist`, install the dmg).
+      - **Steps:** kill the main window's renderer as in the line above (the blank window); reload with
+        `Mod+r`; Settings ▸ Monitor & Diagnostics ▸ Diagnostics ▸ **Copy diagnostics**; paste into a
+        text editor.
+      - **Pass:** line 1 is the boot line (`midnite-studio <ver> packaged=true brokerBuild=… electron=…
+        chrome=… node=… darwin/arm64`); at most 50 records follow
+        ([`BUNDLE_RECORDS`](../../../packages/runtime/src/log/bundle.ts)); the `render-process-gone`
+        record is among them; `grep -c "$USER"` on the paste is 0; no token, repo remote URL with
+        credentials, or file contents appear — only paths starting `~`.
 
 ---
 
@@ -429,22 +546,41 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
    in `packages/app`; if P60 lands first, this phase's Theme C adds that one line to the existing
    boundary. Neither blocks the other, and the interface is one exported function.
 
-9. **Open — does the boot line carry the build fingerprint, given it fingerprints the wrong file?**
+9. **Resolved (landed as recommended) — the boot line carries it as `brokerBuild`.** See
+   [`index.ts:768-778`](../../../packages/desktop/src/main/index.ts). Original question:
+   **does the boot line carry the build fingerprint, given it fingerprints the wrong file?**
    `fingerprintFile` is pure and reusable, but today's `buildId` hashes `broker.js`
    (`broker-client.ts:146-150`), so stamping a log with it identifies the *broker* build.
    *Recommendation:* stamp it, labelled `brokerBuild`, and add nothing else. `app.getVersion()` plus
    `isPackaged` already identify the app build for every purpose a bug report has, and fingerprinting
    the main bundle is a build-system question, not a logging one.
 
-10. **Open — should `report.ts`'s 20-per-session cap be per-session or per-signature?** A cap that is
+10. **Resolved (landed differently) — per-signature, 3 each, with a 50-signature ceiling.** See the
+    Theme C landed note and `PER_SIGNATURE_CAP`/`MAX_SIGNATURES` in
+    [`lib/report.ts`](../../../packages/app/src/lib/report.ts). Original question:
+    **should `report.ts`'s 20-per-session cap be per-session or per-signature?** A cap that is
     purely per-session means a genuinely new second bug can be silenced by a noisy first one.
     *Recommendation:* keep the flat session cap for v1 and log the fact that reporting stopped, as
     its own record. The failure mode being defended against is a render loop emitting thousands of
     reports per second; a scheme clever enough to distinguish that from twenty real bugs is more
     machinery than the first release of this needs.
 
-11. **Open — does the sink flush synchronously?** An async append can lose the last record to the
+11. **Resolved (landed as recommended) — synchronous on `error`, buffered `info`/`warn`, flushed on
+    `will-quit`.** Proven by "writes an error record synchronously…" and "buffers info and warn until
+    a flush" in [`log-sink.test.ts`](../../../packages/runtime/src/log/log-sink.test.ts). Original question:
+    **does the sink flush synchronously?** An async append can lose the last record to the
     very crash it is recording, which is the record that matters most. *Recommendation:* synchronous
     `appendFileSync` on the `error` level only, buffered async for `info`/`warn`. Main already does
     synchronous fs work at boot (`openSync` at `broker-client.ts:507`), the volume at `error` level
     is by definition tiny, and a lost final line defeats the phase.
+
+12. **Resolved (audit 2026-11-17) — Studio main's crash hooks are lifted into `crash-hooks.ts`, not
+    swapped for runtime's `installCrashLogging`.** The suite apps all call runtime's tested
+    `installCrashLogging`, but its lines (`uncaught: …`) differ from Studio's (`[main] uncaughtException`)
+    and it has no `child-process-gone`. Lifting Studio's three hooks verbatim behind structural
+    `process`/`app` parameters gets them under test with zero change to what is logged; unifying the two
+    message formats is a separate decision with log-reading consequences, not a test gap.
+
+13. **Resolved (audit 2026-11-17) — "same error four more times: still one record" is superseded,
+    not failed.** The shipped cap is 3 per signature plus one `ReportCapReached` record (Theme C landed
+    note); the human check now expects that.
