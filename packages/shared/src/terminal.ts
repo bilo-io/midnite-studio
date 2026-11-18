@@ -711,6 +711,14 @@ export const TerminalSessionSchema = z
      */
     loopId: z.string().min(1).optional(),
     /**
+     * The `LoopModel` and `LoopEffort` ids a loop session was launched with,
+     * stamped so its row can read "Claude (Opus 5.5 · low) > repo". Plain
+     * strings rather than the loops enums: a later rename must not make an
+     * old persisted session fail to parse.
+     */
+    loopModel: z.string().min(1).optional(),
+    loopEffort: z.string().min(1).optional(),
+    /**
      * Agent-native conversation id (UUID) captured from disk, e.g. Claude Code or
      * Codex conversation id, enabling exact-conversation resume (Phase 86).
      *

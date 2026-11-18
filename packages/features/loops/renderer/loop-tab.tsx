@@ -95,6 +95,7 @@ export function LoopTab({
   */
   const reviewUsers = loop.reviewsPrs ? (runOptions.reviewUsers ?? NO_USERS) : NO_USERS;
   const autoRotatePercent = runOptions.autoRotatePercent ?? LOOP_AUTO_ROTATE.default;
+  const effort = runOptions.effort ?? 'default';
   // The tab bar's own "Loop" switch (fab-panel.tsx) is the single control for
   // `/loop`; absent means on.
   const repeat = useLoopsState((s) => s.loopEnabled[loop.id] ?? true);
@@ -173,6 +174,7 @@ export function LoopTab({
     schedule: schedule.enabled ? schedule : null,
     agentId,
     model,
+    effort,
     extras,
     command,
     skills,
@@ -190,6 +192,7 @@ export function LoopTab({
         agents={agents.agents}
         agentId={agentId}
         model={model}
+        effort={effort}
         schedule={schedule}
         extras={extras}
         skills={skills}
@@ -218,6 +221,7 @@ export function LoopTab({
         onChoice={(choiceId, optionId) => setChoice(loop.id, choiceId, optionId)}
         onAgent={(next) => setAgent(loop.id, next)}
         onModel={(next: LoopModel) => setModel(loop.id, next)}
+        onEffort={(next) => setRunOptions(loop.id, { effort: next })}
         onSchedule={(next) => setSchedule(loop.id, next)}
         onExtras={(text) => setExtras(loop.id, text)}
         onStart={start}

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import Select, { type ClassNamesConfig, type MultiValueRemoveProps } from 'react-select';
 import { LuX } from 'react-icons/lu';
 
@@ -25,6 +26,8 @@ export type IconSelectOption = {
    * the more urgent answer whenever both are set.
    */
   hint?: string;
+  /** Drawn in place of the text, in the menu and the chip alike (e.g. a pill). Search still matches `label`. */
+  content?: ReactNode;
   isDisabled?: boolean;
   disabledReason?: string;
 };
@@ -100,7 +103,7 @@ function OptionLabel({
       {Icon ? (
         <Icon aria-hidden className="size-3.5 shrink-0" style={{ color: option.iconColor }} />
       ) : null}
-      <span className="truncate">{text}</span>
+      {option.content ?? <span className="truncate">{text}</span>}
     </span>
   );
 }
