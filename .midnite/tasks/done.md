@@ -15995,3 +15995,7 @@ The level editor gains a Live toggle (ghosts of the running game with dashed dri
 ## 2026-11-18 — Phase 146 (Theme B) — The `apps/mobile` scaffold
 
 `apps/mobile` lands as an Expo SDK 58 + expo-router workspace member (RN 0.88.1, React 19.3.0) with moon tasks, a Metro config that resolves the workspace (one React copy, proven by `expo export --platform ios`), a provider stack with a local `ThemeProvider` seam until `@bilo-io/ui-native` 0.5.0 ships, an AuthGate stub for E6, and an eslint mobile block with 15 new layer-boundary cases. B8 (simulator / Expo Go pass) stays open. CI skipped (Actions billing-locked); merged on focused local checks. PR #1641.
+
+## 2026-11-18 — Phase 153 (Themes E, F) — Updates view, agent skill and verification
+
+Startup gets an Updates rail view after Runway: a two-pane markdown editor with debounced save and Preview, Draft with AI behind a review card (Accept/Discard; a cancelled draft ignores a late answer), Copy, Save .md/PDF and an email draft. The `midnite-startup-agent` skill ships in both skill mirrors (no `.codex/skills`, which does not exist), with an e2e fixture and `startup-updates.spec.ts`. Self-review caught a delete-with-pending-edit that re-created the update; the pending save is now cancelled first. Open: the full gate once CI runs and the packaged-app human passes. CI skipped (Actions billing-locked); merged on focused local checks. PR #1642.
