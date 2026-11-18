@@ -151,6 +151,18 @@ export function createUnifiedSessionCoordinator(deps: UnifiedSessionCoordinatorD
     return 'idle';
   }
 
+  /** Drop terminal ownership only; a Chat turn's lease is released by its own turn end. */
+  function releaseTerminal(ref: { engineSessionId: string | null; chatId: string | null; terminalId: string }): void {
+    const keys: Array<[Map<string, 'chat' | 'terminal'>, string | null]> = [
+      [byEngineSessionId, ref.engineSessionId],
+      [byChatId, ref.chatId],
+      [byTerminalId, ref.terminalId],
+    ];
+    for (const [map, key] of keys) {
+      if (key && map.get(key) === 'terminal') map.delete(key);
+    }
+  }
+
   async function resolvePair(sessionId: string): Promise<{
     chat: Chat | null;
     terminal: TerminalSession | null;
@@ -184,7 +196,7 @@ export function createUnifiedSessionCoordinator(deps: UnifiedSessionCoordinatorD
   ): Promise<GitOpResult<{ engineSessionId: string | null }>> {
     const live = deps.livePtyFor(terminal.id);
     if (!live) {
-      setOwner({ engineSessionId: terminal.agentConversationId ?? null, chatId: terminal.linkedChatId ?? null, terminalId: terminal.id }, 'idle');
+      releaseTerminal({ engineSessionId: terminal.agentConversationId ?? null, chatId: terminal.linkedChatId ?? null, terminalId: terminal.id });
       return ok({ engineSessionId: terminal.agentConversationId ?? null });
     }
 
@@ -199,7 +211,7 @@ export function createUnifiedSessionCoordinator(deps: UnifiedSessionCoordinatorD
     }
 
     deps.killPty(live.ptyId);
-    setOwner({ engineSessionId, chatId: terminal.linkedChatId ?? null, terminalId: terminal.id }, 'idle');
+    releaseTerminal({ engineSessionId, chatId: terminal.linkedChatId ?? null, terminalId: terminal.id });
     return ok({ engineSessionId });
   }
 
@@ -467,11 +479,11 @@ export function createUnifiedSessionCoordinator(deps: UnifiedSessionCoordinatorD
     }
 
     if (engineSessionId) {
-      const owner = byEngineSessionId.get(engineSessionId);
-      if (owner === 'terminal') {
+      if (byEngineSessionId.get(engineSessionId) === 'terminal') {
         return failure('Another terminal runner currently owns this session.');
       }
-      if (owner === 'chat' && leaseHolderOf(engineSessionId) !== chat.id) {
+      const holder = leaseHolderOf(engineSessionId);
+      if (holder !== null && holder !== chat.id) {
         return failure('Another Chat turn currently owns this session.');
       }
     }
@@ -512,9 +524,6 @@ export function createUnifiedSessionCoordinator(deps: UnifiedSessionCoordinatorD
     // The engine may have rotated the session id mid-turn (a resend clears it),
     // so release the keys the lease took at send time, not the ones on `chat` now.
     releaseChatLease(chat.id);
-    if (engineSessionId && byEngineSessionId.get(engineSessionId) === 'chat' && leaseHolderOf(engineSessionId) === null) {
-      byEngineSessionId.delete(engineSessionId);
-    }
 
     if (terminalId && engineSessionId) {
       const terminal = await deps.getTerminal(terminalId);

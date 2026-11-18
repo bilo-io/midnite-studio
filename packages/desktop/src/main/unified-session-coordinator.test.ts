@@ -300,6 +300,29 @@ describe('UnifiedSessionCoordinator', () => {
     expect(toTerminal.ok).toBe(true);
   });
 
+  it('keeps a running Chat turn locked when the linked terminal is parked', async () => {
+    const h = setupTestHarness();
+    const chat = await chatWithSession(h, 'conv-held');
+    h.terminals.set('term-held', {
+      id: 'term-held',
+      kind: 'agent',
+      agentId: 'claude',
+      title: 'Claude Terminal',
+      cwd: '/tmp/repo-1',
+      repoId: 'repo-1',
+      createdAt: 1000,
+      agentConversationId: 'conv-held',
+      linkedChatId: chat.id,
+    });
+
+    expect((await h.coordinator.beforeChatSend(chat)).ok).toBe(true);
+    // Toggling Terminal -> Chat parks the (absent) PTY; it must not drop the chat's lock.
+    await h.coordinator.switchView({ sessionId: 'term-held', targetView: 'chat', handoffMode: 'auto' });
+    expect(h.coordinator.ownerFor({ engineSessionId: 'conv-held' })).toBe('chat');
+    const other = await chatWithSession(h, 'conv-held');
+    expect((await h.coordinator.beforeChatSend(other)).ok).toBe(false);
+  });
+
   it('refuses switching to Terminal while Chat is mid-turn', async () => {
     const h = setupTestHarness({ chatRunning: true });
     const created = await h.chatSvc.create({ engine: 'claude', model: null, mode: 'edit', repoId: 'repo-1' });
