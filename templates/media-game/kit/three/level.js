@@ -116,7 +116,7 @@ export async function buildLevel3d(context, map, options = {}) {
           return { x: wx, y: wy ?? ground(wx, wz), z: wz };
         },
       }),
-    'level3d',
+    'level',
   );
 
   // Play from here: `?midnite-spawn=x,z` or `x,height,z` (metres) replaces the scene's own `spawn`.

@@ -38,7 +38,7 @@ export async function buildLevel(scene, name, options = {}) {
   // Play from here: `?midnite-spawn=x,y` (pixels) replaces the scene's own `spawn`.
   const override = spawnOverride();
   const entities = levelEntities(map);
-  registerEntities(() => snapshotLevelEntities(entities, { scene: name, live: options.live, to: (e) => ({ x: e.x, y: e.y }) }), name);
+  registerEntities(() => snapshotLevelEntities(entities, { scene: name, live: options.live, to: (e) => ({ x: e.x, y: e.y }) }), 'level');
   if (options.render === true) {
     const built = await buildTiledMap(scene, key, 'levels');
     return { map, ...built, grid: (/** @type {string} */ layer) => levelGrid(map, layer), entities, spawn: applySpawn2d(built.objects.spawns[0] ?? null, override) };
