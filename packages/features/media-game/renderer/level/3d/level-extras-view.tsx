@@ -34,11 +34,11 @@ export function ExtrasView({ items, extras, ground, heightAt = null }: { items: 
   const spawners = useMemo(() => extraBoxes(items, extras.spawnerIds), [items, extras.spawnerIds]);
   const nav = useSegments(useMemo(() => (heightAt ? drapedRuns(extras.nav.map((poly) => poly.flat()), heightAt, 0.4, 10, true) : navSegments(extras.nav, ground + 0.05)), [extras.nav, ground, heightAt]));
   const links = useSegments(useMemo(() => ghostSegments(items, extras.ghosts), [items, extras.ghosts]));
-  const boxes = (list: ReturnType<typeof extraBoxes>, colour: string) =>
+  const boxes = (list: ReturnType<typeof extraBoxes>, colour: string, opacity = 0.3) =>
     list.map((b) => (
       <mesh key={b.key} position={b.position} rotation={[0, b.yaw, 0]} scale={b.size}>
         <boxGeometry />
-        <meshBasicMaterial color={colour} transparent opacity={0.3} depthWrite={false} />
+        <meshBasicMaterial color={colour} transparent opacity={opacity} depthWrite={false} />
         <Edges color={colour} />
       </mesh>
     ));
@@ -46,7 +46,8 @@ export function ExtrasView({ items, extras, ground, heightAt = null }: { items: 
     <>
       {boxes(colliders, colours.collider)}
       {boxes(triggers, colours.trigger)}
-      {boxes(spawners, colours.spawner)}
+      {/* Spawn zones are often kilometres wide: a tint, so the ground under them stays readable. */}
+      {boxes(spawners, colours.spawner, 0.06)}
       {extras.nav.length > 0 ? (
         <lineSegments geometry={nav}>
           <lineBasicMaterial color={colours.nav} />

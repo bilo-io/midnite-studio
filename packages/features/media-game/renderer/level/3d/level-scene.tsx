@@ -303,11 +303,12 @@ export function LevelScene(props: LevelSceneProps) {
       }
       const material = new MeshStandardMaterial({ color: map ? '#ffffff' : '#2b3038', map, roughness: 1 });
       materials.push(material);
-      const holes = above.map((a) => ({ ...a, floor }));
+      // The fine patch over the view sinks this ground too, wherever it lies.
+      const holes = [...above, ...(relief && finePatch ? [finePatch] : [])].map((a) => ({ ...a, floor }));
       for (const tile of packTiles(pack, preset.terrainTile, above)) out.push({ tile, material, geometry: tileGeometry(tile, pack, heightAt, Math.min(preset.terrainSegments, 16), holes) });
     });
     return { tiles: out, textures, materials };
-  }, [props.packs, props.bounds, props.ground, heightAt, relief, preset.terrainTile, preset.terrainSegments, invalidate]);
+  }, [props.packs, props.bounds, props.ground, heightAt, relief, finePatch, preset.terrainTile, preset.terrainSegments, invalidate]);
   useEffect(
     () => () => {
       packGround.tiles.forEach((t) => t.geometry.dispose());

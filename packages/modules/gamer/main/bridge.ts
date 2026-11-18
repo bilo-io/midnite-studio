@@ -66,6 +66,7 @@ export function createGamerBridge(ipc: RendererIpc): GamerBridge {
           delete: (req) => call(CHANNELS.gamesLevelPrefabDelete, req),
         },
         assetThumb: (req) => call(CHANNELS.gamesLevelAssetThumb, req),
+        terrainDetail: (req) => call(CHANNELS.gamesLevelTerrainDetail, req),
         preview: (req) => call(CHANNELS.gamesLevelPreview, req),
         previewEnd: (req) => call(CHANNELS.gamesLevelPreviewEnd, req),
       },

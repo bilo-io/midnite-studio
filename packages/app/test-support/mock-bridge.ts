@@ -3688,6 +3688,7 @@ export function buildMockBridge(data: MockFixtures) {
           },
         },
         model: async (req: { gameId: string; name: string }) => ({ ok: false as const, kind: 'error' as const, message: `No model asset named "${req.name}".` }),
+        terrainDetail: async () => ({ ok: true as const, value: { detail: null } }),
         assetThumb: async (req: { gameId: string; name: string }) => ({ ok: false as const, kind: 'error' as const, message: `No asset named "${req.name}".` }),
         // Phase 140 Theme B: play from here records the request; the preview "starts" with a stub URL.
         preview: async (req: unknown) => {

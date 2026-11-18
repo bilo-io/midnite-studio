@@ -364,6 +364,18 @@ export const GameLevelModelRequestSchema = z.object({ gameId: z.string().min(1),
 export const GameLevelModelResultSchema = z.object({ name: z.string(), bytes: z.number().int().nonnegative(), data: z.string() });
 export type GameLevelModelResult = z.infer<typeof GameLevelModelResultSchema>;
 
+/** The widest area (metres a side) whose terrain detail is read on request: past it the view is an overview and the whole-terrain drapes serve. */
+export const GAME_LEVEL_TERRAIN_DETAIL_MAX_SIDE = 12_000;
+/** The detail of the part of a level's terrain under `area` (world metres): what the editor asks for as the view moves over a level too large for one detail. */
+export const GameLevelTerrainDetailRequestSchema = z.object({
+  gameId: z.string().min(1),
+  scene: GameSceneNameSchema,
+  area: z.object({ minX: z.number().finite(), minZ: z.number().finite(), maxX: z.number().finite(), maxZ: z.number().finite() }),
+});
+/** `detail` is `null` when no pack lies under the area, the area is too wide, or the pack has nothing to add. */
+export const GameLevelTerrainDetailResultSchema = z.object({ detail: GameLevelTerrainDetailSchema.nullable() });
+export type GameLevelTerrainDetailResult = z.infer<typeof GameLevelTerrainDetailResultSchema>;
+
 /** The largest source image an asset thumbnail reads (Phase 139 Theme A); a larger one shows its kind icon. */
 export const GAME_LEVEL_THUMB_MAX_BYTES = 2 * 1024 * 1024;
 /** An `image`, `sprite`, `tileset` or `background` asset by name; models keep `games.levels.model`. */

@@ -34,7 +34,7 @@ type Bridge = {
 export function installBridge(b: Bridge): void {
   (window as unknown as { midniteStudio: unknown }).midniteStudio = {
     games: {
-      levels: { list: b.list ?? vi.fn(), get: b.get ?? vi.fn(), set: b.set ?? vi.fn(), mapAsset: b.mapAsset ?? vi.fn(), assetThumb: vi.fn(), prefabs: { list: b.prefabs?.list ?? vi.fn().mockResolvedValue({ ok: true, value: { prefabs: [] } }), get: b.prefabs?.get ?? vi.fn(), set: b.prefabs?.set ?? vi.fn().mockResolvedValue({ ok: true, value: { sha: 'p' } }), delete: b.prefabs?.delete ?? vi.fn().mockResolvedValue({ ok: true, value: { sha: 'd' } }) }, preview: b.preview ?? vi.fn(), previewEnd: b.previewEnd ?? vi.fn(),
+      levels: { list: b.list ?? vi.fn(), get: b.get ?? vi.fn(), set: b.set ?? vi.fn(), mapAsset: b.mapAsset ?? vi.fn(), assetThumb: vi.fn(), terrainDetail: vi.fn(async () => ({ ok: true, value: { detail: null } })), prefabs: { list: b.prefabs?.list ?? vi.fn().mockResolvedValue({ ok: true, value: { prefabs: [] } }), get: b.prefabs?.get ?? vi.fn(), set: b.prefabs?.set ?? vi.fn().mockResolvedValue({ ok: true, value: { sha: 'p' } }), delete: b.prefabs?.delete ?? vi.fn().mockResolvedValue({ ok: true, value: { sha: 'd' } }) }, preview: b.preview ?? vi.fn(), previewEnd: b.previewEnd ?? vi.fn(),
         onEditorRequest: b.onEditorRequest ?? vi.fn(() => () => undefined),
         editorReply: b.editorReply ?? vi.fn(),
         editorOpen: b.editorOpen ?? vi.fn(),
