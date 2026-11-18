@@ -26,7 +26,7 @@ Today `sessions` (persistent PTYs in `packages/features/sessions/` + `packages/f
 
 **Theme A — Shared unified session contract (`PR-1`, S).** ✅ Already on main from #1248: `UnifiedSessionViewModeSchema`, `ProviderSyncTierSchema` and `getProviderSyncTier` in `chats.ts` (`claude`/`codex`/`agy` bidirectional, `ollama` chat-only, rest handoff-only); optional `linkedTerminalId`/`preferredView` on `ChatSchema` and `linkedChatId`/`preferredView` on the terminal session record; `session:switch-view` request/response schemas, channel and optional `window.midniteStudio.sessions.switchView`. Tests live in `chats.test.ts` and `terminal.test.ts`. No code change was needed, only this doc catch-up. The `engineSessionId` link stays on the existing `ChatEngineSessionSchema`; Theme C owns any new field.
 
-**Theme B — Antigravity PTY resume support (`PR-3`, S).** ✅ Already landed in #1246 (`buildResumeCommand` returns `["--conversation", id]` for `agy`, tested in `terminal.test.ts`); this PR only ticks the deliverables. Extends `buildResumeCommand` in `packages/shared/src/terminal.ts` and `agent-conversation` lookup for `agy` (`--conversation <id>`).
+**Theme B — Antigravity PTY resume support (`PR-3`, S).** ✅ Already landed in #1246 (`buildResumeCommand` returns `["--conversation", id]` for `agy`, tested in `terminal.test.ts`); this PR only ticks the deliverables.
 
 **Theme C — Unified session host & runner lock (`PR-2`, L).** ◻ Coordinates `ChatService` and `TerminalService` so only one runner owns an `engineSessionId` at a time, handling PTY park/resume and handoff IPC.
 
