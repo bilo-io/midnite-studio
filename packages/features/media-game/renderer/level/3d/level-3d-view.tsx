@@ -19,6 +19,7 @@ import { disposeTree, LevelScene, NO_DRAFT, SCENE_BACKGROUND, type CameraMove, t
 import { commitVolume, groundPoint, rayHitsItem, rotateToward, snappedPlanPoint, volumeFromDrag, worldPointFromPlan } from './level-ground';
 import { marqueeHits, type ScreenPoint, type ScreenRect } from './level-marquee';
 import { isMac, matchShortcut } from '../level-shortcuts';
+import { isAssetDrag, readDroppedAsset, useDraggedAsset, type AssetDragPayload, type AssetDropTarget } from '../assets/asset-drag';
 import { useLevelViewStore, type GizmoPivot, type GizmoSpace } from './level-view-store';
 import { gizmoEdit, gizmoEditGroup, groundY, groupPivot, levelWorldItems, POINT_SIZE, worldItemOf, worldToObjectPoint, type GizmoChange, type GroupDelta, type GroupPivot } from './level-world';
 import { ModelCache } from './model-cache';
@@ -63,6 +64,10 @@ export type Level3dViewProps = {
   locked?: ReadonlySet<string>;
   /** Right-click (Phase 137 Theme I): the object under the pointer, or null over the ground. */
   onContextMenu?: (event: { clientX: number; clientY: number; hit: { layerId: number; objectId: number } | null }) => void;
+  /** Phase 139 Theme D: an asset dropped from the browser lands on the ground point under the pointer (already snapped). */
+  assetDrop?: Pick<AssetDropTarget, 'onDrop'>;
+  /** An armed browser tile: the next ground click places it instead of the entity tool's object. */
+  armed?: AssetDragPayload | null;
 };
 
 type LevelSceneRayRef = LevelSceneProps['ray'];
@@ -390,7 +395,16 @@ export default function Level3dView(props: Level3dViewProps) {
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
   };
-  const placing = editable && props.tool === 'entity' && props.objectLayerId !== null && props.entityName !== '';
+  const armedAsset = editable && props.armed ? props.armed : null;
+  const placing = armedAsset !== null || (editable && props.tool === 'entity' && props.objectLayerId !== null && props.entityName !== '');
+  const dragged = useDraggedAsset();
+  /** The drop ghost: where the pointer is over the view while a browser tile is dragged (client-relative px). */
+  const [ghost, setGhost] = useState<{ x: number; y: number } | null>(null);
+  const dragPoint = (event: { clientX: number; clientY: number; altKey: boolean }): PlanPoint | null => {
+    const r = ray.current?.(event.clientX, event.clientY);
+    const g = r ? groundPoint(r.origin, r.dir, ground) : null;
+    return g ? snappedPlanPoint(level, g[0], g[2], levelSnap, event.altKey) : null;
+  };
 
   return (
     <div
@@ -402,6 +416,24 @@ export default function Level3dView(props: Level3dViewProps) {
       data-testid="level-3d-view"
       onKeyDown={onKeyDown}
       onPointerDownCapture={toolDown}
+      onDragOver={(e) => {
+        if (!props.assetDrop || !isAssetDrag(e.dataTransfer)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        const box = e.currentTarget.getBoundingClientRect();
+        setGhost({ x: e.clientX - box.left, y: e.clientY - box.top });
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setGhost(null);
+      }}
+      onDrop={(e) => {
+        if (!props.assetDrop || !isAssetDrag(e.dataTransfer)) return;
+        e.preventDefault();
+        setGhost(null);
+        const payload = readDroppedAsset(e.dataTransfer);
+        const at = dragPoint(e);
+        if (payload && at) props.assetDrop.onDrop(payload, at);
+      }}
       onPointerDown={startMarquee}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -448,6 +480,10 @@ export default function Level3dView(props: Level3dViewProps) {
             update((s) => gizmoEditGroup(s, selectedRefs, framePivot, delta));
           }}
           onPlace={(x, z) => {
+            if (armedAsset) {
+              props.assetDrop?.onDrop(armedAsset, snappedPlanPoint(level, x, z, levelSnap, false));
+              return;
+            }
             const layer = props.objectLayerId;
             if (layer === null) return;
             const at = worldToObjectPoint(level, x, z);
@@ -477,6 +513,16 @@ export default function Level3dView(props: Level3dViewProps) {
           }}
         />
       </Canvas>
+      {ghost && dragged ? (
+        <div
+          aria-hidden
+          data-testid="level-asset-ghost"
+          className="pointer-events-none absolute flex h-8 items-center rounded border border-dashed border-primary bg-primary/30 px-2 text-[11px]"
+          style={{ left: ghost.x, top: ghost.y, transform: 'translate(-50%, -50%)' }}
+        >
+          {dragged.name}
+        </div>
+      ) : null}
       {marquee ? (
         <div
           aria-hidden

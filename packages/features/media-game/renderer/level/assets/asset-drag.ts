@@ -86,3 +86,14 @@ export function dropToObject(payload: AssetPayload, at: { x: number; y: number }
     properties: [{ name: 'model', type: 'string', value: payload.name }],
   };
 }
+
+/** The payload of a drop event: the DataTransfer's, else the one recorded at `dragstart`. */
+export function readDroppedAsset(dt: DataTransfer | null | undefined): AssetDragPayload | null {
+  return parseAssetDrag(dt?.getData(ASSET_DRAG_MIME)) ?? store.get().dragging;
+}
+
+/** What a canvas needs to take an asset drop: where it would land (snapped) and what to do on release. */
+export type AssetDropTarget = {
+  snap: (point: { x: number; y: number }, alt: boolean) => { x: number; y: number };
+  onDrop: (payload: AssetDragPayload, at: { x: number; y: number }) => void;
+};

@@ -39,6 +39,8 @@ import { decideReload } from './level-reload';
 import { LevelCanvas, type CanvasPointer } from './level-canvas';
 import { levelContextMenu, type LevelMenuTarget } from './level-context-menu';
 import { LevelOutliner } from './level-outliner';
+import { AssetBrowser, type AssetBrowserTab } from './assets/asset-browser';
+import { arm, dropToObject, placementRefusal, useArmedAsset, type AssetDragPayload } from './assets/asset-drag';
 import { hiddenKeys, isSelectable, lockedKeys, sceneKey, useLevelOutlinerStore } from './level-outliner-store';
 import { copySelection, duplicateSelection, pasteClipboard, readClipboard, writeClipboard } from './level-clipboard';
 import {
@@ -52,6 +54,7 @@ import {
   endStroke,
   erase,
   fillRect,
+  insertObjects,
   finishPath,
   findObject,
   isLevel3d,
@@ -105,6 +108,15 @@ import type { Level3dHandle } from './3d/level-3d-view';
 import { levelViewMode, useLevelViewStore, type LevelViewMode } from './3d/level-view-store';
 import { groundY } from './3d/level-world';
 import { fetchLevel, useGameManifest, useLevel, useLevels, useSaveOpenLevel } from './use-levels';
+
+/**
+ * Extra tabs for the asset browser panel (Phase 139 Theme C's extension point). Theme G adds a Prefabs tab by
+ * returning it here, so it takes the editor's state without the browser knowing about prefabs.
+ */
+export function useAssetBrowserTabs(): readonly AssetBrowserTab[] {
+  return NO_BROWSER_TABS;
+}
+const NO_BROWSER_TABS: readonly AssetBrowserTab[] = [];
 
 export type LevelTool = 'paint' | 'erase' | 'rect' | 'pick' | 'entity' | 'select' | 'volume' | 'path' | 'rotate';
 
@@ -300,7 +312,10 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
   const locked = useMemo(() => new Set(lockedList), [lockedList]);
   const [draft, setDraft] = useState<PlanPoint[]>([]);
   const [volumeDrag, setVolumeDrag] = useState<{ from: PlanPoint; to: PlanPoint } | null>(null);
-  const manifest = useGameManifest(gameId).data ?? null;
+  const manifestQuery = useGameManifest(gameId);
+  const manifest = manifestQuery.data ?? null;
+  const armedAsset = useArmedAsset();
+  const browserTabs = useAssetBrowserTabs();
   const models = useMemo(() => (manifest?.assets ?? []).filter((a) => a.kind === 'model').map((a) => a.name), [manifest]);
 
   const blocking = blockingIssues(entry);
@@ -489,11 +504,41 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
     update(endStroke);
   };
 
+  /** Phase 139 Theme D: a dragged or armed asset lands at `at` (plan pixels, snapped); one undo step, becomes the selection. */
+  const placeAsset = (payload: AssetDragPayload, at: PlanPoint) => {
+    if (readOnly) return;
+    const refusal = placementRefusal(payload, is3d);
+    if (refusal) {
+      notify(refusal);
+      return;
+    }
+    if (payload.kind !== 'asset' || objectLayerId === null) {
+      if (objectLayerId === null) notify('Add an object layer first.');
+      return;
+    }
+    const layerId = objectLayerId;
+    update((s) => insertObjects(setActiveLayer(s, layerId), [{ layerId, object: dropToObject(payload, at, level) }]));
+  };
+  /** Click-to-place: an armed tile takes the next canvas click, then disarms. */
+  const placeArmed = (at: PlanPoint): boolean => {
+    if (!armedAsset) return false;
+    arm(null);
+    placeAsset(armedAsset, at);
+    return true;
+  };
+  const assetDrop = readOnly
+    ? undefined
+    : {
+        snap: (p: PlanPoint, alt: boolean) => (is3d ? snapPlan(level, p, alt, planSnapStep(level, snapSettings)) : p),
+        onDrop: placeAsset,
+      };
+
   /** Plan-view input for a 3D level: the same canvas, a different set of tools. Map pixels are object coordinates here. */
   const onPlanPointer = (e: CanvasPointer) => {
     const planStep = planSnapStep(level, snapSettings);
     const at = snapPlan(level, e.object, e.alt, planStep);
     const sel = e.hit;
+    if (e.phase === 'down' && placeArmed(at)) return;
     if (e.phase === 'down') {
       if (tool === 'rotate') {
         const found = sel ? findObject(level, sel) : undefined;
@@ -530,6 +575,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
   const onPointer = (e: CanvasPointer) => {
     lastPointer.current = e.object;
     if (readOnly) return;
+    if (e.phase === 'down' && placeArmed(e.object)) return;
     if (tool === 'select') {
       selectPointer(e);
       return;
@@ -678,6 +724,11 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
   });
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape' && armedAsset) {
+      event.preventDefault();
+      arm(null);
+      return;
+    }
     const cmd = matchShortcut(event, { view: in3d ? '3d' : 'plan', dimension: is3d ? '3d' : '2d', mac: isMac() });
     if (cmd === null) return;
     const pathing = is3d && tool === 'path' && !readOnly;
@@ -898,7 +949,8 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
           onFrame={frameObject}
           onContextMenu={(e, target) => void openLevelMenu(e, target)}
         />
-        <div ref={canvasBox} className="relative min-w-0 flex-1">
+        <AssetBrowser gameId={gameId} assets={manifestQuery.isLoading ? undefined : (manifest?.assets ?? [])} tabs={browserTabs}>
+        <div ref={canvasBox} className="relative h-full min-w-0">
           <LevelCanvas
             level={level}
             images={entry.images}
@@ -917,6 +969,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
             onKeyDown={onKeyDown}
             viewOut={planViewOut}
             viewIn={planViewIn}
+            assetDrop={assetDrop}
             label={
               is3d
                 ? 'Level plan view, seen from above. Tools: V select and move, O place, R volume, P path (Enter finishes), Y rotate (Shift snaps to 15 degrees).'
@@ -943,6 +996,8 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
                   enterFrom={enterFrom}
                   handle={handle3d}
                   onEditorKey={onKeyDown}
+                  assetDrop={assetDrop}
+                  armed={armedAsset}
                   hidden={hidden}
                   locked={locked}
                   onContextMenu={(e) => void openLevelMenu(e, e.hit ? { kind: 'object', ref: e.hit } : { kind: 'empty', at: lastPointer.current ?? { x: 0, y: 0 } })}
@@ -951,6 +1006,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
             </div>
           ) : null}
         </div>
+        </AssetBrowser>
         <aside className="flex w-56 shrink-0 flex-col gap-3 overflow-y-auto border-l border-border p-2 text-xs" aria-label="Palette and inspector">
           {tool === 'entity' ? (
             <div role="radiogroup" aria-label="Entity type" className="flex flex-wrap gap-1">

@@ -5,7 +5,8 @@ import { cellAt, cellOrigin, collisionAt, collisionLayer, mapPixelSize, readTmj,
 import type { GameLevelTerrain } from '@midnite/studio-shared';
 
 import { objectToMapPoint, mapPointToObject, type Cell, type EditLevel, type EditSelection, type LevelObject, type ObjectRef, type PlanPoint, type PlanRect } from './level-edit-model';
-import { hitPlan, levelMetresPerTile, planBounds } from './level-plan';
+import { hitPlan, levelMetresPerTile, pixelsPerMetre, planBounds } from './level-plan';
+import { isAssetDrag, readDroppedAsset, useDraggedAsset, type AssetDropTarget } from './assets/asset-drag';
 import { drawHighlight, drawPlan, drawSelectionExtras, prefersReducedMotion, PULSE_MS, SELECTED_COLOUR, type PlanHighlight, type PlanOverlay } from './level-plan-draw';
 import { fitView, screenToMap, zoomAround, type View } from './level-view';
 
@@ -114,6 +115,7 @@ export function LevelCanvas({
   plan,
   viewOut,
   viewIn,
+  assetDrop,
 }: {
   level: EditLevel;
   images: ReadonlyArray<{ path: string; dataUrl: string }>;
@@ -145,6 +147,8 @@ export function LevelCanvas({
   viewOut?: MutableRefObject<{ view: View; size: { width: number; height: number } } | null>;
   /** A view to jump to: where the 3D view's camera ended when the switch eased back to the plan. */
   viewIn?: View | null;
+  /** Phase 139 Theme D: take an asset dragged from the browser; a ghost shows where it would land. */
+  assetDrop?: AssetDropTarget;
 }) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -183,6 +187,10 @@ export function LevelCanvas({
     return () => cancelAnimationFrame(raf);
   }, [highlight]);
   const space = useRef(false);
+  /** The drop ghost's centre, in canvas pixels (already snapped), while an asset is dragged over. */
+  const [ghost, setGhost] = useState<{ sx: number; sy: number } | null>(null);
+  const dragged = useDraggedAsset();
+  const ghostSize = plan ? Math.max(12, pixelsPerMetre(level).x * view.zoom) : 24;
   const pan = useRef<{ sx: number; sy: number; view: View } | null>(null);
   const tool = useRef(false);
   const fitted = useRef(false);
@@ -397,6 +405,28 @@ export function LevelCanvas({
       onBlur={() => {
         space.current = false;
       }}
+      onDragOver={(e) => {
+        if (!assetDrop || !isAssetDrag(e.dataTransfer)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        const { sx, sy } = local(e);
+        const p = screenToMap(view, sx, sy);
+        const at = assetDrop.snap(plan ? { x: p.x, y: p.y } : mapPointToObject(level, p.x, p.y), e.altKey);
+        setGhost(plan ? { sx: at.x * view.zoom + view.x, sy: at.y * view.zoom + view.y } : { sx, sy });
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setGhost(null);
+      }}
+      onDrop={(e) => {
+        if (!assetDrop || !isAssetDrag(e.dataTransfer)) return;
+        e.preventDefault();
+        setGhost(null);
+        const payload = readDroppedAsset(e.dataTransfer);
+        if (!payload) return;
+        const { sx, sy } = local(e);
+        const p = screenToMap(view, sx, sy);
+        assetDrop.onDrop(payload, assetDrop.snap(plan ? { x: p.x, y: p.y } : mapPointToObject(level, p.x, p.y), e.altKey));
+      }}
     >
       <canvas
         ref={canvas}
@@ -428,6 +458,14 @@ export function LevelCanvas({
           });
         }}
       />
+      {ghost && dragged ? (
+        <div
+          aria-hidden
+          data-testid="level-asset-ghost"
+          className="pointer-events-none absolute rounded border border-dashed border-primary bg-primary/30"
+          style={{ left: ghost.sx - ghostSize / 2, top: ghost.sy - ghostSize / 2, width: ghostSize, height: ghostSize }}
+        />
+      ) : null}
       <span className="pointer-events-none absolute bottom-1 right-2 text-[11px] tabular-nums text-muted-foreground" data-testid="level-zoom">
         {plan ? `${level.width * levelMetresPerTile(level)} × ${level.height * levelMetresPerTile(level)} m` : `${level.width} × ${level.height}`} · {Math.round(view.zoom * 100)}%
       </span>
