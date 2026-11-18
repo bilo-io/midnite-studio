@@ -17,12 +17,6 @@ import {
 } from './board-derive';
 import type { ConnectionState } from '@midnite/studio-frame';
 
-const draft = (id: string, title: string): ForgeProjectItem => ({
-  id,
-  content: { type: 'draft', id: `DI_${id}`, title, assignees: [], body: '' },
-  fieldValues: {},
-});
-
 describe('composeCardPrompt', () => {
   const issue: ForgeProjectItem = {
     id: 'item1',

@@ -320,6 +320,24 @@ export default tseslint.config(
     ]),
   },
 
+  // --- Boundary: pure cores (Phase 146 Theme C) --------------------------------
+  // packages/tasks-core sits beside `shared`: the derivations desktop's Tasks feature and the mobile app
+  // both read. It takes `shared` and nothing else in the workspace, and no React of any flavour.
+  {
+    files: ['packages/tasks-core/**/*.{ts,tsx}'],
+    rules: deny([
+      {
+        group: ['@midnite/*', '!@midnite/studio-shared', '!@midnite/studio-shared/*'],
+        message:
+          'tasks-core is a pure core: it imports @midnite/studio-shared and nothing else in the workspace (docs/APPS.md, "pure cores").',
+      },
+      {
+        group: ['react', 'react/*', 'react-dom', 'react-dom/*', 'react-native', 'react-native/*', 'electron', 'electron/*'],
+        message: 'tasks-core is React-free and electron-free: it runs under bare vitest and in Expo Go alike.',
+      },
+    ]),
+  },
+
   // --- Boundary: feature renderer half (Phase 113 Theme C) --------------------
   // Compiled into whichever app composes it, so renderer rules apply in full;
   // above the frame and shared, below every app, beside every other feature.
