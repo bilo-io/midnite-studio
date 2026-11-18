@@ -1052,6 +1052,8 @@ export const CHANNELS = {
   gamesLibraryList: 'mstudio:games:library-list',
   /** Read one confined library file for preview. */
   gamesLibraryRead: 'mstudio:games:library-read',
+  /** Copy a shared-library asset into a game's `assets/` and commit it, recording where it came from. */
+  gamesLibraryImport: 'mstudio:games:library-import',
   /** Copy a media item into a game's `assets/` and commit it (Theme N). */
   gamesImportAsset: 'mstudio:games:import-asset',
   /** Check imported assets against their sources, or re-import the changed ones (Theme N). */

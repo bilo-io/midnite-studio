@@ -63,6 +63,7 @@ export const mediaGameManifest = defineFeatureManifest({
     CHANNELS.gamesAssetSources,
     CHANNELS.gamesLibraryList,
     CHANNELS.gamesLibraryRead,
+    CHANNELS.gamesLibraryImport,
     CHANNELS.gamesImportAsset,
     CHANNELS.gamesResync,
     CHANNELS.gamesPlaytests,
