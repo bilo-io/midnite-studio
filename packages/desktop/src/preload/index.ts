@@ -770,6 +770,12 @@ const bridge: Pick<
       set: (req) => call(CHANNELS.gamesLevelSet, req),
       mapAsset: (req) => call(CHANNELS.gamesLevelMapAsset, req),
       model: (req) => call(CHANNELS.gamesLevelModel, req),
+      prefabs: {
+        list: (req) => call(CHANNELS.gamesLevelPrefabs, req),
+        get: (req) => call(CHANNELS.gamesLevelPrefabGet, req),
+        set: (req) => call(CHANNELS.gamesLevelPrefabSet, req),
+        delete: (req) => call(CHANNELS.gamesLevelPrefabDelete, req),
+      },
       onEditorRequest: (handler) => subscribe(EVENT_CHANNELS.gamesLevelEditorRequest, handler),
       editorReply: (payload) => ipcRenderer.send(CHANNELS.gamesLevelEditorReply, payload),
       editorOpen: (scene) => ipcRenderer.send(CHANNELS.gamesLevelEditorOpen, scene),

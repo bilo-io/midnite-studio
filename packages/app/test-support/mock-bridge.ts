@@ -3657,6 +3657,28 @@ export function buildMockBridge(data: MockFixtures) {
           return { ok: true as const, value: { sha: 'l3v3l01' } };
         },
         mapAsset: async () => ({ ok: false as const, kind: 'error' as const, message: 'No such map asset.' }),
+        // Phase 139 Theme F: prefabs by game id, held in memory.
+        prefabs: {
+          list: async (req: { gameId: string }) => ({
+            ok: true as const,
+            value: { prefabs: Object.values(gamesPrefabs[req.gameId] ?? {}).map((p) => ({ name: p.name, dimension: p.dimension, objects: p.objects.length, ...(p.description ? { description: p.description } : {}) })).sort((a, b) => a.name.localeCompare(b.name)) },
+          }),
+          get: async (req: { gameId: string; name: string }) => {
+            const prefab = gamesPrefabs[req.gameId]?.[req.name];
+            return prefab ? { ok: true as const, value: { prefab } } : { ok: false as const, kind: 'error' as const, message: `Prefab "${req.name}" not found.` };
+          },
+          set: async (req: { gameId: string; prefab: { name: string; dimension: '2d' | '3d'; objects: unknown[]; description?: string } }) => {
+            gamesCalls.push({ call: 'prefabSet', ...req });
+            gamesPrefabs[req.gameId] = { ...(gamesPrefabs[req.gameId] ?? {}), [req.prefab.name]: req.prefab };
+            return { ok: true as const, value: { sha: 'pr3f4b1' } };
+          },
+          delete: async (req: { gameId: string; name: string }) => {
+            if (!gamesPrefabs[req.gameId]?.[req.name]) return { ok: false as const, kind: 'error' as const, message: `Prefab "${req.name}" not found.` };
+            const { [req.name]: _gone, ...rest } = gamesPrefabs[req.gameId]!;
+            gamesPrefabs[req.gameId] = rest;
+            return { ok: true as const, value: { sha: 'pr3f4b2' } };
+          },
+        },
         model: async (req: { gameId: string; name: string }) => ({ ok: false as const, kind: 'error' as const, message: `No model asset named "${req.name}".` }),
         // Phase 138 Theme C: the editor bridge. Requests are never pushed here; replies and presence are recorded.
         onEditorRequest: (_handler: (event: unknown) => void) => () => undefined,
@@ -6675,6 +6697,8 @@ export function buildMockBridge(data: MockFixtures) {
   var gamesCalls: Array<Record<string, unknown>> = [];
   // eslint-disable-next-line no-var
   var gamesLevels: Record<string, Record<string, unknown>> = { ...(data.games?.levels ?? {}) };
+  // eslint-disable-next-line no-var
+  var gamesPrefabs: Record<string, Record<string, { name: string; dimension: '2d' | '3d'; objects: unknown[]; description?: string }>> = {};
   // eslint-disable-next-line no-var
   var gamesRunStateHandlers: Array<(event: unknown) => void> = [];
   // eslint-disable-next-line no-var

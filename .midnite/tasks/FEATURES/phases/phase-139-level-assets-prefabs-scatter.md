@@ -54,12 +54,15 @@ thumbnail grid, `Skeleton` while loading, `EmptyState` with an "Import assets" a
 **Theme D — Drag a model into the level.** ◻ Drag a model tile onto the plan or the 3D view: a ghost follows the
 cursor (snapped by 137 F), drop adds a `prop` with `model` set, one undo step.
 
-**Theme E — The prefab model.** ◻ `levels/prefabs/<name>.prefab.json`: objects relative to a pivot. An instance is
+**Theme E — The prefab model.** ✅ `levels/prefabs/<name>.prefab.json`: objects relative to a pivot. An instance is
 baked into the level as ordinary objects tagged `midnite.prefab`, `midnite.prefabInstance`, `midnite.prefabIndex`;
-the kit needs no change.
+the kit needs no change. `packages/shared/src/game-level-prefab.ts` holds `GamePrefabSchema`, `prefabFromObjects` (pivot = bounds
+centre), `instantiatePrefab` (clockwise rotation about the pivot) and `updateInstances`. Overrides are dotted field
+names (`width`, `properties.speed`); an instance keeps its own `x`, `y` and `rotation` on update.
 
-**Theme F — Prefab IPC.** ◻ `mstudio:games:level-prefabs` (list), `-prefab-get`, `-prefab-set` (write + one
-commit), `-prefab-delete`.
+**Theme F — Prefab IPC.** ✅ `mstudio:games:level-prefabs` (list), `-prefab-get`, `-prefab-set` (write + one
+commit), `-prefab-delete`. `game-prefabs.ts` confines to `levels/prefabs/`, writes through the write queue and commits only the
+prefab file; bridge `games.levels.prefabs.{list,get,set,delete}`.
 
 **Theme G — Prefab UI.** ◻ "Save selection as prefab…", a Prefabs tab in the browser, drag to place, "Select
 instances", "Update instances from prefab" honouring overrides, "Unpack".
@@ -264,11 +267,11 @@ export function updateInstances(level: unknown, prefab: GamePrefab): { level: Re
 
 **Acceptance.**
 
-- [ ] E1. `prefabFromObjects` of three objects sets the pivot at the bounds centre and strips ids.
-- [ ] E2. `instantiatePrefab` at (100, 50) rotated 90° places each object rotated about the pivot, tagged with the
+- [x] E1. `prefabFromObjects` of three objects sets the pivot at the bounds centre and strips ids.
+- [x] E2. `instantiatePrefab` at (100, 50) rotated 90° places each object rotated about the pivot, tagged with the
   three properties.
-- [ ] E3. `updateInstances` changes a non-overridden `width` and keeps an overridden `properties.speed`.
-- [ ] E4. `GamePrefabSchema` rejects an empty `objects` array and an unsafe name.
+- [x] E3. `updateInstances` changes a non-overridden `width` and keeps an overridden `properties.speed`.
+- [x] E4. `GamePrefabSchema` rejects an empty `objects` array and an unsafe name.
 
 **Done when** E1–E4 pass.
 
@@ -290,9 +293,9 @@ delete}`.
 
 **Acceptance.**
 
-- [ ] F1. `set` then `list` round-trips; the commit touches only the prefab file (`git show --name-only`).
-- [ ] F2. `set` of an invalid prefab writes nothing and fails.
-- [ ] F3. `delete` of a missing prefab fails without a commit.
+- [x] F1. `set` then `list` round-trips; the commit touches only the prefab file (`git show --name-only`).
+- [x] F2. `set` of an invalid prefab writes nothing and fails.
+- [x] F3. `delete` of a missing prefab fails without a commit.
 
 **Done when** F1–F3 pass against a temp repo (as `game-levels.test.ts` does).
 

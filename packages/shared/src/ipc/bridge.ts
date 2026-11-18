@@ -1670,6 +1670,13 @@ export type MidniteStudioBridge = {
       mapAsset: (req: In<typeof S.GamesLevelMapAssetRequest>) => Promise<z.infer<typeof S.GamesLevelMapAssetResponse>>;
       /** A `model` asset's bytes for the 3D view (Phase 136 Theme F). */
       model: (req: In<typeof S.GamesLevelModelRequest>) => Promise<z.infer<typeof S.GamesLevelModelResponse>>;
+      /** Phase 139 Theme F: `levels/prefabs/<name>.prefab.json`; `set` and `delete` each make one commit naming only that file. */
+      prefabs: {
+        list: (req: In<typeof S.GamesLevelPrefabsRequest>) => Promise<z.infer<typeof S.GamesLevelPrefabsResponse>>;
+        get: (req: In<typeof S.GamesLevelPrefabGetRequest>) => Promise<z.infer<typeof S.GamesLevelPrefabGetResponse>>;
+        set: (req: In<typeof S.GamesLevelPrefabSetRequest>) => Promise<z.infer<typeof S.GamesLevelPrefabSetResponse>>;
+        delete: (req: In<typeof S.GamesLevelPrefabDeleteRequest>) => Promise<z.infer<typeof S.GamesLevelPrefabDeleteResponse>>;
+      };
       /** Phase 138 Theme C: main asks the open level editor something (snapshot, apply, select, frame, view). */
       onEditorRequest: (handler: (event: z.infer<typeof S.GamesLevelEditorRequestPayload>) => void) => Unsubscribe;
       /** One-way answer to an `onEditorRequest`. */

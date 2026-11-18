@@ -59,6 +59,12 @@ export function createGamerBridge(ipc: RendererIpc): GamerBridge {
         set: (req) => call(CHANNELS.gamesLevelSet, req),
         mapAsset: (req) => call(CHANNELS.gamesLevelMapAsset, req),
         model: (req) => call(CHANNELS.gamesLevelModel, req),
+        prefabs: {
+          list: (req) => call(CHANNELS.gamesLevelPrefabs, req),
+          get: (req) => call(CHANNELS.gamesLevelPrefabGet, req),
+          set: (req) => call(CHANNELS.gamesLevelPrefabSet, req),
+          delete: (req) => call(CHANNELS.gamesLevelPrefabDelete, req),
+        },
       },
       goto: (req) => call(CHANNELS.gamesGoto, req),
       popOut: (req) => call(CHANNELS.gamesPopOut, req),
