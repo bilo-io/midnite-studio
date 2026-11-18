@@ -2,7 +2,7 @@
 // react-native primitives for now; the Theme F shell restyles it with ui-native components.
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../ui/theme';
 import { useAuth } from './auth-context';
@@ -24,6 +24,14 @@ export function SignInScreen({ notice }: { notice: string | null }) {
   const [pat, setPat] = useState('');
   const [patMessage, setPatMessage] = useState<string | null>(null);
   const cancelled = useRef(false);
+  const warnedFor = useRef<string | null>(null);
+
+  // Leaving the screen (signed in, or unmounted) stops the poll loop instead of letting it run to expiry.
+  useEffect(() => {
+    return () => {
+      cancelled.current = true;
+    };
+  }, []);
 
   const startDeviceFlow = useCallback(async () => {
     cancelled.current = false;
@@ -48,8 +56,10 @@ export function SignInScreen({ notice }: { notice: string | null }) {
   const submitPat = useCallback(async () => {
     const result = await validateToken(pat);
     if (!result.ok) return setPatMessage(result.message);
-    if (result.missingScopes && result.missingScopes.length > 0) {
-      setPatMessage(`Signed in, but the token lacks: ${result.missingScopes.join(', ')}`);
+    // Signing in unmounts this screen, so list the missing scopes first and continue on the second press.
+    if (result.missingScopes && result.missingScopes.length > 0 && warnedFor.current !== pat) {
+      warnedFor.current = pat;
+      return setPatMessage(`This token lacks: ${result.missingScopes.join(', ')}. Press again to continue anyway.`);
     }
     await signIn(result.login, pat.trim());
   }, [pat, signIn]);
