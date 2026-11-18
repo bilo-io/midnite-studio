@@ -348,6 +348,7 @@ import {
   GmProgressSchema,
   GmStatusResponseSchema,
 } from '../media-music-gm';
+import { GameLibraryFileSchema, GameLibraryListingSchema, GameLibraryReadRequestSchema } from '../game-asset-library';
 import {
   GameBoundsRequest as GameBoundsRequestSchema,
   GameConsolePayload as GameConsolePayloadSchema,
@@ -5833,6 +5834,9 @@ export const GamesAgentRunResponse = GitOpResultOf(GameAgentRunResultSchema);
 export const GamesAgentCancelRequest = GameIdRequestSchema;
 export const GamesAgentUndoRequest = GameAgentUndoRequestSchema;
 export const GamesAgentProgressPayload = GameAgentProgressSchema;
+export const GamesLibraryReadRequest = GameLibraryReadRequestSchema;
+export const GamesLibraryListResponse = GitOpResultOf(GameLibraryListingSchema);
+export const GamesLibraryReadResponse = GitOpResultOf(GameLibraryFileSchema);
 export const GamesAssetSourcesRequest = GameAssetSourcesRequestSchema;
 export const GamesAssetSourcesResponse = GitOpResultOf(GameAssetSourcesResultSchema);
 export const GamesImportAssetRequest = GameImportAssetRequestSchema;

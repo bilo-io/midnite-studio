@@ -1,6 +1,8 @@
 import type {
   GameAssetSourceTab,
   GameAssetSourcesResult,
+  GameLibraryFile,
+  GameLibraryListing,
   GameAddRequest,
   GameAddResult,
   GameCreateRequest,
@@ -34,6 +36,8 @@ export const GAME_KEYS = {
   manifest: (gameId: string) => ['games', 'manifest', gameId] as const,
   /** Theme N: imported assets and whether their sources moved on. */
   assets: (gameId: string) => ['games', 'assets', gameId] as const,
+  assetLibrary: ['games', 'asset-library'] as const,
+  assetLibraryFile: (collection: string, path: string) => ['games', 'asset-library', 'file', collection, path] as const,
   assetSources: (tab: string) => ['games', 'asset-sources', tab] as const,
   /** Theme O: `playtests/*.json` with their last results. */
   playtests: (gameId: string) => ['games', 'playtests', gameId] as const,
@@ -93,6 +97,7 @@ export function useSetGamesSettings() {
       reportFailure(result);
       void client.invalidateQueries({ queryKey: GAME_KEYS.settings });
       void client.invalidateQueries({ queryKey: GAME_KEYS.list });
+      void client.invalidateQueries({ queryKey: GAME_KEYS.assetLibrary });
     },
   });
 }
@@ -273,6 +278,30 @@ export function useGameAssets(gameId: string, enabled = true) {
     enabled,
     queryFn: async () => {
       const result = await bridge()?.games.assets.resync({ gameId, check: true });
+      return result?.ok ? result.value : null;
+    },
+  });
+}
+
+/** The shared asset library's collections (read-only). A failed list reads as an error message. */
+export function useAssetLibrary(enabled: boolean) {
+  return useQuery<{ listing: GameLibraryListing | null; error: string | null }>({
+    queryKey: GAME_KEYS.assetLibrary,
+    enabled,
+    queryFn: async () => {
+      const result = await bridge()?.games.assets.library.list();
+      if (!result) return { listing: null, error: null };
+      return result.ok ? { listing: result.value, error: null } : { listing: null, error: result.kind === 'error' ? result.message : 'Could not list the asset library.' };
+    },
+  });
+}
+
+/** One library file for the inspector (a data URL for small images and audio). */
+export function useAssetLibraryFile(collection: string, path: string) {
+  return useQuery<GameLibraryFile | null>({
+    queryKey: GAME_KEYS.assetLibraryFile(collection, path),
+    queryFn: async () => {
+      const result = await bridge()?.games.assets.library.read({ collection, path });
       return result?.ok ? result.value : null;
     },
   });

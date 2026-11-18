@@ -751,6 +751,8 @@ export type MockFixtures = {
     rootProblem?: string | null;
     /** The game the `game` popout hosts at boot (Theme B Pop out). */
     popped?: string | null;
+    /** The shared asset library listing the Library source shows. */
+    assetLibrary?: import('@midnite/studio-shared').GameLibraryListing;
     /** Theme N: picker candidates by tab, and the re-sync answer (`state` per imported asset). */
     assetSources?: Record<
       string,
@@ -3863,6 +3865,15 @@ export function buildMockBridge(data: MockFixtures) {
       },
       // Theme N: the asset bridge. Sources and re-sync answer from fixtures; imports are recorded.
       assets: {
+        library: {
+          list: async () => ({ ok: true as const, value: data.games?.assetLibrary ?? { root: '/lib', exists: false, collections: [] } }),
+          read: async (req: { collection: string; path: string }) => {
+            gamesCalls.push({ call: 'libraryRead', ...req });
+            const mime = req.path.endsWith('.png') ? 'image/png' : req.path.endsWith('.mp3') ? 'audio/mpeg' : 'application/octet-stream';
+            const previewable = mime !== 'application/octet-stream';
+            return { ok: true as const, value: { absolutePath: `/lib/${req.collection}/${req.path}`, mime, bytes: 10, dataUrl: previewable ? `data:${mime};base64,AAAA` : null } };
+          },
+        },
         sources: async (req: { tab: string }) => ({ ok: true as const, value: { repos: data.games?.assetSources?.[req.tab] ?? [] } }),
         import: async (req: { gameId: string; source: unknown; name?: string }) => {
           gamesCalls.push({ call: 'assetImport', ...req });

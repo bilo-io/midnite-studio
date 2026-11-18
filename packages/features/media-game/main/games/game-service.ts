@@ -47,6 +47,7 @@ import { createGame, gameIdForPath } from './game-scaffold';
 import type { GamePopout } from './game-popout';
 import { gameEntryUrl, type GameRunner, type ToolbarAction } from './game-runner';
 import { effectiveGamesRoot, validateGamesRoot } from './games-root';
+import { expandLibraryRoot } from './asset-library';
 import type { GamesSettingsStore } from './games-settings-store';
 import { upgradeKit } from './kit-upgrade';
 
@@ -88,7 +89,7 @@ export function createGameService(deps: GameServiceDeps) {
 
   async function settingsRead(): Promise<GamesSettingsRead> {
     const { settings, root } = await read();
-    return { settings, resolvedRoot: root, rootProblem: await validateGamesRoot(root) };
+    return { settings, resolvedRoot: root, rootProblem: await validateGamesRoot(root), resolvedLibraryRoot: expandLibraryRoot(settings.assetLibraryRoot) };
   }
 
   /** Find a listed game by id. */

@@ -125,6 +125,7 @@ describe('games settings', () => {
       defaultNetwork: 'off',
       squashRunCommits: false,
       pauseWhenEditing: true,
+      assetLibraryRoot: null,
     });
     expect(GamesSettingsSchema.safeParse(DEFAULT_GAMES_SETTINGS).success).toBe(true);
   });

@@ -97,6 +97,10 @@ export function createGamerBridge(ipc: RendererIpc): GamerBridge {
         onProgress: (handler) => subscribe(EVENT_CHANNELS.gamesAgentProgress, handler),
       },
       assets: {
+        library: {
+          list: () => call(CHANNELS.gamesLibraryList),
+          read: (req) => call(CHANNELS.gamesLibraryRead, req),
+        },
         sources: (req) => call(CHANNELS.gamesAssetSources, req),
         import: (req) => call(CHANNELS.gamesImportAsset, req),
         resync: (req) => call(CHANNELS.gamesResync, req),
