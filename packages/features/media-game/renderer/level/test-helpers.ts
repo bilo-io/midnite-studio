@@ -29,7 +29,7 @@ type Bridge = {
 export function installBridge(b: Bridge): void {
   (window as unknown as { midniteStudio: unknown }).midniteStudio = {
     games: {
-      levels: { list: b.list ?? vi.fn(), get: b.get ?? vi.fn(), set: b.set ?? vi.fn(), mapAsset: b.mapAsset ?? vi.fn(),
+      levels: { list: b.list ?? vi.fn(), get: b.get ?? vi.fn(), set: b.set ?? vi.fn(), mapAsset: b.mapAsset ?? vi.fn(), assetThumb: vi.fn(),
         onEditorRequest: b.onEditorRequest ?? vi.fn(() => () => undefined),
         editorReply: b.editorReply ?? vi.fn(),
         editorOpen: b.editorOpen ?? vi.fn(),

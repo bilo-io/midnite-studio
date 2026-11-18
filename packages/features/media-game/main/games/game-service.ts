@@ -289,7 +289,7 @@ export function createGameService(deps: GameServiceDeps) {
     logs: (gameId: string, since?: number): { runId: string | null; entries: GameLogEntry[] } =>
       deps.runner.logs(gameId, since),
     /** `levels/<scene>.tmj` (Phase 132 Theme C): list, read, write-and-commit; and the jump to a scene. */
-    levels: { list: levels.list, get: levels.get, set: levels.set, mapAsset: levels.mapAsset, model: levels.model, prefabs },
+    levels: { list: levels.list, get: levels.get, set: levels.set, mapAsset: levels.mapAsset, model: levels.model, prefabs, assetThumb: levels.assetThumb },
     goto: levels.goto,
     /** The main -> renderer level-editor bridge (Phase 138 Theme C). */
     levelEditor,

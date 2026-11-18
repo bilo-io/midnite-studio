@@ -1677,6 +1677,8 @@ export type MidniteStudioBridge = {
         set: (req: In<typeof S.GamesLevelPrefabSetRequest>) => Promise<z.infer<typeof S.GamesLevelPrefabSetResponse>>;
         delete: (req: In<typeof S.GamesLevelPrefabDeleteRequest>) => Promise<z.infer<typeof S.GamesLevelPrefabDeleteResponse>>;
       };
+      /** An image-like asset's thumbnail source as a data URL (Phase 139 Theme A). */
+      assetThumb: (req: In<typeof S.GamesLevelAssetThumbRequest>) => Promise<z.infer<typeof S.GamesLevelAssetThumbResponse>>;
       /** Phase 138 Theme C: main asks the open level editor something (snapshot, apply, select, frame, view). */
       onEditorRequest: (handler: (event: z.infer<typeof S.GamesLevelEditorRequestPayload>) => void) => Unsubscribe;
       /** One-way answer to an `onEditorRequest`. */

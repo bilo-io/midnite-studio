@@ -213,6 +213,19 @@ export const GameLevelModelRequestSchema = z.object({ gameId: z.string().min(1),
 export const GameLevelModelResultSchema = z.object({ name: z.string(), bytes: z.number().int().nonnegative(), data: z.string() });
 export type GameLevelModelResult = z.infer<typeof GameLevelModelResultSchema>;
 
+/** The largest source image an asset thumbnail reads (Phase 139 Theme A); a larger one shows its kind icon. */
+export const GAME_LEVEL_THUMB_MAX_BYTES = 2 * 1024 * 1024;
+/** An `image`, `sprite`, `tileset` or `background` asset by name; models keep `games.levels.model`. */
+export const GameLevelAssetThumbRequestSchema = z.object({ gameId: z.string().min(1), name: z.string().min(1).max(200) });
+/** The asset's image as a data URL (the renderer downscales it to 128 px and caches it) and its manifest `sha256`. */
+export const GameLevelAssetThumbResultSchema = z.object({
+  name: z.string(),
+  mime: z.enum(['image/png', 'image/jpeg', 'image/webp']),
+  dataUrl: z.string(),
+  sha256: z.string(),
+});
+export type GameLevelAssetThumbResult = z.infer<typeof GameLevelAssetThumbResultSchema>;
+
 export const GameLevelSetRequestSchema = z.object({
   gameId: z.string().min(1),
   scene: GameSceneNameSchema,

@@ -42,10 +42,10 @@ Agents get the same three through MCP: list assets and prefabs, place a prefab, 
 
 ## Headlines
 
-**Theme A — Asset thumbnails IPC.** ◻ `mstudio:games:level-asset-thumb` answers a small data URL for an `image`,
-`sprite`, `tileset` or `background` asset; models keep `games.levels.model`.
+**Theme A — Asset thumbnails IPC.** ✅ `mstudio:games:level-asset-thumb` answers a data URL (`{name, mime, dataUrl, sha256}`) for an `image`,
+`sprite`, `tileset` or `background` asset (a folder asset resolves through its atlas json's `image`, else its first image); models keep `games.levels.model`. Over 2 MB fails with the size in the message.
 
-**Theme B — Model thumbnails.** ◻ One offscreen three.js renderer draws a 128 px thumbnail per model, cached by
+**Theme B — Model thumbnails.** ✅ `createModelThumbs` (stub-driven, tested) plus `createThreeThumbRenderer` (the real GL one). One offscreen three.js renderer draws a 128 px thumbnail per model, cached by
 `name:sha256` in an LRU of 200, rendered one at a time off the main loop.
 
 **Theme C — The asset browser panel.** ◻ A `BottomPanel` under the level canvas: filter, kind chips, a virtualised
@@ -111,10 +111,10 @@ export const GameLevelAssetThumbResultSchema = z.object({ name: z.string(), mime
 
 **Acceptance.**
 
-- [ ] A1. A `sprite` asset answers a `data:image/png;base64,` URL and its manifest `sha256`.
-- [ ] A2. A `model` asset answers `failure('Model thumbnails come from games.levels.model.')`.
-- [ ] A3. A path that escapes the game folder through a symlink fails as `levelModel`'s does.
-- [ ] A4. An over-cap file fails with the size in the message.
+- [x] A1. A `sprite` asset answers a `data:image/png;base64,` URL and its manifest `sha256`.
+- [x] A2. A `model` asset answers `failure('Model thumbnails come from games.levels.model.')`.
+- [x] A3. A path that escapes the game folder through a symlink fails as `levelModel`'s does.
+- [x] A4. An over-cap file fails with the size in the message.
 
 **Done when** A1–A4 pass in `game-levels.test.ts`.
 
@@ -148,10 +148,10 @@ export function createModelThumbs(deps: { load: (name: string) => Promise<GitOpR
 
 **Acceptance.**
 
-- [ ] B1. Two `get`s of the same name and sha load once.
-- [ ] B2. A changed `sha256` re-renders.
-- [ ] B3. The 201st distinct thumbnail evicts the least recently used.
-- [ ] B4. Requests render serially (the stub records no overlap).
+- [x] B1. Two `get`s of the same name and sha load once.
+- [x] B2. A changed `sha256` re-renders.
+- [x] B3. The 201st distinct thumbnail evicts the least recently used.
+- [x] B4. Requests render serially (the stub records no overlap).
 
 **Done when** B1–B4 pass.
 
