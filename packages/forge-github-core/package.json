@@ -2,13 +2,21 @@
   "name": "@midnite/forge-github-core",
   "version": "0.0.6",
   "private": true,
-  "description": "Pure GitHub GraphQL pieces (Phase 146 Theme D): query documents, response parsers and mutation builders. React-free, electron-free and transport-agnostic; consumed from source by desktop's forge main half (over `gh`) and by the mobile app (over `fetch`).",
-  "type": "module",
+  "description": "Pure GitHub GraphQL pieces (Phase 146 Theme D): query documents, response parsers and mutation builders. React-free, electron-free and transport-agnostic; consumed by desktop's forge main half (over `gh`) and by the mobile app (over `fetch`).",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
+    "build": "tsc -b",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

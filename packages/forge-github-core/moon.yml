@@ -1,7 +1,8 @@
 $schema: 'https://moonrepo.dev/schemas/project.json'
 
-# Phase 146 Theme D — the pure GitHub GraphQL documents and parsers, React-free. Source-only like the frame:
-# consumers compile it. Sits beside `shared` in the layer graph (docs/APPS.md, "pure cores").
+# Phase 146 Theme D — the pure GitHub GraphQL documents and parsers, React-free. Built like git-engine
+# (CommonJS dist, project reference to shared) because forge's main half is a `tsc -b` project; desktop's
+# esbuild bundle inlines it. Sits beside `shared` in the layer graph (docs/APPS.md, "pure cores").
 language: 'typescript'
 layer: 'library'
 
@@ -12,19 +13,19 @@ tags:
 dependsOn:
   - 'shared'
 
-workspace:
-  inheritedTasks:
-    exclude:
-      - 'build'
-
 tasks:
+  # tsc --noEmit resolves @midnite/studio-shared through a project reference but does not build it.
   typecheck:
+    deps:
+      - '^:build'
     inputs:
       - 'src/**/*'
       - 'tsconfig.json'
       - 'package.json'
       - '/packages/shared/src/**/*'
 
+  # vitest.config.ts aliases shared to its SOURCE, so this suite needs no build ahead of it, but moon
+  # hashes from declared inputs: list shared's sources or a contract change leaves this a cache hit.
   test:
     inputs:
       - 'src/**/*'

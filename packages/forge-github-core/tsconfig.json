@@ -1,19 +1,17 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2022"],
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    // Source-only: consumers compile this package, so nothing here emits.
-    "noEmit": true,
-    "composite": false,
-    "declaration": false,
-    "declarationMap": false,
-    "types": ["node"],
-    "paths": {
-      "@midnite/studio-shared": ["../shared/src/index.ts"]
-    }
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    // CommonJS for the same reason as shared: forge's main half (module: commonjs) reaches this through
+    // a project reference, and desktop's esbuild bundle inlines it. The mobile app and vitest alias the
+    // package to its source (src/index.ts), as they do for shared.
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "types": ["node"]
   },
-  "include": ["src/**/*", "vitest.config.ts"],
-  "exclude": ["node_modules"]
+  "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules"],
+  "references": [{ "path": "../shared" }]
 }
