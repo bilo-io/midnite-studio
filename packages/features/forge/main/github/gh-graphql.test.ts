@@ -1,14 +1,14 @@
 // @vitest-environment node
+import { reviewCommentCountsQuery } from '@midnite/forge-github-core';
 import type { Forge } from '@midnite/studio-shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   describeGraphqlFailure,
   listPullsWithReviewComments,
-  parseReviewCommentCounts,
-  parseReviewThreads,
+  parseReviewCommentCountsFromStdout,
+  parseReviewThreadsFromStdout,
   pullThreads,
-  reviewCommentCountsQuery,
 } from './gh-graphql';
 
 /*
@@ -81,7 +81,7 @@ const payload = (threads: Record<string, unknown>[]): string =>
 
 describe('parseReviewThreads', () => {
   it('reads a thread with its anchor, its flags and its comments', () => {
-    const [parsed] = parseReviewThreads(payload([thread()]));
+    const [parsed] = parseReviewThreadsFromStdout(payload([thread()]));
 
     expect(parsed).toMatchObject({
       id: 'PRRT_kwDODKw3uc6ai8rw',
@@ -106,7 +106,7 @@ describe('parseReviewThreads', () => {
   });
 
   it('defaults diffHunk to empty and reviewId to null when absent', () => {
-    const [parsed] = parseReviewThreads(
+    const [parsed] = parseReviewThreadsFromStdout(
       payload([
         thread({
           comments: {
@@ -119,7 +119,7 @@ describe('parseReviewThreads', () => {
   });
 
   it('keeps a multi-comment thread in the order GraphQL returned it', () => {
-    const [parsed] = parseReviewThreads(
+    const [parsed] = parseReviewThreadsFromStdout(
       payload([
         thread({
           comments: {
@@ -151,7 +151,7 @@ describe('parseReviewThreads', () => {
     // The outdated case: GitHub nulls `line` and keeps `originalLine`. Filling
     // one from the other here is exactly how a comment gets pinned to code its
     // author never saw.
-    const [parsed] = parseReviewThreads(
+    const [parsed] = parseReviewThreadsFromStdout(
       payload([thread({ isOutdated: true, line: null, originalLine: 40 })]),
     );
 
@@ -159,7 +159,7 @@ describe('parseReviewThreads', () => {
   });
 
   it('marks a file-level thread rather than inventing a line for it', () => {
-    const [parsed] = parseReviewThreads(
+    const [parsed] = parseReviewThreadsFromStdout(
       payload([thread({ subjectType: 'FILE', line: null, originalLine: null })]),
     );
 
@@ -167,7 +167,7 @@ describe('parseReviewThreads', () => {
   });
 
   it('reads a left-side thread, which is displayed but never written', () => {
-    const [parsed] = parseReviewThreads(payload([thread({ diffSide: 'LEFT' })]));
+    const [parsed] = parseReviewThreadsFromStdout(payload([thread({ diffSide: 'LEFT' })]));
 
     expect(parsed?.side).toBe('LEFT');
   });
@@ -175,7 +175,7 @@ describe('parseReviewThreads', () => {
   it('falls back to RIGHT for a side it does not recognise, keeping the thread', () => {
     // Dropping the thread would hide real discussion over an enum value; the
     // schema default is the safe read, since v1 only ever *writes* RIGHT.
-    const [parsed] = parseReviewThreads(payload([thread({ diffSide: 'SOMETHING_NEW' })]));
+    const [parsed] = parseReviewThreadsFromStdout(payload([thread({ diffSide: 'SOMETHING_NEW' })]));
 
     expect(parsed?.side).toBe('RIGHT');
   });
@@ -184,12 +184,12 @@ describe('parseReviewThreads', () => {
     // A thread node with an empty `comments.nodes` is what a permission gap
     // looks like. Rendering it would put an empty panel and a Resolve button on
     // a line for no visible reason.
-    expect(parseReviewThreads(payload([thread({ comments: { nodes: [] } })]))).toEqual([]);
+    expect(parseReviewThreadsFromStdout(payload([thread({ comments: { nodes: [] } })]))).toEqual([]);
   });
 
   it('drops a comment with no timestamp, and the thread with it if that was all', () => {
     expect(
-      parseReviewThreads(
+      parseReviewThreadsFromStdout(
         payload([thread({ comments: { nodes: [{ id: 'a', body: 'no createdAt' }] } })]),
       ),
     ).toEqual([]);
@@ -198,11 +198,11 @@ describe('parseReviewThreads', () => {
   it('drops a thread with no id — nothing could be resolved against it', () => {
     const nodes = [thread()];
     delete nodes[0]!['id'];
-    expect(parseReviewThreads(payload(nodes))).toEqual([]);
+    expect(parseReviewThreadsFromStdout(payload(nodes))).toEqual([]);
   });
 
   it('reads a null databaseId as no reply target rather than as a zero', () => {
-    const [parsed] = parseReviewThreads(
+    const [parsed] = parseReviewThreadsFromStdout(
       payload([
         thread({
           comments: {
@@ -216,23 +216,23 @@ describe('parseReviewThreads', () => {
   });
 
   it('seeks past a login shell banner to the payload', () => {
-    expect(parseReviewThreads(`Welcome to zsh!\n${payload([thread()])}`)).toHaveLength(1);
+    expect(parseReviewThreadsFromStdout(`Welcome to zsh!\n${payload([thread()])}`)).toHaveLength(1);
   });
 
   it('answers empty for output that is not JSON at all', () => {
-    expect(parseReviewThreads('gh: command not found')).toEqual([]);
+    expect(parseReviewThreadsFromStdout('gh: command not found')).toEqual([]);
   });
 
   it('answers empty when the repository or pull request came back null', () => {
     // Both are legitimate: a repo the token cannot see, or a deleted PR.
-    expect(parseReviewThreads(JSON.stringify({ data: { repository: null } }))).toEqual([]);
+    expect(parseReviewThreadsFromStdout(JSON.stringify({ data: { repository: null } }))).toEqual([]);
     expect(
-      parseReviewThreads(JSON.stringify({ data: { repository: { pullRequest: null } } })),
+      parseReviewThreadsFromStdout(JSON.stringify({ data: { repository: { pullRequest: null } } })),
     ).toEqual([]);
   });
 
   it('rejects a zero or negative line rather than passing it on', () => {
-    const [parsed] = parseReviewThreads(payload([thread({ line: 0, startLine: -3 })]));
+    const [parsed] = parseReviewThreadsFromStdout(payload([thread({ line: 0, startLine: -3 })]));
 
     expect(parsed).toMatchObject({ line: null, startLine: null });
   });
@@ -355,7 +355,7 @@ describe('parseReviewCommentCounts', () => {
   const answer = (repository: unknown): string => JSON.stringify({ data: { repository } });
 
   it('sums the comments in every thread, per pull request', () => {
-    const counts = parseReviewCommentCounts(
+    const counts = parseReviewCommentCountsFromStdout(
       answer({
         p14200: {
           reviewThreads: {
@@ -371,13 +371,13 @@ describe('parseReviewCommentCounts', () => {
   });
 
   it('leaves out a pull request the query could not resolve', () => {
-    const counts = parseReviewCommentCounts(answer({ p9: null }));
+    const counts = parseReviewCommentCountsFromStdout(answer({ p9: null }));
 
     expect(counts.has(9)).toBe(false);
   });
 
   it('answers empty for output that is not JSON at all', () => {
-    expect(parseReviewCommentCounts('Welcome to zsh').size).toBe(0);
+    expect(parseReviewCommentCountsFromStdout('Welcome to zsh').size).toBe(0);
   });
 });
 

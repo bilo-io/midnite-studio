@@ -27,6 +27,7 @@ const common = {
     '@midnite/studio-module-creator/bridge': at('../../../packages/modules/creator/main/bridge.ts'),
     '@midnite/studio-db-engine': at('../../../packages/db-engine/src/index.ts'),
     '@midnite/studio-feature-api-client/script-runner-worker': at('../../../packages/features/api-client/main/script-runner-worker.ts'),
+    '@midnite/forge-github-core': at('../../../packages/forge-github-core/src/index.ts'),
     '@midnite/studio-feature-forge/main': at('../../../packages/features/forge/main/index.ts'),
     '@midnite/studio-feature-tests/main': at('../../../packages/features/tests/main/index.ts'),
     '@midnite/studio-feature-api-client/main': at('../../../packages/features/api-client/main/index.ts'),

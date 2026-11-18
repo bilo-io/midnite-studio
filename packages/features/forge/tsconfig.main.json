@@ -13,5 +13,5 @@
   },
   "include": ["main/**/*", "manifest.ts"],
   "exclude": ["dist", "node_modules"],
-  "references": [{ "path": "../../shared" }, { "path": "../../runtime" }, { "path": "../../git-engine" }]
+  "references": [{ "path": "../../shared" }, { "path": "../../runtime" }, { "path": "../../git-engine" }, { "path": "../../forge-github-core" }]
 }

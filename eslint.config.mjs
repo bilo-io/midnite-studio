@@ -241,7 +241,13 @@ export default tseslint.config(
     rules: deny([
       NO_ELECTRON,
       {
-        group: ['@midnite/studio-*', '@midnite/tasks-core', '@midnite/tasks-core/*'],
+        group: [
+          '@midnite/studio-*',
+          '@midnite/tasks-core',
+          '@midnite/tasks-core/*',
+          '@midnite/forge-github-core',
+          '@midnite/forge-github-core/*',
+        ],
         message:
           'packages/shared is the leaf of the dependency graph — it may depend on zod and nothing else in the workspace.',
       },
@@ -381,6 +387,72 @@ export default tseslint.config(
         group: ['**/frame/src/**', '**/features/**', '**/modules/**', '**/apps/**', '**/app/src/**'],
         message:
           'tasks-core is a pure core: no relative import reaches around the package name into the frame, a feature, a module or an app.',
+      },
+    ]),
+  },
+
+
+  // --- Boundary: pure cores (Phase 146 Theme D) --------------------------------
+  // packages/forge-github-core sits beside `shared`: the GitHub GraphQL documents and parsers desktop's forge main
+  // half and the mobile app both read. It takes `shared` and nothing else in the workspace, and no React of any flavour.
+  {
+    files: ['packages/forge-github-core/**/*.{ts,tsx}'],
+    rules: deny([
+      {
+        group: ['@midnite/*', '!@midnite/studio-shared', '!@midnite/studio-shared/*'],
+        message:
+          'forge-github-core is a pure core: it imports @midnite/studio-shared and nothing else in the workspace (docs/APPS.md, "pure cores").',
+      },
+      {
+        group: [
+          'react',
+          'react/*',
+          'react-dom',
+          'react-dom/*',
+          'react-native',
+          'react-native/*',
+          'react-icons',
+          'react-icons/*',
+          'electron',
+          'electron/*',
+        ],
+        message: 'forge-github-core is React-free and electron-free: it runs under bare vitest and in Expo Go alike.',
+      },
+    ]),
+  },
+  // Its source also takes no node builtins (Expo Go has none) and no relative path around the package
+  // name into the frame, a feature, a module or an app. `vitest.config.ts` keeps `node:url`.
+  {
+    files: ['packages/forge-github-core/src/**/*.{ts,tsx}'],
+    rules: deny([
+      {
+        group: ['@midnite/*', '!@midnite/studio-shared', '!@midnite/studio-shared/*'],
+        message:
+          'forge-github-core is a pure core: it imports @midnite/studio-shared and nothing else in the workspace (docs/APPS.md, "pure cores").',
+      },
+      {
+        group: [
+          'react',
+          'react/*',
+          'react-dom',
+          'react-dom/*',
+          'react-native',
+          'react-native/*',
+          'react-icons',
+          'react-icons/*',
+          'electron',
+          'electron/*',
+        ],
+        message: 'forge-github-core is React-free and electron-free: it runs under bare vitest and in Expo Go alike.',
+      },
+      {
+        group: ['node:*'],
+        message: 'forge-github-core source takes no node builtins: it runs in Expo Go, which has none.',
+      },
+      {
+        group: ['**/frame/src/**', '**/features/**', '**/modules/**', '**/apps/**', '**/app/src/**'],
+        message:
+          'forge-github-core is a pure core: no relative import reaches around the package name into the frame, a feature, a module or an app.',
       },
     ]),
   },
