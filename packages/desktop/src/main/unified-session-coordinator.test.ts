@@ -259,6 +259,70 @@ describe('UnifiedSessionCoordinator', () => {
     }
   });
 
+  async function chatWithSession(h: ReturnType<typeof setupTestHarness>, convId: string): Promise<Chat> {
+    const res = await h.chatSvc.create({ engine: 'claude', model: null, mode: 'edit', repoId: 'repo-1' });
+    if (!res.ok) throw new Error('create failed');
+    const updated = await h.chatSvc.update({
+      id: res.value.chat.id,
+      session: { engine: 'claude', id: convId, cwd: '/tmp/repo-1' },
+    });
+    if (!updated.ok) throw new Error('update failed');
+    return updated.value.chat;
+  }
+
+  it('refuses a second Chat turn on an engineSessionId another chat holds, until that turn ends', async () => {
+    const h = setupTestHarness();
+    const a = await chatWithSession(h, 'conv-shared');
+    const b = await chatWithSession(h, 'conv-shared');
+
+    expect((await h.coordinator.beforeChatSend(a)).ok).toBe(true);
+    const blocked = await h.coordinator.beforeChatSend(b);
+    expect(blocked.ok).toBe(false);
+
+    await h.coordinator.onChatTurnEnd(a);
+    expect(h.coordinator.ownerFor({ engineSessionId: 'conv-shared' })).toBe('idle');
+    expect((await h.coordinator.beforeChatSend(b)).ok).toBe(true);
+  });
+
+  it('releases the engineSessionId locked at send time even when the turn ends on a new one', async () => {
+    const h = setupTestHarness();
+    const chat = await chatWithSession(h, 'conv-old');
+
+    expect((await h.coordinator.beforeChatSend(chat)).ok).toBe(true);
+    expect(h.coordinator.ownerFor({ engineSessionId: 'conv-old' })).toBe('chat');
+
+    // A resend clears the session; the engine answers on a fresh id.
+    await h.coordinator.onChatTurnEnd({ ...chat, session: { engine: 'claude', id: 'conv-new', cwd: '/tmp/repo-1' } });
+    expect(h.coordinator.ownerFor({ engineSessionId: 'conv-old' })).toBe('idle');
+    expect(h.coordinator.ownerFor({ engineSessionId: 'conv-new', chatId: chat.id })).toBe('idle');
+
+    const toTerminal = await h.coordinator.switchView({ sessionId: chat.id, targetView: 'terminal', handoffMode: 'auto' });
+    expect(toTerminal.ok).toBe(true);
+  });
+
+  it('keeps a running Chat turn locked when the linked terminal is parked', async () => {
+    const h = setupTestHarness();
+    const chat = await chatWithSession(h, 'conv-held');
+    h.terminals.set('term-held', {
+      id: 'term-held',
+      kind: 'agent',
+      agentId: 'claude',
+      title: 'Claude Terminal',
+      cwd: '/tmp/repo-1',
+      repoId: 'repo-1',
+      createdAt: 1000,
+      agentConversationId: 'conv-held',
+      linkedChatId: chat.id,
+    });
+
+    expect((await h.coordinator.beforeChatSend(chat)).ok).toBe(true);
+    // Toggling Terminal -> Chat parks the (absent) PTY; it must not drop the chat's lock.
+    await h.coordinator.switchView({ sessionId: 'term-held', targetView: 'chat', handoffMode: 'auto' });
+    expect(h.coordinator.ownerFor({ engineSessionId: 'conv-held' })).toBe('chat');
+    const other = await chatWithSession(h, 'conv-held');
+    expect((await h.coordinator.beforeChatSend(other)).ok).toBe(false);
+  });
+
   it('refuses switching to Terminal while Chat is mid-turn', async () => {
     const h = setupTestHarness({ chatRunning: true });
     const created = await h.chatSvc.create({ engine: 'claude', model: null, mode: 'edit', repoId: 'repo-1' });
