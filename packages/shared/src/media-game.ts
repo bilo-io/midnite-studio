@@ -52,7 +52,7 @@ export const GAME_ENGINE_VERSIONS = {
 } as const;
 
 /** The current kit version (Theme C). Bumped whenever `templates/media-game/kit/` changes. */
-export const GAME_KIT_VERSION = '0.12.0';
+export const GAME_KIT_VERSION = '0.13.0';
 
 // --- enums -------------------------------------------------------------------
 
@@ -941,6 +941,51 @@ export const GAME_DETERMINISM_PARAMS = {
 
 /** The query param naming the level a run starts on, read by `kit/core/level.js` (Phase 132 Theme C). */
 export const GAME_LEVEL_PARAM = 'midnite-level';
+
+/** The query param Play-from-here sets (`x,y` px for 2D, `x,y,z` or `x,z` metres for 3D), read by `kit/core/level.js` (Phase 140 Theme A). */
+export const GAME_SPAWN_PARAM = 'midnite-spawn';
+
+/** Most entities one snapshot carries; the reader sets `truncated` past it (Phase 140 Theme D). */
+export const GAME_ENTITIES_MAX = 500;
+/** How often main reads a running game's entities while the editor watches (4 Hz). */
+export const GAME_ENTITY_POLL_MS = 250;
+
+/**
+ * One live object in a running game, from `window.__midnite.entities()`. `id` is the level object's id the
+ * entity came from (`null` for one spawned at runtime). Level units: pixels (`x`, `y` on screen) for 2D;
+ * metres for 3D with world axes, `y` up, so a plan-view ghost sits at (`x`, `z`).
+ */
+export const GameEntitySnapshotSchema = z.object({
+  id: z.number().int().nullable(),
+  type: z.string().max(64),
+  name: z.string().max(200).optional(),
+  x: z.number().finite(),
+  y: z.number().finite(),
+  z: z.number().finite().optional(),
+  alive: z.boolean(),
+  state: z.string().max(64).optional(),
+});
+export type GameEntitySnapshot = z.infer<typeof GameEntitySnapshotSchema>;
+
+export const GameEntitiesResultSchema = z.object({
+  scene: z.string(),
+  frame: z.number().int(),
+  entities: z.array(GameEntitySnapshotSchema).max(GAME_ENTITIES_MAX),
+  truncated: z.boolean(),
+  /** The game's kit predates `entities()` (before 0.13): the list is empty because it cannot answer. */
+  unsupported: z.boolean().optional(),
+});
+export type GameEntitiesResult = z.infer<typeof GameEntitiesResultSchema>;
+
+/** One editor subscription to the entity poller. `watcherId` makes a repeated unwatch harmless. */
+export const GameEntitiesWatchRequestSchema = z.object({
+  gameId: z.string().min(1),
+  watcherId: z.string().min(1).max(64),
+  on: z.boolean(),
+});
+/** The `gamesEntityState` event: the latest snapshot of a running game. */
+export const GameEntityStatePayloadSchema = z.object({ gameId: z.string(), result: GameEntitiesResultSchema });
+export type GameEntityStatePayload = z.infer<typeof GameEntityStatePayloadSchema>;
 
 /** A replay longer than this (ten minutes at 60 Hz) is refused. */
 export const GAME_REPLAY_MAX_FRAMES = 36_000;

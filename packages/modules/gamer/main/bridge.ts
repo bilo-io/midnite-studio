@@ -68,6 +68,17 @@ export function createGamerBridge(ipc: RendererIpc): GamerBridge {
         assetThumb: (req) => call(CHANNELS.gamesLevelAssetThumb, req),
       },
       goto: (req) => call(CHANNELS.gamesGoto, req),
+      entities: {
+        get: (req) => call(CHANNELS.gamesEntities, req),
+        watch: (req) => {
+          const watcherId = `w${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+          void call(CHANNELS.gamesEntitiesWatch, { gameId: req.gameId, watcherId, on: true });
+          return () => {
+            void call(CHANNELS.gamesEntitiesWatch, { gameId: req.gameId, watcherId, on: false });
+          };
+        },
+      },
+      onEntityState: (handler) => subscribe(EVENT_CHANNELS.gamesEntityState, handler),
       popOut: (req) => call(CHANNELS.gamesPopOut, req),
       popped: () => call(CHANNELS.gamesPopped),
       onPopState: (handler) => subscribe(EVENT_CHANNELS.gamesPopState, handler),

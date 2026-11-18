@@ -13,11 +13,11 @@
  */
 
 import { determinism } from './determinism.js';
-import { isSceneName, LEVEL_PARAM } from './level.js';
+import { isSceneName, LEVEL_PARAM, SPAWN_PARAM } from './level.js';
 import { virtualGamepad } from './input-map.js';
 import { replayer } from './replay.js';
 
-export const KIT_VERSION = '0.12.0';
+export const KIT_VERSION = '0.13.0';
 /** `window.__midnite.version`; bumped when the hook's shape changes. */
 export const HOOK_VERSION = 1;
 
@@ -30,6 +30,8 @@ export const HOOK_VERSION = 1;
  *   setSeed?: (seed: number) => void,
  *   setOverlay?: (on: boolean) => void,
  *   goto?: (name: string) => boolean,
+ *   spawnAt?: (x: number, y: number, z?: number) => boolean,
+ *   entities?: () => import('./level.js').EntitySnapshot[],
  * }} HookImpl
  */
 
@@ -43,6 +45,49 @@ function gotoByReload(name) {
   query.set(LEVEL_PARAM, name);
   location.replace(`${location.pathname}?${query.toString()}${location.hash}`);
   return true;
+}
+
+/**
+ * The default `spawnAt`: reload this page with `?midnite-spawn=x,y[,z]` (pixels for 2D, metres for 3D),
+ * keeping every other query param. The scene's `spawn` is replaced for this run only; nothing is saved.
+ * @param {number} x
+ * @param {number} y
+ * @param {number} [z]
+ */
+function spawnByReload(x, y, z) {
+  const coords = z === undefined ? [x, y] : [x, y, z];
+  if (!coords.every(Number.isFinite) || typeof location === 'undefined') return false;
+  const query = new URLSearchParams(location.search);
+  query.set(SPAWN_PARAM, coords.join(','));
+  location.replace(`${location.pathname}?${query.toString()}${location.hash}`);
+  return true;
+}
+
+/** @type {Map<string, () => import('./level.js').EntitySnapshot[]>} */
+const entitySources = new Map();
+
+/**
+ * Register what `window.__midnite.entities()` reports for one source (a level builder, a game's own
+ * spawner). A later registration under the same `key` replaces the earlier one (a scene rebuilt by `goto`).
+ * @param {() => import('./level.js').EntitySnapshot[]} fn
+ * @param {string} [key]
+ */
+export function registerEntities(fn, key = 'default') {
+  entitySources.set(key, fn);
+}
+
+/** Every registered source's snapshots, in registration order; a source that throws contributes nothing. */
+function collectEntities() {
+  /** @type {import('./level.js').EntitySnapshot[]} */
+  const all = [];
+  for (const fn of entitySources.values()) {
+    try {
+      all.push(...fn());
+    } catch {
+      /* one broken source must not blind the editor to the rest */
+    }
+  }
+  return all;
 }
 
 /** Extra properties other kit modules hang on the hook (`juice`, `fx`); they survive a re-install. @type {Record<string, unknown>} */
@@ -79,6 +124,10 @@ export function installHook(impl = {}) {
     setOverlay: (/** @type {boolean} */ _on) => {},
     /** Jump to level `name` (`levels/<name>.tmj`): reloads on `?midnite-level=` unless the engine loop restarts in place. */
     goto: gotoByReload,
+    /** Restart on the level's own scene with the player placed at `x, y[, z]` (`?midnite-spawn=`). */
+    spawnAt: spawnByReload,
+    /** The live objects as `{ id, type, x, y, z?, alive, state? }[]` (Phase 140 D); empty before any level loads. */
+    entities: collectEntities,
     input: {
       gamepad: (/** @type {number} */ button, /** @type {boolean} */ pressed) => virtualGamepad.set(button, pressed),
     },
