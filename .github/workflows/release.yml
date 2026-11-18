@@ -69,7 +69,7 @@ jobs:
       # node builtins only — version-check.mjs imports nothing from the workspace, so no install.
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
       - name: Derive version, tag and dry-run flag
         id: meta
         shell: bash
@@ -135,7 +135,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
           cache: pnpm
 
       # Same reasoning as ci.yml's `gate`/`package` jobs: @bilo-io/ui and
@@ -304,7 +304,7 @@ jobs:
       # node builtins only — no install needed.
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
       - name: Compute the bundle matrix
         id: matrix
         shell: bash
@@ -340,7 +340,7 @@ jobs:
           version: 10.34.9
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
           cache: pnpm
       - name: Install
         run: pnpm install --frozen-lockfile
@@ -537,7 +537,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
           cache: pnpm
 
       - name: Install
@@ -737,7 +737,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
           cache: pnpm
 
       - name: Install
@@ -883,7 +883,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
           cache: pnpm
 
       - name: Install
