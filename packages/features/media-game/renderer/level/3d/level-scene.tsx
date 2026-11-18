@@ -31,10 +31,11 @@ import {
   type Texture,
 } from 'three';
 
-import type { LevelViewCamera } from '@midnite/studio-shared';
+import type { GameLevelTerrainDetail, LevelViewCamera } from '@midnite/studio-shared';
 import { captureScene, type CapturedPixels } from './level-capture';
 import { blendPose, cameraPosition, dollyOffset, poseFromCamera, TRANSITION_MS, type CameraPose } from './camera-transition';
 import { cull, groundTiles, itemRadius, tileInReach, type GroundTile, type ViewStats } from './level-cull';
+import { detailSegments, gridUnit, reachFor, tileSizeFor } from './level-big';
 import { fogRange, viewOffset } from './level-lod';
 import type { ScreenPoint } from './level-marquee';
 import { DEFAULT_SIZE_Y } from '../level-edit-model';
@@ -68,6 +69,10 @@ export type LevelSceneProps = {
   bounds: GroundTile;
   ground: number;
   drape: string | null;
+  /** The area the grid covers: the work, when the ground dwarfs it. */
+  focus: GroundTile;
+  /** The part of the terrain the level works in, in detail: a sharper drape crop, roads and building outlines. */
+  detail: GameLevelTerrainDetail | null;
   /** Item indices of every selected object; every one gets an amber outline. */
   selected: readonly number[];
   /** The selection's pivot (Theme D): where the group gizmo sits when two or more are selected. */
@@ -271,19 +276,62 @@ export function LevelScene(props: LevelSceneProps) {
   const groundMaterial = useMemo(() => new MeshStandardMaterial({ color: drape ? '#ffffff' : '#2b3038', map: drape, roughness: 1 }), [drape]);
   useEffect(() => () => groundMaterial.dispose(), [groundMaterial]);
   const tiles = useMemo(() => {
-    const list = groundTiles(props.bounds, preset.terrainTile);
+    const list = groundTiles(props.bounds, tileSizeFor(props.bounds, preset.terrainTile));
     return list.map((tile) => ({ tile, geometry: tileGeometry(tile, props.bounds, props.ground, preset.terrainSegments) }));
   }, [props.bounds, props.ground, preset.terrainTile, preset.terrainSegments]);
   useEffect(() => () => tiles.forEach((t) => t.geometry.dispose()), [tiles]);
   const grids = useMemo(() => {
-    const w = props.bounds.maxX - props.bounds.minX, h = props.bounds.maxZ - props.bounds.minZ;
-    const side = Math.ceil(Math.max(w, h));
-    const fine = side <= 400 ? new GridHelper(side, side, '#3a3f48', '#3a3f48') : null;
-    const bold = new GridHelper(Math.ceil(side / 10) * 10, Math.ceil(side / 10), '#5b616c', '#5b616c');
-    for (const g of [fine, bold]) g?.position.set(props.bounds.minX + side / 2, props.ground + 0.01, props.bounds.minZ + side / 2);
-    bold.position.set(props.bounds.minX + Math.ceil(side / 10) * 5, props.ground + 0.02, props.bounds.minZ + Math.ceil(side / 10) * 5);
+    // Over the focus (the work, on a terrain that dwarfs it), in a unit that suits its size: 1 m, 10 m or 100 m
+    // fine lines with every tenth bold. A 10 m grid over 10 km was a thousand lines a side, and aliased to noise.
+    const w = props.focus.maxX - props.focus.minX, h = props.focus.maxZ - props.focus.minZ;
+    const unit = gridUnit(Math.max(w, h));
+    const cells = Math.max(1, Math.ceil(Math.max(w, h) / unit));
+    const boldCells = Math.max(1, Math.ceil(cells / 10));
+    const x0 = Math.floor(props.focus.minX / (unit * 10)) * unit * 10, z0 = Math.floor(props.focus.minZ / (unit * 10)) * unit * 10;
+    const fine = cells <= 400 ? new GridHelper(cells * unit, cells, '#3a3f48', '#3a3f48') : null;
+    const bold = new GridHelper(boldCells * unit * 10, boldCells, '#5b616c', '#5b616c');
+    fine?.position.set(x0 + (cells * unit) / 2, props.ground + 0.01, z0 + (cells * unit) / 2);
+    bold.position.set(x0 + boldCells * unit * 5, props.ground + 0.02, z0 + boldCells * unit * 5);
     return [fine, bold].filter((g): g is GridHelper => g !== null);
-  }, [props.bounds, props.ground]);
+  }, [props.focus, props.ground]);
+  // The fine grid only close in (from far off its lines alias into stripes): 120 m for 1 m lines, 60 cells for coarser ones.
+  const fineUnit = gridUnit(Math.max(props.focus.maxX - props.focus.minX, props.focus.maxZ - props.focus.minZ));
+  const fineGridReach = fineUnit === 1 ? 120 : 60 * fineUnit;
+
+  // The part of the terrain the level works in: a sharper crop of the drape laid just over the ground, and the
+  // pack's roads and building outlines as lines.
+  const detailDrape = useMemo<Texture | null>(() => {
+    if (!props.detail?.preview) return null;
+    const t = new TextureLoader().load(props.detail.preview, () => invalidate());
+    t.colorSpace = SRGBColorSpace;
+    return t;
+  }, [props.detail?.preview, invalidate]);
+  useEffect(() => () => detailDrape?.dispose(), [detailDrape]);
+  const detailPlane = useMemo(() => {
+    if (!props.detail || !detailDrape) return null;
+    const d = props.detail, w = d.maxX - d.minX, h = d.maxZ - d.minZ;
+    const geometry = new PlaneGeometry(w, h).rotateX(-Math.PI / 2).translate(d.minX + w / 2, props.ground + 0.005, d.minZ + h / 2);
+    const material = new MeshStandardMaterial({ map: detailDrape, roughness: 1 });
+    return { geometry, material };
+  }, [props.detail, detailDrape, props.ground]);
+  useEffect(() => () => {
+    detailPlane?.geometry.dispose();
+    detailPlane?.material.dispose();
+  }, [detailPlane]);
+  const detailLines = useMemo(() => {
+    if (!props.detail) return null;
+    const segments = detailSegments(props.detail, props.ground + 0.04);
+    const make = (positions: Float32Array) => {
+      const g = new BufferGeometry();
+      g.setAttribute('position', new Float32BufferAttribute(positions, 3));
+      return g;
+    };
+    return { roads: make(segments.roads), buildings: make(segments.buildings) };
+  }, [props.detail, props.ground]);
+  useEffect(() => () => {
+    detailLines?.roads.dispose();
+    detailLines?.buildings.dispose();
+  }, [detailLines]);
   useEffect(() => () => grids.forEach((g) => g.dispose()), [grids]);
   const paths = useMemo(() => {
     const pts: number[] = [];
@@ -391,9 +439,11 @@ export function LevelScene(props: LevelSceneProps) {
     if (dirty.current) {
       dirty.current = false;
       const distance = camera.position.distanceTo(target);
-      const offset = viewOffset(distance, dollyOffset(pose), preset.drawDistance);
+      // Backed off over a big level, the reach grows with the camera's distance (`reachFor`), so an overview shows it.
+      const reach = reachFor(preset.drawDistance, distance);
+      const offset = viewOffset(distance, dollyOffset(pose), reach);
       camera.near = Math.max(0.05, distance / 2000);
-      camera.far = distance + preset.drawDistance * 1.5 + 50;
+      camera.far = distance + reach * 1.5 + 50;
       camera.updateProjectionMatrix();
       camera.updateMatrixWorld();
       frustum.setFromProjectionMatrix(m.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
@@ -406,7 +456,7 @@ export function LevelScene(props: LevelSceneProps) {
         offset,
         fovDeg: camera.fov,
         viewportHeight: size.height,
-        preset,
+        preset: reach === preset.drawDistance ? preset : { ...preset, drawDistance: reach },
         exclude: selectedSet,
         modelFailed: (name) => props.cache.failed(name),
         inFrustum: (item) => frustum.intersectsSphere(sphere.set(v.set(item.position[0], item.position[1] + item.size[1] / 2, item.position[2]), itemRadius(item))),
@@ -472,10 +522,9 @@ export function LevelScene(props: LevelSceneProps) {
       // Ground tiles past the draw distance are not drawn; the sun and its shadow follow the focus.
       tilesGroup.current?.children.forEach((child, i) => {
         const tile = tiles[i]?.tile;
-        child.visible = tile ? tileInReach(tile, focus, preset.drawDistance) : false;
+        child.visible = tile ? tileInReach(tile, focus, reach) : false;
       });
-      // The 1 m grid only close in: from far off its lines alias into stripes.
-      if (grids.length > 1) grids[0]!.visible = distance - offset < 120;
+      if (grids.length > 1) grids[0]!.visible = distance - offset < fineGridReach;
       sun.position.set(target.x + 40, target.y + 80, target.z + 30);
       sun.target.position.copy(target);
       sun.target.updateMatrixWorld();
@@ -485,7 +534,7 @@ export function LevelScene(props: LevelSceneProps) {
       sun.shadow.camera.updateProjectionMatrix();
       const fog = scene.fog as Fog | null;
       if (fog) {
-        const range = fogRange(preset.drawDistance, offset);
+        const range = fogRange(reach, offset);
         fog.near = range.near;
         fog.far = range.far;
       }
@@ -544,6 +593,17 @@ export function LevelScene(props: LevelSceneProps) {
           />
         ))}
       </group>
+      {detailPlane ? <mesh geometry={detailPlane.geometry} material={detailPlane.material} raycast={() => null} /> : null}
+      {detailLines ? (
+        <>
+          <lineSegments geometry={detailLines.buildings} raycast={() => null}>
+            <lineBasicMaterial color="#cbd5e1" transparent opacity={0.55} />
+          </lineSegments>
+          <lineSegments geometry={detailLines.roads} raycast={() => null}>
+            <lineBasicMaterial color="#f1f5f9" transparent opacity={0.8} />
+          </lineSegments>
+        </>
+      ) : null}
       {grids.map((g, i) => (
         <primitive key={i} object={g} />
       ))}
