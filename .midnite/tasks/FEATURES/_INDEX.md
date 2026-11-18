@@ -15,7 +15,7 @@ Completed work is logged append-only in [`../done.md`](../done.md). Deferred sco
 | [149 · Midnite game standard, game doctor and game management](phases/phase-149-midnite-game-standard-doctor.md) | 🔄 WIP | — | 47/52 | `█████████░` | 90% | H | — |
 | [148 · Performance widget recovery actions](phases/phase-148-performance-widget-recovery-actions.md) | 🔄 WIP | — | 28/33 | `████████░░` | 85% | — | — |
 | [147 · Unified sessions and chats](phases/phase-147-unified-sessions-and-chats.md) | 🔄 WIP | — | 9/22 | `████░░░░░░` | 41% | — | B D E |
-| [146 · Midnite Mobile](phases/phase-146-mobile-app.md) | 🔄 WIP | x1 | 27/88 | `███░░░░░░░` | 30% | A (ui-native publish) | D E F G H I J K L |
+| [146 · Midnite Mobile](phases/phase-146-mobile-app.md) | 🔄 WIP | x1 | 33/88 | `████░░░░░░` | 38% | A (ui-native publish) | E F G H I J K L |
 | [145 · Level history, review and polish](phases/phase-145-level-history-polish.md) | ◻ TODO | x1 | 0/31 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
 | [144 · Level lighting, environment and structure](phases/phase-144-level-lighting-environment.md) | ◻ TODO | x1 | 0/28 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
 | [143 · 2D tile editing parity](phases/phase-143-level-2d-tile-parity.md) | ◻ TODO | x1 | 0/31 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
