@@ -1,10 +1,11 @@
 // vitest/jsdom: the editor's tools and keys, Save, the banners and the empty state. Canvas drawing needs a real
 // browser and is a human check (Theme H); hit-testing is exercised here through the pointer events jsdom can send.
 import { QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createFrameChrome, FrameChromeProvider } from '@midnite/studio-frame';
+import { createFrameChrome, FrameChromeProvider, useToastStore } from '@midnite/studio-frame';
+import { arm, assetDragStore } from './assets/asset-drag';
 import { levelEntityToWorld } from '@midnite/studio-shared';
 
 import type { Level3dViewProps } from './3d/level-3d-view';
@@ -767,5 +768,66 @@ describe('LevelEditor, outliner and context menus (Phase 137 H, I)', () => {
     expect(selectedIds()).toEqual([]);
     fireEvent.contextMenu(canvas, at(100, 100));
     await waitFor(() => expect(selectedIds()).toEqual([ids[0]]));
+  });
+});
+
+describe('LevelEditor, dropping an asset (Phase 139 Theme D)', () => {
+  const MIME = 'application/x-midnite-level-asset';
+  const payload = JSON.stringify({ kind: 'asset', name: 'tree.glb', assetKind: 'model' });
+  const dropOn = (el: Element) => {
+    const dt = { types: [MIME], getData: () => payload, dropEffect: '' };
+    // jsdom has no DragEvent, so RTL builds a bare Event: give it the pointer coordinates a browser would.
+    const send = (make: typeof createEvent.drop) => {
+      const ev = make(el, { dataTransfer: dt });
+      Object.assign(ev, { clientX: at(100, 150).clientX, clientY: at(100, 150).clientY, altKey: false });
+      fireEvent(el, ev);
+    };
+    send(createEvent.dragOver);
+    send(createEvent.drop);
+  };
+  const objects = () => useLevelStore.getState().byGame.g1!.edit.level.layers.filter((l) => l.type === 'objectgroup').flatMap((l) => l.objects ?? []);
+  const open = async (level: ReturnType<typeof blankLevel>, dimension: '2d' | '3d') => {
+    get.mockResolvedValue({ ok: true, value: { level, issues: [], images: [] } });
+    list.mockResolvedValue(listed({ scenes: [{ scene: 'level', bytes: 1, dimension, issue: null }] }));
+    renderEditor();
+    await ready();
+    return screen.getByTestId('level-canvas-wrap');
+  };
+  beforeEach(() => useLevelViewStore.setState({ snap: { ...DEFAULT_LEVEL_SNAP, planStep: 0.5 } }));
+
+  it('D2: a model dropped on a 3D plan adds one prop with its model, on the snapped point, as one undo step', async () => {
+    const wrap = await open(blankLevel3d(), '3d');
+    const before = objects().length;
+    const past = useLevelStore.getState().byGame.g1!.edit.past.length;
+    dropOn(wrap);
+    const after = useLevelStore.getState().byGame.g1!.edit;
+    expect(objects()).toHaveLength(before + 1);
+    expect(after.past.length).toBe(past + 1);
+    const added = objects().at(-1)!;
+    expect(added).toMatchObject({ type: 'prop', x: 96, y: 144, properties: [{ name: 'model', value: 'tree.glb' }] });
+    expect(after.selection).toEqual({ layerId: expect.any(Number), objectId: added.id });
+  });
+
+  it('D3: a model dropped on a 2D level adds nothing and says so', async () => {
+    const wrap = await open(blankLevel(), '2d');
+    const before = objects().length;
+    dropOn(wrap);
+    expect(objects()).toHaveLength(before);
+    expect(useToastStore.getState().toasts.some((t) => t.message === 'Models place in 3D levels.')).toBe(true);
+  });
+
+  it('click-to-place: an armed tile takes the next plan click, then disarms; Escape disarms too', async () => {
+    const wrap = await open(blankLevel3d(), '3d');
+    const canvas = screen.getByTestId('level-canvas');
+    const before = objects().length;
+    act(() => arm({ kind: 'asset', name: 'tree.glb', assetKind: 'model' }));
+    fireEvent.keyDown(wrap, { key: 'Escape' });
+    expect(assetDragStore.get().armed).toBeNull();
+    act(() => arm({ kind: 'asset', name: 'tree.glb', assetKind: 'model' }));
+    fireEvent.pointerDown(canvas, { clientX: 100, clientY: 150, button: 0 });
+    fireEvent.pointerUp(canvas, { clientX: 100, clientY: 150, button: 0 });
+    expect(objects()).toHaveLength(before + 1);
+    expect(objects().at(-1)).toMatchObject({ type: 'prop', properties: [{ name: 'model', value: 'tree.glb' }] });
+    expect(assetDragStore.get().armed).toBeNull();
   });
 });
