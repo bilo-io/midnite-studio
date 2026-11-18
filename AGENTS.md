@@ -35,8 +35,9 @@ Antigravity reads `AGENTS.md`, and it used to load both files and see every rule
 behaviour.
 
 **Skills live in two mirrors: `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex,
-Antigravity and the other CLIs).** Keep the two byte-identical apart from paths that name their
-own folder. There is no `.codex/skills/`: current Codex reads `.agents/skills/`.
+Antigravity and the other CLIs).** Keep the two in step: `node scripts/skills/sync-skills.mjs`
+audits them, and the Claude copy's extra frontmatter (`argument-hint`, `allowed-tools`) is
+intentional. There is no `.codex/skills/`: current Codex reads `.agents/skills/`.
 
 ## Where to work — default to a worktree
 

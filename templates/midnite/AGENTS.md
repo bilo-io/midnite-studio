@@ -24,8 +24,9 @@ Antigravity reads `AGENTS.md`.
 behaviour.
 
 **Skills live in two mirrors: `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex,
-Antigravity and the other CLIs).** Keep the two byte-identical apart from paths that name their
-own folder. There is no `.codex/skills/`: current Codex reads `.agents/skills/`.
+Antigravity and the other CLIs).** Keep the two in step; the Claude copy may carry extra
+Claude-only frontmatter (`argument-hint`, `allowed-tools`). There is no `.codex/skills/`: current
+Codex reads `.agents/skills/`.
 
 ## Where to work — ask before the first edit
 
