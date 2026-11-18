@@ -29,7 +29,6 @@ import { EmptyState, EmptyStateButton, KitContextMenu, Skeleton, useFrameChrome,
 
 import { IconButton, useNotify } from '../chrome';
 import { isLive, useGameRunStore } from '../game-run-store';
-import { useNotify } from '../chrome';
 import { fetchPrefab, useDeletePrefab, usePrefabs, useSavePrefab } from './use-prefabs';
 import { useDoctorRequest } from '../game-doctor-store';
 import { useDoctorFix, useGameDiagnosis } from '../use-games';
