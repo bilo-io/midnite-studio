@@ -695,14 +695,14 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
     if (tool !== 'scatter' || !armedAsset) return;
     const source = sourceFromPayload(armedAsset);
     arm(null);
-    if (!source) {
-      notify('Only models and prefabs scatter.');
+    if (!source || (source.kind === 'model' && !is3d)) {
+      notify(source ? 'Models scatter in 3D levels.' : 'Only models and prefabs scatter.');
       return;
     }
     const key = (x: typeof source) => `${x.kind}:${x.kind === 'type' ? x.type : x.name}`;
     setScatter((s) => (s.sources.some((x) => key(x) === key(source)) || s.sources.length >= 16 ? s : { ...s, sources: [...s.sources, source] }));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `notify` is stable per mount
-  }, [tool, armedAsset]);
+  }, [tool, armedAsset, is3d]);
   const scatterAt = (at: PlanPoint) => {
     const st = scatterStroke.current;
     if (!st || objectLayerId === null) return;

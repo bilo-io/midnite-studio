@@ -984,4 +984,13 @@ describe('LevelEditor, scatter brush (Phase 139 Theme H)', () => {
     fireEvent.keyDown(wrap, { key: '[' });
     expect(radius()).toBeLessThan(before);
   });
+
+  it('a 2D level refuses a model source', async () => {
+    renderEditor();
+    await ready();
+    fireEvent.keyDown(screen.getByTestId('level-canvas-wrap'), { key: 's' });
+    withTree();
+    expect(screen.queryByText('model: tree.glb')).toBeNull();
+    expect(useToastStore.getState().toasts.some((t) => t.message === 'Models scatter in 3D levels.')).toBe(true);
+  });
 });

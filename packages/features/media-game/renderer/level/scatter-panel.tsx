@@ -88,7 +88,7 @@ export function ScatterPanel({
         onDrop={(e) => {
           const payload = readDroppedAsset(e.dataTransfer);
           const source = payload ? sourceFromPayload(payload) : null;
-          if (source) {
+          if (source && (is3d || source.kind !== 'model')) {
             e.preventDefault();
             add(source);
           }
