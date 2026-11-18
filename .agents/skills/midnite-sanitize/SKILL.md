@@ -31,7 +31,7 @@ Take the target from `$ARGUMENTS`:
 | a local path | audit in place, read-only |
 | a plugin name | its folder under `~/.claude/plugins/` |
 | `--installed` | every skill and plugin already installed: `~/.claude/skills/`, `~/.claude/plugins/`, `./.claude/skills/`, `.agents/skills/`, `.codex/skills/`, plus `~/.claude/settings.json` hooks and MCP servers |
-| `--self` | this repo's own agent surface: `.claude/`, `.agents/`, `.codex/`, `templates/midnite/`, `CLAUDE.md`/`AGENTS.md`/`GEMINI.md`, `.githooks/`, `.mcp.json` |
+| `--self` | this repo's own agent surface: `.claude/`, `.agents/`, `.codex/` (hooks), `templates/midnite/`, `CLAUDE.md`/`AGENTS.md`, `.githooks/`, `.mcp.json` |
 | nothing | ask the user for one |
 
 Clone a remote target into its **own new directory in the session scratchpad**, never into the
@@ -174,6 +174,6 @@ Close with one line: where it was installed, the pinned SHA, and how to re-audit
 Same stages minus provenance and the interview. For `--installed`, also read
 `~/.claude/settings.json` and any project `.claude/settings*.json` for hooks, MCP servers and
 `permissions.allow` entries, and list every skill whose triggers collide with another's. For
-`--self`, also verify the `.agents`/`.codex` mirrors say the same thing as `.claude` (a mirror
+`--self`, also verify the `.agents` mirror says the same thing as `.claude` (a mirror
 that differs is one CLI being told something another is not). Report findings; fix nothing
 without the user's say-so.

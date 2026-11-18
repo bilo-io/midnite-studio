@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -27,21 +27,27 @@ describe('audit / write on a temp tree', () => {
       writeFileSync(join(root, m, 'skills', 's', 'SKILL.md'), text);
     };
     put('.agents', neutral);
-    put('.claude', claude);
     return { root, put };
   };
   it('reports missing mirrors', () => {
     const { root } = mk();
-    expect(audit(root)).toEqual([{ skill: 's', mirrors: { '.claude': 'mirror-variant', '.codex': 'missing' } }]);
+    expect(audit(root)).toEqual([{ skill: 's', mirrors: { '.claude': 'missing' } }]);
+  });
+  it('reports a Claude copy that differs only in its intentional variants', () => {
+    const { root, put } = mk();
+    put('.claude', claude);
+    expect(audit(root)).toEqual([{ skill: 's', mirrors: { '.claude': 'mirror-variant' } }]);
   });
   it('write keeps the target frontmatter, replaces the body and creates missing mirrors', () => {
-    const { root } = mk();
+    const { root, put } = mk();
+    put('.claude', claude);
     writeFileSync(join(root, '.agents/skills/s/SKILL.md'), neutral.replace('# S', '# S2'));
     write(root);
     const c = readFileSync(join(root, '.claude/skills/s/SKILL.md'), 'utf8');
     expect(c).toContain('allowed-tools');
     expect(c).toContain('# S2');
-    expect(readFileSync(join(root, '.codex/skills/s/SKILL.md'), 'utf8')).toContain('# S2');
-    expect(audit(root)[0].mirrors['.codex']).toBe('identical');
+    rmSync(join(root, '.claude/skills/s'), { recursive: true });
+    write(root);
+    expect(readFileSync(join(root, '.claude/skills/s/SKILL.md'), 'utf8')).toContain('# S2');
   });
 });

@@ -1,4 +1,4 @@
-# Midnite Studio — working notes for Codex
+# Midnite Studio — working notes for agents
 
 A desktop workspace for the whole loop around a repository: a GitKraken-inspired git client at
 its centre, with an integrated terminal and agent roster, an embedded browser, and the forge
@@ -22,18 +22,22 @@ theme lands or a phase is refined, verified or created, write the narrative into
 Headlines paragraph and touch only the phase's *row* in the category `_INDEX.md`. The index was 438 KB before
 the move; keeping prose out of it is what keeps the first read of every session cheap.
 
-## Keep `CLAUDE.md`, `AGENTS.md` and `GEMINI.md` in sync
+## One convention file: `AGENTS.md`
 
-This repo drives three coding agents — **Claude** (`CLAUDE.md`), **Codex** (`AGENTS.md`, this
-file), and **Antigravity** (`GEMINI.md`) — each reading its own convention file by its own
-naming rule, not this one. All three carry the *same* conventions, so a session started with
-any of them sees the same rules.
+**`AGENTS.md` is the single source of the conventions every coding agent follows here.** Codex,
+Antigravity and most other agent CLIs in the roster (opencode, Copilot, Cursor, Cline, Kilo) read
+it directly. Claude Code reads only `CLAUDE.md`, so `CLAUDE.md` is a stub that imports this file
+(`@AGENTS.md`) and holds only notes that apply to Claude Code alone. There is no `GEMINI.md`:
+Antigravity reads `AGENTS.md`, and it used to load both files and see every rule twice.
 
-**Whenever you edit this file, apply the same edit to `CLAUDE.md` and `GEMINI.md`** — and the
-same the other way around: an edit landed in either of those two belongs in this file and the
-remaining one too. Keep prose agent-neutral (say "the agent" or "a session", not "Codex")
-except where the guidance is genuinely specific to one CLI's own behavior — that stays named,
-in the one file it actually applies to.
+**Edit the conventions here, never in `CLAUDE.md`.** Keep prose agent-neutral (say "the agent" or
+"a session", not a product name) except where the guidance is genuinely specific to one CLI's
+behaviour.
+
+**Skills live in two mirrors: `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex,
+Antigravity and the other CLIs).** Keep the two in step: `node scripts/skills/sync-skills.mjs`
+audits them, and the Claude copy's extra frontmatter (`argument-hint`, `allowed-tools`) is
+intentional. There is no `.codex/skills/`: current Codex reads `.agents/skills/`.
 
 ## Where to work — default to a worktree
 
@@ -336,7 +340,7 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   it would hand Midnite Studio another app's update. `install.sh` reads
   `midnite-studio/version.json`; electron-updater reads `midnite-studio/feed/latest-mac.yml`.
   Both are written per release — see
-  [`/midnite-release-complete`](.claude/skills/midnite-release-complete/SKILL.md) §4.
+  [`/midnite-release-complete`](.agents/skills/midnite-release-complete/SKILL.md) §4.
 - **The website serves verbatim copies of `install.sh` and `install-studio.sh`, and a guard keeps them honest.**
   Access to Midnite is gated on the website: the site does not link to the download page or display
   any curl command. However, the site hosts the launcher installer `packages/website/public/install.sh`
@@ -424,8 +428,8 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
 **"sitrep"** (situation report) is a fixed request, not a free-form one. Whenever the user types it —
 or asks for a status update, a progress check, or "where are we" — answer with **one markdown table
 and nothing else above it**, one row per agent or workstream.
-[`midnite-sitrep`](.codex/skills/midnite-sitrep/SKILL.md) is the router: it gathers the state once and
-renders the table ([`midnite-sitrep-table`](.codex/skills/midnite-sitrep-table/SKILL.md)). It adds the merge graph
+[`midnite-sitrep`](.agents/skills/midnite-sitrep/SKILL.md) is the router: it gathers the state once and
+renders the table ([`midnite-sitrep-table`](.agents/skills/midnite-sitrep-table/SKILL.md)). It adds the merge graph
 when rows depend on each other, and any other view named after it — `graph`, `sequence-diagram`,
 `histogram`, `timeline`, `ci` — each its own `midnite-sitrep-<view>` skill. The table always comes
 first:
@@ -468,11 +472,11 @@ doc or a file. Sitrep rows then have something real to report, and the orchestra
 worker — owns the shared files (`_INDEX.md`, the git commit) so parallel writers cannot race.
 
 A multi-phase fan-out is exactly the case this format is for. Agent groups start from
-[`midnite-agents`](.codex/skills/midnite-agents/SKILL.md), the umbrella, which asks which mode:
-[`midnite-fleet`](.codex/skills/midnite-fleet/SKILL.md) (the default) runs separate tasks, one subagent
-per phase or task, each to its own merged PR; [`midnite-swarm`](.codex/skills/midnite-swarm/SKILL.md)
+[`midnite-agents`](.agents/skills/midnite-agents/SKILL.md), the umbrella, which asks which mode:
+[`midnite-fleet`](.agents/skills/midnite-fleet/SKILL.md) (the default) runs separate tasks, one subagent
+per phase or task, each to its own merged PR; [`midnite-swarm`](.agents/skills/midnite-swarm/SKILL.md)
 puts one problem through staged subagents (research, plan, design, refine, dev, review, test,
-report). Both run on [`midnite-orchestrate`](.codex/skills/midnite-orchestrate/SKILL.md), the shared
+report). Both run on [`midnite-orchestrate`](.agents/skills/midnite-orchestrate/SKILL.md), the shared
 core (settings interview, cap, board, sitreps, rotation, unsticking, wrap-up), and drive this same
 recurring-table report until the work has landed.
 
@@ -506,11 +510,11 @@ self-review had run, which pinged a colleague to read unfinished work.
 ## Onboarding another repo
 
 [`templates/midnite/`](templates/midnite/) is a checked-in, repo-agnostic skeleton of this same
-workflow — the `.midnite/tasks/` tracker, the ten core skills mirrored into `.claude/`, `.agents/`
-and `.codex/`, and `CLAUDE.md`/`AGENTS.md`/`GEMINI.md` stubs — for onboarding a *different* repo
+workflow — the `.midnite/tasks/` tracker, the ten core skills mirrored into `.claude/` and `.agents/`,
+an `AGENTS.md` stub and a `CLAUDE.md` that imports it — for onboarding a *different* repo
 onto it, not this one. The midnite menu's Setup leaf is what will copy it in and track a hash
 manifest so a re-run is an upgrade rather than a guess (Phase 49); until then,
-[`midnite-setup`](.claude/skills/midnite-setup/SKILL.md) is the interactive path — it emits this
+[`midnite-setup`](.agents/skills/midnite-setup/SKILL.md) is the interactive path — it emits this
 same tree. See the template's own [README](templates/midnite/README.md) for what ships and why
 three of this repo's thirteen skills are deliberately left out.
 
