@@ -5,6 +5,7 @@ import { CHANNELS, EVENT_CHANNELS, schemas, type StartupResult } from '@midnite/
 
 import { openAgentConsent } from './agent-consent';
 import type { ContractFilePort } from './contract-files';
+import type { CsvPort } from './fleet-export-ops';
 import type { InvoicePdfPort } from './invoice-pdf';
 import type { StartupLedgerPort } from './ledger-port';
 import { handleStartupRequest, type StartupServiceDeps } from './service';
@@ -32,6 +33,8 @@ export type StartupMainServices = {
    * second copy of the file.
    */
   onReady?: (ready: { store: Promise<WorkspaceStore>; deps: StartupServiceDeps }) => void;
+  /** The CSV save dialog (fleet projection and runway exports). */
+  csv?: CsvPort;
 };
 
 const invalid = (message: string): StartupResult<never> => ({ ok: false, kind: 'invalid', message });
@@ -44,7 +47,7 @@ const invalid = (message: string): StartupResult<never> => ({ ok: false, kind: '
 export const startupModuleMain = defineFeatureMain<StartupMainServices>({
   feature: 'startup',
   channels: [CHANNELS.startup],
-  register(ctx, { electron, now, ledger, pdf, onReady }) {
+  register(ctx, { electron, now, ledger, pdf, csv, onReady }) {
     const store = openWorkspaceStore({
       dir: join(electron.userData, 'startup'),
       ...(now ? { now } : {}),
@@ -56,6 +59,7 @@ export const startupModuleMain = defineFeatureMain<StartupMainServices>({
       agentConsent: openAgentConsent(join(electron.userData, 'startup'), electron.warn),
       ledger: ledger ?? null,
       ...(pdf ? { pdf } : {}),
+      ...(csv ? { csv } : {}),
       ...(electron.pickContractFile && electron.openPath ? { files: { pickContractFile: electron.pickContractFile, openPath: electron.openPath } } : {}),
     };
     onReady?.({ store, deps });

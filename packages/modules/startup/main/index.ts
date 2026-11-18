@@ -2,6 +2,7 @@
 export * from './bridge';
 export * from './module';
 export type { ContractFilePort } from './contract-files';
+export type { CsvPort } from './fleet-export-ops';
 export type { InvoicePdfPort } from './invoice-pdf';
 export type { StartupBookAccount, StartupLedgerPort, StartupPostSource } from './ledger-port';
 export * from './service';

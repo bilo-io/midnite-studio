@@ -20,9 +20,9 @@ const projection = (over: object = {}) => ({
   value: { months: [{ month: '2026-11', revenueMinor: 0, costMinor: 100_000, netMinor: -100_000, cashMinor: 9_900_000 }], burnMinor: -100_000, runwayMonths: null, zeroCashMonth: null, defaultAlive: false, ...over },
 });
 
-function install(lines: PlanLine[], scenarios: RunwayScenario[], proj = vi.fn(async (_req: unknown) => projection())) {
+function install(lines: PlanLine[], scenarios: RunwayScenario[], proj = vi.fn(async (_req: unknown) => projection()), exportRunwayCsv = vi.fn()) {
   window.midniteStudio = {
-    startup: { get: vi.fn(async () => snapshot(lines, scenarios)), projection: proj, upsertScenario: vi.fn(), removeScenario: vi.fn(), upsertLine: vi.fn(), removeLine: vi.fn(), onChanged: () => () => undefined },
+    startup: { get: vi.fn(async () => snapshot(lines, scenarios)), projection: proj, upsertScenario: vi.fn(), removeScenario: vi.fn(), upsertLine: vi.fn(), removeLine: vi.fn(), exportRunwayCsv, onChanged: () => () => undefined },
   } as unknown as typeof window.midniteStudio;
   return proj;
 }
@@ -39,6 +39,16 @@ describe('RunwayView', () => {
     renderRunway();
     expect(await screen.findByText('Add your first cost')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Add line' })).toBeTruthy();
+  });
+
+  it('exports the runway CSV for the active scenario and horizon', async () => {
+    const exportCsv = vi.fn(async (_req: unknown) => ({ ok: true, value: { saved: true } }));
+    install([line], [], undefined, exportCsv);
+    renderRunway();
+    await screen.findByText('Beyond 36 months');
+    fireEvent.change(screen.getByLabelText('Horizon'), { target: { value: '24' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
+    await waitFor(() => expect(exportCsv).toHaveBeenCalledWith({ scenarioId: BASE_SCENARIO_ID, months: 24 }));
   });
 
   it('says "Beyond 36 months" when cash never runs out in the horizon', async () => {

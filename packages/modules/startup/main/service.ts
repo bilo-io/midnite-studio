@@ -19,10 +19,11 @@ import { agentConsentOp, type AgentConsentStore } from './agent-consent';
 import { fleetToRunwayLines } from './fleet-runway';
 import { ledgerSummary, linkBook } from './books';
 import { attachContractFile, confinedAttachmentPath, type ContractFilePort } from './contract-files';
+import { exportFleetProjectionCsv, exportFleetProjectionPdf, exportRunwayCsv, type CsvPort } from './fleet-export-ops';
 import { exportInvoicePdf, type InvoicePdfPort } from './invoice-pdf';
 import { issueInvoice, markPaid, voidInvoice } from './invoices';
 import type { StartupLedgerPort } from './ledger-port';
-import { projectRunway } from './runway';
+import { projectRunway, type RunwayProjection } from './runway';
 import type { Mutation, WorkspaceStore } from './workspace-store';
 
 const fail = (kind: Extract<Mutation, { ok: false }>['kind'], message: string): Mutation => ({ ok: false, kind, message });
@@ -51,6 +52,8 @@ export type StartupServiceDeps = {
   ledger?: StartupLedgerPort | null;
   /** Prints and saves an invoice PDF; absent in a bare test. */
   pdf?: InvoicePdfPort;
+  /** The save dialog for CSV exports; absent in a bare test. */
+  csv?: CsvPort;
   /** Where a PDF's temp page is written; the OS temp folder by default. */
   tmpDir?: string;
   now?: () => Date;
@@ -236,9 +239,13 @@ export async function handleStartupRequest(
         return done({ ...ws, lines });
       });
     case 'exportFleetProjectionCsv':
-    case 'exportRunwayCsv':
+      return exportFleetProjectionCsv(store, request.projectionId, deps.csv);
+    case 'exportRunwayCsv': {
+      const run = await runwayFor(store, deps, request.scenarioId, request.months);
+      return run.ok ? exportRunwayCsv(run.value, moneyCurrency(store.snapshot().workspace.company), deps.csv) : run;
+    }
     case 'exportFleetProjectionPdf':
-      return { ok: false, kind: 'invalid', message: NOT_YET };
+      return exportFleetProjectionPdf(store, request.projectionId, deps.pdf, deps.tmpDir ?? tmpdir(), deps.now?.() ?? new Date());
 
     case 'upsertVendor':
       return store.mutate((ws) => done({ ...ws, vendors: upsert(ws.vendors, request.vendor) }));
@@ -304,25 +311,8 @@ export async function handleStartupRequest(
     case 'ledgerSummary':
       return ledgerSummary(store, deps.ledger ?? null, deps.now?.() ?? new Date());
 
-    case 'projection': {
-      const ws = store.snapshot().workspace;
-      if (ws.company === null) return { ok: false, kind: 'invalid', message: 'Set up your company first.' };
-      const stored = ws.scenarios.find((s) => s.id === request.scenarioId);
-      const scenario =
-        stored ?? (request.scenarioId === BASE_SCENARIO_ID ? { id: BASE_SCENARIO_ID, name: 'Base', costMultiplierBp: 10000, revenueMultiplierBp: 10000, extraLines: [] } : null);
-      if (scenario === null) return { ok: false, kind: 'not-found', message: 'That scenario no longer exists.' };
-      const startMonth = (deps.now?.() ?? new Date()).toISOString().slice(0, 7);
-      // With a book linked its cash today replaces the typed opening cash; a book that will not answer falls back to it.
-      let openingCashMinor = ws.company.openingCash.minor;
-      if (deps.ledger && ws.ledger !== null) {
-        const cash = await deps.ledger.cashBalance(ws.ledger.bookId, (deps.now?.() ?? new Date()).toISOString().slice(0, 10));
-        if (cash.ok) openingCashMinor = cash.value.minor;
-      }
-      return {
-        ok: true,
-        value: projectRunway({ openingCashMinor, startMonth, lines: ws.lines, scenario, months: request.months }),
-      };
-    }
+    case 'projection':
+      return runwayFor(store, deps, request.scenarioId, request.months);
 
     case 'attachContractFile': {
       const { files, contractsDir } = deps;
@@ -352,4 +342,22 @@ export async function handleStartupRequest(
     case 'setAgentConsent':
       return agentConsentOp(deps.agentConsent, request);
   }
+}
+
+/** The runway for a scenario from today: opening cash is the linked book's cash when it answers, else the typed one. */
+async function runwayFor(store: WorkspaceStore, deps: StartupServiceDeps, scenarioId: string, months: 12 | 24 | 36): Promise<StartupResult<RunwayProjection>> {
+  const ws = store.snapshot().workspace;
+  if (ws.company === null) return { ok: false, kind: 'invalid', message: 'Set up your company first.' };
+  const stored = ws.scenarios.find((s) => s.id === scenarioId);
+  const scenario =
+    stored ?? (scenarioId === BASE_SCENARIO_ID ? { id: BASE_SCENARIO_ID, name: 'Base', costMultiplierBp: 10000, revenueMultiplierBp: 10000, extraLines: [] } : null);
+  if (scenario === null) return { ok: false, kind: 'not-found', message: 'That scenario no longer exists.' };
+  const startMonth = (deps.now?.() ?? new Date()).toISOString().slice(0, 7);
+  // With a book linked its cash today replaces the typed opening cash; a book that will not answer falls back to it.
+  let openingCashMinor = ws.company.openingCash.minor;
+  if (deps.ledger && ws.ledger !== null) {
+    const cash = await deps.ledger.cashBalance(ws.ledger.bookId, (deps.now?.() ?? new Date()).toISOString().slice(0, 10));
+    if (cash.ok) openingCashMinor = cash.value.minor;
+  }
+  return { ok: true, value: projectRunway({ openingCashMinor, startMonth, lines: ws.lines, scenario, months }) };
 }

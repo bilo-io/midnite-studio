@@ -1,6 +1,6 @@
 // vitest/jsdom: pure string logic, no browser capability needed.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { formatCompactMoney, formatMoney } from './format-money';
+import { formatCompactMoney, formatMoney } from './startup-format-money';
 
 const cases = () => [
   formatMoney(0, 'ZAR'),
