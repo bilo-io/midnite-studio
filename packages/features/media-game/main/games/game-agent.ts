@@ -255,7 +255,7 @@ export function buildGamePassPrompt(req: {
   const { game, pass, of } = req;
   return [
     `You are working on a Midnite Studio game: the repository in the current folder (gameId "${game.gameId}").`,
-    'Start by reading the midnite-media-game-build skill (in .claude/skills/, .agents/skills/ or .codex/skills/), and the genre recipe skill there if one fits the request.',
+    'Start by reading the midnite-media-game-build skill (in .claude/skills/ or .agents/skills/), and the genre recipe skill there if one fits the request.',
     '',
     `The request: ${req.prompt}`,
     '',

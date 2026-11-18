@@ -24,7 +24,7 @@ Two gates, in order.
 
 **A. The file rule.** `git diff --name-only origin/main...HEAD` (three dots), then drop tests
 (`*.test.*`, `*.spec.*`, `__mocks__/`), type-only files, prose (`*.md`, `docs/`), snapshots, the
-tracker (`.midnite/`), skills (`.claude/`, `.agents/`, `.codex/`), scripts and CI config. What
+tracker (`.midnite/`), skills (`.claude/`, `.agents/`), scripts and CI config. What
 remains must include a renderer file: `packages/app/src/**`, `packages/frame/**`,
 `packages/features/*/renderer/**`, renderer code under `apps/*/src/**`, styles or assets. None left:
 **stop, no image.**

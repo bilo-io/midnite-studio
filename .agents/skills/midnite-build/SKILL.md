@@ -14,7 +14,7 @@ End-to-end "execute a phase slice" for **Midnite Studio**.
 Run `scripts/skills/worktree-lifecycle.sh create <slug>` (brief-first SCRATCHPAD.md, install), `scripts/skills/orchestrate-cap.sh` before spawning subagents, `node scripts/skills/pr-create.mjs` and `node scripts/skills/pr-description.mjs` at PR time. They set up the worktree, report the subagent cap and run the draft-PR preflight. You still build, review, fix, and merge as the stages below say. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
 
 ## Respect
-- `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` = conventions (package boundaries — `shared ◀ git-engine ◀ desktop`, `shared ◀ frame ◀ feature ◀ app`; commit style; pre-push gate). Re-read relevant sections before coding. `docs/INITIAL_PLAN.md` is design source of truth.
+- `AGENTS.md` = conventions (Claude Code reads them through `CLAUDE.md`) (package boundaries — `shared ◀ git-engine ◀ desktop`, `shared ◀ frame ◀ feature ◀ app`; commit style; pre-push gate). Re-read relevant sections before coding. `docs/INITIAL_PLAN.md` is design source of truth.
 - `.midnite/tasks/` = tracker divided into category folders:
   - **`FEATURES/`** (`FEATURES/_INDEX.md`, `FEATURES/phases/phase-N-*.md`)
   - **`SECURITY/`** (`SECURITY/_INDEX.md`, `SECURITY/phases/phase-N-*.md`)

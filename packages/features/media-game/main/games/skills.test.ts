@@ -81,7 +81,7 @@ describe('game skills (Phase 107 Theme L)', () => {
       dest = null;
     });
 
-    it('writes every skill into all three skill folders (11 x 3 files)', async () => {
+    it('writes every skill into both skill folders (11 x 2 files)', async () => {
       dest = await mkdtemp(join(tmpdir(), 'midnite-skills-'));
       const seeded = await seedGameSkills(templateDir, dest);
       expect(seeded).toHaveLength(11);
@@ -93,8 +93,8 @@ describe('game skills (Phase 107 Theme L)', () => {
           files += 1;
         }
       }
-      expect(files).toBe(33);
-      expect((await walk(dest)).length).toBe(33);
+      expect(files).toBe(22);
+      expect((await walk(dest)).length).toBe(22);
     });
 
     it('seeds nothing when the template has no skills folder', async () => {

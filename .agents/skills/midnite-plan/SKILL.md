@@ -20,7 +20,7 @@ Run `node scripts/skills/verify-phase.mjs --json`. It reads the category indexes
   - Completed work is logged append-only in `done.md`; deferred scope lives in `outstanding.md`.
 - Match the **house style** of existing phase docs: a `# Phase N — Title` heading; blockquote framing (`> **Builds on:** ...`, `> **Scope guardrails:** ...`); a **`## Headlines`** section (lead paragraph with `Planned <date>` + one `**Theme X — <name>.** ◻ <one-liner>` paragraph per theme); a **Deliverables** checklist (`- [ ]` items grouped into lettered Themes); a **Verification** checklist; crib-file references.
 - **Refinement for simpler models:** Every deliverable must be concrete and actionable. Specify target file paths, schema shapes, export names, and edge cases so models without deep repo context can execute without hallucinating.
-- Respect `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` and `docs/INITIAL_PLAN.md` (package boundaries — `shared ◀ git-engine ◀ desktop`, `shared ◀ frame ◀ feature ◀ app`; shared is the wire contract).
+- Respect `AGENTS.md` and `docs/INITIAL_PLAN.md` (package boundaries — `shared ◀ git-engine ◀ desktop`, `shared ◀ frame ◀ feature ◀ app`; shared is the wire contract).
 - Checkboxes start unchecked (`- [ ]`) in a fresh plan.
 
 ---

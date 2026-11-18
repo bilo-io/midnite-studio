@@ -113,8 +113,8 @@ MSTUDIO_CROSS_PLATFORM=1 moon run root:visual-regen
 
 ## Prerequisites
 
-- [proto](https://moonrepo.dev/proto) — `proto use` installs the pinned node 22.12.0 /
-  pnpm 9.15.0 / moon 2.3.4 from [`.prototools`](.prototools).
+- [proto](https://moonrepo.dev/proto) — `proto use` installs the pinned node 24.22.2 /
+  pnpm 10.34.9 / moon 2.6.5 from [`.prototools`](.prototools).
 - A GitHub token with **`read:packages`**, exported as `GITHUB_PACKAGES_TOKEN`. GitHub Packages
   requires an `Authorization` header even for public packages, so `pnpm install` fails without it:
 
@@ -298,8 +298,8 @@ Work phase by phase from [`.midnite/tasks/`](.midnite/tasks/). Every change leav
 ## Onboarding another repo
 
 [`templates/midnite/`](templates/midnite/) is a checked-in, repo-agnostic skeleton of this same
-workflow — the `.midnite/tasks/` tracker, the nine core skills mirrored into `.claude/`, `.agents/`
-and `.codex/`, and `CLAUDE.md`/`AGENTS.md`/`GEMINI.md` stubs — for onboarding a *different* repo
+workflow — the `.midnite/tasks/` tracker, the nine core skills mirrored into `.claude/` and `.agents/`,
+an `AGENTS.md` stub and a `CLAUDE.md` that imports it — for onboarding a *different* repo
 onto it, not this one. The midnite menu's Setup leaf is what will copy it in and track a hash
 manifest so a re-run is an upgrade rather than a guess (Phase 49); until then,
 [`midnite-setup`](.claude/skills/midnite-setup/SKILL.md) is the interactive path — it emits this

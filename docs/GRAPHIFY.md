@@ -94,13 +94,12 @@ open graphify-out/GRAPH_TREE.html
 
 ## 5. Agent Integration (Claude Code, Codex, Antigravity)
 
-Midnite Studio maintains strict multi-agent parity across **Claude Code**, **Codex**, and **Antigravity**. The Graphify skills, hooks, and guidelines are mirrored identically.
+Midnite Studio maintains strict multi-agent parity across **Claude Code**, **Codex**, and **Antigravity**. The Graphify skills and guidelines are shared, and each CLI gets its own hook.
 
 ### 1. Mirrored Skill Definitions
 Full skill instructions and reference guides (`references/`):
 - `.claude/skills/graphify/`
-- `.agents/skills/graphify/`
-- `.codex/skills/graphify/`
+- `.agents/skills/graphify/` (Codex and Antigravity)
 
 ### 2. Pre-Tool Hooks & Always-On Rules
 - **Claude Code**: `.claude/settings.json` runs `graphify hook-guard` before search and read operations to suggest relevant subgraphs.
@@ -110,7 +109,7 @@ Full skill instructions and reference guides (`references/`):
   - Workflow: `.agents/workflows/graphify.md` provides `/graphify` workflow support.
 
 ### 3. Guidelines Sync
-[`CLAUDE.md`](../CLAUDE.md), [`AGENTS.md`](../AGENTS.md), and [`GEMINI.md`](../GEMINI.md) share identical guidance:
+[`AGENTS.md`](../AGENTS.md) carries this guidance, and [`CLAUDE.md`](../CLAUDE.md) imports it:
 ```markdown
 ## graphify
 
