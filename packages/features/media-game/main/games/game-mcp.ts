@@ -571,11 +571,12 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
       const found = await need(game);
       const read = unwrapLevel(await readLevelForTool(deps.service, found.gameId, scene));
       const seed = options.seed ?? Math.floor(Math.random() * 2 ** 31);
-      const { ops, points } = scatterOps({ level: read.level, area, options: { ...options, seed }, layer, instanceId: () => crypto.randomUUID().slice(0, 8) });
+      const { ops, points, capped } = scatterOps({ level: read.level, area, options: { ...options, seed }, layer, instanceId: () => crypto.randomUUID().slice(0, 8) });
       if (ops.length === 0) {
         throw new McpToolError('error', points === 0 ? 'Nothing to scatter: the area is already as dense as `density` asks, or too small for `spacing`.' : 'Nothing to scatter.');
       }
-      return writeEntityOps({ game: found.gameId, scene, unit: 'px', label: label ?? `Scatter ${ops.length} objects`, save, select }, ops);
+      const written = await writeEntityOps({ game: found.gameId, scene, unit: 'px', label: label ?? `Scatter ${ops.length} objects`, save, select }, ops);
+      return { ...written, points, capped };
     },
 
     async game_state({ game }) {

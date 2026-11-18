@@ -296,7 +296,7 @@ describe('MCP_TOOLS', () => {
     game_assets_list: { assets: [{ name: 'tree.glb', kind: 'model', path: 'assets/tree.glb', placeable: true }] },
     game_prefab_list: { prefabs: [{ name: 'hut', dimension: '2d', objects: 3 }] },
     game_prefab_save: { sha: null },
-    game_level_scatter: { applied: 'editor', changeSetId: 'c1', added: [], updated: [], deleted: [], refs: {}, saved: false, sha: null, issues: [] },
+    game_level_scatter: { applied: 'editor', changeSetId: 'c1', added: [], updated: [], deleted: [], refs: {}, saved: false, sha: null, issues: [], points: 0, capped: false },
     game_doctor_fix: { commit: 'abc1234', diagnosis: { path: '/games/g1', hasManifest: true, findings: [], counts: { error: 0, warn: 0, info: 0 }, status: 'ok' } },
     terrain_list: { projects: [{ name: 'terrains', terrains: [{ terrain: 'dunes-20261004-120000', name: 'dunes', built: true, resolution: 129, mtimeMs: 1 }] }] },
     terrain_open: { opened: true, terrain: 'dunes-20261004-120000' },

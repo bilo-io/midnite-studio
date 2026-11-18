@@ -393,6 +393,12 @@ export const GameEntityWriteOutputSchema = z.object({
   sha: z.string().nullable(),
   issues: z.array(LevelIssueSchema).max(50),
 });
+
+/** `game_level_scatter`: the batch result plus how many points the sampler drew and whether the batch cap cut them short. */
+export const GameLevelScatterOutputSchema = GameEntityWriteOutputSchema.extend({
+  points: z.number().int().nonnegative(),
+  capped: z.boolean(),
+});
 export type GameEntityWriteOutput = z.infer<typeof GameEntityWriteOutputSchema>;
 /** The renderer's answer to an `apply` request. */
 export const LevelApplyValueSchema = z.object({

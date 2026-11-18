@@ -66,6 +66,7 @@ import {
   GameEntityUpdateInputSchema,
   GameEntityDeleteInputSchema,
   GameEntityWriteOutputSchema,
+  GameLevelScatterOutputSchema,
   GameLevelSelectInputSchema,
   GameLevelSelectOutputSchema,
   GameLevelFrameInputSchema,
@@ -1386,9 +1387,9 @@ export const MCP_TOOLS = {
     id: 'game_level_scatter',
     title: 'Scatter objects over an area',
     description:
-      'Scatters models, prefabs or object types over a circle or rectangle with even spacing, as one undoable change (at most 500 objects) — use `seed` to repeat a result; refused unless its Settings switch is on.',
+      'Scatters models, prefabs or object types over a circle or rectangle as one undoable change (500 objects max; `capped` flags a cut) — `seed` repeats a result; refused unless its Settings switch is on.',
     input: GameLevelScatterInputSchema,
-    output: GameEntityWriteOutputSchema,
+    output: GameLevelScatterOutputSchema,
     readOnly: false,
   },
   game_doctor_fix: {

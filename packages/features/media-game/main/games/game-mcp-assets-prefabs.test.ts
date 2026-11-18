@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { ok, prefabFromObjects, type GameSummary } from '@midnite/studio-shared';
+import { GameLevelScatterInputSchema, ok, prefabFromObjects, type GameSummary } from '@midnite/studio-shared';
 
 import { createGameMcpTools, type GameMcpDeps } from './game-mcp';
 
@@ -67,24 +67,27 @@ describe('prefab tools', () => {
 });
 
 describe('game_level_scatter', () => {
-  const input = {
+  // The tool receives dispatch's zod-parsed args, so the test parses too (defaults filled, as in production).
+  const input = GameLevelScatterInputSchema.parse({
     game: 'g1',
     scene: 'level',
     area: { x: 0, y: 0, width: 600, height: 600 },
     options: { sources: [{ kind: 'type' as const, type: 'pickup' }, { kind: 'prefab' as const, name: 'hut' }], radius: 100, density: 1, spacing: 30, seed: 42 },
     select: false,
-  };
+  });
 
   it('I3: a seed gives the same added count twice on a fresh copy', async () => {
     const a = await make().tools.game_level_scatter(input);
     const b = await make().tools.game_level_scatter(input);
     expect(a.added.length).toBeGreaterThan(5);
     expect(b.added.length).toBe(a.added.length);
-    expect(a).toMatchObject({ applied: 'file', saved: true });
+    expect(a).toMatchObject({ applied: 'file', saved: true, capped: false });
+    // A prefab point places several objects, so `added` can outnumber `points`.
+    expect(a.points).toBeGreaterThan(0);
   });
 
   it('refuses an area that is already full', async () => {
     const { tools } = make();
-    await expect(tools.game_level_scatter({ ...input, area: { x: 0, y: 0, width: 5, height: 5 } })).rejects.toThrow(/Nothing to scatter/);
+    await expect(tools.game_level_scatter(GameLevelScatterInputSchema.parse({ ...input, area: { x: 0, y: 0, width: 5, height: 5 } }))).rejects.toThrow(/Nothing to scatter/);
   });
 });
