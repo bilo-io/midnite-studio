@@ -5,7 +5,7 @@ import { cellAt, cellOrigin, collisionAt, collisionLayer, mapPixelSize, readTmj,
 import type { GameLevelTerrain } from '@midnite/studio-shared';
 
 import { objectToMapPoint, mapPointToObject, type Cell, type EditLevel, type EditSelection, type LevelObject, type ObjectRef, type PlanPoint, type PlanRect } from './level-edit-model';
-import { hitPlan, levelMetresPerTile, pixelsPerMetre, planBounds } from './level-plan';
+import { hitPlan, levelMetresPerTile, pixelsPerMetre, planFrameBounds } from './level-plan';
 import { isAssetDrag, readDroppedAsset, useDraggedAsset, type AssetDropTarget } from './assets/asset-drag';
 import { drawHighlight, drawPlan, drawSelectionExtras, prefersReducedMotion, PULSE_MS, SELECTED_COLOUR, type PlanHighlight, type PlanOverlay } from './level-plan-draw';
 import { drawBrush, drawExtras, hasExtras, type CanvasExtras } from './level-overlay-draw';
@@ -165,7 +165,7 @@ export function LevelCanvas({
   /** What the first fit frames: the map, or for a plan its real bounds (a level may sit at negative pixels). */
   const frame = (box: { width: number; height: number }): View => {
     if (!plan) return fitView(box, mapPixelSize(level).width, mapPixelSize(level).height);
-    const b = planBounds(level, plan.terrain);
+    const b = planFrameBounds(level, plan.terrain);
     const v = fitView(box, b.maxX - b.minX, b.maxY - b.minY);
     return { ...v, x: v.x - b.minX * v.zoom, y: v.y - b.minY * v.zoom };
   };

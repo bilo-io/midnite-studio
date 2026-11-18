@@ -5,7 +5,9 @@ import { GAME_ASSET_INDEX_FILE, GameAssetIndexSchema, GAME_LEVEL_PROPS, levelPro
 import { confineToRoot } from '@midnite/studio-runtime';
 import { z } from 'zod';
 
-/** The drape image is only a backdrop for the plan view; a bigger one is left out rather than shipped over IPC (the editor re-reads a level on focus, so it is sent often). */
+import { cachedDrapePreview, downscalePng } from './drape-preview';
+
+/** The drape image is only a backdrop for the plan view; a bigger PNG is downscaled (`drape-preview.ts`) rather than shipped whole over IPC (the editor re-reads a level on focus, so it is sent often). */
 const PREVIEW_MAX_BYTES = 1024 * 1024;
 const PREVIEW_TYPES: Record<string, string> = { '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' };
 
@@ -37,7 +39,12 @@ export async function readLevelTerrain(gamePath: string, level: Pick<GameLevel, 
     const mime = drape ? PREVIEW_TYPES[extname(drape).toLowerCase()] : undefined;
     if (drape && mime) {
       const real = await confineToRoot(gamePath, posix.join(posix.dirname(manifestRel), drape.split('\\').join('/')));
-      if (real !== null && (await stat(real)).size <= PREVIEW_MAX_BYTES) preview = `data:${mime};base64,${(await readFile(real)).toString('base64')}`;
+      if (real !== null) {
+        const info = await stat(real);
+        if (info.size <= PREVIEW_MAX_BYTES) preview = `data:${mime};base64,${(await readFile(real)).toString('base64')}`;
+        // A big PNG drape is shown downscaled, made once per file version. A big JPEG or WebP has no decoder here and is left out.
+        else if (mime === 'image/png') preview = await cachedDrapePreview(real, info, async () => downscalePng(await readFile(real)));
+      }
     }
     return { name, minX: pack.bounds.min[0], minZ: pack.bounds.min[2], maxX: pack.bounds.max[0], maxZ: pack.bounds.max[2], preview };
   } catch {

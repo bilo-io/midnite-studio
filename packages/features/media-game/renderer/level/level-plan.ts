@@ -130,6 +130,19 @@ export function planBounds(level: EditLevel, terrain?: Pick<GameLevelTerrain, 'm
   return b;
 }
 
+/**
+ * What the first fit frames: {@link planBounds}, except that a terrain far larger than the work (the map and its
+ * objects) is left out, so a 80 m level on a 10 km terrain opens on the level, not on a speck in the outline.
+ * The terrain stays on screen at any zoom that shows it; zooming out reaches all of it.
+ */
+export function planFrameBounds(level: EditLevel, terrain?: Pick<GameLevelTerrain, 'minX' | 'minZ' | 'maxX' | 'maxZ'> | null): PlanBounds {
+  const all = planBounds(level, terrain);
+  if (!terrain) return all;
+  const work = planBounds(level);
+  const area = (b: PlanBounds) => (b.maxX - b.minX) * (b.maxY - b.minY);
+  return area(all) > 50 * area(work) ? work : all;
+}
+
 /** The metre grid to draw over `bounds` (default: the map's frame), as pixel positions: 1 m lines, every tenth bold. Lines closer than `minGapPx` on screen are dropped. */
 export function gridLines(
   level: Pick<EditLevel, 'properties' | 'tilewidth' | 'tileheight' | 'width' | 'height'>,

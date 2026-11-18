@@ -405,7 +405,6 @@ export function resolvePlayFromSpawn(
     return { error: `The level has no object with id ${input.objectId}.` };
   }
   const at = input.at as { x: number; y: number; z?: number | undefined };
-  const mpt = metresPerTile(map as { properties?: TiledProperty[] });
   const metres = (input.unit ?? 'px') === 'm';
   if (three) {
     const [px, pz] = levelPixelsToWorld(map as { tilewidth: number; tileheight: number; properties?: TiledProperty[] }, at.x, at.y);

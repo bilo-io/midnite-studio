@@ -64,7 +64,7 @@ function kindOf(o: LevelObject): WorldKind {
   return 'box';
 }
 
-function buildItem(level: EditLevel, layerId: number, o: LevelObject, index: number, ground: number, mpt: number): WorldItem {
+function buildItem(level: EditLevel, layerId: number, o: LevelObject, index: number, ground: number): WorldItem {
   const placed = levelEntityToWorld(o, level);
   const props = levelProperties(o);
   const kind = kindOf(o);
@@ -104,13 +104,12 @@ function buildItem(level: EditLevel, layerId: number, o: LevelObject, index: num
 /** Every visible object of every visible object layer, as world items, in layer then object order. */
 export function levelWorldItems(level: EditLevel): WorldItem[] {
   const ground = groundY(level);
-  const mpt = levelMetresPerTile(level);
   const items: WorldItem[] = [];
   for (const layer of level.layers) {
     if (!isObjects(layer.type) || layer.visible === false || typeof layer.id !== 'number') continue;
     for (const o of layer.objects ?? []) {
       if (o.visible === false) continue;
-      items.push(buildItem(level, layer.id, o, items.length, ground, mpt));
+      items.push(buildItem(level, layer.id, o, items.length, ground));
     }
   }
   return items;
@@ -119,7 +118,7 @@ export function levelWorldItems(level: EditLevel): WorldItem[] {
 /** One object as a world item (hidden or not), or `null` when the ref no longer resolves. */
 export function worldItemOf(level: EditLevel, ref: NonNullable<EditSelection>): WorldItem | null {
   const o = findObject(level, ref);
-  return o ? buildItem(level, ref.layerId, o, 0, groundY(level), levelMetresPerTile(level)) : null;
+  return o ? buildItem(level, ref.layerId, o, 0, groundY(level)) : null;
 }
 
 /** A world X/Z point as a Tiled object coordinate (map pixels) on a 3D level. */
