@@ -101,7 +101,7 @@ export function GamesRootSection() {
             className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-accent"
           >
             <LuFolderOpen aria-hidden className="h-3.5 w-3.5" />
-            Choose…
+            Choose library…
           </button>
           <button
             type="button"
@@ -110,7 +110,7 @@ export function GamesRootSection() {
             className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-accent disabled:opacity-50"
           >
             <LuRotateCcw aria-hidden className="h-3.5 w-3.5" />
-            Reset to default
+            Reset library
           </button>
         </div>
       </div>
