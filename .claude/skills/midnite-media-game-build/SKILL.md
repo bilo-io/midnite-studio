@@ -105,6 +105,8 @@ When the Games tab's level editor is open on the scene, these tools edit the liv
 
 The write tools need the "Let agents run and edit games" switch; `game_level_query`, `game_level_validate` and `game_level_view` do not change anything. After a save, `game_goto` and `game_screenshot` show it running.
 
+Testing a level: play from the part you changed instead of from the start. `game_play_from` (`{ game, scene, at?, objectId?, unit?, useEditor? }`) runs the scene starting at `objectId`'s position or at `at` (`x`, `y` the plan position, `z` the height in 3D), playing the open editor's unsaved level unless `useEditor: false`; it answers `source` (`editor` or `file`) and needs the edit switch. Then `game_input` to move, `game_entities` (`types?`, `limit?`) to read where every object is and its `state` (it works with the switch off), `game_screenshot` to look, and `game_debug_overlay` (`colliders`, `triggers`, `nav`) to draw the hidden shapes before a screenshot. Adjust with `game_entity_batch` and play again.
+
 Migrating a game from before the level files (kit older than 0.12.0):
 
 1. Upgrade the kit from the Games tab (Upgrade kit), which adds `level.js`, the builders and `goto`. Nothing rewrites your `src/`.

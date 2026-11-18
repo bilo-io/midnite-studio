@@ -60,7 +60,7 @@ Agents get `game_play_from`, `game_entities` and `game_debug_overlay`.
 
 **Theme G — In-game debug draw.** ✅ Kit 0.14.0: `__midnite.debug({ colliders, triggers, nav })` (merging partial switches; drawers register with `registerDebug`, so a rebuilt scene keeps them) and `__midnite.navMesh()`; `phaser/debug-draw.js` paints Graphics, `three/debug-draw.js` one LineSegments per overlay; `createNavMesh` registers its polygons (`navMeshPolygons`). Main adds `runner.debug` / `runner.navMesh` (`games.debug`, `games.navMesh`), refusing a mesh over 20,000 vertices. The View switches drive both editor and game, and a new run is handed the switches that are on.
 
-**Theme H — MCP.** ◻ `game_play_from`, `game_entities` and `game_debug_overlay`, and the skill learns the loop.
+**Theme H — MCP.** ✅ `game_play_from` (start at `objectId` or `at`, the open editor's unsaved level unless `useEditor: false`; main resolves the start with shared `resolvePlayFromSpawn` and calls `service.levels.preview`; slow tool), `game_entities` (a read, works with the games switch off; filters `types`, caps `limit`) and `game_debug_overlay` (`games.debug`; both need a running game). Tool counts 154, pin regenerated, and the seven skill copies teach the "Testing a level" loop.
 
 ## Build order
 
@@ -325,9 +325,9 @@ export const GAME_ENTITY_POLL_MS = 250;
 
 **Acceptance.**
 
-- [ ] H1. `game_play_from` with `objectId` starts at that object's position (mocked runner records the spawn).
-- [ ] H2. `game_entities` works with `allowGames` off; the other two refuse.
-- [ ] H3. Skill copies identical; pin regenerated; `skills.test.ts` green.
+- [x] H1. `game_play_from` with `objectId` starts at that object's position (mocked runner records the spawn).
+- [x] H2. `game_entities` works with `allowGames` off; the other two refuse.
+- [x] H3. Skill copies identical; pin regenerated; `skills.test.ts` green.
 
 **Done when** H1–H3 pass.
 
