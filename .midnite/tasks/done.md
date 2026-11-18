@@ -16023,3 +16023,7 @@ No code needed: #1246 already made `buildResumeCommand` return `['--conversation
 ## 2026-11-18 — Phase 147 Theme D — unified sidebar & Chat/Terminal toggle (#1649)
 
 D.1–D.4 (row dedupe, mode pill, `Chat | Terminal` toggle hidden for plain shells, ollama disabled tooltip, `ChatPane` kept mounted so drafts survive) were already on main from #1251 (filed as "Phase 146 Theme D"). The PR closes the two gaps: a rejected `switchView` now toasts and re-enables the toggle instead of leaving an unhandled rejection, and the in-flight guard uses a ref so a same-tick double click sends one `session:switch-view`. Three new jsdom tests in `unified-sessions-view.test.tsx`.
+
+## 2026-11-18 — Phase 146 Theme E — the mobile GitHub data source (#1650)
+
+`apps/mobile/src/data/`: `MobileDataSource` (never throws; `Result<T>` with `auth`/`scope`/`network`/`error` kinds, `Page<T>` cursors) implemented by `GitHubDataSource({getToken, fetch?})` over `@midnite/forge-github-core`, REST only for commit/pull-file patches through `parseUnifiedDiff`; TanStack Query hooks per method plus write hooks with their invalidations. `src/auth/`: secure-store token store, GitHub Device Flow, PAT sign-in with a missing-scope check, sign-in screen and auth gate. forge-github-core gains paged branch/repo parsers. New `docs/MOBILE.md` and `apps/mobile/.env.example`. Open: E7 — register the GitHub OAuth App and set `EXPO_PUBLIC_GITHUB_CLIENT_ID`; Device Flow is unit-tested only until then.
