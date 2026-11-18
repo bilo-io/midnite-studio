@@ -54,7 +54,7 @@ export function LevelEnvironmentPopover({
   const options = env.weatherOptions.includes(env.weather) ? env.weatherOptions : [...env.weatherOptions, env.weather];
   const modified = env.weather !== LEVEL_WEATHER_AUTO || env.timeOfDay !== null || env.timeScale !== 1;
   return (
-    <Popover label="Environment" title="Environment: weather and time of day" side="bottom" align="start" panelClassName="w-60 space-y-2" trigger={<LuCloudSun aria-hidden className={`h-3.5 w-3.5 ${modified ? '' : 'opacity-50'}`} />} testId="level-environment-trigger">
+    <Popover label="Environment" title="Environment: weather and time of day" side="bottom" align="start" panelClassName="w-60 space-y-2 p-2" trigger={<LuCloudSun aria-hidden className={`h-3.5 w-3.5 ${modified ? '' : 'opacity-50'}`} />} testId="level-environment-trigger">
       <label className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
         Weather
         {custom ? (

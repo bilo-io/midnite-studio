@@ -88,7 +88,7 @@ export function drawOverlayShapes(
 }
 
 /** A spawn zone's fill: zones are often kilometres wide and overlap, so they tint the ground instead of covering it. */
-export const SPAWNER_FILL = 0.08;
+export const SPAWNER_FILL = 0.04;
 
 /** Spawn zones as a light tint, each with its `spawns ×density` label inside its first corner (a zone is often far wider than the view, so its centre is rarely on screen). */
 export function drawSpawners(ctx: CanvasRenderingContext2D, input: { spawners: CanvasExtras['spawners']; colour: string; view: View; text: string; toMap?: Mapper }): void {
