@@ -71,7 +71,31 @@ const MODULE_MAIN = 'packages/modules/coder/main/index.ts';
 const MODULE_MANIFEST = 'packages/modules/coder/manifest.ts';
 
 /** [description, file, import specifier, substring the firing message must contain] */
+// Phase 146 Theme B7 — apps/mobile is off the Studio graph (its own eslint block).
+const MOBILE = 'apps/mobile/src/example.ts';
+const MOBILE_ROUTE = 'apps/mobile/app/index.tsx';
+const MOBILE_REJECTED = [
+  ['mobile imports the frame', MOBILE, '@midnite/studio-frame', 'off the Studio graph'],
+  ['mobile imports the runtime', MOBILE, '@midnite/studio-runtime', 'off the Studio graph'],
+  ['mobile imports a feature', MOBILE, '@midnite/studio-feature-optimizer/renderer', 'off the Studio graph'],
+  ['mobile imports a module', MOBILE, '@midnite/studio-module-coder/renderer', 'off the Studio graph'],
+  ['mobile imports the Studio app', MOBILE, '@midnite/studio-app', 'off the Studio graph'],
+  ['a mobile route imports desktop', MOBILE_ROUTE, '@midnite/studio-desktop', 'off the Studio graph'],
+  ['mobile imports electron', MOBILE, 'electron', 'no Electron'],
+  ['mobile imports a node builtin', MOBILE, 'node:fs', 'no Electron'],
+  ['mobile imports react-dom', MOBILE, 'react-dom', 'no react-dom'],
+  ['mobile imports react-icons', MOBILE, 'react-icons/lu', 'no react-dom'],
+  ['mobile imports the git-engine barrel', MOBILE, '@midnite/studio-git-engine', 'pure diff parser'],
+  ['mobile imports another git-engine subpath', MOBILE, '@midnite/studio-git-engine/exec', 'pure diff parser'],
+];
+const MOBILE_ALLOWED = [
+  ['mobile imports shared', MOBILE, '@midnite/studio-shared'],
+  ['mobile imports the git-engine diff parser', MOBILE, '@midnite/studio-git-engine/diff'],
+  ['mobile imports react-native', MOBILE, 'react-native'],
+];
+
 const REJECTED = [
+  ...MOBILE_REJECTED,
   // --- The three rules the phase doc's Verification names ------------------
   ['a feature imports an app (package name)', FEATURE_RENDERER, '@midnite/studio-app/store/ui-store', 'Nothing below an app imports one'],
   ['a feature imports an app (relative path)', FEATURE_RENDERER, '../../../app/src/store/ui-store', 'Nothing below an app imports one'],
@@ -174,6 +198,7 @@ const REJECTED = [
 
 /** [description, file, import specifier] — must produce no no-restricted-imports message. */
 const ALLOWED = [
+  ...MOBILE_ALLOWED,
   ['an app imports a feature renderer half', APP, '@midnite/studio-feature-optimizer/renderer'],
   ['an app imports the frame', APP, '@midnite/studio-frame'],
   ['a suite app imports the frame', SUITE_APP, '@midnite/studio-frame'],

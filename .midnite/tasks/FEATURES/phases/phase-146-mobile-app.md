@@ -55,7 +55,7 @@ hues. AppBar, BottomNav, Fab + SpeedDial, Sheet (left and bottom), ListRow, Badg
 IconButton, EmptyState and Skeleton land in `midnite-ui`, each with a test and a showcase Mobile entry, and are released
 to GitHub Packages.
 
-**Theme B — The `apps/mobile` scaffold.** ◻ Expo + expo-router + strict TypeScript as a pnpm workspace member with moon
+**Theme B — The `apps/mobile` scaffold.** ✅ Landed: `@midnite/mobile` (Expo SDK 58, RN 0.88.1), expo-router shell (`GestureHandlerRootView` > `SafeAreaProvider` > theme seam > `QueryClientProvider` > `AuthGate` passthrough, TODO E6), moon tasks, vitest + react-native-web joined to the node gate, an eslint boundary block with 15 layer cases, and an iOS `expo export` that bundles one `react`. `@bilo-io/ui-native` is not published, so `src/ui/theme.tsx` is a local seam to swap for ui-native ^0.5.0; simulator boot (B8 screenshots) is left to a human. Original scope: Expo + expo-router + strict TypeScript as a pnpm workspace member with moon
 tasks, a Metro config that resolves the workspace, an eslint boundary block, and `ThemeProvider` at the root. It boots
 in Expo Go on iOS and Android.
 
@@ -407,7 +407,7 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
 
 ### B — The `apps/mobile` scaffold (M)
 
-- [ ] **B1 · Package** (S): `apps/mobile/package.json` with `"name": "@midnite/mobile"` and `"private": true`, created
+- [x] **B1 · Package** (S): `apps/mobile/package.json` with `"name": "@midnite/mobile"` and `"private": true`, created
   with `create-expo-app` (TypeScript + expo-router template), then trimmed. Pin the newest Expo SDK whose React Native
   and React satisfy `@bilo-io/ui-native`'s peers (`react` ^19, `react-native` >=0.79); record the SDK in Decisions.
   Dependencies: `expo`, `expo-router`, `expo-secure-store`, `expo-web-browser`, `expo-clipboard`, `expo-constants`,
@@ -415,28 +415,28 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
   `@expo/vector-icons`, `@tanstack/react-query`, `zod` (the workspace's version), `@bilo-io/ui-native@^0.5.0`, plus
   workspace deps `@midnite/studio-shared`, `@midnite/tasks-core`, `@midnite/forge-github-core` and
   `@midnite/studio-git-engine` (`./diff` subpath only). All are Expo Go-compatible; add nothing that is not.
-- [ ] **B2 · App config** (XS): `apps/mobile/app.config.ts` with name "Midnite", slug `midnite-mobile`, scheme
+- [x] **B2 · App config** (XS): `apps/mobile/app.config.ts` with name "Midnite", slug `midnite-mobile`, scheme
   `midnite-mobile`, `userInterfaceStyle: 'automatic'`, iOS `bundleIdentifier` / Android `package`
   `io.bilo.midnite.mobile`, and the icon and splash taken from ui-native's `src/brand` PNGs (copied into
   `apps/mobile/assets/`). `extra.githubClientId` reads `process.env.EXPO_PUBLIC_GITHUB_CLIENT_ID`.
-- [ ] **B3 · Metro + pnpm** (M): `apps/mobile/metro.config.js` from `expo/metro-config`'s `getDefaultConfig`. Prove that
+- [x] **B3 · Metro + pnpm** (M): `apps/mobile/metro.config.js` from `expo/metro-config`'s `getDefaultConfig`. Prove that
   `expo start` resolves `@midnite/studio-shared` (TS source via its `exports`) and the hoisted React under pnpm's
   isolated layout. If it does not, set `watchFolders: [workspaceRoot]` and
   `resolver.nodeModulesPaths: [app/node_modules, workspaceRoot/node_modules]`. **Never change the root `.npmrc`'s
   `node-linker`**: that would reshape every other package's install. Exactly one copy of `react` must reach the bundle
   (a dev-only check in `app/_layout.tsx` is not acceptable; verify with `npx expo export --dump-sourcemap` once and note
   the result in Decisions).
-- [ ] **B4 · moon tasks** (S): `apps/mobile/moon.yml` with `start` (`expo start`), `typecheck` (`tsc --noEmit`), `lint`
+- [x] **B4 · moon tasks** (S): `apps/mobile/moon.yml` with `start` (`expo start`), `typecheck` (`tsc --noEmit`), `lint`
   (eslint on `src/**` and `app/**`) and `test` (vitest). Add `'./apps/mobile/vitest.config.ts'` explicitly to
   `NODE_GATE_PROJECTS` in root `vitest.node-gate.config.ts` (`NODE_PROJECTS` in `scripts/gate-projects-check.mjs` only
   scans `packages/*`, not `apps/*`) so `moon run root:test-node` covers it.
-- [ ] **B5 · vitest + react-native-web** (S): `apps/mobile/vitest.config.ts` aliases `react-native` →
+- [x] **B5 · vitest + react-native-web** (S): `apps/mobile/vitest.config.ts` aliases `react-native` →
   `react-native-web` and stubs `expo-secure-store`, `expo-web-browser`, `expo-router` and `expo-clipboard` with
   `vi.mock` setup files in `apps/mobile/test/mocks/`, following ui-native's own vitest setup. jsdom environment.
-- [ ] **B6 · Root layout** (S): `apps/mobile/app/_layout.tsx` wraps `GestureHandlerRootView` → `SafeAreaProvider` →
+- [x] **B6 · Root layout** (S): `apps/mobile/app/_layout.tsx` wraps `GestureHandlerRootView` → `SafeAreaProvider` →
   `ThemeProvider` (ui-native; scheme from the More ▸ Theme pref, Theme J) → `QueryClientProvider` → `AuthGate`
   (Theme E) → `<Slot />`.
-- [ ] **B7 · eslint boundary** (S): a `// --- Boundary: mobile (apps/mobile) ---` block in `eslint.config.mjs`, modelled
+- [x] **B7 · eslint boundary** (S): a `// --- Boundary: mobile (apps/mobile) ---` block in `eslint.config.mjs`, modelled
   on the launcher block, and update the suite-app globs (`apps/!(launcher)/...`) to `apps/!(launcher|mobile)/...` so
   suite-app rules do not also fire on `apps/mobile`. It denies `@midnite/studio-app*`, `@midnite/studio-desktop*`,
   `@midnite/studio-frame*`, `@midnite/studio-runtime*`, `@midnite/studio-knowledge*`, `@midnite/studio-db-engine*`,
@@ -807,9 +807,11 @@ with each screen theme's PR.
 7. **Icons:** `@expo/vector-icons` `Feather` (Lucide's ancestor, so glyphs read like desktop's `react-icons/lu`).
    `react-icons` is DOM-only. This is an exception to the "react-icons is the only family" rule, scoped to
    `apps/mobile`, and is recorded in K2.
-8. **Expo SDK / React Native version:** to be recorded by B1 on landing.
-9. **Metro under pnpm:** the outcome of B3 (default config sufficed, or `watchFolders` / `nodeModulesPaths` were
-   needed) is to be recorded on landing.
+8. **Expo SDK / React Native version:** Expo SDK 58 (`expo ~58.0.25`), React Native 0.88.1, React 19.3.0 (exact, from SDK 58's `bundledNativeModules`), react-native-web ~0.21.4. Recorded by B1.
+9. **Metro under pnpm:** `expo export --platform ios --dump-sourcemap` succeeds with `watchFolders` + `nodeModulesPaths`
+   set in `metro.config.js` (the default config was not tried alone), and the sourcemap carries exactly one copy of
+   `react`. `@midnite/studio-shared` resolution is configured but not yet exercised, since no mobile source imports it
+   yet; the first import (Theme C/D) re-checks it. Root `.npmrc` untouched.
 10. **ui-native published version:** to be recorded by A13.
 11. **Open:** the GitHub OAuth App's owner (the `bilo-io` user or an org). This is needed before E3 can be exercised
     end to end, and E7 is the user's action.

@@ -15991,3 +15991,7 @@ The level editor gets an Assets panel under the canvas (collapsed by default; fi
 ## 2026-11-18 — Phase 140 (Themes E, F, G) — Live ghosts, overlays, in-game debug draw
 
 The level editor gains a Live toggle (ghosts of the running game with dashed drift lines, and Copy live position as one undo step), a View menu for collider, trigger and nav-mesh overlays in the plan and 3D views, and the same overlays in the running game through kit 0.14.0 (`__midnite.debug`, `__midnite.navMesh`), driven by the same switches.
+
+## 2026-11-18 — Phase 146 (Theme B) — The `apps/mobile` scaffold
+
+`apps/mobile` lands as an Expo SDK 58 + expo-router workspace member (RN 0.88.1, React 19.3.0) with moon tasks, a Metro config that resolves the workspace (one React copy, proven by `expo export --platform ios`), a provider stack with a local `ThemeProvider` seam until `@bilo-io/ui-native` 0.5.0 ships, an AuthGate stub for E6, and an eslint mobile block with 15 new layer-boundary cases. B8 (simulator / Expo Go pass) stays open. CI skipped (Actions billing-locked); merged on focused local checks. PR #1641.
