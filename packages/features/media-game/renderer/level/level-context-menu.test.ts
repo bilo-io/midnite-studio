@@ -15,7 +15,7 @@ const setup = () => {
 };
 const actions = (): LevelMenuActions => ({
   cut: vi.fn(), copy: vi.fn(), paste: vi.fn(), duplicate: vi.fn(), remove: vi.fn(), frame: vi.fn(), hide: vi.fn(), lock: vi.fn(),
-  selectAllOfType: vi.fn(), selectAll: vi.fn(), align: vi.fn(), addLayer: vi.fn(),
+  selectAllOfType: vi.fn(), selectAll: vi.fn(), align: vi.fn(), addLayer: vi.fn(), saveAsPrefab: vi.fn(), selectInstances: vi.fn(),
 });
 const ctx = { canPaste: true, readOnly: false };
 const labels = (items: FrameMenuEntry[]) => items.map((i) => ('type' in i ? '|' : i.label));

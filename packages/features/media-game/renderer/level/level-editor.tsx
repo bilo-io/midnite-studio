@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import {
   LuEraser,
   LuMap,
@@ -18,6 +18,7 @@ import {
   LuSquare,
   LuTrash2,
   LuTriangleAlert,
+  LuBoxes,
   LuKeyboard,
   LuUndo2,
 } from 'react-icons/lu';
@@ -28,6 +29,8 @@ import { EmptyState, EmptyStateButton, KitContextMenu, Skeleton, useFrameChrome,
 
 import { IconButton, useNotify } from '../chrome';
 import { isLive, useGameRunStore } from '../game-run-store';
+import { useNotify } from '../chrome';
+import { fetchPrefab, useDeletePrefab, usePrefabs, useSavePrefab } from './use-prefabs';
 import { useDoctorRequest } from '../game-doctor-store';
 import { useDoctorFix, useGameDiagnosis } from '../use-games';
 import { LevelAlignBar } from './level-align-bar';
@@ -42,6 +45,9 @@ import { LevelCanvas, type CanvasPointer } from './level-canvas';
 import { levelContextMenu, type LevelMenuTarget } from './level-context-menu';
 import { LevelOutliner } from './level-outliner';
 import { AssetBrowser, type AssetBrowserTab } from './assets/asset-browser';
+import { PrefabInspectorRow } from './assets/prefab-inspector';
+import { PrefabList } from './assets/prefab-list';
+import { SavePrefabDialog } from './assets/save-prefab-dialog';
 import { arm, dropToObject, placementRefusal, useArmedAsset, type AssetDragPayload } from './assets/asset-drag';
 import { hiddenKeys, isSelectable, lockedKeys, sceneKey, useLevelOutlinerStore } from './level-outliner-store';
 import { copySelection, duplicateSelection, pasteClipboard, readClipboard, writeClipboard } from './level-clipboard';
@@ -59,8 +65,20 @@ import {
   insertObjects,
   finishPath,
   findObject,
+  applyPrefabUpdate,
+  convertToInstance,
+  countInstances,
+  instanceRefs,
   isLevel3d,
   markSaved,
+  overriddenFields,
+  placePrefab,
+  prefabFromSelection,
+  prefabInstanceOf,
+  revertOverride,
+  selectInstancesOf,
+  selectPrefabInstance,
+  unpackInstance,
   layerById,
   moveObjects,
   nudgeObjects,
@@ -91,6 +109,7 @@ import {
   type LevelObject,
   type LevelProperty,
   type ObjectField,
+  type PrefabInstanceInfo,
   type ObjectRef,
   type PlanPoint,
   type PlanRect,
@@ -121,10 +140,15 @@ import { fetchLevel, useGameManifest, useLevel, useLevels, useSaveOpenLevel } fr
  * Extra tabs for the asset browser panel (Phase 139 Theme C's extension point). Theme G adds a Prefabs tab by
  * returning it here, so it takes the editor's state without the browser knowing about prefabs.
  */
-export function useAssetBrowserTabs(): readonly AssetBrowserTab[] {
-  return NO_BROWSER_TABS;
+export function useAssetBrowserTabs({ gameId, is3d, onDeletePrefab }: { gameId: string; is3d: boolean; onDeletePrefab: (name: string) => void }): readonly AssetBrowserTab[] {
+  const prefabs = usePrefabs(gameId);
+  const data = prefabs.data;
+  const loading = prefabs.isLoading;
+  return useMemo(
+    () => [{ id: 'prefabs', label: 'Prefabs', render: () => <PrefabList prefabs={data} loading={loading} is3d={is3d} onDelete={onDeletePrefab} /> }],
+    [data, loading, is3d, onDeletePrefab],
+  );
 }
-const NO_BROWSER_TABS: readonly AssetBrowserTab[] = [];
 
 export type LevelTool = 'paint' | 'erase' | 'rect' | 'pick' | 'entity' | 'select' | 'volume' | 'path' | 'rotate';
 
@@ -323,7 +347,6 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
   const manifestQuery = useGameManifest(gameId);
   const manifest = manifestQuery.data ?? null;
   const armedAsset = useArmedAsset();
-  const browserTabs = useAssetBrowserTabs();
   // Live ghosts and the View overlays (Phase 140 Themes E to G). Live needs a running game and turns itself off with it.
   const overlays = useLevelViewStore((s) => s.overlays);
   const runState = useGameRunStore((s) => s.runs[gameId]?.state);
@@ -455,6 +478,74 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
   };
   const update: Updater = (fn) => useLevelStore.getState().update(gameId, fn);
 
+  // Prefabs (Phase 139 Theme G).
+  const client = useQueryClient();
+  const savePrefab = useSavePrefab(gameId);
+  const deletePrefab = useDeletePrefab(gameId);
+  const prefabList = usePrefabs(gameId).data;
+  const [savingPrefab, setSavingPrefab] = useState<{ error: string | null } | null>(null);
+  const levelRef = useRef(level);
+  levelRef.current = level;
+  const requestDeletePrefab = useCallback(
+    (name: string) => {
+      const n = countInstances(levelRef.current, name);
+      dialogs.confirm({
+        title: `Delete prefab “${name}”?`,
+        body: n === 0 ? 'No instances in this level.' : `${n} ${n === 1 ? 'instance' : 'instances'} in this level stay as plain objects.`,
+        confirmLabel: 'Delete prefab',
+        danger: true,
+        onConfirm: () => {
+          void deletePrefab.mutateAsync(name).then((error) => {
+            if (error) notify(error, { danger: true });
+            else arm(null);
+          });
+        },
+      });
+    },
+    [dialogs, deletePrefab, notify],
+  );
+  const browserTabs = useAssetBrowserTabs({ gameId, is3d, onDeletePrefab: requestDeletePrefab });
+  const openSavePrefab = () => {
+    if (readOnly || edit.selected.length === 0) return;
+    setSavingPrefab({ error: null });
+  };
+  const doSavePrefab = async (name: string) => {
+    const prefab = prefabFromSelection(edit, name, is3d ? '3d' : '2d');
+    if (!prefab) return;
+    const error = await savePrefab.mutateAsync(prefab);
+    if (error) {
+      setSavingPrefab({ error });
+      return;
+    }
+    const instanceId = crypto.randomUUID().slice(0, 8);
+    update((s) => convertToInstance(s, name, instanceId));
+    setSavingPrefab(null);
+    notify(`Saved prefab “${name}”.`);
+  };
+  /** Update from prefab: re-read the file, apply it to every instance in this level, one undo step. */
+  const updateFromPrefab = async (name: string) => {
+    try {
+      const prefab = await fetchPrefab(client, gameId, name);
+      let counts = { updated: 0, skippedFields: 0 };
+      update((s) => {
+        const r = applyPrefabUpdate(s, prefab);
+        counts = r;
+        return r.state;
+      });
+      notify(counts.updated === 0 ? `No instances of “${name}” to update.` : `Updated ${counts.updated} ${counts.updated === 1 ? 'instance' : 'instances'}, kept ${counts.skippedFields} ${counts.skippedFields === 1 ? 'override' : 'overrides'}`);
+    } catch (e) {
+      notify(e instanceof Error ? e.message : `Prefab “${name}” could not be read.`, { danger: true });
+    }
+  };
+  const revertField = async (sel: ObjectRef, name: string, field: string) => {
+    try {
+      const prefab = await fetchPrefab(client, gameId, name);
+      update((s) => revertOverride(s, sel, field, prefab));
+    } catch (e) {
+      notify(e instanceof Error ? e.message : `Prefab “${name}” could not be read.`, { danger: true });
+    }
+  };
+
   // A scene changed on disk by someone else (an agent, Tiled) shows up when there is nothing of ours to lose.
   const fresh = useLevel(gameId, entry.scene);
   const [diskConflict, setDiskConflict] = useState<GameLevelGetResult | null>(null);
@@ -502,9 +593,11 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
           return;
         }
         const held = edit.selected.some((r) => sameRef(r, ref));
-        const refs = e.shift ? [...edit.selected.filter((r) => !sameRef(r, ref)), ref] : held ? edit.selected : [ref];
+        // A prefab instance selects as a whole; Alt picks one object of it (Phase 139 Theme G).
+        const whole = !e.alt && prefabInstanceOf(grabbed) ? instanceRefs(level, ref) : [ref];
+        const refs = e.shift ? [...edit.selected.filter((r) => !whole.some((w) => sameRef(w, r))), ...whole] : held ? edit.selected : whole;
         selectDrag.current = { kind: 'group', refs, start: { x: grabbed.x, y: grabbed.y }, grab: { x: e.object.x - grabbed.x, y: e.object.y - grabbed.y }, applied: { x: 0, y: 0 } };
-        update((s) => beginStroke(e.shift ? addSelected(s, [ref]) : held ? s : selectOnly(s, ref)));
+        update((s) => beginStroke(e.shift ? addSelected(s, whole) : held ? s : e.alt ? selectOnly(s, ref) : selectPrefabInstance(s, ref)));
       } else {
         selectDrag.current = { kind: 'marquee', from: e.object, mode: e.shift ? 'add' : e.mod ? 'toggle' : 'replace' };
         setMarquee({ x: e.object.x, y: e.object.y, width: 0, height: 0 });
@@ -538,6 +631,20 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
     update(endStroke);
   };
 
+  /** Phase 139 Theme G: read the prefab file, then place one instance at `at` (one undo step, the instance is selected). */
+  const placePrefabByName = async (name: string, layerId: number, at: PlanPoint) => {
+    try {
+      const prefab = await fetchPrefab(client, gameId, name);
+      if ((prefab.dimension === '3d') !== is3d) {
+        notify(`“${name}” is a ${prefab.dimension.toUpperCase()} prefab.`);
+        return;
+      }
+      const instanceId = crypto.randomUUID().slice(0, 8);
+      update((s) => placePrefab(setActiveLayer(s, layerId), layerId, prefab, at, instanceId));
+    } catch (e) {
+      notify(e instanceof Error ? e.message : `Prefab “${name}” could not be read.`, { danger: true });
+    }
+  };
   /** Phase 139 Theme D: a dragged or armed asset lands at `at` (plan pixels, snapped); one undo step, becomes the selection. */
   const placeAsset = (payload: AssetDragPayload, at: PlanPoint) => {
     if (readOnly) return;
@@ -546,11 +653,15 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
       notify(refusal);
       return;
     }
-    if (payload.kind !== 'asset' || objectLayerId === null) {
-      if (objectLayerId === null) notify('Add an object layer first.');
+    if (objectLayerId === null) {
+      notify('Add an object layer first.');
       return;
     }
     const layerId = objectLayerId;
+    if (payload.kind === 'prefab') {
+      void placePrefabByName(payload.name, layerId, at);
+      return;
+    }
     update((s) => insertObjects(setActiveLayer(s, layerId), [{ layerId, object: dropToObject(payload, at, level) }]));
   };
   /** Click-to-place: an armed tile takes the next canvas click, then disarms. */
@@ -735,6 +846,8 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
     align: (axis, edge) => update((s) => alignObjects(s, s.selected, axis, edge)),
     addLayer: (kind) => update((s) => addLayer(s, kind, kind === 'tile' ? 'tiles' : 'objects')),
     copyLivePosition: () => copyLiveOf(edit.selection ?? edit.selected[edit.selected.length - 1] ?? null),
+    saveAsPrefab: openSavePrefab,
+    selectInstances: (prefab) => update((s) => selectInstancesOf(s, prefab)),
   });
 
   /** "Copy live position": the object takes its live twin's position, as one undo step. */
@@ -959,6 +1072,11 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
             onDistribute={(axis: AlignAxis) => update((s) => distributeObjects(s, s.selected, axis))}
           />
         ) : null}
+        {edit.selected.length >= 2 && !readOnly ? (
+          <button type="button" onClick={openSavePrefab} className="flex shrink-0 items-center gap-1 rounded border border-border px-1.5 py-1 text-xs hover:bg-accent">
+            <LuBoxes aria-hidden className="h-3.5 w-3.5" />Save as prefab…
+          </button>
+        ) : null}
         <span className="truncate text-xs text-muted-foreground" data-testid="level-scene-name">{entry.scene}{edit.dirty ? ' •' : ''}</span>
         <button
           type="button"
@@ -1085,9 +1203,19 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
           ) : (
             <TilePalette tiles={tiles} images={entry.images} gid={gid} onGid={(g) => { setGid(g); if (tool === 'erase') chooseTool('paint'); }} />
           )}
-          {selected && edit.selection ? <Inspector object={selected} readOnly={readOnly} onField={(f, v) => update((s) => setObjectField(s, edit.selection!, f, v))} onProperty={(n, t, v) => update((s) => setProperty(s, edit.selection!, n, t, v))} onRemove={(n) => update((s) => removeProperty(s, edit.selection!, n))} onDelete={() => update((s) => deleteObject(s, edit.selection!))} properties={selected.properties ?? []} onCopyLive={liveOn && liveTwin(ghosts, edit.selection) ? () => copyLiveOf(edit.selection) : undefined} plan={is3d ? { level, models, onNumber: (n, raw) => update((s) => setOptionalNumber(s, edit.selection!, n, raw)), onText: (n, raw) => update((s) => setOptionalText(s, edit.selection!, n, raw)) } : undefined} /> : null}
+          {selected && edit.selection ? <Inspector object={selected} readOnly={readOnly} onField={(f, v) => update((s) => setObjectField(s, edit.selection!, f, v))} onProperty={(n, t, v) => update((s) => setProperty(s, edit.selection!, n, t, v))} onRemove={(n) => update((s) => removeProperty(s, edit.selection!, n))} onDelete={() => update((s) => deleteObject(s, edit.selection!))} properties={selected.properties ?? []} onCopyLive={liveOn && liveTwin(ghosts, edit.selection) ? () => copyLiveOf(edit.selection) : undefined} prefab={(() => { const info = prefabInstanceOf(selected); return info ? { info, overrides: overriddenFields(selected), onSelectInstances: () => update((s) => selectInstancesOf(s, info.prefab)), onUpdate: () => void updateFromPrefab(info.prefab), onUnpack: () => update((s) => unpackInstance(s, edit.selection!)), onRevert: (f: string) => void revertField(edit.selection!, info.prefab, f) } : undefined; })()} plan={is3d ? { level, models, onNumber: (n, raw) => update((s) => setOptionalNumber(s, edit.selection!, n, raw)), onText: (n, raw) => update((s) => setOptionalText(s, edit.selection!, n, raw)) } : undefined} /> : null}
         </aside>
       </div>
+      {savingPrefab ? (
+        <SavePrefabDialog
+          initialName={suggestPrefabName(selected?.name ?? '')}
+          existing={(prefabList ?? []).map((p) => p.name)}
+          busy={savePrefab.isPending}
+          error={savingPrefab.error}
+          onSave={(name) => void doSavePrefab(name)}
+          onClose={() => setSavingPrefab(null)}
+        />
+      ) : null}
       <LevelShortcutHelp open={helpOpen} onClose={closeHelp} view={in3d ? '3d' : 'plan'} dimension={is3d ? '3d' : '2d'} />
       {menuAt ? <KitContextMenu x={menuAt.x} y={menuAt.y} items={menuAt.items} onClose={() => setMenuAt(null)} /> : null}
     </div>
@@ -1165,6 +1293,7 @@ function Inspector({
   onDelete,
   plan,
   onCopyLive,
+  prefab,
 }: {
   object: LevelObject;
   properties: readonly LevelProperty[];
@@ -1177,12 +1306,15 @@ function Inspector({
   plan?: PlanInspector;
   /** Set while the object has a live twin in the running game (Phase 140 Theme E). */
   onCopyLive?: () => void;
+  /** Set for an object that belongs to a prefab instance (Phase 139 Theme G). */
+  prefab?: { info: PrefabInstanceInfo; overrides: readonly string[]; onSelectInstances: () => void; onUpdate: () => void; onUnpack: () => void; onRevert: (field: string) => void };
 }) {
   const [name, setName] = useState('');
   const [type, setType] = useState<'string' | 'int' | 'float' | 'bool'>('string');
   const [value, setValue] = useState('');
   return (
     <section aria-label="Entity inspector" className="flex flex-col gap-1.5 border-t border-border pt-2">
+      {prefab ? <PrefabInspectorRow info={prefab.info} overrides={prefab.overrides} readOnly={readOnly} onSelectInstances={prefab.onSelectInstances} onUpdate={prefab.onUpdate} onUnpack={prefab.onUnpack} onRevert={prefab.onRevert} /> : null}
       {FIELDS.map(({ field, label, numeric }) => {
         const current = field === 'type' ? (object.type || object.class || '') : (object[field] ?? (numeric ? 0 : ''));
         return (
@@ -1339,4 +1471,9 @@ function PlanFields({ object, readOnly, plan }: { object: LevelObject; readOnly:
       ) : null}
     </div>
   );
+}
+
+/** A prefab name from an object's name: lower-case, dashes for anything the name schema would refuse. */
+function suggestPrefabName(name: string): string {
+  return name.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^[-_]+|[-_]+$/g, '').slice(0, 64);
 }

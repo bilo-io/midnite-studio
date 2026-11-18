@@ -10,6 +10,7 @@ import {
   LuAlignHorizontalJustifyCenter,
   LuAlignStartHorizontal,
   LuAlignStartVertical,
+  LuBoxes,
   LuClipboardPaste,
   LuCopy,
   LuCopyPlus,
@@ -26,7 +27,7 @@ import {
 import type { FrameMenuEntry } from '@midnite/studio-frame';
 
 import type { AlignAxis, AlignEdge } from './level-align';
-import { findObject, type EditState, type ObjectRef, type PlanPoint } from './level-edit-model';
+import { findObject, prefabInstanceOf, type EditState, type ObjectRef, type PlanPoint } from './level-edit-model';
 import { objectType } from './level-outline';
 
 export type LevelMenuTarget = { kind: 'object'; ref: ObjectRef } | { kind: 'empty'; at: PlanPoint } | { kind: 'layer'; layerId: number };
@@ -47,6 +48,10 @@ export type LevelMenuActions = {
   addLayer(kind: 'tile' | 'object'): void;
   /** Phase 140 Theme E: take the object's live twin's position, one undo step. */
   copyLivePosition?(): void;
+  /** Phase 139 Theme G: save the selection as a prefab (opens the name dialog). */
+  saveAsPrefab(): void;
+  /** Select every instance of a prefab in the level. */
+  selectInstances(prefab: string): void;
 };
 
 const SEP: FrameMenuEntry = { type: 'separator' };
@@ -87,6 +92,7 @@ export function levelContextMenu(state: EditState, target: LevelMenuTarget, ctx:
     const object = findObject(state.level, target.ref);
     const type = object ? objectType(object) : '';
     const many = state.selected.length >= 2;
+    const instance = object ? prefabInstanceOf(object) : null;
     const selectType: FrameMenuEntry = { label: type ? `Select all “${type}”` : 'Select all', icon: LuLayers, onSelect: () => (type ? actions.selectAllOfType(type) : actions.selectAll(target.ref.layerId)) };
     const frame: FrameMenuEntry = { label: 'Frame', description: hint('F'), icon: LuFocus, onSelect: actions.frame };
     const copy: FrameMenuEntry = { label: 'Copy', description: hint('⌘C'), icon: LuCopy, onSelect: actions.copy };
@@ -102,6 +108,9 @@ export function levelContextMenu(state: EditState, target: LevelMenuTarget, ctx:
       { label: 'Hide', icon: LuEyeOff, onSelect: actions.hide },
       { label: 'Lock', icon: LuLock, onSelect: actions.lock },
       selectType,
+      SEP,
+      { label: 'Save as prefab…', icon: LuBoxes, onSelect: actions.saveAsPrefab },
+      ...(instance ? [{ label: `Select instances of “${instance.prefab}”`, icon: LuLayers, onSelect: () => actions.selectInstances(instance.prefab) } as FrameMenuEntry] : []),
       SEP,
       many
         ? {
