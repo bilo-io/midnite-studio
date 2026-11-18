@@ -194,7 +194,7 @@ function Editor({ update, readOnly, onRemoved }: { update: InvestorUpdate; readO
     await persist();
     const r = await op();
     if (!r.ok) setProblem(r.message ?? `Could not ${label}.`);
-    return void (r.ok && r.value !== undefined ? afterOut(label, r.value) : undefined);
+    if (r.ok && r.value !== undefined) afterOut(label, r.value);
   };
   const afterOut = (label: string, value: unknown): void => {
     if (label === 'email' && (value as { truncated?: boolean }).truncated === true) setInfo('The email body was shortened; the full update is on your clipboard.');
@@ -215,7 +215,13 @@ function Editor({ update, readOnly, onRemoved }: { update: InvestorUpdate; readO
       body: 'The text and its draft history are removed. This cannot be undone.',
       confirmLabel: 'Delete update',
       danger: true,
-      onConfirm: () => remove.mutate(update.id, { onSuccess: onRemoved, onError: (e) => setProblem(e.message) }),
+      onConfirm: () => {
+        // A pending edit must not be flushed on unmount: it would write the deleted update straight back.
+        if (timer.current !== null) clearTimeout(timer.current);
+        timer.current = null;
+        dirty.current = false;
+        remove.mutate(update.id, { onSuccess: onRemoved, onError: (e) => setProblem(e.message) });
+      },
     });
   const IconButton = STARTUP_CHROME.IconButton;
   const empty = text.trim() === '';
