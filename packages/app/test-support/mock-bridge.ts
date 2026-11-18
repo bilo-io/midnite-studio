@@ -759,7 +759,7 @@ export type MockFixtures = {
       string,
       Array<{ repoPath: string; name: string; items: Array<{ path: string; label: string; kind: string; bytes: number }> }>
     >;
-    assetSync?: Array<{ name: string; kind: string; state: 'current' | 'changed' | 'missing'; importedAt: string }>;
+    assetSync?: Array<{ name: string; kind: string; state: 'current' | 'changed' | 'missing'; importedAt: string; library?: { library: string; path: string; sha256: string } }>;
     /**
      * Theme O: `playtests/*.json` as the Playtests menu lists them. A run answers `playtestRun` when
      * given, else marks every requested valid play-test passed, and saves it as that entry's `last`.

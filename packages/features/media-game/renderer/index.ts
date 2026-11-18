@@ -25,6 +25,7 @@ export { GameCreatePanel, perspectivesFor } from './game-create-panel';
 export { GameDetailPanel } from './game-detail-panel';
 export { GameExportBar } from './game-export-bar';
 export { GameAssetLibrary, groupByCategory } from './game-asset-library';
+export { importDisabledReason, isAlreadyInGame } from './game-asset-library';
 export { assetsChangedLabel, GameAssetsBadge, GameAssetsPanel } from './game-assets-panel';
 export { GameConsoleDrawer } from './game-console-drawer';
 export { GameRunnerToolbar } from './game-runner-toolbar';

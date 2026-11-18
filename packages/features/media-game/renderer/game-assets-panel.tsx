@@ -59,7 +59,7 @@ export function GameAssetsPanel({ game }: { game: GameSummary }) {
           </button>
         ))}
       </div>
-      {source === 'library' ? <GameAssetLibrary /> : <>
+      {source === 'library' ? <GameAssetLibrary game={game} /> : <>
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-xs font-medium text-muted-foreground">Assets{list.length > 0 ? ` (${list.length})` : ''}</h3>
         <button
@@ -99,6 +99,11 @@ export function GameAssetsPanel({ game }: { game: GameSummary }) {
                 {asset.name}
               </span>
               <span className="shrink-0 rounded bg-accent/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">{asset.kind}</span>
+              {asset.library ? (
+                <span className="shrink-0 text-[10px] text-muted-foreground" title={asset.library.path}>
+                  from library: {asset.library.library}
+                </span>
+              ) : null}
               <span className={`shrink-0 text-[10px] ${STATE_CLASS[asset.state]}`}>{STATE_LABEL[asset.state]}</span>
             </li>
           ))}

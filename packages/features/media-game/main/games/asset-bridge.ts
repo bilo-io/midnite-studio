@@ -716,6 +716,8 @@ export function createAssetBridge(deps: AssetBridgeDeps) {
       ? { tab: p.source.tab as GameAssetSourceTab, repoPath: p.source.repoPath, path: p.source.path }
       : { packPath: p.source.path };
 
+  const libraryOf = (p: GameAssetProvenance): { library?: GameAssetLibraryOrigin } => (p.library ? { library: p.library } : {});
+
   async function resync(raw: GameResyncRequest): Promise<GitOpResult<GameResyncResult>> {
     const game = await deps.resolve(raw.gameId);
     if (!game) return failure('That game was not found.');
@@ -731,13 +733,13 @@ export function createAssetBridge(deps: AssetBridgeDeps) {
       for (const provenance of recorded) {
         const located = provenance.library ? await locateLibrary(provenance.library.library, provenance.library.path) : await locate(sourceOf(provenance));
         if (!located.ok) {
-          states.push({ name: provenance.name, kind: provenance.kind, state: 'missing', importedAt: provenance.importedAt });
+          states.push({ name: provenance.name, kind: provenance.kind, state: 'missing', importedAt: provenance.importedAt, ...libraryOf(provenance) });
           continue;
         }
         const l = located.value;
         const hashed = l.terrain ? await hashAsset(l.abs, true, skipTerrainNoise) : await hashAsset(l.abs, l.isDir);
         const same = hashed.ok && hashed.value.sha256 === (provenance.sourceSha256 ?? provenance.sha256);
-        states.push({ name: provenance.name, kind: provenance.kind, state: hashed.ok && !same ? 'changed' : hashed.ok ? 'current' : 'missing', importedAt: provenance.importedAt });
+        states.push({ name: provenance.name, kind: provenance.kind, state: hashed.ok && !same ? 'changed' : hashed.ok ? 'current' : 'missing', importedAt: provenance.importedAt, ...libraryOf(provenance) });
         if (hashed.ok && !same) changedNow.push({ provenance, located: l });
       }
       const result = (reimported: string[], commitSha: string | null): GameResyncResult => ({

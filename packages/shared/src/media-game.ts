@@ -938,7 +938,14 @@ export type GameResyncRequest = z.input<typeof GameResyncRequestSchema>;
 export const GAME_ASSET_SYNC_STATES = ['current', 'changed', 'missing'] as const;
 export const GameResyncResultSchema = z.object({
   assets: z.array(
-    z.object({ name: z.string(), kind: z.enum(GAME_ASSET_KINDS), state: z.enum(GAME_ASSET_SYNC_STATES), importedAt: z.string() }),
+    z.object({
+      name: z.string(),
+      kind: z.enum(GAME_ASSET_KINDS),
+      state: z.enum(GAME_ASSET_SYNC_STATES),
+      importedAt: z.string(),
+      /** Where it came from in the shared library, when it was imported from there. */
+      library: GameAssetLibraryOriginSchema.optional(),
+    }),
   ),
   changed: z.number().int().nonnegative(),
   reimported: z.array(z.string()),
