@@ -13,7 +13,7 @@ import { getChatsRuntime } from './ipc/chats-handlers';
 
 let coordinator: UnifiedSessionCoordinator | null = null;
 
-/** Lazily constructs Studio's singleton unified session coordinator (Phase 146 Theme C). */
+/** Lazily constructs Studio's singleton unified session coordinator (Phase 147 Theme C). */
 export function getUnifiedSessionCoordinator(): UnifiedSessionCoordinator {
   if (!coordinator) {
     const instance = createUnifiedSessionCoordinator({

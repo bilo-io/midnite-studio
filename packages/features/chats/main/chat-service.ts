@@ -232,6 +232,8 @@ export function createChatService(deps: ChatServiceDeps) {
 
   const chats = new Map<string, Chat>();
   const running = new Map<string, RunHandle>();
+  /** Chats whose send is between its `running` check and `running.set` (awaiting `beforeSend`). */
+  const starting = new Set<string>();
   const saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
   let loaded = false;
 
@@ -452,27 +454,56 @@ export function createChatService(deps: ChatServiceDeps) {
     await ensureLoaded();
     const chat = chats.get(req.chatId);
     if (!chat) return failure('That chat no longer exists.');
-    if (running.has(chat.id)) return failure('This chat is already answering. Stop it first.');
-    if (deps.beforeSend) {
-      const guard = await deps.beforeSend(chat);
-      if (!guard.ok) return guard;
-    }
+    if (running.has(chat.id) || starting.has(chat.id)) return failure('This chat is already answering. Stop it first.');
 
+    // Validate before taking the runner lock, so a rejected send never holds it.
     let text = req.text;
     let attachments = req.attachments;
+    let resendIndex = -1;
     if (req.fromMessageId !== undefined) {
       const index = chat.messages.findIndex((m) => m.id === req.fromMessageId);
       const original = chat.messages[index];
       if (!original || original.role !== 'user') return failure('That message cannot be re-sent.');
       text = text ?? original.text;
       attachments = attachments ?? original.attachments;
-      const dropped = chat.messages.splice(index);
+      resendIndex = index;
+    }
+    const body = (text ?? '').trim();
+    if (body.length === 0 && (attachments?.length ?? 0) === 0) return failure('Write a message first.');
+
+    // `starting` closes the window between the `running` check and `running.set`
+    // below: `beforeSend` awaits, and a second send in that gap would otherwise
+    // start a second turn on the same engine session.
+    starting.add(chat.id);
+    let locked = false;
+    let started = false;
+    try {
+      if (deps.beforeSend) {
+        const guard = await deps.beforeSend(chat);
+        if (!guard.ok) return guard;
+        locked = true;
+      }
+      const result = await startTurn(chat, body, attachments, resendIndex);
+      started = true;
+      return result;
+    } finally {
+      starting.delete(chat.id);
+      if (locked && !started) void Promise.resolve(deps.onTurnEnd?.(chat)).catch(() => undefined);
+    }
+  }
+
+  async function startTurn(
+    chat: Chat,
+    body: string,
+    attachments: ChatAttachment[] | undefined,
+    resendIndex: number,
+  ): Promise<GitOpResult<{ messageId: string }>> {
+    if (resendIndex >= 0) {
+      const dropped = chat.messages.splice(resendIndex);
       // The engine's own conversation still contains the dropped turns.
       chat.session = null;
       await deps.store.removePatches(dropped.flatMap((m) => (m.changeSet ? [m.changeSet.id] : [])));
     }
-    const body = (text ?? '').trim();
-    if (body.length === 0 && (attachments?.length ?? 0) === 0) return failure('Write a message first.');
 
     const at = now();
     const user: ChatMessage = {
@@ -1027,7 +1058,7 @@ export function createChatService(deps: ChatServiceDeps) {
     while (running.size > 0) await new Promise((resolve) => setTimeout(resolve, 5));
   }
 
-  const isRunning = (chatId: string): boolean => running.has(chatId);
+  const isRunning = (chatId: string): boolean => running.has(chatId) || starting.has(chatId);
 
   return { list, get, create, update, remove, send, cancel, isRunning, changeDiffs, resolveChanges, shutdown, idle };
 }
