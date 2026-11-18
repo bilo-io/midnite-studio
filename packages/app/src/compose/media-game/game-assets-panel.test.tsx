@@ -103,3 +103,51 @@ describe('GameAssetsBadge', () => {
     expect(screen.queryByTestId('game-assets-badge')).toBeNull();
   });
 });
+
+describe('GameAssetsPanel library source', () => {
+  const LIBRARY = {
+    root: '/lib',
+    exists: true,
+    collections: [
+      {
+        id: 'gtact',
+        title: 'GTACT',
+        origin: 'catalog' as const,
+        totalBytes: 30,
+        warning: null,
+        assets: [
+          { path: 'images/hero.png', category: 'images', source: 'a/hero.png', bytes: 10, sha256: 'a'.repeat(64), name: 'hero', kind: 'image' as const },
+          { path: 'models/car.glb', category: 'models/vehicles', source: 'a/car.glb', bytes: 20, sha256: 'b'.repeat(64), name: 'car', kind: 'model' as const },
+        ],
+      },
+    ],
+  };
+
+  it('switches between This game and Library, grouping assets by category', async () => {
+    renderView(<GameAssetsPanel game={GAME} />, { fixtures: withGames({ assetSync: SYNC, assetLibrary: LIBRARY }) });
+    expect(await screen.findByText('hero')).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'Library' }));
+    expect(await screen.findByTestId('game-asset-library')).toBeTruthy();
+    expect(screen.queryByText('Import asset')).toBeNull();
+    expect(screen.getByText('images')).toBeTruthy();
+    expect(screen.getByText('models/vehicles')).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'This game' }));
+    expect(await screen.findByText('Import asset')).toBeTruthy();
+  });
+
+  it('inspects an image with a preview and a model with metadata only', async () => {
+    renderView(<GameAssetsPanel game={GAME} />, { fixtures: withGames({ assetLibrary: LIBRARY }) });
+    fireEvent.click(screen.getByRole('tab', { name: 'Library' }));
+    fireEvent.click(await screen.findByRole('button', { name: /hero/ }));
+    expect(await screen.findByRole('img', { name: 'hero' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /car/ }));
+    expect(await screen.findByText(/No inline preview for model/)).toBeTruthy();
+    expect(screen.queryByRole('img', { name: 'hero' })).toBeNull();
+  });
+
+  it('says where to configure the library when the root is missing', async () => {
+    renderView(<GameAssetsPanel game={GAME} />, { fixtures: withGames({}) });
+    fireEvent.click(screen.getByRole('tab', { name: 'Library' }));
+    expect(await screen.findByTestId('library-missing')).toBeTruthy();
+  });
+});

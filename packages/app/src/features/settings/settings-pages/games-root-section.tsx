@@ -37,6 +37,11 @@ export function GamesRootSection() {
     if (path) set.mutate({ gamesRoot: path });
   };
 
+  const chooseLibrary = async () => {
+    const path = await bridge()?.repos.pickDirectory();
+    if (path) set.mutate({ assetLibraryRoot: path });
+  };
+
   return (
     <div className="flex flex-col gap-4 p-3" data-testid="games-settings">
       <div className="space-y-1.5">
@@ -70,6 +75,38 @@ export function GamesRootSection() {
             type="button"
             disabled={settings.gamesRoot === null}
             onClick={() => set.mutate({ gamesRoot: null })}
+            className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-accent disabled:opacity-50"
+          >
+            <LuRotateCcw aria-hidden className="h-3.5 w-3.5" />
+            Reset to default
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <p className="text-xs font-medium text-foreground">Asset library</p>
+        <p className="text-[11px] text-muted-foreground">
+          A shared folder of asset collections outside any game, browsed from a game&apos;s Assets ▸ Library. Read-only.
+        </p>
+        <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs">
+          <span className="flex-1 truncate font-mono text-foreground" data-testid="games-library-path">
+            {read.data?.resolvedLibraryRoot ?? settings.assetLibraryRoot}
+          </span>
+          {settings.assetLibraryRoot === null ? <span className="text-[10px] text-muted-foreground">default</span> : null}
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => void chooseLibrary()}
+            className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-accent"
+          >
+            <LuFolderOpen aria-hidden className="h-3.5 w-3.5" />
+            Choose…
+          </button>
+          <button
+            type="button"
+            disabled={settings.assetLibraryRoot === null}
+            onClick={() => set.mutate({ assetLibraryRoot: null })}
             className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-accent disabled:opacity-50"
           >
             <LuRotateCcw aria-hidden className="h-3.5 w-3.5" />
