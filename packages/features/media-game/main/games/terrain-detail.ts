@@ -101,22 +101,32 @@ export function roadsIn(json: unknown, area: Extent): GameLevelTerrainDetail['ro
   return out.length <= DETAIL_MAX_ROADS ? out : out.sort((a, b) => b.width - a.width).slice(0, DETAIL_MAX_ROADS);
 }
 
-/** A pack's `buildings.json` (`buildings[].polygon` is `[x, z]` metres) as the footprints touching `area`, largest kept when over the cap. */
-export function buildingsIn(json: unknown, area: Extent): GameLevelTerrainDetail['buildings'] {
+/**
+ * A pack's `buildings.json` (`buildings[].polygon` is `[x, z]` metres, with `baseY` and `height`) as the footprints
+ * touching `area`, largest kept when over the cap, and their `[baseY, height]` pairs in the same order (`null` when
+ * any kept building states neither).
+ */
+export function buildingsWithHeights(json: unknown, area: Extent): { buildings: GameLevelTerrainDetail['buildings']; heights: number[] | null } {
   const buildings = (json as { buildings?: unknown } | null)?.buildings;
-  if (!Array.isArray(buildings)) return [];
-  const out: number[][] = [];
-  for (const b of buildings as Array<{ polygon?: unknown }>) {
+  if (!Array.isArray(buildings)) return { buildings: [], heights: null };
+  let out: Array<{ points: number[]; base: number | null; height: number | null }> = [];
+  const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 10) / 10 : null);
+  for (const b of buildings as Array<{ polygon?: unknown; baseY?: unknown; height?: unknown }>) {
     if (!Array.isArray(b?.polygon)) continue;
     const points: number[] = [];
     for (const p of b.polygon) {
       const at = finitePoint(p, 1);
       if (at) points.push(round(at[0]), round(at[1]));
     }
-    if (points.length >= 6 && touches(points, area)) out.push(points);
+    if (points.length >= 6 && touches(points, area)) out.push({ points, base: num(b.baseY), height: num(b.height) });
   }
-  return out.length <= DETAIL_MAX_BUILDINGS ? out : out.sort((a, b) => b.length - a.length).slice(0, DETAIL_MAX_BUILDINGS);
+  if (out.length > DETAIL_MAX_BUILDINGS) out = out.sort((a, b) => b.points.length - a.points.length).slice(0, DETAIL_MAX_BUILDINGS);
+  const stated = out.length > 0 && out.every((b) => b.base !== null && b.height !== null && b.height > 0);
+  return { buildings: out.map((b) => b.points), heights: stated ? out.flatMap((b) => [b.base as number, b.height as number]) : null };
 }
+
+/** {@link buildingsWithHeights}' footprints alone. */
+export const buildingsIn = (json: unknown, area: Extent): GameLevelTerrainDetail['buildings'] => buildingsWithHeights(json, area).buildings;
 
 /** Details by source files and area: an untouched pack and an unmoved level never re-read 10 MB of JSON. Oldest out past {@link CACHE_MAX}. */
 const cache = new Map<string, GameLevelTerrainDetail>();
@@ -164,7 +174,8 @@ export async function readTerrainDetail(files: { drapePng: string | null; roads:
       preview = null;
     }
   }
-  const detail: GameLevelTerrainDetail = { ...extent, preview, roads: roadsIn(await readJson(files.roads), area), buildings: buildingsIn(await readJson(files.buildings), area) };
+  const built = buildingsWithHeights(await readJson(files.buildings), area);
+  const detail: GameLevelTerrainDetail = { ...extent, preview, roads: roadsIn(await readJson(files.roads), area), buildings: built.buildings, ...(built.heights ? { buildingHeights: built.heights } : {}) };
   cache.set(key, detail);
   if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value as string);
   return detail;

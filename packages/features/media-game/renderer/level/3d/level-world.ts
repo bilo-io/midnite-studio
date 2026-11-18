@@ -31,6 +31,8 @@ export type WorldItem = {
   type: string;
   /** Metres: footprint centre on X/Z, and `y` the base (the object's `elevation`, else the ground). */
   position: [number, number, number];
+  /** No `elevation` of its own: it sits on the ground, which on a terrain with relief is the ground under it. */
+  grounded?: boolean;
   /** Radians, three's Euler in `YXZ` order: yaw about Y first, then pitch, then roll. */
   yaw: number;
   pitch: number;
@@ -80,6 +82,7 @@ function buildItem(level: EditLevel, layerId: number, o: LevelObject, index: num
     kind,
     type: String(o.type ?? o.class ?? ''),
     position: [px, py ?? ground, pz],
+    grounded: py === undefined || py === null,
     yaw: placed.yaw,
     pitch: placed.pitch,
     roll: placed.roll,
