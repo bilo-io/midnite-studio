@@ -15984,12 +15984,10 @@ Startup opens on a new Projections view that prices out a compute-node fleet on 
 
 Projections now price in the company's currency (USD without one) from an editable catalog in Settings ▸ Catalog, where built-ins can be hidden and custom hardware and API tiers added. Saves move to workspace v3 with an explicit migration. A projection can be sent to Runway as linked plan lines, with a capacity-capped revenue split. Sending again updates the lines, editing a linked line unlinks it, and both views show Stale until the lines are updated. Projections export to CSV and PDF, and Runway to CSV; text cells are neutralised against formula injection. The energy switch scales energy with utilisation, Duplicate selects the copy, and the projection list uses a roving tabindex. The projection maths and money formatting moved into `shared`, so the main process can use them. PRs #1336 (A), #1339 (B), #1341 (C), #1342 (D), #1344 (E) and #1345 (F, G) were merged on focused local checks while GitHub Actions was billing-locked. Still open: a CI run once billing is unlocked, and the human pass in a packaged build with a GBP company (catalog, send, CSV in Numbers/Excel, PDF in Preview).
 
-<<<<<<< HEAD
 ## 2026-11-18 — Phase 139 (Themes C, D) — Level asset browser and drag-in
 
 The level editor gets an Assets panel under the canvas (collapsed by default; filter, kind chips, virtualised thumbnail grid, skeletons, an empty state with Import). A model tile dragged onto the plan or the 3D view, or armed with a click or Enter, adds one `prop` carrying `model` as a single undo step; models are refused on 2D levels with a notice. The panel takes extra tabs for the coming Prefabs tab.
-=======
+
 ## 2026-11-18 — Phase 140 (Themes E, F, G) — Live ghosts, overlays, in-game debug draw
 
 The level editor gains a Live toggle (ghosts of the running game with dashed drift lines, and Copy live position as one undo step), a View menu for collider, trigger and nav-mesh overlays in the plan and 3D views, and the same overlays in the running game through kit 0.14.0 (`__midnite.debug`, `__midnite.navMesh`), driven by the same switches.
->>>>>>> 345ca6871 (docs(tasks): phase 140 E, F, G landed)
