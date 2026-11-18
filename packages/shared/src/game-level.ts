@@ -217,6 +217,23 @@ export type GameLevelsResult = z.infer<typeof GameLevelsResultSchema>;
 
 export const GameLevelGetRequestSchema = z.object({ gameId: z.string().min(1), scene: GameSceneNameSchema });
 /** A 3D level's terrain, only as an extent: the pack's bounds in metres (X right, Z down) and its drape image when it carries one. */
+/**
+ * The part of a terrain a level works in, in more detail than the whole-terrain preview can carry: a crop of the
+ * drape at its own resolution, and the pack's roads and building footprints inside the area. Sent when the level is
+ * much smaller than its terrain (a 1.6 km level on a 10 km terrain), where the preview is ~10 m to the pixel.
+ * Roads and buildings are flat `[x, z, x, z, …]` runs in world metres, so the plan draws them sharp at any zoom.
+ */
+export const GameLevelTerrainDetailSchema = z.object({
+  minX: z.number(),
+  minZ: z.number(),
+  maxX: z.number(),
+  maxZ: z.number(),
+  preview: z.string().nullable(),
+  roads: z.array(z.object({ width: z.number(), points: z.array(z.number()) })),
+  buildings: z.array(z.array(z.number())),
+});
+export type GameLevelTerrainDetail = z.infer<typeof GameLevelTerrainDetailSchema>;
+
 export const GameLevelTerrainSchema = z.object({
   name: z.string(),
   minX: z.number(),
@@ -224,6 +241,7 @@ export const GameLevelTerrainSchema = z.object({
   maxX: z.number(),
   maxZ: z.number(),
   preview: z.string().nullable(),
+  detail: GameLevelTerrainDetailSchema.optional(),
 });
 export type GameLevelTerrain = z.infer<typeof GameLevelTerrainSchema>;
 

@@ -32,6 +32,18 @@ describe('readLevelTerrain (Phase 132 Theme E)', () => {
     expect(t?.preview).toMatch(/^data:image\/png;base64,/);
   });
 
+  it('adds the detail of the part a small level works in, and none for a level as big as its terrain', async () => {
+    await repo.writeFile('assets/terrain/world/terrain.manifest.json', JSON.stringify({ bounds: { min: [-100, 0, -50], max: [100, 40, 50] }, maps: { drape: 'drape.png' }, roads: 'roads.json', buildings: '../../../../outside.json' }));
+    await writeFile(join(repo.path, 'assets/terrain/world/drape.png'), noisyPng(200, 100));
+    await repo.writeFile('assets/terrain/world/roads.json', JSON.stringify({ edges: [{ points: [[0, 0, 0], [5, 0, 5]], widthM: 4 }] }));
+    const small = { ...withTerrain('world'), width: 10, height: 10, tilewidth: 32, tileheight: 32, layers: [] };
+    const t = await readLevelTerrain(repo.path, small);
+    expect(t?.detail).toMatchObject({ minX: -2, minZ: -2, maxX: 12, maxZ: 12, roads: [{ width: 4, points: [0, 0, 5, 5] }], buildings: [] });
+    expect(t?.detail?.preview).toMatch(/^data:image\/png;base64,/);
+    expect((await readLevelTerrain(repo.path, { ...small, width: 200, height: 100 }))?.detail).toBeUndefined();
+    expect((await readLevelTerrain(repo.path, withTerrain('world')))?.detail).toBeUndefined();
+  });
+
   it('draws only the outline when the pack has no drape', async () => {
     await repo.writeFile('assets/terrain/world/terrain.manifest.json', JSON.stringify({ bounds: { min: [0, 0, 0], max: [10, 1, 20] } }));
     expect(await readLevelTerrain(repo.path, withTerrain('world'))).toEqual({ name: 'world', minX: 0, minZ: 0, maxX: 10, maxZ: 20, preview: null });

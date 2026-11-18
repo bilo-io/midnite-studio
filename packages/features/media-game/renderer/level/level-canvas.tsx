@@ -180,6 +180,7 @@ export function LevelCanvas({
   const [cursor, setCursor] = useState<PlanPoint | null>(null);
   const [brushAt, setBrushAt] = useState<PlanPoint | null>(null);
   const { image: terrainImage, loaded: terrainLoaded } = useTerrainImage(plan?.terrain?.preview);
+  const { image: terrainDetailImage, loaded: terrainDetailLoaded } = useTerrainImage(plan?.terrain?.detail?.preview);
   /** Bumped while a pulse is running, so the draw effect repaints it. */
   const [pulseTick, setPulseTick] = useState(0);
   useEffect(() => {
@@ -263,7 +264,7 @@ export function LevelCanvas({
       } else ctx.rect(o.x, o.y, tmj.tilewidth, tmj.tileheight);
     };
     if (plan) {
-      const overlay: PlanOverlay = { terrain: plan.terrain, terrainImage, draft: plan.draft, cursor: plan.draft.length > 0 ? cursor : null, volume: plan.volume };
+      const overlay: PlanOverlay = { terrain: plan.terrain, terrainImage, terrainDetailImage, draft: plan.draft, cursor: plan.draft.length > 0 ? cursor : null, volume: plan.volume };
       drawPlan(ctx, { level, view, selection, selected, marquee, hidden, overlay, outline, text, highlight });
       if (hasExtras(extras)) drawExtras(ctx, { extras, view });
       if (brush && brushAt) drawBrush(ctx, { at: brushAt, radius: brush.radius, view, outline });
@@ -345,7 +346,7 @@ export function LevelCanvas({
       ctx.stroke();
     }
     if (brush && brushAt) drawBrush(ctx, { at: brushAt, radius: brush.radius, view, outline, toMap: (p) => objectToMapPoint(level, p.x, p.y) });
-  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection, selected, marquee, hidden, plan, terrainImage, terrainLoaded, cursor, highlight, pulseTick, extras, brush, brushAt]);
+  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection, selected, marquee, hidden, plan, terrainImage, terrainLoaded, terrainDetailImage, terrainDetailLoaded, cursor, highlight, pulseTick, extras, brush, brushAt]);
 
   const local = (e: { clientX: number; clientY: number }) => {
     const rect = canvas.current?.getBoundingClientRect();
