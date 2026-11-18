@@ -1,4 +1,4 @@
-# AGENTS.md — working notes for Codex
+# AGENTS.md — working notes for agents
 
 <!-- TODO: one or two sentences on what this project is. -->
 
@@ -12,18 +12,20 @@ session needs to find what is TODO, in flight or done. Each phase's narrative li
 theme lands or a phase is refined, verified or created, write the narrative there and touch only
 the phase's *row* in `_INDEX.md`.
 
-## Keep `CLAUDE.md`, `AGENTS.md` and `GEMINI.md` in sync
+## One convention file: `AGENTS.md`
 
-This repo can drive more than one coding agent — **Claude** (`CLAUDE.md`, this file), **Codex**
-(`AGENTS.md`), and **Antigravity** (`GEMINI.md`) — each reading its own convention file by its own
-naming rule, not this one. Whichever of the three you actually use, keep all three carrying the
-*same* conventions, so a session started with any of them sees the same rules.
+**`AGENTS.md` is the single source of the conventions every coding agent follows here.** Codex,
+Antigravity and most other agent CLIs read it directly. Claude Code reads only `CLAUDE.md`, so `CLAUDE.md` is a stub that imports this file
+(`@AGENTS.md`) and holds only notes that apply to Claude Code alone. There is no `GEMINI.md`:
+Antigravity reads `AGENTS.md`.
 
-**Whenever you edit this file, apply the same edit to `AGENTS.md` and `GEMINI.md`** — and the same
-the other way around: an edit landed in either of those two belongs in this file and the remaining
-one too. Keep prose agent-neutral (say "the agent" or "a session", not "Claude") except where the
-guidance is genuinely specific to one CLI's own behavior — that stays named, in the one file it
-actually applies to.
+**Edit the conventions here, never in `CLAUDE.md`.** Keep prose agent-neutral (say "the agent" or
+"a session", not a product name) except where the guidance is genuinely specific to one CLI's
+behaviour.
+
+**Skills live in two mirrors: `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex,
+Antigravity and the other CLIs).** Keep the two byte-identical apart from paths that name their
+own folder. There is no `.codex/skills/`: current Codex reads `.agents/skills/`.
 
 ## Where to work — ask before the first edit
 

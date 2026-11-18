@@ -33,7 +33,7 @@ If `gh` says *"Could not resolve repository"*, the active `gh` account flipped; 
 
 ## Respect
 
-- The repo's convention file (`CLAUDE.md`, `AGENTS.md` or `GEMINI.md`) = conventions (package boundaries, commit style, pre-push gate), and its design doc, if it names one, is the source of truth. Re-read the relevant bits before coding.
+- The repo's convention file (`AGENTS.md`, which `CLAUDE.md` imports) = conventions (package boundaries, commit style, pre-push gate), and its design doc, if it names one, is the source of truth. Re-read the relevant bits before coding.
 - Parallel work → git worktrees in the repo-root **`.worktrees/<branch>/`** dir (git-ignored; **never** under `.git/` — that path gets pruned by parallel `git worktree` runs and some dev servers deny `.git/**`). Keep the primary checkout as home base; all multi-file work happens in the worktree.
 - **Every writing tool call must be rooted at the worktree path** — absolute paths rooted at the primary checkout silently edit the wrong tree, and the local gate then passes on stale code.
 - `.midnite/tasks/` is the *roadmap* tracker and is **not** the driver here — the issue board is. Only touch `.midnite/tasks/` if the fix happens to close out an existing phase item, and say so if it does.

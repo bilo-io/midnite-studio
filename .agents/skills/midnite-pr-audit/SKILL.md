@@ -80,8 +80,8 @@ The numbered findings. This is the part that matters. Look for:
 3. **Silent gaps.** Cases the code quietly skips, such as a platform, an empty state or a first run.
 4. **Claims without evidence.** L3 says "tested" or "unchanged" but L4 shows otherwise, or a test
    is named that does not exist.
-5. **Stale words.** Schema doc comments, code comments, the phase doc, `CLAUDE.md`, `AGENTS.md` or
-   `GEMINI.md` still describing the old behaviour.
+5. **Stale words.** Schema doc comments, code comments, the phase doc or `AGENTS.md`
+   still describing the old behaviour.
 6. **Ruled out, and done anyway.** Anything L0 said to keep, or a package boundary the diff crosses.
 
 Every finding says what the request said, what ships, the consequence, and whose call it is.

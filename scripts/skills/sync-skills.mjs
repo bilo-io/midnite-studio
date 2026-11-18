@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// Skill mirror parity (Phase 151 Theme A). The repo carries each `midnite-*` skill in three mirrors,
-// `.agents/skills/` (runtime-neutral, the source), `.claude/skills/` and `.codex/skills/`. The
-// Claude copy adds `argument-hint` / `allowed-tools` frontmatter and names `AskUserQuestion`; the
-// others say "Invoke with:" and ask in plain words. Those differences are intentional.
+// Skill mirror parity (Phase 151 Theme A). The repo carries each `midnite-*` skill in two mirrors,
+// `.agents/skills/` (runtime-neutral, the source; Codex, Antigravity and most other CLIs read it)
+// and `.claude/skills/`. The Claude copy adds `argument-hint` / `allowed-tools` frontmatter and
+// names `AskUserQuestion`; the neutral one says "Invoke with:" and ask in plain words. Those differences are intentional.
 //
 //   node scripts/skills/sync-skills.mjs                  audit: print per-skill status, exit 1 on drift
 //   node scripts/skills/sync-skills.mjs --json           machine-readable audit
@@ -17,7 +17,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const MIRRORS = ['.agents', '.claude', '.codex'];
+export const MIRRORS = ['.agents', '.claude'];
 export const CLAUDE_ONLY_KEYS = ['argument-hint', 'allowed-tools'];
 
 /** Split a SKILL.md into `{front, body}`; `front` includes the `---` fences and trailing newline. */

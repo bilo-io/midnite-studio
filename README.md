@@ -298,8 +298,8 @@ Work phase by phase from [`.midnite/tasks/`](.midnite/tasks/). Every change leav
 ## Onboarding another repo
 
 [`templates/midnite/`](templates/midnite/) is a checked-in, repo-agnostic skeleton of this same
-workflow — the `.midnite/tasks/` tracker, the nine core skills mirrored into `.claude/`, `.agents/`
-and `.codex/`, and `CLAUDE.md`/`AGENTS.md`/`GEMINI.md` stubs — for onboarding a *different* repo
+workflow — the `.midnite/tasks/` tracker, the nine core skills mirrored into `.claude/` and `.agents/`,
+an `AGENTS.md` stub and a `CLAUDE.md` that imports it — for onboarding a *different* repo
 onto it, not this one. The midnite menu's Setup leaf is what will copy it in and track a hash
 manifest so a re-run is an upgrade rather than a guess (Phase 49); until then,
 [`midnite-setup`](.claude/skills/midnite-setup/SKILL.md) is the interactive path — it emits this

@@ -107,9 +107,9 @@ Apply only the sections the diff touches.
 - A phase PR leaves `.midnite/tasks/` consistent: an entry appended to `done.md`, the theme's
   narrative in the phase doc's `## Headlines` paragraph, and **only the row** touched in
   `_INDEX.md`. Prose added to `_INDEX.md` is a WARNING.
-- **`CLAUDE.md`, `AGENTS.md` and `GEMINI.md` stay in sync.** An edit to one without the same edit
-  in the others: WARNING.
-- Skills ship as byte-identical copies in `.claude/`, `.agents/` and `.codex/`
+- **Conventions live in `AGENTS.md` only.** `CLAUDE.md` is an `@AGENTS.md` import plus Claude-only
+  notes; a convention added to `CLAUDE.md`, or a `GEMINI.md` brought back: WARNING.
+- Skills ship as byte-identical copies in `.claude/` and `.agents/`
   (`scripts/skill-copies.test.mjs`).
 - Commits carry no `Co-Authored-By`, `Signed-off-by` or other attribution trailer, and are authored
   as `bilo-io`.
