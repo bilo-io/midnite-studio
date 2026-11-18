@@ -18,6 +18,7 @@ import {
   LuLayers,
   LuLock,
   LuPlus,
+  LuRadio,
   LuScissors,
   LuTrash2,
 } from 'react-icons/lu';
@@ -44,6 +45,8 @@ export type LevelMenuActions = {
   selectAll(layerId?: number): void;
   align(axis: AlignAxis, edge: AlignEdge): void;
   addLayer(kind: 'tile' | 'object'): void;
+  /** Phase 140 Theme E: take the object's live twin's position, one undo step. */
+  copyLivePosition?(): void;
 };
 
 const SEP: FrameMenuEntry = { type: 'separator' };
@@ -70,7 +73,7 @@ function tidy(entries: FrameMenuEntry[]): FrameMenuEntry[] {
   return out;
 }
 
-export function levelContextMenu(state: EditState, target: LevelMenuTarget, ctx: { canPaste: boolean; readOnly: boolean }, actions: LevelMenuActions, is3d = false): FrameMenuEntry[] {
+export function levelContextMenu(state: EditState, target: LevelMenuTarget, ctx: { canPaste: boolean; readOnly: boolean; liveTwin?: boolean }, actions: LevelMenuActions, is3d = false): FrameMenuEntry[] {
   const { canPaste, readOnly } = ctx;
   const pasteItem = (label: string, at?: PlanPoint): FrameMenuEntry => ({
     label,
@@ -95,6 +98,7 @@ export function levelContextMenu(state: EditState, target: LevelMenuTarget, ctx:
       { label: 'Duplicate', description: hint('⌘D'), icon: LuCopyPlus, onSelect: actions.duplicate },
       SEP,
       frame,
+      ...(ctx.liveTwin && actions.copyLivePosition ? [{ label: 'Copy live position', icon: LuRadio, onSelect: actions.copyLivePosition } as FrameMenuEntry] : []),
       { label: 'Hide', icon: LuEyeOff, onSelect: actions.hide },
       { label: 'Lock', icon: LuLock, onSelect: actions.lock },
       selectType,

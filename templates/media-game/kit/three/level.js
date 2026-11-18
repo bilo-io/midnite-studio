@@ -12,6 +12,7 @@
 import * as THREE from 'three';
 
 import { registerEntities } from '../core/hook.js';
+import { installDebugDraw3d } from './debug-draw.js';
 import { applySpawn3d, levelEntities, levelProps, metresPerTile, snapshotLevelEntities, spawnOverride, toWorld3d } from '../core/level.js';
 
 /**
@@ -118,6 +119,9 @@ export async function buildLevel3d(context, map, options = {}) {
       }),
     'level',
   );
+
+  // `__midnite.debug({ colliders, triggers, nav })` outlines the volumes and the navmesh (Phase 140 G).
+  installDebugDraw3d(scene, map, { ground, groundY });
 
   // Play from here: `?midnite-spawn=x,z` or `x,height,z` (metres) replaces the scene's own `spawn`.
   const override = spawnOverride();

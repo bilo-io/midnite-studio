@@ -53,6 +53,8 @@ export const mediaGameManifest = defineFeatureManifest({
     CHANNELS.gamesGoto,
     CHANNELS.gamesEntities,
     CHANNELS.gamesEntitiesWatch,
+    CHANNELS.gamesDebug,
+    CHANNELS.gamesNavMesh,
     CHANNELS.gamesPopOut,
     CHANNELS.gamesPopped,
     CHANNELS.gamesAgentRun,

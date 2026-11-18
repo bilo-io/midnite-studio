@@ -14,6 +14,7 @@ import { pixelsToPng } from './level-capture';
 import type { LevelCaptured, LevelCaptureRequest } from '../level-editor-controls';
 import { formatStats, type GroundTile, type ViewStats } from './level-cull';
 import { footprintBox, gizmoSteps, surfaceElevation } from '../level-snap';
+import type { SceneExtras } from './level-extras';
 import type { LevelSceneProps } from './level-scene';
 import { disposeTree, LevelScene, NO_DRAFT, SCENE_BACKGROUND, type CameraMove, type ToolDraft } from './level-scene';
 import { commitVolume, groundPoint, rayHitsItem, rotateToward, snappedPlanPoint, volumeFromDrag, worldPointFromPlan } from './level-ground';
@@ -62,6 +63,8 @@ export type Level3dViewProps = {
   hidden?: ReadonlySet<string>;
   /** Objects locked in the outliner (refKeys): drawn, but a click does not pick them. */
   locked?: ReadonlySet<string>;
+  /** Collider / trigger volumes, the nav-mesh and live ghosts (Phase 140 Themes E to G). */
+  extras?: SceneExtras;
   /** Right-click (Phase 137 Theme I): the object under the pointer, or null over the ground. */
   onContextMenu?: (event: { clientX: number; clientY: number; hit: { layerId: number; objectId: number } | null }) => void;
   /** Phase 139 Theme D: an asset dropped from the browser lands on the ground point under the pointer (already snapped). */
@@ -458,6 +461,7 @@ export default function Level3dView(props: Level3dViewProps) {
           capture={captureFn}
           setOrbit={setOrbit}
           draft={draft}
+          extras={props.extras}
           project={project}
           gizmo={gizmo}
           snap={snap}

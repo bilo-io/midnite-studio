@@ -451,6 +451,19 @@ describe('createGameRunner', () => {
     expect(await runner.juice('ga', 'reset')).toEqual({ ok: false, kind: 'error', message: 'Could not reach the game.' });
   });
 
+  it('debug and navMesh go through the game hook and refuse a game that is not running (Phase 140 Theme G)', async () => {
+    expect(await runner.debug('nope', { colliders: true })).toEqual({ ok: false, kind: 'error', message: 'That game is not running.' });
+    expect((await runner.navMesh('nope')).ok).toBe(false);
+    await runner.run(game('ga'));
+    const wc = viewOf('ga').webContents;
+    wc.executeJavaScript.mockResolvedValueOnce(JSON.stringify({ colliders: true, triggers: false, nav: false }));
+    expect(await runner.debug('ga', { colliders: true })).toEqual({ ok: true, value: { colliders: true, triggers: false, nav: false } });
+    expect(String((wc.executeJavaScript.mock.calls as unknown[][]).at(-1)?.[0])).toContain('h.debug({"colliders":true})');
+    wc.executeJavaScript.mockResolvedValueOnce(JSON.stringify({ polygons: [[[0, 0], [1, 0], [1, 1]]] }));
+    expect(await runner.navMesh('ga')).toEqual({ ok: true, value: { polygons: [[[0, 0], [1, 0], [1, 1]]] } });
+    expect(String((wc.executeJavaScript.mock.calls as unknown[][]).at(-1)?.[0])).toContain('h.navMesh()');
+  });
+
   it('reloads a running game and refuses to reload one that is not running', async () => {
     expect(runner.reload('ga').ok).toBe(false);
     await runner.run(game('ga'));

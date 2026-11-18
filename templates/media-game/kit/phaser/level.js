@@ -12,6 +12,7 @@ import * as Phaser from 'phaser';
 
 import { registerEntities } from '../core/hook.js';
 import { applySpawn2d, currentLevel, levelEntities, levelGrid, levelUrl, snapshotLevelEntities, spawnOverride, tiledObjects } from '../core/level.js';
+import { installDebugDraw2d } from './debug-draw.js';
 import { buildTiledMap } from './tiled.js';
 
 /**
@@ -39,6 +40,8 @@ export async function buildLevel(scene, name, options = {}) {
   const override = spawnOverride();
   const entities = levelEntities(map);
   registerEntities(() => snapshotLevelEntities(entities, { scene: name, live: options.live, to: (e) => ({ x: e.x, y: e.y }) }), 'level');
+  // `__midnite.debug({ colliders, triggers })` draws this level's solid tiles and trigger zones (Phase 140 G).
+  installDebugDraw2d(scene, map);
   if (options.render === true) {
     const built = await buildTiledMap(scene, key, 'levels');
     return { map, ...built, grid: (/** @type {string} */ layer) => levelGrid(map, layer), entities, spawn: applySpawn2d(built.objects.spawns[0] ?? null, override) };

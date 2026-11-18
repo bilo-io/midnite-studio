@@ -1700,6 +1700,10 @@ export type MidniteStudioBridge = {
       watch: (req: In<typeof S.GamesEntitiesRequest>) => Unsubscribe;
     };
     onEntityState: (handler: (event: z.infer<typeof S.GamesEntityStatePayload>) => void) => Unsubscribe;
+    /** Phase 140 Theme G: switch the running game's debug overlays (`window.__midnite.debug`); switches left out keep their setting. */
+    debug: (req: In<typeof S.GamesDebugRequest>) => Promise<z.infer<typeof S.GamesDebugResponse>>;
+    /** The running game's nav-mesh (`window.__midnite.navMesh()`), for the editor's Nav-mesh overlay. */
+    navMesh: (req: In<typeof S.GamesNavMeshRequest>) => Promise<z.infer<typeof S.GamesNavMeshResponse>>;
     /** Move a game's runner into the `game` popout window; closing that window docks it back. */
     popOut: (req: In<typeof S.GamesPopOutRequest>) => Promise<GitOpResult>;
     /** Which game the `game` popout hosts — how the popout's own renderer learns what to show. */

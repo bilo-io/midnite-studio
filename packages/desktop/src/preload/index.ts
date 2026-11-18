@@ -795,6 +795,8 @@ const bridge: Pick<
       },
     },
     onEntityState: (handler) => subscribe(EVENT_CHANNELS.gamesEntityState, handler),
+    debug: (req) => call(CHANNELS.gamesDebug, req),
+    navMesh: (req) => call(CHANNELS.gamesNavMesh, req),
     popOut: (req) => call(CHANNELS.gamesPopOut, req),
     popped: () => call(CHANNELS.gamesPopped),
     onPopState: (handler) => subscribe(EVENT_CHANNELS.gamesPopState, handler),

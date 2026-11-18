@@ -15987,3 +15987,7 @@ Projections now price in the company's currency (USD without one) from an editab
 ## 2026-11-18 — Phase 139 (Themes C, D) — Level asset browser and drag-in
 
 The level editor gets an Assets panel under the canvas (collapsed by default; filter, kind chips, virtualised thumbnail grid, skeletons, an empty state with Import). A model tile dragged onto the plan or the 3D view, or armed with a click or Enter, adds one `prop` carrying `model` as a single undo step; models are refused on 2D levels with a notice. The panel takes extra tabs for the coming Prefabs tab.
+
+## 2026-11-18 — Phase 140 (Themes E, F, G) — Live ghosts, overlays, in-game debug draw
+
+The level editor gains a Live toggle (ghosts of the running game with dashed drift lines, and Copy live position as one undo step), a View menu for collider, trigger and nav-mesh overlays in the plan and 3D views, and the same overlays in the running game through kit 0.14.0 (`__midnite.debug`, `__midnite.navMesh`), driven by the same switches.

@@ -14,7 +14,10 @@
  */
 
 // The vendored bundle re-exports `@recast-navigation/three` beside the core.
-import { NavMeshQuery, init, threeToSoloNavMesh } from 'recast-navigation';
+import { NavMeshQuery, getNavMeshPositionsAndIndices, init, threeToSoloNavMesh } from 'recast-navigation';
+
+import { refreshDebug, registerNavMesh } from '../core/hook.js';
+import { trianglesToPolygons } from '../core/nav-policy.js';
 
 /** Agent-sized defaults (metres): a 1.8 m tall, 0.35 m radius humanoid. */
 export const NAV_DEFAULTS = {
@@ -27,6 +30,17 @@ export const NAV_DEFAULTS = {
 };
 
 let ready = /** @type {Promise<void> | null} */ (null);
+
+/**
+ * The nav-mesh as plan polygons, `[x, z]` metres (Phase 140 Theme G). `window.__midnite.navMesh()` answers with this,
+ * so the editor draws the mesh the AI actually walks.
+ * @param {{ navMesh: any }} nav what `createNavMesh` returned
+ * @returns {[number, number][][]}
+ */
+export function navMeshPolygons(nav) {
+  const [positions, indices] = getNavMeshPositionsAndIndices(nav.navMesh);
+  return trianglesToPolygons(positions, indices);
+}
 
 /**
  * Build a navmesh from the meshes agents may walk on (ground, floors, ramps —
@@ -44,7 +58,9 @@ export async function createNavMesh(meshes, config = {}) {
   /** @param {readonly number[]} p */
   const vec = (p) => ({ x: p[0] ?? 0, y: p[1] ?? 0, z: p[2] ?? 0 });
 
-  return {
+  /** @type {() => void} */
+  let unregister = () => {};
+  const nav = {
     navMesh,
     query,
     /**
@@ -64,8 +80,13 @@ export async function createNavMesh(meshes, config = {}) {
       return success ? /** @type {[number, number, number]} */ ([p.x, p.y, p.z]) : null;
     },
     dispose() {
+      unregister();
       query.destroy();
       navMesh.destroy();
     },
   };
+  // The newest navmesh is what the hook reports, so the editor's Nav-mesh overlay shows what the AI walks.
+  unregister = registerNavMesh(() => ({ polygons: navMeshPolygons(nav) }));
+  refreshDebug();
+  return nav;
 }

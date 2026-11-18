@@ -426,6 +426,23 @@ export function setObjectField(state: EditState, sel: NonNullable<EditSelection>
   });
 }
 
+/**
+ * Set an object's position as ONE undo step (Phase 140 Theme E, "Copy live position"): its `x`/`y` and, for a 3D
+ * level, its `elevation` property. Nothing else about the object changes. The same reference comes back when the
+ * object already sits there.
+ */
+export function setObjectPlacement(state: EditState, sel: NonNullable<EditSelection>, at: { x: number; y: number; elevation?: number }): EditState {
+  if (!Number.isFinite(at.x) || !Number.isFinite(at.y) || (at.elevation !== undefined && !Number.isFinite(at.elevation))) return state;
+  return mapObject(state, sel, (o) => {
+    const elevation = at.elevation === undefined ? undefined : o.properties?.find((p) => p.name === 'elevation')?.value;
+    const sameElevation = at.elevation === undefined || elevation === at.elevation;
+    if (o.x === at.x && o.y === at.y && sameElevation) return o;
+    const next: LevelObject = { ...o, x: at.x, y: at.y };
+    if (at.elevation !== undefined && !sameElevation) next.properties = upsert(o.properties, { name: 'elevation', type: 'float', value: at.elevation });
+    return next;
+  });
+}
+
 /** Coerce an input string to a property's type; `null` when it does not parse (the caller keeps the old value). */
 export function coerceProperty(type: 'string' | 'int' | 'float' | 'bool', raw: string | number | boolean): string | number | boolean | null {
   switch (type) {

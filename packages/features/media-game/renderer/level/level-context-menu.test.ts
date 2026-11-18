@@ -79,3 +79,19 @@ describe('levelContextMenu', () => {
     expect(a.selectAll).toHaveBeenCalledWith(layerId);
   });
 });
+
+describe('Copy live position (Phase 140 Theme E)', () => {
+  it('is offered only for an object with a live twin, and not when read-only', () => {
+    const { s, refs } = setup();
+    const withTwin = { ...actions(), copyLivePosition: vi.fn() };
+    const state = selectOnly(s, refs[0]!);
+    const target = { kind: 'object', ref: refs[0]! } as const;
+    expect(labels(levelContextMenu(state, target, { ...ctx, liveTwin: true }, withTwin))).toContain('Copy live position');
+    expect(labels(levelContextMenu(state, target, { ...ctx, liveTwin: false }, withTwin))).not.toContain('Copy live position');
+    expect(labels(levelContextMenu(state, target, { canPaste: true, readOnly: true, liveTwin: true }, withTwin))).not.toContain('Copy live position');
+    const item = levelContextMenu(state, target, { ...ctx, liveTwin: true }, withTwin).find((i) => 'label' in i && i.label === 'Copy live position') as { onSelect: () => void };
+    item.onSelect();
+    expect(withTwin.copyLivePosition).toHaveBeenCalled();
+  });
+});
+
