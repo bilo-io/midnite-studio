@@ -281,12 +281,11 @@ export function ChatPane({ selectedId, headerActions }: { selectedId: string | n
       ) : null}
       {chat && chat.linkedTerminalId && getProviderSyncTier(chat.engine) === 'handoff-only' && !handoffDismissed.has(chat.id) ? (
         <div
-          role="status"
           data-testid="chat-handoff-only-banner"
           className="flex shrink-0 items-center gap-2 border-b border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-900 dark:text-amber-200"
         >
           <LuInfo aria-hidden className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-          <span>Interactive Terminal turns are not synced back into this Chat thread.</span>
+          <span role="status">Interactive Terminal turns are not synced back into this Chat thread.</span>
           <span className="ml-auto">
             <IconButton
               icon={LuX}

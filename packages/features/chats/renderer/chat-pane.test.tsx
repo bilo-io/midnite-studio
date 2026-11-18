@@ -96,7 +96,7 @@ describe('ChatPane handoff-only banner', () => {
     renderChatPane(makeChat({ id: 'c1', engine: 'cursor', linkedTerminalId: 'term-1' }));
 
     const banner = screen.getByTestId('chat-handoff-only-banner');
-    expect(banner.getAttribute('role')).toBe('status');
+    expect(screen.getByRole('status').textContent).toBe('Interactive Terminal turns are not synced back into this Chat thread.');
     expect(banner.textContent).toContain('Interactive Terminal turns are not synced back into this Chat thread.');
     expect(screen.getByLabelText('Message')).toBeTruthy();
   });
