@@ -113,8 +113,8 @@ MSTUDIO_CROSS_PLATFORM=1 moon run root:visual-regen
 
 ## Prerequisites
 
-- [proto](https://moonrepo.dev/proto) — `proto use` installs the pinned node 22.12.0 /
-  pnpm 9.15.0 / moon 2.3.4 from [`.prototools`](.prototools).
+- [proto](https://moonrepo.dev/proto) — `proto use` installs the pinned node 24.22.2 /
+  pnpm 10.34.9 / moon 2.6.5 from [`.prototools`](.prototools).
 - A GitHub token with **`read:packages`**, exported as `GITHUB_PACKAGES_TOKEN`. GitHub Packages
   requires an `Authorization` header even for public packages, so `pnpm install` fails without it:
 

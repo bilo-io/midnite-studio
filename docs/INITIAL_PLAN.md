@@ -32,7 +32,7 @@ Product pillars:
 ### Package layout (`~/Dev/midnite-studio`)
 
 ```
-.prototools                # node 22.12.0, pnpm 9.15.0, moon 2.3.4
+.prototools                # node 24.22.2, pnpm 10.34.9, moon 2.6.5
 .npmrc                     # @bilo-io registry + ${GITHUB_PACKAGES_TOKEN}
 .moon/{workspace,toolchain,tasks}.yml   # crib midnite; vcs.defaultBranch main; syncProjectReferences false
 moon.yml  pnpm-workspace.yaml  tsconfig.base.json  eslint.config.mjs
