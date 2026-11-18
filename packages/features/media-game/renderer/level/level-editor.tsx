@@ -9,6 +9,7 @@ import {
   LuPipette,
   LuPencilRuler,
   LuPlus,
+  LuRadio,
   LuRedo2,
   LuRotateCw,
   LuRoute,
@@ -25,7 +26,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { GAME_LEVEL_ENTITY_TYPES_2D, GAME_LEVEL_ENTITY_TYPES_3D, levelEntityToWorld, levelProperties, metresPerTile, type GameLevelGetResult } from '@midnite/studio-shared';
 import { EmptyState, EmptyStateButton, KitContextMenu, Skeleton, useFrameChrome, type FrameMenuEntry } from '@midnite/studio-frame';
 
-import { useNotify } from '../chrome';
+import { IconButton, useNotify } from '../chrome';
+import { isLive, useGameRunStore } from '../game-run-store';
 import { useDoctorRequest } from '../game-doctor-store';
 import { useDoctorFix, useGameDiagnosis } from '../use-games';
 import { LevelAlignBar } from './level-align-bar';
@@ -98,6 +100,11 @@ import { refKey, sameRef } from './level-selection';
 import { snapPlan } from './level-plan';
 import { planSnapStep } from './level-snap';
 import { LevelShortcutHelp } from './level-shortcut-help';
+import { LevelViewPopover } from './level-view-popover';
+import { levelExtras } from './live/level-extras-model';
+import { LiveChip } from './live/live-chip';
+import { copyLivePosition, liveTwin } from './live/live-model';
+import { useLiveEntities } from './live/use-live-entities';
 import { isMac, matchShortcut } from './level-shortcuts';
 import { LevelSnapPopover } from './level-snap-popover';
 import { PlayFromHereButton, usePlayFromHere } from './play-from-here';
@@ -316,6 +323,25 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
   const manifest = manifestQuery.data ?? null;
   const armedAsset = useArmedAsset();
   const browserTabs = useAssetBrowserTabs();
+  // Live ghosts and the View overlays (Phase 140 Themes E to G). Live needs a running game and turns itself off with it.
+  const overlays = useLevelViewStore((s) => s.overlays);
+  const runState = useGameRunStore((s) => s.runs[gameId]?.state);
+  const gameRunning = isLive(runState) && runState !== 'starting';
+  const [liveOn, setLiveOn] = useState(false);
+  useEffect(() => {
+    if (!gameRunning) setLiveOn(false);
+  }, [gameRunning]);
+  const liveFeed = useLiveEntities(gameId, liveOn && gameRunning).result;
+  const ghosts = useMemo(() => liveFeed?.entities ?? [], [liveFeed]);
+  const [navPolygons] = useState<ReadonlyArray<ReadonlyArray<readonly [number, number]>>>([]);
+  const extras = useMemo(() => levelExtras({ level, is3d, overlays, ghosts, nav: navPolygons }), [level, is3d, overlays, ghosts, navPolygons]);
+  const kitNoticed = useRef(false);
+  useEffect(() => {
+    if (liveFeed?.unsupported && !kitNoticed.current) {
+      kitNoticed.current = true;
+      notify("Update the game's kit to see live entities", { danger: true });
+    }
+  }, [liveFeed?.unsupported, notify]);
   const models = useMemo(() => (manifest?.assets ?? []).filter((a) => a.kind === 'model').map((a) => a.name), [manifest]);
 
   const blocking = blockingIssues(entry);
@@ -700,7 +726,14 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
     },
     align: (axis, edge) => update((s) => alignObjects(s, s.selected, axis, edge)),
     addLayer: (kind) => update((s) => addLayer(s, kind, kind === 'tile' ? 'tiles' : 'objects')),
+    copyLivePosition: () => copyLiveOf(edit.selection ?? edit.selected[edit.selected.length - 1] ?? null),
   });
+
+  /** "Copy live position": the object takes its live twin's position, as one undo step. */
+  const copyLiveOf = (ref: ObjectRef | null) => {
+    const twin = ref ? liveTwin(ghosts, ref) : null;
+    if (ref && twin) update((s) => copyLivePosition(s, ref, twin, is3d));
+  };
 
   /** Open the right-click menu (Theme I). Right-clicking an unselected object selects it first, as every engine does. */
   const openLevelMenu = async (point: { clientX: number; clientY: number }, target: LevelMenuTarget, at?: PlanPoint) => {
@@ -711,7 +744,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
     }
     const clip = await readClipboard();
     const canPaste = clip !== null && clip.dimension === (is3d ? '3d' : '2d');
-    const items = levelContextMenu(state, target, { canPaste, readOnly }, menuActions(state, at), is3d);
+    const items = levelContextMenu(state, target, { canPaste, readOnly, liveTwin: target.kind === 'object' && liveOn && liveTwin(ghosts, target.ref) !== null }, menuActions(state, at), is3d);
     if (items.length === 0) return;
     if (dialogs.openMenu) dialogs.openMenu(point, items);
     else setMenuAt({ x: point.clientX, y: point.clientY, items });
@@ -884,6 +917,19 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
           </div>
         ) : null}
         {is3d ? <LevelSnapPopover snap={snapSettings} onChange={setSnapSettings} is3d={in3d} /> : null}
+        <LevelViewPopover overlays={overlays} onChange={(key, on) => useLevelViewStore.getState().setOverlay(key, on)} navNeedsGame={!gameRunning} />
+        <IconButton
+          icon={LuRadio}
+          label={liveOn ? 'Hide live entities' : 'Show live entities'}
+          aria-pressed={liveOn}
+          tone={liveOn ? 'brand' : 'ghost'}
+          size="sm"
+          disabled={!gameRunning}
+          {...(gameRunning ? {} : { disabledReason: 'Run the game to see its entities live' })}
+          data-testid="level-live-toggle"
+          onClick={() => setLiveOn((on) => !on)}
+        />
+        {liveOn && gameRunning ? <LiveChip count={liveFeed ? liveFeed.entities.length : null} truncated={liveFeed?.truncated ?? false} /> : null}
         <div className="flex items-center gap-0.5">
           <button type="button" aria-label="Undo" title="Undo (Mod+Z)" disabled={edit.past.length === 0} onClick={() => update(undo)} className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40">
             <LuUndo2 aria-hidden className="h-3.5 w-3.5" />
@@ -968,6 +1014,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
             onContextMenu={(e) => void openLevelMenu(e, e.hit ? { kind: 'object', ref: e.hit } : { kind: 'empty', at: e.object }, e.object)}
             hoverEnabled={!readOnly && !is3d && tool !== 'select'}
             plan={is3d && !planBroken ? { terrain: entry.terrain, draft, volume: volumeDrag } : undefined}
+            extras={extras.canvas}
             preview={preview}
             onPointer={onPointer}
             onKeyDown={onKeyDown}
@@ -995,6 +1042,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
                   entityName={entityName}
                   objectLayerId={objectLayerId}
                   pathDraft={draft}
+                  extras={extras.scene}
                   onPathPoint={(p) => setDraft((d) => addPathPoint(d, p))}
                   update={update}
                   enterFrom={enterFrom}
@@ -1026,7 +1074,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
           ) : (
             <TilePalette tiles={tiles} images={entry.images} gid={gid} onGid={(g) => { setGid(g); if (tool === 'erase') chooseTool('paint'); }} />
           )}
-          {selected && edit.selection ? <Inspector object={selected} readOnly={readOnly} onField={(f, v) => update((s) => setObjectField(s, edit.selection!, f, v))} onProperty={(n, t, v) => update((s) => setProperty(s, edit.selection!, n, t, v))} onRemove={(n) => update((s) => removeProperty(s, edit.selection!, n))} onDelete={() => update((s) => deleteObject(s, edit.selection!))} properties={selected.properties ?? []} plan={is3d ? { level, models, onNumber: (n, raw) => update((s) => setOptionalNumber(s, edit.selection!, n, raw)), onText: (n, raw) => update((s) => setOptionalText(s, edit.selection!, n, raw)) } : undefined} /> : null}
+          {selected && edit.selection ? <Inspector object={selected} readOnly={readOnly} onField={(f, v) => update((s) => setObjectField(s, edit.selection!, f, v))} onProperty={(n, t, v) => update((s) => setProperty(s, edit.selection!, n, t, v))} onRemove={(n) => update((s) => removeProperty(s, edit.selection!, n))} onDelete={() => update((s) => deleteObject(s, edit.selection!))} properties={selected.properties ?? []} onCopyLive={liveOn && liveTwin(ghosts, edit.selection) ? () => copyLiveOf(edit.selection) : undefined} plan={is3d ? { level, models, onNumber: (n, raw) => update((s) => setOptionalNumber(s, edit.selection!, n, raw)), onText: (n, raw) => update((s) => setOptionalText(s, edit.selection!, n, raw)) } : undefined} /> : null}
         </aside>
       </div>
       <LevelShortcutHelp open={helpOpen} onClose={closeHelp} view={in3d ? '3d' : 'plan'} dimension={is3d ? '3d' : '2d'} />
@@ -1105,6 +1153,7 @@ function Inspector({
   onRemove,
   onDelete,
   plan,
+  onCopyLive,
 }: {
   object: LevelObject;
   properties: readonly LevelProperty[];
@@ -1115,6 +1164,8 @@ function Inspector({
   onDelete: () => void;
   /** Set for a 3D level: the placement fields and the world position. */
   plan?: PlanInspector;
+  /** Set while the object has a live twin in the running game (Phase 140 Theme E). */
+  onCopyLive?: () => void;
 }) {
   const [name, setName] = useState('');
   const [type, setType] = useState<'string' | 'int' | 'float' | 'bool'>('string');
@@ -1141,6 +1192,12 @@ function Inspector({
           </label>
         );
       })}
+      {onCopyLive ? (
+        <div className="flex items-center gap-1.5" data-testid="inspector-live">
+          <span className="w-14 shrink-0 text-muted-foreground">Live</span>
+          <IconButton icon={LuRadio} label="Copy live position" size="sm" disabled={readOnly} onClick={onCopyLive} data-testid="inspector-copy-live" />
+        </div>
+      ) : null}
       {plan ? <PlanFields object={object} readOnly={readOnly} plan={plan} /> : null}
       <ul aria-label="Custom properties" className="flex flex-col gap-0.5">
         {properties.filter((p) => !plan || !MANAGED_3D.includes(p.name)).map((p) => (

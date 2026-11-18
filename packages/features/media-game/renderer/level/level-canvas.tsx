@@ -8,6 +8,7 @@ import { objectToMapPoint, mapPointToObject, type Cell, type EditLevel, type Edi
 import { hitPlan, levelMetresPerTile, pixelsPerMetre, planBounds } from './level-plan';
 import { isAssetDrag, readDroppedAsset, useDraggedAsset, type AssetDropTarget } from './assets/asset-drag';
 import { drawHighlight, drawPlan, drawSelectionExtras, prefersReducedMotion, PULSE_MS, SELECTED_COLOUR, type PlanHighlight, type PlanOverlay } from './level-plan-draw';
+import { drawExtras, hasExtras, type CanvasExtras } from './level-overlay-draw';
 import { fitView, screenToMap, zoomAround, type View } from './level-view';
 
 /**
@@ -113,6 +114,7 @@ export function LevelCanvas({
   onKeyDown,
   label,
   plan,
+  extras,
   viewOut,
   viewIn,
   assetDrop,
@@ -143,6 +145,8 @@ export function LevelCanvas({
   label: string;
   /** Set for a 3D level: the canvas draws the plan view instead of tiles. */
   plan?: PlanView;
+  /** Collider, trigger, nav-mesh and live-ghost overlays (Phase 140 Themes E to G), in object coordinates. */
+  extras?: CanvasExtras;
   /** Kept current with the view and canvas size, so the 3D switch starts its camera where the plan is (Phase 136 E). */
   viewOut?: MutableRefObject<{ view: View; size: { width: number; height: number } } | null>;
   /** A view to jump to: where the 3D view's camera ended when the switch eased back to the plan. */
@@ -251,6 +255,7 @@ export function LevelCanvas({
     if (plan) {
       const overlay: PlanOverlay = { terrain: plan.terrain, terrainImage, draft: plan.draft, cursor: plan.draft.length > 0 ? cursor : null, volume: plan.volume };
       drawPlan(ctx, { level, view, selection, selected, marquee, hidden, overlay, outline, text, highlight });
+      if (hasExtras(extras)) drawExtras(ctx, { extras, view });
       return;
     }
     const pixel = mapPixelSize(tmj);
@@ -315,6 +320,7 @@ export function LevelCanvas({
         ctx.fillText(o.name, at.x, at.y + r + tmj.tileheight / 2.5);
       }
     }
+    if (hasExtras(extras)) drawExtras(ctx, { extras, view, toMap: (p) => objectToMapPoint(level, p.x, p.y), cellPath });
     drawSelectionExtras(ctx, { level, view, selected: selected ?? [], marquee: marquee ?? null, outline, toMap: (p) => objectToMapPoint(level, p.x, p.y) });
     if (highlight) drawHighlight(ctx, { level, view, highlight, now: Date.now(), reduced: prefersReducedMotion(), toMap: (p) => objectToMapPoint(level, p.x, p.y) });
     ctx.strokeStyle = outline;
@@ -327,7 +333,7 @@ export function LevelCanvas({
       cellPath(c.x, c.y);
       ctx.stroke();
     }
-  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection, selected, marquee, hidden, plan, terrainImage, terrainLoaded, cursor, highlight, pulseTick]);
+  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection, selected, marquee, hidden, plan, terrainImage, terrainLoaded, cursor, highlight, pulseTick, extras]);
 
   const local = (e: { clientX: number; clientY: number }) => {
     const rect = canvas.current?.getBoundingClientRect();

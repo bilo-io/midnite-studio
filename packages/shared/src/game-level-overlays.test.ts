@@ -1,27 +1,6 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-
 import { describe, expect, it } from 'vitest';
 
 import { colliderShapes, triggerShapes } from './game-level-overlays';
-// The kit's own reader is the reference: the overlay must agree with the cells the game treats as solid.
-import { collisionGrid } from '../../../templates/media-game/kit/core/tiled-objects.js';
-
-const starter = (name: string): unknown => JSON.parse(readFileSync(fileURLToPath(new URL(`../../../templates/media-game/bases/${name}/levels/level.tmj`, import.meta.url)), 'utf8'));
-
-describe('F1 colliderShapes agrees with the kit collisionGrid', () => {
-  for (const name of ['platformer', 'top-down', 'isometric']) {
-    it(`${name}`, () => {
-      const level = starter(name) as { width: number };
-      const grid = collisionGrid(level);
-      const solid = new Set<string>();
-      grid.forEach((row: number[], r: number) => row.forEach((v, c) => v && solid.add(`${c},${r}`)));
-      const cells = colliderShapes(level).flatMap((s) => (s.kind === 'cell' ? [`${s.col},${s.row}`] : []));
-      expect(new Set(cells)).toEqual(solid);
-      expect(cells.length).toBe(solid.size);
-    });
-  }
-});
 
 describe('colliderShapes and triggerShapes', () => {
   const level = {

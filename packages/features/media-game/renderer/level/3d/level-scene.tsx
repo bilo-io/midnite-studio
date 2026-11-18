@@ -37,6 +37,8 @@ import { cull, groundTiles, itemRadius, tileInReach, type GroundTile, type ViewS
 import { fogRange, viewOffset } from './level-lod';
 import type { ScreenPoint } from './level-marquee';
 import { DEFAULT_SIZE_Y } from '../level-edit-model';
+import { ExtrasView } from './level-extras-view';
+import type { SceneExtras } from './level-extras';
 import type { GizmoPivot, GizmoSpace } from './level-view-store';
 import { nearestEuler, type GizmoChange, type GroupDelta, type GroupPivot, type WorldItem } from './level-world';
 import type { ModelCache } from './model-cache';
@@ -80,6 +82,8 @@ export type LevelSceneProps = {
   /** Switches the orbit controls on or off for a tool gesture (they stay off while Shift marquees). */
   setOrbit: MutableRefObject<((on: boolean) => void) | null>;
   draft: ToolDraft;
+  /** Collider / trigger volumes, the nav-mesh and live ghosts (Phase 140 Themes E to G). */
+  extras?: SceneExtras;
   /** Draws the scene once through a temporary camera (`game_level_view`); the live camera never moves. */
   capture: MutableRefObject<((view: LevelViewCamera, width: number, height: number) => CapturedPixels & { visible: number }) | null>;
   /** Projects a world point to the canvas (px), for the marquee. */
@@ -569,6 +573,7 @@ export function LevelScene(props: LevelSceneProps) {
       {selected.length === 1 && items[selected[0]!] ? <Selected key={selected[0]} {...props} item={items[selected[0]!]!} /> : null}
       {selected.length > 1 && props.pivot ? <GroupSelected {...props} members={selected.map((i) => items[i]!).filter(Boolean)} pivot={props.pivot} /> : null}
       <DraftView draft={props.draft} ground={props.ground} />
+      {props.extras ? <ExtrasView items={items} extras={props.extras} ground={props.ground} /> : null}
       <OrbitControls makeDefault enabled={props.orbit} enableDamping={false} maxPolarAngle={Math.PI / 2 - 0.02} />
       <GizmoHelper alignment="bottom-right" margin={[56, 56]}>
         <GizmoViewport axisColors={['#e5484d', '#30a46c', '#3e63dd']} labelColor="white" />
