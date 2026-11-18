@@ -16019,3 +16019,7 @@ The forge's GitHub GraphQL queries, parsers and error mapping move into `@midnit
 ## 2026-11-18 — Phase 147 Theme B — Antigravity PTY resume (#1646)
 
 No code needed: #1246 already made `buildResumeCommand` return `['--conversation', id]` for `agy` (trimmed, falling back to `--continue`), with tests in `terminal.test.ts`. The PR ticks 147.B.1–B.2 and writes the Theme B Headlines line.
+
+## 2026-11-18 — Phase 147 Theme D — unified sidebar & Chat/Terminal toggle (#1649)
+
+D.1–D.4 (row dedupe, mode pill, `Chat | Terminal` toggle hidden for plain shells, ollama disabled tooltip, `ChatPane` kept mounted so drafts survive) were already on main from #1251 (filed as "Phase 146 Theme D"). The PR closes the two gaps: a rejected `switchView` now toasts and re-enables the toggle instead of leaving an unhandled rejection, and the in-flight guard uses a ref so a same-tick double click sends one `session:switch-view`. Three new jsdom tests in `unified-sessions-view.test.tsx`.
