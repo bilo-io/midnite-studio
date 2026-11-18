@@ -135,15 +135,18 @@ export function planBounds(level: EditLevel, terrain?: Pick<GameLevelTerrain, 'm
  * objects) is left out, so a 80 m level on a 10 km terrain opens on the level, not on a speck in the outline.
  * The terrain stays on screen at any zoom that shows it; zooming out reaches all of it.
  */
+/** A terrain more than this many times the area of the work is left out of the first fit. */
+const FRAME_TERRAIN_RATIO = 10;
+
 export function planFrameBounds(level: EditLevel, terrain?: Pick<GameLevelTerrain, 'minX' | 'minZ' | 'maxX' | 'maxZ'> | null): PlanBounds {
   const all = planBounds(level, terrain);
   if (!terrain) return all;
   const work = planBounds(level);
   const area = (b: PlanBounds) => (b.maxX - b.minX) * (b.maxY - b.minY);
-  return area(all) > 50 * area(work) ? work : all;
+  return area(all) > FRAME_TERRAIN_RATIO * area(work) ? work : all;
 }
 
-/** The metre grid to draw over `bounds` (default: the map's frame), as pixel positions: 1 m lines, every tenth bold. Lines closer than `minGapPx` on screen are dropped. */
+/** The metre grid to draw over `bounds` (default: the map's frame), as pixel positions: 1 m lines, every tenth bold; zoomed out, the step grows to 10 m, 100 m, then 1 km. Lines closer than `minGapPx` on screen are dropped. */
 export function gridLines(
   level: Pick<EditLevel, 'properties' | 'tilewidth' | 'tileheight' | 'width' | 'height'>,
   zoom: number,
@@ -152,14 +155,14 @@ export function gridLines(
 ): { x: Array<{ at: number; bold: boolean }>; z: Array<{ at: number; bold: boolean }> } {
   const ppm = pixelsPerMetre(level);
   const box = bounds ?? { minX: 0, minY: 0, maxX: level.width * level.tilewidth, maxY: level.height * level.tileheight };
-  // Show every metre when they are far enough apart, else every 10 m, else nothing.
-  const step = ppm.x * zoom >= minGapPx ? 1 : ppm.x * zoom * 10 >= minGapPx ? 10 : 0;
+  // Show every metre when they are far enough apart, else every 10 m, 100 m or 1 km, else nothing.
+  const step = [1, 10, 100, 1000].find((s) => ppm.x * zoom * s >= minGapPx) ?? 0;
   if (step === 0) return { x: [], z: [] };
   // Lines sit on whole world metres, so with an origin they stay aligned with the terrain; `at` is the map pixel.
   const origin = levelOrigin(level);
   const axis = (min: number, max: number, scale: number, base: number) => {
     const out: Array<{ at: number; bold: boolean }> = [];
-    for (let m = Math.ceil((base + min / scale) / step) * step; (m - base) * scale <= max; m += step) out.push({ at: (m - base) * scale, bold: ((m % 10) + 10) % 10 === 0 });
+    for (let m = Math.ceil((base + min / scale) / step) * step; (m - base) * scale <= max; m += step) out.push({ at: (m - base) * scale, bold: step <= 10 ? ((m % 10) + 10) % 10 === 0 : (((m / step) % 10) + 10) % 10 === 0 });
     return out;
   };
   return { x: axis(box.minX, box.maxX, ppm.x, origin.x), z: axis(box.minY, box.maxY, ppm.z, origin.z) };
