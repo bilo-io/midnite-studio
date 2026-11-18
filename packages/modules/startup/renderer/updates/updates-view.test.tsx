@@ -85,6 +85,7 @@ describe('UpdatesView', () => {
     const ops = install([], { upsertInvestorUpdate: vi.fn(async () => ({ ok: false, kind: 'invalid', message: 'There is already an update for 2026-10.' })) });
     renderUpdates();
     fireEvent.click(await screen.findByRole('button', { name: /New update/ }));
+    expect((screen.getByLabelText('Month') as HTMLInputElement).value).toBe(lastMonth(new Date()));
     fireEvent.change(screen.getByLabelText('Month'), { target: { value: '2026-10' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
     expect(await screen.findByText('There is already an update for 2026-10.')).toBeTruthy();
@@ -113,7 +114,7 @@ describe('UpdatesView', () => {
     expect(ops.upsertInvestorUpdate).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
     await waitFor(() => expect(ops.upsertInvestorUpdate).toHaveBeenCalledTimes(1));
-    const saved = ops.upsertInvestorUpdate.mock.calls[0]![0] as { update: InvestorUpdate };
+    const saved = ops.upsertInvestorUpdate!.mock.calls[0]![0] as { update: InvestorUpdate };
     expect(saved.update.markdown).toBe('# Drafted');
     expect(saved.update.drafts).toHaveLength(1);
     expect(saved.update.drafts[0]!.model).toBe('claude');
