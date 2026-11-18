@@ -8,8 +8,8 @@ Completed work is logged append-only in [`../done.md`](../done.md). Deferred sco
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [153 · Startup for agents](phases/phase-153-startup-for-agents.md) | 🔄 WIP | — | 10/35 | `███░░░░░░░` | 29% | C | D E F |
-| [152 · Projections ↔ Runway](phases/phase-152-projections-runway-bridge.md) | 🔄 WIP | — | 8/39 | `██░░░░░░░░` | 21% | C | D E F G |
+| [153 · Startup for agents](phases/phase-153-startup-for-agents.md) | 🔄 WIP | — | 16/35 | `█████░░░░░` | 46% | D | E F |
+| [152 · Projections ↔ Runway](phases/phase-152-projections-runway-bridge.md) | 🔄 WIP | — | 25/39 | `██████░░░░` | 64% | F G | — |
 | [151 · Skill scripts and local LLM offload](phases/phase-151-skill-scripts-and-local-llm.md) | 🔄 WIP | — | 27/30 | `█████████░` | 90% | F | — |
 | [150 · Startup projections](phases/phase-150-startup-projections.md) | 🔄 WIP | x1 | 39/41 | `██████████` | 95% | F | — |
 | [149 · Midnite game standard, game doctor and game management](phases/phase-149-midnite-game-standard-doctor.md) | 🔄 WIP | — | 47/52 | `█████████░` | 90% | H | — |
