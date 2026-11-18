@@ -411,6 +411,15 @@ import {
   GameGotoResultSchema,
 } from '../game-level';
 import {
+  GamePrefabDeleteRequestSchema,
+  GamePrefabGetRequestSchema,
+  GamePrefabGetResultSchema,
+  GamePrefabsRequestSchema,
+  GamePrefabsResultSchema,
+  GamePrefabSetRequestSchema,
+  GamePrefabWriteResultSchema,
+} from '../game-level-prefab';
+import {
   ModelExportRequestSchema,
   ModelGenerateProgressEventSchema,
   ModelGenerateRequestSchema,
@@ -5775,6 +5784,15 @@ export const GamesLevelGetRequest = GameLevelGetRequestSchema;
 export const GamesLevelGetResponse = GitOpResultOf(GameLevelGetResultSchema);
 export const GamesLevelModelRequest = GameLevelModelRequestSchema;
 export const GamesLevelModelResponse = GitOpResultOf(GameLevelModelResultSchema);
+// Phase 139 Theme F — prefabs.
+export const GamesLevelPrefabsRequest = GamePrefabsRequestSchema;
+export const GamesLevelPrefabsResponse = GitOpResultOf(GamePrefabsResultSchema);
+export const GamesLevelPrefabGetRequest = GamePrefabGetRequestSchema;
+export const GamesLevelPrefabGetResponse = GitOpResultOf(GamePrefabGetResultSchema);
+export const GamesLevelPrefabSetRequest = GamePrefabSetRequestSchema;
+export const GamesLevelPrefabSetResponse = GitOpResultOf(GamePrefabWriteResultSchema);
+export const GamesLevelPrefabDeleteRequest = GamePrefabDeleteRequestSchema;
+export const GamesLevelPrefabDeleteResponse = GitOpResultOf(GamePrefabWriteResultSchema);
 export const GamesLevelSetRequest = GameLevelSetRequestSchema;
 export const GamesLevelSetResponse = GitOpResultOf(GameLevelSetResultSchema);
 export const GamesLevelMapAssetRequest = GameLevelMapAssetRequestSchema;

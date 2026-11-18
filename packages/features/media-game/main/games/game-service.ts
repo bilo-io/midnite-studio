@@ -34,6 +34,7 @@ import { inferManifest } from './infer-manifest';
 import { resolveGameFolder } from './game-open';
 import { listGames } from './game-list';
 import { createGameLevels } from './game-levels';
+import { createGamePrefabs } from './game-prefabs';
 import { createLevelEditorBridge } from './level-editor-bridge';
 import { createGameManage } from './game-manage';
 import { createGame, gameIdForPath } from './game-scaffold';
@@ -116,6 +117,7 @@ export function createGameService(deps: GameServiceDeps) {
   }
 
   const levelEditor = createLevelEditorBridge({ send: deps.send });
+  const prefabs = createGamePrefabs({ resolve, send: deps.send, log: deps.log });
   const levels = createGameLevels({ resolve, readManifest, runner: deps.runner, send: deps.send, log: deps.log });
 
   const manage = createGameManage({
@@ -287,7 +289,7 @@ export function createGameService(deps: GameServiceDeps) {
     logs: (gameId: string, since?: number): { runId: string | null; entries: GameLogEntry[] } =>
       deps.runner.logs(gameId, since),
     /** `levels/<scene>.tmj` (Phase 132 Theme C): list, read, write-and-commit; and the jump to a scene. */
-    levels: { list: levels.list, get: levels.get, set: levels.set, mapAsset: levels.mapAsset, model: levels.model },
+    levels: { list: levels.list, get: levels.get, set: levels.set, mapAsset: levels.mapAsset, model: levels.model, prefabs },
     goto: levels.goto,
     /** The main -> renderer level-editor bridge (Phase 138 Theme C). */
     levelEditor,

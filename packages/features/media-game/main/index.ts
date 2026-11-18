@@ -185,6 +185,11 @@ export const mediaGameMain = defineFeatureMain<MediaGameMainServices>({
     // Levels (Phase 132 Theme C).
     handle(CHANNELS.gamesLevels, schemas.GamesLevelsRequest, ({ gameId }) => service.levels.list(gameId), (issue) => failure(issue));
     handle(CHANNELS.gamesLevelGet, schemas.GamesLevelGetRequest, ({ gameId, scene }) => service.levels.get(gameId, scene), (issue) => failure(issue));
+    // Phase 139 Theme F: prefabs.
+    handle(CHANNELS.gamesLevelPrefabs, schemas.GamesLevelPrefabsRequest, ({ gameId }) => service.levels.prefabs.list(gameId), (issue) => failure(issue));
+    handle(CHANNELS.gamesLevelPrefabGet, schemas.GamesLevelPrefabGetRequest, ({ gameId, name }) => service.levels.prefabs.get(gameId, name), (issue) => failure(issue));
+    handle(CHANNELS.gamesLevelPrefabSet, schemas.GamesLevelPrefabSetRequest, ({ gameId, prefab }) => service.levels.prefabs.set(gameId, prefab), (issue) => failure(issue));
+    handle(CHANNELS.gamesLevelPrefabDelete, schemas.GamesLevelPrefabDeleteRequest, ({ gameId, name }) => service.levels.prefabs.delete(gameId, name), (issue) => failure(issue));
     handle(CHANNELS.gamesLevelModel, schemas.GamesLevelModelRequest, ({ gameId, name }) => service.levels.model(gameId, name), (issue) => failure(issue));
     handle(
       CHANNELS.gamesLevelSet,

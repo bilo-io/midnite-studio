@@ -150,3 +150,27 @@ export function updateInstances(level: unknown, prefab: GamePrefab): { level: Re
   }
   return { level: map, updated, skippedFields };
 }
+
+// --- IPC (Phase 139 Theme F) --------------------------------------------------------
+
+export const GamePrefabsRequestSchema = z.object({ gameId: z.string().min(1) });
+export const GamePrefabGetRequestSchema = z.object({ gameId: z.string().min(1), name: GamePrefabNameSchema });
+export const GamePrefabSetRequestSchema = z.object({ gameId: z.string().min(1), prefab: z.unknown() });
+export const GamePrefabDeleteRequestSchema = GamePrefabGetRequestSchema;
+
+export const GamePrefabListEntrySchema = z.object({
+  name: z.string(),
+  dimension: z.enum(['2d', '3d']).nullable(),
+  /** 0 for a file that does not parse (then `issue` says why). */
+  objects: z.number().int().nonnegative(),
+  description: z.string().optional(),
+  issue: z.string().optional(),
+});
+export type GamePrefabListEntry = z.infer<typeof GamePrefabListEntrySchema>;
+export const GamePrefabsResultSchema = z.object({ prefabs: z.array(GamePrefabListEntrySchema) });
+export type GamePrefabsResult = z.infer<typeof GamePrefabsResultSchema>;
+export const GamePrefabGetResultSchema = z.object({ prefab: GamePrefabSchema });
+export type GamePrefabGetResult = z.infer<typeof GamePrefabGetResultSchema>;
+/** `sha` is null when the write changed nothing, so no commit was made. */
+export const GamePrefabWriteResultSchema = z.object({ sha: z.string().nullable() });
+export type GamePrefabWriteResult = z.infer<typeof GamePrefabWriteResultSchema>;

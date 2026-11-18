@@ -1016,6 +1016,11 @@ export const CHANNELS = {
   gamesLevelMapAsset: 'mstudio:games:level-map-asset',
   /** A game's `model` asset bytes for the level editor's 3D view (Phase 136 Theme F). */
   gamesLevelModel: 'mstudio:games:level-model',
+  /** Prefabs (Phase 139 Theme F): `levels/prefabs/<name>.prefab.json` list, read, write-and-commit, delete-and-commit. */
+  gamesLevelPrefabs: 'mstudio:games:level-prefabs',
+  gamesLevelPrefabGet: 'mstudio:games:level-prefab-get',
+  gamesLevelPrefabSet: 'mstudio:games:level-prefab-set',
+  gamesLevelPrefabDelete: 'mstudio:games:level-prefab-delete',
   /** Phase 138 Theme C: the renderer's one-way answer to a main -> renderer level-editor request. */
   gamesLevelEditorReply: 'mstudio:games:level-editor-reply',
   /** Phase 138 Theme C: the renderer's one-way presence — which scene the level editor shows, or null. */
