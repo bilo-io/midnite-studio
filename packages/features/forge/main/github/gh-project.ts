@@ -152,4 +152,3 @@ export function parseItemsPageFromStdout(
   return parseItemsPage(dataOf(output), boardRepo);
 }
 
-export { scopeErrorKind };

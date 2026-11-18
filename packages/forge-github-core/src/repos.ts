@@ -5,8 +5,8 @@ const REPO_FIELDS = 'name owner{login} isPrivate pushedAt defaultBranchRef{name}
 
 /**
  * The signed-in user's repos plus every organisation's repos they can see, newest push first.
- * Organisations are read in the same request (`first:$orgs`); a user in more orgs than that sees the rest
- * through a follow-up page, which Theme E walks with `after`.
+ * Organisations are read in the same request (the first 20, each with its first `$first` repos); `after`
+ * pages the viewer's own list only, which is what Theme E walks.
  */
 export const REPO_LIST_QUERY = [
   'query($first:Int!,$after:String){viewer{',
