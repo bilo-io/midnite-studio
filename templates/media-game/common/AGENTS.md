@@ -7,7 +7,7 @@ A game made in Midnite Studio. This repository is the game: plain ES modules, no
 - Midnite Studio runs the game in a sandbox with no network. Anything the game prints with `console.log`, and any uncaught error, is shown in the console under the game.
 - Keep the game runnable after every change. Commit logical steps.
 - Do not add a bundler or a `package.json` build step.
-- Skills for working in this repo are in `.claude/skills`, `.agents/skills` and `.codex/skills`: start with `midnite-media-game-build`, then the recipe for your genre (`midnite-media-game-<genre>`).
+- Skills for working in this repo are in `.claude/skills` (Claude Code) and `.agents/skills` (every other agent): start with `midnite-media-game-build`, then the recipe for your genre (`midnite-media-game-<genre>`).
 
 ## Fidelity and juice kit
 
