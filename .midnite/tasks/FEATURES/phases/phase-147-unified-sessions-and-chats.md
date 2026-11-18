@@ -30,7 +30,7 @@ Today `sessions` (persistent PTYs in `packages/features/sessions/` + `packages/f
 
 **Theme C — Unified session host & runner lock (`PR-2`, L).** ✅ The host landed in #1250 (filed as "Phase 146 Theme C"): `UnifiedSessionCoordinator` + `unified-session-host.ts` in `packages/desktop/src/main/`, the `session:switch-view` handler, `ChatService` `beforeSend`/`onTurnEnd` hooks, and persisted `linkedChatId`/`linkedTerminalId`/`preferredView`. This theme hardened the lock: `send()` now holds a `starting` slot across the `beforeSend` await (two quick sends could each start a turn on one `engineSessionId`), validates before locking and releases through `onTurnEnd` if the turn fails to start, and `isRunning` covers that window. The coordinator keeps a per-chat lease, refuses a second chat on an `engineSessionId` already held, and releases the keys taken at send time, since a resend rotates the session id and used to leave the old one locked for good.
 
-**Theme D — Unified sidebar & Chat/Terminal toggle UI (`PR-4`, L).** ◻ Merges the session/chat list in the sidebar and adds the segmented `Chat | Terminal` toggle in the content header.
+**Theme D — Unified sidebar & Chat/Terminal toggle UI (`PR-4`, L).** ✅ The UI landed in #1251 (filed as "Phase 146 Theme D"): `mergeManagedSessions` dedupes linked chat/terminal pairs into one row with a `Chat`/`Terminal` mode pill, `SessionViewToggle` sits in the content header (hidden for plain shells, `Terminal` disabled with a tooltip for `ollama`), and `UnifiedSessionContent` keeps `ChatPane` mounted while hidden so the composer draft survives a toggle. This theme closed two gaps: a rejected `switchView` now toasts instead of leaving an unhandled rejection, and the in-flight guard is a ref, since two clicks in one tick both read the stale `switchingTarget` state and sent two switches. The terminal pane still remounts on toggle back, by design: the coordinator parks the PTY for a Chat turn and resumes it, so there is no live xterm to keep.
 
 **Theme E — Generic provider handoff & verification (`PR-5`, M).** ◻ Implements one-way transcript-summary handoff for generic CLI agents, `ollama` read-only terminal guard, and unit/Playwright e2e coverage.
 
@@ -58,10 +58,10 @@ Today `sessions` (persistent PTYs in `packages/features/sessions/` + `packages/f
 
 ### Theme D — Unified sidebar & Chat/Terminal toggle UI (`L`)
 
-- [ ] **147.D.1** Merge chat threads and terminal/agent sessions into a unified list item model in `packages/app/src/compose/` + `packages/features/sessions/renderer/sessions-view.tsx`, deduplicating linked pairs into one row.
-- [ ] **147.D.2** Add a segmented `Chat | Terminal` view toggle in the active session content header, disabling `Terminal` for `chat-only` (`ollama`) with a clear tooltip.
-- [ ] **147.D.3** Render the active view (`ChatPane` or `TerminalView`) inside the unified content container, preserving scroll/composer draft state when toggling.
-- [ ] **147.D.4** Add Vitest/jsdom tests for unified row deduplication, header toggle state, and `ollama` disabled-terminal behavior.
+- [x] **147.D.1** Merge chat threads and terminal/agent sessions into a unified list item model in `packages/app/src/compose/` + `packages/features/sessions/renderer/sessions-view.tsx`, deduplicating linked pairs into one row.
+- [x] **147.D.2** Add a segmented `Chat | Terminal` view toggle in the active session content header, disabling `Terminal` for `chat-only` (`ollama`) with a clear tooltip.
+- [x] **147.D.3** Render the active view (`ChatPane` or `TerminalView`) inside the unified content container, preserving scroll/composer draft state when toggling.
+- [x] **147.D.4** Add Vitest/jsdom tests for unified row deduplication, header toggle state, and `ollama` disabled-terminal behavior.
 
 ### Theme E — Generic provider handoff & verification (`M`)
 
