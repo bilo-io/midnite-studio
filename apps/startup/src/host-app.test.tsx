@@ -49,7 +49,7 @@ describe('Startup host', () => {
     const { container } = render(<StartupHostApp />);
     await waitFor(() => expect(screen.getByRole('main', { name: 'Projections' })).toBeTruthy());
     const views = new Set([...container.querySelectorAll('[data-view]')].map((el) => el.getAttribute('data-view')));
-    for (const view of ['startup.projections', 'startup.invoices', 'startup.overview', 'startup.roadmap', 'startup.runway', 'startup.vendors']) expect(views, view).toContain(view);
+    for (const view of ['startup.projections', 'startup.invoices', 'startup.overview', 'startup.roadmap', 'startup.runway', 'startup.updates', 'startup.vendors']) expect(views, view).toContain(view);
     const accountant = STARTUP_HOST_NAV.groups?.find((g) => g.id === 'accountant');
     expect(accountant?.views.length).toBeGreaterThan(0);
     for (const view of accountant?.views ?? []) expect(views, view.id).toContain(view.id);

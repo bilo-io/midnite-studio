@@ -7,6 +7,7 @@ import { InvoicesView } from '../invoices/invoices-view';
 import { RoadmapView } from '../roadmap/roadmap-view';
 import { useProjectionsUi } from '../projections/use-projections-ui';
 import { RunwayView } from '../runway/runway-view';
+import { UpdatesView } from '../updates/updates-view';
 import { VendorsView } from '../vendors/vendors-view';
 import { CompanyForm } from './company-form';
 import { Overview } from './overview';
@@ -27,6 +28,7 @@ const TITLES: Readonly<Record<string, string>> = {
   'startup.overview': 'Overview',
   'startup.roadmap': 'Roadmap',
   'startup.runway': 'Runway',
+  'startup.updates': 'Updates',
   'startup.invoices': 'Invoices',
   'startup.vendors': 'Vendors',
 };
@@ -80,6 +82,7 @@ export function StartupHome({ view, onView }: { view: string; onView: (view: str
           onView('startup.projections');
         }}
       />;
+  if (view === 'startup.updates') return <UpdatesView updates={workspace.investorUpdates} readOnly={readOnly} />;
   if (view === 'startup.invoices') return <InvoicesView company={workspace.company} customers={workspace.customers} invoices={workspace.invoices} bookId={workspace.ledger?.bookId ?? null} />;
   if (view === 'startup.vendors') return <VendorsView company={workspace.company} vendors={workspace.vendors} contracts={workspace.contracts} />;
   return (
