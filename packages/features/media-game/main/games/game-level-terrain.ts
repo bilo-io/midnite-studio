@@ -7,6 +7,7 @@ import { z } from 'zod';
 
 import { cachedDrapePreview, downscalePng } from './drape-preview';
 import { readTerrainDetail, workExtent } from './terrain-detail';
+import { heightsOver, readHeightSource } from './terrain-heights';
 
 /** The drape image is only a backdrop for the plan view; a bigger PNG is downscaled (`drape-preview.ts`) rather than shipped whole over IPC (the editor re-reads a level on focus, so it is sent often). */
 const PREVIEW_MAX_BYTES = 1024 * 1024;
@@ -18,6 +19,8 @@ const PackExtent = z.object({
   maps: z.object({ drape: z.string().optional() }).optional(),
   roads: z.string().optional(),
   buildings: z.string().optional(),
+  heightfield: z.object({ png: z.string().optional(), json: z.string().optional() }).optional(),
+  heightRange: z.tuple([z.number(), z.number()]).optional(),
 });
 
 /**
@@ -57,7 +60,11 @@ export async function readLevelTerrain(gamePath: string, level: Pick<GameLevel, 
     const { width, height, tilewidth, tileheight, layers } = level;
     const area = width && height && tilewidth && tileheight && layers ? workExtent({ width, height, tilewidth, tileheight, layers, properties: level.properties }, extent) : null;
     const detail = area ? await readTerrainDetail({ drapePng, roads: await inPack(pack.roads), buildings: await inPack(pack.buildings) }, extent, area) : undefined;
-    return { name, ...extent, preview, ...(detail ? { detail } : {}) };
+    // The ground's heights, when the pack has a heightfield: coarse over the whole terrain, at its own spacing over the detail.
+    const source = await readHeightSource({ png: await inPack(pack.heightfield?.png), json: await inPack(pack.heightfield?.json) }, pack.heightRange ?? null);
+    const heights = source ? heightsOver(source, extent, extent) : null;
+    const detailHeights = source && detail ? heightsOver(source, extent, detail) : null;
+    return { name, ...extent, preview, ...(detail ? { detail: detailHeights ? { ...detail, heights: detailHeights } : detail } : {}), ...(heights ? { heights } : {}) };
   } catch {
     return null;
   }

@@ -217,6 +217,25 @@ export type GameLevelsResult = z.infer<typeof GameLevelsResultSchema>;
 
 export const GameLevelGetRequestSchema = z.object({ gameId: z.string().min(1), scene: GameSceneNameSchema });
 /** A 3D level's terrain, only as an extent: the pack's bounds in metres (X right, Z down) and its drape image when it carries one. */
+/** The largest side of a height grid sent to the editor. */
+export const GAME_LEVEL_HEIGHTS_MAX_SIDE = 257;
+/**
+ * Ground heights over an extent, as a `cols` × `rows` grid of vertices (row-major, Z down the rows, the first and
+ * last on the extent's edges). `data` is base64 of little-endian uint16: a value `v` is `min + (v / 65535) × (max − min)` metres.
+ */
+export const GameLevelHeightsSchema = z.object({
+  minX: z.number(),
+  minZ: z.number(),
+  maxX: z.number(),
+  maxZ: z.number(),
+  cols: z.number().int().min(2).max(GAME_LEVEL_HEIGHTS_MAX_SIDE),
+  rows: z.number().int().min(2).max(GAME_LEVEL_HEIGHTS_MAX_SIDE),
+  min: z.number(),
+  max: z.number(),
+  data: z.string(),
+});
+export type GameLevelHeights = z.infer<typeof GameLevelHeightsSchema>;
+
 /**
  * The part of a terrain a level works in, in more detail than the whole-terrain preview can carry: a crop of the
  * drape at its own resolution, and the pack's roads and building footprints inside the area. Sent when the level is
@@ -231,6 +250,10 @@ export const GameLevelTerrainDetailSchema = z.object({
   preview: z.string().nullable(),
   roads: z.array(z.object({ width: z.number(), points: z.array(z.number()) })),
   buildings: z.array(z.array(z.number())),
+  /** Flat `[baseY, height, …]` metres, one pair per entry of `buildings`, when the pack states them. */
+  buildingHeights: z.array(z.number()).optional(),
+  /** The ground under this extent at the heightfield's own spacing, when the pack has one. */
+  heights: GameLevelHeightsSchema.optional(),
 });
 export type GameLevelTerrainDetail = z.infer<typeof GameLevelTerrainDetailSchema>;
 
@@ -242,6 +265,8 @@ export const GameLevelTerrainSchema = z.object({
   maxZ: z.number(),
   preview: z.string().nullable(),
   detail: GameLevelTerrainDetailSchema.optional(),
+  /** The whole terrain's ground, coarse, when the pack has a heightfield: the 3D view's relief. */
+  heights: GameLevelHeightsSchema.optional(),
 });
 export type GameLevelTerrain = z.infer<typeof GameLevelTerrainSchema>;
 
