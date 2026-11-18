@@ -625,7 +625,7 @@ export function LevelScene(props: LevelSceneProps) {
       {volumes ? (
         <>
           <mesh geometry={volumes.mesh} raycast={() => null} castShadow receiveShadow>
-            <meshStandardMaterial color="#aeb6c2" roughness={0.9} side={DoubleSide} transparent opacity={0.92} />
+            <meshStandardMaterial color="#aeb6c2" roughness={0.9} side={DoubleSide} />
           </mesh>
           <lineSegments geometry={volumes.edges} raycast={() => null}>
             <lineBasicMaterial color="#e2e8f0" transparent opacity={0.6} />
