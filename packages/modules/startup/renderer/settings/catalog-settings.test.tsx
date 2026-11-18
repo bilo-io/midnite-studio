@@ -16,7 +16,7 @@ function install(opts: { currency?: string; withCompany?: boolean; catalog?: Fle
   const catalog = opts.catalog ?? seedFleetCatalog(currency);
   const projection = buildFleetStarter('gpu-cluster', { projectionId: '00000000-0000-4000-8000-000000000001', nodeId: () => crypto.randomUUID() }, '2020-01-01T00:00:00.000Z', 'P');
   if (opts.used) projection.template = { ...projection.template, hardwareId: 'c-1' };
-  const workspace = { version: 3, fleetCatalog: catalog, fleetProjections: opts.used ? [projection] : [], company: opts.withCompany === false ? null : company(currency) };
+  const workspace = { version: 4, fleetCatalog: catalog, fleetProjections: opts.used ? [projection] : [], company: opts.withCompany === false ? null : company(currency) };
   const upsertFleetCatalog = vi.fn(async () => ({ ok: true, value: {} }));
   window.midniteStudio = {
     startup: { get: vi.fn(async () => ({ ok: true, value: { workspace, revision: 1, readOnly: false } })), upsertFleetCatalog, onChanged: () => () => undefined },

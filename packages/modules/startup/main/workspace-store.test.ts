@@ -22,7 +22,7 @@ describe('migrateWorkspace', () => {
     expect(result.ok && result.workspace.scenarios.map((s) => s.id)).toEqual([BASE_SCENARIO_ID]);
   });
   it('flags a newer version and a corrupt file', () => {
-    expect(migrateWorkspace({ version: 4 })).toEqual({ ok: false, reason: 'newer-version' });
+    expect(migrateWorkspace({ version: 5 })).toEqual({ ok: false, reason: 'newer-version' });
     expect(migrateWorkspace({ version: 1, milestones: 'nope' })).toEqual({ ok: false, reason: 'corrupt' });
     expect(migrateWorkspace(null)).toEqual({ ok: false, reason: 'corrupt' });
     expect(migrateWorkspace({ version: 2, fleetProjections: [{ id: 'bad' }] })).toEqual({ ok: false, reason: 'corrupt' });
@@ -31,7 +31,7 @@ describe('migrateWorkspace', () => {
     const result = migrateWorkspace({ version: 1, milestones: [milestone(1)] });
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.workspace.version).toBe(3);
+      expect(result.workspace.version).toBe(4);
       expect(result.workspace.fleetCatalog).toBeNull();
       expect(result.workspace.fleetProjections).toEqual([]);
       expect(result.workspace.milestones).toEqual([milestone(1)]);
@@ -53,16 +53,25 @@ describe('migrateWorkspace', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     const m = result.workspace.fleetProjections[0]!;
-    expect(result.workspace.version).toBe(3);
+    expect(result.workspace.version).toBe(4);
     expect(result.workspace.fleetCatalog).toBeNull();
     expect(m.globals).toMatchObject({ electricityRateMinor: 320, energyScalesWithUtilisation: false });
     expect(m.template.pricePerHourMinor).toBe(tplPrice);
     expect(m.nodes.map((n) => n.pricePerHourMinor)).toEqual(p.nodes.map((n) => n.pricePerHourMinor));
     expect(electricityRateMinor).toBe(15);
   });
-  it('takes a v1 file all the way to v3', () => {
+  it('migrates v3 to v4: adds an empty investorUpdates and keeps everything else', () => {
+    const result = migrateWorkspace({ version: 3, milestones: [milestone(1)], invoiceCounter: 7 });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.workspace.version).toBe(4);
+    expect(result.workspace.investorUpdates).toEqual([]);
+    expect(result.workspace.milestones).toEqual([milestone(1)]);
+    expect(result.workspace.invoiceCounter).toBe(7);
+  });
+  it('takes a v1 file all the way to v4', () => {
     const result = migrateWorkspace({ version: 1 });
-    expect(result.ok && result.workspace.version).toBe(3);
+    expect(result.ok && result.workspace.version).toBe(4);
   });
 });
 
@@ -99,12 +108,12 @@ describe('openWorkspaceStore', () => {
   it('opens a newer-version file read-only and never rewrites it', async () => {
     const d = await dir();
     const file = join(d, 'workspace.json');
-    await writeFile(file, JSON.stringify({ version: 4, hello: 'future' }));
+    await writeFile(file, JSON.stringify({ version: 5, hello: 'future' }));
     const store = await openWorkspaceStore({ dir: d });
     expect(store.snapshot().readOnly).toBe(true);
     const result = await store.mutate(add(milestone(1)));
     expect(result).toMatchObject({ ok: false, kind: 'newer-version', message: 'This workspace was written by a newer Midnite Startup.' });
-    expect(JSON.parse(await readFile(file, 'utf8'))).toEqual({ version: 4, hello: 'future' });
+    expect(JSON.parse(await readFile(file, 'utf8'))).toEqual({ version: 5, hello: 'future' });
   });
 
   it('moves a garbage file aside and starts empty', async () => {

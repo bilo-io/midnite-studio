@@ -170,7 +170,24 @@ export type Invoice = z.infer<typeof InvoiceSchema>;
 
 // --- the workspace ----------------------------------------------------------------
 
-export const STARTUP_WORKSPACE_VERSION = 3;
+/** Phase 153 Theme D: v4 adds `investorUpdates`. */
+export const STARTUP_WORKSPACE_VERSION = 4;
+
+// --- investor updates (Phase 153 Theme D) -----------------------------------------
+
+export const MAX_INVESTOR_UPDATES = 240;
+export const InvestorUpdateSchema = z.object({
+  id: z.uuid(),
+  /** The month the update reports on; one update per month. */
+  period: YearMonthSchema,
+  title: z.string().trim().min(1).max(120),
+  markdown: z.string().max(50_000),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+  /** One stamp per draft the model wrote for this update (history only, never the text). */
+  drafts: z.array(z.object({ at: z.iso.datetime(), model: z.string().max(80) })).max(50).default([]),
+});
+export type InvestorUpdate = z.infer<typeof InvestorUpdateSchema>;
 
 /** The ledger book an invoice posts into, and the four accounts it uses (Theme F; null until a book is linked). */
 export const StartupLedgerLinkSchema = z.object({
@@ -198,6 +215,7 @@ export const StartupWorkspaceSchema = z.object({
   fleetProjections: z.array(FleetProjectionSchema).max(MAX_FLEET_PROJECTIONS).default([]),
   /** null until first read in main, which seeds it in the money currency. */
   fleetCatalog: FleetCatalogSchema.nullable().default(null),
+  investorUpdates: z.array(InvestorUpdateSchema).max(MAX_INVESTOR_UPDATES).default([]),
 });
 export type StartupWorkspace = z.infer<typeof StartupWorkspaceSchema>;
 
@@ -229,6 +247,21 @@ export const StartupAgentConsentSchema = z.object({
 });
 export type StartupAgentConsent = z.infer<typeof StartupAgentConsentSchema>;
 export const DEFAULT_STARTUP_AGENT_CONSENT: StartupAgentConsent = { read: false, write: false };
+
+/** Which model drafts the investor update, kept in the app's own settings (never the workspace). An Ollama model wins over an agent. */
+export const StartupAiSettingsSchema = z.object({
+  agentId: z.string().trim().min(1).max(40).default('claude'),
+  ollamaModel: z.string().trim().max(80).default(''),
+});
+export type StartupAiSettings = z.infer<typeof StartupAiSettingsSchema>;
+export const DEFAULT_STARTUP_AI_SETTINGS: StartupAiSettings = { agentId: 'claude', ollamaModel: '' };
+
+/** What `draftInvestorUpdate` answers: the markdown for review, and the model that wrote it. Nothing is saved. */
+export type StartupInvestorDraft = { markdown: string; model: string };
+/** What `testAiModel` answers: the model's one-line reply. */
+export type StartupAiTest = { model: string; reply: string };
+/** What `listAiAgents` answers: the headless-capable agent CLIs found on this machine. */
+export type StartupAiAgent = { id: string; label: string };
 
 // --- the channel ------------------------------------------------------------------
 
@@ -267,6 +300,23 @@ export const StartupRequestSchema = z.discriminatedUnion('op', [
   z.object({ op: z.literal('exportFleetProjectionCsv'), projectionId: id }),
   z.object({ op: z.literal('exportRunwayCsv'), scenarioId: id, months: z.union([z.literal(12), z.literal(24), z.literal(36)]) }),
   z.object({ op: z.literal('exportFleetProjectionPdf'), projectionId: id }),
+  // Investor updates (Phase 153 Theme D). `draft…` never saves: the renderer reviews the text, then upserts.
+  z.object({ op: z.literal('upsertInvestorUpdate'), update: InvestorUpdateSchema }),
+  z.object({ op: z.literal('removeInvestorUpdate'), id }),
+  z.object({
+    op: z.literal('draftInvestorUpdate'),
+    period: YearMonthSchema,
+    agentId: z.string().max(40).optional(),
+    ollamaModel: z.string().max(80).optional(),
+    notes: z.string().max(2000),
+  }),
+  z.object({ op: z.literal('exportInvestorUpdateMd'), id }),
+  z.object({ op: z.literal('exportInvestorUpdatePdf'), id }),
+  // Which model drafts, and the Settings ▸ AI page's helpers.
+  z.object({ op: z.literal('getAiSettings') }),
+  z.object({ op: z.literal('setAiSettings'), settings: StartupAiSettingsSchema }),
+  z.object({ op: z.literal('listAiAgents') }),
+  z.object({ op: z.literal('testAiModel'), agentId: z.string().max(40).optional(), ollamaModel: z.string().max(80).optional() }),
   // Startup's agent-access switches (Phase 153 Theme C) live in the app's settings, not the workspace.
   z.object({ op: z.literal('getAgentConsent') }),
   z.object({ op: z.literal('setAgentConsent'), consent: StartupAgentConsentSchema }),

@@ -160,7 +160,7 @@ const isoDay = (monthsAhead: number): string => {
 };
 const startupSnapshot = (workspace: object) => ({ ok: true, value: { workspace, revision: 1, readOnly: false } });
 const STARTUP_BASE = {
-  version: 3,
+  version: 4,
   milestones: [],
   lines: [],
   scenarios: [],
@@ -172,6 +172,7 @@ const STARTUP_BASE = {
   ledger: null,
   fleetProjections: [],
   fleetCatalog: null,
+  investorUpdates: [],
 };
 const STARTUP_COMPANY = {
   name: 'Acme Ltd',

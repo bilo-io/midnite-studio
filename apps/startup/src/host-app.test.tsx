@@ -9,7 +9,7 @@ import { STARTUP_PANES, StartupHostApp } from './host-app';
 import { STARTUP_HOST_NAV } from './host-nav';
 
 beforeEach(() => {
-  const workspace = { version: 3, company: { name: 'Acme', currency: 'GBP', address: '', invoicePrefix: 'INV-', paymentTermsDays: 30, openingCash: { minor: 0, asOf: '2026-11-01' } }, milestones: [], lines: [], scenarios: [], customers: [], invoices: [], vendors: [], contracts: [], invoiceCounter: 0, ledger: null, fleetProjections: [] };
+  const workspace = { version: 4, company: { name: 'Acme', currency: 'GBP', address: '', invoicePrefix: 'INV-', paymentTermsDays: 30, openingCash: { minor: 0, asOf: '2026-11-01' } }, milestones: [], lines: [], scenarios: [], customers: [], invoices: [], vendors: [], contracts: [], invoiceCounter: 0, ledger: null, fleetProjections: [] };
   window.midniteStudio = suiteShellTestBridge({
     startup: { get: vi.fn().mockResolvedValue({ ok: true, value: { workspace, revision: 0, readOnly: false } }), onChanged: () => () => undefined },
     report: {
