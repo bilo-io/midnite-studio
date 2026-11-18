@@ -222,7 +222,7 @@ export function drawHighlight(
   ctx.globalAlpha = 1;
 }
 
-export const PLAN_COLOURS: Record<string, string> = { spawn: '#22c55e', exit: '#3b82f6', prop: '#f59e0b', enemy: '#ef4444', pickup: '#eab308', light: '#fde047', checkpoint: '#14b8a6', trigger: '#a855f7', npc: '#06b6d4', path: '#ec4899' };
+export const PLAN_COLOURS: Record<string, string> = { spawn: '#22c55e', exit: '#3b82f6', prop: '#f59e0b', enemy: '#ef4444', pickup: '#eab308', light: '#fde047', checkpoint: '#14b8a6', trigger: '#a855f7', npc: '#06b6d4', path: '#ec4899', spawner: '#a3e635' };
 const NEUTRAL = '#e5e7eb';
 const typeOf = (o: { type?: string; class?: string }): string => o.type || o.class || '';
 

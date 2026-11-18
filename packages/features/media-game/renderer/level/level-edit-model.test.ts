@@ -2,12 +2,18 @@
 import { levelEntityToWorld, parseGameLevel } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
+import { blankLevel3d } from './test-helpers';
+
 import {
   DEFAULT_SIZE_Y,
   UNDO_LIMIT,
   addLayer,
   addObject,
   addPathPoint,
+  addSpawner,
+  setLevelTimeOfDay,
+  setLevelTimeScale,
+  setLevelWeather,
   applyAgentOps,
   beginStroke,
   cellCentre,
@@ -528,5 +534,42 @@ describe('applyAgentOps (Phase 138 Theme F)', () => {
     const { state: next, result } = applyAgentOps(state, [{ op: 'delete', id: 404 }], { unit: 'px', entityTypes: [] });
     expect(result.ok).toBe(false);
     expect(next).toBe(state);
+  });
+});
+
+describe('level environment and spawners', () => {
+  const base = () => createEditState(blankLevel3d() as EditLevel);
+  const prop = (s: ReturnType<typeof base>, n: string) => s.level.properties?.find((p) => p.name === n);
+
+  it('sets weather and clears it on auto or empty, one undo step each', () => {
+    let s = setLevelWeather(base(), 'rain');
+    expect(prop(s, 'midnite.weather')).toMatchObject({ type: 'string', value: 'rain' });
+    s = setLevelWeather(s, 'auto');
+    expect(prop(s, 'midnite.weather')).toBeUndefined();
+    expect(prop(undo(s), 'midnite.weather')?.value).toBe('rain');
+  });
+
+  it('sets time of day clamped to 0-24, clears on empty, ignores junk', () => {
+    expect(prop(setLevelTimeOfDay(base(), '13.5'), 'midnite.timeOfDay')).toMatchObject({ type: 'float', value: 13.5 });
+    expect(prop(setLevelTimeOfDay(base(), '30'), 'midnite.timeOfDay')?.value).toBe(24);
+    expect(prop(setLevelTimeOfDay(base(), '-2'), 'midnite.timeOfDay')?.value).toBe(0);
+    const set = setLevelTimeOfDay(base(), '6');
+    expect(prop(setLevelTimeOfDay(set, ''), 'midnite.timeOfDay')).toBeUndefined();
+    expect(setLevelTimeOfDay(set, 'abc')).toBe(set);
+  });
+
+  it('sets time scale, never negative, clears on empty', () => {
+    expect(prop(setLevelTimeScale(base(), '2'), 'midnite.timeScale')?.value).toBe(2);
+    expect(prop(setLevelTimeScale(base(), '-1'), 'midnite.timeScale')?.value).toBe(0);
+    expect(prop(setLevelTimeScale(setLevelTimeScale(base(), '2'), ''), 'midnite.timeScale')).toBeUndefined();
+  });
+
+  it('addSpawner places a ten-tile rectangle with spawns and density defaults, selected', () => {
+    const s0 = base();
+    const s = addSpawner(s0, s0.level.layers[0]!.id!, { x: 10, y: 20 });
+    const o = s.level.layers[0]!.objects!.at(-1)!;
+    expect(o).toMatchObject({ type: 'spawner', x: 10, y: 20, width: s0.level.tilewidth * 10, height: s0.level.tileheight * 10 });
+    expect(o.properties).toEqual([{ name: 'spawns', type: 'string', value: 'traffic' }, { name: 'density', type: 'float', value: 1 }]);
+    expect(s.selection?.objectId).toBe(o.id);
   });
 });

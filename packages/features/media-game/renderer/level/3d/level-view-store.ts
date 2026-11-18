@@ -9,13 +9,13 @@ export type LevelViewMode = 'plan' | '3d';
 export type GizmoPivot = 'pivot' | 'centre';
 export type GizmoSpace = 'local' | 'world';
 /** The View menu's overlays (Phase 140 Themes F and G): the same three switches drive the editor and the running game. */
-export type LevelOverlays = { colliders: boolean; triggers: boolean; nav: boolean };
-export const DEFAULT_OVERLAYS: LevelOverlays = { colliders: false, triggers: false, nav: false };
+export type LevelOverlays = { colliders: boolean; triggers: boolean; nav: boolean; spawners: boolean };
+export const DEFAULT_OVERLAYS: LevelOverlays = { colliders: false, triggers: false, nav: false, spawners: true };
 
-/** Anything that is not exactly `true` is off, so a hand-edited payload never turns an overlay on. */
+/** Anything that is not exactly `true` is off (spawners, on by default, only `false` turns off), so a hand-edited payload never turns an overlay on. */
 export function sanitiseOverlays(value: unknown): LevelOverlays {
   const v = (value && typeof value === 'object' ? value : {}) as Partial<Record<keyof LevelOverlays, unknown>>;
-  return { colliders: v.colliders === true, triggers: v.triggers === true, nav: v.nav === true };
+  return { colliders: v.colliders === true, triggers: v.triggers === true, nav: v.nav === true, spawners: v.spawners !== false };
 }
 
 type State = {

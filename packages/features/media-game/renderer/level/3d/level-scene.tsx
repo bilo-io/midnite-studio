@@ -51,7 +51,7 @@ import type { OptimisationPreset } from './optimisation';
 import type { SpatialGrid } from './spatial-grid';
 
 export const SCENE_BACKGROUND = '#1d1f24';
-const TYPE_COLOURS: Record<string, string> = { spawn: '#22c55e', exit: '#3b82f6', light: '#facc15', prop: '#9aa3b2', collider: '#f97316', trigger: '#a855f7', path: '#38bdf8' };
+const TYPE_COLOURS: Record<string, string> = { spawn: '#22c55e', exit: '#3b82f6', light: '#facc15', prop: '#9aa3b2', collider: '#f97316', trigger: '#a855f7', path: '#38bdf8', spawner: '#a3e635' };
 const colourOf = (type: string): string => TYPE_COLOURS[type] ?? '#c084fc';
 /** Tiled writes `#aarrggbb`; three reads `#rrggbb`. */
 const cssColour = (c: string): string => (/^#[0-9a-f]{8}$/i.test(c) ? `#${c.slice(3)}` : c);
