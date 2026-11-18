@@ -2,7 +2,7 @@
  * Vitest/jsdom: ChatPane's non-blocking handoff-only banner (Phase 146 Theme E).
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createFrameChrome, FrameChromeProvider } from '@midnite/studio-frame';
@@ -97,8 +97,16 @@ describe('ChatPane handoff-only banner', () => {
 
     const banner = screen.getByTestId('chat-handoff-only-banner');
     expect(banner.getAttribute('role')).toBe('status');
-    expect(banner.textContent).toContain('one-way handoff');
-    expect(banner.textContent).toContain('interactive Terminal turns are not synced back into this Chat thread');
+    expect(banner.textContent).toContain('Interactive Terminal turns are not synced back into this Chat thread.');
+    expect(screen.getByLabelText('Message')).toBeTruthy();
+  });
+
+  it('hides the banner for that chat once dismissed, leaving the composer usable', () => {
+    renderChatPane(makeChat({ id: 'c5', engine: 'aider', linkedTerminalId: 'term-5' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss handoff notice' }));
+
+    expect(screen.queryByTestId('chat-handoff-only-banner')).toBeNull();
     expect(screen.getByLabelText('Message')).toBeTruthy();
   });
 
