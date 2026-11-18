@@ -4,6 +4,7 @@ export * from './module';
 export type { ContractFilePort } from './contract-files';
 export type { CsvPort } from './fleet-export-ops';
 export type { InvoicePdfPort } from './invoice-pdf';
+export type { SaveMarkdownPort } from './investor-update-export';
 export type { StartupBookAccount, StartupLedgerPort, StartupPostSource } from './ledger-port';
 export * from './service';
 export * from './workspace-store';
