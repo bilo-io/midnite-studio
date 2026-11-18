@@ -9,7 +9,7 @@ const config: ExpoConfig = {
   orientation: 'portrait',
   userInterfaceStyle: 'automatic',
   icon: './assets/icon.png',
-  splash: { image: './assets/splash.png', resizeMode: 'contain', backgroundColor: '#0a0a0a' },
+  backgroundColor: '#0a0a0a',
   ios: { bundleIdentifier: 'io.bilo.midnite.mobile', supportsTablet: false },
   android: { package: 'io.bilo.midnite.mobile' },
   plugins: ['expo-router'],
