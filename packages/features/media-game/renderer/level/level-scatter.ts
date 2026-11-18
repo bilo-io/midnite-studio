@@ -8,7 +8,7 @@ import {
   instantiatePrefab,
   scatterPoints,
   type GamePrefab,
-  type ScatterOptions,
+  type ScatterOptionsParsed,
   type ScatterSource,
 } from '@midnite/studio-shared';
 
@@ -25,7 +25,7 @@ import {
 } from './level-edit-model';
 
 /** What the options panel edits: {@link ScatterOptions} minus the fixed-per-stroke bits. */
-export type ScatterSettings = ScatterOptions;
+export type ScatterSettings = ScatterOptionsParsed;
 
 export const DEFAULT_SCATTER: Omit<ScatterSettings, 'sources' | 'seed'> = { radius: 120, density: 2, spacing: 16, scale: [0.8, 1.2], rotation: [0, 360] };
 export const newSeed = (): number => Math.floor(Math.random() * 2 ** 31);
