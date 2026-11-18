@@ -379,8 +379,12 @@ set `version: 3`. **Numbers are not converted:** no release carried v2 (checked 
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green (in CI once Actions is unlocked; until then the focused local gate per
+- [x] `moon run :typecheck :lint :test` green (in CI once Actions is unlocked; until then the focused local gate per
   the billing-lock rule, named in each PR).
+  Verified 2026-11-18 at `04fc9b667` by the focused gate (billing lock): `shared:build`, then typecheck of `shared`,
+  `module-startup` and `app-startup`; eslint over the touched paths (0 problems); vitest `shared` 3740/3740,
+  `module-startup` 285/285, `app-startup` 18/18. One `module-startup` test (`results-panel.test.tsx`, the lazy chart)
+  timed out in the full run under machine load and passed 4/4 on its own. CI re-runs it once Actions is unlocked.
 - [x] A — v1 and v2 files reach v3 with values intact; the catalog seeds once, in the company currency (USD without one).
 - [x] B — the formatter is identical under a hostile locale; no `formatZar` remains; the model with the switch on matches the hand fixture.
 - [x] C — built-ins can be hidden but not deleted; a referenced custom entry cannot be deleted; a hidden entry still prices its nodes.
