@@ -1939,7 +1939,6 @@ function Shell() {
                   <FabPanel
                     isOpen={fabPanelOpen}
                     width={fabPanel.current}
-                    fitSignal={fabPanelTween.settleCount}
                   />
                 )}
               </div>

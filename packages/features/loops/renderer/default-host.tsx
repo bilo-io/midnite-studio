@@ -29,7 +29,7 @@ import type {
  * feature, so it could not name the port's type. Loop settings are held in
  * memory for the window's life (Studio's live in its persisted `ui-store`),
  * the terminal is an empty one that cannot start an agent — the app's shell
- * composer fills `startAgent` and `renderTerminal` from the terminal feature —
+ * composer fills `startAgent` from the terminal feature —
  * and the menu carries no companion, Notes or Setup leaf. Chrome is plain: a
  * title attribute for a tooltip, native selects, a textarea.
  */
@@ -269,7 +269,6 @@ export type DefaultLoopsHostOptions = {
   state?: ReturnType<typeof createDefaultLoopsState>;
   /** The app's terminal feature, for a Start press. Absent: Start rejects. */
   startAgent?: LoopsHost['startAgent'];
-  renderTerminal?: LoopsHost['renderTerminal'];
   renderCompanionLauncher?: () => ReactNode;
 };
 
@@ -282,7 +281,6 @@ export function createDefaultLoopsHost(appId: SuiteAppId, options: DefaultLoopsH
     useTerminal: (selector) => selector(EMPTY_TERMINAL),
     terminalState: () => EMPTY_TERMINAL,
     startAgent: options.startAgent ?? (() => Promise.reject(new Error('This app has no terminal to run a loop in.'))),
-    renderTerminal: options.renderTerminal ?? (() => null),
     renderCompanionLauncher: options.renderCompanionLauncher ?? (() => null),
     useAgents: () => ({ agents: [] }),
     useRepos: () => ({ data: undefined }),

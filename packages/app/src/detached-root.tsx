@@ -135,7 +135,7 @@ function DetachedContent({ role }: { role: Exclude<WindowRole, 'main'> }) {
 
   if (role === 'repos') return <ReposPanel />;
 
-  if (role === 'fab') return <FabPanel isOpen width={width} fitSignal={fitSignal} />;
+  if (role === 'fab') return <FabPanel isOpen width={width} />;
 
   if (role === 'companion') return <CompanionPanel width={width} />;
 

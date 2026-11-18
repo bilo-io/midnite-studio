@@ -704,6 +704,13 @@ export const TerminalSessionSchema = z
      */
     taskRef: z.object({ projectId: z.string().min(1), itemId: z.string().min(1) }).optional(),
     /**
+     * Which loop dispatched this session (a `LoopDefinition.id`, e.g. `guard`
+     * or a custom loop's id). Loop sessions list in the terminal panel under
+     * their own "Loops" group, each row wearing that loop's icon and colour;
+     * one loop can dispatch any number of them. Absent for every other session.
+     */
+    loopId: z.string().min(1).optional(),
+    /**
      * Agent-native conversation id (UUID) captured from disk, e.g. Claude Code or
      * Codex conversation id, enabling exact-conversation resume (Phase 86).
      *

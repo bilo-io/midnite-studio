@@ -44,7 +44,7 @@ test('stays off while idle, lights up once a loop is running, off again once it 
   await expect(page.getByRole('button', { name: 'Guard', exact: true })).toBeVisible();
   const composer = page.getByTestId('loop-composer-guard');
   await composer.getByTestId('loop-extras-send').click();
-  await expect(composer.getByTestId('loop-stop')).toBeVisible();
+  await expect(page.getByTestId('loop-active-arc-guard')).toBeAttached();
 
   await page.getByRole('button', { name: 'Lock screen' }).click();
   await expect(lockScreen(page)).toHaveAttribute('data-loops-running', 'true');
@@ -67,9 +67,15 @@ test('stays off while idle, lights up once a loop is running, off again once it 
   await lockScreen(page).click({ position: { x: 2, y: 2 } });
   await expect(lockScreen(page)).toHaveCount(0);
 
-  // The FAB panel was never closed — dismissing the lock screen just reveals
-  // it again, still open on the same tab, ready to stop the loop.
-  await composer.getByTestId('loop-stop').click();
+  // A loop is ended where its session lives: the terminal list's "Loops"
+  // group, which the dispatch opened. Sleeping it there stops the loop.
+  await page
+    .getByTestId('terminal-loops-group')
+    .locator('[data-session-row]')
+    .filter({ has: page.locator('[data-loop-id="guard"]') })
+    .click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Sleep session' }).click();
+  await expect(page.getByTestId('loop-active-arc-guard')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Lock screen' }).click();
   await expect(lockScreen(page)).toHaveAttribute('data-loops-running', 'false');

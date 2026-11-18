@@ -161,9 +161,9 @@ describe('palette providers', () => {
     // No name, kind `agent`, an agentId the roster resolves — falls back to
     // that agent's own label, never the repo name.
     expect(items.find((i) => i.id === 'session:s2')?.label).toBe('Claude Code');
-    // A `surface: 'fab'` row is filtered out of the palette's live source
-    // entirely (Theme E, Decision 5) — it stays reachable through history.
-    expect(items.find((i) => i.id === 'session:s3')).toBeUndefined();
+    // A loop's `surface: 'fab'` row is listed too — the terminal panel
+    // renders every surface now, so the palette can navigate to it.
+    expect(items.find((i) => i.id === 'session:s3')).toBeDefined();
     expect(items.find((i) => i.id === 'agent:claude')?.label).toBe('Start Claude Code');
   });
 

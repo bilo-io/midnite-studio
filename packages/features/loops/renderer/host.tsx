@@ -32,8 +32,7 @@ import type {
  *
  * The loops package imports neither the terminal feature nor the companion
  * one (a feature may not import a feature). Where a loop reaches them it does
- * so through a slot here: `renderTerminal` draws a session's xterm,
- * `renderCompanionLauncher` the FAB's companion button, `startAgent` spawns
+ * so through a slot here: `renderCompanionLauncher` the FAB's companion button, `startAgent` spawns
  * the session a Start press runs in, and `useTerminal` is a narrow read of the
  * terminal store (the phase and activity of the session a loop owns).
  *
@@ -99,15 +98,6 @@ export type LoopsTerminalState = {
   sleepSession: (sessionId: string) => unknown;
 };
 
-export type LoopsTerminalProps = {
-  sessionId: string;
-  /** The loop's tab is the visible one — an xterm behind it stays unfitted. */
-  active: boolean;
-  /** Bumped when the panel's own reveal settles, so the xterm refits once. */
-  fitSignal: number;
-  layoutClassName?: string;
-};
-
 /** What a Start press asks the terminal to run. */
 export type StartAgentInput = {
   repoId: string;
@@ -117,7 +107,12 @@ export type StartAgentInput = {
   agentId: string;
   command: string;
   extraArgs?: readonly string[];
-  surface: 'fab';
+  /**
+   * The loop dispatching the session. It lists in the main terminal panel
+   * under the session list's "Loops" group — the Loops panel no longer draws
+   * an xterm of its own, so one loop can dispatch any number of sessions.
+   */
+  loopId: string;
   autoSend?: boolean;
 };
 
@@ -222,7 +217,11 @@ export type LoopsHost = {
   terminalState: () => LoopsTerminalState;
   /** Resolves with the new session's id. */
   startAgent: (input: StartAgentInput) => Promise<string>;
-  renderTerminal: (props: LoopsTerminalProps) => ReactNode;
+  /**
+   * Bring one session forward in the app's terminal panel — where a loop's
+   * sessions live. Absent: a loop's notices open its Loops tab instead.
+   */
+  revealSession?: (sessionId: string) => void;
 
   renderCompanionLauncher: () => ReactNode;
   companion?: LoopsCompanionPort;

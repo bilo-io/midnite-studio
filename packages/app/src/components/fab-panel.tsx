@@ -22,16 +22,6 @@ import { useUiStore, type FabTab } from '../store/ui-store';
 interface FabPanelProps {
   isOpen: boolean;
   width: number;
-  /**
-   * Bumped once the panel's own open/close tween settles — the FAB
-   * equivalent of `TerminalPanel`'s `fitSignal` prop (`app.tsx`'s
-   * `terminalTween.settleCount`). Every loop tab's `LazyTerminalView` needs
-   * this to fit and repaint once the reveal animation finishes; without it
-   * xterm can settle at a stale size and paint nothing until an unrelated
-   * resize (a window resize, or dragging the panel handle) forces a real
-   * `ResizeObserver` tick.
-   */
-  fitSignal: number;
 }
 
 /** The four states `styles.css`'s `[data-loop-state]` rules key their pulse cadence off. */
@@ -53,7 +43,7 @@ function loopGlowState(status: LoopStatus | undefined): LoopGlowState {
  * `agentSkills`. Each loop's base prompt is read through its `agentCommandId`,
  * so editing a `/loop …` field in Settings ▸ Agent changes what the tab runs.
  */
-export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
+export function FabPanel({ isOpen, width }: FabPanelProps) {
   // This exact panel renders inside the Loops popout too (`DetachedRoot`
   // reuses it verbatim) — the detach button would otherwise advertise
   // "detach me into a window" while already being one.
@@ -331,10 +321,9 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
         </div>
 
         {/*
-          One pane per loop; only the active one is visible. All four stay
-          mounted — a tab's terminal is its whole point and remounting one
-          would throw the session away — so the three behind it are stacked
-          under the active one at `inset-0`.
+          One pane per loop; only the active one is visible. All stay mounted
+          so a half-composed form survives a tab switch — the ones behind are
+          stacked under the active one at `inset-0`.
 
           `inert` alongside `invisible`, because `visibility: hidden` is not
           the guarantee it looks like: it inherits, but a descendant that sets
@@ -359,7 +348,6 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
                 loop={loop}
                 active={activeFabTab === loop.id}
                 runs={runs.data.filter((run) => run.loopId === loop.id)}
-                fitSignal={fitSignal}
               />
             </div>
           ))}
@@ -392,15 +380,6 @@ function useHydrateOnOpen(isOpen: boolean): void {
 }
 
 /**
- * Close the session a tab superseded, once the user has left that tab.
- *
- * Start begins a fresh run but parks its predecessor rather than killing it
- * mid-read (`fabPrevSessions`). "You have navigated away" is the honest
- * moment to collect it: the transcript is no longer on screen, and holding it
- * any longer would leave dead sessions in `terminals.json` for a relaunch to
- * rehydrate.
- */
-/**
  * Keep the active tab inside the scrolling strip — on open, and whenever the
  * active tab changes (a click, "+", a toast's "Open …", a deleted neighbour).
  * `nearest` on both axes, so a tab already in view never moves the strip.
@@ -418,6 +397,12 @@ function useActiveTabInView(
   }, [stripRef, activeFabTab, isOpen]);
 }
 
+/**
+ * Close a session an older build parked as superseded (`fabPrevSessions`),
+ * once the user has left that tab. Nothing parks one any more — each Start is
+ * its own session in the terminal list — so this only drains entries a
+ * profile carried over from before.
+ */
 function usePruneSupersededSessions(activeFabTab: FabTab): void {
   useEffect(() => {
     const ui = useUiStore.getState();
