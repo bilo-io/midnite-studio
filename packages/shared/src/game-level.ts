@@ -18,8 +18,8 @@ export const GAME_LEVEL_MAX_BYTES = 4 * 1024 * 1024;
 export const GAME_LEVEL_IMAGES_MAX_BYTES = 8 * 1024 * 1024;
 
 /** The entity palette the editor offers; custom types are allowed in the file. */
-export const GAME_LEVEL_ENTITY_TYPES_2D = ['spawn', 'exit', 'enemy', 'pickup', 'hazard', 'checkpoint', 'trigger', 'npc'] as const;
-export const GAME_LEVEL_ENTITY_TYPES_3D = ['spawn', 'exit', 'prop', 'enemy', 'pickup', 'light', 'checkpoint', 'trigger', 'npc', 'path'] as const;
+export const GAME_LEVEL_ENTITY_TYPES_2D = ['spawn', 'exit', 'enemy', 'pickup', 'hazard', 'checkpoint', 'trigger', 'npc', 'spawner'] as const;
+export const GAME_LEVEL_ENTITY_TYPES_3D = ['spawn', 'exit', 'prop', 'enemy', 'pickup', 'light', 'checkpoint', 'trigger', 'npc', 'path', 'spawner'] as const;
 
 export type GameLevelDimension = '2d' | '3d';
 
@@ -36,7 +36,29 @@ export const GAME_LEVEL_PROPS = {
   originX: 'midnite.originX',
   /** World Z (metres) of the map's top-left corner; default 0. */
   originY: 'midnite.originY',
+  /** `auto` (the game decides) or one of the game's weather kinds; absent = `auto`. */
+  weather: 'midnite.weather',
+  /** Comma-separated weather kinds the game knows, for the editor's list. The editor never writes it. */
+  weatherOptions: 'midnite.weatherOptions',
+  /** Clock at level start, hours 0-24; absent = the game's default. */
+  timeOfDay: 'midnite.timeOfDay',
+  /** Game clock speed relative to the game's default (1 = default, 0 = frozen); absent = 1. */
+  timeScale: 'midnite.timeScale',
 } as const;
+
+/** The weather value meaning "the game decides". */
+export const LEVEL_WEATHER_AUTO = 'auto';
+export const LEVEL_TIME_OF_DAY_MAX = 24;
+
+export type LevelEnvironment = {
+  /** `auto` or a weather kind. */
+  weather: string;
+  /** `auto` first, then the game's kinds; just `['auto']` when the level names none (the editor then offers free text). */
+  weatherOptions: string[];
+  /** Hours 0-24, or `null` for the game's default. */
+  timeOfDay: number | null;
+  timeScale: number;
+};
 
 const looseProperties = z.array(z.object({ name: z.string(), type: z.string().optional(), value: z.unknown() }).passthrough());
 
@@ -400,3 +422,24 @@ export const GameLevelPreviewEndRequestSchema = z.object({ gameId: z.string().mi
 export const GameGotoRequestSchema = z.object({ gameId: z.string().min(1), scene: GameSceneNameSchema });
 export const GameGotoResultSchema = z.object({ via: z.enum(['hook', 'reload', 'next-run']) });
 export type GameGotoResult = z.infer<typeof GameGotoResultSchema>;
+
+/**
+ * `midnite.weather`, `weatherOptions`, `timeOfDay` and `timeScale` as the editor and the game read them: weather
+ * defaults to `auto`, time of day to `null` (the game's default) and is clamped to 0-24, time scale defaults to 1 and
+ * is never negative. A property of the wrong type reads as absent.
+ */
+export function levelEnvironment(level: { properties?: ReadonlyArray<{ name: string; value?: unknown }> | undefined }): LevelEnvironment {
+  const props = levelProperties(level);
+  const w = props[GAME_LEVEL_PROPS.weather];
+  const weather = typeof w === 'string' && w.trim() ? w.trim() : LEVEL_WEATHER_AUTO;
+  const o = props[GAME_LEVEL_PROPS.weatherOptions];
+  const kinds = typeof o === 'string' ? o.split(',').map((k) => k.trim()).filter((k) => k && k !== LEVEL_WEATHER_AUTO) : [];
+  const t = props[GAME_LEVEL_PROPS.timeOfDay];
+  const s = props[GAME_LEVEL_PROPS.timeScale];
+  return {
+    weather,
+    weatherOptions: [LEVEL_WEATHER_AUTO, ...new Set(kinds)],
+    timeOfDay: typeof t === 'number' && Number.isFinite(t) ? Math.min(LEVEL_TIME_OF_DAY_MAX, Math.max(0, t)) : null,
+    timeScale: typeof s === 'number' && Number.isFinite(s) ? Math.max(0, s) : 1,
+  };
+}

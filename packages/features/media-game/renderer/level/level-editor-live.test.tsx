@@ -39,7 +39,7 @@ beforeEach(() => {
     return () => undefined;
   });
   useLevelStore.setState({ byGame: {}, newSceneFor: null });
-  useLevelViewStore.setState({ overlays: { colliders: false, triggers: false, nav: false } });
+  useLevelViewStore.setState({ overlays: { colliders: false, triggers: false, nav: false, spawners: true } });
   useGameRunStore.setState({ runs: {} });
 });
 afterEach(() => {
@@ -81,7 +81,7 @@ describe('View menu', () => {
     fireEvent.click(await screen.findByTestId('level-view-trigger'));
     fireEvent.click(await screen.findByRole('switch', { name: 'Colliders' }));
     fireEvent.click(screen.getByRole('switch', { name: 'Triggers' }));
-    expect(useLevelViewStore.getState().overlays).toEqual({ colliders: true, triggers: true, nav: false });
+    expect(useLevelViewStore.getState().overlays).toEqual({ colliders: true, triggers: true, nav: false, spawners: true });
   });
 });
 

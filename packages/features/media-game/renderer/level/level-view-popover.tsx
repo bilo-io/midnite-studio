@@ -7,15 +7,16 @@ import type { LevelOverlays } from './3d/level-view-store';
 const ROWS: ReadonlyArray<{ key: keyof LevelOverlays; label: string; hint: string }> = [
   { key: 'colliders', label: 'Colliders', hint: 'Solid tiles and volumes' },
   { key: 'triggers', label: 'Triggers', hint: 'Triggers, exits, checkpoints and hazards' },
+  { key: 'spawners', label: 'Spawners', hint: 'Where traffic and pedestrians spawn' },
   { key: 'nav', label: 'Nav-mesh', hint: 'Where the game can path, from the running game' },
 ];
 
 /**
- * The toolbar's View menu (Phase 140 Themes F and G): three switches for the debug overlays. The same switches drive
+ * The toolbar's View menu (Phase 140 Themes F and G): switches for the overlays. All but Spawners (an editor-only zone) drive
  * the running game, so the editor and the game show the same thing.
  */
 export function LevelViewPopover({ overlays, onChange, navNeedsGame }: { overlays: LevelOverlays; onChange: (key: keyof LevelOverlays, on: boolean) => void; navNeedsGame: boolean }) {
-  const any = overlays.colliders || overlays.triggers || overlays.nav;
+  const any = overlays.colliders || overlays.triggers || overlays.spawners || overlays.nav;
   return (
     <Popover label="View overlays" title="View overlays" side="bottom" align="start" panelClassName="w-56 space-y-2" trigger={<LuEye aria-hidden className={`h-3.5 w-3.5 ${any ? '' : 'opacity-50'}`} />} testId="level-view-trigger">
       {ROWS.map((r) => (

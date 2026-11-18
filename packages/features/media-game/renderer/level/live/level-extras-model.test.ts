@@ -2,11 +2,11 @@
 import type { GameEntitySnapshot } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { addObject, createEditState, type EditLevel } from '../level-edit-model';
+import { addObject, addSpawner, createEditState, setProperty, type EditLevel } from '../level-edit-model';
 import { blankLevel3d } from '../test-helpers';
 import { levelExtras } from './level-extras-model';
 
-const off = { colliders: false, triggers: false, nav: false };
+const off = { colliders: false, triggers: false, nav: false, spawners: false };
 
 function level() {
   let s = createEditState(blankLevel3d() as EditLevel);
@@ -18,10 +18,21 @@ function level() {
 const ghost = (over: Partial<GameEntitySnapshot> = {}): GameEntitySnapshot => ({ id: 1, type: 'enemy', x: 1, y: 0, z: 1, alive: true, ...over });
 
 describe('levelExtras', () => {
+  it('labels a spawner zone with what it spawns and its density, and ids it for 3D', () => {
+    let s = createEditState(blankLevel3d() as EditLevel);
+    const layerId = s.level.layers[0]!.id!;
+    s = addSpawner(s, layerId, { x: 0, y: 0 });
+    s = setProperty(s, { layerId, objectId: s.selection!.objectId }, 'density', 'float', 1.5);
+    const on = levelExtras({ level: s.level, is3d: true, overlays: { ...off, spawners: true }, ghosts: [], nav: [] });
+    expect(on.canvas.spawners.map((x) => x.label)).toEqual(['traffic ×1.5']);
+    expect(on.scene.spawnerIds).toHaveLength(1);
+    expect(levelExtras({ level: s.level, is3d: true, overlays: off, ghosts: [], nav: [] }).canvas.spawners).toEqual([]);
+  });
+
   it('derives nothing while every switch is off and no game is live', () => {
     const { canvas, scene } = levelExtras({ level: level(), is3d: true, overlays: off, ghosts: [], nav: [[[0, 0], [1, 0], [1, 1]]] });
-    expect(canvas).toEqual({ colliders: [], triggers: [], nav: [], ghosts: [], links: [] });
-    expect(scene).toEqual({ colliderIds: [], triggerIds: [], nav: [], ghosts: [] });
+    expect(canvas).toEqual({ colliders: [], triggers: [], spawners: [], nav: [], ghosts: [], links: [] });
+    expect(scene).toEqual({ colliderIds: [], triggerIds: [], spawnerIds: [], nav: [], ghosts: [] });
   });
 
   it('derives collider and trigger shapes only for the switches that are on', () => {

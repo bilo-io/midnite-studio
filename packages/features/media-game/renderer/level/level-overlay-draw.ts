@@ -3,7 +3,7 @@ import type { GameEntitySnapshot, OverlayShape } from '@midnite/studio-shared';
 import type { PlanPoint } from './level-edit-model';
 import type { GhostLink } from './live/live-model';
 import { footprintCorners } from './level-plan';
-import { themeColour } from './level-plan-draw';
+import { PLAN_COLOURS, themeColour } from './level-plan-draw';
 import type { View } from './level-view';
 
 /**
@@ -14,15 +14,17 @@ import type { View } from './level-view';
 export type CanvasExtras = {
   colliders: readonly OverlayShape[];
   triggers: readonly OverlayShape[];
+  /** Spawn zones with the label each shows (`traffic ×1.5`). */
+  spawners: ReadonlyArray<{ shape: OverlayShape; label: string }>;
   /** The nav-mesh's polygons in object coordinates. */
   nav: ReadonlyArray<readonly PlanPoint[]>;
   ghosts: ReadonlyArray<{ ghost: GameEntitySnapshot; at: PlanPoint }>;
   links: readonly GhostLink[];
 };
 
-export const NO_EXTRAS: CanvasExtras = { colliders: [], triggers: [], nav: [], ghosts: [], links: [] };
+export const NO_EXTRAS: CanvasExtras = { colliders: [], triggers: [], spawners: [], nav: [], ghosts: [], links: [] };
 
-export const hasExtras = (x: CanvasExtras | undefined): x is CanvasExtras => !!x && (x.colliders.length > 0 || x.triggers.length > 0 || x.nav.length > 0 || x.ghosts.length > 0);
+export const hasExtras = (x: CanvasExtras | undefined): x is CanvasExtras => !!x && (x.colliders.length > 0 || x.triggers.length > 0 || x.spawners.length > 0 || x.nav.length > 0 || x.ghosts.length > 0);
 
 type Mapper = (p: PlanPoint) => PlanPoint;
 const IDENTITY: Mapper = (p) => p;
@@ -32,7 +34,10 @@ export const overlayColours = () => ({
   collider: themeColour('health-warn', '#f59e0b'),
   trigger: themeColour('callout-note', '#3b82f6'),
   nav: themeColour('callout-tip', '#22c55e'),
+  /** A spawn zone: its plan colour, a lime no other object type uses. */
+  spawner: PLAN_COLOURS.spawner!,
   ghost: themeColour('primary', '#6366f1'),
+  text: themeColour('foreground', '#e5e7eb'),
 });
 
 /** Shapes as a 30% fill with a 1 px stroke. `cellPath` outlines one tile cell (2D maps); a plan has none and skips cells. */
@@ -80,6 +85,26 @@ export function drawOverlayShapes(
     ctx.stroke();
   }
   ctx.globalAlpha = 1;
+}
+
+/** Spawn zones as the shared 30% fill, each with its `spawns ×density` label at the centre of its footprint. */
+export function drawSpawners(ctx: CanvasRenderingContext2D, input: { spawners: CanvasExtras['spawners']; colour: string; view: View; text: string; toMap?: Mapper }): void {
+  if (input.spawners.length === 0) return;
+  const toMap = input.toMap ?? IDENTITY;
+  drawOverlayShapes(ctx, { shapes: input.spawners.map((s) => s.shape), colour: input.colour, view: input.view, toMap });
+  const px = 1 / input.view.zoom;
+  ctx.font = `${11 * px}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = input.text;
+  for (const { shape, label } of input.spawners) {
+    if (shape.kind === 'cell') continue;
+    const corners = shape.kind === 'rect' ? footprintCorners({ x: shape.x, y: shape.y, width: shape.width, height: shape.height, rotation: shape.rotation })?.map(toMap) : [toMap({ x: shape.x, y: shape.y })];
+    if (!corners?.length) continue;
+    const cx = corners.reduce((a, c) => a + c.x, 0) / corners.length, cy = corners.reduce((a, c) => a + c.y, 0) / corners.length;
+    ctx.fillText(label, cx, cy);
+  }
+  ctx.textBaseline = 'alphabetic';
 }
 
 /** The nav-mesh's polygons: a 1 px outline over a 15% fill. */
@@ -140,8 +165,8 @@ export function drawGhosts(ctx: CanvasRenderingContext2D, input: { ghosts: Canva
   ctx.globalAlpha = 1;
 }
 
-/** Draw every enabled layer, bottom to top: nav, colliders, triggers, ghosts. */
-export function drawExtras(ctx: CanvasRenderingContext2D, input: { extras: CanvasExtras; view: View; toMap?: Mapper; cellPath?: (col: number, row: number) => void }): void {
+/** Draw every enabled layer, bottom to top: nav, colliders, triggers, spawners, ghosts. */
+export function drawExtras(ctx: CanvasRenderingContext2D, input: { extras: CanvasExtras; view: View; text?: string; toMap?: Mapper; cellPath?: (col: number, row: number) => void }): void {
   const { extras, view } = input;
   const colours = overlayColours();
   const base = { view, ...(input.toMap ? { toMap: input.toMap } : {}) };
@@ -149,6 +174,7 @@ export function drawExtras(ctx: CanvasRenderingContext2D, input: { extras: Canva
   const cell = input.cellPath ? { cellPath: input.cellPath } : {};
   drawOverlayShapes(ctx, { ...base, ...cell, shapes: extras.colliders, colour: colours.collider });
   drawOverlayShapes(ctx, { ...base, ...cell, shapes: extras.triggers, colour: colours.trigger });
+  drawSpawners(ctx, { ...base, spawners: extras.spawners, colour: colours.spawner, text: input.text ?? colours.text });
   if (extras.ghosts.length) drawGhosts(ctx, { ...base, ghosts: extras.ghosts, links: extras.links, colour: colours.ghost });
 }
 

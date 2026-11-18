@@ -9,12 +9,14 @@ export type SceneExtras = {
   /** Ids of level objects whose footprint is a collider / a trigger zone. */
   colliderIds: readonly number[];
   triggerIds: readonly number[];
+  /** Ids of `spawner` objects: zones where the game spawns traffic and pedestrians. */
+  spawnerIds: readonly number[];
   /** Nav-mesh polygons as `[x, z]` metres, at ground height. */
   nav: ReadonlyArray<ReadonlyArray<readonly [number, number]>>;
   ghosts: readonly SceneGhost[];
 };
 
-export const NO_SCENE_EXTRAS: SceneExtras = { colliderIds: [], triggerIds: [], nav: [], ghosts: [] };
+export const NO_SCENE_EXTRAS: SceneExtras = { colliderIds: [], triggerIds: [], spawnerIds: [], nav: [], ghosts: [] };
 
 export type ExtraBox = { key: number; position: [number, number, number]; size: [number, number, number]; yaw: number };
 

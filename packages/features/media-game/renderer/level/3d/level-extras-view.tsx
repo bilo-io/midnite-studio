@@ -31,6 +31,7 @@ export function ExtrasView({ items, extras, ground, heightAt = null }: { items: 
   const colours = overlayColours();
   const colliders = useMemo(() => extraBoxes(items, extras.colliderIds), [items, extras.colliderIds]);
   const triggers = useMemo(() => extraBoxes(items, extras.triggerIds), [items, extras.triggerIds]);
+  const spawners = useMemo(() => extraBoxes(items, extras.spawnerIds), [items, extras.spawnerIds]);
   const nav = useSegments(useMemo(() => (heightAt ? drapedRuns(extras.nav.map((poly) => poly.flat()), heightAt, 0.4, 10, true) : navSegments(extras.nav, ground + 0.05)), [extras.nav, ground, heightAt]));
   const links = useSegments(useMemo(() => ghostSegments(items, extras.ghosts), [items, extras.ghosts]));
   const boxes = (list: ReturnType<typeof extraBoxes>, colour: string) =>
@@ -45,6 +46,7 @@ export function ExtrasView({ items, extras, ground, heightAt = null }: { items: 
     <>
       {boxes(colliders, colours.collider)}
       {boxes(triggers, colours.trigger)}
+      {boxes(spawners, colours.spawner)}
       {extras.nav.length > 0 ? (
         <lineSegments geometry={nav}>
           <lineBasicMaterial color={colours.nav} />
