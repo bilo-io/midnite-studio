@@ -39,7 +39,7 @@ import { cull, groundTiles, itemRadius, tileInReach, type GroundTile, type ViewS
 import { detailSegments, gridUnit, reachFor, tileSizeFor } from './level-big';
 import { drapedGrid, drapedRuns, type Relief } from './level-relief';
 import { buildingsGeometry, lineObject, patchGeometry, tileGeometry } from './level-relief-mesh';
-import { fogRange, viewOffset } from './level-lod';
+import { farPlane, fogRange, hazeRange, viewOffset } from './level-lod';
 import type { ScreenPoint } from './level-marquee';
 import { DEFAULT_SIZE_Y } from '../level-edit-model';
 import { ExtrasView } from './level-extras-view';
@@ -258,6 +258,8 @@ export function LevelScene(props: LevelSceneProps) {
   const tilesGroup = useRef<Group>(null);
   const relief = props.relief;
   const heightAt = useMemo(() => (relief ? relief.heightAt : () => props.ground), [relief, props.ground]);
+  // The ground's diagonal when it has real heights (all of it is then drawn, hazed with distance), else 0.
+  const terrainSpan = relief ? Math.hypot(props.bounds.maxX - props.bounds.minX, props.bounds.maxZ - props.bounds.minZ) : 0;
   /** The extent the fine patch covers: the terrain detail's, when it has a picture to wear. */
   const finePatch = useMemo<GroundTile | null>(() => {
     const d = props.detail;
@@ -463,7 +465,7 @@ export function LevelScene(props: LevelSceneProps) {
       const reach = reachFor(preset.drawDistance, distance);
       const offset = viewOffset(distance, dollyOffset(pose), reach);
       camera.near = Math.max(0.05, distance / 2000);
-      camera.far = distance + reach * 1.5 + 50;
+      camera.far = farPlane(distance, reach, terrainSpan);
       camera.updateProjectionMatrix();
       camera.updateMatrixWorld();
       frustum.setFromProjectionMatrix(m.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
@@ -539,10 +541,11 @@ export function LevelScene(props: LevelSceneProps) {
         light.intensity = item.light.intensity * 20;
         light.distance = item.light.range;
       });
-      // Ground tiles past the draw distance are not drawn; the sun and its shadow follow the focus.
+      // Flat ground past the draw distance is not drawn; ground with real heights always is, so far hills stand
+      // behind the work. The sun and its shadow follow the focus.
       tilesGroup.current?.children.forEach((child, i) => {
         const tile = tiles[i]?.tile;
-        child.visible = tile ? tileInReach(tile, focus, reach) : false;
+        child.visible = tile ? terrainSpan > 0 || tileInReach(tile, focus, reach) : false;
       });
       if (grids.length > 1) grids[0]!.visible = distance - offset < fineGridReach;
       sun.position.set(target.x + 40, target.y + 80, target.z + 30);
@@ -554,7 +557,8 @@ export function LevelScene(props: LevelSceneProps) {
       sun.shadow.camera.updateProjectionMatrix();
       const fog = scene.fog as Fog | null;
       if (fog) {
-        const range = fogRange(reach, offset);
+        const plain = fogRange(reach, offset);
+        const range = terrainSpan > 0 ? hazeRange(plain, offset, terrainSpan) : plain;
         fog.near = range.near;
         fog.far = range.far;
       }
@@ -675,7 +679,7 @@ export function LevelScene(props: LevelSceneProps) {
       {selected.length > 1 && props.pivot ? <GroupSelected {...props} members={selected.map((i) => items[i]!).filter(Boolean)} pivot={props.pivot} /> : null}
       <DraftView draft={props.draft} heightAt={heightAt} />
       {props.brush ? <BrushRing radius={props.brush.radius} move={props.brush.move} heightAt={heightAt} lift={relief ? 0.5 : 0.06} /> : null}
-      {props.extras ? <ExtrasView items={items} extras={props.extras} ground={props.ground} /> : null}
+      {props.extras ? <ExtrasView items={items} extras={props.extras} ground={props.ground} heightAt={relief ? relief.heightAt : null} /> : null}
       <OrbitControls makeDefault enabled={props.orbit} enableDamping={false} maxPolarAngle={Math.PI / 2 - 0.02} />
       <GizmoHelper alignment="bottom-right" margin={[56, 56]}>
         <GizmoViewport axisColors={['#e5484d', '#30a46c', '#3e63dd']} labelColor="white" />
