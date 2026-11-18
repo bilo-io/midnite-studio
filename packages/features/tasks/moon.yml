@@ -18,6 +18,7 @@ tags:
 dependsOn:
   - 'shared'
   - 'frame'
+  - 'tasks-core'
 
 tasks:
   # No main half, so nothing emits. The inherited `build` (`tsc -b`, `outputs: dist`) can never produce
@@ -45,6 +46,7 @@ tasks:
       - 'package.json'
       - '/packages/shared/src/**/*'
       - '/packages/frame/src/**/*'
+      - '/packages/tasks-core/src/**/*'
 
   test:
     inputs:
@@ -55,6 +57,7 @@ tasks:
       - 'package.json'
       - '/packages/shared/src/**/*'
       - '/packages/frame/src/**/*'
+      - '/packages/tasks-core/src/**/*'
 
   lint:
     inputs:

@@ -102,6 +102,10 @@ const TASKS_CORE_REJECTED = [
   ['tasks-core imports react', TASKS_CORE, 'react', 'React-free'],
   ['tasks-core imports react-native', TASKS_CORE, 'react-native', 'React-free'],
   ['tasks-core imports electron', TASKS_CORE, 'electron', 'electron-free'],
+  ['tasks-core imports react-icons', TASKS_CORE, 'react-icons/lu', 'React-free'],
+  ['tasks-core imports a node builtin', TASKS_CORE, 'node:fs', 'no node builtins'],
+  ['tasks-core reaches into the frame by path', TASKS_CORE, '../../../frame/src/index', 'reaches around the package name'],
+  ['shared imports tasks-core', 'packages/shared/src/index.ts', '@midnite/tasks-core', 'leaf of the dependency graph'],
 ];
 const TASKS_CORE_ALLOWED = [
   ['tasks-core imports shared', TASKS_CORE, '@midnite/studio-shared'],
