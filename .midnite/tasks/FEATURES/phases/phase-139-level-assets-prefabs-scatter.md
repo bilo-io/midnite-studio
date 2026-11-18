@@ -76,8 +76,9 @@ Deleting a prefab confirms with this level's instance count. Model ops live in `
 **Theme H — The scatter brush.** ✅ (Decisions: the sampler is dart-thrown Poisson-disc against a spacing grid rather than Bridson's active list, because a capped Bridson run clusters around its start; the options panel sits in the editor's side column while `S` is active rather than a Popover; with the brush open a click on a model or prefab tile adds it as a source; a prefab stamp takes the rotation but not the scale jitter and gets its own instance id; `[`/`]` are rows in the shortcut table.) Tool `S` (2D and 3D): pick assets or a prefab, set radius, density, spacing,
 scale and rotation jitter, paint; seeded, Poisson-spaced, one undo per stroke, `Alt` erases.
 
-**Theme I — MCP and the skill.** ◻ `game_assets_list`, `game_prefab_list`, a `place-prefab` level op and
-`game_level_scatter`; the skill's `## Levels` learns them.
+**Theme I — MCP and the skill.** ✅ (Decisions: `place-prefab` takes its `x`/`y` in the batch's unit but the prefab's own offsets stay px, and `applyLevelOps` reads prefab files from `ctx.prefabs`, which main loads and sends on the editor's `apply` request so an open editor needs no prefab fetch of its own; `LevelEntityFieldsSchema` moved to `game-level-entity.ts` so the op language and prefabs share it without an import cycle; `game_level_scatter` takes its area and options in level px, has no `unit`, and caps one batch at the 500-op limit, a prefab point being one op.) `game_assets_list`, `game_prefab_list`, `game_prefab_save`
+and `game_level_scatter` (a seed makes a re-run repeatable; a second pass over the same ground adds only the gaps), the
+`place-prefab` level op, and the skill's `## Levels` teaching in all seven copies.
 
 ## Build order
 
@@ -416,11 +417,11 @@ export function scatterPoints(area: { cx: number; cy: number; radius: number } |
 
 **Acceptance.**
 
-- [ ] I1. `game_assets_list` marks `audio` and `animation` as `placeable: false`.
-- [ ] I2. A batch with `place-prefab` of a 3-object prefab adds three tagged objects.
-- [ ] I3. `game_level_scatter` with a seed returns the same `added` count twice on a fresh copy.
-- [ ] I4. Both writes refuse with `GAMES_OFF_MESSAGE` while `allowGames` is off.
-- [ ] I5. Skill copies byte-identical; pin file regenerated.
+- [x] I1. `game_assets_list` marks `audio` and `animation` as `placeable: false`.
+- [x] I2. A batch with `place-prefab` of a 3-object prefab adds three tagged objects.
+- [x] I3. `game_level_scatter` with a seed returns the same `added` count twice on a fresh copy.
+- [x] I4. Both writes refuse with `GAMES_OFF_MESSAGE` while `allowGames` is off.
+- [x] I5. Skill copies byte-identical; pin file regenerated.
 
 **Done when** I1–I5 pass.
 
