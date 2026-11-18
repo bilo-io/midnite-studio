@@ -53,7 +53,11 @@ export function drawTerrainDetail(ctx: CanvasRenderingContext2D, level: EditLeve
   }
   // One stroke per road width, not per road.
   const byWidth = new Map<number, number[][]>();
-  for (const road of detail.roads) byWidth.set(road.width, [...(byWidth.get(road.width) ?? []), road.points]);
+  for (const road of detail.roads) {
+    const group = byWidth.get(road.width);
+    if (group) group.push(road.points);
+    else byWidth.set(road.width, [road.points]);
+  }
   const scale = metresToPlan(level, 1, 0).x - metresToPlan(level, 0, 0).x;
   ctx.strokeStyle = ROAD_COLOUR;
   ctx.lineCap = 'round';
