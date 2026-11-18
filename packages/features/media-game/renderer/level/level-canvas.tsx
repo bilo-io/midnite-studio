@@ -5,11 +5,11 @@ import { cellAt, cellOrigin, collisionAt, collisionLayer, mapPixelSize, readTmj,
 import type { GameLevelTerrain } from '@midnite/studio-shared';
 
 import { objectToMapPoint, mapPointToObject, type Cell, type EditLevel, type EditSelection, type LevelObject, type ObjectRef, type PlanPoint, type PlanRect } from './level-edit-model';
-import { hitPlan, levelMetresPerTile, pixelsPerMetre, planFrameBounds } from './level-plan';
+import { hitPlan, levelMetresPerTile, pixelsPerMetre, planBounds, planFrameBounds } from './level-plan';
 import { isAssetDrag, readDroppedAsset, useDraggedAsset, type AssetDropTarget } from './assets/asset-drag';
 import { drawHighlight, drawPlan, drawSelectionExtras, prefersReducedMotion, PULSE_MS, SELECTED_COLOUR, type PlanHighlight, type PlanOverlay } from './level-plan-draw';
 import { drawBrush, drawExtras, hasExtras, type CanvasExtras } from './level-overlay-draw';
-import { fitView, screenToMap, zoomAround, type View } from './level-view';
+import { fitView, screenToMap, ZOOM_MIN, zoomAround, zoomFloor, type View } from './level-view';
 
 /**
  * The editor's canvas (Phase 132 Theme D). It draws with Sprites' `map-view.ts` (`tileOf`, `sourceRect`,
@@ -163,10 +163,16 @@ export function LevelCanvas({
   const { map: tilesetImages, loaded } = useTilesetImages(images);
   const [size, setSize] = useState({ width: 640, height: 400 });
   /** What the first fit frames: the map, or for a plan its real bounds (a level may sit at negative pixels). */
+  /** How far out this level may zoom: a big 3D level or its terrain lowers the floor so all of it can be reached. */
+  const floorFor = (box: { width: number; height: number }): number => {
+    if (!plan) return ZOOM_MIN;
+    const all = planBounds(level, plan.terrain);
+    return zoomFloor(box, all.maxX - all.minX, all.maxY - all.minY);
+  };
   const frame = (box: { width: number; height: number }): View => {
     if (!plan) return fitView(box, mapPixelSize(level).width, mapPixelSize(level).height);
     const b = planFrameBounds(level, plan.terrain);
-    const v = fitView(box, b.maxX - b.minX, b.maxY - b.minY);
+    const v = fitView(box, b.maxX - b.minX, b.maxY - b.minY, floorFor(box));
     return { ...v, x: v.x - b.minX * v.zoom, y: v.y - b.minY * v.zoom };
   };
   const [view, setView] = useState<View>(() => frame({ width: 640, height: 400 }));
@@ -450,7 +456,7 @@ export function LevelCanvas({
         style={{ imageRendering: view.zoom >= 1 ? 'pixelated' : 'auto', cursor: hoverEnabled ? 'crosshair' : 'default' }}
         onWheel={(e) => {
           const { sx, sy } = local(e);
-          setView((v) => zoomAround(v, e.deltaY < 0 ? 1.15 : 1 / 1.15, sx, sy));
+          setView((v) => zoomAround(v, e.deltaY < 0 ? 1.15 : 1 / 1.15, sx, sy, floorFor(size)));
         }}
         onPointerDown={onDown}
         onPointerMove={onMove}
@@ -483,7 +489,7 @@ export function LevelCanvas({
         />
       ) : null}
       <span className="pointer-events-none absolute bottom-1 right-2 text-[11px] tabular-nums text-muted-foreground" data-testid="level-zoom">
-        {plan ? `${level.width * levelMetresPerTile(level)} × ${level.height * levelMetresPerTile(level)} m` : `${level.width} × ${level.height}`} · {Math.round(view.zoom * 100)}%
+        {plan ? `${level.width * levelMetresPerTile(level)} × ${level.height * levelMetresPerTile(level)} m` : `${level.width} × ${level.height}`} · {view.zoom < 0.095 ? (view.zoom * 100).toFixed(1) : Math.round(view.zoom * 100)}%
       </span>
     </div>
   );

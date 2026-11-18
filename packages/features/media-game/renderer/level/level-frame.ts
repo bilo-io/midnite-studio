@@ -8,7 +8,7 @@ import type { GameLevelTerrain } from '@midnite/studio-shared';
 import type { EditLevel, ObjectRef, PlanRect } from './level-edit-model';
 import { planBounds } from './level-plan';
 import { selectionBounds } from './level-selection';
-import { clampZoom, type View } from './level-view';
+import { clampZoom, ZOOM_MIN, type View } from './level-view';
 
 /** Breathing room round what is framed (a tenth of its size each side) and how close the plan may zoom. */
 export const FRAME_MARGIN = 0.1;
@@ -20,7 +20,8 @@ const FRAME_MIN_PX = 32;
 export function frameView(rect: PlanRect, box: { width: number; height: number }, margin = FRAME_MARGIN, maxZoom = FRAME_ZOOM_MAX): View {
   const w = Math.max(rect.width, FRAME_MIN_PX), h = Math.max(rect.height, FRAME_MIN_PX);
   const fit = Math.min(box.width / (w * (1 + 2 * margin)), box.height / (h * (1 + 2 * margin)));
-  const zoom = clampZoom(Math.min(maxZoom, fit));
+  // A selection wider than the usual floor shows (objects a kilometre apart) still frames whole.
+  const zoom = clampZoom(Math.min(maxZoom, fit), Math.min(ZOOM_MIN, fit));
   const cx = rect.x + rect.width / 2, cy = rect.y + rect.height / 2;
   return { zoom, x: box.width / 2 - cx * zoom, y: box.height / 2 - cy * zoom };
 }

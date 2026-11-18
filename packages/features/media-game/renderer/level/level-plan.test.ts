@@ -99,7 +99,15 @@ describe('gridLines', () => {
 
   it('thins to 10 m lines when zoomed out and to none when too small', () => {
     expect(gridLines(level3d(), 0.1).x.every((l) => l.bold)).toBe(true);
-    expect(gridLines(level3d(), 0.01).x).toEqual([]);
+    expect(gridLines(level3d(), 0.0001).x).toEqual([]);
+  });
+
+  it('steps to 100 m and 1 km lines on a big level, every tenth bold', () => {
+    const big = { ...level3d(), width: 3000, height: 3000 };
+    const hundred = gridLines(big, 0.01).x;
+    expect(hundred.slice(0, 3).map((l) => l.at)).toEqual([0, 3200, 6400]);
+    expect(hundred.filter((l) => l.bold).map((l) => l.at)).toEqual([0, 32000, 64000, 96000]);
+    expect(gridLines(big, 0.001).x.map((l) => l.at)).toEqual([0, 32000, 64000, 96000]);
   });
 });
 
@@ -168,6 +176,9 @@ describe('a level with an origin (midnite.originX/Y)', () => {
     const level = withOrigin(-1950, -2145);
     const big = { minX: -5000, minZ: -5000, maxX: 5000, maxZ: 5000 };
     expect(planFrameBounds(level, big)).toEqual(planBounds(level));
+    // GTACT's case: a 1600 x 1400 m level on a 10 km terrain (45x its area) opens on the level.
+    const gtact = { ...withOrigin(-2200, -3400), width: 1600, height: 1400 };
+    expect(planFrameBounds(gtact, big)).toEqual(planBounds(gtact));
     const near = { minX: -30, minZ: -20, maxX: 5, maxZ: 5 };
     expect(planFrameBounds(level3d(), near)).toEqual(planBounds(level3d(), near));
     expect(planFrameBounds(level3d(), null)).toEqual(planBounds(level3d()));
