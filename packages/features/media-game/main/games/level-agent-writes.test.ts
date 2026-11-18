@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { ok, type GitOpResult, type LevelEditorResult, type LevelEditorRequest, type LevelOp } from '@midnite/studio-shared';
+import { ok, prefabFromObjects, type GitOpResult, type LevelEditorResult, type LevelEditorRequest, type LevelOp } from '@midnite/studio-shared';
 
 import { LEVEL_EDITOR_TIMEOUT_MESSAGE } from './level-editor-bridge';
 import { defaultLevelWriteLabel, writeLevelOps, type LevelAgentWriteDeps } from './level-agent-writes';
@@ -31,8 +31,8 @@ function make(answer: Answer, file: unknown = map([spawn])) {
     levelEditor: { request },
     modelAssets: async () => null,
   };
-  const run = (ops: LevelOp[], over: { save?: boolean } = {}) =>
-    writeLevelOps(deps, { gameId: 'g1', scene: 'level', ops, unit: 'px', save: over.save ?? false, select: true });
+  const run = (ops: LevelOp[], over: { save?: boolean; prefab?: LevelAgentWriteDeps['prefab'] } = {}) =>
+    writeLevelOps(over.prefab ? { ...deps, prefab: over.prefab } : deps, { gameId: 'g1', scene: 'level', ops, unit: 'px', save: over.save ?? false, select: true });
   return { run, set, request };
 }
 const editorAnswer: Answer = (req) =>
@@ -93,6 +93,41 @@ describe('writeLevelOps', () => {
     const { run } = make(notOpen, map([]));
     const result = await run([add]);
     expect(result.ok && result.value.issues.some((i) => i.rule === 'level/no-spawn')).toBe(true);
+  });
+});
+
+describe('place-prefab', () => {
+  const hut = prefabFromObjects('hut', '2d', [
+    { type: 'pickup', x: 40, y: 40 },
+    { type: 'pickup', x: 60, y: 40 },
+    { type: 'pickup', x: 50, y: 60 },
+  ]);
+  const place: LevelOp = { op: 'place-prefab', prefab: 'hut', x: 80, y: 80 };
+
+  it('I2: a closed editor gets three tagged objects in one commit', async () => {
+    const { run, set } = make(notOpen);
+    const result = await run([place], { prefab: async (_g, name) => (name === 'hut' ? hut : null) });
+    expect(result).toMatchObject({ ok: true, value: { applied: 'file', added: [10, 11, 12] } });
+    expect(set).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(set.mock.calls[0]?.[2])).toContain('midnite.prefabInstance');
+  });
+
+  it('an open editor receives the prefab files the batch names', async () => {
+    const { run, request } = make(editorAnswer);
+    await run([place], { prefab: async () => hut });
+    const sent = request.mock.calls.find(([r]) => r.kind === 'apply')?.[0];
+    expect(sent && sent.kind === 'apply' && sent.prefabs).toEqual({ hut });
+  });
+
+  it('an unknown prefab fails the batch by name', async () => {
+    const { run, set } = make(notOpen);
+    const result = await run([place], { prefab: async () => null });
+    expect(result).toMatchObject({ ok: false, message: expect.stringContaining('"hut"') });
+    expect(set).not.toHaveBeenCalled();
+  });
+
+  it('labels a prefab-only batch', () => {
+    expect(defaultLevelWriteLabel([place, place])).toBe('Place 2 prefabs');
   });
 });
 

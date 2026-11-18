@@ -3,6 +3,10 @@ import {
   gameEngineWarnings,
   levelEntityTypes,
   queryLevel,
+  GAME_PLACEABLE_ASSET_KINDS,
+  prefabFromObjects,
+  scatterOps,
+  type GamePrefab,
   validateLevel,
   MCP_CONTENT_KEY,
   GameLevelSelectOutputSchema,
@@ -18,6 +22,7 @@ import {
   type McpContentBlock,
   type McpToolInput,
   type McpToolOutput,
+  resolvePlayFromSpawn,
 } from '@midnite/studio-shared';
 
 import { McpToolError } from '@midnite/studio-runtime';
@@ -64,7 +69,7 @@ export type GameImage = {
 };
 
 export type GameMcpDeps = {
-  service: Pick<GameService, 'resolve' | 'list' | 'levels' | 'levelEditor' | 'goto' | 'doctor' | 'doctorFix' | 'create' | 'manifestGet' | 'manifestSet' | 'run' | 'stop' | 'reload' | 'logs' | 'emit' | 'isRunning'>;
+  service: Pick<GameService, 'resolve' | 'list' | 'levels' | 'levelEditor' | 'goto' | 'doctor' | 'doctorFix' | 'create' | 'manifestGet' | 'manifestSet' | 'run' | 'entities' | 'debug' | 'stop' | 'reload' | 'logs' | 'emit' | 'isRunning'>;
   /** The running game's web contents, or `null` when it is not running. */
   webContents: (gameId: string) => GamePageContents | null;
   /** The asset bridge's import (Theme N). */
@@ -108,8 +113,15 @@ export type GameMcpTools = {
     | 'game_level_frame'
     | 'game_level_view'
     | 'game_goto'
+    | 'game_play_from'
+    | 'game_entities'
+    | 'game_debug_overlay'
     | 'game_doctor'
-    | 'game_doctor_fix']: (input: McpToolInput<K>) => Promise<McpToolOutput<K>>;
+    | 'game_doctor_fix'
+    | 'game_assets_list'
+    | 'game_prefab_list'
+    | 'game_prefab_save'
+    | 'game_level_scatter']: (input: McpToolInput<K>) => Promise<McpToolOutput<K>>;
 };
 
 export { GAME_STATE_TIMEOUT_MS } from './game-state';
@@ -190,6 +202,10 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
         {
           levels: deps.service.levels,
           levelEditor: deps.service.levelEditor,
+          prefab: async (gameId, name) => {
+            const got = await deps.service.levels.prefabs.get(gameId, name);
+            return got.ok ? got.value.prefab : null;
+          },
           modelAssets: async (gameId) => {
             const { manifest } = await deps.service.manifestGet(gameId);
             return manifest ? manifest.assets.filter((a) => a.kind === 'model').map((a) => a.name) : null;
@@ -492,6 +508,33 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
       return { gameId: found.gameId, via: jumped.via };
     },
 
+    async game_play_from({ game, scene, at, objectId, unit, useEditor }) {
+      const found = await need(game);
+      let read: { level: unknown; source: 'editor' | 'file' };
+      if (useEditor) read = unwrapLevel(await readLevelForTool(deps.service, found.gameId, scene));
+      else read = { level: unwrapLevel(await deps.service.levels.get(found.gameId, scene)).level, source: 'file' };
+      const start = resolvePlayFromSpawn(read.level, { at, objectId, unit });
+      if ('error' in start) throw new McpToolError('not-found', start.error);
+      const previewed = unwrapLevel(await deps.service.levels.preview({ gameId: found.gameId, scene, level: read.level, spawn: start.spawn }));
+      return { url: previewed.url, via: previewed.via, source: read.source };
+    },
+
+    async game_entities({ game, types, limit }) {
+      const found = await need(game);
+      if (!deps.service.isRunning(found.gameId)) throw new McpToolError('error', NOT_RUNNING);
+      const result = unwrap(await deps.service.entities.get(found.gameId));
+      const wanted = types && types.length > 0 ? result.entities.filter((e) => types.includes(e.type)) : result.entities;
+      const entities = wanted.slice(0, limit);
+      return { ...result, entities, truncated: result.truncated || wanted.length > entities.length };
+    },
+
+    async game_debug_overlay({ game, colliders, triggers, nav }) {
+      const found = await need(game);
+      if (!deps.service.isRunning(found.gameId)) throw new McpToolError('error', NOT_RUNNING);
+      const patch = { ...(colliders === undefined ? {} : { colliders }), ...(triggers === undefined ? {} : { triggers }), ...(nav === undefined ? {} : { nav }) };
+      return { applied: unwrap(await deps.service.debug(found.gameId, patch)) };
+    },
+
     async game_doctor({ game }) {
       const found = await need(game);
       // By path: `need` already resolved the game, so this skips a second listing.
@@ -501,6 +544,39 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
     async game_doctor_fix({ game, fixId, genre, build }) {
       const found = await need(game);
       return unwrap(await deps.service.doctorFix({ path: found.path, fixId, genre, build }));
+    },
+
+    async game_assets_list({ game, kinds }) {
+      const found = await need(game);
+      const { manifest } = await deps.service.manifestGet(found.gameId);
+      const placeable = GAME_PLACEABLE_ASSET_KINDS as readonly string[];
+      const assets = (manifest?.assets ?? [])
+        .filter((a) => !kinds || kinds.includes(a.kind))
+        .map((a) => ({ name: a.name, kind: a.kind, path: a.path, placeable: placeable.includes(a.kind) }));
+      return { assets };
+    },
+
+    async game_prefab_list({ game }) {
+      const found = await need(game);
+      return unwrapLevel(await deps.service.levels.prefabs.list(found.gameId));
+    },
+
+    async game_prefab_save({ game, name, dimension, objects, description }) {
+      const found = await need(game);
+      const prefab: GamePrefab = prefabFromObjects(name, dimension, objects, description);
+      return unwrapLevel(await deps.service.levels.prefabs.set(found.gameId, prefab));
+    },
+
+    async game_level_scatter({ game, scene, area, options, layer, label, save, select }) {
+      const found = await need(game);
+      const read = unwrapLevel(await readLevelForTool(deps.service, found.gameId, scene));
+      const seed = options.seed ?? Math.floor(Math.random() * 2 ** 31);
+      const { ops, points, capped } = scatterOps({ level: read.level, area, options: { ...options, seed }, layer, instanceId: () => crypto.randomUUID().slice(0, 8) });
+      if (ops.length === 0) {
+        throw new McpToolError('error', points === 0 ? 'Nothing to scatter: the area is already as dense as `density` asks, or too small for `spacing`.' : 'Nothing to scatter.');
+      }
+      const written = await writeEntityOps({ game: found.gameId, scene, unit: 'px', label: label ?? `Scatter ${ops.length} objects`, save, select }, ops);
+      return { ...written, points, capped };
     },
 
     async game_state({ game }) {

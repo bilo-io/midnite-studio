@@ -255,7 +255,7 @@ export function buildGamePassPrompt(req: {
   const { game, pass, of } = req;
   return [
     `You are working on a Midnite Studio game: the repository in the current folder (gameId "${game.gameId}").`,
-    'Start by reading the midnite-media-game-build skill (in .claude/skills/, .agents/skills/ or .codex/skills/), and the genre recipe skill there if one fits the request.',
+    'Start by reading the midnite-media-game-build skill (in .claude/skills/ or .agents/skills/), and the genre recipe skill there if one fits the request.',
     '',
     `The request: ${req.prompt}`,
     '',
@@ -297,8 +297,15 @@ const ACTION_LABELS: Partial<Record<GameMcpToolId, string>> = {
   game_level_view: 'Viewed a level',
   game_level_set: 'Saved a level',
   game_goto: 'Jumped to a scene',
+  game_play_from: 'Played a level from a point',
+  game_entities: 'Read live objects',
+  game_debug_overlay: 'Switched debug overlays',
   game_doctor: 'Diagnosed the game',
   game_doctor_fix: 'Applied a doctor fix',
+  game_assets_list: 'Listed the assets',
+  game_prefab_list: 'Listed the prefabs',
+  game_prefab_save: 'Saved a prefab',
+  game_level_scatter: 'Scattered objects',
 };
 
 /**

@@ -1,7 +1,7 @@
 import { createContext, useContext, useLayoutEffect, type ComponentType, type ReactElement, type ReactNode } from 'react';
 
 import type { IconComponent } from '@midnite/studio-frame';
-import type { ActivityStatus, AgentDefinition, RepoDescriptor, SuiteAppId } from '@midnite/studio-shared';
+import type { ActivityStatus, AgentDefinition, RepoDescriptor, SuiteAppId, TerminalSession } from '@midnite/studio-shared';
 import type { ITheme } from '@xterm/xterm';
 
 import type { TerminalFontSettings } from './terminal-font';
@@ -93,6 +93,11 @@ export type TerminalAgentAvatarProps = {
   ollamaBacked?: boolean;
 };
 
+export type TerminalLoopMarkProps = {
+  /** The session the loop dispatched; carries `loopId` (or, for a row from before it existed, `surface: 'fab'`). */
+  session: TerminalSession;
+};
+
 export type TerminalHost = {
   /** The app this window belongs to; every session it opens is stamped with it. */
   appId: SuiteAppId;
@@ -127,6 +132,13 @@ export type TerminalHost = {
   Tooltip: ComponentType<TerminalTooltipProps>;
   Popover: ComponentType<TerminalPopoverProps>;
   AgentAvatar: ComponentType<TerminalAgentAvatarProps>;
+  /**
+   * The loop mark (its icon, in its colour) for a session a loop dispatched —
+   * drawn between the agent mark and the name in the "Loops" group. The
+   * terminal feature cannot import the loops feature, so the app supplies it.
+   * Absent, or `null` for an unknown loop: the row shows no mark.
+   */
+  LoopMark?: ComponentType<TerminalLoopMarkProps>;
   /**
    * In a popped-out terminal window, the title-bar slots the header portals
    * into; `null` in a docked panel. Hooks.

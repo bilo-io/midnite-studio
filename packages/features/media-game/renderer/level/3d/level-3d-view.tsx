@@ -1,7 +1,7 @@
 import { Canvas } from '@react-three/fiber';
 import { DEFAULT_SNAP, TransformModeBar, type SnapSettings, type TransformMode } from '@midnite/studio-frame/viewport3d';
 import { bridge } from '@midnite/studio-frame';
-import { metresPerTile, type GameLevelTerrain } from '@midnite/studio-shared';
+import { levelOrigin, levelPixelsToWorld, metresPerTile, type GameLevelTerrain } from '@midnite/studio-shared';
 import { useEffect, useMemo, useRef, useState, type ComponentType, type KeyboardEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent } from 'react';
 import { LuActivity, LuBox, LuCrosshair, LuGlobe, LuGroup } from 'react-icons/lu';
 import type { Object3D } from 'three';
@@ -12,14 +12,18 @@ import { cameraPosition, orbitPose, planPose, type CameraPose } from './camera-t
 import { boxCentre, capturePose, framingSpan, levelWorldBox, type WorldBox } from './level-capture-pose';
 import { pixelsToPng } from './level-capture';
 import type { LevelCaptured, LevelCaptureRequest } from '../level-editor-controls';
+import { focusBounds, workBounds } from './level-big';
 import { formatStats, type GroundTile, type ViewStats } from './level-cull';
 import { footprintBox, gizmoSteps, surfaceElevation } from '../level-snap';
+import type { SceneExtras } from './level-extras';
 import type { LevelSceneProps } from './level-scene';
 import { disposeTree, LevelScene, NO_DRAFT, SCENE_BACKGROUND, type CameraMove, type ToolDraft } from './level-scene';
 import { commitVolume, groundPoint, rayHitsItem, rotateToward, snappedPlanPoint, volumeFromDrag, worldPointFromPlan } from './level-ground';
 import { marqueeHits, type ScreenPoint, type ScreenRect } from './level-marquee';
 import { isMac, matchShortcut } from '../level-shortcuts';
+import { isAssetDrag, readDroppedAsset, useDraggedAsset, type AssetDragPayload, type AssetDropTarget } from '../assets/asset-drag';
 import { useLevelViewStore, type GizmoPivot, type GizmoSpace } from './level-view-store';
+import { liftItems, reliefOf, reliefPoint } from './level-relief';
 import { gizmoEdit, gizmoEditGroup, groundY, groupPivot, levelWorldItems, POINT_SIZE, worldItemOf, worldToObjectPoint, type GizmoChange, type GroupDelta, type GroupPivot } from './level-world';
 import { ModelCache } from './model-cache';
 import { OPTIMISATION_PRESETS, presetFor } from './optimisation';
@@ -61,8 +65,16 @@ export type Level3dViewProps = {
   hidden?: ReadonlySet<string>;
   /** Objects locked in the outliner (refKeys): drawn, but a click does not pick them. */
   locked?: ReadonlySet<string>;
+  /** Collider / trigger volumes, the nav-mesh and live ghosts (Phase 140 Themes E to G). */
+  extras?: SceneExtras;
   /** Right-click (Phase 137 Theme I): the object under the pointer, or null over the ground. */
   onContextMenu?: (event: { clientX: number; clientY: number; hit: { layerId: number; objectId: number } | null }) => void;
+  /** Phase 139 Theme D: an asset dropped from the browser lands on the ground point under the pointer (already snapped). */
+  assetDrop?: Pick<AssetDropTarget, 'onDrop'>;
+  /** An armed browser tile: the next ground click places it instead of the entity tool's object. */
+  armed?: AssetDragPayload | null;
+  /** Phase 139 Theme H: the scatter brush. The ground under a drag becomes plan points (object units); `radius` is in the same units. */
+  scatter?: { radius: number; onStroke: (phase: 'down' | 'move' | 'up', at: PlanPoint, alt: boolean) => void } | undefined;
 };
 
 type LevelSceneRayRef = LevelSceneProps['ray'];
@@ -80,8 +92,8 @@ function decodeBase64(data: string): ArrayBuffer {
 /** The level's ground in metres: the terrain's extent, else the map's own. */
 export function levelBounds(level: EditLevel, terrain: GameLevelTerrain | null): GroundTile {
   if (terrain) return { minX: terrain.minX, minZ: terrain.minZ, maxX: terrain.maxX, maxZ: terrain.maxZ };
-  const mpt = metresPerTile(level);
-  return { minX: 0, minZ: 0, maxX: level.width * mpt, maxZ: level.height * mpt };
+  const mpt = metresPerTile(level), o = levelOrigin(level);
+  return { minX: o.x, minZ: o.z, maxX: o.x + level.width * mpt, maxZ: o.z + level.height * mpt };
 }
 
 /**
@@ -91,10 +103,19 @@ export function levelBounds(level: EditLevel, terrain: GameLevelTerrain | null):
 export default function Level3dView(props: Level3dViewProps) {
   const { level, gameId, update } = props;
   const hiddenKeys = props.hidden;
-  const items = useMemo(() => (hiddenKeys && hiddenKeys.size > 0 ? levelWorldItems(level).filter((it) => !hiddenKeys.has(`${it.sel.layerId}:${it.sel.objectId}`)) : levelWorldItems(level)), [level, hiddenKeys]);
+  const ground = groundY(level);
+  /** The ground's real shape, when the terrain pack has heights: objects with no elevation of their own sit on it. */
+  const relief = useMemo(() => reliefOf(props.terrain, ground), [props.terrain, ground]);
+  const heightAt = (x: number, z: number): number => (relief ? relief.heightAt(x, z) : ground);
+  const items = useMemo(() => {
+    const all = liftItems(levelWorldItems(level), relief);
+    return hiddenKeys && hiddenKeys.size > 0 ? all.filter((it) => !hiddenKeys.has(`${it.sel.layerId}:${it.sel.objectId}`)) : all;
+  }, [level, hiddenKeys, relief]);
+  /** Where the pointer's ray meets the ground: the relief, else the flat plane. */
+  const castGround = (r: { origin: [number, number, number]; dir: [number, number, number] } | null | undefined): [number, number, number] | null =>
+    !r ? null : relief ? reliefPoint(r.origin, r.dir, relief) : groundPoint(r.origin, r.dir, ground);
   const grid = useMemo(() => new SpatialGrid(items), [items]);
   const bounds = useMemo(() => levelBounds(level, props.terrain), [level, props.terrain]);
-  const ground = groundY(level);
   /** Item indices of the selection, primary first-class via `props.selection`. */
   const selectedIdx = useMemo(() => {
     const out: number[] = [];
@@ -136,9 +157,11 @@ export default function Level3dView(props: Level3dViewProps) {
   const statsOnRef = useRef(statsOn);
   statsOnRef.current = statsOn;
 
+  /** What the view opens on and grids: the work, when the terrain dwarfs it. */
+  const focus = useMemo(() => focusBounds(bounds, workBounds(level, items)), [bounds, level, items]);
   const levelCentre = (): { target: [number, number, number]; span: number } => ({
-    target: [(bounds.minX + bounds.maxX) / 2, ground, (bounds.minZ + bounds.maxZ) / 2],
-    span: Math.max(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ, 10) * 0.8,
+    target: [(focus.minX + focus.maxX) / 2, heightAt((focus.minX + focus.maxX) / 2, (focus.minZ + focus.maxZ) / 2), (focus.minZ + focus.maxZ) / 2],
+    span: Math.max(focus.maxX - focus.minX, focus.maxZ - focus.minZ, 10) * 0.8,
   });
   const move = useRef<CameraMove | null>(null);
   const poseOut = useRef<CameraPose | null>(null);
@@ -206,7 +229,7 @@ export default function Level3dView(props: Level3dViewProps) {
 
   /** The box (world metres) of `refs`' items, else of the ground under `rect`. */
   const boxOf = (rect: PlanRect | null, refs: readonly ObjectRef[]): WorldBox | null => {
-    const found = refs.map((r) => worldItemOf(level, r)).filter((i): i is NonNullable<typeof i> => i !== null);
+    const found = liftItems(refs.map((r) => worldItemOf(level, r)).filter((i): i is NonNullable<typeof i> => i !== null), relief);
     if (found.length > 0) {
       return {
         min: [Math.min(...found.map((i) => i.bounds.minX)), Math.min(...found.map((i) => i.position[1])), Math.min(...found.map((i) => i.bounds.minZ))],
@@ -214,10 +237,10 @@ export default function Level3dView(props: Level3dViewProps) {
       };
     }
     if (!rect) return null;
-    const mpt = metresPerTile(level);
-    const planToWorld = (x: number, y: number): [number, number] => [(x / level.tilewidth) * mpt, (y / level.tileheight) * mpt];
+    const planToWorld = (x: number, y: number): [number, number] => levelPixelsToWorld(level, x, y);
     const a = planToWorld(rect.x, rect.y), b = planToWorld(rect.x + rect.width, rect.y + rect.height);
-    return { min: [Math.min(a[0], b[0]), ground, Math.min(a[1], b[1])], max: [Math.max(a[0], b[0]), ground, Math.max(a[1], b[1])] };
+    const y = heightAt((a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+    return { min: [Math.min(a[0], b[0]), y, Math.min(a[1], b[1])], max: [Math.max(a[0], b[0]), y, Math.max(a[1], b[1])] };
   };
   const frameBox = (rect: PlanRect, refs: readonly ObjectRef[]) => {
     const box = boxOf(rect, refs);
@@ -294,10 +317,10 @@ export default function Level3dView(props: Level3dViewProps) {
   const toolDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     const tool = props.tool;
     if (!editable || event.button !== 0 || event.shiftKey || !(event.target instanceof HTMLCanvasElement)) return;
-    if (tool !== 'volume' && tool !== 'path' && tool !== 'rotate') return;
+    if (tool !== 'volume' && tool !== 'path' && tool !== 'rotate' && tool !== 'scatter') return;
     const cast = (x: number, y: number): [number, number, number] | null => {
       const r = ray.current?.(x, y);
-      return r ? groundPoint(r.origin, r.dir, ground) : null;
+      return castGround(r);
     };
     const start = cast(event.clientX, event.clientY);
     const layer = props.objectLayerId;
@@ -331,6 +354,18 @@ export default function Level3dView(props: Level3dViewProps) {
         (ev, at) => {
           if (at && travelled(ev)) update((s) => commitVolume(s, layer, snapped(at, ev.altKey)));
         },
+      );
+    } else if (tool === 'scatter') {
+      const sc = props.scatter;
+      if (!start || !sc) return;
+      setOrbit.current?.(false);
+      const plan = (at: [number, number, number]) => worldToObjectPoint(level, at[0], at[2]);
+      sc.onStroke('down', plan(start), event.altKey);
+      track(
+        (ev, at) => {
+          if (at) sc.onStroke('move', plan(at), ev.altKey);
+        },
+        (ev, at) => sc.onStroke('up', plan(at ?? start), ev.altKey),
       );
     } else if (tool === 'path') {
       if (!start || layer === null) return;
@@ -390,7 +425,19 @@ export default function Level3dView(props: Level3dViewProps) {
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
   };
-  const placing = editable && props.tool === 'entity' && props.objectLayerId !== null && props.entityName !== '';
+  /** The scatter ring follows the pointer over the ground without a React render per move. */
+  const brushMove = useRef<((at: [number, number] | null) => void) | null>(null);
+  const brushRadius = props.scatter ? worldPointFromPlan(level, { x: props.scatter.radius, y: props.scatter.radius })[0] : 0;
+  const armedAsset = editable && props.armed ? props.armed : null;
+  const placing = armedAsset !== null || (editable && props.tool === 'entity' && props.objectLayerId !== null && props.entityName !== '');
+  const dragged = useDraggedAsset();
+  /** The drop ghost: where the pointer is over the view while a browser tile is dragged (client-relative px). */
+  const [ghost, setGhost] = useState<{ x: number; y: number } | null>(null);
+  const dragPoint = (event: { clientX: number; clientY: number; altKey: boolean }): PlanPoint | null => {
+    const r = ray.current?.(event.clientX, event.clientY);
+    const g = castGround(r);
+    return g ? snappedPlanPoint(level, g[0], g[2], levelSnap, event.altKey) : null;
+  };
 
   return (
     <div
@@ -402,6 +449,31 @@ export default function Level3dView(props: Level3dViewProps) {
       data-testid="level-3d-view"
       onKeyDown={onKeyDown}
       onPointerDownCapture={toolDown}
+      onPointerMove={(e) => {
+        if (!props.scatter || !editable) return;
+        const r = ray.current?.(e.clientX, e.clientY);
+        const g = castGround(r);
+        brushMove.current?.(g ? [g[0], g[2]] : null);
+      }}
+      onPointerLeave={() => brushMove.current?.(null)}
+      onDragOver={(e) => {
+        if (!props.assetDrop || !isAssetDrag(e.dataTransfer)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        const box = e.currentTarget.getBoundingClientRect();
+        setGhost({ x: e.clientX - box.left, y: e.clientY - box.top });
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setGhost(null);
+      }}
+      onDrop={(e) => {
+        if (!props.assetDrop || !isAssetDrag(e.dataTransfer)) return;
+        e.preventDefault();
+        setGhost(null);
+        const payload = readDroppedAsset(e.dataTransfer);
+        const at = dragPoint(e);
+        if (payload && at) props.assetDrop.onDrop(payload, at);
+      }}
       onPointerDown={startMarquee}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -409,13 +481,16 @@ export default function Level3dView(props: Level3dViewProps) {
         props.onContextMenu({ clientX: e.clientX, clientY: e.clientY, hit: pointerHit.current });
       }}
     >
-      <Canvas frameloop={statsOn ? 'always' : 'demand'} dpr={Math.min(preset.pixelRatio, typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1)} gl={{ antialias: true }}>
+      <Canvas frameloop={statsOn ? 'always' : 'demand'} dpr={Math.min(preset.pixelRatio, typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1)} gl={{ antialias: true, logarithmicDepthBuffer: true }}>
         <LevelScene
           items={items}
           grid={grid}
           bounds={bounds}
           ground={ground}
           drape={props.terrain?.preview ?? null}
+          focus={focus}
+          detail={props.terrain?.detail ?? null}
+          relief={relief}
           selected={selectedIdx}
           pivot={pivot}
           pivotMode={pivotMode}
@@ -426,11 +501,13 @@ export default function Level3dView(props: Level3dViewProps) {
           capture={captureFn}
           setOrbit={setOrbit}
           draft={draft}
+          extras={props.extras}
           project={project}
           gizmo={gizmo}
           snap={snap}
           preset={preset}
           placing={placing}
+          brush={props.scatter ? { radius: brushRadius, move: brushMove } : undefined}
           cache={cache}
           initialPose={initialPose}
           move={move}
@@ -448,13 +525,19 @@ export default function Level3dView(props: Level3dViewProps) {
             update((s) => gizmoEditGroup(s, selectedRefs, framePivot, delta));
           }}
           onPlace={(x, z) => {
+            if (armedAsset) {
+              props.assetDrop?.onDrop(armedAsset, snappedPlanPoint(level, x, z, levelSnap, false));
+              return;
+            }
             const layer = props.objectLayerId;
             if (layer === null) return;
             const at = worldToObjectPoint(level, x, z);
-            const drop = levelSnap.enabled && levelSnap.surface ? surfaceElevation(items, footprintBox([x, z], [POINT_SIZE, POINT_SIZE], 0), new Set(), ground) : ground;
+            // The ground here: on a relief an object with no elevation already sits on it, so only a surface above it is written.
+            const under = heightAt(x, z);
+            const drop = levelSnap.enabled && levelSnap.surface ? surfaceElevation(items, footprintBox([x, z], [POINT_SIZE, POINT_SIZE], 0), new Set(), under) : under;
             update((s) => {
               const added = addObject(setActiveLayer(s, layer), layer, { type: props.entityName, x: at.x, y: at.y });
-              return drop !== ground && added.selection ? setOptionalNumber(added, added.selection, 'elevation', String(drop)) : added;
+              return drop !== under && added.selection ? setOptionalNumber(added, added.selection, 'elevation', String(drop)) : added;
             });
           }}
           onGizmoEnd={(change: GizmoChange, inverted: boolean) => {
@@ -466,9 +549,11 @@ export default function Level3dView(props: Level3dViewProps) {
             if (item && levelSnap.surface && levelSnap.enabled !== inverted && change.elevation === undefined && (change.centre || change.size)) {
               const size = change.size ?? item.size;
               const box = footprintBox(change.centre ?? [item.position[0], item.position[2]], [size[0], size[2]], change.yaw ?? item.yaw);
-              const drop = surfaceElevation(items, box, new Set([sel.objectId]), ground);
-              // An object already resting there keeps its (absent) elevation property.
-              if (Math.abs(drop - item.position[1]) > 1e-3) next = { ...change, elevation: drop };
+              const centre = change.centre ?? [item.position[0], item.position[2]];
+              const under = heightAt(centre[0], centre[1]);
+              const drop = surfaceElevation(items, box, new Set([sel.objectId]), under);
+              // An object already resting there keeps its (absent) elevation property; so does one moved over bare relief.
+              if (Math.abs(drop - item.position[1]) > 1e-3 && !(relief && item.grounded && drop === under)) next = { ...change, elevation: drop };
             }
             update((s) => gizmoEdit(s, sel, next));
           }}
@@ -477,6 +562,16 @@ export default function Level3dView(props: Level3dViewProps) {
           }}
         />
       </Canvas>
+      {ghost && dragged ? (
+        <div
+          aria-hidden
+          data-testid="level-asset-ghost"
+          className="pointer-events-none absolute flex h-8 items-center rounded border border-dashed border-primary bg-primary/30 px-2 text-[11px]"
+          style={{ left: ghost.x, top: ghost.y, transform: 'translate(-50%, -50%)' }}
+        >
+          {dragged.name}
+        </div>
+      ) : null}
       {marquee ? (
         <div
           aria-hidden

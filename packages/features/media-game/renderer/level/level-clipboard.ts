@@ -4,8 +4,31 @@
  * system clipboard (copy between two games) and a stale or foreign string parses to `null`, never throws. Tiles are
  * not copied here: Phase 143's stamp brush owns tile copy. Positions are plan units, the same as `selectionBounds`.
  */
+import { PREFAB_PROPS } from '@midnite/studio-shared';
+
 import { insertObjects, isLevel3d, type EditState, type LevelObject, type ObjectRef, type PlanPoint } from './level-edit-model';
 import { selectionBounds } from './level-selection';
+
+const newInstanceId = (): string => crypto.randomUUID().slice(0, 8);
+
+/**
+ * Copies of prefab instance objects become a new instance (Phase 139 Theme G): every source instance id maps to one fresh
+ * id, so the copies stay grouped with each other but never with the originals they were copied from.
+ */
+export function reinstance<T extends Pick<LevelObject, 'properties'>>(objects: readonly T[], makeId: () => string = newInstanceId): T[] {
+  const ids = new Map<string, string>();
+  return objects.map((o) => {
+    const prop = o.properties?.find((p) => p.name === PREFAB_PROPS.instance);
+    if (!prop || typeof prop.value !== 'string') return o;
+    let next = ids.get(prop.value);
+    if (next === undefined) {
+      next = makeId();
+      ids.set(prop.value, next);
+    }
+    const id = next;
+    return { ...o, properties: o.properties!.map((p) => (p.name === PREFAB_PROPS.instance ? { ...p, value: id } : p)) };
+  });
+}
 
 export const LEVEL_CLIPBOARD_KIND = 'midnite-level-clipboard';
 
@@ -79,7 +102,7 @@ export function pasteClipboard(state: EditState, clip: LevelClipboard, layerId: 
   if (clip.dimension !== dimensionOf(state)) return state;
   return insertObjects(
     state,
-    clip.objects.map((o) => {
+    reinstance(clip.objects).map((o) => {
       const { id: _id, ...rest } = clone(o);
       return { layerId, object: { ...rest, x: at.x + o.x, y: at.y + o.y } };
     }),
@@ -88,14 +111,19 @@ export function pasteClipboard(state: EditState, clip: LevelClipboard, layerId: 
 
 /** Mod+D: copies of the selection at the same positions, each in its own layer, selected so the next drag moves them off the originals. */
 export function duplicateSelection(state: EditState): EditState {
-  const items: Array<{ layerId: number; object: Omit<LevelObject, 'id'> }> = [];
+  const found: Array<{ layerId: number; object: LevelObject }> = [];
   for (const ref of state.selected) {
     const object = state.level.layers.find((l) => l.id === ref.layerId)?.objects?.find((o) => o.id === ref.objectId);
-    if (!object) continue;
-    const { id: _id, ...rest } = clone(object);
-    items.push({ layerId: ref.layerId, object: rest });
+    if (object) found.push({ layerId: ref.layerId, object });
   }
-  return insertObjects(state, items);
+  const copies = reinstance(found.map((f) => f.object));
+  return insertObjects(
+    state,
+    found.map((f, i) => {
+      const { id: _id, ...rest } = clone(copies[i]!);
+      return { layerId: f.layerId, object: rest };
+    }),
+  );
 }
 
 let memory: LevelClipboard | null = null;

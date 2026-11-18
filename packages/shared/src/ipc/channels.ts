@@ -1016,11 +1016,27 @@ export const CHANNELS = {
   gamesLevelMapAsset: 'mstudio:games:level-map-asset',
   /** A game's `model` asset bytes for the level editor's 3D view (Phase 136 Theme F). */
   gamesLevelModel: 'mstudio:games:level-model',
+  /** Prefabs (Phase 139 Theme F): `levels/prefabs/<name>.prefab.json` list, read, write-and-commit, delete-and-commit. */
+  gamesLevelPrefabs: 'mstudio:games:level-prefabs',
+  gamesLevelPrefabGet: 'mstudio:games:level-prefab-get',
+  gamesLevelPrefabSet: 'mstudio:games:level-prefab-set',
+  gamesLevelPrefabDelete: 'mstudio:games:level-prefab-delete',
+  /** A game image/sprite/tileset/background asset's thumbnail source as a data URL (Phase 139 Theme A). */
+  gamesLevelAssetThumb: 'mstudio:games:level-asset-thumb',
+  /** Phase 140 Theme B: run the editor's unsaved level in the runner (in-memory overlay), and drop the overlay. */
+  gamesLevelPreview: 'mstudio:games:level-preview',
+  gamesLevelPreviewEnd: 'mstudio:games:level-preview-end',
   /** Phase 138 Theme C: the renderer's one-way answer to a main -> renderer level-editor request. */
   gamesLevelEditorReply: 'mstudio:games:level-editor-reply',
   /** Phase 138 Theme C: the renderer's one-way presence — which scene the level editor shows, or null. */
   gamesLevelEditorOpen: 'mstudio:games:level-editor-open',
   gamesGoto: 'mstudio:games:goto',
+  /** Phase 140 Theme D: read a running game's live entities once, and (un)subscribe the editor to the 4 Hz poller. */
+  gamesEntities: 'mstudio:games:entities',
+  gamesEntitiesWatch: 'mstudio:games:entities-watch',
+  /** Phase 140 Theme G: switch the running game's debug overlays, and read its nav-mesh for the editor. */
+  gamesDebug: 'mstudio:games:debug',
+  gamesNavMesh: 'mstudio:games:nav-mesh',
   /** Move a game's runner view into the `game` popout window (Theme B). */
   gamesPopOut: 'mstudio:games:pop-out',
   /** Which game the `game` popout hosts, if any. */
@@ -1032,6 +1048,12 @@ export const CHANNELS = {
   gamesAgentUndo: 'mstudio:games:agent-undo',
   /** The picker's candidates for one tab, across the registered repos (Theme N). */
   gamesAssetSources: 'mstudio:games:asset-sources',
+  /** List the shared asset library's collections and assets (read-only). */
+  gamesLibraryList: 'mstudio:games:library-list',
+  /** Read one confined library file for preview. */
+  gamesLibraryRead: 'mstudio:games:library-read',
+  /** Copy a shared-library asset into a game's `assets/` and commit it, recording where it came from. */
+  gamesLibraryImport: 'mstudio:games:library-import',
   /** Copy a media item into a game's `assets/` and commit it (Theme N). */
   gamesImportAsset: 'mstudio:games:import-asset',
   /** Check imported assets against their sources, or re-import the changed ones (Theme N). */
@@ -1934,6 +1956,8 @@ export const EVENT_CHANNELS = {
   gamesLevelEditorRequest: 'mstudio:games:level-editor-request',
   /** A game run's lifecycle state changed — see `GameRunStatePayload`. */
   gamesRunState: 'mstudio:games:run-state',
+  /** Phase 140 Theme D: a running game's entity snapshot, while the editor watches — see `GameEntityStatePayload`. */
+  gamesEntityState: 'mstudio:games:entity-state',
   /** A batch of a run's console entries — see `GameConsolePayload`. */
   gamesConsole: 'mstudio:games:console',
   /** `game_open` (an agent over MCP) asked the window to show a game — see `GamesOpenPayload`. */

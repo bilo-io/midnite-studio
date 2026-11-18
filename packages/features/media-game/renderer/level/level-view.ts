@@ -5,21 +5,34 @@ export const ZOOM_MAX = 8;
 /** `screen = map × zoom + (x, y)`. */
 export type View = { zoom: number; x: number; y: number };
 
-export const clampZoom = (zoom: number): number => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom));
+/** No floor goes below this: a canvas that has not been laid out yet (zero size) must not produce a zero zoom. */
+export const ZOOM_ABSOLUTE_MIN = 0.0005;
+
+export const clampZoom = (zoom: number, min = ZOOM_MIN): number => Math.min(ZOOM_MAX, Math.max(min, ZOOM_ABSOLUTE_MIN, zoom));
+
+/**
+ * How far out a view may zoom: {@link ZOOM_MIN}, or less when the content is too big to fit at that zoom, so the
+ * whole of it (and as much again around it) can always be reached. A 3D level is 32 map pixels to the metre, so at
+ * `ZOOM_MIN` a canvas shows about 100 m; a kilometre-wide level or its terrain needs a far lower floor.
+ */
+export function zoomFloor(box: { width: number; height: number }, width: number, height: number): number {
+  const fit = Math.min(box.width / Math.max(1, width), box.height / Math.max(1, height));
+  return Math.min(ZOOM_MIN, fit / 2);
+}
 
 export const screenToMap = (view: View, sx: number, sy: number): { x: number; y: number } => ({ x: (sx - view.x) / view.zoom, y: (sy - view.y) / view.zoom });
 
 /** Zoom by `factor`, keeping the map point under the screen point `(sx, sy)` where it is. */
-export function zoomAround(view: View, factor: number, sx: number, sy: number): View {
-  const zoom = clampZoom(view.zoom * factor);
+export function zoomAround(view: View, factor: number, sx: number, sy: number, min = ZOOM_MIN): View {
+  const zoom = clampZoom(view.zoom * factor, min);
   if (zoom === view.zoom) return view;
   const at = screenToMap(view, sx, sy);
   return { zoom, x: sx - at.x * zoom, y: sy - at.y * zoom };
 }
 
 /** A view that centres a `width` × `height` map in a `box`, zoomed to fit (never past 2× on open). */
-export function fitView(box: { width: number; height: number }, width: number, height: number): View {
-  const zoom = clampZoom(Math.min(2, box.width / Math.max(1, width), box.height / Math.max(1, height)) * 0.95);
+export function fitView(box: { width: number; height: number }, width: number, height: number, min = ZOOM_MIN): View {
+  const zoom = clampZoom(Math.min(2, box.width / Math.max(1, width), box.height / Math.max(1, height)) * 0.95, min);
   return { zoom, x: (box.width - width * zoom) / 2, y: (box.height - height * zoom) / 2 };
 }
 

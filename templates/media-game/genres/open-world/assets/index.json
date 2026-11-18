@@ -1,1 +1,40 @@
-{ "version": 1, "assets": [{ "kind": "terrain", "name": "world", "path": "assets/terrain/fixture.terrain" }] }
+{
+  "version": 1,
+  "assets": [
+    {
+      "kind": "terrain",
+      "name": "world",
+      "path": "assets/terrain/fixture.terrain"
+    },
+    {
+      "name": "helicopter",
+      "kind": "model",
+      "path": "assets/model/helicopter.glb",
+      "library": {
+        "library": "gtact",
+        "path": "models/aircraft/helicopter.glb",
+        "sha256": "366ea5615713b0d48edc0bfd464d6ccf238efa6ffb51cc316a62299d6696b4a0"
+      }
+    },
+    {
+      "name": "fulmine",
+      "kind": "model",
+      "path": "assets/model/fulmine.glb",
+      "library": {
+        "library": "gtact",
+        "path": "models/vehicles/fulmine.glb",
+        "sha256": "54d52bbfa654ff0b9630a0875184fb2dffdc113f7b7a8d6f32a0d2ddd6dff2d9"
+      }
+    },
+    {
+      "name": "sedan",
+      "kind": "model",
+      "path": "assets/model/sedan.glb",
+      "library": {
+        "library": "gtact",
+        "path": "models/vehicles/sedan.glb",
+        "sha256": "3a0069a86aa4867c48cbde43451207f42248c1a0c2e73292c03a0eea3a5ff030"
+      }
+    }
+  ]
+}

@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   compareSemver,
+  GAME_KIT_VERSION,
   GAME_MANIFEST_FILE,
   GAME_RULES,
   GameCreateRequestSchema,
@@ -48,7 +49,7 @@ function manifest(overrides: Record<string, unknown> = {}): Record<string, unkno
     genre: null,
     starter: 'blank',
     entry: 'index.html',
-    kitVersion: '0.12.0',
+    kitVersion: GAME_KIT_VERSION,
     vendored: {},
     assets: [],
     ...overrides,

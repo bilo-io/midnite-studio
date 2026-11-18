@@ -4,17 +4,22 @@ import { isAbsolute, join, resolve as resolvePath } from 'node:path';
 import {
   EVENT_CHANNELS,
   failure,
+  GAME_LEVEL_MAX_BYTES,
   GAME_MANIFEST_FILE,
+  GameSceneNameSchema,
   ok,
+  parseGameLevel,
   parseGameManifest,
   type BrowserBounds,
   type GameAddResult,
   type GameCreateRequest,
   type GameCreateResult,
   type GameDiagnosis,
+  type GameDebugOptions,
   type GameFixRequest,
   type GameFixResult,
   type GameJuicePatch,
+  type GameLevelPreviewResult,
   type GameJuiceSettings,
   type GameLogEntry,
   type GameManifest,
@@ -33,13 +38,16 @@ import { applyGameFix } from './game-fixes';
 import { inferManifest } from './infer-manifest';
 import { resolveGameFolder } from './game-open';
 import { listGames } from './game-list';
+import { createEntityPoller } from './game-entities';
 import { createGameLevels } from './game-levels';
+import { createGamePrefabs } from './game-prefabs';
 import { createLevelEditorBridge } from './level-editor-bridge';
 import { createGameManage } from './game-manage';
 import { createGame, gameIdForPath } from './game-scaffold';
 import type { GamePopout } from './game-popout';
-import type { GameRunner, ToolbarAction } from './game-runner';
+import { gameEntryUrl, type GameRunner, type ToolbarAction } from './game-runner';
 import { effectiveGamesRoot, validateGamesRoot } from './games-root';
+import { expandLibraryRoot } from './asset-library';
 import type { GamesSettingsStore } from './games-settings-store';
 import { upgradeKit } from './kit-upgrade';
 
@@ -81,7 +89,7 @@ export function createGameService(deps: GameServiceDeps) {
 
   async function settingsRead(): Promise<GamesSettingsRead> {
     const { settings, root } = await read();
-    return { settings, resolvedRoot: root, rootProblem: await validateGamesRoot(root) };
+    return { settings, resolvedRoot: root, rootProblem: await validateGamesRoot(root), resolvedLibraryRoot: expandLibraryRoot(settings.assetLibraryRoot) };
   }
 
   /** Find a listed game by id. */
@@ -116,7 +124,16 @@ export function createGameService(deps: GameServiceDeps) {
   }
 
   const levelEditor = createLevelEditorBridge({ send: deps.send });
-  const levels = createGameLevels({ resolve, readManifest, runner: deps.runner, send: deps.send, log: deps.log });
+  const prefabs = createGamePrefabs({ resolve, send: deps.send, log: deps.log });
+  const entityPoller = createEntityPoller({ read: (gameId) => deps.runner.entities(gameId), runState: (gameId) => deps.runner.runState(gameId), send: deps.send });
+  const levels = createGameLevels({
+    resolve,
+    readManifest,
+    runner: deps.runner,
+    onLevelSave: (gameId, scene) => deps.runner.clearPreview(gameId, scene),
+    send: deps.send,
+    log: deps.log,
+  });
 
   const manage = createGameManage({
     resolve,
@@ -131,7 +148,32 @@ export function createGameService(deps: GameServiceDeps) {
     log: deps.log,
   });
 
-  return {
+  /**
+   * Play from here (Phase 140 Theme B): run the editor's unsaved `level` for `scene` from `spawn`, through the
+   * runner's in-memory overlay. Nothing is written or committed; a running game restarts, a stopped one starts.
+   */
+  async function previewLevel(req: {
+    gameId: string;
+    scene: string;
+    level: unknown;
+    spawn: { x: number; y: number; z?: number } | null;
+  }): Promise<GitOpResult<GameLevelPreviewResult>> {
+    const scene = GameSceneNameSchema.safeParse(req.scene);
+    if (!scene.success) return failure(`"${req.scene}" is not a scene name.`);
+    const parsed = parseGameLevel(req.level);
+    if (!parsed.ok) {
+      const first = parsed.issues[0];
+      return failure(first ? `${first.path}: ${first.message}` : 'That is not a valid level.');
+    }
+    const json = `${JSON.stringify(req.level, null, 2)}\n`;
+    if (Buffer.byteLength(json) > GAME_LEVEL_MAX_BYTES) return failure(`That level is over ${GAME_LEVEL_MAX_BYTES / 1048576} MB.`);
+    const via = deps.runner.isRunning(req.gameId) ? ('restarted' as const) : ('started' as const);
+    const started = await service.run(req.gameId, { level: scene.data, spawn: req.spawn, preview: { scene: scene.data, json } });
+    if (!started.ok) return started;
+    return ok({ url: gameEntryUrl({ gameId: req.gameId, determinism: null, level: scene.data, spawn: req.spawn }), via });
+  }
+
+  const service = {
     resolve,
     view: (gameId: string) => deps.runner.view(gameId),
     isRunning: (gameId: string): boolean => deps.runner.isRunning(gameId),
@@ -255,7 +297,15 @@ export function createGameService(deps: GameServiceDeps) {
      * Run a game. A manifest with `deterministic: true` runs deterministically (seed 1);
      * `opts.determinism` forces it for this run — what a play-test does.
      */
-    async run(gameId: string, opts: { determinism?: { seed: number; paused: boolean } } = {}): Promise<GitOpResult<{ runId: string }>> {
+    async run(
+      gameId: string,
+      opts: {
+        determinism?: { seed: number; paused: boolean };
+        level?: string;
+        spawn?: { x: number; y: number; z?: number } | null;
+        preview?: { scene: string; json: string } | null;
+      } = {},
+    ): Promise<GitOpResult<{ runId: string }>> {
       const game = await find(gameId);
       if (!game) return failure('That game was not found.');
       const { manifest, issues } = await readManifest(game.path);
@@ -270,6 +320,9 @@ export function createGameService(deps: GameServiceDeps) {
         network: manifest.network,
         keepSaveData: manifest.keepSaveData,
         determinism: opts.determinism ?? (manifest.deterministic ? { seed: 1, paused: false } : null),
+        ...(opts.level ? { level: opts.level } : {}),
+        ...(opts.spawn ? { spawn: opts.spawn } : {}),
+        ...(opts.preview ? { preview: opts.preview } : {}),
       });
     },
 
@@ -287,8 +340,32 @@ export function createGameService(deps: GameServiceDeps) {
     logs: (gameId: string, since?: number): { runId: string | null; entries: GameLogEntry[] } =>
       deps.runner.logs(gameId, since),
     /** `levels/<scene>.tmj` (Phase 132 Theme C): list, read, write-and-commit; and the jump to a scene. */
-    levels: { list: levels.list, get: levels.get, set: levels.set, mapAsset: levels.mapAsset, model: levels.model },
+    levels: {
+      list: levels.list,
+      get: levels.get,
+      set: levels.set,
+      mapAsset: levels.mapAsset,
+      model: levels.model,
+      prefabs,
+      assetThumb: levels.assetThumb,
+      preview: (req: { gameId: string; scene: string; level: unknown; spawn: { x: number; y: number; z?: number } | null }) => previewLevel(req),
+      previewEnd: (gameId: string): GitOpResult => {
+        deps.runner.clearPreview(gameId);
+        return ok();
+      },
+    },
     goto: levels.goto,
+    /** Live entities (Phase 140 Theme D): one read, and the editor's subscription to the 4 Hz poller. */
+    entities: {
+      get: (gameId: string) => deps.runner.entities(gameId),
+      watch: (gameId: string, watcherId: string, on: boolean): GitOpResult => {
+        entityPoller.watch(gameId, watcherId, on);
+        return ok();
+      },
+    },
+    /** Phase 140 Theme G: the running game's debug overlays, and its nav-mesh for the editor. */
+    debug: (gameId: string, patch: Partial<GameDebugOptions>) => deps.runner.debug(gameId, patch),
+    navMesh: (gameId: string) => deps.runner.navMesh(gameId),
     /** The main -> renderer level-editor bridge (Phase 138 Theme C). */
     levelEditor,
     async kitUpgrade(gameId: string): Promise<GitOpResult<{ branch: string }>> {
@@ -306,7 +383,10 @@ export function createGameService(deps: GameServiceDeps) {
       }
       return result;
     },
-    stopAll: (): void => deps.runner.stopAll(),
+    stopAll: (): void => {
+      entityPoller.stopAll();
+      deps.runner.stopAll();
+    },
 
     // --- Phase 149 Theme C: the game doctor ---
     /**
@@ -359,6 +439,7 @@ export function createGameService(deps: GameServiceDeps) {
     },
     popped: (): GamePoppedResponse => deps.popout?.popped() ?? { gameId: null, run: null },
   };
+  return service;
 }
 
 export type GameService = ReturnType<typeof createGameService>;

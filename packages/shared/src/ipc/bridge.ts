@@ -1670,6 +1670,18 @@ export type MidniteStudioBridge = {
       mapAsset: (req: In<typeof S.GamesLevelMapAssetRequest>) => Promise<z.infer<typeof S.GamesLevelMapAssetResponse>>;
       /** A `model` asset's bytes for the 3D view (Phase 136 Theme F). */
       model: (req: In<typeof S.GamesLevelModelRequest>) => Promise<z.infer<typeof S.GamesLevelModelResponse>>;
+      /** Phase 139 Theme F: `levels/prefabs/<name>.prefab.json`; `set` and `delete` each make one commit naming only that file. */
+      prefabs: {
+        list: (req: In<typeof S.GamesLevelPrefabsRequest>) => Promise<z.infer<typeof S.GamesLevelPrefabsResponse>>;
+        get: (req: In<typeof S.GamesLevelPrefabGetRequest>) => Promise<z.infer<typeof S.GamesLevelPrefabGetResponse>>;
+        set: (req: In<typeof S.GamesLevelPrefabSetRequest>) => Promise<z.infer<typeof S.GamesLevelPrefabSetResponse>>;
+        delete: (req: In<typeof S.GamesLevelPrefabDeleteRequest>) => Promise<z.infer<typeof S.GamesLevelPrefabDeleteResponse>>;
+      };
+      /** An image-like asset's thumbnail source as a data URL (Phase 139 Theme A). */
+      assetThumb: (req: In<typeof S.GamesLevelAssetThumbRequest>) => Promise<z.infer<typeof S.GamesLevelAssetThumbResponse>>;
+      /** Phase 140 Theme B: run the editor's unsaved level without a commit; `previewEnd` drops the in-memory overlay. */
+      preview: (req: In<typeof S.GamesLevelPreviewRequest>) => Promise<z.infer<typeof S.GamesLevelPreviewResponse>>;
+      previewEnd: (req: In<typeof S.GamesLevelPreviewEndRequest>) => Promise<GitOpResult>;
       /** Phase 138 Theme C: main asks the open level editor something (snapshot, apply, select, frame, view). */
       onEditorRequest: (handler: (event: z.infer<typeof S.GamesLevelEditorRequestPayload>) => void) => Unsubscribe;
       /** One-way answer to an `onEditorRequest`. */
@@ -1678,6 +1690,20 @@ export type MidniteStudioBridge = {
       editorOpen: (scene: z.input<typeof S.GamesLevelEditorOpenPayload>) => void;
     };
     goto: (req: In<typeof S.GamesGotoRequest>) => Promise<z.infer<typeof S.GamesGotoResponse>>;
+    /**
+     * Live entities (Phase 140 Theme D): `get` reads a running game's `window.__midnite.entities()` once; `watch`
+     * subscribes this window to the 4 Hz `onEntityState` feed and returns its unsubscribe. The feed pauses with
+     * the game and stops with it; hidden windows should unsubscribe.
+     */
+    entities: {
+      get: (req: In<typeof S.GamesEntitiesRequest>) => Promise<z.infer<typeof S.GamesEntitiesResponse>>;
+      watch: (req: In<typeof S.GamesEntitiesRequest>) => Unsubscribe;
+    };
+    onEntityState: (handler: (event: z.infer<typeof S.GamesEntityStatePayload>) => void) => Unsubscribe;
+    /** Phase 140 Theme G: switch the running game's debug overlays (`window.__midnite.debug`); switches left out keep their setting. */
+    debug: (req: In<typeof S.GamesDebugRequest>) => Promise<z.infer<typeof S.GamesDebugResponse>>;
+    /** The running game's nav-mesh (`window.__midnite.navMesh()`), for the editor's Nav-mesh overlay. */
+    navMesh: (req: In<typeof S.GamesNavMeshRequest>) => Promise<z.infer<typeof S.GamesNavMeshResponse>>;
     /** Move a game's runner into the `game` popout window; closing that window docks it back. */
     popOut: (req: In<typeof S.GamesPopOutRequest>) => Promise<GitOpResult>;
     /** Which game the `game` popout hosts — how the popout's own renderer learns what to show. */
@@ -1704,6 +1730,12 @@ export type MidniteStudioBridge = {
      * provenance, and re-import it when the source changes. Each import and re-import is its own commit.
      */
     assets: {
+      /** The shared asset library: list its collections, read one file for preview. Read-only. */
+      library: {
+        list: () => Promise<z.infer<typeof S.GamesLibraryListResponse>>;
+        read: (req: In<typeof S.GamesLibraryReadRequest>) => Promise<z.infer<typeof S.GamesLibraryReadResponse>>;
+        import: (req: In<typeof S.GamesLibraryImportRequest>) => Promise<z.infer<typeof S.GamesImportAssetResponse>>;
+      };
       sources: (req: In<typeof S.GamesAssetSourcesRequest>) => Promise<z.infer<typeof S.GamesAssetSourcesResponse>>;
       import: (req: In<typeof S.GamesImportAssetRequest>) => Promise<z.infer<typeof S.GamesImportAssetResponse>>;
       resync: (req: In<typeof S.GamesResyncRequest>) => Promise<z.infer<typeof S.GamesResyncResponse>>;

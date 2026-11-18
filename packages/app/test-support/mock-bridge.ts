@@ -751,12 +751,15 @@ export type MockFixtures = {
     rootProblem?: string | null;
     /** The game the `game` popout hosts at boot (Theme B Pop out). */
     popped?: string | null;
+    /** The shared asset library listing the Library source shows. */
+    assetLibrary?: import('@midnite/studio-shared').GameLibraryListing;
+    libraryImportResult?: { ok: true } | { ok: false; message: string };
     /** Theme N: picker candidates by tab, and the re-sync answer (`state` per imported asset). */
     assetSources?: Record<
       string,
       Array<{ repoPath: string; name: string; items: Array<{ path: string; label: string; kind: string; bytes: number }> }>
     >;
-    assetSync?: Array<{ name: string; kind: string; state: 'current' | 'changed' | 'missing'; importedAt: string }>;
+    assetSync?: Array<{ name: string; kind: string; state: 'current' | 'changed' | 'missing'; importedAt: string; library?: { library: string; path: string; sha256: string } }>;
     /**
      * Theme O: `playtests/*.json` as the Playtests menu lists them. A run answers `playtestRun` when
      * given, else marks every requested valid play-test passed, and saves it as that entry's `last`.
@@ -767,6 +770,8 @@ export type MockFixtures = {
     juice?: Record<string, unknown>;
     /** Phase 132 Theme D: `levels/<scene>.tmj` per game id (raw Tiled JSON). `levels.set` records `levelSet` calls. */
     levels?: Record<string, Record<string, unknown>>;
+    /** Phase 139 Theme C: the manifest's `assets` per game id, which the level editor's asset browser lists. */
+    assets?: Record<string, Array<{ name: string; kind: string; path: string; sha256?: string }>>;
     /** Theme P: what an export answers (default: success at a path built from the format and `dest`). */
     exportResult?: { ok: false; message: string } | { ok: true; warnings?: string[] };
   };
@@ -3637,7 +3642,10 @@ export function buildMockBridge(data: MockFixtures) {
         return { ok: true as const, value: { path, gameId } };
       },
       manifest: {
-        get: async () => ({ manifest: null, issues: [] }),
+        get: async (req?: { gameId?: string }) => {
+          const assets = req?.gameId ? data.games?.assets?.[req.gameId] : undefined;
+          return { manifest: assets ? ({ assets: assets.map((a) => ({ sha256: 'mock', ...a })) } as never) : null, issues: [] };
+        },
         set: async () => ({ ok: true as const }),
       },
       // Phase 132 Theme D: scenes by game id from `data.games.levels`; a `set` is recorded and stored.
@@ -3657,7 +3665,39 @@ export function buildMockBridge(data: MockFixtures) {
           return { ok: true as const, value: { sha: 'l3v3l01' } };
         },
         mapAsset: async () => ({ ok: false as const, kind: 'error' as const, message: 'No such map asset.' }),
+        // Phase 139 Theme F: prefabs by game id, held in memory.
+        prefabs: {
+          list: async (req: { gameId: string }) => ({
+            ok: true as const,
+            value: { prefabs: Object.values(gamesPrefabs[req.gameId] ?? {}).map((p) => ({ name: p.name, dimension: p.dimension, objects: p.objects.length, ...(p.description ? { description: p.description } : {}) })).sort((a, b) => a.name.localeCompare(b.name)) },
+          }),
+          get: async (req: { gameId: string; name: string }) => {
+            const prefab = gamesPrefabs[req.gameId]?.[req.name];
+            return prefab ? { ok: true as const, value: { prefab } } : { ok: false as const, kind: 'error' as const, message: `Prefab "${req.name}" not found.` };
+          },
+          set: async (req: { gameId: string; prefab: { name: string; dimension: '2d' | '3d'; objects: unknown[]; description?: string } }) => {
+            gamesCalls.push({ call: 'prefabSet', ...req });
+            gamesPrefabs[req.gameId] = { ...(gamesPrefabs[req.gameId] ?? {}), [req.prefab.name]: req.prefab };
+            return { ok: true as const, value: { sha: 'pr3f4b1' } };
+          },
+          delete: async (req: { gameId: string; name: string }) => {
+            if (!gamesPrefabs[req.gameId]?.[req.name]) return { ok: false as const, kind: 'error' as const, message: `Prefab "${req.name}" not found.` };
+            const { [req.name]: _gone, ...rest } = gamesPrefabs[req.gameId]!;
+            gamesPrefabs[req.gameId] = rest;
+            return { ok: true as const, value: { sha: 'pr3f4b2' } };
+          },
+        },
         model: async (req: { gameId: string; name: string }) => ({ ok: false as const, kind: 'error' as const, message: `No model asset named "${req.name}".` }),
+        assetThumb: async (req: { gameId: string; name: string }) => ({ ok: false as const, kind: 'error' as const, message: `No asset named "${req.name}".` }),
+        // Phase 140 Theme B: play from here records the request; the preview "starts" with a stub URL.
+        preview: async (req: unknown) => {
+          gamesCalls.push({ call: 'levelPreview', req });
+          return { ok: true as const, value: { url: 'mstudio-game://mock/index.html', via: 'started' as const } };
+        },
+        previewEnd: async (req: unknown) => {
+          gamesCalls.push({ call: 'levelPreviewEnd', req });
+          return { ok: true as const };
+        },
         // Phase 138 Theme C: the editor bridge. Requests are never pushed here; replies and presence are recorded.
         onEditorRequest: (_handler: (event: unknown) => void) => () => undefined,
         editorReply: (payload: unknown) => {
@@ -3738,6 +3778,34 @@ export function buildMockBridge(data: MockFixtures) {
           gamesOpenHandlers = gamesOpenHandlers.filter((h) => h !== handler);
         };
       },
+      entities: {
+        get: async (req: { gameId: string }) => {
+          gamesCalls.push({ call: 'entities', ...req });
+          return { ok: true as const, value: { scene: 'main', frame: 0, entities: [], truncated: false } };
+        },
+        watch: (req: { gameId: string }) => {
+          gamesCalls.push({ call: 'entitiesWatch', ...req, on: true });
+          return () => {
+            gamesCalls.push({ call: 'entitiesWatch', ...req, on: false });
+          };
+        },
+      },
+      debug: async (req: { gameId: string; colliders?: boolean; triggers?: boolean; nav?: boolean }) => {
+        gamesCalls.push({ call: 'debug', ...req });
+        const { gameId: _gameId, ...patch } = req;
+        gamesDebugState = { ...gamesDebugState, ...patch };
+        return { ok: true as const, value: { ...gamesDebugState } };
+      },
+      navMesh: async (req: { gameId: string }) => {
+        gamesCalls.push({ call: 'navMesh', ...req });
+        return { ok: true as const, value: { polygons: [] as [number, number][][] } };
+      },
+      onEntityState: (handler: (event: unknown) => void) => {
+        gamesEntityStateHandlers.push(handler);
+        return () => {
+          gamesEntityStateHandlers = gamesEntityStateHandlers.filter((h) => h !== handler);
+        };
+      },
       onRunState: (handler: (event: unknown) => void) => {
         gamesRunStateHandlers.push(handler);
         return () => {
@@ -3798,6 +3866,22 @@ export function buildMockBridge(data: MockFixtures) {
       },
       // Theme N: the asset bridge. Sources and re-sync answer from fixtures; imports are recorded.
       assets: {
+        library: {
+          list: async () => ({ ok: true as const, value: data.games?.assetLibrary ?? { root: '/lib', exists: false, collections: [] } }),
+          read: async (req: { collection: string; path: string }) => {
+            gamesCalls.push({ call: 'libraryRead', ...req });
+            const mime = req.path.endsWith('.png') ? 'image/png' : req.path.endsWith('.mp3') ? 'audio/mpeg' : 'application/octet-stream';
+            const previewable = mime !== 'application/octet-stream';
+            return { ok: true as const, value: { absolutePath: `/lib/${req.collection}/${req.path}`, mime, bytes: 10, dataUrl: previewable ? `data:${mime};base64,AAAA` : null } };
+          },
+          import: async (req: { gameId: string; collection: string; path: string; name?: string }) => {
+            gamesCalls.push({ call: 'libraryImport', ...req });
+            const answer = data.games?.libraryImportResult;
+            if (answer && !answer.ok) return { ok: false as const, kind: 'error' as const, message: answer.message };
+            const name = (req.name ?? req.path.split('/').pop()!.replace(/\.[^.]+$/, '')).replace(/\s+/g, '-');
+            return { ok: true as const, value: { name, kind: 'image' as const, path: `assets/image/${name}.png`, sha256: 'abc', commit: 'a1b2c3d' } };
+          },
+        },
         sources: async (req: { tab: string }) => ({ ok: true as const, value: { repos: data.games?.assetSources?.[req.tab] ?? [] } }),
         import: async (req: { gameId: string; source: unknown; name?: string }) => {
           gamesCalls.push({ call: 'assetImport', ...req });
@@ -6676,7 +6760,13 @@ export function buildMockBridge(data: MockFixtures) {
   // eslint-disable-next-line no-var
   var gamesLevels: Record<string, Record<string, unknown>> = { ...(data.games?.levels ?? {}) };
   // eslint-disable-next-line no-var
+  var gamesPrefabs: Record<string, Record<string, { name: string; dimension: '2d' | '3d'; objects: unknown[]; description?: string }>> = {};
+  // eslint-disable-next-line no-var
   var gamesRunStateHandlers: Array<(event: unknown) => void> = [];
+  // eslint-disable-next-line no-var
+  var gamesEntityStateHandlers: Array<(event: unknown) => void> = [];
+  // eslint-disable-next-line no-var
+  var gamesDebugState = { colliders: false, triggers: false, nav: false };
   // eslint-disable-next-line no-var
   var gamesConsoleHandlers: Array<(event: unknown) => void> = [];
   // eslint-disable-next-line no-var
@@ -6697,6 +6787,7 @@ export function buildMockBridge(data: MockFixtures) {
       gamesPopStateHandlers.forEach((h) => h(event));
     },
     runState: (event: unknown) => gamesRunStateHandlers.forEach((h) => h(event)),
+    entityState: (event: unknown) => gamesEntityStateHandlers.forEach((h) => h(event)),
     console: (event: unknown) => gamesConsoleHandlers.forEach((h) => h(event)),
     open: (event: unknown) => gamesOpenHandlers.forEach((h) => h(event)),
     agentProgress: (event: unknown) => gamesAgentHandlers.forEach((h) => h(event)),

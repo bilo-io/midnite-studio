@@ -1,5 +1,5 @@
-// The `midnite-media-*` skills ship as six copies — the repo's own `.claude`, `.agents` and `.codex`
-// and the same three under `templates/midnite/` — and a drifting copy means an agent in one CLI is
+// The `midnite-media-*` skills ship as four copies — the repo's own `.claude` and `.agents` and the
+// same two under `templates/midnite/` — and a drifting copy means an agent in one CLI is
 // told something another is not. This pins every copy of each skill to the `.claude` one.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const root = join(fileURLToPath(new URL('.', import.meta.url)), '..');
-const COPIES = ['.claude', '.agents', '.codex', 'templates/midnite/.claude', 'templates/midnite/.agents', 'templates/midnite/.codex'];
+const COPIES = ['.claude', '.agents', 'templates/midnite/.claude', 'templates/midnite/.agents'];
 const skills = readdirSync(join(root, '.claude', 'skills')).filter((name) => /^midnite-media-/.test(name));
 
 describe('midnite-media-* skill copies', () => {
@@ -31,7 +31,7 @@ describe('midnite-media-* skill copies', () => {
   });
 
   for (const skill of skills) {
-    it(`${skill} is byte-identical in all six places`, () => {
+    it(`${skill} is byte-identical in all four places`, () => {
       const reference = readFileSync(join(root, '.claude', 'skills', skill, 'SKILL.md'));
       for (const copy of COPIES) {
         const file = join(root, copy, 'skills', skill, 'SKILL.md');
@@ -43,12 +43,12 @@ describe('midnite-media-* skill copies', () => {
 });
 
 // The sitrep family (the `midnite-sitrep` router and its `midnite-sitrep-*` views) ships in the
-// repo's three mirrors only, and the `.agents`/`.codex` copies drop the Claude-only `argument-hint`
+// repo's two mirrors only, and the `.agents` copy drops the Claude-only `argument-hint`
 // and `allowed-tools` frontmatter. Everything else must match, or one CLI renders a different report.
-// The union of all three mirrors, so a view added or left behind in only one of them is caught.
+// The union of both mirrors, so a view added or left behind in only one of them is caught.
 const sitrepSkills = [
   ...new Set(
-    ['.claude', '.agents', '.codex'].flatMap((copy) =>
+    ['.claude', '.agents'].flatMap((copy) =>
       readdirSync(join(root, copy, 'skills')).filter((name) => /^midnite-sitrep(-.+)?$/.test(name)),
     ),
   ),
@@ -63,11 +63,11 @@ describe('midnite-sitrep skill family copies', () => {
   });
 
   for (const skill of sitrepSkills) {
-    it(`${skill} matches across .claude, .agents and .codex`, () => {
+    it(`${skill} matches across .claude and .agents`, () => {
       const source = join(root, '.claude', 'skills', skill, 'SKILL.md');
       expect(existsSync(source), `.claude/skills/${skill}/SKILL.md is missing`).toBe(true);
       const reference = withoutClaudeOnlyKeys(readFileSync(source, 'utf8'));
-      for (const copy of ['.agents', '.codex']) {
+      for (const copy of ['.agents']) {
         const file = join(root, copy, 'skills', skill, 'SKILL.md');
         expect(existsSync(file), `${copy}/skills/${skill}/SKILL.md is missing`).toBe(true);
         expect(readFileSync(file, 'utf8'), `${copy}/skills/${skill}/SKILL.md differs from .claude`).toBe(reference);
@@ -77,7 +77,7 @@ describe('midnite-sitrep skill family copies', () => {
 });
 
 // The PR skill family (`midnite-pr-review`, `-pr-feedback`, `-check-yourself`, `-pr-create`,
-// `-pr-description`, `-pr-description-image`) ships in the repo's three mirrors, byte-identical,
+// `-pr-description`, `-pr-description-image`) ships in the repo's two mirrors, byte-identical,
 // every file in each skill's folder (`midnite-pr-review` carries `review-header.md` beside its
 // SKILL.md). It is repo-specific (it names `bilo-io/midnite-studio`), so it is deliberately not in
 // `templates/midnite/` — see that README's "any target repo" test.
@@ -92,11 +92,11 @@ const prSkills = [
 
 describe('midnite PR skill family copies', () => {
   for (const skill of prSkills) {
-    it(`${skill} is byte-identical across .claude, .agents and .codex`, () => {
+    it(`${skill} is byte-identical across .claude and .agents`, () => {
       const dir = join(root, '.claude', 'skills', skill);
       expect(existsSync(join(dir, 'SKILL.md')), `.claude/skills/${skill}/SKILL.md is missing`).toBe(true);
       const files = readdirSync(dir);
-      for (const copy of ['.agents', '.codex']) {
+      for (const copy of ['.agents']) {
         expect(readdirSync(join(root, copy, 'skills', skill)).sort(), `${copy}/skills/${skill} file list`).toEqual(
           files.sort(),
         );
@@ -111,14 +111,14 @@ describe('midnite PR skill family copies', () => {
   }
 });
 
-// `midnite-sanitize` ships in the repo's three mirrors with its scanner beside it. The scanner is
+// `midnite-sanitize` ships in the repo's two mirrors with its scanner beside it. The scanner is
 // byte-identical everywhere; the SKILL.md copies drop the Claude-only frontmatter keys and carry
 // the argument hint as an "**Invoke with:**" line instead, like `midnite-triage`.
 describe('midnite-sanitize skill copies', () => {
   const dir = (copy) => join(root, copy, 'skills', 'midnite-sanitize');
   const withoutInvokeLine = (text) => text.replace(/^\n\*\*Invoke with:\*\* .*\n/m, '');
 
-  for (const copy of ['.agents', '.codex']) {
+  for (const copy of ['.agents']) {
     it(`${copy} matches .claude`, () => {
       const scanner = readFileSync(join(dir('.claude'), 'scan.py'));
       expect(readFileSync(join(dir(copy), 'scan.py')).equals(scanner), `${copy} scan.py differs`).toBe(true);

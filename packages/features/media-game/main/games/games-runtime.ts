@@ -90,6 +90,7 @@ export function createGamesRuntime<V extends GameView = GameView>(deps: GamesRun
     resolve: (gameId) => service.resolve(gameId),
     listRepoPaths: deps.listRepoPaths,
     gamesRoot: async () => (await service.settings.get()).resolvedRoot,
+    libraryRoot: async () => (await service.settings.get()).resolvedLibraryRoot ?? '',
     ...(deps.repoIdOf ? { repoIdOf: deps.repoIdOf } : {}),
     ...(deps.exportTerrain ? { exportTerrain: deps.exportTerrain } : {}),
     ...(deps.animations ? { animations: deps.animations } : {}),

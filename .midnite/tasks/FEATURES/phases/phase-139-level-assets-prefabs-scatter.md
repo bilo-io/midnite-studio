@@ -42,33 +42,43 @@ Agents get the same three through MCP: list assets and prefabs, place a prefab, 
 
 ## Headlines
 
-**Theme A — Asset thumbnails IPC.** ◻ `mstudio:games:level-asset-thumb` answers a small data URL for an `image`,
-`sprite`, `tileset` or `background` asset; models keep `games.levels.model`.
+**Theme A — Asset thumbnails IPC.** ✅ `mstudio:games:level-asset-thumb` answers a data URL (`{name, mime, dataUrl, sha256}`) for an `image`,
+`sprite`, `tileset` or `background` asset (a folder asset resolves through its atlas json's `image`, else its first image); models keep `games.levels.model`. Over 2 MB fails with the size in the message.
 
-**Theme B — Model thumbnails.** ◻ One offscreen three.js renderer draws a 128 px thumbnail per model, cached by
+**Theme B — Model thumbnails.** ✅ `createModelThumbs` (stub-driven, tested) plus `createThreeThumbRenderer` (the real GL one). One offscreen three.js renderer draws a 128 px thumbnail per model, cached by
 `name:sha256` in an LRU of 200, rendered one at a time off the main loop.
 
-**Theme C — The asset browser panel.** ◻ A `BottomPanel` under the level canvas: filter, kind chips, a virtualised
+**Theme C — The asset browser panel.** ✅ `AssetBrowser` (`level/assets/asset-browser.tsx`) wraps the canvas column in a `BottomPanel` (`level.assets`, collapsed by default). Extra tabs plug in through `useAssetBrowserTabs()` / the `tabs` prop (Theme G's Prefabs). A `BottomPanel` under the level canvas: filter, kind chips, a virtualised
 thumbnail grid, `Skeleton` while loading, `EmptyState` with an "Import assets" action when the game has none.
 
-**Theme D — Drag a model into the level.** ◻ Drag a model tile onto the plan or the 3D view: a ghost follows the
+**Theme D — Drag a model into the level.** ✅ (3D ghost is a cursor chip, not a 50% model.) Drag a model tile onto the plan or the 3D view: a ghost follows the
 cursor (snapped by 137 F), drop adds a `prop` with `model` set, one undo step.
 
-**Theme E — The prefab model.** ◻ `levels/prefabs/<name>.prefab.json`: objects relative to a pivot. An instance is
+**Theme E — The prefab model.** ✅ `levels/prefabs/<name>.prefab.json`: objects relative to a pivot. An instance is
 baked into the level as ordinary objects tagged `midnite.prefab`, `midnite.prefabInstance`, `midnite.prefabIndex`;
-the kit needs no change.
+the kit needs no change. `packages/shared/src/game-level-prefab.ts` holds `GamePrefabSchema`, `prefabFromObjects` (pivot = bounds
+centre), `instantiatePrefab` (clockwise rotation about the pivot) and `updateInstances`. Overrides are dotted field
+names (`width`, `properties.speed`); an instance keeps its own `x`, `y` and `rotation` on update.
 
-**Theme F — Prefab IPC.** ◻ `mstudio:games:level-prefabs` (list), `-prefab-get`, `-prefab-set` (write + one
-commit), `-prefab-delete`.
+**Theme F — Prefab IPC.** ✅ `mstudio:games:level-prefabs` (list), `-prefab-get`, `-prefab-set` (write + one
+commit), `-prefab-delete`. `game-prefabs.ts` confines to `levels/prefabs/`, writes through the write queue and commits only the
+prefab file; bridge `games.levels.prefabs.{list,get,set,delete}`.
 
-**Theme G — Prefab UI.** ◻ "Save selection as prefab…", a Prefabs tab in the browser, drag to place, "Select
-instances", "Update instances from prefab" honouring overrides, "Unpack".
+**Theme G — Prefab UI.** ✅ (Decisions: tile preview is a prefab icon with the object count, not a `drawPlan` / model thumbnail; the name prompt is `LevelDialog`, which occludes the game view, rather than `FrameModal`.) "Save as prefab…" (context menu, and a button beside the align bar for a multi-selection) opens a
+live-validated name dialog, writes the file and converts the selection into an instance in one undo step. A
+Prefabs tab (`useAssetBrowserTabs`) lists tiles that drag or arm for placement; `placeAsset` now instantiates a
+prefab (`placePrefab`, one undo step, refused on a dimension mismatch). Clicking an instance object selects the whole
+instance, `Alt`+click one object. The inspector shows "Prefab: name · instance id" with Select instances, Update from
+prefab (toast "Updated N instances, kept M overrides"), Unpack, and each hand-edited field with a Revert; edits to
+`name`/`type`/`width`/`height`/`properties.*` on an instance add to `midnite.prefabOverrides` (x, y, rotation never do).
+Deleting a prefab confirms with this level's instance count. Model ops live in `level-edit-model.ts`.
 
-**Theme H — The scatter brush.** ◻ Tool `S` (2D and 3D): pick assets or a prefab, set radius, density, spacing,
+**Theme H — The scatter brush.** ✅ (Decisions: the sampler is dart-thrown Poisson-disc against a spacing grid rather than Bridson's active list, because a capped Bridson run clusters around its start; the options panel sits in the editor's side column while `S` is active rather than a Popover; with the brush open a click on a model or prefab tile adds it as a source; a prefab stamp takes the rotation but not the scale jitter and gets its own instance id; `[`/`]` are rows in the shortcut table.) Tool `S` (2D and 3D): pick assets or a prefab, set radius, density, spacing,
 scale and rotation jitter, paint; seeded, Poisson-spaced, one undo per stroke, `Alt` erases.
 
-**Theme I — MCP and the skill.** ◻ `game_assets_list`, `game_prefab_list`, a `place-prefab` level op and
-`game_level_scatter`; the skill's `## Levels` learns them.
+**Theme I — MCP and the skill.** ✅ (Decisions: `place-prefab` takes its `x`/`y` in the batch's unit but the prefab's own offsets stay px, and `applyLevelOps` reads prefab files from `ctx.prefabs`, which main loads and sends on the editor's `apply` request so an open editor needs no prefab fetch of its own; `LevelEntityFieldsSchema` moved to `game-level-entity.ts` so the op language and prefabs share it without an import cycle; `game_level_scatter` takes its area and options in level px, has no `unit`, and caps one batch at the 500-op limit, a prefab point being one op.) `game_assets_list`, `game_prefab_list`, `game_prefab_save`
+and `game_level_scatter` (a seed makes a re-run repeatable; a second pass over the same ground adds only the gaps), the
+`place-prefab` level op, and the skill's `## Levels` teaching in all seven copies.
 
 ## Build order
 
@@ -108,10 +118,10 @@ export const GameLevelAssetThumbResultSchema = z.object({ name: z.string(), mime
 
 **Acceptance.**
 
-- [ ] A1. A `sprite` asset answers a `data:image/png;base64,` URL and its manifest `sha256`.
-- [ ] A2. A `model` asset answers `failure('Model thumbnails come from games.levels.model.')`.
-- [ ] A3. A path that escapes the game folder through a symlink fails as `levelModel`'s does.
-- [ ] A4. An over-cap file fails with the size in the message.
+- [x] A1. A `sprite` asset answers a `data:image/png;base64,` URL and its manifest `sha256`.
+- [x] A2. A `model` asset answers `failure('Model thumbnails come from games.levels.model.')`.
+- [x] A3. A path that escapes the game folder through a symlink fails as `levelModel`'s does.
+- [x] A4. An over-cap file fails with the size in the message.
 
 **Done when** A1–A4 pass in `game-levels.test.ts`.
 
@@ -145,10 +155,10 @@ export function createModelThumbs(deps: { load: (name: string) => Promise<GitOpR
 
 **Acceptance.**
 
-- [ ] B1. Two `get`s of the same name and sha load once.
-- [ ] B2. A changed `sha256` re-renders.
-- [ ] B3. The 201st distinct thumbnail evicts the least recently used.
-- [ ] B4. Requests render serially (the stub records no overlap).
+- [x] B1. Two `get`s of the same name and sha load once.
+- [x] B2. A changed `sha256` re-renders.
+- [x] B3. The 201st distinct thumbnail evicts the least recently used.
+- [x] B4. Requests render serially (the stub records no overlap).
 
 **Done when** B1–B4 pass.
 
@@ -183,11 +193,11 @@ export function createModelThumbs(deps: { load: (name: string) => Promise<GitOpR
 
 **Acceptance.**
 
-- [ ] C1. `filterAssets` matches name substrings case-insensitively and respects kind chips.
-- [ ] C2. The panel renders one tile per placeable asset, skeleton tiles before thumbnails resolve, and the empty
+- [x] C1. `filterAssets` matches name substrings case-insensitively and respects kind chips.
+- [x] C2. The panel renders one tile per placeable asset, skeleton tiles before thumbnails resolve, and the empty
   state with its button when there are none.
-- [ ] C3. `/` focuses the filter; arrow keys move focus across tiles.
-- [ ] C4. The panel is collapsed by default and remembers being opened (`useBottomPanel` store).
+- [x] C3. `/` focuses the filter; arrow keys move focus across tiles.
+- [x] C4. The panel is collapsed by default and remembers being opened (`useBottomPanel` store).
 
 **Done when** C1–C4 pass.
 
@@ -218,10 +228,10 @@ export function dropToObject(payload: AssetDragPayload & { kind: 'asset' }, at: 
 
 **Acceptance.**
 
-- [ ] D1. `dropToObject` makes a `prop` with `properties.model` and the snapped position.
-- [ ] D2. A drop adds exactly one undo step and selects the new object.
-- [ ] D3. A model dropped on a 2D level adds nothing and notifies.
-- [ ] D4. An e2e (`packages/app/e2e/level-asset-drop.spec.ts`, `// e2e-capability: pointer drag across two
+- [x] D1. `dropToObject` makes a `prop` with `properties.model` and the snapped position.
+- [x] D2. A drop adds exactly one undo step and selects the new object.
+- [x] D3. A model dropped on a 2D level adds nothing and notifies.
+- [x] D4. An e2e (`packages/app/e2e/level-asset-drop.spec.ts`, `// e2e-capability: pointer drag across two
   elements with real DataTransfer`) drags a tile onto the plan and sees one new object in the outliner count.
 
 **Done when** D1–D4 pass.
@@ -264,11 +274,11 @@ export function updateInstances(level: unknown, prefab: GamePrefab): { level: Re
 
 **Acceptance.**
 
-- [ ] E1. `prefabFromObjects` of three objects sets the pivot at the bounds centre and strips ids.
-- [ ] E2. `instantiatePrefab` at (100, 50) rotated 90° places each object rotated about the pivot, tagged with the
+- [x] E1. `prefabFromObjects` of three objects sets the pivot at the bounds centre and strips ids.
+- [x] E2. `instantiatePrefab` at (100, 50) rotated 90° places each object rotated about the pivot, tagged with the
   three properties.
-- [ ] E3. `updateInstances` changes a non-overridden `width` and keeps an overridden `properties.speed`.
-- [ ] E4. `GamePrefabSchema` rejects an empty `objects` array and an unsafe name.
+- [x] E3. `updateInstances` changes a non-overridden `width` and keeps an overridden `properties.speed`.
+- [x] E4. `GamePrefabSchema` rejects an empty `objects` array and an unsafe name.
 
 **Done when** E1–E4 pass.
 
@@ -290,9 +300,9 @@ delete}`.
 
 **Acceptance.**
 
-- [ ] F1. `set` then `list` round-trips; the commit touches only the prefab file (`git show --name-only`).
-- [ ] F2. `set` of an invalid prefab writes nothing and fails.
-- [ ] F3. `delete` of a missing prefab fails without a commit.
+- [x] F1. `set` then `list` round-trips; the commit touches only the prefab file (`git show --name-only`).
+- [x] F2. `set` of an invalid prefab writes nothing and fails.
+- [x] F3. `delete` of a missing prefab fails without a commit.
 
 **Done when** F1–F3 pass against a temp repo (as `game-levels.test.ts` does).
 
@@ -326,11 +336,11 @@ delete}`.
 
 **Acceptance.**
 
-- [ ] G1. Save as prefab writes the file (mocked bridge) and tags the selected objects as one instance, one undo step.
-- [ ] G2. Click on an instance object selects all its siblings; `Alt`+click selects one.
-- [ ] G3. Editing `width` on an instance object adds `width` to its overrides; Revert removes it.
-- [ ] G4. Update from prefab keeps overrides and reports the counts.
-- [ ] G5. Delete prefab confirms with the instance count.
+- [x] G1. Save as prefab writes the file (mocked bridge) and tags the selected objects as one instance, one undo step.
+- [x] G2. Click on an instance object selects all its siblings; `Alt`+click selects one.
+- [x] G3. Editing `width` on an instance object adds `width` to its overrides; Revert removes it.
+- [x] G4. Update from prefab keeps overrides and reports the counts.
+- [x] G5. Delete prefab confirms with the instance count.
 
 **Done when** G1–G5 pass.
 
@@ -376,11 +386,11 @@ export function scatterPoints(area: { cx: number; cy: number; radius: number } |
 
 **Acceptance.**
 
-- [ ] H1. `scatterPoints` with a fixed seed returns the same points every run; no two closer than `spacing`.
-- [ ] H2. Density 1 over a 1,000 × 1,000 px square yields ≤ 100 points.
-- [ ] H3. A stroke of three dabs is one undo step.
-- [ ] H4. `Alt` erases only objects of the chosen sources inside the brush.
-- [ ] H5. The stroke cap notifies and stops at 2,000.
+- [x] H1. `scatterPoints` with a fixed seed returns the same points every run; no two closer than `spacing`.
+- [x] H2. Density 1 over a 1,000 × 1,000 px square yields ≤ 100 points.
+- [x] H3. A stroke of three dabs is one undo step.
+- [x] H4. `Alt` erases only objects of the chosen sources inside the brush.
+- [x] H5. The stroke cap notifies and stops at 2,000.
 
 **Done when** H1–H5 pass.
 
@@ -407,11 +417,11 @@ export function scatterPoints(area: { cx: number; cy: number; radius: number } |
 
 **Acceptance.**
 
-- [ ] I1. `game_assets_list` marks `audio` and `animation` as `placeable: false`.
-- [ ] I2. A batch with `place-prefab` of a 3-object prefab adds three tagged objects.
-- [ ] I3. `game_level_scatter` with a seed returns the same `added` count twice on a fresh copy.
-- [ ] I4. Both writes refuse with `GAMES_OFF_MESSAGE` while `allowGames` is off.
-- [ ] I5. Skill copies byte-identical; pin file regenerated.
+- [x] I1. `game_assets_list` marks `audio` and `animation` as `placeable: false`.
+- [x] I2. A batch with `place-prefab` of a 3-object prefab adds three tagged objects.
+- [x] I3. `game_level_scatter` with a seed returns the same `added` count twice on a fresh copy.
+- [x] I4. Both writes refuse with `GAMES_OFF_MESSAGE` while `allowGames` is off.
+- [x] I5. Skill copies byte-identical; pin file regenerated.
 
 **Done when** I1–I5 pass.
 

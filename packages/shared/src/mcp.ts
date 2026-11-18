@@ -56,15 +56,28 @@ import {
   GameLevelValidateInputSchema,
   GameLevelValidateOutputSchema,
   GameEntityBatchInputSchema,
+  GameAssetsListInputSchema,
+  GameAssetsListOutputSchema,
+  GamePrefabListOutputSchema,
+  GamePrefabSaveInputSchema,
+  GamePrefabSaveOutputSchema,
+  GameLevelScatterInputSchema,
   GameEntityAddInputSchema,
   GameEntityUpdateInputSchema,
   GameEntityDeleteInputSchema,
   GameEntityWriteOutputSchema,
+  GameLevelScatterOutputSchema,
   GameLevelSelectInputSchema,
   GameLevelSelectOutputSchema,
   GameLevelFrameInputSchema,
   GameLevelFrameOutputSchema,
   GameLevelViewInputSchema,
+  GamePlayFromInputSchema,
+  GamePlayFromOutputSchema,
+  GameEntitiesInputSchema,
+  GameEntitiesOutputSchema,
+  GameDebugOverlayInputSchema,
+  GameDebugOverlayOutputSchema,
   GameGotoInputSchema,
   GameGotoOutputSchema,
   GameDoctorOutputSchema,
@@ -341,8 +354,15 @@ type McpToolEntry = {
     | 'game_level_frame'
     | 'game_level_view'
     | 'game_goto'
+    | 'game_play_from'
+    | 'game_entities'
+    | 'game_debug_overlay'
     | 'game_doctor'
     | 'game_doctor_fix'
+    | 'game_assets_list'
+    | 'game_prefab_list'
+    | 'game_prefab_save'
+    | 'game_level_scatter'
     | 'terrain_list'
     | 'terrain_open'
     | 'terrain_get_spec'
@@ -1233,7 +1253,7 @@ export const MCP_TOOLS = {
     id: 'game_entity_batch',
     title: 'Edit level objects in a batch',
     description:
-      'Applies add, update and delete operations to a level all-or-nothing, as one undoable change in the open editor — use instead of `game_level_set`; refused unless its Settings switch is on.',
+      'Applies add, update, delete and place-prefab operations to a level all-or-nothing, as one undoable change in the open editor — use instead of `game_level_set`; refused unless its Settings switch is on.',
     input: GameEntityBatchInputSchema,
     output: GameEntityWriteOutputSchema,
     readOnly: false,
@@ -1292,6 +1312,32 @@ export const MCP_TOOLS = {
     output: GameContentOutputSchema,
     readOnly: true,
   },
+  game_play_from: {
+    id: 'game_play_from',
+    title: 'Play a level from a point',
+    description:
+      'Runs the game on a scene starting at a point or an object, using the open editor\'s unsaved level when there is one — use `game_entities` and `game_screenshot` after it; refused unless its Settings switch is on.',
+    input: GamePlayFromInputSchema,
+    output: GamePlayFromOutputSchema,
+    readOnly: false,
+  },
+  game_entities: {
+    id: 'game_entities',
+    title: 'List the running game\'s live objects',
+    description: 'Lists where every object of the running game is now, with its state — use after `game_input` to see what moved.',
+    input: GameEntitiesInputSchema,
+    output: GameEntitiesOutputSchema,
+    readOnly: true,
+  },
+  game_debug_overlay: {
+    id: 'game_debug_overlay',
+    title: 'Draw colliders, triggers and the nav mesh',
+    description:
+      'Switches the running game\'s debug overlays (colliders, triggers, nav mesh) on or off — follow with `game_screenshot`; refused unless its Settings switch is on.',
+    input: GameDebugOverlayInputSchema,
+    output: GameDebugOverlayOutputSchema,
+    readOnly: false,
+  },
   game_goto: {
     id: 'game_goto',
     title: 'Jump a game to a scene',
@@ -1309,6 +1355,42 @@ export const MCP_TOOLS = {
     input: GameToolTargetSchema,
     output: GameDoctorOutputSchema,
     readOnly: true,
+  },
+  game_assets_list: {
+    id: 'game_assets_list',
+    title: 'List a game\'s assets',
+    description:
+      'Lists the assets imported into a game with each one\'s kind and whether a level can place it — use instead of reading `midnite-game.json` to find a model name for a `prop`.',
+    input: GameAssetsListInputSchema,
+    output: GameAssetsListOutputSchema,
+    readOnly: true,
+  },
+  game_prefab_list: {
+    id: 'game_prefab_list',
+    title: 'List a game\'s prefabs',
+    description:
+      'Lists the prefabs saved in a game (`levels/prefabs`) with their dimension and object count — use before a `place-prefab` operation in `game_entity_batch` or a `prefab` source in `game_level_scatter`.',
+    input: GameToolTargetSchema,
+    output: GamePrefabListOutputSchema,
+    readOnly: true,
+  },
+  game_prefab_save: {
+    id: 'game_prefab_save',
+    title: 'Save a prefab',
+    description:
+      'Saves a group of objects as a reusable prefab file in a game, one commit — use for a group you place more than once, then `place-prefab` it; refused unless its Settings switch is on.',
+    input: GamePrefabSaveInputSchema,
+    output: GamePrefabSaveOutputSchema,
+    readOnly: false,
+  },
+  game_level_scatter: {
+    id: 'game_level_scatter',
+    title: 'Scatter objects over an area',
+    description:
+      'Scatters models, prefabs or object types over a circle or rectangle as one undoable change (500 objects max; `capped` flags a cut) — `seed` repeats a result; refused unless its Settings switch is on.',
+    input: GameLevelScatterInputSchema,
+    output: GameLevelScatterOutputSchema,
+    readOnly: false,
   },
   game_doctor_fix: {
     id: 'game_doctor_fix',

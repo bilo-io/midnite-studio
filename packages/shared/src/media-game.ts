@@ -52,7 +52,7 @@ export const GAME_ENGINE_VERSIONS = {
 } as const;
 
 /** The current kit version (Theme C). Bumped whenever `templates/media-game/kit/` changes. */
-export const GAME_KIT_VERSION = '0.12.0';
+export const GAME_KIT_VERSION = '0.15.0';
 
 // --- enums -------------------------------------------------------------------
 
@@ -160,6 +160,19 @@ export const GAME_ASSET_KINDS = [
   'animation',
 ] as const;
 
+/**
+ * Where an asset imported from the shared library came from (optional, so manifests and indexes written before
+ * the import op still parse). For a terrain pack `path` is the pack folder and `sha256` its folder hash; for a
+ * single file `path` is the file and `sha256` the file's own hash (the catalog's).
+ */
+export const GameAssetLibraryOriginSchema = z.object({
+  /** The library collection (a folder name under the library root). */
+  library: z.string().min(1),
+  path: z.string().min(1),
+  sha256: z.string(),
+});
+export type GameAssetLibraryOrigin = z.infer<typeof GameAssetLibraryOriginSchema>;
+
 export const GameAssetProvenanceSchema = z.object({
   name: z.string().min(1),
   kind: z.enum(GAME_ASSET_KINDS),
@@ -177,6 +190,8 @@ export const GameAssetProvenanceSchema = z.object({
   /** Of the source as it was imported, which is what a re-sync compares (a terrain's copy is an export, so differs). */
   sourceSha256: z.string().optional(),
   importedAt: z.string(),
+  /** Set when the asset was imported from the shared asset library. */
+  library: GameAssetLibraryOriginSchema.optional(),
 });
 export type GameAssetProvenance = z.infer<typeof GameAssetProvenanceSchema>;
 
@@ -338,6 +353,8 @@ export const GamesSettingsSchema = z.object({
   squashRunCommits: z.boolean(),
   /** Pause a run this window started when its Play tab is left for the level editor (Phase 132 Theme B). */
   pauseWhenEditing: z.boolean(),
+  /** The shared asset library folder; `null` means `DEFAULT_ASSET_LIBRARY_ROOT`. */
+  assetLibraryRoot: z.string().nullable().default(null),
 });
 export type GamesSettings = z.infer<typeof GamesSettingsSchema>;
 
@@ -348,6 +365,7 @@ export const DEFAULT_GAMES_SETTINGS: GamesSettings = {
   defaultNetwork: 'off',
   squashRunCommits: false,
   pauseWhenEditing: true,
+  assetLibraryRoot: null,
 };
 
 /** What the Settings page reads: the stored settings and where the default resolves. */
@@ -357,6 +375,8 @@ export const GamesSettingsReadSchema = z.object({
   resolvedRoot: z.string(),
   /** A validation message when the stored root is no longer usable, else `null`. */
   rootProblem: z.string().nullable(),
+  /** The asset library folder in use (stored value or the default), `~` expanded. Optional for older mocks. */
+  resolvedLibraryRoot: z.string().optional(),
 });
 export type GamesSettingsRead = z.infer<typeof GamesSettingsReadSchema>;
 
@@ -821,6 +841,8 @@ export const GameAssetIndexEntrySchema = z.object({
       sha256: z.string(),
     })
     .optional(),
+  /** Set when the asset was imported from the shared asset library. */
+  library: GameAssetLibraryOriginSchema.optional(),
 });
 export type GameAssetIndexEntry = z.infer<typeof GameAssetIndexEntrySchema>;
 
@@ -879,6 +901,15 @@ export const GameImportAssetResultSchema = z.object({
 });
 export type GameImportAssetResult = z.infer<typeof GameImportAssetResultSchema>;
 
+/** Import one library asset (a file, or a terrain pack folder via any file in it) into a game. */
+export const GameLibraryImportRequestSchema = z.object({
+  gameId: z.string().min(1),
+  collection: z.string().min(1),
+  path: z.string().min(1),
+  name: GameAssetNameSchema.optional(),
+});
+export type GameLibraryImportRequest = z.infer<typeof GameLibraryImportRequestSchema>;
+
 /** Candidates for the picker: one list per registered repo that has media in that tab. */
 export const GameAssetSourcesRequestSchema = z.object({ tab: GameAssetSourceTabSchema });
 export const GameAssetSourceItemSchema = z.object({
@@ -907,7 +938,14 @@ export type GameResyncRequest = z.input<typeof GameResyncRequestSchema>;
 export const GAME_ASSET_SYNC_STATES = ['current', 'changed', 'missing'] as const;
 export const GameResyncResultSchema = z.object({
   assets: z.array(
-    z.object({ name: z.string(), kind: z.enum(GAME_ASSET_KINDS), state: z.enum(GAME_ASSET_SYNC_STATES), importedAt: z.string() }),
+    z.object({
+      name: z.string(),
+      kind: z.enum(GAME_ASSET_KINDS),
+      state: z.enum(GAME_ASSET_SYNC_STATES),
+      importedAt: z.string(),
+      /** Where it came from in the shared library, when it was imported from there. */
+      library: GameAssetLibraryOriginSchema.optional(),
+    }),
   ),
   changed: z.number().int().nonnegative(),
   reimported: z.array(z.string()),
@@ -941,6 +979,73 @@ export const GAME_DETERMINISM_PARAMS = {
 
 /** The query param naming the level a run starts on, read by `kit/core/level.js` (Phase 132 Theme C). */
 export const GAME_LEVEL_PARAM = 'midnite-level';
+
+/** The query param Play-from-here sets (`x,y` px for 2D, `x,y,z` or `x,z` metres for 3D), read by `kit/core/level.js` (Phase 140 Theme A). */
+export const GAME_SPAWN_PARAM = 'midnite-spawn';
+
+/** Most entities one snapshot carries; the reader sets `truncated` past it (Phase 140 Theme D). */
+export const GAME_ENTITIES_MAX = 500;
+/** How often main reads a running game's entities while the editor watches (4 Hz). */
+export const GAME_ENTITY_POLL_MS = 250;
+
+/**
+ * One live object in a running game, from `window.__midnite.entities()`. `id` is the level object's id the
+ * entity came from (`null` for one spawned at runtime). Level units: pixels (`x`, `y` on screen) for 2D;
+ * metres for 3D with world axes, `y` up, so a plan-view ghost sits at (`x`, `z`).
+ */
+export const GameEntitySnapshotSchema = z.object({
+  id: z.number().int().nullable(),
+  type: z.string().max(64),
+  name: z.string().max(200).optional(),
+  x: z.number().finite(),
+  y: z.number().finite(),
+  z: z.number().finite().optional(),
+  alive: z.boolean(),
+  state: z.string().max(64).optional(),
+});
+export type GameEntitySnapshot = z.infer<typeof GameEntitySnapshotSchema>;
+
+export const GameEntitiesResultSchema = z.object({
+  scene: z.string(),
+  frame: z.number().int(),
+  entities: z.array(GameEntitySnapshotSchema).max(GAME_ENTITIES_MAX),
+  truncated: z.boolean(),
+  /** The game's kit predates `entities()` (before 0.13): the list is empty because it cannot answer. */
+  unsupported: z.boolean().optional(),
+});
+export type GameEntitiesResult = z.infer<typeof GameEntitiesResultSchema>;
+
+/** One editor subscription to the entity poller. `watcherId` makes a repeated unwatch harmless. */
+export const GameEntitiesWatchRequestSchema = z.object({
+  gameId: z.string().min(1),
+  watcherId: z.string().min(1).max(64),
+  on: z.boolean(),
+});
+/** The `gamesEntityState` event: the latest snapshot of a running game. */
+export const GameEntityStatePayloadSchema = z.object({ gameId: z.string(), result: GameEntitiesResultSchema });
+export type GameEntityStatePayload = z.infer<typeof GameEntityStatePayloadSchema>;
+
+/**
+ * In-game debug draw (Phase 140 Theme G): which overlays the running game draws. The View menu's three switches drive
+ * the editor and, through `games.debug`, the game (`window.__midnite.debug`), so both show the same thing.
+ */
+export const GameDebugOptionsSchema = z.object({ colliders: z.boolean(), triggers: z.boolean(), nav: z.boolean() });
+export type GameDebugOptions = z.infer<typeof GameDebugOptionsSchema>;
+/** `games.debug`'s request: a game and any of the switches; the ones left out keep their setting. */
+export const GameDebugRequestSchema = z.object({ gameId: z.string().min(1), colliders: z.boolean().optional(), triggers: z.boolean().optional(), nav: z.boolean().optional() });
+export type GameDebugRequest = z.infer<typeof GameDebugRequestSchema>;
+
+/** The most vertices a nav-mesh answer may carry; a bigger mesh is refused with a message rather than sent. */
+export const GAME_NAV_VERTICES_MAX = 20_000;
+/**
+ * The kit's nav-mesh, serialised (`window.__midnite.navMesh()`): closed polygons (the last vertex joins the first) as
+ * `[x, z]` metres on world axes, so a plan-view editor draws them at (`x`, `z`). The editor never computes a
+ * nav-mesh itself: what it draws is what the game's AI uses.
+ */
+export const GameNavMeshSchema = z
+  .object({ polygons: z.array(z.array(z.tuple([z.number().finite(), z.number().finite()])).min(3)) })
+  .refine((m) => m.polygons.reduce((n, p) => n + p.length, 0) <= GAME_NAV_VERTICES_MAX, { message: `A nav-mesh has at most ${GAME_NAV_VERTICES_MAX} vertices.` });
+export type GameNavMesh = z.infer<typeof GameNavMeshSchema>;
 
 /** A replay longer than this (ten minutes at 60 Hz) is refused. */
 export const GAME_REPLAY_MAX_FRAMES = 36_000;

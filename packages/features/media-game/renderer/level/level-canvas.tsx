@@ -5,9 +5,11 @@ import { cellAt, cellOrigin, collisionAt, collisionLayer, mapPixelSize, readTmj,
 import type { GameLevelTerrain } from '@midnite/studio-shared';
 
 import { objectToMapPoint, mapPointToObject, type Cell, type EditLevel, type EditSelection, type LevelObject, type ObjectRef, type PlanPoint, type PlanRect } from './level-edit-model';
-import { hitPlan, levelMetresPerTile, planBounds } from './level-plan';
+import { hitPlan, levelMetresPerTile, pixelsPerMetre, planBounds, planFrameBounds } from './level-plan';
+import { isAssetDrag, readDroppedAsset, useDraggedAsset, type AssetDropTarget } from './assets/asset-drag';
 import { drawHighlight, drawPlan, drawSelectionExtras, prefersReducedMotion, PULSE_MS, SELECTED_COLOUR, type PlanHighlight, type PlanOverlay } from './level-plan-draw';
-import { fitView, screenToMap, zoomAround, type View } from './level-view';
+import { drawBrush, drawExtras, hasExtras, type CanvasExtras } from './level-overlay-draw';
+import { fitView, screenToMap, ZOOM_MIN, zoomAround, zoomFloor, type View } from './level-view';
 
 /**
  * The editor's canvas (Phase 132 Theme D). It draws with Sprites' `map-view.ts` (`tileOf`, `sourceRect`,
@@ -112,8 +114,11 @@ export function LevelCanvas({
   onKeyDown,
   label,
   plan,
+  extras,
   viewOut,
   viewIn,
+  assetDrop,
+  brush,
 }: {
   level: EditLevel;
   images: ReadonlyArray<{ path: string; dataUrl: string }>;
@@ -141,10 +146,16 @@ export function LevelCanvas({
   label: string;
   /** Set for a 3D level: the canvas draws the plan view instead of tiles. */
   plan?: PlanView;
+  /** Collider, trigger, nav-mesh and live-ghost overlays (Phase 140 Themes E to G), in object coordinates. */
+  extras?: CanvasExtras;
   /** Kept current with the view and canvas size, so the 3D switch starts its camera where the plan is (Phase 136 E). */
   viewOut?: MutableRefObject<{ view: View; size: { width: number; height: number } } | null>;
   /** A view to jump to: where the 3D view's camera ended when the switch eased back to the plan. */
   viewIn?: View | null;
+  /** Phase 139 Theme D: take an asset dragged from the browser; a ghost shows where it would land. */
+  assetDrop?: AssetDropTarget;
+  /** Phase 139 Theme H: the scatter brush; a circle of `radius` (object units) follows the pointer. */
+  brush?: { radius: number } | undefined;
 }) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -152,16 +163,24 @@ export function LevelCanvas({
   const { map: tilesetImages, loaded } = useTilesetImages(images);
   const [size, setSize] = useState({ width: 640, height: 400 });
   /** What the first fit frames: the map, or for a plan its real bounds (a level may sit at negative pixels). */
+  /** How far out this level may zoom: a big 3D level or its terrain lowers the floor so all of it can be reached. */
+  const floorFor = (box: { width: number; height: number }): number => {
+    if (!plan) return ZOOM_MIN;
+    const all = planBounds(level, plan.terrain);
+    return zoomFloor(box, all.maxX - all.minX, all.maxY - all.minY);
+  };
   const frame = (box: { width: number; height: number }): View => {
     if (!plan) return fitView(box, mapPixelSize(level).width, mapPixelSize(level).height);
-    const b = planBounds(level, plan.terrain);
-    const v = fitView(box, b.maxX - b.minX, b.maxY - b.minY);
+    const b = planFrameBounds(level, plan.terrain);
+    const v = fitView(box, b.maxX - b.minX, b.maxY - b.minY, floorFor(box));
     return { ...v, x: v.x - b.minX * v.zoom, y: v.y - b.minY * v.zoom };
   };
   const [view, setView] = useState<View>(() => frame({ width: 640, height: 400 }));
   const [hover, setHover] = useState<Cell | null>(null);
   const [cursor, setCursor] = useState<PlanPoint | null>(null);
+  const [brushAt, setBrushAt] = useState<PlanPoint | null>(null);
   const { image: terrainImage, loaded: terrainLoaded } = useTerrainImage(plan?.terrain?.preview);
+  const { image: terrainDetailImage, loaded: terrainDetailLoaded } = useTerrainImage(plan?.terrain?.detail?.preview);
   /** Bumped while a pulse is running, so the draw effect repaints it. */
   const [pulseTick, setPulseTick] = useState(0);
   useEffect(() => {
@@ -183,6 +202,10 @@ export function LevelCanvas({
     return () => cancelAnimationFrame(raf);
   }, [highlight]);
   const space = useRef(false);
+  /** The drop ghost's centre, in canvas pixels (already snapped), while an asset is dragged over. */
+  const [ghost, setGhost] = useState<{ sx: number; sy: number } | null>(null);
+  const dragged = useDraggedAsset();
+  const ghostSize = plan ? Math.max(12, pixelsPerMetre(level).x * view.zoom) : 24;
   const pan = useRef<{ sx: number; sy: number; view: View } | null>(null);
   const tool = useRef(false);
   const fitted = useRef(false);
@@ -241,8 +264,10 @@ export function LevelCanvas({
       } else ctx.rect(o.x, o.y, tmj.tilewidth, tmj.tileheight);
     };
     if (plan) {
-      const overlay: PlanOverlay = { terrain: plan.terrain, terrainImage, draft: plan.draft, cursor: plan.draft.length > 0 ? cursor : null, volume: plan.volume };
+      const overlay: PlanOverlay = { terrain: plan.terrain, terrainImage, terrainDetailImage, draft: plan.draft, cursor: plan.draft.length > 0 ? cursor : null, volume: plan.volume };
       drawPlan(ctx, { level, view, selection, selected, marquee, hidden, overlay, outline, text, highlight });
+      if (hasExtras(extras)) drawExtras(ctx, { extras, view });
+      if (brush && brushAt) drawBrush(ctx, { at: brushAt, radius: brush.radius, view, outline });
       return;
     }
     const pixel = mapPixelSize(tmj);
@@ -307,6 +332,7 @@ export function LevelCanvas({
         ctx.fillText(o.name, at.x, at.y + r + tmj.tileheight / 2.5);
       }
     }
+    if (hasExtras(extras)) drawExtras(ctx, { extras, view, toMap: (p) => objectToMapPoint(level, p.x, p.y), cellPath });
     drawSelectionExtras(ctx, { level, view, selected: selected ?? [], marquee: marquee ?? null, outline, toMap: (p) => objectToMapPoint(level, p.x, p.y) });
     if (highlight) drawHighlight(ctx, { level, view, highlight, now: Date.now(), reduced: prefersReducedMotion(), toMap: (p) => objectToMapPoint(level, p.x, p.y) });
     ctx.strokeStyle = outline;
@@ -319,7 +345,8 @@ export function LevelCanvas({
       cellPath(c.x, c.y);
       ctx.stroke();
     }
-  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection, selected, marquee, hidden, plan, terrainImage, terrainLoaded, cursor, highlight, pulseTick]);
+    if (brush && brushAt) drawBrush(ctx, { at: brushAt, radius: brush.radius, view, outline, toMap: (p) => objectToMapPoint(level, p.x, p.y) });
+  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection, selected, marquee, hidden, plan, terrainImage, terrainLoaded, terrainDetailImage, terrainDetailLoaded, cursor, highlight, pulseTick, extras, brush, brushAt]);
 
   const local = (e: { clientX: number; clientY: number }) => {
     const rect = canvas.current?.getBoundingClientRect();
@@ -338,6 +365,7 @@ export function LevelCanvas({
     if (phase === 'move') {
       setHover(cell);
       if (plan) setCursor({ x: p.x, y: p.y });
+      if (brush) setBrushAt(plan ? { x: p.x, y: p.y } : mapPointToObject(level, p.x, p.y));
     }
     onPointer({
       phase,
@@ -397,6 +425,28 @@ export function LevelCanvas({
       onBlur={() => {
         space.current = false;
       }}
+      onDragOver={(e) => {
+        if (!assetDrop || !isAssetDrag(e.dataTransfer)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        const { sx, sy } = local(e);
+        const p = screenToMap(view, sx, sy);
+        const at = assetDrop.snap(plan ? { x: p.x, y: p.y } : mapPointToObject(level, p.x, p.y), e.altKey);
+        setGhost(plan ? { sx: at.x * view.zoom + view.x, sy: at.y * view.zoom + view.y } : { sx, sy });
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setGhost(null);
+      }}
+      onDrop={(e) => {
+        if (!assetDrop || !isAssetDrag(e.dataTransfer)) return;
+        e.preventDefault();
+        setGhost(null);
+        const payload = readDroppedAsset(e.dataTransfer);
+        if (!payload) return;
+        const { sx, sy } = local(e);
+        const p = screenToMap(view, sx, sy);
+        assetDrop.onDrop(payload, assetDrop.snap(plan ? { x: p.x, y: p.y } : mapPointToObject(level, p.x, p.y), e.altKey));
+      }}
     >
       <canvas
         ref={canvas}
@@ -407,13 +457,16 @@ export function LevelCanvas({
         style={{ imageRendering: view.zoom >= 1 ? 'pixelated' : 'auto', cursor: hoverEnabled ? 'crosshair' : 'default' }}
         onWheel={(e) => {
           const { sx, sy } = local(e);
-          setView((v) => zoomAround(v, e.deltaY < 0 ? 1.15 : 1 / 1.15, sx, sy));
+          setView((v) => zoomAround(v, e.deltaY < 0 ? 1.15 : 1 / 1.15, sx, sy, floorFor(size)));
         }}
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
         onPointerCancel={onUp}
-        onPointerLeave={() => setHover(null)}
+        onPointerLeave={() => {
+          setHover(null);
+          setBrushAt(null);
+        }}
         onAuxClick={(e) => e.preventDefault()}
         onContextMenu={(e) => {
           e.preventDefault();
@@ -428,8 +481,16 @@ export function LevelCanvas({
           });
         }}
       />
+      {ghost && dragged ? (
+        <div
+          aria-hidden
+          data-testid="level-asset-ghost"
+          className="pointer-events-none absolute rounded border border-dashed border-primary bg-primary/30"
+          style={{ left: ghost.sx - ghostSize / 2, top: ghost.sy - ghostSize / 2, width: ghostSize, height: ghostSize }}
+        />
+      ) : null}
       <span className="pointer-events-none absolute bottom-1 right-2 text-[11px] tabular-nums text-muted-foreground" data-testid="level-zoom">
-        {plan ? `${level.width * levelMetresPerTile(level)} × ${level.height * levelMetresPerTile(level)} m` : `${level.width} × ${level.height}`} · {Math.round(view.zoom * 100)}%
+        {plan ? `${level.width * levelMetresPerTile(level)} × ${level.height * levelMetresPerTile(level)} m` : `${level.width} × ${level.height}`} · {view.zoom < 0.095 ? (view.zoom * 100).toFixed(1) : Math.round(view.zoom * 100)}%
       </span>
     </div>
   );

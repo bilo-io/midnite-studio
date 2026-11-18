@@ -46,29 +46,21 @@ Agents get `game_play_from`, `game_entities` and `game_debug_overlay`.
 
 ## Headlines
 
-**Theme A — The kit's spawn override.** ◻ `?midnite-spawn=x,y[,z]` (and `__midnite.spawnAt(x, y, z)`) places the
-player there instead of at the scene's `spawn`; a kit bump.
+**Theme A — The kit's spawn override.** ✅ `?midnite-spawn=x,y[,z]` (and `__midnite.spawnAt(x, y, z)`, a reload with the param) places the player there instead of at the scene's `spawn`: `spawnOverride()` parses it (two or three finite numbers, else ignored and logged once), `applySpawn2d`/`applySpawn3d` apply it in the Phaser and three level builders. 3D reads `x,z` or `x,height,z` in metres and drops the height onto the ground. Kit 0.13.0.
 
-**Theme B — Play from here.** ◻ `F5` / a gradient "Play from here" button runs the open, unsaved level in the
-runner from the cursor or the selection, through an in-memory preview overlay the protocol handler serves; no
-commit.
+**Theme B — Play from here.** ✅ `F5` (and `Shift+F5` to stop) or the gradient "Play from here" button runs the open, unsaved level in the runner from the primary selected object, else the pointer's last plan position, else the scene's own `spawn`. `games.levels.preview` validates the editor's level and hands it to the runner's in-memory `PreviewOverlay` (one `levels/<scene>.tmj` per game, 4 MB cap), which `gameProtocolHandler` serves ahead of the disk with the same CSP; the run URL carries `midnite-level` and `midnite-spawn` (`gameEntryUrl` takes `spawn`). Nothing is written or committed (a temp-repo test pins `git status` clean). The overlay ends on `previewEnd`, on Stop and when that scene is saved (before the write, so the file watcher's scene restart reads the new disk file); the editor switches to the Play tab unless the runner is popped out. 3D answers in metres through `levelEntityToWorld` (`x,z`, or `x,height,z` with an elevation); a 3D pointer position is not tracked, so only the plan pointer counts there. No kit change.
 
-**Theme C — Level hot reload.** ◻ A change under `levels/` in a running game calls the hook's `goto(currentScene)`
-(scene restart) instead of a full page reload; code changes still reload the page.
+**Theme C — Level hot reload.** ✅ The runner's watcher now collects the paths changed over its 200 ms debounce and `reloadKind` sorts them: only `levels/…` files (prefabs included) is `scene`, anything else or an unknown path is `page`. A `scene` reload reads `getState().scene` (fallback the run's level) and calls the hook's `goto`; a missing hook or a failed call falls back to the page reload, and code changes reload the page as before.
 
-**Theme D — The entities snapshot.** ◻ The kit hook's `entities()` returns `{ id, type, x, y, z?, alive, … }` for
-the live objects; main polls it at 4 Hz while the editor asks, over `mstudio:games:entity-state`.
+**Theme D — The entities snapshot.** ✅ The hook's `entities()` returns `{ id, type, name?, x, y, z?, alive, state? }[]` from sources registered with `registerEntities(fn, key)`; both level builders register their level objects (overridable with a `live(entity)` option). Main reads it with one evaluation (`readGameEntities`, capped at 500 with `truncated`, an old kit answers `unsupported`), and `createEntityPoller` pushes `mstudio:games:entity-state` at 4 Hz while an editor watches and the game runs unpaused (`games.entities.get/watch`, `games.onEntityState`). Same kit 0.13.0 bump as A.
 
-**Theme E — Live ghosts in the editor.** ◻ Live entities draw as ghosts over the plan and the 3D view with a
-`StateDot` "Live" chip; "Copy live position" writes one back as one undo step.
+**Theme E — Live ghosts in the editor.** ✅ A Live toggle (`LuRadio`, enabled while the game runs, off by itself when it stops) subscribes through `useLiveEntities` and shows a `StateDot` "Live · N entities" chip. Ghosts are hollow primary circles with the type initial on the canvas and translucent capsules in 3D, each with a dashed line back to its authored object (`ghostLinks`). "Copy live position" (context menu and an inspector `IconButton`) is one undo step via `setObjectPlacement`, keeping a 3D footprint and setting `elevation` only when the height is not the ground. An old kit raises a one-time notice.
 
-**Theme F — Editor collider and trigger overlays.** ◻ A View menu with Colliders (tile collision grid, volumes) and
-Triggers (trigger volumes, exits), drawn in both views.
+**Theme F — Editor collider and trigger overlays.** ✅ `colliderShapes` / `triggerShapes` (shared, pure) follow the kit's rules (the `collision` layer cells, `prop` footprints unless `collider: 'none'`; exit, checkpoint, trigger, hazard); a View popover with three `SwitchRow`s persists in the level view store and draws 30% fills with 1 px strokes in the canvas, plan and 3D scene. `kit-overlays-agreement.test.ts` pins them to `collisionGrid`.
 
-**Theme G — In-game debug draw.** ◻ `__midnite.debug({ colliders, triggers, nav })` draws the same overlays in the
-running game (Phaser graphics, three.js line segments), and the nav-mesh is fetched into the editor; kit bump.
+**Theme G — In-game debug draw.** ✅ Kit 0.14.0: `__midnite.debug({ colliders, triggers, nav })` (merging partial switches; drawers register with `registerDebug`, so a rebuilt scene keeps them) and `__midnite.navMesh()`; `phaser/debug-draw.js` paints Graphics, `three/debug-draw.js` one LineSegments per overlay; `createNavMesh` registers its polygons (`navMeshPolygons`). Main adds `runner.debug` / `runner.navMesh` (`games.debug`, `games.navMesh`), refusing a mesh over 20,000 vertices. The View switches drive both editor and game, and a new run is handed the switches that are on.
 
-**Theme H — MCP.** ◻ `game_play_from`, `game_entities` and `game_debug_overlay`, and the skill learns the loop.
+**Theme H — MCP.** ✅ `game_play_from` (start at `objectId` or `at`, the open editor's unsaved level unless `useEditor: false`; main resolves the start with shared `resolvePlayFromSpawn` and calls `service.levels.preview`; slow tool), `game_entities` (a read, works with the games switch off; filters `types`, caps `limit`) and `game_debug_overlay` (`games.debug`; both need a running game). Tool counts 154, pin regenerated, and the seven skill copies teach the "Testing a level" loop.
 
 ## Build order
 
@@ -99,10 +91,10 @@ running game (Phaser graphics, three.js line segments), and the nav-mesh is fetc
 
 **Acceptance.**
 
-- [ ] A1. `spawnOverride` parses 2- and 3-value forms, rejects `NaN`, extra values and an empty string.
-- [ ] A2. The 2D and 3D level builders place the player at the override when present, at `spawn` otherwise
+- [x] A1. `spawnOverride` parses 2- and 3-value forms, rejects `NaN`, extra values and an empty string.
+- [x] A2. The 2D and 3D level builders place the player at the override when present, at `spawn` otherwise
   (`kit-level.test.ts` with the existing fixtures).
-- [ ] A3. `kit-hash.test.ts` passes with the regenerated hash; both version constants read `0.13.0`.
+- [x] A3. `kit-hash.test.ts` passes with the regenerated hash; both version constants read `0.13.0`.
 
 **Done when** A1–A3 pass.
 
@@ -153,14 +145,14 @@ export function createPreviewOverlay(maxBytes = GAME_LEVEL_MAX_BYTES): PreviewOv
 
 **Acceptance.**
 
-- [ ] B1. `createPreviewOverlay` serves `levels/<scene>.tmj` for its game only, `null` for any other path or game,
+- [x] B1. `createPreviewOverlay` serves `levels/<scene>.tmj` for its game only, `null` for any other path or game,
   and refuses JSON over `GAME_LEVEL_MAX_BYTES`.
-- [ ] B2. `gameProtocolHandler` with an overlay answers the overlay bytes with the CSP header; without one, the disk
+- [x] B2. `gameProtocolHandler` with an overlay answers the overlay bytes with the CSP header; without one, the disk
   file (existing tests stay green).
-- [ ] B3. `gameEntryUrl` with `spawn` adds `midnite-spawn=` and keeps determinism params.
-- [ ] B4. Preview leaves `git status` clean (main test against a temp repo).
-- [ ] B5. The button shows a spinner while the promise is pending and is disabled on a read-only level.
-- [ ] B6. `F5` triggers preview; `Shift+F5` calls stop.
+- [x] B3. `gameEntryUrl` with `spawn` adds `midnite-spawn=` and keeps determinism params.
+- [x] B4. Preview leaves `git status` clean (main test against a temp repo).
+- [x] B5. The button shows a spinner while the promise is pending and is disabled on a read-only level.
+- [x] B6. `F5` triggers preview; `Shift+F5` calls stop.
 
 **Done when** B1–B6 pass.
 
@@ -181,10 +173,10 @@ export function reloadKind(relPaths: readonly (string | null)[]): ReloadKind;  /
 
 **Acceptance.**
 
-- [ ] C1. `reloadKind(['levels/cave.tmj'])` is `scene`; `['src/main.js', 'levels/cave.tmj']` is `page`; `[null]` is
+- [x] C1. `reloadKind(['levels/cave.tmj'])` is `scene`; `['src/main.js', 'levels/cave.tmj']` is `page`; `[null]` is
   `page`.
-- [ ] C2. A `scene` reload calls `goto` through the hook, not `reloadIgnoringCache` (runner test with a fake view).
-- [ ] C3. A failing hook call falls back to the page reload.
+- [x] C2. A `scene` reload calls `goto` through the hook, not `reloadIgnoringCache` (runner test with a fake view).
+- [x] C3. A failing hook call falls back to the page reload.
 
 **Done when** C1–C3 pass.
 
@@ -222,11 +214,11 @@ export const GAME_ENTITY_POLL_MS = 250;
 
 **Acceptance.**
 
-- [ ] D1. `GameEntitiesResultSchema` caps at 500 and the reader sets `truncated`.
-- [ ] D2. The poller emits at 4 Hz with fake timers, pauses with zero subscribers, and stops on Stop.
-- [ ] D3. Phaser and three level sources map a fixture's objects to snapshots with their level ids
+- [x] D1. `GameEntitiesResultSchema` caps at 500 and the reader sets `truncated`.
+- [x] D2. The poller emits at 4 Hz with fake timers, pauses with zero subscribers, and stops on Stop.
+- [x] D3. Phaser and three level sources map a fixture's objects to snapshots with their level ids
   (`kit-level.test.ts`).
-- [ ] D4. A pre-0.13 kit answers an empty list.
+- [x] D4. A pre-0.13 kit answers an empty list.
 
 **Done when** D1–D4 pass.
 
@@ -253,12 +245,12 @@ export const GAME_ENTITY_POLL_MS = 250;
 
 **Acceptance.**
 
-- [ ] E1. The hook subscribes on toggle-on and unsubscribes on toggle-off and unmount.
-- [ ] E2. A ghost with a matching id produces a dashed connector in the plan draw list.
-- [ ] E3. Copy live position is one undo step and changes only position.
-- [ ] E4. The toggle is disabled while the game is stopped.
+- [x] E1. The hook subscribes on toggle-on and unsubscribes on toggle-off and unmount.
+- [x] E2. A ghost with a matching id produces a dashed connector in the plan draw list.
+- [x] E3. Copy live position is one undo step and changes only position.
+- [x] E4. The toggle is disabled while the game is stopped.
 
-**Done when** E1–E4 pass.
+**Done when** E1–E4 pass. (Landed.)
 
 ### F — Editor collider and trigger overlays (S)
 
@@ -279,8 +271,8 @@ export const GAME_ENTITY_POLL_MS = 250;
 
 **Acceptance.**
 
-- [ ] F1. Agreement with `collisionGrid` on every 2D starter fixture.
-- [ ] F2. Toggling persists through the view store (rehydrate test).
+- [x] F1. Agreement with `collisionGrid` on every 2D starter fixture.
+- [x] F2. Toggling persists through the view store (rehydrate test).
 
 **Done when** F1–F2 pass.
 
@@ -308,9 +300,9 @@ export const GAME_ENTITY_POLL_MS = 250;
 
 **Acceptance.**
 
-- [ ] G1. `debug({ colliders: true })` on a running game toggles the overlay (runner test asserts the exec string).
-- [ ] G2. `navMeshPolygons` returns closed polygons in metres for the third-person fixture.
-- [ ] G3. A 30,000-vertex nav-mesh is refused with a message, not sent.
+- [x] G1. `debug({ colliders: true })` on a running game toggles the overlay (runner test asserts the exec string).
+- [x] G2. `navMeshPolygons` returns closed polygons in metres (tested through its engine-free step `trianglesToPolygons`; the recast WebAssembly call itself is a real-run check).
+- [x] G3. A 30,000-vertex nav-mesh is refused with a message, not sent.
 
 **Done when** G1–G3 pass and the kit hash test is green.
 
@@ -333,9 +325,9 @@ export const GAME_ENTITY_POLL_MS = 250;
 
 **Acceptance.**
 
-- [ ] H1. `game_play_from` with `objectId` starts at that object's position (mocked runner records the spawn).
-- [ ] H2. `game_entities` works with `allowGames` off; the other two refuse.
-- [ ] H3. Skill copies identical; pin regenerated; `skills.test.ts` green.
+- [x] H1. `game_play_from` with `objectId` starts at that object's position (mocked runner records the spawn).
+- [x] H2. `game_entities` works with `allowGames` off; the other two refuse.
+- [x] H3. Skill copies identical; pin regenerated; `skills.test.ts` green.
 
 **Done when** H1–H3 pass.
 

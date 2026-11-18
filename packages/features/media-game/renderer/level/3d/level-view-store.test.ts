@@ -7,7 +7,7 @@ const KEY = 'midnite-studio.level-view';
 
 afterEach(() => {
   localStorage.clear();
-  useLevelViewStore.setState({ modeByGame: {}, optimisation: 3, stats: false, snap: DEFAULT_LEVEL_SNAP, pivot: 'pivot', space: 'world' });
+  useLevelViewStore.setState({ modeByGame: {}, optimisation: 3, stats: false, snap: DEFAULT_LEVEL_SNAP, pivot: 'pivot', space: 'world', overlays: { colliders: false, triggers: false, nav: false } });
 });
 
 describe('useLevelViewStore (Phase 136 Themes E and G)', () => {
@@ -27,7 +27,7 @@ describe('useLevelViewStore (Phase 136 Themes E and G)', () => {
     s.toggleStats();
     s.setMode('g1', '3d');
     const saved = JSON.parse(localStorage.getItem(KEY)!);
-    expect(saved.state).toEqual({ modeByGame: { g1: '3d' }, optimisation: 1, stats: true, snap: DEFAULT_LEVEL_SNAP, pivot: 'pivot', space: 'world' });
+    expect(saved.state).toEqual({ modeByGame: { g1: '3d' }, optimisation: 1, stats: true, snap: DEFAULT_LEVEL_SNAP, pivot: 'pivot', space: 'world', overlays: { colliders: false, triggers: false, nav: false } });
   });
 
   it('a corrupt payload falls back to the defaults', async () => {
@@ -61,5 +61,26 @@ describe('useLevelViewStore (Phase 136 Themes E and G)', () => {
     const s = useLevelViewStore.getState();
     expect(s.snap).toEqual({ ...DEFAULT_LEVEL_SNAP, angle: 90, surface: true });
     expect([s.pivot, s.space]).toEqual(['pivot', 'world']);
+  });
+});
+
+describe('overlays (Phase 140 Theme F)', () => {
+  it('F2 toggling persists through the store and survives a rehydrate', async () => {
+    const s = useLevelViewStore.getState();
+    expect(s.overlays).toEqual({ colliders: false, triggers: false, nav: false });
+    s.setOverlay('colliders', true);
+    s.setOverlay('nav', true);
+    expect(JSON.parse(localStorage.getItem(KEY)!).state.overlays).toEqual({ colliders: true, triggers: false, nav: true });
+    const saved = localStorage.getItem(KEY)!;
+    useLevelViewStore.setState({ overlays: { colliders: false, triggers: false, nav: false } });
+    localStorage.setItem(KEY, saved);
+    await useLevelViewStore.persist.rehydrate();
+    expect(useLevelViewStore.getState().overlays).toEqual({ colliders: true, triggers: false, nav: true });
+  });
+
+  it('anything but true is off after a hand edit', async () => {
+    localStorage.setItem(KEY, JSON.stringify({ state: { overlays: { colliders: 'yes', triggers: 1, nav: true } }, version: 1 }));
+    await useLevelViewStore.persist.rehydrate();
+    expect(useLevelViewStore.getState().overlays).toEqual({ colliders: false, triggers: false, nav: true });
   });
 });

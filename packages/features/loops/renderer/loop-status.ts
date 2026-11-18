@@ -1,6 +1,6 @@
-import type { SessionActivity } from '@midnite/studio-shared';
+import type { SessionActivity, TerminalSession } from '@midnite/studio-shared';
 
-import { sessionPhase, type SessionPhase } from '@midnite/studio-frame';
+import { sessionPhase, type ConnectionState, type SessionPhase } from '@midnite/studio-frame';
 
 import { useLoopsState, useLoopsTerminal } from './use-loops-host-state';
 
@@ -18,7 +18,7 @@ export type LoopStatus = {
   sessionId: string | undefined;
   phase: SessionPhase | undefined;
   activity: SessionActivity | undefined;
-  /** The pty is up: Stop is the button, and the glow is on. */
+  /** At least one of the loop's sessions has its pty up — the glow is on. */
   running: boolean;
   /** The agent has a question on screen — amber everywhere it shows. */
   waiting: boolean;
@@ -35,24 +35,52 @@ const IDLE: LoopStatus = {
   thinking: false,
 };
 
+type TerminalSlice = {
+  sessions: readonly TerminalSession[];
+  states: Record<string, ConnectionState>;
+  activity: Record<string, SessionActivity>;
+};
+
+/**
+ * One loop's status, folded over every session it dispatched.
+ *
+ * A loop can run several sessions at once now (each on its own feature), so
+ * "the" status is the loudest one: waiting beats thinking beats merely live,
+ * and the session reported is that one — the one worth opening. A session is
+ * the loop's when it carries the loop's `loopId`, or — for a row persisted
+ * before that field existed — when the old `fabSessions` map names it.
+ */
+export function foldLoopStatus(
+  loopId: string,
+  legacySessionId: string | undefined,
+  terminal: TerminalSlice,
+): LoopStatus {
+  let best: LoopStatus = IDLE;
+  let bestRank = -1;
+  for (const session of terminal.sessions) {
+    if (session.loopId !== loopId && session.id !== legacySessionId) continue;
+    const phase = sessionPhase(session, terminal.states[session.id]);
+    const running = phase === 'live';
+    const activity = terminal.activity[session.id];
+    const waiting = running && activity === 'waiting';
+    const thinking = running && activity === 'thinking';
+    // Later sessions win ties, so the newest dispatch is the one reported.
+    const rank = waiting ? 3 : thinking ? 2 : running ? 1 : 0;
+    if (rank >= bestRank) {
+      bestRank = rank;
+      best = { sessionId: session.id, phase, activity, running, waiting, thinking };
+    }
+  }
+  return best;
+}
+
 /** The status of one loop, by tab id. */
 export function useLoopStatus(loopId: string): LoopStatus {
-  const sessionId = useLoopsState((s) => s.fabSessions[loopId]);
-  const session = useLoopsTerminal((s) => s.sessions.find((row) => row.id === sessionId));
-  const state = useLoopsTerminal((s) => (sessionId ? s.states[sessionId] : undefined));
-  const activity = useLoopsTerminal((s) => (sessionId ? s.activity[sessionId] : undefined));
-
-  if (!sessionId || !session) return IDLE;
-  const phase = sessionPhase(session, state);
-  const running = phase === 'live';
-  return {
-    sessionId,
-    phase,
-    activity,
-    running,
-    waiting: running && activity === 'waiting',
-    thinking: running && activity === 'thinking',
-  };
+  const legacySessionId = useLoopsState((s) => s.fabSessions[loopId]);
+  const sessions = useLoopsTerminal((s) => s.sessions);
+  const states = useLoopsTerminal((s) => s.states);
+  const activity = useLoopsTerminal((s) => s.activity);
+  return foldLoopStatus(loopId, legacySessionId, { sessions, states, activity });
 }
 
 /**
@@ -66,21 +94,7 @@ export function useAllLoopStatuses(loopIds: readonly string[]): LoopStatus[] {
   const sessions = useLoopsTerminal((s) => s.sessions);
   const states = useLoopsTerminal((s) => s.states);
   const activity = useLoopsTerminal((s) => s.activity);
-
-  return loopIds.map((loopId) => {
-    const sessionId = fabSessions[loopId];
-    const session = sessionId ? sessions.find((row) => row.id === sessionId) : undefined;
-    if (!sessionId || !session) return IDLE;
-    const phase = sessionPhase(session, states[sessionId]);
-    const running = phase === 'live';
-    const seen = activity[sessionId];
-    return {
-      sessionId,
-      phase,
-      activity: seen,
-      running,
-      waiting: running && seen === 'waiting',
-      thinking: running && seen === 'thinking',
-    };
-  });
+  return loopIds.map((loopId) =>
+    foldLoopStatus(loopId, fabSessions[loopId], { sessions, states, activity }),
+  );
 }

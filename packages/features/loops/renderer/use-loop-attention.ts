@@ -5,6 +5,7 @@ import { loopLabel, useAllLoops } from './use-all-loops';
 import { useToastStore } from '@midnite/studio-frame';
 import type { FabTab } from '@midnite/studio-shared';
 
+import { useLoopsHost } from './host';
 import { useLoopsState } from './use-loops-host-state';
 
 /**
@@ -23,6 +24,7 @@ export function useLoopAttention(): void {
   const loops = useAllLoops();
   const statuses = useAllLoopStatuses(loops.map((loop) => loop.id));
   const openFabTab = useLoopsState((s) => s.openFabTab);
+  const host = useLoopsHost();
   const wasWaiting = useRef<Record<string, boolean>>({});
 
   /*
@@ -41,6 +43,8 @@ export function useLoopAttention(): void {
   // against the list they were read from — the effect re-reads it with them.
   const loopsRef = useRef(loops);
   loopsRef.current = loops;
+  const statusesRef = useRef(statuses);
+  statusesRef.current = statuses;
 
   useEffect(() => {
     loopsRef.current.forEach((loop, index) => {
@@ -49,11 +53,20 @@ export function useLoopAttention(): void {
       wasWaiting.current[loop.id] = waiting;
       if (!waiting || previously) return;
 
+      // The waiting session lives in the terminal panel's "Loops" group, so
+      // that is where the action goes; a host with no terminal opens the tab.
+      const sessionId = statusesRef.current[index]?.sessionId;
       useToastStore.getState().addToast({
         message: `${loopLabel(loop)} is waiting for input.`,
         status: 'warning',
-        action: { label: `Open ${loopLabel(loop)}`, onAction: () => openFabTab(loop.id as FabTab) },
+        action: {
+          label: `Open ${loopLabel(loop)}`,
+          onAction: () =>
+            sessionId !== undefined && host.revealSession
+              ? host.revealSession(sessionId)
+              : openFabTab(loop.id as FabTab),
+        },
       });
     });
-  }, [waitingMask, openFabTab]);
+  }, [waitingMask, openFabTab, host]);
 }

@@ -1,10 +1,11 @@
 // vitest/jsdom: the editor's tools and keys, Save, the banners and the empty state. Canvas drawing needs a real
 // browser and is a human check (Theme H); hit-testing is exercised here through the pointer events jsdom can send.
 import { QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createFrameChrome, FrameChromeProvider } from '@midnite/studio-frame';
+import { createFrameChrome, FrameChromeProvider, useToastStore } from '@midnite/studio-frame';
+import { arm, assetDragStore } from './assets/asset-drag';
 import { levelEntityToWorld } from '@midnite/studio-shared';
 
 import type { Level3dViewProps } from './3d/level-3d-view';
@@ -12,7 +13,7 @@ import { useLevelViewStore } from './3d/level-view-store';
 import { DEFAULT_LEVEL_SNAP } from './level-snap';
 import { LevelEditor } from './level-editor';
 import { useDoctorRequest } from '../game-doctor-store';
-import { addObject, selectOnly } from './level-edit-model';
+import { addObject, addSelected, selectOnly } from './level-edit-model';
 import { useLevelOutlinerStore } from './level-outliner-store';
 import { useLevelStore } from './level-store';
 import { blankLevel, blankLevel3d, installBridge, newClient, removeBridge, stubCanvas, stubPointerEvents } from './test-helpers';
@@ -72,7 +73,7 @@ describe('LevelEditor', () => {
     expect(get).toHaveBeenCalledWith({ gameId: 'g1', scene: 'level' });
     const group = screen.getByRole('radiogroup', { name: 'Tool' });
     const radios = Array.from(group.querySelectorAll('[role=radio]')).map((r) => r.getAttribute('aria-label'));
-    expect(radios).toEqual(['Paint', 'Erase', 'Rectangle', 'Pick', 'Entity', 'Select']);
+    expect(radios).toEqual(['Paint', 'Erase', 'Rectangle', 'Pick', 'Entity', 'Select', 'Scatter']);
     expect(screen.getByRole('radio', { name: 'Paint' }).getAttribute('aria-checked')).toBe('true');
   });
 
@@ -241,7 +242,7 @@ describe('LevelEditor, 3D plan view (Phase 132 Theme E)', () => {
   it('opens editable, with the 3D tools and no tile tools, palette or layer button', async () => {
     await open3d();
     const labels = Array.from(screen.getByRole('radiogroup', { name: 'Tool' }).querySelectorAll('[role=radio]')).map((r) => r.getAttribute('aria-label'));
-    expect(labels).toEqual(['Select / Move', 'Place', 'Volume', 'Path', 'Rotate']);
+    expect(labels).toEqual(['Select / Move', 'Place', 'Volume', 'Path', 'Rotate', 'Scatter']);
     expect(screen.getByRole('radio', { name: 'Select / Move' }).getAttribute('aria-checked')).toBe('true');
     expect((screen.getByRole('radio', { name: 'Place' }) as HTMLButtonElement).disabled).toBe(false);
     expect(screen.queryByRole('radio', { name: 'Paint' })).toBeNull();
@@ -473,7 +474,7 @@ describe('LevelEditor, Floorplan | 3D switch (Phase 136 Theme E)', () => {
     expect(view.dataset.tool).toBe('volume');
     expect(screen.getByRole('radio', { name: 'Volume' }).getAttribute('aria-checked')).toBe('true');
     const labels = Array.from(screen.getByRole('radiogroup', { name: 'Tool' }).querySelectorAll('[role=radio]')).map((r) => r.getAttribute('aria-label'));
-    expect(labels).toEqual(['Select / Move', 'Place', 'Volume', 'Path', 'Rotate']);
+    expect(labels).toEqual(['Select / Move', 'Place', 'Volume', 'Path', 'Rotate', 'Scatter']);
     expect(useLevelViewStore.getState().modeByGame).toEqual({ g1: '3d' });
   });
 
@@ -767,5 +768,229 @@ describe('LevelEditor, outliner and context menus (Phase 137 H, I)', () => {
     expect(selectedIds()).toEqual([]);
     fireEvent.contextMenu(canvas, at(100, 100));
     await waitFor(() => expect(selectedIds()).toEqual([ids[0]]));
+  });
+});
+
+describe('LevelEditor, dropping an asset (Phase 139 Theme D)', () => {
+  const MIME = 'application/x-midnite-level-asset';
+  const payload = JSON.stringify({ kind: 'asset', name: 'tree.glb', assetKind: 'model' });
+  const dropOn = (el: Element) => {
+    const dt = { types: [MIME], getData: () => payload, dropEffect: '' };
+    // jsdom has no DragEvent, so RTL builds a bare Event: give it the pointer coordinates a browser would.
+    const send = (make: typeof createEvent.drop) => {
+      const ev = make(el, { dataTransfer: dt });
+      Object.assign(ev, { clientX: at(100, 150).clientX, clientY: at(100, 150).clientY, altKey: false });
+      fireEvent(el, ev);
+    };
+    send(createEvent.dragOver);
+    send(createEvent.drop);
+  };
+  const objects = () => useLevelStore.getState().byGame.g1!.edit.level.layers.filter((l) => l.type === 'objectgroup').flatMap((l) => l.objects ?? []);
+  const open = async (level: ReturnType<typeof blankLevel>, dimension: '2d' | '3d') => {
+    get.mockResolvedValue({ ok: true, value: { level, issues: [], images: [] } });
+    list.mockResolvedValue(listed({ scenes: [{ scene: 'level', bytes: 1, dimension, issue: null }] }));
+    renderEditor();
+    await ready();
+    return screen.getByTestId('level-canvas-wrap');
+  };
+  beforeEach(() => useLevelViewStore.setState({ snap: { ...DEFAULT_LEVEL_SNAP, planStep: 0.5 } }));
+
+  it('D2: a model dropped on a 3D plan adds one prop with its model, on the snapped point, as one undo step', async () => {
+    const wrap = await open(blankLevel3d(), '3d');
+    const before = objects().length;
+    const past = useLevelStore.getState().byGame.g1!.edit.past.length;
+    dropOn(wrap);
+    const after = useLevelStore.getState().byGame.g1!.edit;
+    expect(objects()).toHaveLength(before + 1);
+    expect(after.past.length).toBe(past + 1);
+    const added = objects().at(-1)!;
+    expect(added).toMatchObject({ type: 'prop', x: 96, y: 144, properties: [{ name: 'model', value: 'tree.glb' }] });
+    expect(after.selection).toEqual({ layerId: expect.any(Number), objectId: added.id });
+  });
+
+  it('D3: a model dropped on a 2D level adds nothing and says so', async () => {
+    const wrap = await open(blankLevel(), '2d');
+    const before = objects().length;
+    dropOn(wrap);
+    expect(objects()).toHaveLength(before);
+    expect(useToastStore.getState().toasts.some((t) => t.message === 'Models place in 3D levels.')).toBe(true);
+  });
+
+  it('click-to-place: an armed tile takes the next plan click, then disarms; Escape disarms too', async () => {
+    const wrap = await open(blankLevel3d(), '3d');
+    const canvas = screen.getByTestId('level-canvas');
+    const before = objects().length;
+    act(() => arm({ kind: 'asset', name: 'tree.glb', assetKind: 'model' }));
+    fireEvent.keyDown(wrap, { key: 'Escape' });
+    expect(assetDragStore.get().armed).toBeNull();
+    act(() => arm({ kind: 'asset', name: 'tree.glb', assetKind: 'model' }));
+    fireEvent.pointerDown(canvas, { clientX: 100, clientY: 150, button: 0 });
+    fireEvent.pointerUp(canvas, { clientX: 100, clientY: 150, button: 0 });
+    expect(objects()).toHaveLength(before + 1);
+    expect(objects().at(-1)).toMatchObject({ type: 'prop', properties: [{ name: 'model', value: 'tree.glb' }] });
+    expect(assetDragStore.get().armed).toBeNull();
+  });
+});
+
+describe('LevelEditor, prefabs (Phase 139 Theme G)', () => {
+  const prefabSet = vi.fn();
+  const prefabDelete = vi.fn();
+  const prefabGet = vi.fn();
+  const prefabList = vi.fn();
+  const objects = () => useLevelStore.getState().byGame.g1!.edit.level.layers.filter((l) => l.type === 'objectgroup').flatMap((l) => l.objects ?? []);
+  const crate = { name: 'crate-stack', version: 1, dimension: '2d', objects: [{ type: 'crate', x: -8, y: 0, width: 8, height: 8 }, { type: 'crate', x: 8, y: 0, width: 8, height: 8 }] };
+  beforeEach(() => {
+    for (const m of [prefabSet, prefabDelete, prefabGet, prefabList]) m.mockReset();
+    prefabSet.mockResolvedValue({ ok: true, value: { sha: 's' } });
+    prefabDelete.mockResolvedValue({ ok: true, value: { sha: 'd' } });
+    prefabGet.mockResolvedValue({ ok: true, value: { prefab: crate } });
+    prefabList.mockResolvedValue({ ok: true, value: { prefabs: [{ name: 'crate-stack', dimension: '2d', objects: 2 }] } });
+    installBridge({ list, get, set, doctor, doctorFix, prefabs: { list: prefabList, get: prefabGet, set: prefabSet, delete: prefabDelete } });
+    assetDragStore.set({ dragging: null, armed: null });
+  });
+
+  const withObjects = async () => {
+    const level = blankLevel();
+    const layer = level.layers.find((l) => l.type === 'objectgroup')!;
+    layer.objects = [
+      { id: 10, name: 'crate', type: 'crate', x: 40, y: 40, width: 8, height: 8, rotation: 0, visible: true },
+      { id: 11, name: 'crate', type: 'crate', x: 60, y: 40, width: 8, height: 8, rotation: 0, visible: true },
+    ];
+    level.nextobjectid = 12;
+    get.mockResolvedValue({ ok: true, value: { level, issues: [], images: [] } });
+    const { chrome, DialogHost } = createFrameChrome();
+    render(<FrameChromeProvider chrome={chrome}><QueryClientProvider client={newClient()}><LevelEditor gameId="g1" /></QueryClientProvider><DialogHost /></FrameChromeProvider>);
+    await ready();
+    return layer.id!;
+  };
+
+  it('G1: Save as prefab writes the file and tags the selection as one instance in one undo step', async () => {
+    const layerId = await withObjects();
+    act(() => useLevelStore.getState().update('g1', (s) => addSelected(selectOnly(s, { layerId, objectId: 10 }), [{ layerId, objectId: 11 }])));
+    const past = useLevelStore.getState().byGame.g1!.edit.past.length;
+    fireEvent.click(screen.getByRole('button', { name: /Save as prefab/ }));
+    fireEvent.change(screen.getByLabelText('Prefab name'), { target: { value: 'crate-stack' } });
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(prefabSet).toHaveBeenCalledTimes(1));
+    expect(prefabSet.mock.calls[0]![0]).toMatchObject({ gameId: 'g1', prefab: { name: 'crate-stack', dimension: '2d' } });
+    expect((prefabSet.mock.calls[0]![0] as { prefab: { objects: unknown[] } }).prefab.objects).toHaveLength(2);
+    await waitFor(() => expect(useLevelStore.getState().byGame.g1!.edit.past.length).toBe(past + 1));
+    const tagged = objects().filter((o) => o.properties?.some((p) => p.name === 'midnite.prefab' && p.value === 'crate-stack'));
+    expect(tagged).toHaveLength(2);
+  });
+
+  it('G5: deleting a prefab confirms with the instance count in this level', async () => {
+    const layerId = await withObjects();
+    act(() => useLevelStore.getState().update('g1', (s) => addSelected(selectOnly(s, { layerId, objectId: 10 }), [{ layerId, objectId: 11 }])));
+    fireEvent.click(screen.getByRole('button', { name: /Save as prefab/ }));
+    fireEvent.change(screen.getByLabelText('Prefab name'), { target: { value: 'crate-stack' } });
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(prefabSet).toHaveBeenCalled());
+    await waitFor(() => expect(objects().some((o) => o.properties?.some((p) => p.name === 'midnite.prefab'))).toBe(true));
+    fireEvent.click(await screen.findByRole('button', { name: /Assets/ }));
+    fireEvent.click(await screen.findByRole('radio', { name: 'Prefabs' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete prefab crate-stack' }));
+    await screen.findByRole('dialog');
+    expect(await screen.findByText(/1 instance in this level stay as plain objects/)).toBeTruthy();
+    expect(prefabDelete).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete prefab' }));
+    await waitFor(() => expect(prefabDelete).toHaveBeenCalledWith({ gameId: 'g1', name: 'crate-stack' }));
+  });
+
+  it('places an armed prefab on the next plan click as one undo step', async () => {
+    await withObjects();
+    const canvas = screen.getByTestId('level-canvas');
+    const before = objects().length;
+    act(() => arm({ kind: 'prefab', name: 'crate-stack' }));
+    fireEvent.pointerDown(canvas, { clientX: 100, clientY: 150, button: 0 });
+    fireEvent.pointerUp(canvas, { clientX: 100, clientY: 150, button: 0 });
+    await waitFor(() => expect(objects()).toHaveLength(before + 2));
+    expect(objects().slice(-2).every((o) => o.properties?.some((p) => p.name === 'midnite.prefabInstance'))).toBe(true);
+  });
+});
+
+describe('LevelEditor, scatter brush (Phase 139 Theme H)', () => {
+  const objects = () => useLevelStore.getState().byGame.g1!.edit.level.layers.filter((l) => l.type === 'objectgroup').flatMap((l) => l.objects ?? []).filter((o) => o.type === 'prop');
+  const open = async () => {
+    get.mockResolvedValue({ ok: true, value: { level: blankLevel3d(), issues: [], images: [] } });
+    list.mockResolvedValue(listed({ scenes: [{ scene: 'level', bytes: 1, dimension: '3d', issue: null }] }));
+    renderEditor();
+    await ready();
+    return { canvas: screen.getByTestId('level-canvas'), wrap: screen.getByTestId('level-canvas-wrap') };
+  };
+  const press = (canvas: HTMLElement, x: number, y: number, kind: 'pointerDown' | 'pointerMove' | 'pointerUp', alt = false) =>
+    fireEvent[kind](canvas, { clientX: x, clientY: y, button: 0, pointerId: 1, altKey: alt });
+  const withTree = () => act(() => arm({ kind: 'asset', name: 'tree.glb', assetKind: 'model' }));
+
+  beforeEach(() => assetDragStore.set({ dragging: null, armed: null }));
+
+  it('S opens the brush; a model tile becomes a source instead of placing', async () => {
+    const { wrap } = await open();
+    fireEvent.keyDown(wrap, { key: 's' });
+    expect(screen.getByRole('radio', { name: 'Scatter' }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByTestId('scatter-panel')).toBeTruthy();
+    withTree();
+    expect(screen.getByText('model: tree.glb')).toBeTruthy();
+    expect(assetDragStore.get().armed).toBeNull();
+    expect(objects()).toHaveLength(0);
+  });
+
+  it('with no source, a press says what to do and adds nothing', async () => {
+    const { canvas, wrap } = await open();
+    fireEvent.keyDown(wrap, { key: 's' });
+    press(canvas, 200, 200, 'pointerDown');
+    press(canvas, 200, 200, 'pointerUp');
+    expect(objects()).toHaveLength(0);
+    expect(useToastStore.getState().toasts.some((t) => t.message.startsWith('Click a model or prefab tile'))).toBe(true);
+  });
+
+  it('H3: a stroke of several dabs is one undo step', async () => {
+    const { canvas, wrap } = await open();
+    fireEvent.keyDown(wrap, { key: 's' });
+    withTree();
+    press(canvas, 100, 150, 'pointerDown');
+    for (const x of [160, 220, 280]) press(canvas, x, 150, 'pointerMove');
+    press(canvas, 280, 150, 'pointerUp');
+    expect(objects().length).toBeGreaterThan(2);
+    fireEvent.keyDown(wrap, { key: 'z', metaKey: true });
+    expect(objects()).toHaveLength(0);
+  });
+
+  it('H4: Alt erases the chosen source and leaves other props alone', async () => {
+    const { canvas, wrap } = await open();
+    const layerId = useLevelStore.getState().byGame.g1!.edit.level.layers.find((l) => l.type === 'objectgroup')!.id!;
+    useLevelStore.getState().update('g1', (s) => addObject(s, layerId, { type: 'prop', x: 100, y: 150 }));
+    fireEvent.keyDown(wrap, { key: 's' });
+    withTree();
+    press(canvas, 100, 150, 'pointerDown');
+    press(canvas, 100, 150, 'pointerUp');
+    const scattered = objects().length;
+    expect(scattered).toBeGreaterThan(1);
+    press(canvas, 100, 150, 'pointerDown', true);
+    press(canvas, 100, 150, 'pointerUp', true);
+    // The hand-placed prop (no model) survives; only tree.glb props within the brush go.
+    expect(objects().filter((o) => o.properties?.some((p) => p.value === 'tree.glb')).length).toBeLessThan(scattered);
+    expect(objects().some((o) => !o.properties?.some((p) => p.name === 'model'))).toBe(true);
+  });
+
+  it('[ and ] resize the brush', async () => {
+    const { wrap } = await open();
+    fireEvent.keyDown(wrap, { key: 's' });
+    const radius = () => Number((screen.getByLabelText('Radius') as HTMLInputElement).value);
+    const before = radius();
+    fireEvent.keyDown(wrap, { key: ']' });
+    expect(radius()).toBeGreaterThan(before);
+    fireEvent.keyDown(wrap, { key: '[' });
+    fireEvent.keyDown(wrap, { key: '[' });
+    expect(radius()).toBeLessThan(before);
+  });
+
+  it('a 2D level refuses a model source', async () => {
+    renderEditor();
+    await ready();
+    fireEvent.keyDown(screen.getByTestId('level-canvas-wrap'), { key: 's' });
+    withTree();
+    expect(screen.queryByText('model: tree.glb')).toBeNull();
+    expect(useToastStore.getState().toasts.some((t) => t.message === 'Models scatter in 3D levels.')).toBe(true);
   });
 });

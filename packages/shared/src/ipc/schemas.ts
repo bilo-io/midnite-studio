@@ -348,6 +348,7 @@ import {
   GmProgressSchema,
   GmStatusResponseSchema,
 } from '../media-music-gm';
+import { GameLibraryFileSchema, GameLibraryListingSchema, GameLibraryReadRequestSchema } from '../game-asset-library';
 import {
   GameBoundsRequest as GameBoundsRequestSchema,
   GameConsolePayload as GameConsolePayloadSchema,
@@ -355,6 +356,7 @@ import {
   GameAssetSourcesRequestSchema,
   GameAssetSourcesResultSchema,
   GameImportAssetRequestSchema,
+  GameLibraryImportRequestSchema,
   GameImportAssetResultSchema,
   GameResyncRequestSchema,
   GameResyncResultSchema,
@@ -383,6 +385,12 @@ import {
   GameManifestGetResponse as GameManifestGetResponseSchema,
   GameManifestSetRequest as GameManifestSetRequestSchema,
   GameRunResult as GameRunResultSchema,
+  GameDebugOptionsSchema,
+  GameDebugRequestSchema,
+  GameEntitiesResultSchema,
+  GameNavMeshSchema,
+  GameEntitiesWatchRequestSchema,
+  GameEntityStatePayloadSchema,
   GameRunStatePayload as GameRunStatePayloadSchema,
   GamePopStateSchema,
   GamePoppedResponseSchema,
@@ -401,6 +409,11 @@ import {
   GameLevelsResultSchema,
   GameLevelGetRequestSchema,
   GameLevelGetResultSchema,
+  GameLevelAssetThumbRequestSchema,
+  GameLevelPreviewRequestSchema,
+  GameLevelPreviewResultSchema,
+  GameLevelPreviewEndRequestSchema,
+  GameLevelAssetThumbResultSchema,
   GameLevelModelRequestSchema,
   GameLevelModelResultSchema,
   GameLevelSetRequestSchema,
@@ -410,6 +423,15 @@ import {
   GameGotoRequestSchema,
   GameGotoResultSchema,
 } from '../game-level';
+import {
+  GamePrefabDeleteRequestSchema,
+  GamePrefabGetRequestSchema,
+  GamePrefabGetResultSchema,
+  GamePrefabsRequestSchema,
+  GamePrefabsResultSchema,
+  GamePrefabSetRequestSchema,
+  GamePrefabWriteResultSchema,
+} from '../game-level-prefab';
 import {
   ModelExportRequestSchema,
   ModelGenerateProgressEventSchema,
@@ -5775,12 +5797,34 @@ export const GamesLevelGetRequest = GameLevelGetRequestSchema;
 export const GamesLevelGetResponse = GitOpResultOf(GameLevelGetResultSchema);
 export const GamesLevelModelRequest = GameLevelModelRequestSchema;
 export const GamesLevelModelResponse = GitOpResultOf(GameLevelModelResultSchema);
+// Phase 139 Theme F — prefabs.
+export const GamesLevelPrefabsRequest = GamePrefabsRequestSchema;
+export const GamesLevelPrefabsResponse = GitOpResultOf(GamePrefabsResultSchema);
+export const GamesLevelPrefabGetRequest = GamePrefabGetRequestSchema;
+export const GamesLevelPrefabGetResponse = GitOpResultOf(GamePrefabGetResultSchema);
+export const GamesLevelPrefabSetRequest = GamePrefabSetRequestSchema;
+export const GamesLevelPrefabSetResponse = GitOpResultOf(GamePrefabWriteResultSchema);
+export const GamesLevelPrefabDeleteRequest = GamePrefabDeleteRequestSchema;
+export const GamesLevelPrefabDeleteResponse = GitOpResultOf(GamePrefabWriteResultSchema);
+export const GamesLevelAssetThumbRequest = GameLevelAssetThumbRequestSchema;
+export const GamesLevelAssetThumbResponse = GitOpResultOf(GameLevelAssetThumbResultSchema);
+export const GamesLevelPreviewRequest = GameLevelPreviewRequestSchema;
+export const GamesLevelPreviewResponse = GitOpResultOf(GameLevelPreviewResultSchema);
+export const GamesLevelPreviewEndRequest = GameLevelPreviewEndRequestSchema;
 export const GamesLevelSetRequest = GameLevelSetRequestSchema;
 export const GamesLevelSetResponse = GitOpResultOf(GameLevelSetResultSchema);
 export const GamesLevelMapAssetRequest = GameLevelMapAssetRequestSchema;
 export const GamesLevelMapAssetResponse = GitOpResultOf(GameLevelMapAssetResultSchema);
 // Phase 138 Theme C — the main -> renderer level-editor bridge.
 export { GamesLevelEditorRequestPayload, GamesLevelEditorReply, GamesLevelEditorOpenPayload } from '../game-level-editor-bridge';
+export const GamesEntitiesRequest = GameIdRequestSchema;
+export const GamesEntitiesResponse = GitOpResultOf(GameEntitiesResultSchema);
+export const GamesEntitiesWatchRequest = GameEntitiesWatchRequestSchema;
+export const GamesDebugRequest = GameDebugRequestSchema;
+export const GamesDebugResponse = GitOpResultOf(GameDebugOptionsSchema);
+export const GamesNavMeshRequest = GameIdRequestSchema;
+export const GamesNavMeshResponse = GitOpResultOf(GameNavMeshSchema);
+export const GamesEntityStatePayload = GameEntityStatePayloadSchema;
 export const GamesGotoRequest = GameGotoRequestSchema;
 export const GamesGotoResponse = GitOpResultOf(GameGotoResultSchema);
 export const GamesPopOutRequest = GameIdRequestSchema;
@@ -5791,6 +5835,10 @@ export const GamesAgentRunResponse = GitOpResultOf(GameAgentRunResultSchema);
 export const GamesAgentCancelRequest = GameIdRequestSchema;
 export const GamesAgentUndoRequest = GameAgentUndoRequestSchema;
 export const GamesAgentProgressPayload = GameAgentProgressSchema;
+export const GamesLibraryReadRequest = GameLibraryReadRequestSchema;
+export const GamesLibraryListResponse = GitOpResultOf(GameLibraryListingSchema);
+export const GamesLibraryReadResponse = GitOpResultOf(GameLibraryFileSchema);
+export const GamesLibraryImportRequest = GameLibraryImportRequestSchema;
 export const GamesAssetSourcesRequest = GameAssetSourcesRequestSchema;
 export const GamesAssetSourcesResponse = GitOpResultOf(GameAssetSourcesResultSchema);
 export const GamesImportAssetRequest = GameImportAssetRequestSchema;

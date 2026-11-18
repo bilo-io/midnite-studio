@@ -11,7 +11,9 @@ import {
   Float32BufferAttribute,
   Fog,
   Frustum,
+  DoubleSide,
   GridHelper,
+  type LineSegments,
   Group,
   InstancedMesh,
   Matrix4,
@@ -30,13 +32,18 @@ import {
   type Texture,
 } from 'three';
 
-import type { LevelViewCamera } from '@midnite/studio-shared';
+import type { GameLevelTerrainDetail, LevelViewCamera } from '@midnite/studio-shared';
 import { captureScene, type CapturedPixels } from './level-capture';
 import { blendPose, cameraPosition, dollyOffset, poseFromCamera, TRANSITION_MS, type CameraPose } from './camera-transition';
 import { cull, groundTiles, itemRadius, tileInReach, type GroundTile, type ViewStats } from './level-cull';
-import { fogRange, viewOffset } from './level-lod';
+import { detailSegments, gridUnit, reachFor, tileSizeFor } from './level-big';
+import { drapedGrid, drapedRuns, type Relief } from './level-relief';
+import { buildingsGeometry, lineObject, patchGeometry, tileGeometry } from './level-relief-mesh';
+import { farPlane, fogRange, hazeRange, viewOffset } from './level-lod';
 import type { ScreenPoint } from './level-marquee';
 import { DEFAULT_SIZE_Y } from '../level-edit-model';
+import { ExtrasView } from './level-extras-view';
+import type { SceneExtras } from './level-extras';
 import type { GizmoPivot, GizmoSpace } from './level-view-store';
 import { nearestEuler, type GizmoChange, type GroupDelta, type GroupPivot, type WorldItem } from './level-world';
 import type { ModelCache } from './model-cache';
@@ -65,6 +72,12 @@ export type LevelSceneProps = {
   bounds: GroundTile;
   ground: number;
   drape: string | null;
+  /** The area the grid covers: the work, when the ground dwarfs it. */
+  focus: GroundTile;
+  /** The part of the terrain the level works in, in detail: a sharper drape crop, roads and building outlines. */
+  detail: GameLevelTerrainDetail | null;
+  /** The ground's real heights, when the terrain pack has them: the ground, grid and detail follow it. */
+  relief: Relief | null;
   /** Item indices of every selected object; every one gets an amber outline. */
   selected: readonly number[];
   /** The selection's pivot (Theme D): where the group gizmo sits when two or more are selected. */
@@ -80,6 +93,8 @@ export type LevelSceneProps = {
   /** Switches the orbit controls on or off for a tool gesture (they stay off while Shift marquees). */
   setOrbit: MutableRefObject<((on: boolean) => void) | null>;
   draft: ToolDraft;
+  /** Collider / trigger volumes, the nav-mesh and live ghosts (Phase 140 Themes E to G). */
+  extras?: SceneExtras;
   /** Draws the scene once through a temporary camera (`game_level_view`); the live camera never moves. */
   capture: MutableRefObject<((view: LevelViewCamera, width: number, height: number) => CapturedPixels & { visible: number }) | null>;
   /** Projects a world point to the canvas (px), for the marquee. */
@@ -89,6 +104,8 @@ export type LevelSceneProps = {
   snap: SnapSettings;
   preset: OptimisationPreset;
   placing: boolean;
+  /** Phase 139 Theme H: a ground ring of `radius` metres; `move` is set by the ring and moves it (null hides it). */
+  brush?: { radius: number; move: MutableRefObject<((at: [number, number] | null) => void) | null> } | undefined;
   cache: ModelCache<Object3D>;
   initialPose: CameraPose;
   /** Set to animate the camera (the Floorplan ↔ 3D switch, F to frame). */
@@ -130,21 +147,6 @@ function placeModel(target: Object3D, item: WorldItem): void {
   target.position.set(item.position[0], item.position[1], item.position[2]);
   target.rotation.set(item.pitch, item.yaw, item.roll, 'YXZ');
   target.scale.setScalar(item.scale);
-}
-
-/** One ground tile: a flat grid of `segments`² quads at `y`, its UVs a window onto the whole level's drape. */
-function tileGeometry(tile: GroundTile, all: GroundTile, y: number, segments: number): BufferGeometry {
-  const w = tile.maxX - tile.minX, h = tile.maxZ - tile.minZ;
-  const g = new PlaneGeometry(w, h, segments, segments).rotateX(-Math.PI / 2).translate(tile.minX + w / 2, y, tile.minZ + h / 2);
-  const pos = g.getAttribute('position');
-  const uv = new Float32Array(pos.count * 2);
-  const W = all.maxX - all.minX || 1, H = all.maxZ - all.minZ || 1;
-  for (let i = 0; i < pos.count; i++) {
-    uv[i * 2] = (pos.getX(i) - all.minX) / W;
-    uv[i * 2 + 1] = 1 - (pos.getZ(i) - all.minZ) / H;
-  }
-  g.setAttribute('uv', new Float32BufferAttribute(uv, 2));
-  return g;
 }
 
 function disposeTree(root: Object3D): void {
@@ -254,6 +256,15 @@ export function LevelScene(props: LevelSceneProps) {
     return light;
   }, []);
   const tilesGroup = useRef<Group>(null);
+  const relief = props.relief;
+  const heightAt = useMemo(() => (relief ? relief.heightAt : () => props.ground), [relief, props.ground]);
+  // The ground's diagonal when it has real heights (all of it is then drawn, hazed with distance), else 0.
+  const terrainSpan = relief ? Math.hypot(props.bounds.maxX - props.bounds.minX, props.bounds.maxZ - props.bounds.minZ) : 0;
+  /** The extent the fine patch covers: the terrain detail's, when it has a picture to wear. */
+  const finePatch = useMemo<GroundTile | null>(() => {
+    const d = props.detail;
+    return d?.preview ? { minX: d.minX, minZ: d.minZ, maxX: d.maxX, maxZ: d.maxZ } : null;
+  }, [props.detail]);
   const drape = useMemo<Texture | null>(() => {
     if (!props.drape) return null;
     const t = new TextureLoader().load(props.drape, () => invalidate());
@@ -264,20 +275,86 @@ export function LevelScene(props: LevelSceneProps) {
   const groundMaterial = useMemo(() => new MeshStandardMaterial({ color: drape ? '#ffffff' : '#2b3038', map: drape, roughness: 1 }), [drape]);
   useEffect(() => () => groundMaterial.dispose(), [groundMaterial]);
   const tiles = useMemo(() => {
-    const list = groundTiles(props.bounds, preset.terrainTile);
-    return list.map((tile) => ({ tile, geometry: tileGeometry(tile, props.bounds, props.ground, preset.terrainSegments) }));
-  }, [props.bounds, props.ground, preset.terrainTile, preset.terrainSegments]);
+    const list = groundTiles(props.bounds, tileSizeFor(props.bounds, preset.terrainTile));
+    // Where the fine patch covers the ground, the tiles under it sink out of its way.
+    const hole = relief && finePatch ? { ...finePatch, floor: relief.min - 20 } : null;
+    return list.map((tile) => ({ tile, geometry: tileGeometry(tile, props.bounds, heightAt, preset.terrainSegments, hole) }));
+  }, [props.bounds, heightAt, relief, finePatch, preset.terrainTile, preset.terrainSegments]);
   useEffect(() => () => tiles.forEach((t) => t.geometry.dispose()), [tiles]);
   const grids = useMemo(() => {
-    const w = props.bounds.maxX - props.bounds.minX, h = props.bounds.maxZ - props.bounds.minZ;
-    const side = Math.ceil(Math.max(w, h));
-    const fine = side <= 400 ? new GridHelper(side, side, '#3a3f48', '#3a3f48') : null;
-    const bold = new GridHelper(Math.ceil(side / 10) * 10, Math.ceil(side / 10), '#5b616c', '#5b616c');
-    for (const g of [fine, bold]) g?.position.set(props.bounds.minX + side / 2, props.ground + 0.01, props.bounds.minZ + side / 2);
-    bold.position.set(props.bounds.minX + Math.ceil(side / 10) * 5, props.ground + 0.02, props.bounds.minZ + Math.ceil(side / 10) * 5);
-    return [fine, bold].filter((g): g is GridHelper => g !== null);
-  }, [props.bounds, props.ground]);
-  useEffect(() => () => grids.forEach((g) => g.dispose()), [grids]);
+    // Over the focus (the work, on a terrain that dwarfs it), in a unit that suits its size: 1 m, 10 m or 100 m
+    // fine lines with every tenth bold. A 10 m grid over 10 km was a thousand lines a side, and aliased to noise.
+    const w = props.focus.maxX - props.focus.minX, h = props.focus.maxZ - props.focus.minZ;
+    const unit = gridUnit(Math.max(w, h));
+    const cells = Math.max(1, Math.ceil(Math.max(w, h) / unit));
+    const boldCells = Math.max(1, Math.ceil(cells / 10));
+    const x0 = Math.floor(props.focus.minX / (unit * 10)) * unit * 10, z0 = Math.floor(props.focus.minZ / (unit * 10)) * unit * 10;
+    if (relief) {
+      // On a relief the grid lies on the ground, sampled often enough to follow it.
+      const step = Math.max(unit, (cells * unit) / 200);
+      const fine = cells <= 400 ? lineObject(drapedGrid(x0, z0, cells, cells, unit, step, relief.heightAt, 0.15), '#3a3f48') : null;
+      const bold = lineObject(drapedGrid(x0, z0, boldCells, boldCells, unit * 10, step, relief.heightAt, 0.2), '#5b616c');
+      return [fine, bold].filter((g): g is LineSegments => g !== null);
+    }
+    const fine = cells <= 400 ? new GridHelper(cells * unit, cells, '#3a3f48', '#3a3f48') : null;
+    const bold = new GridHelper(boldCells * unit * 10, boldCells, '#5b616c', '#5b616c');
+    fine?.position.set(x0 + (cells * unit) / 2, props.ground + 0.01, z0 + (cells * unit) / 2);
+    bold.position.set(x0 + boldCells * unit * 5, props.ground + 0.02, z0 + boldCells * unit * 5);
+    return [fine, bold].filter((g): g is GridHelper => g !== null) as LineSegments[];
+  }, [props.focus, props.ground, relief]);
+  // The fine grid only close in (from far off its lines alias into stripes): 120 m for 1 m lines, 60 cells for coarser ones.
+  const fineUnit = gridUnit(Math.max(props.focus.maxX - props.focus.minX, props.focus.maxZ - props.focus.minZ));
+  const fineGridReach = fineUnit === 1 ? 120 : 60 * fineUnit;
+
+  // The part of the terrain the level works in: a sharper crop of the drape laid just over the ground, and the
+  // pack's roads and building outlines as lines.
+  const detailDrape = useMemo<Texture | null>(() => {
+    if (!props.detail?.preview) return null;
+    const t = new TextureLoader().load(props.detail.preview, () => invalidate());
+    t.colorSpace = SRGBColorSpace;
+    return t;
+  }, [props.detail?.preview, invalidate]);
+  useEffect(() => () => detailDrape?.dispose(), [detailDrape]);
+  const detailPlane = useMemo(() => {
+    if (!props.detail || !detailDrape) return null;
+    const d = props.detail, w = d.maxX - d.minX, h = d.maxZ - d.minZ;
+    // On a relief, a patch at the fine field's own spacing; flat otherwise.
+    const geometry = relief
+      ? patchGeometry(d, relief.fine?.cols ?? 129, relief.fine?.rows ?? 129, relief.heightAt, 0)
+      : new PlaneGeometry(w, h).rotateX(-Math.PI / 2).translate(d.minX + w / 2, props.ground + 0.005, d.minZ + h / 2);
+    const material = new MeshStandardMaterial({ map: detailDrape, roughness: 1 });
+    return { geometry, material };
+  }, [props.detail, detailDrape, props.ground, relief]);
+  useEffect(() => () => {
+    detailPlane?.geometry.dispose();
+    detailPlane?.material.dispose();
+  }, [detailPlane]);
+  // Buildings whose heights the pack states stand as volumes; the rest stay outlines on the ground.
+  const volumes = useMemo(() => (props.detail ? buildingsGeometry(props.detail, relief ? relief.heightAt : null, props.ground) : null), [props.detail, relief, props.ground]);
+  useEffect(() => () => {
+    volumes?.mesh.dispose();
+    volumes?.edges.dispose();
+  }, [volumes]);
+  const detailLines = useMemo(() => {
+    if (!props.detail) return null;
+    const segments = relief
+      ? { roads: drapedRuns(props.detail.roads.map((r) => r.points), relief.heightAt, 0.4, 10), buildings: drapedRuns(volumes ? [] : props.detail.buildings, relief.heightAt, 0.4, 10, true) }
+      : detailSegments(volumes ? { roads: props.detail.roads, buildings: [] } : props.detail, props.ground + 0.04);
+    const make = (positions: Float32Array) => {
+      const g = new BufferGeometry();
+      g.setAttribute('position', new Float32BufferAttribute(positions, 3));
+      return g;
+    };
+    return { roads: make(segments.roads), buildings: make(segments.buildings) };
+  }, [props.detail, props.ground, relief, volumes]);
+  useEffect(() => () => {
+    detailLines?.roads.dispose();
+    detailLines?.buildings.dispose();
+  }, [detailLines]);
+  useEffect(() => () => grids.forEach((g) => {
+    g.geometry.dispose();
+    (g.material as Material).dispose();
+  }), [grids]);
   const paths = useMemo(() => {
     const pts: number[] = [];
     for (const item of items) {
@@ -384,9 +461,11 @@ export function LevelScene(props: LevelSceneProps) {
     if (dirty.current) {
       dirty.current = false;
       const distance = camera.position.distanceTo(target);
-      const offset = viewOffset(distance, dollyOffset(pose), preset.drawDistance);
+      // Backed off over a big level, the reach grows with the camera's distance (`reachFor`), so an overview shows it.
+      const reach = reachFor(preset.drawDistance, distance);
+      const offset = viewOffset(distance, dollyOffset(pose), reach);
       camera.near = Math.max(0.05, distance / 2000);
-      camera.far = distance + preset.drawDistance * 1.5 + 50;
+      camera.far = farPlane(distance, reach, terrainSpan);
       camera.updateProjectionMatrix();
       camera.updateMatrixWorld();
       frustum.setFromProjectionMatrix(m.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
@@ -399,7 +478,7 @@ export function LevelScene(props: LevelSceneProps) {
         offset,
         fovDeg: camera.fov,
         viewportHeight: size.height,
-        preset,
+        preset: reach === preset.drawDistance ? preset : { ...preset, drawDistance: reach },
         exclude: selectedSet,
         modelFailed: (name) => props.cache.failed(name),
         inFrustum: (item) => frustum.intersectsSphere(sphere.set(v.set(item.position[0], item.position[1] + item.size[1] / 2, item.position[2]), itemRadius(item))),
@@ -462,13 +541,13 @@ export function LevelScene(props: LevelSceneProps) {
         light.intensity = item.light.intensity * 20;
         light.distance = item.light.range;
       });
-      // Ground tiles past the draw distance are not drawn; the sun and its shadow follow the focus.
+      // Flat ground past the draw distance is not drawn; ground with real heights always is, so far hills stand
+      // behind the work. The sun and its shadow follow the focus.
       tilesGroup.current?.children.forEach((child, i) => {
         const tile = tiles[i]?.tile;
-        child.visible = tile ? tileInReach(tile, focus, preset.drawDistance) : false;
+        child.visible = tile ? terrainSpan > 0 || tileInReach(tile, focus, reach) : false;
       });
-      // The 1 m grid only close in: from far off its lines alias into stripes.
-      if (grids.length > 1) grids[0]!.visible = distance - offset < 120;
+      if (grids.length > 1) grids[0]!.visible = distance - offset < fineGridReach;
       sun.position.set(target.x + 40, target.y + 80, target.z + 30);
       sun.target.position.copy(target);
       sun.target.updateMatrixWorld();
@@ -478,7 +557,8 @@ export function LevelScene(props: LevelSceneProps) {
       sun.shadow.camera.updateProjectionMatrix();
       const fog = scene.fog as Fog | null;
       if (fog) {
-        const range = fogRange(preset.drawDistance, offset);
+        const plain = fogRange(reach, offset);
+        const range = terrainSpan > 0 ? hazeRange(plain, offset, terrainSpan) : plain;
         fog.near = range.near;
         fog.far = range.far;
       }
@@ -509,6 +589,15 @@ export function LevelScene(props: LevelSceneProps) {
     props.onPick(o.userData.itemIndex as number, modifierOf(event));
   };
 
+  // The ground under the pointer: the tiles, and on a relief the fine patch over them.
+  const groundMove = () => props.onHover?.(null);
+  const groundClick = (event: ThreeEvent<MouseEvent>) => {
+    event.stopPropagation();
+    if (wasDrag(event)) return;
+    if (props.placing) props.onPlace(event.point.x, event.point.z);
+    else if (modifierOf(event) === 'replace') props.onPick(null, 'replace');
+  };
+
   return (
     <>
       <color attach="background" args={[SCENE_BACKGROUND]} />
@@ -527,16 +616,36 @@ export function LevelScene(props: LevelSceneProps) {
             geometry={geometry}
             material={groundMaterial}
             receiveShadow
-            onPointerMove={() => props.onHover?.(null)}
-            onClick={(event) => {
-              event.stopPropagation();
-              if (wasDrag(event)) return;
-              if (props.placing) props.onPlace(event.point.x, event.point.z);
-              else if (modifierOf(event) === 'replace') props.onPick(null, 'replace');
-            }}
+            onPointerMove={groundMove}
+            onClick={groundClick}
           />
         ))}
       </group>
+      {detailPlane && relief ? (
+        <mesh geometry={detailPlane.geometry} material={detailPlane.material} receiveShadow onPointerMove={groundMove} onClick={groundClick} />
+      ) : detailPlane ? (
+        <mesh geometry={detailPlane.geometry} material={detailPlane.material} raycast={() => null} />
+      ) : null}
+      {volumes ? (
+        <>
+          <mesh geometry={volumes.mesh} raycast={() => null} castShadow receiveShadow>
+            <meshStandardMaterial color="#aeb6c2" roughness={0.9} side={DoubleSide} />
+          </mesh>
+          <lineSegments geometry={volumes.edges} raycast={() => null}>
+            <lineBasicMaterial color="#e2e8f0" transparent opacity={0.6} />
+          </lineSegments>
+        </>
+      ) : null}
+      {detailLines ? (
+        <>
+          <lineSegments geometry={detailLines.buildings} raycast={() => null}>
+            <lineBasicMaterial color="#cbd5e1" transparent opacity={0.55} />
+          </lineSegments>
+          <lineSegments geometry={detailLines.roads} raycast={() => null}>
+            <lineBasicMaterial color="#f1f5f9" transparent opacity={0.8} />
+          </lineSegments>
+        </>
+      ) : null}
       {grids.map((g, i) => (
         <primitive key={i} object={g} />
       ))}
@@ -568,7 +677,9 @@ export function LevelScene(props: LevelSceneProps) {
       />
       {selected.length === 1 && items[selected[0]!] ? <Selected key={selected[0]} {...props} item={items[selected[0]!]!} /> : null}
       {selected.length > 1 && props.pivot ? <GroupSelected {...props} members={selected.map((i) => items[i]!).filter(Boolean)} pivot={props.pivot} /> : null}
-      <DraftView draft={props.draft} ground={props.ground} />
+      <DraftView draft={props.draft} heightAt={heightAt} />
+      {props.brush ? <BrushRing radius={props.brush.radius} move={props.brush.move} heightAt={heightAt} lift={relief ? 0.5 : 0.06} /> : null}
+      {props.extras ? <ExtrasView items={items} extras={props.extras} ground={props.ground} heightAt={relief ? relief.heightAt : null} /> : null}
       <OrbitControls makeDefault enabled={props.orbit} enableDamping={false} maxPolarAngle={Math.PI / 2 - 0.02} />
       <GizmoHelper alignment="bottom-right" margin={[56, 56]}>
         <GizmoViewport axisColors={['#e5484d', '#30a46c', '#3e63dd']} labelColor="white" />
@@ -654,22 +765,22 @@ function Selected(props: LevelSceneProps & { item: WorldItem }) {
 const DRAFT_COLOUR = '#f59e0b';
 
 /** The tools' rubber bands: a translucent volume box, the path so far with its points, and the rotate aim line. */
-function DraftView({ draft, ground }: { draft: ToolDraft; ground: number }) {
+function DraftView({ draft, heightAt }: { draft: ToolDraft; heightAt: (x: number, z: number) => number }) {
   const lines = useMemo(() => {
     const pts: number[] = [];
-    const seg = (a: readonly [number, number], b: readonly [number, number], y: number) => pts.push(a[0], y, a[1], b[0], y, b[1]);
-    for (let i = 1; i < draft.path.length; i++) seg(draft.path[i - 1]!, draft.path[i]!, ground + 0.08);
-    if (draft.aim) seg(draft.aim.from, draft.aim.to, ground + 0.1);
+    const seg = (a: readonly [number, number], b: readonly [number, number], lift: number) => pts.push(a[0], heightAt(a[0], a[1]) + lift, a[1], b[0], heightAt(b[0], b[1]) + lift, b[1]);
+    for (let i = 1; i < draft.path.length; i++) seg(draft.path[i - 1]!, draft.path[i]!, 0.08);
+    if (draft.aim) seg(draft.aim.from, draft.aim.to, 0.1);
     const g = new BufferGeometry();
     g.setAttribute('position', new Float32BufferAttribute(pts, 3));
     return g;
-  }, [draft.path, draft.aim, ground]);
+  }, [draft.path, draft.aim, heightAt]);
   useEffect(() => () => lines.dispose(), [lines]);
   const v = draft.volume;
   return (
     <>
       {v ? (
-        <mesh position={[(v.x0 + v.x1) / 2, ground + DEFAULT_SIZE_Y / 2, (v.z0 + v.z1) / 2]} scale={[Math.max(Math.abs(v.x1 - v.x0), 0.01), DEFAULT_SIZE_Y, Math.max(Math.abs(v.z1 - v.z0), 0.01)]}>
+        <mesh position={[(v.x0 + v.x1) / 2, heightAt((v.x0 + v.x1) / 2, (v.z0 + v.z1) / 2) + DEFAULT_SIZE_Y / 2, (v.z0 + v.z1) / 2]} scale={[Math.max(Math.abs(v.x1 - v.x0), 0.01), DEFAULT_SIZE_Y, Math.max(Math.abs(v.z1 - v.z0), 0.01)]}>
           <boxGeometry />
           <meshBasicMaterial color={DRAFT_COLOUR} transparent opacity={0.25} depthWrite={false} />
         </mesh>
@@ -678,7 +789,7 @@ function DraftView({ draft, ground }: { draft: ToolDraft; ground: number }) {
         <lineBasicMaterial color={DRAFT_COLOUR} />
       </lineSegments>
       {draft.path.map((p, i) => (
-        <mesh key={i} position={[p[0], ground + 0.1, p[1]]}>
+        <mesh key={i} position={[p[0], heightAt(p[0], p[1]) + 0.1, p[1]]}>
           <sphereGeometry args={[0.15, 8, 8]} />
           <meshBasicMaterial color={DRAFT_COLOUR} />
         </mesh>
@@ -805,3 +916,28 @@ function GizmoReady() {
 }
 
 export { disposeTree };
+
+/** The scatter brush on the ground (Phase 139 Theme D's ring, flat until Phase 141 conforms it to terrain). */
+function BrushRing({ radius, move, heightAt, lift }: { radius: number; move: MutableRefObject<((at: [number, number] | null) => void) | null>; heightAt: (x: number, z: number) => number; lift: number }) {
+  const mesh = useRef<Mesh>(null);
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => {
+    move.current = (at) => {
+      const m = mesh.current;
+      if (!m) return;
+      if (at) m.position.set(at[0], heightAt(at[0], at[1]) + lift, at[1]);
+      m.visible = at !== null;
+      invalidate();
+    };
+    return () => {
+      move.current = null;
+    };
+  }, [move, heightAt, lift, invalidate]);
+  const r = Math.max(radius, 0.05);
+  return (
+    <mesh ref={mesh} rotation={[-Math.PI / 2, 0, 0]} visible={false} renderOrder={5}>
+      <ringGeometry args={[r * 0.96, r, 64]} />
+      <meshBasicMaterial color="#6366f1" transparent opacity={0.9} side={DoubleSide} depthTest={false} />
+    </mesh>
+  );
+}

@@ -4,10 +4,15 @@ import {
   GAME_LEVEL_ENTITY_TYPES_2D,
   GAME_LEVEL_ENTITY_TYPES_3D,
   levelEntityToWorld,
+  levelOrigin,
+  levelPixelsToWorld,
+  levelWorldToPixels,
   levelProperties,
   metresPerTile,
   parseGameLevel,
 } from './game-level';
+import { LevelEntityFieldsSchema, type LevelEntityFields, type LevelPropertyValue } from './game-level-entity';
+import { instantiatePrefab, type GamePrefab } from './game-level-prefab';
 
 /**
  * Level operations (Phase 138 Theme A): the one op language for agent edits to a Tiled level. Pure and zod-only,
@@ -23,24 +28,8 @@ export const LEVEL_OPS_MAX = 500;
 /** Errors collected before a failed batch stops reporting. */
 export const LEVEL_OP_ERRORS_MAX = 20;
 
-export const LevelPropertyValueSchema = z.union([z.string().max(4000), z.number().finite(), z.boolean()]);
-export type LevelPropertyValue = z.infer<typeof LevelPropertyValueSchema>;
-
+export { LevelEntityFieldsSchema, LevelPropertyValueSchema, type LevelEntityFields, type LevelPropertyValue } from './game-level-entity';
 const finite = z.number().finite();
-
-export const LevelEntityFieldsSchema = z.object({
-  type: z.string().min(1).max(64),
-  name: z.string().max(200).optional(),
-  x: finite,
-  y: finite,
-  width: finite.nonnegative().optional(),
-  height: finite.nonnegative().optional(),
-  rotation: finite.optional(),
-  point: z.boolean().optional(),
-  polyline: z.array(z.object({ x: finite, y: finite })).max(1000).optional(),
-  properties: z.record(z.string().min(1).max(64), LevelPropertyValueSchema).optional(),
-});
-export type LevelEntityFields = z.infer<typeof LevelEntityFieldsSchema>;
 
 export const LevelOpSchema = z.discriminatedUnion('op', [
   z.object({
@@ -59,10 +48,30 @@ export const LevelOpSchema = z.discriminatedUnion('op', [
     unset: z.array(z.string()).max(64).optional(),
   }),
   z.object({ op: z.literal('delete'), id: z.number().int().positive() }),
+  /**
+   * Phase 139 Theme I: stamp a prefab. `x`/`y` are the pivot in the batch's unit; the prefab's own offsets are px.
+   * The objects are tagged as one instance (`instance` is an 8-char id, generated when absent) and `refs[ref]` is
+   * the first object's id.
+   */
+  z.object({
+    op: z.literal('place-prefab'),
+    prefab: z.string().min(1).max(200),
+    x: finite,
+    y: finite,
+    rotation: finite.optional(),
+    layer: z.union([z.number().int(), z.string().min(1)]).optional(),
+    instance: z.string().min(1).max(16).optional(),
+    ref: z.string().min(1).max(64).optional(),
+  }),
 ]);
 export type LevelOp = z.infer<typeof LevelOpSchema>;
 
-export type LevelOpsContext = { unit: 'px' | 'm'; entityTypes: readonly string[] };
+export type LevelOpsContext = {
+  unit: 'px' | 'm';
+  entityTypes: readonly string[];
+  /** The prefabs `place-prefab` may name, by name (main reads them from disk, the renderer from its prefab list). */
+  prefabs?: Readonly<Record<string, GamePrefab>>;
+};
 export type LevelOpError = { index: number; op: LevelOp['op']; message: string };
 export type LevelOpsResult =
   | { ok: true; level: Record<string, unknown>; added: number[]; updated: number[]; deleted: number[]; refs: Record<string, number> }
@@ -118,11 +127,21 @@ function resolveLayer(map: TiledMap, target: number | string | undefined): Tiled
   return layer;
 }
 
-/** Metres to pixels on each axis (the inverse of `levelEntityToWorld`'s plan mapping). */
-function scalers(map: TiledMap, unit: 'px' | 'm'): { sx: (v: number) => number; sy: (v: number) => number } {
-  if (unit === 'px') return { sx: (v) => v, sy: (v) => v };
+/**
+ * Metres to pixels on each axis (the inverse of `levelEntityToWorld`'s plan mapping). `sx`/`sy` scale a length (a
+ * size, a polyline point relative to its object); `px`/`py` convert a position, which is world metres, so the
+ * level's origin (`midnite.originX/Y`) is taken off first.
+ */
+function scalers(map: TiledMap, unit: 'px' | 'm'): { sx: (v: number) => number; sy: (v: number) => number; px: (v: number) => number; py: (v: number) => number } {
+  if (unit === 'px') return { sx: (v) => v, sy: (v) => v, px: (v) => v, py: (v) => v };
   const mpt = metresPerTile(map as { properties?: TiledProperty[] });
-  return { sx: (v) => (v / mpt) * map.tilewidth, sy: (v) => (v / mpt) * map.tileheight };
+  const o = levelOrigin(map as { properties?: TiledProperty[] });
+  return {
+    sx: (v) => (v / mpt) * map.tilewidth,
+    sy: (v) => (v / mpt) * map.tileheight,
+    px: (v) => ((v - o.x) / mpt) * map.tilewidth,
+    py: (v) => ((v - o.z) / mpt) * map.tileheight,
+  };
 }
 
 function nextId(map: TiledMap): number {
@@ -130,6 +149,29 @@ function nextId(map: TiledMap): number {
   for (const { object } of objectsOf(map)) max = Math.max(max, object.id);
   const declared = typeof map.nextobjectid === 'number' ? map.nextobjectid : 1;
   return Math.max(declared, max + 1);
+}
+
+/** Append `entity` to `layer` as a new Tiled object, scaling its lengths with `sx`/`sy`; returns the new id. */
+function pushObject(map: TiledMap, layer: TiledLayer, entity: LevelEntityFields, sx: (v: number) => number, sy: (v: number) => number, px: (v: number) => number = sx, py: (v: number) => number = sy): number {
+  const id = nextId(map);
+  const object: TiledObject = {
+    id,
+    name: entity.name ?? '',
+    type: entity.type,
+    x: px(entity.x),
+    y: py(entity.y),
+    width: entity.width === undefined ? 0 : sx(entity.width),
+    height: entity.height === undefined ? 0 : sy(entity.height),
+    rotation: entity.rotation ?? 0,
+    visible: true,
+  };
+  if (entity.point) object.point = true;
+  if (entity.polyline) object.polyline = entity.polyline.map((p) => ({ x: sx(p.x), y: sy(p.y) }));
+  const properties = mergeProperties(undefined, entity.properties, undefined);
+  if (properties?.length) object.properties = properties;
+  (layer.objects ??= []).push(object);
+  map.nextobjectid = id + 1;
+  return id;
 }
 
 /**
@@ -144,7 +186,7 @@ export function applyLevelOps(level: unknown, ops: readonly LevelOp[], ctx: Leve
   if (ops.length > LEVEL_OPS_MAX) return { ok: false, errors: [{ index: LEVEL_OPS_MAX, op: ops[LEVEL_OPS_MAX]!.op, message: `A batch holds at most ${LEVEL_OPS_MAX} operations.` }] };
 
   const map = structuredClone(level) as TiledMap;
-  const { sx, sy } = scalers(map, ctx.unit);
+  const { sx, sy, px, py } = scalers(map, ctx.unit);
   const errors: LevelOpError[] = [];
   const added: number[] = [];
   const updated: number[] = [];
@@ -165,30 +207,34 @@ export function applyLevelOps(level: unknown, ops: readonly LevelOp[], ctx: Leve
 
   ops.forEach((op, index) => {
     if (errors.length >= LEVEL_OP_ERRORS_MAX) return;
+    if (op.op === 'place-prefab') {
+      const prefab = ctx.prefabs?.[op.prefab];
+      if (!prefab) return fail(index, 'place-prefab', `No prefab named "${op.prefab}" — \`game_prefab_list\` returns the names.`);
+      if (prefab.dimension !== parsed.dimension) return fail(index, 'place-prefab', `Prefab "${op.prefab}" is ${prefab.dimension}; this level is ${parsed.dimension}.`);
+      const layer = resolveLayer(map, op.layer);
+      if (typeof layer === 'string') return fail(index, 'place-prefab', layer);
+      if (op.ref !== undefined && op.ref in refs) return fail(index, 'place-prefab', `Ref "${op.ref}" is already used in this batch.`);
+      const at = { x: px(op.x), y: py(op.y) };
+      const instance = op.instance ?? globalThis.crypto.randomUUID().slice(0, 8);
+      const entities = instantiatePrefab(prefab, at, op.rotation ?? 0, instance);
+      for (const entity of entities) {
+        const problem = checkType(entity.type) ?? checkPos('x', entity.x) ?? checkPos('y', entity.y);
+        if (problem) return fail(index, 'place-prefab', `${problem} (in prefab "${op.prefab}")`);
+      }
+      entities.forEach((entity, at2) => {
+        const id = pushObject(map, layer, entity, (v) => v, (v) => v);
+        added.push(id);
+        if (at2 === 0 && op.ref) refs[op.ref] = id;
+      });
+      return;
+    }
     if (op.op === 'add') {
       const { entity } = op;
-      const problem = (op.ref !== undefined && op.ref in refs ? `Ref "${op.ref}" is already used in this batch.` : null) ?? checkType(entity.type) ?? checkPos('x', sx(entity.x)) ?? checkPos('y', sy(entity.y));
+      const problem = (op.ref !== undefined && op.ref in refs ? `Ref "${op.ref}" is already used in this batch.` : null) ?? checkType(entity.type) ?? checkPos('x', px(entity.x)) ?? checkPos('y', py(entity.y));
       if (problem) return fail(index, 'add', problem);
       const layer = resolveLayer(map, op.layer);
       if (typeof layer === 'string') return fail(index, 'add', layer);
-      const id = nextId(map);
-      const object: TiledObject = {
-        id,
-        name: entity.name ?? '',
-        type: entity.type,
-        x: sx(entity.x),
-        y: sy(entity.y),
-        width: entity.width === undefined ? 0 : sx(entity.width),
-        height: entity.height === undefined ? 0 : sy(entity.height),
-        rotation: entity.rotation ?? 0,
-        visible: true,
-      };
-      if (entity.point) object.point = true;
-      if (entity.polyline) object.polyline = entity.polyline.map((p) => ({ x: sx(p.x), y: sy(p.y) }));
-      const properties = mergeProperties(undefined, entity.properties, undefined);
-      if (properties?.length) object.properties = properties;
-      (layer.objects ??= []).push(object);
-      map.nextobjectid = id + 1;
+      const id = pushObject(map, layer, entity, sx, sy, px, py);
       added.push(id);
       if (op.ref) refs[op.ref] = id;
       return;
@@ -205,13 +251,13 @@ export function applyLevelOps(level: unknown, ops: readonly LevelOp[], ctx: Leve
     const object = objects[found.index]!;
     const problem =
       (set.type !== undefined ? checkType(set.type) : null) ??
-      (set.x !== undefined ? checkPos('x', sx(set.x)) : null) ??
-      (set.y !== undefined ? checkPos('y', sy(set.y)) : null);
+      (set.x !== undefined ? checkPos('x', px(set.x)) : null) ??
+      (set.y !== undefined ? checkPos('y', py(set.y)) : null);
     if (problem) return fail(index, 'update', problem);
     if (set.type !== undefined) object.type = set.type;
     if (set.name !== undefined) object.name = set.name;
-    if (set.x !== undefined) object.x = sx(set.x);
-    if (set.y !== undefined) object.y = sy(set.y);
+    if (set.x !== undefined) object.x = px(set.x);
+    if (set.y !== undefined) object.y = py(set.y);
     if (set.width !== undefined) object.width = sx(set.width);
     if (set.height !== undefined) object.height = sy(set.height);
     if (set.rotation !== undefined) object.rotation = set.rotation;
@@ -272,12 +318,18 @@ export function queryLevel(level: unknown, query: z.input<typeof LevelQuerySchem
   const map = parsed.level as unknown as TiledMap;
   const three = parsed.dimension === '3d';
   const mpt = metresPerTile(map as { properties?: TiledProperty[] });
+  const origin = levelOrigin(map as { properties?: TiledProperty[] });
+  // Lengths scale; positions in metres are world metres, so the level's origin is added / taken off.
   const outX = (px: number): number => (q.unit === 'm' ? (px / map.tilewidth) * mpt : px);
   const outY = (px: number): number => (q.unit === 'm' ? (px / map.tileheight) * mpt : px);
+  const outPosX = (px: number): number => (q.unit === 'm' ? origin.x + outX(px) : px);
+  const outPosY = (px: number): number => (q.unit === 'm' ? origin.z + outY(px) : px);
   const inX = (v: number): number => (q.unit === 'm' ? (v / mpt) * map.tilewidth : v);
   const inY = (v: number): number => (q.unit === 'm' ? (v / mpt) * map.tileheight : v);
+  const inPosX = (v: number): number => (q.unit === 'm' ? inX(v - origin.x) : v);
+  const inPosY = (v: number): number => (q.unit === 'm' ? inY(v - origin.z) : v);
   const needle = q.name?.toLowerCase();
-  const region = q.region && { x0: inX(q.region.x), y0: inY(q.region.y), x1: inX(q.region.x + q.region.width), y1: inY(q.region.y + q.region.height) };
+  const region = q.region && { x0: inPosX(q.region.x), y0: inPosY(q.region.y), x1: inPosX(q.region.x + q.region.width), y1: inPosY(q.region.y + q.region.height) };
 
   let total = 0;
   const objects: LevelObjectSummary[] = [];
@@ -302,7 +354,7 @@ export function queryLevel(level: unknown, query: z.input<typeof LevelQuerySchem
       if (objects.length >= q.limit) continue;
       const props: Record<string, string | number | boolean> = {};
       for (const [k, v] of Object.entries(levelProperties(object))) if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') props[k] = v;
-      const summary: LevelObjectSummary = { id: object.id, layerId, layer: layer.name ?? '', type, name, x: outX(object.x), y: outY(object.y), properties: props };
+      const summary: LevelObjectSummary = { id: object.id, layerId, layer: layer.name ?? '', type, name, x: outPosX(object.x), y: outPosY(object.y), properties: props };
       if (typeof object.width === 'number') summary.width = outX(object.width);
       if (typeof object.height === 'number') summary.height = outY(object.height);
       if (typeof object.rotation === 'number') summary.rotation = object.rotation;
@@ -317,4 +369,50 @@ export function queryLevel(level: unknown, query: z.input<typeof LevelQuerySchem
     }
   });
   return { total, truncated: total > objects.length, objects };
+}
+
+// --- play-from start point (Phase 140 Theme H) -------------------------------------------
+
+/** Where `game_play_from` starts, in the kit's `midnite-spawn` shape: 2D `{x, y}` px; 3D `{x, y}` = x,z or `{x, y, z}` = x,height,z metres. */
+export type PlayFromSpawn = { x: number; y: number; z?: number };
+
+/**
+ * The start point for `game_play_from`. `objectId` wins: the object's position (a 2D rectangle's centre in px; a 3D
+ * object through `levelEntityToWorld`, in metres, with its `elevation` as the height when it has one). Else `at` in
+ * `unit` (`x`, `y` = the plan position; `z` = the height above ground, 3D only). Neither: `null` (the scene's own spawn).
+ * A missing object or an unreadable level answers `{ error }`.
+ */
+export function resolvePlayFromSpawn(
+  level: unknown,
+  input: { at?: { x: number; y: number; z?: number } | undefined; objectId?: number | undefined; unit?: 'px' | 'm' | undefined },
+): { spawn: PlayFromSpawn | null } | { error: string } {
+  if (input.at === undefined && input.objectId === undefined) return { spawn: null };
+  const parsed = parseGameLevel(level);
+  if (!parsed.ok) return { error: 'That level could not be read.' };
+  const map = parsed.level as unknown as TiledMap;
+  const three = parsed.dimension === '3d';
+  if (input.objectId !== undefined) {
+    for (const { object } of objectsOf(map)) {
+      if (object.id !== input.objectId) continue;
+      if (three) {
+        const [x, elevation, z] = levelEntityToWorld(object as Parameters<typeof levelEntityToWorld>[0], map).position;
+        return { spawn: elevation === null ? { x, y: z } : { x, y: elevation, z } };
+      }
+      const w = typeof object.width === 'number' ? object.width : 0;
+      const h = typeof object.height === 'number' ? object.height : 0;
+      return { spawn: { x: object.x + w / 2, y: object.y + h / 2 } };
+    }
+    return { error: `The level has no object with id ${input.objectId}.` };
+  }
+  const at = input.at as { x: number; y: number; z?: number | undefined };
+  const metres = (input.unit ?? 'px') === 'm';
+  if (three) {
+    const [px, pz] = levelPixelsToWorld(map as { tilewidth: number; tileheight: number; properties?: TiledProperty[] }, at.x, at.y);
+    const x = metres ? at.x : px;
+    const planZ = metres ? at.y : pz;
+    return { spawn: at.z === undefined ? { x, y: planZ } : { x, y: at.z, z: planZ } };
+  }
+  if (!metres) return { spawn: { x: at.x, y: at.y } };
+  const p = levelWorldToPixels(map as { tilewidth: number; tileheight: number; properties?: TiledProperty[] }, at.x, at.y);
+  return { spawn: { x: p.x, y: p.y } };
 }

@@ -5,12 +5,12 @@
   "orientation": "orthogonal",
   "renderorder": "right-down",
   "infinite": false,
-  "width": 80,
-  "height": 80,
+  "width": 200,
+  "height": 200,
   "tilewidth": 32,
   "tileheight": 32,
   "nextlayerid": 3,
-  "nextobjectid": 5,
+  "nextobjectid": 17,
   "properties": [
     {
       "name": "midnite.level",
@@ -36,6 +36,16 @@
       "name": "midnite.terrain",
       "type": "string",
       "value": "world"
+    },
+    {
+      "name": "midnite.originX",
+      "type": "int",
+      "value": -100
+    },
+    {
+      "name": "midnite.originY",
+      "type": "int",
+      "value": -100
     }
   ],
   "tilesets": [],
@@ -54,8 +64,8 @@
           "id": 1,
           "name": "player",
           "type": "spawn",
-          "x": 70.4,
-          "y": 992,
+          "x": 3270.4,
+          "y": 4192.0,
           "width": 0,
           "height": 0,
           "rotation": 0,
@@ -65,8 +75,8 @@
           "id": 2,
           "name": "car",
           "type": "prop",
-          "x": 144,
-          "y": 832,
+          "x": 3344.0,
+          "y": 4032.0,
           "width": 0,
           "height": 0,
           "rotation": 0,
@@ -83,8 +93,8 @@
           "id": 3,
           "name": "car",
           "type": "prop",
-          "x": -144,
-          "y": -960,
+          "x": 3056.0,
+          "y": 2240.0,
           "width": 0,
           "height": 0,
           "rotation": -180,
@@ -101,8 +111,8 @@
           "id": 4,
           "name": "car",
           "type": "prop",
-          "x": 960,
-          "y": 144,
+          "x": 4160.0,
+          "y": 3344.0,
           "width": 0,
           "height": 0,
           "rotation": -90,
@@ -112,6 +122,237 @@
               "name": "color",
               "type": "string",
               "value": "#eab308"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "name": "helipad",
+          "type": "prop",
+          "x": 1536.0,
+          "y": 4416.0,
+          "width": 448,
+          "height": 448,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "sizeY",
+              "type": "float",
+              "value": 0.15
+            },
+            {
+              "name": "collider",
+              "type": "string",
+              "value": "none"
+            },
+            {
+              "name": "note",
+              "type": "string",
+              "value": "Helipad: the helicopter prop sits on it."
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "name": "helicopter",
+          "type": "prop",
+          "x": 1760.0,
+          "y": 4640.0,
+          "width": 0,
+          "height": 0,
+          "rotation": -45,
+          "visible": true,
+          "properties": [
+            {
+              "name": "model",
+              "type": "string",
+              "value": "helicopter"
+            },
+            {
+              "name": "note",
+              "type": "string",
+              "value": "Parked helicopter, from the GTACT library."
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "name": "airstrip-start",
+          "type": "checkpoint",
+          "x": 5600.0,
+          "y": 640.0,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "note",
+              "type": "string",
+              "value": "Airstrip start: where a session could begin."
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "name": "parked-sedan",
+          "type": "prop",
+          "x": 3024.0,
+          "y": 4960.0,
+          "width": 0,
+          "height": 0,
+          "rotation": 180,
+          "visible": true,
+          "properties": [
+            {
+              "name": "model",
+              "type": "string",
+              "value": "sedan"
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "name": "parked-fulmine",
+          "type": "prop",
+          "x": 3376.0,
+          "y": 5248.0,
+          "width": 0,
+          "height": 0,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "model",
+              "type": "string",
+              "value": "fulmine"
+            }
+          ]
+        },
+        {
+          "id": 10,
+          "name": "parked-sedan",
+          "type": "prop",
+          "x": 3024.0,
+          "y": 5632.0,
+          "width": 0,
+          "height": 0,
+          "rotation": 180,
+          "visible": true,
+          "properties": [
+            {
+              "name": "model",
+              "type": "string",
+              "value": "sedan"
+            }
+          ]
+        },
+        {
+          "id": 11,
+          "name": "bollard",
+          "type": "prop",
+          "x": 3478.4,
+          "y": 4342.4,
+          "width": 19.2,
+          "height": 19.2,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "sizeY",
+              "type": "float",
+              "value": 1.0
+            }
+          ]
+        },
+        {
+          "id": 12,
+          "name": "bollard",
+          "type": "prop",
+          "x": 3478.4,
+          "y": 4470.4,
+          "width": 19.2,
+          "height": 19.2,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "sizeY",
+              "type": "float",
+              "value": 1.0
+            }
+          ]
+        },
+        {
+          "id": 13,
+          "name": "bollard",
+          "type": "prop",
+          "x": 3478.4,
+          "y": 4598.4,
+          "width": 19.2,
+          "height": 19.2,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "sizeY",
+              "type": "float",
+              "value": 1.0
+            }
+          ]
+        },
+        {
+          "id": 14,
+          "name": "bollard",
+          "type": "prop",
+          "x": 3478.4,
+          "y": 4726.4,
+          "width": 19.2,
+          "height": 19.2,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "sizeY",
+              "type": "float",
+              "value": 1.0
+            }
+          ]
+        },
+        {
+          "id": 15,
+          "name": "planter",
+          "type": "prop",
+          "x": 2880.0,
+          "y": 4384.0,
+          "width": 64,
+          "height": 192,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "sizeY",
+              "type": "float",
+              "value": 0.8
+            }
+          ]
+        },
+        {
+          "id": 16,
+          "name": "planter",
+          "type": "prop",
+          "x": 2880.0,
+          "y": 4704.0,
+          "width": 64,
+          "height": 192,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "sizeY",
+              "type": "float",
+              "value": 0.8
             }
           ]
         }

@@ -1,6 +1,6 @@
 // `.midnite/tasks/` readers/updaters (Phase 151 Theme A). Pure string functions plus thin fs wrappers.
 // The category `_INDEX.md` phase table is `| Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |`;
-// only the row is edited, never any prose (see CLAUDE.md).
+// only the row is edited, never any prose (see AGENTS.md).
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 

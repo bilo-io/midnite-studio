@@ -11,11 +11,13 @@ import type { GameElectron, GameWindow } from './game-electron';
 import {
   createGameRunner,
   GAME_BUILD_DEBOUNCE_MS,
+  GAME_RELOAD_DEBOUNCE_MS,
   gameEntryUrl,
   gamePartition,
   isGamePermissionAllowed,
   isGameRequestAllowed,
   isReloadTrigger,
+  reloadKind,
   type RunnableGame,
 } from './game-runner';
 
@@ -449,6 +451,19 @@ describe('createGameRunner', () => {
     expect(await runner.juice('ga', 'reset')).toEqual({ ok: false, kind: 'error', message: 'Could not reach the game.' });
   });
 
+  it('debug and navMesh go through the game hook and refuse a game that is not running (Phase 140 Theme G)', async () => {
+    expect(await runner.debug('nope', { colliders: true })).toEqual({ ok: false, kind: 'error', message: 'That game is not running.' });
+    expect((await runner.navMesh('nope')).ok).toBe(false);
+    await runner.run(game('ga'));
+    const wc = viewOf('ga').webContents;
+    wc.executeJavaScript.mockResolvedValueOnce(JSON.stringify({ colliders: true, triggers: false, nav: false }));
+    expect(await runner.debug('ga', { colliders: true })).toEqual({ ok: true, value: { colliders: true, triggers: false, nav: false } });
+    expect(String((wc.executeJavaScript.mock.calls as unknown[][]).at(-1)?.[0])).toContain('h.debug({"colliders":true})');
+    wc.executeJavaScript.mockResolvedValueOnce(JSON.stringify({ polygons: [[[0, 0], [1, 0], [1, 1]]] }));
+    expect(await runner.navMesh('ga')).toEqual({ ok: true, value: { polygons: [[[0, 0], [1, 0], [1, 1]]] } });
+    expect(String((wc.executeJavaScript.mock.calls as unknown[][]).at(-1)?.[0])).toContain('h.navMesh()');
+  });
+
   it('reloads a running game and refuses to reload one that is not running', async () => {
     expect(runner.reload('ga').ok).toBe(false);
     await runner.run(game('ga'));
@@ -646,5 +661,118 @@ describe('createGameRunner with a build (Phase 149 Theme E)', () => {
       await vi.waitFor(() => expect(signals).toHaveLength(3), { timeout: 4000 });
       expect(signals[1]!.aborted).toBe(true);
     });
+  });
+});
+
+describe('gameEntryUrl spawn (Phase 140 Theme B)', () => {
+  it('adds midnite-spawn for 2 and 3 values, beside the level and determinism params', () => {
+    expect(gameEntryUrl({ gameId: 'ga', determinism: null, level: 'cave', spawn: { x: 120, y: 48 } })).toBe(
+      'mstudio-game://ga/index.html?midnite-level=cave&midnite-spawn=120%2C48',
+    );
+    const url = new URL(gameEntryUrl({ gameId: 'ga', determinism: { seed: 7, paused: true }, spawn: { x: 12.5, y: 0, z: -3 } }));
+    expect(url.searchParams.get('midnite-spawn')).toBe('12.5,0,-3');
+    expect(url.searchParams.get('midnite-seed')).toBe('7');
+  });
+
+  it('adds nothing without a spawn', () => {
+    expect(gameEntryUrl({ gameId: 'ga', determinism: null, spawn: null })).toBe('mstudio-game://ga/index.html');
+  });
+});
+
+describe('reloadKind (Phase 140 Theme C)', () => {
+  it('is scene when every path is a level, page for anything else or an unknown path', () => {
+    expect(reloadKind(['levels/cave.tmj'])).toBe('scene');
+    expect(reloadKind(['levels/prefabs/door.prefab.json', 'levels/cave.tmj'])).toBe('scene');
+    expect(reloadKind(['src/main.js', 'levels/cave.tmj'])).toBe('page');
+    expect(reloadKind([null])).toBe('page');
+    expect(reloadKind(['levels\\cave.tmj'])).toBe('scene');
+    expect(reloadKind(['levels-extra/a.js'])).toBe('page');
+    expect(reloadKind([])).toBe('none');
+  });
+});
+
+describe('createGameRunner preview and level hot reload (Phase 140 Themes B, C)', () => {
+  let runner: ReturnType<typeof createGameRunner>;
+  let root: string;
+  const viewOf = (gameId: string): FakeView => runner.view(gameId) as unknown as FakeView;
+
+  beforeEach(async () => {
+    fakeSessions.clear();
+    runner = createGameRunner({ getWindow: () => fakeWindow(), electron, log: logger, send: vi.fn() });
+    root = await mkdtemp(join(tmpdir(), 'game-hot-'));
+    await mkdir(join(root, 'levels'));
+    await mkdir(join(root, 'src'));
+    await writeFile(join(root, 'levels', 'cave.tmj'), '{}');
+    await writeFile(join(root, 'src', 'main.js'), '1');
+  });
+  afterEach(async () => {
+    runner.stopAll();
+    vi.clearAllMocks();
+    await rm(root, { recursive: true, force: true });
+  });
+
+  const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, GAME_RELOAD_DEBOUNCE_MS * 3)); // allow-timeout: fs events arrive on their own clock
+
+  it('a preview run loads the spawn URL and hands the protocol handler an overlay for its scene only', async () => {
+    await runner.run(game('ga', { root, level: 'cave', spawn: { x: 1, y: 2 }, preview: { scene: 'cave', json: '{"unsaved":true}' } }));
+    expect(viewOf('ga').webContents.loadURL).toHaveBeenCalledWith('mstudio-game://ga/index.html?midnite-level=cave&midnite-spawn=1%2C2');
+    const handler = [...fakeSessions.values()][0]!.protocol.handle.mock.calls[0]![1] as (r: Request) => Promise<Response>;
+    const res = await handler(new Request('mstudio-game://ga/levels/cave.tmj'));
+    expect(await res.text()).toBe('{"unsaved":true}');
+    expect((await handler(new Request('mstudio-game://ga/levels/other.tmj'))).status).toBe(404);
+  });
+
+  it('clearPreview(scene) only clears a matching scene; stop clears too', async () => {
+    await runner.run(game('ga', { root, preview: { scene: 'cave', json: '{"a":1}' } }));
+    const handler = [...fakeSessions.values()][0]!.protocol.handle.mock.calls[0]![1] as (r: Request) => Promise<Response>;
+    runner.clearPreview('ga', 'other');
+    expect(await (await handler(new Request('mstudio-game://ga/levels/cave.tmj'))).text()).toBe('{"a":1}');
+    runner.clearPreview('ga', 'cave');
+    expect(await (await handler(new Request('mstudio-game://ga/levels/cave.tmj'))).text()).not.toBe('{"a":1}');
+  });
+
+  it('refuses a preview over the size cap without starting a view', async () => {
+    const big = createGameRunner({
+      getWindow: () => fakeWindow(),
+      electron,
+      log: logger,
+      send: vi.fn(),
+      overlay: { set: () => false, get: () => null, scene: () => null, clear: () => undefined },
+    });
+    const result = await big.run(game('gb', { root, preview: { scene: 'cave', json: 'x' } }));
+    expect(result.ok).toBe(false);
+    expect(big.isRunning('gb')).toBe(false);
+  });
+
+  it('a level change restarts the scene through the hook (current scene from getState), not a page reload', async () => {
+    await runner.run(game('ga', { root, level: 'main' }));
+    await settle();
+    const wc = viewOf('ga').webContents;
+    wc.executeJavaScript.mockImplementation(async (code: unknown) => (String(code).includes('getState') ? 'cave' : true));
+    wc.executeJavaScript.mockClear();
+    wc.reloadIgnoringCache.mockClear();
+    await writeFile(join(root, 'levels', 'cave.tmj'), '{"x":1}');
+    await vi.waitFor(() => expect(String(wc.executeJavaScript.mock.calls.at(-1)?.[0])).toContain('m.goto("cave")'), { timeout: 4000 });
+    expect(wc.reloadIgnoringCache).not.toHaveBeenCalled();
+  });
+
+  it('falls back to a page reload when the hook call fails', async () => {
+    await runner.run(game('ga', { root, level: 'main' }));
+    await settle();
+    const wc = viewOf('ga').webContents;
+    wc.executeJavaScript.mockImplementation(async (code: unknown) => (String(code).includes('getState') ? 'cave' : false));
+    wc.reloadIgnoringCache.mockClear();
+    await writeFile(join(root, 'levels', 'cave.tmj'), '{"x":2}');
+    await vi.waitFor(() => expect(wc.reloadIgnoringCache).toHaveBeenCalled(), { timeout: 4000 });
+  });
+
+  it('a code change still reloads the page without asking the hook', async () => {
+    await runner.run(game('ga', { root }));
+    await settle();
+    const wc = viewOf('ga').webContents;
+    wc.executeJavaScript.mockClear();
+    await writeFile(join(root, 'src', 'main.js'), '2');
+    await vi.waitFor(() => expect(wc.reloadIgnoringCache).toHaveBeenCalled(), { timeout: 4000 });
+    expect(wc.executeJavaScript).not.toHaveBeenCalled();
   });
 });

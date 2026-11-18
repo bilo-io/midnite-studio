@@ -10,6 +10,7 @@ import {
   LuAlignHorizontalJustifyCenter,
   LuAlignStartHorizontal,
   LuAlignStartVertical,
+  LuBoxes,
   LuClipboardPaste,
   LuCopy,
   LuCopyPlus,
@@ -18,6 +19,7 @@ import {
   LuLayers,
   LuLock,
   LuPlus,
+  LuRadio,
   LuScissors,
   LuTrash2,
 } from 'react-icons/lu';
@@ -25,7 +27,7 @@ import {
 import type { FrameMenuEntry } from '@midnite/studio-frame';
 
 import type { AlignAxis, AlignEdge } from './level-align';
-import { findObject, type EditState, type ObjectRef, type PlanPoint } from './level-edit-model';
+import { findObject, prefabInstanceOf, type EditState, type ObjectRef, type PlanPoint } from './level-edit-model';
 import { objectType } from './level-outline';
 
 export type LevelMenuTarget = { kind: 'object'; ref: ObjectRef } | { kind: 'empty'; at: PlanPoint } | { kind: 'layer'; layerId: number };
@@ -44,6 +46,12 @@ export type LevelMenuActions = {
   selectAll(layerId?: number): void;
   align(axis: AlignAxis, edge: AlignEdge): void;
   addLayer(kind: 'tile' | 'object'): void;
+  /** Phase 140 Theme E: take the object's live twin's position, one undo step. */
+  copyLivePosition?(): void;
+  /** Phase 139 Theme G: save the selection as a prefab (opens the name dialog). */
+  saveAsPrefab(): void;
+  /** Select every instance of a prefab in the level. */
+  selectInstances(prefab: string): void;
 };
 
 const SEP: FrameMenuEntry = { type: 'separator' };
@@ -70,7 +78,7 @@ function tidy(entries: FrameMenuEntry[]): FrameMenuEntry[] {
   return out;
 }
 
-export function levelContextMenu(state: EditState, target: LevelMenuTarget, ctx: { canPaste: boolean; readOnly: boolean }, actions: LevelMenuActions, is3d = false): FrameMenuEntry[] {
+export function levelContextMenu(state: EditState, target: LevelMenuTarget, ctx: { canPaste: boolean; readOnly: boolean; liveTwin?: boolean }, actions: LevelMenuActions, is3d = false): FrameMenuEntry[] {
   const { canPaste, readOnly } = ctx;
   const pasteItem = (label: string, at?: PlanPoint): FrameMenuEntry => ({
     label,
@@ -84,6 +92,7 @@ export function levelContextMenu(state: EditState, target: LevelMenuTarget, ctx:
     const object = findObject(state.level, target.ref);
     const type = object ? objectType(object) : '';
     const many = state.selected.length >= 2;
+    const instance = object ? prefabInstanceOf(object) : null;
     const selectType: FrameMenuEntry = { label: type ? `Select all “${type}”` : 'Select all', icon: LuLayers, onSelect: () => (type ? actions.selectAllOfType(type) : actions.selectAll(target.ref.layerId)) };
     const frame: FrameMenuEntry = { label: 'Frame', description: hint('F'), icon: LuFocus, onSelect: actions.frame };
     const copy: FrameMenuEntry = { label: 'Copy', description: hint('⌘C'), icon: LuCopy, onSelect: actions.copy };
@@ -95,9 +104,13 @@ export function levelContextMenu(state: EditState, target: LevelMenuTarget, ctx:
       { label: 'Duplicate', description: hint('⌘D'), icon: LuCopyPlus, onSelect: actions.duplicate },
       SEP,
       frame,
+      ...(ctx.liveTwin && actions.copyLivePosition ? [{ label: 'Copy live position', icon: LuRadio, onSelect: actions.copyLivePosition } as FrameMenuEntry] : []),
       { label: 'Hide', icon: LuEyeOff, onSelect: actions.hide },
       { label: 'Lock', icon: LuLock, onSelect: actions.lock },
       selectType,
+      SEP,
+      { label: 'Save as prefab…', icon: LuBoxes, onSelect: actions.saveAsPrefab },
+      ...(instance ? [{ label: `Select instances of “${instance.prefab}”`, icon: LuLayers, onSelect: () => actions.selectInstances(instance.prefab) } as FrameMenuEntry] : []),
       SEP,
       many
         ? {

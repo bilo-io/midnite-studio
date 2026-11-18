@@ -4,7 +4,7 @@
  * the game builds it; {@link gizmoEdit} is its inverse, turning a gizmo result back into Tiled fields and the 3D
  * props the plan inspector writes, as one undo step.
  */
-import { GAME_LEVEL_PROPS, levelEntityToWorld, levelProperties, metresPerTile as levelMetresPerTile } from '@midnite/studio-shared';
+import { GAME_LEVEL_PROPS, levelEntityToWorld, levelPixelsToWorld, levelWorldToPixels, levelProperties, metresPerTile as levelMetresPerTile } from '@midnite/studio-shared';
 
 import {
   beginStroke,
@@ -31,6 +31,8 @@ export type WorldItem = {
   type: string;
   /** Metres: footprint centre on X/Z, and `y` the base (the object's `elevation`, else the ground). */
   position: [number, number, number];
+  /** No `elevation` of its own: it sits on the ground, which on a terrain with relief is the ground under it. */
+  grounded?: boolean;
   /** Radians, three's Euler in `YXZ` order: yaw about Y first, then pitch, then roll. */
   yaw: number;
   pitch: number;
@@ -64,7 +66,7 @@ function kindOf(o: LevelObject): WorldKind {
   return 'box';
 }
 
-function buildItem(level: EditLevel, layerId: number, o: LevelObject, index: number, ground: number, mpt: number): WorldItem {
+function buildItem(level: EditLevel, layerId: number, o: LevelObject, index: number, ground: number): WorldItem {
   const placed = levelEntityToWorld(o, level);
   const props = levelProperties(o);
   const kind = kindOf(o);
@@ -80,6 +82,7 @@ function buildItem(level: EditLevel, layerId: number, o: LevelObject, index: num
     kind,
     type: String(o.type ?? o.class ?? ''),
     position: [px, py ?? ground, pz],
+    grounded: py === undefined || py === null,
     yaw: placed.yaw,
     pitch: placed.pitch,
     roll: placed.roll,
@@ -94,7 +97,7 @@ function buildItem(level: EditLevel, layerId: number, o: LevelObject, index: num
   }
   if (kind === 'path') {
     const pts = (o.polyline ?? o.polygon) as Array<{ x: number; y: number }>;
-    item.path = pts.map((p) => [((o.x + p.x) / level.tilewidth) * mpt, ((o.y + p.y) / level.tileheight) * mpt]);
+    item.path = pts.map((p) => levelPixelsToWorld(level, o.x + p.x, o.y + p.y));
     const xs = item.path.map((p) => p[0]), zs = item.path.map((p) => p[1]);
     item.bounds = { minX: Math.min(...xs), minZ: Math.min(...zs), maxX: Math.max(...xs), maxZ: Math.max(...zs) };
   }
@@ -104,13 +107,12 @@ function buildItem(level: EditLevel, layerId: number, o: LevelObject, index: num
 /** Every visible object of every visible object layer, as world items, in layer then object order. */
 export function levelWorldItems(level: EditLevel): WorldItem[] {
   const ground = groundY(level);
-  const mpt = levelMetresPerTile(level);
   const items: WorldItem[] = [];
   for (const layer of level.layers) {
     if (!isObjects(layer.type) || layer.visible === false || typeof layer.id !== 'number') continue;
     for (const o of layer.objects ?? []) {
       if (o.visible === false) continue;
-      items.push(buildItem(level, layer.id, o, items.length, ground, mpt));
+      items.push(buildItem(level, layer.id, o, items.length, ground));
     }
   }
   return items;
@@ -119,13 +121,12 @@ export function levelWorldItems(level: EditLevel): WorldItem[] {
 /** One object as a world item (hidden or not), or `null` when the ref no longer resolves. */
 export function worldItemOf(level: EditLevel, ref: NonNullable<EditSelection>): WorldItem | null {
   const o = findObject(level, ref);
-  return o ? buildItem(level, ref.layerId, o, 0, groundY(level), levelMetresPerTile(level)) : null;
+  return o ? buildItem(level, ref.layerId, o, 0, groundY(level)) : null;
 }
 
 /** A world X/Z point as a Tiled object coordinate (map pixels) on a 3D level. */
 export function worldToObjectPoint(level: Pick<EditLevel, 'tilewidth' | 'tileheight' | 'properties'>, x: number, z: number): { x: number; y: number } {
-  const mpt = levelMetresPerTile(level);
-  return { x: (x / mpt) * level.tilewidth, y: (z / mpt) * level.tileheight };
+  return levelWorldToPixels(level, x, z);
 }
 
 /** What a gizmo drag ended on, in world terms. Absent fields did not change. */

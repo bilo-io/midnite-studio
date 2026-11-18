@@ -6,11 +6,12 @@
 export type LevelShortcutGroup = 'Tools' | 'Selection' | 'Edit' | 'View';
 
 export type LevelCommandId =
-  | 'tool.select' | 'tool.entity' | 'tool.paint' | 'tool.erase' | 'tool.rect' | 'tool.pick' | 'tool.volume' | 'tool.path' | 'tool.rotate'
+  | 'tool.select' | 'tool.entity' | 'tool.paint' | 'tool.erase' | 'tool.rect' | 'tool.pick' | 'tool.volume' | 'tool.path' | 'tool.rotate' | 'tool.scatter'
+  | 'scatter.smaller' | 'scatter.larger'
   | 'path.finish'
   | 'edit.undo' | 'edit.redo' | 'edit.cut' | 'edit.copy' | 'edit.paste' | 'edit.duplicate' | 'edit.delete'
   | 'select.all' | 'select.none' | 'select.nudge' | 'view.frame' | 'gizmo.translate' | 'gizmo.rotate' | 'gizmo.scale'
-  | 'gizmo.pivot' | 'gizmo.space' | 'help.shortcuts';
+  | 'gizmo.pivot' | 'gizmo.space' | 'help.shortcuts' | 'play.stop' | 'play.here';
 
 export type LevelShortcut = {
   id: LevelCommandId;
@@ -30,6 +31,9 @@ const IN_3D: LevelShortcut['views'] = ['3d'];
 export const LEVEL_SHORTCUTS: readonly LevelShortcut[] = [
   { id: 'tool.select', chord: 'V', label: 'Select / move', group: 'Tools', views: BOTH },
   { id: 'tool.entity', chord: 'O', label: 'Place entity', group: 'Tools', views: BOTH },
+  { id: 'tool.scatter', chord: 'S', label: 'Scatter brush (Alt erases)', group: 'Tools', views: BOTH },
+  { id: 'scatter.smaller', chord: '[', label: 'Scatter brush smaller', group: 'Tools', views: BOTH },
+  { id: 'scatter.larger', chord: ']', label: 'Scatter brush larger', group: 'Tools', views: BOTH },
   { id: 'tool.paint', chord: 'B', label: 'Paint tiles', group: 'Tools', views: PLAN, dimension: '2d' },
   { id: 'tool.erase', chord: 'E', label: 'Erase tiles', group: 'Tools', views: PLAN, dimension: '2d' },
   { id: 'tool.rect', chord: 'R', label: 'Rectangle', group: 'Tools', views: PLAN, dimension: '2d' },
@@ -55,6 +59,9 @@ export const LEVEL_SHORTCUTS: readonly LevelShortcut[] = [
   { id: 'edit.delete', chord: 'Delete', label: 'Delete selection', group: 'Edit', views: BOTH },
   { id: 'edit.delete', chord: 'Backspace', label: 'Delete selection / last path point', group: 'Edit', views: BOTH },
   { id: 'view.frame', chord: 'F', label: 'Frame selection', group: 'View', views: IN_3D, dimension: '3d' },
+  // Shift+F5 is listed first: a plain chord otherwise ignores Shift, so F5 would shadow it.
+  { id: 'play.stop', chord: 'Shift+F5', label: 'Stop the game', group: 'View', views: BOTH },
+  { id: 'play.here', chord: 'F5', label: 'Play from here', group: 'View', views: BOTH },
   { id: 'help.shortcuts', chord: '?', label: 'This shortcut list', group: 'View', views: BOTH },
 ];
 
@@ -76,7 +83,7 @@ function chordMatches(chord: string, e: KeyLike): boolean {
   // Alt never belongs to a chord; a Mod chord also ignores Shift unless it asks for it (Mod+Shift+Z is redo).
   if (wantsMod) {
     if (e.altKey || (e.shiftKey !== wantsShift && key.toLowerCase() === 'z')) return false;
-  } else if (e.altKey) return false;
+  } else if (e.altKey || (wantsShift && !e.shiftKey)) return false;
   if (key === 'Arrows') return e.key.startsWith('Arrow');
   if (key === '?') return e.key === '?';
   return e.key.toLowerCase() === key.toLowerCase();

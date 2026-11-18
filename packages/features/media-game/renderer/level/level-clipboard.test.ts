@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { addLayer, addObject, createEditState, redo, selectOnly, addSelected, undo, type EditState, type LevelObject } from './level-edit-model';
-import { LEVEL_CLIPBOARD_KIND, copySelection, duplicateSelection, parseClipboard, pasteClipboard, readClipboard, resetClipboardMemory, writeClipboard } from './level-clipboard';
+import { LEVEL_CLIPBOARD_KIND, copySelection, duplicateSelection, parseClipboard, pasteClipboard, readClipboard, reinstance, resetClipboardMemory, writeClipboard } from './level-clipboard';
 import { buildBlankLevel } from './new-scene-model';
 
 const fixture = (): { state: EditState; layerId: number } => {
@@ -117,5 +117,49 @@ describe('system clipboard adapter', () => {
     vi.stubGlobal('navigator', { clipboard: { writeText: async () => { throw new Error('denied'); }, readText: async () => { throw new Error('denied'); } } });
     await writeClipboard(clip);
     expect(await readClipboard()).toEqual(clip);
+  });
+});
+
+describe('prefab instances (Phase 139 Theme G)', () => {
+  const tagged = (instance: string) => [
+    { name: 'midnite.prefab', type: 'string' as const, value: 'crate-stack' },
+    { name: 'midnite.prefabInstance', type: 'string' as const, value: instance },
+  ];
+  const instanceOf = (o: LevelObject): unknown => o.properties?.find((p) => p.name === 'midnite.prefabInstance')?.value;
+
+  it('reinstance maps each source instance to one fresh id and leaves plain objects alone', () => {
+    let n = 0;
+    const out = reinstance(
+      [{ properties: tagged('a') }, { properties: tagged('a') }, { properties: tagged('b') }, { properties: [] }],
+      () => `new${++n}`,
+    );
+    expect(out.map((o) => o.properties?.find((p) => p.name === 'midnite.prefabInstance')?.value)).toEqual(['new1', 'new1', 'new2', undefined]);
+  });
+
+  it('duplicate gives the copies a new instance id, shared among themselves', () => {
+    let s = createEditState(buildBlankLevel({ width: 20, height: 20, tilewidth: 32, tileheight: 32, orientation: 'orthogonal', baseLayer: null }));
+    s = addLayer(s, 'object', 'fixture');
+    const layerId = s.activeLayerId!;
+    s = addObject(s, layerId, { type: 'prop', x: 0, y: 0, properties: tagged('orig') });
+    s = addObject(s, layerId, { type: 'prop', x: 10, y: 0, properties: tagged('orig') });
+    const refs = objectsOf(s, layerId).map((o) => ({ layerId, objectId: o.id }));
+    const out = duplicateSelection(addSelected(selectOnly(s, refs[0]!), [refs[1]!]));
+    const ids = objectsOf(out, layerId).map(instanceOf);
+    expect(ids.slice(0, 2)).toEqual(['orig', 'orig']);
+    expect(ids[2]).toBe(ids[3]);
+    expect(ids[2]).not.toBe('orig');
+  });
+
+  it('paste gives the pasted instance a new id', () => {
+    let s = createEditState(buildBlankLevel({ width: 20, height: 20, tilewidth: 32, tileheight: 32, orientation: 'orthogonal', baseLayer: null }));
+    s = addLayer(s, 'object', 'fixture');
+    const layerId = s.activeLayerId!;
+    s = addObject(s, layerId, { type: 'prop', x: 0, y: 0, properties: tagged('orig') });
+    const ref = { layerId, objectId: objectsOf(s, layerId)[0]!.id };
+    const clip = copySelection(selectOnly(s, ref))!;
+    const out = pasteClipboard(s, clip, layerId, { x: 50, y: 50 });
+    const ids = objectsOf(out, layerId).map(instanceOf);
+    expect(ids[0]).toBe('orig');
+    expect(ids[1]).not.toBe('orig');
   });
 });

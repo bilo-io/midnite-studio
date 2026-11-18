@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 
 import {
   DEFAULT_LOOP_SCHEDULE,
@@ -13,18 +13,13 @@ import {
   type LoopRunRecord,
 } from '@midnite/studio-shared';
 
-import { ResizeHandle, useResizable } from '@midnite/studio-frame';
-
 import { useLoopsHost } from './host';
 import { LoopComposer } from './loop-composer';
-import { loopFormRange, resolveLoopFormHeight } from './loop-form-size';
 import { GuardFindings } from './guard-findings';
 import { LoopHistory } from './loop-history';
 import { contributorOptions } from './loop-option-row';
-import { useLoopStatus } from './loop-status';
 import { useLoopSession } from './use-loop-session';
-import { loopLabel } from './use-all-loops';
-import { useLoopsState, useLoopsTerminal } from './use-loops-host-state';
+import { useLoopsState } from './use-loops-host-state';
 
 // A zustand v5 selector must return a stable reference, or it re-renders forever.
 const NO_SKILLS: Record<string, string> = {};
@@ -32,27 +27,22 @@ const NO_RUN_OPTIONS: LoopRunOptions = {};
 const NO_USERS: string[] = [];
 
 /**
- * One FAB tab: compose the run, start it, watch it, read what past runs were
- * told.
+ * One FAB tab: compose a run, dispatch it, read what past runs were told.
  *
- * Nothing spawns on mount. The tab's session appears the moment Start is
- * pressed and is remembered by id (`fabSessions[tab]`) — the ad-hoc version of
- * this panel spawned four sessions eagerly and then latched all four tabs onto
- * whichever session happened to be last in a pre-call closure snapshot, which
- * is why every tab showed the same terminal while four strays piled into the
- * main housing.
+ * The tab is only the form. Each dispatch spawns a fresh session in the main
+ * terminal panel, listed under its "Loops" group with this loop's mark — so
+ * the same loop can run several times at once, each pointed at a different
+ * feature, and is watched, slept and closed there like any other session.
+ * Nothing spawns on mount.
  */
 export function LoopTab({
   loop,
   active,
   runs,
-  fitSignal,
 }: {
   loop: LoopDefinition;
   active: boolean;
   runs: LoopRunRecord[];
-  /** Bumped once the FAB panel's own reveal tween settles — see `FabPanel`'s own prop. */
-  fitSignal: number;
 }) {
   const selectedRepoId = useLoopsState((s) => s.selectedRepoId);
   const selectedWorktreePath = useLoopsState((s) => s.selectedWorktreePath);
@@ -105,6 +95,7 @@ export function LoopTab({
   */
   const reviewUsers = loop.reviewsPrs ? (runOptions.reviewUsers ?? NO_USERS) : NO_USERS;
   const autoRotatePercent = runOptions.autoRotatePercent ?? LOOP_AUTO_ROTATE.default;
+  const effort = runOptions.effort ?? 'default';
   // The tab bar's own "Loop" switch (fab-panel.tsx) is the single control for
   // `/loop`; absent means on.
   const repeat = useLoopsState((s) => s.loopEnabled[loop.id] ?? true);
@@ -112,10 +103,7 @@ export function LoopTab({
   // Only the active tab asks main for skills and contributors; the five behind it stay idle.
   const knownSkills = host.useKnownSkills(selectedRepoId, active);
   const stats = host.useContributors(selectedRepoId, active && loop.reviewsPrs);
-  const contributors = useMemo(
-    () => contributorOptions(stats.data ?? []),
-    [stats.data],
-  );
+  const contributors = useMemo(() => contributorOptions(stats.data ?? []), [stats.data]);
 
   /*
     Three layers, resolved here rather than written into the store: the
@@ -154,12 +142,13 @@ export function LoopTab({
   const needsOption =
     custom !== null &&
     customLoopNeedsOption(custom) &&
-    !custom.modifiers.some((m) => m.section !== undefined && checked[m.id] && m.promptFragment.trim() !== '');
+    !custom.modifiers.some(
+      (m) => m.section !== undefined && checked[m.id] && m.promptFragment.trim() !== '',
+    );
   const blocked = custom ? needsOption : loop.requiresModifier === true && !hasTask;
   /** What the run composes from — a custom loop minus the options still waiting for words. */
   const runLoop = useMemo(() => (custom ? customLoopForRun(custom) : loop), [custom, loop]);
 
-  const status = useLoopStatus(loop.id);
   const agents = host.useAgents();
   /*
     The provider this tab runs on: whatever the user picked, as long as the
@@ -176,7 +165,7 @@ export function LoopTab({
       : loop.agentId;
   // The roster's own command, not the id — see `useLoopSession`'s note.
   const command = agents.agents.find((a) => a.id === agentId)?.command ?? agentId;
-  const { start, fixFinding, stop } = useLoopSession(runLoop, {
+  const { start, fixFinding } = useLoopSession(runLoop, {
     repoId: selectedRepoId,
     cwd,
     basePrompt,
@@ -185,6 +174,7 @@ export function LoopTab({
     schedule: schedule.enabled ? schedule : null,
     agentId,
     model,
+    effort,
     extras,
     command,
     skills,
@@ -193,143 +183,56 @@ export function LoopTab({
     repeat,
   });
 
-  const session = useLoopsTerminal((s) => s.sessions.find((row) => row.id === status.sessionId));
-
-  /*
-    Form height: its natural content height until the user drags the splitter,
-    then their height (persisted as `layout.loopFormHeight`; 0 = never dragged).
-    Both are clamped into the pane so the terminal below always keeps its
-    minimum, and a size saved in a taller window cannot overflow a shorter one.
-    `natural` and `container` are measured: the content wrapper's height moves
-    as sections expand, and the pane's with the window.
-  */
-  const paneRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [natural, setNatural] = useState(0);
-  const [container, setContainer] = useState(0);
-  useEffect(() => {
-    const pane = paneRef.current;
-    const content = contentRef.current;
-    if (!pane || !content) return;
-    const measure = () => {
-      setNatural(content.offsetHeight);
-      setContainer(pane.clientHeight);
-    };
-    measure();
-    if (typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(measure);
-    ro.observe(pane);
-    ro.observe(content);
-    return () => ro.disconnect();
-  }, []);
-  const storedFormHeight = useLoopsState((s) => s.layout.loopFormHeight);
-  const setLayout = useLoopsState((s) => s.setLayout);
-  // Unmeasured (first paint, jsdom): leave the form to its content.
-  const measured = container > 0;
-  const range = loopFormRange(container);
-  const effective = resolveLoopFormHeight(storedFormHeight, natural, container);
-  const commitHeight = useCallback(
-    // Dragging back to the content height (or double-click) returns to auto.
-    (value: number) =>
-      setLayout('loopFormHeight', Math.round(value) === Math.round(natural) ? 0 : value),
-    [natural, setLayout],
-  );
-  const form = useResizable({
-    size: effective,
-    onSize: commitHeight,
-    min: range.min,
-    max: range.max,
-    initial: natural,
-    axis: 'y',
-  });
-
   return (
-    <div ref={paneRef} className="flex h-full w-full flex-col">
-      {/*
-        The form takes its natural content height and scrolls only when the pane
-        is too short to leave the terminal its minimum, or when the user has
-        dragged the splitter smaller than the content. (It used to be a hard
-        `max-h-80`, which clipped the form in a tall window and left the
-        terminal's empty "Press Start" area with the rest.)
-      */}
-      <div
-        className="shrink-0 overflow-y-auto"
-        style={measured ? { height: form.current } : { maxHeight: '60%' }}
-        data-testid="loop-form"
-      >
-        <div ref={contentRef} className="flex flex-col">
-          <LoopComposer
-            loop={loop}
-            running={status.running}
-            waiting={status.waiting}
-            thinking={status.thinking}
-            checked={checked}
-            choiceIds={choiceIds}
-            agents={agents.agents}
-            agentId={agentId}
-            model={model}
-            schedule={schedule}
-            extras={extras}
-            skills={skills}
-            skillSuggestions={knownSkills.data ?? []}
-            reviewUsers={reviewUsers}
-            contributorOptions={contributors}
-            autoRotatePercent={autoRotatePercent}
-            repeat={repeat}
-            disabled={!repo || blocked}
-            disabledReason={
-              repo && custom
-                ? 'Turn on an option — the base prompt alone gives the loop nothing to do.'
-                : repo
-                ? // Patrol's base is a bare `/loop`: with no task box checked there
-                  // is no skill on the line at all, so Start would launch an agent
-                  // and tell it nothing. The autonomy radio does not count — a
-                  // standing rule is not a task. Held here rather than in
-                  // `composeLoopPrompt`, which is pure and has no business refusing
-                  // to compose.
-                  'Pick a task — Routine, Review PRs, Reply to PRs, Security review or Triage only.'
-                : 'Select a repository first.'
-            }
-            onToggle={(modifierId, on) => setCheck(loop.id, modifierId, on)}
-            onSkill={(modifierId, skill) => setSkill(loop.id, modifierId, skill)}
-            onReviewUsers={(users) => setRunOptions(loop.id, { reviewUsers: users })}
-            onAutoRotate={(percent) => setRunOptions(loop.id, { autoRotatePercent: percent })}
-            onChoice={(choiceId, optionId) => setChoice(loop.id, choiceId, optionId)}
-            onAgent={(next) => setAgent(loop.id, next)}
-            onModel={(next: LoopModel) => setModel(loop.id, next)}
-            onSchedule={(next) => setSchedule(loop.id, next)}
-            onExtras={(text) => setExtras(loop.id, text)}
-            onStart={start}
-            onStop={stop}
-          />
-          {loop.id === 'guard' ? <GuardFindings runs={runs} onFixWithAgent={selectedRepoId && cwd ? fixFinding : undefined} /> : null}
-          <LoopHistory runs={runs} />
-        </div>
-      </div>
-      <ResizeHandle resizable={form} axis="y" label="Resize loop form" />
-      <div className="min-h-0 flex-1">
-        {session ? (
-          /*
-            The app draws the xterm: the same `pendingInput ?? agentInitialInput`
-            handoff the main housing does (the composed command reaches the pty
-            as its start input, the roster's launch command is the fallback),
-            and a session the Sessions page's own live pane has claimed shows
-            that page's placeholder instead — one xterm per pty.
-          */
-          host.renderTerminal({
-            sessionId: session.id,
-            active,
-            fitSignal,
-            layoutClassName: 'h-full w-full',
-          })
-        ) : (
-          <p className="p-3 text-[11px] text-muted-foreground">
-            {repo
-              ? `Press Start to run ${loopLabel(loop)} in ${repo.name}.`
-              : 'Select a repository to run a loop.'}
-          </p>
-        )}
-      </div>
+    <div className="flex h-full w-full flex-col overflow-y-auto" data-testid="loop-form">
+      <LoopComposer
+        loop={loop}
+        checked={checked}
+        choiceIds={choiceIds}
+        agents={agents.agents}
+        agentId={agentId}
+        model={model}
+        effort={effort}
+        schedule={schedule}
+        extras={extras}
+        skills={skills}
+        skillSuggestions={knownSkills.data ?? []}
+        reviewUsers={reviewUsers}
+        contributorOptions={contributors}
+        autoRotatePercent={autoRotatePercent}
+        disabled={!repo || blocked}
+        disabledReason={
+          repo && custom
+            ? 'Turn on an option — the base prompt alone gives the loop nothing to do.'
+            : repo
+              ? // Patrol's base is a bare `/loop`: with no task box checked there
+                // is no skill on the line at all, so a dispatch would launch an
+                // agent and tell it nothing. The autonomy radio does not count — a
+                // standing rule is not a task. Held here rather than in
+                // `composeLoopPrompt`, which is pure and has no business refusing
+                // to compose.
+                'Pick a task — Routine, Review PRs, Reply to PRs, Security review or Triage only.'
+              : 'Select a repository first.'
+        }
+        onToggle={(modifierId, on) => setCheck(loop.id, modifierId, on)}
+        onSkill={(modifierId, skill) => setSkill(loop.id, modifierId, skill)}
+        onReviewUsers={(users) => setRunOptions(loop.id, { reviewUsers: users })}
+        onAutoRotate={(percent) => setRunOptions(loop.id, { autoRotatePercent: percent })}
+        onChoice={(choiceId, optionId) => setChoice(loop.id, choiceId, optionId)}
+        onAgent={(next) => setAgent(loop.id, next)}
+        onModel={(next: LoopModel) => setModel(loop.id, next)}
+        onEffort={(next) => setRunOptions(loop.id, { effort: next })}
+        onSchedule={(next) => setSchedule(loop.id, next)}
+        onExtras={(text) => setExtras(loop.id, text)}
+        onStart={start}
+      />
+      {loop.id === 'guard' ? (
+        <GuardFindings
+          runs={runs}
+          onFixWithAgent={selectedRepoId && cwd ? fixFinding : undefined}
+        />
+      ) : null}
+      <LoopHistory runs={runs} />
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import type {
   GameAssetSourceTab,
   GameAssetSourcesResult,
+  GameLibraryFile,
+  GameLibraryListing,
   GameAddRequest,
   GameAddResult,
   GameCreateRequest,
@@ -9,6 +11,7 @@ import type {
   GameFixRequest,
   GameFixResult,
   GameImportAssetRequest,
+  GameLibraryImportRequest,
   GameImportAssetResult,
   GamePlaytestEntry,
   GamePlaytestRunResult,
@@ -34,6 +37,8 @@ export const GAME_KEYS = {
   manifest: (gameId: string) => ['games', 'manifest', gameId] as const,
   /** Theme N: imported assets and whether their sources moved on. */
   assets: (gameId: string) => ['games', 'assets', gameId] as const,
+  assetLibrary: ['games', 'asset-library'] as const,
+  assetLibraryFile: (collection: string, path: string) => ['games', 'asset-library', 'file', collection, path] as const,
   assetSources: (tab: string) => ['games', 'asset-sources', tab] as const,
   /** Theme O: `playtests/*.json` with their last results. */
   playtests: (gameId: string) => ['games', 'playtests', gameId] as const,
@@ -93,6 +98,7 @@ export function useSetGamesSettings() {
       reportFailure(result);
       void client.invalidateQueries({ queryKey: GAME_KEYS.settings });
       void client.invalidateQueries({ queryKey: GAME_KEYS.list });
+      void client.invalidateQueries({ queryKey: GAME_KEYS.assetLibrary });
     },
   });
 }
@@ -230,6 +236,8 @@ export function useGameEvents(): void {
       api.games.onChanged((event) => {
         void client.invalidateQueries({ queryKey: GAME_KEYS.list });
         void client.invalidateQueries({ queryKey: ['games', 'assets'] });
+        // Phase 139 Theme C: the level editor's asset browser reads the manifest's assets, so an import shows up live.
+        void client.invalidateQueries({ queryKey: ['games', 'manifest'] });
         void client.invalidateQueries({ queryKey: ['games', 'doctor'] });
         if (event.reason === 'level') void client.invalidateQueries({ queryKey: ['games', 'levels'] });
       }),
@@ -276,6 +284,30 @@ export function useGameAssets(gameId: string, enabled = true) {
   });
 }
 
+/** The shared asset library's collections (read-only). A failed list reads as an error message. */
+export function useAssetLibrary(enabled: boolean) {
+  return useQuery<{ listing: GameLibraryListing | null; error: string | null }>({
+    queryKey: GAME_KEYS.assetLibrary,
+    enabled,
+    queryFn: async () => {
+      const result = await bridge()?.games.assets.library.list();
+      if (!result) return { listing: null, error: null };
+      return result.ok ? { listing: result.value, error: null } : { listing: null, error: result.kind === 'error' ? result.message : 'Could not list the asset library.' };
+    },
+  });
+}
+
+/** One library file for the inspector (a data URL for small images and audio). */
+export function useAssetLibraryFile(collection: string, path: string) {
+  return useQuery<GameLibraryFile | null>({
+    queryKey: GAME_KEYS.assetLibraryFile(collection, path),
+    queryFn: async () => {
+      const result = await bridge()?.games.assets.library.read({ collection, path });
+      return result?.ok ? result.value : null;
+    },
+  });
+}
+
 /** The picker's candidates for one tab, across the registered repos. */
 export function useAssetSources(tab: GameAssetSourceTab) {
   return useQuery<GameAssetSourcesResult>({
@@ -292,6 +324,20 @@ export function useImportAsset() {
   return useMutation({
     mutationFn: async (req: GameImportAssetRequest) =>
       (await bridge()?.games.assets.import(req)) ?? noBridge<GameImportAssetResult>(),
+    onSuccess: (result) => {
+      reportFailure(result);
+      void client.invalidateQueries({ queryKey: ['games', 'assets'] });
+      void client.invalidateQueries({ queryKey: GAME_KEYS.list });
+    },
+  });
+}
+
+/** Import one shared-library asset into a game; a success toasts, a failure goes through `reportFailure`. */
+export function useImportLibraryAsset() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (req: GameLibraryImportRequest) =>
+      (await bridge()?.games.assets.library.import(req)) ?? noBridge<GameImportAssetResult>(),
     onSuccess: (result) => {
       reportFailure(result);
       void client.invalidateQueries({ queryKey: ['games', 'assets'] });
