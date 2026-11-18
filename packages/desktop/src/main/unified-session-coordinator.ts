@@ -105,7 +105,7 @@ function shellQuote(arg: string): string {
 
 /**
  * Coordinates exclusive runner ownership (`chat` vs `terminal` vs `idle`) across
- * linked Chat and Terminal sessions sharing an `engineSessionId` (Phase 146 Theme C).
+ * linked Chat and Terminal sessions sharing an `engineSessionId` (Phase 147 Theme C).
  */
 export function createUnifiedSessionCoordinator(deps: UnifiedSessionCoordinatorDeps) {
   const now = deps.now ?? Date.now;
@@ -114,6 +114,8 @@ export function createUnifiedSessionCoordinator(deps: UnifiedSessionCoordinatorD
   const byEngineSessionId = new Map<string, 'chat' | 'terminal'>();
   const byChatId = new Map<string, 'chat' | 'terminal'>();
   const byTerminalId = new Map<string, 'chat' | 'terminal'>();
+  /** Keys each in-flight Chat turn locked in `beforeChatSend`, released on turn end. */
+  const chatLeases = new Map<string, { engineSessionId: string | null; terminalId: string | null }>();
 
   function setOwner(
     ref: { engineSessionId?: string | null; chatId?: string | null; terminalId?: string | null },
@@ -464,30 +466,54 @@ export function createUnifiedSessionCoordinator(deps: UnifiedSessionCoordinatorD
       }
     }
 
-    if (
-      engineSessionId &&
-      byEngineSessionId.get(engineSessionId) === 'terminal'
-    ) {
-      return failure('Another terminal runner currently owns this session.');
+    if (engineSessionId) {
+      const owner = byEngineSessionId.get(engineSessionId);
+      if (owner === 'terminal') {
+        return failure('Another terminal runner currently owns this session.');
+      }
+      if (owner === 'chat' && leaseHolderOf(engineSessionId) !== chat.id) {
+        return failure('Another Chat turn currently owns this session.');
+      }
     }
 
-    setOwner(
-      {
-        engineSessionId,
-        chatId: chat.id,
-        terminalId,
-      },
-      'chat',
-    );
+    // A lease left by an earlier turn of this chat is superseded, not stacked.
+    releaseChatLease(chat.id);
+    chatLeases.set(chat.id, { engineSessionId, terminalId });
+    setOwner({ engineSessionId, chatId: chat.id, terminalId }, 'chat');
     return ok();
+  }
+
+  /** The chat whose lease holds `engineSessionId`, if any. */
+  function leaseHolderOf(engineSessionId: string): string | null {
+    for (const [chatId, lease] of chatLeases) {
+      if (lease.engineSessionId === engineSessionId) return chatId;
+    }
+    return null;
+  }
+
+  /** Release exactly the keys this chat's lease took, never a terminal's ownership. */
+  function releaseChatLease(chatId: string): void {
+    const lease = chatLeases.get(chatId);
+    chatLeases.delete(chatId);
+    const keys: Array<[Map<string, 'chat' | 'terminal'>, string | null]> = [
+      [byChatId, chatId],
+      [byEngineSessionId, lease?.engineSessionId ?? null],
+      [byTerminalId, lease?.terminalId ?? null],
+    ];
+    for (const [map, key] of keys) {
+      if (key && map.get(key) === 'chat') map.delete(key);
+    }
   }
 
   async function onChatTurnEnd(chat: Chat): Promise<void> {
     const engineSessionId = chat.session?.id ?? null;
     const terminalId = chat.linkedTerminalId ?? null;
 
-    if (ownerFor({ engineSessionId, chatId: chat.id, terminalId }) === 'chat') {
-      setOwner({ engineSessionId, chatId: chat.id, terminalId }, 'idle');
+    // The engine may have rotated the session id mid-turn (a resend clears it),
+    // so release the keys the lease took at send time, not the ones on `chat` now.
+    releaseChatLease(chat.id);
+    if (engineSessionId && byEngineSessionId.get(engineSessionId) === 'chat' && leaseHolderOf(engineSessionId) === null) {
+      byEngineSessionId.delete(engineSessionId);
     }
 
     if (terminalId && engineSessionId) {

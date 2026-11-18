@@ -1108,3 +1108,60 @@ describe('chat service: outbound redaction (Phase 121 Theme D)', () => {
     expect(spawn.calls).toHaveLength(1);
   });
 });
+
+describe('chat service: the runner lock around send (Phase 147 Theme C)', () => {
+  const quickTurn = () =>
+    fakeSpawn(async (_c, io) => {
+      io.out(init('sess-1'));
+      io.out(done('sess-1'));
+      io.close(0);
+    });
+
+  it('refuses a second send that lands while the first is awaiting beforeSend', async () => {
+    let release: (v: ReturnType<typeof ok>) => void = () => undefined;
+    const beforeSend = vi.fn(() => new Promise<ReturnType<typeof ok>>((r) => (release = r)));
+    const spawn = quickTurn();
+    const { service } = setup({ spawn, beforeSend });
+    const chat = await created(service);
+
+    const first = service.send({ chatId: chat.id, text: 'one' });
+    await sleep(0);
+    expect(service.isRunning(chat.id)).toBe(true);
+    const second = await service.send({ chatId: chat.id, text: 'two' });
+    expect(second.ok).toBe(false);
+
+    release(ok());
+    expect((await first).ok).toBe(true);
+    await service.idle();
+    expect(beforeSend).toHaveBeenCalledTimes(1);
+    expect(spawn.calls).toHaveLength(1);
+  });
+
+  it('validates before taking the lock, so a rejected send never calls beforeSend', async () => {
+    const beforeSend = vi.fn(async () => ok());
+    const onTurnEnd = vi.fn();
+    const { service } = setup({ spawn: quickTurn(), beforeSend, onTurnEnd });
+    const chat = await created(service);
+
+    expect((await service.send({ chatId: chat.id, text: '   ' })).ok).toBe(false);
+    expect((await service.send({ chatId: chat.id, text: 'x', fromMessageId: 'missing' })).ok).toBe(false);
+    expect(beforeSend).not.toHaveBeenCalled();
+    expect(onTurnEnd).not.toHaveBeenCalled();
+    expect(service.isRunning(chat.id)).toBe(false);
+  });
+
+  it('releases the lock through onTurnEnd when the turn fails to start after beforeSend', async () => {
+    const beforeSend = vi.fn(async () => ok());
+    const onTurnEnd = vi.fn();
+    const { service, store } = setup({ spawn: quickTurn(), beforeSend, onTurnEnd });
+    const chat = await created(service);
+    store.save = vi.fn(async () => {
+      throw new Error('disk full');
+    });
+
+    await expect(service.send({ chatId: chat.id, text: 'hello' })).rejects.toThrow('disk full');
+    await sleep(0);
+    expect(onTurnEnd).toHaveBeenCalledTimes(1);
+    expect(service.isRunning(chat.id)).toBe(false);
+  });
+});
