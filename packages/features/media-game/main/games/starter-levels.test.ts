@@ -1,6 +1,7 @@
 // @vitest-environment node
 // Phase 132 Theme F: every starter reads its layout from `levels/level.tmj`. Plain node: it composes real starters into
 // temp folders and reads files, so it needs no browser capability.
+import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -219,5 +220,44 @@ describe('layout regression: the files hold the coordinates the scenes used to h
   it('open-world names its terrain asset', async () => {
     const map = await readMap(join(TEMPLATE_DIR, 'genres', 'open-world', 'levels', 'level.tmj'));
     expect(map.properties?.find((p) => p.name === 'midnite.terrain')?.value).toBe('world');
+  });
+
+  it('open-world ships a small GTACT-style sample area whose models are library assets under budget', async () => {
+    const dir = join(TEMPLATE_DIR, 'genres', 'open-world');
+    const map = await readMap(join(dir, 'levels', 'level.tmj'));
+    const level = parseGameLevel(map);
+    expect(level.ok).toBe(true);
+    expect([map.width, map.height]).toEqual([200, 200]);
+    const objs = objects(map);
+    const names = objs.map((o) => o.name);
+    for (const wanted of ['helipad', 'helicopter', 'airstrip-start']) expect(names).toContain(wanted);
+    expect(objs.find((o) => o.type === 'spawn')).toBeDefined();
+    expect(objs.find((o) => o.name === 'airstrip-start')?.type).toBe('checkpoint');
+    expect(objs.filter((o) => o.name.startsWith('parked-')).length).toBeGreaterThanOrEqual(2);
+    expect(objs.filter((o) => o.name === 'car')).toHaveLength(3); // the drivable cars are unchanged
+
+    const index = JSON.parse(await readFile(join(dir, 'assets', 'index.json'), 'utf8')) as {
+      assets: { name: string; kind: string; path: string; library?: { library: string; path: string; sha256: string } }[];
+    };
+    const models = index.assets.filter((a) => a.kind === 'model');
+    const modelNames = new Set(models.map((a) => a.name));
+    for (const o of objs) {
+      const model = o.properties?.find((p) => p.name === 'model')?.value;
+      if (model !== undefined) expect(modelNames.has(String(model))).toBe(true);
+    }
+    let bytes = 0;
+    for (const a of models) {
+      expect(a.library?.library).toBe('gtact');
+      expect(a.library?.path).toMatch(/^models\/.+\.glb$/);
+      expect(a.library?.path).not.toMatch(/characters/);
+      const data = await readFile(join(dir, a.path));
+      expect(createHash('sha256').update(data).digest('hex')).toBe(a.library?.sha256);
+      expect(data.length).toBeLessThan(1024 * 1024);
+      bytes += data.length;
+    }
+    expect(models.length).toBeGreaterThanOrEqual(3);
+    expect(bytes).toBeLessThan(3 * 1024 * 1024);
+    const doc = await readFile(join(dir, 'ASSETS.md'), 'utf8');
+    for (const a of models) expect(doc).toContain(a.path.replace('assets/', ''));
   });
 });

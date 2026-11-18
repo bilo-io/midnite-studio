@@ -118,7 +118,13 @@ describe('composeStarter', () => {
     // The open world ships its world: a Phase 105 terrain pack, named in the index so the asset bridge can repoint it.
     expect(index).toEqual(
       id.startsWith('open-world@')
-        ? { version: 1, assets: [{ kind: 'terrain', name: 'world', path: 'assets/terrain/fixture.terrain' }] }
+        ? {
+            version: 1,
+            assets: [
+              { kind: 'terrain', name: 'world', path: 'assets/terrain/fixture.terrain' },
+              ...['helicopter', 'fulmine', 'sedan'].map((name) => ({ name, kind: 'model', path: `assets/model/${name}.glb`, library: expect.objectContaining({ library: 'gtact' }) })),
+            ],
+          }
         : { version: 1, assets: [] },
     );
   });
