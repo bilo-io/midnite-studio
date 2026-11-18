@@ -1,7 +1,7 @@
 import { Canvas } from '@react-three/fiber';
 import { DEFAULT_SNAP, TransformModeBar, type SnapSettings, type TransformMode } from '@midnite/studio-frame/viewport3d';
 import { bridge } from '@midnite/studio-frame';
-import { metresPerTile, type GameLevelTerrain } from '@midnite/studio-shared';
+import { levelOrigin, levelPixelsToWorld, metresPerTile, type GameLevelTerrain } from '@midnite/studio-shared';
 import { useEffect, useMemo, useRef, useState, type ComponentType, type KeyboardEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent } from 'react';
 import { LuActivity, LuBox, LuCrosshair, LuGlobe, LuGroup } from 'react-icons/lu';
 import type { Object3D } from 'three';
@@ -90,8 +90,8 @@ function decodeBase64(data: string): ArrayBuffer {
 /** The level's ground in metres: the terrain's extent, else the map's own. */
 export function levelBounds(level: EditLevel, terrain: GameLevelTerrain | null): GroundTile {
   if (terrain) return { minX: terrain.minX, minZ: terrain.minZ, maxX: terrain.maxX, maxZ: terrain.maxZ };
-  const mpt = metresPerTile(level);
-  return { minX: 0, minZ: 0, maxX: level.width * mpt, maxZ: level.height * mpt };
+  const mpt = metresPerTile(level), o = levelOrigin(level);
+  return { minX: o.x, minZ: o.z, maxX: o.x + level.width * mpt, maxZ: o.z + level.height * mpt };
 }
 
 /**
@@ -224,8 +224,7 @@ export default function Level3dView(props: Level3dViewProps) {
       };
     }
     if (!rect) return null;
-    const mpt = metresPerTile(level);
-    const planToWorld = (x: number, y: number): [number, number] => [(x / level.tilewidth) * mpt, (y / level.tileheight) * mpt];
+    const planToWorld = (x: number, y: number): [number, number] => levelPixelsToWorld(level, x, y);
     const a = planToWorld(rect.x, rect.y), b = planToWorld(rect.x + rect.width, rect.y + rect.height);
     return { min: [Math.min(a[0], b[0]), ground, Math.min(a[1], b[1])], max: [Math.max(a[0], b[0]), ground, Math.max(a[1], b[1])] };
   };

@@ -13,7 +13,7 @@ import * as THREE from 'three';
 
 import { registerEntities } from '../core/hook.js';
 import { installDebugDraw3d } from './debug-draw.js';
-import { applySpawn3d, levelEntities, levelProps, metresPerTile, snapshotLevelEntities, spawnOverride, toWorld3d } from '../core/level.js';
+import { applySpawn3d, levelEntities, levelOrigin, levelProps, metresPerTile, snapshotLevelEntities, spawnOverride, toWorld3d } from '../core/level.js';
 
 /**
  * @typedef {{
@@ -53,7 +53,8 @@ export async function buildLevel3d(context, map, options = {}) {
       const tw = Number(map?.tilewidth) || 1;
       const th = Number(map?.tileheight) || 1;
       const mpt = metresPerTile(map);
-      paths.push({ entity, points: entity.polyline.map((p) => [((entity.x + p.x) / tw) * mpt, ((entity.y + p.y) / th) * mpt]) });
+      const origin = levelOrigin(map);
+      paths.push({ entity, points: entity.polyline.map((p) => [origin.x + ((entity.x + p.x) / tw) * mpt, origin.z + ((entity.y + p.y) / th) * mpt]) });
       placed.push({ entity, world, object: null });
       continue;
     }

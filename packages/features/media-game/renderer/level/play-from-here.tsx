@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { LuPlay } from 'react-icons/lu';
 
-import { levelEntityToWorld, metresPerTile } from '@midnite/studio-shared';
+import { levelEntityToWorld, levelPixelsToWorld } from '@midnite/studio-shared';
 import { bridge, RingSpinner, useToastStore } from '@midnite/studio-frame';
 
 import { useGameRunStore } from '../game-run-store';
@@ -27,8 +27,8 @@ export function playSpawn(level: EditLevel, selected: LevelObject | null, pointe
   }
   if (!pointer) return null;
   if (isLevel3d(level)) {
-    const mpt = metresPerTile(level);
-    return { x: (pointer.x / level.tilewidth) * mpt, y: (pointer.y / level.tileheight) * mpt };
+    const [x, y] = levelPixelsToWorld(level, pointer.x, pointer.y);
+    return { x, y };
   }
   return { x: pointer.x, y: pointer.y };
 }

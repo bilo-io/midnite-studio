@@ -25,7 +25,7 @@ import {
 } from 'react-icons/lu';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { GAME_LEVEL_ENTITY_TYPES_2D, GAME_LEVEL_ENTITY_TYPES_3D, SCATTER_STROKE_CAP, levelEntityToWorld, levelProperties, metresPerTile, type GameLevelGetResult, type GamePrefab } from '@midnite/studio-shared';
+import { GAME_LEVEL_ENTITY_TYPES_2D, GAME_LEVEL_ENTITY_TYPES_3D, SCATTER_STROKE_CAP, levelEntityToWorld, levelOrigin, levelProperties, metresPerTile, type GameLevelGetResult, type GamePrefab } from '@midnite/studio-shared';
 import { EmptyState, EmptyStateButton, KitContextMenu, Skeleton, useFrameChrome, type FrameMenuEntry } from '@midnite/studio-frame';
 
 import { IconButton, useNotify } from '../chrome';
@@ -395,7 +395,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
   const [planViewIn, setPlanViewIn] = useState<View | null>(null);
   const planViewOut = useRef<{ view: View; size: { width: number; height: number } } | null>(null);
   const handle3d = useRef<Level3dHandle | null>(null);
-  const planScale = { tilewidth: level.tilewidth, tileheight: level.tileheight, mpt: metresPerTile(level) };
+  const planScale = { tilewidth: level.tilewidth, tileheight: level.tileheight, mpt: metresPerTile(level), originX: levelOrigin(level).x, originZ: levelOrigin(level).z };
   const switchView = (next: LevelViewMode) => {
     if (next === viewMode || !can3d) return;
     useLevelViewStore.getState().setMode(gameId, next);

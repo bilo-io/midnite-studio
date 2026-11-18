@@ -3,7 +3,7 @@ import { levelEntityToWorld } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { addObject, createEditState, objectCentre, rotateObject, setVolume, type EditLevel } from './level-edit-model';
-import { footprintCorners, gridLines, hitPlan, metresToPlan, pathPoints, pixelsPerMetre, planBounds, snapPlan, terrainRect, yawTipPoint } from './level-plan';
+import { footprintCorners, gridLines, hitPlan, metresToPlan, pathPoints, pixelsPerMetre, planBounds, planFrameBounds, snapPlan, terrainRect, yawTipPoint } from './level-plan';
 import { buildBlankLevel } from './new-scene-model';
 
 const level3d = (mpt = 1): EditLevel => {
@@ -137,5 +137,39 @@ describe('a level centred on the origin (negative pixels)', () => {
     expect(g.x[0]).toEqual({ at: -640, bold: true });
     expect(g.x.filter((l) => l.bold).map((l) => l.at)).toEqual([-640, -320, 0, 320, 640]);
     expect(g.z[0]).toEqual({ at: -192, bold: false });
+  });
+});
+
+describe('a level with an origin (midnite.originX/Y)', () => {
+  const withOrigin = (x: number, z: number, mpt = 1): EditLevel => {
+    const l = level3d(mpt);
+    return { ...l, properties: [...l.properties!, { name: 'midnite.originX', type: 'float', value: x }, { name: 'midnite.originY', type: 'float', value: z }] };
+  };
+
+  it('places the terrain and metre points relative to the map corner', () => {
+    expect(metresToPlan(withOrigin(-1950, -2145), -1948, -2142)).toEqual({ x: 64, y: 96 });
+    expect(terrainRect(withOrigin(-1950, -2145), { minX: -5000, minZ: -5000, maxX: 5000, maxZ: 5000 })).toEqual({ x: -3050 * 32, y: -2855 * 32, width: 10000 * 32, height: 10000 * 32 });
+  });
+
+  it('keeps level without the properties exactly as before', () => {
+    expect(metresToPlan(level3d(2), 10, 4)).toEqual({ x: 160, y: 64 });
+    expect(metresToPlan(withOrigin(0, 0, 2), 10, 4)).toEqual({ x: 160, y: 64 });
+  });
+
+  it('grids on whole world metres, so lines stay aligned with the terrain', () => {
+    const g = gridLines(withOrigin(-1950.5, 10), 1);
+    // World -1950 is half a metre into the map; the first 10 m line is world -1950 = pixel 16.
+    expect(g.x[0]).toEqual({ at: 16, bold: true });
+    expect(g.x[1]).toEqual({ at: 48, bold: false });
+    expect(g.z.find((l) => l.bold)?.at).toBe(0);
+  });
+
+  it('frames the work, not a terrain a thousand times its size; a comparable terrain stays in frame', () => {
+    const level = withOrigin(-1950, -2145);
+    const big = { minX: -5000, minZ: -5000, maxX: 5000, maxZ: 5000 };
+    expect(planFrameBounds(level, big)).toEqual(planBounds(level));
+    const near = { minX: -30, minZ: -20, maxX: 5, maxZ: 5 };
+    expect(planFrameBounds(level3d(), near)).toEqual(planBounds(level3d(), near));
+    expect(planFrameBounds(level3d(), null)).toEqual(planBounds(level3d()));
   });
 });

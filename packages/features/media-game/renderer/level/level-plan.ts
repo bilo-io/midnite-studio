@@ -4,7 +4,7 @@
  * is the only scale. What a world position means is `levelEntityToWorld`'s business; nothing here re-derives it
  * except {@link objectCentre}'s rotation rule, which `level-plan.test.ts` pins to it.
  */
-import { metresPerTile, type GameLevelTerrain } from '@midnite/studio-shared';
+import { levelOrigin, levelWorldToPixels, metresPerTile, type GameLevelTerrain } from '@midnite/studio-shared';
 
 import { objectCentre, type EditLevel, type EditSelection, type LevelObject, type PlanPoint } from './level-edit-model';
 
@@ -17,10 +17,9 @@ export function pixelsPerMetre(level: Pick<EditLevel, 'properties' | 'tilewidth'
   return { x: level.tilewidth / mpt, z: level.tileheight / mpt };
 }
 
-/** A metres-space point as a map-pixel point. */
+/** A world-metres point as a map-pixel point (the level's `midnite.originX/Y` is taken off). */
 export function metresToPlan(level: Pick<EditLevel, 'properties' | 'tilewidth' | 'tileheight'>, x: number, z: number): PlanPoint {
-  const ppm = pixelsPerMetre(level);
-  return { x: x * ppm.x, y: z * ppm.z };
+  return levelWorldToPixels(level, x, z);
 }
 
 /**
@@ -131,6 +130,19 @@ export function planBounds(level: EditLevel, terrain?: Pick<GameLevelTerrain, 'm
   return b;
 }
 
+/**
+ * What the first fit frames: {@link planBounds}, except that a terrain far larger than the work (the map and its
+ * objects) is left out, so a 80 m level on a 10 km terrain opens on the level, not on a speck in the outline.
+ * The terrain stays on screen at any zoom that shows it; zooming out reaches all of it.
+ */
+export function planFrameBounds(level: EditLevel, terrain?: Pick<GameLevelTerrain, 'minX' | 'minZ' | 'maxX' | 'maxZ'> | null): PlanBounds {
+  const all = planBounds(level, terrain);
+  if (!terrain) return all;
+  const work = planBounds(level);
+  const area = (b: PlanBounds) => (b.maxX - b.minX) * (b.maxY - b.minY);
+  return area(all) > 50 * area(work) ? work : all;
+}
+
 /** The metre grid to draw over `bounds` (default: the map's frame), as pixel positions: 1 m lines, every tenth bold. Lines closer than `minGapPx` on screen are dropped. */
 export function gridLines(
   level: Pick<EditLevel, 'properties' | 'tilewidth' | 'tileheight' | 'width' | 'height'>,
@@ -143,10 +155,12 @@ export function gridLines(
   // Show every metre when they are far enough apart, else every 10 m, else nothing.
   const step = ppm.x * zoom >= minGapPx ? 1 : ppm.x * zoom * 10 >= minGapPx ? 10 : 0;
   if (step === 0) return { x: [], z: [] };
-  const axis = (min: number, max: number, scale: number) => {
+  // Lines sit on whole world metres, so with an origin they stay aligned with the terrain; `at` is the map pixel.
+  const origin = levelOrigin(level);
+  const axis = (min: number, max: number, scale: number, base: number) => {
     const out: Array<{ at: number; bold: boolean }> = [];
-    for (let m = Math.ceil(min / scale / step) * step; m * scale <= max; m += step) out.push({ at: m * scale, bold: ((m % 10) + 10) % 10 === 0 });
+    for (let m = Math.ceil((base + min / scale) / step) * step; (m - base) * scale <= max; m += step) out.push({ at: (m - base) * scale, bold: ((m % 10) + 10) % 10 === 0 });
     return out;
   };
-  return { x: axis(box.minX, box.maxX, ppm.x), z: axis(box.minY, box.maxY, ppm.z) };
+  return { x: axis(box.minX, box.maxX, ppm.x, origin.x), z: axis(box.minY, box.maxY, ppm.z, origin.z) };
 }
