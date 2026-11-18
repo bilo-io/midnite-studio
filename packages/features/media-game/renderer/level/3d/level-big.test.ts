@@ -1,7 +1,7 @@
 // vitest/jsdom: pure maths for a big level's 3D view, no browser capability needed.
 import { describe, expect, it } from 'vitest';
 
-import { detailSegments, focusBounds, gridUnit, reachFor, tileSizeFor, workBounds } from './level-big';
+import { detailSegments, focusBounds, gridUnit, reachFor, tileSizeFor, workBounds, packTiles } from './level-big';
 
 const TERRAIN = { minX: -5000, minZ: -5000, maxX: 5000, maxZ: 5000 };
 const prop = (name: string, value: number) => ({ name, type: 'float' as const, value });
@@ -41,5 +41,16 @@ describe('detailSegments', () => {
     expect(s.buildings.length).toBe(18);
     expect([...s.buildings.slice(12)]).toEqual([4, 2, 4, 0, 2, 0]);
     expect(detailSegments({ roads: [], buildings: [] }, 0).roads.length).toBe(0);
+  });
+});
+
+describe('packTiles', () => {
+  it('cuts a pack into at most 16 tiles a side and leaves out what the terrain covers whole', () => {
+    const pack = { minX: 0, minZ: 0, maxX: 16000, maxZ: 16000 };
+    expect(packTiles(pack, 48, [])).toHaveLength(256);
+    // A 4 km square of the terrain over it hides the 16 tiles wholly under it.
+    expect(packTiles(pack, 48, [{ minX: 4000, minZ: 4000, maxX: 8000, maxZ: 8000 }])).toHaveLength(240);
+    // Never finer than the preset's tile.
+    expect(packTiles({ minX: 0, minZ: 0, maxX: 100, maxZ: 100 }, 50, [])).toHaveLength(4);
   });
 });

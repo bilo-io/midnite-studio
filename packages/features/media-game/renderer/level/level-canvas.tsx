@@ -47,6 +47,25 @@ function useTerrainImage(preview: string | null | undefined): { image: HTMLImage
   return { image, loaded };
 }
 
+/** The drapes of a terrain's further packs, in order (`null` where a pack has none), redrawing as each arrives. */
+function useTerrainImages(previews: ReadonlyArray<string | null>): { images: Array<HTMLImageElement | null>; loaded: number } {
+  const [loaded, setLoaded] = useState(0);
+  const key = previews.map((p) => p ?? '').join('\n');
+  const images = useMemo(
+    () =>
+      previews.map((preview) => {
+        if (!preview) return null;
+        const img = new Image();
+        img.onload = () => setLoaded((n) => n + 1);
+        img.src = preview;
+        return img;
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the previews' content, not the array's identity
+    [key],
+  );
+  return { images, loaded };
+}
+
 export const OBJECT_COLOURS: Record<string, string> = { spawn: '#22c55e', exit: '#3b82f6' };
 const NEUTRAL = '#e5e7eb';
 const COLLISION_FILL = 'rgba(229, 57, 53, 0.4)';
@@ -181,6 +200,8 @@ export function LevelCanvas({
   const [brushAt, setBrushAt] = useState<PlanPoint | null>(null);
   const { image: terrainImage, loaded: terrainLoaded } = useTerrainImage(plan?.terrain?.preview);
   const { image: terrainDetailImage, loaded: terrainDetailLoaded } = useTerrainImage(plan?.terrain?.detail?.preview);
+  const packPreviews = useMemo(() => (plan?.terrain?.packs ?? []).map((p) => p.preview), [plan?.terrain?.packs]);
+  const { images: terrainPackImages, loaded: terrainPacksLoaded } = useTerrainImages(packPreviews);
   /** Bumped while a pulse is running, so the draw effect repaints it. */
   const [pulseTick, setPulseTick] = useState(0);
   useEffect(() => {
@@ -264,7 +285,7 @@ export function LevelCanvas({
       } else ctx.rect(o.x, o.y, tmj.tilewidth, tmj.tileheight);
     };
     if (plan) {
-      const overlay: PlanOverlay = { terrain: plan.terrain, terrainImage, terrainDetailImage, draft: plan.draft, cursor: plan.draft.length > 0 ? cursor : null, volume: plan.volume };
+      const overlay: PlanOverlay = { terrain: plan.terrain, terrainImage, terrainDetailImage, terrainPackImages, draft: plan.draft, cursor: plan.draft.length > 0 ? cursor : null, volume: plan.volume };
       drawPlan(ctx, { level, view, selection, selected, marquee, hidden, overlay, outline, text, highlight });
       if (hasExtras(extras)) drawExtras(ctx, { extras, view });
       if (brush && brushAt) drawBrush(ctx, { at: brushAt, radius: brush.radius, view, outline });
@@ -346,7 +367,7 @@ export function LevelCanvas({
       ctx.stroke();
     }
     if (brush && brushAt) drawBrush(ctx, { at: brushAt, radius: brush.radius, view, outline, toMap: (p) => objectToMapPoint(level, p.x, p.y) });
-  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection, selected, marquee, hidden, plan, terrainImage, terrainLoaded, terrainDetailImage, terrainDetailLoaded, cursor, highlight, pulseTick, extras, brush, brushAt]);
+  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection, selected, marquee, hidden, plan, terrainImage, terrainLoaded, terrainDetailImage, terrainDetailLoaded, terrainPackImages, terrainPacksLoaded, cursor, highlight, pulseTick, extras, brush, brushAt]);
 
   const local = (e: { clientX: number; clientY: number }) => {
     const rect = canvas.current?.getBoundingClientRect();

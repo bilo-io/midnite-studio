@@ -124,6 +124,8 @@ describe('a level centred on the origin (negative pixels)', () => {
     expect(planBounds(level3d())).toEqual({ minX: 0, minY: 0, maxX: 640, maxY: 640 });
     expect(planBounds(centred())).toEqual({ minX: -640, minY: -192, maxX: 640, maxY: 640 });
     expect(planBounds(level3d(), { minX: -30, minZ: -20, maxX: 5, maxZ: 5 })).toEqual({ minX: -960, minY: -640, maxX: 640, maxY: 640 });
+    // The packs placed round a terrain count too.
+    expect(planBounds(level3d(), { minX: -30, minZ: -20, maxX: 5, maxZ: 5, packs: [{ minX: 0, minZ: 0, maxX: 100, maxZ: 50 }] })).toEqual({ minX: -960, minY: -640, maxX: 3200, maxY: 1600 });
   });
 
   it('hits points and footprints at negative coordinates', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { GameLevelSchema, GAME_LEVEL_PROPS, levelEntityToWorld, levelOrigin, levelPixelsToWorld, levelWorldToPixels, levelProperties, metresPerTile, parseGameLevel } from './game-level';
+import { GameLevelSchema, GAME_LEVEL_PROPS, levelEntityToWorld, levelOrigin, levelPixelsToWorld, levelWorldToPixels, levelProperties, metresPerTile, parseGameLevel, terrainExtent, terrainPlacements } from './game-level';
 import { GameManifestSchema, GameSceneNameSchema } from './media-game';
 import { buildTmj, buildTsj, TiledMapSchema } from './sprite/tiled';
 
@@ -175,5 +175,21 @@ describe('level origin (midnite.originX / originY)', () => {
     const parsed = parseGameLevel(JSON.parse(JSON.stringify(map)));
     expect(parsed.ok && levelOrigin(parsed.level)).toEqual({ x: -5000, z: 5000 });
     expect(parsed.ok && JSON.parse(JSON.stringify(parsed.level)).properties).toEqual(map.properties);
+  });
+});
+
+describe('terrain packs round a level terrain', () => {
+  it('reads the placements a level lists and leaves out what it cannot use', () => {
+    const ok = { name: 'north', minX: -10, minZ: 0, maxX: 10, maxZ: 20 };
+    expect(terrainPlacements(JSON.stringify([ok, { name: 'flat', minX: 0, minZ: 0, maxX: 0, maxZ: 5 }, { name: '', minX: 0, minZ: 0, maxX: 1, maxZ: 1 }, { name: 'text', minX: '0', minZ: 0, maxX: 1, maxZ: 1 }, null]))).toEqual([ok]);
+    expect(terrainPlacements('not json')).toEqual([]);
+    expect(terrainPlacements('{"name":"north"}')).toEqual([]);
+    expect(terrainPlacements(undefined)).toEqual([]);
+    expect(terrainPlacements(JSON.stringify(Array.from({ length: 20 }, () => ok)))).toHaveLength(8);
+  });
+  it('spans the terrain and every pack', () => {
+    const terrain = { minX: -5, minZ: -5, maxX: 5, maxZ: 5 };
+    expect(terrainExtent(terrain)).toEqual(terrain);
+    expect(terrainExtent({ ...terrain, packs: [{ minX: -9, minZ: 0, maxX: 2, maxZ: 30 }] })).toEqual({ minX: -9, minZ: -5, maxX: 5, maxZ: 30 });
   });
 });

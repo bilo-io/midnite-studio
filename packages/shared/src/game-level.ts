@@ -29,6 +29,8 @@ export const GAME_LEVEL_PROPS = {
   dimension: 'midnite.dimension',
   metresPerTile: 'midnite.metresPerTile',
   terrain: 'midnite.terrain',
+  /** Further terrain packs round the primary one: a JSON array of `{ name, minX, minZ, maxX, maxZ }` (world metres), earlier first where they overlap. */
+  terrainPacks: 'midnite.terrainPacks',
   groundY: 'midnite.groundY',
   /** World X (metres) of the map's top-left corner; default 0. */
   originX: 'midnite.originX',
@@ -257,6 +259,21 @@ export const GameLevelTerrainDetailSchema = z.object({
 });
 export type GameLevelTerrainDetail = z.infer<typeof GameLevelTerrainDetailSchema>;
 
+/** The most further packs a level may name. */
+export const GAME_LEVEL_TERRAIN_PACKS_MAX = 8;
+
+/** A further terrain pack as the level places it: its drape and coarse ground over the rectangle the level gives it. */
+export const GameLevelTerrainPackSchema = z.object({
+  name: z.string(),
+  minX: z.number(),
+  minZ: z.number(),
+  maxX: z.number(),
+  maxZ: z.number(),
+  preview: z.string().nullable(),
+  heights: GameLevelHeightsSchema.optional(),
+});
+export type GameLevelTerrainPack = z.infer<typeof GameLevelTerrainPackSchema>;
+
 export const GameLevelTerrainSchema = z.object({
   name: z.string(),
   minX: z.number(),
@@ -267,8 +284,46 @@ export const GameLevelTerrainSchema = z.object({
   detail: GameLevelTerrainDetailSchema.optional(),
   /** The whole terrain's ground, coarse, when the pack has a heightfield: the 3D view's relief. */
   heights: GameLevelHeightsSchema.optional(),
+  /** The packs `midnite.terrainPacks` places round this one, in the level's order: an earlier one lies over a later one, and this terrain over them all. */
+  packs: z.array(GameLevelTerrainPackSchema).max(GAME_LEVEL_TERRAIN_PACKS_MAX).optional(),
 });
 export type GameLevelTerrain = z.infer<typeof GameLevelTerrainSchema>;
+
+export type TerrainPlacement = { name: string; minX: number; minZ: number; maxX: number; maxZ: number };
+
+/** `midnite.terrainPacks` as placements: bad JSON, a bad entry or an empty rectangle is left out, and only the first {@link GAME_LEVEL_TERRAIN_PACKS_MAX} count. */
+export function terrainPlacements(value: unknown): TerrainPlacement[] {
+  if (typeof value !== 'string' || value.trim() === '') return [];
+  let list: unknown;
+  try {
+    list = JSON.parse(value);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(list)) return [];
+  const out: TerrainPlacement[] = [];
+  for (const e of list as Array<Record<string, unknown> | null>) {
+    if (!e || typeof e.name !== 'string' || e.name === '') continue;
+    const { minX, minZ, maxX, maxZ } = e;
+    if (![minX, minZ, maxX, maxZ].every((n) => typeof n === 'number' && Number.isFinite(n))) continue;
+    if (!((maxX as number) > (minX as number)) || !((maxZ as number) > (minZ as number))) continue;
+    out.push({ name: e.name, minX: minX as number, minZ: minZ as number, maxX: maxX as number, maxZ: maxZ as number });
+    if (out.length === GAME_LEVEL_TERRAIN_PACKS_MAX) break;
+  }
+  return out;
+}
+
+type TerrainRect = Pick<GameLevelTerrain, 'minX' | 'minZ' | 'maxX' | 'maxZ'>;
+
+/** The rectangle round a terrain and every pack placed with it. */
+export function terrainExtent(terrain: TerrainRect & { packs?: readonly TerrainRect[] | undefined }): { minX: number; minZ: number; maxX: number; maxZ: number } {
+  const out = { minX: terrain.minX, minZ: terrain.minZ, maxX: terrain.maxX, maxZ: terrain.maxZ };
+  for (const p of terrain.packs ?? []) {
+    out.minX = Math.min(out.minX, p.minX); out.minZ = Math.min(out.minZ, p.minZ);
+    out.maxX = Math.max(out.maxX, p.maxX); out.maxZ = Math.max(out.maxZ, p.maxZ);
+  }
+  return out;
+}
 
 export const GameLevelGetResultSchema = z.object({
   level: z.unknown(),

@@ -1,7 +1,7 @@
 import { Canvas } from '@react-three/fiber';
 import { DEFAULT_SNAP, TransformModeBar, type SnapSettings, type TransformMode } from '@midnite/studio-frame/viewport3d';
 import { bridge } from '@midnite/studio-frame';
-import { levelOrigin, levelPixelsToWorld, metresPerTile, type GameLevelTerrain } from '@midnite/studio-shared';
+import { levelOrigin, levelPixelsToWorld, metresPerTile, terrainExtent, type GameLevelTerrain } from '@midnite/studio-shared';
 import { useEffect, useMemo, useRef, useState, type ComponentType, type KeyboardEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent } from 'react';
 import { LuActivity, LuBox, LuCrosshair, LuGlobe, LuGroup } from 'react-icons/lu';
 import type { Object3D } from 'three';
@@ -116,6 +116,9 @@ export default function Level3dView(props: Level3dViewProps) {
     !r ? null : relief ? reliefPoint(r.origin, r.dir, relief) : groundPoint(r.origin, r.dir, ground);
   const grid = useMemo(() => new SpatialGrid(items), [items]);
   const bounds = useMemo(() => levelBounds(level, props.terrain), [level, props.terrain]);
+  /** All the ground: the terrain with every pack placed round it. */
+  const extent = useMemo<GroundTile>(() => (props.terrain ? terrainExtent(props.terrain) : bounds), [props.terrain, bounds]);
+  const packs = useMemo(() => (props.terrain?.packs ?? []).map((p) => ({ minX: p.minX, minZ: p.minZ, maxX: p.maxX, maxZ: p.maxZ, drape: p.preview })), [props.terrain?.packs]);
   /** Item indices of the selection, primary first-class via `props.selection`. */
   const selectedIdx = useMemo(() => {
     const out: number[] = [];
@@ -158,7 +161,7 @@ export default function Level3dView(props: Level3dViewProps) {
   statsOnRef.current = statsOn;
 
   /** What the view opens on and grids: the work, when the terrain dwarfs it. */
-  const focus = useMemo(() => focusBounds(bounds, workBounds(level, items)), [bounds, level, items]);
+  const focus = useMemo(() => focusBounds(extent, workBounds(level, items)), [extent, level, items]);
   const levelCentre = (): { target: [number, number, number]; span: number } => ({
     target: [(focus.minX + focus.maxX) / 2, heightAt((focus.minX + focus.maxX) / 2, (focus.minZ + focus.maxZ) / 2), (focus.minZ + focus.maxZ) / 2],
     span: Math.max(focus.maxX - focus.minX, focus.maxZ - focus.minZ, 10) * 0.8,
@@ -256,7 +259,7 @@ export default function Level3dView(props: Level3dViewProps) {
     const draw = captureFn.current;
     if (!draw) throw new Error('The 3D view is not ready to draw a picture yet.');
     for (let i = 0; i < 2; i += 1) await new Promise<void>((r) => requestAnimationFrame(() => r()));
-    const whole = levelWorldBox(bounds, ground, items);
+    const whole = levelWorldBox(extent, ground, items);
     const live = poseOut.current ?? initialPose;
     const liveCamera = { position: cameraPosition(live), target: live.target, fov: live.fov };
     const camera = capturePose(req, whole, boxOf(null, selectedRefs)) ?? liveCamera;
@@ -486,6 +489,8 @@ export default function Level3dView(props: Level3dViewProps) {
           items={items}
           grid={grid}
           bounds={bounds}
+          extent={extent}
+          packs={packs}
           ground={ground}
           drape={props.terrain?.preview ?? null}
           focus={focus}

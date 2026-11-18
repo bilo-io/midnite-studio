@@ -3,10 +3,9 @@
  * refs in any object layer; a rectangle in map pixels becomes a plan `View`; a set of refs becomes a world box for the
  * 3D camera.
  */
-import type { GameLevelTerrain } from '@midnite/studio-shared';
 
 import type { EditLevel, ObjectRef, PlanRect } from './level-edit-model';
-import { planBounds } from './level-plan';
+import { planBounds, type TerrainArea } from './level-plan';
 import { selectionBounds } from './level-selection';
 import { clampZoom, ZOOM_MIN, type View } from './level-view';
 
@@ -51,7 +50,7 @@ export function resolveIds(level: EditLevel, ids: readonly number[]): { refs: Ob
  */
 export function frameTarget(
   level: EditLevel,
-  terrain: Pick<GameLevelTerrain, 'minX' | 'minZ' | 'maxX' | 'maxZ'> | null,
+  terrain: TerrainArea | null,
   ask: { ids?: readonly number[] | undefined; region?: PlanRect | undefined },
 ): PlanRect | null {
   if (ask.ids && ask.ids.length > 0) return selectionBounds(level, resolveIds(level, ask.ids).refs);

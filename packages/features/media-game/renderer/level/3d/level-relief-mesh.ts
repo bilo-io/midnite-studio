@@ -6,22 +6,25 @@ import type { GroundTile } from './level-cull';
 import { buildingWalls, tileLines } from './level-relief';
 
 type HeightAt = (x: number, z: number) => number;
+/** An area some other mesh covers: ground vertices strictly inside it sink to `floor`. */
+export type Hole = GroundTile & { floor: number };
 
 /**
  * A grid of vertices over `area` on the given X and Z lines, each at `heightAt` (plus `lift`), its UVs a window onto
  * `uvOver` (an image spanning it, north up). With a `hole`, vertices strictly inside it sit at `hole.floor` instead:
- * the quads round its edge become a skirt under whatever finer mesh covers the hole.
+ * the quads round its edge become a skirt under whatever mesh covers the hole (several holes may be given).
  */
-export function groundGeometry(xs: readonly number[], zs: readonly number[], heightAt: HeightAt, uvOver: GroundTile, lift = 0, hole: (GroundTile & { floor: number }) | null = null): BufferGeometry {
+export function groundGeometry(xs: readonly number[], zs: readonly number[], heightAt: HeightAt, uvOver: GroundTile, lift = 0, hole: Hole | readonly Hole[] | null = null): BufferGeometry {
+  const holes: readonly Hole[] = hole === null ? [] : Array.isArray(hole) ? (hole as readonly Hole[]) : [hole as Hole];
   const cols = xs.length, rows = zs.length;
   const pos = new Float32Array(cols * rows * 3), uv = new Float32Array(cols * rows * 2);
   const W = uvOver.maxX - uvOver.minX || 1, H = uvOver.maxZ - uvOver.minZ || 1;
   for (let j = 0; j < rows; j += 1) {
     for (let i = 0; i < cols; i += 1) {
       const x = xs[i]!, z = zs[j]!, k = j * cols + i;
-      const sunk = hole !== null && x > hole.minX && x < hole.maxX && z > hole.minZ && z < hole.maxZ;
+      const sunk = holes.find((h) => x > h.minX && x < h.maxX && z > h.minZ && z < h.maxZ);
       pos[k * 3] = x;
-      pos[k * 3 + 1] = sunk ? hole.floor : heightAt(x, z) + lift;
+      pos[k * 3 + 1] = sunk ? sunk.floor : heightAt(x, z) + lift;
       pos[k * 3 + 2] = z;
       uv[k * 2] = (x - uvOver.minX) / W;
       uv[k * 2 + 1] = 1 - (z - uvOver.minZ) / H;
@@ -45,10 +48,11 @@ export function groundGeometry(xs: readonly number[], zs: readonly number[], hei
 const even = (min: number, max: number, n: number): number[] => Array.from({ length: n }, (_, i) => min + ((max - min) * i) / (n - 1));
 
 /** One ground tile of `segments`² quads (more where `hole`'s edges cross it), following the ground. */
-export function tileGeometry(tile: GroundTile, all: GroundTile, heightAt: HeightAt, segments: number, hole: (GroundTile & { floor: number }) | null = null): BufferGeometry {
-  const xs = tileLines(tile.minX, tile.maxX, segments, hole ? [hole.minX, hole.maxX] : []);
-  const zs = tileLines(tile.minZ, tile.maxZ, segments, hole ? [hole.minZ, hole.maxZ] : []);
-  return groundGeometry(xs, zs, heightAt, all, 0, hole);
+export function tileGeometry(tile: GroundTile, all: GroundTile, heightAt: HeightAt, segments: number, hole: Hole | readonly Hole[] | null = null): BufferGeometry {
+  const holes: readonly Hole[] = hole === null ? [] : Array.isArray(hole) ? (hole as readonly Hole[]) : [hole as Hole];
+  const xs = tileLines(tile.minX, tile.maxX, segments, holes.flatMap((h) => [h.minX, h.maxX]));
+  const zs = tileLines(tile.minZ, tile.maxZ, segments, holes.flatMap((h) => [h.minZ, h.maxZ]));
+  return groundGeometry(xs, zs, heightAt, all, 0, holes);
 }
 
 /** The fine patch over `area` (the terrain detail's extent, which its drape crop spans): `cols × rows` vertices, `lift` above the ground. */
