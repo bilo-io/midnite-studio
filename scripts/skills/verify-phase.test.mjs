@@ -108,7 +108,7 @@ describe('verify-phase', () => {
     const root = fixture();
     try {
       const r = verify({ root, phase: 9, exec: (cmd) => (ran.push(cmd.join(' ')), { code: 0, out: 'ok' }) });
-      expect(ran).toEqual(['node scripts/tracker-check.mjs']);
+      expect(ran).toEqual([]);
       expect(r.openHuman).toHaveLength(1);
       expect(r.openAutomated).toHaveLength(1);
       ran.length = 0;

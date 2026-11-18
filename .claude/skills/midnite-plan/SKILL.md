@@ -9,7 +9,7 @@ You are running the **plan** workflow for the **Midnite Studio** repo: an intera
 
 ## 0 · Run the script first
 
-Run `node scripts/skills/verify-phase.mjs --json`. It reads the category indexes and lists incomplete phases and their checklists (read-only), so the status overview does not need a long scan; run `node scripts/tracker-check.mjs` after writing the doc. You still riff with the user and write the phase doc. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+Run `node scripts/skills/verify-phase.mjs --json`. It reads the category indexes and lists incomplete phases and their checklists (read-only), so the status overview does not need a long scan. You still riff with the user and write the phase doc. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
 
 ## Context you must respect
 
