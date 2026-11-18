@@ -469,6 +469,7 @@ function SessionsManager({
   const selected = rows.find((row) => row.id === selectedId) ?? null;
 
   const [switchingTarget, setSwitchingTarget] = useState<UnifiedSessionViewMode | null>(null);
+  const switchInFlightRef = useRef(false);
 
   // Keep the chats store synced whenever a unified row in Chat mode is active.
   useEffect(() => {
@@ -495,13 +496,15 @@ function SessionsManager({
   };
 
   const handleSwitchView = async (session: ManagedLiveSession, targetView: UnifiedSessionViewMode) => {
-    if (!chatsPort || switchingTarget !== null) return;
+    // A ref, not `switchingTarget`: two clicks in one tick both read the stale state.
+    if (!chatsPort || switchInFlightRef.current) return;
     if (resolveManagedActiveView(session) === targetView) return;
     if (targetView === 'terminal' && session.agentId && getProviderSyncTier(session.agentId) === 'chat-only') {
       return;
     }
 
     const sessionId = session.terminalId ?? session.chatId ?? session.id;
+    switchInFlightRef.current = true;
     setSwitchingTarget(targetView);
     try {
       const result = await chatsPort.switchView({ sessionId, targetView, handoffMode: 'auto' });
@@ -517,7 +520,13 @@ function SessionsManager({
         selectLiveSession(result.value.terminalId ?? result.value.chatId);
         chatsPort.selectChat(result.value.chatId);
       }
+    } catch (err) {
+      useToastStore.getState().addToast({
+        message: err instanceof Error && err.message ? err.message : 'Could not switch view.',
+        status: 'error',
+      });
     } finally {
+      switchInFlightRef.current = false;
       setSwitchingTarget(null);
     }
   };
