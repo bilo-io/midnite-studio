@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { clearDrapePreviewCache } from './drape-preview';
 import { noisyPng } from './drape-preview-fixture';
+import { encodePngGrey16 } from '@midnite/studio-runtime';
+
 import { readLevelTerrain } from './game-level-terrain';
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64');
@@ -42,6 +44,25 @@ describe('readLevelTerrain (Phase 132 Theme E)', () => {
     expect(t?.detail?.preview).toMatch(/^data:image\/png;base64,/);
     expect((await readLevelTerrain(repo.path, { ...small, width: 200, height: 100 }))?.detail).toBeUndefined();
     expect((await readLevelTerrain(repo.path, withTerrain('world')))?.detail).toBeUndefined();
+  });
+
+  it('sends the ground heights and the stated building heights when the pack has them', async () => {
+    await repo.writeFile(
+      'assets/terrain/world/terrain.manifest.json',
+      JSON.stringify({ bounds: { min: [-100, 0, -50], max: [100, 40, 50] }, heightRange: [0, 40], heightfield: { png: 'heightfield.png', json: 'heightfield.json' }, buildings: 'buildings.json' }),
+    );
+    // 5 × 5 samples rising west to east.
+    await writeFile(join(repo.path, 'assets/terrain/world/heightfield.png'), encodePngGrey16(Uint16Array.from({ length: 25 }, (_, i) => (i % 5) * 16383), 5, 5));
+    await repo.writeFile('assets/terrain/world/heightfield.json', JSON.stringify({ heightRange: [10, 50] }));
+    await repo.writeFile('assets/terrain/world/buildings.json', JSON.stringify({ buildings: [{ polygon: [[0, 0], [4, 0], [4, 4]], baseY: 30.04, height: 9 }] }));
+    const t = await readLevelTerrain(repo.path, { ...withTerrain('world'), width: 10, height: 10, tilewidth: 32, tileheight: 32, layers: [] });
+    expect(t?.heights).toMatchObject({ minX: -100, minZ: -50, maxX: 100, maxZ: 50, cols: 5, rows: 5, min: 10, max: 50 });
+    expect(Buffer.from(t!.heights!.data, 'base64').readUInt16LE(8)).toBe(65532);
+    expect(t?.detail?.buildingHeights).toEqual([30, 9]);
+    expect(t?.detail?.heights).toMatchObject({ minX: -1.5, maxX: 11.5, cols: 2, rows: 2 });
+    // A pack with no heightfield sends none.
+    await repo.writeFile('assets/terrain/world/terrain.manifest.json', JSON.stringify({ bounds: { min: [-100, 0, -50], max: [100, 40, 50] } }));
+    expect((await readLevelTerrain(repo.path, withTerrain('world')))?.heights).toBeUndefined();
   });
 
   it('draws only the outline when the pack has no drape', async () => {
