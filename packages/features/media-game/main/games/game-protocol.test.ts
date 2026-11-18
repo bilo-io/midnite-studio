@@ -134,3 +134,21 @@ describe('importMapHashes', () => {
     expect(importMapHashes('<!doctype html><title>g</title>')).toEqual([]);
   });
 });
+
+describe('mstudio-game scheme handler overlay (Phase 140 Theme B)', () => {
+  const withOverlay = (overlay: (pathname: string) => Buffer | null, path: string): Promise<Response> =>
+    gameProtocolHandler(root, GAME_ID, 'off', fetchFile, overlay)(new Request(`mstudio-game://${GAME_ID}${path}`));
+
+  it('answers the overlay bytes with the CSP and the file type, ahead of the disk', async () => {
+    const res = await withOverlay((p) => (p === '/src/main.js' ? Buffer.from('overlaid') : null), '/src/main.js');
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe('overlaid');
+    expect(res.headers.get('content-type')).toContain('text/javascript');
+    expect(res.headers.get('content-security-policy')).toBe(gameCsp('off'));
+  });
+
+  it('falls through to the disk when the overlay has nothing for the path', async () => {
+    const res = await withOverlay(() => null, '/src/main.js');
+    expect(await res.text()).toBe('console.log("hi")');
+  });
+});

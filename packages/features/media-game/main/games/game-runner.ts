@@ -7,11 +7,14 @@ import {
   GAME_CONSOLE_BATCH_MS,
   GAME_DETERMINISM_PARAMS,
   GAME_LEVEL_PARAM,
+  GAME_LEVELS_DIR,
+  GAME_SPAWN_PARAM,
   GAMES_MAX_RUNNING,
   GAME_BUILD_REASON_PREFIX,
   GAME_BUILD_SOURCE,
   GameJuicePatchSchema,
   GameJuiceSettingsSchema,
+  GameSceneNameSchema,
   MSTUDIO_GAME_SCHEME,
   ok,
   type BrowserBounds,
@@ -31,6 +34,7 @@ import type { GameElectron, GameSession, GameView, GameWindow } from './game-ele
 import { BUILD_OUTSIDE_MESSAGE, gameServeRoot, runGameBuild, type GameBuildSpec } from './game-build';
 import { readGameEntities } from './game-entities';
 import { gameProtocolHandler } from './game-protocol';
+import { createPreviewOverlay, type PreviewOverlay } from './game-preview-overlay';
 import { LogRingBuffer, clipLogText } from './ring-buffer';
 
 /**
@@ -62,10 +66,14 @@ export type RunnableGame = {
   determinism?: { seed: number; paused: boolean } | null;
   /** The level this run starts on (`?midnite-level=`); absent → the game's own start (Phase 132 Theme C). */
   level?: string;
+  /** Play from here (Phase 140 Theme B): where the player starts, as `?midnite-spawn=` (`x,y` or `x,y,z`). */
+  spawn?: { x: number; y: number; z?: number } | null;
+  /** Play from here: the unsaved level JSON served as `levels/<scene>.tmj` instead of the disk file, for this run. */
+  preview?: { scene: string; json: string } | null;
 };
 
 /** The URL a run loads: `index.html`, plus the deterministic-mode query the kit reads before any game module. */
-export function gameEntryUrl(game: Pick<RunnableGame, 'gameId' | 'determinism' | 'level'>): string {
+export function gameEntryUrl(game: Pick<RunnableGame, 'gameId' | 'determinism' | 'level' | 'spawn'>): string {
   const base = `${MSTUDIO_GAME_SCHEME}://${game.gameId}/index.html`;
   const query = new URLSearchParams({
     ...(game.determinism
@@ -76,6 +84,9 @@ export function gameEntryUrl(game: Pick<RunnableGame, 'gameId' | 'determinism' |
         }
       : {}),
     ...(game.level ? { [GAME_LEVEL_PARAM]: game.level } : {}),
+    ...(game.spawn
+      ? { [GAME_SPAWN_PARAM]: [game.spawn.x, game.spawn.y, ...(game.spawn.z === undefined ? [] : [game.spawn.z])].join(',') }
+      : {}),
   });
   const text = query.toString();
   return text === '' ? base : `${base}?${text}`;
@@ -91,12 +102,19 @@ export type GameRunnerDeps<V extends GameView = GameView> = {
   send: (channel: string, payload: unknown) => void;
   /** Runs a bundled game's build; injected so tests need no shell. Defaults to {@link runGameBuild}. */
   build?: typeof runGameBuild;
+  /** Play from here's in-memory level overlay (Phase 140 Theme B); a runner makes its own by default. */
+  overlay?: PreviewOverlay;
 };
 
 export type GameRunner<V extends GameView = GameView> = {
   run(game: RunnableGame): Promise<GitOpResult<{ runId: string }>>;
   stop(gameId: string): void;
   stopAll(): void;
+  /**
+   * Drop a game's preview overlay (Phase 140 Theme B) — when `scene` is given, only if that is the scene it holds.
+   * The running game keeps what it loaded; a later reload reads the disk.
+   */
+  clearPreview(gameId: string, scene?: string): void;
   reload(gameId: string): GitOpResult;
   setBounds(gameId: string, bounds: BrowserBounds): void;
   setVisible(gameId: string, visible: boolean): void;
@@ -145,6 +163,8 @@ type Run<V extends GameView = GameView> = {
   /** A source changed since the build that produced what is on screen, or the last build failed. */
   stale: boolean;
   state: GameRunState;
+  /** Paths changed since the last reload fired, collected over the debounce (Phase 140 Theme C). */
+  changed: (string | null)[];
   /** Set once a crash was recorded, so `stop` does not overwrite it with `stopped`. */
   crashReason: string | null;
 };
@@ -168,6 +188,19 @@ export function isReloadTrigger(relPath: string | null, buildOut?: string | null
   const out = (buildOut ?? '').split('\\').join('/').replace(/^(\.\/)+/, '').replace(/\/+$/, '');
   if (out !== '' && out !== '.' && (normal === out || normal.startsWith(`${out}/`))) return false;
   return !WATCH_IGNORED_PREFIXES.some((prefix) => normal === prefix || normal.startsWith(`${prefix}/`));
+}
+
+export type ReloadKind = 'none' | 'scene' | 'page';
+
+/**
+ * What a burst of changed paths asks for (Phase 140 Theme C): only `levels/…` files (prefabs included — a prefab
+ * edit is a scene change too) restart the scene; any other trigger, or an unknown path (`null`), reloads the page.
+ * Pure — tested directly.
+ */
+export function reloadKind(relPaths: readonly (string | null)[]): ReloadKind {
+  if (relPaths.length === 0) return 'none';
+  const levelsOnly = relPaths.every((p) => p !== null && p.split('\\').join('/').startsWith(`${GAME_LEVELS_DIR}/`));
+  return levelsOnly ? 'scene' : 'page';
 }
 
 /**
@@ -250,9 +283,13 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
   };
 
   const buildGame = deps.build ?? runGameBuild;
+  const overlay = deps.overlay ?? createPreviewOverlay();
 
   function configureSession(ses: GameSession, game: RunnableGame, serveRoot: string): void {
-    ses.protocol.handle(MSTUDIO_GAME_SCHEME, gameProtocolHandler(serveRoot, game.gameId, game.network, deps.electron.fetchFile));
+    ses.protocol.handle(
+      MSTUDIO_GAME_SCHEME,
+      gameProtocolHandler(serveRoot, game.gameId, game.network, deps.electron.fetchFile, (pathname) => overlay.get(game.gameId, pathname)),
+    );
     ses.setPermissionRequestHandler((_wc, permission, callback, details) =>
       callback(isGamePermissionAllowed(permission, details as { mediaTypes?: readonly string[] })),
     );
@@ -342,14 +379,18 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
     try {
       const build = run.game.build ?? null;
       run.watcher = watch(run.game.root, { recursive: true }, (_event, filename) => {
-        if (!isReloadTrigger(filename === null ? null : String(filename), build?.out)) return;
+        const rel = filename === null ? null : String(filename);
+        if (!isReloadTrigger(rel, build?.out)) return;
         if (build) run.stale = true;
+        run.changed.push(rel);
         if (run.reloadTimer) clearTimeout(run.reloadTimer);
         run.reloadTimer = setTimeout(
           () => {
             run.reloadTimer = null;
+            const kind = reloadKind(run.changed);
+            run.changed = [];
             if (build) void buildThenLoad(run);
-            else if (!run.view.webContents.isDestroyed()) run.view.webContents.reloadIgnoringCache();
+            else if (!run.view.webContents.isDestroyed()) void reloadFor(run, kind);
           },
           build ? GAME_BUILD_DEBOUNCE_MS : GAME_RELOAD_DEBOUNCE_MS,
         );
@@ -358,6 +399,32 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
     } catch {
       run.watcher = null;
     }
+  }
+
+  /**
+   * Phase 140 Theme C: a level-only change restarts the scene through the hook's `goto(currentScene)` (the page, the
+   * audio context and DevTools stay); no hook, a failed call or any other change reloads the page as before.
+   */
+  async function reloadFor(run: Run, kind: ReloadKind): Promise<void> {
+    if (kind === 'scene' && run.loaded) {
+      const scene = await currentScene(run);
+      if (runs.get(run.game.gameId) !== run || run.view.webContents.isDestroyed()) return;
+      if (await exec(run, HOOK_CALL('goto', JSON.stringify(scene)))) return;
+    }
+    if (!run.view.webContents.isDestroyed()) run.view.webContents.reloadIgnoringCache();
+  }
+
+  /** The scene the running game shows now (`getState().scene`), else the level the run started on. */
+  async function currentScene(run: Run): Promise<string> {
+    try {
+      const raw: unknown = await run.view.webContents.executeJavaScript(
+        `(() => { const m = window.__midnite; const s = m && typeof m.getState === 'function' ? m.getState() : null; return s && typeof s.scene === 'string' ? s.scene : null; })()`,
+      );
+      if (typeof raw === 'string' && GameSceneNameSchema.safeParse(raw).success) return raw;
+    } catch {
+      // fall through to the run's level
+    }
+    return run.game.level ?? 'main';
   }
 
   /**
@@ -423,6 +490,7 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
     const run = runs.get(gameId);
     if (!run) return;
     runs.delete(gameId);
+    overlay.clear(gameId); // a preview lives and dies with its run
     teardown(run);
     const ms = Date.now() - run.startedAt;
     if (run.crashReason === null) {
@@ -456,6 +524,10 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
       if (serveRoot === null) return failure(BUILD_OUTSIDE_MESSAGE);
 
       nextLevel.delete(game.gameId); // spent only once the run is really starting
+      overlay.clear(game.gameId);
+      if (game.preview && !overlay.set(game.gameId, game.preview.scene, game.preview.json)) {
+        return failure('That level is too large to preview.');
+      }
       const runId = `r${randomBytes(4).toString('hex')}`;
       const partition = gamePartition(game.gameId, runId, game.keepSaveData);
       const ses = deps.electron.sessionFromPartition(partition);
@@ -491,6 +563,7 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
         loaded: false,
         stale: false,
         state: 'starting',
+        changed: [],
         crashReason: null,
       };
       runs.set(game.gameId, run);
@@ -522,6 +595,10 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
     },
 
     stop,
+
+    clearPreview(gameId, scene) {
+      if (scene === undefined || overlay.scene(gameId) === scene) overlay.clear(gameId);
+    },
 
     stopAll() {
       for (const gameId of [...runs.keys()]) stop(gameId);

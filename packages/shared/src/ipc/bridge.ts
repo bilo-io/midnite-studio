@@ -1679,6 +1679,9 @@ export type MidniteStudioBridge = {
       };
       /** An image-like asset's thumbnail source as a data URL (Phase 139 Theme A). */
       assetThumb: (req: In<typeof S.GamesLevelAssetThumbRequest>) => Promise<z.infer<typeof S.GamesLevelAssetThumbResponse>>;
+      /** Phase 140 Theme B: run the editor's unsaved level without a commit; `previewEnd` drops the in-memory overlay. */
+      preview: (req: In<typeof S.GamesLevelPreviewRequest>) => Promise<z.infer<typeof S.GamesLevelPreviewResponse>>;
+      previewEnd: (req: In<typeof S.GamesLevelPreviewEndRequest>) => Promise<GitOpResult>;
       /** Phase 138 Theme C: main asks the open level editor something (snapshot, apply, select, frame, view). */
       onEditorRequest: (handler: (event: z.infer<typeof S.GamesLevelEditorRequestPayload>) => void) => Unsubscribe;
       /** One-way answer to an `onEditorRequest`. */
