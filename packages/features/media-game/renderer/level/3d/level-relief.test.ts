@@ -49,6 +49,20 @@ describe('reliefOf', () => {
     expect(relief.min).toBeCloseTo(200, 1);
     expect(relief.max).toBeCloseTo(300, 1);
   });
+  it('reads a further pack where the terrain does not reach, the earlier pack first', () => {
+    const north = { minX: 400, minZ: -500, maxX: 2000, maxZ: 500 }, far = { minX: -3000, minZ: -3000, maxX: 3000, maxZ: 3000 };
+    const packs = [{ name: 'north', ...north, preview: null, heights: grid(north, 5, 5, () => 400) }, { name: 'far', ...far, preview: null, heights: grid(far, 5, 5, () => 50) }, { name: 'bare', ...far, preview: null }];
+    const relief = reliefOf({ heights: grid(WHOLE, 11, 11, () => 200), packs }, 7)!;
+    expect(relief.packs).toHaveLength(2);
+    expect(relief.heightAt(450, 0)).toBeCloseTo(200, 1); // the terrain lies over the pack
+    expect(relief.heightAt(1500, 0)).toBeCloseTo(400, 1);
+    expect(relief.heightAt(-2000, 0)).toBeCloseTo(50, 1);
+    expect(relief.heightAt(9000, 0)).toBe(7);
+    expect(relief.min).toBeCloseTo(50, 1);
+    expect(relief.max).toBeCloseTo(400, 1);
+    // Packs alone still make a relief.
+    expect(reliefOf({ packs })!.heightAt(1500, 0)).toBeCloseTo(400, 1);
+  });
   it('gives the stated height past every field', () => {
     expect(reliefOf({ heights: grid(WHOLE, 3, 3, () => 200) }, 7)!.heightAt(9000, 0)).toBe(7);
   });
@@ -119,6 +133,18 @@ describe('ground tiles on a relief', () => {
     expect(at(20, 50)).toBe(10); // on the hole's edge
     expect(at(50, 50)).toBe(-50);
     expect(at(80, 80)).toBe(10);
+  });
+  it('sinks under each of several holes', () => {
+    const g = tileGeometry({ minX: 0, minZ: 0, maxX: 100, maxZ: 100 }, { minX: 0, minZ: 0, maxX: 100, maxZ: 100 }, () => 10, 4, [{ minX: -5, minZ: -5, maxX: 30, maxZ: 30, floor: -50 }, { minX: 60, minZ: 60, maxX: 200, maxZ: 200, floor: -70 }]);
+    const pos = g.getAttribute('position');
+    const at = (x: number, z: number): number => {
+      for (let i = 0; i < pos.count; i += 1) if (pos.getX(i) === x && pos.getZ(i) === z) return pos.getY(i);
+      return NaN;
+    };
+    expect(at(25, 25)).toBe(-50);
+    expect(at(75, 75)).toBe(-70);
+    expect(at(30, 25)).toBe(10); // on a hole's edge: stays up
+    expect(at(50, 50)).toBe(10);
   });
   it('maps the picture north up across the whole extent', () => {
     const g = groundGeometry([0, 10], [0, 10], () => 0, { minX: 0, minZ: 0, maxX: 10, maxZ: 10 });

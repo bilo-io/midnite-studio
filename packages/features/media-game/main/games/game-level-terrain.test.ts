@@ -65,6 +65,29 @@ describe('readLevelTerrain (Phase 132 Theme E)', () => {
     expect((await readLevelTerrain(repo.path, withTerrain('world')))?.heights).toBeUndefined();
   });
 
+  it('adds the packs the level places round its terrain, each over the rectangle the level gives it', async () => {
+    await mkdir(join(repo.path, 'assets/terrain/south'), { recursive: true });
+    await repo.writeFile(
+      'assets/index.json',
+      JSON.stringify({ version: 1, assets: [{ name: 'world', kind: 'terrain', path: 'assets/terrain/world', entry: 'terrain.manifest.json' }, { name: 'south', kind: 'terrain', path: 'assets/terrain/south' }] }),
+    );
+    // The pack's own frame is centred on itself; the level says where it lies in the world.
+    await repo.writeFile('assets/terrain/south/terrain.manifest.json', JSON.stringify({ bounds: { min: [-250, 0, -250], max: [250, 80, 250] }, maps: { drape: 'drape.png' }, heightRange: [0, 80], heightfield: { png: 'heightfield.png' } }));
+    await writeFile(join(repo.path, 'assets/terrain/south/drape.png'), PNG);
+    await writeFile(join(repo.path, 'assets/terrain/south/heightfield.png'), encodePngGrey16(Uint16Array.from({ length: 9 }, () => 32768), 3, 3));
+    const placed = [{ name: 'south', minX: -300, minZ: 50, maxX: 210, maxZ: 560 }, { name: 'missing', minX: 0, minZ: 0, maxX: 1, maxZ: 1 }, { name: 'world', minX: 0, minZ: 0, maxX: 1, maxZ: 1 }];
+    const level = { properties: [{ name: 'midnite.terrain', type: 'string', value: 'world' }, { name: 'midnite.terrainPacks', type: 'string', value: JSON.stringify(placed) }] };
+    const t = await readLevelTerrain(repo.path, level);
+    expect(t).toMatchObject({ name: 'world', minX: -100, maxX: 100 });
+    // A pack that is not an asset, and the terrain named again, are left out.
+    expect(t?.packs).toHaveLength(1);
+    expect(t?.packs?.[0]).toMatchObject({ name: 'south', minX: -300, minZ: 50, maxX: 210, maxZ: 560, heights: { minX: -300, minZ: 50, maxX: 210, maxZ: 560, cols: 3, rows: 3, min: 0, max: 80 } });
+    expect(t?.packs?.[0]?.preview).toMatch(/^data:image\/png;base64,/);
+    // No property, or one that is not JSON: no packs.
+    expect((await readLevelTerrain(repo.path, withTerrain('world')))?.packs).toBeUndefined();
+    expect((await readLevelTerrain(repo.path, { properties: [level.properties[0]!, { name: 'midnite.terrainPacks', type: 'string', value: 'north' }] }))?.packs).toBeUndefined();
+  });
+
   it('draws only the outline when the pack has no drape', async () => {
     await repo.writeFile('assets/terrain/world/terrain.manifest.json', JSON.stringify({ bounds: { min: [0, 0, 0], max: [10, 1, 20] } }));
     expect(await readLevelTerrain(repo.path, withTerrain('world'))).toEqual({ name: 'world', minX: 0, minZ: 0, maxX: 10, maxZ: 20, preview: null });

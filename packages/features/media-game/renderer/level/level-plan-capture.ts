@@ -5,17 +5,16 @@
 import { canvasToBase64Png } from './3d/level-capture';
 import type { EditLevel, EditSelection, ObjectRef, PlanRect } from './level-edit-model';
 import { drawPlan, type PlanOverlay } from './level-plan-draw';
-import { planBounds } from './level-plan';
+import { planBounds, type TerrainArea } from './level-plan';
 import { FRAME_MARGIN } from './level-frame';
 import type { View } from './level-view';
-import type { GameLevelTerrain } from '@midnite/studio-shared';
 
 export const PLAN_CAPTURE_BACKGROUND = '#1d1f24';
 const OUTLINE = '#9ca3af';
 const TEXT = '#e5e7eb';
 
 /** The source rectangle (map pixels) a picture shows: `rect` plus a margin on every side, else the whole map's bounds plus the same. */
-export function planSourceRect(level: EditLevel, terrain: Pick<GameLevelTerrain, 'minX' | 'minZ' | 'maxX' | 'maxZ'> | null, rect: PlanRect | null): PlanRect {
+export function planSourceRect(level: EditLevel, terrain: TerrainArea | null, rect: PlanRect | null): PlanRect {
   const base = rect ?? ((b) => ({ x: b.minX, y: b.minY, width: b.maxX - b.minX, height: b.maxY - b.minY }))(planBounds(level, terrain));
   const mx = base.width * FRAME_MARGIN, my = base.height * FRAME_MARGIN;
   return { x: base.x - mx, y: base.y - my, width: base.width + 2 * mx, height: base.height + 2 * my };

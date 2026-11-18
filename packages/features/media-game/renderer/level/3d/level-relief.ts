@@ -39,22 +39,25 @@ export function sampleField(f: HeightField, x: number, z: number): number {
 }
 
 export type Relief = {
-  /** The ground's height at a world point, metres: the fine field where it reaches, else the coarse one, else `outside`. */
+  /** The ground's height at a world point, metres: the fine field where it reaches, else the terrain's coarse one, else the first further pack that covers the point, else `outside`. */
   heightAt: (x: number, z: number) => number;
-  /** The lowest and highest ground anywhere on the terrain. */
+  /** The lowest and highest ground anywhere on the terrain and its packs. */
   min: number;
   max: number;
   fine: HeightField | null;
   coarse: HeightField | null;
+  /** The further packs' fields, in the level's order (an earlier one lies over a later one). */
+  packs: HeightField[];
 };
 
-/** A level terrain's relief, or `null` when its pack sent no heights (the view then stays flat). `outside` is the height past every field. */
-export function reliefOf(terrain: Pick<GameLevelTerrain, 'heights' | 'detail'> | null, outside = 0): Relief | null {
+/** A level terrain's relief, or `null` when no pack sent heights (the view then stays flat). `outside` is the height past every field. */
+export function reliefOf(terrain: Pick<GameLevelTerrain, 'heights' | 'detail' | 'packs'> | null, outside = 0): Relief | null {
   const coarse = terrain?.heights ? decodeHeights(terrain.heights) : null;
   const fine = terrain?.detail?.heights ? decodeHeights(terrain.detail.heights) : null;
-  if (!coarse && !fine) return null;
+  const packs = (terrain?.packs ?? []).map((p) => (p.heights ? decodeHeights(p.heights) : null)).filter((f): f is HeightField => f !== null);
+  if (!coarse && !fine && packs.length === 0) return null;
   let min = Infinity, max = -Infinity;
-  for (const f of [coarse, fine]) {
+  for (const f of [coarse, fine, ...packs]) {
     if (!f) continue;
     for (let i = 0; i < f.values.length; i += 1) {
       const v = f.values[i]!;
@@ -62,8 +65,14 @@ export function reliefOf(terrain: Pick<GameLevelTerrain, 'heights' | 'detail'> |
       if (v > max) max = v;
     }
   }
-  const heightAt = (x: number, z: number): number => (fine && inField(fine, x, z) ? sampleField(fine, x, z) : coarse && inField(coarse, x, z) ? sampleField(coarse, x, z) : fine ? sampleField(fine, x, z) : outside);
-  return { heightAt, min, max, fine, coarse };
+  const heightAt = (x: number, z: number): number => {
+    if (fine && inField(fine, x, z)) return sampleField(fine, x, z);
+    if (coarse && inField(coarse, x, z)) return sampleField(coarse, x, z);
+    for (const f of packs) if (inField(f, x, z)) return sampleField(f, x, z);
+    // Past every field: the nearest edge of the terrain's own, as before packs; flat when only packs have heights.
+    return packs.length === 0 && fine && !coarse ? sampleField(fine, x, z) : outside;
+  };
+  return { heightAt, min, max, fine, coarse, packs };
 }
 
 /** Items as drawn on a relief: one with no `elevation` of its own sits on the ground under its centre. */

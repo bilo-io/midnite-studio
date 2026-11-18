@@ -12,6 +12,26 @@ export const FOCUS_GROUND_RATIO = 10;
 /** The ground is cut into at most this many tiles a side, however large it is. */
 export const MAX_TILES_PER_SIDE = 32;
 
+/** A further terrain pack's ground is cut into at most this many tiles a side. */
+export const MAX_PACK_TILES_PER_SIDE = 16;
+
+/**
+ * The ground tiles of a further pack over `rect`: `MAX_PACK_TILES_PER_SIDE` a side at most (never finer than
+ * `presetTile`), leaving out any tile that lies wholly inside one of `above` (the terrain and the packs over it).
+ */
+export function packTiles(rect: GroundTile, presetTile: number, above: readonly GroundTile[]): GroundTile[] {
+  const side = Math.max(rect.maxX - rect.minX, rect.maxZ - rect.minZ);
+  const size = Math.max(presetTile, Math.ceil(side / MAX_PACK_TILES_PER_SIDE));
+  const out: GroundTile[] = [];
+  for (let z = rect.minZ; z < rect.maxZ - 1e-6; z += size) {
+    for (let x = rect.minX; x < rect.maxX - 1e-6; x += size) {
+      const t = { minX: x, minZ: z, maxX: Math.min(rect.maxX, x + size), maxZ: Math.min(rect.maxZ, z + size) };
+      if (!above.some((a) => t.minX >= a.minX && t.maxX <= a.maxX && t.minZ >= a.minZ && t.maxZ <= a.maxZ)) out.push(t);
+    }
+  }
+  return out;
+}
+
 /** Where the level's work is, in metres: its map rectangle and every item. */
 export function workBounds(level: Pick<EditLevel, 'width' | 'height' | 'properties'>, items: ReadonlyArray<{ position: readonly [number, number, number] }>): GroundTile {
   const mpt = metresPerTile(level), o = levelOrigin(level);
