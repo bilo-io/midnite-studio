@@ -33,6 +33,7 @@ import { applyGameFix } from './game-fixes';
 import { inferManifest } from './infer-manifest';
 import { resolveGameFolder } from './game-open';
 import { listGames } from './game-list';
+import { createEntityPoller } from './game-entities';
 import { createGameLevels } from './game-levels';
 import { createGamePrefabs } from './game-prefabs';
 import { createLevelEditorBridge } from './level-editor-bridge';
@@ -118,6 +119,7 @@ export function createGameService(deps: GameServiceDeps) {
 
   const levelEditor = createLevelEditorBridge({ send: deps.send });
   const prefabs = createGamePrefabs({ resolve, send: deps.send, log: deps.log });
+  const entityPoller = createEntityPoller({ read: (gameId) => deps.runner.entities(gameId), runState: (gameId) => deps.runner.runState(gameId), send: deps.send });
   const levels = createGameLevels({ resolve, readManifest, runner: deps.runner, send: deps.send, log: deps.log });
 
   const manage = createGameManage({
@@ -291,6 +293,14 @@ export function createGameService(deps: GameServiceDeps) {
     /** `levels/<scene>.tmj` (Phase 132 Theme C): list, read, write-and-commit; and the jump to a scene. */
     levels: { list: levels.list, get: levels.get, set: levels.set, mapAsset: levels.mapAsset, model: levels.model, prefabs, assetThumb: levels.assetThumb },
     goto: levels.goto,
+    /** Live entities (Phase 140 Theme D): one read, and the editor's subscription to the 4 Hz poller. */
+    entities: {
+      get: (gameId: string) => deps.runner.entities(gameId),
+      watch: (gameId: string, watcherId: string, on: boolean): GitOpResult => {
+        entityPoller.watch(gameId, watcherId, on);
+        return ok();
+      },
+    },
     /** The main -> renderer level-editor bridge (Phase 138 Theme C). */
     levelEditor,
     async kitUpgrade(gameId: string): Promise<GitOpResult<{ branch: string }>> {
@@ -308,7 +318,10 @@ export function createGameService(deps: GameServiceDeps) {
       }
       return result;
     },
-    stopAll: (): void => deps.runner.stopAll(),
+    stopAll: (): void => {
+      entityPoller.stopAll();
+      deps.runner.stopAll();
+    },
 
     // --- Phase 149 Theme C: the game doctor ---
     /**

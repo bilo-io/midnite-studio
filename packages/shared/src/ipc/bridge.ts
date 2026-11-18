@@ -1687,6 +1687,16 @@ export type MidniteStudioBridge = {
       editorOpen: (scene: z.input<typeof S.GamesLevelEditorOpenPayload>) => void;
     };
     goto: (req: In<typeof S.GamesGotoRequest>) => Promise<z.infer<typeof S.GamesGotoResponse>>;
+    /**
+     * Live entities (Phase 140 Theme D): `get` reads a running game's `window.__midnite.entities()` once; `watch`
+     * subscribes this window to the 4 Hz `onEntityState` feed and returns its unsubscribe. The feed pauses with
+     * the game and stops with it; hidden windows should unsubscribe.
+     */
+    entities: {
+      get: (req: In<typeof S.GamesEntitiesRequest>) => Promise<z.infer<typeof S.GamesEntitiesResponse>>;
+      watch: (req: In<typeof S.GamesEntitiesRequest>) => Unsubscribe;
+    };
+    onEntityState: (handler: (event: z.infer<typeof S.GamesEntityStatePayload>) => void) => Unsubscribe;
     /** Move a game's runner into the `game` popout window; closing that window docks it back. */
     popOut: (req: In<typeof S.GamesPopOutRequest>) => Promise<GitOpResult>;
     /** Which game the `game` popout hosts — how the popout's own renderer learns what to show. */

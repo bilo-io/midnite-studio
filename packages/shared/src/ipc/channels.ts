@@ -1028,6 +1028,9 @@ export const CHANNELS = {
   /** Phase 138 Theme C: the renderer's one-way presence — which scene the level editor shows, or null. */
   gamesLevelEditorOpen: 'mstudio:games:level-editor-open',
   gamesGoto: 'mstudio:games:goto',
+  /** Phase 140 Theme D: read a running game's live entities once, and (un)subscribe the editor to the 4 Hz poller. */
+  gamesEntities: 'mstudio:games:entities',
+  gamesEntitiesWatch: 'mstudio:games:entities-watch',
   /** Move a game's runner view into the `game` popout window (Theme B). */
   gamesPopOut: 'mstudio:games:pop-out',
   /** Which game the `game` popout hosts, if any. */
@@ -1941,6 +1944,8 @@ export const EVENT_CHANNELS = {
   gamesLevelEditorRequest: 'mstudio:games:level-editor-request',
   /** A game run's lifecycle state changed — see `GameRunStatePayload`. */
   gamesRunState: 'mstudio:games:run-state',
+  /** Phase 140 Theme D: a running game's entity snapshot, while the editor watches — see `GameEntityStatePayload`. */
+  gamesEntityState: 'mstudio:games:entity-state',
   /** A batch of a run's console entries — see `GameConsolePayload`. */
   gamesConsole: 'mstudio:games:console',
   /** `game_open` (an agent over MCP) asked the window to show a game — see `GamesOpenPayload`. */

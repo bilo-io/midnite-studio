@@ -16,6 +16,7 @@ import {
   ok,
   type BrowserBounds,
   type GameJuicePatch,
+  type GameEntitiesResult,
   type GameGotoResult,
   type GameJuiceSettings,
   type GameLogEntry,
@@ -28,6 +29,7 @@ import {
 import type { Logger } from './logger';
 import type { GameElectron, GameSession, GameView, GameWindow } from './game-electron';
 import { BUILD_OUTSIDE_MESSAGE, gameServeRoot, runGameBuild, type GameBuildSpec } from './game-build';
+import { readGameEntities } from './game-entities';
 import { gameProtocolHandler } from './game-protocol';
 import { LogRingBuffer, clipLogText } from './ring-buffer';
 
@@ -104,6 +106,8 @@ export type GameRunner<V extends GameView = GameView> = {
    * stopped game only remembers it for the next `run` (picking a scene never starts a game).
    */
   goto(gameId: string, scene: string): Promise<GitOpResult<GameGotoResult>>;
+  /** Read the running game's live objects through `window.__midnite.entities()` (Phase 140 Theme D). */
+  entities(gameId: string): Promise<GitOpResult<GameEntitiesResult>>;
   /** Read or change the game's juice settings through `window.__midnite.juice` (`get`, `set` a patch, or `reset`). */
   juice(gameId: string, action: 'get' | 'set' | 'reset', patch?: GameJuicePatch): Promise<GitOpResult<GameJuiceSettings>>;
   logs(gameId: string, since?: number): { runId: string | null; entries: GameLogEntry[] };
@@ -588,6 +592,12 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
       run.crashReason = null;
       void run.view.webContents.loadURL(gameEntryUrl(run.game)).catch(() => undefined);
       return ok({ via: 'reload' as const });
+    },
+
+    async entities(gameId) {
+      const run = runs.get(gameId);
+      if (!run) return failure('That game is not running.');
+      return readGameEntities((code) => run.view.webContents.executeJavaScript(code));
     },
 
     async juice(gameId, action, patch) {

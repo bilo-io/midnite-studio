@@ -11,7 +11,8 @@
 
 import * as THREE from 'three';
 
-import { levelEntities, levelProps, metresPerTile, toWorld3d } from '../core/level.js';
+import { registerEntities } from '../core/hook.js';
+import { applySpawn3d, levelEntities, levelProps, metresPerTile, snapshotLevelEntities, spawnOverride, toWorld3d } from '../core/level.js';
 
 /**
  * @typedef {{
@@ -26,7 +27,9 @@ import { levelEntities, levelProps, metresPerTile, toWorld3d } from '../core/lev
 /**
  * @param {Level3dContext} context
  * @param {any} map a parsed `.tmj`
- * @param {{ layer?: string }} [options]
+ * @param {{ layer?: string, live?: (entity: import('../core/level.js').LevelEntity) => import('../core/level.js').LiveEntityState | null | undefined }} [options]
+ *   `live` maps a level entity to its running object (`{ x, y, z, alive?, state? }` in metres, `y` up);
+ *   without it the hook's `entities()` reports each object at its authored position.
  */
 export async function buildLevel3d(context, map, options = {}) {
   const { scene, physics, materials, loadModel, heightAt } = context;
@@ -103,8 +106,35 @@ export async function buildLevel3d(context, map, options = {}) {
     placed.push({ entity, world, object: null });
   }
 
+  registerEntities(
+    () =>
+      snapshotLevelEntities(entities, {
+        scene: options.layer ?? 'objects',
+        live: options.live,
+        to: (e) => {
+          const [wx, wy, wz] = toWorld3d(e, map).position;
+          return { x: wx, y: wy ?? ground(wx, wz), z: wz };
+        },
+      }),
+    'level',
+  );
+
+  // Play from here: `?midnite-spawn=x,z` or `x,height,z` (metres) replaces the scene's own `spawn`.
+  const override = spawnOverride();
+  const spawns = placed.filter((p) => p.entity.type === 'spawn').map((p) => ({ ...p, position: /** @type {[number, number, number]} */ ([p.world.position[0], p.world.position[1] ?? ground(p.world.position[0], p.world.position[2]), p.world.position[2]]) }));
+  if (override && spawns[0]) {
+    const position = applySpawn3d(spawns[0].position, override, ground);
+    if (position) spawns[0] = { ...spawns[0], position };
+  } else if (override) {
+    const position = applySpawn3d(null, override, ground);
+    if (position) {
+      const entity = /** @type {import('../core/level.js').LevelEntity} */ ({ id: 0, name: 'play-from-here', type: 'spawn', x: 0, y: 0, width: 0, height: 0, rotation: 0, polyline: null, properties: {} });
+      spawns.push({ entity, world: toWorld3d(entity, map), object: null, position });
+    }
+  }
+
   return {
-    spawns: placed.filter((p) => p.entity.type === 'spawn').map((p) => ({ ...p, position: /** @type {[number, number, number]} */ ([p.world.position[0], p.world.position[1] ?? ground(p.world.position[0], p.world.position[2]), p.world.position[2]]) })),
+    spawns,
     entities: placed,
     paths,
   };

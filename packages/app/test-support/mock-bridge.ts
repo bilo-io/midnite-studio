@@ -3761,6 +3761,24 @@ export function buildMockBridge(data: MockFixtures) {
           gamesOpenHandlers = gamesOpenHandlers.filter((h) => h !== handler);
         };
       },
+      entities: {
+        get: async (req: { gameId: string }) => {
+          gamesCalls.push({ call: 'entities', ...req });
+          return { ok: true as const, value: { scene: 'main', frame: 0, entities: [], truncated: false } };
+        },
+        watch: (req: { gameId: string }) => {
+          gamesCalls.push({ call: 'entitiesWatch', ...req, on: true });
+          return () => {
+            gamesCalls.push({ call: 'entitiesWatch', ...req, on: false });
+          };
+        },
+      },
+      onEntityState: (handler: (event: unknown) => void) => {
+        gamesEntityStateHandlers.push(handler);
+        return () => {
+          gamesEntityStateHandlers = gamesEntityStateHandlers.filter((h) => h !== handler);
+        };
+      },
       onRunState: (handler: (event: unknown) => void) => {
         gamesRunStateHandlers.push(handler);
         return () => {
@@ -6703,6 +6721,8 @@ export function buildMockBridge(data: MockFixtures) {
   // eslint-disable-next-line no-var
   var gamesRunStateHandlers: Array<(event: unknown) => void> = [];
   // eslint-disable-next-line no-var
+  var gamesEntityStateHandlers: Array<(event: unknown) => void> = [];
+  // eslint-disable-next-line no-var
   var gamesConsoleHandlers: Array<(event: unknown) => void> = [];
   // eslint-disable-next-line no-var
   var gamesChangedHandlers: Array<(event: unknown) => void> = [];
@@ -6722,6 +6742,7 @@ export function buildMockBridge(data: MockFixtures) {
       gamesPopStateHandlers.forEach((h) => h(event));
     },
     runState: (event: unknown) => gamesRunStateHandlers.forEach((h) => h(event)),
+    entityState: (event: unknown) => gamesEntityStateHandlers.forEach((h) => h(event)),
     console: (event: unknown) => gamesConsoleHandlers.forEach((h) => h(event)),
     open: (event: unknown) => gamesOpenHandlers.forEach((h) => h(event)),
     agentProgress: (event: unknown) => gamesAgentHandlers.forEach((h) => h(event)),

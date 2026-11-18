@@ -10,7 +10,8 @@
 
 import * as Phaser from 'phaser';
 
-import { currentLevel, levelEntities, levelGrid, levelUrl, tiledObjects } from '../core/level.js';
+import { registerEntities } from '../core/hook.js';
+import { applySpawn2d, currentLevel, levelEntities, levelGrid, levelUrl, snapshotLevelEntities, spawnOverride, tiledObjects } from '../core/level.js';
 import { buildTiledMap } from './tiled.js';
 
 /**
@@ -26,21 +27,27 @@ export function preloadLevel(scene, name) {
  * In `create()`: the level, after `preloadLevel`.
  * @param {Phaser.Scene} scene
  * @param {string} name
- * @param {{ render?: boolean }} [options]
+ * @param {{ render?: boolean, live?: (entity: import('../core/level.js').LevelEntity) => import('../core/level.js').LiveEntityState | null | undefined }} [options]
+ *   `live` maps a level entity to its running object (`{ x, y, alive?, state? }` in pixels); without it the
+ *   hook's `entities()` reports each object at its authored position.
  */
 export async function buildLevel(scene, name, options = {}) {
   const key = `level:${name}`;
   const cached = /** @type {{ data?: any } | undefined} */ (scene.cache.tilemap.get(key));
   const map = cached?.data ?? {};
+  // Play from here: `?midnite-spawn=x,y` (pixels) replaces the scene's own `spawn`.
+  const override = spawnOverride();
+  const entities = levelEntities(map);
+  registerEntities(() => snapshotLevelEntities(entities, { scene: name, live: options.live, to: (e) => ({ x: e.x, y: e.y }) }), 'level');
   if (options.render === true) {
     const built = await buildTiledMap(scene, key, 'levels');
-    return { map, ...built, grid: (/** @type {string} */ layer) => levelGrid(map, layer), entities: levelEntities(map), spawn: built.objects.spawns[0] ?? null };
+    return { map, ...built, grid: (/** @type {string} */ layer) => levelGrid(map, layer), entities, spawn: applySpawn2d(built.objects.spawns[0] ?? null, override) };
   }
   return {
     map,
     grid: (/** @type {string} */ layer) => levelGrid(map, layer),
-    entities: levelEntities(map),
-    spawn: tiledObjects(map).spawns[0] ?? null,
+    entities,
+    spawn: applySpawn2d(tiledObjects(map).spawns[0] ?? null, override),
   };
 }
 

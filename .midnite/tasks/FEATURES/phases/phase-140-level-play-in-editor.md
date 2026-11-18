@@ -46,8 +46,7 @@ Agents get `game_play_from`, `game_entities` and `game_debug_overlay`.
 
 ## Headlines
 
-**Theme A — The kit's spawn override.** ◻ `?midnite-spawn=x,y[,z]` (and `__midnite.spawnAt(x, y, z)`) places the
-player there instead of at the scene's `spawn`; a kit bump.
+**Theme A — The kit's spawn override.** ✅ `?midnite-spawn=x,y[,z]` (and `__midnite.spawnAt(x, y, z)`, a reload with the param) places the player there instead of at the scene's `spawn`: `spawnOverride()` parses it (two or three finite numbers, else ignored and logged once), `applySpawn2d`/`applySpawn3d` apply it in the Phaser and three level builders. 3D reads `x,z` or `x,height,z` in metres and drops the height onto the ground. Kit 0.13.0.
 
 **Theme B — Play from here.** ◻ `F5` / a gradient "Play from here" button runs the open, unsaved level in the
 runner from the cursor or the selection, through an in-memory preview overlay the protocol handler serves; no
@@ -56,8 +55,7 @@ commit.
 **Theme C — Level hot reload.** ◻ A change under `levels/` in a running game calls the hook's `goto(currentScene)`
 (scene restart) instead of a full page reload; code changes still reload the page.
 
-**Theme D — The entities snapshot.** ◻ The kit hook's `entities()` returns `{ id, type, x, y, z?, alive, … }` for
-the live objects; main polls it at 4 Hz while the editor asks, over `mstudio:games:entity-state`.
+**Theme D — The entities snapshot.** ✅ The hook's `entities()` returns `{ id, type, name?, x, y, z?, alive, state? }[]` from sources registered with `registerEntities(fn, key)`; both level builders register their level objects (overridable with a `live(entity)` option). Main reads it with one evaluation (`readGameEntities`, capped at 500 with `truncated`, an old kit answers `unsupported`), and `createEntityPoller` pushes `mstudio:games:entity-state` at 4 Hz while an editor watches and the game runs unpaused (`games.entities.get/watch`, `games.onEntityState`). Same kit 0.13.0 bump as A.
 
 **Theme E — Live ghosts in the editor.** ◻ Live entities draw as ghosts over the plan and the 3D view with a
 `StateDot` "Live" chip; "Copy live position" writes one back as one undo step.
@@ -99,10 +97,10 @@ running game (Phaser graphics, three.js line segments), and the nav-mesh is fetc
 
 **Acceptance.**
 
-- [ ] A1. `spawnOverride` parses 2- and 3-value forms, rejects `NaN`, extra values and an empty string.
-- [ ] A2. The 2D and 3D level builders place the player at the override when present, at `spawn` otherwise
+- [x] A1. `spawnOverride` parses 2- and 3-value forms, rejects `NaN`, extra values and an empty string.
+- [x] A2. The 2D and 3D level builders place the player at the override when present, at `spawn` otherwise
   (`kit-level.test.ts` with the existing fixtures).
-- [ ] A3. `kit-hash.test.ts` passes with the regenerated hash; both version constants read `0.13.0`.
+- [x] A3. `kit-hash.test.ts` passes with the regenerated hash; both version constants read `0.13.0`.
 
 **Done when** A1–A3 pass.
 
@@ -222,11 +220,11 @@ export const GAME_ENTITY_POLL_MS = 250;
 
 **Acceptance.**
 
-- [ ] D1. `GameEntitiesResultSchema` caps at 500 and the reader sets `truncated`.
-- [ ] D2. The poller emits at 4 Hz with fake timers, pauses with zero subscribers, and stops on Stop.
-- [ ] D3. Phaser and three level sources map a fixture's objects to snapshots with their level ids
+- [x] D1. `GameEntitiesResultSchema` caps at 500 and the reader sets `truncated`.
+- [x] D2. The poller emits at 4 Hz with fake timers, pauses with zero subscribers, and stops on Stop.
+- [x] D3. Phaser and three level sources map a fixture's objects to snapshots with their level ids
   (`kit-level.test.ts`).
-- [ ] D4. A pre-0.13 kit answers an empty list.
+- [x] D4. A pre-0.13 kit answers an empty list.
 
 **Done when** D1–D4 pass.
 
