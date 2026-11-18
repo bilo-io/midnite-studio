@@ -30,7 +30,7 @@ export type SuiteBridgeOptions = {
   releaseNotes?: unknown;
   /**
    * Make `startup.*` stateful for a flow that writes and re-reads: `startup.get` answers a workspace that
-   * `upsertFleetProjection` and `sendFleetProjectionToRunway` edit (stamping times like main does). Seeded from
+   * `upsertFleetProjection`, `upsertInvestorUpdate` and `sendFleetProjectionToRunway` edit (stamping times like main does). Seeded from
    * `answers['startup.get']`; every other op keeps answering from the map.
    */
   statefulStartup?: boolean;
@@ -64,7 +64,7 @@ export async function installSuiteBridge(page: Page, options: SuiteBridgeOptions
     // Stateful `startup.*` (opt-in): a workspace the two fleet write ops edit, re-read through `startup.get`.
     const startupAnswer = opts.answers['startup.get'] as { value: { workspace: Record<string, unknown>; revision: number; readOnly: boolean } } | undefined;
     const store = opts.stateful && startupAnswer !== undefined ? { ...startupAnswer.value, workspace: { ...startupAnswer.value.workspace } } : null;
-    type Ws = { fleetProjections: { id: string; updatedAt: string }[]; lines: { source?: { projectionId: string } }[] };
+    type Ws = { fleetProjections: { id: string; updatedAt: string }[]; lines: { source?: { projectionId: string } }[]; investorUpdates?: { id: string }[] };
     const ws = (): Ws => store!.workspace as unknown as Ws;
     const snapshot = () => {
       store!.revision += 1;
@@ -76,6 +76,11 @@ export async function installSuiteBridge(page: Page, options: SuiteBridgeOptions
         const next = { ...projection, updatedAt: new Date().toISOString() } as { id: string; updatedAt: string };
         const list = ws().fleetProjections;
         store.workspace.fleetProjections = list.some((p) => p.id === next.id) ? list.map((p) => (p.id === next.id ? next : p)) : [...list, next];
+        return snapshot();
+      },
+      'startup.upsertInvestorUpdate': ({ update }: { update: { id: string } }) => {
+        const list = ws().investorUpdates ?? [];
+        store.workspace.investorUpdates = list.some((x) => x.id === update.id) ? list.map((x) => (x.id === update.id ? update : x)) : [...list, update];
         return snapshot();
       },
       'startup.sendFleetProjectionToRunway': ({ projectionId }: { projectionId: string }) => {
@@ -226,6 +231,18 @@ export const STARTUP_FLEET_ANSWERS: Record<string, unknown> = {
     ],
   }),
   'startup.projection': STARTUP_RUNWAY_PROJECTION,
+  'startup.ledgerSummary': NO_BOOK,
+};
+
+/** Startup with a company and one investor update (last month, empty): the Updates view, with `draftInvestorUpdate` answering a fixed draft. Pair with `statefulStartup` for a save that reads back. */
+export const STARTUP_UPDATES_DRAFT = '# Investor update\n\nRunway is steady and two milestones landed.';
+export const STARTUP_UPDATES_ANSWERS: Record<string, unknown> = {
+  'startup.get': startupSnapshot({
+    ...STARTUP_BASE,
+    company: STARTUP_COMPANY,
+    investorUpdates: [{ id: uid(700), period: '2026-09', title: 'Investor update: September 2026', markdown: '', createdAt: '2026-10-01T00:00:00.000Z', updatedAt: '2026-10-01T00:00:00.000Z', drafts: [] }],
+  }),
+  'startup.draftInvestorUpdate': { ok: true, value: { markdown: STARTUP_UPDATES_DRAFT, model: 'claude' } },
   'startup.ledgerSummary': NO_BOOK,
 };
 
