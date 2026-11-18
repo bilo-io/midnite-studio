@@ -49,7 +49,7 @@ treated as part of the request text.
 List every skill the session can run, with its description:
 
 ```bash
-for d in .claude/skills/*/ ~/.claude/skills/*/; do
+for d in .claude/skills/*/ .agents/skills/*/ ~/.claude/skills/*/; do
   f="$d/SKILL.md"; [ -f "$f" ] || continue
   printf '%s\t%s\n' "$(basename "$d")" "$(grep -m1 '^description:' "$f" | cut -c14-)"
 done | sort -u -k1,1

@@ -12,7 +12,7 @@ Read-only. Print the tree, the when-to-use notes, and a few next steps. No optio
 ## 1 · Check the tree against what is installed
 
 ```bash
-ls -1 .claude/skills ~/.claude/skills 2>/dev/null | grep '^midnite' | sort -u
+ls -1 .claude/skills .agents/skills ~/.claude/skills 2>/dev/null | grep '^midnite' | sort -u
 ```
 
 Print the tree below. Any installed `midnite-*` skill missing from it goes under **Other** with
