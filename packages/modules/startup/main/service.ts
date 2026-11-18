@@ -23,7 +23,7 @@ import {
 import { agentConsentOp, type AgentConsentStore } from './agent-consent';
 import { aiSettingsOp, type AiSettingsStore } from './ai-settings';
 import { buildInvestorUpdatePrompt, cleanInvestorUpdate, gatherUpdateFacts } from './investor-update';
-import { exportInvestorUpdateMd, exportInvestorUpdatePdf, type SaveMarkdownPort } from './investor-update-export';
+import { emailInvestorUpdate, exportInvestorUpdateMd, exportInvestorUpdatePdf, type MailPorts, type SaveMarkdownPort } from './investor-update-export';
 import { fleetToRunwayLines } from './fleet-runway';
 import { ledgerSummary, linkBook } from './books';
 import { attachContractFile, confinedAttachmentPath, type ContractFilePort } from './contract-files';
@@ -57,6 +57,8 @@ export type InvestorUpdatePorts = {
   agents: () => Promise<StartupAiAgent[]>;
   /** The save dialog for the Markdown export. */
   saveMarkdown?: SaveMarkdownPort;
+  /** Opens the mail client on a `mailto:` link and copies text, for Email draft; absent in a bare test. */
+  mail?: MailPorts;
 };
 
 /** The ops whose behaviour lands in a later theme answer this until then. */
@@ -388,6 +390,8 @@ export async function handleStartupRequest(
       return draftInvestorUpdate(store, request, deps);
     case 'exportInvestorUpdateMd':
       return exportInvestorUpdateMd(store, request.id, deps.investor?.saveMarkdown);
+    case 'emailInvestorUpdate':
+      return emailInvestorUpdate(store, request.id, deps.investor?.mail);
     case 'exportInvestorUpdatePdf':
       return exportInvestorUpdatePdf(store, request.id, deps.pdf, deps.tmpDir ?? tmpdir());
 
