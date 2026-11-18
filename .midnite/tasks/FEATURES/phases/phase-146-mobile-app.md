@@ -59,9 +59,7 @@ in Expo Go on iOS and Android.
 stroke, field colours, issue order) move out of `features/tasks/renderer` into a React-free package. Desktop imports it
 from there, and nothing on desktop changes behaviour. `deriveColumns` keeps its existing `(field, items)` signature so the moved assertions stay unchanged. The shared `ForgeProjectItem` test fixture moved with it and is exported at `@midnite/tasks-core/testing`, off the production barrel. `tasks-core` is in `NODE_PROJECTS`, so the consolidated `gate-node` targets pick it up, and eslint holds it to `shared` only with no React or electron.
 
-**Theme D — `packages/forge-github-core`.** ◻ GitHub GraphQL query documents and their response parsers move out of the
-forge main adapter into a pure package, joined by new history, pulls and issues queries written for mobile. `git-engine`
-gains a `./diff` subpath export.
+**Theme D — `packages/forge-github-core`.** ✅ GraphQL documents, parsers and mutation builders live in a pure package built like git-engine (CJS dist, `shared` only; forge main keeps `…FromStdout` wrappers over `gh`), joined by history, pulls, pull and issue detail, issues, repos, branches and eight mutation builders for mobile; `git-engine` gains a `./diff` subpath.
 
 **Theme E — The GitHub data source.** ◻ Device-flow sign-in with a PAT fallback, the token in `expo-secure-store`, a
 `MobileDataSource` interface with a `GitHubDataSource` implementation over `fetch`, and TanStack Query hooks every screen
@@ -473,20 +471,20 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
 
 ### D — `packages/forge-github-core` (L)
 
-- [ ] **D1 · Package** (S): `packages/forge-github-core` with `"name": "@midnite/forge-github-core"`, depending on
+- [x] **D1 · Package** (S): `packages/forge-github-core` with `"name": "@midnite/forge-github-core"`, depending on
   `@midnite/studio-shared` only, and with the same `NODE_PROJECTS` (`scripts/gate-projects-check.mjs`), `ci.yml`
   `gate-node`, eslint and vitest wiring as C1.
-- [ ] **D2 · Move the pure GraphQL pieces** (M): from `gh-project.ts` move the query documents used by `listProjects` /
+- [x] **D2 · Move the pure GraphQL pieces** (M): from `gh-project.ts` move the query documents used by `listProjects` /
   `projectFields` / `projectItems`, plus `parseProjectList`, `parseFields`, `parseItemsPage` and `scopeErrorKind`. From
   `gh-graphql.ts` move `reviewCommentCountsQuery`, `parseReviewCommentCounts`, `parseReviewThreads`,
   `describeGraphqlFailure`, and the threads query used by `pullThreads`. Put them in
   `forge-github-core/src/{projects,reviews,errors}.ts`. The `gh-shell` callers in forge main import them back.
   Fixture tests (`__fixtures__`, `gh-parse-fixtures.test.ts`, `gh-project.test.ts`) move or are re-pointed so every
   existing assertion still runs.
-- [ ] **D3 · Transport-agnostic input** (S): every moved parser takes the parsed GraphQL `data` object (`unknown`,
+- [x] **D3 · Transport-agnostic input** (S): every moved parser takes the parsed GraphQL `data` object (`unknown`,
   validated with zod inside), **not** a `gh` stdout string. The forge-main call sites do `JSON.parse(stdout)` first.
   Where a parser today takes a string, keep a thin `…FromStdout` wrapper in forge main only.
-- [ ] **D4 · New queries for mobile** (L), each a `const …Query` document plus a `parse…(data): T` mapping onto existing
+- [x] **D4 · New queries for mobile** (L), each a `const …Query` document plus a `parse…(data): T` mapping onto existing
   shared schemas, each with a fixture test:
   - `historyQuery(owner, name, qualifiedRef, first, after)` → `parseHistory(data): { commits: Commit[]; endCursor: string | null; hasNextPage: boolean }`.
     `refs` is `[]`; `coAuthors` and `sessionTrailers` are parsed from the commit message trailers, with the same trailer
@@ -501,13 +499,13 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
   - `repoListQuery(first, after)` (viewer repos + `viewer.organizations.repositories`, sorted by `PUSHED_AT`) →
     `parseRepoList(data): { owner: string; name: string; defaultBranch: string; pushedAt: string; isPrivate: boolean }[]`.
   - `branchesQuery(owner, name, first, after)` → `parseBranches(data): string[]`.
-- [ ] **D5 · Mutations** (M): `submitReviewMutation(pullId, event: ForgeReviewEvent, body)`,
+- [x] **D5 · Mutations** (M): `submitReviewMutation(pullId, event: ForgeReviewEvent, body)`,
   `addPullCommentMutation(subjectId, body)`, `replyToThreadMutation(threadId, body)`, `setProjectFieldMutation` (single
   select, matching desktop's `gh-project-write.ts` input shape), `addProjectItemMutation(projectId, contentId)` (for H6),
   `setIssueStateMutation(issueId, state: 'OPEN' | 'CLOSED')` (for H5), `createIssueMutation(repoId, title, body)` and
   `addCommentMutation(subjectId, body)`. Each is a document plus a `parse…Result(data)` returning `GitOpResult`-style
   `{ ok: true } | { ok: false; kind: 'error'; message: string }` using `describeGraphqlFailure` for `errors[]`.
-- [ ] **D6 · `git-engine` `./diff` subpath** (S): add `"./diff": { "types": "./dist/parsers/diff-parser.d.ts", "default": "./dist/parsers/diff-parser.js" }`
+- [x] **D6 · `git-engine` `./diff` subpath** (S): add `"./diff": { "types": "./dist/parsers/diff-parser.d.ts", "default": "./dist/parsers/diff-parser.js" }`
   to `packages/git-engine/package.json` `exports`, and wire `paths` / `customConditions` in `apps/mobile/tsconfig.json`
   and `apps/mobile/vitest.config.ts` so Metro, tsc and vitest resolve `@midnite/studio-git-engine/diff` to
   `packages/git-engine/src/parsers/diff-parser.ts` without a pre-built `dist/`. Assert in a test that `diff-parser.ts`

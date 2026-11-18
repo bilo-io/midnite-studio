@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      '@midnite/studio-git-engine/diff': new URL('../../packages/git-engine/src/parsers/diff-parser.ts', import.meta.url).pathname,
       'react-native': 'react-native-web',
       'react-native-gesture-handler': new URL('./test/mocks/gesture-handler.tsx', import.meta.url).pathname,
       'react-native-safe-area-context': new URL('./test/mocks/safe-area-context.tsx', import.meta.url).pathname,

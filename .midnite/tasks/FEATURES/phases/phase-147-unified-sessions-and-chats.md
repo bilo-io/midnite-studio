@@ -28,7 +28,7 @@ Today `sessions` (persistent PTYs in `packages/features/sessions/` + `packages/f
 
 **Theme B — Antigravity PTY resume support (`PR-3`, S).** ✅ Already landed in #1246 (`buildResumeCommand` returns `["--conversation", id]` for `agy`, tested in `terminal.test.ts`); this PR only ticks the deliverables.
 
-**Theme C — Unified session host & runner lock (`PR-2`, L).** ◻ Coordinates `ChatService` and `TerminalService` so only one runner owns an `engineSessionId` at a time, handling PTY park/resume and handoff IPC.
+**Theme C — Unified session host & runner lock (`PR-2`, L).** ✅ The host landed in #1250 (filed as "Phase 146 Theme C"): `UnifiedSessionCoordinator` + `unified-session-host.ts` in `packages/desktop/src/main/`, the `session:switch-view` handler, `ChatService` `beforeSend`/`onTurnEnd` hooks, and persisted `linkedChatId`/`linkedTerminalId`/`preferredView`. This theme hardened the lock: `send()` now holds a `starting` slot across the `beforeSend` await (two quick sends could each start a turn on one `engineSessionId`), validates before locking and releases through `onTurnEnd` if the turn fails to start, and `isRunning` covers that window. The coordinator keeps a per-chat lease, refuses a second chat on an `engineSessionId` already held, and releases the keys taken at send time, since a resend rotates the session id and used to leave the old one locked for good.
 
 **Theme D — Unified sidebar & Chat/Terminal toggle UI (`PR-4`, L).** ◻ Merges the session/chat list in the sidebar and adds the segmented `Chat | Terminal` toggle in the content header.
 
@@ -50,11 +50,11 @@ Today `sessions` (persistent PTYs in `packages/features/sessions/` + `packages/f
 
 ### Theme C — Unified session host & runner lock (`L`)
 
-- [ ] **147.C.1** Add a main-side `UnifiedSessionCoordinator` (in `packages/desktop/src/main/` wiring `ChatService` + `TerminalService`) that tracks active runner ownership (`'chat' | 'terminal' | 'idle'`) per `engineSessionId`.
-- [ ] **147.C.2** Implement `switchView` IPC handler: for `bidirectional` providers (`claude`, `codex`, `agy`), cleanly park/stop an active PTY before starting a Chat turn and spawn/resume the PTY with `buildResumeCommand(agent, engineSessionId)` when toggling back to Terminal.
-- [ ] **147.C.3** Guard `ChatService.send` so a turn fails cleanly with `GitOpResult`/`ChatOpResult` error if the linked PTY is mid-turn and cannot be parked, never mutating the same `engineSessionId` concurrently.
-- [ ] **147.C.4** Persist `preferredView` and `linkedChatId`/`linkedTerminalId` across restarts in `chat-store.ts` and `terminal-store.ts`.
-- [ ] **147.C.5** Add integration tests in `packages/desktop/src/main/` proving exclusive runner locking and `engineSessionId` handoff across Chat ↔ Terminal.
+- [x] **147.C.1** Add a main-side `UnifiedSessionCoordinator` (in `packages/desktop/src/main/` wiring `ChatService` + `TerminalService`) that tracks active runner ownership (`'chat' | 'terminal' | 'idle'`) per `engineSessionId`.
+- [x] **147.C.2** Implement `switchView` IPC handler: for `bidirectional` providers (`claude`, `codex`, `agy`), cleanly park/stop an active PTY before starting a Chat turn and spawn/resume the PTY with `buildResumeCommand(agent, engineSessionId)` when toggling back to Terminal.
+- [x] **147.C.3** Guard `ChatService.send` so a turn fails cleanly with `GitOpResult`/`ChatOpResult` error if the linked PTY is mid-turn and cannot be parked, never mutating the same `engineSessionId` concurrently.
+- [x] **147.C.4** Persist `preferredView` and `linkedChatId`/`linkedTerminalId` across restarts in `chat-store.ts` and `terminal-store.ts`.
+- [x] **147.C.5** Add integration tests in `packages/desktop/src/main/` proving exclusive runner locking and `engineSessionId` handoff across Chat ↔ Terminal.
 
 ### Theme D — Unified sidebar & Chat/Terminal toggle UI (`L`)
 
