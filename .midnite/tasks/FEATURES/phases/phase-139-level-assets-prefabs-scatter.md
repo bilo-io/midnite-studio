@@ -73,7 +73,7 @@ prefab (toast "Updated N instances, kept M overrides"), Unpack, and each hand-ed
 `name`/`type`/`width`/`height`/`properties.*` on an instance add to `midnite.prefabOverrides` (x, y, rotation never do).
 Deleting a prefab confirms with this level's instance count. Model ops live in `level-edit-model.ts`.
 
-**Theme H — The scatter brush.** ◻ Tool `S` (2D and 3D): pick assets or a prefab, set radius, density, spacing,
+**Theme H — The scatter brush.** ✅ (Decisions: the sampler is dart-thrown Poisson-disc against a spacing grid rather than Bridson's active list, because a capped Bridson run clusters around its start; the options panel sits in the editor's side column while `S` is active rather than a Popover; with the brush open a click on a model or prefab tile adds it as a source; a prefab stamp takes the rotation but not the scale jitter and gets its own instance id; `[`/`]` are rows in the shortcut table.) Tool `S` (2D and 3D): pick assets or a prefab, set radius, density, spacing,
 scale and rotation jitter, paint; seeded, Poisson-spaced, one undo per stroke, `Alt` erases.
 
 **Theme I — MCP and the skill.** ◻ `game_assets_list`, `game_prefab_list`, a `place-prefab` level op and
@@ -385,11 +385,11 @@ export function scatterPoints(area: { cx: number; cy: number; radius: number } |
 
 **Acceptance.**
 
-- [ ] H1. `scatterPoints` with a fixed seed returns the same points every run; no two closer than `spacing`.
-- [ ] H2. Density 1 over a 1,000 × 1,000 px square yields ≤ 100 points.
-- [ ] H3. A stroke of three dabs is one undo step.
-- [ ] H4. `Alt` erases only objects of the chosen sources inside the brush.
-- [ ] H5. The stroke cap notifies and stops at 2,000.
+- [x] H1. `scatterPoints` with a fixed seed returns the same points every run; no two closer than `spacing`.
+- [x] H2. Density 1 over a 1,000 × 1,000 px square yields ≤ 100 points.
+- [x] H3. A stroke of three dabs is one undo step.
+- [x] H4. `Alt` erases only objects of the chosen sources inside the brush.
+- [x] H5. The stroke cap notifies and stops at 2,000.
 
 **Done when** H1–H5 pass.
 

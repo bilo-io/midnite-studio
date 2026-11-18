@@ -6,6 +6,7 @@ import {
   LuMapPin,
   LuMousePointer2,
   LuPaintbrush,
+  LuSprout,
   LuPipette,
   LuPencilRuler,
   LuPlus,
@@ -24,7 +25,7 @@ import {
 } from 'react-icons/lu';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { GAME_LEVEL_ENTITY_TYPES_2D, GAME_LEVEL_ENTITY_TYPES_3D, levelEntityToWorld, levelProperties, metresPerTile, type GameLevelGetResult } from '@midnite/studio-shared';
+import { GAME_LEVEL_ENTITY_TYPES_2D, GAME_LEVEL_ENTITY_TYPES_3D, SCATTER_STROKE_CAP, levelEntityToWorld, levelProperties, metresPerTile, type GameLevelGetResult, type GamePrefab } from '@midnite/studio-shared';
 import { EmptyState, EmptyStateButton, KitContextMenu, Skeleton, useFrameChrome, type FrameMenuEntry } from '@midnite/studio-frame';
 
 import { IconButton, useNotify } from '../chrome';
@@ -118,6 +119,8 @@ import { refKey, sameRef } from './level-selection';
 import { snapPlan } from './level-plan';
 import { planSnapStep } from './level-snap';
 import { LevelShortcutHelp } from './level-shortcut-help';
+import { DEFAULT_SCATTER, eraseDab, newSeed, scatterDab, type DabResult, type ScatterSettings } from './level-scatter';
+import { ScatterPanel, sourceFromPayload } from './scatter-panel';
 import { LevelViewPopover } from './level-view-popover';
 import { levelExtras } from './live/level-extras-model';
 import { LiveChip } from './live/live-chip';
@@ -149,7 +152,7 @@ export function useAssetBrowserTabs({ gameId, is3d, onDeletePrefab }: { gameId: 
   );
 }
 
-export type LevelTool = 'paint' | 'erase' | 'rect' | 'pick' | 'entity' | 'select' | 'volume' | 'path' | 'rotate';
+export type LevelTool = 'paint' | 'erase' | 'rect' | 'pick' | 'entity' | 'select' | 'volume' | 'path' | 'rotate' | 'scatter';
 
 const TOOLS: readonly { tool: LevelTool; label: string; key: string; icon: typeof LuPaintbrush }[] = [
   { tool: 'paint', label: 'Paint', key: 'b', icon: LuPaintbrush },
@@ -158,6 +161,7 @@ const TOOLS: readonly { tool: LevelTool; label: string; key: string; icon: typeo
   { tool: 'pick', label: 'Pick', key: 'i', icon: LuPipette },
   { tool: 'entity', label: 'Entity', key: 'o', icon: LuMapPin },
   { tool: 'select', label: 'Select', key: 'v', icon: LuMousePointer2 },
+  { tool: 'scatter', label: 'Scatter', key: 's', icon: LuSprout },
 ];
 
 /** A 3D level's tools (Theme E): the same V and O as 2D, plus a volume, a path and a yaw drag. */
@@ -167,6 +171,7 @@ const TOOLS_3D: readonly { tool: LevelTool; label: string; key: string; icon: ty
   { tool: 'volume', label: 'Volume', key: 'r', icon: LuBox },
   { tool: 'path', label: 'Path', key: 'p', icon: LuRoute },
   { tool: 'rotate', label: 'Rotate', key: 'y', icon: LuRotateCw },
+  { tool: 'scatter', label: 'Scatter', key: 's', icon: LuSprout },
 ];
 
 /** The properties the 3D inspector has its own field for; the generic list leaves them out. */
@@ -663,6 +668,93 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
     }
     update((s) => insertObjects(setActiveLayer(s, layerId), [{ layerId, object: dropToObject(payload, at, level) }]));
   };
+  /**
+   * Phase 139 Theme H, the scatter brush. A stroke is `beginStroke`, one {@link scatterDab} per `radius / 2` px of
+   * travel, `endStroke`: one undo step however long. `Alt` at the press erases the chosen sources instead. The same
+   * handler serves the plan canvas and the 3D view's ground ray.
+   */
+  const [scatter, setScatter] = useState<ScatterSettings>(() => ({ ...DEFAULT_SCATTER, sources: [], seed: newSeed() }));
+  const scatterRef = useRef(scatter);
+  scatterRef.current = scatter;
+  const scatterStroke = useRef<{ dab: number; added: number; last: PlanPoint; erase: boolean; capped: boolean } | null>(null);
+  const scatterPrefabs = useRef(new Map<string, GamePrefab>());
+  const scatterPrefabNames = scatter.sources.flatMap((src) => (src.kind === 'prefab' ? [src.name] : [])).join('\n');
+  // Read the prefab files a scatter will stamp when the tool opens or the source list changes (always fresh from disk).
+  useEffect(() => {
+    if (tool !== 'scatter') return;
+    for (const name of scatterPrefabNames ? scatterPrefabNames.split('\n') : []) {
+      void fetchPrefab(client, gameId, name).then(
+        (p) => void scatterPrefabs.current.set(name, p),
+        (e: unknown) => notify(e instanceof Error ? e.message : `Prefab “${name}” could not be read.`, { danger: true }),
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `notify` and `client` are stable per mount
+  }, [tool, scatterPrefabNames, gameId]);
+  // With the brush open, clicking a browser tile adds it to the sources instead of arming a one-off placement.
+  useEffect(() => {
+    if (tool !== 'scatter' || !armedAsset) return;
+    const source = sourceFromPayload(armedAsset);
+    arm(null);
+    if (!source || (source.kind === 'model' && !is3d)) {
+      notify(source ? 'Models scatter in 3D levels.' : 'Only models and prefabs scatter.');
+      return;
+    }
+    const key = (x: typeof source) => `${x.kind}:${x.kind === 'type' ? x.type : x.name}`;
+    setScatter((s) => (s.sources.some((x) => key(x) === key(source)) || s.sources.length >= 16 ? s : { ...s, sources: [...s.sources, source] }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `notify` is stable per mount
+  }, [tool, armedAsset, is3d]);
+  const scatterAt = (at: PlanPoint) => {
+    const st = scatterStroke.current;
+    if (!st || objectLayerId === null) return;
+    const opts = scatterRef.current;
+    if (st.erase) {
+      update((s) => eraseDab(s, { at, radius: opts.radius, sources: opts.sources }));
+      return;
+    }
+    const out: { r: DabResult | null } = { r: null };
+    update((s) => {
+      out.r = scatterDab(s, { layerId: objectLayerId, at, options: opts, prefabs: scatterPrefabs.current, dab: st.dab, room: SCATTER_STROKE_CAP - st.added });
+      return out.r.state;
+    });
+    st.dab += 1;
+    if (out.r) {
+      st.added += out.r.added;
+      if (out.r.capped && !st.capped) {
+        st.capped = true;
+        notify(`A stroke stops at ${SCATTER_STROKE_CAP.toLocaleString()} objects.`);
+      }
+    }
+  };
+  const onScatterStroke = (phase: 'down' | 'move' | 'up', at: PlanPoint, alt: boolean) => {
+    if (readOnly) return;
+    if (phase === 'down') {
+      if (scatterRef.current.sources.length === 0) {
+        notify('Click a model or prefab tile to scatter it.');
+        return;
+      }
+      if (objectLayerId === null) {
+        notify('Add an object layer first.');
+        return;
+      }
+      scatterStroke.current = { dab: 0, added: 0, last: at, erase: alt, capped: false };
+      update(beginStroke);
+      scatterAt(at);
+      return;
+    }
+    const st = scatterStroke.current;
+    if (!st) return;
+    if (phase === 'move') {
+      if (Math.hypot(at.x - st.last.x, at.y - st.last.y) >= Math.max(1, scatterRef.current.radius / 2)) {
+        st.last = at;
+        scatterAt(at);
+      }
+      return;
+    }
+    scatterStroke.current = null;
+    update(endStroke);
+  };
+  const resizeBrush = (factor: number) => setScatter((s) => ({ ...s, radius: Math.min(600, Math.max(8, Math.round(s.radius * factor))) }));
+
   /** Click-to-place: an armed tile takes the next canvas click, then disarms. */
   const placeArmed = (at: PlanPoint): boolean => {
     if (!armedAsset) return false;
@@ -723,6 +815,10 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
   const onPointer = (e: CanvasPointer) => {
     lastPointer.current = e.object;
     if (readOnly) return;
+    if (tool === 'scatter') {
+      onScatterStroke(e.phase, e.object, e.alt);
+      return;
+    }
     if (e.phase === 'down' && placeArmed(e.object)) return;
     if (tool === 'select') {
       selectPointer(e);
@@ -959,6 +1055,13 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
           update((s) => deleteObjects(s, s.selected));
         }
         return;
+      case 'scatter.smaller':
+      case 'scatter.larger':
+        if (tool === 'scatter' && !readOnly) {
+          event.preventDefault();
+          resizeBrush(cmd === 'scatter.larger' ? 1.25 : 0.8);
+        }
+        return;
       case 'help.shortcuts':
         event.preventDefault();
         setHelpOpen(true);
@@ -972,6 +1075,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
       case 'tool.volume':
       case 'tool.path':
       case 'tool.rotate':
+      case 'tool.scatter':
         if (!readOnly) {
           event.preventDefault();
           chooseTool(cmd.slice('tool.'.length) as LevelTool);
@@ -1140,7 +1244,8 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
             locked={locked}
             centreOn={centreOn}
             onContextMenu={(e) => void openLevelMenu(e, e.hit ? { kind: 'object', ref: e.hit } : { kind: 'empty', at: e.object }, e.object)}
-            hoverEnabled={!readOnly && !is3d && tool !== 'select'}
+            hoverEnabled={!readOnly && !is3d && tool !== 'select' && tool !== 'scatter'}
+            brush={!readOnly && tool === 'scatter' ? { radius: scatter.radius } : undefined}
             plan={is3d && !planBroken ? { terrain: entry.terrain, draft, volume: volumeDrag } : undefined}
             extras={extras.canvas}
             preview={preview}
@@ -1178,6 +1283,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
                   onEditorKey={onKeyDown}
                   assetDrop={assetDrop}
                   armed={armedAsset}
+                  scatter={!readOnly && tool === 'scatter' ? { radius: scatter.radius, onStroke: onScatterStroke } : undefined}
                   hidden={hidden}
                   locked={locked}
                   onContextMenu={(e) => void openLevelMenu(e, e.hit ? { kind: 'object', ref: e.hit } : { kind: 'empty', at: lastPointer.current ?? { x: 0, y: 0 } })}
@@ -1188,7 +1294,9 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
         </div>
         </AssetBrowser>
         <aside className="flex w-56 shrink-0 flex-col gap-3 overflow-y-auto border-l border-border p-2 text-xs" aria-label="Palette and inspector">
-          {tool === 'entity' ? (
+          {tool === 'scatter' ? (
+            <ScatterPanel settings={scatter} onChange={setScatter} prefabs={prefabList ?? []} is3d={is3d} disabled={readOnly} />
+          ) : tool === 'entity' ? (
             <div role="radiogroup" aria-label="Entity type" className="flex flex-wrap gap-1">
               {[...(is3d ? GAME_LEVEL_ENTITY_TYPES_3D.filter((t) => t !== 'path') : GAME_LEVEL_ENTITY_TYPES_2D), CUSTOM].map((t) => (
                 <button key={t} type="button" role="radio" aria-checked={entityType === t} onClick={() => setEntityType(t)} className={`rounded border px-1.5 py-0.5 ${entityType === t ? 'border-primary text-foreground' : 'border-border text-muted-foreground'}`}>

@@ -151,3 +151,20 @@ export function drawExtras(ctx: CanvasRenderingContext2D, input: { extras: Canva
   drawOverlayShapes(ctx, { ...base, ...cell, shapes: extras.triggers, colour: colours.trigger });
   if (extras.ghosts.length) drawGhosts(ctx, { ...base, ghosts: extras.ghosts, links: extras.links, colour: colours.ghost });
 }
+
+/** The scatter brush's circle (Phase 139 Theme H) at `at` (object coordinates), `radius` in the same units. */
+export function drawBrush(
+  ctx: CanvasRenderingContext2D,
+  { at, radius, view, outline, toMap }: { at: PlanPoint; radius: number; view: View; outline: string; toMap?: (p: PlanPoint) => PlanPoint },
+): void {
+  const c = toMap ? toMap(at) : at;
+  ctx.save();
+  ctx.lineWidth = 1.5 / view.zoom;
+  ctx.strokeStyle = outline;
+  ctx.fillStyle = 'rgba(99,102,241,0.12)';
+  ctx.beginPath();
+  ctx.arc(c.x, c.y, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}

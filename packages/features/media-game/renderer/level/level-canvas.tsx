@@ -8,7 +8,7 @@ import { objectToMapPoint, mapPointToObject, type Cell, type EditLevel, type Edi
 import { hitPlan, levelMetresPerTile, pixelsPerMetre, planBounds } from './level-plan';
 import { isAssetDrag, readDroppedAsset, useDraggedAsset, type AssetDropTarget } from './assets/asset-drag';
 import { drawHighlight, drawPlan, drawSelectionExtras, prefersReducedMotion, PULSE_MS, SELECTED_COLOUR, type PlanHighlight, type PlanOverlay } from './level-plan-draw';
-import { drawExtras, hasExtras, type CanvasExtras } from './level-overlay-draw';
+import { drawBrush, drawExtras, hasExtras, type CanvasExtras } from './level-overlay-draw';
 import { fitView, screenToMap, zoomAround, type View } from './level-view';
 
 /**
@@ -118,6 +118,7 @@ export function LevelCanvas({
   viewOut,
   viewIn,
   assetDrop,
+  brush,
 }: {
   level: EditLevel;
   images: ReadonlyArray<{ path: string; dataUrl: string }>;
@@ -153,6 +154,8 @@ export function LevelCanvas({
   viewIn?: View | null;
   /** Phase 139 Theme D: take an asset dragged from the browser; a ghost shows where it would land. */
   assetDrop?: AssetDropTarget;
+  /** Phase 139 Theme H: the scatter brush; a circle of `radius` (object units) follows the pointer. */
+  brush?: { radius: number } | undefined;
 }) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -169,6 +172,7 @@ export function LevelCanvas({
   const [view, setView] = useState<View>(() => frame({ width: 640, height: 400 }));
   const [hover, setHover] = useState<Cell | null>(null);
   const [cursor, setCursor] = useState<PlanPoint | null>(null);
+  const [brushAt, setBrushAt] = useState<PlanPoint | null>(null);
   const { image: terrainImage, loaded: terrainLoaded } = useTerrainImage(plan?.terrain?.preview);
   /** Bumped while a pulse is running, so the draw effect repaints it. */
   const [pulseTick, setPulseTick] = useState(0);
@@ -256,6 +260,7 @@ export function LevelCanvas({
       const overlay: PlanOverlay = { terrain: plan.terrain, terrainImage, draft: plan.draft, cursor: plan.draft.length > 0 ? cursor : null, volume: plan.volume };
       drawPlan(ctx, { level, view, selection, selected, marquee, hidden, overlay, outline, text, highlight });
       if (hasExtras(extras)) drawExtras(ctx, { extras, view });
+      if (brush && brushAt) drawBrush(ctx, { at: brushAt, radius: brush.radius, view, outline });
       return;
     }
     const pixel = mapPixelSize(tmj);
@@ -333,7 +338,8 @@ export function LevelCanvas({
       cellPath(c.x, c.y);
       ctx.stroke();
     }
-  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection, selected, marquee, hidden, plan, terrainImage, terrainLoaded, cursor, highlight, pulseTick, extras]);
+    if (brush && brushAt) drawBrush(ctx, { at: brushAt, radius: brush.radius, view, outline, toMap: (p) => objectToMapPoint(level, p.x, p.y) });
+  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection, selected, marquee, hidden, plan, terrainImage, terrainLoaded, cursor, highlight, pulseTick, extras, brush, brushAt]);
 
   const local = (e: { clientX: number; clientY: number }) => {
     const rect = canvas.current?.getBoundingClientRect();
@@ -352,6 +358,7 @@ export function LevelCanvas({
     if (phase === 'move') {
       setHover(cell);
       if (plan) setCursor({ x: p.x, y: p.y });
+      if (brush) setBrushAt(plan ? { x: p.x, y: p.y } : mapPointToObject(level, p.x, p.y));
     }
     onPointer({
       phase,
@@ -449,7 +456,10 @@ export function LevelCanvas({
         onPointerMove={onMove}
         onPointerUp={onUp}
         onPointerCancel={onUp}
-        onPointerLeave={() => setHover(null)}
+        onPointerLeave={() => {
+          setHover(null);
+          setBrushAt(null);
+        }}
         onAuxClick={(e) => e.preventDefault()}
         onContextMenu={(e) => {
           e.preventDefault();

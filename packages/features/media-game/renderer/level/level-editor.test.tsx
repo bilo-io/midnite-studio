@@ -73,7 +73,7 @@ describe('LevelEditor', () => {
     expect(get).toHaveBeenCalledWith({ gameId: 'g1', scene: 'level' });
     const group = screen.getByRole('radiogroup', { name: 'Tool' });
     const radios = Array.from(group.querySelectorAll('[role=radio]')).map((r) => r.getAttribute('aria-label'));
-    expect(radios).toEqual(['Paint', 'Erase', 'Rectangle', 'Pick', 'Entity', 'Select']);
+    expect(radios).toEqual(['Paint', 'Erase', 'Rectangle', 'Pick', 'Entity', 'Select', 'Scatter']);
     expect(screen.getByRole('radio', { name: 'Paint' }).getAttribute('aria-checked')).toBe('true');
   });
 
@@ -242,7 +242,7 @@ describe('LevelEditor, 3D plan view (Phase 132 Theme E)', () => {
   it('opens editable, with the 3D tools and no tile tools, palette or layer button', async () => {
     await open3d();
     const labels = Array.from(screen.getByRole('radiogroup', { name: 'Tool' }).querySelectorAll('[role=radio]')).map((r) => r.getAttribute('aria-label'));
-    expect(labels).toEqual(['Select / Move', 'Place', 'Volume', 'Path', 'Rotate']);
+    expect(labels).toEqual(['Select / Move', 'Place', 'Volume', 'Path', 'Rotate', 'Scatter']);
     expect(screen.getByRole('radio', { name: 'Select / Move' }).getAttribute('aria-checked')).toBe('true');
     expect((screen.getByRole('radio', { name: 'Place' }) as HTMLButtonElement).disabled).toBe(false);
     expect(screen.queryByRole('radio', { name: 'Paint' })).toBeNull();
@@ -474,7 +474,7 @@ describe('LevelEditor, Floorplan | 3D switch (Phase 136 Theme E)', () => {
     expect(view.dataset.tool).toBe('volume');
     expect(screen.getByRole('radio', { name: 'Volume' }).getAttribute('aria-checked')).toBe('true');
     const labels = Array.from(screen.getByRole('radiogroup', { name: 'Tool' }).querySelectorAll('[role=radio]')).map((r) => r.getAttribute('aria-label'));
-    expect(labels).toEqual(['Select / Move', 'Place', 'Volume', 'Path', 'Rotate']);
+    expect(labels).toEqual(['Select / Move', 'Place', 'Volume', 'Path', 'Rotate', 'Scatter']);
     expect(useLevelViewStore.getState().modeByGame).toEqual({ g1: '3d' });
   });
 
@@ -906,5 +906,91 @@ describe('LevelEditor, prefabs (Phase 139 Theme G)', () => {
     fireEvent.pointerUp(canvas, { clientX: 100, clientY: 150, button: 0 });
     await waitFor(() => expect(objects()).toHaveLength(before + 2));
     expect(objects().slice(-2).every((o) => o.properties?.some((p) => p.name === 'midnite.prefabInstance'))).toBe(true);
+  });
+});
+
+describe('LevelEditor, scatter brush (Phase 139 Theme H)', () => {
+  const objects = () => useLevelStore.getState().byGame.g1!.edit.level.layers.filter((l) => l.type === 'objectgroup').flatMap((l) => l.objects ?? []).filter((o) => o.type === 'prop');
+  const open = async () => {
+    get.mockResolvedValue({ ok: true, value: { level: blankLevel3d(), issues: [], images: [] } });
+    list.mockResolvedValue(listed({ scenes: [{ scene: 'level', bytes: 1, dimension: '3d', issue: null }] }));
+    renderEditor();
+    await ready();
+    return { canvas: screen.getByTestId('level-canvas'), wrap: screen.getByTestId('level-canvas-wrap') };
+  };
+  const press = (canvas: HTMLElement, x: number, y: number, kind: 'pointerDown' | 'pointerMove' | 'pointerUp', alt = false) =>
+    fireEvent[kind](canvas, { clientX: x, clientY: y, button: 0, pointerId: 1, altKey: alt });
+  const withTree = () => act(() => arm({ kind: 'asset', name: 'tree.glb', assetKind: 'model' }));
+
+  beforeEach(() => assetDragStore.set({ dragging: null, armed: null }));
+
+  it('S opens the brush; a model tile becomes a source instead of placing', async () => {
+    const { wrap } = await open();
+    fireEvent.keyDown(wrap, { key: 's' });
+    expect(screen.getByRole('radio', { name: 'Scatter' }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByTestId('scatter-panel')).toBeTruthy();
+    withTree();
+    expect(screen.getByText('model: tree.glb')).toBeTruthy();
+    expect(assetDragStore.get().armed).toBeNull();
+    expect(objects()).toHaveLength(0);
+  });
+
+  it('with no source, a press says what to do and adds nothing', async () => {
+    const { canvas, wrap } = await open();
+    fireEvent.keyDown(wrap, { key: 's' });
+    press(canvas, 200, 200, 'pointerDown');
+    press(canvas, 200, 200, 'pointerUp');
+    expect(objects()).toHaveLength(0);
+    expect(useToastStore.getState().toasts.some((t) => t.message.startsWith('Click a model or prefab tile'))).toBe(true);
+  });
+
+  it('H3: a stroke of several dabs is one undo step', async () => {
+    const { canvas, wrap } = await open();
+    fireEvent.keyDown(wrap, { key: 's' });
+    withTree();
+    press(canvas, 100, 150, 'pointerDown');
+    for (const x of [160, 220, 280]) press(canvas, x, 150, 'pointerMove');
+    press(canvas, 280, 150, 'pointerUp');
+    expect(objects().length).toBeGreaterThan(2);
+    fireEvent.keyDown(wrap, { key: 'z', metaKey: true });
+    expect(objects()).toHaveLength(0);
+  });
+
+  it('H4: Alt erases the chosen source and leaves other props alone', async () => {
+    const { canvas, wrap } = await open();
+    const layerId = useLevelStore.getState().byGame.g1!.edit.level.layers.find((l) => l.type === 'objectgroup')!.id!;
+    useLevelStore.getState().update('g1', (s) => addObject(s, layerId, { type: 'prop', x: 100, y: 150 }));
+    fireEvent.keyDown(wrap, { key: 's' });
+    withTree();
+    press(canvas, 100, 150, 'pointerDown');
+    press(canvas, 100, 150, 'pointerUp');
+    const scattered = objects().length;
+    expect(scattered).toBeGreaterThan(1);
+    press(canvas, 100, 150, 'pointerDown', true);
+    press(canvas, 100, 150, 'pointerUp', true);
+    // The hand-placed prop (no model) survives; only tree.glb props within the brush go.
+    expect(objects().filter((o) => o.properties?.some((p) => p.value === 'tree.glb')).length).toBeLessThan(scattered);
+    expect(objects().some((o) => !o.properties?.some((p) => p.name === 'model'))).toBe(true);
+  });
+
+  it('[ and ] resize the brush', async () => {
+    const { wrap } = await open();
+    fireEvent.keyDown(wrap, { key: 's' });
+    const radius = () => Number((screen.getByLabelText('Radius') as HTMLInputElement).value);
+    const before = radius();
+    fireEvent.keyDown(wrap, { key: ']' });
+    expect(radius()).toBeGreaterThan(before);
+    fireEvent.keyDown(wrap, { key: '[' });
+    fireEvent.keyDown(wrap, { key: '[' });
+    expect(radius()).toBeLessThan(before);
+  });
+
+  it('a 2D level refuses a model source', async () => {
+    renderEditor();
+    await ready();
+    fireEvent.keyDown(screen.getByTestId('level-canvas-wrap'), { key: 's' });
+    withTree();
+    expect(screen.queryByText('model: tree.glb')).toBeNull();
+    expect(useToastStore.getState().toasts.some((t) => t.message === 'Models scatter in 3D levels.')).toBe(true);
   });
 });

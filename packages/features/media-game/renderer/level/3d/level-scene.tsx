@@ -11,6 +11,7 @@ import {
   Float32BufferAttribute,
   Fog,
   Frustum,
+  DoubleSide,
   GridHelper,
   Group,
   InstancedMesh,
@@ -93,6 +94,8 @@ export type LevelSceneProps = {
   snap: SnapSettings;
   preset: OptimisationPreset;
   placing: boolean;
+  /** Phase 139 Theme H: a ground ring of `radius` metres; `move` is set by the ring and moves it (null hides it). */
+  brush?: { radius: number; move: MutableRefObject<((at: [number, number] | null) => void) | null> } | undefined;
   cache: ModelCache<Object3D>;
   initialPose: CameraPose;
   /** Set to animate the camera (the Floorplan ↔ 3D switch, F to frame). */
@@ -573,6 +576,7 @@ export function LevelScene(props: LevelSceneProps) {
       {selected.length === 1 && items[selected[0]!] ? <Selected key={selected[0]} {...props} item={items[selected[0]!]!} /> : null}
       {selected.length > 1 && props.pivot ? <GroupSelected {...props} members={selected.map((i) => items[i]!).filter(Boolean)} pivot={props.pivot} /> : null}
       <DraftView draft={props.draft} ground={props.ground} />
+      {props.brush ? <BrushRing radius={props.brush.radius} move={props.brush.move} ground={props.ground} /> : null}
       {props.extras ? <ExtrasView items={items} extras={props.extras} ground={props.ground} /> : null}
       <OrbitControls makeDefault enabled={props.orbit} enableDamping={false} maxPolarAngle={Math.PI / 2 - 0.02} />
       <GizmoHelper alignment="bottom-right" margin={[56, 56]}>
@@ -810,3 +814,28 @@ function GizmoReady() {
 }
 
 export { disposeTree };
+
+/** The scatter brush on the ground (Phase 139 Theme D's ring, flat until Phase 141 conforms it to terrain). */
+function BrushRing({ radius, move, ground }: { radius: number; move: MutableRefObject<((at: [number, number] | null) => void) | null>; ground: number }) {
+  const mesh = useRef<Mesh>(null);
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => {
+    move.current = (at) => {
+      const m = mesh.current;
+      if (!m) return;
+      if (at) m.position.set(at[0], ground + 0.06, at[1]);
+      m.visible = at !== null;
+      invalidate();
+    };
+    return () => {
+      move.current = null;
+    };
+  }, [move, ground, invalidate]);
+  const r = Math.max(radius, 0.05);
+  return (
+    <mesh ref={mesh} rotation={[-Math.PI / 2, 0, 0]} visible={false} renderOrder={5}>
+      <ringGeometry args={[r * 0.96, r, 64]} />
+      <meshBasicMaterial color="#6366f1" transparent opacity={0.9} side={DoubleSide} depthTest={false} />
+    </mesh>
+  );
+}

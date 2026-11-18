@@ -6,7 +6,8 @@
 export type LevelShortcutGroup = 'Tools' | 'Selection' | 'Edit' | 'View';
 
 export type LevelCommandId =
-  | 'tool.select' | 'tool.entity' | 'tool.paint' | 'tool.erase' | 'tool.rect' | 'tool.pick' | 'tool.volume' | 'tool.path' | 'tool.rotate'
+  | 'tool.select' | 'tool.entity' | 'tool.paint' | 'tool.erase' | 'tool.rect' | 'tool.pick' | 'tool.volume' | 'tool.path' | 'tool.rotate' | 'tool.scatter'
+  | 'scatter.smaller' | 'scatter.larger'
   | 'path.finish'
   | 'edit.undo' | 'edit.redo' | 'edit.cut' | 'edit.copy' | 'edit.paste' | 'edit.duplicate' | 'edit.delete'
   | 'select.all' | 'select.none' | 'select.nudge' | 'view.frame' | 'gizmo.translate' | 'gizmo.rotate' | 'gizmo.scale'
@@ -30,6 +31,9 @@ const IN_3D: LevelShortcut['views'] = ['3d'];
 export const LEVEL_SHORTCUTS: readonly LevelShortcut[] = [
   { id: 'tool.select', chord: 'V', label: 'Select / move', group: 'Tools', views: BOTH },
   { id: 'tool.entity', chord: 'O', label: 'Place entity', group: 'Tools', views: BOTH },
+  { id: 'tool.scatter', chord: 'S', label: 'Scatter brush (Alt erases)', group: 'Tools', views: BOTH },
+  { id: 'scatter.smaller', chord: '[', label: 'Scatter brush smaller', group: 'Tools', views: BOTH },
+  { id: 'scatter.larger', chord: ']', label: 'Scatter brush larger', group: 'Tools', views: BOTH },
   { id: 'tool.paint', chord: 'B', label: 'Paint tiles', group: 'Tools', views: PLAN, dimension: '2d' },
   { id: 'tool.erase', chord: 'E', label: 'Erase tiles', group: 'Tools', views: PLAN, dimension: '2d' },
   { id: 'tool.rect', chord: 'R', label: 'Rectangle', group: 'Tools', views: PLAN, dimension: '2d' },

@@ -71,6 +71,8 @@ export type Level3dViewProps = {
   assetDrop?: Pick<AssetDropTarget, 'onDrop'>;
   /** An armed browser tile: the next ground click places it instead of the entity tool's object. */
   armed?: AssetDragPayload | null;
+  /** Phase 139 Theme H: the scatter brush. The ground under a drag becomes plan points (object units); `radius` is in the same units. */
+  scatter?: { radius: number; onStroke: (phase: 'down' | 'move' | 'up', at: PlanPoint, alt: boolean) => void } | undefined;
 };
 
 type LevelSceneRayRef = LevelSceneProps['ray'];
@@ -302,7 +304,7 @@ export default function Level3dView(props: Level3dViewProps) {
   const toolDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     const tool = props.tool;
     if (!editable || event.button !== 0 || event.shiftKey || !(event.target instanceof HTMLCanvasElement)) return;
-    if (tool !== 'volume' && tool !== 'path' && tool !== 'rotate') return;
+    if (tool !== 'volume' && tool !== 'path' && tool !== 'rotate' && tool !== 'scatter') return;
     const cast = (x: number, y: number): [number, number, number] | null => {
       const r = ray.current?.(x, y);
       return r ? groundPoint(r.origin, r.dir, ground) : null;
@@ -339,6 +341,18 @@ export default function Level3dView(props: Level3dViewProps) {
         (ev, at) => {
           if (at && travelled(ev)) update((s) => commitVolume(s, layer, snapped(at, ev.altKey)));
         },
+      );
+    } else if (tool === 'scatter') {
+      const sc = props.scatter;
+      if (!start || !sc) return;
+      setOrbit.current?.(false);
+      const plan = (at: [number, number, number]) => worldToObjectPoint(level, at[0], at[2]);
+      sc.onStroke('down', plan(start), event.altKey);
+      track(
+        (ev, at) => {
+          if (at) sc.onStroke('move', plan(at), ev.altKey);
+        },
+        (ev, at) => sc.onStroke('up', plan(at ?? start), ev.altKey),
       );
     } else if (tool === 'path') {
       if (!start || layer === null) return;
@@ -398,6 +412,9 @@ export default function Level3dView(props: Level3dViewProps) {
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
   };
+  /** The scatter ring follows the pointer over the ground without a React render per move. */
+  const brushMove = useRef<((at: [number, number] | null) => void) | null>(null);
+  const brushRadius = props.scatter ? worldPointFromPlan(level, { x: props.scatter.radius, y: props.scatter.radius })[0] : 0;
   const armedAsset = editable && props.armed ? props.armed : null;
   const placing = armedAsset !== null || (editable && props.tool === 'entity' && props.objectLayerId !== null && props.entityName !== '');
   const dragged = useDraggedAsset();
@@ -419,6 +436,13 @@ export default function Level3dView(props: Level3dViewProps) {
       data-testid="level-3d-view"
       onKeyDown={onKeyDown}
       onPointerDownCapture={toolDown}
+      onPointerMove={(e) => {
+        if (!props.scatter || !editable) return;
+        const r = ray.current?.(e.clientX, e.clientY);
+        const g = r ? groundPoint(r.origin, r.dir, ground) : null;
+        brushMove.current?.(g ? [g[0], g[2]] : null);
+      }}
+      onPointerLeave={() => brushMove.current?.(null)}
       onDragOver={(e) => {
         if (!props.assetDrop || !isAssetDrag(e.dataTransfer)) return;
         e.preventDefault();
@@ -467,6 +491,7 @@ export default function Level3dView(props: Level3dViewProps) {
           snap={snap}
           preset={preset}
           placing={placing}
+          brush={props.scatter ? { radius: brushRadius, move: brushMove } : undefined}
           cache={cache}
           initialPose={initialPose}
           move={move}
