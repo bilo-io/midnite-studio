@@ -43,9 +43,13 @@ export function useCreateProjection(projections: readonly FleetProjection[], onC
   return { create, problem };
 }
 
-function Row({ projection, selected, renaming, readOnly, onSelect, onStartRename, onRename, onCancelRename, onDuplicate, onDelete, atCap, renameProblem }: {
+function Row({ projection, selected, tabStop, focusOnSelect, renaming, readOnly, onSelect, onStartRename, onRename, onCancelRename, onDuplicate, onDelete, atCap, renameProblem }: {
   projection: FleetProjection;
   selected: boolean;
+  /** The list's single tab stop: the selected row, or the first when nothing is selected. */
+  tabStop: boolean;
+  /** Keyboard moved the selection: carry focus to the new row so the one tab stop follows it. */
+  focusOnSelect: boolean;
   renaming: boolean;
   readOnly: boolean;
   atCap: boolean;
@@ -61,6 +65,10 @@ function Row({ projection, selected, renaming, readOnly, onSelect, onStartRename
   const net = useMemo(() => computeFleetProjection(projection, catalog).netMarginMonthlyMinor, [projection, catalog]);
   const [value, setValue] = useState(projection.name);
   const settled = useRef(false);
+  const rowRef = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (selected && focusOnSelect) rowRef.current?.focus();
+  }, [selected, focusOnSelect]);
   const IconButton = STARTUP_CHROME.IconButton;
   const finish = (commit: boolean) => {
     if (settled.current) return;
@@ -83,6 +91,8 @@ function Row({ projection, selected, renaming, readOnly, onSelect, onStartRename
     <li
       role="option"
       aria-selected={selected}
+      tabIndex={tabStop ? 0 : -1}
+      ref={rowRef}
       onClick={onSelect}
       className={`relative flex cursor-pointer flex-col gap-1 rounded-lg px-3 py-2 hover:bg-accent/50 ${selected ? 'bg-accent/60' : ''}`}
     >
@@ -145,6 +155,7 @@ export function ProjectionList({ projections, lines = [], selectedId, readOnly, 
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameProblem, setRenameProblem] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const [keyboardMoved, setKeyboardMoved] = useState(false);
   const creator = useCreateProjection(projections, (id) => {
     setPicking(false);
     onSelect(id);
@@ -172,6 +183,16 @@ export function ProjectionList({ projections, lines = [], selectedId, readOnly, 
     setRenamingId(null);
     if (name !== p.name) upsert.mutate({ ...p, name }, { onError: (e) => setProblem(e.message) });
     return true;
+  }
+
+  /** The copy lands directly after its source in the returned snapshot; select it by id from there. */
+  function selectCopy(sourceId: string, snapshot: unknown): void {
+    const list = (snapshot as { fleetProjections?: readonly FleetProjection[] } | null)?.fleetProjections ?? [];
+    const copy = list[list.findIndex((x) => x.id === sourceId) + 1];
+    if (copy !== undefined && list.findIndex((x) => x.id === sourceId) >= 0) {
+      setKeyboardMoved(false);
+      onSelect(copy.id);
+    }
   }
 
   function askDelete(p: FleetProjection): void {
@@ -211,14 +232,18 @@ export function ProjectionList({ projections, lines = [], selectedId, readOnly, 
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       const next = projections[e.key === 'ArrowDown' ? Math.min(projections.length - 1, index + 1) : Math.max(0, index - 1)];
-      if (next !== undefined) onSelect(next.id);
-    } else if ((e.key === 'Enter' || e.key === 'F2') && !readOnly && index >= 0) {
+      if (next !== undefined) {
+        setKeyboardMoved(true);
+        onSelect(next.id);
+      }
+    } else if ((e.key === 'Enter' || e.key === 'F2') && !readOnly && index >= 0 && (e.target as HTMLElement).closest('button') === null) {
       e.preventDefault();
       setRenameProblem(null);
       setRenamingId(selectedId);
     }
   }
 
+  const tabStopId = projections.some((p) => p.id === selectedId) ? selectedId : (projections[0]?.id ?? null);
   const shownProblem = problem ?? creator.problem;
   return (
     <aside aria-label="Projection list" className={`flex h-full min-h-0 flex-col gap-2 overflow-y-auto p-3 ${PANE}`}>
@@ -234,12 +259,14 @@ export function ProjectionList({ projections, lines = [], selectedId, readOnly, 
           {shownProblem}
         </p>
       ) : null}
-      <ul role="listbox" aria-label="Projections" tabIndex={0} onKeyDown={onKeyDown} className="flex flex-col gap-1 outline-none">
+      <ul role="listbox" aria-label="Projections" onKeyDown={onKeyDown} className="flex flex-col gap-1 outline-none">
         {projections.map((p) => (
           <Row
             key={p.id}
             projection={p}
             selected={p.id === selectedId}
+            tabStop={p.id === tabStopId}
+            focusOnSelect={keyboardMoved}
             renaming={renamingId === p.id}
             readOnly={readOnly}
             atCap={atCap}
@@ -257,7 +284,7 @@ export function ProjectionList({ projections, lines = [], selectedId, readOnly, 
             onDuplicate={() => {
               if (atCap) return;
               setProblem(null);
-              duplicate.mutate({ id: p.id, name: uniqueName(`${p.name} copy`, projections) }, { onSuccess: () => undefined, onError: (e) => setProblem(e.message) });
+              duplicate.mutate({ id: p.id, name: uniqueName(`${p.name} copy`, projections) }, { onSuccess: (snapshot) => selectCopy(p.id, snapshot), onError: (e) => setProblem(e.message) });
             }}
             onDelete={() => askDelete(p)}
           />

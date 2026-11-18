@@ -74,6 +74,26 @@ describe('ProjectionList', () => {
     await waitFor(() => expect(bridge.duplicateFleetProjection).toHaveBeenCalledWith({ id: p.id, name: 'Alpha copy' }));
   });
 
+  it('duplicate selects the copy found after its source in the returned snapshot', async () => {
+    const a = fleetProjection({ name: 'Alpha' });
+    const b = fleetProjection({ name: 'Beta' }, 2);
+    const copy = fleetProjection({ name: 'Alpha copy' }, 3);
+    bridge.duplicateFleetProjection.mockResolvedValueOnce({ ok: true, value: { fleetProjections: [a, copy, b] } });
+    const onSelect = show([a, b]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Duplicate' })[0]!);
+    await waitFor(() => expect(onSelect).toHaveBeenCalledWith(copy.id));
+  });
+
+  it('exactly one row is a tab stop, and it follows the selection', () => {
+    const a = fleetProjection({ name: 'Alpha' });
+    const b = fleetProjection({ name: 'Beta' }, 2);
+    show([a, b], b.id);
+    expect(screen.getAllByRole('option').map((o) => o.getAttribute('tabindex'))).toEqual(['-1', '0']);
+    cleanup();
+    show([a, b], null);
+    expect(screen.getAllByRole('option').map((o) => o.getAttribute('tabindex'))).toEqual(['0', '-1']);
+  });
+
   it('delete asks first and removes only on confirm', async () => {
     const p = fleetProjection({ name: 'Alpha' });
     show([p]);

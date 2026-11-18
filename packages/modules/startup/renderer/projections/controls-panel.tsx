@@ -108,6 +108,14 @@ export function ControlsPanel({ draft, update, readOnly }: { draft: FleetProject
         <SliderField id="g-scale" label="Scale" value={globals.scalePct} min={10} max={500} step={10} format={fmtPct} parse={parseNumber} disabled={readOnly} onChange={(scalePct) => setGlobals({ scalePct })} />
         <SliderField id="g-rate" label="Electricity" value={globals.electricityRateMinor} min={0} max={10_000} step={10} format={fmtRate(currency)} parse={parseMinor(currency)} disabled={readOnly} onChange={(electricityRateMinor) => setGlobals({ electricityRateMinor })} />
         <SliderField id="g-growth" label="Demand growth" value={globals.demandGrowthPct} min={-20} max={50} step={1} format={fmtGrowth} parse={parseNumber} disabled={readOnly} onChange={(demandGrowthPct) => setGlobals({ demandGrowthPct })} />
+        <div className="flex items-center justify-between gap-2">
+          <span id="g-energy" className={LABEL}>
+            Scale energy with utilisation
+          </span>
+          <button type="button" role="switch" aria-checked={globals.energyScalesWithUtilisation} aria-labelledby="g-energy" disabled={readOnly} onClick={() => setGlobals({ energyScalesWithUtilisation: !globals.energyScalesWithUtilisation })} className={`h-5 w-9 shrink-0 rounded-full border border-border p-0.5 transition-colors disabled:opacity-50 ${globals.energyScalesWithUtilisation ? 'bg-purple-500' : 'bg-muted'}`}>
+            <span className={`block h-3.5 w-3.5 rounded-full bg-white transition-transform ${globals.energyScalesWithUtilisation ? 'translate-x-4' : ''}`} />
+          </button>
+        </div>
         <div className="flex flex-col gap-1">
           <span id="g-horizon" className={LABEL}>
             Horizon (months)
