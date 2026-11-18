@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { LuGitBranch, LuInfo } from 'react-icons/lu';
+import { LuGitBranch, LuInfo, LuX } from 'react-icons/lu';
 
 import { getProviderSyncTier, type Chat, type ChatAttachment, type ChatMode, type ChatWidthMode } from '@midnite/studio-shared';
 
@@ -13,7 +13,7 @@ import { isStreaming, useChatsStore } from './chats-store';
 import { pickEngine, useChatEngines, wireModel, type ChatEngine } from './use-chat-engines';
 import { useChatFiles, useChatSkills } from './use-composer-sources';
 import { CHAT_COLUMN, CHAT_GUTTER, ExplorerNotice, useFrameChrome, useToastStore } from '@midnite/studio-frame';
-import { Tooltip } from './ui';
+import { IconButton, Tooltip } from './ui';
 import { useChatsHost } from './host';
 
 /**
@@ -47,6 +47,8 @@ export function ChatPane({ selectedId, headerActions }: { selectedId: string | n
   const [focusToken, setFocusToken] = useState(0);
   const [reviewing, setReviewing] = useState<string | null>(null);
   const [resolving, setResolving] = useState<string | null>(null);
+  // Chats whose one-way handoff banner was dismissed; kept for as long as the pane lives.
+  const [handoffDismissed, setHandoffDismissed] = useState<ReadonlySet<string>>(() => new Set());
 
   // Park the outgoing chat's draft, restore the incoming one's.
   const previousKey = useRef(key);
@@ -277,15 +279,20 @@ export function ChatPane({ selectedId, headerActions }: { selectedId: string | n
           {headerActions}
         </header>
       ) : null}
-      {chat && chat.linkedTerminalId && getProviderSyncTier(chat.engine) === 'handoff-only' ? (
+      {chat && chat.linkedTerminalId && getProviderSyncTier(chat.engine) === 'handoff-only' && !handoffDismissed.has(chat.id) ? (
         <div
-          role="status"
           data-testid="chat-handoff-only-banner"
-          className="flex shrink-0 items-center gap-2 border-b border-border bg-muted/40 px-4 py-1.5 text-xs text-muted-foreground"
+          className="flex shrink-0 items-center gap-2 border-b border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-900 dark:text-amber-200"
         >
-          <LuInfo aria-hidden className="h-3.5 w-3.5 shrink-0" />
-          <span>
-            {engine?.label ?? chat.engine} uses one-way handoff — interactive Terminal turns are not synced back into this Chat thread.
+          <LuInfo aria-hidden className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <span role="status">Interactive Terminal turns are not synced back into this Chat thread.</span>
+          <span className="ml-auto">
+            <IconButton
+              icon={LuX}
+              label="Dismiss handoff notice"
+              size="sm"
+              onClick={() => setHandoffDismissed((prev) => new Set(prev).add(chat.id))}
+            />
           </span>
         </div>
       ) : null}

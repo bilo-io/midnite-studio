@@ -32,7 +32,7 @@ Today `sessions` (persistent PTYs in `packages/features/sessions/` + `packages/f
 
 **Theme D — Unified sidebar & Chat/Terminal toggle UI (`PR-4`, L).** ✅ The UI landed in #1251 (filed as "Phase 146 Theme D"): `mergeManagedSessions` dedupes linked chat/terminal pairs into one row with a `Chat`/`Terminal` mode pill, `SessionViewToggle` sits in the content header (hidden for plain shells, `Terminal` disabled with a tooltip for `ollama`), and `UnifiedSessionContent` keeps `ChatPane` mounted while hidden so the composer draft survives a toggle. This theme closed two gaps: a rejected `switchView` now toasts instead of leaving an unhandled rejection, and the in-flight guard is a ref, since two clicks in one tick both read the stale `switchingTarget` state and sent two switches. The terminal pane still remounts on toggle back, by design: the coordinator parks the PTY for a Chat turn and resumes it, so there is no live xterm to keep.
 
-**Theme E — Generic provider handoff & verification (`PR-5`, M).** ◻ Implements one-way transcript-summary handoff for generic CLI agents, `ollama` read-only terminal guard, and unit/Playwright e2e coverage.
+**Theme E — Generic provider handoff & verification (`PR-5`, M).** ✅ Most of it landed in #1253 (filed as "Phase 146 Theme E"): `buildTranscriptHandoffPrompt` in `unified-session-coordinator.ts` seeds the last six Chat turns (2,400 chars, 500 per turn) into a new `handoff-only` PTY behind the agent's `agentInteractiveArgs`, `ollama` is refused Terminal in the coordinator and disabled in the toggle, and `unified-sessions-chats.spec.ts` drives sidebar selection and the toggle against a real xterm. This theme closed the banner gap: it now follows the design — amber, the doc's copy, and a `LuX` dismiss that hides it for that chat while the pane lives, without touching the composer — with a jsdom test for the dismiss and an e2e step that dismisses it. The spec needs CI's 15 s expect timeout on a cold Vite server; locally that means `CI=1`.
 
 ## Deliverables
 
@@ -65,9 +65,9 @@ Today `sessions` (persistent PTYs in `packages/features/sessions/` + `packages/f
 
 ### Theme E — Generic provider handoff & verification (`M`)
 
-- [ ] **147.E.1** Implement one-way transcript-summary handoff when toggling `handoff-only` providers (`cursor`, `copilot`, `openclaude`, `opencode`, `kilo`, `aider`, `cline`, `grok`, `goose`, custom) from Chat → Terminal, seeding a concise context prompt into the new PTY.
-- [ ] **147.E.2** Show a non-blocking banner in Chat view for `handoff-only` providers noting that interactive Terminal turns are not synced back into the Chat thread.
-- [ ] **147.E.3** Add Playwright functional e2e coverage in `packages/app/e2e/` verifying unified sidebar selection and `Chat | Terminal` view toggling.
+- [x] **147.E.1** Implement one-way transcript-summary handoff when toggling `handoff-only` providers (`cursor`, `copilot`, `openclaude`, `opencode`, `kilo`, `aider`, `cline`, `grok`, `goose`, custom) from Chat → Terminal, seeding a concise context prompt into the new PTY.
+- [x] **147.E.2** Show a non-blocking banner in Chat view for `handoff-only` providers noting that interactive Terminal turns are not synced back into the Chat thread.
+- [x] **147.E.3** Add Playwright functional e2e coverage in `packages/app/e2e/` verifying unified sidebar selection and `Chat | Terminal` view toggling.
 
 ## Visual & UI/UX Design
 
@@ -103,7 +103,7 @@ All tokens follow Tailwind semantic theme variables (`border-border`, `bg-accent
 ## Verification
 
 - [ ] `moon run :typecheck :lint :test` passes green with zero boundary violations.
-- [ ] `moon run app:e2e` passes the unified sessions/chats toggle spec.
+- [x] `moon run app:e2e` passes the unified sessions/chats toggle spec.
 - [ ] Manual check: toggle a `claude` session Chat → Terminal → Chat and verify conversation continuity without concurrent-lock errors.
 - [ ] Manual check: toggle a generic provider (`aider` or `opencode`) and confirm handoff banner + `ollama` disabled-terminal tooltip.
 
