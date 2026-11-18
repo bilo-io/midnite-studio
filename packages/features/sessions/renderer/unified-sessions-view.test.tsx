@@ -1,6 +1,12 @@
 import { useState, type ReactNode } from 'react';
 
-import { createFrameChrome, FrameChromeProvider, type GitMultiSelectProps, type GitTooltipProps } from '@midnite/studio-frame';
+import {
+  createFrameChrome,
+  FrameChromeProvider,
+  useToastStore,
+  type GitMultiSelectProps,
+  type GitTooltipProps,
+} from '@midnite/studio-frame';
 import { BUILTIN_AGENTS, type ChatSummary, type TerminalSession, type UnifiedSessionViewMode } from '@midnite/studio-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -323,5 +329,72 @@ describe('Unified SessionsView (Phase 146 Theme D)', () => {
 
     await waitFor(() => expect(screen.queryByTestId('fake-live-pane')).toBeNull());
     expect((screen.getByLabelText('Chat composer') as HTMLTextAreaElement).value).toBe('unsent draft message');
+  });
+});
+
+describe('Unified SessionsView — switch failures and in-flight guard (Phase 147 Theme D)', () => {
+  const claudeChat = () => [chatSummary({ id: 'c1', engine: 'claude', title: 'Claude task', preferredView: 'chat' })];
+
+  afterEach(() => {
+    useToastStore.setState({ toasts: [] });
+  });
+
+  it('toasts a failed switch result and keeps the composer draft', async () => {
+    const switchView = vi.fn().mockResolvedValue({ ok: false, kind: 'error', message: 'PTY is mid-turn' });
+    renderUnified({ chats: claudeChat(), switchView });
+
+    fireEvent.click(screen.getByRole('button', { name: /Claude task/ }));
+    const composer = screen.getByLabelText('Chat composer') as HTMLTextAreaElement;
+    fireEvent.change(composer, { target: { value: 'keep me' } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('session-view-toggle-terminal'));
+    });
+
+    await waitFor(() =>
+      expect(useToastStore.getState().toasts.map((t) => t.message)).toContain('PTY is mid-turn'),
+    );
+    expect((screen.getByLabelText('Chat composer') as HTMLTextAreaElement).value).toBe('keep me');
+  });
+
+  it('toasts a rejected switch instead of leaving an unhandled rejection, then re-enables the toggle', async () => {
+    const switchView = vi.fn().mockRejectedValue(new Error('bridge went away'));
+    renderUnified({ chats: claudeChat(), switchView });
+
+    fireEvent.click(screen.getByRole('button', { name: /Claude task/ }));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('session-view-toggle-terminal'));
+    });
+
+    await waitFor(() =>
+      expect(useToastStore.getState().toasts.map((t) => t.message)).toContain('bridge went away'),
+    );
+    expect((screen.getByTestId('session-view-toggle-terminal') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('sends one switch for a same-tick double click and dims the target segment while in flight', async () => {
+    let resolve!: (value: unknown) => void;
+    const switchView = vi.fn().mockImplementation(() => new Promise((r) => (resolve = r)));
+    renderUnified({ chats: claudeChat(), switchView });
+
+    fireEvent.click(screen.getByRole('button', { name: /Claude task/ }));
+    const terminal = screen.getByTestId('session-view-toggle-terminal');
+    act(() => {
+      terminal.click();
+      terminal.click();
+    });
+
+    expect(switchView).toHaveBeenCalledTimes(1);
+    const inFlight = screen.getByTestId('session-view-toggle-terminal') as HTMLButtonElement;
+    expect(inFlight.className).toContain('opacity-70');
+    expect(inFlight.disabled).toBe(true);
+
+    await act(async () => {
+      // A refusal keeps the row selected, so the segment is still there to inspect once settled.
+      resolve({ ok: false, kind: 'error', message: 'refused' });
+    });
+    const settled = screen.getByTestId('session-view-toggle-terminal') as HTMLButtonElement;
+    expect(settled.className).not.toContain('opacity-70');
+    expect(settled.disabled).toBe(false);
   });
 });
