@@ -61,6 +61,7 @@ export * from './game-level-editor-bridge';
 export * from './game-level-ops';
 export * from './game-level-overlays';
 export * from './game-level-prefab';
+export * from './game-level-scatter';
 export * from './game-level-validate';
 export * from './media-game-templates';
 export * from './media-game-options';
