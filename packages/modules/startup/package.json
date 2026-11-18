@@ -5,6 +5,7 @@
   "description": "The startup module (Phase 130): roadmap, runway and a lightweight ERP, composed as one module its app mounts as a nav group.",
   "sideEffects": false,
   "exports": {
+    "./mcp-manifest": "./mcp-manifest.ts",
     "./renderer": "./renderer/index.ts",
     "./bridge": "./main/bridge.ts",
     "./main": {
@@ -25,6 +26,9 @@
     "@midnite/studio-shared": "workspace:*",
     "@tanstack/react-query": "^5.62.0",
     "react-icons": "^5.7.0",
+    "react-markdown": "^10.1.0",
+    "recharts": "^3.11.0",
+    "remark-gfm": "^4.0.1",
     "zod": "^4.0.0",
     "zustand": "^5.0.3"
   },

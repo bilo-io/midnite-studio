@@ -32,6 +32,17 @@ export function fogRange(drawDistance: number, dollyOffset: number): { near: num
 }
 
 /**
+ * The fog band over a terrain with real heights: it starts where the plain band does but only closes `span` metres
+ * out (the terrain's diagonal), so ground past the draw distance stands as hazed hills and is never fogged away.
+ */
+export function hazeRange(range: { near: number; far: number }, dollyOffset: number, span: number): { near: number; far: number } {
+  return { near: range.near, far: Math.max(range.far, dollyOffset + span) };
+}
+
+/** The camera's far plane: past the draw distance, and past the whole terrain (`span`, its diagonal) when the ground is drawn that far. */
+export const farPlane = (cameraDistance: number, reach: number, span = 0): number => Math.max(cameraDistance + reach * 1.5 + 50, cameraDistance + span);
+
+/**
  * How far the draw distance is pushed out from the camera. Close in it is the camera's own reach, as in a game; once
  * the camera backs off past 40% of the draw distance (zoomed out over a big level, or the far narrow-lens plan
  * camera's dolly), the band follows the focus instead, so what the camera looks at is never fogged away.

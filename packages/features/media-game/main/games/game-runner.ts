@@ -7,13 +7,21 @@ import {
   GAME_CONSOLE_BATCH_MS,
   GAME_DETERMINISM_PARAMS,
   GAME_LEVEL_PARAM,
+  GAME_LEVELS_DIR,
+  GAME_SPAWN_PARAM,
   GAMES_MAX_RUNNING,
+  GAME_BUILD_REASON_PREFIX,
+  GAME_BUILD_SOURCE,
   GameJuicePatchSchema,
   GameJuiceSettingsSchema,
+  GameSceneNameSchema,
   MSTUDIO_GAME_SCHEME,
   ok,
   type BrowserBounds,
   type GameJuicePatch,
+  type GameDebugOptions,
+  type GameEntitiesResult,
+  type GameNavMesh,
   type GameGotoResult,
   type GameJuiceSettings,
   type GameLogEntry,
@@ -25,7 +33,11 @@ import {
 
 import type { Logger } from './logger';
 import type { GameElectron, GameSession, GameView, GameWindow } from './game-electron';
+import { BUILD_OUTSIDE_MESSAGE, gameServeRoot, runGameBuild, type GameBuildSpec } from './game-build';
+import { setGameDebug, readGameNavMesh } from './game-debug';
+import { readGameEntities } from './game-entities';
 import { gameProtocolHandler } from './game-protocol';
+import { createPreviewOverlay, type PreviewOverlay } from './game-preview-overlay';
 import { LogRingBuffer, clipLogText } from './ring-buffer';
 
 /**
@@ -46,6 +58,8 @@ export type RunnableGame = {
   /** The game repo's root — the only folder its scheme can read. */
   root: string;
   network: GameNetwork;
+  /** A bundled game (Phase 149 Theme E): build before loading, then serve `build.out` instead of the root. */
+  build?: GameBuildSpec | null;
   /** `persist:game-<gameId>` instead of a fresh in-memory partition per run. */
   keepSaveData: boolean;
   /**
@@ -55,10 +69,14 @@ export type RunnableGame = {
   determinism?: { seed: number; paused: boolean } | null;
   /** The level this run starts on (`?midnite-level=`); absent → the game's own start (Phase 132 Theme C). */
   level?: string;
+  /** Play from here (Phase 140 Theme B): where the player starts, as `?midnite-spawn=` (`x,y` or `x,y,z`). */
+  spawn?: { x: number; y: number; z?: number } | null;
+  /** Play from here: the unsaved level JSON served as `levels/<scene>.tmj` instead of the disk file, for this run. */
+  preview?: { scene: string; json: string } | null;
 };
 
 /** The URL a run loads: `index.html`, plus the deterministic-mode query the kit reads before any game module. */
-export function gameEntryUrl(game: Pick<RunnableGame, 'gameId' | 'determinism' | 'level'>): string {
+export function gameEntryUrl(game: Pick<RunnableGame, 'gameId' | 'determinism' | 'level' | 'spawn'>): string {
   const base = `${MSTUDIO_GAME_SCHEME}://${game.gameId}/index.html`;
   const query = new URLSearchParams({
     ...(game.determinism
@@ -69,6 +87,9 @@ export function gameEntryUrl(game: Pick<RunnableGame, 'gameId' | 'determinism' |
         }
       : {}),
     ...(game.level ? { [GAME_LEVEL_PARAM]: game.level } : {}),
+    ...(game.spawn
+      ? { [GAME_SPAWN_PARAM]: [game.spawn.x, game.spawn.y, ...(game.spawn.z === undefined ? [] : [game.spawn.z])].join(',') }
+      : {}),
   });
   const text = query.toString();
   return text === '' ? base : `${base}?${text}`;
@@ -82,12 +103,21 @@ export type GameRunnerDeps<V extends GameView = GameView> = {
   log: Logger;
   /** Push an event to the renderer(s). */
   send: (channel: string, payload: unknown) => void;
+  /** Runs a bundled game's build; injected so tests need no shell. Defaults to {@link runGameBuild}. */
+  build?: typeof runGameBuild;
+  /** Play from here's in-memory level overlay (Phase 140 Theme B); a runner makes its own by default. */
+  overlay?: PreviewOverlay;
 };
 
 export type GameRunner<V extends GameView = GameView> = {
   run(game: RunnableGame): Promise<GitOpResult<{ runId: string }>>;
   stop(gameId: string): void;
   stopAll(): void;
+  /**
+   * Drop a game's preview overlay (Phase 140 Theme B) — when `scene` is given, only if that is the scene it holds.
+   * The running game keeps what it loaded; a later reload reads the disk.
+   */
+  clearPreview(gameId: string, scene?: string): void;
   reload(gameId: string): GitOpResult;
   setBounds(gameId: string, bounds: BrowserBounds): void;
   setVisible(gameId: string, visible: boolean): void;
@@ -97,6 +127,12 @@ export type GameRunner<V extends GameView = GameView> = {
    * stopped game only remembers it for the next `run` (picking a scene never starts a game).
    */
   goto(gameId: string, scene: string): Promise<GitOpResult<GameGotoResult>>;
+  /** Read the running game's live objects through `window.__midnite.entities()` (Phase 140 Theme D). */
+  entities(gameId: string): Promise<GitOpResult<GameEntitiesResult>>;
+  /** Switch the running game's debug overlays through `window.__midnite.debug` (Phase 140 Theme G); switches left out keep their setting. */
+  debug(gameId: string, patch: Partial<GameDebugOptions>): Promise<GitOpResult<GameDebugOptions>>;
+  /** The running game's nav-mesh through `window.__midnite.navMesh()`, for the editor's Nav-mesh overlay. */
+  navMesh(gameId: string): Promise<GitOpResult<GameNavMesh>>;
   /** Read or change the game's juice settings through `window.__midnite.juice` (`get`, `set` a patch, or `reset`). */
   juice(gameId: string, action: 'get' | 'set' | 'reset', patch?: GameJuicePatch): Promise<GitOpResult<GameJuiceSettings>>;
   logs(gameId: string, since?: number): { runId: string | null; entries: GameLogEntry[] };
@@ -125,24 +161,53 @@ type Run<V extends GameView = GameView> = {
   watcher: FSWatcher | null;
   reloadTimer: ReturnType<typeof setTimeout> | null;
   startedAt: number;
+  /** What the scheme serves: the repo root, or `build.out` for a bundled game. */
+  serveRoot: string;
+  /** Aborts the build in flight, if any. */
+  buildAbort: AbortController | null;
+  /** The page has been asked to load at least once (a first build that failed leaves it blank). */
+  loaded: boolean;
+  /** A source changed since the build that produced what is on screen, or the last build failed. */
+  stale: boolean;
   state: GameRunState;
+  /** Paths changed since the last reload fired, collected over the debounce (Phase 140 Theme C). */
+  changed: (string | null)[];
   /** Set once a crash was recorded, so `stop` does not overwrite it with `stopped`. */
   crashReason: string | null;
 };
 
 /** Path segments whose changes never reload the game. */
-const WATCH_IGNORED = ['.git', 'vendor', 'node_modules'];
+// Bundler caches are written by the build itself; reacting to them would rebuild forever (Phase 149 Theme E).
+const WATCH_IGNORED = ['.git', 'vendor', 'node_modules', '.vite', '.turbo', '.cache', '.parcel-cache'];
 // Play-tests write baselines, replays and results while the game runs (Theme O): none of it is game code.
 const WATCH_IGNORED_PREFIXES = ['playtests'];
 export const GAME_RELOAD_DEBOUNCE_MS = 200;
+/** A bundled game waits longer: a build is costlier than a reload. */
+export const GAME_BUILD_DEBOUNCE_MS = 400;
 
 /** Whether a changed path should trigger a hot reload. Pure — tested directly. */
-export function isReloadTrigger(relPath: string | null): boolean {
+export function isReloadTrigger(relPath: string | null, buildOut?: string | null): boolean {
   if (relPath === null) return true;
   const normal = relPath.split('\\').join('/');
   const segments = normal.split('/');
   if (segments.some((segment) => WATCH_IGNORED.includes(segment))) return false;
+  // A bundled game's own output changes on every build; reacting to it would loop.
+  const out = (buildOut ?? '').split('\\').join('/').replace(/^(\.\/)+/, '').replace(/\/+$/, '');
+  if (out !== '' && out !== '.' && (normal === out || normal.startsWith(`${out}/`))) return false;
   return !WATCH_IGNORED_PREFIXES.some((prefix) => normal === prefix || normal.startsWith(`${prefix}/`));
+}
+
+export type ReloadKind = 'none' | 'scene' | 'page';
+
+/**
+ * What a burst of changed paths asks for (Phase 140 Theme C): only `levels/…` files (prefabs included — a prefab
+ * edit is a scene change too) restart the scene; any other trigger, or an unknown path (`null`), reloads the page.
+ * Pure — tested directly.
+ */
+export function reloadKind(relPaths: readonly (string | null)[]): ReloadKind {
+  if (relPaths.length === 0) return 'none';
+  const levelsOnly = relPaths.every((p) => p !== null && p.split('\\').join('/').startsWith(`${GAME_LEVELS_DIR}/`));
+  return levelsOnly ? 'scene' : 'page';
 }
 
 /**
@@ -224,8 +289,14 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
     deps.send(EVENT_CHANNELS.gamesConsole, { gameId: run.game.gameId, runId: run.runId, entries });
   };
 
-  function configureSession(ses: GameSession, game: RunnableGame): void {
-    ses.protocol.handle(MSTUDIO_GAME_SCHEME, gameProtocolHandler(game.root, game.gameId, game.network, deps.electron.fetchFile));
+  const buildGame = deps.build ?? runGameBuild;
+  const overlay = deps.overlay ?? createPreviewOverlay();
+
+  function configureSession(ses: GameSession, game: RunnableGame, serveRoot: string): void {
+    ses.protocol.handle(
+      MSTUDIO_GAME_SCHEME,
+      gameProtocolHandler(serveRoot, game.gameId, game.network, deps.electron.fetchFile, (pathname) => overlay.get(game.gameId, pathname)),
+    );
     ses.setPermissionRequestHandler((_wc, permission, callback, details) =>
       callback(isGamePermissionAllowed(permission, details as { mediaTypes?: readonly string[] })),
     );
@@ -313,13 +384,23 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
 
   function startWatcher(run: Run): void {
     try {
+      const build = run.game.build ?? null;
       run.watcher = watch(run.game.root, { recursive: true }, (_event, filename) => {
-        if (!isReloadTrigger(filename === null ? null : String(filename))) return;
+        const rel = filename === null ? null : String(filename);
+        if (!isReloadTrigger(rel, build?.out)) return;
+        if (build) run.stale = true;
+        run.changed.push(rel);
         if (run.reloadTimer) clearTimeout(run.reloadTimer);
-        run.reloadTimer = setTimeout(() => {
-          run.reloadTimer = null;
-          if (!run.view.webContents.isDestroyed()) run.view.webContents.reloadIgnoringCache();
-        }, GAME_RELOAD_DEBOUNCE_MS);
+        run.reloadTimer = setTimeout(
+          () => {
+            run.reloadTimer = null;
+            const kind = reloadKind(run.changed);
+            run.changed = [];
+            if (build) void buildThenLoad(run);
+            else if (!run.view.webContents.isDestroyed()) void reloadFor(run, kind);
+          },
+          build ? GAME_BUILD_DEBOUNCE_MS : GAME_RELOAD_DEBOUNCE_MS,
+        );
       });
       run.watcher.on('error', () => undefined);
     } catch {
@@ -327,7 +408,73 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
     }
   }
 
+  /**
+   * Phase 140 Theme C: a level-only change restarts the scene through the hook's `goto(currentScene)` (the page, the
+   * audio context and DevTools stay); no hook, a failed call or any other change reloads the page as before.
+   */
+  async function reloadFor(run: Run, kind: ReloadKind): Promise<void> {
+    if (kind === 'scene' && run.loaded) {
+      const scene = await currentScene(run);
+      if (runs.get(run.game.gameId) !== run || run.view.webContents.isDestroyed()) return;
+      if (await exec(run, HOOK_CALL('goto', JSON.stringify(scene)))) return;
+    }
+    if (!run.view.webContents.isDestroyed()) run.view.webContents.reloadIgnoringCache();
+  }
+
+  /** The scene the running game shows now (`getState().scene`), else the level the run started on. */
+  async function currentScene(run: Run): Promise<string> {
+    try {
+      const raw: unknown = await run.view.webContents.executeJavaScript(
+        `(() => { const m = window.__midnite; const s = m && typeof m.getState === 'function' ? m.getState() : null; return s && typeof s.scene === 'string' ? s.scene : null; })()`,
+      );
+      if (typeof raw === 'string' && GameSceneNameSchema.safeParse(raw).success) return raw;
+    } catch {
+      // fall through to the run's level
+    }
+    return run.game.level ?? 'main';
+  }
+
+  /**
+   * Build, then load (first time) or reload. A build already running is cancelled. A failed build leaves the
+   * runner host in its error state with the last lines; the next successful build clears it.
+   */
+  async function buildThenLoad(run: Run): Promise<void> {
+    const build = run.game.build;
+    if (!build) return;
+    run.buildAbort?.abort();
+    const controller = new AbortController();
+    run.buildAbort = controller;
+    run.stale = false;
+    const line = (text: string, level: GameLogEntry['level'] = 'log'): void =>
+      record(run, { level, text: clipLogText(text), source: GAME_BUILD_SOURCE });
+    line(`$ ${build.command}`);
+    const result = await buildGame(run.game.root, build, (text) => line(text), controller.signal);
+    if (controller.signal.aborted || runs.get(run.game.gameId) !== run) return; // superseded or stopped
+    run.buildAbort = null;
+    if (!result.ok) {
+      run.stale = true;
+      const message = result.kind === 'error' ? result.message : 'Build failed.';
+      const detail = result.kind === 'error' ? (result.stderr ?? '').trim() : '';
+      line(message, 'error');
+      const reason = `${GAME_BUILD_REASON_PREFIX}${message}${detail ? `\n${detail}` : ''}`;
+      run.crashReason = reason; // what `runState` hands a renderer that attaches later
+      flush(run);
+      emitState(run, 'crashed', reason);
+      return;
+    }
+    line(`Built in ${result.value.ms} ms.`);
+    if (run.view.webContents.isDestroyed()) return;
+    run.crashReason = null;
+    if (run.state === 'crashed') emitState(run, 'starting');
+    if (run.loaded) run.view.webContents.reloadIgnoringCache();
+    else {
+      run.loaded = true;
+      void run.view.webContents.loadURL(gameEntryUrl(run.game)).catch(() => undefined);
+    }
+  }
+
   function teardown(run: Run): void {
+    run.buildAbort?.abort();
     clearInterval(run.flushTimer);
     if (run.reloadTimer) clearTimeout(run.reloadTimer);
     run.watcher?.close();
@@ -350,6 +497,7 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
     const run = runs.get(gameId);
     if (!run) return;
     runs.delete(gameId);
+    overlay.clear(gameId); // a preview lives and dies with its run
     teardown(run);
     const ms = Date.now() - run.startedAt;
     if (run.crashReason === null) {
@@ -379,12 +527,18 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
       }
       const win = hostFor(game.gameId);
       if (!win || win.isDestroyed()) return failure('There is no window to run the game in.');
+      const serveRoot = gameServeRoot(game.root, game.build);
+      if (serveRoot === null) return failure(BUILD_OUTSIDE_MESSAGE);
 
       nextLevel.delete(game.gameId); // spent only once the run is really starting
+      overlay.clear(game.gameId);
+      if (game.preview && !overlay.set(game.gameId, game.preview.scene, game.preview.json)) {
+        return failure('That level is too large to preview.');
+      }
       const runId = `r${randomBytes(4).toString('hex')}`;
       const partition = gamePartition(game.gameId, runId, game.keepSaveData);
       const ses = deps.electron.sessionFromPartition(partition);
-      configureSession(ses, game);
+      configureSession(ses, game, serveRoot);
 
       const view = deps.electron.createView({
         webPreferences: {
@@ -411,7 +565,12 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
         watcher: null,
         reloadTimer: null,
         startedAt: Date.now(),
+        serveRoot,
+        buildAbort: null,
+        loaded: false,
+        stale: false,
         state: 'starting',
+        changed: [],
         crashReason: null,
       };
       runs.set(game.gameId, run);
@@ -434,11 +593,19 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
         flush(run);
         emitState(run, 'crashed', description);
       });
-      void view.webContents.loadURL(gameEntryUrl(game)).catch(() => undefined);
+      if (game.build) void buildThenLoad(run);
+      else {
+        run.loaded = true;
+        void view.webContents.loadURL(gameEntryUrl(game)).catch(() => undefined);
+      }
       return ok({ runId });
     },
 
     stop,
+
+    clearPreview(gameId, scene) {
+      if (scene === undefined || overlay.scene(gameId) === scene) overlay.clear(gameId);
+    },
 
     stopAll() {
       for (const gameId of [...runs.keys()]) stop(gameId);
@@ -447,6 +614,10 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
     reload(gameId) {
       const run = runs.get(gameId);
       if (!run) return failure('That game is not running.');
+      if (run.game.build && (run.stale || !run.loaded)) {
+        void buildThenLoad(run); // a source changed or the last build failed: rebuild, then reload
+        return ok();
+      }
       run.crashReason = null;
       run.view.webContents.reloadIgnoringCache();
       return ok();
@@ -505,6 +676,24 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
       run.crashReason = null;
       void run.view.webContents.loadURL(gameEntryUrl(run.game)).catch(() => undefined);
       return ok({ via: 'reload' as const });
+    },
+
+    async entities(gameId) {
+      const run = runs.get(gameId);
+      if (!run) return failure('That game is not running.');
+      return readGameEntities((code) => run.view.webContents.executeJavaScript(code));
+    },
+
+    async debug(gameId, patch) {
+      const run = runs.get(gameId);
+      if (!run) return failure('That game is not running.');
+      return setGameDebug((code) => run.view.webContents.executeJavaScript(code), patch);
+    },
+
+    async navMesh(gameId) {
+      const run = runs.get(gameId);
+      if (!run) return failure('That game is not running.');
+      return readGameNavMesh((code) => run.view.webContents.executeJavaScript(code));
     },
 
     async juice(gameId, action, patch) {

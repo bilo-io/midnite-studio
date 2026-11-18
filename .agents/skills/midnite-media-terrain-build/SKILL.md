@@ -7,6 +7,10 @@ description: Build a terrain in Midnite Studio's Media ▸ Terrain page through 
 
 A terrain is a structured `TerrainSpec` plus up to three input images (a heightmap, a satellite image, a roads mask). The app validates the spec and builds the ground itself: heights, a land-cover map, foliage and building placements, road cuts, and LOD'd chunks. Never hand-write the files; edit the spec and attach images.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/media/validate.mjs terrain '<json>'`. It checks the spec before you build (`${S}media/scaffold.sh terrain <project>` creates the folder). You still set the spec, look at the previews and adjust. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Layout
 
 ```

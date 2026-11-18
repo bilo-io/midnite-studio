@@ -70,9 +70,9 @@ export const Wordmark = ({
       applied per line-box, which is the same problem again.
 
       **`pr-[0.15em]` is not spacing, it is headroom for the clip itself.**
-      The brand face's glyphs are wider than their advance: summing "Midnite"
-      over Damion's own metrics gives a 2.896em advance against ink reaching
-      3.000em, so its ink runs **0.104em** past the box `inline-block` sizes to
+      The brand face's glyphs are wider than their advance: summing "Midnyte"
+      over Damion's own metrics gives a 3.099em advance against ink reaching
+      3.203em, so its ink runs **0.104em** past the box `inline-block` sizes to
       (the final `e`'s tail is the culprit). A gradient clipped to *text* still
       only paints inside the *element's* box, so without this the tail's
       overshoot fell outside it and read as the name being cut off. `0.15em`
@@ -80,19 +80,26 @@ export const Wordmark = ({
       size this mark is set at. **It is a per-face number** — Kaushan Script,
       which this replaced, overshot by only 0.051em and wanted `0.08em`, so a
       future face swap re-measures rather than inheriting this value.
+
+      **`pb-[0.15em] -mb-[0.15em]` is the same headroom, downwards.** Under
+      `leading-none` the box ends 0.177em below the baseline (Damion's 1.374em
+      content area squeezed into a 1em line), but the "y" of "Midnyte" descends
+      0.290em, so 0.113em of its tail was clipped off. The padding grows the clip
+      box past it; the equal negative margin hands the space back so nothing
+      around the mark moves.
     */}
     <span
-      className={`inline-block text-[1.35em] tracking-wide pr-[0.15em] ${
+      className={`inline-block text-[1.35em] tracking-wide pr-[0.15em] pb-[0.15em] -mb-[0.15em] ${
         tone === 'rainbow' ? 'ws-rainbow-text ws-brand-glow' : ''
       } font-brand`}
     >
-      Midnite
+      Midnyte
     </span>
     {/*
       **A real space, not only a margin — the mark's `textContent` has to say
-      "Midnite Studio".** The app separates the two halves with `ml-1.5` alone,
+      "Midnyte Studio".** The app separates the two halves with `ml-1.5` alone,
       which is invisible to everything that reads the DOM: the string comes out
-      `MidniteStudio`, and here that would land in the hero's `<h1>` and become
+      `MidnyteStudio`, and here that would land in the hero's `<h1>` and become
       the page's accessible name. So the space is a text node and the margin is
       only the optical nudge on top of it.
 

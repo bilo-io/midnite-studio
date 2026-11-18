@@ -31,6 +31,7 @@ import {
   LuPanelRight,
   LuPencil,
   LuPower,
+  LuRepeat,
   LuRotateCcw,
   LuX,
 } from 'react-icons/lu';
@@ -38,6 +39,7 @@ import {
 import { useShowAllApps, visibleInApp } from './app-filter';
 import { useTerminalHost } from './host';
 import { closeSessionWithConfirm } from './close-session';
+import { LoopSessionLabel } from './loop-session-label';
 import { endSessionsWithConfirm, previousBuildSessions } from './end-sessions';
 import { NewSessionPicker } from './new-session-picker';
 import { resolveRepoForPath } from './resolve-repo-for-path';
@@ -46,6 +48,7 @@ import { terminalPanelElement } from './terminal-panel-element';
 import {
   inMainPanel,
   isAgentRow,
+  isLoopSession,
   resolveSessionAgentId,
   sessionLabel,
   sessionPhase,
@@ -68,6 +71,9 @@ export function normalizeFolderPath(cwd: string): { key: string; label: string }
 }
 
 const OTHER_GROUP = '__other__';
+
+/** The collapse key of the "Loops" group — not a path, so it can never collide with a folder's. */
+export const LOOPS_GROUP = '__loops__';
 
 /** Group sessions by their current folder (`liveCwd` if known, else `session.cwd`), falling back to `repoId`/`title`. */
 export function groupSessionsByFolder(
@@ -133,10 +139,10 @@ export function TerminalSessionList({
   const { useDialogs } = useFrameChrome();
   const dialogs = useDialogs();
   const repos = host.useRepos();
-  // Main-surface and Kanban sessions — a FAB loop's session (Phase 35) never
-  // lists here, because it renders in the FAB's own tab.
+  // Every surface lists here; loop sessions under their own "Loops" group.
   const panelSessions = useTerminalStore((s) => s.sessions).filter(inMainPanel);
   const activeId = useTerminalStore((s) => s.activeId);
+  const activeRepoId = useGraphStore((s) => s.repoId);
   /*
     Each app lists its own sessions; "Show all apps" lists every one the broker
     holds (Phase 123 Theme E). The toggle only appears once another app's
@@ -150,11 +156,25 @@ export function TerminalSessionList({
   );
   const tagApps = hasForeign && showAllApps;
   const liveCwd = useTerminalStore((s) => s.liveCwd);
-  const repoGroups = useMemo(() => groupSessionsByFolder(sessions, liveCwd), [sessions, liveCwd]);
+  /*
+    Loop sessions are pulled out of the folder groups into one "Loops" group:
+    a loop is dispatched from the Loops panel rather than opened in a folder,
+    and one loop can run several sessions at once (each on its own feature),
+    so they read as a set of their own.
+  */
+  const loopSessions = useMemo(() => sessions.filter(isLoopSession), [sessions]);
+  const folderSessions = useMemo(() => sessions.filter((s) => !isLoopSession(s)), [sessions]);
+  const repoGroups = useMemo(
+    () => groupSessionsByFolder(folderSessions, liveCwd),
+    [folderSessions, liveCwd],
+  );
   const { isOpen, toggle } = useCollapsedGroups();
   const visibleSessions = useMemo(
-    () => repoGroups.filter((g) => isOpen(g.repoId)).flatMap((g) => g.items),
-    [repoGroups, isOpen],
+    () => [
+      ...(loopSessions.length > 0 && isOpen(LOOPS_GROUP) ? loopSessions : []),
+      ...repoGroups.filter((g) => isOpen(g.repoId)).flatMap((g) => g.items),
+    ],
+    [loopSessions, repoGroups, isOpen],
   );
 
   /*
@@ -180,8 +200,7 @@ export function TerminalSessionList({
       {
         label: side === 'left' ? 'Move to right' : 'Move to left',
         icon: side === 'left' ? LuPanelRight : LuPanelLeft,
-        onSelect: () =>
-          host.actions.setSidebarSide(side === 'left' ? 'right' : 'left'),
+        onSelect: () => host.actions.setSidebarSide(side === 'left' ? 'right' : 'left'),
       },
       // Only offered while one exists — an always-present, always-disabled entry is noise.
       ...(previous.length > 0
@@ -213,7 +232,8 @@ export function TerminalSessionList({
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
       const delta = event.key === 'ArrowDown' ? 1 : -1;
-      const next = visibleSessions[Math.min(Math.max(index + delta, 0), visibleSessions.length - 1)];
+      const next =
+        visibleSessions[Math.min(Math.max(index + delta, 0), visibleSessions.length - 1)];
       if (next) useTerminalStore.getState().setActiveFromListNav(next.id);
       return;
     }
@@ -267,6 +287,19 @@ export function TerminalSessionList({
       onKeyDown={onKeyDown}
     >
       <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto pb-1">
+        {loopSessions.length > 0 ? (
+          <LoopsGroupRow
+            items={loopSessions}
+            open={isOpen(LOOPS_GROUP)}
+            onToggle={() => toggle(LOOPS_GROUP)}
+            activeId={activeId}
+            agents={agents}
+            liveAgentId={liveAgentId}
+            legacy={legacy}
+            tagApps={tagApps}
+            sessions={sessions}
+          />
+        ) : null}
         <SortableList
           ids={repoGroups.map((group) => group.repoId)}
           onReorder={(reorderedGroupIds) => {
@@ -275,24 +308,33 @@ export function TerminalSessionList({
               .reorder(reorderSessionsByGroupOrder(repoGroups, reorderedGroupIds));
           }}
         >
-          {repoGroups.map((group) => (
-            <RepoGroupRow
-              key={group.repoId}
-              group={group}
-              resolvedRepoId={resolveRepoForPath(group.cwd, repos)?.repoId ?? group.items[0]?.repoId}
-              open={isOpen(group.repoId)}
-              onToggle={() => toggle(group.repoId)}
-              activeId={activeId}
-              agents={agents}
-              agentStatus={agentStatus}
-              liveAgentId={liveAgentId}
-              legacy={legacy}
-              tagApps={tagApps}
-              sessions={sessions}
-              onConfigureAgent={host.actions.configureAgent}
-              onOpenInFolder={openInFolder}
-            />
-          ))}
+          {repoGroups.map((group) => {
+            const resolvedRepoId =
+              resolveRepoForPath(group.cwd, repos)?.repoId ?? group.items[0]?.repoId;
+            const isActiveRepo =
+              activeRepoId !== null
+                ? resolvedRepoId === activeRepoId
+                : group.items.some((s) => s.id === activeId);
+            return (
+              <RepoGroupRow
+                key={group.repoId}
+                group={group}
+                resolvedRepoId={resolvedRepoId}
+                isActiveRepo={isActiveRepo}
+                open={isOpen(group.repoId)}
+                onToggle={() => toggle(group.repoId)}
+                activeId={activeId}
+                agents={agents}
+                agentStatus={agentStatus}
+                liveAgentId={liveAgentId}
+                legacy={legacy}
+                tagApps={tagApps}
+                sessions={sessions}
+                onConfigureAgent={host.actions.configureAgent}
+                onOpenInFolder={openInFolder}
+              />
+            );
+          })}
         </SortableList>
       </div>
       {hasForeign ? (
@@ -317,6 +359,7 @@ export function TerminalSessionList({
 function RepoGroupRow({
   group,
   resolvedRepoId,
+  isActiveRepo,
   open,
   onToggle,
   activeId,
@@ -331,6 +374,7 @@ function RepoGroupRow({
 }: {
   group: { repoId: string; title: string; cwd: string; items: TerminalSession[] };
   resolvedRepoId: string | undefined;
+  isActiveRepo: boolean;
   open: boolean;
   onToggle: () => void;
   activeId: string | null;
@@ -362,6 +406,7 @@ function RepoGroupRow({
       headerAttributes={drag.attributes}
       headerListeners={drag.listeners}
       isDragging={drag.isDragging}
+      guideLine={isActiveRepo ? 'active' : 'muted'}
       leading={
         logoUrl ? (
           <img
@@ -395,15 +440,7 @@ function RepoGroupRow({
     >
       <SortableList
         ids={group.items.map((s) => s.id)}
-        onReorder={(reorderedGroupIds) => {
-          const allIds = sessions.map((s) => s.id);
-          const groupIdSet = new Set(reorderedGroupIds);
-          let idx = 0;
-          const nextAllIds = allIds.map((id) =>
-            groupIdSet.has(id) ? reorderedGroupIds[idx++]! : id,
-          );
-          useTerminalStore.getState().reorder(nextAllIds);
-        }}
+        onReorder={(reordered) => reorderWithinGroup(sessions, reordered)}
       >
         {group.items.map((session) => (
           <SessionRow
@@ -423,6 +460,101 @@ function RepoGroupRow({
   );
 }
 
+/** Move a group's reordered ids back into the store's flat order, leaving every other row where it was. */
+function reorderWithinGroup(
+  sessions: readonly TerminalSession[],
+  reordered: readonly string[],
+): void {
+  const inGroup = new Set(reordered);
+  let idx = 0;
+  const next = sessions.map((s) => (inGroup.has(s.id) ? reordered[idx++]! : s.id));
+  useTerminalStore.getState().reorder(next);
+}
+
+/**
+ * The "Loops" group: every session a loop dispatched, whatever folder it runs
+ * in. Each row reads agent mark, then the loop's own mark (its icon in its
+ * colour), then the name — so two runs of the same loop on different features
+ * sit side by side and still say which loop they are.
+ *
+ * Not draggable as a group (it is pinned above the folders), and it offers no
+ * "new session" picker: loops are dispatched from the Loops panel's form.
+ */
+function LoopsGroupRow({
+  items,
+  open,
+  onToggle,
+  activeId,
+  agents,
+  liveAgentId,
+  legacy,
+  tagApps,
+  sessions,
+}: {
+  items: TerminalSession[];
+  open: boolean;
+  onToggle: () => void;
+  activeId: string | null;
+  agents: AgentDefinition[];
+  liveAgentId: Record<string, string | null>;
+  legacy: Record<string, boolean>;
+  tagApps: boolean;
+  sessions: TerminalSession[];
+}) {
+  const host = useTerminalHost();
+  const states = useTerminalStore((s) => s.states);
+  const anyLive = items.some((s) => sessionPhase(s, states[s.id]) === 'live');
+  return (
+    <div className="relative" data-testid="terminal-loops-group">
+      {/*
+        While a loop is live, the Loops panel's own rainbow border ring and
+        inner rim glow orbit the group (`.loops-group-orbit` in styles.css) —
+        the whole group expanded, the header alone collapsed. Drawn over the
+        sticky header (z-20), never catching a click.
+      */}
+      {anyLive ? (
+        <span
+          aria-hidden
+          data-testid="terminal-loops-arc"
+          data-expanded={open ? 'true' : 'false'}
+          className="loops-group-orbit pointer-events-none absolute inset-0 z-20"
+        />
+      ) : null}
+      <ExplorerGroup
+        title="Loops"
+        count={items.length}
+        open={open}
+        onToggle={onToggle}
+        bodyId="terminal-loops"
+        guideLine={items.some((s) => s.id === activeId) ? 'active' : 'muted'}
+        leading={<LuRepeat aria-hidden className="h-3 w-3 shrink-0" />}
+      >
+        <SortableList
+          ids={items.map((s) => s.id)}
+          onReorder={(reordered) => reorderWithinGroup(sessions, reordered)}
+        >
+          {items.map((session) => (
+            <SessionRow
+              key={session.id}
+              session={session}
+              active={session.id === activeId}
+              agent={agents.find((a) => a.id === session.agentId)}
+              runningAgent={agents.find(
+                (a) => a.id === resolveSessionAgentId(session, liveAgentId),
+              )}
+              resolvedAgentId={resolveSessionAgentId(session, liveAgentId)}
+              isAgentRow={isAgentRow(session, liveAgentId)}
+              legacy={Boolean(legacy[session.id])}
+              appTag={tagApps ? sessionAppId(session) : undefined}
+              loopMark={host.LoopMark ? <host.LoopMark session={session} /> : null}
+            />
+          ))}
+        </SortableList>
+      </ExplorerGroup>
+    </div>
+  );
+}
+
 function SessionRow({
   session,
   active,
@@ -432,6 +564,7 @@ function SessionRow({
   isAgentRow: rowIsAgent,
   legacy,
   appTag,
+  loopMark,
 }: {
   session: TerminalSession;
   active: boolean;
@@ -460,6 +593,8 @@ function SessionRow({
   legacy: boolean;
   /** The owning app, shown as its logo — set only while the list mixes apps. */
   appTag?: SuiteAppId | undefined;
+  /** A loop session's loop mark, drawn after the agent mark — set only in the "Loops" group. */
+  loopMark?: React.ReactNode;
 }) {
   const host = useTerminalHost();
   const { IconButton, useDialogs } = useFrameChrome();
@@ -561,8 +696,7 @@ function SessionRow({
       {
         label: side === 'left' ? 'Move to right' : 'Move to left',
         icon: side === 'left' ? LuPanelRight : LuPanelLeft,
-        onSelect: () =>
-          host.actions.setSidebarSide(side === 'left' ? 'right' : 'left'),
+        onSelect: () => host.actions.setSidebarSide(side === 'left' ? 'right' : 'left'),
       },
     ]);
   };
@@ -577,7 +711,7 @@ function SessionRow({
       // are both inside it and neither is the drag handle.
       data-session-row
       data-phase={phase}
-      className={`group flex w-full cursor-pointer select-none items-center gap-1.5 px-2 py-1.5 text-xs ${
+      className={`group flex w-full cursor-pointer select-none items-center gap-1.5 py-1.5 pl-6 pr-2 text-xs ${
         active ? 'bg-accent/60' : 'hover:bg-accent/30'
       } ${isDragging ? 'opacity-80' : ''} ${phase !== 'live' ? 'opacity-60' : ''} ${
         pulsing ? 'session-row-pulse' : ''
@@ -597,6 +731,7 @@ function SessionRow({
           activityStatus={rowActivity.status}
           ollamaBacked={session.backend === 'ollama'}
         />
+        {loopMark}
         {appTag ? (
           <img
             src={appLogoUrl(appTag)}
@@ -634,7 +769,19 @@ function SessionRow({
           data-session-name
           className={`min-w-0 flex-1 truncate ${live ? '' : 'text-muted-foreground'}`}
         >
-          {name}
+          {
+            // A loop row reads "Provider (model · effort) > folder > gist" until the user renames it.
+            isLoopSession(session) && !session.name ? (
+              <LoopSessionLabel
+                session={session}
+                agentLabel={agent?.label}
+                description={autoName}
+                live={live}
+              />
+            ) : (
+              name
+            )
+          }
         </span>
       </div>
 

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { detailedMemoryReading, freememFallback, memoryUsedBytes, parseVmStat } from './memory';
+import {
+  detailedMemoryReading,
+  freememFallback,
+  memoryUsedBytes,
+  parseVmStat,
+  probeReclaimableBytes,
+} from './memory';
 
 /**
  * Captured `vm_stat` output from an Apple Silicon machine — **16384-byte
@@ -135,3 +141,20 @@ describe('detailedMemoryReading', () => {
   });
 });
 
+
+describe('probeReclaimableBytes (Phase 148 Theme C)', () => {
+  it('is free plus inactive pages times the header page size', async () => {
+    // (9217 + 451182) pages x 16384 bytes
+    await expect(probeReclaimableBytes(async () => APPLE_SILICON)).resolves.toBe((9217 + 451182) * 16384);
+  });
+
+  it('is null when a field is missing, the page size is unreadable, or vm_stat fails', async () => {
+    await expect(probeReclaimableBytes(async () => INTEL)).resolves.toBeNull();
+    await expect(probeReclaimableBytes(async () => 'nonsense')).resolves.toBeNull();
+    await expect(
+      probeReclaimableBytes(async () => {
+        throw new Error('spawn vm_stat ENOENT');
+      }),
+    ).resolves.toBeNull();
+  });
+});

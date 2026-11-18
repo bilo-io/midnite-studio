@@ -495,17 +495,24 @@ export function commandLabel(args: string): string {
  * a terminal/agent pty shell, or any descendant of either.
  *
  * Sourced from the pty/agent session registry (see Decision 10).
+ *
+ * `brokerRootPids` (Phase 148 Theme B) widens that to the terminal brokers the lost-process
+ * inventory (`optimizer/broker-inventory.ts`) names as this app's but not current: a detached broker
+ * has ppid 1, so neither the main pid nor a pty root reaches it. Callers pass only non-primary
+ * brokers here — the current primary is never a root.
  */
 export function isOurProcess(
   pid: number,
   rows: readonly ProcessRow[],
   ptyRootPids: readonly number[],
   midnitePid: number = process.pid,
+  brokerRootPids: readonly number[] = [],
 ): boolean {
   if (pid === midnitePid) return true;
   if (ptyRootPids.includes(pid)) return true;
+  if (brokerRootPids.includes(pid)) return true;
 
-  const roots = new Set<number>([midnitePid, ...ptyRootPids]);
+  const roots = new Set<number>([midnitePid, ...ptyRootPids, ...brokerRootPids]);
   for (const root of roots) {
     const descendants = descendantsOf(rows, root);
     if (descendants.some((d) => d.row.pid === pid)) return true;

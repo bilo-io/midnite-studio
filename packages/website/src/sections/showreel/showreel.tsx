@@ -26,8 +26,8 @@ export const Showreel = () => (
       <PilotVideo
         src="video/midnite-apps.mp4"
         poster="video/midnite-apps-poster.jpg"
-        label="Midnite Apps showreel: a tour of every app in the suite, with music."
-        playLabel="Play the Midnite Apps showreel"
+        label="Midnyte Apps showreel: a tour of every app in the suite, with music."
+        playLabel="Play the Midnyte Apps showreel"
         testId="showreel-video"
       />
     </Reveal>

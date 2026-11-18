@@ -129,6 +129,7 @@ import { registerStatsHandlers } from './ipc/stats-handlers';
 import { registerStatusHandlers } from './ipc/status-handlers';
 import { configureTests, createTestTrustStore } from '@midnite/studio-feature-tests/main';
 import { registerTestsFeatureHandlers } from './ipc/tests-feature-handlers';
+import { installMainCrashHooks } from './crash-hooks';
 import { defaultLogger, setLogSink, type Logger } from './log';
 import { installMenu } from './menu';
 import { startStudioRuntimeHost, studioRuntimeDirectory } from './runtime-host';
@@ -158,7 +159,7 @@ import {
   startTerminalFlush,
   watchSessionExits,
 } from './terminal-service';
-import { configureRegistry, listRepos, openRepo, restoreRepos } from './repo-registry';
+import { closeRepo, configureRegistry, listRepos, openRepo, restoreRepos } from './repo-registry';
 import { reconcileWatchers, stopAllWatchers } from './watch-service';
 import { initFetchScheduler, reconcileFetchScheduler } from './fetch-scheduler';
 import { registerSettingsHandlers } from './ipc/settings-handlers';
@@ -357,37 +358,7 @@ export const startStudioMain: StartStudioMain = () => {
 
   app.setName('Midnite Studio');
 
-  /*
-    Main's own crashes, recorded — Phase 65 Theme D.
-
-    Installed here rather than inside `whenReady` on purpose: the boot path is
-    where an unhandled rejection is both most likely and most invisible, and a
-    handler registered after `whenReady` cannot see the ones raised before it.
-    Neither handler exits. Electron's default for an uncaught exception in main is
-    to log it and keep running, and this phase changes what is RECORDED, not what
-    the app does — turning a survivable exception into a quit would be a
-    behaviour change smuggled in under a logging one.
-  */
-  process.on('uncaughtException', (err) => {
-    defaultLogger.error('[main] uncaughtException', err);
-  });
-  process.on('unhandledRejection', (reason) => {
-    defaultLogger.error('[main] unhandledRejection', reason);
-  });
-
-  /*
-    A GPU or utility process dying — the only hook that reports it, and it had
-    none until Phase 65. This class of failure currently manifests to a user as
-    "the window went strange" with no record at all, which is exactly the report
-    nobody can act on.
-  */
-  app.on('child-process-gone', (_event, details) => {
-    defaultLogger.error(
-      `[main] child-process-gone type=${details.type} reason=${details.reason} exit=${details.exitCode}${
-        details.name === undefined ? '' : ` name=${details.name}`
-      }`,
-    );
-  });
+  installMainCrashHooks(defaultLogger, process, app);
 
   if (!app.isPackaged) {
     const mainScript = process.argv[1] ? resolve(process.argv[1]) : process.cwd();
@@ -934,6 +905,25 @@ export const startStudioMain: StartStudioMain = () => {
           return { ok: true };
         },
         listRepoPaths: async () => (await listRepos()).map((repo) => repo.path),
+        // Game management (Phase 149 Theme I): Remove from list is the repos panel's own remove, so the game's
+        // repo leaves the panel too; Reveal and Delete go through the OS (Delete is the Trash, never `rm`).
+        forgetRepo: async (path) => {
+          const repo = (await listRepos()).find((entry) => entry.path === path);
+          if (repo) await closeRepo(repo.id);
+          const repos = (await listRepos()).map((entry) => ({ id: entry.id, path: entry.path }));
+          await reconcileWatchers(repos);
+          reconcileFetchScheduler(repos);
+          return { ok: true };
+        },
+        revealPath: (path) => shell.showItemInFolder(path),
+        trashPath: async (path) => {
+          try {
+            await shell.trashItem(path);
+            return { ok: true };
+          } catch (error) {
+            return { ok: false, kind: 'error', message: `Could not move it to the Trash: ${error instanceof Error ? error.message : String(error)}` };
+          }
+        },
         // Open Game (Phase 132 Theme A): the folder dialog; an opened game is registered like a repo opened in the panel.
         // Annotated: `games` is referenced inside its own initializer, so inference would cycle.
         pickFolder: async (): Promise<string | null> => {

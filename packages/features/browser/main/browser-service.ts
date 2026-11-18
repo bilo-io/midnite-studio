@@ -161,6 +161,35 @@ export function getBrowserTabOwners(): Map<number, string> {
   return result;
 }
 
+/** A tab Free RAM may discard now: off screen, silent and not marked keep-awake. */
+export type HiddenBrowserTab = { tabId: string; label: string; pid: number | null };
+
+/**
+ * Every tab that is hidden right now (Phase 148 Theme C). It is the sweep's eligibility minus the idle
+ * threshold: Free RAM is the user's own request, so a tab hidden a moment ago counts, but a visible, audible
+ * or keep-awake one never does. Discarding is `discardBrowserTab`; the tab comes back when it is clicked.
+ */
+export function listHiddenBrowserTabs(): HiddenBrowserTab[] {
+  const result: HiddenBrowserTab[] = [];
+  for (const [tabId, tracked] of tabs) {
+    const { win, view } = tracked;
+    if (win.isDestroyed() || view.webContents.isDestroyed()) continue;
+    const effectiveVisible = visibleTabIds.has(tabId) && win.isVisible() && !win.isMinimized();
+    if (effectiveVisible || view.webContents.isCurrentlyAudible() || keepAwakeTabIds.has(tabId)) continue;
+    let pid: number | null = null;
+    try {
+      const os = view.webContents.getOSProcessId();
+      pid = os > 0 ? os : null;
+    } catch {
+      pid = null;
+    }
+    const title = view.webContents.getTitle()?.trim();
+    const url = view.webContents.getURL()?.trim();
+    result.push({ tabId, label: title || url || tabId, pid });
+  }
+  return result;
+}
+
 /**
  * Whether a tab currently eligible for the sweep to even consider should
  * actually be discarded — pure, so the threshold math has a direct unit

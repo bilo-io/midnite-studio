@@ -26,6 +26,8 @@ const GAME: GameSummary = {
   dirty: false,
   valid: true,
   issue: null,
+  status: null,
+  findingCount: 0,
 };
 
 type MockGames = { calls: Array<Record<string, unknown>>; agentProgress: (event: unknown) => void };

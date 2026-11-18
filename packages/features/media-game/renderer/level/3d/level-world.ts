@@ -4,7 +4,7 @@
  * the game builds it; {@link gizmoEdit} is its inverse, turning a gizmo result back into Tiled fields and the 3D
  * props the plan inspector writes, as one undo step.
  */
-import { GAME_LEVEL_PROPS, levelEntityToWorld, levelProperties, metresPerTile as levelMetresPerTile } from '@midnite/studio-shared';
+import { GAME_LEVEL_PROPS, levelEntityToWorld, levelPixelsToWorld, levelWorldToPixels, levelProperties, metresPerTile as levelMetresPerTile } from '@midnite/studio-shared';
 
 import {
   beginStroke,
@@ -17,7 +17,9 @@ import {
   type EditSelection,
   type EditState,
   type LevelObject,
+  type ObjectRef,
 } from '../level-edit-model';
+import { footprintBox } from '../level-snap';
 
 export type WorldKind = 'box' | 'point' | 'path';
 
@@ -29,6 +31,8 @@ export type WorldItem = {
   type: string;
   /** Metres: footprint centre on X/Z, and `y` the base (the object's `elevation`, else the ground). */
   position: [number, number, number];
+  /** No `elevation` of its own: it sits on the ground, which on a terrain with relief is the ground under it. */
+  grounded?: boolean;
   /** Radians, three's Euler in `YXZ` order: yaw about Y first, then pitch, then roll. */
   yaw: number;
   pitch: number;
@@ -62,58 +66,67 @@ function kindOf(o: LevelObject): WorldKind {
   return 'box';
 }
 
+function buildItem(level: EditLevel, layerId: number, o: LevelObject, index: number, ground: number): WorldItem {
+  const placed = levelEntityToWorld(o, level);
+  const props = levelProperties(o);
+  const kind = kindOf(o);
+  const [px, py, pz] = placed.position;
+  const size: [number, number, number] =
+    kind === 'point'
+      ? [POINT_SIZE * placed.scale, (props.sizeY === undefined ? POINT_SIZE * 2 : placed.size[1]) * placed.scale, POINT_SIZE * placed.scale]
+      : [placed.size[0] * placed.scale, placed.size[1] * placed.scale, placed.size[2] * placed.scale];
+  const reach = Math.hypot(size[0], size[2]) / 2;
+  const item: WorldItem = {
+    index,
+    sel: { layerId, objectId: o.id },
+    kind,
+    type: String(o.type ?? o.class ?? ''),
+    position: [px, py ?? ground, pz],
+    grounded: py === undefined || py === null,
+    yaw: placed.yaw,
+    pitch: placed.pitch,
+    roll: placed.roll,
+    scale: placed.scale,
+    size,
+    model: typeof props.model === 'string' && props.model !== '' ? props.model : null,
+    bounds: { minX: px - reach, minZ: pz - reach, maxX: px + reach, maxZ: pz + reach },
+  };
+  if (item.type === 'light') {
+    const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+    item.light = { intensity: num(props.intensity, 1), range: num(props.range, 10), color: typeof props.color === 'string' && props.color !== '' ? props.color : '#ffffff' };
+  }
+  if (kind === 'path') {
+    const pts = (o.polyline ?? o.polygon) as Array<{ x: number; y: number }>;
+    item.path = pts.map((p) => levelPixelsToWorld(level, o.x + p.x, o.y + p.y));
+    const xs = item.path.map((p) => p[0]), zs = item.path.map((p) => p[1]);
+    item.bounds = { minX: Math.min(...xs), minZ: Math.min(...zs), maxX: Math.max(...xs), maxZ: Math.max(...zs) };
+  }
+  return item;
+}
+
 /** Every visible object of every visible object layer, as world items, in layer then object order. */
 export function levelWorldItems(level: EditLevel): WorldItem[] {
   const ground = groundY(level);
-  const mpt = levelMetresPerTile(level);
   const items: WorldItem[] = [];
   for (const layer of level.layers) {
     if (!isObjects(layer.type) || layer.visible === false || typeof layer.id !== 'number') continue;
     for (const o of layer.objects ?? []) {
       if (o.visible === false) continue;
-      const placed = levelEntityToWorld(o, level);
-      const props = levelProperties(o);
-      const kind = kindOf(o);
-      const [px, py, pz] = placed.position;
-      const size: [number, number, number] =
-        kind === 'point'
-          ? [POINT_SIZE * placed.scale, (props.sizeY === undefined ? POINT_SIZE * 2 : placed.size[1]) * placed.scale, POINT_SIZE * placed.scale]
-          : [placed.size[0] * placed.scale, placed.size[1] * placed.scale, placed.size[2] * placed.scale];
-      const reach = Math.hypot(size[0], size[2]) / 2;
-      const item: WorldItem = {
-        index: items.length,
-        sel: { layerId: layer.id, objectId: o.id },
-        kind,
-        type: String(o.type ?? o.class ?? ''),
-        position: [px, py ?? ground, pz],
-        yaw: placed.yaw,
-        pitch: placed.pitch,
-        roll: placed.roll,
-        scale: placed.scale,
-        size,
-        model: typeof props.model === 'string' && props.model !== '' ? props.model : null,
-        bounds: { minX: px - reach, minZ: pz - reach, maxX: px + reach, maxZ: pz + reach },
-      };
-      if (item.type === 'light') {
-        const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
-        item.light = { intensity: num(props.intensity, 1), range: num(props.range, 10), color: typeof props.color === 'string' && props.color !== '' ? props.color : '#ffffff' };
-      }
-      if (kind === 'path') {
-        const pts = (o.polyline ?? o.polygon) as Array<{ x: number; y: number }>;
-        item.path = pts.map((p) => [((o.x + p.x) / level.tilewidth) * mpt, ((o.y + p.y) / level.tileheight) * mpt]);
-        const xs = item.path.map((p) => p[0]), zs = item.path.map((p) => p[1]);
-        item.bounds = { minX: Math.min(...xs), minZ: Math.min(...zs), maxX: Math.max(...xs), maxZ: Math.max(...zs) };
-      }
-      items.push(item);
+      items.push(buildItem(level, layer.id, o, items.length, ground));
     }
   }
   return items;
 }
 
+/** One object as a world item (hidden or not), or `null` when the ref no longer resolves. */
+export function worldItemOf(level: EditLevel, ref: NonNullable<EditSelection>): WorldItem | null {
+  const o = findObject(level, ref);
+  return o ? buildItem(level, ref.layerId, o, 0, groundY(level)) : null;
+}
+
 /** A world X/Z point as a Tiled object coordinate (map pixels) on a 3D level. */
 export function worldToObjectPoint(level: Pick<EditLevel, 'tilewidth' | 'tileheight' | 'properties'>, x: number, z: number): { x: number; y: number } {
-  const mpt = levelMetresPerTile(level);
-  return { x: (x / mpt) * level.tilewidth, y: (z / mpt) * level.tileheight };
+  return levelWorldToPixels(level, x, z);
 }
 
 /** What a gizmo drag ended on, in world terms. Absent fields did not change. */
@@ -165,9 +178,15 @@ export function originFor(centre: { x: number; y: number }, rotation: number, w:
  * yaw); pitch, roll, elevation, sizeY and scale are the same optional props the plan inspector writes.
  */
 export function gizmoEdit(state: EditState, sel: NonNullable<EditSelection>, change: GizmoChange): EditState {
+  const edited = applyGizmo(beginStroke(state), sel, change);
+  return edited === null ? state : endStroke(edited);
+}
+
+/** {@link gizmoEdit} inside a stroke the caller owns (it neither opens nor closes one); `null` when the ref is stale. */
+function applyGizmo(state: EditState, sel: NonNullable<EditSelection>, change: GizmoChange): EditState | null {
   const level = state.level;
   const o = findObject(level, sel);
-  if (!o) return state;
+  if (!o) return null;
   const mpt = levelMetresPerTile(level);
   const props = levelProperties(o);
   const scale = typeof props.scale === 'number' && props.scale > 0 ? props.scale : 1;
@@ -187,7 +206,7 @@ export function gizmoEdit(state: EditState, sel: NonNullable<EditSelection>, cha
   const centre = worldToObjectPoint(level, centreWorld[0], centreWorld[1]);
   const origin = isPoint ? { x: round(centre.x), y: round(centre.y) } : originFor(centre, rotation, w, h);
 
-  let s = beginStroke(state);
+  let s = state;
   // A sub-milli-pixel difference is float noise from the round trip, not an edit.
   const moved = (a: number, b: number): boolean => Math.abs(a - b) > 1e-3;
   if (moved(origin.x, o.x)) s = setObjectField(s, sel, 'x', origin.x);
@@ -204,5 +223,91 @@ export function gizmoEdit(state: EditState, sel: NonNullable<EditSelection>, cha
   num('roll', change.roll === undefined ? undefined : round(deg(change.roll), 3), props.roll ?? 0);
   num('sizeY', sizeY, props.sizeY ?? 3);
   if (isPoint && change.scale !== undefined) num('scale', round(change.scale, 3), props.scale ?? 1);
+  return s;
+}
+
+// --- the group gizmo (Phase 137 Theme D) ------------------------------------------------
+
+/** Where the group gizmo sits: world metres; `yaw` is in Tiled's `rotation` sense (clockwise from above, degrees). */
+export type GroupPivot = { centre: [number, number, number]; yaw: number };
+
+/** What a group gizmo drag amounts to, about {@link GroupPivot}. Rotation is Tiled's sense (clockwise from above). */
+export type GroupDelta = {
+  translate?: [number, number, number];
+  rotateYaw?: number;
+  /** Per axis in the pivot's own frame (x, y, z). */
+  scale?: [number, number, number];
+};
+
+const MIN_SIZE = 0.01;
+const rad = (d: number): number => (d * Math.PI) / 180;
+
+/**
+ * The pivot of a selection. `'pivot'`: the primary object's origin and yaw (Unity's Pivot); `'centre'`: the centre of
+ * every item's box (footprint, base to top), yaw 0 (Unity's Center).
+ */
+export function groupPivot(level: EditLevel, refs: readonly ObjectRef[], primary: ObjectRef, mode: 'pivot' | 'centre'): GroupPivot {
+  const items = refs.map((r) => worldItemOf(level, r)).filter((i): i is WorldItem => i !== null);
+  const main = worldItemOf(level, primary) ?? items[0];
+  if (mode === 'pivot' && main) return { centre: [...main.position], yaw: findObject(level, main.sel)?.rotation ?? 0 };
+  if (items.length === 0) return { centre: [0, groundY(level), 0], yaw: 0 };
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (const it of items) {
+    const box = it.kind === 'path' ? it.bounds : footprintBox([it.position[0], it.position[2]], [it.size[0], it.size[2]], it.yaw);
+    minX = Math.min(minX, box.minX); maxX = Math.max(maxX, box.maxX); minZ = Math.min(minZ, box.minZ); maxZ = Math.max(maxZ, box.maxZ);
+    minY = Math.min(minY, it.position[1]); maxY = Math.max(maxY, it.position[1] + it.size[1]);
+  }
+  return { centre: [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2], yaw: 0 };
+}
+
+/**
+ * Apply a group gizmo result to every ref as **one** undo step. Scale, then rotate, then translate, about `pivot`:
+ * - rotate: each centre orbits the pivot by `rotateYaw` and its own `rotation` gains `rotateYaw`;
+ * - scale: centre offsets scale in the pivot's frame; a box's drawn size scales along its own axes (the frame's X / Z
+ *   factors swap for an item a quarter-turn from the pivot) and a point's `scale` takes the mean; sizes stay >= 0.01 m;
+ * - paths translate only: their polyline is relative to their origin, which does not follow a turn or a stretch.
+ */
+export function gizmoEditGroup(state: EditState, refs: readonly ObjectRef[], pivot: GroupPivot, delta: GroupDelta): EditState {
+  const t = delta.translate ?? [0, 0, 0];
+  const turn = delta.rotateYaw ?? 0;
+  const k = delta.scale ?? [1, 1, 1];
+  const scaled = k[0] !== 1 || k[1] !== 1 || k[2] !== 1;
+  if (!scaled && turn === 0 && t[0] === 0 && t[1] === 0 && t[2] === 0) return state;
+  const toPx = (dx: number, dz: number) => worldToObjectPoint(state.level, dx, dz);
+  const base = rad(pivot.yaw), rot = rad(turn);
+  const spin = (x: number, z: number, a: number): [number, number] => [x * Math.cos(a) - z * Math.sin(a), x * Math.sin(a) + z * Math.cos(a)];
+
+  let s = beginStroke(state);
+  for (const ref of refs) {
+    const item = worldItemOf(s.level, ref);
+    const o = findObject(s.level, ref);
+    if (!item || !o) continue;
+    if (item.kind === 'path') {
+      const d = toPx(t[0], t[2]);
+      if (d.x !== 0) s = setObjectField(s, ref, 'x', round(o.x + d.x));
+      if (d.y !== 0) s = setObjectField(s, ref, 'y', round(o.y + d.y));
+      continue;
+    }
+    // The centre's offset from the pivot, through the pivot's frame, then turned, then moved.
+    let [ox, oz] = [item.position[0] - pivot.centre[0], item.position[2] - pivot.centre[2]];
+    if (scaled) {
+      [ox, oz] = spin(ox, oz, -base);
+      [ox, oz] = spin(ox * k[0], oz * k[2], base);
+    }
+    if (turn !== 0) [ox, oz] = spin(ox, oz, rot);
+    const change: GizmoChange = { centre: [pivot.centre[0] + ox + t[0], pivot.centre[2] + oz + t[2]] };
+    if (turn !== 0) change.yaw = -rad((o.rotation ?? 0) + turn);
+    if (t[1] !== 0 || k[1] !== 1) change.elevation = pivot.centre[1] + (item.position[1] - pivot.centre[1]) * k[1] + t[1];
+    if (scaled) {
+      if (item.kind === 'point') change.scale = item.scale * ((k[0] + k[1] + k[2]) / 3);
+      else {
+        // Which pivot-frame factor lands on the item's own X: swapped when it sits a quarter-turn away.
+        const quarter = Math.round((((o.rotation ?? 0) - pivot.yaw) % 180) / 90) % 2 !== 0;
+        const [kx, kz] = quarter ? [k[2], k[0]] : [k[0], k[2]];
+        change.size = [Math.max(MIN_SIZE, item.size[0] * kx), Math.max(MIN_SIZE, item.size[1] * k[1]), Math.max(MIN_SIZE, item.size[2] * kz)];
+      }
+    }
+    s = applyGizmo(s, ref, change) ?? s;
+  }
   return endStroke(s);
 }

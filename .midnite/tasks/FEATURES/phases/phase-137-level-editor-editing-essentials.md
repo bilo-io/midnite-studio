@@ -51,43 +51,68 @@ menus**, and a **shortcut cheat-sheet** that reads the same table the key handle
 
 ## Headlines
 
-**Theme A — Multi-selection in the edit model.** ◻ `EditState` gains `selected: ObjectRef[]` beside the primary
-`selection`; pure `selectOnly`, `toggleSelected`, `addSelected`, `selectInRect`, `selectAllInLayer`,
-`selectedObjects`, and group `moveObjects` / `deleteObjects` / `nudgeObjects`, each one undo step. Undo and redo keep
-the selection, dropping refs that no longer exist.
+**Theme A — Multi-selection in the edit model.** ✅ `EditState.selected: readonly ObjectRef[]` sits beside the primary
+`selection` (invariant: `selection === null` iff `selected` is empty; a set `selection` is an element of `selected`).
+Pure `selectOnly` (`select` is its alias), `toggleSelected`, `addSelected`, `selectInRect` (fully-enclosed rule, optional
+`filter` for Theme H), `selectAllInLayer`, `selectedObjects`, and group `moveObjects` / `nudgeObjects` / `deleteObjects`,
+each one undo step; `level-selection.ts` holds `refKey`, `sameRef`, `objectExtentPoints` and `selectionBounds`. Undo and
+redo keep the selection, dropping refs that no longer resolve; selecting is never an undo step, so it leaves the redo
+stack alone. `addObject` selects the new object only; `setActiveLayer` / `addLayer` clear both fields.
 
-**Theme B — Clipboard and duplicate.** ◻ `copySelection` → a versioned `LevelClipboard` JSON, written to the system
-clipboard with an in-memory fallback; `pasteClipboard` at the pointer or in place +1 cell; `duplicateSelection` in
-place. Mod+C / Mod+X / Mod+V / Mod+D in the local handler.
+**Theme B — Clipboard and duplicate.** ✅ `level-clipboard.ts`: `copySelection` → a versioned `LevelClipboard` JSON
+(positions relative to the selection bounds' top-left, `id: 0`), `parseClipboard` (never throws), `pasteClipboard` into
+the active object layer, `duplicateSelection` in place (each copy in its own layer), and `writeClipboard` /
+`readClipboard` over the system clipboard with an in-memory fallback. Paste lands at the last pointer position over the
+plan or tile canvas (snapped to the half-metre grid in 3D levels), else one tile off the original; a clipboard from the
+other dimension pastes nothing and says so. The edit model gained `insertObjects` (one undo step, selects what it adds).
+Mod+C / X / V / D live in the editor's local handler.
 
-**Theme C — Floorplan multi-select.** ◻ Marquee on empty ground with Select, Shift adds, Mod toggles, Mod+A selects
-the active layer, a group drag moves every selected object as one step, arrow keys nudge. Every selected object gets
-the 3D view's amber outline; the group gets a dashed bounds box.
+**Theme C — Floorplan multi-select.** ✅ One Select-tool gesture (`selectPointer` in `level-editor.tsx`) serves the tile
+canvas and the 3D level's plan: a marquee from empty ground (`selectInRect`, Shift adds, Mod toggles; a plain click on
+empty ground clears), Shift / Mod click, and a group drag through `moveObjects` (one undo step; the primary snaps, the
+rest keep their offsets). Mod+A selects the active object layer, Escape clears, Delete removes the set, arrows nudge a
+tile (Shift ten), one undo step each press. `CanvasPointer` gained `mod`; `drawPlan` and the tile canvas stroke every
+selected object in `#f5a524` (primary 3 px, others 2 px) and `drawSelectionExtras` adds the dashed group bounds and the
+marquee. Marquee rectangles are in object coordinates (an isometric map draws them through `objectToMapPoint`).
 
-**Theme D — 3D multi-select and the group gizmo.** ◻ Shift / Mod click and a screen-space marquee in the 3D view; the
-gizmo drives the whole selection about a **Pivot** or **Centre** origin in **Local** or **World** space (Unity's Z and
-X toggles), one `gizmoEditGroup` undo step per drag.
+**Theme D — 3D multi-select and the group gizmo.** ✅ Shift click adds, Mod click toggles, Shift-drag draws a screen
+marquee (`marqueeHits`; the orbit controls stand down while Shift is held). Two or more selected objects share one gizmo
+on a pivot group: `groupPivot` (primary origin + yaw, or the AABB centre) and `gizmoEditGroup` (scale, then rotate, then
+translate, one undo step; `GroupPivot.yaw` and `rotateYaw` are in Tiled's clockwise sense, scale is in the pivot's frame).
+Z / X flip Pivot / Centre and Local / World (persisted in the view store). Paths translate with a group but do not turn or
+stretch; group surface snap is not applied. D2 reads "swaps positions" loosely: 180 swaps, 90 puts the boxes on the z axis.
 
-**Theme E — Align and distribute.** ◻ Pure `alignObjects` (min / centre / max on X or Y) and `distributeObjects`
-(even centres) against the selection's bounds, from an align bar that appears at two or more selected objects.
+**Theme E — Align and distribute.** ✅ Pure `alignObjects` (min / centre / max on X or Y, against the selection bounds)
+and `distributeObjects` (even centres between the extremes, three or more) in `level-align.ts`, each one undo step via
+the edit model's new `translateObjects`. `LevelAlignBar` renders in the toolbar after Redo at two or more selected
+objects; both distribute buttons are disabled below three. All eight Lucide names resolve, so no fallback icons.
 
-**Theme F — Snap settings.** ◻ One snap popover for both views: grid (tile fractions in the plan, the frame's
-`GRID_STEPS` in 3D), angle (`ANGLE_STEPS`), and **surface** snap that drops a moved or placed object onto the top of
-the box under it. Persisted in `midnite-studio.level-view`.
+**Theme F — Snap settings.** ✅ `level-snap.ts` (`LevelSnap`, `planSnapStep`, `surfaceElevation`, `gizmoSteps`) and the
+toolbar `LevelSnapPopover` (master switch, Floorplan step Tile / ½ / ¼ / Off, 3D grid and angle, snap to surfaces),
+persisted and merge-sanitised in the view store. `snapPlan` takes the step (map px; none = legacy half metre, `null` =
+free), the 3D gizmo reads the same settings, Alt inverts snapping in both views, arrow-key nudges follow the plan step.
+Surface snap runs on gizmo release and on Place; `surfaceElevation` returns an absolute world Y (the `elevation` property).
 
-**Theme G — Every tool in 3D.** ◻ Volume (drag a rectangle on the ground), Path (click points, Enter finishes) and
-Rotate (drag to aim) work in the 3D view over a ground raycast; `TOOLS_IN_3D` becomes every 3D tool.
+**Theme G — Every tool in 3D.** ✅ Volume (drag a rubber-band box, orbit held still), Path (a click appends; a press that
+travels is an orbit) and Rotate (press a selected object, drag, every selected object turns to face the ground point,
+snapped by the angle step) run over a ground raycast the scene exposes; `level-ground.ts` holds `groundPoint`,
+`planPointFromWorld`, `volumeFromDrag`, `rotateToward`, `rayHitsItem`. The path draft stays in the editor so Enter /
+Escape / Backspace work in both views; `TOOLS_IN_3D` is every 3D tool. Real-pointer 3D passes stay with the human gate.
 
-**Theme H — The outliner.** ◻ The left aside becomes a resizable, collapsible outliner: layers with their objects as a
+**Theme H — The outliner.** ✅ The left aside becomes a resizable, collapsible outliner: layers with their objects as a
 tree, a search box, per-row hide and lock (editor-only, persisted per scene), click / Shift / Mod selection shared
-with both views, double-click frames.
+with both views, double-click frames. Landed: `level-outline.ts` (pure tree, filter, `rangeRefs`), `level-outliner-store.ts`
+(`isSelectable`, persisted width / collapse / hide / lock), `level-outliner.tsx` replacing `LayerList`. Hide skips `drawPlan`, the
+tile canvas, `hitPlan` / `hitObject` and the 3D items; lock only skips hits and the marquee. The list windows itself past 2,000
+rows with a small fixed-row slice instead of adding `@tanstack/react-virtual` to the feature.
 
-**Theme I — Context menus.** ◻ Right-click in the plan, the 3D view and the outliner opens one menu built by
+**Theme I — Context menus.** ✅ Right-click in the plan, the 3D view and the outliner opens one menu built by
 `levelContextMenu(state, target)`: cut, copy, paste, duplicate, delete, frame, hide, lock, select all of this type,
-align.
+align. Landed: `level-context-menu.ts` (pure), opened through the chrome's `openMenu`, else the kit's `KitContextMenu`
+(now exported from the frame); right-clicking an unselected object selects it first; the 3D view reports its hovered item
+so a right-click knows what is under it. Hide / Lock act on the whole selection from the menu.
 
-**Theme J — Shortcut cheat-sheet.** ◻ `LEVEL_SHORTCUTS` is the one table the key handler dispatches from and the `?`
-cheat-sheet renders, grouped Tools / Selection / Edit / View, with the chord in `<kbd>` chips.
+**Theme J — Shortcut cheat-sheet.** ✅ `level-shortcuts.ts`: `LEVEL_SHORTCUTS` is the one table the key handlers dispatch from (`matchShortcut`, per view and dimension) and the `?` cheat-sheet (`LevelShortcutHelp`, a `FrameModal` opened by `?` or the toolbar keyboard button) renders, grouped Tools / Selection / Edit / View, chords in `<kbd>` chips (`⌘D` on mac). The editor's and the 3D view's `onKeyDown` now switch on the command id; behaviour is unchanged. Added `path.finish` (Enter) to the command ids; Delete and Backspace are two rows of `edit.delete`.
 
 ## Build order
 
@@ -158,16 +183,16 @@ loses the user's place.
 
 **Acceptance.**
 
-- [ ] A1. `createEditState(level).selected` is `[]`; `selectOnly(s, ref)` gives `selected: [ref]`, `selection: ref`.
-- [ ] A2. `toggleSelected` adds an absent ref (it becomes primary) and removes a present one; removing the primary
+- [x] A1. `createEditState(level).selected` is `[]`; `selectOnly(s, ref)` gives `selected: [ref]`, `selection: ref`.
+- [x] A2. `toggleSelected` adds an absent ref (it becomes primary) and removes a present one; removing the primary
   makes the last remaining ref primary; removing the last ref gives `selection: null`.
-- [ ] A3. `selectInRect` with `'replace'` / `'add'` / `'toggle'` returns the documented sets for a fixture of 3
+- [x] A3. `selectInRect` with `'replace'` / `'add'` / `'toggle'` returns the documented sets for a fixture of 3
   objects where one straddles the rect edge (never selected).
-- [ ] A4. `moveObjects` over 3 refs changes `past.length` by exactly 1, and `undo` restores all three positions with
+- [x] A4. `moveObjects` over 3 refs changes `past.length` by exactly 1, and `undo` restores all three positions with
   the selection intact.
-- [ ] A5. `deleteObjects` over 2 refs is one undo step; after `undo` both objects are back and `selected` holds both.
-- [ ] A6. A ref whose object was deleted by redo is dropped from `selected` and the invariant holds.
-- [ ] A7. Every existing `level-edit-model.test.ts` case passes unchanged (`select` keeps its signature).
+- [x] A5. `deleteObjects` over 2 refs is one undo step; after `undo` both objects are back and `selected` holds both.
+- [x] A6. A ref whose object was deleted by redo is dropped from `selected` and the invariant holds.
+- [x] A7. Every existing `level-edit-model.test.ts` case passes unchanged (`select` keeps its signature).
 
 **Tests.** `level-selection.test.ts` (bounds of box / point / path mixes, `refKey`), new cases in
 `level-edit-model.test.ts` for A1–A6.
@@ -215,13 +240,13 @@ export async function readClipboard(): Promise<LevelClipboard | null>;          
 
 **Acceptance.**
 
-- [ ] B1. `copySelection` of 2 objects gives positions relative to their bounds' top-left and `id: 0`.
-- [ ] B2. `pasteClipboard` at `{x:100,y:50}` adds 2 objects with fresh, unique ids, selects them, one undo step.
-- [ ] B3. `duplicateSelection` adds copies at identical positions and selects the copies (not the originals).
-- [ ] B4. `parseClipboard('not json')` and a wrong `kind` return `null`.
-- [ ] B5. With `navigator.clipboard` undefined (jsdom), `writeClipboard` then `readClipboard` round-trips through
+- [x] B1. `copySelection` of 2 objects gives positions relative to their bounds' top-left and `id: 0`.
+- [x] B2. `pasteClipboard` at `{x:100,y:50}` adds 2 objects with fresh, unique ids, selects them, one undo step.
+- [x] B3. `duplicateSelection` adds copies at identical positions and selects the copies (not the originals).
+- [x] B4. `parseClipboard('not json')` and a wrong `kind` return `null`.
+- [x] B5. With `navigator.clipboard` undefined (jsdom), `writeClipboard` then `readClipboard` round-trips through
   memory.
-- [ ] B6. In `level-editor.test.tsx`, Mod+D with one selected object adds one object (count +1) and Mod+Z removes it.
+- [x] B6. In `level-editor.test.tsx`, Mod+D with one selected object adds one object (count +1) and Mod+Z removes it.
 
 **Done when** B1–B6 pass.
 
@@ -254,15 +279,15 @@ export async function readClipboard(): Promise<LevelClipboard | null>;          
 
 **Acceptance.**
 
-- [ ] C1. Clicking empty space with the Select tool and no drag clears the selection.
-- [ ] C2. A marquee over 2 of 3 fixture objects selects exactly those 2 (vitest drives `onPointer` with synthetic
+- [x] C1. Clicking empty space with the Select tool and no drag clears the selection.
+- [x] C2. A marquee over 2 of 3 fixture objects selects exactly those 2 (vitest drives `onPointer` with synthetic
   `CanvasPointer`s, no real drag).
-- [ ] C3. Shift-click adds, Mod-click toggles, as A2 states.
-- [ ] C4. A synthetic group drag of 2 selected objects by (32, 0) moves both and is one undo step.
-- [ ] C5. Mod+A selects every object in the active layer; arrow-right nudges them one tile; Shift+arrow-right ten.
-- [ ] C6. `drawPlan` with a mocked context strokes `#f5a524` once per selected object and calls `setLineDash` for the
+- [x] C3. Shift-click adds, Mod-click toggles, as A2 states.
+- [x] C4. A synthetic group drag of 2 selected objects by (32, 0) moves both and is one undo step.
+- [x] C5. Mod+A selects every object in the active layer; arrow-right nudges them one tile; Shift+arrow-right ten.
+- [x] C6. `drawPlan` with a mocked context strokes `#f5a524` once per selected object and calls `setLineDash` for the
   group bounds when 2+ are selected.
-- [ ] C7. The e2e spec marquee-selects two coins on a platformer starter and drags them; both positions change in the
+- [x] C7. The e2e spec marquee-selects two coins on a platformer starter and drags them; both positions change in the
   inspector's X field after re-selecting each.
 
 **Done when** C1–C7 pass and `scripts/e2e-budget.mjs` is updated for the one new spec.
@@ -310,13 +335,13 @@ export function marqueeHits(items: readonly { id: number; centre: [number, numbe
 
 **Acceptance.**
 
-- [ ] D1. `groupPivot(…, 'centre')` of two boxes at x = 0 and x = 10 m returns centre x = 5.
-- [ ] D2. `gizmoEditGroup` with `rotateYaw: 90` about a centre pivot swaps the two boxes' positions and adds 90 to each
+- [x] D1. `groupPivot(…, 'centre')` of two boxes at x = 0 and x = 10 m returns centre x = 5.
+- [x] D2. `gizmoEditGroup` with `rotateYaw: 90` about a centre pivot swaps the two boxes' positions and adds 90 to each
   `rotation`; `past.length` grows by 1.
-- [ ] D3. `gizmoEditGroup` with `scale: [2,1,2]` doubles each box's footprint and its distance from the pivot.
-- [ ] D4. `marqueeHits` excludes an item behind the camera (`inFront: false`) and one outside the rect.
-- [ ] D5. The store persists `pivot` and `space`; a corrupt value falls back to `'pivot'` / `'world'`.
-- [ ] D6. Pressing Z and X with the 3D view focused flips the radios' `aria-checked`.
+- [x] D3. `gizmoEditGroup` with `scale: [2,1,2]` doubles each box's footprint and its distance from the pivot.
+- [x] D4. `marqueeHits` excludes an item behind the camera (`inFront: false`) and one outside the rect.
+- [x] D5. The store persists `pivot` and `space`; a corrupt value falls back to `'pivot'` / `'world'`.
+- [x] D6. Pressing Z and X with the 3D view focused flips the radios' `aria-checked`.
 
 **Done when** D1–D6 pass. Real-gizmo dragging is covered by the Verification gate (WebGL is not driven in e2e here).
 
@@ -352,10 +377,10 @@ export function distributeObjects(state: EditState, refs: readonly ObjectRef[], 
 
 **Acceptance.**
 
-- [ ] E1. Aligning three boxes on `x`/`min` sets each box's left footprint edge to the bounds' left; one undo step.
-- [ ] E2. `centre` aligns footprint centres, `max` right edges; a rotated box uses its rotated footprint.
-- [ ] E3. `distributeObjects` on 4 objects keeps the two extremes and spaces the middle two evenly by centre.
-- [ ] E4. The bar renders only at 2+ selected; the distribute buttons are disabled at exactly 2.
+- [x] E1. Aligning three boxes on `x`/`min` sets each box's left footprint edge to the bounds' left; one undo step.
+- [x] E2. `centre` aligns footprint centres, `max` right edges; a rotated box uses its rotated footprint.
+- [x] E3. `distributeObjects` on 4 objects keeps the two extremes and spaces the middle two evenly by centre.
+- [x] E4. The bar renders only at 2+ selected; the distribute buttons are disabled at exactly 2.
 
 **Done when** E1–E4 pass.
 
@@ -402,12 +427,12 @@ export function surfaceElevation(items: readonly WorldItem[], footprint: { minX:
 
 **Acceptance.**
 
-- [ ] F1. `planSnapStep` returns a half-tile step for `planStep: 0.5` and `null` for `0` or `enabled: false`.
-- [ ] F2. `surfaceElevation` returns the top of a 2 m crate under the footprint and `0` over open ground; the moved
+- [x] F1. `planSnapStep` returns a half-tile step for `planStep: 0.5` and `null` for `0` or `enabled: false`.
+- [x] F2. `surfaceElevation` returns the top of a 2 m crate under the footprint and `0` over open ground; the moved
   object itself is excluded.
-- [ ] F3. The store round-trips `snap`; a corrupt `snap.grid` falls back to `DEFAULT_LEVEL_SNAP.grid`.
-- [ ] F4. Changing the angle select in the popover changes the value `TransformModeBar` receives.
-- [ ] F5. A synthetic plan drag with `planStep: 0.5` lands on half-tile positions; with Alt held it lands unsnapped.
+- [x] F3. The store round-trips `snap`; a corrupt `snap.grid` falls back to `DEFAULT_LEVEL_SNAP.grid`.
+- [x] F4. Changing the angle select in the popover changes the value `TransformModeBar` receives.
+- [x] F5. A synthetic plan drag with `planStep: 0.5` lands on half-tile positions; with Alt held it lands unsnapped.
 
 **Done when** F1–F5 pass.
 
@@ -442,11 +467,11 @@ export function planPointFromWorld(level: EditLevel, x: number, z: number): Plan
 
 **Acceptance.**
 
-- [ ] G1. `groundPoint` returns the intersection for a downward ray and `null` for a ray parallel to the ground.
-- [ ] G2. Switching to 3D with Volume, Path or Rotate active keeps that tool (the toolbar radio stays checked).
-- [ ] G3. A Volume gesture fed through the view's pure gesture reducer (`volumeFromDrag(from, to, snap)`, exported
+- [x] G1. `groundPoint` returns the intersection for a downward ray and `null` for a ray parallel to the ground.
+- [x] G2. Switching to 3D with Volume, Path or Rotate active keeps that tool (the toolbar radio stays checked).
+- [x] G3. A Volume gesture fed through the view's pure gesture reducer (`volumeFromDrag(from, to, snap)`, exported
   for the test) produces the same `setVolume` arguments as the plan for equal ground points.
-- [ ] G4. Rotate over 2 selected objects sets both `rotation`s toward the same ground point in one undo step.
+- [x] G4. Rotate over 2 selected objects sets both `rotation`s toward the same ground point in one undo step.
 
 **Done when** G1–G4 pass and the Verification gate's 3D tool pass is ticked.
 
@@ -514,14 +539,14 @@ export function useLevelOutlinerStore(): …; export function isSelectable(gameI
 
 **Acceptance.**
 
-- [ ] H1. `buildLevelOutline` with query "coin" keeps only matching objects and their layer rows.
-- [ ] H2. `rangeRefs` returns the rows between two refs inclusive, in row order, across one layer.
-- [ ] H3. Hiding an object removes it from `drawPlan` calls and from `hitPlan` results; locking removes it from hit
+- [x] H1. `buildLevelOutline` with query "coin" keeps only matching objects and their layer rows.
+- [x] H2. `rangeRefs` returns the rows between two refs inclusive, in row order, across one layer.
+- [x] H3. Hiding an object removes it from `drawPlan` calls and from `hitPlan` results; locking removes it from hit
   tests but not from drawing.
-- [ ] H4. Hide and lock persist per `gameId/scene` and never change `edit.level` (`dirty` stays false).
-- [ ] H5. Clicking a row in the outliner selects the object and the inspector shows it; Shift-click selects a range.
-- [ ] H6. Arrow keys move focus between rows (`document.activeElement` changes) and Enter selects.
-- [ ] H7. Dragging the handle (synthetic pointer events on `ResizeHandle`) below `min` collapses the aside to the strip.
+- [x] H4. Hide and lock persist per `gameId/scene` and never change `edit.level` (`dirty` stays false).
+- [x] H5. Clicking a row in the outliner selects the object and the inspector shows it; Shift-click selects a range.
+- [x] H6. Arrow keys move focus between rows (`document.activeElement` changes) and Enter selects.
+- [x] H7. Dragging the handle (synthetic pointer events on `ResizeHandle`) below `min` collapses the aside to the strip.
 
 **Done when** H1–H7 pass.
 
@@ -557,11 +582,11 @@ export function levelContextMenu(state: EditState, target: LevelMenuTarget, ctx:
 
 **Acceptance.**
 
-- [ ] I1. For an object target with 1 selected, the entries are exactly the documented order, without Align.
-- [ ] I2. With 3 selected, Align is present as a submenu with 6 items.
-- [ ] I3. `canPaste: false` disables Paste with `disabledReason` "Nothing to paste".
-- [ ] I4. `readOnly: true` leaves only Copy, Frame and Select all.
-- [ ] I5. Right-clicking an unselected object in `level-editor.test.tsx` selects it before the menu opens.
+- [x] I1. For an object target with 1 selected, the entries are exactly the documented order, without Align.
+- [x] I2. With 3 selected, Align is present as a submenu with 6 items.
+- [x] I3. `canPaste: false` disables Paste with `disabledReason` "Nothing to paste".
+- [x] I4. `readOnly: true` leaves only Copy, Frame and Select all.
+- [x] I5. Right-clicking an unselected object in `level-editor.test.tsx` selects it before the menu opens.
 
 **Done when** I1–I5 pass.
 
@@ -600,11 +625,11 @@ export function matchShortcut(e: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKe
 
 **Acceptance.**
 
-- [ ] J1. Every key the handler acted on before this phase has a `LEVEL_SHORTCUTS` row (a test lists the pre-phase
+- [x] J1. Every key the handler acted on before this phase has a `LEVEL_SHORTCUTS` row (a test lists the pre-phase
   keys: B E R I O V P Y, Mod+Z, Mod+Shift+Z, Delete, Backspace, Enter, Escape, W E R F in 3D).
-- [ ] J2. No two rows with overlapping `views` and `dimension` share a chord (test).
-- [ ] J3. `matchShortcut` maps Cmd+D (mac) and Ctrl+D (non-mac) to `edit.duplicate`.
-- [ ] J4. `?` opens the modal; it lists Mod+D as "⌘D" on mac; Escape closes it and focus returns to the canvas.
+- [x] J2. No two rows with overlapping `views` and `dimension` share a chord (test).
+- [x] J3. `matchShortcut` maps Cmd+D (mac) and Ctrl+D (non-mac) to `edit.duplicate`.
+- [x] J4. `?` opens the modal; it lists Mod+D as "⌘D" on mac; Escape closes it and focus returns to the canvas.
 
 **Done when** J1–J4 pass.
 

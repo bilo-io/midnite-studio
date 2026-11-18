@@ -58,8 +58,7 @@ async function liveSiblings(ref: ResourceRef): Promise<readonly ResourceRef[] | 
     case 'session':
       return useTerminalStore
         .getState()
-        .sessions.filter((session) => session.surface !== 'fab')
-        .map((session) => ({ kind: 'session' as const, id: session.id }));
+        .sessions.map((session) => ({ kind: 'session' as const, id: session.id }));
     case 'pull': {
       const seen = new Set<number>();
       const pulls = cached<ForgePullsResult>([...keys.forge(ref.repoId), 'pulls'])

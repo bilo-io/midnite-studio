@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { GameExplorer } from './game-explorer';
+import { useDoctorRequest } from './game-doctor-store';
 import { useAddGame } from './use-games';
 
 const add = vi.fn();
@@ -31,7 +32,7 @@ function Harness({ onNew = () => undefined, onAdded = () => undefined }: { onNew
       onOpen={() =>
         addGame.mutate(undefined, {
           onSuccess: (result) => {
-            if (result.ok && result.value.status !== 'cancelled') onAdded(result.value.gameId);
+            if (result.ok && (result.value.status === 'added' || result.value.status === 'listed')) onAdded(result.value.gameId);
           },
         })
       }
@@ -80,5 +81,38 @@ describe('GameExplorer Open Game', () => {
     expect(await screen.findByText('No games yet. Create one from a starter, or open one you already have.')).toBeTruthy();
     expect(screen.getAllByRole('button', { name: 'Open Game' })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: 'New game' })).toHaveLength(2);
+  });
+});
+
+describe('GameExplorer status dot', () => {
+  const summary = (gameId: string, status: 'ok' | 'warn' | 'error' | null, findingCount: number) => ({
+    gameId,
+    name: gameId,
+    path: `/elsewhere/${gameId}`,
+    engine: 'phaser',
+    dimension: '2d',
+    starter: 'blank',
+    dirty: false,
+    valid: true,
+    issue: null,
+    status,
+    findingCount,
+  });
+
+  it('hides the dot for ok, colours warn amber and error red, and a click requests the doctor', async () => {
+    list.mockResolvedValue({
+      games: [summary('good', 'ok', 0), summary('amber', 'warn', 2), summary('red', 'error', 1)],
+    });
+    useDoctorRequest.setState({ requested: null });
+    renderExplorer();
+    const amber = await screen.findByRole('button', { name: '2 findings' });
+    const red = screen.getByRole('button', { name: '1 findings' });
+    expect(amber.getAttribute('data-status')).toBe('warn');
+    expect(amber.querySelector('span')?.className).toContain('bg-amber-500');
+    expect(red.getAttribute('data-status')).toBe('error');
+    expect(red.querySelector('span')?.className).toContain('bg-red-500');
+    expect(screen.queryByRole('button', { name: '0 findings' })).toBeNull();
+    fireEvent.click(amber);
+    expect(useDoctorRequest.getState().requested).toBe('amber');
   });
 });

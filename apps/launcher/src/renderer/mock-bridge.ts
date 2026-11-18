@@ -78,7 +78,7 @@ export function createMockBridge(mode: string | null): LauncherBridge {
       open: ok,
       status: async () => appsStatus(),
       install: async (id) => {
-        if (!published.includes(id)) return { ok: false, message: `Midnite ${id} has no published build yet.` };
+        if (!published.includes(id)) return { ok: false, message: `Midnyte ${id} has no published build yet.` };
         const total = 40 * 1024 * 1024;
         for (let i = 1; i <= 5; i++) {
           appListeners.forEach((l) => l({ id, progress: { phase: 'download', received: (total * i) / 5, total } }));
@@ -120,6 +120,36 @@ export function createMockBridge(mode: string | null): LauncherBridge {
         error: null,
       }),
       openFull: ok,
+      get: async () => ({
+        releases: [
+          {
+            version: '0.0.6',
+            date: '2026-10-31',
+            items: [
+              {
+                id: '0.0.6-Added-0',
+                version: '0.0.6',
+                category: 'Added',
+                title: 'Vanguard: Fleet policy dashboard',
+                body: 'Interactive fleet overview and enforcement.',
+                raw: '- **Vanguard**: Fleet policy dashboard.',
+                appIds: ['vanguard', 'studio'],
+              },
+              {
+                id: '0.0.6-Added-1',
+                version: '0.0.6',
+                category: 'Added',
+                title: 'Agents: Subagent fan-out orchestration',
+                body: 'Autonomous delegation across agent swarms.',
+                raw: '- **Agents**: Subagent fan-out orchestration.',
+                appIds: ['agents', 'studio'],
+              },
+            ],
+          },
+        ],
+        rawMarkdown: '## [0.0.6] - 2026-10-31\n\n### Added\n- **Vanguard**: Fleet policy dashboard.\n- **Agents**: Subagent fan-out orchestration.',
+        error: null,
+      }),
     },
     privacy: (() => {
       let privacy = { allAutomaticOff: false, switches: { 'launcher-updates': true, 'launcher-catalog': true } };

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LuAppWindow, LuGamepad2, LuPanelBottomClose, LuPlay, LuRotateCcw, LuTriangleAlert } from 'react-icons/lu';
 
+import { GAME_BUILD_REASON_PREFIX } from '@midnite/studio-shared';
 import { bridge, EmptyState, RingSpinner as Spinner, usePageVisible } from '@midnite/studio-frame';
 
 import { useGameOccluded } from './chrome';
@@ -166,6 +167,9 @@ export function GameRunnerHost({
   }
 
   const crashed = info?.state === 'crashed';
+  const buildFailure = crashed && info?.reason?.startsWith(GAME_BUILD_REASON_PREFIX)
+    ? (([message = 'Build failed.', ...rest]) => ({ message, lines: rest.join('\n') }))(info.reason.slice(GAME_BUILD_REASON_PREFIX.length).split('\n'))
+    : null;
   return (
     <div ref={containerRef} data-testid="game-runner-host" className="relative flex h-full w-full items-center justify-center bg-black/40">
       {live ? (
@@ -196,9 +200,18 @@ export function GameRunnerHost({
       {crashed ? (
         <div role="alert" className="flex flex-col items-center gap-3 p-6 text-center">
           <LuTriangleAlert aria-hidden className="h-8 w-8 text-destructive" />
-          <p className="max-w-sm text-sm">
-            The game crashed ({info?.reason ?? 'unknown'}). See the console.
-          </p>
+          {buildFailure !== null ? (
+            <div className="flex max-w-xl flex-col gap-2" data-testid="game-build-failure">
+              <p className="text-sm">{buildFailure.message}</p>
+              {buildFailure.lines === '' ? null : (
+                <pre className="max-h-48 overflow-auto rounded-md bg-card p-2 text-left text-xs">{buildFailure.lines}</pre>
+              )}
+            </div>
+          ) : (
+            <p className="max-w-sm text-sm">
+              The game crashed ({info?.reason ?? 'unknown'}). See the console.
+            </p>
+          )}
           <button
             type="button"
             onClick={() => run.mutate(gameId)}

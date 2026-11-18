@@ -10,8 +10,12 @@ End-to-end "execute a described task" for **Midnite Studio**, for work that isn'
 
 **Conversation style — enforced.** Be terse to save time and tokens. Report results, not intentions; bullets over prose.
 
+## 0 · Run the script first
+
+Run `scripts/skills/worktree-lifecycle.sh create <slug>`, then `node scripts/skills/pr-create.mjs` and `node scripts/skills/pr-description.mjs` at PR time. They set up the worktree and run the draft-PR preflight. You still build, review, fix, and merge as the stages below say. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Respect
-- `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` conventions (package boundaries, test coverage, no attribution trailers).
+- `AGENTS.md` conventions (Claude Code reads them through `CLAUDE.md`) (package boundaries, test coverage, no attribution trailers).
 - Isolated worktrees under `.worktrees/<branch>/`. Untracked `SCRATCHPAD.md` at worktree root.
 - Two-subagent self-review pass before opening/readying PR.
 

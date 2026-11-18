@@ -5,6 +5,8 @@ import { mediaModelManifest } from '@midnite/studio-feature-media-model/manifest
 import { mediaSpriteManifest } from '@midnite/studio-feature-media-sprite/manifest';
 import { mediaTerrainManifest } from '@midnite/studio-feature-media-terrain/manifest';
 
+import { startupMcpManifest } from '@midnite/studio-module-startup/mcp-manifest';
+
 /**
  * The feature manifests that own MCP tools (`FeatureManifest.mcpTools`) — where a tool's app comes from
  * once its feature is extracted, ahead of `defaultMcpToolOwner`'s table for the tools no manifest claims.
@@ -24,4 +26,5 @@ export const MCP_TOOL_MANIFESTS = [
   mediaTerrainManifest,
   mediaSpriteManifest,
   mediaMapManifest,
+  startupMcpManifest,
 ] as const;

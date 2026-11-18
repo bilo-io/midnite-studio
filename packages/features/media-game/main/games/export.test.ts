@@ -214,7 +214,7 @@ describe('createGameExport on a composed platformer', () => {
     await writeFile(join(path, '.env'), 'SECRET=1');
     await writeFile(join(tmp, 'outside.txt'), 'outside');
     await symlink(join(tmp, 'outside.txt'), join(path, 'src', 'link.txt'));
-    const game: GameSummary = { gameId: 'g1', name: 'Moon Rover', path, engine: 'phaser', dimension: '2d', starter: 'platformer', dirty: false, valid: true, issue: null };
+    const game: GameSummary = { gameId: 'g1', name: 'Moon Rover', path, engine: 'phaser', dimension: '2d', starter: 'platformer', dirty: false, valid: true, issue: null, status: null, findingCount: 0 };
     return { path, exporter: createGameExport({ resolve: async (id) => (id === 'g1' ? game : null) }) };
   }
 
@@ -291,5 +291,41 @@ describe('createGameExport on a composed platformer', () => {
     await exporter.exportGame({ gameId: 'g1', format: 'game-html', dest: join(tmp, 'a.html') });
     await exporter.exportGame({ gameId: 'g1', format: 'game-zip', dest: join(tmp, 'a.zip') });
     expect((await listFilesRecursive(path)).filter((f) => !f.startsWith('.git/'))).toEqual(before);
+  });
+});
+
+describe('createGameExport on a bundled game (Phase 149 Theme E)', () => {
+  async function makeBundled(out = 'dist'): Promise<ReturnType<typeof createGameExport>> {
+    const path = join(tmp, 'bundled');
+    await mkdir(join(path, 'src'), { recursive: true });
+    await writeFile(
+      join(path, 'midnite-game.json'),
+      JSON.stringify({ version: 1, name: 'Bundled', starter: 'blank', kitVersion: '0.12.0', engine: 'three', dimension: '3d', perspective: 'third-person', genre: null, entry: 'index.html', build: { command: 'vite build', out } }),
+    );
+    await writeFile(join(path, 'src', 'main.ts'), 'source');
+    await mkdir(join(path, 'dist', 'assets'), { recursive: true });
+    await writeFile(join(path, 'dist', 'index.html'), '<html></html>');
+    await writeFile(join(path, 'dist', 'assets', 'app.js'), 'built');
+    const game: GameSummary = { gameId: 'g1', name: 'Bundled', path, engine: 'three', dimension: '3d', starter: null, dirty: false, valid: true, issue: null } as GameSummary;
+    return createGameExport({ resolve: async (id) => (id === 'g1' ? game : null) });
+  }
+
+  it('bundles the build output, not the sources', async () => {
+    const exporter = await makeBundled();
+    const out = join(tmp, 'out');
+    await mkdir(out);
+    const result = await exporter.exportGame({ gameId: 'g1', format: 'game-folder', dest: out });
+    expect(result.ok, JSON.stringify(result)).toBe(true);
+    if (!result.ok) return;
+    const files = await listFilesRecursive(result.value.path);
+    expect(files).toEqual(expect.arrayContaining(['index.html', 'assets/app.js']));
+    expect(files).not.toContain('src/main.ts');
+  });
+
+  it('refuses an out that was never built', async () => {
+    const dest = join(tmp, 'out2');
+    await mkdir(dest);
+    const exporter = await makeBundled('nope');
+    expect(await exporter.exportGame({ gameId: 'g1', format: 'game-folder', dest })).toMatchObject({ ok: false, message: 'Run the build first: nope does not exist.' });
   });
 });

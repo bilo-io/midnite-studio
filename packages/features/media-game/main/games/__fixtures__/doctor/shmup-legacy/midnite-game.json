@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "name": "Shmup Legacy",
+  "engine": "phaser",
+  "dimension": "2d",
+  "perspective": "top-down",
+  "genre": "shmup",
+  "starter": "custom-vertical-shooter",
+  "entry": "index.html",
+  "kitVersion": "0.11.0",
+  "vendored": true,
+  "network": "off",
+  "deterministic": true,
+  "keepSaveData": true,
+  "assets": []
+}

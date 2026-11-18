@@ -7,6 +7,10 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, TodoWrite, 
 
 You are running the **deployment and release** pipeline for **Midnite Studio**. This skill combines release preparation (version analysis, changelog drafting, lockstep bumping) and release finalization (tagging, merging to main, pushing, and GitHub release creation) into one seamless workflow.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/release-prep.mjs [major|minor|patch|ephemeral]` for step 1, then `node scripts/skills/release-complete.mjs [ephemeral]` for step 3. The first prints the read-only plan, the second the precondition check; the irreversible steps run only with `--confirm vX.Y.Z` and `--verify vX.Y.Z` checks the result. The go/no-go gate in step 2 stays yours and the user's; never pass `--confirm` without it. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Release Policy & Constraints
 
 - **Lockstep rule:** Every workspace package shares the same `MAJOR.MINOR` version (e.g. `0.0.x`).

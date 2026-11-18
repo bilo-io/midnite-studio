@@ -46,13 +46,19 @@ export const optimizerManifest = defineFeatureManifest({
     CHANNELS.optimizerSystemReclaim,
     CHANNELS.optimizerBrokerSweepPlan,
     CHANNELS.optimizerBrokerSweep,
+    CHANNELS.optimizerFreeRamPlan,
+    CHANNELS.optimizerFreeRam,
     CHANNELS.optimizerKill,
     // `optimizerTrashSummary`/`optimizerTrashEmpty` are deliberately absent:
     // they stay registered by desktop's `trash-handlers.ts` over
     // `trash-service.ts`, whose separation of trust from this feature's
     // handlers is its own documented decision. They move with Theme H.
   ],
-  events: [EVENT_CHANNELS.optimizerScanProgress, EVENT_CHANNELS.optimizerSystemScanProgress],
+  events: [
+    EVENT_CHANNELS.optimizerScanProgress,
+    EVENT_CHANNELS.optimizerSystemScanProgress,
+    EVENT_CHANNELS.optimizerClearRendererCache,
+  ],
   mcpTools: [],
 });
 

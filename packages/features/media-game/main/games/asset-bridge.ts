@@ -19,6 +19,7 @@ import {
   TERRAIN_SPEC_FILE,
   type AnimationClip,
   type GameAssetIndexEntry,
+  type GameAssetLibraryOrigin,
   type GameAssetProvenance,
   type GameAssetSource,
   type GameAssetSourceItem,
@@ -26,6 +27,7 @@ import {
   type GameAssetSourcesResult,
   type GameImportAssetRequest,
   type GameImportAssetResult,
+  type GameLibraryImportRequest,
   type GameResyncRequest,
   type GameResyncResult,
   type GameSummary,
@@ -37,6 +39,7 @@ import {
 } from '@midnite/studio-shared';
 
 import { confineToRoot } from '@midnite/studio-runtime';
+import { inferKind, resolveInLibrary } from './asset-library';
 import type { Logger } from './logger';
 
 /**
@@ -131,6 +134,8 @@ export type AssetBridgeDeps = {
    * Absent → an animation import fails plainly (an app without the Animations tab).
    */
   animations?: { root: () => string | Promise<string>; get: (id: string) => Promise<AnimationClip | null> };
+  /** The shared asset library's resolved root (`GamesSettings`). Absent → a library import fails plainly. */
+  libraryRoot?: () => Promise<string>;
   git?: AssetGit;
   now?: () => Date;
   send: (channel: string, payload: unknown) => void;
@@ -154,6 +159,8 @@ type Located = {
   path: string;
   /** The suggested asset name. */
   stem: string;
+  /** Set for an asset from the shared library: its collection and the library-relative path (the pack folder for a terrain). */
+  library?: { collection: string; path: string };
 };
 
 /** The folder under `assets/` a kind lives in: its own name, except animations, which the phase files under `animations/`. */
@@ -394,6 +401,41 @@ export function createAssetBridge(deps: AssetBridgeDeps) {
     return ok({ ...common, kind: fileKind(source.tab), isDir: false, abs, terrain: false });
   }
 
+  /**
+   * A library asset as a source. A terrain is a multi-file pack, so a path inside one (or the folder itself)
+   * resolves to the whole pack folder: the nearest folder holding `terrain.manifest.json`. Everything else is a
+   * single file of a kind a game can hold.
+   */
+  async function locateLibrary(collection: string, path: string): Promise<GitOpResult<Located>> {
+    if (!deps.libraryRoot) return failure('The asset library is not available here.');
+    const root = await deps.libraryRoot();
+    const abs = await resolveInLibrary(root, collection, path);
+    if (!abs) return failure('That asset is not inside the asset library.');
+    const info = await stat(abs).catch(() => null);
+    if (!info) return failure('That asset was not found in the asset library.');
+    const segments = path.split('/');
+    // The folder itself, then each ancestor below the collection root.
+    const candidates = info.isDirectory() ? [path] : [];
+    for (let n = segments.length - 1; n >= 1; n -= 1) candidates.push(segments.slice(0, n).join('/'));
+    for (const rel of candidates) {
+      const dir = await resolveInLibrary(root, collection, rel);
+      if (dir && (await isDirectory(dir)) && (await exists(join(dir, TERRAIN_MANIFEST_FILE)))) {
+        return ok({ kind: 'terrain', tab: 'terrain', isDir: true, abs: dir, terrain: false, path: rel, stem: suggestAssetName(basename(dir)), library: { collection, path: rel } });
+      }
+    }
+    if (info.isDirectory()) return failure('That folder is not a terrain pack (no terrain.manifest.json). Pick a file in it.');
+    const ext = extname(abs).toLowerCase();
+    const kind = inferKind(abs);
+    const common = { isDir: false, abs, terrain: false, path, stem: suggestAssetName(basename(path)), library: { collection, path } };
+    if (kind === 'model' && fileExts('model').has(ext)) return ok({ ...common, kind: 'model', tab: 'model' });
+    if (kind === 'image' && fileExts('image').has(ext)) return ok({ ...common, kind: 'image', tab: 'image' });
+    if (kind === 'audio' && fileExts('audio').has(ext)) return ok({ ...common, kind: 'audio', tab: 'audio' });
+    if (kind === 'model' || kind === 'image' || kind === 'audio') {
+      return failure(`A game cannot hold ${ext} files; it takes ${[...fileExts(kind)].join(', ')}.`);
+    }
+    return failure(`A game cannot hold ${kind === 'other' ? 'this kind of file' : `${kind} assets`}. It takes terrains, sprites, models, images and audio.`);
+  }
+
   async function sources(tab: GameAssetSourceTab): Promise<GameAssetSourcesResult> {
     const repos: GameAssetSourcesResult['repos'] = [];
     for (const repoPath of await registeredRepos()) {
@@ -577,68 +619,91 @@ export function createAssetBridge(deps: AssetBridgeDeps) {
       if (!manifest.ok) return manifest;
       const located = await locate(req.source);
       if (!located.ok) return located;
-      const l = located.value;
-      const index = await readIndex(game.path);
-      if (l.animation) {
-        // Idempotent by sha256: a clip the game already holds is not copied or committed a second time.
-        const clip = l.animation;
-        const hashed = await hashAsset(l.abs, false);
-        if (!hashed.ok) return hashed;
-        if (hashed.value.sha256 !== clip.sha256) return failure('That animation’s file no longer matches the library manifest; re-import it into the library.');
-        const recorded = parseGameManifest(manifest.value);
-        const held = (recorded.ok ? recorded.manifest.assets : []).find(
-          (p) => p.kind === 'animation' && (p.sourceSha256 ?? p.sha256) === clip.sha256 && index.assets.some((e) => e.name === p.name),
-        );
-        if (held && (await exists(join(game.path, ...held.path.split('/'))))) {
-          return ok({ name: held.name, kind: 'animation', path: held.path, sha256: held.sha256, commit: null });
-        }
-      }
-      const ext = l.isDir ? '' : extname(l.abs).toLowerCase();
-      const name = await usableName(index.assets, game.path, l.kind, req.name ?? l.stem, l.isDir, ext);
-      const destRel = l.isDir ? `assets/${kindDir(l.kind)}/${name}` : `assets/${kindDir(l.kind)}/${name}${ext}`;
-
-      const guard = await guardTree(game.path, pathsFor({ path: destRel }));
-      if (!guard.ok) return guard;
-      const brought = await bring(game.path, l, destRel);
-      if (!brought.ok) return brought;
-
-      const provenance: GameAssetProvenance = {
-        name,
-        kind: l.kind,
-        path: destRel,
-        source: { tab: l.tab, repoId: l.repoPath ? ((await deps.repoIdOf?.(l.repoPath)) ?? null) : null, path: l.path, ...(l.repoPath ? { repoPath: l.repoPath } : {}) },
-        sha256: brought.value.sha256,
-        sourceSha256: brought.value.sourceSha256,
-        importedAt: now().toISOString(),
-      };
-      const entry: GameAssetIndexEntry = {
-        name,
-        kind: l.kind,
-        path: destRel,
-        ...(brought.value.entry ? { entry: brought.value.entry } : {}),
-        ...(l.animation
-          ? {
-              provenance: {
-                source: l.animation.source,
-                ...(l.animation.site ? { site: l.animation.site } : {}),
-                licence: l.animation.licence,
-                ...(l.animation.author ? { author: l.animation.author } : {}),
-                ...(l.animation.originalUrl ? { originalUrl: l.animation.originalUrl } : {}),
-                sha256: l.animation.sha256,
-              },
-            }
-          : {}),
-      };
-      await writeJson(join(game.path, GAME_ASSET_INDEX_FILE), { version: 1, assets: [...index.assets, entry] });
-      const list = Array.isArray(manifest.value.assets) ? (manifest.value.assets as unknown[]) : [];
-      await writeJson(join(game.path, GAME_MANIFEST_FILE), { ...manifest.value, assets: [...list, provenance] });
-
-      const made = await git.commitPaths(game.path, pathsFor(provenance), `assets: import ${name}`);
-      if (!made.ok) return made;
-      deps.send('mstudio:games:changed', { reason: 'manifest' });
-      deps.log.info(`game asset imported ${game.gameId} ${l.kind}/${name}`);
-      return ok({ name, kind: l.kind, path: destRel, ...(entry.entry ? { entry: entry.entry } : {}), sha256: provenance.sha256, commit: made.value.sha });
+      return doImport(game, manifest.value, located.value, req.name);
     });
+  }
+
+  /** Import one asset from the shared library: same copy, index, manifest and commit as any import, plus its origin. */
+  async function importLibrary(req: GameLibraryImportRequest): Promise<GitOpResult<GameImportAssetResult>> {
+    const game = await deps.resolve(req.gameId);
+    if (!game) return failure('That game was not found.');
+    return serial(game.gameId, async () => {
+      const manifest = await readManifestRaw(game.path);
+      if (!manifest.ok) return manifest;
+      const located = await locateLibrary(req.collection, req.path);
+      if (!located.ok) return located;
+      return doImport(game, manifest.value, located.value, req.name);
+    });
+  }
+
+  /** The shared tail of every import: runs inside the game's serial chain. */
+  async function doImport(game: GameSummary, manifestValue: Record<string, unknown>, l: Located, wantedName: string | undefined): Promise<GitOpResult<GameImportAssetResult>> {
+    const manifest = { value: manifestValue };
+    const index = await readIndex(game.path);
+    if (l.animation) {
+      // Idempotent by sha256: a clip the game already holds is not copied or committed a second time.
+      const clip = l.animation;
+      const hashed = await hashAsset(l.abs, false);
+      if (!hashed.ok) return hashed;
+      if (hashed.value.sha256 !== clip.sha256) return failure('That animation’s file no longer matches the library manifest; re-import it into the library.');
+      const recorded = parseGameManifest(manifest.value);
+      const held = (recorded.ok ? recorded.manifest.assets : []).find(
+        (p) => p.kind === 'animation' && (p.sourceSha256 ?? p.sha256) === clip.sha256 && index.assets.some((e) => e.name === p.name),
+      );
+      if (held && (await exists(join(game.path, ...held.path.split('/'))))) {
+        return ok({ name: held.name, kind: 'animation', path: held.path, sha256: held.sha256, commit: null });
+      }
+    }
+    const ext = l.isDir ? '' : extname(l.abs).toLowerCase();
+    const name = await usableName(index.assets, game.path, l.kind, wantedName ?? l.stem, l.isDir, ext);
+    const destRel = l.isDir ? `assets/${kindDir(l.kind)}/${name}` : `assets/${kindDir(l.kind)}/${name}${ext}`;
+
+    const guard = await guardTree(game.path, pathsFor({ path: destRel }));
+    if (!guard.ok) return guard;
+    const brought = await bring(game.path, l, destRel);
+    if (!brought.ok) return brought;
+
+    const libraryOrigin: GameAssetLibraryOrigin | undefined = l.library
+      ? { library: l.library.collection, path: l.library.path, sha256: brought.value.sourceSha256 }
+      : undefined;
+    const provenance: GameAssetProvenance = {
+      name,
+      kind: l.kind,
+      path: destRel,
+      source: { tab: l.tab, repoId: l.repoPath ? ((await deps.repoIdOf?.(l.repoPath)) ?? null) : null, path: l.path, ...(l.repoPath ? { repoPath: l.repoPath } : {}) },
+      sha256: brought.value.sha256,
+      sourceSha256: brought.value.sourceSha256,
+      importedAt: now().toISOString(),
+      ...(libraryOrigin ? { library: libraryOrigin } : {}),
+    };
+    const entry: GameAssetIndexEntry = {
+      name,
+      kind: l.kind,
+      path: destRel,
+      ...(libraryOrigin ? { library: libraryOrigin } : {}),
+      ...(brought.value.entry ? { entry: brought.value.entry } : {}),
+      ...(l.animation
+        ? {
+            provenance: {
+              source: l.animation.source,
+              ...(l.animation.site ? { site: l.animation.site } : {}),
+              licence: l.animation.licence,
+              ...(l.animation.author ? { author: l.animation.author } : {}),
+              ...(l.animation.originalUrl ? { originalUrl: l.animation.originalUrl } : {}),
+              sha256: l.animation.sha256,
+            },
+          }
+        : {}),
+    };
+    await writeJson(join(game.path, GAME_ASSET_INDEX_FILE), { version: 1, assets: [...index.assets, entry] });
+    const list = Array.isArray(manifest.value.assets) ? (manifest.value.assets as unknown[]) : [];
+    await writeJson(join(game.path, GAME_MANIFEST_FILE), { ...manifest.value, assets: [...list, provenance] });
+
+    const made = await git.commitPaths(game.path, pathsFor(provenance), `assets: import ${name}`);
+    if (!made.ok) return made;
+    deps.send('mstudio:games:changed', { reason: 'manifest' });
+    deps.log.info(`game asset imported ${game.gameId} ${l.kind}/${name}`);
+    return ok({ name, kind: l.kind, path: destRel, ...(entry.entry ? { entry: entry.entry } : {}), sha256: provenance.sha256, commit: made.value.sha });
   }
 
   // --- re-sync ----------------------------------------------------------------------
@@ -650,6 +715,8 @@ export function createAssetBridge(deps: AssetBridgeDeps) {
       : p.source.repoPath
       ? { tab: p.source.tab as GameAssetSourceTab, repoPath: p.source.repoPath, path: p.source.path }
       : { packPath: p.source.path };
+
+  const libraryOf = (p: GameAssetProvenance): { library?: GameAssetLibraryOrigin } => (p.library ? { library: p.library } : {});
 
   async function resync(raw: GameResyncRequest): Promise<GitOpResult<GameResyncResult>> {
     const game = await deps.resolve(raw.gameId);
@@ -664,15 +731,15 @@ export function createAssetBridge(deps: AssetBridgeDeps) {
       const states: GameResyncResult['assets'] = [];
       const changedNow: { provenance: GameAssetProvenance; located: Located }[] = [];
       for (const provenance of recorded) {
-        const located = await locate(sourceOf(provenance));
+        const located = provenance.library ? await locateLibrary(provenance.library.library, provenance.library.path) : await locate(sourceOf(provenance));
         if (!located.ok) {
-          states.push({ name: provenance.name, kind: provenance.kind, state: 'missing', importedAt: provenance.importedAt });
+          states.push({ name: provenance.name, kind: provenance.kind, state: 'missing', importedAt: provenance.importedAt, ...libraryOf(provenance) });
           continue;
         }
         const l = located.value;
         const hashed = l.terrain ? await hashAsset(l.abs, true, skipTerrainNoise) : await hashAsset(l.abs, l.isDir);
         const same = hashed.ok && hashed.value.sha256 === (provenance.sourceSha256 ?? provenance.sha256);
-        states.push({ name: provenance.name, kind: provenance.kind, state: hashed.ok && !same ? 'changed' : hashed.ok ? 'current' : 'missing', importedAt: provenance.importedAt });
+        states.push({ name: provenance.name, kind: provenance.kind, state: hashed.ok && !same ? 'changed' : hashed.ok ? 'current' : 'missing', importedAt: provenance.importedAt, ...libraryOf(provenance) });
         if (hashed.ok && !same) changedNow.push({ provenance, located: l });
       }
       const result = (reimported: string[], commitSha: string | null): GameResyncResult => ({
@@ -722,7 +789,7 @@ export function createAssetBridge(deps: AssetBridgeDeps) {
     });
   }
 
-  return { sources, importAsset, resync, locate };
+  return { sources, importAsset, importLibrary, resync, locate };
 }
 
 export type AssetBridge = ReturnType<typeof createAssetBridge>;

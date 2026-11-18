@@ -56,37 +56,51 @@ leaves Save to the user.
 
 ## Headlines
 
-**Theme A — Level operations.** ◻ `packages/shared/src/game-level-ops.ts`: zod `LevelOpSchema` (`add`, `update`,
+**Theme A — Level operations.** ✅ `packages/shared/src/game-level-ops.ts`: zod `LevelOpSchema` (`add`, `update`,
 `delete`) and a pure, all-or-nothing `applyLevelOps(level, ops, ctx)` used by main (closed editor) and the renderer
-(open editor) alike, with pixel or metre coordinates; plus `queryLevel`.
+(open editor) alike, with pixel or metre coordinates; plus `queryLevel`. Batches are transactions (up to 500 ops, 20 errors reported); an `add` lands in the named or first object layer with a fresh id and an optional `ref` label; `LevelQuerySchema`/`queryLevel` filter by type, layer, id, name and region. The input is cloned, never mutated.
 
-**Theme B — The validator core.** ◻ `packages/shared/src/game-level-validate.ts`: `validateLevel(level, ctx)` →
+**Theme B — The validator core.** ✅ `packages/shared/src/game-level-validate.ts`: `validateLevel(level, ctx)` →
 deterministically ordered `LevelIssue`s with stable rule ids (`level/no-spawn`, `level/duplicate-id`, …), the
 registry Phase 142 extends.
 
-**Theme C — The editor bridge.** ◻ A main → renderer request/reply over `mstudio:games:level-editor-request` (event)
+**Theme C — The editor bridge.** ✅ A main → renderer request/reply over `mstudio:games:level-editor-request` (event)
 and `mstudio:games:level-editor-reply` (one-way send), modelled on Companion's `ui-bridge.ts`: `snapshot`, `apply`,
-`select`, `frame`, `view`. A request for a scene the editor does not show answers `{ handled: false }`.
+`select`, `frame`, `view`. A request for a scene the editor does not show answers `{ handled: false }`; one-way presence (`mstudio:games:level-editor-open`) lets main answer `not-open` with no round trip. Wire shapes in `packages/shared/src/game-level-editor-bridge.ts`, main half `level-editor-bridge.ts` (`service.levelEditor`), renderer half `use-level-editor-bridge.ts` (`snapshot` answered; `apply`/`select`/`frame`/`view` answer a not-yet failure until F/G/H).
 
-**Theme D — Query and validate tools.** ◻ `game_level_query` and `game_level_validate`, reading the editor's unsaved
-level when it is open (`source: 'editor'`) and the file otherwise.
+**Theme D — Query and validate tools.** ✅ `game_level_query` and `game_level_validate`, reading the editor's unsaved
+level when it is open (`source: 'editor'`) and the file otherwise (`readLevelForTool` in `game-level-source.ts`; model assets come from the manifest).
 
-**Theme E — Entity write tools.** ◻ `game_entity_add`, `game_entity_update`, `game_entity_delete` and
-`game_entity_batch`: one validated change set, applied live in the open editor or committed as one file write when
-it is closed; `save: true` also saves.
+**Theme E — Entity write tools.** ✅ `game_entity_batch`, `game_entity_add`, `game_entity_update` and `game_entity_delete`
+(`packages/features/media-game/main/games/level-agent-writes.ts`, `writeLevelOps`): the bridge's `apply` first, so an open
+editor takes the batch as one change set; a closed editor, or a timeout, falls to `applyLevelOps` plus one `levels.set` commit.
+`save: true` writes the editor's snapshot after applying. The agent run's private server defaults `save` to true
+(`createGameAgentDispatch`); the global server leaves it false. Output carries `applied`, `changeSetId`, the touched ids,
+`refs`, `saved`, `sha` and up to 50 validator issues of the result.
 
-**Theme F — The agent change set in the editor.** ◻ The renderer applies an `apply` request as one undo step, records
-an `AgentChangeSet`, shows a gradient-bordered review banner (Show · Undo · Keep) and pulses the changed objects in
-both views (a static ring under reduced motion).
+**Theme F — The agent change set in the editor.** ✅ `applyAgentOps` commits an `apply` batch as one undo step;
+`OpenLevel.agentChanges` (newest first, max 10) and `highlight` feed `agent-change-banner.tsx` (Show · Undo · Keep, `+N more`
+popover) and a 2.4 s pulse ring in the plan canvas, static under reduced motion (`level-plan-draw.ts`: `themeColour`,
+`hslTripletToHex`). `level-reload.ts` decides a disk change: equal file → `markSaved`, clean → reload, dirty and different
+→ a Reload banner. Left for later: the 3D view's `Edges` pulse (the selection outline shows there already) and **Show**
+framing the camera (Theme G's `frame`); Show selects and pulses.
 
-**Theme G — Select and frame tools.** ◻ `game_level_select` and `game_level_frame`: the agent points at objects in the
-open editor.
+**Theme G — Select and frame tools.** ✅ `game_level_select` and `game_level_frame` (behind `allowed()`): the renderer
+resolves ids in any object layer, selects the found ones (primary last), pulses them and frames them — plan: `frameView`
+(`level-frame.ts`, 10% margin, zoom at most 4); 3D: the `F` framing over their world box (`Level3dHandle.frame`). The bridge
+reaches the screen through `level-editor-controls.ts`, a per-game registry the mounted editor fills; the banner's **Show**
+now frames too. In `MCP_TOOLS` both are `readOnly: false` (not the doc's `true`): `mcp.test.ts` pins `readOnly` to the
+read-id list, and they are consent-gated like any steering tool.
 
-**Theme H — The view tool.** ◻ `game_level_view`: a PNG of the open level from a camera pose, a preset or the plan,
-captured by the renderer through the bridge and returned as an MCP image block.
+**Theme H — The view tool.** ✅ `game_level_view` (a read): a PNG of the open level from a camera, a preset (`top`, `iso`,
+`selection`) or the plan, captured by the renderer through the bridge (`view` answers asynchronously) and returned as a
+text block plus an `image/png` block. 3D: one render into a `WebGLRenderTarget` through a temporary camera
+(`3d/level-capture.ts`, `level-capture-pose.ts`); a Floorplan editor is switched to 3D first and stays there. Plan of a 3D
+level: `drawPlan` over an `OffscreenCanvas` (`level-plan-capture.ts`); a tile level returns the canvas as it is on screen.
+Main passes the 15 s timeout and halves an over-3 MB image until it fits. Left for later: the 3D pass reuses the live
+camera's culling, so a far-off preset can omit distant objects.
 
-**Theme I — Skill and agent prompt.** ◻ `midnite-media-game-build`'s `## Levels` teaches query → batch → select →
-view → validate → save; the game agent's system prompt and `ACTION_LABELS` name the new tools.
+**Theme I — Skill and agent prompt.** ✅ `midnite-media-game-build`'s `## Levels` gains "Editing a level with the user" (query → batch → select/frame → view → validate → save only when asked, preferring these to `game_level_set`), byte-identical across all seven copies; the game agent's system prompt names the new tools.
 
 ## Build order
 
@@ -202,16 +216,16 @@ export function queryLevel(level: unknown, query: z.infer<typeof LevelQuerySchem
 
 **Acceptance.**
 
-- [ ] A1. `add` of a `coin` to a 2D platformer fixture returns a fresh id, `added: [id]`, and leaves the input deep-equal
+- [x] A1. `add` of a `coin` to a 2D platformer fixture returns a fresh id, `added: [id]`, and leaves the input deep-equal
   to before (frozen input does not throw).
-- [ ] A2. A batch `[add ok, update id 9999]` returns `ok: false` with `errors[0].index === 1` and no level.
-- [ ] A3. `update` merges `properties`, keeps an existing property's declared type, and `unset` removes one.
-- [ ] A4. `delete` of an unknown id is an error; of a known id removes exactly that object.
-- [ ] A5. `unit: 'm'` with `metresPerTile = 2` and 32 px tiles turns `x: 10` into `x: 160`.
-- [ ] A6. An unknown `type` errors with a message listing `ctx.entityTypes`.
-- [ ] A7. `queryLevel` filters by types, layer, name and region (centre inside), truncates at `limit`, reports `total`,
+- [x] A2. A batch `[add ok, update id 9999]` returns `ok: false` with `errors[0].index === 1` and no level.
+- [x] A3. `update` merges `properties`, keeps an existing property's declared type, and `unset` removes one.
+- [x] A4. `delete` of an unknown id is an error; of a known id removes exactly that object.
+- [x] A5. `unit: 'm'` with `metresPerTile = 2` and 32 px tiles turns `x: 10` into `x: 160`.
+- [x] A6. An unknown `type` errors with a message listing `ctx.entityTypes`.
+- [x] A7. `queryLevel` filters by types, layer, name and region (centre inside), truncates at `limit`, reports `total`,
   and adds `world` only for a 3D level.
-- [ ] A8. `LevelOpSchema.parse` rejects `NaN`, `Infinity`, a 65-character type and a 1,001-point polyline.
+- [x] A8. `LevelOpSchema.parse` rejects `NaN`, `Infinity`, a 65-character type and a 1,001-point polyline.
 
 **Done when** A1–A8 pass under `pnpm -C packages/shared exec vitest run src/game-level-ops.test.ts`.
 
@@ -249,11 +263,11 @@ export const LEVEL_ISSUES_MAX = 500;
 
 **Acceptance.**
 
-- [ ] B1. A fixture with no spawn, two objects sharing id 4, and a `dragon` type yields exactly three issues in the
+- [x] B1. A fixture with no spawn, two objects sharing id 4, and a `dragon` type yields exactly three issues in the
   documented order.
-- [ ] B2. `validateLevel` on a shuffled copy of the same level returns an identical array.
-- [ ] B3. `modelAssets: null` skips `level/missing-model`; `['crate']` flags a `model: 'barrel'` prop.
-- [ ] B4. Output is capped at `LEVEL_ISSUES_MAX`.
+- [x] B2. `validateLevel` on a shuffled copy of the same level returns an identical array.
+- [x] B3. `modelAssets: null` skips `level/missing-model`; `['crate']` flags a `model: 'barrel'` prop.
+- [x] B4. Output is capped at `LEVEL_ISSUES_MAX`.
 
 **Done when** B1–B4 pass.
 
@@ -320,15 +334,15 @@ export function createLevelEditorBridge(deps: { send: (channel: string, payload:
 
 **Acceptance.**
 
-- [ ] C1. `request` resolves with the renderer's result when `resolve(id, …)` is called, and with
+- [x] C1. `request` resolves with the renderer's result when `resolve(id, …)` is called, and with
   `failure('the level editor did not answer')` after the timeout (fake timers).
-- [ ] C2. A `resolve` for an unknown id is a no-op; a second `resolve` for the same id is a no-op.
-- [ ] C7. With `open` set to another scene (or `null`), `request` answers `not-open` without calling `send`.
-- [ ] C3. The renderer hook answers `snapshot` for the open scene with the serialised edit level and `dirty`, and
+- [x] C2. A `resolve` for an unknown id is a no-op; a second `resolve` for the same id is a no-op.
+- [x] C7. With `open` set to another scene (or `null`), `request` answers `not-open` without calling `send`.
+- [x] C3. The renderer hook answers `snapshot` for the open scene with the serialised edit level and `dirty`, and
   `not-open` for another scene.
-- [ ] C4. `apply` on a read-only level answers `handled: false, reason: 'read-only'`.
-- [ ] C5. `GamesLevelEditorReply` rejects a non-uuid id; main's one-way handler logs and drops it (`warnInvalid`).
-- [ ] C6. `packages/app/test-support/mock-bridge.ts` exposes `games.levels.onEditorRequest` and `editorReply`, and the
+- [x] C4. `apply` on a read-only level answers `handled: false, reason: 'read-only'`.
+- [x] C5. `GamesLevelEditorReply` rejects a non-uuid id; main's one-way handler logs and drops it (`warnInvalid`).
+- [x] C6. `packages/app/test-support/mock-bridge.ts` exposes `games.levels.onEditorRequest` and `editorReply`, and the
   existing app suites still build against it.
 
 **Done when** C1–C6 pass and `scripts/layer-boundaries.test.mjs` is green (no import from `features/companion`).
@@ -363,12 +377,12 @@ export async function readLevelForTool(deps: { levels: GameLevels; levelEditor: 
 
 **Acceptance.**
 
-- [ ] D1. With no editor open (presence `null`), `game_level_query` reads the file and reports `source: 'file'`.
-- [ ] D2. With a mocked bridge answering `snapshot`, the query sees an unsaved object and reports `source: 'editor',
+- [x] D1. With no editor open (presence `null`), `game_level_query` reads the file and reports `source: 'file'`.
+- [x] D2. With a mocked bridge answering `snapshot`, the query sees an unsaved object and reports `source: 'editor',
   dirty: true`.
-- [ ] D3. `game_level_validate` returns `counts` equal to the per-severity tallies of `issues`.
-- [ ] D4. Both tools answer while `allowGames` is off (they are reads).
-- [ ] D5. The pin file lists both ids; `mcp.test.ts`'s description rules pass.
+- [x] D3. `game_level_validate` returns `counts` equal to the per-severity tallies of `issues`.
+- [x] D4. Both tools answer while `allowGames` is off (they are reads).
+- [x] D5. The pin file lists both ids; `mcp.test.ts`'s description rules pass.
 
 **Done when** D1–D5 pass in `packages/desktop/src/main/games/game-mcp.test.ts` and `packages/shared/src/media-game-mcp.test.ts`.
 
@@ -417,13 +431,13 @@ export async function writeLevelOps(deps: { levels: GameLevels; levelEditor: Lev
 
 **Acceptance.**
 
-- [ ] E1. Editor open (mock bridge answers `apply`): `applied: 'editor'`, no `levels.set` call, `saved: false`.
-- [ ] E2. Editor open with `save: true`: one `levels.set` call with the snapshot level; `saved: true`, `sha` set.
-- [ ] E3. Editor closed: one `levels.set` call, `applied: 'file'`, `saved: true`.
-- [ ] E4. An invalid batch writes nothing anywhere and the failure lists each bad op's index.
-- [ ] E5. `allowGames` off → each of the four tools answers `[refused] Game running and editing is off — …`.
-- [ ] E6. Through `createGameAgentDispatch`, a batch with no `save` saves.
-- [ ] E7. `game_entity_add` with 2 entities equals a batch of 2 `add` ops (same output shape).
+- [x] E1. Editor open (mock bridge answers `apply`): `applied: 'editor'`, no `levels.set` call, `saved: false`.
+- [x] E2. Editor open with `save: true`: one `levels.set` call with the snapshot level; `saved: true`, `sha` set.
+- [x] E3. Editor closed: one `levels.set` call, `applied: 'file'`, `saved: true`.
+- [x] E4. An invalid batch writes nothing anywhere and the failure lists each bad op's index.
+- [x] E5. `allowGames` off → each of the four tools answers `[refused] Game running and editing is off — …`.
+- [x] E6. Through `createGameAgentDispatch`, a batch with no `save` saves.
+- [x] E7. `game_entity_add` with 2 entities equals a batch of 2 `add` ops (same output shape).
 
 **Done when** E1–E7 pass.
 
@@ -481,14 +495,14 @@ export function applyAgentOps(state: EditState, ops: readonly LevelOp[], ctx: Le
 
 **Acceptance.**
 
-- [ ] F1. `applyAgentOps` with 3 ops grows `past` by exactly 1; `undo` reverts all three.
-- [ ] F2. An `apply` request renders the banner with the label and the counts; Keep removes it.
-- [ ] F3. Undo is enabled right after the change and disabled after a further user edit.
-- [ ] F4. Under `data-motion="reduced"`, the plan draw for a highlight issues no `requestAnimationFrame` (spy) and
+- [x] F1. `applyAgentOps` with 3 ops grows `past` by exactly 1; `undo` reverts all three.
+- [x] F2. An `apply` request renders the banner with the label and the counts; Keep removes it.
+- [x] F3. Undo is enabled right after the change and disabled after a further user edit.
+- [x] F4. Under `data-motion="reduced"`, the plan draw for a highlight issues no `requestAnimationFrame` (spy) and
   strokes a static ring.
-- [ ] F5. After a `gamesChanged` whose file equals the open level, `dirty` becomes false without a reload.
-- [ ] F6. Dirty + different file → the notice appears and the edit state is unchanged.
-- [ ] F7. `hslTripletToHex('38 92% 50%')` is `#f59f0a` (± 1 per channel); `themeColour` falls back to the hex under jsdom.
+- [x] F5. After a `gamesChanged` whose file equals the open level, `dirty` becomes false without a reload.
+- [x] F6. Dirty + different file → the notice appears and the edit state is unchanged.
+- [x] F7. `hslTripletToHex('38 92% 50%')` is `#f59f0a` (± 1 per channel); `themeColour` falls back to the hex under jsdom.
 
 **Done when** F1–F7 pass.
 
@@ -513,12 +527,12 @@ export const GameLevelFrameOutputSchema = z.object({ framed: z.literal(true), vi
 
 **Acceptance.**
 
-- [ ] G1. `select` of `[3, 999]` answers `selected: [3], missing: [999]` and the inspector shows object 3.
-- [ ] G2. `frame` of a region changes the plan `View`'s centre to the region's centre (pure `frameView` helper test).
-- [ ] G3. Both refuse with `GAMES_OFF_MESSAGE` while `allowGames` is off and fail with the "Open … first" message
+- [x] G1. `select` of `[3, 999]` answers `selected: [3], missing: [999]` and the inspector shows object 3.
+- [x] G2. `frame` of a region changes the plan `View`'s centre to the region's centre (pure `frameView` helper test).
+- [x] G3. Both refuse with `GAMES_OFF_MESSAGE` while `allowGames` is off and fail with the "Open … first" message
   when the scene is not open.
 
-**Done when** G1–G3 pass.
+**Done when** G1–G3 pass. ✅
 
 ### H — The view tool (M)
 
@@ -562,12 +576,12 @@ export const GameLevelViewInputSchema = GameToolTargetSchema.extend({
 
 **Acceptance.**
 
-- [ ] H1. `capturePlan` for preset `selection` computes the selection bounds + 10% margin as its source rectangle.
-- [ ] H2. The tool returns a `_content` array of a text block then an `image/png` block (mock bridge returns a 1×1
+- [x] H1. `capturePlan` for preset `selection` computes the selection bounds + 10% margin as its source rectangle.
+- [x] H2. The tool returns a `_content` array of a text block then an `image/png` block (mock bridge returns a 1×1
   PNG).
-- [ ] H3. A 3D request against a Floorplan editor calls `setMode(gameId, '3d')` before capturing (renderer test with a
+- [x] H3. A 3D request against a Floorplan editor calls `setMode(gameId, '3d')` before capturing (renderer test with a
   stub handle).
-- [ ] H4. An over-cap PNG is retried at half size (main test with a stub bridge that returns 4 MB then 1 MB).
+- [x] H4. An over-cap PNG is retried at half size (main test with a stub bridge that returns 4 MB then 1 MB).
 
 **Done when** H1–H4 pass and the Verification gate's `game_level_view` call returns a recognisable image.
 
@@ -595,9 +609,9 @@ export const GameLevelViewInputSchema = GameToolTargetSchema.extend({
 
 **Acceptance.**
 
-- [ ] I1. All seven copies are byte-identical (`scripts/skill-copies.test.mjs`).
-- [ ] I2. `skills.test.ts` "names only game_* tools that exist" passes with the new names.
-- [ ] I3. `game-scaffold.test.ts` (seeded copy) passes.
+- [x] I1. All seven copies are byte-identical (`scripts/skill-copies.test.mjs`).
+- [x] I2. `skills.test.ts` "names only game_* tools that exist" passes with the new names.
+- [x] I3. `game-scaffold.test.ts` (seeded copy) passes.
 
 **Done when** I1–I3 pass.
 

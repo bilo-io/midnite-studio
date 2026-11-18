@@ -4,10 +4,12 @@ import { cellAt, cellOrigin, collisionAt, collisionLayer, mapPixelSize, readTmj,
 
 import type { GameLevelTerrain } from '@midnite/studio-shared';
 
-import { objectToMapPoint, mapPointToObject, type Cell, type EditLevel, type EditSelection, type LevelObject, type PlanPoint } from './level-edit-model';
-import { hitPlan, levelMetresPerTile, planBounds } from './level-plan';
-import { drawPlan, type PlanOverlay } from './level-plan-draw';
-import { fitView, screenToMap, zoomAround, type View } from './level-view';
+import { objectToMapPoint, mapPointToObject, type Cell, type EditLevel, type EditSelection, type LevelObject, type ObjectRef, type PlanPoint, type PlanRect } from './level-edit-model';
+import { hitPlan, levelMetresPerTile, pixelsPerMetre, planBounds, planFrameBounds } from './level-plan';
+import { isAssetDrag, readDroppedAsset, useDraggedAsset, type AssetDropTarget } from './assets/asset-drag';
+import { drawHighlight, drawPlan, drawSelectionExtras, prefersReducedMotion, PULSE_MS, SELECTED_COLOUR, type PlanHighlight, type PlanOverlay } from './level-plan-draw';
+import { drawBrush, drawExtras, hasExtras, type CanvasExtras } from './level-overlay-draw';
+import { fitView, screenToMap, ZOOM_MIN, zoomAround, zoomFloor, type View } from './level-view';
 
 /**
  * The editor's canvas (Phase 132 Theme D). It draws with Sprites' `map-view.ts` (`tileOf`, `sourceRect`,
@@ -25,6 +27,8 @@ export type CanvasPointer = {
   hit: NonNullable<EditSelection> | null;
   alt: boolean;
   shift: boolean;
+  /** Cmd (macOS) or Ctrl held: the toggle modifier of a multi-selection. */
+  mod: boolean;
 };
 
 /** Plan view (Theme E): a 3D level drawn from above, with the terrain's extent and what the tools are drawing. */
@@ -67,7 +71,7 @@ export function useTilesetImages(images: ReadonlyArray<{ path: string; dataUrl: 
 }
 
 /** The topmost object within reach of a map-space point, over the visible object layers. */
-export function hitObject(level: EditLevel, mapPoint: { x: number; y: number }, zoom: number): NonNullable<EditSelection> | null {
+export function hitObject(level: EditLevel, mapPoint: { x: number; y: number }, zoom: number, skip?: (ref: ObjectRef) => boolean): NonNullable<EditSelection> | null {
   const reach = HIT_RADIUS_PX / zoom;
   for (let i = level.layers.length - 1; i >= 0; i -= 1) {
     const layer = level.layers[i]!;
@@ -75,6 +79,7 @@ export function hitObject(level: EditLevel, mapPoint: { x: number; y: number }, 
     const objects = layer.objects ?? [];
     for (let j = objects.length - 1; j >= 0; j -= 1) {
       const o = objects[j]!;
+      if (skip?.({ layerId: layer.id, objectId: o.id })) continue;
       const at = objectToMapPoint(level, o.x, o.y);
       const w = level.orientation === 'isometric' ? 0 : (o.width ?? 0), h = level.orientation === 'isometric' ? 0 : (o.height ?? 0);
       // A point is its marker; a rectangle (Tiled's y is its top edge) is its box, plus the marker's reach.
@@ -96,18 +101,43 @@ export function LevelCanvas({
   level,
   images,
   selection,
+  selected,
+  highlight,
+  marquee,
+  hidden,
+  locked,
+  centreOn,
+  onContextMenu,
   hoverEnabled,
   preview,
   onPointer,
   onKeyDown,
   label,
   plan,
+  extras,
   viewOut,
   viewIn,
+  assetDrop,
+  brush,
 }: {
   level: EditLevel;
   images: ReadonlyArray<{ path: string; dataUrl: string }>;
+  /** The primary selection (drawn heavier). */
   selection: EditSelection;
+  /** Every selected object (Phase 137 Theme C); defaults to the primary alone. */
+  selected?: readonly ObjectRef[];
+  /** Objects an agent change set touched, ringed for {@link PULSE_MS} (Phase 138 Theme F). */
+  highlight?: PlanHighlight | null;
+  /** The marquee being dragged, in object coordinates. */
+  marquee?: PlanRect | null;
+  /** Objects hidden in the outliner (refKeys): not drawn, not hit. Editor-only (Phase 137 Theme H). */
+  hidden?: ReadonlySet<string>;
+  /** Objects locked in the outliner (refKeys): drawn, not hit. */
+  locked?: ReadonlySet<string>;
+  /** Recentre the view on a map-pixel point at the current zoom; `n` makes each request distinct. */
+  centreOn?: { x: number; y: number; n: number } | null;
+  /** Right-click (Phase 137 Theme I): what is under the pointer, in object coordinates, and where it is on screen. */
+  onContextMenu?: (event: { clientX: number; clientY: number; hit: ObjectRef | null; object: PlanPoint }) => void;
   hoverEnabled: boolean;
   /** Cells outlined while a rectangle is being dragged. */
   preview: readonly Cell[] | null;
@@ -116,10 +146,16 @@ export function LevelCanvas({
   label: string;
   /** Set for a 3D level: the canvas draws the plan view instead of tiles. */
   plan?: PlanView;
+  /** Collider, trigger, nav-mesh and live-ghost overlays (Phase 140 Themes E to G), in object coordinates. */
+  extras?: CanvasExtras;
   /** Kept current with the view and canvas size, so the 3D switch starts its camera where the plan is (Phase 136 E). */
   viewOut?: MutableRefObject<{ view: View; size: { width: number; height: number } } | null>;
   /** A view to jump to: where the 3D view's camera ended when the switch eased back to the plan. */
   viewIn?: View | null;
+  /** Phase 139 Theme D: take an asset dragged from the browser; a ghost shows where it would land. */
+  assetDrop?: AssetDropTarget;
+  /** Phase 139 Theme H: the scatter brush; a circle of `radius` (object units) follows the pointer. */
+  brush?: { radius: number } | undefined;
 }) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -127,23 +163,62 @@ export function LevelCanvas({
   const { map: tilesetImages, loaded } = useTilesetImages(images);
   const [size, setSize] = useState({ width: 640, height: 400 });
   /** What the first fit frames: the map, or for a plan its real bounds (a level may sit at negative pixels). */
+  /** How far out this level may zoom: a big 3D level or its terrain lowers the floor so all of it can be reached. */
+  const floorFor = (box: { width: number; height: number }): number => {
+    if (!plan) return ZOOM_MIN;
+    const all = planBounds(level, plan.terrain);
+    return zoomFloor(box, all.maxX - all.minX, all.maxY - all.minY);
+  };
   const frame = (box: { width: number; height: number }): View => {
     if (!plan) return fitView(box, mapPixelSize(level).width, mapPixelSize(level).height);
-    const b = planBounds(level, plan.terrain);
-    const v = fitView(box, b.maxX - b.minX, b.maxY - b.minY);
+    const b = planFrameBounds(level, plan.terrain);
+    const v = fitView(box, b.maxX - b.minX, b.maxY - b.minY, floorFor(box));
     return { ...v, x: v.x - b.minX * v.zoom, y: v.y - b.minY * v.zoom };
   };
   const [view, setView] = useState<View>(() => frame({ width: 640, height: 400 }));
   const [hover, setHover] = useState<Cell | null>(null);
   const [cursor, setCursor] = useState<PlanPoint | null>(null);
+  const [brushAt, setBrushAt] = useState<PlanPoint | null>(null);
   const { image: terrainImage, loaded: terrainLoaded } = useTerrainImage(plan?.terrain?.preview);
+  const { image: terrainDetailImage, loaded: terrainDetailLoaded } = useTerrainImage(plan?.terrain?.detail?.preview);
+  /** Bumped while a pulse is running, so the draw effect repaints it. */
+  const [pulseTick, setPulseTick] = useState(0);
+  useEffect(() => {
+    if (!highlight) return undefined;
+    const left = highlight.startedAt + PULSE_MS - Date.now();
+    if (left <= 0) return undefined;
+    // Reduced motion: a static ring, repainted once more when it is over; no animation frames.
+    if (prefersReducedMotion()) {
+      const timer = setTimeout(() => setPulseTick((n) => n + 1), left + 20);
+      return () => clearTimeout(timer);
+    }
+    let raf = 0;
+    const step = () => {
+      setPulseTick((n) => n + 1);
+      if (Date.now() < highlight.startedAt + PULSE_MS) raf = requestAnimationFrame(step);
+      else setPulseTick((n) => n + 1);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [highlight]);
   const space = useRef(false);
+  /** The drop ghost's centre, in canvas pixels (already snapped), while an asset is dragged over. */
+  const [ghost, setGhost] = useState<{ sx: number; sy: number } | null>(null);
+  const dragged = useDraggedAsset();
+  const ghostSize = plan ? Math.max(12, pixelsPerMetre(level).x * view.zoom) : 24;
   const pan = useRef<{ sx: number; sy: number; view: View } | null>(null);
   const tool = useRef(false);
   const fitted = useRef(false);
   useEffect(() => {
     if (viewOut) viewOut.current = { view, size };
   }, [viewOut, view, size]);
+  useEffect(() => {
+    if (!centreOn) return;
+    fitted.current = true;
+    setView((v) => ({ ...v, x: size.width / 2 - centreOn.x * v.zoom, y: size.height / 2 - centreOn.y * v.zoom }));
+    // Only a new request recentres; a resize after it keeps the user's view.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [centreOn?.n]);
   useEffect(() => {
     if (!viewIn) return;
     fitted.current = true;
@@ -189,8 +264,10 @@ export function LevelCanvas({
       } else ctx.rect(o.x, o.y, tmj.tilewidth, tmj.tileheight);
     };
     if (plan) {
-      const overlay: PlanOverlay = { terrain: plan.terrain, terrainImage, draft: plan.draft, cursor: plan.draft.length > 0 ? cursor : null, volume: plan.volume };
-      drawPlan(ctx, { level, view, selection, overlay, outline, text });
+      const overlay: PlanOverlay = { terrain: plan.terrain, terrainImage, terrainDetailImage, draft: plan.draft, cursor: plan.draft.length > 0 ? cursor : null, volume: plan.volume };
+      drawPlan(ctx, { level, view, selection, selected, marquee, hidden, overlay, outline, text, highlight });
+      if (hasExtras(extras)) drawExtras(ctx, { extras, view });
+      if (brush && brushAt) drawBrush(ctx, { at: brushAt, radius: brush.radius, view, outline });
       return;
     }
     const pixel = mapPixelSize(tmj);
@@ -227,6 +304,7 @@ export function LevelCanvas({
     for (const layer of level.layers) {
       if (layer.type !== 'objectgroup' || layer.visible === false) continue;
       for (const o of layer.objects ?? []) {
+        if (hidden?.has(`${layer.id}:${o.id}`)) continue;
         const at = objectToMapPoint(level, o.x, o.y);
         const r = Math.max(3, tmj.tileheight / 4);
         const w = level.orientation === 'isometric' ? 0 : (o.width ?? 0), h = level.orientation === 'isometric' ? 0 : (o.height ?? 0);
@@ -241,9 +319,10 @@ export function LevelCanvas({
         ctx.beginPath();
         ctx.arc(at.x, at.y, r, 0, Math.PI * 2);
         ctx.fill();
-        if (selection && selection.layerId === layer.id && selection.objectId === o.id) {
-          ctx.strokeStyle = outline;
-          ctx.lineWidth = 2 / view.zoom;
+        const chosen = selected ? selected.some((r) => r.layerId === layer.id && r.objectId === o.id) : selection?.layerId === layer.id && selection?.objectId === o.id;
+        if (chosen) {
+          ctx.strokeStyle = SELECTED_COLOUR;
+          ctx.lineWidth = (selection && selection.layerId === layer.id && selection.objectId === o.id ? 3 : 2) / view.zoom;
           ctx.beginPath();
           ctx.arc(at.x, at.y, r + 3 / view.zoom, 0, Math.PI * 2);
           ctx.stroke();
@@ -253,6 +332,9 @@ export function LevelCanvas({
         ctx.fillText(o.name, at.x, at.y + r + tmj.tileheight / 2.5);
       }
     }
+    if (hasExtras(extras)) drawExtras(ctx, { extras, view, toMap: (p) => objectToMapPoint(level, p.x, p.y), cellPath });
+    drawSelectionExtras(ctx, { level, view, selected: selected ?? [], marquee: marquee ?? null, outline, toMap: (p) => objectToMapPoint(level, p.x, p.y) });
+    if (highlight) drawHighlight(ctx, { level, view, highlight, now: Date.now(), reduced: prefersReducedMotion(), toMap: (p) => objectToMapPoint(level, p.x, p.y) });
     ctx.strokeStyle = outline;
     ctx.lineWidth = 1.5 / view.zoom;
     if (hover && hoverEnabled) {
@@ -263,11 +345,17 @@ export function LevelCanvas({
       cellPath(c.x, c.y);
       ctx.stroke();
     }
-  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection, plan, terrainImage, terrainLoaded, cursor]);
+    if (brush && brushAt) drawBrush(ctx, { at: brushAt, radius: brush.radius, view, outline, toMap: (p) => objectToMapPoint(level, p.x, p.y) });
+  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection, selected, marquee, hidden, plan, terrainImage, terrainLoaded, terrainDetailImage, terrainDetailLoaded, cursor, highlight, pulseTick, extras, brush, brushAt]);
 
   const local = (e: { clientX: number; clientY: number }) => {
     const rect = canvas.current?.getBoundingClientRect();
     return { sx: e.clientX - (rect?.left ?? 0), sy: e.clientY - (rect?.top ?? 0) };
+  };
+
+  const unpickable = (ref: ObjectRef) => {
+    const key = `${ref.layerId}:${ref.objectId}`;
+    return !!hidden?.has(key) || !!locked?.has(key);
   };
 
   const emit = (e: ReactPointerEvent<HTMLCanvasElement>, phase: CanvasPointer['phase']) => {
@@ -277,14 +365,16 @@ export function LevelCanvas({
     if (phase === 'move') {
       setHover(cell);
       if (plan) setCursor({ x: p.x, y: p.y });
+      if (brush) setBrushAt(plan ? { x: p.x, y: p.y } : mapPointToObject(level, p.x, p.y));
     }
     onPointer({
       phase,
       cell,
       object: plan ? { x: p.x, y: p.y } : mapPointToObject(level, p.x, p.y),
-      hit: plan ? hitPlan(level, p, view.zoom) : hitObject(level, p, view.zoom),
+      hit: plan ? hitPlan(level, p, view.zoom, unpickable) : hitObject(level, p, view.zoom, unpickable),
       alt: e.altKey,
       shift: e.shiftKey,
+      mod: e.metaKey || e.ctrlKey,
     });
   };
 
@@ -335,6 +425,28 @@ export function LevelCanvas({
       onBlur={() => {
         space.current = false;
       }}
+      onDragOver={(e) => {
+        if (!assetDrop || !isAssetDrag(e.dataTransfer)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        const { sx, sy } = local(e);
+        const p = screenToMap(view, sx, sy);
+        const at = assetDrop.snap(plan ? { x: p.x, y: p.y } : mapPointToObject(level, p.x, p.y), e.altKey);
+        setGhost(plan ? { sx: at.x * view.zoom + view.x, sy: at.y * view.zoom + view.y } : { sx, sy });
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setGhost(null);
+      }}
+      onDrop={(e) => {
+        if (!assetDrop || !isAssetDrag(e.dataTransfer)) return;
+        e.preventDefault();
+        setGhost(null);
+        const payload = readDroppedAsset(e.dataTransfer);
+        if (!payload) return;
+        const { sx, sy } = local(e);
+        const p = screenToMap(view, sx, sy);
+        assetDrop.onDrop(payload, assetDrop.snap(plan ? { x: p.x, y: p.y } : mapPointToObject(level, p.x, p.y), e.altKey));
+      }}
     >
       <canvas
         ref={canvas}
@@ -345,17 +457,40 @@ export function LevelCanvas({
         style={{ imageRendering: view.zoom >= 1 ? 'pixelated' : 'auto', cursor: hoverEnabled ? 'crosshair' : 'default' }}
         onWheel={(e) => {
           const { sx, sy } = local(e);
-          setView((v) => zoomAround(v, e.deltaY < 0 ? 1.15 : 1 / 1.15, sx, sy));
+          setView((v) => zoomAround(v, e.deltaY < 0 ? 1.15 : 1 / 1.15, sx, sy, floorFor(size)));
         }}
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
         onPointerCancel={onUp}
-        onPointerLeave={() => setHover(null)}
+        onPointerLeave={() => {
+          setHover(null);
+          setBrushAt(null);
+        }}
         onAuxClick={(e) => e.preventDefault()}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          if (!onContextMenu) return;
+          const { sx, sy } = local(e);
+          const p = screenToMap(view, sx, sy);
+          onContextMenu({
+            clientX: e.clientX,
+            clientY: e.clientY,
+            hit: plan ? hitPlan(level, p, view.zoom, (r) => !!hidden?.has(`${r.layerId}:${r.objectId}`)) : hitObject(level, p, view.zoom, (r) => !!hidden?.has(`${r.layerId}:${r.objectId}`)),
+            object: plan ? { x: p.x, y: p.y } : mapPointToObject(level, p.x, p.y),
+          });
+        }}
       />
+      {ghost && dragged ? (
+        <div
+          aria-hidden
+          data-testid="level-asset-ghost"
+          className="pointer-events-none absolute rounded border border-dashed border-primary bg-primary/30"
+          style={{ left: ghost.sx - ghostSize / 2, top: ghost.sy - ghostSize / 2, width: ghostSize, height: ghostSize }}
+        />
+      ) : null}
       <span className="pointer-events-none absolute bottom-1 right-2 text-[11px] tabular-nums text-muted-foreground" data-testid="level-zoom">
-        {plan ? `${level.width * levelMetresPerTile(level)} × ${level.height * levelMetresPerTile(level)} m` : `${level.width} × ${level.height}`} · {Math.round(view.zoom * 100)}%
+        {plan ? `${level.width * levelMetresPerTile(level)} × ${level.height * levelMetresPerTile(level)} m` : `${level.width} × ${level.height}`} · {view.zoom < 0.095 ? (view.zoom * 100).toFixed(1) : Math.round(view.zoom * 100)}%
       </span>
     </div>
   );

@@ -7,6 +7,10 @@ description: Prepare music or audio generation for Midnite Studio's Media ▸ Au
 
 The Audio page generates music from a prompt (and optional lyrics) and keeps every take as a variant. The local engine is MusicGen small (`Xenova/musicgen-small`, CC-BY-NC-4.0, ~660 MB one-time download); a local Ollama model can expand a short idea into a caption first.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/media/validate.mjs audio '<json>'`. It checks the request against the documented constraints before you spend a generation (`${S}media/scaffold.sh audio <project>` creates the project folder). You still write the prompt, generate, and judge the result. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Layout
 
 ```

@@ -52,6 +52,7 @@ const bridge: LauncherBridge = {
   changelog: {
     latest: (app) => ipcRenderer.invoke(LAUNCHER_CHANNELS.changelogLatest, { app }),
     openFull: (app) => ipcRenderer.invoke(LAUNCHER_CHANNELS.changelogOpen, { app }),
+    get: () => ipcRenderer.invoke(LAUNCHER_CHANNELS.changelogGet),
   },
   privacy: {
     get: () => ipcRenderer.invoke(LAUNCHER_CHANNELS.privacyGet),

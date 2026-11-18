@@ -249,6 +249,8 @@ if (!smoke && !app.requestSingleInstanceLock()) {
         getWindow: asGameWindow(() => win),
         templateDir: bundled('templates/media-game', ['..', '..', '..', 'templates', 'media-game']),
         pickFolder: pickGameFolder,
+        revealPath: (path) => shell.showItemInFolder(path),
+        trashPath: (path) => shell.trashItem(path),
         enginesDir: process.env['MSTUDIO_GAME_ENGINES_DIR'] ?? bundled('game-engines', ['..', '..', '..', 'packages', 'desktop', 'resources', 'game-engines']),
       },
       log: (line) => {

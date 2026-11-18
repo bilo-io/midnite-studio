@@ -37,9 +37,8 @@ const liveSessions: ResourceSource = {
   kinds: ['session'],
   load: async () => {
     const { sessions, autoNames } = useTerminalStore.getState();
-    // FAB sessions never show in the terminal panel, so there is nowhere to reveal them.
+    // Every session lists in the terminal panel (loop sessions under "Loops"), so each can be revealed.
     return sessions
-      .filter((session) => session.surface !== 'fab')
       .map((session) => ({
         ref: { kind: 'session' as const, id: session.id },
         title: sessionLabel(session, autoNames[session.id], session.agentId),

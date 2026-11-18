@@ -4,7 +4,7 @@
  * is the only scale. What a world position means is `levelEntityToWorld`'s business; nothing here re-derives it
  * except {@link objectCentre}'s rotation rule, which `level-plan.test.ts` pins to it.
  */
-import { metresPerTile, type GameLevelTerrain } from '@midnite/studio-shared';
+import { levelOrigin, levelWorldToPixels, metresPerTile, type GameLevelTerrain } from '@midnite/studio-shared';
 
 import { objectCentre, type EditLevel, type EditSelection, type LevelObject, type PlanPoint } from './level-edit-model';
 
@@ -17,18 +17,21 @@ export function pixelsPerMetre(level: Pick<EditLevel, 'properties' | 'tilewidth'
   return { x: level.tilewidth / mpt, z: level.tileheight / mpt };
 }
 
-/** A metres-space point as a map-pixel point. */
+/** A world-metres point as a map-pixel point (the level's `midnite.originX/Y` is taken off). */
 export function metresToPlan(level: Pick<EditLevel, 'properties' | 'tilewidth' | 'tileheight'>, x: number, z: number): PlanPoint {
-  const ppm = pixelsPerMetre(level);
-  return { x: x * ppm.x, y: z * ppm.z };
+  return levelWorldToPixels(level, x, z);
 }
 
-/** Snap a map-pixel point to a half-metre grid; `alt` leaves it free. */
-export function snapPlan(level: Pick<EditLevel, 'properties' | 'tilewidth' | 'tileheight'>, p: PlanPoint, alt = false): PlanPoint {
-  if (alt) return p;
+/**
+ * Snap a map-pixel point. `step` is the Floorplan's snap step in map pixels (Theme F's `planSnapStep`); `null`
+ * leaves the point free, and with no step given it snaps to a half metre. `alt` leaves it free either way.
+ */
+export function snapPlan(level: Pick<EditLevel, 'properties' | 'tilewidth' | 'tileheight'>, p: PlanPoint, alt = false, step?: { x: number; y: number } | null): PlanPoint {
+  if (alt || step === null) return p;
   const ppm = pixelsPerMetre(level);
+  const sx = step?.x ?? ppm.x / 2, sy = step?.y ?? ppm.z / 2;
   // `+ 0` turns a rounded -0 into 0.
-  return { x: (Math.round((p.x / ppm.x) * 2) / 2) * ppm.x + 0, y: (Math.round((p.y / ppm.z) * 2) / 2) * ppm.z + 0 };
+  return { x: Math.round(p.x / sx) * sx + 0, y: Math.round(p.y / sy) * sy + 0 };
 }
 
 /** The terrain's extent as a map-pixel rectangle. */
@@ -74,7 +77,7 @@ function distanceToSegment(p: PlanPoint, a: PlanPoint, b: PlanPoint): number {
 export const PLAN_HIT_RADIUS_PX = 10;
 
 /** The topmost object at a map-pixel point: inside a footprint, on a path, or within reach of a point. */
-export function hitPlan(level: EditLevel, p: PlanPoint, zoom: number): NonNullable<EditSelection> | null {
+export function hitPlan(level: EditLevel, p: PlanPoint, zoom: number, skip?: (ref: { layerId: number; objectId: number }) => boolean): NonNullable<EditSelection> | null {
   const reach = PLAN_HIT_RADIUS_PX / zoom;
   for (let i = level.layers.length - 1; i >= 0; i -= 1) {
     const layer = level.layers[i]!;
@@ -82,6 +85,7 @@ export function hitPlan(level: EditLevel, p: PlanPoint, zoom: number): NonNullab
     const objects = layer.objects ?? [];
     for (let j = objects.length - 1; j >= 0; j -= 1) {
       const o = objects[j]!;
+      if (skip?.({ layerId: layer.id, objectId: o.id })) continue;
       const corners = footprintCorners(o);
       const path = pathPoints(o);
       let hit = false;
@@ -126,7 +130,23 @@ export function planBounds(level: EditLevel, terrain?: Pick<GameLevelTerrain, 'm
   return b;
 }
 
-/** The metre grid to draw over `bounds` (default: the map's frame), as pixel positions: 1 m lines, every tenth bold. Lines closer than `minGapPx` on screen are dropped. */
+/**
+ * What the first fit frames: {@link planBounds}, except that a terrain far larger than the work (the map and its
+ * objects) is left out, so a 80 m level on a 10 km terrain opens on the level, not on a speck in the outline.
+ * The terrain stays on screen at any zoom that shows it; zooming out reaches all of it.
+ */
+/** A terrain more than this many times the area of the work is left out of the first fit. */
+const FRAME_TERRAIN_RATIO = 10;
+
+export function planFrameBounds(level: EditLevel, terrain?: Pick<GameLevelTerrain, 'minX' | 'minZ' | 'maxX' | 'maxZ'> | null): PlanBounds {
+  const all = planBounds(level, terrain);
+  if (!terrain) return all;
+  const work = planBounds(level);
+  const area = (b: PlanBounds) => (b.maxX - b.minX) * (b.maxY - b.minY);
+  return area(all) > FRAME_TERRAIN_RATIO * area(work) ? work : all;
+}
+
+/** The metre grid to draw over `bounds` (default: the map's frame), as pixel positions: 1 m lines, every tenth bold; zoomed out, the step grows to 10 m, 100 m, then 1 km. Lines closer than `minGapPx` on screen are dropped. */
 export function gridLines(
   level: Pick<EditLevel, 'properties' | 'tilewidth' | 'tileheight' | 'width' | 'height'>,
   zoom: number,
@@ -135,13 +155,15 @@ export function gridLines(
 ): { x: Array<{ at: number; bold: boolean }>; z: Array<{ at: number; bold: boolean }> } {
   const ppm = pixelsPerMetre(level);
   const box = bounds ?? { minX: 0, minY: 0, maxX: level.width * level.tilewidth, maxY: level.height * level.tileheight };
-  // Show every metre when they are far enough apart, else every 10 m, else nothing.
-  const step = ppm.x * zoom >= minGapPx ? 1 : ppm.x * zoom * 10 >= minGapPx ? 10 : 0;
+  // Show every metre when they are far enough apart, else every 10 m, 100 m or 1 km, else nothing.
+  const step = [1, 10, 100, 1000].find((s) => ppm.x * zoom * s >= minGapPx) ?? 0;
   if (step === 0) return { x: [], z: [] };
-  const axis = (min: number, max: number, scale: number) => {
+  // Lines sit on whole world metres, so with an origin they stay aligned with the terrain; `at` is the map pixel.
+  const origin = levelOrigin(level);
+  const axis = (min: number, max: number, scale: number, base: number) => {
     const out: Array<{ at: number; bold: boolean }> = [];
-    for (let m = Math.ceil(min / scale / step) * step; m * scale <= max; m += step) out.push({ at: m * scale, bold: ((m % 10) + 10) % 10 === 0 });
+    for (let m = Math.ceil((base + min / scale) / step) * step; (m - base) * scale <= max; m += step) out.push({ at: (m - base) * scale, bold: step <= 10 ? ((m % 10) + 10) % 10 === 0 : (((m / step) % 10) + 10) % 10 === 0 });
     return out;
   };
-  return { x: axis(box.minX, box.maxX, ppm.x), z: axis(box.minY, box.maxY, ppm.z) };
+  return { x: axis(box.minX, box.maxX, ppm.x, origin.x), z: axis(box.minY, box.maxY, ppm.z, origin.z) };
 }

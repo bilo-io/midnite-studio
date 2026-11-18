@@ -51,7 +51,7 @@ export const AppsPage = () => {
             <Lede>
               Each one does one job well, and each one is built on the same frame, so the terminal,
               the browser, the companion and your agents come with every one of them. Swipe through,
-              then open the ones you want from Midnite Apps.
+              then open the ones you want from Midnyte Apps.
             </Lede>
           </Reveal>
         </Container>
@@ -67,7 +67,7 @@ export const AppsPage = () => {
           <Reveal className="flex flex-col items-center gap-5 text-center">
             <Heading level={2}>Get them all from one place</Heading>
             <Lede className="mx-auto">
-              Midnite Apps installs, updates and opens every app on this page. Ask for early access
+              Midnyte Apps installs, updates and opens every app on this page. Ask for early access
               to get the launcher.
             </Lede>
             <Button href={anchorHref('early-access')} size="lg" icon={<LuSparkles />}>

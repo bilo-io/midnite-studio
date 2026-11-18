@@ -51,8 +51,38 @@ import {
   GameLevelListOutputSchema,
   GameLevelSetInputSchema,
   GameLevelSetOutputSchema,
+  GameLevelQueryInputSchema,
+  GameLevelQueryOutputSchema,
+  GameLevelValidateInputSchema,
+  GameLevelValidateOutputSchema,
+  GameEntityBatchInputSchema,
+  GameAssetsListInputSchema,
+  GameAssetsListOutputSchema,
+  GamePrefabListOutputSchema,
+  GamePrefabSaveInputSchema,
+  GamePrefabSaveOutputSchema,
+  GameLevelScatterInputSchema,
+  GameEntityAddInputSchema,
+  GameEntityUpdateInputSchema,
+  GameEntityDeleteInputSchema,
+  GameEntityWriteOutputSchema,
+  GameLevelScatterOutputSchema,
+  GameLevelSelectInputSchema,
+  GameLevelSelectOutputSchema,
+  GameLevelFrameInputSchema,
+  GameLevelFrameOutputSchema,
+  GameLevelViewInputSchema,
+  GamePlayFromInputSchema,
+  GamePlayFromOutputSchema,
+  GameEntitiesInputSchema,
+  GameEntitiesOutputSchema,
+  GameDebugOverlayInputSchema,
+  GameDebugOverlayOutputSchema,
   GameGotoInputSchema,
   GameGotoOutputSchema,
+  GameDoctorOutputSchema,
+  GameDoctorFixInputSchema,
+  GameDoctorFixOutputSchema,
   GameToolTargetSchema,
   GameAssertFrameInputSchema,
   GameAssertStateInputSchema,
@@ -186,6 +216,22 @@ import {
   MusicSetTempoInputSchema,
 } from './media-music-mcp';
 import type { ContentProvenance } from './provenance';
+import {
+  StartupMilestonesInputSchema,
+  StartupMilestonesResultSchema,
+  StartupProjectionInputSchema,
+  StartupProjectionResultSchema,
+  StartupProjectionsInputSchema,
+  StartupProjectionsResultSchema,
+  StartupRunwayInputSchema,
+  StartupRunwayResultSchema,
+  StartupSendProjectionInputSchema,
+  StartupSummaryInputSchema,
+  StartupSummaryResultSchema,
+  StartupUpsertMilestoneInputSchema,
+  StartupUpsertProjectionInputSchema,
+  StartupWriteResultSchema,
+} from './startup-mcp';
 import { WorkflowGateDecisionSchema } from './workflow';
 
 /**
@@ -298,7 +344,25 @@ type McpToolEntry = {
     | 'game_level_list'
     | 'game_level_get'
     | 'game_level_set'
+    | 'game_level_query'
+    | 'game_level_validate'
+    | 'game_entity_batch'
+    | 'game_entity_add'
+    | 'game_entity_update'
+    | 'game_entity_delete'
+    | 'game_level_select'
+    | 'game_level_frame'
+    | 'game_level_view'
     | 'game_goto'
+    | 'game_play_from'
+    | 'game_entities'
+    | 'game_debug_overlay'
+    | 'game_doctor'
+    | 'game_doctor_fix'
+    | 'game_assets_list'
+    | 'game_prefab_list'
+    | 'game_prefab_save'
+    | 'game_level_scatter'
     | 'terrain_list'
     | 'terrain_open'
     | 'terrain_get_spec'
@@ -355,7 +419,15 @@ type McpToolEntry = {
     | 'companion_profile_delete'
     | 'companion_agent_get'
     | 'companion_agent_set'
-    | 'companion_models_list';
+    | 'companion_models_list'
+    | 'startup_summary'
+    | 'startup_runway'
+    | 'startup_milestones'
+    | 'startup_projections'
+    | 'startup_projection'
+    | 'startup_upsert_milestone'
+    | 'startup_upsert_projection'
+    | 'startup_send_projection_to_runway';
   title: string;
   /**
    * The text a model actually reads to decide whether to call this tool.
@@ -1159,6 +1231,113 @@ export const MCP_TOOLS = {
     output: GameLevelSetOutputSchema,
     readOnly: false,
   },
+  game_level_query: {
+    id: 'game_level_query',
+    title: 'Query a game level',
+    description:
+      'Finds objects in a level by type, layer, name, id or region, in pixels or metres, including unsaved edits open in the editor — use instead of `game_level_get` on a whole level.',
+    input: GameLevelQueryInputSchema,
+    output: GameLevelQueryOutputSchema,
+    readOnly: true,
+  },
+  game_level_validate: {
+    id: 'game_level_validate',
+    title: 'Validate a game level',
+    description:
+      'Checks a level for problems (no spawn, duplicate ids, unknown types, missing models), unsaved edits included — run after editing and before `game_level_set`.',
+    input: GameLevelValidateInputSchema,
+    output: GameLevelValidateOutputSchema,
+    readOnly: true,
+  },
+  game_entity_batch: {
+    id: 'game_entity_batch',
+    title: 'Edit level objects in a batch',
+    description:
+      'Applies add, update, delete and place-prefab operations to a level all-or-nothing, as one undoable change in the open editor — use instead of `game_level_set`; refused unless its Settings switch is on.',
+    input: GameEntityBatchInputSchema,
+    output: GameEntityWriteOutputSchema,
+    readOnly: false,
+  },
+  game_entity_add: {
+    id: 'game_entity_add',
+    title: 'Add level objects',
+    description:
+      'Adds objects (spawns, exits, enemies, props…) to a level as one undoable change — sugar over `game_entity_batch`; refused unless its Settings switch is on.',
+    input: GameEntityAddInputSchema,
+    output: GameEntityWriteOutputSchema,
+    readOnly: false,
+  },
+  game_entity_update: {
+    id: 'game_entity_update',
+    title: 'Update level objects',
+    description:
+      'Moves or changes existing level objects by id as one undoable change — sugar over `game_entity_batch`; refused unless its Settings switch is on.',
+    input: GameEntityUpdateInputSchema,
+    output: GameEntityWriteOutputSchema,
+    readOnly: false,
+  },
+  game_entity_delete: {
+    id: 'game_entity_delete',
+    title: 'Delete level objects',
+    description:
+      'Removes level objects by id as one undoable change — sugar over `game_entity_batch`; refused unless its Settings switch is on.',
+    input: GameEntityDeleteInputSchema,
+    output: GameEntityWriteOutputSchema,
+    readOnly: false,
+  },
+  game_level_select: {
+    id: 'game_level_select',
+    title: 'Select level objects in the editor',
+    description:
+      'Selects objects by id in the open Level editor and frames them, so the user sees what you mean — use after `game_level_query`; refused unless its Settings switch is on.',
+    input: GameLevelSelectInputSchema,
+    output: GameLevelSelectOutputSchema,
+    readOnly: false,
+  },
+  game_level_frame: {
+    id: 'game_level_frame',
+    title: 'Frame the level editor camera',
+    description:
+      'Moves the open Level editor camera to objects by id, a map region or the whole level, changing no data — pair with `game_level_select`; refused unless its Settings switch is on.',
+    input: GameLevelFrameInputSchema,
+    output: GameLevelFrameOutputSchema,
+    readOnly: false,
+  },
+  game_level_view: {
+    id: 'game_level_view',
+    title: 'See the open level as an image',
+    description:
+      'Returns a PNG of the open Level editor from a camera, a preset (`top`, `iso`, `selection`) or the plan — use after `game_entity_batch` to check what you built.',
+    input: GameLevelViewInputSchema,
+    output: GameContentOutputSchema,
+    readOnly: true,
+  },
+  game_play_from: {
+    id: 'game_play_from',
+    title: 'Play a level from a point',
+    description:
+      'Runs the game on a scene starting at a point or an object, using the open editor\'s unsaved level when there is one — use `game_entities` and `game_screenshot` after it; refused unless its Settings switch is on.',
+    input: GamePlayFromInputSchema,
+    output: GamePlayFromOutputSchema,
+    readOnly: false,
+  },
+  game_entities: {
+    id: 'game_entities',
+    title: 'List the running game\'s live objects',
+    description: 'Lists where every object of the running game is now, with its state — use after `game_input` to see what moved.',
+    input: GameEntitiesInputSchema,
+    output: GameEntitiesOutputSchema,
+    readOnly: true,
+  },
+  game_debug_overlay: {
+    id: 'game_debug_overlay',
+    title: 'Draw colliders, triggers and the nav mesh',
+    description:
+      'Switches the running game\'s debug overlays (colliders, triggers, nav mesh) on or off — follow with `game_screenshot`; refused unless its Settings switch is on.',
+    input: GameDebugOverlayInputSchema,
+    output: GameDebugOverlayOutputSchema,
+    readOnly: false,
+  },
   game_goto: {
     id: 'game_goto',
     title: 'Jump a game to a scene',
@@ -1166,6 +1345,60 @@ export const MCP_TOOLS = {
       'Jumps the running game to a scene, reloading or arming the next run when it cannot — use after `game_level_set` to see the level; refused unless its Settings switch is on.',
     input: GameGotoInputSchema,
     output: GameGotoOutputSchema,
+    readOnly: false,
+  },
+  game_doctor: {
+    id: 'game_doctor',
+    title: 'Diagnose a game',
+    description:
+      'Checks a game against the Midnite game standard, answering each finding with its rule id, level, file and fix id — use instead of guessing why Run or `game_level_list` does not work for a game.',
+    input: GameToolTargetSchema,
+    output: GameDoctorOutputSchema,
+    readOnly: true,
+  },
+  game_assets_list: {
+    id: 'game_assets_list',
+    title: 'List a game\'s assets',
+    description:
+      'Lists the assets imported into a game with each one\'s kind and whether a level can place it — use instead of reading `midnite-game.json` to find a model name for a `prop`.',
+    input: GameAssetsListInputSchema,
+    output: GameAssetsListOutputSchema,
+    readOnly: true,
+  },
+  game_prefab_list: {
+    id: 'game_prefab_list',
+    title: 'List a game\'s prefabs',
+    description:
+      'Lists the prefabs saved in a game (`levels/prefabs`) with their dimension and object count — use before a `place-prefab` operation in `game_entity_batch` or a `prefab` source in `game_level_scatter`.',
+    input: GameToolTargetSchema,
+    output: GamePrefabListOutputSchema,
+    readOnly: true,
+  },
+  game_prefab_save: {
+    id: 'game_prefab_save',
+    title: 'Save a prefab',
+    description:
+      'Saves a group of objects as a reusable prefab file in a game, one commit — use for a group you place more than once, then `place-prefab` it; refused unless its Settings switch is on.',
+    input: GamePrefabSaveInputSchema,
+    output: GamePrefabSaveOutputSchema,
+    readOnly: false,
+  },
+  game_level_scatter: {
+    id: 'game_level_scatter',
+    title: 'Scatter objects over an area',
+    description:
+      'Scatters models, prefabs or object types over a circle or rectangle as one undoable change (500 objects max; `capped` flags a cut) — `seed` repeats a result; refused unless its Settings switch is on.',
+    input: GameLevelScatterInputSchema,
+    output: GameLevelScatterOutputSchema,
+    readOnly: false,
+  },
+  game_doctor_fix: {
+    id: 'game_doctor_fix',
+    title: 'Apply a game doctor fix',
+    description:
+      'Applies the fix a `game_doctor` finding named by its fixId, as one commit on midnite-game.json (or a kit-upgrade branch), refusing while that file is uncommitted',
+    input: GameDoctorFixInputSchema,
+    output: GameDoctorFixOutputSchema,
     readOnly: false,
   },
   /*
@@ -1734,6 +1967,84 @@ export const MCP_TOOLS = {
     input: CompanionModelsListInputSchema,
     output: CompanionModelsListOutputSchema,
     readOnly: true,
+  },
+  /*
+   * Midnite Startup (Phase 153 Theme C). Served from Startup's own socket, so they are listed only while
+   * Startup runs and only after Startup ▸ Settings ▸ Agents says yes (reads first, then changes). The three
+   * writes change a milestone, a fleet projection or the plan's lines — never an invoice or the ledger.
+   * Schemas: `startup-mcp.ts`.
+   */
+  startup_summary: {
+    id: 'startup_summary',
+    title: 'Summarise the company and its runway',
+    description:
+      'Summarises the company, cash, burn, runway months, default-alive flag and record counts from Midnite Startup — use instead of reading `startup.json` by hand; read-only.',
+    input: StartupSummaryInputSchema,
+    output: StartupSummaryResultSchema,
+    readOnly: true,
+  },
+  startup_runway: {
+    id: 'startup_runway',
+    title: 'Project the runway',
+    description:
+      'Projects cash month by month for a scenario over 12, 24 or 36 months — use instead of a hand-built `spreadsheet` of burn; money comes as minor units, currency and text; read-only.',
+    input: StartupRunwayInputSchema,
+    output: StartupRunwayResultSchema,
+    readOnly: true,
+  },
+  startup_milestones: {
+    id: 'startup_milestones',
+    title: 'List roadmap milestones',
+    description:
+      'Lists the roadmap milestones with their status, due date and dependencies, optionally by status — use instead of reading `ROADMAP.md`; read-only.',
+    input: StartupMilestonesInputSchema,
+    output: StartupMilestonesResultSchema,
+    readOnly: true,
+  },
+  startup_projections: {
+    id: 'startup_projections',
+    title: 'List fleet projections',
+    description:
+      'Lists the fleet projections with their month-0 capex, running cost, revenue, margin and payback — use instead of recomputing a `fleet` model by hand; read-only.',
+    input: StartupProjectionsInputSchema,
+    output: StartupProjectionsResultSchema,
+    readOnly: true,
+  },
+  startup_projection: {
+    id: 'startup_projection',
+    title: 'Get one fleet projection',
+    description:
+      'Gets one fleet projection with its nodes, globals and full month-by-month result — use after `startup_projections` to read a single model; read-only.',
+    input: StartupProjectionInputSchema,
+    output: StartupProjectionResultSchema,
+    readOnly: true,
+  },
+  startup_upsert_milestone: {
+    id: 'startup_upsert_milestone',
+    title: 'Create or update a milestone',
+    description:
+      'Creates or updates a roadmap milestone by id, refusing a dependency loop — use instead of editing `ROADMAP.md`; refused unless Startup ▸ Settings ▸ Agents allows changes.',
+    input: StartupUpsertMilestoneInputSchema,
+    output: StartupWriteResultSchema,
+    readOnly: false,
+  },
+  startup_upsert_projection: {
+    id: 'startup_upsert_projection',
+    title: 'Create or update a fleet projection',
+    description:
+      'Creates or updates a fleet projection by id, nodes and globals included — use after `startup_projection` to change a model; refused unless Startup ▸ Settings ▸ Agents allows changes.',
+    input: StartupUpsertProjectionInputSchema,
+    output: StartupWriteResultSchema,
+    readOnly: false,
+  },
+  startup_send_projection_to_runway: {
+    id: 'startup_send_projection_to_runway',
+    title: 'Send a projection to the runway',
+    description:
+      'Sends a fleet projection to the runway plan from a start month as plan lines — use after `startup_projection`; refused unless Startup ▸ Settings ▸ Agents allows changes.',
+    input: StartupSendProjectionInputSchema,
+    output: StartupWriteResultSchema,
+    readOnly: false,
   },
 } satisfies Record<string, McpToolEntry>;
 

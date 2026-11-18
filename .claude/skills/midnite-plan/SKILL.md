@@ -7,6 +7,10 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, TodoWrite, 
 
 You are running the **plan** workflow for the **Midnite Studio** repo: an interactive, human-in-the-loop session that lands a **new `.midnite/tasks/<CATEGORY>/phases/phase-N-*.md`** plan. It is a back-and-forth — propose, let the user steer, refine over a few rounds, and specify the plan with sufficient detail that simpler/fast models can execute it without ambiguity. **Do not write the phase file until the user has converged on a direction** (Stage 5).
 
+## 0 · Run the script first
+
+Run `node scripts/skills/verify-phase.mjs --json`. It reads the category indexes and lists incomplete phases and their checklists (read-only), so the status overview does not need a long scan; run `node scripts/tracker-check.mjs` after writing the doc. You still riff with the user and write the phase doc. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Context you must respect
 
 - Phase plans live in **`.midnite/tasks/`** divided into category folders:
@@ -16,7 +20,7 @@ You are running the **plan** workflow for the **Midnite Studio** repo: an intera
   - Completed work is logged append-only in `done.md`; deferred scope lives in `outstanding.md`.
 - Match the **house style** of existing phase docs: a `# Phase N — Title` heading; blockquote framing (`> **Builds on:** ...`, `> **Scope guardrails:** ...`); a **`## Headlines`** section (lead paragraph with `Planned <date>` + one `**Theme X — <name>.** ◻ <one-liner>` paragraph per theme); a **Deliverables** checklist (`- [ ]` items grouped into lettered Themes); a **Verification** checklist; crib-file references.
 - **Refinement for simpler models:** Every deliverable must be concrete and actionable. Specify target file paths, schema shapes, export names, and edge cases so models without deep repo context can execute without hallucinating.
-- Respect `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` and `docs/INITIAL_PLAN.md` (package boundaries — `shared ◀ git-engine ◀ desktop`, `shared ◀ frame ◀ feature ◀ app`; shared is the wire contract).
+- Respect `AGENTS.md` and `docs/INITIAL_PLAN.md` (package boundaries — `shared ◀ git-engine ◀ desktop`, `shared ◀ frame ◀ feature ◀ app`; shared is the wire contract).
 - Checkboxes start unchecked (`- [ ]`) in a fresh plan.
 
 ---

@@ -117,6 +117,9 @@ export type GamerElectron = IpcContextElectron & {
     enginesDir: string;
     /** The Open Game folder dialog (Phase 132 Theme A): an absolute path, or null when dismissed. */
     pickFolder: () => Promise<string | null>;
+    /** Game management (Phase 149 Theme I): `shell.showItemInFolder` and `shell.trashItem` — this module imports no `electron`. */
+    revealPath?: (path: string) => void;
+    trashPath?: (path: string) => Promise<void>;
   };
   log: (line: string) => void;
   /**
@@ -344,6 +347,21 @@ export function registerGamerOn(ctx: FeatureMainContext, el: GamerElectron): Gam
     // user opened from elsewhere (Phase 132 Theme A), kept in `opened-games.json` behind the same two ports.
     registerRepo: (path) => openedGames.add(path),
     listRepoPaths: () => openedGames.list(),
+    // Game management (Phase 149 Theme I): Remove drops the opened folder; Reveal and Delete go through the OS.
+    forgetRepo: (path) => openedGames.remove(path),
+    ...(el.game.revealPath ? { revealPath: el.game.revealPath } : {}),
+    ...(el.game.trashPath
+      ? {
+          trashPath: async (path: string): Promise<GitOpResult> => {
+            try {
+              await (el.game.trashPath as (p: string) => Promise<void>)(path);
+              return ok();
+            } catch (error) {
+              return failure(`Could not move it to the Trash: ${error instanceof Error ? error.message : String(error)}`);
+            }
+          },
+        }
+      : {}),
     pickFolder: el.game.pickFolder,
     exportTerrain,
     // A game imports a clip from the global animation library (Phase 125 Theme G).

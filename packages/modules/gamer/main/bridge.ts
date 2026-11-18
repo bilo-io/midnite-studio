@@ -46,14 +46,43 @@ export function createGamerBridge(ipc: RendererIpc): GamerBridge {
       juice: (req) => call(CHANNELS.gamesJuice, req),
       logs: (req) => call(CHANNELS.gamesLogs, req),
       kitUpgrade: (req) => call(CHANNELS.gamesKitUpgrade, req),
+      rename: (req) => call(CHANNELS.gamesRename, req),
+      forget: (req) => call(CHANNELS.gamesForget, req),
+      reveal: (req) => call(CHANNELS.gamesReveal, req),
+      deleteInfo: (req) => call(CHANNELS.gamesDeleteInfo, req),
+      delete: (req) => call(CHANNELS.gamesDelete, req),
+      doctor: (req) => call(CHANNELS.gamesDoctor, req),
+      doctorFix: (req) => call(CHANNELS.gamesDoctorFix, req),
       levels: {
         list: (req) => call(CHANNELS.gamesLevels, req),
         get: (req) => call(CHANNELS.gamesLevelGet, req),
         set: (req) => call(CHANNELS.gamesLevelSet, req),
         mapAsset: (req) => call(CHANNELS.gamesLevelMapAsset, req),
         model: (req) => call(CHANNELS.gamesLevelModel, req),
+        prefabs: {
+          list: (req) => call(CHANNELS.gamesLevelPrefabs, req),
+          get: (req) => call(CHANNELS.gamesLevelPrefabGet, req),
+          set: (req) => call(CHANNELS.gamesLevelPrefabSet, req),
+          delete: (req) => call(CHANNELS.gamesLevelPrefabDelete, req),
+        },
+        assetThumb: (req) => call(CHANNELS.gamesLevelAssetThumb, req),
+        preview: (req) => call(CHANNELS.gamesLevelPreview, req),
+        previewEnd: (req) => call(CHANNELS.gamesLevelPreviewEnd, req),
       },
       goto: (req) => call(CHANNELS.gamesGoto, req),
+      entities: {
+        get: (req) => call(CHANNELS.gamesEntities, req),
+        watch: (req) => {
+          const watcherId = `w${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+          void call(CHANNELS.gamesEntitiesWatch, { gameId: req.gameId, watcherId, on: true });
+          return () => {
+            void call(CHANNELS.gamesEntitiesWatch, { gameId: req.gameId, watcherId, on: false });
+          };
+        },
+      },
+      onEntityState: (handler) => subscribe(EVENT_CHANNELS.gamesEntityState, handler),
+      debug: (req) => call(CHANNELS.gamesDebug, req),
+      navMesh: (req) => call(CHANNELS.gamesNavMesh, req),
       popOut: (req) => call(CHANNELS.gamesPopOut, req),
       popped: () => call(CHANNELS.gamesPopped),
       onPopState: (handler) => subscribe(EVENT_CHANNELS.gamesPopState, handler),
@@ -68,6 +97,11 @@ export function createGamerBridge(ipc: RendererIpc): GamerBridge {
         onProgress: (handler) => subscribe(EVENT_CHANNELS.gamesAgentProgress, handler),
       },
       assets: {
+        library: {
+          list: () => call(CHANNELS.gamesLibraryList),
+          read: (req) => call(CHANNELS.gamesLibraryRead, req),
+          import: (req) => call(CHANNELS.gamesLibraryImport, req),
+        },
         sources: (req) => call(CHANNELS.gamesAssetSources, req),
         import: (req) => call(CHANNELS.gamesImportAsset, req),
         resync: (req) => call(CHANNELS.gamesResync, req),

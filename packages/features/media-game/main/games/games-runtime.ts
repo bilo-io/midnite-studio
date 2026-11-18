@@ -37,6 +37,12 @@ export type GamesRuntimeDeps<V extends GameView = GameView> = {
   registerRepo: (path: string) => Promise<GitOpResult>;
   /** Paths of every repo the app has registered. */
   listRepoPaths: () => Promise<string[]>;
+  /** Take a repo out of the app's list without touching the disk — Studio's repos panel remove, Gamer's opened-games store (Phase 149 Theme I). */
+  forgetRepo?: (path: string) => Promise<GitOpResult>;
+  /** Show a path in the OS file manager (`shell.showItemInFolder`). */
+  revealPath?: (path: string) => void;
+  /** Move a path to the OS Trash (`shell.trashItem`) — Delete game is always this, never `rm`. */
+  trashPath?: (path: string) => Promise<GitOpResult>;
   /** The Open Game folder dialog (a native dialog lives in main): an absolute path, or null when dismissed. */
   pickFolder?: () => Promise<string | null>;
   /** Maps a registered repo path to its id, for an asset's provenance. */
@@ -72,6 +78,9 @@ export function createGamesRuntime<V extends GameView = GameView>(deps: GamesRun
     registerRepo: deps.registerRepo,
     listRepoPaths: deps.listRepoPaths,
     ...(deps.pickFolder ? { pickFolder: deps.pickFolder } : {}),
+    ...(deps.forgetRepo ? { forgetRepo: deps.forgetRepo } : {}),
+    ...(deps.revealPath ? { revealPath: deps.revealPath } : {}),
+    ...(deps.trashPath ? { trashPath: deps.trashPath } : {}),
     send: deps.send,
     log: deps.log,
     popout,
@@ -81,6 +90,7 @@ export function createGamesRuntime<V extends GameView = GameView>(deps: GamesRun
     resolve: (gameId) => service.resolve(gameId),
     listRepoPaths: deps.listRepoPaths,
     gamesRoot: async () => (await service.settings.get()).resolvedRoot,
+    libraryRoot: async () => (await service.settings.get()).resolvedLibraryRoot ?? '',
     ...(deps.repoIdOf ? { repoIdOf: deps.repoIdOf } : {}),
     ...(deps.exportTerrain ? { exportTerrain: deps.exportTerrain } : {}),
     ...(deps.animations ? { animations: deps.animations } : {}),

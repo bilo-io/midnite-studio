@@ -114,6 +114,12 @@ const BLAST_RADIUS_COPY = {
     consequence: 'will lose its access to the vault. Nothing stored is deleted.',
     noEffect: 'No app holds access to these entries.',
   },
+  /** Ending a lost terminal broker as a whole tree (Phase 148 Theme B): its sessions go with it. */
+  sessions: {
+    subject: (n: number) => `${n} terminal session${n === 1 ? '' : 's'}`,
+    consequence: 'will be ended, with every process running in it.',
+    noEffect: 'The broker holds no sessions; only its own process ends.',
+  },
 } as const satisfies Record<BlastRadiusKind, { subject: (n: number) => string; consequence: string; noEffect: string }>;
 
 export type { ConfirmRequest } from '@midnite/studio-frame';

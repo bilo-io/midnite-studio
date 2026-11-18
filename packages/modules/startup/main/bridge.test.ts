@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
 
-import { CHANNELS } from '@midnite/studio-shared';
+import { CHANNELS, StartupRequestSchema } from '@midnite/studio-shared';
 
 import { createStartupBridge, type RendererIpc } from './bridge';
 
@@ -26,14 +26,18 @@ describe('createStartupBridge', () => {
     const { startup } = createStartupBridge(ipc);
     await startup.get();
     await startup.removeMilestone({ id: '00000000-0000-4000-8000-000000000001' });
+    await startup.removeFleetProjection({ id: '00000000-0000-4000-8000-000000000002' });
+    await startup.duplicateFleetProjection({ id: '00000000-0000-4000-8000-000000000002', name: 'Copy' });
     expect(vi.mocked(ipc.invoke).mock.calls).toEqual([
       [CHANNELS.startup, { op: 'get' }],
       [CHANNELS.startup, { op: 'removeMilestone', id: '00000000-0000-4000-8000-000000000001' }],
+      [CHANNELS.startup, { op: 'removeFleetProjection', id: '00000000-0000-4000-8000-000000000002' }],
+      [CHANNELS.startup, { op: 'duplicateFleetProjection', id: '00000000-0000-4000-8000-000000000002', name: 'Copy' }],
     ]);
   });
 
   it('names an op method for every op of the request union', () => {
     const { startup } = createStartupBridge(fakeIpc());
-    expect(Object.keys(startup).filter((k) => k !== 'onChanged').length).toBe(24);
+    expect(Object.keys(startup).filter((k) => k !== 'onChanged').sort()).toEqual(StartupRequestSchema.options.map((o) => o.shape.op.value).sort());
   });
 });

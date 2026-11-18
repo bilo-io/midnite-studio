@@ -27,11 +27,51 @@ export function withBaseScenario(workspace: StartupWorkspace): StartupWorkspace 
   return { ...workspace, scenarios: [base, ...workspace.scenarios] };
 }
 
-/** Version 1 is the identity; a version above it is read-only, and anything that fails the schema is corrupt. */
+/** v1 → v2 adds `fleetProjections: []`; v3 → v4 adds `investorUpdates: []`; v2 → v3 renames the fleet `…Cents` fields to `…Minor` (numbers kept), adds the energy switch and a null `fleetCatalog`; a version above current is read-only; anything failing the schema is corrupt. */
+type Rec = Record<string, unknown>;
+const isRec = (x: unknown): x is Rec => typeof x === 'object' && x !== null && !Array.isArray(x);
+
+function renameKey(o: Rec, from: string, to: string): Rec {
+  if (!(from in o)) return o;
+  const { [from]: value, ...rest } = o;
+  return { ...rest, [to]: value };
+}
+const renameConfig = (c: unknown) => (isRec(c) ? renameKey(c, 'pricePerHourCents', 'pricePerHourMinor') : c);
+
+/** No release carried v2, so the numbers are renamed, never converted. */
+function v2ToV3(raw: unknown): unknown {
+  if (!isRec(raw)) return raw;
+  const projections = Array.isArray(raw['fleetProjections']) ? raw['fleetProjections'] : [];
+  return {
+    ...raw,
+    version: 3,
+    fleetCatalog: null,
+    fleetProjections: projections.map((p: unknown) => {
+      if (!isRec(p)) return p;
+      return {
+        ...p,
+        globals: isRec(p['globals'])
+          ? { ...renameKey(p['globals'], 'electricityRateCents', 'electricityRateMinor'), energyScalesWithUtilisation: false }
+          : p['globals'],
+        template: renameConfig(p['template']),
+        nodes: Array.isArray(p['nodes']) ? p['nodes'].map(renameConfig) : p['nodes'],
+      };
+    }),
+  };
+}
+
+/** v3 → v4 only adds the (defaulted) `investorUpdates` list; stated explicitly so the version bump is visible. */
+function v3ToV4(raw: unknown): unknown {
+  return isRec(raw) ? { ...raw, version: 4, investorUpdates: Array.isArray(raw['investorUpdates']) ? raw['investorUpdates'] : [] } : raw;
+}
+
 export function migrateWorkspace(raw: unknown): MigrateResult {
   const version = typeof raw === 'object' && raw !== null ? (raw as { version?: unknown }).version : undefined;
   if (typeof version === 'number' && Number.isInteger(version) && version > STARTUP_WORKSPACE_VERSION) return { ok: false, reason: 'newer-version' };
-  const parsed = StartupWorkspaceSchema.safeParse(raw);
+  let input: unknown = version === 1 ? { ...(raw as object), version: 2 } : raw;
+  if (version === 1 || version === 2) input = v2ToV3(input);
+  if (version === 1 || version === 2 || version === 3) input = v3ToV4(input);
+  const parsed = StartupWorkspaceSchema.safeParse(input);
   if (!parsed.success) return { ok: false, reason: 'corrupt' };
   return { ok: true, workspace: withBaseScenario(parsed.data) };
 }

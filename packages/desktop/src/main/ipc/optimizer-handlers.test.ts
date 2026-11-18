@@ -17,6 +17,15 @@ const { scanWorkspace, cleanItems, knownRoots } = vi.hoisted(() => ({
 }));
 vi.mock('../optimizer/scan-service', () => ({ scanWorkspace, cleanItems, knownRoots }));
 
+vi.mock('../optimizer/free-ram-service', () => ({
+  freeRamPlan: vi.fn(async () => ({ candidates: [], totalRssBytes: 0 })),
+  freeRam: vi.fn(async () => ({
+    ended: [],
+    measured: { beforeRssBytes: 0, afterRssBytes: 0, freedRssBytes: 0, machineFreeDeltaBytes: null },
+    failures: [],
+  })),
+}));
+
 vi.mock('../optimizer/broker-sweep-service', () => ({
   brokerSweepPlan: vi.fn(() => ({ entries: [], totalBytes: 0 })),
   brokerSweep: vi.fn(() => ({ removed: 0, freedBytes: 0, skipped: [] })),

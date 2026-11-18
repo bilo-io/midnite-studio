@@ -7,11 +7,16 @@ import { useTerminalHost } from './host';
 import { useMountedSessionIds } from './session-mount-policy';
 import { TerminalHeader } from './terminal-header';
 import { TerminalSessionList } from './terminal-session-list';
-import { brokerStatusText, inMainPanel, resolveSessionAgentId, useTerminalStore } from './terminal-store';
+import { brokerStatusText, inMainPanel, isLoopSession, resolveSessionAgentId, useTerminalStore } from './terminal-store';
 import { LazyTerminalView } from './lazy-terminal-view';
 import { ReattachedNote } from './reattached-note';
+import { createRevealOnce } from './legacy-reveal';
+import { useLegacyNoticeVisible } from './terminal-notices';
 import { useAgents } from './use-agents';
 import { YieldedToSessionsPage } from './yielded-to-sessions-page';
+
+/** Per renderer launch: a previous-build notice opens the list once, never re-forced after the user closes it. */
+const revealLegacyListOnce = createRevealOnce();
 
 /**
  * The terminal pane: chrome, the session list, and every session's xterm.
@@ -153,8 +158,16 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
     sitting there dead with no explanation.
   */
   const hasLegacy = sessions.some((s) => (s as { legacy?: boolean }).legacy);
-  const listable = sessions.length > 1 || hasLegacy;
+  // A loop session always lists: its "Loops" header and mark are how you tell a loop's run from a shell.
+  const listable = sessions.length > 1 || hasLegacy || sessions.some(isLoopSession);
   const showList = listable && listOpen;
+  const noticeVisible = useLegacyNoticeVisible();
+  // A previous-build notice lives in the session list; opened once per launch so it is seen without a click.
+  useEffect(() => {
+    // Gated on hasLegacy too: the notice reads the store's legacy map, the list needs a legacy session.
+    if (revealLegacyListOnce(noticeVisible && hasLegacy) && !listOpen) host.actions.toggleList();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noticeVisible, hasLegacy]);
   /*
     Width-tweened rather than `{showList ? … : null}`: the toggle can flip on
     `sessions.length` crossing 1, not just a click, and either way the rows

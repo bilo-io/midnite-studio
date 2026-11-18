@@ -16,6 +16,7 @@ import { revealSession } from '../features/terminal/reveal-session';
 import { openLinkFromEvent } from '../services/open-in-midnite';
 import { useRepoLogo, useRepos } from '../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../store/ui-store';
+import { StudioLoopMark } from './loop-mark';
 import { selectRepoForSessionOrChat } from './select-repo-for-item';
 import { STUDIO_CHROME } from './studio-chrome';
 
@@ -70,6 +71,11 @@ export const STUDIO_TERMINAL_HOST = {
     setSidebarSide: (side) => useUiStore.getState().setTerminalSidebarSide(side),
     // Same "route to Settings ▸ Agents" the title bar's own picker uses.
     configureAgent: (agentId) => useUiStore.getState().focusAgentInSettings(agentId),
+    openPermissions: () => {
+      const ui = useUiStore.getState();
+      ui.setActiveView('settings');
+      ui.setSettingsPage('permissions');
+    },
     revealSession: (sessionId) => {
       revealSession(sessionId);
     },
@@ -91,6 +97,7 @@ export const STUDIO_TERMINAL_HOST = {
   Tooltip,
   Popover,
   AgentAvatar,
+  LoopMark: StudioLoopMark,
   usePopoutHeaderActions,
   usePopoutHeaderLeading,
 } satisfies TerminalHost;

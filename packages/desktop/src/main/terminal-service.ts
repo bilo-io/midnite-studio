@@ -41,6 +41,7 @@ export {
   agentSessionDetail,
   configureTerminals,
   declaredAgentIdFor,
+  endSessions,
   flushScrollback,
   forgetTerminal,
   getOrLocateConversationId,

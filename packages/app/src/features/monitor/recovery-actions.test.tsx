@@ -1,5 +1,6 @@
+import { useOptimizerStore } from '@midnite/studio-feature-optimizer/renderer/testing';
 import { StatusBarChromeProvider } from '@midnite/studio-frame';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { STUDIO_STATUS_BAR_CHROME } from '../../compose/status-bar-chrome';
@@ -30,9 +31,11 @@ describe('buildRecoveryActions', () => {
     expect(cleanSystem).toHaveBeenCalledTimes(1);
   });
 
-  it('opens the Optimizer for Manage resources', () => {
+  it('opens the Optimizer on Memory ▸ Lost for Manage resources', () => {
+    useOptimizerStore.setState({ tab: 'smartScan', memoryFilter: 'all' });
     const spy = vi.spyOn(handoff, 'requestHandoff').mockResolvedValue({ ok: true, via: 'in-process' } as never);
     buildRecoveryActions().find((a) => a.id === 'manage-resources')!.run();
+    expect(useOptimizerStore.getState()).toMatchObject({ tab: 'memory', memoryFilter: 'lost' });
     expect(spy).toHaveBeenCalledWith({ app: 'cleaner', view: 'optimizer' });
     spy.mockRestore();
   });
@@ -58,6 +61,14 @@ describe('Studio monitor cluster recovery wiring', () => {
     fireEvent.click(screen.getByTestId('monitor-cluster'));
     const group = await screen.findByRole('group', { name: 'Recovery actions' });
     expect(group.querySelectorAll('button')).toHaveLength(4);
+  });
+
+  it('enables Free RAM and Full recovery in the Studio flyout', async () => {
+    mount();
+    fireEvent.click(screen.getByTestId('monitor-cluster'));
+    const group = await screen.findByRole('group', { name: 'Recovery actions' });
+    const freeRam = within(group).getByRole('button', { name: /Free RAM/ }) as HTMLButtonElement;
+    expect(freeRam.disabled).toBe(false);
   });
 
   it('shows the amber dot while a previous-build session exists and clears when it ends', async () => {

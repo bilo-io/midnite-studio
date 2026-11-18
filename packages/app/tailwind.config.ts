@@ -29,6 +29,7 @@ const config: Config = {
     // miss one and its layout collapses with nothing failing but a screenshot.
     '../frame/src/**/*.{ts,tsx}',
     '../features/*/renderer/**/*.{ts,tsx}',
+    '../modules/*/renderer/**/*.{ts,tsx}',
     './node_modules/@bilo-io/ui/dist/**/*.js',
     './node_modules/@bilo-io/shell/dist/**/*.js',
   ],

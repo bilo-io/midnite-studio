@@ -1,7 +1,7 @@
 // vitest/jsdom: the list's per-app filter and its "Show all apps" toggle (Phase 123 Theme E), under the default host.
 import { createFrameChrome, FrameChromeProvider } from '@midnite/studio-frame';
 import { BUILTIN_AGENTS, type TerminalSession } from '@midnite/studio-shared';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { __resetAppFilter } from './app-filter';
@@ -391,5 +391,123 @@ describe('TerminalSessionList — per-repo accordions', () => {
       'a2',
       'b1',
     ]);
+  });
+});
+
+describe('TerminalSessionList — the Loops group', () => {
+  const loopRow = (id: string, loopId: string): TerminalSession => ({
+    ...row(id),
+    kind: 'agent',
+    agentId: 'claude',
+    name: id,
+    loopId,
+  });
+
+  function renderWithLoopMark() {
+    const host = {
+      ...createDefaultTerminalHost('studio'),
+      LoopMark: ({ session }: { session: TerminalSession }) => (
+        <span data-testid="loop-mark">{session.loopId}</span>
+      ),
+    };
+    return render(
+      <FrameChromeProvider chrome={createFrameChrome().chrome}>
+        <TerminalHostProvider host={host}>
+          <TerminalSessionList agents={[...BUILTIN_AGENTS]} width={200} />
+        </TerminalHostProvider>
+      </FrameChromeProvider>,
+    );
+  }
+
+  beforeEach(() => {
+    useTerminalStore.setState({
+      sessions: [row('plain'), loopRow('guard-a', 'guard'), loopRow('guard-b', 'guard')],
+      states: {},
+      liveCwd: {},
+      activeId: null,
+    });
+  });
+
+  it('lists every loop session under one "Loops" header, two runs of the same loop side by side', () => {
+    renderWithLoopMark();
+    const group = screen.getByTestId('terminal-loops-group');
+    expect(group.textContent).toContain('Loops');
+    expect(group.textContent).toContain('guard-a');
+    expect(group.textContent).toContain('guard-b');
+    expect(group.textContent).not.toContain('plain');
+  });
+
+  it('draws agent mark, then loop mark, then the name', () => {
+    renderWithLoopMark();
+    const name = screen.getByText('guard-a');
+    const rowEl = name.closest('[data-session-row]') as HTMLElement;
+    const mark = rowEl.querySelector('[data-testid="loop-mark"]')!;
+    // The loop mark comes after the avatar and before the name.
+    expect(mark.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(rowEl.firstElementChild!.firstElementChild).not.toBe(mark);
+  });
+
+  it('labels an unrenamed loop row "Provider (model · effort) > folder"', () => {
+    const { name: _renamed, ...unnamed } = loopRow('guard-c', 'guard');
+    useTerminalStore.setState({
+      sessions: [{ ...unnamed, cwd: '/Users/me/Dev/midnite-studio', loopModel: 'opus-5-5', loopEffort: 'low' }],
+    });
+    renderWithLoopMark();
+    const label = screen.getByTestId('terminal-session-loop-label');
+    expect(label.textContent).toBe('Claude(Opus 5.5·low)midnite-studio');
+    expect(within(label).getByText('Claude').className).toContain('font-semibold');
+    expect(within(label).getByTestId('terminal-session-loop-model').parentElement!.className).toContain(
+      'text-muted-foreground',
+    );
+    const pill = within(label).getByTestId('terminal-session-loop-effort');
+    expect(pill.getAttribute('data-effort')).toBe('low');
+    expect(pill.className).toContain('emerald');
+  });
+
+  it("appends the agent's own title, cut to its gist, after another chevron", () => {
+    const { name: _renamed, ...unnamed } = loopRow('guard-f', 'guard');
+    useTerminalStore.setState({
+      sessions: [{ ...unnamed, cwd: '/Users/me/Dev/midnite-studio' }],
+      autoNames: { 'guard-f': 'Midnite build iteration across FEATURES, SECURITY, ISSUES' },
+    });
+    renderWithLoopMark();
+    const gist = screen.getByTestId('terminal-session-loop-description');
+    expect(gist.textContent).toBe('build iteration');
+    expect(gist.getAttribute('title')).toBe('Midnite build iteration across FEATURES, SECURITY, ISSUES');
+    expect(screen.getByTestId('terminal-session-loop-label').querySelectorAll('svg').length).toBe(3);
+  });
+
+  it('drops the brackets when the launch pinned neither model nor effort, and colours max red', () => {
+    const { name: _a, ...plain } = loopRow('guard-d', 'guard');
+    const { name: _b, ...maxed } = loopRow('guard-e', 'guard');
+    useTerminalStore.setState({
+      sessions: [
+        { ...plain, cwd: '/repos/bilo' },
+        { ...maxed, cwd: '/repos/bilo', loopEffort: 'max' },
+      ],
+    });
+    renderWithLoopMark();
+    const [first, second] = screen.getAllByTestId('terminal-session-loop-label');
+    expect(first!.textContent).toBe('Claudebilo');
+    expect(within(second!).getByTestId('terminal-session-loop-effort').className).toContain('red');
+  });
+
+  it('wears no arc while no loop session is live', () => {
+    renderWithLoopMark();
+    expect(screen.queryByTestId('terminal-loops-arc')).toBeNull();
+  });
+
+  it('orbits the group while a loop is live, expanded and collapsed alike', () => {
+    useTerminalStore.setState({ states: { 'guard-a': 'open' } });
+    renderWithLoopMark();
+    const orbit = screen.getByTestId('terminal-loops-arc');
+    expect(orbit.className).toContain('loops-group-orbit');
+    expect(orbit.className).not.toContain('tab-loop-active-arc');
+    expect(orbit.getAttribute('data-expanded')).toBe('true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse Loops' }));
+    const collapsed = screen.getByTestId('terminal-loops-arc');
+    expect(collapsed.className).toContain('loops-group-orbit');
+    expect(collapsed.getAttribute('data-expanded')).toBe('false');
   });
 });

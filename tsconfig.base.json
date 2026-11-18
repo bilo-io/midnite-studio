@@ -30,6 +30,8 @@
       "@midnite/studio-runtime/private-files": ["./packages/runtime/src/private-files.ts"],
       "@midnite/studio-runtime/security/socket-token": ["./packages/runtime/src/security/socket-token.ts"],
       "@midnite/studio-runtime/broker/*": ["./packages/runtime/src/broker/*"],
+      "@midnite/studio-runtime/mcp/*": ["./packages/runtime/src/mcp/*"],
+      "@midnite/studio-runtime/data-directory": ["./packages/runtime/src/data-directory.ts"],
       "@midnite/studio-runtime/app-main/*": ["./packages/runtime/src/app-main/*"],
       "@midnite/studio-runtime/agent-run/*": ["./packages/runtime/src/agent-run/*"],
       "@midnite/studio-module-vanguard/main": ["./packages/modules/vanguard/main/index.ts"],

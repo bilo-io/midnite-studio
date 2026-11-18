@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SAMPLE_CLIPS } from './test-clips';
 import { UseInGame } from './use-in-game';
 
-const game = (gameId: string, name: string): GameSummary => ({ gameId, name, path: `/g/${gameId}`, engine: 'three', dimension: '3d', starter: 'blank', dirty: false, valid: true, issue: null });
+const game = (gameId: string, name: string): GameSummary => ({ gameId, name, path: `/g/${gameId}`, engine: 'three', dimension: '3d', starter: 'blank', dirty: false, valid: true, issue: null, status: null, findingCount: 0 });
 const clip = (over: Partial<AnimationClip> = {}): AnimationClip => ({ ...SAMPLE_CLIPS[0]!, ...over });
 
 function setup(games: GameSummary[], importResult: unknown = { ok: true, value: { name: 'Walk', kind: 'animation', path: 'assets/animations/Walk.fbx', sha256: 'x', commit: 'abc' } }) {

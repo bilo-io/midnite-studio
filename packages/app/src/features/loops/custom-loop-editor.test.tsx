@@ -28,9 +28,6 @@ function Harness({ onToggle = vi.fn() }: { onToggle?: (id: string, on: boolean) 
       <div data-testid="host" className="relative" data-loops-panel {...loopSpectrumProps(loop)}>
         <LoopComposer
           loop={loop}
-          running={false}
-          waiting={false}
-          thinking={false}
           checked={{}}
           choiceIds={{}}
           agents={BUILTIN_AGENTS}
@@ -43,7 +40,6 @@ function Harness({ onToggle = vi.fn() }: { onToggle?: (id: string, on: boolean) 
           reviewUsers={[]}
           contributorOptions={[]}
           autoRotatePercent={30}
-          repeat
           disabled={false}
           disabledReason={undefined}
           onToggle={onToggle}
@@ -56,7 +52,6 @@ function Harness({ onToggle = vi.fn() }: { onToggle?: (id: string, on: boolean) 
           onSchedule={vi.fn()}
           onExtras={vi.fn()}
           onStart={vi.fn()}
-          onStop={vi.fn()}
         />
       </div>
     </DialogHost>

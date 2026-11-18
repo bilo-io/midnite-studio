@@ -11,6 +11,10 @@ Opens a **draft** PR in `bilo-io/midnite-studio` for the current branch, or repo
 exists. Every `gh` call uses `GH_TOKEN="$(gh auth token -u bilo-io)"`; the active account is often
 not `bilo-io` and would 403. Never `gh auth switch`.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/pr-create.mjs [--base main] [--title T --body-file F]`. It runs the branch, duplicate-PR, trailer, tracked-SCRATCHPAD and base-freshness preflight; `--create` opens a draft PR only (it refuses a reviewer or a non-draft). You still write the body (see midnite-pr-description) and never request a reviewer on a draft. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 1 · Branch state
 
 ```bash
@@ -46,9 +50,9 @@ Commits carry **no `Co-Authored-By`, `Signed-off-by` or other attribution traile
 ## 5 · Screenshots first, when the change is visual
 
 If the PR changes what a user sees, run
-[`midnite-pr-description-image`](../midnite-pr-description-image/SKILL.md) now: capture, commit, push
-and get the commit-pinned URL **before the PR exists**. Screenshots are embedded at creation, never
-added later. If it decides there is no image, carry on.
+[`midnite-pr-description-image`](../midnite-pr-description-image/SKILL.md) now: capture it into the
+scratchpad and show it in the thread **before the PR exists** (screenshots are never committed). The
+`## Screenshots` section names the surface and says the capture is in the thread. If it decides there is no image, carry on.
 
 ## 6 · Write the body
 

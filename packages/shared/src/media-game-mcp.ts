@@ -13,7 +13,12 @@
  */
 import { z } from 'zod';
 
+import { LEVEL_OPS_MAX, LevelEntityFieldsSchema, LevelOpSchema, LevelQuerySchema } from './game-level-ops';
+import { GamePrefabNameSchema, GamePrefabWriteResultSchema, GamePrefabsResultSchema } from './game-level-prefab';
+import { ScatterOptionsSchema } from './game-level-scatter';
+
 import {
+  GAME_ASSET_KINDS,
   GameAgentEngineSchema,
   GameAssetNameSchema,
   GameAssetSourceSchema,
@@ -30,7 +35,14 @@ import {
   GameStateAssertOpSchema,
   GAME_REPLAY_MAX_FRAMES,
   GameSceneNameSchema,
+  GameDiagnosisSchema,
+  GameFixResultSchema,
+  GameGenreSchema,
+  GameEntitiesResultSchema,
+  GameDebugOptionsSchema,
 } from './media-game';
+import { GameFixIdSchema } from './game-standard';
+import { LevelViewCameraSchema } from './game-level-editor-bridge';
 import { GameGotoResultSchema, GameLevelsResultSchema } from './game-level';
 
 /** Ids of the tools, in the order an agent meets them. Themes N and O append their own. */
@@ -56,7 +68,32 @@ export const GAME_MCP_TOOL_IDS = [
   'game_level_list',
   'game_level_get',
   'game_level_set',
+  // Phase 138 Theme D.
+  'game_level_query',
+  'game_level_validate',
+  // Phase 138 Theme E.
+  'game_entity_batch',
+  'game_entity_add',
+  'game_entity_update',
+  'game_entity_delete',
+  // Phase 138 Theme G, H.
+  'game_level_select',
+  'game_level_frame',
+  'game_level_view',
   'game_goto',
+  // Phase 140 Theme H.
+  'game_play_from',
+  'game_entities',
+  'game_debug_overlay',
+  // Phase 149 Theme C.
+  'game_doctor',
+  // Phase 149 Theme D.
+  'game_doctor_fix',
+  // Phase 139 Theme I.
+  'game_assets_list',
+  'game_prefab_list',
+  'game_prefab_save',
+  'game_level_scatter',
 ] as const;
 export type GameMcpToolId = (typeof GAME_MCP_TOOL_IDS)[number];
 export const isGameMcpToolId = (value: string): value is GameMcpToolId =>
@@ -78,12 +115,20 @@ export const GAME_MCP_READ_TOOL_IDS: readonly GameMcpToolId[] = [
   'game_state',
   'game_level_list',
   'game_level_get',
+  'game_level_query',
+  'game_level_validate',
+  'game_level_view',
+  'game_entities',
+  'game_doctor',
+  'game_assets_list',
+  'game_prefab_list',
 ];
 
 /** Tools that outlast the shim's default 60 s call timeout (a run boots a renderer, a burst waits between frames). */
 export const GAME_SLOW_TOOL_IDS: readonly string[] = [
   'game_create',
   'game_run',
+  'game_play_from',
   'game_screenshot',
   'game_input',
   'game_replay_play',
@@ -257,9 +302,218 @@ export const GameLevelSetInputSchema = GameToolTargetSchema.extend({
   create: z.boolean().optional(),
 });
 export const GameLevelSetOutputSchema = z.object({ ok: z.literal(true), gameId: z.string(), sha: z.string().nullable() });
+// --- level query and validate (Phase 138 Theme D) --------------------------------------
+
+export const LevelObjectSummarySchema = z.object({
+  id: z.number().int(),
+  layerId: z.number().int(),
+  layer: z.string(),
+  type: z.string(),
+  name: z.string(),
+  x: z.number(),
+  y: z.number(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  rotation: z.number().optional(),
+  point: z.boolean().optional(),
+  properties: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
+  world: z.object({ x: z.number(), y: z.number(), z: z.number() }).optional(),
+});
+export const LevelIssueSchema = z.object({
+  rule: z.string(),
+  severity: z.enum(['error', 'warning', 'info']),
+  message: z.string(),
+  objectId: z.number().int().optional(),
+  layerId: z.number().int().optional(),
+});
+/** `source` says where the level came from: the open editor (unsaved edits included) or the committed file. */
+export const GameLevelSourceSchema = z.enum(['editor', 'file']);
+export const GameLevelQueryInputSchema = GameToolTargetSchema.extend({ scene: GameSceneNameSchema }).merge(LevelQuerySchema);
+export const GameLevelQueryOutputSchema = z.object({
+  source: GameLevelSourceSchema,
+  dirty: z.boolean(),
+  total: z.number().int(),
+  truncated: z.boolean(),
+  objects: z.array(LevelObjectSummarySchema),
+});
+export const GameLevelValidateInputSchema = GameToolTargetSchema.extend({ scene: GameSceneNameSchema });
+export const GameLevelValidateOutputSchema = z.object({
+  source: GameLevelSourceSchema,
+  counts: z.object({ error: z.number().int(), warning: z.number().int(), info: z.number().int() }),
+  issues: z.array(LevelIssueSchema),
+});
+// --- entity write tools (Phase 138 Theme E) ---------------------------------------------
+
+const LevelWriteOptions = {
+  unit: z.enum(['px', 'm']).default('px'),
+  label: z.string().min(1).max(80).optional(),
+  /** Save the open editor's level to disk after applying. Unset: the caller's default (the agent run saves, the global server does not). */
+  save: z.boolean().optional(),
+  select: z.boolean().default(true),
+};
+export const GameEntityBatchInputSchema = GameToolTargetSchema.extend({
+  scene: GameSceneNameSchema,
+  ops: z.array(LevelOpSchema).min(1).max(LEVEL_OPS_MAX),
+  ...LevelWriteOptions,
+});
+export const GameEntityAddInputSchema = GameToolTargetSchema.extend({
+  scene: GameSceneNameSchema,
+  entities: z.array(LevelEntityFieldsSchema).min(1).max(200),
+  layer: z.union([z.number().int(), z.string().min(1)]).optional(),
+  ...LevelWriteOptions,
+});
+export const GameEntityUpdateInputSchema = GameToolTargetSchema.extend({
+  scene: GameSceneNameSchema,
+  updates: z
+    .array(
+      z.object({
+        id: z.number().int().positive(),
+        set: LevelEntityFieldsSchema.partial().default({}),
+        unset: z.array(z.string()).max(64).optional(),
+      }),
+    )
+    .min(1)
+    .max(LEVEL_OPS_MAX),
+  ...LevelWriteOptions,
+});
+export const GameEntityDeleteInputSchema = GameToolTargetSchema.extend({
+  scene: GameSceneNameSchema,
+  ids: z.array(z.number().int().positive()).min(1).max(LEVEL_OPS_MAX),
+  ...LevelWriteOptions,
+});
+/** `applied` says where the change landed: the open editor (one undoable change set) or the file (one commit). */
+export const GameEntityWriteOutputSchema = z.object({
+  applied: GameLevelSourceSchema,
+  changeSetId: z.string().nullable(),
+  added: z.array(z.number()),
+  updated: z.array(z.number()),
+  deleted: z.array(z.number()),
+  refs: z.record(z.string(), z.number()),
+  saved: z.boolean(),
+  sha: z.string().nullable(),
+  issues: z.array(LevelIssueSchema).max(50),
+});
+
+/** `game_level_scatter`: the batch result plus how many points the sampler drew and whether the batch cap cut them short. */
+export const GameLevelScatterOutputSchema = GameEntityWriteOutputSchema.extend({
+  points: z.number().int().nonnegative(),
+  capped: z.boolean(),
+});
+export type GameEntityWriteOutput = z.infer<typeof GameEntityWriteOutputSchema>;
+/** The renderer's answer to an `apply` request. */
+export const LevelApplyValueSchema = z.object({
+  changeSetId: z.string(),
+  added: z.array(z.number()),
+  updated: z.array(z.number()),
+  deleted: z.array(z.number()),
+  refs: z.record(z.string(), z.number()),
+});
+export type LevelApplyValue = z.infer<typeof LevelApplyValueSchema>;
+// --- select, frame and view tools (Phase 138 Themes G, H) -------------------------------
+export const GameLevelSelectInputSchema = GameToolTargetSchema.extend({
+  scene: GameSceneNameSchema,
+  ids: z.array(z.number().int()).max(1000),
+  frame: z.boolean().default(true),
+});
+export const GameLevelSelectOutputSchema = z.object({ selected: z.array(z.number()), missing: z.array(z.number()) });
+export type GameLevelSelectOutput = z.infer<typeof GameLevelSelectOutputSchema>;
+export const GameLevelFrameInputSchema = GameToolTargetSchema.extend({
+  scene: GameSceneNameSchema,
+  ids: z.array(z.number().int()).max(1000).optional(),
+  region: LevelQuerySchema.shape.region,
+});
+export const GameLevelFrameOutputSchema = z.object({ framed: z.literal(true), view: z.enum(['plan', '3d']) });
+export type GameLevelFrameOutput = z.infer<typeof GameLevelFrameOutputSchema>;
+export const GameLevelViewInputSchema = GameToolTargetSchema.extend({
+  scene: GameSceneNameSchema,
+  view: z.enum(['plan', '3d', 'current']).default('current'),
+  camera: LevelViewCameraSchema.extend({ fov: z.number().min(20).max(90).default(50) }).optional(),
+  preset: z.enum(['top', 'iso', 'selection', 'current']).default('current'),
+  width: z.number().int().min(256).max(1600).default(960),
+  height: z.number().int().min(256).max(1200).default(600),
+});
+/** The renderer's answer to a `view` request: a base64 PNG and what it shows. */
+export const LevelViewValueSchema = z.object({
+  png: z.string().min(1),
+  view: z.enum(['plan', '3d']),
+  width: z.number().int(),
+  height: z.number().int(),
+  camera: LevelViewCameraSchema.nullable(),
+  objects: z.number().int(),
+});
+export type LevelViewValue = z.infer<typeof LevelViewValueSchema>;
+/** The renderer's answers to `select` and `frame`. */
+export const LevelFrameValueSchema = z.object({ view: z.enum(['plan', '3d']) });
+export type LevelFrameValue = z.infer<typeof LevelFrameValueSchema>;
+// --- play from here, live entities and debug draw (Phase 140 Theme H) -------------------
+export const GamePlayFromInputSchema = GameToolTargetSchema.extend({
+  scene: GameSceneNameSchema,
+  /** Where to start: `x`, `y` the plan position, `z` the height above ground (3D only). Left out: the scene's own spawn. */
+  at: z.object({ x: z.number().finite(), y: z.number().finite(), z: z.number().finite().optional() }).optional(),
+  /** Start at this object's position; wins over `at`. */
+  objectId: z.number().int().optional(),
+  unit: z.enum(['px', 'm']).default('px'),
+  /** Play the open editor's unsaved level when there is one, else the file. */
+  useEditor: z.boolean().default(true),
+});
+export const GamePlayFromOutputSchema = z.object({ url: z.string(), via: z.enum(['started', 'restarted']), source: z.enum(['editor', 'file']) });
+export type GamePlayFromOutput = z.infer<typeof GamePlayFromOutputSchema>;
+export const GameEntitiesInputSchema = GameToolTargetSchema.extend({
+  types: z.array(z.string().min(1).max(64)).max(50).optional(),
+  limit: z.number().int().min(1).max(500).default(100),
+});
+export const GameEntitiesOutputSchema = GameEntitiesResultSchema;
+export const GameDebugOverlayInputSchema = GameToolTargetSchema.extend({
+  colliders: z.boolean().optional(),
+  triggers: z.boolean().optional(),
+  nav: z.boolean().optional(),
+});
+export const GameDebugOverlayOutputSchema = z.object({ applied: GameDebugOptionsSchema });
 export const GameGotoInputSchema = GameToolTargetSchema.extend({ scene: GameSceneNameSchema });
 export const GameGotoOutputSchema = GameGotoResultSchema.extend({ gameId: z.string() });
 export const GameLevelListOutputSchema = GameLevelsResultSchema;
+/** `game_doctor` (Phase 149 Theme C): the game's diagnosis against the Midnite game standard. */
+export const GameDoctorOutputSchema = GameDiagnosisSchema;
+/** `game_doctor_fix` (Phase 149 Theme D): apply one named safe fix; `genre` is for `set-genre`, `build` for `add-build`. */
+export const GameDoctorFixInputSchema = GameToolTargetSchema.extend({
+  fixId: GameFixIdSchema,
+  genre: GameGenreSchema.nullable().optional(),
+  build: z.object({ command: z.string().min(1).max(500), out: z.string().min(1) }).optional(),
+});
+export const GameDoctorFixOutputSchema = GameFixResultSchema;
+
+// --- assets, prefabs and scatter (Phase 139 Theme I) ------------------------------------
+
+/** The asset kinds a level can place or preview; audio, animation, terrain and map are listed but never placeable. */
+export const GAME_PLACEABLE_ASSET_KINDS = ['model', 'sprite', 'image', 'tileset', 'background'] as const;
+export const GameAssetsListInputSchema = GameToolTargetSchema.extend({ kinds: z.array(z.enum(GAME_ASSET_KINDS)).max(GAME_ASSET_KINDS.length).optional() });
+export const GameAssetsListOutputSchema = z.object({
+  assets: z.array(z.object({ name: z.string(), kind: z.enum(GAME_ASSET_KINDS), path: z.string(), placeable: z.boolean() })),
+});
+export const GamePrefabListOutputSchema = GamePrefabsResultSchema;
+export const GamePrefabSaveInputSchema = GameToolTargetSchema.extend({
+  name: GamePrefabNameSchema,
+  dimension: z.enum(['2d', '3d']),
+  /** Level px positions; the prefab's pivot is the centre of their bounds and the file stores offsets from it. */
+  objects: z.array(LevelEntityFieldsSchema).min(1).max(500),
+  description: z.string().max(400).optional(),
+});
+export const GamePrefabSaveOutputSchema = GamePrefabWriteResultSchema;
+/** `game_level_scatter`: a circle or a rectangle, in level pixels. */
+export const GameScatterAreaSchema = z.union([
+  z.object({ cx: z.number().finite(), cy: z.number().finite(), radius: z.number().positive().max(100_000) }),
+  z.object({ x: z.number().finite(), y: z.number().finite(), width: z.number().positive().max(100_000), height: z.number().positive().max(100_000) }),
+]);
+export const GameLevelScatterInputSchema = GameToolTargetSchema.extend({
+  scene: GameSceneNameSchema,
+  area: GameScatterAreaSchema,
+  /** `seed` unset picks a random one; set it and a re-run on the same level gives the same points. */
+  options: ScatterOptionsSchema.extend({ seed: z.number().int().nonnegative().optional() }),
+  layer: z.union([z.number().int(), z.string().min(1)]).optional(),
+  label: LevelWriteOptions.label,
+  save: LevelWriteOptions.save,
+  select: z.boolean().default(false),
+});
 
 /** `game_assert_frame` and `game_playtest` answer a JSON text block, then any diff or failure images. */
 export const GameContentOutputSchema = z.object({ _content: z.array(z.unknown()) });

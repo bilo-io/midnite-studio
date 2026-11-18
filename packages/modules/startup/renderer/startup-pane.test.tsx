@@ -9,7 +9,7 @@ import { StartupPane } from './startup-pane';
 
 const company = { name: 'Acme', currency: 'GBP', address: '', invoicePrefix: 'INV-', paymentTermsDays: 30, openingCash: { minor: 10000000, asOf: '2026-11-01' } };
 const snapshot = (withCompany: boolean, extra: Partial<StartupSnapshot> = {}): StartupSnapshot => ({
-  workspace: { version: 1, company: withCompany ? company : null, milestones: [], lines: [], scenarios: [], customers: [], invoices: [], vendors: [], contracts: [], invoiceCounter: 0, ledger: null },
+  workspace: { version: 4, fleetProjections: [], company: withCompany ? company : null, milestones: [], lines: [], scenarios: [], customers: [], invoices: [], vendors: [], contracts: [], invoiceCounter: 0, ledger: null, fleetCatalog: null, investorUpdates: [] },
   revision: 0,
   readOnly: false,
   ...extra,
@@ -44,6 +44,16 @@ describe('StartupPane', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create company' }));
     await waitFor(() => expect(updateCompany).toHaveBeenCalledTimes(1));
     expect(updateCompany.mock.calls[0]![0].company).toMatchObject({ name: 'Acme', currency: 'GBP', openingCash: { minor: 125050 } });
+  });
+
+  it('opens Projections without a company, while the other views still gate', async () => {
+    install(() => ({ ok: true, value: snapshot(false) }));
+    const { unmount } = render(<StartupPane view="startup.projections" onView={() => undefined} />);
+    expect(await screen.findByRole('main', { name: 'Projections' })).toBeTruthy();
+    expect(screen.queryByText('Set up your company')).toBeNull();
+    unmount();
+    render(<StartupPane view="startup.roadmap" onView={() => undefined} />);
+    expect(await screen.findByText('Set up your company')).toBeTruthy();
   });
 
   it('says why when the workspace cannot load', async () => {

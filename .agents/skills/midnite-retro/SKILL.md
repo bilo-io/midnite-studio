@@ -11,6 +11,10 @@ repo over a chosen window, grouped into themes, then boiled down to a short list
 
 **Style:** terse. Ask, gather quietly, then lead with the report — don't narrate the `gh` calls.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/retro.mjs <owner | owner/repo | a,b> [1m|3m|6m|1y] [--focus innovation,features,maintenance,fixes]`. It harvests, classifies and clusters the merged work and scores novelty. You still ask the scope, focus and window first (the script needs them as arguments) and write the closing summary. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 0 · Hard constraints
 
 - **Read-only.** No `gh pr`/`issue` writes, no comments, no labels, no `git push`, no file edits

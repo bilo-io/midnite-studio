@@ -18,7 +18,7 @@ import { ReviewActionBar } from './review-action-bar';
 import type { FrameMenuItem as MenuItem } from '@midnite/studio-frame';
 import { formatNumber, MARKDOWN_PROSE_CLASSES, useFrameChrome } from '@midnite/studio-frame';
 import { useAddReviewComment, useForgePullComments, useForgePullDetail, useForgePullFiles, useForgePulls, useForgePullThreads, useForgeRuns, useReplyToReviewComment, useSetThreadResolved } from '../queries/forge-queries';
-import { checksStatus, pullStatus, StatusPill } from '../status/forge-status';
+import { checksStatus, mergeVerb, PrStatePill, StatusPill } from '../status/forge-status';
 import { useForgeHost } from '../host';
 import {
   ExternalLink,
@@ -190,9 +190,12 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
         open. Inside Conversation — GitHub's own placement — Merge would be
         hidden behind a tab.
       */}
-      <div className="shrink-0 px-3 py-2">
-        <ReviewActionBar repoId={repoId} pull={pull} detail={detail} />
-      </div>
+      {/* Only an open PR has anything to act on. */}
+      {pull.state === 'open' ? (
+        <div className="shrink-0 px-3 py-2">
+          <ReviewActionBar repoId={repoId} pull={pull} detail={detail} />
+        </div>
+      ) : null}
 
       <div
         role="tablist"
@@ -439,89 +442,93 @@ function PrHeader({
   const checks = checksStatus(pull);
 
   return (
-    <header className="shrink-0 border-b border-border px-4 py-2.5">
-      <div className="flex min-w-0 items-center gap-2">
-        <StatusPill status={pullStatus(pull)} />
-        {checks ? <StatusPill status={checks} /> : null}
-        <h2 className="truncate text-sm font-semibold" data-selectable>
-          <span className="text-muted-foreground">
-            <ForgeRefLink url={pull.url} number={pull.number} repoId={repoId} />
-          </span>{' '}
-          {pull.title}
-        </h2>
-        <OpenPreviewButton
-          repoId={repoId}
-          pullNumber={pull.number}
-          candidates={previewCandidates}
-          className="ml-auto"
-        />
-        <IconButton
-          icon={LuSquareArrowOutUpRight}
-          label={`Open #${pull.number} on GitHub`}
-          size="sm"
-          className={previewCandidates.length > 0 ? '' : 'ml-auto'}
-          onClick={(event) => openLinkFromEvent(pull.url, event, { originRepoId: repoId })}
-        />
-      </div>
+    <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2.5">
+      {/* GitHub's state pill, alone in its column beside both rows. */}
+      <PrStatePill pull={pull} />
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-2">
+          {checks ? <StatusPill status={checks} /> : null}
+          <h2 className="truncate text-sm font-semibold" data-selectable>
+            <span className="text-muted-foreground">
+              <ForgeRefLink url={pull.url} number={pull.number} repoId={repoId} />
+            </span>{' '}
+            {pull.title}
+          </h2>
+          <OpenPreviewButton
+            repoId={repoId}
+            pullNumber={pull.number}
+            candidates={previewCandidates}
+            className="ml-auto"
+          />
+          <IconButton
+            icon={LuSquareArrowOutUpRight}
+            label={`Open #${pull.number} on GitHub`}
+            size="sm"
+            className={previewCandidates.length > 0 ? '' : 'ml-auto'}
+            onClick={(event) => openLinkFromEvent(pull.url, event, { originRepoId: repoId })}
+          />
+        </div>
 
-      <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-        <span data-selectable className="inline-flex items-center gap-1.5">
-          {pull.author ? <UserAvatar login={pull.author} size={16} detail="PR author" /> : null}
-          <span>
-            {pull.author || 'someone'} wants to merge{' '}
-            <span className="text-foreground">{pull.headBranch}</span>
-            {detail !== null && detail.baseBranch.length > 0 ? (
-              <>
-                {' into '}
-                <span className="text-foreground">{detail.baseBranch}</span>
-              </>
-            ) : null}
-          </span>
-        </span>
-        {detail !== null ? (
-          /*
-            Each half only when the forge said it: a null count is unknown, and
-            printing it as `0 files +0 −0` would claim the PR changed nothing.
-          */
-          detail.changedFiles === null &&
-          (detail.additions === null || detail.deletions === null) ? null : (
-            <span className="tabular-nums">
-              {detail.changedFiles !== null ? (
+        <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+          <span data-selectable className="inline-flex items-center gap-1.5">
+            {pull.author ? <UserAvatar login={pull.author} size={16} detail="PR author" /> : null}
+            <span>
+              {pull.author || 'someone'} {mergeVerb(pull)}{' '}
+              <span className="text-foreground">{pull.headBranch}</span>
+              {detail !== null && detail.baseBranch.length > 0 ? (
                 <>
-                  {formatNumber(detail.changedFiles)}{' '}
-                  {detail.changedFiles === 1 ? 'file' : 'files'}{' '}
-                </>
-              ) : null}
-              {detail.additions !== null && detail.deletions !== null ? (
-                <>
-                  <span className="text-success">+{formatNumber(detail.additions)}</span>{' '}
-                  <span className="text-destructive">−{formatNumber(detail.deletions)}</span>
+                  {' into '}
+                  <span className="text-foreground">{detail.baseBranch}</span>
                 </>
               ) : null}
             </span>
-          )
-        ) : loadingDetail ? (
-          /*
-            Bars, not nothing. This line renders from the cached listing row
-            while the detail fetch is out, so the base branch and the counts
-            arrive a beat later into a line that is already on screen — and
-            appearing from nothing shoves the rest of the row along with them.
-          */
-          <PrHeaderMetaSkeleton />
-        ) : null}
-        {/*
-          `CONFLICTING` is the only mergeability worth a word here. `MERGEABLE`
-          is the unremarkable default, and `UNKNOWN` means GitHub has not
-          finished computing it — reporting either would be noise on every
-          healthy PR.
-        */}
-        {detail?.mergeable === 'CONFLICTING' ? (
-          <span className="text-destructive">Conflicts with the base branch</span>
-        ) : null}
-      </p>
+          </span>
+          {detail !== null ? (
+            /*
+              Each half only when the forge said it: a null count is unknown, and
+              printing it as `0 files +0 −0` would claim the PR changed nothing.
+            */
+            detail.changedFiles === null &&
+            (detail.additions === null || detail.deletions === null) ? null : (
+              <span className="tabular-nums">
+                {detail.changedFiles !== null ? (
+                  <>
+                    {formatNumber(detail.changedFiles)}{' '}
+                    {detail.changedFiles === 1 ? 'file' : 'files'}{' '}
+                  </>
+                ) : null}
+                {detail.additions !== null && detail.deletions !== null ? (
+                  <>
+                    <span className="text-success">+{formatNumber(detail.additions)}</span>{' '}
+                    <span className="text-destructive">−{formatNumber(detail.deletions)}</span>
+                  </>
+                ) : null}
+              </span>
+            )
+          ) : loadingDetail ? (
+            /*
+              Bars, not nothing. This line renders from the cached listing row
+              while the detail fetch is out, so the base branch and the counts
+              arrive a beat later into a line that is already on screen — and
+              appearing from nothing shoves the rest of the row along with them.
+            */
+            <PrHeaderMetaSkeleton />
+          ) : null}
+          {/*
+            `CONFLICTING` is the only mergeability worth a word here. `MERGEABLE`
+            is the unremarkable default, and `UNKNOWN` means GitHub has not
+            finished computing it — reporting either would be noise on every
+            healthy PR.
+          */}
+          {detail?.mergeable === 'CONFLICTING' ? (
+            <span className="text-destructive">Conflicts with the base branch</span>
+          ) : null}
+        </p>
+      </div>
     </header>
   );
 }
+
 
 /**
  * The preview-deploy affordance (Phase 71 Theme D) — absent for zero

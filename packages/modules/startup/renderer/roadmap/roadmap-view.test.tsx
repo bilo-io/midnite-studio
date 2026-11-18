@@ -14,7 +14,7 @@ const m = (n: number, over: Partial<Milestone> = {}): Milestone => ({
 const company = { name: 'Acme', currency: 'GBP', address: '', invoicePrefix: 'INV-', paymentTermsDays: 30, openingCash: { minor: 0, asOf: '2026-11-01' } };
 const snapshot = (milestones: Milestone[]) => ({
   ok: true,
-  value: { workspace: { version: 1, company, milestones, lines: [], scenarios: [], customers: [], invoices: [], vendors: [], contracts: [], invoiceCounter: 0, ledger: null }, revision: 0, readOnly: false },
+  value: { workspace: { version: 4, fleetProjections: [], company, milestones, lines: [], scenarios: [], customers: [], invoices: [], vendors: [], contracts: [], invoiceCounter: 0, ledger: null }, revision: 0, readOnly: false },
 });
 
 function install(milestones: Milestone[], upsertMilestone = vi.fn(async () => snapshot(milestones))) {

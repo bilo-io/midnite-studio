@@ -1,6 +1,7 @@
 /** Labels, blurbs and glyphs for the new-game wizard's perspective and genre cards. */
 import {
   GAME_GENRES_2D,
+  hasStarter,
   GAME_GENRES_3D,
   GAME_PERSPECTIVES_2D,
   GAME_PERSPECTIVES_3D,
@@ -8,6 +9,7 @@ import {
   type GameDimension,
   type GameGenre,
   type GamePerspective,
+  type StarterGenre,
 } from '@midnite/studio-shared';
 import { LuBox, LuDoorOpen, LuEye, LuFootprints, LuMap, LuUser } from 'react-icons/lu';
 
@@ -33,6 +35,11 @@ export const GENRE_LABEL: Record<GameGenre, string> = {
   rpg: 'RPG',
   'character-action': 'Character action',
   'open-world': 'Open world',
+  shmup: 'Shoot-em-up',
+  'platformer-action': 'Action platformer',
+  racing: 'Racing',
+  puzzle: 'Puzzle',
+  arcade: 'Arcade',
 };
 
 export const BASE_PITCH: Record<GamePerspective, string> = {
@@ -63,5 +70,5 @@ export const CAMERA_LABEL: Record<GameCameraId, string> = {
 
 export const perspectivesOf = (dimension: GameDimension): readonly GamePerspective[] =>
   dimension === '2d' ? GAME_PERSPECTIVES_2D : GAME_PERSPECTIVES_3D;
-export const genresOf = (dimension: GameDimension): readonly GameGenre[] =>
-  dimension === '2d' ? GAME_GENRES_2D : GAME_GENRES_3D;
+export const genresOf = (dimension: GameDimension): readonly StarterGenre[] =>
+  (dimension === '2d' ? GAME_GENRES_2D : GAME_GENRES_3D).filter(hasStarter);

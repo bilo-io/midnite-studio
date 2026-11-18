@@ -41,7 +41,7 @@ describe('createGameLevels (Phase 132 Theme C)', () => {
     await writeFile(join(repo.path, 'levels', 'tiles.png'), PNG);
     await repo.git(['add', '.']);
     await repo.git(['commit', '-m', 'Initial commit']);
-    game = { gameId: 'g1', name: 'G', path: repo.path, engine: 'phaser', dimension: '2d', starter: 'blank', dirty: false, valid: true, issue: null };
+    game = { gameId: 'g1', name: 'G', path: repo.path, engine: 'phaser', dimension: '2d', starter: 'blank', dirty: false, valid: true, issue: null, status: null, findingCount: 0 };
     send = vi.fn<(channel: string, payload: unknown) => void>();
     goto = vi.fn(async () => ({ ok: true, value: { via: 'hook' } }));
     levels = createGameLevels({
@@ -254,6 +254,45 @@ describe('createGameLevels (Phase 132 Theme C)', () => {
       await repo.writeFile(GAME_MANIFEST_FILE, manifest({ assets: [asset('obj', 'assets/model/a.obj'), asset('gone', 'assets/model/gone.glb'), asset('out', 'escape.glb')] }));
       for (const name of ['nope', 'obj', 'gone', 'out']) expect(await levels.model('g1', name)).toMatchObject({ ok: false, kind: 'error' });
       expect(await levels.model('nope', 'house')).toMatchObject({ ok: false });
+    });
+  });
+  describe('assetThumb (Phase 139 Theme A)', () => {
+    const img = (name: string, kind: string, path: string) => ({ name, kind, path, source: { tab: kind === 'tileset' ? 'sprite' : kind, repoId: null, path: 'x' }, sha256: `sha-${name}`, importedAt: '2026-11-14T00:00:00Z' });
+
+    it('answers a sprite as a png data url with its manifest sha (A1)', async () => {
+      await repo.writeFile(GAME_MANIFEST_FILE, manifest({ assets: [img('hero', 'sprite', 'assets/sprite/hero.png')] }));
+      await repo.writeFile('assets/sprite/hero.png', '');
+      await writeFile(join(repo.path, 'assets/sprite/hero.png'), PNG);
+      expect(await levels.assetThumb('g1', 'hero')).toEqual({ ok: true, value: { name: 'hero', mime: 'image/png', dataUrl: `data:image/png;base64,${PNG.toString('base64')}`, sha256: 'sha-hero' } });
+    });
+
+    it('resolves a folder asset through its atlas json image', async () => {
+      await repo.writeFile(GAME_MANIFEST_FILE, manifest({ assets: [img('atlas', 'tileset', 'assets/tileset/atlas')] }));
+      await repo.writeFile('assets/tileset/atlas/atlas.json', JSON.stringify({ image: 'sheet.png' }));
+      await repo.writeFile('assets/tileset/atlas/sheet.png', '');
+      await writeFile(join(repo.path, 'assets/tileset/atlas/sheet.png'), PNG);
+      expect(await levels.assetThumb('g1', 'atlas')).toMatchObject({ ok: true, value: { mime: 'image/png' } });
+    });
+
+    it('sends a model to games.levels.model (A2)', async () => {
+      await repo.writeFile(GAME_MANIFEST_FILE, manifest({ assets: [img('house', 'model', 'assets/model/house.glb')] }));
+      expect(await levels.assetThumb('g1', 'house')).toEqual({ ok: false, kind: 'error', message: 'Model thumbnails come from games.levels.model.' });
+    });
+
+    it('refuses a symlink out of the game (A3)', async () => {
+      await symlink('/etc/hosts', join(repo.path, 'escape.png'));
+      await repo.writeFile(GAME_MANIFEST_FILE, manifest({ assets: [img('out', 'image', 'escape.png')] }));
+      expect(await levels.assetThumb('g1', 'out')).toMatchObject({ ok: false, kind: 'error' });
+      expect(await levels.assetThumb('g1', 'nope')).toMatchObject({ ok: false });
+    });
+
+    it('fails an over-cap file with its size (A4)', async () => {
+      await repo.writeFile(GAME_MANIFEST_FILE, manifest({ assets: [img('big', 'image', 'big.png')] }));
+      await repo.writeFile('big.png', '');
+      await writeFile(join(repo.path, 'big.png'), Buffer.alloc(2 * 1024 * 1024 + 1));
+      const result = await levels.assetThumb('g1', 'big');
+      expect(result).toMatchObject({ ok: false });
+      expect(JSON.stringify(result)).toContain('2.0 MB');
     });
   });
 });

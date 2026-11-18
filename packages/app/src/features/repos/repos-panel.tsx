@@ -1164,7 +1164,7 @@ export function RepoTree({
    * CI verdicts for the branch dots — from cache only, never fetched for.
    *
    * `enabled: false` is doing real work here. It closes the loop
-   * `todo/outstanding.md` left open ("Branch checks — the RAG dot's real
+   * `.midnite/tasks/outstanding.md` left open ("Branch checks — the RAG dot's real
    * source") without paying for it: if the user has opened Actions on this
    * repo, the runs are already in the query cache and every branch tip that
    * matches one gets a real red/amber/green. If they have not, this fetches

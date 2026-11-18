@@ -1,19 +1,36 @@
 import {
   EVENT_CHANNELS,
   gameEngineWarnings,
+  levelEntityTypes,
+  queryLevel,
+  GAME_PLACEABLE_ASSET_KINDS,
+  prefabFromObjects,
+  scatterOps,
+  type GamePrefab,
+  validateLevel,
   MCP_CONTENT_KEY,
+  GameLevelSelectOutputSchema,
+  LevelFrameValueSchema,
+  LevelViewValueSchema,
   type GameImportAssetRequest,
   type GameImportAssetResult,
   type GameInputEvent,
   type GameLogLevel,
   type GameSummary,
+  type LevelEditorRequest,
+  type LevelOp,
   type McpContentBlock,
   type McpToolInput,
   type McpToolOutput,
+  resolvePlayFromSpawn,
 } from '@midnite/studio-shared';
 
 import { McpToolError } from '@midnite/studio-runtime';
+import type { z } from 'zod';
 
+import { readLevelForTool } from './game-level-source';
+import { LEVEL_EDITOR_TIMEOUT_MESSAGE, LEVEL_EDITOR_VIEW_TIMEOUT_MS } from './level-editor-bridge';
+import { writeLevelOps } from './level-agent-writes';
 import type { GameService } from './game-service';
 import { clipError, readGameState } from './game-state';
 import type { Playtests } from './playtest';
@@ -52,7 +69,7 @@ export type GameImage = {
 };
 
 export type GameMcpDeps = {
-  service: Pick<GameService, 'resolve' | 'list' | 'levels' | 'goto' | 'create' | 'manifestGet' | 'manifestSet' | 'run' | 'stop' | 'reload' | 'logs' | 'emit' | 'isRunning'>;
+  service: Pick<GameService, 'resolve' | 'list' | 'levels' | 'levelEditor' | 'goto' | 'doctor' | 'doctorFix' | 'create' | 'manifestGet' | 'manifestSet' | 'run' | 'entities' | 'debug' | 'stop' | 'reload' | 'logs' | 'emit' | 'isRunning'>;
   /** The running game's web contents, or `null` when it is not running. */
   webContents: (gameId: string) => GamePageContents | null;
   /** The asset bridge's import (Theme N). */
@@ -86,7 +103,25 @@ export type GameMcpTools = {
     | 'game_level_list'
     | 'game_level_get'
     | 'game_level_set'
-    | 'game_goto']: (input: McpToolInput<K>) => Promise<McpToolOutput<K>>;
+    | 'game_level_query'
+    | 'game_level_validate'
+    | 'game_entity_batch'
+    | 'game_entity_add'
+    | 'game_entity_update'
+    | 'game_entity_delete'
+    | 'game_level_select'
+    | 'game_level_frame'
+    | 'game_level_view'
+    | 'game_goto'
+    | 'game_play_from'
+    | 'game_entities'
+    | 'game_debug_overlay'
+    | 'game_doctor'
+    | 'game_doctor_fix'
+    | 'game_assets_list'
+    | 'game_prefab_list'
+    | 'game_prefab_save'
+    | 'game_level_scatter']: (input: McpToolInput<K>) => Promise<McpToolOutput<K>>;
 };
 
 export { GAME_STATE_TIMEOUT_MS } from './game-state';
@@ -95,6 +130,9 @@ export const GAME_INPUT_SETTLE_MS = 100;
 /** A screenshot burst stops adding frames once its base64 passes this (the response cap is 4 MB). */
 export const GAME_SCREENSHOT_BYTES_MAX = 3 * 1024 * 1024;
 const NOT_RUNNING = 'Run the game first.';
+const notOpenMessage = (scene: string): string => `Open ${scene} in Media ▸ Games ▸ Level editor first.`;
+/** `game_level_view` stops halving a too-large image at this width. */
+const LEVEL_VIEW_MIN_WIDTH = 128;
 const NOT_A_GAME_PATH = 'That folder is not a Midnite game.';
 const NO_GAMEPAD_HOOK = 'This game has no gamepad hook (window.__midnite.input.gamepad), so gamepad events cannot be sent.';
 
@@ -151,6 +189,47 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
     if (result.ok) return result.value;
     const text = result.message ?? 'That did not work.';
     throw new McpToolError(/no level|not found|does not exist/i.test(text) ? 'not-found' : 'error', clip(text));
+  };
+
+  /** The `game_entity_*` write path: ops from the tool's input, applied in the editor or to the file (Theme E). */
+  const writeEntityOps = async (
+    input: { game: string; scene: string; unit: 'px' | 'm'; label?: string | undefined; save?: boolean | undefined; select: boolean },
+    ops: LevelOp[],
+  ): Promise<McpToolOutput<'game_entity_batch'>> => {
+    const found = await need(input.game);
+    return unwrapLevel(
+      await writeLevelOps(
+        {
+          levels: deps.service.levels,
+          levelEditor: deps.service.levelEditor,
+          prefab: async (gameId, name) => {
+            const got = await deps.service.levels.prefabs.get(gameId, name);
+            return got.ok ? got.value.prefab : null;
+          },
+          modelAssets: async (gameId) => {
+            const { manifest } = await deps.service.manifestGet(gameId);
+            return manifest ? manifest.assets.filter((a) => a.kind === 'model').map((a) => a.name) : null;
+          },
+        },
+        { gameId: found.gameId, scene: input.scene, ops, unit: input.unit, label: input.label, save: input.save ?? false, select: input.select },
+      ),
+    );
+  };
+
+  /**
+   * One request to the open Level editor (Phase 138 Themes G, H). A closed editor, an unread scene and a timeout all
+   * read the same to an agent: open the scene first. A failure the renderer reports (a capture error) keeps its message.
+   */
+  const askEditor = async <T>(request: LevelEditorRequest, schema: z.ZodType<T>, opts?: { timeoutMs?: number }): Promise<T> => {
+    const answer = await deps.service.levelEditor.request(request, opts);
+    if (!answer.ok) {
+      const text = 'message' in answer && answer.message ? answer.message : '';
+      throw new McpToolError('error', !text || text === LEVEL_EDITOR_TIMEOUT_MESSAGE ? notOpenMessage(request.scene) : clip(text));
+    }
+    if (!answer.value.handled) throw new McpToolError('error', notOpenMessage(request.scene));
+    const parsed = schema.safeParse(answer.value.value);
+    if (!parsed.success) throw new McpToolError('error', 'The level editor answered something this build cannot read.');
+    return parsed.data;
   };
 
   const playtests = (): Playtests => {
@@ -345,10 +424,159 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
       return { ok: true as const, gameId: found.gameId, sha: written.sha };
     },
 
+    async game_level_query({ game, scene, ...query }) {
+      const found = await need(game);
+      const read = unwrapLevel(await readLevelForTool(deps.service, found.gameId, scene));
+      return { source: read.source, dirty: read.dirty, ...queryLevel(read.level, query) };
+    },
+
+    async game_entity_batch(input) {
+      return writeEntityOps(input, input.ops);
+    },
+
+    async game_entity_add(input) {
+      return writeEntityOps(
+        input,
+        input.entities.map((entity): LevelOp => ({ op: 'add', entity, ...(input.layer === undefined ? {} : { layer: input.layer }) })),
+      );
+    },
+
+    async game_entity_update(input) {
+      return writeEntityOps(
+        input,
+        input.updates.map((u): LevelOp => ({ op: 'update', id: u.id, set: u.set, ...(u.unset ? { unset: u.unset } : {}) })),
+      );
+    },
+
+    async game_entity_delete(input) {
+      return writeEntityOps(
+        input,
+        input.ids.map((id): LevelOp => ({ op: 'delete', id })),
+      );
+    },
+
+    async game_level_select({ game, scene, ids, frame }) {
+      const found = await need(game);
+      return askEditor({ kind: 'select', gameId: found.gameId, scene, ids, frame }, GameLevelSelectOutputSchema);
+    },
+
+    async game_level_frame({ game, scene, ids, region }) {
+      const found = await need(game);
+      const framed = await askEditor(
+        { kind: 'frame', gameId: found.gameId, scene, ...(ids === undefined ? {} : { ids }), ...(region === undefined ? {} : { region }) },
+        LevelFrameValueSchema,
+      );
+      return { framed: true as const, view: framed.view };
+    },
+
+    async game_level_view({ game, scene, view, camera, preset, width, height }) {
+      const found = await need(game);
+      let w = width;
+      let h = height;
+      for (;;) {
+        const seen = await askEditor(
+          { kind: 'view', gameId: found.gameId, scene, view, ...(camera === undefined ? {} : { camera }), preset, width: w, height: h },
+          LevelViewValueSchema,
+          { timeoutMs: LEVEL_EDITOR_VIEW_TIMEOUT_MS },
+        );
+        // The response cap is on the base64; an over-size image is asked for again at half the size.
+        if (seen.png.length > GAME_SCREENSHOT_BYTES_MAX) {
+          if (w <= LEVEL_VIEW_MIN_WIDTH) throw new McpToolError('error', 'The level image is larger than the response limit even when small.');
+          w = Math.max(LEVEL_VIEW_MIN_WIDTH, Math.floor(w / 2));
+          h = Math.max(LEVEL_VIEW_MIN_WIDTH, Math.floor(h / 2));
+          continue;
+        }
+        const summary = { view: seen.view, camera: seen.camera, objects: seen.objects, width: seen.width, height: seen.height };
+        return { [MCP_CONTENT_KEY]: [{ type: 'text', text: JSON.stringify(summary) }, { type: 'image', data: seen.png, mimeType: 'image/png' }] satisfies McpContentBlock[] };
+      }
+    },
+
+    async game_level_validate({ game, scene }) {
+      const found = await need(game);
+      const read = unwrapLevel(await readLevelForTool(deps.service, found.gameId, scene));
+      const { manifest } = await deps.service.manifestGet(found.gameId);
+      const modelAssets = manifest ? manifest.assets.filter((a) => a.kind === 'model').map((a) => a.name) : null;
+      const issues = validateLevel(read.level, { entityTypes: levelEntityTypes(read.level), modelAssets });
+      const counts = { error: 0, warning: 0, info: 0 };
+      for (const issue of issues) counts[issue.severity]++;
+      return { source: read.source, counts, issues };
+    },
+
     async game_goto({ game, scene }) {
       const found = await need(game);
       const jumped = unwrapLevel(await deps.service.goto(found.gameId, scene));
       return { gameId: found.gameId, via: jumped.via };
+    },
+
+    async game_play_from({ game, scene, at, objectId, unit, useEditor }) {
+      const found = await need(game);
+      let read: { level: unknown; source: 'editor' | 'file' };
+      if (useEditor) read = unwrapLevel(await readLevelForTool(deps.service, found.gameId, scene));
+      else read = { level: unwrapLevel(await deps.service.levels.get(found.gameId, scene)).level, source: 'file' };
+      const start = resolvePlayFromSpawn(read.level, { at, objectId, unit });
+      if ('error' in start) throw new McpToolError('not-found', start.error);
+      const previewed = unwrapLevel(await deps.service.levels.preview({ gameId: found.gameId, scene, level: read.level, spawn: start.spawn }));
+      return { url: previewed.url, via: previewed.via, source: read.source };
+    },
+
+    async game_entities({ game, types, limit }) {
+      const found = await need(game);
+      if (!deps.service.isRunning(found.gameId)) throw new McpToolError('error', NOT_RUNNING);
+      const result = unwrap(await deps.service.entities.get(found.gameId));
+      const wanted = types && types.length > 0 ? result.entities.filter((e) => types.includes(e.type)) : result.entities;
+      const entities = wanted.slice(0, limit);
+      return { ...result, entities, truncated: result.truncated || wanted.length > entities.length };
+    },
+
+    async game_debug_overlay({ game, colliders, triggers, nav }) {
+      const found = await need(game);
+      if (!deps.service.isRunning(found.gameId)) throw new McpToolError('error', NOT_RUNNING);
+      const patch = { ...(colliders === undefined ? {} : { colliders }), ...(triggers === undefined ? {} : { triggers }), ...(nav === undefined ? {} : { nav }) };
+      return { applied: unwrap(await deps.service.debug(found.gameId, patch)) };
+    },
+
+    async game_doctor({ game }) {
+      const found = await need(game);
+      // By path: `need` already resolved the game, so this skips a second listing.
+      return unwrap(await deps.service.doctor({ path: found.path }));
+    },
+
+    async game_doctor_fix({ game, fixId, genre, build }) {
+      const found = await need(game);
+      return unwrap(await deps.service.doctorFix({ path: found.path, fixId, genre, build }));
+    },
+
+    async game_assets_list({ game, kinds }) {
+      const found = await need(game);
+      const { manifest } = await deps.service.manifestGet(found.gameId);
+      const placeable = GAME_PLACEABLE_ASSET_KINDS as readonly string[];
+      const assets = (manifest?.assets ?? [])
+        .filter((a) => !kinds || kinds.includes(a.kind))
+        .map((a) => ({ name: a.name, kind: a.kind, path: a.path, placeable: placeable.includes(a.kind) }));
+      return { assets };
+    },
+
+    async game_prefab_list({ game }) {
+      const found = await need(game);
+      return unwrapLevel(await deps.service.levels.prefabs.list(found.gameId));
+    },
+
+    async game_prefab_save({ game, name, dimension, objects, description }) {
+      const found = await need(game);
+      const prefab: GamePrefab = prefabFromObjects(name, dimension, objects, description);
+      return unwrapLevel(await deps.service.levels.prefabs.set(found.gameId, prefab));
+    },
+
+    async game_level_scatter({ game, scene, area, options, layer, label, save, select }) {
+      const found = await need(game);
+      const read = unwrapLevel(await readLevelForTool(deps.service, found.gameId, scene));
+      const seed = options.seed ?? Math.floor(Math.random() * 2 ** 31);
+      const { ops, points, capped } = scatterOps({ level: read.level, area, options: { ...options, seed }, layer, instanceId: () => crypto.randomUUID().slice(0, 8) });
+      if (ops.length === 0) {
+        throw new McpToolError('error', points === 0 ? 'Nothing to scatter: the area is already as dense as `density` asks, or too small for `spacing`.' : 'Nothing to scatter.');
+      }
+      const written = await writeEntityOps({ game: found.gameId, scene, unit: 'px', label: label ?? `Scatter ${ops.length} objects`, save, select }, ops);
+      return { ...written, points, capped };
     },
 
     async game_state({ game }) {

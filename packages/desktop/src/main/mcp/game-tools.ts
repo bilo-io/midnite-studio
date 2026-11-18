@@ -41,11 +41,68 @@ export const gameState = async (input: McpToolInput<'game_state'>): Promise<McpT
 
 export const gameLevelList = async (input: McpToolInput<'game_level_list'>): Promise<McpToolOutput<'game_level_list'>> =>
   tools().game_level_list(input);
+export const gameDoctor = async (input: McpToolInput<'game_doctor'>): Promise<McpToolOutput<'game_doctor'>> => tools().game_doctor(input);
+export const gameDoctorFix = async (input: McpToolInput<'game_doctor_fix'>): Promise<McpToolOutput<'game_doctor_fix'>> => {
+  allowed();
+  return tools().game_doctor_fix(input);
+};
+export const gameAssetsList = async (input: McpToolInput<'game_assets_list'>): Promise<McpToolOutput<'game_assets_list'>> =>
+  tools().game_assets_list(input);
+export const gamePrefabList = async (input: McpToolInput<'game_prefab_list'>): Promise<McpToolOutput<'game_prefab_list'>> =>
+  tools().game_prefab_list(input);
+export const gamePrefabSave = async (input: McpToolInput<'game_prefab_save'>): Promise<McpToolOutput<'game_prefab_save'>> => {
+  allowed();
+  return tools().game_prefab_save(input);
+};
+export const gameLevelScatter = async (input: McpToolInput<'game_level_scatter'>): Promise<McpToolOutput<'game_level_scatter'>> => {
+  allowed();
+  return tools().game_level_scatter(input);
+};
 export const gameLevelGet = async (input: McpToolInput<'game_level_get'>): Promise<McpToolOutput<'game_level_get'>> =>
   tools().game_level_get(input);
 export const gameLevelSet = async (input: McpToolInput<'game_level_set'>): Promise<McpToolOutput<'game_level_set'>> => {
   allowed();
   return tools().game_level_set(input);
+};
+export const gameLevelQuery = async (input: McpToolInput<'game_level_query'>): Promise<McpToolOutput<'game_level_query'>> =>
+  tools().game_level_query(input);
+export const gameLevelValidate = async (input: McpToolInput<'game_level_validate'>): Promise<McpToolOutput<'game_level_validate'>> =>
+  tools().game_level_validate(input);
+export const gameEntityBatch = async (input: McpToolInput<'game_entity_batch'>): Promise<McpToolOutput<'game_entity_batch'>> => {
+  allowed();
+  return tools().game_entity_batch(input);
+};
+export const gameEntityAdd = async (input: McpToolInput<'game_entity_add'>): Promise<McpToolOutput<'game_entity_add'>> => {
+  allowed();
+  return tools().game_entity_add(input);
+};
+export const gameEntityUpdate = async (input: McpToolInput<'game_entity_update'>): Promise<McpToolOutput<'game_entity_update'>> => {
+  allowed();
+  return tools().game_entity_update(input);
+};
+export const gameEntityDelete = async (input: McpToolInput<'game_entity_delete'>): Promise<McpToolOutput<'game_entity_delete'>> => {
+  allowed();
+  return tools().game_entity_delete(input);
+};
+export const gameLevelSelect = async (input: McpToolInput<'game_level_select'>): Promise<McpToolOutput<'game_level_select'>> => {
+  allowed();
+  return tools().game_level_select(input);
+};
+export const gameLevelFrame = async (input: McpToolInput<'game_level_frame'>): Promise<McpToolOutput<'game_level_frame'>> => {
+  allowed();
+  return tools().game_level_frame(input);
+};
+export const gameLevelView = async (input: McpToolInput<'game_level_view'>): Promise<McpToolOutput<'game_level_view'>> =>
+  tools().game_level_view(input);
+export const gamePlayFrom = async (input: McpToolInput<'game_play_from'>): Promise<McpToolOutput<'game_play_from'>> => {
+  allowed();
+  return tools().game_play_from(input);
+};
+export const gameEntities = async (input: McpToolInput<'game_entities'>): Promise<McpToolOutput<'game_entities'>> =>
+  tools().game_entities(input);
+export const gameDebugOverlay = async (input: McpToolInput<'game_debug_overlay'>): Promise<McpToolOutput<'game_debug_overlay'>> => {
+  allowed();
+  return tools().game_debug_overlay(input);
 };
 export const gameGoto = async (input: McpToolInput<'game_goto'>): Promise<McpToolOutput<'game_goto'>> => {
   allowed();
