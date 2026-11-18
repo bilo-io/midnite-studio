@@ -80,11 +80,15 @@ shows nothing and a failure shows inline. `formatMoney` moved to `packages/share
 can use it; the renderer path re-exports it. The Phase 150-era ticks on the service handlers and tests were false (the
 ops still returned "not available") and are now real.
 
-**Theme F — Energy switch and Phase 150 polish.** ◻ "Scale energy with utilisation" in Global controls. Duplicate
-selects the copy, and list rows become individually focusable.
+**Theme F — Energy switch and Phase 150 polish.** ✅ "Scale energy with utilisation" is a `role="switch"` in Global controls.
+Duplicate selects the copy (found right after its source in the returned snapshot), and the list is a roving tabindex:
+the selected row, or the first when none is, is the only tab stop, and arrow keys carry focus with the selection. The
+earlier `[x]` on the F tests was false (no switch or duplicate test existed) and is now real.
 
-**Theme G — Verification.** ◻ Vitest to the minor unit for the migration, model, line generation and CSV. One
-functional e2e for send → edit → stale → update.
+**Theme G — Verification.** ✅ One functional e2e (send -> edit Scale -> Stale in both views -> update -> clears) over an
+opt-in stateful `startup.*` stub in `suite-bridge.ts` (`statefulStartup`), which writes lines from the real
+`fleetToRunwayLines`. The fleet fixture now has a USD company and is named "GPU cluster". `STARTUP_BASE` was already v3
+with `fleetCatalog: null`. The e2e ratchet cap went 493 -> 494.
 
 ## Build order
 
@@ -330,9 +334,9 @@ set `version: 3`. **Numbers are not converted:** no release carried v2 (checked 
 
 ### F — Energy switch and Phase 150 polish (S)
 
-- [ ] `controls-panel.tsx` Global group gets a `role="switch"` labelled "Scale energy with utilisation", wired to
+- [x] `controls-panel.tsx` Global group gets a `role="switch"` labelled "Scale energy with utilisation", wired to
   `globals.energyScalesWithUtilisation` through `update`.
-- [ ] `projection-list.tsx`:
+- [x] `projection-list.tsx`:
   - Duplicate selects the new copy once the snapshot returns it. Find it by id from the op's returned snapshot, as
     the copy directly after the source.
   - Rows use a roving tabindex: the selected row is `tabIndex=0` and the others `-1`. Up/Down still move, Tab leaves
@@ -342,17 +346,17 @@ set `version: 3`. **Numbers are not converted:** no release carried v2 (checked 
 
 ### G — Verification (M)
 
-- [ ] Fixtures:
+- [x] Fixtures:
   - `renderer/projections/test-fixtures.ts` gains `fleetCatalog()` (`seedFleetCatalog('USD')`).
   - `packages/app/test-support/suite-bridge.ts` `STARTUP_BASE` moves to `version: 3` with `fleetCatalog: null`.
   - `STARTUP_FLEET_ANSWERS` gets a company in USD, so Send is enabled.
-- [ ] Functional e2e: `packages/app/e2e/suite-shell/startup-projections.spec.ts` gains one test, with a header
+- [x] Functional e2e: `packages/app/e2e/suite-shell/startup-projections.spec.ts` gains one test, with a header
   comment naming the browser need (a multi-view flow).
   - Send the GPU-cluster projection to Runway → Runway shows the linked lines with `From GPU cluster` badges.
   - Change Scale in Projections → both views show **Stale**.
   - Update Runway → Stale clears.
   - The suite-bridge stub must answer the new ops; extend `installSuiteBridge`'s answer map rather than special-casing.
-- [ ] The existing Startup specs and vitest suites stay green: `startup.spec.ts`, `startup-projections.spec.ts`, and
+- [x] The existing Startup specs and vitest suites stay green: `startup.spec.ts`, `startup-projections.spec.ts`, and
   the module, shared and `apps/startup` suites.
 
 ## Files this phase touches
@@ -382,8 +386,8 @@ set `version: 3`. **Numbers are not converted:** no release carried v2 (checked 
 - [ ] C — built-ins can be hidden but not deleted; a referenced custom entry cannot be deleted; a hidden entry still prices its nodes.
 - [ ] D — send is idempotent; the cap split lands in the right months; editing a linked line unlinks it; Stale appears and clears.
 - [ ] E — the CSVs open cleanly (BOM, CRLF, quoting); the PDF has no script or remote request; cancel saves nothing.
-- [ ] F — the energy switch changes OpEx only when on; Duplicate selects the copy; one tab stop for the list.
-- [ ] G — the send → stale → update e2e passes.
+- [x] F — the energy switch changes OpEx only when on; Duplicate selects the copy; one tab stop for the list.
+- [x] G — the send → stale → update e2e passes.
 - [ ] **Open, for a human:** in a packaged build with a GBP company, edit the catalog, send a projection, open the exported CSV in Numbers/Excel and the PDF in Preview.
 
 ## Not in this phase
