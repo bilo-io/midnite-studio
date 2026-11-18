@@ -381,11 +381,11 @@ set `version: 3`. **Numbers are not converted:** no release carried v2 (checked 
 
 - [ ] `moon run :typecheck :lint :test` green (in CI once Actions is unlocked; until then the focused local gate per
   the billing-lock rule, named in each PR).
-- [ ] A — v1 and v2 files reach v3 with values intact; the catalog seeds once, in the company currency (USD without one).
-- [ ] B — the formatter is identical under a hostile locale; no `formatZar` remains; the model with the switch on matches the hand fixture.
-- [ ] C — built-ins can be hidden but not deleted; a referenced custom entry cannot be deleted; a hidden entry still prices its nodes.
-- [ ] D — send is idempotent; the cap split lands in the right months; editing a linked line unlinks it; Stale appears and clears.
-- [ ] E — the CSVs open cleanly (BOM, CRLF, quoting); the PDF has no script or remote request; cancel saves nothing.
+- [x] A — v1 and v2 files reach v3 with values intact; the catalog seeds once, in the company currency (USD without one).
+- [x] B — the formatter is identical under a hostile locale; no `formatZar` remains; the model with the switch on matches the hand fixture.
+- [x] C — built-ins can be hidden but not deleted; a referenced custom entry cannot be deleted; a hidden entry still prices its nodes.
+- [x] D — send is idempotent; the cap split lands in the right months; editing a linked line unlinks it; Stale appears and clears.
+- [x] E — the CSVs open cleanly (BOM, CRLF, quoting); the PDF has no script or remote request; cancel saves nothing.
 - [x] F — the energy switch changes OpEx only when on; Duplicate selects the copy; one tab stop for the list.
 - [x] G — the send → stale → update e2e passes.
 - [ ] **Open, for a human:** in a packaged build with a GBP company, edit the catalog, send a projection, open the exported CSV in Numbers/Excel and the PDF in Preview.
