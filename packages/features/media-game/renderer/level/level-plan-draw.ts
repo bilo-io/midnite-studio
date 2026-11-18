@@ -321,7 +321,8 @@ export function drawPlan(
         ctx.beginPath();
         corners.forEach((c, i) => (i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y)));
         ctx.closePath();
-        ctx.fill();
+        // A spawn zone is an outline: it is often kilometres wide, and a fill would hide the ground it covers.
+        if (typeOf(o) !== 'spawner' || chosen) ctx.fill();
         ctx.stroke();
       } else if (path.length > 1) {
         ctx.beginPath();

@@ -77,6 +77,16 @@ describe('hitPlan', () => {
     expect(hitPlan(s.level, { x: centre.x, y: centre.y + 80 }, 1)).not.toBeNull();
   });
 
+  it('picks a spawn zone by its edge, so what lies inside it stays clickable', () => {
+    const level = level3d();
+    const layer = level.layers.find((l) => l.type === 'objectgroup')!;
+    layer.objects = [...(layer.objects ?? []), { id: 99, name: 'zone', type: 'spawner', x: 0, y: 0, width: 600, height: 600 }];
+    // The point object under the zone is still what a click on it picks; the zone's inside picks nothing.
+    expect(hitPlan(level, { x: 340, y: 336 }, 1)).toEqual({ layerId: layer.id, objectId: 1 });
+    expect(hitPlan(level, { x: 100, y: 500 }, 1)).toBeNull();
+    expect(hitPlan(level, { x: 300, y: 2 }, 1)).toEqual({ layerId: layer.id, objectId: 99 });
+  });
+
   it('hits a path on a segment, and picks the topmost object', () => {
     const level = level3d();
     const id = sel(level);

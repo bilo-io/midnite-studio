@@ -92,7 +92,9 @@ export function hitPlan(level: EditLevel, p: PlanPoint, zoom: number, skip?: (re
       const corners = footprintCorners(o);
       const path = pathPoints(o);
       let hit = false;
-      if (corners) hit = insidePolygon(p, corners);
+      // A spawn zone is picked by its edge: it is often kilometres wide, and its inside must stay clickable.
+      if (corners && (o.type || o.class) === 'spawner') hit = corners.some((a, k) => distanceToSegment(p, corners[(k + 1) % corners.length]!, a) <= reach);
+      else if (corners) hit = insidePolygon(p, corners);
       else if (path.length > 1) hit = path.some((a, k) => k > 0 && distanceToSegment(p, path[k - 1]!, a) <= reach);
       else hit = Math.hypot(p.x - o.x, p.y - o.y) <= reach;
       if (hit) return { layerId: layer.id, objectId: o.id };
