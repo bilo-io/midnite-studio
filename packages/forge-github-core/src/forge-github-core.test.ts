@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -30,8 +28,9 @@ import {
   setProjectFieldMutation,
   submitReviewMutation,
 } from './index';
+import { historyFixture } from './__fixtures__/history';
 
-const history = JSON.parse(readFileSync(new URL('./__fixtures__/history.json', import.meta.url), 'utf8'));
+const history = historyFixture;
 
 describe('errors', () => {
   it('reads the first non-empty GraphQL message and caps it', () => {
@@ -80,8 +79,8 @@ describe('history', () => {
       refs: [],
       coAuthors: ['Ada <ada@example.com>'],
       sessionTrailers: ['sess-9'],
-      authorDate: 1_795_039_200,
-      committerDate: 1_795_039_500,
+      authorDate: 1_794_996_000,
+      committerDate: 1_794_996_300,
     });
     expect(page.commits[1]).toMatchObject({ sha: 'b2', authorDate: 0, authorName: '', parents: [] });
   });

@@ -1,4 +1,5 @@
-{
+/** Captured shape of one GraphQL history page (messages carry trailers; one node has no oid). */
+export const historyFixture = {
   "repository": {
     "ref": {
       "target": {
@@ -21,4 +22,4 @@
       }
     }
   }
-}
+};
