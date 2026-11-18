@@ -24,7 +24,7 @@ Today `sessions` (persistent PTYs in `packages/features/sessions/` + `packages/f
 
 ## Headlines
 
-**Theme A — Shared unified session contract (`PR-1`, S).** ◻ Defines `UnifiedSessionViewMode`, `ProviderSyncCapability`, and link fields (`linkedChatId`, `linkedTerminalId`, `engineSessionId`) in `packages/shared/src/`.
+**Theme A — Shared unified session contract (`PR-1`, S).** ✅ Already on main from #1248: `UnifiedSessionViewModeSchema`, `ProviderSyncTierSchema` and `getProviderSyncTier` in `chats.ts` (`claude`/`codex`/`agy` bidirectional, `ollama` chat-only, rest handoff-only); optional `linkedTerminalId`/`preferredView` on `ChatSchema` and `linkedChatId`/`preferredView` on the terminal session record; `session:switch-view` request/response schemas, channel and optional `window.midniteStudio.sessions.switchView`. Tests live in `chats.test.ts` and `terminal.test.ts`. No code change was needed, only this doc catch-up. The `engineSessionId` link stays on the existing `ChatEngineSessionSchema`; Theme C owns any new field.
 
 **Theme B — Antigravity PTY resume support (`PR-3`, S).** ◻ Extends `buildResumeCommand` in `packages/shared/src/terminal.ts` and `agent-conversation` lookup for `agy` (`--conversation <id>`).
 
@@ -38,10 +38,10 @@ Today `sessions` (persistent PTYs in `packages/features/sessions/` + `packages/f
 
 ### Theme A — Shared unified session contract (`S`)
 
-- [ ] **147.A.1** Add `UnifiedSessionViewModeSchema` (`z.enum(['chat', 'terminal'])`), `ProviderSyncTierSchema` (`z.enum(['bidirectional', 'handoff-only', 'chat-only'])`), and `getProviderSyncTier(agentId)` to `packages/shared/src/chats.ts` (returning `'bidirectional'` for `claude`, `codex`, `agy`; `'chat-only'` for `ollama`; `'handoff-only'` otherwise).
-- [ ] **147.A.2** Extend `ChatSchema` (`linkedTerminalId?: string`, `preferredView?: UnifiedSessionViewMode`) and `TerminalSessionRecordSchema` (`linkedChatId?: string`, `preferredView?: UnifiedSessionViewMode`) in `packages/shared/src/chats.ts` and `packages/shared/src/terminal.ts` with backwards-compatible optional defaults.
-- [ ] **147.A.3** Add Zod IPC request/result schemas for `session:switch-view` (`{ sessionId, targetView, handoffMode }`) in `packages/shared/src/ipc/` and expose on `window.midniteStudio`.
-- [ ] **147.A.4** Unit-test `getProviderSyncTier` and backward-compatible schema parsing in `packages/shared/src/chats.test.ts` and `packages/shared/src/terminal.test.ts`.
+- [x] **147.A.1** Add `UnifiedSessionViewModeSchema` (`z.enum(['chat', 'terminal'])`), `ProviderSyncTierSchema` (`z.enum(['bidirectional', 'handoff-only', 'chat-only'])`), and `getProviderSyncTier(agentId)` to `packages/shared/src/chats.ts` (returning `'bidirectional'` for `claude`, `codex`, `agy`; `'chat-only'` for `ollama`; `'handoff-only'` otherwise).
+- [x] **147.A.2** Extend `ChatSchema` (`linkedTerminalId?: string`, `preferredView?: UnifiedSessionViewMode`) and `TerminalSessionRecordSchema` (`linkedChatId?: string`, `preferredView?: UnifiedSessionViewMode`) in `packages/shared/src/chats.ts` and `packages/shared/src/terminal.ts` with backwards-compatible optional defaults.
+- [x] **147.A.3** Add Zod IPC request/result schemas for `session:switch-view` (`{ sessionId, targetView, handoffMode }`) in `packages/shared/src/ipc/` and expose on `window.midniteStudio`.
+- [x] **147.A.4** Unit-test `getProviderSyncTier` and backward-compatible schema parsing in `packages/shared/src/chats.test.ts` and `packages/shared/src/terminal.test.ts`.
 
 ### Theme B — Antigravity PTY resume support (`S`)
 
