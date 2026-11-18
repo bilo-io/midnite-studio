@@ -1,4 +1,8 @@
 // @vitest-environment node
+import { mkdtemp, symlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { TempRepo } from '@midnite/studio-git-engine';
 import { EVENT_CHANNELS, type GameSummary } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
@@ -83,6 +87,13 @@ describe('createGamePrefabs (Phase 139 Theme F)', () => {
     expect(del.ok).toBe(true);
     expect((await repo.git(['log', '-1', '--format=%s'])).trim()).toBe('Delete prefab grove');
     expect((await prefabs.list('g1'))).toEqual({ ok: true, value: { prefabs: [] } });
+  });
+
+  it('refuses to write through a levels folder that is a symlink out of the game', async () => {
+    const outside = await mkdtemp(join(tmpdir(), 'prefab-out-'));
+    await symlink(outside, join(repo.path, 'levels'));
+    const set = await prefabs.set('g1', prefab('grove'));
+    expect(set.ok).toBe(false);
   });
 
   it('an unknown game fails', async () => {

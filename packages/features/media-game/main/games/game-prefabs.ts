@@ -47,6 +47,13 @@ export function createGamePrefabs(deps: GamePrefabsDeps) {
     if (dir === null || file === null) return failure(OUTSIDE);
     // A prefabs folder (or `levels`) that is a symlink out of the game, or a prefab that is one, is not the game's own.
     try {
+      // `levels` itself may be a symlink out of the game while `levels/prefabs` does not exist yet.
+      const [realGame, realLevels] = await Promise.all([realpath(game.path), realpath(join(game.path, 'levels'))]);
+      if (realLevels !== join(realGame, 'levels')) return failure(OUTSIDE);
+    } catch {
+      // No levels folder yet.
+    }
+    try {
       const [realGame, realDir] = await Promise.all([realpath(game.path), realpath(dir)]);
       if (realDir !== join(realGame, ...GAME_PREFAB_DIR.split('/'))) return failure(OUTSIDE);
       if (!realDir.startsWith(realGame + sep)) return failure(OUTSIDE);
