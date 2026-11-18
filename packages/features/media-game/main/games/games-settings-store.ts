@@ -33,6 +33,7 @@ export function parseStoredGamesSettings(value: unknown): GamesSettings {
     defaultNetwork: pick('defaultNetwork'),
     squashRunCommits: pick('squashRunCommits'),
     pauseWhenEditing: pick('pauseWhenEditing'),
+    assetLibraryRoot: pick('assetLibraryRoot'),
   };
 }
 

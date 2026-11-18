@@ -14,6 +14,7 @@ import {
 } from '@midnite/studio-shared';
 
 import { mediaGameManifest } from '../manifest';
+import { listLibrary, readLibraryFile } from './games/asset-library';
 import type { GamesRuntime } from './games/games-runtime';
 import type { Logger } from './games/logger';
 
@@ -231,6 +232,24 @@ export const mediaGameMain = defineFeatureMain<MediaGameMainServices>({
       CHANNELS.gamesAgentUndo,
       schemas.GamesAgentUndoRequest,
       ({ gameId, sha }) => (agents ? agents.undo(gameId, sha) : failure(AGENTS_UNAVAILABLE)),
+      (issue) => failure(issue),
+    );
+
+    // The shared asset library (read-only). The root comes from settings; a failure is an envelope, never a throw.
+    handleBare(CHANNELS.gamesLibraryList, async () => {
+      try {
+        return ok(await listLibrary((await service.settings.get()).resolvedLibraryRoot ?? ''));
+      } catch (error) {
+        return failure(error instanceof Error ? error.message : 'Could not list the asset library.');
+      }
+    });
+    handle(
+      CHANNELS.gamesLibraryRead,
+      schemas.GamesLibraryReadRequest,
+      async ({ collection, path }) => {
+        const result = await readLibraryFile((await service.settings.get()).resolvedLibraryRoot ?? '', collection, path);
+        return result.ok ? ok(result.value) : failure(result.message);
+      },
       (issue) => failure(issue),
     );
 

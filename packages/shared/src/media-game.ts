@@ -338,6 +338,8 @@ export const GamesSettingsSchema = z.object({
   squashRunCommits: z.boolean(),
   /** Pause a run this window started when its Play tab is left for the level editor (Phase 132 Theme B). */
   pauseWhenEditing: z.boolean(),
+  /** The shared asset library folder; `null` means `DEFAULT_ASSET_LIBRARY_ROOT`. */
+  assetLibraryRoot: z.string().nullable().default(null),
 });
 export type GamesSettings = z.infer<typeof GamesSettingsSchema>;
 
@@ -348,6 +350,7 @@ export const DEFAULT_GAMES_SETTINGS: GamesSettings = {
   defaultNetwork: 'off',
   squashRunCommits: false,
   pauseWhenEditing: true,
+  assetLibraryRoot: null,
 };
 
 /** What the Settings page reads: the stored settings and where the default resolves. */
@@ -357,6 +360,8 @@ export const GamesSettingsReadSchema = z.object({
   resolvedRoot: z.string(),
   /** A validation message when the stored root is no longer usable, else `null`. */
   rootProblem: z.string().nullable(),
+  /** The asset library folder in use (stored value or the default), `~` expanded. Optional for older mocks. */
+  resolvedLibraryRoot: z.string().optional(),
 });
 export type GamesSettingsRead = z.infer<typeof GamesSettingsReadSchema>;
 

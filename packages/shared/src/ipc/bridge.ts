@@ -1730,6 +1730,11 @@ export type MidniteStudioBridge = {
      * provenance, and re-import it when the source changes. Each import and re-import is its own commit.
      */
     assets: {
+      /** The shared asset library: list its collections, read one file for preview. Read-only. */
+      library: {
+        list: () => Promise<z.infer<typeof S.GamesLibraryListResponse>>;
+        read: (req: In<typeof S.GamesLibraryReadRequest>) => Promise<z.infer<typeof S.GamesLibraryReadResponse>>;
+      };
       sources: (req: In<typeof S.GamesAssetSourcesRequest>) => Promise<z.infer<typeof S.GamesAssetSourcesResponse>>;
       import: (req: In<typeof S.GamesImportAssetRequest>) => Promise<z.infer<typeof S.GamesImportAssetResponse>>;
       resync: (req: In<typeof S.GamesResyncRequest>) => Promise<z.infer<typeof S.GamesResyncResponse>>;

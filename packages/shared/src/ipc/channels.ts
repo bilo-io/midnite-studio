@@ -1048,6 +1048,10 @@ export const CHANNELS = {
   gamesAgentUndo: 'mstudio:games:agent-undo',
   /** The picker's candidates for one tab, across the registered repos (Theme N). */
   gamesAssetSources: 'mstudio:games:asset-sources',
+  /** List the shared asset library's collections and assets (read-only). */
+  gamesLibraryList: 'mstudio:games:library-list',
+  /** Read one confined library file for preview. */
+  gamesLibraryRead: 'mstudio:games:library-read',
   /** Copy a media item into a game's `assets/` and commit it (Theme N). */
   gamesImportAsset: 'mstudio:games:import-asset',
   /** Check imported assets against their sources, or re-import the changed ones (Theme N). */
