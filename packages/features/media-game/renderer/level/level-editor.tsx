@@ -530,7 +530,11 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
     ? undefined
     : {
         snap: (p: PlanPoint, alt: boolean) => (is3d ? snapPlan(level, p, alt, planSnapStep(level, snapSettings)) : p),
-        onDrop: placeAsset,
+        // A drop, or the 3D view's armed ground click, ends any arming: one placement per arm.
+        onDrop: (payload: AssetDragPayload, at: PlanPoint) => {
+          arm(null);
+          placeAsset(payload, at);
+        },
       };
 
   /** Plan-view input for a 3D level: the same canvas, a different set of tools. Map pixels are object coordinates here. */
