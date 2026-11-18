@@ -69,8 +69,8 @@ export function reliefOf(terrain: Pick<GameLevelTerrain, 'heights' | 'detail' | 
     if (fine && inField(fine, x, z)) return sampleField(fine, x, z);
     if (coarse && inField(coarse, x, z)) return sampleField(coarse, x, z);
     for (const f of packs) if (inField(f, x, z)) return sampleField(f, x, z);
-    // Past every field: the nearest edge of the terrain's own, as before packs; flat when only packs have heights.
-    return packs.length === 0 && fine && !coarse ? sampleField(fine, x, z) : outside;
+    // Past every field: the fine field's nearest edge when the terrain stands alone, the stated height once packs surround it.
+    return packs.length === 0 && fine ? sampleField(fine, x, z) : outside;
   };
   return { heightAt, min, max, fine, coarse, packs };
 }
