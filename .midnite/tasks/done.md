@@ -16015,3 +16015,7 @@ The coordinator, `switch-view` handler, send hooks, link persistence and integra
 ## 2026-11-18 — Phase 146 Theme D — `packages/forge-github-core` (#1648)
 
 The forge's GitHub GraphQL queries, parsers and error mapping move into `@midnite/forge-github-core` (imports `shared` only; CJS `dist` built like git-engine, aliased to `src` for vitest, the agents bundle and mobile). Moved: the project, review-thread and error helpers; parsers now take the parsed `data` object, and forge main keeps thin `…FromStdout` wrappers. New for mobile: history, pulls, issues, repos and branches queries and parsers, plus review, comment, project-field, issue-state and create-issue mutations, each with a `{ok}` result parser. `git-engine` exports `./diff` for mobile (D6). eslint pure-core rules and layer-boundary cases added. Open: mobile's alias to the package is added in Theme E with its first import.
+
+## 2026-11-18 — Phase 147 Theme B — Antigravity PTY resume (#1646)
+
+No code needed: #1246 already made `buildResumeCommand` return `['--conversation', id]` for `agy` (trimmed, falling back to `--continue`), with tests in `terminal.test.ts`. The PR ticks 147.B.1–B.2 and writes the Theme B Headlines line.
