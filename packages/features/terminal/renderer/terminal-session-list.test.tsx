@@ -464,6 +464,19 @@ describe('TerminalSessionList — the Loops group', () => {
     expect(pill.className).toContain('emerald');
   });
 
+  it("appends the agent's own title, cut to its gist, after another chevron", () => {
+    const { name: _renamed, ...unnamed } = loopRow('guard-f', 'guard');
+    useTerminalStore.setState({
+      sessions: [{ ...unnamed, cwd: '/Users/me/Dev/midnite-studio' }],
+      autoNames: { 'guard-f': 'Midnite build iteration across FEATURES, SECURITY, ISSUES' },
+    });
+    renderWithLoopMark();
+    const gist = screen.getByTestId('terminal-session-loop-description');
+    expect(gist.textContent).toBe('build iteration');
+    expect(gist.getAttribute('title')).toBe('Midnite build iteration across FEATURES, SECURITY, ISSUES');
+    expect(screen.getByTestId('terminal-session-loop-label').querySelectorAll('svg').length).toBe(3);
+  });
+
   it('drops the brackets when the launch pinned neither model nor effort, and colours max red', () => {
     const { name: _a, ...plain } = loopRow('guard-d', 'guard');
     const { name: _b, ...maxed } = loopRow('guard-e', 'guard');

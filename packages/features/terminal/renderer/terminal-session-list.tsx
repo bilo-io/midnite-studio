@@ -770,9 +770,14 @@ function SessionRow({
           className={`min-w-0 flex-1 truncate ${live ? '' : 'text-muted-foreground'}`}
         >
           {
-            // A loop row reads "Provider (model · effort) > folder" until the user renames it.
+            // A loop row reads "Provider (model · effort) > folder > gist" until the user renames it.
             isLoopSession(session) && !session.name ? (
-              <LoopSessionLabel session={session} agentLabel={agent?.label} live={live} />
+              <LoopSessionLabel
+                session={session}
+                agentLabel={agent?.label}
+                description={autoName}
+                live={live}
+              />
             ) : (
               name
             )

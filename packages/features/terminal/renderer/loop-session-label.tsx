@@ -13,29 +13,50 @@ export function providerName(agentLabel: string | undefined): string {
   return (agentLabel ?? 'Agent').replace(/\s+(Code|CLI)$/i, '');
 }
 
+/**
+ * The agent's own title for what it is doing, cut to its gist: the leading
+ * product or folder word goes ("Midnite address issue triage" → "address
+ * issue triage"), so does everything after the first clause break ("build
+ * iteration across FEATURES, SECURITY" → "build iteration"), and at most four
+ * words are kept. The row's tooltip carries the full text.
+ */
+export function succinctDescription(text: string | undefined, folder: string): string | undefined {
+  if (!text) return undefined;
+  const lead = new Set(['midnite', folder.toLowerCase()]);
+  let words = text.trim().split(/\s+/);
+  while (words.length > 1 && lead.has(words[0]!.toLowerCase().replace(/[:,]$/, ''))) words = words.slice(1);
+  const clause = words.join(' ').split(/\s*(?:[:,;(]|\s[—–-]\s|\s(?:across|for|in|on|with)\s)/i)[0] ?? '';
+  const gist = clause.trim().split(/\s+/).slice(0, 4).join(' ');
+  return gist.length > 0 ? gist : undefined;
+}
+
 function folderName(cwd: string): string {
   const parts = cwd.split(/[\\/]+/).filter(Boolean);
   return parts[parts.length - 1] ?? cwd;
 }
 
 /**
- * A loop session's row text: **Provider** (model · effort) > 📁 folder.
+ * A loop session's row text: **Provider** (model · effort) > 📁 folder > gist.
  * The model and effort appear only when the launch actually pinned them;
  * a `--model`-less, `--effort`-less run reads just "Claude > folder".
  */
 export function LoopSessionLabel({
   session,
   agentLabel,
+  description,
   live,
 }: {
   session: Pick<TerminalSession, 'cwd' | 'loopModel' | 'loopEffort'>;
   agentLabel: string | undefined;
+  /** The agent's own title for the session (its auto-name), if it has set one. */
+  description?: string | undefined;
   live: boolean;
 }) {
   const model = LOOP_MODELS.find((m) => m.id === session.loopModel)?.label;
   const effort = LOOP_EFFORTS.find((e) => e.id === session.loopEffort);
   const rag = effort ? LOOP_EFFORT_RAG[effort.id] : null;
   const folder = folderName(session.cwd);
+  const gist = succinctDescription(description, folder);
   return (
     <span
       data-testid="terminal-session-loop-label"
@@ -63,9 +84,21 @@ export function LoopSessionLabel({
       ) : null}
       <LuChevronRight aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
       <LuFolder aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 truncate" title={session.cwd}>
+      <span className={`truncate ${gist ? 'shrink-0' : 'min-w-0'}`} title={session.cwd}>
         {folder}
       </span>
+      {gist ? (
+        <>
+          <LuChevronRight aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
+          <span
+            data-testid="terminal-session-loop-description"
+            className="min-w-0 truncate"
+            title={description}
+          >
+            {gist}
+          </span>
+        </>
+      ) : null}
     </span>
   );
 }
