@@ -24,7 +24,7 @@ describe('levelContextMenu', () => {
   it('I1: one selected object gets the documented order, without Align', () => {
     const { s, refs } = setup();
     const items = levelContextMenu(selectOnly(s, refs[0]!), { kind: 'object', ref: refs[0]! }, ctx, actions());
-    expect(labels(items)).toEqual(['Cut', 'Copy', 'Paste', 'Duplicate', '|', 'Frame', 'Hide', 'Lock', 'Select all “prop”', '|', 'Delete']);
+    expect(labels(items)).toEqual(['Cut', 'Copy', 'Paste', 'Duplicate', '|', 'Frame', 'Hide', 'Lock', 'Select all “prop”', '|', 'Save as prefab…', '|', 'Delete']);
     expect((items.at(-1) as { danger?: boolean }).danger).toBe(true);
   });
 
@@ -32,7 +32,7 @@ describe('levelContextMenu', () => {
     const { s, refs } = setup();
     const state = addSelected(selectOnly(s, null), refs);
     const items = levelContextMenu(state, { kind: 'object', ref: refs[0]! }, ctx, actions());
-    expect(labels(items)).toEqual(['Cut', 'Copy', 'Paste', 'Duplicate', '|', 'Frame', 'Hide', 'Lock', 'Select all “prop”', '|', 'Align', '|', 'Delete']);
+    expect(labels(items)).toEqual(['Cut', 'Copy', 'Paste', 'Duplicate', '|', 'Frame', 'Hide', 'Lock', 'Select all “prop”', '|', 'Save as prefab…', '|', 'Align', '|', 'Delete']);
     const align = items.find((i) => 'submenu' in i) as { submenu: FrameMenuEntry[] };
     expect(align.submenu).toHaveLength(6);
   });

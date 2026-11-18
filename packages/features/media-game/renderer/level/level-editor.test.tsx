@@ -13,7 +13,7 @@ import { useLevelViewStore } from './3d/level-view-store';
 import { DEFAULT_LEVEL_SNAP } from './level-snap';
 import { LevelEditor } from './level-editor';
 import { useDoctorRequest } from '../game-doctor-store';
-import { addObject, selectOnly } from './level-edit-model';
+import { addObject, addSelected, selectOnly } from './level-edit-model';
 import { useLevelOutlinerStore } from './level-outliner-store';
 import { useLevelStore } from './level-store';
 import { blankLevel, blankLevel3d, installBridge, newClient, removeBridge, stubCanvas, stubPointerEvents } from './test-helpers';
@@ -829,5 +829,82 @@ describe('LevelEditor, dropping an asset (Phase 139 Theme D)', () => {
     expect(objects()).toHaveLength(before + 1);
     expect(objects().at(-1)).toMatchObject({ type: 'prop', properties: [{ name: 'model', value: 'tree.glb' }] });
     expect(assetDragStore.get().armed).toBeNull();
+  });
+});
+
+describe('LevelEditor, prefabs (Phase 139 Theme G)', () => {
+  const prefabSet = vi.fn();
+  const prefabDelete = vi.fn();
+  const prefabGet = vi.fn();
+  const prefabList = vi.fn();
+  const objects = () => useLevelStore.getState().byGame.g1!.edit.level.layers.filter((l) => l.type === 'objectgroup').flatMap((l) => l.objects ?? []);
+  const crate = { name: 'crate-stack', version: 1, dimension: '2d', objects: [{ type: 'crate', x: -8, y: 0, width: 8, height: 8 }, { type: 'crate', x: 8, y: 0, width: 8, height: 8 }] };
+  beforeEach(() => {
+    for (const m of [prefabSet, prefabDelete, prefabGet, prefabList]) m.mockReset();
+    prefabSet.mockResolvedValue({ ok: true, value: { sha: 's' } });
+    prefabDelete.mockResolvedValue({ ok: true, value: { sha: 'd' } });
+    prefabGet.mockResolvedValue({ ok: true, value: { prefab: crate } });
+    prefabList.mockResolvedValue({ ok: true, value: { prefabs: [{ name: 'crate-stack', dimension: '2d', objects: 2 }] } });
+    installBridge({ list, get, set, doctor, doctorFix, prefabs: { list: prefabList, get: prefabGet, set: prefabSet, delete: prefabDelete } });
+    assetDragStore.set({ dragging: null, armed: null });
+  });
+
+  const withObjects = async () => {
+    const level = blankLevel();
+    const layer = level.layers.find((l) => l.type === 'objectgroup')!;
+    layer.objects = [
+      { id: 10, name: 'crate', type: 'crate', x: 40, y: 40, width: 8, height: 8, rotation: 0, visible: true },
+      { id: 11, name: 'crate', type: 'crate', x: 60, y: 40, width: 8, height: 8, rotation: 0, visible: true },
+    ];
+    level.nextobjectid = 12;
+    get.mockResolvedValue({ ok: true, value: { level, issues: [], images: [] } });
+    const { chrome, DialogHost } = createFrameChrome();
+    render(<FrameChromeProvider chrome={chrome}><QueryClientProvider client={newClient()}><LevelEditor gameId="g1" /></QueryClientProvider><DialogHost /></FrameChromeProvider>);
+    await ready();
+    return layer.id!;
+  };
+
+  it('G1: Save as prefab writes the file and tags the selection as one instance in one undo step', async () => {
+    const layerId = await withObjects();
+    act(() => useLevelStore.getState().update('g1', (s) => addSelected(selectOnly(s, { layerId, objectId: 10 }), [{ layerId, objectId: 11 }])));
+    const past = useLevelStore.getState().byGame.g1!.edit.past.length;
+    fireEvent.click(screen.getByRole('button', { name: /Save as prefab/ }));
+    fireEvent.change(screen.getByLabelText('Prefab name'), { target: { value: 'crate-stack' } });
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(prefabSet).toHaveBeenCalledTimes(1));
+    expect(prefabSet.mock.calls[0]![0]).toMatchObject({ gameId: 'g1', prefab: { name: 'crate-stack', dimension: '2d' } });
+    expect((prefabSet.mock.calls[0]![0] as { prefab: { objects: unknown[] } }).prefab.objects).toHaveLength(2);
+    await waitFor(() => expect(useLevelStore.getState().byGame.g1!.edit.past.length).toBe(past + 1));
+    const tagged = objects().filter((o) => o.properties?.some((p) => p.name === 'midnite.prefab' && p.value === 'crate-stack'));
+    expect(tagged).toHaveLength(2);
+  });
+
+  it('G5: deleting a prefab confirms with the instance count in this level', async () => {
+    const layerId = await withObjects();
+    act(() => useLevelStore.getState().update('g1', (s) => addSelected(selectOnly(s, { layerId, objectId: 10 }), [{ layerId, objectId: 11 }])));
+    fireEvent.click(screen.getByRole('button', { name: /Save as prefab/ }));
+    fireEvent.change(screen.getByLabelText('Prefab name'), { target: { value: 'crate-stack' } });
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(prefabSet).toHaveBeenCalled());
+    await waitFor(() => expect(objects().some((o) => o.properties?.some((p) => p.name === 'midnite.prefab'))).toBe(true));
+    fireEvent.click(await screen.findByRole('button', { name: /Assets/ }));
+    fireEvent.click(await screen.findByRole('radio', { name: 'Prefabs' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete prefab crate-stack' }));
+    await screen.findByRole('dialog');
+    expect(await screen.findByText(/1 instance in this level stay as plain objects/)).toBeTruthy();
+    expect(prefabDelete).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete prefab' }));
+    await waitFor(() => expect(prefabDelete).toHaveBeenCalledWith({ gameId: 'g1', name: 'crate-stack' }));
+  });
+
+  it('places an armed prefab on the next plan click as one undo step', async () => {
+    await withObjects();
+    const canvas = screen.getByTestId('level-canvas');
+    const before = objects().length;
+    act(() => arm({ kind: 'prefab', name: 'crate-stack' }));
+    fireEvent.pointerDown(canvas, { clientX: 100, clientY: 150, button: 0 });
+    fireEvent.pointerUp(canvas, { clientX: 100, clientY: 150, button: 0 });
+    await waitFor(() => expect(objects()).toHaveLength(before + 2));
+    expect(objects().slice(-2).every((o) => o.properties?.some((p) => p.name === 'midnite.prefabInstance'))).toBe(true);
   });
 });

@@ -27,12 +27,14 @@ type Bridge = {
   preview?: ReturnType<typeof vi.fn>;
   previewEnd?: ReturnType<typeof vi.fn>;
   stop?: ReturnType<typeof vi.fn>;
+  /** Phase 139 Theme G: the prefab IPC (list / get / set / delete). */
+  prefabs?: { list?: ReturnType<typeof vi.fn>; get?: ReturnType<typeof vi.fn>; set?: ReturnType<typeof vi.fn>; delete?: ReturnType<typeof vi.fn> };
 };
 
 export function installBridge(b: Bridge): void {
   (window as unknown as { midniteStudio: unknown }).midniteStudio = {
     games: {
-      levels: { list: b.list ?? vi.fn(), get: b.get ?? vi.fn(), set: b.set ?? vi.fn(), mapAsset: b.mapAsset ?? vi.fn(), assetThumb: vi.fn(), preview: b.preview ?? vi.fn(), previewEnd: b.previewEnd ?? vi.fn(),
+      levels: { list: b.list ?? vi.fn(), get: b.get ?? vi.fn(), set: b.set ?? vi.fn(), mapAsset: b.mapAsset ?? vi.fn(), assetThumb: vi.fn(), prefabs: { list: b.prefabs?.list ?? vi.fn().mockResolvedValue({ ok: true, value: { prefabs: [] } }), get: b.prefabs?.get ?? vi.fn(), set: b.prefabs?.set ?? vi.fn().mockResolvedValue({ ok: true, value: { sha: 'p' } }), delete: b.prefabs?.delete ?? vi.fn().mockResolvedValue({ ok: true, value: { sha: 'd' } }) }, preview: b.preview ?? vi.fn(), previewEnd: b.previewEnd ?? vi.fn(),
         onEditorRequest: b.onEditorRequest ?? vi.fn(() => () => undefined),
         editorReply: b.editorReply ?? vi.fn(),
         editorOpen: b.editorOpen ?? vi.fn(),
