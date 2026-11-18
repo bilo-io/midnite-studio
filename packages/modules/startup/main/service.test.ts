@@ -350,3 +350,89 @@ describe('contracts', () => {
     expect(await run(s, { op: 'openContractFile', contractId: u(70) })).toMatchObject({ ok: false, kind: 'not-found' });
   });
 });
+
+describe('investor updates', () => {
+  const upd = (n: number, period: string) => ({
+    id: u(n), period, title: `Update ${period}`, markdown: '## Highlights\nHi', createdAt: '2026-11-01T00:00:00.000Z', updatedAt: '2026-11-01T00:00:00.000Z', drafts: [],
+  });
+  const withCompany = async () => {
+    const s = await open();
+    await run(s, { op: 'updateCompany', company: company('ZAR') });
+    return s;
+  };
+  type Req = { prompt: string; agentId?: string | undefined; ollamaModel?: string | undefined };
+  const runner = (text: string) => {
+    const calls: Req[] = [];
+    const investor = {
+      run: async (r: Req) => {
+        calls.push(r);
+        return { ok: true as const, text, model: r.ollamaModel ? `ollama:${r.ollamaModel}` : (r.agentId ?? 'claude') };
+      },
+      agents: async () => [{ id: 'claude', label: 'Claude' }],
+    };
+    return { calls, investor };
+  };
+
+  it('keeps one update per period, and removes by id', async () => {
+    const s = await open();
+    expect((await run(s, { op: 'upsertInvestorUpdate', update: upd(1, '2026-10') })).ok).toBe(true);
+    expect(await run(s, { op: 'upsertInvestorUpdate', update: upd(2, '2026-10') })).toMatchObject({ ok: false, kind: 'invalid' });
+    expect((await run(s, { op: 'upsertInvestorUpdate', update: { ...upd(1, '2026-10'), markdown: 'edited' } })).ok).toBe(true);
+    expect(s.snapshot().workspace.investorUpdates).toHaveLength(1);
+    expect(s.snapshot().workspace.investorUpdates[0]!.markdown).toBe('edited');
+    expect(await run(s, { op: 'removeInvestorUpdate', id: u(9) })).toMatchObject({ ok: false, kind: 'not-found' });
+    await run(s, { op: 'removeInvestorUpdate', id: u(1) });
+    expect(s.snapshot().workspace.investorUpdates).toEqual([]);
+  });
+
+  it('drafts through the runner, returns cleaned markdown, and saves nothing', async () => {
+    const s = await withCompany();
+    const before = s.snapshot().revision;
+    const { calls, investor } = runner('```markdown\n## Highlights\nWe shipped.\n```');
+    const result = await handleStartupRequest(s, { op: 'draftInvestorUpdate', period: '2026-11', notes: 'Hiring' }, { investor, now: () => new Date('2026-11-18T10:00:00Z') });
+    expect(result).toEqual({ ok: true, value: { markdown: '## Highlights\nWe shipped.', model: 'claude' } });
+    expect(calls[0]!.prompt).toContain('Hiring');
+    expect(s.snapshot().revision).toBe(before);
+    expect(s.snapshot().workspace.investorUpdates).toEqual([]);
+  });
+
+  it('uses the stored model unless the request names one, and an Ollama setting wins over an agent', async () => {
+    const s = await withCompany();
+    const { calls, investor } = runner('x');
+    const aiSettings = { get: () => ({ agentId: 'codex', ollamaModel: '' }), set: async (v: never) => v };
+    await handleStartupRequest(s, { op: 'draftInvestorUpdate', period: '2026-11', notes: '' }, { investor, aiSettings });
+    await handleStartupRequest(s, { op: 'draftInvestorUpdate', period: '2026-11', notes: '', agentId: 'claude' }, { investor, aiSettings });
+    await handleStartupRequest(s, { op: 'draftInvestorUpdate', period: '2026-11', notes: '' }, { investor, aiSettings: { ...aiSettings, get: () => ({ agentId: 'codex', ollamaModel: 'llama3' }) } });
+    expect(calls.map((c) => [c.agentId, c.ollamaModel])).toEqual([['codex', undefined], ['claude', undefined], [undefined, 'llama3']]);
+  });
+
+  it("feeds last month's update to the prompt for tone", async () => {
+    const s = await withCompany();
+    await run(s, { op: 'upsertInvestorUpdate', update: { ...upd(1, '2026-10'), markdown: 'LAST-MONTH-TEXT' } });
+    const { calls, investor } = runner('x');
+    await handleStartupRequest(s, { op: 'draftInvestorUpdate', period: '2026-11', notes: '' }, { investor });
+    expect(calls[0]!.prompt).toContain('LAST-MONTH-TEXT');
+  });
+
+  it('refuses to draft without a company, a runner, or an answer', async () => {
+    const bare = await open();
+    const { investor } = runner('x');
+    expect(await handleStartupRequest(bare, { op: 'draftInvestorUpdate', period: '2026-11', notes: '' }, { investor })).toMatchObject({ ok: false, kind: 'invalid' });
+    const s = await withCompany();
+    expect(await run(s, { op: 'draftInvestorUpdate', period: '2026-11', notes: '' })).toMatchObject({ ok: false, kind: 'invalid' });
+    const failing = { ...investor, run: async () => ({ ok: false as const, message: 'No agent CLI' }) };
+    expect(await handleStartupRequest(s, { op: 'draftInvestorUpdate', period: '2026-11', notes: '' }, { investor: failing })).toEqual({ ok: false, kind: 'io', message: 'No agent CLI' });
+    const blank = runner('  ');
+    expect(await handleStartupRequest(s, { op: 'draftInvestorUpdate', period: '2026-11', notes: '' }, { investor: blank.investor })).toMatchObject({ ok: false, kind: 'io' });
+  });
+
+  it('answers the AI settings ops: defaults without a store, the agent list, and a test prompt', async () => {
+    const s = await open();
+    expect(await run(s, { op: 'getAiSettings' })).toEqual({ ok: true, value: { agentId: 'claude', ollamaModel: '' } });
+    expect(await run(s, { op: 'setAiSettings', settings: { agentId: 'codex', ollamaModel: '' } })).toMatchObject({ ok: false });
+    expect(await run(s, { op: 'listAiAgents' })).toEqual({ ok: true, value: [] });
+    const { investor } = runner('ready');
+    expect(await handleStartupRequest(s, { op: 'listAiAgents' }, { investor })).toEqual({ ok: true, value: [{ id: 'claude', label: 'Claude' }] });
+    expect(await handleStartupRequest(s, { op: 'testAiModel' }, { investor })).toEqual({ ok: true, value: { model: 'claude', reply: 'ready' } });
+  });
+});

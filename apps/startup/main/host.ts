@@ -2,6 +2,7 @@ import { createAccountantServices, accountantModuleMain } from '@midnite/studio-
 import {
   startupMcpDispatch,
   startupModuleMain,
+  type InvestorUpdatePorts,
   type InvoicePdfPort,
   type StartupElectron,
   type StartupMainServices,
@@ -18,6 +19,8 @@ export type StartupHostElectron = StartupElectron & {
   saveCsv: (defaultName: string) => Promise<string | null>;
   /** The invoice PDF's hidden printer and save dialog. */
   pdf?: InvoicePdfPort;
+  /** Investor updates' model runner, roster and Markdown save dialog (Phase 153 Theme D). */
+  investor?: InvestorUpdatePorts;
 };
 
 /**
@@ -43,7 +46,7 @@ export function registerStartupHost(el: StartupHostElectron): { dispose: () => P
     ...(el.warn ? { warn: el.warn } : {}),
   });
   mountModuleMains(createIpcContext(el), [
-    { module: startupModuleMain, services: { electron: el, ledger: createStartupLedgerPort(accountant.service), csv: { saveCsv: el.saveCsv }, ...(el.pdf ? { pdf: el.pdf } : {}), onReady: (r: StartupReady) => { ready = r; } } },
+    { module: startupModuleMain, services: { electron: el, ledger: createStartupLedgerPort(accountant.service), csv: { saveCsv: el.saveCsv }, ...(el.pdf ? { pdf: el.pdf } : {}), ...(el.investor ? { investor: el.investor } : {}), onReady: (r: StartupReady) => { ready = r; } } },
     { module: accountantModuleMain, services: accountant },
   ]);
   // One store, one write queue, one consent: the agent's calls and the window's are the same code path on the same state.

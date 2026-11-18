@@ -27,7 +27,7 @@ export function withBaseScenario(workspace: StartupWorkspace): StartupWorkspace 
   return { ...workspace, scenarios: [base, ...workspace.scenarios] };
 }
 
-/** v1 → v2 adds `fleetProjections: []`; v2 → v3 renames the fleet `…Cents` fields to `…Minor` (numbers kept), adds the energy switch and a null `fleetCatalog`; a version above current is read-only; anything failing the schema is corrupt. */
+/** v1 → v2 adds `fleetProjections: []`; v3 → v4 adds `investorUpdates: []`; v2 → v3 renames the fleet `…Cents` fields to `…Minor` (numbers kept), adds the energy switch and a null `fleetCatalog`; a version above current is read-only; anything failing the schema is corrupt. */
 type Rec = Record<string, unknown>;
 const isRec = (x: unknown): x is Rec => typeof x === 'object' && x !== null && !Array.isArray(x);
 
@@ -60,11 +60,17 @@ function v2ToV3(raw: unknown): unknown {
   };
 }
 
+/** v3 → v4 only adds the (defaulted) `investorUpdates` list; stated explicitly so the version bump is visible. */
+function v3ToV4(raw: unknown): unknown {
+  return isRec(raw) ? { ...raw, version: 4, investorUpdates: Array.isArray(raw['investorUpdates']) ? raw['investorUpdates'] : [] } : raw;
+}
+
 export function migrateWorkspace(raw: unknown): MigrateResult {
   const version = typeof raw === 'object' && raw !== null ? (raw as { version?: unknown }).version : undefined;
   if (typeof version === 'number' && Number.isInteger(version) && version > STARTUP_WORKSPACE_VERSION) return { ok: false, reason: 'newer-version' };
   let input: unknown = version === 1 ? { ...(raw as object), version: 2 } : raw;
   if (version === 1 || version === 2) input = v2ToV3(input);
+  if (version === 1 || version === 2 || version === 3) input = v3ToV4(input);
   const parsed = StartupWorkspaceSchema.safeParse(input);
   if (!parsed.success) return { ok: false, reason: 'corrupt' };
   return { ok: true, workspace: withBaseScenario(parsed.data) };

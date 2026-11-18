@@ -2,9 +2,10 @@ import { join } from 'node:path';
 
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell, type MenuItemConstructorOptions } from 'electron';
 
-import { guardAppWindow, createFileSink, fingerprintFile, installCrashLogging, startAppMcpServer, type LogSink } from '@midnite/studio-runtime';
+import { ensureLoginShellPathAsync, guardAppWindow, createFileSink, fingerprintFile, installCrashLogging, startAppMcpServer, type LogSink } from '@midnite/studio-runtime';
 
 import { registerStartupHost } from './host';
+import { createInvestorPorts } from './investor-runner';
 import { STARTUP_NAME, SMOKE_READY_LINE, USER_DATA_ENV, startupUserData, isSmoke } from './identity';
 import { registerReport, reportMenuTemplate } from './report';
 import { bindMetricsToWindow, registerSuiteMain, suiteRuntimeDirectory, suiteWindowOptions, type SuiteMain } from '@midnite/studio-runtime';
@@ -111,6 +112,14 @@ if (!smoke && !app.requestSingleInstanceLock()) {
         printToPdf,
         savePdf: async (defaultName) => {
           const options = { defaultPath: defaultName, filters: [{ name: 'PDF', extensions: ['pdf'] }] };
+          const result = win !== null && !win.isDestroyed() ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+          return result.canceled ? null : (result.filePath ?? null);
+        },
+      },
+      investor: {
+        ...createInvestorPorts({ ready: ensureLoginShellPathAsync() }),
+        saveMarkdown: async (defaultName) => {
+          const options = { defaultPath: defaultName, filters: [{ name: 'Markdown', extensions: ['md'] }] };
           const result = win !== null && !win.isDestroyed() ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
           return result.canceled ? null : (result.filePath ?? null);
         },

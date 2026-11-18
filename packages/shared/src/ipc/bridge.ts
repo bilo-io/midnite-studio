@@ -28,7 +28,7 @@ import type { ToolApprovalHookInfo, ToolApprovalRequest, ToolApprovalResolved } 
 import type { CompanionDigest, CompanionSnapshot } from '../companion';
 import type { CommandId } from '../keybindings';
 import type { SuiteLinkLanding } from '../suite-link';
-import type { StartupAgentConsent, StartupChangedEvent, StartupLedgerSummary, StartupPdfExport, StartupRequest, StartupResult, StartupSnapshot } from '../startup';
+import type { StartupAgentConsent, StartupAiAgent, StartupAiSettings, StartupAiTest, StartupInvestorDraft, StartupChangedEvent, StartupLedgerSummary, StartupPdfExport, StartupRequest, StartupResult, StartupSnapshot } from '../startup';
 import type { SuitePrefsSetRequest, SuitePrefsSetResponse, SuitePrefsSnapshot } from '../suite-prefs';
 import type { SongChat } from '../media-music-chat';
 import type { ModelLibraryMigrateResult, ModelLibraryNode } from '../media-model-library';
@@ -2461,6 +2461,15 @@ export type MidniteStudioBridge = {
     exportFleetProjectionCsv: (req: Omit<Extract<StartupRequest, { op: 'exportFleetProjectionCsv' }>, 'op'>) => Promise<StartupResult<StartupPdfExport>>;
     exportRunwayCsv: (req: Omit<Extract<StartupRequest, { op: 'exportRunwayCsv' }>, 'op'>) => Promise<StartupResult<StartupPdfExport>>;
     exportFleetProjectionPdf: (req: Omit<Extract<StartupRequest, { op: 'exportFleetProjectionPdf' }>, 'op'>) => Promise<StartupResult<StartupPdfExport>>;
+    upsertInvestorUpdate: (req: Omit<Extract<StartupRequest, { op: 'upsertInvestorUpdate' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    removeInvestorUpdate: (req: Omit<Extract<StartupRequest, { op: 'removeInvestorUpdate' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    draftInvestorUpdate: (req: Omit<Extract<StartupRequest, { op: 'draftInvestorUpdate' }>, 'op'>) => Promise<StartupResult<StartupInvestorDraft>>;
+    exportInvestorUpdateMd: (req: Omit<Extract<StartupRequest, { op: 'exportInvestorUpdateMd' }>, 'op'>) => Promise<StartupResult<StartupPdfExport>>;
+    exportInvestorUpdatePdf: (req: Omit<Extract<StartupRequest, { op: 'exportInvestorUpdatePdf' }>, 'op'>) => Promise<StartupResult<StartupPdfExport>>;
+    getAiSettings: () => Promise<StartupResult<StartupAiSettings>>;
+    setAiSettings: (req: Omit<Extract<StartupRequest, { op: 'setAiSettings' }>, 'op'>) => Promise<StartupResult<StartupAiSettings>>;
+    listAiAgents: () => Promise<StartupResult<StartupAiAgent[]>>;
+    testAiModel: (req: Omit<Extract<StartupRequest, { op: 'testAiModel' }>, 'op'>) => Promise<StartupResult<StartupAiTest>>;
     getAgentConsent: () => Promise<StartupResult<StartupAgentConsent>>;
     setAgentConsent: (req: Omit<Extract<StartupRequest, { op: 'setAgentConsent' }>, 'op'>) => Promise<StartupResult<StartupAgentConsent>>;
     onChanged: (handler: (e: StartupChangedEvent) => void) => Unsubscribe;

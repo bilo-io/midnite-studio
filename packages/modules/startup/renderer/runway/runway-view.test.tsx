@@ -13,7 +13,7 @@ const line: PlanLine = { id: u(5), kind: 'cost', name: 'Rent', category: 'premis
 const scenarioTwo: RunwayScenario = { id: u(9), name: 'Lean', costMultiplierBp: 8000, revenueMultiplierBp: 10000, extraLines: [] };
 const snapshot = (lines: PlanLine[], scenarios: RunwayScenario[]) => ({
   ok: true,
-  value: { workspace: { version: 3, fleetProjections: [], company, milestones: [], lines, scenarios, customers: [], invoices: [], vendors: [], contracts: [], invoiceCounter: 0, ledger: null }, revision: 0, readOnly: false },
+  value: { workspace: { version: 4, fleetProjections: [], company, milestones: [], lines, scenarios, customers: [], invoices: [], vendors: [], contracts: [], invoiceCounter: 0, ledger: null }, revision: 0, readOnly: false },
 });
 const projection = (over: object = {}) => ({
   ok: true,

@@ -13,7 +13,7 @@ const ending: Contract = { id: u(3), title: 'Office lease', counterparty: { kind
 const soon: Contract = { ...ending, id: u(4), title: 'Hosting', end: new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10) };
 const snapshot = (vendors: Vendor[], contracts: Contract[]) => ({
   ok: true,
-  value: { workspace: { version: 3, fleetProjections: [], company, milestones: [], lines: [], scenarios: [], customers: [], invoices: [], vendors, contracts, invoiceCounter: 0, ledger: null }, revision: 0, readOnly: false },
+  value: { workspace: { version: 4, fleetProjections: [], company, milestones: [], lines: [], scenarios: [], customers: [], invoices: [], vendors, contracts, invoiceCounter: 0, ledger: null }, revision: 0, readOnly: false },
 });
 function install(vendors: Vendor[], contracts: Contract[], extra: Record<string, unknown> = {}) {
   window.midniteStudio = { startup: { get: vi.fn(async () => snapshot(vendors, contracts)), onChanged: () => () => undefined, ...extra } } as unknown as typeof window.midniteStudio;

@@ -67,8 +67,7 @@ A), then **E**, then **F**.
 
 **Theme C — `startup_*` tools.** ✅ Eight tools (five reads, three safe writes) are defined in `shared`, owned by a `startup` manifest and served by Startup's own socket through `startupMcpDispatch` over `handleStartupRequest`, so an agent's write goes through the same queue as the window's. Two consent switches in Settings ▸ Agents, off by default and kept outside the workspace, decide what `tools/list` offers; Studio's own list leaves the tools out, so they appear only while Startup runs.
 
-**Theme D — Investor updates: data and drafting.** ◻ Workspace v4 `investorUpdates`, a pure fact-gatherer, a prompt
-builder and a `draftInvestorUpdate` op that runs the chosen model. Startup Settings ▸ AI picks the model.
+**Theme D — Investor updates: data and drafting.** ✅ Workspace v4 adds `investorUpdates` (v3 files migrate with an empty list), and five ops (`upsert`/`removeInvestorUpdate`, `draftInvestorUpdate`, `exportInvestorUpdateMd`/`Pdf`) join the bridge; a draft returns markdown for review and never saves, and a second update for the same month is refused. `main/investor-update.ts` gathers pre-formatted facts (book cash and burn when a book is linked, else modelled; milestones by month; linked fleet projections), builds the fixed-section prompt and unfences the reply. Startup runs it through the runtime's `runHeadlessText` over new Node-only ports (`createHeadlessTextPorts`: PATH probe of `claude`/`codex`/`agy`, direct Ollama HTTP, 180 s), with no `features/models` import. Settings ▸ AI picks the model (default Claude, stored in `ai-settings.json` beside the consent file, outside the workspace) and has a Test button. Drift: `formatMoney` was in the renderer, so it moved to shared (152 E did the same); `modelArgsFor` was already shared, and drafts use the CLI's own default model. The tick on the Tests item was false when the theme started and is now true.
 
 **Theme E — Updates view.** ◻ A rail view listing updates by month, with a markdown editor and preview, Draft with
 review-before-save, Copy, Save as .md, Save as PDF and Email draft.
@@ -180,20 +179,20 @@ drafting and view, and one e2e for draft → accept → export.
 
 ### D — Investor updates: data and drafting (M)
 
-- [ ] Workspace **v4** in `shared/src/startup.ts`:
+- [x] Workspace **v4** in `shared/src/startup.ts`:
   - `InvestorUpdateSchema = { id: z.uuid(), period: YearMonthSchema, title: z.string().trim().min(1).max(120),
     markdown: z.string().max(50_000), createdAt, updatedAt: z.iso.datetime(), drafts: z.array(z.object({ at:
     z.iso.datetime(), model: z.string().max(80) })).max(50) }`.
   - `investorUpdates: z.array(InvestorUpdateSchema).max(240).default([])`.
   - `migrateWorkspace` gets a v3 → v4 step that adds the field.
-- [ ] Ops (+ bridge + type lines):
+- [x] Ops (+ bridge + type lines):
   - `upsertInvestorUpdate { update }` — one update per `period`; a second for the same month is `invalid`.
   - `removeInvestorUpdate { id }`.
   - `draftInvestorUpdate { period, agentId?, ollamaModel?, notes: z.string().max(2000) }` → `StartupResult<{
     markdown: string; model: string }>`. It **does not save**: the renderer shows it for review first (doc-edit
     pattern).
   - `exportInvestorUpdateMd { id }` and `exportInvestorUpdatePdf { id }` → `{ saved }`.
-- [ ] `packages/modules/startup/main/investor-update.ts` (net-new, pure apart from the runner):
+- [x] `packages/modules/startup/main/investor-update.ts` (net-new, pure apart from the runner):
   - `gatherUpdateFacts(ws, period, now)`:
     - Cash and burn: from the linked book's summary when present, else modelled.
     - Runway months, revenue this month vs last, and the base scenario's next 3 months.
@@ -206,7 +205,7 @@ drafting and view, and one e2e for draft → accept → export.
     - Markdown only, ≤ 400 words.
     - The previous update's markdown, if any, is for tone continuity.
   - `cleanInvestorUpdate(raw)` unwraps an outer ```markdown fence (as doc-edit does) and trims.
-- [ ] The runner: `runHeadlessText` from Theme A with ports built in `apps/startup/main`.
+- [x] The runner: `runHeadlessText` from Theme A with ports built in `apps/startup/main`.
   - `runProcess` uses Node `child_process` through runtime.
   - `listAgents` reads installed CLIs through `resolveHeadlessAgent` over a roster probe of `claude`, `codex` and
     `agy` on `PATH`.
@@ -214,7 +213,7 @@ drafting and view, and one e2e for draft → accept → export.
     `features/models`.
   - Timeout 180 s. Model args reuse the desktop `modelArgs` table, moved to `shared/src/agent-invocation.ts` if it
     is not already there.
-- [ ] Startup Settings ▸ **AI** page (`app:startup-ai`, `LuSparkles`): model picker (installed CLI agents + "Ollama"
+- [x] Startup Settings ▸ **AI** page (`app:startup-ai`, `LuSparkles`): model picker (installed CLI agents + "Ollama"
   with a model name field), default `claude`, stored in app settings, with a "Test" button that runs a 1-line prompt.
 - [x] Tests: `investor-update.test.ts`:
   - `gatherUpdateFacts` on a seeded workspace: period boundaries, milestones bucketed, book vs modelled cash.
@@ -293,7 +292,7 @@ drafting and view, and one e2e for draft → accept → export.
 - [ ] A — commit messages and doc edits behave exactly as before; Startup runs a prompt through a stub and a real CLI.
 - [ ] B — with Studio and Startup both running, one `midnite` server lists both apps' tools and routes each call; with Studio alone the listing is unchanged.
 - [x] C — tools are invisible until consent; writes refused until the second switch; a write made by an agent shows in the open app.
-- [ ] D — a draft never saves itself; the prompt carries only gathered facts; v3 workspaces reach v4.
+- [x] D — a draft never saves itself; the prompt carries only gathered facts; v3 workspaces reach v4.
 - [ ] E — draft → accept → copy/export/email works; read-only disables.
 - [ ] **Open, for a human:** with the packaged Startup app running, connect Claude Code to `midnite`, ask "what's
   our runway?", then draft and export a real update.

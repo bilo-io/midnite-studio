@@ -3,12 +3,17 @@ import { tmpdir } from 'node:os';
 import {
   BASE_SCENARIO_ID,
   MAX_FLEET_PROJECTIONS,
+  MAX_INVESTOR_UPDATES,
   MAX_SCENARIOS,
   milestoneCycle,
   moneyCurrency,
   seedFleetCatalog,
   type Contract,
   type PlanLine,
+  type StartupAiAgent,
+  type StartupAiSettings,
+  type StartupAiTest,
+  type StartupInvestorDraft,
   type StartupRequest,
   type StartupResult,
   type StartupSnapshot,
@@ -16,6 +21,9 @@ import {
 } from '@midnite/studio-shared';
 
 import { agentConsentOp, type AgentConsentStore } from './agent-consent';
+import { aiSettingsOp, type AiSettingsStore } from './ai-settings';
+import { buildInvestorUpdatePrompt, cleanInvestorUpdate, gatherUpdateFacts } from './investor-update';
+import { exportInvestorUpdateMd, exportInvestorUpdatePdf, type SaveMarkdownPort } from './investor-update-export';
 import { fleetToRunwayLines } from './fleet-runway';
 import { ledgerSummary, linkBook } from './books';
 import { attachContractFile, confinedAttachmentPath, type ContractFilePort } from './contract-files';
@@ -34,6 +42,22 @@ function upsert<T extends { id: string }>(items: readonly T[], item: T): T[] {
 }
 
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+
+/** One prompt to the chosen model; `model` names who answered. The host builds it over the runtime's headless text. */
+export type InvestorUpdateRunner = (request: {
+  prompt: string;
+  agentId?: string | undefined;
+  ollamaModel?: string | undefined;
+}) => Promise<{ ok: true; text: string; model: string } | { ok: false; message: string }>;
+
+/** What drafting and exporting investor updates need from the host; absent in a bare test, where those ops answer a refusal. */
+export type InvestorUpdatePorts = {
+  run: InvestorUpdateRunner;
+  /** The headless-capable agent CLIs installed here. */
+  agents: () => Promise<StartupAiAgent[]>;
+  /** The save dialog for the Markdown export. */
+  saveMarkdown?: SaveMarkdownPort;
+};
 
 /** The ops whose behaviour lands in a later theme answer this until then. */
 const NOT_YET = 'This is not available in this build yet.';
@@ -59,6 +83,10 @@ export type StartupServiceDeps = {
   now?: () => Date;
   /** Startup's agent-access switches (app settings, not the workspace); absent in a bare test. */
   agentConsent?: AgentConsentStore;
+  /** Which model drafts (app settings, not the workspace); absent in a bare test. */
+  aiSettings?: AiSettingsStore;
+  /** The model runner, agent roster and save dialog for investor updates (Phase 153 Theme D). */
+  investor?: InvestorUpdatePorts;
 };
 
 /** The one cost (vendor) or revenue (customer) line a priced contract keeps in the plan, or `null` when it has no price. */
@@ -338,6 +366,41 @@ export async function handleStartupRequest(
       return problem === '' ? { ok: true, value: null } : { ok: false, kind: 'io', message: problem };
     }
 
+    case 'upsertInvestorUpdate':
+      return store.mutate((ws) => {
+        const { update } = request;
+        const existing = ws.investorUpdates.find((u) => u.id === update.id);
+        if (ws.investorUpdates.some((u) => u.id !== update.id && u.period === update.period)) {
+          return fail('invalid', `There is already an update for ${update.period}.`);
+        }
+        if (!existing && ws.investorUpdates.length >= MAX_INVESTOR_UPDATES) return fail('invalid', `A company has at most ${MAX_INVESTOR_UPDATES} updates.`);
+        const now = (deps.now?.() ?? new Date()).toISOString();
+        const next = { ...update, createdAt: existing ? existing.createdAt : update.createdAt, updatedAt: now };
+        return done({ ...ws, investorUpdates: upsert(ws.investorUpdates, next) });
+      });
+    case 'removeInvestorUpdate':
+      return store.mutate((ws) =>
+        ws.investorUpdates.some((u) => u.id === request.id)
+          ? done({ ...ws, investorUpdates: ws.investorUpdates.filter((u) => u.id !== request.id) })
+          : fail('not-found', 'That update no longer exists.'),
+      );
+    case 'draftInvestorUpdate':
+      return draftInvestorUpdate(store, request, deps);
+    case 'exportInvestorUpdateMd':
+      return exportInvestorUpdateMd(store, request.id, deps.investor?.saveMarkdown);
+    case 'exportInvestorUpdatePdf':
+      return exportInvestorUpdatePdf(store, request.id, deps.pdf, deps.tmpDir ?? tmpdir());
+
+    case 'getAiSettings':
+    case 'setAiSettings':
+      return aiSettingsOp(deps.aiSettings, request);
+    case 'listAiAgents': {
+      if (deps.investor === undefined) return { ok: true, value: [] };
+      return { ok: true, value: await deps.investor.agents().catch((): StartupAiAgent[] => []) };
+    }
+    case 'testAiModel':
+      return testAiModel(request, deps);
+
     case 'getAgentConsent':
     case 'setAgentConsent':
       return agentConsentOp(deps.agentConsent, request);
@@ -360,4 +423,51 @@ async function runwayFor(store: WorkspaceStore, deps: StartupServiceDeps, scenar
     if (cash.ok) openingCashMinor = cash.value.minor;
   }
   return { ok: true, value: projectRunway({ openingCashMinor, startMonth, lines: ws.lines, scenario, months }) };
+}
+
+/** An explicit choice in the request wins whole; otherwise the stored setting, an Ollama model before an agent. */
+function chosenModel(
+  request: { agentId?: string | undefined; ollamaModel?: string | undefined },
+  settings: StartupAiSettings,
+): { agentId: string | undefined; ollamaModel: string | undefined } {
+  if (request.agentId !== undefined || request.ollamaModel !== undefined) {
+    return { agentId: request.agentId, ollamaModel: request.ollamaModel === '' ? undefined : request.ollamaModel };
+  }
+  return settings.ollamaModel !== '' ? { agentId: undefined, ollamaModel: settings.ollamaModel } : { agentId: settings.agentId, ollamaModel: undefined };
+}
+
+const settingsOf = (deps: StartupServiceDeps): StartupAiSettings => deps.aiSettings?.get() ?? { agentId: 'claude', ollamaModel: '' };
+
+/** The draft is returned for review and never saved: the window decides whether it becomes the update. */
+async function draftInvestorUpdate(
+  store: WorkspaceStore,
+  request: Extract<StartupRequest, { op: 'draftInvestorUpdate' }>,
+  deps: StartupServiceDeps,
+): Promise<StartupResult<StartupInvestorDraft>> {
+  const ws = store.snapshot().workspace;
+  if (ws.company === null) return { ok: false, kind: 'invalid', message: 'Set up your company first.' };
+  if (deps.investor === undefined) return { ok: false, kind: 'invalid', message: 'Drafting is not available in this build.' };
+  const now = deps.now?.() ?? new Date();
+  let book = null;
+  if (deps.ledger && ws.ledger !== null) {
+    const summary = await ledgerSummary(store, deps.ledger, now);
+    if (summary.ok) book = summary.value;
+  }
+  const previous = [...ws.investorUpdates].filter((u) => u.period < request.period).sort((a, b) => b.period.localeCompare(a.period))[0];
+  const prompt = buildInvestorUpdatePrompt(gatherUpdateFacts(ws, request.period, now, book), request.notes, previous?.markdown);
+  const reply = await deps.investor.run({ prompt, ...chosenModel(request, settingsOf(deps)) });
+  if (!reply.ok) return { ok: false, kind: 'io', message: reply.message };
+  const markdown = cleanInvestorUpdate(reply.text).slice(0, 50_000);
+  if (markdown === '') return { ok: false, kind: 'io', message: `${reply.model} answered with nothing.` };
+  return { ok: true, value: { markdown, model: reply.model.slice(0, 80) } };
+}
+
+/** The Settings ▸ AI page's Test button: one short prompt, to show the model answers. */
+async function testAiModel(
+  request: Extract<StartupRequest, { op: 'testAiModel' }>,
+  deps: StartupServiceDeps,
+): Promise<StartupResult<StartupAiTest>> {
+  if (deps.investor === undefined) return { ok: false, kind: 'invalid', message: 'Drafting is not available in this build.' };
+  const reply = await deps.investor.run({ prompt: 'Reply with the single word: ready', ...chosenModel(request, settingsOf(deps)) });
+  return reply.ok ? { ok: true, value: { model: reply.model, reply: reply.text.slice(0, 200) } } : { ok: false, kind: 'io', message: reply.message };
 }
