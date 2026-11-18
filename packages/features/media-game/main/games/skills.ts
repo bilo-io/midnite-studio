@@ -8,7 +8,7 @@ import { join } from 'node:path';
 export const GAME_SKILL_DIRS = ['.claude/skills', '.agents/skills'] as const;
 
 /**
- * Seed `templates/media-game/skills/<name>/` into `<dest>/.claude/skills/`,
+ * Seed `templates/media-game/skills/<name>/` into `<dest>/.claude/skills/`
  * and `.agents/skills/` — one copy per skill folder, the
  * `main/video/scaffold.ts` pattern. A template without a `skills/` folder (a
  * minimal test fixture) seeds nothing. Returns the skill names seeded.
