@@ -1023,6 +1023,7 @@ export const CHANNELS = {
   gamesLevelPrefabDelete: 'mstudio:games:level-prefab-delete',
   /** A game image/sprite/tileset/background asset's thumbnail source as a data URL (Phase 139 Theme A). */
   gamesLevelAssetThumb: 'mstudio:games:level-asset-thumb',
+  gamesLevelTerrainDetail: 'mstudio:games:level-terrain-detail',
   /** Phase 140 Theme B: run the editor's unsaved level in the runner (in-memory overlay), and drop the overlay. */
   gamesLevelPreview: 'mstudio:games:level-preview',
   gamesLevelPreviewEnd: 'mstudio:games:level-preview-end',

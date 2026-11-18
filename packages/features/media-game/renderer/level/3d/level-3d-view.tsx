@@ -36,6 +36,8 @@ export type Level3dHandle = {
   frameTo?: (rect: PlanRect, refs: readonly ObjectRef[]) => void;
   /** Ease the camera onto the selected object (the outliner's double-click). */
   frame?: () => void;
+  /** The ground the camera looks at, as a square its view spans (world metres): what terrain detail is asked for. */
+  viewArea?: () => { minX: number; minZ: number; maxX: number; maxZ: number };
   /** A PNG of the level from a preset or camera, drawn through a temporary camera (`game_level_view`). */
   capture?: (req: LevelCaptureRequest) => Promise<LevelCaptured>;
 };
@@ -205,6 +207,10 @@ export default function Level3dView(props: Level3dViewProps) {
         move.current = { from: now, to, startedAt: null, onDone: () => done(to) };
       },
       frame: () => frameRef.current(),
+      viewArea: () => {
+        const now = poseOut.current ?? initialPose, half = now.span / 2;
+        return { minX: now.target[0] - half, minZ: now.target[2] - half, maxX: now.target[0] + half, maxZ: now.target[2] + half };
+      },
       frameTo: (rect, refs) => latest.current.frame(rect, refs),
       capture: (req) => latest.current.capture(req),
     };

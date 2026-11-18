@@ -348,6 +348,7 @@ export function createGameService(deps: GameServiceDeps) {
       model: levels.model,
       prefabs,
       assetThumb: levels.assetThumb,
+      terrainDetail: levels.terrainDetail,
       preview: (req: { gameId: string; scene: string; level: unknown; spawn: { x: number; y: number; z?: number } | null }) => previewLevel(req),
       previewEnd: (gameId: string): GitOpResult => {
         deps.runner.clearPreview(gameId);

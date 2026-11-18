@@ -126,6 +126,7 @@ import { LevelShortcutHelp } from './level-shortcut-help';
 import { DEFAULT_SCATTER, eraseDab, newSeed, scatterDab, type DabResult, type ScatterSettings } from './level-scatter';
 import { ScatterPanel, sourceFromPayload } from './scatter-panel';
 import { LevelEnvironmentPopover } from './level-environment-popover';
+import { planViewArea, useViewTerrainDetail } from './level-view-detail';
 import { LevelViewPopover } from './level-view-popover';
 import { levelExtras } from './live/level-extras-model';
 import { LiveChip } from './live/live-chip';
@@ -401,6 +402,12 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
   const planViewOut = useRef<{ view: View; size: { width: number; height: number } } | null>(null);
   const handle3d = useRef<Level3dHandle | null>(null);
   const planScale = { tilewidth: level.tilewidth, tileheight: level.tileheight, mpt: metresPerTile(level), originX: levelOrigin(level).x, originZ: levelOrigin(level).z };
+  /** The terrain with the detail under the view, for a level too large to carry one (`level-view-detail.ts`). */
+  const viewTerrain = useViewTerrainDetail(gameId, entry.scene, entry.terrain, () => {
+    if (levelViewMode(useLevelViewStore.getState(), gameId) === '3d') return handle3d.current?.viewArea?.() ?? null;
+    const plan = planViewOut.current;
+    return plan ? planViewArea(plan.view, plan.size, planScale) : null;
+  });
   const switchView = (next: LevelViewMode) => {
     if (next === viewMode || !can3d) return;
     useLevelViewStore.getState().setMode(gameId, next);
@@ -1255,7 +1262,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
             onContextMenu={(e) => void openLevelMenu(e, e.hit ? { kind: 'object', ref: e.hit } : { kind: 'empty', at: e.object }, e.object)}
             hoverEnabled={!readOnly && !is3d && tool !== 'select' && tool !== 'scatter'}
             brush={!readOnly && tool === 'scatter' ? { radius: scatter.radius } : undefined}
-            plan={is3d && !planBroken ? { terrain: entry.terrain, draft, volume: volumeDrag } : undefined}
+            plan={is3d && !planBroken ? { terrain: viewTerrain, draft, volume: volumeDrag } : undefined}
             extras={extras.canvas}
             preview={preview}
             onPointer={onPointer}
@@ -1276,7 +1283,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
                   key={enterKey}
                   gameId={gameId}
                   level={level}
-                  terrain={entry.terrain}
+                  terrain={viewTerrain}
                   selection={edit.selection}
                   selected={edit.selected}
                   readOnly={readOnly}

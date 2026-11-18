@@ -777,6 +777,7 @@ const bridge: Pick<
         delete: (req) => call(CHANNELS.gamesLevelPrefabDelete, req),
       },
       assetThumb: (req) => call(CHANNELS.gamesLevelAssetThumb, req),
+      terrainDetail: (req) => call(CHANNELS.gamesLevelTerrainDetail, req),
       preview: (req) => call(CHANNELS.gamesLevelPreview, req),
       previewEnd: (req) => call(CHANNELS.gamesLevelPreviewEnd, req),
       onEditorRequest: (handler) => subscribe(EVENT_CHANNELS.gamesLevelEditorRequest, handler),
