@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
  */
 describe('diff-parser purity', () => {
   it('imports only @midnite/studio-shared', () => {
-    const source = readFileSync(fileURLToPath(new URL('./diff-parser.ts', import.meta.url)), 'utf8');
+    const source = readFileSync(join(__dirname, 'diff-parser.ts'), 'utf8');
     const specifiers = [...source.matchAll(/(?:^|\n)\s*(?:import|export)\b[^;]*?\bfrom\s+['"]([^'"]+)['"]/g)].map((m) => m[1]);
     const sideEffect = [...source.matchAll(/(?:^|\n)\s*import\s+['"]([^'"]+)['"]/g)].map((m) => m[1]);
     expect([...specifiers, ...sideEffect]).toEqual(['@midnite/studio-shared']);
@@ -18,7 +18,7 @@ describe('diff-parser purity', () => {
   });
 
   it('is exported as ./diff', () => {
-    const pkg = JSON.parse(readFileSync(fileURLToPath(new URL('../../package.json', import.meta.url)), 'utf8'));
+    const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf8'));
     expect(pkg.exports['./diff']).toEqual({
       types: './dist/parsers/diff-parser.d.ts',
       default: './dist/parsers/diff-parser.js',
