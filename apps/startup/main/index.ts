@@ -118,6 +118,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       },
       investor: {
         ...createInvestorPorts({ ready: ensureLoginShellPathAsync() }),
+        mail: { openExternal: (url) => shell.openExternal(url), writeClipboard: (text) => clipboard.writeText(text) },
         saveMarkdown: async (defaultName) => {
           const options = { defaultPath: defaultName, filters: [{ name: 'Markdown', extensions: ['md'] }] };
           const result = win !== null && !win.isDestroyed() ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);

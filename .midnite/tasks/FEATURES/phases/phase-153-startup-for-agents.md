@@ -69,11 +69,9 @@ A), then **E**, then **F**.
 
 **Theme D — Investor updates: data and drafting.** ✅ Workspace v4 adds `investorUpdates` (v3 files migrate with an empty list), and five ops (`upsert`/`removeInvestorUpdate`, `draftInvestorUpdate`, `exportInvestorUpdateMd`/`Pdf`) join the bridge; a draft returns markdown for review and never saves, and a second update for the same month is refused. `main/investor-update.ts` gathers pre-formatted facts (book cash and burn when a book is linked, else modelled; milestones by month; linked fleet projections), builds the fixed-section prompt and unfences the reply. Startup runs it through the runtime's `runHeadlessText` over new Node-only ports (`createHeadlessTextPorts`: PATH probe of `claude`/`codex`/`agy`, direct Ollama HTTP, 180 s), with no `features/models` import. Settings ▸ AI picks the model (default Claude, stored in `ai-settings.json` beside the consent file, outside the workspace) and has a Test button. Drift: `formatMoney` was in the renderer, so it moved to shared (152 E did the same); `modelArgsFor` was already shared, and drafts use the CLI's own default model. The tick on the Tests item was false when the theme started and is now true.
 
-**Theme E — Updates view.** ◻ A rail view listing updates by month, with a markdown editor and preview, Draft with
-review-before-save, Copy, Save as .md, Save as PDF and Email draft.
+**Theme E — Updates view.** ✅ `startup.updates` joins the rail after Runway (`LuNewspaper`) behind the company gate. `renderer/updates/` has the two-pane view: months newest first, New update (last month by default, a duplicate month refused inline by main), a markdown editor saved 400 ms after the last keystroke (and flushed when you leave), and a Preview through `react-markdown` with the frame's `MARKDOWN_PROSE_CLASSES` (links are inert). Draft with AI takes a notes box, shows a busy state with Cancel (a late answer is ignored), then a review card with a line diff against the current text; Accept upserts and stamps `drafts`, Discard saves nothing. Copy, Save as .md, Save as PDF and Email draft sit beside Delete (confirm dialog); `emailInvestorUpdate` (main) opens `mailto:` and, past 1,800 characters, truncates and copies, and the view says so. A read-only workspace disables every writing control. Drift: the pre-ticked Tests item was false at the start; `updates-view.test.tsx` now makes it true (the mailto truncation itself is tested in main with the op, the view tests the notice).
 
-**Theme F — Agent skill and verification.** ◻ A `midnite-startup-agent` skill doc, vitest across shim, tools,
-drafting and view, and one e2e for draft → accept → export.
+**Theme F — Agent skill and verification.** ✅ `midnite-startup-agent` (consent, read `startup_summary` first, never invent numbers, the three writes, pointing to Updates) lives in `.agents/skills/` and `.claude/skills/`; there is no `.codex/skills` (AGENTS.md), so the doc's third mirror was dropped. `STARTUP_UPDATES_ANSWERS` in `suite-bridge.ts` is additive, and the stateful stub gained `upsertInvestorUpdate`. One functional e2e (`suite-shell/startup-updates.spec.ts`: multi-view flow plus the real clipboard) passes; the e2e budget needed no raise (493 of 495). The shim's merge/route tests (desktop `mcp-shim`) and the tool tests (shared `mcp`/`startup-mcp`, module-startup `main/mcp`) all run in the node vitest projects and pass. The human pass with Claude Code against the packaged app remains open.
 
 ## Build order
 
@@ -223,20 +221,20 @@ drafting and view, and one e2e for draft → accept → export.
 
 ### E — Updates view (L)
 
-- [ ] Nav: `{ id: 'startup.updates', label: 'Updates', icon: LuNewspaper }` after Runway in `startup-nav.ts`;
+- [x] Nav: `{ id: 'startup.updates', label: 'Updates', icon: LuNewspaper }` after Runway in `startup-nav.ts`;
   `TITLES` entry; rendered behind the company gate (it needs company data).
-- [ ] `renderer/updates/updates-view.tsx` (net-new), two panes:
+- [x] `renderer/updates/updates-view.tsx` (net-new), two panes:
   - **Left:** months, newest first, with a **New update** button that defaults to last month.
   - **Right:** the selected update as an editor (textarea, `font-mono`) with a Preview toggle using the frame's
     markdown renderer (`MARKDOWN_PROSE_CLASSES`). Edits save 400 ms after the last change.
   - Read-only workspaces disable everything, as in Projections.
-- [ ] **Draft with AI** (`LuSparkles`): a notes box ("anything to mention?"), then `draftInvestorUpdate` with a busy
+- [x] **Draft with AI** (`LuSparkles`): a notes box ("anything to mention?"), then `draftInvestorUpdate` with a busy
   state and a Cancel that ignores the late result.
   - The result appears in a review card (diff against the current text when there is one, plain otherwise) with
     **Accept** (upserts, appends to `drafts`) and **Discard**.
   - A failure shows inline `role="alert"` with the runner's message ("No CLI agent installed — pick one in
     Settings ▸ AI.").
-- [ ] Actions on an update:
+- [x] Actions on an update:
   - **Copy markdown** (clipboard via the renderer).
   - **Save as .md** and **Save as PDF** (main; the PDF goes through `InvoicePdfPort` with the markdown rendered to
     HTML in main by a tiny renderer: headings, lists, bold/italic, links, tables; no scripts, no remote).
@@ -252,19 +250,19 @@ drafting and view, and one e2e for draft → accept → export.
 
 ### F — Agent skill and verification (M)
 
-- [ ] `.claude/skills/midnite-startup-agent/SKILL.md` (net-new; mirrored to `.agents/` and `.codex/` as the repo
-  does for skills):
+- [x] `.claude/skills/midnite-startup-agent/SKILL.md` (net-new; mirrored to `.agents/`. There is no `.codex/skills`, per AGENTS.md: Codex reads
+  `.agents/skills/`):
   - How to read the company with `startup_summary` first.
   - When writes are allowed (consent).
   - Never inventing numbers.
   - How to send a projection to Runway.
   - Pointing the user to Updates for the investor update.
-- [ ] Fixtures: `suite-bridge.ts` gains `STARTUP_UPDATES_ANSWERS` (a v4 workspace with one update, a stub
+- [x] Fixtures: `suite-bridge.ts` gains `STARTUP_UPDATES_ANSWERS` (a v4 workspace with one update, a stub
   `draftInvestorUpdate` answer).
-- [ ] Functional e2e `packages/app/e2e/suite-shell/startup-updates.spec.ts` (header: multi-view flow + clipboard):
+- [x] Functional e2e `packages/app/e2e/suite-shell/startup-updates.spec.ts` (header: multi-view flow + clipboard):
   open Updates → New → Draft with AI (stubbed) → Accept → the text is in the editor → Copy markdown puts it on
   the clipboard.
-- [ ] The shim's merge/route tests (B) and the tool tests (C) run in the node vitest projects.
+- [x] The shim's merge/route tests (B) and the tool tests (C) run in the node vitest projects.
 
 ## Files this phase touches
 
@@ -293,7 +291,7 @@ drafting and view, and one e2e for draft → accept → export.
 - [ ] B — with Studio and Startup both running, one `midnite` server lists both apps' tools and routes each call; with Studio alone the listing is unchanged.
 - [x] C — tools are invisible until consent; writes refused until the second switch; a write made by an agent shows in the open app.
 - [x] D — a draft never saves itself; the prompt carries only gathered facts; v3 workspaces reach v4.
-- [ ] E — draft → accept → copy/export/email works; read-only disables.
+- [x] E — draft → accept → copy/export/email works; read-only disables.
 - [ ] **Open, for a human:** with the packaged Startup app running, connect Claude Code to `midnite`, ask "what's
   our runway?", then draft and export a real update.
 

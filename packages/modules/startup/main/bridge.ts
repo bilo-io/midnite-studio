@@ -63,6 +63,7 @@ export function createStartupBridge(ipc: RendererIpc): StartupBridge {
       draftInvestorUpdate: op('draftInvestorUpdate'),
       exportInvestorUpdateMd: op('exportInvestorUpdateMd'),
       exportInvestorUpdatePdf: op('exportInvestorUpdatePdf'),
+      emailInvestorUpdate: op('emailInvestorUpdate'),
       getAiSettings: op('getAiSettings'),
       setAiSettings: op('setAiSettings'),
       listAiAgents: op('listAiAgents'),

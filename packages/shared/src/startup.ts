@@ -231,6 +231,8 @@ export type StartupLedgerSummary = {
 
 /** What `exportInvoicePdf` answers: whether a file was saved (false when the save dialog was cancelled). */
 export type StartupPdfExport = { saved: boolean };
+/** What `emailInvestorUpdate` answers: whether the body was cut for the mail link (the full text is on the clipboard then). */
+export type StartupEmailResult = { truncated: boolean };
 
 /** What every read and write answers: the workspace, its revision, and whether writes are refused. */
 export const StartupSnapshotSchema = z.object({
@@ -312,6 +314,7 @@ export const StartupRequestSchema = z.discriminatedUnion('op', [
   }),
   z.object({ op: z.literal('exportInvestorUpdateMd'), id }),
   z.object({ op: z.literal('exportInvestorUpdatePdf'), id }),
+  z.object({ op: z.literal('emailInvestorUpdate'), id }),
   // Which model drafts, and the Settings ▸ AI page's helpers.
   z.object({ op: z.literal('getAiSettings') }),
   z.object({ op: z.literal('setAiSettings'), settings: StartupAiSettingsSchema }),

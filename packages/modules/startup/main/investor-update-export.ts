@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { InvestorUpdate, StartupPdfExport, StartupResult } from '@midnite/studio-shared';
+import type { InvestorUpdate, StartupEmailResult, StartupPdfExport, StartupResult } from '@midnite/studio-shared';
 
 import type { InvoicePdfPort } from './invoice-pdf';
 import type { WorkspaceStore } from './workspace-store';
@@ -98,5 +98,34 @@ export async function exportInvestorUpdatePdf(store: WorkspaceStore, id: string,
     return { ok: false, kind: 'io', message: `Could not export the PDF: ${error instanceof Error ? error.message : String(error)}` };
   } finally {
     if (dir !== null) await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+/** A `mailto:` link longer than this many characters of body is cut, because mail clients' limits vary. */
+export const MAILTO_BODY_LIMIT = 1800;
+const TRUNCATED_NOTE = '\n\n… (full update copied to clipboard)';
+
+/** What Email draft needs from the host: open a URL in the mail client, and put text on the clipboard. */
+export type MailPorts = { openExternal: (url: string) => Promise<void> | void; writeClipboard: (text: string) => void };
+
+/** The `mailto:` link for an update; `truncated` when the body was cut to {@link MAILTO_BODY_LIMIT}. */
+export function buildUpdateMailto(title: string, markdown: string): { url: string; truncated: boolean } {
+  const truncated = markdown.length > MAILTO_BODY_LIMIT;
+  const body = truncated ? `${markdown.slice(0, MAILTO_BODY_LIMIT).trimEnd()}${TRUNCATED_NOTE}` : markdown;
+  return { url: `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`, truncated };
+}
+
+/** Opens the user's mail client on a draft of the update; a long body is cut and the whole text copied instead. */
+export async function emailInvestorUpdate(store: WorkspaceStore, id: string, mail: MailPorts | undefined): Promise<StartupResult<StartupEmailResult>> {
+  const update = find(store, id);
+  if (update === null) return { ok: false, kind: 'not-found', message: 'That update no longer exists.' };
+  if (mail === undefined) return { ok: false, kind: 'invalid', message: 'Emailing a draft is not available in this build.' };
+  const { url, truncated } = buildUpdateMailto(update.title, update.markdown);
+  try {
+    if (truncated) mail.writeClipboard(update.markdown);
+    await mail.openExternal(url);
+    return { ok: true, value: { truncated } };
+  } catch (error) {
+    return { ok: false, kind: 'io', message: `Could not open the mail client: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
