@@ -10,6 +10,7 @@ import {
   GAME_LEVEL_IMAGES_MAX_BYTES,
   GAME_LEVEL_MAX_BYTES,
   GAME_LEVEL_MODEL_MAX_BYTES,
+  GAME_LEVEL_THUMB_MAX_BYTES,
   GAME_LEVELS_DIR,
   GameMapAssetNameSchema,
   GameSceneNameSchema,
@@ -18,6 +19,7 @@ import {
   type GameGotoResult,
   type GameLevelGetResult,
   type GameLevelMapAssetResult,
+  type GameLevelAssetThumbResult,
   type GameLevelModelResult,
   type GameLevelSetResult,
   type GameLevelsResult,
@@ -49,6 +51,8 @@ export type GameLevelsDeps = {
 
 const OUTSIDE = "That level is outside the game's levels folder.";
 const IMAGE_TYPES: Record<string, string> = { '.png': 'image/png', '.webp': 'image/webp' };
+const THUMB_KINDS: ReadonlySet<string> = new Set(['image', 'sprite', 'tileset', 'background']);
+const THUMB_TYPES: Record<string, 'image/png' | 'image/jpeg' | 'image/webp'> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' };
 
 const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
@@ -289,7 +293,60 @@ export function createGameLevels(deps: GameLevelsDeps) {
     }
   }
 
-  return { list: levels, get: levelGet, set: levelSet, mapAsset, goto, model: levelModel };
+  /**
+   * A thumbnail source for an `image`, `sprite`, `tileset` or `background` asset (Phase 139 Theme A): the asset's
+   * image file as a data URL plus its manifest sha. A folder asset resolves through the `image` its atlas/tileset
+   * json names, else its first image. Confined to the game folder; capped at {@link GAME_LEVEL_THUMB_MAX_BYTES}.
+   */
+  async function assetThumb(gameId: string, name: string): Promise<GitOpResult<GameLevelAssetThumbResult>> {
+    const game = await deps.resolve(gameId);
+    if (!game) return failure('That game was not found.');
+    const { manifest } = await deps.readManifest(game.path);
+    const asset = manifest?.assets.find((a) => a.name === name && THUMB_KINDS.has(a.kind));
+    if (!asset) {
+      if (manifest?.assets.some((a) => a.name === name && a.kind === 'model')) return failure('Model thumbnails come from games.levels.model.');
+      return failure(`No image asset named "${name}".`);
+    }
+    let rel = asset.path;
+    let real = await confineToRoot(game.path, rel);
+    if (real === null) return failure(`Asset "${name}" is missing or outside the game folder.`);
+    try {
+      if ((await stat(real)).isDirectory()) {
+        const image = await folderImage(real);
+        if (image === null) return failure(`Asset "${name}" has no image to show.`);
+        rel = posix.join(asset.path, image);
+        real = await confineToRoot(game.path, rel);
+        if (real === null) return failure(`Asset "${name}" is missing or outside the game folder.`);
+      }
+      const mime = THUMB_TYPES[extname(real).toLowerCase()];
+      if (!mime) return failure(`Asset "${name}" is not a png, jpeg or webp image.`);
+      const bytes = (await stat(real)).size;
+      if (bytes > GAME_LEVEL_THUMB_MAX_BYTES) {
+        return failure(`Asset "${name}" is ${(bytes / 1048576).toFixed(1)} MB, over the ${GAME_LEVEL_THUMB_MAX_BYTES / 1048576} MB thumbnail limit.`);
+      }
+      const data = await readFile(real);
+      return ok({ name, mime, dataUrl: `data:${mime};base64,${data.toString('base64')}`, sha256: asset.sha256 });
+    } catch (error) {
+      return failure(`Asset "${name}" could not be read: ${message(error)}`);
+    }
+  }
+
+  /** The image inside a folder asset: the `image` an atlas/tileset json names, else the first image file. */
+  async function folderImage(dir: string): Promise<string | null> {
+    const entries = (await readdir(dir)).sort();
+    for (const file of entries.filter((f) => f.toLowerCase().endsWith('.json'))) {
+      try {
+        const json = JSON.parse(await readFile(join(dir, file), 'utf8')) as { image?: unknown; meta?: { image?: unknown } };
+        const image = typeof json.image === 'string' ? json.image : typeof json.meta?.image === 'string' ? json.meta.image : null;
+        if (image !== null && !image.split(/[\\/]/).includes('..') && THUMB_TYPES[extname(image).toLowerCase()]) return image;
+      } catch {
+        // not json we can read: try the next file
+      }
+    }
+    return entries.find((f) => THUMB_TYPES[extname(f).toLowerCase()]) ?? null;
+  }
+
+  return { list: levels, get: levelGet, set: levelSet, mapAsset, goto, model: levelModel, assetThumb };
 }
 
 export type GameLevels = ReturnType<typeof createGameLevels>;

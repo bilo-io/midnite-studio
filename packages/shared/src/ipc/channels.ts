@@ -1021,6 +1021,8 @@ export const CHANNELS = {
   gamesLevelPrefabGet: 'mstudio:games:level-prefab-get',
   gamesLevelPrefabSet: 'mstudio:games:level-prefab-set',
   gamesLevelPrefabDelete: 'mstudio:games:level-prefab-delete',
+  /** A game image/sprite/tileset/background asset's thumbnail source as a data URL (Phase 139 Theme A). */
+  gamesLevelAssetThumb: 'mstudio:games:level-asset-thumb',
   /** Phase 138 Theme C: the renderer's one-way answer to a main -> renderer level-editor request. */
   gamesLevelEditorReply: 'mstudio:games:level-editor-reply',
   /** Phase 138 Theme C: the renderer's one-way presence — which scene the level editor shows, or null. */
