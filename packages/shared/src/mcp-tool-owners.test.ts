@@ -35,13 +35,16 @@ const ownedBy = (app: string): McpToolId[] => MCP_TOOL_IDS.filter((id) => ownerO
 
 describe('tool listing per installed set', () => {
   it("Studio's full set lists exactly today's registry, in order", () => {
-    expect(listMcpToolIds(ALL_APPS_INSTALLED, MANIFESTS)).toEqual([...MCP_TOOL_IDS]);
+    // Startup's tools are served from Startup's own socket (Phase 153 Theme C), so Studio's list leaves them out.
+    const STUDIO_TOOLS = MCP_TOOL_IDS.filter((id) => !id.startsWith('startup_'));
+    expect(listMcpToolIds(ALL_APPS_INSTALLED, MANIFESTS)).toEqual(STUDIO_TOOLS);
+    expect(listMcpToolIds(ALL_APPS_INSTALLED, MANIFESTS, { includeSuiteServed: true })).toEqual([...MCP_TOOL_IDS]);
     // Without the manifests the music and Gamer tools fall to the frame (always listed): nothing is lost, only mis-owned.
-    expect(listMcpToolIds(ALL_APPS_INSTALLED)).toEqual([...MCP_TOOL_IDS]);
+    expect(listMcpToolIds(ALL_APPS_INSTALLED)).toEqual(STUDIO_TOOLS);
     expect(listMcpToolIds(installedSet([]))).toEqual(expect.arrayContaining(GAMER_TOOLS));
     expect(listMcpToolIds(installedSet([]), MANIFESTS).some((id) => GAMER_TOOLS.includes(id))).toBe(false);
     // Pinned count: a new tool must be deliberately placed (and this number bumped).
-    expect(MCP_TOOL_IDS).toHaveLength(140);
+    expect(MCP_TOOL_IDS).toHaveLength(151);
     const histogram: Record<string, number> = {};
     for (const id of MCP_TOOL_IDS) histogram[ownerOf(id)] = (histogram[ownerOf(id)] ?? 0) + 1;
     expect(histogram).toMatchInlineSnapshot(`
@@ -49,7 +52,8 @@ describe('tool listing per installed set', () => {
         "agents": 4,
         "creator": 16,
         "frame": 21,
-        "gamer": 99,
+        "gamer": 102,
+        "startup": 8,
       }
     `);
   });
@@ -109,7 +113,7 @@ describe('tool listing per installed set', () => {
     }
     // The default table names the apps whose tools no manifest claims yet; Creator's left it for Audio's
     // manifest and Gamer's for its five feature manifests.
-    expect([...MCP_TOOL_OWNING_APPS].sort()).toEqual(['agents']);
+    expect([...MCP_TOOL_OWNING_APPS].sort()).toEqual(['agents', 'startup']);
     expect(MUSIC_TOOLS.every((id) => defaultMcpToolOwner(id) === 'frame')).toBe(true);
     expect(GAMER_TOOLS.every((id) => defaultMcpToolOwner(id) === 'frame')).toBe(true);
   });

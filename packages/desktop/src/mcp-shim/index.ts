@@ -22,11 +22,13 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { MCP_CONTENT_KEY, MCP_SERVER_NAME, MCP_TOOLS, ALL_APPS_INSTALLED, listMcpToolIds, type IsAppInstalled, isMcpToolId, isModelMcpToolId, isGameSlowToolId, GAME_CALL_TIMEOUT_MS, isTerrainSlowToolId, TERRAIN_CALL_TIMEOUT_MS, isSpriteSlowToolId, isMapSlowToolId, MAP_CALL_TIMEOUT_MS, McpContentBlockSchema } from '@midnite/studio-shared';
+import { MCP_CONTENT_KEY, MCP_SERVER_NAME, MCP_TOOLS, mcpToolOwner, ALL_APPS_INSTALLED, listMcpToolIds, type IsAppInstalled, isMcpToolId, isModelMcpToolId, isGameSlowToolId, GAME_CALL_TIMEOUT_MS, isTerrainSlowToolId, TERRAIN_CALL_TIMEOUT_MS, isSpriteSlowToolId, isMapSlowToolId, MAP_CALL_TIMEOUT_MS, McpContentBlockSchema, type McpToolId } from '@midnite/studio-shared';
 import { MCP_TOOL_MANIFESTS } from '../main/mcp/tool-manifests';
 import { z } from 'zod';
 
 import { callMcpTool, SLOW_CALL_TIMEOUT_MS } from './client';
+import { SuiteRouter } from './suite-router';
+import { resolveSuiteSockets } from './suite-sockets';
 
 /**
  * `--socket <path>` points the shim at one specific socket instead of finding the app's global one —
@@ -62,19 +64,40 @@ const server = new Server(
 );
 
 /**
- * `tools/list` is answered from `MCP_TOOLS` alone (filtered to the installed apps' tools), socket or no socket — an
+ * Phase 153 Theme B: the other running suite apps' tools, joined to Studio's. Off for `--socket` (a run's
+ * private server is one socket, never the suite). With only Studio running there is no suite socket, so
+ * nothing is added and every answer below is the one this file always gave.
+ */
+const suiteRouter = explicitSocket
+  ? null
+  : new SuiteRouter({
+      resolve: () => resolveSuiteSockets(),
+      call: (socketPath, tool, input, timeoutMs) => callMcpTool(tool, input, { socketPath, ...(timeoutMs ? { timeoutMs } : {}) }),
+      isKnown: isMcpToolId,
+      ownerOf: (id) => (isMcpToolId(id) ? mcpToolOwner(id, MCP_TOOL_MANIFESTS) : 'frame'),
+      log: logToStderr,
+    });
+
+function toListedTool(id: McpToolId) {
+  const tool = MCP_TOOLS[id];
+  const inputSchema = z.toJSONSchema(tool.input as z.ZodType, { target: 'draft-7', io: 'input', unrepresentable: 'any' }) as Record<string, unknown> & {
+    type: 'object';
+  };
+  return { name: tool.id, description: tool.description, inputSchema };
+}
+
+/**
+ * `tools/list` is Studio's registry (filtered to the installed apps' tools), socket or no socket — an
+ * agent should be able to discover what this server offers even while Midnite Studio is closed or the
+ * setting is off — plus any tool a running suite app offers that Studio's list does not already carry. (filtered to the installed apps' tools), socket or no socket — an
  * agent should be able to discover what this server offers even while
  * Midnite Studio is closed or the setting is off.
  */
-server.setRequestHandler(ListToolsRequestSchema, () => ({
-  tools: listMcpToolIds(readInstalledApps(), MCP_TOOL_MANIFESTS).map((id) => {
-    const tool = MCP_TOOLS[id];
-    const inputSchema = z.toJSONSchema(tool.input as z.ZodType, { target: 'draft-7', io: 'input', unrepresentable: 'any' }) as Record<string, unknown> & {
-      type: 'object';
-    };
-    return { name: tool.id, description: tool.description, inputSchema };
-  }),
-}));
+server.setRequestHandler(ListToolsRequestSchema, async () => {
+  const base = listMcpToolIds(readInstalledApps(), MCP_TOOL_MANIFESTS);
+  const extra = suiteRouter ? await suiteRouter.extraTools(new Set<string>(base)) : [];
+  return { tools: [...base, ...extra.filter(isMcpToolId)].map(toListedTool) };
+});
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
@@ -86,14 +109,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     };
   }
 
-  const response = await callMcpTool(name, args ?? {}, {
-    ...(explicitSocket ? { socketPath: explicitSocket } : {}),
+  const slow = {
     ...(isModelMcpToolId(name) ? { timeoutMs: SLOW_CALL_TIMEOUT_MS } : {}),
     ...(isGameSlowToolId(name) ? { timeoutMs: GAME_CALL_TIMEOUT_MS } : {}),
     ...(isTerrainSlowToolId(name) ? { timeoutMs: TERRAIN_CALL_TIMEOUT_MS } : {}),
     ...(isSpriteSlowToolId(name) ? { timeoutMs: SLOW_CALL_TIMEOUT_MS } : {}),
     ...(isMapSlowToolId(name) ? { timeoutMs: MAP_CALL_TIMEOUT_MS } : {}),
-  });
+  };
+  // Phase 153 Theme B: a tool a running suite app owns goes to that app's socket; everything else is Studio's.
+  const owner = suiteRouter ? await suiteRouter.routeOf(name) : null;
+  const response =
+    owner && suiteRouter
+      ? await suiteRouter.call(owner, name, args ?? {}, slow.timeoutMs)
+      : await callMcpTool(name, args ?? {}, { ...(explicitSocket ? { socketPath: explicitSocket } : {}), ...slow });
 
   if (response.ok) {
     // A tool that answers with pictures (`model_render_preview`) hands its content blocks over untouched.

@@ -26,6 +26,8 @@ export type DevStubInput = {
   icon: string;
   /** `<out>/Midnite Apps.app`. */
   stubPath: string;
+  /** A keychain signing identity; absent means ad hoc (`-`). */
+  signIdentity?: string;
 };
 
 const join = (...p: string[]): string => p.join('/').replace(/\/{2,}/g, '/');
@@ -78,13 +80,13 @@ export function planDevStub(input: DevStubInput): StubStep[] {
       remove: [...PLIST_REMOVE],
     },
     { kind: 'clone', from: input.icon, to: join(dst, 'Resources', 'app.icns'), dir: false },
-    { kind: 'exec', cmd: 'codesign', args: ['--force', '--deep', '--sign', '-', input.stubPath] },
+    { kind: 'exec', cmd: 'codesign', args: ['--force', '--deep', '--sign', input.signIdentity ?? '-', input.stubPath] },
     { kind: 'exec', cmd: 'codesign', args: ['--verify', '--deep', '--strict', input.stubPath] },
   );
   return steps;
 }
 
-/** What a rebuild depends on: Electron's version and the icon's bytes. Equal stamps mean up to date. */
-export function devStubStamp(electronVersion: string, iconHash: string): string {
-  return `electron=${electronVersion}\nicon=${iconHash}\n`;
+/** What a rebuild depends on: Electron's version and the icon's bytes. Equal stamps mean up to date (a different signing identity rebuilds). */
+export function devStubStamp(electronVersion: string, iconHash: string, signIdentity = '-'): string {
+  return `electron=${electronVersion}\nicon=${iconHash}\nsign=${signIdentity}\n`;
 }

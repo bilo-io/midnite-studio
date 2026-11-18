@@ -5,6 +5,8 @@ import { mediaModelManifest } from '@midnite/studio-feature-media-model/manifest
 import { mediaSpriteManifest } from '@midnite/studio-feature-media-sprite/manifest';
 import { mediaTerrainManifest } from '@midnite/studio-feature-media-terrain/manifest';
 
+import { startupMcpManifest } from '@midnite/studio-module-startup/mcp-manifest';
+
 /**
  * The feature manifests that own MCP tools, for Settings ▸ MCP's Tools page (Phase 113 Theme S) — the
  * renderer's copy of `desktop/src/main/mcp/tool-manifests.ts`, importing each manifest's pure-data entry
@@ -18,4 +20,5 @@ export const STUDIO_MCP_TOOL_MANIFESTS = [
   mediaTerrainManifest,
   mediaSpriteManifest,
   mediaMapManifest,
+  startupMcpManifest,
 ] as const;

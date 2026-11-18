@@ -1,18 +1,15 @@
-import { homedir } from 'node:os';
-
 import {
   cheapModelFor,
   failure,
   modelArgsFor,
   ok,
-  toAgentPrompt,
   type AgentDefinition,
   type GitOpResult,
 } from '@midnite/studio-shared';
 
 import { OUTPUT_TAIL_CAP, runProcess, type ProcessSink, type SpawnFn } from '../process-runner';
 import { listAgents } from '../terminal-service';
-import { resolveHeadlessAgent } from '@midnite/studio-feature-companion/main/ask';
+import { runHeadlessText as runtimeHeadlessText, type HeadlessTextInput } from '@midnite/studio-runtime';
 import { runOllamaPrompt, type OllamaHeadlessDeps } from './ollama-headless';
 
 /**
@@ -30,10 +27,8 @@ import { runOllamaPrompt, type OllamaHeadlessDeps } from './ollama-headless';
  * flag inserted ahead of the prompt — a rewrite is exactly the short,
  * disposable call that should not spend a flagship model's price on it.
  *
- * `resolveHeadlessAgent` is imported from `companion/ask.ts` rather than
- * reimplemented — the "preferred id first, then anything on the roster with
- * a known print mode" walk is identical for both callers, and a second copy
- * would drift the moment one of them changed it.
+ * The headless-agent walk (`resolveHeadlessAgent`, from `shared`) now runs inside the runtime's
+ * `runHeadlessText`, so every caller shares one copy.
  */
 
 /** Same ceiling `askCompanion` uses (`COMPANION_ASK_TIMEOUT_MS`) — a wand
@@ -129,66 +124,37 @@ function textSink(): ProcessSink<string> {
 /**
  * One prompt through the roster's headless CLI (or an Ollama model), answered
  * as trimmed plain text — the runner `improveField` and Docs' `runDocEdit`
- * (Phase 99 Theme B) share. `modelArgs` picks the model: the wand passes its
- * cheap tier, a doc edit whatever the thread's picker chose. `what` names the
- * job in the "no CLI" sentence.
- *
- * Never throws; an empty reply is a failure, since neither caller has a
- * fallback to render in place of nothing.
+ * (Phase 99 Theme B) share. The body lives in the runtime (Phase 153 Theme A)
+ * so other suite apps can run a prompt; this wrapper builds its ports from
+ * desktop's process runner, roster and Ollama client and maps the plain
+ * envelope back onto `GitOpResult`.
  */
 export async function runHeadlessText(
-  input: {
-    prompt: string;
-    agentId?: string | undefined;
-    repoPath?: string | null | undefined;
-    ollamaModel?: string | undefined;
-    modelArgs: (agentId: string) => string[];
-    what: string;
-  },
+  input: HeadlessTextInput,
   deps: AiImproveFieldDeps,
   defaultTimeoutMs: number,
 ): Promise<GitOpResult<{ text: string }>> {
-  const timeoutMs = deps.timeoutMs ?? defaultTimeoutMs;
-  if (input.ollamaModel) {
-    const reply = await runOllamaPrompt(input.ollamaModel, input.prompt, timeoutMs, deps.ollama);
-    if (!reply.ok) return failure(reply.message);
-    const text = reply.data.trim();
-    return text.length === 0 ? failure(`${input.ollamaModel} answered with nothing.`) : ok({ text });
-  }
-
-  const roster = await deps.agents();
-  const resolved = resolveHeadlessAgent(roster, input.agentId);
-  if (!resolved) {
-    return failure(`No agent CLI with a headless mode is installed, so ${input.what} has nothing to run.`);
-  }
-
-  const prompt = toAgentPrompt(input.prompt, resolved.agent.id);
-  const cwd = input.repoPath ?? (deps.home ?? homedir)();
-
-  const outcome = await runProcess<string>(
-    resolved.agent.command,
-    [...(resolved.agent.args ?? []), ...resolved.args, ...input.modelArgs(resolved.agent.id), prompt],
-    cwd,
+  const result = await runtimeHeadlessText(
+    input,
     {
-      sink: textSink(),
-      timeoutMs,
-      ...(deps.spawn ? { spawn: deps.spawn } : {}),
+      listAgents: deps.agents,
+      runProcess: async (command, args, opts) => {
+        const outcome = await runProcess<string>(command, args, opts.cwd ?? '', {
+          sink: textSink(),
+          timeoutMs: opts.timeoutMs,
+          ...(deps.spawn ? { spawn: deps.spawn } : {}),
+        });
+        return outcome.ok
+          ? { ok: true, stdout: outcome.data }
+          : { ok: false, message: outcome.hint, timedOut: outcome.reason === 'timed-out' };
+      },
+      runOllama: (model, prompt, timeoutMs) => runOllamaPrompt(model, prompt, timeoutMs, deps.ollama),
+      ...(deps.home ? { home: deps.home } : {}),
+      ...(deps.timeoutMs !== undefined ? { timeoutMs: deps.timeoutMs } : {}),
     },
+    defaultTimeoutMs,
   );
-
-  if (!outcome.ok) {
-    return failure(
-      outcome.reason === 'timed-out'
-        ? 'That took too long, so the rewrite was cancelled.'
-        : `Could not run ${resolved.agent.label}: ${outcome.hint}`,
-    );
-  }
-
-  const text = outcome.data.trim();
-  if (text.length === 0) {
-    return failure(`${resolved.agent.label} answered with nothing.`);
-  }
-  return ok({ text });
+  return result.ok ? ok({ text: result.text }) : failure(result.message);
 }
 
 /**

@@ -2,22 +2,22 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { MAX_FLEET_PROJECTIONS, type FleetProjection } from '@midnite/studio-shared';
+import { MAX_FLEET_PROJECTIONS, type FleetProjection, type PlanLine } from '@midnite/studio-shared';
 
 import { ProjectionList } from './projection-list';
 import { fleetNode, fleetProjection } from './test-fixtures';
 import { renderWithChrome } from './test-harness';
 
 const ok = { ok: true, value: {} };
-const bridge = { upsertFleetProjection: vi.fn(async () => ok), duplicateFleetProjection: vi.fn(async () => ok), removeFleetProjection: vi.fn(async () => ok), onChanged: () => () => undefined };
+const bridge = { upsertFleetProjection: vi.fn(async () => ok), duplicateFleetProjection: vi.fn(async () => ok), removeFleetProjection: vi.fn(async () => ok), unlinkFleetProjectionLines: vi.fn(async () => ok), onChanged: () => () => undefined };
 
-function show(projections: FleetProjection[], selectedId: string | null = projections[0]?.id ?? null, onSelect = vi.fn()) {
-  renderWithChrome(<ProjectionList projections={projections} selectedId={selectedId} readOnly={false} onSelect={onSelect} />);
+function show(projections: FleetProjection[], selectedId: string | null = projections[0]?.id ?? null, onSelect = vi.fn(), lines: PlanLine[] = []) {
+  renderWithChrome(<ProjectionList projections={projections} lines={lines} selectedId={selectedId} readOnly={false} onSelect={onSelect} />);
   return onSelect;
 }
 
 beforeEach(() => {
-  for (const f of [bridge.upsertFleetProjection, bridge.duplicateFleetProjection, bridge.removeFleetProjection]) f.mockClear();
+  for (const f of [bridge.upsertFleetProjection, bridge.duplicateFleetProjection, bridge.removeFleetProjection, bridge.unlinkFleetProjectionLines]) f.mockClear();
   window.midniteStudio = { startup: bridge } as unknown as typeof window.midniteStudio;
 });
 afterEach(() => {
@@ -84,10 +84,25 @@ describe('ProjectionList', () => {
     await waitFor(() => expect(bridge.removeFleetProjection).toHaveBeenCalledWith({ id: p.id }));
   });
 
+  it('offers to remove or keep the Runway lines a projection wrote, unlinking before the removal', async () => {
+    const p = fleetProjection({ name: 'Alpha' });
+    const linked: PlanLine = { id: '00000000-0000-4000-8000-000000000500', kind: 'cost', name: 'x', category: 'other', minor: 1, cadence: 'monthly', start: '2026-12', growthBpPerMonth: 0, source: { kind: 'fleetProjection', projectionId: p.id, part: 'opex', syncedAt: '2026-11-18T10:00:00.000Z' } };
+    show([p], p.id, vi.fn(), [linked]);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete and remove its 1 Runway line' }));
+    await waitFor(() => expect(bridge.removeFleetProjection).toHaveBeenCalledWith({ id: p.id }));
+    expect(bridge.unlinkFleetProjectionLines).toHaveBeenCalledWith({ projectionId: p.id, removeLines: true });
+    cleanup();
+    show([p], p.id, vi.fn(), [linked]);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete, keep lines' }));
+    await waitFor(() => expect(bridge.unlinkFleetProjectionLines).toHaveBeenLastCalledWith({ projectionId: p.id, removeLines: false }));
+  });
+
   it('prints a negative net margin in text-destructive', () => {
     show([fleetProjection({ nodes: [fleetNode(1, { utilisationPct: 0 })] })]);
-    const figure = screen.getByText(/R \d/, { selector: 'span.text-destructive' });
-    expect(figure.textContent).toMatch(/^−R /);
+    const figure = screen.getByText(/\$\d/, { selector: 'span.text-destructive' });
+    expect(figure.textContent).toMatch(/^−\$/);
   });
 
   it('disables New at the projection cap', () => {

@@ -99,16 +99,20 @@ snapped by the angle step) run over a ground raycast the scene exposes; `level-g
 `planPointFromWorld`, `volumeFromDrag`, `rotateToward`, `rayHitsItem`. The path draft stays in the editor so Enter /
 Escape / Backspace work in both views; `TOOLS_IN_3D` is every 3D tool. Real-pointer 3D passes stay with the human gate.
 
-**Theme H — The outliner.** ◻ The left aside becomes a resizable, collapsible outliner: layers with their objects as a
+**Theme H — The outliner.** ✅ The left aside becomes a resizable, collapsible outliner: layers with their objects as a
 tree, a search box, per-row hide and lock (editor-only, persisted per scene), click / Shift / Mod selection shared
-with both views, double-click frames.
+with both views, double-click frames. Landed: `level-outline.ts` (pure tree, filter, `rangeRefs`), `level-outliner-store.ts`
+(`isSelectable`, persisted width / collapse / hide / lock), `level-outliner.tsx` replacing `LayerList`. Hide skips `drawPlan`, the
+tile canvas, `hitPlan` / `hitObject` and the 3D items; lock only skips hits and the marquee. The list windows itself past 2,000
+rows with a small fixed-row slice instead of adding `@tanstack/react-virtual` to the feature.
 
-**Theme I — Context menus.** ◻ Right-click in the plan, the 3D view and the outliner opens one menu built by
+**Theme I — Context menus.** ✅ Right-click in the plan, the 3D view and the outliner opens one menu built by
 `levelContextMenu(state, target)`: cut, copy, paste, duplicate, delete, frame, hide, lock, select all of this type,
-align.
+align. Landed: `level-context-menu.ts` (pure), opened through the chrome's `openMenu`, else the kit's `KitContextMenu`
+(now exported from the frame); right-clicking an unselected object selects it first; the 3D view reports its hovered item
+so a right-click knows what is under it. Hide / Lock act on the whole selection from the menu.
 
-**Theme J — Shortcut cheat-sheet.** ◻ `LEVEL_SHORTCUTS` is the one table the key handler dispatches from and the `?`
-cheat-sheet renders, grouped Tools / Selection / Edit / View, with the chord in `<kbd>` chips.
+**Theme J — Shortcut cheat-sheet.** ✅ `level-shortcuts.ts`: `LEVEL_SHORTCUTS` is the one table the key handlers dispatch from (`matchShortcut`, per view and dimension) and the `?` cheat-sheet (`LevelShortcutHelp`, a `FrameModal` opened by `?` or the toolbar keyboard button) renders, grouped Tools / Selection / Edit / View, chords in `<kbd>` chips (`⌘D` on mac). The editor's and the 3D view's `onKeyDown` now switch on the command id; behaviour is unchanged. Added `path.finish` (Enter) to the command ids; Delete and Backspace are two rows of `edit.delete`.
 
 ## Build order
 
@@ -535,14 +539,14 @@ export function useLevelOutlinerStore(): …; export function isSelectable(gameI
 
 **Acceptance.**
 
-- [ ] H1. `buildLevelOutline` with query "coin" keeps only matching objects and their layer rows.
-- [ ] H2. `rangeRefs` returns the rows between two refs inclusive, in row order, across one layer.
-- [ ] H3. Hiding an object removes it from `drawPlan` calls and from `hitPlan` results; locking removes it from hit
+- [x] H1. `buildLevelOutline` with query "coin" keeps only matching objects and their layer rows.
+- [x] H2. `rangeRefs` returns the rows between two refs inclusive, in row order, across one layer.
+- [x] H3. Hiding an object removes it from `drawPlan` calls and from `hitPlan` results; locking removes it from hit
   tests but not from drawing.
-- [ ] H4. Hide and lock persist per `gameId/scene` and never change `edit.level` (`dirty` stays false).
-- [ ] H5. Clicking a row in the outliner selects the object and the inspector shows it; Shift-click selects a range.
-- [ ] H6. Arrow keys move focus between rows (`document.activeElement` changes) and Enter selects.
-- [ ] H7. Dragging the handle (synthetic pointer events on `ResizeHandle`) below `min` collapses the aside to the strip.
+- [x] H4. Hide and lock persist per `gameId/scene` and never change `edit.level` (`dirty` stays false).
+- [x] H5. Clicking a row in the outliner selects the object and the inspector shows it; Shift-click selects a range.
+- [x] H6. Arrow keys move focus between rows (`document.activeElement` changes) and Enter selects.
+- [x] H7. Dragging the handle (synthetic pointer events on `ResizeHandle`) below `min` collapses the aside to the strip.
 
 **Done when** H1–H7 pass.
 
@@ -578,11 +582,11 @@ export function levelContextMenu(state: EditState, target: LevelMenuTarget, ctx:
 
 **Acceptance.**
 
-- [ ] I1. For an object target with 1 selected, the entries are exactly the documented order, without Align.
-- [ ] I2. With 3 selected, Align is present as a submenu with 6 items.
-- [ ] I3. `canPaste: false` disables Paste with `disabledReason` "Nothing to paste".
-- [ ] I4. `readOnly: true` leaves only Copy, Frame and Select all.
-- [ ] I5. Right-clicking an unselected object in `level-editor.test.tsx` selects it before the menu opens.
+- [x] I1. For an object target with 1 selected, the entries are exactly the documented order, without Align.
+- [x] I2. With 3 selected, Align is present as a submenu with 6 items.
+- [x] I3. `canPaste: false` disables Paste with `disabledReason` "Nothing to paste".
+- [x] I4. `readOnly: true` leaves only Copy, Frame and Select all.
+- [x] I5. Right-clicking an unselected object in `level-editor.test.tsx` selects it before the menu opens.
 
 **Done when** I1–I5 pass.
 
@@ -621,11 +625,11 @@ export function matchShortcut(e: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKe
 
 **Acceptance.**
 
-- [ ] J1. Every key the handler acted on before this phase has a `LEVEL_SHORTCUTS` row (a test lists the pre-phase
+- [x] J1. Every key the handler acted on before this phase has a `LEVEL_SHORTCUTS` row (a test lists the pre-phase
   keys: B E R I O V P Y, Mod+Z, Mod+Shift+Z, Delete, Backspace, Enter, Escape, W E R F in 3D).
-- [ ] J2. No two rows with overlapping `views` and `dimension` share a chord (test).
-- [ ] J3. `matchShortcut` maps Cmd+D (mac) and Ctrl+D (non-mac) to `edit.duplicate`.
-- [ ] J4. `?` opens the modal; it lists Mod+D as "⌘D" on mac; Escape closes it and focus returns to the canvas.
+- [x] J2. No two rows with overlapping `views` and `dimension` share a chord (test).
+- [x] J3. `matchShortcut` maps Cmd+D (mac) and Ctrl+D (non-mac) to `edit.duplicate`.
+- [x] J4. `?` opens the modal; it lists Mod+D as "⌘D" on mac; Escape closes it and focus returns to the canvas.
 
 **Done when** J1–J4 pass.
 

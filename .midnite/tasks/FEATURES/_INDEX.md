@@ -8,6 +8,8 @@ Completed work is logged append-only in [`../done.md`](../done.md). Deferred sco
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [153 · Startup for agents](phases/phase-153-startup-for-agents.md) | 🔄 WIP | — | 16/35 | `█████░░░░░` | 46% | D | E F |
+| [152 · Projections ↔ Runway](phases/phase-152-projections-runway-bridge.md) | 🔄 WIP | — | 25/39 | `██████░░░░` | 64% | F G | — |
 | [151 · Skill scripts and local LLM offload](phases/phase-151-skill-scripts-and-local-llm.md) | 🔄 WIP | — | 27/30 | `█████████░` | 90% | F | — |
 | [150 · Startup projections](phases/phase-150-startup-projections.md) | 🔄 WIP | x1 | 39/41 | `██████████` | 95% | F | — |
 | [149 · Midnite game standard, game doctor and game management](phases/phase-149-midnite-game-standard-doctor.md) | 🔄 WIP | — | 47/52 | `█████████░` | 90% | H | — |
@@ -21,8 +23,8 @@ Completed work is logged append-only in [`../done.md`](../done.md). Deferred sco
 | [141 · Terrain-aware 3D level editing](phases/phase-141-level-terrain-aware-3d.md) | ◻ TODO | x1 | 0/25 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
 | [140 · Play in editor](phases/phase-140-level-play-in-editor.md) | ◻ TODO | x1 | 0/30 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [139 · Level asset browser, prefabs and scatter](phases/phase-139-level-assets-prefabs-scatter.md) | ◻ TODO | x1 | 0/40 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
-| [138 · MCP level tools v2](phases/phase-138-mcp-level-tools-v2.md) | 🔄 WIP | x1 | 12/50 | `██░░░░░░░░` | 24% | C D E F G H I | — |
-| [137 · Level editor editing essentials](phases/phase-137-level-editor-editing-essentials.md) | 🔄 WIP | x1 | 7/58 | `█░░░░░░░░░` | 12% | B C D E F G H I J | — |
+| [138 · MCP level tools v2](phases/phase-138-mcp-level-tools-v2.md) | 🔄 WIP | x1 | 48/50 | `██████████` | 96% | — | Verification (human passes) |
+| [137 · Level editor editing essentials](phases/phase-137-level-editor-editing-essentials.md) | 🔄 WIP | x1 | 55/58 | `█████████░` | 95% | — | Verification (human passes) |
 | [136 · Level editor 3D view](phases/phase-136-level-editor-3d-view.md) | ✅ DONE | — | 30/30 | `██████████` | 100% | — | — |
 | [135 · Feature toggles](phases/phase-135-feature-toggles.md) | ✅ DONE | — | 25/25 | `██████████` | 100% | — | — |
 | [134 · Councils synthesizer presets](phases/phase-134-councils-synthesizer-presets.md) | ✅ DONE | — | 28/28 | `██████████` | 100% | — | — |
@@ -94,12 +96,12 @@ Completed work is logged append-only in [`../done.md`](../done.md). Deferred sco
 | [68 · Where focus goes when the dialog closes](phases/phase-68-where-focus-goes.md) | 🔄 WIP | — | 32/37 | `█████████░` | 86% | — | — |
 | [67 · The sessions you closed](phases/phase-67-the-sessions-you-closed.md) | 🔄 WIP | x1 | 44/64 | `███████░░░` | 69% | — | Verification (human/e2e passes) |
 | [66 · API Client](phases/phase-66-api-client.md) | 🔄 WIP | x1 | 71/73 | `██████████` | 97% | — | H (2 human passes only) |
-| [65 · Somewhere for a crash to go](phases/phase-65-somewhere-for-a-crash-to-go.md) | 🔄 WIP | x1 | 44/49 | `█████████░` | 90% | — | Verification (human passes) |
+| [65 · Somewhere for a crash to go](phases/phase-65-somewhere-for-a-crash-to-go.md) | 🔄 WIP | x1 | 45/49 | `█████████░` | 92% | — | Verification (human passes) |
 | [64 · Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md) | 🔄 WIP | x1 | 66/72 | `█████████░` | 92% | — | G (3 human passes, jsdelivr string, 5-surface frame) |
 | [63 · The preferences with nowhere to live](phases/phase-63-settings-diff-and-orphan-preferences.md) | ✅ DONE | x1 | 32/32 | `██████████` | 100% | — | — |
 | [62 · One Escape, one dismissal](phases/phase-62-one-escape-one-dismissal.md) | 🔄 WIP | — | 29/33 | `█████████░` | 88% | — | — |
 | [61 · Database Explorer](phases/phase-61-database-explorer.md) | 🔄 WIP | x1 | 75/94 | `████████░░` | 80% | — | Verification (human passes) |
-| [60 · A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md) | 🔄 WIP | x1 | 29/34 | `█████████░` | 85% | — | — |
+| [60 · A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md) | 🔄 WIP | x1 | 33/34 | `██████████` | 97% | — | Verification (human passes) |
 | [59 · Workspace Optimizer](phases/phase-59-workspace-optimizer.md) | ✅ DONE | x1 | 70/70 | `██████████` | 100% | — | — |
 | [58 · Notes, and the menu that holds them](phases/phase-58-notes-and-the-menu.md) | 🔄 WIP | x1 | 76/78 | `██████████` | 97% | — | — |
 | [57 · Midnite Studio speaks MCP](phases/phase-57-mcp-server.md) | 🔄 WIP | x1 | 73/76 | `██████████` | 96% | — | Verification (3 human passes) |

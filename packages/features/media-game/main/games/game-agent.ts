@@ -262,7 +262,7 @@ export function buildGamePassPrompt(req: {
     pass === 1
       ? `This is pass 1 of ${of}. Make the change with your file tools, then play-test it.`
       : `This is pass ${pass} of ${of}. Play-test the game, then fix what is wrong or move it closer to the request. If it already does what was asked, make no edits.`,
-    `Play-test through the midnite MCP tools, always with game "${game.gameId}": game_run, game_screenshot, game_logs, game_input, game_state, game_reload, game_stop; game_level_list, game_level_get and game_level_set read and write levels/<scene>.tmj and game_goto jumps the running game to a scene; game_playtest runs playtests/*.json deterministically, and game_replay_play, game_assert_state and game_assert_frame check a replay at a frame.`,
+    `Play-test through the midnite MCP tools, always with game "${game.gameId}": game_run, game_screenshot, game_logs, game_input, game_state, game_reload, game_stop; game_level_list, game_level_get and game_level_set read and write levels/<scene>.tmj (set replaces the whole file, for a new scene) and game_goto jumps the running game to a scene; to edit a level, game_level_query it, change it with game_entity_batch (one labelled batch per intent; game_entity_add, game_entity_update and game_entity_delete are short forms), show it with game_level_select and game_level_frame, look with game_level_view, and finish with game_level_validate; game_playtest runs playtests/*.json deterministically, and game_replay_play, game_assert_state and game_assert_frame check a replay at a frame.`,
     'Rules: edit only files inside this folder; never edit vendor/ or kit/ (extend the kit from src/); keep getState() truthful; there is no shell, so do not try to run commands.',
     'Finish with one sentence saying what you changed.',
   ].join('\n');
@@ -292,6 +292,9 @@ const ACTION_LABELS: Partial<Record<GameMcpToolId, string>> = {
   game_entity_add: 'Added level objects',
   game_entity_update: 'Updated level objects',
   game_entity_delete: 'Deleted level objects',
+  game_level_select: 'Selected level objects',
+  game_level_frame: 'Framed the level',
+  game_level_view: 'Viewed a level',
   game_level_set: 'Saved a level',
   game_goto: 'Jumped to a scene',
   game_doctor: 'Diagnosed the game',

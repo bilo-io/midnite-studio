@@ -3,6 +3,8 @@ import { LuBot, LuCheck, LuFocus, LuUndo2 } from 'react-icons/lu';
 
 import { Popover } from '../chrome';
 import { addSelected, findObject, selectOnly, undo, type EditState, type ObjectRef } from './level-edit-model';
+import { editorControls } from './level-editor-controls';
+import { selectionBounds } from './level-selection';
 import { useLevelStore, type AgentChangeSet, type OpenLevel } from './level-store';
 
 /** "3 added · 2 changed · 1 removed", empty parts left out. */
@@ -47,6 +49,9 @@ export function AgentChangeBanner({ gameId, entry }: { gameId: string; entry: Op
     const refs = liveRefs(entry.edit, latest);
     store.update(gameId, (s) => addSelected(selectOnly(s, null), refs));
     store.setHighlight(gameId, [...latest.added, ...latest.updated]);
+    // Show also brings them into view: the same camera move as the `game_level_frame` tool (Phase 138 Theme G).
+    const rect = selectionBounds(entry.edit.level, refs);
+    if (rect) editorControls(gameId)?.frame(rect, refs);
   };
   const doUndo = () => {
     store.update(gameId, undo);

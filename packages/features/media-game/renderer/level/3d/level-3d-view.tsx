@@ -1,5 +1,5 @@
 import { Canvas } from '@react-three/fiber';
-import { DEFAULT_SNAP, TransformModeBar, transformModeForKey, type SnapSettings, type TransformMode } from '@midnite/studio-frame/viewport3d';
+import { DEFAULT_SNAP, TransformModeBar, type SnapSettings, type TransformMode } from '@midnite/studio-frame/viewport3d';
 import { bridge } from '@midnite/studio-frame';
 import { metresPerTile, type GameLevelTerrain } from '@midnite/studio-shared';
 import { useEffect, useMemo, useRef, useState, type ComponentType, type KeyboardEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent } from 'react';
@@ -7,22 +7,34 @@ import { LuActivity, LuBox, LuCrosshair, LuGlobe, LuGroup } from 'react-icons/lu
 import type { Object3D } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-import { addObject, addSelected, select, setActiveLayer, setOptionalNumber, toggleSelected, type EditLevel, type EditSelection, type EditState, type ObjectRef, type PlanPoint } from '../level-edit-model';
-import { orbitPose, planPose, type CameraPose } from './camera-transition';
+import { addObject, addSelected, select, setActiveLayer, setOptionalNumber, toggleSelected, type EditLevel, type EditSelection, type EditState, type ObjectRef, type PlanPoint, type PlanRect } from '../level-edit-model';
+import { cameraPosition, orbitPose, planPose, type CameraPose } from './camera-transition';
+import { boxCentre, capturePose, framingSpan, levelWorldBox, type WorldBox } from './level-capture-pose';
+import { pixelsToPng } from './level-capture';
+import type { LevelCaptured, LevelCaptureRequest } from '../level-editor-controls';
 import { formatStats, type GroundTile, type ViewStats } from './level-cull';
 import { footprintBox, gizmoSteps, surfaceElevation } from '../level-snap';
 import type { LevelSceneProps } from './level-scene';
 import { disposeTree, LevelScene, NO_DRAFT, SCENE_BACKGROUND, type CameraMove, type ToolDraft } from './level-scene';
 import { commitVolume, groundPoint, rayHitsItem, rotateToward, snappedPlanPoint, volumeFromDrag, worldPointFromPlan } from './level-ground';
 import { marqueeHits, type ScreenPoint, type ScreenRect } from './level-marquee';
+import { isMac, matchShortcut } from '../level-shortcuts';
 import { useLevelViewStore, type GizmoPivot, type GizmoSpace } from './level-view-store';
-import { gizmoEdit, gizmoEditGroup, groundY, groupPivot, levelWorldItems, POINT_SIZE, worldToObjectPoint, type GizmoChange, type GroupDelta, type GroupPivot } from './level-world';
+import { gizmoEdit, gizmoEditGroup, groundY, groupPivot, levelWorldItems, POINT_SIZE, worldItemOf, worldToObjectPoint, type GizmoChange, type GroupDelta, type GroupPivot } from './level-world';
 import { ModelCache } from './model-cache';
 import { OPTIMISATION_PRESETS, presetFor } from './optimisation';
 import { SpatialGrid } from './spatial-grid';
 
 /** What the editor asks of the 3D view: ease back to the plan pose, then hand over the pose it ended on. */
-export type Level3dHandle = { exit: (done: (pose: CameraPose) => void) => void };
+export type Level3dHandle = {
+  exit: (done: (pose: CameraPose) => void) => void;
+  /** Ease the camera over `refs` (else the ground under `rect`, map pixels): `game_level_frame` and the banner's Show. */
+  frameTo?: (rect: PlanRect, refs: readonly ObjectRef[]) => void;
+  /** Ease the camera onto the selected object (the outliner's double-click). */
+  frame?: () => void;
+  /** A PNG of the level from a preset or camera, drawn through a temporary camera (`game_level_view`). */
+  capture?: (req: LevelCaptureRequest) => Promise<LevelCaptured>;
+};
 
 export type Level3dViewProps = {
   gameId: string;
@@ -45,6 +57,12 @@ export type Level3dViewProps = {
   handle: MutableRefObject<Level3dHandle | null>;
   /** Keys the 3D view does not own (undo, delete, tool keys) go back to the editor. */
   onEditorKey: (event: KeyboardEvent<HTMLDivElement>) => void;
+  /** Objects hidden in the outliner (refKeys): not drawn. Editor-only (Phase 137 Theme H). */
+  hidden?: ReadonlySet<string>;
+  /** Objects locked in the outliner (refKeys): drawn, but a click does not pick them. */
+  locked?: ReadonlySet<string>;
+  /** Right-click (Phase 137 Theme I): the object under the pointer, or null over the ground. */
+  onContextMenu?: (event: { clientX: number; clientY: number; hit: { layerId: number; objectId: number } | null }) => void;
 };
 
 type LevelSceneRayRef = LevelSceneProps['ray'];
@@ -72,7 +90,8 @@ export function levelBounds(level: EditLevel, terrain: GameLevelTerrain | null):
  */
 export default function Level3dView(props: Level3dViewProps) {
   const { level, gameId, update } = props;
-  const items = useMemo(() => levelWorldItems(level), [level]);
+  const hiddenKeys = props.hidden;
+  const items = useMemo(() => (hiddenKeys && hiddenKeys.size > 0 ? levelWorldItems(level).filter((it) => !hiddenKeys.has(`${it.sel.layerId}:${it.sel.objectId}`)) : levelWorldItems(level)), [level, hiddenKeys]);
   const grid = useMemo(() => new SpatialGrid(items), [items]);
   const bounds = useMemo(() => levelBounds(level, props.terrain), [level, props.terrain]);
   const ground = groundY(level);
@@ -110,6 +129,7 @@ export default function Level3dView(props: Level3dViewProps) {
   const [marquee, setMarquee] = useState<ScreenRect | null>(null);
   const [shiftDown, setShiftDown] = useState(false);
   const ray: LevelSceneRayRef = useRef(null);
+  const captureFn: LevelSceneProps['capture'] = useRef(null);
   const setOrbit = useRef<((on: boolean) => void) | null>(null);
   const [volumeDraft, setVolumeDraft] = useState<ToolDraft['volume']>(null);
   const [aimDraft, setAimDraft] = useState<ToolDraft['aim']>(null);
@@ -158,6 +178,9 @@ export default function Level3dView(props: Level3dViewProps) {
         const to = planPose(now.target, now.span);
         move.current = { from: now, to, startedAt: null, onDone: () => done(to) };
       },
+      frame: () => frameRef.current(),
+      frameTo: (rect, refs) => latest.current.frame(rect, refs),
+      capture: (req) => latest.current.capture(req),
     };
     return () => {
       cancelAnimationFrame(id);
@@ -176,31 +199,72 @@ export default function Level3dView(props: Level3dViewProps) {
     setDirtyTick((t) => t + 1);
   };
 
+  /** The item under the pointer, for a right-click (the scene's pointer-move events set it). */
+  const pointerHit = useRef<{ layerId: number; objectId: number } | null>(null);
+  const frameRef = useRef(frame);
+  frameRef.current = frame;
+
+  /** The box (world metres) of `refs`' items, else of the ground under `rect`. */
+  const boxOf = (rect: PlanRect | null, refs: readonly ObjectRef[]): WorldBox | null => {
+    const found = refs.map((r) => worldItemOf(level, r)).filter((i): i is NonNullable<typeof i> => i !== null);
+    if (found.length > 0) {
+      return {
+        min: [Math.min(...found.map((i) => i.bounds.minX)), Math.min(...found.map((i) => i.position[1])), Math.min(...found.map((i) => i.bounds.minZ))],
+        max: [Math.max(...found.map((i) => i.bounds.maxX)), Math.max(...found.map((i) => i.position[1] + i.size[1])), Math.max(...found.map((i) => i.bounds.maxZ))],
+      };
+    }
+    if (!rect) return null;
+    const mpt = metresPerTile(level);
+    const planToWorld = (x: number, y: number): [number, number] => [(x / level.tilewidth) * mpt, (y / level.tileheight) * mpt];
+    const a = planToWorld(rect.x, rect.y), b = planToWorld(rect.x + rect.width, rect.y + rect.height);
+    return { min: [Math.min(a[0], b[0]), ground, Math.min(a[1], b[1])], max: [Math.max(a[0], b[0]), ground, Math.max(a[1], b[1])] };
+  };
+  const frameBox = (rect: PlanRect, refs: readonly ObjectRef[]) => {
+    const box = boxOf(rect, refs);
+    if (!box) return;
+    const now = poseOut.current ?? initialPose;
+    const c = boxCentre(box);
+    move.current = { from: now, to: { ...orbitPose(c, framingSpan(box)), yaw: now.yaw }, startedAt: null };
+    setDirtyTick((t) => t + 1);
+  };
+  const captureView = async (req: LevelCaptureRequest): Promise<LevelCaptured> => {
+    // A view just switched to mounts its scene a beat later: wait for it, then for a couple of frames to draw.
+    for (let i = 0; i < 60 && !captureFn.current; i += 1) await new Promise((r) => setTimeout(r, 50)); // allow-timeout: polling for the scene to mount
+    const draw = captureFn.current;
+    if (!draw) throw new Error('The 3D view is not ready to draw a picture yet.');
+    for (let i = 0; i < 2; i += 1) await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    const whole = levelWorldBox(bounds, ground, items);
+    const live = poseOut.current ?? initialPose;
+    const liveCamera = { position: cameraPosition(live), target: live.target, fov: live.fov };
+    const camera = capturePose(req, whole, boxOf(null, selectedRefs)) ?? liveCamera;
+    const { visible, ...pixels } = draw(camera, req.width, req.height);
+    return { png: await pixelsToPng(pixels), camera, objects: visible, width: req.width, height: req.height };
+  };
+  const latest = useRef({ frame: frameBox, capture: captureView });
+  latest.current = { frame: frameBox, capture: captureView };
+
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const mod = event.metaKey || event.ctrlKey;
-    if (!mod && !event.altKey) {
-      const key = event.key.toLowerCase();
-      const next = transformModeForKey(key);
-      if (next && !props.readOnly) {
-        event.preventDefault();
-        setMode(next);
-        return;
-      }
-      if ((key === 'z' || key === 'x') && !props.readOnly) {
-        event.preventDefault();
-        if (key === 'z') setPivotMode(pivotMode === 'pivot' ? 'centre' : 'pivot');
-        else setSpace(space === 'world' ? 'local' : 'world');
-        return;
-      }
-      if (key === 'f') {
-        event.preventDefault();
-        frame();
-        return;
-      }
-      if (key === 'escape') {
-        update((s) => select(s, null));
-        return;
-      }
+    const cmd = matchShortcut(event, { view: '3d', dimension: '3d', mac: isMac() });
+    const next = cmd === 'gizmo.translate' ? 'translate' : cmd === 'gizmo.rotate' ? 'rotate' : cmd === 'gizmo.scale' ? 'scale' : null;
+    if (next && !props.readOnly) {
+      event.preventDefault();
+      setMode(next);
+      return;
+    }
+    if ((cmd === 'gizmo.pivot' || cmd === 'gizmo.space') && !props.readOnly) {
+      event.preventDefault();
+      if (cmd === 'gizmo.pivot') setPivotMode(pivotMode === 'pivot' ? 'centre' : 'pivot');
+      else setSpace(space === 'world' ? 'local' : 'world');
+      return;
+    }
+    if (cmd === 'view.frame') {
+      event.preventDefault();
+      frame();
+      return;
+    }
+    if (cmd === 'select.none') {
+      update((s) => select(s, null));
+      return;
     }
     props.onEditorKey(event);
   };
@@ -320,7 +384,7 @@ export default function Level3dView(props: Level3dViewProps) {
         projectPoint,
         rectAt(ev),
       );
-      const refs = hits.map((i) => items[i]!.sel);
+      const refs = hits.map((i) => items[i]!.sel).filter((r) => !props.locked?.has(`${r.layerId}:${r.objectId}`));
       if (refs.length > 0) update((s) => addSelected(s, refs));
     };
     window.addEventListener('pointermove', move);
@@ -339,6 +403,11 @@ export default function Level3dView(props: Level3dViewProps) {
       onKeyDown={onKeyDown}
       onPointerDownCapture={toolDown}
       onPointerDown={startMarquee}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        if (!props.onContextMenu) return;
+        props.onContextMenu({ clientX: e.clientX, clientY: e.clientY, hit: pointerHit.current });
+      }}
     >
       <Canvas frameloop={statsOn ? 'always' : 'demand'} dpr={Math.min(preset.pixelRatio, typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1)} gl={{ antialias: true }}>
         <LevelScene
@@ -354,6 +423,7 @@ export default function Level3dView(props: Level3dViewProps) {
           orbit={!(shiftDown && marqueeOn)}
           gizmoDragging={gizmoDragging}
           ray={ray}
+          capture={captureFn}
           setOrbit={setOrbit}
           draft={draft}
           project={project}
@@ -366,8 +436,12 @@ export default function Level3dView(props: Level3dViewProps) {
           move={move}
           poseOut={poseOut}
           dirtyTick={dirtyTick}
+          onHover={(index) => {
+            pointerHit.current = index === null ? null : (items[index]?.sel ?? null);
+          }}
           onPick={(index, modifier) => {
             const sel = index === null ? null : (items[index]?.sel ?? null);
+            if (sel && props.locked?.has(`${sel.layerId}:${sel.objectId}`)) return;
             update((s) => (sel && modifier === 'toggle' ? toggleSelected(s, sel) : sel && modifier === 'add' ? addSelected(s, [sel]) : select(s, sel)));
           }}
           onGroupEnd={(delta: GroupDelta, framePivot: GroupPivot) => {

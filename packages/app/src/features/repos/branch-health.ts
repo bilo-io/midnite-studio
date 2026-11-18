@@ -21,7 +21,7 @@ export type BranchHealth = {
  *
  * The seam, deliberately narrow: `checkHealth` is the whole contract a future
  * provider has to satisfy, and nothing supplies one yet (see
- * todo/outstanding.md → "Branch checks"). Keeping it as an argument rather than
+ * .midnite/tasks/outstanding.md → "Branch checks"). Keeping it as an argument rather than
  * a lookup inside this module is what lets the sidebar stay honest in the
  * meantime: with no provider, every branch that git has nothing to say about
  * reports `unknown` and shows no dot at all, rather than a green one asserting

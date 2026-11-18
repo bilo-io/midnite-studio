@@ -80,7 +80,8 @@ export const FEATURE_GATE_CHANNELS: Partial<Record<FeatureToggleId, readonly str
  * its manifests' `mcpTools`; Workflows' and the Companion's from their id prefixes (`defaultMcpToolOwner`'s table).
  */
 export const FEATURE_GATE_MCP_TOOLS: Partial<Record<FeatureToggleId, readonly string[]>> = {
-  media: MCP_TOOL_MANIFESTS.flatMap((m) => m.mcpTools),
+  // Startup's tools are Startup's (its own socket and consent), not Media's.
+  media: MCP_TOOL_MANIFESTS.filter((m) => m.owner !== 'startup').flatMap((m) => m.mcpTools),
   workflows: MCP_TOOL_IDS.filter((id) => id.startsWith('workflow_')),
   companion: MCP_TOOL_IDS.filter((id) => id.startsWith('companion_')),
 };

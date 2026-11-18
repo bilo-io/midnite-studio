@@ -27,7 +27,7 @@ describe('ControlsPanel', () => {
   });
 
   it('Apply to all confirms, then rewrites configs but keeps names and enabled', async () => {
-    const initial = fleetProjection({ template: { hardwareId: 'a100-node', apiTierId: 'pro', quantity: 3, utilisationPct: 40, pricePerHourCents: 900 }, nodes: [fleetNode(1, { enabled: false, name: 'Keep me' }), fleetNode(2)] });
+    const initial = fleetProjection({ template: { hardwareId: 'a100-node', apiTierId: 'pro', quantity: 3, utilisationPct: 40, pricePerHourMinor: 900 }, nodes: [fleetNode(1, { enabled: false, name: 'Keep me' }), fleetNode(2)] });
     renderWithChrome(<Host initial={initial} />);
     fireEvent.click(screen.getByRole('button', { name: 'Apply template to all' }));
     expect(latest.nodes[0]!.hardwareId).toBe('dual-4090');
@@ -44,5 +44,12 @@ describe('ControlsPanel', () => {
     fireEvent.click(radios[0]!);
     expect(latest.globals.horizonMonths).toBe(12);
     expect(screen.getAllByRole('radio').filter((r) => r.getAttribute('aria-checked') === 'true')).toHaveLength(1);
+  });
+
+  it('offers a hidden selected entry labelled (hidden), and a missing id as Missing', () => {
+    const initial = fleetProjection({ template: { hardwareId: 'ghost-9', apiTierId: 'pro', quantity: 1, utilisationPct: 50, pricePerHourMinor: 100 } });
+    renderWithChrome(<Host initial={initial} />);
+    expect(screen.getByRole('option', { name: 'Missing (ghost-9)' })).toBeTruthy();
+    expect(screen.getByText(/Settings ▸ Catalog/)).toBeTruthy();
   });
 });

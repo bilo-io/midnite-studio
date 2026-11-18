@@ -1,8 +1,8 @@
 import type { ErrorReport, MidniteStudioBridge } from '@midnite/studio-shared';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUiStore } from '../store/ui-store';
-import { __resetErrorReports, reportError, reportSignature } from './report';
+import { __resetErrorReports, installGlobalErrorReporting, reportError, reportSignature } from './report';
 
 const error = vi.fn();
 
@@ -129,5 +129,51 @@ describe('reportError (Phase 65 Theme C)', () => {
       throw new Error('IPC is gone too');
     });
     expect(() => reportError('boundary', boom())).not.toThrow();
+  });
+});
+
+describe('installGlobalErrorReporting (Phase 65 Theme C)', () => {
+  // The listeners live on the shared jsdom window; installing twice would double-report.
+  beforeAll(() => {
+    installGlobalErrorReporting();
+  });
+
+  beforeEach(() => {
+    error.mockClear();
+    __resetErrorReports();
+    installBridge();
+  });
+
+  afterEach(() => {
+    delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
+  });
+
+  function reject(reason: unknown): void {
+    // jsdom has no PromiseRejectionEvent.
+    window.dispatchEvent(Object.assign(new Event('unhandledrejection'), { reason }));
+  }
+
+  it('reports a window error once, from the main window', () => {
+    window.dispatchEvent(new ErrorEvent('error', { error: boom('win'), message: 'win' }));
+    expect(sent()).toHaveLength(1);
+    expect(sent()[0]).toMatchObject({ source: 'window-error', message: 'win', role: 'main' });
+  });
+
+  it('reports an unhandled rejection once', () => {
+    reject(new Error('x'));
+    expect(sent()).toHaveLength(1);
+    expect(sent()[0]).toMatchObject({ source: 'unhandled-rejection', message: 'x' });
+  });
+
+  it('keeps a cross-origin "Script error." rather than dropping it', () => {
+    window.dispatchEvent(new ErrorEvent('error', { message: 'Script error.' }));
+    expect(sent()).toHaveLength(1);
+    expect(sent()[0]?.message).toBe('Script error.');
+  });
+
+  it('reports a rejected string as a thrown-string', () => {
+    reject('nope');
+    expect(sent()).toHaveLength(1);
+    expect(sent()[0]).toMatchObject({ name: 'thrown-string', message: 'nope' });
   });
 });

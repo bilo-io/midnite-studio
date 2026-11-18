@@ -129,6 +129,7 @@ import { registerStatsHandlers } from './ipc/stats-handlers';
 import { registerStatusHandlers } from './ipc/status-handlers';
 import { configureTests, createTestTrustStore } from '@midnite/studio-feature-tests/main';
 import { registerTestsFeatureHandlers } from './ipc/tests-feature-handlers';
+import { installMainCrashHooks } from './crash-hooks';
 import { defaultLogger, setLogSink, type Logger } from './log';
 import { installMenu } from './menu';
 import { startStudioRuntimeHost, studioRuntimeDirectory } from './runtime-host';
@@ -357,37 +358,7 @@ export const startStudioMain: StartStudioMain = () => {
 
   app.setName('Midnite Studio');
 
-  /*
-    Main's own crashes, recorded — Phase 65 Theme D.
-
-    Installed here rather than inside `whenReady` on purpose: the boot path is
-    where an unhandled rejection is both most likely and most invisible, and a
-    handler registered after `whenReady` cannot see the ones raised before it.
-    Neither handler exits. Electron's default for an uncaught exception in main is
-    to log it and keep running, and this phase changes what is RECORDED, not what
-    the app does — turning a survivable exception into a quit would be a
-    behaviour change smuggled in under a logging one.
-  */
-  process.on('uncaughtException', (err) => {
-    defaultLogger.error('[main] uncaughtException', err);
-  });
-  process.on('unhandledRejection', (reason) => {
-    defaultLogger.error('[main] unhandledRejection', reason);
-  });
-
-  /*
-    A GPU or utility process dying — the only hook that reports it, and it had
-    none until Phase 65. This class of failure currently manifests to a user as
-    "the window went strange" with no record at all, which is exactly the report
-    nobody can act on.
-  */
-  app.on('child-process-gone', (_event, details) => {
-    defaultLogger.error(
-      `[main] child-process-gone type=${details.type} reason=${details.reason} exit=${details.exitCode}${
-        details.name === undefined ? '' : ` name=${details.name}`
-      }`,
-    );
-  });
+  installMainCrashHooks(defaultLogger, process, app);
 
   if (!app.isPackaged) {
     const mainScript = process.argv[1] ? resolve(process.argv[1]) : process.cwd();

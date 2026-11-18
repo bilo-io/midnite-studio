@@ -58,7 +58,7 @@ fails CI on a new unmarked protected-folder access. Info.plist gains the seven f
 prompts that remain say why. The audit found no boot or timer path entering a protected folder; the full scan was the one
 offender (`tcc-guard` is the regression net). Prompts from commands run in a terminal stay attributed to Studio.
 
-**Theme E — A stable code identity.** ◻ (M) Variant (a) Developer ID, chosen 2026-11-17. **E1 (code, lands inert):**
+**Theme E — A stable code identity.** 🔄 (M) Variant (a) Developer ID, chosen 2026-11-17. **E1 (code, lands inert):**
 one `scripts/lib/signing-identity.cjs` resolver decides "Developer ID or ad hoc" for both `afterpack.cjs` files, which
 skip their `--sign -` re-sign when an identity will sign; both `notarize.cjs` prefer an App Store Connect API key over
 the Apple ID trio; `release.yml`'s `build` job runs under a `release` Environment; `verify-signature.mjs` grows
@@ -66,6 +66,8 @@ the Apple ID trio; `release.yml`'s `build` job runs under a `release` Environmen
 identity. **E2 (after the first notarised release):** `RELEASES_ARE_NOTARISED` flips and the "ad-hoc until a cert
 exists" prose goes. Then a hardened-runtime smoke pass and the one-time user remediation (now written into this doc).
 End-user suite stubs stay ad hoc. The self-signed variant (b) is not built.
+
+*Pre-certificate slice landed (E1 items 1–3).* `scripts/lib/signing-identity.cjs` (`resolveSigning`, `listKeychainIdentities`, `afterPackSignArg`) decides ad hoc vs Developer ID and also honours `MIDNITE_CODESIGN_IDENTITY` (hooks then sign with that name themselves; `CSC_*` or a keychain Developer ID means electron-builder signs and the hooks skip `--sign -`). Both `notarize.cjs` export `notarizeOptions` (API key, then Apple ID trio, else skip); `release.yml`'s `build` job runs under `environment: release` and writes the API key when all three secrets exist. The launcher dev stub signs with a keychain identity when present, else `-`. With no identity configured every path is today's ad-hoc build. Still waiting on the Developer ID certificate (Phase 53 Theme H): `verify-signature.mjs --expect-developer-id`, `updater.ts` test seam, `RELEASES_ARE_NOTARISED = true`, `docs/RELEASING.md`, the hardened-runtime smoke pass and the three human Done lines.
 
 **Audit — 2026-11-17.** Re-checked against `origin/main` at `2615c1c60`. A–D (17 items) were already ticked and still
 hold: every file they name is where they say (`desktop/src/main/keychain-gate.ts`, `desktop/src/main/permissions/probe.ts`,
@@ -112,7 +114,7 @@ present, so with no cert a release is byte-for-byte the ad-hoc build it is today
 inside E4, and the `outstanding.md` strike) is a second, tiny PR that merges only after the first release whose
 `verify-signature.mjs --expect-developer-id` step passed. The human items run on that release.
 
-- [ ] *(a)* `release.yml` `environment: release`, API-key notarisation env; `notarize.cjs` (both) prefers the API key.
+- [x] *(a)* `release.yml` `environment: release`, API-key notarisation env; `notarize.cjs` (both) prefers the API key.
   - [`.github/workflows/release.yml`](../../../../.github/workflows/release.yml): add `environment: release` to the
     `build:` job (line ~114, the only job that signs) — never to `meta`/`plan`/`bundles`/`assemble`/`release`/`publish-*`.
   - Same file, the `Configure macOS code-signing` step (line ~172): add `APPLE_API_KEY_P8`, `APPLE_API_KEY_ID`,
@@ -130,7 +132,7 @@ inside E4, and the `outstanding.md` strike) is a second, tiny PR that merges onl
   - Test (net-new) [`scripts/lib/notarize-options.test.mjs`](../../../../scripts/lib/) — vitest via the root
     `scripts/**/*.test.mjs` include; `createRequire` the desktop `notarize.cjs`; assert API key wins when both sets
     exist, partial API key → Apple-ID options, nothing → `null`; and that the two `notarize.cjs` files are byte-equal.
-- [ ] *(a)* ~~`(a/b)`~~ `scripts/lib/signing-identity.cjs`; both `afterpack.cjs` skip `--sign -` when an identity signs. *(The (b) `MIDNITE_CODESIGN_IDENTITY` arm is not built — variant (a) chosen.)*
+- [x] *(a)* ~~`(a/b)`~~ `scripts/lib/signing-identity.cjs`; both `afterpack.cjs` skip `--sign -` when an identity signs. *(The (b) `MIDNITE_CODESIGN_IDENTITY` arm is not built — variant (a) chosen.)*
   - Net-new [`scripts/lib/signing-identity.cjs`](../../../../scripts/lib/) (CommonJS, no deps — both `afterpack.cjs`
     are CJS): `exports.resolveSigning = (env, listIdentities) => ({ kind: 'developer-id', name } | { kind: 'adhoc' })`.
     Rule, in order: `env.CSC_IDENTITY_AUTO_DISCOVERY === 'false'` → adhoc; non-empty `env.CSC_LINK` or `env.CSC_NAME`
@@ -147,7 +149,7 @@ inside E4, and the `outstanding.md` strike) is a second, tiny PR that merges onl
     `verify-signature.mjs` checks the final zip). Fuse flipping is unchanged in both.
   - Test (net-new) `scripts/lib/signing-identity.test.mjs`: the four rule arms above with an injected
     `listIdentities`; an `Apple Development:` identity alone → adhoc; `listIdentities` returning `''` → adhoc.
-- [ ] *(a)* ~~Launcher `stub.ts:140` /~~ `dev-stub.ts:81` signs with a keychain identity when present, else `-`. *(`stub.ts` struck: it runs inside the installed launcher on the user's machine, where signing with a keychain key would itself raise a keychain prompt — the thing this phase removes — and the resolved decision keeps end-user stubs ad hoc.)*
+- [x] *(a)* ~~Launcher `stub.ts:140` /~~ `dev-stub.ts:81` signs with a keychain identity when present, else `-`. *(`stub.ts` struck: it runs inside the installed launcher on the user's machine, where signing with a keychain key would itself raise a keychain prompt — the thing this phase removes — and the resolved decision keeps end-user stubs ad hoc.)*
   - [`apps/launcher/src/main/bundles/dev-stub.ts`](../../../../apps/launcher/src/main/bundles/dev-stub.ts): add
     optional `signIdentity?: string` to `DevStubInput`; the two `codesign` steps use `input.signIdentity ?? '-'` for
     `--sign`. `planDevStub` stays pure.

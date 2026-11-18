@@ -1,10 +1,11 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, type ReactNode } from 'react';
 
 import { Skeleton } from '@midnite/studio-frame';
 import type { FleetProjection } from '@midnite/studio-shared';
 
 import type { FleetProjectionResult } from './fleet-model';
-import { formatZar } from './format-zar';
+import { formatMoney } from './format-money';
+import { useMoney } from './money-context';
 import { NodeCard } from './node-card';
 import { ALERT, GRADIENT_BORDER, LABEL, PANE } from './styles';
 
@@ -18,6 +19,8 @@ export type ResultsProps = {
   pending: boolean;
   problem: string | null;
   readOnly: boolean;
+  /** Extra header controls (Runway link, export), each self-contained. */
+  actions?: ReactNode;
 };
 
 function Tile({ label, value, tone, big }: { label: string; value: string; tone?: 'good' | 'bad'; big?: boolean }) {
@@ -30,14 +33,16 @@ function Tile({ label, value, tone, big }: { label: string; value: string; tone?
 }
 
 /** The centre pane: headline figures, the chart and one card per node. */
-export function ResultsPanel({ draft, result, update, pending, problem, readOnly }: ResultsProps) {
-  const net = result.netMarginMonthlyCents;
+export function ResultsPanel({ draft, result, update, pending, problem, readOnly, actions }: ResultsProps) {
+  const { currency } = useMoney();
+  const net = result.netMarginMonthlyMinor;
   const payback = result.paybackMonths === null ? `Not within ${draft.globals.horizonMonths} mo` : `${result.paybackMonths} mo`;
   return (
     <div className="flex flex-col gap-3">
       <header className="flex items-baseline gap-3">
         <h2 className="text-lg font-semibold">{draft.name}</h2>
         {pending ? <span className="text-xs text-muted-foreground">Saving…</span> : null}
+        {actions}
       </header>
       {problem !== null ? (
         <p role="alert" className={ALERT}>
@@ -45,10 +50,10 @@ export function ResultsPanel({ draft, result, update, pending, problem, readOnly
         </p>
       ) : null}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6">
-        <Tile label="CapEx" value={formatZar(result.capexCents)} />
-        <Tile label="OpEx /mo" value={formatZar(result.opexMonthlyCents)} />
-        <Tile label="Revenue /mo" value={formatZar(result.revenueMonthlyCents)} />
-        <Tile big label="Net margin /mo" value={formatZar(net)} tone={net >= 0 ? 'good' : 'bad'} />
+        <Tile label="CapEx" value={formatMoney(result.capexMinor, currency)} />
+        <Tile label="OpEx /mo" value={formatMoney(result.opexMonthlyMinor, currency)} />
+        <Tile label="Revenue /mo" value={formatMoney(result.revenueMonthlyMinor, currency)} />
+        <Tile big label="Net margin /mo" value={formatMoney(net, currency)} tone={net >= 0 ? 'good' : 'bad'} />
         <Tile label="Margin %" value={result.marginPct === null ? '—' : `${result.marginPct.toFixed(1)} %`} />
         <Tile label="Payback" value={payback} />
       </div>

@@ -9,7 +9,7 @@ import { fleetProjection, u } from './test-fixtures';
 
 const snapshot = (fleetProjections: FleetProjection[], readOnly = false) => ({
   ok: true,
-  value: { workspace: { version: 2, fleetProjections, company: null, milestones: [], lines: [], scenarios: [], customers: [], invoices: [], vendors: [], contracts: [], invoiceCounter: 0, ledger: null }, revision: 0, readOnly },
+  value: { workspace: { version: 3, fleetProjections, company: null, milestones: [], lines: [], scenarios: [], customers: [], invoices: [], vendors: [], contracts: [], invoiceCounter: 0, ledger: null }, revision: 0, readOnly },
 });
 function install(projections: FleetProjection[], readOnly = false) {
   window.midniteStudio = { startup: { get: vi.fn(async () => snapshot(projections, readOnly)), upsertFleetProjection: vi.fn(), onChanged: () => () => undefined } } as unknown as typeof window.midniteStudio;

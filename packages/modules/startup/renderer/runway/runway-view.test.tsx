@@ -13,16 +13,16 @@ const line: PlanLine = { id: u(5), kind: 'cost', name: 'Rent', category: 'premis
 const scenarioTwo: RunwayScenario = { id: u(9), name: 'Lean', costMultiplierBp: 8000, revenueMultiplierBp: 10000, extraLines: [] };
 const snapshot = (lines: PlanLine[], scenarios: RunwayScenario[]) => ({
   ok: true,
-  value: { workspace: { version: 2, fleetProjections: [], company, milestones: [], lines, scenarios, customers: [], invoices: [], vendors: [], contracts: [], invoiceCounter: 0, ledger: null }, revision: 0, readOnly: false },
+  value: { workspace: { version: 3, fleetProjections: [], company, milestones: [], lines, scenarios, customers: [], invoices: [], vendors: [], contracts: [], invoiceCounter: 0, ledger: null }, revision: 0, readOnly: false },
 });
 const projection = (over: object = {}) => ({
   ok: true,
   value: { months: [{ month: '2026-11', revenueMinor: 0, costMinor: 100_000, netMinor: -100_000, cashMinor: 9_900_000 }], burnMinor: -100_000, runwayMonths: null, zeroCashMonth: null, defaultAlive: false, ...over },
 });
 
-function install(lines: PlanLine[], scenarios: RunwayScenario[], proj = vi.fn(async (_req: unknown) => projection())) {
+function install(lines: PlanLine[], scenarios: RunwayScenario[], proj = vi.fn(async (_req: unknown) => projection()), exportRunwayCsv = vi.fn()) {
   window.midniteStudio = {
-    startup: { get: vi.fn(async () => snapshot(lines, scenarios)), projection: proj, upsertScenario: vi.fn(), removeScenario: vi.fn(), upsertLine: vi.fn(), removeLine: vi.fn(), onChanged: () => () => undefined },
+    startup: { get: vi.fn(async () => snapshot(lines, scenarios)), projection: proj, upsertScenario: vi.fn(), removeScenario: vi.fn(), upsertLine: vi.fn(), removeLine: vi.fn(), exportRunwayCsv, onChanged: () => () => undefined },
   } as unknown as typeof window.midniteStudio;
   return proj;
 }
@@ -39,6 +39,16 @@ describe('RunwayView', () => {
     renderRunway();
     expect(await screen.findByText('Add your first cost')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Add line' })).toBeTruthy();
+  });
+
+  it('exports the runway CSV for the active scenario and horizon', async () => {
+    const exportCsv = vi.fn(async (_req: unknown) => ({ ok: true, value: { saved: true } }));
+    install([line], [], undefined, exportCsv);
+    renderRunway();
+    await screen.findByText('Beyond 36 months');
+    fireEvent.change(screen.getByLabelText('Horizon'), { target: { value: '24' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
+    await waitFor(() => expect(exportCsv).toHaveBeenCalledWith({ scenarioId: BASE_SCENARIO_ID, months: 24 }));
   });
 
   it('says "Beyond 36 months" when cash never runs out in the horizon', async () => {
@@ -105,5 +115,36 @@ describe('RunwayView', () => {
     expect(screen.getByText('£42,000')).toBeTruthy();
     expect(screen.getByText(/Modelled £1,000, \+£500 from plan/)).toBeTruthy();
     expect(screen.queryByText('Link a book to use actuals.')).toBeNull();
+  });
+});
+
+describe('lines written by a projection', () => {
+  const pid = u(70);
+  const linked: PlanLine = { ...line, id: u(6), name: 'GPU — running costs', source: { kind: 'fleetProjection', projectionId: pid, part: 'opex', syncedAt: '2026-11-17T10:00:00.000Z' } };
+  const proj = { id: pid, name: 'GPU plan', updatedAt: '2026-11-18T10:00:00.000Z' };
+  const installWith = (lines: PlanLine[], fleetProjections: object[]) => {
+    install(lines, []);
+    const get = window.midniteStudio!.startup!.get as unknown as ReturnType<typeof vi.fn>;
+    get.mockImplementation(async () => {
+      const snap = snapshot(lines, []);
+      return { ...snap, value: { ...snap.value, workspace: { ...snap.value.workspace, fleetProjections } } };
+    });
+  };
+
+  it('shows a From badge and a Stale pill, and the sheet warns that editing unlinks', async () => {
+    installWith([linked, line], [proj]);
+    renderRunway();
+    expect(await screen.findByRole('button', { name: /From GPU plan/ })).toBeTruthy();
+    expect(screen.getAllByText('Stale')).toHaveLength(1);
+    fireEvent.click(screen.getByText('GPU — running costs'));
+    expect(screen.getByText('Editing unlinks this line from its projection.')).toBeTruthy();
+  });
+
+  it('shows no pill for a line that is up to date, and no badge on ordinary lines', async () => {
+    installWith([{ ...linked, source: { ...linked.source!, syncedAt: '2026-11-18T10:00:00.000Z' } }, line], [proj]);
+    renderRunway();
+    await screen.findByRole('button', { name: /From GPU plan/ });
+    expect(screen.queryByText('Stale')).toBeNull();
+    expect(screen.getAllByRole('button', { name: /From / })).toHaveLength(1);
   });
 });

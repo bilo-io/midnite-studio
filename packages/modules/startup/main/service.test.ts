@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -23,6 +23,139 @@ const customer = { id: u(30), name: 'Client', address: '' };
 const invoice = (status: 'draft' | 'issued' = 'draft') => ({
   id: u(40), number: null, customerId: u(30), issueDate: null, dueDate: null, notes: '', status, entries: {},
   lines: [{ description: 'Work', quantityMilli: 1000, unitMinor: 100, taxRateBp: 0 }],
+});
+
+describe('send to Runway', () => {
+  const seed = async (withCompany = true) => {
+    const s = await open();
+    if (withCompany) await run(s, { op: 'updateCompany', company: company('USD') });
+    await run(s, { op: 'get' });
+    const p = buildFleetStarter('gpu-cluster', { projectionId: u(1), nodeId: () => u(9000) }, '2020-01-01T00:00:00.000Z', 'P');
+    await run(s, { op: 'upsertFleetProjection', projection: p });
+    return s;
+  };
+  const linked = (s: WorkspaceStore) => s.snapshot().workspace.lines.filter((l) => l.source?.projectionId === u(1));
+  it('send twice leaves exactly one set of lines, beside hand-made ones', async () => {
+    const s = await seed();
+    const hand = { id: u(77), kind: 'cost' as const, name: 'Rent', category: 'premises' as const, minor: 500, cadence: 'monthly' as const, start: '2026-12', growthBpPerMonth: 0 };
+    await run(s, { op: 'upsertLine', line: hand });
+    expect((await run(s, { op: 'sendFleetProjectionToRunway', projectionId: u(1), start: '2026-12' })).ok).toBe(true);
+    const first = linked(s).length;
+    expect(first).toBeGreaterThanOrEqual(2);
+    await run(s, { op: 'sendFleetProjectionToRunway', projectionId: u(1), start: '2027-01' });
+    expect(linked(s)).toHaveLength(first);
+    expect(linked(s).every((l) => l.start === '2027-01')).toBe(true);
+    expect(s.snapshot().workspace.lines.some((l) => l.id === u(77))).toBe(true);
+    expect(s.snapshot().workspace.scenarios.every((sc) => sc.extraLines.length === 0)).toBe(true);
+  });
+  it('unlink keeps the lines as ordinary ones, or removes them', async () => {
+    const s = await seed();
+    await run(s, { op: 'sendFleetProjectionToRunway', projectionId: u(1), start: '2026-12' });
+    const n = linked(s).length;
+    await run(s, { op: 'unlinkFleetProjectionLines', projectionId: u(1), removeLines: false });
+    expect(linked(s)).toHaveLength(0);
+    expect(s.snapshot().workspace.lines).toHaveLength(n);
+    await run(s, { op: 'sendFleetProjectionToRunway', projectionId: u(1), start: '2026-12' });
+    await run(s, { op: 'unlinkFleetProjectionLines', projectionId: u(1), removeLines: true });
+    expect(linked(s)).toHaveLength(0);
+    expect(s.snapshot().workspace.lines).toHaveLength(n);
+  });
+  it('refuses without a company and for an unknown projection', async () => {
+    const s = await seed(false);
+    expect(await run(s, { op: 'sendFleetProjectionToRunway', projectionId: u(1), start: '2026-12' })).toMatchObject({ ok: false, kind: 'invalid', message: 'Set up your company first — Runway needs it.' });
+    expect(await run(s, { op: 'sendFleetProjectionToRunway', projectionId: u(2), start: '2026-12' })).toMatchObject({ ok: false, kind: 'not-found' });
+  });
+});
+
+describe('fleet catalog', () => {
+  it('seeds exactly once on the first get, in the money currency', async () => {
+    const s = await open();
+    expect(s.snapshot().workspace.fleetCatalog).toBeNull();
+    await run(s, { op: 'get' });
+    const first = s.snapshot();
+    expect(first.revision).toBe(1);
+    expect(first.workspace.fleetCatalog?.hardware.find((h) => h.id === 'dual-4090')?.priceMinor).toBe(650_000);
+    await run(s, { op: 'get' });
+    expect(s.snapshot().revision).toBe(1);
+  });
+  it('upsertFleetCatalog saves, refuses duplicate ids, and refuses removing an id a node uses', async () => {
+    const s = await open();
+    await run(s, { op: 'get' });
+    const cat = s.snapshot().workspace.fleetCatalog!;
+    const custom = { id: 'x-1', label: 'Custom', priceMinor: 100, watts: 10, builtIn: false, hidden: false };
+    expect((await run(s, { op: 'upsertFleetCatalog', catalog: { ...cat, hardware: [...cat.hardware, custom] } })).ok).toBe(true);
+    expect(s.snapshot().workspace.fleetCatalog?.hardware.some((h) => h.id === 'x-1')).toBe(true);
+    expect(await run(s, { op: 'upsertFleetCatalog', catalog: { ...cat, hardware: [...cat.hardware, custom, custom] } })).toMatchObject({ ok: false, kind: 'invalid' });
+    const p = buildFleetStarter('gpu-cluster', { projectionId: u(1), nodeId: () => u(9000) }, '2020-01-01T00:00:00.000Z', 'P');
+    await run(s, { op: 'upsertFleetProjection', projection: p });
+    const used = p.nodes[0]!.hardwareId;
+    const without = { ...cat, hardware: cat.hardware.filter((h) => h.id !== used) };
+    expect(await run(s, { op: 'upsertFleetCatalog', catalog: without })).toMatchObject({ ok: false, kind: 'in-use' });
+    const hidden = { ...cat, hardware: cat.hardware.map((h) => (h.id === used ? { ...h, hidden: true } : h)) };
+    expect((await run(s, { op: 'upsertFleetCatalog', catalog: hidden })).ok).toBe(true);
+  });
+});
+
+describe('exports', () => {
+  const clock = () => new Date('2026-11-12T10:00:00Z');
+  const seed = async () => {
+    const s = await open();
+    await run(s, { op: 'updateCompany', company: company('USD') });
+    await run(s, { op: 'get' });
+    const p = buildFleetStarter('gpu-cluster', { projectionId: u(1), nodeId: () => u(9000) }, '2020-01-01T00:00:00.000Z', 'My: plan?');
+    await run(s, { op: 'upsertFleetProjection', projection: p });
+    return s;
+  };
+  const withOut = async () => ({ out: await mkdtemp(join(tmpdir(), 'startup-exp-')) });
+  it('an unknown projection is not-found for the CSV and the PDF', async () => {
+    const s = await open();
+    const deps = { csv: { saveCsv: async () => null }, pdf: { printToPdf: async () => Buffer.from(''), savePdf: async () => null } };
+    expect(await handleStartupRequest(s, { op: 'exportFleetProjectionCsv', projectionId: u(1) }, deps)).toMatchObject({ ok: false, kind: 'not-found' });
+    expect(await handleStartupRequest(s, { op: 'exportFleetProjectionPdf', projectionId: u(1) }, deps)).toMatchObject({ ok: false, kind: 'not-found' });
+  });
+  it('writes the projection CSV with a sanitised default name, and a cancel is not saved', async () => {
+    const s = await seed();
+    const { out } = await withOut();
+    let name = '';
+    const target = join(out, 'p.csv');
+    const csv = { saveCsv: async (n: string) => ((name = n), target) };
+    expect(await handleStartupRequest(s, { op: 'exportFleetProjectionCsv', projectionId: u(1) }, { csv })).toEqual({ ok: true, value: { saved: true } });
+    expect(name).toBe('My plan.csv');
+    expect((await readFile(target, 'utf8')).startsWith('\uFEFFmonth,energy')).toBe(true);
+    const cancelled = { saveCsv: async () => null };
+    expect(await handleStartupRequest(s, { op: 'exportFleetProjectionCsv', projectionId: u(1) }, { csv: cancelled })).toEqual({ ok: true, value: { saved: false } });
+    await rm(out, { recursive: true, force: true });
+  });
+  it('writes the runway CSV named by its first month', async () => {
+    const s = await seed();
+    const { out } = await withOut();
+    let name = '';
+    const target = join(out, 'r.csv');
+    const csv = { saveCsv: async (n: string) => ((name = n), target) };
+    const r = await handleStartupRequest(s, { op: 'exportRunwayCsv', scenarioId: BASE_SCENARIO_ID, months: 12 }, { csv, now: clock });
+    expect(r).toEqual({ ok: true, value: { saved: true } });
+    expect(name).toBe('runway-2026-11.csv');
+    expect((await readFile(target, 'utf8')).split('\r\n')).toHaveLength(14); // header + 12 rows + trailing empty
+    await rm(out, { recursive: true, force: true });
+  });
+  it('the PDF removes its temp dir on success and on failure', async () => {
+    const s = await seed();
+    const { out } = await withOut();
+    const tmp = await mkdtemp(join(tmpdir(), 'startup-exp-tmp-'));
+    const target = join(out, 'p.pdf');
+    let seen = '';
+    const ok = { savePdf: async () => target, printToPdf: async (f: string) => ((seen = f), Buffer.from('%PDF')) };
+    expect(await handleStartupRequest(s, { op: 'exportFleetProjectionPdf', projectionId: u(1) }, { pdf: ok, tmpDir: tmp, now: clock })).toEqual({ ok: true, value: { saved: true } });
+    expect(seen.endsWith('projection.html')).toBe(true);
+    expect(await readdir(tmp)).toEqual([]);
+    const boom = { savePdf: async () => target, printToPdf: async () => { throw new Error('no printer'); } };
+    expect(await handleStartupRequest(s, { op: 'exportFleetProjectionPdf', projectionId: u(1) }, { pdf: boom, tmpDir: tmp, now: clock })).toMatchObject({ ok: false, kind: 'io' });
+    expect(await readdir(tmp)).toEqual([]);
+    const cancelled = { savePdf: async () => null, printToPdf: async () => Buffer.from('') };
+    expect(await handleStartupRequest(s, { op: 'exportFleetProjectionPdf', projectionId: u(1) }, { pdf: cancelled, tmpDir: tmp })).toEqual({ ok: true, value: { saved: false } });
+    await rm(out, { recursive: true, force: true });
+    await rm(tmp, { recursive: true, force: true });
+  });
 });
 
 describe('company', () => {

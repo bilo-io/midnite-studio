@@ -1,14 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { LuBuilding2 } from 'react-icons/lu';
+import { LuBot, LuBuilding2, LuServer } from 'react-icons/lu';
 
-import type { SettingsPageDef } from '@midnite/studio-frame';
+import { FrameChromeProvider, type SettingsPageDef } from '@midnite/studio-frame';
+
+import { STARTUP_CHROME, StartupDialogHost } from './compose/startup-chrome';
 
 import { useStartupSnapshot } from './data/use-startup';
 import { BookLink } from './ledger/book-link';
+import { StartupAgentsSettings } from './settings/agents-settings';
+import { CatalogPage } from './settings/catalog-settings';
 import { CompanyForm } from './views/company-form';
 
 /** A host's settings render outside the pane's providers, so the page brings its own client. */
-const settingsClient = new QueryClient();
+export const settingsClient = new QueryClient();
 
 function CompanyPage() {
   const snapshot = useStartupSnapshot();
@@ -31,7 +35,20 @@ function StartupCompanySettings() {
   );
 }
 
-/** Startup's own Settings pages, after the suite's: the company profile. */
+function StartupCatalogSettings() {
+  return (
+    <QueryClientProvider client={settingsClient}>
+      <FrameChromeProvider chrome={STARTUP_CHROME}>
+        <CatalogPage />
+        <StartupDialogHost />
+      </FrameChromeProvider>
+    </QueryClientProvider>
+  );
+}
+
+/** Startup's own Settings pages, after the suite's: the company profile and the fleet catalog. */
 export const STARTUP_SETTINGS: readonly SettingsPageDef[] = [
   { id: 'app:startup-company', label: 'Company', group: 'general', scope: 'app', icon: LuBuilding2, Page: StartupCompanySettings },
+  { id: 'app:startup-catalog', label: 'Catalog', group: 'general', scope: 'app', icon: LuServer, Page: StartupCatalogSettings },
+  { id: 'app:startup-agents', label: 'Agents', group: 'general', scope: 'app', icon: LuBot, Page: StartupAgentsSettings },
 ];

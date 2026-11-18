@@ -2,7 +2,7 @@ import { join } from 'node:path';
 
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell, type MenuItemConstructorOptions } from 'electron';
 
-import { guardAppWindow, createFileSink, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
+import { guardAppWindow, createFileSink, fingerprintFile, installCrashLogging, startAppMcpServer, type LogSink } from '@midnite/studio-runtime';
 
 import { registerStartupHost } from './host';
 import { STARTUP_NAME, SMOKE_READY_LINE, USER_DATA_ENV, startupUserData, isSmoke } from './identity';
@@ -123,7 +123,26 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       openPath: (path) => shell.openPath(path),
       warn: (message) => process.stderr.write(`${message}\n`),
     });
-    quit = host.dispose;
+    // Phase 153 Theme C: Startup's own MCP socket, so an agent can reach it without Studio. It lists nothing until
+    // the user turns agent access on (Settings ▸ Agents); a smoke run is a proof, not a session, and opens none.
+    const mcpServer = smoke
+      ? Promise.resolve(null)
+      : startAppMcpServer({
+          userDataDir: app.getPath('userData'),
+          appVersion: app.getVersion(),
+          buildId: fingerprintFile(join(__dirname, 'main.cjs')),
+          isPackaged: app.isPackaged,
+          dispatch: host.mcp.dispatch,
+          listTools: host.mcp.listTools,
+          log: (line) => crashLog?.write('info', line),
+        }).then((started) => {
+          if (!started.ok) crashLog?.write('warn', `MCP server did not start: ${started.message}`);
+          return started.ok ? started.handle : null;
+        });
+    quit = async () => {
+      await (await mcpServer)?.close();
+      await host.dispose();
+    };
     openWindow();
   });
 

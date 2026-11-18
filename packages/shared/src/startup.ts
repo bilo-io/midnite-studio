@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { FleetProjectionSchema, MAX_FLEET_PROJECTIONS } from './startup-fleet';
+import { FleetCatalogSchema, FleetProjectionSchema, MAX_FLEET_PROJECTIONS } from './startup-fleet';
 
 /**
  * Midnite Startup's wire contract (Phase 130 Theme B): the company, its roadmap, its plan lines and runway
@@ -80,6 +80,15 @@ export const PlanLineSchema = z.object({
   end: YearMonthSchema.optional(),
   growthBpPerMonth: z.int().min(-10000).max(10000).default(0),
   contractId: z.uuid().optional(),
+  /** Set on a line a fleet projection wrote into the plan (Phase 152); editing the line by hand clears it. */
+  source: z
+    .object({
+      kind: z.literal('fleetProjection'),
+      projectionId: z.uuid(),
+      part: z.enum(['capex', 'opex', 'revenue', 'revenue-capped']),
+      syncedAt: z.iso.datetime(),
+    })
+    .optional(),
 });
 export type PlanLine = z.infer<typeof PlanLineSchema>;
 
@@ -161,7 +170,7 @@ export type Invoice = z.infer<typeof InvoiceSchema>;
 
 // --- the workspace ----------------------------------------------------------------
 
-export const STARTUP_WORKSPACE_VERSION = 2;
+export const STARTUP_WORKSPACE_VERSION = 3;
 
 /** The ledger book an invoice posts into, and the four accounts it uses (Theme F; null until a book is linked). */
 export const StartupLedgerLinkSchema = z.object({
@@ -187,6 +196,8 @@ export const StartupWorkspaceSchema = z.object({
   invoiceCounter: z.int().min(0).default(0),
   ledger: StartupLedgerLinkSchema.nullable().default(null),
   fleetProjections: z.array(FleetProjectionSchema).max(MAX_FLEET_PROJECTIONS).default([]),
+  /** null until first read in main, which seeds it in the money currency. */
+  fleetCatalog: FleetCatalogSchema.nullable().default(null),
 });
 export type StartupWorkspace = z.infer<typeof StartupWorkspaceSchema>;
 
@@ -210,6 +221,14 @@ export const StartupSnapshotSchema = z.object({
   readOnly: z.boolean(),
 });
 export type StartupSnapshot = z.infer<typeof StartupSnapshotSchema>;
+
+/** Startup's agent-access switches, kept in the app's own settings (never the workspace). Both default off. */
+export const StartupAgentConsentSchema = z.object({
+  read: z.boolean().default(false),
+  write: z.boolean().default(false),
+});
+export type StartupAgentConsent = z.infer<typeof StartupAgentConsentSchema>;
+export const DEFAULT_STARTUP_AGENT_CONSENT: StartupAgentConsent = { read: false, write: false };
 
 // --- the channel ------------------------------------------------------------------
 
@@ -242,6 +261,15 @@ export const StartupRequestSchema = z.discriminatedUnion('op', [
   z.object({ op: z.literal('upsertFleetProjection'), projection: FleetProjectionSchema }),
   z.object({ op: z.literal('removeFleetProjection'), id }),
   z.object({ op: z.literal('duplicateFleetProjection'), id, name: z.string().trim().min(1).max(80) }),
+  z.object({ op: z.literal('upsertFleetCatalog'), catalog: FleetCatalogSchema }),
+  z.object({ op: z.literal('sendFleetProjectionToRunway'), projectionId: id, start: YearMonthSchema }),
+  z.object({ op: z.literal('unlinkFleetProjectionLines'), projectionId: id, removeLines: z.boolean() }),
+  z.object({ op: z.literal('exportFleetProjectionCsv'), projectionId: id }),
+  z.object({ op: z.literal('exportRunwayCsv'), scenarioId: id, months: z.union([z.literal(12), z.literal(24), z.literal(36)]) }),
+  z.object({ op: z.literal('exportFleetProjectionPdf'), projectionId: id }),
+  // Startup's agent-access switches (Phase 153 Theme C) live in the app's settings, not the workspace.
+  z.object({ op: z.literal('getAgentConsent') }),
+  z.object({ op: z.literal('setAgentConsent'), consent: StartupAgentConsentSchema }),
 ]);
 export type StartupRequest = z.infer<typeof StartupRequestSchema>;
 export type StartupOp = StartupRequest['op'];

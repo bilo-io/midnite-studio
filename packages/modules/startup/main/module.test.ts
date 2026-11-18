@@ -20,10 +20,10 @@ describe('startupModuleMain', () => {
     const userData = await mkdtemp(join(tmpdir(), 'startup-mod-'));
     startupModuleMain.register(ctx, { electron: { userData } as never });
     const got = await ctx.invoke(CHANNELS.startup, { op: 'get' });
-    expect(got).toMatchObject({ ok: true, value: { revision: 0, readOnly: false } });
+    expect(got).toMatchObject({ ok: true, value: { revision: 1, readOnly: false } });
     const customer = { id: '00000000-0000-4000-8000-000000000030', name: 'Client', address: '' };
     expect(await ctx.invoke(CHANNELS.startup, { op: 'upsertCustomer', customer })).toMatchObject({ ok: true });
-    expect(ctx.emitted).toContainEqual({ channel: EVENT_CHANNELS.startupChanged, payload: { revision: 1 } });
+    expect(ctx.emitted).toContainEqual({ channel: EVENT_CHANNELS.startupChanged, payload: { revision: 2 } });
     expect(await ctx.invoke(CHANNELS.startup, { op: 'nope' })).toMatchObject({ ok: false, kind: 'invalid' });
   });
 });

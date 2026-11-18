@@ -7,7 +7,7 @@ import type { ChecksVerdict } from './branch-health';
  * The missing producer for `branchHealth`'s `checks` seam.
  *
  * `ChecksVerdict` has existed since Phase 13 with nothing supplying one — see
- * `todo/outstanding.md` → "Branch checks (the RAG dot's real source)", which
+ * `.midnite/tasks/outstanding.md` → "Branch checks (the RAG dot's real source)", which
  * names exactly this: the last GitHub Actions conclusion for the branch's head
  * commit.
  *

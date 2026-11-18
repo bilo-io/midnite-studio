@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { LuCopy, LuPencil, LuTrash2 } from 'react-icons/lu';
 
-import { FLEET_STARTERS, MAX_FLEET_PROJECTIONS, buildFleetStarter, type FleetProjection, type FleetStarterId } from '@midnite/studio-shared';
+import { FLEET_STARTERS, MAX_FLEET_PROJECTIONS, buildFleetStarter, type FleetProjection, type FleetStarterId, type PlanLine } from '@midnite/studio-shared';
 
 import { STARTUP_CHROME } from '../compose/startup-chrome';
 import { useStartupWrite } from '../data/use-startup';
 import { computeFleetProjection } from './fleet-model';
-import { formatZar } from './format-zar';
+import { formatMoney } from './format-money';
+import { useMoney } from './money-context';
+import { linkedLines } from './runway-link';
 import { ALERT, BUTTON, BUTTON_PRIMARY, LABEL, PANE } from './styles';
 
 /** `base`, then `base 2`, `base 3`… until no projection already has the name. */
@@ -55,7 +57,8 @@ function Row({ projection, selected, renaming, readOnly, onSelect, onStartRename
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
-  const net = useMemo(() => computeFleetProjection(projection).netMarginMonthlyCents, [projection]);
+  const { currency, catalog } = useMoney();
+  const net = useMemo(() => computeFleetProjection(projection, catalog).netMarginMonthlyMinor, [projection, catalog]);
   const [value, setValue] = useState(projection.name);
   const settled = useRef(false);
   const IconButton = STARTUP_CHROME.IconButton;
@@ -114,7 +117,7 @@ function Row({ projection, selected, renaming, readOnly, onSelect, onStartRename
           <span className="whitespace-nowrap">
             {projection.nodes.length} {projection.nodes.length === 1 ? 'node' : 'nodes'} ·
           </span>
-          <span className={`whitespace-nowrap ${net >= 0 ? 'text-success' : 'text-destructive'}`}>{formatZar(net)} /mo</span>
+          <span className={`whitespace-nowrap ${net >= 0 ? 'text-success' : 'text-destructive'}`}>{formatMoney(net, currency)} /mo</span>
         </span>
         <span className="flex" onClick={(e) => e.stopPropagation()}>
           <IconButton icon={LuPencil} label="Rename" disabled={readOnly} onClick={onStartRename} />
@@ -128,13 +131,15 @@ function Row({ projection, selected, renaming, readOnly, onSelect, onStartRename
 
 type Props = {
   projections: readonly FleetProjection[];
+  /** The plan lines, so deleting a projection can offer to take its Runway lines with it. */
+  lines?: readonly PlanLine[];
   selectedId: string | null;
   readOnly: boolean;
   onSelect: (id: string | null) => void;
 };
 
 /** The left pane: every saved projection with its monthly net margin, plus create / rename / duplicate / delete. */
-export function ProjectionList({ projections, selectedId, readOnly, onSelect }: Props) {
+export function ProjectionList({ projections, lines = [], selectedId, readOnly, onSelect }: Props) {
   const dialogs = STARTUP_CHROME.useDialogs();
   const [picking, setPicking] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -146,7 +151,14 @@ export function ProjectionList({ projections, selectedId, readOnly, onSelect }: 
   });
   const upsert = useStartupWrite((bridge, projection: FleetProjection) => bridge.upsertFleetProjection({ projection }));
   const duplicate = useStartupWrite((bridge, args: { id: string; name: string }) => bridge.duplicateFleetProjection(args));
-  const remove = useStartupWrite((bridge, id: string) => bridge.removeFleetProjection({ id }));
+  const remove = useStartupWrite(async (bridge, args: { id: string; removeLines: boolean | null }) => {
+    // Linked lines are dealt with first, so a refused removal never strands them half-unlinked.
+    if (args.removeLines !== null) {
+      const unlinked = await bridge.unlinkFleetProjectionLines({ projectionId: args.id, removeLines: args.removeLines });
+      if (!unlinked.ok) return unlinked;
+    }
+    return bridge.removeFleetProjection({ id: args.id });
+  });
   const atCap = projections.length >= MAX_FLEET_PROJECTIONS;
   const capReason = `You can have at most ${MAX_FLEET_PROJECTIONS} projections.`;
 
@@ -163,21 +175,34 @@ export function ProjectionList({ projections, selectedId, readOnly, onSelect }: 
   }
 
   function askDelete(p: FleetProjection): void {
-    dialogs.confirm({
-      title: `Delete ${p.name}?`,
-      body: `${p.nodes.length} ${p.nodes.length === 1 ? 'node' : 'nodes'} will be deleted. This can't be undone.`,
-      confirmLabel: 'Delete projection',
-      danger: true,
-      onConfirm: () => {
-        const index = projections.findIndex((x) => x.id === p.id);
-        const next = projections[index + 1] ?? projections[index - 1] ?? null;
-        remove.mutate(p.id, {
+    const nLinked = linkedLines(lines, p.id).length;
+    const run = (removeLines: boolean | null): void => {
+      const index = projections.findIndex((x) => x.id === p.id);
+      const next = projections[index + 1] ?? projections[index - 1] ?? null;
+      remove.mutate(
+        { id: p.id, removeLines },
+        {
           onSuccess: () => {
             if (selectedId === p.id) onSelect(next?.id ?? null);
           },
           onError: (e) => setProblem(e.message),
-        });
-      },
+        },
+      );
+    };
+    const nodes = `${p.nodes.length} ${p.nodes.length === 1 ? 'node' : 'nodes'} will be deleted. This can't be undone.`;
+    if (nLinked === 0) {
+      dialogs.confirm({ title: `Delete ${p.name}?`, body: nodes, confirmLabel: 'Delete projection', danger: true, onConfirm: () => run(null) });
+      return;
+    }
+    const lineWord = nLinked === 1 ? 'Runway line' : 'Runway lines';
+    dialogs.confirm({
+      title: `Delete ${p.name}?`,
+      body: `${nodes} It wrote ${nLinked} ${lineWord}: remove them too, or keep them as ordinary lines.`,
+      confirmLabel: `Delete and remove its ${nLinked} ${lineWord}`,
+      secondaryLabel: 'Delete, keep lines',
+      danger: true,
+      onConfirm: () => run(true),
+      onSecondary: () => run(false),
     });
   }
 

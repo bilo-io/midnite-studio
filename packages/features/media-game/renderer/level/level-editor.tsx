@@ -1,8 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import {
   LuEraser,
-  LuEye,
-  LuEyeOff,
   LuMap,
   LuStethoscope,
   LuMapPin,
@@ -19,12 +17,13 @@ import {
   LuSquare,
   LuTrash2,
   LuTriangleAlert,
+  LuKeyboard,
   LuUndo2,
 } from 'react-icons/lu';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { GAME_LEVEL_ENTITY_TYPES_2D, GAME_LEVEL_ENTITY_TYPES_3D, levelEntityToWorld, levelProperties, metresPerTile, type GameLevelGetResult } from '@midnite/studio-shared';
-import { EmptyState, EmptyStateButton, Skeleton } from '@midnite/studio-frame';
+import { EmptyState, EmptyStateButton, KitContextMenu, Skeleton, useFrameChrome, type FrameMenuEntry } from '@midnite/studio-frame';
 
 import { useNotify } from '../chrome';
 import { useDoctorRequest } from '../game-doctor-store';
@@ -32,9 +31,15 @@ import { useDoctorFix, useGameDiagnosis } from '../use-games';
 import { LevelAlignBar } from './level-align-bar';
 import { alignObjects, distributeObjects, type AlignAxis, type AlignEdge } from './level-align';
 import { useLevelEditorBridge } from './use-level-editor-bridge';
+import { registerEditorControls } from './level-editor-controls';
+import { frameView } from './level-frame';
+import { capturePlan } from './level-plan-capture';
 import { AgentChangeBanner } from './agent-change-banner';
 import { decideReload } from './level-reload';
 import { LevelCanvas, type CanvasPointer } from './level-canvas';
+import { levelContextMenu, type LevelMenuTarget } from './level-context-menu';
+import { LevelOutliner } from './level-outliner';
+import { hiddenKeys, isSelectable, lockedKeys, sceneKey, useLevelOutlinerStore } from './level-outliner-store';
 import { copySelection, duplicateSelection, pasteClipboard, readClipboard, writeClipboard } from './level-clipboard';
 import {
   addLayer,
@@ -58,7 +63,6 @@ import {
   pick,
   redo,
   removeProperty,
-  renameLayer,
   rotateObject,
   rotationToward,
   objectCentre,
@@ -74,7 +78,6 @@ import {
   setVolume,
   toggleSelected,
   addSelected,
-  toggleVisible,
   undo,
   rectCells,
   type Cell,
@@ -86,10 +89,13 @@ import {
   type ObjectRef,
   type PlanPoint,
   type PlanRect,
+  objectToMapPoint,
 } from './level-edit-model';
-import { sameRef } from './level-selection';
+import { refKey, sameRef } from './level-selection';
 import { snapPlan } from './level-plan';
 import { planSnapStep } from './level-snap';
+import { LevelShortcutHelp } from './level-shortcut-help';
+import { isMac, matchShortcut } from './level-shortcuts';
 import { LevelSnapPopover } from './level-snap-popover';
 import { blockingIssues, useLevelStore, type OpenLevel } from './level-store';
 import { lineCells, type View } from './level-view';
@@ -277,6 +283,20 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
   /** Where the pointer last was over the canvas, in object coordinates: Mod+V pastes there. */
   const lastPointer = useRef<PlanPoint | null>(null);
   const notify = useNotify();
+  const [helpOpen, setHelpOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const closeHelp = () => {
+    setHelpOpen(false);
+    rootRef.current?.querySelector<HTMLElement>('[role="application"]')?.focus();
+  };
+  const dialogs = useFrameChrome().useDialogs();
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number; items: FrameMenuEntry[] } | null>(null);
+  /** The outliner's frame request: the plan view recentres on a point (map pixels). */
+  const [centreOn, setCentreOn] = useState<{ x: number; y: number; n: number } | null>(null);
+  const hiddenList = useLevelOutlinerStore((s) => hiddenKeys(s, gameId, entry.scene));
+  const lockedList = useLevelOutlinerStore((s) => lockedKeys(s, gameId, entry.scene));
+  const hidden = useMemo(() => new Set(hiddenList), [hiddenList]);
+  const locked = useMemo(() => new Set(lockedList), [lockedList]);
   const [draft, setDraft] = useState<PlanPoint[]>([]);
   const [volumeDrag, setVolumeDrag] = useState<{ from: PlanPoint; to: PlanPoint } | null>(null);
   const manifest = useGameManifest(gameId).data ?? null;
@@ -321,6 +341,60 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
     else setMounted3d(false);
   };
   const in3d = viewMode === '3d';
+  const canvasBox = useRef<HTMLDivElement | null>(null);
+  // What the agent bridge may do to this screen (Phase 138 Themes G, H). Registered afresh each render, and reading
+  // the store at call time, so a request that follows an edit in the same tick still sees it.
+  useEffect(
+    () =>
+      registerEditorControls(gameId, {
+        mode: () => (can3d && levelViewMode(useLevelViewStore.getState(), gameId) === '3d' && handle3d.current ? '3d' : 'plan'),
+        can3d: () => can3d,
+        terrain: () => useLevelStore.getState().byGame[gameId]?.terrain ?? null,
+        frame: (rect, refs) => {
+          if (can3d && levelViewMode(useLevelViewStore.getState(), gameId) === '3d' && handle3d.current) {
+            handle3d.current.frameTo?.(rect, refs);
+            return;
+          }
+          const size = planViewOut.current?.size;
+          const current = useLevelStore.getState().byGame[gameId]?.edit.level;
+          if (!size || !current) return;
+          // Object coordinates to map pixels (the two differ on an isometric map), then the box they span.
+          const corners = [[rect.x, rect.y], [rect.x + rect.width, rect.y], [rect.x, rect.y + rect.height], [rect.x + rect.width, rect.y + rect.height]].map(([x, y]) => objectToMapPoint(current, x!, y!));
+          const xs = corners.map((c) => c.x), ys = corners.map((c) => c.y);
+          const box = { x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) };
+          setPlanViewIn(frameView(box, size));
+        },
+        show3d: async (timeoutMs) => {
+          if (!can3d) return false;
+          if (!handle3d.current) switchView('3d');
+          const until = Date.now() + timeoutMs;
+          while (!handle3d.current && Date.now() < until) await new Promise((r) => setTimeout(r, 50)); // allow-timeout: polling for the lazy 3D view to mount
+          return handle3d.current !== null;
+        },
+        capture3d: async (req) => (handle3d.current?.capture ? handle3d.current.capture(req) : null),
+        capturePlan: async (req) => {
+          const now = useLevelStore.getState().byGame[gameId];
+          if (!now) return null;
+          const objects = now.edit.level.layers.reduce((n, l) => n + (l.type === 'objectgroup' ? (l.objects?.length ?? 0) : 0), 0);
+          if (!is3d) {
+            // A tile level draws on the canvas the user sees: its picture is that canvas as it is.
+            const canvas = canvasBox.current?.querySelector('canvas');
+            if (!canvas) return null;
+            return { png: canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, ''), camera: null, objects, width: canvas.width, height: canvas.height };
+          }
+          const png = await capturePlan({
+            level: now.edit.level,
+            overlay: { terrain: now.terrain, terrainImage: null, draft: [], cursor: null, volume: null },
+            selection: now.edit.selection,
+            selected: now.edit.selected,
+            rect: req.rect,
+            width: req.width,
+            height: req.height,
+          });
+          return { png, camera: null, objects, width: req.width, height: req.height };
+        },
+      }),
+  );
   const snapSettings = useLevelViewStore((st) => st.snap);
   const setSnapSettings = useLevelViewStore((st) => st.setSnap);
   const tools = is3d ? (in3d ? TOOLS_3D.filter((t) => TOOLS_IN_3D.has(t.tool)) : TOOLS_3D) : TOOLS;
@@ -398,7 +472,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
       selectDrag.current = null;
       setMarquee(null);
       const layerIds = level.layers.filter((l) => l.type === 'objectgroup' && l.visible !== false && typeof l.id === 'number').map((l) => l.id!);
-      update((s) => selectInRect(s, layerIds, rect, d.mode));
+      update((s) => selectInRect(s, layerIds, rect, d.mode, (ref) => isSelectable(gameId, entry.scene, ref)));
       return;
     }
     if (e.phase === 'move') {
@@ -508,7 +582,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
   };
 
   /** Mod+V (Theme B): the clipboard lands at the pointer when it is over the plan or tile canvas, else one tile off the original. */
-  const pasteFromClipboard = async () => {
+  const pasteFromClipboard = async (target?: PlanPoint) => {
     const clip = await readClipboard();
     if (!clip) return;
     const mine = is3d ? '3d' : '2d';
@@ -518,80 +592,169 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
       return;
     }
     if (objectLayerId === null) return;
-    const pointer = in3d ? null : lastPointer.current;
+    const pointer = target ?? (in3d ? null : lastPointer.current);
     const at = pointer ? (is3d ? snapPlan(level, pointer) : pointer) : { x: clip.origin.x + level.tilewidth, y: clip.origin.y + level.tileheight };
     update((s) => pasteClipboard(s, clip, objectLayerId, at));
   };
 
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const mod = event.metaKey || event.ctrlKey;
-    if (mod && event.key.toLowerCase() === 'z') {
-      event.preventDefault();
-      update(event.shiftKey ? redo : undo);
+  /** Bring `ref` into view: the 3D camera eases onto it, the plan recentres on it at the current zoom (Theme H). */
+  const frameObject = (ref: ObjectRef) => {
+    const o = findObject(level, ref);
+    if (!o) return;
+    if (in3d) {
+      handle3d.current?.frame?.();
       return;
     }
-    if (mod && !event.altKey) {
-      const key = event.key.toLowerCase();
-      if (key === 'a' && !readOnly && objectLayerId !== null) {
+    const at = is3d ? objectCentre(o) : objectToMapPoint(level, o.x, o.y);
+    setCentreOn((c) => ({ x: at.x, y: at.y, n: (c?.n ?? 0) + 1 }));
+  };
+
+  /** Hide / lock the selection (the context menu's items); the outliner's own buttons act on one row. */
+  const toggleOnSelection = (kind: 'hidden' | 'locked', refs: readonly ObjectRef[]) => {
+    const store = useLevelOutlinerStore.getState();
+    (kind === 'hidden' ? store.toggleHidden : store.toggleLocked)(sceneKey(gameId, entry.scene), refs.map(refKey));
+  };
+
+  const menuActions = (edit: EditState, at?: PlanPoint): Parameters<typeof levelContextMenu>[3] => ({
+    cut: () => {
+      const clip = copySelection(edit);
+      if (!clip) return;
+      void writeClipboard(clip);
+      update((s) => deleteObjects(s, s.selected));
+    },
+    copy: () => {
+      const clip = copySelection(edit);
+      if (clip) void writeClipboard(clip);
+    },
+    paste: (p) => void pasteFromClipboard(p ?? at),
+    duplicate: () => update(duplicateSelection),
+    remove: () => update((s) => deleteObjects(s, s.selected)),
+    frame: () => {
+      const ref = edit.selection ?? edit.selected[edit.selected.length - 1];
+      if (ref) frameObject(ref);
+    },
+    hide: () => toggleOnSelection('hidden', edit.selected),
+    lock: () => toggleOnSelection('locked', edit.selected),
+    selectAllOfType: (type) => {
+      const refs: ObjectRef[] = [];
+      for (const l of level.layers) {
+        if (l.type !== 'objectgroup' || typeof l.id !== 'number') continue;
+        for (const o of l.objects ?? []) if ((o.type || o.class || '') === type && !hidden.has(refKey({ layerId: l.id, objectId: o.id }))) refs.push({ layerId: l.id, objectId: o.id });
+      }
+      update((s) => addSelected(selectOnly(s, null), refs));
+    },
+    selectAll: (layerId) => {
+      const id = layerId ?? objectLayerId;
+      if (id !== null) update((s) => selectAllInLayer(setActiveLayer(s, id), id));
+    },
+    align: (axis, edge) => update((s) => alignObjects(s, s.selected, axis, edge)),
+    addLayer: (kind) => update((s) => addLayer(s, kind, kind === 'tile' ? 'tiles' : 'objects')),
+  });
+
+  /** Open the right-click menu (Theme I). Right-clicking an unselected object selects it first, as every engine does. */
+  const openLevelMenu = async (point: { clientX: number; clientY: number }, target: LevelMenuTarget, at?: PlanPoint) => {
+    let state = edit;
+    if (target.kind === 'object' && !edit.selected.some((r) => sameRef(r, target.ref))) {
+      state = selectOnly(edit, target.ref);
+      update((s) => selectOnly(s, target.ref));
+    }
+    const clip = await readClipboard();
+    const canPaste = clip !== null && clip.dimension === (is3d ? '3d' : '2d');
+    const items = levelContextMenu(state, target, { canPaste, readOnly }, menuActions(state, at), is3d);
+    if (items.length === 0) return;
+    if (dialogs.openMenu) dialogs.openMenu(point, items);
+    else setMenuAt({ x: point.clientX, y: point.clientY, items });
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const cmd = matchShortcut(event, { view: in3d ? '3d' : 'plan', dimension: is3d ? '3d' : '2d', mac: isMac() });
+    if (cmd === null) return;
+    const pathing = is3d && tool === 'path' && !readOnly;
+    switch (cmd) {
+      case 'edit.undo':
+      case 'edit.redo':
         event.preventDefault();
-        update((s) => selectAllInLayer(s, objectLayerId));
-      } else if (key === 'c' || key === 'x') {
+        update(cmd === 'edit.redo' ? redo : undo);
+        return;
+      case 'select.all':
+        if (!readOnly && objectLayerId !== null) {
+          event.preventDefault();
+          update((s) => selectAllInLayer(s, objectLayerId));
+        }
+        return;
+      case 'edit.copy':
+      case 'edit.cut': {
         const clip = copySelection(edit);
         if (!clip) return;
         event.preventDefault();
         void writeClipboard(clip);
-        if (key === 'x' && !readOnly) update((s) => deleteObjects(s, s.selected));
-      } else if (key === 'v' && !readOnly) {
-        event.preventDefault();
-        void pasteFromClipboard();
-      } else if (key === 'd' && !readOnly && edit.selected.length > 0) {
-        event.preventDefault();
-        update(duplicateSelection);
+        if (cmd === 'edit.cut' && !readOnly) update((s) => deleteObjects(s, s.selected));
+        return;
       }
-      return;
-    }
-    if (mod || event.altKey) return;
-    if (!readOnly && edit.selected.length > 0 && event.key.startsWith('Arrow')) {
-      event.preventDefault();
-      // One snap step (Theme F's plan step on a 3D level; a tile otherwise or when snapping is off), ten with Shift. An isometric map's objects are measured in tile-height units.
-      const step = event.shiftKey ? 10 : 1;
-      const planStep = is3d ? planSnapStep(level, snapSettings) : null;
-      const sx = (planStep?.x ?? (level.orientation === 'isometric' ? level.tileheight : level.tilewidth)) * step, sy = (planStep?.y ?? level.tileheight) * step;
-      const dx = event.key === 'ArrowLeft' ? -sx : event.key === 'ArrowRight' ? sx : 0;
-      const dy = event.key === 'ArrowUp' ? -sy : event.key === 'ArrowDown' ? sy : 0;
-      update((s) => nudgeObjects(s, s.selected, dx, dy));
-      return;
-    }
-    if (event.key === 'Escape' && !(is3d && tool === 'path' && draft.length > 0)) {
-      update((s) => selectOnly(s, null));
-      return;
-    }
-    if (is3d && tool === 'path' && !readOnly) {
-      if (event.key === 'Enter') {
+      case 'edit.paste':
+        if (!readOnly) {
+          event.preventDefault();
+          void pasteFromClipboard();
+        }
+        return;
+      case 'edit.duplicate':
+        if (!readOnly && edit.selected.length > 0) {
+          event.preventDefault();
+          update(duplicateSelection);
+        }
+        return;
+      case 'select.nudge': {
+        if (readOnly || edit.selected.length === 0) return;
+        event.preventDefault();
+        // One snap step (Theme F's plan step on a 3D level; a tile otherwise or when snapping is off), ten with Shift. An isometric map's objects are measured in tile-height units.
+        const step = event.shiftKey ? 10 : 1;
+        const planStep = is3d ? planSnapStep(level, snapSettings) : null;
+        const sx = (planStep?.x ?? (level.orientation === 'isometric' ? level.tileheight : level.tilewidth)) * step, sy = (planStep?.y ?? level.tileheight) * step;
+        const dx = event.key === 'ArrowLeft' ? -sx : event.key === 'ArrowRight' ? sx : 0;
+        const dy = event.key === 'ArrowUp' ? -sy : event.key === 'ArrowDown' ? sy : 0;
+        update((s) => nudgeObjects(s, s.selected, dx, dy));
+        return;
+      }
+      case 'select.none':
+        if (pathing && draft.length > 0) setDraft([]);
+        else update((s) => selectOnly(s, null));
+        return;
+      case 'path.finish':
+        if (!pathing) return;
         event.preventDefault();
         if (objectLayerId !== null) update((s) => finishPath(s, objectLayerId, draft));
         setDraft([]);
         return;
-      }
-      if (event.key === 'Escape') {
-        setDraft([]);
+      case 'edit.delete':
+        if (pathing && event.key === 'Backspace' && draft.length > 0) {
+          event.preventDefault();
+          setDraft((d) => d.slice(0, -1));
+        } else if (edit.selected.length > 0 && !readOnly) {
+          event.preventDefault();
+          update((s) => deleteObjects(s, s.selected));
+        }
         return;
-      }
-      if (event.key === 'Backspace' && draft.length > 0) {
+      case 'help.shortcuts':
         event.preventDefault();
-        setDraft((d) => d.slice(0, -1));
+        setHelpOpen(true);
         return;
-      }
-    }
-    if ((event.key === 'Delete' || event.key === 'Backspace') && edit.selected.length > 0 && !readOnly) {
-      event.preventDefault();
-      update((s) => deleteObjects(s, s.selected));
-      return;
-    }
-    const hit = tools.find((t) => t.key === event.key.toLowerCase());
-    if (hit && !readOnly) {
-      event.preventDefault();
-      chooseTool(hit.tool);
+      case 'tool.select':
+      case 'tool.entity':
+      case 'tool.paint':
+      case 'tool.erase':
+      case 'tool.rect':
+      case 'tool.pick':
+      case 'tool.volume':
+      case 'tool.path':
+      case 'tool.rotate':
+        if (!readOnly) {
+          event.preventDefault();
+          chooseTool(cmd.slice('tool.'.length) as LevelTool);
+        }
+        return;
+      default:
+        // gizmo.* and view.frame belong to the 3D view, which handles them before this runs.
+        return;
     }
   };
 
@@ -607,7 +770,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
   const firstIssue = entry.unreadable || blocking.length > 0 ? (blocking[0] ?? entry.issues[0]) : null;
 
   return (
-    <div className="flex h-full min-h-0 flex-col" data-testid="level-editor">
+    <div ref={rootRef} className="flex h-full min-h-0 flex-col" data-testid="level-editor">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-2 py-1">
         <div role="radiogroup" aria-label="Tool" className="flex items-center gap-0.5">
           {tools.map(({ tool: t, label, key, icon: Icon }) => (
@@ -656,6 +819,9 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
           <button type="button" aria-label="Redo" title="Redo (Mod+Shift+Z)" disabled={edit.future.length === 0} onClick={() => update(redo)} className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40">
             <LuRedo2 aria-hidden className="h-3.5 w-3.5" />
           </button>
+          <button type="button" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick={() => setHelpOpen(true)} className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">
+            <LuKeyboard aria-hidden className="h-3.5 w-3.5" />
+          </button>
         </div>
         {edit.selected.length >= 2 && !readOnly ? (
           <LevelAlignBar
@@ -701,8 +867,20 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
       {firstIssue ? <Banner testId="level-banner-readonly">{`This level opens read-only: ${firstIssue}`}</Banner> : null}
       {entry.issues.filter((i) => !blocking.includes(i)).length > 0 ? <Banner testId="level-banner-images">{entry.issues.find((i) => !blocking.includes(i))!}</Banner> : null}
       <div className="flex min-h-0 flex-1">
-        <LayerList level={level} activeLayerId={edit.activeLayerId} readOnly={readOnly} update={update} is3d={is3d} />
-        <div className="relative min-w-0 flex-1">
+        <LevelOutliner
+          gameId={gameId}
+          scene={entry.scene}
+          level={level}
+          selected={edit.selected}
+          selection={edit.selection}
+          activeLayerId={edit.activeLayerId}
+          readOnly={readOnly}
+          is3d={is3d}
+          update={update}
+          onFrame={frameObject}
+          onContextMenu={(e, target) => void openLevelMenu(e, target)}
+        />
+        <div ref={canvasBox} className="relative min-w-0 flex-1">
           <LevelCanvas
             level={level}
             images={entry.images}
@@ -710,6 +888,10 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
             selected={edit.selected}
             highlight={entry.highlight}
             marquee={marquee}
+            hidden={hidden}
+            locked={locked}
+            centreOn={centreOn}
+            onContextMenu={(e) => void openLevelMenu(e, e.hit ? { kind: 'object', ref: e.hit } : { kind: 'empty', at: e.object }, e.object)}
             hoverEnabled={!readOnly && !is3d && tool !== 'select'}
             plan={is3d && !planBroken ? { terrain: entry.terrain, draft, volume: volumeDrag } : undefined}
             preview={preview}
@@ -743,6 +925,9 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
                   enterFrom={enterFrom}
                   handle={handle3d}
                   onEditorKey={onKeyDown}
+                  hidden={hidden}
+                  locked={locked}
+                  onContextMenu={(e) => void openLevelMenu(e, e.hit ? { kind: 'object', ref: e.hit } : { kind: 'empty', at: lastPointer.current ?? { x: 0, y: 0 } })}
                 />
               </Suspense>
             </div>
@@ -766,59 +951,9 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
           {selected && edit.selection ? <Inspector object={selected} readOnly={readOnly} onField={(f, v) => update((s) => setObjectField(s, edit.selection!, f, v))} onProperty={(n, t, v) => update((s) => setProperty(s, edit.selection!, n, t, v))} onRemove={(n) => update((s) => removeProperty(s, edit.selection!, n))} onDelete={() => update((s) => deleteObject(s, edit.selection!))} properties={selected.properties ?? []} plan={is3d ? { level, models, onNumber: (n, raw) => update((s) => setOptionalNumber(s, edit.selection!, n, raw)), onText: (n, raw) => update((s) => setOptionalText(s, edit.selection!, n, raw)) } : undefined} /> : null}
         </aside>
       </div>
+      <LevelShortcutHelp open={helpOpen} onClose={closeHelp} view={in3d ? '3d' : 'plan'} dimension={is3d ? '3d' : '2d'} />
+      {menuAt ? <KitContextMenu x={menuAt.x} y={menuAt.y} items={menuAt.items} onClose={() => setMenuAt(null)} /> : null}
     </div>
-  );
-}
-
-function LayerList({ level, activeLayerId, readOnly, update, is3d }: { level: EditLevel; activeLayerId: number | null; readOnly: boolean; update: Updater; is3d: boolean }) {
-  const [renaming, setRenaming] = useState<number | null>(null);
-  // The top layer first, as Tiled lists them.
-  const layers = [...level.layers].reverse();
-  return (
-    <aside className="flex w-44 shrink-0 flex-col border-r border-border text-xs" aria-label="Layers">
-      <ul className="min-h-0 flex-1 overflow-y-auto py-1">
-        {layers.map((layer) => {
-          const id = layer.id!;
-          const active = id === activeLayerId;
-          return (
-            <li key={id} className={`group flex items-center gap-1 px-1.5 py-1 ${active ? 'bg-accent text-foreground' : 'text-muted-foreground'}`}>
-              <button type="button" aria-label={`${layer.visible === false ? 'Show' : 'Hide'} layer ${layer.name}`} aria-pressed={layer.visible !== false} onClick={() => update((s) => toggleVisible(s, id))} className="shrink-0 rounded p-0.5 hover:text-foreground">
-                {layer.visible === false ? <LuEyeOff aria-hidden className="h-3.5 w-3.5" /> : <LuEye aria-hidden className="h-3.5 w-3.5" />}
-              </button>
-              {renaming === id ? (
-                <input
-                  autoFocus
-                  aria-label={`Rename layer ${layer.name}`}
-                  defaultValue={layer.name}
-                  className="min-w-0 flex-1 rounded border border-border bg-background px-1"
-                  onBlur={(e) => {
-                    update((s) => renameLayer(s, id, e.target.value));
-                    setRenaming(null);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') e.currentTarget.blur();
-                    else if (e.key === 'Escape') setRenaming(null);
-                  }}
-                />
-              ) : (
-                <button type="button" aria-label={`Layer ${layer.name}`} aria-current={active ? 'true' : undefined} onClick={() => update((s) => setActiveLayer(s, id))} onDoubleClick={() => !readOnly && setRenaming(id)} className="min-w-0 flex-1 truncate text-left">
-                  {layer.name}
-                  <span className="ml-1 opacity-60">{layer.type === 'objectgroup' ? '◆' : '▦'}</span>
-                </button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-      <div className="flex gap-1 border-t border-border p-1.5">
-        {is3d ? null : <button type="button" disabled={readOnly} onClick={() => update((s) => addLayer(s, 'tile', 'tiles'))} className="flex flex-1 items-center justify-center gap-1 rounded border border-border px-1 py-0.5 hover:bg-accent disabled:opacity-40">
-          <LuPlus aria-hidden className="h-3 w-3" />Tile layer
-        </button>}
-        <button type="button" disabled={readOnly} onClick={() => update((s) => addLayer(s, 'object', 'objects'))} className="flex flex-1 items-center justify-center gap-1 rounded border border-border px-1 py-0.5 hover:bg-accent disabled:opacity-40">
-          <LuPlus aria-hidden className="h-3 w-3" />Object layer
-        </button>
-      </div>
-    </aside>
   );
 }
 

@@ -1,12 +1,17 @@
 import { useEffect } from 'react';
 
-import { levelEntityTypes, type LevelApplyValue, type LevelEditorFailure, type LevelEditorRequest, type LevelEditorResult, type LevelEditorSnapshot } from '@midnite/studio-shared';
+import { levelEntityTypes, type LevelApplyValue, type LevelFrameValue, type LevelViewValue, type GameLevelSelectOutput, type LevelEditorFailure, type LevelEditorRequest, type LevelEditorResult, type LevelEditorSnapshot } from '@midnite/studio-shared';
 import { bridge } from '@midnite/studio-frame';
 
-import { applyAgentOps, serialise } from './level-edit-model';
+import { addSelected, applyAgentOps, selectOnly, serialise } from './level-edit-model';
+import { editorControls } from './level-editor-controls';
+import { frameTarget, resolveIds } from './level-frame';
+import { selectionBounds } from './level-selection';
 import { blockingIssues, useLevelStore, type OpenLevel } from './level-store';
 
 export type LevelEditorAnswer = LevelEditorResult | LevelEditorFailure;
+/** How long a `view` of the 3D level waits for the Floorplan -> 3D switch to mount the view. */
+export const SHOW_3D_TIMEOUT_MS = 3_000;
 const failure = (message: string): LevelEditorFailure => ({ ok: false, kind: 'error', message });
 
 const NOT_OPEN: LevelEditorResult = { handled: false, reason: 'not-open' };
@@ -41,12 +46,62 @@ function applyAgentRequest(request: Extract<LevelEditorRequest, { kind: 'apply' 
   return { handled: true, value };
 }
 
+/** `select` (Phase 138 Theme G): the found objects become the selection (primary last) and pulse; optionally framed. */
+function selectRequest(request: Extract<LevelEditorRequest, { kind: 'select' }>, entry: OpenLevel): LevelEditorAnswer {
+  const store = useLevelStore.getState();
+  const { refs, found, missing } = resolveIds(entry.edit.level, request.ids);
+  store.update(request.gameId, (s) => addSelected(selectOnly(s, null), refs));
+  store.setHighlight(request.gameId, found);
+  if (request.frame && refs.length > 0) {
+    const rect = selectionBounds(entry.edit.level, refs);
+    if (rect) editorControls(request.gameId)?.frame(rect, refs);
+  }
+  const value: GameLevelSelectOutput = { selected: found, missing };
+  return { handled: true, value };
+}
+
+/** `frame` (Theme G): move the camera over ids, a region or the whole level. */
+function frameRequest(request: Extract<LevelEditorRequest, { kind: 'frame' }>, entry: OpenLevel): LevelEditorAnswer {
+  const controls = editorControls(request.gameId);
+  if (!controls) return NOT_OPEN;
+  const target = frameTarget(entry.edit.level, entry.terrain, { ids: request.ids, region: request.region });
+  if (!target) return failure(`None of those objects exist in ${request.scene}.`);
+  const refs = request.ids ? resolveIds(entry.edit.level, request.ids).refs : [];
+  controls.frame(target, refs);
+  const value: LevelFrameValue = { view: controls.mode() };
+  return { handled: true, value };
+}
+
+/**
+ * `view` (Theme H): a PNG of the open level. A 2D level is always the plan; a 3D level shows the view asked for,
+ * switching Floorplan -> 3D first (and staying there: the agent is showing the user something).
+ */
+async function viewRequest(request: Extract<LevelEditorRequest, { kind: 'view' }>, entry: OpenLevel): Promise<LevelEditorAnswer> {
+  const controls = editorControls(request.gameId);
+  if (!controls) return NOT_OPEN;
+  let view: 'plan' | '3d' = request.view === 'current' ? controls.mode() : request.view;
+  if (view === '3d' && !controls.can3d()) view = 'plan';
+  const shot = { preset: request.preset, camera: request.camera, width: request.width, height: request.height };
+  if (view === '3d' && controls.mode() !== '3d' && !(await controls.show3d(SHOW_3D_TIMEOUT_MS))) return failure('The 3D view did not open in time.');
+  let captured;
+  if (view === '3d') captured = await controls.capture3d(shot);
+  else {
+    const selected = useLevelStore.getState().byGame[request.gameId]?.edit.selected ?? entry.edit.selected;
+    captured = await controls.capturePlan({ ...shot, rect: request.preset === 'selection' ? selectionBounds(entry.edit.level, selected) : null });
+  }
+  if (!captured) return failure('The level could not be captured.');
+  const value: LevelViewValue = { png: captured.png, view, width: captured.width, height: captured.height, camera: captured.camera, objects: captured.objects };
+  return { handled: true, value };
+}
+
 /**
  * Answer one main -> renderer request (Phase 138 Theme C). Pure over the store so it is testable without a
  * bridge: `snapshot` here; `apply` (Theme F), `select`/`frame` (G) and `view` (H) extend the `switch`.
  * A request for a scene the editor does not show is `not-open`.
  */
-export function answerLevelEditorRequest(request: LevelEditorRequest): LevelEditorAnswer {
+export function answerLevelEditorRequest(request: Exclude<LevelEditorRequest, { kind: 'view' }>): LevelEditorAnswer;
+export function answerLevelEditorRequest(request: LevelEditorRequest): LevelEditorAnswer | Promise<LevelEditorAnswer>;
+export function answerLevelEditorRequest(request: LevelEditorRequest): LevelEditorAnswer | Promise<LevelEditorAnswer> {
   const entry = useLevelStore.getState().byGame[request.gameId];
   if (!entry || entry.scene !== request.scene) return NOT_OPEN;
   switch (request.kind) {
@@ -58,8 +113,12 @@ export function answerLevelEditorRequest(request: LevelEditorRequest): LevelEdit
     case 'apply':
       if (isReadOnlyLevel(entry)) return { handled: false, reason: 'read-only' };
       return applyAgentRequest(request, entry);
-    default:
-      return failure(`this editor build does not handle "${request.kind}" requests yet`);
+    case 'select':
+      return selectRequest(request, entry);
+    case 'frame':
+      return frameRequest(request, entry);
+    case 'view':
+      return viewRequest(request, entry);
   }
 }
 
@@ -81,13 +140,16 @@ export function useLevelEditorBridge(gameId: string | null): void {
     const games = bridge()?.games.levels;
     if (!games) return;
     return games.onEditorRequest(({ id, request }) => {
-      let result: LevelEditorAnswer;
+      const fail = (error: unknown): LevelEditorAnswer => failure(error instanceof Error ? error.message : String(error));
+      let answer: LevelEditorAnswer | Promise<LevelEditorAnswer>;
       try {
-        result = answerLevelEditorRequest(request);
+        answer = answerLevelEditorRequest(request);
       } catch (error) {
-        result = failure(error instanceof Error ? error.message : String(error));
+        answer = fail(error);
       }
-      games.editorReply({ id, result });
+      // Reads answer in the same tick; only `view` (a picture takes a moment) is awaited.
+      if (answer instanceof Promise) void answer.catch(fail).then((result) => games.editorReply({ id, result }));
+      else games.editorReply({ id, result: answer });
     });
   }, []);
 }

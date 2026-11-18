@@ -1,37 +1,87 @@
 import { z } from 'zod';
 
-export const HARDWARE_CATALOG = [
-  { id: 'rtx-4090-ws', label: 'RTX 4090 workstation', priceCents: 6_500_000, watts: 650 },
-  { id: 'dual-4090', label: 'Dual RTX 4090 server', priceCents: 12_000_000, watts: 1_200 },
-  { id: 'l40s-node', label: 'L40S node', priceCents: 22_000_000, watts: 900 },
-  { id: 'a100-node', label: 'A100 80GB node', priceCents: 45_000_000, watts: 2_000 },
-  { id: 'mac-studio', label: 'Mac Studio (M-Ultra)', priceCents: 9_500_000, watts: 300 },
-  { id: 'cpu-1u', label: '1U CPU server', priceCents: 3_500_000, watts: 350 },
+export const DEFAULT_MONEY_CURRENCY = 'USD';
+
+/** How many minor-unit digits a currency has: yen has none, nearly everything else two. */
+export function minorExponent(currency: string): number {
+  return currency === 'JPY' ? 0 : 2;
+}
+
+export const FleetHardwareSchema = z.object({
+  id: z.string().min(1).max(40), // built-ins keep their Phase 150 ids; new ones are uuids
+  label: z.string().trim().min(1).max(60),
+  priceMinor: z.int().min(0),
+  watts: z.int().min(0).max(100_000),
+  builtIn: z.boolean(),
+  hidden: z.boolean().default(false), // hidden = not offered in dropdowns; still resolves for existing nodes
+});
+export const FleetApiTierSchema = z.object({
+  id: z.string().min(1).max(40),
+  label: z.string().trim().min(1).max(60),
+  monthlyMinor: z.int().min(0),
+  builtIn: z.boolean(),
+  hidden: z.boolean().default(false),
+});
+export const FleetCatalogSchema = z.object({
+  hardware: z.array(FleetHardwareSchema).max(100),
+  apiTiers: z.array(FleetApiTierSchema).max(50),
+});
+export type FleetHardware = z.infer<typeof FleetHardwareSchema>;
+export type FleetApiTier = z.infer<typeof FleetApiTierSchema>;
+export type FleetCatalog = z.infer<typeof FleetCatalogSchema>;
+
+/** Built-ins in MAJOR units; seeded into minor units with `minorExponent(currency)` (illustrative list prices). */
+export const BUILT_IN_HARDWARE = [
+  { id: 'rtx-4090-ws', label: 'RTX 4090 workstation', price: 3_600, watts: 650 },
+  { id: 'dual-4090', label: 'Dual RTX 4090 server', price: 6_500, watts: 1_200 },
+  { id: 'l40s-node', label: 'L40S node', price: 12_000, watts: 900 },
+  { id: 'a100-node', label: 'A100 80GB node', price: 25_000, watts: 2_000 },
+  { id: 'mac-studio', label: 'Mac Studio (M-Ultra)', price: 5_000, watts: 300 },
+  { id: 'cpu-1u', label: '1U CPU server', price: 2_000, watts: 350 },
 ] as const;
-export const API_TIERS = [
-  { id: 'none', label: 'None', monthlyCents: 0 },
-  { id: 'starter', label: 'Starter', monthlyCents: 150_000 },
-  { id: 'pro', label: 'Pro', monthlyCents: 750_000 },
-  { id: 'enterprise', label: 'Enterprise', monthlyCents: 3_000_000 },
+export const BUILT_IN_API_TIERS = [
+  { id: 'none', label: 'None', monthly: 0 },
+  { id: 'starter', label: 'Starter', monthly: 99 },
+  { id: 'pro', label: 'Pro', monthly: 499 },
+  { id: 'enterprise', label: 'Enterprise', monthly: 1_999 },
 ] as const;
-export const HARDWARE_IDS = ['rtx-4090-ws', 'dual-4090', 'l40s-node', 'a100-node', 'mac-studio', 'cpu-1u'] as const;
-export const API_TIER_IDS = ['none', 'starter', 'pro', 'enterprise'] as const;
-// a type-level assertion (or a test) pins HARDWARE_IDS / API_TIER_IDS equal to the catalogs' ids
-export type HardwareId = (typeof HARDWARE_IDS)[number];
-export type ApiTierId = (typeof API_TIER_IDS)[number];
-export const hardwareById = (id: HardwareId) => HARDWARE_CATALOG.find((h) => h.id === id)!;
-export const apiTierById = (id: ApiTierId) => API_TIERS.find((t) => t.id === id)!;
+
+export function seedFleetCatalog(currency: string): FleetCatalog {
+  const k = 10 ** minorExponent(currency);
+  return {
+    hardware: BUILT_IN_HARDWARE.map((h) => ({
+      id: h.id,
+      label: h.label,
+      priceMinor: h.price * k,
+      watts: h.watts,
+      builtIn: true,
+      hidden: false,
+    })),
+    apiTiers: BUILT_IN_API_TIERS.map((t) => ({
+      id: t.id,
+      label: t.label,
+      monthlyMinor: t.monthly * k,
+      builtIn: true,
+      hidden: false,
+    })),
+  };
+}
+
+/** The workspace's one money currency: the company's, else USD before a company exists. */
+export function moneyCurrency(company: { currency: string } | null | undefined): string {
+  return company?.currency ?? DEFAULT_MONEY_CURRENCY;
+}
 
 export const HOURS_PER_MONTH = 730;
 export const MAX_FLEET_PROJECTIONS = 50;
 export const MAX_FLEET_NODES = 200;
 
 export const FleetNodeConfigSchema = z.object({
-  hardwareId: z.enum(HARDWARE_IDS),
-  apiTierId: z.enum(API_TIER_IDS),
+  hardwareId: z.string().min(1).max(40),
+  apiTierId: z.string().min(1).max(40),
   quantity: z.int().min(1).max(64),
   utilisationPct: z.int().min(0).max(100),
-  pricePerHourCents: z.int().min(0).max(1_000_000), // R 0 – R 10,000 per GPU-hour
+  pricePerHourMinor: z.int().min(0).max(1_000_000), // per GPU-hour, in the workspace currency's minor units
 });
 export const FleetNodeSchema = FleetNodeConfigSchema.extend({
   id: z.uuid(),
@@ -40,9 +90,10 @@ export const FleetNodeSchema = FleetNodeConfigSchema.extend({
 });
 export const FleetGlobalsSchema = z.object({
   scalePct: z.int().min(10).max(500), // multiplies quantity in the maths only
-  electricityRateCents: z.int().min(0).max(10_000), // per kWh, R 0 – R 100
+  electricityRateMinor: z.int().min(0).max(10_000), // per kWh, minor units
   demandGrowthPct: z.int().min(-20).max(50), // monthly, compounding on utilisation, capped 0–100 %
   horizonMonths: z.union([z.literal(12), z.literal(24), z.literal(36)]),
+  energyScalesWithUtilisation: z.boolean().default(false),
 });
 export const FleetProjectionSchema = z.object({
   id: z.uuid(),
@@ -60,16 +111,17 @@ export type FleetProjection = z.infer<typeof FleetProjectionSchema>;
 
 export const DEFAULT_FLEET_GLOBALS: FleetGlobals = {
   scalePct: 100,
-  electricityRateCents: 320,
+  electricityRateMinor: 15,
   demandGrowthPct: 0,
   horizonMonths: 24,
+  energyScalesWithUtilisation: false,
 };
 export const DEFAULT_FLEET_TEMPLATE: FleetNodeConfig = {
   hardwareId: 'dual-4090',
   apiTierId: 'starter',
   quantity: 1,
   utilisationPct: 70,
-  pricePerHourCents: 2_500,
+  pricePerHourMinor: 150,
 };
 
 export type FleetStarterId = 'blank' | 'gpu-cluster' | 'api-only';
@@ -94,7 +146,7 @@ export function buildFleetStarter(
       apiTierId: 'pro',
       quantity: 1,
       utilisationPct: 70,
-      pricePerHourCents: 2_500,
+      pricePerHourMinor: 150,
     };
     count = 4;
   } else if (starter === 'api-only') {
@@ -103,7 +155,7 @@ export function buildFleetStarter(
       apiTierId: 'enterprise',
       quantity: 1,
       utilisationPct: 50,
-      pricePerHourCents: 800,
+      pricePerHourMinor: 50,
     };
     count = 2;
   }
