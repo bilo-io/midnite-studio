@@ -3,7 +3,21 @@
  * never writes must survive), every op returns a new {@link EditState} and shares structure with the old one, so
  * undo is a stack of references and "dirty" is a reference comparison with the last saved level.
  */
-import { GAME_LEVEL_PROPS, applyLevelOps, type LevelOp, type LevelOpsContext, type LevelOpsResult } from '@midnite/studio-shared';
+import {
+  GAME_LEVEL_PROPS,
+  PREFAB_PROPS,
+  applyLevelOps,
+  instantiatePrefab,
+  prefabFromObjects,
+  prefabOverrides,
+  updateInstances,
+  type GamePrefab,
+  type LevelEntityFields,
+  type LevelOp,
+  type LevelOpsContext,
+  type LevelOpsResult,
+  type PrefabSourceObject,
+} from '@midnite/studio-shared';
 
 import { objectExtentPoints, refKey, sameRef } from './level-selection';
 
@@ -422,7 +436,8 @@ export function setObjectField(state: EditState, sel: NonNullable<EditSelection>
     const next: LevelObject = { ...o, [field]: value };
     // An object given a footprint stops being a point.
     if ((field === 'width' || field === 'height') && typeof value === 'number' && value > 0) delete next.point;
-    return next;
+    // A prefab instance remembers what was edited by hand, so an update leaves it alone (Phase 139 Theme G).
+    return OVERRIDABLE_FIELDS.includes(field) ? withOverride(next, field) : next;
   });
 }
 
@@ -473,7 +488,10 @@ export function setProperty(state: EditState, target: NonNullable<EditSelection>
   if (value === null || name.trim() === '') return state;
   const prop: LevelProperty = { name, type, value };
   if (target === 'map') return commit(state, { ...state.level, properties: upsert(state.level.properties, prop) });
-  return mapObject(state, target, (o) => ({ ...o, properties: upsert(o.properties, prop) }));
+  return mapObject(state, target, (o) => {
+    const next = { ...o, properties: upsert(o.properties, prop) };
+    return isPrefabTag(name) ? next : withOverride(next, `properties.${name}`);
+  });
 }
 
 export function removeProperty(state: EditState, target: NonNullable<EditSelection> | 'map', name: string): EditState {
@@ -484,7 +502,9 @@ export function removeProperty(state: EditState, target: NonNullable<EditSelecti
   }
   return mapObject(state, target, (o) => {
     const properties = drop(o.properties);
-    return properties === o.properties ? o : { ...o, properties };
+    if (properties === o.properties) return o;
+    const next = { ...o, properties };
+    return isPrefabTag(name) ? next : withOverride(next, `properties.${name}`);
   });
 }
 
@@ -679,4 +699,200 @@ export function toEditLevel(raw: unknown): EditLevel | null {
   if (m.orientation !== 'orthogonal' && m.orientation !== 'isometric') return null;
   const layers = (m.layers as Array<Record<string, unknown>>).map((l) => ({ ...l, name: typeof l.name === 'string' ? l.name : '' }));
   return { ...m, layers } as EditLevel;
+}
+
+// --- prefabs (Phase 139 Theme G) ----------------------------------------------------------
+//
+// An instance is ordinary objects tagged `midnite.prefab`, `midnite.prefabInstance` and `midnite.prefabIndex`. Every op
+// here is one undo step, and none of them touches the kit: the tags are plain Tiled properties.
+
+const OVERRIDABLE_FIELDS: readonly string[] = ['name', 'type', 'width', 'height'];
+const PREFAB_TAGS: readonly string[] = [PREFAB_PROPS.prefab, PREFAB_PROPS.instance, PREFAB_PROPS.index, PREFAB_PROPS.overrides];
+const isPrefabTag = (name: string): boolean => PREFAB_TAGS.includes(name);
+
+const propOf = (o: Pick<LevelObject, 'properties'>, name: string): unknown => o.properties?.find((p) => p.name === name)?.value;
+
+export type PrefabInstanceInfo = { prefab: string; instance: string; index: number };
+
+/** Which prefab and instance an object belongs to, or `null` for a plain object. */
+export function prefabInstanceOf(o: Pick<LevelObject, 'properties'>): PrefabInstanceInfo | null {
+  const prefab = propOf(o, PREFAB_PROPS.prefab);
+  const instance = propOf(o, PREFAB_PROPS.instance);
+  if (typeof prefab !== 'string' || typeof instance !== 'string') return null;
+  const index = propOf(o, PREFAB_PROPS.index);
+  return { prefab, instance, index: typeof index === 'number' ? index : 0 };
+}
+
+/** The dotted fields an instance object has edited by hand (`width`, `properties.speed`). */
+export const overriddenFields = (o: Pick<LevelObject, 'properties'>): string[] => prefabOverrides(o.properties);
+
+function setOverrides(o: LevelObject, fields: readonly string[]): LevelObject {
+  const rest = (o.properties ?? []).filter((p) => p.name !== PREFAB_PROPS.overrides);
+  return { ...o, properties: fields.length ? [...rest, { name: PREFAB_PROPS.overrides, type: 'string', value: fields.join(',') }] : rest };
+}
+
+/** Record `field` as hand-edited on an instance object; a plain object is returned unchanged. */
+function withOverride(o: LevelObject, field: string): LevelObject {
+  if (!prefabInstanceOf(o)) return o;
+  const have = overriddenFields(o);
+  return have.includes(field) ? o : setOverrides(o, [...have, field]);
+}
+
+const inferPropertyType = (value: unknown): LevelProperty['type'] => (typeof value === 'boolean' ? 'bool' : typeof value === 'number' ? (Number.isInteger(value) ? 'int' : 'float') : 'string');
+
+/** An editor object as the prefab file's entity (the id and the prefab tags are dropped by `prefabFromObjects`). */
+export function objectToEntity(o: LevelObject): PrefabSourceObject {
+  const props: Record<string, string | number | boolean> = {};
+  for (const p of o.properties ?? []) if (typeof p.value === 'string' || typeof p.value === 'number' || typeof p.value === 'boolean') props[p.name] = p.value;
+  const polyline = Array.isArray(o.polyline) ? (o.polyline as Array<{ x: number; y: number }>) : undefined;
+  return {
+    type: o.type || o.class || 'object',
+    ...(o.name ? { name: o.name } : {}),
+    x: o.x,
+    y: o.y,
+    ...(o.width !== undefined ? { width: o.width } : {}),
+    ...(o.height !== undefined ? { height: o.height } : {}),
+    ...(o.rotation !== undefined ? { rotation: o.rotation } : {}),
+    ...(o.point ? { point: true } : {}),
+    ...(polyline ? { polyline } : {}),
+    ...(Object.keys(props).length ? { properties: props } : {}),
+  };
+}
+
+/** A prefab entity as a new level object (no id: `insertObjects` assigns one). */
+export function entityToObject(e: LevelEntityFields): Omit<LevelObject, 'id'> {
+  return {
+    name: e.name ?? '',
+    type: e.type,
+    x: e.x,
+    y: e.y,
+    width: e.width ?? 0,
+    height: e.height ?? 0,
+    rotation: e.rotation ?? 0,
+    visible: true,
+    ...(e.point ? { point: true } : {}),
+    ...(e.polyline ? { polyline: e.polyline } : {}),
+    properties: Object.entries(e.properties ?? {}).map(([name, value]) => ({ name, type: inferPropertyType(value), value })),
+  };
+}
+
+/** The prefab file for the selected objects, in selection order (an object's place in the list is its `prefabIndex`). */
+export function prefabFromSelection(state: EditState, name: string, dimension: '2d' | '3d', description?: string): GamePrefab | null {
+  const objects = selectedObjects(state).map((s) => objectToEntity(s.object));
+  return objects.length ? prefabFromObjects(name, dimension, objects, description) : null;
+}
+
+const tag = (o: LevelObject, prefab: string, instance: string, index: number): LevelObject => ({
+  ...o,
+  properties: [
+    ...(o.properties ?? []).filter((p) => !isPrefabTag(p.name)),
+    { name: PREFAB_PROPS.prefab, type: 'string', value: prefab },
+    { name: PREFAB_PROPS.instance, type: 'string', value: instance },
+    { name: PREFAB_PROPS.index, type: 'int', value: index },
+  ],
+});
+
+/** "Save selection as prefab": the selected objects become one instance of `prefabName`, tagged in selection order. One undo step. */
+export function convertToInstance(state: EditState, prefabName: string, instanceId: string): EditState {
+  const refs = state.selected;
+  const order = new Map(refs.map((r, i) => [refKey(r), i] as const));
+  let level = state.level;
+  for (const layer of state.level.layers) {
+    if (!isObjects(layer) || typeof layer.id !== 'number') continue;
+    const mine = refs.filter((r) => r.layerId === layer.id);
+    if (!mine.length) continue;
+    const ids = new Set(mine.map((r) => r.objectId));
+    level = mapLayers(level, layer.id, (l) => ({ ...l, objects: (l.objects ?? []).map((o) => (ids.has(o.id) ? tag(o, prefabName, instanceId, order.get(refKey({ layerId: layer.id!, objectId: o.id }))!) : o)) }));
+  }
+  return commit(state, level);
+}
+
+/** Place one instance of `prefab` at `at` on `layerId`, selected, as one undo step. */
+export function placePrefab(state: EditState, layerId: number, prefab: GamePrefab, at: PlanPoint, instanceId: string, rotation = 0): EditState {
+  const items = instantiatePrefab(prefab, at, rotation, instanceId).map((e) => ({ layerId, object: entityToObject(e) }));
+  return insertObjects(state, items);
+}
+
+/** Every object on the level that belongs to the same instance as `ref`, `ref` included (just `ref` for a plain object). */
+export function instanceRefs(level: EditLevel, ref: ObjectRef): ObjectRef[] {
+  const self = findObject(level, ref);
+  const inst = self ? prefabInstanceOf(self) : null;
+  if (!inst) return [ref];
+  const out: ObjectRef[] = [];
+  for (const layer of level.layers) {
+    if (!isObjects(layer) || typeof layer.id !== 'number') continue;
+    for (const o of layer.objects ?? []) {
+      const i = prefabInstanceOf(o);
+      if (i && i.prefab === inst.prefab && i.instance === inst.instance) out.push({ layerId: layer.id, objectId: o.id });
+    }
+  }
+  return out;
+}
+
+/** Click an instance object: the whole instance is selected, `ref` primary. Alt-click uses `selectOnly` instead. */
+export function selectPrefabInstance(state: EditState, ref: ObjectRef): EditState {
+  return withSelected(state, instanceRefs(state.level, ref), ref);
+}
+
+/** Every object of every instance of `prefabName` in the level. */
+export function prefabObjectRefs(level: EditLevel, prefabName: string): ObjectRef[] {
+  const out: ObjectRef[] = [];
+  for (const layer of level.layers) {
+    if (!isObjects(layer) || typeof layer.id !== 'number') continue;
+    for (const o of layer.objects ?? []) if (prefabInstanceOf(o)?.prefab === prefabName) out.push({ layerId: layer.id, objectId: o.id });
+  }
+  return out;
+}
+
+/** How many instances of `prefabName` the level holds (distinct instance ids). */
+export function countInstances(level: EditLevel, prefabName: string): number {
+  const ids = new Set<string>();
+  for (const ref of prefabObjectRefs(level, prefabName)) {
+    const o = findObject(level, ref);
+    const i = o ? prefabInstanceOf(o) : null;
+    if (i) ids.add(i.instance);
+  }
+  return ids.size;
+}
+
+/** "Select instances": every object of every instance of `prefabName`. */
+export function selectInstancesOf(state: EditState, prefabName: string): EditState {
+  const refs = prefabObjectRefs(state.level, prefabName);
+  return refs.length ? withSelected(state, refs, refs[refs.length - 1]!) : state;
+}
+
+/** "Unpack": the instance of `ref` becomes plain objects (the tags and overrides go). One undo step. */
+export function unpackInstance(state: EditState, ref: ObjectRef): EditState {
+  const refs = instanceRefs(state.level, ref);
+  const level = mapRefs(state.level, refs, (o) => (prefabInstanceOf(o) ? { ...o, properties: (o.properties ?? []).filter((p) => !isPrefabTag(p.name)) } : o));
+  return commit(state, level);
+}
+
+/** "Update from prefab": `updateInstances` over the level, overrides kept. One undo step; nothing to update is no step. */
+export function applyPrefabUpdate(state: EditState, prefab: GamePrefab): { state: EditState; updated: number; skippedFields: number } {
+  const result = updateInstances(state.level, prefab);
+  if (result.updated === 0) return { state, updated: 0, skippedFields: 0 };
+  return { state: commit(state, result.level as EditLevel), updated: result.updated, skippedFields: result.skippedFields };
+}
+
+/** "Revert": give an overridden field of one instance object back its prefab value and drop it from the overrides. One undo step. */
+export function revertOverride(state: EditState, sel: NonNullable<EditSelection>, field: string, prefab: GamePrefab): EditState {
+  return mapObject(state, sel, (o) => {
+    const inst = prefabInstanceOf(o);
+    if (!inst || !overriddenFields(o).includes(field)) return o;
+    const source = prefab.objects[inst.index];
+    let next: LevelObject = { ...o };
+    if (field.startsWith('properties.')) {
+      const name = field.slice('properties.'.length);
+      const value = source?.properties?.[name];
+      const rest = (o.properties ?? []).filter((p) => p.name !== name);
+      next.properties = value === undefined ? rest : [...rest, { name, type: inferPropertyType(value), value }];
+    } else if (source) {
+      const value = (source as Record<string, unknown>)[field];
+      if (value === undefined) delete (next as Record<string, unknown>)[field];
+      else (next as Record<string, unknown>)[field] = value;
+    }
+    next = setOverrides(next, overriddenFields(next).filter((f) => f !== field));
+    return next;
+  });
 }

@@ -64,8 +64,14 @@ names (`width`, `properties.speed`); an instance keeps its own `x`, `y` and `rot
 commit), `-prefab-delete`. `game-prefabs.ts` confines to `levels/prefabs/`, writes through the write queue and commits only the
 prefab file; bridge `games.levels.prefabs.{list,get,set,delete}`.
 
-**Theme G — Prefab UI.** ◻ "Save selection as prefab…", a Prefabs tab in the browser, drag to place, "Select
-instances", "Update instances from prefab" honouring overrides, "Unpack".
+**Theme G — Prefab UI.** ✅ (Decisions: tile preview is a prefab icon with the object count, not a `drawPlan` / model thumbnail; the name prompt is `LevelDialog`, which occludes the game view, rather than `FrameModal`.) "Save as prefab…" (context menu, and a button beside the align bar for a multi-selection) opens a
+live-validated name dialog, writes the file and converts the selection into an instance in one undo step. A
+Prefabs tab (`useAssetBrowserTabs`) lists tiles that drag or arm for placement; `placeAsset` now instantiates a
+prefab (`placePrefab`, one undo step, refused on a dimension mismatch). Clicking an instance object selects the whole
+instance, `Alt`+click one object. The inspector shows "Prefab: name · instance id" with Select instances, Update from
+prefab (toast "Updated N instances, kept M overrides"), Unpack, and each hand-edited field with a Revert; edits to
+`name`/`type`/`width`/`height`/`properties.*` on an instance add to `midnite.prefabOverrides` (x, y, rotation never do).
+Deleting a prefab confirms with this level's instance count. Model ops live in `level-edit-model.ts`.
 
 **Theme H — The scatter brush.** ◻ Tool `S` (2D and 3D): pick assets or a prefab, set radius, density, spacing,
 scale and rotation jitter, paint; seeded, Poisson-spaced, one undo per stroke, `Alt` erases.
@@ -329,11 +335,11 @@ delete}`.
 
 **Acceptance.**
 
-- [ ] G1. Save as prefab writes the file (mocked bridge) and tags the selected objects as one instance, one undo step.
-- [ ] G2. Click on an instance object selects all its siblings; `Alt`+click selects one.
-- [ ] G3. Editing `width` on an instance object adds `width` to its overrides; Revert removes it.
-- [ ] G4. Update from prefab keeps overrides and reports the counts.
-- [ ] G5. Delete prefab confirms with the instance count.
+- [x] G1. Save as prefab writes the file (mocked bridge) and tags the selected objects as one instance, one undo step.
+- [x] G2. Click on an instance object selects all its siblings; `Alt`+click selects one.
+- [x] G3. Editing `width` on an instance object adds `width` to its overrides; Revert removes it.
+- [x] G4. Update from prefab keeps overrides and reports the counts.
+- [x] G5. Delete prefab confirms with the instance count.
 
 **Done when** G1–G5 pass.
 
