@@ -18,6 +18,7 @@ import {
   type McpContentBlock,
   type McpToolInput,
   type McpToolOutput,
+  resolvePlayFromSpawn,
 } from '@midnite/studio-shared';
 
 import { McpToolError } from '@midnite/studio-runtime';
@@ -64,7 +65,7 @@ export type GameImage = {
 };
 
 export type GameMcpDeps = {
-  service: Pick<GameService, 'resolve' | 'list' | 'levels' | 'levelEditor' | 'goto' | 'doctor' | 'doctorFix' | 'create' | 'manifestGet' | 'manifestSet' | 'run' | 'stop' | 'reload' | 'logs' | 'emit' | 'isRunning'>;
+  service: Pick<GameService, 'resolve' | 'list' | 'levels' | 'levelEditor' | 'goto' | 'doctor' | 'doctorFix' | 'create' | 'manifestGet' | 'manifestSet' | 'run' | 'entities' | 'debug' | 'stop' | 'reload' | 'logs' | 'emit' | 'isRunning'>;
   /** The running game's web contents, or `null` when it is not running. */
   webContents: (gameId: string) => GamePageContents | null;
   /** The asset bridge's import (Theme N). */
@@ -108,6 +109,9 @@ export type GameMcpTools = {
     | 'game_level_frame'
     | 'game_level_view'
     | 'game_goto'
+    | 'game_play_from'
+    | 'game_entities'
+    | 'game_debug_overlay'
     | 'game_doctor'
     | 'game_doctor_fix']: (input: McpToolInput<K>) => Promise<McpToolOutput<K>>;
 };
@@ -490,6 +494,33 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
       const found = await need(game);
       const jumped = unwrapLevel(await deps.service.goto(found.gameId, scene));
       return { gameId: found.gameId, via: jumped.via };
+    },
+
+    async game_play_from({ game, scene, at, objectId, unit, useEditor }) {
+      const found = await need(game);
+      let read: { level: unknown; source: 'editor' | 'file' };
+      if (useEditor) read = unwrapLevel(await readLevelForTool(deps.service, found.gameId, scene));
+      else read = { level: unwrapLevel(await deps.service.levels.get(found.gameId, scene)).level, source: 'file' };
+      const start = resolvePlayFromSpawn(read.level, { at, objectId, unit });
+      if ('error' in start) throw new McpToolError('not-found', start.error);
+      const previewed = unwrapLevel(await deps.service.levels.preview({ gameId: found.gameId, scene, level: read.level, spawn: start.spawn }));
+      return { url: previewed.url, via: previewed.via, source: read.source };
+    },
+
+    async game_entities({ game, types, limit }) {
+      const found = await need(game);
+      if (!deps.service.isRunning(found.gameId)) throw new McpToolError('error', NOT_RUNNING);
+      const result = unwrap(await deps.service.entities.get(found.gameId));
+      const wanted = types && types.length > 0 ? result.entities.filter((e) => types.includes(e.type)) : result.entities;
+      const entities = wanted.slice(0, limit);
+      return { ...result, entities, truncated: result.truncated || wanted.length > entities.length };
+    },
+
+    async game_debug_overlay({ game, colliders, triggers, nav }) {
+      const found = await need(game);
+      if (!deps.service.isRunning(found.gameId)) throw new McpToolError('error', NOT_RUNNING);
+      const patch = { ...(colliders === undefined ? {} : { colliders }), ...(triggers === undefined ? {} : { triggers }), ...(nav === undefined ? {} : { nav }) };
+      return { applied: unwrap(await deps.service.debug(found.gameId, patch)) };
     },
 
     async game_doctor({ game }) {

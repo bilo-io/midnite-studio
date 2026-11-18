@@ -82,6 +82,16 @@ export const gameLevelFrame = async (input: McpToolInput<'game_level_frame'>): P
 };
 export const gameLevelView = async (input: McpToolInput<'game_level_view'>): Promise<McpToolOutput<'game_level_view'>> =>
   tools().game_level_view(input);
+export const gamePlayFrom = async (input: McpToolInput<'game_play_from'>): Promise<McpToolOutput<'game_play_from'>> => {
+  allowed();
+  return tools().game_play_from(input);
+};
+export const gameEntities = async (input: McpToolInput<'game_entities'>): Promise<McpToolOutput<'game_entities'>> =>
+  tools().game_entities(input);
+export const gameDebugOverlay = async (input: McpToolInput<'game_debug_overlay'>): Promise<McpToolOutput<'game_debug_overlay'>> => {
+  allowed();
+  return tools().game_debug_overlay(input);
+};
 export const gameGoto = async (input: McpToolInput<'game_goto'>): Promise<McpToolOutput<'game_goto'>> => {
   allowed();
   return tools().game_goto(input);

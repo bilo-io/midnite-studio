@@ -318,3 +318,47 @@ export function queryLevel(level: unknown, query: z.input<typeof LevelQuerySchem
   });
   return { total, truncated: total > objects.length, objects };
 }
+
+// --- play-from start point (Phase 140 Theme H) -------------------------------------------
+
+/** Where `game_play_from` starts, in the kit's `midnite-spawn` shape: 2D `{x, y}` px; 3D `{x, y}` = x,z or `{x, y, z}` = x,height,z metres. */
+export type PlayFromSpawn = { x: number; y: number; z?: number };
+
+/**
+ * The start point for `game_play_from`. `objectId` wins: the object's position (a 2D rectangle's centre in px; a 3D
+ * object through `levelEntityToWorld`, in metres, with its `elevation` as the height when it has one). Else `at` in
+ * `unit` (`x`, `y` = the plan position; `z` = the height above ground, 3D only). Neither: `null` (the scene's own spawn).
+ * A missing object or an unreadable level answers `{ error }`.
+ */
+export function resolvePlayFromSpawn(
+  level: unknown,
+  input: { at?: { x: number; y: number; z?: number } | undefined; objectId?: number | undefined; unit?: 'px' | 'm' | undefined },
+): { spawn: PlayFromSpawn | null } | { error: string } {
+  if (input.at === undefined && input.objectId === undefined) return { spawn: null };
+  const parsed = parseGameLevel(level);
+  if (!parsed.ok) return { error: 'That level could not be read.' };
+  const map = parsed.level as unknown as TiledMap;
+  const three = parsed.dimension === '3d';
+  if (input.objectId !== undefined) {
+    for (const { object } of objectsOf(map)) {
+      if (object.id !== input.objectId) continue;
+      if (three) {
+        const [x, elevation, z] = levelEntityToWorld(object as Parameters<typeof levelEntityToWorld>[0], map).position;
+        return { spawn: elevation === null ? { x, y: z } : { x, y: elevation, z } };
+      }
+      const w = typeof object.width === 'number' ? object.width : 0;
+      const h = typeof object.height === 'number' ? object.height : 0;
+      return { spawn: { x: object.x + w / 2, y: object.y + h / 2 } };
+    }
+    return { error: `The level has no object with id ${input.objectId}.` };
+  }
+  const at = input.at as { x: number; y: number; z?: number | undefined };
+  const mpt = metresPerTile(map as { properties?: TiledProperty[] });
+  const metres = (input.unit ?? 'px') === 'm';
+  if (three) {
+    const x = metres ? at.x : (at.x / map.tilewidth) * mpt;
+    const planZ = metres ? at.y : (at.y / map.tileheight) * mpt;
+    return { spawn: at.z === undefined ? { x, y: planZ } : { x, y: at.z, z: planZ } };
+  }
+  return { spawn: metres ? { x: (at.x / mpt) * map.tilewidth, y: (at.y / mpt) * map.tileheight } : { x: at.x, y: at.y } };
+}

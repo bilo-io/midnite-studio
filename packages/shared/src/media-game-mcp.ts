@@ -35,6 +35,8 @@ import {
   GameDiagnosisSchema,
   GameFixResultSchema,
   GameGenreSchema,
+  GameEntitiesResultSchema,
+  GameDebugOptionsSchema,
 } from './media-game';
 import { GameFixIdSchema } from './game-standard';
 import { LevelViewCameraSchema } from './game-level-editor-bridge';
@@ -76,6 +78,10 @@ export const GAME_MCP_TOOL_IDS = [
   'game_level_frame',
   'game_level_view',
   'game_goto',
+  // Phase 140 Theme H.
+  'game_play_from',
+  'game_entities',
+  'game_debug_overlay',
   // Phase 149 Theme C.
   'game_doctor',
   // Phase 149 Theme D.
@@ -104,6 +110,7 @@ export const GAME_MCP_READ_TOOL_IDS: readonly GameMcpToolId[] = [
   'game_level_query',
   'game_level_validate',
   'game_level_view',
+  'game_entities',
   'game_doctor',
 ];
 
@@ -111,6 +118,7 @@ export const GAME_MCP_READ_TOOL_IDS: readonly GameMcpToolId[] = [
 export const GAME_SLOW_TOOL_IDS: readonly string[] = [
   'game_create',
   'game_run',
+  'game_play_from',
   'game_screenshot',
   'game_input',
   'game_replay_play',
@@ -421,6 +429,30 @@ export type LevelViewValue = z.infer<typeof LevelViewValueSchema>;
 /** The renderer's answers to `select` and `frame`. */
 export const LevelFrameValueSchema = z.object({ view: z.enum(['plan', '3d']) });
 export type LevelFrameValue = z.infer<typeof LevelFrameValueSchema>;
+// --- play from here, live entities and debug draw (Phase 140 Theme H) -------------------
+export const GamePlayFromInputSchema = GameToolTargetSchema.extend({
+  scene: GameSceneNameSchema,
+  /** Where to start: `x`, `y` the plan position, `z` the height above ground (3D only). Left out: the scene's own spawn. */
+  at: z.object({ x: z.number().finite(), y: z.number().finite(), z: z.number().finite().optional() }).optional(),
+  /** Start at this object's position; wins over `at`. */
+  objectId: z.number().int().optional(),
+  unit: z.enum(['px', 'm']).default('px'),
+  /** Play the open editor's unsaved level when there is one, else the file. */
+  useEditor: z.boolean().default(true),
+});
+export const GamePlayFromOutputSchema = z.object({ url: z.string(), via: z.enum(['started', 'restarted']), source: z.enum(['editor', 'file']) });
+export type GamePlayFromOutput = z.infer<typeof GamePlayFromOutputSchema>;
+export const GameEntitiesInputSchema = GameToolTargetSchema.extend({
+  types: z.array(z.string().min(1).max(64)).max(50).optional(),
+  limit: z.number().int().min(1).max(500).default(100),
+});
+export const GameEntitiesOutputSchema = GameEntitiesResultSchema;
+export const GameDebugOverlayInputSchema = GameToolTargetSchema.extend({
+  colliders: z.boolean().optional(),
+  triggers: z.boolean().optional(),
+  nav: z.boolean().optional(),
+});
+export const GameDebugOverlayOutputSchema = z.object({ applied: GameDebugOptionsSchema });
 export const GameGotoInputSchema = GameToolTargetSchema.extend({ scene: GameSceneNameSchema });
 export const GameGotoOutputSchema = GameGotoResultSchema.extend({ gameId: z.string() });
 export const GameLevelListOutputSchema = GameLevelsResultSchema;
