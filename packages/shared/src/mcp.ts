@@ -65,6 +65,12 @@ import {
   GameLevelFrameInputSchema,
   GameLevelFrameOutputSchema,
   GameLevelViewInputSchema,
+  GamePlayFromInputSchema,
+  GamePlayFromOutputSchema,
+  GameEntitiesInputSchema,
+  GameEntitiesOutputSchema,
+  GameDebugOverlayInputSchema,
+  GameDebugOverlayOutputSchema,
   GameGotoInputSchema,
   GameGotoOutputSchema,
   GameDoctorOutputSchema,
@@ -341,6 +347,9 @@ type McpToolEntry = {
     | 'game_level_frame'
     | 'game_level_view'
     | 'game_goto'
+    | 'game_play_from'
+    | 'game_entities'
+    | 'game_debug_overlay'
     | 'game_doctor'
     | 'game_doctor_fix'
     | 'terrain_list'
@@ -1291,6 +1300,32 @@ export const MCP_TOOLS = {
     input: GameLevelViewInputSchema,
     output: GameContentOutputSchema,
     readOnly: true,
+  },
+  game_play_from: {
+    id: 'game_play_from',
+    title: 'Play a level from a point',
+    description:
+      'Runs the game on a scene starting at a point or an object, using the open editor\'s unsaved level when there is one — use `game_entities` and `game_screenshot` after it; refused unless its Settings switch is on.',
+    input: GamePlayFromInputSchema,
+    output: GamePlayFromOutputSchema,
+    readOnly: false,
+  },
+  game_entities: {
+    id: 'game_entities',
+    title: 'List the running game\'s live objects',
+    description: 'Lists where every object of the running game is now, with its state — use after `game_input` to see what moved.',
+    input: GameEntitiesInputSchema,
+    output: GameEntitiesOutputSchema,
+    readOnly: true,
+  },
+  game_debug_overlay: {
+    id: 'game_debug_overlay',
+    title: 'Draw colliders, triggers and the nav mesh',
+    description:
+      'Switches the running game\'s debug overlays (colliders, triggers, nav mesh) on or off — follow with `game_screenshot`; refused unless its Settings switch is on.',
+    input: GameDebugOverlayInputSchema,
+    output: GameDebugOverlayOutputSchema,
+    readOnly: false,
   },
   game_goto: {
     id: 'game_goto',

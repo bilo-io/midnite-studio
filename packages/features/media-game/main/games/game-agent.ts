@@ -297,6 +297,9 @@ const ACTION_LABELS: Partial<Record<GameMcpToolId, string>> = {
   game_level_view: 'Viewed a level',
   game_level_set: 'Saved a level',
   game_goto: 'Jumped to a scene',
+  game_play_from: 'Played a level from a point',
+  game_entities: 'Read live objects',
+  game_debug_overlay: 'Switched debug overlays',
   game_doctor: 'Diagnosed the game',
   game_doctor_fix: 'Applied a doctor fix',
 };
