@@ -1,7 +1,30 @@
-import type { GameLibraryAsset, GameLibraryCollection } from '@midnite/studio-shared';
+import type { GameAssetLibraryOrigin, GameLibraryAsset, GameLibraryAssetKind, GameLibraryCollection, GameSummary } from '@midnite/studio-shared';
 import { useState } from 'react';
+import { LuPackagePlus } from 'react-icons/lu';
 
-import { useAssetLibrary, useAssetLibraryFile } from './use-games';
+import { useNotify } from './chrome';
+import { useAssetLibrary, useAssetLibraryFile, useGameAssets, useImportLibraryAsset } from './use-games';
+
+/** The kinds a game can hold; fonts, docs and anything else stay in the library. */
+const IMPORTABLE_KINDS: readonly GameLibraryAssetKind[] = ['model', 'image', 'audio', 'terrain', 'sprite'];
+
+/**
+ * Whether the game already holds this library asset: the same content hash, or (for a terrain pack, whose
+ * origin is the pack folder) a file inside the pack it was imported from.
+ */
+export function isAlreadyInGame(collection: string, asset: GameLibraryAsset, origins: readonly GameAssetLibraryOrigin[]): boolean {
+  return origins.some(
+    (o) => o.library === collection && ((asset.sha256 !== '' && o.sha256 === asset.sha256) || asset.path === o.path || asset.path.startsWith(`${o.path}/`)),
+  );
+}
+
+/** Why Import is off, or `null` when it is on. */
+export function importDisabledReason(game: GameSummary | null, kind: GameLibraryAssetKind): string | null {
+  if (!game) return 'Open a game to import into.';
+  if (!game.valid) return `${game.name} has an invalid manifest; fix it first.`;
+  if (!IMPORTABLE_KINDS.includes(kind)) return `A game cannot hold ${kind === 'other' ? 'this kind of file' : `${kind} files`}.`;
+  return null;
+}
 
 const formatBytes = (bytes: number): string =>
   bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
@@ -14,9 +37,22 @@ export function groupByCategory(assets: readonly GameLibraryAsset[]): Array<[str
 }
 
 /** The inspector: provenance for every kind, an inline preview for images and audio. */
-function LibraryInspector({ collection, asset }: { collection: string; asset: GameLibraryAsset }) {
+function LibraryInspector({ collection, asset, game }: { collection: string; asset: GameLibraryAsset; game: GameSummary | null }) {
   const file = useAssetLibraryFile(collection, asset.path);
   const url = file.data?.dataUrl ?? null;
+  const notify = useNotify();
+  const imported = useImportLibraryAsset();
+  const gameAssets = useGameAssets(game?.gameId ?? '', game !== null && game.valid);
+  const origins = (gameAssets.data?.assets ?? []).flatMap((a) => (a.library ? [a.library] : []));
+  const already = game !== null && isAlreadyInGame(collection, asset, origins);
+  const reason = importDisabledReason(game, asset.kind);
+  const run = () => {
+    if (!game) return;
+    imported.mutate(
+      { gameId: game.gameId, collection, path: asset.path },
+      { onSuccess: (result) => result.ok && notify(`Imported ${result.value.name} into ${game.name}`) },
+    );
+  };
   return (
     <div className="flex flex-col gap-1.5 rounded-md border border-border bg-card p-2 text-xs" data-testid="library-inspector">
       <p className="truncate font-medium" title={asset.path}>
@@ -42,6 +78,28 @@ function LibraryInspector({ collection, asset }: { collection: string; asset: Ga
           </>
         ) : null}
       </dl>
+      {already ? (
+        <p className="text-[11px] text-emerald-500" data-testid="library-already">
+          Already in this game
+        </p>
+      ) : null}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={reason !== null || imported.isPending}
+          title={reason ?? undefined}
+          onClick={run}
+          className="flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-[11px] hover:bg-accent disabled:opacity-60"
+        >
+          <LuPackagePlus aria-hidden className="h-3 w-3" />
+          {game ? `Import into ${game.name}` : 'Import into game'}
+        </button>
+        {reason ? (
+          <span className="text-[11px] text-muted-foreground" data-testid="library-import-reason">
+            {reason}
+          </span>
+        ) : null}
+      </div>
       {asset.kind === 'image' && url ? <img src={url} alt={asset.name} className="max-h-48 self-start rounded border border-border object-contain" /> : null}
       {asset.kind === 'audio' && url ? <audio controls src={url} className="w-full" aria-label={`Preview ${asset.name}`} /> : null}
       {(asset.kind === 'model' || asset.kind === 'terrain') && file.data ? (
@@ -54,7 +112,7 @@ function LibraryInspector({ collection, asset }: { collection: string; asset: Ga
   );
 }
 
-function CollectionView({ collection }: { collection: GameLibraryCollection }) {
+function CollectionView({ collection, game }: { collection: GameLibraryCollection; game: GameSummary | null }) {
   const [selected, setSelected] = useState<GameLibraryAsset | null>(null);
   return (
     <details className="rounded-md border border-border" data-testid={`library-collection-${collection.id}`}>
@@ -88,17 +146,17 @@ function CollectionView({ collection }: { collection: GameLibraryCollection }) {
             </ul>
           </div>
         ))}
-        {selected ? <LibraryInspector collection={collection.id} asset={selected} /> : null}
+        {selected ? <LibraryInspector collection={collection.id} asset={selected} game={game} /> : null}
       </div>
     </details>
   );
 }
 
 /**
- * The shared asset library (read-only): collections from the library root in Settings ▸ Games, each
- * grouped by category with an inspector. Importing into a game is a separate action.
+ * The shared asset library (read-only on disk): collections from the library root in Settings ▸ Games, each
+ * grouped by category with an inspector whose Import button copies the asset into `game`.
  */
-export function GameAssetLibrary() {
+export function GameAssetLibrary({ game = null }: { game?: GameSummary | null } = {}) {
   const library = useAssetLibrary(true);
   if (library.isLoading) return <p className="text-xs text-muted-foreground">Loading library…</p>;
   const { listing, error } = library.data ?? { listing: null, error: null };
@@ -115,7 +173,7 @@ export function GameAssetLibrary() {
   return (
     <div className="flex flex-col gap-2" data-testid="game-asset-library">
       {listing.collections.map((collection) => (
-        <CollectionView key={collection.id} collection={collection} />
+        <CollectionView key={collection.id} collection={collection} game={game} />
       ))}
     </div>
   );

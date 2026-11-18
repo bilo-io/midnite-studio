@@ -11,6 +11,7 @@ import type {
   GameFixRequest,
   GameFixResult,
   GameImportAssetRequest,
+  GameLibraryImportRequest,
   GameImportAssetResult,
   GamePlaytestEntry,
   GamePlaytestRunResult,
@@ -323,6 +324,20 @@ export function useImportAsset() {
   return useMutation({
     mutationFn: async (req: GameImportAssetRequest) =>
       (await bridge()?.games.assets.import(req)) ?? noBridge<GameImportAssetResult>(),
+    onSuccess: (result) => {
+      reportFailure(result);
+      void client.invalidateQueries({ queryKey: ['games', 'assets'] });
+      void client.invalidateQueries({ queryKey: GAME_KEYS.list });
+    },
+  });
+}
+
+/** Import one shared-library asset into a game; a success toasts, a failure goes through `reportFailure`. */
+export function useImportLibraryAsset() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (req: GameLibraryImportRequest) =>
+      (await bridge()?.games.assets.library.import(req)) ?? noBridge<GameImportAssetResult>(),
     onSuccess: (result) => {
       reportFailure(result);
       void client.invalidateQueries({ queryKey: ['games', 'assets'] });

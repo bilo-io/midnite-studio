@@ -100,6 +100,7 @@ export function createGamerBridge(ipc: RendererIpc): GamerBridge {
         library: {
           list: () => call(CHANNELS.gamesLibraryList),
           read: (req) => call(CHANNELS.gamesLibraryRead, req),
+          import: (req) => call(CHANNELS.gamesLibraryImport, req),
         },
         sources: (req) => call(CHANNELS.gamesAssetSources, req),
         import: (req) => call(CHANNELS.gamesImportAsset, req),

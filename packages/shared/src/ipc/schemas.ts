@@ -356,6 +356,7 @@ import {
   GameAssetSourcesRequestSchema,
   GameAssetSourcesResultSchema,
   GameImportAssetRequestSchema,
+  GameLibraryImportRequestSchema,
   GameImportAssetResultSchema,
   GameResyncRequestSchema,
   GameResyncResultSchema,
@@ -5837,6 +5838,7 @@ export const GamesAgentProgressPayload = GameAgentProgressSchema;
 export const GamesLibraryReadRequest = GameLibraryReadRequestSchema;
 export const GamesLibraryListResponse = GitOpResultOf(GameLibraryListingSchema);
 export const GamesLibraryReadResponse = GitOpResultOf(GameLibraryFileSchema);
+export const GamesLibraryImportRequest = GameLibraryImportRequestSchema;
 export const GamesAssetSourcesRequest = GameAssetSourcesRequestSchema;
 export const GamesAssetSourcesResponse = GitOpResultOf(GameAssetSourcesResultSchema);
 export const GamesImportAssetRequest = GameImportAssetRequestSchema;

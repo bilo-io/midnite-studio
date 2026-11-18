@@ -1734,6 +1734,7 @@ export type MidniteStudioBridge = {
       library: {
         list: () => Promise<z.infer<typeof S.GamesLibraryListResponse>>;
         read: (req: In<typeof S.GamesLibraryReadRequest>) => Promise<z.infer<typeof S.GamesLibraryReadResponse>>;
+        import: (req: In<typeof S.GamesLibraryImportRequest>) => Promise<z.infer<typeof S.GamesImportAssetResponse>>;
       };
       sources: (req: In<typeof S.GamesAssetSourcesRequest>) => Promise<z.infer<typeof S.GamesAssetSourcesResponse>>;
       import: (req: In<typeof S.GamesImportAssetRequest>) => Promise<z.infer<typeof S.GamesImportAssetResponse>>;

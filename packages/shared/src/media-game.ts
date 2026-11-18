@@ -160,6 +160,19 @@ export const GAME_ASSET_KINDS = [
   'animation',
 ] as const;
 
+/**
+ * Where an asset imported from the shared library came from (optional, so manifests and indexes written before
+ * the import op still parse). For a terrain pack `path` is the pack folder and `sha256` its folder hash; for a
+ * single file `path` is the file and `sha256` the file's own hash (the catalog's).
+ */
+export const GameAssetLibraryOriginSchema = z.object({
+  /** The library collection (a folder name under the library root). */
+  library: z.string().min(1),
+  path: z.string().min(1),
+  sha256: z.string(),
+});
+export type GameAssetLibraryOrigin = z.infer<typeof GameAssetLibraryOriginSchema>;
+
 export const GameAssetProvenanceSchema = z.object({
   name: z.string().min(1),
   kind: z.enum(GAME_ASSET_KINDS),
@@ -177,6 +190,8 @@ export const GameAssetProvenanceSchema = z.object({
   /** Of the source as it was imported, which is what a re-sync compares (a terrain's copy is an export, so differs). */
   sourceSha256: z.string().optional(),
   importedAt: z.string(),
+  /** Set when the asset was imported from the shared asset library. */
+  library: GameAssetLibraryOriginSchema.optional(),
 });
 export type GameAssetProvenance = z.infer<typeof GameAssetProvenanceSchema>;
 
@@ -826,6 +841,8 @@ export const GameAssetIndexEntrySchema = z.object({
       sha256: z.string(),
     })
     .optional(),
+  /** Set when the asset was imported from the shared asset library. */
+  library: GameAssetLibraryOriginSchema.optional(),
 });
 export type GameAssetIndexEntry = z.infer<typeof GameAssetIndexEntrySchema>;
 
@@ -884,6 +901,15 @@ export const GameImportAssetResultSchema = z.object({
 });
 export type GameImportAssetResult = z.infer<typeof GameImportAssetResultSchema>;
 
+/** Import one library asset (a file, or a terrain pack folder via any file in it) into a game. */
+export const GameLibraryImportRequestSchema = z.object({
+  gameId: z.string().min(1),
+  collection: z.string().min(1),
+  path: z.string().min(1),
+  name: GameAssetNameSchema.optional(),
+});
+export type GameLibraryImportRequest = z.infer<typeof GameLibraryImportRequestSchema>;
+
 /** Candidates for the picker: one list per registered repo that has media in that tab. */
 export const GameAssetSourcesRequestSchema = z.object({ tab: GameAssetSourceTabSchema });
 export const GameAssetSourceItemSchema = z.object({
@@ -912,7 +938,14 @@ export type GameResyncRequest = z.input<typeof GameResyncRequestSchema>;
 export const GAME_ASSET_SYNC_STATES = ['current', 'changed', 'missing'] as const;
 export const GameResyncResultSchema = z.object({
   assets: z.array(
-    z.object({ name: z.string(), kind: z.enum(GAME_ASSET_KINDS), state: z.enum(GAME_ASSET_SYNC_STATES), importedAt: z.string() }),
+    z.object({
+      name: z.string(),
+      kind: z.enum(GAME_ASSET_KINDS),
+      state: z.enum(GAME_ASSET_SYNC_STATES),
+      importedAt: z.string(),
+      /** Where it came from in the shared library, when it was imported from there. */
+      library: GameAssetLibraryOriginSchema.optional(),
+    }),
   ),
   changed: z.number().int().nonnegative(),
   reimported: z.array(z.string()),

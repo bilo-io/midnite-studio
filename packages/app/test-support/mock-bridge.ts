@@ -753,12 +753,13 @@ export type MockFixtures = {
     popped?: string | null;
     /** The shared asset library listing the Library source shows. */
     assetLibrary?: import('@midnite/studio-shared').GameLibraryListing;
+    libraryImportResult?: { ok: true } | { ok: false; message: string };
     /** Theme N: picker candidates by tab, and the re-sync answer (`state` per imported asset). */
     assetSources?: Record<
       string,
       Array<{ repoPath: string; name: string; items: Array<{ path: string; label: string; kind: string; bytes: number }> }>
     >;
-    assetSync?: Array<{ name: string; kind: string; state: 'current' | 'changed' | 'missing'; importedAt: string }>;
+    assetSync?: Array<{ name: string; kind: string; state: 'current' | 'changed' | 'missing'; importedAt: string; library?: { library: string; path: string; sha256: string } }>;
     /**
      * Theme O: `playtests/*.json` as the Playtests menu lists them. A run answers `playtestRun` when
      * given, else marks every requested valid play-test passed, and saves it as that entry's `last`.
@@ -3872,6 +3873,13 @@ export function buildMockBridge(data: MockFixtures) {
             const mime = req.path.endsWith('.png') ? 'image/png' : req.path.endsWith('.mp3') ? 'audio/mpeg' : 'application/octet-stream';
             const previewable = mime !== 'application/octet-stream';
             return { ok: true as const, value: { absolutePath: `/lib/${req.collection}/${req.path}`, mime, bytes: 10, dataUrl: previewable ? `data:${mime};base64,AAAA` : null } };
+          },
+          import: async (req: { gameId: string; collection: string; path: string; name?: string }) => {
+            gamesCalls.push({ call: 'libraryImport', ...req });
+            const answer = data.games?.libraryImportResult;
+            if (answer && !answer.ok) return { ok: false as const, kind: 'error' as const, message: answer.message };
+            const name = (req.name ?? req.path.split('/').pop()!.replace(/\.[^.]+$/, '')).replace(/\s+/g, '-');
+            return { ok: true as const, value: { name, kind: 'image' as const, path: `assets/image/${name}.png`, sha256: 'abc', commit: 'a1b2c3d' } };
           },
         },
         sources: async (req: { tab: string }) => ({ ok: true as const, value: { repos: data.games?.assetSources?.[req.tab] ?? [] } }),

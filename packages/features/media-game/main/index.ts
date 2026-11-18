@@ -255,6 +255,7 @@ export const mediaGameMain = defineFeatureMain<MediaGameMainServices>({
 
     // The asset bridge (Theme N).
     handle(CHANNELS.gamesAssetSources, schemas.GamesAssetSourcesRequest, async ({ tab }) => ok(await assets.sources(tab)), (issue) => failure(issue));
+    handle(CHANNELS.gamesLibraryImport, schemas.GamesLibraryImportRequest, (req) => assets.importLibrary(req), (issue) => failure(issue));
     handle(CHANNELS.gamesImportAsset, schemas.GamesImportAssetRequest, (req) => assets.importAsset(req), (issue) => failure(issue));
     handle(CHANNELS.gamesResync, schemas.GamesResyncRequest, (req) => assets.resync(req), (issue) => failure(issue));
 
