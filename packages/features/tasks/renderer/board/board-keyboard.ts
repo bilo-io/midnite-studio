@@ -1,4 +1,4 @@
-import type { BoardColumn } from './board-derive';
+import type { BoardColumn } from '@midnite/tasks-core';
 
 /**
  * Pure roving-tabindex arithmetic for the board (Phase 52 Theme G) — one

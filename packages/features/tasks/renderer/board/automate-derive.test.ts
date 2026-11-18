@@ -2,7 +2,7 @@ import type { ForgeGraph, ForgeGraphNode, ForgeProjectItem, WorkflowRun } from '
 import { describe, expect, it } from 'vitest';
 
 import { findTodoColumn, nextUnblockedCard, workflowRunNeedsAttention } from './automate-derive';
-import type { BoardColumn } from './board-derive';
+import type { BoardColumn } from '@midnite/tasks-core';
 
 const draft = (id: string, title: string): ForgeProjectItem => ({
   id,

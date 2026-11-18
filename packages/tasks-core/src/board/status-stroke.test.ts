@@ -1,7 +1,7 @@
 import type { ForgeProjectField } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { issueItem } from './__fixtures__/project-item';
+import { issueItem } from '../__fixtures__/project-item';
 import {
   findStatusField,
   itemStatusStroke,

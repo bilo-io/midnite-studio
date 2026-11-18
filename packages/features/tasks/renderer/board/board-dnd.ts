@@ -1,6 +1,6 @@
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 
-import { NO_STATUS_COLUMN_ID } from './board-derive';
+import { NO_STATUS_COLUMN_ID } from '@midnite/tasks-core';
 
 /** What a dragged card carries, and what a column drop target answers to. */
 export type CardDragPayload = { kind: 'card'; itemId: string };

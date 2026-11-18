@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { BoardColumn } from './board-derive';
+import type { BoardColumn } from '@midnite/tasks-core';
 import {
   findCardPosition,
   flattenCardIds,

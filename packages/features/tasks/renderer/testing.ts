@@ -31,4 +31,4 @@ export { PlanGraphPreview, planBlueprintToForgeGraph } from './plan/plan-graph-p
 export { PlanWithAiBar } from './plan/plan-with-ai-bar';
 export { ProjectDialog } from './project-dialog';
 export { STATUS_STROKE_BLOCKED_OPACITY, statusStroke } from '@midnite/tasks-core';
-export { draftItem, issueItem, pullItem, resetProjectItemSeq, withBlockedBy } from './__fixtures__/project-item';
+export { draftItem, issueItem, pullItem, resetProjectItemSeq, withBlockedBy } from '@midnite/tasks-core/testing';
