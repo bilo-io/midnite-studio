@@ -5,13 +5,14 @@ import { BufferGeometry, Float32BufferAttribute } from 'three';
 
 import { overlayColours } from '../level-overlay-draw';
 import { extraBoxes, ghostSegments, navSegments, type SceneExtras } from './level-extras';
+import { drapedRuns } from './level-relief';
 import type { WorldItem } from './level-world';
 
 /** A buffer of line segments, disposed with it. Dashed lines need distances computed. */
-function useSegments(points: readonly number[], dashed = false): BufferGeometry {
+function useSegments(points: readonly number[] | Float32Array, dashed = false): BufferGeometry {
   const geometry = useMemo(() => {
     const g = new BufferGeometry();
-    g.setAttribute('position', new Float32BufferAttribute(points as number[], 3));
+    g.setAttribute('position', new Float32BufferAttribute(points as number[] | Float32Array, 3));
     if (dashed) g.computeBoundingSphere();
     return g;
   }, [points, dashed]);
@@ -23,13 +24,14 @@ function useSegments(points: readonly number[], dashed = false): BufferGeometry 
  * Collider and trigger volumes (30% fill, 1 px edges), the nav-mesh outline, and live ghosts: a translucent capsule
  * per entity with a dashed line back to its authored position (Phase 140 Themes E to G).
  */
-export function ExtrasView({ items, extras, ground }: { items: readonly WorldItem[]; extras: SceneExtras; ground: number }) {
+/** `heightAt` is the ground's real height when the terrain has one: the nav outline then lies on it. */
+export function ExtrasView({ items, extras, ground, heightAt = null }: { items: readonly WorldItem[]; extras: SceneExtras; ground: number; heightAt?: ((x: number, z: number) => number) | null }) {
   const invalidate = useThree((s) => s.invalidate);
   useEffect(() => invalidate(), [extras, items, invalidate]);
   const colours = overlayColours();
   const colliders = useMemo(() => extraBoxes(items, extras.colliderIds), [items, extras.colliderIds]);
   const triggers = useMemo(() => extraBoxes(items, extras.triggerIds), [items, extras.triggerIds]);
-  const nav = useSegments(useMemo(() => navSegments(extras.nav, ground + 0.05), [extras.nav, ground]));
+  const nav = useSegments(useMemo(() => (heightAt ? drapedRuns(extras.nav.map((poly) => poly.flat()), heightAt, 0.4, 10, true) : navSegments(extras.nav, ground + 0.05)), [extras.nav, ground, heightAt]));
   const links = useSegments(useMemo(() => ghostSegments(items, extras.ghosts), [items, extras.ghosts]));
   const boxes = (list: ReturnType<typeof extraBoxes>, colour: string) =>
     list.map((b) => (

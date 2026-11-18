@@ -10,7 +10,7 @@ import { marqueeHits } from './level-marquee';
 import { groundPoint, rayHitsItem, rotateToward, snappedPlanPoint, volumeFromDrag } from './level-ground';
 import { DEFAULT_LEVEL_SNAP } from '../level-snap';
 import { snapPlan } from '../level-plan';
-import { fogRange, lodFor, projectedPx, viewOffset } from './level-lod';
+import { farPlane, fogRange, hazeRange, lodFor, projectedPx, viewOffset } from './level-lod';
 import { OPTIMISATION_PRESETS, pixelRatioFor, presetFor } from './optimisation';
 import { SpatialGrid, xzRect } from './spatial-grid';
 
@@ -180,6 +180,18 @@ describe('LOD and the presets', () => {
   it('puts the fog band at the draw distance past the dolly', () => {
     expect(fogRange(100, 0)).toEqual({ near: 60, far: 100 });
     expect(fogRange(100, 50).far).toBe(150);
+  });
+
+  it('over a terrain with heights the fog only closes past the whole terrain, and the far plane reaches it', () => {
+    // A 600 m draw distance on a 10 km terrain (14.1 km corner to corner): a hill 8 km off is hazed, not gone.
+    const haze = hazeRange(fogRange(600, 0), 0, 14_142);
+    expect(haze).toEqual({ near: 360, far: 14_142 });
+    expect((8000 - haze.near) / (haze.far - haze.near)).toBeLessThan(0.6);
+    expect(farPlane(300, 600, 14_142)).toBe(14_442);
+    // A small terrain never pulls either inside the plain band.
+    expect(hazeRange(fogRange(600, 0), 0, 200).far).toBe(600);
+    expect(farPlane(300, 600)).toBe(1250);
+    expect(farPlane(300, 600, 200)).toBe(1250);
   });
 });
 
