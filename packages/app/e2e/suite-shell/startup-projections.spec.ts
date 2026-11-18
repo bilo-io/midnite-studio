@@ -42,7 +42,7 @@ async function drag(page: Page, label: string, dx: number): Promise<void> {
 }
 
 test.describe('Projections', () => {
-  test('lands without a company gate and draws a real chart', async ({ page }) => {
+  test('lands on Projections, not the company form, and draws a real chart', async ({ page }) => {
     await open(page);
     await expect(page.getByText('Set up your company')).toHaveCount(0);
     await expect(page.locator('[role="img"] svg path').first()).toBeVisible();
