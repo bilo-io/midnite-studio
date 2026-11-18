@@ -234,6 +234,16 @@ export function metresPerTile(map) {
   return v > 0 ? v : 1;
 }
 
+/**
+ * `midnite.originX` / `midnite.originY`: the world position in metres of the map's top-left corner, default 0.
+ * @param {any} map
+ * @returns {{ x: number, z: number }}
+ */
+export function levelOrigin(map) {
+  const props = levelProps(map);
+  return { x: finite(props['midnite.originX'], 0), z: finite(props['midnite.originY'], 0) };
+}
+
 const DEG = Math.PI / 180;
 
 /**
@@ -246,6 +256,7 @@ const DEG = Math.PI / 180;
  */
 export function toWorld3d(entity, map) {
   const mpt = metresPerTile(map);
+  const origin = levelOrigin(map);
   const tw = Number(map?.tilewidth) || 1;
   const th = Number(map?.tileheight) || 1;
   const props = entity.properties ?? {};
@@ -254,7 +265,7 @@ export function toWorld3d(entity, map) {
   const cy = entity.y + (entity.width / 2) * Math.sin(theta) + (entity.height / 2) * Math.cos(theta);
   const elevation = props.elevation;
   return {
-    position: [(cx / tw) * mpt, typeof elevation === 'number' && Number.isFinite(elevation) ? elevation : null, (cy / th) * mpt],
+    position: [origin.x + (cx / tw) * mpt, typeof elevation === 'number' && Number.isFinite(elevation) ? elevation : null, origin.z + (cy / th) * mpt],
     yaw: -entity.rotation * DEG,
     pitch: finite(props.pitch, 0) * DEG,
     roll: finite(props.roll, 0) * DEG,

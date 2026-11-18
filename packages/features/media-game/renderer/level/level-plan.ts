@@ -4,7 +4,7 @@
  * is the only scale. What a world position means is `levelEntityToWorld`'s business; nothing here re-derives it
  * except {@link objectCentre}'s rotation rule, which `level-plan.test.ts` pins to it.
  */
-import { metresPerTile, type GameLevelTerrain } from '@midnite/studio-shared';
+import { levelOrigin, levelWorldToPixels, metresPerTile, type GameLevelTerrain } from '@midnite/studio-shared';
 
 import { objectCentre, type EditLevel, type EditSelection, type LevelObject, type PlanPoint } from './level-edit-model';
 
@@ -17,10 +17,9 @@ export function pixelsPerMetre(level: Pick<EditLevel, 'properties' | 'tilewidth'
   return { x: level.tilewidth / mpt, z: level.tileheight / mpt };
 }
 
-/** A metres-space point as a map-pixel point. */
+/** A world-metres point as a map-pixel point (the level's `midnite.originX/Y` is taken off). */
 export function metresToPlan(level: Pick<EditLevel, 'properties' | 'tilewidth' | 'tileheight'>, x: number, z: number): PlanPoint {
-  const ppm = pixelsPerMetre(level);
-  return { x: x * ppm.x, y: z * ppm.z };
+  return levelWorldToPixels(level, x, z);
 }
 
 /**
@@ -143,10 +142,12 @@ export function gridLines(
   // Show every metre when they are far enough apart, else every 10 m, else nothing.
   const step = ppm.x * zoom >= minGapPx ? 1 : ppm.x * zoom * 10 >= minGapPx ? 10 : 0;
   if (step === 0) return { x: [], z: [] };
-  const axis = (min: number, max: number, scale: number) => {
+  // Lines sit on whole world metres, so with an origin they stay aligned with the terrain; `at` is the map pixel.
+  const origin = levelOrigin(level);
+  const axis = (min: number, max: number, scale: number, base: number) => {
     const out: Array<{ at: number; bold: boolean }> = [];
-    for (let m = Math.ceil(min / scale / step) * step; m * scale <= max; m += step) out.push({ at: m * scale, bold: ((m % 10) + 10) % 10 === 0 });
+    for (let m = Math.ceil((base + min / scale) / step) * step; (m - base) * scale <= max; m += step) out.push({ at: (m - base) * scale, bold: ((m % 10) + 10) % 10 === 0 });
     return out;
   };
-  return { x: axis(box.minX, box.maxX, ppm.x), z: axis(box.minY, box.maxY, ppm.z) };
+  return { x: axis(box.minX, box.maxX, ppm.x, origin.x), z: axis(box.minY, box.maxY, ppm.z, origin.z) };
 }

@@ -4,7 +4,7 @@
  * the game builds it; {@link gizmoEdit} is its inverse, turning a gizmo result back into Tiled fields and the 3D
  * props the plan inspector writes, as one undo step.
  */
-import { GAME_LEVEL_PROPS, levelEntityToWorld, levelProperties, metresPerTile as levelMetresPerTile } from '@midnite/studio-shared';
+import { GAME_LEVEL_PROPS, levelEntityToWorld, levelPixelsToWorld, levelWorldToPixels, levelProperties, metresPerTile as levelMetresPerTile } from '@midnite/studio-shared';
 
 import {
   beginStroke,
@@ -94,7 +94,7 @@ function buildItem(level: EditLevel, layerId: number, o: LevelObject, index: num
   }
   if (kind === 'path') {
     const pts = (o.polyline ?? o.polygon) as Array<{ x: number; y: number }>;
-    item.path = pts.map((p) => [((o.x + p.x) / level.tilewidth) * mpt, ((o.y + p.y) / level.tileheight) * mpt]);
+    item.path = pts.map((p) => levelPixelsToWorld(level, o.x + p.x, o.y + p.y));
     const xs = item.path.map((p) => p[0]), zs = item.path.map((p) => p[1]);
     item.bounds = { minX: Math.min(...xs), minZ: Math.min(...zs), maxX: Math.max(...xs), maxZ: Math.max(...zs) };
   }
@@ -124,8 +124,7 @@ export function worldItemOf(level: EditLevel, ref: NonNullable<EditSelection>): 
 
 /** A world X/Z point as a Tiled object coordinate (map pixels) on a 3D level. */
 export function worldToObjectPoint(level: Pick<EditLevel, 'tilewidth' | 'tileheight' | 'properties'>, x: number, z: number): { x: number; y: number } {
-  const mpt = levelMetresPerTile(level);
-  return { x: (x / mpt) * level.tilewidth, y: (z / mpt) * level.tileheight };
+  return levelWorldToPixels(level, x, z);
 }
 
 /** What a gizmo drag ended on, in world terms. Absent fields did not change. */

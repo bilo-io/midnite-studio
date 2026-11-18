@@ -86,6 +86,20 @@ describe('kit/core/level.js', () => {
     expect(level.collisionGrid).toBe(objects.collisionGrid);
   });
 
+  it('toWorld3d applies midnite.originX/Y exactly as shared levelEntityToWorld does, and a map without them is unchanged', async () => {
+    const { levelEntities, toWorld3d } = await load('level.js');
+    const plain = map3d(2);
+    const moved = { ...plain, properties: [...(plain.properties ?? []), { name: 'midnite.originX', type: 'float', value: -1950 }, { name: 'midnite.originY', type: 'float', value: -2145 }] };
+    const raw = (moved.layers[0] as { objects: Parameters<typeof levelEntityToWorld>[0][] }).objects;
+    levelEntities(moved).forEach((entity: unknown, i: number) => {
+      expect(toWorld3d(entity, moved)).toEqual(levelEntityToWorld(raw[i]!, moved));
+    });
+    const [a0] = levelEntities(plain).map((e: unknown) => toWorld3d(e, plain));
+    const [a1] = levelEntities(moved).map((e: unknown) => toWorld3d(e, moved));
+    expect(a1.position[0]).toBeCloseTo(a0.position[0] - 1950, 9);
+    expect(a1.position[2]).toBeCloseTo(a0.position[2] - 2145, 9);
+  });
+
   it.each([1, 2])('toWorld3d equals shared levelEntityToWorld (metresPerTile %i)', async (mpt) => {
     const { levelEntities, toWorld3d } = await load('level.js');
     const map = map3d(mpt);

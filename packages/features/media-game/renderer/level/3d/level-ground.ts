@@ -3,7 +3,8 @@
  * (the scene hands it over) and these turn it into the plan points the Floorplan's tools already take.
  */
 import { rotateObject, rotationToward, setVolume, beginStroke, endStroke, type EditLevel, type EditState, type ObjectRef, type PlanPoint } from '../level-edit-model';
-import { pixelsPerMetre, snapPlan } from '../level-plan';
+import { levelPixelsToWorld } from '@midnite/studio-shared';
+import { snapPlan } from '../level-plan';
 import { planSnapStep, type LevelSnap } from '../level-snap';
 import { worldToObjectPoint, type WorldItem } from './level-world';
 
@@ -22,8 +23,7 @@ export const planPointFromWorld = (level: Pick<EditLevel, 'tilewidth' | 'tilehei
 
 /** A plan point as world X/Z (metres). */
 export function worldPointFromPlan(level: Pick<EditLevel, 'tilewidth' | 'tileheight' | 'properties'>, p: PlanPoint): [number, number] {
-  const ppm = pixelsPerMetre(level);
-  return [p.x / ppm.x, p.y / ppm.z];
+  return levelPixelsToWorld(level, p.x, p.y);
 }
 
 /**
