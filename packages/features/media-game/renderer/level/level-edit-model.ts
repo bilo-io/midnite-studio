@@ -637,7 +637,7 @@ export function applyAgentOps(
   ops: readonly LevelOp[],
   ctx: LevelOpsContext & { select?: boolean },
 ): { state: EditState; result: LevelOpsResult } {
-  const result = applyLevelOps(serialise(state), ops, { unit: ctx.unit, entityTypes: ctx.entityTypes });
+  const result = applyLevelOps(serialise(state), ops, { unit: ctx.unit, entityTypes: ctx.entityTypes, ...(ctx.prefabs ? { prefabs: ctx.prefabs } : {}) });
   if (!result.ok) return { state, result };
   let next = commit(state, result.level as EditLevel);
   if (ctx.select) {

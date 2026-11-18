@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { GitOpFailureSchema } from './domain/result';
 import { LEVEL_OPS_MAX, LevelOpSchema, LevelQuerySchema } from './game-level-ops';
+import { GamePrefabSchema } from './game-level-prefab';
 import { GameSceneNameSchema } from './media-game';
 
 /**
@@ -29,6 +30,8 @@ export const LevelEditorRequestSchema = z.discriminatedUnion('kind', [
     unit: z.enum(['px', 'm']),
     label: z.string().max(80),
     select: z.boolean(),
+    /** The prefabs the batch's `place-prefab` ops name, read by main (Phase 139 Theme I). */
+    prefabs: z.record(z.string(), GamePrefabSchema).optional(),
   }),
   z.object({ kind: z.literal('select'), gameId: z.string(), scene: GameSceneNameSchema, ids: z.array(z.number().int()).max(1000), frame: z.boolean() }),
   z.object({

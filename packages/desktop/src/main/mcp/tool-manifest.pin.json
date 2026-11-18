@@ -1,5 +1,5 @@
 {
-  "hash": "abf97807ad0ad55238d87ee57f6ec2ea5500e18958f94ad513058fcb927c2305",
+  "hash": "a77dda15a63125214a0511b1f41e8ba9240cf65e714cd0662c1f4ffdf96abf47",
   "tools": {
     "repo.list": "c2254fa779e5cb87",
     "repo.resolve": "b39c228fe331d5d8",
@@ -77,7 +77,7 @@
     "game_level_set": "3034ea4d677811a6",
     "game_level_query": "f2305d4e55a003b2",
     "game_level_validate": "20bc803abe06fc70",
-    "game_entity_batch": "3461b49d07c283ee",
+    "game_entity_batch": "d2bd23f214c0c582",
     "game_entity_add": "d3f0da7065b8aa8b",
     "game_entity_update": "06453dd4ba31fa7e",
     "game_entity_delete": "b379077d151e1c81",
@@ -89,6 +89,10 @@
     "game_debug_overlay": "f9b5c6d78b57ebfa",
     "game_goto": "c659083c24dc2a93",
     "game_doctor": "d1ce3252dafba7bf",
+    "game_assets_list": "2fa6f5389fe0b41c",
+    "game_prefab_list": "bbd56911f25bcd35",
+    "game_prefab_save": "9448abf47edd4ba1",
+    "game_level_scatter": "8429703792913cd5",
     "game_doctor_fix": "f91519619043a599",
     "terrain_list": "4a01b835d44535a3",
     "terrain_open": "a4eb168d956b7c63",

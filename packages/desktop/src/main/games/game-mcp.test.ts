@@ -223,6 +223,8 @@ describe('game_* over the global MCP dispatcher', () => {
       ['game_entity_update', { game: 'gabc', scene: 'level', updates: [{ id: 1, set: { x: 2 } }] }],
       ['game_entity_delete', { game: 'gabc', scene: 'level', ids: [1] }],
       ['game_goto', { game: 'gabc', scene: 'level' }],
+      ['game_prefab_save', { game: 'gabc', name: 'hut', dimension: '2d', objects: [{ type: 'prop', x: 1, y: 1 }] }],
+      ['game_level_scatter', { game: 'gabc', scene: 'level', area: { cx: 50, cy: 50, radius: 40 }, options: { sources: [{ kind: 'type', type: 'crate' }], radius: 40, density: 1, spacing: 8, seed: 1 } }],
     ] as const) {
       expect(await dispatchMcpCall(tool, input), tool).toEqual({ ok: false, kind: 'refused', message: GAMES_OFF_MESSAGE });
     }
