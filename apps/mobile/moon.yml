@@ -1,0 +1,42 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+language: 'typescript'
+
+# Midnite Mobile (Phase 146) — an Expo Go app, off the Studio runtime graph: it takes `shared`, the two pure
+# cores and one git-engine subpath, nothing else. See eslint.config.mjs's mobile block.
+id: 'mobile'
+
+tasks:
+  # `expo start` in Expo Go. Not cached; stays up until stopped.
+  start:
+    command: 'pnpm exec expo start'
+    preset: 'server'
+
+  typecheck:
+    command: 'pnpm exec tsc --noEmit'
+    inputs:
+      - 'app/**/*'
+      - 'src/**/*'
+      - 'test/**/*'
+      - 'tsconfig.json'
+      - 'app.config.ts'
+      - 'package.json'
+      - '/tsconfig.base.json'
+      - '/packages/shared/src/**/*'
+
+  lint:
+    command: 'pnpm exec eslint app src'
+    inputs:
+      - 'app/**/*'
+      - 'src/**/*'
+      - '/eslint.config.mjs'
+
+  test:
+    command: 'pnpm exec vitest run'
+    inputs:
+      - 'app/**/*'
+      - 'src/**/*'
+      - 'test/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
