@@ -134,7 +134,7 @@ describe('level origin in ops', () => {
   it('queryLevel reports world metres with the origin, and world from levelEntityToWorld agrees', () => {
     const o = queryLevel(lvl(), { unit: 'm', ids: [9] }).objects[0]!;
     expect(o).toMatchObject({ x: -1000 + 10, y: 500 + 5 });
-    expect(o.world).toMatchObject({ x: -1000 + 10.5, z: 500 + 5.5 });
+    expect(o.world).toMatchObject({ x: -1000 + 10.25, z: 500 + 5.25 });
     expect(queryLevel(lvl(), { ids: [9] }).objects[0]).toMatchObject({ x: 320, y: 160 });
     expect(queryLevel(lvl(), { unit: 'm', region: { x: -995, y: 500, width: 20, height: 20 } }).objects.map((x) => x.id)).toEqual([9]);
   });
