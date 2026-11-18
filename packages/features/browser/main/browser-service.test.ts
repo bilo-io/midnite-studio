@@ -24,6 +24,7 @@ import {
   ownerWindowForBrowserTab,
   reparentBrowserTabs,
   resetAllBrowserPermissions,
+  listHiddenBrowserTabs,
   resetBrowserPermissionStoreForTest,
   resetBrowserServiceForTests,
   resolveBrowserPermission,
@@ -862,6 +863,34 @@ describe('browser tab discard (Phase 84 Theme F)', () => {
 
     expect(view.webContents.close).not.toHaveBeenCalled();
     vi.restoreAllMocks();
+  });
+
+  it('listHiddenBrowserTabs offers a tab hidden a moment ago, but never a visible, audible or keep-awake one', () => {
+    const win = fakeWindow();
+    const viewOf = (tabId: string): FakeView => {
+      createBrowserTab(win, tabId, 'https://example.com');
+      const calls = (win.contentView.addChildView as Mock).mock.calls;
+      return calls[calls.length - 1]?.[0] as FakeView;
+    };
+    viewOf('shown');
+    viewOf('hidden').webContents.title = 'Docs';
+    (viewOf('audible').webContents.isCurrentlyAudible as Mock).mockReturnValue(true);
+    viewOf('awake');
+    setBrowserKeepAwake('awake', true);
+    activateBrowserTab('shown');
+
+    // No idle threshold is involved: nothing has aged, yet the hidden tab is offered.
+    expect(listHiddenBrowserTabs().map((t) => t.tabId)).toEqual(['hidden']);
+    expect(listHiddenBrowserTabs()[0]).toMatchObject({ label: 'Docs', pid: null });
+  });
+
+  it('listHiddenBrowserTabs lists every tab of a minimized window', () => {
+    const win = fakeWindow();
+    createAndGetView(win, 'only');
+    activateBrowserTab('only');
+    expect(listHiddenBrowserTabs()).toEqual([]);
+    (win.isMinimized as Mock).mockReturnValue(true);
+    expect(listHiddenBrowserTabs().map((t) => t.tabId)).toEqual(['only']);
   });
 
   it('discardMs of 0 disables the sweep entirely', () => {

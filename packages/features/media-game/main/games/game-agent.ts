@@ -255,14 +255,14 @@ export function buildGamePassPrompt(req: {
   const { game, pass, of } = req;
   return [
     `You are working on a Midnite Studio game: the repository in the current folder (gameId "${game.gameId}").`,
-    'Start by reading the midnite-media-game-build skill (in .claude/skills/, .agents/skills/ or .codex/skills/), and the genre recipe skill there if one fits the request.',
+    'Start by reading the midnite-media-game-build skill (in .claude/skills/ or .agents/skills/), and the genre recipe skill there if one fits the request.',
     '',
     `The request: ${req.prompt}`,
     '',
     pass === 1
       ? `This is pass 1 of ${of}. Make the change with your file tools, then play-test it.`
       : `This is pass ${pass} of ${of}. Play-test the game, then fix what is wrong or move it closer to the request. If it already does what was asked, make no edits.`,
-    `Play-test through the midnite MCP tools, always with game "${game.gameId}": game_run, game_screenshot, game_logs, game_input, game_state, game_reload, game_stop; game_level_list, game_level_get and game_level_set read and write levels/<scene>.tmj and game_goto jumps the running game to a scene; game_playtest runs playtests/*.json deterministically, and game_replay_play, game_assert_state and game_assert_frame check a replay at a frame.`,
+    `Play-test through the midnite MCP tools, always with game "${game.gameId}": game_run, game_screenshot, game_logs, game_input, game_state, game_reload, game_stop; game_level_list, game_level_get and game_level_set read and write levels/<scene>.tmj (set replaces the whole file, for a new scene) and game_goto jumps the running game to a scene; to edit a level, game_level_query it, change it with game_entity_batch (one labelled batch per intent; game_entity_add, game_entity_update and game_entity_delete are short forms), show it with game_level_select and game_level_frame, look with game_level_view, and finish with game_level_validate; game_playtest runs playtests/*.json deterministically, and game_replay_play, game_assert_state and game_assert_frame check a replay at a frame.`,
     'Rules: edit only files inside this folder; never edit vendor/ or kit/ (extend the kit from src/); keep getState() truthful; there is no shell, so do not try to run commands.',
     'Finish with one sentence saying what you changed.',
   ].join('\n');
@@ -286,8 +286,26 @@ const ACTION_LABELS: Partial<Record<GameMcpToolId, string>> = {
   game_playtest: 'Ran the play-tests',
   game_level_list: 'Listed the levels',
   game_level_get: 'Read a level',
+  game_level_query: 'Queried a level',
+  game_level_validate: 'Validated a level',
+  game_entity_batch: 'Edited level objects',
+  game_entity_add: 'Added level objects',
+  game_entity_update: 'Updated level objects',
+  game_entity_delete: 'Deleted level objects',
+  game_level_select: 'Selected level objects',
+  game_level_frame: 'Framed the level',
+  game_level_view: 'Viewed a level',
   game_level_set: 'Saved a level',
   game_goto: 'Jumped to a scene',
+  game_play_from: 'Played a level from a point',
+  game_entities: 'Read live objects',
+  game_debug_overlay: 'Switched debug overlays',
+  game_doctor: 'Diagnosed the game',
+  game_doctor_fix: 'Applied a doctor fix',
+  game_assets_list: 'Listed the assets',
+  game_prefab_list: 'Listed the prefabs',
+  game_prefab_save: 'Saved a prefab',
+  game_level_scatter: 'Scattered objects',
 };
 
 /**
@@ -317,7 +335,7 @@ export function createGameAgentDispatch(opts: {
         message: `Invalid input for "${tool}": ${parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; ')}`,
       };
     }
-    const input = parsed.data as { game?: string };
+    const input = parsed.data as { game?: string; save?: boolean };
     if (tool !== 'game_list' && input.game !== opts.game.gameId && input.game !== opts.game.path) {
       return {
         ok: false,
@@ -336,7 +354,9 @@ export function createGameAgentDispatch(opts: {
       };
     try {
       const handler = opts.tools[tool] as (input: unknown) => Promise<unknown>;
-      const value = await handler(parsed.data);
+      // An agent run's passes are commits and its Undo is commit-based, so its entity writes save unless told not to.
+      const data = tool.startsWith('game_entity_') && input.save === undefined ? { ...input, save: true } : parsed.data;
+      const value = await handler(data);
       const label = ACTION_LABELS[tool];
       if (label) opts.onAction(label);
       return { ok: true, value };

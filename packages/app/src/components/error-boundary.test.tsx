@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ErrorBoundary } from './error-boundary';
 import { reportError } from '../lib/report';
+import { copyText } from '../services/queries';
 
 /**
  * The boundary's four contracts: it catches, it reports, it can be retried,
@@ -14,6 +15,7 @@ import { reportError } from '../lib/report';
  * `componentDidCatch` calls it with `'boundary'` and React's component stack.
  */
 vi.mock('../lib/report', () => ({ reportError: vi.fn() }));
+vi.mock('../services/queries', () => ({ copyText: vi.fn(async () => true) }));
 
 const reported = vi.mocked(reportError);
 
@@ -47,6 +49,7 @@ function AlwaysThrows(): never {
 describe('ErrorBoundary', () => {
   beforeEach(() => {
     reported.mockClear();
+    vi.mocked(copyText).mockClear();
     consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
@@ -67,6 +70,23 @@ describe('ErrorBoundary', () => {
     // The message is the body, so the card says what failed and not merely that
     // something did.
     expect(screen.getByText('a very persistent failure')).toBeTruthy();
+  });
+
+  it('Copy details writes message and stack through the bridge', () => {
+    render(
+      <ErrorBoundary label="X">
+        <AlwaysThrows />
+      </ErrorBoundary>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Copy details/ }));
+
+    // Through `copyText` (the bridge), never `navigator.clipboard`: the packaged
+    // file:// origin is not a secure context.
+    expect(copyText).toHaveBeenCalledTimes(1);
+    const text = vi.mocked(copyText).mock.calls[0]![0];
+    expect(text.startsWith('a very persistent failure\n\n')).toBe(true);
+    expect(text).toContain('at ');
   });
 
   it('falls back to a generic title when it has no label', () => {

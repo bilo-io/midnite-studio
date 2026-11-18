@@ -1,3 +1,6 @@
+// First on purpose: schemas are built at module load, and zod must be jitless
+// before the first one is (see lib/zod-jitless.ts).
+import './lib/zod-jitless';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 

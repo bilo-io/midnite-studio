@@ -2,6 +2,18 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-11-15 — Phase 148 Theme C — Free RAM
+
+[#1271](https://github.com/bilo-io/midnite-studio/pull/1271): the flyout's Free RAM plans then, behind one confirm, ends previous-build sessions (`endSessions`), lost brokers (Theme B's guarded `killTree`; an unreachable one is labelled "may hold live sessions"), discards hidden browser tabs and clears the HTTP and webFrame caches. It never ends a current-build session; the renderer sends candidate ids only and main re-derives the plan from a fresh `ps`, excluding the handshake primary, every primary broker's tree and other apps' sessions. The toast reports RSS freed from two `ps` snapshots plus the `vm_stat` delta, "Nothing to free" on zero, and keeps the ended list when measuring fails. The `--action=free-ram` perf number and the packaged-app run are still to do.
+
+## 2026-11-15 — ISSUES Phase 2 (Themes A–D) — macOS permission prompts
+
+[#1254](https://github.com/bilo-io/midnite-studio/pull/1254), [#1262](https://github.com/bilo-io/midnite-studio/pull/1262), [#1266](https://github.com/bilo-io/midnite-studio/pull/1266), [#1270](https://github.com/bilo-io/midnite-studio/pull/1270): the vault no longer touches the keychain on the boot path (lazy verify and integrity baseline behind `whenKeychainMayBeTouched`); the Vanguard scan and process sensor skip protected Library/Photos/Music paths without Full Disk Access, with seven Info.plist usage strings and a `root:tcc-guard` check; Settings ▸ Permissions lists each macOS grant with its live state, the exact System Settings pane and a `tccutil` reset for Studio's own bundle id; capture, microphone and trash nags point at that page, and previous-build terminals say macOS grants don't apply to them. Theme E (a stable code identity) is still to do.
+
+## 2026-11-15 — Phase 148 Theme B — Lost processes
+
+[#1268](https://github.com/bilo-io/midnite-studio/pull/1268): the Optimizer's Memory tab gains a Lost filter — previous-build brokers, unreachable brokers and rowless ptys, classified by `broker-inventory.ts` from argv (`broker.js --socket <userData>/broker/…`) and the client's own handshake pid — with reason badges, a tree confirm (pid · RSS · argv, total RSS, session count) and "End all lost"; Manage resources now lands on Memory ▸ Lost. `killTree` sends SIGTERM to the broker and, on a forced second confirm, SIGKILL deepest-first. The primary broker is refused four ways (handshake pid, any broker classified primary, inventory fails closed, UI marks it Protected); a retire counts only while its `-retired-<pid>` socket exists and answers. Surviving-session force-kill and other-app guard in unreachable brokers are in `outstanding.md`.
+
 ## 2026-11-15 — Phase 148 Theme E — Clean system
 
 [#1269](https://github.com/bilo-io/midnite-studio/pull/1269): the flyout's Clean system (and the chord-free `system.cleanSystem` palette command) scans the Optimizer's system caches and plans a broker-dir sweep together, behind one confirm listing each cache, the broker leftovers (dead brokers' `.sock.pid`/`.sock.token`, logs of versions with no live broker) and the total. Caches go to the Trash; leftovers are unlinked only when main's fresh re-plan still lists them (bare names, `lstat`, live pids, sockets on disk and this build's own files kept). Consent-first when system-cache consent is missing; Optimizer off opens the Optimizer. No process is ended.
@@ -15963,3 +15975,19 @@ Council prompts go to a `0600` temp file a short `run.sh` reads, so the shell ne
 ## 2026-11-14 — Phase 136 (Themes A–G) — level editor 3D view
 
 A 3D level now has a Floorplan | 3D switch: the lazy-loaded 3D view eases its camera down from the plan's framing into an orbit with the model editor's gizmo, axis widget and snap bar (now shared from `packages/frame/src/viewport3d/`), edits through the same edit model (click select, W/E/R gizmo as one undo step on release, Place on the ground, F, Delete, undo), and stays fast on thousands of props — one instanced mesh, a 16 m spatial grid with frustum culling on camera change, LOD, fog at a draw distance that follows the focus, lazy `.glb` models over a new `level-model` channel with a 30 s dispose. A persisted 1–5 Optimisation slider and an fps / draw-call / visible-object readout. Gate passed in the built app on a throwaway profile and a New-game repo in a temp folder with 3,014 seeded objects: transition both ways, gizmo move and yaw mirrored in plan and inspector, undo, Save as one commit; street view steps 1 / 3 / 5 drew 757 / 57 / 25 calls and 1,157 / 1,152 / 608 objects at 120 fps.
+
+## 2026-11-17 — Phase 150 (Themes A–F) — Startup projections
+
+Startup opens on a new Projections view that prices out a compute-node fleet on one screen. The left pane lists saved projections (new from a starter, rename, duplicate, delete), the centre shows the KPIs, a Recharts chart and node cards with per-node overrides, and the right pane holds the global and template controls. Money is ZAR throughout. Saves are workspace v2 (`fleetProjections`) with an explicit v1 → v2 migration. PRs #1289 (A), #1290 (B) and #1299 (C–F) were merged on focused local checks while GitHub Actions was billing-locked. Still open: a CI run once billing is unlocked, and the human screenshot pass at 3440×1440 and 1280×800.
+
+## 2026-11-18 — Phase 152 (Themes A–G) — Projections ↔ Runway
+
+Projections now price in the company's currency (USD without one) from an editable catalog in Settings ▸ Catalog, where built-ins can be hidden and custom hardware and API tiers added. Saves move to workspace v3 with an explicit migration. A projection can be sent to Runway as linked plan lines, with a capacity-capped revenue split. Sending again updates the lines, editing a linked line unlinks it, and both views show Stale until the lines are updated. Projections export to CSV and PDF, and Runway to CSV; text cells are neutralised against formula injection. The energy switch scales energy with utilisation, Duplicate selects the copy, and the projection list uses a roving tabindex. The projection maths and money formatting moved into `shared`, so the main process can use them. PRs #1336 (A), #1339 (B), #1341 (C), #1342 (D), #1344 (E) and #1345 (F, G) were merged on focused local checks while GitHub Actions was billing-locked. Still open: a CI run once billing is unlocked, and the human pass in a packaged build with a GBP company (catalog, send, CSV in Numbers/Excel, PDF in Preview).
+
+## 2026-11-18 — Phase 139 (Themes C, D) — Level asset browser and drag-in
+
+The level editor gets an Assets panel under the canvas (collapsed by default; filter, kind chips, virtualised thumbnail grid, skeletons, an empty state with Import). A model tile dragged onto the plan or the 3D view, or armed with a click or Enter, adds one `prop` carrying `model` as a single undo step; models are refused on 2D levels with a notice. The panel takes extra tabs for the coming Prefabs tab.
+
+## 2026-11-18 — Phase 140 (Themes E, F, G) — Live ghosts, overlays, in-game debug draw
+
+The level editor gains a Live toggle (ghosts of the running game with dashed drift lines, and Copy live position as one undo step), a View menu for collider, trigger and nav-mesh overlays in the plan and 3D views, and the same overlays in the running game through kit 0.14.0 (`__midnite.debug`, `__midnite.navMesh`), driven by the same switches.

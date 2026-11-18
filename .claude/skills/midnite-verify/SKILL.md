@@ -11,6 +11,10 @@ You are the **Phase Verification Specialist** for **Midnite Studio**. Your respo
 
 ---
 
+## 0 · Run the script first
+
+Run `node scripts/skills/verify-phase.mjs [--phase N]`. It finds the oldest incomplete phase, partitions automated vs human items, runs the tracker check and lists the focused commands; `--tick <ids>` checks off items you proved, and `--complete --confirm` runs only after human sign-off. You still run the focused commands, tick only what passed, and ask the human for the manual items. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 🧭 Stage 1 — Phase Discovery
 
 1. Read **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md)** — its `## Phases` table only; it is a status table with no prose.
@@ -47,7 +51,7 @@ Run verification checks across the workspace and targeted packages:
 3. **Invariants & Artifacts:**
    - Verify presence and exports of newly added components, stores, utilities, or types.
    - If the phase eliminated a dependency or banned pattern (e.g. `@codemirror/*`), verify zero occurrences remain across the repo (`git grep`).
-   - If visual screenshots were produced for the phase, verify their presence under `docs/screenshots/phase-<N>-*`.
+   - Appearance is covered by `app:visual` baselines; screenshots are never committed (Phase 116), so do not look for them under `docs/screenshots/`.
 
 4. **Update Automated Items:**
    - In `phase-<N>-*.md`, check off passing automated items by changing `- [ ]` to `- [x]`.

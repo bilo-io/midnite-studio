@@ -13,6 +13,10 @@ The status table, the anchor of every sitrep. Rows, gathering and the shared voc
 whole-batch line, plus one line only for a decision the user owes or a failure the table cannot
 carry.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/sitrep.mjs table [--pr 12,13 | --input rows.json] [--repo o/r]`. It renders the table, bars, diff cells and the batch line. You still supply rows for agents with no PR yet and write the notes you want to override. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## The table
 
 | Task | Author | Progress | ETA | Diff | Status | Notes |

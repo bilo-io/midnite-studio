@@ -6,6 +6,10 @@ description: The sitrep histogram — horizontal text bar charts comparing rows 
 The outlier view. Rows, gathering and the shared vocabulary come from
 [`midnite-sitrep`](../midnite-sitrep/SKILL.md) §1–§3. Read it first. **Read-only.**
 
+## 0 · Run the script first
+
+Run `node scripts/skills/sitrep.mjs histogram [--metric diff,ci,age,stage] [--pr 12,13 | --input rows.json]`. It draws the bars, the median line and the outlier flags. You still say what the outliers mean. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Metrics
 
 Draw one chart per metric named. With none named, draw `diff`.

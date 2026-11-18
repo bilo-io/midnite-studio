@@ -64,7 +64,7 @@ afterEach(() => {
 
 describe('FabPanel tab buttons styling and states', () => {
   it('renders tab buttons with .tab-loop-button and data-fab-tab', () => {
-    render(<FabPanel isOpen={true} width={400} fitSignal={0} />);
+    render(<FabPanel isOpen={true} width={400} />);
 
     for (const loop of DEFAULT_LOOPS) {
       const button = screen.getByRole('button', { name: loop.label });
@@ -75,7 +75,7 @@ describe('FabPanel tab buttons styling and states', () => {
 
   it('marks the active tab with .is-selected and data-selected="true"', () => {
     useUiStore.setState({ activeFabTab: 'automate' });
-    render(<FabPanel isOpen={true} width={400} fitSignal={0} />);
+    render(<FabPanel isOpen={true} width={400} />);
 
     const automateBtn = screen.getByRole('button', { name: 'Create' });
     expect(automateBtn.className).toContain('is-selected');
@@ -87,7 +87,7 @@ describe('FabPanel tab buttons styling and states', () => {
   });
 
   it('renders shimmer on tabs without a running loop', () => {
-    render(<FabPanel isOpen={true} width={400} fitSignal={0} />);
+    render(<FabPanel isOpen={true} width={400} />);
 
     for (const loop of DEFAULT_LOOPS) {
       const shimmer = screen.getByTestId(`loop-shimmer-${loop.id}`);
@@ -99,7 +99,7 @@ describe('FabPanel tab buttons styling and states', () => {
 
   it('renders rotating arc and hides shimmer when a loop is running on that tab', () => {
     at('watchdog', { running: true });
-    render(<FabPanel isOpen={true} width={400} fitSignal={0} />);
+    render(<FabPanel isOpen={true} width={400} />);
 
     // Watchdog has running loop: has active arc, no shimmer
     const watchdogArc = screen.getByTestId('loop-active-arc-watchdog');
@@ -118,7 +118,7 @@ describe('FabPanel tab buttons styling and states', () => {
 
 describe('FabPanel "Loop" switch', () => {
   it('renders under the tab bar, on by default', () => {
-    render(<FabPanel isOpen={true} width={400} fitSignal={0} />);
+    render(<FabPanel isOpen={true} width={400} />);
 
     expect(screen.getByTestId('fab-panel-loop-row')).toBeDefined();
     const toggle = screen.getByRole('switch', { name: 'Loop' }) as HTMLInputElement;
@@ -126,7 +126,7 @@ describe('FabPanel "Loop" switch', () => {
   });
 
   it('recolours the row and the active tab, and turns its icon/label/shimmer white, while on', () => {
-    render(<FabPanel isOpen={true} width={400} fitSignal={0} />);
+    render(<FabPanel isOpen={true} width={400} />);
 
     const toggle = screen.getByRole('switch', { name: 'Loop' }) as HTMLInputElement;
     expect(toggle.checked).toBe(true);
@@ -156,7 +156,7 @@ describe('FabPanel "Loop" switch', () => {
 
   it('is per loop id — switching tabs shows each loop own remembered state', () => {
     useUiStore.setState({ loopEnabled: { guard: false } });
-    render(<FabPanel isOpen={true} width={400} fitSignal={0} />);
+    render(<FabPanel isOpen={true} width={400} />);
 
     // Guard (active) was switched off.
     expect((screen.getByRole('switch', { name: 'Loop' }) as HTMLInputElement).checked).toBe(false);

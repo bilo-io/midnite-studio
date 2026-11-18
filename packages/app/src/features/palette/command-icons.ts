@@ -1,7 +1,8 @@
 import type { CommandId } from '@midnite/studio-shared';
 import type { IconType } from 'react-icons';
 import { GoIssueOpened } from 'react-icons/go';
-import { SiMagic, SiOllama } from 'react-icons/si';
+import { DiHtml5Multimedia } from 'react-icons/di';
+import { SiOllama } from 'react-icons/si';
 import {
   LuActivity,
   LuArrowRightLeft,
@@ -43,6 +44,7 @@ import {
   LuSend,
   LuServer,
   LuSettings,
+  LuMemoryStick,
   LuSparkles,
   LuSquareArrowOutUpRight,
   LuSquareTerminal,
@@ -70,6 +72,7 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'terminal.close': LuX,
   'terminal.recoverDetached': LuHistory,
   'system.cleanSystem': LuSparkles,
+  'system.freeRam': LuMemoryStick,
   'repos.toggle': LuPanelLeft,
   'browser.toggle': LuGlobe,
   'fab.toggle': LuPanelRight,
@@ -140,7 +143,7 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'palette.files': LuFile,
   'file.save': LuFile,
   'workflow.run': LuPlay,
-  'view.media': SiMagic,
+  'view.media': DiHtml5Multimedia,
   'view.video': LuClapperboard,
   'media.tab.doc': LuFileText,
   'media.tab.image': LuImage,

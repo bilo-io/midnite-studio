@@ -74,10 +74,9 @@ describe('resolveGameFolder', () => {
     if (!result.ok && result.kind === 'error') expect(result.message).toBe(`"inner" is inside the repository ${top}. Games are their own repositories — move it out, or open ${top} if that is the game.`);
   });
 
-  it('refuses a repository with no manifest', async () => {
+  it('resolves a repository with no manifest as needsManifest (Phase 149 Theme F), also from a subfolder', async () => {
     const dir = await repo('empty', null);
-    const result = await resolveGameFolder(dir);
-    expect(result).toMatchObject({ ok: false });
-    if (!result.ok && result.kind === 'error') expect(result.message).toBe('No midnite-game.json in "empty". Open Game adds an existing Midnite game; to start one, use New game.');
+    expect(await resolveGameFolder(dir)).toEqual({ ok: true, value: { root: dir, needsManifest: true } });
+    expect(await resolveGameFolder(join(dir, 'src'))).toEqual({ ok: true, value: { root: dir, needsManifest: true } });
   });
 });

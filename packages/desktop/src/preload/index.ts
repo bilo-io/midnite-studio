@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webFrame } from 'electron';
 
 import { createReportBridge } from '@midnite/studio-feature-report/bridge';
 import { createWindowChromeBridge } from '@midnite/studio-runtime/app-main/window-chrome-preload';
@@ -50,6 +50,16 @@ function subscribe<T>(channel: string, handler: (payload: T) => void): Unsubscri
     ipcRenderer.removeListener(channel, listener);
   };
 }
+
+// Free RAM (Phase 148 Theme C): `webFrame` exists only here, so main asks and the preload clears. Nothing
+// is exposed to the page: the renderer cannot trigger this, only receive it.
+ipcRenderer.on(EVENT_CHANNELS.optimizerClearRendererCache, () => {
+  try {
+    webFrame.clearCache();
+  } catch {
+    // A frame mid-teardown has nothing left to clear.
+  }
+});
 
 // Same route, same reason: only main can ask Electron for the packaged app's
 // version, and the renderer's own package.json is a different fact that happens
@@ -733,6 +743,11 @@ const bridge: Pick<
     list: () => call(CHANNELS.gamesList),
     create: (req) => call(CHANNELS.gamesCreate, req),
     add: (req) => call(CHANNELS.gamesAdd, req),
+    rename: (req) => call(CHANNELS.gamesRename, req),
+    forget: (req) => call(CHANNELS.gamesForget, req),
+    reveal: (req) => call(CHANNELS.gamesReveal, req),
+    deleteInfo: (req) => call(CHANNELS.gamesDeleteInfo, req),
+    delete: (req) => call(CHANNELS.gamesDelete, req),
     manifest: {
       get: (req) => call(CHANNELS.gamesGetManifest, req),
       set: (req) => call(CHANNELS.gamesSetManifest, req),
@@ -747,14 +762,41 @@ const bridge: Pick<
     juice: (req) => call(CHANNELS.gamesJuice, req),
     logs: (req) => call(CHANNELS.gamesLogs, req),
     kitUpgrade: (req) => call(CHANNELS.gamesKitUpgrade, req),
+    doctor: (req) => call(CHANNELS.gamesDoctor, req),
+    doctorFix: (req) => call(CHANNELS.gamesDoctorFix, req),
     levels: {
       list: (req) => call(CHANNELS.gamesLevels, req),
       get: (req) => call(CHANNELS.gamesLevelGet, req),
       set: (req) => call(CHANNELS.gamesLevelSet, req),
       mapAsset: (req) => call(CHANNELS.gamesLevelMapAsset, req),
       model: (req) => call(CHANNELS.gamesLevelModel, req),
+      prefabs: {
+        list: (req) => call(CHANNELS.gamesLevelPrefabs, req),
+        get: (req) => call(CHANNELS.gamesLevelPrefabGet, req),
+        set: (req) => call(CHANNELS.gamesLevelPrefabSet, req),
+        delete: (req) => call(CHANNELS.gamesLevelPrefabDelete, req),
+      },
+      assetThumb: (req) => call(CHANNELS.gamesLevelAssetThumb, req),
+      preview: (req) => call(CHANNELS.gamesLevelPreview, req),
+      previewEnd: (req) => call(CHANNELS.gamesLevelPreviewEnd, req),
+      onEditorRequest: (handler) => subscribe(EVENT_CHANNELS.gamesLevelEditorRequest, handler),
+      editorReply: (payload) => ipcRenderer.send(CHANNELS.gamesLevelEditorReply, payload),
+      editorOpen: (scene) => ipcRenderer.send(CHANNELS.gamesLevelEditorOpen, scene),
     },
     goto: (req) => call(CHANNELS.gamesGoto, req),
+    entities: {
+      get: (req) => call(CHANNELS.gamesEntities, req),
+      watch: (req) => {
+        const watcherId = `w${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+        void call(CHANNELS.gamesEntitiesWatch, { gameId: req.gameId, watcherId, on: true });
+        return () => {
+          void call(CHANNELS.gamesEntitiesWatch, { gameId: req.gameId, watcherId, on: false });
+        };
+      },
+    },
+    onEntityState: (handler) => subscribe(EVENT_CHANNELS.gamesEntityState, handler),
+    debug: (req) => call(CHANNELS.gamesDebug, req),
+    navMesh: (req) => call(CHANNELS.gamesNavMesh, req),
     popOut: (req) => call(CHANNELS.gamesPopOut, req),
     popped: () => call(CHANNELS.gamesPopped),
     onPopState: (handler) => subscribe(EVENT_CHANNELS.gamesPopState, handler),
@@ -769,6 +811,11 @@ const bridge: Pick<
       onProgress: (handler) => subscribe(EVENT_CHANNELS.gamesAgentProgress, handler),
     },
     assets: {
+      library: {
+        list: () => call(CHANNELS.gamesLibraryList),
+        read: (req) => call(CHANNELS.gamesLibraryRead, req),
+        import: (req) => call(CHANNELS.gamesLibraryImport, req),
+      },
       sources: (req) => call(CHANNELS.gamesAssetSources, req),
       import: (req) => call(CHANNELS.gamesImportAsset, req),
       resync: (req) => call(CHANNELS.gamesResync, req),
@@ -1170,6 +1217,8 @@ const bridge: Pick<
     systemReclaim: (req) => call(CHANNELS.optimizerSystemReclaim, req),
     brokerSweepPlan: () => call(CHANNELS.optimizerBrokerSweepPlan),
     brokerSweep: (req) => call(CHANNELS.optimizerBrokerSweep, req),
+    freeRamPlan: () => call(CHANNELS.optimizerFreeRamPlan),
+    freeRam: (req) => call(CHANNELS.optimizerFreeRam, req),
   },
   protocol: {
     onDeepLink: (handler) => subscribe(EVENT_CHANNELS.deepLink, handler),

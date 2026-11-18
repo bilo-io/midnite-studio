@@ -17,7 +17,7 @@ import { auditSkillDirectory, parseSkillFrontmatter, readSkillHead, SKILL_NAME }
  * - `claude` — `<repo>/.claude/skills`, `~/.claude/skills`, and every enabled
  *   plugin's `<installPath>/skills` from `~/.claude/plugins/installed_plugins.json`
  *   (names namespaced `<plugin>:<skill>`, as Claude Code invokes them).
- * - `codex` — `.codex/skills` then `.agents/skills`, repo before home.
+ * - `codex` — `.agents/skills`, then the older `.codex/skills`, repo before home.
  * - any other roster agent — the agent-neutral `.agents/skills` mirror.
  * - `ollama` — none: a bare model has no skill loader.
  */
@@ -30,7 +30,7 @@ export const MAX_CHAT_SKILLS = 1_000;
 function conventionDirs(engine: string): readonly string[] {
   if (engine === CHAT_ENGINE_OLLAMA) return [];
   if (engine === 'claude') return ['.claude'];
-  if (engine === 'codex') return ['.codex', '.agents'];
+  if (engine === 'codex') return ['.agents', '.codex'];
   return ['.agents'];
 }
 

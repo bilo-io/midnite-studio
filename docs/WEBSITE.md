@@ -47,8 +47,10 @@ page's `curl -fsSL <origin>/install.sh | sh` is: there is no page for it to be
 relative to. So the site's own public root is also spelled out absolutely, in
 [`src/site-origin.ts`](../packages/website/src/site-origin.ts).
 
-`WEBSITE_ORIGIN` overrides it; unset, it is the live Vercel deployment
-(`https://midnite-apps.vercel.app`). It is the site **root**, not the
+`WEBSITE_ORIGIN` overrides it; unset, it is the site's own domain
+(`https://midnyte.studio`, `WEBSITE_SITE_ORIGIN`). The Vercel deployment
+(`https://midnite-apps.vercel.app`, `MIDNITE_SITE_ORIGIN`) serves the same build and stays
+up, because installed apps curl their updater from it. It is the site **root**, not the
 bare host — on Vercel those are the same thing, but the Pages target serves the
 site under `/midnite-apps/midnite-studio/`, so there the prefix has to be part of
 the value or the pasted command 404s. Set it together with `WEBSITE_BASE` or not
@@ -84,7 +86,7 @@ While the download page and curl command are not visible on the website UI, the 
 both installers statically at `/install.sh` (the launcher installer) and `/install-studio.sh` (Studio's
 installer, used by the in-app "Update Midnite Studio" action):
 
-- `curl -fsSL https://midnite-apps.vercel.app/install.sh | sh` installs the Midnite Apps launcher.
+- `curl -fsSL https://midnyte.studio/install.sh | sh` installs the Midnite Apps launcher.
 - Both scripts are byte-for-byte copies of their upstream counterparts in `bilo-io/midnite-apps`.
 - [`scripts/website-sync-install.mjs`](../scripts/website-sync-install.mjs) verifies both against upstream
   (`moon run website:sync-install` / `-- --write` to re-sync). It is a moon task and **not a

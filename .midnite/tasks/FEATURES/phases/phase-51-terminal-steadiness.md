@@ -1,5 +1,7 @@
 # Phase 51 — The terminal, made steady
 
+**Refined: x1** · 2026-11-17 · verification (audit: stale paths, human checks made precise)
+
 [Phase 30](phase-30-terminal-hardening.md) made the terminal *survive* — a detached broker, sessions
 that outlive a reload, honest live/asleep/ended states. It did not make it *steady*. Three symptoms
 have accumulated since, and a read of the subsystem found a concrete cause for each rather than a
@@ -9,15 +11,22 @@ but not actually offered back. This phase fixes the causes, not the symptoms.
 
 **Builds on.** Nothing here is new machinery. The broker, the socket protocol, the scrollback ring
 and the replay gate all stay exactly as [Phase 30](phase-30-terminal-hardening.md) built them.
-[`terminal-view.tsx`](../../../packages/app/src/features/terminal/terminal-view.tsx) already
+[`terminal-view.tsx`](../../../../packages/app/src/features/terminal/terminal-view.tsx) already
 constructs the xterm, already loads `@xterm/addon-fit` and `@xterm/addon-webgl`, already defers
 `term.open()` until the element has a box, and already re-fits through `safeFit()`; every theme
-below is a change *inside* those seams. [`card-terminal-mounts.ts`](../../../packages/app/src/features/projects/board/card-terminal-mounts.ts)
+below is a change *inside* those seams. `card-terminal-mounts.ts` (deleted by Theme C)
 already implements a mounted-xterm budget — for Kanban cards only — and its own docblock explains
-the Chromium WebGL context cap that Theme C generalises. [`broker-client.ts`](../../../packages/desktop/src/main/broker-client.ts)
+the Chromium WebGL context cap that Theme C generalises. [`broker-client.ts`](../../../../packages/desktop/src/main/broker-client.ts)
 already owns every socket write Theme F adds a drain path to, and
-[`server.ts`](../../../packages/desktop/src/broker/server.ts) already coalesces output on a 16 ms
+[`server.ts`](../../../../packages/desktop/src/broker/server.ts) already coalesces output on a 16 ms
 window — Theme F is the *input* direction, which never got the same attention.
+
+> **Where this code lives now (audit, 2026-11-17).** The links in this doc point at the paths as
+> they were in 2026-09. Since then Phase 113 Theme D moved the broker client and wire protocol into
+> `packages/runtime/src/broker/`, and Phase 123 Theme E moved the terminal renderer into
+> `packages/features/terminal/renderer/` (the old `packages/app/src/features/terminal/*` files are
+> re-export shims, so those links still resolve). `card-terminal-mounts.ts` was deleted by Theme C
+> itself. The **Files this phase touches** table below carries the current homes.
 
 **Scope guardrails.** This phase does not touch the broker's process model, its socket-name
 fingerprint, its staleness probe or its scrollback bounds — all four are settled and tested. It
@@ -26,12 +35,21 @@ Decisions section rejected each with reasons that still hold. It adds **no new I
 a DOM API already answers the question (Theme A is deliberately renderer-side). It does not add a
 terminal *search*, *serialize* or *unicode11* addon — those are features, and this phase is about
 the two addons already loaded behaving correctly. It does not chase the known
-[`Viewport.syncScrollArea` unmount throw](../outstanding.md) — that is upstream, dev-server-only,
+[`Viewport.syncScrollArea` unmount throw](../../outstanding.md) — that is upstream, dev-server-only,
 and stays parked until the next xterm bump.
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
 ## Headlines
+
+**Audit — 2026-11-17.** All seven themes A–G remain built on current main; nothing regressed or was
+removed. Of the 6 open items (all Verification): **0** ticked as landed, **0** struck, **6** rewritten
+as precise `(human)` checks against a packaged build, **0** build items left to refine for sonnet.
+Prose fixed: every relative link was one directory short since the move into `FEATURES/phases/`;
+paths now name the Phase 113/123 homes (`packages/runtime/src/broker/`,
+`packages/features/terminal/`); three open Decisions settled as built. Phase stays 31/37 — only the
+human pass remains.
+
 
 *Seven causes, not three symptoms: the DPR the repo never read, the cell metrics it never set, the WebGL context it never got back, the fit it never coalesced, the keystrokes it dropped, the backpressure it never had, and the reattach it never offered.* (84% · 31/37, [PR #115](https://github.com/bilo-io/midnite-studio/pull/115), [PR #117](https://github.com/bilo-io/midnite-studio/pull/117), [PR #118](https://github.com/bilo-io/midnite-studio/pull/118), [PR #119](https://github.com/bilo-io/midnite-studio/pull/119), [PR #123](https://github.com/bilo-io/midnite-studio/pull/123), [PR #131](https://github.com/bilo-io/midnite-studio/pull/131)) — [Phase 30](phase-30-terminal-hardening.md) made the terminal *survive*; it did not make it *steady*. A read of the subsystem found a concrete cause behind each of the three standing complaints rather than a suspicion. Seven themes fix the causes: a DPR watcher with clear-atlas → fit → refresh (**A**), explicit cell metrics plus live-applied font settings (**B**), WebGL re-acquisition and a process-wide xterm budget every mount site reports to — the one Phases 41 and 50 each declined (**C**), a rAF-coalesced fit (**D**), a bounded pre-ready input queue that drops oldest-first (**E**), drain-aware writes on the input direction (**F**), and a previous run's session opening as a live pane with `attach` deleted rather than implemented (**G**). Six Verification bullets stay open for a human pass (real displays, a real relaunch, real megabyte pastes) — every theme A–G is built.
 
@@ -58,7 +76,7 @@ repo** — no `matchMedia` resolution query, no `screen`/`display-metrics-change
 renderer rasterises a glyph atlas once at the DPR in force when the addon loads; move the window
 to a display with a different scale factor, or change scaling on the current one, and every glyph
 is drawn from an atlas built for the wrong pixel grid. `safeFit()`
-([`terminal-view.tsx:211`](../../../packages/app/src/features/terminal/terminal-view.tsx))
+([`terminal-view.tsx:211`](../../../../packages/app/src/features/terminal/terminal-view.tsx))
 cannot rescue it: it early-returns when `cols`/`rows` are unchanged, and a DPR change at a constant
 window size changes neither.
 
@@ -95,10 +113,10 @@ window size changes neither.
 
 The second cause of uneven text, and independent of Theme A. The xterm is constructed with
 `fontSize: 12` and **no `lineHeight`, no `letterSpacing`, no `fontWeight`/`fontWeightBold`**
-([`terminal-view.tsx:249-259`](../../../packages/app/src/features/terminal/terminal-view.tsx)), so
+([`terminal-view.tsx:249-259`](../../../../packages/app/src/features/terminal/terminal-view.tsx)), so
 xterm computes a fractional cell height which the WebGL renderer rounds *per row* — visibly uneven
 baselines, worst at small sizes. There is no user-facing font control anywhere:
-[`terminal-page.tsx`](../../../packages/app/src/features/settings/settings-pages/terminal-page.tsx)
+[`terminal-page.tsx`](../../../../packages/app/src/features/settings/settings-pages/terminal-page.tsx)
 covers the activity readout and the sidebar side only.
 
 - [x] Set the metrics explicitly at construction: `lineHeight`, `letterSpacing`, `fontWeight` and
@@ -110,7 +128,7 @@ covers the activity readout and the sidebar side only.
     defaults, so this is a no-visual-change write-down, not a rendering change — the actual
     unevenness this theme's intro describes is closer to Theme C's WebGL-context story.
 - [x] `Settings ▸ Terminal` gains **font family**, **font size** and **line height**, persisted in
-      [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts) (added to both `partialize` and
+      [`ui-store.ts`](../../../../packages/app/src/store/ui-store.ts) (added to both `partialize` and
       the custom `merge`, like every other persisted key). The family field keeps the existing Nerd
       Font stack as its default and its placeholder — a user overriding it is opting out of glyph
       coverage, and the control should say so rather than silently offering a font with no
@@ -137,14 +155,14 @@ covers the activity readout and the sidebar side only.
 
 Why two panes can look different **on the same display**. Today `new WebglAddon()` is loaded in a
 `try/catch` and wired as `webgl.onContextLoss(() => webgl.dispose())`
-([`terminal-view.tsx:369-379`](../../../packages/app/src/features/terminal/terminal-view.tsx)) —
+([`terminal-view.tsx:369-379`](../../../../packages/app/src/features/terminal/terminal-view.tsx)) —
 and **nothing ever re-adds it**. Chromium caps live WebGL contexts per process at roughly 16 and
 evicts the oldest; a pane that loses its context falls silently and permanently to the DOM
 renderer, which rasterises differently. `MAX_CARD_TERMINALS = 4`
-([`card-terminal-mounts.ts`](../../../packages/app/src/features/projects/board/card-terminal-mounts.ts))
+(`card-terminal-mounts.ts` (deleted by Theme C))
 budgets *Kanban card* terminals only — the main panel's open sessions
-([`terminal-panel.tsx`](../../../packages/app/src/features/terminal/terminal-panel.tsx)) and the
-FAB loop tabs ([`loop-tab.tsx`](../../../packages/app/src/features/loops/loop-tab.tsx)) are
+([`terminal-panel.tsx`](../../../../packages/app/src/features/terminal/terminal-panel.tsx)) and the
+FAB loop tabs ([`loop-tab.tsx`](../../../../packages/app/src/features/loops/loop-tab.tsx)) are
 untracked and spend from the same process-wide ceiling.
 
 - [x] Re-acquire on restore: listen for `webglcontextrestored` on the canvas and re-add a fresh
@@ -226,7 +244,7 @@ untracked and spend from the same process-wide ceiling.
 ### D — A resize that costs one fit, not one per frame (S) — ✅ DONE (PR #118, 2026-09-04)
 
 There is **no debouncing on the fit path at all**: `new ResizeObserver(() => … safeFit())`
-([`terminal-view.tsx:490-494`](../../../packages/app/src/features/terminal/terminal-view.tsx))
+([`terminal-view.tsx:490-494`](../../../../packages/app/src/features/terminal/terminal-view.tsx))
 calls `fit()` synchronously on every observer callback. The `lastSentRef` guard dedupes the *IPC
 resize* but not the `fit()` measurement or the reflow it triggers, so a drag-resize runs a full
 xterm re-measure per frame and, whenever cols/rows actually change, one `SIGWINCH` per frame at the
@@ -260,10 +278,10 @@ shell.
 The most likely "buggy input after a while". `term.onData` reads `stateRef.current`, which is
 assigned during render — so between `pty.create` resolving and the next React render the state
 still reads `'starting'`, and the handler
-([`terminal-view.tsx:462`](../../../packages/app/src/features/terminal/terminal-view.tsx))
+([`terminal-view.tsx:462`](../../../../packages/app/src/features/terminal/terminal-view.tsx))
 **returns without queueing**. Every character typed in that window is gone. `sendInput` has the
 same shape: with no `ptyIdRef.current` it no-ops
-([`use-terminal-ipc.ts:167`](../../../packages/app/src/features/terminal/use-terminal-ipc.ts)),
+([`use-terminal-ipc.ts:167`](../../../../packages/app/src/features/terminal/use-terminal-ipc.ts)),
 again with no queue.
 
 - [x] A bounded FIFO for pre-ready input, flushed in arrival order the moment the session binds a
@@ -286,7 +304,7 @@ again with no queue.
   - A `useEffect` keyed on `connectionState` flushes synchronously the render `'open'` is first
     observed — before `onData` can call `sendInputRef.current` for a live byte, since that call is
     itself gated on `stateRef.current === 'open'`, set from the very same `connectionState`.
-- [x] Route `Cmd+Enter`'s `\x1b\r` ([`terminal-view.tsx:332`](../../../packages/app/src/features/terminal/terminal-view.tsx))
+- [x] Route `Cmd+Enter`'s `\x1b\r` ([`terminal-view.tsx:332`](../../../../packages/app/src/features/terminal/terminal-view.tsx))
       through the same gate. It currently calls `sendInputRef.current` directly and bypasses the
       readiness check entirely — which is a *different* bug wearing the same clothes: it does not
       drop the bytes, it sends them into a session that may not exist.
@@ -303,14 +321,14 @@ again with no queue.
 ### F — Backpressure that exists (M) — ✅ DONE (2026-09-04)
 
 There is **none, at any hop**. `socket.write()`'s return value is ignored on both sides
-([`broker-client.ts:666`](../../../packages/desktop/src/main/broker-client.ts),
-[`server.ts:240`](../../../packages/desktop/src/broker/server.ts)); there is no `'drain'` handler,
+([`broker-client.ts:666`](../../../../packages/desktop/src/main/broker-client.ts),
+[`server.ts:240`](../../../../packages/desktop/src/broker/server.ts)); there is no `'drain'` handler,
 no `highWaterMark`, no `cork`/`uncork`, and no `pause()`/`resume()` on the pty or the socket. A
 `pty.write` that fails is swallowed with an empty catch
-([`server.ts:379-382`](../../../packages/desktop/src/broker/server.ts)) — a write into a pty that
+([`server.ts:379-382`](../../../../packages/desktop/src/broker/server.ts)) — a write into a pty that
 exited between frames disappears with no error reaching the renderer. Input that fails the zod
 parse is dropped with no `else`
-([`pty-handlers.ts:35`](../../../packages/desktop/src/main/ipc/pty-handlers.ts)).
+(`pty-handlers.ts:35` at the time; now [`features/terminal/main/index.ts`](../../../../packages/features/terminal/main/index.ts)).
 
 - [x] Honour the `false` return from `socket.write()` on both hops: queue subsequent frames and
       resume on `'drain'`, with the queue bounded and its overflow reported rather than absorbed.
@@ -336,7 +354,7 @@ parse is dropped with no `else`
       malformed payload is a bug somewhere; silence is what let it stay one.
   - `pty-handlers.ts`'s `ptyInput` handler logs via `defaultLogger` on a failed `safeParse`.
 - [x] Note explicitly that this is the **input** direction. The broker's 16 ms output coalescer
-      ([`server.ts:190-236`](../../../packages/desktop/src/broker/server.ts)) and its ordering
+      ([`server.ts:190-236`](../../../../packages/desktop/src/broker/server.ts)) and its ordering
       invariants are correct, tested by `output-coalescing.test.ts`, and are not touched here.
 - [x] Tests: extend `broker/server.test.ts` and `main/broker-client.test.ts` — a write against a
       saturated socket queues rather than disappearing, `'drain'` releases it in order, the bounded
@@ -350,27 +368,27 @@ parse is dropped with no `else`
 ### G — Reattach that actually hands the session back (M) — ✅ DONE (PR #131, 2026-09-04)
 
 Sessions **do** survive a relaunch: `probeLegacyBrokers()`
-([`broker-client.ts:532`](../../../packages/desktop/src/main/broker-client.ts)) finds the previous
+([`broker-client.ts:532`](../../../../packages/desktop/src/main/broker-client.ts)) finds the previous
 run's socket, adopts it as a `legacy` peer, and `hydrate()`
-([`terminal-store.ts:323`](../../../packages/app/src/features/terminal/terminal-store.ts)) merges
+([`terminal-store.ts:323`](../../../../packages/app/src/features/terminal/terminal-store.ts)) merges
 the list. But `sessionPhase()` maps `legacy` → `asleep`
-([`terminal-store.ts:38-42`](../../../packages/app/src/features/terminal/terminal-store.ts)), so a
+([`terminal-store.ts:38-42`](../../../../packages/app/src/features/terminal/terminal-store.ts)), so a
 running shell from the last run is presented as dormant rather than offered back as a live pane —
 and the "Reattached N sessions" note
-([`reattached-note.tsx`](../../../packages/app/src/features/status-bar/reattached-note.tsx)) tells
+([`reattached-note.tsx`](../../../../packages/features/terminal/renderer/reattached-note.tsx)) tells
 you it happened without giving you anywhere to click.
 
 - [x] A legacy-peer session opens as a **real live pane** — snapshot, replay gate, live data, live
       input — rather than rendering as `asleep`. It is a running process on a reachable socket;
       `asleep` was an honest label for "we have not attached", not for "it is not running".
-  - Kept the moon glyph in [`terminal-session-list.tsx`](../../../packages/app/src/features/terminal/terminal-session-list.tsx)
+  - Kept the moon glyph in [`terminal-session-list.tsx`](../../../../packages/app/src/features/terminal/terminal-session-list.tsx)
     as a *provenance* mark ("from a previous run") rather than a *state* mark, checked
     independently of `phase` — a legacy row can be `live`. The distinction is real and worth
     keeping visible: a legacy peer's broker is on an older build and will not accept a `create`.
 - [x] The reattached note becomes actionable — clicking it reveals the reattached sessions, using
-      the existing [`reveal-session.ts`](../../../packages/app/src/features/terminal/reveal-session.ts)
+      the existing [`reveal-session.ts`](../../../../packages/app/src/features/terminal/reveal-session.ts)
       path rather than a second navigation mechanism.
-- [x] **Delete the dead `attach` message** from [`protocol.ts`](../../../packages/desktop/src/broker/protocol.ts).
+- [x] **Delete the dead `attach` message** from [`protocol.ts`](../../../../packages/desktop/src/broker/protocol.ts).
       It is declared on the wire and has **no `case` in `handleControlMessage`**, so it falls to
       `default:` and answers `{ok:false, code:'protocol'}` — a documented capability the server has
       never implemented. Reattach is genuinely "hold a socket open and `list`", which works; the
@@ -394,45 +412,78 @@ you it happened without giving you anywhere to click.
 
 ## Files this phase touches
 
-| Area | Path |
+| Area | Path (current home on main, audited 2026-11-17) |
 |---|---|
-| Renderer, terminal view | [`terminal-view.tsx`](../../../packages/app/src/features/terminal/terminal-view.tsx) — DPR effect (A), font options (B), WebGL restore + budget (C), rAF fit (D), input gate (E) |
-| Renderer, new modules | `features/terminal/use-device-pixel-ratio.ts` (A), `terminal-font.ts` (B), `xterm-budget.ts` (C), `fit-coalescer.ts` (D), `input-queue.ts` (E) — each with its own test |
-| Renderer, budget (replaced) | [`card-terminal-mounts.ts`](../../../packages/app/src/features/projects/board/card-terminal-mounts.ts) — the card-only counter becomes a consumer of the shared registry (C) |
-| Renderer, other mount sites | [`terminal-panel.tsx`](../../../packages/app/src/features/terminal/terminal-panel.tsx), [`loop-tab.tsx`](../../../packages/app/src/features/loops/loop-tab.tsx) — register with the budget (C) |
-| Renderer, IPC hook | [`use-terminal-ipc.ts`](../../../packages/app/src/features/terminal/use-terminal-ipc.ts) — `sendInput` queues instead of no-oping (E) |
-| Renderer, store | [`terminal-store.ts`](../../../packages/app/src/features/terminal/terminal-store.ts) — `sessionPhase` stops folding `legacy` into `asleep` (G) |
-| Renderer, session list | [`terminal-session-list.tsx`](../../../packages/app/src/features/terminal/terminal-session-list.tsx) — moon glyph becomes provenance, not state (G) |
-| Renderer, status bar | [`reattached-note.tsx`](../../../packages/app/src/features/status-bar/reattached-note.tsx) — clickable, via `reveal-session.ts` (G) |
-| Renderer, settings | [`terminal-page.tsx`](../../../packages/app/src/features/settings/settings-pages/terminal-page.tsx) — font controls (B), renderer readout (C) |
-| Renderer, ui store | [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts) — font settings in `partialize` **and** `merge` (B) |
-| Main, broker client | [`broker-client.ts`](../../../packages/desktop/src/main/broker-client.ts) — drain-aware `writePty` (F), legacy open path (G) |
-| Main, ipc | [`pty-handlers.ts`](../../../packages/desktop/src/main/ipc/pty-handlers.ts) — a rejected payload logs (F) |
-| Broker | [`server.ts`](../../../packages/desktop/src/broker/server.ts) — drain on the input write, surfaced `pty.write` failure (F); [`protocol.ts`](../../../packages/desktop/src/broker/protocol.ts) — `attach` removed (G) |
-| Tests | `use-device-pixel-ratio.test.ts`, `terminal-font.test.ts`, `xterm-budget.test.ts`, `fit-coalescer.test.ts`, `input-queue.test.ts` (new); `broker/server.test.ts`, `main/broker-client.test.ts`, `broker/protocol.test.ts`, `terminal-store.test.ts` (extended) |
+| Renderer, terminal view | [`features/terminal/renderer/terminal-view.tsx`](../../../../packages/features/terminal/renderer/terminal-view.tsx) — DPR effect (A), font options (B), WebGL restore + budget (C), rAF fit (D), input gate (E). `packages/app/src/features/terminal/*` are now one-line re-export shims (Phase 123 Theme E). |
+| Renderer, new modules | `features/terminal/renderer/` — `use-device-pixel-ratio.ts` (A), `terminal-font.ts` (B), `xterm-budget.ts` (C), `fit-coalescer.ts` (D), `input-queue.ts` (E) — each with its own test |
+| Renderer, budget (replaced) | `card-terminal-mounts.ts` — deleted outright; `xterm-budget.ts` replaced its card-only `MAX_CARD_TERMINALS` (C). The card surface is now [`app/src/features/tasks/board/card-terminal.tsx`](../../../../packages/app/src/features/tasks/board/card-terminal.tsx) |
+| Renderer, other mount sites | [`terminal-panel.tsx`](../../../../packages/features/terminal/renderer/terminal-panel.tsx), [`loops/renderer/loop-tab.tsx`](../../../../packages/features/loops/renderer/loop-tab.tsx) — register with the budget via the `active` prop (C) |
+| Renderer, IPC hook | [`use-terminal-ipc.ts`](../../../../packages/features/terminal/renderer/use-terminal-ipc.ts) — `sendInput` queues instead of no-oping (E) |
+| Renderer, store | [`terminal-store.ts`](../../../../packages/features/terminal/renderer/terminal-store.ts) — `sessionPhase` stops folding `legacy` into `asleep` (G) |
+| Renderer, session list | [`terminal-session-list.tsx`](../../../../packages/features/terminal/renderer/terminal-session-list.tsx) — moon glyph becomes provenance, not state (G) |
+| Renderer, status bar | [`reattached-note.tsx`](../../../../packages/features/terminal/renderer/reattached-note.tsx) — clickable, via [`app/.../reveal-session.ts`](../../../../packages/app/src/features/terminal/reveal-session.ts) (G) |
+| Renderer, settings | [`terminal-page.tsx`](../../../../packages/app/src/features/settings/settings-pages/terminal-page.tsx) — font controls (B), `Renderer` accordion via `rendererRows()` (C) |
+| Renderer, ui store | [`ui-store.ts`](../../../../packages/app/src/store/ui-store.ts) — font settings in `partialize` **and** `merge` (B) |
+| Main, broker client | [`runtime/src/broker/client.ts`](../../../../packages/runtime/src/broker/client.ts) — drain-aware `writePty` (F), legacy open path (G); moved from `desktop/src/main/broker-client.ts` (now a thin binding) in Phase 113 Theme D |
+| Main, ipc | [`features/terminal/main/index.ts`](../../../../packages/features/terminal/main/index.ts) (was `desktop/src/main/ipc/pty-handlers.ts`) — a rejected `PtyInputRequest` logs via `warn` (F) |
+| Broker | [`desktop/src/broker/server.ts`](../../../../packages/desktop/src/broker/server.ts) — drain on the input write, surfaced `pty.write` failure (F); [`runtime/src/broker/protocol.ts`](../../../../packages/runtime/src/broker/protocol.ts) — `attach` removed (G); [`runtime/src/broker/socket-write-queue.ts`](../../../../packages/runtime/src/broker/socket-write-queue.ts) — the bounded drain-aware queue (F) |
+| Tests | `features/terminal/renderer/`: `use-device-pixel-ratio.test.ts`, `terminal-font.test.ts`, `xterm-budget.test.ts`, `fit-coalescer.test.ts`, `input-queue.test.ts`, `terminal-store.test.ts`, `legacy-reveal.test.ts`; `runtime/src/broker/`: `socket-write-queue.test.ts`, `protocol.test.ts`; `desktop/src/broker/server.test.ts`, `desktop/src/main/broker-client.test.ts`; `app/.../terminal-page.test.tsx` |
 
 ## Verification
 
+**Build for every (human) item below:** a packaged-equivalent app from current main —
+`moon run studio:dist` (or `desktop:dist`), install the resulting `.app` from the dmg/zip, and launch
+it from `/Applications`. A dev-server run (`moon run desktop:start`) is **not** valid for these: the
+WebGL/DPR and relaunch behaviours under test differ in dev (StrictMode double-mount, no detached
+broker survival across a `Cmd+Q`). The automated half of each item is already green on main and is
+named per bullet; only the eye/hardware half remains.
+
 - [x] `moon run :typecheck :lint :test` green.
-- [ ] Moving the window between a Retina and a non-Retina display leaves text as crisp as it
-      started, with no remount and no lost scrollback — **a human pass**, since it needs two real
-      displays. The unit test covers the hook's re-arming; only an eye covers the atlas.
-- [ ] Four terminals open at once — panel, a Kanban card and a FAB loop tab among them — all render
-      identically, and `Settings ▸ Terminal` reports the same renderer for each until the budget is
-      genuinely exceeded, at which point it names which pane was demoted and why.
-- [ ] Dragging the window edge across a range that changes cols/rows produces one fit per frame at
-      most (asserted by `fit-coalescer.test.ts`) and no visible stutter in the pane — a human pass
-      for the second half.
-- [ ] Typing immediately into a brand-new pane — before the shell prompt paints — loses nothing:
-      every character appears once, in order, when the shell comes up. (`input-queue.test.ts` for
-      the ordering; a human pass for the real race, which is what makes it a race.)
-- [ ] Pasting several megabytes into a shell delivers byte-complete and in order, and neither hop
-      grows an unbounded queue. (`broker/server.test.ts`; a human pass against a real shell.)
-- [ ] Quitting the app with live sessions and relaunching offers those sessions back as **live
-      panes** that accept input immediately, not as dormant rows — and the reattached note is
-      clickable through to them. A human pass, for the same reason
-      [Phase 30's e2e docblock](../../../packages/app/e2e/terminal.spec.ts) gives: the mock bridge
-      has no real relaunch.
+- [ ] **(human) DPR change keeps text crisp (A).** Needs a Retina (2x) display plus a non-Retina (1x)
+      external monitor. Steps: open the terminal panel (`Ctrl+``), run `ls -la /usr/bin | head -200`
+      so the pane holds scrollback; drag the window fully onto the other display, wait 1 s, drag it
+      back. **Pass:** glyph edges are as sharp after each move as before (no blur, no
+      half-pixel-doubled strokes), the pane did not flash/remount, and scrolling up still shows the
+      full `ls` output. Repeat once via `System Settings ▸ Displays ▸ scaling` on the built-in screen
+      with the window stationary. *Automated half:* `use-device-pixel-ratio.test.ts` (listener
+      re-arms at the new ratio); the atlas clear itself needs a real GPU.
+- [ ] **(human) Four mount sites, one renderer (C).** Steps: open two terminal sessions in the panel,
+      open a Kanban card with an agent session on `Tasks ▸ Board` (card terminal visible), and open a
+      loop tab via `Mod+l` then `L`. Then open `Settings ▸ Terminal ▸ Renderer`. **Pass:** every
+      live session row reads `WebGL` (none `DOM canvas` or `unmounted` for a pane that is on screen),
+      and the panes' text looks identical in weight and baseline side by side. The over-budget
+      demotion (13th visible pane evicts the least-recently-visible) is **not** part of this pass —
+      it is proven by `xterm-budget.test.ts` ("holds the real budget: a 13th visible mount evicts
+      the least-recently-visible of 12"), and the readout names a demoted pane by showing
+      `DOM canvas` on its row, with the reason in the accordion's hint (budget full or GPU context
+      lost) rather than per row.
+- [ ] **(human) Drag-resize has no stutter (D).** Steps: with a pane running `top`, drag the window's
+      right edge slowly across ~400 px and back for ~5 s. **Pass:** `top` redraws to the new width
+      continuously with no visible jank, freeze or flicker of the whole pane, and its final layout
+      matches the final size (no stale column count). *Automated half:* `fit-coalescer.test.ts`
+      (N observations in one frame → one fit; cancel on unmount).
+- [ ] **(human) Typing before the prompt loses nothing (E).** Steps: open a new terminal session and,
+      within the first ~200 ms (before the prompt paints), type `echo abcdefghij` and press Enter
+      without pausing. Do it 5 times. **Pass:** every run prints `abcdefghij` exactly once, with the
+      characters in order and none duplicated or missing. *Automated half:* `input-queue.test.ts`
+      (FIFO order, oldest-first drop on cap) and `send-input.test.ts`.
+- [ ] **(human) Multi-megabyte paste is byte-complete (F).** Steps: `head -c 3000000 /dev/urandom |
+      base64 > /tmp/p51-paste.txt && pbcopy < /tmp/p51-paste.txt`; in a new pane run
+      `cat > /tmp/p51-out.txt`, paste with `Cmd+V`, wait for the paste to finish, press `Ctrl+D`; then
+      `cmp /tmp/p51-paste.txt <(tr -d '\r' < /tmp/p51-out.txt) && echo SAME`. **Pass:** prints `SAME`
+      (allow a trailing-newline-only difference), and Activity Monitor shows the broker and
+      Midnite Studio helper RSS back near baseline within ~10 s of the paste ending. *Automated
+      half:* `runtime/src/broker/socket-write-queue.test.ts` ("a multi-megabyte paste arrives
+      byte-complete and in order", bounded-queue drop-oldest).
+- [ ] **(human) Relaunch hands sessions back live (G).** Steps: open two shell sessions, run
+      `echo before-quit` in each; quit with `Cmd+Q` (sessions keep running in the detached broker);
+      relaunch the same installed app. **Pass:** the reattached note in the status bar is visible
+      and clicking it reveals the first reattached session; each session shows `before-quit` in
+      its scrollback, and typing `echo after-relaunch` + Enter runs immediately (no "asleep"/dormant
+      row, no wake step). Kill both shells afterwards (`exit`). *Automated half:*
+      `terminal-store.test.ts` (legacy opens live), `legacy-reveal.test.ts`,
+      `desktop/src/main/broker-client.test.ts`; the mock bridge in
+      [`e2e/terminal.spec.ts`](../../../../packages/app/e2e/terminal.spec.ts) has no real relaunch.
 - [x] `attach` no longer appears in the broker protocol union, and no caller references it.
 
 ## Not in this phase
@@ -440,17 +491,26 @@ you it happened without giving you anywhere to click.
 - **A terminal search, serialize or unicode11 addon.** Features, not steadiness. The phase's subject
   is the two addons already loaded behaving correctly.
 - **A user-configurable ANSI 16-colour palette.** The themes are 4-colour today
-  ([`terminal-view.tsx:59-71`](../../../packages/app/src/features/terminal/terminal-view.tsx)) and
+  ([`terminal-view.tsx:59-71`](../../../../packages/app/src/features/terminal/terminal-view.tsx)) and
   ANSI colours come from xterm's defaults. Worth doing; a theming slice, not a robustness one.
+  *(Audit 2026-11-17: since delivered by the themes work — the terminal now takes a full ANSI palette
+  from the active theme, re-themed live per Phase 64 Theme G's `terminal-palette-switch.spec.ts`.)*
 - **`minimumContrastRatio`.** Deliberately left at its default rather than set in Theme B: raising
   it recolours a TUI's own palette choices, which is a product decision about legibility-versus-
   fidelity, not a metric like `lineHeight`.
-- **Reducing the terminal panel's mount churn.** [`app.tsx:1301`](../../../packages/app/src/app.tsx)
+- **Reducing the terminal panel's mount churn.** [`app.tsx:1301`](../../../../packages/app/src/app.tsx)
   unmounts every `TerminalView` when the panel slides shut, so reopening rebuilds each xterm and
   re-fetches up to 1 MiB of snapshot per session. Real, measurable, and a *performance* slice with
-  a number attached — [`scripts/perf/`](../../../scripts/perf/) is where it would be argued.
+  a number attached — [`scripts/perf/`](../../../../scripts/perf/) is where it would be argued.
+  *(Audit 2026-11-17: the `app.tsx:1301` line reference is stale; mount lifetime is now governed by
+  Phase 84 Theme E's
+  [`session-mount-policy.ts`](../../../../packages/features/terminal/renderer/session-mount-policy.ts)
+  — recency + idle caps on hidden sessions.)*
 - **The `Viewport.syncScrollArea` unmount throw.** Upstream, StrictMode-only, dev-server-only, and
-  already recorded in [`outstanding.md`](../outstanding.md) as "revisit on the next xterm bump".
+  already recorded in [`outstanding.md`](../../outstanding.md). *(Audit 2026-11-17: the xterm v6 bump
+  happened (Phase 88); the method is now the private `Viewport._sync`, the defect reproduces
+  unchanged in `xterm-viewport-dispose.test.ts`, and `outstanding.md` re-parks it with that v6
+  verdict.)*
 - **The broker's process model, socket fingerprint, staleness probe or scrollback bounds.** All
   four are settled, tested and correct.
 - **Windows / Linux.** macOS-first, like every phase before it.
@@ -470,14 +530,19 @@ you it happened without giving you anywhere to click.
 - **Settled — `attach` is deleted rather than implemented.** `list` + `pty.snapshot` already is the
   reattach path; a per-pty handshake would add a state machine to the one server whose ordering
   invariants are currently provable.
-- **Open — should the font settings be global or per-session?** *Recommendation:* global. A
+- **Settled (audit 2026-11-17) — font settings are global.** Built that way in Theme B (`ui-store.ts`). A
   per-session font is a niche want, and per-session would need a key on the session record, which
   is broker-side state for a purely presentational choice.
-- **Open — does the renderer readout in Theme C belong in `Settings ▸ Terminal`, or on the session
-  row itself as a third glyph?** *Recommendation:* Settings. The session row already carries an
+- **Settled (audit 2026-11-17) — the renderer readout lives in `Settings ▸ Terminal ▸ Renderer`**, not
+  on the session row. Built that way in Theme C. The session row already carries an
   activity dot and a provenance moon; a third mark for a condition that is normally uniform across
   every pane would spend the row's remaining legibility on the uncommon case.
-- **Open — should Theme F's bounded input queue surface overflow as a toast, or only in the log?**
-  *Recommendation:* the log, for now. Overflow should be unreachable once the drain path exists;
+- **Settled (audit 2026-11-17) — Theme F's queue overflow goes to the log only, no toast.** Built that
+  way in Theme F (`socket-write-queue.ts` reports overflow to its caller, which logs). Overflow should be unreachable once the drain path exists;
   a toast for an unreachable condition is a toast nobody will ever calibrate. Revisit if the log
   ever shows one.
+- **Settled (audit 2026-11-17) — no refine of build items was needed.** Every Deliverable A–G was
+  already `[x]` with a landed PR; the only open items are the six Verification bullets, all of
+  which need real hardware or a real relaunch. They were rewritten as exact manual checks against
+  a packaged build rather than turned into new automated work — each one's automatable half is
+  already named and green on main.

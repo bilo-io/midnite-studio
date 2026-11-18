@@ -214,17 +214,10 @@ export function ReviewActionBar({
 
   if (closed) {
     /*
-      A merged or closed PR is read-only, and says so rather than showing five
-      buttons that would all be refused by GitHub. `gh pr review` on a merged
-      pull request is not a permission error the user can act on — it is an
-      action that stopped making sense.
+      A merged or closed PR is read-only: no buttons GitHub would refuse, and no
+      sentence either — the header's state pill says it on hover.
     */
-    return (
-      <p className="text-[11px] text-muted-foreground">
-        This pull request is {pull.state === 'merged' ? 'merged' : 'closed'} — there is nothing left
-        to review.
-      </p>
-    );
+    return null;
   }
 
   return (

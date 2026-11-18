@@ -13,6 +13,10 @@ You are running the **maintenance** workflow for **Midnite Studio**. This skill 
 
 ---
 
+## 0 · Run the script first
+
+Run `node scripts/skills/address-issue.mjs --no-llm` for the address-issue sub-skill and `scripts/skills/sanitize-wrap.sh <owner/repo>` for third-party code. The first lists and sizes the open issues read-only and the second scans third-party code without running it. You still pick the sub-skill, sanitise input and confirm before changing anything. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 🛠️ Sub-Skill 1 — Address Issue (`/midnite-maintain address-issue`)
 
 1. **Triage open issues:**

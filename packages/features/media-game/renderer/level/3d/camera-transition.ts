@@ -78,15 +78,16 @@ export function poseFromCamera(position: Vec3, target: Vec3, fov: number): Camer
 
 /** The plan canvas's view (`screen = map × zoom + offset`) as a focus and span in metres, and back. */
 export type PlanView = { x: number; y: number; zoom: number };
-export type PlanScale = { tilewidth: number; tileheight: number; mpt: number };
+/** `originX`/`originZ`: the level's world origin in metres (`midnite.originX/Y`), 0 when absent. */
+export type PlanScale = { tilewidth: number; tileheight: number; mpt: number; originX?: number; originZ?: number };
 
 export function planViewToFocus(view: PlanView, size: { width: number; height: number }, scale: PlanScale, ground: number): { target: Vec3; span: number } {
   const cx = (size.width / 2 - view.x) / view.zoom, cy = (size.height / 2 - view.y) / view.zoom;
-  return { target: [(cx / scale.tilewidth) * scale.mpt, ground, (cy / scale.tileheight) * scale.mpt], span: (size.height / view.zoom / scale.tileheight) * scale.mpt };
+  return { target: [(scale.originX ?? 0) + (cx / scale.tilewidth) * scale.mpt, ground, (scale.originZ ?? 0) + (cy / scale.tileheight) * scale.mpt], span: (size.height / view.zoom / scale.tileheight) * scale.mpt };
 }
 
 export function focusToPlanView(target: Vec3, span: number, size: { width: number; height: number }, scale: PlanScale): PlanView {
   const zoom = size.height / ((span / scale.mpt) * scale.tileheight);
-  const cx = (target[0] / scale.mpt) * scale.tilewidth, cy = (target[2] / scale.mpt) * scale.tileheight;
+  const cx = ((target[0] - (scale.originX ?? 0)) / scale.mpt) * scale.tilewidth, cy = ((target[2] - (scale.originZ ?? 0)) / scale.mpt) * scale.tileheight;
   return { x: size.width / 2 - cx * zoom, y: size.height / 2 - cy * zoom, zoom };
 }

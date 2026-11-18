@@ -2,6 +2,7 @@ import type { GameSummary } from '@midnite/studio-shared';
 import { useState } from 'react';
 import { LuPackagePlus, LuRefreshCw } from 'react-icons/lu';
 
+import { GameAssetLibrary } from './game-asset-library';
 import { GameAssetPicker } from './game-asset-picker';
 import { useGameAssets, useReimportAssets } from './use-games';
 
@@ -36,6 +37,7 @@ const STATE_CLASS = {
  */
 export function GameAssetsPanel({ game }: { game: GameSummary }) {
   const [picking, setPicking] = useState(false);
+  const [source, setSource] = useState<'game' | 'library'>('game');
   const assets = useGameAssets(game.gameId);
   const reimport = useReimportAssets();
   const list = assets.data?.assets ?? [];
@@ -43,6 +45,21 @@ export function GameAssetsPanel({ game }: { game: GameSummary }) {
 
   return (
     <section aria-label="Assets" className="flex flex-col gap-2" data-testid="game-assets">
+      <div role="tablist" aria-label="Asset source" className="flex gap-1">
+        {(['game', 'library'] as const).map((id) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={source === id}
+            onClick={() => setSource(id)}
+            className={`rounded px-2 py-0.5 text-[11px] ${source === id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60'}`}
+          >
+            {id === 'game' ? 'This game' : 'Library'}
+          </button>
+        ))}
+      </div>
+      {source === 'library' ? <GameAssetLibrary game={game} /> : <>
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-xs font-medium text-muted-foreground">Assets{list.length > 0 ? ` (${list.length})` : ''}</h3>
         <button
@@ -82,11 +99,17 @@ export function GameAssetsPanel({ game }: { game: GameSummary }) {
                 {asset.name}
               </span>
               <span className="shrink-0 rounded bg-accent/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">{asset.kind}</span>
+              {asset.library ? (
+                <span className="shrink-0 text-[10px] text-muted-foreground" title={asset.library.path}>
+                  from library: {asset.library.library}
+                </span>
+              ) : null}
               <span className={`shrink-0 text-[10px] ${STATE_CLASS[asset.state]}`}>{STATE_LABEL[asset.state]}</span>
             </li>
           ))}
         </ul>
       )}
+      </>}
     </section>
   );
 }

@@ -76,6 +76,24 @@ describe('scrubHostAgentEnv', () => {
   });
 });
 
+describe('scrubHostAgentEnv — moon task env', () => {
+  it('strips every MOON_* var when inherited from a moon task', () => {
+    const env = {
+      MOON_TARGET: 'desktop:start',
+      MOON_WORKSPACE_ROOT: '/repo/.worktrees/gone',
+      MOON_PROJECT_ID: 'desktop',
+      MOON_THEME: 'dark',
+      PATH: '/usr/bin',
+    };
+    expect(scrubHostAgentEnv(env)).toEqual({ PATH: '/usr/bin' });
+  });
+
+  it('keeps MOON_* vars when no moon task marker is present', () => {
+    const env = { MOON_LOG: 'debug', MOON_THEME: 'light', PATH: '/usr/bin' };
+    expect(scrubHostAgentEnv(env)).toEqual(env);
+  });
+});
+
 describe('scrubHostAgentProcessEnv', () => {
   it('deletes the markers in place and reports them', () => {
     const env: NodeJS.ProcessEnv = { ...LEAKED, ...KEPT };

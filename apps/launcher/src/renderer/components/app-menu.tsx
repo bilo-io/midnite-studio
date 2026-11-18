@@ -31,7 +31,7 @@ export function AppMenu({ app, items }: { app: LauncherApp; items: readonly Menu
       <button
         type="button"
         className="btn btn-icon"
-        aria-label={`More for Midnite ${app.name}`}
+        aria-label={`More for Midnyte ${app.name}`}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}

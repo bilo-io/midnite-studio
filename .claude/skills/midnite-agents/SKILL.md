@@ -14,6 +14,10 @@ The one entry point for agent groups.
  └─ both   → /midnite-orchestrate   settings, cap, board, sitreps, RAM, rotation, unsticking, wrap-up
 ```
 
+## 0 · Run the script first
+
+Run `scripts/skills/orchestrate-cap.sh --running 0`. It prints the starting subagent cap and machine line for the launch message. You still ask the mode and run the interview via the chosen skill. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 1 · Mode — option sheet (skip if `$ARGUMENTS` starts with `fleet` or `swarm`)
 
 One `AskUserQuestion`:

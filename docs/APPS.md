@@ -702,6 +702,8 @@ three things a release needs to pack it as `midnite-cleaner-X.Y.Z-bundle.zip`: a
 
 ### Media: one folder, several packages, one tab registry (Phase 113 Theme Q)
 
+The games inside Media ▸ Games follow the [Midnite game standard](GAME_STANDARD.md) (Phase 149): the manifest, entry, kit, levels and assets a game needs for every Games feature to work.
+
 `media` is the one placement folder three apps share (Creator, Media, Gamer), so it is split into
 packages that never import each other — `FEATURE_PACKAGE_SPLITS` (`shared/src/domain/placement.ts`)
 maps each to the folder it came from and the apps that compose it:

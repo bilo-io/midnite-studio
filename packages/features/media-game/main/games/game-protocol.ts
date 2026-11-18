@@ -153,6 +153,8 @@ export function gameProtocolHandler(
   gameId: string,
   network: GameNetwork,
   fetchFile: GameFileFetch,
+  /** Play from here (Phase 140 Theme B): bytes served in place of the disk for a path, checked first. */
+  overlay?: (pathname: string) => Buffer | null,
 ): (request: Request) => Promise<Response> {
   return async (request) => {
     let url: URL;
@@ -162,6 +164,14 @@ export function gameProtocolHandler(
       return notFound(network);
     }
     if (url.protocol !== `${MSTUDIO_GAME_SCHEME}:` || url.hostname !== gameId) return notFound(network);
+
+    const overlaid = overlay?.(url.pathname) ?? null;
+    if (overlaid !== null) {
+      const headers = new Headers(baseHeaders(network));
+      headers.set('Content-Type', GAME_MIME_BY_EXT[extname(url.pathname).toLowerCase()] ?? 'application/octet-stream');
+      headers.set('Content-Length', String(overlaid.byteLength));
+      return new Response(new Uint8Array(overlaid), { status: 200, headers });
+    }
 
     const file = await resolveGameFile(root, url.pathname);
     if (file === null) return notFound(network);

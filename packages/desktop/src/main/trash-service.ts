@@ -156,7 +156,7 @@ function bufferSink(): ProcessSink<string> {
 /** One line, matched against `osascript`'s stderr, e.g. `execution error: ... (-1743)`. */
 function mapAppleScriptError(stderr: string): string {
   if (stderr.includes('(-1743)')) {
-    return "Midnite Studio isn't allowed to control Finder. Grant it in System Settings ▸ Privacy & Security ▸ Automation, then try again.";
+    return "Midnite Studio isn't allowed to control Finder. Grant it from Settings ▸ Permissions in Midnite Studio, then try again.";
   }
   if (stderr.includes('(-128)')) {
     return 'Cancelled in Finder — nothing was deleted.';

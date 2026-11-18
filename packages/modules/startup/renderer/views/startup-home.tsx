@@ -1,12 +1,29 @@
+import { Suspense, lazy } from 'react';
+
+import { moneyCurrency, seedFleetCatalog, type FleetCatalog } from '@midnite/studio-shared';
+
 import { useStartupSnapshot } from '../data/use-startup';
 import { InvoicesView } from '../invoices/invoices-view';
 import { RoadmapView } from '../roadmap/roadmap-view';
+import { useProjectionsUi } from '../projections/use-projections-ui';
 import { RunwayView } from '../runway/runway-view';
 import { VendorsView } from '../vendors/vendors-view';
 import { CompanyForm } from './company-form';
 import { Overview } from './overview';
 
+// A workspace with no catalog of its own prices from the seeded built-ins; one object per currency keeps the model's memo stable.
+const SEEDED = new Map<string, FleetCatalog>();
+const seeded = (currency: string): FleetCatalog => {
+  let c = SEEDED.get(currency);
+  if (c === undefined) SEEDED.set(currency, (c = seedFleetCatalog(currency)));
+  return c;
+};
+
+// Projections is the heaviest view and the home view; its own chunk keeps the app's entry small.
+const ProjectionsView = lazy(() => import('../projections/projections-view'));
+
 const TITLES: Readonly<Record<string, string>> = {
+  'startup.projections': 'Projections',
   'startup.overview': 'Overview',
   'startup.roadmap': 'Roadmap',
   'startup.runway': 'Runway',
@@ -37,6 +54,13 @@ export function StartupHome({ view, onView }: { view: string; onView: (view: str
     );
   }
   const { workspace, readOnly } = snapshot.data;
+  const currency = moneyCurrency(workspace.company);
+  // Projections needs no company, so it renders before the setup gate.
+  if (view === 'startup.projections') return (
+      <Suspense fallback={<p className="p-6 text-xs text-muted-foreground">Loading…</p>}>
+        <ProjectionsView projections={workspace.fleetProjections} readOnly={readOnly} currency={currency} catalog={workspace.fleetCatalog ?? seeded(currency)} lines={workspace.lines} hasCompany={workspace.company !== null} />
+      </Suspense>
+    );
   if (workspace.company === null) {
     return (
       <main className="flex h-full min-h-0 flex-col overflow-y-auto" aria-label={title}>
@@ -45,7 +69,17 @@ export function StartupHome({ view, onView }: { view: string; onView: (view: str
     );
   }
   if (view === 'startup.roadmap') return <RoadmapView milestones={workspace.milestones} />;
-  if (view === 'startup.runway') return <RunwayView company={workspace.company} lines={workspace.lines} scenarios={workspace.scenarios} linked={workspace.ledger !== null} />;
+  if (view === 'startup.runway') return <RunwayView
+        company={workspace.company}
+        lines={workspace.lines}
+        scenarios={workspace.scenarios}
+        linked={workspace.ledger !== null}
+        projections={workspace.fleetProjections}
+        onOpenProjection={(id) => {
+          useProjectionsUi.getState().select(id);
+          onView('startup.projections');
+        }}
+      />;
   if (view === 'startup.invoices') return <InvoicesView company={workspace.company} customers={workspace.customers} invoices={workspace.invoices} bookId={workspace.ledger?.bookId ?? null} />;
   if (view === 'startup.vendors') return <VendorsView company={workspace.company} vendors={workspace.vendors} contracts={workspace.contracts} />;
   return (

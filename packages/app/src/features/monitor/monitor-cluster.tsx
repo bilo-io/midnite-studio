@@ -3,6 +3,7 @@ import { MonitorFlyout } from '@midnite/studio-feature-monitor/renderer';
 
 import { requestHandoff } from '../../services/handoff';
 import { runCleanSystemFromWidget } from './clean-system';
+import { runFreeRamFromWidget } from './free-ram';
 import { runFullRecoveryFromWidget } from './full-recovery';
 import { buildRecoveryActions, usePreviousBuildAttention } from './recovery-actions';
 
@@ -14,6 +15,10 @@ import { buildRecoveryActions, usePreviousBuildAttention } from './recovery-acti
 export const MonitorCluster = createMonitorSegment({
   Flyout: MonitorFlyout,
   openMonitor: () => void requestHandoff({ app: 'monitor', view: 'monitor' }),
-  actions: buildRecoveryActions({ cleanSystem: runCleanSystemFromWidget, fullRecovery: runFullRecoveryFromWidget }),
+  actions: buildRecoveryActions({
+    cleanSystem: runCleanSystemFromWidget,
+    freeRam: runFreeRamFromWidget,
+    fullRecovery: runFullRecoveryFromWidget,
+  }),
   attention: usePreviousBuildAttention,
 });

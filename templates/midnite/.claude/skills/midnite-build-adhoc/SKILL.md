@@ -11,7 +11,7 @@ End-to-end "execute a described task" for **this repo**, for work that isn't a `
 **Conversation style — enforced.** Be terse to save time and tokens. Report results, not intentions; bullets over prose.
 
 ## Respect
-- `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` conventions (package/module boundaries, test coverage, commit-trailer rules).
+- `AGENTS.md` conventions (Claude Code reads them through `CLAUDE.md`) (package/module boundaries, test coverage, commit-trailer rules).
 - Isolated worktrees under `.worktrees/<branch>/`. Untracked `SCRATCHPAD.md` at worktree root.
 - Two-subagent self-review pass before opening/readying PR.
 

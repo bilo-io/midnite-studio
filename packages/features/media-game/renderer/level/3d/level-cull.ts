@@ -22,7 +22,7 @@ export type CullInput = {
   /** Which model names are failed (their objects stay boxes). */
   modelFailed?: (name: string) => boolean;
   /** An item drawn on its own (the selection under the gizmo), left out of every list. */
-  exclude?: number | null;
+  exclude?: number | null | ReadonlySet<number>;
 };
 
 export type CullResult = {
@@ -48,7 +48,7 @@ export function cull(input: CullInput): CullResult {
   const full: Array<{ index: number; d: number }> = [];
   const lights: Array<{ index: number; d: number }> = [];
   for (const index of found) {
-    if (index === input.exclude) continue;
+    if (typeof input.exclude === 'object' && input.exclude !== null ? input.exclude.has(index) : index === input.exclude) continue;
     const item = items[index]!;
     if (item.kind === 'path') continue;
     const cx = item.position[0], cy = item.position[1] + item.size[1] / 2, cz = item.position[2];

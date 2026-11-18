@@ -868,6 +868,10 @@ describe('optimizer contract (Phase 59, 73)', () => {
       optimizerSystemReclaim: ['OptimizerSystemReclaimRequest', 'OptimizerSystemReclaimResponse'],
       optimizerBrokerSweepPlan: ['OptimizerBrokerSweepPlanResponse'],
       optimizerBrokerSweep: ['OptimizerBrokerSweepRequest', 'OptimizerBrokerSweepResponse'],
+      optimizerFreeRamPlan: ['OptimizerFreeRamPlanResponse'],
+      optimizerFreeRam: ['OptimizerFreeRamRequest', 'OptimizerFreeRamResponse'],
+      // Main -> preload only, no payload.
+      optimizerClearRendererCache: ['SendVoidSchema'],
     };
     const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)].filter((key) =>
       key.startsWith('optimizer'),
@@ -2519,5 +2523,53 @@ describe('report feature contract', () => {
     for (const channel of [CHANNELS.reportGhStatus, CHANNELS.reportOpenUrl, CHANNELS.reportCopy, EVENT_CHANNELS.reportOpen]) {
       expect(channel).toMatch(/^mstudio:report:/);
     }
+  });
+});
+
+describe('Free RAM contract (Phase 148 Theme C)', () => {
+  const candidate = {
+    id: 'broker:200',
+    kind: 'lost-broker',
+    label: 'Terminal broker 200',
+    command: 'node broker.js',
+    rssBytes: 1024,
+    destructive: true,
+  };
+
+  it('accepts a plan with unmeasured candidates and rejects an unknown kind', () => {
+    const unmeasured = { ...candidate, id: 'cache:renderer', kind: 'renderer-cache', command: null, rssBytes: null };
+    expect(
+      schemas.OptimizerFreeRamPlanResponse.safeParse({
+        ok: true,
+        value: { candidates: [candidate, unmeasured], totalRssBytes: 1024 },
+      }).success,
+    ).toBe(true);
+    expect(schemas.FreeRamCandidateSchema.safeParse({ ...candidate, kind: 'idle-session' }).success).toBe(false);
+  });
+
+  it('the request carries candidate ids only: at least one, no pids', () => {
+    expect(schemas.OptimizerFreeRamRequest.safeParse({ candidateIds: ['broker:200'] }).success).toBe(true);
+    expect(schemas.OptimizerFreeRamRequest.safeParse({ candidateIds: [] }).success).toBe(false);
+    const parsed = schemas.OptimizerFreeRamRequest.parse({ candidateIds: ['a'], pid: 1 });
+    expect(parsed).toEqual({ candidateIds: ['a'] });
+  });
+
+  it('the response keeps a signed, nullable machine delta and a zero freed figure', () => {
+    const measured = { beforeRssBytes: 10, afterRssBytes: 10, freedRssBytes: 0, machineFreeDeltaBytes: -4096 };
+    expect(
+      schemas.OptimizerFreeRamResponse.safeParse({ ok: true, value: { ended: [], measured, failures: [] } }).success,
+    ).toBe(true);
+    expect(
+      schemas.OptimizerFreeRamResponse.safeParse({
+        ok: true,
+        value: { ended: [], measured: { ...measured, machineFreeDeltaBytes: null }, failures: [] },
+      }).success,
+    ).toBe(true);
+    expect(
+      schemas.OptimizerFreeRamResponse.safeParse({
+        ok: true,
+        value: { ended: [], measured: { ...measured, freedRssBytes: -1 }, failures: [] },
+      }).success,
+    ).toBe(false);
   });
 });

@@ -11,9 +11,9 @@ import { DownloadPage } from './download-page';
  * early-access form, and to carry no link to a repository or a release list.
  */
 describe('DownloadPage', () => {
-  it('titles the page "Get Midnite"', () => {
+  it('titles the page "Get Midnyte"', () => {
     render(<DownloadPage />);
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Get Midnite');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Get Midnyte');
   });
 
   it('routes its primary call to action to the early-access section', () => {

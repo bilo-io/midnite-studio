@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { useOptimizerStore } from './optimizer-store';
+import { openOptimizerAt, useOptimizerStore } from './optimizer-store';
 
 const emptyResult = { totalBytes: 0, byCategory: {}, items: [], truncated: false } as never;
 
@@ -96,5 +96,20 @@ describe('useOptimizerStore', () => {
     // reflect the scan that ran, not the list after a clean.
     expect(after?.byCategory).toEqual({ dependencies: 200, buildOutput: 100 });
     expect(after?.byEcosystem).toEqual({ node: 300 });
+  });
+});
+
+describe('openOptimizerAt (Phase 148 B)', () => {
+  beforeEach(() => useOptimizerStore.setState({ tab: 'smartScan', memoryFilter: 'all' }));
+
+  it('sets the tab and the memory filter together', () => {
+    openOptimizerAt({ tab: 'memory', memoryFilter: 'lost' });
+    expect(useOptimizerStore.getState()).toMatchObject({ tab: 'memory', memoryFilter: 'lost' });
+  });
+
+  it('leaves the filter alone when none is named', () => {
+    useOptimizerStore.getState().setMemoryFilter('ours');
+    openOptimizerAt({ tab: 'gpu' });
+    expect(useOptimizerStore.getState()).toMatchObject({ tab: 'gpu', memoryFilter: 'ours' });
   });
 });

@@ -158,6 +158,26 @@ export function detailedMemoryReading(
   };
 }
 
+/** `vm_stat`'s free plus inactive pages, in bytes: the memory the machine can hand out without paging. */
+export function reclaimableBytes(stat: VmStat): number | undefined {
+  if (stat.free === undefined || stat.inactive === undefined) return undefined;
+  return (stat.free + stat.inactive) * stat.pageSize;
+}
+
+/**
+ * The machine's free+inactive memory now (Phase 148 Theme C's before/after delta), or `null` when it cannot be
+ * read — off macOS, or a `vm_stat` without those fields. Never throws.
+ */
+export async function probeReclaimableBytes(run: () => Promise<string> = runVmStat): Promise<number | null> {
+  if (process.platform !== 'darwin' && run === runVmStat) return null;
+  try {
+    const stat = parseVmStat(await run());
+    return (stat && reclaimableBytes(stat)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function probeDetailedMemory(
   run: () => Promise<string> = runVmStat,
 ): Promise<DetailedMemoryReading | undefined> {

@@ -80,7 +80,7 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   repo groups and session rows) are now wired with `useCascadeReveal` and `useRevealCount`, and
   `view-registry.tsx` registers `cascade: true` for all three views, pinned by `view-registry.test.ts`.
 
-- **Phase 84 Theme G.5's number.** "Graph → Files → Graph time-to-first-row before/after; heap of
+- **Phase 84 Theme G.5's number.** *(Refined 2026-11-17 into a buildable `memory-report.mjs --graph-return` spec in the phase doc — delete this entry when it lands.)* "Graph → Files → Graph time-to-first-row before/after; heap of
   the kept-alive Graph at 20k rows" was not measured in the Theme G/H PR. Unlike H.4's `popoutRss`
   (a before/after RSS delta reusing `memory-report.mjs`'s existing launch/CDP-attach shape almost
   verbatim), this needs two things that do not exist yet: a synthetic repo with ≥20k commits
@@ -462,7 +462,7 @@ matching the precedent set by Phases 22/23/24.
     grows to carry them when Themes E/F land their own main-side timers/services.
   - **C.4's rate-limit handling backs off on any repeated failure** (including one whose message
     names a rate limit — `looksRateLimited` in
-    [`forge-poller.ts`](../../packages/desktop/src/main/forge/forge-poller.ts)), but does not read a
+    [`forge-poller.ts`](../../packages/features/forge/main/forge-poller.ts)), but does not read a
     numeric `x-ratelimit-remaining`/`reset` pair the way the phase doc's C.4 text describes. `gh run
     list`/`gh pr list`/`gh issue list`/`gh project list` are wrapped CLI subcommands, not `gh api` —
     they do not surface HTTP response headers at all. Getting the real numbers would mean polling
@@ -478,7 +478,7 @@ matching the precedent set by Phases 22/23/24.
     (`gh-cli.ts`)/`listProjects` (`gh-project.ts`) the renderer's own `queries.ts` already uses — the
     doc's own module names were slightly ahead of what actually exists in this area, in the sense
     CLAUDE.md's "phase docs cite stale line numbers" note already warns about.
-  - **The liveness dot's "amber because the last window is minimized" reason is not built.** Themes
+  - ~~**The liveness dot's "amber because the last window is minimized" reason is not built.**~~ **Closed 2026-11-17 (phase 84 audit): dropped, not deferred** — the paused state exists only while no window is visible or the OS reports the user idle/locked, so no one is looking at the dot; see the phase doc's Decisions. Themes
     B.2/C.3 both deliberately push nothing while merely paused (gate closed, no error) — a
     `syncStatus` event only fires on an actual failure, recovery, or backoff-window change — so there
     is no signal on the wire main could use to tell the renderer "paused, not failing" without
@@ -849,3 +849,12 @@ The detector's discount for code spans and quotation marks is bypassable by wrap
 ## Phase 148 Theme A — monitor flyout actions
 
 - **Suite apps' monitor flyout recovery actions (Phase 148 Theme A).** Agents, Media and the other suite apps pass no `actions` to `createSuiteMonitorSegment`. Manage resources and Full recovery need cross-process deep links: `midnite://open` carrying an optimizer tab/filter and a "recover" verb, which needs a launcher link param.
+
+## Phase 148 Theme B — lost-process kill follow-ups
+
+- **Force kill cannot reach sessions a SIGTERM'd broker leaves behind.** When SIGTERM ends a lost broker, any pty child that survives it is reparented to pid 1, drops out of the broker's tree and out of Memory ▸ Lost, so the Force Kill re-read finds "Process no longer exists". The safe fix snapshots the tree at confirm time and lets the forced pass SIGKILL only snapshotted pids whose start time, uid and argv still match. `readProcessRows` reads `ps -axo pid=,ppid=,stat=,rss=,pcpu=,args=` with no start time or uid, and adding `lstart` (space-separated) and `uid` changes the parser every Optimizer, Monitor and agent-probe caller shares. That is its own change, not a review fix. Until then Force Kill covers a hung broker only.
+- **The other-app session guard does not reach unreachable brokers.** `foreignSessionPids` comes from `liveBrokerSessions()`, and a session's `owner` lives only in the broker's memory, so nothing can read who owns a session inside a broker the client cannot reach. Refusing every unreachable broker with a pty would make the main target of this theme (old brokers nothing reaches) unkillable. The fix is either to record each session's owner on disk at create time (a broker-protocol change), or to say "ownership unknown" in the confirm copy for unreachable trees.
+
+## Accordion header polish (#1272) — stale Linux visual baseline
+
+- **`sessions-list-live-and-closed-linux.png` predates the taller, tinted `ExplorerGroup` header.** The `visual` lane is opt-in (`cross-platform` label) and regenerating needs Docker, which was not running when #1272 merged. Next time that lane runs, regenerate with `MSTUDIO_CROSS_PLATFORM=1 moon run root:visual-regen` and commit the new baseline.

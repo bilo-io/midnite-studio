@@ -7,6 +7,10 @@ description: Make sound effects for a game or a video with Midnite Studio's Medi
 
 Media ▸ SFX makes sound effects from a text prompt on this Mac with **Stable Audio Open Small** (Stability AI, 44.1 kHz stereo, up to ~11 s a take, about ten seconds per take on CPU). It is made for effects, foley, ambience and short riffs — not songs (that is Media ▸ Audio).
 
+## 0 · Run the script first
+
+Run `node scripts/skills/media/validate.mjs sfx '<json>'` then `node scripts/skills/media/poll-job.mjs --kind sfx --cmd '<status command>'`. The first checks the request; the second polls the job to a terminal state (`${S}media/scaffold.sh sfx <project>` creates the folder). You still write the prompt and judge the result. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Opt-in, and the user's call alone
 
 The model is **not** bundled. The user installs it once from **Media ▸ SFX**: they read the Stability AI Community License (free under US$1M annual revenue; an Enterprise licence above that; "Powered by Stability AI" attribution in a product that ships its sounds), tick the acknowledgement, and the app downloads ~2.1 GB.

@@ -1,14 +1,20 @@
 // vitest/jsdom: the editor's tools and keys, Save, the banners and the empty state. Canvas drawing needs a real
 // browser and is a human check (Theme H); hit-testing is exercised here through the pointer events jsdom can send.
 import { QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { createFrameChrome, FrameChromeProvider, useToastStore } from '@midnite/studio-frame';
+import { arm, assetDragStore } from './assets/asset-drag';
 import { levelEntityToWorld } from '@midnite/studio-shared';
 
 import type { Level3dViewProps } from './3d/level-3d-view';
 import { useLevelViewStore } from './3d/level-view-store';
+import { DEFAULT_LEVEL_SNAP } from './level-snap';
 import { LevelEditor } from './level-editor';
+import { useDoctorRequest } from '../game-doctor-store';
+import { addObject, addSelected, selectOnly } from './level-edit-model';
+import { useLevelOutlinerStore } from './level-outliner-store';
 import { useLevelStore } from './level-store';
 import { blankLevel, blankLevel3d, installBridge, newClient, removeBridge, stubCanvas, stubPointerEvents } from './test-helpers';
 
@@ -31,19 +37,24 @@ vi.mock('./3d/level-3d-view', () => ({
 const list = vi.fn();
 const get = vi.fn();
 const set = vi.fn();
+const doctor = vi.fn();
+const doctorFix = vi.fn();
+const finding = (rule: string, area: string, fixId: string | null = null) => ({ rule, level: 'info', area, message: `${rule} message`, path: null, fixId });
+const diagnosed = (...findings: ReturnType<typeof finding>[]) => ({ ok: true, value: { path: '/g', hasManifest: true, findings, counts: { error: 0, warn: 0, info: findings.length }, status: 'ok' } });
 
 const listed = (over: Record<string, unknown> = {}) => ({ ok: true, value: { scenes: [{ scene: 'level', bytes: 1, dimension: '2d', issue: null }], start: 'level', readsLevels: true, ...over } });
 
 beforeEach(() => {
   stubCanvas();
   stubPointerEvents();
-  for (const m of [list, get, set]) m.mockReset();
+  for (const m of [list, get, set, doctor, doctorFix]) m.mockReset();
+  doctor.mockResolvedValue(diagnosed());
   list.mockResolvedValue(listed());
   get.mockResolvedValue({ ok: true, value: { level: blankLevel(), issues: [], images: [] } });
   set.mockResolvedValue({ ok: true, value: { sha: 'abc' } });
-  installBridge({ list, get, set });
+  installBridge({ list, get, set, doctor, doctorFix });
   useLevelStore.setState({ byGame: {}, newSceneFor: null });
-  useLevelViewStore.setState({ modeByGame: {}, optimisation: 3, stats: false });
+  useLevelViewStore.setState({ modeByGame: {}, optimisation: 3, stats: false, snap: DEFAULT_LEVEL_SNAP });
   view3d.props = null;
   view3d.exits = 0;
 });
@@ -52,7 +63,7 @@ afterEach(() => {
   removeBridge();
 });
 
-const renderEditor = () => render(<QueryClientProvider client={newClient()}><LevelEditor gameId="g1" /></QueryClientProvider>);
+const renderEditor = () => render(<FrameChromeProvider chrome={createFrameChrome().chrome}><QueryClientProvider client={newClient()}><LevelEditor gameId="g1" /></QueryClientProvider></FrameChromeProvider>);
 const ready = () => screen.findByTestId('level-editor');
 
 describe('LevelEditor', () => {
@@ -62,7 +73,7 @@ describe('LevelEditor', () => {
     expect(get).toHaveBeenCalledWith({ gameId: 'g1', scene: 'level' });
     const group = screen.getByRole('radiogroup', { name: 'Tool' });
     const radios = Array.from(group.querySelectorAll('[role=radio]')).map((r) => r.getAttribute('aria-label'));
-    expect(radios).toEqual(['Paint', 'Erase', 'Rectangle', 'Pick', 'Entity', 'Select']);
+    expect(radios).toEqual(['Paint', 'Erase', 'Rectangle', 'Pick', 'Entity', 'Select', 'Scatter']);
     expect(screen.getByRole('radio', { name: 'Paint' }).getAttribute('aria-checked')).toBe('true');
   });
 
@@ -156,6 +167,27 @@ describe('LevelEditor', () => {
     expect(useLevelStore.getState().newSceneFor).toBe('g1');
   });
 
+  it('says the levels are in code, with Open Doctor, when the doctor reports levels.none and an outdated kit', async () => {
+    list.mockResolvedValue(listed({ scenes: [], start: null }));
+    doctor.mockResolvedValue(diagnosed(finding('levels.none', 'levels'), finding('kit.outdated', 'kit', 'upgrade-kit')));
+    useDoctorRequest.setState({ requested: null });
+    renderEditor();
+    expect(await screen.findByText('This game builds its levels in code')).toBeTruthy();
+    expect(screen.queryByText('No levels yet')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Open Doctor/ }));
+    expect(useDoctorRequest.getState().requested).toBe('g1');
+  });
+
+  it('offers Declare levels when level files exist but the manifest does not declare them', async () => {
+    doctor.mockResolvedValue(diagnosed(finding('levels.not-declared', 'levels', 'declare-levels')));
+    doctorFix.mockResolvedValue({ ok: true, value: { commit: 'abc1234', diagnosis: { path: '/g', hasManifest: true, findings: [], counts: { error: 0, warn: 0, info: 0 }, status: 'ok' } } });
+    renderEditor();
+    expect((await screen.findByTestId('level-not-declared')).textContent).toContain('Levels found but not declared');
+    fireEvent.click(screen.getByRole('button', { name: 'Declare levels' }));
+    await waitFor(() => expect(doctorFix).toHaveBeenCalledWith({ fixId: 'declare-levels', gameId: 'g1' }));
+    await waitFor(() => expect(screen.queryByTestId('level-not-declared')).toBeNull());
+  });
+
   it('shows a failure with Retry', async () => {
     get.mockResolvedValueOnce({ ok: false, kind: 'error', message: 'disk on fire' });
     renderEditor();
@@ -167,7 +199,7 @@ describe('LevelEditor', () => {
   it('lists layers top first and toggles one', async () => {
     renderEditor();
     await ready();
-    const layers = screen.getByRole('complementary', { name: 'Layers' });
+    const layers = screen.getByRole('complementary', { name: 'Outliner' });
     const names = Array.from(layers.querySelectorAll('button[aria-label^="Layer "]')).map((b) => b.getAttribute('aria-label'));
     expect(names).toEqual(['Layer objects', 'Layer collision', 'Layer ground']);
     fireEvent.click(screen.getByRole('button', { name: 'Hide layer ground' }));
@@ -193,6 +225,8 @@ describe('LevelEditor', () => {
 const at = (mx: number, my: number) => ({ clientX: 130 + 0.59375 * mx, clientY: 10 + 0.59375 * my, button: 0, pointerId: 1 });
 
 describe('LevelEditor, 3D plan view (Phase 132 Theme E)', () => {
+  // Half a tile is the half metre these tests were written against.
+  beforeEach(() => useLevelViewStore.setState({ snap: { ...DEFAULT_LEVEL_SNAP, planStep: 0.5 } }));
   const lastObject = () => {
     const entry = useLevelStore.getState().byGame.g1!;
     return entry.edit.level.layers.find((l) => l.type === 'objectgroup')!.objects!.at(-1)!;
@@ -208,7 +242,7 @@ describe('LevelEditor, 3D plan view (Phase 132 Theme E)', () => {
   it('opens editable, with the 3D tools and no tile tools, palette or layer button', async () => {
     await open3d();
     const labels = Array.from(screen.getByRole('radiogroup', { name: 'Tool' }).querySelectorAll('[role=radio]')).map((r) => r.getAttribute('aria-label'));
-    expect(labels).toEqual(['Select / Move', 'Place', 'Volume', 'Path', 'Rotate']);
+    expect(labels).toEqual(['Select / Move', 'Place', 'Volume', 'Path', 'Rotate', 'Scatter']);
     expect(screen.getByRole('radio', { name: 'Select / Move' }).getAttribute('aria-checked')).toBe('true');
     expect((screen.getByRole('radio', { name: 'Place' }) as HTMLButtonElement).disabled).toBe(false);
     expect(screen.queryByRole('radio', { name: 'Paint' })).toBeNull();
@@ -237,6 +271,32 @@ describe('LevelEditor, 3D plan view (Phase 132 Theme E)', () => {
     fireEvent.pointerUp(canvas, at(100, 150));
     // 100 px is 3.125 m, 150 px is 4.6875 m: both snap to the half metre.
     expect(lastObject()).toMatchObject({ type: 'prop', x: 96, y: 144 });
+  });
+
+  it('F5 places on whole tiles by default, on half tiles at 0.5, and freely with Alt', async () => {
+    const { canvas, wrap } = await open3d();
+    fireEvent.keyDown(wrap, { key: 'o' });
+    fireEvent.click(screen.getByRole('radio', { name: 'prop' }));
+    act(() => useLevelViewStore.setState({ snap: DEFAULT_LEVEL_SNAP }));
+    fireEvent.pointerDown(canvas, at(100, 150));
+    fireEvent.pointerUp(canvas, at(100, 150));
+    expect(lastObject()).toMatchObject({ x: 96, y: 160 });
+    act(() => useLevelViewStore.setState({ snap: { ...DEFAULT_LEVEL_SNAP, planStep: 0.5 } }));
+    fireEvent.pointerDown(canvas, at(100, 150));
+    fireEvent.pointerUp(canvas, at(100, 150));
+    expect(lastObject()).toMatchObject({ x: 96, y: 144 });
+    fireEvent.pointerDown(canvas, { ...at(100, 150), altKey: true });
+    fireEvent.pointerUp(canvas, { ...at(100, 150), altKey: true });
+    expect(lastObject().x).not.toBe(96);
+  });
+
+  it('F: an arrow key nudges a 3D level by the snap step (half a tile here)', async () => {
+    const { canvas, wrap } = await open3d();
+    fireEvent.keyDown(wrap, { key: 'v' });
+    fireEvent.pointerDown(canvas, at(336, 336));
+    fireEvent.pointerUp(canvas, at(336, 336));
+    fireEvent.keyDown(wrap, { key: 'ArrowRight' });
+    expect(lastObject().x).toBe(352);
   });
 
   it('drags a volume into a prop box with sizeY 3', async () => {
@@ -402,7 +462,7 @@ describe('LevelEditor, Floorplan | 3D switch (Phase 136 Theme E)', () => {
     expect(screen.queryByRole('radiogroup', { name: 'View' })).toBeNull();
   });
 
-  it('opens on Floorplan, switches to 3D from the plan framing, and keeps only the tools the 3D view has', async () => {
+  it('opens on Floorplan, switches to 3D from the plan framing, and keeps the active tool (every tool works in 3D)', async () => {
     await open3d();
     expect(viewRadio('Floorplan').getAttribute('aria-checked')).toBe('true');
     expect(screen.queryByTestId('level-3d-view')).toBeNull();
@@ -410,10 +470,11 @@ describe('LevelEditor, Floorplan | 3D switch (Phase 136 Theme E)', () => {
     fireEvent.click(viewRadio('3D'));
     const view = await screen.findByTestId('level-3d-view');
     expect(view.dataset.enter).toBe('plan');
-    // Volume has no 3D form: the switch drops back to Select.
-    expect(view.dataset.tool).toBe('select');
+    // G2: every tool has a 3D form, so the switch keeps Volume.
+    expect(view.dataset.tool).toBe('volume');
+    expect(screen.getByRole('radio', { name: 'Volume' }).getAttribute('aria-checked')).toBe('true');
     const labels = Array.from(screen.getByRole('radiogroup', { name: 'Tool' }).querySelectorAll('[role=radio]')).map((r) => r.getAttribute('aria-label'));
-    expect(labels).toEqual(['Select / Move', 'Place']);
+    expect(labels).toEqual(['Select / Move', 'Place', 'Volume', 'Path', 'Rotate', 'Scatter']);
     expect(useLevelViewStore.getState().modeByGame).toEqual({ g1: '3d' });
   });
 
@@ -454,5 +515,482 @@ describe('LevelEditor, Floorplan | 3D switch (Phase 136 Theme E)', () => {
     await open3d({ ...blankLevel3d(), orientation: 'isometric' });
     expect(screen.queryByRole('radiogroup', { name: 'View' })).toBeNull();
     expect(screen.queryByTestId('level-3d-view')).toBeNull();
+  });
+});
+
+// Phase 137 Themes B, C and E on the plan view: multi-select, the clipboard keys and the align bar. The 3D plan is used
+// because its map pixels equal object coordinates; the 2D canvas shares every code path.
+describe('LevelEditor, multi-select, clipboard and align (Phase 137 B, C, E)', () => {
+  const entry = () => useLevelStore.getState().byGame.g1!;
+  const objects = () => entry().edit.level.layers[0]!.objects!;
+  const xs = (ids: number[]) => ids.map((id) => objects().find((o) => o.id === id)!.x);
+  const open = async () => {
+    get.mockResolvedValue({ ok: true, value: { level: blankLevel3d(), issues: [], images: [] } });
+    list.mockResolvedValue(listed({ scenes: [{ scene: 'level', bytes: 1, dimension: '3d', issue: null }] }));
+    renderEditor();
+    await ready();
+    const layerId = entry().edit.level.layers[0]!.id!;
+    // Three props at (100,100) (200,100) (400,300), after the template's spawn at (336,336).
+    for (const [x, y] of [[100, 100], [200, 100], [400, 300]] as const) useLevelStore.getState().update('g1', (s) => addObject(s, layerId, { type: 'prop', x, y }));
+    const ids = objects().filter((o) => o.type === 'prop').map((o) => o.id);
+    useLevelStore.getState().update('g1', (s) => selectOnly(s, null));
+    return { canvas: screen.getByTestId('level-canvas'), wrap: screen.getByTestId('level-canvas-wrap'), layerId, ids };
+  };
+  const click = (canvas: HTMLElement, mx: number, my: number, mods: Record<string, boolean> = {}) => {
+    fireEvent.pointerDown(canvas, { ...at(mx, my), ...mods });
+    fireEvent.pointerUp(canvas, { ...at(mx, my), ...mods });
+  };
+  const selectedIds = () => entry().edit.selected.map((r) => r.objectId);
+
+  it('C1: clicking empty ground with Select clears the selection', async () => {
+    const { canvas, ids } = await open();
+    click(canvas, 100, 100);
+    expect(selectedIds()).toEqual([ids[0]]);
+    click(canvas, 500, 500);
+    expect(selectedIds()).toEqual([]);
+  });
+
+  it('C2: a marquee selects exactly the objects it fully encloses', async () => {
+    const { canvas, ids } = await open();
+    fireEvent.pointerDown(canvas, at(50, 50));
+    fireEvent.pointerMove(canvas, at(250, 150));
+    fireEvent.pointerUp(canvas, at(250, 150));
+    expect(selectedIds()).toEqual([ids[0], ids[1]]);
+  });
+
+  it('C3: Shift-click adds and Mod-click toggles', async () => {
+    const { canvas, ids } = await open();
+    click(canvas, 100, 100);
+    click(canvas, 200, 100, { shiftKey: true });
+    expect(selectedIds()).toEqual([ids[0], ids[1]]);
+    click(canvas, 400, 300, { metaKey: true });
+    expect(selectedIds()).toEqual([ids[0], ids[1], ids[2]]);
+    click(canvas, 100, 100, { metaKey: true });
+    expect(selectedIds()).toEqual([ids[1], ids[2]]);
+    expect(entry().edit.past).toHaveLength(3);
+  });
+
+  it('C4: dragging one of a selected group moves them all, as one undo step', async () => {
+    const { canvas, ids } = await open();
+    fireEvent.pointerDown(canvas, at(50, 50));
+    fireEvent.pointerMove(canvas, at(250, 150));
+    fireEvent.pointerUp(canvas, at(250, 150));
+    const before = entry().edit.past.length;
+    fireEvent.pointerDown(canvas, at(100, 100));
+    // The primary snaps to the half-metre grid (16 px), so a 32 px pointer move lands the group 28 px along.
+    fireEvent.pointerMove(canvas, at(132, 100));
+    fireEvent.pointerUp(canvas, at(132, 100));
+    expect(xs([ids[0]!, ids[1]!, ids[2]!])).toEqual([128, 228, 400]);
+    expect(entry().edit.past).toHaveLength(before + 1);
+    expect(selectedIds()).toEqual([ids[0], ids[1]]);
+  });
+
+  it('J4: ? opens the shortcut sheet, Escape closes it and focus returns to the canvas', async () => {
+    const { wrap } = await open();
+    fireEvent.keyDown(wrap, { key: '?', shiftKey: true });
+    expect(await screen.findByRole('dialog', { name: 'Level editor shortcuts' })).toBeTruthy();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Level editor shortcuts' })).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(wrap));
+  });
+
+  it('C5: Mod+A selects the layer, arrows nudge one tile, Shift+arrow ten, Escape clears, Delete removes', async () => {
+    const { wrap, ids } = await open();
+    fireEvent.keyDown(wrap, { key: 'a', metaKey: true });
+    expect(selectedIds()).toHaveLength(objects().length);
+    fireEvent.keyDown(wrap, { key: 'ArrowRight' });
+    expect(xs([ids[0]!])).toEqual([132]);
+    fireEvent.keyDown(wrap, { key: 'ArrowRight', shiftKey: true });
+    expect(xs([ids[0]!])).toEqual([452]);
+    fireEvent.keyDown(wrap, { key: 'ArrowDown' });
+    expect(objects().find((o) => o.id === ids[0])!.y).toBe(132);
+    fireEvent.keyDown(wrap, { key: 'Delete' });
+    expect(objects()).toHaveLength(0);
+    fireEvent.keyDown(wrap, { key: 'z', metaKey: true });
+    expect(objects()).toHaveLength(4);
+    fireEvent.keyDown(wrap, { key: 'Escape' });
+    expect(selectedIds()).toEqual([]);
+  });
+
+  it('B6: Mod+D duplicates the selection and Mod+Z removes the copies', async () => {
+    const { canvas, wrap, ids } = await open();
+    click(canvas, 100, 100);
+    const count = objects().length;
+    fireEvent.keyDown(wrap, { key: 'd', metaKey: true });
+    expect(objects()).toHaveLength(count + 1);
+    expect(selectedIds()).not.toContain(ids[0]);
+    fireEvent.keyDown(wrap, { key: 'z', metaKey: true });
+    expect(objects()).toHaveLength(count);
+  });
+
+  it('B: Mod+C then Mod+V pastes at the pointer; Mod+X cuts', async () => {
+    const { canvas, wrap, ids } = await open();
+    click(canvas, 100, 100);
+    fireEvent.keyDown(wrap, { key: 'c', metaKey: true });
+    fireEvent.pointerMove(canvas, at(300, 200));
+    const count = objects().length;
+    fireEvent.keyDown(wrap, { key: 'v', metaKey: true });
+    await waitFor(() => expect(objects()).toHaveLength(count + 1));
+    expect(objects().at(-1)).toMatchObject({ type: 'prop', x: 304, y: 208 });
+    expect(selectedIds()).toEqual([objects().at(-1)!.id]);
+    click(canvas, 200, 100);
+    fireEvent.keyDown(wrap, { key: 'x', metaKey: true });
+    expect(objects().some((o) => o.id === ids[1])).toBe(false);
+    fireEvent.keyDown(wrap, { key: 'v', metaKey: true });
+    await waitFor(() => expect(objects().at(-1)).toMatchObject({ type: 'prop' }));
+  });
+
+  it('B: a clipboard from the other dimension pastes nothing', async () => {
+    const { wrap } = await open();
+    const clip = { ...(await import('./level-clipboard')).copySelection(entry().edit) ?? { kind: 'midnite-level-clipboard', version: 1, origin: { x: 0, y: 0 }, objects: [{ id: 0, name: 'p', x: 0, y: 0 }] }, dimension: '2d' as const };
+    await (await import('./level-clipboard')).writeClipboard(clip as never);
+    const count = objects().length;
+    fireEvent.keyDown(wrap, { key: 'v', metaKey: true });
+    await new Promise((r) => setTimeout(r, 0)); // allow-timeout: let the async clipboard read settle
+    expect(objects()).toHaveLength(count);
+  });
+
+  it('E4: the align bar shows at two selected objects, distribute waits for three, and aligning is one step', async () => {
+    const { canvas, wrap, ids } = await open();
+    expect(screen.queryByTestId('level-align-bar')).toBeNull();
+    click(canvas, 100, 100);
+    expect(screen.queryByTestId('level-align-bar')).toBeNull();
+    click(canvas, 200, 100, { shiftKey: true });
+    expect(screen.getByTestId('level-align-bar')).toBeTruthy();
+    const few = screen.getAllByRole('button', { name: 'Select three or more to distribute' }) as HTMLButtonElement[];
+    expect(few).toHaveLength(2);
+    expect(few.every((b) => b.disabled)).toBe(true);
+    const before = entry().edit.past.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Align right' }));
+    expect(xs([ids[0]!, ids[1]!])).toEqual([200, 200]);
+    expect(entry().edit.past).toHaveLength(before + 1);
+    click(canvas, 400, 300, { shiftKey: true });
+    expect((screen.getByRole('button', { name: 'Distribute horizontally' }) as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.keyDown(wrap, { key: 'Escape' });
+    expect(screen.queryByTestId('level-align-bar')).toBeNull();
+  });
+});
+
+describe('LevelEditor, outliner and context menus (Phase 137 H, I)', () => {
+  const entry = () => useLevelStore.getState().byGame.g1!;
+  const objects = () => entry().edit.level.layers[0]!.objects!;
+  const selectedIds = () => entry().edit.selected.map((r) => r.objectId);
+  const open = async () => {
+    get.mockResolvedValue({ ok: true, value: { level: blankLevel3d(), issues: [], images: [] } });
+    list.mockResolvedValue(listed({ scenes: [{ scene: 'level', bytes: 1, dimension: '3d', issue: null }] }));
+    renderEditor();
+    await ready();
+    const layerId = entry().edit.level.layers[0]!.id!;
+    for (const [x, y] of [[100, 100], [200, 100], [400, 300]] as const) useLevelStore.getState().update('g1', (s) => addObject(s, layerId, { type: 'prop', x, y }));
+    const ids = objects().filter((o) => o.type === 'prop').map((o) => o.id);
+    useLevelStore.getState().update('g1', (s) => selectOnly(s, null));
+    return { canvas: screen.getByTestId('level-canvas'), layerId, ids };
+  };
+  const row = (id: number) => {
+    const key = `${entry().edit.level.layers[0]!.id}:${id}`;
+    return Array.from(document.querySelectorAll<HTMLElement>('[data-rowkey]')).find((el) => el.dataset.rowkey === key)!;
+  };
+  const click = (canvas: HTMLElement, mx: number, my: number, mods: Record<string, boolean> = {}) => {
+    fireEvent.pointerDown(canvas, { ...at(mx, my), ...mods });
+    fireEvent.pointerUp(canvas, { ...at(mx, my), ...mods });
+  };
+  beforeEach(() => useLevelOutlinerStore.setState({ hiddenByScene: {}, lockedByScene: {}, width: 224, collapsed: false }));
+
+  it('H5: a row selects the object and Shift-click a range', async () => {
+    const { ids } = await open();
+    fireEvent.click(row(ids[0]!));
+    expect(selectedIds()).toEqual([ids[0]]);
+    fireEvent.click(row(ids[2]!), { shiftKey: true });
+    expect(selectedIds().sort()).toEqual([...ids].sort());
+  });
+
+  it('H6: arrow keys move focus between rows and Enter selects', async () => {
+    const { ids } = await open();
+    const rows = screen.getAllByRole('treeitem');
+    rows[0]!.focus();
+    const tree = screen.getByRole('tree');
+    fireEvent.keyDown(rows[0]!, { key: 'ArrowDown' });
+    await waitFor(() => expect(document.activeElement).toBe(screen.getAllByRole('treeitem')[1]));
+    fireEvent.keyDown(document.activeElement!, { key: 'Enter' });
+    expect(selectedIds()).toHaveLength(1);
+    expect(tree).toBeTruthy();
+    expect(ids.length).toBe(3);
+  });
+
+  it('H3/H4: hiding an object keeps it out of hits and the file; locking only out of hits', async () => {
+    const { canvas, ids } = await open();
+    const dirtyBefore = entry().edit.dirty;
+    fireEvent.mouseEnter(row(ids[0]!));
+    fireEvent.click(within(row(ids[0]!)).getByRole('button', { name: 'Hide in editor' }));
+    click(canvas, 100, 100);
+    expect(selectedIds()).toEqual([]);
+    fireEvent.click(within(row(ids[1]!)).getByRole('button', { name: 'Lock' }));
+    click(canvas, 200, 100);
+    expect(selectedIds()).toEqual([]);
+    expect(entry().edit.dirty).toBe(dirtyBefore);
+    expect(useLevelOutlinerStore.getState().hiddenByScene['g1/level']).toHaveLength(1);
+    // A locked object is still selectable from the outliner.
+    fireEvent.click(row(ids[1]!));
+    expect(selectedIds()).toEqual([ids[1]]);
+  });
+
+  it('H3: a marquee skips hidden and locked objects', async () => {
+    const { canvas, ids } = await open();
+    useLevelOutlinerStore.getState().toggleHidden('g1/level', [`${entry().edit.level.layers[0]!.id}:${ids[0]}`]);
+    fireEvent.pointerDown(canvas, at(50, 50));
+    fireEvent.pointerMove(canvas, at(250, 150));
+    fireEvent.pointerUp(canvas, at(250, 150));
+    expect(selectedIds()).toEqual([ids[1]]);
+  });
+
+  it('H7: dragging the handle below the minimum collapses the aside to a strip', async () => {
+    await open();
+    const handle = screen.getByRole('separator', { name: 'Resize outliner' });
+    Object.assign(handle, { setPointerCapture: vi.fn(), releasePointerCapture: vi.fn() });
+    fireEvent.pointerDown(handle, { clientX: 224, pointerId: 1 });
+    fireEvent.pointerMove(handle, { clientX: 20, pointerId: 1 });
+    fireEvent.pointerUp(handle, { clientX: 20, pointerId: 1 });
+    expect(screen.getByTestId('level-outliner-strip')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Show outliner' }));
+    expect(screen.getByTestId('level-outliner')).toBeTruthy();
+  });
+
+  it('shows an empty state for a level with no object layers', async () => {
+    const level = blankLevel();
+    get.mockResolvedValue({ ok: true, value: { level: { ...level, layers: level.layers.filter((l) => l.type !== 'objectgroup') }, issues: [], images: [] } });
+    renderEditor();
+    await ready();
+    expect(screen.getByText('No object layers')).toBeTruthy();
+  });
+
+  it('I5: right-clicking an unselected object selects it before the menu opens', async () => {
+    const { canvas, ids } = await open();
+    expect(selectedIds()).toEqual([]);
+    fireEvent.contextMenu(canvas, at(100, 100));
+    await waitFor(() => expect(selectedIds()).toEqual([ids[0]]));
+  });
+});
+
+describe('LevelEditor, dropping an asset (Phase 139 Theme D)', () => {
+  const MIME = 'application/x-midnite-level-asset';
+  const payload = JSON.stringify({ kind: 'asset', name: 'tree.glb', assetKind: 'model' });
+  const dropOn = (el: Element) => {
+    const dt = { types: [MIME], getData: () => payload, dropEffect: '' };
+    // jsdom has no DragEvent, so RTL builds a bare Event: give it the pointer coordinates a browser would.
+    const send = (make: typeof createEvent.drop) => {
+      const ev = make(el, { dataTransfer: dt });
+      Object.assign(ev, { clientX: at(100, 150).clientX, clientY: at(100, 150).clientY, altKey: false });
+      fireEvent(el, ev);
+    };
+    send(createEvent.dragOver);
+    send(createEvent.drop);
+  };
+  const objects = () => useLevelStore.getState().byGame.g1!.edit.level.layers.filter((l) => l.type === 'objectgroup').flatMap((l) => l.objects ?? []);
+  const open = async (level: ReturnType<typeof blankLevel>, dimension: '2d' | '3d') => {
+    get.mockResolvedValue({ ok: true, value: { level, issues: [], images: [] } });
+    list.mockResolvedValue(listed({ scenes: [{ scene: 'level', bytes: 1, dimension, issue: null }] }));
+    renderEditor();
+    await ready();
+    return screen.getByTestId('level-canvas-wrap');
+  };
+  beforeEach(() => useLevelViewStore.setState({ snap: { ...DEFAULT_LEVEL_SNAP, planStep: 0.5 } }));
+
+  it('D2: a model dropped on a 3D plan adds one prop with its model, on the snapped point, as one undo step', async () => {
+    const wrap = await open(blankLevel3d(), '3d');
+    const before = objects().length;
+    const past = useLevelStore.getState().byGame.g1!.edit.past.length;
+    dropOn(wrap);
+    const after = useLevelStore.getState().byGame.g1!.edit;
+    expect(objects()).toHaveLength(before + 1);
+    expect(after.past.length).toBe(past + 1);
+    const added = objects().at(-1)!;
+    expect(added).toMatchObject({ type: 'prop', x: 96, y: 144, properties: [{ name: 'model', value: 'tree.glb' }] });
+    expect(after.selection).toEqual({ layerId: expect.any(Number), objectId: added.id });
+  });
+
+  it('D3: a model dropped on a 2D level adds nothing and says so', async () => {
+    const wrap = await open(blankLevel(), '2d');
+    const before = objects().length;
+    dropOn(wrap);
+    expect(objects()).toHaveLength(before);
+    expect(useToastStore.getState().toasts.some((t) => t.message === 'Models place in 3D levels.')).toBe(true);
+  });
+
+  it('click-to-place: an armed tile takes the next plan click, then disarms; Escape disarms too', async () => {
+    const wrap = await open(blankLevel3d(), '3d');
+    const canvas = screen.getByTestId('level-canvas');
+    const before = objects().length;
+    act(() => arm({ kind: 'asset', name: 'tree.glb', assetKind: 'model' }));
+    fireEvent.keyDown(wrap, { key: 'Escape' });
+    expect(assetDragStore.get().armed).toBeNull();
+    act(() => arm({ kind: 'asset', name: 'tree.glb', assetKind: 'model' }));
+    fireEvent.pointerDown(canvas, { clientX: 100, clientY: 150, button: 0 });
+    fireEvent.pointerUp(canvas, { clientX: 100, clientY: 150, button: 0 });
+    expect(objects()).toHaveLength(before + 1);
+    expect(objects().at(-1)).toMatchObject({ type: 'prop', properties: [{ name: 'model', value: 'tree.glb' }] });
+    expect(assetDragStore.get().armed).toBeNull();
+  });
+});
+
+describe('LevelEditor, prefabs (Phase 139 Theme G)', () => {
+  const prefabSet = vi.fn();
+  const prefabDelete = vi.fn();
+  const prefabGet = vi.fn();
+  const prefabList = vi.fn();
+  const objects = () => useLevelStore.getState().byGame.g1!.edit.level.layers.filter((l) => l.type === 'objectgroup').flatMap((l) => l.objects ?? []);
+  const crate = { name: 'crate-stack', version: 1, dimension: '2d', objects: [{ type: 'crate', x: -8, y: 0, width: 8, height: 8 }, { type: 'crate', x: 8, y: 0, width: 8, height: 8 }] };
+  beforeEach(() => {
+    for (const m of [prefabSet, prefabDelete, prefabGet, prefabList]) m.mockReset();
+    prefabSet.mockResolvedValue({ ok: true, value: { sha: 's' } });
+    prefabDelete.mockResolvedValue({ ok: true, value: { sha: 'd' } });
+    prefabGet.mockResolvedValue({ ok: true, value: { prefab: crate } });
+    prefabList.mockResolvedValue({ ok: true, value: { prefabs: [{ name: 'crate-stack', dimension: '2d', objects: 2 }] } });
+    installBridge({ list, get, set, doctor, doctorFix, prefabs: { list: prefabList, get: prefabGet, set: prefabSet, delete: prefabDelete } });
+    assetDragStore.set({ dragging: null, armed: null });
+  });
+
+  const withObjects = async () => {
+    const level = blankLevel();
+    const layer = level.layers.find((l) => l.type === 'objectgroup')!;
+    layer.objects = [
+      { id: 10, name: 'crate', type: 'crate', x: 40, y: 40, width: 8, height: 8, rotation: 0, visible: true },
+      { id: 11, name: 'crate', type: 'crate', x: 60, y: 40, width: 8, height: 8, rotation: 0, visible: true },
+    ];
+    level.nextobjectid = 12;
+    get.mockResolvedValue({ ok: true, value: { level, issues: [], images: [] } });
+    const { chrome, DialogHost } = createFrameChrome();
+    render(<FrameChromeProvider chrome={chrome}><QueryClientProvider client={newClient()}><LevelEditor gameId="g1" /></QueryClientProvider><DialogHost /></FrameChromeProvider>);
+    await ready();
+    return layer.id!;
+  };
+
+  it('G1: Save as prefab writes the file and tags the selection as one instance in one undo step', async () => {
+    const layerId = await withObjects();
+    act(() => useLevelStore.getState().update('g1', (s) => addSelected(selectOnly(s, { layerId, objectId: 10 }), [{ layerId, objectId: 11 }])));
+    const past = useLevelStore.getState().byGame.g1!.edit.past.length;
+    fireEvent.click(screen.getByRole('button', { name: /Save as prefab/ }));
+    fireEvent.change(screen.getByLabelText('Prefab name'), { target: { value: 'crate-stack' } });
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(prefabSet).toHaveBeenCalledTimes(1));
+    expect(prefabSet.mock.calls[0]![0]).toMatchObject({ gameId: 'g1', prefab: { name: 'crate-stack', dimension: '2d' } });
+    expect((prefabSet.mock.calls[0]![0] as { prefab: { objects: unknown[] } }).prefab.objects).toHaveLength(2);
+    await waitFor(() => expect(useLevelStore.getState().byGame.g1!.edit.past.length).toBe(past + 1));
+    const tagged = objects().filter((o) => o.properties?.some((p) => p.name === 'midnite.prefab' && p.value === 'crate-stack'));
+    expect(tagged).toHaveLength(2);
+  });
+
+  it('G5: deleting a prefab confirms with the instance count in this level', async () => {
+    const layerId = await withObjects();
+    act(() => useLevelStore.getState().update('g1', (s) => addSelected(selectOnly(s, { layerId, objectId: 10 }), [{ layerId, objectId: 11 }])));
+    fireEvent.click(screen.getByRole('button', { name: /Save as prefab/ }));
+    fireEvent.change(screen.getByLabelText('Prefab name'), { target: { value: 'crate-stack' } });
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(prefabSet).toHaveBeenCalled());
+    await waitFor(() => expect(objects().some((o) => o.properties?.some((p) => p.name === 'midnite.prefab'))).toBe(true));
+    fireEvent.click(await screen.findByRole('button', { name: /Assets/ }));
+    fireEvent.click(await screen.findByRole('radio', { name: 'Prefabs' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete prefab crate-stack' }));
+    await screen.findByRole('dialog');
+    expect(await screen.findByText(/1 instance in this level stay as plain objects/)).toBeTruthy();
+    expect(prefabDelete).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete prefab' }));
+    await waitFor(() => expect(prefabDelete).toHaveBeenCalledWith({ gameId: 'g1', name: 'crate-stack' }));
+  });
+
+  it('places an armed prefab on the next plan click as one undo step', async () => {
+    await withObjects();
+    const canvas = screen.getByTestId('level-canvas');
+    const before = objects().length;
+    act(() => arm({ kind: 'prefab', name: 'crate-stack' }));
+    fireEvent.pointerDown(canvas, { clientX: 100, clientY: 150, button: 0 });
+    fireEvent.pointerUp(canvas, { clientX: 100, clientY: 150, button: 0 });
+    await waitFor(() => expect(objects()).toHaveLength(before + 2));
+    expect(objects().slice(-2).every((o) => o.properties?.some((p) => p.name === 'midnite.prefabInstance'))).toBe(true);
+  });
+});
+
+describe('LevelEditor, scatter brush (Phase 139 Theme H)', () => {
+  const objects = () => useLevelStore.getState().byGame.g1!.edit.level.layers.filter((l) => l.type === 'objectgroup').flatMap((l) => l.objects ?? []).filter((o) => o.type === 'prop');
+  const open = async () => {
+    get.mockResolvedValue({ ok: true, value: { level: blankLevel3d(), issues: [], images: [] } });
+    list.mockResolvedValue(listed({ scenes: [{ scene: 'level', bytes: 1, dimension: '3d', issue: null }] }));
+    renderEditor();
+    await ready();
+    return { canvas: screen.getByTestId('level-canvas'), wrap: screen.getByTestId('level-canvas-wrap') };
+  };
+  const press = (canvas: HTMLElement, x: number, y: number, kind: 'pointerDown' | 'pointerMove' | 'pointerUp', alt = false) =>
+    fireEvent[kind](canvas, { clientX: x, clientY: y, button: 0, pointerId: 1, altKey: alt });
+  const withTree = () => act(() => arm({ kind: 'asset', name: 'tree.glb', assetKind: 'model' }));
+
+  beforeEach(() => assetDragStore.set({ dragging: null, armed: null }));
+
+  it('S opens the brush; a model tile becomes a source instead of placing', async () => {
+    const { wrap } = await open();
+    fireEvent.keyDown(wrap, { key: 's' });
+    expect(screen.getByRole('radio', { name: 'Scatter' }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByTestId('scatter-panel')).toBeTruthy();
+    withTree();
+    expect(screen.getByText('model: tree.glb')).toBeTruthy();
+    expect(assetDragStore.get().armed).toBeNull();
+    expect(objects()).toHaveLength(0);
+  });
+
+  it('with no source, a press says what to do and adds nothing', async () => {
+    const { canvas, wrap } = await open();
+    fireEvent.keyDown(wrap, { key: 's' });
+    press(canvas, 200, 200, 'pointerDown');
+    press(canvas, 200, 200, 'pointerUp');
+    expect(objects()).toHaveLength(0);
+    expect(useToastStore.getState().toasts.some((t) => t.message.startsWith('Click a model or prefab tile'))).toBe(true);
+  });
+
+  it('H3: a stroke of several dabs is one undo step', async () => {
+    const { canvas, wrap } = await open();
+    fireEvent.keyDown(wrap, { key: 's' });
+    withTree();
+    press(canvas, 100, 150, 'pointerDown');
+    for (const x of [160, 220, 280]) press(canvas, x, 150, 'pointerMove');
+    press(canvas, 280, 150, 'pointerUp');
+    expect(objects().length).toBeGreaterThan(2);
+    fireEvent.keyDown(wrap, { key: 'z', metaKey: true });
+    expect(objects()).toHaveLength(0);
+  });
+
+  it('H4: Alt erases the chosen source and leaves other props alone', async () => {
+    const { canvas, wrap } = await open();
+    const layerId = useLevelStore.getState().byGame.g1!.edit.level.layers.find((l) => l.type === 'objectgroup')!.id!;
+    useLevelStore.getState().update('g1', (s) => addObject(s, layerId, { type: 'prop', x: 100, y: 150 }));
+    fireEvent.keyDown(wrap, { key: 's' });
+    withTree();
+    press(canvas, 100, 150, 'pointerDown');
+    press(canvas, 100, 150, 'pointerUp');
+    const scattered = objects().length;
+    expect(scattered).toBeGreaterThan(1);
+    press(canvas, 100, 150, 'pointerDown', true);
+    press(canvas, 100, 150, 'pointerUp', true);
+    // The hand-placed prop (no model) survives; only tree.glb props within the brush go.
+    expect(objects().filter((o) => o.properties?.some((p) => p.value === 'tree.glb')).length).toBeLessThan(scattered);
+    expect(objects().some((o) => !o.properties?.some((p) => p.name === 'model'))).toBe(true);
+  });
+
+  it('[ and ] resize the brush', async () => {
+    const { wrap } = await open();
+    fireEvent.keyDown(wrap, { key: 's' });
+    const radius = () => Number((screen.getByLabelText('Radius') as HTMLInputElement).value);
+    const before = radius();
+    fireEvent.keyDown(wrap, { key: ']' });
+    expect(radius()).toBeGreaterThan(before);
+    fireEvent.keyDown(wrap, { key: '[' });
+    fireEvent.keyDown(wrap, { key: '[' });
+    expect(radius()).toBeLessThan(before);
+  });
+
+  it('a 2D level refuses a model source', async () => {
+    renderEditor();
+    await ready();
+    fireEvent.keyDown(screen.getByTestId('level-canvas-wrap'), { key: 's' });
+    withTree();
+    expect(screen.queryByText('model: tree.glb')).toBeNull();
+    expect(useToastStore.getState().toasts.some((t) => t.message === 'Models scatter in 3D levels.')).toBe(true);
   });
 });

@@ -25,6 +25,12 @@ function services(overrides: Partial<OptimizerMainServices> = {}): OptimizerMain
     runReclaimCommand: vi.fn(async () => ({ ok: false as const, message: 'no' })),
     brokerSweepPlan: vi.fn(() => ({ entries: [], totalBytes: 0 })),
     brokerSweep: vi.fn(() => ({ removed: 0, freedBytes: 0, skipped: [] })),
+    freeRamPlan: vi.fn(async () => ({ candidates: [], totalRssBytes: 0 })),
+    freeRam: vi.fn(async () => ({
+      ended: [],
+      measured: { beforeRssBytes: 0, afterRssBytes: 0, freedRssBytes: 0, machineFreeDeltaBytes: null },
+      failures: [],
+    })),
     ...overrides,
   };
 }
@@ -101,6 +107,52 @@ describe('optimizerMain', () => {
     );
     await expect(ctx.invoke(CHANNELS.optimizerKill, { pid: 'nope' })).resolves.toMatchObject({ ok: false });
     await expect(ctx.invoke(CHANNELS.optimizerGpu)).resolves.toEqual({ ok: false, message: 'no gpu' });
+  });
+
+  it('answers Free RAM plan and execute through the services; an empty id list and a thrown error are envelopes', async () => {
+    const ctx = createRecordingContext();
+    const outcome = {
+      ended: ['broker:7'],
+      measured: { beforeRssBytes: 10, afterRssBytes: 4, freedRssBytes: 6, machineFreeDeltaBytes: null },
+      failures: [],
+    };
+    const freeRam = vi.fn(async () => outcome);
+    optimizerMain.register(
+      ctx,
+      services({
+        freeRamPlan: async () => ({
+          candidates: [
+            { id: 'broker:7', kind: 'lost-broker', label: 'b', command: 'x', rssBytes: 10, destructive: true },
+          ],
+          totalRssBytes: 10,
+        }),
+        freeRam,
+      }),
+    );
+    await expect(ctx.invoke(CHANNELS.optimizerFreeRamPlan)).resolves.toMatchObject({
+      ok: true,
+      value: { totalRssBytes: 10 },
+    });
+    await expect(ctx.invoke(CHANNELS.optimizerFreeRam, { candidateIds: ['broker:7'] })).resolves.toEqual({
+      ok: true,
+      value: outcome,
+    });
+    expect(freeRam).toHaveBeenCalledWith(['broker:7']);
+    await expect(ctx.invoke(CHANNELS.optimizerFreeRam, { candidateIds: [] })).resolves.toMatchObject({ ok: false });
+
+    const broken = createRecordingContext();
+    optimizerMain.register(
+      broken,
+      services({
+        freeRamPlan: async () => {
+          throw new Error('Could not read the process table.');
+        },
+      }),
+    );
+    await expect(broken.invoke(CHANNELS.optimizerFreeRamPlan)).resolves.toEqual({
+      ok: false,
+      message: 'Could not read the process table.',
+    });
   });
 
   it('answers the broker sweep plan and sweep through the services, an empty name list as an error', async () => {

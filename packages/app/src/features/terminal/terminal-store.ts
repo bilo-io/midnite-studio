@@ -3,6 +3,7 @@ export {
   useTerminalStore,
   onMainSurface,
   inMainPanel,
+  isLoopSession,
   isAgentRow,
   cleanAutoName,
   sessionLabel,

@@ -57,6 +57,8 @@ export function installedSet(apps: Iterable<PlacementAppId>): IsAppInstalled {
 export function defaultMcpToolOwner(id: McpToolId): PlacementLayer {
   if (id.startsWith('forge.')) return 'agents';
   if (id.startsWith('workflow_')) return 'agents';
+  // Midnite Startup's own tools (Phase 153 Theme C); its manifest says the same, this keeps a caller without it right.
+  if (id.startsWith('startup_')) return 'startup';
   // repo.*, status.*, graph.*, diff.*, branch.*, ui.*, companion_*
   return 'frame';
 }
@@ -70,16 +72,26 @@ export function mcpToolOwner(id: McpToolId, manifests: readonly Pick<FeatureMani
 }
 
 /**
+ * Apps that serve their tools from a socket of their own (Phase 153 Theme B/C) rather than Studio's. Studio's
+ * list never carries their tools — the `midnite` shim adds them while that app runs, and only an app that is
+ * running (and consented) can answer a call — so a tool listed here is not Studio's to offer.
+ */
+export const SUITE_SERVED_APPS: readonly PlacementAppId[] = ['startup'];
+
+/**
  * The tool ids to list: a frame tool always, an app's tool only when that app
  * is installed. Order is `MCP_TOOL_IDS`'s, so Studio's list is byte-identical
- * to the pre-split one.
+ * to the pre-split one. The tools of a {@link SUITE_SERVED_APPS} app are left out
+ * unless `includeSuiteServed` is set (a registry view, not a listing).
  */
 export function listMcpToolIds(
   isInstalled: IsAppInstalled,
   manifests: readonly Pick<FeatureManifest, 'owner' | 'mcpTools'>[] = [],
+  opts: { includeSuiteServed?: boolean } = {},
 ): McpToolId[] {
   return MCP_TOOL_IDS.filter((id) => {
     const owner = mcpToolOwner(id, manifests);
+    if (!opts.includeSuiteServed && SUITE_SERVED_APPS.includes(owner as PlacementAppId)) return false;
     return owner === 'frame' || isInstalled(owner);
   });
 }

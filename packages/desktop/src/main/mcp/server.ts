@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 
-import { isMcpToolId, PLACEMENT_APP_IDS } from '@midnite/studio-shared';
+import { isMcpToolId, isStartupMcpToolId, PLACEMENT_APP_IDS, STARTUP_OPEN_APP_MESSAGE } from '@midnite/studio-shared';
 
 import {
   createMcpToolListing,
@@ -104,6 +104,8 @@ export async function startMcpServer(opts: StartMcpServerOptions): Promise<Start
       ? privateGuard.wrap(opts.dispatch)
       : async (tool: string, input: unknown): Promise<McpDispatchResult> => {
           if (isMcpToolId(tool) && !listing.isListed(tool)) {
+            // Startup's tools are served from Startup's own socket (Phase 153 Theme C): a call that lands here means it is not running.
+            if (isStartupMcpToolId(tool)) return { ok: false, kind: 'refused', message: STARTUP_OPEN_APP_MESSAGE };
             return { ok: false, kind: 'refused', message: `"${tool}" belongs to an app that is not installed.` };
           }
           // Phase 135 Theme E: a switched-off feature's tools refuse rather than run.

@@ -2,7 +2,8 @@ import type { IconType } from 'react-icons';
 import { GoBeaker, GoGitPullRequest, GoGlobe, GoPlay } from 'react-icons/go';
 import { IoIosGitNetwork } from 'react-icons/io';
 import { PiTerminalDuotone } from 'react-icons/pi';
-import { SiGrapheneos, SiMagic, SiOllama } from 'react-icons/si';
+import { DiHtml5Multimedia } from 'react-icons/di';
+import { SiGrapheneos, SiOllama } from 'react-icons/si';
 import {
   LuActivity,
   LuAudioLines,
@@ -104,7 +105,7 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   councils: CirclePileIcon,
   workflows: IoIosGitNetwork,
   // Phase 99 Theme A — Media (Docs/Images/Video/Audio); Video's clapperboard is its tab glyph now.
-  media: SiMagic,
+  media: DiHtml5Multimedia,
   // Phase 96 Theme C — Ollama's own mark, not a Lucide model/box glyph: this
   // view is specifically Ollama's models, and the phase doc's own research
   // already settled on `SiOllama` for it.
@@ -150,7 +151,7 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   reviews: LuShieldCheck,
   projects: LuListTodo,
   workflows: IoIosGitNetwork,
-  media: SiMagic,
+  media: DiHtml5Multimedia,
   ollama: SiOllama,
   gitSafety: LuShieldAlert,
   // A literal trash can, not a third shield glyph: `reviews` already owns

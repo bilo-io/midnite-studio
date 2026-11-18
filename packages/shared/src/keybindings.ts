@@ -129,6 +129,11 @@ export const COMMANDS = [
    */
   { id: 'system.cleanSystem', label: 'Clean System', group: 'view' },
   /**
+   * Chord-free (Phase 148 Theme C): the monitor flyout's Free RAM. Lists previous-build sessions, lost
+   * brokers, hidden tabs and renderer caches, then asks one confirm before anything is ended.
+   */
+  { id: 'system.freeRam', label: 'Free RAM', group: 'view' },
+  /**
    * Mod+g ("G" for Git). `app` scope, unlike the terminal toggle: showing the
    * repository list while the terminal has focus is not something you reach
    * for mid-command.

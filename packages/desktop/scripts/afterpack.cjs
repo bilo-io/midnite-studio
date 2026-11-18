@@ -4,6 +4,7 @@ const { chmodSync, existsSync, readdirSync, statSync, unlinkSync } = require('no
 const { execFileSync } = require('node:child_process');
 const { join } = require('node:path');
 const { flipFuses } = require('@electron/fuses');
+const { resolveSigning, listKeychainIdentities, afterPackSignArg } = require('../../../scripts/lib/signing-identity.cjs');
 
 /**
  * electron-builder afterPack hook.
@@ -13,6 +14,28 @@ const { flipFuses } = require('@electron/fuses');
  */
 exports.default = async function afterPack(context) {
   const root = context.appOutDir;
+
+  /**
+   * 0. Refuse a bundle with no renderer.
+   *
+   * `extraResources` copies `../app/dist` as-is; when it is missing or being
+   * rewritten by a concurrent `app:build`, electron-builder copies nothing and
+   * says nothing. The app then launches to a black window
+   * (ERR_FILE_NOT_FOUND on Resources/renderer/index.html).
+   */
+  if (context.electronPlatformName === 'darwin') {
+    const indexHtml = join(
+      root,
+      `${context.packager.appInfo.productFilename}.app`,
+      'Contents',
+      'Resources',
+      'renderer',
+      'index.html',
+    );
+    if (!existsSync(indexHtml)) {
+      throw new Error(`[afterPack] no renderer in the bundle (${indexHtml}) — run \`moon run app:build\` and package again`);
+    }
+  }
 
   /**
    * 1. Restore the executable bit.
@@ -107,13 +130,21 @@ exports.default = async function afterPack(context) {
   if (context.electronPlatformName === 'darwin') {
     const appName = `${context.packager.appInfo.productFilename}.app`;
     const appPath = join(root, appName);
-    try {
-      execFileSync('codesign', ['--force', '--deep', '--sign', '-', appPath], {
-        stdio: 'inherit',
-      });
-      console.log(`[afterPack] ad-hoc signed ${appName}`);
-    } catch (error) {
-      console.warn(`[afterPack] ad-hoc codesign failed: ${error.message}`);
+    // A Developer ID that electron-builder signs with replaces this after the hook, so an ad-hoc
+    // pass would only be overwritten; with no identity configured it is today's `-` signature.
+    const resolved = resolveSigning(process.env, listKeychainIdentities);
+    const signArg = afterPackSignArg(resolved);
+    if (signArg === null) {
+      console.log(`[afterPack] skipping ad-hoc sign — ${resolved.name} signs after this hook`);
+    } else {
+      try {
+        execFileSync('codesign', ['--force', '--deep', '--sign', signArg, appPath], {
+          stdio: 'inherit',
+        });
+        console.log(`[afterPack] ${signArg === '-' ? 'ad-hoc ' : ''}signed ${appName}`);
+      } catch (error) {
+        console.warn(`[afterPack] codesign failed: ${error.message}`);
+      }
     }
   }
 };

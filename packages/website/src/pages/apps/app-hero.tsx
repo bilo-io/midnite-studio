@@ -92,7 +92,7 @@ export const AppHero = ({ app, version, active }: AppHeroProps) => {
             </p>
           </div>
 
-          <ul className="grid gap-2 sm:grid-cols-2" aria-label={`What is in Midnite ${app.name}`}>
+          <ul className="grid gap-2 sm:grid-cols-2" aria-label={`What is in Midnyte ${app.name}`}>
             {app.features.map((feature, index) => (
               <li
                 key={feature.label}
@@ -117,7 +117,7 @@ export const AppHero = ({ app, version, active }: AppHeroProps) => {
             <LuSparkles aria-hidden="true" />
             Get early access
           </a>
-          <span className="text-xs text-white/60">Installed and opened from the Midnite Apps launcher</span>
+          <span className="text-xs text-white/60">Installed and opened from the Midnyte Apps launcher</span>
         </div>
       </div>
     </article>

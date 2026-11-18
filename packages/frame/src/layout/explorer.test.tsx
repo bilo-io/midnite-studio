@@ -140,4 +140,88 @@ describe('ExplorerGroup', () => {
 
     expect(capturedNode!.className).toContain('opacity-80');
   });
+
+  it('renders an aligned guide line with shimmer only when guideLine is active', () => {
+    const { rerender } = render(
+      <ExplorerGroup title="active-repo" count={1} open={true} onToggle={() => {}} bodyId="g-guide">
+        <div>row</div>
+      </ExplorerGroup>,
+    );
+    expect(screen.queryByTestId('explorer-group-guide')).toBeNull();
+
+    rerender(
+      <ExplorerGroup
+        title="active-repo"
+        count={1}
+        open={true}
+        onToggle={() => {}}
+        bodyId="g-guide"
+        guideLine="active"
+      >
+        <div>row</div>
+      </ExplorerGroup>,
+    );
+    expect(screen.getByTestId('explorer-group-guide')).toBeTruthy();
+    expect(screen.getByTestId('explorer-group-guide-shimmer')).toBeTruthy();
+
+    rerender(
+      <ExplorerGroup
+        title="other-repo"
+        count={1}
+        open={true}
+        onToggle={() => {}}
+        bodyId="g-guide"
+        guideLine="muted"
+      >
+        <div>row</div>
+      </ExplorerGroup>,
+    );
+    expect(screen.getByTestId('explorer-group-guide')).toBeTruthy();
+    expect(screen.queryByTestId('explorer-group-guide-shimmer')).toBeNull();
+  });
+  it('gives every header a chevron orb and pulses only the active group, phase-locked', () => {
+    const { container, rerender } = render(
+      <ExplorerGroup title="repo" count={1} open={true} onToggle={() => {}} bodyId="g-orb" guideLine="muted">
+        <div>row</div>
+      </ExplorerGroup>,
+    );
+    expect(screen.getByTestId('explorer-group-orb')).toBeTruthy();
+    expect(container.querySelector('.explorer-orb-ring')).toBeNull();
+    expect(container.querySelector('.explorer-title-stroke')).toBeNull();
+
+    rerender(
+      <ExplorerGroup title="repo" count={1} open={true} onToggle={() => {}} bodyId="g-orb" guideLine="active">
+        <div>row</div>
+      </ExplorerGroup>,
+    );
+    for (const cls of ['explorer-orb-halo', 'explorer-orb-ring', 'explorer-header-sweep', 'explorer-title-stroke']) {
+      const el = container.querySelector<HTMLElement>(`.${cls}`);
+      expect(el, cls).not.toBeNull();
+      expect(el!.style.animationDelay).toMatch(/^-?[\d.]+ms$/);
+    }
+    expect(screen.getByTestId('explorer-group-guide-shimmer').style.animationDelay).toMatch(/ms$/);
+  });
+  it('puts the logo inside the orb and wraps trailing controls for the active sweep', () => {
+    const { container } = render(
+      <ExplorerGroup
+        title="repo"
+        count={1}
+        open={true}
+        onToggle={() => {}}
+        bodyId="g-logo"
+        guideLine="active"
+        leading={<img alt="" data-testid="logo" />}
+        trailing={<button type="button">add</button>}
+      >
+        <div>row</div>
+      </ExplorerGroup>,
+    );
+    expect(screen.getByTestId('explorer-group-orb').contains(screen.getByTestId('logo'))).toBe(true);
+    // Logo shows by default; the chevron is hidden until the header is hovered or focused.
+    expect(screen.getByTestId('explorer-group-chevron').getAttribute('class')).toContain('opacity-0');
+    expect(screen.getByTestId('explorer-group-orb-logo').className).toContain('group-hover/explorer-header:opacity-0');
+    const trailing = container.querySelector<HTMLElement>('.explorer-trailing-shimmer');
+    expect(trailing?.contains(screen.getByText('add'))).toBe(true);
+    expect(trailing?.style.getPropertyValue('--pulse-delay')).toMatch(/ms$/);
+  });
 });

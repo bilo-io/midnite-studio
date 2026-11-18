@@ -11,14 +11,15 @@ copies this tree into a target repo; re-running it there is an upgrade, not a fr
 - **`.midnite/`** — the tracker skeleton: `settings.json`, `tasks/_INDEX.md` (headers + an empty
   phase table), `tasks/done.md`, `tasks/outstanding.md`, an empty `tasks/phases/`, and
   `_features.md`.
-- **`.claude/skills/`, `.agents/skills/`, `.codex/skills/`** — three mirrors of the same
-  eighteen workflow skills (plus the Media set), because each CLI (Claude Code, Codex, Antigravity/Gemini) reads its own path.
+- **`.claude/skills/`, `.agents/skills/`** — two mirrors of the same eighteen workflow skills (plus
+  the Media set): Claude Code reads `.claude/skills/`; Codex, Antigravity and most other CLIs read
+  `.agents/skills/`.
   Symlinks were considered and rejected: zero drift by construction, but broken the moment the
   repo is cloned onto another machine, since a symlink target under `~/.claude/skills/` is
-  machine-local. Three copies plus the eventual hash manifest solves the same drift problem
+  machine-local. Two copies plus the eventual hash manifest solves the same drift problem
   without a machine-local path landing in a git repo.
-- **`CLAUDE.md` / `AGENTS.md` / `GEMINI.md`** — stubs, not copies. What actually transfers between
-  repos is the *sync rule* between the three files and the tracker/worktree/phase-workflow
+- **`AGENTS.md`** (with a `CLAUDE.md` that imports it) — a stub, not a copy. What actually transfers
+  between repos is the one-convention-file rule and the tracker/worktree/phase-workflow
   sections; everything repo-specific (the toolchain, package boundaries, house conventions) is
   left as a marked `<!-- TODO -->` placeholder. A stub that reads as a template is honest; a copy
   that names this repo's own package boundaries in someone else's repo is not.

@@ -91,7 +91,7 @@ describe('templates/media-video manifest (Phase 99 Theme D, Theme H)', () => {
 
 describe('namespaced editorial skills (Phase 99 Theme J)', () => {
   it('ships both skills under midnite-media-video-* in every convention dir, and no legacy name', () => {
-    for (const dir of ['.claude', '.agents', '.codex']) {
+    for (const dir of ['.claude', '.agents']) {
       for (const fn of ['write', 'execute']) {
         const name = `midnite-media-video-${fn}-editorial-script`;
         expect(VIDEO_COMMON_TEMPLATE_FILES).toContain(`${dir}/skills/${name}/SKILL.md`);

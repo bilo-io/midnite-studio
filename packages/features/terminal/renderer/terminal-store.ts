@@ -70,6 +70,11 @@ export type NewSessionRequest = {
   surface?: TerminalSurface;
   /** `{ projectId, itemId }` — set only for `surface: 'kanban'` (Phase 41 Theme D). */
   taskRef?: { projectId: string; itemId: string };
+  /** The loop that dispatched this session — lists it under the session list's "Loops" group. */
+  loopId?: string;
+  /** The loop's model and effort ids at launch — the row's label reads them. */
+  loopModel?: string;
+  loopEffort?: string;
   /** Stamped at launch (Phase 95 Theme H) — see `TerminalSessionSchema`'s own docs. */
   projectRef?: { projectId: string; forge: string };
   workflowRunRef?: { workflowId: string; runId: string; nodeId: string };
@@ -574,6 +579,9 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       createdAt: Date.now(),
       ...(request.surface === undefined ? {} : { surface: request.surface }),
       ...(request.taskRef === undefined ? {} : { taskRef: request.taskRef }),
+      ...(request.loopId === undefined ? {} : { loopId: request.loopId }),
+      ...(request.loopModel === undefined ? {} : { loopModel: request.loopModel }),
+      ...(request.loopEffort === undefined ? {} : { loopEffort: request.loopEffort }),
       ...(request.projectRef === undefined ? {} : { projectRef: request.projectRef }),
       ...(request.workflowRunRef === undefined ? {} : { workflowRunRef: request.workflowRunRef }),
       ...(request.forgeAccountKey === undefined ? {} : { forgeAccountKey: request.forgeAccountKey }),
@@ -606,7 +614,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   closeSession: (sessionId, intent = 'closed') => {
     const { ptyIds, sessions, activeId } = get();
     const ptyId = ptyIds[sessionId];
-    if (ptyId) bridge()?.pty.kill({ ptyId });
+    if (ptyId) killPty(sessions.find((s) => s.id === sessionId), sessionId, ptyId);
     bridge()?.terminal.forget({ sessionId, reason: intent });
 
     const remaining = sessions.filter((s) => s.id !== sessionId);
@@ -625,8 +633,8 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   sleepSession: (sessionId) => {
     const { ptyIds, sessions } = get();
     const ptyId = ptyIds[sessionId];
-    if (ptyId) bridge()?.pty.kill({ ptyId });
     const session = sessions.find((s) => s.id === sessionId);
+    if (ptyId) killPty(session, sessionId, ptyId);
     if (!session) return;
     const nextSession: TerminalSession = { ...session, asleep: true };
     get().unbindPty(sessionId);
@@ -848,6 +856,28 @@ export function brokerStatusText(broker: TerminalState['broker']): string | null
   return broker.reason ? `Sessions will not survive quit — ${broker.reason}` : 'Sessions will not survive quit';
 }
 
+/**
+ * Kill a session's pty — for a loop session, only once its run is finalised.
+ *
+ * A loop is ended from the terminal list now (sleep or close), the way every
+ * session is; the Loops panel's own Stop is gone. So this is where the run
+ * ledger hears "the user stopped it": `loopRuns.stop` marks the running record
+ * `stopped`, and it is AWAITED before the kill, because main also finalises
+ * off the pty's exit and the first one in wins — killing first would record a
+ * stop as `exited`. A session with no running record makes `stop` a no-op.
+ */
+function killPty(session: TerminalSession | undefined, sessionId: string, ptyId: string): void {
+  const api = bridge();
+  if (!api) return;
+  if (!session || !isLoopSession(session)) {
+    api.pty.kill({ ptyId });
+    return;
+  }
+  void Promise.resolve(api.loopRuns?.stop({ sessionId }))
+    .catch(() => undefined)
+    .finally(() => api.pty.kill({ ptyId }));
+}
+
 export function onMainSurface(session: Pick<TerminalSession, 'surface'>): boolean {
   return session.surface === undefined || session.surface === 'main';
 }
@@ -864,12 +894,19 @@ export function onMainSurface(session: Pick<TerminalSession, 'surface'>): boolea
  * is a trade nobody asked for; the panel lists them instead, and the card
  * keeps its binding.
  *
- * A `'fab'` loop session is still excluded, and for a reason that has not
- * changed: it renders inside the FAB panel's own tab, so listing it here
- * would mount a second xterm against the same pty.
+ * A `'fab'` loop session is listed too. It used to be excluded because the
+ * Loops panel drew its own xterm for it; that panel is now only the form that
+ * dispatches loops, and every loop session — the main-surface ones it starts
+ * today (tagged `loopId`) and any `'fab'` row persisted before — lives here,
+ * under the session list's "Loops" group.
  */
 export function inMainPanel(session: Pick<TerminalSession, 'surface'>): boolean {
-  return onMainSurface(session) || session.surface === 'kanban';
+  return onMainSurface(session) || session.surface === 'kanban' || session.surface === 'fab';
+}
+
+/** Whether a session was dispatched by a loop — grouped under "Loops" in the session list. */
+export function isLoopSession(session: Pick<TerminalSession, 'surface' | 'loopId'>): boolean {
+  return session.loopId !== undefined || session.surface === 'fab';
 }
 
 

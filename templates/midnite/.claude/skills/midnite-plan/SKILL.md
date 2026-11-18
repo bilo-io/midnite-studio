@@ -16,7 +16,7 @@ You are running the **plan** workflow for **this repo**: an interactive, human-i
   - Completed work is logged append-only in `done.md`; deferred scope lives in `outstanding.md`.
 - Match the **house style** of existing phase docs: a `# Phase N — Title` heading; blockquote framing (`> **Builds on:** ...`, `> **Scope guardrails:** ...`); a **`## Headlines`** section (lead paragraph with `Planned <date>` + one `**Theme X — <name>.** ◻ <one-liner>` paragraph per theme); a **Deliverables** checklist (`- [ ]` items grouped into lettered Themes); a **Verification** checklist; crib-file references.
 - **Refinement for simpler models:** Every deliverable must be concrete and actionable. Specify target file paths, schema shapes, export names, and edge cases so models without deep repo context can execute without hallucinating.
-- Respect the repo's convention files (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`) and its design doc if it has one: package/module boundaries, wire contracts and any I/O-boundary validation rule.
+- Respect the repo's convention file (`AGENTS.md`, which `CLAUDE.md` imports) and its design doc if it has one: package/module boundaries, wire contracts and any I/O-boundary validation rule.
 - Checkboxes start unchecked (`- [ ]`) in a fresh plan.
 
 ---

@@ -1,10 +1,16 @@
 import { spawn } from 'node:child_process';
 import * as net from 'node:net';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { MCP_TOOL_IDS, VIEW_IDS } from '@midnite/studio-shared';
+import { isStartupMcpToolId, MCP_TOOLS, MCP_TOOL_IDS as ALL_MCP_TOOL_IDS, VIEW_IDS } from '@midnite/studio-shared';
+
+/** What Studio's own list carries: Startup's tools come from Startup's socket (Phase 153 Theme C), so they are never in it. */
+const MCP_TOOL_IDS = ALL_MCP_TOOL_IDS.filter((id) => !isStartupMcpToolId(id));
+import { z } from 'zod';
+
+import { startFakeApp } from './suite-test-helpers';
 
 import { createFrameDecoder, encodeJsonFrame } from '../broker/protocol';
 import { build } from 'esbuild';
@@ -292,4 +298,87 @@ describe('mcp stdio shim', () => {
       await rm(sockDir, { recursive: true, force: true });
     }
   }, 15_000);
+});
+
+/**
+ * Phase 153 Theme B. The hard requirement: with only Studio running, the shim answers exactly as it did before
+ * suite joining existed. The expected listing is rebuilt here from the registry by the original formula (not by
+ * the shim's code), so a drift in either shows up as a byte difference.
+ */
+describe('mcp stdio shim — suite joining (Phase 153 Theme B)', () => {
+  const handshake = [
+    { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'test', version: '0' } } },
+    { jsonrpc: '2.0', method: 'notifications/initialized' },
+  ];
+  // `sun_path` caps at 104 bytes and a suite socket sits ~60 deep under HOME, so HOME must be short.
+  const shortHome = (): Promise<string> => mkdtemp('/tmp/sh-');
+  const originalListing = JSON.stringify(
+    MCP_TOOL_IDS.map((id) => ({
+      name: MCP_TOOLS[id].id,
+      description: MCP_TOOLS[id].description,
+      inputSchema: z.toJSONSchema(MCP_TOOLS[id].input as z.ZodType, { target: 'draft-7', io: 'input', unrepresentable: 'any' }),
+    })),
+  );
+
+  it('lists byte-identically to the registry with only Studio running', async () => {
+    const home = await shortHome();
+    // A Studio-shaped socket server is up (a non-suite dir); no suite app is.
+    const studioDir = join(home, 'Library', 'Application Support', 'Midnite Studio', 'mcp');
+    await mkdir(studioDir, { recursive: true });
+    const studioSock = join(studioDir, '1-t.sock');
+    const studio = net.createServer();
+    await new Promise<void>((resolve) => studio.listen(studioSock, resolve));
+    try {
+      const { parsed } = await runShim([...handshake, { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }], { homeDir: home });
+      const tools = (parsed.find((m) => m.id === 2)?.result as { tools: unknown[] }).tools;
+      expect(JSON.stringify(tools)).toBe(originalListing);
+    } finally {
+      await new Promise<void>((resolve) => studio.close(() => resolve()));
+      await rm(home, { recursive: true, force: true });
+    }
+  }, 15_000);
+
+  it('routes a tool a running suite app offers to that app, and says so when it is gone', async () => {
+    const home = await shortHome();
+    const base = join(home, 'Library', 'Application Support');
+    const money = await startFakeApp(base, 'money', ['repo.list']);
+    try {
+      const call = { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'repo.list', arguments: {} } };
+      const listed = await runShim([...handshake, { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }, call], { homeDir: home });
+      const tools = (listed.parsed.find((m) => m.id === 2)?.result as { tools: unknown[] }).tools;
+      expect(JSON.stringify(tools)).toBe(originalListing);
+      const text = (listed.parsed.find((m) => m.id === 3)?.result as { content: Array<{ text: string }> }).content[0]?.text;
+      expect(JSON.parse(text ?? '{}')).toMatchObject({ from: 'money', tool: 'repo.list' });
+
+      await money.close();
+      const gone = await runShim([...handshake, call], { homeDir: home });
+      const goneText = (gone.parsed.find((m) => m.id === 3)?.result as { content: Array<{ text: string }> }).content[0]?.text;
+      expect(goneText).toMatch(/not running|MCP server is off/i);
+    } finally {
+      await money.close();
+      await rm(home, { recursive: true, force: true });
+    }
+  }, 20_000);
+
+  it('lists startup_* only while Startup runs, and routes them to its socket (Phase 153 Theme C)', async () => {
+    const home = await shortHome();
+    const base = join(home, 'Library', 'Application Support');
+    const startup = await startFakeApp(base, 'startup', ['startup_summary']);
+    try {
+      const call = { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'startup_summary', arguments: {} } };
+      const listed = await runShim([...handshake, { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }, call], { homeDir: home });
+      const names = ((listed.parsed.find((m) => m.id === 2)?.result as { tools: { name: string }[] }).tools).map((t) => t.name);
+      expect(names.filter((n) => n.startsWith('startup_'))).toEqual(['startup_summary']);
+      const text = (listed.parsed.find((m) => m.id === 3)?.result as { content: Array<{ text: string }> }).content[0]?.text;
+      expect(JSON.parse(text ?? '{}')).toMatchObject({ from: 'startup', tool: 'startup_summary' });
+
+      await startup.close();
+      const gone = await runShim([...handshake, { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }], { homeDir: home });
+      const none = ((gone.parsed.find((m) => m.id === 2)?.result as { tools: { name: string }[] }).tools).filter((t) => t.name.startsWith('startup_'));
+      expect(none).toEqual([]);
+    } finally {
+      await startup.close();
+      await rm(home, { recursive: true, force: true });
+    }
+  }, 20_000);
 });

@@ -18,7 +18,8 @@ const TABS: readonly { mode: GameMode; label: string; icon: typeof LuGamepad2 }[
  * The Games centre panel (Phase 132 Theme B): a **Level editor** tab and a **Play mode** tab over one game.
  * Both panels stay mounted — the inactive one is `hidden` — so a run keeps its console and the native game view
  * keeps its stage; `GameRunnerHost`'s `active` flag is what hides that view while the editor shows.
- * `sceneSlot` sits right of the tabs (Theme D's scene picker).
+ * `sceneSlot` sits right of the tabs (Theme D's scene picker). `leading` / `trailing` take the side-pane toggles,
+ * which sit in the bar's own flow rather than floating over it, so they never cover a tab or the picker.
  */
 export function GameCenter({
   game,
@@ -26,12 +27,19 @@ export function GameCenter({
   onMode,
   resolution,
   sceneSlot,
+  leading,
+  trailing,
+  onPlayFromHere,
 }: {
   game: { gameId: string } | null;
   mode: GameMode;
   onMode: (next: GameMode) => void;
   resolution: GameResolution;
   sceneSlot?: ReactNode;
+  leading?: ReactNode;
+  trailing?: ReactNode;
+  /** Play from here started a run (Phase 140 Theme B): show Play, as the Run button does. */
+  onPlayFromHere?: (started: Promise<string | null>) => void;
 }) {
   const gameId = game?.gameId ?? null;
   const live = useGameRunStore((s) => isLive(gameId ? s.runs[gameId]?.state : undefined));
@@ -49,6 +57,7 @@ export function GameCenter({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-2">
+        {leading ? <div className="flex shrink-0 items-center border-r border-border pr-2">{leading}</div> : null}
         <div role="tablist" aria-label="Game view" className="flex items-center gap-1">
           {TABS.map(({ mode: tab, label, icon: Icon }, index) => {
             const selected = mode === tab;
@@ -85,7 +94,10 @@ export function GameCenter({
             );
           })}
         </div>
-        {sceneSlot ? <div className="ml-auto flex items-center">{sceneSlot}</div> : null}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {sceneSlot}
+          {trailing ? <div className="flex items-center border-l border-border pl-2">{trailing}</div> : null}
+        </div>
       </div>
       <div
         role="tabpanel"
@@ -94,7 +106,7 @@ export function GameCenter({
         hidden={mode !== 'editor'}
         className="min-h-0 flex-1"
       >
-        {gameId ? <LevelEditor gameId={gameId} /> : <EmptyState icon={LuPencilRuler} title="No game selected" body="Pick a game from the list to edit its levels." />}
+        {gameId ? <LevelEditor gameId={gameId} onPlayStarted={onPlayFromHere} /> : <EmptyState icon={LuPencilRuler} title="No game selected" body="Pick a game from the list to edit its levels." />}
       </div>
       <div
         role="tabpanel"

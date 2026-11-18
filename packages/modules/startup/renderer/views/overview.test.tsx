@@ -8,7 +8,7 @@ const u = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}
 const company = { name: 'Acme', currency: 'GBP', address: '', invoicePrefix: 'INV-', paymentTermsDays: 30, openingCash: { minor: 250_000, asOf: '2026-11-01' } };
 const milestone = (n: number, due: string, status = 'planned') => ({ id: u(n), title: `M${n}`, description: '', status, due, dependsOn: [], tags: [] });
 const overdue = { id: u(40), number: 'INV-0001', customerId: u(30), issueDate: '2020-01-01', dueDate: '2020-01-31', lines: [{ description: 'x', quantityMilli: 1000, unitMinor: 10_000, taxRateBp: 0 }], notes: '', status: 'issued', entries: {} };
-const ws = (over: object) => ({ version: 1, company, milestones: [], lines: [], scenarios: [], customers: [], invoices: [], vendors: [], contracts: [], invoiceCounter: 0, ledger: null, ...over });
+const ws = (over: object) => ({ version: 4, fleetProjections: [], company, milestones: [], lines: [], scenarios: [], customers: [], invoices: [], vendors: [], contracts: [], invoiceCounter: 0, ledger: null, ...over });
 
 function install(workspace: object, extra: Record<string, unknown> = {}) {
   window.midniteStudio = {
