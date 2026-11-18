@@ -7,12 +7,13 @@ import { fleetProjectionCsv, majorUnits, renderFleetProjectionHtml, runwayCsv, s
 import type { RunwayProjection } from './runway';
 
 const u = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+// A 3-month horizon keeps the series short; the schema's 12|24|36 only matters on the wire, which this test never crosses.
 const projection = (nodeName = 'Node 1', horizon = 3): FleetProjection => ({
   id: u(1),
   name: 'Plan',
   createdAt: '2026-11-01T00:00:00.000Z',
   updatedAt: '2026-11-01T00:00:00.000Z',
-  globals: { scalePct: 100, electricityRateMinor: 15, demandGrowthPct: 0, horizonMonths: horizon, energyScalesWithUtilisation: false },
+  globals: { scalePct: 100, electricityRateMinor: 15, demandGrowthPct: 0, horizonMonths: horizon as FleetProjection['globals']['horizonMonths'], energyScalesWithUtilisation: false },
   template: { hardwareId: 'dual-4090', apiTierId: 'pro', quantity: 1, utilisationPct: 70, pricePerHourMinor: 150 },
   nodes: [{ id: u(2), name: nodeName, enabled: true, hardwareId: 'dual-4090', apiTierId: 'pro', quantity: 2, utilisationPct: 70, pricePerHourMinor: 150 }],
 });
