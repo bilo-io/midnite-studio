@@ -777,6 +777,8 @@ const bridge: Pick<
         delete: (req) => call(CHANNELS.gamesLevelPrefabDelete, req),
       },
       assetThumb: (req) => call(CHANNELS.gamesLevelAssetThumb, req),
+      preview: (req) => call(CHANNELS.gamesLevelPreview, req),
+      previewEnd: (req) => call(CHANNELS.gamesLevelPreviewEnd, req),
       onEditorRequest: (handler) => subscribe(EVENT_CHANNELS.gamesLevelEditorRequest, handler),
       editorReply: (payload) => ipcRenderer.send(CHANNELS.gamesLevelEditorReply, payload),
       editorOpen: (scene) => ipcRenderer.send(CHANNELS.gamesLevelEditorOpen, scene),

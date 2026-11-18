@@ -192,6 +192,8 @@ export const mediaGameMain = defineFeatureMain<MediaGameMainServices>({
     handle(CHANNELS.gamesLevelPrefabDelete, schemas.GamesLevelPrefabDeleteRequest, ({ gameId, name }) => service.levels.prefabs.delete(gameId, name), (issue) => failure(issue));
     handle(CHANNELS.gamesLevelModel, schemas.GamesLevelModelRequest, ({ gameId, name }) => service.levels.model(gameId, name), (issue) => failure(issue));
     handle(CHANNELS.gamesLevelAssetThumb, schemas.GamesLevelAssetThumbRequest, ({ gameId, name }) => service.levels.assetThumb(gameId, name), (issue) => failure(issue));
+    handle(CHANNELS.gamesLevelPreview, schemas.GamesLevelPreviewRequest, (req) => service.levels.preview(req), (issue) => failure(issue));
+    handle(CHANNELS.gamesLevelPreviewEnd, schemas.GamesLevelPreviewEndRequest, ({ gameId }) => service.levels.previewEnd(gameId), (issue) => failure(issue));
     handle(
       CHANNELS.gamesLevelSet,
       schemas.GamesLevelSetRequest,

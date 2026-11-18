@@ -45,6 +45,8 @@ export type GameLevelsDeps = {
   /** The game's manifest, or the issues that made it unreadable. */
   readManifest: (path: string) => Promise<{ manifest: GameManifest | null; issues: GameManifestIssue[] }>;
   runner: Pick<GameRunner, 'goto'>;
+  /** A level is about to be written (Phase 140 Theme B): the service ends that scene's preview. */
+  onLevelSave?: (gameId: string, scene: string) => void;
   send: (channel: string, payload: unknown) => void;
   log: Logger;
 };
@@ -182,6 +184,8 @@ export function createGameLevels(deps: GameLevelsDeps) {
     }
     const text = `${JSON.stringify(level, null, 2)}\n`;
     if (Buffer.byteLength(text) > GAME_LEVEL_MAX_BYTES) return failure(`That level is over ${GAME_LEVEL_MAX_BYTES / 1048576} MB.`);
+    // Phase 140 Theme B: the disk is about to match this scene, so a preview of it ends before the file watcher can restart the scene.
+    deps.onLevelSave?.(gameId, scene);
     const rel = posix.join(GAME_LEVELS_DIR, `${scene}${GAME_LEVEL_EXT}`);
     const file = located.value;
 

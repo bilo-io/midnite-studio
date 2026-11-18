@@ -252,6 +252,22 @@ export const GameLevelMapAssetResultSchema = z.object({
 });
 export type GameLevelMapAssetResult = z.infer<typeof GameLevelMapAssetResultSchema>;
 
+/**
+ * Play from here (Phase 140 Theme B): run the editor's unsaved `level` for `scene` without committing it.
+ * `spawn` is the kit's `midnite-spawn` shape: `{x, y}` pixels (2D), `{x, y}` = x,z metres or `{x, y, z}` = x,height,z
+ * metres (3D); `null` keeps the scene's own spawn.
+ */
+export const GameLevelPreviewRequestSchema = z.object({
+  gameId: z.string().min(1),
+  scene: GameSceneNameSchema,
+  level: z.unknown(),
+  spawn: z.object({ x: z.number().finite(), y: z.number().finite(), z: z.number().finite().optional() }).nullable(),
+});
+export const GameLevelPreviewResultSchema = z.object({ url: z.string(), via: z.enum(['started', 'restarted']) });
+export type GameLevelPreviewResult = z.infer<typeof GameLevelPreviewResultSchema>;
+/** End a preview: the overlay is dropped (the running game keeps what it loaded). */
+export const GameLevelPreviewEndRequestSchema = z.object({ gameId: z.string().min(1) });
+
 export const GameGotoRequestSchema = z.object({ gameId: z.string().min(1), scene: GameSceneNameSchema });
 export const GameGotoResultSchema = z.object({ via: z.enum(['hook', 'reload', 'next-run']) });
 export type GameGotoResult = z.infer<typeof GameGotoResultSchema>;

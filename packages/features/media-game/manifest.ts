@@ -46,6 +46,8 @@ export const mediaGameManifest = defineFeatureManifest({
     CHANNELS.gamesLevelPrefabSet,
     CHANNELS.gamesLevelPrefabDelete,
     CHANNELS.gamesLevelAssetThumb,
+    CHANNELS.gamesLevelPreview,
+    CHANNELS.gamesLevelPreviewEnd,
     CHANNELS.gamesLevelEditorReply,
     CHANNELS.gamesLevelEditorOpen,
     CHANNELS.gamesGoto,

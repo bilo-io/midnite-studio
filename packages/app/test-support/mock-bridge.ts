@@ -3681,6 +3681,15 @@ export function buildMockBridge(data: MockFixtures) {
         },
         model: async (req: { gameId: string; name: string }) => ({ ok: false as const, kind: 'error' as const, message: `No model asset named "${req.name}".` }),
         assetThumb: async (req: { gameId: string; name: string }) => ({ ok: false as const, kind: 'error' as const, message: `No asset named "${req.name}".` }),
+        // Phase 140 Theme B: play from here records the request; the preview "starts" with a stub URL.
+        preview: async (req: unknown) => {
+          gamesCalls.push({ call: 'levelPreview', req });
+          return { ok: true as const, value: { url: 'mstudio-game://mock/index.html', via: 'started' as const } };
+        },
+        previewEnd: async (req: unknown) => {
+          gamesCalls.push({ call: 'levelPreviewEnd', req });
+          return { ok: true as const };
+        },
         // Phase 138 Theme C: the editor bridge. Requests are never pushed here; replies and presence are recorded.
         onEditorRequest: (_handler: (event: unknown) => void) => () => undefined,
         editorReply: (payload: unknown) => {

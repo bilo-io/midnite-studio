@@ -148,6 +148,7 @@ export function GameTab() {
             mode={modeOf(selected?.gameId ?? null)}
             onMode={(next) => selected && setMode(selected.gameId, next)}
             resolution={resolution}
+            onPlayFromHere={(started) => selected && onPlay(selected.gameId, started)}
             sceneSlot={<ScenePicker gameId={selected?.gameId ?? null} />}
             leading={<MediaPaneToggles tab="game" hasDetail side="start" explorerName="games" />}
             trailing={<MediaPaneToggles tab="game" hasDetail side="end" detailName="details" />}

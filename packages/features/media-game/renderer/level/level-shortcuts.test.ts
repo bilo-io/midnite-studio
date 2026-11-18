@@ -53,4 +53,11 @@ describe('LEVEL_SHORTCUTS (Phase 137 Theme J)', () => {
     expect(formatChord('Mod+Shift+Z', true)).toBe('⌘⇧Z');
     expect(formatChord('Mod+D', false)).toBe('Ctrl+D');
   });
+
+  it('Phase 140 B: F5 plays, Shift+F5 stops, and neither shadows the other', () => {
+    expect(matchShortcut(key('F5'), plan2d)).toBe('play.here');
+    expect(matchShortcut(key('F5', { shiftKey: true }), plan2d)).toBe('play.stop');
+    expect(matchShortcut(key('F5'), view3d)).toBe('play.here');
+    expect(matchShortcut(key('F5', { metaKey: true }), plan2d)).toBeNull();
+  });
 });
