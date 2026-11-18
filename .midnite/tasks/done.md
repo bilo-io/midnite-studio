@@ -15999,3 +15999,7 @@ The level editor gains a Live toggle (ghosts of the running game with dashed dri
 ## 2026-11-18 — Phase 153 (Themes E, F) — Updates view, agent skill and verification
 
 Startup gets an Updates rail view after Runway: a two-pane markdown editor with debounced save and Preview, Draft with AI behind a review card (Accept/Discard; a cancelled draft ignores a late answer), Copy, Save .md/PDF and an email draft. The `midnite-startup-agent` skill ships in both skill mirrors (no `.codex/skills`, which does not exist), with an e2e fixture and `startup-updates.spec.ts`. Self-review caught a delete-with-pending-edit that re-created the update; the pending save is now cancelled first. Open: the full gate once CI runs and the packaged-app human passes. CI skipped (Actions billing-locked); merged on focused local checks. PR #1642.
+
+## 2026-11-18 — Phase 147 (Theme A) — Shared unified session contract
+
+Theme A needed no code: `UnifiedSessionViewModeSchema`, `ProviderSyncTierSchema`/`getProviderSyncTier`, the `linkedTerminalId`/`linkedChatId`/`preferredView` link fields and the `session:switch-view` channel had already landed on main with #1248 under the Phase 146 plan. This ticks A.1–A.4 and writes the Headlines; `engineSessionId` stays on `ChatEngineSessionSchema`, and any new field belongs to Theme C. PR #1640.
