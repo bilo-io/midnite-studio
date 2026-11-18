@@ -470,7 +470,7 @@ export default function Level3dView(props: Level3dViewProps) {
         props.onContextMenu({ clientX: e.clientX, clientY: e.clientY, hit: pointerHit.current });
       }}
     >
-      <Canvas frameloop={statsOn ? 'always' : 'demand'} dpr={Math.min(preset.pixelRatio, typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1)} gl={{ antialias: true }}>
+      <Canvas frameloop={statsOn ? 'always' : 'demand'} dpr={Math.min(preset.pixelRatio, typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1)} gl={{ antialias: true, logarithmicDepthBuffer: true }}>
         <LevelScene
           items={items}
           grid={grid}

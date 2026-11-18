@@ -294,7 +294,9 @@ export function LevelScene(props: LevelSceneProps) {
     bold.position.set(x0 + boldCells * unit * 5, props.ground + 0.02, z0 + boldCells * unit * 5);
     return [fine, bold].filter((g): g is GridHelper => g !== null);
   }, [props.focus, props.ground]);
-  const fineGridReach = 120 * gridUnit(Math.max(props.focus.maxX - props.focus.minX, props.focus.maxZ - props.focus.minZ));
+  // The fine grid only close in (from far off its lines alias into stripes): 120 m for 1 m lines, 60 cells for coarser ones.
+  const fineUnit = gridUnit(Math.max(props.focus.maxX - props.focus.minX, props.focus.maxZ - props.focus.minZ));
+  const fineGridReach = fineUnit === 1 ? 120 : 60 * fineUnit;
 
   // The part of the terrain the level works in: a sharper crop of the drape laid just over the ground, and the
   // pack's roads and building outlines as lines.
@@ -309,7 +311,7 @@ export function LevelScene(props: LevelSceneProps) {
     if (!props.detail || !detailDrape) return null;
     const d = props.detail, w = d.maxX - d.minX, h = d.maxZ - d.minZ;
     const geometry = new PlaneGeometry(w, h).rotateX(-Math.PI / 2).translate(d.minX + w / 2, props.ground + 0.005, d.minZ + h / 2);
-    const material = new MeshStandardMaterial({ map: detailDrape, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const material = new MeshStandardMaterial({ map: detailDrape, roughness: 1 });
     return { geometry, material };
   }, [props.detail, detailDrape, props.ground]);
   useEffect(() => () => {
@@ -522,7 +524,6 @@ export function LevelScene(props: LevelSceneProps) {
         const tile = tiles[i]?.tile;
         child.visible = tile ? tileInReach(tile, focus, reach) : false;
       });
-      // The 1 m grid only close in: from far off its lines alias into stripes.
       if (grids.length > 1) grids[0]!.visible = distance - offset < fineGridReach;
       sun.position.set(target.x + 40, target.y + 80, target.z + 30);
       sun.target.position.copy(target);
