@@ -58,7 +58,7 @@ export function parseRepoList(data: unknown): RepoSummary[] {
 
 export const BRANCHES_QUERY = [
   'query($owner:String!,$name:String!,$first:Int!,$after:String){',
-  'repository(owner:$owner,name:$name){refs(refPrefix:"refs/heads/",first:$first,after:$after,orderBy:{field:TAG_COMMIT_DATE,direction:DESC}){nodes{name}}}',
+  'repository(owner:$owner,name:$name){refs(refPrefix:"refs/heads/",first:$first,after:$after,orderBy:{field:TAG_COMMIT_DATE,direction:DESC}){pageInfo{hasNextPage endCursor} nodes{name}}}',
   '}',
 ].join('');
 
@@ -70,4 +70,25 @@ export function parseBranches(data: unknown): string[] {
   return nodesOf(pick(pick(data, 'repository'), 'refs'))
     .map((node) => asString(pick(node, 'name')))
     .filter((name): name is string => name !== null && name.length > 0);
+}
+
+export interface CursorPage<T> {
+  items: T[];
+  endCursor: string | null;
+  hasNextPage: boolean;
+}
+
+function pageInfoOf(connection: unknown): { endCursor: string | null; hasNextPage: boolean } {
+  const info = pick(connection, 'pageInfo');
+  return { endCursor: asString(pick(info, 'endCursor')), hasNextPage: pick(info, 'hasNextPage') === true };
+}
+
+/** {@link parseBranches} plus the cursor, for mobile's infinite branch picker. */
+export function parseBranchesPage(data: unknown): CursorPage<string> {
+  return { items: parseBranches(data), ...pageInfoOf(pick(pick(data, 'repository'), 'refs')) };
+}
+
+/** {@link parseRepoList} plus the cursor of the viewer's own repository connection (organisation repos ride along unpaged). */
+export function parseRepoPage(data: unknown): CursorPage<RepoSummary> {
+  return { items: parseRepoList(data), ...pageInfoOf(pick(pick(data, 'viewer'), 'repositories')) };
 }
