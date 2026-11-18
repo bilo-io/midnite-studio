@@ -1,4 +1,4 @@
-import type { StatusStroke } from '../status-stroke';
+import type { StatusStroke } from '@midnite/tasks-core';
 
 /** Outer corner radius of a card (Tailwind `rounded`, 0.25rem). */
 const CARD_RADIUS_PX = 4;

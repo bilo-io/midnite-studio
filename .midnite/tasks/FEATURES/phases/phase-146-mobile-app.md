@@ -59,9 +59,9 @@ to GitHub Packages.
 tasks, a Metro config that resolves the workspace, an eslint boundary block, and `ThemeProvider` at the root. It boots
 in Expo Go on iOS and Android.
 
-**Theme C — `packages/tasks-core`.** ◻ The pure Tasks derivations (board grouping, graph layout, filter, sort, status
+**Theme C — `packages/tasks-core`.** ✅ The pure Tasks derivations (board grouping, graph layout, filter, sort, status
 stroke, field colours, issue order) move out of `features/tasks/renderer` into a React-free package. Desktop imports it
-from there, and nothing on desktop changes behaviour.
+from there, and nothing on desktop changes behaviour. `deriveColumns` keeps its existing `(field, items)` signature so the moved assertions stay unchanged. The shared `ForgeProjectItem` test fixture moved with it and is exported at `@midnite/tasks-core/testing`, off the production barrel. `tasks-core` is in `NODE_PROJECTS`, so the consolidated `gate-node` targets pick it up, and eslint holds it to `shared` only with no React or electron.
 
 **Theme D — `packages/forge-github-core`.** ◻ GitHub GraphQL query documents and their response parsers move out of the
 forge main adapter into a pure package, joined by new history, pulls and issues queries written for mobile. `git-engine`
@@ -449,29 +449,29 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
 
 ### C — `packages/tasks-core` (M)
 
-- [ ] **C1 · Package** (S): `packages/tasks-core` with `"name": "@midnite/tasks-core"`, `moon.yml`, `tsconfig.json`,
+- [x] **C1 · Package** (S): `packages/tasks-core` with `"name": "@midnite/tasks-core"`, `moon.yml`, `tsconfig.json`,
   `vitest.config.ts` and `src/index.ts`, depending on `@midnite/studio-shared` only. Add `'tasks-core'` to
   `NODE_PROJECTS` in `scripts/gate-projects-check.mjs` (which feeds `vitest.node-gate.config.ts`) and add its targets
   to `.github/workflows/ci.yml`'s `gate-node` job. eslint block: it may import `@midnite/studio-shared` and nothing else
   in the workspace, and no `react`, `react-dom` or `react-native`.
-- [ ] **C2 · Move the pure files with `git mv`** (M), keeping their tests beside them: `resolve-group-field.ts`,
+- [x] **C2 · Move the pure files with `git mv`** (M), keeping their tests beside them: `resolve-group-field.ts`,
   `graph-layout.ts`, `graph-filter.ts`, `graph-blockers.ts`, `filter.ts`, `sort.ts`, `status-stroke.ts`,
   `field-option-colors.ts` and `issue-order.ts`, into `packages/tasks-core/src/{board,graph,issue}/` mirroring their
   current folders.
-- [ ] **C3 · Cut the frame edges** (S): `graph-layout.ts` imports `Rect` and `Viewport` types from `@midnite/studio-frame`.
+- [x] **C3 · Cut the frame edges** (S): `graph-layout.ts` imports `Rect` and `Viewport` types from `@midnite/studio-frame`.
   Declare structurally identical `Rect` / `Viewport` types and `rectsIntersect(a: Rect, b: Rect): boolean` in
   `tasks-core/src/graph/geometry.ts` (with a unit test; they are plain object types, so frame values still satisfy
   them). `edge-appearance.ts` imports `CardGlowState` from the board, so it **stays** in `features/tasks`.
-- [ ] **C4 · Split `board-derive.ts`** (M): it imports `sessionPhase` / `ConnectionState` from the frame and
+- [x] **C4 · Split `board-derive.ts`** (M): it imports `sessionPhase` / `ConnectionState` from the frame and
   `BUILTIN_AGENTS`. Move the session-free grouping (`deriveColumns(items, fields, groupFieldId)`, `BoardColumn`,
   `NO_STATUS_COLUMN_ID`) to `tasks-core/src/board/board-columns.ts`. Keep the session-aware decoration and skill
   helpers (`composeCardPrompt`, `sessionsToRehome`, `countLiveCardSessions`, `resolveMostRecentAgentId`) in
   `features/tasks/renderer/board/board-derive.ts`, importing `deriveColumns` from `@midnite/tasks-core`. Existing
   `board-derive.test.ts` assertions keep passing unchanged; new `board-columns.test.ts` covers the pure part.
-- [ ] **C5 · Re-point desktop** (S): every import of a moved file in `packages/features/tasks` (and any other importer
+- [x] **C5 · Re-point desktop** (S): every import of a moved file in `packages/features/tasks` (and any other importer
   found with `grep -rn` on each filename) now imports from `@midnite/tasks-core`. Add `@midnite/tasks-core` to
   `features/tasks/package.json`. No re-export shims are left behind in the old paths.
-- [ ] **C6 · Layer rule** (XS): add `@midnite/tasks-core` to the "may import" list for features in `eslint.config.mjs`
+- [x] **C6 · Layer rule** (XS): add `@midnite/tasks-core` to the "may import" list for features in `eslint.config.mjs`
   (it sits beside `shared` in the layer diagram) and a case to `scripts/layer-boundaries.test.mjs`. Update
   `docs/APPS.md`'s placement map with a "pure cores" row.
 
@@ -828,3 +828,9 @@ with each screen theme's PR.
     the Semantic mapping table maps them onto `success`, `accents.status.*` and `accents.kind.*`. `destructive` stays
     on destructive buttons only, because its dark value (L 30.6%) is too dim for text. Badge text is always
     `foreground` with a tone dot, because light amber cannot carry text contrast.
+16. **`deriveColumns` keeps `(field, items)`** (Theme C). The C4 text names `(items, fields, groupFieldId)`, but the
+    existing signature moved unchanged so every `board-derive.test.ts` assertion carries over as it was. A mobile
+    caller resolves the group field with `resolveGroupField` first, as desktop does.
+17. **Shared test fixture:** `ForgeProjectItem` factories (`issueItem`, `pullItem`, `draftItem`) live in
+    `packages/tasks-core/src/__fixtures__` and are exported at `@midnite/tasks-core/testing`, so tasks-core and
+    `features/tasks` tests use one factory and the production barrel stays clean.

@@ -1,7 +1,7 @@
 import { LuCircleDot, LuTag, LuUsers } from 'react-icons/lu';
 import { useMemo, type ReactNode } from 'react';
 
-import { deriveAssigneeCounts, deriveLabelCounts, type FilterableItem, type ItemFilterState } from './filter';
+import { deriveAssigneeCounts, deriveLabelCounts, type FilterableItem, type ItemFilterState } from '@midnite/tasks-core';
 import { FilterInput } from '@midnite/studio-frame';
 
 import type { TasksMultiSelectOption as MultiSelectOption } from './host';

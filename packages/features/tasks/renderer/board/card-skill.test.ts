@@ -1,7 +1,7 @@
 import type { ForgeProjectItem, RepoSkill } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { issueItem } from '../__fixtures__/project-item';
+import { issueItem } from '@midnite/tasks-core/testing';
 import { touchCardSkill } from './card-skill-lru';
 import {
   buildSkillSuggestions,

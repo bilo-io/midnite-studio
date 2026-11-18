@@ -1,0 +1,33 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# Phase 146 Theme C — the pure Tasks derivations, React-free. Source-only like the frame:
+# consumers compile it. Sits beside `shared` in the layer graph (docs/APPS.md, "pure cores").
+language: 'typescript'
+layer: 'library'
+
+tags:
+  - 'layer-pure-core'
+  - 'app-all'
+
+dependsOn:
+  - 'shared'
+
+workspace:
+  inheritedTasks:
+    exclude:
+      - 'build'
+
+tasks:
+  typecheck:
+    inputs:
+      - 'src/**/*'
+      - 'tsconfig.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+
+  test:
+    inputs:
+      - 'src/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'

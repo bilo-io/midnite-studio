@@ -5,7 +5,7 @@ import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared
 import type { IconComponent } from '@midnite/studio-frame';
 
 import { formatFieldValue } from '../field-editor';
-import { fieldOptionChipStyle } from '../field-option-colors';
+import { fieldOptionChipStyle } from '@midnite/tasks-core';
 import { useTasksHost } from '../host';
 
 /**

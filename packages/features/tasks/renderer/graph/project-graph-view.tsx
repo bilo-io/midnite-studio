@@ -13,12 +13,22 @@ import {
   viewportRect,
   zoomAtPointer,
 } from '@midnite/studio-frame';
-import { findStatusField, itemStatusStroke, type StatusStroke } from '../status-stroke';
+import {
+  blockedItemIds,
+  DEFAULT_GRAPH_FACETS,
+  filterForgeGraph,
+  findStatusField,
+  FORGE_GRAPH_GEOMETRY,
+  itemStatusStroke,
+  layoutForgeGraph,
+  nodeKey,
+  type PositionedNode,
+  type ProjectGraphFacets,
+  type StatusStroke,
+  topAlignedViewport,
+} from '@midnite/tasks-core';
 import { edgeAppearance } from './edge-appearance';
-import { blockedItemIds } from './graph-blockers';
-import { DEFAULT_GRAPH_FACETS, filterForgeGraph, type ProjectGraphFacets } from './graph-filter';
 import { moveAlongEdge, moveWithinRank } from './graph-keyboard';
-import { FORGE_GRAPH_GEOMETRY, layoutForgeGraph, nodeKey, topAlignedViewport, type PositionedNode } from './graph-layout';
 import { ProjectGraphNode } from './project-graph-node';
 import { idleGraphNodeActivity, type GraphNodeActivity } from './use-graph-agent-states';
 

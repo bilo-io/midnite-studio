@@ -10,8 +10,11 @@ import { CardAssignees, CardFieldChips, CardNumberRow, CardTitleRow, CONTENT_ICO
 import { IssuePills, useOpenIssue } from '../issue-pills';
 import { taskGlowClass, type CardGlowState } from '../board/glow-state';
 import { StatusBorder } from '../board/status-border';
-import type { StatusStroke } from '../status-stroke';
-import { FORGE_GRAPH_GEOMETRY, type PositionedNode } from './graph-layout';
+import {
+  FORGE_GRAPH_GEOMETRY,
+  type PositionedNode,
+  type StatusStroke,
+} from '@midnite/tasks-core';
 
 /**
  * One node of the dependency graph (Phase 75 Theme D) — an absolutely

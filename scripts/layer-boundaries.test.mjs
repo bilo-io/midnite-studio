@@ -94,8 +94,27 @@ const MOBILE_ALLOWED = [
   ['mobile imports react-native', MOBILE, 'react-native'],
 ];
 
+// Phase 146 Theme C: tasks-core is a pure core beside shared.
+const TASKS_CORE = 'packages/tasks-core/src/board/filter.ts';
+const TASKS_CORE_REJECTED = [
+  ['tasks-core imports the frame', TASKS_CORE, '@midnite/studio-frame', 'pure core'],
+  ['tasks-core imports a feature', TASKS_CORE, '@midnite/studio-feature-tasks/renderer', 'pure core'],
+  ['tasks-core imports react', TASKS_CORE, 'react', 'React-free'],
+  ['tasks-core imports react-native', TASKS_CORE, 'react-native', 'React-free'],
+  ['tasks-core imports electron', TASKS_CORE, 'electron', 'electron-free'],
+  ['tasks-core imports react-icons', TASKS_CORE, 'react-icons/lu', 'React-free'],
+  ['tasks-core imports a node builtin', TASKS_CORE, 'node:fs', 'no node builtins'],
+  ['tasks-core reaches into the frame by path', TASKS_CORE, '../../../frame/src/index', 'reaches around the package name'],
+  ['shared imports tasks-core', 'packages/shared/src/index.ts', '@midnite/tasks-core', 'leaf of the dependency graph'],
+];
+const TASKS_CORE_ALLOWED = [
+  ['tasks-core imports shared', TASKS_CORE, '@midnite/studio-shared'],
+  ['a feature renderer imports tasks-core', FEATURE_RENDERER, '@midnite/tasks-core'],
+];
+
 const REJECTED = [
   ...MOBILE_REJECTED,
+  ...TASKS_CORE_REJECTED,
   // --- The three rules the phase doc's Verification names ------------------
   ['a feature imports an app (package name)', FEATURE_RENDERER, '@midnite/studio-app/store/ui-store', 'Nothing below an app imports one'],
   ['a feature imports an app (relative path)', FEATURE_RENDERER, '../../../app/src/store/ui-store', 'Nothing below an app imports one'],
@@ -199,6 +218,7 @@ const REJECTED = [
 /** [description, file, import specifier] — must produce no no-restricted-imports message. */
 const ALLOWED = [
   ...MOBILE_ALLOWED,
+  ...TASKS_CORE_ALLOWED,
   ['an app imports a feature renderer half', APP, '@midnite/studio-feature-optimizer/renderer'],
   ['an app imports the frame', APP, '@midnite/studio-frame'],
   ['a suite app imports the frame', SUITE_APP, '@midnite/studio-frame'],

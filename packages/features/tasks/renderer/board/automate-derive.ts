@@ -1,6 +1,6 @@
 import type { ForgeGraph, ForgeProjectItem, WorkflowRun } from '@midnite/studio-shared';
 
-import type { BoardColumn } from './board-derive';
+import type { BoardColumn } from '@midnite/tasks-core';
 
 /**
  * Auto-mate's own backlog column (Phase 95 Theme H) — matched by name,
