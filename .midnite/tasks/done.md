@@ -16027,3 +16027,7 @@ D.1–D.4 (row dedupe, mode pill, `Chat | Terminal` toggle hidden for plain shel
 ## 2026-11-18 — Phase 146 Theme E — the mobile GitHub data source (#1650)
 
 `apps/mobile/src/data/`: `MobileDataSource` (never throws; `Result<T>` with `auth`/`scope`/`network`/`error` kinds, `Page<T>` cursors) implemented by `GitHubDataSource({getToken, fetch?})` over `@midnite/forge-github-core`, REST only for commit/pull-file patches through `parseUnifiedDiff`; TanStack Query hooks per method plus write hooks with their invalidations. `src/auth/`: secure-store token store, GitHub Device Flow, PAT sign-in with a missing-scope check, sign-in screen and auth gate. forge-github-core gains paged branch/repo parsers. New `docs/MOBILE.md` and `apps/mobile/.env.example`. Open: E7 — register the GitHub OAuth App and set `EXPO_PUBLIC_GITHUB_CLIENT_ID`; Device Flow is unit-tested only until then.
+
+## 2026-11-18 — Phase 147 Theme E — generic provider handoff (#1651)
+
+E.1 (transcript handoff seeded into a handoff-only agent's terminal), the `ollama` Terminal guard and the E.3 e2e spec were already on main from #1253 (filed as "Phase 146 Theme E"). The PR closes E.2: the "not synced back" banner in `chat-pane.tsx` takes the doc's amber style and copy (`text-amber-900 dark:text-amber-200` for light-mode contrast) and gains a per-chat dismiss, with a jsdom test and the e2e spec extended. Phase 147's themes are all landed; left: the full gate and two manual passes (claude Chat ↔ Terminal continuity; aider/opencode banner + ollama tooltip in the packaged app).
