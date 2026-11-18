@@ -29,6 +29,7 @@ export function GameCenter({
   sceneSlot,
   leading,
   trailing,
+  onPlayFromHere,
 }: {
   game: { gameId: string } | null;
   mode: GameMode;
@@ -37,6 +38,8 @@ export function GameCenter({
   sceneSlot?: ReactNode;
   leading?: ReactNode;
   trailing?: ReactNode;
+  /** Play from here started a run (Phase 140 Theme B): show Play, as the Run button does. */
+  onPlayFromHere?: (started: Promise<string | null>) => void;
 }) {
   const gameId = game?.gameId ?? null;
   const live = useGameRunStore((s) => isLive(gameId ? s.runs[gameId]?.state : undefined));
@@ -103,7 +106,7 @@ export function GameCenter({
         hidden={mode !== 'editor'}
         className="min-h-0 flex-1"
       >
-        {gameId ? <LevelEditor gameId={gameId} /> : <EmptyState icon={LuPencilRuler} title="No game selected" body="Pick a game from the list to edit its levels." />}
+        {gameId ? <LevelEditor gameId={gameId} onPlayStarted={onPlayFromHere} /> : <EmptyState icon={LuPencilRuler} title="No game selected" body="Pick a game from the list to edit its levels." />}
       </div>
       <div
         role="tabpanel"

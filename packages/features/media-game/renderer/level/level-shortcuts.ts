@@ -10,7 +10,7 @@ export type LevelCommandId =
   | 'path.finish'
   | 'edit.undo' | 'edit.redo' | 'edit.cut' | 'edit.copy' | 'edit.paste' | 'edit.duplicate' | 'edit.delete'
   | 'select.all' | 'select.none' | 'select.nudge' | 'view.frame' | 'gizmo.translate' | 'gizmo.rotate' | 'gizmo.scale'
-  | 'gizmo.pivot' | 'gizmo.space' | 'help.shortcuts';
+  | 'gizmo.pivot' | 'gizmo.space' | 'help.shortcuts' | 'play.stop' | 'play.here';
 
 export type LevelShortcut = {
   id: LevelCommandId;
@@ -55,6 +55,9 @@ export const LEVEL_SHORTCUTS: readonly LevelShortcut[] = [
   { id: 'edit.delete', chord: 'Delete', label: 'Delete selection', group: 'Edit', views: BOTH },
   { id: 'edit.delete', chord: 'Backspace', label: 'Delete selection / last path point', group: 'Edit', views: BOTH },
   { id: 'view.frame', chord: 'F', label: 'Frame selection', group: 'View', views: IN_3D, dimension: '3d' },
+  // Shift+F5 is listed first: a plain chord otherwise ignores Shift, so F5 would shadow it.
+  { id: 'play.stop', chord: 'Shift+F5', label: 'Stop the game', group: 'View', views: BOTH },
+  { id: 'play.here', chord: 'F5', label: 'Play from here', group: 'View', views: BOTH },
   { id: 'help.shortcuts', chord: '?', label: 'This shortcut list', group: 'View', views: BOTH },
 ];
 
@@ -76,7 +79,7 @@ function chordMatches(chord: string, e: KeyLike): boolean {
   // Alt never belongs to a chord; a Mod chord also ignores Shift unless it asks for it (Mod+Shift+Z is redo).
   if (wantsMod) {
     if (e.altKey || (e.shiftKey !== wantsShift && key.toLowerCase() === 'z')) return false;
-  } else if (e.altKey) return false;
+  } else if (e.altKey || (wantsShift && !e.shiftKey)) return false;
   if (key === 'Arrows') return e.key.startsWith('Arrow');
   if (key === '?') return e.key === '?';
   return e.key.toLowerCase() === key.toLowerCase();

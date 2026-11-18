@@ -26,6 +26,7 @@ type Bridge = {
   editorOpen?: ReturnType<typeof vi.fn>;
   preview?: ReturnType<typeof vi.fn>;
   previewEnd?: ReturnType<typeof vi.fn>;
+  stop?: ReturnType<typeof vi.fn>;
 };
 
 export function installBridge(b: Bridge): void {
@@ -37,6 +38,7 @@ export function installBridge(b: Bridge): void {
         editorOpen: b.editorOpen ?? vi.fn(),
       },
       goto: b.goto ?? vi.fn(),
+      stop: b.stop ?? vi.fn(),
       doctor: b.doctor ?? vi.fn().mockResolvedValue({ ok: false, kind: 'error', message: 'no doctor' }),
       doctorFix: b.doctorFix ?? vi.fn(),
       manifest: { get: b.manifestGet ?? vi.fn(), set: b.manifestSet ?? vi.fn() },

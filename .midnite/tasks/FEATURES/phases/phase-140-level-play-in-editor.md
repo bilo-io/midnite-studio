@@ -48,12 +48,9 @@ Agents get `game_play_from`, `game_entities` and `game_debug_overlay`.
 
 **Theme A — The kit's spawn override.** ✅ `?midnite-spawn=x,y[,z]` (and `__midnite.spawnAt(x, y, z)`, a reload with the param) places the player there instead of at the scene's `spawn`: `spawnOverride()` parses it (two or three finite numbers, else ignored and logged once), `applySpawn2d`/`applySpawn3d` apply it in the Phaser and three level builders. 3D reads `x,z` or `x,height,z` in metres and drops the height onto the ground. Kit 0.13.0.
 
-**Theme B — Play from here.** ◻ `F5` / a gradient "Play from here" button runs the open, unsaved level in the
-runner from the cursor or the selection, through an in-memory preview overlay the protocol handler serves; no
-commit.
+**Theme B — Play from here.** ✅ `F5` (and `Shift+F5` to stop) or the gradient "Play from here" button runs the open, unsaved level in the runner from the primary selected object, else the pointer's last plan position, else the scene's own `spawn`. `games.levels.preview` validates the editor's level and hands it to the runner's in-memory `PreviewOverlay` (one `levels/<scene>.tmj` per game, 4 MB cap), which `gameProtocolHandler` serves ahead of the disk with the same CSP; the run URL carries `midnite-level` and `midnite-spawn` (`gameEntryUrl` takes `spawn`). Nothing is written or committed (a temp-repo test pins `git status` clean). The overlay ends on `previewEnd`, on Stop and when that scene is saved (before the write, so the file watcher's scene restart reads the new disk file); the editor switches to the Play tab unless the runner is popped out. 3D answers in metres through `levelEntityToWorld` (`x,z`, or `x,height,z` with an elevation); a 3D pointer position is not tracked, so only the plan pointer counts there. No kit change.
 
-**Theme C — Level hot reload.** ◻ A change under `levels/` in a running game calls the hook's `goto(currentScene)`
-(scene restart) instead of a full page reload; code changes still reload the page.
+**Theme C — Level hot reload.** ✅ The runner's watcher now collects the paths changed over its 200 ms debounce and `reloadKind` sorts them: only `levels/…` files (prefabs included) is `scene`, anything else or an unknown path is `page`. A `scene` reload reads `getState().scene` (fallback the run's level) and calls the hook's `goto`; a missing hook or a failed call falls back to the page reload, and code changes reload the page as before.
 
 **Theme D — The entities snapshot.** ✅ The hook's `entities()` returns `{ id, type, name?, x, y, z?, alive, state? }[]` from sources registered with `registerEntities(fn, key)`; both level builders register their level objects (overridable with a `live(entity)` option). Main reads it with one evaluation (`readGameEntities`, capped at 500 with `truncated`, an old kit answers `unsupported`), and `createEntityPoller` pushes `mstudio:games:entity-state` at 4 Hz while an editor watches and the game runs unpaused (`games.entities.get/watch`, `games.onEntityState`). Same kit 0.13.0 bump as A.
 
@@ -151,14 +148,14 @@ export function createPreviewOverlay(maxBytes = GAME_LEVEL_MAX_BYTES): PreviewOv
 
 **Acceptance.**
 
-- [ ] B1. `createPreviewOverlay` serves `levels/<scene>.tmj` for its game only, `null` for any other path or game,
+- [x] B1. `createPreviewOverlay` serves `levels/<scene>.tmj` for its game only, `null` for any other path or game,
   and refuses JSON over `GAME_LEVEL_MAX_BYTES`.
-- [ ] B2. `gameProtocolHandler` with an overlay answers the overlay bytes with the CSP header; without one, the disk
+- [x] B2. `gameProtocolHandler` with an overlay answers the overlay bytes with the CSP header; without one, the disk
   file (existing tests stay green).
-- [ ] B3. `gameEntryUrl` with `spawn` adds `midnite-spawn=` and keeps determinism params.
-- [ ] B4. Preview leaves `git status` clean (main test against a temp repo).
-- [ ] B5. The button shows a spinner while the promise is pending and is disabled on a read-only level.
-- [ ] B6. `F5` triggers preview; `Shift+F5` calls stop.
+- [x] B3. `gameEntryUrl` with `spawn` adds `midnite-spawn=` and keeps determinism params.
+- [x] B4. Preview leaves `git status` clean (main test against a temp repo).
+- [x] B5. The button shows a spinner while the promise is pending and is disabled on a read-only level.
+- [x] B6. `F5` triggers preview; `Shift+F5` calls stop.
 
 **Done when** B1–B6 pass.
 
@@ -179,10 +176,10 @@ export function reloadKind(relPaths: readonly (string | null)[]): ReloadKind;  /
 
 **Acceptance.**
 
-- [ ] C1. `reloadKind(['levels/cave.tmj'])` is `scene`; `['src/main.js', 'levels/cave.tmj']` is `page`; `[null]` is
+- [x] C1. `reloadKind(['levels/cave.tmj'])` is `scene`; `['src/main.js', 'levels/cave.tmj']` is `page`; `[null]` is
   `page`.
-- [ ] C2. A `scene` reload calls `goto` through the hook, not `reloadIgnoringCache` (runner test with a fake view).
-- [ ] C3. A failing hook call falls back to the page reload.
+- [x] C2. A `scene` reload calls `goto` through the hook, not `reloadIgnoringCache` (runner test with a fake view).
+- [x] C3. A failing hook call falls back to the page reload.
 
 **Done when** C1–C3 pass.
 

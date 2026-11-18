@@ -97,6 +97,7 @@ import { planSnapStep } from './level-snap';
 import { LevelShortcutHelp } from './level-shortcut-help';
 import { isMac, matchShortcut } from './level-shortcuts';
 import { LevelSnapPopover } from './level-snap-popover';
+import { PlayFromHereButton, usePlayFromHere } from './play-from-here';
 import { blockingIssues, useLevelStore, type OpenLevel } from './level-store';
 import { lineCells, type View } from './level-view';
 import { focusToPlanView, planViewToFocus } from './3d/camera-transition';
@@ -145,7 +146,7 @@ type Updater = (fn: (state: EditState) => EditState) => void;
  * switching tabs, scenes or games loses nothing. The letter keys and `Mod+z` act only while the canvas has
  * focus; they are deliberately not in the app's command registry.
  */
-export function LevelEditor({ gameId }: { gameId: string | null }) {
+export function LevelEditor({ gameId, onPlayStarted }: { gameId: string | null; onPlayStarted?: (started: Promise<string | null>) => void }) {
   const client = useQueryClient();
   const levels = useLevels(gameId);
   const entry = useLevelStore((s) => (gameId ? s.byGame[gameId] : undefined));
@@ -212,7 +213,7 @@ export function LevelEditor({ gameId }: { gameId: string | null }) {
     }
     return <div className="p-4" data-testid="level-loading"><Skeleton className="h-8 w-48" /><Skeleton className="mt-3 h-64 w-full" /></div>;
   }
-  const editor = <OpenEditor key={`${gameId}:${entry.scene}`} gameId={gameId} entry={entry} readsLevels={list?.readsLevels ?? false} />;
+  const editor = <OpenEditor key={`${gameId}:${entry.scene}`} gameId={gameId} entry={entry} readsLevels={list?.readsLevels ?? false} onPlayStarted={onPlayStarted} />;
   if (!(diagnosis.data?.findings ?? []).some((f) => f.rule === 'levels.not-declared')) return editor;
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -260,7 +261,7 @@ function Banner({ children, testId }: { children: string; testId: string }) {
   );
 }
 
-function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: OpenLevel; readsLevels: boolean }) {
+function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: string; entry: OpenLevel; readsLevels: boolean; onPlayStarted?: ((started: Promise<string | null>) => void) | undefined }) {
   const { edit } = entry;
   const level = edit.level as EditLevel;
   const save = useSaveOpenLevel(gameId);
@@ -666,6 +667,16 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
     else setMenuAt({ x: point.clientX, y: point.clientY, items });
   };
 
+  // Play from here (Phase 140 Theme B): the unsaved level, from the selection or the pointer, in the runner.
+  const playHere = usePlayFromHere({
+    gameId,
+    scene: entry.scene,
+    getState: () => useLevelStore.getState().byGame[gameId]?.edit ?? edit,
+    getPointer: () => lastPointer.current,
+    readOnly,
+    onStarted: onPlayStarted,
+  });
+
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const cmd = matchShortcut(event, { view: in3d ? '3d' : 'plan', dimension: is3d ? '3d' : '2d', mac: isMac() });
     if (cmd === null) return;
@@ -675,6 +686,12 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
       case 'edit.redo':
         event.preventDefault();
         update(cmd === 'edit.redo' ? redo : undo);
+        return;
+      case 'play.here':
+      case 'play.stop':
+        event.preventDefault();
+        if (cmd === 'play.here') void playHere.play();
+        else playHere.stop();
         return;
       case 'select.all':
         if (!readOnly && objectLayerId !== null) {
@@ -840,6 +857,7 @@ function OpenEditor({ gameId, entry, readsLevels }: { gameId: string; entry: Ope
           <LuSave aria-hidden className="h-3.5 w-3.5" />
           {saving ? 'Saving…' : 'Save'}
         </button>
+        <PlayFromHereButton pending={playHere.pending} disabled={readOnly} onClick={() => void playHere.play()} />
       </div>
       <AgentChangeBanner gameId={gameId} entry={entry} />
       {diskConflict && edit.dirty ? (
