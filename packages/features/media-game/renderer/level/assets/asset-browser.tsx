@@ -57,7 +57,7 @@ export function AssetBrowser({ gameId, assets, thumbs, onImport, tabs = [], chil
 
   const header =
     panel.collapsed ? null : (
-      <div className="flex min-w-0 flex-1 items-center gap-2" onKeyDown={(e) => e.stopPropagation()}>
+      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto" onKeyDown={(e) => e.stopPropagation()}>
         {tabs.length > 0 ? (
           <div role="radiogroup" aria-label="Panel tab" className="flex items-center rounded border border-border p-0.5">
             {options.map(([id, label]) => (
@@ -76,8 +76,8 @@ export function AssetBrowser({ gameId, assets, thumbs, onImport, tabs = [], chil
         ) : null}
         {tab === 'assets' ? (
           <>
-            <FilterInput value={query} onChange={setQuery} placeholder="Filter assets" className="w-44" />
-            <div role="group" aria-label="Asset kinds" className="flex items-center gap-1">
+            <FilterInput value={query} onChange={setQuery} placeholder="Filter assets" className="w-36 shrink-0" />
+            <div role="group" aria-label="Asset kinds" className="flex shrink-0 items-center gap-1">
               {ASSET_KIND_CHIPS.map((k) => (
                 <button
                   key={k}

@@ -767,6 +767,8 @@ export type MockFixtures = {
     juice?: Record<string, unknown>;
     /** Phase 132 Theme D: `levels/<scene>.tmj` per game id (raw Tiled JSON). `levels.set` records `levelSet` calls. */
     levels?: Record<string, Record<string, unknown>>;
+    /** Phase 139 Theme C: the manifest's `assets` per game id, which the level editor's asset browser lists. */
+    assets?: Record<string, Array<{ name: string; kind: string; path: string; sha256?: string }>>;
     /** Theme P: what an export answers (default: success at a path built from the format and `dest`). */
     exportResult?: { ok: false; message: string } | { ok: true; warnings?: string[] };
   };
@@ -3637,7 +3639,10 @@ export function buildMockBridge(data: MockFixtures) {
         return { ok: true as const, value: { path, gameId } };
       },
       manifest: {
-        get: async () => ({ manifest: null, issues: [] }),
+        get: async (req?: { gameId?: string }) => {
+          const assets = req?.gameId ? data.games?.assets?.[req.gameId] : undefined;
+          return { manifest: assets ? ({ assets: assets.map((a) => ({ sha256: 'mock', ...a })) } as never) : null, issues: [] };
+        },
         set: async () => ({ ok: true as const }),
       },
       // Phase 132 Theme D: scenes by game id from `data.games.levels`; a `set` is recorded and stored.
