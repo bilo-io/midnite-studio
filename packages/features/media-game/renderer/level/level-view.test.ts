@@ -33,6 +33,9 @@ describe('zoomFloor', () => {
     expect(floor).toBeLessThan(ZOOM_MIN);
     expect(floor).toBeCloseTo(600 / (1400 * 32) / 2);
   });
+  it('never reaches zero on a canvas with no size yet', () => {
+    expect(fitView({ width: 0, height: 0 }, 51200, 44800, zoomFloor({ width: 0, height: 0 }, 51200, 44800)).zoom).toBeGreaterThan(0);
+  });
   it('lets fitView and zoomAround go below ZOOM_MIN down to the floor', () => {
     const w = 1600 * 32, h = 1400 * 32, floor = zoomFloor(box, w, h);
     expect(fitView(box, w, h).zoom).toBe(ZOOM_MIN);

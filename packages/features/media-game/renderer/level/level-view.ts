@@ -5,7 +5,10 @@ export const ZOOM_MAX = 8;
 /** `screen = map × zoom + (x, y)`. */
 export type View = { zoom: number; x: number; y: number };
 
-export const clampZoom = (zoom: number, min = ZOOM_MIN): number => Math.min(ZOOM_MAX, Math.max(min, zoom));
+/** No floor goes below this: a canvas that has not been laid out yet (zero size) must not produce a zero zoom. */
+export const ZOOM_ABSOLUTE_MIN = 0.0005;
+
+export const clampZoom = (zoom: number, min = ZOOM_MIN): number => Math.min(ZOOM_MAX, Math.max(min, ZOOM_ABSOLUTE_MIN, zoom));
 
 /**
  * How far out a view may zoom: {@link ZOOM_MIN}, or less when the content is too big to fit at that zoom, so the
