@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { GameLevelSchema, levelEntityToWorld, levelProperties, metresPerTile, parseGameLevel } from './game-level';
+import { GameLevelSchema, GAME_LEVEL_PROPS, levelEntityToWorld, levelOrigin, levelPixelsToWorld, levelWorldToPixels, levelProperties, metresPerTile, parseGameLevel } from './game-level';
 import { GameManifestSchema, GameSceneNameSchema } from './media-game';
 import { buildTmj, buildTsj, TiledMapSchema } from './sprite/tiled';
 
@@ -130,5 +130,50 @@ describe('levelEntityToWorld', () => {
 
   it('levelProperties keeps the first of a repeated name', () => {
     expect(levelProperties({ properties: [prop('a', 1), prop('a', 2), prop('b', 3)] })).toEqual({ a: 1, b: 3 });
+  });
+});
+
+describe('level origin (midnite.originX / originY)', () => {
+  const at = (ox?: number, oz?: number, mpt = 1) => ({
+    tilewidth: 32,
+    tileheight: 32,
+    properties: [
+      ...(ox === undefined ? [] : [prop(GAME_LEVEL_PROPS.originX, ox, 'float')]),
+      ...(oz === undefined ? [] : [prop(GAME_LEVEL_PROPS.originY, oz, 'float')]),
+      prop(GAME_LEVEL_PROPS.metresPerTile, mpt, 'float'),
+    ],
+  });
+
+  it('names the properties', () => {
+    expect(GAME_LEVEL_PROPS.originX).toBe('midnite.originX');
+    expect(GAME_LEVEL_PROPS.originY).toBe('midnite.originY');
+  });
+
+  it('defaults to 0 and reads a non-number as 0, so a level without them is unchanged', () => {
+    expect(levelOrigin(at())).toEqual({ x: 0, z: 0 });
+    expect(levelOrigin({ properties: [prop(GAME_LEVEL_PROPS.originX, 'far')] })).toEqual({ x: 0, z: 0 });
+    expect(levelEntityToWorld({ x: 64, y: 96 }, at()).position).toEqual([2, null, 3]);
+    expect(levelEntityToWorld({ x: 64, y: 96 }, at(0, 0)).position).toEqual([2, null, 3]);
+  });
+
+  it('is the world position of the top-left corner: world = origin + px / tile × mpt', () => {
+    expect(levelEntityToWorld({ x: 64, y: 96 }, at(-1950, -2145)).position).toEqual([-1948, null, -2142]);
+    expect(levelEntityToWorld({ x: 64, y: 96, width: 32, height: 32 }, at(100, 50, 2)).position).toEqual([100 + (80 / 32) * 2, null, 50 + (112 / 32) * 2]);
+    expect(levelEntityToWorld({ x: 0, y: 0, width: 32, height: 32 }, at(10, 20)).size).toEqual([1, 3, 1]);
+  });
+
+  it('converts pixels to world and back', () => {
+    const lvl = at(-1950, -2145, 2);
+    const [x, z] = levelPixelsToWorld(lvl, 48, 80);
+    expect([x, z]).toEqual([-1950 + 3, -2145 + 5]);
+    expect(levelWorldToPixels(lvl, x, z)).toEqual({ x: 48, y: 80 });
+    expect(levelWorldToPixels(at(), 2, 3)).toEqual({ x: 64, y: 96 });
+  });
+
+  it('survives a parse and serialise round trip untouched', () => {
+    const map = { ...sprites2d(), properties: [prop('midnite.dimension', '3d'), prop(GAME_LEVEL_PROPS.originX, -5000, 'float'), prop(GAME_LEVEL_PROPS.originY, 5000, 'float')] };
+    const parsed = parseGameLevel(JSON.parse(JSON.stringify(map)));
+    expect(parsed.ok && levelOrigin(parsed.level)).toEqual({ x: -5000, z: 5000 });
+    expect(parsed.ok && JSON.parse(JSON.stringify(parsed.level)).properties).toEqual(map.properties);
   });
 });

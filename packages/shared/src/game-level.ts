@@ -30,6 +30,10 @@ export const GAME_LEVEL_PROPS = {
   metresPerTile: 'midnite.metresPerTile',
   terrain: 'midnite.terrain',
   groundY: 'midnite.groundY',
+  /** World X (metres) of the map's top-left corner; default 0. */
+  originX: 'midnite.originX',
+  /** World Z (metres) of the map's top-left corner; default 0. */
+  originY: 'midnite.originY',
 } as const;
 
 const looseProperties = z.array(z.object({ name: z.string(), type: z.string().optional(), value: z.unknown() }).passthrough());
@@ -115,6 +119,32 @@ export function metresPerTile(level: { properties?: ReadonlyArray<{ name: string
   return v > 0 ? v : 1;
 }
 
+type LevelScale = { tilewidth: number; tileheight: number; properties?: ReadonlyArray<{ name: string; value?: unknown }> | undefined };
+
+/**
+ * `midnite.originX` / `midnite.originY` (Phase 141): the world position, in metres, of the map's top-left corner.
+ * Object pixels stay relative to that corner, so `world = origin + px / tilewidth × metresPerTile`. Both default
+ * to 0, so a level without them sits at world 0..W as it always did. A non-number reads as 0.
+ */
+export function levelOrigin(level: { properties?: ReadonlyArray<{ name: string; value?: unknown }> | undefined }): { x: number; z: number } {
+  const props = levelProperties(level);
+  return { x: finite(props[GAME_LEVEL_PROPS.originX], 0), z: finite(props[GAME_LEVEL_PROPS.originY], 0) };
+}
+
+/** A map-pixel point (relative to the map's top-left corner) as world metres `[x, z]`, origin included. */
+export function levelPixelsToWorld(level: LevelScale, px: number, py: number): [number, number] {
+  const mpt = metresPerTile(level);
+  const o = levelOrigin(level);
+  return [o.x + (px / level.tilewidth) * mpt, o.z + (py / level.tileheight) * mpt];
+}
+
+/** The inverse of {@link levelPixelsToWorld}: world metres `x`, `z` as a map-pixel point. */
+export function levelWorldToPixels(level: LevelScale, x: number, z: number): { x: number; y: number } {
+  const mpt = metresPerTile(level);
+  const o = levelOrigin(level);
+  return { x: ((x - o.x) / mpt) * level.tilewidth, y: ((z - o.z) / mpt) * level.tileheight };
+}
+
 /** The raw Tiled object fields {@link levelEntityToWorld} reads. */
 export type LevelEntityInput = {
   x: number;
@@ -142,13 +172,14 @@ const DEG = Math.PI / 180;
 
 /**
  * Decision 3's mapping from a plan-view Tiled object to world metres: `worldX = x / tilewidth × mpt`,
- * `worldZ = y / tileheight × mpt`. A rectangle's position is its centre, computed with Tiled's rotation about
+ * `worldZ = y / tileheight × mpt`, each plus the level's {@link levelOrigin} (0 unless `midnite.originX/Y` say so). A rectangle's position is its centre, computed with Tiled's rotation about
  * the object's own origin (clockwise on screen). The kit's `toWorld3d` is the same function in JS;
  * `kit-level.test.ts` pins them together.
  */
 export function levelEntityToWorld(entity: LevelEntityInput, level: { tilewidth: number; tileheight: number; properties?: ReadonlyArray<{ name: string; value?: unknown }> | undefined }): LevelWorldPlacement {
   const mpt = metresPerTile(level);
   const props = levelProperties(entity);
+  const origin = levelOrigin(level);
   const w = finite(entity.width, 0);
   const h = finite(entity.height, 0);
   const rotation = finite(entity.rotation, 0);
@@ -157,7 +188,7 @@ export function levelEntityToWorld(entity: LevelEntityInput, level: { tilewidth:
   const cy = entity.y + (w / 2) * Math.sin(theta) + (h / 2) * Math.cos(theta);
   const elevation = props.elevation;
   return {
-    position: [(cx / level.tilewidth) * mpt, typeof elevation === 'number' && Number.isFinite(elevation) ? elevation : null, (cy / level.tileheight) * mpt],
+    position: [origin.x + (cx / level.tilewidth) * mpt, typeof elevation === 'number' && Number.isFinite(elevation) ? elevation : null, origin.z + (cy / level.tileheight) * mpt],
     yaw: -rotation * DEG,
     pitch: finite(props.pitch, 0) * DEG,
     roll: finite(props.roll, 0) * DEG,

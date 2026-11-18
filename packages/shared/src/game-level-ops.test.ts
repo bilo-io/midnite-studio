@@ -124,6 +124,31 @@ describe('queryLevel', () => {
   });
 });
 
+describe('level origin in ops', () => {
+  const props = [
+    { name: 'midnite.dimension', type: 'string', value: '3d' },
+    { name: 'midnite.originX', type: 'float', value: -1000 },
+    { name: 'midnite.originY', type: 'float', value: 500 },
+  ];
+  const lvl = () => base(props);
+  it('queryLevel reports world metres with the origin, and world from levelEntityToWorld agrees', () => {
+    const o = queryLevel(lvl(), { unit: 'm', ids: [9] }).objects[0]!;
+    expect(o).toMatchObject({ x: -1000 + 10, y: 500 + 5 });
+    expect(o.world).toMatchObject({ x: -1000 + 10.5, z: 500 + 5.5 });
+    expect(queryLevel(lvl(), { ids: [9] }).objects[0]).toMatchObject({ x: 320, y: 160 });
+    expect(queryLevel(lvl(), { unit: 'm', region: { x: -995, y: 500, width: 20, height: 20 } }).objects.map((x) => x.id)).toEqual([9]);
+  });
+  it('a metres add lands origin-relative; a level without origin is unchanged', () => {
+    const r = applyLevelOps(lvl(), [add('spawn', -990, 505)], { unit: 'm', entityTypes: ['spawn'] });
+    expect(r.ok && (r.level as ReturnType<typeof base>).layers[1]).toBeDefined();
+    const added = r.ok ? ((r.level as ReturnType<typeof base>).layers[1] as { objects: Array<{ id: number; x: number; y: number }> }).objects.at(-1)! : null;
+    expect(added).toMatchObject({ x: 320, y: 160 });
+    const plain = applyLevelOps(base([]), [add('spawn', 10, 5)], { unit: 'm', entityTypes: ['spawn'] });
+    const p = plain.ok ? ((plain.level as ReturnType<typeof base>).layers[1] as { objects: Array<{ x: number; y: number }> }).objects.at(-1)! : null;
+    expect(p).toMatchObject({ x: 320, y: 160 });
+  });
+});
+
 describe('LevelOpSchema', () => {
   const parse = (entity: object) => LevelOpSchema.safeParse({ op: 'add', entity }).success;
   it('A8 rejects NaN, Infinity, long types and long polylines', () => {

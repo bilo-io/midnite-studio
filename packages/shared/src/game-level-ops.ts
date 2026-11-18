@@ -4,6 +4,9 @@ import {
   GAME_LEVEL_ENTITY_TYPES_2D,
   GAME_LEVEL_ENTITY_TYPES_3D,
   levelEntityToWorld,
+  levelOrigin,
+  levelPixelsToWorld,
+  levelWorldToPixels,
   levelProperties,
   metresPerTile,
   parseGameLevel,
@@ -124,11 +127,21 @@ function resolveLayer(map: TiledMap, target: number | string | undefined): Tiled
   return layer;
 }
 
-/** Metres to pixels on each axis (the inverse of `levelEntityToWorld`'s plan mapping). */
-function scalers(map: TiledMap, unit: 'px' | 'm'): { sx: (v: number) => number; sy: (v: number) => number } {
-  if (unit === 'px') return { sx: (v) => v, sy: (v) => v };
+/**
+ * Metres to pixels on each axis (the inverse of `levelEntityToWorld`'s plan mapping). `sx`/`sy` scale a length (a
+ * size, a polyline point relative to its object); `px`/`py` convert a position, which is world metres, so the
+ * level's origin (`midnite.originX/Y`) is taken off first.
+ */
+function scalers(map: TiledMap, unit: 'px' | 'm'): { sx: (v: number) => number; sy: (v: number) => number; px: (v: number) => number; py: (v: number) => number } {
+  if (unit === 'px') return { sx: (v) => v, sy: (v) => v, px: (v) => v, py: (v) => v };
   const mpt = metresPerTile(map as { properties?: TiledProperty[] });
-  return { sx: (v) => (v / mpt) * map.tilewidth, sy: (v) => (v / mpt) * map.tileheight };
+  const o = levelOrigin(map as { properties?: TiledProperty[] });
+  return {
+    sx: (v) => (v / mpt) * map.tilewidth,
+    sy: (v) => (v / mpt) * map.tileheight,
+    px: (v) => ((v - o.x) / mpt) * map.tilewidth,
+    py: (v) => ((v - o.z) / mpt) * map.tileheight,
+  };
 }
 
 function nextId(map: TiledMap): number {
@@ -139,14 +152,14 @@ function nextId(map: TiledMap): number {
 }
 
 /** Append `entity` to `layer` as a new Tiled object, scaling its lengths with `sx`/`sy`; returns the new id. */
-function pushObject(map: TiledMap, layer: TiledLayer, entity: LevelEntityFields, sx: (v: number) => number, sy: (v: number) => number): number {
+function pushObject(map: TiledMap, layer: TiledLayer, entity: LevelEntityFields, sx: (v: number) => number, sy: (v: number) => number, px: (v: number) => number = sx, py: (v: number) => number = sy): number {
   const id = nextId(map);
   const object: TiledObject = {
     id,
     name: entity.name ?? '',
     type: entity.type,
-    x: sx(entity.x),
-    y: sy(entity.y),
+    x: px(entity.x),
+    y: py(entity.y),
     width: entity.width === undefined ? 0 : sx(entity.width),
     height: entity.height === undefined ? 0 : sy(entity.height),
     rotation: entity.rotation ?? 0,
@@ -173,7 +186,7 @@ export function applyLevelOps(level: unknown, ops: readonly LevelOp[], ctx: Leve
   if (ops.length > LEVEL_OPS_MAX) return { ok: false, errors: [{ index: LEVEL_OPS_MAX, op: ops[LEVEL_OPS_MAX]!.op, message: `A batch holds at most ${LEVEL_OPS_MAX} operations.` }] };
 
   const map = structuredClone(level) as TiledMap;
-  const { sx, sy } = scalers(map, ctx.unit);
+  const { sx, sy, px, py } = scalers(map, ctx.unit);
   const errors: LevelOpError[] = [];
   const added: number[] = [];
   const updated: number[] = [];
@@ -201,7 +214,7 @@ export function applyLevelOps(level: unknown, ops: readonly LevelOp[], ctx: Leve
       const layer = resolveLayer(map, op.layer);
       if (typeof layer === 'string') return fail(index, 'place-prefab', layer);
       if (op.ref !== undefined && op.ref in refs) return fail(index, 'place-prefab', `Ref "${op.ref}" is already used in this batch.`);
-      const at = { x: sx(op.x), y: sy(op.y) };
+      const at = { x: px(op.x), y: py(op.y) };
       const instance = op.instance ?? globalThis.crypto.randomUUID().slice(0, 8);
       const entities = instantiatePrefab(prefab, at, op.rotation ?? 0, instance);
       for (const entity of entities) {
@@ -217,11 +230,11 @@ export function applyLevelOps(level: unknown, ops: readonly LevelOp[], ctx: Leve
     }
     if (op.op === 'add') {
       const { entity } = op;
-      const problem = (op.ref !== undefined && op.ref in refs ? `Ref "${op.ref}" is already used in this batch.` : null) ?? checkType(entity.type) ?? checkPos('x', sx(entity.x)) ?? checkPos('y', sy(entity.y));
+      const problem = (op.ref !== undefined && op.ref in refs ? `Ref "${op.ref}" is already used in this batch.` : null) ?? checkType(entity.type) ?? checkPos('x', px(entity.x)) ?? checkPos('y', py(entity.y));
       if (problem) return fail(index, 'add', problem);
       const layer = resolveLayer(map, op.layer);
       if (typeof layer === 'string') return fail(index, 'add', layer);
-      const id = pushObject(map, layer, entity, sx, sy);
+      const id = pushObject(map, layer, entity, sx, sy, px, py);
       added.push(id);
       if (op.ref) refs[op.ref] = id;
       return;
@@ -238,13 +251,13 @@ export function applyLevelOps(level: unknown, ops: readonly LevelOp[], ctx: Leve
     const object = objects[found.index]!;
     const problem =
       (set.type !== undefined ? checkType(set.type) : null) ??
-      (set.x !== undefined ? checkPos('x', sx(set.x)) : null) ??
-      (set.y !== undefined ? checkPos('y', sy(set.y)) : null);
+      (set.x !== undefined ? checkPos('x', px(set.x)) : null) ??
+      (set.y !== undefined ? checkPos('y', py(set.y)) : null);
     if (problem) return fail(index, 'update', problem);
     if (set.type !== undefined) object.type = set.type;
     if (set.name !== undefined) object.name = set.name;
-    if (set.x !== undefined) object.x = sx(set.x);
-    if (set.y !== undefined) object.y = sy(set.y);
+    if (set.x !== undefined) object.x = px(set.x);
+    if (set.y !== undefined) object.y = py(set.y);
     if (set.width !== undefined) object.width = sx(set.width);
     if (set.height !== undefined) object.height = sy(set.height);
     if (set.rotation !== undefined) object.rotation = set.rotation;
@@ -305,12 +318,18 @@ export function queryLevel(level: unknown, query: z.input<typeof LevelQuerySchem
   const map = parsed.level as unknown as TiledMap;
   const three = parsed.dimension === '3d';
   const mpt = metresPerTile(map as { properties?: TiledProperty[] });
+  const origin = levelOrigin(map as { properties?: TiledProperty[] });
+  // Lengths scale; positions in metres are world metres, so the level's origin is added / taken off.
   const outX = (px: number): number => (q.unit === 'm' ? (px / map.tilewidth) * mpt : px);
   const outY = (px: number): number => (q.unit === 'm' ? (px / map.tileheight) * mpt : px);
+  const outPosX = (px: number): number => (q.unit === 'm' ? origin.x + outX(px) : px);
+  const outPosY = (px: number): number => (q.unit === 'm' ? origin.z + outY(px) : px);
   const inX = (v: number): number => (q.unit === 'm' ? (v / mpt) * map.tilewidth : v);
   const inY = (v: number): number => (q.unit === 'm' ? (v / mpt) * map.tileheight : v);
+  const inPosX = (v: number): number => (q.unit === 'm' ? inX(v - origin.x) : v);
+  const inPosY = (v: number): number => (q.unit === 'm' ? inY(v - origin.z) : v);
   const needle = q.name?.toLowerCase();
-  const region = q.region && { x0: inX(q.region.x), y0: inY(q.region.y), x1: inX(q.region.x + q.region.width), y1: inY(q.region.y + q.region.height) };
+  const region = q.region && { x0: inPosX(q.region.x), y0: inPosY(q.region.y), x1: inPosX(q.region.x + q.region.width), y1: inPosY(q.region.y + q.region.height) };
 
   let total = 0;
   const objects: LevelObjectSummary[] = [];
@@ -335,7 +354,7 @@ export function queryLevel(level: unknown, query: z.input<typeof LevelQuerySchem
       if (objects.length >= q.limit) continue;
       const props: Record<string, string | number | boolean> = {};
       for (const [k, v] of Object.entries(levelProperties(object))) if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') props[k] = v;
-      const summary: LevelObjectSummary = { id: object.id, layerId, layer: layer.name ?? '', type, name, x: outX(object.x), y: outY(object.y), properties: props };
+      const summary: LevelObjectSummary = { id: object.id, layerId, layer: layer.name ?? '', type, name, x: outPosX(object.x), y: outPosY(object.y), properties: props };
       if (typeof object.width === 'number') summary.width = outX(object.width);
       if (typeof object.height === 'number') summary.height = outY(object.height);
       if (typeof object.rotation === 'number') summary.rotation = object.rotation;
@@ -389,9 +408,12 @@ export function resolvePlayFromSpawn(
   const mpt = metresPerTile(map as { properties?: TiledProperty[] });
   const metres = (input.unit ?? 'px') === 'm';
   if (three) {
-    const x = metres ? at.x : (at.x / map.tilewidth) * mpt;
-    const planZ = metres ? at.y : (at.y / map.tileheight) * mpt;
+    const [px, pz] = levelPixelsToWorld(map as { tilewidth: number; tileheight: number; properties?: TiledProperty[] }, at.x, at.y);
+    const x = metres ? at.x : px;
+    const planZ = metres ? at.y : pz;
     return { spawn: at.z === undefined ? { x, y: planZ } : { x, y: at.z, z: planZ } };
   }
-  return { spawn: metres ? { x: (at.x / mpt) * map.tilewidth, y: (at.y / mpt) * map.tileheight } : { x: at.x, y: at.y } };
+  if (!metres) return { spawn: { x: at.x, y: at.y } };
+  const p = levelWorldToPixels(map as { tilewidth: number; tileheight: number; properties?: TiledProperty[] }, at.x, at.y);
+  return { spawn: { x: p.x, y: p.y } };
 }
