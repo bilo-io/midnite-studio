@@ -46,6 +46,18 @@ export const gameDoctorFix = async (input: McpToolInput<'game_doctor_fix'>): Pro
   allowed();
   return tools().game_doctor_fix(input);
 };
+export const gameAssetsList = async (input: McpToolInput<'game_assets_list'>): Promise<McpToolOutput<'game_assets_list'>> =>
+  tools().game_assets_list(input);
+export const gamePrefabList = async (input: McpToolInput<'game_prefab_list'>): Promise<McpToolOutput<'game_prefab_list'>> =>
+  tools().game_prefab_list(input);
+export const gamePrefabSave = async (input: McpToolInput<'game_prefab_save'>): Promise<McpToolOutput<'game_prefab_save'>> => {
+  allowed();
+  return tools().game_prefab_save(input);
+};
+export const gameLevelScatter = async (input: McpToolInput<'game_level_scatter'>): Promise<McpToolOutput<'game_level_scatter'>> => {
+  allowed();
+  return tools().game_level_scatter(input);
+};
 export const gameLevelGet = async (input: McpToolInput<'game_level_get'>): Promise<McpToolOutput<'game_level_get'>> =>
   tools().game_level_get(input);
 export const gameLevelSet = async (input: McpToolInput<'game_level_set'>): Promise<McpToolOutput<'game_level_set'>> => {

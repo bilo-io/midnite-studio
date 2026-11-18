@@ -302,6 +302,10 @@ const ACTION_LABELS: Partial<Record<GameMcpToolId, string>> = {
   game_debug_overlay: 'Switched debug overlays',
   game_doctor: 'Diagnosed the game',
   game_doctor_fix: 'Applied a doctor fix',
+  game_assets_list: 'Listed the assets',
+  game_prefab_list: 'Listed the prefabs',
+  game_prefab_save: 'Saved a prefab',
+  game_level_scatter: 'Scattered objects',
 };
 
 /**

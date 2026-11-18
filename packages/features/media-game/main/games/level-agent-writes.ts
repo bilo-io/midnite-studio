@@ -7,6 +7,7 @@ import {
   ok,
   validateLevel,
   type GameEntityWriteOutput,
+  type GamePrefab,
   type GitOpResult,
   type LevelIssue,
   type LevelOp,
@@ -25,6 +26,8 @@ export type LevelAgentWriteDeps = {
   levelEditor: Pick<LevelEditorBridge, 'request'>;
   /** The game's model asset names, or `null` when its manifest cannot say (the model-missing rule is skipped). */
   modelAssets: (gameId: string) => Promise<readonly string[] | null>;
+  /** One prefab file by name (Phase 139 Theme I), `null` when it is missing or invalid; needed for `place-prefab` ops. */
+  prefab?: (gameId: string, name: string) => Promise<GamePrefab | null>;
 };
 
 export type LevelAgentWriteRequest = {
@@ -43,6 +46,7 @@ const plural = (n: number, noun: string): string => `${n} ${noun}${n === 1 ? '' 
 export function defaultLevelWriteLabel(ops: readonly LevelOp[]): string {
   const kinds = new Set(ops.map((op) => op.op));
   const n = ops.length;
+  if (kinds.size === 1 && kinds.has('place-prefab')) return `Place ${plural(n, 'prefab')}`;
   if (kinds.size === 1) {
     const verb = kinds.has('add') ? 'Add' : kinds.has('update') ? 'Update' : 'Delete';
     return `${verb} ${plural(n, 'object')}`;
@@ -60,7 +64,20 @@ async function issuesFor(deps: LevelAgentWriteDeps, gameId: string, level: unkno
     .slice(0, 50);
 }
 
+/** The prefab files the batch's `place-prefab` ops name; a missing one is left out so the op reports it by name. */
+async function prefabsFor(deps: LevelAgentWriteDeps, gameId: string, ops: readonly LevelOp[]): Promise<Record<string, GamePrefab>> {
+  const out: Record<string, GamePrefab> = {};
+  if (!deps.prefab) return out;
+  for (const op of ops) {
+    if (op.op !== 'place-prefab' || op.prefab in out) continue;
+    const prefab = await deps.prefab(gameId, op.prefab).catch(() => null);
+    if (prefab) out[op.prefab] = prefab;
+  }
+  return out;
+}
+
 export async function writeLevelOps(deps: LevelAgentWriteDeps, req: LevelAgentWriteRequest): Promise<GitOpResult<GameEntityWriteOutput>> {
+  const prefabs = await prefabsFor(deps, req.gameId, req.ops);
   const label = req.label ?? defaultLevelWriteLabel(req.ops);
   const asked = await deps.levelEditor.request({
     kind: 'apply',
@@ -70,6 +87,7 @@ export async function writeLevelOps(deps: LevelAgentWriteDeps, req: LevelAgentWr
     unit: req.unit,
     label,
     select: req.select,
+    ...(Object.keys(prefabs).length ? { prefabs } : {}),
   });
 
   if (!asked.ok) {
@@ -82,7 +100,7 @@ export async function writeLevelOps(deps: LevelAgentWriteDeps, req: LevelAgentWr
   } else if (asked.value.reason === 'read-only') {
     return failure('The level is open read-only in the editor.');
   }
-  return writeToFile(deps, req);
+  return writeToFile(deps, req, prefabs);
 }
 
 async function finishEditorWrite(
@@ -116,10 +134,10 @@ const pick = (a: { added: number[]; updated: number[]; deleted: number[]; refs: 
   refs: a.refs,
 });
 
-async function writeToFile(deps: LevelAgentWriteDeps, req: LevelAgentWriteRequest): Promise<GitOpResult<GameEntityWriteOutput>> {
+async function writeToFile(deps: LevelAgentWriteDeps, req: LevelAgentWriteRequest, prefabs: Record<string, GamePrefab>): Promise<GitOpResult<GameEntityWriteOutput>> {
   const file = await deps.levels.get(req.gameId, req.scene);
   if (!file.ok) return file;
-  const result = applyLevelOps(file.value.level, req.ops, { unit: req.unit, entityTypes: levelEntityTypes(file.value.level) });
+  const result = applyLevelOps(file.value.level, req.ops, { unit: req.unit, entityTypes: levelEntityTypes(file.value.level), prefabs });
   if (!result.ok) return failure(joinErrors(result.errors));
   const written = await deps.levels.set(req.gameId, req.scene, result.level);
   if (!written.ok) return written;

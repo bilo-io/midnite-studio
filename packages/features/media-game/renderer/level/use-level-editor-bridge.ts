@@ -29,7 +29,7 @@ const joinErrors = (errors: readonly { index: number; op: string; message: strin
 function applyAgentRequest(request: Extract<LevelEditorRequest, { kind: 'apply' }>, entry: OpenLevel): LevelEditorAnswer {
   const store = useLevelStore.getState();
   const entityTypes = levelEntityTypes(serialise(entry.edit));
-  const { state, result } = applyAgentOps(entry.edit, request.ops, { unit: request.unit, entityTypes, select: request.select });
+  const { state, result } = applyAgentOps(entry.edit, request.ops, { unit: request.unit, entityTypes, select: request.select, ...(request.prefabs ? { prefabs: request.prefabs } : {}) });
   if (!result.ok) return failure(joinErrors(result.errors));
   store.update(request.gameId, () => state);
   const changeSetId = crypto.randomUUID();

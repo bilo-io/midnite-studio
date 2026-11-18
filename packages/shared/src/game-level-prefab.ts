@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { LevelEntityFieldsSchema, type LevelEntityFields, type LevelPropertyValue } from './game-level-ops';
+import { LevelEntityFieldsSchema, type LevelEntityFields, type LevelPropertyValue } from './game-level-entity';
 import { GameSceneNameSchema } from './media-game';
 
 /**

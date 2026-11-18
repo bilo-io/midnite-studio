@@ -8,6 +8,8 @@ import {
   metresPerTile,
   parseGameLevel,
 } from './game-level';
+import { LevelEntityFieldsSchema, type LevelEntityFields, type LevelPropertyValue } from './game-level-entity';
+import { instantiatePrefab, type GamePrefab } from './game-level-prefab';
 
 /**
  * Level operations (Phase 138 Theme A): the one op language for agent edits to a Tiled level. Pure and zod-only,
@@ -23,24 +25,8 @@ export const LEVEL_OPS_MAX = 500;
 /** Errors collected before a failed batch stops reporting. */
 export const LEVEL_OP_ERRORS_MAX = 20;
 
-export const LevelPropertyValueSchema = z.union([z.string().max(4000), z.number().finite(), z.boolean()]);
-export type LevelPropertyValue = z.infer<typeof LevelPropertyValueSchema>;
-
+export { LevelEntityFieldsSchema, LevelPropertyValueSchema, type LevelEntityFields, type LevelPropertyValue } from './game-level-entity';
 const finite = z.number().finite();
-
-export const LevelEntityFieldsSchema = z.object({
-  type: z.string().min(1).max(64),
-  name: z.string().max(200).optional(),
-  x: finite,
-  y: finite,
-  width: finite.nonnegative().optional(),
-  height: finite.nonnegative().optional(),
-  rotation: finite.optional(),
-  point: z.boolean().optional(),
-  polyline: z.array(z.object({ x: finite, y: finite })).max(1000).optional(),
-  properties: z.record(z.string().min(1).max(64), LevelPropertyValueSchema).optional(),
-});
-export type LevelEntityFields = z.infer<typeof LevelEntityFieldsSchema>;
 
 export const LevelOpSchema = z.discriminatedUnion('op', [
   z.object({
@@ -59,10 +45,30 @@ export const LevelOpSchema = z.discriminatedUnion('op', [
     unset: z.array(z.string()).max(64).optional(),
   }),
   z.object({ op: z.literal('delete'), id: z.number().int().positive() }),
+  /**
+   * Phase 139 Theme I: stamp a prefab. `x`/`y` are the pivot in the batch's unit; the prefab's own offsets are px.
+   * The objects are tagged as one instance (`instance` is an 8-char id, generated when absent) and `refs[ref]` is
+   * the first object's id.
+   */
+  z.object({
+    op: z.literal('place-prefab'),
+    prefab: z.string().min(1).max(200),
+    x: finite,
+    y: finite,
+    rotation: finite.optional(),
+    layer: z.union([z.number().int(), z.string().min(1)]).optional(),
+    instance: z.string().min(1).max(16).optional(),
+    ref: z.string().min(1).max(64).optional(),
+  }),
 ]);
 export type LevelOp = z.infer<typeof LevelOpSchema>;
 
-export type LevelOpsContext = { unit: 'px' | 'm'; entityTypes: readonly string[] };
+export type LevelOpsContext = {
+  unit: 'px' | 'm';
+  entityTypes: readonly string[];
+  /** The prefabs `place-prefab` may name, by name (main reads them from disk, the renderer from its prefab list). */
+  prefabs?: Readonly<Record<string, GamePrefab>>;
+};
 export type LevelOpError = { index: number; op: LevelOp['op']; message: string };
 export type LevelOpsResult =
   | { ok: true; level: Record<string, unknown>; added: number[]; updated: number[]; deleted: number[]; refs: Record<string, number> }
@@ -132,6 +138,29 @@ function nextId(map: TiledMap): number {
   return Math.max(declared, max + 1);
 }
 
+/** Append `entity` to `layer` as a new Tiled object, scaling its lengths with `sx`/`sy`; returns the new id. */
+function pushObject(map: TiledMap, layer: TiledLayer, entity: LevelEntityFields, sx: (v: number) => number, sy: (v: number) => number): number {
+  const id = nextId(map);
+  const object: TiledObject = {
+    id,
+    name: entity.name ?? '',
+    type: entity.type,
+    x: sx(entity.x),
+    y: sy(entity.y),
+    width: entity.width === undefined ? 0 : sx(entity.width),
+    height: entity.height === undefined ? 0 : sy(entity.height),
+    rotation: entity.rotation ?? 0,
+    visible: true,
+  };
+  if (entity.point) object.point = true;
+  if (entity.polyline) object.polyline = entity.polyline.map((p) => ({ x: sx(p.x), y: sy(p.y) }));
+  const properties = mergeProperties(undefined, entity.properties, undefined);
+  if (properties?.length) object.properties = properties;
+  (layer.objects ??= []).push(object);
+  map.nextobjectid = id + 1;
+  return id;
+}
+
 /**
  * Apply `ops` to a copy of `level`. The input is never mutated (it may be frozen). All-or-nothing: on any error
  * the result is `{ ok: false, errors }` (at most {@link LEVEL_OP_ERRORS_MAX}) and no level is returned.
@@ -165,30 +194,34 @@ export function applyLevelOps(level: unknown, ops: readonly LevelOp[], ctx: Leve
 
   ops.forEach((op, index) => {
     if (errors.length >= LEVEL_OP_ERRORS_MAX) return;
+    if (op.op === 'place-prefab') {
+      const prefab = ctx.prefabs?.[op.prefab];
+      if (!prefab) return fail(index, 'place-prefab', `No prefab named "${op.prefab}" — \`game_prefab_list\` returns the names.`);
+      if (prefab.dimension !== parsed.dimension) return fail(index, 'place-prefab', `Prefab "${op.prefab}" is ${prefab.dimension}; this level is ${parsed.dimension}.`);
+      const layer = resolveLayer(map, op.layer);
+      if (typeof layer === 'string') return fail(index, 'place-prefab', layer);
+      if (op.ref !== undefined && op.ref in refs) return fail(index, 'place-prefab', `Ref "${op.ref}" is already used in this batch.`);
+      const at = { x: sx(op.x), y: sy(op.y) };
+      const instance = op.instance ?? globalThis.crypto.randomUUID().slice(0, 8);
+      const entities = instantiatePrefab(prefab, at, op.rotation ?? 0, instance);
+      for (const entity of entities) {
+        const problem = checkType(entity.type) ?? checkPos('x', entity.x) ?? checkPos('y', entity.y);
+        if (problem) return fail(index, 'place-prefab', `${problem} (in prefab "${op.prefab}")`);
+      }
+      entities.forEach((entity, at2) => {
+        const id = pushObject(map, layer, entity, (v) => v, (v) => v);
+        added.push(id);
+        if (at2 === 0 && op.ref) refs[op.ref] = id;
+      });
+      return;
+    }
     if (op.op === 'add') {
       const { entity } = op;
       const problem = (op.ref !== undefined && op.ref in refs ? `Ref "${op.ref}" is already used in this batch.` : null) ?? checkType(entity.type) ?? checkPos('x', sx(entity.x)) ?? checkPos('y', sy(entity.y));
       if (problem) return fail(index, 'add', problem);
       const layer = resolveLayer(map, op.layer);
       if (typeof layer === 'string') return fail(index, 'add', layer);
-      const id = nextId(map);
-      const object: TiledObject = {
-        id,
-        name: entity.name ?? '',
-        type: entity.type,
-        x: sx(entity.x),
-        y: sy(entity.y),
-        width: entity.width === undefined ? 0 : sx(entity.width),
-        height: entity.height === undefined ? 0 : sy(entity.height),
-        rotation: entity.rotation ?? 0,
-        visible: true,
-      };
-      if (entity.point) object.point = true;
-      if (entity.polyline) object.polyline = entity.polyline.map((p) => ({ x: sx(p.x), y: sy(p.y) }));
-      const properties = mergeProperties(undefined, entity.properties, undefined);
-      if (properties?.length) object.properties = properties;
-      (layer.objects ??= []).push(object);
-      map.nextobjectid = id + 1;
+      const id = pushObject(map, layer, entity, sx, sy);
       added.push(id);
       if (op.ref) refs[op.ref] = id;
       return;
