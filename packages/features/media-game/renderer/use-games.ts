@@ -97,6 +97,7 @@ export function useSetGamesSettings() {
       reportFailure(result);
       void client.invalidateQueries({ queryKey: GAME_KEYS.settings });
       void client.invalidateQueries({ queryKey: GAME_KEYS.list });
+      void client.invalidateQueries({ queryKey: GAME_KEYS.assetLibrary });
     },
   });
 }
