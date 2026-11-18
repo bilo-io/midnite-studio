@@ -35,6 +35,7 @@ export * from './app-main';
 export * from './capture-output';
 export * from './process-runner';
 export * from './ai/headless-text';
+export * from './ai/headless-ports';
 export * from './repo-skills';
 export * from './media';
 export * from './log';
