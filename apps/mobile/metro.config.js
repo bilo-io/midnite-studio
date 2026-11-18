@@ -13,4 +13,12 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, 'node_modules'),
 ];
 
+// The one git-engine subpath mobile takes: the pure diff parser, from source (Phase 146 Theme D6).
+const DIFF_PARSER = path.resolve(workspaceRoot, 'packages/git-engine/src/parsers/diff-parser.ts');
+const upstreamResolve = config.resolver.resolveRequest;
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (moduleName === '@midnite/studio-git-engine/diff') return { type: 'sourceFile', filePath: DIFF_PARSER };
+  return (upstreamResolve ?? context.resolveRequest)(context, moduleName, platform);
+};
+
 module.exports = config;

@@ -8,7 +8,7 @@ import {
 } from '@midnite/studio-shared';
 
 import { describeGraphqlFailure } from './gh-graphql';
-import { scopeErrorKind } from './gh-project';
+import { scopeErrorKind } from '@midnite/forge-github-core';
 import { apiHostFlag, ghStatus, invalidateGhProbe, LIST_TIMEOUT_MS, runInShell, shellQuote } from './gh-shell';
 
 /**

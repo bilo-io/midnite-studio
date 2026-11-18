@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./diff": {
+      "types": "./dist/parsers/diff-parser.d.ts",
+      "default": "./dist/parsers/diff-parser.js"
     }
   },
   "files": [

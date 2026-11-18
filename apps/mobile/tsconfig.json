@@ -8,7 +8,11 @@
     "composite": false,
     "declaration": false,
     "declarationMap": false,
-    "types": ["node"]
+    "types": ["node"],
+    // The pure unified-diff parser, from source: no pre-built git-engine `dist/` (Phase 146 Theme D6).
+    "paths": {
+      "@midnite/studio-git-engine/diff": ["../../packages/git-engine/src/parsers/diff-parser.ts"]
+    }
   },
   "include": ["app", "src", "test", "app.config.ts", "vitest.config.ts", "expo-env.d.ts"],
   "exclude": ["node_modules", "dist", ".expo"]
