@@ -288,8 +288,9 @@ A), then **E**, then **F**.
 - [ ] `moon run :typecheck :lint :test` green (in CI once Actions is unlocked; until then the focused local gate,
   named in each PR).
   **Focused gate 2026-11-18 at `04fc9b667`: fails.** Typecheck (`shared`, `runtime`, `module-startup`, `app-startup`)
-  and eslint over the touched paths are clean; vitest `shared` 3740/3740, `module-startup` 285/285, `app-startup`
-  18/18, but `runtime` has three failures that repeat when run on their own:
+  and eslint over the touched paths are clean; vitest `shared` 3740/3740, `module-startup` 285/285 (the lazy-chart test passes on
+  its own after a timeout under load), `app-startup` 18/18, but `runtime` is 831/834. Its three failures repeat when
+  run on their own:
   - `src/mcp/installed-apps.test.ts` › "Studio's injected source lists every tool, unchanged" and
     `src/mcp/launcher-installed.test.ts` › "Studio as host (provides every app) still lists everything": the received
     list is missing the eight `startup_*` tools the expected list holds (148 against 156), which goes with Theme C
