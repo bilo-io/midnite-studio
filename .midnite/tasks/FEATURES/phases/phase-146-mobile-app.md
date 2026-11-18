@@ -49,11 +49,7 @@ Planned 2026-11-14, designed 2026-11-15. Twelve themes: the component library re
 pure-core extractions (C, D), the GitHub data source (E), the shell (F), then the four tabs' screens (G History, H Tasks,
 I Reviews, J Agents and More), the docs and guards (K), and the app-level visual pass (L).
 
-**Theme A — `@bilo-io/ui-native` 0.5.0.** ◻ The spacing, typography, elevation and motion placeholders in
-`@bilo-io/ui/tokens` get real values, and ui-native's theme exposes them along with the existing status and kind accent
-hues. AppBar, BottomNav, Fab + SpeedDial, Sheet (left and bottom), ListRow, Badge, Chip, Avatar, SegmentedControl,
-IconButton, EmptyState and Skeleton land in `midnite-ui`, each with a test and a showcase Mobile entry, and are released
-to GitHub Packages.
+**Theme A — `@bilo-io/ui-native` 0.5.0.** 🔄 Built and merged in midnite-ui (#19, 2b03986): the A14 token placeholders in `@bilo-io/ui/tokens` have real spacing, type, elevation and motion values; ui-native's theme exposes them with the status/kind accents, a scrim, `contrastRatio` and a pinned `LOW_CONTRAST_ACCENTS` (four light-mode accents under 3:1, no text pair fails); and AppBar, BottomNav, Fab + SpeedDial, Sheet, ListRow, Badge, Chip, Avatar, SegmentedControl, IconButton, EmptyState and Skeleton each land with a test and a showcase Mobile entry. `@bilo-io/ui` and `@bilo-io/shell` 0.5.0 are published; **ui-native 0.5.0 is not** — GitHub Packages refused the new package with "Account has reached its billing limit", so A13's release, the `v0.5.0` tag and Decision 10 wait on that. Open: a bottom sheet jumps between snap points instead of animating.
 
 **Theme B — The `apps/mobile` scaffold.** ✅ Landed: `@midnite/mobile` (Expo SDK 58, RN 0.88.1), expo-router shell (`GestureHandlerRootView` > `SafeAreaProvider` > theme seam > `QueryClientProvider` > `AuthGate` passthrough, TODO E6), moon tasks, vitest + react-native-web joined to the node gate, an eslint boundary block with 15 layer cases, and an iOS `expo export` that bundles one `react`. `@bilo-io/ui-native` is not published, so `src/ui/theme.tsx` is a local seam to swap for ui-native ^0.5.0; simulator boot (B8 screenshots) is left to a human. Original scope: Expo + expo-router + strict TypeScript as a pnpm workspace member with moon
 tasks, a Metro config that resolves the workspace, an eslint boundary block, and `ThemeProvider` at the root. It boots
@@ -337,31 +333,31 @@ and A15's `space`, `type`, `font`, `elevation`, `motion`, `accents`, `scrim`; th
 [Visual & UI/UX Design](#visual--uiux-design)), takes an optional `style` and `testID`, sets `accessibilityRole` / `accessibilityLabel` through `lib/a11y.ts`, and is
 exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the library takes no icon dependency.
 
-- [ ] **A1 · `AppBar`** (S): `{ title: ReactNode; subtitle?: string; leading?: ReactNode; trailing?: ReactNode; onTitlePress?: () => void }`.
+- [x] **A1 · `AppBar`** (S): `{ title: ReactNode; subtitle?: string; leading?: ReactNode; trailing?: ReactNode; onTitlePress?: () => void }`.
   Pads the top inset through an optional `insetTop: number` prop (the library takes no safe-area dependency). The
   title is pressable when `onTitlePress` is set (`accessibilityRole="button"`). Test: renders title and subtitle, and
   fires `onTitlePress`.
-- [ ] **A2 · `BottomNav`** (M): `{ items: { key: string; label: string; icon: ReactNode; badge?: number | boolean }[];
+- [x] **A2 · `BottomNav`** (M): `{ items: { key: string; label: string; icon: ReactNode; badge?: number | boolean }[];
   activeKey: string; onChange: (key: string) => void; insetBottom?: number; hideLabels?: boolean }`. Equal-width items,
   styled per the Shell geometry spec (the active item gets a `radius.full` `accent` pill behind its icon, with icon and
   label in `foreground`; inactive items in `mutedForeground`), `accessibilityRole="tablist"` on the bar and `"tab"` plus `accessibilityState.selected` per item.
   A numeric badge over 99 renders `99+`. It must be usable as an expo-router `tabBar` with no adapter beyond mapping
   props. Test: the active state, `onChange`, and badge clamping.
-- [ ] **A3 · `Fab`** (S): `{ icon: ReactNode; label: string; onPress: () => void; position?: 'bottom-right' | 'bottom-left'; offsetBottom?: number }`.
+- [x] **A3 · `Fab`** (S): `{ icon: ReactNode; label: string; onPress: () => void; position?: 'bottom-right' | 'bottom-left'; offsetBottom?: number }`.
   A 56 dp `radius.full` disc in `colors.primary` with the icon in `primaryForeground` (**plain primary, no gradient**:
   decided with the user), absolutely positioned, `elevation[3]`, `label` as `accessibilityLabel`. Pressed: scale 0.96 and
   opacity 0.9 over `motion.fast`. Test: press and label.
-- [ ] **A4 · `SpeedDial`** (M): `{ open: boolean; onOpenChange: (o: boolean) => void; actions: { key: string; label: string; icon: ReactNode; onPress: () => void; disabled?: boolean }[]; icon: ReactNode; openIcon?: ReactNode }`.
+- [x] **A4 · `SpeedDial`** (M): `{ open: boolean; onOpenChange: (o: boolean) => void; actions: { key: string; label: string; icon: ReactNode; onPress: () => void; disabled?: boolean }[]; icon: ReactNode; openIcon?: ReactNode }`.
   It wraps `Fab`. When open, a scrim (`alpha(colors.background, 0.6)`) appears and the actions stack upward with
   labels to their left. Tapping the scrim or an action closes it. The animation uses React Native `Animated` (no
   reanimated). Test: open and close, an action fires and closes, a disabled action is inert.
-- [ ] **A5 · `Sheet`** (L): `{ open: boolean; onOpenChange: (o: boolean) => void; side: 'left' | 'bottom'; title?: string; children: ReactNode; widthFraction?: number /* left, default 0.86 */; snapPoints?: number[] /* bottom, fractions, default [0.5, 0.9] */ }`.
+- [x] **A5 · `Sheet`** (L): `{ open: boolean; onOpenChange: (o: boolean) => void; side: 'left' | 'bottom'; title?: string; children: ReactNode; widthFraction?: number /* left, default 0.86 */; snapPoints?: number[] /* bottom, fractions, default [0.5, 0.9] */ }`.
   Built on React Native `Modal` (transparent) + `Animated` + `PanResponder`: swipe left to close a left sheet, drag
   down to close a bottom sheet. Hardware back on Android closes it (`onRequestClose`). Test: open renders children,
   scrim press closes, and `onRequestClose` closes.
-- [ ] **A6 · `ListRow`** (S): `{ title: string; subtitle?: string; leading?: ReactNode; trailing?: ReactNode; meta?: string; onPress?: () => void; onLongPress?: () => void; numberOfLines?: number }`.
+- [x] **A6 · `ListRow`** (S): `{ title: string; subtitle?: string; leading?: ReactNode; trailing?: ReactNode; meta?: string; onPress?: () => void; onLongPress?: () => void; numberOfLines?: number }`.
   A 56 dp minimum height (72 dp with a subtitle) and a hairline divider token. Test: press and long-press.
-- [ ] **A7 · `Badge` and `Chip`** (S): `Badge { tone: 'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'info'; children }`.
+- [x] **A7 · `Badge` and `Chip`** (S): `Badge { tone: 'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'info'; children }`.
   Tones map through the Semantic mapping table: `neutral` → `muted`/`mutedForeground`, `primary` →
   `primary`/`primaryForeground`, `success` → `success`, `warning` → `accents.status.wip`, `danger` →
   `accents.kind.bug`, and `info` → `accents.status.todo`. Each non-neutral tone is the hue at 0.15 alpha as background,
@@ -370,30 +366,30 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
   and `space[2]` horizontal padding.
   `Chip { label: string; color?: string /* hex, e.g. a project field option colour */; selected?: boolean; onPress?: () => void; leading?: ReactNode }`.
   `Chip` picks a readable text colour against `color` via relative luminance (`contrastTextForHex(hex)`: `L > 0.179` → `'#000000'`, else `'#ffffff'`, guaranteeing WCAG contrast ≥ 4.5). Test: tones, and contrast on a light (`#facc15`) and a dark (`#1e293b`) colour.
-- [ ] **A8 · `Avatar`** (XS): `{ uri?: string; name: string; size?: 24 | 32 | 40 }`. Falls back to initials on a
+- [x] **A8 · `Avatar`** (XS): `{ uri?: string; name: string; size?: 24 | 32 | 40 }`. Falls back to initials on a
   `colors.muted` disc when `uri` is missing or fails to load (`onError`). Test: initials fallback.
-- [ ] **A9 · `SegmentedControl`** (S): `{ segments: { key: string; label: string; icon?: ReactNode }[]; value: string; onChange: (k: string) => void }`.
+- [x] **A9 · `SegmentedControl`** (S): `{ segments: { key: string; label: string; icon?: ReactNode }[]; value: string; onChange: (k: string) => void }`.
   `accessibilityRole="tablist"`. Test: change and selected state.
-- [ ] **A10 · `IconButton`** (XS): `{ icon: ReactNode; label: string; onPress: () => void; variant?: 'ghost' | 'filled'; size?: 32 | 40 }`.
+- [x] **A10 · `IconButton`** (XS): `{ icon: ReactNode; label: string; onPress: () => void; variant?: 'ghost' | 'filled'; size?: 32 | 40 }`.
   A 44 dp minimum hit slop. Test: press and label.
-- [ ] **A11 · `EmptyState` and `Skeleton`** (S): `EmptyState { icon?: ReactNode; title: string; body?: string; action?: { label: string; onPress: () => void } }`.
+- [x] **A11 · `EmptyState` and `Skeleton`** (S): `EmptyState { icon?: ReactNode; title: string; body?: string; action?: { label: string; onPress: () => void } }`.
   `Skeleton { width: number | `${number}%`; height: number; radius?: number }` with a looped `Animated` opacity pulse
   (disabled when `AccessibilityInfo.isReduceMotionEnabled()` resolves true). Test: action fires, and reduce-motion
   leaves a static block.
-- [ ] **A12 · Showcase entries** (M): each of A1 to A11 gets a demo in the showcase's Mobile mode
+- [x] **A12 · Showcase entries** (M): each of A1 to A11 gets a demo in the showcase's Mobile mode
   (`packages/showcase`, alongside the existing ui-native demos), including a composed "app frame" demo: AppBar + list +
   BottomNav + SpeedDial + left Sheet.
 - [ ] **A13 · Boundary and release** (S): `src/boundary.test.ts` still passes (the dist imports only `react`,
   `react/jsx-runtime` and `react-native`). Bump `packages/ui-native/package.json` to `0.5.0`, add a README section
   listing the new components, and publish to GitHub Packages through that repo's own release flow. Record the
   published version in this doc's Decisions.
-- [ ] **A14 · Fill the token placeholders in `@bilo-io/ui/tokens`** (M): replace `spacing`, `typography`, `shadow` and
+- [x] **A14 · Fill the token placeholders in `@bilo-io/ui/tokens`** (M): replace `spacing`, `typography`, `shadow` and
   `motion` (all `{ placeholder: true }` today) in `packages/ui/src/tokens/index.ts` with the values in the Tokens table
   (rem strings for lengths so `toDp` reads them, e.g. `spacing['4'] = '1rem'`). Add `radius.full`, `zIndex.fab = 40`,
   `zIndex.scrim = 45`, `zIndex.sheet = 50` and `overlay.scrim = { hsl: '0 0% 0%', alpha: 0.5 }`. The values equal
   Tailwind's defaults, so no web consumer changes. Extend `tokens.test.ts` to assert that no `placeholder: true`
   remains on the four scales, and that every spacing and type value parses with `toDp`.
-- [ ] **A15 · Expose them on ui-native's theme** (M): `createTheme` adds `space`, `type` (`{ fontSize, lineHeight }` per
+- [x] **A15 · Expose them on ui-native's theme** (M): `createTheme` adds `space`, `type` (`{ fontSize, lineHeight }` per
   step), `font` (`regular`, `medium`, `semibold`, `mono`, with `mono` resolved via `Platform.select`), `elevation`
   (ready style objects with iOS shadow keys + Android `elevation`), `motion` (`{ fast, base, slow, easing }`, with
   easing as `Easing.bezier(0.2, 0, 0, 1)`), `accents` (`status` and `kind` from `accentHues[scheme]`) and `scrim` (an
