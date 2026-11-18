@@ -113,6 +113,9 @@ export type StartAgentInput = {
    * an xterm of its own, so one loop can dispatch any number of sessions.
    */
   loopId: string;
+  /** The model and effort ids, stamped on the session for its row label. */
+  loopModel?: string;
+  loopEffort?: string;
   autoSend?: boolean;
 };
 
@@ -123,6 +126,8 @@ export type LoopsSelectOption = {
   icon?: IconComponent;
   iconColor?: string;
   hint?: string;
+  /** Drawn in place of the text (e.g. the effort pill); search still matches `label`. */
+  content?: ReactNode;
   isDisabled?: boolean;
   disabledReason?: string;
 };

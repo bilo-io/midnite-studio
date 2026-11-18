@@ -26,6 +26,7 @@ import {
   loopSweepFindingsFragment,
   normaliseLoopSkill,
   onceOffBasePrompt,
+  loopEffortArgs,
   loopModelArgs,
   loopModelsFor,
   loopScheduleFragment,
@@ -451,6 +452,14 @@ describe('the day axis', () => {
     expect(loopScheduleFragment(at(['sun']))).toBe(
       'Work on Sunday only — idle on every other day.',
     );
+  });
+});
+
+describe('loopEffortArgs', () => {
+  it('passes --effort for Claude, nothing for the default or another CLI', () => {
+    expect(loopEffortArgs('claude', 'low')).toEqual(['--effort', 'low']);
+    expect(loopEffortArgs('claude', 'default')).toEqual([]);
+    expect(loopEffortArgs('codex', 'max')).toEqual([]);
   });
 });
 

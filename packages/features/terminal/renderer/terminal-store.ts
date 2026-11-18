@@ -72,6 +72,9 @@ export type NewSessionRequest = {
   taskRef?: { projectId: string; itemId: string };
   /** The loop that dispatched this session — lists it under the session list's "Loops" group. */
   loopId?: string;
+  /** The loop's model and effort ids at launch — the row's label reads them. */
+  loopModel?: string;
+  loopEffort?: string;
   /** Stamped at launch (Phase 95 Theme H) — see `TerminalSessionSchema`'s own docs. */
   projectRef?: { projectId: string; forge: string };
   workflowRunRef?: { workflowId: string; runId: string; nodeId: string };
@@ -577,6 +580,8 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       ...(request.surface === undefined ? {} : { surface: request.surface }),
       ...(request.taskRef === undefined ? {} : { taskRef: request.taskRef }),
       ...(request.loopId === undefined ? {} : { loopId: request.loopId }),
+      ...(request.loopModel === undefined ? {} : { loopModel: request.loopModel }),
+      ...(request.loopEffort === undefined ? {} : { loopEffort: request.loopEffort }),
       ...(request.projectRef === undefined ? {} : { projectRef: request.projectRef }),
       ...(request.workflowRunRef === undefined ? {} : { workflowRunRef: request.workflowRunRef }),
       ...(request.forgeAccountKey === undefined ? {} : { forgeAccountKey: request.forgeAccountKey }),

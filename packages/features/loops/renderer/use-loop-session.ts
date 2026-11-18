@@ -1,8 +1,10 @@
 import {
   composeLoopPrompt,
   guardFixPrompt,
+  loopEffortArgs,
   loopModelArgs,
   type LoopDefinition,
+  type LoopEffort,
   type LoopModel,
   type LoopSchedule,
   type SecurityFinding,
@@ -49,6 +51,8 @@ export function useLoopSession(
     agentId: string;
     /** Which Claude to launch — a `--model` flag, never a prompt fragment. */
     model: LoopModel;
+    /** `claude --effort`; `'default'` passes no flag. */
+    effort?: LoopEffort;
     extras: string;
     /**
      * What the loop's agent is actually typed as at the shell — resolved from
@@ -75,6 +79,7 @@ export function useLoopSession(
     schedule,
     agentId,
     model,
+    effort = 'default',
     extras,
     command,
     skills,
@@ -104,6 +109,7 @@ export function useLoopSession(
       once, because the ledger below has to agree with it.
     */
     const modelArgs = loopModelArgs(agentId, model);
+    const effortArgs = loopEffortArgs(agentId, effort);
 
     void host
       .startAgent({
@@ -113,8 +119,9 @@ export function useLoopSession(
         prompt: composedPrompt,
         agentId,
         command,
-        extraArgs: modelArgs,
+        extraArgs: [...modelArgs, ...effortArgs],
         loopId: loop.id,
+        ...launchLabel(modelArgs, model, effortArgs, effort),
         // The explicit press IS the confirmation the withheld Return
         // normally collects — see `startAgent`'s own note.
         autoSend: true,
@@ -138,6 +145,7 @@ export function useLoopSession(
     schedule,
     agentId,
     model,
+    effort,
     extras,
     command,
     skills,
@@ -155,6 +163,7 @@ export function useLoopSession(
       if (!repoId || !cwd) return;
       const composedPrompt = guardFixPrompt(finding);
       const modelArgs = loopModelArgs(agentId, model);
+      const effortArgs = loopEffortArgs(agentId, effort);
       void host
         .startAgent({
           repoId,
@@ -163,8 +172,9 @@ export function useLoopSession(
           prompt: composedPrompt,
           agentId,
           command,
-          extraArgs: modelArgs,
+          extraArgs: [...modelArgs, ...effortArgs],
           loopId: loop.id,
+          ...launchLabel(modelArgs, model, effortArgs, effort),
           autoSend: true,
         })
         .then((sessionId) => {
@@ -178,8 +188,21 @@ export function useLoopSession(
           });
         });
     },
-    [repoId, cwd, agentId, model, command, loop, host],
+    [repoId, cwd, agentId, model, effort, command, loop, host],
   );
 
   return { start, fixFinding };
+}
+
+/** The model and effort ids the row label shows — only those that actually went out as flags. */
+function launchLabel(
+  modelArgs: readonly string[],
+  model: LoopModel,
+  effortArgs: readonly string[],
+  effort: LoopEffort,
+): { loopModel?: string; loopEffort?: string } {
+  return {
+    ...(modelArgs.length > 0 ? { loopModel: model } : {}),
+    ...(effortArgs.length > 0 ? { loopEffort: effort } : {}),
+  };
 }

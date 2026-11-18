@@ -242,6 +242,42 @@ export function loopModelsFor(agentId: string): readonly (typeof LOOP_MODELS)[nu
 }
 
 /**
+ * How hard the loop's agent thinks: `claude --effort`. `'default'` passes no
+ * flag, like the neutral model. Claude only, for the same reason as
+ * {@link loopModelArgs}.
+ */
+export const LoopEffortSchema = z.enum(['default', 'low', 'medium', 'high', 'xhigh', 'max']);
+export type LoopEffort = z.infer<typeof LoopEffortSchema>;
+
+export const LOOP_EFFORTS: readonly { id: LoopEffort; label: string }[] = [
+  { id: 'default', label: 'Default' },
+  { id: 'low', label: 'Low' },
+  { id: 'medium', label: 'Medium' },
+  { id: 'high', label: 'High' },
+  { id: 'xhigh', label: 'XHigh' },
+  { id: 'max', label: 'Max' },
+];
+
+/**
+ * Each effort's red/amber/green rating, by cost: the effort a loop runs at is
+ * a standing bill, so its pill reads like a meter. `null` for the neutral
+ * entry, which pins nothing.
+ */
+export const LOOP_EFFORT_RAG: Record<LoopEffort, 'green' | 'amber' | 'red' | null> = {
+  default: null,
+  low: 'green',
+  medium: 'amber',
+  high: 'red',
+  xhigh: 'red',
+  max: 'red',
+};
+
+/** The `--effort` words for a loop's invocation, or none. */
+export function loopEffortArgs(agentId: string, effort: LoopEffort): string[] {
+  return agentId === 'claude' && effort !== 'default' ? ['--effort', effort] : [];
+}
+
+/**
  * How often a scheduled loop should take another pass.
  *
  * Prompt-level like the window itself, and for the same reason: `/loop` paces
@@ -1458,6 +1494,8 @@ export interface LoopSelection {
 export interface LoopRunOptions {
   reviewUsers?: string[];
   autoRotatePercent?: number;
+  /** `claude --effort`; absent reads as `'default'` (no flag). */
+  effort?: LoopEffort;
 }
 
 /** The auto-rotate slider's range, in percent of a subagent's context window. */

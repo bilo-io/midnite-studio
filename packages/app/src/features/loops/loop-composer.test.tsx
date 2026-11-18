@@ -161,6 +161,31 @@ describe('LoopComposer — idle', () => {
     expect(props.onModel).toHaveBeenCalledWith('opus-5');
   });
 
+  it('offers effort as a type-to-filter select whose rows and chip are RAG pills', () => {
+    const onEffort = vi.fn();
+    renderComposer({ effort: 'medium', onEffort });
+
+    // The chosen value wears its pill: medium is amber.
+    const section = combobox('Effort').closest('[class*="control"]')?.parentElement ?? document.body;
+    const chip = within(section as HTMLElement).getByTestId('loop-effort-pill');
+    expect(chip.getAttribute('data-effort')).toBe('medium');
+    expect(chip.className).toContain('amber');
+
+    // Typing filters the rows, and each row is a pill too.
+    fireEvent.change(combobox('Effort'), { target: { value: 'hi' } });
+    const rows = screen.getAllByRole('option');
+    expect(rows.map((row) => row.textContent)).toEqual(['high', 'xhigh']);
+    expect(within(rows[0]!).getByTestId('loop-effort-pill').className).toContain('red');
+
+    fireEvent.click(rows[0]!);
+    expect(onEffort).toHaveBeenCalledWith('high');
+  });
+
+  it('has no effort select without an onEffort handler', () => {
+    renderComposer();
+    expect(screen.queryByRole('combobox', { name: 'Effort' })).toBeNull();
+  });
+
   it('reports a provider by roster id, and offers every roster agent', () => {
     const { props } = renderComposer();
     fireEvent.mouseDown(combobox('Provider'));

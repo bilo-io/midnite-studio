@@ -1,7 +1,7 @@
 // vitest/jsdom: the list's per-app filter and its "Show all apps" toggle (Phase 123 Theme E), under the default host.
 import { createFrameChrome, FrameChromeProvider } from '@midnite/studio-frame';
 import { BUILTIN_AGENTS, type TerminalSession } from '@midnite/studio-shared';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { __resetAppFilter } from './app-filter';
@@ -445,6 +445,51 @@ describe('TerminalSessionList — the Loops group', () => {
     // The loop mark comes after the avatar and before the name.
     expect(mark.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(rowEl.firstElementChild!.firstElementChild).not.toBe(mark);
+  });
+
+  it('labels an unrenamed loop row "Provider (model · effort) > folder"', () => {
+    const { name: _renamed, ...unnamed } = loopRow('guard-c', 'guard');
+    useTerminalStore.setState({
+      sessions: [{ ...unnamed, cwd: '/Users/me/Dev/midnite-studio', loopModel: 'opus-5-5', loopEffort: 'low' }],
+    });
+    renderWithLoopMark();
+    const label = screen.getByTestId('terminal-session-loop-label');
+    expect(label.textContent).toBe('Claude(Opus 5.5·low)midnite-studio');
+    expect(within(label).getByText('Claude').className).toContain('font-semibold');
+    expect(within(label).getByTestId('terminal-session-loop-model').parentElement!.className).toContain(
+      'text-muted-foreground',
+    );
+    const pill = within(label).getByTestId('terminal-session-loop-effort');
+    expect(pill.getAttribute('data-effort')).toBe('low');
+    expect(pill.className).toContain('emerald');
+  });
+
+  it("appends the agent's own title, cut to its gist, after another chevron", () => {
+    const { name: _renamed, ...unnamed } = loopRow('guard-f', 'guard');
+    useTerminalStore.setState({
+      sessions: [{ ...unnamed, cwd: '/Users/me/Dev/midnite-studio' }],
+      autoNames: { 'guard-f': 'Midnite build iteration across FEATURES, SECURITY, ISSUES' },
+    });
+    renderWithLoopMark();
+    const gist = screen.getByTestId('terminal-session-loop-description');
+    expect(gist.textContent).toBe('build iteration');
+    expect(gist.getAttribute('title')).toBe('Midnite build iteration across FEATURES, SECURITY, ISSUES');
+    expect(screen.getByTestId('terminal-session-loop-label').querySelectorAll('svg').length).toBe(3);
+  });
+
+  it('drops the brackets when the launch pinned neither model nor effort, and colours max red', () => {
+    const { name: _a, ...plain } = loopRow('guard-d', 'guard');
+    const { name: _b, ...maxed } = loopRow('guard-e', 'guard');
+    useTerminalStore.setState({
+      sessions: [
+        { ...plain, cwd: '/repos/bilo' },
+        { ...maxed, cwd: '/repos/bilo', loopEffort: 'max' },
+      ],
+    });
+    renderWithLoopMark();
+    const [first, second] = screen.getAllByTestId('terminal-session-loop-label');
+    expect(first!.textContent).toBe('Claudebilo');
+    expect(within(second!).getByTestId('terminal-session-loop-effort').className).toContain('red');
   });
 
   it('wears no arc while no loop session is live', () => {

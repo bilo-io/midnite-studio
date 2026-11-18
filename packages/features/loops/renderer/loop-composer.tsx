@@ -2,6 +2,7 @@ import {
   LOOP_AUTO_ROTATE,
   LOOP_FREQUENCIES,
   LOOP_GROUPS,
+  LOOP_EFFORTS,
   LOOP_MODELS,
   LOOP_WEEKDAYS,
   loopModelsFor,
@@ -15,6 +16,7 @@ import {
   type LoopFrequency,
   type LoopGroup,
   type LoopModifier,
+  type LoopEffort,
   type LoopModel,
   type LoopSchedule,
   type LoopWeekday,
@@ -39,6 +41,7 @@ import {
 
 import { RadioRow, SwitchTrack, type IconComponent } from '@midnite/studio-frame';
 
+import { EffortPill } from './effort-pill';
 import { useLoopsHost, type LoopsSelectOption as IconSelectOption } from './host';
 import { ExtrasComposer, IconSelect, MultiIconSelect } from './loops-chrome';
 import { useLoopsState } from './use-loops-host-state';
@@ -107,6 +110,7 @@ export function LoopComposer({
   agents,
   agentId,
   model,
+  effort = 'default',
   schedule,
   extras,
   skills,
@@ -123,6 +127,7 @@ export function LoopComposer({
   onChoice,
   onAgent,
   onModel,
+  onEffort,
   onSchedule,
   onExtras,
   onStart,
@@ -136,6 +141,8 @@ export function LoopComposer({
   /** Which provider runs this loop: a roster id, resolved by the caller. */
   agentId: string;
   model: LoopModel;
+  /** `claude --effort`; absent reads as `'default'`. */
+  effort?: LoopEffort;
   schedule: LoopSchedule;
   extras: string;
   /** modifierId → the text in that option's skill field. */
@@ -160,6 +167,8 @@ export function LoopComposer({
   onChoice: (choiceId: string, optionId: string) => void;
   onAgent: (agentId: string) => void;
   onModel: (model: LoopModel) => void;
+  /** Omitted, the row shows no effort select. */
+  onEffort?: (effort: LoopEffort) => void;
   onSchedule: (schedule: LoopSchedule) => void;
   onExtras: (text: string) => void;
   /** Dispatch one session of this loop — the extras field's Send and the wide button below it. */
@@ -272,8 +281,10 @@ export function LoopComposer({
             agents={agents}
             agentId={agentId}
             model={model}
+            effort={effort}
             onAgent={onAgent}
             onModel={onModel}
+            {...(onEffort ? { onEffort } : {})}
           />
           <AutoRotateSlider percent={autoRotatePercent} onPercent={onAutoRotate} />
         </ComposerSection>
@@ -704,14 +715,18 @@ function ProviderModelRow({
   agents,
   agentId,
   model,
+  effort,
   onAgent,
   onModel,
+  onEffort,
 }: {
   agents: readonly AgentDefinition[];
   agentId: string;
   model: LoopModel;
+  effort: LoopEffort;
   onAgent: (agentId: string) => void;
   onModel: (model: LoopModel) => void;
+  onEffort?: (effort: LoopEffort) => void;
 }) {
   const { resolveAgentIcon } = useLoopsHost();
   const models = loopModelsFor(agentId);
@@ -754,6 +769,24 @@ function ProviderModelRow({
           onChange={(id) => onModel(id as LoopModel)}
         />
       </div>
+      {onEffort ? (
+        <div className="min-w-0 flex-1">
+          <IconSelect
+            ariaLabel="Effort"
+            menuInPortal
+            options={LOOP_EFFORTS.map((entry) => ({
+              id: entry.id,
+              label: entry.label,
+              hint: entry.id === 'default' ? "No --effort flag — the CLI's own setting decides." : `--effort ${entry.id}`,
+              content: <EffortPill effort={entry.id} />,
+            }))}
+            // Like the model: only Claude takes the flag, so others show the neutral entry.
+            value={agentId === 'claude' ? effort : 'default'}
+            isDisabled={agentId !== 'claude'}
+            onChange={(id) => onEffort(id as LoopEffort)}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

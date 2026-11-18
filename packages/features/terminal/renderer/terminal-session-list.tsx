@@ -39,6 +39,7 @@ import {
 import { useShowAllApps, visibleInApp } from './app-filter';
 import { useTerminalHost } from './host';
 import { closeSessionWithConfirm } from './close-session';
+import { LoopSessionLabel } from './loop-session-label';
 import { endSessionsWithConfirm, previousBuildSessions } from './end-sessions';
 import { NewSessionPicker } from './new-session-picker';
 import { resolveRepoForPath } from './resolve-repo-for-path';
@@ -768,7 +769,19 @@ function SessionRow({
           data-session-name
           className={`min-w-0 flex-1 truncate ${live ? '' : 'text-muted-foreground'}`}
         >
-          {name}
+          {
+            // A loop row reads "Provider (model · effort) > folder > gist" until the user renames it.
+            isLoopSession(session) && !session.name ? (
+              <LoopSessionLabel
+                session={session}
+                agentLabel={agent?.label}
+                description={autoName}
+                live={live}
+              />
+            ) : (
+              name
+            )
+          }
         </span>
       </div>
 
