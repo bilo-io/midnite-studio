@@ -46,6 +46,17 @@ describe('ControlsPanel', () => {
     expect(screen.getAllByRole('radio').filter((r) => r.getAttribute('aria-checked') === 'true')).toHaveLength(1);
   });
 
+  it('the energy switch toggles energyScalesWithUtilisation', () => {
+    renderWithChrome(<Host initial={fleetProjection()} />);
+    const sw = screen.getByRole('switch', { name: 'Scale energy with utilisation' });
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(sw);
+    expect(latest.globals.energyScalesWithUtilisation).toBe(true);
+    expect(screen.getByRole('switch', { name: 'Scale energy with utilisation' }).getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(screen.getByRole('switch', { name: 'Scale energy with utilisation' }));
+    expect(latest.globals.energyScalesWithUtilisation).toBe(false);
+  });
+
   it('offers a hidden selected entry labelled (hidden), and a missing id as Missing', () => {
     const initial = fleetProjection({ template: { hardwareId: 'ghost-9', apiTierId: 'pro', quantity: 1, utilisationPct: 50, pricePerHourMinor: 100 } });
     renderWithChrome(<Host initial={initial} />);

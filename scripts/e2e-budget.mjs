@@ -284,7 +284,9 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // view; jsdom has neither layout nor real pointer input. Selection and move rules are vitest.
 // Raised 491 -> 493 for Phase 60 Theme B's `error-boundary.spec.ts`: a throw in a real view through the real rail and
 // lazy chunks must leave the rail usable; jsdom cannot mount the rail + view slot + Suspense together.
-export const MAX_DECLARED_E2E = 493;
+// Raised 493 -> 494 for Phase 152 Theme G's send -> stale -> update flow in `startup-projections.spec.ts`: one live workspace
+// seen through two views (Projections and Runway) behind the real rail; vitest only ever mounts one view at a time.
+export const MAX_DECLARED_E2E = 494;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

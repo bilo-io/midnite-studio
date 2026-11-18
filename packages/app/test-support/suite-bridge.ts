@@ -1,5 +1,14 @@
 import type { Page } from '@playwright/test';
 
+import type { FleetProjection } from '@midnite/studio-shared';
+
+type Shared = typeof import('@midnite/studio-shared');
+/** The shared package is CJS with `export *`, which Node's ESM loader cannot see named exports through: take them off `default`. */
+const loadShared = async (): Promise<Shared> => {
+  const ns = (await import('@midnite/studio-shared')) as unknown as Shared & { default?: Shared };
+  return ns.default ?? ns;
+};
+
 /**
  * A mock `window.midniteStudio` for a suite app's renderer (Phase 123 Theme I). The suite apps are served
  * by their own Vite servers, not Studio's, and each preload exposes a different set of namespaces, so one
@@ -19,6 +28,12 @@ export type SuiteBridgeOptions = {
   appVersion?: string;
   /** What `suiteReleaseNotes.get` answers. */
   releaseNotes?: unknown;
+  /**
+   * Make `startup.*` stateful for a flow that writes and re-reads: `startup.get` answers a workspace that
+   * `upsertFleetProjection` and `sendFleetProjectionToRunway` edit (stamping times like main does). Seeded from
+   * `answers['startup.get']`; every other op keeps answering from the map.
+   */
+  statefulStartup?: boolean;
 };
 
 declare global {
@@ -27,16 +42,59 @@ declare global {
   }
 }
 
+type StartupSnapshotAnswer = { ok: true; value: { workspace: { fleetProjections: FleetProjection[]; company: { currency: string } | null }; revision: number; readOnly: boolean } };
+
+/** The lines a send writes for the seeded projections, from the real pure function, so the stub never re-derives pricing. */
+async function sendLinesFor(answers: Record<string, unknown>): Promise<Record<string, unknown[]>> {
+  const { fleetToRunwayLines, seedFleetCatalog } = await loadShared();
+  const snapshot = answers['startup.get'] as StartupSnapshotAnswer | undefined;
+  const workspace = snapshot?.value.workspace;
+  if (workspace === undefined) return {};
+  const catalog = seedFleetCatalog(workspace.company?.currency ?? 'USD');
+  return Object.fromEntries(workspace.fleetProjections.map((p) => [p.id, fleetToRunwayLines(p, catalog, '2027-01', '1970-01-01T00:00:00.000Z', () => crypto.randomUUID())]));
+}
+
 export async function installSuiteBridge(page: Page, options: SuiteBridgeOptions = {}): Promise<void> {
-  await page.addInitScript((opts: { frameless: boolean; answers: Record<string, unknown>; appVersion: string; releaseNotes: unknown }) => {
+  const answersIn = options.answers ?? {};
+  const sendLines = options.statefulStartup === true ? await sendLinesFor(answersIn) : {};
+  await page.addInitScript((opts: { frameless: boolean; answers: Record<string, unknown>; appVersion: string; releaseNotes: unknown; stateful: boolean; sendLines: Record<string, unknown[]> }) => {
     const calls = { toggleMaximize: 0 };
     (window as unknown as { __shellCalls: typeof calls }).__shellCalls = calls;
     const unsubscribe = () => undefined;
+    // Stateful `startup.*` (opt-in): a workspace the two fleet write ops edit, re-read through `startup.get`.
+    const startupAnswer = opts.answers['startup.get'] as { value: { workspace: Record<string, unknown>; revision: number; readOnly: boolean } } | undefined;
+    const store = opts.stateful && startupAnswer !== undefined ? { ...startupAnswer.value, workspace: { ...startupAnswer.value.workspace } } : null;
+    type Ws = { fleetProjections: { id: string; updatedAt: string }[]; lines: { source?: { projectionId: string } }[] };
+    const ws = (): Ws => store!.workspace as unknown as Ws;
+    const snapshot = () => {
+      store!.revision += 1;
+      return { ok: true, value: { ...store!, workspace: { ...store!.workspace } } };
+    };
+    const handlers: Record<string, (args: never) => unknown> = store === null ? {} : {
+      'startup.get': () => ({ ok: true, value: { ...store, workspace: { ...store.workspace } } }),
+      'startup.upsertFleetProjection': ({ projection }: { projection: { id: string } }) => {
+        const next = { ...projection, updatedAt: new Date().toISOString() } as { id: string; updatedAt: string };
+        const list = ws().fleetProjections;
+        store.workspace.fleetProjections = list.some((p) => p.id === next.id) ? list.map((p) => (p.id === next.id ? next : p)) : [...list, next];
+        return snapshot();
+      },
+      'startup.sendFleetProjectionToRunway': ({ projectionId }: { projectionId: string }) => {
+        const syncedAt = new Date().toISOString();
+        const written = (opts.sendLines[projectionId] ?? []).map((l) => {
+          const line = l as { source: Record<string, unknown> };
+          return { ...line, id: crypto.randomUUID(), source: { ...line.source, syncedAt } };
+        });
+        store.workspace.lines = [...ws().lines.filter((l) => l.source?.projectionId !== projectionId), ...written];
+        return snapshot();
+      },
+    };
     const make = (name: string): unknown =>
       new Proxy(function () {}, {
         get: (_t, key) => (key === 'then' || typeof key === 'symbol' ? undefined : make(`${name}.${String(key)}`)),
-        apply: () => {
+        apply: (_t, _this, args) => {
           if (/(^|\.)on[A-Z][^.]*$/.test(name)) return unsubscribe;
+          const handler = handlers[name];
+          if (handler !== undefined) return Promise.resolve(handler(args[0] as never));
           return Promise.resolve(name in opts.answers ? opts.answers[name] : { ok: true, value: null });
         },
       });
@@ -62,7 +120,9 @@ export async function installSuiteBridge(page: Page, options: SuiteBridgeOptions
     });
   }, {
     frameless: options.frameless ?? true,
-    answers: options.answers ?? {},
+    answers: answersIn,
+    stateful: options.statefulStartup === true,
+    sendLines,
     appVersion: options.appVersion ?? '0.0.0',
     releaseNotes: options.releaseNotes ?? { version: options.appVersion ?? '0.0.0', notes: null, error: null },
   });
@@ -129,15 +189,33 @@ export const STARTUP_EMPTY_ANSWERS: Record<string, unknown> = {
   'startup.ledgerSummary': NO_BOOK,
 };
 
-/** Startup with no company and one `gpu-cluster` projection (four nodes): lands on Projections. */
+/** What the Runway view reads: twelve months of the seeded plan. */
+const STARTUP_RUNWAY_PROJECTION = {
+    ok: true,
+    value: {
+      months: Array.from({ length: 12 }, (_, i) => ({
+        month: isoDay(i).slice(0, 7),
+        revenueMinor: 400_000 + i * 12_000,
+        costMinor: 1_200_000,
+        netMinor: -800_000 + i * 12_000,
+        cashMinor: 25_000_000 - 800_000 * (i + 1) + 6_000 * i * (i + 1),
+      })),
+      burnMinor: -800_000,
+      runwayMonths: 30,
+      zeroCashMonth: null,
+      defaultAlive: false,
+    },
+  };
+
+/** Startup with a USD company and one `gpu-cluster` projection (four nodes): lands on Projections, and Send to Runway is enabled. */
 export const STARTUP_FLEET_ANSWERS: Record<string, unknown> = {
   'startup.get': startupSnapshot({
     ...STARTUP_BASE,
-    company: null,
+    company: { ...STARTUP_COMPANY, name: 'Acme Inc', currency: 'USD' },
     fleetProjections: [
       {
         id: uid(500),
-        name: 'Projection',
+        name: 'GPU cluster',
         createdAt: '2026-11-01T00:00:00.000Z',
         updatedAt: '2026-11-01T00:00:00.000Z',
         globals: { scalePct: 100, electricityRateMinor: 15, demandGrowthPct: 0, horizonMonths: 24, energyScalesWithUtilisation: false },
@@ -146,6 +224,7 @@ export const STARTUP_FLEET_ANSWERS: Record<string, unknown> = {
       },
     ],
   }),
+  'startup.projection': STARTUP_RUNWAY_PROJECTION,
   'startup.ledgerSummary': NO_BOOK,
 };
 
@@ -183,22 +262,7 @@ export const STARTUP_SEEDED_ANSWERS: Record<string, unknown> = {
     ],
     invoiceCounter: 0,
   }),
-  'startup.projection': {
-    ok: true,
-    value: {
-      months: Array.from({ length: 12 }, (_, i) => ({
-        month: isoDay(i).slice(0, 7),
-        revenueMinor: 400_000 + i * 12_000,
-        costMinor: 1_200_000,
-        netMinor: -800_000 + i * 12_000,
-        cashMinor: 25_000_000 - 800_000 * (i + 1) + 6_000 * i * (i + 1),
-      })),
-      burnMinor: -800_000,
-      runwayMonths: 30,
-      zeroCashMonth: null,
-      defaultAlive: false,
-    },
-  },
+  'startup.projection': STARTUP_RUNWAY_PROJECTION,
   'startup.ledgerSummary': NO_BOOK,
 };
 

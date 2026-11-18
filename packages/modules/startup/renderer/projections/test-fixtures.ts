@@ -1,6 +1,9 @@
-import { DEFAULT_FLEET_TEMPLATE, buildFleetStarter, type FleetNode, type FleetProjection } from '@midnite/studio-shared';
+import { DEFAULT_FLEET_TEMPLATE, buildFleetStarter, seedFleetCatalog, type FleetCatalog, type FleetNode, type FleetProjection } from '@midnite/studio-shared';
 
 export const u = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+
+/** The built-in hardware and API tiers, priced in USD (what a workspace with no stored catalog resolves to). */
+export const fleetCatalog = (): FleetCatalog => seedFleetCatalog('USD');
 
 /** A node matching the `gpu-cluster` starter's template (so it carries no override), `Node <n>`, id `u(100 + n)`. */
 export function fleetNode(n: number, overrides: Partial<FleetNode> = {}): FleetNode {
