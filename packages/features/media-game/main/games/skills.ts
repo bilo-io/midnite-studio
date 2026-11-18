@@ -1,12 +1,15 @@
 import { cp, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
-/** The three agent CLIs' skill folders, relative to a game repo's root. */
-export const GAME_SKILL_DIRS = ['.claude/skills', '.agents/skills', '.codex/skills'] as const;
+/**
+ * The skill folders the agent CLIs read, relative to a game repo's root: Claude Code reads
+ * `.claude/skills/`; Codex, Antigravity and most other CLIs read `.agents/skills/`.
+ */
+export const GAME_SKILL_DIRS = ['.claude/skills', '.agents/skills'] as const;
 
 /**
  * Seed `templates/media-game/skills/<name>/` into `<dest>/.claude/skills/`,
- * `.agents/skills/` and `.codex/skills/` — one copy per CLI, the
+ * and `.agents/skills/` — one copy per skill folder, the
  * `main/video/scaffold.ts` pattern. A template without a `skills/` folder (a
  * minimal test fixture) seeds nothing. Returns the skill names seeded.
  */

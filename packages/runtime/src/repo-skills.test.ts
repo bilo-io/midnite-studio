@@ -65,7 +65,7 @@ describe('skillSourceOrder', () => {
   it("reads the launching agent's own directory first", () => {
     expect(skillSourceOrder('claude')[0]).toBe('.claude');
     expect(skillSourceOrder(undefined)[0]).toBe('.claude');
-    expect(skillSourceOrder('codex')[0]).toBe('.codex');
+    expect(skillSourceOrder('codex')[0]).toBe('.agents');
     expect(skillSourceOrder('agy')[0]).toBe('.agents');
   });
 });

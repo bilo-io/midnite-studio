@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Static rubric pre-linter for PR review (Phase 151 Theme D). Scans the ADDED lines of a unified
-// diff (plus commit messages) against the repo's own CLAUDE.md rules, deterministically, so a
+// diff (plus commit messages) against the repo's own AGENTS.md rules, deterministically, so a
 // reviewer starts from a findings list instead of rediscovering the mechanical ones. Optional
 // `draft` suggestions come from Ollama (qwen3.5:9b); with no daemon or `--no-llm` each finding keeps
 // its static hint. Nothing here executes code from the diff.
