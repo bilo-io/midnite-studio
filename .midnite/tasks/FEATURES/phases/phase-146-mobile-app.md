@@ -61,9 +61,7 @@ from there, and nothing on desktop changes behaviour. `deriveColumns` keeps its 
 
 **Theme D — `packages/forge-github-core`.** ✅ GraphQL documents, parsers and mutation builders live in a pure package built like git-engine (CJS dist, `shared` only; forge main keeps `…FromStdout` wrappers over `gh`), joined by history, pulls, pull and issue detail, issues, repos, branches and eight mutation builders for mobile; `git-engine` gains a `./diff` subpath.
 
-**Theme E — The GitHub data source.** ◻ Device-flow sign-in with a PAT fallback, the token in `expo-secure-store`, a
-`MobileDataSource` interface with a `GitHubDataSource` implementation over `fetch`, and TanStack Query hooks every screen
-reads through.
+**Theme E — The GitHub data source.** ✅ `apps/mobile` reads GitHub through a `MobileDataSource` interface (`Result<T>` envelopes, never throws) with a `GitHubDataSource` over `fetch` (Theme D's documents and parsers; REST only for commit and pull-file patches, run through `parseUnifiedDiff`), device-flow sign-in as a pure state machine plus a PAT fallback that lists missing scopes, the token in `expo-secure-store` keyed `github:github.com:<login>`, an `AuthGate` that returns to sign-in on any `auth` result, and `mobileQueryKeys` with one TanStack hook per method and the specified invalidations. `forge-github-core` is aliased to source in tsconfig, vitest and Metro (`expo export` bundles); it gained `parseBranchesPage` / `parseRepoPage` for cursors. E7 (the OAuth App and `EXPO_PUBLIC_GITHUB_CLIENT_ID`) is the user's action, so device flow is untested end to end.
 
 **Theme F — The shell.** ◻ A five-tab BottomNav (History, Tasks, Reviews, Agents, More), a title bar with the repo
 switcher, account avatar and forge-panel toggle, a placeholder left forge drawer, and a quick-access FAB speed dial.
@@ -513,7 +511,7 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
 
 ### E — The GitHub data source (L)
 
-- [ ] **E1 · `MobileDataSource` interface** (S): `apps/mobile/src/data/source.ts`. Exports
+- [x] **E1 · `MobileDataSource` interface** (S): `apps/mobile/src/data/source.ts`. Exports
   `type RepoRef = { owner: string; name: string }` and `MobileDataSource`. Every method returns
   `Promise<Result<T>>` where `Result<T> = { ok: true; value: T } | { ok: false; kind: 'auth' | 'scope' | 'network' | 'error'; message: string }`
   (never throws, matching the IPC envelope rule). Methods: `viewer()`, `listRepos(cursor?)`,
@@ -524,26 +522,26 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
   `commentIssue(...)`, `listPulls(repo, scope, cursor?)`, `pull(repo, n)`, `pullFiles(repo, n)` (→ `FileDiff[]`),
   `pullThreads(repo, n)`, `submitReview(...)`, `commentPull(...)` and `replyToThread(...)`. A comment on the interface
   states that a future `DesktopPairedDataSource` implements the same interface.
-- [ ] **E2 · `GitHubDataSource`** (L): `apps/mobile/src/data/github-source.ts` implements E1 with `fetch` to
+- [x] **E2 · `GitHubDataSource`** (L): `apps/mobile/src/data/github-source.ts` implements E1 with `fetch` to
   `https://api.github.com/graphql` using Theme D's documents and parsers. REST is used only for file patches:
   `GET /repos/{o}/{r}/commits/{sha}` and `GET /repos/{o}/{r}/pulls/{n}/files?per_page=100` (paginated through the `Link`
   header), with each `patch` run through `parseUnifiedDiff` from `@midnite/studio-git-engine/diff`. A file with no
   `patch` (binary or too large) becomes a `FileDiff` with no hunks and a `tooLarge`/`binary` flag as desktop renders
   it. 401 → `kind: 'auth'`, a 403 scope message → `'scope'`, a `TypeError` from fetch → `'network'`. Unit tests use a
   stubbed `fetch` against Theme D's fixtures.
-- [ ] **E3 · Device flow sign-in** (M): `apps/mobile/src/auth/device-flow.ts` does
+- [x] **E3 · Device flow sign-in** (M): `apps/mobile/src/auth/device-flow.ts` does
   `POST https://github.com/login/device/code` (`client_id`, `scope=repo read:org read:project project`), shows
   `user_code` (with copy via `expo-clipboard`), opens `verification_uri` with `WebBrowser.openBrowserAsync`, and polls
   `POST https://github.com/login/oauth/access_token` honouring `interval`, `slow_down` (+5 s) and `expired_token`. It is
   a pure state machine (`idle → awaiting-user → polling → done | expired | denied | error`) with an injected `fetch`
   and clock, tested without timers flaking (use `vi.useFakeTimers`, no wall-clock assertions).
-- [ ] **E4 · PAT fallback** (S): a "Use a personal access token" link on the sign-in screen opens a field. The token is
+- [x] **E4 · PAT fallback** (S): a "Use a personal access token" link on the sign-in screen opens a field. The token is
   validated with `viewer { login }` before saving, and the scopes it lacks (`X-OAuth-Scopes` header) are listed.
-- [ ] **E5 · Token storage** (S): `apps/mobile/src/auth/token-store.ts` uses
+- [x] **E5 · Token storage** (S): `apps/mobile/src/auth/token-store.ts` uses
   `SecureStore.setItemAsync('github:github.com:<login>', token, { keychainAccessible: WHEN_UNLOCKED_THIS_DEVICE_ONLY })`,
   keyed like desktop's `${provider}:${host}:${login}`. The active login is kept in a non-secret pref. Tokens are never
   logged, never in React Query keys, and never in error messages. A test greps the module's log calls.
-- [ ] **E6 · `AuthGate` + query hooks** (M): `AuthGate` renders the sign-in screen until a token exists. A `kind: 'auth'`
+- [x] **E6 · `AuthGate` + query hooks** (M): `AuthGate` renders the sign-in screen until a token exists. A `kind: 'auth'`
   result from any call clears the token and returns to sign-in with "Your GitHub session ended — sign in again."
   `apps/mobile/src/data/queries.ts` exports `mobileQueryKeys` and one TanStack Query hook per source method (`useHistory`,
   `useProjectItems`, `usePulls`, …) with keys `[method, repoKey, ...args]` and `staleTime: 30_000`; list hooks use
