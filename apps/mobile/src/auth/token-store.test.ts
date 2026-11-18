@@ -1,6 +1,5 @@
 // vitest/jsdom: token storage over the expo-secure-store mock (Phase 146 E5).
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import source from './token-store.ts?raw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { optionsByKey, store } from '../../test/mocks/expo-secure-store';
 import { clearSession, loadSession, saveSession, tokenKey } from './token-store';
@@ -27,7 +26,6 @@ describe('token store', () => {
   });
 
   it('never logs: the module has no console calls', () => {
-    const source = readFileSync(join(process.cwd(), 'src/auth/token-store.ts'), 'utf8');
     const code = source.split('\n').filter((line) => !line.trim().startsWith('//')).join('\n');
     expect(code).not.toMatch(/console\./);
   });
