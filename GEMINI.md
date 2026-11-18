@@ -71,7 +71,7 @@ damage is invisible until they switch back to a dirty tree on a branch they did 
 
 ## Toolchain
 
-`proto use` installs the pinned node 22.12.0 / pnpm 9.15.0 / moon 2.3.4 (`.prototools`).
+`proto use` installs the pinned node 24.22.2 / pnpm 10.34.9 / moon 2.6.5 (`.prototools`).
 Everything runs through moon:
 
 ```sh
