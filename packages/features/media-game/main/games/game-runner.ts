@@ -19,7 +19,9 @@ import {
   ok,
   type BrowserBounds,
   type GameJuicePatch,
+  type GameDebugOptions,
   type GameEntitiesResult,
+  type GameNavMesh,
   type GameGotoResult,
   type GameJuiceSettings,
   type GameLogEntry,
@@ -32,6 +34,7 @@ import {
 import type { Logger } from './logger';
 import type { GameElectron, GameSession, GameView, GameWindow } from './game-electron';
 import { BUILD_OUTSIDE_MESSAGE, gameServeRoot, runGameBuild, type GameBuildSpec } from './game-build';
+import { setGameDebug, readGameNavMesh } from './game-debug';
 import { readGameEntities } from './game-entities';
 import { gameProtocolHandler } from './game-protocol';
 import { createPreviewOverlay, type PreviewOverlay } from './game-preview-overlay';
@@ -126,6 +129,10 @@ export type GameRunner<V extends GameView = GameView> = {
   goto(gameId: string, scene: string): Promise<GitOpResult<GameGotoResult>>;
   /** Read the running game's live objects through `window.__midnite.entities()` (Phase 140 Theme D). */
   entities(gameId: string): Promise<GitOpResult<GameEntitiesResult>>;
+  /** Switch the running game's debug overlays through `window.__midnite.debug` (Phase 140 Theme G); switches left out keep their setting. */
+  debug(gameId: string, patch: Partial<GameDebugOptions>): Promise<GitOpResult<GameDebugOptions>>;
+  /** The running game's nav-mesh through `window.__midnite.navMesh()`, for the editor's Nav-mesh overlay. */
+  navMesh(gameId: string): Promise<GitOpResult<GameNavMesh>>;
   /** Read or change the game's juice settings through `window.__midnite.juice` (`get`, `set` a patch, or `reset`). */
   juice(gameId: string, action: 'get' | 'set' | 'reset', patch?: GameJuicePatch): Promise<GitOpResult<GameJuiceSettings>>;
   logs(gameId: string, since?: number): { runId: string | null; entries: GameLogEntry[] };
@@ -675,6 +682,18 @@ export function createGameRunner<V extends GameView = GameView>(deps: GameRunner
       const run = runs.get(gameId);
       if (!run) return failure('That game is not running.');
       return readGameEntities((code) => run.view.webContents.executeJavaScript(code));
+    },
+
+    async debug(gameId, patch) {
+      const run = runs.get(gameId);
+      if (!run) return failure('That game is not running.');
+      return setGameDebug((code) => run.view.webContents.executeJavaScript(code), patch);
+    },
+
+    async navMesh(gameId) {
+      const run = runs.get(gameId);
+      if (!run) return failure('That game is not running.');
+      return readGameNavMesh((code) => run.view.webContents.executeJavaScript(code));
     },
 
     async juice(gameId, action, patch) {

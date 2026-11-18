@@ -52,7 +52,7 @@ export const GAME_ENGINE_VERSIONS = {
 } as const;
 
 /** The current kit version (Theme C). Bumped whenever `templates/media-game/kit/` changes. */
-export const GAME_KIT_VERSION = '0.13.0';
+export const GAME_KIT_VERSION = '0.14.0';
 
 // --- enums -------------------------------------------------------------------
 
@@ -986,6 +986,28 @@ export const GameEntitiesWatchRequestSchema = z.object({
 /** The `gamesEntityState` event: the latest snapshot of a running game. */
 export const GameEntityStatePayloadSchema = z.object({ gameId: z.string(), result: GameEntitiesResultSchema });
 export type GameEntityStatePayload = z.infer<typeof GameEntityStatePayloadSchema>;
+
+/**
+ * In-game debug draw (Phase 140 Theme G): which overlays the running game draws. The View menu's three switches drive
+ * the editor and, through `games.debug`, the game (`window.__midnite.debug`), so both show the same thing.
+ */
+export const GameDebugOptionsSchema = z.object({ colliders: z.boolean(), triggers: z.boolean(), nav: z.boolean() });
+export type GameDebugOptions = z.infer<typeof GameDebugOptionsSchema>;
+/** `games.debug`'s request: a game and any of the switches; the ones left out keep their setting. */
+export const GameDebugRequestSchema = z.object({ gameId: z.string().min(1), colliders: z.boolean().optional(), triggers: z.boolean().optional(), nav: z.boolean().optional() });
+export type GameDebugRequest = z.infer<typeof GameDebugRequestSchema>;
+
+/** The most vertices a nav-mesh answer may carry; a bigger mesh is refused with a message rather than sent. */
+export const GAME_NAV_VERTICES_MAX = 20_000;
+/**
+ * The kit's nav-mesh, serialised (`window.__midnite.navMesh()`): closed polygons (the last vertex joins the first) as
+ * `[x, z]` metres on world axes, so a plan-view editor draws them at (`x`, `z`). The editor never computes a
+ * nav-mesh itself: what it draws is what the game's AI uses.
+ */
+export const GameNavMeshSchema = z
+  .object({ polygons: z.array(z.array(z.tuple([z.number().finite(), z.number().finite()])).min(3)) })
+  .refine((m) => m.polygons.reduce((n, p) => n + p.length, 0) <= GAME_NAV_VERTICES_MAX, { message: `A nav-mesh has at most ${GAME_NAV_VERTICES_MAX} vertices.` });
+export type GameNavMesh = z.infer<typeof GameNavMeshSchema>;
 
 /** A replay longer than this (ten minutes at 60 Hz) is refused. */
 export const GAME_REPLAY_MAX_FRAMES = 36_000;

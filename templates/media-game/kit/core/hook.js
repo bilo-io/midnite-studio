@@ -17,7 +17,7 @@ import { isSceneName, LEVEL_PARAM, SPAWN_PARAM } from './level.js';
 import { virtualGamepad } from './input-map.js';
 import { replayer } from './replay.js';
 
-export const KIT_VERSION = '0.13.0';
+export const KIT_VERSION = '0.14.0';
 /** `window.__midnite.version`; bumped when the hook's shape changes. */
 export const HOOK_VERSION = 1;
 
@@ -32,7 +32,15 @@ export const HOOK_VERSION = 1;
  *   goto?: (name: string) => boolean,
  *   spawnAt?: (x: number, y: number, z?: number) => boolean,
  *   entities?: () => import('./level.js').EntitySnapshot[],
+ *   debug?: (options: Partial<DebugOptions>) => DebugOptions,
+ *   navMesh?: () => { polygons: [number, number][][] },
  * }} HookImpl
+ */
+
+/**
+ * The in-game debug overlays (Phase 140 Theme G): `colliders` and `triggers` are drawn by the level builders,
+ * `nav` by whatever built the navmesh.
+ * @typedef {{ colliders: boolean, triggers: boolean, nav: boolean }} DebugOptions
  */
 
 /**
@@ -90,6 +98,84 @@ function collectEntities() {
   return all;
 }
 
+/** @type {DebugOptions} */
+let debugOptions = { colliders: false, triggers: false, nav: false };
+/** @type {Map<string, (options: DebugOptions) => void>} */
+const debugSinks = new Map();
+
+/**
+ * Register a drawer for `window.__midnite.debug(...)`: `fn(options)` runs now with the current options (a scene
+ * rebuilt by `goto` keeps its overlays) and on every change. A later registration under the same `key` replaces
+ * the earlier one; the returned function removes it.
+ * @param {(options: DebugOptions) => void} fn
+ * @param {string} [key]
+ * @returns {() => void}
+ */
+export function registerDebug(fn, key = 'default') {
+  debugSinks.set(key, fn);
+  try {
+    fn({ ...debugOptions });
+  } catch {
+    /* a broken drawer must not break the level */
+  }
+  return () => {
+    if (debugSinks.get(key) === fn) debugSinks.delete(key);
+  };
+}
+
+/**
+ * `window.__midnite.debug({ colliders?, triggers?, nav? })`: switch overlays; switches left out keep their setting.
+ * Answers the options now in force.
+ * @param {Partial<DebugOptions>} [patch]
+ * @returns {DebugOptions}
+ */
+function applyDebug(patch) {
+  const p = patch && typeof patch === 'object' ? patch : {};
+  debugOptions = {
+    colliders: typeof p.colliders === 'boolean' ? p.colliders : debugOptions.colliders,
+    triggers: typeof p.triggers === 'boolean' ? p.triggers : debugOptions.triggers,
+    nav: typeof p.nav === 'boolean' ? p.nav : debugOptions.nav,
+  };
+  for (const fn of debugSinks.values()) {
+    try {
+      fn({ ...debugOptions });
+    } catch {
+      /* one broken drawer must not stop the others */
+    }
+  }
+  return { ...debugOptions };
+}
+
+/** Re-send the options now in force to every drawer (a navmesh that arrived after the overlay was switched on). */
+export function refreshDebug() {
+  applyDebug({});
+}
+
+/** @type {(() => { polygons: [number, number][][] }) | null} */
+let navSource = null;
+
+/**
+ * Register what `window.__midnite.navMesh()` reports: the newest navmesh's polygons. The returned function
+ * unregisters it, but only while it is still the current source.
+ * @param {() => { polygons: [number, number][][] }} fn
+ * @returns {() => void}
+ */
+export function registerNavMesh(fn) {
+  navSource = fn;
+  return () => {
+    if (navSource === fn) navSource = null;
+  };
+}
+
+/** The navmesh as `{ polygons }` (`[x, z]` metres), empty when the game has none. */
+function readNavMesh() {
+  try {
+    return navSource ? navSource() : { polygons: [] };
+  } catch {
+    return { polygons: [] };
+  }
+}
+
 /** Extra properties other kit modules hang on the hook (`juice`, `fx`); they survive a re-install. @type {Record<string, unknown>} */
 const extensions = {};
 
@@ -128,6 +214,10 @@ export function installHook(impl = {}) {
     spawnAt: spawnByReload,
     /** The live objects as `{ id, type, x, y, z?, alive, state? }[]` (Phase 140 D); empty before any level loads. */
     entities: collectEntities,
+    /** Switch the debug overlays (Phase 140 G): colliders, triggers, nav-mesh. */
+    debug: applyDebug,
+    /** The navmesh's polygons, `[x, z]` metres; empty without one. */
+    navMesh: readNavMesh,
     input: {
       gamepad: (/** @type {number} */ button, /** @type {boolean} */ pressed) => virtualGamepad.set(button, pressed),
     },

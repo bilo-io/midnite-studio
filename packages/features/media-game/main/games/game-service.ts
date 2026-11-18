@@ -15,6 +15,7 @@ import {
   type GameCreateRequest,
   type GameCreateResult,
   type GameDiagnosis,
+  type GameDebugOptions,
   type GameFixRequest,
   type GameFixResult,
   type GameJuicePatch,
@@ -361,6 +362,9 @@ export function createGameService(deps: GameServiceDeps) {
         return ok();
       },
     },
+    /** Phase 140 Theme G: the running game's debug overlays, and its nav-mesh for the editor. */
+    debug: (gameId: string, patch: Partial<GameDebugOptions>) => deps.runner.debug(gameId, patch),
+    navMesh: (gameId: string) => deps.runner.navMesh(gameId),
     /** The main -> renderer level-editor bridge (Phase 138 Theme C). */
     levelEditor,
     async kitUpgrade(gameId: string): Promise<GitOpResult<{ branch: string }>> {

@@ -13,6 +13,8 @@ import { useLevelStore } from './level-store';
 import { blankLevel, installBridge, newClient, removeBridge, stubCanvas, stubPointerEvents } from './test-helpers';
 
 const watch = vi.fn();
+const debug = vi.fn();
+const navMesh = vi.fn();
 let push: ((e: unknown) => void) | null = null;
 
 beforeEach(() => {
@@ -28,6 +30,10 @@ beforeEach(() => {
   });
   const games = (window as unknown as { midniteStudio: { games: Record<string, unknown> } }).midniteStudio.games;
   games.entities = { get: vi.fn().mockResolvedValue({ ok: true, value: { scene: 'level', frame: 1, entities: [], truncated: false } }), watch };
+  debug.mockReset().mockResolvedValue({ ok: true, value: { colliders: true, triggers: false, nav: false } });
+  navMesh.mockReset().mockResolvedValue({ ok: true, value: { polygons: [[[0, 0], [1, 0], [1, 1]]] } });
+  games.debug = debug;
+  games.navMesh = navMesh;
   games.onEntityState = vi.fn((h: (e: unknown) => void) => {
     push = h;
     return () => undefined;
@@ -78,3 +84,29 @@ describe('View menu', () => {
     expect(useLevelViewStore.getState().overlays).toEqual({ colliders: true, triggers: true, nav: false });
   });
 });
+
+describe('View menu and the running game (Phase 140 Theme G)', () => {
+  const toggleRow = async (name: string) => {
+    fireEvent.click(await screen.findByTestId('level-view-trigger'));
+    fireEvent.click(await screen.findByRole('switch', { name }));
+  };
+
+  it('a stopped game is not told; a running one gets the switch that changed', async () => {
+    renderEditor();
+    await toggleRow('Colliders');
+    expect(debug).not.toHaveBeenCalled();
+    act(() => useGameRunStore.getState().applyRunState({ gameId: 'g1', runId: 'r1', state: 'running' }));
+    // The new run is handed the switches that were already on.
+    await vi.waitFor(() => expect(debug).toHaveBeenCalledWith({ gameId: 'g1', colliders: true, triggers: false, nav: false }));
+    fireEvent.click(await screen.findByRole('switch', { name: 'Triggers' }));
+    expect(debug).toHaveBeenLastCalledWith({ gameId: 'g1', triggers: true });
+  });
+
+  it('the Nav-mesh switch fetches the running game\'s mesh', async () => {
+    renderEditor();
+    act(() => useGameRunStore.getState().applyRunState({ gameId: 'g1', runId: 'r1', state: 'running' }));
+    await toggleRow('Nav-mesh');
+    await vi.waitFor(() => expect(navMesh).toHaveBeenCalledWith({ gameId: 'g1' }));
+  });
+});
+

@@ -383,7 +383,10 @@ import {
   GameManifestGetResponse as GameManifestGetResponseSchema,
   GameManifestSetRequest as GameManifestSetRequestSchema,
   GameRunResult as GameRunResultSchema,
+  GameDebugOptionsSchema,
+  GameDebugRequestSchema,
   GameEntitiesResultSchema,
+  GameNavMeshSchema,
   GameEntitiesWatchRequestSchema,
   GameEntityStatePayloadSchema,
   GameRunStatePayload as GameRunStatePayloadSchema,
@@ -5815,6 +5818,10 @@ export { GamesLevelEditorRequestPayload, GamesLevelEditorReply, GamesLevelEditor
 export const GamesEntitiesRequest = GameIdRequestSchema;
 export const GamesEntitiesResponse = GitOpResultOf(GameEntitiesResultSchema);
 export const GamesEntitiesWatchRequest = GameEntitiesWatchRequestSchema;
+export const GamesDebugRequest = GameDebugRequestSchema;
+export const GamesDebugResponse = GitOpResultOf(GameDebugOptionsSchema);
+export const GamesNavMeshRequest = GameIdRequestSchema;
+export const GamesNavMeshResponse = GitOpResultOf(GameNavMeshSchema);
 export const GamesEntityStatePayload = GameEntityStatePayloadSchema;
 export const GamesGotoRequest = GameGotoRequestSchema;
 export const GamesGotoResponse = GitOpResultOf(GameGotoResultSchema);

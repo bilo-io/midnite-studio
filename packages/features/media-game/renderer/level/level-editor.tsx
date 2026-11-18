@@ -105,6 +105,7 @@ import { levelExtras } from './live/level-extras-model';
 import { LiveChip } from './live/live-chip';
 import { copyLivePosition, liveTwin } from './live/live-model';
 import { useLiveEntities } from './live/use-live-entities';
+import { pushDebug, useNavMesh } from './live/use-nav-mesh';
 import { isMac, matchShortcut } from './level-shortcuts';
 import { LevelSnapPopover } from './level-snap-popover';
 import { PlayFromHereButton, usePlayFromHere } from './play-from-here';
@@ -333,7 +334,14 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
   }, [gameRunning]);
   const liveFeed = useLiveEntities(gameId, liveOn && gameRunning).result;
   const ghosts = useMemo(() => liveFeed?.entities ?? [], [liveFeed]);
-  const [navPolygons] = useState<ReadonlyArray<ReadonlyArray<readonly [number, number]>>>([]);
+  const runId = useGameRunStore((s) => s.runs[gameId]?.runId);
+  const navPolygons = useNavMesh(gameId, overlays.nav && gameRunning, runId, (message) => notify(message, { danger: true }));
+  // A new run is a new page that knows nothing of the switches: hand it the ones that are on.
+  useEffect(() => {
+    if (gameRunning && (overlays.colliders || overlays.triggers || overlays.nav)) pushDebug(gameId, overlays);
+    // Only a new run needs the full set; a toggle pushes its own switch below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameRunning, runId]);
   const extras = useMemo(() => levelExtras({ level, is3d, overlays, ghosts, nav: navPolygons }), [level, is3d, overlays, ghosts, navPolygons]);
   const kitNoticed = useRef(false);
   useEffect(() => {
@@ -917,7 +925,10 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
           </div>
         ) : null}
         {is3d ? <LevelSnapPopover snap={snapSettings} onChange={setSnapSettings} is3d={in3d} /> : null}
-        <LevelViewPopover overlays={overlays} onChange={(key, on) => useLevelViewStore.getState().setOverlay(key, on)} navNeedsGame={!gameRunning} />
+        <LevelViewPopover overlays={overlays} onChange={(key, on) => {
+          useLevelViewStore.getState().setOverlay(key, on);
+          if (gameRunning) pushDebug(gameId, { [key]: on });
+        }} navNeedsGame={!gameRunning} />
         <IconButton
           icon={LuRadio}
           label={liveOn ? 'Hide live entities' : 'Show live entities'}

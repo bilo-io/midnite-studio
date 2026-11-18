@@ -3787,6 +3787,16 @@ export function buildMockBridge(data: MockFixtures) {
           };
         },
       },
+      debug: async (req: { gameId: string; colliders?: boolean; triggers?: boolean; nav?: boolean }) => {
+        gamesCalls.push({ call: 'debug', ...req });
+        const { gameId: _gameId, ...patch } = req;
+        gamesDebugState = { ...gamesDebugState, ...patch };
+        return { ok: true as const, value: { ...gamesDebugState } };
+      },
+      navMesh: async (req: { gameId: string }) => {
+        gamesCalls.push({ call: 'navMesh', ...req });
+        return { ok: true as const, value: { polygons: [] as [number, number][][] } };
+      },
       onEntityState: (handler: (event: unknown) => void) => {
         gamesEntityStateHandlers.push(handler);
         return () => {
@@ -6736,6 +6746,8 @@ export function buildMockBridge(data: MockFixtures) {
   var gamesRunStateHandlers: Array<(event: unknown) => void> = [];
   // eslint-disable-next-line no-var
   var gamesEntityStateHandlers: Array<(event: unknown) => void> = [];
+  // eslint-disable-next-line no-var
+  var gamesDebugState = { colliders: false, triggers: false, nav: false };
   // eslint-disable-next-line no-var
   var gamesConsoleHandlers: Array<(event: unknown) => void> = [];
   // eslint-disable-next-line no-var

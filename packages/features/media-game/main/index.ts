@@ -204,6 +204,9 @@ export const mediaGameMain = defineFeatureMain<MediaGameMainServices>({
     handle(CHANNELS.gamesGoto, schemas.GamesGotoRequest, ({ gameId, scene }) => service.goto(gameId, scene), (issue) => failure(issue));
     // Live entities (Phase 140 Theme D).
     handle(CHANNELS.gamesEntities, schemas.GamesEntitiesRequest, ({ gameId }) => service.entities.get(gameId), (issue) => failure(issue));
+    // In-game debug draw and the nav-mesh (Phase 140 Theme G).
+    handle(CHANNELS.gamesDebug, schemas.GamesDebugRequest, ({ gameId, ...patch }) => service.debug(gameId, patch), (issue) => failure(issue));
+    handle(CHANNELS.gamesNavMesh, schemas.GamesNavMeshRequest, ({ gameId }) => service.navMesh(gameId), (issue) => failure(issue));
     handle(
       CHANNELS.gamesEntitiesWatch,
       schemas.GamesEntitiesWatchRequest,

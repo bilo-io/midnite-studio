@@ -1034,6 +1034,9 @@ export const CHANNELS = {
   /** Phase 140 Theme D: read a running game's live entities once, and (un)subscribe the editor to the 4 Hz poller. */
   gamesEntities: 'mstudio:games:entities',
   gamesEntitiesWatch: 'mstudio:games:entities-watch',
+  /** Phase 140 Theme G: switch the running game's debug overlays, and read its nav-mesh for the editor. */
+  gamesDebug: 'mstudio:games:debug',
+  gamesNavMesh: 'mstudio:games:nav-mesh',
   /** Move a game's runner view into the `game` popout window (Theme B). */
   gamesPopOut: 'mstudio:games:pop-out',
   /** Which game the `game` popout hosts, if any. */
