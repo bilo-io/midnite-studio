@@ -230,6 +230,8 @@ export function useGameEvents(): void {
       api.games.onChanged((event) => {
         void client.invalidateQueries({ queryKey: GAME_KEYS.list });
         void client.invalidateQueries({ queryKey: ['games', 'assets'] });
+        // Phase 139 Theme C: the level editor's asset browser reads the manifest's assets, so an import shows up live.
+        void client.invalidateQueries({ queryKey: ['games', 'manifest'] });
         void client.invalidateQueries({ queryKey: ['games', 'doctor'] });
         if (event.reason === 'level') void client.invalidateQueries({ queryKey: ['games', 'levels'] });
       }),

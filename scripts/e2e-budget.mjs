@@ -286,7 +286,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // lazy chunks must leave the rail usable; jsdom cannot mount the rail + view slot + Suspense together.
 // Raised 493 -> 494 for Phase 152 Theme G's send -> stale -> update flow in `startup-projections.spec.ts`: one live workspace
 // seen through two views (Projections and Runway) behind the real rail; vitest only ever mounts one view at a time.
-export const MAX_DECLARED_E2E = 494;
+export const MAX_DECLARED_E2E = 495;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

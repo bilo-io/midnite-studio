@@ -48,10 +48,10 @@ Agents get the same three through MCP: list assets and prefabs, place a prefab, 
 **Theme B — Model thumbnails.** ✅ `createModelThumbs` (stub-driven, tested) plus `createThreeThumbRenderer` (the real GL one). One offscreen three.js renderer draws a 128 px thumbnail per model, cached by
 `name:sha256` in an LRU of 200, rendered one at a time off the main loop.
 
-**Theme C — The asset browser panel.** ◻ A `BottomPanel` under the level canvas: filter, kind chips, a virtualised
+**Theme C — The asset browser panel.** ✅ `AssetBrowser` (`level/assets/asset-browser.tsx`) wraps the canvas column in a `BottomPanel` (`level.assets`, collapsed by default). Extra tabs plug in through `useAssetBrowserTabs()` / the `tabs` prop (Theme G's Prefabs). A `BottomPanel` under the level canvas: filter, kind chips, a virtualised
 thumbnail grid, `Skeleton` while loading, `EmptyState` with an "Import assets" action when the game has none.
 
-**Theme D — Drag a model into the level.** ◻ Drag a model tile onto the plan or the 3D view: a ghost follows the
+**Theme D — Drag a model into the level.** ✅ (3D ghost is a cursor chip, not a 50% model.) Drag a model tile onto the plan or the 3D view: a ghost follows the
 cursor (snapped by 137 F), drop adds a `prop` with `model` set, one undo step.
 
 **Theme E — The prefab model.** ✅ `levels/prefabs/<name>.prefab.json`: objects relative to a pivot. An instance is
@@ -186,11 +186,11 @@ export function createModelThumbs(deps: { load: (name: string) => Promise<GitOpR
 
 **Acceptance.**
 
-- [ ] C1. `filterAssets` matches name substrings case-insensitively and respects kind chips.
-- [ ] C2. The panel renders one tile per placeable asset, skeleton tiles before thumbnails resolve, and the empty
+- [x] C1. `filterAssets` matches name substrings case-insensitively and respects kind chips.
+- [x] C2. The panel renders one tile per placeable asset, skeleton tiles before thumbnails resolve, and the empty
   state with its button when there are none.
-- [ ] C3. `/` focuses the filter; arrow keys move focus across tiles.
-- [ ] C4. The panel is collapsed by default and remembers being opened (`useBottomPanel` store).
+- [x] C3. `/` focuses the filter; arrow keys move focus across tiles.
+- [x] C4. The panel is collapsed by default and remembers being opened (`useBottomPanel` store).
 
 **Done when** C1–C4 pass.
 
@@ -221,10 +221,10 @@ export function dropToObject(payload: AssetDragPayload & { kind: 'asset' }, at: 
 
 **Acceptance.**
 
-- [ ] D1. `dropToObject` makes a `prop` with `properties.model` and the snapped position.
-- [ ] D2. A drop adds exactly one undo step and selects the new object.
-- [ ] D3. A model dropped on a 2D level adds nothing and notifies.
-- [ ] D4. An e2e (`packages/app/e2e/level-asset-drop.spec.ts`, `// e2e-capability: pointer drag across two
+- [x] D1. `dropToObject` makes a `prop` with `properties.model` and the snapped position.
+- [x] D2. A drop adds exactly one undo step and selects the new object.
+- [x] D3. A model dropped on a 2D level adds nothing and notifies.
+- [x] D4. An e2e (`packages/app/e2e/level-asset-drop.spec.ts`, `// e2e-capability: pointer drag across two
   elements with real DataTransfer`) drags a tile onto the plan and sees one new object in the outliner count.
 
 **Done when** D1–D4 pass.
