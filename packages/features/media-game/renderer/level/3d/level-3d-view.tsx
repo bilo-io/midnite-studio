@@ -12,6 +12,7 @@ import { cameraPosition, orbitPose, planPose, type CameraPose } from './camera-t
 import { boxCentre, capturePose, framingSpan, levelWorldBox, type WorldBox } from './level-capture-pose';
 import { pixelsToPng } from './level-capture';
 import type { LevelCaptured, LevelCaptureRequest } from '../level-editor-controls';
+import { focusBounds, workBounds } from './level-big';
 import { formatStats, type GroundTile, type ViewStats } from './level-cull';
 import { footprintBox, gizmoSteps, surfaceElevation } from '../level-snap';
 import type { SceneExtras } from './level-extras';
@@ -146,9 +147,11 @@ export default function Level3dView(props: Level3dViewProps) {
   const statsOnRef = useRef(statsOn);
   statsOnRef.current = statsOn;
 
+  /** What the view opens on and grids: the work, when the terrain dwarfs it. */
+  const focus = useMemo(() => focusBounds(bounds, workBounds(level, items)), [bounds, level, items]);
   const levelCentre = (): { target: [number, number, number]; span: number } => ({
-    target: [(bounds.minX + bounds.maxX) / 2, ground, (bounds.minZ + bounds.maxZ) / 2],
-    span: Math.max(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ, 10) * 0.8,
+    target: [(focus.minX + focus.maxX) / 2, ground, (focus.minZ + focus.maxZ) / 2],
+    span: Math.max(focus.maxX - focus.minX, focus.maxZ - focus.minZ, 10) * 0.8,
   });
   const move = useRef<CameraMove | null>(null);
   const poseOut = useRef<CameraPose | null>(null);
@@ -474,6 +477,8 @@ export default function Level3dView(props: Level3dViewProps) {
           bounds={bounds}
           ground={ground}
           drape={props.terrain?.preview ?? null}
+          focus={focus}
+          detail={props.terrain?.detail ?? null}
           selected={selectedIdx}
           pivot={pivot}
           pivotMode={pivotMode}
