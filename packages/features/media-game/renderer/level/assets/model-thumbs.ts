@@ -41,9 +41,10 @@ export function createModelThumbs(deps: ModelThumbsDeps): ModelThumbs {
   let chain: Promise<unknown> = Promise.resolve();
   let generation = 0;
 
-  async function produce(name: string): Promise<string | null> {
+  async function produce(name: string, gen: number): Promise<string | null> {
     const loaded = await deps.load(name);
-    if (!loaded.ok) return null;
+    // clear() ran while the model loaded: do not resurrect a renderer nobody will dispose.
+    if (!loaded.ok || gen !== generation) return null;
     renderer ??= deps.renderer();
     return renderer.render(decodeBase64(loaded.value.data));
   }
@@ -59,7 +60,7 @@ export function createModelThumbs(deps: ModelThumbsDeps): ModelThumbs {
       const gen = generation;
       // Serial: each job starts when the previous one settled, so only one load/GL draw is ever in flight.
       const job = chain
-        .then(() => produce(name))
+        .then(() => produce(name, gen))
         .catch(() => null)
         .then((url) => {
           inflight.delete(key);
