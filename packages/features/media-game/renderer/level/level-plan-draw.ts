@@ -1,7 +1,7 @@
-import type { GameLevelTerrain } from '@midnite/studio-shared';
+import type { GameLevelTerrain, GameLevelTerrainDetail } from '@midnite/studio-shared';
 
 import { objectCentre, type EditLevel, type EditSelection, type LevelObject, type ObjectRef, type PlanPoint, type PlanRect } from './level-edit-model';
-import { footprintCorners, gridLines, pathPoints, planBounds, terrainRect, yawTipPoint } from './level-plan';
+import { footprintCorners, gridLines, metresToPlan, pathPoints, planBounds, terrainRect, yawTipPoint } from './level-plan';
 import { selectionBounds } from './level-selection';
 import type { View } from './level-view';
 
@@ -9,12 +9,64 @@ import type { View } from './level-view';
 export type PlanOverlay = {
   terrain: GameLevelTerrain | null;
   terrainImage: HTMLImageElement | null;
+  /** The sharper crop of the drape over `terrain.detail`'s extent, when the level has one. */
+  terrainDetailImage?: HTMLImageElement | null;
   /** The path being drawn (points in map pixels), with the pointer's current position as its rubber-band end. */
   draft: readonly PlanPoint[];
   cursor: PlanPoint | null;
   /** The volume rectangle being dragged. */
   volume: { from: PlanPoint; to: PlanPoint } | null;
 };
+
+const BUILDING_FILL = 'rgba(148, 163, 184, 0.35)';
+const BUILDING_EDGE = 'rgba(203, 213, 225, 0.6)';
+const ROAD_COLOUR = 'rgba(241, 245, 249, 0.55)';
+
+/**
+ * The detailed part of a terrain: the drape crop over the whole-terrain preview, then building footprints and
+ * roads as vectors in world metres, so they stay sharp however far the plan is zoomed in. Roads are drawn at their
+ * real width, never thinner than a screen pixel.
+ */
+export function drawTerrainDetail(ctx: CanvasRenderingContext2D, level: EditLevel, detail: GameLevelTerrainDetail, image: HTMLImageElement | null | undefined, px: number): void {
+  if (image?.complete && image.naturalWidth > 0) {
+    const r = terrainRect(level, detail);
+    ctx.globalAlpha = 0.6;
+    ctx.drawImage(image, r.x, r.y, r.width, r.height);
+    ctx.globalAlpha = 1;
+  }
+  const trace = (points: readonly number[], close: boolean) => {
+    for (let i = 0; i + 1 < points.length; i += 2) {
+      const at = metresToPlan(level, points[i]!, points[i + 1]!);
+      if (i === 0) ctx.moveTo(at.x, at.y);
+      else ctx.lineTo(at.x, at.y);
+    }
+    if (close) ctx.closePath();
+  };
+  if (detail.buildings.length > 0) {
+    ctx.beginPath();
+    for (const polygon of detail.buildings) trace(polygon, true);
+    ctx.fillStyle = BUILDING_FILL;
+    ctx.fill();
+    ctx.strokeStyle = BUILDING_EDGE;
+    ctx.lineWidth = px;
+    ctx.stroke();
+  }
+  // One stroke per road width, not per road.
+  const byWidth = new Map<number, number[][]>();
+  for (const road of detail.roads) byWidth.set(road.width, [...(byWidth.get(road.width) ?? []), road.points]);
+  const scale = metresToPlan(level, 1, 0).x - metresToPlan(level, 0, 0).x;
+  ctx.strokeStyle = ROAD_COLOUR;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const [width, roads] of byWidth) {
+    ctx.beginPath();
+    for (const points of roads) trace(points, false);
+    ctx.lineWidth = Math.max(px, width * scale);
+    ctx.stroke();
+  }
+  ctx.lineCap = 'butt';
+  ctx.lineJoin = 'miter';
+}
 
 /** Every selected object's outline (Phase 137 Theme C): the 3D view's amber, so one colour means "selected" in both views. */
 export const SELECTED_COLOUR = '#f5a524';
@@ -191,6 +243,7 @@ export function drawPlan(
       ctx.drawImage(overlay.terrainImage, r.x, r.y, r.width, r.height);
       ctx.globalAlpha = 1;
     }
+    if (overlay.terrain.detail) drawTerrainDetail(ctx, level, overlay.terrain.detail, overlay.terrainDetailImage, px);
     ctx.setLineDash([6 * px, 4 * px]);
     ctx.strokeStyle = outline;
     ctx.lineWidth = 1.5 * px;
