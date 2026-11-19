@@ -36,7 +36,7 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession, behaviour } = vi.hoi
     openDevTools = vi.fn();
     closeDevTools = vi.fn();
     isDevToolsOpened = vi.fn(() => false);
-    executeJavaScript = vi.fn(async () => true as unknown);
+    executeJavaScript = vi.fn(async (_code: string) => true as unknown);
     removeAllListeners = vi.fn(() => this.handlers.clear());
     close = vi.fn(() => {
       this.destroyed = true;
