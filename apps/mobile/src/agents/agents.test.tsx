@@ -1,7 +1,7 @@
 // vitest/jsdom: the provider registry, the Agents tab and the More tab over the real provider tree (Phase 146 J).
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { setParams } from '../../test/mocks/expo-router';
+import { routerCalls, setParams } from '../../test/mocks/expo-router';
 import { store } from '../../test/mocks/expo-secure-store';
 import { failNextOpen, openedBrowsers } from '../../test/mocks/expo-web-browser';
 import { renderInShell, resetShellState } from '../../test/shell-harness';
@@ -55,6 +55,7 @@ describe('Agents tab', () => {
     setParams({ open: 'jules' });
     await renderInShell(<AgentsScreen />);
     await waitFor(() => expect(openedBrowsers.map((o) => o.url)).toEqual(['https://jules.google.com']));
+    expect(routerCalls.some((c) => c.method === 'setParams')).toBe(true);
     cleanup();
     openedBrowsers.length = 0;
     setParams({ open: 'bogus' });
@@ -80,6 +81,11 @@ describe('More tab', () => {
     expect(screen.getByText('1.2.3')).toBeTruthy();
     fireEvent.click(screen.getByText('Report an issue'));
     await waitFor(() => expect(openedBrowsers[0]?.url).toBe(REPORT_ISSUE_URL));
+  });
+  it('shows Unavailable when the scopes call fails', async () => {
+    vi.stubGlobal('fetch', async () => new Response('{}', { status: 401 }));
+    await renderInShell(<MoreScreen />, source);
+    expect(await screen.findByText('Unavailable', undefined, { timeout: 4000 })).toBeTruthy();
   });
   it('writes the theme preference', async () => {
     vi.stubGlobal('fetch', async () => new Response('{}'));

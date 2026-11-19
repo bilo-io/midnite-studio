@@ -29,6 +29,7 @@ export function useTokenScopes() {
       const res = await fetch('https://api.github.com/user', {
         headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}` },
       });
+      if (!res.ok) throw new Error(`GitHub returned ${res.status}`);
       return parseScopes(res.headers.get('x-oauth-scopes'));
     },
   });

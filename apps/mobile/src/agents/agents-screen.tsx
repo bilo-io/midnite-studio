@@ -1,7 +1,7 @@
 // The Agents tab (Phase 146 J2/J3): one card per provider, the last-used one first. "Open" presents the provider's own
 // web app in the system's in-app browser. The FAB's "Open agent" arrives here with `?open=<provider>` and opens it.
 import { Badge, Button, Card, CardContent, IconButton, useTheme } from '@bilo-io/ui-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { usePrefs } from '../state/prefs';
@@ -11,6 +11,7 @@ import { orderProviders, type AgentProvider } from './providers';
 
 export function AgentsScreen() {
   const theme = useTheme();
+  const router = useRouter();
   const params = useLocalSearchParams<{ open?: string }>();
   const lastProvider = usePrefs((s) => s.lastProvider);
   const seenHint = usePrefs((s) => s.seenAgentHint);
@@ -27,15 +28,21 @@ export function AgentsScreen() {
     [theme.colors],
   );
 
-  // `?open=` opens once per distinct value; an unknown id is ignored.
+  // `?open=` opens once, then the param is cleared so the tab (which stays mounted) opens again the next time the FAB
+  // sends the same provider. An unknown id is ignored.
   const handled = useRef<string | null>(null);
   const requested = typeof params.open === 'string' ? params.open : undefined;
   useEffect(() => {
-    if (!requested || handled.current === requested) return;
+    if (!requested) {
+      handled.current = null;
+      return;
+    }
+    if (handled.current === requested) return;
     handled.current = requested;
     const provider = providerFromParam(requested);
     if (provider) void open(provider);
-  }, [requested, open]);
+    router.setParams({ open: undefined });
+  }, [requested, open, router]);
 
   const ordered = orderProviders(lastProvider);
   return (

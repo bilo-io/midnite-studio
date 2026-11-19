@@ -55,7 +55,7 @@ export function MoreScreen() {
   const [reportFailed, setReportFailed] = useState(false);
 
   const login = auth.state.status === 'signed-in' ? auth.state.login : '';
-  const scopeText = scopes.data?.kind === 'scopes' ? scopes.data.scopes.join(', ') : scopes.isLoading ? '…' : 'Fine-grained token';
+  const scopeText = scopes.data?.kind === 'scopes' ? scopes.data.scopes.join(', ') : scopes.isLoading ? '…' : scopes.isError ? 'Unavailable' : 'Fine-grained token';
   const version = Constants.expoConfig?.version ?? '—';
   const sdk = Constants.expoConfig?.sdkVersion?.split('.')[0] ?? '—';
 
