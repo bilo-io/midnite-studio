@@ -32,7 +32,7 @@ import {
   type Texture,
 } from 'three';
 
-import type { GameLevelTerrainDetail, LevelViewCamera } from '@midnite/studio-shared';
+import { SPAWNER_TYPE, type GameLevelTerrainDetail, type LevelViewCamera } from '@midnite/studio-shared';
 import { captureScene, type CapturedPixels } from './level-capture';
 import { blendPose, cameraPosition, dollyOffset, poseFromCamera, TRANSITION_MS, type CameraPose } from './camera-transition';
 import { cull, groundTiles, itemRadius, tileInReach, type GroundTile, type ViewStats } from './level-cull';
@@ -857,9 +857,10 @@ function ItemVisual({ item, cache }: { item: WorldItem; cache: ModelCache<Object
   return model ? (
     <primitive object={model} scale={item.scale} />
   ) : (
-    <mesh position={[0, item.size[1] / 2, 0]} scale={[Math.max(item.size[0], 0.01), Math.max(item.size[1], 0.01), Math.max(item.size[2], 0.01)]} castShadow>
+    <mesh position={[0, item.size[1] / 2, 0]} scale={[Math.max(item.size[0], 0.01), Math.max(item.size[1], 0.01), Math.max(item.size[2], 0.01)]} castShadow={item.type !== SPAWNER_TYPE}>
       <boxGeometry />
-      <meshStandardMaterial color={colourOf(item.type)} roughness={0.8} />
+      {/* A selected zone stays see-through: it covers a district, and the ground under it is what is being edited. */}
+      {item.type === SPAWNER_TYPE ? <meshBasicMaterial color={colourOf(item.type)} transparent opacity={0.18} depthWrite={false} /> : <meshStandardMaterial color={colourOf(item.type)} roughness={0.8} />}
       <Edges color="#f5a524" />
     </mesh>
   );
