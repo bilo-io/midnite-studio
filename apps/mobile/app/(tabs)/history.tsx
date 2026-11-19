@@ -1,6 +1,3 @@
-import { TabPlaceholder } from '../../src/shell/tab-placeholder';
-import { ICONS } from '../../src/ui/icons';
+import { HistoryScreen } from '../../src/history/history-screen';
 
-export default function HistoryScreen() {
-  return <TabPlaceholder title="History" icon={ICONS.history} />;
-}
+export default HistoryScreen;

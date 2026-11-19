@@ -154,13 +154,15 @@ describe('REST file patches', () => {
       json({
         sha: 'a'.repeat(40),
         parents: [{ sha: 'b'.repeat(40) }],
-        commit: { message: 'feat: x\n\nbody', author: { name: 'A', email: 'a@x', date: '2026-01-01T00:00:00Z' }, committer: { date: '2026-01-01T00:00:01Z' } },
+        commit: { message: 'feat: x\n\nbody', author: { name: 'A', email: 'a@x', date: '2026-01-01T00:00:00Z' }, committer: { name: 'C', date: '2026-01-01T00:00:01Z' } },
         files: [{ filename: 'f.ts', status: 'renamed', previous_filename: 'g.ts', additions: 0, deletions: 0, changes: 0 }],
       }),
     );
     const result = await ds.commit(repo, 'a'.repeat(40));
     expect(result.ok && result.value.commit).toMatchObject({ subject: 'feat: x', parents: ['b'.repeat(40)] });
     expect(result.ok && result.value.files[0]).toMatchObject({ change: 'renamed', oldPath: 'g.ts' });
+    // Theme G
+    expect(result.ok && result.value).toMatchObject({ message: 'feat: x\n\nbody', committerName: 'C' });
   });
 });
 
