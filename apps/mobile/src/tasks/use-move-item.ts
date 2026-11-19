@@ -25,7 +25,9 @@ export function useMoveItem(projectId: string, groupField: ForgeProjectField | n
         setError(`Couldn't move ${itemRef(item)}: ${errorMessage(e)}`);
         return false;
       } finally {
+        // Only drop our own override: a newer move of the same card keeps its own until it settles.
         setMoves((m) => {
+          if (m.get(item.id) !== optionId) return m;
           const next = new Map(m);
           next.delete(item.id);
           return next;

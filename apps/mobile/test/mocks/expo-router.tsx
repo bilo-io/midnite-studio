@@ -7,7 +7,7 @@ export function useRouter() {
   return {
     push: (href: string) => routerCalls.push({ method: 'push', href }),
     navigate: (href: string) => routerCalls.push({ method: 'navigate', href }),
-    replace() {},
+    replace: (href: string) => routerCalls.push({ method: 'replace', href }),
     back() {},
   };
 }

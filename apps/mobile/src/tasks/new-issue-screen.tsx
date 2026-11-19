@@ -2,7 +2,7 @@
 // is added to it, then the app opens the issue's detail.
 import { Button, Input, Textarea, useTheme } from '@bilo-io/ui-native';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { useAddProjectItem, useCreateIssueWithId, useProjects } from '../data/queries';
 import { usePrefs } from '../state/prefs';
@@ -29,28 +29,32 @@ export function NewIssueScreen() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // Once the issue exists a retry (after a failed board add) must not create a second one.
+  const created = useRef<{ id: string; number: number } | null>(null);
   const busy = create.isPending || addItem.isPending;
 
   const submit = async () => {
     if (!ref || !canSubmit(title, busy)) return;
     setError(null);
-    let created;
-    try {
-      created = await create.mutateAsync({ repo: ref, title: title.trim(), body });
-    } catch (e) {
-      setError(`Couldn't create the issue: ${errorMessage(e)}`);
-      return;
-    }
-    if (project) {
+    if (!created.current) {
       try {
-        await addItem.mutateAsync({ projectId: project.id, contentId: created.id });
+        created.current = await create.mutateAsync({ repo: ref, title: title.trim(), body });
       } catch (e) {
-        // The issue exists; only the board add failed. Open it and say so would be lost on navigation, so stay.
-        setError(`Issue #${created.number} was created, but adding it to ${project.title} failed: ${errorMessage(e)}`);
+        setError(`Couldn't create the issue: ${errorMessage(e)}`);
         return;
       }
     }
-    router.replace(issueHref(created.number));
+    const issue = created.current;
+    if (project) {
+      try {
+        await addItem.mutateAsync({ projectId: project.id, contentId: issue.id });
+      } catch (e) {
+        // The issue exists; only the board add failed. Stay so the message is seen; a retry only repeats the add.
+        setError(`Issue #${issue.number} was created, but adding it to ${project.title} failed: ${errorMessage(e)}`);
+        return;
+      }
+    }
+    router.replace(issueHref(issue.number));
   };
 
   return (

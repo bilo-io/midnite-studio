@@ -183,6 +183,19 @@ describe('New issue', () => {
     expect(createIssueWithId).toHaveBeenCalledWith(REPO, 'Fix it', 'details');
   });
 
+  it('a failed board add stays put, and a retry does not create a second issue', async () => {
+    const createIssueWithId = vi.fn(async () => ok({ id: 'I_1', number: 9 }));
+    const addProjectItem = vi.fn().mockResolvedValueOnce(fail('error', 'no scope')).mockResolvedValue(ok(null));
+    await renderInShell(<NewIssueScreen />, { ...base(), createIssueWithId, addProjectItem });
+    fireEvent.change(await screen.findByLabelText('Title'), { target: { value: 'T' } });
+    fireEvent.click(screen.getByText('Create issue'));
+    expect(await screen.findByText(/Issue #9 was created, but adding it to Roadmap failed/)).toBeTruthy();
+    fireEvent.click(screen.getByText('Create issue'));
+    await waitFor(() => expect(addProjectItem).toHaveBeenCalledTimes(2));
+    expect(createIssueWithId).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(routerCalls).toContainEqual({ method: 'replace', href: '/tasks/issue/9' }));
+  });
+
   it('shows the failure and stays put', async () => {
     const createIssueWithId = vi.fn(async () => fail('error', 'nope'));
     await renderInShell(<NewIssueScreen />, { ...base(), createIssueWithId });

@@ -77,6 +77,7 @@ export function BoardView({
       </View>
       <FlatList
         horizontal
+        style={{ flex: 1 }}
         data={columns}
         keyExtractor={(c) => c.id}
         snapToInterval={interval}
