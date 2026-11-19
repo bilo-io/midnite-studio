@@ -58,3 +58,13 @@ export function reviewBlockedReason(pull: Pick<ForgePull, 'state' | 'author'>, v
 
 /** Request changes and Comment need a body; Approve does not. */
 export const reviewBodyRequired = (action: ReviewAction): boolean => action !== 'APPROVE';
+
+/** A check's details URL is forge-supplied, so only an `https:` one is opened in the in-app browser. */
+export const isHttpsUrl = (url: string | null | undefined): url is string => {
+  if (!url) return false;
+  try {
+    return new URL(url).protocol === 'https:';
+  } catch {
+    return false;
+  }
+};

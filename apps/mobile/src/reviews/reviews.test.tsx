@@ -6,7 +6,7 @@ import { routerCalls } from '../../test/mocks/expo-router';
 import { renderInShell, resetShellState } from '../../test/shell-harness';
 import { fail, ok } from '../data/source';
 import { buildConversation, threadLabel } from './conversation';
-import { decisionBadge, reviewBlockedReason, reviewBodyRequired } from './format';
+import { decisionBadge, isHttpsUrl, reviewBlockedReason, reviewBodyRequired } from './format';
 import { PullDetailScreen } from './pull-detail-screen';
 import { ReviewsScreen } from './reviews-screen';
 
@@ -47,6 +47,10 @@ describe('helpers', () => {
     expect(reviewBlockedReason({ state: 'open', author: 'x' }, 'ada')).toBeNull();
     expect(reviewBodyRequired('APPROVE')).toBe(false);
     expect(reviewBodyRequired('COMMENT')).toBe(true);
+    expect(isHttpsUrl('https://x/1')).toBe(true);
+    expect(isHttpsUrl('javascript:alert(1)')).toBe(false);
+    expect(isHttpsUrl('http://x')).toBe(false);
+    expect(isHttpsUrl(null)).toBe(false);
   });
   it('orders the conversation by time and splits resolved threads', () => {
     const { items, resolved } = buildConversation(overview.comments, [thread('t1'), thread('t2', { resolved: true })]);

@@ -18,10 +18,12 @@ export interface ReviewBarProps {
   blockedReason: string | null;
   pending: boolean;
   error: string | null;
+  /** Called when a sheet opens, so a stale error from the last attempt is cleared. */
+  onOpen?(): void;
   onSubmit(action: ReviewAction, body: string): Promise<boolean>;
 }
 
-export function ReviewBar({ blockedReason, pending, error, onSubmit }: ReviewBarProps) {
+export function ReviewBar({ blockedReason, pending, error, onOpen, onSubmit }: ReviewBarProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [action, setAction] = useState<ReviewAction | null>(null);
@@ -39,6 +41,7 @@ export function ReviewBar({ blockedReason, pending, error, onSubmit }: ReviewBar
   };
   const openSheet = (a: ReviewAction) => {
     setBody('');
+    onOpen?.();
     setAction(a);
   };
 

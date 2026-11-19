@@ -24,7 +24,7 @@ import { DiffView } from '../diff/diff-view';
 import { useCurrentRepo } from '../shell/use-current-repo';
 import { ICONS, Icon } from '../ui/icons';
 import { ConversationTab } from './conversation';
-import { checkGlyphOf, decisionBadge, reviewBlockedReason, reviewerLabel, stateBadge, type ReviewAction } from './format';
+import { checkGlyphOf, decisionBadge, isHttpsUrl, reviewBlockedReason, reviewerLabel, stateBadge, type ReviewAction } from './format';
 import { ReviewBar } from './review-bar';
 
 type DetailTab = 'overview' | 'files' | 'conversation';
@@ -197,7 +197,7 @@ export function PullDetailScreen({ n }: { n: number }) {
                       color={c.conclusion === 'failure' ? theme.accents.kind.bug : c.conclusion === 'pending' ? theme.accents.status.wip : theme.colors.success}
                     />
                   }
-                  onPress={c.detailsUrl ? () => void WebBrowser.openBrowserAsync(c.detailsUrl!).catch(() => {}) : undefined}
+                  onPress={isHttpsUrl(c.detailsUrl) ? () => void WebBrowser.openBrowserAsync(c.detailsUrl!).catch(() => {}) : undefined}
                 />
               ))
             ) : (
@@ -236,7 +236,7 @@ export function PullDetailScreen({ n }: { n: number }) {
           )
         ) : null}
       </ScrollView>
-      <ReviewBar blockedReason={blocked} pending={submit.isPending} error={writeError} onSubmit={submitReview} />
+      <ReviewBar blockedReason={blocked} pending={submit.isPending} error={writeError} onOpen={() => setWriteError(null)} onSubmit={submitReview} />
     </View>
   );
 }
