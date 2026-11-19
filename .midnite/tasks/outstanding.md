@@ -858,3 +858,7 @@ The detector's discount for code spans and quotation marks is bypassable by wrap
 ## Accordion header polish (#1272) — stale Linux visual baseline
 
 - **`sessions-list-live-and-closed-linux.png` predates the taller, tinted `ExplorerGroup` header.** The `visual` lane is opt-in (`cross-platform` label) and regenerating needs Docker, which was not running when #1272 merged. Next time that lane runs, regenerate with `MSTUDIO_CROSS_PLATFORM=1 moon run root:visual-regen` and commit the new baseline.
+
+## Phase 154 refine — tool-call limits for ordinary agent sessions
+
+- **The breaker's per-session MCP limits (`toolCallsPerMinute`, `fileWritesPerMinute`, the push-tool count) never fire for a roster agent session.** `recordMcpCall` (`desktop/src/main/mcp/audit.ts`) writes `mcp-call` records with no `sessionId`, and the breaker skips records without one (`runtime/src/security/agent-breaker.ts`). The global MCP socket has one shared per-launch token, so it cannot tell sessions apart. Phase 154 Theme G fixes this only for custom-agent sessions, through a private socket per session. Two ways to close it for every session: give each Claude/Codex agent session a private socket too (it changes how every agent session launches), or attribute calls through the PreToolUse policy hook, which inherits the pty env (`desktop/src/policy-hook/index.ts`), opt-in and weaker.

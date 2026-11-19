@@ -1,420 +1,971 @@
 # Phase 154 — Custom agents
 
+**Refined: x1** · 2026-11-19 · UI/UX, visual design, accessibility, empty/loading/error states, edge cases, data model, persistence, concurrency, security, testing, performance, observability, acceptance criteria, file map, sequencing, out-of-scope
+
 Planned 2026-11-18 with the user · grounded against the tree as of `6ba3f3303`.
 
 A new **Agents** page where a user builds their own agent. A custom agent is a **profile** on top of one of the
 roster CLIs: a name, an icon and accent, a base CLI, a model, a system prompt, an allowlist of midnite MCP tools, a
 set of skills, a limits override, and a **blueprint** (stack choices across five lifecycle stages, kept as design
 notes). The page has three tabs — **Your agents**, **Builder**, **Info** — and is a rail view in Studio and in the
-Agents app. A custom agent launches from the new-session menu like a roster agent; its limits and its tool allowlist
-are enforced for the sessions it starts.
+Agents app. In Studio a custom agent launches from the new-session menu like a roster agent. For Claude and Codex
+bases, its tool allowlist and tool-call limit are enforced through a private MCP socket for each session it starts.
 
 > **Builds on.**
 > - **The agent roster** (Phase 21): `AgentDefinitionSchema` and `BUILTIN_AGENTS`
 >   ([`terminal.ts`](../../../packages/shared/src/terminal.ts)). A profile references a roster agent by `id`; it
 >   never replaces one.
-> - **Feature packages and manifests** (Phase 113): `FEATURE_VIEWS`
+> - **Feature packages and manifests** (Phase 113): `FEATURE_VIEWS` / `STUDIO_VIEW_ORDER`
 >   ([`feature-registrations.ts`](../../../packages/shared/src/domain/feature-registrations.ts)), `FEATURE_PLACEMENT`
 >   ([`placement.ts`](../../../packages/shared/src/domain/placement.ts)), the extraction guide in
->   [`docs/APPS.md`](../../../docs/APPS.md). **Crib: [`packages/features/councils`](../../../packages/features/councils)**
->   — both halves, a user-data JSON store, Agents placement.
+>   [`docs/APPS.md`](../../../docs/APPS.md) ("Extracting the next feature"). **Package crib:
+>   [`packages/features/councils`](../../../packages/features/councils)**: both halves, Agents placement, a
+>   user-data JSON store.
 > - **Feature toggles** (Phase 135): a package that contributes a view must be a toggle
->   ([`feature-toggles.ts`](../../../packages/shared/src/feature-toggles.ts)).
+>   ([`feature-toggles.ts`](../../../packages/shared/src/feature-toggles.ts)). A toggle is on unless the user's
+>   sparse `disabled` list names it, so there is no "default on" field to set.
 > - **Agent limits and the breaker** (Phase 121): `AgentLimitsOverrideSchema`, `resolveAgentLimits`
->   ([`agent-limits.ts`](../../../packages/shared/src/agent-limits.ts)), `limitsFor(sessionId)` in
->   [`agent-breaker.ts`](../../../packages/desktop/src/main/agent-breaker.ts).
-> - **Model flags**: `modelsForAgent` / `modelArgsFor` ([`ai-models.ts`](../../../packages/shared/src/ai-models.ts)).
-> - **Session env**: every agent pty already carries `MSTUDIO_SESSION_ID` / `MSTUDIO_AGENT_ID`
->   ([`pty-env.ts`](../../../packages/features/terminal/main/pty-env.ts)).
+>   ([`agent-limits.ts`](../../../packages/shared/src/agent-limits.ts)); `limitsFor(sessionId)` in
+>   [`agent-breaker.ts`](../../../packages/desktop/src/main/agent-breaker.ts), with seams bound in
+>   [`agent-breaker-wiring.ts`](../../../packages/desktop/src/main/agent-breaker-wiring.ts).
+> - **Private MCP sockets for headless runs** (Phases 99 and 107): a per-run `startMcpServer({ socketPath, dispatch })`
+>   with the shim pointed at it by `--socket`
+>   ([`iterative-host.ts`](../../../packages/desktop/src/main/media/iterative-host.ts)); Claude's
+>   `--mcp-config … --strict-mcp-config` and Codex's `-c mcp_servers.<name>.*` arguments
+>   ([`iterative.ts`](../../../packages/features/media-model/main/model/iterative.ts) `buildCliArgs`); a shim that
+>   lists and serves only named tools ([`run-shim.ts`](../../../packages/runtime/src/agent-run/run-shim.ts)
+>   `toolIds`). Theme G reuses all three for interactive custom-agent sessions.
+> - **Launching an agent with a prompt**: [`start-agent.ts`](../../../packages/app/src/features/terminal/start-agent.ts)
+>   lines 195-206 build one typed line from `launch.command`, `agentInvocationArgs(agentId, mode)` and a quoted
+>   prompt word ([`agent-invocation.ts`](../../../packages/shared/src/agent-invocation.ts)).
 >
 > **Scope guardrails.** The feature package is `packages/features/agent-profiles` (not `agents`: that name is the
 > module, and `agent` is an existing placement folder); the view id and its label are `agents` / "Agents". A feature
-> imports the frame and `shared` only — the roster, the models list, the skills list, `Tooltip` and session launch
-> all arrive through a host port, with one adapter in Studio and one in the Agents module. No new eslint exception.
-> IPC ops return envelopes and never throw. Icons from `react-icons/lu` only; theme tokens, not the pasted brief's
-> `slate`/`zinc` palette. macOS only. Every new test is a vitest unless its header names the browser capability it
-> needs. The blueprint is data and UI only: it installs nothing and changes nothing about how an agent runs.
+> imports the frame and `shared` only. The roster, the models list, the skills list, live-session counts and
+> launching all arrive through host ports, with one adapter in Studio and one in the Agents module. No new eslint
+> exception. IPC ops return the house envelope (`GitOpResultOf`, `ok(value)`, `failure(message)` from
+> [`result.ts`](../../../packages/shared/src/domain/result.ts)) and never throw. Icons come from `react-icons/lu`
+> only, and colours are theme tokens, not the pasted brief's `slate`/`zinc`. macOS only. Every new test is a vitest
+> unless its header names the browser capability it needs. The blueprint is data and UI only: it installs nothing
+> and does not change how an agent runs. **The Agents app has no terminal, breaker or MCP server**
+> ([`context.ts`](../../../packages/modules/agents/main/context.ts) lines 96-97 and 175-177). There it lists and
+> edits agents only; launching and enforcement are Studio-only.
 
 > **Effort tags:** **XS** < 30 min · **S** 30 min – 2 h · **M** 2 – 4 h · **L** 4 – 8 h · **XL** 1 – 2 d.
 
 ## Headlines
 
-**Theme A — Shared contract (M).** ◻ `AgentProfileSchema`, the five lifecycle stages and their options as data, the
-`agentProfile*` channels and schemas, the bridge slice, and an optional `profileId` on sessions and `PtyCreateRequest`.
+**Theme A — Shared contract (M).** ◻ This theme defines:
+- `AgentProfileSchema` and the five blueprint stages as data.
+- Per-CLI tables for prompt delivery and enforcement.
+- Launch helpers that build the typed line from a prompt *file*.
+- The `agentProfile*` channels, using house envelopes, with conflict-aware saves.
+- `profileId` on sessions and `profileLaunchId` on `PtyCreateRequest`.
+- The view, window-role and toggle registrations, with every list that pins them.
 
-**Theme B — Package, store and IPC (M).** ◻ `packages/features/agent-profiles` with a manifest, a
-`agent-profiles.json` store in user data, handlers for list, save, delete, import and export, registered in Studio's
-main and the Agents host, behind a default-on feature toggle.
+**Theme B — Package, store and IPC (M).** ◻ This theme adds:
+- `packages/features/agent-profiles`, with an atomic `agent-profiles.json` store capped at 200 agents.
+- A prompt file per agent.
+- Import and export through injected dialog services.
+- A conflict check on save.
+- Registration in Studio's main and the Agents host. The Agents host gets dialogs only; it has no launch service.
 
-**Theme C — Agents page and the Your agents tab (M).** ◻ The `agents` rail view in Studio and the Agents app, the
-three-tab shell, and the list: launch, edit, duplicate, import, export, delete, and three starter templates.
+**Theme C — Agents page and the Your agents tab (M).** ◻ This theme adds:
+- The `agents` rail view in both apps, and the three-tab shell.
+- The list, with launch (Studio only), edit, duplicate, import, export, delete (the confirm shows the live-session count) and three starter templates.
+- Literal copy for loading, failed-load, empty and missing-CLI states.
+- Focus rules after each action.
 
-**Theme D — Builder tab (L).** ◻ The profile form and the Blueprint section (stages on the left, multi-select options
-and a note on the right, a live stack bar at the bottom), with a round info-icon tooltip on every field and option.
+**Theme D — Builder tab (L).** ◻ This theme adds:
+- An explicit-Save form with a conflict prompt (Reload or Overwrite) and an unsaved-changes guard.
+- Each base CLI's support for prompt delivery and enforcement, stated beside the field it affects.
+- A self-contained round info-icon popover on every field and option: hover, focus and click open it, Escape closes it.
+- The Blueprint section: stage list, options and note, and a sticky stack bar, with full keyboard support.
 
-**Theme E — Info tab (S).** ◻ The five stages and their options explained, how a profile runs, a glossary, and
-documentation links.
+**Theme E — Info tab (S).** ◻ This theme adds:
+- The five stages and their options.
+- How a custom agent runs, including the per-CLI enforcement table and the cost of strict MCP mode.
+- A glossary and documentation links.
 
-**Theme F — Launch (M).** ◻ Custom agents in the new-session menu and on each list row: base CLI command, model
-flag, system prompt by flag where the CLI has one and as the first message otherwise, chosen skills named in the prompt.
+**Theme F — Launch (L).** ◻ Main's `agentProfile:prepareLaunch` builds the whole typed line. It is the only place
+that does, and fresh starts, wakes and Resume all go through it.
+- Model flag.
+- System prompt from the prompt file: Claude takes `--append-system-prompt-file`; any other CLI that accepts a prompt argument takes `"$(cat '<file>')"`; any other CLI gets no prompt.
+- The private-socket MCP arguments from Theme G.
 
-**Theme G — Enforcement (L).** ◻ The breaker layers a profile's limits over the repo's for sessions that profile
-started; the midnite MCP server refuses tools outside the profile's allowlist for those sessions.
+The new-session menu gains a "Your agents" section. A session shows the agent's name, icon and accent, falling back
+to the base CLI's when the agent has been deleted.
+
+**Theme G — Enforcement (L).** ◻ For Claude and Codex bases, each custom-agent session gets a private MCP socket:
+- The socket lists and serves only the agent's allowed tools.
+- A refused call is recorded as a `policy-decision` denial.
+- Every call is attributed to the session, so the breaker applies the agent's tool-call limit.
+- Claude launches with `--strict-mcp-config` when tools are restricted.
+- The socket closes when the session exits.
+
+The breaker layers the agent's limits over the repo's, read live. A verification item at the start of the theme
+settles one question: does a per-launch `midnite` server take precedence over the user's global one?
 
 ## Build order
 
-1. **A** first: everything reads the schema and the channels.
-2. **B** next: the store and handlers the renderer queries.
-3. **C**, then **D** and **E** (D and E are independent of each other once C's shell exists).
-4. **F** after D (it needs saved profiles to launch).
-5. **G** last: it needs `profileId` on a live session, which F sets.
+1. **A** first: everything reads the schema, the stage data and the channels.
+2. **B** next: the store, the prompt file and the handlers the renderer queries.
+3. **C**, then **D** and **E** in either order once C's three-tab shell exists.
+4. **G1** (the precedence check, a manual item) before any other G work; its answer decides how unrestricted agents
+   launch (see G).
+5. **F** and **G** together: `prepareLaunch` (F) calls the socket service (G). Land G's socket service first inside
+   the same PR, or stub it so `prepareLaunch` returns no MCP arguments until G lands.
 
-Suggested PRs: `PR-1` = A + B, `PR-2` = C + E, `PR-3` = D, `PR-4` = F, `PR-5` = G.
+Suggested PRs, each leaving `main` working:
+- `PR-1` = A + B. The store and IPC exist; nothing renders.
+- `PR-2` = C + E. The page lists, creates from templates, imports, exports and deletes; Launch is hidden because no host fills `useLaunchProfile` yet.
+- `PR-3` = D. Full editing.
+- `PR-4` = G's socket service and audit attribution, plus F. Launch appears.
 
 ## Deliverables
 
 ### A — Shared contract (M)
 
-- [ ] New `packages/shared/src/agent-profiles.ts` (zod only), exported from `packages/shared/src/index.ts`:
-  - `AGENT_PROFILE_ID_PREFIX = 'profile-'`.
-  - `AgentProfileSchema = z.object({ id: z.string().startsWith('profile-'), name: z.string().min(1).max(60),
-    description: z.string().max(280).default(''), baseAgentId: z.string().min(1), accent: z.string().min(1),
-    icon: z.string().min(1).optional(), model: z.string().min(1).default('default'),
-    systemPrompt: z.string().max(20_000).default(''), mcpTools: z.array(z.string()).nullable().default(null),
-    skills: z.array(z.string().min(1)).default([]), limits: AgentLimitsOverrideSchema.default({}),
-    blueprint: AgentBlueprintSchema.default({}), createdAt: z.number().int(), updatedAt: z.number().int() })`.
-    `mcpTools: null` means "no restriction"; `[]` means "no midnite tools at all".
-  - `type AgentProfile = z.infer<typeof AgentProfileSchema>`.
-  - `parseAgentProfiles(raw: unknown): AgentProfile[]` — keeps valid entries, drops invalid ones and later
-    duplicates of an `id` (crib `parseCustomLoops` in [`custom-loops.ts`](../../../packages/shared/src/custom-loops.ts)).
-  - `createBlankAgentProfile(ids = defaultIdFactory, now = Date.now()): AgentProfile` — `name: 'New agent'`,
-    `baseAgentId: 'claude'`, `accent: '#8b5cf6'`. Reuse `IdFactory` / `defaultIdFactory` from `custom-loops.ts`.
-  - `duplicateAgentProfile(profile, ids?, now?)` — new `id`, `name: \`${name} copy\``, fresh timestamps.
-  - `profileAgentId(profileId)` / `isProfileAgentId(id)` — the id a profile uses where an agent id is expected.
-- [ ] Blueprint data in the same file:
+- [ ] New `packages/shared/src/agent-profiles.ts` (zod only), exported from `packages/shared/src/index.ts`.
+  - `AGENT_PROFILE_ID_PREFIX = 'profile-'`; `MAX_AGENT_PROFILES = 200`.
+  - Schema:
+
+    ```ts
+    AgentProfileSchema = z.object({
+      id: z.string().startsWith('profile-'),
+      name: z.string().trim().min(1).max(60),
+      description: z.string().max(280).default(''),
+      baseAgentId: z.string().min(1),
+      accent: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+      icon: z.string().min(1).optional(),
+      model: z.string().min(1).default('default'),
+      systemPrompt: z.string().max(20_000).default(''),
+      mcpTools: z.array(z.string()).nullable().default(null),
+      skills: z.array(z.string().min(1).max(200)).max(50).default([]),
+      limits: AgentLimitsOverrideSchema.default({}),
+      blueprint: AgentBlueprintSchema.default({}),
+      createdAt: z.number().int(),
+      updatedAt: z.number().int(),
+    })
+    ```
+  - `mcpTools: null` means "no restriction"; `[]` means "no midnite tools at all".
+  - `model` holds an `AgentModelInfo.id` from `modelsForAgent(baseAgentId)`
+    ([`ai-models.ts`](../../../packages/shared/src/ai-models.ts)), not a CLI string. For Claude that is a loop id
+    such as `sonnet-5-5`.
+  - `parseAgentProfiles(raw: unknown): AgentProfile[]` keeps valid entries and drops invalid ones and later
+    duplicates of an `id`; crib `parseCustomLoops` in [`custom-loops.ts`](../../../packages/shared/src/custom-loops.ts).
+  - `createBlankAgentProfile(ids = defaultIdFactory, now = Date.now())` returns `name: 'New agent'`,
+    `baseAgentId: 'claude'` and `accent: '#8b5cf6'`. It reuses `IdFactory` / `defaultIdFactory` from `custom-loops.ts`
+    with the `profile-` prefix.
+  - `duplicateAgentProfile(profile, existingNames, ids?, now?)` gives a new `id` and fresh timestamps. The name is
+    `uniqueProfileName(\`${name} copy\`, existingNames)`.
+  - `uniqueProfileName(base, existing)` returns `base`, or the first of `base 2`, `base 3`, … not in `existing`. The
+    result is trimmed to 60 characters, cutting from `base` and never from the suffix.
+- [ ] Blueprint data in the same file.
   - `AGENT_BLUEPRINT_STAGE_IDS = ['orchestrate', 'ground', 'act', 'adapt', 'operate'] as const`.
-  - `AGENT_BLUEPRINT_STAGES: readonly { id; label; subtitle; summary; options: readonly { id; label; summary; docsUrl }[] }[]`
-    with exactly these stages and options:
-    1. `orchestrate` — "Understand & Orchestrate" (Frameworks): `langgraph` LangGraph, `crewai` CrewAI,
+  - `AGENT_BLUEPRINT_STAGES` has the shape
+    `readonly { id; label; subtitle; summary; options: readonly { id; label; summary; docsUrl }[] }[]`, with exactly
+    these stages and options:
+    1. `orchestrate`: "Understand & Orchestrate" (Frameworks). Options: `langgraph` LangGraph, `crewai` CrewAI,
        `llamaindex-workflows` LlamaIndex Workflows, `custom` Custom / in-house.
-    2. `ground` — "Ingest & Ground" (RAG & data): `vector-db` Vector DBs (Pinecone / pgvector), `hybrid-search`
-       Hybrid search, `managed-kb` Managed knowledge bases.
-    3. `act` — "Connect & Act" (Tools & MCP): `mcp` Model Context Protocol, `api-sdks` Custom API SDKs,
+    2. `ground`: "Ingest & Ground" (RAG & data). Options: `vector-db` Vector DBs (Pinecone / pgvector),
+       `hybrid-search` Hybrid search, `managed-kb` Managed knowledge bases.
+    3. `act`: "Connect & Act" (Tools & MCP). Options: `mcp` Model Context Protocol, `api-sdks` Custom API SDKs,
        `local-exec` Local shell / DB execution.
-    4. `adapt` — "Optimize & Adapt" (Fine-tuning): `open-weight` Open-weight fine-tuning (Unsloth / Axolotl),
+    4. `adapt`: "Optimize & Adapt" (Fine-tuning). Options: `open-weight` Open-weight fine-tuning (Unsloth / Axolotl),
        `managed-apis` Managed APIs (OpenAI / Anthropic), `prompt-evals` Prompt evaluation frameworks.
-    5. `operate` — "Secure, Deploy & Operate" (Production): `hosting` Orchestration hosting (Modal / Baseten),
-       `guardrails` Guardrails (NeMo / Llama Guard), `observability` Observability (LangSmith / Phoenix).
-  - `AgentBlueprintSchema = z.record(z.enum(AGENT_BLUEPRINT_STAGE_IDS), z.object({ options: z.array(z.string()).default([]),
-    note: z.string().max(500).default('') }))` (partial: a missing stage means nothing chosen).
-  - `blueprintSummary(blueprint): { stageId; stageLabel; optionLabels: string[] }[]` — one entry per stage in stage
-    order; unknown option ids are dropped. The stack bar and the list row both render from it.
-- [ ] Launch helpers in `packages/shared/src/agent-profile-launch.ts`:
-  - `PROFILE_PROMPT_DELIVERY: Record<string, 'flag' | 'first-message'>` — `claude: 'flag'`; every other id resolves to
-    `'first-message'` through `promptDeliveryFor(baseAgentId)`.
-  - `composeProfilePrompt(profile): string` — `systemPrompt`, then, when `skills.length > 0`, a final paragraph
-    `Prefer these skills when they fit: <comma-separated names>.` Returns `''` when both are empty.
-  - `resolveProfileLaunch(profile, base: AgentDefinition): { command: string; args: string[]; firstMessage: string | null }`
-    — `args = [...base.args, ...modelArgsFor(base.id, profile.model), ...promptFlagArgs]`, where `promptFlagArgs` is
-    `['--append-system-prompt', shellQuote(prompt)]` for `'flag'` delivery with a non-empty prompt, else `[]`;
-    `firstMessage` is the prompt for `'first-message'` delivery with a non-empty prompt, else `null`. `model:
-    'default'` adds no model args. `shellQuote` is a single-quote POSIX quote, exported and unit-tested with a prompt
-    containing `'`, `"`, `$`, a backtick and a newline (the line is typed into a login shell, not spawned).
-- [ ] Channels in [`packages/shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts):
-  `agentProfileList: 'mstudio:agent-profile:list'`, `agentProfileSave: '…:save'`, `agentProfileDelete: '…:delete'`,
-  `agentProfileExport: '…:export'`, `agentProfileImport: '…:import'`.
-- [ ] Schemas in [`packages/shared/src/ipc/schemas.ts`](../../../packages/shared/src/ipc/schemas.ts):
-  `AgentProfileListResponse { profiles: AgentProfile[] }`; `AgentProfileSaveRequest { profile: AgentProfileSchema }`;
-  `AgentProfileDeleteRequest { id }`; `AgentProfileExportRequest { id }`; save / delete / export / import responses as
-  the `{ ok: true, … } | { ok: false, error }` envelope (`save` and `import` return `profile`; `export` returns
-  `path`; `import` and `export` return `{ ok: true, cancelled: true }` when the file dialog is dismissed).
-- [ ] Bridge type in [`packages/shared/src/ipc/bridge.ts`](../../../packages/shared/src/ipc/bridge.ts):
-  `agentProfile: { list; save; delete; export; import }` (crib the `council` slice).
-- [ ] `profileId: z.string().optional()` on `TerminalSessionSchema` ([`terminal.ts`](../../../packages/shared/src/terminal.ts))
-  and on `PtyCreateRequest` (`schemas.ts`).
-- [ ] Registration: `FEATURE_PLACEMENT['agent-profiles'] = 'agents'`; `FEATURE_VIEWS['agent-profiles'] = ['agents']`;
-  `'agents'` in `STUDIO_VIEW_ORDER` directly after `'chats'`'s group neighbours (the agent views block);
-  `PAGE_WINDOW_ROLES` gains `'agents'` ([`window.ts`](../../../packages/shared/src/domain/window.ts)).
-- [ ] `FEATURE_TOGGLES` entry `agentProfiles`: `{ label: 'Custom agents', description: 'Build your own agents on top
-  of the roster CLIs.', group: 'agent', requires: [], packages: ['agent-profiles'], views: ['agents'],
-  settingsPages: [], commands: [], data: { files: ['agent-profiles.json'], storeKeys: [], vault: [] } }`, default on.
-- [ ] Tests: `agent-profiles.test.ts` (schema defaults, `parseAgentProfiles` drops invalid and duplicate entries,
-  blank and duplicate factories with an injected id factory and clock, every stage has 3–4 options with unique ids,
-  `blueprintSummary` order and unknown-id handling); `agent-profile-launch.test.ts` (flag vs first-message, default
-  model adds no args, empty prompt adds nothing, `shellQuote` cases, skills paragraph); update
-  `feature-registrations.test.ts` (`LEGACY_VIEW_IDS`), `view.test.ts`, `feature-toggles.test.ts`.
+    5. `operate`: "Secure, Deploy & Operate" (Production). Options: `hosting` Orchestration hosting
+       (Modal / Baseten), `guardrails` Guardrails (NeMo / Llama Guard), `observability` Observability
+       (LangSmith / Phoenix).
+  - Each `summary` is one or two plain sentences of at most 220 characters. Each `docsUrl` is the project's own
+    documentation home page over `https`. `custom` has no docs link, so its `docsUrl` is `null`; type it
+    `string | null`.
+  - `AgentBlueprintSchema = z.partialRecord(z.enum(AGENT_BLUEPRINT_STAGE_IDS), z.object({ options: z.array(z.string()).max(4).default([]), note: z.string().max(500).default('') }))`.
+    A missing stage means nothing is chosen. If the repo's zod has no `partialRecord`, use
+    `z.record(...).and(...)` with every key optional, and say so in the PR.
+  - `blueprintSummary(blueprint)` returns `{ stageId; stageLabel; optionLabels: string[]; note: string }[]`: one
+    entry per stage, in stage order, dropping unknown option ids. The stack bar, the list card and the Info tab all
+    render from it.
+- [ ] Per-CLI tables in `packages/shared/src/agent-profile-launch.ts` (net-new).
+  - `promptDeliveryFor(baseAgentId): 'flag' | 'argument' | 'none'`.
+    - Returns `'flag'` for `claude`, which uses `--append-system-prompt-file <path>`. That flag is verified present
+      in `claude --help` on 2026-11-19.
+    - Returns `'argument'` for every other agent id whose interactive invocation already takes a prompt word in
+      `start-agent.ts` (read `agentInteractiveArgs` in `agent-invocation.ts` to list them; at minimum `codex`).
+    - Returns `'none'` for everything else.
+  - `enforcementFor(baseAgentId): { tools: boolean; toolCallLimit: boolean }` is `true`/`true` for `claude` and
+    `codex` and `false`/`false` for every other id. The other limits (file writes, pushes, outbound hosts, spend) are
+    enforced for every base CLI, because their audit records already carry a session.
+  - `composeProfilePrompt(profile): string` is `systemPrompt.trim()`, then, when `skills.length > 0`, a blank line and
+    `Prefer these skills when they fit: <names joined by ', '>.`. It returns `''` when both are empty.
+  - `profileModelArgs(baseAgentId, model): string[]`:
+    - Returns `[]` when `model === 'default'`.
+    - Returns `loopModelArgs('claude', model)` for `claude` ([`loops.ts`](../../../packages/shared/src/loops.ts) line 207).
+    - Otherwise returns `modelArgsFor(baseAgentId, cliModel ?? model)`, where `cliModel` is looked up in
+      `modelsForAgent(baseAgentId)`.
+    - `modelArgsFor` alone is wrong here: it always emits `--model <x>`.
+  - `buildProfileLaunchLine(input): string` is pure. `input` is
+    `{ base: AgentDefinition; model: string; promptPath: string | null; delivery; mcpArgs: string[]; resume: boolean }`.
+    - The words are `[base.command, ...base.args, ...(resume ? base.resume ?? [] : []), ...profileModelArgs(…), ...mcpArgs, ...promptWords]`.
+    - `promptWords` is `['--append-system-prompt-file', shellQuote(promptPath)]` for `'flag'`.
+    - For `'argument'` it is `[...agentInvocationArgs(base.id, 'interactive'), \`"$(cat ${shellQuote(promptPath)})"\`]`,
+      and `[]` when `resume` is true (the conversation already holds it).
+    - It is `[]` for `'none'` or a `null` path.
+    - The words are joined with one space; no trailing `\r`.
+    - Reuse the existing `shellQuote` from `agent-invocation.ts`. Paths have no newlines, so its whitespace
+      flattening is harmless. Do **not** add a second quoting helper.
+- [ ] Channels in [`channels.ts`](../../../packages/shared/src/ipc/channels.ts):
+  - `agentProfileList: 'mstudio:agent-profile:list'`
+  - `agentProfileSave: 'mstudio:agent-profile:save'`
+  - `agentProfileDelete: 'mstudio:agent-profile:delete'`
+  - `agentProfileExport: 'mstudio:agent-profile:export'`
+  - `agentProfileImport: 'mstudio:agent-profile:import'`
+  - `agentProfilePrepareLaunch: 'mstudio:agent-profile:prepare-launch'`
+- [ ] Schemas in [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts), all responses via `GitOpResultOf`:
+  - `AgentProfileListResponse = GitOpResultOf(z.object({ profiles: z.array(AgentProfileSchema) }))`.
+  - `AgentProfileSaveRequest = z.object({ profile: AgentProfileSchema, expectedUpdatedAt: z.number().int().nullable() })`.
+    `null` means "new". `AgentProfileSaveResponse = GitOpResultOf(z.discriminatedUnion('status', [z.object({ status: z.literal('saved'), profile }), z.object({ status: z.literal('conflict'), current: AgentProfileSchema })]))`.
+  - `AgentProfileDeleteRequest = z.object({ id })`; response `GitOpResultSchema`.
+  - `AgentProfileExportRequest = z.object({ id })`; response `GitOpResultOf(z.object({ path: z.string().nullable() }))`.
+    `null` path means the dialog was dismissed.
+  - `AgentProfileImportResponse = GitOpResultOf(z.object({ profile: AgentProfileSchema.nullable() }))`. `null` means
+    dismissed.
+  - `AgentProfilePrepareLaunchRequest = z.object({ profileId, cwd: z.string().min(1), resume: z.boolean() })`;
+    response `GitOpResultOf(z.object({ launchId: z.string(), line: z.string() }))`.
+- [ ] Bridge type in [`bridge.ts`](../../../packages/shared/src/ipc/bridge.ts): an
+  `agentProfile: { list; save; delete; export; import; prepareLaunch }` slice, cribbed from the `council` slice
+  (line ~1164).
+- [ ] Session fields.
+  - Add `profileId: z.string().optional()` **inline** to `TerminalSessionSchema` (`terminal.ts:666`; it cannot be
+    `.extend()`ed). Without it, `TerminalSaveRequest`'s parse strips the field.
+  - Add `profileLaunchId: z.string().optional()` to `PtyCreateRequest` only. It is per-launch and never persisted.
+  - No store version bump is needed: the file store's `parseStoredSessions` never checks `version` and keeps extra
+    keys (`features/terminal/main/terminal-store.ts:118`), and the renderer store is not persisted.
+- [ ] Registration.
+  - `FEATURE_PLACEMENT['agent-profiles'] = 'agents'`.
+  - `FEATURE_VIEWS['agent-profiles'] = ['agents']`.
+  - `'agent-profiles'` in `STUDIO_VIEW_ORDER` after `'models'` and before `'api-client'`. The array holds feature
+    keys, not view ids.
+  - `'agents'` in `PAGE_WINDOW_ROLES` ([`window.ts`](../../../packages/shared/src/domain/window.ts)) after `'models'`.
+- [ ] `FEATURE_TOGGLES.agentProfiles`:
+
+  ```ts
+  { label: 'Custom agents', description: 'Build your own agents on top of the roster CLIs.', group: 'agent',
+    requires: [], packages: ['agent-profiles'], views: ['agents'], settingsPages: [], commands: [],
+    data: { files: ['agent-profiles.json', 'agent-profiles/'], storeKeys: [], vault: [] } }
+  ```
+
+  No default field: toggles are on unless disabled.
+- [ ] Tests.
+  - `agent-profiles.test.ts`:
+    - Schema defaults; a bad accent and an empty trimmed name fail.
+    - `parseAgentProfiles` keeps 2 of [valid, invalid, duplicate-id, valid].
+    - The factories with an injected id factory and clock.
+    - `uniqueProfileName('Reviewer', ['Reviewer','Reviewer 2'])` is `'Reviewer 3'`, and the 60-character truncation
+      keeps the suffix.
+    - Every stage has 3 or 4 options with unique ids across stages.
+    - `blueprintSummary` returns stage order and drops an unknown id.
+  - `agent-profile-launch.test.ts`:
+    - `profileModelArgs('claude','default')` is `[]`.
+    - `profileModelArgs('claude','sonnet-5-5')` equals `loopModelArgs('claude','sonnet-5-5')`.
+    - A flag line ends with `--append-system-prompt-file '<path>'`, and a path with a space stays one word.
+    - An argument line ends with `"$(cat '<path>')"` and drops it when `resume`.
+    - `resume` adds `base.resume`.
+    - The `mcpArgs` sit before the prompt words.
+    - `composeProfilePrompt` with and without skills.
+    - `enforcementFor('aider')` is false/false.
+  - Update `feature-registrations.test.ts` (`LEGACY_VIEW_IDS` gains `'agents'` after `'models'`), `view.test.ts`, and
+    `shared/src/feature-toggles.test.ts`.
 
 ### B — Package, store and IPC (M)
 
-- [ ] Create `packages/features/agent-profiles` by copying `packages/features/councils`' `package.json`, `moon.yml`,
-  `tsconfig.json`, `tsconfig.main.json`, `vitest.config.ts`: name `@midnite/studio-feature-agent-profiles`, moon id
-  `feature-agent-profiles`, tags `layer-feature`, `app-agents`, `app-studio`.
-- [ ] `manifest.ts`: `agentProfilesManifest = defineFeatureManifest({ feature: 'agent-profiles', owner: 'agents',
-  views: [{ id: 'agents', global: true, rail: { group: 'agent', label: 'Agents', description: 'Build and manage your
-  own agents' } }], settingsPages: [], ipc: [the five channels], events: [], mcpTools: [] })`; `manifest.test.ts` as
-  councils' (owner matches placement, view ids equal `FEATURE_VIEWS['agent-profiles']`, channels match
-  `/^mstudio:agent-profile:/`).
-- [ ] `main/agent-profiles-store.ts`: `FILE_NAME = 'agent-profiles.json'`; `createAgentProfilesStore(dir)` with
-  `load(): Promise<AgentProfile[]>` (missing or malformed file → `[]`; file shape `{ version: 1, profiles: [] }`,
-  entries through `parseAgentProfiles`) and `save(profiles)` (pretty JSON + trailing newline, written to a temp file
-  and renamed); `nullAgentProfilesStore`.
-- [ ] `main/agent-profiles-service.ts`: `configureAgentProfiles(store)`, `listAgentProfiles()`,
-  `getAgentProfile(id)`, `saveAgentProfile(profile)` (upsert by `id`, sets `updatedAt`, keeps `createdAt` of an
-  existing entry), `deleteAgentProfile(id)`, `resetAgentProfilesState()` for tests. All writes go through one
-  in-module promise queue so two saves cannot interleave.
-- [ ] `main/index.ts`: `agentProfilesMain = defineFeatureMain<AgentProfilesMainServices>(…)` registering the five
-  channels. `AgentProfilesMainServices = { showSaveDialog(defaultName): Promise<string | null>; showOpenDialog():
-  Promise<string | null> }` (the host injects Electron's dialogs; the feature imports no `electron`). Export writes
-  one profile as `{ version: 1, profile }` to `<name>.agent.json`; import reads that shape, validates with
-  `AgentProfileSchema`, assigns a **new** `id` and timestamps, saves, and returns it. Invalid file → `{ ok: false,
-  error }`.
-- [ ] Studio wiring: dependency in `packages/desktop/package.json` and `packages/app/package.json`; reference in
-  `packages/desktop/tsconfig.json`; `packages/desktop/moon.yml` entries mirroring `feature-councils`;
-  `packages/desktop/src/main/ipc/agent-profile-handlers.ts` (crib `council-handlers.ts`) called from
-  `main/index.ts`; `configureAgentProfiles(createAgentProfilesStore(userData))` beside `configureCouncils`;
-  preload slice in `packages/desktop/src/preload/index.ts`; `feature-gate-channels.ts` maps `agentProfiles` to
-  `agentProfilesMain.channels`.
-- [ ] Agents host wiring: dependency in `packages/modules/agents/package.json`; channels spread in
-  `packages/modules/agents/main/module.ts`; configure + register in `main/context.ts`; preload slice in
-  `main/bridge.ts`.
-- [ ] Repo registration: `'agent-profiles'` in `STUDIO_FEATURES` ([`composition.ts`](../../../apps/studio/src/composition.ts));
-  `'feature-agent-profiles'` in `NODE_PROJECTS` ([`gate-projects-check.mjs`](../../../scripts/gate-projects-check.mjs))
-  and its pinned list in `gate-projects-check.test.mjs`; the `…/main` path in `tsconfig.base.json`;
-  `'agent-profiles'` in `apps/agents/tailwind.config.ts`.
-- [ ] Tests: `agent-profiles-store.test.ts` (temp dir: missing file, malformed file, round trip, one invalid entry
-  dropped); `agent-profiles-service.test.ts` (upsert keeps `createdAt`, delete, concurrent saves both land);
-  `main/index.test.ts` (import assigns a new id, invalid import fails with an envelope, cancelled dialog).
+- [ ] Create `packages/features/agent-profiles` by copying councils' `package.json`, `moon.yml`, `tsconfig.json`,
+  `tsconfig.main.json` and `vitest.config.ts`.
+  - Name it `@midnite/studio-feature-agent-profiles`, with moon id `feature-agent-profiles`.
+  - Tags: `layer-feature`, `app-agents`, `app-studio`.
+  - Exports: `./renderer`, `./renderer/testing`, `./main`.
+- [ ] `manifest.ts` and `manifest.test.ts`.
+  - `manifest.ts`:
+
+    ```ts
+    agentProfilesManifest = defineFeatureManifest({
+      feature: 'agent-profiles', owner: 'agents',
+      views: [{ id: 'agents', global: true, rail: { group: 'agent', label: 'Agents', description: 'Build and manage your own agents' } }],
+      settingsPages: [], ipc: [the six channels], events: [], mcpTools: [],
+    })
+    ```
+  - `manifest.test.ts` follows councils:
+    - The owner matches the placement.
+    - The view ids equal `FEATURE_VIEWS['agent-profiles']`.
+    - The keys of `agentProfilesViews` equal the view ids.
+    - The channels match `/^mstudio:agent-profile:/`.
+- [ ] `main/agent-profiles-store.ts`.
+  - `FILE_NAME = 'agent-profiles.json'`; file shape `{ version: 1, profiles: [] }`.
+  - `createAgentProfilesStore(dir)` gives `{ load(): Promise<AgentProfile[]>; save(profiles): Promise<void>; writePrompt(id, text): Promise<string | null>; removePrompt(id): Promise<void>; promptPath(id): string }`.
+  - `load`: a missing or malformed file gives `[]`; entries go through `parseAgentProfiles`.
+  - `save` writes pretty JSON plus a trailing newline to `<file>.tmp` and then `rename`s it. Crib the atomic write in
+    [`capture-store.ts`](../../../packages/features/capture/main/capture-store.ts), **not** councils, whose store is a
+    plain `writeFile`.
+  - Prompts are `<dir>/agent-profiles/prompts/<id>.md`, mode `0o600`.
+    - `writePrompt` writes `composeProfilePrompt(profile)`, or removes the file and returns `null` when it is empty.
+  - `nullAgentProfilesStore` is a no-op store.
+- [ ] `main/agent-profiles-service.ts`. Every mutation runs through one in-module promise chain, so two saves never
+  interleave.
+  - `configureAgentProfiles(store)`, `listAgentProfiles()`, `getAgentProfile(id)`, `resetAgentProfilesState()`.
+  - `saveAgentProfile(profile, expectedUpdatedAt)`:
+    - If an entry with that `id` exists and `existing.updatedAt !== expectedUpdatedAt`, return
+      `{ status: 'conflict', current: existing }` and write nothing.
+    - A new `id` while `MAX_AGENT_PROFILES` exist throws
+      `'You have 200 agents, the most this version keeps. Delete one to add another.'`, which the handler turns into
+      `failure`.
+    - Otherwise upsert, keeping the existing `createdAt` and setting `updatedAt = max(Date.now(), existing.updatedAt + 1)`
+      so two saves in one millisecond still differ. Then write the prompt file and return `{ status: 'saved', profile }`.
+  - `deleteAgentProfile(id)` removes the entry and its prompt file. An unknown id is a no-op success.
+- [ ] `main/index.ts`: `agentProfilesMain = defineFeatureMain<AgentProfilesMainServices>(…)`, registering the six
+  channels with `ipc.handle` / `handleBare`, and `ok` / `failure`.
+  - Services type:
+
+    ```ts
+    AgentProfilesMainServices = {
+      dialogs: { pickFile(o: { title: string; filters: { name: string; extensions: string[] }[] }): Promise<string | null>;
+                 pickSavePath(o: { title: string; defaultPath: string }): Promise<string | null> };
+      launch?: AgentProfileLaunchService;
+    }
+    ```
+
+    This is cribbed from `ApiClientDialogs` in
+    [`api-client-handlers.ts`](../../../packages/features/api-client/main/handlers/api-client-handlers.ts) lines 49-57.
+  - `AgentProfileLaunchService` has the shape
+    `{ prepare(profile: AgentProfile, req: { cwd: string; resume: boolean }): Promise<{ launchId: string; line: string }> }`.
+    It is filled only by Studio (Theme G). When it is absent, `prepareLaunch` returns
+    `failure('Launching needs Midnite Studio.')`.
+  - Export writes `{ version: 1, profile }` to the picked path. The default name is `<slug(name)>.agent.json`, where
+    slug means lower-case with runs of characters outside `[a-z0-9]` turned into `-`.
+  - Import:
+    - It reads at most 1 MB; a larger file fails with `'That file is too large to be an agent.'`.
+    - It validates `{ version: 1, profile }` with `AgentProfileSchema`. A file that fails fails with
+      `'That file is not a Midnite agent.'`.
+    - It assigns a new `id` and timestamps and sets `name = uniqueProfileName(\`${name} (imported)\`, names)`, then
+      saves it as new.
+- [ ] Studio wiring.
+  - Add `"@midnite/studio-feature-agent-profiles": "workspace:*"` to `packages/desktop/package.json` and
+    `packages/app/package.json`.
+  - Add `{ "path": "../features/agent-profiles/tsconfig.main.json" }` to `packages/desktop/tsconfig.json`.
+  - In `packages/desktop/moon.yml`, add the nine entries mirroring `feature-councils` at lines 93, 141, 211, 214,
+    264, 340, 343, 445 and 448: one dependency, two `:build` deps and six input globs.
+  - Add the net-new `packages/desktop/src/main/ipc/agent-profile-handlers.ts`, cribbed from `council-handlers.ts`.
+    It builds `ctx`, binds `dialogs` with Electron `dialog`, cribbed from
+    [`api-client-feature-handlers.ts`](../../../packages/desktop/src/main/ipc/api-client-feature-handlers.ts) lines
+    32-46, and binds `launch` (Theme G). It is called from `main/index.ts` beside `registerCouncilHandlers()` (line 645).
+  - Call `configureAgentProfiles(createAgentProfilesStore(userData))` beside `configureCouncils` (line 821).
+  - In `preload/index.ts`, add `'agentProfile'` to the bridge-key union (line 133) and add the slice after `council`
+    (line 552).
+  - In `feature-gate-channels.ts`, add `agentProfiles: agentProfilesMain.channels`.
+- [ ] Agents host wiring.
+  - Add the dependency to `packages/modules/agents/package.json`.
+  - Spread `...agentProfilesMain.channels` in `main/module.ts` (after `councilsMain.channels`, line 32).
+  - In `main/context.ts`, configure and register with `dialogs` bound to the host's Electron dialog service (the
+    `el` pattern at line 72) and **no `launch`**.
+  - Add an `agentProfile` slice in `main/bridge.ts`.
+  - Update the pinned key list in `main/bridge.test.ts` (lines 13-15) and the expected channels in
+    `main/context.test.ts` (line 81).
+- [ ] Repo registration.
+  - Add `'agent-profiles'` to `STUDIO_FEATURES` ([`composition.ts`](../../../apps/studio/src/composition.ts)).
+  - Add `'feature-agent-profiles'` to `NODE_PROJECTS`
+    ([`gate-projects-check.mjs`](../../../scripts/gate-projects-check.mjs)). In the sorted pinned list in
+    `gate-projects-check.test.mjs` it goes before `'feature-api-client'`.
+  - Add it to the `gate-node` job list in `.github/workflows/ci.yml` if `gate-projects-check.mjs` line 75 still asks
+    for that.
+  - Add `"@midnite/studio-feature-agent-profiles/main"` to `tsconfig.base.json` beside councils (line 98).
+  - Add `'agent-profiles'` to `apps/agents/tailwind.config.ts` (line 13).
+- [ ] Tests.
+  - `agent-profiles-store.test.ts` (temp dir):
+    - A missing file and a malformed file each give `[]`.
+    - A round trip works.
+    - One invalid entry is dropped.
+    - No `.tmp` file is left behind.
+    - The prompt file is written with mode `0o600` and removed when the prompt is empty.
+  - `agent-profiles-service.test.ts`:
+    - Upsert keeps `createdAt`.
+    - A stale `expectedUpdatedAt` returns `conflict` and leaves the file unchanged.
+    - Two concurrent saves of different ids both land.
+    - The 201st new agent fails with the copy above.
+    - Delete removes the prompt file.
+  - `main/index.test.ts`:
+    - Import of a valid file gets a new id and an "(imported)" name.
+    - A 2 MB file and a non-agent JSON each fail with their copy.
+    - A dismissed dialog gives `profile: null` / `path: null`.
+    - `prepareLaunch` without `launch` fails with `'Launching needs Midnite Studio.'`.
 
 ### C — Agents page and the Your agents tab (M)
 
-- [ ] `renderer/host.tsx`: `AgentProfilesHost` with `useAgentRoster(): { agents: AgentDefinition[]; status:
-  AgentStatus[] }`, `resolveAgentIcon(agent): IconComponent`, `useModelsFor(baseAgentId): AgentModelInfo[]`,
-  `useSkills(baseAgentId): { name; description; scope }[]`, `useMcpTools(): { id; label; description }[]`,
-  `Tooltip: ComponentType<{ label: ReactNode; side?: 'top' | 'bottom' | 'right'; children: ReactElement }>`,
-  `launchProfile?(profile: AgentProfile): void` (optional: absent hides Launch), `openExternal(url): void`;
-  `AgentProfilesHostProvider`, `useAgentProfilesHost()` (crib `councils/renderer/host.tsx`).
-- [ ] `renderer/use-agent-profiles.ts`: `useAgentProfiles()` (`useQuery(['agent-profiles'])` over
-  `bridge()?.agentProfile.list()`), `useSaveAgentProfile()`, `useDeleteAgentProfile()`, `useImportAgentProfile()`,
-  `useExportAgentProfile()`; each mutation invalidates `['agent-profiles']` and routes a failed envelope through
-  `reportFailure`.
-- [ ] `renderer/agents-view.tsx`: `AgentsView` — the page shell (crib the header and `TabStrip` in
-  [`models-view.tsx`](../../../packages/features/models/renderer/models-view.tsx)): `PageDetachMark role="agents"`,
-  `LuBot`, `h1` "Agents", and a `role="tablist"` with tabs `list` ("Your agents"), `builder` ("Builder"), `info`
-  ("Info"). Local state `{ tab, editingId: string | null }`; `data-testid="agents-view"`, `agents-tab-<id>`.
-- [ ] `renderer/agents-list.tsx`: `AgentsList` — one card per profile (`data-testid="agent-profile-<id>"`): icon in
-  the profile's accent, name, description, base CLI label, model, the `blueprintSummary` chips, and actions Launch
-  (only when the host has `launchProfile`; disabled with a reason when the base CLI is not installed), Edit (opens
-  the Builder tab on that profile), Duplicate, Export, Delete (confirm dialog naming the agent). Toolbar: "New
-  agent", "New from template" menu, "Import".
-- [ ] A profile whose `baseAgentId` is not in the roster shows a warning chip "Base CLI not found" and cannot launch.
-- [ ] `renderer/templates.ts`: `AGENT_PROFILE_TEMPLATES` — `reviewer` ("Reviewer": reads diffs, reports findings,
-  writes nothing), `researcher` ("Researcher": reads and summarises, no file writes), `builder` ("Builder":
-  implements a spec, commits often). Each is a partial profile (name, description, accent, systemPrompt, blueprint)
-  applied over `createBlankAgentProfile()`.
-- [ ] Empty state: a short explanation, the three templates as cards, and "Start from scratch".
-- [ ] `renderer/index.ts`: exports the manifest, host, hooks, and `agentProfilesViews = { agents: () =>
-  import('./agents-view').then((m) => m.AgentsView) } satisfies Record<ViewIds, …>`; `renderer/testing.ts` exports a
-  `TEST_AGENT_PROFILES_HOST` and a profile fixture.
-- [ ] Studio view wiring — one entry each in: `VIEW_COMPONENT` ([`view-registry.tsx`](../../../packages/app/src/components/view-registry.tsx),
-  `global: true`), `VIEW_ICON` (`nav-icons.ts`, `LuBot`), `VIEW_LABELS` + `VIEW_KEYWORDS`
-  (`services/palette/providers.ts`, label "Agents", keywords `custom agent`, `profile`, `builder`), `VIEW_LABELS` in
-  `sidebar-page.tsx` and `title-bar-nav.tsx`, `VIEW_FILTERS` (`view-sections.ts`), `TEST_VIEW_LABELS` /
-  `TEST_VIEW_KEYWORDS` (`companion/renderer/test-catalog.ts`), `AGENT_NAV_ITEMS` (`nav-groups.ts`), `RAIL_VIEW_IDS`
-  (`nav-visibility.ts`). No chord.
-- [ ] Studio host adapter `packages/app/src/compose/agent-profiles-host.tsx`: `STUDIO_AGENT_PROFILES_HOST satisfies
-  AgentProfilesHost` (`useAgentRoster: () => useAgents()`, the app's `Tooltip`, `modelsForAgent` with Ollama models,
-  skills through `bridge()?.chats.skills`, tools from `listMcpToolIds`), installed in `studio-providers.tsx`.
-- [ ] Agents module wiring: `'agent-profiles'` in `features` and `{ id: 'agents', global: false }` in `views`
-  ([`manifest.ts`](../../../packages/modules/agents/manifest.ts)); a row in `AGENTS_NAV.views` and `AGENTS_APP`
-  (`renderer/agents-manifest.ts`); `LABEL` and `VIEWS` entries in `renderer/views/agents-home.tsx`;
-  `AGENTS_AGENT_PROFILES_HOST` in `renderer/compose/agents-hosts.tsx` (plain `title` tooltip from `plain-ui.tsx`,
-  roster from the existing `['agents']` query); `AgentProfilesHostProvider` nested in `AgentsApp` and `AgentsPane`.
-- [ ] Tests: `agents-view.test.tsx` (three tabs, Edit switches to Builder with that profile), `agents-list.test.tsx`
-  (cards render, duplicate and delete call the mutations, Launch hidden without the port, missing base CLI chip,
-  empty state shows templates), `templates.test.ts` (every template parses as an `AgentProfile`); update
-  `view-registry.test.ts` (global set), `agents-app.test.tsx` (rail labels), `agents-manifest.test.ts`, the module
-  `manifest.test.ts`, `composition.test.ts`, `apps/studio/src/feature-toggles.test.ts`.
+- [ ] `renderer/host.tsx`: `AgentProfilesHost`, `AgentProfilesHostProvider` and `useAgentProfilesHost()`, cribbed
+  from `councils/renderer/host.tsx`.
+  - `useAgentRoster(): { agents: AgentDefinition[]; status: AgentStatus[] }`
+  - `resolveAgentIcon(agent: { id: string; icon?: string }): IconComponent`
+  - `useModelsFor(baseAgentId: string): AgentModelInfo[]`. Ollama models are excluded; see Not in this phase.
+  - `useSkills(baseAgentId: string): { skills: ChatSkill[]; loading: boolean; error: string | null }`
+  - `useMcpTools(): { id: McpToolId; title: string; description: string }[]`
+  - `useLaunchProfile?: () => { launch(profile: AgentProfile): Promise<void>; disabledReason: string | null }`
+  - `useLiveSessionCount?: (profileId: string) => number`
+  - `openExternal(url: string): void`
+  - There is no `Tooltip` member: the info icon is the feature's own (D).
+- [ ] `renderer/use-agent-profiles.ts`.
+  - `useAgentProfiles()` is `useQuery(['agent-profiles'])` over `bridge()?.agentProfile.list()`. It exposes
+    `{ profiles, loading, error }`, where an envelope failure becomes `error`.
+  - Mutation hooks: `useSaveAgentProfile()`, `useDeleteAgentProfile()`, `useImportAgentProfile()`,
+    `useExportAgentProfile()`.
+  - Every mutation invalidates `['agent-profiles']`. A failed envelope goes through `reportFailure`
+    (`frame/src/bridge-result.ts`). A `conflict` result is returned to the caller, not reported.
+- [ ] `renderer/agents-view.tsx` (`AgentsView`), with `data-testid="agents-view"`.
+  - The header is cribbed from [`models-view.tsx`](../../../packages/features/models/renderer/models-view.tsx) lines
+    85-140. It holds the literal `<PageDetachMark role="agents" />` (the detachable test greps for it), `LuBot`, and
+    `<h1>` "Agents".
+  - A `role="tablist"` with `aria-label="Agents"` holds the tabs `list` ("Your agents"), `builder` ("Builder") and
+    `info` ("Info").
+    - Each tab has `data-testid="agents-tab-<id>"`, `role="tab"`, `aria-selected` and `aria-controls`.
+    - ArrowLeft/ArrowRight move between tabs, and Home/End jump to the ends.
+  - State is `{ tab, editingId: string | null, draftIsNew: boolean }`; it is not persisted.
+  - The view opens on `list`.
+- [ ] `renderer/agents-list.tsx` (`AgentsList`).
+  - Toolbar: "New agent", which opens the Builder on an unsaved `createBlankAgentProfile()`; "New from template", the
+    feature's own `TemplateMenu`; and "Import".
+  - `TemplateMenu` is a button with `aria-haspopup="menu"` and a `role="menu"` list of the three templates.
+    ArrowUp/ArrowDown move, Enter picks, and Escape closes and refocuses the button. It is the feature's own because
+    `FrameDialogs.openMenu` is optional and absent in some apps.
+  - One card per profile, sorted by `updatedAt` descending, with `data-testid="agent-profile-<id>"`. Each card shows:
+    - The icon, in the profile's accent.
+    - The name, as a button that opens the Builder.
+    - The description, clamped to two lines.
+    - The base CLI label and the model label.
+    - `blueprintSummary` chips, at most six, then `+N`.
+    - The actions Launch, Edit, Duplicate, Export and Delete.
+  - Launch:
+    - It renders only when the host has `useLaunchProfile`.
+    - It is disabled, with the reason as `title` and `aria-describedby` text, when any of these hold:
+      `disabledReason` is non-null; the base CLI is not installed (`'<Label> is not installed'`); or the base is
+      missing from the roster.
+- [ ] States, with literal copy. Each state lives in an `aria-live="polite"` region.
+  - Loading: "Loading your agents…" (skeleton cards with `aria-busy="true"`).
+  - Failed load: "Couldn't load your agents." followed by the envelope message and a "Retry" button that refetches.
+  - Empty:
+    - Heading "No agents yet".
+    - Body "An agent is one of your CLIs with its own model, instructions, tools and limits. Start from a template or
+      from scratch."
+    - The three templates as cards, then "Start from scratch".
+  - Missing base: a warning chip "Base CLI not found" on the card; Launch disabled.
+  - Import or export failure: shown through `reportFailure`, using the envelope message unchanged.
+- [ ] Delete uses `useFrameChrome().useDialogs().confirm(...)`, cribbed from loops
+  (`custom-loop-editor.tsx` line 542; councils has no confirm):
+
+  ```ts
+  { title: `Delete ${name}?`, body: 'This removes the agent and its saved prompt. It cannot be undone.',
+    confirmLabel: 'Delete agent', danger: true, blastRadius: null,
+    warnings: n > 0 ? [`${n} running session${n === 1 ? '' : 's'} keep going with the settings they started with.`] : [] }
+  ```
+
+  `n` comes from `useLiveSessionCount?.(id) ?? 0`.
+- [ ] Focus rules.
+  - After delete, focus the next card's name button, else the previous one's, else "New agent".
+  - Duplicate saves the copy (`duplicateAgentProfile`) and focuses the copy's name button.
+  - Import focuses the imported card.
+  - Edit, and a click on the name, switch to the Builder and focus its name input.
+- [ ] `renderer/templates.ts`: `AGENT_PROFILE_TEMPLATES: readonly { id; label; summary; apply(blank: AgentProfile): AgentProfile }[]`.
+  - `reviewer` "Reviewer": reads diffs, reports findings by severity, writes nothing.
+  - `researcher` "Researcher": reads and summarises with sources, no file writes.
+  - `builder` "Builder": implements a spec in small commits and runs the tests.
+  - Each sets name, description, accent, a 3-to-6-sentence `systemPrompt` and a blueprint. Templates leave `mcpTools`
+    `null` (no restriction).
+  - Picking a template opens the Builder on an **unsaved** draft.
+- [ ] `renderer/index.ts` exports the manifest, the host, the hooks and
+  `agentProfilesViews = { agents: () => import('./agents-view').then((m) => m.AgentsView) } satisfies Record<ViewIds, …>`.
+  `renderer/testing.ts` exports `TEST_AGENT_PROFILES_HOST` and `profileFixture(overrides?)`.
+- [ ] Studio view wiring, one entry each:
+  - `VIEW_COMPONENT` in [`view-registry.tsx`](../../../packages/app/src/components/view-registry.tsx), with
+    `global: true`.
+  - `VIEW_ICON` in `components/nav-icons.ts` (`LuBot`).
+  - `VIEW_LABELS` "Agents" and `VIEW_KEYWORDS` `['custom agent', 'profile', 'builder', 'blueprint']` in
+    `services/palette/providers.ts`.
+  - `VIEW_LABELS` in `features/settings/settings-pages/sidebar-page.tsx` and `components/title-bar-nav.tsx`.
+  - `VIEW_FILTERS` in `features/repos/view-sections.ts`.
+  - `TEST_VIEW_LABELS` / `TEST_VIEW_KEYWORDS` in `features/companion/renderer/test-catalog.ts`.
+  - `AGENT_NAV_ITEMS` in `components/nav-groups.ts`.
+  - `RAIL_VIEW_IDS` in `components/nav-visibility.ts`.
+  - `PAGE_ROLE_TITLE` "Agents" in `components/page-detach-mark.tsx`.
+  - The window size `agents: { width: 1080, height: 800 }` in `desktop/src/main/window-manager.ts`.
+  - The new view file added to the source glob in `components/agents-detachable.test.ts`.
+  - No chord.
+- [ ] Studio host adapter, net-new `packages/app/src/compose/agent-profiles-host.tsx`:
+  `STUDIO_AGENT_PROFILES_HOST satisfies AgentProfilesHost`, installed in `studio-providers.tsx` beside
+  `CouncilsHostProvider`.
+  - `useAgentRoster: () => useAgents()`.
+  - `resolveAgentIcon` comes from `components/icons`.
+  - `useModelsFor: (id) => modelsForAgent(id)`, with no Ollama list.
+  - `useSkills` is a `useQuery(['agent-profile-skills', id, repoId])` over
+    `bridge()?.chats.skills({ engine: id, repoId: activeRepoId ?? null })`.
+  - `useMcpTools` maps `listMcpToolIds(ALL_APPS_INSTALLED, <Studio's manifests, as passed to McpToolsView>)` to
+    `MCP_TOOLS[id]`'s `title` and `description`.
+  - `useLaunchProfile` and `useLiveSessionCount` come from Theme F; until F lands, leave both out.
+- [ ] Agents module wiring.
+  - In [`manifest.ts`](../../../packages/modules/agents/manifest.ts), add `'agent-profiles'` to `features` and
+    `{ id: 'agents', global: false }` to `views`.
+  - Add a row `{ id: 'agents', label: 'Agents', icon: LuBot }` to `AGENTS_NAV.views` and add the view to
+    `AGENTS_APP` (`renderer/agents-manifest.ts`).
+  - Add `LABEL` and `VIEWS` entries in `renderer/views/agents-home.tsx`.
+  - Add `AGENTS_AGENT_PROFILES_HOST` in `renderer/compose/agents-hosts.tsx`, with the roster from the existing
+    `['agents']` query and **no `useLaunchProfile` or `useLiveSessionCount`**.
+  - Nest `AgentProfilesHostProvider` in both `AgentsApp` and `AgentsPane` (`renderer/agents-app.tsx`).
+  - Add the package to the module's `package.json`.
+- [ ] Tests.
+  - `agents-view.test.tsx`:
+    - Three tabs.
+    - Arrow keys move between tabs.
+    - Edit on a card selects Builder with that profile and focuses the name input.
+  - `agents-list.test.tsx`:
+    - Loading, failed-load (Retry refetches), empty and populated states show their literal copy.
+    - Cards are sorted by `updatedAt`.
+    - Duplicate calls save with a `copy` name and focuses the copy.
+    - Delete opens a confirm whose warnings carry the live count (2 → "2 running sessions…").
+    - Focus after delete.
+    - Launch is absent without `useLaunchProfile` and disabled with the right reason in each of the three cases.
+    - The missing-base chip.
+    - `TemplateMenu` keyboard behaviour.
+  - `templates.test.ts`: every template's `apply(createBlankAgentProfile())` parses with `AgentProfileSchema`.
+  - Update `view-registry.test.ts` (the global set), `agents-detachable.test.ts`, `agents-app.test.tsx` (rail labels
+    gain "Agents"), `agents-manifest.test.ts`, the module `manifest.test.ts`, `composition.test.ts` and
+    `apps/studio/src/feature-toggles.test.ts`.
 
 ### D — Builder tab (L)
 
-- [ ] `renderer/info-tip.tsx`: `InfoTip({ label, side = 'top' })` — a `button type="button"` holding a round
-  `LuInfo` (`h-3.5 w-3.5`, `rounded-full`, `text-muted-foreground`), `aria-label="More information"`, wrapped in the
-  host `Tooltip`. `renderer/field.tsx`: `Field({ label, info, htmlFor, children })` — label, `InfoTip`, control.
-- [ ] `renderer/info-copy.ts`: `FIELD_INFO: Record<FieldId, string>` — one or two plain sentences for each of
-  `name`, `description`, `baseAgent`, `model`, `accent`, `systemPrompt`, `mcpTools`, `skills`, each limit key, and
-  `blueprint`. Stage and option tooltips read `summary` from `AGENT_BLUEPRINT_STAGES`.
-- [ ] `renderer/agent-builder.tsx`: `AgentBuilder({ profileId, onDone })` — edits a draft copy of the profile (or a
-  blank one); **Save** validates with `AgentProfileSchema` and calls `useSaveAgentProfile`; **Discard** restores the
-  saved copy; an unsaved-changes dot on the Builder tab; leaving the tab with unsaved changes asks to confirm.
-  Sections, each a `Field`:
-  - **Identity**: name, description, accent (colour input), icon (the roster icon keys via `resolveAgentIcon`).
-  - **Base**: base CLI (`select` of the roster, installed ones first, uninstalled disabled with the roster's
-    `install` hint), model (`useModelsFor(baseAgentId)`; resets to `default` when the base changes and the model is
-    not offered).
-  - **System prompt**: `textarea` with a character count, and one line stating delivery for the chosen base
-    (`promptDeliveryFor`): "Passed as a system prompt" or "Sent as the first message".
-  - **Tools**: a switch "Restrict midnite tools"; when on, a filterable checklist of `useMcpTools()` with select
-    all / none. Off maps to `mcpTools: null`.
-  - **Skills**: filterable checklist of `useSkills(baseAgentId)` with scope badges; a note that skills are guidance,
-    named in the prompt, and not enforced.
-  - **Limits**: one number input per `AGENT_LIMIT_KEYS` with `AGENT_LIMIT_LABELS`; empty means "use the repo's
-    limit" and shows the default as placeholder.
-- [ ] `renderer/blueprint-editor.tsx`: `BlueprintEditor({ value, onChange })` — a three-part layout that is fully
-  visible at once (no hidden menus):
-  - left `Pipeline`: the five stages as a vertical list (`role="tablist"`, `aria-orientation="vertical"`), each
-    with its number, label, subtitle and a count of chosen options; arrow keys move the active stage;
-  - right `Configurator`: the active stage's options as toggle cards (`aria-pressed`), each with an icon from
-    `react-icons/lu`, its label, an `InfoTip` and a "Docs" link through `openExternal`; below them the stage note
-    (`textarea`, 500 max);
-  - bottom `StackBar` (`position: sticky; bottom: 0`): `blueprintSummary` as five labelled groups of chips,
-    "None chosen" for an empty stage; clicking a group activates that stage.
-  Active-stage and pressed-card states use theme tokens and a `transition-colors`; `prefers-reduced-motion`
-  removes the transition.
-- [ ] Stage and option icons in `renderer/blueprint-icons.ts`: `Record<stageId | optionId, IconComponent>` from
-  `react-icons/lu` (asserted complete by a test).
-- [ ] Tests: `agent-builder.test.tsx` (save sends the edited profile, invalid name blocks save, base change resets
-  an unavailable model, restrict switch maps to `null` / `[]`, delivery line follows the base, every `Field` has an
-  `InfoTip`), `blueprint-editor.test.tsx` (clicking a stage activates it, options toggle independently, note edits,
-  stack bar mirrors selections, arrow-key navigation), `blueprint-icons.test.ts`, `info-copy.test.ts` (no empty
-  strings, every field id covered).
+- [ ] `renderer/info-tip.tsx`: `InfoTip({ label, text, side = 'top' })`, the feature's own popover, identical in both
+  apps.
+  - It is a `button type="button"`, 18×18 px, `rounded-full`, holding `LuInfo` at 14 px in `text-muted-foreground`.
+    It has `aria-label={\`About ${label}\`}` and `aria-expanded`.
+  - When open, it sets `aria-describedby` to a `role="tooltip"` element holding `text`.
+  - Open and close:
+    - It opens on pointer enter after 300 ms, on focus at once, and on click (a toggle).
+    - It closes on pointer leave after 150 ms (cancelled if the pointer enters the popover), on blur, and on Escape.
+      Escape keeps focus on the button.
+  - The popover is absolutely positioned against a `relative` wrapper, 280 px max width, using theme tokens
+    (`bg-popover text-popover-foreground border-border`), with no flip logic.
+  - It does not depend on either app's `Tooltip`, because the Agents app's tooltip is a native `title` that never
+    shows on focus.
+- [ ] `renderer/field.tsx`: `Field({ id, label, info, children })` renders `<label htmlFor={id}>`, then `InfoTip`, then
+  the control.
+- [ ] `renderer/info-copy.ts`: `FIELD_INFO: Record<FieldId, string>`, one or two plain sentences of at most 220
+  characters each.
+  - `FieldId` covers `name`, `description`, `accent`, `icon`, `baseAgent`, `model`, `systemPrompt`, `restrictTools`,
+    `mcpTools`, `skills`, each `AGENT_LIMIT_KEYS` key, and `blueprint`.
+  - Stage and option tips read `summary` from `AGENT_BLUEPRINT_STAGES`.
+- [ ] `renderer/agent-builder.tsx` (`AgentBuilder({ profileId, isNew, onDone })`) edits a draft copy.
+  - Save validates with `AgentProfileSchema`. Invalid fields get `aria-invalid` and an inline message under the field:
+    - Name: "Give the agent a name."
+    - Accent: "Pick a colour."
+    - Too long: "Keep this under <n> characters."
+  - Save calls `useSaveAgentProfile` with `expectedUpdatedAt` = the stored `updatedAt` the draft was opened from
+    (`null` when new).
+  - On `conflict`, a confirm opens: "This agent changed elsewhere." with "Reload" (replace the draft with `current`)
+    and "Overwrite" (save again with `expectedUpdatedAt = current.updatedAt`).
+  - Discard restores the stored copy, or for a new draft returns to the list.
+  - While the draft differs from the stored copy (deep compare), the Builder tab shows a dot and its accessible name
+    becomes "Builder, unsaved changes".
+  - Switching tab, Edit on another card or detaching the page with unsaved changes opens a confirm:
+    `Discard changes to ${name}?`, with confirmLabel "Discard" and `danger: true`.
+  - After a save, when `useLiveSessionCount?.(id) > 0`, show an inline notice: "Saved. Running sessions keep their
+    model, prompt and tools until relaunched; limits apply within a few seconds."
+  - No keyboard chord for Save; the button is the last stop in tab order.
+- [ ] Builder sections, in tab order, each a `Field`:
+  - **Identity**: name, description, accent (`<input type="color">` plus a hex text input kept in step), and icon (a
+    `select` of the roster's icon keys rendered through `resolveAgentIcon`).
+  - **Base**:
+    - Base CLI is a `select` of the roster, installed ones first. Uninstalled ones are disabled, with the roster's
+      `install` hint as their description.
+    - Model is a `select` of `useModelsFor(baseAgentId)`. It resets to `'default'` when the base changes and the
+      current model is not offered, and says so in the `aria-live` line "Model reset to Default for <Label>."
+  - **System prompt**:
+    - A `textarea`, 8 rows and resizable, with a live counter "<n> / 20,000".
+    - One delivery line from `promptDeliveryFor`:
+      - "Passed to <Label> as a system prompt."
+      - "Sent to <Label> as the first message of each new session."
+      - "<Label> can't take a prompt from Midnite; this text is saved but not sent." (the field stays editable)
+  - **Tools**:
+    - A switch "Restrict midnite tools". Off maps to `mcpTools: null`. On with nothing ticked maps to `[]`, with
+      the note "This agent can't use any midnite tools."
+    - When on, a filterable checklist of `useMcpTools()` (the existing `FilterInput` from the frame), with
+      "Select all" and "Select none". Each row shows the tool `title` and an `InfoTip` with its `description`.
+    - When `enforcementFor(base).tools` is false, the warning "<Label> can't be restricted to these tools yet;
+      the list is saved for when it can." is shown.
+    - When true and the switch is on, the note "Sessions of this agent see only these midnite tools, and no other
+      MCP servers you have set up." is shown (strict mode, Theme G).
+  - **Skills**:
+    - A filterable checklist from `useSkills(baseAgentId)`, with scope badges (`project`, `user`, `plugin`).
+    - Loading shows "Loading skills…"; an error shows "Couldn't list skills: <message>"; none shows "No skills found
+      for <Label>."
+    - The note "Skills are suggested in the prompt, not enforced."
+    - A saved skill no longer listed stays ticked with the badge "not found".
+  - **Limits**:
+    - One `type="number"` input per `AGENT_LIMIT_KEYS` key, labelled with `AGENT_LIMIT_LABELS`, minimum 1.
+    - Empty means "use the repo's limit", with `DEFAULT_AGENT_LIMITS[key]` as the placeholder.
+    - `spendTokensPerSession` also accepts "No cap".
+    - When `enforcementFor(base).toolCallLimit` is false, the tool-call field is marked "Not enforced for <Label>".
+- [ ] `renderer/blueprint-editor.tsx` (`BlueprintEditor({ value, onChange })`) is fully visible at once, with no
+  hidden menus. It is a CSS grid: `minmax(200px, 1fr) 2fr` columns over a sticky bottom row.
+  - **`Pipeline`** (left):
+    - The five stages in a `role="tablist"` list with `aria-orientation="vertical"`. Each row shows its number
+      badge, label, subtitle, and a count of chosen options in a pill.
+    - It uses a roving `tabindex`: ArrowUp/ArrowDown move and activate, and Home/End jump to the ends.
+  - **`Configurator`** (right, `role="tabpanel"`):
+    - The active stage's options as toggle cards in a two-column grid. Each card is a `button` with `aria-pressed`,
+      showing an icon, the label, an `InfoTip` and a "Docs" link through `openExternal`. `custom` has no link.
+    - Below the cards, the stage note: a `textarea`, 3 rows, with a "<n> / 500" counter.
+  - **`StackBar`** (bottom, `position: sticky; bottom: 0`, `bg-background/95` with a top border):
+    - `blueprintSummary` as five labelled groups of chips, with "None chosen" for an empty stage.
+    - Each group is a button that activates its stage.
+    - It has `aria-live="polite"` with `aria-atomic="false"`, so a toggle announces only the changed group.
+  - Active stage and pressed card: `border-primary bg-primary/10` with `transition-colors duration-150`;
+    `motion-reduce:transition-none`. No other motion.
+- [ ] `renderer/blueprint-icons.ts`: `BLUEPRINT_ICONS: Record<BlueprintStageId | BlueprintOptionId, IconComponent>`,
+  from `react-icons/lu` only.
+- [ ] Performance: no virtualisation. The tool checklist renders every listed tool (around 150 today), and the
+  filter is a case-insensitive substring match over `title` and `id`. If `MCP_TOOL_IDS.length` passes 500, file a
+  follow-up rather than optimising here.
+- [ ] Tests.
+  - `info-tip.test.tsx` (fake timers):
+    - Hover opens after 300 ms; focus opens at once; click toggles.
+    - Escape closes and keeps focus; blur closes.
+    - `aria-describedby` points at the tooltip while open.
+  - `agent-builder.test.tsx`:
+    - Save sends the draft with `expectedUpdatedAt`.
+    - An empty name blocks save and shows "Give the agent a name.".
+    - A `conflict` result opens Reload/Overwrite, and each does what it says.
+    - Changing the base to one without the current model resets it and announces it.
+    - The restrict switch maps to `null`/`[]`.
+    - The delivery line follows the base (claude, codex, aider).
+    - The tools warning shows for aider.
+    - The unsaved dot and the discard confirm.
+    - The saved-with-live-sessions notice.
+    - Every `Field` renders an `InfoTip`.
+  - `blueprint-editor.test.tsx`:
+    - Clicking a stage activates it; ArrowDown/Home/End move.
+    - Options toggle independently.
+    - The note counter.
+    - The stack bar mirrors selections, and clicking a group activates its stage.
+  - `blueprint-icons.test.ts`: every stage and option id has an icon.
+  - `info-copy.test.ts`: every `FieldId` has non-empty copy of at most 220 characters.
 
 ### E — Info tab (S)
 
-- [ ] `renderer/agents-info.tsx`: `AgentsInfo` — four sections with in-page anchor links at the top:
-  1. **The five stages** — rendered from `AGENT_BLUEPRINT_STAGES`: each stage's `summary`, then each option's
+- [ ] `renderer/agents-info.tsx` (`AgentsInfo`): four sections, each an `h2` with an `id`, listed as in-page anchor
+  links at the top.
+  1. **The five stages**, rendered from `AGENT_BLUEPRINT_STAGES`: each stage's `summary`, then each option's
      `summary` and docs link.
-  2. **How a custom agent runs** — base CLI, model flag, system prompt delivery (flag vs first message, listing
-     which base CLIs use which from `PROFILE_PROMPT_DELIVERY`), what the tool allowlist and limits enforce, and that
-     skills and the blueprint are guidance only.
-  3. **Glossary** — `GLOSSARY` in `renderer/info-copy.ts`: RAG, vector database, hybrid search, MCP, tool call,
-     fine-tuning, open-weight model, evaluation, guardrails, observability, orchestration, system prompt.
-  4. **Links** — docs for each base CLI (`AgentDefinition.docsUrl`) and each blueprint option, opened through
-     `openExternal`.
-- [ ] Tests: `agents-info.test.tsx` (all five stages and every option render, glossary terms sorted and unique,
-  links call `openExternal`).
+  2. **How a custom agent runs**:
+     - The base CLI and model flag.
+     - Prompt delivery, as a table of base CLIs × `promptDeliveryFor`.
+     - What is enforced, as a table of base CLIs × `enforcementFor`, plus a row saying the other limits apply to
+       every CLI.
+     - That restricting tools hides your other MCP servers from that agent's sessions.
+     - That skills and the blueprint are guidance only.
+     - That edits apply to new sessions, and limits within a few seconds.
+  3. **Glossary**: `GLOSSARY` in `renderer/info-copy.ts`, sorted A–Z. It defines RAG, vector database, hybrid search,
+     MCP, tool call, fine-tuning, open-weight model, evaluation, guardrails, observability, orchestration and system
+     prompt, each in at most two sentences.
+  4. **Links**: docs for each base CLI (`AgentDefinition.docsUrl`, skipped when absent) and each blueprint option,
+     through `openExternal`.
+- [ ] Tests (`agents-info.test.tsx`):
+  - Every stage and option renders.
+  - The delivery and enforcement tables cover every roster agent.
+  - Glossary terms are sorted and unique.
+  - Links call `openExternal`.
 
-### F — Launch (M)
+### F — Launch (L)
 
-- [ ] `packages/features/terminal/renderer/new-session-menu.ts`: `buildAgentSections` accepts `profiles?:
-  AgentProfile[]` and returns a third section `'custom'` ("Your agents") listing them first; a row is disabled with
-  "Base CLI not installed" when its base is. `NewSessionPickerProps` gains `profiles?` and
-  `onNewProfile?(profile)`; the section is absent when either is missing.
-- [ ] The terminal host port gains `useAgentProfiles?(): AgentProfile[]` (optional); Studio's adapter fills it from
-  the `['agent-profiles']` query, the Agents module's likewise. The terminal feature does not import the
-  agent-profiles feature.
-- [ ] Opening a profile session: `openSession({ kind: 'agent', agentId: profile.baseAgentId, profileId: profile.id,
-  title: profile.name, cwd, repoId })`. `agentInitialInput` uses `resolveProfileLaunch` when the session has a
-  `profileId` and the profile still exists, else falls back to the base agent's plain command.
-- [ ] First-message delivery: when `resolveProfileLaunch(...).firstMessage` is non-null, queue it with
-  `useTerminalStore.getState().queueInput` once the session's agent activity first reports awaiting input (the
-  roster's `activity.awaitingInput` pattern); with no such pattern for that CLI, after a fixed 3 s delay. Sent once
-  per session, never on revive.
-- [ ] `use-terminal-ipc.ts` passes `profileId` on `api.pty.create`; main stores it on the session record.
-- [ ] Session chrome: a profile session shows the profile's name, icon and accent in the tab and session list
-  (resolved in the terminal host's `resolveAgentIcon` path), falling back to the base agent when the profile was
-  deleted.
-- [ ] `launchProfile` in both host adapters opens the terminal and starts the session; the Launch button on a list
-  card calls it.
-- [ ] Tests: `new-session-menu.test.ts` (custom section, disabled row, absent without profiles),
-  `terminal-panel` test for `agentInitialInput` with a profile (flag delivery text, default model, deleted
-  profile fallback), a first-message test with fake timers (sent once, not on revive).
+- [ ] Main builds the line. In Studio, `agentProfilePrepareLaunch`'s `launch.prepare(profile, { cwd, resume })` does
+  the following:
+  - Resolves `base` from the roster; when missing, it throws `'The base CLI <id> is not in the roster.'`.
+  - Reads `promptPath(profile.id)` if the file exists.
+  - Asks Theme G's socket service for `{ launchId, mcpArgs }`.
+  - Returns `{ launchId, line: buildProfileLaunchLine(...) }`.
+  - The renderer never builds a profile line itself.
+- [ ] The terminal host port ([`host.tsx`](../../../packages/features/terminal/renderer/host.tsx)) gains two optional
+  members, filled in `STUDIO_TERMINAL_HOST` only (the Agents app has no terminal):
+  - `useAgentProfiles?: () => AgentProfile[]`
+  - `prepareProfileLaunch?: (req: { profileId: string; cwd: string; resume: boolean }) => Promise<{ launchId: string; line: string } | null>`
+    (`null` on a failed envelope, reported through `reportFailure`)
+- [ ] Session request.
+  - Add `profileId?` and `profileLaunchId?` to `NewSessionRequest` (`features/terminal/renderer/terminal-store.ts:56`).
+  - Copy `profileId` in `openSession`'s builder (line 570), using the same
+    `...(request.x === undefined ? {} : { x })` pattern. Otherwise it is silently dropped.
+  - Keep `profileLaunchId` in a non-persisted `launchIds: Record<sessionId, string>` map in the store, cleared after
+    the pty binds.
+- [ ] Fresh launch: `launchProfileSession(profile, { repoId, cwd })` in `features/terminal/renderer/profile-launch.ts`
+  (net-new).
+  1. `await prepareProfileLaunch({ profileId, cwd, resume: false })`; `null` stops here.
+  2. `const s = openSession({ kind: 'agent', agentId: profile.baseAgentId, profileId: profile.id, title: profile.name, cwd, repoId })`.
+  3. Store the launch id, then `queueInput(s.id, line + '\r')`.
+
+  Steps 2 and 3 run in the same tick, so the view mounts with the input already queued. `agentInitialInput` returns
+  `undefined` for a session with a `profileId`, so the base command is never typed first.
+- [ ] Wake and Resume (`terminal-view.tsx` around lines 801 and 950), for a session with a `profileId`:
+  - Waking a dead pane awaits `prepareProfileLaunch({ resume: false })` and starts with that line plus its launch id.
+  - Resume awaits `prepareProfileLaunch({ resume: true })`.
+  - If the profile no longer exists or prepare fails, both fall back to today's base-agent behaviour.
+  - `start` gains an optional third argument `{ profileLaunchId?: string }`, which `use-terminal-ipc.ts` passes on
+    `api.pty.create` and adds to the `start` callback's dependency list.
+- [ ] New-session menu ([`new-session-menu.ts`](../../../packages/features/terminal/renderer/new-session-menu.ts)).
+  - Widen `AgentSection.id` to `'custom' | 'proprietary' | 'open-source'` and add a row union:
+    `ProfileRow = { kind: 'profile'; key: \`profile:${string}\`; profile; icon; iconStyle; disabled; disabledReason }`.
+  - `buildAgentSections` takes `profiles?: AgentProfile[]` and puts a "Your agents" section first, sorted by name.
+  - A row is disabled with `'<Label> is not installed'` or `'Base CLI not found'`.
+  - `NewSessionPickerProps` and `PickerPanel`'s own prop type gain `profiles?` and
+    `onNewProfile?(profile: AgentProfile)`. Rows are keyed by `key` in `indexByKey`.
+  - Thread the props through all three call sites: `terminal-header.tsx`, `terminal-session-list.tsx` and
+    `terminal-panel.tsx`.
+- [ ] Session chrome, in net-new `features/terminal/renderer/session-agent.ts`:
+  `resolveSessionAgent(session, agents, profiles)` returns the base `AgentDefinition` with `label`, `accent` and
+  `icon` replaced by the profile's when `session.profileId` matches, else the base.
+  - Use it everywhere a session's agent is looked up today: `terminal-header.tsx` (`HeaderMark`) and
+    `terminal-session-list.tsx` (lines 450, 541 and 610).
+  - `resolveAgentIcon` is unchanged; it never sees a profile.
+- [ ] Studio adapters.
+  - `STUDIO_AGENT_PROFILES_HOST.useLaunchProfile` returns
+    `{ launch: (p) => launchProfileSession(p, activeRepo) then reveal the terminal panel, disabledReason: activeRepo ? null : 'Open a repo first.' }`.
+  - `useLiveSessionCount(id)` counts sessions in the terminal store with `profileId === id` and a live pty.
+- [ ] Tests.
+  - Additions to `packages/app/src/features/terminal/new-session-menu.test.ts`:
+    - A "Your agents" section comes first and is sorted.
+    - Disabled rows show their reasons.
+    - There is no section without profiles.
+  - Additions to `new-session-picker.test.tsx`: picking a profile row calls `onNewProfile`, and keyboard order
+    includes profile rows.
+  - `profile-launch.test.ts`:
+    - It opens a session carrying `profileId`.
+    - It queues `line + '\r'` in the same tick.
+    - A `null` prepare opens nothing.
+    - `agentInitialInput` is `undefined` for a profile session.
+  - `session-agent.test.ts`: the overlay, and the fallback when the profile is deleted.
+  - A `terminal-view` wake/resume test with a mocked `prepareProfileLaunch`:
+    - Wake uses `resume: false`, and Resume uses `resume: true`.
+    - A failure falls back to the base command.
 
 ### G — Enforcement (L)
 
-- [ ] Limits: `resolveAgentLimits(settings, repoPath, profileOverride?)` in
-  [`agent-limits.ts`](../../../packages/shared/src/agent-limits.ts) — layer order defaults → global → repo →
-  profile. The breaker's `session` seam type gains `profileId?: string`; `limitsFor` in
-  [`agent-breaker.ts`](../../../packages/desktop/src/main/agent-breaker.ts) reads the profile through a new seam
-  `profile: (id) => Promise<AgentProfile | null>` (bound to `getAgentProfile`) and passes `profile.limits`. The 5 s
-  cache stays; a deleted profile means no override.
-- [ ] Session env: `pty-env.ts` adds `MSTUDIO_PROFILE_ID` when the session has a `profileId`; add it to
-  `DEFAULT_MSTUDIO_ENV_KEYS` ([`agent-env-check.ts`](../../../packages/runtime/src/security/agent-env-check.ts)).
-- [ ] MCP shim ([`packages/desktop/src/mcp-shim/client.ts`](../../../packages/desktop/src/mcp-shim/client.ts)): send
-  `sessionId: process.env.MSTUDIO_SESSION_ID` (when set) with every tool call frame; the frame schema gains the
-  optional field.
-- [ ] MCP server ([`packages/runtime/src/mcp/socket-server.ts`](../../../packages/runtime/src/mcp/socket-server.ts)
-  and its tool dispatch): a new injected seam `toolAllowlist(sessionId): Promise<ReadonlySet<string> | null>`
-  (Studio binds it to session → `profileId` → `profile.mcpTools`; `null` = unrestricted). A call to a tool outside a
-  non-null allowlist returns the tool-error result `Tool "<id>" is not allowed for agent "<name>"` and is never
-  dispatched. The tool **list** response is filtered the same way so the agent does not see tools it cannot call.
-  The runtime imports nothing new; the seam keeps it host-injected.
-- [ ] Audit: a refused call is recorded through the existing agent audit log with `outcome: 'denied'` and the
-  reason `profile-allowlist`, so it shows in the Audit view.
-- [ ] Agents host: bind the same two seams in `packages/modules/agents/main/context.ts`.
-- [ ] Tests: `agent-limits.test.ts` (profile layer wins over repo, empty override changes nothing);
-  `agent-breaker.test.ts` (a profile session trips at the profile's lower limit; a deleted profile falls back);
-  socket-server test (allowed tool dispatches, refused tool returns the error and is not dispatched, list is
-  filtered, no `sessionId` means unrestricted); `pty-env` test for `MSTUDIO_PROFILE_ID`.
+- [ ] **G1 — precedence check (manual, before any other G work).** Register `midnite` globally
+  (`claude mcp add midnite -- node <shim>`). Then launch
+  `claude --mcp-config '<json with a midnite server pointed at a test socket>'` without `--strict-mcp-config`. Record
+  which server answers `repo.list`. Do the same for `codex -c mcp_servers.midnite.*`. Write the result into Decision
+  9.
+  - If the per-launch server wins, unrestricted agents also get a private socket, non-strict.
+  - If it does not, unrestricted agents launch with no MCP arguments. Their tool-call limit is then not enforced, and
+    `enforcementFor` gains a `restrictedOnly` note that the Builder shows.
+- [ ] Net-new `packages/desktop/src/main/agent-profiles/profile-mcp-sockets.ts`:
+  `createProfileMcpSockets(seams)` with `{ prepare(profile, cwd): Promise<{ launchId; mcpArgs: string[] }>; bind(launchId, sessionId): void; closeForSession(sessionId): Promise<void>; closeAll(): Promise<void> }`.
+  - For `enforcementFor(base).tools === false`, it returns `{ launchId, mcpArgs: [] }` and starts nothing.
+  - Otherwise it starts `startMcpServer({ socketPath: <userData>/mcp-runs/p-<launchId>.sock, dispatch })`, cribbed
+    from `iterative-host.ts` lines 40-58. The `launchId` is 12 random hex characters. Before binding, it checks
+    `isSocketPathTooLong` and falls back to `os.tmpdir()`.
+  - The shim launch is `{ command: process.execPath, args: [mcpShimScriptPath(), '--socket', socketPath, ...toolArgs], env: { ELECTRON_RUN_AS_NODE: '1' } }`.
+  - `mcpArgs` for Claude are `['--mcp-config', shellQuote(JSON.stringify({ mcpServers: { midnite: launch } }))]`,
+    plus `'--strict-mcp-config'` when `profile.mcpTools !== null`.
+  - For Codex, they are the `-c mcp_servers.midnite.command=…` / `args` / `env` triplet built the way
+    `iterative.ts` line 154 builds it. A same-name key replaces the global entry, so no strict flag is needed.
+  - A prepared launch not `bind`-ed within 60 s is closed.
+- [ ] Tool limit in the shim.
+  - When `profile.mcpTools` is non-null, `toolArgs = ['--tools', ids.join(',')]`.
+  - [`mcp-shim/index.ts`](../../../packages/desktop/src/mcp-shim/index.ts) reads `--tools` next to `--socket` (line 37
+    pattern). When present, its `ListToolsRequestSchema` handler (lines 96-100) lists only those ids. Calls to other
+    ids return the MCP error result `Tool "<id>" is not allowed for this agent.` without dialling the socket.
+  - This mirrors `createRunShim`'s `toolIds` "second wall" in `run-shim.ts`.
+- [ ] Server-side wall. The private socket's `dispatch(tool, input)`:
+  - Refuses an id outside a non-null allowlist with `{ ok: false, kind: 'refused', message: 'Tool "<id>" is not allowed for agent "<name>".' }`,
+    so a client that skips the shim is still refused.
+  - Otherwise calls the same `dispatchMcpCall` Studio's global server uses (`desktop/src/main/mcp/server.ts` lines
+    115-135), including its `listing.isListed` / `mcpToolOffMessage` checks.
+  - Reads the allowlist from the profile captured at `prepare`; it does not re-read on each call.
+- [ ] Attribution and audit.
+  - Add `sessionId?: string` to `McpCallEntry` (`shared/src/mcp.ts`) and pass it through `asRecord` in
+    [`mcp/audit.ts`](../../../packages/desktop/src/main/mcp/audit.ts).
+  - The private socket's `onCall` calls `recordMcpCall({ …, sessionId })` once bound. A call before `bind` is
+    recorded without a session.
+  - A refusal also calls `recordAudit({ kind: 'policy-decision', tool, decision: 'deny', rule: 'profile-allowlist', repoPath: cwd, sessionId })`.
+    No audit schema change is needed: `summarizeAuditRecord` already renders it as `deny <tool> (profile-allowlist)`.
+- [ ] Binding and lifecycle.
+  - The `ptyCreate` path calls `profileMcpSockets.bind(req.profileLaunchId, req.sessionId)` when the request carries
+    a `profileLaunchId`. This goes through a seam the terminal feature's main half receives from desktop; the feature
+    imports nothing from desktop.
+  - `onSessionExit(sessionId)` calls `closeForSession`, which closes the server and unlinks the socket and its token
+    file.
+  - App quit calls `closeAll()` beside `stopStudioAgentBreaker()` (`main/index.ts` line 1373).
+  - A broker-surviving session that outlives an app restart has no socket after restart. The CLI then reports the
+    midnite server as failed, which is acceptable, and the next wake re-prepares.
+- [ ] Limits layer.
+  - `resolveAgentLimits(settings, repoPath?, profileOverride?)` in
+    [`agent-limits.ts`](../../../packages/shared/src/agent-limits.ts) pushes `profileOverride` after the repo layer.
+  - Extract the inline session shape in `agent-breaker.ts` (used by both `session` and `usage`) into
+    `BreakerSession = { id; agentId; title; cwd; agentConversationId?; profileId? }`.
+  - `agentSessionDetail` (`features/terminal/main/terminal-service.ts` line 456) returns `profileId`.
+  - Add a seam `profile: (id: string) => Promise<AgentProfile | null>`, bound in `agent-breaker-wiring.ts` beside
+    `session: agentSessionDetail` (line 43) to `getAgentProfile`.
+  - `limitsFor` passes `profile?.limits`. The existing 5 s cache is what makes limit edits apply "within a few
+    seconds". A deleted profile means no override.
+- [ ] Tests.
+  - `agent-limits.test.ts`: the profile layer wins over the repo; `{}` changes nothing.
+  - `desktop/src/main/agent-breaker.test.ts`:
+    - A profile session with `toolCallsPerMinute: 3` trips on the 4th attributed `mcp-call` record.
+    - A deleted profile falls back to the repo limit.
+  - Net-new `profile-mcp-sockets.test.ts` (a real Unix socket in a temp dir):
+    - An allowed tool dispatches.
+    - A refused tool returns `refused`, never reaches `dispatchMcpCall`, and records a `policy-decision` deny with the
+      session id.
+    - `mcpArgs` contain `--strict-mcp-config` only when restricted.
+    - An unbound launch closes after 60 s (fake timers).
+    - `closeForSession` unlinks the socket.
+    - aider gets `mcpArgs: []`.
+  - `mcp-shim/shim.test.ts`: `--tools a,b` lists only `a` and `b` and refuses `c` locally.
+  - `mcp/audit` test: `sessionId` survives `asRecord`.
 
 ## Files this phase touches
 
 | File | Theme | Change |
 |---|---|---|
-| `packages/shared/src/agent-profiles.ts` | A | net-new: schema, blueprint stages, factories |
-| `packages/shared/src/agent-profile-launch.ts` | A | net-new: prompt delivery, launch resolution |
-| `packages/shared/src/ipc/{channels,schemas,bridge}.ts` | A | five channels, schemas, bridge slice, `profileId` |
-| `packages/shared/src/terminal.ts` | A | `profileId` on the session |
-| `packages/shared/src/domain/{placement,feature-registrations,window}.ts` | A | placement, view id, window role |
-| `packages/shared/src/feature-toggles.ts` | A | `agentProfiles` toggle |
+| `packages/shared/src/agent-profiles.ts` | A | net-new: schema, blueprint stages, factories, names |
+| `packages/shared/src/agent-profile-launch.ts` | A | net-new: delivery and enforcement tables, launch line |
+| [`packages/shared/src/agent-invocation.ts`](../../../packages/shared/src/agent-invocation.ts) | A F | (**unchanged**) `shellQuote`, `agentInvocationArgs` reused |
+| [`packages/shared/src/ai-models.ts`](../../../packages/shared/src/ai-models.ts), [`loops.ts`](../../../packages/shared/src/loops.ts) | A | (**unchanged**) `modelsForAgent`, `modelArgsFor`, `loopModelArgs` reused |
+| [`packages/shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts), [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts), [`bridge.ts`](../../../packages/shared/src/ipc/bridge.ts) | A | six channels, schemas, bridge slice, `profileLaunchId` |
+| [`packages/shared/src/terminal.ts`](../../../packages/shared/src/terminal.ts) | A | `profileId` inline on `TerminalSessionSchema` |
+| [`packages/shared/src/domain/placement.ts`](../../../packages/shared/src/domain/placement.ts), [`feature-registrations.ts`](../../../packages/shared/src/domain/feature-registrations.ts) (+test), [`window.ts`](../../../packages/shared/src/domain/window.ts) | A | placement, view, view order, window role |
+| [`packages/shared/src/feature-toggles.ts`](../../../packages/shared/src/feature-toggles.ts) | A | `agentProfiles` toggle |
+| [`packages/shared/src/agent-limits.ts`](../../../packages/shared/src/agent-limits.ts) | G | profile layer |
+| [`packages/shared/src/mcp.ts`](../../../packages/shared/src/mcp.ts) | G | `sessionId?` on `McpCallEntry` |
 | `packages/features/agent-profiles/**` | B C D E | net-new package |
-| `packages/desktop/src/main/**`, `preload/index.ts`, `moon.yml`, `tsconfig.json` | B | store, handlers, preload |
-| `packages/modules/agents/**` | B C F G | manifest, hosts, main wiring |
-| `packages/app/src/components/*`, `compose/*`, palette, settings, repos | C | view maps, host adapter |
-| `packages/features/terminal/renderer/*` | F | custom section, profile launch |
-| `packages/shared/src/agent-limits.ts`, `packages/desktop/src/main/agent-breaker.ts` | G | profile limit layer |
-| `packages/desktop/src/mcp-shim/client.ts`, `packages/runtime/src/mcp/*` | G | session id on calls, allowlist |
-| `apps/studio/src/composition.ts`, `scripts/gate-projects-check.*`, `tsconfig.base.json`, `apps/agents/tailwind.config.ts` | B | registration |
+| [`packages/features/capture/main/capture-store.ts`](../../../packages/features/capture/main/capture-store.ts) | B | (**unchanged**) atomic-write crib |
+| [`packages/features/terminal/renderer/`](../../../packages/features/terminal/renderer/) `host.tsx`, `terminal-store.ts`, `terminal-view.tsx`, `use-terminal-ipc.ts`, `terminal-panel.tsx`, `new-session-menu.ts`, `new-session-picker.tsx`, `terminal-header.tsx`, `terminal-session-list.tsx` | F | profile launch, wake, resume, menu, chrome |
+| `packages/features/terminal/renderer/profile-launch.ts`, `session-agent.ts` | F | net-new |
+| [`packages/features/terminal/main/terminal-service.ts`](../../../packages/features/terminal/main/terminal-service.ts), `main/index.ts` | F G | `profileId` in `agentSessionDetail`; bind seam on pty create |
+| [`packages/desktop/src/main/index.ts`](../../../packages/desktop/src/main/index.ts), `ipc/agent-profile-handlers.ts` (net-new), [`feature-gate-channels.ts`](../../../packages/desktop/src/main/feature-gate-channels.ts), [`window-manager.ts`](../../../packages/desktop/src/main/window-manager.ts), [`preload/index.ts`](../../../packages/desktop/src/preload/index.ts), `moon.yml`, `tsconfig.json`, `package.json` | B C | wiring |
+| `packages/desktop/src/main/agent-profiles/profile-mcp-sockets.ts` | G | net-new: private sockets |
+| [`packages/desktop/src/main/agent-breaker.ts`](../../../packages/desktop/src/main/agent-breaker.ts), [`agent-breaker-wiring.ts`](../../../packages/desktop/src/main/agent-breaker-wiring.ts) | G | `BreakerSession`, `profile` seam |
+| [`packages/desktop/src/main/mcp/audit.ts`](../../../packages/desktop/src/main/mcp/audit.ts), [`mcp/server.ts`](../../../packages/desktop/src/main/mcp/server.ts) | G | session id on records; `dispatchMcpCall` reused |
+| [`packages/desktop/src/mcp-shim/index.ts`](../../../packages/desktop/src/mcp-shim/index.ts) | G | `--tools` list and call wall |
+| [`packages/desktop/src/main/media/iterative-host.ts`](../../../packages/desktop/src/main/media/iterative-host.ts), [`runtime/src/agent-run/run-shim.ts`](../../../packages/runtime/src/agent-run/run-shim.ts) | G | (**unchanged**) cribs |
+| `packages/modules/agents/manifest.ts`, `main/{module,context,bridge}.ts` (+`bridge.test.ts`, `context.test.ts`), `renderer/{agents-manifest.ts,agents-app.tsx,views/agents-home.tsx,compose/agents-hosts.tsx}`, `package.json` | B C | Agents host: list and edit only |
+| `packages/app/src/components/{view-registry.tsx,nav-icons.ts,nav-groups.ts,nav-visibility.ts,title-bar-nav.tsx,page-detach-mark.tsx,agents-detachable.test.ts}` | C | view maps |
+| `packages/app/src/services/palette/providers.ts`, `features/settings/settings-pages/sidebar-page.tsx`, `features/repos/view-sections.ts`, `features/companion/renderer/test-catalog.ts` | C | view maps |
+| `packages/app/src/compose/{agent-profiles-host.tsx (net-new),studio-providers.tsx,terminal-host.tsx}` | C F | host adapters |
+| `packages/app/src/features/terminal/{new-session-menu.test.ts,new-session-picker.test.tsx}` | F | tests |
+| [`apps/studio/src/composition.ts`](../../../apps/studio/src/composition.ts), `scripts/gate-projects-check.{mjs,test.mjs}`, `.github/workflows/ci.yml`, `tsconfig.base.json`, `apps/agents/tailwind.config.ts` | B | registration |
+| [`.midnite/tasks/outstanding.md`](../../outstanding.md) | — | tool-call limits for ordinary sessions |
 
 ## Verification
 
-- [ ] Targeted checks green on every PR: `tsc --noEmit` per touched package, eslint on changed files, vitest on the
-  touched suites, `scripts/layer-boundaries.test.mjs`, `tracker-check`, `e2e-budget`.
-- [ ] `node scripts/skills/sync-skills.mjs` unaffected; `graphify update .` run after the code lands.
-- [ ] **Gate — Studio, built app, throwaway `--user-data-dir`.** Open Agents from the rail; create an agent from
-  the Reviewer template; edit name, model and prompt; pick options in all five blueprint stages and see the stack
-  bar follow; save; relaunch the app and find it in the list. Shots under `/tmp/midnite-shots-p154/`.
-- [ ] **Gate — launch.** Start the saved agent from the new-session menu on a Claude base: the typed command carries
-  the model flag and the system prompt flag. Repeat on a non-Claude base: the prompt arrives as the first message,
-  once.
-- [ ] **Gate — enforcement.** With a restricted allowlist, ask the agent to call a midnite tool outside it: the call
-  is refused, the refusal is in the Audit view, and an allowed tool still works. Lower `toolCallsPerMinute` on the
-  profile and see the breaker trip at that number.
-- [ ] **Gate — Agents app.** The Agents page appears in the Agents app's rail with the same three tabs, and an agent
-  saved in Studio is listed there.
-- [ ] **Human pass.** Every builder field and blueprint option shows its info tooltip on hover and on keyboard focus;
-  the Info tab reads clearly to someone new to the terms.
+- [ ] Targeted checks green on every PR:
+  - `tsc --noEmit` per touched package.
+  - eslint on changed files.
+  - vitest on the touched suites.
+  - `scripts/layer-boundaries.test.mjs`, `tracker-check`, `e2e-budget` and `gate-projects-check`.
+- [ ] **Gate — Studio, built app, throwaway `--user-data-dir`.**
+  - Open Agents from the rail. The empty state shows the three templates.
+  - Create a Reviewer from its template.
+  - Edit the name, model and prompt (three lines).
+  - Pick options in all five blueprint stages and watch the stack bar follow.
+  - Save, then relaunch the app; the agent is still listed.
+  - Shots go under `/tmp/midnite-shots-p154/`.
+- [ ] **Gate — launch.**
+  - On a Claude base, start the saved agent from the new-session menu. The typed line carries the model flag,
+    `--append-system-prompt-file '<path>'` and `--mcp-config`. Asked, the agent repeats its three-line prompt
+    faithfully.
+  - On a Codex base, the prompt arrives as the first message, once. Resume does not resend it.
+  - Close the session and wake it; the same flags are re-applied.
+- [ ] **Gate — enforcement.**
+  - With a restricted allowlist, the agent's `/mcp` view lists only the allowed midnite tools and no other user MCP
+    server.
+  - A disallowed tool, called directly against the socket, is refused, and the refusal shows in the Audit view as
+    `deny <tool> (profile-allowlist)`.
+  - Set `toolCallsPerMinute: 3` on the profile, edit it while the session runs, and see the breaker trip on the 4th
+    call within a minute.
+  - After the session exits, its `p-*.sock` file is gone.
+- [ ] **Gate — Agents app.** Agents appears in its rail with the same three tabs. An agent saved in Studio is listed;
+  Launch is absent. Import and export work there.
+- [ ] **Gate — conflict.** Open the same agent in Studio's page and in a detached Agents window. Save in one, then
+  save in the other; "This agent changed elsewhere." appears, and Reload and Overwrite each behave.
+- [ ] **Open, for a human:**
+  - Every builder field, tool row and blueprint option shows its info popover on hover, keyboard focus and click,
+    and Escape closes it.
+  - With VoiceOver, tabs, stages and option toggles announce their role and state.
+  - The Info tab reads clearly to someone new to the terms.
+- [ ] Clean up after each gate: every spawned agent session exited, the throwaway profile removed, no orphaned
+  `claude`/`codex` or broker processes.
 
 ## Not in this phase
 
-- **Scaffolding from a blueprint.** No repo, dependency or config is generated from the stack choices.
-- **Repo-level agents.** Profiles are user-level only; a committed, shared `.midnite/` scope is a later phase.
-- **`agents.json` in the Agents app.** Its roster stays `BUILTIN_AGENTS`; profiles there can only use builtin bases.
+- **Scaffolding from a blueprint.** Generating a repo or config from stack choices is its own product; the blueprint
+  stays notes.
+- **Repo-level agents.** Profiles are user-level only. A committed `.midnite/` scope needs merge rules and is a later
+  phase.
+- **Launching or enforcing in the Agents app.** It has no terminal, breaker or MCP server to launch into.
+- **`agents.json` in the Agents app.** Its roster stays `BUILTIN_AGENTS`, so profiles there can pick only builtin
+  bases. The Studio-side override file is unchanged.
+- **Ollama-backed models.** `resolveAgentLaunch`'s Ollama recipe also needs env and a key, which a typed line cannot
+  carry cleanly. The Builder's model list omits Ollama models.
 - **Enforced skills.** Skills are named in the prompt; nothing blocks another skill.
-- **Per-CLI system prompt flags beyond Claude.** Other CLIs use first-message delivery until a flag is verified and
-  added to `PROFILE_PROMPT_DELIVERY`.
+- **Tool restriction for CLIs other than Claude and Codex.** No per-launch MCP config is known for them; their
+  allowlist is saved and labelled "not enforced".
+- **Tool-call limits for ordinary (non-custom) agent sessions.** The same gap exists for every roster session today.
+  It is recorded in `outstanding.md` rather than fixed here, because the fix changes how every agent session
+  launches.
 - **Profiles in councils, workflows, loops and chats.** Those keep picking roster agents.
-- **A settings page.** The Settings ▸ Agents roster page is unchanged.
+- **A settings page, a keyboard chord for the view, autosave.** Each is easy to add later and none is needed to use
+  the page.
 
 ## Decisions / open questions
 
-1. **Resolved — a built agent is a runnable profile plus a blueprint** (agreed with the user): the profile launches;
+1. **Resolved — a built agent is a runnable profile plus a blueprint** (agreed with the user). The profile launches;
    the blueprint is saved design notes.
 2. **Resolved — rail view** in Studio and a view in the Agents app; no Settings page.
-3. **Resolved — one user-level JSON file** (`agent-profiles.json`), zod-validated, behind IPC.
-4. **Resolved — profile carries** system prompt, model, MCP tool allowlist, skills and limits.
-5. **Resolved — blueprint is multi-select with a note per stage.** Hosting, guardrails and observability are not
+3. **Resolved — one user-level JSON file** (`agent-profiles.json`), zod-validated, behind IPC, written atomically,
+   capped at 200. The cap keeps the list unvirtualised and the file small.
+4. **Resolved — the profile carries** system prompt, model, MCP tool allowlist, skills and limits.
+5. **Resolved — the blueprint is multi-select with a note per stage.** Hosting, guardrails and observability are not
    alternatives.
 6. **Resolved — list actions**: launch, duplicate, import / export, starter templates.
 7. **Resolved — Info tab**: the five stages, how profiles run, glossary, links out.
-8. **Resolved — system prompt by flag, else first message.** Claude takes `--append-system-prompt`; the builder
-   states which delivery applies.
-9. **Resolved — limits enforced per session** by layering the profile over the repo in the breaker.
-10. **Resolved — tool allowlist enforced by the MCP server**, whatever the base CLI.
-11. **Resolved — package name `agent-profiles`, view `agents`**, to stay clear of the `agents` module and the
-    `agent` placement folder.
-12. **Open — how strong the allowlist is.** The server learns the session from `MSTUDIO_SESSION_ID` in the agent's
-    own environment, so an agent that unsets it is treated as unrestricted. That makes the allowlist a guard against
-    drift, not a boundary against a hostile agent. A per-session MCP config or socket would close it; decide at
-    refine whether that belongs here or in a SECURITY phase.
-13. **Open — first-message timing** for CLIs with no `awaitingInput` pattern: the 3 s fallback is a guess to be
-    measured per CLI during Theme F.
+8. **Resolved — session binding is a private MCP socket per custom-agent session** (agreed in the refine; this
+   replaces open question 12).
+   - A session id read from the agent's environment was rejected. Any same-user process can read the shared socket
+     token and claim any session.
+   - Which socket was dialled is not forgeable that way, and the pattern already exists for headless runs.
+   - Applies to Claude and Codex bases; other CLIs have no known per-launch MCP config.
+9. **Resolved — strict MCP config only when tools are restricted.** Restricting tools must actually restrict them,
+   which costs that agent's sessions the user's other MCP servers; the Builder says so beside the switch.
+   - For unrestricted agents, G1's precedence check decides whether a non-strict private socket is used. *Record
+     G1's result here when it runs.*
+10. **Resolved — prompts are read from a file**, never typed: Claude via `--append-system-prompt-file` (verified in
+    `claude --help` on 2026-11-19), others via `"$(cat '<file>')"` as the prompt argument.
+    - This keeps newlines, which the existing `shellQuote` flattens.
+    - It keeps the typed line short and avoids quoting arbitrary text (replaces open question 13).
+11. **Resolved — no first-message timer.** Delivery is a command-line argument, matching `start-agent.ts`.
+    - Activity detection was rejected: `awaitingInput` exists only for Claude and matches option sheets, not a ready
+      prompt.
+12. **Resolved — wake and Resume reapply the profile** through `prepareLaunch`. Resume adds the base CLI's `resume`
+    args and drops an argument-delivered prompt, which the conversation already holds.
+13. **Resolved — deleting an agent with live sessions is allowed.** The confirm shows the count. Those sessions keep
+    their socket and tools, show the base CLI's chrome, and fall back to repo limits.
+14. **Resolved — edits apply at next launch, except limits**, which apply within the breaker's 5 s cache. A running
+    CLI cannot change its model, prompt or tool list mid-session.
+15. **Resolved — conflicting saves are detected** by `expectedUpdatedAt` and offer Reload or Overwrite. Two windows
+    are a supported layout (page detach, Agents app), so silent last-write-wins would lose edits.
+16. **Resolved — explicit Save**, not autosave. A half-typed prompt must never launch, and conflict prompts must not
+    appear mid-typing.
+17. **Resolved — the info icon is the feature's own popover.** The Agents app's tooltip is a native `title` that never
+    shows on keyboard focus.
+18. **Resolved — house response envelopes** (`GitOpResultOf`, `ok`, `failure`), with save returning a
+    `saved | conflict` union inside `ok`.
+19. **Resolved — refusals are recorded as `policy-decision` denials** with `rule: 'profile-allowlist'`, which needs no
+    audit schema change.
+20. **Resolved — `profile.model` stores the model list id**; Claude maps through `loopModelArgs`, and `'default'` adds
+    no flag.
+21. **Resolved — package name `agent-profiles`, view `agents`**, to stay clear of the `agents` module and the `agent`
+    placement folder.
+22. **Resolved — the wider tool-call-limit gap is recorded, not fixed** (agreed with the user): one entry in
+    `outstanding.md`.
