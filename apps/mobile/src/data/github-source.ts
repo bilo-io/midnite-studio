@@ -50,6 +50,7 @@ import {
   type FileDiff,
   type ForgeProjectItem,
 } from '@midnite/studio-shared';
+import { parsePullOverview, pullOverviewQuery } from './pull-overview';
 import { graphql, nextLink, rest, type FetchLike, type HttpDeps } from './http';
 import {
   fail,
@@ -402,4 +403,10 @@ export class GitHubDataSource implements MobileDataSource {
   replyToThread(threadId: string, body: string) {
     return this.mutate(replyToThreadMutation(threadId, body), parseReplyToThreadResult);
   }
+
+  // Theme I
+  pullOverview(repo: RepoRef, n: number) {
+    return this.read(pullOverviewQuery(repo.owner, repo.name, n), parsePullOverview);
+  }
 }
+
