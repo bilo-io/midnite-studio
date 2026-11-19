@@ -4,7 +4,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
-import { useTheme } from '../ui/theme';
+import { useTheme } from '@bilo-io/ui-native';
 import { useAuth } from './auth-context';
 import { runDeviceFlow, type DeviceFlowState } from './device-flow';
 import { validateToken } from './pat';
@@ -65,25 +65,25 @@ export function SignInScreen({ notice }: { notice: string | null }) {
   }, [pat, signIn]);
 
   const code = flow.phase === 'awaiting-user' || flow.phase === 'polling' ? flow : null;
-  const muted = { color: theme.foreground, opacity: 0.6 } as const;
+  const muted = { color: theme.colors.foreground, opacity: 0.6 } as const;
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16, backgroundColor: theme.background }}>
-      <Text style={{ color: theme.foreground, fontSize: 32 }}>Midnite</Text>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16, backgroundColor: theme.colors.background }}>
+      <Text style={{ color: theme.colors.foreground, fontSize: 32 }}>Midnite</Text>
       {notice ? <Text style={muted}>{notice}</Text> : <Text style={muted}>Sign in with GitHub to continue.</Text>}
       {code ? (
         <View style={{ alignItems: 'center', gap: 8 }}>
-          <Text style={{ color: theme.foreground, fontSize: 28, letterSpacing: 4 }}>{code.userCode}</Text>
+          <Text style={{ color: theme.colors.foreground, fontSize: 28, letterSpacing: 4 }}>{code.userCode}</Text>
           <Pressable accessibilityRole="button" onPress={() => void Clipboard.setStringAsync(code.userCode)}>
-            <Text style={{ color: theme.foreground }}>Copy code</Text>
+            <Text style={{ color: theme.colors.foreground }}>Copy code</Text>
           </Pressable>
           <Pressable accessibilityRole="button" onPress={() => void WebBrowser.openBrowserAsync(code.verificationUri)}>
-            <Text style={{ color: theme.foreground }}>Open GitHub</Text>
+            <Text style={{ color: theme.colors.foreground }}>Open GitHub</Text>
           </Pressable>
           <Text style={muted}>Waiting for approval…</Text>
         </View>
       ) : (
         <Pressable accessibilityRole="button" disabled={!CLIENT_ID} onPress={() => void startDeviceFlow()}>
-          <Text style={{ color: theme.foreground, opacity: CLIENT_ID ? 1 : 0.4 }}>Sign in with GitHub</Text>
+          <Text style={{ color: theme.colors.foreground, opacity: CLIENT_ID ? 1 : 0.4 }}>Sign in with GitHub</Text>
         </Pressable>
       )}
       {flow.phase === 'expired' ? <Text style={muted}>The code expired. Try again.</Text> : null}
@@ -91,7 +91,7 @@ export function SignInScreen({ notice }: { notice: string | null }) {
       {flow.phase === 'error' ? <Text style={muted}>{flow.message}</Text> : null}
       {!CLIENT_ID ? <Text style={muted}>No GitHub client id is configured; use a token.</Text> : null}
       <Pressable accessibilityRole="button" onPress={() => setPatOpen((open) => !open)}>
-        <Text style={{ color: theme.foreground }}>Use a personal access token</Text>
+        <Text style={{ color: theme.colors.foreground }}>Use a personal access token</Text>
       </Pressable>
       {patOpen ? (
         <View style={{ width: '100%', gap: 8 }}>
@@ -102,10 +102,10 @@ export function SignInScreen({ notice }: { notice: string | null }) {
             autoCorrect={false}
             value={pat}
             onChangeText={setPat}
-            style={{ color: theme.foreground, borderWidth: 1, borderColor: theme.foreground, padding: 8 }}
+            style={{ color: theme.colors.foreground, borderWidth: 1, borderColor: theme.colors.foreground, padding: 8 }}
           />
           <Pressable accessibilityRole="button" onPress={() => void submitPat()}>
-            <Text style={{ color: theme.foreground }}>Validate and sign in</Text>
+            <Text style={{ color: theme.colors.foreground }}>Validate and sign in</Text>
           </Pressable>
           {patMessage ? <Text style={muted}>{patMessage}</Text> : null}
         </View>

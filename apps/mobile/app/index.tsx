@@ -1,13 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { useTheme } from '../src/ui/theme';
+import { Redirect } from 'expo-router';
 
-export default function Home() {
-  const theme = useTheme();
-  return (
-    <View style={[styles.root, { backgroundColor: theme.background }]}>
-      <Text style={{ color: theme.foreground, fontSize: 20 }}>Midnite</Text>
-    </View>
-  );
+export default function Index() {
+  return <Redirect href="/(tabs)/history" />;
 }
-
-const styles = StyleSheet.create({ root: { flex: 1, alignItems: 'center', justifyContent: 'center' } });

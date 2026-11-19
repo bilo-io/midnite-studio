@@ -16,6 +16,7 @@ export default defineConfig({
       'expo-web-browser': new URL('./test/mocks/expo-web-browser.ts', import.meta.url).pathname,
       'expo-clipboard': new URL('./test/mocks/expo-clipboard.ts', import.meta.url).pathname,
       'expo-router': new URL('./test/mocks/expo-router.tsx', import.meta.url).pathname,
+      '@expo/vector-icons': new URL('./test/mocks/vector-icons.tsx', import.meta.url).pathname,
       'expo-status-bar': new URL('./test/mocks/empty.ts', import.meta.url).pathname,
     },
   },
