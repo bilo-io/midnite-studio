@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      '@bilo-io/ui-native': new URL('./vendor/ui-native/index.ts', import.meta.url).pathname,
       '@midnite/studio-git-engine/diff': new URL('../../packages/git-engine/src/parsers/diff-parser.ts', import.meta.url).pathname,
       '@midnite/forge-github-core': new URL('../../packages/forge-github-core/src/index.ts', import.meta.url).pathname,
       'react-native': 'react-native-web',

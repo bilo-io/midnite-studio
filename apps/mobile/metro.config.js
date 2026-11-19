@@ -16,10 +16,13 @@ config.resolver.nodeModulesPaths = [
 // Source aliases: git-engine's pure diff parser (D6) and forge-github-core (its `main` is a CJS dist; E).
 const DIFF_PARSER = path.resolve(workspaceRoot, 'packages/git-engine/src/parsers/diff-parser.ts');
 const FORGE_CORE = path.resolve(workspaceRoot, 'packages/forge-github-core/src/index.ts');
+// Stand-in for the unpublished @bilo-io/ui-native 0.5.0 (vendor/ui-native/VENDORED.md).
+const UI_NATIVE = path.resolve(projectRoot, 'vendor/ui-native/index.ts');
 const upstreamResolve = config.resolver.resolveRequest;
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName === '@midnite/studio-git-engine/diff') return { type: 'sourceFile', filePath: DIFF_PARSER };
   if (moduleName === '@midnite/forge-github-core') return { type: 'sourceFile', filePath: FORGE_CORE };
+  if (moduleName === '@bilo-io/ui-native') return { type: 'sourceFile', filePath: UI_NATIVE };
   return (upstreamResolve ?? context.resolveRequest)(context, moduleName, platform);
 };
 
