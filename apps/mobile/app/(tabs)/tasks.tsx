@@ -1,6 +1,3 @@
-import { TabPlaceholder } from '../../src/shell/tab-placeholder';
-import { ICONS } from '../../src/ui/icons';
+import { TasksScreen } from '../../src/tasks/tasks-screen';
 
-export default function TasksScreen() {
-  return <TabPlaceholder title="Tasks" icon={ICONS.tasks} />;
-}
+export default TasksScreen;

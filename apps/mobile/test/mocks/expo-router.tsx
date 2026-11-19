@@ -26,3 +26,12 @@ export const routerCalls: { method: string; href: string }[] = [];
 export function useSegments(): string[] {
   return segments;
 }
+
+// Theme H
+let params: Record<string, string> = {};
+export function setParams(next: Record<string, string>) {
+  params = next;
+}
+export function useLocalSearchParams(): Record<string, string> {
+  return params;
+}
