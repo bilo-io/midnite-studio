@@ -91,7 +91,7 @@ function ProjectBody({
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const all = useMemo(() => items.data?.pages.flatMap((p) => p.items) ?? [], [items.data]);
-  const fieldList = fields.data ?? [];
+  const fieldList = useMemo(() => fields.data ?? [], [fields.data]);
   const groupField = useMemo(() => resolveGroupField(fieldList, null), [fieldList]);
 
   const open = (item: ForgeProjectItem) => {
