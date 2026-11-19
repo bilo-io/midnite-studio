@@ -81,9 +81,16 @@ tappable parents, and the changed files, and a tap on a file shows its diff in p
 not landed, so a minimal local `DiffView` stands in. `CommitDetail` gained optional `message` and `committerName` for the
 detail screen. It runs on the vendored ui-native 0.5.0 stand-in (`apps/mobile/vendor/ui-native/`).
 
-**Theme H — Tasks.** ◻ A project picker and a Board / List / Graph switch. Board is paged columns with a "Move to…" sheet,
-List is grouped and sorted, and Graph is an SVG dependency graph with pinch and pan. Plus issue detail with comments,
-and New issue.
+**Theme H — Tasks.** ✅ The Tasks tab (`app/(tabs)/tasks.tsx`) has a project `Chip` that opens a sheet over `useProjects` and a
+Board / List / Graph `SegmentedControl` remembered per project; a repo with no Projects falls back to its Issues as a plain list.
+Board is paged columns (`min(88%, 340)` wide, position dots) from `deriveColumns`, with a long-press "Move to…" sheet that writes
+optimistically through `setItemField` and rolls back with a banner on failure (iteration groupings are read-only). List is a
+`SectionList` grouped by the group field, filtered (search, assigned to me, label) and sorted through tasks-core. Graph lays
+nodes out with `layoutForgeGraph` (200x64 cards), draws edges with `react-native-svg`, culls off-screen nodes and moves by
+pinch + pan (0.3 to 2.5). Issue detail (`app/tasks/issue/[number].tsx`) shows state, labels, project field chips (tap to
+change), a plain-text body with tappable links, comments and a composer, with Close / Reopen in the header; New issue
+(`app/tasks/new-issue.tsx`) creates through the new `createIssueWithId` and adds the issue to the project. It runs on the
+vendored ui-native 0.5.0 stand-in, and `@midnite/tasks-core` is now an `apps/mobile` dependency aliased to source.
 
 **Theme I — Reviews.** ✅ Requested / Mine / All PR lists (`SegmentedControl` over infinite `usePulls`, pull to refresh),
 then `app/reviews/[number].tsx` with Overview (body, reviewers, checks that open their details URL in the in-app browser),
@@ -614,31 +621,31 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
 
 ### H — Tasks (L)
 
-- [ ] **H1 · Project picker + view switch** (S): `app/(tabs)/tasks/index.tsx`. A header `Chip` names the project (opens a
+- [x] **H1 · Project picker + view switch** (S): `app/(tabs)/tasks/index.tsx`. A header `Chip` names the project (opens a
   sheet over `useProjects`). A `SegmentedControl` offers `board | list | graph`, persisted per project (F6). No projects
   → `EmptyState` ("This repo has no GitHub Projects", a link to the repo's Issues list as a plain list).
-- [ ] **H2 · Board** (L): `apps/mobile/src/tasks/board-view.tsx` takes columns from `deriveColumns` (`@midnite/tasks-core`)
+- [x] **H2 · Board** (L): `apps/mobile/src/tasks/board-view.tsx` takes columns from `deriveColumns` (`@midnite/tasks-core`)
   over the group field resolved by `resolveGroupField`. It is a horizontal paged `FlatList` (`pagingEnabled`,
   `snapToInterval` = 88% of screen width so the next column peeks) with a column header (option colour `Chip` + count)
   and a vertical list of `TaskCard`s (`apps/mobile/src/tasks/task-card.tsx`: number, title, labels as `Chip`s, assignee
   Avatars, a left status stroke from `itemStatusStroke`). Long-press a card → bottom sheet "Move to…" listing the group
   field's options → `setItemField`, applied optimistically and rolled back on `{ ok: false }` with a toast-style banner.
   Column dots above the board show the position.
-- [ ] **H3 · List** (M): `apps/mobile/src/tasks/list-view.tsx` is a `SectionList` grouped by the same group field,
+- [x] **H3 · List** (M): `apps/mobile/src/tasks/list-view.tsx` is a `SectionList` grouped by the same group field,
   sorted with tasks-core `sort.ts`, and filtered with `filter.ts` through a search `Input` and filter chips (assignee:
   me, label). Rows use `ListRow` with the status stroke as `leading`.
-- [ ] **H4 · Graph** (L): `apps/mobile/src/tasks/graph-view.tsx` uses tasks-core `layoutForgeGraph` +
+- [x] **H4 · Graph** (L): `apps/mobile/src/tasks/graph-view.tsx` uses tasks-core `layoutForgeGraph` +
   `filterForgeGraph` + `blockedItemIds` over `useProjectGraph`. Edges are drawn with `react-native-svg` `Path` (the same
   geometry desktop uses) and nodes are absolutely positioned `View`s (compact cards: number + title + status stroke)
   inside a container transformed by a pinch + pan gesture (`react-native-gesture-handler` `Gesture.Simultaneous(Pinch, Pan)`,
   scale clamped 0.3 to 2.5). Initial viewport from `topAlignedViewport`. Tapping a node opens issue detail. Off-screen
   nodes are culled with `rectsIntersect` (from `@midnite/tasks-core`, added in C3) against the viewport (port of
   desktop's margin rule).
-- [ ] **H5 · Issue detail** (M): `app/tasks/issue/[number].tsx` shows title, state `Badge`, labels, assignees, the
+- [x] **H5 · Issue detail** (M): `app/tasks/issue/[number].tsx` shows title, state `Badge`, labels, assignees, the
   project field values as `Chip`s (tap one → change it in a sheet), the body rendered as plain text with links tappable
   (no markdown renderer this phase), the comment list, and a composer (`Textarea` + Send) → `commentIssue`. Close/Reopen
   in the title bar action slot.
-- [ ] **H6 · New issue** (S): `app/tasks/new-issue.tsx`, a modal route with title (required) and body, creating in the
+- [x] **H6 · New issue** (S): `app/tasks/new-issue.tsx`, a modal route with title (required) and body, creating in the
   current repo. If a project is selected, it is added to that project (`addProjectItem`). On success it navigates to the
   new issue's detail.
 

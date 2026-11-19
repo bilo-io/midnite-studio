@@ -56,6 +56,7 @@ import {
   fail,
   ok,
   type CommitDetail,
+  type CreatedIssue,
   type IssueComment,
   type MobileDataSource,
   type MutationOutcome,
@@ -339,6 +340,25 @@ export class GitHubDataSource implements MobileDataSource {
     });
     if (!id.ok) return id;
     return this.mutate(createIssueMutation(id.value, title, body), parseCreateIssueResult);
+  }
+
+  // Theme H
+  async createIssueWithId(repo: RepoRef, title: string, body: string): Promise<Result<CreatedIssue>> {
+    const repoId = await this.read({ query: REPO_ID_QUERY, variables: { owner: repo.owner, name: repo.name } }, (data) => {
+      const found = str(pick(pick(data, 'repository'), 'id'));
+      if (!found) throw new Error('no repo');
+      return found;
+    });
+    if (!repoId.ok) return repoId;
+    const response = await graphql(this.http, createIssueMutation(repoId.value, title, body));
+    if (!response.ok) return response;
+    const outcome = parseCreateIssueResult({ data: response.value });
+    if (!outcome.ok) return fail(outcome.kind, outcome.message);
+    const issue = pick(pick(response.value, 'createIssue'), 'issue');
+    const id = str(pick(issue, 'id'));
+    const number = pick(issue, 'number');
+    if (!id || typeof number !== 'number') return fail('error', 'GitHub did not return the new issue');
+    return ok({ id, number });
   }
 
   async setIssueState(repo: RepoRef, n: number, state: 'OPEN' | 'CLOSED') {

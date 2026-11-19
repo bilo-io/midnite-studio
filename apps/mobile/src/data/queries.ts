@@ -251,3 +251,14 @@ export const useCommentPull = () =>
 
 export const useReplyToThread = () =>
   useWrite<{ threadId: string; body: string }>((s, v) => s.replyToThread(v.threadId, v.body), AFTER_PULL_WRITE);
+
+// Theme H
+export function useCreateIssueWithId() {
+  const source = useDataSource();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { repo: RepoRef; title: string; body: string }) =>
+      unwrap(await source.createIssueWithId(vars.repo, vars.title, vars.body)),
+    onSuccess: () => invalidate(client, AFTER_ISSUE_WRITE),
+  });
+}
