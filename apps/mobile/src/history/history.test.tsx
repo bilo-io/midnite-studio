@@ -171,6 +171,12 @@ describe('CommitDetailScreen', () => {
     expect(await screen.findByTestId('diff-binary')).toBeTruthy();
   });
 
+  it('asks for a repository when none is selected', async () => {
+    resetShellState({ currentRepo: null });
+    await renderInShell(<CommitDetailScreen sha={sha('a')} />, { viewer: async () => viewer, commit: vi.fn() });
+    expect(await screen.findByTestId('commit-no-repo')).toBeTruthy();
+  });
+
   it('offers a retry when loading fails', async () => {
     const commitFn = vi.fn().mockResolvedValueOnce(fail('network', 'offline')).mockResolvedValueOnce(fail('network', 'offline')).mockResolvedValue(detail());
     await renderInShell(<CommitDetailScreen sha={sha('a')} />, { viewer: async () => viewer, commit: commitFn });

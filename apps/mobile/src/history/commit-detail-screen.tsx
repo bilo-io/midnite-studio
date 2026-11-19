@@ -35,6 +35,14 @@ export function CommitDetailScreen({ sha }: { sha: string }) {
   );
   const frame = { flex: 1, backgroundColor: theme.colors.background } as const;
 
+  if (!repo) {
+    return (
+      <View style={frame}>
+        {bar}
+        <EmptyState testID="commit-no-repo" title="Pick a repository" body="Choose a repository to open this commit." />
+      </View>
+    );
+  }
   if (detail.isPending) {
     return (
       <View style={frame}>
@@ -47,7 +55,7 @@ export function CommitDetailScreen({ sha }: { sha: string }) {
       </View>
     );
   }
-  if (detail.isError) {
+  if (detail.isError && !detail.data) {
     const offline = detail.error instanceof SourceError && detail.error.kind === 'network';
     return (
       <View style={frame}>
@@ -62,7 +70,7 @@ export function CommitDetailScreen({ sha }: { sha: string }) {
     );
   }
 
-  const { commit, files, message, committerName } = detail.data;
+  const { commit, files, message, committerName } = detail.data!;
   if (file) {
     return (
       <View style={frame}>

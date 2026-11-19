@@ -70,7 +70,8 @@ export function HistoryScreen() {
   let body;
   if (history.isPending) {
     body = <TimelineSkeleton />;
-  } else if (history.isError) {
+  } else if (history.isError && !history.data) {
+    // With data on screen a failed refresh or next page keeps the list (the footer carries the retry).
     const err = history.error;
     const message = err instanceof Error ? err.message : 'Something went wrong';
     body =
