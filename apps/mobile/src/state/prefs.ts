@@ -65,8 +65,10 @@ interface PrefsActions {
 
 export type PrefsState = MobilePrefs & PrefsActions & { hydrated: boolean };
 
-function snapshot(state: PrefsState): MobilePrefs {
-  return MobilePrefsSchema.parse({ ...state });
+/** The persistable slice of the store, or null when the live state fails the schema (never throws in a subscriber). */
+function snapshot(state: PrefsState): MobilePrefs | null {
+  const parsed = MobilePrefsSchema.safeParse({ ...state });
+  return parsed.success ? parsed.data : null;
 }
 
 export const usePrefs = create<PrefsState>()((set) => ({
@@ -109,7 +111,9 @@ export const usePrefs = create<PrefsState>()((set) => ({
 // costs a preference, never a crash.
 usePrefs.subscribe((state, prev) => {
   if (!state.hydrated || !prev.hydrated) return;
-  const next = JSON.stringify(snapshot(state));
+  const now = snapshot(state);
+  if (now === null) return;
+  const next = JSON.stringify(now);
   if (next === JSON.stringify(snapshot(prev))) return;
   void SecureStore.setItemAsync(PREFS_KEY, next).catch(() => undefined);
 });

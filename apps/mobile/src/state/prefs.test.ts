@@ -55,4 +55,11 @@ describe('usePrefs', () => {
     expect(JSON.parse(store.get(PREFS_KEY)!).theme).toBe('dark');
     expect('hydrated' in JSON.parse(store.get(PREFS_KEY)!)).toBe(false);
   });
+
+  it('never throws, and writes nothing, when a setter leaves the state invalid', async () => {
+    await usePrefs.getState().hydrate();
+    expect(() => usePrefs.getState().setLastProvider('')).not.toThrow();
+    await settle();
+    expect(store.has(PREFS_KEY)).toBe(false);
+  });
 });
