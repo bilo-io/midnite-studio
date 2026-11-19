@@ -22,6 +22,9 @@ const upstreamResolve = config.resolver.resolveRequest;
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName === '@midnite/studio-git-engine/diff') return { type: 'sourceFile', filePath: DIFF_PARSER };
   if (moduleName === '@midnite/forge-github-core') return { type: 'sourceFile', filePath: FORGE_CORE };
+  // The vendored brand marks are Vite `?inline` imports; Metro takes a shim that resolves the asset to its URI.
+  const inline = /midnite-logo-(dark|light)\.png\?inline$/.exec(moduleName);
+  if (inline) return { type: 'sourceFile', filePath: path.resolve(projectRoot, `metro-shims/midnite-logo-${inline[1]}.png.inline.js`) };
   if (moduleName === '@bilo-io/ui-native') return { type: 'sourceFile', filePath: UI_NATIVE };
   return (upstreamResolve ?? context.resolveRequest)(context, moduleName, platform);
 };
