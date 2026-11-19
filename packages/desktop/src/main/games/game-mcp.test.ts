@@ -61,6 +61,10 @@ function fakeWebContents(executeJavaScript: GameWebContents['executeJavaScript']
   };
 }
 
+const notStubbed = (): never => {
+  throw new Error('not stubbed in this test');
+};
+
 function setup(
   wc: GameWebContents | null,
   opts: {
@@ -84,10 +88,19 @@ function setup(
         get: async () => ({ ok: true as const, value: { level: { type: 'map' }, issues: [], images: [{ path: 't.png', dataUrl: 'data:image/png;base64,AAAA' }] } }),
         set: async () => ({ ok: true as const, value: { sha: 'abc123' } }),
         mapAsset: async () => ({ ok: true as const, value: { level: { type: 'map' }, issues: [] } }),
+        // The levels surface no game_* tool here reaches: a call means a test needs its own stub.
+        model: notStubbed,
+        prefabs: { list: notStubbed, get: notStubbed, set: notStubbed, delete: notStubbed },
+        assetThumb: notStubbed,
+        terrainDetail: notStubbed,
+        preview: notStubbed,
+        previewEnd: notStubbed,
         ...opts.levels,
       },
       levelEditor: opts.levelEditor ?? { request: async () => ({ ok: true as const, value: { handled: false as const, reason: 'not-open' as const } }), resolve: () => undefined, setOpen: () => undefined, open: () => null },
       goto: opts.goto ?? (async () => ({ ok: true as const, value: { via: 'hook' as const } })),
+      entities: { get: notStubbed, watch: notStubbed },
+      debug: notStubbed,
       doctor: async (req) => (req.gameId === GAME.gameId || req.path === GAME.path ? { ok: true as const, value: DIAGNOSIS } : { ok: false as const, kind: 'error' as const, message: 'That game was not found.' }),
       doctorFix: async (req) =>
         req.path === GAME.path ? { ok: true as const, value: { commit: 'abc1234', diagnosis: DIAGNOSIS } } : { ok: false as const, kind: 'error' as const, message: 'That game was not found.' },
