@@ -813,6 +813,9 @@ importers:
       '@midnite/studio-shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@midnite/tasks-core':
+        specifier: workspace:*
+        version: link:../../packages/tasks-core
       '@tanstack/react-query':
         specifier: ^5.62.0
         version: 5.102.3(react@19.3.0)
