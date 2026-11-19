@@ -70,6 +70,10 @@ These happen because you started something: a search, a download, a request you 
 | `huggingface.co` | media-model | GET only: the Stable Fast 3D model the user asked for |
 | `*.hf.co` | media-model | GET only: the redirect target of the model download |
 | `release-assets.githubusercontent.com` | app | GET only: the redirect target of the speech-model download |
+| `api.sketchfab.com` | media-model | the search text, licence filters and model ids, with the user’s own Sketchfab API token |
+| `sketchfab.com` | media-model | GET only, no credentials: the signed GLB download the user asked for |
+| `*.sketchfab.com` | media-model | GET only, no credentials: the signed GLB download the user asked for |
+| `*.amazonaws.com` | media-model | GET only, no credentials: the signed GLB download Sketchfab links to its storage |
 | `api.pwnedpasswords.com` | vault | the first five hex characters of a SHA-1 of the password; never the password, never the hash |
 | `overpass-api.de` | media-map | a bounding box, for roads and buildings |
 | `ollama.com` | models | the model search text |
