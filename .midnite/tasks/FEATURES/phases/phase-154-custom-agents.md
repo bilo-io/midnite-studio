@@ -1,6 +1,6 @@
 # Phase 154 — Custom agents
 
-**Refined: x1** · 2026-11-19 · UI/UX, visual design, accessibility, empty/loading/error states, edge cases, data model, persistence, concurrency, security, testing, performance, observability, acceptance criteria, file map, sequencing, out-of-scope
+**Refined: x1** · 2026-11-19 · designed 2026-11-19 · UI/UX, visual design, accessibility, empty/loading/error states, edge cases, data model, persistence, concurrency, security, testing, performance, observability, acceptance criteria, file map, sequencing, out-of-scope
 
 Planned 2026-11-18 with the user · grounded against the tree as of `6ba3f3303`.
 
@@ -121,6 +121,302 @@ Suggested PRs, each leaving `main` working:
 - `PR-2` = C + E. The page lists, creates from templates, imports, exports and deletes; Launch is hidden because no host fills `useLaunchProfile` yet.
 - `PR-3` = D. Full editing.
 - `PR-4` = G's socket service and audit attribution, plus F. Launch appears.
+
+## Visual & UI/UX Design
+
+Designed 2026-11-19 with the user. The design rests on four agreed choices:
+- The list is a card grid.
+- The Builder has a section index on the left and a scrolling form on the right.
+- An agent's colour shows only on its icon and a 3 px stripe.
+- Two visual-regression crops are added.
+
+**Tokens only.** Use the Tailwind theme colours from `packages/app/tailwind.config.ts`, which the Agents app shares
+through `frameContent`:
+- `background`, `foreground`, `card`, `popover`, `muted`, `accent`, `primary`, `secondary`, `destructive`, `success`, `border`, `input`, `ring`.
+
+No raw hex values, with two exceptions: the agent's own `accent`, applied only as an inline `style` on its icon and
+stripe, and the accent picker's swatch. There is no `warning` token, so warnings use `text-muted-foreground` with a
+`LuTriangleAlert` glyph, and errors use `text-destructive`. Type sizes follow the existing views: `text-sm` titles,
+`text-xs` body and controls, and `text-[11px]` meta. Everything works unchanged in light and dark because every
+colour is a token.
+
+### Page shell (both apps)
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│ ⧉  🤖 Agents                                          12 agents            │  header: flex items-center gap-2
+│ ─────────────────────────────────────────────────────────────────────────── │
+│  ▦ Your agents │ ✎ Builder • │ ⓘ Info                                      │  tablist: border-b border-border/60
+│ ─────────────────────────────────────────────────────────────────────────── │
+│                                                                            │
+│                         (active tab panel, scrolls)                        │
+│                                                                            │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Root.** `flex h-full min-h-0 flex-col gap-3 p-4`. Only the tab panel scrolls (`min-h-0 flex-1 overflow-y-auto`),
+  so the header and tabs stay put. This differs from `models-view.tsx`, which scrolls the whole page, because the
+  Builder's footer and the stack bar must stick inside the panel.
+- **Header.** It holds `<PageDetachMark role="agents" />`, then `LuBot` at `h-5 w-5`, then
+  `<h1 className="text-sm font-semibold">Agents</h1>`. On the right, a count in `ml-auto text-[11px] text-muted-foreground`
+  reads "<n> agent(s)" and is hidden while loading.
+- **Tabs.** These are the `TabStrip` classes from `models-view.tsx`: `-mb-px border-b-2 px-2.5 py-1.5 text-xs
+  font-medium transition-colors`. The active tab adds `border-primary text-foreground`; an inactive one adds
+  `border-transparent text-muted-foreground hover:text-foreground`.
+  - Each tab has a 14 px icon before its label: `LuLayoutGrid` Your agents, `LuPencilRuler` Builder, `LuInfo` Info.
+  - The Builder tab's unsaved dot is a `h-1.5 w-1.5 rounded-full bg-primary` after the label.
+  - Focus: `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1
+    focus-visible:ring-offset-background`. This focus ring is used on **every** interactive element in the feature.
+- **Narrow (panel narrower than 720 px).** The feature's own `usePanelWidth(ref)` hook reads the panel's width. The
+  repo has no container queries, so the hook is a `ResizeObserver`, net-new in `renderer/use-panel-width.ts`. Tab
+  labels stay; the header count hides below 480 px.
+
+### Your agents tab
+
+```
+┌ toolbar ───────────────────────────────────────────────────────────────────┐
+│ [＋ New agent]  [▤ New from template ▾]  [⇧ Import]          [⌕ Filter…  ] │
+└────────────────────────────────────────────────────────────────────────────┘
+┌▌─────────────────────────────┐ ┌▌─────────────────────────────┐ ┌▌─────────
+│▌ ◉  Reviewer                 │ │▌ ◉  Researcher                │ │▌ ◉  …
+│▌    Reads diffs and reports  │ │▌    Reads and summarises with │ │
+│▌    findings by severity.    │ │▌    sources.                  │ │
+│▌    Claude · Sonnet 5.5      │ │▌    Codex · Default           │ │
+│▌    [⑂ LangGraph] [⚡ MCP] +2 │ │▌    [⌕ Hybrid search]         │ │
+│▌ ───────────────────────────│ │▌ ──────────────────────────── │ │
+│▌ [▶ Launch]      ✎  ⧉  ⇩  🗑 │ │▌ [▶ Launch]      ✎  ⧉  ⇩  🗑  │ │
+└▌─────────────────────────────┘ └▌─────────────────────────────┘ └▌─────────
+ ▌ = 3 px stripe in the agent's accent
+```
+
+- **Toolbar.** `flex flex-wrap items-center gap-2`.
+  - Primary button ("New agent", `LuPlus`): `rounded-md border border-border bg-accent/40 px-2.5 py-1 text-xs
+    font-medium text-foreground hover:bg-accent`.
+  - Secondary buttons ("New from template", `LuLayoutTemplate` plus `LuChevronDown`; "Import", `LuUpload`):
+    `rounded-md border border-border px-2.5 py-1 text-xs hover:bg-accent disabled:opacity-40`.
+  - A `FilterInput` (from the frame) on the right, `ml-auto w-48`. It matches name, description and base CLI label,
+    case-insensitive. It is shown only when there are more than 6 agents.
+- **Grid.** `grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]`. The grid falls to a single
+  column on its own in a narrow panel.
+- **Card.** It is an `article` with `aria-labelledby` set to its name button.
+  - Classes: `relative flex flex-col gap-2 overflow-hidden rounded-md border border-border bg-card p-3 pl-4 transition-colors
+    hover:border-foreground/20 focus-within:border-foreground/30`.
+  - The stripe is `absolute inset-y-0 left-0 w-[3px]`, with `style={{ background: accent }}`.
+  - The icon is 18 px, with `style={{ color: accent }}`, and `aria-hidden`.
+  - The name is a `button` in `truncate text-sm font-medium hover:underline`.
+  - The description is `line-clamp-2 text-xs text-muted-foreground`, omitted when empty.
+  - The meta line is `text-[11px] text-muted-foreground`, reading `<Base label> · <Model label>`.
+  - Each chip is `inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5
+    text-[11px]`, holding the option's 12 px icon and label. At most six are shown, then a `+N` chip whose `title`
+    lists the rest.
+  - The footer is `mt-auto flex items-center gap-1 border-t border-border/60 pt-2`:
+    - "Launch" (`LuPlay`) is a small primary button.
+    - Then, `ml-auto`, the frame `IconButton`s, each 28 px: Edit `LuPencil`, Duplicate `LuCopy`, Export `LuDownload`,
+      Delete `LuTrash2`. Delete adds `hover:text-destructive`.
+    - Every icon button has an `aria-label` and a `title` naming the action and the agent ("Delete Reviewer").
+  - The missing-base chip is `rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground`,
+    with `LuTriangleAlert`, placed under the meta line.
+- **Loading.** Three skeleton cards: the same box, with `animate-pulse` blocks in `bg-muted` (a 40% title bar, two
+  70% lines and a chip row), wrapped in `aria-busy="true"`. `motion-reduce:animate-none`.
+- **Failed load.** A centred `max-w-sm` block: `LuCircleAlert` at 24 px in `text-destructive`, "Couldn't load your
+  agents." in `text-sm`, the message in `text-xs text-muted-foreground`, and "Retry" (`LuRotateCw`) as a secondary
+  button.
+- **Empty.** A centred `max-w-xl` block: `LuBot` at 32 px in `text-muted-foreground`, the heading "No agents yet"
+  (`text-sm font-medium`) and the body copy (`text-xs text-muted-foreground`). Below them, a three-column grid of
+  template cards, each a `button` with the same card classes, holding the template's icon, label and `summary`.
+  Below the grid, a "Start from scratch" secondary button. The cards stack in one column below 560 px.
+- **Filter with no match.** "No agents match "<text>"." in `text-xs text-muted-foreground`, with a "Clear filter"
+  link button.
+
+### Builder tab
+
+```
+┌ index ───────┬ form (scrolls) ──────────────────────────────────────────────┐
+│ ● Identity   │ IDENTITY                                                     │
+│ ○ Base       │ Name ⓘ          [Reviewer                              ]     │
+│ ○ Prompt     │ Description ⓘ   [Reads diffs and reports findings…     ]     │
+│ ○ Tools  3   │ Colour ⓘ  [■][#8b5cf6]        Icon ⓘ  [◉ claude      ▾]     │
+│ ○ Skills 2   │ BASE                                                         │
+│ ○ Limits     │ Base CLI ⓘ  [Claude        ▾]   Model ⓘ  [Sonnet 5.5   ▾]   │
+│ ○ Blueprint 5│ SYSTEM PROMPT                                                │
+│              │ ┌──────────────────────────────────────────────────────┐     │
+│              │ │ You review diffs…                                    │     │
+│              │ └──────────────────────────────────────────── 312/20,000┘     │
+│              │ ↳ Passed to Claude as a system prompt.                       │
+│              │ …                                                            │
+├──────────────┴──────────────────────────────────────────────────────────────┤
+│ ● Unsaved changes                                    [Discard]  [Save]       │  sticky footer
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Layout.** `grid grid-cols-[160px_1fr] gap-4` inside the scrolling panel.
+  - The index is `sticky top-0 self-start`: a `nav` with `aria-label="Builder sections"` and a list of anchor
+    buttons, each `flex items-center gap-2 rounded px-2 py-1 text-xs`.
+    - The current section adds `bg-accent text-foreground` and `aria-current="true"`; the others are
+      `text-muted-foreground hover:text-foreground`.
+    - A count pill (tools, skills, chosen blueprint options) sits `ml-auto text-[10px]`.
+  - Scroll-spy uses one `IntersectionObserver` on the section headings, with `rootMargin: '0px 0px -70% 0px'`.
+    Clicking an entry calls `scrollIntoView({ block: 'start', behavior })`, where `behavior` is `'auto'` under
+    `prefers-reduced-motion`, and moves focus to the section heading (`tabIndex={-1}`).
+  - **Narrow (< 720 px):** the index becomes a horizontal, scrollable chip row
+    (`sticky top-0 z-10 flex gap-1 overflow-x-auto bg-background/95 py-1`) above a single-column form.
+- **Sections.** Each is a `section` with an `h2` in `text-[11px] font-semibold uppercase tracking-wide
+  text-muted-foreground`, separated by `space-y-6`. Each field row uses
+  `grid grid-cols-[minmax(120px,160px)_1fr] items-start gap-x-3 gap-y-1`, stacking below 560 px. Two fields share a
+  row only for Colour + Icon and Base CLI + Model, at 720 px and wider.
+- **Controls.** These are the existing input classes (`rounded-md border border-input bg-background px-2 py-1 text-xs
+  focus-visible:ring-2 focus-visible:ring-ring`).
+  - Invalid: `border-destructive`, with the message under it in `text-[11px] text-destructive`, linked by
+    `aria-describedby`.
+  - Counters: `text-[11px] tabular-nums text-muted-foreground`, turning `text-destructive` past 95%.
+  - The delivery line and the enforcement notes: `flex items-start gap-1.5 text-[11px] text-muted-foreground`,
+    with `LuCornerDownRight`, or with `LuTriangleAlert` for a warning.
+- **Checklists (Tools, Skills).** A bordered box, `max-h-72 overflow-y-auto rounded-md border border-border`, with a
+  sticky header row holding the filter, "Select all" and "Select none" (`text-[11px]` link buttons) and a "<n>
+  selected" count.
+  - Rows are `flex items-center gap-2 px-2 py-1 text-xs hover:bg-accent/40`, each with a native checkbox
+    (`accent-[hsl(var(--primary))]`), the title, a `font-mono text-[10px] text-muted-foreground` id, and the
+    `InfoTip`.
+  - Skill scope badges are `rounded px-1 text-[10px] bg-muted text-muted-foreground`.
+  - Tools is disabled (`opacity-50 pointer-events-none`, with `aria-disabled`) while "Restrict midnite tools" is
+    off.
+- **Footer.** `sticky bottom-0 flex items-center gap-2 border-t border-border bg-background/95 px-1 py-2
+  backdrop-blur-sm`.
+  - On the left: "● Unsaved changes" (dot `bg-primary`), "Saved" (`LuCheck`, `text-success`, fades after 2 s), or
+    nothing.
+  - On the right: "Discard" (secondary), then "Save" (primary, disabled while clean or saving). While saving it shows
+    a 12 px `LuLoaderCircle animate-spin` and the label "Saving…".
+  - The live-session notice sits above the footer: `rounded-md border border-border bg-muted/40 p-2 text-xs`, with
+    `LuInfo`, dismissible.
+
+### Blueprint section (inside the Builder)
+
+```
+┌ Pipeline ────────────┬ Configurator ─────────────────────────────────────────┐
+│ ① Understand &   (1) │ Understand & Orchestrate · Frameworks          ⓘ      │
+│   Orchestrate        │ ┌──────────────────────┐ ┌──────────────────────┐     │
+│ ② Ingest & Ground(2) │ │ ⑂ LangGraph       ⓘ ✓│ │ 👥 CrewAI          ⓘ │     │
+│ ③ Connect & Act  (1) │ │   Docs ↗             │ │   Docs ↗             │     │
+│ ④ Optimize & Adapt   │ └──────────────────────┘ └──────────────────────┘     │
+│ ⑤ Secure, Deploy (1) │ ┌──────────────────────┐ ┌──────────────────────┐     │
+│   & Operate          │ │ ☰ LlamaIndex WF   ⓘ  │ │ </> Custom        ⓘ  │     │
+│                      │ └──────────────────────┘ └──────────────────────┘     │
+│                      │ Note  [Graph per reviewer persona…            ] 41/500 │
+├──────────────────────┴───────────────────────────────────────────────────────┤
+│ Stack: Frameworks [LangGraph] · RAG [Vector DBs][Hybrid] · Tools [MCP] ·     │  sticky stack bar
+│        Fine-tuning None chosen · Production [Guardrails]                     │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Container.** `rounded-md border border-border` with `grid grid-cols-[minmax(200px,1fr)_2fr]`. The stack bar
+  spans both columns (`col-span-2`).
+- **Pipeline rows.** `flex w-full items-start gap-2 border-l-2 px-3 py-2 text-left text-xs transition-colors
+  duration-150`.
+  - Active: `border-primary bg-primary/10 text-foreground`. Inactive: `border-transparent text-muted-foreground
+    hover:bg-accent/40`.
+  - Number badge: `grid h-5 w-5 shrink-0 place-items-center rounded-full border border-border text-[10px]
+    tabular-nums`, filled `bg-primary text-primary-foreground` when the stage has a choice.
+  - Label `font-medium`, subtitle `text-[11px] text-muted-foreground`, count pill `ml-auto`.
+  - Rows are joined by a 1 px `bg-border` connector between badges, decorative and `aria-hidden`, to read as a
+    timeline.
+- **Configurator.** `p-3 space-y-3`.
+  - The heading is `text-sm font-medium` "<Stage label> · <subtitle>", with an `InfoTip` carrying the stage summary.
+  - The options grid is `grid grid-cols-2 gap-2`, one column below 560 px.
+  - Option card: `flex items-start gap-2 rounded-md border p-2.5 text-left text-xs transition-colors duration-150`.
+    - Pressed: `border-primary bg-primary/10`, with a `LuCheck` at 14 px in `text-primary` at top right.
+    - Unpressed: `border-border hover:bg-accent/40`.
+  - The option icon is 16 px in `text-muted-foreground`, or `text-primary` when pressed.
+  - "Docs" is a `text-[11px] underline-offset-2 hover:underline` link button with `LuExternalLink` at 11 px.
+  - The note uses the Builder's control classes, at 3 rows.
+- **Stack bar.** `sticky bottom-[49px] z-[1] flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border
+  bg-background/95 px-3 py-2 backdrop-blur-sm`. The 49 px offset sits it just above the Builder footer; measure it
+  from the footer's real height via a CSS variable `--builder-footer-h` set by the footer's own `ResizeObserver`,
+  not a literal.
+  - The label "Stack" is `text-[11px] font-semibold uppercase text-muted-foreground`.
+  - Each group is a `button` in `inline-flex items-center gap-1 rounded px-1 text-[11px] hover:bg-accent/40`,
+    showing "<subtitle>" and then the option chips (as on the card), or "None chosen" in `italic
+    text-muted-foreground`.
+- **Narrow (< 720 px).** The pipeline becomes a horizontal, scrollable row of compact badges above the configurator
+  (`flex overflow-x-auto border-b`). Each badge shows only the number and the short label (the first word of the
+  stage label); the full label stays in `aria-label`. The stack bar wraps.
+- **Motion.** Colour transitions only, at 150 ms, and `motion-reduce:transition-none`. No layout animation.
+
+### Info popover (`InfoTip`)
+
+```
+  Model ⓘ
+        ┌────────────────────────────────────────┐
+        │ The model the base CLI runs. "Default" │  role="tooltip"
+        │ leaves the CLI's own choice in place.  │
+        └────────────────────────────────────────┘
+```
+
+- **Trigger.** `inline-grid h-[18px] w-[18px] place-items-center rounded-full text-muted-foreground
+  hover:bg-accent hover:text-foreground`, holding `LuInfo` at 14 px. It shares the feature's focus ring. When open,
+  it gains `bg-accent text-foreground`.
+- **Popover.** `absolute z-50 w-max max-w-[280px] rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs
+  leading-snug text-popover-foreground shadow-md`.
+  - With `side="top"` it sits at `bottom-full mb-1.5`; with `side="bottom"` it sits at `top-full mt-1.5`.
+  - It is horizontally centred (`left-1/2 -translate-x-1/2`).
+  - There is no arrow and no animation.
+  - Pipeline and stack-bar tips use `side="bottom"`, because the top row has no room above it.
+
+### Info tab
+
+- **Layout.** `mx-auto max-w-3xl space-y-8 text-xs leading-relaxed`.
+  - The anchor list at the top is `flex flex-wrap gap-2`, with chips in the toolbar's secondary button style.
+  - `h2` headings are `text-sm font-semibold`, each with `scroll-mt-4`.
+- **Stages.** One `div` per stage, `rounded-md border border-border p-3`. The heading row holds the stage icon, the
+  label and the subtitle. Options form a definition list (`dl grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5`): `dt`
+  holds the icon and label, `dd` holds the summary and a "Docs ↗" link.
+- **Tables (delivery, enforcement).** `w-full border-collapse text-xs`. `th` is `text-left text-[11px] font-medium
+  text-muted-foreground border-b border-border py-1`; `td` is `border-b border-border/60 py-1.5`.
+  - Yes is `LuCheck` in `text-success`; No is `LuMinus` in `text-muted-foreground`. Each carries a text alternative
+    ("Enforced", "Not enforced") in `sr-only`.
+  - Each agent cell holds its 14 px icon in its roster accent, then its label.
+- **Glossary.** A `dl` with each term in `font-medium` and each definition in `text-muted-foreground`, in two columns
+  at 720 px and wider.
+
+### "Your agents" in the new-session menu (Studio)
+
+```
+┌ New terminal or agent ───────────────┐
+│ ▸ Terminal                           │
+│ YOUR AGENTS                          │  same heading classes as the other sections
+│ ▌◉ Reviewer          Claude          │  ▌ = 2 px accent stripe; base label right-aligned
+│ ▌◉ Researcher        Codex  (greyed) │  disabled: opacity-50, title = reason
+│ PROPRIETARY                          │
+│ ◉ Claude                             │
+│ …                                    │
+└──────────────────────────────────────┘
+```
+
+- The section heading reuses the existing classes (`px-2.5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide
+  text-muted-foreground`).
+- A profile row reuses the agent row's `menuitem` classes. It adds a `relative` wrapper with a 2 px left stripe in the
+  profile accent (`absolute inset-y-1 left-0.5 w-0.5 rounded-full`), and the base CLI label right-aligned in
+  `ml-auto text-[11px] text-muted-foreground`.
+- Disabled rows follow the existing `greyedOut` treatment.
+- Session tab, header and list entries for a profile session show the profile icon in its accent and the profile
+  name; there is no extra badge. They fall back to the base agent's look when the profile is deleted.
+
+### Icons (`react-icons/lu` only)
+
+| Use | Glyph |
+|---|---|
+| Page, rail, empty state | `LuBot` |
+| Tabs | `LuLayoutGrid` · `LuPencilRuler` · `LuInfo` |
+| Toolbar | `LuPlus` · `LuLayoutTemplate` + `LuChevronDown` · `LuUpload` |
+| Card actions | `LuPlay` · `LuPencil` · `LuCopy` · `LuDownload` · `LuTrash2` |
+| States | `LuTriangleAlert` (warning) · `LuCircleAlert` (error) · `LuRotateCw` (retry) · `LuLoaderCircle` (saving) · `LuCheck` (saved, pressed, yes) · `LuMinus` (no) |
+| Builder notes and links | `LuCornerDownRight` · `LuExternalLink` |
+| Stages | orchestrate `LuWorkflow` · ground `LuDatabase` · act `LuPlug` · adapt `LuSlidersHorizontal` · operate `LuShieldCheck` |
+| Options | langgraph `LuGitFork` · crewai `LuUsers` · llamaindex-workflows `LuListTree` · custom `LuCode` · vector-db `LuDatabaseZap` · hybrid-search `LuSearch` · managed-kb `LuLibrary` · mcp `LuPlugZap` · api-sdks `LuBraces` · local-exec `LuTerminal` · open-weight `LuCpu` · managed-apis `LuCloud` · prompt-evals `LuFlaskConical` · hosting `LuServer` · guardrails `LuShield` · observability `LuActivity` |
+
+Lucide renamed some glyphs (for example `AlertTriangle` became `TriangleAlert`, and `Loader2` became `LoaderCircle`).
+Use whichever name the installed `react-icons/lu` exports. `components/icons/icon-names.test.ts` fails on a name that
+does not resolve; extend its source glob to `packages/features/agent-profiles/renderer/**` if it does not already
+cover features.
 
 ## Deliverables
 
@@ -534,6 +830,16 @@ Suggested PRs, each leaving `main` working:
   - Update `view-registry.test.ts` (the global set), `agents-detachable.test.ts`, `agents-app.test.tsx` (rail labels
     gain "Agents"), `agents-manifest.test.ts`, the module `manifest.test.ts`, `composition.test.ts` and
     `apps/studio/src/feature-toggles.test.ts`.
+- [ ] Design: page shell and list styled per "Visual & UI/UX Design".
+  - Covers the root, header, tabs and focus ring; the card grid, card, accent stripe and chips; and the skeleton,
+    failed-load, empty and no-match layouts.
+  - Add net-new `renderer/use-panel-width.ts` (`usePanelWidth(ref): number`, a `ResizeObserver`; returns `Infinity`
+    in jsdom when the observer is unavailable). It drives the 720 / 560 / 480 px breakpoints.
+  - Tests: `use-panel-width.test.ts` with a stubbed `ResizeObserver`. In `agents-list.test.tsx`:
+    - The stripe's inline `background` equals the profile accent.
+    - The seventh chip collapses into `+N` with the rest in `title`.
+    - The filter shows only above 6 agents.
+    - Every icon button has an `aria-label` naming the agent.
 
 ### D — Builder tab (L)
 
@@ -652,6 +958,30 @@ Suggested PRs, each leaving `main` working:
     - The stack bar mirrors selections, and clicking a group activates its stage.
   - `blueprint-icons.test.ts`: every stage and option id has an icon.
   - `info-copy.test.ts`: every `FieldId` has non-empty copy of at most 220 characters.
+- [ ] Design: Builder layout per "Visual & UI/UX Design".
+  - The sticky section index, with an `IntersectionObserver` scroll-spy setting `aria-current`.
+  - The chip-row index below 720 px.
+  - The field grid, stacking below 560 px.
+  - Invalid, counter and note styles.
+  - The bordered checklists with their sticky header.
+  - The sticky footer's three states (unsaved, saving, saved).
+  - Tests:
+    - Clicking an index entry calls `scrollIntoView` and focuses the section heading.
+    - With a stubbed observer, the entry for the intersecting section gets `aria-current`.
+    - The footer shows "Saving…" while the mutation is pending, then "Saved".
+    - The counter turns destructive past 95%.
+- [ ] Design: Blueprint styling per "Visual & UI/UX Design".
+  - The two-column container, the timeline pipeline rows with number badges and connectors, the option cards'
+    pressed state with `LuCheck`, and the stack bar's sticky offset from `--builder-footer-h`.
+  - The compact horizontal pipeline below 720 px, with full labels in `aria-label`.
+  - Tests:
+    - A pressed card carries `aria-pressed="true"` and renders the check.
+    - In the narrow layout each badge's `aria-label` is the full stage label.
+    - The footer sets `--builder-footer-h` from its measured height (stubbed `ResizeObserver`).
+- [ ] Design: `InfoTip` trigger and popover styled per "Visual & UI/UX Design".
+  - The 18 px round trigger and its open state, and a 280 px `bg-popover` panel above or below.
+  - Pipeline and stack-bar tips use `side="bottom"`.
+  - Test: `side="bottom"` renders the `top-full` placement class.
 
 ### E — Info tab (S)
 
@@ -677,6 +1007,10 @@ Suggested PRs, each leaving `main` working:
   - The delivery and enforcement tables cover every roster agent.
   - Glossary terms are sorted and unique.
   - Links call `openExternal`.
+- [ ] Design: Info tab styled per "Visual & UI/UX Design".
+  - `max-w-3xl` column, anchor chips, stage cards with definition lists, and yes/no tables using `LuCheck`/`LuMinus`
+    plus `sr-only` text. The glossary is in two columns at 720 px and wider.
+  - Test: each yes/no cell has its `sr-only` "Enforced" / "Not enforced" text.
 
 ### F — Launch (L)
 
@@ -747,6 +1081,11 @@ Suggested PRs, each leaving `main` working:
   - A `terminal-view` wake/resume test with a mocked `prepareProfileLaunch`:
     - Wake uses `resume: false`, and Resume uses `resume: true`.
     - A failure falls back to the base command.
+- [ ] Design: the "Your agents" menu rows.
+  - Existing heading and `menuitem` classes, plus the 2 px accent stripe and the right-aligned base label.
+  - Session chrome uses the profile's icon, accent and name with no extra badge.
+  - Test (`new-session-picker.test.tsx`): a profile row shows its base label, and its stripe carries the profile
+    accent.
 
 ### G — Enforcement (L)
 
@@ -839,6 +1178,8 @@ Suggested PRs, each leaving `main` working:
 | [`packages/shared/src/agent-limits.ts`](../../../packages/shared/src/agent-limits.ts) | G | profile layer |
 | [`packages/shared/src/mcp.ts`](../../../packages/shared/src/mcp.ts) | G | `sessionId?` on `McpCallEntry` |
 | `packages/features/agent-profiles/**` | B C D E | net-new package |
+| `packages/app/e2e/visual/agent-profiles.spec.ts` | C D | net-new: 2 crops × light/dark (4 baselines) |
+| `packages/app/src/components/icons/icon-names.test.ts` | C | source glob covers the new feature, if it does not already |
 | [`packages/features/capture/main/capture-store.ts`](../../../packages/features/capture/main/capture-store.ts) | B | (**unchanged**) atomic-write crib |
 | [`packages/features/terminal/renderer/`](../../../packages/features/terminal/renderer/) `host.tsx`, `terminal-store.ts`, `terminal-view.tsx`, `use-terminal-ipc.ts`, `terminal-panel.tsx`, `new-session-menu.ts`, `new-session-picker.tsx`, `terminal-header.tsx`, `terminal-session-list.tsx` | F | profile launch, wake, resume, menu, chrome |
 | `packages/features/terminal/renderer/profile-launch.ts`, `session-agent.ts` | F | net-new |
@@ -889,6 +1230,26 @@ Suggested PRs, each leaving `main` working:
   Launch is absent. Import and export work there.
 - [ ] **Gate — conflict.** Open the same agent in Studio's page and in a detached Agents window. Save in one, then
   save in the other; "This agent changed elsewhere." appears, and Reload and Overwrite each behave.
+- [ ] **Visual baselines** (`docs/TESTING.md` rules), net-new `packages/app/e2e/visual/agent-profiles.spec.ts`.
+  - It holds two locator crops, each in light and dark: 4 PNGs under `__screenshots__/linux/`, made with
+    `MSTUDIO_CROSS_PLATFORM=1 moon run root:visual-regen`.
+    1. One list card (`[data-testid="agent-profile-<id>"]`) for the Reviewer template, with three blueprint chips.
+    2. The Blueprint editor, with stage 2 active, two options pressed and the stack bar.
+  - Seed the data the way `kanban-card.spec.ts` seeds its fixture.
+  - The header comment names "real CSS / theme tokens" as the browser capability.
+  - `root:visual-budget` stays green.
+- [ ] **Contrast and focus.**
+  - Check in both themes, in Studio and the Agents app:
+    - Every text token pair used (`muted-foreground` on `card`, `popover-foreground` on `popover`, `primary` on
+      `primary/10`) meets WCAG AA (4.5:1 body, 3:1 for the 11 px meta treated as UI text).
+    - The focus ring is visible on every control.
+    - Tab order runs header → tabs → toolbar → cards (name, Launch, Edit, Duplicate, Export, Delete) → Builder index
+      → fields → blueprint → footer.
+  - Record the contrast ratios checked in the PR.
+- [ ] **Narrow window.**
+  - Detach the Agents page and resize it to 520 px wide: the grid is one column, the Builder index is a chip row, the
+    pipeline is a horizontal badge row, and the stack bar wraps above the footer without overlapping it.
+  - Shots go under `/tmp/midnite-shots-p154/`.
 - [ ] **Open, for a human:**
   - Every builder field, tool row and blueprint option shows its info popover on hover, keyboard focus and click,
     and Escape closes it.
