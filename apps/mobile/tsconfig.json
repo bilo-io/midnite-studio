@@ -14,6 +14,7 @@
       // types only: the vendored src is not typed under RN 0.88 (see vendor/ui-native/VENDORED.md)
       "@bilo-io/ui-native": ["./vendor/ui-native-types/index.d.ts"],
       "@midnite/forge-github-core": ["../../packages/forge-github-core/src/index.ts"],
+      "@midnite/tasks-core": ["../../packages/tasks-core/src/index.ts"],
       "@midnite/studio-git-engine/diff": ["../../packages/git-engine/src/parsers/diff-parser.ts"]
     }
   },

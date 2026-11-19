@@ -7,7 +7,7 @@ export function useRouter() {
   return {
     push: (href: string) => routerCalls.push({ method: 'push', href }),
     navigate: (href: string) => routerCalls.push({ method: 'navigate', href }),
-    replace() {},
+    replace: (href: string) => routerCalls.push({ method: 'replace', href }),
     back() {},
   };
 }
@@ -25,4 +25,13 @@ export function setSegments(next: string[]) {
 export const routerCalls: { method: string; href: string }[] = [];
 export function useSegments(): string[] {
   return segments;
+}
+
+// Theme H
+let params: Record<string, string> = {};
+export function setParams(next: Record<string, string>) {
+  params = next;
+}
+export function useLocalSearchParams(): Record<string, string> {
+  return params;
 }
