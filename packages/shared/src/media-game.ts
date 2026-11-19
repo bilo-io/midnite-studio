@@ -46,9 +46,9 @@ export const GAMES_OLLAMA_WARNING =
 /** The exact-pinned engine versions vendored into game repositories (Phase 107 Theme C). */
 export const GAME_ENGINE_VERSIONS = {
   phaser: '3.90.0',
-  three: '0.186.1',
+  three: '0.187.0',
   rapier: '0.21.0',
-  recast: '0.43.1',
+  recast: '0.44.0',
 } as const;
 
 /** The current kit version (Theme C). Bumped whenever `templates/media-game/kit/` changes. */
