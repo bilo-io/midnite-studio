@@ -73,8 +73,13 @@ the package is built and merged but unpublished (GitHub Packages billing limit),
 `apps/mobile/vendor/ui-native/` and aliased as `@bilo-io/ui-native` in tsconfig, vitest and Metro; removal is a deletion
 (see `VENDORED.md` there), and the local ThemeProvider seam is already gone.
 
-**Theme G — History.** ◻ A commit timeline for the selected repo and branch with infinite scroll, merge markers and a
-branch picker, and a commit detail screen with per-file diffs.
+**Theme G — History.** ✅ The History tab is a `FlatList` over `useHistory` that pages at `onEndReachedThreshold` 0.5, with
+sticky day separators from a pure `groupByDay`, a rail per row (filled success dot on the branch head, hollow ring for a
+merge) and a mono short sha. The branch picker is a bottom `Sheet` over `useBranches` with a filter, opened from a Chip in
+the title-bar action slot and stored per repo. `app/history/[sha].tsx` shows the full message, author and committer,
+tappable parents, and the changed files, and a tap on a file shows its diff in place; Theme I's shared viewer (I4) had
+not landed, so a minimal local `DiffView` stands in. `CommitDetail` gained optional `message` and `committerName` for the
+detail screen. It runs on the vendored ui-native 0.5.0 stand-in (`apps/mobile/vendor/ui-native/`).
 
 **Theme H — Tasks.** ◻ A project picker and a Board / List / Graph switch. Board is paged columns with a "Move to…" sheet,
 List is grouped and sorted, and Graph is an SVG dependency graph with pinch and pan. Plus issue detail with comments,
@@ -588,17 +593,17 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
 
 ### G — History (M)
 
-- [ ] **G1 · Timeline** (M): `apps/mobile/app/(tabs)/history/index.tsx` is a `FlatList` over `useHistory` (infinite,
+- [x] **G1 · Timeline** (M): `apps/mobile/app/(tabs)/history/index.tsx` is a `FlatList` over `useHistory` (infinite,
   `onEndReachedThreshold: 0.5`). Each row is a `CommitRow` (`apps/mobile/src/history/commit-row.tsx`): a left rail with
   a dot (hollow for merge commits, `parents.length > 1`) and a connecting line, subject (2 lines), author Avatar + name,
   relative time, and a short sha in a mono `Chip`. Day separators ("Today", "Yesterday", `Tue 11 Nov`) come from a pure,
   tested `groupByDay(commits, now)` helper.
-- [ ] **G2 · Branch picker** (S): the title bar subtitle (branch) is pressable on History and opens a bottom `Sheet` over
+- [x] **G2 · Branch picker** (S): the title bar subtitle (branch) is pressable on History and opens a bottom `Sheet` over
   `useBranches` with a filter. Selecting stores the branch per repo (F6).
-- [ ] **G3 · Commit detail** (M): `app/history/[sha].tsx` shows the full message, author and committer, parents (each
+- [x] **G3 · Commit detail** (M): `app/history/[sha].tsx` shows the full message, author and committer, parents (each
   tappable), then a file list (`ListRow`: path, `+a −d`). Tapping a file opens the shared diff viewer (I4) for that
   `FileDiff`.
-- [ ] **G4 · States** (XS): `Skeleton` rows while loading, an `EmptyState` with "Pick a repository" + action when none
+- [x] **G4 · States** (XS): `Skeleton` rows while loading, an `EmptyState` with "Pick a repository" + action when none
   is selected, and an inline retry row for `kind: 'network'`.
 
 ### H — Tasks (L)
