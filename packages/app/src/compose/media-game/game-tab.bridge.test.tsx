@@ -35,8 +35,9 @@ type MockGames = {
   console: (event: unknown) => void;
 };
 /** A game's list row — not its `Actions for <name>` menu button beside it, whose name also matches. */
-const findGameRow = (name: string) => screen.findByRole('button', { name: new RegExp(`^(?!Actions for ).*${name}`) });
-const getGameRow = (name: string) => screen.getByRole('button', { name: new RegExp(`^(?!Actions for ).*${name}`) });
+const rowName = (name: string) => new RegExp(`^(?!Actions for ).*${name}`);
+const findGameRow = (name: string) => screen.findByRole('button', { name: rowName(name) });
+const getGameRow = (name: string) => screen.getByRole('button', { name: rowName(name) });
 
 /** A game opens on the Level editor tab (Phase 132 Theme B); the stage, console and crash notice live on Play mode. */
 const openPlayMode = () => fireEvent.click(screen.getByRole('tab', { name: /Play mode/ }));
