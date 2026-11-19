@@ -21,7 +21,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [149 · Midnite game standard, game doctor and game management](FEATURES/phases/phase-149-midnite-game-standard-doctor.md) | 🔄 WIP | — | 47/52 | `█████████░` | 90% | H | — |
 | [148 · Performance widget recovery actions](FEATURES/phases/phase-148-performance-widget-recovery-actions.md) | 🔄 WIP | — | 28/33 | `████████░░` | 85% | — | — |
 | [147 · Unified sessions and chats](FEATURES/phases/phase-147-unified-sessions-and-chats.md) | 🔄 WIP | — | 19/22 | `█████████░` | 86% | — | Verification (gate + 2 human passes) |
-| [146 · Midnite Mobile](FEATURES/phases/phase-146-mobile-app.md) | 🔄 WIP | x1 | 39/88 | `████░░░░░░` | 44% | A (ui-native publish) E (E7 OAuth app) F | G H I J K L |
+| [146 · Midnite Mobile](FEATURES/phases/phase-146-mobile-app.md) | 🔄 WIP | x1 | 45/88 | `█████░░░░░` | 51% | A (ui-native publish) E (E7 OAuth app) | G H I J K L |
 | [2 · macOS permission prompts](ISSUES/phases/phase-2-macos-permission-prompts.md) | 🔄 WIP | x1 | 20/29 | `███████░░░` | 69% | E | — |
 | [145 · Level history, review and polish](phases/phase-145-level-history-polish.md) | ◻ TODO | x1 | 0/31 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
 | [144 · Level lighting, environment and structure](phases/phase-144-level-lighting-environment.md) | ◻ TODO | x1 | 0/28 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
