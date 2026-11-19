@@ -43,6 +43,13 @@ vi.mock('@midnite/studio-frame', async (importOriginal) => ({
   }),
 }));
 
+/** A loop's tab label, read from DEFAULT_LOOPS so a rename (as #1129 did) cannot strand this file. */
+const labelOf = (id: string): string => {
+  const loop = DEFAULT_LOOPS.find((entry) => entry.id === id);
+  if (!loop) throw new Error(`no default loop ${id}`);
+  return loop.label;
+};
+
 const at = (id: string, patch: Partial<LoopStatus>) => {
   const index = DEFAULT_LOOPS.findIndex((loop) => loop.id === id);
   statuses[index] = { ...IDLE, ...patch };
@@ -77,11 +84,11 @@ describe('FabPanel tab buttons styling and states', () => {
     useUiStore.setState({ activeFabTab: 'automate' });
     render(<FabPanel isOpen={true} width={400} />);
 
-    const automateBtn = screen.getByRole('button', { name: 'Create' });
+    const automateBtn = screen.getByRole('button', { name: labelOf('automate') });
     expect(automateBtn.className).toContain('is-selected');
     expect(automateBtn.getAttribute('data-selected')).toBe('true');
 
-    const innovateBtn = screen.getByRole('button', { name: 'Ideate' });
+    const innovateBtn = screen.getByRole('button', { name: labelOf('innovate') });
     expect(innovateBtn.className).not.toContain('is-selected');
     expect(innovateBtn.getAttribute('data-selected')).toBe('false');
   });
@@ -144,7 +151,7 @@ describe('FabPanel "Loop" switch', () => {
     expect((shimmer as HTMLElement).style.background).not.toContain('#22c55e');
 
     // Every tab with no saved value is on, so each is painted.
-    const innovateBtn = screen.getByRole('button', { name: 'Ideate' });
+    const innovateBtn = screen.getByRole('button', { name: labelOf('innovate') });
     expect(innovateBtn.style.backgroundColor).toBe('rgb(var(--fab-spec-3))');
 
     // Switching off clears the colour.
@@ -160,7 +167,7 @@ describe('FabPanel "Loop" switch', () => {
 
     // Guard (active) was switched off.
     expect((screen.getByRole('switch', { name: 'Loop' }) as HTMLInputElement).checked).toBe(false);
-    const automateBtn = screen.getByRole('button', { name: 'Create' });
+    const automateBtn = screen.getByRole('button', { name: labelOf('automate') });
     expect(automateBtn.style.backgroundColor).toBe('rgb(var(--fab-spec-3))');
 
     // Switching to automate reflects ITS state (default on), not guard's.
