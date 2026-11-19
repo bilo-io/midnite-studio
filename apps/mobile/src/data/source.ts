@@ -61,6 +61,13 @@ export interface CommitDetail {
 
 export type MutationOutcome = Result<null>;
 
+// Theme H
+/** What creating an issue answers with: the node id (for `addProjectItem`) and the number (for the detail route). */
+export interface CreatedIssue {
+  id: string;
+  number: number;
+}
+
 export interface MobileDataSource {
   viewer(): Promise<Result<Viewer>>;
 
@@ -86,6 +93,8 @@ export interface MobileDataSource {
   createIssue(repo: RepoRef, title: string, body: string): Promise<MutationOutcome>;
   setIssueState(repo: RepoRef, n: number, state: 'OPEN' | 'CLOSED'): Promise<MutationOutcome>;
   commentIssue(repo: RepoRef, n: number, body: string): Promise<MutationOutcome>;
+  // Theme H
+  createIssueWithId(repo: RepoRef, title: string, body: string): Promise<Result<CreatedIssue>>;
 
   // Pull requests (Reviews)
   listPulls(repo: RepoRef, scope: ForgePullScope, cursor?: string | null): Promise<Result<Page<ForgePull>>>;
