@@ -57,6 +57,10 @@ export interface IssueComment {
 export interface CommitDetail {
   commit: Commit;
   files: FileDiff[];
+  // Theme G
+  /** The full commit message (subject, blank line, body), when the source has it. */
+  message?: string;
+  committerName?: string;
 }
 
 export type MutationOutcome = Result<null>;

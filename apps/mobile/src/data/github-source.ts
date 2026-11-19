@@ -245,7 +245,13 @@ export class GitHubDataSource implements MobileDataSource {
     });
     if (!parsed.success) return fail('error', 'GitHub returned an unexpected response');
     const files = pick(body, 'files');
-    return ok({ commit: parsed.data, files: (Array.isArray(files) ? files : []).map((f) => restFileToDiff(f as RestFile)) });
+    return ok({
+      commit: parsed.data,
+      files: (Array.isArray(files) ? files : []).map((f) => restFileToDiff(f as RestFile)),
+      // Theme G
+      message,
+      committerName: str(pick(pick(commitBody, 'committer'), 'name')) ?? undefined,
+    });
   }
 
   // ---- projects ----------------------------------------------------------------------------------------------
