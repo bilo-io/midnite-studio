@@ -94,6 +94,12 @@ describe('reliefPoint', () => {
     expect(p[0]).toBeCloseTo(60, 0);
     expect(p[1]).toBe(40);
   });
+  it('reaches the ground from a camera that frames a whole region', () => {
+    // 150 km up, looking down a slant: past the 60 km the march used to stop at.
+    const p = reliefPoint([0, 150_000, 0], [-0.6, -0.8, 0], relief)!;
+    expect(p[0] / -112_500).toBeCloseTo(1, 3);
+    expect(p[1]).toBe(0);
+  });
   it('is null from under the ground and for a ray that never comes down', () => {
     expect(reliefPoint([100, 10, 0], [0, -1, 0], relief)).toBeNull();
     expect(reliefPoint([0, 100, 0], [0, 1, 0], relief, 500)).toBeNull();

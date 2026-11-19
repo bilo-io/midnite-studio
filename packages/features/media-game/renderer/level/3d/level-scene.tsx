@@ -58,7 +58,7 @@ const cssColour = (c: string): string => (/^#[0-9a-f]{8}$/i.test(c) ? `#${c.slic
 
 /** What the Volume, Path and Rotate tools are drawing right now, in world metres (Phase 137 Theme G). */
 export type ToolDraft = {
-  /** `flat` is a zone on the ground (the Spawn zone tool) and not a box of the default height. */
+  /** `flat` is a zone outlined on the ground (the Spawn zone tool) and not a box of the default height. */
   volume: { x0: number; z0: number; x1: number; z1: number; flat?: boolean } | null;
   path: ReadonlyArray<readonly [number, number]>;
   aim: { from: readonly [number, number]; to: readonly [number, number] } | null;
@@ -810,8 +810,8 @@ function Selected(props: LevelSceneProps & { item: WorldItem }) {
 }
 
 const DRAFT_COLOUR = '#f59e0b';
-/** A spawn zone's rubber band is a slab on the ground, metres thick. */
-const DRAFT_ZONE_HEIGHT = 0.2;
+/** A spawn zone's rubber band is an outline on the ground, lifted this many metres clear of it. */
+const DRAFT_ZONE_LIFT = 0.4;
 
 /** The tools' rubber bands: a translucent volume box, the path so far with its points, and the rotate aim line. */
 function DraftView({ draft, heightAt }: { draft: ToolDraft; heightAt: (x: number, z: number) => number }) {
@@ -820,17 +820,19 @@ function DraftView({ draft, heightAt }: { draft: ToolDraft; heightAt: (x: number
     const seg = (a: readonly [number, number], b: readonly [number, number], lift: number) => pts.push(a[0], heightAt(a[0], a[1]) + lift, a[1], b[0], heightAt(b[0], b[1]) + lift, b[1]);
     for (let i = 1; i < draft.path.length; i++) seg(draft.path[i - 1]!, draft.path[i]!, 0.08);
     if (draft.aim) seg(draft.aim.from, draft.aim.to, 0.1);
+    // A zone is as large as a district: its edge follows the slopes, where a slab would sink into them.
+    const z = draft.volume?.flat ? draft.volume : null;
+    if (z) for (const n of drapedRuns([[z.x0, z.z0, z.x1, z.z0, z.x1, z.z1, z.x0, z.z1]], heightAt, DRAFT_ZONE_LIFT, Math.max(1, Math.max(Math.abs(z.x1 - z.x0), Math.abs(z.z1 - z.z0)) / 48), true)) pts.push(n);
     const g = new BufferGeometry();
     g.setAttribute('position', new Float32BufferAttribute(pts, 3));
     return g;
-  }, [draft.path, draft.aim, heightAt]);
+  }, [draft.path, draft.aim, draft.volume, heightAt]);
   useEffect(() => () => lines.dispose(), [lines]);
-  const v = draft.volume;
-  const tall = v?.flat ? DRAFT_ZONE_HEIGHT : DEFAULT_SIZE_Y;
+  const v = draft.volume?.flat ? null : draft.volume;
   return (
     <>
       {v ? (
-        <mesh position={[(v.x0 + v.x1) / 2, heightAt((v.x0 + v.x1) / 2, (v.z0 + v.z1) / 2) + tall / 2, (v.z0 + v.z1) / 2]} scale={[Math.max(Math.abs(v.x1 - v.x0), 0.01), tall, Math.max(Math.abs(v.z1 - v.z0), 0.01)]}>
+        <mesh position={[(v.x0 + v.x1) / 2, heightAt((v.x0 + v.x1) / 2, (v.z0 + v.z1) / 2) + DEFAULT_SIZE_Y / 2, (v.z0 + v.z1) / 2]} scale={[Math.max(Math.abs(v.x1 - v.x0), 0.01), DEFAULT_SIZE_Y, Math.max(Math.abs(v.z1 - v.z0), 0.01)]}>
           <boxGeometry />
           <meshBasicMaterial color={DRAFT_COLOUR} transparent opacity={0.25} depthWrite={false} />
         </mesh>

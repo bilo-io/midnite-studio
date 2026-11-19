@@ -81,11 +81,15 @@ export function liftItems<T extends Pick<WorldItem, 'position' | 'grounded'>>(it
   return items.map((it) => (it.grounded ? { ...it, position: [it.position[0], relief.heightAt(it.position[0], it.position[2]), it.position[2]] as V3 } : it));
 }
 
+/** How far a pointer ray is marched for the ground, metres. */
+export const RELIEF_RAY_FAR = 1_000_000;
+
 /**
  * Where a ray first meets the relief: marched in steps that grow with distance, then narrowed by bisection.
- * `null` when it starts under the ground, or never comes down within `far` metres.
+ * `null` when it starts under the ground, or never comes down within `far` metres. The default reaches past a camera
+ * that frames a whole region (GTACT's level is 64 km long); the growing step keeps that to about a thousand samples.
  */
-export function reliefPoint(origin: V3, dir: V3, relief: Pick<Relief, 'heightAt'>, far = 60000): V3 | null {
+export function reliefPoint(origin: V3, dir: V3, relief: Pick<Relief, 'heightAt'>, far = RELIEF_RAY_FAR): V3 | null {
   const above = (t: number): number => origin[1] + dir[1] * t - relief.heightAt(origin[0] + dir[0] * t, origin[2] + dir[2] * t);
   if (above(0) < 0) return null;
   let prev = 0, t = 0;
