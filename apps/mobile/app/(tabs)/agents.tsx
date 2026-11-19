@@ -1,6 +1,5 @@
-import { TabPlaceholder } from '../../src/shell/tab-placeholder';
-import { ICONS } from '../../src/ui/icons';
+import { AgentsScreen } from '../../src/agents/agents-screen';
 
-export default function AgentsScreen() {
-  return <TabPlaceholder title="Agents" icon={ICONS.agents} />;
+export default function AgentsRoute() {
+  return <AgentsScreen />;
 }

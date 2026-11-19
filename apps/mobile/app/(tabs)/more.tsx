@@ -1,6 +1,5 @@
-import { TabPlaceholder } from '../../src/shell/tab-placeholder';
-import { ICONS } from '../../src/ui/icons';
+import { MoreScreen } from '../../src/more/more-screen';
 
-export default function MoreScreen() {
-  return <TabPlaceholder title="More" icon={ICONS.more} />;
+export default function MoreRoute() {
+  return <MoreScreen />;
 }
