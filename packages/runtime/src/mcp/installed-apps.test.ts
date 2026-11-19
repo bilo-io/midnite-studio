@@ -3,10 +3,14 @@ import { describe, expect, it } from 'vitest';
 
 import { createMcpToolListing, installedAppsFromIds, studioInstalledApps } from './installed-apps';
 
+/** Startup serves its `startup_*` tools from its own socket (Phase 153 Theme C), so Studio's list leaves them out. */
+const STUDIO_TOOL_IDS = MCP_TOOL_IDS.filter((id) => !id.startsWith('startup_'));
+
 describe('createMcpToolListing', () => {
-  it("Studio's injected source lists every tool, unchanged", () => {
+  it("Studio's injected source lists every tool but Startup's, unchanged", () => {
     const listing = createMcpToolListing({ installed: studioInstalledApps });
-    expect(listing.list()).toEqual([...MCP_TOOL_IDS]);
+    expect(listing.list()).toEqual(STUDIO_TOOL_IDS);
+    expect(listing.isListed('startup_summary')).toBe(false);
   });
 
   it('two installed sets give two lists, and an unlisted tool is not served', () => {

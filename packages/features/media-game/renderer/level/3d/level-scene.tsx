@@ -32,11 +32,11 @@ import {
   type Texture,
 } from 'three';
 
-import type { GameLevelTerrainDetail, LevelViewCamera } from '@midnite/studio-shared';
+import { SPAWNER_TYPE, type GameLevelTerrainDetail, type LevelViewCamera } from '@midnite/studio-shared';
 import { captureScene, type CapturedPixels } from './level-capture';
 import { blendPose, cameraPosition, dollyOffset, poseFromCamera, TRANSITION_MS, type CameraPose } from './camera-transition';
 import { cull, groundTiles, itemRadius, tileInReach, type GroundTile, type ViewStats } from './level-cull';
-import { detailSegments, gridUnit, reachFor, tileSizeFor } from './level-big';
+import { detailSegments, gridUnit, packTiles, reachFor, tileSizeFor } from './level-big';
 import { drapedGrid, drapedRuns, type Relief } from './level-relief';
 import { buildingsGeometry, lineObject, patchGeometry, tileGeometry } from './level-relief-mesh';
 import { farPlane, fogRange, hazeRange, viewOffset } from './level-lod';
@@ -51,14 +51,15 @@ import type { OptimisationPreset } from './optimisation';
 import type { SpatialGrid } from './spatial-grid';
 
 export const SCENE_BACKGROUND = '#1d1f24';
-const TYPE_COLOURS: Record<string, string> = { spawn: '#22c55e', exit: '#3b82f6', light: '#facc15', prop: '#9aa3b2', collider: '#f97316', trigger: '#a855f7', path: '#38bdf8' };
+const TYPE_COLOURS: Record<string, string> = { spawn: '#22c55e', exit: '#3b82f6', light: '#facc15', prop: '#9aa3b2', collider: '#f97316', trigger: '#a855f7', path: '#38bdf8', spawner: '#a3e635' };
 const colourOf = (type: string): string => TYPE_COLOURS[type] ?? '#c084fc';
 /** Tiled writes `#aarrggbb`; three reads `#rrggbb`. */
 const cssColour = (c: string): string => (/^#[0-9a-f]{8}$/i.test(c) ? `#${c.slice(3)}` : c);
 
 /** What the Volume, Path and Rotate tools are drawing right now, in world metres (Phase 137 Theme G). */
 export type ToolDraft = {
-  volume: { x0: number; z0: number; x1: number; z1: number } | null;
+  /** `flat` is a zone outlined on the ground (the Spawn zone tool) and not a box of the default height. */
+  volume: { x0: number; z0: number; x1: number; z1: number; flat?: boolean } | null;
   path: ReadonlyArray<readonly [number, number]>;
   aim: { from: readonly [number, number]; to: readonly [number, number] } | null;
 };
@@ -70,6 +71,10 @@ export type LevelSceneProps = {
   items: readonly WorldItem[];
   grid: SpatialGrid;
   bounds: GroundTile;
+  /** All the ground: `bounds` and every further pack. Defaults to `bounds`. */
+  extent?: GroundTile;
+  /** Further terrain packs round `bounds`, each with its drape; an earlier one lies over a later one, and `bounds` over them all. */
+  packs?: ReadonlyArray<GroundTile & { drape: string | null }>;
   ground: number;
   drape: string | null;
   /** The area the grid covers: the work, when the ground dwarfs it. */
@@ -259,7 +264,8 @@ export function LevelScene(props: LevelSceneProps) {
   const relief = props.relief;
   const heightAt = useMemo(() => (relief ? relief.heightAt : () => props.ground), [relief, props.ground]);
   // The ground's diagonal when it has real heights (all of it is then drawn, hazed with distance), else 0.
-  const terrainSpan = relief ? Math.hypot(props.bounds.maxX - props.bounds.minX, props.bounds.maxZ - props.bounds.minZ) : 0;
+  const all = props.extent ?? props.bounds;
+  const terrainSpan = relief ? Math.hypot(all.maxX - all.minX, all.maxZ - all.minZ) : 0;
   /** The extent the fine patch covers: the terrain detail's, when it has a picture to wear. */
   const finePatch = useMemo<GroundTile | null>(() => {
     const d = props.detail;
@@ -281,6 +287,38 @@ export function LevelScene(props: LevelSceneProps) {
     return list.map((tile) => ({ tile, geometry: tileGeometry(tile, props.bounds, heightAt, preset.terrainSegments, hole) }));
   }, [props.bounds, heightAt, relief, finePatch, preset.terrainTile, preset.terrainSegments]);
   useEffect(() => () => tiles.forEach((t) => t.geometry.dispose()), [tiles]);
+  // The further packs' ground, each under its own drape. Where the terrain or an earlier pack lies over one, its
+  // vertices sink out of the way, so two grounds never share a surface.
+  const packGround = useMemo(() => {
+    const packs = props.packs ?? [];
+    const floor = (relief ? relief.min : props.ground) - 20;
+    const out: Array<{ tile: GroundTile; geometry: BufferGeometry; material: MeshStandardMaterial }> = [];
+    const textures: Texture[] = [], materials: MeshStandardMaterial[] = [];
+    packs.forEach((pack, i) => {
+      const above = [props.bounds, ...packs.slice(0, i)];
+      let map: Texture | null = null;
+      if (pack.drape) {
+        map = new TextureLoader().load(pack.drape, () => invalidate());
+        map.colorSpace = SRGBColorSpace;
+        textures.push(map);
+      }
+      const material = new MeshStandardMaterial({ color: map ? '#ffffff' : '#2b3038', map, roughness: 1 });
+      materials.push(material);
+      // The fine patch over the view sinks this ground too, wherever it lies.
+      const holes = [...above, ...(relief && finePatch ? [finePatch] : [])].map((a) => ({ ...a, floor }));
+      for (const tile of packTiles(pack, preset.terrainTile, above)) out.push({ tile, material, geometry: tileGeometry(tile, pack, heightAt, Math.min(preset.terrainSegments, 16), holes) });
+    });
+    return { tiles: out, textures, materials };
+  }, [props.packs, props.bounds, props.ground, heightAt, relief, finePatch, preset.terrainTile, preset.terrainSegments, invalidate]);
+  useEffect(
+    () => () => {
+      packGround.tiles.forEach((t) => t.geometry.dispose());
+      packGround.textures.forEach((t) => t.dispose());
+      packGround.materials.forEach((m) => m.dispose());
+    },
+    [packGround],
+  );
+  const packTilesGroup = useRef<Group>(null);
   const grids = useMemo(() => {
     // Over the focus (the work, on a terrain that dwarfs it), in a unit that suits its size: 1 m, 10 m or 100 m
     // fine lines with every tenth bold. A 10 m grid over 10 km was a thousand lines a side, and aliased to noise.
@@ -547,6 +585,10 @@ export function LevelScene(props: LevelSceneProps) {
         const tile = tiles[i]?.tile;
         child.visible = tile ? terrainSpan > 0 || tileInReach(tile, focus, reach) : false;
       });
+      packTilesGroup.current?.children.forEach((child, i) => {
+        const tile = packGround.tiles[i]?.tile;
+        child.visible = tile ? terrainSpan > 0 || tileInReach(tile, focus, reach) : false;
+      });
       if (grids.length > 1) grids[0]!.visible = distance - offset < fineGridReach;
       sun.position.set(target.x + 40, target.y + 80, target.z + 30);
       sun.target.position.copy(target);
@@ -619,6 +661,11 @@ export function LevelScene(props: LevelSceneProps) {
             onPointerMove={groundMove}
             onClick={groundClick}
           />
+        ))}
+      </group>
+      <group ref={packTilesGroup}>
+        {packGround.tiles.map(({ geometry, material }, i) => (
+          <mesh key={i} geometry={geometry} material={material} receiveShadow onPointerMove={groundMove} onClick={groundClick} />
         ))}
       </group>
       {detailPlane && relief ? (
@@ -763,6 +810,8 @@ function Selected(props: LevelSceneProps & { item: WorldItem }) {
 }
 
 const DRAFT_COLOUR = '#f59e0b';
+/** A spawn zone's rubber band is an outline on the ground, lifted this many metres clear of it. */
+const DRAFT_ZONE_LIFT = 0.4;
 
 /** The tools' rubber bands: a translucent volume box, the path so far with its points, and the rotate aim line. */
 function DraftView({ draft, heightAt }: { draft: ToolDraft; heightAt: (x: number, z: number) => number }) {
@@ -771,12 +820,15 @@ function DraftView({ draft, heightAt }: { draft: ToolDraft; heightAt: (x: number
     const seg = (a: readonly [number, number], b: readonly [number, number], lift: number) => pts.push(a[0], heightAt(a[0], a[1]) + lift, a[1], b[0], heightAt(b[0], b[1]) + lift, b[1]);
     for (let i = 1; i < draft.path.length; i++) seg(draft.path[i - 1]!, draft.path[i]!, 0.08);
     if (draft.aim) seg(draft.aim.from, draft.aim.to, 0.1);
+    // A zone is as large as a district: its edge follows the slopes, where a slab would sink into them.
+    const z = draft.volume?.flat ? draft.volume : null;
+    if (z) for (const n of drapedRuns([[z.x0, z.z0, z.x1, z.z0, z.x1, z.z1, z.x0, z.z1]], heightAt, DRAFT_ZONE_LIFT, Math.max(1, Math.max(Math.abs(z.x1 - z.x0), Math.abs(z.z1 - z.z0)) / 48), true)) pts.push(n);
     const g = new BufferGeometry();
     g.setAttribute('position', new Float32BufferAttribute(pts, 3));
     return g;
-  }, [draft.path, draft.aim, heightAt]);
+  }, [draft.path, draft.aim, draft.volume, heightAt]);
   useEffect(() => () => lines.dispose(), [lines]);
-  const v = draft.volume;
+  const v = draft.volume?.flat ? null : draft.volume;
   return (
     <>
       {v ? (
@@ -805,9 +857,10 @@ function ItemVisual({ item, cache }: { item: WorldItem; cache: ModelCache<Object
   return model ? (
     <primitive object={model} scale={item.scale} />
   ) : (
-    <mesh position={[0, item.size[1] / 2, 0]} scale={[Math.max(item.size[0], 0.01), Math.max(item.size[1], 0.01), Math.max(item.size[2], 0.01)]} castShadow>
+    <mesh position={[0, item.size[1] / 2, 0]} scale={[Math.max(item.size[0], 0.01), Math.max(item.size[1], 0.01), Math.max(item.size[2], 0.01)]} castShadow={item.type !== SPAWNER_TYPE}>
       <boxGeometry />
-      <meshStandardMaterial color={colourOf(item.type)} roughness={0.8} />
+      {/* A selected zone stays see-through: it covers a district, and the ground under it is what is being edited. */}
+      {item.type === SPAWNER_TYPE ? <meshBasicMaterial color={colourOf(item.type)} transparent opacity={0.18} depthWrite={false} /> : <meshStandardMaterial color={colourOf(item.type)} roughness={0.8} />}
       <Edges color="#f5a524" />
     </mesh>
   );

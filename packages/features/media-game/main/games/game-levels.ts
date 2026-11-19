@@ -20,6 +20,7 @@ import {
   type GameLevelGetResult,
   type GameLevelMapAssetResult,
   type GameLevelAssetThumbResult,
+  type GameLevelTerrainDetailResult,
   type GameLevelModelResult,
   type GameLevelSetResult,
   type GameLevelsResult,
@@ -30,7 +31,7 @@ import {
 } from '@midnite/studio-shared';
 import { confineToRoot, joinWithin } from '@midnite/studio-runtime';
 
-import { readLevelTerrain } from './game-level-terrain';
+import { readLevelTerrain, readLevelTerrainDetail } from './game-level-terrain';
 import type { GameRunner } from './game-runner';
 import type { Logger } from './logger';
 
@@ -297,6 +298,21 @@ export function createGameLevels(deps: GameLevelsDeps) {
     }
   }
 
+  /** The terrain detail under `area` for the level file of `scene` (`readLevelTerrainDetail`): `detail` is `null` when there is none to show. */
+  async function terrainDetail(gameId: string, scene: string, area: { minX: number; minZ: number; maxX: number; maxZ: number }): Promise<GitOpResult<GameLevelTerrainDetailResult>> {
+    const game = await deps.resolve(gameId);
+    if (!game) return failure('That game was not found.');
+    const located = await levelPath(game, scene);
+    if (!located.ok) return located;
+    try {
+      const parsed = parseGameLevel(JSON.parse(await readFile(located.value, 'utf8')));
+      if (!parsed.ok || parsed.dimension !== '3d') return ok({ detail: null });
+      return ok({ detail: await readLevelTerrainDetail(game.path, parsed.level, area) });
+    } catch {
+      return ok({ detail: null });
+    }
+  }
+
   /**
    * A thumbnail source for an `image`, `sprite`, `tileset` or `background` asset (Phase 139 Theme A): the asset's
    * image file as a data URL plus its manifest sha. A folder asset resolves through the `image` its atlas/tileset
@@ -350,7 +366,7 @@ export function createGameLevels(deps: GameLevelsDeps) {
     return entries.find((f) => THUMB_TYPES[extname(f).toLowerCase()]) ?? null;
   }
 
-  return { list: levels, get: levelGet, set: levelSet, mapAsset, goto, model: levelModel, assetThumb };
+  return { list: levels, get: levelGet, set: levelSet, mapAsset, goto, model: levelModel, assetThumb, terrainDetail };
 }
 
 export type GameLevels = ReturnType<typeof createGameLevels>;

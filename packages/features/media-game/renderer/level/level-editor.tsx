@@ -16,6 +16,7 @@ import {
   LuRoute,
   LuSave,
   LuBox,
+  LuSquareDashed,
   LuSquare,
   LuTrash2,
   LuTriangleAlert,
@@ -25,7 +26,7 @@ import {
 } from 'react-icons/lu';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { GAME_LEVEL_ENTITY_TYPES_2D, GAME_LEVEL_ENTITY_TYPES_3D, SCATTER_STROKE_CAP, levelEntityToWorld, levelOrigin, levelProperties, metresPerTile, type GameLevelGetResult, type GamePrefab } from '@midnite/studio-shared';
+import { GAME_LEVEL_ENTITY_TYPES_2D, GAME_LEVEL_ENTITY_TYPES_3D, SCATTER_STROKE_CAP, SPAWNER_DEFAULT_DENSITY, SPAWNER_KINDS, SPAWNER_TYPE, levelEntityToWorld, levelOrigin, levelProperties, metresPerTile, type GameLevelGetResult, type GamePrefab } from '@midnite/studio-shared';
 import { EmptyState, EmptyStateButton, KitContextMenu, Skeleton, useFrameChrome, type FrameMenuEntry } from '@midnite/studio-frame';
 
 import { IconButton, useNotify } from '../chrome';
@@ -99,6 +100,11 @@ import {
   setOptionalText,
   setProperty,
   setVolume,
+  addSpawner,
+  drawSpawner,
+  setLevelTimeOfDay,
+  setLevelTimeScale,
+  setLevelWeather,
   toggleSelected,
   addSelected,
   undo,
@@ -121,6 +127,8 @@ import { planSnapStep } from './level-snap';
 import { LevelShortcutHelp } from './level-shortcut-help';
 import { DEFAULT_SCATTER, eraseDab, newSeed, scatterDab, type DabResult, type ScatterSettings } from './level-scatter';
 import { ScatterPanel, sourceFromPayload } from './scatter-panel';
+import { LevelEnvironmentPopover } from './level-environment-popover';
+import { planViewArea, useViewTerrainDetail } from './level-view-detail';
 import { LevelViewPopover } from './level-view-popover';
 import { levelExtras } from './live/level-extras-model';
 import { LiveChip } from './live/live-chip';
@@ -152,7 +160,7 @@ export function useAssetBrowserTabs({ gameId, is3d, onDeletePrefab }: { gameId: 
   );
 }
 
-export type LevelTool = 'paint' | 'erase' | 'rect' | 'pick' | 'entity' | 'select' | 'volume' | 'path' | 'rotate' | 'scatter';
+export type LevelTool = 'paint' | 'erase' | 'rect' | 'pick' | 'entity' | 'select' | 'volume' | 'spawner' | 'path' | 'rotate' | 'scatter';
 
 const TOOLS: readonly { tool: LevelTool; label: string; key: string; icon: typeof LuPaintbrush }[] = [
   { tool: 'paint', label: 'Paint', key: 'b', icon: LuPaintbrush },
@@ -164,11 +172,12 @@ const TOOLS: readonly { tool: LevelTool; label: string; key: string; icon: typeo
   { tool: 'scatter', label: 'Scatter', key: 's', icon: LuSprout },
 ];
 
-/** A 3D level's tools (Theme E): the same V and O as 2D, plus a volume, a path and a yaw drag. */
+/** A 3D level's tools (Theme E): the same V and O as 2D, plus a volume, a spawn zone, a path and a yaw drag. */
 const TOOLS_3D: readonly { tool: LevelTool; label: string; key: string; icon: typeof LuPaintbrush }[] = [
   { tool: 'select', label: 'Select / Move', key: 'v', icon: LuMousePointer2 },
   { tool: 'entity', label: 'Place', key: 'o', icon: LuMapPin },
   { tool: 'volume', label: 'Volume', key: 'r', icon: LuBox },
+  { tool: 'spawner', label: 'Spawn zone', key: 'n', icon: LuSquareDashed },
   { tool: 'path', label: 'Path', key: 'p', icon: LuRoute },
   { tool: 'rotate', label: 'Rotate', key: 'y', icon: LuRotateCw },
   { tool: 'scatter', label: 'Scatter', key: 's', icon: LuSprout },
@@ -319,9 +328,11 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
   const [gid, setGid] = useState(1);
   const [entityType, setEntityType] = useState<string>('spawn');
   const [custom, setCustom] = useState('');
+  /** What the Spawn zone tool's next zone spawns. */
+  const [spawnerKind, setSpawnerKind] = useState<string>(SPAWNER_KINDS[0]);
   const [preview, setPreview] = useState<Cell[] | null>(null);
   const drag = useRef<{ from: Cell; last: Cell } | null>(null);
-  const planDrag = useRef<{ kind: 'rotate'; sel: NonNullable<typeof edit.selection>; centre: PlanPoint } | { kind: 'volume'; from: PlanPoint } | null>(null);
+  const planDrag = useRef<{ kind: 'rotate'; sel: NonNullable<typeof edit.selection>; centre: PlanPoint } | { kind: 'volume' | 'spawner'; from: PlanPoint } | null>(null);
   // The Select tool's gesture (Phase 137 Theme C): a group drag of the selection, or a marquee from empty ground.
   const selectDrag = useRef<
     | { kind: 'group'; refs: readonly ObjectRef[]; start: PlanPoint; grab: PlanPoint; applied: PlanPoint }
@@ -365,7 +376,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
   const navPolygons = useNavMesh(gameId, overlays.nav && gameRunning, runId, (message) => notify(message, { danger: true }));
   // A new run is a new page that knows nothing of the switches: hand it the ones that are on.
   useEffect(() => {
-    if (gameRunning && (overlays.colliders || overlays.triggers || overlays.nav)) pushDebug(gameId, overlays);
+    if (gameRunning && (overlays.colliders || overlays.triggers || overlays.nav)) pushDebug(gameId, { colliders: overlays.colliders, triggers: overlays.triggers, nav: overlays.nav });
     // Only a new run needs the full set; a toggle pushes its own switch below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameRunning, runId]);
@@ -396,6 +407,12 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
   const planViewOut = useRef<{ view: View; size: { width: number; height: number } } | null>(null);
   const handle3d = useRef<Level3dHandle | null>(null);
   const planScale = { tilewidth: level.tilewidth, tileheight: level.tileheight, mpt: metresPerTile(level), originX: levelOrigin(level).x, originZ: levelOrigin(level).z };
+  /** The terrain with the detail under the view, for a level too large to carry one (`level-view-detail.ts`). */
+  const viewTerrain = useViewTerrainDetail(gameId, entry.scene, entry.terrain, () => {
+    if (levelViewMode(useLevelViewStore.getState(), gameId) === '3d') return handle3d.current?.viewArea?.() ?? null;
+    const plan = planViewOut.current;
+    return plan ? planViewArea(plan.view, plan.size, planScale) : null;
+  });
   const switchView = (next: LevelViewMode) => {
     if (next === viewMode || !can3d) return;
     useLevelViewStore.getState().setMode(gameId, next);
@@ -578,6 +595,9 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
   const tileLayerId = activeLayer?.type === 'tilelayer' ? activeLayer.id! : null;
   const selected = findObject(level, edit.selection);
   const entityName = entityType === CUSTOM ? custom.trim() : entityType;
+  /** A spawner is a zone, so it lands as a rectangle with its two properties; every other entity is a point. */
+  const placeEntity = (s: EditState, layerId: number, type: string, at: PlanPoint): EditState =>
+    type === SPAWNER_TYPE ? addSpawner(setActiveLayer(s, layerId), layerId, at) : addObject(setActiveLayer(s, layerId), layerId, { type, x: at.x, y: at.y });
 
   const tilesets = level.tilesets;
   const tiles = useMemo(() => paletteTiles({ tilesets }), [tilesets]);
@@ -787,10 +807,10 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
         update((s) => beginStroke(select(s, sel)));
       } else if (tool === 'entity') {
         if (objectLayerId === null || !entityName) return;
-        update((s) => addObject(setActiveLayer(s, objectLayerId), objectLayerId, { type: entityName, x: at.x, y: at.y }));
-      } else if (tool === 'volume') {
+        update((s) => placeEntity(s, objectLayerId, entityName, at));
+      } else if (tool === 'volume' || tool === 'spawner') {
         if (objectLayerId === null) return;
-        planDrag.current = { kind: 'volume', from: at };
+        planDrag.current = { kind: tool, from: at };
         setVolumeDrag({ from: at, to: at });
       } else if (tool === 'path') {
         if (objectLayerId === null) return;
@@ -805,10 +825,11 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
       const d = planDrag.current;
       planDrag.current = null;
       if (!d) return;
-      if (d.kind === 'volume') {
+      if (d.kind === 'rotate') update(endStroke);
+      else {
         setVolumeDrag(null);
-        if (objectLayerId !== null) update((s) => setVolume(s, objectLayerId, d.from, at));
-      } else update(endStroke);
+        if (objectLayerId !== null) update((s) => (d.kind === 'spawner' ? drawSpawner(s, objectLayerId, d.from, at, spawnerKind) : setVolume(s, objectLayerId, d.from, at)));
+      }
     }
   };
 
@@ -848,7 +869,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
       } else if (tool === 'entity') {
         if (objectLayerId === null || !entityName) return;
         const at = snap(e);
-        update((s) => addObject(setActiveLayer(s, objectLayerId), objectLayerId, { type: entityName, x: at.x, y: at.y }));
+        update((s) => placeEntity(s, objectLayerId, entityName, at));
       }
     } else if (e.phase === 'move') {
       const d = drag.current;
@@ -1073,6 +1094,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
       case 'tool.rect':
       case 'tool.pick':
       case 'tool.volume':
+      case 'tool.spawner':
       case 'tool.path':
       case 'tool.rotate':
       case 'tool.scatter':
@@ -1141,9 +1163,10 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
           </div>
         ) : null}
         {is3d ? <LevelSnapPopover snap={snapSettings} onChange={setSnapSettings} is3d={in3d} /> : null}
+        <LevelEnvironmentPopover level={level} readOnly={readOnly} onWeather={(raw) => update((s) => setLevelWeather(s, raw))} onTimeOfDay={(raw) => update((s) => setLevelTimeOfDay(s, raw))} onTimeScale={(raw) => update((s) => setLevelTimeScale(s, raw))} />
         <LevelViewPopover overlays={overlays} onChange={(key, on) => {
           useLevelViewStore.getState().setOverlay(key, on);
-          if (gameRunning) pushDebug(gameId, { [key]: on });
+          if (gameRunning && key !== 'spawners') pushDebug(gameId, { [key]: on });
         }} navNeedsGame={!gameRunning} />
         <IconButton
           icon={LuRadio}
@@ -1246,7 +1269,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
             onContextMenu={(e) => void openLevelMenu(e, e.hit ? { kind: 'object', ref: e.hit } : { kind: 'empty', at: e.object }, e.object)}
             hoverEnabled={!readOnly && !is3d && tool !== 'select' && tool !== 'scatter'}
             brush={!readOnly && tool === 'scatter' ? { radius: scatter.radius } : undefined}
-            plan={is3d && !planBroken ? { terrain: entry.terrain, draft, volume: volumeDrag } : undefined}
+            plan={is3d && !planBroken ? { terrain: viewTerrain, draft, volume: volumeDrag } : undefined}
             extras={extras.canvas}
             preview={preview}
             onPointer={onPointer}
@@ -1256,7 +1279,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
             assetDrop={assetDrop}
             label={
               is3d
-                ? 'Level plan view, seen from above. Tools: V select and move, O place, R volume, P path (Enter finishes), Y rotate (Shift snaps to 15 degrees).'
+                ? 'Level plan view, seen from above. Tools: V select and move, O place, R volume, N spawn zone, P path (Enter finishes), Y rotate (Shift snaps to 15 degrees).'
                 : `Level canvas, ${level.width} × ${level.height} tiles. Tools: B paint, E erase, R rectangle, I pick, O entity, V select.`
             }
           />
@@ -1267,12 +1290,13 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
                   key={enterKey}
                   gameId={gameId}
                   level={level}
-                  terrain={entry.terrain}
+                  terrain={viewTerrain}
                   selection={edit.selection}
                   selected={edit.selected}
                   readOnly={readOnly}
                   tool={tool}
                   entityName={entityName}
+                  spawnerKind={spawnerKind}
                   objectLayerId={objectLayerId}
                   pathDraft={draft}
                   extras={extras.scene}
@@ -1304,6 +1328,17 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
                 </button>
               ))}
               {entityType === CUSTOM ? <input aria-label="Custom entity type" value={custom} onChange={(e) => setCustom(e.target.value)} className="mt-1 w-full rounded border border-border bg-background px-1.5 py-0.5" /> : null}
+            </div>
+          ) : is3d && tool === 'spawner' ? (
+            <div className="flex flex-col gap-2">
+              <div role="radiogroup" aria-label="Zone spawns" className="flex flex-wrap gap-1">
+                {SPAWNER_KINDS.map((k) => (
+                  <button key={k} type="button" role="radio" aria-checked={spawnerKind === k} disabled={readOnly} onClick={() => setSpawnerKind(k)} className={`rounded border px-1.5 py-0.5 disabled:opacity-40 ${spawnerKind === k ? 'border-primary text-foreground' : 'border-border text-muted-foreground'}`}>
+                    {k}
+                  </button>
+                ))}
+              </div>
+              <PlanHint tool={tool} drafting={draft.length} />
             </div>
           ) : is3d ? (
             <PlanHint tool={tool} drafting={draft.length} />
@@ -1448,9 +1483,10 @@ function Inspector({
           <IconButton icon={LuRadio} label="Copy live position" size="sm" disabled={readOnly} onClick={onCopyLive} data-testid="inspector-copy-live" />
         </div>
       ) : null}
+      {(object.type || object.class) === SPAWNER_TYPE ? <SpawnerFields object={object} readOnly={readOnly} onProperty={onProperty} onRemove={onRemove} /> : null}
       {plan ? <PlanFields object={object} readOnly={readOnly} plan={plan} /> : null}
       <ul aria-label="Custom properties" className="flex flex-col gap-0.5">
-        {properties.filter((p) => !plan || !MANAGED_3D.includes(p.name)).map((p) => (
+        {properties.filter((p) => (!plan || !MANAGED_3D.includes(p.name)) && !((object.type || object.class) === SPAWNER_TYPE && (p.name === 'spawns' || p.name === 'density'))).map((p) => (
           <li key={p.name} className="flex items-center gap-1">
             <span className="min-w-0 flex-1 truncate" title={`${p.name} (${p.type})`}>{p.name}: {String(p.value)}</span>
             <button type="button" aria-label={`Remove property ${p.name}`} disabled={readOnly} onClick={() => onRemove(p.name)} className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-40">
@@ -1497,10 +1533,39 @@ type PlanInspector = {
   onText: (name: string, raw: string) => void;
 };
 
+/** A spawner's own fields, in both dimensions: what it spawns (suggestions, any kind allowed) and how densely. Empty clears the property. */
+function SpawnerFields({ object, readOnly, onProperty, onRemove }: { object: LevelObject; readOnly: boolean; onProperty: (name: string, type: 'string' | 'int' | 'float' | 'bool', value: string | number | boolean) => void; onRemove: (name: string) => void }) {
+  const props = levelProperties(object);
+  const spawns = typeof props.spawns === 'string' ? props.spawns : '';
+  const density = typeof props.density === 'number' ? String(props.density) : '';
+  const stop = (e: { key: string; currentTarget: HTMLInputElement; stopPropagation: () => void }) => {
+    if (e.key === 'Enter') e.currentTarget.blur();
+    e.stopPropagation();
+  };
+  return (
+    <div className="flex flex-col gap-1.5" data-testid="spawner-fields">
+      <label key={`${object.id}-spawns-${spawns}`} className="flex items-center gap-1.5">
+        <span className="w-14 shrink-0 text-muted-foreground">Spawns</span>
+        <input aria-label="Spawns" list="spawner-kinds" placeholder={SPAWNER_KINDS[0]} defaultValue={spawns} disabled={readOnly} className="min-w-0 flex-1 rounded border border-border bg-background px-1.5 py-0.5" onKeyDown={stop} onBlur={(e) => (e.target.value.trim() === '' ? onRemove('spawns') : onProperty('spawns', 'string', e.target.value.trim()))} />
+        <datalist id="spawner-kinds">
+          {SPAWNER_KINDS.map((k) => (
+            <option key={k} value={k} />
+          ))}
+        </datalist>
+      </label>
+      <label key={`${object.id}-density-${density}`} className="flex items-center gap-1.5">
+        <span className="w-14 shrink-0 text-muted-foreground">Density</span>
+        <input aria-label="Density" type="number" step="0.25" min={0} placeholder={String(SPAWNER_DEFAULT_DENSITY)} defaultValue={density} disabled={readOnly} className="min-w-0 flex-1 rounded border border-border bg-background px-1.5 py-0.5" onKeyDown={stop} onBlur={(e) => (e.target.value.trim() === '' ? onRemove('density') : onProperty('density', 'float', Math.max(0, Number(e.target.value))))} />
+      </label>
+    </div>
+  );
+}
+
 function PlanHint({ tool, drafting }: { tool: LevelTool; drafting: number }) {
   const text: Partial<Record<LevelTool, string>> = {
     select: 'Click an object to select it; drag to move it (half-metre snap, Alt for free).',
     volume: 'Drag a rectangle to make a box prop, 3 m tall by default.',
+    spawner: 'Drag a rectangle over the ground to make a spawn zone. Set its density in the inspector.',
     path: drafting > 0 ? `${drafting} point${drafting === 1 ? '' : 's'}. Enter finishes, Backspace removes the last, Escape cancels.` : 'Click points along the route; Enter finishes the path.',
     rotate: 'Drag around an object to turn it. Shift snaps to 15 degrees.',
   };

@@ -4,7 +4,7 @@
  * is the only scale. What a world position means is `levelEntityToWorld`'s business; nothing here re-derives it
  * except {@link objectCentre}'s rotation rule, which `level-plan.test.ts` pins to it.
  */
-import { levelOrigin, levelWorldToPixels, metresPerTile, type GameLevelTerrain } from '@midnite/studio-shared';
+import { levelOrigin, levelWorldToPixels, metresPerTile, terrainExtent, type GameLevelTerrain } from '@midnite/studio-shared';
 
 import { objectCentre, type EditLevel, type EditSelection, type LevelObject, type PlanPoint } from './level-edit-model';
 
@@ -39,6 +39,9 @@ export function terrainRect(level: Pick<EditLevel, 'properties' | 'tilewidth' | 
   const a = metresToPlan(level, terrain.minX, terrain.minZ), b = metresToPlan(level, terrain.maxX, terrain.maxZ);
   return { x: a.x, y: a.y, width: b.x - a.x, height: b.y - a.y };
 }
+
+/** A terrain's rectangle, with the packs placed round it when the level names any: the bounds cover them all. */
+export type TerrainArea = Pick<GameLevelTerrain, 'minX' | 'minZ' | 'maxX' | 'maxZ'> & { packs?: ReadonlyArray<Pick<GameLevelTerrain, 'minX' | 'minZ' | 'maxX' | 'maxZ'>> | undefined };
 
 /** The four corners of a footprint in map pixels, turned about the object's origin as Tiled does. `null` for a point. */
 export function footprintCorners(o: Pick<LevelObject, 'x' | 'y' | 'width' | 'height' | 'rotation'>): PlanPoint[] | null {
@@ -89,7 +92,9 @@ export function hitPlan(level: EditLevel, p: PlanPoint, zoom: number, skip?: (re
       const corners = footprintCorners(o);
       const path = pathPoints(o);
       let hit = false;
-      if (corners) hit = insidePolygon(p, corners);
+      // A spawn zone is picked by its edge: it is often kilometres wide, and its inside must stay clickable.
+      if (corners && (o.type || o.class) === 'spawner') hit = corners.some((a, k) => distanceToSegment(p, corners[(k + 1) % corners.length]!, a) <= reach);
+      else if (corners) hit = insidePolygon(p, corners);
       else if (path.length > 1) hit = path.some((a, k) => k > 0 && distanceToSegment(p, path[k - 1]!, a) <= reach);
       else hit = Math.hypot(p.x - o.x, p.y - o.y) <= reach;
       if (hit) return { layerId: layer.id, objectId: o.id };
@@ -105,7 +110,7 @@ export type PlanBounds = { minX: number; minY: number; maxX: number; maxY: numbe
  * included) and the terrain's extent. A level need not start at the origin (a starter is centred on it, so its
  * objects sit at negative pixels), so nothing here treats (0, 0) as the top-left corner.
  */
-export function planBounds(level: EditLevel, terrain?: Pick<GameLevelTerrain, 'minX' | 'minZ' | 'maxX' | 'maxZ'> | null): PlanBounds {
+export function planBounds(level: EditLevel, terrain?: TerrainArea | null): PlanBounds {
   const b: PlanBounds = { minX: 0, minY: 0, maxX: level.width * level.tilewidth, maxY: level.height * level.tileheight };
   const add = (p: PlanPoint) => {
     b.minX = Math.min(b.minX, p.x);
@@ -123,7 +128,7 @@ export function planBounds(level: EditLevel, terrain?: Pick<GameLevelTerrain, 'm
     }
   }
   if (terrain) {
-    const r = terrainRect(level, terrain);
+    const r = terrainRect(level, terrainExtent(terrain));
     add({ x: r.x, y: r.y });
     add({ x: r.x + r.width, y: r.y + r.height });
   }
@@ -138,7 +143,7 @@ export function planBounds(level: EditLevel, terrain?: Pick<GameLevelTerrain, 'm
 /** A terrain more than this many times the area of the work is left out of the first fit. */
 const FRAME_TERRAIN_RATIO = 10;
 
-export function planFrameBounds(level: EditLevel, terrain?: Pick<GameLevelTerrain, 'minX' | 'minZ' | 'maxX' | 'maxZ'> | null): PlanBounds {
+export function planFrameBounds(level: EditLevel, terrain?: TerrainArea | null): PlanBounds {
   const all = planBounds(level, terrain);
   if (!terrain) return all;
   const work = planBounds(level);

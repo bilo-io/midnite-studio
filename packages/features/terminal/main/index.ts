@@ -200,7 +200,9 @@ export const terminalMain = defineFeatureMain<TerminalMainServices>({
       async ({ ptyId }) => {
         const sessionId = sessionIdFor(ptyId);
         if (!sessionId) return { bytes: new Uint8Array(0) };
-        const bytes = trimScrollback(await fetchScrollbackSnapshot(sessionId), SCROLLBACK_BYTES);
+        // Copied onto a fresh ArrayBuffer: the snapshot can be a Buffer over a pooled ArrayBufferLike,
+        // the reply wants Uint8Array<ArrayBuffer>, and IPC structured-clones it anyway.
+        const bytes = new Uint8Array(trimScrollback(await fetchScrollbackSnapshot(sessionId), SCROLLBACK_BYTES));
         // The size the pty last had, so the renderer parses these bytes at the width they were written for.
         const live = livePtyFor(sessionId);
         return { bytes, ...(live ? { cols: live.cols, rows: live.rows } : {}) };

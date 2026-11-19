@@ -34,6 +34,14 @@ type MockGames = {
   runState: (event: unknown) => void;
   console: (event: unknown) => void;
 };
+/** A game's list row — not its `Actions for <name>` menu button beside it, whose name also matches. */
+const rowName = (name: string) => new RegExp(`^(?!Actions for ).*${name}`);
+const findGameRow = (name: string) => screen.findByRole('button', { name: rowName(name) });
+const getGameRow = (name: string) => screen.getByRole('button', { name: rowName(name) });
+
+/** A game opens on the Level editor tab (Phase 132 Theme B); the stage, console and crash notice live on Play mode. */
+const openPlayMode = () => fireEvent.click(screen.getByRole('tab', { name: /Play mode/ }));
+
 const mockGames = (): MockGames => (window as unknown as { __mstudioMockGames: MockGames }).__mstudioMockGames;
 
 afterEach(() => {
@@ -47,8 +55,8 @@ describe('Media ▸ Games, assembled through the real bridge', () => {
     useUiStore.setState({ selectedRepoId: null });
     renderView(<GameTab />, { fixtures: TWO_GAMES });
 
-    expect(await screen.findByRole('button', { name: /Moon Rover/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Sky Fort/ })).toBeTruthy();
+    expect(await findGameRow('Moon Rover')).toBeTruthy();
+    expect(getGameRow('Sky Fort')).toBeTruthy();
     // Uncommitted work shows as a dot, with an accessible name.
     expect(screen.getByRole('img', { name: 'Uncommitted changes' })).toBeTruthy();
     expect(screen.getByText('Pick a game, or create one.', { selector: 'p' })).toBeTruthy();
@@ -56,7 +64,7 @@ describe('Media ▸ Games, assembled through the real bridge', () => {
 
   it('shows the empty state and the create form when there are no games', async () => {
     renderView(<GameTab />, { fixtures });
-    expect(await screen.findByText('No games yet. Create one from a starter.')).toBeTruthy();
+    expect(await screen.findByText('No games yet. Create one from a starter, or open one you already have.')).toBeTruthy();
     expect(screen.getByTestId('game-create-panel')).toBeTruthy();
   });
 
@@ -67,7 +75,7 @@ describe('Media ▸ Games, assembled through the real bridge', () => {
         games: { list: [{ gameId: 'g0000000000bad', name: 'broken', path: '/g/broken', engine: null, dimension: null, starter: null, valid: false, issue: 'engine: Invalid option' }] },
       },
     });
-    const row = await screen.findByRole('button', { name: /broken/ });
+    const row = await findGameRow('broken');
     expect(row.getAttribute('title')).toBe('engine: Invalid option');
     expect(within(row).getByLabelText('Invalid manifest')).toBeTruthy();
   });
@@ -85,7 +93,7 @@ describe('Media ▸ Games, assembled through the real bridge', () => {
 
   it('runs a selected game and reports it starting then running', async () => {
     renderView(<GameTab />, { fixtures: TWO_GAMES });
-    fireEvent.click(await screen.findByRole('button', { name: /Moon Rover/ }));
+    fireEvent.click(await findGameRow('Moon Rover'));
     fireEvent.click(await screen.findByRole('button', { name: 'Run' }));
 
     await waitFor(() => expect(mockGames().calls.some((c) => c['call'] === 'run' && c['gameId'] === 'g000000000001')).toBe(true));
@@ -97,8 +105,9 @@ describe('Media ▸ Games, assembled through the real bridge', () => {
 
   it('shows console output and filters it by level; Clear empties the view', async () => {
     renderView(<GameTab />, { fixtures: TWO_GAMES });
-    fireEvent.click(await screen.findByRole('button', { name: /Moon Rover/ }));
+    fireEvent.click(await findGameRow('Moon Rover'));
     await screen.findByRole('button', { name: 'Run' });
+    openPlayMode();
 
     act(() => {
       mockGames().runState({ gameId: 'g000000000001', runId: 'r9', state: 'running' });
@@ -131,8 +140,9 @@ describe('Media ▸ Games, assembled through the real bridge', () => {
 
   it('shows the crashed state with its reason and a Restart button', async () => {
     renderView(<GameTab />, { fixtures: TWO_GAMES });
-    fireEvent.click(await screen.findByRole('button', { name: /Moon Rover/ }));
+    fireEvent.click(await findGameRow('Moon Rover'));
     await screen.findByRole('button', { name: 'Run' });
+    openPlayMode();
 
     act(() => mockGames().runState({ gameId: 'g000000000001', runId: 'r3', state: 'crashed', reason: 'oom' }));
     const alert = await screen.findByRole('alert');
@@ -142,7 +152,7 @@ describe('Media ▸ Games, assembled through the real bridge', () => {
 
   it('drives the toolbar through the bridge', async () => {
     renderView(<GameTab />, { fixtures: TWO_GAMES });
-    fireEvent.click(await screen.findByRole('button', { name: /Moon Rover/ }));
+    fireEvent.click(await findGameRow('Moon Rover'));
     act(() => mockGames().runState({ gameId: 'g000000000001', runId: 'r1', state: 'running' }));
 
     fireEvent.click(await screen.findByRole('button', { name: 'Pause' }));
@@ -155,7 +165,8 @@ describe('Media ▸ Games, assembled through the real bridge', () => {
 
   it('pops a game out: the centre says where it went, and stops driving the native view', async () => {
     renderView(<GameTab />, { fixtures: TWO_GAMES });
-    fireEvent.click(await screen.findByRole('button', { name: /Moon Rover/ }));
+    fireEvent.click(await findGameRow('Moon Rover'));
+    openPlayMode();
     act(() => mockGames().runState({ gameId: 'g000000000001', runId: 'r1', state: 'running' }));
 
     fireEvent.click(await screen.findByRole('button', { name: 'Pop out' }));

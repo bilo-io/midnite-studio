@@ -5,6 +5,11 @@
  */
 import {
   GAME_LEVEL_PROPS,
+  LEVEL_TIME_OF_DAY_MAX,
+  LEVEL_WEATHER_AUTO,
+  SPAWNER_DEFAULT_DENSITY,
+  SPAWNER_KINDS,
+  SPAWNER_TYPE,
   PREFAB_PROPS,
   applyLevelOps,
   instantiatePrefab,
@@ -562,6 +567,67 @@ export function setVolume(state: EditState, layerId: number, from: PlanPoint, to
     width,
     height,
     properties: [{ name: 'sizeY', type: 'float', value: DEFAULT_SIZE_Y }],
+  });
+}
+
+// --- level environment and spawners ----------------------------------------------------
+
+/** `midnite.weather`: `auto` or empty removes it (the game decides), anything else is set. One undo step. */
+export function setLevelWeather(state: EditState, raw: string): EditState {
+  const weather = raw.trim();
+  return weather === '' || weather === LEVEL_WEATHER_AUTO ? removeProperty(state, 'map', GAME_LEVEL_PROPS.weather) : setProperty(state, 'map', GAME_LEVEL_PROPS.weather, 'string', weather);
+}
+
+/** `midnite.timeOfDay` in hours: empty removes it (the game's default), text that is not a number changes nothing, 0 to 24 is clamped. */
+export function setLevelTimeOfDay(state: EditState, raw: string): EditState {
+  if (raw.trim() === '') return removeProperty(state, 'map', GAME_LEVEL_PROPS.timeOfDay);
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return state;
+  return setProperty(state, 'map', GAME_LEVEL_PROPS.timeOfDay, 'float', Math.min(LEVEL_TIME_OF_DAY_MAX, Math.max(0, n)));
+}
+
+/** `midnite.timeScale`: empty removes it (1), text that is not a number changes nothing, a negative number reads as 0 (frozen). */
+export function setLevelTimeScale(state: EditState, raw: string): EditState {
+  if (raw.trim() === '') return removeProperty(state, 'map', GAME_LEVEL_PROPS.timeScale);
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return state;
+  return setProperty(state, 'map', GAME_LEVEL_PROPS.timeScale, 'float', Math.max(0, n));
+}
+
+/** Tiles a freshly placed spawner covers on each side. */
+export const DEFAULT_SPAWNER_TILES = 10;
+
+const spawnerProperties = (spawns: string) => [
+  { name: 'spawns', type: 'string' as const, value: spawns },
+  { name: 'density', type: 'float' as const, value: SPAWNER_DEFAULT_DENSITY },
+];
+
+/** A `spawner` zone with its top-left at `at`: `spawns` traffic at density 1, ten tiles square. */
+export function addSpawner(state: EditState, layerId: number, at: PlanPoint): EditState {
+  return addObject(state, layerId, {
+    type: SPAWNER_TYPE,
+    x: at.x,
+    y: at.y,
+    width: state.level.tilewidth * DEFAULT_SPAWNER_TILES,
+    height: state.level.tileheight * DEFAULT_SPAWNER_TILES,
+    properties: spawnerProperties(SPAWNER_KINDS[0]),
+  });
+}
+
+/**
+ * Drag a rectangle (map pixels) into a `spawner` zone that `spawns` the given kind at density 1, as one undo step.
+ * A drag smaller than a pixel in either direction adds nothing, as with {@link setVolume}.
+ */
+export function drawSpawner(state: EditState, layerId: number, from: PlanPoint, to: PlanPoint, spawns: string = SPAWNER_KINDS[0]): EditState {
+  const width = Math.abs(to.x - from.x), height = Math.abs(to.y - from.y);
+  if (width < 1 || height < 1) return state;
+  return addObject(setActiveLayer(state, layerId), layerId, {
+    type: SPAWNER_TYPE,
+    x: Math.min(from.x, to.x),
+    y: Math.min(from.y, to.y),
+    width,
+    height,
+    properties: spawnerProperties(spawns.trim() || SPAWNER_KINDS[0]),
   });
 }
 

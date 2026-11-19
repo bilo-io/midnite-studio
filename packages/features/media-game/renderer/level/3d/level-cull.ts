@@ -50,7 +50,8 @@ export function cull(input: CullInput): CullResult {
   for (const index of found) {
     if (typeof input.exclude === 'object' && input.exclude !== null ? input.exclude.has(index) : index === input.exclude) continue;
     const item = items[index]!;
-    if (item.kind === 'path') continue;
+    // A path is drawn as its own line; a spawn zone as a tint (the extras), never as a solid box over the ground it covers.
+    if (item.kind === 'path' || item.type === 'spawner') continue;
     const cx = item.position[0], cy = item.position[1] + item.size[1] / 2, cz = item.position[2];
     const distance = Math.hypot(cx - camera[0], cy - camera[1], cz - camera[2]);
     const radius = itemRadius(item);

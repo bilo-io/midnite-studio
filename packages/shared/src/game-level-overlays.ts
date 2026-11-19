@@ -12,6 +12,11 @@ import { GID_MASK, tileOf, readTmj } from './sprite/map-view';
 
 /** Object types drawn as triggers. */
 export const TRIGGER_TYPES = ['exit', 'checkpoint', 'trigger', 'hazard'] as const;
+/** Object type of a spawn zone: where the game spawns traffic, pedestrians or any kind it defines. */
+export const SPAWNER_TYPE = 'spawner';
+/** Kinds the editor suggests for a spawner's `spawns`; the game may define others. */
+export const SPAWNER_KINDS = ['traffic', 'pedestrians'] as const;
+export const SPAWNER_DEFAULT_DENSITY = 1;
 /** The layer 2D collision is read from, as `collisionGrid` reads it. */
 export const COLLISION_LAYER_NAME = 'collision';
 
@@ -73,5 +78,26 @@ export function colliderShapes(level: unknown): OverlayShape[] {
 export function triggerShapes(level: unknown): OverlayShape[] {
   const out: OverlayShape[] = [];
   for (const { object, type } of objects(level)) if ((TRIGGER_TYPES as readonly string[]).includes(type)) out.push(shapeOf(object, type));
+  return out;
+}
+
+/** A spawner's `spawns` kind (default `traffic`) and `density` (default 1, never negative), as the plan label and the game read them. */
+export function spawnerInfo(object: { properties?: ReadonlyArray<{ name: string; value?: unknown }> | undefined }): { spawns: string; density: number } {
+  const props = levelProperties(object);
+  const spawns = typeof props.spawns === 'string' && props.spawns.trim() ? props.spawns.trim() : SPAWNER_KINDS[0];
+  const density = typeof props.density === 'number' && Number.isFinite(props.density) ? Math.max(0, props.density) : SPAWNER_DEFAULT_DENSITY;
+  return { spawns, density };
+}
+
+/** `traffic ×1.5`: what a spawner spawns and how densely. */
+export const spawnerLabel = (object: { properties?: ReadonlyArray<{ name: string; value?: unknown }> | undefined }): string => {
+  const { spawns, density } = spawnerInfo(object);
+  return `${spawns} ×${Number(density.toFixed(2))}`;
+};
+
+/** The spawn zones of a level: `spawner` objects. */
+export function spawnerShapes(level: unknown): OverlayShape[] {
+  const out: OverlayShape[] = [];
+  for (const { object, type } of objects(level)) if (type === SPAWNER_TYPE) out.push(shapeOf(object, type));
   return out;
 }

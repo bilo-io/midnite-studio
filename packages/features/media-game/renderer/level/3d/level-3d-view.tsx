@@ -1,7 +1,7 @@
 import { Canvas } from '@react-three/fiber';
 import { DEFAULT_SNAP, TransformModeBar, type SnapSettings, type TransformMode } from '@midnite/studio-frame/viewport3d';
 import { bridge } from '@midnite/studio-frame';
-import { levelOrigin, levelPixelsToWorld, metresPerTile, type GameLevelTerrain } from '@midnite/studio-shared';
+import { levelOrigin, levelPixelsToWorld, metresPerTile, terrainExtent, type GameLevelTerrain } from '@midnite/studio-shared';
 import { useEffect, useMemo, useRef, useState, type ComponentType, type KeyboardEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent } from 'react';
 import { LuActivity, LuBox, LuCrosshair, LuGlobe, LuGroup } from 'react-icons/lu';
 import type { Object3D } from 'three';
@@ -18,7 +18,7 @@ import { footprintBox, gizmoSteps, surfaceElevation } from '../level-snap';
 import type { SceneExtras } from './level-extras';
 import type { LevelSceneProps } from './level-scene';
 import { disposeTree, LevelScene, NO_DRAFT, SCENE_BACKGROUND, type CameraMove, type ToolDraft } from './level-scene';
-import { commitVolume, groundPoint, rayHitsItem, rotateToward, snappedPlanPoint, volumeFromDrag, worldPointFromPlan } from './level-ground';
+import { commitSpawner, commitVolume, groundPoint, rayHitsItem, rotateToward, snappedPlanPoint, volumeFromDrag, worldPointFromPlan } from './level-ground';
 import { marqueeHits, type ScreenPoint, type ScreenRect } from './level-marquee';
 import { isMac, matchShortcut } from '../level-shortcuts';
 import { isAssetDrag, readDroppedAsset, useDraggedAsset, type AssetDragPayload, type AssetDropTarget } from '../assets/asset-drag';
@@ -36,6 +36,8 @@ export type Level3dHandle = {
   frameTo?: (rect: PlanRect, refs: readonly ObjectRef[]) => void;
   /** Ease the camera onto the selected object (the outliner's double-click). */
   frame?: () => void;
+  /** The ground the camera looks at, as a square its view spans (world metres): what terrain detail is asked for. */
+  viewArea?: () => { minX: number; minZ: number; maxX: number; maxZ: number };
   /** A PNG of the level from a preset or camera, drawn through a temporary camera (`game_level_view`). */
   capture?: (req: LevelCaptureRequest) => Promise<LevelCaptured>;
 };
@@ -51,6 +53,8 @@ export type Level3dViewProps = {
   /** `select` shows the gizmo; `entity` places `entityName` where the ground is clicked. */
   tool: string;
   entityName: string;
+  /** What a Spawn zone drag spawns; the first kind when absent. */
+  spawnerKind?: string;
   objectLayerId: number | null;
   /** The path being drawn (map pixels); the editor owns it, so Enter, Escape and Backspace work in both views. */
   pathDraft: readonly PlanPoint[];
@@ -116,6 +120,9 @@ export default function Level3dView(props: Level3dViewProps) {
     !r ? null : relief ? reliefPoint(r.origin, r.dir, relief) : groundPoint(r.origin, r.dir, ground);
   const grid = useMemo(() => new SpatialGrid(items), [items]);
   const bounds = useMemo(() => levelBounds(level, props.terrain), [level, props.terrain]);
+  /** All the ground: the terrain with every pack placed round it. */
+  const extent = useMemo<GroundTile>(() => (props.terrain ? terrainExtent(props.terrain) : bounds), [props.terrain, bounds]);
+  const packs = useMemo(() => (props.terrain?.packs ?? []).map((p) => ({ minX: p.minX, minZ: p.minZ, maxX: p.maxX, maxZ: p.maxZ, drape: p.preview })), [props.terrain?.packs]);
   /** Item indices of the selection, primary first-class via `props.selection`. */
   const selectedIdx = useMemo(() => {
     const out: number[] = [];
@@ -158,7 +165,7 @@ export default function Level3dView(props: Level3dViewProps) {
   statsOnRef.current = statsOn;
 
   /** What the view opens on and grids: the work, when the terrain dwarfs it. */
-  const focus = useMemo(() => focusBounds(bounds, workBounds(level, items)), [bounds, level, items]);
+  const focus = useMemo(() => focusBounds(extent, workBounds(level, items)), [extent, level, items]);
   const levelCentre = (): { target: [number, number, number]; span: number } => ({
     target: [(focus.minX + focus.maxX) / 2, heightAt((focus.minX + focus.maxX) / 2, (focus.minZ + focus.maxZ) / 2), (focus.minZ + focus.maxZ) / 2],
     span: Math.max(focus.maxX - focus.minX, focus.maxZ - focus.minZ, 10) * 0.8,
@@ -202,6 +209,10 @@ export default function Level3dView(props: Level3dViewProps) {
         move.current = { from: now, to, startedAt: null, onDone: () => done(to) };
       },
       frame: () => frameRef.current(),
+      viewArea: () => {
+        const now = poseOut.current ?? initialPose, half = now.span / 2;
+        return { minX: now.target[0] - half, minZ: now.target[2] - half, maxX: now.target[0] + half, maxZ: now.target[2] + half };
+      },
       frameTo: (rect, refs) => latest.current.frame(rect, refs),
       capture: (req) => latest.current.capture(req),
     };
@@ -256,7 +267,7 @@ export default function Level3dView(props: Level3dViewProps) {
     const draw = captureFn.current;
     if (!draw) throw new Error('The 3D view is not ready to draw a picture yet.');
     for (let i = 0; i < 2; i += 1) await new Promise<void>((r) => requestAnimationFrame(() => r()));
-    const whole = levelWorldBox(bounds, ground, items);
+    const whole = levelWorldBox(extent, ground, items);
     const live = poseOut.current ?? initialPose;
     const liveCamera = { position: cameraPosition(live), target: live.target, fov: live.fov };
     const camera = capturePose(req, whole, boxOf(null, selectedRefs)) ?? liveCamera;
@@ -317,7 +328,7 @@ export default function Level3dView(props: Level3dViewProps) {
   const toolDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     const tool = props.tool;
     if (!editable || event.button !== 0 || event.shiftKey || !(event.target instanceof HTMLCanvasElement)) return;
-    if (tool !== 'volume' && tool !== 'path' && tool !== 'rotate' && tool !== 'scatter') return;
+    if (tool !== 'volume' && tool !== 'spawner' && tool !== 'path' && tool !== 'rotate' && tool !== 'scatter') return;
     const cast = (x: number, y: number): [number, number, number] | null => {
       const r = ray.current?.(x, y);
       return castGround(r);
@@ -340,8 +351,9 @@ export default function Level3dView(props: Level3dViewProps) {
       window.addEventListener('pointerup', up);
     };
 
-    if (tool === 'volume') {
+    if (tool === 'volume' || tool === 'spawner') {
       if (!start || layer === null) return;
+      const zone = tool === 'spawner';
       setOrbit.current?.(false);
       const snapped = (at: [number, number, number], invert: boolean) => volumeFromDrag(level, [start[0], start[2]], [at[0], at[2]], levelSnap, invert);
       track(
@@ -349,10 +361,10 @@ export default function Level3dView(props: Level3dViewProps) {
           if (!at || !travelled(ev)) return;
           const d = snapped(at, ev.altKey);
           const a = worldPointFromPlan(level, d.from), b = worldPointFromPlan(level, d.to);
-          setVolumeDraft({ x0: a[0], z0: a[1], x1: b[0], z1: b[1] });
+          setVolumeDraft({ x0: a[0], z0: a[1], x1: b[0], z1: b[1], flat: zone });
         },
         (ev, at) => {
-          if (at && travelled(ev)) update((s) => commitVolume(s, layer, snapped(at, ev.altKey)));
+          if (at && travelled(ev)) update((s) => (zone ? commitSpawner(s, layer, snapped(at, ev.altKey), props.spawnerKind) : commitVolume(s, layer, snapped(at, ev.altKey))));
         },
       );
     } else if (tool === 'scatter') {
@@ -486,6 +498,8 @@ export default function Level3dView(props: Level3dViewProps) {
           items={items}
           grid={grid}
           bounds={bounds}
+          extent={extent}
+          packs={packs}
           ground={ground}
           drape={props.terrain?.preview ?? null}
           focus={focus}

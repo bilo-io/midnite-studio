@@ -410,6 +410,8 @@ import {
   GameLevelGetRequestSchema,
   GameLevelGetResultSchema,
   GameLevelAssetThumbRequestSchema,
+  GameLevelTerrainDetailRequestSchema,
+  GameLevelTerrainDetailResultSchema,
   GameLevelPreviewRequestSchema,
   GameLevelPreviewResultSchema,
   GameLevelPreviewEndRequestSchema,
@@ -5806,6 +5808,8 @@ export const GamesLevelPrefabSetRequest = GamePrefabSetRequestSchema;
 export const GamesLevelPrefabSetResponse = GitOpResultOf(GamePrefabWriteResultSchema);
 export const GamesLevelPrefabDeleteRequest = GamePrefabDeleteRequestSchema;
 export const GamesLevelPrefabDeleteResponse = GitOpResultOf(GamePrefabWriteResultSchema);
+export const GamesLevelTerrainDetailRequest = GameLevelTerrainDetailRequestSchema;
+export const GamesLevelTerrainDetailResponse = GitOpResultOf(GameLevelTerrainDetailResultSchema);
 export const GamesLevelAssetThumbRequest = GameLevelAssetThumbRequestSchema;
 export const GamesLevelAssetThumbResponse = GitOpResultOf(GameLevelAssetThumbResultSchema);
 export const GamesLevelPreviewRequest = GameLevelPreviewRequestSchema;

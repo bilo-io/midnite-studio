@@ -6,7 +6,7 @@
 export type LevelShortcutGroup = 'Tools' | 'Selection' | 'Edit' | 'View';
 
 export type LevelCommandId =
-  | 'tool.select' | 'tool.entity' | 'tool.paint' | 'tool.erase' | 'tool.rect' | 'tool.pick' | 'tool.volume' | 'tool.path' | 'tool.rotate' | 'tool.scatter'
+  | 'tool.select' | 'tool.entity' | 'tool.paint' | 'tool.erase' | 'tool.rect' | 'tool.pick' | 'tool.volume' | 'tool.spawner' | 'tool.path' | 'tool.rotate' | 'tool.scatter'
   | 'scatter.smaller' | 'scatter.larger'
   | 'path.finish'
   | 'edit.undo' | 'edit.redo' | 'edit.cut' | 'edit.copy' | 'edit.paste' | 'edit.duplicate' | 'edit.delete'
@@ -39,6 +39,7 @@ export const LEVEL_SHORTCUTS: readonly LevelShortcut[] = [
   { id: 'tool.rect', chord: 'R', label: 'Rectangle', group: 'Tools', views: PLAN, dimension: '2d' },
   { id: 'tool.pick', chord: 'I', label: 'Pick a tile', group: 'Tools', views: PLAN, dimension: '2d' },
   { id: 'tool.volume', chord: 'R', label: 'Volume', group: 'Tools', views: PLAN, dimension: '3d' },
+  { id: 'tool.spawner', chord: 'N', label: 'Spawn zone', group: 'Tools', views: BOTH, dimension: '3d' },
   { id: 'tool.path', chord: 'P', label: 'Path', group: 'Tools', views: BOTH, dimension: '3d' },
   { id: 'path.finish', chord: 'Enter', label: 'Finish the path', group: 'Tools', views: BOTH, dimension: '3d' },
   { id: 'tool.rotate', chord: 'Y', label: 'Rotate (Shift snaps)', group: 'Tools', views: BOTH, dimension: '3d' },

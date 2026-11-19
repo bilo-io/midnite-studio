@@ -57,9 +57,42 @@ export interface IssueComment {
 export interface CommitDetail {
   commit: Commit;
   files: FileDiff[];
+  // Theme G
+  /** The full commit message (subject, blank line, body), when the source has it. */
+  message?: string;
+  committerName?: string;
 }
 
 export type MutationOutcome = Result<null>;
+
+// Theme I
+export interface PullCheck {
+  name: string;
+  conclusion: 'success' | 'failure' | 'pending' | 'neutral' | 'skipped';
+  detailsUrl: string | null;
+}
+export interface PullReviewer {
+  login: string;
+  state: 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'DISMISSED' | 'PENDING' | 'REQUESTED';
+}
+export interface PullComment {
+  id: string;
+  author: string;
+  body: string;
+  createdAt: string;
+}
+export interface PullOverview {
+  checks: PullCheck[];
+  reviewers: PullReviewer[];
+  comments: PullComment[];
+}
+
+// Theme H
+/** What creating an issue answers with: the node id (for `addProjectItem`) and the number (for the detail route). */
+export interface CreatedIssue {
+  id: string;
+  number: number;
+}
 
 export interface MobileDataSource {
   viewer(): Promise<Result<Viewer>>;
@@ -86,6 +119,8 @@ export interface MobileDataSource {
   createIssue(repo: RepoRef, title: string, body: string): Promise<MutationOutcome>;
   setIssueState(repo: RepoRef, n: number, state: 'OPEN' | 'CLOSED'): Promise<MutationOutcome>;
   commentIssue(repo: RepoRef, n: number, body: string): Promise<MutationOutcome>;
+  // Theme H
+  createIssueWithId(repo: RepoRef, title: string, body: string): Promise<Result<CreatedIssue>>;
 
   // Pull requests (Reviews)
   listPulls(repo: RepoRef, scope: ForgePullScope, cursor?: string | null): Promise<Result<Page<ForgePull>>>;
@@ -95,6 +130,8 @@ export interface MobileDataSource {
   submitReview(repo: RepoRef, n: number, event: ForgeReviewEvent, body: string): Promise<MutationOutcome>;
   commentPull(repo: RepoRef, n: number, body: string): Promise<MutationOutcome>;
   replyToThread(threadId: string, body: string): Promise<MutationOutcome>;
+  // Theme I
+  pullOverview(repo: RepoRef, n: number): Promise<Result<PullOverview>>;
 }
 
 export const ok = <T>(value: T): Result<T> => ({ ok: true, value });

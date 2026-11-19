@@ -48,6 +48,8 @@ export const mobileQueryKeys = {
   pull: (repo: RepoRef, n: number) => ['pull', repoKey(repo), n] as const,
   pullFiles: (repo: RepoRef, n: number) => ['pullFiles', repoKey(repo), n] as const,
   pullThreads: (repo: RepoRef, n: number) => ['pullThreads', repoKey(repo), n] as const,
+  // Theme I
+  pullOverview: (repo: RepoRef, n: number) => ['pullOverview', repoKey(repo), n] as const,
 };
 
 /** A cursor-paged list: `fetchNextPage` follows `nextCursor`; `getNextPageParam` ends on `null`. */
@@ -187,6 +189,16 @@ export function usePullThreads(repo: RepoRef | null, n: number | null) {
   });
 }
 
+// Theme I
+export function usePullOverview(repo: RepoRef | null, n: number | null) {
+  const source = useDataSource();
+  return useQuery({
+    queryKey: repo && n !== null ? mobileQueryKeys.pullOverview(repo, n) : ['pullOverview', NONE],
+    enabled: repo !== null && n !== null,
+    queryFn: async () => unwrap(await source.pullOverview(repo!, n!)),
+  });
+}
+
 // ---- mutations -----------------------------------------------------------------------------------------------
 
 /** Invalidate every query whose key starts with one of these method names. */
@@ -195,7 +207,7 @@ function invalidate(client: QueryClient, methods: readonly string[]): Promise<un
 }
 
 const AFTER_ITEM_WRITE = ['projectItems', 'projectGraph'] as const;
-const AFTER_PULL_WRITE = ['pull', 'pullThreads', 'pulls'] as const;
+const AFTER_PULL_WRITE = ['pull', 'pullThreads', 'pulls', 'pullOverview'] as const; // Theme I added 'pullOverview'
 const AFTER_ISSUE_WRITE = ['issues', 'issue', 'issueComments', 'projectItems'] as const;
 
 function useWrite<V>(
@@ -239,3 +251,14 @@ export const useCommentPull = () =>
 
 export const useReplyToThread = () =>
   useWrite<{ threadId: string; body: string }>((s, v) => s.replyToThread(v.threadId, v.body), AFTER_PULL_WRITE);
+
+// Theme H
+export function useCreateIssueWithId() {
+  const source = useDataSource();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { repo: RepoRef; title: string; body: string }) =>
+      unwrap(await source.createIssueWithId(vars.repo, vars.title, vars.body)),
+    onSuccess: () => invalidate(client, AFTER_ISSUE_WRITE),
+  });
+}

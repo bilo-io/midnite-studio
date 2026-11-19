@@ -103,5 +103,11 @@ test('unified sidebar selection and Chat | Terminal view toggle with real xterm'
   await expect(page.locator('.xterm-screen')).toContainText('cursor$');
 
   await page.getByTestId('session-view-toggle-chat').click();
-  await expect(page.getByTestId('chat-handoff-only-banner')).toBeVisible();
+  const banner = page.getByTestId('chat-handoff-only-banner');
+  await expect(banner).toBeVisible();
+
+  // The banner is non-blocking: dismissing it leaves the composer in place.
+  await banner.getByRole('button', { name: 'Dismiss handoff notice' }).click();
+  await expect(banner).toHaveCount(0);
+  await expect(page.getByLabel('Message', { exact: true }).filter({ visible: true })).toBeVisible();
 });

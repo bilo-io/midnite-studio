@@ -8,7 +8,8 @@ import type { Extent } from './terrain-detail';
 /** A pack's heightfield as read: one sample per vertex over the whole terrain, `0…top` mapping to `range` metres. */
 export type HeightSource = { width: number; height: number; values: ArrayLike<number>; top: number; range: readonly [number, number] };
 
-const CACHE_MAX = 2;
+/** A level may place several packs round its terrain, and each is decoded once. */
+const CACHE_MAX = 10;
 const cache = new Map<string, HeightSource | null>();
 
 /** For tests. */

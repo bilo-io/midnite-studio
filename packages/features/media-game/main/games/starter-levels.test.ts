@@ -28,7 +28,7 @@ const tmp = async (): Promise<string> => {
   return dir;
 };
 
-type Obj = { name: string; type: string; x: number; y: number; width: number; height: number };
+type Obj = { name: string; type: string; x: number; y: number; width: number; height: number; properties?: { name: string; value: unknown }[] };
 type Layer = { name: string; type: string; data?: number[]; width?: number; objects?: Obj[] };
 type TiledMap = {
   width: number;

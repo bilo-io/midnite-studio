@@ -11,6 +11,8 @@ export type PlanOverlay = {
   terrainImage: HTMLImageElement | null;
   /** The sharper crop of the drape over `terrain.detail`'s extent, when the level has one. */
   terrainDetailImage?: HTMLImageElement | null;
+  /** The drapes of `terrain.packs`, in the same order (a missing one draws as its outline alone). */
+  terrainPackImages?: ReadonlyArray<HTMLImageElement | null>;
   /** The path being drawn (points in map pixels), with the pointer's current position as its rubber-band end. */
   draft: readonly PlanPoint[];
   cursor: PlanPoint | null;
@@ -220,7 +222,7 @@ export function drawHighlight(
   ctx.globalAlpha = 1;
 }
 
-export const PLAN_COLOURS: Record<string, string> = { spawn: '#22c55e', exit: '#3b82f6', prop: '#f59e0b', enemy: '#ef4444', pickup: '#eab308', light: '#fde047', checkpoint: '#14b8a6', trigger: '#a855f7', npc: '#06b6d4', path: '#ec4899' };
+export const PLAN_COLOURS: Record<string, string> = { spawn: '#22c55e', exit: '#3b82f6', prop: '#f59e0b', enemy: '#ef4444', pickup: '#eab308', light: '#fde047', checkpoint: '#14b8a6', trigger: '#a855f7', npc: '#06b6d4', path: '#ec4899', spawner: '#a3e635' };
 const NEUTRAL = '#e5e7eb';
 const typeOf = (o: { type?: string; class?: string }): string => o.type || o.class || '';
 
@@ -241,22 +243,41 @@ export function drawPlan(
   const bounds = planBounds(level, overlay.terrain);
 
   if (overlay.terrain) {
-    const r = terrainRect(level, overlay.terrain);
-    if (overlay.terrainImage?.complete && overlay.terrainImage.naturalWidth > 0) {
+    const outlined = (r: { x: number; y: number; width: number; height: number }, name: string): void => {
+      ctx.setLineDash([6 * px, 4 * px]);
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 1.5 * px;
+      ctx.strokeRect(r.x, r.y, r.width, r.height);
+      ctx.setLineDash([]);
+      ctx.fillStyle = text;
+      ctx.font = `${12 * px}px sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.fillText(`terrain: ${name}`, r.x + 4 * px, r.y + 14 * px);
+    };
+    const draped = (image: HTMLImageElement | null | undefined, r: { x: number; y: number; width: number; height: number }): void => {
+      if (!image?.complete || image.naturalWidth === 0) return;
       ctx.globalAlpha = 0.45;
-      ctx.drawImage(overlay.terrainImage, r.x, r.y, r.width, r.height);
+      ctx.drawImage(image, r.x, r.y, r.width, r.height);
       ctx.globalAlpha = 1;
+    };
+    // The packs round the terrain, last first: an earlier one lies over a later one, and the terrain over them all.
+    // What a nearer one covers is clipped out, so two translucent drapes never stack.
+    const packs = overlay.terrain.packs ?? [];
+    const rects = [overlay.terrain, ...packs].map((t) => terrainRect(level, t));
+    for (let i = packs.length; i >= 1; i -= 1) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(rects[i]!.x, rects[i]!.y, rects[i]!.width, rects[i]!.height);
+      for (let j = 0; j < i; j += 1) ctx.rect(rects[j]!.x, rects[j]!.y, rects[j]!.width, rects[j]!.height);
+      ctx.clip('evenodd');
+      draped(overlay.terrainPackImages?.[i - 1], rects[i]!);
+      ctx.restore();
     }
+    const r = rects[0]!;
+    draped(overlay.terrainImage, r);
     if (overlay.terrain.detail) drawTerrainDetail(ctx, level, overlay.terrain.detail, overlay.terrainDetailImage, px);
-    ctx.setLineDash([6 * px, 4 * px]);
-    ctx.strokeStyle = outline;
-    ctx.lineWidth = 1.5 * px;
-    ctx.strokeRect(r.x, r.y, r.width, r.height);
-    ctx.setLineDash([]);
-    ctx.fillStyle = text;
-    ctx.font = `${12 * px}px sans-serif`;
-    ctx.textAlign = 'left';
-    ctx.fillText(`terrain: ${overlay.terrain.name}`, r.x + 4 * px, r.y + 14 * px);
+    for (let i = packs.length; i >= 1; i -= 1) outlined(rects[i]!, packs[i - 1]!.name);
+    outlined(r, overlay.terrain.name);
   }
 
   const grid = gridLines(level, view.zoom, 6, bounds);
@@ -300,7 +321,8 @@ export function drawPlan(
         ctx.beginPath();
         corners.forEach((c, i) => (i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y)));
         ctx.closePath();
-        ctx.fill();
+        // A spawn zone is an outline: it is often kilometres wide, and a fill would hide the ground it covers.
+        if (typeOf(o) !== 'spawner' || chosen) ctx.fill();
         ctx.stroke();
       } else if (path.length > 1) {
         ctx.beginPath();

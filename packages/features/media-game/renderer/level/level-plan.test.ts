@@ -77,6 +77,16 @@ describe('hitPlan', () => {
     expect(hitPlan(s.level, { x: centre.x, y: centre.y + 80 }, 1)).not.toBeNull();
   });
 
+  it('picks a spawn zone by its edge, so what lies inside it stays clickable', () => {
+    const level = level3d();
+    const layer = level.layers.find((l) => l.type === 'objectgroup')!;
+    layer.objects = [...(layer.objects ?? []), { id: 99, name: 'zone', type: 'spawner', x: 0, y: 0, width: 600, height: 600 }];
+    // The point object under the zone is still what a click on it picks; the zone's inside picks nothing.
+    expect(hitPlan(level, { x: 340, y: 336 }, 1)).toEqual({ layerId: layer.id, objectId: 1 });
+    expect(hitPlan(level, { x: 100, y: 500 }, 1)).toBeNull();
+    expect(hitPlan(level, { x: 300, y: 2 }, 1)).toEqual({ layerId: layer.id, objectId: 99 });
+  });
+
   it('hits a path on a segment, and picks the topmost object', () => {
     const level = level3d();
     const id = sel(level);
@@ -124,6 +134,8 @@ describe('a level centred on the origin (negative pixels)', () => {
     expect(planBounds(level3d())).toEqual({ minX: 0, minY: 0, maxX: 640, maxY: 640 });
     expect(planBounds(centred())).toEqual({ minX: -640, minY: -192, maxX: 640, maxY: 640 });
     expect(planBounds(level3d(), { minX: -30, minZ: -20, maxX: 5, maxZ: 5 })).toEqual({ minX: -960, minY: -640, maxX: 640, maxY: 640 });
+    // The packs placed round a terrain count too.
+    expect(planBounds(level3d(), { minX: -30, minZ: -20, maxX: 5, maxZ: 5, packs: [{ minX: 0, minZ: 0, maxX: 100, maxZ: 50 }] })).toEqual({ minX: -960, minY: -640, maxX: 3200, maxY: 1600 });
   });
 
   it('hits points and footprints at negative coordinates', () => {
