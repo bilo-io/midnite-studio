@@ -3,6 +3,7 @@ import { delimiter, join } from 'node:path';
 
 import { BUILTIN_AGENTS, type AgentDefinition } from '@midnite/studio-shared';
 
+import { guardedFetchFor } from '../net/guarded-fetch';
 import { OUTPUT_TAIL_CAP, runProcess, type SpawnFn } from '../process-runner';
 import type { HeadlessProcessResult, HeadlessTextPorts } from './headless-text';
 
@@ -58,7 +59,8 @@ export async function runOllamaHttp(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await (deps.fetch ?? fetch)(`${deps.ollamaBaseUrl ?? OLLAMA_BASE_URL}/api/chat`, {
+    // `models` owns the configured-Ollama egress entry; the seam is what lets Settings ▸ Privacy list this call.
+    const response = await (deps.fetch ?? guardedFetchFor('models'))(`${deps.ollamaBaseUrl ?? OLLAMA_BASE_URL}/api/chat`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ model, stream: false, messages: [{ role: 'user', content: prompt }] }),

@@ -6,6 +6,7 @@ import {
   type SketchfabResult,
   type SketchfabSearchResult,
 } from '@midnite/studio-shared';
+import { guardedFetchFor } from '@midnite/studio-runtime';
 import { z } from 'zod';
 
 /**
@@ -126,7 +127,8 @@ function unpackCursor(cursor: string | undefined): Record<string, string> | null
 }
 
 export function createSketchfabClient(deps: SketchfabDeps): SketchfabClient {
-  const doFetch = deps.fetch ?? globalThis.fetch;
+  // Through the egress registry (`media-model`'s Sketchfab entries), like every other main-side request.
+  const doFetch = deps.fetch ?? guardedFetchFor('media-model');
   const timeoutMs = deps.timeoutMs ?? REQUEST_TIMEOUT_MS;
   const fileTimeoutMs = deps.fileTimeoutMs ?? FILE_TIMEOUT_MS;
   const maxBytes = deps.maxBytes ?? ANIMATION_MAX_FILE_BYTES;

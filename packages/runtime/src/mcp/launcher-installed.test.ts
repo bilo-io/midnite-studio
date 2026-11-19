@@ -10,6 +10,8 @@ import { installedAppsFromLauncherFile, launcherInstalledFile, readInstalledApps
 
 /** The Model feature's manifest claims `model_list` for Gamer (Phase 113 Theme S); a stub says the same here. */
 const manifests = [{ owner: 'gamer', mcpTools: ['model_list'] }] as const;
+/** Startup serves its `startup_*` tools from its own socket (Phase 153 Theme C), so Studio's list leaves them out. */
+const STUDIO_TOOL_IDS = MCP_TOOL_IDS.filter((id) => !id.startsWith('startup_'));
 
 let root: string;
 beforeEach(() => {
@@ -78,12 +80,12 @@ describe('installedAppsFromLauncherFile', () => {
     expect(agents.isListed('model_list')).toBe(false);
   });
 
-  it('Studio as host (provides every app) still lists everything, with or without a file', () => {
+  it("Studio as host (provides every app) still lists everything but Startup's tools, with or without a file", () => {
     for (const file of [join(root, 'missing.json'), writeState([])]) {
       const listing = createMcpToolListing({
         installed: installedAppsFromLauncherFile({ file, provided: PLACEMENT_APP_IDS }),
       });
-      expect(listing.list()).toEqual([...MCP_TOOL_IDS]);
+      expect(listing.list()).toEqual(STUDIO_TOOL_IDS);
     }
   });
 });
