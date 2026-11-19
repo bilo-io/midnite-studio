@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      '@bilo-io/ui-native': new URL('./vendor/ui-native/index.ts', import.meta.url).pathname,
       '@midnite/studio-git-engine/diff': new URL('../../packages/git-engine/src/parsers/diff-parser.ts', import.meta.url).pathname,
       '@midnite/forge-github-core': new URL('../../packages/forge-github-core/src/index.ts', import.meta.url).pathname,
       'react-native': 'react-native-web',
@@ -15,6 +16,7 @@ export default defineConfig({
       'expo-web-browser': new URL('./test/mocks/expo-web-browser.ts', import.meta.url).pathname,
       'expo-clipboard': new URL('./test/mocks/expo-clipboard.ts', import.meta.url).pathname,
       'expo-router': new URL('./test/mocks/expo-router.tsx', import.meta.url).pathname,
+      '@expo/vector-icons': new URL('./test/mocks/vector-icons.tsx', import.meta.url).pathname,
       'expo-status-bar': new URL('./test/mocks/empty.ts', import.meta.url).pathname,
     },
   },

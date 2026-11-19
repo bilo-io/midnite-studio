@@ -86,12 +86,14 @@ const MOBILE_REJECTED = [
   ['mobile imports react-dom', MOBILE, 'react-dom', 'no react-dom'],
   ['mobile imports react-icons', MOBILE, 'react-icons/lu', 'no react-dom'],
   ['mobile imports the git-engine barrel', MOBILE, '@midnite/studio-git-engine', 'pure diff parser'],
+  ['mobile imports the vendored ui-native path', MOBILE, '../../vendor/ui-native/index', 'never the vendored path'],
   ['mobile imports another git-engine subpath', MOBILE, '@midnite/studio-git-engine/exec', 'pure diff parser'],
 ];
 const MOBILE_ALLOWED = [
   ['mobile imports shared', MOBILE, '@midnite/studio-shared'],
   ['mobile imports the git-engine diff parser', MOBILE, '@midnite/studio-git-engine/diff'],
   ['mobile imports react-native', MOBILE, 'react-native'],
+  ['mobile imports ui-native by its module id', MOBILE, '@bilo-io/ui-native'],
 ];
 
 // Phase 146 Theme C: tasks-core is a pure core beside shared.

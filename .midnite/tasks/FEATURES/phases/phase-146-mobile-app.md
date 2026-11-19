@@ -63,8 +63,15 @@ from there, and nothing on desktop changes behaviour. `deriveColumns` keeps its 
 
 **Theme E — The GitHub data source.** ✅ `apps/mobile` reads GitHub through a `MobileDataSource` interface (`Result<T>` envelopes, never throws) with a `GitHubDataSource` over `fetch` (Theme D's documents and parsers; REST only for commit and pull-file patches, run through `parseUnifiedDiff`), device-flow sign-in as a pure state machine plus a PAT fallback that lists missing scopes, the token in `expo-secure-store` keyed `github:github.com:<login>`, an `AuthGate` that returns to sign-in on any `auth` result, and `mobileQueryKeys` with one TanStack hook per method and the specified invalidations. `forge-github-core` is aliased to source in tsconfig, vitest and Metro (`expo export` bundles); it gained `parseBranchesPage` / `parseRepoPage` for cursors. E7 (the OAuth App and `EXPO_PUBLIC_GITHUB_CLIENT_ID`) is the user's action, so device flow is untested end to end.
 
-**Theme F — The shell.** ◻ A five-tab BottomNav (History, Tasks, Reviews, Agents, More), a title bar with the repo
-switcher, account avatar and forge-panel toggle, a placeholder left forge drawer, and a quick-access FAB speed dial.
+**Theme F — The shell.** ✅ The five-tab BottomNav (History, Tasks, Reviews with a review-requested badge, Agents, More) is
+ui-native's `BottomNav` behind expo-router `Tabs`, under a fixed 56dp `AppBar` title bar (forge-panel toggle, `owner/name`
+over the branch as the repo-switcher trigger, the screen's `useTitleBarAction` slot, the viewer's avatar). The switcher is a
+bottom `Sheet` over infinite `listRepos` with a filter and the last five repos pinned; the forge panel is a left `Sheet`
+placeholder; the FAB is a `SpeedDial` (New issue, Open agent, Switch repo, Notes disabled) hidden off top-level tabs. Prefs
+(`mobile.prefs`, zod-validated, zustand) persist in `expo-secure-store`. **It runs on a vendored `@bilo-io/ui-native` 0.5.0**:
+the package is built and merged but unpublished (GitHub Packages billing limit), so its source is copied verbatim into
+`apps/mobile/vendor/ui-native/` and aliased as `@bilo-io/ui-native` in tsconfig, vitest and Metro; removal is a deletion
+(see `VENDORED.md` there), and the local ThemeProvider seam is already gone.
 
 **Theme G — History.** ◻ A commit timeline for the selected repo and branch with infinite scroll, merge markers and a
 branch picker, and a commit detail screen with per-file diffs.
@@ -554,26 +561,26 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
 
 ### F — The shell (M)
 
-- [ ] **F1 · Tabs** (S): `apps/mobile/app/(tabs)/_layout.tsx` uses expo-router `Tabs` with `tabBar={(p) => <MidniteTabBar {...p} />}`,
+- [x] **F1 · Tabs** (S): `apps/mobile/app/(tabs)/_layout.tsx` uses expo-router `Tabs` with `tabBar={(p) => <MidniteTabBar {...p} />}`,
   which renders ui-native `BottomNav`. Tabs in order: `history` (Feather `git-commit`), `tasks` (`trello`), `reviews`
   (`git-pull-request`, badge = count of review-requested PRs), `agents` (`cpu`), `more` (`more-horizontal`). The bottom
   inset comes from `useSafeAreaInsets()`.
-- [ ] **F2 · Title bar** (M): `apps/mobile/src/shell/title-bar.tsx` on ui-native `AppBar`. Leading: an `IconButton`
+- [x] **F2 · Title bar** (M): `apps/mobile/src/shell/title-bar.tsx` on ui-native `AppBar`. Leading: an `IconButton`
   (Feather `sidebar`) toggling the forge panel. Title: `owner/name` with the current branch as subtitle. Pressing it
   opens the repo switcher. Trailing: the viewer's `Avatar` (taps go to More ▸ Accounts). Shown on every tab; screens set
   a per-tab action slot through a `useTitleBarAction` context (e.g. the Tasks view switch on narrow screens).
-- [ ] **F3 · Repo switcher** (S): a bottom `Sheet` listing `listRepos` (infinite, `ListRow` with a lock icon for private
+- [x] **F3 · Repo switcher** (S): a bottom `Sheet` listing `listRepos` (infinite, `ListRow` with a lock icon for private
   repos) plus a filter `Input`. Selecting sets the current repo (persisted pref `mobile.currentRepo`, branch reset to the
   repo's default branch). The last five repos are pinned at the top.
-- [ ] **F4 · Forge panel placeholder** (S): a left `Sheet` (`apps/mobile/src/shell/forge-panel.tsx`) with the account
+- [x] **F4 · Forge panel placeholder** (S): a left `Sheet` (`apps/mobile/src/shell/forge-panel.tsx`) with the account
   header (Avatar + login), the current repo, and three disabled `ListRow`s, "Branches", "Remotes" and "Forge accounts",
   each with a "Coming soon" `Badge`. A comment notes it mirrors desktop's left repos panel and will grow in a later
   phase.
-- [ ] **F5 · FAB speed dial** (S): ui-native `SpeedDial` mounted once in the tabs layout above the BottomNav
+- [x] **F5 · FAB speed dial** (S): ui-native `SpeedDial` mounted once in the tabs layout above the BottomNav
   (`offsetBottom` = bar height + inset). Actions: **New issue** (→ `/tasks/new-issue`), **Open agent** (→ opens the
   last-used provider, Theme J, or the Agents tab if none), **Switch repo** (→ the F3 sheet), and **Notes** (disabled,
   "Coming soon"), mirroring desktop's quick-access leaves. Hidden on full-screen detail routes.
-- [ ] **F6 · Prefs store** (XS): `apps/mobile/src/state/prefs.ts`, a tiny zustand store persisted to `expo-secure-store`
+- [x] **F6 · Prefs store** (XS): `apps/mobile/src/state/prefs.ts`, a tiny zustand store persisted to `expo-secure-store`
   under one non-secret key `mobile.prefs`. Validated on read with `MobilePrefsSchema` (`version: 1`, `currentRepo:
   { owner, name, defaultBranch } | null`, `recentRepos: [...]` capped at 5, `branchByRepo: Record<string, string>`,
   `theme: 'system' | 'light' | 'dark'`, `lastProvider: AgentProviderId | null`, `tasksViewByProject: Record<string,

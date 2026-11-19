@@ -8,6 +8,8 @@ import * as SecureStore from 'expo-secure-store';
 
 const PROVIDER = 'github';
 const HOST = 'github.com';
+/** The forge host the stored token is for (shown under the login in the forge panel). */
+export const ACCOUNT_HOST = HOST;
 const ACTIVE_LOGIN_KEY = 'midnite:active-login';
 
 export const tokenKey = (login: string): string => `${PROVIDER}:${HOST}:${login}`;
