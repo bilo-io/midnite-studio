@@ -597,6 +597,11 @@ export function setLevelTimeScale(state: EditState, raw: string): EditState {
 /** Tiles a freshly placed spawner covers on each side. */
 export const DEFAULT_SPAWNER_TILES = 10;
 
+const spawnerProperties = (spawns: string) => [
+  { name: 'spawns', type: 'string' as const, value: spawns },
+  { name: 'density', type: 'float' as const, value: SPAWNER_DEFAULT_DENSITY },
+];
+
 /** A `spawner` zone with its top-left at `at`: `spawns` traffic at density 1, ten tiles square. */
 export function addSpawner(state: EditState, layerId: number, at: PlanPoint): EditState {
   return addObject(state, layerId, {
@@ -605,10 +610,24 @@ export function addSpawner(state: EditState, layerId: number, at: PlanPoint): Ed
     y: at.y,
     width: state.level.tilewidth * DEFAULT_SPAWNER_TILES,
     height: state.level.tileheight * DEFAULT_SPAWNER_TILES,
-    properties: [
-      { name: 'spawns', type: 'string', value: SPAWNER_KINDS[0] },
-      { name: 'density', type: 'float', value: SPAWNER_DEFAULT_DENSITY },
-    ],
+    properties: spawnerProperties(SPAWNER_KINDS[0]),
+  });
+}
+
+/**
+ * Drag a rectangle (map pixels) into a `spawner` zone that `spawns` the given kind at density 1, as one undo step.
+ * A drag smaller than a pixel in either direction adds nothing, as with {@link setVolume}.
+ */
+export function drawSpawner(state: EditState, layerId: number, from: PlanPoint, to: PlanPoint, spawns: string = SPAWNER_KINDS[0]): EditState {
+  const width = Math.abs(to.x - from.x), height = Math.abs(to.y - from.y);
+  if (width < 1 || height < 1) return state;
+  return addObject(setActiveLayer(state, layerId), layerId, {
+    type: SPAWNER_TYPE,
+    x: Math.min(from.x, to.x),
+    y: Math.min(from.y, to.y),
+    width,
+    height,
+    properties: spawnerProperties(spawns.trim() || SPAWNER_KINDS[0]),
   });
 }
 

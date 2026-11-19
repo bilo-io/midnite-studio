@@ -40,6 +40,7 @@ import {
   setProperty,
   setActiveLayer,
   setVolume,
+  drawSpawner,
   snapRotation,
   toEditLevel,
   toggleVisible,
@@ -294,6 +295,16 @@ describe('3D placement (Phase 132 Theme E)', () => {
     expect(worldOf(s).size).toEqual([4, 3, 2]);
     expect(s.selection).toEqual({ layerId: objectsId(s), objectId: last(s).id });
     expect(parseGameLevel(serialise(s)).ok).toBe(true);
+  });
+
+  it('draws a spawner zone from a drag in either direction, as one undo step', () => {
+    const s0 = plan();
+    const s = drawSpawner(s0, objectsId(s0), { x: 192, y: 160 }, { x: 64, y: 96 }, 'pedestrians');
+    const zone = s.level.layers.flatMap((l) => (l.type === 'objectgroup' ? l.objects : [])).at(-1)!;
+    expect(zone).toMatchObject({ type: 'spawner', x: 64, y: 96, width: 128, height: 64 });
+    expect(zone.properties).toEqual([{ name: 'spawns', type: 'string', value: 'pedestrians' }, { name: 'density', type: 'float', value: 1 }]);
+    expect(undo(s).level).toEqual(s0.level);
+    expect(drawSpawner(s0, objectsId(s0), { x: 5, y: 5 }, { x: 5, y: 99 })).toBe(s0);
   });
 
   it('makes no volume from a click or a line', () => {

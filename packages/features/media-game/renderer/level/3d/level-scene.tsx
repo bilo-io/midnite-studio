@@ -32,7 +32,7 @@ import {
   type Texture,
 } from 'three';
 
-import type { GameLevelTerrainDetail, LevelViewCamera } from '@midnite/studio-shared';
+import { SPAWNER_TYPE, type GameLevelTerrainDetail, type LevelViewCamera } from '@midnite/studio-shared';
 import { captureScene, type CapturedPixels } from './level-capture';
 import { blendPose, cameraPosition, dollyOffset, poseFromCamera, TRANSITION_MS, type CameraPose } from './camera-transition';
 import { cull, groundTiles, itemRadius, tileInReach, type GroundTile, type ViewStats } from './level-cull';
@@ -58,7 +58,8 @@ const cssColour = (c: string): string => (/^#[0-9a-f]{8}$/i.test(c) ? `#${c.slic
 
 /** What the Volume, Path and Rotate tools are drawing right now, in world metres (Phase 137 Theme G). */
 export type ToolDraft = {
-  volume: { x0: number; z0: number; x1: number; z1: number } | null;
+  /** `flat` is a zone outlined on the ground (the Spawn zone tool) and not a box of the default height. */
+  volume: { x0: number; z0: number; x1: number; z1: number; flat?: boolean } | null;
   path: ReadonlyArray<readonly [number, number]>;
   aim: { from: readonly [number, number]; to: readonly [number, number] } | null;
 };
@@ -809,6 +810,8 @@ function Selected(props: LevelSceneProps & { item: WorldItem }) {
 }
 
 const DRAFT_COLOUR = '#f59e0b';
+/** A spawn zone's rubber band is an outline on the ground, lifted this many metres clear of it. */
+const DRAFT_ZONE_LIFT = 0.4;
 
 /** The tools' rubber bands: a translucent volume box, the path so far with its points, and the rotate aim line. */
 function DraftView({ draft, heightAt }: { draft: ToolDraft; heightAt: (x: number, z: number) => number }) {
@@ -817,12 +820,15 @@ function DraftView({ draft, heightAt }: { draft: ToolDraft; heightAt: (x: number
     const seg = (a: readonly [number, number], b: readonly [number, number], lift: number) => pts.push(a[0], heightAt(a[0], a[1]) + lift, a[1], b[0], heightAt(b[0], b[1]) + lift, b[1]);
     for (let i = 1; i < draft.path.length; i++) seg(draft.path[i - 1]!, draft.path[i]!, 0.08);
     if (draft.aim) seg(draft.aim.from, draft.aim.to, 0.1);
+    // A zone is as large as a district: its edge follows the slopes, where a slab would sink into them.
+    const z = draft.volume?.flat ? draft.volume : null;
+    if (z) for (const n of drapedRuns([[z.x0, z.z0, z.x1, z.z0, z.x1, z.z1, z.x0, z.z1]], heightAt, DRAFT_ZONE_LIFT, Math.max(1, Math.max(Math.abs(z.x1 - z.x0), Math.abs(z.z1 - z.z0)) / 48), true)) pts.push(n);
     const g = new BufferGeometry();
     g.setAttribute('position', new Float32BufferAttribute(pts, 3));
     return g;
-  }, [draft.path, draft.aim, heightAt]);
+  }, [draft.path, draft.aim, draft.volume, heightAt]);
   useEffect(() => () => lines.dispose(), [lines]);
-  const v = draft.volume;
+  const v = draft.volume?.flat ? null : draft.volume;
   return (
     <>
       {v ? (
@@ -851,9 +857,10 @@ function ItemVisual({ item, cache }: { item: WorldItem; cache: ModelCache<Object
   return model ? (
     <primitive object={model} scale={item.scale} />
   ) : (
-    <mesh position={[0, item.size[1] / 2, 0]} scale={[Math.max(item.size[0], 0.01), Math.max(item.size[1], 0.01), Math.max(item.size[2], 0.01)]} castShadow>
+    <mesh position={[0, item.size[1] / 2, 0]} scale={[Math.max(item.size[0], 0.01), Math.max(item.size[1], 0.01), Math.max(item.size[2], 0.01)]} castShadow={item.type !== SPAWNER_TYPE}>
       <boxGeometry />
-      <meshStandardMaterial color={colourOf(item.type)} roughness={0.8} />
+      {/* A selected zone stays see-through: it covers a district, and the ground under it is what is being edited. */}
+      {item.type === SPAWNER_TYPE ? <meshBasicMaterial color={colourOf(item.type)} transparent opacity={0.18} depthWrite={false} /> : <meshStandardMaterial color={colourOf(item.type)} roughness={0.8} />}
       <Edges color="#f5a524" />
     </mesh>
   );

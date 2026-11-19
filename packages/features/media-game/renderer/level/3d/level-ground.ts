@@ -2,7 +2,7 @@
  * Ground-plane geometry for the 3D tools (Phase 137 Theme G): pure, no three. The 3D view casts the pointer's ray
  * (the scene hands it over) and these turn it into the plan points the Floorplan's tools already take.
  */
-import { rotateObject, rotationToward, setVolume, beginStroke, endStroke, type EditLevel, type EditState, type ObjectRef, type PlanPoint } from '../level-edit-model';
+import { drawSpawner, rotateObject, rotationToward, setVolume, beginStroke, endStroke, type EditLevel, type EditState, type ObjectRef, type PlanPoint } from '../level-edit-model';
 import { levelPixelsToWorld } from '@midnite/studio-shared';
 import { snapPlan } from '../level-plan';
 import { planSnapStep, type LevelSnap } from '../level-snap';
@@ -43,6 +43,11 @@ export function volumeFromDrag(level: Pick<EditLevel, 'tilewidth' | 'tileheight'
 /** Commit a volume drag as one undo step (nothing when it is smaller than a pixel). */
 export function commitVolume(state: EditState, layerId: number, drag: { from: PlanPoint; to: PlanPoint }): EditState {
   return setVolume(state, layerId, drag.from, drag.to);
+}
+
+/** Commit a Spawn zone drag as one undo step: the same rectangle a volume drag gives, as a `spawner`. */
+export function commitSpawner(state: EditState, layerId: number, drag: { from: PlanPoint; to: PlanPoint }, spawns?: string): EditState {
+  return drawSpawner(state, layerId, drag.from, drag.to, spawns);
 }
 
 /** Turn every ref to face the ground point (x, z), snapped to `step` degrees (0 = free), as one undo step. */

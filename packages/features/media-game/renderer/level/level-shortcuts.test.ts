@@ -41,6 +41,9 @@ describe('LEVEL_SHORTCUTS (Phase 137 Theme J)', () => {
     expect(matchShortcut(key('r'), plan2d)).toBe('tool.rect');
     expect(matchShortcut(key('r'), plan3d)).toBe('tool.volume');
     expect(matchShortcut(key('r'), view3d)).toBe('gizmo.scale');
+    expect(matchShortcut(key('n'), plan3d)).toBe('tool.spawner');
+    expect(matchShortcut(key('n'), view3d)).toBe('tool.spawner');
+    expect(matchShortcut(key('n'), plan2d)).toBeNull();
     expect(matchShortcut(key('b'), plan3d)).toBeNull();
     expect(matchShortcut(key('ArrowLeft', { shiftKey: true }), plan2d)).toBe('select.nudge');
     expect(matchShortcut(key('Backspace'), plan2d)).toBe('edit.delete');
