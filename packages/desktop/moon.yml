@@ -96,6 +96,8 @@ dependsOn:
     scope: 'development'
   - id: 'feature-chats'
     scope: 'development'
+  - id: 'module-startup'
+    scope: 'development'
   - id: 'app'
     scope: 'development'
 
@@ -149,6 +151,8 @@ tasks:
       - 'feature-media-model:build'
       - 'feature-media-game:build'
       - 'feature-media-audio:build'
+      # tsconfig references modules/startup/tsconfig.main.json (tool-manifests.ts reads its mcp-manifest).
+      - 'module-startup:build'
     inputs:
       - 'src/**/*'
       - 'tsconfig.json'
@@ -173,6 +177,7 @@ tasks:
       - '/packages/features/tests/main/**/*'
       - '/packages/features/tests/manifest.ts'
       - '/packages/forge-github-core/src/**/*'
+      - '/packages/modules/startup/mcp-manifest.ts'
       - '/packages/features/forge/main/**/*'
       - '/packages/features/forge/manifest.ts'
       - '/packages/features/forge-host/main/**/*'
