@@ -242,7 +242,7 @@ describe('LevelEditor, 3D plan view (Phase 132 Theme E)', () => {
   it('opens editable, with the 3D tools and no tile tools, palette or layer button', async () => {
     await open3d();
     const labels = Array.from(screen.getByRole('radiogroup', { name: 'Tool' }).querySelectorAll('[role=radio]')).map((r) => r.getAttribute('aria-label'));
-    expect(labels).toEqual(['Select / Move', 'Place', 'Volume', 'Path', 'Rotate', 'Scatter']);
+    expect(labels).toEqual(['Select / Move', 'Place', 'Volume', 'Spawn zone', 'Path', 'Rotate', 'Scatter']);
     expect(screen.getByRole('radio', { name: 'Select / Move' }).getAttribute('aria-checked')).toBe('true');
     expect((screen.getByRole('radio', { name: 'Place' }) as HTMLButtonElement).disabled).toBe(false);
     expect(screen.queryByRole('radio', { name: 'Paint' })).toBeNull();
@@ -307,6 +307,22 @@ describe('LevelEditor, 3D plan view (Phase 132 Theme E)', () => {
     fireEvent.pointerUp(canvas, at(192, 128));
     expect(lastObject()).toMatchObject({ type: 'prop', x: 64, y: 64, width: 128, height: 64 });
     expect(lastObject().properties).toEqual([{ name: 'sizeY', type: 'float', value: 3 }]);
+  });
+
+  it('drags a spawn zone of the chosen kind, and a click adds nothing', async () => {
+    const { canvas, wrap } = await open3d();
+    fireEvent.keyDown(wrap, { key: 'n' });
+    expect(screen.getByRole('radio', { name: 'Spawn zone' }).getAttribute('aria-checked')).toBe('true');
+    const before = lastObject();
+    fireEvent.pointerDown(canvas, at(64, 64));
+    fireEvent.pointerUp(canvas, at(64, 64));
+    expect(lastObject()).toBe(before);
+    fireEvent.click(screen.getByRole('radio', { name: 'pedestrians' }));
+    fireEvent.pointerDown(canvas, at(192, 128));
+    fireEvent.pointerMove(canvas, at(64, 64));
+    fireEvent.pointerUp(canvas, at(64, 64));
+    expect(lastObject()).toMatchObject({ type: 'spawner', x: 64, y: 64, width: 128, height: 64 });
+    expect(lastObject().properties).toEqual([{ name: 'spawns', type: 'string', value: 'pedestrians' }, { name: 'density', type: 'float', value: 1 }]);
   });
 
   it('draws a path with clicks and Enter finishes it; Escape cancels a draft', async () => {
@@ -474,7 +490,7 @@ describe('LevelEditor, Floorplan | 3D switch (Phase 136 Theme E)', () => {
     expect(view.dataset.tool).toBe('volume');
     expect(screen.getByRole('radio', { name: 'Volume' }).getAttribute('aria-checked')).toBe('true');
     const labels = Array.from(screen.getByRole('radiogroup', { name: 'Tool' }).querySelectorAll('[role=radio]')).map((r) => r.getAttribute('aria-label'));
-    expect(labels).toEqual(['Select / Move', 'Place', 'Volume', 'Path', 'Rotate', 'Scatter']);
+    expect(labels).toEqual(['Select / Move', 'Place', 'Volume', 'Spawn zone', 'Path', 'Rotate', 'Scatter']);
     expect(useLevelViewStore.getState().modeByGame).toEqual({ g1: '3d' });
   });
 

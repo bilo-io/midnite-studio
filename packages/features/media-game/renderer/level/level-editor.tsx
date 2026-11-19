@@ -16,6 +16,7 @@ import {
   LuRoute,
   LuSave,
   LuBox,
+  LuSquareDashed,
   LuSquare,
   LuTrash2,
   LuTriangleAlert,
@@ -100,6 +101,7 @@ import {
   setProperty,
   setVolume,
   addSpawner,
+  drawSpawner,
   setLevelTimeOfDay,
   setLevelTimeScale,
   setLevelWeather,
@@ -158,7 +160,7 @@ export function useAssetBrowserTabs({ gameId, is3d, onDeletePrefab }: { gameId: 
   );
 }
 
-export type LevelTool = 'paint' | 'erase' | 'rect' | 'pick' | 'entity' | 'select' | 'volume' | 'path' | 'rotate' | 'scatter';
+export type LevelTool = 'paint' | 'erase' | 'rect' | 'pick' | 'entity' | 'select' | 'volume' | 'spawner' | 'path' | 'rotate' | 'scatter';
 
 const TOOLS: readonly { tool: LevelTool; label: string; key: string; icon: typeof LuPaintbrush }[] = [
   { tool: 'paint', label: 'Paint', key: 'b', icon: LuPaintbrush },
@@ -170,11 +172,12 @@ const TOOLS: readonly { tool: LevelTool; label: string; key: string; icon: typeo
   { tool: 'scatter', label: 'Scatter', key: 's', icon: LuSprout },
 ];
 
-/** A 3D level's tools (Theme E): the same V and O as 2D, plus a volume, a path and a yaw drag. */
+/** A 3D level's tools (Theme E): the same V and O as 2D, plus a volume, a spawn zone, a path and a yaw drag. */
 const TOOLS_3D: readonly { tool: LevelTool; label: string; key: string; icon: typeof LuPaintbrush }[] = [
   { tool: 'select', label: 'Select / Move', key: 'v', icon: LuMousePointer2 },
   { tool: 'entity', label: 'Place', key: 'o', icon: LuMapPin },
   { tool: 'volume', label: 'Volume', key: 'r', icon: LuBox },
+  { tool: 'spawner', label: 'Spawn zone', key: 'n', icon: LuSquareDashed },
   { tool: 'path', label: 'Path', key: 'p', icon: LuRoute },
   { tool: 'rotate', label: 'Rotate', key: 'y', icon: LuRotateCw },
   { tool: 'scatter', label: 'Scatter', key: 's', icon: LuSprout },
@@ -325,9 +328,11 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
   const [gid, setGid] = useState(1);
   const [entityType, setEntityType] = useState<string>('spawn');
   const [custom, setCustom] = useState('');
+  /** What the Spawn zone tool's next zone spawns. */
+  const [spawnerKind, setSpawnerKind] = useState<string>(SPAWNER_KINDS[0]);
   const [preview, setPreview] = useState<Cell[] | null>(null);
   const drag = useRef<{ from: Cell; last: Cell } | null>(null);
-  const planDrag = useRef<{ kind: 'rotate'; sel: NonNullable<typeof edit.selection>; centre: PlanPoint } | { kind: 'volume'; from: PlanPoint } | null>(null);
+  const planDrag = useRef<{ kind: 'rotate'; sel: NonNullable<typeof edit.selection>; centre: PlanPoint } | { kind: 'volume' | 'spawner'; from: PlanPoint } | null>(null);
   // The Select tool's gesture (Phase 137 Theme C): a group drag of the selection, or a marquee from empty ground.
   const selectDrag = useRef<
     | { kind: 'group'; refs: readonly ObjectRef[]; start: PlanPoint; grab: PlanPoint; applied: PlanPoint }
@@ -803,9 +808,9 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
       } else if (tool === 'entity') {
         if (objectLayerId === null || !entityName) return;
         update((s) => placeEntity(s, objectLayerId, entityName, at));
-      } else if (tool === 'volume') {
+      } else if (tool === 'volume' || tool === 'spawner') {
         if (objectLayerId === null) return;
-        planDrag.current = { kind: 'volume', from: at };
+        planDrag.current = { kind: tool, from: at };
         setVolumeDrag({ from: at, to: at });
       } else if (tool === 'path') {
         if (objectLayerId === null) return;
@@ -820,10 +825,11 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
       const d = planDrag.current;
       planDrag.current = null;
       if (!d) return;
-      if (d.kind === 'volume') {
+      if (d.kind === 'rotate') update(endStroke);
+      else {
         setVolumeDrag(null);
-        if (objectLayerId !== null) update((s) => setVolume(s, objectLayerId, d.from, at));
-      } else update(endStroke);
+        if (objectLayerId !== null) update((s) => (d.kind === 'spawner' ? drawSpawner(s, objectLayerId, d.from, at, spawnerKind) : setVolume(s, objectLayerId, d.from, at)));
+      }
     }
   };
 
@@ -1088,6 +1094,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
       case 'tool.rect':
       case 'tool.pick':
       case 'tool.volume':
+      case 'tool.spawner':
       case 'tool.path':
       case 'tool.rotate':
       case 'tool.scatter':
@@ -1272,7 +1279,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
             assetDrop={assetDrop}
             label={
               is3d
-                ? 'Level plan view, seen from above. Tools: V select and move, O place, R volume, P path (Enter finishes), Y rotate (Shift snaps to 15 degrees).'
+                ? 'Level plan view, seen from above. Tools: V select and move, O place, R volume, N spawn zone, P path (Enter finishes), Y rotate (Shift snaps to 15 degrees).'
                 : `Level canvas, ${level.width} × ${level.height} tiles. Tools: B paint, E erase, R rectangle, I pick, O entity, V select.`
             }
           />
@@ -1289,6 +1296,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
                   readOnly={readOnly}
                   tool={tool}
                   entityName={entityName}
+                  spawnerKind={spawnerKind}
                   objectLayerId={objectLayerId}
                   pathDraft={draft}
                   extras={extras.scene}
@@ -1320,6 +1328,17 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
                 </button>
               ))}
               {entityType === CUSTOM ? <input aria-label="Custom entity type" value={custom} onChange={(e) => setCustom(e.target.value)} className="mt-1 w-full rounded border border-border bg-background px-1.5 py-0.5" /> : null}
+            </div>
+          ) : is3d && tool === 'spawner' ? (
+            <div className="flex flex-col gap-2">
+              <div role="radiogroup" aria-label="Zone spawns" className="flex flex-wrap gap-1">
+                {SPAWNER_KINDS.map((k) => (
+                  <button key={k} type="button" role="radio" aria-checked={spawnerKind === k} disabled={readOnly} onClick={() => setSpawnerKind(k)} className={`rounded border px-1.5 py-0.5 disabled:opacity-40 ${spawnerKind === k ? 'border-primary text-foreground' : 'border-border text-muted-foreground'}`}>
+                    {k}
+                  </button>
+                ))}
+              </div>
+              <PlanHint tool={tool} drafting={draft.length} />
             </div>
           ) : is3d ? (
             <PlanHint tool={tool} drafting={draft.length} />
@@ -1546,6 +1565,7 @@ function PlanHint({ tool, drafting }: { tool: LevelTool; drafting: number }) {
   const text: Partial<Record<LevelTool, string>> = {
     select: 'Click an object to select it; drag to move it (half-metre snap, Alt for free).',
     volume: 'Drag a rectangle to make a box prop, 3 m tall by default.',
+    spawner: 'Drag a rectangle over the ground to make a spawn zone. Set its density in the inspector.',
     path: drafting > 0 ? `${drafting} point${drafting === 1 ? '' : 's'}. Enter finishes, Backspace removes the last, Escape cancels.` : 'Click points along the route; Enter finishes the path.',
     rotate: 'Drag around an object to turn it. Shift snaps to 15 degrees.',
   };

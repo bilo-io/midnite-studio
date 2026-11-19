@@ -58,7 +58,8 @@ const cssColour = (c: string): string => (/^#[0-9a-f]{8}$/i.test(c) ? `#${c.slic
 
 /** What the Volume, Path and Rotate tools are drawing right now, in world metres (Phase 137 Theme G). */
 export type ToolDraft = {
-  volume: { x0: number; z0: number; x1: number; z1: number } | null;
+  /** `flat` is a zone on the ground (the Spawn zone tool) and not a box of the default height. */
+  volume: { x0: number; z0: number; x1: number; z1: number; flat?: boolean } | null;
   path: ReadonlyArray<readonly [number, number]>;
   aim: { from: readonly [number, number]; to: readonly [number, number] } | null;
 };
@@ -809,6 +810,8 @@ function Selected(props: LevelSceneProps & { item: WorldItem }) {
 }
 
 const DRAFT_COLOUR = '#f59e0b';
+/** A spawn zone's rubber band is a slab on the ground, metres thick. */
+const DRAFT_ZONE_HEIGHT = 0.2;
 
 /** The tools' rubber bands: a translucent volume box, the path so far with its points, and the rotate aim line. */
 function DraftView({ draft, heightAt }: { draft: ToolDraft; heightAt: (x: number, z: number) => number }) {
@@ -823,10 +826,11 @@ function DraftView({ draft, heightAt }: { draft: ToolDraft; heightAt: (x: number
   }, [draft.path, draft.aim, heightAt]);
   useEffect(() => () => lines.dispose(), [lines]);
   const v = draft.volume;
+  const tall = v?.flat ? DRAFT_ZONE_HEIGHT : DEFAULT_SIZE_Y;
   return (
     <>
       {v ? (
-        <mesh position={[(v.x0 + v.x1) / 2, heightAt((v.x0 + v.x1) / 2, (v.z0 + v.z1) / 2) + DEFAULT_SIZE_Y / 2, (v.z0 + v.z1) / 2]} scale={[Math.max(Math.abs(v.x1 - v.x0), 0.01), DEFAULT_SIZE_Y, Math.max(Math.abs(v.z1 - v.z0), 0.01)]}>
+        <mesh position={[(v.x0 + v.x1) / 2, heightAt((v.x0 + v.x1) / 2, (v.z0 + v.z1) / 2) + tall / 2, (v.z0 + v.z1) / 2]} scale={[Math.max(Math.abs(v.x1 - v.x0), 0.01), tall, Math.max(Math.abs(v.z1 - v.z0), 0.01)]}>
           <boxGeometry />
           <meshBasicMaterial color={DRAFT_COLOUR} transparent opacity={0.25} depthWrite={false} />
         </mesh>

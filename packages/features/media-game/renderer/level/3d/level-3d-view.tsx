@@ -18,7 +18,7 @@ import { footprintBox, gizmoSteps, surfaceElevation } from '../level-snap';
 import type { SceneExtras } from './level-extras';
 import type { LevelSceneProps } from './level-scene';
 import { disposeTree, LevelScene, NO_DRAFT, SCENE_BACKGROUND, type CameraMove, type ToolDraft } from './level-scene';
-import { commitVolume, groundPoint, rayHitsItem, rotateToward, snappedPlanPoint, volumeFromDrag, worldPointFromPlan } from './level-ground';
+import { commitSpawner, commitVolume, groundPoint, rayHitsItem, rotateToward, snappedPlanPoint, volumeFromDrag, worldPointFromPlan } from './level-ground';
 import { marqueeHits, type ScreenPoint, type ScreenRect } from './level-marquee';
 import { isMac, matchShortcut } from '../level-shortcuts';
 import { isAssetDrag, readDroppedAsset, useDraggedAsset, type AssetDragPayload, type AssetDropTarget } from '../assets/asset-drag';
@@ -53,6 +53,8 @@ export type Level3dViewProps = {
   /** `select` shows the gizmo; `entity` places `entityName` where the ground is clicked. */
   tool: string;
   entityName: string;
+  /** What a Spawn zone drag spawns; the first kind when absent. */
+  spawnerKind?: string;
   objectLayerId: number | null;
   /** The path being drawn (map pixels); the editor owns it, so Enter, Escape and Backspace work in both views. */
   pathDraft: readonly PlanPoint[];
@@ -326,7 +328,7 @@ export default function Level3dView(props: Level3dViewProps) {
   const toolDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     const tool = props.tool;
     if (!editable || event.button !== 0 || event.shiftKey || !(event.target instanceof HTMLCanvasElement)) return;
-    if (tool !== 'volume' && tool !== 'path' && tool !== 'rotate' && tool !== 'scatter') return;
+    if (tool !== 'volume' && tool !== 'spawner' && tool !== 'path' && tool !== 'rotate' && tool !== 'scatter') return;
     const cast = (x: number, y: number): [number, number, number] | null => {
       const r = ray.current?.(x, y);
       return castGround(r);
@@ -349,8 +351,9 @@ export default function Level3dView(props: Level3dViewProps) {
       window.addEventListener('pointerup', up);
     };
 
-    if (tool === 'volume') {
+    if (tool === 'volume' || tool === 'spawner') {
       if (!start || layer === null) return;
+      const zone = tool === 'spawner';
       setOrbit.current?.(false);
       const snapped = (at: [number, number, number], invert: boolean) => volumeFromDrag(level, [start[0], start[2]], [at[0], at[2]], levelSnap, invert);
       track(
@@ -358,10 +361,10 @@ export default function Level3dView(props: Level3dViewProps) {
           if (!at || !travelled(ev)) return;
           const d = snapped(at, ev.altKey);
           const a = worldPointFromPlan(level, d.from), b = worldPointFromPlan(level, d.to);
-          setVolumeDraft({ x0: a[0], z0: a[1], x1: b[0], z1: b[1] });
+          setVolumeDraft({ x0: a[0], z0: a[1], x1: b[0], z1: b[1], flat: zone });
         },
         (ev, at) => {
-          if (at && travelled(ev)) update((s) => commitVolume(s, layer, snapped(at, ev.altKey)));
+          if (at && travelled(ev)) update((s) => (zone ? commitSpawner(s, layer, snapped(at, ev.altKey), props.spawnerKind) : commitVolume(s, layer, snapped(at, ev.altKey))));
         },
       );
     } else if (tool === 'scatter') {
