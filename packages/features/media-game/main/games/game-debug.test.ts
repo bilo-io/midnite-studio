@@ -19,7 +19,7 @@ describe('debugCode / setGameDebug', () => {
 
   it('says to upgrade the kit when the game has no debug(), and fails soft on junk', async () => {
     const old = await setGameDebug(async () => null, { nav: true });
-    expect(old.ok === false && old.message).toMatch(/Upgrade the kit/);
+    expect(old.ok === false && old.kind === 'error' && old.message).toMatch(/Upgrade the kit/);
     expect((await setGameDebug(async () => '{nope', {})).ok).toBe(false);
     expect((await setGameDebug(async () => JSON.stringify({ colliders: 1 }), {})).ok).toBe(false);
     expect((await setGameDebug(async () => JSON.stringify({ __error: 'boom' }), {})).ok).toBe(false);
@@ -44,8 +44,8 @@ describe('readGameNavMesh', () => {
     const polygons = Array.from({ length: 10_000 }, () => triangle);
     const r = await readGameNavMesh(async () => JSON.stringify({ polygons }));
     expect(r.ok).toBe(false);
-    expect(r.ok === false && r.message).toContain('30,000 vertices');
-    expect(r.ok === false && r.message).toContain(String(GAME_NAV_VERTICES_MAX.toLocaleString('en-US')));
+    expect(r.ok === false && r.kind === 'error' && r.message).toContain('30,000 vertices');
+    expect(r.ok === false && r.kind === 'error' && r.message).toContain(String(GAME_NAV_VERTICES_MAX.toLocaleString('en-US')));
     expect(GameNavMeshSchema.safeParse({ polygons }).success).toBe(false);
     expect(GameNavMeshSchema.safeParse({ polygons: polygons.slice(0, 6000) }).success).toBe(true);
   });
