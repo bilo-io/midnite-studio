@@ -94,5 +94,5 @@ acting on are fixed and pushed:
 - No amend, no rebase, no force-push, no push to `main`. Never merge; the user decides.
 - No local workspace-wide gate (`moon run :typecheck :lint :test`, full suites): they exhaust RAM.
   Scoped vitest, tsc and eslint only; CI is the gate.
-- Phase work leaves `.midnite/tasks/` consistent (a `done.md` entry, the phase doc's Headlines,
-  only the row in `_INDEX.md`) before the PR opens.
+- Phase work links its theme sub-issue (`Closes #<n>` in the body) before the PR opens; nothing
+  tracker-related is committed.

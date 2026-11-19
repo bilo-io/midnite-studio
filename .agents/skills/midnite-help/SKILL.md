@@ -84,6 +84,6 @@ Under the tree, at most six bullets, one line each:
 ## 4 · Ask what next
 
 End with a short numbered list of three or four likely next steps for this repo right now (look
-at open PRs and WIP phases in `.midnite/tasks/` if that is quick), each naming the skill it would
+at open PRs and open `phase` issues if that is quick), each naming the skill it would
 run, then one line: "Reply with a number, or tell me what you want and I'll route it with
 `/midnite`." No option sheet here.

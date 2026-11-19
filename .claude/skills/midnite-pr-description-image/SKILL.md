@@ -1,6 +1,6 @@
 ---
 name: midnite-pr-description-image
-description: Add one screenshot under `## Screenshots` in a Midnite Studio PR body, but only when the PR changes what a user sees. Captures it with the Playwright shots helper into the scratchpad (never committed) and shows it in the thread. Use right after midnite-pr-description, or when the user asks to put a screenshot on a PR.
+description: Add one screenshot under `## Screenshots` in a Midnite Studio PR body, but only when the PR changes what a user sees. Captures it with the Playwright shots helper into the session scratchpad and attaches it to the PR on GitHub; screenshots are never committed. Use right after midnite-pr-description, or when the user asks to put a screenshot on a PR.
 argument-hint: "[PR number, or nothing for the current branch]"
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep
 ---
@@ -45,24 +45,22 @@ Use a **throwaway Playwright spec** built on the shots helper
 - Import `installMockBridge` from `./shots-helper` (not from `test-support/mock-bridge`), seed it
   with `fixtures`, drive the app to the changed surface, and `locator.screenshot({ path })` (crop to
   the changed region) or `page.screenshot` for a whole-view change.
-- Write the PNG to the session scratchpad or `/tmp/midnite-shots-<slice>/<name>.png`. `<slice>` is
-  the phase or task slug (`phase-124-modules`, `adhoc-menu-skills`). **Never write under
-  `docs/screenshots/` and never commit the PNG** (Phase 116: `scripts/e2e-budget.mjs` fails the gate on
-  an unreferenced one).
+- Write to `<session scratchpad>/<slice>/<name>.png` (never under the repo; `docs/screenshots/` is
+  git-ignored). `<slice>` is the phase or task slug.
 - **Delete the spec afterwards.** Shot specs are not kept in the tree (Phase 116 Theme B purged
-  them); nothing from the capture is committed.
+  them), and the PNG is not committed either.
 - Run it scoped: `pnpm -C packages/app exec playwright test e2e/pr-shots.spec.ts` (the config
   starts its own Vite server). If Playwright is unavailable, or the surface needs a state the mock
   bridge cannot reach, say so and ask the user for the image rather than fake one.
 
 Read the PNG before using it: right surface, nothing clipped, no stray dev overlay.
 
-## 3 · Show it, do not commit it
+## 3 · Attach it on GitHub, never commit
 
-Show the PNG in the thread so the user sees it, and clean up the throwaway spec. Do not `git add`
-it. The PR body cannot embed an uncommitted file, so put no image link in it: the `## Screenshots`
-section names the surface and says the capture is in the thread, and the user can attach the file to
-the PR themselves.
+Screenshots stay out of git. GitHub has no API for PR image uploads, so show the PNG in the session
+thread with its scratchpad path and ask the user to drag it into the PR body or a PR comment; GitHub
+hosts it under `user-attachments` and gives back the URL to use in step 4. If the user has already
+attached it, use that URL.
 
 ## 4 · Put it in the body
 

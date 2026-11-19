@@ -1,11 +1,11 @@
 ---
 name: midnite-plan-fast
-description: Fast, read-only feasibility and PR-breakdown plan rendered directly in chat using the midnite-sitrep family (table, merge graph, timeline) — with effort/duration estimates, PR sizes, counts, and wave sequence — without creating a .midnite/tasks/ phase doc yet.
+description: Fast, read-only feasibility and PR-breakdown plan rendered directly in chat using the midnite-sitrep family (table, merge graph, timeline) — with effort/duration estimates, PR sizes, counts, and wave sequence — without filing a phase issue yet.
 ---
 
 **Invoke with:** a feature idea, feasibility question, or rough scope (e.g. `/midnite-plan-fast unify sessions and chats`).
 
-You are running the **fast plan** workflow for **Midnite Studio**. **Read-only:** do **not** write any `.midnite/tasks/` phase doc, do **not** edit `_INDEX.md`, and do **not** invoke `/midnite-plan`. Render the entire output directly in the chat/session response, then offer to promote it to `/midnite-plan` or refine it.
+You are running the **fast plan** workflow for **Midnite Studio**. **Read-only:** do **not** file or edit any GitHub issue, do **not** write a plan into the repo, and do **not** invoke `/midnite-plan`. Render the entire output directly in the chat/session response, then offer to promote it to `/midnite-plan` or refine it.
 
 ## 0 · Run the script first
 
@@ -39,8 +39,8 @@ Read and follow the exact formatting rules of [`midnite-sitrep-table`](../midnit
 ## 3 · Hand off with an option sheet
 
 Close with an option sheet (using `ask_question` where supported, else numbered choices) asking whether to:
-1. Promote this breakdown into a formal `.midnite/tasks/FEATURES/phases/phase-N-*.md` doc via `/midnite-plan` (Recommended).
-2. Refine scope, PR slicing, or parallel cap before creating a phase doc.
+1. Promote this breakdown into a `phase` issue with theme sub-issues via `/midnite-plan` (Recommended).
+2. Refine scope, PR slicing, or parallel cap before filing a phase issue.
 3. Keep it chat-only / start building `PR-1` directly in a worktree.
 
 Include at most 2–3 crisp architectural recommendations if relevant.

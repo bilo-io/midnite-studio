@@ -14,9 +14,8 @@ carries no outline changes.
 It replaced **Quick Kiss**, the desktop app's original brand face, which is
 licensed for personal use only and cannot be served from a public origin; the
 app now ships this same file from `packages/app/src/fonts/damion/`. Damion is an
-open-licence script in the same hand — see the twenty-candidate sheet at
-[`docs/screenshots/website-wordmark/candidates.png`](../../../../../docs/screenshots/website-wordmark/candidates.png)
-and the "brand face" section of [`docs/WEBSITE.md`](../../../../../docs/WEBSITE.md),
+open-licence script in the same hand — see the twenty-candidate comparison in
+the "brand face" section of [`docs/WEBSITE.md`](../../../../../docs/WEBSITE.md),
 which records why it replaced Kaushan Script.
 **Quick Kiss must never be re-added here or anywhere else in the repo.**
 

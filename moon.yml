@@ -9,7 +9,7 @@ $schema: 'https://moonrepo.dev/schemas/project.json'
 # `test` is deliberately NOT excluded (Phase 53 Theme F): the repo-wide
 # `scripts/*.test.mjs` files existed with no runner behind them, so `moon run
 # :test` skipped the root project entirely and CI never executed the guards over
-# version-check, tracker-check and the changelog mirror. `vitest.config.ts` at
+# version-check and the changelog mirror. `vitest.config.ts` at
 # the root scopes the inherited task to exactly those files.
 id: 'root'
 language: 'bash'
@@ -33,12 +33,6 @@ tasks:
     options:
       cache: false
 
-  # tracker-check: verifies phase doc and _INDEX.md consistency across 7 rules.
-  tracker-check:
-    command: 'node scripts/tracker-check.mjs'
-    options:
-      cache: false
-
   # privacy-doc (Phase 115 Theme G): regenerate docs/PRIVACY.md from the egress registry.
   # `--check` only verifies; the same check runs in `shared:test` (privacy-doc.test.ts).
   privacy-doc:
@@ -50,7 +44,7 @@ tasks:
   # every packages/*/package.json share one MAJOR.MINOR (PATCH may diverge per
   # package). Pure static check — no build deps, no network, import-free
   # (scripts/version-check.mjs never imports @midnite/*) — so it runs in CI
-  # before (and independently of) anything else, exactly like tracker-check
+  # before (and independently of) anything else, exactly like version-check
   # above (Phase 53 Theme B).
   version-check:
     command: 'node scripts/version-check.mjs'
@@ -115,7 +109,7 @@ tasks:
   # visual-budget: cap the pixel-diff layer's committed baseline corpus at the
   # ~100 PNG / ~3 MB limit Phase 82 Theme D settled on, so it cannot silently
   # regrow into the same problem docs/screenshots/ already is. `cache: false`
-  # and no declared `inputs` — like tracker-check above, this reads
+  # and no declared `inputs` — like version-check above, this reads
   # `packages/app/e2e/visual/__screenshots__/` directly rather than through
   # moon's hash, since what it is checking IS the state of that directory on
   # disk, not a build output derived from it.

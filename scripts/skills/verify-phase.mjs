@@ -6,7 +6,7 @@
 //   node scripts/skills/verify-phase.mjs --phase N --complete --confirm [--summary "..."]   # after human sign-off
 //
 // Default: locate the oldest incomplete phase (or --phase), partition its checklist into automated vs human
-// items, run `tracker-check.mjs`, and LIST the focused commands to run (they need the touched files, so they
+// items, and LIST the focused commands to run (they need the touched files, so they
 // are never run here). It never runs the full `moon run :typecheck :lint :test` unless --full is passed (that
 // gate exhausts RAM on the dev machine). Writes need explicit flags: --tick edits the phase doc, --complete (with
 // --confirm) flips the phase row to DONE in its category `_INDEX.md` and appends to `done.md`.
@@ -85,7 +85,8 @@ export function findPhase(root, phase) {
 
 /** The gate: what runs by default, what is merely listed, and what --full adds. */
 export function planGate({ full = false } = {}) {
-  const steps = [{ name: 'tracker-check', cmd: ['node', 'scripts/tracker-check.mjs'], run: true }];
+  // tracker-check is gone with the tracked tracker (planning moved to forge issues), so nothing runs by default.
+  const steps = [];
   steps.push({ name: 'focused tests', cmd: ['npx', 'vitest', 'run', '<changed test files>'], run: false, note: 'run the tests of the packages the phase touched' });
   steps.push({ name: 'focused lint', cmd: ['npx', 'eslint', '<touched files>'], run: false });
   steps.push({ name: 'full gate', cmd: FULL_GATE, run: full, note: full ? undefined : 'opt-in (--full): exhausts RAM on the dev machine' });

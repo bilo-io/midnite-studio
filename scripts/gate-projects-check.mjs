@@ -15,7 +15,7 @@
 // stop covering that set exactly.
 //
 // Self-contained on purpose, no @midnite/* imports, so it runs before any
-// build — same rationale as version-check.mjs and tracker-check.mjs.
+// build — same rationale as version-check.mjs.
 
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';

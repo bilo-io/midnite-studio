@@ -134,9 +134,8 @@ SIL OFL / Apache-2.0 script faces were originally fetched from the
 [`google/fonts`](https://github.com/google/fonts) repo and rendered against
 Quick Kiss at the three sizes the site actually uses — the nav's 20px, the
 hero's 64px and the footer's ~140px — then ranked on stroke character, slant,
-connectedness and x-height. The sheet is committed as the evidence:
-
-**[`docs/screenshots/website-wordmark/candidates.png`](screenshots/website-wordmark/candidates.png)**
+connectedness and x-height. The sheet is no longer committed (screenshots stay out of git);
+re-render it locally if a re-pick needs it.
 
 That exercise put **Kaushan Script** first (closest to Quick Kiss on every axis
 at once), **Norican** second, **Yellowtail** third and **Damion** fourth —

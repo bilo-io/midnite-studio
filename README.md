@@ -6,31 +6,14 @@ explorer, an embedded browser, multiple detachable windows, and the forge (PRs, 
 issues) — all in the same app. Plain Electron + typed IPC, a Vite + React renderer, and the
 published [`@bilo-io/ui`](https://github.com/bilo-io/midnite-ui) design system.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/midnite-studio-dark.png">
-  <img src="docs/screenshots/midnite-studio-light.png" alt="Midnite Studio">
-</picture>
-
-<sub>Running `~/Dev/midnite` — linked worktrees nested under their repository, 2,376 commits,
-live branch and sync state in the footer. The crescent and the wordmark face are the midnite
-app's own.</sub>
-
 **Design source of truth:** [`docs/INITIAL_PLAN.md`](docs/INITIAL_PLAN.md).
-**Progress tracker:** [`.midnite/tasks/`](.midnite/tasks/) (see the [index](.midnite/tasks/_INDEX.md)) — one checklist per phase, an append-only
-[`done.md`](.midnite/tasks/done.md), and deliberately-deferred scope in
-[`outstanding.md`](.midnite/tasks/outstanding.md).
+**Progress tracker:** GitHub issues — a phase is an issue labelled `phase`, each theme a
+sub-issue, deferred scope is labelled `deferred`, and the project board is the index.
 
 ## Light & dark
 
-Every surface — including forge views like the PR detail below — follows the app's theme, not
+Every surface — including forge views like the PR detail — follows the app's theme, not
 just the chrome around it.
-
-<table>
-<tr>
-<td width="50%"><img src="docs/screenshots/phase-20-pr-detail/pr-files-light.png" alt="PR detail, light mode"></td>
-<td width="50%"><img src="docs/screenshots/phase-20-pr-detail/pr-files-dark.png" alt="PR detail, dark mode"></td>
-</tr>
-</table>
 
 ## What it does
 
@@ -40,8 +23,6 @@ just the chrome around it.
    out; drag a branch onto another to merge or rebase, or a commit onto a branch to cherry-pick.
    Anything that can orphan commits asks first, and shows how many.
 
-   ![Graph context menu and commit inspector](docs/screenshots/phase-7-context-menu.png)
-
 2. **A worktree-aware sidebar** — repositories with their linked worktrees nested underneath,
    per-worktree status, staging, committing, and fetch/pull/push with ahead-behind counts.
 
@@ -50,30 +31,20 @@ just the chrome around it.
    a PR detail pane with Overview / Files / Conversation / Checks tabs and an Approve / Request
    changes / Merge bar.
 
-   ![GitHub PR detail — files, conversation and checks](docs/screenshots/phase-20-pr-detail/pr-files-dark.png)
-
 4. **An integrated terminal** — the user's real login shell, in the selected worktree, toggled
    with `` Ctrl+` `` on every platform.
-
-   ![Integrated terminal](docs/screenshots/phase-9-terminal.png)
 
 5. **A file explorer with a preview pane** — a read-only tree with git-status glyphs, and a
    preview that renders code (shiki syntax highlighting), markdown, images, PDFs and media.
 
-   ![File explorer with code preview](docs/screenshots/phase-16/files-code.png)
-
 6. **An embedded browser** — a real `WebContentsView`-backed browser pane, opened full-screen or
    side-by-side with the rest of the app, with its own tabs and a partitioned session per tab.
-
-   ![Browser layout picker](docs/screenshots/adhoc-browser-layout/launcher.png)
 
 7. **Multi-agent CLI support** — the terminal's agent roster isn't one agent, it's twelve:
    Claude Code, Antigravity, Codex, Cursor, Copilot, OpenClaude, opencode, Kilo, Aider, Cline,
    Grok and Goose, each with its own icon, identity and its own settings page for
    install/version-detection/update/API keys — installing one is adding a row to a table, not
    shipping a release.
-
-   ![Multiple concurrent agent sessions in the terminal](docs/screenshots/phase-21-session-list-dark.png)
 
 8. **Multi-window & detachable panels** — the graph, terminal, browser, repos sidebar and the
    quick-access console can each pop out into their own OS window (more than one at a time),
@@ -91,7 +62,7 @@ with a **database explorer** (Postgres/MySQL/MariaDB/MSSQL) alongside it; a **Co
 Studio** for 3-way merge conflicts; a **Video Studio**; a **Markdown slide deck viewer**, wherever
 markdown already renders; a voice-capable **AI companion**; and a rail of embedded third-party
 apps (Spotify, Google Calendar, YouTube), each independently detachable. See
-[`.midnite/tasks/_INDEX.md`](.midnite/tasks/_INDEX.md) for the full, current list.
+the `phase` issues on GitHub for the full, current list.
 
 ## Supported platform
 
@@ -291,9 +262,9 @@ GitHub's — see [`docs/RELEASING.md`](docs/RELEASING.md)).
 
 ## Contributing
 
-Work phase by phase from [`.midnite/tasks/`](.midnite/tasks/). Every change leaves
-`moon run :typecheck :lint :test` green; visual changes get a screenshot in
-[`docs/screenshots/`](docs/screenshots).
+Work phase by phase from the `phase` issues on GitHub. Every change leaves
+`moon run :typecheck :lint :test` green; visual changes get a screenshot attached to the PR on
+GitHub, never committed.
 
 ## Onboarding another repo
 

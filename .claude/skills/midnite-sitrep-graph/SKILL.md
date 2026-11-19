@@ -20,7 +20,7 @@ Run `node scripts/skills/sitrep.mjs graph [--pr 12,13 | --input rows.json]`. It 
   - The branch has merge commits pulling in another PR's head.
   - `go.mod` or a lockfile pins another PR's commit.
   - The PR body, or the plan's `Depends on` / `dependsOn`, names it.
-  - For `.midnite/tasks/` phases, the phase doc's sequencing note ("G lands first … B needs A") and
+  - For `phase` issues, the phase issue's sequencing note ("G lands first … B needs A") and
     its Deliverables' cross-theme references.
 - **Soft edges (`┄┄`, rebase only, order free):** two open PRs change the same files
   (`gh pr view <n> --json files`). Name the files in parentheses, abbreviated.

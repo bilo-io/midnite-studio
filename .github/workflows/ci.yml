@@ -219,9 +219,6 @@ jobs:
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Tracker check
-        run: pnpm exec moon run root:tracker-check
-
       # Lockstep invariant (Phase 53 Theme B): every packages/*/package.json
       # shares one MAJOR.MINOR. Runs before the build so a hand-edited version
       # fails fast rather than surfacing later as a release-time surprise.
@@ -251,7 +248,7 @@ jobs:
 
       # Explicit project-scoped targets, not `:typecheck :lint :test` — that
       # form runs EVERY project, which is exactly what this split undoes.
-      # `root:test` runs the repo-wide scripts/*.test.mjs suite (tracker-check,
+      # `root:test` runs the repo-wide scripts/*.test.mjs suite (
       # version-check, gate-projects-check, the changelog mirror): plain node
       # scripts, no platform dependency, so it belongs here rather than on
       # gate-native.

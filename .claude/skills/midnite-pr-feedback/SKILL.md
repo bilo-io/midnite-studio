@@ -105,6 +105,6 @@ with `gh pr edit`, preserving the original body (when called by `midnite-check-y
 - Do not dismiss or resolve a reviewer's thread; only the reviewer does.
 - **A draft PR never gets a reviewer requested.** Review requests wait for the self-review to
   finish and `gh pr ready` (see `midnite-check-yourself`).
-- If tracked phase work is involved, the tracker is `.midnite/tasks/` (Headlines in the phase doc,
-  only the row in `_INDEX.md`).
+- If tracked phase work is involved, the tracker is GitHub issues (Headlines in the phase issue,
+  the PR closes its theme sub-issue). Nothing tracker-related is committed.
 - If an input is ambiguous, ask before building the plan.

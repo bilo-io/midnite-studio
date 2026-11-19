@@ -5,7 +5,7 @@ import { defineConfig } from 'vitest/config';
  *
  * These had tests but no runner — `moon run :test` walks every project, and
  * `moon.yml` excluded the inherited `test` task from `root`, so
- * `version-check.test.mjs`, `tracker-check.test.mjs` and
+ * `version-check.test.mjs` and
  * `publish-feed-changelog.test.mjs` passed locally and were never once executed
  * in CI. Two of the three guard release machinery, which is why Phase 53
  * Theme F's rehearsal is what found it.

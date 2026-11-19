@@ -81,3 +81,16 @@ packages/desktop/resources/game-engines/
 
 # launcher:start dev stub (scripts/dev-app.mjs)
 .dev-app/
+
+# Media (video, audio, images, models, maps, terrain) lives outside git: it blew the LFS budget.
+# Keep the working copy locally or in external storage; never commit it.
+.midnite/media/
+
+# Planning is tracked on the git forge (issues, sub-issues, milestones). A local markdown copy of a
+# plan, phase doc or task list is a personal scratch file and stays out of git.
+.midnite/tasks/
+todo/
+
+# Screenshots are not regression baselines (those live beside the visual specs). Capture them into
+# the session scratchpad and attach them to the PR on the forge instead.
+docs/screenshots/

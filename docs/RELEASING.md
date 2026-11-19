@@ -10,7 +10,7 @@ This repo (`bilo-io/midnite-studio`) is private. Source tags (`vX.Y.Z`) live her
 touches — the public GitHub Release, the installers, the update feed, the changelog mirror, and the
 issue tracker — lives in **[`bilo-io/midnite-apps`](https://github.com/bilo-io/midnite-apps)** under
 the **namespaced** tag `midnite-studio/vX.Y.Z`. See `CLAUDE.md` and
-[Phase 53](../.midnite/tasks/phases/phase-53-first-release.md) for why, and
+Phase 53 for why, and
 [`packages/shared/src/release.ts`](../packages/shared/src/release.ts) for the URLs every surface
 reads.
 

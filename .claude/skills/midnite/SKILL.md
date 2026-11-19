@@ -63,7 +63,7 @@ Rank the rest against the request text by what the work is, not by matching word
 terminal crashes when I resize" is a bug fix (`/midnite-address-issue` or `/midnite-build-adhoc`),
 "where are we" is `/midnite-sitrep`, "look at Kurt's PR" is `/midnite-pr-review`. With no request
 text at all, rank by what is most often wanted next in this repo: open PRs waiting → review or
-sitrep; WIP phases in `.midnite/tasks/` → build; nothing in flight → plan.
+sitrep; open `phase` issues → build; nothing in flight → plan.
 
 ## 3 · Show the fits
 

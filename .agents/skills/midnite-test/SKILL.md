@@ -26,7 +26,7 @@ Per `docs/TESTING.md` and repository conventions:
 Check `$ARGUMENTS` or inspect git diff:
 - **Workspace-wide:** No arguments provided → run full pre-push gate:
   ```bash
-  moon run :typecheck && moon run :lint && moon run :test && moon run root:tracker-check
+  moon run :typecheck && moon run :lint && moon run :test
   ```
 - **Package-specific:** If user requested a specific package (e.g. `shared`, `git-engine`, `feature-tasks`, `runtime`):
   ```bash

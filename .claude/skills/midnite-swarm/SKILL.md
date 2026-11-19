@@ -41,7 +41,7 @@ Unticked stages are skipped; their inputs come from what the human already suppl
 |---|---|---|---|---|
 | Research | sonnet | Sweeps code (graphify first), docs, issues, prior PRs; no edits | `research.md`: findings with `file:line` | at once |
 | Design | opus | 2–3 options for the UI or architecture, trade-offs, a pick | `design.md` (+ shots in `/tmp/midnite-shots-<run>/`) | at once, beside Research |
-| Plan | opus | The build broken into slices with acceptance criteria; a phase doc when it belongs in the tracker (`/midnite-plan`) | `plan.md` or `phase-N-*.md` | Research done (and Design, if picked) |
+| Plan | opus | The build broken into slices with acceptance criteria; a phase issue when it belongs in the tracker (`/midnite-plan`) | `plan.md` or `phase-N-*.md` | Research done (and Design, if picked) |
 | Refine | sonnet | Resolves open decisions, tightens criteria (`/midnite-refine`) | the plan, refined | Plan done |
 | Dev | sonnet | Builds the plan in a worktree, one PR per slice (`/midnite-build` or `-adhoc`); independent slices run as parallel Dev agents within the cap | draft PR(s) | Plan (or Refine) done |
 | Review | opus | `/midnite-pr-review` in-session on each PR; findings to the board | `review-<pr>.md` | each Dev PR opened |

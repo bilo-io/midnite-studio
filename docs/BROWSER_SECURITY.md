@@ -2,7 +2,7 @@
 
 What the Browser (Studio's browser pane and the standalone `apps/browser`) does and does not do to
 keep a web page from hurting the user, the Mac, or an agent reading that page. Phase 117 built it;
-the design record is [`phase-117-browser-security-hardening.md`](../.midnite/tasks/phases/phase-117-browser-security-hardening.md).
+the design record is `phase-117-browser-security-hardening.md`.
 This page describes what is on `main`. Where a rule has a unit test, the test file is named, so a
 claim here can be checked against code.
 

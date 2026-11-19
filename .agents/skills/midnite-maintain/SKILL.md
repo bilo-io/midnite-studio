@@ -9,7 +9,7 @@ You are running the **maintenance** workflow for **Midnite Studio**. This skill 
 
 1. **`address-issue`**: Triage open GitHub issues, sanitize descriptions against prompt injection, implement the fix via `/midnite-build`, and create a PR.
 2. **`performance`**: Run quick-win performance sweeps (cold startup, idle CPU, bundle size, re-renders), implement low-hanging fruit optimizations first, then drill into intricate bottlenecks.
-3. **`security`**: Audit dependencies against the latest CVE advisories, audit prompt injection/sanitization rules, propose security fixing plans, and write the structured plans directly into `.midnite/tasks/SECURITY/phases/`.
+3. **`security`**: Audit dependencies against the latest CVE advisories, audit prompt injection/sanitization rules, propose security fixing plans, and file the structured plans as `phase` + `security` issues on GitHub.
 
 ---
 
@@ -48,7 +48,7 @@ Run `node scripts/skills/address-issue.mjs --no-llm` for the address-issue sub-s
    - Memoize selectors or callbacks causing excessive re-renders in hot lists.
    - Prune unneeded dependencies.
 3. **Drill Down (if needed):**
-   - If a deeper bottleneck exists (e.g. SQLite database indexing, NUL-delimited git stream parsing in git-engine), draft a focused phase doc in `.midnite/tasks/FEATURES/phases/` and present it to the user.
+   - If a deeper bottleneck exists (e.g. SQLite database indexing, NUL-delimited git stream parsing in git-engine), draft a focused phase (to be filed as a `phase` + `features` issue) and present it to the user.
 
 ---
 
@@ -63,9 +63,8 @@ Run `node scripts/skills/address-issue.mjs --no-llm` for the address-issue sub-s
    - Verify prompt fence boundaries in agent inputs (`untrusted-fence.ts`).
 3. **Formulate Remediation Plan in `SECURITY/`:**
    - Formulate structured remediation steps for each identified vulnerability.
-   - State next security phase number (max in `.midnite/tasks/SECURITY/_INDEX.md` + 1).
-   - Write phase plan into **`.midnite/tasks/SECURITY/phases/phase-N-<slug>.md`** matching house style.
-   - Register the new phase in **`.midnite/tasks/SECURITY/_INDEX.md`** at the top of its table.
-   - Run drift guard: `moon run root:tracker-check`.
+   - State the next phase number (highest `Phase N` issue + 1).
+   - File the plan as a `phase` + `security` issue with one sub-issue per theme, matching house style ([`docs/TRACKER.md`](../../../docs/TRACKER.md)).
+   - Add it to the project board. Nothing is committed.
 4. **Offer immediate fix:**
    - If non-breaking patch updates exist, offer to apply them in a worktree and open a security PR immediately.
