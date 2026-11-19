@@ -22,6 +22,12 @@ export const ICONS = {
   switchRepo: 'repeat',
   notes: 'edit-3',
   search: 'search',
+  // Theme I
+  checkCircle: 'check-circle',
+  xCircle: 'x-circle',
+  clock: 'clock',
+  comment: 'message-square',
+  externalLink: 'external-link',
 } as const satisfies Record<string, IconName>;
 
 export function Icon({ name, size = 20, color }: { name: IconName; size?: number; color: string }) {

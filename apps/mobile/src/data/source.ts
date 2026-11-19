@@ -65,6 +65,28 @@ export interface CommitDetail {
 
 export type MutationOutcome = Result<null>;
 
+// Theme I
+export interface PullCheck {
+  name: string;
+  conclusion: 'success' | 'failure' | 'pending' | 'neutral' | 'skipped';
+  detailsUrl: string | null;
+}
+export interface PullReviewer {
+  login: string;
+  state: 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'DISMISSED' | 'PENDING' | 'REQUESTED';
+}
+export interface PullComment {
+  id: string;
+  author: string;
+  body: string;
+  createdAt: string;
+}
+export interface PullOverview {
+  checks: PullCheck[];
+  reviewers: PullReviewer[];
+  comments: PullComment[];
+}
+
 // Theme H
 /** What creating an issue answers with: the node id (for `addProjectItem`) and the number (for the detail route). */
 export interface CreatedIssue {
@@ -108,6 +130,8 @@ export interface MobileDataSource {
   submitReview(repo: RepoRef, n: number, event: ForgeReviewEvent, body: string): Promise<MutationOutcome>;
   commentPull(repo: RepoRef, n: number, body: string): Promise<MutationOutcome>;
   replyToThread(threadId: string, body: string): Promise<MutationOutcome>;
+  // Theme I
+  pullOverview(repo: RepoRef, n: number): Promise<Result<PullOverview>>;
 }
 
 export const ok = <T>(value: T): Result<T> => ({ ok: true, value });

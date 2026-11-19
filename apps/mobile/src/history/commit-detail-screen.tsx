@@ -10,7 +10,7 @@ import { SourceError, useCommit } from '../data/queries';
 import { useCurrentRepo } from '../shell/use-current-repo';
 import { ICONS, Icon } from '../ui/icons';
 import { ShaChip } from './commit-row';
-import { DiffView } from './diff-view';
+import { DiffView } from '../diff/diff-view';
 import { commitHref } from './history-screen';
 import { formatDateTime, shortSha } from './group-by-day';
 

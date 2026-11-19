@@ -1,6 +1,5 @@
-import { TabPlaceholder } from '../../src/shell/tab-placeholder';
-import { ICONS } from '../../src/ui/icons';
+import { ReviewsScreen } from '../../src/reviews/reviews-screen';
 
-export default function ReviewsScreen() {
-  return <TabPlaceholder title="Reviews" icon={ICONS.reviews} />;
+export default function ReviewsTab() {
+  return <ReviewsScreen />;
 }

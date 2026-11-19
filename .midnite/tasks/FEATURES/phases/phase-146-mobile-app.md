@@ -92,8 +92,14 @@ change), a plain-text body with tappable links, comments and a composer, with Cl
 (`app/tasks/new-issue.tsx`) creates through the new `createIssueWithId` and adds the issue to the project. It runs on the
 vendored ui-native 0.5.0 stand-in, and `@midnite/tasks-core` is now an `apps/mobile` dependency aliased to source.
 
-**Theme I — Reviews.** ◻ Requested / Mine / All PR lists, then PR detail with checks, a mobile unified diff viewer,
-review threads with replies, and Approve / Request changes / Comment.
+**Theme I — Reviews.** ✅ Requested / Mine / All PR lists (`SegmentedControl` over infinite `usePulls`, pull to refresh),
+then `app/reviews/[number].tsx` with Overview (body, reviewers, checks that open their details URL in the in-app browser),
+Files and Conversation tabs. The shared diff viewer (`src/diff/`) is a virtualised `FlatList` with sticky hunk headers, a
+two-number gutter, intraline tints, wrap or horizontal scroll, a "Load full diff" gate over 2,000 lines and a compact mode
+for thread excerpts; History's commit detail now uses it and Theme G's stand-in is deleted. Threads reply through
+`replyToThread`, resolved ones collapse, and a sticky bar submits Approve / Request changes / Comment (disabled on your own
+or a closed PR). One data addition, `pullOverview` (check list, reviewer states, PR comments in one GraphQL call), since the
+detail carried only the checks rollup. It runs on the vendored ui-native 0.5.0 stand-in (`apps/mobile/vendor/ui-native/`).
 
 **Theme J — Agents and More.** ◻ A provider registry opened in SFSafariViewController / Chrome Custom Tabs, with a
 last-used provider and a sign-in hint. More holds accounts, theme and about.
@@ -645,25 +651,25 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
 
 ### I — Reviews (L)
 
-- [ ] **I1 · PR lists** (M): `app/(tabs)/reviews/index.tsx` with a `SegmentedControl` `requested | mine | all` (default
+- [x] **I1 · PR lists** (M): `app/(tabs)/reviews/index.tsx` with a `SegmentedControl` `requested | mine | all` (default
   `requested`) over `usePulls` (infinite). `PullRow`: number + title, author Avatar, draft `Badge`, checks summary
   (✓ / ✗ / ● from `ForgeChecksRollup`), review decision `Badge`, `+a −d`, relative updated time. Pull to refresh.
-- [ ] **I2 · PR detail** (M): `app/reviews/[number].tsx`. The header has title, `head → base`, author and state. Then
+- [x] **I2 · PR detail** (M): `app/reviews/[number].tsx`. The header has title, `head → base`, author and state. Then
   three tabs (ui-native `Tabs`): **Overview** (body as plain text, reviewers with their state, checks list with name +
   conclusion, tapping one opens its `detailsUrl` in the in-app browser), **Files** (file list → I4 viewer) and
   **Conversation** (I3).
-- [ ] **I3 · Threads and comments** (M): Conversation lists PR comments and review threads in time order. A thread shows
+- [x] **I3 · Threads and comments** (M): Conversation lists PR comments and review threads in time order. A thread shows
   `path:line`, a 6-line hunk excerpt rendered by I4 in compact mode, its comments, and a reply composer →
   `replyToThread`. Resolved threads are collapsed under "N resolved". A general comment composer at the bottom →
   `commentPull`.
-- [ ] **I4 · Diff viewer** (L): `apps/mobile/src/diff/diff-view.tsx` renders one `FileDiff` as a unified diff:
+- [x] **I4 · Diff viewer** (L): `apps/mobile/src/diff/diff-view.tsx` renders one `FileDiff` as a unified diff:
   monospace (`font.mono`, `xs`), hunk headers as sticky section headers, a two-number gutter (old/new, 32dp each),
   added rows on `success` at 0.14 alpha and removed rows on `accents.kind.bug` at 0.14 alpha (sign glyph at full
   strength), intraline ranges (`IntralineRange`) at 0.32 alpha of the same hue, long lines **wrapped**
   (a "No wrap" toggle switches to horizontal scroll), and a `FlatList` per line for large files (>2,000 lines show a
   "Load full diff" gate). Binary and too-large files show an `EmptyState`. Pure helpers (`gutterNumbers`,
   `rowsForHunk`) are tested. Used by G3, I2 and I3.
-- [ ] **I5 · Submit review** (M): a sticky bottom bar on PR detail with **Approve**, **Request changes** and **Comment**.
+- [x] **I5 · Submit review** (M): a sticky bottom bar on PR detail with **Approve**, **Request changes** and **Comment**.
   Each opens a bottom sheet with an optional body (required for Request changes and Comment) → `submitReview`. Disabled
   with an explanation on the viewer's own PR (GitHub forbids approving your own) and on merged or closed PRs. On
   success: a banner, invalidation of the list + detail, and the decision badge updates.
