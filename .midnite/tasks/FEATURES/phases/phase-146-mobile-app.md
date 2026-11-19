@@ -101,8 +101,12 @@ for thread excerpts; History's commit detail now uses it and Theme G's stand-in 
 or a closed PR). One data addition, `pullOverview` (check list, reviewer states, PR comments in one GraphQL call), since the
 detail carried only the checks rollup. It runs on the vendored ui-native 0.5.0 stand-in (`apps/mobile/vendor/ui-native/`).
 
-**Theme J — Agents and More.** ◻ A provider registry opened in SFSafariViewController / Chrome Custom Tabs, with a
-last-used provider and a sign-in hint. More holds accounts, theme and about.
+**Theme J — Agents and More.** ✅ A provider registry (`src/agents/providers.ts`: Claude Code, Codex, Gemini, Jules,
+Copilot agents) opened full-screen in SFSafariViewController / Chrome Custom Tabs through `expo-web-browser`, with the
+last-used provider first and badged, a one-time sign-in hint, and the FAB's `?open=<provider>` handled. More holds
+Accounts (login, avatar, token scopes read from `X-OAuth-Scopes`, Sign out clearing the keychain and query cache),
+Appearance (system / light / dark) and About (version, Expo SDK, ui-native, Report an issue). It runs on the vendored
+ui-native 0.5.0 stand-in.
 
 **Theme K — Docs and guards.** ◻ `docs/MOBILE.md`, the boundary paragraph in `CLAUDE.md` / `AGENTS.md` / `GEMINI.md`,
 the layer-boundaries test cases, and the mobile tests folded into `root:test-node`.
@@ -676,20 +680,20 @@ exported from `src/index.ts`. Icons are passed in as `ReactNode` props: the libr
 
 ### J — Agents and More (M)
 
-- [ ] **J1 · Provider registry** (S): `apps/mobile/src/agents/providers.ts` exports
+- [x] **J1 · Provider registry** (S): `apps/mobile/src/agents/providers.ts` exports
   `AGENT_PROVIDERS: readonly { id: 'claude-code' | 'codex' | 'gemini' | 'jules' | 'copilot'; label: string; url: string; blurb: string; icon: ReactNode }[]`
   with Claude Code `https://claude.ai/code`, Codex `https://chatgpt.com/codex`, Gemini `https://gemini.google.com/app`,
   Jules `https://jules.google.com` and Copilot agents `https://github.com/copilot/agents`. **Verify each URL resolves to
   the provider's signed-in remote-control surface at build time** and correct it in the same PR. A test asserts ids
   are unique and every URL is `https:`.
-- [ ] **J2 · Agents tab** (S): `app/(tabs)/agents/index.tsx` has one `Card` per provider (icon, label, blurb, Open
+- [x] **J2 · Agents tab** (S): `app/(tabs)/agents/index.tsx` has one `Card` per provider (icon, label, blurb, Open
   button), with the last-used provider first and badged "Last used".
-- [ ] **J3 · Open in the in-app browser** (S): `apps/mobile/src/agents/open-provider.ts` calls
+- [x] **J3 · Open in the in-app browser** (S): `apps/mobile/src/agents/open-provider.ts` calls
   `WebBrowser.openBrowserAsync(url, { presentationStyle: FULL_SCREEN, controlsColor: colors.primary, toolbarColor: colors.background, dismissButtonStyle: 'close', enableBarCollapsing: true, showTitle: true })`
   (SFSafariViewController on iOS, Chrome Custom Tabs on Android). It records the last-used provider (F6). A one-time
   hint card explains that sign-in happens in the provider's own page, Google and Apple sign-in work there, and that the
   session persists across launches. **No `react-native-webview`, no custom user agent, no cookie injection.**
-- [ ] **J4 · More tab** (S): `app/(tabs)/more/index.tsx` with sections **Accounts** (signed-in login + Avatar, token
+- [x] **J4 · More tab** (S): `app/(tabs)/more/index.tsx` with sections **Accounts** (signed-in login + Avatar, token
   scopes, Sign out → deletes the SecureStore key and clears the query cache), **Appearance** (`SegmentedControl`
   system / light / dark → F6 → `ThemeProvider scheme`), and **About** (app version from `expo-constants`, Expo SDK,
   ui-native version, and a "Report an issue" link opening `https://github.com/bilo-io/midnite-apps/issues/new` (the

@@ -9,6 +9,7 @@ export function useRouter() {
     navigate: (href: string) => routerCalls.push({ method: 'navigate', href }),
     replace: (href: string) => routerCalls.push({ method: 'replace', href }),
     back() {},
+    setParams: (next: Record<string, string | undefined>) => routerCalls.push({ method: 'setParams', href: JSON.stringify(next) }),
   };
 }
 export function Link({ children }: { children?: ReactNode; href?: string }) {

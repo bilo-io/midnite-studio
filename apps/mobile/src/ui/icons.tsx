@@ -28,6 +28,9 @@ export const ICONS = {
   clock: 'clock',
   comment: 'message-square',
   externalLink: 'external-link',
+  // Theme J
+  info: 'info',
+  close: 'x',
 } as const satisfies Record<string, IconName>;
 
 export function Icon({ name, size = 20, color }: { name: IconName; size?: number; color: string }) {

@@ -16,6 +16,8 @@ export default defineConfig({
       'react-native-safe-area-context': new URL('./test/mocks/safe-area-context.tsx', import.meta.url).pathname,
       'expo-secure-store': new URL('./test/mocks/expo-secure-store.ts', import.meta.url).pathname,
       'expo-web-browser': new URL('./test/mocks/expo-web-browser.ts', import.meta.url).pathname,
+      // Theme J
+      'expo-constants': new URL('./test/mocks/expo-constants.ts', import.meta.url).pathname,
       'expo-clipboard': new URL('./test/mocks/expo-clipboard.ts', import.meta.url).pathname,
       'expo-router': new URL('./test/mocks/expo-router.tsx', import.meta.url).pathname,
       '@expo/vector-icons': new URL('./test/mocks/vector-icons.tsx', import.meta.url).pathname,
