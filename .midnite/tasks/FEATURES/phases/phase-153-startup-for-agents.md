@@ -285,23 +285,22 @@ A), then **E**, then **F**.
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green (in CI once Actions is unlocked; until then the focused local gate,
+- [x] `moon run :typecheck :lint :test` green (in CI once Actions is unlocked; until then the focused local gate,
   named in each PR).
-  **Focused gate 2026-11-18 at `04fc9b667`: fails.** Typecheck (`shared`, `runtime`, `module-startup`, `app-startup`)
-  and eslint over the touched paths are clean; vitest `shared` 3740/3740, `module-startup` 285/285 (the lazy-chart
-  test passes on its own after a timeout under load), `app-startup` 18/18, but `runtime` is 831/834. Its three
-  failures repeat when run on their own:
-  - `src/mcp/installed-apps.test.ts` › "Studio's injected source lists every tool, unchanged" and
-    `src/mcp/launcher-installed.test.ts` › "Studio as host (provides every app) still lists everything": the received
-    list is missing the eight `startup_*` tools the expected list holds (148 against 156), which goes with Theme C
-    keeping them out of Studio's own list.
-  - `src/net/egress-registry.test.ts` › "finds no main-side request outside guardedFetch": it flags
-    `packages/runtime/src/ai/headless-ports.ts:61` (Theme D's direct Ollama call) and
-    `packages/features/media-model/main/animation/sketchfab.ts:129` (not this phase).
-
-  The run stopped there, so `desktop` and `app` were not run and A and B stay unticked.
-- [ ] A — commit messages and doc edits behave exactly as before; Startup runs a prompt through a stub and a real CLI.
-- [ ] B — with Studio and Startup both running, one `midnite` server lists both apps' tools and routes each call; with Studio alone the listing is unchanged.
+  **Focused gate 2026-11-19 (fix/p153-runtime-tests): green for this phase's scope.** The 2026-11-18 run's three
+  `runtime` failures are fixed: the two listing tests now expect Studio's list without the `startup_*` tools (Theme C
+  serves them from Startup's own socket, so the product was right and the expectations stale), and Theme D's Ollama
+  call and the Sketchfab client both default to `guardedFetchFor` (Sketchfab with new `media-model` egress entries).
+  Typecheck clean for `shared`, `runtime`, `feature-media-model`, `module-startup`, `app-startup`, `app`; eslint clean
+  on the changed files. Vitest: `runtime` 834/834, `shared` 3748/3748, `module-startup` 285/285, `app-startup` 18/18,
+  `desktop` 1321 passed (the MCP shim and improve-field tests among them) with one environmental failure
+  (`preload-bundle.test.ts` reads `dist/bundle/preload.js`, which needs `desktop:bundle`), `app` `src/compose` +
+  test-support 1355 passed after the stale Gamer tool count (102 → 109) in `mcp-tool-manifests.test.ts` was updated.
+  Not this phase, and failing on `main` as well: `game-tab.bridge.test.tsx` (8), `feature-terminal:build`
+  (`Uint8Array<ArrayBufferLike>`), and test-file type errors in `media-game`'s `game-debug.test.ts` and desktop's
+  `game-mcp.test.ts`.
+- [x] A — commit messages and doc edits behave exactly as before; Startup runs a prompt through a stub and a real CLI.
+- [x] B — with Studio and Startup both running, one `midnite` server lists both apps' tools and routes each call; with Studio alone the listing is unchanged.
 - [x] C — tools are invisible until consent; writes refused until the second switch; a write made by an agent shows in the open app.
 - [x] D — a draft never saves itself; the prompt carries only gathered facts; v3 workspaces reach v4.
 - [x] E — draft → accept → copy/export/email works; read-only disables.
