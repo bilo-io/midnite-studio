@@ -8,7 +8,7 @@ import { useAddProjectItem, useCreateIssueWithId, useProjects } from '../data/qu
 import { usePrefs } from '../state/prefs';
 import { useCurrentRepo } from '../shell/use-current-repo';
 import { defaultProject } from './project-picker';
-import { ErrorBanner, errorMessage } from './screen-state';
+import { ErrorBanner, errorMessage } from '../ui/screen-state';
 import { ScreenHeader } from './screen-header';
 import { issueHref } from './tasks-screen';
 

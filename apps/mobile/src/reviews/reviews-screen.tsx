@@ -3,10 +3,11 @@ import { EmptyState, SegmentedControl, Skeleton, useTheme } from '@bilo-io/ui-na
 import { useRouter, type Href } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Text, View } from 'react-native';
-import { SourceError, usePulls } from '../data/queries';
+import { usePulls } from '../data/queries';
 import { useShell } from '../shell/shell-context';
 import { useCurrentRepo } from '../shell/use-current-repo';
 import { Icon } from '../ui/icons';
+import { ScreenState } from '../ui/screen-state';
 import { SCOPE_OF, type ReviewTab } from './format';
 import { PullRow } from './pull-row';
 
@@ -40,14 +41,13 @@ export function ReviewsScreen() {
   }, [hasNextPage, isFetchingNextPage, pulls.isFetchNextPageError, fetchNextPage]);
 
   const frame = { flex: 1, backgroundColor: theme.colors.background } as const;
-  const icon = <Icon name="reviews" size={32} color={theme.colors.mutedForeground} />;
 
   if (!repo) {
     return (
       <View style={frame}>
         <EmptyState
           testID="reviews-no-repo"
-          icon={icon}
+          icon={<Icon name="reviews" size={32} color={theme.colors.mutedForeground} />}
           title="Pick a repository"
           body="Choose a repository to see its pull requests."
           action={{ label: 'Choose repository', onPress: () => setSwitcherOpen(true) }}
@@ -56,32 +56,23 @@ export function ReviewsScreen() {
     );
   }
 
-  let body;
-  if (pulls.isPending) {
-    body = (
-      <View testID="reviews-skeleton" style={{ padding: theme.space[4], gap: theme.space[4] }}>
-        {[0, 1, 2].map((i) => (
-          <View key={i} style={{ gap: theme.space[2] }}>
-            <Skeleton width="85%" height={16} />
-            <Skeleton width="50%" height={12} />
-          </View>
-        ))}
-      </View>
-    );
-  } else if (pulls.isError && !pulls.data) {
-    const offline = pulls.error instanceof SourceError && pulls.error.kind === 'network';
-    body = (
-      <EmptyState
-        testID="reviews-error"
-        title={offline ? 'You appear to be offline' : 'Could not load pull requests'}
-        body={pulls.error instanceof Error ? pulls.error.message : undefined}
-        action={{ label: 'Retry', onPress: () => void pulls.refetch() }}
-      />
-    );
-  } else if (items.length === 0) {
-    body = <EmptyState testID="reviews-empty" icon={icon} title={EMPTY_TITLE[tab]} />;
-  } else {
-    body = (
+  const body = (
+    <ScreenState
+      testID="reviews"
+      query={pulls}
+      skeleton={
+        <View style={{ padding: theme.space[4], gap: theme.space[4] }}>
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <View key={i} style={{ gap: theme.space[2] }}>
+              <Skeleton width="85%" height={16} />
+              <Skeleton width="50%" height={12} />
+            </View>
+          ))}
+        </View>
+      }
+      isEmpty={() => items.length === 0}
+      empty={{ icon: 'reviews', title: EMPTY_TITLE[tab] }}
+    >
       <FlatList
         testID="reviews-list"
         data={items}
@@ -99,8 +90,8 @@ export function ReviewsScreen() {
           ) : undefined
         }
       />
-    );
-  }
+    </ScreenState>
+  );
 
   return (
     <View style={frame}>

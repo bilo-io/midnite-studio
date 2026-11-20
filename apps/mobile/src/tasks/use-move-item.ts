@@ -2,7 +2,7 @@
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 import { useCallback, useState } from 'react';
 import { useSetItemField } from '../data/queries';
-import { errorMessage } from './screen-state';
+import { errorMessage } from '../ui/screen-state';
 import { itemRef, movableField } from './model';
 
 export function useMoveItem(projectId: string, groupField: ForgeProjectField | null) {

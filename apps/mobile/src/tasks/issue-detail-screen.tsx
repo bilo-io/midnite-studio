@@ -23,7 +23,8 @@ import { Icon } from '../ui/icons';
 import { LinkedText } from './linked-text';
 import { defaultProject } from './project-picker';
 import { ScreenHeader } from './screen-header';
-import { ErrorBanner, ErrorState, ListSkeleton, errorMessage } from './screen-state';
+import { ErrorBanner, ErrorState, errorMessage } from '../ui/screen-state';
+import { ListSkeleton } from './screen-state';
 
 type SingleSelect = Extract<ForgeProjectField, { dataType: 'single_select' }>;
 

@@ -8,7 +8,7 @@ import { FlatList, Text, View, useWindowDimensions, type NativeScrollEvent, type
 import { Icon } from '../ui/icons';
 import { MoveSheet } from './move-sheet';
 import { applyMoves, columnSnapInterval, columnWidth, currentOptionId, movableField, pageIndex } from './model';
-import { ErrorBanner } from './screen-state';
+import { ErrorBanner } from '../ui/screen-state';
 import { TaskCard } from './task-card';
 import { useMoveItem } from './use-move-item';
 

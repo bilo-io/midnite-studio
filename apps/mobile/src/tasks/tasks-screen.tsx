@@ -22,7 +22,8 @@ import { GraphLoading, GraphView } from './graph-view';
 import { ListView } from './list-view';
 import { VIEW_SEGMENTS, isTasksView, needsMorePages, type TasksView } from './model';
 import { ProjectPicker, defaultProject } from './project-picker';
-import { BoardSkeleton, ErrorState, ListSkeleton } from './screen-state';
+import { ErrorState } from '../ui/screen-state';
+import { BoardSkeleton, ListSkeleton } from './screen-state';
 
 export const issueHref = (n: number): Href => `/tasks/issue/${n}` as Href;
 export const NEW_ISSUE_HREF = '/tasks/new-issue' as Href;
