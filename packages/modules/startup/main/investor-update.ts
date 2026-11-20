@@ -31,7 +31,7 @@ export type UpdateFacts = {
   burn: string;
   /** The linked book's actual burn over the last three full months (the view's "Actual burn" card), or `null`. */
   actualBurn: string | null;
-  /** The Runway view's runway card: "12 months (cash runs out in 2027-11)" or "beyond 36 months". */
+  /** The Runway view's runway card: "12 months (cash runs out in 2027-11)" or "cash does not run out within 36 months". */
   runway: string;
   revenue: { thisMonth: string; lastMonth: string };
   /** The base scenario's next three months. */
