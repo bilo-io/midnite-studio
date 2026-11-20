@@ -7,7 +7,7 @@ import type { FileDiff } from '@midnite/studio-shared';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   SourceError,
@@ -23,9 +23,13 @@ import {
 import { DiffView } from '../diff/diff-view';
 import { useCurrentRepo } from '../shell/use-current-repo';
 import { Icon } from '../ui/icons';
+import { useLayoutClass } from '../ui/layout-class';
 import { ConversationTab } from './conversation';
 import { checkGlyphOf, decisionBadge, isHttpsUrl, reviewBlockedReason, reviewerLabel, stateBadge, type ReviewAction } from './format';
 import { ReviewBar } from './review-bar';
+
+/** The expanded layout's file list column (L6). */
+export const FILE_LIST_WIDTH = 320;
 
 type DetailTab = 'overview' | 'files' | 'conversation';
 
@@ -53,7 +57,10 @@ export function PullDetailScreen({ n }: { n: number }) {
   const [banner, setBanner] = useState<string | null>(null);
   const [writeError, setWriteError] = useState<string | null>(null);
 
-  const back = () => (file ? setFile(null) : router.back());
+  // On an expanded window the file list sits beside the diff (320dp column) instead of the diff replacing the screen.
+  const split = useLayoutClass() === 'expanded';
+  const { height: windowHeight } = useWindowDimensions();
+  const back = () => (file && !split ? setFile(null) : router.back());
   const detail = pull.data;
   const state = detail ? stateBadge(detail.pull) : null;
   const bar = (
@@ -101,7 +108,7 @@ export function PullDetailScreen({ n }: { n: number }) {
       </View>
     );
   }
-  if (file) {
+  if (file && !split) {
     return (
       <View style={frame}>
         {bar}
@@ -206,20 +213,27 @@ export function PullDetailScreen({ n }: { n: number }) {
           </View>
         ) : null}
         {tab === 'files' ? (
-          <View testID="pull-files">
-            {files.isPending ? <Muted>Loading…</Muted> : null}
-            {files.isError ? <Muted>Could not load files.</Muted> : null}
-            {files.data?.map((f) => (
-              <ListRow
-                key={f.path}
-                testID={`file-${f.path}`}
-                title={f.path}
-                numberOfLines={2}
-                subtitle={f.change === 'renamed' && f.oldPath ? `from ${f.oldPath}` : undefined}
-                meta={f.binary ? 'binary' : `+${f.insertions} −${f.deletions}`}
-                onPress={() => setFile(f)}
-              />
-            ))}
+          <View testID="pull-files" style={split ? { flexDirection: 'row', height: Math.max(windowHeight - 280, 320) } : undefined}>
+            <View testID={split ? 'pull-files-list' : undefined} style={split ? { width: FILE_LIST_WIDTH } : undefined}>
+              {files.isPending ? <Muted>Loading…</Muted> : null}
+              {files.isError ? <Muted>Could not load files.</Muted> : null}
+              {files.data?.map((f) => (
+                <ListRow
+                  key={f.path}
+                  testID={`file-${f.path}`}
+                  title={f.path}
+                  numberOfLines={2}
+                  subtitle={f.change === 'renamed' && f.oldPath ? `from ${f.oldPath}` : undefined}
+                  meta={f.binary ? 'binary' : `+${f.insertions} −${f.deletions}`}
+                  onPress={() => setFile(f)}
+                />
+              ))}
+            </View>
+            {split ? (
+              <View testID="pull-files-diff" style={{ flex: 1 }}>
+                {file ? <DiffView file={file} /> : <Muted>Select a file to see its diff.</Muted>}
+              </View>
+            ) : null}
           </View>
         ) : null}
         {tab === 'conversation' ? (
