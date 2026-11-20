@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRepos } from '../data/queries';
 import type { RepoSummaryRow } from '../data/source';
 import { repoKey, usePrefs, type RepoPref } from '../state/prefs';
-import { ICONS, Icon } from '../ui/icons';
+import { Icon } from '../ui/icons';
 import { useShell } from './shell-context';
 
 type Entry = { kind: 'heading'; key: string; label: string } | { kind: 'repo'; key: string; repo: RepoPref; isPrivate: boolean };
@@ -135,7 +135,7 @@ export function RepoSwitcher() {
                 <ListRow
                   title={repoKey(item.repo)}
                   subtitle={current && repoKey(current) === repoKey(item.repo) ? 'Current' : undefined}
-                  trailing={item.isPrivate ? <Icon name={ICONS.lock} size={16} color={theme.colors.mutedForeground} /> : undefined}
+                  trailing={item.isPrivate ? <Icon name="lock" size={16} color={theme.colors.mutedForeground} /> : undefined}
                   onPress={() => choose(item.repo)}
                 />
               )

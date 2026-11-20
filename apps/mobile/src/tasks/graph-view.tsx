@@ -61,6 +61,7 @@ export function GraphView({
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, scale: 1 });
   const [selected, setSelected] = useState<string | null>(null);
+  const [focused, setFocused] = useState<string | null>(null);
   const fitted = useRef(false);
 
   const itemById = useMemo(() => new Map(items.map((i) => [i.id, i] as const)), [items]);
@@ -118,7 +119,7 @@ export function GraphView({
   if (layout.nodes.length === 0 || graph.edges.length === 0) {
     return (
       <EmptyState
-        icon={<Icon name="share-2" size={32} color={theme.colors.mutedForeground} />}
+        icon={<Icon name="graph" size={32} color={theme.colors.mutedForeground} />}
         title="No dependencies in this project"
         action={{ label: 'View as list', onPress: onViewAsList }}
       />
@@ -180,6 +181,8 @@ export function GraphView({
                   testID={`graph-node-${node.key}`}
                   accessibilityRole="button"
                   accessibilityLabel={`${node.number === null ? 'Draft' : `#${node.number}`}, ${node.title}${node.blocked ? ', blocked' : ''}`}
+                  onFocus={() => setFocused(node.key)}
+                  onBlur={() => setFocused((k) => (k === node.key ? null : k))}
                   onPress={() => {
                     setSelected(node.key);
                     onOpenNode(node);
@@ -195,7 +198,7 @@ export function GraphView({
                       overflow: 'hidden',
                       borderRadius: theme.radius.lg,
                       backgroundColor: theme.colors.card,
-                      borderWidth: isSelected ? 2 : 0,
+                      borderWidth: isSelected || focused === node.key ? 2 : 0,
                       borderColor: theme.colors.ring,
                     },
                     theme.elevation[1],
@@ -227,7 +230,7 @@ export function GraphView({
               hitSlop={theme.space[2]}
               style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.popover }}
             >
-              <Icon name="maximize-2" size={16} color={theme.colors.popoverForeground} />
+              <Icon name="maximize" size={16} color={theme.colors.popoverForeground} />
             </Pressable>
           </View>
         </View>

@@ -8,7 +8,7 @@ import { FlatList, Text, View, useWindowDimensions, type NativeScrollEvent, type
 import { Icon } from '../ui/icons';
 import { MoveSheet } from './move-sheet';
 import { applyMoves, columnSnapInterval, columnWidth, currentOptionId, movableField, pageIndex } from './model';
-import { ErrorBanner } from './screen-state';
+import { ErrorBanner } from '../ui/screen-state';
 import { TaskCard } from './task-card';
 import { useMoveItem } from './use-move-item';
 
@@ -45,7 +45,7 @@ export function BoardView({
   if (items.length === 0 || columns.length === 0) {
     return (
       <EmptyState
-        icon={<Icon name="trello" size={32} color={theme.colors.mutedForeground} />}
+        icon={<Icon name="tasks" size={32} color={theme.colors.mutedForeground} />}
         title="No items in this project"
         action={{ label: 'New issue', onPress: onNewIssue }}
       />

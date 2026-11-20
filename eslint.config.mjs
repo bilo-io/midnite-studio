@@ -85,6 +85,57 @@ const MAPLIBRE_LAZY = {
 
 const deny = (patterns) => ({ 'no-restricted-imports': ['error', { patterns }] });
 
+// Phase 146 Theme B7 + L2: what apps/mobile may not import (shared by the two mobile blocks below).
+const MOBILE_DENY = [
+      {
+        group: [
+          '@midnite/studio-app',
+          '@midnite/studio-app/*',
+          '@midnite/studio-desktop',
+          '@midnite/studio-desktop/*',
+          '@midnite/studio-frame',
+          '@midnite/studio-frame/*',
+          '@midnite/studio-runtime',
+          '@midnite/studio-runtime/*',
+          '@midnite/studio-knowledge',
+          '@midnite/studio-knowledge/*',
+          '@midnite/studio-db-engine',
+          '@midnite/studio-db-engine/*',
+          '@midnite/studio-feature-*',
+          '@midnite/studio-module-*',
+          '@midnite/app-*',
+          '@midnite/launcher',
+          '@midnite/launcher/*',
+        ],
+        message:
+          'Mobile is off the Studio graph: it takes shared, tasks-core, forge-github-core and the pure diff parser, nothing else.',
+      },
+      {
+        group: ['electron', 'electron/*', 'node-pty', 'node:*'],
+        message: 'Mobile runs in Expo Go: no Electron, node-pty or node builtins.',
+      },
+      {
+        group: ['react-dom', 'react-dom/*', 'react-icons', 'react-icons/*', 'lucide-react', 'lucide-react/*'],
+        message: 'Mobile is React Native: no react-dom, react-icons or lucide-react. Use @expo/vector-icons or ui-native.',
+      },
+      {
+        group: ['**/vendor/ui-native', '**/vendor/ui-native/*'],
+        message: 'Import `@bilo-io/ui-native`, never the vendored path: the alias is what makes the swap to the published package a deletion.',
+      },
+      {
+        regex: '^@midnite/studio-git-engine$',
+        message: 'Mobile takes only the pure diff parser from git-engine (`@midnite/studio-git-engine/diff`).',
+      },
+      {
+        group: ['@midnite/studio-git-engine/*', '!@midnite/studio-git-engine/diff'],
+        message: 'Mobile takes only the pure diff parser from git-engine (`@midnite/studio-git-engine/diff`).',
+      },
+];
+const ICON_FAMILY = {
+  group: ['@expo/vector-icons', '@expo/vector-icons/*'],
+  message: 'Draw a glyph with `Icon` from src/ui/icons.ts: that file alone imports the icon family (Phase 146 L2).',
+};
+
 const NO_ELECTRON = {
   group: ['electron', 'electron/*'],
   message:
@@ -768,51 +819,13 @@ export default tseslint.config(
   // (the pure diff parser). No Electron, no node builtins, no DOM-only or web icon libraries.
   {
     files: ['apps/mobile/{src,app}/**/*.{ts,tsx}'],
-    rules: deny([
-      {
-        group: [
-          '@midnite/studio-app',
-          '@midnite/studio-app/*',
-          '@midnite/studio-desktop',
-          '@midnite/studio-desktop/*',
-          '@midnite/studio-frame',
-          '@midnite/studio-frame/*',
-          '@midnite/studio-runtime',
-          '@midnite/studio-runtime/*',
-          '@midnite/studio-knowledge',
-          '@midnite/studio-knowledge/*',
-          '@midnite/studio-db-engine',
-          '@midnite/studio-db-engine/*',
-          '@midnite/studio-feature-*',
-          '@midnite/studio-module-*',
-          '@midnite/app-*',
-          '@midnite/launcher',
-          '@midnite/launcher/*',
-        ],
-        message:
-          'Mobile is off the Studio graph: it takes shared, tasks-core, forge-github-core and the pure diff parser, nothing else.',
-      },
-      {
-        group: ['electron', 'electron/*', 'node-pty', 'node:*'],
-        message: 'Mobile runs in Expo Go: no Electron, node-pty or node builtins.',
-      },
-      {
-        group: ['react-dom', 'react-dom/*', 'react-icons', 'react-icons/*', 'lucide-react', 'lucide-react/*'],
-        message: 'Mobile is React Native: no react-dom, react-icons or lucide-react. Use @expo/vector-icons or ui-native.',
-      },
-      {
-        group: ['**/vendor/ui-native', '**/vendor/ui-native/*'],
-        message: 'Import `@bilo-io/ui-native`, never the vendored path: the alias is what makes the swap to the published package a deletion.',
-      },
-      {
-        regex: '^@midnite/studio-git-engine$',
-        message: 'Mobile takes only the pure diff parser from git-engine (`@midnite/studio-git-engine/diff`).',
-      },
-      {
-        group: ['@midnite/studio-git-engine/*', '!@midnite/studio-git-engine/diff'],
-        message: 'Mobile takes only the pure diff parser from git-engine (`@midnite/studio-git-engine/diff`).',
-      },
-    ]),
+    ignores: ['apps/mobile/src/ui/icons.ts'],
+    rules: deny([...MOBILE_DENY, ICON_FAMILY]),
+  },
+  // icons.ts is the one importer of the icon family, so it takes every mobile rule but that one.
+  {
+    files: ['apps/mobile/src/ui/icons.ts'],
+    rules: deny(MOBILE_DENY),
   },
 
   // --- Boundary: a suite app's main side (apps/<id>/main) ---------------------

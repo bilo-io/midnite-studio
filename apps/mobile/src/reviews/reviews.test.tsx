@@ -111,6 +111,28 @@ describe('PullDetailScreen', () => {
     expect(await screen.findByTestId('diff-empty')).toBeTruthy();
   });
 
+  it('splits the file list beside the diff on an expanded window', async () => {
+    // react-native-web reads the window size from documentElement.clientWidth/Height on a resize event.
+    const el = document.documentElement;
+    const setWindow = (w: number, h: number) => {
+      Object.defineProperty(el, 'clientWidth', { configurable: true, value: w });
+      Object.defineProperty(el, 'clientHeight', { configurable: true, value: h });
+      window.dispatchEvent(new Event('resize'));
+    };
+    setWindow(1000, 800);
+    try {
+      await renderInShell(<PullDetailScreen n={7} />, base(pull(7)));
+      fireEvent.click(await screen.findByText(/^Files/, {}, SLOW));
+      expect(await screen.findByTestId('pull-files-list')).toBeTruthy();
+      expect(screen.getByText('Select a file to see its diff.')).toBeTruthy();
+      fireEvent.click(await screen.findByTestId('file-a.ts'));
+      expect(await screen.findByTestId('diff-empty')).toBeTruthy();
+      expect(screen.getByTestId('pull-files-list')).toBeTruthy();
+    } finally {
+      setWindow(0, 0);
+    }
+  });
+
   it('shows the conversation with a thread excerpt and replies', async () => {
     const replyToThread = vi.fn(async () => ok(null));
     await renderInShell(<PullDetailScreen n={7} />, base(pull(7), { replyToThread }));

@@ -8,7 +8,8 @@ import { FlatList, Text, View } from 'react-native';
 import { SourceError, useHistory } from '../data/queries';
 import { useShell, useTitleBarAction } from '../shell/shell-context';
 import { useCurrentRepo } from '../shell/use-current-repo';
-import { ICONS, Icon } from '../ui/icons';
+import { Icon } from '../ui/icons';
+import { ScreenState } from '../ui/screen-state';
 import { BranchSheet } from './branch-sheet';
 import { CommitRow } from './commit-row';
 import { buildTimeline, type TimelineEntry } from './group-by-day';
@@ -30,7 +31,7 @@ export function HistoryScreen() {
           testID="branch-chip"
           label={branch}
           selected
-          leading={<Icon name={ICONS.branch} size={14} color={theme.colors.accentForeground} />}
+          leading={<Icon name="branch" size={14} color={theme.colors.accentForeground} />}
           onPress={() => setPickerOpen(true)}
         />
       ) : null,
@@ -58,7 +59,7 @@ export function HistoryScreen() {
       <View style={frame}>
         <EmptyState
           testID="history-no-repo"
-          icon={<Icon name={ICONS.history} size={32} color={theme.colors.mutedForeground} />}
+          icon={<Icon name="history" size={32} color={theme.colors.mutedForeground} />}
           title="Pick a repository"
           body="Choose a repository to see its commit history."
           action={{ label: 'Choose repository', onPress: () => setSwitcherOpen(true) }}
@@ -67,34 +68,18 @@ export function HistoryScreen() {
     );
   }
 
-  let body;
-  if (history.isPending) {
-    body = <TimelineSkeleton />;
-  } else if (history.isError && !history.data) {
-    // With data on screen a failed refresh or next page keeps the list (the footer carries the retry).
-    const err = history.error;
-    const message = err instanceof Error ? err.message : 'Something went wrong';
-    body =
-      err instanceof SourceError && err.kind === 'network' ? (
-        <RetryRow testID="history-retry" message="You appear to be offline." onRetry={() => void history.refetch()} />
-      ) : (
-        <EmptyState
-          testID="history-error"
-          title="Could not load history"
-          body={message}
-          action={{ label: 'Retry', onPress: () => void history.refetch() }}
-        />
-      );
-  } else if (commits.length === 0) {
-    body = (
-      <EmptyState
-        testID="history-empty"
-        icon={<Icon name={ICONS.history} size={32} color={theme.colors.mutedForeground} />}
-        title={`No commits on ${branch ?? 'this branch'}`}
-      />
-    );
-  } else {
-    body = (
+  const offline = history.isError && !history.data && history.error instanceof SourceError && history.error.kind === 'network';
+  // Offline with nothing on screen is an inline retry row (the state matrix); every other state is ScreenState's.
+  const body = offline ? (
+    <RetryRow testID="history-retry" message="You appear to be offline." onRetry={() => void history.refetch()} />
+  ) : (
+    <ScreenState
+      testID="history"
+      query={history}
+      skeleton={<TimelineSkeleton />}
+      isEmpty={() => commits.length === 0}
+      empty={{ icon: 'history', title: `No commits on ${branch ?? 'this branch'}` }}
+    >
       <FlatList
         testID="history-list"
         data={entries}
@@ -113,8 +98,8 @@ export function HistoryScreen() {
           ) : undefined
         }
       />
-    );
-  }
+    </ScreenState>
+  );
 
   return (
     <View style={frame}>

@@ -22,7 +22,8 @@ import { GraphLoading, GraphView } from './graph-view';
 import { ListView } from './list-view';
 import { VIEW_SEGMENTS, isTasksView, needsMorePages, type TasksView } from './model';
 import { ProjectPicker, defaultProject } from './project-picker';
-import { BoardSkeleton, ErrorState, ListSkeleton } from './screen-state';
+import { ErrorState } from '../ui/screen-state';
+import { BoardSkeleton, ListSkeleton } from './screen-state';
 
 export const issueHref = (n: number): Href => `/tasks/issue/${n}` as Href;
 export const NEW_ISSUE_HREF = '/tasks/new-issue' as Href;
@@ -41,7 +42,7 @@ export function TasksScreen() {
   if (!repo || !ref) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', backgroundColor: theme.colors.background }}>
-        <EmptyState icon={<Icon name="trello" size={32} color={theme.colors.mutedForeground} />} title="Pick a repository" body="Choose one from the title bar to see its tasks." />
+        <EmptyState icon={<Icon name="tasks" size={32} color={theme.colors.mutedForeground} />} title="Pick a repository" body="Choose one from the title bar to see its tasks." />
       </View>
     );
   }
@@ -154,7 +155,7 @@ function IssuesFallback({ repo }: { repo: { owner: string; name: string } }) {
   return (
     <View style={{ flex: 1 }} testID="issues-fallback">
       <EmptyState
-        icon={<Icon name="trello" size={32} color={theme.colors.mutedForeground} />}
+        icon={<Icon name="tasks" size={32} color={theme.colors.mutedForeground} />}
         title="This repo has no GitHub Projects"
         body="Its issues are listed below."
         action={{ label: 'New issue', onPress: () => router.push(NEW_ISSUE_HREF) }}
