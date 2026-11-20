@@ -12,9 +12,34 @@ export type SaveMarkdownPort = (defaultName: string) => Promise<string | null>;
 const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const inline = (s: string): string => esc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/(?<![*\w])\*([^*\n]+)\*(?!\w)/g, '<em>$1</em>');
 
+type Align = 'left' | 'center' | 'right' | null;
+
+/** A GFM row's cells: the outer pipes dropped, split on every pipe that is not escaped as `\|`. */
+function cells(row: string): string[] {
+  const body = row.trim().replace(/^\|/, '').replace(/(?<!\\)\|$/, '');
+  return body.split(/(?<!\\)\|/).map((c) => c.trim().replace(/\\\|/g, '|'));
+}
+
+/** The delimiter row under a GFM table's header (`| --- | :-: | --: |`), or `null` when `line` is not one. */
+function alignments(line: string): Align[] | null {
+  if (!line.includes('-') || !/^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/.test(line)) return null;
+  return cells(line).map((c) => (c.startsWith(':') && c.endsWith(':') ? 'center' : c.endsWith(':') ? 'right' : c.startsWith(':') ? 'left' : null));
+}
+
+/** A GFM table as HTML, every cell escaped; body rows are padded or cut to the header's width, as GFM does. */
+function renderTable(header: string[], align: Align[], rows: string[][]): string {
+  const cell = (tag: 'th' | 'td', text: string, i: number): string => {
+    const a = align[i] ?? null;
+    return `<${tag}${a === null ? '' : ` style="text-align:${a}"`}>${inline(text)}</${tag}>`;
+  };
+  const row = (tag: 'th' | 'td', r: string[]): string => `<tr>${header.map((_, i) => cell(tag, r[i] ?? '', i)).join('')}</tr>`;
+  const body = rows.length === 0 ? '' : `<tbody>${rows.map((r) => row('td', r)).join('')}</tbody>`;
+  return `<table><thead>${row('th', header)}</thead>${body}</table>`;
+}
+
 /**
- * A small, safe Markdown to HTML for the update: headings, bullet and numbered lists, paragraphs, bold and italic.
- * Everything is escaped first, so the page (printed in a script-less window) can carry no markup of its own.
+ * A small, safe Markdown to HTML for the update: headings, bullet and numbered lists, GFM tables, paragraphs, bold
+ * and italic. Everything is escaped first, so the page (printed in a script-less window) can carry no markup of its own.
  */
 export function renderUpdateHtml(title: string, markdown: string): string {
   const out: string[] = [];
@@ -28,8 +53,22 @@ export function renderUpdateHtml(title: string, markdown: string): string {
     if (list !== null) out.push(`</${list}>`);
     list = null;
   };
-  for (const raw of markdown.split(/\r?\n/)) {
-    const line = raw.trimEnd();
+  const lines = markdown.split(/\r?\n/);
+  for (let at = 0; at < lines.length; at += 1) {
+    const line = lines[at]!.trimEnd();
+    // GFM: a table is a row with pipes over a delimiter row with the same number of cells.
+    const align = line.includes('|') ? alignments(lines[at + 1] ?? '') : null;
+    if (align !== null && align.length === cells(line).length) {
+      flush();
+      close();
+      const header = cells(line);
+      const rows: string[][] = [];
+      at += 2;
+      while (at < lines.length && lines[at]!.trim() !== '' && lines[at]!.includes('|')) rows.push(cells(lines[at++]!));
+      at -= 1;
+      out.push(renderTable(header, align, rows));
+      continue;
+    }
     const heading = /^(#{1,3})\s+(.*)$/.exec(line);
     const item = /^\s*(?:([-*])|\d+\.)\s+(.*)$/.exec(line);
     if (heading) {
@@ -58,6 +97,8 @@ export function renderUpdateHtml(title: string, markdown: string): string {
   return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>
 body{font:13px/1.55 -apple-system,Helvetica,Arial,sans-serif;color:#111;margin:48px;max-width:720px}
 h1{font-size:22px;margin:0 0 16px}h2{font-size:16px;margin:22px 0 6px}h3{font-size:14px}ul,ol{padding-left:20px}li{margin:2px 0}
+table{width:100%;border-collapse:collapse;margin:8px 0;font-variant-numeric:tabular-nums;page-break-inside:avoid}
+th,td{border:1px solid #d4d4d8;padding:4px 8px;text-align:left;vertical-align:top}th{background:#f4f4f5;font-weight:600}
 </style></head><body><h1>${esc(title)}</h1>${out.join('\n')}</body></html>`;
 }
 

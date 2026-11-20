@@ -32,6 +32,34 @@ describe('renderUpdateHtml', () => {
 });
 
 describe('exports', () => {
+  it('renders the drafted GFM tables as tables, aligned, with every cell escaped', () => {
+    const md = [
+      '## Metrics',
+      '| Metric | Value |',
+      '| :--- | ---: |',
+      '| Cash | **£120,000.00** |',
+      '| Note | <img src=https://x.test/a.png> a \\| b |',
+      '',
+      'After.',
+    ].join('\n');
+    const html = renderUpdateHtml('T', md);
+    expect(html).toContain(
+      '<table><thead><tr><th style="text-align:left">Metric</th><th style="text-align:right">Value</th></tr></thead><tbody>' +
+        '<tr><td style="text-align:left">Cash</td><td style="text-align:right"><strong>£120,000.00</strong></td></tr>' +
+        '<tr><td style="text-align:left">Note</td><td style="text-align:right">&lt;img src=https://x.test/a.png&gt; a | b</td></tr></tbody></table>',
+    );
+    expect(html).not.toContain('| Metric');
+    expect(html).not.toMatch(/<img|<script/);
+    expect(html).toContain('<p>After.</p>');
+    expect(html).toContain('border-collapse:collapse');
+  });
+
+  it('leaves a pipe line without a matching delimiter row as text', () => {
+    const html = renderUpdateHtml('T', 'a | b\n---\n\nc | d');
+    expect(html).not.toContain('<table>');
+    expect(html).toContain('<p>a | b ---</p>');
+  });
+
   it('writes the .md where the dialog says, and treats cancel as not saved', async () => {
     const { dir, store } = await seed();
     const target = join(dir, 'out.md');

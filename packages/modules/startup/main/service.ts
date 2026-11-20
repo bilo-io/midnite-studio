@@ -31,7 +31,7 @@ import { exportFleetProjectionCsv, exportFleetProjectionPdf, exportRunwayCsv, ty
 import { exportInvoicePdf, type InvoicePdfPort } from './invoice-pdf';
 import { issueInvoice, markPaid, voidInvoice } from './invoices';
 import type { StartupLedgerPort } from './ledger-port';
-import { projectRunway, type RunwayProjection } from './runway';
+import { projectRunway, runwayHeadline, type RunwayHeadline, type RunwayInput, type RunwayProjection } from './runway';
 import type { Mutation, WorkspaceStore } from './workspace-store';
 
 const fail = (kind: Extract<Mutation, { ok: false }>['kind'], message: string): Mutation => ({ ok: false, kind, message });
@@ -411,8 +411,8 @@ export async function handleStartupRequest(
   }
 }
 
-/** The runway for a scenario from today: opening cash is the linked book's cash when it answers, else the typed one. */
-async function runwayFor(store: WorkspaceStore, deps: StartupServiceDeps, scenarioId: string, months: 12 | 24 | 36): Promise<StartupResult<RunwayProjection>> {
+/** A scenario's projection input from today: opening cash is the linked book's cash when it answers, else the typed one. */
+async function runwayInputFor(store: WorkspaceStore, deps: StartupServiceDeps, scenarioId: string): Promise<StartupResult<Omit<RunwayInput, 'months'>>> {
   const ws = store.snapshot().workspace;
   if (ws.company === null) return { ok: false, kind: 'invalid', message: 'Set up your company first.' };
   const stored = ws.scenarios.find((s) => s.id === scenarioId);
@@ -426,7 +426,19 @@ async function runwayFor(store: WorkspaceStore, deps: StartupServiceDeps, scenar
     const cash = await deps.ledger.cashBalance(ws.ledger.bookId, (deps.now?.() ?? new Date()).toISOString().slice(0, 10));
     if (cash.ok) openingCashMinor = cash.value.minor;
   }
-  return { ok: true, value: projectRunway({ openingCashMinor, startMonth, lines: ws.lines, scenario, months }) };
+  return { ok: true, value: { openingCashMinor, startMonth, lines: ws.lines, scenario } };
+}
+
+/** The runway for a scenario from today, over the view's chosen horizon. */
+async function runwayFor(store: WorkspaceStore, deps: StartupServiceDeps, scenarioId: string, months: 12 | 24 | 36): Promise<StartupResult<RunwayProjection>> {
+  const input = await runwayInputFor(store, deps, scenarioId);
+  return input.ok ? { ok: true, value: projectRunway({ ...input.value, months }) } : input;
+}
+
+/** The base scenario's headline cash, burn and runway: what `startup_summary` and the investor update report. */
+export async function baseRunwayHeadline(store: WorkspaceStore, deps: StartupServiceDeps): Promise<StartupResult<RunwayHeadline>> {
+  const input = await runwayInputFor(store, deps, BASE_SCENARIO_ID);
+  return input.ok ? { ok: true, value: runwayHeadline(input.value) } : input;
 }
 
 /** An explicit choice in the request wins whole; otherwise the stored setting, an Ollama model before an agent. */
@@ -457,8 +469,10 @@ async function draftInvestorUpdate(
     const summary = await ledgerSummary(store, deps.ledger, now);
     if (summary.ok) book = summary.value;
   }
+  const headline = await baseRunwayHeadline(store, deps);
+  if (!headline.ok) return headline;
   const previous = [...ws.investorUpdates].filter((u) => u.period < request.period).sort((a, b) => b.period.localeCompare(a.period))[0];
-  const prompt = buildInvestorUpdatePrompt(gatherUpdateFacts(ws, request.period, now, book), request.notes, previous?.markdown);
+  const prompt = buildInvestorUpdatePrompt(gatherUpdateFacts(ws, request.period, now, book, headline.value), request.notes, previous?.markdown);
   const reply = await deps.investor.run({ prompt, ...chosenModel(request, settingsOf(deps)) });
   if (!reply.ok) return { ok: false, kind: 'io', message: reply.message };
   const markdown = cleanInvestorUpdate(reply.text).slice(0, 50_000);

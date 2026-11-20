@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  BASE_SCENARIO_ID,
   buildFleetStarter,
   STARTUP_AGENTS_OFF_MESSAGE,
   STARTUP_MCP_TOOL_IDS,
@@ -62,6 +63,21 @@ describe('startup MCP reads', () => {
     expect(out['cash']).toEqual({ minor: 1_000_000, currency: 'GBP', formatted: '£10,000.00' });
     expect(out['counts']).toMatchObject({ milestones: 2, projections: 1 });
     expect(out['readOnly']).toBe(false);
+  });
+
+  it('startup_summary finds a runway past twelve months, matching startup_runway and the view\'s projection', async () => {
+    // £10,000 cash against £800 a month: still solvent through month 12, below zero in month 13.
+    const store = await seeded();
+    await handleStartupRequest(store, { op: 'upsertLine', line: { id: u(50), kind: 'cost', name: 'Rent', category: 'premises', minor: 80_000, cadence: 'monthly', start: '2026-11', growthBpPerMonth: 0 } });
+    const d = dispatchFor(store, READ);
+    const summary = await value(d, 'startup_summary');
+    const runway = await value(d, 'startup_runway', { months: 36 });
+    expect(summary['runwayMonths']).toBe(12);
+    expect(runway['runwayMonths']).toBe(12);
+    expect(runway['zeroCashMonth']).toBe('2027-11');
+    expect(summary['burn']).toEqual(runway['burn']);
+    const view = await handleStartupRequest(store, { op: 'projection', scenarioId: BASE_SCENARIO_ID, months: 36 }, { now: () => new Date('2026-11-18T10:00:00Z') });
+    expect(view.ok && (view.value as { runwayMonths: number }).runwayMonths).toBe(12);
   });
 
   it('startup_summary on an empty workspace says so instead of failing', async () => {

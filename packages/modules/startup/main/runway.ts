@@ -79,3 +79,34 @@ export function projectRunway(input: RunwayInput): RunwayProjection {
     defaultAlive: months.slice(0, lastSolvent).some((m) => m.netMinor >= 0),
   };
 }
+
+/** The headline figures are read over the Runway view's default (and longest) horizon. */
+export const HEADLINE_MONTHS = 36;
+
+export type RunwayHeadline = {
+  /** Cash today: the projection's opening cash. */
+  cashMinor: number;
+  /** Modelled burn: the projection's `burnMinor` (mean net of the first three months; negative = burning). */
+  burnMinor: number;
+  runwayMonths: number | null;
+  zeroCashMonth: string | null;
+  defaultAlive: boolean;
+  /** The horizon `runwayMonths: null` means "beyond". */
+  horizonMonths: number;
+};
+
+/**
+ * The one derivation of cash, burn and runway that the Runway view's cards, `startup_summary` and the investor update's
+ * facts all show: the base projection from the current month with today's cash, over `HEADLINE_MONTHS`.
+ */
+export function runwayHeadline(input: Omit<RunwayInput, 'months'>): RunwayHeadline {
+  const p = projectRunway({ ...input, months: HEADLINE_MONTHS });
+  return {
+    cashMinor: input.openingCashMinor,
+    burnMinor: p.burnMinor,
+    runwayMonths: p.runwayMonths,
+    zeroCashMonth: p.zeroCashMonth,
+    defaultAlive: p.defaultAlive,
+    horizonMonths: HEADLINE_MONTHS,
+  };
+}
