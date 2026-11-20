@@ -101,6 +101,10 @@ shared ◀ desktop
 
                  renderer side                                main side
 shared ◀ frame ◀ feature/renderer ◀ app          shared ◀ runtime ◀ feature/main ◀ desktop
+
+                 pure cores (no React, no electron, `shared` only)
+shared ◀ tasks-core ◀ feature/tasks, mobile       shared ◀ forge-github-core ◀ feature/forge main, mobile
+shared + tasks-core + forge-github-core + git-engine/diff ◀ apps/mobile   (off the Studio graph)
 ```
 
 **The layer rule (Phase 113)** — the suite is built in layers, and eslint holds each to it
@@ -143,6 +147,15 @@ map, the module layer and a guide to extracting the next feature are in [`docs/A
   later. See [`docs/WEBSITE.md`](docs/WEBSITE.md); it is served from the *public*
   `bilo-io/midnite-apps` repo's `gh-pages` branch, so **nothing on it may link to this one**.
 - **`apps/studio`** — Studio's composition (above); the suite apps are Agents, Media, Gamer, Vanguard, Mind, Money, Browser and the launcher (Science is catalog-only so far). Coder, Creator, Cleaner, Vault, Monitor and Capture are no longer apps: they are modules (`packages/modules/*`) that Agents, Media, Gamer, Vanguard and Mind mount.
+- **`apps/mobile`** — Midnite Mobile, the Expo companion app ([`docs/MOBILE.md`](docs/MOBILE.md)). **Expo Go
+  only** (no custom native code, no dev client) and, like the launcher and the website, **off the Studio
+  graph**: it may import `shared`, the two pure cores (`@midnite/tasks-core`, `@midnite/forge-github-core`),
+  exactly one git-engine subpath (`@midnite/studio-git-engine/diff`, the pure diff parser) and
+  `@bilo-io/ui-native`, and nothing else in the workspace: no frame, runtime, feature, module, desktop or
+  `electron`, no node builtins, no `react-dom` or `react-icons`. A generic component goes to
+  `@bilo-io/ui-native` (repo `bilo-io/midnite-ui`) first, then is consumed; `apps/mobile/vendor/ui-native/` is a
+  stand-in until 0.5.0 publishes and no call site imports it. The two pure cores sit beside `shared` and take
+  nothing but `shared`: no React, no `react-native`, no `electron`, no node builtins, and neither imports the other.
 - **`apps/launcher`** — Midnite Apps, the launcher that lists, installs and opens every midnite
   app. **`apps/` holds installable products; `packages/` holds what they are built from.** It is
   its own Electron app (main + preload bundled by esbuild, a Vite + React renderer) and, like the
