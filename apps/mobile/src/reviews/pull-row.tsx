@@ -5,7 +5,7 @@ import type { ForgePull } from '@midnite/studio-shared';
 import { memo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { relativeTime } from '../history/group-by-day';
-import { ICONS, Icon } from '../ui/icons';
+import { Icon } from '../ui/icons';
 import { checksGlyph, decisionBadge, isoToUnix, stateBadge } from './format';
 
 export interface PullRowProps {
@@ -42,12 +42,12 @@ function PullRowImpl({ pull, now, onPress }: PullRowProps) {
         {decision ? <Badge tone={decision.tone}>{decision.label}</Badge> : null}
         {checks ? (
           <View testID={`pull-checks-${pull.checks}`} accessibilityLabel={checks.label} accessible>
-            <Icon name={ICONS[checks.icon]} size={14} color={checkColor} />
+            <Icon name={checks.icon} size={14} color={checkColor} />
           </View>
         ) : null}
         {pull.commentCount > 0 ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-            <Icon name={ICONS.comment} size={12} color={theme.colors.mutedForeground} />
+            <Icon name="comment" size={12} color={theme.colors.mutedForeground} />
             <Text style={[theme.type.xs, { color: theme.colors.mutedForeground }]}>{pull.commentCount}</Text>
           </View>
         ) : null}

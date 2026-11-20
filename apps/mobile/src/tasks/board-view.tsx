@@ -45,7 +45,7 @@ export function BoardView({
   if (items.length === 0 || columns.length === 0) {
     return (
       <EmptyState
-        icon={<Icon name="trello" size={32} color={theme.colors.mutedForeground} />}
+        icon={<Icon name="tasks" size={32} color={theme.colors.mutedForeground} />}
         title="No items in this project"
         action={{ label: 'New issue', onPress: onNewIssue }}
       />

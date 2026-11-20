@@ -6,7 +6,7 @@ import { FlatList, Text, View } from 'react-native';
 import { SourceError, usePulls } from '../data/queries';
 import { useShell } from '../shell/shell-context';
 import { useCurrentRepo } from '../shell/use-current-repo';
-import { ICONS, Icon } from '../ui/icons';
+import { Icon } from '../ui/icons';
 import { SCOPE_OF, type ReviewTab } from './format';
 import { PullRow } from './pull-row';
 
@@ -40,7 +40,7 @@ export function ReviewsScreen() {
   }, [hasNextPage, isFetchingNextPage, pulls.isFetchNextPageError, fetchNextPage]);
 
   const frame = { flex: 1, backgroundColor: theme.colors.background } as const;
-  const icon = <Icon name={ICONS.reviews} size={32} color={theme.colors.mutedForeground} />;
+  const icon = <Icon name="reviews" size={32} color={theme.colors.mutedForeground} />;
 
   if (!repo) {
     return (

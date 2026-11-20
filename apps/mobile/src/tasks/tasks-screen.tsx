@@ -41,7 +41,7 @@ export function TasksScreen() {
   if (!repo || !ref) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', backgroundColor: theme.colors.background }}>
-        <EmptyState icon={<Icon name="trello" size={32} color={theme.colors.mutedForeground} />} title="Pick a repository" body="Choose one from the title bar to see its tasks." />
+        <EmptyState icon={<Icon name="tasks" size={32} color={theme.colors.mutedForeground} />} title="Pick a repository" body="Choose one from the title bar to see its tasks." />
       </View>
     );
   }
@@ -154,7 +154,7 @@ function IssuesFallback({ repo }: { repo: { owner: string; name: string } }) {
   return (
     <View style={{ flex: 1 }} testID="issues-fallback">
       <EmptyState
-        icon={<Icon name="trello" size={32} color={theme.colors.mutedForeground} />}
+        icon={<Icon name="tasks" size={32} color={theme.colors.mutedForeground} />}
         title="This repo has no GitHub Projects"
         body="Its issues are listed below."
         action={{ label: 'New issue', onPress: () => router.push(NEW_ISSUE_HREF) }}

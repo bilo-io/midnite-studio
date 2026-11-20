@@ -1,12 +1,12 @@
 // The five tabs, in order (Phase 146 F1). `name` is the expo-router route under `app/(tabs)/`.
-import { ICONS, type IconName } from '../ui/icons';
+import type { IconName } from '../ui/icons';
 
 export const TABS = [
-  { name: 'history', label: 'History', icon: ICONS.history },
-  { name: 'tasks', label: 'Tasks', icon: ICONS.tasks },
-  { name: 'reviews', label: 'Reviews', icon: ICONS.reviews },
-  { name: 'agents', label: 'Agents', icon: ICONS.agents },
-  { name: 'more', label: 'More', icon: ICONS.more },
+  { name: 'history', label: 'History', icon: 'history' },
+  { name: 'tasks', label: 'Tasks', icon: 'tasks' },
+  { name: 'reviews', label: 'Reviews', icon: 'reviews' },
+  { name: 'agents', label: 'Agents', icon: 'agents' },
+  { name: 'more', label: 'More', icon: 'more' },
 ] as const satisfies readonly { name: string; label: string; icon: IconName }[];
 
 export type TabName = (typeof TABS)[number]['name'];

@@ -6,7 +6,7 @@ import { FlatList, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBranches } from '../data/queries';
 import { usePrefs, type RepoPref } from '../state/prefs';
-import { ICONS, Icon } from '../ui/icons';
+import { Icon } from '../ui/icons';
 
 /** Branch names matching the filter (case-insensitive substring), the current one pinned first. Pure, tested. */
 export function filterBranches(names: readonly string[], filter: string, current: string | null): string[] {
@@ -72,7 +72,7 @@ export function BranchSheet({
               <ListRow
                 title={item}
                 subtitle={item === current ? 'Current' : undefined}
-                leading={<Icon name={ICONS.branch} size={18} color={theme.colors.mutedForeground} />}
+                leading={<Icon name="branch" size={18} color={theme.colors.mutedForeground} />}
                 onPress={() => choose(item)}
               />
             )}

@@ -4,7 +4,7 @@ import { AppBar, IconButton, useTheme } from '@bilo-io/ui-native';
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ICONS, Icon } from '../ui/icons';
+import { Icon } from '../ui/icons';
 
 export function ScreenHeader({ title, trailing }: { title: string; trailing?: ReactNode }) {
   const theme = useTheme();
@@ -16,7 +16,7 @@ export function ScreenHeader({ title, trailing }: { title: string; trailing?: Re
       insetTop={insets.top}
       leading={
         <IconButton
-          icon={<Icon name={ICONS.chevronLeft} color={theme.colors.foreground} />}
+          icon={<Icon name="chevronLeft" color={theme.colors.foreground} />}
           label="Back"
           size={40}
           onPress={() => router.back()}

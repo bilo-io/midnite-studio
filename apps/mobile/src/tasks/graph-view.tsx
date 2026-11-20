@@ -118,7 +118,7 @@ export function GraphView({
   if (layout.nodes.length === 0 || graph.edges.length === 0) {
     return (
       <EmptyState
-        icon={<Icon name="share-2" size={32} color={theme.colors.mutedForeground} />}
+        icon={<Icon name="graph" size={32} color={theme.colors.mutedForeground} />}
         title="No dependencies in this project"
         action={{ label: 'View as list', onPress: onViewAsList }}
       />
@@ -227,7 +227,7 @@ export function GraphView({
               hitSlop={theme.space[2]}
               style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.popover }}
             >
-              <Icon name="maximize-2" size={16} color={theme.colors.popoverForeground} />
+              <Icon name="maximize" size={16} color={theme.colors.popoverForeground} />
             </Pressable>
           </View>
         </View>

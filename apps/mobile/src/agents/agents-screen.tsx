@@ -5,7 +5,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { usePrefs } from '../state/prefs';
-import { ICONS, Icon } from '../ui/icons';
+import { Icon } from '../ui/icons';
 import { openProvider, providerFromParam } from './open-provider';
 import { orderProviders, type AgentProvider } from './providers';
 
@@ -61,13 +61,13 @@ export function AgentsScreen() {
             gap: theme.space[3],
           }}
         >
-          <Icon name={ICONS.info} size={20} color={theme.colors.foreground} />
+          <Icon name="info" size={20} color={theme.colors.foreground} />
           <Text style={[theme.type.sm, { flex: 1, color: theme.colors.foreground }]}>
             You sign in on the provider's own page, so Google and Apple sign-in work there. The session stays signed in
             across launches.
           </Text>
           <IconButton
-            icon={<Icon name={ICONS.close} size={16} color={theme.colors.foreground} />}
+            icon={<Icon name="close" size={16} color={theme.colors.foreground} />}
             label="Dismiss hint"
             size={32}
             onPress={() => usePrefs.getState().setSeenAgentHint(true)}
@@ -124,7 +124,7 @@ function ProviderCard({ provider, lastUsed, onOpen }: { provider: AgentProvider;
         <Button variant="outline" onPress={onOpen} accessibilityLabel={`Open ${provider.label}`}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space[2] }}>
             <Text style={[theme.type.sm, { color: theme.colors.foreground, fontWeight: theme.font.medium }]}>Open</Text>
-            <Icon name={ICONS.externalLink} size={14} color={theme.colors.foreground} />
+            <Icon name="externalLink" size={14} color={theme.colors.foreground} />
           </View>
         </Button>
       </CardContent>

@@ -27,16 +27,16 @@ export function stateBadge(pull: Pick<ForgePull, 'state' | 'isDraft'>): { label:
   return pull.isDraft ? { label: 'Draft', tone: 'neutral' } : { label: 'Open', tone: 'info' };
 }
 
-export type ChecksGlyph = 'checkCircle' | 'xCircle' | 'clock';
+export type ChecksGlyph = 'checkPassed' | 'checkFailed' | 'checkPending';
 export function checksGlyph(checks: ForgePull['checks']): { icon: ChecksGlyph; label: string } | null {
-  if (checks === 'passing') return { icon: 'checkCircle', label: 'Checks passing' };
-  if (checks === 'failing') return { icon: 'xCircle', label: 'Checks failing' };
-  if (checks === 'pending') return { icon: 'clock', label: 'Checks pending' };
+  if (checks === 'passing') return { icon: 'checkPassed', label: 'Checks passing' };
+  if (checks === 'failing') return { icon: 'checkFailed', label: 'Checks failing' };
+  if (checks === 'pending') return { icon: 'checkPending', label: 'Checks pending' };
   return null;
 }
 
 export const checkGlyphOf = (c: PullCheck['conclusion']): ChecksGlyph =>
-  c === 'failure' ? 'xCircle' : c === 'pending' ? 'clock' : 'checkCircle';
+  c === 'failure' ? 'checkFailed' : c === 'pending' ? 'checkPending' : 'checkPassed';
 
 export const reviewerLabel = (s: PullReviewer['state']): string =>
   ({ APPROVED: 'Approved', CHANGES_REQUESTED: 'Changes requested', COMMENTED: 'Commented', DISMISSED: 'Dismissed', PENDING: 'Pending', REQUESTED: 'Requested' })[s];

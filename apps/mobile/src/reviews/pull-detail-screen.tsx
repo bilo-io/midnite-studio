@@ -22,7 +22,7 @@ import {
 } from '../data/queries';
 import { DiffView } from '../diff/diff-view';
 import { useCurrentRepo } from '../shell/use-current-repo';
-import { ICONS, Icon } from '../ui/icons';
+import { Icon } from '../ui/icons';
 import { ConversationTab } from './conversation';
 import { checkGlyphOf, decisionBadge, isHttpsUrl, reviewBlockedReason, reviewerLabel, stateBadge, type ReviewAction } from './format';
 import { ReviewBar } from './review-bar';
@@ -60,7 +60,7 @@ export function PullDetailScreen({ n }: { n: number }) {
     <AppBar
       testID="pull-bar"
       insetTop={insets.top}
-      leading={<IconButton icon={<Icon name={ICONS.chevronLeft} color={theme.colors.foreground} />} label="Back" size={40} onPress={back} />}
+      leading={<IconButton icon={<Icon name="chevronLeft" color={theme.colors.foreground} />} label="Back" size={40} onPress={back} />}
       title={file ? file.path : `#${n}`}
       trailing={!file && state ? <Badge tone={state.tone}>{state.label}</Badge> : undefined}
     />
@@ -192,7 +192,7 @@ export function PullDetailScreen({ n }: { n: number }) {
                   subtitle={c.conclusion}
                   leading={
                     <Icon
-                      name={ICONS[checkGlyphOf(c.conclusion)]}
+                      name={checkGlyphOf(c.conclusion)}
                       size={16}
                       color={c.conclusion === 'failure' ? theme.accents.kind.bug : c.conclusion === 'pending' ? theme.accents.status.wip : theme.colors.success}
                     />

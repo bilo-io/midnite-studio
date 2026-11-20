@@ -8,9 +8,9 @@ import { Icon, type IconName } from '../ui/icons';
 
 export const ERROR_COPY: Record<ResultKind, { icon: IconName; title: string; action: string }> = {
   auth: { icon: 'lock', title: 'Your GitHub session ended', action: 'Sign in again' },
-  scope: { icon: 'shield-off', title: 'This needs another GitHub permission', action: 'Re-authorise' },
-  network: { icon: 'wifi-off', title: "You're offline", action: 'Retry' },
-  error: { icon: 'alert-triangle', title: 'Something went wrong', action: 'Retry' },
+  scope: { icon: 'shieldOff', title: 'This needs another GitHub permission', action: 'Re-authorise' },
+  network: { icon: 'offline', title: "You're offline", action: 'Retry' },
+  error: { icon: 'error', title: 'Something went wrong', action: 'Retry' },
 };
 
 export const errorKind = (error: unknown): ResultKind => (error instanceof SourceError ? error.kind : 'error');

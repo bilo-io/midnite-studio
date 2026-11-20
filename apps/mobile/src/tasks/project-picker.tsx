@@ -31,7 +31,7 @@ export function ProjectPicker({
       <Chip
         testID="project-chip"
         label={selected?.title ?? 'Choose project'}
-        leading={<Icon name="trello" size={14} color={theme.colors.foreground} />}
+        leading={<Icon name="tasks" size={14} color={theme.colors.foreground} />}
         onPress={() => setOpen(true)}
       />
       <Sheet open={open} onOpenChange={setOpen} side="bottom" title="Project" snapPoints={[0.5]} insetBottom={insets.bottom} testID="project-sheet">

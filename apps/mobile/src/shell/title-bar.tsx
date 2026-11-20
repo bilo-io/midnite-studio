@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/auth-context';
 import { useViewer } from '../data/queries';
 import { repoKey } from '../state/prefs';
-import { ICONS, Icon } from '../ui/icons';
+import { Icon } from '../ui/icons';
 import { useShell } from './shell-context';
 import { useCurrentRepo } from './use-current-repo';
 
@@ -39,7 +39,7 @@ export function TitleBar() {
       >
         {title}
       </Text>
-      <Icon name={ICONS.chevronDown} size={16} color={theme.colors.mutedForeground} />
+      <Icon name="chevronDown" size={16} color={theme.colors.mutedForeground} />
     </View>
   );
 
@@ -49,7 +49,7 @@ export function TitleBar() {
       insetTop={insets.top}
       leading={
         <IconButton
-          icon={<Icon name={ICONS.panel} color={theme.colors.foreground} />}
+          icon={<Icon name="panel" color={theme.colors.foreground} />}
           label="Open forge panel"
           size={40}
           onPress={() => setPanelOpen(true)}

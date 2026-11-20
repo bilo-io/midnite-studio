@@ -5,7 +5,7 @@ import { useRouter, useSegments, type Href } from 'expo-router';
 import { useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePrefs } from '../state/prefs';
-import { ICONS, Icon } from '../ui/icons';
+import { Icon } from '../ui/icons';
 import { useShell } from './shell-context';
 import { NAV_HEIGHT, isTopLevelTabRoute } from './tabs';
 
@@ -33,25 +33,25 @@ export function QuickAccess() {
     {
       key: 'new-issue',
       label: 'New issue',
-      icon: <Icon name={ICONS.newIssue} size={20} color={ink} />,
+      icon: <Icon name="newIssue" size={20} color={ink} />,
       onPress: () => router.push('/tasks/new-issue' as Href),
     },
     {
       key: 'open-agent',
       label: 'Open agent',
-      icon: <Icon name={ICONS.openAgent} size={20} color={ink} />,
+      icon: <Icon name="openAgent" size={20} color={ink} />,
       onPress: () => router.navigate(openAgentHref(usePrefs.getState().lastProvider) as Href),
     },
     {
       key: 'switch-repo',
       label: 'Switch repo',
-      icon: <Icon name={ICONS.switchRepo} size={20} color={ink} />,
+      icon: <Icon name="switchRepo" size={20} color={ink} />,
       onPress: () => setSwitcherOpen(true),
     },
     {
       key: 'notes',
       label: 'Notes',
-      icon: <Icon name={ICONS.notes} size={20} color={ink} />,
+      icon: <Icon name="notes" size={20} color={ink} />,
       onPress: () => undefined,
       disabled: true,
     },
@@ -62,7 +62,7 @@ export function QuickAccess() {
       open={dialOpen}
       onOpenChange={setDialOpen}
       actions={actions}
-      icon={<Icon name={ICONS.plus} size={24} color={theme.colors.primaryForeground} />}
+      icon={<Icon name="plus" size={24} color={theme.colors.primaryForeground} />}
       label="Quick actions"
       offsetBottom={NAV_HEIGHT + insets.bottom + theme.space[4]}
       testID="quick-access"

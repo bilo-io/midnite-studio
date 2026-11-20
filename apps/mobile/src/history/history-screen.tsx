@@ -8,7 +8,7 @@ import { FlatList, Text, View } from 'react-native';
 import { SourceError, useHistory } from '../data/queries';
 import { useShell, useTitleBarAction } from '../shell/shell-context';
 import { useCurrentRepo } from '../shell/use-current-repo';
-import { ICONS, Icon } from '../ui/icons';
+import { Icon } from '../ui/icons';
 import { BranchSheet } from './branch-sheet';
 import { CommitRow } from './commit-row';
 import { buildTimeline, type TimelineEntry } from './group-by-day';
@@ -30,7 +30,7 @@ export function HistoryScreen() {
           testID="branch-chip"
           label={branch}
           selected
-          leading={<Icon name={ICONS.branch} size={14} color={theme.colors.accentForeground} />}
+          leading={<Icon name="branch" size={14} color={theme.colors.accentForeground} />}
           onPress={() => setPickerOpen(true)}
         />
       ) : null,
@@ -58,7 +58,7 @@ export function HistoryScreen() {
       <View style={frame}>
         <EmptyState
           testID="history-no-repo"
-          icon={<Icon name={ICONS.history} size={32} color={theme.colors.mutedForeground} />}
+          icon={<Icon name="history" size={32} color={theme.colors.mutedForeground} />}
           title="Pick a repository"
           body="Choose a repository to see its commit history."
           action={{ label: 'Choose repository', onPress: () => setSwitcherOpen(true) }}
@@ -89,7 +89,7 @@ export function HistoryScreen() {
     body = (
       <EmptyState
         testID="history-empty"
-        icon={<Icon name={ICONS.history} size={32} color={theme.colors.mutedForeground} />}
+        icon={<Icon name="history" size={32} color={theme.colors.mutedForeground} />}
         title={`No commits on ${branch ?? 'this branch'}`}
       />
     );

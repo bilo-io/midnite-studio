@@ -8,7 +8,7 @@ import { ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SourceError, useCommit } from '../data/queries';
 import { useCurrentRepo } from '../shell/use-current-repo';
-import { ICONS, Icon } from '../ui/icons';
+import { Icon } from '../ui/icons';
 import { ShaChip } from './commit-row';
 import { DiffView } from '../diff/diff-view';
 import { commitHref } from './history-screen';
@@ -28,7 +28,7 @@ export function CommitDetailScreen({ sha }: { sha: string }) {
       testID="commit-bar"
       insetTop={insets.top}
       leading={
-        <IconButton icon={<Icon name={ICONS.chevronLeft} color={theme.colors.foreground} />} label="Back" size={40} onPress={back} />
+        <IconButton icon={<Icon name="chevronLeft" color={theme.colors.foreground} />} label="Back" size={40} onPress={back} />
       }
       title={file ? file.path : `Commit ${shortSha(sha)}`}
     />
