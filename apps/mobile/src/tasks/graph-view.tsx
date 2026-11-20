@@ -61,6 +61,7 @@ export function GraphView({
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, scale: 1 });
   const [selected, setSelected] = useState<string | null>(null);
+  const [focused, setFocused] = useState<string | null>(null);
   const fitted = useRef(false);
 
   const itemById = useMemo(() => new Map(items.map((i) => [i.id, i] as const)), [items]);
@@ -180,6 +181,8 @@ export function GraphView({
                   testID={`graph-node-${node.key}`}
                   accessibilityRole="button"
                   accessibilityLabel={`${node.number === null ? 'Draft' : `#${node.number}`}, ${node.title}${node.blocked ? ', blocked' : ''}`}
+                  onFocus={() => setFocused(node.key)}
+                  onBlur={() => setFocused((k) => (k === node.key ? null : k))}
                   onPress={() => {
                     setSelected(node.key);
                     onOpenNode(node);
@@ -195,7 +198,7 @@ export function GraphView({
                       overflow: 'hidden',
                       borderRadius: theme.radius.lg,
                       backgroundColor: theme.colors.card,
-                      borderWidth: isSelected ? 2 : 0,
+                      borderWidth: isSelected || focused === node.key ? 2 : 0,
                       borderColor: theme.colors.ring,
                     },
                     theme.elevation[1],

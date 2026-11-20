@@ -4,9 +4,11 @@ import { Avatar, Chip, useTheme } from '@bilo-io/ui-native';
 import type { ForgeProjectItem } from '@midnite/studio-shared';
 import type { StatusStroke } from '@midnite/tasks-core';
 import { memo } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Animated, Pressable, Text, View } from 'react-native';
+import { FocusRing, useFocusRing, usePressFeedback } from '../ui/press-states';
 import { itemLabels, itemRef } from './model';
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const STROKE_WIDTH = 3;
 const MAX_AVATARS = 3;
 const MAX_LABELS = 3;
@@ -35,27 +37,34 @@ export const TaskCard = memo(function TaskCard({
   const labels = itemLabels(item);
   const assignees = item.content.assignees;
   const shown = assignees.slice(0, MAX_AVATARS);
+  const focus = useFocusRing();
+  const press = usePressFeedback();
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={cardLabel(item)}
       accessibilityHint={onLongPress ? 'Long press to move to another column' : undefined}
       onPress={onPress}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      onFocus={focus.onFocus}
+      onBlur={focus.onBlur}
       onLongPress={onLongPress}
       delayLongPress={400}
       testID={`task-card-${item.id}`}
-      style={({ pressed }) => [
+      style={[
         {
           flexDirection: 'row',
           overflow: 'hidden',
           borderRadius: theme.radius.lg,
           backgroundColor: theme.colors.card,
           minHeight: 44,
-          transform: [{ scale: pressed ? 0.98 : 1 }],
         },
         theme.elevation[1],
+        press.style,
       ]}
     >
+      <FocusRing visible={focus.focused} radius={theme.radius.lg} />
       <View
         testID="task-card-stroke"
         style={{ width: STROKE_WIDTH, backgroundColor: stroke?.color ?? theme.colors.border, opacity: stroke?.opacity ?? 1 }}
@@ -93,6 +102,6 @@ export const TaskCard = memo(function TaskCard({
           </View>
         ) : null}
       </View>
-    </Pressable>
+    </AnimatedPressable>
   );
 });

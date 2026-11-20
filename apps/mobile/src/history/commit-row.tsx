@@ -5,7 +5,14 @@ import { Avatar, useTheme } from '@bilo-io/ui-native';
 import type { Commit } from '@midnite/studio-shared';
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { isMerge, relativeTime, shortSha } from './group-by-day';
+import { FocusRing, useFocusRing } from '../ui/press-states';
+import { isMerge, relativeTime, shortSha, spokenTime } from './group-by-day';
+
+/** "Commit 2d4626d, feat(app): x, by bilo-io, 2 hours ago, merge commit" */
+export function commitLabel(commit: Commit, now: Date): string {
+  const base = `Commit ${shortSha(commit.sha)}, ${commit.subject}, by ${commit.authorName}, ${spokenTime(commit.authorDate, now)}`;
+  return isMerge(commit) ? `${base}, merge commit` : base;
+}
 
 export interface CommitRowProps {
   commit: Commit;
@@ -23,11 +30,14 @@ function CommitRowImpl({ commit, isHead, isLast, now, onPress }: CommitRowProps)
   const merge = isMerge(commit);
   const time = relativeTime(commit.authorDate, now);
   const sha = shortSha(commit.sha);
+  const focus = useFocusRing();
   return (
     <Pressable
       testID={`commit-row-${sha}`}
       accessibilityRole="button"
-      accessibilityLabel={`${merge ? 'Merge commit' : 'Commit'} ${commit.subject}, ${commit.authorName}, ${time}, ${sha}`}
+      accessibilityLabel={commitLabel(commit, now)}
+      onFocus={focus.onFocus}
+      onBlur={focus.onBlur}
       onPress={() => onPress(commit.sha)}
       style={({ pressed }) => [
         styles.row,
@@ -35,7 +45,8 @@ function CommitRowImpl({ commit, isHead, isLast, now, onPress }: CommitRowProps)
         pressed && { backgroundColor: theme.colors.accent },
       ]}
     >
-      <View style={{ width: RAIL, alignItems: 'center', marginLeft: theme.space[2] }}>
+      <FocusRing visible={focus.focused} />
+      <View accessible={false} style={{ width: RAIL, alignItems: 'center', marginLeft: theme.space[2] }}>
         <View
           testID={merge ? 'rail-dot-merge' : isHead ? 'rail-dot-head' : 'rail-dot'}
           style={{
@@ -57,7 +68,7 @@ function CommitRowImpl({ commit, isHead, isLast, now, onPress }: CommitRowProps)
           }}
         />
       </View>
-      <View style={{ flex: 1, paddingVertical: theme.space[3], paddingLeft: theme.space[2], gap: theme.space[1] }}>
+      <View accessible={false} style={{ flex: 1, paddingVertical: theme.space[3], paddingLeft: theme.space[2], gap: theme.space[1] }}>
         <Text
           numberOfLines={2}
           maxFontSizeMultiplier={1.4}
@@ -76,7 +87,7 @@ function CommitRowImpl({ commit, isHead, isLast, now, onPress }: CommitRowProps)
           </Text>
         </View>
       </View>
-      <View style={{ paddingTop: theme.space[3] }}>
+      <View accessible={false} style={{ paddingTop: theme.space[3] }}>
         <ShaChip sha={sha} />
       </View>
     </Pressable>

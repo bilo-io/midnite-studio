@@ -57,6 +57,22 @@ export function relativeTime(unixSeconds: number, now: Date): string {
   return `${Math.floor(days / 365)}y`;
 }
 
+/** The same age as `relativeTime`, spelled for a screen reader: `just now`, `2 hours ago`. */
+export function spokenTime(unixSeconds: number, now: Date): string {
+  const diff = Math.max(0, Math.floor(now.getTime() / 1000) - unixSeconds);
+  const unit = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'} ago`;
+  if (diff < 60) return 'just now';
+  const minutes = Math.floor(diff / 60);
+  if (minutes < 60) return unit(minutes, 'minute');
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return unit(hours, 'hour');
+  const days = Math.floor(hours / 24);
+  if (days < 7) return unit(days, 'day');
+  if (days < 30) return unit(Math.floor(days / 7), 'week');
+  if (days < 365) return unit(Math.floor(days / 30), 'month');
+  return unit(Math.floor(days / 365), 'year');
+}
+
 export type TimelineEntry =
   | { kind: 'header'; key: string; label: string }
   | { kind: 'commit'; key: string; commit: Commit; isHead: boolean; isLast: boolean };
