@@ -55,8 +55,8 @@ provenance and the exact **removal steps** are in
 are excluded from lint.
 
 The same alias pattern points `@midnite/forge-github-core`, `@midnite/studio-git-engine/diff` and `@midnite/tasks-core`
-at their source in `tsconfig.json`, `vitest.config.ts` and `metro.config.js`, since Metro does not follow workspace
-`exports` maps.
+at their TypeScript source in `tsconfig.json`, `vitest.config.ts` and `metro.config.js`, so no pre-built `dist/` is
+needed (forge-github-core and git-engine publish a CJS `dist`, which Metro should not load).
 
 ### Upstream first
 
@@ -73,7 +73,7 @@ provider; no screen changes.
 
 ## Why provider sign-in uses the in-app browser
 
-The Agents tab opens each provider (Claude Code, Gemini, Codex, ...) in the system in-app browser
+The Agents tab opens each provider (Claude Code, Codex, Gemini, Jules, Copilot) in the system in-app browser
 (SFSafariViewController on iOS, Chrome Custom Tabs on Android), not an embedded WebView. Google rejects OAuth inside
 embedded WebViews with `disallowed_useragent`, so the system browser is the only path where Google SSO and passkeys work
 as the provider intends. The cost is the system's own browser chrome, which is accepted. On iOS the sheet keeps its own
