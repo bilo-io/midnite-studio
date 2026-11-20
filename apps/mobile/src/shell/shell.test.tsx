@@ -1,8 +1,8 @@
 // vitest/jsdom: the shell's pieces over the real provider tree and a fake data source (Phase 146 Theme F). jsdom is
 // enough: nothing here needs real layout or pointer drag.
-import { cleanup, fireEvent, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { useMemo, useState } from 'react';
-import { PixelRatio, Pressable, Text } from 'react-native';
+import { Keyboard, PixelRatio, Pressable, Text } from 'react-native';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routerCalls, setSegments } from '../../test/mocks/expo-router';
 import { Openers, renderInShell, resetShellState } from '../../test/shell-harness';
@@ -230,6 +230,24 @@ describe('QuickAccess', () => {
   it('opens the last-used provider when there is one', async () => {
     expect(openAgentHref(null)).toBe('/(tabs)/agents');
     expect(openAgentHref('claude')).toBe('/(tabs)/agents?open=claude');
+  });
+
+  it('steps aside while the keyboard is up and returns after', async () => {
+    const handlers: Record<string, () => void> = {};
+    const spy = vi.spyOn(Keyboard, 'addListener').mockImplementation(((name: string, cb: () => void) => {
+      handlers[name] = cb;
+      return { remove: () => undefined };
+    }) as never);
+    try {
+      await dial();
+      expect(screen.getByLabelText('Quick actions')).toBeTruthy();
+      act(() => (handlers.keyboardDidShow ?? handlers.keyboardWillShow)!());
+      await waitFor(() => expect(screen.queryByLabelText('Quick actions')).toBeNull());
+      act(() => (handlers.keyboardDidHide ?? handlers.keyboardWillHide)!());
+      await waitFor(() => expect(screen.getByLabelText('Quick actions')).toBeTruthy());
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('is hidden on a detail route', async () => {
