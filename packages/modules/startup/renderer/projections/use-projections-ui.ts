@@ -4,6 +4,8 @@ import type { FleetProjection } from '@midnite/studio-shared';
 
 export const LIST_BOUNDS = { initial: 240, min: 200, max: 360 } as const;
 export const CONTROLS_BOUNDS = { initial: 340, min: 300, max: 480 } as const;
+/** The results column's floor: small enough that both panes at their initial widths fit the 1100 px default window. */
+export const RESULTS_MIN_WIDTH = 400;
 
 const KEYS = {
   listWidth: 'midnite-startup.projections.listWidth',

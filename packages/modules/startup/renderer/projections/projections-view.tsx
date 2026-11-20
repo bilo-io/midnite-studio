@@ -11,7 +11,7 @@ import { ResultsPanel } from './results-panel';
 import { SendToRunway } from './send-to-runway';
 import { PANE } from './styles';
 import { useFleetDraft } from './use-fleet-draft';
-import { CONTROLS_BOUNDS, LIST_BOUNDS, selectedProjection, useProjectionsUi } from './use-projections-ui';
+import { CONTROLS_BOUNDS, LIST_BOUNDS, RESULTS_MIN_WIDTH, selectedProjection, useProjectionsUi } from './use-projections-ui';
 
 const READ_ONLY_TEXT = 'This workspace was written by a newer Midnite Startup. It is read-only here.';
 
@@ -38,7 +38,7 @@ function ProjectionsBody({ projections, readOnly, lines, hasCompany }: { project
         <ProjectionList projections={projections} lines={lines} selectedId={source?.id ?? null} readOnly={readOnly} onSelect={ui.select} />
       </div>
       <ResizeHandle resizable={list} axis="x" label="Resize projection list" />
-      <section aria-label="Results" className="flex min-w-[480px] flex-1 flex-col gap-3 overflow-y-auto px-3">
+      <section aria-label="Results" style={{ minWidth: RESULTS_MIN_WIDTH }} className="flex flex-1 flex-col gap-3 overflow-y-auto px-3">
         {readOnly ? <p className="text-xs text-amber-500">{READ_ONLY_TEXT}</p> : null}
         {draft !== null && result !== null ? (
           <ResultsPanel draft={draft} result={result} update={update} pending={pending} problem={problem} readOnly={readOnly} actions={
