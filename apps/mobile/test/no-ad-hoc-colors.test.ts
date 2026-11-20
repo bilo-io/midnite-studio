@@ -4,8 +4,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-// Vitest runs from apps/mobile (the package's own script and the root projects pass both set the cwd there).
-const ROOT = process.cwd();
+const ROOT = import.meta.dirname ? join(import.meta.dirname, '..') : process.cwd();
 
 const NAMED = 'white|black|red|green|blue|gray|grey|orange|yellow|purple|pink|teal|cyan|navy|silver|transparent';
 const PATTERNS: { label: string; re: RegExp }[] = [
