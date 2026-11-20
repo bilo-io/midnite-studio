@@ -10,7 +10,7 @@ import {
   type StartupWorkspace,
 } from '@midnite/studio-shared';
 
-import { projectRunway } from './runway';
+import { projectRunway, runwayHeadline, type RunwayHeadline } from './runway';
 
 /**
  * The monthly investor update's data and prompt (Phase 153 Theme D). Everything here is pure: the facts come
@@ -27,8 +27,11 @@ export type UpdateFacts = {
   currency: string;
   /** Cash today and where the figure came from; a linked book wins over the typed opening cash. */
   cash: { amount: string; source: 'book' | 'modelled'; asOf: string };
-  /** "R 120,000 a month" or "none, net positive". Actual (book) when known, else modelled. */
-  burn: { text: string; source: 'book' | 'modelled' };
+  /** Modelled burn, the Runway view's "Monthly burn" card: "R 120,000 a month" or "none, net positive". */
+  burn: string;
+  /** The linked book's actual burn over the last three full months (the view's "Actual burn" card), or `null`. */
+  actualBurn: string | null;
+  /** The Runway view's runway card: "12 months (cash runs out in 2027-11)" or "beyond 36 months". */
   runway: string;
   revenue: { thisMonth: string; lastMonth: string };
   /** The base scenario's next three months. */
@@ -45,23 +48,30 @@ const BASE: RunwayScenario = { id: BASE_SCENARIO_ID, name: 'Base', costMultiplie
 
 /**
  * The facts for `period` (`YYYY-MM`) as of `now`. `book` is the linked book's summary, or `null` when there is none
- * (then cash and burn are modelled from the plan). Never throws on an empty workspace: absent parts read as empty lists.
+ * (then cash is the typed opening cash). Cash, burn and runway are `headline` — the service passes the one
+ * `baseRunwayHeadline` the Runway view and `startup_summary` show; without it the same `runwayHeadline` is taken
+ * from `now`'s month. Never throws on an empty workspace: absent parts read as empty lists.
  */
-export function gatherUpdateFacts(ws: StartupWorkspace, period: string, _now: Date, book: StartupLedgerSummary | null = null): UpdateFacts {
+export function gatherUpdateFacts(
+  ws: StartupWorkspace,
+  period: string,
+  now: Date,
+  book: StartupLedgerSummary | null = null,
+  headline?: RunwayHeadline,
+): UpdateFacts {
   const currency = moneyCurrency(ws.company);
   const money = (minor: number): string => formatMoney(minor, currency);
   const scenario = ws.scenarios.find((s) => s.id === BASE_SCENARIO_ID) ?? BASE;
   const openingMinor = book?.cashMinor ?? ws.company?.openingCash.minor ?? 0;
   const next1 = addYearMonths(period, 1);
 
-  // Runway and modelled burn: from the update's month on, with today's cash. Last and next months: one pass from the month before.
-  const forward = projectRunway({ openingCashMinor: openingMinor, startMonth: period, lines: ws.lines, scenario, months: 24 });
-  const around = projectRunway({ openingCashMinor: openingMinor, startMonth: addYearMonths(period, -1), lines: ws.lines, scenario, months: 12 });
+  // Cash, burn and runway: the headline every surface shows. Last and next months: one pass from the month before.
+  const head = headline ?? runwayHeadline({ openingCashMinor: openingMinor, startMonth: now.toISOString().slice(0, 7), lines: ws.lines, scenario });
+  const around = projectRunway({ openingCashMinor: head.cashMinor, startMonth: addYearMonths(period, -1), lines: ws.lines, scenario, months: 12 });
   const [last, current, ...ahead] = around.months;
 
-  const burnActual = book?.actualBurnMinor ?? null;
-  const burnMinor = burnActual ?? -forward.burnMinor;
-  const burnSource: 'book' | 'modelled' = burnActual === null ? 'modelled' : 'book';
+  const burnText = (burn: number): string => (burn > 0 ? `${money(burn)} a month` : 'none, net positive');
+  const actualBurnMinor = book?.actualBurnMinor ?? null;
 
   const titles = (pick: (m: StartupWorkspace['milestones'][number]) => boolean): string[] => ws.milestones.filter(pick).map((m) => m.title);
   const inMonth = (due: string, ym: string): boolean => due.slice(0, 7) === ym;
@@ -74,9 +84,13 @@ export function gatherUpdateFacts(ws: StartupWorkspace, period: string, _now: Da
     period,
     periodLabel: monthLabel(period),
     currency,
-    cash: { amount: money(openingMinor), source: book ? 'book' : 'modelled', asOf: book?.asOf ?? ws.company?.openingCash.asOf ?? period },
-    burn: { text: burnMinor > 0 ? `${money(burnMinor)} a month` : 'none, net positive', source: burnSource },
-    runway: forward.runwayMonths === null ? 'cash does not run out within 24 months' : `${forward.runwayMonths} months`,
+    cash: { amount: money(head.cashMinor), source: book ? 'book' : 'modelled', asOf: book?.asOf ?? ws.company?.openingCash.asOf ?? period },
+    burn: burnText(-head.burnMinor),
+    actualBurn: actualBurnMinor === null ? null : burnText(actualBurnMinor),
+    runway:
+      head.runwayMonths === null
+        ? `cash does not run out within ${head.horizonMonths} months`
+        : `${head.runwayMonths} ${head.runwayMonths === 1 ? 'month' : 'months'} (cash runs out in ${head.zeroCashMonth})`,
     revenue: { thisMonth: money(current?.revenueMinor ?? 0), lastMonth: money(last?.revenueMinor ?? 0) },
     next: ahead.slice(0, 3).map((m) => ({ month: monthLabel(m.month), revenue: money(m.revenueMinor), cost: money(m.costMinor), net: money(m.netMinor), cash: money(m.cashMinor) })),
     milestones: {
@@ -100,7 +114,8 @@ export function factLines(f: UpdateFacts): string[] {
     `Company: ${f.company}`,
     `Period: ${f.periodLabel}`,
     `Cash: ${f.cash.amount} (${f.cash.source === 'book' ? 'from the books' : 'modelled from the plan'}, as of ${f.cash.asOf})`,
-    `Monthly burn: ${f.burn.text} (${f.burn.source === 'book' ? 'actual, from the books' : 'modelled'})`,
+    `Monthly burn: ${f.burn} (modelled, mean net of this month and the next two)`,
+    ...(f.actualBurn === null ? [] : [`Actual burn: ${f.actualBurn} (from the books, mean of the last 3 full months)`]),
     `Runway: ${f.runway}`,
     `Revenue this month: ${f.revenue.thisMonth}`,
     `Revenue last month: ${f.revenue.lastMonth}`,

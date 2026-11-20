@@ -20,7 +20,7 @@ import {
 } from '@midnite/studio-shared';
 
 import type { RunwayProjection } from './runway';
-import { handleStartupRequest, type StartupServiceDeps } from './service';
+import { baseRunwayHeadline, handleStartupRequest, type StartupServiceDeps } from './service';
 import type { WorkspaceStore } from './workspace-store';
 
 /**
@@ -103,14 +103,19 @@ export function startupMcpDispatch(
         };
         const base = { currency, counts, readOnly: snapshotOf(got).readOnly };
         if (ws.company === null) return { ok: true, value: { ...base, company: null, cash: null, burn: null, runwayMonths: null, defaultAlive: null } };
-        const r = await runway(store, BASE_SCENARIO_ID, 12);
-        if (!r.ok) return fromRefusal(r);
-        const first = r.value.months[0];
-        // Opening cash is the first month's closing cash less that month's net — the ledger's cash today when a book is linked.
-        const cash = first ? mcpMoney(first.cashMinor - first.netMinor, currency) : mcpMoney(ws.company.openingCash.minor, currency);
+        // The same headline the Runway view's cards and the investor update show: one derivation, so they agree.
+        const h = await baseRunwayHeadline(store, deps);
+        if (!h.ok) return fromRefusal(h);
         return {
           ok: true,
-          value: { ...base, company: { name: ws.company.name }, cash, burn: mcpMoney(r.value.burnMinor, currency), runwayMonths: r.value.runwayMonths, defaultAlive: r.value.defaultAlive },
+          value: {
+            ...base,
+            company: { name: ws.company.name },
+            cash: mcpMoney(h.value.cashMinor, currency),
+            burn: mcpMoney(h.value.burnMinor, currency),
+            runwayMonths: h.value.runwayMonths,
+            defaultAlive: h.value.defaultAlive,
+          },
         };
       }
       case 'startup_runway': {

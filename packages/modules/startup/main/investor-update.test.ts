@@ -1,13 +1,15 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 
-import { BASE_SCENARIO_ID, buildFleetStarter, type PlanLine, type StartupLedgerSummary, type StartupWorkspace } from '@midnite/studio-shared';
+import { BASE_SCENARIO_ID, buildFleetStarter, formatMoney, type RunwayScenario, type PlanLine, type StartupLedgerSummary, type StartupWorkspace } from '@midnite/studio-shared';
 
 import { buildInvestorUpdatePrompt, cleanInvestorUpdate, factLines, gatherUpdateFacts, UPDATE_SECTIONS } from './investor-update';
+import { projectRunway, runwayHeadline } from './runway';
 import { emptyWorkspace } from './workspace-store';
 
 const u = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const NOW = new Date('2026-11-18T10:00:00Z');
+const BASE: RunwayScenario = { id: BASE_SCENARIO_ID, name: 'Base', costMultiplierBp: 10000, revenueMultiplierBp: 10000, extraLines: [] };
 const line = (n: number, kind: 'cost' | 'revenue', minor: number, over: Partial<PlanLine> = {}): PlanLine => ({
   id: u(n), kind, name: `L${n}`, category: kind === 'revenue' ? 'revenue' : 'software', minor, cadence: 'monthly', start: '2026-01', growthBpPerMonth: 0, ...over,
 });
@@ -35,21 +37,36 @@ describe('gatherUpdateFacts', () => {
     expect(f.next[0]).toMatchObject({ revenue: 'R 10,000', cost: 'R 20,000', net: '−R 10,000' });
   });
 
-  it('models cash and burn without a book, and takes both from the book when one answers', () => {
+  it('models cash and burn without a book; with one, cash is the book\'s and its actual burn sits beside the modelled', () => {
     const modelled = gatherUpdateFacts(seeded(), '2026-11', NOW);
     expect(modelled.cash).toEqual({ amount: 'R 500,000', source: 'modelled', asOf: '2026-11-01' });
-    expect(modelled.burn).toEqual({ text: 'R 10,000 a month', source: 'modelled' });
+    expect(modelled.burn).toBe('R 10,000 a month');
+    expect(modelled.actualBurn).toBeNull();
     const book: StartupLedgerSummary = { bookName: 'Acme', cashMinor: 31_000_000, asOf: '2026-11-17', actualBurnMinor: 1_500_000 };
     const booked = gatherUpdateFacts(seeded(), '2026-11', NOW, book);
     expect(booked.cash).toEqual({ amount: 'R 310,000', source: 'book', asOf: '2026-11-17' });
-    expect(booked.burn).toEqual({ text: 'R 15,000 a month', source: 'book' });
+    expect(booked.burn).toBe('R 10,000 a month');
+    expect(booked.actualBurn).toBe('R 15,000 a month');
+    expect(factLines(booked)).toContain('Actual burn: R 15,000 a month (from the books, mean of the last 3 full months)');
+  });
+
+  it('reads cash, burn and runway off the same headline as the Runway view, whatever month the update covers', () => {
+    // A one-off CapEx this month: drafting October's update used to project from October and say 10.
+    const ws = { ...seeded(), company: { ...seeded().company!, openingCash: { minor: 12_000_000, asOf: '2026-11-01' } }, lines: [line(1, 'cost', 1_000_000, { start: '2026-11' }), line(3, 'cost', 2_500_000, { cadence: 'one-off', start: '2026-11' })] };
+    const view = projectRunway({ openingCashMinor: 12_000_000, startMonth: '2026-11', lines: ws.lines, scenario: BASE, months: 36 });
+    expect(view.runwayMonths).toBe(9);
+    const f = gatherUpdateFacts(ws, '2026-10', NOW);
+    expect(f.runway).toBe(`9 months (cash runs out in ${view.zeroCashMonth})`);
+    expect(f.burn).toBe(`${formatMoney(-view.burnMinor, 'ZAR')} a month`);
+    const headline = runwayHeadline({ openingCashMinor: 12_000_000, startMonth: '2026-11', lines: ws.lines, scenario: BASE });
+    expect(gatherUpdateFacts(ws, '2026-10', NOW, null, headline)).toEqual(f);
   });
 
   it('says so when cash does not run out, and when the plan is net positive', () => {
     const ws = { ...seeded(), lines: [line(2, 'revenue', 1_000_000)] };
     const f = gatherUpdateFacts(ws, '2026-11', NOW);
-    expect(f.runway).toBe('cash does not run out within 24 months');
-    expect(f.burn.text).toBe('none, net positive');
+    expect(f.runway).toBe('cash does not run out within 36 months');
+    expect(f.burn).toBe('none, net positive');
   });
 
   it('lists only fleet projections linked to Runway, with month-0 net', () => {
