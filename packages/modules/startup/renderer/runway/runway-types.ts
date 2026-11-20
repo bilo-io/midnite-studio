@@ -1,3 +1,5 @@
+import { minorExponent } from '@midnite/studio-shared';
+
 /**
  * The projection main answers `projection` with (`main/runway.ts`'s `RunwayProjection`). Declared here because the
  * renderer never imports the main half; the bridge types the answer as `unknown`, so the view parses it by shape.
@@ -20,11 +22,11 @@ export function runwayLabel(runwayMonths: number | null, horizon: Horizon): stri
   return `${runwayMonths} ${runwayMonths === 1 ? 'month' : 'months'}`;
 }
 
-/** Money as the company's currency, in whole units for headline cards. */
+/** Money as the company's currency, always to its minor digits (`£1,173.20`, `¥1,200`), as the CSV export writes it. */
 export function formatMinor(minor: number, currency: string): string {
-  const exponent = currency === 'JPY' ? 0 : 2;
+  const exponent = minorExponent(currency);
   try {
-    return new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: exponent, minimumFractionDigits: 0 }).format(minor / 10 ** exponent);
+    return new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: exponent, minimumFractionDigits: exponent }).format(minor / 10 ** exponent);
   } catch {
     return `${(minor / 10 ** exponent).toFixed(exponent)} ${currency}`;
   }

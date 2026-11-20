@@ -210,7 +210,7 @@ export function RunwayView({
                 <th className="py-1 font-medium">Name</th>
                 <th className="font-medium">Category</th>
                 <th className="font-medium">Cadence</th>
-                <th className="text-right font-medium">Amount</th>
+                <th className="pr-6 text-right font-medium">Amount</th>
                 <th className="font-medium">From</th>
               </tr>
             </thead>
@@ -223,7 +223,7 @@ export function RunwayView({
                   </td>
                   <td>{l.category}</td>
                   <td>{l.cadence}</td>
-                  <td className={`text-right ${l.kind === 'revenue' ? 'text-emerald-500' : ''}`}>
+                  <td data-testid="runway-line-amount" className={`pr-6 text-right tabular-nums ${l.kind === 'revenue' ? 'text-emerald-500' : ''}`}>
                     {l.kind === 'revenue' ? '+' : '-'}
                     {money(l.minor)}
                   </td>

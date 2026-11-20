@@ -112,9 +112,19 @@ describe('RunwayView', () => {
     } as unknown as typeof window.midniteStudio;
     renderRunway();
     expect(await screen.findByText('From Acme Ltd')).toBeTruthy();
-    expect(screen.getByText('£42,000')).toBeTruthy();
-    expect(screen.getByText(/Modelled £1,000, \+£500 from plan/)).toBeTruthy();
+    expect(screen.getByText('£42,000.00')).toBeTruthy();
+    expect(screen.getByText(/Modelled £1,000.00, \+£500.00 from plan/)).toBeTruthy();
     expect(screen.queryByText('Link a book to use actuals.')).toBeNull();
+  });
+});
+
+describe('the lines table', () => {
+  it('prints an amount to both minor digits, padded off the From column', async () => {
+    install([{ ...line, minor: 117_320 }], []);
+    renderRunway();
+    const cell = await screen.findByTestId('runway-line-amount');
+    expect(cell.textContent).toBe('-£1,173.20');
+    expect(cell.className).toContain('pr-6');
   });
 });
 
