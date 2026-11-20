@@ -1,9 +1,10 @@
 // `tabBar` for expo-router's Tabs (Phase 146 F1): maps the navigator's state onto ui-native's BottomNav.
 import { BottomNav, useTheme, type BottomNavItem } from '@bilo-io/ui-native';
-import { useWindowDimensions } from 'react-native';
+import { PixelRatio, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePulls } from '../data/queries';
 import { Icon } from '../ui/icons';
+import { HIDE_NAV_LABELS_AT } from '../ui/use-reduced-motion';
 import { TABS } from './tabs';
 import { useCurrentRepo } from './use-current-repo';
 
@@ -23,7 +24,9 @@ function useReviewBadge(): number | undefined {
 export function MidniteTabBar({ state, navigateToTab }: MidniteTabBarProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { fontScale } = useWindowDimensions();
+  // Re-render on a font-scale change (the window dimensions carry it), then read the OS value.
+  const { fontScale: windowScale } = useWindowDimensions();
+  const fontScale = PixelRatio.getFontScale() || windowScale;
   const reviews = useReviewBadge();
   const routeNames = new Set(state.routes.map((r) => r.name));
   const items: BottomNavItem[] = TABS.filter((t) => routeNames.has(t.name)).map((tab) => ({
@@ -43,7 +46,7 @@ export function MidniteTabBar({ state, navigateToTab }: MidniteTabBarProps) {
         if (route) navigateToTab(route.key);
       }}
       insetBottom={insets.bottom}
-      hideLabels={fontScale >= 1.3}
+      hideLabels={fontScale >= HIDE_NAV_LABELS_AT}
       style={{ backgroundColor: theme.colors.background }}
     />
   );

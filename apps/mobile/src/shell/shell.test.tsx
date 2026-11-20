@@ -2,8 +2,8 @@
 // enough: nothing here needs real layout or pointer drag.
 import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { useMemo, useState } from 'react';
-import { Pressable, Text } from 'react-native';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { PixelRatio, Pressable, Text } from 'react-native';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routerCalls, setSegments } from '../../test/mocks/expo-router';
 import { Openers, renderInShell, resetShellState } from '../../test/shell-harness';
 import { ok } from '../data/source';
@@ -54,6 +54,19 @@ describe('MidniteTabBar', () => {
     expect(screen.getAllByRole('tab')).toHaveLength(5);
     fireEvent.click(screen.getByText('Tasks'));
     expect(calls).toEqual(['k-tasks']);
+  });
+
+  it('hides the labels at a font scale of 1.3 and keeps each tab named', async () => {
+    const spy = vi.spyOn(PixelRatio, 'getFontScale').mockReturnValue(1.3);
+    try {
+      await renderInShell(bar(), { viewer: async () => viewer, listPulls: async () => page([]) });
+      for (const t of TABS) {
+        expect(screen.queryByText(t.label)).toBeNull();
+        expect(screen.getByLabelText(t.label)).toBeTruthy();
+      }
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('badges Reviews with the count of review-requested PRs', async () => {
