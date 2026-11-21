@@ -8,5 +8,8 @@ Released sections are mirrored to the public release feed by the release flow.
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-11-13
+
 ### Added
 - **Midnite Science** (Phases 126 and 127): notebooks, compute, plots, molecules and templates, plus the Simulator module.
+

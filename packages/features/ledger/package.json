@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-ledger",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "private": true,
   "description": "The ledger feature (Phase 129): double-entry books in main (book store, posting engine, reports, tax); the books workspace in the renderer. Money's accountant module composes it; Studio shows it as the books view.",
   "sideEffects": false,

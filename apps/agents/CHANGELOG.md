@@ -8,6 +8,24 @@ Released sections are mirrored to the public release feed by the release flow.
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-11-13
+
+### Added
+- **Release notes in the app** (Phase 131): a version pill in the status bar opens this app's notes for the running version.
+- **Media ▸ SFX**: local sound effects with Stable Audio Open Small, usable from games and videos.
+- **Animations** (Phase 125): a clip library with bulk import, a timeline player with retargeted preview, Sketchfab search and download, and import into a game.
+- **Image → 3D (SF3D)**: every setting in the form, a background cut-out, continue a model with Claude, auto-rig and auto-play clips.
+- Games export as a zip or folder that runs with `npm start`.
+
+### Changed
+- **Privacy** (Phase 115): the MCP server and terminal broker require a per-launch token.
+
+### Fixed
+- Image → 3D (SF3D) no longer crashes.
+- The Maps tab no longer flashes.
+- Game play-tests paint before each capture and run one at a time per game. An opened game repo now appears in the Games list.
+- Security updates to the validation library (zod 4).
+
 ## [0.0.6] - 2026-10-31
 
 ### Added

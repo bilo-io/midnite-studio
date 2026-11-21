@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-shared",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "private": true,
   "description": "Wire contract: domain types, IPC channels + zod schemas, the preload bridge type",
   "main": "./dist/index.js",
