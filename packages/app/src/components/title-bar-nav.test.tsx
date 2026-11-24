@@ -181,6 +181,19 @@ describe('TitleBarNav Breadcrumbs', () => {
       expect(screen.getByRole('menuitem', { name: 'repo-3' })).toBeDefined();
       expect(screen.queryByRole('menuitem', { name: 'repo-4' })).toBeNull();
     });
+    it('ends with "Add a repository…", which opens the add-repo modal — even with one repo', () => {
+      client.setQueryData(keys.repos, [
+        { id: 'repo-0', name: 'repo-0', path: '/p/repo-0', worktrees: [] },
+      ]);
+      client.setQueryData(keys.forgeAccounts, []);
+      useUiStore.setState({ selectedRepoId: 'repo-0' });
+
+      render(withProviders(<TitleBarNav />, client));
+      fireEvent.click(screen.getByText('repo-0'));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Add a repository…' }));
+
+      expect(screen.getByTestId('add-repo-modal')).toBeDefined();
+    });
   });
 
   describe('the branch picker', () => {
