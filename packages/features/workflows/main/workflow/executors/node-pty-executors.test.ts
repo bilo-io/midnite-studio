@@ -289,7 +289,7 @@ function profileAgentNode(profileId: string): WorkflowNode {
 
 describe('agent executor — a custom agent (#1699)', () => {
   it("types the custom agent's prepared line and binds its launch to the session", async () => {
-    const prepareLaunch = vi.fn(async () => ({
+    const prepareLaunch = vi.fn(async (_profileId: string, _cwd: string, _prompt: string) => ({
       kind: 'ready' as const,
       launchId: 'launch-1',
       line: "claude --append-system-prompt-file '/p' 'Do the thing'",

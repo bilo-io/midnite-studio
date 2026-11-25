@@ -49,6 +49,8 @@ export function useLoopSession(
      * live roster by the caller, or the loop's own declared `agentId`.
      */
     agentId: string;
+    /** #1699: the custom agent to run as (`agentId` is its base); its own model replaces `model`/`effort`. */
+    agentProfileId?: string;
     /** Which Claude to launch — a `--model` flag, never a prompt fragment. */
     model: LoopModel;
     /** `claude --effort`; `'default'` passes no flag. */
@@ -78,6 +80,7 @@ export function useLoopSession(
     choiceIds,
     schedule,
     agentId,
+    agentProfileId,
     model,
     effort = 'default',
     extras,
@@ -108,8 +111,8 @@ export function useLoopSession(
       any provider whose CLI has no `--model` (see `loopModelArgs`). Computed
       once, because the ledger below has to agree with it.
     */
-    const modelArgs = loopModelArgs(agentId, model);
-    const effortArgs = loopEffortArgs(agentId, effort);
+    const modelArgs = agentProfileId ? [] : loopModelArgs(agentId, model);
+    const effortArgs = agentProfileId ? [] : loopEffortArgs(agentId, effort);
 
     void host
       .startAgent({
@@ -121,6 +124,7 @@ export function useLoopSession(
         command,
         extraArgs: [...modelArgs, ...effortArgs],
         loopId: loop.id,
+        ...(agentProfileId === undefined ? {} : { agentProfileId }),
         ...launchLabel(modelArgs, model, effortArgs, effort),
         // The explicit press IS the confirmation the withheld Return
         // normally collects — see `startAgent`'s own note.
@@ -135,7 +139,9 @@ export function useLoopSession(
           // Absent, not `'default'`, when no flag went out.
           ...(modelArgs.length > 0 ? { model } : {}),
         });
-      });
+      })
+      // A start the host refused has already been reported; nothing was dispatched to record.
+      .catch(() => undefined);
   }, [
     repoId,
     cwd,
@@ -144,6 +150,7 @@ export function useLoopSession(
     choiceIds,
     schedule,
     agentId,
+    agentProfileId,
     model,
     effort,
     extras,
@@ -162,8 +169,8 @@ export function useLoopSession(
     ) => {
       if (!repoId || !cwd) return;
       const composedPrompt = guardFixPrompt(finding);
-      const modelArgs = loopModelArgs(agentId, model);
-      const effortArgs = loopEffortArgs(agentId, effort);
+      const modelArgs = agentProfileId ? [] : loopModelArgs(agentId, model);
+      const effortArgs = agentProfileId ? [] : loopEffortArgs(agentId, effort);
       void host
         .startAgent({
           repoId,
@@ -174,6 +181,7 @@ export function useLoopSession(
           command,
           extraArgs: [...modelArgs, ...effortArgs],
           loopId: loop.id,
+          ...(agentProfileId === undefined ? {} : { agentProfileId }),
           ...launchLabel(modelArgs, model, effortArgs, effort),
           autoSend: true,
         })
@@ -186,9 +194,10 @@ export function useLoopSession(
             findingFingerprint: finding.fingerprint,
             ...(modelArgs.length > 0 ? { model } : {}),
           });
-        });
+        })
+        .catch(() => undefined);
     },
-    [repoId, cwd, agentId, model, effort, command, loop, host],
+    [repoId, cwd, agentId, agentProfileId, model, effort, command, loop, host],
   );
 
   return { start, fixFinding };

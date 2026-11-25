@@ -76,6 +76,8 @@ export function LoopTab({
   const checks = useLoopsState((s) => s.loopModifierChecks[loop.id]);
   const savedChoices = useLoopsState((s) => s.loopChoices[loop.id]);
   const savedAgentId = useLoopsState((s) => s.loopAgents[loop.id]);
+  const savedProfileId = useLoopsState((s) => s.loopAgentProfiles?.[loop.id]);
+  const setAgentProfile = useLoopsState((s) => s.setLoopAgentProfile);
   const model = useLoopsState((s) => s.loopModels[loop.id] ?? 'default');
   const schedule = useLoopsState((s) => s.loopSchedules[loop.id] ?? DEFAULT_LOOP_SCHEDULE);
   const extras = useLoopsState((s) => s.loopExtras[loop.id] ?? '');
@@ -163,8 +165,18 @@ export function LoopTab({
     savedAgentId !== undefined && agents.agents.some((a) => a.id === savedAgentId)
       ? savedAgentId
       : loop.agentId;
+  /*
+    #1699: a custom agent runs on its base CLI, which `loopAgents` holds beside it — so once the agent is
+    deleted the loop falls back to that base (or the loop's own agent) and the composer says so. Still
+    loading: the saved id is passed as is, and the host falls back if main no longer knows it.
+  */
+  const profiles = host.useAgentProfiles?.();
+  const profile = savedProfileId ? profiles?.find((entry) => entry.id === savedProfileId) : undefined;
+  const profileDeleted = savedProfileId !== undefined && profiles !== undefined && profile === undefined;
+  const agentProfileId = profileDeleted ? undefined : savedProfileId;
+  const runAgentId = profile?.baseAgentId ?? agentId;
   // The roster's own command, not the id — see `useLoopSession`'s note.
-  const command = agents.agents.find((a) => a.id === agentId)?.command ?? agentId;
+  const command = agents.agents.find((a) => a.id === runAgentId)?.command ?? runAgentId;
   const { start, fixFinding } = useLoopSession(runLoop, {
     repoId: selectedRepoId,
     cwd,
@@ -172,7 +184,8 @@ export function LoopTab({
     checkedModifierIds,
     choiceIds,
     schedule: schedule.enabled ? schedule : null,
-    agentId,
+    agentId: runAgentId,
+    ...(agentProfileId === undefined ? {} : { agentProfileId }),
     model,
     effort,
     extras,
@@ -190,7 +203,10 @@ export function LoopTab({
         checked={checked}
         choiceIds={choiceIds}
         agents={agents.agents}
-        agentId={agentId}
+        agentId={runAgentId}
+        profiles={profiles ?? []}
+        {...(agentProfileId === undefined ? {} : { agentProfileId })}
+        {...(profileDeleted ? { profileNotice: `Your custom agent was deleted, so this loop runs as ${agents.agents.find((a) => a.id === agentId)?.label ?? agentId}.` } : {})}
         model={model}
         effort={effort}
         schedule={schedule}
@@ -219,7 +235,11 @@ export function LoopTab({
         onReviewUsers={(users) => setRunOptions(loop.id, { reviewUsers: users })}
         onAutoRotate={(percent) => setRunOptions(loop.id, { autoRotatePercent: percent })}
         onChoice={(choiceId, optionId) => setChoice(loop.id, choiceId, optionId)}
-        onAgent={(next) => setAgent(loop.id, next)}
+        onAgent={(next) => {
+          const picked = profiles?.find((entry) => entry.id === next);
+          setAgentProfile?.(loop.id, picked ? picked.id : null);
+          setAgent(loop.id, picked ? picked.baseAgentId : next);
+        }}
         onModel={(next: LoopModel) => setModel(loop.id, next)}
         onEffort={(next) => setRunOptions(loop.id, { effort: next })}
         onSchedule={(next) => setSchedule(loop.id, next)}

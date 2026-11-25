@@ -42,7 +42,7 @@ import {
 import { RadioRow, SwitchTrack, type IconComponent } from '@midnite/studio-frame';
 
 import { EffortPill } from './effort-pill';
-import { useLoopsHost, type LoopsSelectOption as IconSelectOption } from './host';
+import { useLoopsHost, type LoopsAgentProfile, type LoopsSelectOption as IconSelectOption } from './host';
 import { ExtrasComposer, IconSelect, MultiIconSelect } from './loops-chrome';
 import { useLoopsState } from './use-loops-host-state';
 import { CustomLoopEditor, CustomLoopToolbar } from './custom-loop-editor';
@@ -109,6 +109,9 @@ export function LoopComposer({
   choiceIds,
   agents,
   agentId,
+  profiles = [],
+  agentProfileId,
+  profileNotice,
   model,
   effort = 'default',
   schedule,
@@ -138,8 +141,14 @@ export function LoopComposer({
   choiceIds: Record<string, string>;
   /** The agent roster, as the provider select's rows — icon and accent included. */
   agents: readonly AgentDefinition[];
-  /** Which provider runs this loop: a roster id, resolved by the caller. */
+  /** Which provider runs this loop: a roster id, resolved by the caller (a custom agent's base). */
   agentId: string;
+  /** #1699: the saved custom agents, listed first under "Your agents". */
+  profiles?: readonly LoopsAgentProfile[];
+  /** The custom agent this loop runs as, if any. */
+  agentProfileId?: string;
+  /** Why the loop is not running as the custom agent it was set to (it was deleted). */
+  profileNotice?: string;
   model: LoopModel;
   /** `claude --effort`; absent reads as `'default'`. */
   effort?: LoopEffort;
@@ -202,8 +211,10 @@ export function LoopComposer({
     is the neutral one, which is not a model but the absence of a `--model`
     flag. "Claude · Default" would be a heading claiming an answer nobody gave.
   */
-  const providerMeta =
-    model === 'default' || loopModelsFor(agentId).length === 1
+  const customName = agentProfileId ? profiles.find((entry) => entry.id === agentProfileId)?.name : undefined;
+  const providerMeta = customName
+    ? customName
+    : model === 'default' || loopModelsFor(agentId).length === 1
       ? (agent?.label ?? agentId)
       : `${agent?.label ?? agentId} · ${modelLabel}`;
   const scheduleSummary = loopScheduleSummary(schedule);
@@ -280,12 +291,19 @@ export function LoopComposer({
           <ProviderModelRow
             agents={agents}
             agentId={agentId}
+            profiles={profiles}
+            {...(agentProfileId === undefined ? {} : { agentProfileId })}
             model={model}
             effort={effort}
             onAgent={onAgent}
             onModel={onModel}
             {...(onEffort ? { onEffort } : {})}
           />
+          {profileNotice ? (
+            <p role="status" className="text-[11px] text-amber-600 dark:text-amber-400">
+              {profileNotice}
+            </p>
+          ) : null}
           <AutoRotateSlider percent={autoRotatePercent} onPercent={onAutoRotate} />
         </ComposerSection>
 
@@ -714,6 +732,8 @@ function ChoiceRow({
 function ProviderModelRow({
   agents,
   agentId,
+  profiles,
+  agentProfileId,
   model,
   effort,
   onAgent,
@@ -722,8 +742,11 @@ function ProviderModelRow({
 }: {
   agents: readonly AgentDefinition[];
   agentId: string;
+  profiles: readonly LoopsAgentProfile[];
+  agentProfileId?: string;
   model: LoopModel;
   effort: LoopEffort;
+  /** A roster id, or a custom agent's id. */
   onAgent: (agentId: string) => void;
   onModel: (model: LoopModel) => void;
   onEffort?: (effort: LoopEffort) => void;
@@ -742,6 +765,8 @@ function ProviderModelRow({
     is kept — switch back to Claude and the model you chose is still there.
   */
   const shown = models.some((entry) => entry.id === model) ? model : 'default';
+  // A custom agent carries its own model; the loop's model and effort flags do not apply to it.
+  const custom = agentProfileId !== undefined;
 
   return (
     <div className="flex min-w-0 items-center gap-1.5">
@@ -749,13 +774,24 @@ function ProviderModelRow({
         <IconSelect
           ariaLabel="Provider"
           menuInPortal
-          options={agents.map((agent) => ({
-            id: agent.id,
-            label: agent.label,
-            icon: resolveAgentIcon(agent),
-            iconColor: agent.accent,
-          }))}
-          value={agentId}
+          options={[
+            // "Your agents" first, as in every agent picker (#1699).
+            ...profiles.map((profile) => ({
+              id: profile.id,
+              label: profile.name,
+              icon: resolveAgentIcon({ id: profile.baseAgentId, ...(profile.icon ? { icon: profile.icon } : {}) }),
+              iconColor: profile.accent,
+              group: 'Your agents',
+            })),
+            ...agents.map((agent) => ({
+              id: agent.id,
+              label: agent.label,
+              icon: resolveAgentIcon(agent),
+              iconColor: agent.accent,
+              ...(profiles.length > 0 ? { group: 'Agents' } : {}),
+            })),
+          ]}
+          value={agentProfileId ?? agentId}
           onChange={onAgent}
         />
       </div>
@@ -764,8 +800,8 @@ function ProviderModelRow({
           ariaLabel="Model"
           menuInPortal
           options={modelOptions}
-          value={shown}
-          isDisabled={modelOptions.length === 1}
+          value={custom ? 'default' : shown}
+          isDisabled={custom || modelOptions.length === 1}
           onChange={(id) => onModel(id as LoopModel)}
         />
       </div>
@@ -781,8 +817,8 @@ function ProviderModelRow({
               content: <EffortPill effort={entry.id} />,
             }))}
             // Like the model: only Claude takes the flag, so others show the neutral entry.
-            value={agentId === 'claude' ? effort : 'default'}
-            isDisabled={agentId !== 'claude'}
+            value={agentId === 'claude' && !custom ? effort : 'default'}
+            isDisabled={custom || agentId !== 'claude'}
             onChange={(id) => onEffort(id as LoopEffort)}
           />
         </div>
