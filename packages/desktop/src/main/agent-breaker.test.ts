@@ -6,7 +6,9 @@ import { agentLimitsSettingsReader, spendTokens, startAgentBreaker } from './age
 const SESSION = { id: 's1', agentId: 'claude', title: 'T', cwd: '/work/app/pkg' };
 const call = (n: number): AgentAuditRecord => ({ id: `r${n}`, at: 1_000 + n, sessionId: 's1', kind: 'mcp-call', tool: 'x', repoPath: '/r', ok: true, ms: 1 });
 
-function wire(records: AgentAuditRecord[], settings: Parameters<typeof startAgentBreaker>[0]['settings']) {
+type Seams = Parameters<typeof startAgentBreaker>[0];
+
+function wire(records: AgentAuditRecord[], settings: Seams['settings'], extra: Partial<Pick<Seams, 'session' | 'profile'>> = {}) {
   const trips: AgentLimitTrip[] = [];
   const interrupt = vi.fn(async () => true);
   const running = startAgentBreaker({
@@ -21,11 +23,34 @@ function wire(records: AgentAuditRecord[], settings: Parameters<typeof startAgen
     usage: async () => ({ input: 600, output: 300, cacheRead: 9_000_000, cacheCreate: 200 }),
     onSessionExit: () => () => undefined,
     pollMs: 3_600_000,
+    ...extra,
   });
   return { running, trips, interrupt };
 }
 
 describe('startAgentBreaker', () => {
+  it("a custom agent's toolCallsPerMinute: 3 trips on the 4th attributed call (Phase 154)", async () => {
+    const records = [call(1), call(2), call(3), call(4)];
+    const { running, trips } = wire(records, async () => ({ defaults: {}, repos: { '/work/app': { toolCallsPerMinute: 60 } } }), {
+      session: async () => ({ ...SESSION, profileId: 'p1' }),
+      profile: async (id) => (id === 'p1' ? { limits: { toolCallsPerMinute: 3 } } : null),
+    });
+    await running.breaker.poll();
+    expect(trips).toHaveLength(1);
+    expect(trips[0]).toMatchObject({ limit: 'toolCallsPerMinute', threshold: 3, observed: 4 });
+    running.dispose();
+  });
+
+  it('a deleted custom agent falls back to the repo limit', async () => {
+    const { running, trips } = wire([call(1), call(2), call(3), call(4)], async () => ({ defaults: {}, repos: { '/work/app': { toolCallsPerMinute: 60 } } }), {
+      session: async () => ({ ...SESSION, profileId: 'gone' }),
+      profile: async () => null,
+    });
+    await running.breaker.poll();
+    expect(trips).toHaveLength(0);
+    running.dispose();
+  });
+
   it('applies the per-repo override found from the session cwd', async () => {
     const { running, trips, interrupt } = wire([call(1), call(2), call(3)], async () => ({ defaults: {}, repos: { '/work/app': { toolCallsPerMinute: 2 } } }));
     await running.breaker.poll();

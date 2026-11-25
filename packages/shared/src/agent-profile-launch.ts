@@ -10,6 +10,7 @@ import type { AgentProfile } from './agent-profiles';
 import { agentInvocationArgs, shellQuote } from './agent-invocation';
 import { modelArgsFor, modelsForAgent } from './ai-models';
 import { LoopModelSchema, loopModelArgs } from './loops';
+import { MCP_SERVER_NAME } from './media-model-mcp';
 import type { AgentDefinition } from './terminal';
 
 /** How a base CLI receives the prompt file: a flag, a quoted `$(cat file)` argument, or not at all. */
@@ -90,4 +91,41 @@ export function buildProfileLaunchLine(input: ProfileLaunchLineInput): string {
     ...mcpArgs,
     ...promptWords,
   ].join(' ');
+}
+
+/** How an agent CLI starts the midnite stdio shim on a custom agent's private socket. */
+export type ProfileShimLaunch = { command: string; args: string[]; env: Record<string, string> };
+
+const tomlString = (value: string): string => JSON.stringify(value);
+
+/**
+ * The words that point a base CLI's `midnite` MCP server at a private socket (Phase 154 Theme G). A
+ * per-launch `midnite` replaces a globally registered one for both CLIs (G1, checked 2026-11-25), so
+ * `--strict-mcp-config` is added only when the agent's tools are restricted, which also drops the user's
+ * other MCP servers. Codex's `-c` deep-merges into a global entry key by key, so all three keys are set.
+ * `quote` shell-quotes each word for a typed line; a headless argv passes `false`. `[]` for other CLIs.
+ */
+export function profileMcpArgs(
+  baseAgentId: string,
+  launch: ProfileShimLaunch,
+  options: { restricted: boolean; quote: boolean },
+): string[] {
+  const q = options.quote ? shellQuote : (word: string) => word;
+  if (baseAgentId === 'claude') {
+    const config = JSON.stringify({ mcpServers: { [MCP_SERVER_NAME]: launch } });
+    return ['--mcp-config', q(config), ...(options.restricted ? ['--strict-mcp-config'] : [])];
+  }
+  if (baseAgentId === 'codex') {
+    const server = `mcp_servers.${MCP_SERVER_NAME}`;
+    const env = `{ ${Object.entries(launch.env).map(([k, v]) => `${k} = ${tomlString(v)}`).join(', ')} }`;
+    return [
+      '-c',
+      q(`${server}.command=${tomlString(launch.command)}`),
+      '-c',
+      q(`${server}.args=[${launch.args.map(tomlString).join(', ')}]`),
+      '-c',
+      q(`${server}.env=${env}`),
+    ];
+  }
+  return [];
 }

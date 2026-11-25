@@ -2106,6 +2106,8 @@ export type McpCallEntry = {
   repoPath: string;
   ok: boolean;
   ms: number;
+  /** The terminal session that made the call, when it came over a custom agent's private socket (Phase 154). */
+  sessionId?: string;
 };
 
 export const MCP_PROTOCOL = 1;

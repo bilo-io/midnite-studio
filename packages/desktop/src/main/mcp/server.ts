@@ -52,6 +52,14 @@ export type StartMcpServerOptions = {
   socketPath?: string;
   dispatch?: (tool: string, input: unknown) => Promise<McpDispatchResult>;
   /**
+   * Phase 154 Theme G — a custom agent's private socket. Asked before anything else; a non-null answer is
+   * the reply and the call goes no further (its allowlist wall). `null` lets the call through to the same
+   * registry, listing, feature-gate and policy checks the global server runs.
+   */
+  gate?: (tool: string, input: unknown) => McpDispatchResult | null;
+  /** Phase 154 Theme G: the terminal session this socket serves, once bound; stamped on every audit record. */
+  sessionId?: () => string | undefined;
+  /**
    * Which tools this server serves (Phase 113 Theme D): a tool whose app is not installed is refused as well
    * as unlisted. Defaults to Studio's — every app installed. Applies to the default tool registry only; a
    * private `dispatch` answers for itself.
@@ -112,8 +120,11 @@ export async function startMcpServer(opts: StartMcpServerOptions): Promise<Start
           const off = mcpToolOffMessage(tool);
           return off ? { ok: false, kind: 'refused', message: off } : dispatchMcpCall(tool, input);
         };
-  const dispatch = async (tool: string, input: unknown): Promise<McpDispatchResult> =>
-    tool === POLICY_EVALUATE_TOOL && !opts.dispatch ? evaluateHookCall(input) : inner(tool, input);
+  const dispatch = async (tool: string, input: unknown): Promise<McpDispatchResult> => {
+    const refused = opts.gate?.(tool, input);
+    if (refused) return refused;
+    return tool === POLICY_EVALUATE_TOOL && !opts.dispatch ? evaluateHookCall(input) : inner(tool, input);
+  };
 
   const started = await startMcpSocketServer({
     socketPath,
@@ -129,7 +140,8 @@ export async function startMcpServer(opts: StartMcpServerOptions): Promise<Start
     onCall: ({ tool, input, result, ms }) => {
       if (!isMcpToolId(tool)) return;
       const repoPath = auditRepoPath(input);
-      recordMcpCall({ at: Date.now(), tool, repoPath, ok: result.ok, ms });
+      const sessionId = opts.sessionId?.();
+      recordMcpCall({ at: Date.now(), tool, repoPath, ok: result.ok, ms, ...(sessionId ? { sessionId } : {}) });
       log(`[mcp] ${tool} ${result.ok ? 'ok' : 'err'} ${ms}ms ${repoPath || '-'}`);
     },
   });

@@ -298,6 +298,49 @@ describe('mcp stdio shim', () => {
       await rm(sockDir, { recursive: true, force: true });
     }
   }, 15_000);
+
+  /** Phase 154 Theme G: a custom agent's `--tools` allowlist is the shim's own wall, before any socket. */
+  it('lists only the --tools ids and refuses any other locally, without dialling the socket', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'mstudio-mcp-shim-home-'));
+    const sockDir = await mkdtemp(join(tmpdir(), 'mshim-'));
+    const socketPath = join(sockDir, 's.sock');
+    const seen: string[] = [];
+    const server = net.createServer((socket) => {
+      const decoder = createFrameDecoder(1024 * 1024);
+      socket.on('data', (chunk) => {
+        for (const frame of decoder.push(chunk)) {
+          if (frame.type !== 0x00) continue;
+          const request = frame.message as unknown as { id: string; tool: string };
+          seen.push(request.tool);
+          socket.write(encodeJsonFrame({ id: request.id, ok: true, value: { repos: [] } } as never));
+        }
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(socketPath, resolve));
+    try {
+      const { parsed } = await runShim(
+        [
+          { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'test', version: '0' } } },
+          { jsonrpc: '2.0', method: 'notifications/initialized' },
+          { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} },
+          { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'status.get', arguments: { repoPath: '/r' } } },
+          { jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'repo.list', arguments: {} } },
+        ],
+        { homeDir: home, args: ['--socket', socketPath, '--tools', 'repo.list,graph.log'] },
+      );
+      const listed = (parsed.find((m) => m.id === 2)?.result as { tools?: Array<{ name: string }> } | undefined)?.tools ?? [];
+      expect(listed.map((t) => t.name).sort()).toEqual(['graph.log', 'repo.list']);
+      const refused = parsed.find((m) => m.id === 3)?.result as { isError?: boolean; content?: Array<{ text?: string }> } | undefined;
+      expect(refused?.isError).toBe(true);
+      expect(refused?.content?.[0]?.text).toBe('Tool "status.get" is not allowed for this agent.');
+      expect(parsed.find((m) => m.id === 4)?.result).toMatchObject({ content: [{ type: 'text' }] });
+      expect(seen).toEqual(['repo.list']);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await rm(home, { recursive: true, force: true });
+      await rm(sockDir, { recursive: true, force: true });
+    }
+  }, 15_000);
 });
 
 /**

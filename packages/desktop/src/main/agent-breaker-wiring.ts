@@ -1,4 +1,5 @@
 import { agentHistoryReadsEnabled } from './settings-mirror';
+import { getAgentProfile } from '@midnite/studio-feature-agent-profiles/main';
 import { homedir } from 'node:os';
 
 import { buildAgentUsage } from '@midnite/studio-feature-monitor/main';
@@ -41,6 +42,8 @@ export function startStudioAgentBreaker(options: { userData: string; getWindow: 
       return true;
     },
     session: agentSessionDetail,
+    // Phase 154 Theme G: a custom agent's limits apply within the 5 s cache above; a deleted one adds none.
+    profile: getAgentProfile,
     settings: agentLimitsSettingsReader(options.userData),
     usage: async (session) => {
       if (!agentHistoryReadsEnabled()) return null; // Phase 115 F: the Privacy switch stops transcript reads

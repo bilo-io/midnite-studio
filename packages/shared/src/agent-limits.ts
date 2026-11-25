@@ -74,9 +74,14 @@ export const AGENT_LIMIT_LABELS: Record<AgentLimitKey, string> = {
 
 /**
  * The limits for a repo: defaults, then the global override, then the override for the longest repo path
- * that contains `repoPath`. Bad input never throws — an invalid override is ignored field by field.
+ * that contains `repoPath`, then a custom agent's own limits (Phase 154) when the session runs one. Bad
+ * input never throws — an invalid override is ignored field by field.
  */
-export function resolveAgentLimits(settings: AgentLimitsSettings | undefined, repoPath?: string): AgentLimits {
+export function resolveAgentLimits(
+  settings: AgentLimitsSettings | undefined,
+  repoPath?: string,
+  profileOverride?: AgentLimitsOverride,
+): AgentLimits {
   const layers: AgentLimitsOverride[] = [];
   if (settings) {
     layers.push(settings.defaults);
@@ -87,6 +92,7 @@ export function resolveAgentLimits(settings: AgentLimitsSettings | undefined, re
       if (match) layers.push(settings.repos[match] ?? {});
     }
   }
+  if (profileOverride) layers.push(profileOverride);
   return layers.reduce<AgentLimits>((acc, layer) => {
     const parsed = AgentLimitsOverrideSchema.safeParse(layer);
     return parsed.success ? { ...acc, ...stripUndefined(parsed.data) } : acc;

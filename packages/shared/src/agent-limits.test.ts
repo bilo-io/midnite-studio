@@ -19,4 +19,11 @@ describe('agent limits', () => {
     expect(resolveAgentLimits(settings, '/work-two')).toMatchObject({ toolCallsPerMinute: 120 });
     expect(resolveAgentLimits(undefined, '/work')).toEqual(DEFAULT_AGENT_LIMITS);
   });
+
+  it("a custom agent's limits beat the repo's; an empty override changes nothing", () => {
+    const settings = AgentLimitsSettingsSchema.parse({ defaults: {}, repos: { '/work': { toolCallsPerMinute: 60 } } });
+    expect(resolveAgentLimits(settings, '/work/app', { toolCallsPerMinute: 3 })).toMatchObject({ toolCallsPerMinute: 3 });
+    expect(resolveAgentLimits(settings, '/work/app', {})).toEqual(resolveAgentLimits(settings, '/work/app'));
+    expect(resolveAgentLimits(undefined, undefined, { gitPushesPerHour: 1 })).toMatchObject({ gitPushesPerHour: 1, toolCallsPerMinute: 120 });
+  });
 });

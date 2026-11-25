@@ -455,7 +455,7 @@ export async function liveAgentSessions(): Promise<
  */
 export async function agentSessionDetail(
   sessionId: string,
-): Promise<{ id: string; agentId: string; title: string; cwd: string; agentConversationId?: string } | null> {
+): Promise<{ id: string; agentId: string; title: string; cwd: string; agentConversationId?: string; profileId?: string } | null> {
   await ensureLoaded();
   const session = sessions.find((s) => s.id === sessionId);
   if (!session || session.kind !== 'agent' || !session.agentId) return null;
@@ -465,6 +465,7 @@ export async function agentSessionDetail(
     title: session.name ?? session.title,
     cwd: session.cwd,
     ...(session.agentConversationId ? { agentConversationId: session.agentConversationId } : {}),
+    ...(session.profileId ? { profileId: session.profileId } : {}),
   };
 }
 
