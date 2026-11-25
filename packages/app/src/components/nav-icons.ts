@@ -103,7 +103,7 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   // Lucide's `circle-pile`, not in the installed react-icons `lu` set — see
   // `icons/circle-pile-icon.tsx` for why it's a local mark instead.
   councils: CirclePileIcon,
-  // Phase 154 — Custom agents; the rail row arrives with Theme C, this keeps the `Record` whole.
+  // Phase 154 — Custom agents (the Agents rail row).
   agents: LuBot,
   workflows: IoIosGitNetwork,
   // Phase 99 Theme A — Media (Docs/Images/Video/Audio); Video's clapperboard is its tab glyph now.

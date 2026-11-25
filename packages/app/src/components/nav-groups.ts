@@ -141,6 +141,12 @@ export const GIT_NAV_ITEMS: RailNavItem[] = [
 
 export const AGENT_NAV_ITEMS: RailNavItem[] = [
   {
+    view: 'agents',
+    label: 'Agents',
+    icon: VIEW_ICON.agents,
+    description: 'Build and manage your own agents',
+  },
+  {
     view: 'councils',
     label: 'Councils',
     icon: VIEW_ICON.councils,
