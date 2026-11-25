@@ -6,7 +6,7 @@ import { agentProbe } from '../agent-probe-runtime';
 // Binds the terminal service's pty, locator and log ports (a side effect of the shim) before any handler runs.
 import '../terminal-service';
 import { getBrokerStatus } from '../pty-service';
-import { studioProfileMcpSockets } from '../agent-profiles/studio-profile-sockets';
+import { restoreStudioProfileMcpSockets, studioProfileMcpSockets } from '../agent-profiles/studio-profile-sockets';
 import { handle, handleBare, handleSend, handleSendFromSender } from './handle';
 
 /**
@@ -32,11 +32,19 @@ export function registerTerminalHandlers(): void {
     brokerStatus: getBrokerStatus,
     agentProbe: () => agentProbe(),
     warn: (issue) => defaultLogger.warn(issue),
-    bindProfileLaunch: (launchId, sessionId) => studioProfileMcpSockets().bind(launchId, sessionId),
+    // #1697: `ensureBound` starts an expired launch's socket again, for a queued line a late view types.
+    bindProfileLaunch: (launchId, sessionId) =>
+      studioProfileMcpSockets()
+        .ensureBound(launchId, sessionId)
+        .catch((error: unknown) => {
+          defaultLogger.warn(`agent profile socket: ${String(error)}`);
+          return false;
+        }),
     releaseProfileLaunch: (launchId) => {
       void studioProfileMcpSockets()
         .close(launchId)
         .catch((error: unknown) => defaultLogger.warn(`agent profile socket: ${String(error)}`));
     },
+    restoreProfileLaunches: restoreStudioProfileMcpSockets,
   });
 }

@@ -164,4 +164,51 @@ describe('createProfileMcpSockets', () => {
     expect(existsSync(socketPath)).toBe(false);
     expect(existsSync(`${socketPath}.token`)).toBe(false);
   });
+
+  it('a queued line whose launch expired is started again on its old socket when the late view binds it (#1697)', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const { sockets: s } = sockets();
+    const prepared = await s.prepare(profile({ mcpTools: ['repo.list'] }), '/work/app');
+    const socketPath = socketOf(prepared.mcpArgs);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(existsSync(socketPath)).toBe(false);
+    vi.useRealTimers();
+    expect(await s.ensureBound(prepared.launchId, 'late-view')).toBe(true);
+    expect(existsSync(socketPath)).toBe(true);
+    const refused = await call(socketPath, { id: 'c3', tool: 'status.get', input: { repoPath: '/work/app' } });
+    expect(refused).toMatchObject({ ok: false, kind: 'refused' });
+    expect(await s.ensureBound(prepared.launchId, 'other')).toBe(false);
+    expect(await s.ensureBound('ffffffffffff', 'x')).toBe(false);
+  });
+
+  it('after a restart, restore brings back a live session socket with its allowlist and drops the rest (#1697)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mp-'));
+    dirs.push(dir);
+    const before = sockets({ runsDir: () => dir }).sockets;
+    const live = await before.prepare(profile({ mcpTools: ['repo.list'] }), '/work/app');
+    const gone = await before.prepare(profile(), '/work/app');
+    const unbound = await before.prepare(profile(), '/work/app');
+    before.bind(live.launchId, 'sess-live');
+    before.bind(gone.launchId, 'sess-gone');
+    await vi.waitFor(() => expect(existsSync(join(dir, `p-${gone.launchId}.json`))).toBe(true));
+    const livePath = socketOf(live.mcpArgs);
+
+    await before.suspendAll(); // app quit
+    expect(existsSync(livePath)).toBe(false);
+    expect(existsSync(join(dir, `p-${live.launchId}.json`))).toBe(true);
+    expect(existsSync(join(dir, `p-${unbound.launchId}.json`))).toBe(false);
+
+    const after = sockets({ runsDir: () => dir }).sockets;
+    expect(await after.restore((id) => id === 'sess-live')).toEqual(['sess-live']);
+    expect(existsSync(join(dir, `p-${gone.launchId}.json`))).toBe(false);
+    const ok = await call(livePath, { id: 'c4', tool: 'repo.list', input: {} });
+    expect(ok).toMatchObject({ ok: true });
+    expect((await getMcpCallLog()).at(-1)).toMatchObject({ tool: 'repo.list', sessionId: 'sess-live' });
+    const refused = await call(livePath, { id: 'c5', tool: 'status.get', input: { repoPath: '/work/app' } });
+    expect(refused).toMatchObject({ ok: false, kind: 'refused' });
+    expect(await after.restore(() => true)).toEqual([]); // already open: skipped
+
+    await after.closeForSession('sess-live');
+    expect(existsSync(join(dir, `p-${live.launchId}.json`))).toBe(false);
+  });
 });

@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { rm } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -31,6 +31,13 @@ import { isSocketPathTooLong } from '../socket-name';
  * global socket, and a restricted Codex agent keeps any other `mcp_servers.*` the user registered (Codex
  * has no strict flag). It is captured at `prepare` and never re-read: a running CLI cannot change its
  * tools mid-session (Decision 14).
+ *
+ * #1697: the socket outlives the moment it is needed in two ways. A launch nobody bound in time is parked,
+ * not forgotten, so a terminal view that mounts late can still `ensureBound` it: the server comes back on
+ * the same path the typed line names. And a bound launch writes a manifest beside its socket
+ * (`<runsDir>/p-<id>.json`: session, cwd, the agent's name, base and allowlist as prepared), which app quit
+ * leaves behind (`suspendAll`) so that after a restart `restore` brings back the socket of every session the
+ * pty broker kept alive — same path, same allowlist, same session id — since the shim dials per call.
  */
 
 export type ProfileMcpServerOptions = {
@@ -49,8 +56,9 @@ export type ProfileMcpSocketSeams = {
   recordAudit: (record: NewAgentAuditRecord) => void;
   /** 12 hex characters; injectable for tests. */
   newLaunchId?: () => string;
-  /** How long a prepared launch waits for its pty before it is closed. */
+  /** How long a prepared launch waits for its pty before its server is stopped (and parked). */
   bindTimeoutMs?: number;
+  now?: () => number;
 };
 
 export type ProfileMcpPrepared = {
@@ -61,39 +69,71 @@ export type ProfileMcpPrepared = {
   launch: ProfileShimLaunch | null;
 };
 
+/** What a socket was started for, captured at `prepare` and never re-read (Decision 14). */
+type LaunchSnapshot = { name: string; baseAgentId: string; mcpTools: string[] | null };
+
+type Manifest = { launchId: string; sessionId: string; socketPath: string; cwd: string; agent: LaunchSnapshot };
+
 export type ProfileMcpSockets = {
   prepare(profile: AgentProfile, cwd: string): Promise<ProfileMcpPrepared>;
   /** Ties a prepared launch to the session that runs it. False for an unknown, expired or already-bound id. */
   bind(launchId: string, sessionId: string): boolean;
+  /**
+   * `bind`, but a launch whose 60 s wait ran out is started again on its original socket first (#1697), so a
+   * queued line typed into a terminal that mounted late still reaches its tools. False for an unknown or
+   * already-bound id.
+   */
+  ensureBound(launchId: string, sessionId: string): Promise<boolean>;
   /** Closes the socket a session was bound to, if any. */
   closeForSession(sessionId: string): Promise<void>;
   /** Closes one launch by id, bound or not (a headless run that owns its launch). */
   close(launchId: string): Promise<void>;
   closeAll(): Promise<void>;
+  /** App quit: closes every server but keeps bound launches' manifests for `restore` (#1697). */
+  suspendAll(): Promise<void>;
+  /**
+   * After a restart: starts the socket again for every manifest whose session is still live, and deletes the
+   * rest. Resolves with the session ids restored. Safe to call again (a launch already open is skipped).
+   */
+  restore(isLive: (sessionId: string) => boolean): Promise<string[]>;
 };
 
 export const PROFILE_BIND_TIMEOUT_MS = 60_000;
+/** How long a parked (expired, unbound) launch can still be revived by `ensureBound`. */
+export const PROFILE_PARKED_TTL_MS = 3_600_000;
 
 type Entry = {
   socketPath: string;
   close: () => Promise<void>;
   sessionId: string | undefined;
   timer: ReturnType<typeof setTimeout> | undefined;
+  cwd: string;
+  agent: LaunchSnapshot;
 };
+
+type Parked = { socketPath: string; cwd: string; agent: LaunchSnapshot; at: number };
 
 export function profileAllowlistRefusal(tool: string, agentName: string): McpDispatchResult {
   return { ok: false, kind: 'refused', message: `Tool "${tool}" is not allowed for agent "${agentName}".` };
 }
 
+const MANIFEST = /^p-([0-9a-f]{1,32})\.json$/;
+
 export function createProfileMcpSockets(seams: ProfileMcpSocketSeams): ProfileMcpSockets {
   const entries = new Map<string, Entry>();
+  const parked = new Map<string, Parked>();
   const newLaunchId = seams.newLaunchId ?? (() => randomBytes(6).toString('hex'));
   const bindTimeoutMs = seams.bindTimeoutMs ?? PROFILE_BIND_TIMEOUT_MS;
+  const now = seams.now ?? Date.now;
 
-  const close = async (launchId: string): Promise<void> => {
-    const entry = entries.get(launchId);
-    if (!entry) return;
-    entries.delete(launchId);
+  const manifestPath = (launchId: string): string => join(seams.runsDir(), `p-${launchId}.json`);
+  const dropManifest = (launchId: string): Promise<void> => rm(manifestPath(launchId), { force: true });
+  const writeManifest = async (manifest: Manifest): Promise<void> => {
+    await mkdir(seams.runsDir(), { recursive: true });
+    await writeFile(manifestPath(manifest.launchId), JSON.stringify(manifest), { mode: 0o600 });
+  };
+
+  const stopServer = async (entry: Entry): Promise<void> => {
     if (entry.timer) clearTimeout(entry.timer);
     try {
       await entry.close();
@@ -103,9 +143,75 @@ export function createProfileMcpSockets(seams: ProfileMcpSocketSeams): ProfileMc
     }
   };
 
+  const close = async (launchId: string): Promise<void> => {
+    parked.delete(launchId);
+    const entry = entries.get(launchId);
+    if (!entry) return;
+    entries.delete(launchId);
+    try {
+      await stopServer(entry);
+    } finally {
+      await dropManifest(launchId).catch(() => undefined);
+    }
+  };
+
+  /** The 60 s timer: stop the server, but keep enough to start it again on the same path. */
+  const park = async (launchId: string): Promise<void> => {
+    const entry = entries.get(launchId);
+    if (!entry || entry.sessionId !== undefined) return;
+    entries.delete(launchId);
+    parked.set(launchId, { socketPath: entry.socketPath, cwd: entry.cwd, agent: entry.agent, at: now() });
+    for (const [id, p] of parked) if (now() - p.at > PROFILE_PARKED_TTL_MS) parked.delete(id);
+    await stopServer(entry);
+  };
+
   const socketPathFor = (launchId: string): string => {
     const preferred = join(seams.runsDir(), `p-${launchId}.sock`);
     return isSocketPathTooLong(preferred) ? join(tmpdir(), `mstudio-p-${launchId}.sock`) : preferred;
+  };
+
+  /** Starts the server for a launch on `socketPath` and records it (unbound unless `sessionId` is given). */
+  const start = async (launchId: string, socketPath: string, cwd: string, agent: LaunchSnapshot, sessionId?: string): Promise<Entry> => {
+    const allow = agent.mcpTools === null ? null : new Set(agent.mcpTools);
+    const currentSession = (): string | undefined => entries.get(launchId)?.sessionId;
+    const gate = allow
+      ? (tool: string): McpDispatchResult | null => {
+          if (allow.has(tool)) return null;
+          // Refused either way; only a real tool id is worth an audit row (any string can arrive here).
+          if (!isMcpToolId(tool)) return profileAllowlistRefusal(tool, agent.name);
+          const session = currentSession();
+          seams.recordAudit({
+            kind: 'policy-decision',
+            tool,
+            decision: 'deny',
+            rule: 'profile-allowlist',
+            repoPath: cwd,
+            ...(session ? { sessionId: session } : {}),
+          });
+          return profileAllowlistRefusal(tool, agent.name);
+        }
+      : undefined;
+
+    const started = await seams.startServer({ socketPath, gate, sessionId: currentSession });
+    if (!started.ok) throw new Error(`Could not start the agent's MCP socket: ${started.message}`);
+    const entry: Entry = { socketPath: started.handle.socketPath, close: started.handle.close, sessionId, timer: undefined, cwd, agent };
+    if (sessionId === undefined) {
+      entry.timer = setTimeout(() => void park(launchId).catch(() => undefined), bindTimeoutMs);
+      entry.timer.unref?.();
+    }
+    entries.set(launchId, entry);
+    return entry;
+  };
+
+  const bind = (launchId: string, sessionId: string): boolean => {
+    const entry = entries.get(launchId);
+    if (!entry || entry.sessionId !== undefined) return false;
+    entry.sessionId = sessionId;
+    if (entry.timer) clearTimeout(entry.timer);
+    entry.timer = undefined;
+    // Best effort: a missing manifest only costs the restore after a restart, never this session's tools.
+    void writeManifest({ launchId, sessionId, socketPath: entry.socketPath, cwd: entry.cwd, agent: entry.agent }).catch(() => undefined);
+    return true;
   };
 
   return {
@@ -113,48 +219,23 @@ export function createProfileMcpSockets(seams: ProfileMcpSocketSeams): ProfileMc
       const launchId = newLaunchId();
       if (!enforcementFor(profile.baseAgentId).tools) return { launchId, mcpArgs: [], launch: null };
 
-      const allow = profile.mcpTools === null ? null : new Set(profile.mcpTools);
-      const socketPath = socketPathFor(launchId);
-      const sessionId = (): string | undefined => entries.get(launchId)?.sessionId;
-      const gate = allow
-        ? (tool: string): McpDispatchResult | null => {
-            if (allow.has(tool)) return null;
-            // Refused either way; only a real tool id is worth an audit row (any string can arrive here).
-            if (!isMcpToolId(tool)) return profileAllowlistRefusal(tool, profile.name);
-            const session = sessionId();
-            seams.recordAudit({
-              kind: 'policy-decision',
-              tool,
-              decision: 'deny',
-              rule: 'profile-allowlist',
-              repoPath: cwd,
-              ...(session ? { sessionId: session } : {}),
-            });
-            return profileAllowlistRefusal(tool, profile.name);
-          }
-        : undefined;
-
-      const started = await seams.startServer({ socketPath, gate, sessionId });
-      if (!started.ok) throw new Error(`Could not start the agent's MCP socket: ${started.message}`);
-
-      const entry: Entry = { socketPath: started.handle.socketPath, close: started.handle.close, sessionId: undefined, timer: undefined };
-      entry.timer = setTimeout(() => void close(launchId).catch(() => undefined), bindTimeoutMs);
-      entry.timer.unref?.();
-      entries.set(launchId, entry);
-
-      const toolArgs = allow ? ['--tools', [...allow].join(',')] : [];
+      const agent: LaunchSnapshot = { name: profile.name, baseAgentId: profile.baseAgentId, mcpTools: profile.mcpTools === null ? null : [...profile.mcpTools] };
+      const entry = await start(launchId, socketPathFor(launchId), cwd, agent);
+      const toolArgs = agent.mcpTools ? ['--tools', agent.mcpTools.join(',')] : [];
       const launch = seams.shimLaunch(entry.socketPath, toolArgs);
-      const mcpArgs = profileMcpArgs(profile.baseAgentId, launch, { restricted: allow !== null, quote: true });
+      const mcpArgs = profileMcpArgs(profile.baseAgentId, launch, { restricted: agent.mcpTools !== null, quote: true });
       return { launchId, mcpArgs, launch };
     },
 
-    bind(launchId, sessionId) {
-      const entry = entries.get(launchId);
-      if (!entry || entry.sessionId !== undefined) return false;
-      entry.sessionId = sessionId;
-      if (entry.timer) clearTimeout(entry.timer);
-      entry.timer = undefined;
-      return true;
+    bind,
+
+    async ensureBound(launchId, sessionId) {
+      if (bind(launchId, sessionId)) return true;
+      const held = parked.get(launchId);
+      if (!held || entries.has(launchId)) return false;
+      parked.delete(launchId);
+      await start(launchId, held.socketPath, held.cwd, held.agent);
+      return bind(launchId, sessionId);
     },
 
     async closeForSession(sessionId) {
@@ -165,7 +246,75 @@ export function createProfileMcpSockets(seams: ProfileMcpSocketSeams): ProfileMc
     close,
 
     async closeAll() {
+      parked.clear();
       await Promise.all([...entries.keys()].map((id) => close(id)));
     },
+
+    async suspendAll() {
+      parked.clear();
+      const all = [...entries];
+      entries.clear();
+      await Promise.all(all.map(async ([launchId, entry]) => {
+        await stopServer(entry).catch(() => undefined);
+        // An unbound launch has no session to come back to.
+        if (entry.sessionId === undefined) await dropManifest(launchId).catch(() => undefined);
+      }));
+    },
+
+    async restore(isLive) {
+      let names: string[];
+      try {
+        names = await readdir(seams.runsDir());
+      } catch {
+        return [];
+      }
+      const restored: string[] = [];
+      for (const name of names) {
+        const launchId = MANIFEST.exec(name)?.[1];
+        if (!launchId || entries.has(launchId)) continue;
+        const manifest = await readManifest(manifestPath(launchId));
+        if (!manifest || manifest.launchId !== launchId || !isLive(manifest.sessionId)) {
+          await dropManifest(launchId).catch(() => undefined);
+          continue;
+        }
+        // A dead server's file is still on the path after a crash; the server needs the path free.
+        await Promise.all([rm(manifest.socketPath, { force: true }), rm(`${manifest.socketPath}.token`, { force: true })]);
+        try {
+          await start(launchId, manifest.socketPath, manifest.cwd, manifest.agent, manifest.sessionId);
+          restored.push(manifest.sessionId);
+        } catch {
+          // Left on disk: the next restore (a detached-session recovery) tries again.
+        }
+      }
+      return restored;
+    },
   };
+}
+
+async function readManifest(path: string): Promise<Manifest | null> {
+  try {
+    const raw = JSON.parse(await readFile(path, 'utf8')) as Partial<Manifest> & { agent?: Partial<LaunchSnapshot> };
+    const agent = raw.agent;
+    const tools = agent?.mcpTools;
+    if (
+      typeof raw.launchId !== 'string' ||
+      typeof raw.sessionId !== 'string' ||
+      typeof raw.socketPath !== 'string' ||
+      typeof raw.cwd !== 'string' ||
+      typeof agent?.name !== 'string' ||
+      typeof agent.baseAgentId !== 'string' ||
+      !(tools === null || (Array.isArray(tools) && tools.every((t) => typeof t === 'string')))
+    ) {
+      return null;
+    }
+    return {
+      launchId: raw.launchId,
+      sessionId: raw.sessionId,
+      socketPath: raw.socketPath,
+      cwd: raw.cwd,
+      agent: { name: agent.name, baseAgentId: agent.baseAgentId, mcpTools: tools },
+    };
+  } catch {
+    return null;
+  }
 }
