@@ -89,6 +89,54 @@ describe('the member picker', () => {
   });
 });
 
+describe('a seat whose custom agent moved to a base a council cannot read (#1713)', () => {
+  it('is flagged in the config pane before any run', async () => {
+    stubBridge([AIDER_BOT]);
+    const council: Council = { ...COUNCIL, members: [{ ...COUNCIL.members[0]!, agentProfileId: 'profile-aider' }, COUNCIL.members[1]!] };
+    render(<CouncilConfigPanel council={council} topic="" onDeleted={() => {}} />, { wrapper: Providers });
+    expect((await screen.findByTestId('council-member-fallback-0')).textContent).toBe(
+      'Aider bot now runs on Aider, which cannot sit on a council. Pick another agent for this seat.',
+    );
+  });
+});
+
+describe('the synthesizer picker (#1713)', () => {
+  it('lists Your agents first, and picking one saves synthAgentProfileId on its base with no model', async () => {
+    const { updateMembers } = stubBridge([REVIEWER, AIDER_BOT]);
+    render(<CouncilConfigPanel council={{ ...COUNCIL, synthModel: 'haiku-4-5' }} topic="" onDeleted={() => {}} />, { wrapper: Providers });
+
+    fireEvent.click(within(screen.getByTestId('council-synth-picker')).getByRole('button', { name: 'Provider: Claude' }));
+    const list = await screen.findByRole('listbox', { name: 'Providers' });
+    await waitFor(() => expect(within(list).getAllByRole('option')[0]!.textContent).toBe('Reviewer'));
+    expect(within(list).getAllByRole('option').map((o) => o.textContent)).not.toContain('Aider bot');
+
+    fireEvent.click(within(list).getByRole('option', { name: 'Reviewer' }));
+    await waitFor(() => expect(updateMembers).toHaveBeenCalled(), { timeout: 2000 });
+    const saved = updateMembers.mock.calls.at(-1)![0] as unknown as Council;
+    expect(saved).toMatchObject({ synthProvider: 'claude', synthAgentProfileId: 'profile-rev' });
+    expect(saved.synthModel).toBeUndefined();
+    expect(screen.queryByTestId('council-synth-picker-model')).toBeNull();
+  });
+
+  it('says a synthesizer whose custom agent was deleted runs as its base', async () => {
+    stubBridge([]);
+    render(<CouncilConfigPanel council={{ ...COUNCIL, synthAgentProfileId: 'profile-gone' }} topic="" onDeleted={() => {}} />, {
+      wrapper: Providers,
+    });
+    expect((await screen.findByTestId('council-synth-fallback')).textContent).toBe(
+      'Custom agent deleted, so the synthesizer runs as Claude. Pick another agent to change it.',
+    );
+  });
+
+  it('flags a synthesizer whose custom agent moved to a base a council cannot read', async () => {
+    stubBridge([AIDER_BOT]);
+    render(<CouncilConfigPanel council={{ ...COUNCIL, synthAgentProfileId: 'profile-aider' }} topic="" onDeleted={() => {}} />, {
+      wrapper: Providers,
+    });
+    expect((await screen.findByTestId('council-synth-fallback')).textContent).toContain('Pick another agent for the synthesizer.');
+  });
+});
+
 describe('the thread', () => {
   const run = (member: Partial<CouncilRun['members'][number]>): CouncilRun => ({
     id: 'r1',
@@ -115,6 +163,20 @@ describe('the thread', () => {
     stubBridge([]);
     render(<CouncilRunView run={run({ agentProfileId: 'profile-gone', agentProfileFallback: 'deleted' })} />, { wrapper: Providers });
     fireEvent.click(screen.getByTestId('council-tab-m1'));
+    expect(screen.getByTestId('council-turn-notice').textContent).toBe('Custom agent deleted, so this answer came from Claude.');
+  });
+
+  it('names the custom agent the synthesis came from, and says when it fell back', async () => {
+    stubBridge([REVIEWER]);
+    const { unmount } = render(<CouncilRunView run={{ ...run({}), synthAgentProfileId: 'profile-rev', synthesisOutput: 'Ship.' }} />, {
+      wrapper: Providers,
+    });
+    await waitFor(() => expect(screen.getByTestId('council-thread').textContent).toContain('Reviewer · Claude'));
+    unmount();
+    render(
+      <CouncilRunView run={{ ...run({}), synthAgentProfileId: 'profile-rev', synthAgentProfileFallback: 'deleted', synthesisOutput: 'Ship.' }} />,
+      { wrapper: Providers },
+    );
     expect(screen.getByTestId('council-turn-notice').textContent).toBe('Custom agent deleted, so this answer came from Claude.');
   });
 });

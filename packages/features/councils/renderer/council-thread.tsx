@@ -88,6 +88,8 @@ export function turnsOf(run: CouncilRun): TurnView[] {
     members: run.members.map(({ ptyId: _ptyId, ...member }) => member),
     synthProvider: run.synthProvider,
     ...(run.synthModel === undefined ? {} : { synthModel: run.synthModel }),
+    ...(run.synthAgentProfileId === undefined ? {} : { synthAgentProfileId: run.synthAgentProfileId }),
+    ...(run.synthAgentProfileFallback === undefined ? {} : { synthAgentProfileFallback: run.synthAgentProfileFallback }),
     ...(synthesisStatus === undefined ? {} : { synthesisStatus }),
     ...(run.synthesisOutput === undefined ? {} : { synthesisOutput: run.synthesisOutput }),
     ...(run.synthesisError === undefined ? {} : { synthesisError: run.synthesisError }),
@@ -109,6 +111,9 @@ export function CouncilRunView({ run }: { run: CouncilRun }) {
     const agent = seatProfile(member);
     return agent ? profileIcon(agent) : icon(member.provider);
   };
+  // #1713: the synthesizer likewise, while its custom agent still resolves.
+  const synthProfile =
+    run.synthAgentProfileId && run.synthAgentProfileFallback === undefined ? profile(run.synthAgentProfileId) : null;
   const activeTab = tab === SYNTHESIS_TAB || run.members.some((m) => m.memberId === tab) ? tab : SYNTHESIS_TAB;
   const synthesisStatus = latestSynthesisStatus(run);
 
@@ -132,8 +137,8 @@ export function CouncilRunView({ run }: { run: CouncilRun }) {
         <TabButton
           active={activeTab === SYNTHESIS_TAB}
           onSelect={() => setTab(SYNTHESIS_TAB)}
-          icon={icon(run.synthProvider)}
-          color={accent(run.synthProvider)}
+          icon={synthProfile ? profileIcon(synthProfile) : icon(run.synthProvider)}
+          color={synthProfile?.accent ?? accent(run.synthProvider)}
           running={synthesisStatus === 'running'}
           tone={synthesisStatus ? TONE[synthesisStatus] : 'text-muted-foreground'}
           className="ml-auto font-medium"
@@ -280,15 +285,25 @@ function MemberTurn({ run, turn, memberId }: { run: CouncilRun; turn: TurnView; 
   );
 }
 
+/** Who the synthesis turn is drawn as: a custom agent's glyph and name, or its base after a fallback (#1713). */
+function synthesizer(turn: TurnView) {
+  const agentProfileId = turn.synthAgentProfileFallback === undefined ? turn.synthAgentProfileId : undefined;
+  return {
+    provider: turn.synthProvider,
+    name: 'Synthesis',
+    model: turn.synthAgentProfileId ? null : councilModelLabel(turn.synthProvider, turn.synthModel),
+    ...(agentProfileId === undefined ? {} : { agentProfileId }),
+    ...(turn.synthAgentProfileFallback === 'deleted' ? { notice: deletedSeatNotice(turn.synthProvider, true) } : {}),
+  };
+}
+
 function SynthesisTurn({ run, turn }: { run: CouncilRun; turn: TurnView }) {
   const status = turn.synthesisStatus;
   if (turn.latest && run.status === 'running') {
     const pending = turn.members.filter((m) => m.status === 'running');
     return (
       <AssistantTurn
-        provider={turn.synthProvider}
-        name="Synthesis"
-        model={councilModelLabel(turn.synthProvider, turn.synthModel)}
+        {...synthesizer(turn)}
         working={
           <WorkingRow
             since={turn.createdAt}
@@ -300,9 +315,7 @@ function SynthesisTurn({ run, turn }: { run: CouncilRun; turn: TurnView }) {
   }
   return (
     <AssistantTurn
-      provider={turn.synthProvider}
-      name="Synthesis"
-      model={councilModelLabel(turn.synthProvider, turn.synthModel)}
+      {...synthesizer(turn)}
       {...(status ? { status, statusLabel: SYNTHESIS_STATUS_LABEL[status] } : {})}
       text={turn.synthesisOutput ?? ''}
       error={turn.synthesisError}

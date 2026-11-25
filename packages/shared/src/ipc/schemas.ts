@@ -295,6 +295,7 @@ import {
 } from '../terminal';
 import { SuiteAppIdSchema } from '../suite-apps';
 import {
+  CouncilAgentProfileIdSchema,
   CouncilMemberProviderSchema,
   CouncilMemberSchema,
   CouncilAvailableProviderSchema,
@@ -2371,6 +2372,8 @@ export const CouncilCreateRequest = z.object({
   members: z.array(CouncilMemberSchema).optional(),
   synthProvider: CouncilMemberProviderSchema.optional(),
   synthModel: z.string().min(1).optional(),
+  /** A custom agent the synthesizer runs as (#1713); `synthProvider` is then its base. */
+  synthAgentProfileId: CouncilAgentProfileIdSchema.optional(),
   /** Phase 134 Theme A: the synthesis type and its instructions; absent is brainstorm with the preset's own. */
   synthesisType: CouncilSynthesisTypeSchema.optional(),
   synthInstructions: z.string().max(COUNCIL_SYNTH_INSTRUCTIONS_MAX).optional(),
@@ -2383,6 +2386,8 @@ export const CouncilUpdateMembersRequest = z.object({
   synthProvider: CouncilMemberProviderSchema,
   /** Absent clears it back to the CLI's default. */
   synthModel: z.string().min(1).optional(),
+  /** Absent seats the synthesizer back on `synthProvider` itself (#1713). */
+  synthAgentProfileId: CouncilAgentProfileIdSchema.optional(),
   /** Phase 134 Theme A. Absent keeps the council's current type. */
   synthesisType: CouncilSynthesisTypeSchema.optional(),
   /** Absent clears it back to the preset's own instructions. */
