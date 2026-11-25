@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { WorkflowNode } from '@midnite/studio-shared';
 
+import { createFrameChrome, FrameChromeProvider } from '@midnite/studio-frame';
+
 import { WorkflowsHostProvider, type WorkflowsHost } from '../host';
 import { AgentForm, RouterForm, VerifyForm } from './node-forms';
 
@@ -72,9 +74,11 @@ describe('router and verify agent pickers, and an app with no custom agents (#17
       config: { mode: 'agent-label', cases: [], agent: { agentId: 'claude', prompt: 'Sort it' } },
     } as WorkflowNode;
     render(
-      <WorkflowsHostProvider host={host(PROFILES)}>
-        <RouterForm node={router} onChange={onChange} onInterpolatableFocus={() => undefined} />
-      </WorkflowsHostProvider>,
+      <FrameChromeProvider chrome={createFrameChrome().chrome}>
+        <WorkflowsHostProvider host={host(PROFILES)}>
+          <RouterForm node={router} onChange={onChange} onInterpolatableFocus={() => undefined} />
+        </WorkflowsHostProvider>
+      </FrameChromeProvider>,
     );
     const select = screen.getByRole('combobox', { name: 'Run as' }) as HTMLSelectElement;
     expect(select.options[0]?.textContent).toBe('Reviewer');
