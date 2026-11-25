@@ -69,6 +69,7 @@ export function RunNodeDetail({ node }: { node: WorkflowNodeRun | null }) {
 
   const meta = NODE_KIND_META[node.kind];
   const Icon = meta.icon;
+  const fallbackNotice = profileFallbackNotice(node.output);
   const duration = node.startedAt !== undefined && node.endedAt !== undefined ? node.endedAt - node.startedAt : null;
 
   return (
@@ -115,10 +116,10 @@ export function RunNodeDetail({ node }: { node: WorkflowNodeRun | null }) {
           </div>
         ) : null}
 
-        {profileFallbackNotice(node.output) ? (
+        {fallbackNotice ? (
           <p role="status" className="flex items-start gap-1.5 rounded-md bg-muted px-2 py-1.5 text-muted-foreground">
             <LuTriangleAlert aria-hidden className="mt-0.5 h-3 w-3 shrink-0" />
-            {profileFallbackNotice(node.output)}
+            {fallbackNotice}
           </p>
         ) : null}
 
