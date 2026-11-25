@@ -11,9 +11,10 @@ export const agentsManifest = defineModuleManifest({
   accent: '#8b5cf6',
   // Placement folders (`FEATURE_PLACEMENT` keys). The MCP server's Tools view (`mcp-tools`) is a package out of
   // the `agent` folder that this host also composes; it has no folder of its own to list.
-  features: ['chats', 'councils', 'workflows', 'models'],
+  features: ['chats', 'agent-profiles', 'councils', 'workflows', 'models'],
   views: [
     { id: 'chats', global: false },
+    { id: 'agents', global: false },
     { id: 'councils', global: false },
     { id: 'workflows', global: false },
     { id: 'models', global: false },

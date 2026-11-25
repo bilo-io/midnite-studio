@@ -2,13 +2,24 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LuBot } from 'react-icons/lu';
 import { useQuery } from '@tanstack/react-query';
 
+import type { AgentProfilesHost } from '@midnite/studio-feature-agent-profiles/renderer';
 import type { ChatsHost } from '@midnite/studio-feature-chats/renderer';
 import type { CouncilsHost } from '@midnite/studio-feature-councils/renderer';
 import type { WorkflowsHost } from '@midnite/studio-feature-workflows/renderer';
 import { useOllamaModels, useOllamaStatus, type ModelsHost } from '@midnite/studio-feature-models/renderer';
 import { bridge } from '@midnite/studio-frame';
-import { BUILTIN_AGENTS, ChatWidthModeSchema, DEFAULT_CHAT_WIDTH_MODE, type ChatWidthMode } from '@midnite/studio-shared';
+import {
+  BUILTIN_AGENTS,
+  ChatWidthModeSchema,
+  DEFAULT_CHAT_WIDTH_MODE,
+  listMcpToolIds,
+  MCP_TOOLS,
+  modelsForAgent,
+  type ChatSkill,
+  type ChatWidthMode,
+} from '@midnite/studio-shared';
 
+import { AGENTS_INSTALLED_APPS, AGENTS_TOOL_MANIFESTS } from './mcp-scope';
 import { AiComposer, AttachMenu, MultiSelectMenu, ProviderModelPicker, useComposerMic } from './plain-composer';
 import { CodePreview, DiffView, MarkdownBody, Modal, Popover, Tooltip, TreeSection, UserAvatar } from './plain-ui';
 
@@ -205,3 +216,36 @@ export const AGENTS_MODELS_HOST = {
   openExternal,
   // No terminal (so no launch-with / `ollama serve` buttons) and no Settings view (so no settings link).
 } satisfies ModelsHost;
+
+const NO_SKILLS: ChatSkill[] = [];
+
+/** The midnite tools this app offers (its own and the frame's), the list an agent's allowlist picks from. */
+const AGENTS_MCP_TOOLS = listMcpToolIds(AGENTS_INSTALLED_APPS, AGENTS_TOOL_MANIFESTS).map((id) => ({
+  id,
+  title: MCP_TOOLS[id].title,
+  description: MCP_TOOLS[id].description,
+}));
+
+/**
+ * The custom agents' port (Phase 154 Theme C). The roster is Chats' own `['agents']` query. Agents has no
+ * terminal, so it carries no `useLaunchProfile` and no `useLiveSessionCount`: the page shows no Launch button.
+ */
+export const AGENTS_AGENT_PROFILES_HOST = {
+  useAgentRoster: AGENTS_CHATS_HOST.useAgentRoster,
+  resolveAgentIcon: AGENTS_CHATS_HOST.resolveAgentIcon,
+  useModelsFor: (baseAgentId) => modelsForAgent(baseAgentId),
+  useSkills: (baseAgentId) => {
+    const query = useQuery({
+      queryKey: ['agent-profile-skills', baseAgentId, null],
+      queryFn: async () => {
+        const result = await bridge()?.chats.skills({ engine: baseAgentId, repoId: null });
+        if (!result) return NO_SKILLS;
+        if (!result.ok) throw new Error('message' in result ? result.message : 'The skills could not be read.');
+        return result.value.skills;
+      },
+    });
+    return { skills: query.data ?? NO_SKILLS, loading: query.isPending, error: query.error ? query.error.message : null };
+  },
+  useMcpTools: () => AGENTS_MCP_TOOLS,
+  openExternal,
+} satisfies AgentProfilesHost;
