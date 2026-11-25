@@ -4,6 +4,8 @@ import type { StartNodeSessionParams, StartNodeSessionResult } from '@midnite/st
 import { EVENT_CHANNELS, WORKFLOW_SESSION_REPO_ID, type TerminalSession } from '@midnite/studio-shared';
 import type { BrowserWindow } from 'electron';
 
+import { defaultLogger } from './log';
+import { studioProfileMcpSockets } from './agent-profiles/studio-profile-sockets';
 import { createPty, livePtyFor, type CreateResult } from './pty-service';
 import { saveTerminal } from './terminal-service';
 
@@ -41,6 +43,12 @@ const NODE_SESSION_ROWS = 30;
 
 export async function startNodeSession(params: StartNodeSessionParams): Promise<StartNodeSessionResult> {
   const id = randomUUID();
+  // #1699: a custom agent's private socket is bound before the pty starts, exactly as `pty:create` does it,
+  // so its very first tool call is attributed to this session; it closes with the session.
+  const launchId = params.profileLaunchId;
+  if (launchId && !studioProfileMcpSockets().bind(launchId, id)) {
+    defaultLogger.warn(`profile launch ${launchId} was not bound: unknown or expired`);
+  }
   const createResult: CreateResult = await createPty({
     sessionId: id,
     kind: params.kind,
@@ -51,12 +59,20 @@ export async function startNodeSession(params: StartNodeSessionParams): Promise<
     initialInput: params.initialInput,
     ...(params.env === undefined ? {} : { env: params.env }),
   });
-  if (!createResult.ok) return { ok: false, message: createResult.message };
+  if (!createResult.ok) {
+    if (launchId) {
+      void studioProfileMcpSockets()
+        .close(launchId)
+        .catch((error: unknown) => defaultLogger.warn(`agent profile socket: ${String(error)}`));
+    }
+    return { ok: false, message: createResult.message };
+  }
 
   const session: TerminalSession = {
     id,
     kind: params.kind,
     ...(params.agentId === undefined ? {} : { agentId: params.agentId }),
+    ...(params.profileId === undefined ? {} : { profileId: params.profileId }),
     title: 'Workflow',
     name: params.nodeLabel,
     cwd: params.cwd,

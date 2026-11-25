@@ -1757,7 +1757,7 @@ describe('v31 -> v32 migration (Phase 109 Theme B)', () => {
     expect(state.companionNames).toEqual(['Nova', 'Companion']);
     expect(state.companionVoices).toEqual({ system: 'urn:voice:1', local: 'bf_emma' });
     expect(state.voiceConversationTrigger).toBe('wake');
-    expect(useUiStore.persist.getOptions().version).toBe(42);
+    expect(useUiStore.persist.getOptions().version).toBe(43);
   });
 
   it('migrates a v32 payload to v33', () => {
@@ -1790,7 +1790,7 @@ describe('v32 -> v33 migration (Phase 111 Theme A)', () => {
     const state = useUiStore.getState();
     expect(state.primaryAgent).toBe('codex');
     expect(state.primaryModelByAgent).toEqual({});
-    expect(useUiStore.persist.getOptions().version).toBe(42);
+    expect(useUiStore.persist.getOptions().version).toBe(43);
   });
 
   it('leaves a v34 payload alone', () => {
@@ -1824,6 +1824,23 @@ describe('v33 -> v34 migration (Phase 113 Theme A: apps -> web-apps)', () => {
   });
 });
 
+
+describe('v42 -> v43 migration (#1699 loops run as a custom agent)', () => {
+  it('seeds loopAgentProfiles empty and keeps only well-formed ids', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    expect((migrate?.({}, 42) as Record<string, unknown>).loopAgentProfiles).toEqual({});
+    expect(
+      (migrate?.({ loopAgentProfiles: { guard: 'profile-rev', pr: '../x', ci: 7 } }, 43) as Record<string, unknown>).loopAgentProfiles,
+    ).toEqual({ guard: 'profile-rev' });
+  });
+
+  it('sets and clears one loop', () => {
+    useUiStore.getState().setLoopAgentProfile('guard', 'profile-rev');
+    expect(useUiStore.getState().loopAgentProfiles.guard).toBe('profile-rev');
+    useUiStore.getState().setLoopAgentProfile('guard', null);
+    expect(useUiStore.getState().loopAgentProfiles.guard).toBeUndefined();
+  });
+});
 
 describe('v41 -> v42 migration (Phase 154 Theme H)', () => {
   it('seeds primaryAgentProfileId as null and keeps primaryAgent', () => {

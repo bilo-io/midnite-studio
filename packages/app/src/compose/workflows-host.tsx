@@ -1,4 +1,7 @@
-import { useMemo } from 'react';
+import { QueryClient, QueryClientContext, useQuery } from '@tanstack/react-query';
+import { useContext, useMemo } from 'react';
+
+import { agentProfilesQueryOptions } from '@midnite/studio-feature-agent-profiles/renderer';
 
 import type { WorkflowsHost } from '@midnite/studio-feature-workflows/renderer';
 import type { ActivityGlowSessionInput } from '@midnite/studio-frame';
@@ -10,6 +13,9 @@ import { TreeSection } from '../components/tree-section';
 import { useDismiss } from '../components/use-dismiss';
 import { resolveSessionAgentId, sessionPhase, useTerminalStore } from '../features/terminal/terminal-store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../store/ui-store';
+
+/** Only for a view rendered with no query provider (a bare component test): no retries, no shared cache. */
+const FALLBACK_CLIENT = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
 /**
  * Studio's side of the workflows feature's host port (Phase 113 Theme N).
@@ -63,6 +69,11 @@ export const STUDIO_WORKFLOWS_HOST = {
       inspectorCollapsed,
       setInspectorCollapsed,
     };
+  },
+  // #1699: the Agents page's own query, sorted by name; `undefined` until it has loaded.
+  useAgentProfiles: () => {
+    const data = useQuery(agentProfilesQueryOptions(), useContext(QueryClientContext) ?? FALLBACK_CLIENT).data;
+    return useMemo(() => (data ? [...data].sort((a, b) => a.name.localeCompare(b.name)) : undefined), [data]);
   },
   useNodeSessions: (run) => {
     const sessions = useTerminalStore((s) => s.sessions);

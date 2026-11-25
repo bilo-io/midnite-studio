@@ -214,6 +214,7 @@ const PER_LOOP_KEYS = [
   'loopModifierChecks',
   'loopChoices',
   'loopAgents',
+  'loopAgentProfiles',
   'loopModels',
   'loopSchedules',
   'loopExtras',
@@ -1017,6 +1018,12 @@ export type UiState = {
    */
   loopAgents: Record<string, string>;
   setLoopAgent: (loopId: string, agentId: string) => void;
+  /**
+   * #1699: loopId → the custom agent the loop runs as, beside its roster pick in `loopAgents` (which then
+   * holds the agent's base, and is what runs once the agent is deleted). `null` clears it.
+   */
+  loopAgentProfiles: Record<string, string>;
+  setLoopAgentProfile: (loopId: string, profileId: string | null) => void;
   /**
    * Which Claude each loop runs on. Persisted for the same reason as the
    * radios above, and for one more: a model is a cost decision, and one made
@@ -2372,6 +2379,7 @@ export type PersistedUi = Pick<
   | 'loopModifierDefaults'
   | 'loopChoices'
   | 'loopAgents'
+  | 'loopAgentProfiles'
   | 'loopModels'
   | 'loopSchedules'
   | 'loopEnabled'
@@ -2923,6 +2931,12 @@ export const useUiStore = create<UiState>()(
       loopAgents: {},
       setLoopAgent: (loopId, agentId) =>
         set((state) => ({ loopAgents: { ...state.loopAgents, [loopId]: agentId } })),
+      loopAgentProfiles: {},
+      setLoopAgentProfile: (loopId, profileId) =>
+        set((state) => ({
+          loopAgentProfiles:
+            profileId === null ? omitKey(state.loopAgentProfiles, loopId) : { ...state.loopAgentProfiles, [loopId]: profileId },
+        })),
       loopModels: {},
       setLoopModel: (loopId, model) =>
         set((state) => ({ loopModels: { ...state.loopModels, [loopId]: model } })),
@@ -3552,7 +3566,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 42,
+      version: 43,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         chatsWidthMode: state.chatsWidthMode,
@@ -3609,6 +3623,7 @@ export const useUiStore = create<UiState>()(
         loopModifierDefaults: state.loopModifierDefaults,
         loopChoices: state.loopChoices,
         loopAgents: state.loopAgents,
+        loopAgentProfiles: state.loopAgentProfiles,
         loopModels: state.loopModels,
         loopSchedules: state.loopSchedules,
         loopEnabled: state.loopEnabled,
@@ -4036,6 +4051,12 @@ export const useUiStore = create<UiState>()(
         if (version < 42 || typeof state.primaryAgentProfileId !== 'string' || !AGENT_PROFILE_ID_PATTERN.test(state.primaryAgentProfileId)) {
           state.primaryAgentProfileId = null;
         }
+        // v42 → v43 (#1699): loops can run as a custom agent. Only well-formed ids survive a hand-edited blob.
+        state.loopAgentProfiles = Object.fromEntries(
+          Object.entries(
+            state.loopAgentProfiles && typeof state.loopAgentProfiles === 'object' ? (state.loopAgentProfiles as Record<string, unknown>) : {},
+          ).filter((entry): entry is [string, string] => typeof entry[1] === 'string' && AGENT_PROFILE_ID_PATTERN.test(entry[1])),
+        );
         return state as PersistedUi;
       },
       /**

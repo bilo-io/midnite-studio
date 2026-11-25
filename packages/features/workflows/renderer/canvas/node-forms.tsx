@@ -26,11 +26,13 @@ import {
   type WorkflowTriggerOn,
   type WorkflowVerifyCheck,
   type WorkflowVerifyConfig,
+  type AgentProfile,
 } from '@midnite/studio-shared';
 import { LuPlus, LuTrash2 } from 'react-icons/lu';
 
 import { DemoApiQuickFill } from './demo-api-quick-fill';
 import { Field, SelectField, SwitchRow, TextArea, TextField } from '@midnite/studio-frame';
+import { useOptionalWorkflowsHost } from '../host';
 import { IconButton } from '../ui';
 
 /**
@@ -330,16 +332,69 @@ export function JoinForm({ node, onChange }: NodeFormProps) {
  * `terminal-service.ts` in main), and validating it is `validateWorkflow`'s
  * job at run time, not this form's at edit time.
  */
+const NO_PROFILES: readonly Pick<AgentProfile, 'id' | 'name' | 'baseAgentId'>[] = [];
+/** The picker's value for "a roster agent, by id" — never a profile id, which always starts `profile-`. */
+const ROSTER_AGENT = '';
+
 export function AgentForm({ node, onChange, onInterpolatableFocus }: NodeFormProps) {
+  // `undefined` until the list has loaded: a saved custom agent is not called deleted before then.
+  const loaded = useOptionalWorkflowsHost()?.useAgentProfiles?.();
+  const profiles = loaded ?? NO_PROFILES;
   if (node.kind !== 'agent') return null;
   const config = node.config;
   const update = (patch: Partial<typeof config>) => onChange({ ...node, config: { ...config, ...patch } });
+  const profileId = config.agentProfileId;
+  const profile = profileId ? profiles.find((entry) => entry.id === profileId) : undefined;
+  // #1699: a deleted custom agent runs as its roster agent; the form says so rather than failing silently.
+  const deleted = profileId !== undefined && loaded !== undefined && profile === undefined;
+  const showPicker = profiles.length > 0 || profileId !== undefined;
+  const pick = (value: string) => {
+    if (value === ROSTER_AGENT) {
+      const { agentProfileId: _dropped, ...rest } = config;
+      onChange({ ...node, config: rest });
+      return;
+    }
+    const next = profiles.find((entry) => entry.id === value);
+    if (next) update({ agentProfileId: next.id, agentId: next.baseAgentId, model: undefined });
+  };
 
   return (
     <>
-      <Field label="Agent" hint="A roster agent id, e.g. claude, codex, agy — whatever is installed and logged in.">
-        <TextField label="Agent" value={config.agentId} onChange={(agentId) => update({ agentId })} placeholder="claude" />
-      </Field>
+      {showPicker ? (
+        <Field label="Run as" hint="One of your agents (its prompt, model and tools), or a roster agent by id.">
+          <select
+            aria-label="Run as"
+            value={profileId ?? ROSTER_AGENT}
+            onChange={(event) => pick(event.target.value)}
+            className="w-full rounded-md border border-input bg-background px-1.5 py-1 text-xs outline-none focus:ring-1 focus:ring-ring"
+          >
+            {/* "Your agents" first, as in every agent picker. */}
+            {profiles.length > 0 ? (
+              <optgroup label="Your agents">
+                {profiles.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.name}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
+            {deleted ? <option value={profileId}>Deleted agent</option> : null}
+            <optgroup label="Roster">
+              <option value={ROSTER_AGENT}>Roster agent (by id)</option>
+            </optgroup>
+          </select>
+        </Field>
+      ) : null}
+      {deleted ? (
+        <p role="status" className="text-xs text-amber-600 dark:text-amber-400">
+          This custom agent was deleted, so the node runs as {config.agentId || 'its roster agent'}.
+        </p>
+      ) : null}
+      {profile ? null : (
+        <Field label="Agent" hint="A roster agent id, e.g. claude, codex, agy — whatever is installed and logged in.">
+          <TextField label="Agent" value={config.agentId} onChange={(agentId) => update({ agentId })} placeholder="claude" />
+        </Field>
+      )}
       <Field label="Prompt" hint="What to ask the agent to do. The node completes once it prints a done marker and goes idle.">
         <TextArea
           label="Prompt"
@@ -351,9 +406,11 @@ export function AgentForm({ node, onChange, onInterpolatableFocus }: NodeFormPro
           }
         />
       </Field>
-      <Field label="Model" hint="Optional — the agent's own --model flag, when it has one.">
-        <TextField label="Model" value={config.model ?? ''} onChange={(model) => update({ model: model || undefined })} />
-      </Field>
+      {profile ? null : (
+        <Field label="Model" hint="Optional — the agent's own --model flag, when it has one.">
+          <TextField label="Model" value={config.model ?? ''} onChange={(model) => update({ model: model || undefined })} />
+        </Field>
+      )}
     </>
   );
 }
