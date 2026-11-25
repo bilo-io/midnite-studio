@@ -325,17 +325,19 @@ export function JoinForm({ node, onChange }: NodeFormProps) {
   );
 }
 
+const NO_PROFILES: readonly Pick<AgentProfile, 'id' | 'name' | 'baseAgentId'>[] = [];
+/** The picker's value for "a roster agent, by id" — never a profile id, which always starts `profile-`. */
+const ROSTER_AGENT = '';
+
 /**
  * Phase 95 Theme J. `agentId` is a plain text field rather than a roster
  * picker — the roster (`BUILTIN_AGENTS`/`agents.json`) is a runtime fact
  * about the host this form has no access to (it lives behind
  * `terminal-service.ts` in main), and validating it is `validateWorkflow`'s
- * job at run time, not this form's at edit time.
+ * job at run time, not this form's at edit time. Your custom agents (#1699)
+ * come through the host and are offered first; picking one stores it beside
+ * its base agent, which is what runs once the agent is deleted.
  */
-const NO_PROFILES: readonly Pick<AgentProfile, 'id' | 'name' | 'baseAgentId'>[] = [];
-/** The picker's value for "a roster agent, by id" — never a profile id, which always starts `profile-`. */
-const ROSTER_AGENT = '';
-
 export function AgentForm({ node, onChange, onInterpolatableFocus }: NodeFormProps) {
   // `undefined` until the list has loaded: a saved custom agent is not called deleted before then.
   const loaded = useOptionalWorkflowsHost()?.useAgentProfiles?.();

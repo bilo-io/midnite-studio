@@ -202,7 +202,6 @@ function watchSession<T>(
   watch: AgentDoneMarkerWatch<T>,
   profileFallback: boolean,
 ): Promise<NodeOutcome> {
-  const started = { ptyId };
   return new Promise((resolve) => {
     let buffer = new Uint8Array(0);
     let truncated = false;
@@ -213,13 +212,13 @@ function watchSession<T>(
       if (settled) return;
       settled = true;
       clearInterval(poll);
-      deps.offPty(started.ptyId);
+      deps.offPty(ptyId);
       resolve(outcome);
     };
 
     const maybeSettle = () => {
       if (marker === null || settled) return;
-      if (deps.activityFor(started.ptyId) !== 'idle') return;
+      if (deps.activityFor(ptyId) !== 'idle') return;
       const output: AgentNodeOutput = {
         output: cleanCapturedOutput(new TextDecoder().decode(buffer), invocation),
         truncated,
@@ -230,7 +229,7 @@ function watchSession<T>(
 
     const poll = setInterval(() => {
       if (context.signal.cancelled()) {
-        deps.killPty(started.ptyId);
+        deps.killPty(ptyId);
         finish({ ok: false, error: 'Cancelled.' });
         return;
       }
@@ -239,7 +238,7 @@ function watchSession<T>(
     poll.unref?.();
 
     deps.onPty(
-      started.ptyId,
+      ptyId,
       (bytes) => {
         const capped = appendCapped(buffer, bytes, AGENT_OUTPUT_CAP_BYTES);
         buffer = capped.buffer as Uint8Array<ArrayBuffer>;
