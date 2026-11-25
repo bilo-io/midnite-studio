@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { agentProfilesManifest } from '@midnite/studio-feature-agent-profiles/renderer';
 import { chatsManifest } from '@midnite/studio-feature-chats/renderer';
 import { councilsManifest } from '@midnite/studio-feature-councils/renderer';
 import { modelsManifest } from '@midnite/studio-feature-models/renderer';
@@ -70,12 +71,13 @@ afterEach(() => {
 
 describe('Agents composition', () => {
   it('is the owner the placement map names for chats, councils, workflows, models and the MCP tools', () => {
-    for (const feature of ['chats', 'councils', 'workflows', 'models'] as const) {
+    for (const feature of ['chats', 'agent-profiles', 'councils', 'workflows', 'models'] as const) {
       expect(placementOwners(FEATURE_PLACEMENT[feature])[0]).toBe(AGENTS_APP.id);
     }
     expect(featurePackagePlacement('mcp-tools')).toBe(AGENTS_APP.id);
     expect(AGENTS_APP.features).toEqual([
       chatsManifest.feature,
+      agentProfilesManifest.feature,
       councilsManifest.feature,
       workflowsManifest.feature,
       modelsManifest.feature,
@@ -105,12 +107,12 @@ describe('Agents shell', () => {
 });
 
 describe('Agents home', () => {
-  it('opens on Chats with Councils, Graphs, Models, Tools and Audit beside it', async () => {
+  it('opens on Chats with Agents, Councils, Graphs, Models, Tools and Audit beside it', async () => {
     render(<AgentsApp />);
     expect(screen.getAllByText('Midnite Agents').length).toBeGreaterThan(0);
     expect(screen.getByRole('img', { name: 'Midnite Agents' })).toBeDefined();
     const rail = within(screen.getByRole('navigation', { name: 'Views' }));
-    for (const label of ['Chats', 'Councils', 'Graphs', 'Models', 'Tools', 'Audit']) expect(rail.getByRole('link', { name: label })).toBeDefined();
+    for (const label of ['Chats', 'Agents', 'Councils', 'Graphs', 'Models', 'Tools', 'Audit']) expect(rail.getByRole('link', { name: label })).toBeDefined();
     expect(rail.getByRole('link', { name: 'Chats' }).getAttribute('aria-current')).toBe('page');
     expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined();
     await waitFor(() => expect(screen.getByRole('main', { name: 'Chats' })).toBeDefined());
@@ -143,6 +145,18 @@ describe('Agents home', () => {
     fireEvent.click(within(screen.getByRole('main', { name: 'Tools' })).getByText('Tools'));
     await waitFor(() => expect(screen.getByText('workflow_gates_list')).toBeDefined(), { timeout: 10_000 });
     expect(screen.queryByText('model_set_spec')).toBeNull();
+  });
+
+  it('switches to Agents and lists the profiles the bridge returns, with no Launch (Agents has no terminal)', async () => {
+    const profile = {
+      id: 'profile-a', name: 'Alpha', description: '', baseAgentId: 'claude', accent: '#8b5cf6', model: 'default', systemPrompt: '',
+      mcpTools: null, skills: [], limits: {}, blueprint: {}, createdAt: 1, updatedAt: 1,
+    };
+    stubBridge({ agentProfile: { list: ok({ profiles: [profile] }) } });
+    render(<AgentsApp />);
+    goTo('Agents');
+    await waitFor(() => expect(screen.getByTestId('agent-profile-profile-a')).toBeDefined(), { timeout: 10_000 });
+    expect(screen.queryByRole('button', { name: /Launch/ })).toBeNull();
   });
 
   it('switches to Audit and shows the trail the bridge returns', async () => {

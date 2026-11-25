@@ -8,6 +8,8 @@ import { PAGE_ROLE_TITLE } from './page-detach-mark';
 // bridge mock apiece for a one-line assertion.
 const SOURCES = import.meta.glob<string>(
   [
+    // The Agents page (Phase 154).
+    '../../../features/agent-profiles/renderer/agents-view.tsx',
     '../../../features/councils/renderer/councils-view.tsx',
     // Workflows moved into its feature package (Phase 113 Theme N).
     '../../../features/workflows/renderer/workflow-list.tsx',
