@@ -284,9 +284,9 @@ describe('the store, against the mock bridge', () => {
 
   it('remembers the composer engine, model and mode — but never the repo — for next time', () => {
     install();
-    useChatsStore.getState().setDraft({ engine: 'codex', model: null, mode: 'ask', repoId: 'repo-1' });
+    useChatsStore.getState().setDraft({ engine: 'codex', agentProfileId: 'profile-rev', model: null, mode: 'ask', repoId: 'repo-1' });
     const saved = JSON.parse(window.localStorage.getItem('midnite.chats.composer')!);
-    expect(saved).toEqual({ engine: 'codex', model: null, mode: 'ask' });
+    expect(saved).toEqual({ engine: 'codex', agentProfileId: 'profile-rev', model: null, mode: 'ask' });
   });
 
   it('survives storage that throws', () => {
