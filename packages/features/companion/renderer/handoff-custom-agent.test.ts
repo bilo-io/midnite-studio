@@ -1,0 +1,65 @@
+import { createBlankAgentProfile } from '@midnite/studio-shared';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { setCustomAgentsForTests } from './custom-agents';
+import { useUiStore } from './ext';
+import { resetHandoffState, submitInput } from './handoff';
+import { fakeHandoffDeps, fakeStore, vocabularyFixture } from './test-doubles';
+
+/** Phase 154 Theme H — "use Reviewer": a custom agent as the companion's, by voice, with read-back and undo. */
+
+const reviewer = { ...createBlankAgentProfile(), id: 'profile-rev', name: 'Reviewer', baseAgentId: 'claude' };
+const vocabulary = vocabularyFixture({ customAgents: [{ id: 'profile-rev', name: 'Reviewer' }] });
+
+beforeEach(() => {
+  setCustomAgentsForTests([reviewer]);
+  useUiStore.setState({ primaryAgent: 'codex', primaryModelByAgent: {}, companionAgentProfileId: null });
+});
+afterEach(() => {
+  resetHandoffState();
+  setCustomAgentsForTests([]);
+});
+
+describe('switching the companion to a custom agent', () => {
+  it('reads back the name and leaves the primary agent alone', async () => {
+    const store = fakeStore();
+    await submitInput('use Reviewer', fakeHandoffDeps({ store, vocabulary: () => vocabulary }));
+    expect(useUiStore.getState().companionAgentProfileId).toBe('profile-rev');
+    expect(useUiStore.getState().primaryAgent).toBe('codex');
+    expect(store.lines().at(-1)).toBe('companion: Switched the companion to Reviewer.');
+  });
+
+  it('"undo that" goes back to the built-in agent', async () => {
+    const store = fakeStore();
+    const deps = fakeHandoffDeps({ store, vocabulary: () => vocabulary });
+    await submitInput('switch to reviewer', deps);
+    await submitInput('undo that', deps);
+    expect(useUiStore.getState().companionAgentProfileId).toBeNull();
+    expect(useUiStore.getState().primaryAgent).toBe('codex');
+    expect(store.lines().at(-1)).toBe('companion: Put it back. Switched primary agent to Codex.');
+  });
+
+  it('switching to a built-in and undoing restores the custom agent', async () => {
+    useUiStore.setState({ companionAgentProfileId: 'profile-rev' });
+    const store = fakeStore();
+    const deps = fakeHandoffDeps({ store, vocabulary: () => vocabulary });
+    await submitInput('switch to claude', deps);
+    expect(useUiStore.getState().companionAgentProfileId).toBeNull();
+    await submitInput('undo that', deps);
+    expect(useUiStore.getState().companionAgentProfileId).toBe('profile-rev');
+    expect(store.lines().at(-1)).toBe('companion: Put it back. Switched the companion to Reviewer.');
+  });
+
+  it('a routed switch to an unknown profile id changes nothing', async () => {
+    const store = fakeStore();
+    await submitInput(
+      'think with the nonexistent one',
+      fakeHandoffDeps({
+        store,
+        ask: async () => ({ ok: true, value: { say: 'Switching.', intent: { kind: 'switchAgent', agentId: 'profile-gone' } } }),
+      }),
+    );
+    expect(useUiStore.getState().companionAgentProfileId).toBeNull();
+    expect(store.lines().at(-1)).toBe("companion: I don't know that custom agent. It may have been deleted.");
+  });
+});

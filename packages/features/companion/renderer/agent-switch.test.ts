@@ -1,4 +1,7 @@
+import { createBlankAgentProfile } from '@midnite/studio-shared';
 import { beforeEach, describe, expect, it } from 'vitest';
+
+import { setCustomAgentsForTests } from './custom-agents';
 
 import { useUiStore } from './ext';
 import { buildAgentStateReply, buildModelsListReply, resolveAgentSet } from './agent-switch';
@@ -10,7 +13,46 @@ import { buildAgentStateReply, buildModelsListReply, resolveAgentSet } from './a
  */
 
 beforeEach(() => {
-  useUiStore.setState({ primaryAgent: 'claude', primaryModelByAgent: {}, screensaverLocked: false });
+  useUiStore.setState({ primaryAgent: 'claude', primaryModelByAgent: {}, screensaverLocked: false, companionAgentProfileId: null });
+  setCustomAgentsForTests([]);
+});
+
+const reviewer = { ...createBlankAgentProfile(), id: 'profile-rev', name: 'Reviewer', baseAgentId: 'codex' };
+
+describe('custom agents (Phase 154 Theme H)', () => {
+  beforeEach(() => setCustomAgentsForTests([reviewer]));
+
+  it('companion_agent_get reports the custom agents and the one in use', async () => {
+    useUiStore.setState({ companionAgentProfileId: 'profile-rev' });
+    const out = await buildAgentStateReply();
+    expect(out.agentProfileId).toBe('profile-rev');
+    expect(out.customAgents).toEqual([{ id: 'profile-rev', name: 'Reviewer', baseAgentId: 'codex', installed: null }]);
+  });
+
+  it.each(['profile-rev', 'reviewer'])('companion_agent_set takes %s and leaves the primary agent alone', async (agent) => {
+    const out = await resolveAgentSet({ agent });
+    expect(out).toEqual({
+      status: 'applied',
+      previous: { agentId: 'claude', modelId: null, agentProfileId: null },
+      next: { agentId: 'claude', modelId: null, agentProfileId: 'profile-rev' },
+    });
+    expect(useUiStore.getState().companionAgentProfileId).toBe('profile-rev');
+    expect(useUiStore.getState().primaryAgent).toBe('claude');
+  });
+
+  it('refuses a model with a custom agent, and an unknown profile id', async () => {
+    expect(await resolveAgentSet({ agent: 'Reviewer', model: 'opus' })).toMatchObject({ status: 'refused', reason: 'unknownModel' });
+    expect(await resolveAgentSet({ agent: 'profile-gone' })).toMatchObject({ status: 'refused', reason: 'unknownAgent' });
+    expect(useUiStore.getState().companionAgentProfileId).toBeNull();
+  });
+
+  it('a built-in switch clears the custom agent and reports it in previous', async () => {
+    useUiStore.setState({ companionAgentProfileId: 'profile-rev' });
+    const out = await resolveAgentSet({ agent: 'codex' });
+    expect(out.previous?.agentProfileId).toBe('profile-rev');
+    expect(out.next?.agentProfileId).toBeNull();
+    expect(useUiStore.getState().companionAgentProfileId).toBeNull();
+  });
 });
 
 describe('buildAgentStateReply', () => {
@@ -28,7 +70,7 @@ describe('resolveAgentSet', () => {
   it('switches the agent by spoken name and records the previous choice', async () => {
     const out = await resolveAgentSet({ agent: 'openai' });
     expect(out.status).toBe('applied');
-    expect(out.previous).toEqual({ agentId: 'claude', modelId: null });
+    expect(out.previous).toEqual({ agentId: 'claude', modelId: null, agentProfileId: null });
     expect(out.next?.agentId).toBe('codex');
     expect(useUiStore.getState().primaryAgent).toBe('codex');
   });

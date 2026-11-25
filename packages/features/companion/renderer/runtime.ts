@@ -40,6 +40,8 @@ import {
   switchCompanionProfile,
 } from './profiles';
 import { vocabularyFor, withCompanionProfiles } from './vocabulary';
+import { deletedAgentNotice, refreshCustomAgents, withCustomAgents } from './custom-agents';
+import { showToast } from './ext';
 import { skillHandoff } from './ext';
 import { startAgent } from './ext';
 import { useTerminalStore } from './ext';
@@ -193,6 +195,8 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
         text: req.text,
         repoPath: repo.path,
         agentId: ui.primaryAgent,
+        // Phase 154 Theme H: the custom agent the companion thinks through, when one is chosen.
+        ...(ui.companionAgentProfileId ? { agentProfileId: ui.companionAgentProfileId } : {}),
         snapshot: lastSnapshot,
         // Settings ▸ Companion ▸ Personality's two free-text fields (Ad
         // Hoc) — read fresh from the store on every ask, same as
@@ -207,8 +211,11 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
         // flow's own cache, same as `snapshot` above: fetching it fresh per
         // `ask` would be an IPC round trip (`repos.list`) this request does
         // not otherwise need.
-        vocabulary: vocabularyCache ? withCompanionProfiles(vocabularyCache) : undefined,
+        vocabulary: vocabularyCache ? withCustomAgents(withCompanionProfiles(vocabularyCache)) : undefined,
       });
+      if (result?.ok && result.value.agentProfileFallback === 'deleted') {
+        return { ...result, value: { ...result.value, say: `${noteDeletedAgent()} ${result.value.say}` } };
+      }
       return result ?? { ok: false, kind: 'error', message: 'The companion is not connected.' };
     },
     scrollback: async (sessionId) => {
@@ -237,7 +244,7 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
     setActiveHandoff: (handoff) => useCompanionStore.getState().setActiveHandoff(handoff),
     pendingAction: () => useCompanionStore.getState().pendingAction,
     setPendingAction: (action) => useCompanionStore.getState().setPendingAction(action),
-    vocabulary: () => withCompanionProfiles(vocabularyCache ?? vocabularyFor([])),
+    vocabulary: () => withCustomAgents(withCompanionProfiles(vocabularyCache ?? vocabularyFor([]))),
     navigate: (intent) => navigateCompanion(intent),
     resource: {
       find: (query, limit) => findResources(query, { limit }),
@@ -303,6 +310,9 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
         text: request.mode === 'tweak' ? request.instruction : `interview: ${request.target}`,
         repoPath: repo.path,
         agentId: useUiStore.getState().primaryAgent,
+        ...(useUiStore.getState().companionAgentProfileId
+          ? { agentProfileId: useUiStore.getState().companionAgentProfileId as string }
+          : {}),
         persona: request,
       });
       if (!result) return { ok: false, kind: 'error', message: 'The companion is not connected.' };
@@ -361,6 +371,19 @@ async function currentRepo(): Promise<RepoSnapshot> {
   if (!repo) return { path: null, name: null, id: null };
   const main = repo.worktrees.find((worktree) => worktree.isMain);
   return { path: main?.path ?? repo.path, name: repo.name, id: repo.id };
+}
+
+/**
+ * Phase 154 Theme H: the companion's custom agent is gone, so main answered with the built-in agent. Clear
+ * the choice (the title-bar pill goes back to the built-in), show it, and return the sentence to say.
+ */
+function noteDeletedAgent(): string {
+  const ui = useUiStore.getState();
+  ui.setCompanionAgentProfile(null);
+  const label = rosterCache.find((agent) => agent.id === ui.primaryAgent)?.label ?? ui.primaryAgent;
+  const notice = deletedAgentNotice(label);
+  showToast({ message: notice });
+  return notice;
 }
 
 /** Refresh the roster cache. Cheap, and the answer changes only on an `agents.json` edit. */
@@ -424,6 +447,7 @@ export async function greetCompanion(): Promise<void> {
   const signal = begin();
   await refreshRoster();
   await refreshVocabulary();
+  await refreshCustomAgents();
   const repo = await currentRepo();
   const deps = conciergeDeps(signal, repo);
   lastSnapshot = null;
@@ -454,6 +478,8 @@ export async function submitCompanionInput(text: string): Promise<void> {
   const signal = begin();
   if (rosterCache.length === 0) await refreshRoster();
   if (!vocabularyCache) await refreshVocabulary();
+  // Every line: a save on the Agents page renames what "use Reviewer" can match.
+  await refreshCustomAgents();
   const repo = await currentRepo();
   const deps = withSnapshotCapture(handoffDeps(signal, repo)) as HandoffDeps;
   const before = useCompanionStore.getState().activeHandoff?.sessionId ?? null;

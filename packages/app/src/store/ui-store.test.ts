@@ -1757,7 +1757,7 @@ describe('v31 -> v32 migration (Phase 109 Theme B)', () => {
     expect(state.companionNames).toEqual(['Nova', 'Companion']);
     expect(state.companionVoices).toEqual({ system: 'urn:voice:1', local: 'bf_emma' });
     expect(state.voiceConversationTrigger).toBe('wake');
-    expect(useUiStore.persist.getOptions().version).toBe(41);
+    expect(useUiStore.persist.getOptions().version).toBe(42);
   });
 
   it('migrates a v32 payload to v33', () => {
@@ -1790,7 +1790,7 @@ describe('v32 -> v33 migration (Phase 111 Theme A)', () => {
     const state = useUiStore.getState();
     expect(state.primaryAgent).toBe('codex');
     expect(state.primaryModelByAgent).toEqual({});
-    expect(useUiStore.persist.getOptions().version).toBe(41);
+    expect(useUiStore.persist.getOptions().version).toBe(42);
   });
 
   it('leaves a v34 payload alone', () => {
@@ -1824,3 +1824,29 @@ describe('v33 -> v34 migration (Phase 113 Theme A: apps -> web-apps)', () => {
   });
 });
 
+
+describe('v41 -> v42 migration (Phase 154 Theme H)', () => {
+  it('seeds companionAgentProfileId as null and keeps primaryAgent', () => {
+    const migrated = useUiStore.persist.getOptions().migrate?.({ primaryAgent: 'codex' }, 41) as Record<string, unknown>;
+    expect(migrated.companionAgentProfileId).toBeNull();
+    expect(migrated.primaryAgent).toBe('codex');
+  });
+
+  it('keeps a saved custom agent and drops a malformed one', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    expect((migrate?.({ companionAgentProfileId: 'profile-rev' }, 42) as Record<string, unknown>).companionAgentProfileId).toBe('profile-rev');
+    expect((migrate?.({ companionAgentProfileId: 7 }, 42) as Record<string, unknown>).companionAgentProfileId).toBeNull();
+  });
+
+  it('a custom agent leaves primaryAgent alone, and choosing a built-in clears it', () => {
+    useUiStore.getState().setPrimaryAgent('codex');
+    useUiStore.getState().setCompanionAgentProfile('profile-rev');
+    expect(useUiStore.getState().primaryAgent).toBe('codex');
+    expect(useUiStore.getState().companionAgentProfileId).toBe('profile-rev');
+    useUiStore.getState().setPrimaryAgentAndModel('claude', null);
+    expect(useUiStore.getState().companionAgentProfileId).toBeNull();
+    useUiStore.getState().setCompanionAgentProfile('profile-rev');
+    useUiStore.getState().setPrimaryAgent('agy');
+    expect(useUiStore.getState().companionAgentProfileId).toBeNull();
+  });
+});
