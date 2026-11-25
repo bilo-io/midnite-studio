@@ -227,6 +227,8 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
   // Ollama daemon is not repo-scoped, so this view shows no sidebar section
   // to narrow in the first place (Phase 96 Theme C).
   models: WORK_IN_PROGRESS,
+  // Global like `models`: profiles are one user-level file, not repo-scoped (Phase 154).
+  agents: WORK_IN_PROGRESS,
   sessions: WORK_IN_PROGRESS,
   optimizer: WORK_IN_PROGRESS,
   monitor: WORK_IN_PROGRESS,

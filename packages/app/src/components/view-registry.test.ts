@@ -54,6 +54,8 @@ describe('VIEW_COMPONENT', () => {
         'workflows',
         'media',
         'models',
+        // Phase 154: custom agents are one user-level file, not a checkout's.
+        'agents',
         'optimizer',
         // Phase 113 Theme I: the machine's readouts, not one checkout's.
         'monitor',

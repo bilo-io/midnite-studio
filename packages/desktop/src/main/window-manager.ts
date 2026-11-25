@@ -68,6 +68,7 @@ const DEFAULT_POPOUT_SIZE: Record<Exclude<WindowRole, 'main'>, { width: number; 
   workflows: { width: 1400, height: 900 },
   media: { width: 1280, height: 860 },
   models: { width: 1080, height: 800 },
+  agents: { width: 1100, height: 800 },
   notes: { width: 980, height: 760 },
 };
 

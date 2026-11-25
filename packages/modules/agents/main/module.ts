@@ -1,3 +1,4 @@
+import { agentProfilesMain } from '@midnite/studio-feature-agent-profiles/main';
 import { chatsMain } from '@midnite/studio-feature-chats/main';
 import { councilsMain } from '@midnite/studio-feature-councils/main';
 import { mcpToolsMain } from '@midnite/studio-feature-mcp-tools/main';

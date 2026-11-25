@@ -25,6 +25,7 @@ export const PAGE_ROLE_TITLE: Record<PageWindowRole, string> = {
   workflows: 'Graphs',
   media: 'Media',
   models: 'Models',
+  agents: 'Agents',
   notes: 'Notes',
 };
 
