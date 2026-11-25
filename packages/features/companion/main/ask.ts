@@ -22,7 +22,7 @@ import {
 
 import { OUTPUT_TAIL_CAP, runProcess, type ProcessSink, type SpawnFn } from '@midnite/studio-runtime';
 
-import { companionServices } from './services';
+import { companionServices, CUSTOM_AGENTS_NEED_STUDIO, type CompanionProfileRun } from './services';
 
 /** Lives in `shared` since Phase 113 Theme N (the workflows feature resolves a headless CLI too); kept importable from here. */
 export { resolveHeadlessAgent };
@@ -82,6 +82,8 @@ export type CompanionAskInput = {
   text: string;
   repoPath: string | null;
   agentId?: string | undefined;
+  /** Phase 154 Theme H: think through this custom agent instead; a deleted one falls back to `agentId`. */
+  agentProfileId?: string | undefined;
   snapshot?: CompanionSnapshot | null | undefined;
   /**
    * Settings ▸ Companion ▸ Personality's two free-text fields (Ad Hoc),
@@ -114,9 +116,17 @@ export type CompanionAskDeps = {
   timeoutMs?: number | undefined;
   /** Where an agent runs when no repo is open. Injected only so a test need not touch `$HOME`. */
   home?: (() => string) | undefined;
+  /** Prepares a custom agent for the run (Phase 154 Theme H); absent answers {@link CUSTOM_AGENTS_NEED_STUDIO}. */
+  profileRun?: ((profileId: string, cwd: string) => Promise<CompanionProfileRun>) | undefined;
 };
 
-export const defaultAskDeps: CompanionAskDeps = { agents: () => companionServices().agents() };
+export const defaultAskDeps: CompanionAskDeps = {
+  agents: () => companionServices().agents(),
+  profileRun: async (profileId, cwd) => {
+    const run = companionServices().profileRun;
+    return run ? run(profileId, cwd) : { kind: 'error', message: CUSTOM_AGENTS_NEED_STUDIO };
+  },
+};
 
 /**
  * The system prompt, per job.
@@ -223,6 +233,7 @@ function routeVocabularyLines(vocabulary: CompanionVocabulary): string[] {
     'Use {"kind":"help"} if it asks what you can do.',
     'Use {"kind":"switchAgent","agentId":"<agentId>","modelId":"<modelId>"} to change the active agent or model.',
     ...agentVocabularyLines(vocabulary.agents),
+    ...customAgentVocabularyLines(vocabulary.customAgents),
     ...settingsVocabularyLines(vocabulary.settings),
     ...profileVocabularyLines(vocabulary.profiles),
   ];
@@ -301,6 +312,20 @@ function agentVocabularyLines(agents: CompanionVocabulary['agents']): string[] {
       const modelsPart = a.models && a.models.length > 0 ? ` (${a.models.join(', ')})` : '';
       return `${a.id} — ${a.label}${modelsPart}`;
     }),
+  ];
+}
+
+/**
+ * Phase 154 Theme H — the user's saved custom agents, by name, so "think with Reviewer" can switch to one.
+ * Names and ids only: an agent's prompt never reaches the router. Absent keeps the prompt as before.
+ */
+function customAgentVocabularyLines(customAgents: CompanionVocabulary['customAgents']): string[] {
+  if (!customAgents || customAgents.length === 0) return [];
+  return [
+    '',
+    'The user\'s own custom agents, as `id — name`:',
+    ...customAgents.map((agent) => `${agent.id} — ${agent.name}`),
+    'To make one your agent, use {"kind":"switchAgent","agentId":"<its profile- id>"} with no modelId.',
   ];
 }
 
@@ -437,38 +462,69 @@ export async function askCompanion(
     return failure('There was nothing to write the notes from.');
   }
 
-  const roster = await deps.agents();
-  const resolved = resolveHeadlessAgent(roster, input.agentId);
-  if (!resolved) {
-    return failure(
-      'No agent CLI with a headless mode is installed, so I cannot think about that one.',
-    );
+  const cwd = input.repoPath ?? (deps.home ?? homedir)();
+  const askPrompt = buildAskPrompt(input);
+
+  // Phase 154 Theme H: a chosen custom agent runs as itself or not at all (as Theme F's launch does); only
+  // a deleted one falls back to the built-in agent, and the reply says so.
+  let fellBack = false;
+  let run: { label: string; command: string; argv: string[]; release: (() => Promise<void>) | null } | null = null;
+  if (input.agentProfileId) {
+    const prepared = deps.profileRun
+      ? await deps.profileRun(input.agentProfileId, cwd)
+      : ({ kind: 'error', message: CUSTOM_AGENTS_NEED_STUDIO } as const);
+    if (prepared.kind === 'error') return failure(prepared.message);
+    if (prepared.kind === 'missing') fellBack = true;
+    else {
+      const text = prepared.promptPrefix ? `${prepared.promptPrefix}\n\n---\n\n${askPrompt}` : askPrompt;
+      run = {
+        label: prepared.name,
+        command: prepared.agent.command,
+        argv: [...prepared.args, toAgentPrompt(text, prepared.agent.id)],
+        release: prepared.release,
+      };
+    }
   }
 
-  const prompt = toAgentPrompt(buildAskPrompt(input), resolved.agent.id);
-  const cwd = input.repoPath ?? (deps.home ?? homedir)();
+  if (!run) {
+    const roster = await deps.agents();
+    const resolved = resolveHeadlessAgent(roster, input.agentId);
+    if (!resolved) {
+      return failure(
+        'No agent CLI with a headless mode is installed, so I cannot think about that one.',
+      );
+    }
+    run = {
+      label: resolved.agent.label,
+      command: resolved.agent.command,
+      argv: [...(resolved.agent.args ?? []), ...resolved.args, toAgentPrompt(askPrompt, resolved.agent.id)],
+      release: null,
+    };
+  }
 
-  const outcome = await runProcess<string>(
-    resolved.agent.command,
-    [...(resolved.agent.args ?? []), ...resolved.args, prompt],
-    cwd,
-    {
+  let outcome: Awaited<ReturnType<typeof runProcess<string>>>;
+  try {
+    outcome = await runProcess<string>(run.command, run.argv, cwd, {
       sink: textSink(),
       timeoutMs: deps.timeoutMs ?? COMPANION_ASK_TIMEOUT_MS,
       ...(deps.spawn ? { spawn: deps.spawn } : {}),
-    },
-  );
+    });
+  } finally {
+    // The private socket lives exactly as long as the one run that dialled it.
+    await run.release?.().catch(() => undefined);
+  }
 
   if (!outcome.ok) {
     return failure(
       outcome.reason === 'timed-out'
         ? 'That took too long, so I stopped waiting.'
-        : `I could not run ${resolved.agent.label}: ${outcome.hint}`,
+        : `I could not run ${run.label}: ${outcome.hint}`,
     );
   }
 
+  const fallback = fellBack ? { agentProfileFallback: 'deleted' as const } : {};
   const reply = parseAskReply(outcome.data, input.kind);
-  if (reply) return ok(reply);
+  if (reply) return ok({ ...reply, ...fallback });
 
   // Not a failure: the raw text is the only evidence of what went wrong, and
   // the companion has a sentence for exactly this. `raw` is capped again on the
@@ -477,5 +533,6 @@ export async function askCompanion(
   return ok<CompanionAskReply>({
     say: COMPANION_ASK_FALLBACK,
     raw: outcome.data.trim().slice(-COMPANION_ASK_RAW_CAP),
+    ...fallback,
   });
 }

@@ -1,9 +1,12 @@
 import { systemPreferences, safeStorage, utilityProcess } from 'electron';
 
+import { agentProfilePromptPath, getAgentProfile } from '@midnite/studio-feature-agent-profiles/main';
 import { companionMain } from '@midnite/studio-feature-companion/main';
 import type { FeatureMainContext } from '@midnite/studio-runtime';
 import type { MicrophoneAccess } from '@midnite/studio-shared';
 
+import { createProfileHeadlessRun } from '../agent-profiles/profile-headless';
+import { studioProfileMcpSockets } from '../agent-profiles/studio-profile-sockets';
 import { dispatchMcpCall } from '../mcp/dispatch';
 import { livePtyActivityCounts } from '../pty-service';
 import { listAgents } from '../terminal-service';
@@ -30,6 +33,13 @@ export function registerCompanionHandlers(): void {
     safeStorage,
     forkUtility: (modulePath, args, options) => utilityProcess.fork(modulePath, args, options),
     microphoneAccess: readMicrophoneAccess,
+    // Phase 154 Theme H: the companion thinking through a custom agent, over the agent's private MCP socket.
+    profileRun: createProfileHeadlessRun({
+      sockets: studioProfileMcpSockets(),
+      profile: getAgentProfile,
+      agents: listAgents,
+      promptPath: agentProfilePromptPath,
+    }),
   });
 }
 
