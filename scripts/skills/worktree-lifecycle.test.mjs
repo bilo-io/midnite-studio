@@ -83,6 +83,14 @@ describe('worktree-lifecycle.sh', () => {
     expect(existsSync(b)).toBe(true);
   });
 
+  it('accepts --no-llm as a documented no-op', () => {
+    const f = fixture();
+    const a = f.mk('a');
+    expect(f.run('remove', 'a', '--no-llm')).toMatch(/removed/);
+    expect(existsSync(a)).toBe(false);
+    expect(f.run('list', '--no-llm')).toContain('main');
+  });
+
   it('scratchpads lists slug, age, todo count and the Next line', () => {
     const f = fixture();
     f.mk('p', { pad: '## Next\n\n- ship the thing\n\n## Todo\n- [x] one\n- [ ] two\n' });

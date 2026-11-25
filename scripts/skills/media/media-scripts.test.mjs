@@ -94,4 +94,12 @@ describe('scaffold.sh', () => {
       rmSync(repo, { recursive: true, force: true });
     }
   });
+  it('accepts --no-llm as a no-op', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'scaffold-'));
+    try {
+      expect(execFileSync('bash', [join(here, 'scaffold.sh'), 'sfx', 'demo', '--repo', repo, '--no-llm'], { encoding: 'utf8' })).toContain('created');
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
 });
