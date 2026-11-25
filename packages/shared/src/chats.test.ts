@@ -233,6 +233,7 @@ describe('chats wire contract', () => {
   it('defaults a created chat to edit mode with no model or repo', () => {
     expect(schemas.ChatsCreateRequest.parse({ engine: 'claude' })).toEqual({
       engine: 'claude',
+      agentProfileId: null,
       model: null,
       mode: 'edit',
       repoId: null,

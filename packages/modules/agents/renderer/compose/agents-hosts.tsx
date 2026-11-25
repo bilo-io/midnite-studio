@@ -124,6 +124,7 @@ export const AGENTS_CHATS_HOST = {
     return useMemo(() => ({ agents: query.data?.agents ?? FALLBACK_ROSTER.agents, status: query.data?.status ?? FALLBACK_ROSTER.status }), [query.data]);
   },
   usePrimaryAgent: () => 'claude',
+  useAgentProfiles: () => [],
   useLocalModels: () => {
     const status = useOllamaStatus();
     const models = useOllamaModels();

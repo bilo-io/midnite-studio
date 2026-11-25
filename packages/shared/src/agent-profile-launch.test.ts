@@ -84,6 +84,17 @@ describe('buildProfileLaunchLine', () => {
     expect(resumed).not.toContain('$(cat');
   });
 
+  it('carries a first prompt as the last word, joined into the prompt file for argument delivery', () => {
+    const flag = buildProfileLaunchLine({ base: claude, model: 'default', promptPath: '/p.md', delivery: 'flag', mcpArgs: [], resume: false, prompt: "fix it's bug" });
+    expect(flag.endsWith(String.raw`--append-system-prompt-file '/p.md' 'fix it'\''s bug'`)).toBe(true);
+    const bare = buildProfileLaunchLine({ base: claude, model: 'default', promptPath: null, delivery: 'flag', mcpArgs: [], resume: false, prompt: 'go' });
+    expect(bare.endsWith(" 'go'")).toBe(true);
+    const codex = agent('codex');
+    const arg = buildProfileLaunchLine({ base: codex, model: 'default', promptPath: '/p.md', delivery: 'argument', mcpArgs: [], resume: false, prompt: 'go' });
+    expect(arg.endsWith(String.raw`"$(cat '/p.md'; printf '\n\n%s' 'go')"`)).toBe(true);
+    expect(arg.match(/\$\(cat/g)).toHaveLength(1);
+  });
+
   it('adds base.resume and places mcpArgs before the prompt words', () => {
     const base = { ...claude, resume: ['--continue'] };
     const line = buildProfileLaunchLine({ base, model: 'default', promptPath: '/p.md', delivery: 'flag', mcpArgs: ['--mcp-config', 'x'], resume: true });

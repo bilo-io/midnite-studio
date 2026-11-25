@@ -10,7 +10,7 @@ import { ChatEmptyState } from './chat-empty-state';
 import { ChatThread } from './chat-thread';
 import { ChatWidthToggle } from './chat-width-toggle';
 import { isStreaming, useChatsStore } from './chats-store';
-import { pickEngine, useChatEngines, wireModel, type ChatEngine } from './use-chat-engines';
+import { engineWire, pickEngine, useChatEngines, wireModel, type ChatEngine } from './use-chat-engines';
 import { useChatFiles, useChatSkills } from './use-composer-sources';
 import { CHAT_COLUMN, CHAT_GUTTER, ExplorerNotice, useFrameChrome, useToastStore } from '@midnite/studio-frame';
 import { IconButton, Tooltip } from './ui';
@@ -86,12 +86,16 @@ export function ChatPane({ selectedId, headerActions }: { selectedId: string | n
   const repoOptions = useMemo(() => (repos.data ?? []).map((r) => ({ id: r.id, name: r.name })), [repos.data]);
 
   const settings: ChatSettings = useMemo(() => {
-    if (chat) return { engine: chat.engine, model: chat.model, mode: chat.mode, repoId: chat.repoId };
-    const engine = pickEngine(engines, draft.engine, primaryAgent);
+    if (chat) {
+      // A chat whose custom agent is gone shows (and, in main, runs as) its base CLI.
+      const profileEngine = chat.agentProfileId ? engines.find((e) => e.id === chat.agentProfileId) : undefined;
+      return { engine: profileEngine?.id ?? chat.engine, model: chat.model, mode: chat.mode, repoId: chat.repoId };
+    }
+    const engine = pickEngine(engines, draft.agentProfileId ?? draft.engine, primaryAgent);
     return { engine: engine?.id ?? null, model: draft.model, mode: draft.mode, repoId: draft.repoId };
   }, [chat, draft, engines, primaryAgent]);
   const engine = engines.find((e) => e.id === settings.engine) ?? null;
-  const skills = useChatSkills(settings.engine, settings.repoId);
+  const skills = useChatSkills(engine?.profile?.baseAgentId ?? settings.engine, settings.repoId);
   const files = useChatFiles(settings.repoId, chat?.id ?? null);
 
   const onSettingsChange = useCallback(
@@ -119,7 +123,15 @@ export function ChatPane({ selectedId, headerActions }: { selectedId: string | n
     setAttachments([]);
     drafts.current.delete(key);
     // A brand-new chat has no engine until the first send resolves the default.
-    if (!chat && useChatsStore.getState().draft.engine === null && engine) useChatsStore.getState().setDraft({ engine: engine.id, model: wireModel(engine, settings.model) });
+    // A brand-new chat is created from the draft, so make it say what the picker shows (a deleted custom agent
+    // left in the draft must not be sent).
+    if (!chat && engine) {
+      const wire = engineWire(engine);
+      const draftNow = useChatsStore.getState().draft;
+      if (draftNow.engine === null || draftNow.engine !== wire.engine || draftNow.agentProfileId !== wire.agentProfileId) {
+        useChatsStore.getState().setDraft({ ...wire, model: wireModel(engine, settings.model) });
+      }
+    }
     void useChatsStore
       .getState()
       .sendMessage({ text: sent.text, ...(sent.attachments.length > 0 ? { attachments: sent.attachments } : {}) })
@@ -304,11 +316,16 @@ export function ChatPane({ selectedId, headerActions }: { selectedId: string | n
 }
 
 /** A picker selection → the wire patch: an engine change resets the model to that engine's default. */
-function normalise(patch: Partial<ChatSettings>, engines: readonly ChatEngine[]): { engine?: string; model?: string | null; mode?: ChatMode; repoId?: string | null } {
-  const out: { engine?: string; model?: string | null; mode?: ChatMode; repoId?: string | null } = {};
+function normalise(
+  patch: Partial<ChatSettings>,
+  engines: readonly ChatEngine[],
+): { engine?: string; agentProfileId?: string | null; model?: string | null; mode?: ChatMode; repoId?: string | null } {
+  const out: { engine?: string; agentProfileId?: string | null; model?: string | null; mode?: ChatMode; repoId?: string | null } = {};
   if (patch.engine !== undefined && patch.engine !== null) {
-    out.engine = patch.engine;
     const next = engines.find((e) => e.id === patch.engine);
+    // A custom agent goes over the wire as its base CLI plus its id.
+    if (next) Object.assign(out, engineWire(next));
+    else out.engine = patch.engine;
     out.model = next ? wireModel(next, patch.model ?? null) : null;
   } else if (patch.model !== undefined) {
     out.model = patch.model;
@@ -340,6 +357,7 @@ function ChatHeader({
       </h2>
       <span className="shrink-0 text-muted-foreground">
         {engine?.label ?? chat.engine}
+        {chat.agentProfileId && engine?.profile === undefined ? ' (custom agent deleted)' : ''}
         {chat.repoName ? ` · ${chat.repoName}` : ''}
       </span>
       {chat.worktree ? <WorktreeChip chat={chat} worktree={chat.worktree} /> : null}

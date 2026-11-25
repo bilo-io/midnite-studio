@@ -31,7 +31,7 @@ const fileExists = async (path: string): Promise<boolean> => {
 export function createProfileLaunchService(seams: ProfileLaunchSeams): AgentProfileLaunchService {
   const exists = seams.exists ?? fileExists;
   return {
-    async prepare(profile, { cwd, resume }) {
+    async prepare(profile, { cwd, resume, prompt }) {
       const base = (await seams.agents()).find((agent) => agent.id === profile.baseAgentId);
       if (!base) throw new Error(`The base CLI ${profile.baseAgentId} is not in the roster.`);
       const path = seams.promptPath(profile.id);
@@ -44,6 +44,7 @@ export function createProfileLaunchService(seams: ProfileLaunchSeams): AgentProf
         delivery: promptDeliveryFor(base.id),
         mcpArgs,
         resume,
+        prompt,
       });
       return { launchId, line };
     },

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
-import { CHAT_ENGINE_OLLAMA, agentHeadlessArgs, loopModelsFor, type AgentDefinition, type AgentStatus } from '@midnite/studio-shared';
+import { CHAT_ENGINE_OLLAMA, agentHeadlessArgs, loopModelsFor, type AgentDefinition, type AgentProfile, type AgentStatus } from '@midnite/studio-shared';
+import { LuBot } from 'react-icons/lu';
 import { SiOllama } from 'react-icons/si';
 
 import { useChatsHost } from './host';
@@ -24,6 +25,8 @@ export type ChatEngine = {
   id: string;
   label: string;
   kind: 'agent' | 'ollama';
+  /** Set for a custom agent (Phase 154): `id` is the profile's id and `baseAgentId` the CLI it runs on. */
+  profile?: { id: string; baseAgentId: string };
   icon: IconComponent;
   accent?: string;
   /** `false` greys the engine out in the picker, with `reason` as its title. */
@@ -60,6 +63,31 @@ export function agentEngine(
     models: models.length > 1 ? models : [],
     defaultModelId: AGENT_DEFAULT_MODEL,
   };
+}
+
+/** A custom agent as an engine: its base CLI's availability, its own model (so no model picker), its accent. */
+export function profileEngine(
+  profile: Pick<AgentProfile, 'id' | 'name' | 'baseAgentId' | 'accent' | 'description'>,
+  base: ChatEngine | undefined,
+): ChatEngine {
+  const usable = base !== undefined && base.available;
+  return {
+    id: profile.id,
+    label: profile.name,
+    kind: 'agent',
+    profile: { id: profile.id, baseAgentId: profile.baseAgentId },
+    icon: base?.icon ?? LuBot,
+    accent: profile.accent,
+    available: usable,
+    ...(usable ? {} : { reason: base ? (base.reason ?? `${profile.name} runs on ${base.label}, which is unavailable`) : `${profile.name} runs on ${profile.baseAgentId}, which is not on the roster or has no headless mode` }),
+    models: [],
+    defaultModelId: AGENT_DEFAULT_MODEL,
+  };
+}
+
+/** What a picker selection sends: a custom agent's base CLI plus its id, or a roster engine alone. */
+export function engineWire(engine: ChatEngine): { engine: string; agentProfileId: string | null } {
+  return engine.profile ? { engine: engine.profile.baseAgentId, agentProfileId: engine.profile.id } : { engine: engine.id, agentProfileId: null };
 }
 
 export function ollamaEngine(opts: { reachable: boolean; models: readonly string[] }): ChatEngine {
@@ -113,13 +141,13 @@ export function useChatEngines(): { engines: ChatEngine[]; primaryAgent: string 
   const { agents, status } = host.useAgentRoster();
   const primaryAgent = host.usePrimaryAgent();
   const { reachable, models: modelNames } = host.useLocalModels();
+  const profiles = host.useAgentProfiles();
 
-  const engines = useMemo(
-    () => [
-      ...agents.filter((a) => agentHeadlessArgs(a.id) !== null).map((a) => agentEngine(a, status, host.resolveAgentIcon)),
-      ollamaEngine({ reachable, models: modelNames }),
-    ],
-    [agents, status, reachable, modelNames, host],
-  );
+  const engines = useMemo(() => {
+    const roster = agents.filter((a) => agentHeadlessArgs(a.id) !== null).map((a) => agentEngine(a, status, host.resolveAgentIcon));
+    // "Your agents" first, like every other picker; each is as available as the CLI it runs on.
+    const yours = profiles.map((p) => profileEngine(p, roster.find((e) => e.id === p.baseAgentId)));
+    return [...yours, ...roster, ollamaEngine({ reachable, models: modelNames })];
+  }, [agents, status, reachable, modelNames, profiles, host]);
   return { engines, primaryAgent };
 }

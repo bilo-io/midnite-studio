@@ -14,9 +14,29 @@ describe('primarySelection', () => {
   });
 });
 
+describe('custom agents', () => {
+  it('a selected profile sets only agentProfileId on the draft; a built-in clears it', () => {
+    expect(primarySelection('claude', {}, 'profile-rev')).toEqual({ agentId: 'claude', model: null, profileId: 'profile-rev' });
+    expect(chatDraftFor({ agentId: 'claude', model: null, profileId: 'profile-rev' })).toEqual({ agentProfileId: 'profile-rev', model: null });
+  });
+
+  it('follows the title bar choosing and clearing a custom agent, leaving media prefs alone', () => {
+    useChatsStore.getState().setDraft({ engine: 'codex', agentProfileId: null, model: null });
+    useModelPrefs.getState().set({ engineId: 'ollama' });
+    useUiStore.getState().setPrimaryAgentAndModel('codex', null);
+    const { unmount } = renderHook(() => useFollowPrimaryAgent());
+    useUiStore.getState().setPrimaryAgentProfile('profile-rev');
+    expect(useChatsStore.getState().draft).toMatchObject({ engine: 'codex', agentProfileId: 'profile-rev' });
+    expect(useModelPrefs.getState().engineId).toBe('ollama');
+    useUiStore.getState().setPrimaryAgent('codex');
+    expect(useChatsStore.getState().draft.agentProfileId).toBeNull();
+    unmount();
+  });
+});
+
 describe('derivations', () => {
   it('chat draft follows agent and wire model', () => {
-    expect(chatDraftFor({ agentId: 'claude', model: 'opus-5' })).toEqual({ engine: 'claude', model: 'opus-5' });
+    expect(chatDraftFor({ agentId: 'claude', model: 'opus-5' })).toEqual({ engine: 'claude', agentProfileId: null, model: 'opus-5' });
   });
   it('model prefs keep a known loop model, else default', () => {
     expect(modelPrefsFor({ agentId: 'claude', model: 'opus-5' })).toEqual({ engineId: 'claude', agentModel: 'opus-5' });

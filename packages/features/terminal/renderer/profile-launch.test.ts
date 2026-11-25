@@ -23,18 +23,30 @@ describe('launchProfileSession', () => {
       }
     });
     const session = await launchProfileSession(prepare, profile, target);
+    if (session === 'missing' || session === null) throw new Error('expected a session');
     unsub();
 
     expect(prepare).toHaveBeenCalledWith({ profileId: 'ap-1', cwd: '/repos/demo', resume: false });
     expect(session).toMatchObject({ kind: 'agent', agentId: 'claude', profileId: 'ap-1', title: 'demo', cwd: '/repos/demo' });
     expect(seenInSameTick).toEqual({ pending: "claude --append-system-prompt-file '/p.md'\r", launch: 'abc123' });
-    expect(useTerminalStore.getState().activeId).toBe(session?.id);
+    expect(useTerminalStore.getState().activeId).toBe(session.id);
   });
 
   it('opens nothing when prepare fails or the agent is gone', async () => {
     expect(await launchProfileSession(async () => null, profile, target)).toBeNull();
-    expect(await launchProfileSession(async () => 'missing' as const, profile, target)).toBeNull();
+    expect(await launchProfileSession(async () => 'missing' as const, profile, target)).toBe('missing');
     expect(useTerminalStore.getState().sessions).toEqual([]);
+  });
+
+  it('carries a hand-off prompt to main and types the line without a Return unless autoSend', async () => {
+    const prepare = vi.fn(async () => ({ launchId: 'l1', line: "claude 'do it'" }));
+    const typed = await launchProfileSession(prepare, profile, { ...target, prompt: 'do it' });
+    expect(prepare).toHaveBeenCalledWith({ profileId: 'ap-1', cwd: '/repos/demo', resume: false, prompt: 'do it' });
+    if (typed === 'missing' || typed === null) throw new Error('expected a session');
+    expect(useTerminalStore.getState().pendingInput[typed.id]).toBe("claude 'do it'");
+    const sent = await launchProfileSession(prepare, profile, { ...target, prompt: 'do it', autoSend: true });
+    if (sent === 'missing' || sent === null) throw new Error('expected a session');
+    expect(useTerminalStore.getState().pendingInput[sent.id]).toBe("claude 'do it'\r");
   });
 
   it('never types the base command for a profile session', () => {

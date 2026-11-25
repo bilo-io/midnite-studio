@@ -40,10 +40,10 @@ import {
   switchCompanionProfile,
 } from './profiles';
 import { vocabularyFor, withCompanionProfiles } from './vocabulary';
-import { askProfileField, deletedAgentNotice, refreshCustomAgents, withCustomAgents } from './custom-agents';
+import { askProfileField, customAgent, deletedAgentNotice, refreshCustomAgents, withCustomAgents } from './custom-agents';
 import { showToast } from './ext';
 import { skillHandoff } from './ext';
-import { startAgent } from './ext';
+import { skillHandoffAsProfile, startAgent, startProfileAgent } from './ext';
 import { useTerminalStore } from './ext';
 import { bridge } from '@midnite/studio-frame';
 import { useCompanionStore } from './companion-store';
@@ -155,38 +155,46 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
 
   return {
     ...base,
-    startSkill: (opts) => {
+    startSkill: async (opts) => {
       const ui = useUiStore.getState();
-      return skillHandoff(
-        {
-          skillId: opts.skillId,
-          ...(repo.id === null ? {} : { repoId: repo.id }),
-          ...(repo.path === null ? {} : { cwd: repo.path }),
-          ...(opts.body === undefined ? {} : { body: opts.body }),
-          autoSend: opts.autoSend,
-        },
-        {
-          skills: ui.agentSkills as Record<string, string | undefined>,
-          primaryAgentId: ui.primaryAgent,
-          agents: rosterCache,
-        },
-      );
+      const options = {
+        skillId: opts.skillId,
+        ...(repo.id === null ? {} : { repoId: repo.id }),
+        ...(repo.path === null ? {} : { cwd: repo.path }),
+        ...(opts.body === undefined ? {} : { body: opts.body }),
+        autoSend: opts.autoSend,
+      };
+      const context = (primaryAgentId: string) => ({
+        skills: ui.agentSkills as Record<string, string | undefined>,
+        primaryAgentId,
+        agents: rosterCache,
+      });
+      // Phase 154 follow-up: a custom agent runs the hand-off through `agentProfile:prepareLaunch`, so its
+      // prompt, model and tool limits apply. A deleted one falls back to its base agent and says so.
+      const profile = ui.primaryAgentProfileId === null ? null : customAgent(ui.primaryAgentProfileId);
+      if (ui.primaryAgentProfileId !== null && profile !== null) {
+        const started = await skillHandoffAsProfile(options, context(ui.primaryAgent), profile);
+        if (started !== 'missing') return started;
+      }
+      const notice = ui.primaryAgentProfileId === null ? undefined : noteDeletedAgent(profile?.baseAgentId);
+      const session = skillHandoff(options, context(profile?.baseAgentId ?? ui.primaryAgent));
+      return session && notice !== undefined ? { id: session.id, notice } : session;
     },
-    startVerbatim: (text) => {
+    startVerbatim: async (text) => {
       if (repo.id === null || repo.path === null) return null;
       const ui = useUiStore.getState();
-      const agent =
-        rosterCache.find((entry) => entry.id === ui.primaryAgent) ?? rosterCache[0];
+      const profile = ui.primaryAgentProfileId === null ? null : customAgent(ui.primaryAgentProfileId);
+      const target = { repoId: repo.id, cwd: repo.path, title: 'Companion', prompt: text, autoSend: false };
+      if (ui.primaryAgentProfileId !== null && profile !== null) {
+        const started = await startProfileAgent({ ...target, profile });
+        if (started !== 'missing') return started;
+      }
+      const notice = ui.primaryAgentProfileId === null ? undefined : noteDeletedAgent(profile?.baseAgentId);
+      const baseId = profile?.baseAgentId ?? ui.primaryAgent;
+      const agent = rosterCache.find((entry) => entry.id === baseId) ?? rosterCache[0];
       if (!agent) return null;
-      return startAgent({
-        repoId: repo.id,
-        cwd: repo.path,
-        title: 'Companion',
-        prompt: text,
-        agentId: agent.id,
-        command: agent.command,
-        autoSend: false,
-      });
+      const session = startAgent({ ...target, agentId: agent.id, command: agent.command });
+      return session && notice !== undefined ? { id: session.id, notice } : session;
     },
     ask: async (req) => {
       const ui = useUiStore.getState();
@@ -376,10 +384,11 @@ async function currentRepo(): Promise<RepoSnapshot> {
  * Phase 154 Theme H: the companion's custom agent is gone, so main answered with the built-in agent. Clear
  * the choice (the title-bar pill goes back to the built-in), show it, and return the sentence to say.
  */
-function noteDeletedAgent(): string {
+function noteDeletedAgent(baseAgentId?: string): string {
   const ui = useUiStore.getState();
   ui.setPrimaryAgentProfile(null);
-  const label = rosterCache.find((agent) => agent.id === ui.primaryAgent)?.label ?? ui.primaryAgent;
+  const fallbackId = baseAgentId ?? ui.primaryAgent;
+  const label = rosterCache.find((agent) => agent.id === fallbackId)?.label ?? fallbackId;
   const notice = deletedAgentNotice(label);
   showToast({ message: notice });
   return notice;

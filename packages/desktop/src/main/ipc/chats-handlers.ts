@@ -11,7 +11,11 @@ import { getConfiguredOllamaHost, ollamaChatStream, resolveOllamaBaseUrl } from 
 import { engineKeyEnv, type FeatureMainContext } from '@midnite/studio-runtime';
 import { EVENT_CHANNELS } from '@midnite/studio-shared';
 
+import { agentProfilePromptPath, getAgentProfile } from '@midnite/studio-feature-agent-profiles/main';
+
 import { recordAudit } from '../agent-audit';
+import { createProfileHeadlessRun } from '../agent-profiles/profile-headless';
+import { studioProfileMcpSockets } from '../agent-profiles/studio-profile-sockets';
 import { agentHistoryReadsEnabled } from '../settings-mirror';
 import { mcpServersHeldForRun } from '../mcp-trust-wiring';
 import { outboundSecrets } from '../outbound-secrets';
@@ -47,6 +51,18 @@ const deps: ChatsRuntimeDeps = {
   engineEnv: async (agentId) => engineKeyEnv((await listAgents()).find((a) => a.id === agentId), readAgentApiKey),
   mcpGate: (repoId) => mcpServersHeldForRun(repoId),
   outboundSecrets,
+  // Phase 154 follow-up: a chat turn under a custom agent, over the agent's private MCP socket. Built per
+  // turn so the sockets (which read `userData`) are never touched before the app is ready.
+  profileRun: async (profileId, cwd) => {
+    const run = await createProfileHeadlessRun({
+      sockets: studioProfileMcpSockets(),
+      profile: getAgentProfile,
+      agents: listAgents,
+      promptPath: agentProfilePromptPath,
+      runId: (launchId) => `chat-${launchId}`,
+    })(profileId, cwd);
+    return run.kind === 'ready' ? { ...run, extraArgs: run.extraArgs ?? [] } : run;
+  },
   ollamaStream: async (req) =>
     ollamaChatStream(
       { model: req.model, messages: req.messages },

@@ -49,7 +49,7 @@ export const MAX_AGENT_IMPORT_BYTES = 1_000_000;
  * and returns the `launchId` the pty create call carries as `profileLaunchId`.
  */
 export type AgentProfileLaunchService = {
-  prepare(profile: AgentProfile, req: { cwd: string; resume: boolean }): Promise<{ launchId: string; line: string }>;
+  prepare(profile: AgentProfile, req: { cwd: string; resume: boolean; prompt?: string | undefined }): Promise<{ launchId: string; line: string }>;
 };
 
 /** The native dialogs the feature opens, bound by the composer because a dialog is Electron's. */
@@ -171,12 +171,12 @@ export const agentProfilesMain = defineFeatureMain<AgentProfilesMainServices>({
     ipc.handle(
       CHANNELS.agentProfilePrepareLaunch,
       schemas.AgentProfilePrepareLaunchRequest,
-      ({ profileId, cwd, resume }) =>
+      ({ profileId, cwd, resume, prompt }) =>
         guarded(async () => {
           if (!services.launch) return failure('Launching needs Midnite Studio.');
           const profile = await getAgentProfile(profileId);
           if (!profile) return failure(AGENT_PROFILE_NOT_FOUND);
-          return ok(await services.launch.prepare(profile, { cwd, resume }));
+          return ok(await services.launch.prepare(profile, { cwd, resume, prompt }));
         }),
       (issue) => failure(issue),
     );
