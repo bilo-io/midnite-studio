@@ -100,10 +100,14 @@ describe('createProfileHeadlessRun', () => {
   });
 
   it('a council seat (#1699) binds under its own run id and points at the seat, not the title bar', async () => {
-    const { run, bind } = setup({ council: true });
+    const { run, bind, runs } = setup({ council: true });
     const ready = await run('profile-rev', '/home');
     expect(bind).toHaveBeenCalledWith('abc123', councilSeatRunId('abc123'));
-    expect(ready.kind).toBe('ready');
+    if (ready.kind !== 'ready') throw new Error(ready.kind);
+    // The breaker finds the seat's agent under the seat's own run id, until the seat releases it.
+    expect(runs.lookup(councilSeatRunId('abc123'))).toMatchObject({ profileId: 'profile-rev' });
+    await ready.release();
+    expect(runs.lookup(councilSeatRunId('abc123'))).toBeNull();
 
     const missingBase = setup({ council: true, roster: BUILTIN_AGENTS.filter((agent) => agent.id !== 'claude') });
     const refused = await missingBase.run('profile-rev', '/home');

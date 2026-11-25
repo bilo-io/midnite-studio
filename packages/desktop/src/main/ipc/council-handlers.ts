@@ -4,6 +4,7 @@ import { resolveOllamaBaseUrl } from '@midnite/studio-feature-models/main';
 import { engineKeyEnv, type FeatureMainContext } from '@midnite/studio-runtime';
 
 import { recordAudit } from '../agent-audit';
+import { studioHeadlessRuns } from '../agent-profiles/headless-run-profiles';
 import { councilSeatRunId, createProfileHeadlessRun } from '../agent-profiles/profile-headless';
 import { studioProfileMcpSockets } from '../agent-profiles/studio-profile-sockets';
 import { outboundSecrets } from '../outbound-secrets';
@@ -47,6 +48,8 @@ export function registerCouncilHandlers(): void {
         agents: listAgents,
         promptPath: agentProfilePromptPath,
         runId: councilSeatRunId,
+        // #1697: the breaker finds the seat's custom agent, so its limits apply to the headless run.
+        runs: studioHeadlessRuns(),
         pickHint: 'Pick another agent for this seat.',
       }),
     },
