@@ -72,7 +72,7 @@ export function ChatsExplorer({
 
   const engineOptions = useMemo<MultiSelectOption[]>(() => {
     const counts = new Map<string, number>();
-    for (const c of chats) counts.set(c.engine, (counts.get(c.engine) ?? 0) + 1);
+    for (const c of chats) counts.set(c.agentProfileId ?? c.engine, (counts.get(c.agentProfileId ?? c.engine) ?? 0) + 1);
     return [...counts.keys()]
       .sort((a, b) => (engineMeta(a)?.label ?? a).localeCompare(engineMeta(b)?.label ?? b))
       .map((id) => {
@@ -248,7 +248,7 @@ export function ChatsExplorer({
                 <ChatRow
                   key={chat.id}
                   chat={chat}
-                  engine={engineMeta(chat.engine)}
+                  engine={engineMeta(chat.agentProfileId ?? chat.engine) ?? engineMeta(chat.engine)}
                   selected={chat.id === selectedId}
                   now={now}
                   onSelect={() => onSelect(chat.id)}

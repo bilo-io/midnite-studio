@@ -29,29 +29,31 @@ import { bridge, noBridge } from '@midnite/studio-frame';
  * selected id ages out the moment its chat is deleted, like Sessions'.
  */
 
-export type ChatDraft = { engine: string | null; model: string | null; mode: ChatMode; repoId: string | null };
+/** `engine` is a roster agent id (a custom agent's base CLI); `agentProfileId` is set when one is chosen. */
+export type ChatDraft = { engine: string | null; agentProfileId: string | null; model: string | null; mode: ChatMode; repoId: string | null };
 
 const PREFS_KEY = 'midnite.chats.composer';
-const DEFAULT_DRAFT: ChatDraft = { engine: null, model: null, mode: DEFAULT_CHAT_MODE, repoId: null };
+const DEFAULT_DRAFT: ChatDraft = { engine: null, agentProfileId: null, model: null, mode: DEFAULT_CHAT_MODE, repoId: null };
 
-function readPrefs(): Pick<ChatDraft, 'engine' | 'model' | 'mode'> {
+function readPrefs(): Pick<ChatDraft, 'engine' | 'agentProfileId' | 'model' | 'mode'> {
   try {
     const raw = window.localStorage.getItem(PREFS_KEY);
-    if (!raw) return { engine: null, model: null, mode: DEFAULT_CHAT_MODE };
+    if (!raw) return { engine: null, agentProfileId: null, model: null, mode: DEFAULT_CHAT_MODE };
     const parsed = JSON.parse(raw) as Partial<ChatDraft>;
     return {
       engine: typeof parsed.engine === 'string' ? parsed.engine : null,
+      agentProfileId: typeof parsed.agentProfileId === 'string' && /^profile-[A-Za-z0-9_-]+$/.test(parsed.agentProfileId) ? parsed.agentProfileId : null,
       model: typeof parsed.model === 'string' ? parsed.model : null,
       mode: parsed.mode === 'ask' || parsed.mode === 'edit' ? parsed.mode : DEFAULT_CHAT_MODE,
     };
   } catch {
-    return { engine: null, model: null, mode: DEFAULT_CHAT_MODE };
+    return { engine: null, agentProfileId: null, model: null, mode: DEFAULT_CHAT_MODE };
   }
 }
 
 function writePrefs(draft: ChatDraft): void {
   try {
-    window.localStorage.setItem(PREFS_KEY, JSON.stringify({ engine: draft.engine, model: draft.model, mode: draft.mode }));
+    window.localStorage.setItem(PREFS_KEY, JSON.stringify({ engine: draft.engine, agentProfileId: draft.agentProfileId, model: draft.model, mode: draft.mode }));
   } catch {
     // Private window, blocked storage — the page renders fine without it.
   }
@@ -199,7 +201,7 @@ type ChatsState = {
   sendMessage: (input: SendInput) => Promise<GitOpResult<{ messageId: string }>>;
   retry: (chatId: string, assistantMessageId: string) => Promise<GitOpResult<{ messageId: string }>>;
   cancel: (chatId: string) => Promise<void>;
-  updateChat: (chatId: string, patch: { title?: string; pinned?: boolean; engine?: string; model?: string | null; mode?: ChatMode; repoId?: string | null }) => Promise<GitOpResult>;
+  updateChat: (chatId: string, patch: { title?: string; pinned?: boolean; engine?: string; agentProfileId?: string | null; model?: string | null; mode?: ChatMode; repoId?: string | null }) => Promise<GitOpResult>;
   removeChats: (ids: readonly string[]) => Promise<GitOpResult>;
   resolveChanges: (chatId: string, changeSetId: string, decisions: ChatChangeDecision[]) => Promise<GitOpResult<{ changeSet: ChatChangeSet }>>;
 };
@@ -292,7 +294,7 @@ export const useChatsStore = create<ChatsState>()((set, get) => ({
     if (chatId === null) {
       const draft = get().draft;
       if (draft.engine === null) return { ok: false, kind: 'error', message: 'Pick an engine first.' };
-      const created = await api.chats.create({ engine: draft.engine, model: draft.model, mode: draft.mode, repoId: draft.repoId });
+      const created = await api.chats.create({ engine: draft.engine, agentProfileId: draft.agentProfileId, model: draft.model, mode: draft.mode, repoId: draft.repoId });
       if (!created.ok) return created;
       chatId = created.value.chat.id;
       set((s) => ({ chats: { ...s.chats, [chatId!]: created.value.chat }, selectedId: chatId }));
