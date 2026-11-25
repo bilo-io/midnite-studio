@@ -62,8 +62,11 @@ const AGENT_OUTPUT_CAP_BYTES = 200_000;
 export type AgentNodeOutput = {
   output: string;
   truncated: boolean;
-  /** The node's custom agent was deleted, so it ran as its roster agent (#1699). */
-  agentProfileFallback?: 'deleted';
+  /**
+   * The node's custom agent could not run as itself, so it ran as its roster agent: `deleted` (#1699), or
+   * `unavailable` — this app has no custom-agents port (#1713).
+   */
+  agentProfileFallback?: 'deleted' | 'unavailable';
 };
 
 /** What a roster agent node needs to launch — the subset every done-marker watcher shares regardless of what marker grammar it watches for. */
@@ -126,7 +129,7 @@ export async function runAgentToDoneMarker<T>(
 
   // #1699: a custom agent's whole line comes from main's launch service (its prompt, model and private
   // tool socket), with this node's task as the first prompt. Only a deleted one falls back to the roster.
-  let profileFallback = false;
+  let profileFallback: 'deleted' | 'unavailable' | undefined;
   const profilePorts = config.agentProfileId ? workflowsPorts().agentProfiles : undefined;
   if (config.agentProfileId && profilePorts) {
     const prepared = await profilePorts.prepareLaunch(config.agentProfileId, cwd, prompt);
@@ -146,9 +149,12 @@ export async function runAgentToDoneMarker<T>(
       });
       if (!started.ok) return { ok: false, error: started.message };
       await context.reportSessionId(started.session.id);
-      return watchSession(started.ptyId, prepared.line, context, deps, watch, false);
+      return watchSession(started.ptyId, prepared.line, context, deps, watch, undefined);
     }
-    profileFallback = true;
+    profileFallback = 'deleted';
+  } else if (config.agentProfileId) {
+    // An app with no custom-agents port (the Agents app) runs the node as its roster agent, and says so.
+    profileFallback = 'unavailable';
   }
 
   const roster = await deps.listAgents();
@@ -200,7 +206,7 @@ function watchSession<T>(
   context: Pick<Parameters<NodeExecutor>[1], 'signal'>,
   deps: NodePtyDeps,
   watch: AgentDoneMarkerWatch<T>,
-  profileFallback: boolean,
+  profileFallback: 'deleted' | 'unavailable' | undefined,
 ): Promise<NodeOutcome> {
   return new Promise((resolve) => {
     let buffer = new Uint8Array(0);
@@ -222,7 +228,7 @@ function watchSession<T>(
       const output: AgentNodeOutput = {
         output: cleanCapturedOutput(new TextDecoder().decode(buffer), invocation),
         truncated,
-        ...(profileFallback ? { agentProfileFallback: 'deleted' as const } : {}),
+        ...(profileFallback ? { agentProfileFallback: profileFallback } : {}),
       };
       finish(watch.toOutcome(marker, output));
     };

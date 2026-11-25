@@ -34,6 +34,14 @@ const STATUS_TO_ACTIVITY: Record<WorkflowNodeRun['status'], ActivityStatus> = {
   waiting: 'waiting',
 };
 
+/** Why a node ran as its roster agent instead of its custom agent (#1699, #1713), when its output says so. */
+function profileFallbackNotice(output: unknown): string | null {
+  const fallback = output && typeof output === 'object' ? (output as { agentProfileFallback?: unknown }).agentProfileFallback : undefined;
+  if (fallback === 'deleted') return 'This node\'s custom agent was deleted, so it ran as its roster agent.';
+  if (fallback === 'unavailable') return 'This app has no custom agents, so the node ran as its roster agent, not as the saved agent.';
+  return null;
+}
+
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   const seconds = ms / 1000;
@@ -105,6 +113,13 @@ export function RunNodeDetail({ node }: { node: WorkflowNodeRun | null }) {
               {node.error}
             </pre>
           </div>
+        ) : null}
+
+        {profileFallbackNotice(node.output) ? (
+          <p role="status" className="flex items-start gap-1.5 rounded-md bg-muted px-2 py-1.5 text-muted-foreground">
+            <LuTriangleAlert aria-hidden className="mt-0.5 h-3 w-3 shrink-0" />
+            {profileFallbackNotice(node.output)}
+          </p>
         ) : null}
 
         {node.output !== undefined ? (

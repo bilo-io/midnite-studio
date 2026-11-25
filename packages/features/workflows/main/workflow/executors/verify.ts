@@ -213,7 +213,7 @@ async function runJsonPathCheck(
 }
 
 async function runAgentCheck(
-  config: { check: 'agent'; agentId: string; prompt: string; model?: string },
+  config: { check: 'agent'; agentId: string; agentProfileId?: string; prompt: string; model?: string },
   node: Parameters<NodeExecutor>[0],
   context: ExecutorContext,
   agentDeps: NodePtyDeps,
@@ -222,7 +222,12 @@ async function runAgentCheck(
   if (config.prompt.trim() === '') return { ok: false, error: 'This node has no prompt for its check.' };
 
   return runAgentToDoneMarker(
-    { agentId: config.agentId, prompt: config.prompt, model: config.model },
+    {
+      agentId: config.agentId,
+      prompt: config.prompt,
+      model: config.model,
+      ...(config.agentProfileId === undefined ? {} : { agentProfileId: config.agentProfileId }),
+    },
     node,
     context,
     agentDeps,
@@ -231,7 +236,7 @@ async function runAgentCheck(
       parseMarker: parseAgentDoneMarker,
       // A `fail` marker is a verdict, not an executor failure: it settles
       // the `fail` port with evidence, unlike the plain agent node.
-      toOutcome: (marker) => {
+      toOutcome: (marker, output) => {
         const passed = marker === 'ok';
         const evidence: WorkflowVerifyEvidence = {
           check: 'agent',
@@ -239,6 +244,7 @@ async function runAgentCheck(
           failed: passed ? 0 : 1,
           message: passed ? 'Agent reported ok.' : 'Agent reported it could not complete this task.',
           failures: passed ? [] : ['Agent reported it could not complete this task.'],
+          ...(output.agentProfileFallback ? { agentProfileFallback: output.agentProfileFallback } : {}),
         };
         return { ok: true, output: evidence, port: passed ? 'pass' : 'fail' };
       },
