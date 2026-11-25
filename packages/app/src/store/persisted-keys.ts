@@ -172,6 +172,7 @@ export const SESSION_STATE_KEYS = [
   'browserOpen', // whether a panel is currently showing
   'mediaSpeechOn', // toggled from the Media thread's own composer row, not a settings form
   'cardSkillByTask', // last-chosen skill per Projects card, set from the card itself — not a settings form
+  'loopAgentProfiles', // custom agent per loop (#1699), picked in the loop's own provider select — not a settings form
   'collapsedAccordionSections', // folded Accordion section ids — disclosure state
   'collapsedNavSections', // folded-section ids — disclosure state
   'collapsedRepoGroups', // folded-section ids — disclosure state
