@@ -6,15 +6,18 @@
 //
 //   node scripts/skills/sync-skills.mjs                  audit: print per-skill status, exit 1 on drift
 //   node scripts/skills/sync-skills.mjs --json           machine-readable audit
+//   node scripts/skills/sync-skills.mjs --lint [--json]  check every skill's script references and flags, and byte drift of the
+//                                                        non-SKILL files between mirrors; exit 1 on any problem
 //   node scripts/skills/sync-skills.mjs --write          propagate bodies from the source mirror
 //   node scripts/skills/sync-skills.mjs --write --from claude --skill midnite-sitrep
 //
+// `--no-llm` is accepted everywhere as a documented no-op: this script has no LLM use.
 // Statuses: `identical` (byte-equal), `mirror-variant` (equal once the intentional differences are
 // normalised away), `drift` (real content differs), `missing` (absent from a mirror).
 // `--write` replaces each target SKILL.md BODY with the source body and keeps the target's own
 // frontmatter, so Claude-only keys survive; a missing skill dir is created from the source.
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const MIRRORS = ['.agents', '.claude'];
@@ -101,11 +104,107 @@ export function write(root, { source = '.agents', only } = {}) {
   return written;
 }
 
+// ---- --lint ---------------------------------------------------------------------------------------
+// Every skill that names a script must name one that exists, with flags that script accepts. The flag
+// check is a static scan of the script's source for the literal `--flag` (a `case` arm, an `argv.includes`
+// or a documented no-op comment all count), plus the sibling `.mjs` of a `.sh` wrapper. It is static on
+// purpose: running `--help` on thirty scripts would execute them, and several have no help at all.
+
+// Only `scripts/skills/` is ours to check: a bare `scripts/render.mjs` or `scripts/tracker-check.mjs` in a
+// template belongs to the repo the skill is installed into.
+// `--no-llm` is the one flag a skill attaches to a whole step rather than to one command.
+const GLOBAL_FLAGS = ['--no-llm'];
+const SKILL_ROOTS = ['.agents/skills', '.claude/skills', 'templates/midnite/.agents/skills', 'templates/midnite/.claude/skills', 'templates/media-video/.agents/skills', 'templates/media-video/.claude/skills', 'templates/media-game/skills'];
+const SCRIPT_RE = /[\w$.{}<>*/-]*(?:scripts\/skills\/[\w$.{}<>*/-]+|\$\{?\w+\}?[\w$.{}<>*/-]*)\.(?:mjs|sh|js)\b/g;
+
+function walk(dir, out = []) {
+  if (!existsSync(dir)) return out;
+  for (const n of readdirSync(dir)) {
+    const f = join(dir, n);
+    if (statSync(f).isDirectory()) walk(f, out);
+    else out.push(f);
+  }
+  return out;
+}
+
+/** `--flag` tokens a script's source mentions (and its `.mjs` sibling when it is a `.sh` wrapper). */
+export function acceptedFlags(file) {
+  let text = readFileSync(file, 'utf8');
+  if (file.endsWith('.sh')) {
+    const sib = file.replace(/\.sh$/, '.mjs');
+    if (existsSync(sib)) text += readFileSync(sib, 'utf8');
+  }
+  return new Set(text.match(/--[a-z][a-z0-9-]*/g) ?? []);
+}
+
+/** Script references in one SKILL.md: `[{line, script, flags}]`. Flags come from the same inline code span
+ * or fenced line as the script, plus bare-flag spans (`Add `--no-llm``) on a line that names scripts. */
+export function extractRefs(text) {
+  const refs = [];
+  text.split('\n').forEach((raw, i) => {
+    const spans = raw.match(/`[^`]+`/g)?.map((s) => s.slice(1, -1)) ?? [];
+    const units = spans.length ? spans : [raw];
+    const bare = spans.filter((s) => GLOBAL_FLAGS.includes(s));
+    for (const u of units) {
+      for (const m of u.matchAll(SCRIPT_RE)) {
+        const rest = u.slice(m.index + m[0].length).split(/&&|\||;/)[0];
+        refs.push({ line: i + 1, script: m[0], flags: [...new Set([...(rest.match(/(?<![\w-])--[a-z][a-z0-9-]*/g) ?? []), ...bare])] });
+      }
+    }
+  });
+  return refs;
+}
+
+/** Lint every skill tree under `root`. Returns `[{file, line?, kind, detail}]`. */
+export function lint(root) {
+  const problems = [];
+  const cache = new Map();
+  const flagsOf = (f) => cache.get(f) ?? cache.set(f, acceptedFlags(f)).get(f);
+  for (const sr of SKILL_ROOTS) {
+    for (const f of walk(join(root, sr)).filter((x) => basename(x) === 'SKILL.md')) {
+      const rel = relative(root, f);
+      for (const r of extractRefs(readFileSync(f, 'utf8'))) {
+        if (/[<>*]/.test(r.script)) continue; // a placeholder, not a path
+        if (r.script.includes('$')) {
+          problems.push({ file: rel, line: r.line, kind: 'undefined-variable', detail: `${r.script} uses a variable no step defines` });
+          continue;
+        }
+        const target = join(root, r.script);
+        if (!existsSync(target)) {
+          problems.push({ file: rel, line: r.line, kind: 'missing-script', detail: r.script });
+          continue;
+        }
+        for (const flag of r.flags) {
+          if (!flagsOf(target).has(flag)) problems.push({ file: rel, line: r.line, kind: 'unknown-flag', detail: `${r.script} does not accept ${flag}` });
+        }
+      }
+    }
+  }
+  // Non-SKILL files (helper scripts, references, templates) must be byte-identical across each pair of mirrors.
+  const rels = (dir) => walk(join(root, dir)).map((x) => relative(join(root, dir), x)).filter((x) => basename(x) !== 'SKILL.md');
+  const pairs = [['.agents/skills', '.claude/skills'], ['templates/midnite/.agents/skills', 'templates/midnite/.claude/skills'], ['templates/media-video/.agents/skills', 'templates/media-video/.claude/skills']];
+  for (const [a, b] of pairs) {
+    for (const r of [...new Set([...rels(a), ...rels(b)])].sort()) {
+      const fa = join(root, a, r);
+      const fb = join(root, b, r);
+      if (!existsSync(fa) || !existsSync(fb)) problems.push({ file: existsSync(fa) ? join(a, r) : join(b, r), kind: 'mirror-missing', detail: `absent from ${existsSync(fa) ? b : a}` });
+      else if (!readFileSync(fa).equals(readFileSync(fb))) problems.push({ file: join(a, r), kind: 'mirror-drift', detail: `differs from ${join(b, r)}` });
+    }
+  }
+  return problems;
+}
+
 function main(argv) {
   const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
   const arg = (name) => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
   const from = arg('--from');
   const opts = { source: from ? `.${from.replace(/^\./, '')}` : '.agents', only: arg('--skill') };
+  if (argv.includes('--lint')) {
+    const problems = lint(root);
+    if (argv.includes('--json')) console.log(JSON.stringify({ problems }, null, 2));
+    else console.log(problems.length ? `${problems.map((p) => `${p.file}${p.line ? `:${p.line}` : ''}  ${p.kind}  ${p.detail}`).join('\n')}\n\n${problems.length} problem(s)` : 'skill lint clean');
+    return problems.length ? 1 : 0;
+  }
   if (argv.includes('--write')) {
     const files = write(root, opts);
     console.log(files.length ? files.map((f) => `wrote ${f}`).join('\n') : 'nothing to write');
