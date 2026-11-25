@@ -108,6 +108,8 @@ export type CouncilProfileRun =
       /** The agent's own words beyond its base's print mode (`buildProfileHeadlessExtras`). */
       extraArgs?: string[];
       promptPrefix: string | null;
+      /** #1713: hand the spawned child over so the agent breaker can stop the run (it has no pty to interrupt). */
+      attach?: (handle: { kill: () => void }) => void;
       release: () => Promise<void>;
     }
   | { kind: 'missing' }
@@ -678,6 +680,8 @@ type SeatCommand = {
   env: Record<string, string>;
   promptPrefix: string | null;
   release?: () => Promise<void>;
+  /** #1713: the seat's pty kill goes to the agent breaker, which has no terminal row to find it by. */
+  attach?: (handle: { kill: () => void }) => void;
   fallback?: 'deleted';
 };
 
@@ -701,7 +705,7 @@ async function spawnOneShot(
   const promptText = await scrubPrompt(rawPrompt, runId);
   const command = await seatCommand(target);
   if (!command.ok) return command;
-  const { agentId, provider, words, env, promptPrefix, release, fallback } = command.value;
+  const { agentId, provider, words, env, promptPrefix, release, attach, fallback } = command.value;
   const text = promptPrefix === null ? promptText : `${promptPrefix}\n\n${promptText}`;
 
   let dir: string;
@@ -736,6 +740,8 @@ async function spawnOneShot(
     void removeDir(dir);
     return result;
   }
+  const ptyId = result.ptyId;
+  attach?.({ kill: () => runnerPorts().killPty(ptyId) });
   return {
     ok: true,
     ptyId: result.ptyId,
@@ -783,6 +789,7 @@ async function seatCommand(target: LaunchTarget): Promise<SeatResult> {
           env: keyEnv,
           promptPrefix: prepared.promptPrefix,
           release: prepared.release,
+          ...(prepared.attach ? { attach: prepared.attach } : {}),
         },
       };
     }

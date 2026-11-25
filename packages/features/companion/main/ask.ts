@@ -468,7 +468,13 @@ export async function askCompanion(
   // Phase 154 Theme H: a chosen custom agent runs as itself or not at all (as Theme F's launch does); only
   // a deleted one falls back to the built-in agent, and the reply says so.
   let fellBack = false;
-  let run: { label: string; command: string; argv: string[]; release: (() => Promise<void>) | null } | null = null;
+  let run: {
+    label: string;
+    command: string;
+    argv: string[];
+    release: (() => Promise<void>) | null;
+    attach?: ((handle: { kill: () => void }) => void) | undefined;
+  } | null = null;
   if (input.agentProfileId) {
     let prepared: CompanionProfileRun;
     try {
@@ -488,6 +494,7 @@ export async function askCompanion(
         command: prepared.agent.command,
         argv: [...prepared.args, toAgentPrompt(text, prepared.agent.id)],
         release: prepared.release,
+        attach: prepared.attach,
       };
     }
   }
@@ -514,6 +521,7 @@ export async function askCompanion(
       sink: textSink(),
       timeoutMs: deps.timeoutMs ?? COMPANION_ASK_TIMEOUT_MS,
       ...(deps.spawn ? { spawn: deps.spawn } : {}),
+      ...(run.attach ? { onSpawned: run.attach } : {}),
     });
   } finally {
     // The private socket lives exactly as long as the one run that dialled it.

@@ -117,7 +117,16 @@ type Repo = { id: string; path: string; name: string };
  * `missing`: the agent was deleted. `error`: it cannot run as itself, so nothing runs.
  */
 export type ChatProfileRun =
-  | { kind: 'ready'; name: string; agent: AgentDefinition; extraArgs: string[]; promptPrefix: string | null; release: () => Promise<void> }
+  | {
+      kind: 'ready';
+      name: string;
+      agent: AgentDefinition;
+      extraArgs: string[];
+      promptPrefix: string | null;
+      /** #1713: hand the spawned child over so the agent breaker can stop the run (it has no pty to interrupt). */
+      attach?: (handle: { kill: () => void }) => void;
+      release: () => Promise<void>;
+    }
   | { kind: 'missing' }
   | { kind: 'error'; message: string };
 
@@ -927,6 +936,7 @@ export function createChatService(deps: ChatServiceDeps) {
           ...(deps.spawn ? { spawn: deps.spawn } : {}),
           onSpawned: (spawned) => {
             handle.kill = spawned.kill;
+            profileRun?.attach?.(spawned);
             // A Stop that landed between "worktree ready" and "process started".
             if (handle.cancelled) spawned.kill();
           },

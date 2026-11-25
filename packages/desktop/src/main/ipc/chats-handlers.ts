@@ -14,6 +14,7 @@ import { EVENT_CHANNELS } from '@midnite/studio-shared';
 import { agentProfilePromptPath, getAgentProfile } from '@midnite/studio-feature-agent-profiles/main';
 
 import { recordAudit } from '../agent-audit';
+import { studioHeadlessRuns } from '../agent-profiles/headless-run-profiles';
 import { createProfileHeadlessRun } from '../agent-profiles/profile-headless';
 import { studioProfileMcpSockets } from '../agent-profiles/studio-profile-sockets';
 import { agentHistoryReadsEnabled } from '../settings-mirror';
@@ -60,6 +61,8 @@ const deps: ChatsRuntimeDeps = {
       agents: listAgents,
       promptPath: agentProfilePromptPath,
       runId: (launchId) => `chat-${launchId}`,
+      // #1697/#1713: the breaker finds the turn's custom agent (its limits apply) and can stop the run.
+      runs: studioHeadlessRuns(),
     })(profileId, cwd);
     return run.kind === 'ready' ? { ...run, extraArgs: run.extraArgs ?? [] } : run;
   },
