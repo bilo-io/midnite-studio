@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  blockerRefs, claimedByPrs, countTasks, createTracker, nextPhaseNumber, parseHeadlines, parseTitle, pickCandidates,
+  blockerRefs, claimedByPrs, countTasks, createTracker, mapLimit, nextPhaseNumber, parseHeadlines, parseTitle, pickCandidates,
   refinedCount, replaceHeadlines, replaceThemeParagraph, tickTask, toIssue,
 } from './lib/forge-tracker.mjs';
 import { parseArgs, run, shellLine, titleOf } from './tracker.mjs';
@@ -109,6 +109,12 @@ describe('pure: Headlines', () => {
     expect(r.body).toContain('## Deliverables\n\n- [x] build the parser');
     expect(r.body).toContain('> **Builds on:** Phase 8.');
   });
+  it('keeps a plain paragraph that trails the replaced theme', () => {
+    const body = '## Headlines\n\n**Theme F — x.** old\n\nOpen themes are sub-issues.\n\n## Next\n';
+    const r = replaceThemeParagraph(body, 'F', '**Theme F — x.** new');
+    expect(r.body).toBe('## Headlines\n\n**Theme F — x.** new\n\nOpen themes are sub-issues.\n\n## Next\n');
+    expect(parseHeadlines(body).paragraphs[0].extra).toEqual(['Open themes are sub-issues.']);
+  });
   it('inserts a missing theme in letter order', () => {
     const r = replaceThemeParagraph(BODY, 'B', '**Theme B — Dialog.** WIP.');
     expect(r.replaced).toBe(false);
@@ -124,7 +130,7 @@ describe('pure: Headlines', () => {
 
 describe('pure: candidates', () => {
   it('finds blockers and PR claims', () => {
-    expect(blockerRefs('Blocked by #12\nDepends on: #13, #14 and #15\nafter #99')).toEqual([12, 13, 14, 15]);
+    expect(blockerRefs('Blocked by #12\n**Depends on:** #13, #14 and #15\nafter #99')).toEqual([12, 13, 14, 15]);
     const m = claimedByPrs([{ number: 7, body: 'Fixes #3, closes #4', closingIssuesReferences: [{ number: 5 }] }]);
     expect([...m.keys()].sort()).toEqual([3, 4, 5]);
   });
@@ -249,6 +255,17 @@ describe('tracker CLI', () => {
     expect(parseArgs(['file', '--phase-body', 'p.md', '--theme', 'a.md', '--theme', 'b.md', '--dry-run']).flags).toEqual({ '--phase-body': 'p.md', '--theme-file': ['a.md', 'b.md'], '--dry-run': true });
     expect(parseArgs(['headlines', '20', '--theme', 'C', '--text', 'x'])).toEqual({ cmd: 'headlines', pos: ['20'], flags: { '--theme': 'C', '--text': 'x' } });
     expect(titleOf('intro\n# Phase 9 — T\nbody')).toBe('Phase 9 — T');
+  });
+  it('mapLimit keeps order and caps concurrency', async () => {
+    let live = 0;
+    let peak = 0;
+    const r = await mapLimit([1, 2, 3, 4, 5], 2, async (x) => { live++; peak = Math.max(peak, live); await new Promise((res) => setTimeout(res, 1)); live--; return x * 2; });
+    expect(r).toEqual([2, 4, 6, 8, 10]);
+    expect(peak).toBe(2);
+  });
+  it('an unreadable --phase-body is a usage error, not a crash', async () => {
+    const r = await run(['file', '--phase-body', 'nope.md'], { ghRun: fakeGh([]).run, readFile: () => { throw new Error('ENOENT nope.md'); } });
+    expect(r).toEqual({ code: 2, text: 'usage: ENOENT nope.md' });
   });
   it('--help and usage errors exit 0 / 2', async () => {
     expect((await run(['--help'])).text).toContain('refine-stamp');

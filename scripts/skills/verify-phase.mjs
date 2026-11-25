@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 
 import { countTasks, createTracker } from './lib/forge-tracker.mjs';
 import { biloToken } from './lib/pr-common.mjs';
+import { shellLine } from './tracker.mjs';
 
 export const FULL_GATE = ['moon', 'run', ':typecheck', ':lint', ':test'];
 const HUMAN = /open,?\s+for a human|for a human|human[- ](?:pass|verif|sign)|manual(?:ly)?\b|by hand|eyeball|visual(?:ly)? (?:check|review)|sign[- ]?off/i;
@@ -192,7 +193,7 @@ export async function main(argv = process.argv.slice(2), { out = (s) => process.
       : await completePhase(t, loaded.phase, { summary: arg(argv, '--summary') });
     if (!r.ok) return out(r.message), r.kind === 'open-items' ? 3 : 1;
     out(tick != null ? `ticked ${r.ticked.length}: ${r.ticked.join(', ')}` : `phase ${loaded.phase.phase} closed (#${loaded.phase.number}) — ${r.note}`);
-    if (dryRun) out(['# dry run — nothing was written', ...t.calls.map((c) => ['gh', ...c].join(' '))].join('\n'));
+    if (dryRun) out(['# dry run — nothing was written', ...t.calls.map(shellLine)].join('\n'));
     return 0;
   }
   const r = await verify({ tracker: t, root, phase: phase != null ? Number(phase) : undefined, full: argv.includes('--full'), exec });

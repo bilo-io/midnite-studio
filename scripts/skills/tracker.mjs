@@ -65,7 +65,8 @@ export function titleOf(text) {
 }
 
 function indexTable(phases) {
-  const icon = (p) => (p.state === 'closed' ? '✅' : p.wipThemes?.length ? '🔄' : '◻');
+  // 🟢 = open, but every theme closed: waiting on /midnite-verify.
+  const icon = (p) => (p.state === 'closed' ? '✅' : p.themes && p.themesDone === p.themes ? '🟢' : p.wipThemes?.length ? '🔄' : '◻');
   return mdTable(
     ['#', 'Phase', 'Cat', 'State', 'Refined', 'Themes', 'Progress', '🔄 WIP', '◻ TODO'],
     phases.map((p) => {
@@ -87,7 +88,7 @@ function viewText(p) {
     const total = done + lines.filter((l) => /^\s*[-*]\s+\[ \]/.test(l)).length;
     return [`${t.theme ?? '?'} — ${t.name}`, `#${t.number}`, t.state, `${done}/${total}`, [t.wip ? 'wip' : '', ...t.assignees.map((a) => `@${a}`)].filter(Boolean).join(' ') || '—'];
   })));
-  if (p.headlines.found) out.push('', '## Headlines', '', ...[p.headlines.lead, ...p.headlines.paragraphs.map((x) => x.text)].filter(Boolean).flatMap((x) => [x, '']));
+  if (p.headlines.found) out.push('', '## Headlines', '', ...[p.headlines.lead, ...p.headlines.paragraphs.flatMap((x) => [x.text, ...x.extra])].filter(Boolean).flatMap((x) => [x, '']));
   return out.join('\n');
 }
 
@@ -101,7 +102,16 @@ async function issueArg(t, { pos, flags }) {
 }
 
 /** Run one command; returns `{code, result}`. `deps` injects the gh runner / file reader for tests. */
-export async function run(argv, { ghRun, readFile = (f) => readFileSync(f, 'utf8'), env, tmpFile, envProject } = {}) {
+export async function run(argv, deps = {}) {
+  try {
+    return await runCommand(argv, deps);
+  } catch (e) {
+    // The library never throws; what can is reading a --file / --phase-body / --theme path.
+    return { code: 2, text: `usage: ${e?.message ?? e}` };
+  }
+}
+
+async function runCommand(argv, { ghRun, readFile = (f) => readFileSync(f, 'utf8'), env, tmpFile, envProject } = {}) {
   const { cmd, pos, flags } = parseArgs(argv);
   if (!cmd || cmd === '--help' || cmd === 'help' || flags['--help']) return { code: 0, text: HELP };
   const dryRun = Boolean(flags['--dry-run']);

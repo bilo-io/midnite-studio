@@ -93,7 +93,10 @@ export function tickTask(body, item) {
   return { ok: true, body: lines.join('\n'), ticked: 1, line: i + 1 };
 }
 
-/** Locate the `## Headlines` section: `{found, start, end, lead, paragraphs:[{theme, text}]}` (line indices; end exclusive). */
+/**
+ * Locate the `## Headlines` section: `{found, start, end, lead, paragraphs:[{theme, text, extra}]}` (line indices;
+ * end exclusive). `text` is the `**Theme X …**` paragraph; `extra` holds any plain paragraphs that follow it.
+ */
 export function parseHeadlines(body) {
   const lines = String(body ?? '').split('\n');
   const start = lines.findIndex((l) => /^##\s+Headlines\s*$/.test(l));
@@ -105,15 +108,15 @@ export function parseHeadlines(body) {
   const lead = [];
   for (const p of paras) {
     const t = /^\*\*Theme\s+([A-Z])\b/.exec(p);
-    if (t) paragraphs.push({ theme: t[1], text: p });
+    if (t) paragraphs.push({ theme: t[1], text: p, extra: [] });
     else if (paragraphs.length === 0) lead.push(p);
-    else paragraphs[paragraphs.length - 1].text += `\n\n${p}`;
+    else paragraphs[paragraphs.length - 1].extra.push(p);
   }
   return { found: true, start, end, lead: lead.join('\n\n'), paragraphs };
 }
 
 function renderSection({ lead, paragraphs }) {
-  return ['## Headlines', '', ...[lead, ...paragraphs.map((p) => p.text)].filter(Boolean).flatMap((p) => [p, ''])];
+  return ['## Headlines', '', ...[lead, ...paragraphs.flatMap((p) => [p.text, ...(p.extra ?? [])])].filter(Boolean).flatMap((p) => [p, ''])];
 }
 
 /** Replace the whole `## Headlines` section with `section` (which may omit the heading). Appends one when absent. */
@@ -133,19 +136,21 @@ export function replaceHeadlines(body, section) {
 export function replaceThemeParagraph(body, letter, text) {
   const h = parseHeadlines(body);
   if (!h.found) return { ok: false, kind: 'not-found', message: 'no `## Headlines` section in the body' };
-  const paragraphs = h.paragraphs.filter((p) => p.theme !== letter);
+  const old = h.paragraphs.find((p) => p.theme === letter);
+  const paragraphs = h.paragraphs.filter((p) => p !== old);
   const at = paragraphs.findIndex((p) => p.theme > letter);
-  const next = { theme: letter, text: String(text).trim() };
+  // Plain paragraphs that followed the old one (a trailing note, say) stay where they were.
+  const next = { theme: letter, text: String(text).trim(), extra: old?.extra ?? [] };
   if (at === -1) paragraphs.push(next);
   else paragraphs.splice(at, 0, next);
   const lines = String(body).split('\n');
   return { ok: true, replaced: h.paragraphs.some((p) => p.theme === letter), body: [...lines.slice(0, h.start), ...renderSection({ lead: h.lead, paragraphs }), ...lines.slice(h.end)].join('\n') };
 }
 
-/** `Blocked by #12` / `Depends on: #12, #13 and #14` -> [12, 13, 14]. */
+/** `Blocked by #12` / `**Depends on:** #12, #13 and #14` -> [12, 13, 14]. */
 export function blockerRefs(body) {
   const out = new Set();
-  for (const m of String(body ?? '').matchAll(/\b(?:blocked by|depends on)\*{0,2}\s*:?\s*(#\d+(?:\s*(?:,|&|and)\s*#\d+)*)/gi)) for (const r of m[1].matchAll(/#(\d+)/g)) out.add(Number(r[1]));
+  for (const m of String(body ?? '').matchAll(/\b(?:blocked by|depends on)[\s:*]*(#\d+(?:\s*(?:,|&|and)\s*#\d+)*)/gi)) for (const r of m[1].matchAll(/#(\d+)/g)) out.add(Number(r[1]));
   return [...out];
 }
 
@@ -186,6 +191,22 @@ export function defaultTmpFile(text, name = 'body.md') {
   writeFileSync(file, text);
   return file;
 }
+
+/** `Promise.all` over `items` with at most `limit` in flight — one gh process per phase would trip the rate limiter. */
+export async function mapLimit(items, limit, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i], i);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
+export const GH_CONCURRENCY = 6;
 
 const envelopeError = (e) => {
   const message = String(e?.stderr || e?.message || e).trim();
@@ -257,13 +278,15 @@ export function createTracker({ run = defaultRun, repo = REPO, env, dryRun = fal
   async function index({ state = 'all' } = {}) {
     const r = await listPhases({ state });
     if (!r.ok) return r;
-    const rows = await Promise.all(
-      r.phases.map(async (p) => {
+    const rows = await mapLimit(
+      r.phases,
+      GH_CONCURRENCY,
+      async (p) => {
         if (p.state !== 'open') return { ...p, themesDone: null, themes: null };
         const s = await subIssues(p.number);
         const themes = s.ok ? s.themes : [];
         return { ...p, themesDone: themes.filter((t) => t.state === 'closed').length, themes: themes.length, wipThemes: themes.filter((t) => t.state === 'open' && (t.wip || t.assignees.length)).map((t) => t.theme), todoThemes: themes.filter((t) => t.state === 'open' && !t.wip && !t.assignees.length).map((t) => t.theme) };
-      }),
+      },
     );
     return { ok: true, phases: rows };
   }
@@ -275,7 +298,7 @@ export function createTracker({ run = defaultRun, repo = REPO, env, dryRun = fal
       json(['issue', 'list', ...R, '--state', 'open', '--limit', '1000', '--json', 'number']),
     ]);
     if (!ph.ok) return ph;
-    const phases = await Promise.all(ph.phases.map(async (p) => { const s = await subIssues(p.number); return { ...p, themes: s.ok ? s.themes : [] }; }));
+    const phases = await mapLimit(ph.phases, GH_CONCURRENCY, async (p) => { const s = await subIssues(p.number); return { ...p, themes: s.ok ? s.themes : [] }; });
     const openNumbers = new Set(open.ok ? (open.data ?? []).map((i) => i.number) : []);
     return { ok: true, candidates: pickCandidates({ phases, prs: prs.ok ? prs.data ?? [] : [], openNumbers }), notes: [prs.ok ? null : `open PRs unreadable (${prs.kind})`, open.ok ? null : `open issues unreadable (${open.kind})`].filter(Boolean) };
   }
