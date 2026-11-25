@@ -1,17 +1,16 @@
 #!/usr/bin/env node
 // PR audit extractor (Phase 151 Theme D): lays out the four levels midnite-pr-audit compares and
-// the contract the PR puts on the wire, as JSON. L1 phase doc (theme checkboxes + Contract row),
+// the contract the PR puts on the wire, as JSON. L1 phase issue on the forge (per-theme task counts from the
+// theme sub-issues + the Contract row of the phase body),
 // L2 linked issue, L3 PR body claims, L4 the diff (changed files, channel constants, zod schemas).
 // Read-only; the judgement (drift, claims vs evidence) stays with the reviewer, this only surfaces
 // the mechanical mismatches.
 //
 //   node scripts/skills/pr-audit.mjs <pr> [--json]
 import { execFileSync } from 'node:child_process';
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createTracker, countTasks } from './lib/forge-tracker.mjs';
 import { prView } from './lib/gh.mjs';
-import { countByTheme } from './lib/tasks-index.mjs';
 import { REPO, biloToken, phaseFromBranch } from './lib/pr-common.mjs';
 import { parseDiff } from './pr-review-lint.mjs';
 
@@ -43,10 +42,15 @@ export function extractClaims(body) {
   return claims;
 }
 
-/** L1: the phase's theme checkbox counts and Contract row, from the phase doc text. */
-export function parsePhaseDoc(text) {
-  const contract = /^\|?\s*\*{0,2}Contract\*{0,2}\s*\|(.+)$/im.exec(text)?.[1]?.trim() ?? null;
-  return { contract, themes: countByTheme(text) };
+/** L1: a phase read from the forge (`tracker.readPhase`) -> its Contract row and per-theme task counts. */
+export function phaseLevel(phase) {
+  const contract = /^\|?\s*\*{0,2}Contract\*{0,2}\s*\|(.+)$/im.exec(phase.body ?? '')?.[1]?.trim() ?? null;
+  const themes = {};
+  for (const t of phase.themes ?? []) {
+    const c = countTasks(t.body);
+    themes[t.theme ?? `#${t.number}`] = { done: c.done, open: c.open, issue: t.number, state: t.state };
+  }
+  return { issue: phase.number, url: phase.url ?? null, contract, themes };
 }
 
 /** Mechanical mismatches between the levels. */
@@ -59,20 +63,16 @@ export function crossCheck({ claims, files, contract, closing }) {
   return findings;
 }
 
-export function findPhaseDoc(root, phase) {
-  for (const cat of ['FEATURES', 'SECURITY', 'ISSUES']) {
-    const dir = join(root, '.midnite/tasks', cat, 'phases');
-    try {
-      const f = readdirSync(dir).find((n) => n.startsWith(`phase-${phase}-`));
-      if (f) return join(dir, f);
-    } catch {
-      /* category absent */
-    }
-  }
-  return null;
+/** L1 for a phase number: find its issue, read it with its sub-issues. Null when absent or unreadable. */
+export async function loadL1(tracker, phaseNo) {
+  if (!phaseNo) return null;
+  const f = await tracker.findPhase(phaseNo);
+  if (!f.ok) return null;
+  const r = await tracker.readPhase(f.number);
+  return r.ok ? phaseLevel(r.phase) : null;
 }
 
-export async function main(argv = process.argv.slice(2), { root = process.cwd(), ghRun } = {}) {
+export async function main(argv = process.argv.slice(2), { ghRun, tracker } = {}) {
   const n = argv.find((a) => /^\d+$/.test(a));
   if (!n) {
     process.stderr.write('usage: pr-audit.mjs <pr> [--json]\n');
@@ -88,8 +88,7 @@ export async function main(argv = process.argv.slice(2), { root = process.cwd(),
   const diff = execFileSync('gh', ['pr', 'diff', n, '--repo', REPO], { encoding: 'utf8', env: { ...process.env, ...env }, maxBuffer: 64 * 1024 * 1024 });
   const files = parseDiff(diff);
   const { phase } = phaseFromBranch(pr.headRefName);
-  const docPath = phase ? findPhaseDoc(root, phase) : null;
-  const L1 = docPath ? { path: docPath, ...parsePhaseDoc(readFileSync(docPath, 'utf8')) } : null;
+  const L1 = await loadL1(tracker ?? createTracker({ run: ghRun, env }), phase);
   const closing = pr.closingIssuesReferences ?? [];
   const L4 = { files: files.map((f) => f.file), ...extractContract(files) };
   const claims = extractClaims(pr.body);
