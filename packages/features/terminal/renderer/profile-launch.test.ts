@@ -31,8 +31,9 @@ describe('launchProfileSession', () => {
     expect(useTerminalStore.getState().activeId).toBe(session?.id);
   });
 
-  it('opens nothing when prepare fails', async () => {
+  it('opens nothing when prepare fails or the agent is gone', async () => {
     expect(await launchProfileSession(async () => null, profile, target)).toBeNull();
+    expect(await launchProfileSession(async () => 'missing' as const, profile, target)).toBeNull();
     expect(useTerminalStore.getState().sessions).toEqual([]);
   });
 
@@ -52,11 +53,15 @@ describe('prepareProfileStart (wake and Resume)', () => {
     expect(prepare.mock.calls.map(([req]) => req.resume)).toEqual([false, true]);
   });
 
-  it('answers null — fall back to the base CLI — for a failed prepare, a plain session or no host', async () => {
-    expect(await prepareProfileStart(async () => null, session, false)).toBeNull();
+  it('falls back to the base CLI for a deleted agent, a plain session or no host', async () => {
+    expect(await prepareProfileStart(async () => 'missing' as const, session, false)).toBe('fallback');
     const prepare = vi.fn();
-    expect(await prepareProfileStart(prepare, { cwd: '/r' }, false)).toBeNull();
-    expect(await prepareProfileStart(undefined, session, false)).toBeNull();
+    expect(await prepareProfileStart(prepare, { cwd: '/r' }, false)).toBe('fallback');
+    expect(await prepareProfileStart(undefined, session, false)).toBe('fallback');
     expect(prepare).not.toHaveBeenCalled();
+  });
+
+  it('starts nothing when the prepare failed: the bare CLI would drop the allowlist', async () => {
+    expect(await prepareProfileStart(async () => null, session, false)).toBe('failed');
   });
 });

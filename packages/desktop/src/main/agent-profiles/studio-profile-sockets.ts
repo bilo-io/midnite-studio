@@ -9,7 +9,7 @@ import { createProfileMcpSockets, type ProfileMcpSockets } from './profile-mcp-s
 
 /**
  * Studio's one set of custom-agent sockets (Phase 154 Theme G), bound to the real server, shim and audit
- * trail. Created on first use, which is always after `app.whenReady()` (a launch or a pty create).
+ * trail. Created when the handlers register, inside `app.whenReady()`; every path it reads is lazy.
  */
 let sockets: ProfileMcpSockets | null = null;
 

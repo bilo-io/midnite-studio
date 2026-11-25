@@ -100,6 +100,8 @@ export type TerminalMainServices = {
    * Returns false for an unknown or expired launch id.
    */
   bindProfileLaunch?: (launchId: string, sessionId: string) => boolean;
+  /** Closes a launch whose pty never started, so its socket does not outlive the failed create. */
+  releaseProfileLaunch?: (launchId: string) => void;
 };
 
 /**
@@ -193,12 +195,15 @@ export const terminalMain = defineFeatureMain<TerminalMainServices>({
       }
     });
 
-    ipc.handle(CHANNELS.ptyCreate, schemas.PtyCreateRequest, (req) => {
+    ipc.handle(CHANNELS.ptyCreate, schemas.PtyCreateRequest, async (req) => {
       // Bound before the pty starts, so the agent's very first call is already attributed to this session.
-      if (req.profileLaunchId && services.bindProfileLaunch?.(req.profileLaunchId, req.sessionId) === false) {
-        warn(`profile launch ${req.profileLaunchId} was not bound: unknown or expired`);
+      const launchId = req.profileLaunchId;
+      if (launchId && services.bindProfileLaunch?.(launchId, req.sessionId) === false) {
+        warn(`profile launch ${launchId} was not bound: unknown or expired`);
       }
-      return createPty(req);
+      const result = await createPty(req);
+      if (!result.ok && launchId) services.releaseProfileLaunch?.(launchId);
+      return result;
     }, (issue) => ({
       ok: false as const,
       message: issue,

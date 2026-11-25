@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import {
   enforcementFor,
+  isMcpToolId,
   profileMcpArgs,
   type AgentProfile,
   type NewAgentAuditRecord,
@@ -25,8 +26,11 @@ import { isSocketPathTooLong } from '../socket-name';
  * to its session. Calls are then stamped with that session id for the audit trail and the breaker.
  *
  * The allowlist is held twice: the shim lists and calls only `--tools` ids, and this socket refuses any
- * other id itself, so a client that skips the shim is refused too. It is captured at `prepare` and never
- * re-read: a running CLI cannot change its tools mid-session (Decision 14).
+ * other id itself, so a client that dials this socket without the shim is refused too. It scopes the
+ * agent's MCP wiring, not the machine: an agent with a shell can still run the `midnite` CLI against the
+ * global socket, and a restricted Codex agent keeps any other `mcp_servers.*` the user registered (Codex
+ * has no strict flag). It is captured at `prepare` and never re-read: a running CLI cannot change its
+ * tools mid-session (Decision 14).
  */
 
 export type ProfileMcpServerOptions = {
@@ -115,6 +119,8 @@ export function createProfileMcpSockets(seams: ProfileMcpSocketSeams): ProfileMc
       const gate = allow
         ? (tool: string): McpDispatchResult | null => {
             if (allow.has(tool)) return null;
+            // Refused either way; only a real tool id is worth an audit row (any string can arrive here).
+            if (!isMcpToolId(tool)) return profileAllowlistRefusal(tool, profile.name);
             const session = sessionId();
             seams.recordAudit({
               kind: 'policy-decision',

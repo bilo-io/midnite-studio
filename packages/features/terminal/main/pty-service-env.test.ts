@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { PtyPorts } from './pty-ports';
-import { createPty, initPtyService, setPtyPorts } from './pty-service';
+import { createPty, initPtyService, killPty, onPtyKilled, onSessionExit, setPtyPorts } from './pty-service';
 
 function makePorts(brokerCreate: (opts: { env?: Record<string, string> }) => Promise<unknown>): PtyPorts {
   return {
@@ -76,5 +76,28 @@ describe('createPty env', () => {
     expect(env).not.toHaveProperty('CLAUDECODE');
     expect(env).not.toHaveProperty('CLAUDE_CODE_MESSAGING_SOCKET');
     expect(env).toMatchObject({ CLAUDE_CODE_USE_BEDROCK: '1', CLAUDE_CODE_OAUTH_TOKEN: 'tok' });
+  });
+});
+
+describe('killPty (Phase 154 Theme G)', () => {
+  afterEach(() => setPtyPorts(null));
+
+  it("tells onPtyKilled which session it killed, which onSessionExit cannot hear about", async () => {
+    const create = vi.fn(async () => ({ ok: true as const, ptyId: 'p-kill', pid: 4242 }));
+    setPtyPorts(makePorts(create));
+    await initPtyService({ userDataDir: '/tmp', appVersion: '0.0.1', isPackaged: false, getWindow: () => null, declaredAgentId: async () => null });
+    const created = await createPty({ sessionId: 's-kill', cwd: '/tmp', cols: 80, rows: 24 });
+    expect(created.ok).toBe(true);
+
+    const killed: string[] = [];
+    const exited: string[] = [];
+    const offKilled = onPtyKilled((sessionId) => killed.push(sessionId));
+    const offExit = onSessionExit((sessionId) => exited.push(sessionId));
+    killPty('p-kill');
+    offKilled();
+    offExit();
+
+    expect(killed).toEqual(['s-kill']);
+    expect(exited).toEqual([]);
   });
 });

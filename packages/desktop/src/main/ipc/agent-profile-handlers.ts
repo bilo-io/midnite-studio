@@ -5,7 +5,7 @@ import { dialog, type BrowserWindow } from 'electron';
 import { createProfileLaunchService } from '../agent-profiles/profile-launch';
 import { studioProfileMcpSockets } from '../agent-profiles/studio-profile-sockets';
 import { defaultLogger } from '../log';
-import { onSessionExit } from '../pty-service';
+import { onPtyKilled, onSessionExit } from '../pty-service';
 import { listAgents } from '../terminal-service';
 import { handle, handleBare, handleSend } from './handle';
 
@@ -42,11 +42,14 @@ export function registerAgentProfileHandlers(getWindow: () => BrowserWindow | nu
     agents: listAgents,
     promptPath: agentProfilePromptPath,
   });
-  onSessionExit((sessionId) => {
+  // A pty that exits on its own reaches `onSessionExit`; one the app kills (close, Stop) only `onPtyKilled`.
+  const release = (sessionId: string): void => {
     void studioProfileMcpSockets()
       .closeForSession(sessionId)
       .catch((error: unknown) => defaultLogger.warn(`agent profile socket: ${String(error)}`));
-  });
+  };
+  onSessionExit(release);
+  onPtyKilled(release);
 
   agentProfilesMain.register(ctx, { dialogs, launch });
 }

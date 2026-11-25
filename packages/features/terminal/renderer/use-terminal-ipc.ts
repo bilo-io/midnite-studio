@@ -208,10 +208,12 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
         ...(session.appId === undefined ? {} : { appId: session.appId }),
         ...(profileLaunchId === undefined ? {} : { profileLaunchId }),
       });
-      // Single-use either way: main bound it, or the create failed and a retry must prepare afresh.
+      // Single-use either way: main bound it, or the create failed and main closed it.
       if (profileLaunchId !== undefined) useTerminalStore.getState().clearLaunchId(session.id);
 
       if (!result.ok) {
+        // A custom agent's queued line names the socket main just closed; drop it so a retry re-prepares.
+        if (profileLaunchId !== undefined) useTerminalStore.getState().clearPendingInput(session.id);
         // node-pty failing to load is not a crash — the pane says so and the
         // rest of the app is untouched.
         useTerminalStore.getState().setState(session.id, 'unavailable', result.message);

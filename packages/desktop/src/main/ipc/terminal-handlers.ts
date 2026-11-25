@@ -33,5 +33,10 @@ export function registerTerminalHandlers(): void {
     agentProbe: () => agentProbe(),
     warn: (issue) => defaultLogger.warn(issue),
     bindProfileLaunch: (launchId, sessionId) => studioProfileMcpSockets().bind(launchId, sessionId),
+    releaseProfileLaunch: (launchId) => {
+      void studioProfileMcpSockets()
+        .close(launchId)
+        .catch((error: unknown) => defaultLogger.warn(`agent profile socket: ${String(error)}`));
+    },
   });
 }

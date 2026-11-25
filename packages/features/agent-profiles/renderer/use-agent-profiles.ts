@@ -8,6 +8,19 @@ export const AGENT_PROFILES_KEY = ['agent-profiles'] as const;
 const failureMessage = (result: { ok: boolean; message?: string }): string =>
   result.message ?? 'The agents could not be read.';
 
+/** The one query for the saved profiles, shared with any host that lists them outside this feature. */
+export function agentProfilesQueryOptions() {
+  return {
+    queryKey: AGENT_PROFILES_KEY,
+    queryFn: async (): Promise<AgentProfile[]> => {
+      const result = await bridge()?.agentProfile.list();
+      if (!result) throw new Error('The app bridge is unavailable.');
+      if (!result.ok) throw new Error(failureMessage(result as { ok: boolean; message?: string }));
+      return result.value.profiles;
+    },
+  };
+}
+
 /** Every saved profile. An envelope failure becomes `error`, not an exception thrown across the boundary. */
 export function useAgentProfiles(): {
   profiles: AgentProfile[];
@@ -15,15 +28,7 @@ export function useAgentProfiles(): {
   error: string | null;
   refetch: () => void;
 } {
-  const query = useQuery({
-    queryKey: AGENT_PROFILES_KEY,
-    queryFn: async () => {
-      const result = await bridge()?.agentProfile.list();
-      if (!result) throw new Error('The app bridge is unavailable.');
-      if (!result.ok) throw new Error(failureMessage(result as { ok: boolean; message?: string }));
-      return result.value.profiles;
-    },
-  });
+  const query = useQuery(agentProfilesQueryOptions());
   return {
     profiles: query.data ?? [],
     loading: query.isPending,

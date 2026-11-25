@@ -52,15 +52,27 @@ export function composeProfilePrompt(profile: Pick<AgentProfile, 'systemPrompt' 
   return prompt === '' ? skills : `${prompt}\n\n${skills}`;
 }
 
-/** The model flag words for `model` (a model-list id) on `baseAgentId`; `[]` for `'default'`. */
+/**
+ * The model flag words for `model` (a model-list id) on `baseAgentId`; `[]` for `'default'`. Only an id
+ * from the base CLI's own list ever reaches the line: an imported agent file can carry any string, and
+ * these words are typed into a shell, so an unknown id adds no flag rather than being passed through.
+ */
 export function profileModelArgs(baseAgentId: string, model: string): string[] {
   if (model === 'default') return [];
   if (baseAgentId === 'claude') {
     const loopModel = LoopModelSchema.safeParse(model);
     return loopModel.success ? loopModelArgs('claude', loopModel.data) : [];
   }
-  const cliModel = modelsForAgent(baseAgentId).find((entry) => entry.id === model)?.cliModel;
-  return modelArgsFor(baseAgentId, cliModel ?? model);
+  const entry = modelsForAgent(baseAgentId).find((candidate) => candidate.id === model);
+  return entry ? modelArgsFor(baseAgentId, entry.cliModel ?? entry.id) : [];
+}
+
+/**
+ * One shell word, single-quoted unless it is plainly safe. Unlike `shellQuote` it keeps the text exactly
+ * (no whitespace folding), so a JSON or TOML value survives the trip through the shell unchanged.
+ */
+export function shellWord(text: string): string {
+  return /^[A-Za-z0-9_./:=@%+,-]+$/.test(text) ? text : `'${text.replace(/'/g, String.raw`'\''`)}'`;
 }
 
 export interface ProfileLaunchLineInput {
@@ -87,7 +99,7 @@ export function buildProfileLaunchLine(input: ProfileLaunchLineInput): string {
     base.command,
     ...base.args,
     ...(resume ? (base.resume ?? []) : []),
-    ...profileModelArgs(base.id, model),
+    ...profileModelArgs(base.id, model).map(shellWord),
     ...mcpArgs,
     ...promptWords,
   ].join(' ');
@@ -110,7 +122,7 @@ export function profileMcpArgs(
   launch: ProfileShimLaunch,
   options: { restricted: boolean; quote: boolean },
 ): string[] {
-  const q = options.quote ? shellQuote : (word: string) => word;
+  const q = options.quote ? shellWord : (word: string) => word;
   if (baseAgentId === 'claude') {
     const config = JSON.stringify({ mcpServers: { [MCP_SERVER_NAME]: launch } });
     return ['--mcp-config', q(config), ...(options.restricted ? ['--strict-mcp-config'] : [])];

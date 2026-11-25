@@ -915,8 +915,9 @@ export function TerminalView({
   /*
     Phase 154 Theme F: a custom agent's session comes back as itself. A queued line is a fresh launch's,
     already prepared with its launch id in the store; otherwise wake (`resume: false`) and Resume
-    (`resume: true`) ask main for the line again. A deleted agent or a failed prepare falls back to the
-    base CLI, exactly as a plain agent session starts. `preparingRef` keeps a burst of wake keystrokes
+    (`resume: true`) ask main for the line again. A deleted agent falls back to the base CLI, exactly as a
+    plain agent session starts; any other failure starts nothing (the host has reported it), since the
+    bare base CLI would run without the agent's tool allowlist. `preparingRef` keeps a burst of wake keystrokes
     from preparing twice — each prepare opens a socket.
   */
   const startAs = async (cols: number, rows: number, resume: boolean, fallback: string | undefined): Promise<void> => {
@@ -926,7 +927,10 @@ export function TerminalView({
       preparingRef.current = true;
       try {
         const prepared = await prepareProfileStart(prepare, session, resume);
-        if (prepared) return await start(cols, rows, prepared.input, { profileLaunchId: prepared.profileLaunchId });
+        if (prepared === 'failed') return;
+        if (prepared !== 'fallback') {
+          return await start(cols, rows, prepared.input, { profileLaunchId: prepared.profileLaunchId });
+        }
       } finally {
         preparingRef.current = false;
       }

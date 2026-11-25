@@ -10,6 +10,7 @@ export { agentProfilesManifest, type AgentProfilesManifest } from '../manifest';
 export { AgentProfilesHostProvider, useAgentProfilesHost, type AgentProfilesHost } from './host';
 export {
   AGENT_PROFILES_KEY,
+  agentProfilesQueryOptions,
   useAgentProfiles,
   useDeleteAgentProfile,
   useExportAgentProfile,

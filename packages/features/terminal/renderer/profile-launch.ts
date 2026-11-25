@@ -9,11 +9,16 @@ import { useTerminalStore } from './terminal-store';
  * What comes back is that line and a single-use launch id, which `pty.create` carries so main binds the
  * agent's private MCP socket to the session.
  */
+/**
+ * `'missing'` when the agent no longer exists (deleted): the session may go on as its base CLI. `null` for
+ * any other failure, which the host has already reported: nothing starts, because starting the bare base
+ * CLI would drop the agent's tool allowlist while its chrome still names it.
+ */
 export type PrepareProfileLaunch = (req: {
   profileId: string;
   cwd: string;
   resume: boolean;
-}) => Promise<{ launchId: string; line: string } | null>;
+}) => Promise<{ launchId: string; line: string } | 'missing' | null>;
 
 /**
  * Opens a session for `profile` in `target`. Prepare first, so a refusal (an unknown base CLI, a socket
@@ -26,7 +31,7 @@ export async function launchProfileSession(
   target: { repoId: string; cwd: string; title?: string },
 ): Promise<TerminalSession | null> {
   const prepared = await prepare({ profileId: profile.id, cwd: target.cwd, resume: false });
-  if (!prepared) return null;
+  if (!prepared || prepared === 'missing') return null;
   const store = useTerminalStore.getState();
   const session = store.openSession({
     kind: 'agent',
@@ -43,16 +48,18 @@ export async function launchProfileSession(
 
 /**
  * What waking (`resume: false`) or resuming (`resume: true`) a custom agent's session types, re-prepared
- * so the agent comes back with its prompt, model and tools. `null` when the session runs no custom agent,
- * the host cannot prepare, or the prepare failed (a deleted agent): the caller then does what it does for
- * the base CLI.
+ * so the agent comes back with its prompt, model and tools. `'fallback'` when the session runs no custom
+ * agent, the host cannot prepare, or the agent was deleted: the caller does what it does for the base
+ * CLI. `'failed'` for any other failure (already reported): the caller starts nothing.
  */
 export async function prepareProfileStart(
   prepare: PrepareProfileLaunch | undefined,
   session: Pick<TerminalSession, 'profileId' | 'cwd'>,
   resume: boolean,
-): Promise<{ input: string; profileLaunchId: string } | null> {
-  if (!session.profileId || !prepare) return null;
+): Promise<{ input: string; profileLaunchId: string } | 'fallback' | 'failed'> {
+  if (!session.profileId || !prepare) return 'fallback';
   const prepared = await prepare({ profileId: session.profileId, cwd: session.cwd, resume });
-  return prepared ? { input: `${prepared.line}\r`, profileLaunchId: prepared.launchId } : null;
+  if (prepared === 'missing') return 'fallback';
+  if (!prepared) return 'failed';
+  return { input: `${prepared.line}\r`, profileLaunchId: prepared.launchId };
 }

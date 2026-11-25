@@ -2,6 +2,7 @@ import { readFile, stat, writeFile } from 'node:fs/promises';
 
 import { defineFeatureMain } from '@midnite/studio-runtime';
 import {
+  AGENT_PROFILE_NOT_FOUND,
   AgentProfileSchema,
   CHANNELS,
   failure,
@@ -174,7 +175,7 @@ export const agentProfilesMain = defineFeatureMain<AgentProfilesMainServices>({
         guarded(async () => {
           if (!services.launch) return failure('Launching needs Midnite Studio.');
           const profile = await getAgentProfile(profileId);
-          if (!profile) return failure('Agent not found.');
+          if (!profile) return failure(AGENT_PROFILE_NOT_FOUND);
           return ok(await services.launch.prepare(profile, { cwd, resume }));
         }),
       (issue) => failure(issue),

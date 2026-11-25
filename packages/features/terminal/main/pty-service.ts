@@ -202,6 +202,22 @@ export function onSessionExit(hook: SessionExitHook): () => void {
   };
 }
 
+/**
+ * Phase 154 Theme G: an explicit `killPty` removes the pty → session mapping before the exit lands, so
+ * `onSessionExit` never hears about it. What must be released whichever way a session's pty ends (a
+ * custom agent's private MCP socket) listens here too. Fires with the session id, before the kill.
+ */
+type PtyKilledHook = (sessionId: string) => void;
+const ptyKilledHooks: PtyKilledHook[] = [];
+
+export function onPtyKilled(hook: PtyKilledHook): () => void {
+  ptyKilledHooks.push(hook);
+  return () => {
+    const index = ptyKilledHooks.indexOf(hook);
+    if (index !== -1) ptyKilledHooks.splice(index, 1);
+  };
+}
+
 function notifySessionExit(sessionId: string | undefined, exitCode: number): void {
   if (sessionId === undefined) return;
   for (const hook of sessionExitHooks) hook(sessionId, exitCode);
@@ -871,6 +887,8 @@ export function getPtySessionOwners(): Map<number, string> {
 }
 
 export function killPty(ptyId: string): void {
+  const killedSessionId = sessionIdByPty.get(ptyId);
+  if (killedSessionId !== undefined) for (const hook of ptyKilledHooks) hook(killedSessionId);
   sessions.delete(ptyId);
   sessionIdByPty.delete(ptyId);
   agentWatcher?.untrack(ptyId);

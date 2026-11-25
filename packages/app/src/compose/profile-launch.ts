@@ -1,14 +1,14 @@
 import { QueryClient, QueryClientContext, useQuery } from '@tanstack/react-query';
 import { useContext } from 'react';
 
-import { AGENT_PROFILES_KEY } from '@midnite/studio-feature-agent-profiles/renderer';
+import { agentProfilesQueryOptions } from '@midnite/studio-feature-agent-profiles/renderer';
 import {
   launchProfileSession,
   useTerminalStore,
   type PrepareProfileLaunch,
 } from '@midnite/studio-feature-terminal/renderer';
 import { bridge, noBridge, reportFailure } from '@midnite/studio-frame';
-import type { AgentProfile } from '@midnite/studio-shared';
+import { AGENT_PROFILE_NOT_FOUND, type AgentProfile } from '@midnite/studio-shared';
 
 import { revealSession } from '../features/terminal/reveal-session';
 import { useRepos } from '../services/queries';
@@ -21,6 +21,8 @@ import { useUiStore } from '../store/ui-store';
 export const studioPrepareProfileLaunch: PrepareProfileLaunch = async (req) => {
   const result = (await bridge()?.agentProfile.prepareLaunch(req)) ?? noBridge<{ launchId: string; line: string }>();
   if (!result.ok) {
+    // A deleted agent is not a failure to report: its sessions go on as the base CLI (Decision 13).
+    if (result.kind === 'error' && result.message === AGENT_PROFILE_NOT_FOUND) return 'missing';
     reportFailure(result);
     return null;
   }
@@ -57,23 +59,12 @@ const NO_PROFILES: AgentProfile[] = [];
 const FALLBACK_CLIENT = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
 /**
- * The saved custom agents for the terminal's `+` menu and session chrome — the Agents page's own query
- * (same key), so a save there shows up here. Tolerates a missing `QueryClientProvider`: every terminal
+ * The saved custom agents for the terminal's `+` menu and session chrome — the Agents page's own query,
+ * so a save there shows up here. A failed read lists none. Tolerates a missing `QueryClientProvider`: every terminal
  * component test renders without one.
  */
 export function useStudioAgentProfiles(): AgentProfile[] {
   const client = useContext(QueryClientContext) ?? FALLBACK_CLIENT;
-  const query = useQuery(
-    {
-      queryKey: AGENT_PROFILES_KEY,
-      queryFn: async () => {
-        const result = await bridge()?.agentProfile.list();
-        if (!result) return NO_PROFILES;
-        if (!result.ok) throw new Error('The agents could not be read.');
-        return result.value.profiles;
-      },
-    },
-    client,
-  );
+  const query = useQuery(agentProfilesQueryOptions(), client);
   return query.data ?? NO_PROFILES;
 }
