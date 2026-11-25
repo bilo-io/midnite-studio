@@ -24,7 +24,12 @@ import {
 } from './council-service';
 
 export { councilsManifest, type CouncilsManifest } from '../manifest';
-export { configureCouncilRunner, type CouncilRunnerPorts } from './council-runner';
+export {
+  configureCouncilRunner,
+  COUNCIL_PROFILES_NEED_STUDIO,
+  type CouncilProfileRun,
+  type CouncilRunnerPorts,
+} from './council-runner';
 export {
   configureCouncils,
   getCouncil,

@@ -1,5 +1,4 @@
 import {
-  COUNCIL_MEMBER_PROVIDERS,
   councilMemberCap,
   COUNCIL_MIN_MEMBERS,
   modelsForAgent,
@@ -17,14 +16,12 @@ import { SortableList, useFeatureFlag, useFlushableSave, useSortableRow } from '
 
 import { CouncilMemberCount } from './council-member-count';
 import { applyPresetMembers, membersFromGenerated, resizeMembers, revealOrder } from './council-members-model';
-import { councilModelOptions, DEFAULT_MODEL_ID, useCouncilProviders } from './council-providers';
+import { DEFAULT_MODEL_ID, deletedSeatNotice, seatModelOptions, useCouncilProviders } from './council-providers';
 import { CouncilSynthesizerCard } from './council-synthesizer-card';
 import { CouncilUpgradeDialog } from './council-upgrade-dialog';
 import { useCouncilsHost } from './host';
 import { IconButton } from './ui';
 import { useGenerateCouncil, useRemoveCouncil, useUpdateCouncilMembers } from './use-council';
-
-const isProvider = (id: string): id is CouncilMemberProvider => (COUNCIL_MEMBER_PROVIDERS as readonly string[]).includes(id);
 
 /** A picker model id as stored: absent for the CLI's default. */
 const storedModel = (id: string): string | undefined => (id === DEFAULT_MODEL_ID ? undefined : id);
@@ -348,7 +345,8 @@ function MemberRow({
 }) {
   const row = useSortableRow(member.id);
   const { ProviderModelPicker } = useCouncilsHost();
-  const { providers } = useCouncilProviders();
+  const { seats, seatValue, seatPatch, seatFellBack } = useCouncilProviders();
+  const fellBack = seatFellBack(member);
   const bodyId = `council-member-body-${member.id}`;
   const label = member.name || 'member';
 
@@ -410,14 +408,22 @@ function MemberRow({
         {/* The agent and model, on the header's second line so a long model label never squeezes the name. */}
         <div className="pl-5">
           <ProviderModelPicker
-            providers={providers}
-            provider={member.provider}
-            onProviderChange={(id) => isProvider(id) && onChange({ provider: id, model: undefined })}
-            models={councilModelOptions(member.provider)}
+            providers={seats}
+            provider={seatValue(member)}
+            onProviderChange={(id) => {
+              const patch = seatPatch(id);
+              if (patch) onChange(patch);
+            }}
+            models={seatModelOptions(member)}
             model={member.model ?? DEFAULT_MODEL_ID}
             onModelChange={(id) => onChange({ model: storedModel(id) })}
             testId={`council-member-picker-${index}`}
           />
+          {fellBack ? (
+            <p role="status" data-testid={`council-member-fallback-${index}`} className="mt-0.5 text-[11px] text-amber-600 dark:text-amber-400">
+              {deletedSeatNotice(member.provider, false)}
+            </p>
+          ) : null}
         </div>
       </div>
       <div id={bodyId} hidden={!expanded} className="border-t border-border px-2 pb-2 pt-1.5">

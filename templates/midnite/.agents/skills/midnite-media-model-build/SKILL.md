@@ -9,7 +9,7 @@ A model is a structured `ModelSpec` (a list of coloured, transformed primitives 
 
 ## 0 · Run the script first
 
-Run `node scripts/skills/media/validate.mjs model '<json>'`. It checks the spec before you render (`${S}media/scaffold.sh model <project>` creates the folder). You still write the spec, look at the render and patch. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+Run `node scripts/skills/media/validate.mjs model '<json>'`. It checks the spec before you render (`scripts/skills/media/scaffold.sh model <project>` creates the folder). You still write the spec, look at the render and patch. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
 
 ## Layout
 

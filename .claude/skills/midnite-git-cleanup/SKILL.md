@@ -107,6 +107,9 @@ branches that already exist, and needs `gh` to catch the common case at all.
     is done and the note outlived it (its own skill deletes it at teardown; a session that died
     after the merge never got there). Delete the file, re-check that the tree is now clean, and
     remove it normally. Without this a merged worktree stays BLOCKED forever on its own leftovers.
+    `cleanup.sh --apply` does exactly this (it deletes the file, then a plain `worktree remove`, never
+    `--force`), and a local branch the forge shows as a merged PR with the same tip counts as landed
+    even when it was squash-merged (`gh pr list --state merged --head <branch>`).
 - **A stale branch whose worktree is dirty** — reported under BLOCKED and skipped.
   `git worktree remove` refusing a dirty tree is the safety check, so the script
   never passes `--force`. Commit or discard, then re-run.

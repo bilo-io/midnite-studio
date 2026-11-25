@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// `--no-llm` is accepted as a documented no-op: this script never calls an LLM, so a skill step can add it everywhere.
 // Media input validators (Phase 151 Theme E). Enforces the constraints the midnite-media-* skills document,
 // before an agent spends a generation on a request the app would refuse.
 //

@@ -20,7 +20,7 @@ import {
   type CouncilTurn,
 } from '@midnite/studio-shared';
 
-import { councilModelLabel, PROVIDER_LABEL, useCouncilProviders } from './council-providers';
+import { councilModelLabel, deletedSeatNotice, PROVIDER_LABEL, useCouncilProviders } from './council-providers';
 import { useCouncilsHost } from './host';
 import { IconButton } from './ui';
 import { useRetryCouncilMember, useSkipCouncilMember } from './use-council-run';
@@ -101,7 +101,14 @@ const SYNTHESIS_TAB = 'synthesis';
 
 export function CouncilRunView({ run }: { run: CouncilRun }) {
   const [tab, setTab] = useState<string>(SYNTHESIS_TAB);
-  const { icon, accent } = useCouncilProviders();
+  const { icon, accent, profile, profileIcon } = useCouncilProviders();
+  /** A seat that ran as a custom agent wears its glyph and accent; one that fell back wears its base's. */
+  const seatProfile = (member: CouncilRun['members'][number]) =>
+    member.agentProfileId && member.agentProfileFallback === undefined ? profile(member.agentProfileId) : null;
+  const seatIcon = (member: CouncilRun['members'][number]) => {
+    const agent = seatProfile(member);
+    return agent ? profileIcon(agent) : icon(member.provider);
+  };
   const activeTab = tab === SYNTHESIS_TAB || run.members.some((m) => m.memberId === tab) ? tab : SYNTHESIS_TAB;
   const synthesisStatus = latestSynthesisStatus(run);
 
@@ -113,8 +120,8 @@ export function CouncilRunView({ run }: { run: CouncilRun }) {
             key={member.memberId}
             active={activeTab === member.memberId}
             onSelect={() => setTab(member.memberId)}
-            icon={icon(member.provider)}
-            color={accent(member.provider)}
+            icon={seatIcon(member)}
+            color={seatProfile(member)?.accent ?? accent(member.provider)}
             running={member.status === 'running'}
             tone={TONE[member.status]}
             testId={`council-tab-${member.memberId}`}
@@ -241,7 +248,9 @@ function MemberTurn({ run, turn, memberId }: { run: CouncilRun; turn: TurnView; 
     <AssistantTurn
       provider={member.provider}
       name={member.name}
-      model={councilModelLabel(member.provider, member.model)}
+      model={member.agentProfileId ? null : councilModelLabel(member.provider, member.model)}
+      agentProfileId={member.agentProfileFallback === undefined ? member.agentProfileId : undefined}
+      notice={member.agentProfileFallback === 'deleted' ? deletedSeatNotice(member.provider, true) : undefined}
       status={member.status}
       statusLabel={MEMBER_STATUS_LABEL[member.status]}
       text={member.output}
@@ -314,10 +323,16 @@ function AssistantTurn({
   truncated = false,
   working,
   actions,
+  agentProfileId,
+  notice,
 }: {
   provider: CouncilMemberProvider;
   name: string;
   model: string | null;
+  /** The custom agent this answer came from (#1699): its name, glyph and accent replace the base's. */
+  agentProfileId?: string | undefined;
+  /** A line above the answer — a deleted custom agent's fallback. */
+  notice?: string | undefined;
   status?: MemberStatus | CouncilSynthesisStatus;
   statusLabel?: string;
   text?: string;
@@ -327,15 +342,18 @@ function AssistantTurn({
   actions?: ReactNode;
 }) {
   const { MarkdownBody } = useCouncilsHost();
-  const { icon, accent } = useCouncilProviders();
-  const Icon = icon(provider);
-  const color = accent(provider);
+  const { icon, accent, profile, profileIcon } = useCouncilProviders();
+  const agent = agentProfileId ? profile(agentProfileId) : null;
+  const Icon = agent ? profileIcon(agent) : icon(provider);
+  const color = agent ? agent.accent : accent(provider);
+  // A custom agent no longer saved still names itself as one, rather than passing for its base.
+  const agentLabel = agentProfileId ? `${agent?.name ?? 'Custom agent'} · ${PROVIDER_LABEL[provider]}` : PROVIDER_LABEL[provider];
   const hasText = text.trim().length > 0;
   return (
     <div className="group flex gap-3" data-testid="council-turn">
       <span
         className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-background"
-        title={PROVIDER_LABEL[provider]}
+        title={agentLabel}
       >
         <Icon className="h-3.5 w-3.5" style={color ? { color } : undefined} />
       </span>
@@ -343,11 +361,16 @@ function AssistantTurn({
         <div className="flex flex-wrap items-baseline gap-x-2 text-xs">
           <span className="font-medium text-foreground">{name}</span>
           <span className="text-muted-foreground">
-            {PROVIDER_LABEL[provider]}
+            {agentLabel}
             {model ? ` · ${model}` : ''}
           </span>
           {status && statusLabel && !working ? <span className={TONE[status]}>{statusLabel}</span> : null}
         </div>
+        {notice ? (
+          <p role="status" data-testid="council-turn-notice" className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
+            {notice}
+          </p>
+        ) : null}
         {working ?? null}
         {error ? (
           <p className="mt-1.5 flex items-start gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1.5 text-xs text-destructive">

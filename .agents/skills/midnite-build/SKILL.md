@@ -23,11 +23,11 @@ Run `scripts/skills/worktree-lifecycle.sh create <slug>` (brief-first SCRATCHPAD
 
 ## 1 · Scan — all category indexes
 
-**Pass 1 — the open phase issues.** `gh issue list --label phase --state open --limit 500 --json number,title,labels,assignees`, plus the project board's Status column.
+**Pass 1 — the open phase issues.** `node scripts/skills/tracker.mjs candidates` — every open theme of every open phase, marked `ready`, `claimed`, `in PR #n` or `blocked by #n` (`node scripts/skills/tracker.mjs index --state open` for the phase-level view).
 
 Do **not** read individual phase issues yet. Scan the list to find unblocked candidate work across categories. A theme sub-issue that is assigned, labelled `wip`, or has an open PR linked is already claimed.
 
-**Pass 2 — Candidate phases.** Open only the matching phase issues and their sub-issues (at most 4 phases) to inspect theme deliverables and `## Headlines`.
+**Pass 2 — Candidate phases.** `node scripts/skills/tracker.mjs view <n>` only the matching phase issues (at most 4 phases) to inspect theme deliverables and `## Headlines`.
 
 ---
 
@@ -45,7 +45,8 @@ Do **not** read individual phase issues yet. Scan the list to find unblocked can
 1. Check for existing/abandoned `SCRATCHPAD.md` in `.worktrees/`. If resuming an existing worktree, pick up from its `Next` line; otherwise clean up.
 2. Claim chosen themes on GitHub (no commit):
    ```bash
-   gh issue edit <theme-issue> --add-assignee @me --add-label wip
+   node scripts/skills/tracker.mjs claim <theme-issue>     # @me + `wip`
+   node scripts/skills/tracker.mjs board <phase-issue> --status "In Progress"   # skip if it reports no board
    ```
 3. Create worktree and install dependencies:
    ```bash
@@ -83,10 +84,11 @@ Do **not** read individual phase issues yet. Scan the list to find unblocked can
 
 ## 6 · Pre-push Gate
 
-Run the local gate inside the worktree:
+Run the focused gate inside the worktree:
 ```bash
-moon run :typecheck && moon run :lint && moon run :test
+node scripts/skills/scoped-check.mjs --run
 ```
+It runs vitest on the changed tests, `tsc --noEmit` per touched package (building `shared` first when needed) and eslint on the changed files. Never the workspace-wide moon gate: it exhausts RAM.
 All checks must pass green before moving to review.
 
 ---
@@ -115,14 +117,14 @@ Never mark ready or request review before completing the two-subagent self-revie
 
 ## 9 · Mark Ready & Merge
 
-1. Run final gate: `moon run :typecheck :lint :test`.
-2. Make sure the PR body says `Closes #<theme-issue>` for each theme it lands, and tick the sub-issue's `- [x]` items.
-3. Update the phase issue's `## Headlines` paragraph with the landed narrative and PR link (`gh issue edit <phase> --body-file …`), and drop the `wip` label.
-4. Check that `SCRATCHPAD.md` is untracked (`git ls-files --error-unmatch SCRATCHPAD.md`).
+1. Run final gate: `node scripts/skills/scoped-check.mjs --run`.
+2. Make sure the PR body says `Closes #<theme-issue>` for each theme it lands, and tick the sub-issue's items: `node scripts/skills/tracker.mjs tick <theme-issue> --item "<task text>"` per item.
+3. Update the phase issue's `## Headlines` paragraph with the landed narrative and PR link — you write the sentence, the CLI places it: `node scripts/skills/tracker.mjs headlines <phase-issue> --theme X --text "**Theme X — <name>.** ✅ Landed in #<pr>. …"`. The merge closes the sub-issue; `node scripts/skills/tracker.mjs close <theme-issue>` drops `wip` if it has to be closed by hand.
+4. Check that `SCRATCHPAD.md` is untracked and no commit carries a trailer: `scripts/skills/push.sh --check` (`--fix` untracks it).
 5. Nothing tracker-related is committed.
 6. Mark PR ready: `gh pr ready <n>`.
-7. Once CI checks pass green, squash-merge PR, delete remote branch, and remove local worktree:
+7. Once CI checks pass green (`node scripts/skills/ci-watch.mjs <n> --rerun-flakes-once`), squash-merge PR, delete remote branch, and remove local worktree:
    ```bash
-   git worktree remove .worktrees/<slice> --force
+   scripts/skills/worktree-lifecycle.sh remove <slice> --delete-branch   # no --force: it refuses a dirty tree, which is the safety
    git worktree prune
    ```

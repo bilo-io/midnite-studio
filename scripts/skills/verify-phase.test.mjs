@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 import { capLine, contextTokens, machineLine, nextCap, parseCpu, parseRam, rotationState, surplus } from './orchestrate-cap.mjs';
 import { classifyLog, classifyText, summarise } from './test-classify.mjs';
-import { findPhase, markIndexDone, oldestIncomplete, partitionItems, planGate, tickItems, verify } from './verify-phase.mjs';
+import { completePhase, main, oldestIncomplete, partitionItems, phaseText, planGate, tickItems, tickPhase, verify } from './verify-phase.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -21,22 +21,27 @@ const DOC = `## Headlines
 - [ ] **9.A.4** ⏳ deferred to later
 `;
 
-const INDEX = `# Idx
-
-| Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
-|-------|--------|---------|------|----------|---|--------|--------|
-| [9 · Newer](phases/phase-9.md) | 🔄 WIP | — | 1/3 | \`███░░░░░░░\` | 33% | A | — |
-| [8 · Older](phases/phase-8.md) | ◻ TODO | — | 0/1 | \`░░░░░░░░░░\` | 0% | — | A |
-| [7 · Done](phases/phase-7.md) | ✅ DONE | — | 1/1 | \`██████████\` | 100% | — | — |
-`;
-
-function fixture() {
-  const root = mkdtempSync(join(tmpdir(), 'verify-'));
-  mkdirSync(join(root, '.midnite/tasks/FEATURES/phases'), { recursive: true });
-  writeFileSync(join(root, '.midnite/tasks/FEATURES/_INDEX.md'), INDEX);
-  writeFileSync(join(root, '.midnite/tasks/FEATURES/phases/phase-9.md'), DOC);
-  writeFileSync(join(root, '.midnite/tasks/FEATURES/phases/phase-8.md'), '### Theme A\n- [ ] **8.A.1** x\n');
-  return root;
+/** A fake forge-tracker: phase 9 (#90) with themes A (#91, open) and B (#92, closed); records writes. */
+function fakeTracker(themeA = DOC.split('\n').slice(3).join('\n')) {
+  const writes = [];
+  const phase = {
+    number: 90, phase: 9, name: 'Newer', category: 'features', url: 'u', state: 'open',
+    themes: [
+      { number: 91, theme: 'A', name: 'x', state: 'open', body: themeA },
+      { number: 92, theme: 'B', name: 'y', state: 'closed', body: '- [x] **9.B.1** shipped' },
+    ],
+  };
+  const phases = [{ number: 90, phase: 9, state: 'open' }, { number: 80, phase: 8, state: 'open' }, { number: 70, phase: 7, state: 'closed' }];
+  return {
+    writes,
+    phase,
+    calls: [],
+    listPhases: async () => ({ ok: true, phases }),
+    findPhase: async (n) => (Number(n) === 9 ? { ok: true, number: 90 } : { ok: false, kind: 'not-found', message: `no phase ${n}` }),
+    readPhase: async (n) => (n === 90 ? { ok: true, phase } : { ok: true, phase: { ...phase, number: n, phase: 8, themes: [] } }),
+    editBody: async (n, body) => (writes.push(['edit', n, body]), { ok: true }),
+    close: async (n, o) => (writes.push(['close', n, o.comment]), { ok: true }),
+  };
 }
 
 describe('cap state machine', () => {
@@ -92,51 +97,47 @@ describe('verify-phase', () => {
     expect(all.ticked).toEqual(['9.A.2']);
     expect(all.text).toContain('- [ ] **9.A.3**');
   });
-  it('finds the oldest incomplete phase', () => {
-    const root = fixture();
-    try {
-      expect(oldestIncomplete(root).phase).toBe(8);
-      expect(findPhase(root, 9).category).toBe('FEATURES');
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
+  it('finds the oldest open phase', () => {
+    expect(oldestIncomplete([{ phase: 9, state: 'open' }, { phase: 8, state: 'open' }, { phase: 7, state: 'closed' }]).phase).toBe(8);
+    expect(oldestIncomplete([])).toBeNull();
   });
-  it('never plans the full gate by default; --full opts in', () => {
+  it('builds the checklist from the theme sub-issues', () => {
+    const t = fakeTracker();
+    const items = partitionItems(phaseText(t.phase.themes));
+    expect(items.map((i) => [i.theme, i.id])).toEqual([['A', '9.A.1'], ['A', '9.A.2'], ['A', '9.A.3'], ['A', '9.A.4'], ['B', '9.B.1']]);
+  });
+  it('never plans the full gate by default; --full opts in', async () => {
     expect(planGate().find((s) => s.name === 'full gate').run).toBe(false);
     expect(planGate({ full: true }).find((s) => s.name === 'full gate').run).toBe(true);
     const ran = [];
-    const root = fixture();
-    try {
-      const r = verify({ root, phase: 9, exec: (cmd) => (ran.push(cmd.join(' ')), { code: 0, out: 'ok' }) });
-      expect(ran).toEqual([]);
-      expect(r.openHuman).toHaveLength(1);
-      expect(r.openAutomated).toHaveLength(1);
-      ran.length = 0;
-      verify({ root, phase: 9, full: true, exec: (cmd) => (ran.push(cmd.join(' ')), { code: 0, out: '' }) });
-      expect(ran).toContain('moon run :typecheck :lint :test');
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
+    const r = await verify({ tracker: fakeTracker(), phase: 9, exec: (cmd) => (ran.push(cmd.join(' ')), { code: 0, out: 'ok' }) });
+    expect(ran).toEqual([]);
+    expect(r).toMatchObject({ ok: true, phase: 9, issue: 90, counts: { done: 2, open: 2, total: 4 } });
+    expect(r.openHuman).toHaveLength(1);
+    expect(r.openAutomated).toHaveLength(1);
+    await verify({ tracker: fakeTracker(), phase: 9, full: true, exec: (cmd) => (ran.push(cmd.join(' ')), { code: 0, out: '' }) });
+    expect(ran).toContain('moon run :typecheck :lint :test');
+    expect((await verify({ tracker: fakeTracker(), phase: 3 })).ok).toBe(false);
   });
-  it('--complete refuses without --confirm or with open items, then marks the row DONE', () => {
-    const root = fixture();
-    const cli = (...a) => { try { return execFileSync('node', [join(here, 'verify-phase.mjs'), '--root', root, ...a], { encoding: 'utf8' }); } catch (e) { return `${e.stdout}`; } };
-    try {
-      expect(cli('--phase', '9', '--complete')).toContain('--confirm');
-      expect(cli('--phase', '9', '--complete', '--confirm')).toContain('still open');
-      writeFileSync(join(root, '.midnite/tasks/FEATURES/phases/phase-8.md'), '- [x] **8.A.1** x\n');
-      writeFileSync(join(root, '.midnite/tasks/done.md'), '# done\n');
-      expect(cli('--phase', '8', '--complete', '--confirm')).toContain('marked DONE');
-      const idx = readFileSync(join(root, '.midnite/tasks/FEATURES/_INDEX.md'), 'utf8');
-      expect(idx).toMatch(/\[8 · Older\].*✅ DONE.*1\/1/);
-      expect(readFileSync(join(root, '.midnite/tasks/done.md'), 'utf8')).toContain('Phase 8');
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
+  it('ticks inside the owning theme sub-issue only', async () => {
+    const t = fakeTracker();
+    const r = await tickPhase(t, t.phase, ['9.A.2']);
+    expect(r.ticked).toEqual(['9.A.2 (#91)']);
+    expect(t.writes).toHaveLength(1);
+    expect(t.writes[0][2]).toContain('- [x] **9.A.2**');
   });
-  it('markIndexDone touches only the row', () => {
-    expect(markIndexDone(INDEX, 9)).toContain('| ✅ DONE |');
-    expect(markIndexDone(INDEX, 9)).toContain('| [8 · Older]'.slice(1));
+  it('--complete refuses without --confirm or with open items, then closes themes and the phase', async () => {
+    const lines = [];
+    const out = (s) => lines.push(s);
+    expect(await main(['--phase', '9', '--complete'], { out, tracker: fakeTracker() })).toBe(2);
+    expect(lines.pop()).toContain('--confirm');
+    const open = fakeTracker();
+    expect(await main(['--phase', '9', '--complete', '--confirm'], { out, tracker: open })).toBe(3);
+    expect(lines.pop()).toContain('still open');
+    expect(open.writes).toEqual([]);
+    const done = fakeTracker('- [x] **9.A.1** a\n- [ ] **9.A.4** ⏳ deferred: later');
+    expect((await completePhase(done, done.phase)).ok).toBe(true);
+    expect(done.writes).toEqual([['close', 91, 'Verified: 2/2 items.'], ['close', 90, 'Verified: 2/2 items.']]);
   });
 });
 

@@ -9,7 +9,7 @@ Maps is an interactive slippy map. Its headline job is **Capture for Terrain**: 
 
 ## 0 · Run the script first
 
-Run `node scripts/skills/media/map-calc.mjs --side <metres> [--size 513] [--target-mpp 10]`. It computes side bounds, valid grid sizes, metres per pixel and per-layer limits (`${S}media/scaffold.sh map <project>` creates the folder). You still find and frame the place and hand the layers to a Terrain. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+Run `node scripts/skills/media/map-calc.mjs --side <metres> [--size 513] [--target-mpp 10]`. It computes side bounds, valid grid sizes, metres per pixel and per-layer limits (`scripts/skills/media/scaffold.sh map <project>` creates the folder). You still find and frame the place and hand the layers to a Terrain. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
 
 ## Layout
 

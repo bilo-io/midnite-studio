@@ -16,7 +16,7 @@ results; bullets and tables over prose; silent on no-op steps.
 
 ## 0 · Run the script first
 
-Run `scripts/skills/orchestrate-cap.sh --running <n>` each tick, `scripts/skills/worktree-lifecycle.sh <create|stalled|check|remove|list>`, and `node scripts/skills/sitrep.mjs table`. They compute the subagent cap (max of CPU and RAM, floor 2, ceiling 6; `--transcript` checks the context-rotation threshold), manage worktrees and stalled scratchpads, and render the sitrep. You still run the interview, own the board and decide what to stop, rotate or merge. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+Run `scripts/skills/orchestrate-cap.sh --running <n>` each tick, `scripts/skills/worktree-lifecycle.sh <create|stalled|check|remove|list>`, and `node scripts/skills/sitrep.mjs table`. They compute the subagent cap (max of CPU and RAM, floor 2, ceiling 6; `--transcript` checks the context-rotation threshold from the file's tail; `--queued`, `--max` and `--chart` shape the cap line and machine block), manage worktrees (`sweep`, `scratchpads`, `stalled`) and render the sitrep (`--worktrees` adds a row per scratchpad worktree with no PR). You still run the interview, own the board and decide what to stop, rotate or merge. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
 
 ## 1 · Run settings — one interview page (skip whatever the caller or the invocation already answers)
 
@@ -86,25 +86,25 @@ Log each launch on the board. The launch message carries the cap line.
 
 Schedule with your CLI's own recurring facility at the §1 interval (or self-pace by checking back after it) — never two mechanisms. The prompt bakes in everything below so every tick matches.
 
-Each tick, gather read-only, then post:
+Each tick, gather with the scripts, then post:
 
-1. **The table first, nothing above it** — the `midnite-sitrep-table` format: `# | Task | Author |
-   Progress | ETA | Diff | Status | Notes`, one row per unit, a clickable PR link once one exists.
-   - **Progress** before a PR: `10 + 40 × ticked/total` from the unit's `## Todo`, rounded to 10,
-     never the agent's own claim; after: the shared lifecycle scale. Bar + number.
-   - **Diff** always `🟩 +a 🟥 -d 📄 f` (PR, or `git diff --shortstat` in its worktree; `—` empty).
-   - **ETA** from observed pace: minutes per ticked step × steps left, plus the CI and merge time
-     actually seen this session. `?` with no basis, `done` once done.
-   - **Notes** six words max: news, a named blocker, or an ask.
+```bash
+node scripts/skills/sitrep.mjs table --worktrees --no-llm        # PR rows + a row per .worktrees/* with a scratchpad and no PR
+scripts/skills/orchestrate-cap.sh --running <n> --queued <q> [--max <ceiling>] --chart
+```
+
+1. **The table first, nothing above it** — `sitrep.mjs --worktrees` renders it: one row per unit, a
+   clickable PR link once one exists. For a unit with no PR yet it reads the unit's scratchpad:
+   - **Progress** `10 + 40 × ticked/total` from `## Todo`, rounded to 10; **Diff** from
+     `git diff --shortstat origin/main...HEAD` plus uncommitted; **Notes** the first unticked item.
+   - **⚠️ stalled** when Todo ticks and HEAD are unchanged across two runs (state in `$TMPDIR`).
+   - After a PR: the shared lifecycle scale. **ETA** from observed pace: minutes per ticked step ×
+     steps left, plus the CI and merge time seen this session; `?` with no basis, `done` once done.
 2. **One line**: the ETA for the whole batch (parallel rows don't add; a later wave does).
 3. Any views the run was set up with (`timeline`, `graph`, …) under `####` headings.
-4. **Machine line**: `🩺 CPU <c>% · RAM <r>% → capacity <k>% · 🤖 Subagent CAP: <x> (<n> running, <q> queued)`.
-5. **`#### 🩺 Machine`** — a three-line bar chart:
-   ```
-   CPU  █████░░░░░ 49%
-   RAM  ████░░░░░░ 39%
-   CAP  ██░░░░ 2/6
-   ```
+4. **The `🩺 Machine` block** — `orchestrate-cap.sh --chart` prints it: CPU and RAM bars, `CAP ██░░░░ x/6`
+   and the cap line `🤖 Subagent CAP: <x> (<n> running, <q> queued)`. `--max N` is the §1 ceiling and
+   clamps raises.
 
 Then act: adjust the cap (§3), launch queued units into free slots, rotate (§6), unstick (§7).
 
@@ -114,12 +114,11 @@ no checklist is told to write one now. Ticks and commits unmoved for two ticks =
 
 ## 6 · Context rotation (skip if §1 said Off)
 
-On every tick, measure each live agent's context from the tail of its output file — never the whole
-file:
+On every tick, measure each live agent's context from the tail of its output file — the script reads
+only the last ~300 lines / 256 KB, never the whole file:
 
 ```bash
-tail -n 300 "$OUT" | grep '"usage"' | tail -1 \
-  | jq '(.message.usage // .usage) | (.input_tokens//0)+(.cache_read_input_tokens//0)+(.cache_creation_input_tokens//0)'
+scripts/skills/orchestrate-cap.sh --transcript "$OUT" [--window 200000] [--json]
 ```
 
 Windows: 1M for current Opus and Sonnet, 200k for Haiku (`window=<N>k` overrides). At the band's
@@ -150,7 +149,8 @@ Every tick, cross-check external state (`git log`, `gh pr view --json state,merg
 ## 8 · Wrap-up
 
 When every unit meets the done criterion (or a real, reported blocker stands): post a final table,
-cancel the recurring sitrep, clean up finished worktrees, and stop. Never leave a
+cancel the recurring sitrep, `scripts/skills/worktree-lifecycle.sh sweep --apply` (landed + clean worktrees only, freed MB reported;
+never `--force`), and stop. Never leave a
 recurring job running past its batch.
 
 ---

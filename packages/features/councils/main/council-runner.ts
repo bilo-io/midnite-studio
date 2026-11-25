@@ -7,6 +7,7 @@ import {
   COUNCIL_RUN_TIMEOUT_MS,
   councilThreadTitle,
   failure,
+  isCouncilProfileBase,
   isCouncilRunLive,
   isOllamaCloudModelName,
   mergeRedactions,
@@ -19,6 +20,7 @@ import {
   type CouncilMemberProvider,
   type AgentDefinition,
   type AgentOllamaBinding,
+  type CouncilMember,
   type CouncilRun,
   type CouncilRunMember,
   type CouncilRunStatus,
@@ -31,7 +33,7 @@ import {
 
 import { appendCapped, cleanCapturedOutput } from '@midnite/studio-runtime';
 
-import { councilCliArgs, councilScript, parseCouncilAnswer, scriptQuote } from './council-cli';
+import { councilCliArgs, councilProfileWords, councilScript, parseCouncilAnswer, scriptQuote } from './council-cli';
 import { buildFollowUpPrompt, buildMemberPrompt, buildSynthesisPrompt, type CouncilSynthesisEntry } from './council-prompts';
 import { getCouncil, getRun, saveRun } from './council-service';
 
@@ -88,7 +90,31 @@ export type CouncilRunnerPorts = {
    * patterns run. A throw is swallowed.
    */
   outboundSecrets?(): Promise<readonly OutboundSecret[]>;
+  /**
+   * A custom agent as one seat's headless run (#1699): its argv over a private MCP socket, so the agent's
+   * prompt, model, tools and limits all apply. `release` closes the socket when the seat settles. Optional:
+   * a composer with no custom-agent launch (Agents, for now) leaves it out and such a seat fails plainly.
+   */
+  profileRun?(profileId: string, cwd: string): Promise<CouncilProfileRun>;
 };
+
+/** What {@link CouncilRunnerPorts.profileRun} answers — the companion's `CompanionProfileRun` shape. */
+export type CouncilProfileRun =
+  | {
+      kind: 'ready';
+      name: string;
+      agent: AgentDefinition;
+      args: string[];
+      /** The agent's own words beyond its base's print mode (`buildProfileHeadlessExtras`). */
+      extraArgs?: string[];
+      promptPrefix: string | null;
+      release: () => Promise<void>;
+    }
+  | { kind: 'missing' }
+  | { kind: 'error'; message: string };
+
+/** What a seat set to a custom agent says where this app cannot run one. */
+export const COUNCIL_PROFILES_NEED_STUDIO = 'Custom agents run in Midnite Studio, so this seat cannot run here.';
 
 /** What outbound redaction scrubbed from a run's prompts so far, for its one audit record. */
 const runRedactions = new Map<string, { redactions: Redaction[]; canary: boolean }>();
@@ -144,6 +170,8 @@ type LaunchTarget = {
   role: string;
   model?: string | undefined;
   sessionId?: string | undefined;
+  /** The custom agent the seat runs as; `provider` is its base and its fallback. */
+  agentProfileId?: string | undefined;
 };
 
 /** One settled CLI call. */
@@ -214,8 +242,26 @@ function freshMember(target: LaunchTarget, now: number): CouncilRunMember {
     startedAt: now,
     ...(target.model === undefined ? {} : { model: target.model }),
     ...(target.sessionId === undefined ? {} : { sessionId: target.sessionId }),
+    ...(target.agentProfileId === undefined ? {} : { agentProfileId: target.agentProfileId }),
   };
 }
+
+/** A configured seat as a launch target. */
+function seatTarget(member: CouncilMember): LaunchTarget {
+  return {
+    memberId: member.id,
+    name: member.name,
+    provider: member.provider,
+    role: member.role,
+    model: member.model,
+    agentProfileId: member.agentProfileId,
+  };
+}
+
+type Seat = Pick<LaunchTarget, 'provider' | 'agentProfileId'>;
+
+/** Whether a seat still runs the same CLI as before, so its session id can be resumed. */
+const sameSeat = (a: Seat, b: Seat): boolean => a.provider === b.provider && a.agentProfileId === b.agentProfileId;
 
 function targetOf(member: CouncilRunMember): LaunchTarget {
   return {
@@ -225,6 +271,7 @@ function targetOf(member: CouncilRunMember): LaunchTarget {
     role: member.role,
     model: member.model,
     sessionId: member.sessionId,
+    agentProfileId: member.agentProfileId,
   };
 }
 
@@ -257,9 +304,7 @@ export async function startRun(councilId: string, prompt: string): Promise<GitOp
     synthProvider: council.synthProvider,
     ...(council.synthModel === undefined ? {} : { synthModel: council.synthModel }),
     synthInstructions: resolveSynthInstructions(council.synthesisType, council.synthInstructions),
-    members: council.members.map((member) =>
-      freshMember({ memberId: member.id, name: member.name, provider: member.provider, role: member.role, model: member.model }, now),
-    ),
+    members: council.members.map((member) => freshMember(seatTarget(member), now)),
     turns: [],
     turnStartedAt: now,
     createdAt: now,
@@ -306,11 +351,11 @@ export async function continueRun(runId: string, prompt: string): Promise<GitOpR
     const configured = council?.members ?? [];
     const sources: LaunchTarget[] =
       configured.length > 0
-        ? configured.map((m) => ({ memberId: m.id, name: m.name, provider: m.provider, role: m.role, model: m.model }))
+        ? configured.map(seatTarget)
         : current.members.map((m) => ({ ...targetOf(m), sessionId: undefined }));
     const members = sources.map((source) => {
       const previous = current.members.find((m) => m.memberId === source.memberId);
-      const sessionId = previous && previous.provider === source.provider ? previous.sessionId : undefined;
+      const sessionId = previous && sameSeat(targetOf(previous), source) ? previous.sessionId : undefined;
       return freshMember({ ...source, sessionId }, now);
     });
 
@@ -414,15 +459,11 @@ export async function retryMember(runId: string, memberId: string): Promise<GitO
 
     const configured = council?.members.find((m) => m.id === memberId);
     // Falls back to the run's own snapshot if the member was since removed from the council entirely.
-    const provider = configured?.provider ?? member.provider;
+    const seat = configured ? seatTarget(configured) : { ...targetOf(member), sessionId: undefined };
     const target: LaunchTarget = {
-      memberId,
-      name: configured?.name ?? member.name,
-      provider,
-      role: configured?.role ?? member.role,
-      model: configured ? configured.model : member.model,
-      // The session this member resumed on this turn, when the provider is unchanged.
-      sessionId: provider === member.provider ? (current.turns.length > 0 ? member.sessionId : undefined) : undefined,
+      ...seat,
+      // The session this member resumed on this turn, when the seat runs the same CLI as before.
+      sessionId: sameSeat(seat, targetOf(member)) && current.turns.length > 0 ? member.sessionId : undefined,
     };
 
     const members = [...current.members];
@@ -531,8 +572,8 @@ async function launchMember(runId: string, member: LaunchTarget, prompt: string)
     await settleMember(runId, member.memberId, { status: 'failed', text: '', truncated: false, error: spawned.message });
     return;
   }
-  const stillWanted = await patchMemberPtyId(runId, member.memberId, spawned.ptyId);
-  trackOneShot(spawned, member.provider, (outcome) => void settleMember(runId, member.memberId, outcome));
+  const stillWanted = await patchMemberPtyId(runId, member.memberId, spawned.ptyId, spawned.fallback);
+  trackOneShot(spawned, spawned.provider, (outcome) => void settleMember(runId, member.memberId, outcome));
   // Cancelled or skipped while the shell was starting: stop it now rather than let it answer into nothing.
   if (!stillWanted) stopTracked(spawned.ptyId);
 }
@@ -616,7 +657,36 @@ async function scrubPrompt(prompt: string, runId: string): Promise<string> {
   return result.text;
 }
 
-type Spawned = { ok: true; ptyId: string; invocation: string; dir: string };
+type Spawned = {
+  ok: true;
+  ptyId: string;
+  invocation: string;
+  dir: string;
+  /** Whose answer format the output is read as — a custom agent's base. */
+  provider: CouncilMemberProvider;
+  /** Closes a custom agent's private socket; absent for a roster seat. */
+  release?: () => Promise<void>;
+  /** The seat's custom agent was deleted, so it runs as its base. */
+  fallback?: 'deleted';
+};
+
+/** How one seat's CLI is started: the words before the prompt, its environment and the prompt's lead-in. */
+type SeatCommand = {
+  agentId: string;
+  provider: CouncilMemberProvider;
+  words: string[];
+  env: Record<string, string>;
+  promptPrefix: string | null;
+  release?: () => Promise<void>;
+  fallback?: 'deleted';
+};
+
+type SeatResult = { ok: true; value: SeatCommand } | { ok: false; message: string };
+const seatFailure = (message: string): SeatResult => ({ ok: false, message });
+
+const releaseQuietly = (release: (() => Promise<void>) | undefined): void => {
+  if (release) void release().catch(() => undefined);
+};
 
 /**
  * Spawn one member's (or the synthesizer's) CLI as an unattended one-shot
@@ -629,9 +699,105 @@ async function spawnOneShot(
   runId: string,
 ): Promise<Spawned | { ok: false; message: string }> {
   const promptText = await scrubPrompt(rawPrompt, runId);
+  const command = await seatCommand(target);
+  if (!command.ok) return command;
+  const { agentId, provider, words, env, promptPrefix, release, fallback } = command.value;
+  const text = promptPrefix === null ? promptText : `${promptPrefix}\n\n${promptText}`;
+
+  let dir: string;
+  try {
+    dir = await mkdtemp(join(tmpdir(), 'midnite-council-'));
+    const promptFile = join(dir, 'prompt.txt');
+    const scriptFile = join(dir, 'run.sh');
+    await writeFile(promptFile, toAgentPrompt(text, agentId), { encoding: 'utf8', mode: 0o600 });
+    await writeFile(scriptFile, councilScript(words, promptFile), { encoding: 'utf8', mode: 0o700 });
+    await chmod(scriptFile, 0o700);
+  } catch (error) {
+    releaseQuietly(release);
+    return { ok: false, message: `Could not write the prompt file: ${error instanceof Error ? error.message : String(error)}` };
+  }
+
+  /*
+    The shell is a real login shell (the same "$SHELL -l, then type" shape every
+    agent session uses), so the CLI finishing does not end the pty on its own:
+    `exit $?` does, with the CLI's own exit code — the settle barrier's signal.
+  */
+  const typed = `/bin/sh ${scriptQuote(join(dir, 'run.sh'))}; exit $?`;
+  const result = await runnerPorts().createPty({
+    sessionId: `council-${crypto.randomUUID()}`,
+    cwd: homedir(),
+    cols: COUNCIL_PTY_COLS,
+    rows: COUNCIL_PTY_ROWS,
+    initialInput: `${typed}\r`,
+    ...(Object.keys(env).length > 0 ? { env } : {}),
+  });
+  if (!result.ok) {
+    releaseQuietly(release);
+    void removeDir(dir);
+    return result;
+  }
+  return {
+    ok: true,
+    ptyId: result.ptyId,
+    invocation: typed,
+    dir,
+    provider,
+    ...(release ? { release } : {}),
+    ...(fallback ? { fallback } : {}),
+  };
+}
+
+/**
+ * The seat's CLI: its custom agent's argv when it has one (over the agent's private socket), else the
+ * roster agent's — which is also where a deleted custom agent falls back to.
+ */
+async function seatCommand(target: LaunchTarget): Promise<SeatResult> {
+  let fallback: 'deleted' | undefined;
+  if (target.agentProfileId !== undefined) {
+    const profileRun = runnerPorts().profileRun;
+    if (!profileRun) return seatFailure(COUNCIL_PROFILES_NEED_STUDIO);
+    let prepared: CouncilProfileRun;
+    try {
+      prepared = await profileRun(target.agentProfileId, homedir());
+    } catch (error) {
+      prepared = { kind: 'error', message: error instanceof Error ? error.message : String(error) };
+    }
+    if (prepared.kind === 'error') return seatFailure(prepared.message);
+    if (prepared.kind === 'ready') {
+      const base = prepared.agent.id;
+      // The agent was moved onto a base whose answer a council cannot read since this seat was set.
+      if (!isCouncilProfileBase(base)) {
+        releaseQuietly(prepared.release);
+        return seatFailure(`${prepared.name} now runs on ${prepared.agent.label}, which cannot sit on a council. Pick another agent for this seat.`);
+      }
+      const keyEnv = (await runnerPorts().agentKeyEnv?.(base).catch(() => ({}))) ?? {};
+      return {
+        ok: true,
+        value: {
+          agentId: base,
+          provider: base,
+          // The agent's extras on the council's own invocation, so the answer reads back (and resumes) as its base's.
+          words: prepared.extraArgs
+            ? [prepared.agent.command, ...prepared.agent.args, ...councilProfileWords(base, target.sessionId, prepared.extraArgs)]
+            : [prepared.agent.command, ...prepared.args],
+          env: keyEnv,
+          promptPrefix: prepared.promptPrefix,
+          release: prepared.release,
+        },
+      };
+    }
+    fallback = 'deleted';
+  }
+  const roster = await rosterCommand(target);
+  if (!roster.ok || !fallback) return roster;
+  return { ok: true, value: { ...roster.value, fallback } };
+}
+
+/** A roster agent's one-shot words, Ollama binding and key included. */
+async function rosterCommand(target: LaunchTarget): Promise<SeatResult> {
   const agents = await runnerPorts().listAgents();
   const agent = agents.find((a) => a.id === target.provider);
-  if (!agent) return { ok: false, message: `Agent "${target.provider}" is not in the roster.` };
+  if (!agent) return seatFailure(`Agent "${target.provider}" is not in the roster.`);
 
   // Phase 96 Theme H: a member bound to Ollama in Settings ▸ Agent resolves the
   // same way any other launch of this agent id would.
@@ -655,38 +821,7 @@ async function spawnOneShot(
       allowModelFlag: !binding?.model,
     }),
   ];
-
-  let dir: string;
-  try {
-    dir = await mkdtemp(join(tmpdir(), 'midnite-council-'));
-    const promptFile = join(dir, 'prompt.txt');
-    const scriptFile = join(dir, 'run.sh');
-    await writeFile(promptFile, toAgentPrompt(promptText, agent.id), { encoding: 'utf8', mode: 0o600 });
-    await writeFile(scriptFile, councilScript(words, promptFile), { encoding: 'utf8', mode: 0o700 });
-    await chmod(scriptFile, 0o700);
-  } catch (error) {
-    return { ok: false, message: `Could not write the prompt file: ${error instanceof Error ? error.message : String(error)}` };
-  }
-
-  /*
-    The shell is a real login shell (the same "$SHELL -l, then type" shape every
-    agent session uses), so the CLI finishing does not end the pty on its own:
-    `exit $?` does, with the CLI's own exit code — the settle barrier's signal.
-  */
-  const typed = `/bin/sh ${scriptQuote(join(dir, 'run.sh'))}; exit $?`;
-  const result = await runnerPorts().createPty({
-    sessionId: `council-${crypto.randomUUID()}`,
-    cwd: homedir(),
-    cols: COUNCIL_PTY_COLS,
-    rows: COUNCIL_PTY_ROWS,
-    initialInput: `${typed}\r`,
-    ...(Object.keys(env).length > 0 ? { env } : {}),
-  });
-  if (!result.ok) {
-    void removeDir(dir);
-    return result;
-  }
-  return { ok: true, ptyId: result.ptyId, invocation: typed, dir };
+  return { ok: true, value: { agentId: agent.id, provider: target.provider, words, env, promptPrefix: null } };
 }
 
 async function removeDir(dir: string): Promise<void> {
@@ -704,7 +839,7 @@ function trackOneShot(
   onSettle: (outcome: Outcome) => void,
   limitMs: number = timeoutMs,
 ): void {
-  const { ptyId, invocation, dir } = spawned;
+  const { ptyId, invocation, dir, release } = spawned;
   let buffer: Uint8Array = new Uint8Array(0);
   let truncated = false;
   let settled = false;
@@ -715,6 +850,7 @@ function trackOneShot(
     tracked.delete(ptyId);
     runnerPorts().offPty(ptyId);
     void removeDir(dir);
+    releaseQuietly(release);
   };
 
   const timer = setTimeout(() => {
@@ -820,15 +956,18 @@ async function finishSynthesis(runId: string, outcome: Outcome): Promise<void> {
   if (finished) finishLive(finished);
 }
 
-/** Records the member's live pty; `false` when the member stopped running meanwhile (cancel, skip). */
-async function patchMemberPtyId(runId: string, memberId: string, ptyId: string): Promise<boolean> {
+/**
+ * Records the member's live pty, and that its custom agent was deleted when it fell back; `false` when the
+ * member stopped running meanwhile (cancel, skip).
+ */
+async function patchMemberPtyId(runId: string, memberId: string, ptyId: string, fallback?: 'deleted'): Promise<boolean> {
   return withRunLock(runId, async () => {
     const run = await getRun(runId);
     if (!run) return false;
     const index = run.members.findIndex((m) => m.memberId === memberId);
     if (index === -1 || run.members[index]!.status !== 'running') return false;
     const members = [...run.members];
-    members[index] = { ...members[index]!, ptyId };
+    members[index] = { ...members[index]!, ptyId, ...(fallback ? { agentProfileFallback: fallback } : {}) };
     await saveRun({ ...run, members, updatedAt: Date.now() });
     return true;
   });

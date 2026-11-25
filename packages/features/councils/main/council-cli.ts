@@ -65,6 +65,17 @@ export function councilCliArgs(request: CouncilCliRequest): string[] {
   }
 }
 
+/**
+ * A custom agent seat's words after its command and base args (#1699): the council's own invocation for its
+ * base (print mode, JSON answer, session to resume) with the agent's extras — model, private MCP socket,
+ * prompt file — ahead of the flag the prompt follows, since agy's `-p` takes the prompt as its value.
+ */
+export function councilProfileWords(provider: CouncilMemberProvider, sessionId: string | undefined, extras: readonly string[]): string[] {
+  const words = councilCliArgs({ provider, sessionId, allowModelFlag: false });
+  const promptFlag = words[words.length - 1] === '-p';
+  return promptFlag ? [...words.slice(0, -1), ...extras, '-p'] : [...words, ...extras];
+}
+
 export type CouncilCliAnswer = {
   ok: boolean;
   text: string;

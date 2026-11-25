@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { exclusion, heuristicSize, pickOptions, renderTable, sanitizeIssueText, scan, score, sizeWithModel } from './address-issue.mjs';
-import { crossCheck, extractClaims, extractContract, parsePhaseDoc } from './pr-audit.mjs';
+import { crossCheck, extractClaims, extractContract, loadL1, phaseLevel } from './pr-audit.mjs';
 import { buildCreateArgs, evaluate } from './pr-create.mjs';
 import { buildBody, buildTitle, parseSubject, scrub } from './pr-description.mjs';
 import { classifyChecks, collectFeedback, scanComments } from './pr-feedback.mjs';
@@ -87,7 +87,17 @@ describe('pr-audit', () => {
   });
   it('extracts body claims and phase theme counts', () => {
     expect(extractClaims('Tests added. No behaviour change.')).toEqual(['tested', 'unchanged']);
-    expect(parsePhaseDoc('### Theme D — x\n- [x] **151.D.1** a\n- [ ] **151.D.2** b\n').themes.D).toEqual({ done: 1, open: 1 });
+    const phase = { number: 9, url: 'u', body: '| **Contract** | `mstudio:git:foo` |', themes: [{ number: 10, theme: 'D', state: 'open', body: '- [x] **151.D.1** a\n- [ ] **151.D.2** b\n' }] };
+    expect(phaseLevel(phase)).toEqual({ issue: 9, url: 'u', contract: '`mstudio:git:foo` |', themes: { D: { done: 1, open: 1, issue: 10, state: 'open' } } });
+  });
+  it('loads L1 from the forge tracker, null when the phase has no issue', async () => {
+    const tracker = {
+      findPhase: async (n) => (n === 151 ? { ok: true, number: 9 } : { ok: false, kind: 'not-found' }),
+      readPhase: async () => ({ ok: true, phase: { number: 9, body: '', themes: [] } }),
+    };
+    expect(await loadL1(tracker, 151)).toMatchObject({ issue: 9, contract: null, themes: {} });
+    expect(await loadL1(tracker, 7)).toBeNull();
+    expect(await loadL1(tracker, null)).toBeNull();
   });
   it('cross-checks claims against the diff', () => {
     const files = parseDiff(d);
