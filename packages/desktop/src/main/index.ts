@@ -71,6 +71,7 @@ import { installCsp } from './csp';
 import { registerBrowserFeatureHandlers } from './ipc/browser-feature-handlers';
 import { registerClaudeHandlers } from './ipc/claude-handlers';
 import { registerConflictHandlers } from './ipc/conflict-handlers';
+import { registerAgentProfileHandlers } from './ipc/agent-profile-handlers';
 import { registerCouncilHandlers } from './ipc/council-handlers';
 import { registerApiClientFeatureHandlers, shutdownApiClientFeature } from './ipc/api-client-feature-handlers';
 import { registerFinanceHandlers } from './ipc/finance-handlers';
@@ -170,6 +171,7 @@ import { getMcpServerHandle, registerMcpServer } from './mcp';
 import { registerMcpHandlers } from './ipc/mcp-handlers';
 import { configureMcpTrust } from './mcp-trust-wiring';
 import { fingerprintFile } from './socket-name';
+import { configureAgentProfiles, createAgentProfilesStore } from '@midnite/studio-feature-agent-profiles/main';
 import { configureCouncils, createCouncilsRunsStore, createCouncilsStore } from '@midnite/studio-feature-councils/main';
 import { stopDemoApi } from '@midnite/studio-feature-workflows/main';
 import { registerWorkflowHandlers } from './ipc/workflow-handlers';
@@ -643,6 +645,7 @@ export const startStudioMain: StartStudioMain = () => {
       registerClaudeHandlers(getMainWindow);
       registerCliHandlers();
       registerCouncilHandlers();
+      registerAgentProfileHandlers(getMainWindow);
       registerLoopRunsHandlers();
       registerVideoHandlers();
       registerMediaHandlers();
@@ -818,6 +821,7 @@ export const startStudioMain: StartStudioMain = () => {
       configureTerminals(createTerminalStore(userData), userData, sessionHistory, {
         sessionsMarkdownPath: resolveSessionsMarkdownPath(),
       });
+      configureAgentProfiles(createAgentProfilesStore(userData));
       configureCouncils(createCouncilsStore(userData), createCouncilsRunsStore(userData));
       /*
         Wired here beside councils rather than in a boot chain: it is synchronous

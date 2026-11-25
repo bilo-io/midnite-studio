@@ -308,6 +308,7 @@ import {
   CouncilSchema,
 } from '../council';
 import { LoopModelSchema, LoopRunRecordSchema } from '../loops';
+import { AgentProfileSchema } from '../agent-profiles';
 import {
   OllamaDaemonStatusSchema,
   OllamaModelDetailSchema,
@@ -1973,6 +1974,11 @@ export const PtyCreateRequest = z
     kind: TerminalSessionKindSchema,
     /** Paired with `kind`, exactly as on the session record it belongs to. */
     agentId: z.string().min(1).optional(),
+    /**
+     * Binds this pty to a custom agent's launch (Phase 154), minted by
+     * `agentProfile:prepareLaunch`. Per-launch: never persisted on the session.
+     */
+    profileLaunchId: z.string().min(1).optional(),
     repoId: z.string().min(1),
     /** Working directory — the selected worktree. */
     cwd: z.string().min(1),
@@ -2312,6 +2318,41 @@ export const AgentStatusEvent = z.object({
   status: z.array(AgentStatusSchema),
   probe: AgentProbeStateSchema,
 });
+
+// --- custom agents (Phase 154) -----------------------------------------------
+
+export const AgentProfileListResponse = GitOpResultOf(z.object({ profiles: z.array(AgentProfileSchema) }));
+
+/** `expectedUpdatedAt: null` means "new"; any other value must equal the stored `updatedAt` or the save conflicts. */
+export const AgentProfileSaveRequest = z.object({
+  profile: AgentProfileSchema,
+  expectedUpdatedAt: z.number().int().nullable(),
+});
+export const AgentProfileSaveResponse = GitOpResultOf(
+  z.discriminatedUnion('status', [
+    z.object({ status: z.literal('saved'), profile: AgentProfileSchema }),
+    z.object({ status: z.literal('conflict'), current: AgentProfileSchema }),
+  ]),
+);
+
+export const AgentProfileDeleteRequest = z.object({ id: z.string().min(1) });
+export const AgentProfileDeleteResponse = GitOpResultSchema;
+
+export const AgentProfileExportRequest = z.object({ id: z.string().min(1) });
+/** A `null` path means the save dialog was dismissed. */
+export const AgentProfileExportResponse = GitOpResultOf(z.object({ path: z.string().nullable() }));
+
+/** A `null` profile means the open dialog was dismissed. */
+export const AgentProfileImportResponse = GitOpResultOf(z.object({ profile: AgentProfileSchema.nullable() }));
+
+export const AgentProfilePrepareLaunchRequest = z.object({
+  profileId: z.string().min(1),
+  cwd: z.string().min(1),
+  resume: z.boolean(),
+});
+export const AgentProfilePrepareLaunchResponse = GitOpResultOf(
+  z.object({ launchId: z.string(), line: z.string() }),
+);
 
 // --- councils (Phase 34) -----------------------------------------------------
 

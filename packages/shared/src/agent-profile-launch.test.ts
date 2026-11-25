@@ -1,0 +1,83 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+  BUILTIN_AGENTS,
+  buildProfileLaunchLine,
+  composeProfilePrompt,
+  enforcementFor,
+  loopModelArgs,
+  profileModelArgs,
+  promptDeliveryFor,
+} from './index';
+
+const agent = (id: string) => {
+  const found = BUILTIN_AGENTS.find((a) => a.id === id);
+  if (!found) throw new Error(`no builtin ${id}`);
+  return found;
+};
+
+describe('profileModelArgs', () => {
+  it('adds nothing for default', () => {
+    expect(profileModelArgs('claude', 'default')).toEqual([]);
+  });
+  it('maps a Claude loop id like a loop does', () => {
+    expect(profileModelArgs('claude', 'sonnet-5-5')).toEqual(loopModelArgs('claude', 'sonnet-5-5'));
+    expect(profileModelArgs('claude', 'sonnet-5-5')).not.toEqual([]);
+  });
+  it('resolves another CLI through its model list', () => {
+    expect(profileModelArgs('agy', 'gemini-4-argon-low')).toEqual(['--model', 'gemini-4-argon-low']);
+  });
+});
+
+describe('delivery and enforcement', () => {
+  it('tables', () => {
+    expect(promptDeliveryFor('claude')).toBe('flag');
+    expect(promptDeliveryFor('codex')).toBe('argument');
+    expect(promptDeliveryFor('aider')).toBe('none');
+    expect(promptDeliveryFor('mystery')).toBe('none');
+    expect(enforcementFor('claude')).toEqual({ tools: true, toolCallLimit: true });
+    expect(enforcementFor('codex')).toEqual({ tools: true, toolCallLimit: true });
+    expect(enforcementFor('aider')).toEqual({ tools: false, toolCallLimit: false });
+  });
+});
+
+describe('composeProfilePrompt', () => {
+  it('composes with and without skills', () => {
+    expect(composeProfilePrompt({ systemPrompt: '  Be terse.  ', skills: [] })).toBe('Be terse.');
+    expect(composeProfilePrompt({ systemPrompt: 'Be terse.', skills: ['a', 'b'] })).toBe(
+      'Be terse.\n\nPrefer these skills when they fit: a, b.',
+    );
+    expect(composeProfilePrompt({ systemPrompt: '', skills: ['a'] })).toBe('Prefer these skills when they fit: a.');
+    expect(composeProfilePrompt({ systemPrompt: ' ', skills: [] })).toBe('');
+  });
+});
+
+describe('buildProfileLaunchLine', () => {
+  const claude = agent('claude');
+  it('ends a flag line with the quoted prompt file, one word even with a space', () => {
+    const line = buildProfileLaunchLine({ base: claude, model: 'default', promptPath: '/a b/p.md', delivery: 'flag', mcpArgs: [], resume: false });
+    expect(line).toBe(`${[claude.command, ...claude.args].join(' ')} --append-system-prompt-file '/a b/p.md'`);
+    expect(line.endsWith("--append-system-prompt-file '/a b/p.md'")).toBe(true);
+  });
+
+  it('ends an argument line with $(cat file) and drops it on resume', () => {
+    const codex = agent('codex');
+    const line = buildProfileLaunchLine({ base: codex, model: 'default', promptPath: '/p.md', delivery: 'argument', mcpArgs: [], resume: false });
+    expect(line.endsWith(`"$(cat '/p.md')"`)).toBe(true);
+    const resumed = buildProfileLaunchLine({ base: codex, model: 'default', promptPath: '/p.md', delivery: 'argument', mcpArgs: [], resume: true });
+    expect(resumed).not.toContain('$(cat');
+  });
+
+  it('adds base.resume and places mcpArgs before the prompt words', () => {
+    const base = { ...claude, resume: ['--continue'] };
+    const line = buildProfileLaunchLine({ base, model: 'default', promptPath: '/p.md', delivery: 'flag', mcpArgs: ['--mcp-config', 'x'], resume: true });
+    expect(line).toContain('--continue');
+    expect(line.indexOf('--mcp-config')).toBeLessThan(line.indexOf('--append-system-prompt-file'));
+    expect(line.endsWith('\r')).toBe(false);
+  });
+
+  it('adds no prompt words for none or a null path', () => {
+    expect(buildProfileLaunchLine({ base: claude, model: 'default', promptPath: null, delivery: 'flag', mcpArgs: [], resume: false })).not.toContain('append');
+    expect(buildProfileLaunchLine({ base: agent('aider'), model: 'default', promptPath: '/p.md', delivery: 'none', mcpArgs: [], resume: false })).not.toContain('/p.md');
+  });
+});

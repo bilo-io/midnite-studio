@@ -36,6 +36,7 @@
     "@midnite/studio-feature-models": "workspace:*",
     "@midnite/studio-feature-chats": "workspace:*",
     "@midnite/studio-feature-companion": "workspace:*",
+    "@midnite/studio-feature-agent-profiles": "workspace:*",
     "@midnite/studio-feature-councils": "workspace:*",
     "@midnite/studio-feature-slides": "workspace:*",
     "@midnite/studio-feature-tasks": "workspace:*",

@@ -2,6 +2,12 @@ import { reportMain, type ReportMainServices } from '@midnite/studio-feature-rep
 import { mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 
+import {
+  agentProfilesMain,
+  configureAgentProfiles,
+  createAgentProfilesStore,
+  type AgentProfileDialogs,
+} from '@midnite/studio-feature-agent-profiles/main';
 import { chatsMain, createChatsRuntime, type ChatsRuntimeDeps } from '@midnite/studio-feature-chats/main';
 import {
   configureCouncils,
@@ -71,6 +77,11 @@ export type AgentsElectron = IpcContextElectron & {
   loginPath?: () => Promise<void>;
   /** The main-side save dialog behind the audit trail's Export; `null` when dismissed. Absent → Export answers a failure. */
   pickSavePath?: (defaultName: string) => Promise<string | null>;
+  /**
+   * The native open / save dialogs behind a custom agent's import and export (Phase 154). Absent → both
+   * answer as if dismissed. The host has no launch service, so it cannot start a session from an agent.
+   */
+  agentProfileDialogs?: AgentProfileDialogs;
 };
 
 /**
@@ -148,6 +159,12 @@ export function registerAgentsOn(ctx: FeatureMainContext, el: AgentsElectron): {
       ollamaApiKey: ollamaKey,
       audit: (record) => trail.record(record),
     },
+  });
+
+  // Custom agents (Phase 154) — list and edit only: a dialogs-only host, no `launch` service.
+  configureAgentProfiles(createAgentProfilesStore(el.userData));
+  agentProfilesMain.register(ctx, {
+    dialogs: el.agentProfileDialogs ?? { pickFile: async () => null, pickSavePath: async () => null },
   });
 
   // Workflows — the graph engine over Agents' ports: the builtin roster, the Ollama daemon and key, a

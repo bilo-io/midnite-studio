@@ -59,6 +59,7 @@ export const FEATURE_VIEWS = {
   workflows: ['workflows'],
   media: ['media'],
   models: ['models'],
+  'agent-profiles': ['agents'],
   'api-client': ['apiClient'],
   settings: ['settings'],
 } as const satisfies Partial<Record<PlacedFeature, FeatureIds>>;
@@ -144,6 +145,7 @@ export const STUDIO_VIEW_ORDER = [
   'workflows',
   'media',
   'models',
+  'agent-profiles',
   'api-client',
   'settings',
 ] as const satisfies readonly (keyof typeof FEATURE_VIEWS)[];

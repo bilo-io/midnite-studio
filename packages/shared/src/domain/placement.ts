@@ -104,6 +104,7 @@ export const FEATURE_PLACEMENT = {
   chats: 'agents',
   councils: 'agents',
   models: 'agents',
+  'agent-profiles': 'agents',
   workflows: 'agents',
   actions: 'coder',
   'api-client': 'coder',

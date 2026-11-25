@@ -95,6 +95,7 @@
       "@midnite/studio-feature-vanguard/main": ["./packages/features/vanguard/main/index.ts"],
       "@midnite/studio-feature-models/main": ["./packages/features/models/main/index.ts"],
       "@midnite/studio-feature-chats/main": ["./packages/features/chats/main/index.ts"],
+      "@midnite/studio-feature-agent-profiles/main": ["./packages/features/agent-profiles/main/index.ts"],
       "@midnite/studio-feature-councils/main": ["./packages/features/councils/main/index.ts"],
       "@midnite/studio-feature-media-video/main": ["./packages/features/media-video/main/index.ts"],
       "@midnite/studio-feature-media-audio/manifest": ["./packages/features/media-audio/manifest.ts"],

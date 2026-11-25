@@ -10,7 +10,7 @@ const config: Config = {
   presets: [frameTailwindPreset],
   content: frameContent(
     __dirname,
-    ['chats', 'councils', 'models', 'workflows', 'mcp-tools', 'forge', 'tests', 'api-client', 'database', 'sessions', 'tasks', 'media-core', 'media-docs', 'media-images', 'media-video', 'media-audio', 'slides'],
+    ['chats', 'agent-profiles', 'councils', 'models', 'workflows', 'mcp-tools', 'forge', 'tests', 'api-client', 'database', 'sessions', 'tasks', 'media-core', 'media-docs', 'media-images', 'media-video', 'media-audio', 'slides'],
     ['agents', 'coder', 'creator'],
   ),
 };

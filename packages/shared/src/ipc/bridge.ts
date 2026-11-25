@@ -1157,6 +1157,22 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * Custom agents (Phase 154) — global profiles in one user-level file. Every
+   * answer is a `GitOpResult` envelope; `save` returns `saved | conflict`
+   * inside `ok`, and `prepareLaunch` builds the whole typed line (Studio only).
+   */
+  agentProfile: {
+    list: () => Promise<z.infer<typeof S.AgentProfileListResponse>>;
+    save: (req: In<typeof S.AgentProfileSaveRequest>) => Promise<z.infer<typeof S.AgentProfileSaveResponse>>;
+    delete: (req: In<typeof S.AgentProfileDeleteRequest>) => Promise<GitOpResult>;
+    export: (req: In<typeof S.AgentProfileExportRequest>) => Promise<z.infer<typeof S.AgentProfileExportResponse>>;
+    import: () => Promise<z.infer<typeof S.AgentProfileImportResponse>>;
+    prepareLaunch: (
+      req: In<typeof S.AgentProfilePrepareLaunchRequest>,
+    ) => Promise<z.infer<typeof S.AgentProfilePrepareLaunchResponse>>;
+  };
+
+  /**
    * Agent councils (Phase 34) — global, not per-repo. A member's or the
    * synthesizer's live output is read through the existing `pty.onData` /
    * `pty.onExit` / `pty.snapshot` above, filtered by the `ptyId` a running

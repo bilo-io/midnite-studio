@@ -1,5 +1,6 @@
 import { lazy, type ComponentType } from 'react';
 
+import { agentProfilesViews } from '@midnite/studio-feature-agent-profiles/renderer';
 import { apiClientViews } from '@midnite/studio-feature-api-client/renderer';
 import { chatsViews } from '@midnite/studio-feature-chats/renderer';
 import { databaseViews } from '@midnite/studio-feature-database/renderer';
@@ -63,6 +64,8 @@ const loadWorkflowsView = () => workflowsViews.workflows();
 const WorkflowsView = lazy(() => loadWorkflowsView().then((Component) => ({ default: Component })));
 const loadMediaView = () => import('../features/media/media-view');
 const MediaView = lazy(() => loadMediaView().then((m) => ({ default: m.MediaView })));
+const loadAgentsView = () => agentProfilesViews.agents();
+const AgentsView = lazy(() => loadAgentsView().then((Component) => ({ default: Component })));
 const loadModelsView = () => modelsViews.models();
 const ModelsView = lazy(() => loadModelsView().then((Component) => ({ default: Component })));
 const loadDatabaseView = () => databaseViews.database();
@@ -221,6 +224,8 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
   // Global too (Phase 96 Theme C) — an Ollama daemon and its models are a
   // property of the machine, not of an open checkout.
   models: { Component: ModelsView, global: true },
+  // Global too (Phase 154) — custom agents are one user-level file, not a repo's.
+  agents: { Component: AgentsView, global: true },
   // `global: true` is the substance of this entry, not decoration: session
   // history spans repos, so without the flag the empty workspace would render
   // until one is open, making every other repo's history unreachable
