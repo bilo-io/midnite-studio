@@ -105,6 +105,11 @@ describe('scoped-check', () => {
     expect(p.packages.find((x) => x.name === '@midnite/studio-shared').steps.map((s) => s.id)).not.toContain('build shared');
     expect(flatten(p).filter((s) => s.id === 'build shared')).toHaveLength(1);
   });
+  it('skips tsc where no tsconfig exists (repo root)', () => {
+    const e = (p) => p === 'package.json' || p === 'scripts/x.mjs';
+    const p = plan(['scripts/x.mjs'], { exists: e, readPkg: () => ({ scripts: { typecheck: 'x' } }) });
+    expect(p.packages[0].steps.map((s) => s.id)).not.toContain('tsc');
+  });
   it('never emits a workspace-wide command', () => {
     const p = plan(['packages/shared/a.ts'], { exists, readPkg });
     expect(JSON.stringify(flatten(p))).not.toMatch(/moon|:typecheck/);

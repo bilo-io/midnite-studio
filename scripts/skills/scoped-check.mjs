@@ -51,8 +51,8 @@ export function plan(files, { exists, readPkg }) {
     if (code.length && (pkg.scripts?.test || existsVitest(dir, exists))) {
       steps.push({ id: 'vitest', cmd: ['pnpm', 'exec', 'vitest', 'run', ...(tests.length ? tests.map(rel) : ['--changed', 'origin/main']), '--passWithNoTests'], cwd: dir });
     }
-    if (code.length && (pkg.scripts?.typecheck || exists(join(dir, 'tsconfig.json')))) {
-      steps.push({ id: 'tsc', cmd: ['pnpm', 'exec', 'tsc', '--noEmit', ...(exists(join(dir, 'tsconfig.json')) ? ['-p', 'tsconfig.json'] : [])], cwd: dir });
+    if (code.length && exists(join(dir, 'tsconfig.json'))) {
+      steps.push({ id: 'tsc', cmd: ['pnpm', 'exec', 'tsc', '--noEmit', '-p', 'tsconfig.json'], cwd: dir });
     }
     if (code.length) steps.push({ id: 'eslint', cmd: ['pnpm', 'exec', 'eslint', ...code.map((f) => (dir === '.' ? f : join('.', f)))], cwd: '.' });
     out.push({ pkg: dir, name: pkg.name ?? dir, files: fs, steps });
