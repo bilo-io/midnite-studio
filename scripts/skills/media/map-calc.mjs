@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// `--no-llm` is accepted as a documented no-op: this script never calls an LLM, so a skill step can add it everywhere.
 // Map capture math (Phase 151 Theme E): sideM bounds, power-of-2+1 grid sizes, metres per pixel, per-layer limits.
 //
 //   node scripts/skills/media/map-calc.mjs --side 4000 [--size 513] [--target-mpp 10] [--json]

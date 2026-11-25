@@ -7,7 +7,6 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { BUILDINGS_MAX_SIDE, haversine, isGridSize, metresPerPixel, plan, recommendSize, ROADS_MAX_SIDE } from './map-calc.mjs';
-import { pollJob } from './poll-job.mjs';
 import { checkSpend, maxFrames, recommendMethod, spend } from './sprite-calc.mjs';
 import { validateAudio, validateDocs, validateImage, validateSfx, validateTerrain } from './validate.mjs';
 
@@ -76,21 +75,6 @@ describe('sprite-calc', () => {
     expect(recommendMethod({ view: 'side', style: 'painterly' }).method).toBe('hand-drawn');
     expect(recommendMethod({ view: 'side', frames: 6, rows: 2 }).method).toBe('one-shot');
     expect(recommendMethod({ view: 'side', frames: 12 }).method).toBe('hand-drawn');
-  });
-});
-
-describe('poll-job', () => {
-  it('polls until terminal without real waiting', async () => {
-    const seq = [{ status: 'running' }, { status: 'running' }, { status: 'done' }];
-    const sleeps = [];
-    const r = await pollJob({ getStatus: async () => seq.shift(), kind: 'sprite', sleep: async (ms) => sleeps.push(ms) });
-    expect(r).toMatchObject({ terminal: true, status: 'done', polls: 3 });
-    expect(sleeps).toEqual([10_000, 10_000]);
-  });
-  it('sfx uses 5 s and its own terminal words; times out', async () => {
-    const r = await pollJob({ getStatus: async () => ({ status: 'running' }), kind: 'sfx', maxMs: 12_000, sleep: async () => {} });
-    expect(r.timedOut).toBe(true);
-    expect((await pollJob({ getStatus: async () => ({ status: 'succeeded' }), kind: 'sfx' })).terminal).toBe(true);
   });
 });
 

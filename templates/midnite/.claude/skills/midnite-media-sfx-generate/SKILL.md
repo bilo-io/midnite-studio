@@ -9,7 +9,7 @@ Media ▸ SFX makes sound effects from a text prompt on this Mac with **Stable A
 
 ## 0 · Run the script first
 
-Run `node scripts/skills/media/validate.mjs sfx '<json>'` then `node scripts/skills/media/poll-job.mjs --kind sfx --cmd '<status command>'`. The first checks the request; the second polls the job to a terminal state (`${S}media/scaffold.sh sfx <project>` creates the folder). You still write the prompt and judge the result. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+Run `node scripts/skills/media/validate.mjs sfx '<json>'`. It checks the request (`scripts/skills/media/scaffold.sh sfx <project>` creates the folder); you poll the job with the `sfx_*` status tool yourself, since MCP tools are not callable from a shell. You still write the prompt and judge the result. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
 
 ## Opt-in, and the user's call alone
 

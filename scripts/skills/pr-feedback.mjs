@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// `--no-llm` is accepted as a documented no-op: this script never calls an LLM, so a skill step can add it everywhere.
 // PR feedback triage (Phase 151 Theme D): classifies failing checks (billing lock, known flake,
 // superseded cancel, real failure), optionally reruns a flake ONCE, collects unresolved review
 // comments, and scans the PR's added comment lines for hygiene problems. It only reads, except for

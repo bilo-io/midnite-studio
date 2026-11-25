@@ -9,7 +9,7 @@ The Audio page generates music from a prompt (and optional lyrics) and keeps eve
 
 ## 0 · Run the script first
 
-Run `node scripts/skills/media/validate.mjs audio '<json>'`. It checks the request against the documented constraints before you spend a generation (`${S}media/scaffold.sh audio <project>` creates the project folder). You still write the prompt, generate, and judge the result. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+Run `node scripts/skills/media/validate.mjs audio '<json>'`. It checks the request against the documented constraints before you spend a generation (`scripts/skills/media/scaffold.sh audio <project>` creates the project folder). You still write the prompt, generate, and judge the result. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
 
 ## Layout
 

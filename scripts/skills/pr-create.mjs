@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// `--no-llm` is accepted as a documented no-op: this script never calls an LLM, so a skill step can add it everywhere.
 // Guarded draft-PR creation (Phase 151 Theme D). Runs the midnite-pr-create preflight (branch,
 // duplicate PR, attribution trailers, tracked SCRATCHPAD.md, base freshness) and then, only with
 // `--create`, runs `gh pr create --draft`. It never requests a reviewer and never creates a

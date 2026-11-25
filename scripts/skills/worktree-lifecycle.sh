@@ -13,6 +13,9 @@
 set -euo pipefail
 
 cmd="${1:-}"; shift || true
+# --no-llm is accepted as a documented no-op (this script never calls an LLM), so a skill's step 0 can add it everywhere.
+_args=(); for _a in "$@"; do [[ "$_a" == --no-llm ]] || _args+=("$_a"); done
+set -- "${_args[@]+"${_args[@]}"}"
 root="${MIDNITE_WT_ROOT:-$(git rev-parse --show-toplevel)}"
 # the primary checkout is the first entry of `git worktree list`
 primary="$(git -C "$root" worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')"

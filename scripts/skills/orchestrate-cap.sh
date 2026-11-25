@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Sample CPU + RAM and feed the cap state machine (Phase 151 Theme E).
-#   scripts/skills/orchestrate-cap.sh [--running N] [--state FILE] [--json] [--cap N]
+#   scripts/skills/orchestrate-cap.sh [--running N] [--state FILE] [--json] [--cap N] [--no-llm]
 # Reads `top -l 2` and `memory_pressure -Q`, then calls orchestrate-cap.mjs. Pass --cpu/--ram to skip sampling.
 # Default state file lives in $TMPDIR so the two-checks-in-a-row rule survives between ticks.
 set -euo pipefail
