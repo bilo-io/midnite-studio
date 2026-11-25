@@ -116,7 +116,8 @@ Mark the recommendation `(Recommended)` and say in one line *why it beats the ot
    ```
 
    For a `midnite-apps` candidate, add `-R bilo-io/midnite-apps` to **both** calls — neither
-   defaults to that repo.
+   defaults to that repo. For a same-repo issue, also `node scripts/skills/tracker.mjs claim <N>` (assignee + `wip`), so
+   `node scripts/skills/tracker.mjs candidates` and the sitreps read it as taken.
 
    Add the label only if it exists or you create it (`gh label create size/M --color 5D9801`, same `-R` if it's an apps-board issue); never let a missing label abort the run.
 3. Don't self-assign unless the user asks — assignment reads as a commitment.

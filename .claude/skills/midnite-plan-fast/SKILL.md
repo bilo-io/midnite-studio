@@ -13,7 +13,7 @@ Run `node scripts/skills/sitrep.mjs graph --input rows.json` and `node scripts/s
 
 ## 1 · Quick feasibility check (read-only)
 
-Inspect only the relevant contracts, engines, and UI entry points (e.g. `packages/shared/src/`, `packages/features/*/`, `packages/desktop/src/main/`) to ground the answer in real code:
+Check the forge first with read-only `node scripts/skills/tracker.mjs index --state open` (and `node scripts/skills/tracker.mjs next` for the number a promoted plan would take) so the plan neither duplicates nor collides with a filed phase. Then inspect only the relevant contracts, engines, and UI entry points (e.g. `packages/shared/src/`, `packages/features/*/`, `packages/desktop/src/main/`) to ground the answer in real code:
 - Identify what works universally vs. where provider, platform, or boundary rules (`shared ◀ frame ◀ feature ◀ app`, `shared ◀ runtime ◀ feature/main ◀ desktop`) impose limits or fallbacks.
 - Lead with a **2–4 bullet Feasibility & Basic Approach** section answering the user's core question first.
 
