@@ -68,7 +68,7 @@ for p in <ports>; do lsof -nP -iTCP:$p -sTCP:LISTEN >/dev/null && echo "port $p 
 If a check fails, send that unit one precise follow-up naming the failure. If it is dead or still
 silent after the follow-up, finish its handover yourself:
 - commit its diff as `wip: handover (orchestrator)`;
-- write the HANDOFF from `git log main..HEAD`, its scratchpad and its last report, and mark what you
+- write the HANDOFF from `git log origin/main..HEAD`, its scratchpad and its last report, and mark what you
   inferred;
 - copy its brief from the board or launch record into the Brief section;
 - kill its recorded PIDs.
