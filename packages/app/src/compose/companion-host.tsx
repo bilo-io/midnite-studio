@@ -83,7 +83,17 @@ export const STUDIO_COMPANION_HOST: CompanionHost = {
     skillHandoff: (options, context) => (skillHandoff as CompanionHost['terminal']['skillHandoff'])(options, context),
     skillHandoffAsProfile: async (options, context, profile) => {
       const resolved = resolveSkillHandoff(options, context);
-      return resolved ? startStudioProfileAgent({ ...resolved, profile, autoSend: options.autoSend }) : null;
+      // Honours the hand-off's surface and mode like the roster path: an absent mode follows the user's setting.
+      const mode = options.mode ?? useUiStore.getState().skillExecutionMode;
+      return resolved
+        ? startStudioProfileAgent({
+            ...resolved,
+            profile,
+            autoSend: options.autoSend,
+            mode,
+            ...(options.surface === undefined ? {} : { surface: options.surface }),
+          })
+        : null;
     },
     startProfileAgent: (input) => startStudioProfileAgent(input),
   },

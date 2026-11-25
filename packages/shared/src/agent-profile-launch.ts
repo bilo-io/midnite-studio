@@ -84,12 +84,30 @@ export interface ProfileLaunchLineInput {
   resume: boolean;
   /** A first prompt for the session (a skill hand-off): one shell-quoted word, after the agent's own prompt. */
   prompt?: string | undefined;
+  /**
+   * `'headless'` types the base CLI's print mode ahead of the prompt (a skill hand-off in headless mode), with
+   * the same model, socket and prompt-file words. Needs a first prompt and a base with a print mode;
+   * anything else, and every resume, stays interactive.
+   */
+  mode?: 'interactive' | 'headless' | undefined;
 }
 
 /** The whole typed line, with no trailing `\r`. Pure. */
 export function buildProfileLaunchLine(input: ProfileLaunchLineInput): string {
   const { base, model, promptPath, delivery, mcpArgs, resume } = input;
   const first = input.prompt?.trim() ? shellQuote(input.prompt) : null;
+  const printMode = input.mode === 'headless' && first !== null && !resume ? agentHeadlessArgs(base.id) : null;
+  if (printMode !== null) {
+    let words: string[] = [];
+    if (promptPath !== null && delivery === 'flag') {
+      words = ['--append-system-prompt-file', shellQuote(promptPath), first!];
+    } else if (promptPath !== null && delivery === 'argument') {
+      words = [`"$(cat ${shellQuote(promptPath)}; printf '\\n\\n%s' ${first})"`];
+    } else {
+      words = [first!];
+    }
+    return [base.command, ...base.args, ...printMode, ...profileModelArgs(base.id, model).map(shellWord), ...mcpArgs, ...words].join(' ');
+  }
   let promptWords: string[] = [];
   if (promptPath !== null) {
     if (delivery === 'flag') {
