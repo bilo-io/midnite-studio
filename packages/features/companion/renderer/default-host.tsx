@@ -53,6 +53,7 @@ function initialUiState(set: UiSet): CompanionUiState {
     screensaverLocked: false,
     primaryAgent: 'claude',
     primaryModelByAgent: {},
+    primaryAgentProfileId: null,
     agentSkills: {},
     projectBoardByRepo: {},
     forgeAccounts: [],
@@ -87,7 +88,12 @@ function initialUiState(set: UiSet): CompanionUiState {
     setCompanionPanelOpen: (companionPanelOpen) => set({ companionPanelOpen }),
     toggleCompanionPanel: () => set((state) => ({ companionPanelOpen: !state.companionPanelOpen })),
     setPrimaryAgentAndModel: (primaryAgent, modelId = null) =>
-      set((state) => ({ primaryAgent, primaryModelByAgent: { ...state.primaryModelByAgent, [primaryAgent]: modelId } })),
+      set((state) => ({
+        primaryAgent,
+        primaryAgentProfileId: null,
+        primaryModelByAgent: { ...state.primaryModelByAgent, [primaryAgent]: modelId },
+      })),
+    setPrimaryAgentProfile: (primaryAgentProfileId) => set({ primaryAgentProfileId }),
     setProjectBoard: (repoId, projectId) =>
       set((state) => ({ projectBoardByRepo: { ...state.projectBoardByRepo, [repoId]: projectId } })),
   };

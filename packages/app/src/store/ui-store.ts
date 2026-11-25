@@ -69,6 +69,9 @@ import {
 } from '@midnite/studio-frame';
 
 // The git graph's and diff's state shapes moved to the frame with them (Phase 113 Theme O).
+
+/** `AgentProfileSchema`'s id shape (Phase 154): a migrated `primaryAgentProfileId` of any other shape becomes `null`. */
+const AGENT_PROFILE_ID_PATTERN = /^profile-[A-Za-z0-9_-]+$/;
 export {
   DEFAULT_GRAPH_COLUMNS,
   GRAPH_COLUMN_BOUNDS,
@@ -1722,6 +1725,13 @@ export type UiState = {
   setPrimaryModel: (agentId: string, modelId: string | null) => void;
   setPrimaryAgentAndModel: (agentId: string, modelId?: string | null) => void;
   /**
+   * The custom agent (Phase 154 Theme H) the companion thinks through, or `null` for {@link primaryAgent}.
+   * Companion only: `primaryAgent` is left as it was, so the midnite menu and the Chats/Media follow
+   * (`useFollowPrimaryAgent`) are unchanged. Choosing a built-in agent clears it.
+   */
+  primaryAgentProfileId: string | null;
+  setPrimaryAgentProfile: (profileId: string | null) => void;
+  /**
    * Non-persisted: the Settings ▸ Agents row `AgentsRoster` should scroll to
    * and briefly highlight next. Set by `focusAgentInSettings` when a
    * dropdown routes a click on an unconfigured agent to that page — cleared
@@ -2394,6 +2404,7 @@ export type PersistedUi = Pick<
   | 'agentSkills'
   | 'primaryAgent'
   | 'primaryModelByAgent'
+  | 'primaryAgentProfileId'
   | 'agentModes'
   | 'agentApiKeys'
   | 'agentBackends'
@@ -2594,6 +2605,7 @@ export const useUiStore = create<UiState>()(
       agentSkills: DEFAULT_AGENT_SKILLS,
       primaryAgent: 'claude',
       primaryModelByAgent: {},
+      primaryAgentProfileId: null,
       pendingAgentFocus: null,
       agentModes: {},
       setAgentMode: (agentId, mode) =>
@@ -3513,7 +3525,8 @@ export const useUiStore = create<UiState>()(
       closeKillSwitch: () => set({ killSwitchOpen: false, killSwitchFlowWorkflowId: null, killSwitchFlowRunId: null }),
       setAgentSkill: (id, skill) =>
         set((state) => ({ agentSkills: { ...state.agentSkills, [id]: skill } })),
-      setPrimaryAgent: (id) => set({ primaryAgent: id }),
+      setPrimaryAgent: (id) => set({ primaryAgent: id, primaryAgentProfileId: null }),
+      setPrimaryAgentProfile: (profileId) => set({ primaryAgentProfileId: profileId }),
       setPrimaryModel: (agentId, modelId) =>
         set((state) => ({
           primaryModelByAgent: {
@@ -3524,6 +3537,7 @@ export const useUiStore = create<UiState>()(
       setPrimaryAgentAndModel: (agentId, modelId) =>
         set((state) => ({
           primaryAgent: agentId,
+          primaryAgentProfileId: null,
           primaryModelByAgent: {
             ...state.primaryModelByAgent,
             ...(modelId !== undefined ? { [agentId]: modelId } : {}),
@@ -3538,7 +3552,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 41,
+      version: 42,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         chatsWidthMode: state.chatsWidthMode,
@@ -3617,6 +3631,7 @@ export const useUiStore = create<UiState>()(
         agentSkills: state.agentSkills,
         primaryAgent: state.primaryAgent,
         primaryModelByAgent: state.primaryModelByAgent,
+        primaryAgentProfileId: state.primaryAgentProfileId,
         agentModes: state.agentModes,
         agentApiKeys: state.agentApiKeys,
         agentBackends: state.agentBackends,
@@ -4015,6 +4030,11 @@ export const useUiStore = create<UiState>()(
         if (version < 40) migrateSwarmFleetSkills(state);
         if (version < 41 || !Array.isArray(state.collapsedRepoSections)) {
           state.collapsedRepoSections = [...DEFAULT_COLLAPSED_REPO_SECTIONS];
+        }
+        // v41 → v42 (Phase 154 Theme H): the companion starts on its built-in agent.
+        // A value that is not a profile id would fail every ask's schema, so it is dropped rather than kept.
+        if (version < 42 || typeof state.primaryAgentProfileId !== 'string' || !AGENT_PROFILE_ID_PATTERN.test(state.primaryAgentProfileId)) {
+          state.primaryAgentProfileId = null;
         }
         return state as PersistedUi;
       },

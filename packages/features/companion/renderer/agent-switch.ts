@@ -1,8 +1,10 @@
 import {
+  AGENT_PROFILE_ID_PREFIX,
   BUILTIN_AGENTS,
   modelsForAgent,
   resolveAgentAndModel,
   type AgentDefinition,
+  type AgentProfile,
   type AgentStatus,
   type CompanionAgentGetOutput,
   type CompanionAgentSetOutput,
@@ -12,6 +14,7 @@ import {
 import { bridge } from '@midnite/studio-frame';
 import { useUiStore } from './ext';
 import { useAgentProbeStore } from './ext';
+import { refreshCustomAgents } from './custom-agents';
 
 /**
  * The renderer half of `companion_agent_get`, `companion_agent_set` and
@@ -60,7 +63,7 @@ function installed(agentId: string, status: AgentStatus[]): boolean | null {
 
 export async function buildAgentStateReply(): Promise<CompanionAgentGetOutput> {
   const ui = useUiStore.getState();
-  const { agents, status } = await loadRoster();
+  const [{ agents, status }, profiles] = await Promise.all([loadRoster(), refreshCustomAgents()]);
   return {
     primaryAgent: ui.primaryAgent,
     model: ui.primaryModelByAgent[ui.primaryAgent] ?? null,
@@ -70,8 +73,22 @@ export async function buildAgentStateReply(): Promise<CompanionAgentGetOutput> {
       installed: installed(agent.id, status),
       model: ui.primaryModelByAgent[agent.id] ?? null,
     })),
+    agentProfileId: ui.primaryAgentProfileId,
+    customAgents: profiles.map((profile) => ({
+      id: profile.id,
+      name: profile.name,
+      baseAgentId: profile.baseAgentId,
+      installed: installed(profile.baseAgentId, status),
+    })),
     locked: ui.screensaverLocked,
   };
+}
+
+/** A custom agent by id, or by its name (case-insensitive) — Phase 154 Theme H. */
+function findCustomAgent(input: string, profiles: readonly AgentProfile[]): AgentProfile | null {
+  const wanted = input.trim();
+  if (wanted.startsWith(AGENT_PROFILE_ID_PREFIX)) return profiles.find((p) => p.id === wanted) ?? null;
+  return profiles.find((p) => p.name.trim().toLowerCase() === wanted.toLowerCase()) ?? null;
 }
 
 function refused(reason: NonNullable<CompanionAgentSetOutput['reason']>, message: string): CompanionAgentSetOutput {
@@ -97,7 +114,30 @@ export async function resolveAgentSet(input: { agent: string; model?: string | u
   const ui = useUiStore.getState();
   if (ui.screensaverLocked) return refused('locked', 'The screen is locked — unlock it first.');
 
-  const { agents, status } = await loadRoster();
+  const [{ agents, status }, profiles] = await Promise.all([loadRoster(), refreshCustomAgents()]);
+  const previous = {
+    agentId: ui.primaryAgent,
+    modelId: ui.primaryModelByAgent[ui.primaryAgent] ?? null,
+    agentProfileId: ui.primaryAgentProfileId,
+  };
+
+  // Phase 154 Theme H: a custom agent by id or name, before the built-ins (the user chose that name).
+  const custom = findCustomAgent(input.agent, profiles);
+  if (custom) {
+    if (input.model !== undefined) {
+      return refused('unknownModel', `${custom.name} is a custom agent with its own model; change it on the Agents page.`);
+    }
+    if (installed(custom.baseAgentId, status) === false) {
+      const base = agents.find((a) => a.id === custom.baseAgentId)?.label ?? custom.baseAgentId;
+      return refused('notInstalled', `${custom.name} runs on ${base}, which is not installed on this machine.`);
+    }
+    ui.setPrimaryAgentProfile(custom.id);
+    return { status: 'applied', previous, next: { ...previous, agentProfileId: custom.id } };
+  }
+  if (input.agent.trim().startsWith(AGENT_PROFILE_ID_PREFIX)) {
+    return refused('unknownAgent', `No custom agent has the id ${input.agent.trim()}.`);
+  }
+
   const target = resolveAgent(input.agent, agents);
   if ('error' in target) return refused('unknownAgent', target.error);
   const { agent } = target;
@@ -116,13 +156,12 @@ export async function resolveAgentSet(input: { agent: string; model?: string | u
     modelId = match.modelId;
   }
 
-  const previous = { agentId: ui.primaryAgent, modelId: ui.primaryModelByAgent[ui.primaryAgent] ?? null };
   ui.setPrimaryAgentAndModel(agent.id, modelId);
   const after = useUiStore.getState();
   return {
     status: 'applied',
     previous,
-    next: { agentId: agent.id, modelId: after.primaryModelByAgent[agent.id] ?? null },
+    next: { agentId: agent.id, modelId: after.primaryModelByAgent[agent.id] ?? null, agentProfileId: null },
   };
 }
 

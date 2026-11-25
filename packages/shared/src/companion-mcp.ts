@@ -333,24 +333,42 @@ export const CompanionAgentSummarySchema = z.object({
 });
 export type CompanionAgentSummary = z.infer<typeof CompanionAgentSummarySchema>;
 
+/** A saved custom agent (Phase 154 Theme H) as `companion_agent_get` lists it. */
+export const CompanionCustomAgentSummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  baseAgentId: z.string(),
+  /** Whether its base CLI is installed; `null` when nothing is known. */
+  installed: z.boolean().nullable(),
+});
+export type CompanionCustomAgentSummary = z.infer<typeof CompanionCustomAgentSummarySchema>;
+
 export const CompanionAgentGetOutputSchema = z.object({
   primaryAgent: z.string(),
   /** The model chosen for the primary agent, or `null` for its default. */
   model: z.string().nullable(),
   agents: z.array(CompanionAgentSummarySchema),
+  /** Phase 154 Theme H: the custom agent the companion thinks through, or `null` for `primaryAgent` itself. */
+  agentProfileId: z.string().nullable().optional(),
+  customAgents: z.array(CompanionCustomAgentSummarySchema).optional(),
   locked: z.boolean(),
 });
 export type CompanionAgentGetOutput = z.infer<typeof CompanionAgentGetOutputSchema>;
 
 export const CompanionAgentSetInputSchema = z.object({
-  /** An agent id or a spoken name — `claude`, `codex`, `antigravity`… */
+  /** An agent id or a spoken name — `claude`, `codex`, `antigravity`… — or a custom agent's id or name. */
   agent: z.string().trim().min(1).max(100),
   /** A model id or name from `companion_models_list`; omitted keeps the agent's current choice. */
   model: z.string().trim().min(1).max(200).optional(),
 });
 export type CompanionAgentSetInput = z.infer<typeof CompanionAgentSetInputSchema>;
 
-const CompanionAgentChoiceSchema = z.object({ agentId: z.string(), modelId: z.string().nullable() });
+const CompanionAgentChoiceSchema = z.object({
+  agentId: z.string(),
+  modelId: z.string().nullable(),
+  /** Phase 154 Theme H: the custom agent in use, or `null`. */
+  agentProfileId: z.string().nullable().optional(),
+});
 
 export const CompanionAgentSetOutputSchema = z.object({
   status: z.enum(['applied', 'refused']),

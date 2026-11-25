@@ -40,11 +40,13 @@ export { createSttCredentials } from './stt/credentials';
 export { configureCompanionTtsBroker, companionTtsModelOnDisk, disposeCompanionTtsBroker } from './tts-broker';
 export { configureUiBridge, requestUiAction, resolveUiReply, UI_BRIDGE_TIMEOUT_MESSAGE, type UiBridgeWindow } from './ui-bridge';
 export {
+  CUSTOM_AGENTS_NEED_STUDIO,
   STUB_COMPANION_SERVICES,
   companionServices,
   configureCompanionServices,
   type CompanionDispatchResult,
   type CompanionMainServices,
+  type CompanionProfileRun,
   type CompanionSafeStorage,
 } from './services';
 
@@ -100,6 +102,7 @@ export const companionMain = defineFeatureMain<CompanionMainServices>({
         text: req.text,
         repoPath: req.repoPath,
         agentId: req.agentId,
+        agentProfileId: req.agentProfileId,
         snapshot: req.snapshot,
         personality: req.personality,
         aboutUser: req.aboutUser,

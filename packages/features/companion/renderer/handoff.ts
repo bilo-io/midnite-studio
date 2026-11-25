@@ -1,4 +1,5 @@
 import {
+  AGENT_PROFILE_ID_PREFIX,
   BUILTIN_AGENTS,
   COMPANION_COMMAND_IDS,
   COMPANION_LOCAL_VOICES,
@@ -48,6 +49,8 @@ import {
 } from './settings-apply';
 import { type AgentCommandId } from '@midnite/studio-shared';
 import { useUiStore } from './ext';
+import { useAgentProbeStore } from './ext';
+import { customAgent } from './custom-agents';
 
 /**
  * From "start a swarm" to hearing what the swarm did — Phase 79 Theme E.
@@ -217,6 +220,8 @@ export const VOICE_CHOICE_MEMORY_MS = 60 * 1000;
 let lastAgentSwitchChange: {
   previousAgent: string;
   previousModel: string | null;
+  /** Phase 154 Theme H: the custom agent in use before the switch, restored by the undo. */
+  previousProfileId: string | null;
   newAgent: string;
   newModel: string | null;
   at: number;
@@ -746,6 +751,7 @@ async function switchAgent(
   intent: Extract<CompanionIntent, { kind: 'switchAgent' }>,
   deps: HandoffDeps,
 ): Promise<void> {
+  if (intent.agentId.startsWith(AGENT_PROFILE_ID_PREFIX)) return switchToCustomAgent(intent.agentId, deps);
   const agent = BUILTIN_AGENTS.find((a) => a.id.toLowerCase() === intent.agentId.toLowerCase());
   if (!agent) {
     await say(deps, `I don't recognize the agent ${intent.agentId}.`);
@@ -766,12 +772,14 @@ async function switchAgent(
   const currentUi = useUiStore.getState();
   const previousAgent = currentUi.primaryAgent;
   const previousModel = currentUi.primaryModelByAgent[previousAgent] ?? null;
+  const previousProfileId = currentUi.primaryAgentProfileId;
 
   useUiStore.getState().setPrimaryAgentAndModel(agent.id, intent.modelId);
 
   lastAgentSwitchChange = {
     previousAgent,
     previousModel,
+    previousProfileId,
     newAgent: agent.id,
     newModel: intent.modelId ?? null,
     at: Date.now(),
@@ -785,6 +793,37 @@ async function switchAgent(
 }
 
 /**
+ * Make a saved custom agent the companion's agent (Phase 154 Theme H) — "use Reviewer". The intent carries
+ * the profile id; the name comes from the live list. `primaryAgent` is left alone, so only the companion
+ * changes. A custom agent whose base CLI the probe found missing is refused rather than half-switched.
+ */
+async function switchToCustomAgent(profileId: string, deps: HandoffDeps): Promise<void> {
+  const name = deps.vocabulary().customAgents?.find((agent) => agent.id === profileId)?.name ?? customAgent(profileId)?.name;
+  if (name === undefined) {
+    await say(deps, "I don't know that custom agent. It may have been deleted.");
+    return;
+  }
+  const baseId = customAgent(profileId)?.baseAgentId;
+  if (baseId !== undefined && useAgentProbeStore.getState().status.find((s) => s.id === baseId)?.installed === false) {
+    const baseLabel = BUILTIN_AGENTS.find((a) => a.id === baseId)?.label ?? baseId;
+    await say(deps, `${name} runs on ${baseLabel}, which isn't installed here.`);
+    return;
+  }
+
+  const ui = useUiStore.getState();
+  lastAgentSwitchChange = {
+    previousAgent: ui.primaryAgent,
+    previousModel: ui.primaryModelByAgent[ui.primaryAgent] ?? null,
+    previousProfileId: ui.primaryAgentProfileId,
+    newAgent: ui.primaryAgent,
+    newModel: ui.primaryModelByAgent[ui.primaryAgent] ?? null,
+    at: Date.now(),
+  };
+  ui.setPrimaryAgentProfile(profileId);
+  await say(deps, `Switched the companion to ${name}.`);
+}
+
+/**
  * Undo the last agent/model switch ("undo that").
  */
 async function undoAgentSwitch(deps: HandoffDeps): Promise<void> {
@@ -793,10 +832,18 @@ async function undoAgentSwitch(deps: HandoffDeps): Promise<void> {
     return;
   }
 
-  const { previousAgent, previousModel } = lastAgentSwitchChange;
+  const { previousAgent, previousModel, previousProfileId } = lastAgentSwitchChange;
   lastAgentSwitchChange = null;
 
   useUiStore.getState().setPrimaryAgentAndModel(previousAgent, previousModel);
+  if (previousProfileId !== null) {
+    useUiStore.getState().setPrimaryAgentProfile(previousProfileId);
+    const name = customAgent(previousProfileId)?.name;
+    if (name !== undefined) {
+      await say(deps, `Put it back. Switched the companion to ${name}.`);
+      return;
+    }
+  }
 
   const prevAgentDef = BUILTIN_AGENTS.find((a) => a.id === previousAgent);
   const prevAgentLabel = prevAgentDef ? prevAgentDef.label : previousAgent;
