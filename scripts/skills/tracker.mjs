@@ -33,7 +33,7 @@ Write (each accepts --dry-run: prints the exact gh calls, runs none)
   refine-stamp <issue>|--phase N         swap refined-<N-1> for refined-N
   close <issue> [--comment "..."]        drop wip, then close
   board <issue> --status S [--project N] set the board card's Status (project: --project > the issue's board
-                                         > ${PROJECT_ENV} > board ${DEFAULT_PROJECT}; several boards without
+                                         > $${PROJECT_ENV} > board ${DEFAULT_PROJECT}; several boards without
                                          board ${DEFAULT_PROJECT} among them is "ambiguous", never a guess)
 
 Exit: 0 ok · 1 gh / forge failure · 2 usage. GH_TOKEN defaults to the bilo-io account's token.`;
