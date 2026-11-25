@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import * as net from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -225,5 +225,20 @@ describe('createProfileMcpSockets', () => {
 
     await after.closeForSession('sess-live');
     expect(existsSync(join(dir, `p-${live.launchId}.json`))).toBe(false);
+  });
+
+  it('restore ignores a manifest whose socket path it would never have chosen (#1697)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mp-'));
+    dirs.push(dir);
+    const decoy = join(dir, 'decoy');
+    writeFileSync(decoy, 'keep');
+    const manifest = { launchId: 'abc', sessionId: 's', socketPath: decoy, cwd: '/w', agent: { name: 'A', baseAgentId: 'claude', mcpTools: null } };
+    writeFileSync(join(dir, 'p-abc.json'), JSON.stringify(manifest));
+    const startServer = vi.fn();
+    const { sockets: s } = sockets({ runsDir: () => dir, startServer });
+    expect(await s.restore(() => true)).toEqual([]);
+    expect(startServer).not.toHaveBeenCalled();
+    expect(existsSync(decoy)).toBe(true);
+    expect(existsSync(join(dir, 'p-abc.json'))).toBe(false);
   });
 });

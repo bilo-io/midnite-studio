@@ -115,7 +115,8 @@ type Entry = {
   agent: LaunchSnapshot;
 };
 
-type Parked = { socketPath: string; cwd: string; agent: LaunchSnapshot; at: number };
+/** `stopped` settles once the old server has let go of the path, so a revival never races its cleanup. */
+type Parked = { socketPath: string; cwd: string; agent: LaunchSnapshot; at: number; stopped: Promise<void> };
 
 export function profileAllowlistRefusal(tool: string, agentName: string): McpDispatchResult {
   return { ok: false, kind: 'refused', message: `Tool "${tool}" is not allowed for agent "${agentName}".` };
@@ -164,9 +165,10 @@ export function createProfileMcpSockets(seams: ProfileMcpSocketSeams): ProfileMc
     const entry = entries.get(launchId);
     if (!entry || entry.sessionId !== undefined) return;
     entries.delete(launchId);
-    parked.set(launchId, { socketPath: entry.socketPath, cwd: entry.cwd, agent: entry.agent, at: now() });
+    const stopped = stopServer(entry).catch(() => undefined);
+    parked.set(launchId, { socketPath: entry.socketPath, cwd: entry.cwd, agent: entry.agent, at: now(), stopped });
     for (const [id, p] of parked) if (now() - p.at > PROFILE_PARKED_TTL_MS) parked.delete(id);
-    await stopServer(entry);
+    await stopped;
   };
 
   const socketPathFor = (launchId: string): string => {
@@ -251,6 +253,9 @@ export function createProfileMcpSockets(seams: ProfileMcpSocketSeams): ProfileMc
       const held = parked.get(launchId);
       if (!held || entries.has(launchId)) return false;
       parked.delete(launchId);
+      // The old server's cleanup unlinks the path; starting before it settles would lose the new socket.
+      await held.stopped;
+      if (entries.has(launchId)) return bind(launchId, sessionId);
       await start(launchId, held.socketPath, held.cwd, held.agent);
       return bind(launchId, sessionId);
     },
@@ -290,7 +295,8 @@ export function createProfileMcpSockets(seams: ProfileMcpSocketSeams): ProfileMc
         const launchId = MANIFEST.exec(name)?.[1];
         if (!launchId || entries.has(launchId)) continue;
         const manifest = await readManifest(manifestPath(launchId));
-        if (!manifest || manifest.launchId !== launchId || !isLive(manifest.sessionId)) {
+        // Only ever a path this module would have chosen: a manifest is never a way to unlink anything else.
+        if (!manifest || manifest.launchId !== launchId || manifest.socketPath !== socketPathFor(launchId) || !isLive(manifest.sessionId)) {
           await dropManifest(launchId).catch(() => undefined);
           continue;
         }
