@@ -2,6 +2,7 @@ import {
   agentHeadlessArgs,
   emptyCompanionSnapshot,
   type AgentDefinition,
+  type AgentProfile,
   type CompanionSnapshot,
   type CompanionVocabulary,
   type RepoDescriptor,
@@ -40,7 +41,15 @@ import {
   switchCompanionProfile,
 } from './profiles';
 import { vocabularyFor, withCompanionProfiles } from './vocabulary';
-import { askProfileField, customAgent, deletedAgentNotice, refreshCustomAgents, withCustomAgents } from './custom-agents';
+import {
+  askProfileField,
+  customAgent,
+  deletedAgentNotice,
+  ensureCustomAgents,
+  refreshCustomAgents,
+  unreadAgentNotice,
+  withCustomAgents,
+} from './custom-agents';
 import { showToast } from './ext';
 import { skillHandoff } from './ext';
 import { skillHandoffAsProfile, startAgent, startProfileAgent } from './ext';
@@ -171,25 +180,27 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
       });
       // Phase 154 follow-up: a custom agent runs the hand-off through `agentProfile:prepareLaunch`, so its
       // prompt, model and tool limits apply. A deleted one falls back to its base agent and says so.
-      const profile = ui.primaryAgentProfileId === null ? null : customAgent(ui.primaryAgentProfileId);
+      const lookup = await lookupCustomAgent(ui.primaryAgentProfileId);
+      const profile = lookup.profile;
       if (ui.primaryAgentProfileId !== null && profile !== null) {
         const started = await skillHandoffAsProfile(options, context(ui.primaryAgent), profile);
         if (started !== 'missing') return started;
       }
-      const notice = ui.primaryAgentProfileId === null ? undefined : noteDeletedAgent(profile?.baseAgentId);
+      const notice = fallbackNotice(ui.primaryAgentProfileId, lookup);
       const session = skillHandoff(options, context(profile?.baseAgentId ?? ui.primaryAgent));
       return session && notice !== undefined ? { id: session.id, notice } : session;
     },
     startVerbatim: async (text) => {
       if (repo.id === null || repo.path === null) return null;
       const ui = useUiStore.getState();
-      const profile = ui.primaryAgentProfileId === null ? null : customAgent(ui.primaryAgentProfileId);
+      const lookup = await lookupCustomAgent(ui.primaryAgentProfileId);
+      const profile = lookup.profile;
       const target = { repoId: repo.id, cwd: repo.path, title: 'Companion', prompt: text, autoSend: false };
       if (ui.primaryAgentProfileId !== null && profile !== null) {
         const started = await startProfileAgent({ ...target, profile });
         if (started !== 'missing') return started;
       }
-      const notice = ui.primaryAgentProfileId === null ? undefined : noteDeletedAgent(profile?.baseAgentId);
+      const notice = fallbackNotice(ui.primaryAgentProfileId, lookup);
       const baseId = profile?.baseAgentId ?? ui.primaryAgent;
       const agent = rosterCache.find((entry) => entry.id === baseId) ?? rosterCache[0];
       if (!agent) return null;
@@ -390,6 +401,33 @@ function noteDeletedAgent(baseAgentId?: string): string {
   const fallbackId = baseAgentId ?? ui.primaryAgent;
   const label = rosterCache.find((agent) => agent.id === fallbackId)?.label ?? fallbackId;
   const notice = deletedAgentNotice(label);
+  showToast({ message: notice });
+  return notice;
+}
+
+/**
+ * The companion's custom agent for a launch. The list is read first when it never has been, so a hand-off
+ * run before anything loaded it does not mistake a valid agent for a deleted one. `readable` is false when
+ * that read failed: the agent is then unknown rather than gone.
+ */
+async function lookupCustomAgent(profileId: string | null): Promise<{ profile: AgentProfile | null; readable: boolean }> {
+  if (profileId === null) return { profile: null, readable: true };
+  const cached = customAgent(profileId);
+  if (cached !== null) return { profile: cached, readable: true };
+  const { loaded } = await ensureCustomAgents();
+  return { profile: customAgent(profileId), readable: loaded };
+}
+
+/**
+ * The notice for a launch that fell back to the built-in agent, or `undefined` when no custom agent was
+ * chosen or it launched. A deleted agent clears the choice; one that could not be looked up is kept, so
+ * the next launch tries again.
+ */
+function fallbackNotice(profileId: string | null, lookup: { profile: AgentProfile | null; readable: boolean }): string | undefined {
+  if (profileId === null) return undefined;
+  if (lookup.readable) return noteDeletedAgent(lookup.profile?.baseAgentId);
+  const label = rosterCache.find((agent) => agent.id === useUiStore.getState().primaryAgent)?.label ?? useUiStore.getState().primaryAgent;
+  const notice = unreadAgentNotice(label);
   showToast({ message: notice });
   return notice;
 }

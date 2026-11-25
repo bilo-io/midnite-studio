@@ -152,6 +152,10 @@ export type CompanionSkillHandoffOptions = {
   cwd?: string;
   body?: string;
   autoSend: boolean;
+  /** Where the session is hosted (`'fab'`, `'kanban'`); absent is the main terminal panel. */
+  surface?: 'main' | 'fab' | 'kanban' | undefined;
+  /** `'headless'` runs the base CLI's print mode; absent follows the user's setting. */
+  mode?: 'interactive' | 'headless' | undefined;
 };
 
 export type CompanionSkillHandoffContext = {

@@ -8,7 +8,13 @@ import {
   type PrepareProfileLaunch,
 } from '@midnite/studio-feature-terminal/renderer';
 import { bridge, noBridge, reportFailure } from '@midnite/studio-frame';
-import { AGENT_PROFILE_NOT_FOUND, toAgentPrompt, type AgentProfile } from '@midnite/studio-shared';
+import {
+  AGENT_PROFILE_NOT_FOUND,
+  toAgentPrompt,
+  type AgentProfile,
+  type SkillExecutionMode,
+  type TerminalSurface,
+} from '@midnite/studio-shared';
 
 import { revealSession } from '../features/terminal/reveal-session';
 import { useRepos } from '../services/queries';
@@ -82,6 +88,8 @@ export async function startStudioProfileAgent(input: {
   title: string;
   prompt?: string | undefined;
   autoSend?: boolean | undefined;
+  surface?: TerminalSurface | undefined;
+  mode?: SkillExecutionMode | undefined;
 }): Promise<{ id: string } | 'missing' | null> {
   const prompt = input.prompt === undefined ? undefined : toAgentPrompt(input.prompt, input.profile.baseAgentId);
   const session = await launchProfileSession(studioPrepareProfileLaunch, input.profile, {
@@ -90,7 +98,10 @@ export async function startStudioProfileAgent(input: {
     title: input.title,
     ...(prompt === undefined ? {} : { prompt }),
     ...(input.autoSend === undefined ? {} : { autoSend: input.autoSend }),
+    ...(input.surface === undefined ? {} : { surface: input.surface }),
+    ...(input.mode === undefined ? {} : { mode: input.mode }),
   });
-  if (session && session !== 'missing') useUiStore.getState().setTerminalOpen(true);
+  // A FAB or board session is hosted in its own surface; the main panel stays closed, as `startAgent` does.
+  if (session && session !== 'missing' && input.surface !== 'fab' && input.surface !== 'kanban') useUiStore.getState().setTerminalOpen(true);
   return session;
 }
