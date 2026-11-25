@@ -3,10 +3,10 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { parseToml } from '@midnite/studio-runtime';
-import { CODEX_MCP_NAME_PATTERN, MCP_SERVER_NAME } from '@midnite/studio-shared';
+import { MCP_SERVER_NAME } from '@midnite/studio-shared';
 
-/** The user's Codex MCP servers other than `midnite`, split by whether a `-c` override can address them. */
-export type CodexOtherMcpServers = { names: string[]; unaddressable: string[] };
+/** The user's Codex MCP servers other than `midnite` (a dotted name included: #1713 addresses it too). */
+export type CodexOtherMcpServers = { names: string[] };
 
 export type CodexMcpServerSeams = {
   env?: NodeJS.ProcessEnv;
@@ -41,9 +41,5 @@ export async function codexOtherMcpServers(cwd: string, seams: CodexMcpServerSea
       for (const name of Object.keys(servers)) if (name !== MCP_SERVER_NAME) all.add(name);
     }
   }
-  const names = [...all].sort();
-  return {
-    names: names.filter((name) => CODEX_MCP_NAME_PATTERN.test(name)),
-    unaddressable: names.filter((name) => !CODEX_MCP_NAME_PATTERN.test(name)),
-  };
+  return { names: [...all].sort() };
 }

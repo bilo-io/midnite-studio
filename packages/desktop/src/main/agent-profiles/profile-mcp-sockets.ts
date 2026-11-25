@@ -60,7 +60,7 @@ export type ProfileMcpSocketSeams = {
   bindTimeoutMs?: number;
   now?: () => number;
   /** #1697: the user's other Codex servers, which a restricted Codex agent turns off by name. */
-  codexServers?: (cwd: string) => Promise<{ names: string[]; unaddressable: string[] }>;
+  codexServers?: (cwd: string) => Promise<{ names: string[] }>;
 };
 
 export type ProfileMcpPrepared = {
@@ -225,17 +225,10 @@ export function createProfileMcpSockets(seams: ProfileMcpSocketSeams): ProfileMc
       const launchId = newLaunchId();
       if (!enforcementFor(profile.baseAgentId).tools) return { launchId, mcpArgs: [], launch: null, otherMcpServers: [] };
 
-      // Checked before a socket starts, so a refusal leaves nothing to close. Fails closed: a server Codex
-      // cannot be told to drop would stay reachable to an agent whose tools are meant to be restricted.
+      // Read before a socket starts. Every name is turned off, a dotted one included (#1713).
       let otherMcpServers: string[] = [];
       if (profile.baseAgentId === 'codex' && profile.mcpTools !== null && seams.codexServers) {
-        const servers = await seams.codexServers(cwd);
-        if (servers.unaddressable.length > 0) {
-          throw new Error(
-            `${profile.name} restricts its tools, but Codex cannot turn off the MCP server${servers.unaddressable.length > 1 ? 's' : ''} ${servers.unaddressable.map((n) => `"${n}"`).join(', ')} for one launch (a name with a dot). Rename it in your Codex config, or let ${profile.name} use all tools.`,
-          );
-        }
-        otherMcpServers = servers.names;
+        otherMcpServers = (await seams.codexServers(cwd)).names;
       }
 
       const agent: LaunchSnapshot = { name: profile.name, baseAgentId: profile.baseAgentId, mcpTools: profile.mcpTools === null ? null : [...profile.mcpTools] };

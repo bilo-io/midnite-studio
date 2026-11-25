@@ -139,7 +139,12 @@ describe('profileMcpArgs (Phase 154 Theme G)', () => {
   it('Codex restricted: turns each other server off by name; unrestricted or Claude ignores the list (#1697)', () => {
     const others = ['github', 'midnite', 'my-db_2', 'weird.name', 'github'];
     const restricted = profileMcpArgs('codex', launch, { restricted: true, quote: true, otherMcpServers: others });
-    expect(restricted.slice(6)).toEqual(['-c', 'mcp_servers.github.enabled=false', '-c', 'mcp_servers.my-db_2.enabled=false']);
+    // #1713: a dotted name goes in one inline table, ahead of the midnite keys (a later table would replace them).
+    expect(restricted.slice(0, 2)).toEqual(['-c', `'mcp_servers={"weird.name"={enabled=false}}'`]);
+    expect(restricted[3]).toMatch(/^'mcp_servers\.midnite\.command=/);
+    expect(restricted.slice(8)).toEqual(['-c', 'mcp_servers.github.enabled=false', '-c', 'mcp_servers.my-db_2.enabled=false']);
+    const quoted = profileMcpArgs('codex', launch, { restricted: true, quote: false, otherMcpServers: ['a.b', 'x"y'] });
+    expect(quoted.slice(0, 2)).toEqual(['-c', 'mcp_servers={"a.b"={enabled=false}, "x\\"y"={enabled=false}}']);
     expect(profileMcpArgs('codex', launch, { restricted: false, quote: false, otherMcpServers: others })).toHaveLength(6);
     expect(profileMcpArgs('claude', launch, { restricted: true, quote: false, otherMcpServers: others })).toHaveLength(3);
   });

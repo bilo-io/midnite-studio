@@ -131,19 +131,18 @@ describe('createProfileMcpSockets', () => {
     expect(prepared.mcpArgs.join(' ')).not.toContain('strict');
   });
 
-  it('a restricted Codex agent turns the other servers off; an unaddressable one refuses before a socket starts (#1697)', async () => {
+  it('a restricted Codex agent turns the other servers off, a dotted name included (#1697, #1713)', async () => {
     const startServer = vi.fn(async ({ socketPath }: { socketPath: string }) => ({ ok: true as const, handle: { socketPath, close: async () => undefined } }));
-    const servers = { names: ['github'], unaddressable: [] as string[] };
+    const servers = { names: ['github'] };
     const { sockets: s } = sockets({ startServer, codexServers: async () => servers });
     const restricted = await s.prepare(profile({ baseAgentId: 'codex', mcpTools: ['repo.list'] }), '/w');
     expect(restricted.otherMcpServers).toEqual(['github']);
     expect(restricted.mcpArgs.slice(-2)).toEqual(['-c', 'mcp_servers.github.enabled=false']);
     const open = await s.prepare(profile({ baseAgentId: 'codex', mcpTools: null }), '/w');
     expect(open.otherMcpServers).toEqual([]);
-    servers.unaddressable = ['weird.name'];
-    startServer.mockClear();
-    await expect(s.prepare(profile({ baseAgentId: 'codex', mcpTools: ['repo.list'] }), '/w')).rejects.toThrow(/"weird.name"/);
-    expect(startServer).not.toHaveBeenCalled();
+    servers.names = ['github', 'weird.name'];
+    const dotted = await s.prepare(profile({ baseAgentId: 'codex', mcpTools: ['repo.list'] }), '/w');
+    expect(dotted.mcpArgs.slice(0, 2)).toEqual(['-c', `'mcp_servers={"weird.name"={enabled=false}}'`]);
   });
 
   it('starts nothing for a CLI with no per-launch MCP config (aider)', async () => {
