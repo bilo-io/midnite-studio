@@ -30,6 +30,7 @@ import { useAgents } from '../features/terminal/use-agents';
 import { appendDictation } from '../features/media/voice/use-voice-thread';
 import { useKnownSkills, useRepoStats, useRepos } from '../services/queries';
 import { useUiStore } from '../store/ui-store';
+import { startStudioLoopProfileSession, useStudioAgentProfilesForPicker } from './profile-pickers';
 import { STUDIO_CHROME } from './studio-chrome';
 
 function StudioExtrasComposer({ value, onChange, ...rest }: LoopsExtrasComposerProps) {
@@ -50,8 +51,24 @@ export const STUDIO_LOOPS_HOST = {
   useTerminal: (selector) => useTerminalStore(selector),
   terminalState: () => useTerminalStore.getState(),
   // `async` so a synchronous throw from `startAgent` is a rejection the caller can handle.
-  startAgent: async ({ extraArgs, ...input }) =>
-    startAgent({ ...input, ...(extraArgs !== undefined ? { extraArgs: [...extraArgs] } : {}) }).id,
+  startAgent: async ({ extraArgs, agentProfileId, ...input }) => {
+    // #1699: a custom agent's own line; only a deleted one falls through to its base CLI below.
+    if (agentProfileId) {
+      const started = await startStudioLoopProfileSession({
+        profileId: agentProfileId,
+        baseAgentId: input.agentId,
+        repoId: input.repoId,
+        cwd: input.cwd,
+        title: input.title,
+        prompt: input.prompt,
+        loopId: input.loopId,
+        autoSend: input.autoSend === true,
+      });
+      if (started === null) throw new Error('The custom agent could not start.');
+      if (started !== 'missing') return started;
+    }
+    return startAgent({ ...input, ...(extraArgs !== undefined ? { extraArgs: [...extraArgs] } : {}) }).id;
+  },
   revealSession: (sessionId) => {
     revealSession(sessionId);
   },
@@ -77,6 +94,7 @@ export const STUDIO_LOOPS_HOST = {
     open: () => useSetupStore.getState().openSetup(),
   },
   useAgents: () => useAgents(),
+  useAgentProfiles: useStudioAgentProfilesForPicker,
   useRepos: () => useRepos(),
   useKnownSkills: (repoId, enabled) => useKnownSkills(repoId, enabled),
   useContributors: (repoId, enabled) => {

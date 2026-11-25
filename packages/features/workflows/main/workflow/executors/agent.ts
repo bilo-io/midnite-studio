@@ -62,6 +62,8 @@ const AGENT_OUTPUT_CAP_BYTES = 200_000;
 export type AgentNodeOutput = {
   output: string;
   truncated: boolean;
+  /** The node's custom agent was deleted, so it ran as its roster agent (#1699). */
+  agentProfileFallback?: 'deleted';
 };
 
 /** What a roster agent node needs to launch — the subset every done-marker watcher shares regardless of what marker grammar it watches for. */
@@ -69,6 +71,8 @@ export type AgentLaunchConfig = {
   agentId: string;
   prompt: string;
   model?: string;
+  /** A custom agent to run as instead (#1699); a deleted one falls back to `agentId`. */
+  agentProfileId?: string;
 };
 
 /**
@@ -117,6 +121,36 @@ export async function runAgentToDoneMarker<T>(
   deps: NodePtyDeps,
   watch: AgentDoneMarkerWatch<T>,
 ): Promise<NodeOutcome> {
+  const prompt = watch.buildPrompt(config.prompt);
+  const cwd = homedir();
+
+  // #1699: a custom agent's whole line comes from main's launch service (its prompt, model and private
+  // tool socket), with this node's task as the first prompt. Only a deleted one falls back to the roster.
+  let profileFallback = false;
+  const profilePorts = config.agentProfileId ? workflowsPorts().agentProfiles : undefined;
+  if (config.agentProfileId && profilePorts) {
+    const prepared = await profilePorts.prepareLaunch(config.agentProfileId, cwd, prompt);
+    if (prepared.kind === 'error') return { ok: false, error: prepared.message };
+    if (prepared.kind === 'ready') {
+      const started = await deps.startSession({
+        workflowId: context.workflowId,
+        runId: context.runId,
+        nodeId: node.id,
+        kind: 'agent',
+        agentId: prepared.baseAgentId,
+        nodeLabel: node.label,
+        cwd,
+        initialInput: `${prepared.line}\r`,
+        profileId: config.agentProfileId,
+        profileLaunchId: prepared.launchId,
+      });
+      if (!started.ok) return { ok: false, error: started.message };
+      await context.reportSessionId(started.session.id);
+      return watchSession(started.ptyId, prepared.line, context, deps, watch, false);
+    }
+    profileFallback = true;
+  }
+
   const roster = await deps.listAgents();
   const agent = roster.find((a) => a.id === config.agentId);
   if (!agent) return { ok: false, error: `Agent "${config.agentId}" is not in the roster.` };
@@ -134,7 +168,6 @@ export async function runAgentToDoneMarker<T>(
   const authToken = binding?.model && isOllamaCloudModelName(binding.model) ? await workflowsPorts().ollamaApiKey() : null;
   const launch = resolveAgentLaunch(agent, binding, workflowsPorts().ollamaBaseUrl(), authToken ?? undefined);
 
-  const prompt = watch.buildPrompt(config.prompt);
   const words = [
     launch.command,
     ...(launch.backend === 'ollama' ? launch.argsBefore : config.model ? ['--model', config.model] : []),
@@ -150,14 +183,25 @@ export async function runAgentToDoneMarker<T>(
     kind: 'agent',
     agentId: agent.id,
     nodeLabel: node.label,
-    cwd: homedir(),
+    cwd,
     initialInput: `${invocation}\r`,
     ...(Object.keys(launch.env).length > 0 ? { env: launch.env } : {}),
     ...(launch.backend === 'ollama' ? { backend: launch.backend, ollamaModel: launch.model } : {}),
   });
   if (!started.ok) return { ok: false, error: started.message };
   await context.reportSessionId(started.session.id);
+  return watchSession(started.ptyId, invocation, context, deps, watch, profileFallback);
+}
 
+/** The idle poll and done-marker watch over one started node session — shared by the roster and custom-agent paths. */
+function watchSession<T>(
+  ptyId: string,
+  invocation: string,
+  context: Pick<Parameters<NodeExecutor>[1], 'signal'>,
+  deps: NodePtyDeps,
+  watch: AgentDoneMarkerWatch<T>,
+  profileFallback: boolean,
+): Promise<NodeOutcome> {
   return new Promise((resolve) => {
     let buffer = new Uint8Array(0);
     let truncated = false;
@@ -168,23 +212,24 @@ export async function runAgentToDoneMarker<T>(
       if (settled) return;
       settled = true;
       clearInterval(poll);
-      deps.offPty(started.ptyId);
+      deps.offPty(ptyId);
       resolve(outcome);
     };
 
     const maybeSettle = () => {
       if (marker === null || settled) return;
-      if (deps.activityFor(started.ptyId) !== 'idle') return;
+      if (deps.activityFor(ptyId) !== 'idle') return;
       const output: AgentNodeOutput = {
         output: cleanCapturedOutput(new TextDecoder().decode(buffer), invocation),
         truncated,
+        ...(profileFallback ? { agentProfileFallback: 'deleted' as const } : {}),
       };
       finish(watch.toOutcome(marker, output));
     };
 
     const poll = setInterval(() => {
       if (context.signal.cancelled()) {
-        deps.killPty(started.ptyId);
+        deps.killPty(ptyId);
         finish({ ok: false, error: 'Cancelled.' });
         return;
       }
@@ -193,7 +238,7 @@ export async function runAgentToDoneMarker<T>(
     poll.unref?.();
 
     deps.onPty(
-      started.ptyId,
+      ptyId,
       (bytes) => {
         const capped = appendCapped(buffer, bytes, AGENT_OUTPUT_CAP_BYTES);
         buffer = capped.buffer as Uint8Array<ArrayBuffer>;
@@ -246,7 +291,12 @@ export function createAgentExecutor(deps: NodePtyDeps = defaultNodePtyDeps): Nod
     const promptWithFramePrefix = (context.promptPrefix ?? '') + promptWithLoopFailures;
 
     return runAgentToDoneMarker(
-      { agentId: config.agentId, prompt: promptWithFramePrefix, model: config.model },
+      {
+        agentId: config.agentId,
+        prompt: promptWithFramePrefix,
+        ...(config.model === undefined ? {} : { model: config.model }),
+        ...(config.agentProfileId === undefined ? {} : { agentProfileId: config.agentProfileId }),
+      },
       node,
       context,
       deps,

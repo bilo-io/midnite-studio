@@ -195,6 +195,35 @@ describe('LoopComposer — idle', () => {
     expect(props.onAgent).toHaveBeenCalledWith('codex');
   });
 
+  it('lists your custom agents first, under their own heading, and reports one by its id (#1699)', () => {
+    const { props } = renderComposer({
+      profiles: [{ id: 'profile-rev', name: 'Reviewer', baseAgentId: 'claude', accent: '#ff0000' }],
+    });
+    fireEvent.mouseDown(combobox('Provider'));
+    const rows = screen.getAllByRole('option').map((row) => row.textContent);
+    expect(rows[0]).toBe('Reviewer');
+    expect(screen.getByText('Your agents')).not.toBeNull();
+    fireEvent.click(screen.getByRole('option', { name: 'Reviewer' }));
+    expect(props.onAgent).toHaveBeenCalledWith('profile-rev');
+  });
+
+  it("names a custom agent on the heading and hands model and effort to it (#1699)", () => {
+    renderComposer({
+      profiles: [{ id: 'profile-rev', name: 'Reviewer', baseAgentId: 'claude', accent: '#ff0000' }],
+      agentProfileId: 'profile-rev',
+      onEffort: vi.fn(),
+    });
+    expect(screen.getAllByText('Reviewer').length).toBeGreaterThan(0);
+    // A disabled `react-select` hides its input from the a11y tree (see the --model test below).
+    expect((document.querySelector('input[aria-label="Model"]') as HTMLInputElement).disabled).toBe(true);
+    expect((document.querySelector('input[aria-label="Effort"]') as HTMLInputElement).disabled).toBe(true);
+  });
+
+  it('says when the custom agent it was set to has been deleted (#1699)', () => {
+    renderComposer({ profileNotice: 'Your custom agent was deleted, so this loop runs as Claude.' });
+    expect(screen.getByRole('status').textContent).toContain('was deleted');
+  });
+
   it('collapses the model select to Default for a provider that takes no --model', () => {
     // `loopModelArgs` passes `--model` to `claude` alone; a picker that
     // offered Opus for Codex would claim a flag the launcher drops.

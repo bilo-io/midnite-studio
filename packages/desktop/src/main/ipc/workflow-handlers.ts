@@ -12,11 +12,15 @@ import {
   resolveAdapter,
   type ForgePoller,
 } from '@midnite/studio-feature-forge/main';
+import { agentProfilePromptPath, getAgentProfile } from '@midnite/studio-feature-agent-profiles/main';
 import { resolveOllamaBaseUrl } from '@midnite/studio-feature-models/main';
 import { currentBranch, readStatusCounts, revParse } from '@midnite/studio-git-engine';
 import type { FeatureMainContext } from '@midnite/studio-runtime';
 import { Notification, clipboard, type BrowserWindow } from 'electron';
 
+import { createProfileLaunchService } from '../agent-profiles/profile-launch';
+import { studioProfileMcpSockets } from '../agent-profiles/studio-profile-sockets';
+import { createWorkflowProfileLaunch } from '../agent-profiles/workflow-profile-launch';
 import { runOllamaPrompt } from '../ai/ollama-headless';
 import { bindFeatureLifecycle, isFeatureEnabled } from '../feature-gate';
 import { defaultLogger } from '../log';
@@ -63,6 +67,17 @@ export function registerWorkflowHandlers(deps: {
     ollamaApiKey: readOllamaApiKey,
     ollamaPrompt: (model, prompt, timeoutMs) => runOllamaPrompt(model, prompt, timeoutMs),
     pty: { onPty, offPty, killPty, activityFor, startNodeSession },
+    // #1699: a custom agent's node line, from the same service as `agentProfile:prepareLaunch`.
+    agentProfiles: {
+      prepareLaunch: createWorkflowProfileLaunch({
+        profile: getAgentProfile,
+        launch: createProfileLaunchService({
+          sockets: studioProfileMcpSockets(),
+          agents: listAgents,
+          promptPath: agentProfilePromptPath,
+        }),
+      }),
+    },
     repos: { resolveWorkdir, currentBranch, revParse, readStatusCounts },
     forge: {
       resolveAdapter,

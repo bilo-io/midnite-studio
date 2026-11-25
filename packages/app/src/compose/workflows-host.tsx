@@ -10,6 +10,7 @@ import { TreeSection } from '../components/tree-section';
 import { useDismiss } from '../components/use-dismiss';
 import { resolveSessionAgentId, sessionPhase, useTerminalStore } from '../features/terminal/terminal-store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../store/ui-store';
+import { useStudioAgentProfilesForPicker } from './profile-pickers';
 
 /**
  * Studio's side of the workflows feature's host port (Phase 113 Theme N).
@@ -64,6 +65,8 @@ export const STUDIO_WORKFLOWS_HOST = {
       setInspectorCollapsed,
     };
   },
+  // #1699: an agent node may run as one of your agents.
+  useAgentProfiles: useStudioAgentProfilesForPicker,
   useNodeSessions: (run) => {
     const sessions = useTerminalStore((s) => s.sessions);
     const states = useTerminalStore((s) => s.states);

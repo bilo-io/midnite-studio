@@ -11,6 +11,7 @@ import {
 import type { ConnectionState, IconComponent } from '@midnite/studio-frame';
 import type {
   AgentDefinition,
+  AgentProfile,
   CompanionState,
   ContributorStat,
   CustomLoop,
@@ -65,6 +66,9 @@ export type LoopsState = {
   setLoopChoice: (loopId: string, choiceId: string, optionId: string) => void;
   loopAgents: Record<string, string>;
   setLoopAgent: (loopId: string, agentId: string) => void;
+  /** #1699: loop id -> the custom agent it runs as. Absent in an app with no custom agents. */
+  loopAgentProfiles?: Record<string, string>;
+  setLoopAgentProfile?: (loopId: string, profileId: string | null) => void;
   loopModels: Record<string, LoopModel>;
   setLoopModel: (loopId: string, model: LoopModel) => void;
   loopSchedules: Record<string, LoopSchedule>;
@@ -108,6 +112,11 @@ export type StartAgentInput = {
   command: string;
   extraArgs?: readonly string[];
   /**
+   * #1699: run as this custom agent (its prompt, model and tools) instead; `agentId` is its base. A host
+   * whose agent is gone by now starts `agentId` instead.
+   */
+  agentProfileId?: string;
+  /**
    * The loop dispatching the session. It lists in the main terminal panel
    * under the session list's "Loops" group — the Loops panel no longer draws
    * an xterm of its own, so one loop can dispatch any number of sessions.
@@ -118,6 +127,9 @@ export type StartAgentInput = {
   loopEffort?: string;
   autoSend?: boolean;
 };
+
+/** What the provider picker shows of a custom agent. */
+export type LoopsAgentProfile = Pick<AgentProfile, 'id' | 'name' | 'baseAgentId' | 'accent' | 'icon'>;
 
 export type LoopsSelectOption = {
   id: string;
@@ -130,6 +142,8 @@ export type LoopsSelectOption = {
   content?: ReactNode;
   isDisabled?: boolean;
   disabledReason?: string;
+  /** Consecutive options sharing a group get one header ("Your agents" first in the provider picker). */
+  group?: string;
 };
 
 export type LoopsIconSelectProps = {
@@ -236,6 +250,11 @@ export type LoopsHost = {
 
   /** The roster and the repositories. */
   useAgents: () => { agents: readonly AgentDefinition[] };
+  /**
+   * #1699: the saved custom agents, listed first in the provider picker; `undefined` while loading. Absent
+   * in an app with no custom agents.
+   */
+  useAgentProfiles?: () => readonly LoopsAgentProfile[] | undefined;
   useRepos: () => { data: readonly RepoDescriptor[] | undefined };
   useKnownSkills: (repoId: string | null, enabled: boolean) => { data: readonly KnownSkill[] | undefined };
   useContributors: (repoId: string | null, enabled: boolean) => { data: readonly ContributorStat[] | undefined };

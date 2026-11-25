@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import Select, { type ClassNamesConfig, type MultiValueRemoveProps } from 'react-select';
+import Select, { type ClassNamesConfig, type GroupBase, type MultiValueRemoveProps } from 'react-select';
 import { LuX } from 'react-icons/lu';
 
 import type { IconComponent } from '../icon-button';
@@ -30,7 +30,27 @@ export type IconSelectOption = {
   content?: ReactNode;
   isDisabled?: boolean;
   disabledReason?: string;
+  /**
+   * Consecutive options sharing a group get one header row (#1699: "Your agents" first in the loop's
+   * provider picker). Same field name as the AI thread picker's `PickerProvider.group`.
+   */
+  group?: string;
 };
+
+/** Runs of options sharing a `group` become react-select groups; ungrouped options stay top-level. */
+export function groupIconSelectOptions(
+  options: readonly IconSelectOption[],
+): readonly (IconSelectOption | GroupBase<IconSelectOption>)[] {
+  if (!options.some((option) => option.group !== undefined)) return options;
+  const out: (IconSelectOption | { label: string; options: IconSelectOption[] })[] = [];
+  for (const option of options) {
+    const last = out.at(-1);
+    if (option.group === undefined) out.push(option);
+    else if (last && 'options' in last && last.label === option.group) last.options.push(option);
+    else out.push({ label: option.group, options: [option] });
+  }
+  return out;
+}
 
 /**
  * `unstyled` + Tailwind's own utility classes via `classNames`, rather than
@@ -65,6 +85,7 @@ const BASE_CLASS_NAMES: ClassNamesConfig<IconSelectOption, boolean> = {
             : 'text-foreground'
     }`,
   noOptionsMessage: () => 'px-2 py-1.5 text-muted-foreground',
+  groupHeading: () => 'px-2 pb-0.5 pt-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground',
   /*
     Multi only, and unused by the single-value control — one table rather than
     two, so a chip in the day picker is themed off the same tokens as the
@@ -168,7 +189,7 @@ export function IconSelect({
       classNamePrefix="icon-select"
       unstyled
       classNames={classNamesFor<false>()}
-      options={options}
+      options={groupIconSelectOptions(options)}
       value={selected}
       isSearchable={isSearchable}
       isClearable={isClearable}

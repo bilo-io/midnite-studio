@@ -62,6 +62,24 @@ export type StartNodeSessionParams = {
   env?: Record<string, string>;
   backend?: 'native' | 'ollama';
   ollamaModel?: string;
+  /** The custom agent the session runs as (#1699): its chrome names it. */
+  profileId?: string;
+  /** Its single-use private-socket launch, bound to the new session before the pty starts. */
+  profileLaunchId?: string;
+};
+
+/** A custom agent's typed line for one node, built in main by the same service as `agentProfile:prepareLaunch`. */
+export type WorkflowProfileLaunch =
+  | { kind: 'ready'; launchId: string; line: string; name: string; baseAgentId: string }
+  /** The profile no longer exists: the node runs as its roster `agentId`. */
+  | { kind: 'missing' }
+  /** Any other refusal (an uninstalled base CLI, a socket that would not start): the node fails, never runs bare. */
+  | { kind: 'error'; message: string };
+
+/** Custom agents (#1699). Absent in an app with no saved agents: a node's `agentProfileId` is then ignored. */
+export type WorkflowsAgentProfilePorts = {
+  /** `prompt` is the node's whole task text, typed with the agent as its first prompt. */
+  prepareLaunch(profileId: string, cwd: string, prompt: string): Promise<WorkflowProfileLaunch>;
 };
 
 export type StartNodeSessionResult =
@@ -133,6 +151,8 @@ export type WorkflowsPorts = {
     timeoutMs: number,
   ): Promise<{ ok: true; data: string } | { ok: false; message: string }>;
   pty: WorkflowsPtyPorts;
+  /** Absent where there are no custom agents. */
+  agentProfiles?: WorkflowsAgentProfilePorts;
   /** Absent where there is no repository registry. */
   repos?: WorkflowsRepoPorts;
   /** Absent where there are no forge accounts. */

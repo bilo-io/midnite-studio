@@ -387,6 +387,11 @@ export function agentNodeDonePrompt(prompt: string): string {
 export const WorkflowAgentConfigSchema = z.object({
   /** A `BUILTIN_AGENTS`/roster id, e.g. `'claude'` — validated against the roster at run time, not parse time (the roster is a runtime fact about the host, not a property of the saved workflow). */
   agentId: z.string().default(''),
+  /**
+   * A custom agent (#1699) this node runs as instead — its prompt, model and private tool socket. `agentId`
+   * stays the profile's base agent, and is what runs (and the node form says so) once the profile is deleted.
+   */
+  agentProfileId: z.string().regex(/^profile-[A-Za-z0-9_-]+$/).optional(),
   prompt: z.string().default(''),
   model: z.string().optional(),
   /** Pins this node's `out` port shape (Theme A) — optional, read by {@link portsForNode}. */
