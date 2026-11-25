@@ -32,16 +32,15 @@ state and whether it is a draft, and **stop**. No duplicates.
 ## 3 · Current with the base, and pushed
 
 `git fetch origin main`. If `origin/main` has moved and the work needs it, `git merge origin/main`;
-**never rebase, never force-push.** Push with the `bilo-io` credential command (also the first push
+**never rebase, never force-push.** Push with the `bilo-io` credential push (also the first push
 of a new branch):
 
 ```bash
-git -c credential.helper= -c credential.helper='!f(){ echo username=bilo-io; echo password=$(gh auth token -u bilo-io); }; f' push -u origin HEAD
+scripts/skills/push.sh
 ```
 
-Commits carry **no `Co-Authored-By`, `Signed-off-by` or other attribution trailer**; check
-`git log origin/main..HEAD --format=%B` and stop if one is found. A worktree's untracked
-`SCRATCHPAD.md` must not be tracked: `git ls-files --error-unmatch SCRATCHPAD.md` must fail.
+Commits carry **no `Co-Authored-By`, `Signed-off-by` or other attribution trailer**, and a worktree's
+`SCRATCHPAD.md` must not be tracked: `push.sh` refuses on either (`--fix` untracks the scratchpad).
 
 ## 4 · Understand the change
 
@@ -77,8 +76,8 @@ acting on are fixed and pushed:
 1. Run [`midnite-check-yourself`](../midnite-check-yourself/SKILL.md) (it runs `midnite-pr-review`
    and `midnite-pr-feedback`, fixes, pushes).
 2. Fill `## Self-review` in the body with what it found and fixed, or "nothing to fix"
-   (`midnite-pr-description`, then `gh pr edit <n> --body-file`).
-3. Watch CI: `gh pr checks <n> --watch`. A known flake (browser-pane, fab-loops, the media-model
+   (`midnite-pr-description`, then `node scripts/skills/pr-body.mjs <n> --set-section "Self-review" --file <f>`).
+3. Watch CI: `node scripts/skills/ci-watch.mjs <n> --rerun-flakes-once` (exit 0 green, 1 real failure with the failing log tail, 4 billing lock). A known flake (browser-pane, fab-loops, the media-model
    `sdf-panel` slider, e2e "idle edge lift") gets one `gh run rerun <run-id> --failed`. Never
    dispatch extra `ci.yml` runs: the macOS pool is capped at 5 concurrent jobs and one PR run
    already uses all five. A budget stop ("not started because an Actions budget is preventing

@@ -84,10 +84,11 @@ Do **not** read individual phase issues yet. Scan the list to find unblocked can
 
 ## 6 · Pre-push Gate
 
-Run the local gate inside the worktree:
+Run the focused gate inside the worktree:
 ```bash
-moon run :typecheck && moon run :lint && moon run :test
+node scripts/skills/scoped-check.mjs --run
 ```
+It runs vitest on the changed tests, `tsc --noEmit` per touched package (building `shared` first when needed) and eslint on the changed files. Never the workspace-wide moon gate: it exhausts RAM.
 All checks must pass green before moving to review.
 
 ---
@@ -116,13 +117,13 @@ Never mark ready or request review before completing the two-subagent self-revie
 
 ## 9 · Mark Ready & Merge
 
-1. Run final gate: `moon run :typecheck :lint :test`.
+1. Run final gate: `node scripts/skills/scoped-check.mjs --run`.
 2. Make sure the PR body says `Closes #<theme-issue>` for each theme it lands, and tick the sub-issue's items: `node scripts/skills/tracker.mjs tick <theme-issue> --item "<task text>"` per item.
 3. Update the phase issue's `## Headlines` paragraph with the landed narrative and PR link — you write the sentence, the CLI places it: `node scripts/skills/tracker.mjs headlines <phase-issue> --theme X --text "**Theme X — <name>.** ✅ Landed in #<pr>. …"`. The merge closes the sub-issue; `node scripts/skills/tracker.mjs close <theme-issue>` drops `wip` if it has to be closed by hand.
-4. Check that `SCRATCHPAD.md` is untracked (`git ls-files --error-unmatch SCRATCHPAD.md`).
+4. Check that `SCRATCHPAD.md` is untracked and no commit carries a trailer: `scripts/skills/push.sh --check` (`--fix` untracks it).
 5. Nothing tracker-related is committed.
 6. Mark PR ready: `gh pr ready <n>`.
-7. Once CI checks pass green, squash-merge PR, delete remote branch, and remove local worktree:
+7. Once CI checks pass green (`node scripts/skills/ci-watch.mjs <n> --rerun-flakes-once`), squash-merge PR, delete remote branch, and remove local worktree:
    ```bash
    git worktree remove .worktrees/<slice> --force
    git worktree prune
