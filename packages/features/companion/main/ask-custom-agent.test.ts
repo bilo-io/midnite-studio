@@ -71,6 +71,14 @@ describe('askCompanion with a custom agent', () => {
     expect(release).toHaveBeenCalledOnce();
   });
 
+  it('#1713: hands the spawned child to attach, so the agent breaker can stop the run', async () => {
+    const attach = vi.fn();
+    const { deps } = setup({ kind: 'ready', name: 'Reviewer', agent: claude, args: ['-p'], promptPrefix: null, attach, release: async () => undefined });
+    await askCompanion(input, deps);
+    expect(attach).toHaveBeenCalledOnce();
+    expect(typeof attach.mock.calls[0]?.[0]?.kill).toBe('function');
+  });
+
   it('releases the socket however the run ends', async () => {
     const release = vi.fn(async () => undefined);
     const calls: { command: string; args: readonly string[] }[] = [];

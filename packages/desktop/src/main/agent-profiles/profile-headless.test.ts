@@ -56,6 +56,18 @@ describe('createProfileHeadlessRun', () => {
     expect(runs.lookup(companionRunId('abc123'))).toBeNull();
   });
 
+  it('#1713: the runner attaches its child, and the breaker\'s abort kills it by run id', async () => {
+    const { run, runs } = setup();
+    const result = await run('profile-rev', '/repo');
+    if (result.kind !== 'ready') throw new Error(result.kind);
+    const kill = vi.fn();
+    result.attach?.({ kill });
+    expect(runs.abort(companionRunId('abc123'))).toBe(true);
+    expect(kill).toHaveBeenCalledTimes(1);
+    await result.release();
+    expect(runs.abort(companionRunId('abc123'))).toBe(false);
+  });
+
   it('Codex: the prompt file text goes ahead of the question instead of a flag', async () => {
     const { run } = setup({ saved: profile({ baseAgentId: 'codex' }) });
     const result = await run('profile-rev', '/repo');
@@ -112,5 +124,37 @@ describe('createProfileHeadlessRun', () => {
     const missingBase = setup({ council: true, roster: BUILTIN_AGENTS.filter((agent) => agent.id !== 'claude') });
     const refused = await missingBase.run('profile-rev', '/home');
     expect(refused).toEqual({ kind: 'error', message: expect.stringContaining('Pick another agent for this seat.') });
+  });
+});
+
+describe('createHeadlessRunRegistry (#1713)', () => {
+  const run = { profileId: 'p', agentId: 'claude', cwd: '/repo', title: 'Reviewer' };
+
+  it('kills a child that attaches after the run was aborted', () => {
+    const runs = createHeadlessRunRegistry();
+    runs.register('companion-1', run);
+    expect(runs.abort('companion-1')).toBe(true);
+    const kill = vi.fn();
+    runs.attach('companion-1', { kill });
+    expect(kill).toHaveBeenCalledTimes(1);
+  });
+
+  it('answers false for an unknown run and ignores an attach to one', () => {
+    const runs = createHeadlessRunRegistry();
+    const kill = vi.fn();
+    runs.attach('nope', { kill });
+    expect(runs.abort('nope')).toBe(false);
+    expect(kill).not.toHaveBeenCalled();
+  });
+
+  it('a kill that throws (child already gone) still counts as stopped', () => {
+    const runs = createHeadlessRunRegistry();
+    runs.register('chat-1', run);
+    runs.attach('chat-1', {
+      kill: () => {
+        throw new Error('ESRCH');
+      },
+    });
+    expect(runs.abort('chat-1')).toBe(true);
   });
 });

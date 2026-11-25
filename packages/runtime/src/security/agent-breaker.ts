@@ -186,7 +186,7 @@ export function createAgentBreaker(options: AgentBreakerOptions): AgentBreaker {
         // One open finding per session and limit: a second trip after a resume counts up the same row.
         fingerprint: `agents:limit-trip:${sessionId}:${key}`,
         title: `Agent hit its ${AGENT_LIMIT_LABELS[key]} limit`,
-        detail: `${message} ${interrupted ? 'The session was interrupted with Ctrl+C.' : 'The session could not be reached to interrupt it.'} Resume, stop or raise the limit from the notification.`,
+        detail: `${message} ${interrupted ? 'The session was interrupted (Ctrl+C in a terminal; a run with no terminal is stopped).' : 'The session could not be reached to interrupt it.'} Resume, stop or raise the limit from the notification.`,
         evidence: [],
         remediation: [{ id: 'pause-session', sessionId, description: 'Interrupt the session again' }],
         sessionId,
