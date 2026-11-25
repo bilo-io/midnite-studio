@@ -1836,6 +1836,7 @@ describe('v41 -> v42 migration (Phase 154 Theme H)', () => {
     const migrate = useUiStore.persist.getOptions().migrate;
     expect((migrate?.({ primaryAgentProfileId: 'profile-rev' }, 42) as Record<string, unknown>).primaryAgentProfileId).toBe('profile-rev');
     expect((migrate?.({ primaryAgentProfileId: 7 }, 42) as Record<string, unknown>).primaryAgentProfileId).toBeNull();
+    expect((migrate?.({ primaryAgentProfileId: '../x' }, 42) as Record<string, unknown>).primaryAgentProfileId).toBeNull();
   });
 
   it('a custom agent leaves primaryAgent alone, and choosing a built-in clears it', () => {

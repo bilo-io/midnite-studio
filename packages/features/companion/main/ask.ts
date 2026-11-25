@@ -470,9 +470,15 @@ export async function askCompanion(
   let fellBack = false;
   let run: { label: string; command: string; argv: string[]; release: (() => Promise<void>) | null } | null = null;
   if (input.agentProfileId) {
-    const prepared = deps.profileRun
-      ? await deps.profileRun(input.agentProfileId, cwd)
-      : ({ kind: 'error', message: CUSTOM_AGENTS_NEED_STUDIO } as const);
+    let prepared: CompanionProfileRun;
+    try {
+      prepared = deps.profileRun
+        ? await deps.profileRun(input.agentProfileId, cwd)
+        : { kind: 'error', message: CUSTOM_AGENTS_NEED_STUDIO };
+    } catch (error) {
+      // `askCompanion` never rejects: a store or roster read that throws is a spoken failure like any other.
+      prepared = { kind: 'error', message: `I could not get that custom agent ready: ${error instanceof Error ? error.message : String(error)}` };
+    }
     if (prepared.kind === 'error') return failure(prepared.message);
     if (prepared.kind === 'missing') fellBack = true;
     else {

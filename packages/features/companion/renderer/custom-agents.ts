@@ -42,3 +42,8 @@ export function setCustomAgentsForTests(profiles: AgentProfile[]): void {
 export function deletedAgentNotice(baseLabel: string): string {
   return `Your custom agent was deleted, so I'm using ${baseLabel} again.`;
 }
+
+/** The id to send with an ask, or nothing: a value that is not a profile id would fail the ask's schema. */
+export function askProfileField(profileId: string | null): { agentProfileId: string } | Record<string, never> {
+  return profileId !== null && /^profile-[A-Za-z0-9_-]+$/.test(profileId) ? { agentProfileId: profileId } : {};
+}

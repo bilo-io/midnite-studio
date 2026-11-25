@@ -129,3 +129,12 @@ describe('buildModelsListReply', () => {
     expect(out.message).toMatch(/Unknown agent/);
   });
 });
+
+describe('askProfileField', () => {
+  it('sends only a well-formed profile id', async () => {
+    const { askProfileField } = await import('./custom-agents');
+    expect(askProfileField('profile-rev')).toEqual({ agentProfileId: 'profile-rev' });
+    expect(askProfileField(null)).toEqual({});
+    expect(askProfileField('../x')).toEqual({});
+  });
+});

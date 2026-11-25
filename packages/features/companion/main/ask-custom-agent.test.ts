@@ -112,3 +112,18 @@ describe('askCompanion with a custom agent', () => {
     expect(prompt).toContain('profile-rev — Reviewer');
   });
 });
+
+describe('askCompanion never rejects', () => {
+  it('turns a profile read that throws into a spoken failure', async () => {
+    const calls: { command: string; args: readonly string[] }[] = [];
+    const result = await askCompanion(input, {
+      agents: async () => [claude],
+      spawn: fakeSpawn('{"say":"x"}', calls),
+      profileRun: async () => {
+        throw new Error('store locked');
+      },
+    });
+    expect(result).toEqual({ ok: false, kind: 'error', message: 'I could not get that custom agent ready: store locked' });
+    expect(calls).toHaveLength(0);
+  });
+});

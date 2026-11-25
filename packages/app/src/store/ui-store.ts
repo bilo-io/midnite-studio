@@ -69,6 +69,9 @@ import {
 } from '@midnite/studio-frame';
 
 // The git graph's and diff's state shapes moved to the frame with them (Phase 113 Theme O).
+
+/** `AgentProfileSchema`'s id shape (Phase 154): a migrated `primaryAgentProfileId` of any other shape becomes `null`. */
+const AGENT_PROFILE_ID_PATTERN = /^profile-[A-Za-z0-9_-]+$/;
 export {
   DEFAULT_GRAPH_COLUMNS,
   GRAPH_COLUMN_BOUNDS,
@@ -4029,7 +4032,10 @@ export const useUiStore = create<UiState>()(
           state.collapsedRepoSections = [...DEFAULT_COLLAPSED_REPO_SECTIONS];
         }
         // v41 → v42 (Phase 154 Theme H): the companion starts on its built-in agent.
-        if (version < 42 || typeof state.primaryAgentProfileId !== 'string') state.primaryAgentProfileId = null;
+        // A value that is not a profile id would fail every ask's schema, so it is dropped rather than kept.
+        if (version < 42 || typeof state.primaryAgentProfileId !== 'string' || !AGENT_PROFILE_ID_PATTERN.test(state.primaryAgentProfileId)) {
+          state.primaryAgentProfileId = null;
+        }
         return state as PersistedUi;
       },
       /**

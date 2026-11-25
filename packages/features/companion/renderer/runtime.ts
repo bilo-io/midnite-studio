@@ -40,7 +40,7 @@ import {
   switchCompanionProfile,
 } from './profiles';
 import { vocabularyFor, withCompanionProfiles } from './vocabulary';
-import { deletedAgentNotice, refreshCustomAgents, withCustomAgents } from './custom-agents';
+import { askProfileField, deletedAgentNotice, refreshCustomAgents, withCustomAgents } from './custom-agents';
 import { showToast } from './ext';
 import { skillHandoff } from './ext';
 import { startAgent } from './ext';
@@ -196,7 +196,7 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
         repoPath: repo.path,
         agentId: ui.primaryAgent,
         // Phase 154 Theme H: the custom agent the companion thinks through, when one is chosen.
-        ...(ui.primaryAgentProfileId ? { agentProfileId: ui.primaryAgentProfileId } : {}),
+        ...askProfileField(ui.primaryAgentProfileId),
         snapshot: lastSnapshot,
         // Settings ▸ Companion ▸ Personality's two free-text fields (Ad
         // Hoc) — read fresh from the store on every ask, same as
@@ -310,13 +310,12 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
         text: request.mode === 'tweak' ? request.instruction : `interview: ${request.target}`,
         repoPath: repo.path,
         agentId: useUiStore.getState().primaryAgent,
-        ...(useUiStore.getState().primaryAgentProfileId
-          ? { agentProfileId: useUiStore.getState().primaryAgentProfileId as string }
-          : {}),
+        ...askProfileField(useUiStore.getState().primaryAgentProfileId),
         persona: request,
       });
       if (!result) return { ok: false, kind: 'error', message: 'The companion is not connected.' };
       if (!result.ok) return result;
+      if (result.value.agentProfileFallback === 'deleted') noteDeletedAgent();
       return result.value.persona
         ? { ok: true, value: result.value.persona }
         : { ok: false, kind: 'error', message: "The agent's answer wasn't something I could use." };
