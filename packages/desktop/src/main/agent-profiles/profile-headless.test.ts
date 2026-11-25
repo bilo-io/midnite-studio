@@ -32,7 +32,7 @@ function setup(
     promptPath: (id) => `/data/agent-profiles/${id}.md`,
     exists: async () => opts.prompt ?? true,
     readPrompt: async () => '  You review code.\n',
-    ...(opts.council ? { runId: councilSeatRunId, pickHint: 'Pick another agent for this seat.' } : {}),
+    ...(opts.council ? { runId: councilSeatRunId, pickHint: 'Pick another agent for this seat.', voice: 'neutral' as const } : {}),
   });
   return { run, prepare, bind, close, runs };
 }
@@ -112,5 +112,13 @@ describe('createProfileHeadlessRun', () => {
     const missingBase = setup({ council: true, roster: BUILTIN_AGENTS.filter((agent) => agent.id !== 'claude') });
     const refused = await missingBase.run('profile-rev', '/home');
     expect(refused).toEqual({ kind: 'error', message: expect.stringContaining('Pick another agent for this seat.') });
+  });
+
+  it('a council seat (#1713) speaks in a neutral voice, never the companion\'s first person', async () => {
+    const broken = setup({ council: true, fail: true });
+    expect(await broken.run('profile-rev', '/home')).toEqual({
+      kind: 'error',
+      message: "Could not start Reviewer's tools: socket path too long",
+    });
   });
 });
