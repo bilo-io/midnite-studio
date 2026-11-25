@@ -140,6 +140,8 @@ export * from './security-findings';
 export * from './agent-audit';
 export * from './confinement';
 export * from './agent-limits';
+export * from './agent-profiles';
+export * from './agent-profile-launch';
 export * from './mcp-trust';
 export * from './vanguard';
 export * from './vanguard-network';

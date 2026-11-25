@@ -669,6 +669,12 @@ export const TerminalSessionSchema = z
     kind: TerminalSessionKindSchema,
     /** Set when `kind === 'agent'`; the roster entry that started it. */
     agentId: z.string().min(1).optional(),
+    /**
+     * The custom agent (Phase 154) this session was launched from, when it was.
+     * Declared inline: this schema cannot be `.extend()`ed, and without it
+     * `TerminalSaveRequest`'s parse would strip the field.
+     */
+    profileId: z.string().min(1).optional(),
     /** Display label — the repo name, by default. */
     title: z.string(),
     /**

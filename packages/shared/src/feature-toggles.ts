@@ -259,6 +259,17 @@ export const FEATURE_TOGGLES = {
     data: { files: ['gitlab-languages.json'], storeKeys: [], vault: [] },
     ipcOpen: "Accounts and the git graph's pull-request and CI badges use the same forge channels.",
   },
+  agentProfiles: {
+    label: 'Custom agents',
+    description: 'Build your own agents on top of the roster CLIs.',
+    group: 'agent',
+    requires: [],
+    packages: ['agent-profiles'],
+    views: ['agents'],
+    settingsPages: [],
+    commands: [],
+    data: { files: ['agent-profiles.json', 'agent-profiles/'], storeKeys: [], vault: [] },
+  },
   councils: {
     label: 'Councils',
     description: 'Several agents answer one question; a synthesizer reconciles them.',

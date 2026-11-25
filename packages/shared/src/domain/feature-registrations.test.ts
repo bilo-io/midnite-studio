@@ -47,6 +47,7 @@ const LEGACY_VIEW_IDS = [
   'workflows',
   'media',
   'models',
+  'agents',
   'apiClient',
   'settings',
 ];

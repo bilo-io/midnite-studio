@@ -860,6 +860,14 @@ export const CHANNELS = {
   // `pty:*` channels above (`onData`/`onExit`/`snapshot`), filtered by the
   // `ptyId` a live `CouncilRunGet` answer carries — no separate event channel
   // for their output.
+  // --- custom agents (Phase 154) ---------------------------------------------
+  // A profile is global, not per-repo: one user-level `agent-profiles.json`.
+  agentProfileList: 'mstudio:agent-profile:list',
+  agentProfileSave: 'mstudio:agent-profile:save',
+  agentProfileDelete: 'mstudio:agent-profile:delete',
+  agentProfileExport: 'mstudio:agent-profile:export',
+  agentProfileImport: 'mstudio:agent-profile:import',
+  agentProfilePrepareLaunch: 'mstudio:agent-profile:prepare-launch',
   councilList: 'mstudio:council:list',
   councilGet: 'mstudio:council:get',
   councilCreate: 'mstudio:council:create',
