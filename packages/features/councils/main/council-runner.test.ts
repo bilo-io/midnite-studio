@@ -845,6 +845,15 @@ describe('a synthesizer set to a custom agent (#1713)', () => {
     expect(store[runId]!.synthAgentProfileFallback).toBeUndefined();
   });
 
+  it("attaches the synthesizer's pty to the run registry, so the breaker can abort it (#1715)", async () => {
+    const attach = vi.fn();
+    withProfileRun({ ...ready, attach });
+    await toSynthesis();
+    expect(attach).toHaveBeenCalledTimes(1);
+    attach.mock.calls[0]![0].kill();
+    expect(killPty).toHaveBeenCalledWith(spawns[2]!.ptyId);
+  });
+
   it('falls back to its base when the agent was deleted, and records it on the run and the turn', async () => {
     withProfileRun({ kind: 'missing' });
     const runId = await toSynthesis();

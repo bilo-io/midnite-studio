@@ -29,7 +29,17 @@ export type CompanionSafeStorage = {
  * `error`: it cannot run as itself (base CLI missing, no print mode, socket failed) — so nothing runs.
  */
 export type CompanionProfileRun =
-  | { kind: 'ready'; name: string; agent: AgentDefinition; args: string[]; extraArgs?: string[]; promptPrefix: string | null; release: () => Promise<void> }
+  | {
+      kind: 'ready';
+      name: string;
+      agent: AgentDefinition;
+      args: string[];
+      extraArgs?: string[];
+      promptPrefix: string | null;
+      /** #1713: hand the spawned child over so the agent breaker can stop the run (it has no pty to interrupt). */
+      attach?: (handle: { kill: () => void }) => void;
+      release: () => Promise<void>;
+    }
   | { kind: 'missing' }
   | { kind: 'error'; message: string };
 

@@ -30,15 +30,16 @@ export function startStudioAgentBreaker(options: { userData: string; getWindow: 
     raiseFinding: (finding) => getFindingsLedger().record(finding),
     emitTrip: (trip) => sendToLiveWindow(options.getWindow, EVENT_CHANNELS.agentLimitTripped, trip),
     // The same Ctrl+C write Vanguard's `pause-session` performs (vanguard-handlers.ts) — Phase 120 G reuses it.
+    // #1713: a headless run has no pty and no prompt to come back to, so interrupting it means stopping it.
     interrupt: async (sessionId) => {
       const live = livePtyFor(sessionId);
-      if (!live) return false;
+      if (!live) return studioHeadlessRuns().abort(sessionId);
       writePty(live.ptyId, INTERRUPT);
       return true;
     },
     stop: async (sessionId) => {
       const live = livePtyFor(sessionId);
-      if (!live) return false;
+      if (!live) return studioHeadlessRuns().abort(sessionId);
       killPty(live.ptyId);
       return true;
     },

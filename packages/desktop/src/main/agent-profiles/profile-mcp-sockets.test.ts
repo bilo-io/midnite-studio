@@ -131,19 +131,18 @@ describe('createProfileMcpSockets', () => {
     expect(prepared.mcpArgs.join(' ')).not.toContain('strict');
   });
 
-  it('a restricted Codex agent turns the other servers off; an unaddressable one refuses before a socket starts (#1697)', async () => {
+  it('a restricted Codex agent turns the other servers off, a dotted name included (#1697, #1713)', async () => {
     const startServer = vi.fn(async ({ socketPath }: { socketPath: string }) => ({ ok: true as const, handle: { socketPath, close: async () => undefined } }));
-    const servers = { names: ['github'], unaddressable: [] as string[] };
+    const servers = { names: ['github'] };
     const { sockets: s } = sockets({ startServer, codexServers: async () => servers });
     const restricted = await s.prepare(profile({ baseAgentId: 'codex', mcpTools: ['repo.list'] }), '/w');
     expect(restricted.otherMcpServers).toEqual(['github']);
     expect(restricted.mcpArgs.slice(-2)).toEqual(['-c', 'mcp_servers.github.enabled=false']);
     const open = await s.prepare(profile({ baseAgentId: 'codex', mcpTools: null }), '/w');
     expect(open.otherMcpServers).toEqual([]);
-    servers.unaddressable = ['weird.name'];
-    startServer.mockClear();
-    await expect(s.prepare(profile({ baseAgentId: 'codex', mcpTools: ['repo.list'] }), '/w')).rejects.toThrow(/"weird.name"/);
-    expect(startServer).not.toHaveBeenCalled();
+    servers.names = ['github', 'weird.name'];
+    const dotted = await s.prepare(profile({ baseAgentId: 'codex', mcpTools: ['repo.list'] }), '/w');
+    expect(dotted.mcpArgs.slice(0, 2)).toEqual(['-c', `'mcp_servers={"weird.name"={enabled=false}}'`]);
   });
 
   it('starts nothing for a CLI with no per-launch MCP config (aider)', async () => {
@@ -194,6 +193,20 @@ describe('createProfileMcpSockets', () => {
     expect(refused).toMatchObject({ ok: false, kind: 'refused' });
     expect(await s.ensureBound(prepared.launchId, 'other')).toBe(false);
     expect(await s.ensureBound('ffffffffffff', 'x')).toBe(false);
+  });
+
+  it('a parked launch is revived hours later; only the oldest past the cap is forgotten (#1713)', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    const { sockets: s } = sockets({ parkedMax: 2 });
+    const first = await s.prepare(profile(), '/work/app');
+    const second = await s.prepare(profile(), '/work/app');
+    const third = await s.prepare(profile(), '/work/app');
+    await vi.advanceTimersByTimeAsync(60_000);
+    vi.setSystemTime(Date.now() + 5 * 3_600_000);
+    vi.useRealTimers();
+    expect(await s.ensureBound(first.launchId, 'v1')).toBe(false);
+    expect(await s.ensureBound(second.launchId, 'v2')).toBe(true);
+    expect(await s.ensureBound(third.launchId, 'v3')).toBe(true);
   });
 
   it('after a restart, restore brings back a live session socket with its allowlist and drops the rest (#1697)', async () => {

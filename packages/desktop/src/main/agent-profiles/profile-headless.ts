@@ -10,7 +10,7 @@ import {
   type AgentProfile,
 } from '@midnite/studio-shared';
 
-import type { HeadlessRunRegistry } from './headless-run-profiles';
+import type { HeadlessRunHandle, HeadlessRunRegistry } from './headless-run-profiles';
 import type { ProfileMcpSockets } from './profile-mcp-sockets';
 
 export type ProfileHeadlessSeams = {
@@ -27,7 +27,7 @@ export type ProfileHeadlessSeams = {
   /** What the run is called in the audit trail, from its launch id. Default: the companion's. */
   runId?: (launchId: string) => string;
   /** #1697: names the run's custom agent to the breaker, so its limits apply to the headless run too. */
-  runs?: Pick<HeadlessRunRegistry, 'register'>;
+  runs?: Pick<HeadlessRunRegistry, 'register' | 'attach'>;
   /** Where to pick another agent, closing each refusal; the title bar by default. */
   pickHint?: string;
   /**
@@ -121,6 +121,8 @@ export function createProfileHeadlessRun(seams: ProfileHeadlessSeams): (profileI
       args,
       extraArgs: buildProfileHeadlessExtras(argvInput),
       promptPrefix,
+      // #1713: the runner hands its child over, so the breaker can stop a run that has no pty.
+      ...(seams.runs ? { attach: (handle: HeadlessRunHandle) => seams.runs?.attach(runId, handle) } : {}),
       release: () => {
         unregister?.();
         return seams.sockets.close(prepared.launchId);

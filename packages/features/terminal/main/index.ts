@@ -97,7 +97,7 @@ export type TerminalMainServices = {
   /**
    * Phase 154 Theme G: ties a custom agent's prepared launch (its private MCP socket) to the session whose
    * pty is being created. Studio's composer binds it; a host without custom-agent launches leaves it out.
-   * Returns false for an unknown or expired launch id.
+   * Returns false for an unknown launch id (a parked one is revived until app quit, #1713).
    */
   bindProfileLaunch?: (launchId: string, sessionId: string) => boolean | Promise<boolean>;
   /** Closes a launch whose pty never started, so its socket does not outlive the failed create. */
@@ -203,7 +203,7 @@ export const terminalMain = defineFeatureMain<TerminalMainServices>({
       // Bound before the pty starts, so the agent's very first call is already attributed to this session.
       const launchId = req.profileLaunchId;
       if (launchId && (await services.bindProfileLaunch?.(launchId, req.sessionId)) === false) {
-        warn(`profile launch ${launchId} was not bound: unknown or expired`);
+        warn(`profile launch ${launchId} was not bound (unknown, already bound, or not kept across a restart): its agent starts without its midnite tools`);
       }
       const result = await createPty(req);
       if (!result.ok && launchId) services.releaseProfileLaunch?.(launchId);
