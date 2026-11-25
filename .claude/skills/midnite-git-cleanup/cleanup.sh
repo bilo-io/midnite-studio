@@ -41,6 +41,11 @@
 # say. Only a branch with no merged-PR record falls back to ancestry/cherry
 # (plain merge-commit workflows, or no `gh`/no auth available).
 #
+# LOCAL branches use the same ground truth when ancestry/cherry say "unique work": a merged PR
+# (`gh pr list --state merged --head <branch>`) whose headRefOid equals the local tip marks a
+# squash-merged branch stale. A worktree whose only dirt is the deliberately-untracked
+# SCRATCHPAD.md is not dirty: the file is deleted at --apply and the worktree removed (never --force).
+#
 # Usage:
 #   cleanup.sh                     # dry run against the default branch
 #   cleanup.sh --apply             # delete local stale branches/worktrees
@@ -59,7 +64,7 @@ while [ $# -gt 0 ]; do
     --prune-remote) PRUNE_REMOTE=1 ;;
     --no-remote)    NO_REMOTE=1 ;;
     --target)       TARGET="$2"; shift ;;
-    -h|--help) sed -n '2,49p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,55p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) printf 'unknown argument: %s\n' "$1" >&2; exit 2 ;;
   esac
   shift
@@ -88,36 +93,11 @@ WT_MAP=$(git worktree list --porcelain | awk '
   /^worktree /  { path=substr($0,10) }
   /^branch /    { ref=substr($0,8); sub(/^refs\/heads\//,"",ref); print ref "\t" path }
 ')
+# Dirt in a worktree, ignoring the deliberately-untracked SCRATCHPAD.md.
+wt_dirt() { git -C "$1" status --porcelain 2>/dev/null | grep -v '^?? SCRATCHPAD.md$'; }
 worktree_for() { printf '%s\n' "$WT_MAP" | awk -F'\t' -v b="$1" '$1==b {print $2; exit}'; }
 
-STALE='' KEEP='' BLOCKED=''
-
-for b in $(git for-each-ref refs/heads --format='%(refname:short)'); do
-  [ "$b" = "$TARGET" ] && continue
-  if [ "$b" = "$CURRENT" ]; then
-    KEEP="$KEEP$b\tcurrent branch — never deleted\n"; continue
-  fi
-
-  if git merge-base --is-ancestor "$b" "$TARGET" 2>/dev/null; then
-    how='ancestor'
-  else
-    plus=$(git cherry "$TARGET" "$b" 2>/dev/null | grep -c '^+' || true)
-    [ -z "$plus" ] && plus=0
-    if [ "$plus" -eq 0 ]; then
-      how='patch-equivalent (duplicate/cherry-pick — `git branch -d` would refuse)'
-    else
-      KEEP="$KEEP$b\t$plus unique change(s) not on $TARGET\n"; continue
-    fi
-  fi
-
-  wt=$(worktree_for "$b")
-  if [ -n "$wt" ] && [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]; then
-    BLOCKED="$BLOCKED$b\tworktree $wt has uncommitted changes\n"; continue
-  fi
-  STALE="$STALE$b\t$how\t$wt\n"
-done
-
-# --- remote branches (see the header comment for why gh comes first) ----------
+# --- remote + gh detection (needed by the local scan too; see the header comment) -
 REMOTE='origin'
 HAS_REMOTE=0 HAS_GH=0
 if [ "$NO_REMOTE" -ne 1 ] && git remote get-url "$REMOTE" >/dev/null 2>&1 \
@@ -136,6 +116,59 @@ if [ "$HAS_GH" -eq 1 ]; then
 fi
 merged_pr_oid() { printf '%s\n' "$MERGED_PR_MAP" | awk -F'\t' -v b="$1" '$1==b{print $2; exit}'; }
 merged_pr_num() { printf '%s\n' "$MERGED_PR_MAP" | awk -F'\t' -v b="$1" '$1==b{print $3; exit}'; }
+# Merged PR for a LOCAL branch, into LPR_NUM / LPR_OID (globals: no subshell). The bulk map first, then
+# `gh pr list --state merged --head <branch>` for a branch the 500-PR map missed.
+local_merged_pr() {
+  LPR_NUM='' LPR_OID=''
+  [ "$HAS_GH" -eq 1 ] || return 0
+  LPR_NUM=$(merged_pr_num "$1")
+  if [ -n "$LPR_NUM" ]; then
+    LPR_OID=$(merged_pr_oid "$1")
+  else
+    row=$(gh pr list --state merged --head "$1" --limit 1 --json headRefOid,number \
+      --jq '.[] | "\(.number)\t\(.headRefOid)"' 2>/dev/null)
+    [ -n "$row" ] || return 0
+    LPR_NUM=$(printf '%s' "$row" | cut -f1)
+    LPR_OID=$(printf '%s' "$row" | cut -f2)
+  fi
+}
+
+STALE='' KEEP='' BLOCKED=''
+
+for b in $(git for-each-ref refs/heads --format='%(refname:short)'); do
+  [ "$b" = "$TARGET" ] && continue
+  if [ "$b" = "$CURRENT" ]; then
+    KEEP="$KEEP$b\tcurrent branch — never deleted\n"; continue
+  fi
+
+  if git merge-base --is-ancestor "$b" "$TARGET" 2>/dev/null; then
+    how='ancestor'
+  else
+    plus=$(git cherry "$TARGET" "$b" 2>/dev/null | grep -c '^+' || true)
+    [ -z "$plus" ] && plus=0
+    if [ "$plus" -eq 0 ]; then
+      how='patch-equivalent (duplicate/cherry-pick — `git branch -d` would refuse)'
+    else
+      # A squash/rebase merge is neither ancestor nor patch-equivalent: ask the forge.
+      local_merged_pr "$b"
+      if [ -n "$LPR_NUM" ] && [ "$(git rev-parse "$b")" = "$LPR_OID" ]; then
+        how="merged via PR #$LPR_NUM (squash/rebase)"
+      elif [ -n "$LPR_NUM" ]; then
+        KEEP="$KEEP$b\tPR #$LPR_NUM merged, but local tip has moved since — review\n"; continue
+      else
+        KEEP="$KEEP$b\t$plus unique change(s) not on $TARGET\n"; continue
+      fi
+    fi
+  fi
+
+  wt=$(worktree_for "$b")
+  # SCRATCHPAD.md is deliberately untracked, so it is never dirt: a worktree whose only change is
+  # that file is cleared (the file is deleted at apply time, then a plain `worktree remove` runs).
+  if [ -n "$wt" ] && [ -n "$(wt_dirt "$wt")" ]; then
+    BLOCKED="$BLOCKED$b\tworktree $wt has uncommitted changes\n"; continue
+  fi
+  STALE="$STALE$b\t$how\t$wt\n"
+done
 
 RSTALE='' RKEEP=''
 if [ "$HAS_REMOTE" -eq 1 ]; then
@@ -246,6 +279,9 @@ if [ -n "$STALE" ]; then
   printf "$STALE" | while IFS="$(printf '\t')" read -r b how wt; do
     [ -n "$b" ] || continue
     if [ -n "$wt" ]; then
+      # only-SCRATCHPAD.md dirt was cleared by the scan; delete the file so a plain remove (never --force) works
+      [ -f "$wt/SCRATCHPAD.md" ] && ! git -C "$wt" ls-files --error-unmatch SCRATCHPAD.md >/dev/null 2>&1 \
+        && [ -z "$(wt_dirt "$wt")" ] && rm -f "$wt/SCRATCHPAD.md"
       wt_out=$(git worktree remove "$wt" 2>&1)
       wt_status=$?
       [ -n "$wt_out" ] && printf '%s\n' "$wt_out" | sed 's/^/  /'
@@ -256,12 +292,12 @@ if [ -n "$STALE" ]; then
         continue
       fi
     fi
-    # -d for ancestors; -D only where patch-equivalence is the evidence, since -d
-    # tests reachability and would refuse a landed duplicate.
+    # -d for ancestors; -D only where patch-equivalence or a merged PR is the evidence, since -d
+    # tests reachability and would refuse a landed duplicate or squash merge.
     if git branch -d "$b" >/dev/null 2>&1; then
       printf '  deleted %s (-d)\n' "$b"
     elif git branch -D "$b" >/dev/null 2>&1; then
-      printf '  deleted %s (-D — landed as a duplicate, -d refused on reachability)\n' "$b"
+      printf '  deleted %s (-D — landed as a duplicate/squash, -d refused on reachability)\n' "$b"
     else
       printf '  FAILED to delete %s\n' "$b"
     fi
