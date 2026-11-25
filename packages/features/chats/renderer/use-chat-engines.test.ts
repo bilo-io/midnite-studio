@@ -1,3 +1,4 @@
+import type { IconComponent } from '@midnite/studio-frame';
 import { BUILTIN_AGENTS } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
@@ -5,7 +6,8 @@ import { agentEngine, engineWire, pickEngine, profileEngine } from './use-chat-e
 
 /** Pure logic over the engine list, so vitest. */
 
-const icon = () => null;
+const StubIcon: IconComponent = () => null;
+const icon = () => StubIcon;
 const claude = agentEngine(BUILTIN_AGENTS.find((a) => a.id === 'claude')!, [], icon);
 const profile = { id: 'profile-rev', name: 'Reviewer', baseAgentId: 'claude', accent: '#112233', description: '' };
 

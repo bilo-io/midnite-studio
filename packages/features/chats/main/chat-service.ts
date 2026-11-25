@@ -829,17 +829,21 @@ export function createChatService(deps: ChatServiceDeps) {
   ): Promise<TurnResult> {
     const roster = await deps.agents();
     let agent = roster.find((a) => a.id === chat.engine);
+    // A custom agent's base can have moved since the chat was made, so its stored engine may be off the roster.
+    if (!agent && !chat.agentProfileId) return { error: `${chat.engine} is not on the agent roster.` };
+    if (!agent) agent = roster[0];
     if (!agent) return { error: `${chat.engine} is not on the agent roster.` };
     // A deleted custom agent falls back to its base CLI, and the thread says so (Phase 154 follow-up).
     let profileId = chat.agentProfileId ?? null;
     const baseLabel = agent.label;
+    const engineLabel = roster.find((a) => a.id === chat.engine)?.label ?? chat.engine;
 
     const resumable = chat.session && chat.session.engine === chat.engine && chat.session.cwd === cwd ? chat.session.id : null;
     // Resume first; if that attempt dies before saying anything, try once more with a replay.
     const attempts: (string | null)[] = resumable ? [resumable, null] : [null];
 
     let last: TurnResult = {};
-    for (const sessionId of attempts) {
+    for (let sessionId of attempts) {
       let profileRun: Extract<ChatProfileRun, { kind: 'ready' }> | null = null;
       if (profileId !== null) {
         if (!deps.profileRun) return { error: CUSTOM_AGENTS_NEED_STUDIO };
@@ -851,6 +855,8 @@ export function createChatService(deps: ChatServiceDeps) {
         }
         if (prepared.kind === 'error') return { error: prepared.message };
         if (prepared.kind === 'missing') {
+          if (!roster.some((a) => a.id === chat.engine)) return { error: `${chat.engine} is not on the agent roster.` };
+          agent = roster.find((a) => a.id === chat.engine) ?? agent;
           // Run as the base CLI from here on, and forget the agent so the picker shows what actually ran.
           profileId = null;
           delete chat.agentProfileId;
@@ -861,6 +867,19 @@ export function createChatService(deps: ChatServiceDeps) {
         } else {
           profileRun = prepared;
           agent = prepared.agent;
+          // The agent's base CLI changed since this chat began (or its old one is gone). The chat follows the
+          // agent's new base: the old CLI's session cannot resume on another CLI, so the thread starts one
+          // afresh from its history, and the chat's engine is updated so the picker and the next turn agree.
+          if (agent.id !== chat.engine) {
+            const was = engineLabel;
+            chat.engine = agent.id;
+            chat.model = null;
+            chat.session = null;
+            sessionId = null;
+            pushActivity(chat, assistant, `${prepared.name} now runs on ${agent.label} (it was ${was}), so this turn started a fresh session.`);
+            await persist(chat);
+            emitChat(chat.id);
+          }
         }
       }
       const releaseProfile = (): Promise<void> => (profileRun ? profileRun.release().catch(() => {}) : Promise.resolve());

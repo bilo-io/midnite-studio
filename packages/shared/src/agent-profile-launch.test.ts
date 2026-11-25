@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { agentHeadlessArgs } from './agent-invocation';
+
 import {
   BUILTIN_AGENTS,
   buildProfileLaunchLine,
@@ -93,6 +95,19 @@ describe('buildProfileLaunchLine', () => {
     const arg = buildProfileLaunchLine({ base: codex, model: 'default', promptPath: '/p.md', delivery: 'argument', mcpArgs: [], resume: false, prompt: 'go' });
     expect(arg.endsWith(String.raw`"$(cat '/p.md'; printf '\n\n%s' 'go')"`)).toBe(true);
     expect(arg.match(/\$\(cat/g)).toHaveLength(1);
+  });
+
+  it('types the print mode ahead of the prompt for a headless hand-off, and stays interactive without a prompt or on resume', () => {
+    const headless = buildProfileLaunchLine({ base: claude, model: 'default', promptPath: '/p.md', delivery: 'flag', mcpArgs: ['--mcp-config', 'x'], resume: false, prompt: 'go', mode: 'headless' });
+    expect(headless).toBe(`${[claude.command, ...claude.args, ...agentHeadlessArgs('claude')!].join(' ')} --mcp-config x --append-system-prompt-file '/p.md' 'go'`);
+    const codex = agent('codex');
+    const arg = buildProfileLaunchLine({ base: codex, model: 'default', promptPath: '/p.md', delivery: 'argument', mcpArgs: [], resume: false, prompt: 'go', mode: 'headless' });
+    expect(arg.startsWith([codex.command, ...codex.args, ...agentHeadlessArgs('codex')!].join(' '))).toBe(true);
+    expect(arg.endsWith(String.raw`"$(cat '/p.md'; printf '\n\n%s' 'go')"`)).toBe(true);
+    const bare = buildProfileLaunchLine({ base: claude, model: 'default', promptPath: null, delivery: 'flag', mcpArgs: [], resume: false, mode: 'headless' });
+    expect(bare).not.toContain(agentHeadlessArgs('claude')![0]!);
+    const resumed = buildProfileLaunchLine({ base: claude, model: 'default', promptPath: null, delivery: 'flag', mcpArgs: [], resume: true, prompt: 'go', mode: 'headless' });
+    expect(resumed).not.toContain(agentHeadlessArgs('claude')![0]!);
   });
 
   it('adds base.resume and places mcpArgs before the prompt words', () => {

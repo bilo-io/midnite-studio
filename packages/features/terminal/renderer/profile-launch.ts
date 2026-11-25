@@ -1,4 +1,4 @@
-import type { AgentProfile, TerminalSession } from '@midnite/studio-shared';
+import type { AgentProfile, TerminalSession, TerminalSurface } from '@midnite/studio-shared';
 
 import { useTerminalStore } from './terminal-store';
 
@@ -20,6 +20,8 @@ export type PrepareProfileLaunch = (req: {
   resume: boolean;
   /** A first prompt typed with the agent (a skill hand-off); absent starts it bare. */
   prompt?: string;
+  /** `'headless'` types the base CLI's print mode with the prompt (a headless skill hand-off). */
+  mode?: 'interactive' | 'headless';
 }) => Promise<{ launchId: string; line: string } | 'missing' | null>;
 
 /**
@@ -30,13 +32,22 @@ export type PrepareProfileLaunch = (req: {
 export async function launchProfileSession(
   prepare: PrepareProfileLaunch,
   profile: Pick<AgentProfile, 'id' | 'name' | 'baseAgentId'>,
-  target: { repoId: string; cwd: string; title?: string; prompt?: string; autoSend?: boolean },
+  target: {
+    repoId: string;
+    cwd: string;
+    title?: string;
+    prompt?: string;
+    autoSend?: boolean;
+    surface?: TerminalSurface;
+    mode?: 'interactive' | 'headless';
+  },
 ): Promise<TerminalSession | 'missing' | null> {
   const prepared = await prepare({
     profileId: profile.id,
     cwd: target.cwd,
     resume: false,
     ...(target.prompt === undefined ? {} : { prompt: target.prompt }),
+    ...(target.mode === undefined ? {} : { mode: target.mode }),
   });
   if (prepared === 'missing') return 'missing';
   if (!prepared) return null;
@@ -48,6 +59,7 @@ export async function launchProfileSession(
     title: target.title ?? profile.name,
     cwd: target.cwd,
     repoId: target.repoId,
+    ...(target.surface === undefined ? {} : { surface: target.surface }),
   });
   store.setLaunchId(session.id, prepared.launchId);
   store.queueInput(session.id, prepared.line + (target.prompt === undefined || target.autoSend ? '\r' : ''));

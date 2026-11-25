@@ -2351,6 +2351,8 @@ export const AgentProfilePrepareLaunchRequest = z.object({
   resume: z.boolean(),
   /** A first prompt typed with the agent (a companion skill hand-off); absent starts the agent bare. */
   prompt: z.string().max(20_000).optional(),
+  /** `'headless'` types the base CLI's print mode with the prompt (a headless skill hand-off). Default interactive. */
+  mode: z.enum(['interactive', 'headless']).optional(),
 });
 export const AgentProfilePrepareLaunchResponse = GitOpResultOf(
   z.object({ launchId: z.string(), line: z.string() }),
