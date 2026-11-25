@@ -9,7 +9,7 @@ The Docs page is a markdown editor with an AI thread beside each file. Export to
 
 ## 0 · Run the script first
 
-Run `node scripts/skills/media/validate.mjs docs '<json>'`. It checks the request against the documented constraints (`${S}media/scaffold.sh doc <project>` creates the project folder and starter doc). You still write the document. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+Run `node scripts/skills/media/validate.mjs docs '<json>'`. It checks the request against the documented constraints (`scripts/skills/media/scaffold.sh doc <project>` creates the project folder and starter doc). You still write the document. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
 
 ## Layout
 

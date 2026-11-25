@@ -161,7 +161,7 @@ for f in .worktrees/*/SCRATCHPAD.md; do [ -e "$f" ] && { echo "── $f"; sed -
 If one covers this task — or is stale enough to be dead — say so and **ask the human: resume that
 worktree, or start fresh?** Resuming means `cd`-ing into it, reading the whole scratchpad, and
 continuing from its **Next** line rather than re-deriving the work. Starting fresh means tearing
-the dead tree down first (`git worktree remove --force <path>`) so it can't be picked up twice.
+the dead tree down first (`scripts/skills/worktree-lifecycle.sh remove <slug>`, never `--force`; if it refuses a dirty tree, ask the human) so it can't be picked up twice.
 
 ```bash
 git fetch origin

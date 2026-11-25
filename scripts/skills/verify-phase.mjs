@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// `--no-llm` is accepted as a documented no-op: this script never calls an LLM, so a skill step can add it everywhere.
 // Phase verification driver (Phase 151 Theme E, on the forge since Theme G) — the deterministic half of
 // `midnite-verify`. The phase is a GitHub issue; its checklist is the task lists of its theme sub-issues.
 //

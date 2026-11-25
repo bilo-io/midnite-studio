@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// `--no-llm` is accepted as a documented no-op: this script never calls an LLM, so a skill step can add it everywhere.
 // Sprite job maths (Phase 151 Theme E): the 200-request spend cap and the method choice.
 //
 //   node scripts/skills/media/sprite-calc.mjs --frames 8 --directions 4 [--reroll 1] [--view top-down] [--style pixel] [--json]

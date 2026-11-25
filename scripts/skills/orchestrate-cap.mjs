@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// `--no-llm` is accepted as a documented no-op: this script never calls an LLM, so a skill step can add it everywhere.
 // Subagent cap state machine (Phase 151 Theme E). Logic behind orchestrate-cap.sh.
 //
 //   node scripts/skills/orchestrate-cap.mjs --cpu 41 --ram 55 [--cap 3] [--low-streak 0] [--state file] [--json]

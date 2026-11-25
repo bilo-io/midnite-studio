@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Scaffold a media project folder (Phase 151 Theme E).
-#   scaffold.sh <audio|image|doc|sfx|model|terrain|map|video> <project> [--repo DIR] [--name NAME]
+#   scaffold.sh <audio|image|doc|sfx|model|terrain|map|video> <project> [--repo DIR] [--name NAME] [--no-llm]
 # Creates <repo>/.midnite/media/<kind>/<project>/ (and, for doc, a starter <NAME>.md). Never overwrites an
 # existing file, and never writes app-owned sidecars (project.json, *.thread.json, <asset>.json, map.json).
 set -euo pipefail
@@ -11,6 +11,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --repo) repo="$2"; shift 2 ;;
     --name) name="$2"; shift 2 ;;
+    --no-llm) shift ;; # documented no-op: scaffolding never calls an LLM
     *) echo "scaffold: unknown flag $1" >&2; exit 2 ;;
   esac
 done

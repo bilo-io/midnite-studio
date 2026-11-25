@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// `--no-llm` is accepted as a documented no-op: this script never calls an LLM, so a skill step can add it everywhere.
 // release-complete: automates `midnite-release-complete` (Phase 151 Theme C) — the IRREVERSIBLE half, guarded.
 //   node scripts/skills/release-complete.mjs [ephemeral] [--json]                 check + plan only (default, changes nothing)
 //   node scripts/skills/release-complete.mjs [ephemeral] --confirm vX.Y.Z         run the tag/push steps

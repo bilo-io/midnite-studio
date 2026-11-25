@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// `--no-llm` is accepted as a documented no-op: this script never calls an LLM, so a skill step can add it everywhere.
 // PR audit extractor (Phase 151 Theme D): lays out the four levels midnite-pr-audit compares and
 // the contract the PR puts on the wire, as JSON. L1 phase issue on the forge (per-theme task counts from the
 // theme sub-issues + the Contract row of the phase body),

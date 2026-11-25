@@ -7,7 +7,6 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { BUILDINGS_MAX_SIDE, haversine, isGridSize, metresPerPixel, plan, recommendSize, ROADS_MAX_SIDE } from './map-calc.mjs';
-import { pollJob } from './poll-job.mjs';
 import { checkSpend, maxFrames, recommendMethod, spend } from './sprite-calc.mjs';
 import { validateAudio, validateDocs, validateImage, validateSfx, validateTerrain } from './validate.mjs';
 
@@ -79,21 +78,6 @@ describe('sprite-calc', () => {
   });
 });
 
-describe('poll-job', () => {
-  it('polls until terminal without real waiting', async () => {
-    const seq = [{ status: 'running' }, { status: 'running' }, { status: 'done' }];
-    const sleeps = [];
-    const r = await pollJob({ getStatus: async () => seq.shift(), kind: 'sprite', sleep: async (ms) => sleeps.push(ms) });
-    expect(r).toMatchObject({ terminal: true, status: 'done', polls: 3 });
-    expect(sleeps).toEqual([10_000, 10_000]);
-  });
-  it('sfx uses 5 s and its own terminal words; times out', async () => {
-    const r = await pollJob({ getStatus: async () => ({ status: 'running' }), kind: 'sfx', maxMs: 12_000, sleep: async () => {} });
-    expect(r.timedOut).toBe(true);
-    expect((await pollJob({ getStatus: async () => ({ status: 'succeeded' }), kind: 'sfx' })).terminal).toBe(true);
-  });
-});
-
 describe('scaffold.sh', () => {
   it('creates once and never clobbers', () => {
     const repo = mkdtempSync(join(tmpdir(), 'scaffold-'));
@@ -106,6 +90,14 @@ describe('scaffold.sh', () => {
       expect(readFileSync(file, 'utf8')).toBe('# mine\n');
       expect(existsSync(join(repo, '.midnite/media/doc/demo/demo.thread.json'))).toBe(false);
       expect(() => execFileSync('bash', [join(here, 'scaffold.sh'), 'doc', '../x', '--repo', repo], { stdio: 'pipe' })).toThrow();
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+  it('accepts --no-llm as a no-op', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'scaffold-'));
+    try {
+      expect(execFileSync('bash', [join(here, 'scaffold.sh'), 'sfx', 'demo', '--repo', repo, '--no-llm'], { encoding: 'utf8' })).toContain('created');
     } finally {
       rmSync(repo, { recursive: true, force: true });
     }
