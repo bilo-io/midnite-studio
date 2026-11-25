@@ -1,7 +1,7 @@
 import { createContext, useContext, type ComponentType, type ReactNode } from 'react';
 
 import type { IconComponent } from '@midnite/studio-frame';
-import type { AgentDefinition, AgentStatus } from '@midnite/studio-shared';
+import type { AgentDefinition, AgentProfile, AgentStatus } from '@midnite/studio-shared';
 
 /**
  * The councils feature's host port — what this feature needs from the app that
@@ -61,7 +61,12 @@ export type CouncilsPickerProvider = {
   color?: string;
   disabled?: boolean;
   reason?: string;
+  /** A section header; consecutive providers sharing one are listed under it ("Your agents" first). */
+  group?: string;
 };
+
+/** The saved custom agents (#1699), and whether the list has loaded — an empty list before then is not "none". */
+export type CouncilsAgentProfiles = { profiles: readonly AgentProfile[]; loaded: boolean };
 
 export type CouncilsPickerModel = { id: string; label: string; recommended?: boolean };
 
@@ -92,6 +97,12 @@ export type CouncilsHost = {
   useAgentRoster: () => { agents: AgentDefinition[]; status: AgentStatus[] };
   /** The glyph for an agent (its brand mark, or a fallback for an unknown one). */
   resolveAgentIcon: (agent: { id: string; icon?: string }) => IconComponent;
+  /**
+   * The saved custom agents a seat can run as (#1699), read through the composing app — never by importing
+   * the agent-profiles feature. A hook. Optional: an app that cannot run a custom agent as a seat leaves it
+   * out, and the member picker offers roster agents only.
+   */
+  useAgentProfiles?: () => CouncilsAgentProfiles;
   /** Opens a URL in the user's browser — the "Upgrade to Pro" pricing link (Phase 134 Theme D). */
   openExternal: (url: string) => void;
 };

@@ -1,4 +1,9 @@
-import type { CouncilsHost } from '@midnite/studio-feature-councils/renderer';
+import { QueryClient, QueryClientContext, useQuery } from '@tanstack/react-query';
+import { useContext } from 'react';
+
+import { agentProfilesQueryOptions } from '@midnite/studio-feature-agent-profiles/renderer';
+import type { CouncilsAgentProfiles, CouncilsHost } from '@midnite/studio-feature-councils/renderer';
+import type { AgentProfile } from '@midnite/studio-shared';
 
 import { AiComposer, ProviderModelPicker } from '../components/ai-thread';
 import { resolveAgentIcon } from '../components/icons';
@@ -17,6 +22,7 @@ import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../store/ui-store';
  * `councilConfigCollapsed`), so moving the feature into a package changed no
  * stored key, and the occluder count is the one the embedded browser watches.
  * The AI-thread kit (Phase 133) is the same set the Chats host installs.
+ * The custom agents a seat can run as (#1699) are the Agents page's own query.
  */
 export const STUDIO_COUNCILS_HOST = {
   useLayout: () => {
@@ -48,5 +54,17 @@ export const STUDIO_COUNCILS_HOST = {
   MarkdownBody,
   useAgentRoster: () => useAgents(),
   resolveAgentIcon,
+  useAgentProfiles: useCouncilAgentProfiles,
   openExternal,
 } satisfies CouncilsHost;
+
+const NO_PROFILES: AgentProfile[] = [];
+/** Only for a councils tree rendered with no query provider (a bare component test). */
+const FALLBACK_CLIENT = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+/** The saved custom agents, and whether they have loaded — so a seat's agent is never called deleted early. */
+function useCouncilAgentProfiles(): CouncilsAgentProfiles {
+  const client = useContext(QueryClientContext) ?? FALLBACK_CLIENT;
+  const query = useQuery(agentProfilesQueryOptions(), client);
+  return { profiles: query.data ?? NO_PROFILES, loaded: query.isSuccess };
+}

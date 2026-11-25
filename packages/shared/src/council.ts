@@ -68,6 +68,20 @@ export function councilMemberCap(pro: boolean): number {
 
 // --- council + members -----------------------------------------------------
 
+/**
+ * A custom agent's id as a council seat stores it (#1699) — the same shape `agentProfile:*` mints, held
+ * to it here because the id names a file under `userData` when the seat runs.
+ */
+export const CouncilAgentProfileIdSchema = z.string().regex(/^profile-[A-Za-z0-9_-]+$/);
+
+/**
+ * The only custom agents a seat can run as: those whose base CLI is itself a council provider, since the
+ * seat's answer is read back the way its base's is.
+ */
+export function isCouncilProfileBase(baseAgentId: string): baseAgentId is CouncilMemberProvider {
+  return (COUNCIL_MEMBER_PROVIDERS as readonly string[]).includes(baseAgentId);
+}
+
 export const CouncilMemberSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -76,6 +90,11 @@ export const CouncilMemberSchema = z.object({
   role: z.string().min(1),
   /** A `modelsForAgent` id for `provider`; absent means the CLI's own default (Phase 133 Theme B). */
   model: z.string().min(1).optional(),
+  /**
+   * A custom agent this seat runs as (#1699): its prompt, model, tools and limits. `provider` is then the
+   * agent's base CLI, and what the seat falls back to if the agent is deleted; `model` is not used.
+   */
+  agentProfileId: CouncilAgentProfileIdSchema.optional(),
 });
 export type CouncilMember = z.infer<typeof CouncilMemberSchema>;
 
@@ -175,6 +194,10 @@ export const CouncilRunMemberSchema = z.object({
   model: z.string().min(1).optional(),
   /** The CLI's own session id, from its JSON answer — what a follow-up turn resumes (Phase 133 Theme D). */
   sessionId: z.string().min(1).optional(),
+  /** The custom agent the seat was set to run as, snapshotted like `provider` (#1699). */
+  agentProfileId: CouncilAgentProfileIdSchema.optional(),
+  /** The custom agent was deleted, so the seat ran as its base `provider` instead (the companion's literal). */
+  agentProfileFallback: z.literal('deleted').optional(),
 });
 export type CouncilRunMember = z.infer<typeof CouncilRunMemberSchema>;
 

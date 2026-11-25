@@ -28,6 +28,8 @@ export type ProfileHeadlessSeams = {
   runId?: (launchId: string) => string;
   /** #1697: names the run's custom agent to the breaker, so its limits apply to the headless run too. */
   runs?: Pick<HeadlessRunRegistry, 'register'>;
+  /** Where to pick another agent, closing the "not installed" refusal; the title bar by default. */
+  pickHint?: string;
 };
 
 const fileExists = async (path: string): Promise<boolean> => {
@@ -50,6 +52,9 @@ const readText = async (path: string): Promise<string | null> => {
 /** What the run is called in the audit trail: the companion's, never a terminal session's. */
 export const companionRunId = (launchId: string): string => `companion-${launchId}`;
 
+/** A council seat's run in the audit trail (#1699). */
+export const councilSeatRunId = (launchId: string): string => `council-${launchId}`;
+
 /**
  * A custom agent as the companion's one headless ask (Phase 154 Theme H) — the argv counterpart of
  * `createProfileLaunchService`'s typed line, over the same private MCP socket (Theme G). The socket is bound
@@ -67,7 +72,7 @@ export function createProfileHeadlessRun(seams: ProfileHeadlessSeams): (profileI
       const label = BUILTIN_AGENTS.find((agent) => agent.id === profile.baseAgentId)?.label ?? profile.baseAgentId;
       return {
         kind: 'error',
-        message: `${profile.name} runs on ${label}, which is not installed here. Pick another agent in the title bar.`,
+        message: `${profile.name} runs on ${label}, which is not installed here. ${seams.pickHint ?? 'Pick another agent in the title bar.'}`,
       };
     }
     const path = seams.promptPath(profile.id);

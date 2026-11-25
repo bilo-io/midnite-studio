@@ -15,6 +15,7 @@ export { councilsManifest, type CouncilsManifest } from '../manifest';
 export {
   CouncilsHostProvider,
   useCouncilsHost,
+  type CouncilsAgentProfiles,
   type CouncilsAiComposerProps,
   type CouncilsHost,
   type CouncilsLayout,

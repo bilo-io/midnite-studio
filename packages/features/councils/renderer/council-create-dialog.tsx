@@ -12,7 +12,7 @@ import {
   type CouncilRecommendedMember,
 } from '@midnite/studio-shared';
 
-import { councilModelOptions, DEFAULT_MODEL_ID, useCouncilProviders } from './council-providers';
+import { councilModelOptions, DEFAULT_MODEL_ID, seatModelOptions, useCouncilProviders } from './council-providers';
 import { useCouncilsHost } from './host';
 import { IconButton } from './ui';
 import { useCreateCouncil, useRecommendCouncil } from './use-council';
@@ -27,6 +27,9 @@ export type NewCouncilInput = {
 };
 
 const isProvider = (id: string): id is CouncilMemberProvider => (COUNCIL_MEMBER_PROVIDERS as readonly string[]).includes(id);
+
+/** A recommended member as the user edits it: the seat may be moved onto a custom agent (#1699). */
+type DraftMember = CouncilRecommendedMember & { agentProfileId?: string };
 
 /** A picker model id as stored: absent for the CLI's default. */
 const storedModel = (id: string): string | undefined => (id === DEFAULT_MODEL_ID ? undefined : id);
@@ -57,14 +60,14 @@ export function CouncilCreateDialog({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [brief, setBrief] = useState('');
-  const [members, setMembers] = useState<CouncilRecommendedMember[] | null>(null);
+  const [members, setMembers] = useState<DraftMember[] | null>(null);
   const [synthProvider, setSynthProvider] = useState<CouncilMemberProvider>('claude');
   const [synthModel, setSynthModel] = useState<string | undefined>(undefined);
   const [recommendError, setRecommendError] = useState<string | null>(null);
   const containerRef = useRef<HTMLFormElement>(null);
   useCouncilsHost().useOccluder(true);
   useFocusTrap(containerRef, true);
-  const { providers, installed } = useCouncilProviders();
+  const { providers, seats, installed, seatValue, seatPatch } = useCouncilProviders();
   const { ProviderModelPicker } = useCouncilsHost();
   const recommend = useRecommendCouncil();
   const cap = councilMemberCap(useFeatureFlag('councils.pro'));
@@ -118,6 +121,7 @@ export function CouncilCreateDialog({
               role: m.role.trim(),
               provider: m.provider,
               ...(m.model ? { model: m.model } : {}),
+              ...(m.agentProfileId ? { agentProfileId: m.agentProfileId } : {}),
             })),
             synthProvider,
             ...(synthModel ? { synthModel } : {}),
@@ -126,7 +130,7 @@ export function CouncilCreateDialog({
   };
 
   /** A recommended-member edit; an `undefined` model goes back to the CLI's default. */
-  const patchMember = (index: number, patch: { [K in keyof CouncilRecommendedMember]?: CouncilRecommendedMember[K] | undefined }) =>
+  const patchMember = (index: number, patch: { [K in keyof DraftMember]?: DraftMember[K] | undefined }) =>
     setMembers((current) =>
       (current ?? []).map((m, i) => {
         if (i !== index) return m;
@@ -135,7 +139,7 @@ export function CouncilCreateDialog({
           if (value === undefined) delete next[key];
           else next[key] = value;
         }
-        return next as CouncilRecommendedMember;
+        return next as DraftMember;
       }),
     );
 
@@ -236,10 +240,13 @@ export function CouncilCreateDialog({
                         className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1 py-0.5 text-xs font-medium outline-none focus:border-input focus:bg-background"
                       />
                       <ProviderModelPicker
-                        providers={providers}
-                        provider={member.provider}
-                        onProviderChange={(id) => isProvider(id) && patchMember(index, { provider: id, model: undefined })}
-                        models={councilModelOptions(member.provider)}
+                        providers={seats}
+                        provider={seatValue(member)}
+                        onProviderChange={(id) => {
+                          const patch = seatPatch(id);
+                          if (patch) patchMember(index, patch);
+                        }}
+                        models={seatModelOptions(member)}
                         model={member.model ?? DEFAULT_MODEL_ID}
                         onModelChange={(id) => patchMember(index, { model: storedModel(id) })}
                         testId={`council-recommended-picker-${index}`}

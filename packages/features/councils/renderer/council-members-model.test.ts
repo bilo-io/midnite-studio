@@ -69,3 +69,11 @@ describe('revealOrder', () => {
     ]);
   });
 });
+
+describe('a seat on a custom agent (#1699)', () => {
+  it('keeps the custom agent when a preset or a resize reseats the members', () => {
+    const members: CouncilMember[] = [{ id: 'a', name: 'Reviewer seat', role: 'r', provider: 'claude', agentProfileId: 'profile-rev' }];
+    expect(applyPresetMembers(members, 'debate').map((m) => m.agentProfileId)).toEqual(['profile-rev', 'profile-rev', 'profile-rev']);
+    expect(resizeMembers(members, 2, 'custom')[1]).toMatchObject({ provider: 'claude', agentProfileId: 'profile-rev' });
+  });
+});

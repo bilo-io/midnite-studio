@@ -11,18 +11,22 @@ import {
  * kept pure so the rules are tested without rendering the panel.
  *
  * Every rule keeps the user's agent choices where it can: slot `i` of the new
- * members runs on whatever agent and model slot `i` ran on before, and a slot
- * that did not exist takes the last member's.
+ * members runs on whatever agent and model (or custom agent) slot `i` ran on
+ * before, and a slot that did not exist takes the last member's.
  */
 
-type Seat = { provider: CouncilMemberProvider; model?: string };
+type Seat = { provider: CouncilMemberProvider; model?: string; agentProfileId?: string };
 
 const FALLBACK_SEAT: Seat = { provider: 'agy' };
 
 function seatAt(members: readonly CouncilMember[], index: number): Seat {
   const member = members[index] ?? members[members.length - 1];
   if (!member) return FALLBACK_SEAT;
-  return { provider: member.provider, ...(member.model ? { model: member.model } : {}) };
+  return {
+    provider: member.provider,
+    ...(member.model ? { model: member.model } : {}),
+    ...(member.agentProfileId ? { agentProfileId: member.agentProfileId } : {}),
+  };
 }
 
 const newId = (): string => crypto.randomUUID();
