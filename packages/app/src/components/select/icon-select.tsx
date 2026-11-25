@@ -142,6 +142,16 @@ function OptionLabel({
  * control's own subtree, which changes what a `within(container)` query — a
  * test's or a click-outside handler's — can see.
  */
+/*
+  The menu sizes to its content instead of the control: a narrow control (a third of the loop composer's
+  provider row) would otherwise truncate "Release…" / "Antigr…" in a menu wide enough to read them. At least
+  the control's width, at most 28rem (or the viewport). Inline styles for the reason PORTAL_PROPS gives:
+  `react-select` emits `width: 100%` through emotion, which a class cannot beat.
+*/
+const MENU_STYLES = {
+  menu: (base: Record<string, unknown>) => ({ ...base, width: 'max-content', minWidth: '100%', maxWidth: 'min(28rem, 90vw)' }),
+} as const;
+
 const PORTAL_PROPS = {
   menuPortalTarget: typeof document === 'undefined' ? undefined : document.body,
   menuPosition: 'fixed',
@@ -154,7 +164,7 @@ const PORTAL_PROPS = {
     specificity emotion wins. A `z-[60]` class was silently doing nothing, and
     a menu overlapping the FAB button (`z-20`) would have opened underneath it.
   */
-  styles: { menuPortal: (base: Record<string, unknown>) => ({ ...base, zIndex: 60 }) },
+  styles: { ...MENU_STYLES, menuPortal: (base: Record<string, unknown>) => ({ ...base, zIndex: 60 }) },
 } as const;
 
 export function IconSelect({
@@ -184,7 +194,7 @@ export function IconSelect({
 
   return (
     <Select<IconSelectOption, false>
-      {...(menuInPortal ? PORTAL_PROPS : {})}
+      {...(menuInPortal ? PORTAL_PROPS : { styles: MENU_STYLES })}
       aria-label={ariaLabel}
       classNamePrefix="icon-select"
       unstyled
@@ -244,7 +254,7 @@ export function MultiIconSelect({
 
   return (
     <Select<IconSelectOption, true>
-      {...(menuInPortal ? PORTAL_PROPS : {})}
+      {...(menuInPortal ? PORTAL_PROPS : { styles: MENU_STYLES })}
       aria-label={ariaLabel}
       classNamePrefix="icon-select"
       unstyled

@@ -11,6 +11,7 @@ import {
   LuTriangleAlert,
 } from 'react-icons/lu';
 
+import { useOptionalWorkflowsHost } from '../host';
 import { PORT_TYPE_COLOR_VAR } from './edge-style';
 import { nodeSummary, NODE_KIND_META, type NodeCategory } from './node-kind-meta';
 import { NODE_SHAPE } from './node-shape';
@@ -199,6 +200,9 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps) {
   const shape = NODE_SHAPE[node.kind];
 
   const connection = useConnection();
+  // The card's subtitle names a custom agent rather than its base CLI (#1713).
+  const profiles = useOptionalWorkflowsHost()?.useAgentProfiles?.();
+  const summary = nodeSummary(node, (profileId) => profiles?.find((entry) => entry.id === profileId)?.name);
   const graphContext = useWorkflowGraphContext();
 
   // `graphContext?.edges` (Theme C) is what makes THIS node's own `exhausted`
@@ -300,7 +304,7 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps) {
           </span>
           <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
             {node.label}
-            <span className="ml-1 font-normal text-muted-foreground">· {nodeSummary(node)}</span>
+            <span className="ml-1 font-normal text-muted-foreground">· {summary}</span>
           </span>
           {StatusIcon ? (
             <StatusIcon
@@ -359,7 +363,7 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps) {
 
           <div className="px-2 py-1.5">
             <p className="truncate text-xs font-medium text-foreground">{node.label}</p>
-            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{nodeSummary(node)}</p>
+            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{summary}</p>
           </div>
         </>
       )}
