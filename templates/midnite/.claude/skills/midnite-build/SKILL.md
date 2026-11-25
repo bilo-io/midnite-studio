@@ -121,6 +121,6 @@ Never mark ready or request review before completing the two-subagent self-revie
 6. Mark PR ready: `gh pr ready <n>`.
 7. Once CI checks pass green, squash-merge PR, delete remote branch, and remove local worktree:
    ```bash
-   git worktree remove .worktrees/<slice> --force
+   scripts/skills/worktree-lifecycle.sh remove <slice> --delete-branch   # no --force: it refuses a dirty tree, which is the safety
    git worktree prune
    ```

@@ -34,10 +34,9 @@ Run verification checks across the workspace and targeted packages:
 
 1. **Workspace Gates:**
    ```bash
-   moon run :typecheck
-   moon run :lint
+   node scripts/skills/scoped-check.mjs --run
    ```
-   Ensure typechecking passes across all packages without errors. Boundary lints must remain clean.
+   Typechecks the touched packages and lints the changed files (never the workspace-wide moon gate, which exhausts RAM). Boundary lints must remain clean; for a phase that touched many packages, run it once per theme's diff.
 
 2. **Package & Unit Tests:**
    Identify relevant packages touched by the phase (`packages/app`, `packages/git-engine`, `packages/desktop`, `packages/shared`, etc.):
