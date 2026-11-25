@@ -1,6 +1,8 @@
 // vitest/jsdom: tab roles, keyboard and focus over a mock bridge; no real layout is needed.
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import type { PageDetachGuard } from '@midnite/studio-frame';
 
 import { AgentsView } from './agents-view';
 import { mockBridge, mountWith } from './test-harness';
@@ -95,5 +97,55 @@ describe('AgentsView', () => {
     fireEvent.click(screen.getByTestId('agents-tab-info'));
     expect(confirm).not.toHaveBeenCalled();
     expect(screen.getByTestId('agents-info')).toBeTruthy();
+  });
+
+  it('the detach mark asks first while the Builder has unsaved changes (#1697)', async () => {
+    mockBridge([profileFixture({ id: 'profile-a', name: 'Alpha' })]);
+    let guard: PageDetachGuard | undefined;
+    const Mark = ({ beforeAction }: { beforeAction?: PageDetachGuard }) => {
+      guard = beforeAction;
+      return null;
+    };
+    const { confirm } = mountWith(<AgentsView />, {}, { PageDetachMark: Mark });
+    const proceed = vi.fn();
+    guard!('dock', proceed);
+    expect(proceed).toHaveBeenCalledTimes(1); // nothing unsaved: at once
+    expect(confirm).not.toHaveBeenCalled();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit Alpha' }));
+    fireEvent.change(screen.getByTestId('builder-name'), { target: { value: 'Beta' } });
+    await screen.findByRole('tab', { name: 'Builder, unsaved changes' });
+    proceed.mockClear();
+
+    guard!('focus', proceed);
+    expect(proceed).toHaveBeenCalledTimes(1);
+    proceed.mockClear();
+
+    guard!('dock', proceed);
+    expect(confirm.mock.calls[0]![0]).toMatchObject({ title: 'Discard changes to Beta?', confirmLabel: 'Discard', danger: true });
+    expect(proceed).not.toHaveBeenCalled();
+    act(() => confirm.mock.calls[0]![0].onConfirm());
+    expect(proceed).toHaveBeenCalledTimes(1);
+  });
+
+  it('detaching with unsaved changes says the new window starts without them (#1697)', async () => {
+    mockBridge([profileFixture({ id: 'profile-a', name: 'Alpha' })]);
+    let guard: PageDetachGuard | undefined;
+    const Mark = ({ beforeAction }: { beforeAction?: PageDetachGuard }) => {
+      guard = beforeAction;
+      return null;
+    };
+    const { confirm } = mountWith(<AgentsView />, {}, { PageDetachMark: Mark });
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit Alpha' }));
+    fireEvent.change(screen.getByTestId('builder-name'), { target: { value: 'Beta' } });
+    await screen.findByRole('tab', { name: 'Builder, unsaved changes' });
+    const proceed = vi.fn();
+    guard!('detach', proceed);
+    const request = confirm.mock.calls[0]![0];
+    expect(request).toMatchObject({ confirmLabel: 'Open window', danger: false });
+    expect(request.body).toContain('Beta');
+    expect(proceed).not.toHaveBeenCalled();
+    request.onConfirm();
+    expect(proceed).toHaveBeenCalledTimes(1);
   });
 });

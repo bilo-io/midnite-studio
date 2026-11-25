@@ -1,4 +1,4 @@
-import { useFrameChrome, type IconButtonProps } from '@midnite/studio-frame';
+import { useFrameChrome, type IconButtonProps, type PageDetachGuard } from '@midnite/studio-frame';
 import type { PageWindowRole } from '@midnite/studio-shared';
 
 /** The frame chrome the page draws, resolved through the installed port on each render. */
@@ -7,9 +7,9 @@ export function IconButton(props: IconButtonProps) {
   return <Impl {...props} />;
 }
 
-export function PageDetachMark({ role }: { role: PageWindowRole }) {
+export function PageDetachMark({ role, beforeAction }: { role: PageWindowRole; beforeAction?: PageDetachGuard }) {
   const { PageDetachMark: Impl } = useFrameChrome();
-  return <Impl role={role} />;
+  return <Impl role={role} {...(beforeAction ? { beforeAction } : {})} />;
 }
 
 /** The focus ring every interactive element in this feature wears. */
