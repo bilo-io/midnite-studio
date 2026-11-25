@@ -25,7 +25,7 @@ export function profileFixture(overrides: Partial<AgentProfile> = {}): AgentProf
 
 /** A host over the built-in roster, every CLI installed, no launch. */
 export const TEST_AGENT_PROFILES_HOST: AgentProfilesHost = {
-  useAgentRoster: () => ({ agents: [...BUILTIN_AGENTS], status: BUILTIN_AGENTS.map((a) => ({ id: a.id, installed: true })) as never }),
+  useAgentRoster: () => ({ agents: [...BUILTIN_AGENTS], status: BUILTIN_AGENTS.map((a) => ({ id: a.id, installed: true, resolvedPath: `/usr/bin/${a.id}` })) }),
   resolveAgentIcon: () => () => null,
   useModelsFor: () => [{ id: 'default', label: 'Default' }],
   useSkills: () => ({ skills: [], loading: false, error: null }),
