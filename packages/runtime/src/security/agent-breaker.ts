@@ -79,9 +79,9 @@ export interface AgentBreakerOptions {
    * Interrupt the session (Ctrl+C to its pty). `false` when it is not live. This is the seam Phase 120 G's
    * pause path reuses: it is the same pty write Vanguard's `pause-session` response action performs.
    */
-  interrupt(sessionId: string): Promise<boolean>;
-  /** End the session; the "Stop" answer. */
-  stop?(sessionId: string): Promise<boolean>;
+  interrupt(sessionId: string, trip?: AgentLimitTrip): Promise<boolean>;
+  /** End the session; the "Stop" answer. `trip` is the limit it answers (#1718: a stopped run names it). */
+  stop?(sessionId: string, trip?: AgentLimitTrip): Promise<boolean>;
   /** Append a `limit-trip` record to the trail. */
   record(record: NewAgentAuditRecord): void;
   /** Raise the finding in the findings ledger. */
@@ -169,7 +169,7 @@ export function createAgentBreaker(options: AgentBreakerOptions): AgentBreaker {
     // Interrupt first: everything after it is bookkeeping and must not delay the stop.
     let interrupted = false;
     try {
-      interrupted = await options.interrupt(sessionId);
+      interrupted = await options.interrupt(sessionId, tripRow);
     } catch (error) {
       options.onError?.(error);
     }
@@ -287,7 +287,7 @@ export function createAgentBreaker(options: AgentBreakerOptions): AgentBreaker {
         if (answer === 'stop') {
           state.stopped = true;
           state.open = null;
-          await options.stop?.(sessionId);
+          await options.stop?.(sessionId, open);
           return true;
         }
         if (answer === 'raise') state.raised[open.limit] = Math.max(open.threshold, open.observed) * 2;

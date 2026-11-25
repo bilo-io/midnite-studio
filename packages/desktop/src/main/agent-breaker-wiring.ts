@@ -10,7 +10,7 @@ import type { BrowserWindow } from 'electron';
 
 import { agentAuditTrail, recordAudit } from './agent-audit';
 import { agentLimitsSettingsReader, startAgentBreaker, withHeadlessRuns, type RunningAgentBreaker } from './agent-breaker';
-import { studioHeadlessRuns } from './agent-profiles/headless-run-profiles';
+import { limitStopReason, studioHeadlessRuns } from './agent-profiles/headless-run-profiles';
 import { defaultLogger } from './log';
 import { getFindingsLedger } from './ipc/vanguard-handlers';
 import { killPty, livePtyFor, onSessionExit, writePty } from './pty-service';
@@ -31,15 +31,16 @@ export function startStudioAgentBreaker(options: { userData: string; getWindow: 
     emitTrip: (trip) => sendToLiveWindow(options.getWindow, EVENT_CHANNELS.agentLimitTripped, trip),
     // The same Ctrl+C write Vanguard's `pause-session` performs (vanguard-handlers.ts) — Phase 120 G reuses it.
     // #1713: a headless run has no pty and no prompt to come back to, so interrupting it means stopping it.
-    interrupt: async (sessionId) => {
+    // #1718: the stopped run's surface names the limit instead of its usual failure text.
+    interrupt: async (sessionId, trip) => {
       const live = livePtyFor(sessionId);
-      if (!live) return studioHeadlessRuns().abort(sessionId);
+      if (!live) return studioHeadlessRuns().abort(sessionId, trip ? limitStopReason(trip) : undefined);
       writePty(live.ptyId, INTERRUPT);
       return true;
     },
-    stop: async (sessionId) => {
+    stop: async (sessionId, trip) => {
       const live = livePtyFor(sessionId);
-      if (!live) return studioHeadlessRuns().abort(sessionId);
+      if (!live) return studioHeadlessRuns().abort(sessionId, trip ? limitStopReason(trip) : undefined);
       killPty(live.ptyId);
       return true;
     },

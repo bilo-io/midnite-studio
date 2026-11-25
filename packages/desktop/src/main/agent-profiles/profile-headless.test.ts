@@ -1,7 +1,7 @@
 import { BUILTIN_AGENTS, createBlankAgentProfile, type AgentProfile } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createHeadlessRunRegistry } from './headless-run-profiles';
+import { createHeadlessRunRegistry, limitStopReason } from './headless-run-profiles';
 import { companionRunId, councilSeatRunId, createProfileHeadlessRun } from './profile-headless';
 
 /** Phase 154 Theme H — the companion's headless ask through a custom agent. */
@@ -132,6 +132,30 @@ describe('createProfileHeadlessRun', () => {
       kind: 'error',
       message: "Could not start Reviewer's tools: socket path too long",
     });
+  });
+});
+
+describe('a run the breaker stops names the limit (#1718)', () => {
+  it('the ready run reports the abort reason, still after release unregisters it', async () => {
+    const { run, runs } = setup();
+    const result = await run('profile-rev', '/repo');
+    if (result.kind !== 'ready') throw new Error(result.kind);
+    expect(result.stopReason?.()).toBeNull();
+    runs.abort(companionRunId('abc123'), limitStopReason({ limit: 'toolCallsPerMinute', observed: 31, threshold: 30 }));
+    await result.release();
+    expect(runs.lookup(companionRunId('abc123'))).toBeNull();
+    expect(result.stopReason?.()).toBe('Stopped: the limit of 30 tool calls per minute was reached (31).');
+  });
+
+  it('the first reason stands, and an abort with none leaves none', () => {
+    const runs = createHeadlessRunRegistry();
+    runs.register('chat-1', { profileId: 'p', agentId: 'claude', cwd: '/repo', title: 'Reviewer' });
+    runs.abort('chat-1');
+    expect(runs.stopReason('chat-1')).toBeNull();
+    runs.abort('chat-1', 'Stopped: first.');
+    runs.abort('chat-1', 'Stopped: second.');
+    expect(runs.stopReason('chat-1')).toBe('Stopped: first.');
+    expect(runs.stopReason('nope')).toBeNull();
   });
 });
 

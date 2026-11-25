@@ -27,7 +27,7 @@ export type ProfileHeadlessSeams = {
   /** What the run is called in the audit trail, from its launch id. Default: the companion's. */
   runId?: (launchId: string) => string;
   /** #1697: names the run's custom agent to the breaker, so its limits apply to the headless run too. */
-  runs?: Pick<HeadlessRunRegistry, 'register' | 'attach'>;
+  runs?: Pick<HeadlessRunRegistry, 'register' | 'attach' | 'stopReason'>;
   /** Where to pick another agent, closing each refusal; the title bar by default. */
   pickHint?: string;
   /**
@@ -114,6 +114,9 @@ export function createProfileHeadlessRun(seams: ProfileHeadlessSeams): (profileI
       otherMcpServers: prepared.otherMcpServers,
     };
     const args = buildProfileHeadlessArgv(argvInput) as string[];
+    // #1718: read before `release` unregisters the run, so the surface can still name the limit after.
+    let stopped: string | null = null;
+    const stopReason = (): string | null => stopped ?? seams.runs?.stopReason(runId) ?? null;
     return {
       kind: 'ready',
       name: profile.name,
@@ -122,8 +125,9 @@ export function createProfileHeadlessRun(seams: ProfileHeadlessSeams): (profileI
       extraArgs: buildProfileHeadlessExtras(argvInput),
       promptPrefix,
       // #1713: the runner hands its child over, so the breaker can stop a run that has no pty.
-      ...(seams.runs ? { attach: (handle: HeadlessRunHandle) => seams.runs?.attach(runId, handle) } : {}),
+      ...(seams.runs ? { attach: (handle: HeadlessRunHandle) => seams.runs?.attach(runId, handle), stopReason } : {}),
       release: () => {
+        stopped = stopReason();
         unregister?.();
         return seams.sockets.close(prepared.launchId);
       },

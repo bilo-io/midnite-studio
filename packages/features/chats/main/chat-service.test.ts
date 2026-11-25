@@ -1247,6 +1247,19 @@ describe('chat service: a turn under a custom agent', () => {
     expect(lastAssistant(after).activity?.join(' ')).toContain('now runs on Codex');
   });
 
+  it('#1718: a turn the agent breaker stopped names the limit and is not replayed', async () => {
+    const spawn = fakeSpawn(async (_c, io) => io.close(1));
+    const reason = 'Stopped: the limit of 30 tool calls per minute was reached (31).';
+    const { service } = setup({ spawn, profileRun: async () => ({ ...ready(), stopReason: () => reason }) });
+    const chat = await created(service, { agentProfileId: 'profile-rev' });
+    await service.update({ id: chat.id, session: { engine: 'claude', id: 'old-session', cwd: '/x' } });
+    await service.send({ chatId: chat.id, text: 'hi' });
+    await service.idle();
+    expect(spawn.calls).toHaveLength(1);
+    const after = ((await service.get(chat.id)) as { ok: true; value: { chat: Chat } }).value.chat;
+    expect(lastAssistant(after)).toMatchObject({ status: 'error', error: reason });
+  });
+
   it('clears the CLI session when the chat switches agent', async () => {
     const { service } = setup({ spawn: echo(), profileRun: async () => ready() });
     const chat = await created(service);
