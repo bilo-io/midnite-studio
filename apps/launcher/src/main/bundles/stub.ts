@@ -135,7 +135,10 @@ export function planStub(input: StubPlanInput): StubStep[] {
     },
     { kind: 'clone', from: join(input.bundlePath, 'icon.icns'), to: join(dst, 'Resources', 'app.icns'), dir: false },
     { kind: 'clone', from: input.bundlePath, to: join(dst, 'Resources', 'app'), dir: true },
-    // Ad-hoc: a locally assembled stub has no Developer ID to sign with. Gatekeeper's verdict on
+    // Ad-hoc on purpose (ISSUES Phase 2 Theme E): this runs inside the installed launcher on the user's
+    // machine, where signing with a keychain key would itself raise a keychain prompt. Only the
+    // developer-run dev stub (dev-stub.ts) signs with a keychain identity.
+    // A locally assembled stub has no Developer ID to sign with. Gatekeeper's verdict on
     // that (no quarantine bit, so it launches) is Theme F's to confirm on a clean machine.
     { kind: 'exec', cmd: 'codesign', args: ['--force', '--deep', '--sign', '-', stubPath] },
     { kind: 'exec', cmd: 'codesign', args: ['--verify', '--deep', '--strict', stubPath] },

@@ -81,6 +81,13 @@ describe('the egress scan', () => {
     expect(resolveEgress('avatars', 'https://github.com/octocat.png')?.switch).toBe('avatars');
   });
 
+  it('registers the hosts the headless Ollama call and the Sketchfab client reach', () => {
+    expect(resolveEgress('models', 'http://127.0.0.1:11434/api/chat')?.host).toBe('*');
+    expect(resolveEgress('media-model', 'https://api.sketchfab.com/v3/search')?.host).toBe('api.sketchfab.com');
+    expect(resolveEgress('media-model', 'https://media.sketchfab.com/archives/x.glb')?.host).toBe('*.sketchfab.com');
+    expect(resolveEgress('media-model', 'https://sketchfab-prod-media.s3.amazonaws.com/archives/x.glb')?.host).toBe('*.amazonaws.com');
+  });
+
   it('finds no main-side request outside guardedFetch except the documented ones', () => {
     const offenders: string[] = [];
     for (const top of ['packages', 'apps']) {

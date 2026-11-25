@@ -26,6 +26,10 @@ NIT. Give PRAISE where it is earned.
 **Severity follows the cost of the fix.** A mechanical slip fixed in seconds that CI catches at
 once (a stale snapshot, an unsorted import) is a NIT.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/pr-review-lint.mjs [--base origin/main | --diff <file|->] [--strict]`. It lists the mechanical rubric hits in the added lines (NUL-delimited git, write queue, lucide-react, Quick Kiss, hardcoded chords, wall-clock asserts, SCRATCHPAD, trailers). You still read the diff, judge severity, and write the findings. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Rubric: this repo's conventions
 
 Apply only the sections the diff touches.
@@ -100,12 +104,12 @@ Apply only the sections the diff touches.
 - Nothing in the local loop starts a container.
 
 ### Tracker and docs hygiene
-- A phase PR leaves `.midnite/tasks/` consistent: an entry appended to `done.md`, the theme's
-  narrative in the phase doc's `## Headlines` paragraph, and **only the row** touched in
-  `_INDEX.md`. Prose added to `_INDEX.md` is a WARNING.
-- **`CLAUDE.md`, `AGENTS.md` and `GEMINI.md` stay in sync.** An edit to one without the same edit
-  in the others: WARNING.
-- Skills ship as byte-identical copies in `.claude/`, `.agents/` and `.codex/`
+- A phase PR closes its theme sub-issue (`Closes #<n>`). A PR that commits plan files
+  (`.midnite/tasks/`, `todo/`) or screenshots (`docs/screenshots/`) is a WARNING: they are git-ignored
+  and live on GitHub.
+- **Conventions live in `AGENTS.md` only.** `CLAUDE.md` is an `@AGENTS.md` import plus Claude-only
+  notes; a convention added to `CLAUDE.md`, or a `GEMINI.md` brought back: WARNING.
+- Skills ship as byte-identical copies in `.claude/` and `.agents/`
   (`scripts/skill-copies.test.mjs`).
 - Commits carry no `Co-Authored-By`, `Signed-off-by` or other attribution trailer, and are authored
   as `bilo-io`.

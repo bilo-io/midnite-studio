@@ -9,6 +9,7 @@
  */
 import { z } from 'zod';
 
+import { UnifiedSessionViewModeSchema } from './chats';
 import { SuiteAppIdSchema, type SuiteAppId } from './suite-apps';
 
 /**
@@ -331,6 +332,7 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     label: 'Antigravity',
     command: 'agy',
     args: [],
+    resume: ['--continue'],
     accent: '#4285F4',
     icon: 'antigravity',
     install: 'curl -fsSL https://antigravity.google/cli/install.sh | bash',
@@ -583,20 +585,22 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
 ] as const;
 
 /**
- * Build the CLI arguments needed to resume an agent conversation (Phase 86 Theme C).
+ * Build the CLI arguments needed to resume an agent conversation (Phase 86 Theme C,
+ * extended for `agy` in Phase 146 Theme B).
  *
- * For agents where exact-conversation resume is supported ('claude' and 'codex')
+ * For agents where exact-conversation resume is supported ('claude', 'codex', and 'agy')
  * and an agent-native conversation ID is provided, returns the exact resume argv:
  * - 'claude': ['--resume', conversationId]
  * - 'codex': ['resume', conversationId]
+ * - 'agy': ['--conversation', conversationId]
  *
  * Otherwise, falls back to the agent's defined `resume` args (e.g. ['--continue']
  * or ['resume', '--last']) if present and non-empty.
  *
- * Returns `null` if the agent has no resume mechanism configured (such as 'agy' or 'cline').
+ * Returns `null` if the agent has no resume mechanism configured (such as 'cline').
  */
 export function buildResumeCommand(
-  agent: AgentDefinition,
+  agent: Pick<AgentDefinition, 'id' | 'resume'>,
   conversationId?: string | null,
 ): string[] | null {
   const trimmedId = conversationId?.trim();
@@ -607,6 +611,9 @@ export function buildResumeCommand(
     if (agent.id === 'codex') {
       return ['resume', trimmedId];
     }
+    if (agent.id === 'agy') {
+      return ['--conversation', trimmedId];
+    }
   }
 
   if (agent.resume && agent.resume.length > 0) {
@@ -614,6 +621,39 @@ export function buildResumeCommand(
   }
 
   return null;
+}
+
+const SAFE_POSIX_ARG_RE = /^[A-Za-z0-9._:/@-]+$/;
+
+/**
+ * Quote a single POSIX shell argument using single quotes when it contains
+ * whitespace, shell metacharacters, or is empty.
+ */
+export function quotePosixArg(value: string): string {
+  if (SAFE_POSIX_ARG_RE.test(value)) {
+    return value;
+  }
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+/**
+ * Format a copy-pasteable POSIX shell command to `cd` into `cwd` and resume
+ * the given agent conversation when a resume command is available.
+ */
+export function formatShellResumeCommand(
+  cwd: string,
+  agent?: Pick<AgentDefinition, 'id' | 'command' | 'resume'> | null,
+  conversationId?: string | null,
+): string {
+  const cdPart = `cd ${quotePosixArg(cwd)}`;
+  if (!agent) {
+    return cdPart;
+  }
+  const resumeArgs = buildResumeCommand(agent, conversationId);
+  if (!resumeArgs || resumeArgs.length === 0) {
+    return cdPart;
+  }
+  return `${cdPart} && ${quotePosixArg(agent.command)} ${resumeArgs.map(quotePosixArg).join(' ')}`;
 }
 
 /**
@@ -629,6 +669,12 @@ export const TerminalSessionSchema = z
     kind: TerminalSessionKindSchema,
     /** Set when `kind === 'agent'`; the roster entry that started it. */
     agentId: z.string().min(1).optional(),
+    /**
+     * The custom agent (Phase 154) this session was launched from, when it was.
+     * Declared inline: this schema cannot be `.extend()`ed, and without it
+     * `TerminalSaveRequest`'s parse would strip the field.
+     */
+    profileId: z.string().min(1).optional(),
     /** Display label — the repo name, by default. */
     title: z.string(),
     /**
@@ -663,6 +709,21 @@ export const TerminalSessionSchema = z
      * `ZodEffects` that cannot be extended.
      */
     taskRef: z.object({ projectId: z.string().min(1), itemId: z.string().min(1) }).optional(),
+    /**
+     * Which loop dispatched this session (a `LoopDefinition.id`, e.g. `guard`
+     * or a custom loop's id). Loop sessions list in the terminal panel under
+     * their own "Loops" group, each row wearing that loop's icon and colour;
+     * one loop can dispatch any number of them. Absent for every other session.
+     */
+    loopId: z.string().min(1).optional(),
+    /**
+     * The `LoopModel` and `LoopEffort` ids a loop session was launched with,
+     * stamped so its row can read "Claude (Opus 5.5 · low) > repo". Plain
+     * strings rather than the loops enums: a later rename must not make an
+     * old persisted session fail to parse.
+     */
+    loopModel: z.string().min(1).optional(),
+    loopEffort: z.string().min(1).optional(),
     /**
      * Agent-native conversation id (UUID) captured from disk, e.g. Claude Code or
      * Codex conversation id, enabling exact-conversation resume (Phase 86).
@@ -730,6 +791,10 @@ export const TerminalSessionSchema = z
      * migrates; read it through {@link sessionAppId}.
      */
     appId: SuiteAppIdSchema.optional(),
+    /** Chat id linked to this terminal session for unified session view switching (Phase 146). */
+    linkedChatId: z.string().min(1).optional(),
+    /** Preferred view mode when opening this unified session (Phase 146). */
+    preferredView: UnifiedSessionViewModeSchema.optional(),
   })
   .superRefine(agentIdMatchesKind);
 export type TerminalSession = z.infer<typeof TerminalSessionSchema>;

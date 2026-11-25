@@ -17,6 +17,7 @@ export const BLAST_RADIUS_COPY: Record<BlastRadiusKind, { noun: string; conseque
   project: { noun: 'project', consequence: 'will be affected.' },
   credentials: { noun: 'stored credential', consequence: 'will be deleted from the vault — this cannot be undone.' },
   vaultAccess: { noun: 'app', consequence: 'will lose its access to the vault. Nothing stored is deleted.' },
+  sessions: { noun: 'terminal session', consequence: 'will be ended, with every process running in it.' },
   cookies: { noun: 'cookie', consequence: 'will be cleared with the rest of the app’s site data — you will be signed out.' },
 };
 

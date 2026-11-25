@@ -11,13 +11,19 @@ import { getConfiguredOllamaHost, ollamaChatStream, resolveOllamaBaseUrl } from 
 import { engineKeyEnv, type FeatureMainContext } from '@midnite/studio-runtime';
 import { EVENT_CHANNELS } from '@midnite/studio-shared';
 
+import { agentProfilePromptPath, getAgentProfile } from '@midnite/studio-feature-agent-profiles/main';
+
 import { recordAudit } from '../agent-audit';
+import { studioHeadlessRuns } from '../agent-profiles/headless-run-profiles';
+import { createProfileHeadlessRun } from '../agent-profiles/profile-headless';
+import { studioProfileMcpSockets } from '../agent-profiles/studio-profile-sockets';
 import { agentHistoryReadsEnabled } from '../settings-mirror';
 import { mcpServersHeldForRun } from '../mcp-trust-wiring';
 import { outboundSecrets } from '../outbound-secrets';
 import { readAgentApiKey } from './secrets-handlers';
 import { getRepo } from '../repo-registry';
 import { listAgents } from '../terminal-service';
+import { getUnifiedSessionCoordinator } from '../unified-session-host';
 import { broadcastToAllWindows } from '../window-manager';
 import { handle, handleBare, handleSend } from './handle';
 
@@ -46,6 +52,20 @@ const deps: ChatsRuntimeDeps = {
   engineEnv: async (agentId) => engineKeyEnv((await listAgents()).find((a) => a.id === agentId), readAgentApiKey),
   mcpGate: (repoId) => mcpServersHeldForRun(repoId),
   outboundSecrets,
+  // Phase 154 follow-up: a chat turn under a custom agent, over the agent's private MCP socket. Built per
+  // turn so the sockets (which read `userData`) are never touched before the app is ready.
+  profileRun: async (profileId, cwd) => {
+    const run = await createProfileHeadlessRun({
+      sockets: studioProfileMcpSockets(),
+      profile: getAgentProfile,
+      agents: listAgents,
+      promptPath: agentProfilePromptPath,
+      runId: (launchId) => `chat-${launchId}`,
+      // #1697/#1713: the breaker finds the turn's custom agent (its limits apply) and can stop the run.
+      runs: studioHeadlessRuns(),
+    })(profileId, cwd);
+    return run.kind === 'ready' ? { ...run, extraArgs: run.extraArgs ?? [] } : run;
+  },
   ollamaStream: async (req) =>
     ollamaChatStream(
       { model: req.model, messages: req.messages },
@@ -58,9 +78,15 @@ const deps: ChatsRuntimeDeps = {
         timeoutMs: 15_000,
       },
     ),
+  beforeSend: (chat) => getUnifiedSessionCoordinator().beforeChatSend(chat),
+  onTurnEnd: (chat) => getUnifiedSessionCoordinator().onChatTurnEnd(chat),
 };
 
 let runtime: ChatsRuntime = createChatsRuntime(null, deps);
+
+export function getChatsRuntime(): ChatsRuntime {
+  return runtime;
+}
 
 export function configureChats(userDataDir: string): void {
   runtime = createChatsRuntime(userDataDir, deps);

@@ -21,7 +21,7 @@ export {
   type UsageSession,
 } from './agent-usage';
 export { createGpuProbe, type GpuProbe } from './metrics/gpu';
-export { probeDetailedMemory } from './metrics/memory';
+export { probeDetailedMemory, probeReclaimableBytes } from './metrics/memory';
 export { createMetricsService, type MetricsService } from './metrics/metrics-service';
 export {
   fetchOllamaPort,

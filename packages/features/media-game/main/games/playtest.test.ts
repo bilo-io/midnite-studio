@@ -92,6 +92,8 @@ describe('play-tests (Theme O)', () => {
     dirty: false,
     valid: true,
     issue: null,
+    status: null,
+    findingCount: 0,
   });
   const playtests = () =>
     createPlaytests({
@@ -257,6 +259,8 @@ describe('play-test paint wait and per-game lock', () => {
     dirty: false,
     valid: true,
     issue: null,
+    status: null,
+    findingCount: 0,
   });
   const png = encodePngRgba8(new Uint8Array(4 * 4 * 4).fill(255), 4, 4);
   const replay = { version: 1, seed: 1, frames: 5, events: [] };

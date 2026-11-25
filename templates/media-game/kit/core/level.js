@@ -18,6 +18,8 @@ export { collisionGrid, tiledObjects } from './tiled-objects.js';
 
 /** The query param the runner sets; the same string as the app's `GAME_LEVEL_PARAM`. */
 export const LEVEL_PARAM = 'midnite-level';
+/** The query param Play-from-here sets: `x,y` (2D, pixels) or `x,y,z` (3D, metres). The same string as the app's `GAME_SPAWN_PARAM`. */
+export const SPAWN_PARAM = 'midnite-spawn';
 const SCENE_NAME = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 
 /** @param {unknown} name */
@@ -35,6 +37,64 @@ export function currentLevel(fallback, search) {
   } catch {
     return fallback;
   }
+}
+
+const warnedSpawn = new Set();
+
+/**
+ * The player-start override: `?midnite-spawn=x,y[,z]` as `{ x, y, z? }`, or `null` when absent or
+ * malformed (the scene's own `spawn` wins, and a malformed value is logged once). Two or three
+ * finite numbers only; `NaN`, `Infinity`, extra values and an empty string are rejected.
+ * @param {string} [search] defaults to `location.search`
+ * @returns {{ x: number, y: number, z?: number } | null}
+ */
+export function spawnOverride(search) {
+  /** @type {string | null} */
+  let raw = null;
+  try {
+    raw = new URLSearchParams(search ?? globalThis.location?.search ?? '').get(SPAWN_PARAM);
+  } catch {
+    return null;
+  }
+  if (raw === null) return null;
+  const parts = raw.split(',');
+  const nums = parts.map((p) => (p.trim() === '' ? NaN : Number(p)));
+  if ((nums.length !== 2 && nums.length !== 3) || !nums.every(Number.isFinite)) {
+    if (!warnedSpawn.has(raw)) {
+      warnedSpawn.add(raw);
+      console.warn(`midnite: ignoring malformed ?${SPAWN_PARAM}=${raw}`);
+    }
+    return null;
+  }
+  return nums.length === 3 ? { x: nums[0], y: nums[1], z: nums[2] } : { x: nums[0], y: nums[1] };
+}
+
+/**
+ * A 2D spawn object moved to the override (or synthesised when the level has none); unchanged without one.
+ * @template {{ x: number, y: number }} T
+ * @param {T | null} spawn
+ * @param {{ x: number, y: number } | null} override
+ * @returns {T | { id: number, name: string, type: string, x: number, y: number, width: number, height: number, properties: Record<string, unknown> } | null}
+ */
+export function applySpawn2d(spawn, override) {
+  if (!override) return spawn;
+  if (spawn) return { ...spawn, x: override.x, y: override.y };
+  return { id: 0, name: 'play-from-here', type: 'spawn', x: override.x, y: override.y, width: 0, height: 0, properties: {} };
+}
+
+/**
+ * A 3D spawn position `[x, y, z]` in metres. The override's `x`,`y`,`z` are metres on X, height and Z
+ * (`z` omitted: the ground height is used); the height is dropped onto the terrain when `heightAt` is known.
+ * @param {[number, number, number] | null} position the level's own spawn position
+ * @param {{ x: number, y: number, z?: number } | null} override
+ * @param {(x: number, z: number) => number} ground
+ * @returns {[number, number, number] | null}
+ */
+export function applySpawn3d(position, override, ground) {
+  if (!override) return position;
+  // 2-value form is plan X,Z; 3-value form is X, height, Z.
+  if (override.z === undefined) return [override.x, ground(override.x, override.y), override.y];
+  return [override.x, Math.max(override.y, ground(override.x, override.z)), override.z];
 }
 
 /** @param {string} name */
@@ -118,6 +178,50 @@ export function levelEntities(map, layerName = 'objects') {
   return out;
 }
 
+/**
+ * What a running game says about one level object (Phase 140 D): a position in the level's units (pixels
+ * for 2D; metres, `y` up, for 3D), plus whether it is alive and an optional short state name.
+ * @typedef {{ x: number, y: number, z?: number, alive?: boolean, state?: string }} LiveEntityState
+ */
+
+/**
+ * One entry of `window.__midnite.entities()` (`GameEntitySnapshotSchema` in the app): `id` is the level
+ * object's id, or `null` for something spawned at runtime.
+ * @typedef {{ id: number | null, type: string, name?: string, x: number, y: number, z?: number, alive: boolean, state?: string }} EntitySnapshot
+ */
+
+/**
+ * Snapshots for a level's objects. Each reports `live(entity)` when the game supplies one (a `null`/`undefined`
+ * answer means "gone": reported with `alive: false` at its authored spot), else its authored position
+ * (`to`, the dimension's mapping). Layout-only objects (a `path`, an `exit`) are skipped: they are not things.
+ * @param {LevelEntity[]} entities
+ * @param {{ scene?: string, live?: (entity: LevelEntity) => LiveEntityState | null | undefined, to: (entity: LevelEntity) => { x: number, y: number, z?: number } }} options
+ * @returns {EntitySnapshot[]}
+ */
+export function snapshotLevelEntities(entities, options) {
+  /** @type {EntitySnapshot[]} */
+  const out = [];
+  for (const entity of entities) {
+    if (entity.type === 'path' || entity.type === 'exit' || entity.type === 'trigger' || entity.type === 'spawn') continue;
+    const authored = options.to(entity);
+    /** @type {LiveEntityState | null | undefined} */
+    let live;
+    try {
+      live = options.live ? options.live(entity) : authored;
+    } catch {
+      live = authored;
+    }
+    const at = live ?? authored;
+    /** @type {EntitySnapshot} */
+    const snap = { id: entity.id, type: entity.type, x: at.x, y: at.y, alive: live != null && live.alive !== false };
+    if (entity.name) snap.name = entity.name;
+    if (at.z !== undefined) snap.z = at.z;
+    if (live && typeof live.state === 'string') snap.state = live.state.slice(0, 64);
+    out.push(snap);
+  }
+  return out;
+}
+
 /** @param {unknown} v @param {number} fallback */
 const finite = (v, fallback) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
 
@@ -128,6 +232,16 @@ const finite = (v, fallback) => (typeof v === 'number' && Number.isFinite(v) ? v
 export function metresPerTile(map) {
   const v = finite(levelProps(map)['midnite.metresPerTile'], 1);
   return v > 0 ? v : 1;
+}
+
+/**
+ * `midnite.originX` / `midnite.originY`: the world position in metres of the map's top-left corner, default 0.
+ * @param {any} map
+ * @returns {{ x: number, z: number }}
+ */
+export function levelOrigin(map) {
+  const props = levelProps(map);
+  return { x: finite(props['midnite.originX'], 0), z: finite(props['midnite.originY'], 0) };
 }
 
 const DEG = Math.PI / 180;
@@ -142,6 +256,7 @@ const DEG = Math.PI / 180;
  */
 export function toWorld3d(entity, map) {
   const mpt = metresPerTile(map);
+  const origin = levelOrigin(map);
   const tw = Number(map?.tilewidth) || 1;
   const th = Number(map?.tileheight) || 1;
   const props = entity.properties ?? {};
@@ -150,7 +265,7 @@ export function toWorld3d(entity, map) {
   const cy = entity.y + (entity.width / 2) * Math.sin(theta) + (entity.height / 2) * Math.cos(theta);
   const elevation = props.elevation;
   return {
-    position: [(cx / tw) * mpt, typeof elevation === 'number' && Number.isFinite(elevation) ? elevation : null, (cy / th) * mpt],
+    position: [origin.x + (cx / tw) * mpt, typeof elevation === 'number' && Number.isFinite(elevation) ? elevation : null, origin.z + (cy / th) * mpt],
     yaw: -entity.rotation * DEG,
     pitch: finite(props.pitch, 0) * DEG,
     roll: finite(props.roll, 0) * DEG,

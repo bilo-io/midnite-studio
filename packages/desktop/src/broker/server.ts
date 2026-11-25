@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { chmodSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import * as net from 'node:net';
 import { dirname, join } from 'node:path';
 
@@ -61,6 +61,11 @@ export type BrokerServerOptions = {
   now?: () => number;
   log?: (message: string) => void;
   idleGraceMs?: number;
+  /**
+   * How often to check that the socket path still names this broker's own socket (default 5 s; `0`
+   * turns the timer off — a test then calls {@link BrokerServer.checkSocketOwnership} itself).
+   */
+  ownershipCheckMs?: number;
 };
 
 export type BrokerServer = {
@@ -71,6 +76,8 @@ export type BrokerServer = {
   close: () => Promise<void>;
   sessionCount: () => number;
   clientCount: () => number;
+  /** Run the socket-path ownership check now — see `checkSocketOwnership` in the server. */
+  checkSocketOwnership: () => 'owned' | 'rebound' | 'exiting';
 };
 
 type Session = {
@@ -135,6 +142,7 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
     spawnPty,
     log = () => {},
     idleGraceMs = 10 * 60 * 1000,
+    ownershipCheckMs = 5_000,
   } = options;
 
   startHeapSampler({ enabled: perfEnabled(process.env), processName: 'broker', log });
@@ -480,6 +488,14 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
   };
 
   let server = net.createServer(onConnection);
+  /** The inode of the socket file this broker bound at {@link socketPath} — `null` until it has. */
+  let boundIno: number | null = null;
+  /**
+   * Set once another broker has taken this one's original path. The files at that path — socket, pid,
+   * token — are then the successor's, so nothing on the way out may close the old listener (Node unlinks
+   * a Unix socket's file when its server closes) or unlink them.
+   */
+  let pathLost = false;
 
   function listenOn(path: string): void {
     // Phase 91 Theme E: bind under a 0o177 umask so the inode is born 0o600 rather than at the
@@ -493,6 +509,7 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
     }
     function onListening(): void {
       try {
+        if (path === socketPath) boundIno = statSync(path).ino;
         chmodSync(path, 0o600);
         writeFileSync(pidPath, `${process.pid}\n`, { mode: 0o600 });
         log(`[broker] listening on ${path} (pid ${process.pid})`);
@@ -529,11 +546,77 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
     }
     socketPath = retiredPath;
     pidPath = `${retiredPath}.pid`;
+    // Until the new listener reports in, there is no inode to own — the ownership check must not
+    // mistake the gap for a stolen path.
+    boundIno = null;
     server = net.createServer(onConnection);
     listenOn(retiredPath);
     log(`[broker] retired to ${retiredPath}`);
     return retiredPath;
   }
+
+  /**
+   * Make sure this broker can still be reached, and leave if it has nothing left to serve.
+   *
+   * A broker is reached only through the file at its socket path. If that file is gone, or now names a
+   * different socket — a second broker bound the same path, which unlinks the first one's file at start
+   * (on 2026-11-14 four brokers did exactly that to one another in a single burst) — this broker keeps
+   * running with sessions no client can ever reach again. So: with no sessions, exit; with some, re-bind
+   * to a `-retired-<pid>` path, where the next app start finds it as a legacy peer like any retired broker.
+   *
+   * The old listener is deliberately never closed: closing it would unlink whatever file is at that
+   * path by then — the successor's. It takes no new connections (the path no longer leads to it), and
+   * the process exit that follows the last session releases it without an unlink.
+   */
+  function checkSocketOwnership(): 'owned' | 'rebound' | 'exiting' {
+    if (isClosing || boundIno === null) return 'owned';
+    let ino: number | null = null;
+    try {
+      ino = statSync(socketPath).ino;
+    } catch (err) {
+      // Only ENOENT means unlinked under us; a transient EIO/EACCES waits for the next tick.
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') return 'owned';
+    }
+    if (ino === boundIno) return 'owned';
+
+    const takenOver = ino !== null;
+    log(
+      `[broker] socket path ${socketPath} ${takenOver ? 'now belongs to another broker' : 'was removed'}; ${
+        sessions.size === 0 ? 'no sessions, exiting' : `re-binding to keep ${sessions.size} session(s) reachable`
+      }`,
+    );
+    // Removed or replaced, the files at the old path are no longer this broker's to close or unlink.
+    pathLost = true;
+    boundIno = null;
+    if (sessions.size === 0) {
+      void closeServer();
+      return 'exiting';
+    }
+    const suffix = `-retired-${process.pid}.sock`;
+    const nextPath = socketPath.endsWith(suffix) ? socketPath : socketPath.replace(/(\.sock)?$/, suffix);
+    if (authToken !== null) {
+      try {
+        writeFileSync(socketTokenPath(nextPath), authToken, { mode: 0o600 });
+        chmodSync(socketTokenPath(nextPath), 0o600);
+      } catch {
+        // A client that cannot read it simply cannot reattach to this peer.
+      }
+    }
+    socketPath = nextPath;
+    pidPath = `${nextPath}.pid`;
+    server = net.createServer(onConnection);
+    // A failed bind must not take the sessions down with an unhandled 'error': log it, and let the
+    // next check try again (`-1` never matches a real inode).
+    server.once('error', (err) => {
+      log(`[broker] could not re-bind to ${nextPath}: ${err.message}; retrying`);
+      boundIno = -1;
+    });
+    listenOn(nextPath);
+    return 'rebound';
+  }
+
+  const ownershipTimer = ownershipCheckMs > 0 ? setInterval(checkSocketOwnership, ownershipCheckMs) : null;
+  ownershipTimer?.unref?.();
 
   function handleControlMessage(socket: net.Socket, msg: ControlMessage): void {
     switch (msg.t) {
@@ -682,6 +765,10 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
             rows,
             cwd,
             env: {
+              COLORTERM: 'truecolor',
+              // Not scrubbed here: `env` is main's already-scrubbed ambient env plus the user's explicit per-session
+              // overrides (which may legitimately name a CLAUDE_CODE_* setting). Main owns the scrub: every host app's main should call
+              // scrubHostAgentProcessEnv at boot (only Studio's does so far).
               ...env,
               TERM_PROGRAM: 'midnite-studio',
               GIT_TERMINAL_PROMPT: '1',
@@ -960,6 +1047,7 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
       clearInterval(flushTimer);
       flushTimer = null;
     }
+    if (ownershipTimer) clearInterval(ownershipTimer);
 
     // Last chance for the coalescing window: whatever is buffered has to reach
     // the scrollback before it is written, or a clean shutdown loses up to 16ms
@@ -971,6 +1059,12 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
       client.destroy();
     }
     clients.clear();
+
+    if (pathLost && boundIno === null) {
+      // Exiting off a path another broker now holds: its socket, pid and token files are not ours to remove.
+      resolveClosed();
+      return closed;
+    }
 
     await new Promise<void>((resolve) => {
       server.close(() => resolve());
@@ -1005,6 +1099,7 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
     get pidPath() {
       return pidPath;
     },
+    checkSocketOwnership,
     get server() {
       return server;
     },

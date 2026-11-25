@@ -10,6 +10,10 @@ The handoff view. Rows, gathering and the shared vocabulary come from
 
 It is drawn in text, never Mermaid: the terminal shows a Mermaid block as source.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/sitrep.mjs sequence [--since ISO] [--pr 12,13 | --input rows.json]`. It builds the chronological git/gh event timeline. You still annotate causes that are not in the git/gh record. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Gather the events, with timestamps from external state
 
 Use one shell invocation alongside the router's gather:

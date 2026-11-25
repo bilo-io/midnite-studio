@@ -1,4 +1,6 @@
 import { bridge } from '@midnite/studio-frame';
+
+import { useCaptureHost } from './host';
 import type { CapturePermission } from '@midnite/studio-shared';
 
 /**
@@ -18,6 +20,7 @@ export function PermissionPanel({
     await bridge()?.capture.requestPermission();
     onChanged();
   };
+  const { openPermissions } = useCaptureHost();
   const openSettings = async () => {
     await bridge()?.capture.openPermissionSettings();
   };
@@ -37,13 +40,17 @@ export function PermissionPanel({
       {permission === 'not-determined' ? (
         <>
           <p className="mb-3 text-muted-foreground">
-            macOS will show its own prompt once. You may need to quit and reopen the app after
-            allowing it.
+            macOS will show its own prompt once. Settings ▸ Permissions shows the current state.
           </p>
           <div className="flex gap-2">
             <button type="button" onClick={() => void ask()}>
               Ask macOS
             </button>
+            {openPermissions ? (
+              <button type="button" onClick={openPermissions}>
+                Open Settings ▸ Permissions
+              </button>
+            ) : null}
             <button type="button" onClick={() => void openSettings()}>
               Open System Settings
             </button>
@@ -54,9 +61,14 @@ export function PermissionPanel({
           <p className="mb-3 text-muted-foreground">
             {permission === 'restricted'
               ? 'Screen Recording is restricted on this Mac (a profile or parental control manages it).'
-              : 'Screen Recording is turned off for this app. Turn it on in System Settings ▸ Privacy & Security ▸ Screen Recording, then reopen the app.'}
+              : 'Screen Recording is turned off for this app. Turn it on from Settings ▸ Permissions.'}
           </p>
           <div className="flex gap-2">
+            {openPermissions ? (
+              <button type="button" onClick={openPermissions}>
+                Open Settings ▸ Permissions
+              </button>
+            ) : null}
             <button type="button" onClick={() => void openSettings()}>
               Open System Settings
             </button>

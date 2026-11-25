@@ -18,6 +18,7 @@
     "@dnd-kit/core": "^6.3.1",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
+    "@midnite/tasks-core": "workspace:*",
     "@tanstack/react-virtual": "^3.11.2",
     "react-icons": "^5.7.0",
     "react-markdown": "^10.1.0",

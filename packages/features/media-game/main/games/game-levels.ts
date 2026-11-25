@@ -10,12 +10,17 @@ import {
   GAME_LEVEL_IMAGES_MAX_BYTES,
   GAME_LEVEL_MAX_BYTES,
   GAME_LEVEL_MODEL_MAX_BYTES,
+  GAME_LEVEL_THUMB_MAX_BYTES,
   GAME_LEVELS_DIR,
+  GameMapAssetNameSchema,
   GameSceneNameSchema,
   ok,
   parseGameLevel,
   type GameGotoResult,
   type GameLevelGetResult,
+  type GameLevelMapAssetResult,
+  type GameLevelAssetThumbResult,
+  type GameLevelTerrainDetailResult,
   type GameLevelModelResult,
   type GameLevelSetResult,
   type GameLevelsResult,
@@ -26,7 +31,7 @@ import {
 } from '@midnite/studio-shared';
 import { confineToRoot, joinWithin } from '@midnite/studio-runtime';
 
-import { readLevelTerrain } from './game-level-terrain';
+import { readLevelTerrain, readLevelTerrainDetail } from './game-level-terrain';
 import type { GameRunner } from './game-runner';
 import type { Logger } from './logger';
 
@@ -41,12 +46,16 @@ export type GameLevelsDeps = {
   /** The game's manifest, or the issues that made it unreadable. */
   readManifest: (path: string) => Promise<{ manifest: GameManifest | null; issues: GameManifestIssue[] }>;
   runner: Pick<GameRunner, 'goto'>;
+  /** A level is about to be written (Phase 140 Theme B): the service ends that scene's preview. */
+  onLevelSave?: (gameId: string, scene: string) => void;
   send: (channel: string, payload: unknown) => void;
   log: Logger;
 };
 
 const OUTSIDE = "That level is outside the game's levels folder.";
 const IMAGE_TYPES: Record<string, string> = { '.png': 'image/png', '.webp': 'image/webp' };
+const THUMB_KINDS: ReadonlySet<string> = new Set(['image', 'sprite', 'tileset', 'background']);
+const THUMB_TYPES: Record<string, 'image/png' | 'image/jpeg' | 'image/webp'> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' };
 
 const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
@@ -176,6 +185,8 @@ export function createGameLevels(deps: GameLevelsDeps) {
     }
     const text = `${JSON.stringify(level, null, 2)}\n`;
     if (Buffer.byteLength(text) > GAME_LEVEL_MAX_BYTES) return failure(`That level is over ${GAME_LEVEL_MAX_BYTES / 1048576} MB.`);
+    // Phase 140 Theme B: the disk is about to match this scene, so a preview of it ends before the file watcher can restart the scene.
+    deps.onLevelSave?.(gameId, scene);
     const rel = posix.join(GAME_LEVELS_DIR, `${scene}${GAME_LEVEL_EXT}`);
     const file = located.value;
 
@@ -214,6 +225,49 @@ export function createGameLevels(deps: GameLevelsDeps) {
     return result;
   }
 
+  async function mapAsset(gameId: string, assetName: string): Promise<GitOpResult<GameLevelMapAssetResult>> {
+    const game = await deps.resolve(gameId);
+    if (!game) return failure('That game was not found.');
+    const name = GameMapAssetNameSchema.safeParse(assetName);
+    if (!name.success) return failure(`"${assetName}" is not a map asset name (${name.error.issues[0]?.message ?? 'invalid'}).`);
+    const mapRoot = await confineToRoot(game.path, 'assets/map');
+    if (mapRoot === null) return failure(`Map asset "${name.data}" not found in assets/map/.`);
+    try {
+      const realGame = await realpath(game.path);
+      if (mapRoot !== join(realGame, 'assets', 'map')) return failure(`Map asset "${name.data}" is outside assets/map/.`);
+    } catch {
+      return failure(`Map asset "${name.data}" not found in assets/map/.`);
+    }
+    const assetDir = joinWithin(mapRoot, name.data);
+    const file = assetDir === null ? null : joinWithin(assetDir, 'map.tmj');
+    if (assetDir === null || file === null) return failure(`Map asset "${name.data}" is outside assets/map/.`);
+    try {
+      if ((await lstat(assetDir)).isSymbolicLink() || (await lstat(file)).isSymbolicLink()) {
+        return failure(`Map asset "${name.data}" is outside assets/map/.`);
+      }
+    } catch {
+      return failure(`Map asset "${name.data}" has no map.tmj.`);
+    }
+    const confined = await confineToRoot(mapRoot, `${name.data}/map.tmj`);
+    if (confined === null) return failure(`Map asset "${name.data}" is outside assets/map/.`);
+    let raw: string;
+    try {
+      const bytes = (await stat(confined)).size;
+      if (bytes > GAME_LEVEL_MAX_BYTES) return failure(`That map asset is over ${GAME_LEVEL_MAX_BYTES / 1048576} MB.`);
+      raw = await readFile(confined, 'utf8');
+    } catch {
+      return failure(`Map asset "${name.data}" has no map.tmj.`);
+    }
+    let level: unknown;
+    try {
+      level = JSON.parse(raw);
+    } catch (error) {
+      return ok({ level: null, issues: [{ path: '(root)', message: `Not valid JSON: ${message(error)}` }] });
+    }
+    const parsed = parseGameLevel(level);
+    return ok({ level, issues: parsed.ok ? [] : parsed.issues });
+  }
+
   async function goto(gameId: string, scene: string): Promise<GitOpResult<GameGotoResult>> {
     const game = await deps.resolve(gameId);
     if (!game) return failure('That game was not found.');
@@ -244,7 +298,75 @@ export function createGameLevels(deps: GameLevelsDeps) {
     }
   }
 
-  return { list: levels, get: levelGet, set: levelSet, goto, model: levelModel };
+  /** The terrain detail under `area` for the level file of `scene` (`readLevelTerrainDetail`): `detail` is `null` when there is none to show. */
+  async function terrainDetail(gameId: string, scene: string, area: { minX: number; minZ: number; maxX: number; maxZ: number }): Promise<GitOpResult<GameLevelTerrainDetailResult>> {
+    const game = await deps.resolve(gameId);
+    if (!game) return failure('That game was not found.');
+    const located = await levelPath(game, scene);
+    if (!located.ok) return located;
+    try {
+      const parsed = parseGameLevel(JSON.parse(await readFile(located.value, 'utf8')));
+      if (!parsed.ok || parsed.dimension !== '3d') return ok({ detail: null });
+      return ok({ detail: await readLevelTerrainDetail(game.path, parsed.level, area) });
+    } catch {
+      return ok({ detail: null });
+    }
+  }
+
+  /**
+   * A thumbnail source for an `image`, `sprite`, `tileset` or `background` asset (Phase 139 Theme A): the asset's
+   * image file as a data URL plus its manifest sha. A folder asset resolves through the `image` its atlas/tileset
+   * json names, else its first image. Confined to the game folder; capped at {@link GAME_LEVEL_THUMB_MAX_BYTES}.
+   */
+  async function assetThumb(gameId: string, name: string): Promise<GitOpResult<GameLevelAssetThumbResult>> {
+    const game = await deps.resolve(gameId);
+    if (!game) return failure('That game was not found.');
+    const { manifest } = await deps.readManifest(game.path);
+    const asset = manifest?.assets.find((a) => a.name === name && THUMB_KINDS.has(a.kind));
+    if (!asset) {
+      if (manifest?.assets.some((a) => a.name === name && a.kind === 'model')) return failure('Model thumbnails come from games.levels.model.');
+      return failure(`No image asset named "${name}".`);
+    }
+    let rel = asset.path;
+    let real = await confineToRoot(game.path, rel);
+    if (real === null) return failure(`Asset "${name}" is missing or outside the game folder.`);
+    try {
+      if ((await stat(real)).isDirectory()) {
+        const image = await folderImage(real);
+        if (image === null) return failure(`Asset "${name}" has no image to show.`);
+        rel = posix.join(asset.path, image);
+        real = await confineToRoot(game.path, rel);
+        if (real === null) return failure(`Asset "${name}" is missing or outside the game folder.`);
+      }
+      const mime = THUMB_TYPES[extname(real).toLowerCase()];
+      if (!mime) return failure(`Asset "${name}" is not a png, jpeg or webp image.`);
+      const bytes = (await stat(real)).size;
+      if (bytes > GAME_LEVEL_THUMB_MAX_BYTES) {
+        return failure(`Asset "${name}" is ${(bytes / 1048576).toFixed(1)} MB, over the ${GAME_LEVEL_THUMB_MAX_BYTES / 1048576} MB thumbnail limit.`);
+      }
+      const data = await readFile(real);
+      return ok({ name, mime, dataUrl: `data:${mime};base64,${data.toString('base64')}`, sha256: asset.sha256 });
+    } catch (error) {
+      return failure(`Asset "${name}" could not be read: ${message(error)}`);
+    }
+  }
+
+  /** The image inside a folder asset: the `image` an atlas/tileset json names, else the first image file. */
+  async function folderImage(dir: string): Promise<string | null> {
+    const entries = (await readdir(dir)).sort();
+    for (const file of entries.filter((f) => f.toLowerCase().endsWith('.json'))) {
+      try {
+        const json = JSON.parse(await readFile(join(dir, file), 'utf8')) as { image?: unknown; meta?: { image?: unknown } };
+        const image = typeof json.image === 'string' ? json.image : typeof json.meta?.image === 'string' ? json.meta.image : null;
+        if (image !== null && !image.split(/[\\/]/).includes('..') && THUMB_TYPES[extname(image).toLowerCase()]) return image;
+      } catch {
+        // not json we can read: try the next file
+      }
+    }
+    return entries.find((f) => THUMB_TYPES[extname(f).toLowerCase()]) ?? null;
+  }
+
+  return { list: levels, get: levelGet, set: levelSet, mapAsset, goto, model: levelModel, assetThumb, terrainDetail };
 }
 
 export type GameLevels = ReturnType<typeof createGameLevels>;

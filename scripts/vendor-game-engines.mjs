@@ -15,9 +15,9 @@ const defaultEnginesDir = join(repoRoot, 'packages', 'desktop', 'resources', 'ga
  */
 export const ENGINE_VERSIONS = {
   phaser: '3.90.0',
-  three: '0.186.1',
+  three: '0.187.0',
   rapier: '0.21.0',
-  recast: '0.43.1',
+  recast: '0.44.0',
 };
 
 /**

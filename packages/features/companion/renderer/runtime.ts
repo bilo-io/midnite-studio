@@ -2,6 +2,7 @@ import {
   agentHeadlessArgs,
   emptyCompanionSnapshot,
   type AgentDefinition,
+  type AgentProfile,
   type CompanionSnapshot,
   type CompanionVocabulary,
   type RepoDescriptor,
@@ -40,8 +41,18 @@ import {
   switchCompanionProfile,
 } from './profiles';
 import { vocabularyFor, withCompanionProfiles } from './vocabulary';
+import {
+  askProfileField,
+  customAgent,
+  deletedAgentNotice,
+  ensureCustomAgents,
+  refreshCustomAgents,
+  unreadAgentNotice,
+  withCustomAgents,
+} from './custom-agents';
+import { showToast } from './ext';
 import { skillHandoff } from './ext';
-import { startAgent } from './ext';
+import { skillHandoffAsProfile, startAgent, startProfileAgent } from './ext';
 import { useTerminalStore } from './ext';
 import { bridge } from '@midnite/studio-frame';
 import { useCompanionStore } from './companion-store';
@@ -153,38 +164,48 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
 
   return {
     ...base,
-    startSkill: (opts) => {
+    startSkill: async (opts) => {
       const ui = useUiStore.getState();
-      return skillHandoff(
-        {
-          skillId: opts.skillId,
-          ...(repo.id === null ? {} : { repoId: repo.id }),
-          ...(repo.path === null ? {} : { cwd: repo.path }),
-          ...(opts.body === undefined ? {} : { body: opts.body }),
-          autoSend: opts.autoSend,
-        },
-        {
-          skills: ui.agentSkills as Record<string, string | undefined>,
-          primaryAgentId: ui.primaryAgent,
-          agents: rosterCache,
-        },
-      );
+      const options = {
+        skillId: opts.skillId,
+        ...(repo.id === null ? {} : { repoId: repo.id }),
+        ...(repo.path === null ? {} : { cwd: repo.path }),
+        ...(opts.body === undefined ? {} : { body: opts.body }),
+        autoSend: opts.autoSend,
+      };
+      const context = (primaryAgentId: string) => ({
+        skills: ui.agentSkills as Record<string, string | undefined>,
+        primaryAgentId,
+        agents: rosterCache,
+      });
+      // Phase 154 follow-up: a custom agent runs the hand-off through `agentProfile:prepareLaunch`, so its
+      // prompt, model and tool limits apply. A deleted one falls back to its base agent and says so.
+      const lookup = await lookupCustomAgent(ui.primaryAgentProfileId);
+      const profile = lookup.profile;
+      if (ui.primaryAgentProfileId !== null && profile !== null) {
+        const started = await skillHandoffAsProfile(options, context(ui.primaryAgent), profile);
+        if (started !== 'missing') return started;
+      }
+      const notice = fallbackNotice(ui.primaryAgentProfileId, lookup);
+      const session = skillHandoff(options, context(profile?.baseAgentId ?? ui.primaryAgent));
+      return session && notice !== undefined ? { id: session.id, notice } : session;
     },
-    startVerbatim: (text) => {
+    startVerbatim: async (text) => {
       if (repo.id === null || repo.path === null) return null;
       const ui = useUiStore.getState();
-      const agent =
-        rosterCache.find((entry) => entry.id === ui.primaryAgent) ?? rosterCache[0];
+      const lookup = await lookupCustomAgent(ui.primaryAgentProfileId);
+      const profile = lookup.profile;
+      const target = { repoId: repo.id, cwd: repo.path, title: 'Companion', prompt: text, autoSend: false };
+      if (ui.primaryAgentProfileId !== null && profile !== null) {
+        const started = await startProfileAgent({ ...target, profile });
+        if (started !== 'missing') return started;
+      }
+      const notice = fallbackNotice(ui.primaryAgentProfileId, lookup);
+      const baseId = profile?.baseAgentId ?? ui.primaryAgent;
+      const agent = rosterCache.find((entry) => entry.id === baseId) ?? rosterCache[0];
       if (!agent) return null;
-      return startAgent({
-        repoId: repo.id,
-        cwd: repo.path,
-        title: 'Companion',
-        prompt: text,
-        agentId: agent.id,
-        command: agent.command,
-        autoSend: false,
-      });
+      const session = startAgent({ ...target, agentId: agent.id, command: agent.command });
+      return session && notice !== undefined ? { id: session.id, notice } : session;
     },
     ask: async (req) => {
       const ui = useUiStore.getState();
@@ -193,6 +214,8 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
         text: req.text,
         repoPath: repo.path,
         agentId: ui.primaryAgent,
+        // Phase 154 Theme H: the custom agent the companion thinks through, when one is chosen.
+        ...askProfileField(ui.primaryAgentProfileId),
         snapshot: lastSnapshot,
         // Settings ▸ Companion ▸ Personality's two free-text fields (Ad
         // Hoc) — read fresh from the store on every ask, same as
@@ -207,8 +230,11 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
         // flow's own cache, same as `snapshot` above: fetching it fresh per
         // `ask` would be an IPC round trip (`repos.list`) this request does
         // not otherwise need.
-        vocabulary: vocabularyCache ? withCompanionProfiles(vocabularyCache) : undefined,
+        vocabulary: vocabularyCache ? withCustomAgents(withCompanionProfiles(vocabularyCache)) : undefined,
       });
+      if (result?.ok && result.value.agentProfileFallback === 'deleted') {
+        return { ...result, value: { ...result.value, say: `${noteDeletedAgent()} ${result.value.say}` } };
+      }
       return result ?? { ok: false, kind: 'error', message: 'The companion is not connected.' };
     },
     scrollback: async (sessionId) => {
@@ -237,7 +263,7 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
     setActiveHandoff: (handoff) => useCompanionStore.getState().setActiveHandoff(handoff),
     pendingAction: () => useCompanionStore.getState().pendingAction,
     setPendingAction: (action) => useCompanionStore.getState().setPendingAction(action),
-    vocabulary: () => withCompanionProfiles(vocabularyCache ?? vocabularyFor([])),
+    vocabulary: () => withCustomAgents(withCompanionProfiles(vocabularyCache ?? vocabularyFor([]))),
     navigate: (intent) => navigateCompanion(intent),
     resource: {
       find: (query, limit) => findResources(query, { limit }),
@@ -303,10 +329,12 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
         text: request.mode === 'tweak' ? request.instruction : `interview: ${request.target}`,
         repoPath: repo.path,
         agentId: useUiStore.getState().primaryAgent,
+        ...askProfileField(useUiStore.getState().primaryAgentProfileId),
         persona: request,
       });
       if (!result) return { ok: false, kind: 'error', message: 'The companion is not connected.' };
       if (!result.ok) return result;
+      if (result.value.agentProfileFallback === 'deleted') noteDeletedAgent();
       return result.value.persona
         ? { ok: true, value: result.value.persona }
         : { ok: false, kind: 'error', message: "The agent's answer wasn't something I could use." };
@@ -361,6 +389,47 @@ async function currentRepo(): Promise<RepoSnapshot> {
   if (!repo) return { path: null, name: null, id: null };
   const main = repo.worktrees.find((worktree) => worktree.isMain);
   return { path: main?.path ?? repo.path, name: repo.name, id: repo.id };
+}
+
+/**
+ * Phase 154 Theme H: the companion's custom agent is gone, so main answered with the built-in agent. Clear
+ * the choice (the title-bar pill goes back to the built-in), show it, and return the sentence to say.
+ */
+function noteDeletedAgent(baseAgentId?: string): string {
+  const ui = useUiStore.getState();
+  ui.setPrimaryAgentProfile(null);
+  const fallbackId = baseAgentId ?? ui.primaryAgent;
+  const label = rosterCache.find((agent) => agent.id === fallbackId)?.label ?? fallbackId;
+  const notice = deletedAgentNotice(label);
+  showToast({ message: notice });
+  return notice;
+}
+
+/**
+ * The companion's custom agent for a launch. The list is read first when it never has been, so a hand-off
+ * run before anything loaded it does not mistake a valid agent for a deleted one. `readable` is false when
+ * that read failed: the agent is then unknown rather than gone.
+ */
+async function lookupCustomAgent(profileId: string | null): Promise<{ profile: AgentProfile | null; readable: boolean }> {
+  if (profileId === null) return { profile: null, readable: true };
+  const cached = customAgent(profileId);
+  if (cached !== null) return { profile: cached, readable: true };
+  const { loaded } = await ensureCustomAgents();
+  return { profile: customAgent(profileId), readable: loaded };
+}
+
+/**
+ * The notice for a launch that fell back to the built-in agent, or `undefined` when no custom agent was
+ * chosen or it launched. A deleted agent clears the choice; one that could not be looked up is kept, so
+ * the next launch tries again.
+ */
+function fallbackNotice(profileId: string | null, lookup: { profile: AgentProfile | null; readable: boolean }): string | undefined {
+  if (profileId === null) return undefined;
+  if (lookup.readable) return noteDeletedAgent(lookup.profile?.baseAgentId);
+  const label = rosterCache.find((agent) => agent.id === useUiStore.getState().primaryAgent)?.label ?? useUiStore.getState().primaryAgent;
+  const notice = unreadAgentNotice(label);
+  showToast({ message: notice });
+  return notice;
 }
 
 /** Refresh the roster cache. Cheap, and the answer changes only on an `agents.json` edit. */
@@ -424,6 +493,7 @@ export async function greetCompanion(): Promise<void> {
   const signal = begin();
   await refreshRoster();
   await refreshVocabulary();
+  await refreshCustomAgents();
   const repo = await currentRepo();
   const deps = conciergeDeps(signal, repo);
   lastSnapshot = null;
@@ -454,6 +524,8 @@ export async function submitCompanionInput(text: string): Promise<void> {
   const signal = begin();
   if (rosterCache.length === 0) await refreshRoster();
   if (!vocabularyCache) await refreshVocabulary();
+  // Every line: a save on the Agents page renames what "use Reviewer" can match.
+  await refreshCustomAgents();
   const repo = await currentRepo();
   const deps = withSnapshotCapture(handoffDeps(signal, repo)) as HandoffDeps;
   const before = useCompanionStore.getState().activeHandoff?.sessionId ?? null;

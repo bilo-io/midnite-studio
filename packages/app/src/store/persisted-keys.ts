@@ -172,6 +172,7 @@ export const SESSION_STATE_KEYS = [
   'browserOpen', // whether a panel is currently showing
   'mediaSpeechOn', // toggled from the Media thread's own composer row, not a settings form
   'cardSkillByTask', // last-chosen skill per Projects card, set from the card itself — not a settings form
+  'loopAgentProfiles', // custom agent per loop (#1699), picked in the loop's own provider select — not a settings form
   'collapsedAccordionSections', // folded Accordion section ids — disclosure state
   'collapsedNavSections', // folded-section ids — disclosure state
   'collapsedRepoGroups', // folded-section ids — disclosure state
@@ -193,6 +194,7 @@ export const SESSION_STATE_KEYS = [
   'mediaLastVideoProject', // current selection — Video reselects the last selected project, per repo
   'mediaVideoPanelTab', // current selection — Video's right panel tab (Edit / Brief / Versions)
   'primaryModelByAgent', // current selection — model per agent, toggled from TitleBar / companion / views
+  'primaryAgentProfileId', // current selection — the custom agent the companion thinks through (Phase 154 H), from TitleBar / voice / MCP
   'activeEnvironmentByRepo', // last-selected API Client environment per repo, remembered like projectBoardByRepo
   'projectBoardByRepo', // last-viewed board per repo
   'audioTabByRepo', // Media > Audio: Editor or Generator, per repo

@@ -242,6 +242,15 @@ describe('the agent CLI is given file tools and this game’s tools, and no shel
 });
 
 describe('createGameAgentDispatch', () => {
+  it('E6: an entity write without `save` is dispatched with save: true; an explicit false stays', async () => {
+    const seen: unknown[] = [];
+    const tools = { ...fakeTools(), game_entity_delete: async (input: unknown) => (seen.push(input), {}) } as unknown as GameMcpTools;
+    const dispatch = createGameAgentDispatch({ tools, game: game(), signal: new AbortController().signal, onAction: () => undefined });
+    await dispatch('game_entity_delete', { game: 'gdemo', scene: 'level', ids: [1] });
+    await dispatch('game_entity_delete', { game: 'gdemo', scene: 'level', ids: [1], save: false });
+    expect(seen).toMatchObject([{ save: true }, { save: false }]);
+  });
+
   it('answers only this game, refuses game_create and other games, and caps the calls', async () => {
     const actions: string[] = [];
     const dispatch = createGameAgentDispatch({
@@ -349,6 +358,8 @@ describe('createGameAgentService', () => {
     dirty: false,
     valid: true,
     issue: null,
+    status: null,
+    findingCount: 0,
   });
 
   function setup(

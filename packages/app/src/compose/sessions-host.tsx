@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { AgentAuditView } from '@midnite/studio-feature-mcp-tools/renderer';
+import { ChatPane, useChatEvents, useChatsStore } from '@midnite/studio-feature-chats/renderer';
 import { useWorkflowRevealStore, useWorkflows } from '@midnite/studio-feature-workflows/renderer';
 import type { ManagedSession, SessionsHost } from '@midnite/studio-feature-sessions/renderer';
 import { useGraphStore } from '@midnite/studio-frame';
-import type { Commit, TerminalSession } from '@midnite/studio-shared';
+import type {
+  ChatSummary,
+  Commit,
+  SessionHandoffMode,
+  TerminalSession,
+  UnifiedSessionViewMode,
+} from '@midnite/studio-shared';
 
 import { useDialogs } from '../components/dialog-host';
 import { resolveAgentIcon } from '../components/icons';
@@ -25,6 +32,7 @@ import { requestHandoff } from '../services/handoff';
 import { useRefreshSessionHistory, useSessionHistory } from '../services/queries';
 import { useSessionsStore } from '../store/sessions-store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../store/ui-store';
+import { selectRepoForSessionOrChat } from './select-repo-for-item';
 
 /**
  * Studio's side of the sessions feature's host port (Phase 113 Theme O slice 4).
@@ -96,6 +104,47 @@ function useKill() {
   return useCallback((session: TerminalSession) => closeSessionWithConfirm(dialogs, session), [dialogs]);
 }
 
+function useUnifiedChats(): readonly ChatSummary[] {
+  useChatEvents();
+  return useChatsStore((s) => s.list);
+}
+
+function selectUnifiedChat(chatId: string | null) {
+  if (useChatsStore.getState().selectedId !== chatId) {
+    useChatsStore.getState().select(chatId);
+  }
+}
+
+async function switchUnifiedView(request: {
+  sessionId: string;
+  targetView: UnifiedSessionViewMode;
+  handoffMode?: SessionHandoffMode;
+}) {
+  const fn = bridge()?.sessions?.switchView;
+  if (!fn) {
+    return {
+      ok: false as const,
+      kind: 'error' as const,
+      message: 'Session view switching is unavailable.',
+    };
+  }
+  const result = await fn({
+    sessionId: request.sessionId,
+    targetView: request.targetView,
+    handoffMode: request.handoffMode ?? 'auto',
+  });
+  if (result.ok) {
+    await Promise.all([
+      useChatsStore.getState().refreshList(),
+      useTerminalStore.getState().refresh(),
+    ]);
+    if (result.value.chatId) {
+      void useChatsStore.getState().loadChat(result.value.chatId);
+    }
+  }
+  return result;
+}
+
 export const STUDIO_SESSIONS_HOST = {
   useLiveSessions,
   useLiveStatus,
@@ -134,9 +183,16 @@ export const STUDIO_SESSIONS_HOST = {
     openKillSwitch: (ref) => useUiStore.getState().openKillSwitch(ref),
   },
   loops: { useLoopIdBySession, loopIcon },
+  chats: {
+    useChats: useUnifiedChats,
+    selectChat: selectUnifiedChat,
+    ChatPane,
+    switchView: switchUnifiedView,
+  },
   useKill,
   // Resume restores a conversation rather than acting on the repository, so it auto-sends — a
   // deliberate exception to `startAgent`'s `autoSend: false` default.
   resume: ({ repoId, cwd, title, agent, args }) =>
     startAgent({ repoId, cwd, title, agentId: agent.id, command: agent.command, extraArgs: args, autoSend: true }),
+  onSelectRepo: selectRepoForSessionOrChat,
 } satisfies SessionsHost;

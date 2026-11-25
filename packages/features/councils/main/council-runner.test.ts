@@ -42,6 +42,8 @@ import {
   setCouncilTimeoutForTests,
   skipMember,
   startRun,
+  COUNCIL_PROFILES_NEED_STUDIO,
+  type CouncilProfileRun,
   type CouncilRunnerPorts,
 } from './council-runner';
 
@@ -641,5 +643,252 @@ describe('synthesis types (Phase 134 Theme A)', () => {
     const result = await startRun('c1', 'review this');
     if (!result.ok) throw new Error('expected ok');
     expect(result.value.synthInstructions).toContain('must-fix');
+  });
+});
+
+describe('a seat set to a custom agent (#1699)', () => {
+  const PROFILE_COUNCIL: Council = {
+    ...COUNCIL,
+    members: [{ id: 'm-rev', name: 'Reviewer seat', provider: 'claude', role: 'Review it.', agentProfileId: 'profile-rev' }],
+  };
+  const claude = AGENTS.find((agent) => agent.id === 'claude')!;
+
+  beforeEach(() => {
+    vi.mocked(getCouncil).mockImplementation(async (id: string) => (id === PROFILE_COUNCIL.id ? PROFILE_COUNCIL : null));
+  });
+
+  function withProfileRun(run: CouncilProfileRun | (() => Promise<CouncilProfileRun>)) {
+    const release = vi.fn(async () => undefined);
+    const profileRun = vi.fn(async () => {
+      const answer = typeof run === 'function' ? await run() : run;
+      return answer.kind === 'ready' ? { ...answer, release } : answer;
+    });
+    configureCouncilRunner({
+      createPty,
+      killPty,
+      onPty,
+      offPty,
+      listAgents,
+      agentBinding: () => undefined,
+      ollamaBaseUrl: () => 'http://127.0.0.1:11434',
+      ollamaApiKey: async () => null,
+      profileRun,
+    });
+    return { profileRun, release };
+  }
+
+  const ready = (promptPrefix: string | null = null): Extract<CouncilProfileRun, { kind: 'ready' }> => ({
+    kind: 'ready',
+    name: 'Reviewer',
+    agent: claude,
+    args: ['-p', '--mcp-config', '{"mcpServers":{}}', '--strict-mcp-config', '--append-system-prompt-file', '/data/profile-rev.md'],
+    extraArgs: ['--mcp-config', '{"mcpServers":{}}', '--strict-mcp-config', '--append-system-prompt-file', '/data/profile-rev.md'],
+    promptPrefix,
+    release: async () => undefined,
+  });
+
+  it("runs the agent's own argv over its socket, asks Claude for JSON, and closes the socket when the seat settles", async () => {
+    const { profileRun, release } = withProfileRun(ready());
+    const result = await startRun('c1', 'topic');
+    if (!result.ok) throw new Error('expected ok');
+    await flush();
+
+    expect(profileRun).toHaveBeenCalledWith('profile-rev', expect.any(String), 'seat');
+    const [spawn] = spawns;
+    // The agent's extras on the council's own Claude invocation: JSON answer, then `-p` and the prompt.
+    expect(spawn!.script).toContain(
+      `exec 'claude' '--output-format' 'json' '--mcp-config' '{"mcpServers":{}}' '--strict-mcp-config' '--append-system-prompt-file' '/data/profile-rev.md' '-p' "$(cat `,
+    );
+    expect(store[result.value.id]!.members[0]).toMatchObject({ agentProfileId: 'profile-rev' });
+    expect(store[result.value.id]!.members[0]!.agentProfileFallback).toBeUndefined();
+
+    expect(release).not.toHaveBeenCalled();
+    reply(spawn!.ptyId, `${JSON.stringify({ result: 'looks fine', session_id: 's-rev', is_error: false })}\n`);
+    await flush();
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(store[result.value.id]!.members[0]).toMatchObject({ status: 'succeeded', output: 'looks fine', sessionId: 's-rev' });
+  });
+
+  it("puts a prompt-argument agent's instructions ahead of the question", async () => {
+    withProfileRun({ ...ready('You review code.'), agent: AGENTS.find((agent) => agent.id === 'codex')!, args: ['exec'], extraArgs: [] });
+    await startRun('c1', 'topic');
+    await flush();
+    const [spawn] = spawns;
+    expect(spawn!.script).toContain(`exec 'codex' 'exec' "$(cat `);
+    expect(spawn!.prompt.startsWith('You review code.\n\n')).toBe(true);
+  });
+
+  it('keeps agy\'s -p last, after the extras, and resumes its conversation on a follow-up', async () => {
+    withProfileRun({ ...ready(), agent: AGENTS.find((agent) => agent.id === 'agy')!, args: ['-p'], extraArgs: ['--model', 'fast'] });
+    vi.mocked(getCouncil).mockImplementation(async () => ({ ...PROFILE_COUNCIL, members: [{ ...PROFILE_COUNCIL.members[0]!, provider: 'agy' }] }));
+    const result = await startRun('c1', 'topic');
+    if (!result.ok) throw new Error('expected ok');
+    await flush();
+    const [first] = spawns;
+    expect(first!.script).toContain(`exec 'agy' '--output-format' 'json' '--model' 'fast' '-p' "$(cat `);
+    reply(first!.ptyId, `${JSON.stringify({ conversation_id: 'conv-rev', status: 'SUCCESS', response: 'ok' })}\n`);
+    await flush();
+    const synth = [...listeners.keys()][0]!;
+    reply(synth, `${JSON.stringify({ result: 'done', session_id: 's', is_error: false })}\n`);
+    await flush();
+
+    spawns = [];
+    await continueRun(result.value.id, 'more?');
+    await flush();
+    expect(spawns[0]!.script).toContain(`'--conversation' 'conv-rev' '--output-format' 'json' '--model' 'fast' '-p'`);
+  });
+
+  it('falls back to the base agent when the custom agent was deleted, and says so on the seat', async () => {
+    const { release } = withProfileRun({ kind: 'missing' });
+    const result = await startRun('c1', 'topic');
+    if (!result.ok) throw new Error('expected ok');
+    await flush();
+    const [spawn] = spawns;
+    expect(spawn!.script).toContain(`exec 'claude' '--output-format' 'json' '-p' "$(cat `);
+    expect(store[result.value.id]!.members[0]).toMatchObject({ agentProfileId: 'profile-rev', agentProfileFallback: 'deleted' });
+    expect(release).not.toHaveBeenCalled();
+  });
+
+  it('fails the seat closed when the agent cannot run as itself', async () => {
+    withProfileRun({ kind: 'error', message: 'Reviewer runs on Claude, which is not installed here.' });
+    const result = await startRun('c1', 'topic');
+    if (!result.ok) throw new Error('expected ok');
+    await flush();
+    expect(createPty).not.toHaveBeenCalled();
+    expect(store[result.value.id]!.members[0]).toMatchObject({ status: 'failed', error: expect.stringContaining('not installed') });
+  });
+
+  it('refuses an agent since moved onto a base a council cannot read, closing its socket', async () => {
+    const { release } = withProfileRun({ ...ready(), agent: { ...claude, id: 'aider', label: 'Aider', command: 'aider' } });
+    const result = await startRun('c1', 'topic');
+    if (!result.ok) throw new Error('expected ok');
+    await flush();
+    expect(createPty).not.toHaveBeenCalled();
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(store[result.value.id]!.members[0]!.error).toContain('cannot sit on a council');
+  });
+
+  it('fails plainly where the app has no custom-agent launch', async () => {
+    const result = await startRun('c1', 'topic');
+    if (!result.ok) throw new Error('expected ok');
+    await flush();
+    expect(store[result.value.id]!.members[0]).toMatchObject({ status: 'failed', error: COUNCIL_PROFILES_NEED_STUDIO });
+  });
+
+  it('closes the socket when a cancel stops the seat early', async () => {
+    const { release } = withProfileRun(ready());
+    const result = await startRun('c1', 'topic');
+    if (!result.ok) throw new Error('expected ok');
+    await flush();
+    await cancelRun(result.value.id);
+    await flush();
+    expect(release).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('a synthesizer set to a custom agent (#1713)', () => {
+  const SYNTH_COUNCIL: Council = { ...COUNCIL, synthProvider: 'claude', synthAgentProfileId: 'profile-syn' };
+  const claude = AGENTS.find((agent) => agent.id === 'claude')!;
+
+  function withProfileRun(answer: CouncilProfileRun) {
+    const release = vi.fn(async () => undefined);
+    const profileRun = vi.fn(async () => (answer.kind === 'ready' ? { ...answer, release } : answer));
+    configureCouncilRunner({
+      createPty,
+      killPty,
+      onPty,
+      offPty,
+      listAgents,
+      agentBinding: () => undefined,
+      ollamaBaseUrl: () => 'http://127.0.0.1:11434',
+      ollamaApiKey: async () => null,
+      profileRun,
+    });
+    return { profileRun, release };
+  }
+
+  const ready: CouncilProfileRun = {
+    kind: 'ready',
+    name: 'Editor',
+    agent: claude,
+    args: ['-p', '--append-system-prompt-file', '/data/profile-syn.md'],
+    extraArgs: ['--append-system-prompt-file', '/data/profile-syn.md'],
+    promptPrefix: null,
+    release: async () => undefined,
+  };
+
+  /** Both roster members answer, so the run moves on to its synthesis. */
+  async function toSynthesis(): Promise<string> {
+    const result = await startRun('c1', 'topic');
+    if (!result.ok) throw new Error('expected ok');
+    await flush();
+    for (const spawn of spawns.slice(0, 2)) reply(spawn.ptyId, 'an answer');
+    await flush();
+    return result.value.id;
+  }
+
+  beforeEach(() => {
+    vi.mocked(getCouncil).mockImplementation(async (id: string) => (id === SYNTH_COUNCIL.id ? SYNTH_COUNCIL : null));
+  });
+
+  it('snapshots the agent on the run and synthesizes as it, closing its socket when it settles', async () => {
+    const { profileRun, release } = withProfileRun(ready);
+    const runId = await toSynthesis();
+    expect(store[runId]).toMatchObject({ synthProvider: 'claude', synthAgentProfileId: 'profile-syn' });
+    expect(profileRun).toHaveBeenCalledWith('profile-syn', expect.any(String), 'synthesizer');
+    const synth = spawns[2]!;
+    expect(synth.script).toContain(`exec 'claude' '--output-format' 'json' '--append-system-prompt-file' '/data/profile-syn.md' '-p' "$(cat `);
+    reply(synth.ptyId, `${JSON.stringify({ result: 'the synthesis', session_id: 's-syn', is_error: false })}\n`);
+    await flush();
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(store[runId]).toMatchObject({ status: 'completed', synthesisOutput: 'the synthesis', synthSessionId: 's-syn' });
+    expect(store[runId]!.synthAgentProfileFallback).toBeUndefined();
+  });
+
+  it("attaches the synthesizer's pty to the run registry, so the breaker can abort it (#1715)", async () => {
+    const attach = vi.fn();
+    withProfileRun({ ...ready, attach });
+    await toSynthesis();
+    expect(attach).toHaveBeenCalledTimes(1);
+    attach.mock.calls[0]![0].kill();
+    expect(killPty).toHaveBeenCalledWith(spawns[2]!.ptyId);
+  });
+
+  it('falls back to its base when the agent was deleted, and records it on the run and the turn', async () => {
+    withProfileRun({ kind: 'missing' });
+    const runId = await toSynthesis();
+    const synth = spawns[2]!;
+    expect(synth.script).toContain(`exec 'claude' '--output-format' 'json' '-p' "$(cat `);
+    expect(store[runId]!.synthAgentProfileFallback).toBe('deleted');
+    reply(synth.ptyId, `${JSON.stringify({ result: 'done', session_id: 's', is_error: false })}\n`);
+    await flush();
+    await continueRun(runId, 'more?');
+    expect(store[runId]!.turns[0]).toMatchObject({ synthAgentProfileId: 'profile-syn', synthAgentProfileFallback: 'deleted' });
+    // The new turn tries the agent again, rather than inheriting the old turn's fallback.
+    expect(store[runId]!.synthAgentProfileFallback).toBeUndefined();
+  });
+
+  it('names the synthesizer, not a seat, when the agent moved onto a base a council cannot read', async () => {
+    const { release } = withProfileRun({ ...ready, agent: { ...claude, id: 'aider', label: 'Aider', command: 'aider' } });
+    const runId = await toSynthesis();
+    expect(spawns).toHaveLength(2);
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(store[runId]!.synthesisError).toBe('Editor now runs on Aider, which cannot sit on a council. Pick another agent for the synthesizer.');
+  });
+
+  it('starts a fresh synthesizer session when the agent changed between turns', async () => {
+    withProfileRun(ready);
+    const runId = await toSynthesis();
+    reply(spawns[2]!.ptyId, `${JSON.stringify({ result: 'done', session_id: 's-syn', is_error: false })}\n`);
+    await flush();
+    vi.mocked(getCouncil).mockImplementation(async () => ({ ...SYNTH_COUNCIL, synthAgentProfileId: undefined }));
+    await continueRun(runId, 'more?');
+    expect(store[runId]!.synthSessionId).toBeUndefined();
+    expect(store[runId]!.synthAgentProfileId).toBeUndefined();
+  });
+
+  it('fails plainly, naming the synthesizer, where the app has no custom-agent launch', async () => {
+    const runId = await toSynthesis();
+    expect(store[runId]!.synthesisError).toBe('Custom agents run in Midnite Studio, so the synthesizer cannot run here.');
   });
 });

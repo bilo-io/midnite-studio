@@ -8,6 +8,7 @@ import { installBridge, newClient, removeBridge } from './test-helpers';
 
 const list = vi.fn();
 const set = vi.fn();
+const mapAsset = vi.fn();
 const manifestGet = vi.fn();
 const manifestSet = vi.fn();
 const onCreated = vi.fn();
@@ -15,12 +16,12 @@ const onCreated = vi.fn();
 const manifest = (over: Record<string, unknown> = {}) => ({ manifest: { perspective: 'isometric', ...over }, issues: [] });
 
 beforeEach(() => {
-  for (const m of [list, set, manifestGet, manifestSet, onCreated]) m.mockReset();
+  for (const m of [list, set, mapAsset, manifestGet, manifestSet, onCreated]) m.mockReset();
   list.mockResolvedValue({ ok: true, value: { scenes: [{ scene: 'level', bytes: 1, dimension: '2d', issue: null }], start: null, readsLevels: false } });
   set.mockResolvedValue({ ok: true, value: { sha: 'abc' } });
   manifestGet.mockResolvedValue(manifest());
   manifestSet.mockResolvedValue({ ok: true });
-  installBridge({ list, set, manifestGet, manifestSet });
+  installBridge({ list, set, mapAsset, manifestGet, manifestSet });
 });
 afterEach(() => {
   cleanup();
@@ -98,5 +99,60 @@ describe('NewSceneDialog', () => {
     expect(req.level).toMatchObject({ width: 80, tilewidth: 32 });
     expect(req.level.layers.map((l) => l.type)).toEqual(['objectgroup']);
     expect(req.level.properties).toEqual(expect.arrayContaining([{ name: 'midnite.dimension', type: 'string', value: '3d' }, { name: 'midnite.metresPerTile', type: 'float', value: 1 }]));
+  });
+
+  it('starts from an imported map asset, rewriting tileset image paths relative to levels/', async () => {
+    manifestGet.mockResolvedValue(
+      manifest({
+        assets: [
+          { name: 'crate', kind: 'model' },
+          { name: 'cave', kind: 'map' },
+          { name: 'town', kind: 'map' },
+        ],
+      }),
+    );
+    mapAsset.mockResolvedValue({
+      ok: true,
+      value: {
+        level: {
+          type: 'map',
+          orientation: 'orthogonal',
+          infinite: false,
+          width: 10,
+          height: 8,
+          tilewidth: 32,
+          tileheight: 32,
+          layers: [{ id: 1, type: 'tilelayer', name: 'ground', width: 10, height: 8, data: new Array(80).fill(0) }],
+          tilesets: [{ firstgid: 1, name: 't', image: 'tiles.png', imagewidth: 64, imageheight: 32, tilewidth: 32, tileheight: 32, columns: 2, tilecount: 2 }],
+        },
+        issues: [],
+      },
+    });
+    renderDialog();
+    const mapRadio = await screen.findByLabelText('Map asset');
+    fireEvent.click(mapRadio);
+    const select = screen.getByLabelText('Map asset', { selector: 'select' }) as HTMLSelectElement;
+    expect(Array.from(select.options).map((o) => o.value)).toEqual(['cave', 'town']);
+    fireEvent.change(select, { target: { value: 'town' } });
+    expect(screen.queryByLabelText('Width (tiles)')).toBeNull();
+    type('Name', 'downtown');
+    fireEvent.click(create());
+    await waitFor(() => expect(mapAsset).toHaveBeenCalledWith({ gameId: 'g1', assetName: 'town' }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('downtown'));
+    const req = set.mock.calls[0]![0] as { create: boolean; scene: string; level: { tilesets: Array<{ image: string }> } };
+    expect(req).toMatchObject({ gameId: 'g1', scene: 'downtown', create: true });
+    expect(req.level.tilesets.map((t) => t.image)).toEqual(['../assets/map/town/tiles.png']);
+  });
+
+  it('shows an error and refuses to create when the map asset fails to load or is invalid', async () => {
+    manifestGet.mockResolvedValue(manifest({ assets: [{ name: 'broken', kind: 'map' }] }));
+    mapAsset.mockResolvedValue({ ok: true, value: { level: null, issues: [{ path: '(root)', message: 'Not valid JSON' }] } });
+    renderDialog();
+    fireEvent.click(await screen.findByLabelText('Map asset'));
+    type('Name', 'broken');
+    fireEvent.click(create());
+    expect((await screen.findByRole('alert')).textContent).toBe('Not valid JSON');
+    expect(set).not.toHaveBeenCalled();
+    expect(onCreated).not.toHaveBeenCalled();
   });
 });

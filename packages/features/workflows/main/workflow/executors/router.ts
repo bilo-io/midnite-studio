@@ -94,7 +94,12 @@ export function createRouterExecutor(deps: NodePtyDeps = defaultNodePtyDeps): No
     const knownCaseIds = new Set(config.cases.map((routerCase) => routerCase.id));
 
     return runAgentToDoneMarker(
-      { agentId: agent.agentId, prompt: agent.prompt, model: agent.model },
+      {
+        agentId: agent.agentId,
+        prompt: agent.prompt,
+        model: agent.model,
+        ...(agent.agentProfileId === undefined ? {} : { agentProfileId: agent.agentProfileId }),
+      },
       node,
       context,
       deps,

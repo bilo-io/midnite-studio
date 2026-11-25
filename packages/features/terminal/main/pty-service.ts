@@ -4,6 +4,7 @@ import { EVENT_CHANNELS, SCROLLBACK_BYTES, type SessionActivity } from '@midnite
 import {
   createActivityClock,
   createActivityState,
+  scrubHostAgentEnv,
   type ActivityDetector,
   type ActivityState,
   type BrokerClient,
@@ -32,6 +33,7 @@ export function isPidAlive(pid: number): boolean {
 type AgentWatcher = PtyAgentWatcher;
 
 let agentWatcher: AgentWatcher | null = null;
+let declaredAgentIdProvider: ((sessionId: string) => Promise<string | null> | string | null) | null = null;
 let brokerClient: BrokerClient | null = null;
 let getWindowThunk: () => RuntimeWindow | null = () => null;
 
@@ -200,14 +202,52 @@ export function onSessionExit(hook: SessionExitHook): () => void {
   };
 }
 
+/**
+ * Phase 154 Theme G: an explicit `killPty` removes the pty → session mapping before the exit lands, so
+ * `onSessionExit` never hears about it. What must be released whichever way a session's pty ends (a
+ * custom agent's private MCP socket) listens here too. Fires with the session id, before the kill.
+ */
+type PtyKilledHook = (sessionId: string) => void;
+const ptyKilledHooks: PtyKilledHook[] = [];
+
+export function onPtyKilled(hook: PtyKilledHook): () => void {
+  ptyKilledHooks.push(hook);
+  return () => {
+    const index = ptyKilledHooks.indexOf(hook);
+    if (index !== -1) ptyKilledHooks.splice(index, 1);
+  };
+}
+
 function notifySessionExit(sessionId: string | undefined, exitCode: number): void {
   if (sessionId === undefined) return;
   for (const hook of sessionExitHooks) hook(sessionId, exitCode);
 }
 
+async function trackWithWatcher(
+  watcher: AgentWatcher,
+  ptyId: string,
+  pid: number,
+  sessionId: string,
+): Promise<void> {
+  const declared = declaredAgentIdProvider ? await declaredAgentIdProvider(sessionId) : null;
+  if (agentWatcher !== watcher || !sessions.has(ptyId)) return;
+  watcher.track(ptyId, pid, declared);
+  watcher.noteOutput(ptyId);
+}
+
+/** The agent currently tracked for `ptyId`, or `null` when none is recognised. */
+export function agentIdFor(ptyId: string): string | null {
+  return agentWatcher?.currentAgentId(ptyId) ?? null;
+}
+
 export function setAgentWatcher(watcher: AgentWatcher | null): void {
   agentWatcher = watcher;
   ports().inproc.setAgentWatcher(watcher);
+  if (watcher) {
+    for (const s of sessions.values()) {
+      void trackWithWatcher(watcher, s.ptyId, s.pid, s.sessionId);
+    }
+  }
 }
 
 export function setWindowProvider(provider: () => RuntimeWindow | null): void {
@@ -384,6 +424,10 @@ type SessionInfo = {
   rows: number;
   /** Served by a legacy broker peer rather than the current primary — see `BrokerSessionInfo.legacy`. */
   legacy: boolean;
+  /** The cwd the pty was spawned in, as the broker reported it — what a recovered row falls back to. */
+  cwd: string;
+  /** The app the broker stamped as the session's creator; `null` reads as Studio. */
+  owner: string | null;
 };
 
 const sessions = new Map<string, SessionInfo>();
@@ -487,8 +531,10 @@ export async function initPtyService(deps: {
   isPackaged: boolean;
   getWindow: () => RuntimeWindow | null;
   log?: (message: string) => void;
+  declaredAgentId?: (sessionId: string) => Promise<string | null> | string | null;
 }): Promise<void> {
   getWindowThunk = deps.getWindow;
+  declaredAgentIdProvider = deps.declaredAgentId ?? null;
   brokerClient = ports().broker.create(deps);
   brokerLocation = ports().broker.location(deps);
   await brokerClient.init();
@@ -529,20 +575,44 @@ export async function initPtyService(deps: {
   });
 
   // Re-hydrate running sessions if any
-  if (brokerClient.getStatus().mode === 'broker') {
-    const running = await brokerClient.listSessions();
-    for (const r of running) {
-      sessions.set(r.ptyId, {
-        ptyId: r.ptyId,
-        sessionId: r.sessionId,
-        pid: r.pid,
-        cols: r.cols,
-        rows: r.rows,
-        legacy: r.legacy,
-      });
-      sessionIdByPty.set(r.ptyId, r.sessionId);
+  if (brokerClient.getStatus().mode === 'broker') await adoptBrokerSessions();
+}
+
+/** Record every pty the connected brokers report that this service does not hold yet; resolves with the new ones. */
+async function adoptBrokerSessions(): Promise<number> {
+  if (!brokerClient) return 0;
+  const running = await brokerClient.listSessions();
+  let adopted = 0;
+  for (const r of running) {
+    if (sessions.has(r.ptyId)) continue;
+    sessions.set(r.ptyId, {
+      ptyId: r.ptyId,
+      sessionId: r.sessionId,
+      pid: r.pid,
+      cols: r.cols,
+      rows: r.rows,
+      legacy: r.legacy,
+      cwd: r.cwd,
+      owner: r.owner,
+    });
+    sessionIdByPty.set(r.ptyId, r.sessionId);
+    adopted++;
+    if (agentWatcher) {
+      await trackWithWatcher(agentWatcher, r.ptyId, r.pid, r.sessionId);
     }
   }
+  return adopted;
+}
+
+/**
+ * Look for brokers this process is not yet connected to (one retired or re-bound since boot) and take
+ * on every pty any connected broker holds — the first half of "recover detached sessions". No-op
+ * in-process: there is no broker to have lost anything to.
+ */
+export async function rescanBrokerSessions(): Promise<void> {
+  if (!brokerClient || brokerClient.getStatus().mode !== 'broker') return;
+  await brokerClient.rescanPeers();
+  await adoptBrokerSessions();
 }
 
 let brokerLocation: { socketPath: string; directory: string } | null = null;
@@ -550,6 +620,18 @@ let brokerLocation: { socketPath: string; directory: string } | null = null;
 /** Where the broker this service reached listens, for the runtime host record; null in-process. */
 export function getSharedBrokerLocation(): { socketPath: string; directory: string } | null {
   return brokerClient?.getStatus().mode === 'broker' ? brokerLocation : null;
+}
+
+/** The socket paths of every broker this service is connected to (primary first); empty in-process. */
+export function connectedBrokerSockets(): string[] {
+  if (!brokerClient || brokerClient.getStatus().mode !== 'broker') return [];
+  return brokerClient.peerPaths?.() ?? [];
+}
+
+/** The pid the primary broker reported in its handshake; `null` in-process or with no live primary. */
+export function primaryBrokerPid(): number | null {
+  if (!brokerClient || brokerClient.getStatus().mode !== 'broker') return null;
+  return brokerClient.primaryPid?.() ?? null;
 }
 
 export function getBrokerStatus(): BrokerStatus {
@@ -642,7 +724,9 @@ async function createPtyUnconfined(options: {
       ...options,
       ...(confineProfile ? { confine: { profile: confineProfile } } : {}),
       env: {
-        ...process.env,
+        // Never inherit the session markers of an agent that happened to launch Studio.
+        ...scrubHostAgentEnv(process.env),
+        COLORTERM: 'truecolor',
         TERM_PROGRAM: 'midnite-studio',
         GIT_TERMINAL_PROMPT: '1',
         ...agentFingerprintEnv(options.kind, options.sessionId, options.agentId),
@@ -665,6 +749,8 @@ async function createPtyUnconfined(options: {
         // A pty this call just created is always on the primary — `createPty`
         // has no legacy-peer branch (see `broker-client.ts`'s own `createPty`).
         legacy: false,
+        cwd: options.cwd,
+        owner: null,
       });
       sessionIdByPty.set(result.ptyId, options.sessionId);
       agentWatcher?.track(result.ptyId, result.pid, options.agentId ?? null);
@@ -759,6 +845,25 @@ export function livePtyFor(
   return ports().inproc.livePtyFor(sessionId);
 }
 
+/**
+ * Every pty a connected broker holds — the primary's and every legacy peer's — so the session list can
+ * recover one whose row `terminals.json` lost. Broker mode only: an in-process pty dies with this process,
+ * so it can never outlive its row.
+ */
+export function liveBrokerSessions(): {
+  sessionId: string;
+  ptyId: string;
+  pid: number;
+  cols: number;
+  rows: number;
+  cwd: string;
+  legacy: boolean;
+  owner: string | null;
+}[] {
+  if (!brokerClient || brokerClient.getStatus().mode !== 'broker') return [];
+  return [...sessions.values()].map((s) => ({ ...s }));
+}
+
 export function activePtyPids(): number[] {
   if (brokerClient && brokerClient.getStatus().mode === 'broker') {
     return [...sessions.values()].map((s) => s.pid);
@@ -782,6 +887,8 @@ export function getPtySessionOwners(): Map<number, string> {
 }
 
 export function killPty(ptyId: string): void {
+  const killedSessionId = sessionIdByPty.get(ptyId);
+  if (killedSessionId !== undefined) for (const hook of ptyKilledHooks) hook(killedSessionId);
   sessions.delete(ptyId);
   sessionIdByPty.delete(ptyId);
   agentWatcher?.untrack(ptyId);

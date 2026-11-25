@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 
+import { AgentProfilesHostProvider } from '@midnite/studio-feature-agent-profiles/renderer';
 import { ChatsHostProvider } from '@midnite/studio-feature-chats/renderer';
 import { CouncilsHostProvider } from '@midnite/studio-feature-councils/renderer';
 import { WorkflowsHostProvider } from '@midnite/studio-feature-workflows/renderer';
@@ -9,7 +10,7 @@ import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { FrameChromeProvider, SuiteAppShell } from '@midnite/studio-frame';
 
 import { AGENTS_CHROME, AgentsDialogHost } from './compose/agents-chrome';
-import { AGENTS_CHATS_HOST, AGENTS_COUNCILS_HOST, AGENTS_MODELS_HOST, AGENTS_WORKFLOWS_HOST } from './compose/agents-hosts';
+import { AGENTS_AGENT_PROFILES_HOST, AGENTS_CHATS_HOST, AGENTS_COUNCILS_HOST, AGENTS_MODELS_HOST, AGENTS_WORKFLOWS_HOST } from './compose/agents-hosts';
 import { AGENTS_APP } from './agents-manifest';
 import { AgentsHome, type ViewId } from './views/agents-home';
 
@@ -35,12 +36,14 @@ export function AgentsApp() {
           <CouncilsHostProvider host={AGENTS_COUNCILS_HOST}>
             <ChatsHostProvider host={AGENTS_CHATS_HOST}>
               <WorkflowsHostProvider host={AGENTS_WORKFLOWS_HOST}>
+                <AgentProfilesHostProvider host={AGENTS_AGENT_PROFILES_HOST}>
                 <ModelsRefetch />
                 <SuiteAppShell app="agents" name={AGENTS_APP.name} accent={AGENTS_APP.accent} nav={AGENTS_APP.nav} home={AGENTS_APP.home}>
                   {(view) => <AgentsHome view={view as ViewId} />}
                 </SuiteAppShell>
                 <ReportIssueHost app="midnite-agents" />
                 <AgentsDialogHost />
+                </AgentProfilesHostProvider>
               </WorkflowsHostProvider>
             </ChatsHostProvider>
           </CouncilsHostProvider>
@@ -63,9 +66,11 @@ export function AgentsPane({ view }: { view: string; onView?: (view: string) => 
           <CouncilsHostProvider host={AGENTS_COUNCILS_HOST}>
             <ChatsHostProvider host={AGENTS_CHATS_HOST}>
               <WorkflowsHostProvider host={AGENTS_WORKFLOWS_HOST}>
+                <AgentProfilesHostProvider host={AGENTS_AGENT_PROFILES_HOST}>
                 <ModelsRefetch />
                 <AgentsHome view={(AGENTS_APP.views as readonly string[]).includes(view) ? (view as ViewId) : 'chats'} />
                 <AgentsDialogHost />
+                </AgentProfilesHostProvider>
               </WorkflowsHostProvider>
             </ChatsHostProvider>
           </CouncilsHostProvider>

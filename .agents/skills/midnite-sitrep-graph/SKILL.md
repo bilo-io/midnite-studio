@@ -7,6 +7,10 @@ The dependency view. Rows, gathering and the shared vocabulary come from
 [`midnite-sitrep`](../midnite-sitrep/SKILL.md) §1–§3. Read it first. **Read-only:** the graph
 names re-targets and rebases. It never performs them.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/sitrep.mjs graph [--pr 12,13 | --input rows.json]`. It renders the hard and soft edges, what can merge now and the numbered merge order. You still judge which soft edges matter and call out a cycle. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Derive the edges from external state, not memory
 
 - **Hard edges (`──▶`, must merge first):**
@@ -14,7 +18,7 @@ names re-targets and rebases. It never performs them.
   - The branch has merge commits pulling in another PR's head.
   - `go.mod` or a lockfile pins another PR's commit.
   - The PR body, or the plan's `Depends on` / `dependsOn`, names it.
-  - For `.midnite/tasks/` phases, the phase doc's sequencing note ("G lands first … B needs A") and
+  - For `phase` issues, the phase issue's sequencing note ("G lands first … B needs A") and
     its Deliverables' cross-theme references.
 - **Soft edges (`┄┄`, rebase only, order free):** two open PRs change the same files
   (`gh pr view <n> --json files`). Name the files in parentheses, abbreviated.

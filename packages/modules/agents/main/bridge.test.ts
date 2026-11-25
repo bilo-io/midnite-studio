@@ -12,7 +12,7 @@ function fakeIpc(): RendererIpc {
 describe('createAgentsBridge', () => {
   it('exposes exactly chats, council, workflow, demoApi, mcp, agentAudit, ollama, agent.list and secrets.has', () => {
     const bridge = createAgentsBridge(fakeIpc());
-    expect(Object.keys(bridge).sort()).toEqual(['agent', 'agentAudit', 'chats', 'council', 'demoApi', 'mcp', 'ollama', 'report', 'secrets', 'workflow']);
+    expect(Object.keys(bridge).sort()).toEqual(['agent', 'agentAudit', 'agentProfile', 'chats', 'council', 'demoApi', 'mcp', 'ollama', 'report', 'secrets', 'workflow']);
     expect(Object.keys(bridge.agent)).toEqual(['list']);
   });
 

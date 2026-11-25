@@ -7,6 +7,10 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, TodoWrite, 
 
 You are running the **test** specialist for **Midnite Studio**. Because Midnite Studio is a desktop workspace rather than a hosted cloud webapp, testing is executed locally across workspace packages and target apps using moon and pnpm.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/test-classify.mjs <log-file | ->`. It pipe a failing run's output in and it buckets failures (boundary, ts, index-lock, auth, timeout, billing, assertion, other) before you diagnose. You still choose the focused commands (never the full moon gate on this machine), read the failures and write the remediation plan. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Testing Architecture & Levels
 
 Per `docs/TESTING.md` and repository conventions:
@@ -22,7 +26,7 @@ Per `docs/TESTING.md` and repository conventions:
 Check `$ARGUMENTS` or inspect git diff:
 - **Workspace-wide:** No arguments provided → run full pre-push gate:
   ```bash
-  moon run :typecheck && moon run :lint && moon run :test && moon run root:tracker-check
+  moon run :typecheck && moon run :lint && moon run :test
   ```
 - **Package-specific:** If user requested a specific package (e.g. `shared`, `git-engine`, `feature-tasks`, `runtime`):
   ```bash

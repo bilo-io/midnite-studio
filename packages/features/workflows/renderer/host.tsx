@@ -1,7 +1,7 @@
 import { createContext, useContext, type ComponentType, type ReactNode } from 'react';
 
 import type { ActivityGlowSessionInput } from '@midnite/studio-frame';
-import type { WorkflowRun } from '@midnite/studio-shared';
+import type { AgentProfile, WorkflowRun } from '@midnite/studio-shared';
 
 /**
  * The workflows feature's host port — what this feature needs from the app that
@@ -119,12 +119,22 @@ export type WorkflowsHost = {
    * reads. A hook; an app with no terminal sessions answers an empty map.
    */
   useNodeSessions: (run: WorkflowRun | null) => ReadonlyMap<string, readonly ActivityGlowSessionInput[]>;
+  /**
+   * The saved custom agents an `agent` node may run as (#1699), listed first in its picker. A hook. Absent
+   * in an app with no custom agents: the picker offers the roster id alone. `undefined` while loading.
+   */
+  useAgentProfiles?: () => readonly Pick<AgentProfile, 'id' | 'name' | 'baseAgentId'>[] | undefined;
 };
 
 const WorkflowsHostContext = createContext<WorkflowsHost | null>(null);
 
 export function WorkflowsHostProvider({ host, children }: { host: WorkflowsHost; children: ReactNode }) {
   return <WorkflowsHostContext.Provider value={host}>{children}</WorkflowsHostContext.Provider>;
+}
+
+/** The installed host, or `null` outside a provider (a bare form test). */
+export function useOptionalWorkflowsHost(): WorkflowsHost | null {
+  return useContext(WorkflowsHostContext);
 }
 
 /** The installed host. Throws without a provider — unwired, the view would have no sizes and no chrome. */

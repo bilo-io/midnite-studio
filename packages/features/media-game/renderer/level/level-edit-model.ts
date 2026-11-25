@@ -3,7 +3,28 @@
  * never writes must survive), every op returns a new {@link EditState} and shares structure with the old one, so
  * undo is a stack of references and "dirty" is a reference comparison with the last saved level.
  */
-import { GAME_LEVEL_PROPS } from '@midnite/studio-shared';
+import {
+  GAME_LEVEL_PROPS,
+  LEVEL_TIME_OF_DAY_MAX,
+  LEVEL_WEATHER_AUTO,
+  SPAWNER_DEFAULT_DENSITY,
+  SPAWNER_KINDS,
+  SPAWNER_TYPE,
+  PREFAB_PROPS,
+  applyLevelOps,
+  instantiatePrefab,
+  prefabFromObjects,
+  prefabOverrides,
+  updateInstances,
+  type GamePrefab,
+  type LevelEntityFields,
+  type LevelOp,
+  type LevelOpsContext,
+  type LevelOpsResult,
+  type PrefabSourceObject,
+} from '@midnite/studio-shared';
+
+import { objectExtentPoints, refKey, sameRef } from './level-selection';
 
 export type LevelProperty = { name: string; type: 'string' | 'int' | 'float' | 'bool' | 'color' | 'file'; value: unknown };
 
@@ -53,14 +74,25 @@ export type EditLevel = {
 export const UNDO_LIMIT = 100;
 
 export type Cell = { x: number; y: number };
-export type EditSelection = { layerId: number; objectId: number } | null;
+/** One object, addressed by its layer and its id (Tiled ids are unique per map, but the layer keeps lookups O(layer)). */
+export type ObjectRef = { layerId: number; objectId: number };
+export type EditSelection = ObjectRef | null;
+/** A rectangle in map pixels; `width` and `height` are normalised to be at least 0. */
+export type PlanRect = { x: number; y: number; width: number; height: number };
 
 export type EditState = {
   level: EditLevel;
   /** The level as last loaded or saved: `dirty` is `level !== saved`. */
   saved: EditLevel;
   activeLayerId: number | null;
+  /**
+   * The PRIMARY selected object: the inspector's subject and the gizmo's pivot object. Invariant (every op keeps it,
+   * `level-edit-model.test.ts` asserts it): `selection === null` iff `selected` is empty, and a set `selection` is
+   * an element of `selected`. Read `selected` for "what is selected", `selection` for "which one is active".
+   */
   selection: EditSelection;
+  /** Every selected object, in the order they were added; the primary is normally the last. Never holds duplicates. */
+  selected: readonly ObjectRef[];
   dirty: boolean;
   past: EditLevel[];
   future: EditLevel[];
@@ -82,7 +114,7 @@ function withLayerIds(level: EditLevel): EditLevel {
 export function createEditState(level: EditLevel): EditState {
   const prepared = withLayerIds(level);
   const first = prepared.layers.find(isTile) ?? prepared.layers[0];
-  return { level: prepared, saved: prepared, activeLayerId: first?.id ?? null, selection: null, dirty: false, past: [], future: [], stroke: null };
+  return { level: prepared, saved: prepared, activeLayerId: first?.id ?? null, selection: null, selected: [], dirty: false, past: [], future: [], stroke: null };
 }
 
 export const layerById = (level: EditLevel, id: number | null): LevelLayer | undefined => level.layers.find((l) => l.id === id);
@@ -121,9 +153,98 @@ const mapLayers = (level: EditLevel, id: number, fn: (layer: LevelLayer) => Leve
 export const beginStroke = (state: EditState): EditState => ({ ...state, stroke: { pushed: false } });
 export const endStroke = (state: EditState): EditState => (state.stroke ? { ...state, stroke: null } : state);
 export const setActiveLayer = (state: EditState, layerId: number): EditState =>
-  layerById(state.level, layerId) ? { ...state, activeLayerId: layerId, selection: null } : state;
-export const select = (state: EditState, selection: EditSelection): EditState => ({ ...state, selection });
+  layerById(state.level, layerId) ? { ...state, activeLayerId: layerId, selection: null, selected: [] } : state;
 export const markSaved = (state: EditState): EditState => ({ ...state, saved: state.level, dirty: false });
+
+// --- selection (Phase 137 Theme A) -----------------------------------------------------
+//
+// Selection is not an undo step: it never touches `past`, and every op returns the same reference when the
+// selection would not change. `primary` is kept when it survives, else the last ref becomes primary.
+
+const NO_SELECTION: Pick<EditState, 'selection' | 'selected'> = { selection: null, selected: [] };
+
+/** The state with `refs` selected (deduplicated, order kept). Same reference when nothing changed. */
+function withSelected(state: EditState, refs: readonly ObjectRef[], primary: ObjectRef | null): EditState {
+  const seen = new Set<string>();
+  const list = refs.filter((r) => (seen.has(refKey(r)) ? false : (seen.add(refKey(r)), true)));
+  const nextPrimary = list.length === 0 ? null : (primary && list.find((r) => sameRef(r, primary))) || list[list.length - 1]!;
+  const same =
+    list.length === state.selected.length && list.every((r, i) => sameRef(r, state.selected[i]!)) && sameRef(nextPrimary, state.selection);
+  if (same) return state;
+  return { ...state, ...(list.length === 0 ? NO_SELECTION : { selection: nextPrimary, selected: list }) };
+}
+
+/** Select exactly `ref` (or clear with `null`); it is the primary. A plain click. */
+export const selectOnly = (state: EditState, ref: ObjectRef | null): EditState => withSelected(state, ref ? [ref] : [], ref);
+
+/** The pre-137 name for {@link selectOnly}; the signature is unchanged. */
+export const select = (state: EditState, selection: EditSelection): EditState => selectOnly(state, selection);
+
+/** Mod-click: add an absent ref (it becomes primary) or remove a present one (the last remaining ref becomes primary). */
+export function toggleSelected(state: EditState, ref: ObjectRef): EditState {
+  if (state.selected.some((r) => sameRef(r, ref))) return withSelected(state, state.selected.filter((r) => !sameRef(r, ref)), state.selection);
+  return withSelected(state, [...state.selected, ref], ref);
+}
+
+/** Shift-click or an additive marquee: add `refs` that resolve to an object; the last one added becomes primary. */
+export function addSelected(state: EditState, refs: readonly ObjectRef[]): EditState {
+  const live = refs.filter((r) => findObject(state.level, r));
+  if (live.length === 0) return state;
+  return withSelected(state, [...state.selected.filter((s) => !live.some((r) => sameRef(r, s))), ...live], live[live.length - 1]!);
+}
+
+/** Every object of `layerId` that sits fully inside `rect` (the marquee rule: a big floor that merely crosses the edge stays out). */
+function objectsInRect(level: EditLevel, layerIds: readonly number[], rect: PlanRect, filter?: (ref: ObjectRef) => boolean): ObjectRef[] {
+  const out: ObjectRef[] = [];
+  for (const layer of level.layers) {
+    if (!isObjects(layer) || typeof layer.id !== 'number' || !layerIds.includes(layer.id)) continue;
+    for (const o of layer.objects ?? []) {
+      const ref = { layerId: layer.id, objectId: o.id };
+      if (filter && !filter(ref)) continue;
+      const points = objectExtentPoints(o);
+      if (points.every((p) => p.x >= rect.x && p.x <= rect.x + rect.width && p.y >= rect.y && p.y <= rect.y + rect.height)) out.push(ref);
+    }
+  }
+  return out;
+}
+
+/**
+ * A marquee over `layerIds`: `'replace'` selects exactly what the rectangle encloses, `'add'` (Shift) unions it with the
+ * selection, `'toggle'` (Mod) flips each enclosed object. `filter` is Theme H's `isSelectable` (hidden / locked refs).
+ * The last enclosed object becomes primary; a marquee that encloses nothing leaves `'add'` / `'toggle'` untouched and
+ * clears on `'replace'`.
+ */
+export function selectInRect(state: EditState, layerIds: readonly number[], rect: PlanRect, mode: 'replace' | 'add' | 'toggle', filter?: (ref: ObjectRef) => boolean): EditState {
+  const hit = objectsInRect(state.level, layerIds, rect, filter);
+  if (mode === 'replace') return withSelected(state, hit, hit[hit.length - 1] ?? null);
+  if (hit.length === 0) return state;
+  if (mode === 'add') return addSelected(state, hit);
+  return hit.reduce((s, ref) => toggleSelected(s, ref), state);
+}
+
+/** Mod+A: every object on `layerId` (empty for a tile layer or an unknown id, which clears nothing). */
+export function selectAllInLayer(state: EditState, layerId: number): EditState {
+  const layer = layerById(state.level, layerId);
+  if (!layer || !isObjects(layer)) return state;
+  const refs = (layer.objects ?? []).map((o) => ({ layerId, objectId: o.id }));
+  return refs.length === 0 ? state : withSelected(state, refs, refs[refs.length - 1]!);
+}
+
+/** The selected objects with their refs, in selection order; a ref that no longer resolves is skipped. A query. */
+export function selectedObjects(state: EditState): Array<{ ref: ObjectRef; object: LevelObject }> {
+  const out: Array<{ ref: ObjectRef; object: LevelObject }> = [];
+  for (const ref of state.selected) {
+    const object = findObject(state.level, ref);
+    if (object) out.push({ ref, object });
+  }
+  return out;
+}
+
+/** `selected` restricted to refs that still resolve in `level`; the primary survives when it does. */
+function pruneSelected(state: EditState, level: EditLevel): EditState {
+  const live = state.selected.filter((r) => findObject(level, r));
+  return withSelected(state, live, state.selection);
+}
 
 // --- tiles ---------------------------------------------------------------------------
 
@@ -199,7 +320,7 @@ export function addObject(
     ...(input.properties ? { properties: input.properties } : {}),
   };
   const level = mapLayers(state.level, layerId, (l) => ({ ...l, objects: [...(l.objects ?? []), object] }));
-  return commit(state, { ...level, nextobjectid: id + 1 }, { selection: { layerId, objectId: id } });
+  return commit(state, { ...level, nextobjectid: id + 1 }, { selection: { layerId, objectId: id }, selected: [{ layerId, objectId: id }] });
 }
 
 function mapObject(state: EditState, sel: NonNullable<EditSelection>, fn: (o: LevelObject) => LevelObject): EditState {
@@ -220,10 +341,95 @@ function mapObject(state: EditState, sel: NonNullable<EditSelection>, fn: (o: Le
 export const moveObject = (state: EditState, sel: NonNullable<EditSelection>, x: number, y: number): EditState =>
   mapObject(state, sel, (o) => (o.x === x && o.y === y ? o : { ...o, x, y }));
 
-export function deleteObject(state: EditState, sel: NonNullable<EditSelection>): EditState {
-  const level = mapLayers(state.level, sel.layerId, (l) => (l.objects?.some((o) => o.id === sel.objectId) ? { ...l, objects: l.objects.filter((o) => o.id !== sel.objectId) } : l));
-  const patch: Partial<EditState> = state.selection && state.selection.objectId === sel.objectId && state.selection.layerId === sel.layerId ? { selection: null } : {};
-  return commit(state, level, patch);
+/**
+ * Apply `fn` to every ref'd object in one pass (`null` deletes it). Returns the SAME level when nothing changed, so
+ * the caller's `commit` records nothing; otherwise a single new level, which is what makes a group op one undo step.
+ */
+function mapRefs(level: EditLevel, refs: readonly ObjectRef[], fn: (o: LevelObject) => LevelObject | null): EditLevel {
+  const byLayer = new Map<number, Set<number>>();
+  for (const r of refs) (byLayer.get(r.layerId) ?? byLayer.set(r.layerId, new Set()).get(r.layerId)!).add(r.objectId);
+  let out = level;
+  for (const [layerId, ids] of byLayer) {
+    out = mapLayers(out, layerId, (l) => {
+      if (!l.objects) return l;
+      let changed = false;
+      const objects: LevelObject[] = [];
+      for (const o of l.objects) {
+        if (!ids.has(o.id)) { objects.push(o); continue; }
+        const next = fn(o);
+        if (next !== o) changed = true;
+        if (next) objects.push(next);
+      }
+      return changed ? { ...l, objects } : l;
+    });
+  }
+  return out;
+}
+
+/** Move every ref'd object by `(dx, dy)` object coordinates, as one undo step; the selection is untouched. */
+export function moveObjects(state: EditState, refs: readonly ObjectRef[], dx: number, dy: number): EditState {
+  if (!Number.isFinite(dx) || !Number.isFinite(dy) || (dx === 0 && dy === 0)) return state;
+  return commit(state, mapRefs(state.level, refs, (o) => ({ ...o, x: o.x + dx, y: o.y + dy })));
+}
+
+/**
+ * Move each ref'd object by its own `(dx, dy)` (object coordinates), as one undo step; the selection is untouched.
+ * Align and distribute (Phase 137 Theme E) move every object by a different amount. Zero deltas change nothing.
+ */
+export function translateObjects(state: EditState, moves: ReadonlyArray<{ ref: ObjectRef; dx: number; dy: number }>): EditState {
+  const by = new Map<string, { dx: number; dy: number }>();
+  for (const m of moves) if (Number.isFinite(m.dx) && Number.isFinite(m.dy) && (m.dx !== 0 || m.dy !== 0)) by.set(refKey(m.ref), { dx: m.dx, dy: m.dy });
+  if (by.size === 0) return state;
+  let level = state.level;
+  for (const layerId of new Set(moves.map((m) => m.ref.layerId))) {
+    level = mapLayers(level, layerId, (l) => {
+      if (!l.objects) return l;
+      let changed = false;
+      const objects = l.objects.map((o) => {
+        const d = by.get(refKey({ layerId, objectId: o.id }));
+        if (!d) return o;
+        changed = true;
+        return { ...o, x: o.x + d.dx, y: o.y + d.dy };
+      });
+      return changed ? { ...l, objects } : l;
+    });
+  }
+  return commit(state, level);
+}
+
+/**
+ * Add new objects (paste and duplicate, Phase 137 Theme B) as ONE undo step. Each `object` is a template: its `id`
+ * is replaced by a fresh one, everything else is kept. An item whose layer is missing or not an object layer is
+ * skipped. The inserted objects become the selection, the last one primary.
+ */
+export function insertObjects(state: EditState, items: ReadonlyArray<{ layerId: number; object: Omit<LevelObject, 'id'> }>): EditState {
+  let level = state.level;
+  let id = nextObjectId(level);
+  const made: ObjectRef[] = [];
+  for (const { layerId, object } of items) {
+    const layer = layerById(level, layerId);
+    if (!layer || !isObjects(layer)) continue;
+    const next = { ...object, id } as LevelObject;
+    level = mapLayers(level, layerId, (l) => ({ ...l, objects: [...(l.objects ?? []), next] }));
+    made.push({ layerId, objectId: id });
+    id += 1;
+  }
+  if (made.length === 0) return state;
+  return commit(state, { ...level, nextobjectid: id }, { selection: made[made.length - 1]!, selected: made });
+}
+
+/** {@link moveObjects}, named for the arrow keys. */
+export const nudgeObjects = moveObjects;
+
+export const deleteObject = (state: EditState, sel: NonNullable<EditSelection>): EditState => deleteObjects(state, [sel]);
+
+/** Delete every ref that resolves, as one undo step. They leave the selection; the remaining selection keeps its primary. */
+export function deleteObjects(state: EditState, refs: readonly ObjectRef[]): EditState {
+  const level = mapRefs(state.level, refs, (_o) => null);
+  if (level === state.level) return state;
+  const kept = state.selected.filter((s) => !refs.some((r) => sameRef(r, s)));
+  const patch = withSelected(state, kept, state.selection);
+  return commit(state, level, { selection: patch.selection, selected: patch.selected });
 }
 
 export type ObjectField = 'name' | 'type' | 'x' | 'y' | 'width' | 'height' | 'rotation';
@@ -235,6 +441,24 @@ export function setObjectField(state: EditState, sel: NonNullable<EditSelection>
     const next: LevelObject = { ...o, [field]: value };
     // An object given a footprint stops being a point.
     if ((field === 'width' || field === 'height') && typeof value === 'number' && value > 0) delete next.point;
+    // A prefab instance remembers what was edited by hand, so an update leaves it alone (Phase 139 Theme G).
+    return OVERRIDABLE_FIELDS.includes(field) ? withOverride(next, field) : next;
+  });
+}
+
+/**
+ * Set an object's position as ONE undo step (Phase 140 Theme E, "Copy live position"): its `x`/`y` and, for a 3D
+ * level, its `elevation` property. Nothing else about the object changes. The same reference comes back when the
+ * object already sits there.
+ */
+export function setObjectPlacement(state: EditState, sel: NonNullable<EditSelection>, at: { x: number; y: number; elevation?: number }): EditState {
+  if (!Number.isFinite(at.x) || !Number.isFinite(at.y) || (at.elevation !== undefined && !Number.isFinite(at.elevation))) return state;
+  return mapObject(state, sel, (o) => {
+    const elevation = at.elevation === undefined ? undefined : o.properties?.find((p) => p.name === 'elevation')?.value;
+    const sameElevation = at.elevation === undefined || elevation === at.elevation;
+    if (o.x === at.x && o.y === at.y && sameElevation) return o;
+    const next: LevelObject = { ...o, x: at.x, y: at.y };
+    if (at.elevation !== undefined && !sameElevation) next.properties = upsert(o.properties, { name: 'elevation', type: 'float', value: at.elevation });
     return next;
   });
 }
@@ -269,7 +493,10 @@ export function setProperty(state: EditState, target: NonNullable<EditSelection>
   if (value === null || name.trim() === '') return state;
   const prop: LevelProperty = { name, type, value };
   if (target === 'map') return commit(state, { ...state.level, properties: upsert(state.level.properties, prop) });
-  return mapObject(state, target, (o) => ({ ...o, properties: upsert(o.properties, prop) }));
+  return mapObject(state, target, (o) => {
+    const next = { ...o, properties: upsert(o.properties, prop) };
+    return isPrefabTag(name) ? next : withOverride(next, `properties.${name}`);
+  });
 }
 
 export function removeProperty(state: EditState, target: NonNullable<EditSelection> | 'map', name: string): EditState {
@@ -280,7 +507,9 @@ export function removeProperty(state: EditState, target: NonNullable<EditSelecti
   }
   return mapObject(state, target, (o) => {
     const properties = drop(o.properties);
-    return properties === o.properties ? o : { ...o, properties };
+    if (properties === o.properties) return o;
+    const next = { ...o, properties };
+    return isPrefabTag(name) ? next : withOverride(next, `properties.${name}`);
   });
 }
 
@@ -341,6 +570,67 @@ export function setVolume(state: EditState, layerId: number, from: PlanPoint, to
   });
 }
 
+// --- level environment and spawners ----------------------------------------------------
+
+/** `midnite.weather`: `auto` or empty removes it (the game decides), anything else is set. One undo step. */
+export function setLevelWeather(state: EditState, raw: string): EditState {
+  const weather = raw.trim();
+  return weather === '' || weather === LEVEL_WEATHER_AUTO ? removeProperty(state, 'map', GAME_LEVEL_PROPS.weather) : setProperty(state, 'map', GAME_LEVEL_PROPS.weather, 'string', weather);
+}
+
+/** `midnite.timeOfDay` in hours: empty removes it (the game's default), text that is not a number changes nothing, 0 to 24 is clamped. */
+export function setLevelTimeOfDay(state: EditState, raw: string): EditState {
+  if (raw.trim() === '') return removeProperty(state, 'map', GAME_LEVEL_PROPS.timeOfDay);
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return state;
+  return setProperty(state, 'map', GAME_LEVEL_PROPS.timeOfDay, 'float', Math.min(LEVEL_TIME_OF_DAY_MAX, Math.max(0, n)));
+}
+
+/** `midnite.timeScale`: empty removes it (1), text that is not a number changes nothing, a negative number reads as 0 (frozen). */
+export function setLevelTimeScale(state: EditState, raw: string): EditState {
+  if (raw.trim() === '') return removeProperty(state, 'map', GAME_LEVEL_PROPS.timeScale);
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return state;
+  return setProperty(state, 'map', GAME_LEVEL_PROPS.timeScale, 'float', Math.max(0, n));
+}
+
+/** Tiles a freshly placed spawner covers on each side. */
+export const DEFAULT_SPAWNER_TILES = 10;
+
+const spawnerProperties = (spawns: string) => [
+  { name: 'spawns', type: 'string' as const, value: spawns },
+  { name: 'density', type: 'float' as const, value: SPAWNER_DEFAULT_DENSITY },
+];
+
+/** A `spawner` zone with its top-left at `at`: `spawns` traffic at density 1, ten tiles square. */
+export function addSpawner(state: EditState, layerId: number, at: PlanPoint): EditState {
+  return addObject(state, layerId, {
+    type: SPAWNER_TYPE,
+    x: at.x,
+    y: at.y,
+    width: state.level.tilewidth * DEFAULT_SPAWNER_TILES,
+    height: state.level.tileheight * DEFAULT_SPAWNER_TILES,
+    properties: spawnerProperties(SPAWNER_KINDS[0]),
+  });
+}
+
+/**
+ * Drag a rectangle (map pixels) into a `spawner` zone that `spawns` the given kind at density 1, as one undo step.
+ * A drag smaller than a pixel in either direction adds nothing, as with {@link setVolume}.
+ */
+export function drawSpawner(state: EditState, layerId: number, from: PlanPoint, to: PlanPoint, spawns: string = SPAWNER_KINDS[0]): EditState {
+  const width = Math.abs(to.x - from.x), height = Math.abs(to.y - from.y);
+  if (width < 1 || height < 1) return state;
+  return addObject(setActiveLayer(state, layerId), layerId, {
+    type: SPAWNER_TYPE,
+    x: Math.min(from.x, to.x),
+    y: Math.min(from.y, to.y),
+    width,
+    height,
+    properties: spawnerProperties(spawns.trim() || SPAWNER_KINDS[0]),
+  });
+}
+
 /** A path being drawn: the points so far, a repeated point ignored. Pure, so the editor can keep the draft in view state. */
 export function addPathPoint(draft: readonly PlanPoint[], point: PlanPoint): PlanPoint[] {
   const last = draft[draft.length - 1];
@@ -380,7 +670,7 @@ export function addLayer(state: EditState, kind: 'tile' | 'object', name: string
     kind === 'tile'
       ? { ...common, type: 'tilelayer', width: state.level.width, height: state.level.height, data: new Array<number>(state.level.width * state.level.height).fill(0) }
       : { ...common, type: 'objectgroup', draworder: 'topdown', objects: [] };
-  return commit(state, { ...state.level, layers: [...state.level.layers, layer], nextlayerid: id + 1 }, { activeLayerId: id, selection: null });
+  return commit(state, { ...state.level, layers: [...state.level.layers, layer], nextlayerid: id + 1 }, { activeLayerId: id, selection: null, selected: [] });
 }
 
 export const renameLayer = (state: EditState, layerId: number, name: string): EditState =>
@@ -394,13 +684,37 @@ export const toggleVisible = (state: EditState, layerId: number): EditState =>
 export function undo(state: EditState): EditState {
   const previous = state.past[state.past.length - 1];
   if (!previous) return state;
-  return { ...state, level: previous, past: state.past.slice(0, -1), future: [state.level, ...state.future], dirty: previous !== state.saved, selection: null, stroke: null };
+  return pruneSelected({ ...state, level: previous, past: state.past.slice(0, -1), future: [state.level, ...state.future], dirty: previous !== state.saved, stroke: null }, previous);
 }
 
 export function redo(state: EditState): EditState {
   const next = state.future[0];
   if (!next) return state;
-  return { ...state, level: next, past: [...state.past, state.level], future: state.future.slice(1), dirty: next !== state.saved, selection: null, stroke: null };
+  return pruneSelected({ ...state, level: next, past: [...state.past, state.level], future: state.future.slice(1), dirty: next !== state.saved, stroke: null }, next);
+}
+
+/**
+ * Apply an agent's op batch (Phase 138 Theme F) as ONE undo step: `applyLevelOps` is all-or-nothing, and its resulting
+ * level is committed once, so `undo` reverts the whole batch. A failed batch returns the state unchanged. With
+ * `select` the added and updated objects become the selection (the last one primary).
+ */
+export function applyAgentOps(
+  state: EditState,
+  ops: readonly LevelOp[],
+  ctx: LevelOpsContext & { select?: boolean },
+): { state: EditState; result: LevelOpsResult } {
+  const result = applyLevelOps(serialise(state), ops, { unit: ctx.unit, entityTypes: ctx.entityTypes, ...(ctx.prefabs ? { prefabs: ctx.prefabs } : {}) });
+  if (!result.ok) return { state, result };
+  let next = commit(state, result.level as EditLevel);
+  if (ctx.select) {
+    const refs: ObjectRef[] = [];
+    for (const id of [...result.added, ...result.updated]) {
+      const layer = next.level.layers.find((l) => l.objects?.some((o) => o.id === id));
+      if (layer && typeof layer.id === 'number') refs.push({ layerId: layer.id, objectId: id });
+    }
+    next = addSelected(selectOnly(next, null), refs);
+  }
+  return { state: next, result };
 }
 
 /** The level to write: every field the editor did not touch is exactly as it was read. */
@@ -451,4 +765,200 @@ export function toEditLevel(raw: unknown): EditLevel | null {
   if (m.orientation !== 'orthogonal' && m.orientation !== 'isometric') return null;
   const layers = (m.layers as Array<Record<string, unknown>>).map((l) => ({ ...l, name: typeof l.name === 'string' ? l.name : '' }));
   return { ...m, layers } as EditLevel;
+}
+
+// --- prefabs (Phase 139 Theme G) ----------------------------------------------------------
+//
+// An instance is ordinary objects tagged `midnite.prefab`, `midnite.prefabInstance` and `midnite.prefabIndex`. Every op
+// here is one undo step, and none of them touches the kit: the tags are plain Tiled properties.
+
+const OVERRIDABLE_FIELDS: readonly string[] = ['name', 'type', 'width', 'height'];
+const PREFAB_TAGS: readonly string[] = [PREFAB_PROPS.prefab, PREFAB_PROPS.instance, PREFAB_PROPS.index, PREFAB_PROPS.overrides];
+const isPrefabTag = (name: string): boolean => PREFAB_TAGS.includes(name);
+
+const propOf = (o: Pick<LevelObject, 'properties'>, name: string): unknown => o.properties?.find((p) => p.name === name)?.value;
+
+export type PrefabInstanceInfo = { prefab: string; instance: string; index: number };
+
+/** Which prefab and instance an object belongs to, or `null` for a plain object. */
+export function prefabInstanceOf(o: Pick<LevelObject, 'properties'>): PrefabInstanceInfo | null {
+  const prefab = propOf(o, PREFAB_PROPS.prefab);
+  const instance = propOf(o, PREFAB_PROPS.instance);
+  if (typeof prefab !== 'string' || typeof instance !== 'string') return null;
+  const index = propOf(o, PREFAB_PROPS.index);
+  return { prefab, instance, index: typeof index === 'number' ? index : 0 };
+}
+
+/** The dotted fields an instance object has edited by hand (`width`, `properties.speed`). */
+export const overriddenFields = (o: Pick<LevelObject, 'properties'>): string[] => prefabOverrides(o.properties);
+
+function setOverrides(o: LevelObject, fields: readonly string[]): LevelObject {
+  const rest = (o.properties ?? []).filter((p) => p.name !== PREFAB_PROPS.overrides);
+  return { ...o, properties: fields.length ? [...rest, { name: PREFAB_PROPS.overrides, type: 'string', value: fields.join(',') }] : rest };
+}
+
+/** Record `field` as hand-edited on an instance object; a plain object is returned unchanged. */
+function withOverride(o: LevelObject, field: string): LevelObject {
+  if (!prefabInstanceOf(o)) return o;
+  const have = overriddenFields(o);
+  return have.includes(field) ? o : setOverrides(o, [...have, field]);
+}
+
+const inferPropertyType = (value: unknown): LevelProperty['type'] => (typeof value === 'boolean' ? 'bool' : typeof value === 'number' ? (Number.isInteger(value) ? 'int' : 'float') : 'string');
+
+/** An editor object as the prefab file's entity (the id and the prefab tags are dropped by `prefabFromObjects`). */
+export function objectToEntity(o: LevelObject): PrefabSourceObject {
+  const props: Record<string, string | number | boolean> = {};
+  for (const p of o.properties ?? []) if (typeof p.value === 'string' || typeof p.value === 'number' || typeof p.value === 'boolean') props[p.name] = p.value;
+  const polyline = Array.isArray(o.polyline) ? (o.polyline as Array<{ x: number; y: number }>) : undefined;
+  return {
+    type: o.type || o.class || 'object',
+    ...(o.name ? { name: o.name } : {}),
+    x: o.x,
+    y: o.y,
+    ...(o.width !== undefined ? { width: o.width } : {}),
+    ...(o.height !== undefined ? { height: o.height } : {}),
+    ...(o.rotation !== undefined ? { rotation: o.rotation } : {}),
+    ...(o.point ? { point: true } : {}),
+    ...(polyline ? { polyline } : {}),
+    ...(Object.keys(props).length ? { properties: props } : {}),
+  };
+}
+
+/** A prefab entity as a new level object (no id: `insertObjects` assigns one). */
+export function entityToObject(e: LevelEntityFields): Omit<LevelObject, 'id'> {
+  return {
+    name: e.name ?? '',
+    type: e.type,
+    x: e.x,
+    y: e.y,
+    width: e.width ?? 0,
+    height: e.height ?? 0,
+    rotation: e.rotation ?? 0,
+    visible: true,
+    ...(e.point ? { point: true } : {}),
+    ...(e.polyline ? { polyline: e.polyline } : {}),
+    properties: Object.entries(e.properties ?? {}).map(([name, value]) => ({ name, type: inferPropertyType(value), value })),
+  };
+}
+
+/** The prefab file for the selected objects, in selection order (an object's place in the list is its `prefabIndex`). */
+export function prefabFromSelection(state: EditState, name: string, dimension: '2d' | '3d', description?: string): GamePrefab | null {
+  const objects = selectedObjects(state).map((s) => objectToEntity(s.object));
+  return objects.length ? prefabFromObjects(name, dimension, objects, description) : null;
+}
+
+const tag = (o: LevelObject, prefab: string, instance: string, index: number): LevelObject => ({
+  ...o,
+  properties: [
+    ...(o.properties ?? []).filter((p) => !isPrefabTag(p.name)),
+    { name: PREFAB_PROPS.prefab, type: 'string', value: prefab },
+    { name: PREFAB_PROPS.instance, type: 'string', value: instance },
+    { name: PREFAB_PROPS.index, type: 'int', value: index },
+  ],
+});
+
+/** "Save selection as prefab": the selected objects become one instance of `prefabName`, tagged in selection order. One undo step. */
+export function convertToInstance(state: EditState, prefabName: string, instanceId: string): EditState {
+  const refs = state.selected;
+  const order = new Map(refs.map((r, i) => [refKey(r), i] as const));
+  let level = state.level;
+  for (const layer of state.level.layers) {
+    if (!isObjects(layer) || typeof layer.id !== 'number') continue;
+    const mine = refs.filter((r) => r.layerId === layer.id);
+    if (!mine.length) continue;
+    const ids = new Set(mine.map((r) => r.objectId));
+    level = mapLayers(level, layer.id, (l) => ({ ...l, objects: (l.objects ?? []).map((o) => (ids.has(o.id) ? tag(o, prefabName, instanceId, order.get(refKey({ layerId: layer.id!, objectId: o.id }))!) : o)) }));
+  }
+  return commit(state, level);
+}
+
+/** Place one instance of `prefab` at `at` on `layerId`, selected, as one undo step. */
+export function placePrefab(state: EditState, layerId: number, prefab: GamePrefab, at: PlanPoint, instanceId: string, rotation = 0): EditState {
+  const items = instantiatePrefab(prefab, at, rotation, instanceId).map((e) => ({ layerId, object: entityToObject(e) }));
+  return insertObjects(state, items);
+}
+
+/** Every object on the level that belongs to the same instance as `ref`, `ref` included (just `ref` for a plain object). */
+export function instanceRefs(level: EditLevel, ref: ObjectRef): ObjectRef[] {
+  const self = findObject(level, ref);
+  const inst = self ? prefabInstanceOf(self) : null;
+  if (!inst) return [ref];
+  const out: ObjectRef[] = [];
+  for (const layer of level.layers) {
+    if (!isObjects(layer) || typeof layer.id !== 'number') continue;
+    for (const o of layer.objects ?? []) {
+      const i = prefabInstanceOf(o);
+      if (i && i.prefab === inst.prefab && i.instance === inst.instance) out.push({ layerId: layer.id, objectId: o.id });
+    }
+  }
+  return out;
+}
+
+/** Click an instance object: the whole instance is selected, `ref` primary. Alt-click uses `selectOnly` instead. */
+export function selectPrefabInstance(state: EditState, ref: ObjectRef): EditState {
+  return withSelected(state, instanceRefs(state.level, ref), ref);
+}
+
+/** Every object of every instance of `prefabName` in the level. */
+export function prefabObjectRefs(level: EditLevel, prefabName: string): ObjectRef[] {
+  const out: ObjectRef[] = [];
+  for (const layer of level.layers) {
+    if (!isObjects(layer) || typeof layer.id !== 'number') continue;
+    for (const o of layer.objects ?? []) if (prefabInstanceOf(o)?.prefab === prefabName) out.push({ layerId: layer.id, objectId: o.id });
+  }
+  return out;
+}
+
+/** How many instances of `prefabName` the level holds (distinct instance ids). */
+export function countInstances(level: EditLevel, prefabName: string): number {
+  const ids = new Set<string>();
+  for (const ref of prefabObjectRefs(level, prefabName)) {
+    const o = findObject(level, ref);
+    const i = o ? prefabInstanceOf(o) : null;
+    if (i) ids.add(i.instance);
+  }
+  return ids.size;
+}
+
+/** "Select instances": every object of every instance of `prefabName`. */
+export function selectInstancesOf(state: EditState, prefabName: string): EditState {
+  const refs = prefabObjectRefs(state.level, prefabName);
+  return refs.length ? withSelected(state, refs, refs[refs.length - 1]!) : state;
+}
+
+/** "Unpack": the instance of `ref` becomes plain objects (the tags and overrides go). One undo step. */
+export function unpackInstance(state: EditState, ref: ObjectRef): EditState {
+  const refs = instanceRefs(state.level, ref);
+  const level = mapRefs(state.level, refs, (o) => (prefabInstanceOf(o) ? { ...o, properties: (o.properties ?? []).filter((p) => !isPrefabTag(p.name)) } : o));
+  return commit(state, level);
+}
+
+/** "Update from prefab": `updateInstances` over the level, overrides kept. One undo step; nothing to update is no step. */
+export function applyPrefabUpdate(state: EditState, prefab: GamePrefab): { state: EditState; updated: number; skippedFields: number } {
+  const result = updateInstances(state.level, prefab);
+  if (result.updated === 0) return { state, updated: 0, skippedFields: 0 };
+  return { state: commit(state, result.level as EditLevel), updated: result.updated, skippedFields: result.skippedFields };
+}
+
+/** "Revert": give an overridden field of one instance object back its prefab value and drop it from the overrides. One undo step. */
+export function revertOverride(state: EditState, sel: NonNullable<EditSelection>, field: string, prefab: GamePrefab): EditState {
+  return mapObject(state, sel, (o) => {
+    const inst = prefabInstanceOf(o);
+    if (!inst || !overriddenFields(o).includes(field)) return o;
+    const source = prefab.objects[inst.index];
+    let next: LevelObject = { ...o };
+    if (field.startsWith('properties.')) {
+      const name = field.slice('properties.'.length);
+      const value = source?.properties?.[name];
+      const rest = (o.properties ?? []).filter((p) => p.name !== name);
+      next.properties = value === undefined ? rest : [...rest, { name, type: inferPropertyType(value), value }];
+    } else if (source) {
+      const value = (source as Record<string, unknown>)[field];
+      if (value === undefined) delete (next as Record<string, unknown>)[field];
+      else (next as Record<string, unknown>)[field] = value;
+    }
+    next = setOverrides(next, overriddenFields(next).filter((f) => f !== field));
+    return next;
+  });
 }

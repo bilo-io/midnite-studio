@@ -280,6 +280,201 @@ html[data-motion='reduced'] .pill-shimmer {
   animation: none;
 }
 
+@keyframes session-guide-shimmer {
+  0% {
+    top: -36px;
+    opacity: 0;
+  }
+  6% {
+    opacity: 1;
+  }
+  32% {
+    opacity: 1;
+  }
+  38% {
+    top: calc(100% + 36px);
+    opacity: 0;
+  }
+  100% {
+    top: calc(100% + 36px);
+    opacity: 0;
+  }
+}
+
+.session-guide-shimmer {
+  animation: session-guide-shimmer 6s ease-in-out infinite paused;
+}
+
+html:not([data-window-focused='false']) .session-guide-shimmer {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .session-guide-shimmer {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .session-guide-shimmer {
+  animation: none;
+}
+
+/*
+ * The active accordion header's pulse. Every loop here and
+ * `session-guide-shimmer` share one 6s cycle, phase-locked by `syncPulse` in
+ * `frame/src/layout/explorer.tsx`. At 0% the chevron's halo peaks and lets
+ * go of a ring; in the same moment the guide node sets off down the line, a
+ * sweep leaves the halo across the header, and the repo logo and the name's
+ * outline catch it as it passes.
+ */
+@keyframes explorer-orb-halo {
+  0% {
+    box-shadow: 0 0 10px 3px hsl(var(--primary) / 0.55);
+  }
+  18% {
+    box-shadow: 0 0 4px 0 hsl(var(--primary) / 0.18);
+  }
+  100% {
+    box-shadow: 0 0 10px 3px hsl(var(--primary) / 0.55);
+  }
+}
+
+@keyframes explorer-orb-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  22%,
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+@keyframes explorer-header-sweep {
+  0% {
+    left: calc(14px - 25%);
+    opacity: 0;
+  }
+  3% {
+    opacity: 1;
+  }
+  24% {
+    opacity: 1;
+  }
+  30%,
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+
+/* The logo sits at the sweep's origin, so it flares with the halo's peak at 0%. */
+@keyframes explorer-logo-shimmer {
+  0%,
+  100% {
+    filter: brightness(1.5) drop-shadow(0 0 4px hsl(var(--primary) / 0.85));
+  }
+  10%,
+  92% {
+    filter: none;
+  }
+}
+
+/* The trailing controls' icons (the + picker) catch the sweep as it arrives at the right edge. */
+@keyframes explorer-trailing-shimmer {
+  0%,
+  17%,
+  31%,
+  100% {
+    stroke: currentColor;
+    filter: none;
+  }
+  24% {
+    stroke: hsl(var(--primary));
+    filter: drop-shadow(0 0 3px hsl(var(--primary) / 0.8));
+  }
+}
+
+@keyframes explorer-title-stroke {
+  0%,
+  5% {
+    -webkit-mask-position: 100% 0;
+    mask-position: 100% 0;
+  }
+  24%,
+  100% {
+    -webkit-mask-position: 0% 0;
+    mask-position: 0% 0;
+  }
+}
+
+.explorer-orb-halo {
+  animation: explorer-orb-halo 6s ease-in-out infinite paused;
+}
+
+.explorer-orb-ring {
+  animation: explorer-orb-ring 6s ease-out infinite paused;
+}
+
+.explorer-header-sweep {
+  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.22), transparent);
+  animation: explorer-header-sweep 6s ease-out infinite paused;
+}
+
+.explorer-logo-shimmer {
+  animation: explorer-logo-shimmer 6s ease-in-out infinite paused;
+}
+
+.explorer-trailing-shimmer svg {
+  animation: explorer-trailing-shimmer 6s ease-in-out infinite paused;
+  animation-delay: var(--pulse-delay, 0ms);
+}
+
+/* A duplicate of the name, drawn as outline only, revealed by a moving mask band. */
+.explorer-title-stroke {
+  color: transparent;
+  -webkit-text-stroke: 0.6px hsl(var(--primary));
+  -webkit-mask-image: linear-gradient(90deg, transparent 35%, #000 50%, transparent 65%);
+  mask-image: linear-gradient(90deg, transparent 35%, #000 50%, transparent 65%);
+  -webkit-mask-size: 300% 100%;
+  mask-size: 300% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: 100% 0;
+  mask-position: 100% 0;
+  animation: explorer-title-stroke 6s ease-in-out infinite paused;
+}
+
+html:not([data-window-focused='false']) .explorer-orb-halo,
+html:not([data-window-focused='false']) .explorer-orb-ring,
+html:not([data-window-focused='false']) .explorer-header-sweep,
+html:not([data-window-focused='false']) .explorer-logo-shimmer,
+html:not([data-window-focused='false']) .explorer-trailing-shimmer svg,
+html:not([data-window-focused='false']) .explorer-title-stroke {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .explorer-orb-halo,
+  html:not([data-motion='full']) .explorer-orb-ring,
+  html:not([data-motion='full']) .explorer-header-sweep,
+  html:not([data-motion='full']) .explorer-logo-shimmer,
+  html:not([data-motion='full']) .explorer-trailing-shimmer svg,
+  html:not([data-motion='full']) .explorer-title-stroke {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .explorer-orb-halo,
+html[data-motion='reduced'] .explorer-orb-ring,
+html[data-motion='reduced'] .explorer-header-sweep,
+html[data-motion='reduced'] .explorer-logo-shimmer,
+html[data-motion='reduced'] .explorer-trailing-shimmer svg,
+html[data-motion='reduced'] .explorer-title-stroke {
+  animation: none;
+}
+
 /*
  * Theme K.6: the cascade's own reduced-motion guard, app-owned rather than
  * borrowed from `@bilo-io/shell`'s universal `html[data-motion='reduced'] *`
@@ -1327,6 +1522,105 @@ html:not([data-window-focused='false']) .tab-loop-active-arc::after {
 
 html[data-motion='reduced'] .tab-loop-active-arc::before,
 html[data-motion='reduced'] .tab-loop-active-arc::after {
+  animation: none;
+}
+
+/* The terminal list's "Loops" group, while any loop session is live, expanded
+ * or collapsed: the whole group (just its header, when collapsed) wears the
+ * Loops panel's own treatment (`.gradient-frame`): a rainbow border ring with an inner rim glow, both cut
+ * to one arc that orbits the group. The arc is the overlay's own mask, so it
+ * clips the ring (`::before`) and the glow (`::after`) alike and the two can
+ * never drift apart. `--loops-orbit-angle` inherits, unlike the panel's
+ * angles, so both pseudos read the rotation the host animates. */
+@property --loops-orbit-angle {
+  syntax: '<angle>';
+  inherits: true;
+  initial-value: 0deg;
+}
+
+@keyframes loops-orbit-spin {
+  to {
+    --loops-orbit-angle: 360deg;
+  }
+}
+
+.loops-group-orbit {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  animation: loops-orbit-spin 4s linear infinite paused;
+  mask-image: conic-gradient(
+    from var(--loops-orbit-angle, 0deg),
+    #000 0deg,
+    #000 140deg,
+    transparent 175deg,
+    transparent 330deg,
+    #000 360deg
+  );
+  -webkit-mask-image: conic-gradient(
+    from var(--loops-orbit-angle, 0deg),
+    #000 0deg,
+    #000 140deg,
+    transparent 175deg,
+    transparent 330deg,
+    #000 360deg
+  );
+}
+
+/* The ring: the rainbow, shown only in a 2px band at the edge — the content box
+ * is cut out of the full box (`exclude`). */
+.loops-group-orbit::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(from var(--loops-orbit-angle, 0deg), var(--rainbow-ramp));
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+}
+
+/* The rim glow: the same rainbow, blurred, in an even band inside every edge
+ * (four linear ramps unioned — `.gradient-frame::before` explains why not one
+ * radial). */
+.loops-group-orbit::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(from var(--loops-orbit-angle, 0deg), var(--rainbow-ramp));
+  filter: blur(8px);
+  opacity: 0.55;
+  mask-image:
+    linear-gradient(to bottom, #000 0, transparent 16px),
+    linear-gradient(to top, #000 0, transparent 16px),
+    linear-gradient(to right, #000 0, transparent 16px),
+    linear-gradient(to left, #000 0, transparent 16px);
+  -webkit-mask-image:
+    linear-gradient(to bottom, #000 0, transparent 16px),
+    linear-gradient(to top, #000 0, transparent 16px),
+    linear-gradient(to right, #000 0, transparent 16px),
+    linear-gradient(to left, #000 0, transparent 16px);
+}
+
+html:not([data-window-focused='false']) .loops-group-orbit {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .loops-group-orbit {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .loops-group-orbit {
   animation: none;
 }
 

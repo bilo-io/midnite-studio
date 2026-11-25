@@ -1,4 +1,4 @@
-# Midnite Studio — working notes for Codex
+# Midnite Studio — working notes for agents
 
 A desktop workspace for the whole loop around a repository: a GitKraken-inspired git client at
 its centre, with an integrated terminal and agent roster, an embedded browser, and the forge
@@ -9,39 +9,40 @@ its centre, with an integrated terminal and agent roster, an embedded browser, a
 carries the architecture, IPC contract, data model, and the verified research constraints
 (licensing, registry auth, native-module ABI) that every phase assumes.
 
-**Progress tracker: [`.midnite/tasks/`](.midnite/tasks/)** — `_INDEX.md` is the phase table across category folders (`FEATURES/`, `SECURITY/`, `ISSUES/`), `done.md` is the
-append-only landed log, `outstanding.md` is deliberately-deferred scope.
+**Progress tracker: GitHub issues on this repo's forge — never markdown files in git.** A phase is
+an issue labelled `phase` (plus `features`, `security` or `issues` for its category), each theme a
+sub-issue of it, and deferred scope an issue labelled `deferred`. The issue body's `## Headlines`
+section carries the per-theme narrative that used to live in the phase doc; the GitHub Project
+board is the index (Status, theme letters), and closed issues are the landed log. Read a phase's
+issue only once that phase is picked; when a theme lands, close its sub-issue and update the
+parent's Headlines paragraph.
 
-**`_INDEX.md` is status only — scan category tables, nothing else.** Its `## Phases` table (Status, Done,
-`🔄 WIP` and `◻ TODO` theme letters) across `FEATURES/_INDEX.md`, `SECURITY/_INDEX.md`, and
-`ISSUES/_INDEX.md` is all a session needs to find what is TODO, in flight or
-done. Each phase's narrative — why it exists, what landed, per-theme notes — lives in the
-`## Headlines` section at the top of its own category phase doc (e.g. `FEATURES/phases/phase-N-*.md`), one short paragraph per theme
-(`**Theme A — <name>.** ✅ …`). Read a phase's Headlines only once that phase is picked; when a
-theme lands or a phase is refined, verified or created, write the narrative into that doc's
-Headlines paragraph and touch only the phase's *row* in the category `_INDEX.md`. The index was 438 KB before
-the move; keeping prose out of it is what keeps the first read of every session cheap.
+**Local markdown plans are scratch files and stay out of git.** `.midnite/tasks/` and `todo/` are
+git-ignored. A session may draft a plan there, but it becomes real only once it is filed as issues;
+the pre-2026-11 tracker files remain on disk locally as history and are not updated any more.
 
-## Keep `CLAUDE.md`, `AGENTS.md` and `GEMINI.md` in sync
+## One convention file: `AGENTS.md`
 
-This repo drives three coding agents — **Claude** (`CLAUDE.md`), **Codex** (`AGENTS.md`, this
-file), and **Antigravity** (`GEMINI.md`) — each reading its own convention file by its own
-naming rule, not this one. All three carry the *same* conventions, so a session started with
-any of them sees the same rules.
+**`AGENTS.md` is the single source of the conventions every coding agent follows here.** Codex,
+Antigravity and most other agent CLIs in the roster (opencode, Copilot, Cursor, Cline, Kilo) read
+it directly. Claude Code reads only `CLAUDE.md`, so `CLAUDE.md` is a stub that imports this file
+(`@AGENTS.md`) and holds only notes that apply to Claude Code alone. There is no `GEMINI.md`:
+Antigravity reads `AGENTS.md`, and it used to load both files and see every rule twice.
 
-**Whenever you edit this file, apply the same edit to `CLAUDE.md` and `GEMINI.md`** — and the
-same the other way around: an edit landed in either of those two belongs in this file and the
-remaining one too. Keep prose agent-neutral (say "the agent" or "a session", not "Codex")
-except where the guidance is genuinely specific to one CLI's own behavior — that stays named,
-in the one file it actually applies to.
+**Edit the conventions here, never in `CLAUDE.md`.** Keep prose agent-neutral (say "the agent" or
+"a session", not a product name) except where the guidance is genuinely specific to one CLI's
+behaviour.
 
-## Where to work — ask before the first edit
+**Skills live in two mirrors: `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex,
+Antigravity and the other CLIs).** Keep the two in step: `node scripts/skills/sync-skills.mjs`
+audits them, and the Claude copy's extra frontmatter (`argument-hint`, `allowed-tools`) is
+intentional. There is no `.codex/skills/`: current Codex reads `.agents/skills/`.
 
-**At the start of every session, and again at the start of every new task, ask the user
-whether to work in the primary checkout (`/Users/bilolwabona/Dev/midnite-studio`) or in a
-worktree — and say that a worktree is the default.** Ask before the first file edit or
-branch switch, not after. The prompt is one line, e.g. _"Worktree (default) or the primary
-checkout for this one?"_.
+## Where to work — default to a worktree
+
+**Always create and work in a fresh worktree by default — do not ask the user.** Only work
+directly in the primary checkout (`/Users/bilo-ekko/Dev/midnite/midnite-studio`) if the user
+explicitly asks to in this session.
 
 Why: several sessions can be live at once. A session that quietly checks out a branch or
 edits files in the primary checkout stomps on whatever the human has open there — and the
@@ -73,7 +74,7 @@ damage is invisible until they switch back to a dirty tree on a branch they did 
 
 ## Toolchain
 
-`proto use` installs the pinned node 22.12.0 / pnpm 9.15.0 / moon 2.3.4 (`.prototools`).
+`proto use` installs the pinned node 24.22.2 / pnpm 10.34.9 / moon 2.6.5 (`.prototools`).
 Everything runs through moon:
 
 ```sh
@@ -100,6 +101,10 @@ shared ◀ desktop
 
                  renderer side                                main side
 shared ◀ frame ◀ feature/renderer ◀ app          shared ◀ runtime ◀ feature/main ◀ desktop
+
+                 pure cores (no React, no electron, `shared` only)
+shared ◀ tasks-core ◀ feature/tasks, mobile       shared ◀ forge-github-core ◀ feature/forge main, mobile
+shared + tasks-core + forge-github-core + git-engine/diff ◀ apps/mobile   (off the Studio graph)
 ```
 
 **The layer rule (Phase 113)** — the suite is built in layers, and eslint holds each to it
@@ -142,6 +147,15 @@ map, the module layer and a guide to extracting the next feature are in [`docs/A
   later. See [`docs/WEBSITE.md`](docs/WEBSITE.md); it is served from the *public*
   `bilo-io/midnite-apps` repo's `gh-pages` branch, so **nothing on it may link to this one**.
 - **`apps/studio`** — Studio's composition (above); the suite apps are Agents, Media, Gamer, Vanguard, Mind, Money, Browser and the launcher (Science is catalog-only so far). Coder, Creator, Cleaner, Vault, Monitor and Capture are no longer apps: they are modules (`packages/modules/*`) that Agents, Media, Gamer, Vanguard and Mind mount.
+- **`apps/mobile`** — Midnite Mobile, the Expo companion app ([`docs/MOBILE.md`](docs/MOBILE.md)). **Expo Go
+  only** (no custom native code, no dev client) and, like the launcher and the website, **off the Studio
+  graph**: it may import `shared`, the two pure cores (`@midnite/tasks-core`, `@midnite/forge-github-core`),
+  exactly one git-engine subpath (`@midnite/studio-git-engine/diff`, the pure diff parser) and
+  `@bilo-io/ui-native`, and nothing else in the workspace: no frame, runtime, feature, module, desktop or
+  `electron`, no node builtins, no `react-dom` or `react-icons`. A generic component goes to
+  `@bilo-io/ui-native` (repo `bilo-io/midnite-ui`) first, then is consumed; `apps/mobile/vendor/ui-native/` is a
+  stand-in until 0.5.0 publishes and no call site imports it. The two pure cores sit beside `shared` and take
+  nothing but `shared`: no React, no `react-native`, no `electron`, no node builtins, and neither imports the other.
 - **`apps/launcher`** — Midnite Apps, the launcher that lists, installs and opens every midnite
   app. **`apps/` holds installable products; `packages/` holds what they are built from.** It is
   its own Electron app (main + preload bundled by esbuild, a Vite + React renderer) and, like the
@@ -251,12 +265,17 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   158 shots specs and ~1,470 PNGs; a verification shot is captured into the session scratchpad
   (or `/tmp/midnite-shots-<slice>/`) and shown in the thread, never added to git. Appearance
   belongs to `app:visual`. `scripts/e2e-budget.mjs` fails the gate on a `*-shots.spec.ts`, on a
-  `.screenshot({ path })` in a functional spec, on an image under `docs/screenshots/` that
-  `README.md`, `docs/*.md` or `packages/website/` does not reference, and on a `waitForTimeout(`
+  `.screenshot({ path })` in a functional spec, on a force-added (tracked) image under the git-ignored
+  `docs/screenshots/` that `README.md`, `docs/*.md` or `packages/website/` does not reference, and on a `waitForTimeout(`
   that is not routed through `settle()` or marked `// allow-timeout: <reason>`.
   `moon run root:test-node` (one Vitest `projects` pass over the node-portable packages) and
   `moon run root:lint-all` (`eslint . --cache`) are what `gate-node` runs; the per-package
   `<pkg>:test` / `<pkg>:lint` tasks stay for focused local runs.
+- **Clean up every spawned agent, terminal, and broker after Playwright runs.** Whenever a
+  Playwright test or verification screenshot run spawns or attaches to agent/terminal sessions (or
+  starts a pty broker or Electron instance), you MUST explicitly exit every spawned session and
+  close/kill the test broker, Electron process, and any throwaway `--user-data-dir` in `finally` /
+  `afterEach` / teardown so no orphaned `claude` / `agy` / broker processes are left running.
 - **Perf claims come with a number, from `scripts/perf/`.** `startup-report.mjs` (cold-start
   marks, `--runs=5` for the median), `bundle-report.mjs` (entry chunk / total JS, read from
   Vite's `.vite/manifest.json`) and `idle-cpu.mjs` (percent of one core over a chosen window,
@@ -316,8 +335,8 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   The bundled command is `midnite` (`resources/bin/midnite`) and the MCP server registers as `midnite`
   (`MCP_SERVER_NAME` in `shared/src/media-model-mcp.ts` — the shim's `Server` and every Claude
   `mcp__midnite__*` allowlist or Codex `mcp_servers.midnite.*` key derive from it, so they cannot drift).
-  `midnite-studio` stays as a forwarding alias for one release (removal is tracked in
-  `outstanding.md`). The original midnite app ships its own `midnite` CLI, so the installer
+  `midnite-studio` stays as a forwarding alias for one release (removal is tracked as a
+  `deferred` issue). The original midnite app ships its own `midnite` CLI, so the installer
   (`runtime/src/cli/cli-installer.ts` since Phase 113 Theme D, bound by `main/ipc/cli-handlers.ts`; the MCP tool list is filtered per installed app by `shared/src/mcp-tool-owners.ts`) only replaces a `midnite` whose symlink resolves into this app's bundle;
   a foreign one is left untouched, only the alias is installed, and the reason comes back in
   `CliStatusResponse.notice`. The app name, the `midnite-studio://` protocol and release tags are unchanged.
@@ -333,7 +352,7 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   it would hand Midnite Studio another app's update. `install.sh` reads
   `midnite-studio/version.json`; electron-updater reads `midnite-studio/feed/latest-mac.yml`.
   Both are written per release — see
-  [`/midnite-release-complete`](.claude/skills/midnite-release-complete/SKILL.md) §4.
+  [`/midnite-release-complete`](.agents/skills/midnite-release-complete/SKILL.md) §4.
 - **The website serves verbatim copies of `install.sh` and `install-studio.sh`, and a guard keeps them honest.**
   Access to Midnite is gated on the website: the site does not link to the download page or display
   any curl command. However, the site hosts the launcher installer `packages/website/public/install.sh`
@@ -363,10 +382,8 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   [`scripts/no-quick-kiss.mjs`](scripts/no-quick-kiss.mjs) fails the release on any built bundle
   (Studio's `.app`, the launcher, every suite app) that carries it. **The binding constraint is
   the licence, not the ranking**: twenty OFL/Apache script faces were once rendered against Quick
-  Kiss and Kaushan Script won that sheet, with Damion fourth — Damion was picked directly, and the
-  sheet stays committed at
-  [`docs/screenshots/website-wordmark/candidates.png`](docs/screenshots/website-wordmark/candidates.png)
-  so a re-pick starts from rendered type. The wordmark's split lives in the app's `brand.tsx` and
+  Kiss and Kaushan Script won that sheet, with Damion fourth — Damion was picked directly. The
+  comparison sheet is no longer committed (screenshots stay out of git), so a re-pick re-renders it. The wordmark's split lives in the app's `brand.tsx` and
   the site's `packages/website/src/components/wordmark.tsx`; a gradient-clipped "Midnite" needs
   `0.15em` of right padding as clip headroom, measured **per face** (Damion's ink runs 0.104em past
   its advance box over "Midnite"), so a face swap re-measures it.
@@ -421,8 +438,8 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
 **"sitrep"** (situation report) is a fixed request, not a free-form one. Whenever the user types it —
 or asks for a status update, a progress check, or "where are we" — answer with **one markdown table
 and nothing else above it**, one row per agent or workstream.
-[`midnite-sitrep`](.codex/skills/midnite-sitrep/SKILL.md) is the router: it gathers the state once and
-renders the table ([`midnite-sitrep-table`](.codex/skills/midnite-sitrep-table/SKILL.md)). It adds the merge graph
+[`midnite-sitrep`](.agents/skills/midnite-sitrep/SKILL.md) is the router: it gathers the state once and
+renders the table ([`midnite-sitrep-table`](.agents/skills/midnite-sitrep-table/SKILL.md)). It adds the merge graph
 when rows depend on each other, and any other view named after it — `graph`, `sequence-diagram`,
 `histogram`, `timeline`, `ci` — each its own `midnite-sitrep-<view>` skill. The table always comes
 first:
@@ -462,25 +479,25 @@ first:
 When several agents run in parallel, give them a **shared append-only board file** in the session
 scratchpad and make every cross-agent contract change go through it *before* it is written into a
 doc or a file. Sitrep rows then have something real to report, and the orchestrator — never a
-worker — owns the shared files (`_INDEX.md`, the git commit) so parallel writers cannot race.
+worker — owns the shared state (the phase issue, the project board, the git commit) so parallel writers cannot race.
 
 A multi-phase fan-out is exactly the case this format is for. Agent groups start from
-[`midnite-agents`](.codex/skills/midnite-agents/SKILL.md), the umbrella, which asks which mode:
-[`midnite-fleet`](.codex/skills/midnite-fleet/SKILL.md) (the default) runs separate tasks, one subagent
-per phase or task, each to its own merged PR; [`midnite-swarm`](.codex/skills/midnite-swarm/SKILL.md)
+[`midnite-agents`](.agents/skills/midnite-agents/SKILL.md), the umbrella, which asks which mode:
+[`midnite-fleet`](.agents/skills/midnite-fleet/SKILL.md) (the default) runs separate tasks, one subagent
+per phase or task, each to its own merged PR; [`midnite-swarm`](.agents/skills/midnite-swarm/SKILL.md)
 puts one problem through staged subagents (research, plan, design, refine, dev, review, test,
-report). Both run on [`midnite-orchestrate`](.codex/skills/midnite-orchestrate/SKILL.md), the shared
+report). Both run on [`midnite-orchestrate`](.agents/skills/midnite-orchestrate/SKILL.md), the shared
 core (settings interview, cap, board, sitreps, rotation, unsticking, wrap-up), and drive this same
-recurring-table report until the work has landed. [`midnite-agents-handover`](.codex/skills/midnite-agents-handover/SKILL.md) is the clean stop:
+recurring-table report until the work has landed. [`midnite-agents-handover`](.agents/skills/midnite-agents-handover/SKILL.md) is the clean stop:
 every agent finishes its step, commits, writes a `## HANDOFF` above its verbatim brief in
 `SCRATCHPAD.md`, frees its servers and stops, ready for a fresh agent to resume.
 
 ## Phase workflow
 
-One phase per PR where practical. Work the checklist in `.midnite/tasks/<CATEGORY>/phases/phase-N-*.md` (`FEATURES/`,
-`SECURITY/`, or `ISSUES/`), leave `moon run :typecheck :lint :test` green, append an entry to `.midnite/tasks/done.md`,
-update the phase doc's own `## Headlines` paragraph for each theme that landed, and update the phase's row in
-the table in `.midnite/tasks/<CATEGORY>/_INDEX.md` and top-level `.midnite/tasks/_INDEX.md` (the row only — no prose goes in the index).
+One phase per PR where practical. Work the theme sub-issues of the phase's `phase` issue, leave
+`moon run :typecheck :lint :test` green, link the PR to the sub-issue it closes (`Closes #n`),
+update the parent issue's `## Headlines` paragraph for each theme that landed, and move the card on
+the project board. Nothing about the plan is committed to the repo.
 
 - **The core skill family (`midnite-plan`, `midnite-design`, `midnite-build`, `midnite-test`, `midnite-maintain`, `midnite-deploy`) drives the lifecycle.** Self-review runs through `midnite-check-yourself` before any PR leaves draft.
 - **The PR skill family (`midnite-pr-review`, `-pr-feedback`, `-check-yourself`, `-pr-create`, `-pr-description`, `-pr-description-image`) is the repo's own PR workflow, and the midnite menu's review and PR entries invoke it.**
@@ -505,17 +522,17 @@ self-review had run, which pinged a colleague to read unfinished work.
 ## Onboarding another repo
 
 [`templates/midnite/`](templates/midnite/) is a checked-in, repo-agnostic skeleton of this same
-workflow — the `.midnite/tasks/` tracker, the ten core skills mirrored into `.claude/`, `.agents/`
-and `.codex/`, and `CLAUDE.md`/`AGENTS.md`/`GEMINI.md` stubs — for onboarding a *different* repo
+workflow — the `.midnite/tasks/` tracker, the ten core skills mirrored into `.claude/` and `.agents/`,
+an `AGENTS.md` stub and a `CLAUDE.md` that imports it — for onboarding a *different* repo
 onto it, not this one. The midnite menu's Setup leaf is what will copy it in and track a hash
 manifest so a re-run is an upgrade rather than a guess (Phase 49); until then,
-[`midnite-setup`](.claude/skills/midnite-setup/SKILL.md) is the interactive path — it emits this
+[`midnite-setup`](.agents/skills/midnite-setup/SKILL.md) is the interactive path — it emits this
 same tree. See the template's own [README](templates/midnite/README.md) for what ships and why
 three of this repo's thirteen skills are deliberately left out.
 
 ## graphify
 
-This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+This project has a knowledge graph at graphify-out/ (git-ignored, built locally) with god nodes, community structure, and cross-file relationships.
 
 When the user types `/graphify`, use the installed graphify skill or instructions before doing anything else.
 

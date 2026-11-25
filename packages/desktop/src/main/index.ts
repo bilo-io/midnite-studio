@@ -19,7 +19,9 @@ import {
   ensureCanaries,
   LOOP_RUNS_DIRECTORY_NAME,
   runtimeHostDirectory,
+  scrubHostAgentProcessEnv,
   setDiskRedactionSecrets,
+  vaultFilesPresent,
   sweepProfileFiles,
   VAULT_GRANTS_FILE,
   tightenHistoryModes,
@@ -50,6 +52,7 @@ import { currentSettings, settingsSynced } from './settings-mirror';
 import { configureOutboundSecrets } from './outbound-secrets';
 import { startAgentCommandAudit } from './ipc/agent-command-audit';
 import { startStudioAgentBreaker, stopStudioAgentBreaker } from './agent-breaker-wiring';
+import { closeStudioProfileMcpSockets, restoreStudioProfileMcpSockets } from './agent-profiles/studio-profile-sockets';
 import { configureToolPolicy } from './tool-policy-wiring';
 import { configureFindingsLedger, getFindingsLedger, registerVanguardHandlers, resumeVanguardSensors, startVanguardSensors, stopVanguardSensors } from './ipc/vanguard-handlers';
 
@@ -69,6 +72,7 @@ import { installCsp } from './csp';
 import { registerBrowserFeatureHandlers } from './ipc/browser-feature-handlers';
 import { registerClaudeHandlers } from './ipc/claude-handlers';
 import { registerConflictHandlers } from './ipc/conflict-handlers';
+import { registerAgentProfileHandlers } from './ipc/agent-profile-handlers';
 import { registerCouncilHandlers } from './ipc/council-handlers';
 import { registerApiClientFeatureHandlers, shutdownApiClientFeature } from './ipc/api-client-feature-handlers';
 import { registerFinanceHandlers } from './ipc/finance-handlers';
@@ -93,6 +97,7 @@ import { configureCompanionTtsBroker, disposeCompanionTtsBroker } from '@midnite
 import { createSttCredentials } from '@midnite/studio-feature-companion/main/stt/credentials';
 import { configureUiBridge } from '@midnite/studio-feature-companion/main/ui-bridge';
 import { registerCompanionHandlers } from './ipc/companion-handlers';
+import { registerPermissionsHandlers } from './ipc/permissions-handlers';
 import { configurePrivacy, registerPrivacyHandlers } from './ipc/privacy-handlers';
 import { registerFeatureDataHandlers } from './ipc/feature-data-handlers';
 import { configureSessions, registerSessionsHandlers } from './ipc/sessions-handlers';
@@ -126,6 +131,7 @@ import { registerStatsHandlers } from './ipc/stats-handlers';
 import { registerStatusHandlers } from './ipc/status-handlers';
 import { configureTests, createTestTrustStore } from '@midnite/studio-feature-tests/main';
 import { registerTestsFeatureHandlers } from './ipc/tests-feature-handlers';
+import { installMainCrashHooks } from './crash-hooks';
 import { defaultLogger, setLogSink, type Logger } from './log';
 import { installMenu } from './menu';
 import { startStudioRuntimeHost, studioRuntimeDirectory } from './runtime-host';
@@ -148,13 +154,14 @@ import { latestGuardSweepSummary, startGuardSweeps, stopGuardSweeps, sweepGuardN
 import { createTerminalStore } from './terminal-store';
 import {
   configureTerminals,
+  declaredAgentIdFor,
   listAgents,
   listTerminals,
   shutdownTerminals,
   startTerminalFlush,
   watchSessionExits,
 } from './terminal-service';
-import { configureRegistry, listRepos, openRepo, restoreRepos } from './repo-registry';
+import { closeRepo, configureRegistry, listRepos, openRepo, restoreRepos } from './repo-registry';
 import { reconcileWatchers, stopAllWatchers } from './watch-service';
 import { initFetchScheduler, reconcileFetchScheduler } from './fetch-scheduler';
 import { registerSettingsHandlers } from './ipc/settings-handlers';
@@ -165,6 +172,7 @@ import { getMcpServerHandle, registerMcpServer } from './mcp';
 import { registerMcpHandlers } from './ipc/mcp-handlers';
 import { configureMcpTrust } from './mcp-trust-wiring';
 import { fingerprintFile } from './socket-name';
+import { configureAgentProfiles, createAgentProfilesStore } from '@midnite/studio-feature-agent-profiles/main';
 import { configureCouncils, createCouncilsRunsStore, createCouncilsStore } from '@midnite/studio-feature-councils/main';
 import { stopDemoApi } from '@midnite/studio-feature-workflows/main';
 import { registerWorkflowHandlers } from './ipc/workflow-handlers';
@@ -203,6 +211,7 @@ import { bootMark } from './perf-marks';
 import { startHeapSampler } from '../heap-sampler';
 import { ensureLoginShellPathAsync } from './shell-path';
 import { applyAppWebContentsPolicy } from './web-contents-policy';
+import { whenKeychainMayBeTouched } from './keychain-gate';
 import { createWindow } from './window';
 import { registerWindowChrome } from './window-chrome';
 import { registerLockHandlers } from './ipc/lock-handlers';
@@ -342,39 +351,17 @@ export const startStudioMain: StartStudioMain = () => {
   bootMark('modules-loaded');
   startHeapSampler({ enabled: perfEnabled(process.env), processName: 'main', log: defaultLogger });
 
+  /*
+    If an agent CLI restarted Studio from its shell tool, main inherited that session's env (NO_COLOR, CLAUDE_CODE_*
+    and its messaging token). Drop it once, before the pty broker or any child is spawned from process.env, so a
+    new broker starts clean. Key names only are logged, never values.
+  */
+  const scrubbedEnvKeys = scrubHostAgentProcessEnv();
+  if (scrubbedEnvKeys.length > 0) defaultLogger.info(`scrubbed inherited host-agent env: ${scrubbedEnvKeys.join(', ')}`);
+
   app.setName('Midnite Studio');
 
-  /*
-    Main's own crashes, recorded — Phase 65 Theme D.
-
-    Installed here rather than inside `whenReady` on purpose: the boot path is
-    where an unhandled rejection is both most likely and most invisible, and a
-    handler registered after `whenReady` cannot see the ones raised before it.
-    Neither handler exits. Electron's default for an uncaught exception in main is
-    to log it and keep running, and this phase changes what is RECORDED, not what
-    the app does — turning a survivable exception into a quit would be a
-    behaviour change smuggled in under a logging one.
-  */
-  process.on('uncaughtException', (err) => {
-    defaultLogger.error('[main] uncaughtException', err);
-  });
-  process.on('unhandledRejection', (reason) => {
-    defaultLogger.error('[main] unhandledRejection', reason);
-  });
-
-  /*
-    A GPU or utility process dying — the only hook that reports it, and it had
-    none until Phase 65. This class of failure currently manifests to a user as
-    "the window went strange" with no record at all, which is exactly the report
-    nobody can act on.
-  */
-  app.on('child-process-gone', (_event, details) => {
-    defaultLogger.error(
-      `[main] child-process-gone type=${details.type} reason=${details.reason} exit=${details.exitCode}${
-        details.name === undefined ? '' : ` name=${details.name}`
-      }`,
-    );
-  });
+  installMainCrashHooks(defaultLogger, process, app);
 
   if (!app.isPackaged) {
     const mainScript = process.argv[1] ? resolve(process.argv[1]) : process.cwd();
@@ -587,6 +574,7 @@ export const startStudioMain: StartStudioMain = () => {
       registerDiagHandlers();
       registerSessionsHandlers();
       registerPrivacyHandlers();
+      registerPermissionsHandlers();
       registerFeatureDataHandlers();
       registerNotesHandlers();
       registerChatsHandlers();
@@ -658,6 +646,7 @@ export const startStudioMain: StartStudioMain = () => {
       registerClaudeHandlers(getMainWindow);
       registerCliHandlers();
       registerCouncilHandlers();
+      registerAgentProfileHandlers(getMainWindow);
       registerLoopRunsHandlers();
       registerVideoHandlers();
       registerMediaHandlers();
@@ -822,7 +811,18 @@ export const startStudioMain: StartStudioMain = () => {
       const sessionHistory = createSessionHistoryStore(userData);
       configureSessions(sessionHistory);
       configurePrivacy(sessionHistory);
-      configureTerminals(createTerminalStore(userData), userData, sessionHistory);
+      const resolveSessionsMarkdownPath = (): string | null => {
+        const override = process.env.MSTUDIO_SESSIONS_MD;
+        if (override !== undefined) {
+          const trimmed = override.trim();
+          return trimmed.length > 0 ? trimmed : null;
+        }
+        return join(app.getPath('home'), 'Dev', 'midnite', 'MIDNITE_SESSIONS.md');
+      };
+      configureTerminals(createTerminalStore(userData), userData, sessionHistory, {
+        sessionsMarkdownPath: resolveSessionsMarkdownPath(),
+      });
+      configureAgentProfiles(createAgentProfilesStore(userData));
       configureCouncils(createCouncilsStore(userData), createCouncilsRunsStore(userData));
       /*
         Wired here beside councils rather than in a boot chain: it is synchronous
@@ -910,6 +910,25 @@ export const startStudioMain: StartStudioMain = () => {
           return { ok: true };
         },
         listRepoPaths: async () => (await listRepos()).map((repo) => repo.path),
+        // Game management (Phase 149 Theme I): Remove from list is the repos panel's own remove, so the game's
+        // repo leaves the panel too; Reveal and Delete go through the OS (Delete is the Trash, never `rm`).
+        forgetRepo: async (path) => {
+          const repo = (await listRepos()).find((entry) => entry.path === path);
+          if (repo) await closeRepo(repo.id);
+          const repos = (await listRepos()).map((entry) => ({ id: entry.id, path: entry.path }));
+          await reconcileWatchers(repos);
+          reconcileFetchScheduler(repos);
+          return { ok: true };
+        },
+        revealPath: (path) => shell.showItemInFolder(path),
+        trashPath: async (path) => {
+          try {
+            await shell.trashItem(path);
+            return { ok: true };
+          } catch (error) {
+            return { ok: false, kind: 'error', message: `Could not move it to the Trash: ${error instanceof Error ? error.message : String(error)}` };
+          }
+        },
         // Open Game (Phase 132 Theme A): the folder dialog; an opened game is registered like a repo opened in the panel.
         // Annotated: `games` is referenced inside its own initializer, so inference would cycle.
         pickFolder: async (): Promise<string | null> => {
@@ -1041,14 +1060,23 @@ export const startStudioMain: StartStudioMain = () => {
             }
           });
       };
-      refreshDiskSecrets();
+      // Both boot reads and writes below (refreshDiskSecrets reads, ensureCanaries reads and writes) go through the vault, i.e. the keychain; see keychain-gate.ts for when they may run.
+      const keychainGate = whenKeychainMayBeTouched(
+        () => {
+          refreshDiskSecrets();
+          void ensureCanaries({ vault: studioVault, homeDir: app.getPath('home') }).catch((error: unknown) =>
+            defaultLogger.warn(`canary setup failed: ${String(error)}`),
+          );
+        },
+        {
+          vaultPresent: () => vaultFilesPresent(userData),
+          onFirstAccess: (listener) => vaultService.onFirstAccess(listener),
+        },
+      );
       vaultService.onEntriesChanged(refreshDiskSecrets);
       vaultService.onLockedChange((isLocked) => {
         if (!isLocked) refreshDiskSecrets();
       });
-      void ensureCanaries({ vault: studioVault, homeDir: app.getPath('home') }).catch((error: unknown) =>
-        defaultLogger.warn(`canary setup failed: ${String(error)}`),
-      );
       /*
         The account registry (Phase 90 Theme B) — wired here beside every other
         userData store. `configureForgeAccounts` itself kicks off the on-disk
@@ -1126,10 +1154,13 @@ export const startStudioMain: StartStudioMain = () => {
             isPackaged: app.isPackaged,
             getWindow: getMainWindow,
             log: (msg) => defaultLogger(msg),
+            declaredAgentId: declaredAgentIdFor,
           }),
         )
         .then(async () => {
           bootMark('pty-ready');
+          // #1697: a custom-agent session the broker kept alive gets its private MCP socket back.
+          void restoreStudioProfileMcpSockets().catch((error: unknown) => defaultLogger.warn(`agent profile sockets: ${String(error)}`));
           /*
             The loop ledger's ends are owned here in main: a run's record is
             finalised off the pty's own session-keyed exit, so a renderer reload
@@ -1248,6 +1279,7 @@ export const startStudioMain: StartStudioMain = () => {
       mainWindow = createWindow();
       bootMark('create-window');
       registerMainWindow(mainWindow);
+      keychainGate.attachWindow(mainWindow);
       // Detached windows that were open at the last shutdown (Notes) come back.
       void restoreReopenedPopouts(defaultLogger);
       mainWindow.on('closed', () => {
@@ -1281,6 +1313,7 @@ export const startStudioMain: StartStudioMain = () => {
         if (BrowserWindow.getAllWindows().length === 0) {
           mainWindow = createWindow();
           registerMainWindow(mainWindow);
+          keychainGate.attachWindow(mainWindow);
           void restoreReopenedPopouts(defaultLogger);
           mainWindow.on('closed', () => {
             closeAllPopouts();
@@ -1345,6 +1378,8 @@ export const startStudioMain: StartStudioMain = () => {
       void stopVanguardSensors();
       stopAgentCommandAudit?.();
       stopStudioAgentBreaker();
+      // Phase 154 Theme G: every custom agent's private socket closes with the app (#1697: bound ones are restored).
+      void closeStudioProfileMcpSockets();
       configureConfinement(null);
       disposeChats();
       // The global capture chord is released and clipboard polling stops with the app (Phase 113 Theme K).

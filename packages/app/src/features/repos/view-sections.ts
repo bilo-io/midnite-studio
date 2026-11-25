@@ -227,6 +227,8 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
   // Ollama daemon is not repo-scoped, so this view shows no sidebar section
   // to narrow in the first place (Phase 96 Theme C).
   models: WORK_IN_PROGRESS,
+  // Global like `models`: profiles are one user-level file, not repo-scoped (Phase 154).
+  agents: WORK_IN_PROGRESS,
   sessions: WORK_IN_PROGRESS,
   optimizer: WORK_IN_PROGRESS,
   monitor: WORK_IN_PROGRESS,
@@ -336,7 +338,7 @@ export function useViewSections(): ViewSections {
 }
 
 /**
- * Fold/unfold one of a repo's `SectionKey` headings.
+ * Fold/unfold one of a repo's `SectionKey` headings in the shared config.
  *
  * The typed wrapper around `useUiStore`'s untyped `toggleRepoSectionKey` —
  * living here rather than on the store because `ui-store.ts` cannot import
@@ -344,6 +346,6 @@ export function useViewSections(): ViewSections {
  * `remotes:<name>` keys call `toggleRepoSectionKey` directly instead; they are
  * not `SectionKey`s and have no typed wrapper to go through.
  */
-export function toggleRepoSection(repoId: string, key: SectionKey): void {
-  useUiStore.getState().toggleRepoSectionKey(repoId, key);
+export function toggleRepoSection(key: SectionKey): void {
+  useUiStore.getState().toggleRepoSectionKey(key);
 }

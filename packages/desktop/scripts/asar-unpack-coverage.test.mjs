@@ -71,15 +71,20 @@ describe('electron-builder.yml asarUnpack treats spawned bundle.mjs outfiles cor
   });
 
   /*
-    Known, deliberately unfixed gaps this task's diagnosis surfaced — flagged
+    A known, deliberately unfixed gap this task's diagnosis surfaced — flagged
     in the PR body, not fixed here (out of scope: a different feature area's
-    own packaging, Phase 70's script runner and Theme F's MCP shim).
+    own packaging, Phase 70's script runner).
     `it.todo` keeps them visible in `moon run desktop:test`'s output without
     failing the gate this PR has to leave green.
   */
-  it.todo(
-    'mcp-shim.js should be unpacked (its path is handed to an EXTERNAL, genuinely plain-Node MCP client — same category as broker.js, not companion-tts-worker.js) but currently is not',
-  );
+  it('unpacks mcp-shim.js — its path is handed to an EXTERNAL plain-Node MCP client (same category as broker.js)', () => {
+    expect(isUnpacked(asarUnpack, 'mcp-shim')).toBe(true);
+  });
+
+  it('unpacks policy-hook.js — invoked by external agent CLIs as plain Node', () => {
+    expect(isUnpacked(asarUnpack, 'policy-hook')).toBe(true);
+  });
+
   it.todo(
     "script-runner-worker.js's own workerScriptPath() (script-runner-broker.ts) still does the same unnecessary app.asar → app.asar.unpacked rewrite this PR removed from tts-broker.ts — currently harmless in practice (script-runner.ts requires no external npm package the rewrite would break) but it means script-runner-worker.js can never actually be forked in a packaged build at all today, since it is not in asarUnpack either",
   );

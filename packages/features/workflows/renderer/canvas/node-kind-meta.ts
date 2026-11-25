@@ -363,7 +363,10 @@ export const NODE_KIND_META: Record<
 };
 
 /** One line describing what a node actually does, for the palette, the node card and the bottom run panel. */
-export function nodeSummary(node: WorkflowNode): string {
+export function nodeSummary(node: WorkflowNode, profileName?: (profileId: string) => string | undefined): string {
+  /** The agent a node runs as: its custom agent's name (#1713), else the roster id (also a deleted agent's fallback). */
+  const runsAs = (agentId: string, agentProfileId?: string): string =>
+    (agentProfileId ? profileName?.(agentProfileId) : undefined) ?? agentId;
   switch (node.kind) {
     case 'http':
       return node.config.url.trim()
@@ -382,7 +385,7 @@ export function nodeSummary(node: WorkflowNode): string {
     case 'note':
       return node.config.text.trim() || 'Empty note';
     case 'agent':
-      return node.config.agentId.trim() ? `Run ${node.config.agentId}` : 'No agent selected';
+      return node.config.agentId.trim() ? `Run ${runsAs(node.config.agentId, node.config.agentProfileId)}` : 'No agent selected';
     case 'script':
       return node.config.command.trim() || 'No command';
     case 'join':
@@ -397,7 +400,7 @@ export function nodeSummary(node: WorkflowNode): string {
       switch (node.config.check) {
         case 'agent':
           return node.config.agentId.trim()
-            ? `Agent verdict · ${node.config.agentId}`
+            ? `Agent verdict · ${runsAs(node.config.agentId, node.config.agentProfileId)}`
             : 'No agent selected';
         case 'exit-code':
           return node.config.command.trim() ? `Exit code · ${node.config.command}` : 'No command';

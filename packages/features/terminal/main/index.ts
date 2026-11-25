@@ -6,13 +6,23 @@ import {
   createPty,
   fetchScrollbackSnapshot,
   killPty,
+  livePtyFor,
   resizePty,
   sessionIdFor,
   subscribeWindowToPty,
   unsubscribeWindowFromPty,
   writePty,
 } from './pty-service';
-import { forgetTerminal, listAgents, listTerminals, reorderTerminals, saveTerminal } from './terminal-service';
+import {
+  endPreviousBuildSessions,
+  endSessions,
+  forgetTerminal,
+  listAgents,
+  listTerminals,
+  recoverDetachedSessions,
+  reorderTerminals,
+  saveTerminal,
+} from './terminal-service';
 import { trimScrollback } from './terminal-store';
 
 export { terminalManifest, type TerminalManifest } from '../manifest';
@@ -40,9 +50,12 @@ export {
 export {
   agentSessionDetail,
   configureTerminals,
+  declaredAgentIdFor,
+  endSessions,
   flushScrollback,
   forgetTerminal,
   getOrLocateConversationId,
+  getTerminal,
   listAgents,
   listSessionIds,
   listTerminals,
@@ -51,11 +64,13 @@ export {
   reorderTerminals,
   resetTerminalsForTest,
   saveTerminal,
+  saveTerminalNow,
   setTerminalPorts,
   shutdownTerminals,
   startTerminalFlush,
   watchSessionExits,
   whenArchivesSettle,
+  type ConfigureTerminalsOptions,
   type ForgetIntent,
   type TerminalPorts,
   type TerminalPtyPort,
@@ -79,6 +94,16 @@ export type TerminalMainServices = {
   };
   /** Where a malformed one-way payload is reported; dropped when absent. */
   warn?: (issue: string) => void;
+  /**
+   * Phase 154 Theme G: ties a custom agent's prepared launch (its private MCP socket) to the session whose
+   * pty is being created. Studio's composer binds it; a host without custom-agent launches leaves it out.
+   * Returns false for an unknown launch id (a parked one is revived until app quit, #1713).
+   */
+  bindProfileLaunch?: (launchId: string, sessionId: string) => boolean | Promise<boolean>;
+  /** Closes a launch whose pty never started, so its socket does not outlive the failed create. */
+  releaseProfileLaunch?: (launchId: string) => void;
+  /** #1697: after a detached-session recovery, bring back the private sockets of the sessions it adopted. */
+  restoreProfileLaunches?: () => Promise<unknown>;
 };
 
 /**
@@ -93,6 +118,9 @@ export const terminalMain = defineFeatureMain<TerminalMainServices>({
   feature: terminalManifest.feature,
   channels: [
     CHANNELS.terminalList,
+    CHANNELS.terminalRecoverDetached,
+    CHANNELS.terminalEndSessions,
+    CHANNELS.terminalEndPreviousBuild,
     CHANNELS.agentList,
     CHANNELS.agentRecheck,
     CHANNELS.ptyCreate,
@@ -136,7 +164,51 @@ export const terminalMain = defineFeatureMain<TerminalMainServices>({
     );
     ipc.send(CHANNELS.terminalReorder, schemas.TerminalReorderRequest, ({ sessionIds }) => reorderTerminals(sessionIds), warn);
 
-    ipc.handle(CHANNELS.ptyCreate, schemas.PtyCreateRequest, (req) => createPty(req), (issue) => ({
+    // Recovery and ending, as envelopes: a broker that is down is an answer to render, not a throw.
+    const failed = (error: unknown) => ({
+      ok: false as const,
+      kind: 'error' as const,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    ipc.handleBare(CHANNELS.terminalRecoverDetached, async () => {
+      try {
+        const recovered = await recoverDetachedSessions();
+        await services.restoreProfileLaunches?.().catch((error: unknown) => warn(`profile sockets: ${String(error)}`));
+        return { ok: true as const, ...recovered };
+      } catch (error) {
+        return failed(error);
+      }
+    });
+    ipc.handle(
+      CHANNELS.terminalEndSessions,
+      schemas.TerminalEndSessionsRequest,
+      async ({ sessionIds }) => {
+        try {
+          return { ok: true as const, ended: await endSessions(sessionIds) };
+        } catch (error) {
+          return failed(error);
+        }
+      },
+      (issue) => failed(issue),
+    );
+    ipc.handleBare(CHANNELS.terminalEndPreviousBuild, async () => {
+      try {
+        return { ok: true as const, ended: await endPreviousBuildSessions() };
+      } catch (error) {
+        return failed(error);
+      }
+    });
+
+    ipc.handle(CHANNELS.ptyCreate, schemas.PtyCreateRequest, async (req) => {
+      // Bound before the pty starts, so the agent's very first call is already attributed to this session.
+      const launchId = req.profileLaunchId;
+      if (launchId && (await services.bindProfileLaunch?.(launchId, req.sessionId)) === false) {
+        warn(`profile launch ${launchId} was not bound (unknown, already bound, or not kept across a restart): its agent starts without its midnite tools`);
+      }
+      const result = await createPty(req);
+      if (!result.ok && launchId) services.releaseProfileLaunch?.(launchId);
+      return result;
+    }, (issue) => ({
       ok: false as const,
       message: issue,
     }));
@@ -149,7 +221,12 @@ export const terminalMain = defineFeatureMain<TerminalMainServices>({
       async ({ ptyId }) => {
         const sessionId = sessionIdFor(ptyId);
         if (!sessionId) return { bytes: new Uint8Array(0) };
-        return { bytes: trimScrollback(await fetchScrollbackSnapshot(sessionId), SCROLLBACK_BYTES) };
+        // Copied onto a fresh ArrayBuffer: the snapshot can be a Buffer over a pooled ArrayBufferLike,
+        // the reply wants Uint8Array<ArrayBuffer>, and IPC structured-clones it anyway.
+        const bytes = new Uint8Array(trimScrollback(await fetchScrollbackSnapshot(sessionId), SCROLLBACK_BYTES));
+        // The size the pty last had, so the renderer parses these bytes at the width they were written for.
+        const live = livePtyFor(sessionId);
+        return { bytes, ...(live ? { cols: live.cols, rows: live.rows } : {}) };
       },
       () => ({ bytes: new Uint8Array(0) }),
     );

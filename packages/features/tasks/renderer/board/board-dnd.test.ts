@@ -2,7 +2,7 @@ import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared
 import { describe, expect, it } from 'vitest';
 
 import { applyOptimisticMove } from './board-dnd';
-import { NO_STATUS_COLUMN_ID } from './board-derive';
+import { NO_STATUS_COLUMN_ID } from '@midnite/tasks-core';
 
 const STATUS_FIELD: ForgeProjectField = {
   id: 'f-status',

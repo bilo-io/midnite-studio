@@ -1108,3 +1108,153 @@ describe('chat service: outbound redaction (Phase 121 Theme D)', () => {
     expect(spawn.calls).toHaveLength(1);
   });
 });
+
+describe('chat service: the runner lock around send (Phase 147 Theme C)', () => {
+  const quickTurn = () =>
+    fakeSpawn(async (_c, io) => {
+      io.out(init('sess-1'));
+      io.out(done('sess-1'));
+      io.close(0);
+    });
+
+  it('refuses a second send that lands while the first is awaiting beforeSend', async () => {
+    let release: (v: ReturnType<typeof ok>) => void = () => undefined;
+    const beforeSend = vi.fn(() => new Promise<ReturnType<typeof ok>>((r) => (release = r)));
+    const spawn = quickTurn();
+    const { service } = setup({ spawn, beforeSend });
+    const chat = await created(service);
+
+    const first = service.send({ chatId: chat.id, text: 'one' });
+    await sleep(0);
+    expect(service.isRunning(chat.id)).toBe(true);
+    const second = await service.send({ chatId: chat.id, text: 'two' });
+    expect(second.ok).toBe(false);
+
+    release(ok());
+    expect((await first).ok).toBe(true);
+    await service.idle();
+    expect(beforeSend).toHaveBeenCalledTimes(1);
+    expect(spawn.calls).toHaveLength(1);
+  });
+
+  it('validates before taking the lock, so a rejected send never calls beforeSend', async () => {
+    const beforeSend = vi.fn(async () => ok());
+    const onTurnEnd = vi.fn();
+    const { service } = setup({ spawn: quickTurn(), beforeSend, onTurnEnd });
+    const chat = await created(service);
+
+    expect((await service.send({ chatId: chat.id, text: '   ' })).ok).toBe(false);
+    expect((await service.send({ chatId: chat.id, text: 'x', fromMessageId: 'missing' })).ok).toBe(false);
+    expect(beforeSend).not.toHaveBeenCalled();
+    expect(onTurnEnd).not.toHaveBeenCalled();
+    expect(service.isRunning(chat.id)).toBe(false);
+  });
+
+  it('releases the lock through onTurnEnd when the turn fails to start after beforeSend', async () => {
+    const beforeSend = vi.fn(async () => ok());
+    const onTurnEnd = vi.fn();
+    const { service, store } = setup({ spawn: quickTurn(), beforeSend, onTurnEnd });
+    const chat = await created(service);
+    store.save = vi.fn(async () => {
+      throw new Error('disk full');
+    });
+
+    await expect(service.send({ chatId: chat.id, text: 'hello' })).rejects.toThrow('disk full');
+    await sleep(0);
+    expect(onTurnEnd).toHaveBeenCalledTimes(1);
+    expect(service.isRunning(chat.id)).toBe(false);
+  });
+});
+
+describe('chat service: a turn under a custom agent', () => {
+  const ready = (release = vi.fn(async () => {})) => ({
+    kind: 'ready' as const,
+    name: 'Reviewer',
+    agent: claude,
+    extraArgs: ['--mcp-config', '{}', '--strict-mcp-config', '--append-system-prompt-file', '/p.md'],
+    promptPrefix: null,
+    release,
+  });
+  const echo = () =>
+    fakeSpawn(async (_c, io) => {
+      io.out(textDelta('ok'));
+      io.out(done('s1'));
+      io.close(0);
+    });
+
+  it('puts the agent extras before the prompt, drops the chat model pin, and releases the socket', async () => {
+    const spawn = echo();
+    const release = vi.fn(async () => {});
+    const profileRun = vi.fn(async () => ready(release));
+    const { service } = setup({ spawn, profileRun });
+    const chat = await created(service, { agentProfileId: 'profile-rev', model: 'opus' });
+    expect(chat.agentProfileId).toBe('profile-rev');
+
+    await service.send({ chatId: chat.id, text: 'review this' });
+    await service.idle();
+
+    expect(profileRun).toHaveBeenCalledWith('profile-rev', expect.any(String));
+    const args = spawn.calls[0]!.args;
+    expect(args.indexOf('--strict-mcp-config')).toBeGreaterThan(-1);
+    expect(args.indexOf('--strict-mcp-config')).toBeLessThan(args.length - 1);
+    expect(args.at(-1)).toContain('review this');
+    expect(args).not.toContain('--model');
+    expect(release).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to the base CLI when the agent was deleted, says so, and forgets the agent', async () => {
+    const spawn = echo();
+    const { service } = setup({ spawn, profileRun: async () => ({ kind: 'missing' }) });
+    const chat = await created(service, { agentProfileId: 'profile-gone' });
+    await service.send({ chatId: chat.id, text: 'hi' });
+    await service.idle();
+
+    expect(spawn.calls[0]!.args).not.toContain('--strict-mcp-config');
+    const after = ((await service.get(chat.id)) as { ok: true; value: { chat: Chat } }).value.chat;
+    expect(after.agentProfileId).toBeUndefined();
+    expect(lastAssistant(after).activity?.join(' ')).toContain('custom agent was deleted');
+  });
+
+  it('refuses without starting a process when the agent cannot run, and where custom agents are unavailable', async () => {
+    const spawn = echo();
+    const failing = setup({ spawn, profileRun: async () => ({ kind: 'error', message: 'Its tools would not start.' }) });
+    const chat = await created(failing.service, { agentProfileId: 'profile-rev' });
+    await failing.service.send({ chatId: chat.id, text: 'hi' });
+    await failing.service.idle();
+    expect(lastAssistant(((await failing.service.get(chat.id)) as { ok: true; value: { chat: Chat } }).value.chat)).toMatchObject({ status: 'error', error: 'Its tools would not start.' });
+
+    const bare = setup({ spawn });
+    const other = await created(bare.service, { agentProfileId: 'profile-rev' });
+    await bare.service.send({ chatId: other.id, text: 'hi' });
+    await bare.service.idle();
+    expect(spawn.calls).toHaveLength(0);
+  });
+
+  it('follows the agent to its new base CLI: a fresh session, the chat engine updated, and the thread says so', async () => {
+    const spawn = echo();
+    const { service } = setup({ spawn, profileRun: async () => ({ ...ready(), agent: codex }) });
+    const chat = await created(service, { agentProfileId: 'profile-rev' });
+    expect(chat.engine).toBe('claude');
+    await service.update({ id: chat.id, session: { engine: 'claude', id: 'old-session', cwd: '/x' } });
+    await service.send({ chatId: chat.id, text: 'hi' });
+    await service.idle();
+
+    expect(spawn.calls[0]!.command).toBe('codex');
+    expect(spawn.calls[0]!.args).not.toContain('old-session');
+    const after = ((await service.get(chat.id)) as { ok: true; value: { chat: Chat } }).value.chat;
+    expect(after.engine).toBe('codex');
+    expect(after.session?.engine).not.toBe('claude');
+    expect(lastAssistant(after).activity?.join(' ')).toContain('now runs on Codex');
+  });
+
+  it('clears the CLI session when the chat switches agent', async () => {
+    const { service } = setup({ spawn: echo(), profileRun: async () => ready() });
+    const chat = await created(service);
+    await service.send({ chatId: chat.id, text: 'hi' });
+    await service.idle();
+    const switched = await service.update({ id: chat.id, engine: 'claude', agentProfileId: 'profile-rev' });
+    expect(switched.ok && switched.value.chat).toMatchObject({ agentProfileId: 'profile-rev', session: null });
+    const back = await service.update({ id: chat.id, engine: 'claude' });
+    expect(back.ok && back.value.chat.agentProfileId).toBeUndefined();
+  });
+});

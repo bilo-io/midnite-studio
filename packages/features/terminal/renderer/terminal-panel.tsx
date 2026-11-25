@@ -1,17 +1,24 @@
-import { type AgentDefinition } from '@midnite/studio-shared';
+import { type AgentDefinition, type AgentProfile } from '@midnite/studio-shared';
 import { useEffect } from 'react';
 
 import { ResizeHandle, useResizable, useRevealSize } from '@midnite/studio-frame';
 import { useAppFilterLoaded, useShowAllApps, visibleInApp } from './app-filter';
 import { useTerminalHost } from './host';
+import { launchProfileSession } from './profile-launch';
+import { resolveSessionAgent } from './session-agent';
 import { useMountedSessionIds } from './session-mount-policy';
 import { TerminalHeader } from './terminal-header';
 import { TerminalSessionList } from './terminal-session-list';
-import { brokerStatusText, inMainPanel, resolveSessionAgentId, useTerminalStore } from './terminal-store';
+import { brokerStatusText, inMainPanel, isLoopSession, resolveSessionAgentId, useTerminalStore } from './terminal-store';
 import { LazyTerminalView } from './lazy-terminal-view';
 import { ReattachedNote } from './reattached-note';
+import { createRevealOnce } from './legacy-reveal';
+import { useLegacyNoticeVisible } from './terminal-notices';
 import { useAgents } from './use-agents';
 import { YieldedToSessionsPage } from './yielded-to-sessions-page';
+
+/** Per renderer launch: a previous-build notice opens the list once, never re-forced after the user closes it. */
+const revealLegacyListOnce = createRevealOnce();
 
 /**
  * The terminal pane: chrome, the session list, and every session's xterm.
@@ -47,6 +54,8 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
   const listWidth = host.useListWidth();
 
   const { agents, status } = useAgents();
+  // Phase 154: Studio's custom agents (the "Your agents" menu section and each session's chrome).
+  const profiles = host.useAgentProfiles?.();
   // For the header's path: which registered checkout the cwd is standing in.
   const repos = host.useRepos();
 
@@ -105,6 +114,11 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
     });
   };
 
+  const openNewProfile = (profile: AgentProfile) => {
+    if (!cwd || !repoId || !host.prepareProfileLaunch) return;
+    void launchProfileSession(host.prepareProfileLaunch, profile, { repoId, cwd, title: repoName });
+  };
+
   const active = sessions.find((s) => s.id === activeId) ?? null;
   /**
    * Which of this panel's OWN sessions still get a live xterm (Phase 84
@@ -144,7 +158,7 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
   */
   const liveAgentId = useTerminalStore((s) => s.liveAgentId);
   const activeAgent = active
-    ? agents.find((a) => a.id === resolveSessionAgentId(active, liveAgentId))
+    ? resolveSessionAgent(active, agents, profiles, resolveSessionAgentId(active, liveAgentId))
     : undefined;
   /*
     A list of one session names nothing the header does not already say, so
@@ -153,8 +167,16 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
     sitting there dead with no explanation.
   */
   const hasLegacy = sessions.some((s) => (s as { legacy?: boolean }).legacy);
-  const listable = sessions.length > 1 || hasLegacy;
+  // A loop session always lists: its "Loops" header and mark are how you tell a loop's run from a shell.
+  const listable = sessions.length > 1 || hasLegacy || sessions.some(isLoopSession);
   const showList = listable && listOpen;
+  const noticeVisible = useLegacyNoticeVisible();
+  // A previous-build notice lives in the session list; opened once per launch so it is seen without a click.
+  useEffect(() => {
+    // Gated on hasLegacy too: the notice reads the store's legacy map, the list needs a legacy session.
+    if (revealLegacyListOnce(noticeVisible && hasLegacy) && !listOpen) host.actions.toggleList();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noticeVisible, hasLegacy]);
   /*
     Width-tweened rather than `{showList ? … : null}`: the toggle can flip on
     `sessions.length` crossing 1, not just a click, and either way the rows
@@ -185,6 +207,7 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
         hasWorktree={Boolean(cwd)}
         onNewTerminal={() => openNew()}
         onNewAgent={(agent) => openNew(agent)}
+        {...(profiles && host.prepareProfileLaunch ? { profiles, onNewProfile: openNewProfile } : {})}
       />
 
       <div className={`flex min-h-0 flex-1 ${side === 'left' ? 'flex-row' : 'flex-row-reverse'}`}>
@@ -196,7 +219,12 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
               style={listTween.style}
             >
               <div className="h-full" style={{ width: list.current }}>
-                <TerminalSessionList agents={agents} width={list.current} />
+                <TerminalSessionList
+                  agents={agents}
+                  agentStatus={status}
+                  width={list.current}
+                  showNotices={showList}
+                />
               </div>
             </div>
             <ResizeHandle resizable={list} axis="x" label="Resize terminal sessions" />
@@ -213,7 +241,7 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
                 key={session.id}
                 session={session}
                 active={session.id === activeId}
-                initialInput={pendingInput[session.id] ?? agentInitialInput(agents, session.agentId)}
+                initialInput={pendingInput[session.id] ?? agentInitialInput(agents, session.agentId, session.profileId)}
                 fitSignal={fitSignal}
               />
             ) : (
@@ -252,7 +280,7 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
         </div>
       </div>
 
-      <ReattachedNote />
+      {showList && listTween.mounted ? null : <ReattachedNote />}
     </div>
   );
 }
@@ -275,8 +303,12 @@ export function agentInput(agent: { command: string; args?: readonly string[] | 
   return `${[agent.command, ...(agent.args ?? [])].join(' ')}\r`;
 }
 
-export function agentInitialInput(agents: AgentDefinition[], agentId?: string): string | undefined {
-  if (!agentId) return undefined;
+/**
+ * A custom agent's session (`profileId`) answers `undefined`: its line is main's to build
+ * (`agentProfile:prepareLaunch`), so the base command is never typed in its place.
+ */
+export function agentInitialInput(agents: AgentDefinition[], agentId?: string, profileId?: string): string | undefined {
+  if (!agentId || profileId) return undefined;
   const agent = agents.find((a) => a.id === agentId);
   if (!agent) return undefined;
   return agentInput(agent);

@@ -71,7 +71,76 @@ const MODULE_MAIN = 'packages/modules/coder/main/index.ts';
 const MODULE_MANIFEST = 'packages/modules/coder/manifest.ts';
 
 /** [description, file, import specifier, substring the firing message must contain] */
+// Phase 146 Theme B7 — apps/mobile is off the Studio graph (its own eslint block).
+const MOBILE = 'apps/mobile/src/example.ts';
+const MOBILE_ROUTE = 'apps/mobile/app/index.tsx';
+const MOBILE_REJECTED = [
+  ['mobile imports the frame', MOBILE, '@midnite/studio-frame', 'off the Studio graph'],
+  ['mobile imports the runtime', MOBILE, '@midnite/studio-runtime', 'off the Studio graph'],
+  ['mobile imports a feature', MOBILE, '@midnite/studio-feature-optimizer/renderer', 'off the Studio graph'],
+  ['mobile imports a module', MOBILE, '@midnite/studio-module-coder/renderer', 'off the Studio graph'],
+  ['mobile imports the Studio app', MOBILE, '@midnite/studio-app', 'off the Studio graph'],
+  ['a mobile route imports desktop', MOBILE_ROUTE, '@midnite/studio-desktop', 'off the Studio graph'],
+  ['mobile imports electron', MOBILE, 'electron', 'no Electron'],
+  ['mobile imports a node builtin', MOBILE, 'node:fs', 'no Electron'],
+  ['mobile imports react-dom', MOBILE, 'react-dom', 'no react-dom'],
+  ['mobile imports react-icons', MOBILE, 'react-icons/lu', 'no react-dom'],
+  ['mobile imports the git-engine barrel', MOBILE, '@midnite/studio-git-engine', 'pure diff parser'],
+  ['mobile imports the vendored ui-native path', MOBILE, '../../vendor/ui-native/index', 'never the vendored path'],
+  ['mobile imports another git-engine subpath', MOBILE, '@midnite/studio-git-engine/exec', 'pure diff parser'],
+];
+const MOBILE_ALLOWED = [
+  ['mobile imports shared', MOBILE, '@midnite/studio-shared'],
+  ['mobile imports the git-engine diff parser', MOBILE, '@midnite/studio-git-engine/diff'],
+  ['mobile imports react-native', MOBILE, 'react-native'],
+  ['mobile imports ui-native by its module id', MOBILE, '@bilo-io/ui-native'],
+];
+
+// Phase 146 Theme C: tasks-core is a pure core beside shared.
+const TASKS_CORE = 'packages/tasks-core/src/board/filter.ts';
+const TASKS_CORE_REJECTED = [
+  ['tasks-core imports the frame', TASKS_CORE, '@midnite/studio-frame', 'pure core'],
+  ['tasks-core imports a feature', TASKS_CORE, '@midnite/studio-feature-tasks/renderer', 'pure core'],
+  ['tasks-core imports react', TASKS_CORE, 'react', 'React-free'],
+  ['tasks-core imports react-native', TASKS_CORE, 'react-native', 'React-free'],
+  ['tasks-core imports electron', TASKS_CORE, 'electron', 'electron-free'],
+  ['tasks-core imports react-icons', TASKS_CORE, 'react-icons/lu', 'React-free'],
+  ['tasks-core imports a node builtin', TASKS_CORE, 'node:fs', 'no node builtins'],
+  ['tasks-core reaches into the frame by path', TASKS_CORE, '../../../frame/src/index', 'reaches around the package name'],
+  ['shared imports tasks-core', 'packages/shared/src/index.ts', '@midnite/tasks-core', 'leaf of the dependency graph'],
+];
+const TASKS_CORE_ALLOWED = [
+  ['tasks-core imports shared', TASKS_CORE, '@midnite/studio-shared'],
+  ['a feature renderer imports tasks-core', FEATURE_RENDERER, '@midnite/tasks-core'],
+];
+
+// Phase 146 Theme D: forge-github-core is a pure core beside shared, read by forge's main half and mobile.
+const FORGE_CORE = 'packages/forge-github-core/src/projects.ts';
+const FORGE_MAIN = 'packages/features/forge/main/github/gh-project.ts';
+const FORGE_CORE_REJECTED = [
+  ['forge-github-core imports the frame', FORGE_CORE, '@midnite/studio-frame', 'pure core'],
+  ['forge-github-core imports a feature', FORGE_CORE, '@midnite/studio-feature-forge/renderer', 'pure core'],
+  ['forge-github-core imports git-engine', FORGE_CORE, '@midnite/studio-git-engine', 'pure core'],
+  ['forge-github-core imports the other pure core', FORGE_CORE, '@midnite/tasks-core', 'pure core'],
+  ['forge-github-core imports react', FORGE_CORE, 'react', 'React-free'],
+  ['forge-github-core imports react-native', FORGE_CORE, 'react-native', 'React-free'],
+  ['forge-github-core imports electron', FORGE_CORE, 'electron', 'electron-free'],
+  ['forge-github-core imports react-icons', FORGE_CORE, 'react-icons/lu', 'React-free'],
+  ['forge-github-core imports a node builtin', FORGE_CORE, 'node:fs', 'no node builtins'],
+  ['forge-github-core reaches into the frame by path', FORGE_CORE, '../../../frame/src/index', 'reaches around the package name'],
+  ['forge-github-core reaches into a feature by path', FORGE_CORE, '../../features/forge/main/index', 'reaches around the package name'],
+  ['shared imports forge-github-core', 'packages/shared/src/index.ts', '@midnite/forge-github-core', 'leaf of the dependency graph'],
+  ['tasks-core imports forge-github-core', TASKS_CORE, '@midnite/forge-github-core', 'pure core'],
+];
+const FORGE_CORE_ALLOWED = [
+  ['forge-github-core imports shared', FORGE_CORE, '@midnite/studio-shared'],
+  ['forge main imports forge-github-core', FORGE_MAIN, '@midnite/forge-github-core'],
+];
+
 const REJECTED = [
+  ...MOBILE_REJECTED,
+  ...TASKS_CORE_REJECTED,
+  ...FORGE_CORE_REJECTED,
   // --- The three rules the phase doc's Verification names ------------------
   ['a feature imports an app (package name)', FEATURE_RENDERER, '@midnite/studio-app/store/ui-store', 'Nothing below an app imports one'],
   ['a feature imports an app (relative path)', FEATURE_RENDERER, '../../../app/src/store/ui-store', 'Nothing below an app imports one'],
@@ -174,6 +243,9 @@ const REJECTED = [
 
 /** [description, file, import specifier] — must produce no no-restricted-imports message. */
 const ALLOWED = [
+  ...MOBILE_ALLOWED,
+  ...TASKS_CORE_ALLOWED,
+  ...FORGE_CORE_ALLOWED,
   ['an app imports a feature renderer half', APP, '@midnite/studio-feature-optimizer/renderer'],
   ['an app imports the frame', APP, '@midnite/studio-frame'],
   ['a suite app imports the frame', SUITE_APP, '@midnite/studio-frame'],

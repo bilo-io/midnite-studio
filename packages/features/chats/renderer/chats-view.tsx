@@ -23,7 +23,8 @@ import { useChatsHost } from './host';
  * subscribes to main's event stream, which broadcasts to every window.
  */
 export function ChatsView() {
-  const width = useChatsHost().useListWidth();
+  const host = useChatsHost();
+  const width = host.useListWidth();
   const list = useResizable({
     size: width.size,
     onSize: width.setSize,
@@ -54,7 +55,22 @@ export function ChatsView() {
           selectedId={selectedId}
           filters={filters}
           onFiltersChange={setFilters}
-          onSelect={(id) => useChatsStore.getState().select(id)}
+          onSelect={(id) => {
+            useChatsStore.getState().select(id);
+            const state = useChatsStore.getState();
+            const summary = state.list.find((c) => c.id === id);
+            const full = state.chats[id];
+            const repoId = full?.repoId ?? summary?.repoId ?? undefined;
+            const cwd =
+              (full as { cwd?: string } | undefined)?.cwd ??
+              full?.repoPath ??
+              full?.worktree?.path ??
+              summary?.worktree?.path ??
+              undefined;
+            if (repoId !== undefined || cwd !== undefined) {
+              host.onSelectRepo?.({ repoId, cwd });
+            }
+          }}
           onNew={() => useChatsStore.getState().select(null)}
           onRename={(chat, title) => void useChatsStore.getState().updateChat(chat.id, { title }).then(fail)}
           onPin={(chat, pinned) => void useChatsStore.getState().updateChat(chat.id, { pinned }).then(fail)}

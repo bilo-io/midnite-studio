@@ -1,3 +1,4 @@
+import { LuRepeat } from 'react-icons/lu';
 import { PiTerminalDuotone } from 'react-icons/pi';
 
 import { LoadingRegion, Skeleton, type IconComponent } from '@midnite/studio-frame';
@@ -47,4 +48,10 @@ export const NO_SESSIONS_EMPTY: { icon: IconComponent; title: string; body: stri
   icon: PiTerminalDuotone,
   title: 'Nothing running, nothing closed',
   body: 'Open a terminal or start an agent and it shows up here — running above, closed and kept below for as long as you like.',
+};
+
+export const NO_LOOP_SESSIONS_EMPTY: { icon: IconComponent; title: string; body: string } = {
+  icon: LuRepeat,
+  title: 'No loop sessions',
+  body: 'Start a loop from the Loops panel and its sessions will show up here.',
 };

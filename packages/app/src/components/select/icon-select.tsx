@@ -1,4 +1,5 @@
-import Select, { type ClassNamesConfig, type MultiValueRemoveProps } from 'react-select';
+import type { ReactNode } from 'react';
+import Select, { type ClassNamesConfig, type GroupBase, type MultiValueRemoveProps } from 'react-select';
 import { LuX } from 'react-icons/lu';
 
 import type { IconComponent } from '../icon-button';
@@ -25,9 +26,31 @@ export type IconSelectOption = {
    * the more urgent answer whenever both are set.
    */
   hint?: string;
+  /** Drawn in place of the text, in the menu and the chip alike (e.g. a pill). Search still matches `label`. */
+  content?: ReactNode;
   isDisabled?: boolean;
   disabledReason?: string;
+  /**
+   * Consecutive options sharing a group get one header row (#1699: "Your agents" first in the loop's
+   * provider picker). Same field name as the AI thread picker's `PickerProvider.group`.
+   */
+  group?: string;
 };
+
+/** Runs of options sharing a `group` become react-select groups; ungrouped options stay top-level. */
+export function groupIconSelectOptions(
+  options: readonly IconSelectOption[],
+): readonly (IconSelectOption | GroupBase<IconSelectOption>)[] {
+  if (!options.some((option) => option.group !== undefined)) return options;
+  const out: (IconSelectOption | { label: string; options: IconSelectOption[] })[] = [];
+  for (const option of options) {
+    const last = out.at(-1);
+    if (option.group === undefined) out.push(option);
+    else if (last && 'options' in last && last.label === option.group) last.options.push(option);
+    else out.push({ label: option.group, options: [option] });
+  }
+  return out;
+}
 
 /**
  * `unstyled` + Tailwind's own utility classes via `classNames`, rather than
@@ -62,6 +85,7 @@ const BASE_CLASS_NAMES: ClassNamesConfig<IconSelectOption, boolean> = {
             : 'text-foreground'
     }`,
   noOptionsMessage: () => 'px-2 py-1.5 text-muted-foreground',
+  groupHeading: () => 'px-2 pb-0.5 pt-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground',
   /*
     Multi only, and unused by the single-value control — one table rather than
     two, so a chip in the day picker is themed off the same tokens as the
@@ -100,7 +124,7 @@ function OptionLabel({
       {Icon ? (
         <Icon aria-hidden className="size-3.5 shrink-0" style={{ color: option.iconColor }} />
       ) : null}
-      <span className="truncate">{text}</span>
+      {option.content ?? <span className="truncate">{text}</span>}
     </span>
   );
 }
@@ -118,6 +142,16 @@ function OptionLabel({
  * control's own subtree, which changes what a `within(container)` query — a
  * test's or a click-outside handler's — can see.
  */
+/*
+  The menu sizes to its content instead of the control: a narrow control (a third of the loop composer's
+  provider row) would otherwise truncate "Release…" / "Antigr…" in a menu wide enough to read them. At least
+  the control's width, at most 28rem (or the viewport). Inline styles for the reason PORTAL_PROPS gives:
+  `react-select` emits `width: 100%` through emotion, which a class cannot beat.
+*/
+const MENU_STYLES = {
+  menu: (base: Record<string, unknown>) => ({ ...base, width: 'max-content', minWidth: '100%', maxWidth: 'min(28rem, 90vw)' }),
+} as const;
+
 const PORTAL_PROPS = {
   menuPortalTarget: typeof document === 'undefined' ? undefined : document.body,
   menuPosition: 'fixed',
@@ -130,7 +164,7 @@ const PORTAL_PROPS = {
     specificity emotion wins. A `z-[60]` class was silently doing nothing, and
     a menu overlapping the FAB button (`z-20`) would have opened underneath it.
   */
-  styles: { menuPortal: (base: Record<string, unknown>) => ({ ...base, zIndex: 60 }) },
+  styles: { ...MENU_STYLES, menuPortal: (base: Record<string, unknown>) => ({ ...base, zIndex: 60 }) },
 } as const;
 
 export function IconSelect({
@@ -160,12 +194,12 @@ export function IconSelect({
 
   return (
     <Select<IconSelectOption, false>
-      {...(menuInPortal ? PORTAL_PROPS : {})}
+      {...(menuInPortal ? PORTAL_PROPS : { styles: MENU_STYLES })}
       aria-label={ariaLabel}
       classNamePrefix="icon-select"
       unstyled
       classNames={classNamesFor<false>()}
-      options={options}
+      options={groupIconSelectOptions(options)}
       value={selected}
       isSearchable={isSearchable}
       isClearable={isClearable}
@@ -220,7 +254,7 @@ export function MultiIconSelect({
 
   return (
     <Select<IconSelectOption, true>
-      {...(menuInPortal ? PORTAL_PROPS : {})}
+      {...(menuInPortal ? PORTAL_PROPS : { styles: MENU_STYLES })}
       aria-label={ariaLabel}
       classNamePrefix="icon-select"
       unstyled

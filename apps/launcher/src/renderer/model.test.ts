@@ -69,11 +69,11 @@ describe('launcher model', () => {
     expect(removalSummary([{ app: app('studio'), result: { ok: true } }])).toEqual({ message: 'Moved 1 app to the Trash.', tone: 'info' });
     const partial = removalSummary([
       { app: app('gamer'), result: { ok: true } },
-      { app: app('studio'), result: { ok: false, message: 'Midnite Studio is running — quit it first.' } },
+      { app: app('studio'), result: { ok: false, message: 'Midnyte Studio is running — quit it first.' } },
     ]);
     expect(partial.tone).toBe('error');
     expect(partial.message).toBe(
-      'Moved 1 of 2 apps to the Trash. Skipped — Midnite Studio: Midnite Studio is running — quit it first.',
+      'Moved 1 of 2 apps to the Trash. Skipped — Midnyte Studio: Midnyte Studio is running — quit it first.',
     );
   });
 });

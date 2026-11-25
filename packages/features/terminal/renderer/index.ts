@@ -7,12 +7,15 @@
  * xterm into its entry chunk.
  */
 export { terminalManifest, type TerminalManifest } from '../manifest';
+export { repaintAllTerminals } from './xterm-atlas-guard';
 export {
   closeSessionWithConfirm,
 } from './close-session';
 export {
   collapseHome,
 } from './collapse-home';
+export { describeSession, endSessionsWithConfirm, previousBuildSessions } from './end-sessions';
+export { recoverDetachedSessions } from './recover-detached';
 export {
   DEFAULT_TERMINAL_LIST_WIDTH,
   createDefaultTerminalHost,
@@ -41,6 +44,7 @@ export {
   type TerminalTooltipProps,
   type TerminalPopoverProps,
   type TerminalAgentAvatarProps,
+  type TerminalLoopMarkProps,
   type TerminalHost,
 } from './host';
 export {
@@ -58,12 +62,15 @@ export {
   type LazyTerminalViewProps,
 } from './lazy-terminal-view';
 export {
+  BASE_CLI_NOT_FOUND,
   NO_WORKTREE,
   PROPRIETARY_IDS,
   buildAgentSections,
   type AgentRow,
   type AgentSection,
   type BuildAgentSectionsInput,
+  type MenuRow,
+  type ProfileRow,
 } from './new-session-menu';
 export {
   NewSessionPicker,
@@ -136,6 +143,7 @@ export {
   useTerminalStore,
   onMainSurface,
   inMainPanel,
+  isLoopSession,
   isAgentRow,
   cleanAutoName,
   sessionLabel,
@@ -183,3 +191,5 @@ export {
   useShowAllApps,
   visibleInApp,
 } from './app-filter';
+export { launchProfileSession, prepareProfileStart, type PrepareProfileLaunch } from './profile-launch';
+export { resolveSessionAgent } from './session-agent';

@@ -12,6 +12,8 @@ import {
   TerminalSessionSchema,
   TerminalSurfaceSchema,
   buildResumeCommand,
+  formatShellResumeCommand,
+  quotePosixArg,
   sessionAppId,
   type AgentDefinition,
 } from './terminal';
@@ -189,7 +191,7 @@ describe('AgentDefinitionSchema', () => {
 
     expect(claude?.resume).toEqual(['--continue']);
     expect(codex?.resume).toEqual(['resume', '--last']);
-    expect(agy?.resume).toBeUndefined();
+    expect(agy?.resume).toEqual(['--continue']);
     expect(openclaude?.resume).toBeUndefined();
     expect(opencode?.resume).toEqual(['--continue']);
     expect(kilo?.resume).toEqual(['--continue']);
@@ -527,6 +529,13 @@ describe('buildResumeCommand (Phase 86 Theme C)', () => {
       ]);
     });
 
+    it('returns [--conversation, id] for agy when conversationId is provided', () => {
+      expect(buildResumeCommand(agy, '50ed5e0a-230d-4806-aaf1-21fc70805e27')).toEqual([
+        '--conversation',
+        '50ed5e0a-230d-4806-aaf1-21fc70805e27',
+      ]);
+    });
+
     it('trims whitespace around conversationId', () => {
       expect(buildResumeCommand(claude, '  trimmed-uuid  ')).toEqual([
         '--resume',
@@ -550,6 +559,13 @@ describe('buildResumeCommand (Phase 86 Theme C)', () => {
       expect(buildResumeCommand(codex, '')).toEqual(['resume', '--last']);
     });
 
+    it('falls back to agy.resume when conversationId is absent or blank', () => {
+      expect(buildResumeCommand(agy)).toEqual(['--continue']);
+      expect(buildResumeCommand(agy, null)).toEqual(['--continue']);
+      expect(buildResumeCommand(agy, '')).toEqual(['--continue']);
+      expect(buildResumeCommand(agy, '   ')).toEqual(['--continue']);
+    });
+
     it('returns agent.resume for agents without exact ID support even if conversationId is given', () => {
       expect(buildResumeCommand(cursor, 'some-uuid')).toEqual(['--continue']);
       expect(buildResumeCommand(cursor, null)).toEqual(['--continue']);
@@ -557,12 +573,6 @@ describe('buildResumeCommand (Phase 86 Theme C)', () => {
   });
 
   describe('no-resume (null) case', () => {
-    it('returns null for agy which has no resume args', () => {
-      expect(buildResumeCommand(agy)).toBeNull();
-      expect(buildResumeCommand(agy, 'some-uuid')).toBeNull();
-      expect(buildResumeCommand(agy, null)).toBeNull();
-    });
-
     it('returns null for an agent with no resume defined or empty resume array', () => {
       const customNoResume: AgentDefinition = {
         id: 'custom',
@@ -581,6 +591,44 @@ describe('buildResumeCommand (Phase 86 Theme C)', () => {
       expect(buildResumeCommand(customEmptyResume)).toBeNull();
       expect(buildResumeCommand(customEmptyResume, 'uuid')).toBeNull();
     });
+  });
+});
+
+describe('formatShellResumeCommand', () => {
+  const claude = BUILTIN_AGENTS.find((a) => a.id === 'claude')!;
+  const codex = BUILTIN_AGENTS.find((a) => a.id === 'codex')!;
+  const agy = BUILTIN_AGENTS.find((a) => a.id === 'agy')!;
+
+  it('quotes only arguments containing whitespace, quotes, or metacharacters', () => {
+    expect(quotePosixArg('/Users/me/repo')).toBe('/Users/me/repo');
+    expect(quotePosixArg('b6f784d3-9702-4202-8d5e-ab7344aac211')).toBe(
+      'b6f784d3-9702-4202-8d5e-ab7344aac211',
+    );
+    expect(quotePosixArg("/Users/me/My Repo's")).toBe("'/Users/me/My Repo'\\''s'");
+    expect(quotePosixArg('')).toBe("''");
+  });
+
+  it('formats claude, codex, and agy with exact conversation IDs', () => {
+    expect(
+      formatShellResumeCommand('/repo', claude, 'b6f784d3-9702-4202-8d5e-ab7344aac211'),
+    ).toBe('cd /repo && claude --resume b6f784d3-9702-4202-8d5e-ab7344aac211');
+    expect(formatShellResumeCommand('/repo', codex, 'rollout-12345678')).toBe(
+      'cd /repo && codex resume rollout-12345678',
+    );
+    expect(
+      formatShellResumeCommand('/repo', agy, '50ed5e0a-230d-4806-aaf1-21fc70805e27'),
+    ).toBe('cd /repo && agy --conversation 50ed5e0a-230d-4806-aaf1-21fc70805e27');
+  });
+
+  it('formats agy without UUID using --continue and shell without agent command', () => {
+    expect(formatShellResumeCommand('/repo', agy, null)).toBe('cd /repo && agy --continue');
+    expect(formatShellResumeCommand('/repo', null, null)).toBe('cd /repo');
+  });
+
+  it('safely quotes cwd with spaces and single quotes', () => {
+    expect(formatShellResumeCommand("/tmp/my 'repo' dir", claude, 'abc-123')).toBe(
+      "cd '/tmp/my '\\''repo'\\'' dir' && claude --resume abc-123",
+    );
   });
 });
 
@@ -669,5 +717,28 @@ describe('the session app (Phase 123 Theme E)', () => {
   it('keeps an app that stamped itself, and rejects one that is not a suite app', () => {
     expect(sessionAppId(TerminalSessionSchema.parse({ ...base, appId: 'browser' }))).toBe('browser');
     expect(TerminalSessionSchema.safeParse({ ...base, appId: 'launcher' }).success).toBe(false);
+  });
+});
+
+describe('unified session view on TerminalSessionSchema (Phase 146 Theme A)', () => {
+  const base = { id: 's-1', kind: 'agent' as const, agentId: 'claude', title: 'midnite', cwd: '/repos/midnite', repoId: 'repo:midnite', createdAt: 1 };
+
+  it('keeps linkedChatId and preferredView optional for backwards compatibility', () => {
+    const parsed = TerminalSessionSchema.parse(base);
+    expect(parsed.linkedChatId).toBeUndefined();
+    expect(parsed.preferredView).toBeUndefined();
+  });
+
+  it('accepts linkedChatId and preferredView when set and rejects invalid values', () => {
+    const parsed = TerminalSessionSchema.parse({
+      ...base,
+      linkedChatId: 'chat-123',
+      preferredView: 'chat',
+    });
+    expect(parsed.linkedChatId).toBe('chat-123');
+    expect(parsed.preferredView).toBe('chat');
+
+    expect(TerminalSessionSchema.safeParse({ ...base, linkedChatId: '' }).success).toBe(false);
+    expect(TerminalSessionSchema.safeParse({ ...base, preferredView: 'invalid' }).success).toBe(false);
   });
 });

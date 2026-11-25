@@ -16,6 +16,7 @@ export type AgentsBridge = {
   report: ReportBridge;
   chats: MidniteStudioBridge['chats'];
   council: MidniteStudioBridge['council'];
+  agentProfile: MidniteStudioBridge['agentProfile'];
   /** No `onNodeSessionStarted` (Agents has no terminal to adopt a session into) and no `setDefaults` (no Settings page). */
   workflow: Omit<MidniteStudioBridge['workflow'], 'onNodeSessionStarted' | 'setDefaults'>;
   demoApi: MidniteStudioBridge['demoApi'];
@@ -46,6 +47,14 @@ export function createAgentsBridge(ipc: RendererIpc): AgentsBridge {
       skills: (req) => call(CHANNELS.chatsSkills, req),
       files: (req) => call(CHANNELS.chatsFiles, req),
       onEvent: (handler) => subscribe(EVENT_CHANNELS.chatsEvent, handler),
+    },
+    agentProfile: {
+      list: () => call(CHANNELS.agentProfileList),
+      save: (req) => call(CHANNELS.agentProfileSave, req),
+      delete: (req) => call(CHANNELS.agentProfileDelete, req),
+      export: (req) => call(CHANNELS.agentProfileExport, req),
+      import: () => call(CHANNELS.agentProfileImport),
+      prepareLaunch: (req) => call(CHANNELS.agentProfilePrepareLaunch, req),
     },
     council: {
       list: () => call(CHANNELS.councilList),

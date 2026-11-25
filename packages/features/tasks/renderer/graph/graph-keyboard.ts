@@ -1,4 +1,4 @@
-import type { PositionedEdge, PositionedNode } from './graph-layout';
+import type { PositionedEdge, PositionedNode } from '@midnite/tasks-core';
 
 /**
  * Pure keyboard arithmetic for the dependency graph (Phase 75 Theme D) —

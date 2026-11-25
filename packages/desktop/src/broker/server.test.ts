@@ -85,6 +85,8 @@ async function waitFor(check: () => boolean, timeoutMs = 2000): Promise<void> {
   }
 }
 
+const SESSION_ENV_OVERRIDES = { CLAUDE_CODE_USE_BEDROCK: '1', KEEP_ME: 'yes' };
+
 describe('broker server', () => {
   it('rejects hello with protocol mismatch and closes the socket', async () => {
     const tmp = mkdtempSync(join(tmpdir(), 'mstudio-broker-test-'));
@@ -255,13 +257,22 @@ describe('broker server', () => {
     await new Promise((r) => setTimeout(r, 20));
 
     const create = (id: number) =>
-      encodeControl({ t: 'create', id, sessionId: `s-${id}`, cwd: '/tmp', cols: 80, rows: 24, env: {} });
+      encodeControl({ t: 'create', id, sessionId: `s-${id}`, cwd: '/tmp', cols: 80, rows: 24, env: SESSION_ENV_OVERRIDES });
     const hello = encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid, role: 'host' });
 
     // Healthy: the spawn goes through.
     const healthy = await connectAndSend(socketPath, [hello, create(2)]);
     expect(healthy.frames[1]).toMatchObject({ message: { id: 2, ok: true } });
     expect(spawnPty).toHaveBeenCalledTimes(1);
+    expect(spawnPty.mock.calls[0]?.[2]?.env).toMatchObject({
+      COLORTERM: 'truecolor',
+      TERM_PROGRAM: 'midnite-studio',
+      GIT_TERMINAL_PROMPT: '1',
+      KEEP_ME: 'yes',
+    });
+    // The broker passes the client's env through untouched: main scrubs the ambient env, and an explicit per-session
+    // override (here a CLAUDE_CODE_* setting the user chose) must survive.
+    expect(spawnPty.mock.calls[0]?.[2]?.env).toMatchObject({ CLAUDE_CODE_USE_BEDROCK: '1' });
     healthy.socket.destroy();
 
     // The bundle moved under this process: refuse BEFORE trying to spawn.

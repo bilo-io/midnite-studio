@@ -27,6 +27,7 @@ import {
   LuFolderX,
   LuGitBranch,
   LuGripVertical,
+  LuLayers,
   LuListFilter,
   LuEllipsisVertical,
   LuPackage,
@@ -235,6 +236,9 @@ export function ReposPanel() {
   const { data: repos = [], isLoading } = useRepos();
   const reorderRepos = useReorderRepos();
   const reorderRepoGroups = useUiStore((s) => s.reorderRepoGroups);
+  const selectedRepoId = useUiStore((s) => s.selectedRepoId);
+  const showAllRepos = useUiStore((s) => s.showAllRepos);
+  const toggleShowAllRepos = useUiStore((s) => s.toggleShowAllRepos);
   const [error, setError] = useState<string | null>(null);
   const [addRepoOpen, setAddRepoOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -250,7 +254,13 @@ export function ReposPanel() {
     account scoping has no opinion on.
   */
   const { visible: scopedRepos } = useAccountScopedRepos(repos);
-  const { matched, favourites, ungrouped, groups } = useGroupedRepos(scopedRepos, query);
+  const visibleRepos = useMemo(() => {
+    if (showAllRepos || !selectedRepoId) return scopedRepos;
+    const active = scopedRepos.filter((repo) => repo.id === selectedRepoId);
+    return active.length > 0 ? active : scopedRepos;
+  }, [scopedRepos, showAllRepos, selectedRepoId]);
+  const { matched, favourites, ungrouped, groups } = useGroupedRepos(visibleRepos, query);
+  const singleRepo = matched.length === 1 ? matched[0] : undefined;
   const client = useQueryClient();
   /*
     Theme K.2: `ReposPanel` fully unmounts whenever the sidebar closes
@@ -317,6 +327,16 @@ export function ReposPanel() {
   */
   const toolbar = (
     <>
+      {repos.length > 0 ? (
+        <IconButton
+          icon={LuLayers}
+          label={showAllRepos ? 'Showing all repositories — show current only' : 'Show all repositories'}
+          aria-pressed={showAllRepos}
+          size="sm"
+          onClick={toggleShowAllRepos}
+          className={showAllRepos ? 'text-primary' : ''}
+        />
+      ) : null}
       {/*
         One button for both directions, not two.
 
@@ -515,6 +535,20 @@ export function ReposPanel() {
             No repository matches <span className="text-foreground">{query.trim()}</span>. The
             filter reads names and paths.
           </p>
+        ) : singleRepo ? (
+          <SortableList ids={repos.map((repo) => repo.id)} onReorder={reorderRepos}>
+            <RepoItem
+              key={singleRepo.id}
+              repo={singleRepo}
+              first
+              cascading={cascade.active}
+              cascadeStyle={cascade.styleFor(0)}
+              sections={sections}
+              expanded={!folds.collapsed(singleRepo.id)}
+              onToggleExpanded={() => folds.toggle(singleRepo.id)}
+              onError={(message) => setError(message || null)}
+            />
+          </SortableList>
         ) : (
           <>
             {/*
@@ -1020,37 +1054,32 @@ const SECTION_TITLE: Record<SectionKey, string> = {
 /** Forge's four children, in the order `SECTION_TREE` declares them (Phase 28 Theme F). */
 const FORGE_CHILDREN: readonly SectionKey[] = ['actions', 'reviews', 'issues', 'tests'];
 
-/** A stable empty array, so a repo with no folds never re-renders on it. */
-const NO_CLOSED_SECTIONS: readonly string[] = [];
-
 /**
- * Fold state for a repo's subsections, persisted in the ui-store keyed by
- * repo id (`collapsedRepoSections`).
+ * Fold state for a repo's subsections, persisted in the ui-store as one shared
+ * config (`collapsedRepoSections`) applied to whichever repo is shown in
+ * single-repo view and to all repos simultaneously in all-repos view.
  *
- * Held as the set of *closed* sections so a section defaults to open without
- * having to be listed — a repo the user just opened should show its tree, and
- * a section they folded away should stay folded across repo switches and
- * restarts alike.
+ * Defaults to everything collapsed except `tags` and `forge`.
  */
-function useSectionToggles(repoId: string) {
-  const closed = useUiStore((s) => s.collapsedRepoSections[repoId] ?? NO_CLOSED_SECTIONS);
+function useSectionToggles() {
+  const closed = useUiStore((s) => s.collapsedRepoSections);
   const toggleKey = useUiStore((s) => s.toggleRepoSectionKey);
 
   const section = (key: SectionKey) => ({
     collapsible: true,
     open: !closed.includes(key),
-    onToggle: () => toggleRepoSection(repoId, key),
+    onToggle: () => toggleRepoSection(key),
   });
 
   /**
    * `RemoteGroup`'s own fold, one composite key per remote (`remotes:origin`)
    * rather than a `SectionKey` — there is one `remotes` section but many
-   * remotes, each with its own fold. Joins the same map as `section` above so
-   * pruning and persistence both cover it for free.
+   * remotes, each with its own fold. Joins the same shared config as `section`
+   * above so persistence covers it for free.
    */
   const remoteGroup = (name: string) => {
     const key = `remotes:${name}`;
-    return { open: !closed.includes(key), onToggle: () => toggleKey(repoId, key) };
+    return { open: !closed.includes(key), onToggle: () => toggleKey(key) };
   };
 
   return { section, remoteGroup };
@@ -1095,7 +1124,7 @@ export function RepoTree({
   onCheckout: (ref: Ref) => void;
 }) {
   const [showAllTags, setShowAllTags] = useState(false);
-  const { section, remoteGroup } = useSectionToggles(repo.id);
+  const { section, remoteGroup } = useSectionToggles();
   const dialogs = useDialogs();
   // Theme K.2: re-expanding replays the cascade; a status/branch refresh
   // while already expanded (same `repo.id`, same reveal count) never does.
@@ -1135,7 +1164,7 @@ export function RepoTree({
    * CI verdicts for the branch dots — from cache only, never fetched for.
    *
    * `enabled: false` is doing real work here. It closes the loop
-   * `todo/outstanding.md` left open ("Branch checks — the RAG dot's real
+   * `.midnite/tasks/outstanding.md` left open ("Branch checks — the RAG dot's real
    * source") without paying for it: if the user has opened Actions on this
    * repo, the runs are already in the query cache and every branch tip that
    * matches one gets a real red/amber/green. If they have not, this fetches

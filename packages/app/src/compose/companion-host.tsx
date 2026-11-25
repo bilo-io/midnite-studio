@@ -12,7 +12,8 @@ import { dismissToast, showToast } from '../components/toast-host';
 import { useDismissable } from '../components/use-dismissable';
 import { UserAvatar } from '../components/user-avatar';
 import { useAgentProbeStore } from '../features/agent/agent-probe-store';
-import { skillHandoff } from '../features/agent/use-skill-handoff';
+import { resolveSkillHandoff, skillHandoff } from '../features/agent/use-skill-handoff';
+import { startStudioProfileAgent } from './profile-launch';
 import { ExternalLink } from '../features/markdown/external-link';
 import { COMMAND_ACCESS } from '../features/palette/safety';
 import { LockScreenFintechWidget, LockScreenSysmonWidget } from '../features/screensaver/lock-screen-widgets';
@@ -80,6 +81,21 @@ export const STUDIO_COMPANION_HOST: CompanionHost = {
     // Called through a closure so the host is built without touching either module's exports.
     startAgent: (input) => (startAgent as CompanionHost['terminal']['startAgent'])(input),
     skillHandoff: (options, context) => (skillHandoff as CompanionHost['terminal']['skillHandoff'])(options, context),
+    skillHandoffAsProfile: async (options, context, profile) => {
+      const resolved = resolveSkillHandoff(options, context);
+      // Honours the hand-off's surface and mode like the roster path: an absent mode follows the user's setting.
+      const mode = options.mode ?? useUiStore.getState().skillExecutionMode;
+      return resolved
+        ? startStudioProfileAgent({
+            ...resolved,
+            profile,
+            autoSend: options.autoSend,
+            mode,
+            ...(options.surface === undefined ? {} : { surface: options.surface }),
+          })
+        : null;
+    },
+    startProfileAgent: (input) => startStudioProfileAgent(input),
   },
   screensaver: {
     SysmonWidget: LockScreenSysmonWidget,

@@ -13,6 +13,10 @@ import { useDisabledFeatures, useGraphStore, type CommandEntry } from '@midnite/
 import { useSetupStore } from '../../features/setup/setup-store';
 import { useSlidesStore } from '@midnite/studio-feature-slides/renderer';
 import { syncAffordances } from '../../features/status/sync-availability';
+import { repaintAllTerminals } from '@midnite/studio-feature-terminal/renderer';
+import { runCleanSystemWith } from '../../features/monitor/clean-system';
+import { runFreeRamWith } from '../../features/monitor/free-ram';
+import { runFullRecovery } from '../../features/monitor/full-recovery';
 import { closeSessionWithConfirm } from '../../features/terminal/close-session';
 import { onMainSurface, useTerminalStore } from '../../features/terminal/terminal-store';
 import { useAgents } from '../../features/terminal/use-agents';
@@ -32,7 +36,12 @@ import {
   useAccountSwitcherStore,
 } from '../../components/account-switcher-store';
 import { usePaletteStore } from '../../store/palette-store';
-import { isCompanionPanelDocked, isFabPanelDocked, useUiStore, type ViewId } from '../../store/ui-store';
+import {
+  isCompanionPanelDocked,
+  isFabPanelDocked,
+  useUiStore,
+  type ViewId,
+} from '../../store/ui-store';
 import { useWorkflowRunCommandStore } from '@midnite/studio-feature-workflows/renderer';
 import { bridge } from '../bridge';
 import { openInMidnite } from '../open-in-midnite';
@@ -140,7 +149,9 @@ export function useCommandHandlers(): CommandRuntime {
   // subscribed reactively, unlike `browserTabCommands`' own tab actions,
   // which only ever read `getState()` inside `run` since they don't need to
   // know the tab's kind to decide whether they are enabled.
-  const activeBrowserTab = useBrowserStore((s) => s.tabs.find((t) => t.id === s.activeTabId) ?? null);
+  const activeBrowserTab = useBrowserStore(
+    (s) => s.tabs.find((t) => t.id === s.activeTabId) ?? null,
+  );
   const { data: repos } = useRepos();
   const selectedRepo = repos?.find((repo) => repo.id === selectedRepoId) ?? null;
 
@@ -191,6 +202,7 @@ export function useCommandHandlers(): CommandRuntime {
     },
     'terminal.toggleDock': { enabled: true, run: () => useUiStore.getState().toggleTerminalDock() },
     'terminal.focus': { enabled: true, run: () => useUiStore.getState().setTerminalOpen(true) },
+    'terminal.repaint': { enabled: true, run: () => repaintAllTerminals() },
     // Mod+T is an App-Switcher-style HUD now (`TerminalSwitcherOverlay`), the
     // same shape `browser.toggle` uses for Mod+B: a bare tap opens the
     // overlay highlighted on "Terminal" rather than acting immediately, and
@@ -201,25 +213,39 @@ export function useCommandHandlers(): CommandRuntime {
     // `browserSwitcherOpen` branch. The net effect for a quick tap-and-release
     // is unchanged from before this overlay existed — a plain shell opens —
     // because "Terminal" is index 0.
-    'terminal.new': selectedRepoId && selectedWorktreePath
-      ? {
-          enabled: true,
-          run: () => {
-            const store = useUiStore.getState();
-            if (store.terminalSwitcherOpen) {
-              store.cycleTerminalSwitcher(1, terminalSwitcherOptionCount);
-            } else {
-              store.openTerminalSwitcher();
-            }
-          },
-        }
-      : { enabled: false, disabledReason: NO_REPO, run: () => {} },
+    'terminal.new':
+      selectedRepoId && selectedWorktreePath
+        ? {
+            enabled: true,
+            run: () => {
+              const store = useUiStore.getState();
+              if (store.terminalSwitcherOpen) {
+                store.cycleTerminalSwitcher(1, terminalSwitcherOptionCount);
+              } else {
+                store.openTerminalSwitcher();
+              }
+            },
+          }
+        : { enabled: false, disabledReason: NO_REPO, run: () => {} },
     'terminal.close': activeTerminalSession
       ? {
           enabled: true,
           run: () => closeSessionWithConfirm(dialogs, activeTerminalSession),
         }
       : { enabled: false, disabledReason: 'No terminal selected', run: () => {} },
+    'terminal.recoverDetached': {
+      enabled: true,
+      run: () => {
+        runFullRecovery(dialogs).catch((error: unknown) =>
+          dialogs.notify({
+            title: 'Could not recover sessions',
+            body: error instanceof Error ? error.message : String(error),
+          }),
+        );
+      },
+    },
+    'system.cleanSystem': { enabled: true, run: () => runCleanSystemWith(dialogs) },
+    'system.freeRam': { enabled: true, run: () => runFreeRamWith(dialogs) },
     'repos.toggle': { enabled: true, run: () => useUiStore.getState().toggleRepos() },
     'browser.toggle': {
       enabled: true,
@@ -551,7 +577,9 @@ export function useCommandHandlers(): CommandRuntime {
         ? { enabled: true, run: () => useCommitBoxStore.getState().handle?.run() }
         : {
             enabled: false,
-            disabledReason: selectedRepoId ? 'Open the working copy in the graph to commit' : NO_REPO,
+            disabledReason: selectedRepoId
+              ? 'Open the working copy in the graph to commit'
+              : NO_REPO,
             run: () => {},
           },
 
@@ -561,10 +589,18 @@ export function useCommandHandlers(): CommandRuntime {
     // use-status.
     'guard.sweep': { enabled: true, run: () => void bridge()?.guardSweepNow?.() },
     'sync.fetch': sync
-      ? { enabled: sync.fetch.enabled, ...(sync.fetch.reason ? { disabledReason: sync.fetch.reason } : {}), run: () => void fetch.mutateAsync({}) }
+      ? {
+          enabled: sync.fetch.enabled,
+          ...(sync.fetch.reason ? { disabledReason: sync.fetch.reason } : {}),
+          run: () => void fetch.mutateAsync({}),
+        }
       : { enabled: false, disabledReason: NO_REPO, run: () => {} },
     'sync.pull': sync
-      ? { enabled: sync.pull.enabled, ...(sync.pull.reason ? { disabledReason: sync.pull.reason } : {}), run: () => void pull.mutateAsync({}) }
+      ? {
+          enabled: sync.pull.enabled,
+          ...(sync.pull.reason ? { disabledReason: sync.pull.reason } : {}),
+          run: () => void pull.mutateAsync({}),
+        }
       : { enabled: false, disabledReason: NO_REPO, run: () => {} },
     'sync.push': sync
       ? {
@@ -629,10 +665,18 @@ export function useCommandHandlers(): CommandRuntime {
     // no-op there anyway.
     'panel.back': PANEL_HISTORY_VIEWS.has(activeView)
       ? { enabled: true, run: () => activePanelBack() }
-      : { enabled: false, disabledReason: 'Open Councils, Files or a Projects card first', run: () => {} },
+      : {
+          enabled: false,
+          disabledReason: 'Open Councils, Files or a Projects card first',
+          run: () => {},
+        },
     'panel.forward': PANEL_HISTORY_VIEWS.has(activeView)
       ? { enabled: true, run: () => activePanelForward() }
-      : { enabled: false, disabledReason: 'Open Councils, Files or a Projects card first', run: () => {} },
+      : {
+          enabled: false,
+          disabledReason: 'Open Councils, Files or a Projects card first',
+          run: () => {},
+        },
   });
 }
 
@@ -643,7 +687,9 @@ const NO_BROWSER = 'Open the browser first';
  * matching `use-keybindings.ts`'s chord collision rule: a chord like Mod+w
  * means `repo.close` unless the browser owns it right now.
  */
-function browserTabCommands(browserOpen: boolean): Record<
+function browserTabCommands(
+  browserOpen: boolean,
+): Record<
   | 'browser.newTab'
   | 'browser.closeTab'
   | 'browser.nextTab'
@@ -680,7 +726,10 @@ function browserTabCommands(browserOpen: boolean): Record<
     };
   }
 
-  const selectTab = (n: number) => ({ enabled: true, run: () => useBrowserStore.getState().activateNth(n) });
+  const selectTab = (n: number) => ({
+    enabled: true,
+    run: () => useBrowserStore.getState().activateNth(n),
+  });
   return {
     'browser.newTab': { enabled: true, run: () => useBrowserStore.getState().openTab() },
     'browser.closeTab': {
@@ -718,7 +767,10 @@ const NO_PAGE_TAB = 'Open a page in the browser first';
 function browserChromeCommands(
   browserOpen: boolean,
   activeTab: BrowserTab | null,
-): Record<'browser.find' | 'browser.zoomIn' | 'browser.zoomOut' | 'browser.zoomReset' | 'browser.devtools', CommandEntry> {
+): Record<
+  'browser.find' | 'browser.zoomIn' | 'browser.zoomOut' | 'browser.zoomReset' | 'browser.devtools',
+  CommandEntry
+> {
   if (!browserOpen || !activeTab || activeTab.kind !== 'page') {
     const disabled = {
       enabled: false,

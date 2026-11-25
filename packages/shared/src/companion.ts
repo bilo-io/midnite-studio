@@ -2652,6 +2652,11 @@ export const CompanionVocabularySchema = z.object({
       }),
     )
     .optional(),
+  /**
+   * Saved custom agents (Phase 154 Theme H), by id and name, so "use Reviewer" can make one the companion's
+   * agent. Read live in `runtime.ts`, like `profiles`; absent keeps the prompt and the parse as before.
+   */
+  customAgents: z.array(z.object({ id: z.string(), name: z.string() })).optional(),
 });
 export type CompanionVocabulary = z.infer<typeof CompanionVocabularySchema>;
 
@@ -3273,7 +3278,7 @@ export function parseIntent(text: string, vocabulary?: CompanionVocabulary): Com
     // "switch to claude" is never a phrase the resource arm gets to read.
     const repoSwitch = tryRepoSwitch(bare, vocabulary);
     if (repoSwitch) return repoSwitch;
-    const agentFirst = trySwitchAgent(settingsCore(bare));
+    const agentFirst = trySwitchAgent(settingsCore(bare), vocabulary.customAgents);
     if (agentFirst) return agentFirst;
 
     const navigated = tryNavigate(bare, vocabulary);
@@ -3296,7 +3301,7 @@ export function parseIntent(text: string, vocabulary?: CompanionVocabulary): Com
 
   // Phase 111 Theme B: Switch agent or model by natural phrasing.
   // Runs before repo switch fallback, and validates against known agents / models via resolveAgentAndModel.
-  const agentSwitch = trySwitchAgent(settingsCore(bare));
+  const agentSwitch = trySwitchAgent(settingsCore(bare), vocabulary?.customAgents);
   if (agentSwitch) return agentSwitch;
 
   const switchTo =
@@ -3702,6 +3707,22 @@ function tryProfilePhrase(core: string, profiles: readonly string[]): ProfileInt
 
 type SwitchAgentIntent = Extract<CompanionIntent, { kind: 'switchAgent' }>;
 
+/** The id of the custom agent `core` names after a switch verb ("switch to Reviewer", "use the Reviewer agent"), or null. */
+export function matchCustomAgent(core: string, customAgents: readonly { id: string; name: string }[]): string | null {
+  if (customAgents.length === 0) return null;
+  const match =
+    /^(?:switch|change|set)\s+(?:(?:the\s+)?(?:primary\s+|companion\s+)?agent\s+to|(?:over\s+|back\s+)?to)\s+(.+)$/i.exec(core) ??
+    /^(?:use|pick|choose)\s+(.+)$/i.exec(core);
+  if (!match) return null;
+  const heard = (match[1] as string)
+    .replace(/^(?:my\s+|the\s+)?(?:custom\s+)?(?:agent\s+)?/i, '')
+    .replace(/\s+(?:custom\s+)?agent$/i, '')
+    .trim()
+    .toLowerCase();
+  if (heard === '') return null;
+  return customAgents.find((agent) => agent.name.trim().toLowerCase() === heard)?.id ?? null;
+}
+
 /**
  * Phase 111 Theme B: Matches natural phrases for switching agents and models.
  * Examples:
@@ -3709,8 +3730,13 @@ type SwitchAgentIntent = Extract<CompanionIntent, { kind: 'switchAgent' }>;
  * - "use <agent> with <model>", "switch to <agent> with <model>"
  * - "change model to <model>", "set model to <model>", "use model <model>"
  */
-function trySwitchAgent(core: string): SwitchAgentIntent | null {
+function trySwitchAgent(core: string, customAgents?: CompanionVocabulary['customAgents']): SwitchAgentIntent | null {
   if (core === '') return null;
+
+  // 0. Phase 154 Theme H: a saved custom agent by its own name ("use Reviewer"), before any built-in, since
+  // the user chose that name. The intent carries the profile id; `switchAgent` tells the two apart by prefix.
+  const custom = matchCustomAgent(core, customAgents ?? []);
+  if (custom) return { kind: 'switchAgent', agentId: custom };
 
   // 1. Agent + Model: "use <agent> with <model>", "switch to <agent> with <model>", "set agent to <agent> with model <model>"
   const withModelMatch =
@@ -4928,6 +4954,11 @@ export const CompanionAskReplySchema = z.object({
    * a router reply can never carry text into those fields.
    */
   persona: CompanionPersonaReplySchema.optional(),
+  /**
+   * Phase 154 Theme H: the companion's custom agent was deleted, so this answer came from the base
+   * `agentId` instead. The renderer clears the choice and says so once.
+   */
+  agentProfileFallback: z.literal('deleted').optional(),
 });
 export type CompanionAskReply = z.infer<typeof CompanionAskReplySchema>;
 
@@ -4981,8 +5012,10 @@ export function parseAskReply(stdout: string, kind: CompanionAskKind = 'route'):
       // Only a `'persona'` ask may answer with text for personality or About
       // me (Phase 109 Theme H, Decision 4) — anything else carrying one has it
       // dropped, never trusted.
-      const { persona: _ignored, ...reply } = parsed.data;
+      // `agentProfileFallback` is main's to set, never the CLI's.
+      const { persona: _ignored, agentProfileFallback: _fallback, ...reply } = parsed.data;
       void _ignored;
+      void _fallback;
       return reply;
     }
   }

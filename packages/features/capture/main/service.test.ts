@@ -68,7 +68,7 @@ describe('capture service', () => {
   it('takes nothing without the permission, and explains instead of prompting', async () => {
     const { el, service } = make({ el: fakeElectron({ status: 'denied' }) });
     const still = await service.still({ mode: 'screen', sourceId: 'screen:1:0' });
-    expect(still).toMatchObject({ ok: false, message: expect.stringMatching(/System Settings/) });
+    expect(still).toMatchObject({ ok: false, message: expect.stringMatching(/Settings ▸ Permissions/) });
     expect(value(await service.sources('screen'))).toEqual({ permission: 'denied', sources: [] });
     expect((await service.regionBegin()).ok).toBe(false);
     expect((await service.recordingArm('screen:1:0')).ok).toBe(false);

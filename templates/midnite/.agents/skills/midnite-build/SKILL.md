@@ -10,7 +10,7 @@ End-to-end "execute a phase slice" for **this repo**.
 **Conversation style — enforced.** Be terse to save time and tokens. No preamble, no recap of instructions, no narrating what you are *about* to do. Report results, not intentions; bullets over prose. Stay silent on no-op stages. Spend tokens on code, diffs, and decisions — not commentary.
 
 ## Respect
-- `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` = conventions (package/module boundaries, commit style, pre-push gate). Re-read relevant sections before coding. If the repo has a design doc, it is the source of truth.
+- `AGENTS.md` = conventions (Claude Code reads them through `CLAUDE.md`) (package/module boundaries, commit style, pre-push gate). Re-read relevant sections before coding. If the repo has a design doc, it is the source of truth.
 - `.midnite/tasks/` = tracker divided into category folders:
   - **`FEATURES/`** (`FEATURES/_INDEX.md`, `FEATURES/phases/phase-N-*.md`)
   - **`SECURITY/`** (`SECURITY/_INDEX.md`, `SECURITY/phases/phase-N-*.md`)
@@ -121,6 +121,6 @@ Never mark ready or request review before completing the two-subagent self-revie
 6. Mark PR ready: `gh pr ready <n>`.
 7. Once CI checks pass green, squash-merge PR, delete remote branch, and remove local worktree:
    ```bash
-   git worktree remove .worktrees/<slice> --force
+   scripts/skills/worktree-lifecycle.sh remove <slice> --delete-branch   # no --force: it refuses a dirty tree, which is the safety
    git worktree prune
    ```

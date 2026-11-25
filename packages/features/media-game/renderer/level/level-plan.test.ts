@@ -3,7 +3,7 @@ import { levelEntityToWorld } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { addObject, createEditState, objectCentre, rotateObject, setVolume, type EditLevel } from './level-edit-model';
-import { footprintCorners, gridLines, hitPlan, metresToPlan, pathPoints, pixelsPerMetre, planBounds, snapPlan, terrainRect, yawTipPoint } from './level-plan';
+import { footprintCorners, gridLines, hitPlan, metresToPlan, pathPoints, pixelsPerMetre, planBounds, planFrameBounds, snapPlan, terrainRect, yawTipPoint } from './level-plan';
 import { buildBlankLevel } from './new-scene-model';
 
 const level3d = (mpt = 1): EditLevel => {
@@ -77,6 +77,16 @@ describe('hitPlan', () => {
     expect(hitPlan(s.level, { x: centre.x, y: centre.y + 80 }, 1)).not.toBeNull();
   });
 
+  it('picks a spawn zone by its edge, so what lies inside it stays clickable', () => {
+    const level = level3d();
+    const layer = level.layers.find((l) => l.type === 'objectgroup')!;
+    layer.objects = [...(layer.objects ?? []), { id: 99, name: 'zone', type: 'spawner', x: 0, y: 0, width: 600, height: 600 }];
+    // The point object under the zone is still what a click on it picks; the zone's inside picks nothing.
+    expect(hitPlan(level, { x: 340, y: 336 }, 1)).toEqual({ layerId: layer.id, objectId: 1 });
+    expect(hitPlan(level, { x: 100, y: 500 }, 1)).toBeNull();
+    expect(hitPlan(level, { x: 300, y: 2 }, 1)).toEqual({ layerId: layer.id, objectId: 99 });
+  });
+
   it('hits a path on a segment, and picks the topmost object', () => {
     const level = level3d();
     const id = sel(level);
@@ -99,7 +109,15 @@ describe('gridLines', () => {
 
   it('thins to 10 m lines when zoomed out and to none when too small', () => {
     expect(gridLines(level3d(), 0.1).x.every((l) => l.bold)).toBe(true);
-    expect(gridLines(level3d(), 0.01).x).toEqual([]);
+    expect(gridLines(level3d(), 0.0001).x).toEqual([]);
+  });
+
+  it('steps to 100 m and 1 km lines on a big level, every tenth bold', () => {
+    const big = { ...level3d(), width: 3000, height: 3000 };
+    const hundred = gridLines(big, 0.01).x;
+    expect(hundred.slice(0, 3).map((l) => l.at)).toEqual([0, 3200, 6400]);
+    expect(hundred.filter((l) => l.bold).map((l) => l.at)).toEqual([0, 32000, 64000, 96000]);
+    expect(gridLines(big, 0.001).x.map((l) => l.at)).toEqual([0, 32000, 64000, 96000]);
   });
 });
 
@@ -116,6 +134,8 @@ describe('a level centred on the origin (negative pixels)', () => {
     expect(planBounds(level3d())).toEqual({ minX: 0, minY: 0, maxX: 640, maxY: 640 });
     expect(planBounds(centred())).toEqual({ minX: -640, minY: -192, maxX: 640, maxY: 640 });
     expect(planBounds(level3d(), { minX: -30, minZ: -20, maxX: 5, maxZ: 5 })).toEqual({ minX: -960, minY: -640, maxX: 640, maxY: 640 });
+    // The packs placed round a terrain count too.
+    expect(planBounds(level3d(), { minX: -30, minZ: -20, maxX: 5, maxZ: 5, packs: [{ minX: 0, minZ: 0, maxX: 100, maxZ: 50 }] })).toEqual({ minX: -960, minY: -640, maxX: 3200, maxY: 1600 });
   });
 
   it('hits points and footprints at negative coordinates', () => {
@@ -137,5 +157,42 @@ describe('a level centred on the origin (negative pixels)', () => {
     expect(g.x[0]).toEqual({ at: -640, bold: true });
     expect(g.x.filter((l) => l.bold).map((l) => l.at)).toEqual([-640, -320, 0, 320, 640]);
     expect(g.z[0]).toEqual({ at: -192, bold: false });
+  });
+});
+
+describe('a level with an origin (midnite.originX/Y)', () => {
+  const withOrigin = (x: number, z: number, mpt = 1): EditLevel => {
+    const l = level3d(mpt);
+    return { ...l, properties: [...l.properties!, { name: 'midnite.originX', type: 'float', value: x }, { name: 'midnite.originY', type: 'float', value: z }] };
+  };
+
+  it('places the terrain and metre points relative to the map corner', () => {
+    expect(metresToPlan(withOrigin(-1950, -2145), -1948, -2142)).toEqual({ x: 64, y: 96 });
+    expect(terrainRect(withOrigin(-1950, -2145), { minX: -5000, minZ: -5000, maxX: 5000, maxZ: 5000 })).toEqual({ x: -3050 * 32, y: -2855 * 32, width: 10000 * 32, height: 10000 * 32 });
+  });
+
+  it('keeps level without the properties exactly as before', () => {
+    expect(metresToPlan(level3d(2), 10, 4)).toEqual({ x: 160, y: 64 });
+    expect(metresToPlan(withOrigin(0, 0, 2), 10, 4)).toEqual({ x: 160, y: 64 });
+  });
+
+  it('grids on whole world metres, so lines stay aligned with the terrain', () => {
+    const g = gridLines(withOrigin(-1950.5, 10), 1);
+    // World -1950 is half a metre into the map; the first 10 m line is world -1950 = pixel 16.
+    expect(g.x[0]).toEqual({ at: 16, bold: true });
+    expect(g.x[1]).toEqual({ at: 48, bold: false });
+    expect(g.z.find((l) => l.bold)?.at).toBe(0);
+  });
+
+  it('frames the work, not a terrain a thousand times its size; a comparable terrain stays in frame', () => {
+    const level = withOrigin(-1950, -2145);
+    const big = { minX: -5000, minZ: -5000, maxX: 5000, maxZ: 5000 };
+    expect(planFrameBounds(level, big)).toEqual(planBounds(level));
+    // GTACT's case: a 1600 x 1400 m level on a 10 km terrain (45x its area) opens on the level.
+    const gtact = { ...withOrigin(-2200, -3400), width: 1600, height: 1400 };
+    expect(planFrameBounds(gtact, big)).toEqual(planBounds(gtact));
+    const near = { minX: -30, minZ: -20, maxX: 5, maxZ: 5 };
+    expect(planFrameBounds(level3d(), near)).toEqual(planBounds(level3d(), near));
+    expect(planFrameBounds(level3d(), null)).toEqual(planBounds(level3d()));
   });
 });

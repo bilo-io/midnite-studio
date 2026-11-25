@@ -5,7 +5,11 @@ description: Orient an agent in a Midnite Studio game repo — manifest, kit, th
 
 # Media ▸ Games — build
 
-A game repo is the game: plain ES modules, no bundler, no build step. Midnite Studio serves it in a sandbox and reads two things back: what the game prints with `console.log`, and what `window.__midnite.getState()` returns.
+A game repo is the game: plain ES modules, no bundler, no build step. Midnite Studio serves it in a sandbox and reads two things back: what the game prints with `console.log`, and what `window.__midnite.getState()` returns. What a game must have for every Games feature to work is written down in the Midnite game standard (`docs/GAME_STANDARD.md` in the Midnite Studio repo); the game doctor checks a game against it.
+
+## Standard
+
+The Midnite game standard (`docs/GAME_STANDARD.md` in the Midnite Studio repo) is what a game must have for every Games feature to work: a valid manifest, a runnable entry, the kit, declared levels, listed assets. In an unfamiliar game, run `game_doctor` first: it answers every gap with its rule, level and message, and a `fixId` where a safe fix exists. `game_doctor_fix` applies that one fix as a commit on `midnite-game.json` (`upgrade-kit` makes a branch instead) and answers the fresh diagnosis; it refuses while the manifest has uncommitted changes. Fix what the doctor names before building on top of it.
 
 ## Layout
 
@@ -81,12 +85,29 @@ The tools:
 
 ## Levels
 
-A level is a Tiled JSON map, one file per scene: `levels/<scene>.tmj` (scene names are `a-z0-9_-`, up to 64 characters). The manifest's `levels: { dir: 'levels', start: '<scene>' }` says "my scenes read these files"; a game without that key still has hard-coded scenes and is edited in code. Read levels with the kit, never by hand-copying numbers into `src/`: `kit/phaser/level.js` (`preloadLevel`, `buildLevel`, `KitLevelScene`) for 2D, `kit/three/level.js` (`buildLevel3d`) for 3D, and `kit/core/level.js` (`currentLevel(start)`, `fetchLevel`, `levelGrid`, `levelEntities`, `toWorld3d`) under both.
+A level is a Tiled JSON map, one file per scene: `levels/<scene>.tmj` (scene names are `a-z0-9_-`, up to 64 characters). The manifest's `levels: { dir: 'levels', start: '<scene>' }` says "my scenes read these files"; a game without that key still has hard-coded scenes and is edited in code. Read levels with the kit, never by hand-copying numbers into `src/`: `kit/phaser/level.js` (`preloadLevel`, `buildLevel`, `KitLevelScene`) for 2D, `kit/three/level.js` (`buildLevel3d`) for 3D, and `kit/core/level.js` (`currentLevel(start)`, `fetchLevel`, `levelGrid`, `levelEntities`, `toWorld3d`) under both. A level can sit anywhere in a big world: the map properties `midnite.originX` / `midnite.originY` (metres, default 0, kit 0.15+) are the world position of the map's top-left corner, and an object's pixels stay relative to that corner, so `world = origin + px / tilewidth × metresPerTile`; the kit's `toWorld3d` and the `level_*` tools' metre positions include the origin.
 
 - **2D** (platformer, top-down, isometric, raycaster): tile layers for the ground plus an object layer named `objects`. Entity `type` is one of `spawn`, `exit`, `enemy`, `pickup`, `hazard`, `checkpoint`, `trigger`, `npc`; custom properties carry the rest.
 - **3D** (first-person, third-person, the 3D genres): a plan-view map of object layers. +X is right and +Z is down; `midnite.metresPerTile` turns pixels into metres; a point is a position, a rectangle a footprint, a polyline a path; height lives in custom properties (`elevation`, `sizeY`, `pitch`, `roll`, `scale`, `model`, `collider`); yaw is Tiled's own `rotation`. Entity `type` is one of `spawn`, `exit`, `prop`, `enemy`, `pickup`, `light`, `checkpoint`, `trigger`, `npc`, `path`. The terrain stays separate: the map only names it (`midnite.terrain`, `midnite.groundY`).
 
 Tools: `game_level_list` (`{ game }`) answers `{ scenes, start, readsLevels }`; `game_level_get` (`{ game, scene }`) answers the level JSON and its `issues`, no images; `game_level_set` (`{ game, scene, level, create? }`) validates the whole map, refuses a bad one with its reason, and writes the file as one commit naming only that file (`create: true` for a scene with no file yet); `game_goto` (`{ game, scene }`) jumps the running game to a scene and answers `via` (`hook`, `reload` or `next-run`). `game_level_set` and `game_goto` are writes, so they need the "Let agents run and edit games" switch. Save, then the hot reload shows it: after `game_level_set`, call `game_goto` (or `game_reload`) and check with `game_screenshot` and `game_state`. A level opened in the Games tab's editor is the same file, so a human can keep editing it.
+
+### Editing a level with the user
+
+When the Games tab's level editor is open on the scene, these tools edit the live level as one undoable change the user sees in a banner; with it closed they edit the file. Prefer them to `game_level_set`, which replaces the whole file and is for creating a scene or a migration. All the tools below take `{ game, scene }`.
+
+1. **Look first**: `game_level_query` (filters `type`, `layer`, `ids`, `name`, `region`; pass `unit: 'm'` in 3D) answers the objects, `source` (`editor` or `file`) and `dirty`.
+2. **Change in batches**: `game_entity_batch` takes `ops` (`add`, `update`, `delete`, `place-prefab`) and is all-or-nothing, so one batch per intent with a `label` the user will read in the banner (`game_entity_add`, `game_entity_update` and `game_entity_delete` are the short forms). Give an `add` a `ref` and the answer's `refs` maps it to the new id (ops in one batch cannot use it, so chain updates in the next batch). It answers the new ids and the `issues` found afterwards.
+3. **Show it**: `game_level_select` (`ids`) highlights objects and frames them; `game_level_frame` (`ids` or `region`) moves the camera alone.
+4. **Look at it**: `game_level_view` (`view`, `preset`: `top`, `iso`, `selection`) answers a PNG of the editor, so check a change by eye.
+5. **Validate**: `game_level_validate` answers `counts` and `issues` with stable `rule` ids; fix every error, then validate again.
+6. **Save only when asked**: leave saving to the user (their Save button) unless they ask; then pass `save: true` on the batch. Undo is theirs too.
+
+The write tools need the "Let agents run and edit games" switch; `game_level_query`, `game_level_validate` and `game_level_view` do not change anything. After a save, `game_goto` and `game_screenshot` show it running.
+
+Testing a level: play from the part you changed instead of from the start. `game_play_from` (`{ game, scene, at?, objectId?, unit?, useEditor? }`) runs the scene starting at `objectId`'s position or at `at` (`x`, `y` the plan position, `z` the height in 3D), playing the open editor's unsaved level unless `useEditor: false`; it answers `source` (`editor` or `file`) and needs the edit switch. Then `game_input` to move, `game_entities` (`types?`, `limit?`) to read where every object is and its `state` (it works with the switch off), `game_screenshot` to look, and `game_debug_overlay` (`colliders`, `triggers`, `nav`) to draw the hidden shapes before a screenshot. Adjust with `game_entity_batch` and play again.
+
+Assets, prefabs and scatter: before you place anything, `game_assets_list` (`{ game, kinds? }`) answers each imported asset's `name`, `kind`, `path` and `placeable` (models, sprites, images, tilesets and backgrounds can be placed; audio and animation cannot), so a `prop` gets a real `model` name. For a group you place more than once (a hut, a crate stack, a lamp and its light), prefer a prefab: `game_prefab_save` (`{ game, name, dimension, objects }`, positions in level pixels, the pivot is the centre of the bounds) writes `levels/prefabs/<name>.prefab.json`, `game_prefab_list` answers the saved ones, and `{ op: 'place-prefab', prefab, x, y, rotation? }` in `game_entity_batch` stamps one as tagged objects (an unknown prefab fails the whole batch by name). For vegetation, rocks and debris use `game_level_scatter` (`{ game, scene, area, options }`): `area` is a circle `{ cx, cy, radius }` or a rectangle `{ x, y, width, height }` in level pixels, `options` has `sources` (`{ kind: 'model' | 'prefab' | 'type', ... , weight? }`), `radius`, `density` (objects per 100 x 100 px), `spacing`, `scale` and `rotation` ranges, and a `seed`. Always pass a fixed `seed`, so a re-run on the same level gives the same points; a second run over the same area adds only what is missing. It lands as one undoable change of at most 500 objects, and `game_prefab_save` and `game_level_scatter` need the edit switch while the two list tools do not.
 
 Migrating a game from before the level files (kit older than 0.12.0):
 

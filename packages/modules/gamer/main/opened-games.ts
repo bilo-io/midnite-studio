@@ -15,6 +15,8 @@ export type OpenedGamesStore = {
   list: () => Promise<string[]>;
   /** Append a folder, deduped by realpath. */
   add: (path: string) => Promise<GitOpResult>;
+  /** Drop a folder from the list (matched by realpath, so a moved symlink still goes). The folder itself is untouched. */
+  remove: (path: string) => Promise<GitOpResult>;
 };
 
 /** Tolerant: an unreadable or hand-broken file reads as no paths. */
@@ -44,6 +46,21 @@ export function createOpenedGamesStore(userData: string): OpenedGamesStore {
         await rename(temp, file);
       } catch (error) {
         return { ok: false, kind: 'error', message: `Could not save the opened game: ${error instanceof Error ? error.message : String(error)}` };
+      }
+      return ok();
+    },
+    async remove(path) {
+      const paths = await readPaths(file);
+      const wanted = await real(path);
+      const kept: string[] = [];
+      for (const existing of paths) if ((await real(existing)) !== wanted) kept.push(existing);
+      if (kept.length === paths.length) return ok();
+      try {
+        const temp = `${file}.tmp`;
+        await writeFile(temp, `${JSON.stringify({ version: 1, paths: kept }, null, 2)}\n`, 'utf8');
+        await rename(temp, file);
+      } catch (error) {
+        return { ok: false, kind: 'error', message: `Could not save the opened games: ${error instanceof Error ? error.message : String(error)}` };
       }
       return ok();
     },

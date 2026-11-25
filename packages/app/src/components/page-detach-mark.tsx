@@ -1,3 +1,4 @@
+import type { PageDetachAction, PageDetachGuard } from '@midnite/studio-frame';
 import { isPageWindowRole, type PageWindowRole } from '@midnite/studio-shared';
 import { LuSquareArrowOutUpRight, LuSquareArrowDownLeft } from 'react-icons/lu';
 
@@ -25,6 +26,7 @@ export const PAGE_ROLE_TITLE: Record<PageWindowRole, string> = {
   workflows: 'Graphs',
   media: 'Media',
   models: 'Models',
+  agents: 'Agents',
   notes: 'Notes',
 };
 
@@ -51,8 +53,10 @@ export const PAGE_ROLE_TITLE: Record<PageWindowRole, string> = {
  *   `windowForRole` allows only one window per role and silently focusing an
  *   existing window is a worse answer than saying so in the label
  * - inside the popout itself → close it (`window.dock`)
+ *
+ * `beforeAction` (#1697) lets a page with unsaved edits ask first; the action runs only when it proceeds.
  */
-export function PageDetachMark({ role }: { role: PageWindowRole }) {
+export function PageDetachMark({ role, beforeAction }: { role: PageWindowRole; beforeAction?: PageDetachGuard }) {
   const Icon = VIEW_ICON[role];
   const title = PAGE_ROLE_TITLE[role];
   const api = bridge();
@@ -62,19 +66,22 @@ export function PageDetachMark({ role }: { role: PageWindowRole }) {
   // popout branch, and the read is a plain array membership test.
   const detached = useUiStore((s) => s.detachedPages.includes(role));
 
-  const action = isThisPopout
-    ? { icon: LuSquareArrowDownLeft, label: `Close the ${title} window`, run: () => api?.window.dock({ role }) }
+  const action: { kind: PageDetachAction; icon: typeof LuSquareArrowOutUpRight; label: string; run: () => void } = isThisPopout
+    ? { kind: 'dock', icon: LuSquareArrowDownLeft, label: `Close the ${title} window`, run: () => void api?.window.dock({ role }) }
     : detached
       ? {
+          kind: 'focus',
           icon: LuSquareArrowOutUpRight,
           label: `Focus the detached ${title} window`,
-          run: () => api?.window.focusRole({ role }),
+          run: () => void api?.window.focusRole({ role }),
         }
       : {
+          kind: 'detach',
           icon: LuSquareArrowOutUpRight,
           label: `Detach ${title} into its own window`,
-          run: () => api?.window.detach({ role }),
+          run: () => void api?.window.detach({ role }),
         };
+  const onClick = (): void => (beforeAction ? beforeAction(action.kind, action.run) : action.run());
 
   return (
     <div
@@ -92,7 +99,7 @@ export function PageDetachMark({ role }: { role: PageWindowRole }) {
         label={action.label}
         size="sm"
         className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover/detach:opacity-100"
-        onClick={action.run}
+        onClick={onClick}
       />
     </div>
   );

@@ -4,8 +4,11 @@ import { LuMilestone } from 'react-icons/lu';
 import type { ForgeIssue, ForgeProjectItem } from '@midnite/studio-shared';
 
 import { useOptionalTasksHost } from './host';
-import { fieldOptionChipStyle, type FieldOptionChipStyle } from './field-option-colors';
-import { relativeAge } from './issue/issue-order';
+import {
+  fieldOptionChipStyle,
+  type FieldOptionChipStyle,
+  relativeAge,
+} from '@midnite/tasks-core';
 
 /**
  * What Tasks knows about the repo's issues beyond what a board item carries —

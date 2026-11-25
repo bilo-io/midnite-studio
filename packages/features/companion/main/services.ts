@@ -22,6 +22,30 @@ export type CompanionSafeStorage = {
   decryptString(encrypted: Buffer): string;
 };
 
+/**
+ * A custom agent made ready for one headless ask (Phase 154 Theme H). `ready` carries the base CLI, the argv
+ * up to (not including) the prompt, the prompt file's text when the base takes it ahead of the question,
+ * and `release` (closes the private MCP socket) for when the run settles. `missing`: the agent was deleted.
+ * `error`: it cannot run as itself (base CLI missing, no print mode, socket failed) — so nothing runs.
+ */
+export type CompanionProfileRun =
+  | {
+      kind: 'ready';
+      name: string;
+      agent: AgentDefinition;
+      args: string[];
+      extraArgs?: string[];
+      promptPrefix: string | null;
+      /** #1713: hand the spawned child over so the agent breaker can stop the run (it has no pty to interrupt). */
+      attach?: (handle: { kill: () => void }) => void;
+      release: () => Promise<void>;
+    }
+  | { kind: 'missing' }
+  | { kind: 'error'; message: string };
+
+/** What a thinner app answers: custom agents run only where their launch service and sockets live. */
+export const CUSTOM_AGENTS_NEED_STUDIO = 'Custom agents need Midnite Studio, so I cannot think with that one here.';
+
 export type CompanionMainServices = {
   /** The in-process MCP tool call the snapshot and digest compose (`dispatchMcpCall`). */
   dispatch: (tool: string, input: unknown) => Promise<CompanionDispatchResult>;
@@ -35,6 +59,8 @@ export type CompanionMainServices = {
   forkUtility: ((modulePath: string, args: string[], options: { serviceName: string; stdio: 'ignore' }) => unknown) | null;
   /** macOS's own microphone verdict (`systemPreferences.getMediaAccessStatus`). */
   microphoneAccess: () => MicrophoneAccess;
+  /** Phase 154 Theme H: prepares a custom agent for one headless ask. Absent where custom agents cannot run. */
+  profileRun?: ((profileId: string, cwd: string) => Promise<CompanionProfileRun>) | undefined;
 };
 
 /** A thin app's services: nothing reachable, everything degrades to its "not available" answer. */

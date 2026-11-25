@@ -69,6 +69,9 @@ import {
 } from '@midnite/studio-frame';
 
 // The git graph's and diff's state shapes moved to the frame with them (Phase 113 Theme O).
+
+/** `AgentProfileSchema`'s id shape (Phase 154): a migrated `primaryAgentProfileId` of any other shape becomes `null`. */
+const AGENT_PROFILE_ID_PATTERN = /^profile-[A-Za-z0-9_-]+$/;
 export {
   DEFAULT_GRAPH_COLUMNS,
   GRAPH_COLUMN_BOUNDS,
@@ -211,6 +214,7 @@ const PER_LOOP_KEYS = [
   'loopModifierChecks',
   'loopChoices',
   'loopAgents',
+  'loopAgentProfiles',
   'loopModels',
   'loopSchedules',
   'loopExtras',
@@ -282,6 +286,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'features', label: 'Features', group: 'general' },
   { id: 'activity', label: 'Activity', group: 'general' },
   { id: 'privacy', label: 'Privacy', group: 'general' },
+  { id: 'permissions', label: 'Permissions', group: 'general' },
   { id: 'sidebar', label: 'Sidebar', group: 'general' },
   { id: 'search', label: 'Search', group: 'general' },
   { id: 'screenLock', label: 'Screen Lock', group: 'general' },
@@ -691,6 +696,18 @@ export { DEFAULT_PROJECT_VIEW, type ProjectViewState };
  *
  * Persisted selectively — see `partialize` below.
  */
+/**
+ * Default collapsed repo sections: everything collapsed except `tags` and `forge`.
+ * Shared as one config across both single-repo view and all-repos view.
+ */
+export const DEFAULT_COLLAPSED_REPO_SECTIONS: readonly string[] = [
+  'worktrees',
+  'branches',
+  'local',
+  'remotes',
+  'stashes',
+];
+
 export type UiState = {
   activeView: ViewId;
   /**
@@ -737,6 +754,11 @@ export type UiState = {
    * that started with no repository picker would look broken.
    */
   reposOpen: boolean;
+  /**
+   * Whether the Git Repos sidebar lists every registered repository or only the
+   * active one (`selectedRepoId`). Defaults to `false` on fresh load.
+   */
+  showAllRepos: boolean;
   terminalOpen: boolean;
   /** Terminal fills everything below the title bar, hiding the graph. */
   terminalMaximized: boolean;
@@ -997,6 +1019,12 @@ export type UiState = {
   loopAgents: Record<string, string>;
   setLoopAgent: (loopId: string, agentId: string) => void;
   /**
+   * #1699: loopId → the custom agent the loop runs as, beside its roster pick in `loopAgents` (which then
+   * holds the agent's base, and is what runs once the agent is deleted). `null` clears it.
+   */
+  loopAgentProfiles: Record<string, string>;
+  setLoopAgentProfile: (loopId: string, profileId: string | null) => void;
+  /**
    * Which Claude each loop runs on. Persisted for the same reason as the
    * radios above, and for one more: a model is a cost decision, and one made
    * on Monday should still hold on Tuesday.
@@ -1181,7 +1209,15 @@ export type UiState = {
    * `SectionKey` directly because `view-sections.ts` already imports from this
    * store, and the reverse import would cycle.
    */
-  collapsedRepoSections: Record<string, string[]>;
+  /**
+   * Shared set of closed section keys for the Git Repos tree (`worktrees`,
+   * `branches`, `local`, `remotes`, `tags`, `stashes`, `forge`, `remotes:<name>`).
+   * Stored as one config applied to whichever repo is shown in single-repo view
+   * and to all repos simultaneously in all-repos view.
+   *
+   * Defaults to everything collapsed except `tags` and `forge`.
+   */
+  collapsedRepoSections: string[];
   /**
    * Per-view override of whether the repositories sidebar is narrowed to what
    * the view is about — the "Show all sections" escape hatch.
@@ -1346,6 +1382,7 @@ export type UiState = {
   selectConflict: (path: string | null) => void;
   toggleRepos: () => void;
   setReposOpen: (open: boolean) => void;
+  toggleShowAllRepos: () => void;
   toggleTerminal: () => void;
   setTerminalOpen: (open: boolean) => void;
   toggleTerminalMaximized: () => void;
@@ -1412,9 +1449,7 @@ export type UiState = {
    * `toggleRepoSection` (`features/repos/view-sections.ts`) at a normal
    * `SectionKey` call site — this exists for the one caller that cannot use it.
    */
-  toggleRepoSectionKey: (repoId: string, key: string) => void;
-  /** Drops a repo's entry entirely once it leaves the workspace. */
-  pruneRepoSections: (repoId: string) => void;
+  toggleRepoSectionKey: (key: string) => void;
   /** Flip one view's sidebar between "what this view needs" and the whole tree. */
   setSectionFilter: (view: ViewId, filtered: boolean) => void;
   /**
@@ -1696,6 +1731,13 @@ export type UiState = {
   primaryModelByAgent: Record<string, string | null>;
   setPrimaryModel: (agentId: string, modelId: string | null) => void;
   setPrimaryAgentAndModel: (agentId: string, modelId?: string | null) => void;
+  /**
+   * The custom agent (Phase 154 Theme H) the companion thinks through, or `null` for {@link primaryAgent}.
+   * Companion only: `primaryAgent` is left as it was, so the midnite menu and the Chats/Media follow
+   * (`useFollowPrimaryAgent`) are unchanged. Choosing a built-in agent clears it.
+   */
+  primaryAgentProfileId: string | null;
+  setPrimaryAgentProfile: (profileId: string | null) => void;
   /**
    * Non-persisted: the Settings ▸ Agents row `AgentsRoster` should scroll to
    * and briefly highlight next. Set by `focusAgentInSettings` when a
@@ -2337,6 +2379,7 @@ export type PersistedUi = Pick<
   | 'loopModifierDefaults'
   | 'loopChoices'
   | 'loopAgents'
+  | 'loopAgentProfiles'
   | 'loopModels'
   | 'loopSchedules'
   | 'loopEnabled'
@@ -2369,6 +2412,7 @@ export type PersistedUi = Pick<
   | 'agentSkills'
   | 'primaryAgent'
   | 'primaryModelByAgent'
+  | 'primaryAgentProfileId'
   | 'agentModes'
   | 'agentApiKeys'
   | 'agentBackends'
@@ -2569,6 +2613,7 @@ export const useUiStore = create<UiState>()(
       agentSkills: DEFAULT_AGENT_SKILLS,
       primaryAgent: 'claude',
       primaryModelByAgent: {},
+      primaryAgentProfileId: null,
       pendingAgentFocus: null,
       agentModes: {},
       setAgentMode: (agentId, mode) =>
@@ -2785,6 +2830,7 @@ export const useUiStore = create<UiState>()(
       graphSelection: null,
       graphWorkingCopyReveal: 0,
       reposOpen: true,
+      showAllRepos: false,
       terminalOpen: false,
       terminalMaximized: false,
       terminalDock: 'bottom',
@@ -2885,6 +2931,12 @@ export const useUiStore = create<UiState>()(
       loopAgents: {},
       setLoopAgent: (loopId, agentId) =>
         set((state) => ({ loopAgents: { ...state.loopAgents, [loopId]: agentId } })),
+      loopAgentProfiles: {},
+      setLoopAgentProfile: (loopId, profileId) =>
+        set((state) => ({
+          loopAgentProfiles:
+            profileId === null ? omitKey(state.loopAgentProfiles, loopId) : { ...state.loopAgentProfiles, [loopId]: profileId },
+        })),
       loopModels: {},
       setLoopModel: (loopId, model) =>
         set((state) => ({ loopModels: { ...state.loopModels, [loopId]: model } })),
@@ -3066,7 +3118,7 @@ export const useUiStore = create<UiState>()(
             : [...state.collapsedAccordionSections, key],
         })),
       collapsedSettingsGroups: [],
-      collapsedRepoSections: {},
+      collapsedRepoSections: [...DEFAULT_COLLAPSED_REPO_SECTIONS],
       sectionFilters: {},
       navVisibility: {},
       setNavViewVisible: (view, visible) =>
@@ -3168,6 +3220,7 @@ export const useUiStore = create<UiState>()(
         set({ graphSelection: path === null ? null : { kind: 'conflict', path } }),
       toggleRepos: () => set((state) => ({ reposOpen: !state.reposOpen })),
       setReposOpen: (reposOpen) => set({ reposOpen }),
+      toggleShowAllRepos: () => set((state) => ({ showAllRepos: !state.showAllRepos })),
       toggleTerminal: () => set((state) => ({ terminalOpen: !state.terminalOpen })),
       setTerminalOpen: (terminalOpen) => set({ terminalOpen }),
       toggleTerminalMaximized: () =>
@@ -3294,24 +3347,12 @@ export const useUiStore = create<UiState>()(
             ? state.collapsedSettingsGroups.filter((k) => k !== key)
             : [...state.collapsedSettingsGroups, key],
         })),
-      toggleRepoSectionKey: (repoId, key) =>
-        set((state) => {
-          const closed = state.collapsedRepoSections[repoId] ?? [];
-          return {
-            collapsedRepoSections: {
-              ...state.collapsedRepoSections,
-              [repoId]: closed.includes(key)
-                ? closed.filter((k) => k !== key)
-                : [...closed, key],
-            },
-          };
-        }),
-      pruneRepoSections: (repoId) =>
-        set((state) => {
-          if (!(repoId in state.collapsedRepoSections)) return {};
-          const { [repoId]: _dropped, ...rest } = state.collapsedRepoSections;
-          return { collapsedRepoSections: rest };
-        }),
+      toggleRepoSectionKey: (key) =>
+        set((state) => ({
+          collapsedRepoSections: state.collapsedRepoSections.includes(key)
+            ? state.collapsedRepoSections.filter((k) => k !== key)
+            : [...state.collapsedRepoSections, key],
+        })),
       setSectionFilter: (view, filtered) =>
         set((state) => ({ sectionFilters: { ...state.sectionFilters, [view]: filtered } })),
       resetSectionFilters: () => set({ sectionFilters: {} }),
@@ -3498,7 +3539,8 @@ export const useUiStore = create<UiState>()(
       closeKillSwitch: () => set({ killSwitchOpen: false, killSwitchFlowWorkflowId: null, killSwitchFlowRunId: null }),
       setAgentSkill: (id, skill) =>
         set((state) => ({ agentSkills: { ...state.agentSkills, [id]: skill } })),
-      setPrimaryAgent: (id) => set({ primaryAgent: id }),
+      setPrimaryAgent: (id) => set({ primaryAgent: id, primaryAgentProfileId: null }),
+      setPrimaryAgentProfile: (profileId) => set({ primaryAgentProfileId: profileId }),
       setPrimaryModel: (agentId, modelId) =>
         set((state) => ({
           primaryModelByAgent: {
@@ -3509,6 +3551,7 @@ export const useUiStore = create<UiState>()(
       setPrimaryAgentAndModel: (agentId, modelId) =>
         set((state) => ({
           primaryAgent: agentId,
+          primaryAgentProfileId: null,
           primaryModelByAgent: {
             ...state.primaryModelByAgent,
             ...(modelId !== undefined ? { [agentId]: modelId } : {}),
@@ -3523,7 +3566,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 40,
+      version: 43,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         chatsWidthMode: state.chatsWidthMode,
@@ -3580,6 +3623,7 @@ export const useUiStore = create<UiState>()(
         loopModifierDefaults: state.loopModifierDefaults,
         loopChoices: state.loopChoices,
         loopAgents: state.loopAgents,
+        loopAgentProfiles: state.loopAgentProfiles,
         loopModels: state.loopModels,
         loopSchedules: state.loopSchedules,
         loopEnabled: state.loopEnabled,
@@ -3602,6 +3646,7 @@ export const useUiStore = create<UiState>()(
         agentSkills: state.agentSkills,
         primaryAgent: state.primaryAgent,
         primaryModelByAgent: state.primaryModelByAgent,
+        primaryAgentProfileId: state.primaryAgentProfileId,
         agentModes: state.agentModes,
         agentApiKeys: state.agentApiKeys,
         agentBackends: state.agentBackends,
@@ -3806,7 +3851,7 @@ export const useUiStore = create<UiState>()(
         const state = (persisted ?? {}) as Record<string, unknown> & {
           enabledWebApps?: WebAppId[];
           graphColumns?: Record<string, number>;
-          collapsedRepoSections?: Record<string, string[]>;
+          collapsedRepoSections?: Record<string, string[]> | string[];
           repoGroups?: unknown[];
           repoGroupMembership?: Record<string, string>;
           collapsedRepoGroups?: string[];
@@ -3863,7 +3908,7 @@ export const useUiStore = create<UiState>()(
           state.graphColumns = rest;
         }
         if (version < 3) {
-          state.collapsedRepoSections = {};
+          state.collapsedRepoSections = [...DEFAULT_COLLAPSED_REPO_SECTIONS];
         }
         if (version < 4) {
           state.repoGroups = [];
@@ -3998,6 +4043,20 @@ export const useUiStore = create<UiState>()(
         if (version < 38) migratePrSkills(state);
         if (version < 39) migrateBuildPlanSkills(state);
         if (version < 40) migrateSwarmFleetSkills(state);
+        if (version < 41 || !Array.isArray(state.collapsedRepoSections)) {
+          state.collapsedRepoSections = [...DEFAULT_COLLAPSED_REPO_SECTIONS];
+        }
+        // v41 → v42 (Phase 154 Theme H): the companion starts on its built-in agent.
+        // A value that is not a profile id would fail every ask's schema, so it is dropped rather than kept.
+        if (version < 42 || typeof state.primaryAgentProfileId !== 'string' || !AGENT_PROFILE_ID_PATTERN.test(state.primaryAgentProfileId)) {
+          state.primaryAgentProfileId = null;
+        }
+        // v42 → v43 (#1699): loops can run as a custom agent. Only well-formed ids survive a hand-edited blob.
+        state.loopAgentProfiles = Object.fromEntries(
+          Object.entries(
+            state.loopAgentProfiles && typeof state.loopAgentProfiles === 'object' ? (state.loopAgentProfiles as Record<string, unknown>) : {},
+          ).filter((entry): entry is [string, string] => typeof entry[1] === 'string' && AGENT_PROFILE_ID_PATTERN.test(entry[1])),
+        );
         return state as PersistedUi;
       },
       /**

@@ -11,6 +11,10 @@ Opens a **draft** PR in `bilo-io/midnite-studio` for the current branch, or repo
 exists. Every `gh` call uses `GH_TOKEN="$(gh auth token -u bilo-io)"`; the active account is often
 not `bilo-io` and would 403. Never `gh auth switch`.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/pr-create.mjs [--base main] [--title T --body-file F]`. It runs the branch, duplicate-PR, trailer, tracked-SCRATCHPAD and base-freshness preflight; `--create` opens a draft PR only (it refuses a reviewer or a non-draft). You still write the body (see midnite-pr-description) and never request a reviewer on a draft. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 1 · Branch state
 
 ```bash
@@ -28,16 +32,15 @@ state and whether it is a draft, and **stop**. No duplicates.
 ## 3 · Current with the base, and pushed
 
 `git fetch origin main`. If `origin/main` has moved and the work needs it, `git merge origin/main`;
-**never rebase, never force-push.** Push with the `bilo-io` credential command (also the first push
+**never rebase, never force-push.** Push with the `bilo-io` credential push (also the first push
 of a new branch):
 
 ```bash
-git -c credential.helper= -c credential.helper='!f(){ echo username=bilo-io; echo password=$(gh auth token -u bilo-io); }; f' push -u origin HEAD
+scripts/skills/push.sh
 ```
 
-Commits carry **no `Co-Authored-By`, `Signed-off-by` or other attribution trailer**; check
-`git log origin/main..HEAD --format=%B` and stop if one is found. A worktree's untracked
-`SCRATCHPAD.md` must not be tracked: `git ls-files --error-unmatch SCRATCHPAD.md` must fail.
+Commits carry **no `Co-Authored-By`, `Signed-off-by` or other attribution trailer**, and a worktree's
+`SCRATCHPAD.md` must not be tracked: `push.sh` refuses on either (`--fix` untracks the scratchpad).
 
 ## 4 · Understand the change
 
@@ -46,9 +49,9 @@ Commits carry **no `Co-Authored-By`, `Signed-off-by` or other attribution traile
 ## 5 · Screenshots first, when the change is visual
 
 If the PR changes what a user sees, run
-[`midnite-pr-description-image`](../midnite-pr-description-image/SKILL.md) now: capture, commit, push
-and get the commit-pinned URL **before the PR exists**. Screenshots are embedded at creation, never
-added later. If it decides there is no image, carry on.
+[`midnite-pr-description-image`](../midnite-pr-description-image/SKILL.md) now: capture it into the
+scratchpad and show it in the thread **before the PR exists** (screenshots are never committed). The
+`## Screenshots` section names the surface and says the capture is in the thread. If it decides there is no image, carry on.
 
 ## 6 · Write the body
 
@@ -73,8 +76,8 @@ acting on are fixed and pushed:
 1. Run [`midnite-check-yourself`](../midnite-check-yourself/SKILL.md) (it runs `midnite-pr-review`
    and `midnite-pr-feedback`, fixes, pushes).
 2. Fill `## Self-review` in the body with what it found and fixed, or "nothing to fix"
-   (`midnite-pr-description`, then `gh pr edit <n> --body-file`).
-3. Watch CI: `gh pr checks <n> --watch`. A known flake (browser-pane, fab-loops, the media-model
+   (`midnite-pr-description`, then `node scripts/skills/pr-body.mjs <n> --set-section "Self-review" --file <f>`).
+3. Watch CI: `node scripts/skills/ci-watch.mjs <n> --rerun-flakes-once` (exit 0 green, 1 real failure with the failing log tail, 4 billing lock). A known flake (browser-pane, fab-loops, the media-model
    `sdf-panel` slider, e2e "idle edge lift") gets one `gh run rerun <run-id> --failed`. Never
    dispatch extra `ci.yml` runs: the macOS pool is capped at 5 concurrent jobs and one PR run
    already uses all five. A budget stop ("not started because an Actions budget is preventing
@@ -90,5 +93,5 @@ acting on are fixed and pushed:
 - No amend, no rebase, no force-push, no push to `main`. Never merge; the user decides.
 - No local workspace-wide gate (`moon run :typecheck :lint :test`, full suites): they exhaust RAM.
   Scoped vitest, tsc and eslint only; CI is the gate.
-- Phase work leaves `.midnite/tasks/` consistent (a `done.md` entry, the phase doc's Headlines,
-  only the row in `_INDEX.md`) before the PR opens.
+- Phase work links its theme sub-issue (`Closes #<n>` in the body) before the PR opens; nothing
+  tracker-related is committed.

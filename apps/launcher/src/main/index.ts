@@ -44,7 +44,7 @@ function createWindow(): void {
     height: 860,
     minWidth: 720,
     minHeight: 520,
-    title: 'Midnite Apps',
+    title: 'Midnyte Apps',
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#0d0d14',
     show: false,

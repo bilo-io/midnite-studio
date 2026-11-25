@@ -78,6 +78,8 @@ export type CompanionUiState = {
   screensaverLocked: boolean;
   primaryAgent: string;
   primaryModelByAgent: Record<string, string | null>;
+  /** Phase 154 Theme H: the custom agent the companion thinks through, or `null` for `primaryAgent`. */
+  primaryAgentProfileId: string | null;
   agentSkills: Record<string, string>;
   projectBoardByRepo: Record<string, string>;
   /** The forge accounts the thread's user avatar reads, and which is active. */
@@ -113,6 +115,7 @@ export type CompanionUiState = {
   setCompanionPanelOpen: (open: boolean) => void;
   toggleCompanionPanel: () => void;
   setPrimaryAgentAndModel: (agentId: string, modelId?: string | null) => void;
+  setPrimaryAgentProfile: (profileId: string | null) => void;
   setProjectBoard: (repoId: string, projectId: string) => void;
 };
 
@@ -137,12 +140,22 @@ export type CompanionStartAgentInput = {
   autoSend?: boolean;
 };
 
+/** A custom agent a hand-off launches (Phase 154 follow-up): launched through `agentProfile:prepareLaunch`. */
+export type CompanionProfileTarget = { id: string; name: string; baseAgentId: string };
+
+/** `'missing'` when the agent no longer exists (the caller falls back to the roster agent); `null` for a failure already reported. */
+export type CompanionProfileLaunchResult = { id: string } | 'missing' | null;
+
 export type CompanionSkillHandoffOptions = {
   skillId: string;
   repoId?: string;
   cwd?: string;
   body?: string;
   autoSend: boolean;
+  /** Where the session is hosted (`'fab'`, `'kanban'`); absent is the main terminal panel. */
+  surface?: 'main' | 'fab' | 'kanban' | undefined;
+  /** `'headless'` runs the base CLI's print mode; absent follows the user's setting. */
+  mode?: 'interactive' | 'headless' | undefined;
 };
 
 export type CompanionSkillHandoffContext = {
@@ -279,6 +292,16 @@ export type CompanionHost = {
     store: CompanionStore<CompanionTerminalState>;
     startAgent: (input: CompanionStartAgentInput) => { id: string } | null;
     skillHandoff: (options: CompanionSkillHandoffOptions, context: CompanionSkillHandoffContext) => { id: string } | null;
+    /** The skill hand-off under a custom agent. Absent: the host cannot launch one, and the hand-off uses the roster agent. */
+    skillHandoffAsProfile?: (
+      options: CompanionSkillHandoffOptions,
+      context: CompanionSkillHandoffContext,
+      profile: CompanionProfileTarget,
+    ) => Promise<CompanionProfileLaunchResult>;
+    /** "Type this" under a custom agent. Absent as above. */
+    startProfileAgent?: (
+      input: Omit<CompanionStartAgentInput, 'agentId' | 'command'> & { profile: CompanionProfileTarget },
+    ) => Promise<CompanionProfileLaunchResult>;
   };
   screensaver: CompanionScreensaverKit;
 

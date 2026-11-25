@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
 import type { IconType } from 'react-icons';
-import { LuArrowUpRight, LuX } from 'react-icons/lu';
+import { LuArrowUpRight, LuHistory, LuX } from 'react-icons/lu';
 
 import { FRAME_PARTS, MODULE_FEATURE_PREFIX, type AppFeature, type LauncherApp, type LegacyBundleAppId } from '../../common/catalog';
+import type { ChangelogItem } from '../../common/changelog';
 import { joinNames, replacesLine, swapOffer } from '../../common/migration';
 import { getBridge } from '../bridge';
 import { MODULE_GLYPHS } from '../app-glyphs';
@@ -52,12 +53,20 @@ export function AppDetail({
   app,
   view,
   handlers,
+  changelogSummary,
+  onViewInChangelog,
   onRemoveReplaced,
   onClose,
 }: {
   app: LauncherApp;
   view: AppView;
   handlers: ActionHandlers;
+  changelogSummary?: {
+    latestVersion: string | null;
+    latestItems: ChangelogItem[];
+    totalItems: number;
+  };
+  onViewInChangelog?: (appId: LauncherApp['id']) => void;
   /** Moves a retired app's old bundle to the Trash (offered once this host is installed). */
   onRemoveReplaced?: (id: LegacyBundleAppId) => void;
   onClose: () => void;
@@ -85,7 +94,7 @@ export function AppDetail({
         className="sheet"
         role="dialog"
         aria-modal="true"
-        aria-label={`Midnite ${app.name}`}
+        aria-label={`Midnyte ${app.name}`}
         style={{ ['--accent' as string]: app.accent }}
       >
         <header className="sheet-head">
@@ -116,13 +125,13 @@ export function AppDetail({
             <h3 className="eyebrow">{replacesLine(view.replaces)}</h3>
             <p className="sheet-note">
               {offer === 'install-host'
-                ? `Midnite ${app.name} now carries what ${joinNames(view.replaces)} did. Install it to move over; your old app keeps working until then.`
-                : `Midnite ${app.name} has everything ${joinNames(view.replaces)} had. Your data is already here; the old app can go.`}
+                ? `Midnyte ${app.name} now carries what ${joinNames(view.replaces)} did. Install it to move over; your old app keeps working until then.`
+                : `Midnyte ${app.name} has everything ${joinNames(view.replaces)} had. Your data is already here; the old app can go.`}
             </p>
             {offer === 'remove-old' &&
               view.replaces.map((r) => (
                 <button key={r.id} type="button" className="btn" onClick={() => onRemoveReplaced?.(r.id)}>
-                  Move Midnite {r.name} to Trash
+                  Move Midnyte {r.name} to Trash
                 </button>
               ))}
           </section>
@@ -186,8 +195,45 @@ export function AppDetail({
           </section>
         ))}
 
+        {changelogSummary && changelogSummary.totalItems > 0 && (
+          <section className="sheet-section sheet-changelog" aria-label="Recent updates">
+            <div className="module-head">
+              <h3 className="eyebrow">
+                <LuHistory size={13} aria-hidden="true" />
+                {app.id === 'studio' ? 'Suite Changelog' : "What's New"}
+                {changelogSummary.latestVersion && (
+                  <span className="changelog-version-tag">v{changelogSummary.latestVersion}</span>
+                )}
+              </h3>
+              {onViewInChangelog && (
+                <button
+                  type="button"
+                  className="link"
+                  onClick={() => onViewInChangelog(app.id)}
+                  aria-label={`View ${app.name} in changelog`}
+                >
+                  View in Changelog ({changelogSummary.totalItems}) <LuArrowUpRight size={12} aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            <ul className="changelog-sheet-list">
+              {changelogSummary.latestItems.map((item) => (
+                <li key={item.id} className="changelog-sheet-item">
+                  <span className={`changelog-pill pill-${item.category.toLowerCase()}`}>
+                    {item.category}
+                  </span>
+                  <div className="changelog-sheet-item-body">
+                    <span className="changelog-sheet-item-title">{item.title}</span>
+                    {item.body && <span className="changelog-sheet-item-text">{item.body}</span>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <section className="sheet-section">
-          <h3 className="eyebrow">Built on the Midnite frame</h3>
+          <h3 className="eyebrow">Built on the Midnyte frame</h3>
           <ul className="shell-list">
             {FRAME_PARTS.map((part) => (
               <li key={part.label} title={part.blurb}>
@@ -199,8 +245,8 @@ export function AppDetail({
 
         {app.id !== 'studio' && view.source === 'studio' && !app.comingSoon && (
           <p className="sheet-note">
-            Midnite {app.name} runs inside Midnite Studio for now. Open lands on
-            {homeFeature ? ` ${homeFeature.label}` : ' its home'} in Studio; once Midnite {app.name} ships on its
+            Midnyte {app.name} runs inside Midnyte Studio for now. Open lands on
+            {homeFeature ? ` ${homeFeature.label}` : ' its home'} in Studio; once Midnyte {app.name} ships on its
             own, this tile installs it directly.
           </p>
         )}

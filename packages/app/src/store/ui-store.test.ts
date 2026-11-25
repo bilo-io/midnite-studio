@@ -4,6 +4,7 @@ import { toggleRepoSection } from '../features/repos/view-sections';
 import { useFileEditorStore } from './file-editor-store';
 import {
   DEFAULT_AGENT_SKILLS,
+  DEFAULT_COLLAPSED_REPO_SECTIONS,
   DEFAULT_GRAPH_COLUMNS,
   DEFAULT_LAYOUT,
   mediaLayoutKeys,
@@ -37,7 +38,7 @@ const reset = () =>
     navMode: 'auto',
     collapsedNavSections: [],
     collapsedSettingsGroups: [],
-    collapsedRepoSections: {},
+    collapsedRepoSections: [...DEFAULT_COLLAPSED_REPO_SECTIONS],
     sectionFilters: {},
     graphRefFilter: [],
     graphAuthorFilter: [],
@@ -999,67 +1000,58 @@ describe('grouped settings navigation', () => {
 describe('repo section folds', () => {
   beforeEach(reset);
 
-  it('toggles a section shut and open again', () => {
-    toggleRepoSection('repo-a', 'tags');
-    expect(useUiStore.getState().collapsedRepoSections['repo-a']).toEqual(['tags']);
-
-    toggleRepoSection('repo-a', 'tags');
-    expect(useUiStore.getState().collapsedRepoSections['repo-a']).toEqual([]);
+  it('defaults to everything collapsed except tags and forge', () => {
+    expect(useUiStore.getState().collapsedRepoSections).toEqual([
+      'worktrees',
+      'branches',
+      'local',
+      'remotes',
+      'stashes',
+    ]);
   });
 
-  it('holds independent sets per repo', () => {
-    toggleRepoSection('repo-a', 'tags');
-    toggleRepoSection('repo-b', 'worktrees');
+  it('toggles a section shut and open again in the shared config', () => {
+    toggleRepoSection('tags');
+    expect(useUiStore.getState().collapsedRepoSections).toContain('tags');
 
-    expect(useUiStore.getState().collapsedRepoSections['repo-a']).toEqual(['tags']);
-    expect(useUiStore.getState().collapsedRepoSections['repo-b']).toEqual(['worktrees']);
+    toggleRepoSection('tags');
+    expect(useUiStore.getState().collapsedRepoSections).not.toContain('tags');
   });
 
   it('closing a parent section does not write anything to its children', () => {
-    toggleRepoSection('repo-a', 'branches');
+    useUiStore.setState({ collapsedRepoSections: [] });
+    toggleRepoSection('branches');
 
-    expect(useUiStore.getState().collapsedRepoSections['repo-a']).toEqual(['branches']);
+    expect(useUiStore.getState().collapsedRepoSections).toEqual(['branches']);
   });
 
-  it("joins RemoteGroup's composite keys in the same map", () => {
+  it("joins RemoteGroup's composite keys in the same shared config", () => {
+    useUiStore.setState({ collapsedRepoSections: [] });
     // Not a `SectionKey` — the untyped primitive is the only way in.
-    useUiStore.getState().toggleRepoSectionKey('repo-a', 'remotes:origin');
-    expect(useUiStore.getState().collapsedRepoSections['repo-a']).toEqual(['remotes:origin']);
+    useUiStore.getState().toggleRepoSectionKey('remotes:origin');
+    expect(useUiStore.getState().collapsedRepoSections).toEqual(['remotes:origin']);
   });
 
-  it('drops a repo’s entry entirely once it is pruned', () => {
-    toggleRepoSection('repo-a', 'tags');
-    toggleRepoSection('repo-b', 'tags');
-
-    useUiStore.getState().pruneRepoSections('repo-a');
-
-    expect(useUiStore.getState().collapsedRepoSections).not.toHaveProperty('repo-a');
-    expect(useUiStore.getState().collapsedRepoSections['repo-b']).toEqual(['tags']);
-  });
-
-  it('is a no-op pruning a repo with no entry', () => {
-    const before = useUiStore.getState().collapsedRepoSections;
-    useUiStore.getState().pruneRepoSections('repo-never-opened');
-    expect(useUiStore.getState().collapsedRepoSections).toBe(before);
-  });
-
-  it('persists the fold map, keyed by repo', () => {
-    toggleRepoSection('repo-a', 'tags');
+  it('persists the shared fold config to localStorage', () => {
+    toggleRepoSection('tags');
 
     const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
       state: Record<string, unknown>;
     };
-    expect(saved.state.collapsedRepoSections).toEqual({ 'repo-a': ['tags'] });
+    expect(saved.state.collapsedRepoSections).toEqual([
+      ...DEFAULT_COLLAPSED_REPO_SECTIONS,
+      'tags',
+    ]);
   });
 
-  it('migrates a v2 payload to an empty fold map without losing sibling keys', () => {
+  it('migrates a pre-v41 object fold map to the default shared fold config without losing sibling keys', () => {
     const migrate = useUiStore.persist.getOptions().migrate;
     const migrated = migrate?.(
-      { collapsedNavSections: ['workspace'], graphColumns: { branchTag: 200 } },
-      2,
-    ) as { collapsedNavSections: string[]; collapsedRepoSections: Record<string, string[]> };
+      { collapsedNavSections: ['workspace'], collapsedRepoSections: { 'repo-a': ['tags'] }, graphColumns: { branchTag: 200 } },
+      40,
+    ) as { collapsedNavSections: string[]; collapsedRepoSections: string[] };
 
-    expect(migrated.collapsedRepoSections).toEqual({});
+    expect(migrated.collapsedRepoSections).toEqual([...DEFAULT_COLLAPSED_REPO_SECTIONS]);
     expect(migrated.collapsedNavSections).toEqual(['workspace']);
   });
 });
@@ -1765,7 +1757,7 @@ describe('v31 -> v32 migration (Phase 109 Theme B)', () => {
     expect(state.companionNames).toEqual(['Nova', 'Companion']);
     expect(state.companionVoices).toEqual({ system: 'urn:voice:1', local: 'bf_emma' });
     expect(state.voiceConversationTrigger).toBe('wake');
-    expect(useUiStore.persist.getOptions().version).toBe(40);
+    expect(useUiStore.persist.getOptions().version).toBe(43);
   });
 
   it('migrates a v32 payload to v33', () => {
@@ -1798,7 +1790,7 @@ describe('v32 -> v33 migration (Phase 111 Theme A)', () => {
     const state = useUiStore.getState();
     expect(state.primaryAgent).toBe('codex');
     expect(state.primaryModelByAgent).toEqual({});
-    expect(useUiStore.persist.getOptions().version).toBe(40);
+    expect(useUiStore.persist.getOptions().version).toBe(43);
   });
 
   it('leaves a v34 payload alone', () => {
@@ -1832,3 +1824,47 @@ describe('v33 -> v34 migration (Phase 113 Theme A: apps -> web-apps)', () => {
   });
 });
 
+
+describe('v42 -> v43 migration (#1699 loops run as a custom agent)', () => {
+  it('seeds loopAgentProfiles empty and keeps only well-formed ids', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    expect((migrate?.({}, 42) as Record<string, unknown>).loopAgentProfiles).toEqual({});
+    expect(
+      (migrate?.({ loopAgentProfiles: { guard: 'profile-rev', pr: '../x', ci: 7 } }, 43) as Record<string, unknown>).loopAgentProfiles,
+    ).toEqual({ guard: 'profile-rev' });
+  });
+
+  it('sets and clears one loop', () => {
+    useUiStore.getState().setLoopAgentProfile('guard', 'profile-rev');
+    expect(useUiStore.getState().loopAgentProfiles.guard).toBe('profile-rev');
+    useUiStore.getState().setLoopAgentProfile('guard', null);
+    expect(useUiStore.getState().loopAgentProfiles.guard).toBeUndefined();
+  });
+});
+
+describe('v41 -> v42 migration (Phase 154 Theme H)', () => {
+  it('seeds primaryAgentProfileId as null and keeps primaryAgent', () => {
+    const migrated = useUiStore.persist.getOptions().migrate?.({ primaryAgent: 'codex' }, 41) as Record<string, unknown>;
+    expect(migrated.primaryAgentProfileId).toBeNull();
+    expect(migrated.primaryAgent).toBe('codex');
+  });
+
+  it('keeps a saved custom agent and drops a malformed one', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    expect((migrate?.({ primaryAgentProfileId: 'profile-rev' }, 42) as Record<string, unknown>).primaryAgentProfileId).toBe('profile-rev');
+    expect((migrate?.({ primaryAgentProfileId: 7 }, 42) as Record<string, unknown>).primaryAgentProfileId).toBeNull();
+    expect((migrate?.({ primaryAgentProfileId: '../x' }, 42) as Record<string, unknown>).primaryAgentProfileId).toBeNull();
+  });
+
+  it('a custom agent leaves primaryAgent alone, and choosing a built-in clears it', () => {
+    useUiStore.getState().setPrimaryAgent('codex');
+    useUiStore.getState().setPrimaryAgentProfile('profile-rev');
+    expect(useUiStore.getState().primaryAgent).toBe('codex');
+    expect(useUiStore.getState().primaryAgentProfileId).toBe('profile-rev');
+    useUiStore.getState().setPrimaryAgentAndModel('claude', null);
+    expect(useUiStore.getState().primaryAgentProfileId).toBeNull();
+    useUiStore.getState().setPrimaryAgentProfile('profile-rev');
+    useUiStore.getState().setPrimaryAgent('agy');
+    expect(useUiStore.getState().primaryAgentProfileId).toBeNull();
+  });
+});

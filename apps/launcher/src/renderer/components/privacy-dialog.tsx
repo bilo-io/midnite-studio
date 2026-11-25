@@ -29,7 +29,7 @@ export function PrivacyDialog({ bridge, onClose }: { bridge: LauncherBridge; onC
           Automatic network calls
         </h2>
         <p className="dialog-body">
-          When Midnite Apps opens it asks the public release feed whether anything is new. Nothing about you is sent. Turn any of it
+          When Midnyte Apps opens it asks the public release feed whether anything is new. Nothing about you is sent. Turn any of it
           off and nothing is requested at start; Check again still asks when you click it.
         </p>
         {privacy === null ? null : (

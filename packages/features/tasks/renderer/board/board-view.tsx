@@ -44,14 +44,17 @@ import { applyOptimisticMove, type CardDragPayload, type ColumnDropPayload } fro
 import { CardPanelStack } from './card-panel-stack';
 import {
   decideColumnSkillAction,
-  deriveColumns,
-  NO_STATUS_COLUMN_ID,
   resolveMostRecentAgentId,
   sessionsToRehome,
-  type BoardColumn,
 } from './board-derive';
-import { fieldOptionColor } from '../field-option-colors';
-import { findStatusField, itemStatusStroke } from '../status-stroke';
+import {
+  deriveColumns,
+  fieldOptionColor,
+  findStatusField,
+  itemStatusStroke,
+  NO_STATUS_COLUMN_ID,
+  type BoardColumn,
+} from '@midnite/tasks-core';
 import { TaskCard } from './task-card';
 
 /**

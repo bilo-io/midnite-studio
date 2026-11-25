@@ -1,45 +1,37 @@
 import {
   composeLoopPrompt,
   guardFixPrompt,
-  type FabTab,
+  loopEffortArgs,
   loopModelArgs,
   type LoopDefinition,
+  type LoopEffort,
   type LoopModel,
   type LoopSchedule,
   type SecurityFinding,
 } from '@midnite/studio-shared';
 import { useCallback } from 'react';
 
-import { bridge, sessionPhase } from '@midnite/studio-frame';
-
 import { useLoopsHost } from './host';
-import { recordLoopStart, recordLoopStop } from './use-loop-runs';
-
-/**
- * How long a stopped loop is given to notice the interrupt before the pty is
- * killed. Long enough for a `claude` mid-write to unwind its own turn, short
- * enough that Stop still feels like a button and not a request.
- */
-const INTERRUPT_GRACE_MS = 300;
-
-/** Ctrl+C, as the bytes a pty actually reads. */
-const INTERRUPT = '\x03';
+import { recordLoopStart } from './use-loop-runs';
 
 export type LoopSessionControls = {
+  /** Dispatch one session of this loop. Every press is a new session — nothing it started before is touched. */
   start: () => void;
   /** Starts one agent run scoped to a single finding (Guard's *Fix with agent*); never a repeating loop. */
-  fixFinding: (finding: Pick<SecurityFinding, 'fingerprint' | 'severity' | 'title' | 'detail' | 'evidence'>) => void;
-  stop: () => void;
+  fixFinding: (
+    finding: Pick<SecurityFinding, 'fingerprint' | 'severity' | 'title' | 'detail' | 'evidence'>,
+  ) => void;
 };
 
 /**
- * Start and Stop for one loop tab.
+ * Dispatch for one loop tab.
  *
- * The stale-closure bug this phase exists to fix is gone by construction:
- * `startAgent` *returns* the session it created, so the tab records that id
- * directly instead of guessing at `sessions[length - 1]` from a snapshot taken
- * before the call. Nothing here reads the session list, so nothing here can
- * read a stale one.
+ * The Loops panel is only the form now: a press spawns a session tagged with
+ * the loop's id and hands it to the terminal panel, which lists it under its
+ * "Loops" group and is where it is watched, slept or closed. So one loop can
+ * run several sessions at once, each pointed at a different feature, and there
+ * is no Stop here — ending a session is the terminal list's job, as it is for
+ * every other session.
  */
 export function useLoopSession(
   loop: LoopDefinition,
@@ -55,25 +47,19 @@ export function useLoopSession(
     /**
      * Which provider actually runs: the composer's pick, resolved against the
      * live roster by the caller, or the loop's own declared `agentId`.
-     *
-     * Passed in rather than read off `loop` — the tab's provider select is
-     * exactly the "per-tab agent picker" `LoopDefinition.agentId`'s own
-     * comment says the field exists to allow, and a launcher that kept reading
-     * the declaration would ignore it.
      */
     agentId: string;
+    /** #1699: the custom agent to run as (`agentId` is its base); its own model replaces `model`/`effort`. */
+    agentProfileId?: string;
     /** Which Claude to launch — a `--model` flag, never a prompt fragment. */
     model: LoopModel;
+    /** `claude --effort`; `'default'` passes no flag. */
+    effort?: LoopEffort;
     extras: string;
     /**
-     * What the loop's agent is actually typed as at the shell.
-     *
-     * Resolved from the roster by the caller rather than assumed to equal
-     * `agentId`: they coincide for `claude`, which is the only agent this
-     * phase runs, but not in general — `cursor`'s command is `agent` — and
-     * `agents.json` lets a user rename any of them. Assuming the id would
-     * have shipped a bug that only appears once the deferred agent picker
-     * lands, which is the worst time to find it.
+     * What the loop's agent is actually typed as at the shell — resolved from
+     * the roster by the caller rather than assumed to equal `agentId`
+     * (`cursor`'s command is `agent`, and `agents.json` can rename any of them).
      */
     command: string;
     /** modifierId → the skill picked in that option's skill field. */
@@ -94,7 +80,9 @@ export function useLoopSession(
     choiceIds,
     schedule,
     agentId,
+    agentProfileId,
     model,
+    effort = 'default',
     extras,
     command,
     skills,
@@ -102,28 +90,10 @@ export function useLoopSession(
     autoRotatePercent,
     repeat,
   } = options;
-  const tab = loop.id as FabTab;
   const host = useLoopsHost();
 
   const start = useCallback(() => {
     if (!repoId || !cwd) return;
-    const ui = host.loopsState();
-
-    /*
-      The session this tab is leaving behind, if any. It is NOT closed here:
-      whoever is reading its transcript would have it yanked mid-sentence.
-      It parks in `fabPrevSessions` — invisible to every surface — and the tab
-      strip closes it when the user navigates away. One slot per tab, so this
-      cannot accumulate.
-    */
-    const outgoing = ui.fabSessions[tab];
-    if (outgoing !== undefined) {
-      const stale = ui.fabPrevSessions[tab];
-      if (stale !== undefined && stale !== outgoing) {
-        host.terminalState().closeSession(stale);
-      }
-      ui.setFabPrevSession(tab, outgoing);
-    }
 
     const composedPrompt = composeLoopPrompt(basePrompt, loop, {
       modifierIds: checkedModifierIds,
@@ -139,12 +109,10 @@ export function useLoopSession(
     /*
       The flag this run actually carries — empty for `'default'`, and empty for
       any provider whose CLI has no `--model` (see `loopModelArgs`). Computed
-      once, because the ledger below has to agree with it: a Codex run recorded
-      as `model: 'opus-5'` would be a durable claim about what the run cost
-      that no argument on the command line supports, and
-      `LoopRunRecordSchema.model` exists precisely to answer that question.
+      once, because the ledger below has to agree with it.
     */
-    const modelArgs = loopModelArgs(agentId, model);
+    const modelArgs = agentProfileId ? [] : loopModelArgs(agentId, model);
+    const effortArgs = agentProfileId ? [] : loopEffortArgs(agentId, effort);
 
     void host
       .startAgent({
@@ -154,24 +122,26 @@ export function useLoopSession(
         prompt: composedPrompt,
         agentId,
         command,
-        extraArgs: modelArgs,
-        surface: 'fab',
-        // The explicit Start press IS the confirmation the withheld Return
+        extraArgs: [...modelArgs, ...effortArgs],
+        loopId: loop.id,
+        ...(agentProfileId === undefined ? {} : { agentProfileId }),
+        ...launchLabel(modelArgs, model, effortArgs, effort),
+        // The explicit press IS the confirmation the withheld Return
         // normally collects — see `startAgent`'s own note.
         autoSend: true,
       })
       .then((sessionId) => {
-        host.loopsState().setFabSession(tab, sessionId);
         void recordLoopStart({
           loopId: loop.id,
           sessionId,
           composedPrompt,
           checkedModifierIds,
-          // Absent, not `'default'`, when no flag went out — the field is optional
-          // for exactly this reason, and inventing an answer would be a guess.
+          // Absent, not `'default'`, when no flag went out.
           ...(modelArgs.length > 0 ? { model } : {}),
         });
-      });
+      })
+      // A start the host refused has already been reported; nothing was dispatched to record.
+      .catch(() => undefined);
   }, [
     repoId,
     cwd,
@@ -180,7 +150,9 @@ export function useLoopSession(
     choiceIds,
     schedule,
     agentId,
+    agentProfileId,
     model,
+    effort,
     extras,
     command,
     skills,
@@ -188,62 +160,31 @@ export function useLoopSession(
     autoRotatePercent,
     repeat,
     loop,
-    tab,
     host,
   ]);
 
-  const stop = useCallback(() => {
-    const sessionId = host.loopsState().fabSessions[tab];
-    if (sessionId === undefined) return;
-
-    /*
-      Interrupt, then sleep. The kill `sleepSession` does is honest but abrupt;
-      a loop part-way through a `git` write deserves the chance to unwind that
-      Ctrl+C gives it.
-
-      The ledger row is finalised as `stopped` and AWAITED before the interrupt
-      goes out. Main finalises off the pty's own exit, so an agent that dies
-      immediately on Ctrl+C would otherwise win the race and history would say
-      the loop died rather than that you stopped it. `stopLoopRun` and the exit
-      hook share one mutation lock in main, so whichever arrives second finds
-      the record already finalised and does nothing.
-    */
-    void (async () => {
-      await recordLoopStop(sessionId);
-
-      /*
-        Straight at the pty, not through `queueInput`: pending input is only
-        read when a pty STARTS (see `use-terminal-ipc.ts`), and this one is
-        already running. A session with no bound pty has nothing to interrupt
-        and falls through to the sleep below.
-      */
-      const ptyId = host.terminalState().ptyIds[sessionId];
-      if (ptyId !== undefined) bridge()?.pty.input({ ptyId, data: INTERRUPT });
-
-      await new Promise((resolve) => setTimeout(resolve, INTERRUPT_GRACE_MS));
-
-      /*
-        Re-read, and ask the phase rather than the flag. A loop that took the
-        interrupt and exited inside the grace window has `asleep` UNDEFINED and
-        a state of `exited` — checking `asleep !== true` would wave it through
-        and persist `asleep: true` over a session that genuinely ended, which
-        is the exact outcome sleeping-the-dead is meant to avoid.
-      */
-      const current = host.terminalState();
-      const session = current.sessions.find((s) => s.id === sessionId);
-      if (session && sessionPhase(session, current.states[sessionId]) === 'live') {
-        current.sleepSession(sessionId);
-      }
-    })();
-  }, [tab, host]);
-
   const fixFinding = useCallback(
-    (finding: Pick<SecurityFinding, 'fingerprint' | 'severity' | 'title' | 'detail' | 'evidence'>) => {
+    (
+      finding: Pick<SecurityFinding, 'fingerprint' | 'severity' | 'title' | 'detail' | 'evidence'>,
+    ) => {
       if (!repoId || !cwd) return;
       const composedPrompt = guardFixPrompt(finding);
-      const modelArgs = loopModelArgs(agentId, model);
+      const modelArgs = agentProfileId ? [] : loopModelArgs(agentId, model);
+      const effortArgs = agentProfileId ? [] : loopEffortArgs(agentId, effort);
       void host
-        .startAgent({ repoId, cwd, title: `${loop.label}: fix`, prompt: composedPrompt, agentId, command, extraArgs: modelArgs, surface: 'fab', autoSend: true })
+        .startAgent({
+          repoId,
+          cwd,
+          title: `${loop.label}: fix`,
+          prompt: composedPrompt,
+          agentId,
+          command,
+          extraArgs: [...modelArgs, ...effortArgs],
+          loopId: loop.id,
+          ...(agentProfileId === undefined ? {} : { agentProfileId }),
+          ...launchLabel(modelArgs, model, effortArgs, effort),
+          autoSend: true,
+        })
         .then((sessionId) => {
           void recordLoopStart({
             loopId: loop.id,
@@ -253,10 +194,24 @@ export function useLoopSession(
             findingFingerprint: finding.fingerprint,
             ...(modelArgs.length > 0 ? { model } : {}),
           });
-        });
+        })
+        .catch(() => undefined);
     },
-    [repoId, cwd, agentId, model, command, loop, host],
+    [repoId, cwd, agentId, agentProfileId, model, effort, command, loop, host],
   );
 
-  return { start, fixFinding, stop };
+  return { start, fixFinding };
+}
+
+/** The model and effort ids the row label shows — only those that actually went out as flags. */
+function launchLabel(
+  modelArgs: readonly string[],
+  model: LoopModel,
+  effortArgs: readonly string[],
+  effort: LoopEffort,
+): { loopModel?: string; loopEffort?: string } {
+  return {
+    ...(modelArgs.length > 0 ? { loopModel: model } : {}),
+    ...(effortArgs.length > 0 ? { loopEffort: effort } : {}),
+  };
 }

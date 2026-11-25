@@ -5,7 +5,8 @@ import {
   type SessionHistoryStore,
 } from '../session-history-store';
 import { getOrLocateConversationId } from '../terminal-service';
-import { handle, handleBare } from './handle';
+import { getUnifiedSessionCoordinator } from '../unified-session-host';
+import { handle, handleBare, handleOp } from './handle';
 
 /**
  * The sessions you closed — read, and unread.
@@ -59,6 +60,10 @@ export function registerSessionsHandlers(): void {
     schemas.SessionsConversationIdRequest,
     async (req) => ({ conversationId: await getOrLocateConversationId(req.sessionId) }),
     () => ({ conversationId: null }),
+  );
+
+  handleOp(CHANNELS.sessionSwitchView, schemas.SessionSwitchViewRequest, (req) =>
+    getUnifiedSessionCoordinator().switchView(req),
   );
 }
 

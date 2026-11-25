@@ -8,6 +8,8 @@ import { PAGE_ROLE_TITLE } from './page-detach-mark';
 // bridge mock apiece for a one-line assertion.
 const SOURCES = import.meta.glob<string>(
   [
+    // The Agents page (Phase 154).
+    '../../../features/agent-profiles/renderer/agents-view.tsx',
     '../../../features/councils/renderer/councils-view.tsx',
     // Workflows moved into its feature package (Phase 113 Theme N).
     '../../../features/workflows/renderer/workflow-list.tsx',
@@ -24,7 +26,8 @@ describe('Agents rail views are detachable', () => {
     it(`${view} is a page role, titled, and renders PageDetachMark`, () => {
       expect(PAGE_WINDOW_ROLES as readonly string[]).toContain(view);
       expect(PAGE_ROLE_TITLE).toHaveProperty(view);
-      expect(allSource).toContain(`<PageDetachMark role="${view}" />`);
+      // A page may pass more props after the role (Agents passes its unsaved-edits guard, #1697).
+      expect(allSource).toMatch(new RegExp(`<PageDetachMark role="${view}"[ />]`));
     });
   }
 });

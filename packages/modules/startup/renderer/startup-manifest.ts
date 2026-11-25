@@ -7,7 +7,7 @@ export const STARTUP_APP = {
   name: 'Midnite Startup',
   tagline: 'Roadmap, runway and invoices',
   accent: '#8b5cf6',
-  home: 'startup.overview',
+  home: 'startup.projections',
 } as const;
 
 export type StartupApp = typeof STARTUP_APP;

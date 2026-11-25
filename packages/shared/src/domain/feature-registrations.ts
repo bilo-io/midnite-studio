@@ -59,6 +59,7 @@ export const FEATURE_VIEWS = {
   workflows: ['workflows'],
   media: ['media'],
   models: ['models'],
+  'agent-profiles': ['agents'],
   'api-client': ['apiClient'],
   settings: ['settings'],
 } as const satisfies Partial<Record<PlacedFeature, FeatureIds>>;
@@ -76,13 +77,13 @@ export const FEATURE_VIEWS = {
  *   action, over the `optimizerTrash*` channels.
  * - `agent` owns `mcp` — MCP tool management goes to the Agents app
  *   (Phase 113 Theme N).
- * - `settings` (the frame) owns `privacy`, `cli` and `features` (Phase 135): frame-wide policy and a
+ * - `settings` (the frame) owns `privacy`, `permissions`, `cli` and `features` (Phase 135): frame-wide policy and a
  *   runtime service, neither of which belongs to one app.
  */
 export const FEATURE_SETTINGS_PAGES = {
   themes: ['appearance'],
   activity: ['activity'],
-  settings: ['privacy', 'cli', 'features'],
+  settings: ['privacy', 'permissions', 'cli', 'features'],
   graph: ['graph', 'gitSafety'],
   diff: ['diff'],
   repos: ['sidebar'],
@@ -144,6 +145,7 @@ export const STUDIO_VIEW_ORDER = [
   'workflows',
   'media',
   'models',
+  'agent-profiles',
   'api-client',
   'settings',
 ] as const satisfies readonly (keyof typeof FEATURE_VIEWS)[];
@@ -159,6 +161,7 @@ export const STUDIO_VIEW_ORDER = [
 export const STUDIO_SETTINGS_PAGE_ORDER = [
   'themes',
   'activity',
+  'settings',
   'settings',
   'graph',
   'diff',

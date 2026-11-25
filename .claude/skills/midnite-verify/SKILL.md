@@ -1,27 +1,30 @@
 ---
 name: midnite-verify
-description: Phase verification specialist — walks incomplete phases from oldest to newest (or a targeted phase), verifies automated tests/types/lints across workspace packages, checks off passing automated items in the phase doc, enumerates outstanding manual verification items for user sign-off, and upon human confirmation marks the phase ✅ DONE in _INDEX.md and appends to done.md.
+description: Phase verification specialist — walks incomplete phases from oldest to newest (or a targeted phase), verifies automated tests/types/lints across workspace packages, checks off passing automated items in the phase's GitHub sub-issues, enumerates outstanding manual verification items for user sign-off, and upon human confirmation closes the phase issue and its sub-issues.
 ---
 
 **Invoke with:** [optional: phase-number, e.g. '24']
 
-You are the **Phase Verification Specialist** for **Midnite Studio**. Your responsibility is to audit incomplete phases from oldest to newest (or a targeted phase), verify automated code gates and tests, update deliverables in the phase documentation, present an unambiguous digest of manual checks for human sign-off, and upon confirmation mark the phase complete.
+You are the **Phase Verification Specialist** for **Midnite Studio**. Your responsibility is to audit incomplete phases from oldest to newest (or a targeted phase), verify automated code gates and tests, update deliverables in the phase issue, present an unambiguous digest of manual checks for human sign-off, and upon confirmation mark the phase complete.
 
 **Style:** Terse, objective, and facts-only. Do not pad reports with chit-chat or speculation.
 
 ---
 
+## 0 · Run the script first
+
+Run `node scripts/skills/verify-phase.mjs [--phase N]`. It finds the oldest open phase issue on the forge, partitions its theme sub-issues' items into automated vs human, and lists the focused commands; `--tick <ids>` checks off items you proved in the sub-issue bodies, and `--complete --confirm` (closes the theme sub-issues, then the phase) runs only after human sign-off. `--dry-run` prints the gh calls instead. You still run the focused commands, tick only what passed, and ask the human for the manual items. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 🧭 Stage 1 — Phase Discovery
 
-1. Read **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md)** — its `## Phases` table only; it is a status table with no prose.
+1. List the open phase issues: `node scripts/skills/tracker.mjs index --state open`.
 2. Determine target phase:
-   - If an argument is provided (e.g. `24` or `phase-24`), target that specific phase doc in `.midnite/tasks/FEATURES/phases/`.
-   - If no argument is provided, scan the index table to find the **oldest non-DONE phase** (i.e. the lowest phase number with status `🔄 WIP` or `◻ TODO`).
-3. Read the targeted phase doc `phase-<N>-*.md` in full:
+   - If an argument is provided (e.g. `24` or `phase-24`), target the `Phase 24` issue.
+   - If no argument is provided, take the **oldest open phase** (the lowest phase number).
+3. Read the targeted phase issue and its sub-issues in full:
    - Identify all `- [ ]` open items under `## Deliverables` and `## Verification`.
    - Note any items already marked `- [x]`.
-   - Its `## Headlines` section (near the top) is the phase's narrative, one paragraph per theme — read it for context on what already landed.
-   - Its `## Headlines` section (near the top) is the phase's narrative, one paragraph per theme — read it for context on what already landed.
+   - Its `## Headlines` section (near the top) is the phase's narrative, one paragraph per theme — read it for context on what already landed (`node scripts/skills/tracker.mjs view <n>` prints it with the theme table).
 
 ---
 
@@ -31,10 +34,9 @@ Run verification checks across the workspace and targeted packages:
 
 1. **Workspace Gates:**
    ```bash
-   moon run :typecheck
-   moon run :lint
+   node scripts/skills/scoped-check.mjs --run
    ```
-   Ensure typechecking passes across all packages without errors. Boundary lints must remain clean.
+   Typechecks the touched packages and lints the changed files (never the workspace-wide moon gate, which exhausts RAM). Boundary lints must remain clean; for a phase that touched many packages, run it once per theme's diff.
 
 2. **Package & Unit Tests:**
    Identify relevant packages touched by the phase (`packages/app`, `packages/git-engine`, `packages/desktop`, `packages/shared`, etc.):
@@ -47,10 +49,10 @@ Run verification checks across the workspace and targeted packages:
 3. **Invariants & Artifacts:**
    - Verify presence and exports of newly added components, stores, utilities, or types.
    - If the phase eliminated a dependency or banned pattern (e.g. `@codemirror/*`), verify zero occurrences remain across the repo (`git grep`).
-   - If visual screenshots were produced for the phase, verify their presence under `docs/screenshots/phase-<N>-*`.
+   - If visual screenshots were produced for the phase, verify they are attached to the phase's PRs (screenshots are never committed).
 
 4. **Update Automated Items:**
-   - In `phase-<N>-*.md`, check off passing automated items by changing `- [ ]` to `- [x]`.
+   - Tick each passing automated item in its theme sub-issue: `node scripts/skills/tracker.mjs tick <theme-issue> --item "<task text>"` (or `verify-phase.mjs --tick <ids>`). There is no `phase-<N>-*.md` file to edit.
    - Leave manual / human-only verification items (e.g. `**Open, for a human:**`) unchecked until Stage 4.
 
 ---
@@ -78,43 +80,15 @@ Run verification checks across the workspace and targeted packages:
 
 Upon explicit human confirmation:
 
-1. **Update Phase Document (`phase-<N>-*.md`):**
-   - Check off remaining manual verification items (`- [x]`).
-   - Ensure deliverable counts are accurate.
-   - In its `## Headlines` section, flip each theme paragraph's mark to `✅` and add one sentence on what the verification pass confirmed, in that theme's own paragraph (or a lead-paragraph sentence for phase-wide verification). Narrative goes here, never in the index.
-   - In its `## Headlines` section, flip each theme paragraph's mark to `✅` and add one sentence on what the verification pass confirmed, in that theme's own paragraph (or a lead-paragraph sentence for phase-wide verification). Narrative goes here, never in the index.
+1. **Update the phase issue and its sub-issues:**
+   - Tick the remaining manual verification items: `node scripts/skills/tracker.mjs tick <theme-issue> --item "<task text>"` per item.
+   - In the phase issue's `## Headlines` section, flip each theme paragraph's mark to `✅` and add one sentence on what the verification pass confirmed: `node scripts/skills/tracker.mjs headlines <phase-issue> --theme X --text "…"` per theme.
 
-2. **Update Index (`.midnite/tasks/_INDEX.md`):**
-   - Locate the row for Phase N in the `## Phases` table.
-   - Set `Status` to `✅ DONE`.
-   - Update `Done` cell to reflect 100% completion (e.g. `<total>/<total>`).
-   - Update `Progress` to full 10-cell bar `██████████` and `%` to `100%`.
-   - Clear `🔄 WIP` and `◻ TODO` columns to `—`.
-   - Touch nothing else in the index — the row is the whole edit.
-   - Touch nothing else in the index — the row is the whole edit.
+2. **Close it out:**
+   - `node scripts/skills/verify-phase.mjs --phase N --complete --confirm` closes every finished theme sub-issue, then the phase issue, each with `Verified: <total>/<total> items.` (`node scripts/skills/tracker.mjs close <n> --comment …` for one by hand).
+   - Move the phase's card on the project board: `node scripts/skills/tracker.mjs board <phase-issue> --status Done [--project N]`.
 
-3. **Append to Landed Log (`.midnite/tasks/done.md`):**
-   - Append an entry under today's date (at the top of the entry list, immediately below the `# Done — append-only log` comment):
-     ```markdown
-     ## YYYY-MM-DD — Phase <N> — <Phase Title>
+3. **Nothing is committed** — the tracker lives on GitHub; `.midnite/tasks/` is git-ignored scratch.
 
-     [Phase <N>](phases/phase-<N>-<slug>.md) marked ✅ DONE (<total>/<total> items verified).
-     <Concise summary of verified deliverables and test passes>.
-     ```
-
-4. **Tracker Integrity Check:**
-   ```bash
-   moon run root:tracker-check
-   ```
-   Must pass with zero drift.
-
-5. **Commit:**
-   Stage explicitly and commit:
-   ```bash
-   git add .midnite/tasks/FEATURES/phases/phase-<N>-*.md .midnite/tasks/_INDEX.md .midnite/tasks/done.md
-   git commit -m "docs(tasks): mark phase <N> as done"
-   ```
-   **CRITICAL:** Never add `Co-Authored-By`, `Signed-off-by`, or any other attribution trailer.
-
-6. **Report:**
+4. **Report:**
    Tersely report the verified phase, test results, updated index stats, and commit SHA.

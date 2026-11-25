@@ -866,6 +866,12 @@ describe('optimizer contract (Phase 59, 73)', () => {
       optimizerSystemScanProgress: ['OptimizerSystemScanProgressEventSchema'],
       optimizerSystemClean: ['OptimizerSystemCleanRequest', 'OptimizerSystemCleanResponse'],
       optimizerSystemReclaim: ['OptimizerSystemReclaimRequest', 'OptimizerSystemReclaimResponse'],
+      optimizerBrokerSweepPlan: ['OptimizerBrokerSweepPlanResponse'],
+      optimizerBrokerSweep: ['OptimizerBrokerSweepRequest', 'OptimizerBrokerSweepResponse'],
+      optimizerFreeRamPlan: ['OptimizerFreeRamPlanResponse'],
+      optimizerFreeRam: ['OptimizerFreeRamRequest', 'OptimizerFreeRamResponse'],
+      // Main -> preload only, no payload.
+      optimizerClearRendererCache: ['SendVoidSchema'],
     };
     const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)].filter((key) =>
       key.startsWith('optimizer'),
@@ -1359,6 +1365,15 @@ describe('terminal and pty schemas', () => {
       invalid: [['no ptyId', {}], ['empty ptyId', { ptyId: '' }]],
     },
     {
+      name: 'PtySnapshotResponse',
+      schema: schemas.PtySnapshotResponse,
+      valid: { bytes: new Uint8Array(2), cols: 120, rows: 40 },
+      invalid: [
+        ['zero cols', { bytes: new Uint8Array(0), cols: 0, rows: 40 }],
+        ['fractional cols', { bytes: new Uint8Array(0), cols: 120.5, rows: 40 }],
+      ],
+    },
+    {
       name: 'PtySubscribeRequest',
       schema: schemas.PtySubscribeRequest,
       valid: { ptyId: 'p1' },
@@ -1465,6 +1480,37 @@ describe('terminal and pty schemas', () => {
         ['an empty id in the list', { sessionIds: ['s1', ''] }],
         ['ids as numbers', { sessionIds: [1, 2] }],
       ],
+    },
+    {
+      name: 'TerminalRecoverDetachedResponse',
+      schema: schemas.TerminalRecoverDetachedResponse,
+      valid: {
+        ok: true,
+        recovered: [{ sessionId: 's1', title: 'bilo', cwd: '/Users/x/bilo', repoId: 'repo:/Users/x/bilo', legacy: true }],
+        live: 3,
+        previousBuild: 1,
+      },
+      invalid: [
+        ['a recovered row with no cwd', { ok: true, recovered: [{ sessionId: 's1', title: '', cwd: '', repoId: 'r', legacy: true }], live: 1, previousBuild: 1 }],
+        ['a negative count', { ok: true, recovered: [], live: -1, previousBuild: 0 }],
+        ['an error without its message', { ok: false, kind: 'error' }],
+      ],
+    },
+    {
+      name: 'TerminalEndSessionsRequest',
+      schema: schemas.TerminalEndSessionsRequest,
+      valid: { sessionIds: ['s1'] },
+      invalid: [
+        // Nothing to end is a caller bug, not a no-op to answer.
+        ['no ids', { sessionIds: [] }],
+        ['an empty id', { sessionIds: [''] }],
+      ],
+    },
+    {
+      name: 'TerminalEndSessionsResponse',
+      schema: schemas.TerminalEndSessionsResponse,
+      valid: { ok: true, ended: ['s1', 's2'] },
+      invalid: [['ended as a count', { ok: true, ended: 2 }]],
     },
     {
       name: 'NotesListResponse',
@@ -1684,6 +1730,10 @@ describe('terminal and pty schemas', () => {
    */
   const UNVALIDATED_BY_DESIGN = ['ptyData'];
 
+  it('PtySnapshotResponse still parses bytes alone', () => {
+    expect(schemas.PtySnapshotResponse.safeParse({ bytes: new Uint8Array(1) }).success).toBe(true);
+  });
+
   /**
    * The reason this block is a table.
    *
@@ -1708,6 +1758,9 @@ describe('terminal and pty schemas', () => {
       terminalSave: ['TerminalSaveRequest'],
       terminalForget: ['TerminalForgetRequest'],
       terminalReorder: ['TerminalReorderRequest'],
+      terminalRecoverDetached: ['TerminalRecoverDetachedResponse'],
+      terminalEndSessions: ['TerminalEndSessionsRequest', 'TerminalEndSessionsResponse'],
+      terminalEndPreviousBuild: ['TerminalEndSessionsResponse'],
     };
 
     const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)]
@@ -2470,5 +2523,53 @@ describe('report feature contract', () => {
     for (const channel of [CHANNELS.reportGhStatus, CHANNELS.reportOpenUrl, CHANNELS.reportCopy, EVENT_CHANNELS.reportOpen]) {
       expect(channel).toMatch(/^mstudio:report:/);
     }
+  });
+});
+
+describe('Free RAM contract (Phase 148 Theme C)', () => {
+  const candidate = {
+    id: 'broker:200',
+    kind: 'lost-broker',
+    label: 'Terminal broker 200',
+    command: 'node broker.js',
+    rssBytes: 1024,
+    destructive: true,
+  };
+
+  it('accepts a plan with unmeasured candidates and rejects an unknown kind', () => {
+    const unmeasured = { ...candidate, id: 'cache:renderer', kind: 'renderer-cache', command: null, rssBytes: null };
+    expect(
+      schemas.OptimizerFreeRamPlanResponse.safeParse({
+        ok: true,
+        value: { candidates: [candidate, unmeasured], totalRssBytes: 1024 },
+      }).success,
+    ).toBe(true);
+    expect(schemas.FreeRamCandidateSchema.safeParse({ ...candidate, kind: 'idle-session' }).success).toBe(false);
+  });
+
+  it('the request carries candidate ids only: at least one, no pids', () => {
+    expect(schemas.OptimizerFreeRamRequest.safeParse({ candidateIds: ['broker:200'] }).success).toBe(true);
+    expect(schemas.OptimizerFreeRamRequest.safeParse({ candidateIds: [] }).success).toBe(false);
+    const parsed = schemas.OptimizerFreeRamRequest.parse({ candidateIds: ['a'], pid: 1 });
+    expect(parsed).toEqual({ candidateIds: ['a'] });
+  });
+
+  it('the response keeps a signed, nullable machine delta and a zero freed figure', () => {
+    const measured = { beforeRssBytes: 10, afterRssBytes: 10, freedRssBytes: 0, machineFreeDeltaBytes: -4096 };
+    expect(
+      schemas.OptimizerFreeRamResponse.safeParse({ ok: true, value: { ended: [], measured, failures: [] } }).success,
+    ).toBe(true);
+    expect(
+      schemas.OptimizerFreeRamResponse.safeParse({
+        ok: true,
+        value: { ended: [], measured: { ...measured, machineFreeDeltaBytes: null }, failures: [] },
+      }).success,
+    ).toBe(true);
+    expect(
+      schemas.OptimizerFreeRamResponse.safeParse({
+        ok: true,
+        value: { ended: [], measured: { ...measured, freedRssBytes: -1 }, failures: [] },
+      }).success,
+    ).toBe(false);
   });
 });

@@ -208,7 +208,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
           cache: pnpm
 
       # @bilo-io/ui and @bilo-io/shell come from GitHub Packages, which requires
@@ -218,9 +218,6 @@ jobs:
         run: pnpm install --frozen-lockfile
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Tracker check
-        run: pnpm exec moon run root:tracker-check
 
       # Lockstep invariant (Phase 53 Theme B): every packages/*/package.json
       # shares one MAJOR.MINOR. Runs before the build so a hand-edited version
@@ -244,9 +241,14 @@ jobs:
       - name: E2E budget and visual ratchet
         run: pnpm exec moon run root:e2e-budget
 
+      # Boot and background code stays out of macOS's protected folders (ISSUES Phase 2
+      # Theme D). Node-only, runs in gate-node: no macOS job added.
+      - name: TCC guard
+        run: pnpm exec moon run root:tcc-guard
+
       # Explicit project-scoped targets, not `:typecheck :lint :test` — that
       # form runs EVERY project, which is exactly what this split undoes.
-      # `root:test` runs the repo-wide scripts/*.test.mjs suite (tracker-check,
+      # `root:test` runs the repo-wide scripts/*.test.mjs suite (
       # version-check, gate-projects-check, the changelog mirror): plain node
       # scripts, no platform dependency, so it belongs here rather than on
       # gate-native.
@@ -334,7 +336,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
           cache: pnpm
 
       - name: Install
@@ -376,7 +378,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
           cache: pnpm
 
       - name: Install
@@ -414,7 +416,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
           cache: pnpm
 
       - name: Install
@@ -570,7 +572,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
           cache: pnpm
 
       - name: Install
@@ -719,7 +721,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
           cache: pnpm
 
       - name: Install
@@ -854,7 +856,7 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       # No pnpm/action-setup or actions/setup-node here: the container image
-      # ships its own Node (newer than the repo's pinned 22.12.0, harmless for
+      # ships its own Node (not necessarily the repo's pinned one, harmless for
       # this job's narrow needs), and corepack is how pnpm is actually reached
       # inside it — the same recipe the dev regeneration command's docker
       # invocation uses, verified to produce an identical install.
@@ -928,7 +930,7 @@ jobs:
           version: 10.34.9
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
           cache: pnpm
 
       - name: Install

@@ -87,6 +87,37 @@ describe('terminal main', () => {
     setPtyPorts(null);
   });
 
+  describe('ptySnapshot', () => {
+    const portsWith = (live: { cols: number; rows: number } | null) =>
+      ({
+        inproc: {
+          sessionIdFor: () => 's1',
+          readScrollback: () => new Uint8Array([65, 66]),
+          livePtyFor: () => (live ? { ptyId: 'p1', pid: 1, legacy: false, ...live } : null),
+        },
+      }) as unknown as PtyPorts;
+
+    it('ptySnapshot returns the live pty size alongside the bytes', async () => {
+      const ctx = createRecordingContext();
+      terminalMain.register(ctx, services());
+      setPtyPorts(portsWith({ cols: 132, rows: 43 }));
+      const res = (await ctx.invoke(CHANNELS.ptySnapshot, { ptyId: 'p1' })) as { bytes: Uint8Array; cols?: number; rows?: number };
+      expect(Array.from(res.bytes)).toEqual([65, 66]);
+      expect(res.cols).toBe(132);
+      expect(res.rows).toBe(43);
+      setPtyPorts(null);
+    });
+
+    it('ptySnapshot omits cols and rows when no live pty is known', async () => {
+      const ctx = createRecordingContext();
+      terminalMain.register(ctx, services());
+      setPtyPorts(portsWith(null));
+      const res = (await ctx.invoke(CHANNELS.ptySnapshot, { ptyId: 'p1' })) as Record<string, unknown>;
+      expect(Object.keys(res)).toEqual(['bytes']);
+      setPtyPorts(null);
+    });
+  });
+
   it('refuses an ipc without sendFromSender rather than leaving popouts silently dead', () => {
     const ctx = createRecordingContext();
     const bare = { ...ctx, ipc: { handle: ctx.ipc.handle, handleBare: ctx.ipc.handleBare, send: ctx.ipc.send } };

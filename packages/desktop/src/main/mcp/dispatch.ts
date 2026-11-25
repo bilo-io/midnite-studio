@@ -1,4 +1,4 @@
-import { isMcpToolId, MCP_TOOLS, type McpToolId } from '@midnite/studio-shared';
+import { isMcpToolId, MCP_TOOLS, STARTUP_OPEN_APP_MESSAGE, type McpToolId } from '@midnite/studio-shared';
 import { z } from 'zod';
 
 import {
@@ -52,8 +52,26 @@ import {
   gamePlaytest,
   gameLevelList,
   gameLevelGet,
+  gameLevelQuery,
+  gameLevelValidate,
+  gameEntityBatch,
+  gameAssetsList,
+  gamePrefabList,
+  gamePrefabSave,
+  gameLevelScatter,
+  gameEntityAdd,
+  gameEntityUpdate,
+  gameEntityDelete,
+  gameLevelSelect,
+  gameLevelFrame,
+  gameLevelView,
   gameLevelSet,
+  gamePlayFrom,
+  gameEntities,
+  gameDebugOverlay,
   gameGoto,
+  gameDoctor,
+  gameDoctorFix,
   gameStop,
 } from './game-tools';
 import {
@@ -130,6 +148,8 @@ import {
 import { mapCaptureTerrain, mapGoto, mapList, mapMeasure } from './map-tools';
 import { sfxGenerate, sfxStatus } from './sfx-tools';
 import { musicAddCc, musicAddNotes, musicAddPitchbends, musicAddTrack, musicGetInfo, musicGetNotes, musicGetTrack, musicGetTracks, musicList, musicOpen, musicRemoveNotes, musicRenderPreview, musicSave, musicSetTempo } from './music-tools';
+
+const startupElsewhere = async (): Promise<unknown> => ({ error: STARTUP_OPEN_APP_MESSAGE });
 
 /**
  * `MCP_HANDLERS` — a mapped type over the registry, so a tool added to
@@ -212,8 +232,26 @@ export const MCP_HANDLERS: {
   game_playtest: gamePlaytest,
   game_level_list: gameLevelList,
   game_level_get: gameLevelGet,
+  game_level_query: gameLevelQuery,
+  game_level_validate: gameLevelValidate,
+  game_entity_batch: gameEntityBatch,
+  game_entity_add: gameEntityAdd,
+  game_entity_update: gameEntityUpdate,
+  game_entity_delete: gameEntityDelete,
+  game_level_select: gameLevelSelect,
+  game_level_frame: gameLevelFrame,
+  game_level_view: gameLevelView,
   game_level_set: gameLevelSet,
+  game_play_from: gamePlayFrom,
+  game_entities: gameEntities,
+  game_debug_overlay: gameDebugOverlay,
   game_goto: gameGoto,
+  game_doctor: gameDoctor,
+  game_doctor_fix: gameDoctorFix,
+  game_assets_list: gameAssetsList,
+  game_prefab_list: gamePrefabList,
+  game_prefab_save: gamePrefabSave,
+  game_level_scatter: gameLevelScatter,
   terrain_list: terrainList,
   terrain_open: terrainOpen,
   terrain_get_spec: terrainGetSpec,
@@ -271,6 +309,16 @@ export const MCP_HANDLERS: {
   companion_agent_get: companionAgentGet,
   companion_agent_set: companionAgentSet,
   companion_models_list: companionModelsList,
+  // Startup's tools are served from Startup's own socket and the shim routes them there; this map is exhaustive,
+  // so Studio answers the same words if one ever lands here (Phase 153 Theme C).
+  startup_summary: startupElsewhere,
+  startup_runway: startupElsewhere,
+  startup_milestones: startupElsewhere,
+  startup_projections: startupElsewhere,
+  startup_projection: startupElsewhere,
+  startup_upsert_milestone: startupElsewhere,
+  startup_upsert_projection: startupElsewhere,
+  startup_send_projection_to_runway: startupElsewhere,
 };
 
 export type McpDispatchResult =

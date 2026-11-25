@@ -131,7 +131,7 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
    * when the agent exits instead of at a dead pane.
    */
   const start = useCallback(
-    async (cols: number, rows: number, initialInput?: string) => {
+    async (cols: number, rows: number, initialInput?: string, options?: { profileLaunchId?: string }) => {
       const api = bridge();
       if (!api) return;
 
@@ -192,6 +192,8 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
         if (recipe && Object.keys(recipe.env).length > 0) env = recipe.env;
       }
 
+      // A custom agent's prepared launch (Phase 154): an explicit one (wake, Resume) or the one queued at open.
+      const profileLaunchId = options?.profileLaunchId ?? useTerminalStore.getState().launchIds[session.id];
       const result = await api.pty.create({
         sessionId: session.id,
         kind: session.kind,
@@ -204,9 +206,14 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
         ...(env === undefined ? {} : { env }),
         ...(useOllamaKey ? { useOllamaKey: true } : {}),
         ...(session.appId === undefined ? {} : { appId: session.appId }),
+        ...(profileLaunchId === undefined ? {} : { profileLaunchId }),
       });
+      // Single-use either way: main bound it, or the create failed and main closed it.
+      if (profileLaunchId !== undefined) useTerminalStore.getState().clearLaunchId(session.id);
 
       if (!result.ok) {
+        // A custom agent's queued line names the socket main just closed; drop it so a retry re-prepares.
+        if (profileLaunchId !== undefined) useTerminalStore.getState().clearPendingInput(session.id);
         // node-pty failing to load is not a crash — the pane says so and the
         // rest of the app is untouched.
         useTerminalStore.getState().setState(session.id, 'unavailable', result.message);
@@ -241,10 +248,15 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
     if (id) bridge()?.pty.input({ ptyId: id, data });
   }, []);
 
-  const sendResize = useCallback((cols: number, rows: number) => {
+  /** `true` only when the resize was actually handed to the bridge (a ptyId was bound). */
+  const sendResize = useCallback((cols: number, rows: number): boolean => {
     const id = ptyIdRef.current;
-    if (id) bridge()?.pty.resize({ ptyId: id, cols, rows });
+    if (!id) return false;
+    const b = bridge();
+    if (!b) return false;
+    b.pty.resize({ ptyId: id, cols, rows });
+    return true;
   }, []);
 
-  return { connectionState, error, start, sendInput, sendResize, hasPty: Boolean(ptyId) };
+  return { connectionState, error, start, sendInput, sendResize, hasPty: Boolean(ptyId), ptyId };
 }

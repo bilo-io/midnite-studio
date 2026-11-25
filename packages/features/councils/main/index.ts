@@ -24,7 +24,12 @@ import {
 } from './council-service';
 
 export { councilsManifest, type CouncilsManifest } from '../manifest';
-export { configureCouncilRunner, type CouncilRunnerPorts } from './council-runner';
+export {
+  configureCouncilRunner,
+  COUNCIL_PROFILES_NEED_STUDIO,
+  type CouncilProfileRun,
+  type CouncilRunnerPorts,
+} from './council-runner';
 export {
   configureCouncils,
   getCouncil,
@@ -75,18 +80,28 @@ export const councilsMain = defineFeatureMain<CouncilsMainServices>({
     ipc.handle(
       CHANNELS.councilCreate,
       schemas.CouncilCreateRequest,
-      async ({ name, description, members, synthProvider, synthModel, synthesisType, synthInstructions }) =>
-        ok(await createCouncil(name, description, { members, synthProvider, synthModel, synthesisType, synthInstructions })),
+      async ({ name, description, members, synthProvider, synthModel, synthAgentProfileId, synthesisType, synthInstructions }) =>
+        ok(
+          await createCouncil(name, description, {
+            members,
+            synthProvider,
+            synthModel,
+            synthAgentProfileId,
+            synthesisType,
+            synthInstructions,
+          }),
+        ),
       (issue) => failure(issue),
     );
 
     ipc.handle(
       CHANNELS.councilUpdateMembers,
       schemas.CouncilUpdateMembersRequest,
-      async ({ id, members, synthProvider, synthModel, synthesisType, synthInstructions }) => {
+      async ({ id, members, synthProvider, synthModel, synthAgentProfileId, synthesisType, synthInstructions }) => {
         const updated = await updateCouncilMembers(id, members, synthProvider, synthModel, {
           type: synthesisType,
           instructions: synthInstructions,
+          agentProfileId: synthAgentProfileId,
         });
         return updated ? ok(updated) : failure('Council not found.');
       },

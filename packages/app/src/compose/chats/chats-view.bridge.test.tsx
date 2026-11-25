@@ -94,7 +94,7 @@ describe('empty states', () => {
     const suggestion = screen.getByTestId('chat-suggestion-explain') as HTMLButtonElement;
     expect(suggestion.disabled).toBe(true);
     cleanup();
-    useChatsStore.setState({ draft: { engine: 'claude', model: null, mode: 'ask', repoId: 'repo:/x/app' } });
+    useChatsStore.setState({ draft: { engine: 'claude', agentProfileId: null, model: null, mode: 'ask', repoId: 'repo:/x/app' } });
     await open();
     fireEvent.click(screen.getByTestId('chat-suggestion-explain'));
     expect(composer().value).toMatch(/tour of this repository/);
@@ -211,7 +211,7 @@ describe('explorer', () => {
 
 describe('sending and streaming', () => {
   async function ready(chats: MockFixtures['chats'] = {}) {
-    useChatsStore.setState({ draft: { engine: 'claude', model: null, mode: 'ask', repoId: null } });
+    useChatsStore.setState({ draft: { engine: 'claude', agentProfileId: null, model: null, mode: 'ask', repoId: null } });
     await open(chats);
   }
 
@@ -383,7 +383,7 @@ describe('sending and streaming', () => {
 
 describe('reviewing changes', () => {
   async function withChanges(extra: MockFixtures['chats'] = {}) {
-    useChatsStore.setState({ draft: { engine: 'claude', model: null, mode: 'edit', repoId: null } });
+    useChatsStore.setState({ draft: { engine: 'claude', agentProfileId: null, model: null, mode: 'edit', repoId: null } });
     await open({ reply: 'I updated the greeting.', changes: true, ...extra });
     await type('update the greeting');
     fireEvent.click(screen.getByTestId('chat-input-send'));
@@ -495,12 +495,37 @@ describe('reviewing changes', () => {
   });
 
   it('no card when the chat is read-only (Ask mode)', async () => {
-    useChatsStore.setState({ draft: { engine: 'claude', model: null, mode: 'ask', repoId: null } });
+    useChatsStore.setState({ draft: { engine: 'claude', agentProfileId: null, model: null, mode: 'ask', repoId: null } });
     await open({ reply: 'just an answer', changes: true });
     await type('q');
     fireEvent.click(screen.getByTestId('chat-input-send'));
     await screen.findByText('just an answer');
     await act(async () => {});
     expect(screen.queryByTestId('chat-changes-card')).toBeNull();
+  });
+
+  it('switches the selected repository when clicking a chat row', async () => {
+    const { keys } = await import('../../services/queries');
+    const { appQueryClient } = await import('../../services/query-client');
+
+    appQueryClient.setQueryData(keys.repos, [
+      { id: 'repo:/x/app', name: 'app', path: '/x/app', worktrees: [] },
+      { id: 'repo:/x/other', name: 'other', path: '/x/other', worktrees: [] },
+    ]);
+    useUiStore.setState({ selectedRepoId: 'repo:/x/other' });
+
+    const repoChat = seedChat('c-repo', {
+      title: 'Repo chat',
+      repoId: 'repo:/x/app',
+      repoName: 'app',
+      repoPath: '/x/app',
+    });
+    await open({ seed: [repoChat] });
+    await waitFor(() => expect(rows()).toHaveLength(1));
+
+    fireEvent.click(within(rows()[0]!).getByRole('button', { name: /Repo chat/ }));
+
+    expect(useUiStore.getState().selectedRepoId).toBe('repo:/x/app');
+    appQueryClient.clear();
   });
 });

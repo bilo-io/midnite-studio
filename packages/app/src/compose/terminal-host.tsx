@@ -14,8 +14,11 @@ import { usePaletteStore } from '../features/themes/palette-store';
 import { resolveTerminalPalette } from '../features/themes/resolve-palette';
 import { revealSession } from '../features/terminal/reveal-session';
 import { openLinkFromEvent } from '../services/open-in-midnite';
-import { useRepos } from '../services/queries';
+import { useRepoLogo, useRepos } from '../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../store/ui-store';
+import { StudioLoopMark } from './loop-mark';
+import { studioPrepareProfileLaunch, useStudioAgentProfiles } from './profile-launch';
+import { selectRepoForSessionOrChat } from './select-repo-for-item';
 import { STUDIO_CHROME } from './studio-chrome';
 
 /**
@@ -69,6 +72,11 @@ export const STUDIO_TERMINAL_HOST = {
     setSidebarSide: (side) => useUiStore.getState().setTerminalSidebarSide(side),
     // Same "route to Settings ▸ Agents" the title bar's own picker uses.
     configureAgent: (agentId) => useUiStore.getState().focusAgentInSettings(agentId),
+    openPermissions: () => {
+      const ui = useUiStore.getState();
+      ui.setActiveView('settings');
+      ui.setSettingsPage('permissions');
+    },
     revealSession: (sessionId) => {
       revealSession(sessionId);
     },
@@ -80,6 +88,8 @@ export const STUDIO_TERMINAL_HOST = {
     },
   },
   useRepos: () => useRepos().data,
+  useRepoLogo: (repoId) => useRepoLogo(repoId).data ?? null,
+  onSelectRepo: selectRepoForSessionOrChat,
   terminalTheme: (mode) => resolveTerminalPalette(mode).terminal,
   subscribeTheme: (listener) => usePaletteStore.subscribe(listener),
   openLink: (url, event) => openLinkFromEvent(url, event, { preferInAppRoute: true }),
@@ -88,8 +98,12 @@ export const STUDIO_TERMINAL_HOST = {
   Tooltip,
   Popover,
   AgentAvatar,
+  LoopMark: StudioLoopMark,
   usePopoutHeaderActions,
   usePopoutHeaderLeading,
+  // Phase 154 Theme F: custom agents in the `+` menu and in each session's chrome.
+  useAgentProfiles: useStudioAgentProfiles,
+  prepareProfileLaunch: studioPrepareProfileLaunch,
 } satisfies TerminalHost;
 
 /**

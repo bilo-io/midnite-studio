@@ -9,10 +9,12 @@ import {
   LuFolderGit2,
   LuGitBranch,
   LuGitCommitHorizontal,
+  LuPlus,
   LuRotateCw,
   LuZap,
 } from 'react-icons/lu';
 
+import { AddRepoModal } from '../features/repos/add-repo-modal';
 import { chordFor, displayChord } from '../features/status-bar/chord-hint';
 import { bridge } from '../services/bridge';
 import { reportFailure } from '../services/bridge-result';
@@ -51,6 +53,7 @@ const VIEW_LABELS: Record<ViewId, string> = {
   workflows: 'Graphs',
   media: 'Media',
   models: 'Models',
+  agents: 'Agents',
   sessions: 'Sessions',
   optimizer: 'Optimizer',
   monitor: 'Monitor',
@@ -159,11 +162,12 @@ type Crumb = {
 /**
  * Repo → branch → view/settings-page, built from state the app already
  * tracks rather than a route. The parts a plain breadcrumb would leave inert
- * act: the repo crumb opens a switcher when more than one repo is open (a
- * sideways jump a strict "ancestor path" breadcrumb couldn't offer), and the
- * branch crumb opens a searchable picker that checks a branch out.
+ * act: the repo crumb opens a switcher (a sideways jump a strict "ancestor
+ * path" breadcrumb couldn't offer) that ends in the repos panel's own "Add a
+ * repository…" entry, and the branch crumb opens a searchable picker that
+ * checks a branch out.
  */
-function useBreadcrumbs(): Crumb[] {
+function useBreadcrumbs(onAddRepo: () => void): Crumb[] {
   const activeView = useUiStore((s) => s.activeView);
   const settingsPage = useUiStore((s) => s.settingsPage);
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
@@ -233,38 +237,45 @@ function useBreadcrumbs(): Crumb[] {
     // Excludes the current repo deliberately: this menu is a switcher, and the
     // repo already named by the crumb that opens it has nowhere to switch
     // *to* — a row for it would only be a no-op with a checkmark nobody asked
-    // for. `others.length` (not `repos.length`) is therefore also what the
-    // filter box's own item-count threshold sees.
+    // for.
     const others = (repos ?? []).filter((r) => r.id !== selectedRepoId);
+    const items: MenuItem[] = [
+      ...others.map(
+        (other): MenuItem => ({
+          label: other.name,
+          icon: LuFolderGit2,
+          // Matched by the filter box in addition to the label, so two repos
+          // checked out under the same folder name (a fork and its upstream,
+          // say) are still distinguishable by path without printing one on
+          // every row.
+          keywords: other.path,
+          onSelect: () => useUiStore.getState().selectRepo(other.id),
+        }),
+      ),
+      ...(others.length > 0 ? [{ type: 'separator' } as const] : []),
+      // The same entry as the repos panel's "+" button, opening the same
+      // modal — so a repo can be added without opening the sidebar first.
+      {
+        label: 'Add a repository…',
+        icon: LuPlus,
+        keywords: 'add new clone open local',
+        onSelect: onAddRepo,
+      },
+    ];
     crumbs.push({
       key: 'repo',
       label: repo.name,
       icon: LuFolderGit2,
-      onSelect:
-        others.length > 0
-          ? (event) =>
-              dialogs.openMenu(
-                event,
-                others.map(
-                  (other): MenuItem => ({
-                    label: other.name,
-                    icon: LuFolderGit2,
-                    // Matched by the filter box in addition to the label, so
-                    // two repos checked out under the same folder name (a
-                    // fork and its upstream, say) are still distinguishable
-                    // by path without printing one on every row.
-                    keywords: other.path,
-                    onSelect: () => useUiStore.getState().selectRepo(other.id),
-                  }),
-                ),
-                // `repos-panel.tsx`'s sidebar has its own "Filter repos…"
-                // search box, filtering the tree already on screen — a
-                // different job from this one, which finds a repo to switch
-                // *to*, so it gets its own wording rather than reusing that
-                // placeholder verbatim.
-                { filterable: true, searchPlaceholder: 'Find a repo…' },
-              )
-          : undefined,
+      onSelect: (event) =>
+        dialogs.openMenu(
+          event,
+          items,
+          // `repos-panel.tsx`'s sidebar has its own "Filter repos…" search
+          // box, filtering the tree already on screen — a different job from
+          // this one, which finds a repo to switch *to*, so it gets its own
+          // wording rather than reusing that placeholder verbatim.
+          { filterable: true, searchPlaceholder: 'Find a repo…' },
+        ),
     });
 
     const branch = status?.branch;
@@ -359,11 +370,13 @@ function RepoLogo({ repoId }: { repoId: string | undefined }) {
 
 export function Breadcrumbs() {
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
-  const crumbs = useBreadcrumbs();
+  const [addRepoOpen, setAddRepoOpen] = useState(false);
+  const crumbs = useBreadcrumbs(() => setAddRepoOpen(true));
   const revealed = usePageLabelReveal();
 
   return (
     <nav aria-label="Location" className="flex min-w-0 items-center text-xs">
+      {addRepoOpen ? <AddRepoModal onClose={() => setAddRepoOpen(false)} /> : null}
       {crumbs.map((crumb, index) => {
         const isLast = index === crumbs.length - 1;
         const isRepo = crumb.key === 'repo';

@@ -1,4 +1,5 @@
 import {
+  AGENT_PROFILE_ID_PREFIX,
   BUILTIN_AGENTS,
   COMPANION_COMMAND_IDS,
   COMPANION_LOCAL_VOICES,
@@ -48,6 +49,8 @@ import {
 } from './settings-apply';
 import { type AgentCommandId } from '@midnite/studio-shared';
 import { useUiStore } from './ext';
+import { useAgentProbeStore } from './ext';
+import { customAgent } from './custom-agents';
 
 /**
  * From "start a swarm" to hearing what the swarm did — Phase 79 Theme E.
@@ -78,13 +81,16 @@ import { useUiStore } from './ext';
 const _companionIdsAreAgentCommandIds: readonly AgentCommandId[] = COMPANION_COMMAND_IDS;
 void _companionIdsAreAgentCommandIds;
 
+/** A session a hand-off started; `notice` is what to say first when it fell back from a deleted custom agent. */
+export type StartedSession = { id: string; notice?: string };
+
 export type HandoffDeps = ConciergeDeps & {
   /** `skillHandoff` bound to the live roster — returns the session, or `null` if it could not start. */
   startSkill: (opts: {
     skillId: CompanionCommandId;
     body?: string;
     autoSend: boolean;
-  }) => { id: string } | null;
+  }) => Promise<StartedSession | null> | StartedSession | null;
   /** `window.midniteStudio.companion.ask`. */
   ask: (req: {
     kind: 'route' | 'summarise';
@@ -95,7 +101,7 @@ export type HandoffDeps = ConciergeDeps & {
   /** The roster's activity markers for whatever agent that session is running. */
   markers: (sessionId: string) => { awaitingInput?: string; frameEnd?: string } | undefined;
   /** Type text into a fresh agent session verbatim — the no-CLI fallback. */
-  startVerbatim: (text: string) => { id: string } | null;
+  startVerbatim: (text: string) => Promise<StartedSession | null> | StartedSession | null;
   /** Which repositories the switch offer can name, and how to pick one. */
   repos: () => Promise<readonly RepoDescriptor[]>;
   selectRepo: (repoId: string) => void;
@@ -217,6 +223,8 @@ export const VOICE_CHOICE_MEMORY_MS = 60 * 1000;
 let lastAgentSwitchChange: {
   previousAgent: string;
   previousModel: string | null;
+  /** Phase 154 Theme H: the custom agent in use before the switch, restored by the undo. */
+  previousProfileId: string | null;
   newAgent: string;
   newModel: string | null;
   at: number;
@@ -465,7 +473,7 @@ async function startCommand(
   // release branch.
   const wouldAutoSend = deps.autoSendAllowed();
   const autoSend = wouldAutoSend && !COMPANION_NEVER_AUTOSEND.includes(intent.id);
-  const session = deps.startSkill({
+  const session = await deps.startSkill({
     skillId: intent.id,
     ...(intent.body === undefined ? {} : { body: intent.body }),
     autoSend,
@@ -483,6 +491,7 @@ async function startCommand(
   const command = commandLabel(intent);
   deps.setActiveHandoff({ sessionId: session.id, command });
   declined = null;
+  if (session.notice !== undefined) await say(deps, session.notice);
 
   /*
     The spoken confirmation comes BEFORE the machine enters `handoff`, and it
@@ -746,6 +755,7 @@ async function switchAgent(
   intent: Extract<CompanionIntent, { kind: 'switchAgent' }>,
   deps: HandoffDeps,
 ): Promise<void> {
+  if (intent.agentId.startsWith(AGENT_PROFILE_ID_PREFIX)) return switchToCustomAgent(intent.agentId, deps);
   const agent = BUILTIN_AGENTS.find((a) => a.id.toLowerCase() === intent.agentId.toLowerCase());
   if (!agent) {
     await say(deps, `I don't recognize the agent ${intent.agentId}.`);
@@ -766,12 +776,14 @@ async function switchAgent(
   const currentUi = useUiStore.getState();
   const previousAgent = currentUi.primaryAgent;
   const previousModel = currentUi.primaryModelByAgent[previousAgent] ?? null;
+  const previousProfileId = currentUi.primaryAgentProfileId;
 
   useUiStore.getState().setPrimaryAgentAndModel(agent.id, intent.modelId);
 
   lastAgentSwitchChange = {
     previousAgent,
     previousModel,
+    previousProfileId,
     newAgent: agent.id,
     newModel: intent.modelId ?? null,
     at: Date.now(),
@@ -785,6 +797,37 @@ async function switchAgent(
 }
 
 /**
+ * Make a saved custom agent the companion's agent (Phase 154 Theme H) — "use Reviewer". The intent carries
+ * the profile id; the name comes from the live list. `primaryAgent` is left alone, so only the companion
+ * changes. A custom agent whose base CLI the probe found missing is refused rather than half-switched.
+ */
+async function switchToCustomAgent(profileId: string, deps: HandoffDeps): Promise<void> {
+  const name = deps.vocabulary().customAgents?.find((agent) => agent.id === profileId)?.name ?? customAgent(profileId)?.name;
+  if (name === undefined) {
+    await say(deps, "I don't know that custom agent. It may have been deleted.");
+    return;
+  }
+  const baseId = customAgent(profileId)?.baseAgentId;
+  if (baseId !== undefined && useAgentProbeStore.getState().status.find((s) => s.id === baseId)?.installed === false) {
+    const baseLabel = BUILTIN_AGENTS.find((a) => a.id === baseId)?.label ?? baseId;
+    await say(deps, `${name} runs on ${baseLabel}, which isn't installed here.`);
+    return;
+  }
+
+  const ui = useUiStore.getState();
+  lastAgentSwitchChange = {
+    previousAgent: ui.primaryAgent,
+    previousModel: ui.primaryModelByAgent[ui.primaryAgent] ?? null,
+    previousProfileId: ui.primaryAgentProfileId,
+    newAgent: ui.primaryAgent,
+    newModel: ui.primaryModelByAgent[ui.primaryAgent] ?? null,
+    at: Date.now(),
+  };
+  ui.setPrimaryAgentProfile(profileId);
+  await say(deps, `Switched the companion to ${name}.`);
+}
+
+/**
  * Undo the last agent/model switch ("undo that").
  */
 async function undoAgentSwitch(deps: HandoffDeps): Promise<void> {
@@ -793,10 +836,18 @@ async function undoAgentSwitch(deps: HandoffDeps): Promise<void> {
     return;
   }
 
-  const { previousAgent, previousModel } = lastAgentSwitchChange;
+  const { previousAgent, previousModel, previousProfileId } = lastAgentSwitchChange;
   lastAgentSwitchChange = null;
 
   useUiStore.getState().setPrimaryAgentAndModel(previousAgent, previousModel);
+  if (previousProfileId !== null) {
+    useUiStore.getState().setPrimaryAgentProfile(previousProfileId);
+    const name = customAgent(previousProfileId)?.name;
+    if (name !== undefined) {
+      await say(deps, `Put it back. Switched the companion to ${name}.`);
+      return;
+    }
+  }
 
   const prevAgentDef = BUILTIN_AGENTS.find((a) => a.id === previousAgent);
   const prevAgentLabel = prevAgentDef ? prevAgentDef.label : previousAgent;
@@ -1049,7 +1100,8 @@ async function route(text: string, deps: HandoffDeps, depth: number): Promise<vo
 
   if (!result.ok) {
     deps.store.send('settle');
-    const session = deps.startVerbatim(text);
+    const session = await deps.startVerbatim(text);
+    if (session?.notice !== undefined) await say(deps, session.notice);
     await say(
       deps,
       session

@@ -2,7 +2,8 @@ import type { IconType } from 'react-icons';
 import { GoBeaker, GoGitPullRequest, GoGlobe, GoPlay } from 'react-icons/go';
 import { IoIosGitNetwork } from 'react-icons/io';
 import { PiTerminalDuotone } from 'react-icons/pi';
-import { SiGrapheneos, SiMagic, SiOllama } from 'react-icons/si';
+import { DiHtml5Multimedia } from 'react-icons/di';
+import { SiGrapheneos, SiOllama } from 'react-icons/si';
 import {
   LuActivity,
   LuAudioLines,
@@ -32,6 +33,7 @@ import {
   LuServer,
   LuSettings,
   LuShieldAlert,
+  LuLockKeyhole,
   LuShieldCheck,
   LuSparkles,
   LuListTodo,
@@ -101,9 +103,11 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   // Lucide's `circle-pile`, not in the installed react-icons `lu` set — see
   // `icons/circle-pile-icon.tsx` for why it's a local mark instead.
   councils: CirclePileIcon,
+  // Phase 154 — Custom agents (the Agents rail row).
+  agents: LuBot,
   workflows: IoIosGitNetwork,
   // Phase 99 Theme A — Media (Docs/Images/Video/Audio); Video's clapperboard is its tab glyph now.
-  media: SiMagic,
+  media: DiHtml5Multimedia,
   // Phase 96 Theme C — Ollama's own mark, not a Lucide model/box glyph: this
   // view is specifically Ollama's models, and the phase doc's own research
   // already settled on `SiOllama` for it.
@@ -134,6 +138,7 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   // (Phase 95 Theme B), so a "shine" mark reads truer than a heartbeat.
   activity: LuSparkles,
   privacy: LuShield,
+  permissions: LuLockKeyhole,
   // Phase 135: switch whole features on and off.
   features: LuToggleRight,
   graph: LuGitCommitVertical,
@@ -148,7 +153,7 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   reviews: LuShieldCheck,
   projects: LuListTodo,
   workflows: IoIosGitNetwork,
-  media: SiMagic,
+  media: DiHtml5Multimedia,
   ollama: SiOllama,
   gitSafety: LuShieldAlert,
   // A literal trash can, not a third shield glyph: `reviews` already owns

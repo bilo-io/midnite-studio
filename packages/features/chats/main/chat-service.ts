@@ -38,6 +38,7 @@ import {
   type ChatChangeDecision,
   type ChatChangedFile,
   type ChatChangeSet,
+  type ChatEngineSession,
   type ChatEvent,
   type ChatMessage,
   type ChatMode,
@@ -50,6 +51,7 @@ import {
   type NewAgentAuditRecord,
   type OutboundSecret,
   type Redaction,
+  type UnifiedSessionViewMode,
   siblingWorktreePath,
 } from '@midnite/studio-shared';
 
@@ -107,6 +109,29 @@ const ACTIVITY_CAP = 40;
 
 type Repo = { id: string; path: string; name: string };
 
+/**
+ * A custom agent made ready for one chat turn (Phase 154 follow-up) — the shape of the companion's headless
+ * run, declared here because a feature never imports another. `extraArgs` go before the turn's prompt word
+ * (the agent's model, its private MCP socket, its prompt file flag); `promptPrefix` is the prompt file's text
+ * for a base CLI that takes it ahead of the question; `release` closes the private socket when the turn ends.
+ * `missing`: the agent was deleted. `error`: it cannot run as itself, so nothing runs.
+ */
+export type ChatProfileRun =
+  | {
+      kind: 'ready';
+      name: string;
+      agent: AgentDefinition;
+      extraArgs: string[];
+      promptPrefix: string | null;
+      /** #1713: hand the spawned child over so the agent breaker can stop the run (it has no pty to interrupt). */
+      attach?: (handle: { kill: () => void }) => void;
+      release: () => Promise<void>;
+    }
+  | { kind: 'missing' }
+  | { kind: 'error'; message: string };
+
+export const CUSTOM_AGENTS_NEED_STUDIO = 'Custom agents need Midnite Studio, so this chat cannot run as one here.';
+
 export type ChatServiceDeps = {
   store: ChatStore;
   agents: () => Promise<AgentDefinition[]>;
@@ -129,6 +154,8 @@ export type ChatServiceDeps = {
    * child alone.
    */
   engineEnv?: ((agentId: string) => Promise<Record<string, string>>) | undefined;
+  /** Prepares a custom agent for one turn; absent where custom agents cannot run (the chat then refuses). */
+  profileRun?: ((profileId: string, cwd: string) => Promise<ChatProfileRun>) | undefined;
   /** Streamed Ollama chat; absent means Ollama is unavailable. */
   ollamaStream?:
     | ((req: {
@@ -164,6 +191,10 @@ export type ChatServiceDeps = {
   newId?: () => string;
   /** The git-engine seam — injectable so a test need not make real worktrees. */
   git?: Partial<GitSeam> | undefined;
+  /** Pre-flight guard before starting a turn (e.g. unified session runner lock, Phase 146). */
+  beforeSend?: ((chat: Chat) => Promise<GitOpResult> | GitOpResult) | undefined;
+  /** Called after a turn settles (used by unified session coordinator to release ownership / sync session id). */
+  onTurnEnd?: ((chat: Chat) => Promise<void> | void) | undefined;
 };
 
 export type GitSeam = {
@@ -226,6 +257,8 @@ export function createChatService(deps: ChatServiceDeps) {
 
   const chats = new Map<string, Chat>();
   const running = new Map<string, RunHandle>();
+  /** Chats whose send is between its `running` check and `running.set` (awaiting `beforeSend`). */
+  const starting = new Set<string>();
   const saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
   let loaded = false;
 
@@ -252,6 +285,8 @@ export function createChatService(deps: ChatServiceDeps) {
       running: running.has(chat.id),
       pendingChanges: needsReview(chat),
       worktree: chat.worktree ?? null,
+      ...(chat.linkedTerminalId ? { linkedTerminalId: chat.linkedTerminalId } : {}),
+      ...(chat.preferredView ? { preferredView: chat.preferredView } : {}),
     };
   };
 
@@ -316,7 +351,7 @@ export function createChatService(deps: ChatServiceDeps) {
     return chat ? ok({ chat }) : failure('That chat no longer exists.');
   }
 
-  async function create(req: { engine: string; model: string | null; mode: ChatMode; repoId: string | null }): Promise<GitOpResult<{ chat: Chat }>> {
+  async function create(req: { engine: string; agentProfileId?: string | null | undefined; model: string | null; mode: ChatMode; repoId: string | null }): Promise<GitOpResult<{ chat: Chat }>> {
     await ensureLoaded();
     let repo: Repo | null = null;
     if (req.repoId) {
@@ -328,6 +363,7 @@ export function createChatService(deps: ChatServiceDeps) {
       id: newId(),
       title: 'New chat',
       engine: req.engine,
+      ...(req.agentProfileId ? { agentProfileId: req.agentProfileId } : {}),
       model: req.model,
       mode: req.mode,
       repoId: repo?.id ?? null,
@@ -350,18 +386,33 @@ export function createChatService(deps: ChatServiceDeps) {
     title?: string | undefined;
     pinned?: boolean | undefined;
     engine?: string | undefined;
+    agentProfileId?: string | null | undefined;
     model?: string | null | undefined;
     mode?: ChatMode | undefined;
     repoId?: string | null | undefined;
+    linkedTerminalId?: string | undefined;
+    preferredView?: UnifiedSessionViewMode | undefined;
+    session?: ChatEngineSession | null | undefined;
   }): Promise<GitOpResult<{ chat: Chat }>> {
     await ensureLoaded();
     const chat = chats.get(req.id);
     if (!chat) return failure('That chat no longer exists.');
-    const settings = req.engine !== undefined || req.model !== undefined || req.mode !== undefined || req.repoId !== undefined;
+    const settings = req.engine !== undefined || req.agentProfileId !== undefined || req.model !== undefined || req.mode !== undefined || req.repoId !== undefined;
     if (settings && running.has(chat.id)) return failure('Wait for the answer to finish (or stop it) before changing the chat settings.');
 
     if (req.title !== undefined) chat.title = req.title;
     if (req.pinned !== undefined) chat.pinned = req.pinned;
+    if (req.linkedTerminalId !== undefined) chat.linkedTerminalId = req.linkedTerminalId;
+    if (req.preferredView !== undefined) chat.preferredView = req.preferredView;
+    if (req.session !== undefined) chat.session = req.session;
+    // A different custom agent is a different prompt and tool set: the CLI's own session cannot carry over.
+    const profileChanged =
+      (req.agentProfileId !== undefined || req.engine !== undefined) && (req.agentProfileId ?? null) !== (chat.agentProfileId ?? null);
+    if (req.agentProfileId !== undefined || req.engine !== undefined) {
+      if (req.agentProfileId) chat.agentProfileId = req.agentProfileId;
+      else delete chat.agentProfileId;
+    }
+    if (profileChanged) chat.session = null;
     if (req.engine !== undefined && req.engine !== chat.engine) {
       chat.engine = req.engine;
       // A model id means nothing to a different engine, and its session cannot resume.
@@ -438,23 +489,56 @@ export function createChatService(deps: ChatServiceDeps) {
     await ensureLoaded();
     const chat = chats.get(req.chatId);
     if (!chat) return failure('That chat no longer exists.');
-    if (running.has(chat.id)) return failure('This chat is already answering. Stop it first.');
+    if (running.has(chat.id) || starting.has(chat.id)) return failure('This chat is already answering. Stop it first.');
 
+    // Validate before taking the runner lock, so a rejected send never holds it.
     let text = req.text;
     let attachments = req.attachments;
+    let resendIndex = -1;
     if (req.fromMessageId !== undefined) {
       const index = chat.messages.findIndex((m) => m.id === req.fromMessageId);
       const original = chat.messages[index];
       if (!original || original.role !== 'user') return failure('That message cannot be re-sent.');
       text = text ?? original.text;
       attachments = attachments ?? original.attachments;
-      const dropped = chat.messages.splice(index);
+      resendIndex = index;
+    }
+    const body = (text ?? '').trim();
+    if (body.length === 0 && (attachments?.length ?? 0) === 0) return failure('Write a message first.');
+
+    // `starting` closes the window between the `running` check and `running.set`
+    // below: `beforeSend` awaits, and a second send in that gap would otherwise
+    // start a second turn on the same engine session.
+    starting.add(chat.id);
+    let locked = false;
+    let started = false;
+    try {
+      if (deps.beforeSend) {
+        const guard = await deps.beforeSend(chat);
+        if (!guard.ok) return guard;
+        locked = true;
+      }
+      const result = await startTurn(chat, body, attachments, resendIndex);
+      started = true;
+      return result;
+    } finally {
+      starting.delete(chat.id);
+      if (locked && !started) void Promise.resolve(deps.onTurnEnd?.(chat)).catch(() => undefined);
+    }
+  }
+
+  async function startTurn(
+    chat: Chat,
+    body: string,
+    attachments: ChatAttachment[] | undefined,
+    resendIndex: number,
+  ): Promise<GitOpResult<{ messageId: string }>> {
+    if (resendIndex >= 0) {
+      const dropped = chat.messages.splice(resendIndex);
       // The engine's own conversation still contains the dropped turns.
       chat.session = null;
       await deps.store.removePatches(dropped.flatMap((m) => (m.changeSet ? [m.changeSet.id] : [])));
     }
-    const body = (text ?? '').trim();
-    if (body.length === 0 && (attachments?.length ?? 0) === 0) return failure('Write a message first.');
 
     const at = now();
     const user: ChatMessage = {
@@ -491,6 +575,7 @@ export function createChatService(deps: ChatServiceDeps) {
     void runTurn(chat, history, user, assistant, handle).finally(() => {
       running.delete(chat.id);
       emitChat(chat.id);
+      void Promise.resolve(deps.onTurnEnd?.(chat)).catch(() => undefined);
     });
     return ok({ messageId: assistant.id });
   }
@@ -752,18 +837,79 @@ export function createChatService(deps: ChatServiceDeps) {
     cwd: string,
   ): Promise<TurnResult> {
     const roster = await deps.agents();
-    const agent = roster.find((a) => a.id === chat.engine);
+    let agent = roster.find((a) => a.id === chat.engine);
+    // A custom agent's base can have moved since the chat was made, so its stored engine may be off the roster.
+    if (!agent && !chat.agentProfileId) return { error: `${chat.engine} is not on the agent roster.` };
+    if (!agent) agent = roster[0];
     if (!agent) return { error: `${chat.engine} is not on the agent roster.` };
+    // A deleted custom agent falls back to its base CLI, and the thread says so (Phase 154 follow-up).
+    let profileId = chat.agentProfileId ?? null;
+    const baseLabel = agent.label;
+    const engineLabel = roster.find((a) => a.id === chat.engine)?.label ?? chat.engine;
 
     const resumable = chat.session && chat.session.engine === chat.engine && chat.session.cwd === cwd ? chat.session.id : null;
     // Resume first; if that attempt dies before saying anything, try once more with a replay.
     const attempts: (string | null)[] = resumable ? [resumable, null] : [null];
 
     let last: TurnResult = {};
-    for (const sessionId of attempts) {
-      const prompt = await scrubPrompt(chat, user, handle, buildTurnPrompt({ history, message: user, resumed: sessionId !== null }));
-      const invocation = buildInvocation({ agent, prompt, mode: chat.mode, model: chat.model, sessionId });
-      if (!invocation) return { error: `${agent.label} has no headless mode, so it cannot back a chat.` };
+    for (let sessionId of attempts) {
+      let profileRun: Extract<ChatProfileRun, { kind: 'ready' }> | null = null;
+      if (profileId !== null) {
+        if (!deps.profileRun) return { error: CUSTOM_AGENTS_NEED_STUDIO };
+        let prepared: ChatProfileRun;
+        try {
+          prepared = await deps.profileRun(profileId, cwd);
+        } catch (caught) {
+          prepared = { kind: 'error', message: `Could not get that custom agent ready: ${caught instanceof Error ? caught.message : String(caught)}` };
+        }
+        if (prepared.kind === 'error') return { error: prepared.message };
+        if (prepared.kind === 'missing') {
+          if (!roster.some((a) => a.id === chat.engine)) return { error: `${chat.engine} is not on the agent roster.` };
+          agent = roster.find((a) => a.id === chat.engine) ?? agent;
+          // Run as the base CLI from here on, and forget the agent so the picker shows what actually ran.
+          profileId = null;
+          delete chat.agentProfileId;
+          chat.session = null;
+          pushActivity(chat, assistant, `The custom agent was deleted, so this ran as ${baseLabel}.`);
+          await persist(chat);
+          emitChat(chat.id);
+        } else {
+          profileRun = prepared;
+          agent = prepared.agent;
+          // The agent's base CLI changed since this chat began (or its old one is gone). The chat follows the
+          // agent's new base: the old CLI's session cannot resume on another CLI, so the thread starts one
+          // afresh from its history, and the chat's engine is updated so the picker and the next turn agree.
+          if (agent.id !== chat.engine) {
+            const was = engineLabel;
+            chat.engine = agent.id;
+            chat.model = null;
+            chat.session = null;
+            sessionId = null;
+            pushActivity(chat, assistant, `${prepared.name} now runs on ${agent.label} (it was ${was}), so this turn started a fresh session.`);
+            await persist(chat);
+            emitChat(chat.id);
+          }
+        }
+      }
+      const releaseProfile = (): Promise<void> => (profileRun ? profileRun.release().catch(() => {}) : Promise.resolve());
+      const turnPrompt = buildTurnPrompt({ history, message: user, resumed: sessionId !== null });
+      const prompt = await scrubPrompt(
+        chat,
+        user,
+        handle,
+        profileRun?.promptPrefix ? `${profileRun.promptPrefix}\n\n---\n\n${turnPrompt}` : turnPrompt,
+      );
+      // The custom agent's own model applies, so the chat's pin is not also passed.
+      const built = buildInvocation({ agent, prompt, mode: chat.mode, model: profileRun ? null : chat.model, sessionId });
+      if (!built) {
+        await releaseProfile();
+        return { error: `${agent.label} has no headless mode, so it cannot back a chat.` };
+      }
+      // Its model, private MCP socket and prompt file go ahead of the prompt, the last word of every invocation.
+      const invocation =
+        profileRun && profileRun.extraArgs.length > 0
+          ? { ...built, args: [...built.args.slice(0, -1), ...profileRun.extraArgs, ...built.args.slice(-1)] }
+          : built;
 
       const textBefore = assistant.text.length;
       let result: TurnResult = {};
@@ -800,18 +946,24 @@ export function createChatService(deps: ChatServiceDeps) {
       };
 
       const engineEnv = (await deps.engineEnv?.(agent.id).catch(() => ({}))) ?? {};
-      const outcome = await runProcess<null>(agent.command, invocation.args, cwd, {
-        sink,
-        ...(Object.keys(engineEnv).length > 0 ? { env: engineEnv } : {}),
-        timeoutMs: deps.timeoutMs ?? CHAT_TURN_TIMEOUT_MS,
-        ...(deps.spawn ? { spawn: deps.spawn } : {}),
-        onSpawned: (spawned) => {
-          handle.kill = spawned.kill;
-          // A Stop that landed between "worktree ready" and "process started".
-          if (handle.cancelled) spawned.kill();
-        },
-      });
+      let outcome: Awaited<ReturnType<typeof runProcess<null>>>;
+      try {
+        outcome = await runProcess<null>(agent.command, invocation.args, cwd, {
+          sink,
+          ...(Object.keys(engineEnv).length > 0 ? { env: engineEnv } : {}),
+          timeoutMs: deps.timeoutMs ?? CHAT_TURN_TIMEOUT_MS,
+          ...(deps.spawn ? { spawn: deps.spawn } : {}),
+          onSpawned: (spawned) => {
+            handle.kill = spawned.kill;
+            profileRun?.attach?.(spawned);
+            // A Stop that landed between "worktree ready" and "process started".
+            if (handle.cancelled) spawned.kill();
+          },
+        });
 
+      } finally {
+        await releaseProfile();
+      }
       if (handle.cancelled) return {};
       if (!outcome.ok) {
         result = {
@@ -1008,5 +1160,7 @@ export function createChatService(deps: ChatServiceDeps) {
     while (running.size > 0) await new Promise((resolve) => setTimeout(resolve, 5));
   }
 
-  return { list, get, create, update, remove, send, cancel, changeDiffs, resolveChanges, shutdown, idle };
+  const isRunning = (chatId: string): boolean => running.has(chatId) || starting.has(chatId);
+
+  return { list, get, create, update, remove, send, cancel, isRunning, changeDiffs, resolveChanges, shutdown, idle };
 }

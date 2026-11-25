@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { readFile, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { TempRepo } from '@midnite/studio-git-engine';
@@ -41,7 +41,7 @@ describe('createGameLevels (Phase 132 Theme C)', () => {
     await writeFile(join(repo.path, 'levels', 'tiles.png'), PNG);
     await repo.git(['add', '.']);
     await repo.git(['commit', '-m', 'Initial commit']);
-    game = { gameId: 'g1', name: 'G', path: repo.path, engine: 'phaser', dimension: '2d', starter: 'blank', dirty: false, valid: true, issue: null };
+    game = { gameId: 'g1', name: 'G', path: repo.path, engine: 'phaser', dimension: '2d', starter: 'blank', dirty: false, valid: true, issue: null, status: null, findingCount: 0 };
     send = vi.fn<(channel: string, payload: unknown) => void>();
     goto = vi.fn(async () => ({ ok: true, value: { via: 'hook' } }));
     levels = createGameLevels({
@@ -186,6 +186,48 @@ describe('createGameLevels (Phase 132 Theme C)', () => {
     });
   });
 
+  describe('mapAsset', () => {
+    it('reads a valid map asset TMJ from assets/map/<name>/map.tmj', async () => {
+      await repo.writeFile('assets/map/Cave_1/map.tmj', JSON.stringify(level()));
+      const result = await levels.mapAsset('g1', 'Cave_1');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.issues).toEqual([]);
+      expect(result.value.level).toMatchObject({ type: 'map', width: 2, height: 1 });
+    });
+
+    it('reports issues when map.tmj is invalid JSON or invalid level', async () => {
+      await repo.writeFile('assets/map/bad-json/map.tmj', '{nope');
+      const r1 = await levels.mapAsset('g1', 'bad-json');
+      expect(r1.ok).toBe(true);
+      if (r1.ok) {
+        expect(r1.value.level).toBeNull();
+        expect(r1.value.issues[0]?.message).toContain('Not valid JSON');
+      }
+
+      await repo.writeFile('assets/map/inf/map.tmj', JSON.stringify(level({ infinite: true })));
+      const r2 = await levels.mapAsset('g1', 'inf');
+      expect(r2.ok).toBe(true);
+      if (r2.ok) expect(r2.value.issues[0]?.message).toContain('Infinite maps are not supported');
+    });
+
+    it('refuses path traversal, missing assets, symlinks out of the game and oversized files', async () => {
+      for (const bad of ['../levels', '..', 'a/b', '.hidden', '']) {
+        expect(await levels.mapAsset('g1', bad)).toMatchObject({ ok: false });
+      }
+      expect(await levels.mapAsset('nope', 'cave')).toMatchObject({ ok: false });
+      expect(await levels.mapAsset('g1', 'missing')).toMatchObject({ ok: false });
+
+      await mkdir(join(repo.path, 'assets', 'map', 'linked'), { recursive: true });
+      await symlink('/etc/hosts', join(repo.path, 'assets', 'map', 'linked', 'map.tmj'));
+      expect(await levels.mapAsset('g1', 'linked')).toMatchObject({ ok: false });
+
+      const huge = level({ properties: [{ name: 'x', type: 'string', value: 'y'.repeat(GAME_LEVEL_MAX_BYTES) }] });
+      await repo.writeFile('assets/map/huge/map.tmj', JSON.stringify(huge));
+      expect(await levels.mapAsset('g1', 'huge')).toMatchObject({ ok: false });
+    });
+  });
+
   describe('goto', () => {
     it('validates the scene then asks the runner', async () => {
       expect(await levels.goto('g1', 'cave')).toEqual({ ok: true, value: { via: 'hook' } });
@@ -212,6 +254,45 @@ describe('createGameLevels (Phase 132 Theme C)', () => {
       await repo.writeFile(GAME_MANIFEST_FILE, manifest({ assets: [asset('obj', 'assets/model/a.obj'), asset('gone', 'assets/model/gone.glb'), asset('out', 'escape.glb')] }));
       for (const name of ['nope', 'obj', 'gone', 'out']) expect(await levels.model('g1', name)).toMatchObject({ ok: false, kind: 'error' });
       expect(await levels.model('nope', 'house')).toMatchObject({ ok: false });
+    });
+  });
+  describe('assetThumb (Phase 139 Theme A)', () => {
+    const img = (name: string, kind: string, path: string) => ({ name, kind, path, source: { tab: kind === 'tileset' ? 'sprite' : kind, repoId: null, path: 'x' }, sha256: `sha-${name}`, importedAt: '2026-11-14T00:00:00Z' });
+
+    it('answers a sprite as a png data url with its manifest sha (A1)', async () => {
+      await repo.writeFile(GAME_MANIFEST_FILE, manifest({ assets: [img('hero', 'sprite', 'assets/sprite/hero.png')] }));
+      await repo.writeFile('assets/sprite/hero.png', '');
+      await writeFile(join(repo.path, 'assets/sprite/hero.png'), PNG);
+      expect(await levels.assetThumb('g1', 'hero')).toEqual({ ok: true, value: { name: 'hero', mime: 'image/png', dataUrl: `data:image/png;base64,${PNG.toString('base64')}`, sha256: 'sha-hero' } });
+    });
+
+    it('resolves a folder asset through its atlas json image', async () => {
+      await repo.writeFile(GAME_MANIFEST_FILE, manifest({ assets: [img('atlas', 'tileset', 'assets/tileset/atlas')] }));
+      await repo.writeFile('assets/tileset/atlas/atlas.json', JSON.stringify({ image: 'sheet.png' }));
+      await repo.writeFile('assets/tileset/atlas/sheet.png', '');
+      await writeFile(join(repo.path, 'assets/tileset/atlas/sheet.png'), PNG);
+      expect(await levels.assetThumb('g1', 'atlas')).toMatchObject({ ok: true, value: { mime: 'image/png' } });
+    });
+
+    it('sends a model to games.levels.model (A2)', async () => {
+      await repo.writeFile(GAME_MANIFEST_FILE, manifest({ assets: [img('house', 'model', 'assets/model/house.glb')] }));
+      expect(await levels.assetThumb('g1', 'house')).toEqual({ ok: false, kind: 'error', message: 'Model thumbnails come from games.levels.model.' });
+    });
+
+    it('refuses a symlink out of the game (A3)', async () => {
+      await symlink('/etc/hosts', join(repo.path, 'escape.png'));
+      await repo.writeFile(GAME_MANIFEST_FILE, manifest({ assets: [img('out', 'image', 'escape.png')] }));
+      expect(await levels.assetThumb('g1', 'out')).toMatchObject({ ok: false, kind: 'error' });
+      expect(await levels.assetThumb('g1', 'nope')).toMatchObject({ ok: false });
+    });
+
+    it('fails an over-cap file with its size (A4)', async () => {
+      await repo.writeFile(GAME_MANIFEST_FILE, manifest({ assets: [img('big', 'image', 'big.png')] }));
+      await repo.writeFile('big.png', '');
+      await writeFile(join(repo.path, 'big.png'), Buffer.alloc(2 * 1024 * 1024 + 1));
+      const result = await levels.assetThumb('g1', 'big');
+      expect(result).toMatchObject({ ok: false });
+      expect(JSON.stringify(result)).toContain('2.0 MB');
     });
   });
 });

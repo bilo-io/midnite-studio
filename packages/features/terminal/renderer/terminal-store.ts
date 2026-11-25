@@ -70,6 +70,11 @@ export type NewSessionRequest = {
   surface?: TerminalSurface;
   /** `{ projectId, itemId }` — set only for `surface: 'kanban'` (Phase 41 Theme D). */
   taskRef?: { projectId: string; itemId: string };
+  /** The loop that dispatched this session — lists it under the session list's "Loops" group. */
+  loopId?: string;
+  /** The loop's model and effort ids at launch — the row's label reads them. */
+  loopModel?: string;
+  loopEffort?: string;
   /** Stamped at launch (Phase 95 Theme H) — see `TerminalSessionSchema`'s own docs. */
   projectRef?: { projectId: string; forge: string };
   workflowRunRef?: { workflowId: string; runId: string; nodeId: string };
@@ -77,6 +82,8 @@ export type NewSessionRequest = {
   /** Session identity for an Ollama-backed launch (Phase 96 Theme H) — see `TerminalSessionSchema`'s own doc. */
   backend?: 'native' | 'ollama';
   ollamaModel?: string;
+  /** The custom agent this session runs (Phase 154): its chrome, and what wake and Resume re-prepare. */
+  profileId?: string;
 };
 
 type TerminalState = {
@@ -152,6 +159,12 @@ type TerminalState = {
    * pressing Enter is the confirmation, so the app never runs it itself.
    */
   pendingInput: Record<string, string>;
+  /**
+   * A custom agent's prepared launch id per session (Phase 154 Theme F), handed to `pty.create` as
+   * `profileLaunchId` so main binds the agent's private MCP socket to this session. Never persisted —
+   * a launch id is single-use — and cleared once the pty binds.
+   */
+  launchIds: Record<string, string>;
   /**
    * A guessed session name, per session — from the shell's own OSC title for
    * an agent, or the last command typed into a plain shell.
@@ -237,6 +250,8 @@ type TerminalState = {
   suppressAutoFocus: boolean;
 
   hydrate: () => Promise<void>;
+  /** Re-sync the session list and live PTYs from main without the one-shot `hydrated` guard. */
+  refresh: () => Promise<void>;
   openSession: (request: NewSessionRequest) => TerminalSession;
   /**
    * Adopt a session **main already created and persisted** (Phase 95 Theme
@@ -255,6 +270,8 @@ type TerminalState = {
   queueInput: (sessionId: string, input: string) => void;
   /** Consumed on pty creation — one paste per queue, never on a revive. */
   clearPendingInput: (sessionId: string) => void;
+  setLaunchId: (sessionId: string, launchId: string) => void;
+  clearLaunchId: (sessionId: string) => void;
   /**
    * Send bytes straight to a session's bound pty (Phase 86 Theme D).
    *
@@ -384,6 +401,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   replay: {},
   errors: {},
   pendingInput: {},
+  launchIds: {},
   autoNames: {},
   activity: {},
   activityAt: {},
@@ -409,6 +427,10 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
    */
   hydrate: async () => {
     if (get().hydrated) return;
+    await get().refresh();
+  },
+
+  refresh: async () => {
     const api = bridge();
     if (!api) {
       set({ hydrated: true });
@@ -467,7 +489,14 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       const live = state.sessions.filter((open) => !restored.some((s) => s.id === open.id));
       const liveEntries = sessions.flatMap((e) =>
         e.live
-          ? [{ sessionId: e.session.id, ptyId: e.live.ptyId, activity: e.live.activity ?? null }]
+          ? [
+              {
+                sessionId: e.session.id,
+                ptyId: e.live.ptyId,
+                activity: e.live.activity ?? null,
+                agentId: e.live.agentId,
+              },
+            ]
           : [],
       );
       const legacyMap = Object.fromEntries(
@@ -523,6 +552,12 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
           ),
           ...state.activityAt,
         },
+        liveAgentId: {
+          ...Object.fromEntries(
+            liveEntries.flatMap((e) => (e.agentId !== undefined ? [[e.sessionId, e.agentId]] : [])),
+          ),
+          ...state.liveAgentId,
+        },
         replay: Object.fromEntries(
           sessions
             // A live row gets no replay entry: `terminal-view.tsx`'s mount
@@ -555,11 +590,15 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       createdAt: Date.now(),
       ...(request.surface === undefined ? {} : { surface: request.surface }),
       ...(request.taskRef === undefined ? {} : { taskRef: request.taskRef }),
+      ...(request.loopId === undefined ? {} : { loopId: request.loopId }),
+      ...(request.loopModel === undefined ? {} : { loopModel: request.loopModel }),
+      ...(request.loopEffort === undefined ? {} : { loopEffort: request.loopEffort }),
       ...(request.projectRef === undefined ? {} : { projectRef: request.projectRef }),
       ...(request.workflowRunRef === undefined ? {} : { workflowRunRef: request.workflowRunRef }),
       ...(request.forgeAccountKey === undefined ? {} : { forgeAccountKey: request.forgeAccountKey }),
       ...(request.backend === undefined ? {} : { backend: request.backend }),
       ...(request.ollamaModel === undefined ? {} : { ollamaModel: request.ollamaModel }),
+      ...(request.profileId === undefined ? {} : { profileId: request.profileId }),
       ...(get().appId === 'studio' ? {} : { appId: get().appId }),
     };
 
@@ -587,7 +626,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   closeSession: (sessionId, intent = 'closed') => {
     const { ptyIds, sessions, activeId } = get();
     const ptyId = ptyIds[sessionId];
-    if (ptyId) bridge()?.pty.kill({ ptyId });
+    if (ptyId) killPty(sessions.find((s) => s.id === sessionId), sessionId, ptyId);
     bridge()?.terminal.forget({ sessionId, reason: intent });
 
     const remaining = sessions.filter((s) => s.id !== sessionId);
@@ -606,8 +645,8 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   sleepSession: (sessionId) => {
     const { ptyIds, sessions } = get();
     const ptyId = ptyIds[sessionId];
-    if (ptyId) bridge()?.pty.kill({ ptyId });
     const session = sessions.find((s) => s.id === sessionId);
+    if (ptyId) killPty(session, sessionId, ptyId);
     if (!session) return;
     const nextSession: TerminalSession = { ...session, asleep: true };
     get().unbindPty(sessionId);
@@ -665,6 +704,17 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       const pendingInput = { ...state.pendingInput };
       delete pendingInput[sessionId];
       return { pendingInput };
+    }),
+
+  setLaunchId: (sessionId, launchId) =>
+    set((state) => ({ launchIds: { ...state.launchIds, [sessionId]: launchId } })),
+
+  clearLaunchId: (sessionId) =>
+    set((state) => {
+      if (!(sessionId in state.launchIds)) return state;
+      const launchIds = { ...state.launchIds };
+      delete launchIds[sessionId];
+      return { launchIds };
     }),
 
   sendInput: (sessionId, data) => {
@@ -829,6 +879,28 @@ export function brokerStatusText(broker: TerminalState['broker']): string | null
   return broker.reason ? `Sessions will not survive quit — ${broker.reason}` : 'Sessions will not survive quit';
 }
 
+/**
+ * Kill a session's pty — for a loop session, only once its run is finalised.
+ *
+ * A loop is ended from the terminal list now (sleep or close), the way every
+ * session is; the Loops panel's own Stop is gone. So this is where the run
+ * ledger hears "the user stopped it": `loopRuns.stop` marks the running record
+ * `stopped`, and it is AWAITED before the kill, because main also finalises
+ * off the pty's exit and the first one in wins — killing first would record a
+ * stop as `exited`. A session with no running record makes `stop` a no-op.
+ */
+function killPty(session: TerminalSession | undefined, sessionId: string, ptyId: string): void {
+  const api = bridge();
+  if (!api) return;
+  if (!session || !isLoopSession(session)) {
+    api.pty.kill({ ptyId });
+    return;
+  }
+  void Promise.resolve(api.loopRuns?.stop({ sessionId }))
+    .catch(() => undefined)
+    .finally(() => api.pty.kill({ ptyId }));
+}
+
 export function onMainSurface(session: Pick<TerminalSession, 'surface'>): boolean {
   return session.surface === undefined || session.surface === 'main';
 }
@@ -845,12 +917,19 @@ export function onMainSurface(session: Pick<TerminalSession, 'surface'>): boolea
  * is a trade nobody asked for; the panel lists them instead, and the card
  * keeps its binding.
  *
- * A `'fab'` loop session is still excluded, and for a reason that has not
- * changed: it renders inside the FAB panel's own tab, so listing it here
- * would mount a second xterm against the same pty.
+ * A `'fab'` loop session is listed too. It used to be excluded because the
+ * Loops panel drew its own xterm for it; that panel is now only the form that
+ * dispatches loops, and every loop session — the main-surface ones it starts
+ * today (tagged `loopId`) and any `'fab'` row persisted before — lives here,
+ * under the session list's "Loops" group.
  */
 export function inMainPanel(session: Pick<TerminalSession, 'surface'>): boolean {
-  return onMainSurface(session) || session.surface === 'kanban';
+  return onMainSurface(session) || session.surface === 'kanban' || session.surface === 'fab';
+}
+
+/** Whether a session was dispatched by a loop — grouped under "Loops" in the session list. */
+export function isLoopSession(session: Pick<TerminalSession, 'surface' | 'loopId'>): boolean {
+  return session.loopId !== undefined || session.surface === 'fab';
 }
 
 
@@ -881,6 +960,7 @@ function dropKey(
   | 'replay'
   | 'errors'
   | 'pendingInput'
+  | 'launchIds'
   | 'autoNames'
   | 'activity'
   | 'activityAt'
@@ -895,6 +975,7 @@ function dropKey(
   const replay = { ...state.replay };
   const errors = { ...state.errors };
   const pendingInput = { ...state.pendingInput };
+  const launchIds = { ...state.launchIds };
   const autoNames = { ...state.autoNames };
   const activity = { ...state.activity };
   const activityAt = { ...state.activityAt };
@@ -908,6 +989,7 @@ function dropKey(
   delete replay[sessionId];
   delete errors[sessionId];
   delete pendingInput[sessionId];
+  delete launchIds[sessionId];
   delete autoNames[sessionId];
   delete activity[sessionId];
   delete activityAt[sessionId];
@@ -922,6 +1004,7 @@ function dropKey(
     replay,
     errors,
     pendingInput,
+    launchIds,
     autoNames,
     activity,
     activityAt,

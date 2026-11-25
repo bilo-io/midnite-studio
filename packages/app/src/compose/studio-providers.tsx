@@ -6,6 +6,7 @@ import { CompanionHostProvider } from '@midnite/studio-feature-companion/rendere
 import { CaptureHostProvider } from '@midnite/studio-feature-capture/renderer';
 import { ChatsHostProvider } from '@midnite/studio-feature-chats/renderer';
 import { DatabaseHostProvider } from '@midnite/studio-feature-database/renderer';
+import { AgentProfilesHostProvider } from '@midnite/studio-feature-agent-profiles/renderer';
 import { CouncilsHostProvider } from '@midnite/studio-feature-councils/renderer';
 import { FinanceHostProvider } from '@midnite/studio-feature-finance/renderer';
 import { ForgeHostProvider } from '@midnite/studio-feature-forge/renderer';
@@ -26,6 +27,7 @@ import { STUDIO_BROWSER_HOST } from './browser-host';
 import { STUDIO_CAPTURE_HOST } from './capture-host';
 import { STUDIO_CHATS_HOST } from './chats-host';
 import { STUDIO_COMPANION_HOST } from './companion-host';
+import { STUDIO_AGENT_PROFILES_HOST } from './agent-profiles-host';
 import { STUDIO_COUNCILS_HOST } from './councils-host';
 import { STUDIO_DATABASE_HOST } from './database-host';
 import { STUDIO_FINANCE_HOST } from './finance-host';
@@ -66,6 +68,7 @@ export function StudioProviders({ children }: { children: ReactNode }) {
             <MediaHostProvider host={STUDIO_MEDIA_HOST}>
               <ModelsHostProvider host={STUDIO_MODELS_HOST}>
                 <CouncilsHostProvider host={STUDIO_COUNCILS_HOST}>
+                  <AgentProfilesHostProvider host={STUDIO_AGENT_PROFILES_HOST}>
                   <ChatsHostProvider host={STUDIO_CHATS_HOST}>
                     <SlidesHostProvider host={STUDIO_SLIDES_HOST}>
                       <WorkflowsHostProvider host={STUDIO_WORKFLOWS_HOST}>
@@ -95,6 +98,7 @@ export function StudioProviders({ children }: { children: ReactNode }) {
                       </WorkflowsHostProvider>
                     </SlidesHostProvider>
                   </ChatsHostProvider>
+                  </AgentProfilesHostProvider>
                 </CouncilsHostProvider>
               </ModelsHostProvider>
             </MediaHostProvider>

@@ -53,4 +53,29 @@ describe('MonitorFlyout', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open Monitor' }));
     expect(onOpenMonitor).toHaveBeenCalledTimes(1);
   });
+
+  it('renders no actions section without actions', () => {
+    useMetricsStore.getState().push({ at: Date.now(), cpu: 45 });
+    render(<MonitorFlyout actions={[]} onOpenMonitor={() => undefined} />);
+    expect(screen.queryByRole('group', { name: 'Recovery actions' })).toBeNull();
+  });
+
+  it('renders each action with its tooltip, runs it, and respects disabled', () => {
+    useMetricsStore.getState().push({ at: Date.now(), cpu: 45 });
+    const run = vi.fn();
+    render(
+      <MonitorFlyout
+        actions={[
+          { id: 'a', label: 'Alpha', description: 'does alpha', Icon: () => <svg />, run },
+          { id: 'b', label: 'Beta', description: 'not yet', Icon: () => <svg />, run, disabled: true },
+        ]}
+      />,
+    );
+    const group = screen.getByRole('group', { name: 'Recovery actions' });
+    expect(group.querySelectorAll('button')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Alpha' }));
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Alpha' }).getAttribute('title')).toBe('does alpha');
+    expect((screen.getByRole('button', { name: 'Beta' }) as HTMLButtonElement).disabled).toBe(true);
+  });
 });

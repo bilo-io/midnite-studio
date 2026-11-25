@@ -81,6 +81,11 @@ asarUnpack:
   - 'dist/bundle/broker.js'
   # The CLI policy hook is invoked by external agent CLIs (Claude, Codex) as plain Node.
   - 'dist/bundle/policy-hook.js'
+  # The MCP stdio shim is registered into Claude Code's and Codex's config as
+  # `node <app>/Contents/Resources/app.asar.unpacked/dist/bundle/mcp-shim.js`
+  # (`mcpShimScriptPath()`), so an external plain-Node client must read it off disk.
+  # It is self-contained (zod and the client are bundled in), needing no sibling files.
+  - 'dist/bundle/mcp-shim.js'
   # Deliberately ABSENT — see `tts-broker.ts`'s `workerScriptPath()` doc.
   # `companion-tts-worker.js` is a `utilityProcess.fork` target, which runs
   # inside Electron's own Node integration and reads a script from *inside*
@@ -178,9 +183,19 @@ mac:
   # audio request outright — no system prompt, no `NotAllowedError` a caller
   # can branch on, just a capture that never starts. Shown once, the first
   # time push-to-talk is pressed.
+  # Folder and library usage strings (ISSUES Phase 2 Theme D). Boot code never enters these folders;
+  # what can is a command the user runs in a terminal, an agent they start, or a scan they press, and
+  # macOS attributes those to this app. Without a string the system prompt carries no reason at all.
   extendInfo:
     NSAppleEventsUsageDescription: Midnite Studio asks Finder to empty the Trash when you choose Empty Trash in the Workspace Optimizer.
     NSMicrophoneUsageDescription: Midnite Studio uses the microphone to transcribe what you say to the companion while you hold its mic button.
+    NSDocumentsFolderUsageDescription: Midnite Studio needs this for the terminals, agents and scans you run in it.
+    NSDesktopFolderUsageDescription: Midnite Studio needs this for the terminals, agents and scans you run in it.
+    NSDownloadsFolderUsageDescription: Midnite Studio needs this for the terminals, agents and scans you run in it.
+    NSRemovableVolumesUsageDescription: Midnite Studio needs this for the terminals, agents and scans you run in it.
+    NSNetworkVolumesUsageDescription: Midnite Studio needs this for the terminals, agents and scans you run in it.
+    NSPhotoLibraryUsageDescription: Midnite Studio needs this for the terminals, agents and scans you run in it.
+    NSAppleMusicUsageDescription: Midnite Studio needs this for the terminals, agents and scans you run in it.
 
 afterSign: scripts/notarize.cjs
 

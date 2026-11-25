@@ -36,6 +36,16 @@ mac:
   entitlements: resources/entitlements.mac.plist
   entitlementsInherit: resources/entitlements.mac.inherit.plist
   notarize: false
+  # Usage strings that every stub app inherits: a stub's Info.plist is cloned from this one (stub.ts
+  # stamps only id, name and version, and STUB_PLIST_REMOVE leaves NS*UsageDescription alone).
+  extendInfo:
+    NSDocumentsFolderUsageDescription: Midnite apps need this for the terminals, agents and scans you run in them.
+    NSDesktopFolderUsageDescription: Midnite apps need this for the terminals, agents and scans you run in them.
+    NSDownloadsFolderUsageDescription: Midnite apps need this for the terminals, agents and scans you run in them.
+    NSRemovableVolumesUsageDescription: Midnite apps need this for the terminals, agents and scans you run in them.
+    NSNetworkVolumesUsageDescription: Midnite apps need this for the terminals, agents and scans you run in them.
+    NSPhotoLibraryUsageDescription: Midnite apps need this for the terminals, agents and scans you run in them.
+    NSAppleMusicUsageDescription: Midnite apps need this for the terminals, agents and scans you run in them.
 # Ad-hoc sign the bundle so it passes `codesign --verify --deep --strict` without a cert, which is
 # what install.sh checks. A cert, when there is one, replaces it at the signing step after this.
 afterPack: scripts/afterpack.cjs

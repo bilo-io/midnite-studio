@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@bilo-io/ui": "0.2.0",
+    "@midnite/forge-github-core": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-git-engine": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",

@@ -26,6 +26,11 @@ export const useTerminalStore: CompanionStore<CompanionTerminalState> = delegate
 
 export const startAgent = (...args: Parameters<ReturnType<typeof getCompanionHost>['terminal']['startAgent']>) =>
   getCompanionHost().terminal.startAgent(...args);
+export const startProfileAgent = (...args: Parameters<NonNullable<ReturnType<typeof getCompanionHost>['terminal']['startProfileAgent']>>) =>
+  getCompanionHost().terminal.startProfileAgent?.(...args) ?? Promise.resolve(null);
+export const skillHandoffAsProfile = (
+  ...args: Parameters<NonNullable<ReturnType<typeof getCompanionHost>['terminal']['skillHandoffAsProfile']>>
+) => getCompanionHost().terminal.skillHandoffAsProfile?.(...args) ?? Promise.resolve(null);
 export const skillHandoff = (...args: Parameters<ReturnType<typeof getCompanionHost>['terminal']['skillHandoff']>) =>
   getCompanionHost().terminal.skillHandoff(...args);
 

@@ -15,10 +15,14 @@ cap, the board, launch rules, sitreps, rotation, unsticking and wrap-up. It does
 
 **Conversation style — enforced.** Terse; results, not intentions; tables over prose.
 
+## 0 · Run the script first
+
+Run `scripts/skills/orchestrate-cap.sh --running <n>` before each spawn, `scripts/skills/worktree-lifecycle.sh create <slug>` per task, `node scripts/skills/sitrep.mjs table --worktrees` each tick (rows for units with no PR come from their scratchpads), `orchestrate-cap.sh --running <n> --queued <q> --chart` for the cap line and machine block, `worktree-lifecycle.sh sweep --apply` at wrap-up. They give the cap line, the worktrees and the sitrep table. You still run the interview and own the board and merges (see midnite-orchestrate). Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 1 · Scope — option sheets, as many pages as it takes (skip what `$ARGUMENTS` answers)
 
-Scan `.midnite/tasks/_INDEX.md` — **Pass 1 only**, its `## Phases` table; no `phase-*.md` — for
-unblocked candidates, and `gh pr list --state open` to skip anything in flight. Present them as
+Scan the forge — `node scripts/skills/tracker.mjs candidates` lists every open theme of every open phase as `ready`, `claimed`,
+`in PR #n` or `blocked by #n`; offer only the `ready` ones (no issue bodies yet). Present them as
 `AskUserQuestion` checkboxes (`multiSelect: true`): up to 4 options per question and up to 4
 questions per page, so 16 per page; keep paging until every candidate has been offered. The human
 may describe an ad hoc task via "Other". The roster is everything checked; nothing checked → ask
@@ -43,9 +47,9 @@ Each worker:
 - Invokes `Skill({skill: "midnite-build", args: "<phase>"})` (or `midnite-build-adhoc` for an ad
   hoc task) for **that task only**, capped to §2.
 - Runs unattended: skips `/midnite-build`'s own questions, takes the conventional choice or the
-  phase doc's *Decisions*, and records what it chose in the PR body.
-- Claims its row in `_INDEX.md` on `main` before branching (`git pull --rebase origin main` on a push
-  race); writes what landed into its phase doc's `## Headlines`, touching only its own index row.
+  phase issue's *Decisions*, and records what it chose in the PR body.
+- Claims its theme sub-issue on GitHub before branching (`node scripts/skills/tracker.mjs claim <n>`);
+  writes what landed into its phase issue's `## Headlines` (`node scripts/skills/tracker.mjs headlines <phase> --theme X --text …`), and its PR closes the sub-issue.
 - Uses a worktree slug that cannot collide: `.worktrees/p<N>-<letters>`.
 - Opens the PR as a draft, self-reviews with `/midnite-check-yourself`, readies it, watches CI.
 

@@ -10,11 +10,15 @@ allowed-tools: Bash, Read, Write, Skill, Glob, Grep
 Produces the title and body for a PR in `bilo-io/midnite-studio`. Short and factual: a reviewer
 should read it in under a minute. Every `gh` call uses `GH_TOKEN="$(gh auth token -u bilo-io)"`.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/pr-description.mjs [--base origin/main] [--self-review "..."]`. It drafts the title and house-template body from the commits and diffstat, scrubbing trailers and stray @-mentions. You still check the Why line and fill any section the script left out. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Gather
 
 From the branch: `git log origin/main..HEAD --oneline`, `git diff origin/main...HEAD --stat`, and the
-diff itself. From the tracker: the phase doc named by the branch or commits
-(`.midnite/tasks/phases/phase-<N>-*.md`, its `## Headlines`), and the linked issue if any. Read the
+diff itself. From the tracker: the phase issue named by the branch or commits
+(the `Phase <N>` issue, its `## Headlines`, and the theme sub-issue the PR closes), and the linked issue if any. Read the
 diff; do not just paraphrase the commit messages.
 
 ## Title
@@ -46,7 +50,7 @@ Only if any were taken unattended. One bullet each, with the reason.
 Only if something in scope was left.
 
 ## Screenshots
-Only for visual changes. Commit-pinned raw URLs; see midnite-pr-description-image.
+Only for visual changes. One line naming the surface; the image itself is shown in the thread, never committed (see midnite-pr-description-image).
 
 ## Verification
 Tests added or changed, plus CI state.
@@ -61,7 +65,7 @@ What it found and fixed, or "nothing to fix".
   newcomer" section, no restating the diff file by file.
 - **Link everything referable.** Repo files as markdown links to the file on the PR's head
   (`[agent-commands.ts](https://github.com/bilo-io/midnite-studio/blob/<branch>/path)`), PRs and
-  issues as `#n`, phase docs as links.
+  issues as `#n`, phase issues as links.
 - **Plain claims.** "Menu entries now point at the midnite skills", not "refactors the skill
   indirection layer". A number beats an adjective.
 - **Why is the problem**, not the history. **What landed** is outcomes, not a changelog: the bold

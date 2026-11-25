@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 
-import { wrapWithSandbox } from '@midnite/studio-runtime';
+import { scrubHostAgentEnv, wrapWithSandbox } from '@midnite/studio-runtime';
 import { SCROLLBACK_BYTES } from '@midnite/studio-shared';
 
 import type { AgentWatcher } from './agent-watcher';
@@ -134,7 +134,8 @@ export function inprocCreatePty(
       rows: options.rows,
       cwd: options.cwd,
       env: {
-        ...process.env,
+        ...scrubHostAgentEnv(process.env),
+        COLORTERM: 'truecolor',
         TERM_PROGRAM: 'midnite-studio',
         GIT_TERMINAL_PROMPT: '1',
         ...agentFingerprintEnv(options.kind, options.sessionId, options.agentId),

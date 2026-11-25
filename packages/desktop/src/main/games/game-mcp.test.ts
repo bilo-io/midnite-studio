@@ -28,6 +28,16 @@ const GAME: GameSummary = {
   dirty: false,
   valid: true,
   issue: null,
+  status: 'warn',
+  findingCount: 1,
+};
+
+const DIAGNOSIS = {
+  path: '/games/demo',
+  hasManifest: true,
+  findings: [{ rule: 'kit.outdated' as const, level: 'warn' as const, area: 'kit' as const, message: 'Kit 0.1.0 is older.', path: 'kit', fixId: 'upgrade-kit' as const }],
+  counts: { error: 0, warn: 1, info: 0 },
+  status: 'warn' as const,
 };
 
 function fakeImage(width = 800, height = 600): GameImage {
@@ -51,6 +61,10 @@ function fakeWebContents(executeJavaScript: GameWebContents['executeJavaScript']
   };
 }
 
+const notStubbed = (): never => {
+  throw new Error('not stubbed in this test');
+};
+
 function setup(
   wc: GameWebContents | null,
   opts: {
@@ -60,6 +74,7 @@ function setup(
     playtests?: Parameters<typeof createGameMcpTools>[0]['playtests'];
     levels?: Partial<Parameters<typeof createGameMcpTools>[0]['service']['levels']>;
     goto?: Parameters<typeof createGameMcpTools>[0]['service']['goto'];
+    levelEditor?: Parameters<typeof createGameMcpTools>[0]['service']['levelEditor'];
   } = {},
 ) {
   const emitted: Array<[string, unknown]> = [];
@@ -72,11 +87,25 @@ function setup(
         list: async () => ({ ok: true as const, value: { scenes: [{ scene: 'level', bytes: 9, dimension: '2d' as const, issue: null }], start: 'level', readsLevels: true } }),
         get: async () => ({ ok: true as const, value: { level: { type: 'map' }, issues: [], images: [{ path: 't.png', dataUrl: 'data:image/png;base64,AAAA' }] } }),
         set: async () => ({ ok: true as const, value: { sha: 'abc123' } }),
+        mapAsset: async () => ({ ok: true as const, value: { level: { type: 'map' }, issues: [] } }),
+        // The levels surface no game_* tool here reaches: a call means a test needs its own stub.
+        model: notStubbed,
+        prefabs: { list: notStubbed, get: notStubbed, set: notStubbed, delete: notStubbed },
+        assetThumb: notStubbed,
+        terrainDetail: notStubbed,
+        preview: notStubbed,
+        previewEnd: notStubbed,
         ...opts.levels,
       },
+      levelEditor: opts.levelEditor ?? { request: async () => ({ ok: true as const, value: { handled: false as const, reason: 'not-open' as const } }), resolve: () => undefined, setOpen: () => undefined, open: () => null },
       goto: opts.goto ?? (async () => ({ ok: true as const, value: { via: 'hook' as const } })),
+      entities: { get: notStubbed, watch: notStubbed },
+      debug: notStubbed,
+      doctor: async (req) => (req.gameId === GAME.gameId || req.path === GAME.path ? { ok: true as const, value: DIAGNOSIS } : { ok: false as const, kind: 'error' as const, message: 'That game was not found.' }),
+      doctorFix: async (req) =>
+        req.path === GAME.path ? { ok: true as const, value: { commit: 'abc1234', diagnosis: DIAGNOSIS } } : { ok: false as const, kind: 'error' as const, message: 'That game was not found.' },
       create: async () => ({ ok: true as const, value: { path: '/games/new', gameId: 'gnew' } }),
-      manifestGet: async () => ({ manifest: (opts.manifest ?? { kitVersion: '0.1.0', vendored: { phaser: '3.80.1' } }) as never, issues: [] }),
+      manifestGet: async () => ({ manifest: (opts.manifest ?? { kitVersion: '0.1.0', vendored: { phaser: '3.80.1' }, assets: [] }) as never, issues: [] }),
       manifestSet,
       run: async () => ({ ok: true as const, value: { runId: 'r1' } }),
       stop: () => ({ ok: true as const }),
@@ -202,7 +231,13 @@ describe('game_* over the global MCP dispatcher', () => {
       ['game_assert_frame', { game: 'gabc', frame: 1, name: 'start' }],
       ['game_playtest', { game: 'gabc' }],
       ['game_level_set', { game: 'gabc', scene: 'level', level: {} }],
+      ['game_entity_batch', { game: 'gabc', scene: 'level', ops: [{ op: 'delete', id: 1 }] }],
+      ['game_entity_add', { game: 'gabc', scene: 'level', entities: [{ type: 'pickup', x: 1, y: 1 }] }],
+      ['game_entity_update', { game: 'gabc', scene: 'level', updates: [{ id: 1, set: { x: 2 } }] }],
+      ['game_entity_delete', { game: 'gabc', scene: 'level', ids: [1] }],
       ['game_goto', { game: 'gabc', scene: 'level' }],
+      ['game_prefab_save', { game: 'gabc', name: 'hut', dimension: '2d', objects: [{ type: 'prop', x: 1, y: 1 }] }],
+      ['game_level_scatter', { game: 'gabc', scene: 'level', area: { cx: 50, cy: 50, radius: 40 }, options: { sources: [{ kind: 'type', type: 'crate' }], radius: 40, density: 1, spacing: 8, seed: 1 } }],
     ] as const) {
       expect(await dispatchMcpCall(tool, input), tool).toEqual({ ok: false, kind: 'refused', message: GAMES_OFF_MESSAGE });
     }
@@ -421,5 +456,136 @@ describe('level tools (Phase 132 Theme G)', () => {
     expect(await dispatchMcpCall('game_level_set', { game: 'gabc', scene: 'level', level: {} })).toMatchObject({ ok: false, kind: 'error', message: 'layers: Required' });
     expect(await dispatchMcpCall('game_level_get', { game: 'gabc', scene: 'x' })).toMatchObject({ ok: false, kind: 'not-found' });
     expect(await dispatchMcpCall('game_level_get', { game: 'nope', scene: 'x' })).toMatchObject({ ok: false, kind: 'not-found' });
+  });
+});
+
+describe('game_doctor (Phase 149 Theme C)', () => {
+  beforeEach(() => resetMcpAllowUiStateForTests());
+  afterEach(() => setGameTools(null));
+
+  it('is a read: answers the diagnosis with the switch off, by id or path', async () => {
+    setup(null);
+    expect(await dispatchMcpCall('game_doctor', { game: 'gabc' })).toEqual({ ok: true, value: DIAGNOSIS });
+    expect(await dispatchMcpCall('game_doctor', { game: '/games/demo' })).toEqual({ ok: true, value: DIAGNOSIS });
+    expect(await dispatchMcpCall('game_doctor', { game: 'nope' })).toMatchObject({ ok: false });
+  });
+});
+
+describe('game_doctor_fix (Phase 149 Theme D)', () => {
+  beforeEach(() => resetMcpAllowUiStateForTests());
+  afterEach(() => setGameTools(null));
+
+  it('is a write: refused while Let agents run and edit games is off', async () => {
+    setup(null);
+    expect(await dispatchMcpCall('game_doctor_fix', { game: 'gabc', fixId: 'set-genre', genre: null })).toMatchObject({ ok: false, kind: 'refused' });
+  });
+
+  it('applies the fix by the resolved path and answers the commit and the fresh diagnosis', async () => {
+    setup(null);
+    setMcpAllowGamesState(true);
+    expect(await dispatchMcpCall('game_doctor_fix', { game: 'gabc', fixId: 'normalise-vendored' })).toEqual({
+      ok: true,
+      value: { commit: 'abc1234', diagnosis: DIAGNOSIS },
+    });
+    expect(await dispatchMcpCall('game_doctor_fix', { game: 'nope', fixId: 'normalise-vendored' })).toMatchObject({ ok: false });
+    expect(await dispatchMcpCall('game_doctor_fix', { game: 'gabc', fixId: 'bogus' })).toMatchObject({ ok: false });
+  });
+});
+
+describe('level query and validate tools (Phase 138 Theme D)', () => {
+  beforeEach(() => resetMcpAllowUiStateForTests());
+  afterEach(() => setGameTools(null));
+
+  const map = (objects: unknown[]) => ({
+    type: 'map',
+    infinite: false,
+    orientation: 'orthogonal',
+    width: 10,
+    height: 10,
+    tilewidth: 16,
+    tileheight: 16,
+    nextobjectid: 10,
+    tilesets: [],
+    layers: [{ id: 1, name: 'Entities', type: 'objectgroup', objects }],
+  });
+  const crate = { id: 2, name: 'crate', type: 'crate', x: 16, y: 16, width: 16, height: 16 };
+  const snapshot = (level: unknown, dirty: boolean) => ({
+    request: async () => ({ ok: true as const, value: { handled: true as const, value: { level, dirty } } }),
+    resolve: () => undefined,
+    setOpen: () => undefined,
+    open: () => null,
+  });
+
+  it('D1: reads the file when no editor is open', async () => {
+    setup(null, { levels: { get: async () => ({ ok: true as const, value: { level: map([crate]), issues: [], images: [] } }) } });
+    const result = await dispatchMcpCall('game_level_query', { game: 'gabc', scene: 'level', types: ['crate'] });
+    expect(result).toMatchObject({ ok: true, value: { source: 'file', dirty: false, total: 1 } });
+  });
+
+  it('D2: sees an unsaved object through the editor bridge', async () => {
+    setup(null, { levelEditor: snapshot(map([crate, { ...crate, id: 3, name: 'new' }]), true) });
+    const result = await dispatchMcpCall('game_level_query', { game: 'gabc', scene: 'level' });
+    expect(result).toMatchObject({ ok: true, value: { source: 'editor', dirty: true, total: 2 } });
+  });
+
+  it('D3: validate counts match the per-severity tallies, and a missing file is not-found', async () => {
+    setup(null, { levelEditor: snapshot(map([crate, { ...crate, name: 'dup' }]), false) });
+    const result = await dispatchMcpCall('game_level_validate', { game: 'gabc', scene: 'level' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const value = result.value as { source: string; counts: Record<string, number>; issues: Array<{ rule: string; severity: string }> };
+    expect(value.source).toBe('editor');
+    expect(value.issues.some((i) => i.rule === 'level/duplicate-id')).toBe(true);
+    for (const severity of ['error', 'warning', 'info']) expect(value.counts[severity]).toBe(value.issues.filter((i) => i.severity === severity).length);
+
+    setup(null, { levels: { get: async () => ({ ok: false as const, kind: 'error' as const, message: 'Level "x" not found in levels/.' }) } });
+    expect(await dispatchMcpCall('game_level_validate', { game: 'gabc', scene: 'x' })).toMatchObject({ ok: false, kind: 'not-found' });
+  });
+
+  it('D4: both answer while the games switch is off', async () => {
+    setup(null);
+    expect(await dispatchMcpCall('game_level_query', { game: 'gabc', scene: 'level' })).toMatchObject({ ok: true });
+    const v = await dispatchMcpCall('game_level_validate', { game: 'gabc', scene: 'level' });
+    expect(v).toMatchObject({ ok: true });
+  });
+});
+
+describe('entity write tools (Phase 138 Theme E)', () => {
+  beforeEach(() => resetMcpAllowUiStateForTests());
+  afterEach(() => setGameTools(null));
+
+  const level = {
+    type: 'map',
+    infinite: false,
+    orientation: 'orthogonal',
+    width: 10,
+    height: 10,
+    tilewidth: 16,
+    tileheight: 16,
+    nextobjectid: 10,
+    tilesets: [],
+    layers: [{ id: 1, name: 'Entities', type: 'objectgroup', objects: [{ id: 1, name: '', type: 'spawn', x: 8, y: 8, width: 0, height: 0, rotation: 0, visible: true, point: true }] }],
+  };
+
+  it('E7: add of 2 entities equals a batch of 2 add ops, written to the file when no editor is open', async () => {
+    const set = vi.fn(async () => ({ ok: true as const, value: { sha: 'c0ffee' } }));
+    setup(null, { levels: { get: async () => ({ ok: true as const, value: { level, issues: [], images: [] } }), set } });
+    setMcpAllowGamesState(true);
+    const entities = [{ type: 'pickup', x: 16, y: 16 }, { type: 'pickup', x: 32, y: 16 }];
+    const viaAdd = await dispatchMcpCall('game_entity_add', { game: 'gabc', scene: 'level', entities });
+    const viaBatch = await dispatchMcpCall('game_entity_batch', { game: 'gabc', scene: 'level', ops: entities.map((entity) => ({ op: 'add', entity })) });
+    expect(viaAdd).toMatchObject({ ok: true, value: { applied: 'file', added: [10, 11], saved: true, sha: 'c0ffee' } });
+    expect(viaAdd).toEqual(viaBatch);
+    expect(set).toHaveBeenCalledTimes(2);
+  });
+
+  it('E4: an invalid batch is an error naming the op, and writes nothing', async () => {
+    const set = vi.fn(async () => ({ ok: true as const, value: { sha: 'x' } }));
+    setup(null, { levels: { get: async () => ({ ok: true as const, value: { level, issues: [], images: [] } }), set } });
+    setMcpAllowGamesState(true);
+    const result = await dispatchMcpCall('game_entity_delete', { game: 'gabc', scene: 'level', ids: [99] });
+    expect(result).toMatchObject({ ok: false, kind: 'error' });
+    expect(JSON.stringify(result)).toContain('op 0 (delete)');
+    expect(set).not.toHaveBeenCalled();
   });
 });

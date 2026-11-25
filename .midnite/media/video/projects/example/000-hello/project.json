@@ -1,8 +1,0 @@
-{
-  "id": "example/000-hello",
-  "title": "Hello, video",
-  "composition": "ExampleHello",
-  "source": "input/original.mp4",
-  "brief": "input/BRIEF.md",
-  "script": "EDITORIAL_SCRIPT.md"
-}

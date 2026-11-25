@@ -9,8 +9,10 @@ import {
   ResizeHandle,
   StateDot,
   useActivityGlow,
+  useCollapsedGroups,
   useFrameChrome,
   useResizable,
+  useToastStore,
   type ActivityGlowSessionInput,
   type DotState,
   type GitMultiSelectOption as MultiSelectOption,
@@ -20,17 +22,23 @@ import {
   commitsForLiveSession,
   commitsForSession,
   DEFAULT_LOOPS,
+  getProviderSyncTier,
   WORKFLOW_SESSION_REPO_ID,
   type AgentDefinition,
+  type ChatSummary,
   type ClosedSession,
   type Commit,
   type SessionActivity,
+  type TerminalSession,
+  type UnifiedSessionViewMode,
 } from '@midnite/studio-shared';
 import {
   LuActivity,
   LuBot,
   LuExternalLink,
   LuFilter,
+  LuFolderGit2,
+  LuMessageSquare,
   LuOctagonX,
   LuPlay,
   LuRefreshCw,
@@ -42,6 +50,7 @@ import {
 import {
   useSessionsHost,
   type SessionConnectionState as ConnectionState,
+  type SessionsChatsPort,
   type SessionsGraphPort,
   type SessionsHistoryPort,
   type SessionsLoopsPort,
@@ -51,16 +60,22 @@ import {
   groupSessionsByRepo,
   groupSessionsByWorkflowRun,
   isClosedManagedSession,
+  matchesSessionId,
   mergeManagedSessions,
   pickInitialClosedSession,
   relativeAge,
+  resolveManagedActiveView,
   type ManagedLiveSession,
   type ManagedSession,
   type ManagedSessionLiveness,
   type SessionGroup,
   type WorkflowRunSessionGroup,
 } from './session-order';
-import { NO_SESSIONS_EMPTY, SessionListSkeleton } from './sessions-skeletons';
+import {
+  NO_LOOP_SESSIONS_EMPTY,
+  NO_SESSIONS_EMPTY,
+  SessionListSkeleton,
+} from './sessions-skeletons';
 
 /** The plain answers for a capability an app leaves out — so every hook below is called unconditionally. */
 const EMPTY_HISTORY: SessionsHistoryPort['useHistory'] = () => ({ data: [], isPending: false, isError: false, error: null });
@@ -71,6 +86,8 @@ const NO_GRAPH: SessionsGraphPort = { useCommits: () => NO_COMMITS, showCommits:
 const NO_LOOPS: Pick<SessionsLoopsPort, 'useLoopIdBySession'> = { useLoopIdBySession: () => NO_LOOP_RUNS };
 const NO_WORKFLOW_NAMES = () => undefined;
 const NO_KILL = () => null;
+const EMPTY_CHATS: readonly ChatSummary[] = [];
+const NO_CHATS_HOOK = () => EMPTY_CHATS;
 
 /** An agent's display label, or `undefined` for a plain terminal or an agent the roster does not know. */
 function agentLabelFor(agentId: string | undefined, agents: readonly AgentDefinition[]): string | undefined {
@@ -92,6 +109,20 @@ const LIVENESS_OPTIONS: MultiSelectOption[] = [
 
 /** Value used to represent non-agent terminal sessions in the provider filter. */
 const TERMINAL_PROVIDER_VALUE = '__terminal__';
+
+type SessionCategory = 'sessions' | 'loops';
+
+const SESSION_CATEGORIES: readonly {
+  id: SessionCategory | 'workflows' | 'councils';
+  label: string;
+  enabled: boolean;
+  tooltip?: string;
+}[] = [
+  { id: 'sessions', label: 'Sessions', enabled: true },
+  { id: 'loops', label: 'Loops', enabled: true },
+  { id: 'workflows', label: 'Workflows', enabled: false, tooltip: 'Workflows — TBA' },
+  { id: 'councils', label: 'Councils', enabled: false, tooltip: 'Councils — TBA' },
+];
 
 /**
  * The one row height every list item (never a group header) honours —
@@ -230,10 +261,12 @@ function SessionsManager({
   const groupCascade = host.useCascadeReveal({ revealKey: 'sessions' });
 
   const historyPort = host.history;
+  const chatsPort = host.chats;
   const history = (historyPort?.useHistory ?? EMPTY_HISTORY)();
   const refresh = (historyPort?.useRefresh ?? (() => NO_REFRESH))();
   const agents = host.useAgents();
   const liveSessions = host.useLiveSessions();
+  const chatSummaries = (chatsPort?.useChats ?? NO_CHATS_HOOK)();
 
   /**
    * `sessionId → loopId` for every session a loop ever launched — the same ledger the FAB tab strip's
@@ -253,39 +286,30 @@ function SessionsManager({
   const kill = (host.useKill ?? NO_KILL)();
   const killSession = kill
     ? (session: ManagedLiveSession) => {
-        const raw = liveSessions.find((s) => s.id === session.id);
+        const targetId = session.terminalId ?? session.id;
+        const raw = liveSessions.find((s) => s.id === targetId);
         if (raw) kill(raw);
       }
     : undefined;
 
+  const [category, setCategory] = useState<SessionCategory>('sessions');
   const [reasons, setReasons] = useState<ClosedSession['reason'][]>([]);
   const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
   const [selectedLiveness, setSelectedLiveness] = useState<ManagedSessionLiveness[]>([]);
-  const [collapsedRepos, setCollapsedRepos] = useState<ReadonlySet<string>>(() => new Set());
-  const [collapsedWorkflowRuns, setCollapsedWorkflowRuns] = useState<ReadonlySet<string>>(() => new Set());
+  const repoGroupsCollapse = useCollapsedGroups();
+  const workflowRunCollapse = useCollapsedGroups();
   const [query, setQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
+
+  const selectCategory = (next: SessionCategory) => {
+    setCategory(next);
+    setSelectedIds(new Set());
+  };
 
   const toggleSelected = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (!next.delete(id)) next.add(id);
-      return next;
-    });
-  };
-
-  const toggleWorkflowRunCollapse = (key: string) => {
-    setCollapsedWorkflowRuns((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(key)) next.add(key);
-      return next;
-    });
-  };
-
-  const toggleRepoCollapse = (repoId: string) => {
-    setCollapsedRepos((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(repoId)) next.add(repoId);
       return next;
     });
   };
@@ -299,14 +323,24 @@ function SessionsManager({
 
   const closedAll = useMemo(() => history.data ?? [], [history.data]);
   const all = useMemo(
-    () => mergeManagedSessions(liveSessions, closedAll),
-    [liveSessions, closedAll],
+    () => mergeManagedSessions(liveSessions, closedAll, chatSummaries),
+    [liveSessions, closedAll, chatSummaries],
   );
 
-  // Derive distinct provider options present across every session, live or closed.
+  const normalSessions = useMemo(
+    () => all.filter((row) => !loopIdBySession.has(row.id)),
+    [all, loopIdBySession],
+  );
+  const loopSessions = useMemo(
+    () => all.filter((row) => loopIdBySession.has(row.id)),
+    [all, loopIdBySession],
+  );
+  const categorySessions = category === 'loops' ? loopSessions : normalSessions;
+
+  // Derive distinct provider options present across the active category's sessions.
   const providerOptions = useMemo<MultiSelectOption[]>(() => {
     const counts = new Map<string, number>();
-    for (const record of all) {
+    for (const record of categorySessions) {
       const key = record.kind === 'agent' ? (record.agentId ?? 'agent') : TERMINAL_PROVIDER_VALUE;
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
@@ -352,11 +386,11 @@ function SessionsManager({
     }
 
     return options;
-  }, [all, agents, host]);
+  }, [categorySessions, agents, host]);
 
   // Filter rows by liveness, reasons, providers, and the search query
   const rows = useMemo(() => {
-    let filtered = all;
+    let filtered = categorySessions;
     if (selectedLiveness.length > 0) {
       filtered = filtered.filter((row) => selectedLiveness.includes(row.liveness));
     }
@@ -379,7 +413,7 @@ function SessionsManager({
       });
     }
     return filtered;
-  }, [all, selectedLiveness, reasons, selectedProviders, query, agents]);
+  }, [categorySessions, selectedLiveness, reasons, selectedProviders, query, agents]);
 
   // Only closed rows carry a purge affordance — a running session offers no
   // purge affordance at all, not a disabled one, so the bulk-select story
@@ -426,10 +460,24 @@ function SessionsManager({
   // mounted keeps the same id (`closedFromSession`), so the pane flips
   // itself from a live placeholder to the transcript with no extra wiring.
   const selectedId = useMemo(() => {
-    if (storedLive !== null && rows.some((row) => row.id === storedLive)) return storedLive;
+    if (storedLive !== null) {
+      const matched = rows.find((row) => matchesSessionId(row, storedLive));
+      if (matched) return matched.id;
+    }
     return selectedClosedId;
   }, [storedLive, rows, selectedClosedId]);
   const selected = rows.find((row) => row.id === selectedId) ?? null;
+
+  const [switchingTarget, setSwitchingTarget] = useState<UnifiedSessionViewMode | null>(null);
+  const switchInFlightRef = useRef(false);
+
+  // Keep the chats store synced whenever a unified row in Chat mode is active.
+  useEffect(() => {
+    if (!chatsPort || !selected || isClosedManagedSession(selected)) return;
+    if (resolveManagedActiveView(selected) === 'chat' && selected.chatId) {
+      chatsPort.selectChat(selected.chatId);
+    }
+  }, [chatsPort, selected]);
 
   const selectRow = (session: ManagedSession) => {
     if (isClosedManagedSession(session)) {
@@ -437,6 +485,49 @@ function SessionsManager({
       selectClosedSession(session.id);
     } else {
       selectLiveSession(session.id);
+      if (session.chatId && resolveManagedActiveView(session) === 'chat') {
+        chatsPort?.selectChat(session.chatId);
+      }
+    }
+    host.onSelectRepo?.({
+      repoId: session.repoId === '__general__' ? undefined : session.repoId,
+      cwd: session.cwd || undefined,
+    });
+  };
+
+  const handleSwitchView = async (session: ManagedLiveSession, targetView: UnifiedSessionViewMode) => {
+    // A ref, not `switchingTarget`: two clicks in one tick both read the stale state.
+    if (!chatsPort || switchInFlightRef.current) return;
+    if (resolveManagedActiveView(session) === targetView) return;
+    if (targetView === 'terminal' && session.agentId && getProviderSyncTier(session.agentId) === 'chat-only') {
+      return;
+    }
+
+    const sessionId = session.terminalId ?? session.chatId ?? session.id;
+    switchInFlightRef.current = true;
+    setSwitchingTarget(targetView);
+    try {
+      const result = await chatsPort.switchView({ sessionId, targetView, handoffMode: 'auto' });
+      if (!result.ok) {
+        useToastStore
+          .getState()
+          .addToast({ message: result.kind === 'error' ? result.message : 'Could not switch view.', status: 'error' });
+        return;
+      }
+      if (result.value.targetView === 'terminal' && result.value.terminalId) {
+        selectLiveSession(result.value.terminalId);
+      } else if (result.value.targetView === 'chat' && result.value.chatId) {
+        selectLiveSession(result.value.terminalId ?? result.value.chatId);
+        chatsPort.selectChat(result.value.chatId);
+      }
+    } catch (err) {
+      useToastStore.getState().addToast({
+        message: err instanceof Error && err.message ? err.message : 'Could not switch view.',
+        status: 'error',
+      });
+    } finally {
+      switchInFlightRef.current = false;
+      setSwitchingTarget(null);
     }
   };
 
@@ -508,125 +599,189 @@ function SessionsManager({
     });
   };
 
+  const emptyState =
+    category === 'loops' && loopSessions.length === 0
+      ? NO_LOOP_SESSIONS_EMPTY
+      : NO_SESSIONS_EMPTY;
+
   return (
-    <div className="flex h-full min-h-0">
+    <div className="flex h-full min-h-0 flex-col">
       <div
-        style={{ width: list.current }}
-        className="flex min-h-0 shrink-0 flex-col border-r border-border"
+        data-testid="sessions-top-bar"
+        className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1"
       >
-        <div className="flex shrink-0 items-center gap-2 border-b border-border px-1.5 py-1">
-          <PageDetachMark role="sessions" />
-          <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Sessions
-          </h2>
-          <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground/70">
-            {rows.length}
-          </span>
-          <div className="ml-auto flex items-center gap-1">
+        <PageDetachMark role="sessions" />
+        <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Sessions
+        </h2>
+        <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground/70">
+          {rows.length}
+        </span>
+        <div className="ml-auto flex items-center gap-1">
+          <MultiSelectMenu
+            options={LIVENESS_OPTIONS}
+            selected={selectedLiveness}
+            onChange={(next) => setSelectedLiveness(next as ManagedSessionLiveness[])}
+            icon={<LuActivity aria-hidden className="h-3.5 w-3.5 shrink-0" />}
+            allLabel="All states"
+            searchPlaceholder="Filter states…"
+            emptyLabel="No state matches."
+            label="Filter sessions by liveness"
+            summarise={(n) => `${n} states`}
+          />
+          <MultiSelectMenu
+            options={providerOptions}
+            selected={selectedProviders}
+            onChange={setSelectedProviders}
+            icon={<LuBot aria-hidden className="h-3.5 w-3.5 shrink-0" />}
+            allLabel="All providers"
+            searchPlaceholder="Filter providers…"
+            emptyLabel="No provider matches."
+            label="Filter sessions by provider"
+            summarise={(n) => `${n} providers`}
+          />
+          {historyPort ? (
             <MultiSelectMenu
-              options={LIVENESS_OPTIONS}
-              selected={selectedLiveness}
-              onChange={(next) => setSelectedLiveness(next as ManagedSessionLiveness[])}
-              icon={<LuActivity aria-hidden className="h-3.5 w-3.5 shrink-0" />}
-              allLabel="All states"
-              searchPlaceholder="Filter states…"
-              emptyLabel="No state matches."
-              label="Filter sessions by liveness"
-              summarise={(n) => `${n} states`}
+              options={REASON_OPTIONS}
+              selected={reasons}
+              onChange={(next) => setReasons(next as ClosedSession['reason'][])}
+              icon={<LuFilter aria-hidden className="h-3.5 w-3.5 shrink-0" />}
+              allLabel="All endings"
+              searchPlaceholder="Filter endings…"
+              emptyLabel="No ending matches."
+              label="Filter sessions by how they ended"
+              summarise={(n) => `${n} endings`}
             />
-            <MultiSelectMenu
-              options={providerOptions}
-              selected={selectedProviders}
-              onChange={setSelectedProviders}
-              icon={<LuBot aria-hidden className="h-3.5 w-3.5 shrink-0" />}
-              allLabel="All providers"
-              searchPlaceholder="Filter providers…"
-              emptyLabel="No provider matches."
-              label="Filter sessions by provider"
-              summarise={(n) => `${n} providers`}
-            />
-            {historyPort ? (
-              <MultiSelectMenu
-                options={REASON_OPTIONS}
-                selected={reasons}
-                onChange={(next) => setReasons(next as ClosedSession['reason'][])}
-                icon={<LuFilter aria-hidden className="h-3.5 w-3.5 shrink-0" />}
-                allLabel="All endings"
-                searchPlaceholder="Filter endings…"
-                emptyLabel="No ending matches."
-                label="Filter sessions by how they ended"
-                summarise={(n) => `${n} endings`}
+          ) : null}
+          {historyPort ? (
+            <>
+              <IconButton icon={LuRefreshCw} label="Refresh sessions" size="sm" onClick={refresh} />
+              <IconButton
+                icon={LuTrash2}
+                label="Clear history"
+                size="sm"
+                disabled={closedAll.length === 0}
+                onClick={clearHistory}
               />
-            ) : null}
-            {historyPort ? (
-              <>
-                <IconButton icon={LuRefreshCw} label="Refresh sessions" size="sm" onClick={refresh} />
-                <IconButton
-                  icon={LuTrash2}
-                  label="Clear history"
-                  size="sm"
-                  disabled={closedAll.length === 0}
-                  onClick={clearHistory}
-                />
-              </>
-            ) : null}
-          </div>
+            </>
+          ) : null}
         </div>
+      </div>
 
-        {all.length > 0 ? (
-          <div className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1.5">
-            <input
-              ref={selectAllRef}
-              type="checkbox"
-              checked={allVisibleSelected}
-              onChange={toggleSelectAllVisible}
-              disabled={purgeableRows.length === 0}
-              aria-label={allVisibleSelected ? 'Deselect all matching sessions' : 'Select all matching sessions'}
-              title={allVisibleSelected ? 'Deselect all matching sessions' : 'Select all matching sessions'}
-              className="h-3 w-3 shrink-0 accent-primary"
-            />
-            <ExplorerSearch
-              value={query}
-              onChange={setQuery}
-              placeholder="Search sessions…"
-              ariaLabel="Search sessions by title or repo"
-              clearLabel="Clear the session search"
-            />
+      <div className="flex min-h-0 flex-1">
+        <div
+          style={{ width: list.current }}
+          data-testid="sessions-list-panel"
+          className="flex min-h-0 shrink-0 flex-col border-r border-border"
+        >
+          <div
+            role="tablist"
+            aria-label="Session categories"
+            data-testid="sessions-category-tabs"
+            className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border px-2 py-1.5"
+          >
+            {SESSION_CATEGORIES.map((item) => {
+              if (!item.enabled) {
+                return (
+                  <host.Tooltip key={item.id} label={item.tooltip ?? `${item.label} — TBA`}>
+                    <span className="inline-flex">
+                      <button
+                        type="button"
+                        role="tab"
+                        aria-selected={false}
+                        aria-disabled="true"
+                        disabled
+                        data-testid={`sessions-category-${item.id}`}
+                        title={item.tooltip ?? `${item.label} — TBA`}
+                        className="inline-flex cursor-not-allowed items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground/50 opacity-60"
+                      >
+                        <span>{item.label}</span>
+                        <span className="rounded bg-muted px-1 py-0 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          TBA
+                        </span>
+                      </button>
+                    </span>
+                  </host.Tooltip>
+                );
+              }
+
+              const active = category === item.id;
+              const count = item.id === 'loops' ? loopSessions.length : normalSessions.length;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  data-testid={`sessions-category-${item.id}`}
+                  onClick={() => selectCategory(item.id as SessionCategory)}
+                  className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${
+                    active
+                      ? 'bg-accent text-foreground'
+                      : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+                  }`}
+                >
+                  <span>{item.label}</span>
+                  <span className="tabular-nums text-[10px] text-muted-foreground/70">{count}</span>
+                </button>
+              );
+            })}
           </div>
-        ) : null}
 
-        {selectedIds.size > 0 ? (
-          <div className="flex shrink-0 items-center gap-2 border-b border-border bg-accent/40 px-2 py-1">
-            <span className="text-[11px] font-medium text-muted-foreground">
-              {selectedIds.size} selected
-            </span>
-            <button
-              type="button"
-              onClick={() => setSelectedIds(new Set())}
-              className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
-            >
-              Clear
-            </button>
-            <button
-              type="button"
-              onClick={() => purgeMany([...selectedIds])}
-              className="ml-auto flex h-6 shrink-0 items-center gap-1 rounded-md border border-destructive/40 bg-destructive/10 px-2 text-[11px] font-medium text-destructive transition-colors hover:bg-destructive/20"
-            >
-              <LuTrash2 aria-hidden className="h-3 w-3" />
-              Delete {selectedIds.size}
-            </button>
-          </div>
-        ) : null}
+          {categorySessions.length > 0 || query.length > 0 ? (
+            <div className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1.5">
+              <input
+                ref={selectAllRef}
+                type="checkbox"
+                checked={allVisibleSelected}
+                onChange={toggleSelectAllVisible}
+                disabled={purgeableRows.length === 0}
+                aria-label={allVisibleSelected ? 'Deselect all matching sessions' : 'Select all matching sessions'}
+                title={allVisibleSelected ? 'Deselect all matching sessions' : 'Select all matching sessions'}
+                className="h-3 w-3 shrink-0 accent-primary"
+              />
+              <ExplorerSearch
+                value={query}
+                onChange={setQuery}
+                placeholder="Search sessions…"
+                ariaLabel="Search sessions by title or repo"
+                clearLabel="Clear the session search"
+              />
+            </div>
+          ) : null}
 
-        {history.isError ? (
-          <Notice tone="destructive">
-            {history.error instanceof Error ? history.error.message : String(history.error)}
-          </Notice>
-        ) : history.isPending ? (
-          <SessionListSkeleton />
-        ) : rows.length === 0 ? (
-          <EmptyState icon={NO_SESSIONS_EMPTY.icon} title={NO_SESSIONS_EMPTY.title} body={NO_SESSIONS_EMPTY.body} />
-        ) : (
+          {selectedIds.size > 0 ? (
+            <div className="flex shrink-0 items-center gap-2 border-b border-border bg-accent/40 px-2 py-1">
+              <span className="text-[11px] font-medium text-muted-foreground">
+                {selectedIds.size} selected
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedIds(new Set())}
+                className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={() => purgeMany([...selectedIds])}
+                className="ml-auto flex h-6 shrink-0 items-center gap-1 rounded-md border border-destructive/40 bg-destructive/10 px-2 text-[11px] font-medium text-destructive transition-colors hover:bg-destructive/20"
+              >
+                <LuTrash2 aria-hidden className="h-3 w-3" />
+                Delete {selectedIds.size}
+              </button>
+            </div>
+          ) : null}
+
+          {history.isError ? (
+            <Notice tone="destructive">
+              {history.error instanceof Error ? history.error.message : String(history.error)}
+            </Notice>
+          ) : history.isPending ? (
+            <SessionListSkeleton />
+          ) : rows.length === 0 ? (
+            <EmptyState icon={emptyState.icon} title={emptyState.title} body={emptyState.body} />
+          ) : (
           <div role="list" aria-label="Sessions" className="hide-scrollbar min-h-0 flex-1 overflow-auto">
             {workflowRunGroups.map((group) => {
               const key = `${group.workflowId}:${group.runId}`;
@@ -635,9 +790,9 @@ function SessionsManager({
                   key={key}
                   group={group}
                   workflowName={workflowNames?.get(group.workflowId)}
-                  open={!collapsedWorkflowRuns.has(key)}
+                  open={workflowRunCollapse.isOpen(key)}
                   bodyId={`sessions-workflow-run-group-${key}`}
-                  onToggleCollapse={() => toggleWorkflowRunCollapse(key)}
+                  onToggleCollapse={() => workflowRunCollapse.toggle(key)}
                   agents={agents}
                   selectedId={selectedId}
                   onSelect={selectRow}
@@ -656,9 +811,9 @@ function SessionsManager({
                 key={group.repoId}
                 group={group}
                 groupIndex={groupIndex}
-                open={!collapsedRepos.has(group.repoId)}
+                open={repoGroupsCollapse.isOpen(group.repoId)}
                 bodyId={`sessions-repo-group-${group.repoId}`}
-                onToggleCollapse={() => toggleRepoCollapse(group.repoId)}
+                onToggleCollapse={() => repoGroupsCollapse.toggle(group.repoId)}
                 agents={agents}
                 selectedId={selectedId}
                 onSelect={selectRow}
@@ -680,16 +835,26 @@ function SessionsManager({
 
       <ResizeHandle resizable={list} axis="x" label="Resize the sessions list" />
 
-      {selected === null ? (
-        <Notice>{historyPort ? 'Select a session to read its transcript.' : 'Select a session to attach to it.'}</Notice>
-      ) : isClosedManagedSession(selected) ? (
-        historyPort ? <historyPort.TranscriptPane sessionId={selected.id} /> : null
-      ) : (
-        <host.LivePane
-          session={selected}
-          rawSession={liveSessions.find((s) => s.id === selected.id) ?? null}
-        />
-      )}
+        {selected === null ? (
+          <Notice>{historyPort ? 'Select a session to read its transcript.' : 'Select a session to attach to it.'}</Notice>
+        ) : isClosedManagedSession(selected) ? (
+          historyPort ? <historyPort.TranscriptPane sessionId={selected.id} /> : null
+        ) : !selected.agentId || !chatsPort ? (
+          <host.LivePane
+            session={selected}
+            rawSession={liveSessions.find((s) => s.id === (selected.terminalId ?? selected.id)) ?? null}
+          />
+        ) : (
+          <UnifiedSessionContent
+            session={selected}
+            liveSessions={liveSessions}
+            agents={agents}
+            chatsPort={chatsPort}
+            switchingTarget={switchingTarget}
+            onSwitchView={(targetView) => void handleSwitchView(selected, targetView)}
+          />
+        )}
+      </div>
     </div>
   );
 }
@@ -850,6 +1015,7 @@ function RepoSessionsGroup({
       open={open}
       onToggle={onToggleCollapse}
       bodyId={bodyId}
+      leading={<LuFolderGit2 aria-hidden className="h-3 w-3 shrink-0" />}
       className={cascading ? 'animate-fade-in-up cascade-delay' : ''}
       {...(groupCascadeStyle ? { style: groupCascadeStyle } : {})}
     >
@@ -862,7 +1028,7 @@ function RepoSessionsGroup({
             selected={record.id === selectedId}
             onSelect={() => onSelect(record)}
             onPurge={isClosedManagedSession(record) ? () => purgeOne(record) : undefined}
-            onKill={isClosedManagedSession(record) || !onKill ? undefined : () => onKill(record)}
+            onKill={isClosedManagedSession(record) || !onKill || !record.terminalId ? undefined : () => onKill(record)}
             onResume={onResume ? () => onResume(record) : undefined}
             loopId={loopIdBySession.get(record.id)}
             checked={selectedIds.has(record.id)}
@@ -922,7 +1088,7 @@ function SessionRow({
   const label = managedSessionLabel(record, agentLabel);
   const closed = isClosedManagedSession(record);
   // Commit counts need the graph's commits; an app without the graph draws none rather than "0 commits".
-  const countsCommits = record.kind === 'agent' && host.graph !== undefined;
+  const countsCommits = record.kind === 'agent' && host.graph !== undefined && (closed || Boolean(record.terminalId));
 
   const sessionCommits = useMemo(() => {
     if (!countsCommits) return [];
@@ -987,7 +1153,7 @@ function SessionRow({
   // Resume starts an agent, so it is offered only where the app may start one (Coder starts nothing).
   const resume = host.resume;
   const resumeArgs =
-    agent && record.kind === 'agent' && (resume || onResume)
+    agent && record.kind === 'agent' && (closed || Boolean(record.terminalId)) && (resume || onResume)
       ? buildResumeCommand(agent, conversationId)
       : null;
 
@@ -1037,7 +1203,7 @@ function SessionRow({
       <button
         type="button"
         onClick={onSelect}
-        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-left"
       >
         <Tooltip label={dotTooltip}>
           <span
@@ -1089,6 +1255,9 @@ function SessionRow({
           </Tooltip>
         ) : null}
         <span className="min-w-0 flex-1 truncate">{label}</span>
+        {!closed && record.agentId !== undefined ? (
+          <SessionModeBadge activeView={resolveManagedActiveView(record)} />
+        ) : null}
         {closed ? (
           <span className="shrink-0 text-[11px] text-muted-foreground">
             {formatDuration(record.closedAt - record.createdAt)} · {relativeAge(record.closedAt, Date.now())}
@@ -1148,6 +1317,178 @@ function SessionRow({
           className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
           onClick={onPurge}
         />
+      ) : null}
+    </div>
+  );
+}
+
+function SessionModeBadge({ activeView }: { activeView: UnifiedSessionViewMode }) {
+  return (
+    <span
+      data-testid="session-mode-badge"
+      className="inline-flex shrink-0 items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+    >
+      {activeView === 'chat' ? (
+        <>
+          <LuMessageSquare aria-hidden className="h-3 w-3" />
+          <span>Chat</span>
+        </>
+      ) : (
+        <>
+          <LuTerminal aria-hidden className="h-3 w-3" />
+          <span>Terminal</span>
+        </>
+      )}
+    </span>
+  );
+}
+
+function SessionViewToggle({
+  agentId,
+  activeView,
+  switching,
+  onSwitch,
+}: {
+  agentId: string;
+  activeView: UnifiedSessionViewMode;
+  switching: UnifiedSessionViewMode | null;
+  onSwitch: (target: UnifiedSessionViewMode) => void;
+}) {
+  const host = useSessionsHost();
+  const Tooltip = host.Tooltip;
+  const terminalDisabled = getProviderSyncTier(agentId) === 'chat-only';
+  const busy = switching !== null;
+
+  const terminalButton = (
+    <button
+      type="button"
+      aria-pressed={activeView === 'terminal'}
+      aria-disabled={terminalDisabled ? 'true' : undefined}
+      disabled={!terminalDisabled && busy}
+      data-testid="session-view-toggle-terminal"
+      onClick={(e) => {
+        if (terminalDisabled) {
+          e.preventDefault();
+          return;
+        }
+        onSwitch('terminal');
+      }}
+      className={
+        terminalDisabled
+          ? 'inline-flex cursor-not-allowed items-center gap-1.5 rounded px-2 py-1 text-xs font-medium text-muted-foreground/50 opacity-60 hover:text-muted-foreground/50'
+          : `inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground aria-pressed:bg-accent aria-pressed:text-foreground ${
+              switching === 'terminal' ? 'opacity-70' : ''
+            }`
+      }
+    >
+      <LuTerminal aria-hidden className="h-3.5 w-3.5" />
+      <span>Terminal</span>
+    </button>
+  );
+
+  return (
+    <div
+      role="group"
+      aria-label="Session view"
+      data-testid="session-view-toggle"
+      className="flex shrink-0 items-center rounded-md border border-border p-0.5"
+    >
+      <button
+        type="button"
+        aria-pressed={activeView === 'chat'}
+        disabled={busy}
+        data-testid="session-view-toggle-chat"
+        onClick={() => onSwitch('chat')}
+        className={`inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground aria-pressed:bg-accent aria-pressed:text-foreground ${
+          switching === 'chat' ? 'opacity-70' : ''
+        }`}
+      >
+        <LuMessageSquare aria-hidden className="h-3.5 w-3.5" />
+        <span>Chat</span>
+      </button>
+      {terminalDisabled ? (
+        <Tooltip label="Ollama runs in Chat mode only — no interactive terminal CLI">
+          <span className="inline-flex">{terminalButton}</span>
+        </Tooltip>
+      ) : (
+        terminalButton
+      )}
+    </div>
+  );
+}
+
+function UnifiedSessionContent({
+  session,
+  liveSessions,
+  agents,
+  chatsPort,
+  switchingTarget,
+  onSwitchView,
+}: {
+  session: ManagedLiveSession;
+  liveSessions: readonly TerminalSession[];
+  agents: readonly AgentDefinition[];
+  chatsPort: SessionsChatsPort;
+  switchingTarget: UnifiedSessionViewMode | null;
+  onSwitchView: (target: UnifiedSessionViewMode) => void;
+}) {
+  const host = useSessionsHost();
+  const activeView = resolveManagedActiveView(session);
+  const agentId = session.agentId ?? 'agent';
+  const agentLabel = agentLabelFor(agentId, agents) ?? agentId;
+  const title = managedSessionLabel(session, agentLabel);
+
+  const viewToggle = (
+    <SessionViewToggle
+      agentId={agentId}
+      activeView={activeView}
+      switching={switchingTarget}
+      onSwitch={onSwitchView}
+    />
+  );
+
+  const contentHeader = (
+    <header
+      data-testid="session-content-header"
+      className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-1.5"
+    >
+      <div className="flex min-w-0 items-center gap-2">
+        <h2 className="min-w-0 truncate text-sm font-medium">{title}</h2>
+        <span className="shrink-0 text-xs text-muted-foreground">
+          {agentLabel}
+          {session.title ? ` · ${session.title}` : ''}
+        </span>
+      </div>
+      {viewToggle}
+    </header>
+  );
+
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-testid="unified-session-content">
+      {session.chatId ? (
+        <div
+          className={activeView === 'chat' ? 'flex min-h-0 min-w-0 flex-1 flex-col' : 'hidden'}
+          data-testid="unified-chat-pane-wrapper"
+        >
+          <chatsPort.ChatPane
+            selectedId={session.chatId}
+            headerActions={activeView === 'chat' ? viewToggle : undefined}
+          />
+        </div>
+      ) : activeView === 'chat' ? (
+        <>
+          {contentHeader}
+          <Notice>Opening chat…</Notice>
+        </>
+      ) : null}
+      {activeView === 'terminal' ? (
+        <>
+          {contentHeader}
+          <host.LivePane
+            session={session}
+            rawSession={liveSessions.find((s) => s.id === (session.terminalId ?? session.id)) ?? null}
+          />
+        </>
       ) : null}
     </div>
   );

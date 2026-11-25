@@ -5,6 +5,7 @@ import {
   AgentLimitsSettingsSchema,
   resolveAgentLimits,
   type AgentLimits,
+  type AgentLimitsOverride,
   type AgentLimitsSettings,
   type AgentLimitTrip,
   type AgentTokenTotals,
@@ -22,6 +23,33 @@ import { createAgentBreaker, type AgentBreaker, type AgentAuditReader } from '@m
  * rogue-agent pause can pass the same function (or call `breaker.resolve`); it is the one place a session is
  * paused, whoever decides to.
  */
+/** One agent session as the breaker sees it: identity, cwd for the repo layer, and its custom agent if any. */
+export type BreakerSession = {
+  id: string;
+  agentId: string;
+  title: string;
+  cwd: string;
+  agentConversationId?: string;
+  /** Phase 154: the custom agent the session was launched as. */
+  profileId?: string;
+};
+
+/**
+ * #1697: the breaker's session lookup, falling back to a headless run (no terminal row) registered under the
+ * id its private socket was bound to, so a custom agent's limits apply to it as well.
+ */
+export function withHeadlessRuns(
+  session: (sessionId: string) => Promise<BreakerSession | null>,
+  headless: (runId: string) => { profileId: string; agentId: string; cwd: string; title: string } | null,
+): (sessionId: string) => Promise<BreakerSession | null> {
+  return async (sessionId) => {
+    const row = await session(sessionId);
+    if (row) return row;
+    const run = headless(sessionId);
+    return run ? { id: sessionId, agentId: run.agentId, title: run.title, cwd: run.cwd, profileId: run.profileId } : null;
+  };
+}
+
 export interface AgentBreakerSeams {
   /** The trail's read side (`agentAuditTrail()`), `null` until `userData` is known. */
   reader: () => AgentAuditReader | null;
@@ -34,11 +62,16 @@ export interface AgentBreakerSeams {
   /** End the session's pty. */
   stop: (sessionId: string) => Promise<boolean>;
   /** The session's identity (cwd for the per-repo override, agent + conversation for the spend reading). */
-  session: (sessionId: string) => Promise<{ id: string; agentId: string; title: string; cwd: string; agentConversationId?: string } | null>;
+  session: (sessionId: string) => Promise<BreakerSession | null>;
+  /**
+   * Phase 154: a custom agent's own limits, layered over the repo's. `null` (deleted, or no such agent)
+   * means no override, so the session falls back to the repo limits.
+   */
+  profile?: (profileId: string) => Promise<{ limits: AgentLimitsOverride } | null>;
   /** The saved limits; read at each check so an edit applies without a restart. */
   settings: () => Promise<AgentLimitsSettings | undefined>;
   /** The monitor feature's `buildAgentUsage` over one session; `null` totals when no transcript is found. */
-  usage: (session: { id: string; agentId: string; title: string; cwd: string; agentConversationId?: string }) => Promise<AgentTokenTotals | null>;
+  usage: (session: BreakerSession) => Promise<AgentTokenTotals | null>;
   onSessionExit: (hook: (sessionId: string) => void) => () => void;
   onError?: (error: unknown) => void;
   pollMs?: number;
@@ -61,7 +94,8 @@ export function startAgentBreaker(seams: AgentBreakerSeams): RunningAgentBreaker
     const hit = cache.get(sessionId);
     if (hit && Date.now() - hit.at < 5_000) return hit.limits;
     const [settings, session] = await Promise.all([seams.settings(), seams.session(sessionId)]);
-    const limits = resolveAgentLimits(settings, session?.cwd);
+    const profile = session?.profileId && seams.profile ? await seams.profile(session.profileId) : null;
+    const limits = resolveAgentLimits(settings, session?.cwd, profile?.limits);
     cache.set(sessionId, { at: Date.now(), limits });
     return limits;
   };

@@ -7,6 +7,10 @@ description: Orient an agent in Midnite Studio's Media ▸ Video root — layout
 
 The Video page runs a Remotion or HyperFrames workspace (`video.config.json` says which) scaffolded by **Setup Video**.
 
+## 0 · Run the script first
+
+Run `scripts/skills/media/scaffold.sh video <project>`. It creates the project folder without overwriting anything or writing app-owned sidecars. You still route to the write and execute editorial-script skills. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Layout
 
 ```

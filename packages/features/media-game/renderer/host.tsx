@@ -59,6 +59,11 @@ export type GameHost = {
   /** The app's popover — Studio's counts as an occluder in its dismiss stack. Absent → a plain one. */
   Popover?: ComponentType<GamePopoverProps>;
   agent?: GameAgentUi;
+  /**
+   * Remove from list also takes the game's repo out of the app's repos panel (Studio: the panel is the list's
+   * source), and the menu item says so. Absent → the plain label (Gamer keeps its own opened-games list).
+   */
+  removesRepo?: boolean;
 };
 
 const GameHostContext = createContext<GameHost>({});

@@ -62,6 +62,7 @@ export type CouncilSeed = {
   members?: CouncilMember[] | undefined;
   synthProvider?: CouncilMemberProvider | undefined;
   synthModel?: string | undefined;
+  synthAgentProfileId?: string | undefined;
   synthesisType?: CouncilSynthesisType | undefined;
   synthInstructions?: string | undefined;
 };
@@ -79,6 +80,7 @@ export async function createCouncil(name: string, description?: string, seed: Co
     createdAt: now,
     updatedAt: now,
     ...(seed.synthModel === undefined ? {} : { synthModel: seed.synthModel }),
+    ...(seed.synthAgentProfileId === undefined ? {} : { synthAgentProfileId: seed.synthAgentProfileId }),
     ...(description === undefined ? {} : { description }),
   };
   councils = [...councils, council];
@@ -91,18 +93,24 @@ export async function updateCouncilMembers(
   members: CouncilMember[],
   synthProvider: CouncilMemberProvider,
   synthModel?: string,
-  synthesis: { type?: CouncilSynthesisType | undefined; instructions?: string | undefined } = {},
+  synthesis: {
+    type?: CouncilSynthesisType | undefined;
+    instructions?: string | undefined;
+    /** The custom agent the synthesizer runs as (#1713); absent seats it back on `synthProvider`. */
+    agentProfileId?: string | undefined;
+  } = {},
 ): Promise<Council | null> {
   await ensureCouncilsLoaded();
   const index = councils.findIndex((c) => c.id === id);
   if (index === -1) return null;
 
-  const { synthModel: _previous, synthInstructions: _instructions, ...rest } = councils[index]!;
+  const { synthModel: _previous, synthInstructions: _instructions, synthAgentProfileId: _profile, ...rest } = councils[index]!;
   const updated: Council = {
     ...rest,
     members,
     synthProvider,
     ...(synthModel === undefined ? {} : { synthModel }),
+    ...(synthesis.agentProfileId === undefined ? {} : { synthAgentProfileId: synthesis.agentProfileId }),
     // An absent type keeps the council's; absent instructions fall back to the preset's own.
     ...(synthesis.type === undefined ? {} : { synthesisType: synthesis.type }),
     ...(synthesis.instructions === undefined ? {} : { synthInstructions: synthesis.instructions }),

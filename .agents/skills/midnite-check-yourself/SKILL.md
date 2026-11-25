@@ -14,7 +14,11 @@ pushes, and reports. **It posts nothing to the PR**: no review, no comment, no r
 PR-facing write is an optional `gh pr edit` of the body.
 
 Every `gh` call uses `GH_TOKEN="$(gh auth token -u bilo-io)"`; pushes use
-`git -c credential.helper= -c credential.helper='!f(){ echo username=bilo-io; echo password=$(gh auth token -u bilo-io); }; f' push`.
+`scripts/skills/push.sh` (bilo-io credential push; it refuses attribution trailers and a tracked `SCRATCHPAD.md`, `--fix` untracks it).
+
+## 0 · Run the script first
+
+Run `node scripts/skills/pr-review-lint.mjs --base origin/main` and `node scripts/skills/pr-feedback.mjs <pr>`. The first lists the mechanical rubric hits on your diff, the second classifies failing checks and comment hygiene. You still run the review and feedback analyses, apply the fixes and report. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
 
 ## 1 · Find the PR
 
@@ -25,12 +29,12 @@ were mentioned, use the latest and say which.
 ## 2 · Gather and check out
 
 ```bash
-gh pr view <n> --repo bilo-io/midnite-studio --json title,body,state,isDraft,baseRefName,headRefName,headRefOid
-gh api repos/bilo-io/midnite-studio/pulls/<n>/reviews
-gh api repos/bilo-io/midnite-studio/pulls/<n>/comments
-gh pr checks <n> --repo bilo-io/midnite-studio
+node scripts/skills/pr-context.mjs <n>   # view, reviews, comments, checks, diff-stat, worktree path, dirty, ahead/behind (JSON)
 gh pr diff <n> --repo bilo-io/midnite-studio
 ```
+
+If the script is unavailable, fall back to `gh pr view --json title,body,state,isDraft,baseRefName,headRefName,headRefOid`,
+`gh api repos/bilo-io/midnite-studio/pulls/<n>/{reviews,comments}` and `gh pr checks <n>`.
 
 Work in the PR's worktree (`git worktree list`, under `.worktrees/`). If the branch is not checked
 out anywhere, ask the user where to work (a worktree is the default; never touch the primary
@@ -61,8 +65,8 @@ Print the action list. Do not pause for confirmation; this runs end to end.
 ## 5 · Fix
 
 For each item, make the change and verify with **scoped** commands only:
-`pnpm -C <pkg> exec vitest run <files>`, `pnpm -C <pkg> exec tsc --noEmit -p <tsconfig>`,
-`pnpm exec eslint <changed files>`. **No workspace-wide moon runs and no full suites locally**;
+`node scripts/skills/scoped-check.mjs --run` (vitest on the changed tests, `tsc --noEmit` for each touched package after
+building `shared` when needed, eslint on the changed files; drop `--run` to just print the commands). **No workspace-wide moon runs and no full suites locally**;
 they exhaust RAM, and CI is the gate. If a fix fails or its correct form is unclear, stop, say
 what is done and ask. Never skip silently.
 
@@ -71,13 +75,13 @@ Then run the comment-hygiene pass from `midnite-pr-feedback` over the PR's own d
 ## 6 · Commit and push
 
 Stage files explicitly (no `git add -A`: a worktree's untracked `SCRATCHPAD.md` must never land;
-confirm with `git ls-files --error-unmatch SCRATCHPAD.md` failing). One commit,
+`push.sh` checks it). One commit,
 `self-review: address critical and warning feedback`, with a short bullet per fix. **No
 `Co-Authored-By`, `Signed-off-by` or other trailer.** No `--no-verify`, no amend, no force-push.
-Push with the credential command above.
+Push with `scripts/skills/push.sh`.
 
-If a fix changes behaviour the body describes, update the body with `gh pr edit` through
-`midnite-pr-description`, filling `## Self-review`. Otherwise just fill `## Self-review` in the
+If a fix changes behaviour the body describes, update the body through
+`midnite-pr-description`, filling `## Self-review` with `node scripts/skills/pr-body.mjs <n> --set-section "Self-review" --file <f>` (idempotent; `--dry-run` previews). Otherwise just fill `## Self-review` in the
 body: what was found and fixed, or "nothing to fix".
 
 ## 7 · Report

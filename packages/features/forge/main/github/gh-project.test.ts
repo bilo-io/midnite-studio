@@ -4,9 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   listProjects,
-  parseFields,
-  parseItemsPage,
-  parseProjectList,
+  parseFieldsFromStdout,
+  parseItemsPageFromStdout,
+  parseProjectListFromStdout,
   projectFields,
   projectItems,
 } from './gh-project';
@@ -58,7 +58,7 @@ describe('parseProjectList', () => {
         },
       },
     });
-    expect(parseProjectList(output)).toEqual([
+    expect(parseProjectListFromStdout(output)).toEqual([
       {
         id: 'PVT_user1',
         number: 3,
@@ -82,7 +82,7 @@ describe('parseProjectList', () => {
         },
       },
     });
-    expect(parseProjectList(output)).toEqual([
+    expect(parseProjectListFromStdout(output)).toEqual([
       {
         id: 'PVT_org1',
         number: 7,
@@ -110,7 +110,7 @@ describe('parseProjectList', () => {
         },
       },
     });
-    const projects = parseProjectList(output);
+    const projects = parseProjectListFromStdout(output);
     expect(projects.find((p) => p.id === 'PVT_repo1')?.linkedToRepo).toBe(true);
     expect(projects.find((p) => p.id === 'PVT_org1')?.linkedToRepo).toBe(false);
   });
@@ -125,7 +125,7 @@ describe('parseProjectList', () => {
         },
       },
     });
-    expect(parseProjectList(output)[0]?.linkedToRepo).toBe(false);
+    expect(parseProjectListFromStdout(output)[0]?.linkedToRepo).toBe(false);
   });
 
   it('drops a board with no id rather than failing the whole listing', () => {
@@ -141,7 +141,7 @@ describe('parseProjectList', () => {
         },
       },
     });
-    expect(parseProjectList(output)).toHaveLength(1);
+    expect(parseProjectListFromStdout(output)).toHaveLength(1);
   });
 });
 
@@ -174,7 +174,7 @@ describe('parseFields', () => {
       },
     });
 
-    const fields = parseFields(output);
+    const fields = parseFieldsFromStdout(output);
     expect(fields).toHaveLength(5);
     expect(fields.find((f) => f.id === 'F_status')).toEqual({
       id: 'F_status',
@@ -199,7 +199,7 @@ describe('parseFields', () => {
         },
       },
     });
-    const fields = parseFields(output);
+    const fields = parseFieldsFromStdout(output);
     expect(fields).toHaveLength(1);
     expect(fields[0]?.id).toBe('F_text');
   });
@@ -260,7 +260,7 @@ describe('parseItemsPage', () => {
       },
     });
 
-    const { items, nextCursor } = parseItemsPage(output);
+    const { items, nextCursor } = parseItemsPageFromStdout(output);
     expect(nextCursor).toBeNull();
     expect(items).toHaveLength(1);
     const [item] = items;
@@ -342,7 +342,7 @@ describe('parseItemsPage', () => {
       },
     });
 
-    const { items } = parseItemsPage(output);
+    const { items } = parseItemsPageFromStdout(output);
     expect(items).toHaveLength(1);
     const content = items[0]?.content;
     if (content?.type !== 'issue') throw new Error('expected issue content');
@@ -376,7 +376,7 @@ describe('parseItemsPage', () => {
       },
     });
 
-    const { items } = parseItemsPage(output);
+    const { items } = parseItemsPageFromStdout(output);
     expect(items).toEqual([
       {
         id: 'PVTI_draft',
@@ -413,7 +413,7 @@ describe('parseItemsPage', () => {
       },
     });
 
-    const { items } = parseItemsPage(output);
+    const { items } = parseItemsPageFromStdout(output);
     expect(items[0]?.content).toMatchObject({ type: 'pull', number: 9, state: 'merged' });
     expect(items[0]?.content).not.toHaveProperty('dependencies');
   });
@@ -441,22 +441,22 @@ describe('parseItemsPage', () => {
     });
 
     it("keeps another repo's nameWithOwner on an issue item", () => {
-      const { items } = parseItemsPage(page(issue({ nameWithOwner: 'acme/other' })), 'acme/widgets');
+      const { items } = parseItemsPageFromStdout(page(issue({ nameWithOwner: 'acme/other' })), 'acme/widgets');
       expect(items[0]?.content).toMatchObject({ type: 'issue', repo: 'acme/other' });
     });
 
     it("collapses the board's own repo to '' — the same rule a dependency link follows", () => {
-      const { items } = parseItemsPage(page(issue({ nameWithOwner: 'acme/widgets' })), 'acme/widgets');
+      const { items } = parseItemsPageFromStdout(page(issue({ nameWithOwner: 'acme/widgets' })), 'acme/widgets');
       expect(items[0]?.content).toMatchObject({ type: 'issue', repo: '' });
     });
 
     it("defaults to '' when the response carries no repository (older cached page)", () => {
-      const { items } = parseItemsPage(page(issue(undefined)), 'acme/widgets');
+      const { items } = parseItemsPageFromStdout(page(issue(undefined)), 'acme/widgets');
       expect(items[0]?.content).toMatchObject({ type: 'issue', repo: '' });
     });
 
     it('reads it on a pull request item too', () => {
-      const { items } = parseItemsPage(
+      const { items } = parseItemsPageFromStdout(
         page({
           __typename: 'PullRequest',
           id: 'PR_1',
@@ -483,7 +483,7 @@ describe('parseItemsPage', () => {
         },
       },
     });
-    expect(parseItemsPage(output).nextCursor).toBe('cursor-2');
+    expect(parseItemsPageFromStdout(output).nextCursor).toBe('cursor-2');
   });
 
   it('nulls the cursor once the last page has been read, even if GitHub echoes one', () => {
@@ -497,7 +497,7 @@ describe('parseItemsPage', () => {
         },
       },
     });
-    expect(parseItemsPage(output).nextCursor).toBeNull();
+    expect(parseItemsPageFromStdout(output).nextCursor).toBeNull();
   });
 
   /**
@@ -538,7 +538,7 @@ describe('parseItemsPage', () => {
       },
     });
 
-    const { items } = parseItemsPage(output);
+    const { items } = parseItemsPageFromStdout(output);
     expect(items).toHaveLength(1);
     expect(items[0]?.fieldValues).toEqual({ F_text: { fieldId: 'F_text', dataType: 'text', text: 'kept' } });
   });
@@ -578,7 +578,7 @@ describe('parseItemsPage', () => {
           },
         }),
       ]);
-      const { items } = parseItemsPage(output, 'acme/widgets');
+      const { items } = parseItemsPageFromStdout(output, 'acme/widgets');
       const content = items[0]?.content;
       expect(content?.type).toBe('issue');
       expect(content && 'dependencies' in content ? content.dependencies.blockedBy : null).toEqual([
@@ -598,7 +598,7 @@ describe('parseItemsPage', () => {
           },
         }),
       ]);
-      const { items } = parseItemsPage(output, 'acme/widgets');
+      const { items } = parseItemsPageFromStdout(output, 'acme/widgets');
       const content = items[0]?.content;
       expect(content && 'dependencies' in content ? content.dependencies.blockedBy : null).toEqual([
         { number: 5, title: 'Upstream', state: 'open', repo: 'other/repo' },
@@ -611,7 +611,7 @@ describe('parseItemsPage', () => {
           parent: { number: 1, title: 'Epic', state: 'OPEN', repository: { nameWithOwner: 'acme/widgets' } },
         }),
       ]);
-      const { items } = parseItemsPage(output, 'acme/widgets');
+      const { items } = parseItemsPageFromStdout(output, 'acme/widgets');
       const content = items[0]?.content;
       expect(content && 'dependencies' in content ? content.dependencies.parent : null).toEqual({
         number: 1,
@@ -629,7 +629,7 @@ describe('parseItemsPage', () => {
         repository: { nameWithOwner: 'acme/widgets' },
       }));
       const output = page([issueNode({ subIssues: { totalCount: 5, nodes } })]);
-      const { items } = parseItemsPage(output, 'acme/widgets');
+      const { items } = parseItemsPageFromStdout(output, 'acme/widgets');
       const content = items[0]?.content;
       expect(
         content && 'dependencies' in content ? content.dependencies.subIssues.length : null,
@@ -647,7 +647,7 @@ describe('parseItemsPage', () => {
         repository: { nameWithOwner: 'acme/widgets' },
       }));
       const output = page([issueNode({ blockedBy: { totalCount: 30, nodes } })]);
-      const { items } = parseItemsPage(output, 'acme/widgets');
+      const { items } = parseItemsPageFromStdout(output, 'acme/widgets');
       const content = items[0]?.content;
       expect(
         content && 'dependencies' in content ? content.dependencies.blockedByTruncated : null,
@@ -659,7 +659,7 @@ describe('parseItemsPage', () => {
 
     it('defaults to all-empty when none of the three keys are present', () => {
       const output = page([issueNode({})]);
-      const { items } = parseItemsPage(output, 'acme/widgets');
+      const { items } = parseItemsPageFromStdout(output, 'acme/widgets');
       const content = items[0]?.content;
       expect(content && 'dependencies' in content ? content.dependencies : null).toEqual({
         blockedBy: [],
@@ -705,7 +705,7 @@ describe('parseItemsPage', () => {
           },
         },
       });
-      const { items } = parseItemsPage(output, 'acme/widgets');
+      const { items } = parseItemsPageFromStdout(output, 'acme/widgets');
       expect(items[0]?.content).not.toHaveProperty('dependencies');
       expect(items[1]?.content).not.toHaveProperty('dependencies');
     });

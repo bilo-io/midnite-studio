@@ -100,6 +100,8 @@ import {
   ChatSkillSchema,
   ChatSummarySchema,
   DEFAULT_CHAT_MODE,
+  ProviderSyncTierSchema,
+  UnifiedSessionViewModeSchema,
 } from '../chats';
 import {
   MarketAssetSchema,
@@ -293,6 +295,7 @@ import {
 } from '../terminal';
 import { SuiteAppIdSchema } from '../suite-apps';
 import {
+  CouncilAgentProfileIdSchema,
   CouncilMemberProviderSchema,
   CouncilMemberSchema,
   CouncilAvailableProviderSchema,
@@ -306,6 +309,7 @@ import {
   CouncilSchema,
 } from '../council';
 import { LoopModelSchema, LoopRunRecordSchema } from '../loops';
+import { AgentProfileSchema } from '../agent-profiles';
 import {
   OllamaDaemonStatusSchema,
   OllamaModelDetailSchema,
@@ -346,6 +350,7 @@ import {
   GmProgressSchema,
   GmStatusResponseSchema,
 } from '../media-music-gm';
+import { GameLibraryFileSchema, GameLibraryListingSchema, GameLibraryReadRequestSchema } from '../game-asset-library';
 import {
   GameBoundsRequest as GameBoundsRequestSchema,
   GameConsolePayload as GameConsolePayloadSchema,
@@ -353,6 +358,7 @@ import {
   GameAssetSourcesRequestSchema,
   GameAssetSourcesResultSchema,
   GameImportAssetRequestSchema,
+  GameLibraryImportRequestSchema,
   GameImportAssetResultSchema,
   GameResyncRequestSchema,
   GameResyncResultSchema,
@@ -366,14 +372,27 @@ import {
   GameAgentUndoRequestSchema,
   GameAddRequestSchema,
   GameAddResultSchema,
+  GameRenameRequestSchema,
+  GameDeleteInfoSchema,
+  GameDeleteRequestSchema,
   GameCreateRequestSchema,
   GameCreateResultSchema,
   GameIdRequest as GameIdRequestSchema,
+  GameDiagnosisSchema,
+  GameDoctorRequestSchema,
+  GameFixRequestSchema,
+  GameFixResultSchema,
   GameLogsRequest as GameLogsRequestSchema,
   GameLogsResponse as GameLogsResponseSchema,
   GameManifestGetResponse as GameManifestGetResponseSchema,
   GameManifestSetRequest as GameManifestSetRequestSchema,
   GameRunResult as GameRunResultSchema,
+  GameDebugOptionsSchema,
+  GameDebugRequestSchema,
+  GameEntitiesResultSchema,
+  GameNavMeshSchema,
+  GameEntitiesWatchRequestSchema,
+  GameEntityStatePayloadSchema,
   GameRunStatePayload as GameRunStatePayloadSchema,
   GamePopStateSchema,
   GamePoppedResponseSchema,
@@ -392,13 +411,31 @@ import {
   GameLevelsResultSchema,
   GameLevelGetRequestSchema,
   GameLevelGetResultSchema,
+  GameLevelAssetThumbRequestSchema,
+  GameLevelTerrainDetailRequestSchema,
+  GameLevelTerrainDetailResultSchema,
+  GameLevelPreviewRequestSchema,
+  GameLevelPreviewResultSchema,
+  GameLevelPreviewEndRequestSchema,
+  GameLevelAssetThumbResultSchema,
   GameLevelModelRequestSchema,
   GameLevelModelResultSchema,
   GameLevelSetRequestSchema,
   GameLevelSetResultSchema,
+  GameLevelMapAssetRequestSchema,
+  GameLevelMapAssetResultSchema,
   GameGotoRequestSchema,
   GameGotoResultSchema,
 } from '../game-level';
+import {
+  GamePrefabDeleteRequestSchema,
+  GamePrefabGetRequestSchema,
+  GamePrefabGetResultSchema,
+  GamePrefabsRequestSchema,
+  GamePrefabsResultSchema,
+  GamePrefabSetRequestSchema,
+  GamePrefabWriteResultSchema,
+} from '../game-level-prefab';
 import {
   ModelExportRequestSchema,
   ModelGenerateProgressEventSchema,
@@ -1938,6 +1975,11 @@ export const PtyCreateRequest = z
     kind: TerminalSessionKindSchema,
     /** Paired with `kind`, exactly as on the session record it belongs to. */
     agentId: z.string().min(1).optional(),
+    /**
+     * Binds this pty to a custom agent's launch (Phase 154), minted by
+     * `agentProfile:prepareLaunch`. Per-launch: never persisted on the session.
+     */
+    profileLaunchId: z.string().min(1).optional(),
     repoId: z.string().min(1),
     /** Working directory — the selected worktree. */
     cwd: z.string().min(1),
@@ -2003,7 +2045,12 @@ export const PtyKillRequest = z.object({ ptyId: z.string() });
  * resolving.
  */
 export const PtySnapshotRequest = z.object({ ptyId: z.string().min(1) });
-export const PtySnapshotResponse = z.object({ bytes: z.instanceof(Uint8Array) });
+export const PtySnapshotResponse = z.object({
+  bytes: z.instanceof(Uint8Array),
+  /** The pty's current size, so the replay can be parsed at the width the bytes were written for. */
+  cols: z.number().int().positive().optional(),
+  rows: z.number().int().positive().optional(),
+});
 export const PtyExitEvent = z.object({
   ptyId: z.string(),
   exitCode: z.number().int(),
@@ -2090,6 +2137,13 @@ export const RestoredTerminalSession = z.object({
        * tracked yet).
        */
       activity: SessionActivitySchema.nullable().optional(),
+      /**
+       * The agent watcher's current guess for this pty (`claude`, `codex`, …,
+       * or `null` when probed with nothing recognised running), so `hydrate()`
+       * can seed `liveAgentId` immediately — `pty:agentChanged` only announces
+       * changes.
+       */
+      agentId: z.string().nullable().optional(),
     })
     .nullable(),
   /**
@@ -2124,6 +2178,35 @@ export const TerminalForgetRequest = z.object({
 });
 /** The full ordered id list, not a moved-from/moved-to pair — idempotent on replay. */
 export const TerminalReorderRequest = z.object({ sessionIds: z.array(z.string().min(1)) });
+
+/** The envelope every terminal recovery op answers in — an error is a value, never a throw across IPC. */
+const TerminalOpError = z.object({ ok: z.literal(false), kind: z.literal('error'), message: z.string() });
+
+/** A session `terminal.recoverDetached` gave a row back to. */
+export const DetachedSessionSchema = z.object({
+  sessionId: z.string().min(1),
+  title: z.string(),
+  cwd: z.string().min(1),
+  repoId: z.string().min(1),
+  /** Running in a previous build's broker rather than the current one. */
+  legacy: z.boolean(),
+});
+export const TerminalRecoverDetachedResponse = z.discriminatedUnion('ok', [
+  z.object({
+    ok: z.literal(true),
+    recovered: z.array(DetachedSessionSchema),
+    /** Every pty the connected brokers hold, after recovery. */
+    live: z.number().int().nonnegative(),
+    /** How many of those run in a previous build's broker. */
+    previousBuild: z.number().int().nonnegative(),
+  }),
+  TerminalOpError,
+]);
+export const TerminalEndSessionsRequest = z.object({ sessionIds: z.array(z.string().min(1)).min(1) });
+export const TerminalEndSessionsResponse = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), ended: z.array(z.string().min(1)) }),
+  TerminalOpError,
+]);
 
 // --- session history (Phase 67) ---------------------------------------------
 
@@ -2237,6 +2320,45 @@ export const AgentStatusEvent = z.object({
   probe: AgentProbeStateSchema,
 });
 
+// --- custom agents (Phase 154) -----------------------------------------------
+
+export const AgentProfileListResponse = GitOpResultOf(z.object({ profiles: z.array(AgentProfileSchema) }));
+
+/** `expectedUpdatedAt: null` means "new"; any other value must equal the stored `updatedAt` or the save conflicts. */
+export const AgentProfileSaveRequest = z.object({
+  profile: AgentProfileSchema,
+  expectedUpdatedAt: z.number().int().nullable(),
+});
+export const AgentProfileSaveResponse = GitOpResultOf(
+  z.discriminatedUnion('status', [
+    z.object({ status: z.literal('saved'), profile: AgentProfileSchema }),
+    z.object({ status: z.literal('conflict'), current: AgentProfileSchema }),
+  ]),
+);
+
+export const AgentProfileDeleteRequest = z.object({ id: z.string().min(1) });
+export const AgentProfileDeleteResponse = GitOpResultSchema;
+
+export const AgentProfileExportRequest = z.object({ id: z.string().min(1) });
+/** A `null` path means the save dialog was dismissed. */
+export const AgentProfileExportResponse = GitOpResultOf(z.object({ path: z.string().nullable() }));
+
+/** A `null` profile means the open dialog was dismissed. */
+export const AgentProfileImportResponse = GitOpResultOf(z.object({ profile: AgentProfileSchema.nullable() }));
+
+export const AgentProfilePrepareLaunchRequest = z.object({
+  profileId: z.string().min(1),
+  cwd: z.string().min(1),
+  resume: z.boolean(),
+  /** A first prompt typed with the agent (a companion skill hand-off); absent starts the agent bare. */
+  prompt: z.string().max(20_000).optional(),
+  /** `'headless'` types the base CLI's print mode with the prompt (a headless skill hand-off). Default interactive. */
+  mode: z.enum(['interactive', 'headless']).optional(),
+});
+export const AgentProfilePrepareLaunchResponse = GitOpResultOf(
+  z.object({ launchId: z.string(), line: z.string() }),
+);
+
 // --- councils (Phase 34) -----------------------------------------------------
 
 export const CouncilListResponse = z.object({ councils: z.array(CouncilSchema) });
@@ -2250,6 +2372,8 @@ export const CouncilCreateRequest = z.object({
   members: z.array(CouncilMemberSchema).optional(),
   synthProvider: CouncilMemberProviderSchema.optional(),
   synthModel: z.string().min(1).optional(),
+  /** A custom agent the synthesizer runs as (#1713); `synthProvider` is then its base. */
+  synthAgentProfileId: CouncilAgentProfileIdSchema.optional(),
   /** Phase 134 Theme A: the synthesis type and its instructions; absent is brainstorm with the preset's own. */
   synthesisType: CouncilSynthesisTypeSchema.optional(),
   synthInstructions: z.string().max(COUNCIL_SYNTH_INSTRUCTIONS_MAX).optional(),
@@ -2262,6 +2386,8 @@ export const CouncilUpdateMembersRequest = z.object({
   synthProvider: CouncilMemberProviderSchema,
   /** Absent clears it back to the CLI's default. */
   synthModel: z.string().min(1).optional(),
+  /** Absent seats the synthesizer back on `synthProvider` itself (#1713). */
+  synthAgentProfileId: CouncilAgentProfileIdSchema.optional(),
   /** Phase 134 Theme A. Absent keeps the council's current type. */
   synthesisType: CouncilSynthesisTypeSchema.optional(),
   /** Absent clears it back to the preset's own instructions. */
@@ -2381,6 +2507,49 @@ export const PrivacyHistoryClearResponse = z.object({
 });
 /** `fdesetup status`, read without admin: `unknown` when the probe could not run. */
 export const PrivacyFileVaultResponse = z.object({ status: z.enum(['on', 'off', 'unknown']) });
+
+// --- Settings ▸ Permissions: live macOS grants (Phase 2 Theme B) -------------
+
+/** The grants the page lists. `automation`, `files` and `notifications` have no read that never prompts. */
+export const MacPermissionIdSchema = z.enum([
+  'screen',
+  'microphone',
+  'camera',
+  'accessibility',
+  'fullDisk',
+  'automation',
+  'files',
+  'notifications',
+]);
+export type MacPermissionId = z.infer<typeof MacPermissionIdSchema>;
+/** `unchecked`: macOS offers no read that does not itself raise the prompt, so none is attempted. */
+export const MacPermissionStateSchema = z.enum([
+  'granted',
+  'denied',
+  'not-determined',
+  'restricted',
+  'unknown',
+  'unchecked',
+]);
+export type MacPermissionState = z.infer<typeof MacPermissionStateSchema>;
+export const PermissionRow = z.object({
+  id: MacPermissionIdSchema,
+  state: MacPermissionStateSchema,
+  checkedAt: z.number().int().nonnegative(),
+  /** The System Settings pane's `x-apple.systempreferences:` URL. */
+  paneUrl: z.string(),
+  /** Whether `tccutil reset` has a service for this row. */
+  resettable: z.boolean(),
+});
+export const PermissionsStatusResponse = z.object({
+  /** False off macOS: every row is `unknown` and the page says so. */
+  supported: z.boolean(),
+  /** The bundle id a reset targets; shown in the confirm so the blast radius is explicit. */
+  bundleId: z.string(),
+  rows: z.array(PermissionRow),
+});
+export const PermissionsPaneRequest = z.object({ id: MacPermissionIdSchema });
+export const PermissionsResetRequest = z.object({ id: MacPermissionIdSchema });
 
 // --- feature toggles: a switched-off feature's data (Phase 135 Theme F) -------
 
@@ -3382,6 +3551,69 @@ export const OptimizerSystemReclaimResponse = OptimizerResultOf(
   }),
 );
 
+/** Phase 148 Theme E: the broker dir's leftovers. Bare file names, never paths. */
+export const BrokerSweepEntrySchema = z.object({
+  name: z.string().min(1),
+  kind: z.enum(['pid', 'token', 'log']),
+  bytes: z.number().int().nonnegative(),
+});
+export const OptimizerBrokerSweepPlanResponse = OptimizerResultOf(
+  z.object({
+    entries: z.array(BrokerSweepEntrySchema),
+    totalBytes: z.number().int().nonnegative(),
+  }),
+);
+export const OptimizerBrokerSweepRequest = z.object({
+  /** Names the plan returned; main re-checks each against the rules and refuses any that no longer match. */
+  names: z.array(z.string().min(1).max(256)).min(1).max(5000),
+});
+export const OptimizerBrokerSweepResponse = OptimizerResultOf(
+  z.object({
+    removed: z.number().int().nonnegative(),
+    freedBytes: z.number().int().nonnegative(),
+    skipped: z.array(z.object({ name: z.string(), reason: z.string() })),
+  }),
+);
+
+/**
+ * Phase 148 Theme C — Free RAM. A candidate is something main would end or discard. The renderer never
+ * names a pid: it echoes back candidate ids, and main re-derives and re-guards each one.
+ */
+export const FreeRamCandidateSchema = z.object({
+  id: z.string().min(1).max(256),
+  kind: z.enum(['previous-build-session', 'lost-broker', 'hidden-tab', 'renderer-cache']),
+  label: z.string(),
+  command: z.string().nullable(),
+  rssBytes: z.number().int().nonnegative().nullable(),
+  /** Ends a process (pre-checked in the confirm); false means a tab or cache that is rebuilt on demand. */
+  destructive: z.boolean(),
+});
+export const OptimizerFreeRamPlanResponse = OptimizerResultOf(
+  z.object({
+    candidates: z.array(FreeRamCandidateSchema),
+    totalRssBytes: z.number().int().nonnegative(),
+  }),
+);
+export const OptimizerFreeRamRequest = z.object({
+  candidateIds: z.array(z.string().min(1).max(256)).min(1).max(5000),
+});
+export const OptimizerFreeRamResponse = OptimizerResultOf(
+  z.object({
+    ended: z.array(z.string()),
+    measured: z.object({
+      /** Σ RSS of Midnite-owned processes before and after; `freedRssBytes` is `max(0, before - after)`. */
+      beforeRssBytes: z.number().int().nonnegative(),
+      afterRssBytes: z.number().int().nonnegative(),
+      freedRssBytes: z.number().int().nonnegative(),
+      /** vm_stat free+inactive after minus before; signed, `null` when either read failed. */
+      machineFreeDeltaBytes: z.number().int().nullable(),
+    }),
+    failures: z.array(z.object({ id: z.string(), message: z.string() })),
+    /** True when the settle wait or a snapshot threw after the steps ran; `measured` is then not a real measurement. */
+    measurementUnavailable: z.boolean().optional(),
+  }),
+);
+
 // --- deep link (Phase 33) --------------------------------------------------
 export const DeepLinkSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('open'), repo: z.string() }),
@@ -4121,6 +4353,8 @@ export const ChatsGetRequest = z.object({ id: ChatIdSchema });
 export const ChatsGetResponse = GitOpResultOf(z.object({ chat: ChatSchema }));
 export const ChatsCreateRequest = z.object({
   engine: z.string().min(1).max(80),
+  /** A custom agent to run as; `engine` is then its base CLI. */
+  agentProfileId: z.string().regex(/^profile-[A-Za-z0-9_-]+$/).nullable().default(null),
   model: z.string().min(1).max(200).nullable().default(null),
   mode: ChatModeSchema.default(DEFAULT_CHAT_MODE),
   repoId: z.string().min(1).nullable().default(null),
@@ -4131,6 +4365,8 @@ export const ChatsUpdateRequest = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   pinned: z.boolean().optional(),
   engine: z.string().min(1).max(80).optional(),
+  /** Set with `engine` (the base CLI) to run as a custom agent; `null` clears it. Absent leaves it unless `engine` changes. */
+  agentProfileId: z.string().regex(/^profile-[A-Za-z0-9_-]+$/).nullable().optional(),
   model: z.string().min(1).max(200).nullable().optional(),
   mode: ChatModeSchema.optional(),
   repoId: z.string().min(1).nullable().optional(),
@@ -4180,6 +4416,25 @@ export const ChatsFilesRequest = z.object({
 });
 export const ChatsFilesResponse = GitOpResultOf(z.object({ files: z.array(z.string()), truncated: z.boolean() }));
 export const ChatsEventPayload = ChatEventSchema;
+
+// --- unified session view (Phase 146) -----------------------------------------
+
+export const SessionHandoffModeSchema = z.enum(['auto', 'resume', 'handoff', 'fresh']);
+export type SessionHandoffMode = z.infer<typeof SessionHandoffModeSchema>;
+
+export const SessionSwitchViewRequest = z.object({
+  sessionId: z.string().min(1).max(120),
+  targetView: UnifiedSessionViewModeSchema,
+  handoffMode: SessionHandoffModeSchema.default('auto'),
+});
+export const SessionSwitchViewResponse = GitOpResultOf(
+  z.object({
+    targetView: UnifiedSessionViewModeSchema,
+    chatId: z.string().min(1).optional(),
+    terminalId: z.string().min(1).optional(),
+    syncTier: ProviderSyncTierSchema.optional(),
+  }),
+);
 
 // --- database (Phase 61) -----------------------------------------------------
 
@@ -4785,6 +5040,11 @@ export const CompanionAskRequest = z.object({
   /** Where to run the CLI. `null` runs it in the home directory — no repo is open. */
   repoPath: z.string().min(1).nullable(),
   agentId: z.string().min(1).optional(),
+  /**
+   * Phase 154 Theme H: the custom agent the companion thinks through, when one is chosen. Main runs it with
+   * the profile's model, prompt file and private MCP socket; a deleted one falls back to `agentId`.
+   */
+  agentProfileId: z.string().regex(/^profile-[A-Za-z0-9_-]+$/).optional(),
   snapshot: CompanionSnapshotSchema.nullable().optional(),
   personality: CompanionPersonalitySchema.optional(),
   aboutUser: CompanionAboutUserSchema.optional(),
@@ -5559,6 +5819,12 @@ export const GamesCreateRequest = GameCreateRequestSchema;
 export const GamesCreateResponse = GitOpResultOf(GameCreateResultSchema);
 export const GamesAddRequest = GameAddRequestSchema;
 export const GamesAddResponse = GitOpResultOf(GameAddResultSchema);
+export const GamesRenameRequest = GameRenameRequestSchema;
+export const GamesForgetRequest = GameIdRequestSchema;
+export const GamesRevealRequest = GameIdRequestSchema;
+export const GamesDeleteInfoRequest = GameIdRequestSchema;
+export const GamesDeleteInfoResponse = GitOpResultOf(GameDeleteInfoSchema);
+export const GamesDeleteRequest = GameDeleteRequestSchema;
 export const GamesGetManifestRequest = GameIdRequestSchema;
 export const GamesGetManifestResponse = GameManifestGetResponseSchema;
 export const GamesSetManifestRequest = GameManifestSetRequestSchema;
@@ -5580,14 +5846,48 @@ export const GamesConsolePayload = GameConsolePayloadSchema;
 export const GamesKitUpgradeRequest = GameIdRequestSchema;
 export const GamesKitUpgradeResultSchema = z.object({ branch: z.string() });
 export const GamesKitUpgradeResponse = GitOpResultOf(GamesKitUpgradeResultSchema);
+// Phase 149 Theme C — the game doctor.
+export const GamesDoctorRequest = GameDoctorRequestSchema;
+export const GamesDoctorResponse = GitOpResultOf(GameDiagnosisSchema);
+// Phase 149 Theme D — safe doctor fixes.
+export const GamesDoctorFixRequest = GameFixRequestSchema;
+export const GamesDoctorFixResponse = GitOpResultOf(GameFixResultSchema);
 export const GamesLevelsRequest = GameLevelsRequestSchema;
 export const GamesLevelsResponse = GitOpResultOf(GameLevelsResultSchema);
 export const GamesLevelGetRequest = GameLevelGetRequestSchema;
 export const GamesLevelGetResponse = GitOpResultOf(GameLevelGetResultSchema);
 export const GamesLevelModelRequest = GameLevelModelRequestSchema;
 export const GamesLevelModelResponse = GitOpResultOf(GameLevelModelResultSchema);
+// Phase 139 Theme F — prefabs.
+export const GamesLevelPrefabsRequest = GamePrefabsRequestSchema;
+export const GamesLevelPrefabsResponse = GitOpResultOf(GamePrefabsResultSchema);
+export const GamesLevelPrefabGetRequest = GamePrefabGetRequestSchema;
+export const GamesLevelPrefabGetResponse = GitOpResultOf(GamePrefabGetResultSchema);
+export const GamesLevelPrefabSetRequest = GamePrefabSetRequestSchema;
+export const GamesLevelPrefabSetResponse = GitOpResultOf(GamePrefabWriteResultSchema);
+export const GamesLevelPrefabDeleteRequest = GamePrefabDeleteRequestSchema;
+export const GamesLevelPrefabDeleteResponse = GitOpResultOf(GamePrefabWriteResultSchema);
+export const GamesLevelTerrainDetailRequest = GameLevelTerrainDetailRequestSchema;
+export const GamesLevelTerrainDetailResponse = GitOpResultOf(GameLevelTerrainDetailResultSchema);
+export const GamesLevelAssetThumbRequest = GameLevelAssetThumbRequestSchema;
+export const GamesLevelAssetThumbResponse = GitOpResultOf(GameLevelAssetThumbResultSchema);
+export const GamesLevelPreviewRequest = GameLevelPreviewRequestSchema;
+export const GamesLevelPreviewResponse = GitOpResultOf(GameLevelPreviewResultSchema);
+export const GamesLevelPreviewEndRequest = GameLevelPreviewEndRequestSchema;
 export const GamesLevelSetRequest = GameLevelSetRequestSchema;
 export const GamesLevelSetResponse = GitOpResultOf(GameLevelSetResultSchema);
+export const GamesLevelMapAssetRequest = GameLevelMapAssetRequestSchema;
+export const GamesLevelMapAssetResponse = GitOpResultOf(GameLevelMapAssetResultSchema);
+// Phase 138 Theme C — the main -> renderer level-editor bridge.
+export { GamesLevelEditorRequestPayload, GamesLevelEditorReply, GamesLevelEditorOpenPayload } from '../game-level-editor-bridge';
+export const GamesEntitiesRequest = GameIdRequestSchema;
+export const GamesEntitiesResponse = GitOpResultOf(GameEntitiesResultSchema);
+export const GamesEntitiesWatchRequest = GameEntitiesWatchRequestSchema;
+export const GamesDebugRequest = GameDebugRequestSchema;
+export const GamesDebugResponse = GitOpResultOf(GameDebugOptionsSchema);
+export const GamesNavMeshRequest = GameIdRequestSchema;
+export const GamesNavMeshResponse = GitOpResultOf(GameNavMeshSchema);
+export const GamesEntityStatePayload = GameEntityStatePayloadSchema;
 export const GamesGotoRequest = GameGotoRequestSchema;
 export const GamesGotoResponse = GitOpResultOf(GameGotoResultSchema);
 export const GamesPopOutRequest = GameIdRequestSchema;
@@ -5598,6 +5898,10 @@ export const GamesAgentRunResponse = GitOpResultOf(GameAgentRunResultSchema);
 export const GamesAgentCancelRequest = GameIdRequestSchema;
 export const GamesAgentUndoRequest = GameAgentUndoRequestSchema;
 export const GamesAgentProgressPayload = GameAgentProgressSchema;
+export const GamesLibraryReadRequest = GameLibraryReadRequestSchema;
+export const GamesLibraryListResponse = GitOpResultOf(GameLibraryListingSchema);
+export const GamesLibraryReadResponse = GitOpResultOf(GameLibraryFileSchema);
+export const GamesLibraryImportRequest = GameLibraryImportRequestSchema;
 export const GamesAssetSourcesRequest = GameAssetSourcesRequestSchema;
 export const GamesAssetSourcesResponse = GitOpResultOf(GameAssetSourcesResultSchema);
 export const GamesImportAssetRequest = GameImportAssetRequestSchema;

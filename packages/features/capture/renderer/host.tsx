@@ -44,6 +44,8 @@ export type CaptureHost = {
   sendToChat: ((attachment: { name: string; text: string }) => void) | null;
   creator: CaptureCreatorHost | null;
   prComment: CapturePrCommentHost | null;
+  /** Opens Settings ▸ Permissions in the app. Absent where the app has no such page. */
+  openPermissions?: () => void;
 };
 
 /** The standalone app's host: no other feature to reach. */

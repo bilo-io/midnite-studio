@@ -5,8 +5,12 @@ import { describe, expect, it } from 'vitest';
 import { addObject, createEditState, findObject, rotateObject, setOptionalNumber, setVolume, undo } from '../level-edit-model';
 import { buildBlankLevel } from '../new-scene-model';
 import { blendPose, cameraPosition, distanceFor, dollyOffset, focusToPlanView, orbitPose, planPose, planViewToFocus, poseFromCamera, PLAN_FOV } from './camera-transition';
-import { gizmoEdit, levelWorldItems, nearestEuler, POINT_SIZE, worldToObjectPoint } from './level-world';
-import { fogRange, lodFor, projectedPx, viewOffset } from './level-lod';
+import { gizmoEdit, gizmoEditGroup, groupPivot, levelWorldItems, nearestEuler, POINT_SIZE, worldToObjectPoint } from './level-world';
+import { marqueeHits } from './level-marquee';
+import { groundPoint, rayHitsItem, rotateToward, snappedPlanPoint, volumeFromDrag } from './level-ground';
+import { DEFAULT_LEVEL_SNAP } from '../level-snap';
+import { snapPlan } from '../level-plan';
+import { farPlane, fogRange, hazeRange, lodFor, projectedPx, viewOffset } from './level-lod';
 import { OPTIMISATION_PRESETS, pixelRatioFor, presetFor } from './optimisation';
 import { SpatialGrid, xzRect } from './spatial-grid';
 
@@ -177,6 +181,18 @@ describe('LOD and the presets', () => {
     expect(fogRange(100, 0)).toEqual({ near: 60, far: 100 });
     expect(fogRange(100, 50).far).toBe(150);
   });
+
+  it('over a terrain with heights the fog only closes past the whole terrain, and the far plane reaches it', () => {
+    // A 600 m draw distance on a 10 km terrain (14.1 km corner to corner): a hill 8 km off is hazed, not gone.
+    const haze = hazeRange(fogRange(600, 0), 0, 14_142);
+    expect(haze).toEqual({ near: 360, far: 14_142 });
+    expect((8000 - haze.near) / (haze.far - haze.near)).toBeLessThan(0.6);
+    expect(farPlane(300, 600, 14_142)).toBe(14_442);
+    // A small terrain never pulls either inside the plain band.
+    expect(hazeRange(fogRange(600, 0), 0, 200).far).toBe(600);
+    expect(farPlane(300, 600)).toBe(1250);
+    expect(farPlane(300, 600, 200)).toBe(1250);
+  });
 });
 
 describe('the Floorplan ↔ 3D camera', () => {
@@ -264,5 +280,122 @@ describe('nearestEuler (Phase 136 Theme D)', () => {
     const r = nearestEuler({ yaw: -170 * d, pitch: 10 * d, roll: 0 }, { yaw: 170 * d, pitch: 0, roll: 0 });
     expect(r.yaw / d).toBeCloseTo(190, 6);
     expect(r.pitch / d).toBeCloseTo(10, 6);
+  });
+});
+
+
+describe('the group gizmo (Phase 137 Theme D)', () => {
+  /** Two 2 m boxes, centres at x = 0 and x = 10 m (32 px a metre), z = 0. */
+  const twoBoxes = () => {
+    let s = createEditState(level3d());
+    const layerId = s.level.layers[0]!.id!;
+    s = setVolume(s, layerId, { x: -32, y: -32 }, { x: 32, y: 32 });
+    const a = s.selection!;
+    s = setVolume(s, layerId, { x: 288, y: -32 }, { x: 352, y: 32 });
+    const b = s.selection!;
+    return { s, refs: [a, b], a, b };
+  };
+  const centreOf = (s: ReturnType<typeof twoBoxes>['s'], ref: { layerId: number; objectId: number }) => {
+    const p = levelEntityToWorld(findObject(s.level, ref) as never, s.level as never).position;
+    return [Math.round(p[0] * 1000) / 1000 + 0, Math.round(p[2] * 1000) / 1000 + 0];
+  };
+
+  it('D1 groupPivot: Centre is the middle of the boxes, Pivot the primary object', () => {
+    const { s, refs, a, b } = twoBoxes();
+    expect(groupPivot(s.level, refs, a, 'centre')).toMatchObject({ centre: [5, 1.5, 0], yaw: 0 });
+    expect(groupPivot(s.level, refs, b, 'pivot').centre[0]).toBe(10);
+  });
+
+  it('D2 a 180 turn about the centre swaps the boxes; a 90 turn puts them on the z axis; each adds the turn to its rotation, one undo step', () => {
+    const { s, refs, a, b } = twoBoxes();
+    const pivot = groupPivot(s.level, refs, a, 'centre');
+    const half = gizmoEditGroup(s, refs, pivot, { rotateYaw: 180 });
+    expect(centreOf(half, a)).toEqual([10, 0]);
+    expect(centreOf(half, b)).toEqual([0, 0]);
+    const quarter = gizmoEditGroup(s, refs, pivot, { rotateYaw: 90 });
+    expect(centreOf(quarter, a)).toEqual([5, -5]);
+    expect(centreOf(quarter, b)).toEqual([5, 5]);
+    expect(findObject(quarter.level, a)!.rotation).toBe(90);
+    expect(findObject(quarter.level, b)!.rotation).toBe(90);
+    expect(quarter.past.length).toBe(s.past.length + 1);
+    expect(undo(quarter).level).toBe(s.level);
+  });
+
+  it('D3 scale [2,1,2] doubles each footprint and its distance from the pivot', () => {
+    const { s, refs, a, b } = twoBoxes();
+    const next = gizmoEditGroup(s, refs, groupPivot(s.level, refs, a, 'centre'), { scale: [2, 1, 2] });
+    expect(centreOf(next, a)).toEqual([-5, 0]);
+    expect(centreOf(next, b)).toEqual([15, 0]);
+    expect(findObject(next.level, a)).toMatchObject({ width: 128, height: 128 });
+    expect(next.past.length).toBe(s.past.length + 1);
+  });
+
+  it('translates every item by one delta and raises elevation, as one step', () => {
+    const { s, refs, a, b } = twoBoxes();
+    const next = gizmoEditGroup(s, refs, groupPivot(s.level, refs, a, 'pivot'), { translate: [2, 1, 0] });
+    expect(centreOf(next, a)).toEqual([2, 0]);
+    expect(centreOf(next, b)).toEqual([12, 0]);
+    expect(levelWorldItems(next.level).filter((i) => i.kind === 'box').map((i) => i.position[1])).toEqual([1, 1]);
+    expect(next.past.length).toBe(s.past.length + 1);
+    expect(gizmoEditGroup(s, refs, groupPivot(s.level, refs, a, 'pivot'), {})).toBe(s);
+  });
+
+  it('D4 marqueeHits drops an item behind the camera and one outside the rectangle', () => {
+    const project = (p: [number, number, number]) => ({ x: p[0], y: p[1], inFront: p[2] > 0 });
+    const items = [
+      { id: 1, centre: [10, 10, 1] as [number, number, number] },
+      { id: 2, centre: [10, 10, -1] as [number, number, number] },
+      { id: 3, centre: [90, 10, 1] as [number, number, number] },
+    ];
+    expect(marqueeHits(items, project, { x0: 50, y0: 50, x1: 0, y1: 0 })).toEqual([1]);
+  });
+});
+
+
+describe('every tool in 3D (Phase 137 Theme G)', () => {
+  it('G1 groundPoint meets a downward ray and rejects a parallel or upward one', () => {
+    expect(groundPoint([0, 10, 0], [1, -1, 0], 0)).toEqual([10, 0, 0]);
+    expect(groundPoint([0, 10, 0], [1, 0, 0], 0)).toBeNull();
+    expect(groundPoint([0, 10, 0], [1, 1, 0], 0)).toBeNull();
+  });
+
+  it('G3 volumeFromDrag gives the plan the same setVolume arguments for equal ground points', () => {
+    const level = level3d();
+    const snap = { ...DEFAULT_LEVEL_SNAP, planStep: 0.5 as const };
+    // Ground points (2.1 m, 3.3 m) to (5.9 m, 4.6 m); the plan reads them as map pixels and snaps the same way.
+    const { from, to } = volumeFromDrag(level, [2.1, 3.3], [5.9, 4.6], snap);
+    const step = { x: 16, y: 16 };
+    expect(from).toEqual(snapPlan(level, { x: 2.1 * 32, y: 3.3 * 32 }, false, step));
+    expect(to).toEqual(snapPlan(level, { x: 5.9 * 32, y: 4.6 * 32 }, false, step));
+    expect(snappedPlanPoint(level, 2.1, 3.3, snap, true)).toEqual({ x: 2.1 * 32, y: 3.3 * 32 });
+    const s0 = createEditState(level);
+    const layerId = s0.level.layers[0]!.id!;
+    expect(setVolume(s0, layerId, from, to).level).toEqual(setVolume(s0, layerId, snapPlan(level, { x: 67.2, y: 105.6 }, false, step), snapPlan(level, { x: 188.8, y: 147.2 }, false, step)).level);
+  });
+
+  it('G4 rotating two objects sets both toward the same ground point in one undo step', () => {
+    const level = level3d();
+    let s = createEditState(level);
+    const layerId = s.level.layers[0]!.id!;
+    s = setVolume(s, layerId, { x: 0, y: 0 }, { x: 64, y: 64 });
+    const a = s.selection!;
+    s = setVolume(s, layerId, { x: 320, y: 0 }, { x: 384, y: 64 });
+    const b = s.selection!;
+    const before = s.past.length;
+    // Centres at (1 m, 1 m) and (11 m, 1 m); the point (6 m, 11 m) is below (+Z) both.
+    const next = rotateToward(s, [a, b], level, [6, 11], 0);
+    expect(next.past.length).toBe(before + 1);
+    expect(findObject(next.level, a)!.rotation).toBeCloseTo(153.435, 2);
+    expect(findObject(next.level, b)!.rotation).toBeCloseTo(206.565, 2);
+    expect(undo(next).level).toBe(s.level);
+    // Snapped to 45 degrees.
+    expect(findObject(rotateToward(s, [a], level, [6, 11], 45).level, a)!.rotation).toBe(135);
+  });
+
+  it('a ray finds a box under its yaw, and misses beside it', () => {
+    const item = { position: [0, 0, 0] as [number, number, number], size: [4, 2, 1] as [number, number, number], yaw: Math.PI / 2 };
+    // Turned a quarter-turn, the box is 1 m wide in X and 4 m long in Z.
+    expect(rayHitsItem([0, 5, 1.5], [0, -1, 0], item)).toBe(true);
+    expect(rayHitsItem([1.5, 5, 0], [0, -1, 0], item)).toBe(false);
   });
 });

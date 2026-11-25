@@ -45,6 +45,20 @@ describe('PageDetachMark', () => {
     LABEL: a button that says "detach" and instead raises a window you already
     had is a control that lied about what it does.
   */
+  it('asks beforeAction first and acts only when it proceeds (#1697)', () => {
+    let held: (() => void) | null = null;
+    const beforeAction = vi.fn((_action: string, proceed: () => void) => {
+      held = proceed;
+    });
+    render(<PageDetachMark role="graph" beforeAction={beforeAction} />);
+
+    fireEvent.click(screen.getByLabelText('Detach Timeline into its own window'));
+    expect(beforeAction).toHaveBeenCalledWith('detach', expect.any(Function));
+    expect(mocks.detach).not.toHaveBeenCalled();
+    held!();
+    expect(mocks.detach).toHaveBeenCalledWith({ role: 'graph' });
+  });
+
   it('focuses the existing popout instead of offering a second one', () => {
     useUiStore.setState({ detachedPages: ['graph'] });
     render(<PageDetachMark role="graph" />);

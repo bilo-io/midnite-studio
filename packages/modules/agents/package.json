@@ -20,6 +20,7 @@
   "dependencies": {
     "@bilo-io/ui": "0.2.0",
     "@midnite/studio-feature-chats": "workspace:*",
+    "@midnite/studio-feature-agent-profiles": "workspace:*",
     "@midnite/studio-feature-councils": "workspace:*",
     "@midnite/studio-feature-mcp-tools": "workspace:*",
     "@midnite/studio-feature-media-audio": "workspace:*",

@@ -392,14 +392,16 @@ describe("ReposPanel's view-scoped section filtering (nav-shell)", () => {
     expect(screen.getByRole('button', { name: 'Actions for worktree main' })).toBeTruthy();
   });
 
-  it('the view section is collapsed on arrival; Worktrees is open', async () => {
+  it('the view section and Worktrees are collapsed on arrival; Forge is open', async () => {
     open();
     useUiStore.getState().setActiveView('actions');
 
     const actionsToggle = await screen.findByRole('button', { name: /^Actions( \d+)?$/ });
     expect(actionsToggle.getAttribute('aria-expanded')).toBe('false');
     const worktreesToggle = screen.getByRole('button', { name: /^Worktrees( \d+)?$/ });
-    expect(worktreesToggle.getAttribute('aria-expanded')).toBe('true');
+    expect(worktreesToggle.getAttribute('aria-expanded')).toBe('false');
+    const forgeToggle = screen.getByRole('button', { name: /^Forge( \d+)?$/ });
+    expect(forgeToggle.getAttribute('aria-expanded')).toBe('true');
   });
 
   it('"Show all sections" is the narrowed view\'s escape hatch, and it is per-view', async () => {

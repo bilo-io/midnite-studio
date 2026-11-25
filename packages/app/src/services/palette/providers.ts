@@ -65,6 +65,7 @@ export const VIEW_LABELS: Record<ViewId, string> = {
   workflows: 'Agent Graphs',
   media: 'Media',
   models: 'Models',
+  agents: 'Agents',
   sessions: 'Agent Sessions',
   optimizer: 'Workspace Optimizer',
   monitor: 'System Monitor',
@@ -98,10 +99,11 @@ export const VIEW_KEYWORDS: Record<ViewId, string> = {
   // Tasks absorbed Issues and Projects, so it answers to both old names.
   tasks: 'tasks issues projects board kanban',
   history: 'reflog journal undo ops history',
-  councils: 'agents council teams debate',
+  councils: 'council teams debate',
   workflows: 'agent graph workflow pipeline automation',
   media: 'media docs images video audio studio remotion hyperframes render export ffmpeg',
   models: 'ollama models local cloud pull install download llm',
+  agents: 'custom agents roster',
   sessions: 'agent session past closed transcripts',
   optimizer: 'clean scan storage memory gpu disk space node_modules trash',
   monitor: 'cpu ram memory gpu disk battery health toolchain crash log diagnostics metrics',
@@ -344,16 +346,10 @@ export function createTerminalSource(
   return {
     key: 'sessions',
     items: () => {
-      // 1. Switch to existing terminal sessions
-      //
-      // `surface === 'fab'` rows are filtered out (Phase 67 Theme E,
-      // Decision 5): the panel excludes them via `inMainPanel`
-      // (`terminal-store.ts`), so selecting one here used to open the
-      // terminal panel to a blank pane — the palette's job is navigation,
-      // and it should not offer to navigate somewhere that renders nothing.
-      // Those sessions are reachable through Sessions history instead.
+      // 1. Switch to existing terminal sessions — every surface, loop
+      // sessions included: the panel lists them all (`inMainPanel`), so
+      // selecting any of them lands on a pane that renders it.
       const sessionItems: PaletteItem[] = sessions
-        .filter((sess) => sess.surface !== 'fab')
         .map((sess): PaletteItem => {
           let icon: IconComponent = LuSquareTerminal;
           if (sess.kind === 'agent' && sess.agentId) {

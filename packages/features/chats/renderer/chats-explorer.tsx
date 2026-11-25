@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { CHAT_DATE_BUCKETS, CHAT_DATE_BUCKET_LABEL, type ChatSummary } from '@midnite/studio-shared';
 import { LuBot, LuCalendar, LuFileDiff, LuFolderGit2, LuMessageSquarePlus, LuPencil, LuPin, LuPinOff, LuTrash2 } from 'react-icons/lu';
@@ -14,7 +14,7 @@ import {
 } from './chats-filter';
 import { useLoopingTypewriter } from './use-looping-typewriter';
 import type { ChatEngine } from './use-chat-engines';
-import { EmptyState, ExplorerGroup, ExplorerNotice, ExplorerSearch, StateDot, relativeAge, useFrameChrome } from '@midnite/studio-frame';
+import { EmptyState, ExplorerGroup, ExplorerNotice, ExplorerSearch, StateDot, relativeAge, useCollapsedGroups, useFrameChrome } from '@midnite/studio-frame';
 import { IconButton, MultiSelectMenu, PageDetachMark, Tooltip } from './ui';
 import { type ChatsMultiSelectOption as MultiSelectOption } from './host';
 
@@ -61,7 +61,7 @@ export function ChatsExplorer({
   onDelete: (chat: ChatSummary) => void;
 }) {
   const dialogs = useFrameChrome().useDialogs();
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
+  const { isOpen, toggle } = useCollapsedGroups();
   const now = Date.now();
   const loadingText = useLoopingTypewriter('Loading chats…');
 
@@ -72,7 +72,7 @@ export function ChatsExplorer({
 
   const engineOptions = useMemo<MultiSelectOption[]>(() => {
     const counts = new Map<string, number>();
-    for (const c of chats) counts.set(c.engine, (counts.get(c.engine) ?? 0) + 1);
+    for (const c of chats) counts.set(c.agentProfileId ?? c.engine, (counts.get(c.agentProfileId ?? c.engine) ?? 0) + 1);
     return [...counts.keys()]
       .sort((a, b) => (engineMeta(a)?.label ?? a).localeCompare(engineMeta(b)?.label ?? b))
       .map((id) => {
@@ -105,13 +105,6 @@ export function ChatsExplorer({
         meta: <span className="tabular-nums text-[10px] text-muted-foreground">{count}</span>,
       }));
   }, [chats]);
-
-  const toggle = (key: string) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(key)) next.add(key);
-      return next;
-    });
 
   const rename = (chat: ChatSummary) =>
     dialogs.prompt?.({
@@ -240,7 +233,7 @@ export function ChatsExplorer({
               key={group.key}
               title={group.label}
               count={group.chats.length}
-              open={!collapsed.has(group.key)}
+              open={isOpen(group.key)}
               onToggle={() => toggle(group.key)}
               bodyId={`chats-group-${group.key}`}
               leading={
@@ -255,7 +248,7 @@ export function ChatsExplorer({
                 <ChatRow
                   key={chat.id}
                   chat={chat}
-                  engine={engineMeta(chat.engine)}
+                  engine={engineMeta(chat.agentProfileId ?? chat.engine) ?? engineMeta(chat.engine)}
                   selected={chat.id === selectedId}
                   now={now}
                   onSelect={() => onSelect(chat.id)}
@@ -325,11 +318,25 @@ function ChatRow({
         icon={chat.pinned ? LuPinOff : LuPin}
         label={chat.pinned ? 'Unpin chat' : 'Pin chat'}
         size="sm"
-        className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+        className={`shrink-0 transition-opacity transition-colors group-hover:opacity-100 group-focus-within:opacity-100 hover:opacity-100 hover:text-amber-400 ${
+          chat.pinned ? 'opacity-90 text-amber-400' : 'opacity-50'
+        }`}
         onClick={onPin}
       />
-      <IconButton icon={LuPencil} label="Rename chat" size="sm" className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" onClick={onRename} />
-      <IconButton icon={LuTrash2} label="Delete chat" size="sm" className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" onClick={onDelete} />
+      <IconButton
+        icon={LuPencil}
+        label="Rename chat"
+        size="sm"
+        className="shrink-0 opacity-50 transition-opacity transition-colors group-hover:opacity-100 group-focus-within:opacity-100 hover:opacity-100 hover:text-sky-400"
+        onClick={onRename}
+      />
+      <IconButton
+        icon={LuTrash2}
+        label="Delete chat"
+        size="sm"
+        className="shrink-0 opacity-50 transition-opacity transition-colors group-hover:opacity-100 group-focus-within:opacity-100 hover:opacity-100 hover:text-rose-400"
+        onClick={onDelete}
+      />
     </div>
   );
 }

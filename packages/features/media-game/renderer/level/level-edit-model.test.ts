@@ -2,12 +2,19 @@
 import { levelEntityToWorld, parseGameLevel } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
+import { blankLevel3d } from './test-helpers';
+
 import {
   DEFAULT_SIZE_Y,
   UNDO_LIMIT,
   addLayer,
   addObject,
   addPathPoint,
+  addSpawner,
+  setLevelTimeOfDay,
+  setLevelTimeScale,
+  setLevelWeather,
+  applyAgentOps,
   beginStroke,
   cellCentre,
   createEditState,
@@ -31,7 +38,9 @@ import {
   setOptionalNumber,
   setOptionalText,
   setProperty,
+  setActiveLayer,
   setVolume,
+  drawSpawner,
   snapRotation,
   toEditLevel,
   toggleVisible,
@@ -288,6 +297,16 @@ describe('3D placement (Phase 132 Theme E)', () => {
     expect(parseGameLevel(serialise(s)).ok).toBe(true);
   });
 
+  it('draws a spawner zone from a drag in either direction, as one undo step', () => {
+    const s0 = plan();
+    const s = drawSpawner(s0, objectsId(s0), { x: 192, y: 160 }, { x: 64, y: 96 }, 'pedestrians');
+    const zone = s.level.layers.flatMap((l) => (l.type === 'objectgroup' ? l.objects : [])).at(-1)!;
+    expect(zone).toMatchObject({ type: 'spawner', x: 64, y: 96, width: 128, height: 64 });
+    expect(zone.properties).toEqual([{ name: 'spawns', type: 'string', value: 'pedestrians' }, { name: 'density', type: 'float', value: 1 }]);
+    expect(undo(s).level).toEqual(s0.level);
+    expect(drawSpawner(s0, objectsId(s0), { x: 5, y: 5 }, { x: 5, y: 99 })).toBe(s0);
+  });
+
   it('makes no volume from a click or a line', () => {
     const s = plan();
     expect(setVolume(s, objectsId(s), { x: 5, y: 5 }, { x: 5, y: 5 })).toBe(s);
@@ -330,5 +349,238 @@ describe('3D placement (Phase 132 Theme E)', () => {
     expect(last(s).properties).toEqual([{ name: 'model', type: 'string', value: 'crate' }, { name: 'collider', type: 'string', value: 'none' }]);
     s = setOptionalText(s, s.selection!, 'model', '');
     expect(last(s).properties).toEqual([{ name: 'collider', type: 'string', value: 'none' }]);
+  });
+});
+
+describe('multi-selection (Phase 137 Theme A)', async () => {
+  const sel = await import('./level-edit-model');
+  const plan = () => createEditState(buildBlankLevel({ width: 20, height: 20, tilewidth: 32, tileheight: 32, orientation: 'orthogonal', baseLayer: null }));
+  /** Three objects: a (10..30), b (100..120) and c, a wide floor straddling x = 60. */
+  const fixture = () => {
+    let s = addLayer(plan(), 'object', 'fixture'); // a fresh layer: the blank level's own object layer is not empty
+    const layerId = s.activeLayerId!;
+    s = addObject(s, layerId, { type: 'prop', x: 10, y: 10, width: 20, height: 20 });
+    s = addObject(s, layerId, { type: 'prop', x: 100, y: 100, width: 20, height: 20 });
+    s = addObject(s, layerId, { type: 'prop', x: 0, y: 200, width: 100, height: 20 });
+    return { s: sel.selectOnly(s, null), layerId, ref: (id: number) => ({ layerId, objectId: id }), ids: s.level.layers.find((l) => l.id === layerId)!.objects!.map((o) => o.id) };
+  };
+  const invariant = (s: ReturnType<typeof plan>) => {
+    if (s.selection === null) expect(s.selected).toEqual([]);
+    else expect(s.selected).toContainEqual(s.selection);
+    if (s.selected.length === 0) expect(s.selection).toBeNull();
+  };
+  const positions = (s: ReturnType<typeof plan>, layerId: number) => s.level.layers.find((l) => l.id === layerId)!.objects!.map((o) => [o.x, o.y]);
+
+  it('A1 starts empty; selectOnly sets one ref as primary', () => {
+    const f = fixture();
+    expect(createEditState(blank()).selected).toEqual([]);
+    const s = sel.selectOnly(f.s, f.ref(f.ids[0]!));
+    expect(s.selected).toEqual([f.ref(f.ids[0]!)]);
+    expect(s.selection).toEqual(f.ref(f.ids[0]!));
+    expect(sel.select(f.s, f.ref(f.ids[1]!)).selection).toEqual(f.ref(f.ids[1]!));
+    expect(sel.selectOnly(s, null).selected).toEqual([]);
+    expect(sel.selectOnly(f.s, null)).toBe(f.s);
+  });
+
+  it('A2 toggles: add makes primary, remove promotes the last remaining, the last removal clears', () => {
+    const f = fixture();
+    let s = sel.toggleSelected(f.s, f.ref(f.ids[0]!));
+    s = sel.toggleSelected(s, f.ref(f.ids[1]!));
+    s = sel.toggleSelected(s, f.ref(f.ids[2]!));
+    expect(s.selection).toEqual(f.ref(f.ids[2]!));
+    s = sel.toggleSelected(s, f.ref(f.ids[2]!));
+    expect(s.selected).toHaveLength(2);
+    expect(s.selection).toEqual(f.ref(f.ids[1]!));
+    s = sel.toggleSelected(s, f.ref(f.ids[0]!)); // removing a non-primary keeps the primary
+    expect(s.selection).toEqual(f.ref(f.ids[1]!));
+    s = sel.toggleSelected(s, f.ref(f.ids[1]!));
+    expect(s.selection).toBeNull();
+    invariant(s);
+  });
+
+  it('addSelected appends, last added is primary, stale refs are skipped', () => {
+    const f = fixture();
+    let s = sel.selectOnly(f.s, f.ref(f.ids[0]!));
+    s = sel.addSelected(s, [f.ref(f.ids[1]!), { layerId: f.layerId, objectId: 9999 }, f.ref(f.ids[0]!)]);
+    expect(s.selected).toEqual([f.ref(f.ids[1]!), f.ref(f.ids[0]!)]);
+    expect(s.selection).toEqual(f.ref(f.ids[0]!));
+    expect(sel.addSelected(s, [{ layerId: f.layerId, objectId: 9999 }])).toBe(s);
+  });
+
+  it('A3 selectInRect takes only fully enclosed objects, in all three modes', () => {
+    const f = fixture();
+    const [a, b, c] = f.ids.map(f.ref) as [ReturnType<typeof f.ref>, ReturnType<typeof f.ref>, ReturnType<typeof f.ref>];
+    const rect = { x: 0, y: 0, width: 150, height: 250 };
+    const tight = { x: 0, y: 0, width: 60, height: 250 }; // cuts c (x 0..100) in half
+    expect(sel.selectInRect(f.s, [f.layerId], tight, 'replace').selected).toEqual([a]);
+    expect(sel.selectInRect(f.s, [f.layerId], rect, 'replace').selected).toEqual([a, b, c]);
+    const withB = sel.selectOnly(f.s, b);
+    expect(sel.selectInRect(withB, [f.layerId], tight, 'add').selected).toEqual([b, a]);
+    expect(sel.selectInRect(withB, [f.layerId], tight, 'add').selection).toEqual(a);
+    const both = sel.selectInRect(f.s, [f.layerId], { x: 0, y: 0, width: 150, height: 150 }, 'replace');
+    expect(both.selected).toEqual([a, b]);
+    expect(sel.selectInRect(both, [f.layerId], tight, 'toggle').selected).toEqual([b]);
+    expect(sel.selectInRect(both, [f.layerId], { x: 500, y: 500, width: 5, height: 5 }, 'add')).toBe(both);
+    expect(sel.selectInRect(both, [f.layerId], { x: 500, y: 500, width: 5, height: 5 }, 'replace').selected).toEqual([]);
+    expect(sel.selectInRect(f.s, [], rect, 'replace').selected).toEqual([]);
+    expect(sel.selectInRect(f.s, [f.layerId], rect, 'replace', (r) => r.objectId !== c.objectId).selected).toEqual([a, b]);
+  });
+
+  it('selectAllInLayer selects every object, last is primary', () => {
+    const f = fixture();
+    const s = sel.selectAllInLayer(f.s, f.layerId);
+    expect(s.selected).toEqual(f.ids.map(f.ref));
+    expect(s.selection).toEqual(f.ref(f.ids[2]!));
+    expect(sel.selectAllInLayer(f.s, 9999)).toBe(f.s);
+    const tile = f.s.level.layers.find((l) => l.type === 'tilelayer');
+    if (tile) expect(sel.selectAllInLayer(f.s, tile.id!)).toBe(f.s);
+  });
+
+  it('selectedObjects resolves refs and skips stale ones', () => {
+    const f = fixture();
+    const s = { ...sel.selectAllInLayer(f.s, f.layerId), selected: [...f.ids.map(f.ref), { layerId: f.layerId, objectId: 9999 }] };
+    expect(sel.selectedObjects(s).map((x) => x.object.id)).toEqual(f.ids);
+  });
+
+  it('A4 moveObjects is one undo step and undo restores positions with the selection intact', () => {
+    const f = fixture();
+    let s = sel.selectAllInLayer(f.s, f.layerId);
+    const before = positions(s, f.layerId);
+    const n = s.past.length;
+    s = sel.moveObjects(s, s.selected, 5, -3);
+    expect(s.past.length).toBe(n + 1);
+    expect(positions(s, f.layerId)).toEqual(before.map(([x, y]) => [x! + 5, y! - 3]));
+    s = undo(s);
+    expect(positions(s, f.layerId)).toEqual(before);
+    expect(s.selected).toHaveLength(3);
+    invariant(s);
+    expect(sel.nudgeObjects).toBe(sel.moveObjects);
+    expect(sel.moveObjects(s, s.selected, 0, 0)).toBe(s);
+    expect(sel.moveObjects(s, s.selected, NaN, 1)).toBe(s);
+  });
+
+  it('a group drag inside a stroke folds into one step', () => {
+    const f = fixture();
+    let s = beginStroke(sel.selectAllInLayer(f.s, f.layerId));
+    const n = s.past.length;
+    s = sel.moveObjects(s, s.selected, 1, 0);
+    s = sel.moveObjects(s, s.selected, 1, 0);
+    s = endStroke(s);
+    expect(s.past.length).toBe(n + 1);
+  });
+
+  it('A5 deleteObjects is one undo step, and undo brings both back with both selected', () => {
+    const f = fixture();
+    const [a, b, c] = f.ids.map(f.ref) as [ReturnType<typeof f.ref>, ReturnType<typeof f.ref>, ReturnType<typeof f.ref>];
+    let s = sel.selectAllInLayer(f.s, f.layerId);
+    const n = s.past.length;
+    s = sel.deleteObjects(s, [a, b]);
+    expect(s.past.length).toBe(n + 1);
+    expect(s.selected).toEqual([c]);
+    expect(s.selection).toEqual(c);
+    invariant(s);
+    s = undo(s);
+    expect(s.level.layers.find((l) => l.id === f.layerId)!.objects).toHaveLength(3);
+    expect(s.selected).toEqual([c]); // selection is kept as it was; deleting did not select a or b
+    const all = sel.deleteObjects(sel.selectAllInLayer(f.s, f.layerId), [a, b, c]);
+    expect(all.selected).toEqual([]);
+    expect(all.selection).toBeNull();
+    expect(undo(all).selected).toEqual([]);
+    expect(sel.deleteObjects(f.s, [{ layerId: f.layerId, objectId: 9999 }])).toBe(f.s);
+  });
+
+  it('A6 redo drops a ref whose object it removed, and the invariant holds', () => {
+    const f = fixture();
+    const [a, b] = f.ids.map(f.ref) as [ReturnType<typeof f.ref>, ReturnType<typeof f.ref>];
+    let s = sel.selectOnly(f.s, a);
+    s = sel.deleteObjects(s, [b]);
+    s = undo(s); // b is back; selecting is not an undo step, so the redo stack survives
+    s = sel.addSelected(s, [b]);
+    expect(s.selected).toEqual([a, b]);
+    s = redo(s); // redo deletes b again
+    expect(s.selected).toEqual([a]);
+    expect(s.selection).toEqual(a);
+    invariant(s);
+  });
+
+  it('single-object ops keep selected in step', () => {
+    const f = fixture();
+    let s = sel.selectAllInLayer(f.s, f.layerId);
+    s = sel.deleteObject(s, f.ref(f.ids[2]!));
+    expect(s.selected).toHaveLength(2);
+    invariant(s);
+    s = addObject(s, f.layerId, { type: 'prop', x: 1, y: 1 });
+    expect(s.selected).toHaveLength(1);
+    expect(s.selection).toEqual(s.selected[0]);
+    s = setActiveLayer(s, f.layerId);
+    expect(s.selected).toEqual([]);
+    expect(s.selection).toBeNull();
+  });
+});
+
+describe('applyAgentOps (Phase 138 Theme F)', () => {
+  it('F1: three ops are one undo step, and undo reverts all three', () => {
+    const state = createEditState(blank());
+    const layerId = state.level.layers.find((l) => l.type === 'objectgroup')?.id;
+    const seeded = addObject(state, layerId!, { type: 'enemy', x: 0, y: 0 });
+    const id = seeded.level.layers.flatMap((l) => l.objects ?? [])[0]!.id;
+    const before = seeded.level;
+    const { state: next, result } = applyAgentOps(
+      seeded,
+      [
+        { op: 'add', entity: { type: 'pickup', x: 8, y: 8 } },
+        { op: 'update', id, set: { x: 40 } },
+        { op: 'add', entity: { type: 'exit', x: 16, y: 16 } },
+      ],
+      { unit: 'px', entityTypes: ['pickup', 'exit', 'enemy'], select: true },
+    );
+    expect(result.ok).toBe(true);
+    expect(next.past.length).toBe(seeded.past.length + 1);
+    expect(next.selected).toHaveLength(3);
+    expect(undo(next).level).toBe(before);
+  });
+
+  it('a failing batch returns the state untouched', () => {
+    const state = createEditState(blank());
+    const { state: next, result } = applyAgentOps(state, [{ op: 'delete', id: 404 }], { unit: 'px', entityTypes: [] });
+    expect(result.ok).toBe(false);
+    expect(next).toBe(state);
+  });
+});
+
+describe('level environment and spawners', () => {
+  const base = () => createEditState(blankLevel3d() as EditLevel);
+  const prop = (s: ReturnType<typeof base>, n: string) => s.level.properties?.find((p) => p.name === n);
+
+  it('sets weather and clears it on auto or empty, one undo step each', () => {
+    let s = setLevelWeather(base(), 'rain');
+    expect(prop(s, 'midnite.weather')).toMatchObject({ type: 'string', value: 'rain' });
+    s = setLevelWeather(s, 'auto');
+    expect(prop(s, 'midnite.weather')).toBeUndefined();
+    expect(prop(undo(s), 'midnite.weather')?.value).toBe('rain');
+  });
+
+  it('sets time of day clamped to 0-24, clears on empty, ignores junk', () => {
+    expect(prop(setLevelTimeOfDay(base(), '13.5'), 'midnite.timeOfDay')).toMatchObject({ type: 'float', value: 13.5 });
+    expect(prop(setLevelTimeOfDay(base(), '30'), 'midnite.timeOfDay')?.value).toBe(24);
+    expect(prop(setLevelTimeOfDay(base(), '-2'), 'midnite.timeOfDay')?.value).toBe(0);
+    const set = setLevelTimeOfDay(base(), '6');
+    expect(prop(setLevelTimeOfDay(set, ''), 'midnite.timeOfDay')).toBeUndefined();
+    expect(setLevelTimeOfDay(set, 'abc')).toBe(set);
+  });
+
+  it('sets time scale, never negative, clears on empty', () => {
+    expect(prop(setLevelTimeScale(base(), '2'), 'midnite.timeScale')?.value).toBe(2);
+    expect(prop(setLevelTimeScale(base(), '-1'), 'midnite.timeScale')?.value).toBe(0);
+    expect(prop(setLevelTimeScale(setLevelTimeScale(base(), '2'), ''), 'midnite.timeScale')).toBeUndefined();
+  });
+
+  it('addSpawner places a ten-tile rectangle with spawns and density defaults, selected', () => {
+    const s0 = base();
+    const s = addSpawner(s0, s0.level.layers[0]!.id!, { x: 10, y: 20 });
+    const o = s.level.layers[0]!.objects!.at(-1)!;
+    expect(o).toMatchObject({ type: 'spawner', x: 10, y: 20, width: s0.level.tilewidth * 10, height: s0.level.tileheight * 10 });
+    expect(o.properties).toEqual([{ name: 'spawns', type: 'string', value: 'traffic' }, { name: 'density', type: 'float', value: 1 }]);
+    expect(s.selection?.objectId).toBe(o.id);
   });
 });

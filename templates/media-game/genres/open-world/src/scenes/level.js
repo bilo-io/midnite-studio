@@ -34,6 +34,7 @@ import { createAudio } from 'kit/three/audio.js';
 import { createCameraRig } from 'kit/three/cameras.js';
 import { createCharacter } from 'kit/three/character.js';
 import { createEnvironment } from 'kit/three/environment.js';
+import { cloneModel, loadModel } from 'kit/three/gltf.js';
 import { createHud } from 'kit/three/hud.js';
 import { createInput } from 'kit/three/input.js';
 import { createJuice } from 'kit/three/juice.js';
@@ -104,7 +105,15 @@ export async function startLevel() {
   const surfaceAt = (/** @type {number} */ x, /** @type {number} */ z) => (cover ? classAt(cover.classes, cover.size, cover.legend, terrain.heightfield.worldSize, x, z) : 'grass');
 
   const ground = (/** @type {number} */ x, /** @type {number} */ z) => terrain.heightAt(x, z);
-  const level = await buildLevel3d({ scene, physics, heightAt: ground }, levelMap);
+  // A `prop` with a `model` property names a `model` asset in `assets/index.json` (the helicopter and parked cars of the sample area).
+  const modelCache = new Map();
+  const loadPropModel = async (/** @type {string} */ name) => {
+    const url = assets.url('model', name);
+    if (!url) throw new Error(`assets/index.json has no model named "${name}".`);
+    if (!modelCache.has(name)) modelCache.set(name, loadModel(new URL(url, document.baseURI).href));
+    return cloneModel((await modelCache.get(name)).scene);
+  };
+  const level = await buildLevel3d({ scene, physics, heightAt: ground, loadModel: loadPropModel }, levelMap);
   const start = level.spawns[0];
   const PLAYER_START = start ? /** @type {const} */ ([start.position[0], start.position[2], start.world.yaw || 0]) : DEFAULT_PLAYER_START;
   const cars3 = level.entities.filter((p) => p.entity.name === 'car');

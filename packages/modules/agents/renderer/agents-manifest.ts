@@ -1,9 +1,10 @@
+import { agentProfilesManifest } from '@midnite/studio-feature-agent-profiles/renderer';
 import { chatsManifest } from '@midnite/studio-feature-chats/renderer';
 import { councilsManifest } from '@midnite/studio-feature-councils/renderer';
 import { modelsManifest } from '@midnite/studio-feature-models/renderer';
 import { workflowsManifest } from '@midnite/studio-feature-workflows/renderer';
 import { navFromModules, type NavConfig, type NavGroup } from '@midnite/studio-frame';
-import { LuBox, LuMessagesSquare, LuScrollText, LuUsers, LuWorkflow, LuWrench } from 'react-icons/lu';
+import { LuBot, LuBox, LuMessagesSquare, LuScrollText, LuUsers, LuWorkflow, LuWrench } from 'react-icons/lu';
 import { APP_MODULES } from '@midnite/studio-shared';
 import { PiRobotFill } from 'react-icons/pi';
 import { agentsManifest } from '../manifest';
@@ -16,6 +17,7 @@ import { agentsManifest } from '../manifest';
 const AGENTS_NAV: NavConfig = {
   views: [
     { id: 'chats', label: 'Chats', icon: LuMessagesSquare, command: 'view.chats' },
+    { id: 'agents', label: 'Agents', icon: LuBot },
     { id: 'councils', label: 'Councils', icon: LuUsers },
     { id: 'workflows', label: 'Graphs', icon: LuWorkflow },
     { id: 'models', label: 'Models', icon: LuBox, command: 'view.models' },
@@ -56,8 +58,8 @@ export const AGENTS_APP = {
   tagline: 'Chats, councils, graphs and local models',
   accent: '#8b5cf6',
   home: 'chats',
-  features: [chatsManifest.feature, councilsManifest.feature, workflowsManifest.feature, modelsManifest.feature, 'mcp-tools'],
-  views: ['chats', 'councils', 'workflows', 'models', 'tools', 'audit'],
+  features: [chatsManifest.feature, agentProfilesManifest.feature, councilsManifest.feature, workflowsManifest.feature, modelsManifest.feature, 'mcp-tools'],
+  views: ['chats', 'agents', 'councils', 'workflows', 'models', 'tools', 'audit'],
   nav: AGENTS_HOST_NAV,
 } as const;
 

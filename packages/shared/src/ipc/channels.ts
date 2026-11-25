@@ -510,6 +510,14 @@ export const CHANNELS = {
   optimizerSystemClean: 'mstudio:optimizer:system-clean',
   /** Runs one `DEFAULT_RECLAIM_COMMANDS` entry through `runProcess`, by `entryId` only. */
   optimizerSystemReclaim: 'mstudio:optimizer:system-reclaim',
+  /** What a broker-dir sweep would delete (stale pid/token files, old logs) with sizes — deletes nothing. Phase 148 E. */
+  optimizerBrokerSweepPlan: 'mstudio:optimizer:broker-sweep-plan',
+  /** Unlinks the named files that the rules still call stale; never a path, only bare names in the broker dir. */
+  optimizerBrokerSweep: 'mstudio:optimizer:broker-sweep',
+  /** What Free RAM would end or discard, with RSS — a dry run that signals nothing. Phase 148 C. */
+  optimizerFreeRamPlan: 'mstudio:optimizer:free-ram-plan',
+  /** Ends the confirmed candidates through the existing guarded paths and reports the RSS actually freed. Phase 148 C. */
+  optimizerFreeRam: 'mstudio:optimizer:free-ram',
 
   // --- stash -----------------------------------------------------------------
   /** Every stash entry for one checkout, newest first — same shape `for-each-ref` gets. */
@@ -566,6 +574,15 @@ export const CHANNELS = {
   terminalSave: 'mstudio:terminal:save',
   terminalForget: 'mstudio:terminal:forget',
   terminalReorder: 'mstudio:terminal:reorder',
+  /**
+   * Re-adopt every live session in any broker — legacy and retired peers included — and give each one
+   * `terminals.json` lost a recovered row. Answers what it recovered plus live/previous-build totals.
+   */
+  terminalRecoverDetached: 'mstudio:terminal:recover-detached',
+  /** End sessions by id from main (kill the pty, archive the row) — for callers outside the panel. */
+  terminalEndSessions: 'mstudio:terminal:end-sessions',
+  /** End every session still running in a previous build's broker. */
+  terminalEndPreviousBuild: 'mstudio:terminal:end-previous-build',
   /** Built-in agents merged with the user's `agents.json`. */
   agentList: 'mstudio:agent:list',
   /** Force an install re-probe (bypasses the TTL); answers with the fresh snapshot. */
@@ -614,6 +631,10 @@ export const CHANNELS = {
    * for a live or closed session (Phase 86).
    */
   sessionsConversationId: 'mstudio:sessions:conversation-id',
+
+  // --- unified session view (Phase 146) ------------------------------------
+  /** Switch a unified agent session between Chat and Terminal views. */
+  sessionSwitchView: 'mstudio:session:switch-view',
 
   // --- notes (Phase 86 Theme F) --------------------------------------------
   /** Every saved note for a repository (or all repositories when omitted). */
@@ -839,6 +860,14 @@ export const CHANNELS = {
   // `pty:*` channels above (`onData`/`onExit`/`snapshot`), filtered by the
   // `ptyId` a live `CouncilRunGet` answer carries — no separate event channel
   // for their output.
+  // --- custom agents (Phase 154) ---------------------------------------------
+  // A profile is global, not per-repo: one user-level `agent-profiles.json`.
+  agentProfileList: 'mstudio:agent-profile:list',
+  agentProfileSave: 'mstudio:agent-profile:save',
+  agentProfileDelete: 'mstudio:agent-profile:delete',
+  agentProfileExport: 'mstudio:agent-profile:export',
+  agentProfileImport: 'mstudio:agent-profile:import',
+  agentProfilePrepareLaunch: 'mstudio:agent-profile:prepare-launch',
   councilList: 'mstudio:council:list',
   councilGet: 'mstudio:council:get',
   councilCreate: 'mstudio:council:create',
@@ -967,6 +996,12 @@ export const CHANNELS = {
   gamesList: 'mstudio:games:list',
   gamesCreate: 'mstudio:games:create',
   gamesAdd: 'mstudio:games:add',
+  /** Game management (Phase 149 Theme I). */
+  gamesRename: 'mstudio:games:rename',
+  gamesForget: 'mstudio:games:forget',
+  gamesReveal: 'mstudio:games:reveal',
+  gamesDeleteInfo: 'mstudio:games:delete-info',
+  gamesDelete: 'mstudio:games:delete',
   gamesGetManifest: 'mstudio:games:get-manifest',
   gamesSetManifest: 'mstudio:games:set-manifest',
   gamesRun: 'mstudio:games:run',
@@ -978,13 +1013,39 @@ export const CHANNELS = {
   gamesJuice: 'mstudio:games:juice',
   gamesLogs: 'mstudio:games:logs',
   gamesKitUpgrade: 'mstudio:games:kit-upgrade',
+  /** Phase 149 Theme C: diagnose a game against the Midnite game standard (read-only). */
+  gamesDoctor: 'mstudio:games:doctor',
+  /** Phase 149 Theme D: apply one safe doctor fix — one commit on `midnite-game.json` (or a kit-upgrade branch). */
+  gamesDoctorFix: 'mstudio:games:doctor-fix',
   /** Levels (Phase 132 Theme C): `levels/<scene>.tmj` list, read, write-and-commit, and the scene jump. */
   gamesLevels: 'mstudio:games:levels',
   gamesLevelGet: 'mstudio:games:level-get',
   gamesLevelSet: 'mstudio:games:level-set',
+  gamesLevelMapAsset: 'mstudio:games:level-map-asset',
   /** A game's `model` asset bytes for the level editor's 3D view (Phase 136 Theme F). */
   gamesLevelModel: 'mstudio:games:level-model',
+  /** Prefabs (Phase 139 Theme F): `levels/prefabs/<name>.prefab.json` list, read, write-and-commit, delete-and-commit. */
+  gamesLevelPrefabs: 'mstudio:games:level-prefabs',
+  gamesLevelPrefabGet: 'mstudio:games:level-prefab-get',
+  gamesLevelPrefabSet: 'mstudio:games:level-prefab-set',
+  gamesLevelPrefabDelete: 'mstudio:games:level-prefab-delete',
+  /** A game image/sprite/tileset/background asset's thumbnail source as a data URL (Phase 139 Theme A). */
+  gamesLevelAssetThumb: 'mstudio:games:level-asset-thumb',
+  gamesLevelTerrainDetail: 'mstudio:games:level-terrain-detail',
+  /** Phase 140 Theme B: run the editor's unsaved level in the runner (in-memory overlay), and drop the overlay. */
+  gamesLevelPreview: 'mstudio:games:level-preview',
+  gamesLevelPreviewEnd: 'mstudio:games:level-preview-end',
+  /** Phase 138 Theme C: the renderer's one-way answer to a main -> renderer level-editor request. */
+  gamesLevelEditorReply: 'mstudio:games:level-editor-reply',
+  /** Phase 138 Theme C: the renderer's one-way presence — which scene the level editor shows, or null. */
+  gamesLevelEditorOpen: 'mstudio:games:level-editor-open',
   gamesGoto: 'mstudio:games:goto',
+  /** Phase 140 Theme D: read a running game's live entities once, and (un)subscribe the editor to the 4 Hz poller. */
+  gamesEntities: 'mstudio:games:entities',
+  gamesEntitiesWatch: 'mstudio:games:entities-watch',
+  /** Phase 140 Theme G: switch the running game's debug overlays, and read its nav-mesh for the editor. */
+  gamesDebug: 'mstudio:games:debug',
+  gamesNavMesh: 'mstudio:games:nav-mesh',
   /** Move a game's runner view into the `game` popout window (Theme B). */
   gamesPopOut: 'mstudio:games:pop-out',
   /** Which game the `game` popout hosts, if any. */
@@ -996,6 +1057,12 @@ export const CHANNELS = {
   gamesAgentUndo: 'mstudio:games:agent-undo',
   /** The picker's candidates for one tab, across the registered repos (Theme N). */
   gamesAssetSources: 'mstudio:games:asset-sources',
+  /** List the shared asset library's collections and assets (read-only). */
+  gamesLibraryList: 'mstudio:games:library-list',
+  /** Read one confined library file for preview. */
+  gamesLibraryRead: 'mstudio:games:library-read',
+  /** Copy a shared-library asset into a game's `assets/` and commit it, recording where it came from. */
+  gamesLibraryImport: 'mstudio:games:library-import',
   /** Copy a media item into a game's `assets/` and commit it (Theme N). */
   gamesImportAsset: 'mstudio:games:import-asset',
   /** Check imported assets against their sources, or re-import the changed ones (Theme N). */
@@ -1097,6 +1164,11 @@ export const CHANNELS = {
   mediaLibraryLanChooseFfmpeg: 'mstudio:media:library-lan-choose-ffmpeg',
   // Capture (Phase 113 Theme K) — stills, recordings, the shortcut, clipboard history and Send to (`capture.ts`).
   // Every still and stream is for a source the user picked; bytes are served on `mstudio-file://capture/…`.
+  // Settings ▸ Permissions: live macOS TCC reads (never prompting), deep links, and a gated `tccutil reset`.
+  permissionsStatus: 'mstudio:permissions:status',
+  permissionsOpenPane: 'mstudio:permissions:open-pane',
+  permissionsReset: 'mstudio:permissions:reset',
+  permissionsRelaunch: 'mstudio:permissions:relaunch',
   captureStatus: 'mstudio:capture:status',
   captureRequestPermission: 'mstudio:capture:request-permission',
   captureOpenPermissionSettings: 'mstudio:capture:open-permission-settings',
@@ -1889,8 +1961,12 @@ export const EVENT_CHANNELS = {
   videoRenderProgress: 'mstudio:video:render-progress',
   /** The games on disk changed — see `GamesChangedPayload`. */
   gamesChanged: 'mstudio:games:changed',
+  /** Phase 138 Theme C: main asks the open level editor something — see `GamesLevelEditorRequestPayload`. */
+  gamesLevelEditorRequest: 'mstudio:games:level-editor-request',
   /** A game run's lifecycle state changed — see `GameRunStatePayload`. */
   gamesRunState: 'mstudio:games:run-state',
+  /** Phase 140 Theme D: a running game's entity snapshot, while the editor watches — see `GameEntityStatePayload`. */
+  gamesEntityState: 'mstudio:games:entity-state',
   /** A batch of a run's console entries — see `GameConsolePayload`. */
   gamesConsole: 'mstudio:games:console',
   /** `game_open` (an agent over MCP) asked the window to show a game — see `GamesOpenPayload`. */
@@ -1963,6 +2039,8 @@ export const EVENT_CHANNELS = {
   optimizerScanProgress: 'mstudio:optimizer:scan-progress',
   /** The system-cache walk advanced — its own event, its own single-flight controller. */
   optimizerSystemScanProgress: 'mstudio:optimizer:system-scan-progress',
+  /** Free RAM asks the renderer to drop its in-memory resource caches (the preload runs `webFrame.clearCache()`). Phase 148 C. */
+  optimizerClearRendererCache: 'mstudio:optimizer:clear-renderer-cache',
   updateState: 'mstudio:update:state',
   deepLink: 'mstudio:protocol:deep-link',
   /**

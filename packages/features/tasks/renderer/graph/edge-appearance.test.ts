@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ForgeGraphEdge, ForgeGraphNode } from '@midnite/studio-shared';
 
-import { statusStroke } from '../status-stroke';
+import { statusStroke } from '@midnite/tasks-core';
 import { edgeAppearance } from './edge-appearance';
 
 function node(overrides: Partial<ForgeGraphNode> = {}): ForgeGraphNode {

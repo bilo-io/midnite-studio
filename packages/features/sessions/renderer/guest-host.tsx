@@ -117,5 +117,6 @@ export function createGuestSessionsHost(options: GuestSessionsHostOptions): Sess
     resolveAgentIcon: () => LuBot,
     Tooltip: options.Tooltip,
     MultiSelectMenu: options.MultiSelectMenu,
+    onSelectRepo: () => {},
   };
 }

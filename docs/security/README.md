@@ -14,8 +14,8 @@ Audits of record, unchanged:
 - [`scan_kilo.md`](scan_kilo.md) — earlier scan; its quick wins landed in `03536e0e`.
 
 A raw scan goes stale the moment a theme lands, so this table is the live view. A theme's PR flips its
-rows. Owners are [Phase 91](../../.midnite/tasks/phases/phase-91-security-hardening.md) themes
-(`91-X`) and [Phase 76](../../.midnite/tasks/phases/phase-76-the-renderer-in-a-sandbox.md) themes (`76-X`).
+rows. Owners are Phase 91 themes
+(`91-X`) and Phase 76 themes (`76-X`).
 
 | # | Severity | Summary | Owning phase/theme | Status |
 |---|---|---|---|---|

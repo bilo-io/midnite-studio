@@ -231,6 +231,14 @@ describe('CapturePage', () => {
     expect(capture.requestPermission).not.toHaveBeenCalled();
   });
 
+  it('a denied permission points at Settings ▸ Permissions and no longer says to reopen the app', async () => {
+    const openPermissions = vi.fn();
+    mount({ permission: 'denied', host: { openPermissions } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Open Settings ▸ Permissions' }));
+    expect(openPermissions).toHaveBeenCalledTimes(1);
+    expect(document.body.textContent).not.toMatch(/reopen the app/);
+  });
+
   it('takes a full-screen still of the source the user picks', async () => {
     const { capture } = mount();
     fireEvent.click(await screen.findByRole('button', { name: 'Full screen' }));

@@ -4,9 +4,11 @@
  * server that loads node-pty is spawned from the composer's bundle.
  */
 export * from './activity-detect';
+export * from './agent-env';
 export * from './client';
 export * from './protocol';
 export * from './service';
 export * from './shared';
 export * from './socket-name';
 export * from './socket-write-queue';
+export * from './sweep';

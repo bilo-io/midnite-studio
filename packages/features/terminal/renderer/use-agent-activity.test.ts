@@ -13,21 +13,32 @@ import { useAgentActivity } from './use-agent-activity';
 describe('useAgentActivity', () => {
   afterEach(() => {
     delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
-    useTerminalStore.setState({ ptyIds: {}, activity: {}, activityAt: {} });
+    useTerminalStore.setState({ ptyIds: {}, activity: {}, activityAt: {}, liveAgentId: {} });
   });
 
   const mockBridge = () => {
     let handler: ((e: { ptyId: string; activity: string | null }) => void) | undefined;
+    let agentHandler: ((e: { ptyId: string; agentId: string | null }) => void) | undefined;
     const unsubscribe = vi.fn();
+    const unsubscribeAgent = vi.fn();
     (window as unknown as { midniteStudio: unknown }).midniteStudio = {
       pty: {
         onActivity: (h: typeof handler) => {
           handler = h;
           return unsubscribe;
         },
+        onAgentChanged: (h: typeof agentHandler) => {
+          agentHandler = h;
+          return unsubscribeAgent;
+        },
       },
     };
-    return { emit: (e: { ptyId: string; activity: string | null }) => handler?.(e), unsubscribe };
+    return {
+      emit: (e: { ptyId: string; activity: string | null }) => handler?.(e),
+      emitAgent: (e: { ptyId: string; agentId: string | null }) => agentHandler?.(e),
+      unsubscribe,
+      unsubscribeAgent,
+    };
   };
 
   it('routes an event to the session bound to that pty', () => {
@@ -61,9 +72,22 @@ describe('useAgentActivity', () => {
   });
 
   it('unsubscribes on unmount', () => {
-    const { unsubscribe } = mockBridge();
+    const { unsubscribe, unsubscribeAgent } = mockBridge();
     const { unmount } = renderHook(() => useAgentActivity());
     unmount();
     expect(unsubscribe).toHaveBeenCalledTimes(1);
+    expect(unsubscribeAgent).toHaveBeenCalledTimes(1);
+  });
+
+  it('routes pty:agentChanged to liveAgentId for bound sessions even when no TerminalView is mounted', () => {
+    const { emitAgent } = mockBridge();
+    useTerminalStore.setState({ ptyIds: { 's-1': 'pty-1' } });
+
+    renderHook(() => useAgentActivity());
+    emitAgent({ ptyId: 'pty-1', agentId: 'codex' });
+    expect(useTerminalStore.getState().liveAgentId['s-1']).toBe('codex');
+
+    emitAgent({ ptyId: 'pty-1', agentId: null });
+    expect(useTerminalStore.getState().liveAgentId['s-1']).toBeNull();
   });
 });

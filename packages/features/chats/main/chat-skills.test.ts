@@ -31,7 +31,7 @@ describe('chatSkillRoots', () => {
       { dir: '/r/.claude/skills', scope: 'project' },
       { dir: '/h/.claude/skills', scope: 'user' },
     ]);
-    expect(chatSkillRoots('codex', null, '/h').map((r) => r.dir)).toEqual(['/h/.codex/skills', '/h/.agents/skills']);
+    expect(chatSkillRoots('codex', null, '/h').map((r) => r.dir)).toEqual(['/h/.agents/skills', '/h/.codex/skills']);
     expect(chatSkillRoots('agy', '/r', '/h').map((r) => r.dir)).toEqual(['/r/.agents/skills', '/h/.agents/skills']);
     expect(chatSkillRoots('ollama', '/r', '/h')).toEqual([]);
   });

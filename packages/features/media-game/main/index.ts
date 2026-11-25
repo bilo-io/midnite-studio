@@ -14,6 +14,7 @@ import {
 } from '@midnite/studio-shared';
 
 import { mediaGameManifest } from '../manifest';
+import { listLibrary, readLibraryFile } from './games/asset-library';
 import type { GamesRuntime } from './games/games-runtime';
 import type { Logger } from './games/logger';
 
@@ -127,7 +128,13 @@ export const mediaGameMain = defineFeatureMain<MediaGameMainServices>({
     handle(CHANNELS.gamesSettingsSet, schemas.GamesSettingsSetRequest, (patch) => service.settings.set(patch), (issue) => failure(issue));
     handleBare(CHANNELS.gamesList, async () => ({ games: await service.list() }));
     handle(CHANNELS.gamesCreate, schemas.GamesCreateRequest, (req) => service.create(req), (issue) => failure(issue));
-    handle(CHANNELS.gamesAdd, schemas.GamesAddRequest, ({ path }) => service.add(path), (issue) => failure(issue));
+    handle(CHANNELS.gamesAdd, schemas.GamesAddRequest, ({ path, confirmManifest }) => service.add(path, confirmManifest), (issue) => failure(issue));
+    // Game management (Phase 149 Theme I).
+    handle(CHANNELS.gamesRename, schemas.GamesRenameRequest, ({ gameId, name }) => service.rename(gameId, name), (issue) => failure(issue));
+    handle(CHANNELS.gamesForget, schemas.GamesForgetRequest, ({ gameId }) => service.forget(gameId), (issue) => failure(issue));
+    handle(CHANNELS.gamesReveal, schemas.GamesRevealRequest, ({ gameId }) => service.reveal(gameId), (issue) => failure(issue));
+    handle(CHANNELS.gamesDeleteInfo, schemas.GamesDeleteInfoRequest, ({ gameId }) => service.deleteInfo(gameId), (issue) => failure(issue));
+    handle(CHANNELS.gamesDelete, schemas.GamesDeleteRequest, ({ gameId, confirmName }) => service.delete(gameId, confirmName), (issue) => failure(issue));
     handle(
       CHANNELS.gamesGetManifest,
       schemas.GamesGetManifestRequest,
@@ -145,6 +152,9 @@ export const mediaGameMain = defineFeatureMain<MediaGameMainServices>({
     handle(CHANNELS.gamesReload, schemas.GamesReloadRequest, ({ gameId }) => service.reload(gameId), (issue) => failure(issue));
 
     send(CHANNELS.gamesSetBounds, schemas.GamesSetBoundsRequest, ({ gameId, bounds }) => service.setBounds(gameId, bounds), warnInvalid);
+    // Phase 138 Theme C: the open level editor's one-way answers and presence.
+    send(CHANNELS.gamesLevelEditorReply, schemas.GamesLevelEditorReply, (reply) => service.levelEditor.resolve(reply.id, reply.result), warnInvalid);
+    send(CHANNELS.gamesLevelEditorOpen, schemas.GamesLevelEditorOpenPayload, (open) => service.levelEditor.setOpen(open), warnInvalid);
     send(CHANNELS.gamesSetVisible, schemas.GamesSetVisibleRequest, ({ gameId, visible }) => service.setVisible(gameId, visible), warnInvalid);
 
     handle(
@@ -168,18 +178,43 @@ export const mediaGameMain = defineFeatureMain<MediaGameMainServices>({
     handle(CHANNELS.gamesPopOut, schemas.GamesPopOutRequest, ({ gameId }) => service.popOut(gameId), (issue) => failure(issue));
     handleBare(CHANNELS.gamesPopped, () => service.popped());
     handle(CHANNELS.gamesKitUpgrade, schemas.GamesKitUpgradeRequest, ({ gameId }) => service.kitUpgrade(gameId), (issue) => failure(issue));
+    // Phase 149 Theme C: the game doctor (read-only).
+    handle(CHANNELS.gamesDoctor, schemas.GamesDoctorRequest, (req) => service.doctor(req), (issue) => failure(issue));
+    // Phase 149 Theme D: one safe fix, one commit.
+    handle(CHANNELS.gamesDoctorFix, schemas.GamesDoctorFixRequest, (req) => service.doctorFix(req), (issue) => failure(issue));
 
     // Levels (Phase 132 Theme C).
     handle(CHANNELS.gamesLevels, schemas.GamesLevelsRequest, ({ gameId }) => service.levels.list(gameId), (issue) => failure(issue));
     handle(CHANNELS.gamesLevelGet, schemas.GamesLevelGetRequest, ({ gameId, scene }) => service.levels.get(gameId, scene), (issue) => failure(issue));
+    // Phase 139 Theme F: prefabs.
+    handle(CHANNELS.gamesLevelPrefabs, schemas.GamesLevelPrefabsRequest, ({ gameId }) => service.levels.prefabs.list(gameId), (issue) => failure(issue));
+    handle(CHANNELS.gamesLevelPrefabGet, schemas.GamesLevelPrefabGetRequest, ({ gameId, name }) => service.levels.prefabs.get(gameId, name), (issue) => failure(issue));
+    handle(CHANNELS.gamesLevelPrefabSet, schemas.GamesLevelPrefabSetRequest, ({ gameId, prefab }) => service.levels.prefabs.set(gameId, prefab), (issue) => failure(issue));
+    handle(CHANNELS.gamesLevelPrefabDelete, schemas.GamesLevelPrefabDeleteRequest, ({ gameId, name }) => service.levels.prefabs.delete(gameId, name), (issue) => failure(issue));
     handle(CHANNELS.gamesLevelModel, schemas.GamesLevelModelRequest, ({ gameId, name }) => service.levels.model(gameId, name), (issue) => failure(issue));
+    handle(CHANNELS.gamesLevelTerrainDetail, schemas.GamesLevelTerrainDetailRequest, ({ gameId, scene, area }) => service.levels.terrainDetail(gameId, scene, area), (issue) => failure(issue));
+    handle(CHANNELS.gamesLevelAssetThumb, schemas.GamesLevelAssetThumbRequest, ({ gameId, name }) => service.levels.assetThumb(gameId, name), (issue) => failure(issue));
+    handle(CHANNELS.gamesLevelPreview, schemas.GamesLevelPreviewRequest, (req) => service.levels.preview(req), (issue) => failure(issue));
+    handle(CHANNELS.gamesLevelPreviewEnd, schemas.GamesLevelPreviewEndRequest, ({ gameId }) => service.levels.previewEnd(gameId), (issue) => failure(issue));
     handle(
       CHANNELS.gamesLevelSet,
       schemas.GamesLevelSetRequest,
       ({ gameId, scene, level, create }) => service.levels.set(gameId, scene, level, create === undefined ? {} : { create }),
       (issue) => failure(issue),
     );
+    handle(CHANNELS.gamesLevelMapAsset, schemas.GamesLevelMapAssetRequest, ({ gameId, assetName }) => service.levels.mapAsset(gameId, assetName), (issue) => failure(issue));
     handle(CHANNELS.gamesGoto, schemas.GamesGotoRequest, ({ gameId, scene }) => service.goto(gameId, scene), (issue) => failure(issue));
+    // Live entities (Phase 140 Theme D).
+    handle(CHANNELS.gamesEntities, schemas.GamesEntitiesRequest, ({ gameId }) => service.entities.get(gameId), (issue) => failure(issue));
+    // In-game debug draw and the nav-mesh (Phase 140 Theme G).
+    handle(CHANNELS.gamesDebug, schemas.GamesDebugRequest, ({ gameId, ...patch }) => service.debug(gameId, patch), (issue) => failure(issue));
+    handle(CHANNELS.gamesNavMesh, schemas.GamesNavMeshRequest, ({ gameId }) => service.navMesh(gameId), (issue) => failure(issue));
+    handle(
+      CHANNELS.gamesEntitiesWatch,
+      schemas.GamesEntitiesWatchRequest,
+      ({ gameId, watcherId, on }) => service.entities.watch(gameId, watcherId, on),
+      (issue) => failure(issue),
+    );
 
     // Create and iterate (Theme M).
     handle(
@@ -201,8 +236,27 @@ export const mediaGameMain = defineFeatureMain<MediaGameMainServices>({
       (issue) => failure(issue),
     );
 
+    // The shared asset library (read-only). The root comes from settings; a failure is an envelope, never a throw.
+    handleBare(CHANNELS.gamesLibraryList, async () => {
+      try {
+        return ok(await listLibrary((await service.settings.get()).resolvedLibraryRoot ?? ''));
+      } catch (error) {
+        return failure(error instanceof Error ? error.message : 'Could not list the asset library.');
+      }
+    });
+    handle(
+      CHANNELS.gamesLibraryRead,
+      schemas.GamesLibraryReadRequest,
+      async ({ collection, path }) => {
+        const result = await readLibraryFile((await service.settings.get()).resolvedLibraryRoot ?? '', collection, path);
+        return result.ok ? ok(result.value) : failure(result.message);
+      },
+      (issue) => failure(issue),
+    );
+
     // The asset bridge (Theme N).
     handle(CHANNELS.gamesAssetSources, schemas.GamesAssetSourcesRequest, async ({ tab }) => ok(await assets.sources(tab)), (issue) => failure(issue));
+    handle(CHANNELS.gamesLibraryImport, schemas.GamesLibraryImportRequest, (req) => assets.importLibrary(req), (issue) => failure(issue));
     handle(CHANNELS.gamesImportAsset, schemas.GamesImportAssetRequest, (req) => assets.importAsset(req), (issue) => failure(issue));
     handle(CHANNELS.gamesResync, schemas.GamesResyncRequest, (req) => assets.resync(req), (issue) => failure(issue));
 

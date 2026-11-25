@@ -56,9 +56,15 @@ describe('repo groups, assembled through the real bridge', () => {
       <ToastHost>
         <ReposPanel />
       </ToastHost>,
-      { fixtures },
+      {
+        fixtures: {
+          ...fixtures,
+          extraRepos: [{ id: 'repo-2', name: 'other-repo', path: '/tmp/other-repo' }],
+        },
+        uiState: { showAllRepos: true },
+      },
     );
-    await screen.findByRole('heading', { name: 'Worktrees' });
+    await screen.findAllByRole('heading', { name: 'Worktrees' });
 
     // Create a group, through the real prompt dialog.
     fireEvent.click(screen.getByRole('button', { name: 'New repo group' }));

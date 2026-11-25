@@ -58,6 +58,7 @@ const VIEW_LABELS: Record<ViewId, string> = {
   workflows: 'Graphs',
   media: 'Media',
   models: 'Models',
+  agents: 'Agents',
   sessions: 'Sessions',
   optimizer: 'Optimizer',
   monitor: 'Monitor',

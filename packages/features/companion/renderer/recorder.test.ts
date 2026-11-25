@@ -199,7 +199,7 @@ describe('createRecorder', () => {
   });
 
   describe('failures', () => {
-    it('maps a refused permission to the System Settings step', async () => {
+    it('maps a refused permission to the Settings ▸ Permissions step', async () => {
       const h = harness();
       const denied = Object.assign(new Error('Permission denied'), { name: 'NotAllowedError' });
       const recorder = createRecorder({
@@ -212,7 +212,7 @@ describe('createRecorder', () => {
       await expect(recorder.startRecording()).rejects.toBeInstanceOf(RecorderError);
       await expect(recorder.startRecording()).rejects.toMatchObject({
         kind: 'denied',
-        message: expect.stringContaining('System Settings'),
+        message: expect.stringContaining('Settings ▸ Permissions'),
       });
       expect(recorder.isRecording()).toBe(false);
     });

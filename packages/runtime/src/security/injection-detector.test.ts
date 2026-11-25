@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -17,8 +17,12 @@ const BENIGN_FILES = [
   'docs/TESTING.md',
   'docs/APPS.md',
   'CLAUDE.md',
-  ...['phase-117-browser-security-hardening.md', 'phase-121-agents-security.md'].map((f) => `.midnite/tasks/phases/${f}`),
-  ...readdirSync(join(REPO, '.midnite/tasks/phases'))
+  // The tracker is git-ignored (planning lives on GitHub issues), so its docs join the corpus only
+  // where a local copy exists.
+  ...['phase-117-browser-security-hardening.md', 'phase-121-agents-security.md']
+    .map((f) => `.midnite/tasks/phases/${f}`)
+    .filter((f) => existsSync(join(REPO, f))),
+  ...(existsSync(join(REPO, '.midnite/tasks/phases')) ? readdirSync(join(REPO, '.midnite/tasks/phases')) : [])
     .filter((f) => /^phase-1(15|16|18|19|20)-/.test(f))
     .map((f) => `.midnite/tasks/phases/${f}`),
 ];

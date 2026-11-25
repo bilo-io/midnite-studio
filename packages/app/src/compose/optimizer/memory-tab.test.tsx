@@ -60,7 +60,7 @@ const pidOrder = (): string[] =>
 afterEach(() => {
   cleanup();
   delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
-  useOptimizerStore.setState({ processes: [], memory: null, processesError: null });
+  useOptimizerStore.setState({ processes: [], memory: null, processesError: null, memoryFilter: 'all' });
 });
 
 describe('MemoryTab — sorting', () => {
@@ -265,3 +265,88 @@ describe('MemoryTab — footer totals', () => {
   });
 });
 
+
+describe('MemoryTab — Lost filter and lost-broker kills (Phase 148 B)', () => {
+  // A previous-build broker (pid 200, ppid 1) with two sessions, one running an agent; the primary
+  // broker (pid 100) with one session; and an unrelated process.
+  const LOST: ProcessInfo[] = [
+    proc({ pid: 100, name: 'Midnite Studio', argv: 'broker.js --socket current.sock', rssBytes: 1e6, ours: false, lost: null, brokerPid: 100 }),
+    proc({ pid: 101, ppid: 100, name: 'zsh', argv: '/bin/zsh -l', ours: true, lost: null, brokerPid: 100 }),
+    proc({ pid: 200, name: 'Midnite Studio', argv: 'broker.js --socket old.sock', rssBytes: 2e6, ours: true, lost: 'previous-build', brokerPid: 200 }),
+    proc({ pid: 201, ppid: 200, name: 'zsh', argv: '/bin/zsh -l', rssBytes: 3e6, ours: true, lost: 'previous-build', brokerPid: 200 }),
+    proc({ pid: 202, ppid: 200, name: 'zsh', argv: '/bin/zsh -l', rssBytes: 4e6, ours: true, lost: 'previous-build', brokerPid: 200 }),
+    proc({ pid: 203, ppid: 202, name: 'claude', argv: 'claude', rssBytes: 5e9, ours: true, lost: 'previous-build', brokerPid: 200 }),
+    proc({ pid: 300, ppid: 1, name: 'Slack', argv: 'Slack', ours: false }),
+  ];
+
+  function renderLost(filter: 'all' | 'lost' = 'all') {
+    installBridge();
+    const kill = vi.fn().mockResolvedValue({ ok: true });
+    (window as unknown as { midniteStudio: MidniteStudioBridge }).midniteStudio.optimizer.kill = kill;
+    useOptimizerStore.setState({ processes: LOST, memory: null, memoryFilter: filter });
+    render(<MemoryTab />, { wrapper: StudioProviders });
+    return kill;
+  }
+
+  it('the Lost pill counts lost processes and filters to them', () => {
+    renderLost();
+    const pill = screen.getByRole('button', { name: /^Lost/ });
+    expect(pill.textContent).toContain('4');
+    fireEvent.click(pill);
+    expect(useOptimizerStore.getState().memoryFilter).toBe('lost');
+    expect(pidOrder().sort()).toEqual(['200', '201', '202', '203']);
+  });
+
+  it('shows a reason badge on lost rows only', () => {
+    renderLost('lost');
+    expect(screen.getAllByText('previous build')).toHaveLength(4);
+  });
+
+  it('the primary broker offers no kill', () => {
+    renderLost();
+    const primaryRow = Array.from(document.querySelectorAll('tbody tr')).find(
+      (row) => row.querySelectorAll('td')[1]?.textContent === '100',
+    )!;
+    expect(primaryRow.textContent).toContain('Protected');
+  });
+
+  it('a broker kill lists every process in its tree with RSS and command before signalling', () => {
+    const kill = renderLost('lost');
+    const brokerRow = Array.from(document.querySelectorAll('tbody tr')).find(
+      (row) => row.querySelectorAll('td')[1]?.textContent === '200',
+    )!;
+    fireEvent.click(brokerRow.querySelector('button')!);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.textContent).toContain('2 terminal sessions will be ended');
+    for (const line of ['200 · ', '201 · ', '202 · ', '203 · ']) expect(dialog.textContent).toContain(line);
+    expect(dialog.textContent).toContain('broker.js --socket old.sock');
+    expect(dialog.textContent).toContain('claude');
+    expect(dialog.textContent).toContain('4 processes');
+    expect(kill).not.toHaveBeenCalled();
+  });
+
+  it('a retired broker of this build (not lost) still gets the tree confirm', () => {
+    installBridge();
+    const retired: ProcessInfo[] = [
+      proc({ pid: 500, name: 'Midnite Studio', argv: 'broker.js --socket retired.sock', ours: true, lost: null, brokerPid: 500 }),
+      proc({ pid: 501, ppid: 500, name: 'zsh', argv: '/bin/zsh -l', ours: true, lost: null, brokerPid: 500 }),
+    ];
+    useOptimizerStore.setState({ processes: retired, memory: null });
+    render(<MemoryTab />, { wrapper: StudioProviders });
+    const row = Array.from(document.querySelectorAll('tbody tr')).find(
+      (r) => r.querySelectorAll('td')[1]?.textContent === '500',
+    )!;
+    fireEvent.click(row.querySelector('button')!);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.textContent).toContain('1 terminal session will be ended');
+    expect(dialog.textContent).toContain('501 · ');
+  });
+
+  it('End all lost names the brokers and their total RSS, then kills each broker once', async () => {
+    const kill = renderLost();
+    fireEvent.click(screen.getByRole('button', { name: /End all lost \(1 · / }));
+    fireEvent.click(screen.getByRole('button', { name: 'End broker' }));
+    await vi.waitFor(() => expect(kill).toHaveBeenCalledTimes(1));
+    expect(kill).toHaveBeenCalledWith({ pid: 200, expectArgv: 'broker.js --socket old.sock', force: false });
+  });
+});

@@ -55,6 +55,7 @@ tasks:
       - '/packages/runtime/src/**/*'
       - '/packages/git-engine/src/**/*'
       - '/packages/features/forge/main/**/*'
+      - '/packages/forge-github-core/src/**/*'
       - '/packages/features/tests/main/**/*'
       - '/packages/features/api-client/main/**/*'
       - '/packages/features/database/main/**/*'
@@ -106,6 +107,7 @@ tasks:
       - '/packages/features/report/renderer/**/*'
       - '/packages/features/report/manifest.ts'
       - '/packages/features/forge/main/**/*'
+      - '/packages/forge-github-core/src/**/*'
 
   test:
     inputs:
@@ -133,6 +135,7 @@ tasks:
       - '/packages/features/report/renderer/**/*'
       - '/packages/features/report/manifest.ts'
       - '/packages/features/forge/main/**/*'
+      - '/packages/forge-github-core/src/**/*'
 
   lint:
     inputs:

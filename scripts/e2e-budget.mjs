@@ -269,7 +269,24 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // neither layout nor real pointer input, so one drag-paint, undo and Save flow needs a real browser.
 //
 // Raised 486 -> 487 for Phase 89 Theme K's renderer seam test in `knowledge-canvas.spec.ts` (reason at the test).
-export const MAX_DECLARED_E2E = 487;
+//
+// Raised 487 -> 488 for Phase 146 Theme E's `unified-sessions-chats.spec.ts`: verifies unified
+// Sessions + Chats sidebar selection and `Chat | Terminal` view toggling with a real `@xterm/xterm`
+// instance mounted across the preload bridge.
+//
+// Raised 488 -> 490 for Phase 150's `suite-shell/startup-projections.spec.ts` (2 tests): the Projections
+// view's side panes clamp at 200/360 and 300/480 under a real pointer drag and never reach width 0, and its
+// Recharts chart must draw real SVG paths; jsdom has no layout and draws no chart. Figures, copy and the
+// draft hook are vitest.
+//
+// Raised 490 -> 491 for Phase 137 Theme C's `level-multiselect.spec.ts`: a marquee from empty ground and a group drag
+// on the Level editor's `<canvas>` resolve a pointer to a map point through `getBoundingClientRect` and the fitted
+// view; jsdom has neither layout nor real pointer input. Selection and move rules are vitest.
+// Raised 491 -> 493 for Phase 60 Theme B's `error-boundary.spec.ts`: a throw in a real view through the real rail and
+// lazy chunks must leave the rail usable; jsdom cannot mount the rail + view slot + Suspense together.
+// Raised 493 -> 494 for Phase 152 Theme G's send -> stale -> update flow in `startup-projections.spec.ts`: one live workspace
+// seen through two views (Projections and Runway) behind the real rail; vitest only ever mounts one view at a time.
+export const MAX_DECLARED_E2E = 495;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four
@@ -615,10 +632,12 @@ export function findOrphans(images, corpus) {
 
 /** @param {string} root */
 export async function collectOrphanedScreenshots(root = repoRoot) {
-  const base = path.join(root, 'docs/screenshots');
-  const images = (await listFiles(base))
-    .filter((f) => IMAGE_RE.test(f))
-    .map((f) => path.relative(base, f).split(path.sep).join('/'));
+  // docs/screenshots/ is git-ignored, so only a force-added (tracked) image can be an orphan;
+  // a local capture sitting in the ignored folder is nobody's business.
+  const images = execFileSync('git', ['ls-files', '-z', '--', 'docs/screenshots'], { cwd: root, encoding: 'utf8' })
+    .split('\0')
+    .filter((f) => f && IMAGE_RE.test(f))
+    .map((f) => f.slice('docs/screenshots/'.length));
   if (images.length === 0) return [];
   const docFiles = (await readdir(path.join(root, 'docs'), { withFileTypes: true }))
     .filter((e) => e.isFile() && e.name.endsWith('.md'))

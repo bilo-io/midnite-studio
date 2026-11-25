@@ -1,0 +1,132 @@
+import { access, readFile } from 'node:fs/promises';
+
+import type { CompanionProfileRun } from '@midnite/studio-feature-companion/main';
+import {
+  BUILTIN_AGENTS,
+  buildProfileHeadlessArgv,
+  buildProfileHeadlessExtras,
+  promptDeliveryFor,
+  type AgentDefinition,
+  type AgentProfile,
+} from '@midnite/studio-shared';
+
+import type { HeadlessRunHandle, HeadlessRunRegistry } from './headless-run-profiles';
+import type { ProfileMcpSockets } from './profile-mcp-sockets';
+
+export type ProfileHeadlessSeams = {
+  sockets: Pick<ProfileMcpSockets, 'prepare' | 'bind' | 'close'>;
+  /** The saved agent (`getAgentProfile`); `null` once it is deleted. */
+  profile: (profileId: string) => Promise<AgentProfile | null>;
+  /** The roster, overrides included (`listAgents`). */
+  agents: () => Promise<AgentDefinition[]>;
+  /** `agentProfilePromptPath(id)`: the file exists only when the composed prompt is not empty. */
+  promptPath: (profileId: string) => string;
+  /** Reads the prompt file; `null` when there is none. */
+  readPrompt?: (path: string) => Promise<string | null>;
+  exists?: (path: string) => Promise<boolean>;
+  /** What the run is called in the audit trail, from its launch id. Default: the companion's. */
+  runId?: (launchId: string) => string;
+  /** #1697: names the run's custom agent to the breaker, so its limits apply to the headless run too. */
+  runs?: Pick<HeadlessRunRegistry, 'register' | 'attach'>;
+  /** Where to pick another agent, closing each refusal; the title bar by default. */
+  pickHint?: string;
+  /**
+   * Whose voice the refusals speak in (#1713): the companion's own first person ("I could not start…") by
+   * default, or `neutral` for a surface that is not the companion talking — a council seat or synthesizer.
+   */
+  voice?: 'companion' | 'neutral';
+};
+
+const fileExists = async (path: string): Promise<boolean> => {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const readText = async (path: string): Promise<string | null> => {
+  try {
+    return await readFile(path, 'utf8');
+  } catch {
+    return null;
+  }
+};
+
+/** What the run is called in the audit trail: the companion's, never a terminal session's. */
+export const companionRunId = (launchId: string): string => `companion-${launchId}`;
+
+/** A council seat's run in the audit trail (#1699). */
+export const councilSeatRunId = (launchId: string): string => `council-${launchId}`;
+
+/**
+ * A custom agent as the companion's one headless ask (Phase 154 Theme H) — the argv counterpart of
+ * `createProfileLaunchService`'s typed line, over the same private MCP socket (Theme G). The socket is bound
+ * to the run at once (no pty will ever claim it) and `release` closes it when the run settles. Fails closed:
+ * an agent that cannot run as itself answers `error`, and only a deleted one answers `missing`.
+ */
+export function createProfileHeadlessRun(seams: ProfileHeadlessSeams): (profileId: string, cwd: string) => Promise<CompanionProfileRun> {
+  const exists = seams.exists ?? fileExists;
+  const read = seams.readPrompt ?? readText;
+  const neutral = seams.voice === 'neutral';
+  return async (profileId, cwd) => {
+    const profile = await seams.profile(profileId);
+    if (!profile) return { kind: 'missing' };
+    const base = (await seams.agents()).find((agent) => agent.id === profile.baseAgentId);
+    if (!base) {
+      const label = BUILTIN_AGENTS.find((agent) => agent.id === profile.baseAgentId)?.label ?? profile.baseAgentId;
+      return {
+        kind: 'error',
+        message: `${profile.name} runs on ${label}, which is not installed here. ${seams.pickHint ?? 'Pick another agent in the title bar.'}`,
+      };
+    }
+    const path = seams.promptPath(profile.id);
+    const promptPath = (await exists(path)) ? path : null;
+    const delivery = promptDeliveryFor(base.id);
+    const promptPrefix = promptPath !== null && delivery === 'argument' ? ((await read(promptPath))?.trim() || null) : null;
+    // Checked before a socket is started, so a refusal leaves nothing to close.
+    if (buildProfileHeadlessArgv({ base, model: profile.model, promptPath, launch: null, restricted: false }) === null) {
+      return {
+        kind: 'error',
+        message: neutral
+          ? `${base.label} cannot answer in one go, so ${profile.name} cannot run here. ${seams.pickHint ?? 'Pick another agent.'}`
+          : `${base.label} cannot answer in one go, so ${profile.name} cannot think for me. Pick another agent.`,
+      };
+    }
+
+    let prepared: Awaited<ReturnType<ProfileHeadlessSeams['sockets']['prepare']>>;
+    try {
+      prepared = await seams.sockets.prepare(profile, cwd);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      return { kind: 'error', message: neutral ? `Could not start ${profile.name}'s tools: ${reason}` : `I could not start ${profile.name}'s tools: ${reason}` };
+    }
+    const runId = (seams.runId ?? companionRunId)(prepared.launchId);
+    seams.sockets.bind(prepared.launchId, runId);
+    const unregister = seams.runs?.register(runId, { profileId: profile.id, agentId: base.id, cwd, title: profile.name });
+    const argvInput = {
+      base,
+      model: profile.model,
+      promptPath,
+      launch: prepared.launch,
+      restricted: profile.mcpTools !== null,
+      otherMcpServers: prepared.otherMcpServers,
+    };
+    const args = buildProfileHeadlessArgv(argvInput) as string[];
+    return {
+      kind: 'ready',
+      name: profile.name,
+      agent: base,
+      args,
+      extraArgs: buildProfileHeadlessExtras(argvInput),
+      promptPrefix,
+      // #1713: the runner hands its child over, so the breaker can stop a run that has no pty.
+      ...(seams.runs ? { attach: (handle: HeadlessRunHandle) => seams.runs?.attach(runId, handle) } : {}),
+      release: () => {
+        unregister?.();
+        return seams.sockets.close(prepared.launchId);
+      },
+    };
+  };
+}

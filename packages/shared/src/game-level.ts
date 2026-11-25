@@ -18,8 +18,8 @@ export const GAME_LEVEL_MAX_BYTES = 4 * 1024 * 1024;
 export const GAME_LEVEL_IMAGES_MAX_BYTES = 8 * 1024 * 1024;
 
 /** The entity palette the editor offers; custom types are allowed in the file. */
-export const GAME_LEVEL_ENTITY_TYPES_2D = ['spawn', 'exit', 'enemy', 'pickup', 'hazard', 'checkpoint', 'trigger', 'npc'] as const;
-export const GAME_LEVEL_ENTITY_TYPES_3D = ['spawn', 'exit', 'prop', 'enemy', 'pickup', 'light', 'checkpoint', 'trigger', 'npc', 'path'] as const;
+export const GAME_LEVEL_ENTITY_TYPES_2D = ['spawn', 'exit', 'enemy', 'pickup', 'hazard', 'checkpoint', 'trigger', 'npc', 'spawner'] as const;
+export const GAME_LEVEL_ENTITY_TYPES_3D = ['spawn', 'exit', 'prop', 'enemy', 'pickup', 'light', 'checkpoint', 'trigger', 'npc', 'path', 'spawner'] as const;
 
 export type GameLevelDimension = '2d' | '3d';
 
@@ -29,8 +29,36 @@ export const GAME_LEVEL_PROPS = {
   dimension: 'midnite.dimension',
   metresPerTile: 'midnite.metresPerTile',
   terrain: 'midnite.terrain',
+  /** Further terrain packs round the primary one: a JSON array of `{ name, minX, minZ, maxX, maxZ }` (world metres), earlier first where they overlap. */
+  terrainPacks: 'midnite.terrainPacks',
   groundY: 'midnite.groundY',
+  /** World X (metres) of the map's top-left corner; default 0. */
+  originX: 'midnite.originX',
+  /** World Z (metres) of the map's top-left corner; default 0. */
+  originY: 'midnite.originY',
+  /** `auto` (the game decides) or one of the game's weather kinds; absent = `auto`. */
+  weather: 'midnite.weather',
+  /** Comma-separated weather kinds the game knows, for the editor's list. The editor never writes it. */
+  weatherOptions: 'midnite.weatherOptions',
+  /** Clock at level start, hours 0-24; absent = the game's default. */
+  timeOfDay: 'midnite.timeOfDay',
+  /** Game clock speed relative to the game's default (1 = default, 0 = frozen); absent = 1. */
+  timeScale: 'midnite.timeScale',
 } as const;
+
+/** The weather value meaning "the game decides". */
+export const LEVEL_WEATHER_AUTO = 'auto';
+export const LEVEL_TIME_OF_DAY_MAX = 24;
+
+export type LevelEnvironment = {
+  /** `auto` or a weather kind. */
+  weather: string;
+  /** `auto` first, then the game's kinds; just `['auto']` when the level names none (the editor then offers free text). */
+  weatherOptions: string[];
+  /** Hours 0-24, or `null` for the game's default. */
+  timeOfDay: number | null;
+  timeScale: number;
+};
 
 const looseProperties = z.array(z.object({ name: z.string(), type: z.string().optional(), value: z.unknown() }).passthrough());
 
@@ -115,6 +143,32 @@ export function metresPerTile(level: { properties?: ReadonlyArray<{ name: string
   return v > 0 ? v : 1;
 }
 
+type LevelScale = { tilewidth: number; tileheight: number; properties?: ReadonlyArray<{ name: string; value?: unknown }> | undefined };
+
+/**
+ * `midnite.originX` / `midnite.originY` (Phase 141): the world position, in metres, of the map's top-left corner.
+ * Object pixels stay relative to that corner, so `world = origin + px / tilewidth × metresPerTile`. Both default
+ * to 0, so a level without them sits at world 0..W as it always did. A non-number reads as 0.
+ */
+export function levelOrigin(level: { properties?: ReadonlyArray<{ name: string; value?: unknown }> | undefined }): { x: number; z: number } {
+  const props = levelProperties(level);
+  return { x: finite(props[GAME_LEVEL_PROPS.originX], 0), z: finite(props[GAME_LEVEL_PROPS.originY], 0) };
+}
+
+/** A map-pixel point (relative to the map's top-left corner) as world metres `[x, z]`, origin included. */
+export function levelPixelsToWorld(level: LevelScale, px: number, py: number): [number, number] {
+  const mpt = metresPerTile(level);
+  const o = levelOrigin(level);
+  return [o.x + (px / level.tilewidth) * mpt, o.z + (py / level.tileheight) * mpt];
+}
+
+/** The inverse of {@link levelPixelsToWorld}: world metres `x`, `z` as a map-pixel point. */
+export function levelWorldToPixels(level: LevelScale, x: number, z: number): { x: number; y: number } {
+  const mpt = metresPerTile(level);
+  const o = levelOrigin(level);
+  return { x: ((x - o.x) / mpt) * level.tilewidth, y: ((z - o.z) / mpt) * level.tileheight };
+}
+
 /** The raw Tiled object fields {@link levelEntityToWorld} reads. */
 export type LevelEntityInput = {
   x: number;
@@ -142,13 +196,14 @@ const DEG = Math.PI / 180;
 
 /**
  * Decision 3's mapping from a plan-view Tiled object to world metres: `worldX = x / tilewidth × mpt`,
- * `worldZ = y / tileheight × mpt`. A rectangle's position is its centre, computed with Tiled's rotation about
+ * `worldZ = y / tileheight × mpt`, each plus the level's {@link levelOrigin} (0 unless `midnite.originX/Y` say so). A rectangle's position is its centre, computed with Tiled's rotation about
  * the object's own origin (clockwise on screen). The kit's `toWorld3d` is the same function in JS;
  * `kit-level.test.ts` pins them together.
  */
 export function levelEntityToWorld(entity: LevelEntityInput, level: { tilewidth: number; tileheight: number; properties?: ReadonlyArray<{ name: string; value?: unknown }> | undefined }): LevelWorldPlacement {
   const mpt = metresPerTile(level);
   const props = levelProperties(entity);
+  const origin = levelOrigin(level);
   const w = finite(entity.width, 0);
   const h = finite(entity.height, 0);
   const rotation = finite(entity.rotation, 0);
@@ -157,7 +212,7 @@ export function levelEntityToWorld(entity: LevelEntityInput, level: { tilewidth:
   const cy = entity.y + (w / 2) * Math.sin(theta) + (h / 2) * Math.cos(theta);
   const elevation = props.elevation;
   return {
-    position: [(cx / level.tilewidth) * mpt, typeof elevation === 'number' && Number.isFinite(elevation) ? elevation : null, (cy / level.tileheight) * mpt],
+    position: [origin.x + (cx / level.tilewidth) * mpt, typeof elevation === 'number' && Number.isFinite(elevation) ? elevation : null, origin.z + (cy / level.tileheight) * mpt],
     yaw: -rotation * DEG,
     pitch: finite(props.pitch, 0) * DEG,
     roll: finite(props.roll, 0) * DEG,
@@ -186,6 +241,61 @@ export type GameLevelsResult = z.infer<typeof GameLevelsResultSchema>;
 
 export const GameLevelGetRequestSchema = z.object({ gameId: z.string().min(1), scene: GameSceneNameSchema });
 /** A 3D level's terrain, only as an extent: the pack's bounds in metres (X right, Z down) and its drape image when it carries one. */
+/** The largest side of a height grid sent to the editor. */
+export const GAME_LEVEL_HEIGHTS_MAX_SIDE = 257;
+/**
+ * Ground heights over an extent, as a `cols` × `rows` grid of vertices (row-major, Z down the rows, the first and
+ * last on the extent's edges). `data` is base64 of little-endian uint16: a value `v` is `min + (v / 65535) × (max − min)` metres.
+ */
+export const GameLevelHeightsSchema = z.object({
+  minX: z.number(),
+  minZ: z.number(),
+  maxX: z.number(),
+  maxZ: z.number(),
+  cols: z.number().int().min(2).max(GAME_LEVEL_HEIGHTS_MAX_SIDE),
+  rows: z.number().int().min(2).max(GAME_LEVEL_HEIGHTS_MAX_SIDE),
+  min: z.number(),
+  max: z.number(),
+  data: z.string(),
+});
+export type GameLevelHeights = z.infer<typeof GameLevelHeightsSchema>;
+
+/**
+ * The part of a terrain a level works in, in more detail than the whole-terrain preview can carry: a crop of the
+ * drape at its own resolution, and the pack's roads and building footprints inside the area. Sent when the level is
+ * much smaller than its terrain (a 1.6 km level on a 10 km terrain), where the preview is ~10 m to the pixel.
+ * Roads and buildings are flat `[x, z, x, z, …]` runs in world metres, so the plan draws them sharp at any zoom.
+ */
+export const GameLevelTerrainDetailSchema = z.object({
+  minX: z.number(),
+  minZ: z.number(),
+  maxX: z.number(),
+  maxZ: z.number(),
+  preview: z.string().nullable(),
+  roads: z.array(z.object({ width: z.number(), points: z.array(z.number()) })),
+  buildings: z.array(z.array(z.number())),
+  /** Flat `[baseY, height, …]` metres, one pair per entry of `buildings`, when the pack states them. */
+  buildingHeights: z.array(z.number()).optional(),
+  /** The ground under this extent at the heightfield's own spacing, when the pack has one. */
+  heights: GameLevelHeightsSchema.optional(),
+});
+export type GameLevelTerrainDetail = z.infer<typeof GameLevelTerrainDetailSchema>;
+
+/** The most further packs a level may name. */
+export const GAME_LEVEL_TERRAIN_PACKS_MAX = 8;
+
+/** A further terrain pack as the level places it: its drape and coarse ground over the rectangle the level gives it. */
+export const GameLevelTerrainPackSchema = z.object({
+  name: z.string(),
+  minX: z.number(),
+  minZ: z.number(),
+  maxX: z.number(),
+  maxZ: z.number(),
+  preview: z.string().nullable(),
+  heights: GameLevelHeightsSchema.optional(),
+});
+export type GameLevelTerrainPack = z.infer<typeof GameLevelTerrainPackSchema>;
+
 export const GameLevelTerrainSchema = z.object({
   name: z.string(),
   minX: z.number(),
@@ -193,8 +303,49 @@ export const GameLevelTerrainSchema = z.object({
   maxX: z.number(),
   maxZ: z.number(),
   preview: z.string().nullable(),
+  detail: GameLevelTerrainDetailSchema.optional(),
+  /** The whole terrain's ground, coarse, when the pack has a heightfield: the 3D view's relief. */
+  heights: GameLevelHeightsSchema.optional(),
+  /** The packs `midnite.terrainPacks` places round this one, in the level's order: an earlier one lies over a later one, and this terrain over them all. */
+  packs: z.array(GameLevelTerrainPackSchema).max(GAME_LEVEL_TERRAIN_PACKS_MAX).optional(),
 });
 export type GameLevelTerrain = z.infer<typeof GameLevelTerrainSchema>;
+
+export type TerrainPlacement = { name: string; minX: number; minZ: number; maxX: number; maxZ: number };
+
+/** `midnite.terrainPacks` as placements: bad JSON, a bad entry or an empty rectangle is left out, and only the first {@link GAME_LEVEL_TERRAIN_PACKS_MAX} count. */
+export function terrainPlacements(value: unknown): TerrainPlacement[] {
+  if (typeof value !== 'string' || value.trim() === '') return [];
+  let list: unknown;
+  try {
+    list = JSON.parse(value);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(list)) return [];
+  const out: TerrainPlacement[] = [];
+  for (const e of list as Array<Record<string, unknown> | null>) {
+    if (!e || typeof e.name !== 'string' || e.name === '') continue;
+    const { minX, minZ, maxX, maxZ } = e;
+    if (![minX, minZ, maxX, maxZ].every((n) => typeof n === 'number' && Number.isFinite(n))) continue;
+    if (!((maxX as number) > (minX as number)) || !((maxZ as number) > (minZ as number))) continue;
+    out.push({ name: e.name, minX: minX as number, minZ: minZ as number, maxX: maxX as number, maxZ: maxZ as number });
+    if (out.length === GAME_LEVEL_TERRAIN_PACKS_MAX) break;
+  }
+  return out;
+}
+
+type TerrainRect = Pick<GameLevelTerrain, 'minX' | 'minZ' | 'maxX' | 'maxZ'>;
+
+/** The rectangle round a terrain and every pack placed with it. */
+export function terrainExtent(terrain: TerrainRect & { packs?: readonly TerrainRect[] | undefined }): { minX: number; minZ: number; maxX: number; maxZ: number } {
+  const out = { minX: terrain.minX, minZ: terrain.minZ, maxX: terrain.maxX, maxZ: terrain.maxZ };
+  for (const p of terrain.packs ?? []) {
+    out.minX = Math.min(out.minX, p.minX); out.minZ = Math.min(out.minZ, p.minZ);
+    out.maxX = Math.max(out.maxX, p.maxX); out.maxZ = Math.max(out.maxZ, p.maxZ);
+  }
+  return out;
+}
 
 export const GameLevelGetResultSchema = z.object({
   level: z.unknown(),
@@ -213,6 +364,31 @@ export const GameLevelModelRequestSchema = z.object({ gameId: z.string().min(1),
 export const GameLevelModelResultSchema = z.object({ name: z.string(), bytes: z.number().int().nonnegative(), data: z.string() });
 export type GameLevelModelResult = z.infer<typeof GameLevelModelResultSchema>;
 
+/** The widest area (metres a side) whose terrain detail is read on request: past it the view is an overview and the whole-terrain drapes serve. */
+export const GAME_LEVEL_TERRAIN_DETAIL_MAX_SIDE = 12_000;
+/** The detail of the part of a level's terrain under `area` (world metres): what the editor asks for as the view moves over a level too large for one detail. */
+export const GameLevelTerrainDetailRequestSchema = z.object({
+  gameId: z.string().min(1),
+  scene: GameSceneNameSchema,
+  area: z.object({ minX: z.number().finite(), minZ: z.number().finite(), maxX: z.number().finite(), maxZ: z.number().finite() }),
+});
+/** `detail` is `null` when no pack lies under the area, the area is too wide, or the pack has nothing to add. */
+export const GameLevelTerrainDetailResultSchema = z.object({ detail: GameLevelTerrainDetailSchema.nullable() });
+export type GameLevelTerrainDetailResult = z.infer<typeof GameLevelTerrainDetailResultSchema>;
+
+/** The largest source image an asset thumbnail reads (Phase 139 Theme A); a larger one shows its kind icon. */
+export const GAME_LEVEL_THUMB_MAX_BYTES = 2 * 1024 * 1024;
+/** An `image`, `sprite`, `tileset` or `background` asset by name; models keep `games.levels.model`. */
+export const GameLevelAssetThumbRequestSchema = z.object({ gameId: z.string().min(1), name: z.string().min(1).max(200) });
+/** The asset's image as a data URL (the renderer downscales it to 128 px and caches it) and its manifest `sha256`. */
+export const GameLevelAssetThumbResultSchema = z.object({
+  name: z.string(),
+  mime: z.enum(['image/png', 'image/jpeg', 'image/webp']),
+  dataUrl: z.string(),
+  sha256: z.string(),
+});
+export type GameLevelAssetThumbResult = z.infer<typeof GameLevelAssetThumbResultSchema>;
+
 export const GameLevelSetRequestSchema = z.object({
   gameId: z.string().min(1),
   scene: GameSceneNameSchema,
@@ -222,6 +398,60 @@ export const GameLevelSetRequestSchema = z.object({
 export const GameLevelSetResultSchema = z.object({ sha: z.string().nullable() });
 export type GameLevelSetResult = z.infer<typeof GameLevelSetResultSchema>;
 
+/** Map asset folder name under `assets/map/<name>/map.tmj` (single path segment, no traversal). */
+export const GameMapAssetNameSchema = z
+  .string()
+  .min(1)
+  .max(100)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/, 'Not a valid map asset name.');
+
+export const GameLevelMapAssetRequestSchema = z.object({
+  gameId: z.string().min(1),
+  assetName: GameMapAssetNameSchema,
+});
+export const GameLevelMapAssetResultSchema = z.object({
+  level: z.unknown(),
+  issues: z.array(IssueSchema),
+});
+export type GameLevelMapAssetResult = z.infer<typeof GameLevelMapAssetResultSchema>;
+
+/**
+ * Play from here (Phase 140 Theme B): run the editor's unsaved `level` for `scene` without committing it.
+ * `spawn` is the kit's `midnite-spawn` shape: `{x, y}` pixels (2D), `{x, y}` = x,z metres or `{x, y, z}` = x,height,z
+ * metres (3D); `null` keeps the scene's own spawn.
+ */
+export const GameLevelPreviewRequestSchema = z.object({
+  gameId: z.string().min(1),
+  scene: GameSceneNameSchema,
+  level: z.unknown(),
+  spawn: z.object({ x: z.number().finite(), y: z.number().finite(), z: z.number().finite().optional() }).nullable(),
+});
+export const GameLevelPreviewResultSchema = z.object({ url: z.string(), via: z.enum(['started', 'restarted']) });
+export type GameLevelPreviewResult = z.infer<typeof GameLevelPreviewResultSchema>;
+/** End a preview: the overlay is dropped (the running game keeps what it loaded). */
+export const GameLevelPreviewEndRequestSchema = z.object({ gameId: z.string().min(1) });
+
 export const GameGotoRequestSchema = z.object({ gameId: z.string().min(1), scene: GameSceneNameSchema });
 export const GameGotoResultSchema = z.object({ via: z.enum(['hook', 'reload', 'next-run']) });
 export type GameGotoResult = z.infer<typeof GameGotoResultSchema>;
+
+/**
+ * `midnite.weather`, `weatherOptions`, `timeOfDay` and `timeScale` as the editor and the game read them: weather
+ * defaults to `auto`, time of day to `null` (the game's default) and is clamped to 0-24, time scale defaults to 1 and
+ * is never negative. A property of the wrong type reads as absent.
+ */
+export function levelEnvironment(level: { properties?: ReadonlyArray<{ name: string; value?: unknown }> | undefined }): LevelEnvironment {
+  const props = levelProperties(level);
+  const w = props[GAME_LEVEL_PROPS.weather];
+  const weather = typeof w === 'string' && w.trim() ? w.trim() : LEVEL_WEATHER_AUTO;
+  const o = props[GAME_LEVEL_PROPS.weatherOptions];
+  const kinds = typeof o === 'string' ? o.split(',').map((k) => k.trim()).filter((k) => k && k !== LEVEL_WEATHER_AUTO) : [];
+  const t = props[GAME_LEVEL_PROPS.timeOfDay];
+  const s = props[GAME_LEVEL_PROPS.timeScale];
+  return {
+    weather,
+    weatherOptions: [LEVEL_WEATHER_AUTO, ...new Set(kinds)],
+    timeOfDay: typeof t === 'number' && Number.isFinite(t) ? Math.min(LEVEL_TIME_OF_DAY_MAX, Math.max(0, t)) : null,
+    timeScale: typeof s === 'number' && Number.isFinite(s) ? Math.max(0, s) : 1,
+  };
+}

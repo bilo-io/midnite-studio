@@ -4,7 +4,6 @@ import { LuSparkles, LuTrash2 } from 'react-icons/lu';
 
 import { RingSpinner as Spinner, useFeatureFlag, useFocusTrap } from '@midnite/studio-frame';
 import {
-  COUNCIL_MEMBER_PROVIDERS,
   councilMemberCap,
   modelsForAgent,
   type CouncilMember,
@@ -12,7 +11,7 @@ import {
   type CouncilRecommendedMember,
 } from '@midnite/studio-shared';
 
-import { councilModelOptions, DEFAULT_MODEL_ID, useCouncilProviders } from './council-providers';
+import { DEFAULT_MODEL_ID, seatModelOptions, useCouncilProviders, type CouncilSeat } from './council-providers';
 import { useCouncilsHost } from './host';
 import { IconButton } from './ui';
 import { useCreateCouncil, useRecommendCouncil } from './use-council';
@@ -24,9 +23,12 @@ export type NewCouncilInput = {
   members?: CouncilMember[];
   synthProvider?: CouncilMemberProvider;
   synthModel?: string;
+  /** A custom agent the synthesizer runs as (#1713); `synthProvider` is then its base. */
+  synthAgentProfileId?: string;
 };
 
-const isProvider = (id: string): id is CouncilMemberProvider => (COUNCIL_MEMBER_PROVIDERS as readonly string[]).includes(id);
+/** A recommended member as the user edits it: the seat may be moved onto a custom agent (#1699). */
+type DraftMember = CouncilRecommendedMember & { agentProfileId?: string };
 
 /** A picker model id as stored: absent for the CLI's default. */
 const storedModel = (id: string): string | undefined => (id === DEFAULT_MODEL_ID ? undefined : id);
@@ -57,14 +59,14 @@ export function CouncilCreateDialog({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [brief, setBrief] = useState('');
-  const [members, setMembers] = useState<CouncilRecommendedMember[] | null>(null);
-  const [synthProvider, setSynthProvider] = useState<CouncilMemberProvider>('claude');
-  const [synthModel, setSynthModel] = useState<string | undefined>(undefined);
+  const [members, setMembers] = useState<DraftMember[] | null>(null);
+  const [synth, setSynth] = useState<CouncilSeat>({ provider: 'claude' });
   const [recommendError, setRecommendError] = useState<string | null>(null);
   const containerRef = useRef<HTMLFormElement>(null);
   useCouncilsHost().useOccluder(true);
   useFocusTrap(containerRef, true);
-  const { providers, installed } = useCouncilProviders();
+  const { seats, installed, seatValue, seatPatch, seatNotice } = useCouncilProviders();
+  const synthNotice = seatNotice(synth, 'synthesizer');
   const { ProviderModelPicker } = useCouncilsHost();
   const recommend = useRecommendCouncil();
   const cap = councilMemberCap(useFeatureFlag('councils.pro'));
@@ -96,8 +98,7 @@ export function CouncilCreateDialog({
             return;
           }
           setMembers(result.value.members.slice(0, cap));
-          setSynthProvider(result.value.synthProvider);
-          setSynthModel(undefined);
+          setSynth({ provider: result.value.synthProvider });
           if (description.trim().length === 0 && result.value.description) setDescription(result.value.description);
         },
       },
@@ -118,15 +119,17 @@ export function CouncilCreateDialog({
               role: m.role.trim(),
               provider: m.provider,
               ...(m.model ? { model: m.model } : {}),
+              ...(m.agentProfileId ? { agentProfileId: m.agentProfileId } : {}),
             })),
-            synthProvider,
-            ...(synthModel ? { synthModel } : {}),
+            synthProvider: synth.provider,
+            ...(synth.model ? { synthModel: synth.model } : {}),
+            ...(synth.agentProfileId ? { synthAgentProfileId: synth.agentProfileId } : {}),
           }),
     });
   };
 
   /** A recommended-member edit; an `undefined` model goes back to the CLI's default. */
-  const patchMember = (index: number, patch: { [K in keyof CouncilRecommendedMember]?: CouncilRecommendedMember[K] | undefined }) =>
+  const patchMember = (index: number, patch: { [K in keyof DraftMember]?: DraftMember[K] | undefined }) =>
     setMembers((current) =>
       (current ?? []).map((m, i) => {
         if (i !== index) return m;
@@ -135,7 +138,7 @@ export function CouncilCreateDialog({
           if (value === undefined) delete next[key];
           else next[key] = value;
         }
-        return next as CouncilRecommendedMember;
+        return next as DraftMember;
       }),
     );
 
@@ -226,53 +229,63 @@ export function CouncilCreateDialog({
 
             {members ? (
               <div className="mt-3 flex flex-col gap-2" data-testid="council-recommendation">
-                {members.map((member, index) => (
-                  <div key={index} className="rounded-md border border-border p-2">
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        value={member.name}
-                        onChange={(event) => patchMember(index, { name: event.target.value })}
-                        aria-label="Recommended member name"
-                        className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1 py-0.5 text-xs font-medium outline-none focus:border-input focus:bg-background"
+                {members.map((member, index) => {
+                  const notice = seatNotice(member);
+                  return (
+                    <div key={index} className="rounded-md border border-border p-2">
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          value={member.name}
+                          onChange={(event) => patchMember(index, { name: event.target.value })}
+                          aria-label="Recommended member name"
+                          className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1 py-0.5 text-xs font-medium outline-none focus:border-input focus:bg-background"
+                        />
+                        <ProviderModelPicker
+                          providers={seats}
+                          provider={seatValue(member)}
+                          onProviderChange={(id) => {
+                            const patch = seatPatch(id);
+                            if (patch) patchMember(index, patch);
+                          }}
+                          models={seatModelOptions(member)}
+                          model={member.model ?? DEFAULT_MODEL_ID}
+                          onModelChange={(id) => patchMember(index, { model: storedModel(id) })}
+                          testId={`council-recommended-picker-${index}`}
+                        />
+                        <IconButton
+                          icon={LuTrash2}
+                          label="Remove recommended member"
+                          size="sm"
+                          onClick={() => setMembers((current) => (current ?? []).filter((_, i) => i !== index))}
+                        />
+                      </div>
+                      <textarea
+                        value={member.role}
+                        rows={2}
+                        onChange={(event) => patchMember(index, { role: event.target.value })}
+                        aria-label="Recommended member role"
+                        className="mt-1.5 w-full resize-none rounded-md border border-input bg-background px-1.5 py-1 text-xs outline-none focus:ring-1 focus:ring-ring"
                       />
-                      <ProviderModelPicker
-                        providers={providers}
-                        provider={member.provider}
-                        onProviderChange={(id) => isProvider(id) && patchMember(index, { provider: id, model: undefined })}
-                        models={councilModelOptions(member.provider)}
-                        model={member.model ?? DEFAULT_MODEL_ID}
-                        onModelChange={(id) => patchMember(index, { model: storedModel(id) })}
-                        testId={`council-recommended-picker-${index}`}
-                      />
-                      <IconButton
-                        icon={LuTrash2}
-                        label="Remove recommended member"
-                        size="sm"
-                        onClick={() => setMembers((current) => (current ?? []).filter((_, i) => i !== index))}
-                      />
+                      {notice ? (
+                        <p role="status" data-testid={`council-recommended-fallback-${index}`} className="mt-0.5 text-[11px] text-amber-600 dark:text-amber-400">
+                          {notice}
+                        </p>
+                      ) : null}
                     </div>
-                    <textarea
-                      value={member.role}
-                      rows={2}
-                      onChange={(event) => patchMember(index, { role: event.target.value })}
-                      aria-label="Recommended member role"
-                      className="mt-1.5 w-full resize-none rounded-md border border-input bg-background px-1.5 py-1 text-xs outline-none focus:ring-1 focus:ring-ring"
-                    />
-                  </div>
-                ))}
+                  );
+                })}
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span>Synthesize with</span>
                   <ProviderModelPicker
-                    providers={providers}
-                    provider={synthProvider}
+                    providers={seats}
+                    provider={seatValue(synth)}
                     onProviderChange={(id) => {
-                      if (!isProvider(id)) return;
-                      setSynthProvider(id);
-                      setSynthModel(undefined);
+                      const patch = seatPatch(id);
+                      if (patch) setSynth(patch);
                     }}
-                    models={councilModelOptions(synthProvider)}
-                    model={synthModel ?? DEFAULT_MODEL_ID}
-                    onModelChange={(id) => setSynthModel(storedModel(id))}
+                    models={seatModelOptions(synth)}
+                    model={synth.model ?? DEFAULT_MODEL_ID}
+                    onModelChange={(id) => setSynth((current) => ({ ...current, model: storedModel(id) }))}
                     testId="council-recommended-synth-picker"
                   />
                   <button
@@ -283,6 +296,11 @@ export function CouncilCreateDialog({
                     Use the starter members instead
                   </button>
                 </div>
+                {synthNotice ? (
+                  <p role="status" data-testid="council-recommended-synth-fallback" className="text-[11px] text-amber-600 dark:text-amber-400">
+                    {synthNotice}
+                  </p>
+                ) : null}
               </div>
             ) : (
               <p className="mt-2 text-[11px] text-muted-foreground">Without a recommendation the council starts as a Brainstorm with three starter members.</p>

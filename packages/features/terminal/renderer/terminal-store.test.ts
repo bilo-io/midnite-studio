@@ -411,6 +411,7 @@ describe('useTerminalStore', () => {
           cols: number;
           rows: number;
           activity?: 'thinking' | 'waiting' | 'idle' | null;
+          agentId?: string | null;
         } | null;
         legacy?: boolean;
       }[],
@@ -547,6 +548,56 @@ describe('useTerminalStore', () => {
       // reports live — not asleep just because it came from a legacy peer.
       const restored = state.sessions.find((s) => s.id === 's-legacy');
       expect(sessionPhase(restored!, state.states['s-legacy'])).toBe('live');
+    });
+
+    it('keeps every legacy row — recovered ones included — bound live and marked legacy', async () => {
+      mockBridge(
+        [
+          {
+            session: session('s-legacy-a'),
+            scrollback: new Uint8Array(),
+            live: { ptyId: 'pty-a', pid: 1, cols: 80, rows: 24 },
+            legacy: true,
+          },
+          {
+            // A row main rebuilt from the broker alone: home folder, no repo of its own.
+            session: { ...session('s-legacy-b'), title: 'me', cwd: '/Users/me', repoId: 'repo:/Users/me' },
+            scrollback: new Uint8Array(),
+            live: { ptyId: 'pty-b', pid: 2, cols: 80, rows: 24 },
+            legacy: true,
+          },
+        ],
+        vi.fn(),
+      );
+
+      await useTerminalStore.getState().hydrate();
+
+      const state = useTerminalStore.getState();
+      expect(state.sessions.map((s) => s.id)).toEqual(['s-legacy-a', 's-legacy-b']);
+      expect(state.legacy).toMatchObject({ 's-legacy-a': true, 's-legacy-b': true });
+      expect(state.ptyIds).toMatchObject({ 's-legacy-a': 'pty-a', 's-legacy-b': 'pty-b' });
+    });
+
+    it('seeds liveAgentId from live.agentId on hydrate', async () => {
+      mockBridge(
+        [
+          {
+            session: session('s-agent'),
+            scrollback: new Uint8Array(),
+            live: { ptyId: 'pty-agent', pid: 789, cols: 80, rows: 24, agentId: 'claude' },
+          },
+          {
+            session: session('s-shell'),
+            scrollback: new Uint8Array(),
+            live: { ptyId: 'pty-shell', pid: 790, cols: 80, rows: 24, agentId: null },
+          },
+        ],
+        vi.fn(),
+      );
+
+      await useTerminalStore.getState().hydrate();
+      expect(useTerminalStore.getState().liveAgentId['s-agent']).toBe('claude');
+      expect(useTerminalStore.getState().liveAgentId['s-shell']).toBeNull();
     });
   });
 });

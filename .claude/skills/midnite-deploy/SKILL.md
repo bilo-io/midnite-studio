@@ -7,68 +7,37 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, TodoWrite, 
 
 You are running the **deployment and release** pipeline for **Midnite Studio**. This skill combines release preparation (version analysis, changelog drafting, lockstep bumping) and release finalization (tagging, merging to main, pushing, and GitHub release creation) into one seamless workflow.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/release-prep.mjs [major|minor|patch|ephemeral]` for step 1, then `node scripts/skills/release-complete.mjs [ephemeral]` for step 3. The first prints the read-only plan, the second the precondition check; the irreversible steps run only with `--confirm vX.Y.Z` and `--verify vX.Y.Z` checks the result. The go/no-go gate in step 2 stays yours and the user's; never pass `--confirm` without it. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Release Policy & Constraints
 
+- **Two steps, one human gate.** A release is `release-prep.mjs` (reversible: branch, bumps, changelog, a release PR) → a human reviews that branch → `release-complete.mjs` (irreversible: tag, push, GitHub Release). This skill chains them and never collapses them. It never pushes `main` directly and never cuts a single `vX.Y.Z` tag by hand: the tag scheme (lockstep `vX.Y.Z`, a patch's scoped `pkg@X.Y.Z` tags plus a final plain tag) is `planReleaseTags`, run by the script.
 - **Lockstep rule:** Every workspace package shares the same `MAJOR.MINOR` version (e.g. `0.0.x`).
 - **Clean state:** Working tree must be clean before beginning.
-- **Verification:** `moon run :typecheck :lint :test && moon run root:version-check` must pass green.
-- **Confirmation:** Halts with a summary before irreversible steps (pushing tags or merging to main) unless `--auto` or explicit user confirmation is given.
+- **Verification:** the repo's release gate (`moon ci`, plus `moon run root:version-check`) must pass green; `release-complete.mjs` refuses without `--gate-confirmed`.
+- **Irreversible-step guards:** nothing tags or pushes without `--confirm vX.Y.Z` (the exact tag) after the human has reviewed the release branch; the plain `vX.Y.Z` tag is created last and pushed alone; a failed step stops the run and is never retried blindly. Merging the release PR stays a human step.
 
 ---
 
-## 1 · Analyze & Prepare
+## 1 · Prepare (reversible)
 
-1. **Check preconditions:**
-   - Ensure clean git status: `git status --porcelain` is empty.
-   - Fetch tags: `git fetch origin --tags --quiet`.
-   - Ensure up-to-date main: `git switch main && git pull --ff-only`.
-2. **Find last release & gather commits:**
-   - Base tag: `git describe --tags --abbrev=0 --match 'v*'` (or `previous = null` if no tags).
-   - Commits since base: `git log <base>..HEAD --no-merges --format='%H%x09%s%x09%b'`.
-   - PR context: query merged PRs via `gh pr list --state merged`.
-3. **Determine version bump:**
-   - Auto-detect bump level from conventional commits (`breaking` → major, `feat` → minor, `fix` → patch), or honor `$ARGUMENTS` override (`major`/`minor`/`patch`).
-   - Bump target version across `package.json` in root and all workspace packages (`packages/*`, `apps/*`).
-4. **Draft CHANGELOG.md:**
-   - Add new version header: `## [X.Y.Z] - YYYY-MM-DD`.
-   - Curate commits into Features, Fixes, Architecture, Documentation sections with PR links.
-5. **Verify Lockstep:**
-   - Run `node scripts/version-check.mjs`.
+1. Read the plan: `node scripts/skills/release-prep.mjs [major|minor|patch|ephemeral]` (read-only: preconditions, base tag, commits, bump level, next versions, tags, drafted changelog). An `$ARGUMENTS` bump overrides the detected level.
+2. Create the release branch: `node scripts/skills/release-prep.mjs [level] --apply` (creates `release/vX.Y.Z`, bumps every `package.json` in lockstep, writes the changelogs, runs version-check, commits `chore(release): prepare vX.Y.Z`).
+3. Push the branch and open the release PR as a draft; it is the human's review surface. Nothing has been tagged or merged.
 
 ---
 
-## 2 · Review & Go/No-Go Confirmation
+## 2 · Go/No-Go (human gate)
 
-Show the release plan:
-- Target version: `vX.Y.Z` (bump type: major/minor/patch).
-- Curated changelog preview.
-- List of packages bumped.
-- Pre-release gate results (`moon run :typecheck :lint :test`).
-
-Stop for user go-ahead via AskUserQuestion before executing irreversible steps.
+Show the release plan: target version `vX.Y.Z` and bump type, the curated changelog, the packages bumped, the tags `release-complete.mjs` would create, and the release gate result. Stop for the user's go-ahead via AskUserQuestion before any step below. Never pass `--confirm` without it.
 
 ---
 
-## 3 · Finalize & Publish
+## 3 · Finalize (irreversible)
 
-1. **Commit release:**
-   ```bash
-   git add package.json packages/*/package.json apps/*/package.json CHANGELOG.md
-   git commit -m "chore(release): vX.Y.Z"
-   ```
-2. **Tag release:**
-   ```bash
-   git tag -a "vX.Y.Z" -m "vX.Y.Z"
-   ```
-3. **Push to origin:**
-   ```bash
-   git push origin main
-   git push origin "vX.Y.Z"
-   ```
-4. **Publish GitHub Release:**
-   - Extract section from CHANGELOG for `X.Y.Z`.
-   - Run:
-     ```bash
-     gh release create "vX.Y.Z" --title "vX.Y.Z" --notes-file <notes_file>
-     ```
-5. Report released version, git tag, and GitHub Release URL to the user.
+1. Check and plan, changing nothing: `node scripts/skills/release-complete.mjs [ephemeral] --gate-confirmed`.
+2. After the go-ahead: `node scripts/skills/release-complete.mjs [ephemeral] --gate-confirmed --confirm vX.Y.Z` (tags and pushes; it prints the steps that landed).
+3. Merge the release PR by hand (a human step), cut the GitHub Release from the changelog section as `/midnite-release-complete` §4 describes, then verify: `node scripts/skills/release-complete.mjs --verify vX.Y.Z`.
+4. Report the released version, the git tags and the GitHub Release URL to the user.

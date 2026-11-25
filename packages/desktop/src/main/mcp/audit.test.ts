@@ -56,4 +56,19 @@ describe('the MCP call log over the trail', () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+
+  it("keeps the session id of a custom agent's call on the record and in the view (Phase 154)", async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'mcp-audit-'));
+    try {
+      const trail = createAgentAudit({ userData: dir });
+      configureMcpAudit(trail);
+      recordMcpCall({ at: Date.now(), tool: 'repo.list', repoPath: '/r', ok: true, ms: 2, sessionId: 'sess-1' });
+      await trail.flush();
+      const [record] = await trail.tail({ kind: 'mcp-call', limit: 1 });
+      expect(record?.sessionId).toBe('sess-1');
+      expect((await getMcpCallLog())[0]?.sessionId).toBe('sess-1');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });

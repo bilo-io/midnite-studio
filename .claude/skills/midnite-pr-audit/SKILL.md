@@ -1,23 +1,27 @@
 ---
 name: midnite-pr-audit
-description: Audit one or more Midnite Studio PRs against everything that asked for them — the user's original request, the phase doc, the GitHub issue and the PR's own claims — and show every contract the PR changes (IPC channels, shared zod schemas, persisted store shapes) as JSON, with real values from its tests. Read-only. Use when the user says "pr-audit", asks whether a PR "adheres to the spec", "does what the phase asked", "violates the original request", or wants to go through a phase's PRs one by one and "see the JSON".
+description: Audit one or more Midnite Studio PRs against everything that asked for them — the user's original request, the phase issue, the GitHub issue and the PR's own claims — and show every contract the PR changes (IPC channels, shared zod schemas, persisted store shapes) as JSON, with real values from its tests. Read-only. Use when the user says "pr-audit", asks whether a PR "adheres to the spec", "does what the phase asked", "violates the original request", or wants to go through a phase's PRs one by one and "see the JSON".
 argument-hint: "[PR numbers/URLs, or a phase/theme like '99 E' — one PR, or a pair that ships one change]"
 allowed-tools: Bash, Read, Glob, Grep
 ---
 
 Checks that a PR builds what was asked for, not just what its issue or theme says. A spec is
-paraphrased on the way down, from the user's words to the phase doc to the issue to the PR body,
+paraphrased on the way down, from the user's words to the phase issue to the issue to the PR body,
 and each paraphrase can drift. This skill reads every layer and reports where they part.
 
-**Read-only.** It posts nothing, commits nothing and touches no phase doc. Fixes are offered at the
+**Read-only.** It posts nothing, commits nothing and touches no phase issue. Fixes are offered at the
 end and made only when the user says so.
 
 **Conversation style.** Terse. No preamble, and no narrating the `gh` calls. The report is the
 five sections below, in that order, then the questions.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/pr-audit.mjs <pr> [--json]`. It lays out the four levels (phase issue and its theme sub-issues on the forge, linked issue, PR claims, diff) and the wire contract, and surfaces the mechanical mismatches. You still judge drift and whether each claim has evidence. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 1 · Scope
 
-- Take the PRs from `$ARGUMENTS`. A phase or theme (`99 E`) resolves through that phase doc's
+- Take the PRs from `$ARGUMENTS`. A phase or theme (`99 E`) resolves through that phase issue's
   `## Headlines` paragraph, which names the theme's PR.
 - **One PR at a time.** A pair is fine when the two ship one behaviour change. A bigger set means
   going one by one: audit the first, and offer the next.
@@ -32,7 +36,7 @@ Fetch them all before writing anything. The repo is `bilo-io/midnite-studio`. Wh
 | Layer | What it is | Where it lives |
 |---|---|---|
 | **L0 · Request** | the user's own words | this session's transcript (`~/.claude/projects/<cwd-slug>/<session>.jsonl`, the `type=="user"` entries), else the issue as the user first wrote it |
-| **L1 · Phase** | the theme's deliverables and its contract row | `.midnite/tasks/phases/phase-<N>-*.md`: `## Headlines`, `## Deliverables` (the `Contract` row), `## Verification` |
+| **L1 · Phase** | the theme's deliverables and its contract row | the `Phase <N>` issue and the theme sub-issue the PR closes: `## Headlines`, the deliverables (the `Contract` row), `## Verification` |
 | **L2 · Issue** | what the task promised | `gh pr view <n> --json closingIssuesReferences`, then `gh issue view <i> --json title,body,comments` |
 | **L3 · PR body** | what the author claims | `gh pr view <n> --json title,body,files,baseRefName,headRefName` |
 | **L4 · Code** | what actually ships | the PR's head in its worktree (`git worktree list`, under `.worktrees/`), or `gh pr diff <n>` |
@@ -76,8 +80,8 @@ The numbered findings. This is the part that matters. Look for:
 3. **Silent gaps.** Cases the code quietly skips, such as a platform, an empty state or a first run.
 4. **Claims without evidence.** L3 says "tested" or "unchanged" but L4 shows otherwise, or a test
    is named that does not exist.
-5. **Stale words.** Schema doc comments, code comments, the phase doc, `CLAUDE.md`, `AGENTS.md` or
-   `GEMINI.md` still describing the old behaviour.
+5. **Stale words.** Schema doc comments, code comments, the phase issue or `AGENTS.md`
+   still describing the old behaviour.
 6. **Ruled out, and done anyway.** Anything L0 said to keep, or a package boundary the diff crosses.
 
 Every finding says what the request said, what ships, the consequence, and whose call it is.

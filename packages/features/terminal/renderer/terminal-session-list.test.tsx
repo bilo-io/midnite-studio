@@ -1,13 +1,13 @@
 // vitest/jsdom: the list's per-app filter and its "Show all apps" toggle (Phase 123 Theme E), under the default host.
 import { createFrameChrome, FrameChromeProvider } from '@midnite/studio-frame';
-import type { TerminalSession } from '@midnite/studio-shared';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { BUILTIN_AGENTS, type TerminalSession } from '@midnite/studio-shared';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { __resetAppFilter } from './app-filter';
 import { createDefaultTerminalHost } from './default-host';
 import { TerminalHostProvider } from './host';
-import { TerminalSessionList } from './terminal-session-list';
+import { reorderSessionsByGroupOrder, TerminalSessionList } from './terminal-session-list';
 import { useTerminalStore } from './terminal-store';
 
 const row = (id: string, appId?: TerminalSession['appId']): TerminalSession => ({
@@ -42,9 +42,13 @@ beforeEach(() => {
       set,
       onChanged: () => () => undefined,
     },
+    terminal: {
+      save: vi.fn(),
+    },
   };
   useTerminalStore.setState({
     sessions: [row('own', 'browser'), row('studio-one'), row('mind-one', 'mind')],
+    liveCwd: {},
     activeId: null,
   });
 });
@@ -101,5 +105,409 @@ describe('openSession stamps the window’s app', () => {
     useTerminalStore.getState().setAppId('studio');
     const b = useTerminalStore.getState().openSession({ kind: 'shell', title: 'y', cwd: '/y', repoId: 'r' });
     expect('appId' in b).toBe(false);
+  });
+});
+
+describe('TerminalSessionList — per-repo accordions', () => {
+  const claude = BUILTIN_AGENTS.find((a) => a.id === 'claude')!;
+
+  const agentRow = (
+    id: string,
+    repoId: string,
+    title: string,
+    name: string,
+    opts?: { asleep?: boolean },
+  ): TerminalSession => ({
+    id,
+    kind: 'agent',
+    agentId: 'claude',
+    title,
+    name,
+    cwd: `/repos/${title}`,
+    repoId,
+    createdAt: 1,
+    ...(opts?.asleep ? { asleep: true } : {}),
+  });
+
+  it('groups active and sleeping sessions per repo and excludes dismissed sessions', () => {
+    useTerminalStore.setState({
+      sessions: [
+        agentRow('s1', 'repo:a', 'alpha', 'Fix bug'),
+        agentRow('s2', 'repo:b', 'beta', 'Add tests'),
+        agentRow('s3', 'repo:a', 'alpha', 'Sleeping work', { asleep: true }),
+      ],
+      states: { s1: 'open', s2: 'open', s3: 'exited' },
+      activity: { s1: 'thinking' },
+      activeId: 's1',
+    });
+
+    const { container } = render(
+      <FrameChromeProvider chrome={createFrameChrome().chrome}>
+        <TerminalHostProvider host={createDefaultTerminalHost('studio')}>
+          <TerminalSessionList agents={[claude]} width={220} />
+        </TerminalHostProvider>
+      </FrameChromeProvider>,
+    );
+
+    const alphaHeader = screen.getByRole('button', { name: 'Collapse alpha' });
+    const betaHeader = screen.getByRole('button', { name: 'Collapse beta' });
+    expect(alphaHeader.getAttribute('aria-expanded')).toBe('true');
+    expect(betaHeader.getAttribute('aria-expanded')).toBe('true');
+
+    const alphaBody = container.querySelector('[id="terminal-repo-/repos/alpha"]') as HTMLElement;
+    const betaBody = container.querySelector('[id="terminal-repo-/repos/beta"]') as HTMLElement;
+    expect(alphaBody.textContent).toContain('Fix bug');
+    expect(alphaBody.textContent).toContain('Sleeping work');
+    expect(betaBody.textContent).toContain('Add tests');
+
+    // Existing lifecycle states and activity indicator are preserved
+    expect(alphaBody.querySelectorAll('[data-phase="live"]')).toHaveLength(1);
+    expect(alphaBody.querySelectorAll('[data-phase="asleep"]')).toHaveLength(1);
+    expect(alphaBody.querySelector('[data-activity="thinking"]')).not.toBeNull();
+
+    // Dismissing a session removes it from its repo group
+    act(() => {
+      useTerminalStore.setState((state) => ({
+        sessions: state.sessions.filter((s) => s.id !== 's3'),
+      }));
+    });
+    expect(alphaBody.textContent).not.toContain('Sleeping work');
+  });
+
+  it('toggles collapse/expand when clicking a repo header and skips collapsed groups in keyboard nav', () => {
+    useTerminalStore.setState({
+      sessions: [
+        agentRow('s1', 'repo:a', 'alpha', 'First'),
+        agentRow('s2', 'repo:b', 'beta', 'Second'),
+        agentRow('s3', 'repo:c', 'gamma', 'Third'),
+      ],
+      states: { s1: 'open', s2: 'open', s3: 'open' },
+      activeId: 's1',
+    });
+
+    const { container } = render(
+      <FrameChromeProvider chrome={createFrameChrome().chrome}>
+        <TerminalHostProvider host={createDefaultTerminalHost('studio')}>
+          <TerminalSessionList agents={[claude]} width={220} />
+        </TerminalHostProvider>
+      </FrameChromeProvider>,
+    );
+
+    const betaHeader = screen.getByRole('button', { name: 'Collapse beta' });
+    fireEvent.click(betaHeader);
+    expect(screen.getByRole('button', { name: 'Expand beta' }).getAttribute('aria-expanded')).toBe('false');
+
+    const listEl = container.querySelector('[data-session-list]') as HTMLElement;
+    fireEvent.keyDown(listEl, { key: 'ArrowDown' });
+    expect(useTerminalStore.getState().activeId).toBe('s3');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand beta' }));
+    expect(screen.getByRole('button', { name: 'Collapse beta' }).getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('moves and merges sessions across folder accordions when liveCwd or cwd changes', () => {
+    useTerminalStore.setState({
+      sessions: [
+        { ...agentRow('s1', 'repo:a', 'alpha', 'First'), cwd: '/Users/dev/alpha/' },
+        { ...agentRow('s2', 'repo:b', 'beta', 'Second'), cwd: '/Users/dev/beta' },
+      ],
+      states: { s1: 'open', s2: 'open' },
+      activeId: 's1',
+    });
+
+    const { container } = render(
+      <FrameChromeProvider chrome={createFrameChrome().chrome}>
+        <TerminalHostProvider host={createDefaultTerminalHost('studio')}>
+          <TerminalSessionList agents={[claude]} width={220} />
+        </TerminalHostProvider>
+      </FrameChromeProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Collapse alpha' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Collapse beta' })).toBeTruthy();
+
+    // `cd /Users/dev/beta/` via OSC 7 merges s1 into beta's accordion
+    act(() => {
+      useTerminalStore.getState().setLiveCwd('s1', '/Users/dev/beta/');
+    });
+
+    expect(screen.queryByRole('button', { name: 'Collapse alpha' })).toBeNull();
+    const betaBody = container.querySelector('[id="terminal-repo-/Users/dev/beta"]') as HTMLElement;
+    expect(betaBody.textContent).toContain('First');
+    expect(betaBody.textContent).toContain('Second');
+
+    // `cd /Users/dev/gamma` creates a new open accordion with folder basename 'gamma'
+    act(() => {
+      useTerminalStore.getState().setLiveCwd('s1', '/Users/dev/gamma');
+    });
+
+    const gammaHeader = screen.getByRole('button', { name: 'Collapse gamma' });
+    expect(gammaHeader.getAttribute('aria-expanded')).toBe('true');
+    const gammaBody = container.querySelector('[id="terminal-repo-/Users/dev/gamma"]') as HTMLElement;
+    expect(gammaBody.textContent).toContain('First');
+    expect(betaBody.textContent).not.toContain('First');
+  });
+
+  it('opens a searchable flyout from a folder accordion + button without toggling it and creates a session in that folder', () => {
+    useTerminalStore.setState({
+      sessions: [
+        { ...agentRow('s1', 'repo:a', 'old-title', 'First'), cwd: '/Users/dev/alpha' },
+        { ...agentRow('s2', 'repo:b', 'beta', 'Second'), cwd: '/Users/dev/beta' },
+      ],
+      states: { s1: 'open', s2: 'open' },
+      activeId: 's2',
+    });
+
+    render(
+      <FrameChromeProvider chrome={createFrameChrome().chrome}>
+        <TerminalHostProvider host={createDefaultTerminalHost('studio')}>
+          <TerminalSessionList
+            agents={[claude]}
+            agentStatus={[{ id: 'claude', installed: true, resolvedPath: '/usr/local/bin/claude' }]}
+            width={220}
+          />
+        </TerminalHostProvider>
+      </FrameChromeProvider>,
+    );
+
+    const alphaHeader = screen.getByRole('button', { name: 'Collapse alpha' });
+    const addBtn = screen.getByRole('button', { name: 'New session in alpha' });
+    fireEvent.click(addBtn);
+
+    // Accordion stays expanded
+    expect(alphaHeader.getAttribute('aria-expanded')).toBe('true');
+
+    // Searchable flyout opens
+    const search = screen.getByPlaceholderText('Find a CLI…');
+    expect(search).toBeTruthy();
+
+    fireEvent.change(search, { target: { value: 'claude' } });
+    fireEvent.click(screen.getByRole('menuitem', { name: /Claude/ }));
+
+    const created = useTerminalStore.getState().sessions.find((s) => s.id !== 's1' && s.id !== 's2');
+    expect(created).toBeDefined();
+    expect(created?.cwd).toBe('/Users/dev/alpha');
+    expect(created?.title).toBe('alpha');
+    expect(created?.agentId).toBe('claude');
+  });
+
+  it('invokes host.onSelectRepo with liveCwd (falling back to session.cwd) when clicking a session row', () => {
+    const onSelectRepo = vi.fn();
+    const host = { ...createDefaultTerminalHost('studio'), onSelectRepo };
+
+    useTerminalStore.setState({
+      sessions: [
+        { ...row('s1', 'studio'), cwd: '/Users/dev/alpha', repoId: 'repo:a', title: 'alpha' },
+        { ...row('s2', 'studio'), cwd: '/Users/dev/beta', repoId: 'repo:b', title: 'beta' },
+      ],
+      liveCwd: { s2: '/Users/dev/gamma' },
+      states: { s1: 'open', s2: 'open' },
+      activeId: 's1',
+    });
+
+    render(
+      <FrameChromeProvider chrome={createFrameChrome().chrome}>
+        <TerminalHostProvider host={host}>
+          <TerminalSessionList agents={[]} width={220} />
+        </TerminalHostProvider>
+      </FrameChromeProvider>,
+    );
+
+    const rows = document.querySelectorAll('[data-session-row]');
+    fireEvent.click(rows[0]!);
+    expect(onSelectRepo).toHaveBeenCalledWith({ repoId: 'repo:a', cwd: '/Users/dev/alpha' });
+
+    fireEvent.click(rows[1]!);
+    expect(onSelectRepo).toHaveBeenCalledWith({ repoId: 'repo:b', cwd: '/Users/dev/gamma' });
+    expect(useTerminalStore.getState().activeId).toBe('s2');
+  });
+
+  it('renders detected repo favicon in the header when useRepoLogo returns a URL and falls back to LuFolderGit2 when null', () => {
+    const svgUrl = 'data:image/svg+xml;base64,PHN2Zy8+';
+    const host = {
+      ...createDefaultTerminalHost('studio'),
+      useRepos: () => [
+        {
+          id: 'repo-alpha',
+          name: 'alpha',
+          path: '/Users/dev/alpha',
+          worktrees: [],
+        } as never,
+      ],
+      useRepoLogo: (repoId: string | undefined) => (repoId === 'repo-alpha' ? svgUrl : null),
+    };
+
+    useTerminalStore.setState({
+      sessions: [
+        { ...row('s1', 'studio'), cwd: '/Users/dev/alpha', repoId: 'repo-alpha', title: 'alpha' },
+        { ...row('s2', 'studio'), cwd: '/Users/dev/beta', repoId: 'repo-beta', title: 'beta' },
+      ],
+      states: { s1: 'open', s2: 'open' },
+      activeId: 's1',
+    });
+
+    render(
+      <FrameChromeProvider chrome={createFrameChrome().chrome}>
+        <TerminalHostProvider host={host}>
+          <TerminalSessionList agents={[]} width={220} />
+        </TerminalHostProvider>
+      </FrameChromeProvider>,
+    );
+
+    const alphaHeader = screen.getByRole('button', { name: 'Collapse alpha' });
+    const alphaImg = alphaHeader.querySelector('[data-testid="terminal-repo-logo"]') as HTMLImageElement | null;
+    expect(alphaImg).not.toBeNull();
+    expect(alphaImg?.getAttribute('src')).toBe(svgUrl);
+    // Logo appears before the repo title span
+    const alphaTitle = alphaHeader.querySelector('span.truncate');
+    expect(alphaImg!.compareDocumentPosition(alphaTitle!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    const betaHeader = screen.getByRole('button', { name: 'Collapse beta' });
+    expect(betaHeader.querySelector('[data-testid="terminal-repo-logo"]')).toBeNull();
+    // Fallback icon SVG (chevron + LuFolderGit2 = 2 SVGs)
+    expect(betaHeader.querySelectorAll('svg')).toHaveLength(2);
+  });
+
+  it('reorderSessionsByGroupOrder reorders repo groups while preserving each group’s internal session order', () => {
+    const groups = [
+      {
+        repoId: '/repos/alpha',
+        items: [row('a1', 'studio'), row('a2', 'studio')],
+      },
+      {
+        repoId: '/repos/beta',
+        items: [row('b1', 'studio')],
+      },
+      {
+        repoId: '/repos/gamma',
+        items: [row('g1', 'studio'), row('g2', 'studio')],
+      },
+    ];
+
+    expect(reorderSessionsByGroupOrder(groups, ['/repos/gamma', '/repos/alpha', '/repos/beta'])).toEqual([
+      'g1',
+      'g2',
+      'a1',
+      'a2',
+      'b1',
+    ]);
+  });
+});
+
+describe('TerminalSessionList — the Loops group', () => {
+  const loopRow = (id: string, loopId: string): TerminalSession => ({
+    ...row(id),
+    kind: 'agent',
+    agentId: 'claude',
+    name: id,
+    loopId,
+  });
+
+  function renderWithLoopMark() {
+    const host = {
+      ...createDefaultTerminalHost('studio'),
+      LoopMark: ({ session }: { session: TerminalSession }) => (
+        <span data-testid="loop-mark">{session.loopId}</span>
+      ),
+    };
+    return render(
+      <FrameChromeProvider chrome={createFrameChrome().chrome}>
+        <TerminalHostProvider host={host}>
+          <TerminalSessionList agents={[...BUILTIN_AGENTS]} width={200} />
+        </TerminalHostProvider>
+      </FrameChromeProvider>,
+    );
+  }
+
+  beforeEach(() => {
+    useTerminalStore.setState({
+      sessions: [row('plain'), loopRow('guard-a', 'guard'), loopRow('guard-b', 'guard')],
+      states: {},
+      liveCwd: {},
+      activeId: null,
+    });
+  });
+
+  it('lists every loop session under one "Loops" header, two runs of the same loop side by side', () => {
+    renderWithLoopMark();
+    const group = screen.getByTestId('terminal-loops-group');
+    expect(group.textContent).toContain('Loops');
+    expect(group.textContent).toContain('guard-a');
+    expect(group.textContent).toContain('guard-b');
+    expect(group.textContent).not.toContain('plain');
+  });
+
+  it('draws agent mark, then loop mark, then the name', () => {
+    renderWithLoopMark();
+    const name = screen.getByText('guard-a');
+    const rowEl = name.closest('[data-session-row]') as HTMLElement;
+    const mark = rowEl.querySelector('[data-testid="loop-mark"]')!;
+    // The loop mark comes after the avatar and before the name.
+    expect(mark.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(rowEl.firstElementChild!.firstElementChild).not.toBe(mark);
+  });
+
+  it('labels an unrenamed loop row "Provider (model · effort) > folder"', () => {
+    const { name: _renamed, ...unnamed } = loopRow('guard-c', 'guard');
+    useTerminalStore.setState({
+      sessions: [{ ...unnamed, cwd: '/Users/me/Dev/midnite-studio', loopModel: 'opus-5-5', loopEffort: 'low' }],
+    });
+    renderWithLoopMark();
+    const label = screen.getByTestId('terminal-session-loop-label');
+    expect(label.textContent).toBe('Claude(Opus 5.5·low)midnite-studio');
+    expect(within(label).getByText('Claude').className).toContain('font-semibold');
+    expect(within(label).getByTestId('terminal-session-loop-model').parentElement!.className).toContain(
+      'text-muted-foreground',
+    );
+    const pill = within(label).getByTestId('terminal-session-loop-effort');
+    expect(pill.getAttribute('data-effort')).toBe('low');
+    expect(pill.className).toContain('emerald');
+  });
+
+  it("appends the agent's own title, cut to its gist, after another chevron", () => {
+    const { name: _renamed, ...unnamed } = loopRow('guard-f', 'guard');
+    useTerminalStore.setState({
+      sessions: [{ ...unnamed, cwd: '/Users/me/Dev/midnite-studio' }],
+      autoNames: { 'guard-f': 'Midnite build iteration across FEATURES, SECURITY, ISSUES' },
+    });
+    renderWithLoopMark();
+    const gist = screen.getByTestId('terminal-session-loop-description');
+    expect(gist.textContent).toBe('build iteration');
+    expect(gist.getAttribute('title')).toBe('Midnite build iteration across FEATURES, SECURITY, ISSUES');
+    expect(screen.getByTestId('terminal-session-loop-label').querySelectorAll('svg').length).toBe(3);
+  });
+
+  it('drops the brackets when the launch pinned neither model nor effort, and colours max red', () => {
+    const { name: _a, ...plain } = loopRow('guard-d', 'guard');
+    const { name: _b, ...maxed } = loopRow('guard-e', 'guard');
+    useTerminalStore.setState({
+      sessions: [
+        { ...plain, cwd: '/repos/bilo' },
+        { ...maxed, cwd: '/repos/bilo', loopEffort: 'max' },
+      ],
+    });
+    renderWithLoopMark();
+    const [first, second] = screen.getAllByTestId('terminal-session-loop-label');
+    expect(first!.textContent).toBe('Claudebilo');
+    expect(within(second!).getByTestId('terminal-session-loop-effort').className).toContain('red');
+  });
+
+  it('wears no arc while no loop session is live', () => {
+    renderWithLoopMark();
+    expect(screen.queryByTestId('terminal-loops-arc')).toBeNull();
+  });
+
+  it('orbits the group while a loop is live, expanded and collapsed alike', () => {
+    useTerminalStore.setState({ states: { 'guard-a': 'open' } });
+    renderWithLoopMark();
+    const orbit = screen.getByTestId('terminal-loops-arc');
+    expect(orbit.className).toContain('loops-group-orbit');
+    expect(orbit.className).not.toContain('tab-loop-active-arc');
+    expect(orbit.getAttribute('data-expanded')).toBe('true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse Loops' }));
+    const collapsed = screen.getByTestId('terminal-loops-arc');
+    expect(collapsed.className).toContain('loops-group-orbit');
+    expect(collapsed.getAttribute('data-expanded')).toBe('false');
   });
 });

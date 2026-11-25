@@ -1,3 +1,4 @@
+import { agentProfilesMain } from '@midnite/studio-feature-agent-profiles/main';
 import { apiClientMain } from '@midnite/studio-feature-api-client/main';
 import { browserMain } from '@midnite/studio-feature-browser/main';
 import { captureMain } from '@midnite/studio-feature-capture/main';
@@ -52,6 +53,7 @@ export const FEATURE_GATE_CHANNELS: Partial<Record<FeatureToggleId, readonly str
   tests: testsMain.channels,
   database: databaseMain.channels,
   'api-client': apiClientMain.channels,
+  agentProfiles: agentProfilesMain.channels,
   councils: councilsMain.channels,
   workflows: workflowsMain.channels,
   media: [
@@ -80,7 +82,8 @@ export const FEATURE_GATE_CHANNELS: Partial<Record<FeatureToggleId, readonly str
  * its manifests' `mcpTools`; Workflows' and the Companion's from their id prefixes (`defaultMcpToolOwner`'s table).
  */
 export const FEATURE_GATE_MCP_TOOLS: Partial<Record<FeatureToggleId, readonly string[]>> = {
-  media: MCP_TOOL_MANIFESTS.flatMap((m) => m.mcpTools),
+  // Startup's tools are Startup's (its own socket and consent), not Media's.
+  media: MCP_TOOL_MANIFESTS.filter((m) => m.owner !== 'startup').flatMap((m) => m.mcpTools),
   workflows: MCP_TOOL_IDS.filter((id) => id.startsWith('workflow_')),
   companion: MCP_TOOL_IDS.filter((id) => id.startsWith('companion_')),
 };

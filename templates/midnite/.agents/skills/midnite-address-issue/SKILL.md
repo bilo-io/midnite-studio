@@ -33,7 +33,7 @@ If `gh` says *"Could not resolve repository"*, the active `gh` account flipped; 
 
 ## Respect
 
-- The repo's convention file (`CLAUDE.md`, `AGENTS.md` or `GEMINI.md`) = conventions (package boundaries, commit style, pre-push gate), and its design doc, if it names one, is the source of truth. Re-read the relevant bits before coding.
+- The repo's convention file (`AGENTS.md`, which `CLAUDE.md` imports) = conventions (package boundaries, commit style, pre-push gate), and its design doc, if it names one, is the source of truth. Re-read the relevant bits before coding.
 - Parallel work → git worktrees in the repo-root **`.worktrees/<branch>/`** dir (git-ignored; **never** under `.git/` — that path gets pruned by parallel `git worktree` runs and some dev servers deny `.git/**`). Keep the primary checkout as home base; all multi-file work happens in the worktree.
 - **Every writing tool call must be rooted at the worktree path** — absolute paths rooted at the primary checkout silently edit the wrong tree, and the local gate then passes on stale code.
 - `.midnite/tasks/` is the *roadmap* tracker and is **not** the driver here — the issue board is. Only touch `.midnite/tasks/` if the fix happens to close out an existing phase item, and say so if it does.
@@ -161,7 +161,7 @@ for f in .worktrees/*/SCRATCHPAD.md; do [ -e "$f" ] && { echo "── $f"; sed -
 If one covers this task — or is stale enough to be dead — say so and **ask the human: resume that
 worktree, or start fresh?** Resuming means `cd`-ing into it, reading the whole scratchpad, and
 continuing from its **Next** line rather than re-deriving the work. Starting fresh means tearing
-the dead tree down first (`git worktree remove --force <path>`) so it can't be picked up twice.
+the dead tree down first (`scripts/skills/worktree-lifecycle.sh remove <slug>`, never `--force`; if it refuses a dirty tree, ask the human) so it can't be picked up twice.
 
 ```bash
 git fetch origin

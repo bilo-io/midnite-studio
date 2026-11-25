@@ -1,4 +1,5 @@
 import { agentHistoryReadsEnabled } from './settings-mirror';
+import { getAgentProfile } from '@midnite/studio-feature-agent-profiles/main';
 import { homedir } from 'node:os';
 
 import { buildAgentUsage } from '@midnite/studio-feature-monitor/main';
@@ -8,7 +9,8 @@ import { EVENT_CHANNELS, type AgentLimitResolveRequest } from '@midnite/studio-s
 import type { BrowserWindow } from 'electron';
 
 import { agentAuditTrail, recordAudit } from './agent-audit';
-import { agentLimitsSettingsReader, startAgentBreaker, type RunningAgentBreaker } from './agent-breaker';
+import { agentLimitsSettingsReader, startAgentBreaker, withHeadlessRuns, type RunningAgentBreaker } from './agent-breaker';
+import { studioHeadlessRuns } from './agent-profiles/headless-run-profiles';
 import { defaultLogger } from './log';
 import { getFindingsLedger } from './ipc/vanguard-handlers';
 import { killPty, livePtyFor, onSessionExit, writePty } from './pty-service';
@@ -28,19 +30,23 @@ export function startStudioAgentBreaker(options: { userData: string; getWindow: 
     raiseFinding: (finding) => getFindingsLedger().record(finding),
     emitTrip: (trip) => sendToLiveWindow(options.getWindow, EVENT_CHANNELS.agentLimitTripped, trip),
     // The same Ctrl+C write Vanguard's `pause-session` performs (vanguard-handlers.ts) — Phase 120 G reuses it.
+    // #1713: a headless run has no pty and no prompt to come back to, so interrupting it means stopping it.
     interrupt: async (sessionId) => {
       const live = livePtyFor(sessionId);
-      if (!live) return false;
+      if (!live) return studioHeadlessRuns().abort(sessionId);
       writePty(live.ptyId, INTERRUPT);
       return true;
     },
     stop: async (sessionId) => {
       const live = livePtyFor(sessionId);
-      if (!live) return false;
+      if (!live) return studioHeadlessRuns().abort(sessionId);
       killPty(live.ptyId);
       return true;
     },
-    session: agentSessionDetail,
+    // #1697: a headless run under a custom agent has no terminal row; its registration stands in for one.
+    session: withHeadlessRuns(agentSessionDetail, (runId) => studioHeadlessRuns().lookup(runId)),
+    // Phase 154 Theme G: a custom agent's limits apply within the 5 s cache above; a deleted one adds none.
+    profile: getAgentProfile,
     settings: agentLimitsSettingsReader(options.userData),
     usage: async (session) => {
       if (!agentHistoryReadsEnabled()) return null; // Phase 115 F: the Privacy switch stops transcript reads

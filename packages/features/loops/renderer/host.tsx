@@ -11,6 +11,7 @@ import {
 import type { ConnectionState, IconComponent } from '@midnite/studio-frame';
 import type {
   AgentDefinition,
+  AgentProfile,
   CompanionState,
   ContributorStat,
   CustomLoop,
@@ -32,8 +33,7 @@ import type {
  *
  * The loops package imports neither the terminal feature nor the companion
  * one (a feature may not import a feature). Where a loop reaches them it does
- * so through a slot here: `renderTerminal` draws a session's xterm,
- * `renderCompanionLauncher` the FAB's companion button, `startAgent` spawns
+ * so through a slot here: `renderCompanionLauncher` the FAB's companion button, `startAgent` spawns
  * the session a Start press runs in, and `useTerminal` is a narrow read of the
  * terminal store (the phase and activity of the session a loop owns).
  *
@@ -66,6 +66,9 @@ export type LoopsState = {
   setLoopChoice: (loopId: string, choiceId: string, optionId: string) => void;
   loopAgents: Record<string, string>;
   setLoopAgent: (loopId: string, agentId: string) => void;
+  /** #1699: loop id -> the custom agent it runs as. Absent in an app with no custom agents. */
+  loopAgentProfiles?: Record<string, string>;
+  setLoopAgentProfile?: (loopId: string, profileId: string | null) => void;
   loopModels: Record<string, LoopModel>;
   setLoopModel: (loopId: string, model: LoopModel) => void;
   loopSchedules: Record<string, LoopSchedule>;
@@ -99,15 +102,6 @@ export type LoopsTerminalState = {
   sleepSession: (sessionId: string) => unknown;
 };
 
-export type LoopsTerminalProps = {
-  sessionId: string;
-  /** The loop's tab is the visible one — an xterm behind it stays unfitted. */
-  active: boolean;
-  /** Bumped when the panel's own reveal settles, so the xterm refits once. */
-  fitSignal: number;
-  layoutClassName?: string;
-};
-
 /** What a Start press asks the terminal to run. */
 export type StartAgentInput = {
   repoId: string;
@@ -117,9 +111,25 @@ export type StartAgentInput = {
   agentId: string;
   command: string;
   extraArgs?: readonly string[];
-  surface: 'fab';
+  /**
+   * #1699: run as this custom agent (its prompt, model and tools) instead; `agentId` is its base. A host
+   * whose agent is gone by now starts `agentId` instead.
+   */
+  agentProfileId?: string;
+  /**
+   * The loop dispatching the session. It lists in the main terminal panel
+   * under the session list's "Loops" group — the Loops panel no longer draws
+   * an xterm of its own, so one loop can dispatch any number of sessions.
+   */
+  loopId: string;
+  /** The model and effort ids, stamped on the session for its row label. */
+  loopModel?: string;
+  loopEffort?: string;
   autoSend?: boolean;
 };
+
+/** What the provider picker shows of a custom agent. */
+export type LoopsAgentProfile = Pick<AgentProfile, 'id' | 'name' | 'baseAgentId' | 'accent' | 'icon'>;
 
 export type LoopsSelectOption = {
   id: string;
@@ -128,8 +138,12 @@ export type LoopsSelectOption = {
   icon?: IconComponent;
   iconColor?: string;
   hint?: string;
+  /** Drawn in place of the text (e.g. the effort pill); search still matches `label`. */
+  content?: ReactNode;
   isDisabled?: boolean;
   disabledReason?: string;
+  /** Consecutive options sharing a group get one header ("Your agents" first in the provider picker). */
+  group?: string;
 };
 
 export type LoopsIconSelectProps = {
@@ -222,7 +236,11 @@ export type LoopsHost = {
   terminalState: () => LoopsTerminalState;
   /** Resolves with the new session's id. */
   startAgent: (input: StartAgentInput) => Promise<string>;
-  renderTerminal: (props: LoopsTerminalProps) => ReactNode;
+  /**
+   * Bring one session forward in the app's terminal panel — where a loop's
+   * sessions live. Absent: a loop's notices open its Loops tab instead.
+   */
+  revealSession?: (sessionId: string) => void;
 
   renderCompanionLauncher: () => ReactNode;
   companion?: LoopsCompanionPort;
@@ -232,6 +250,11 @@ export type LoopsHost = {
 
   /** The roster and the repositories. */
   useAgents: () => { agents: readonly AgentDefinition[] };
+  /**
+   * #1699: the saved custom agents, listed first in the provider picker; `undefined` while loading. Absent
+   * in an app with no custom agents.
+   */
+  useAgentProfiles?: () => readonly LoopsAgentProfile[] | undefined;
   useRepos: () => { data: readonly RepoDescriptor[] | undefined };
   useKnownSkills: (repoId: string | null, enabled: boolean) => { data: readonly KnownSkill[] | undefined };
   useContributors: (repoId: string | null, enabled: boolean) => { data: readonly ContributorStat[] | undefined };

@@ -25,9 +25,10 @@ async function hasManifest(folder: string): Promise<boolean> {
  * Open Game (Phase 132 Theme A): resolve a picked folder to the root of the game it belongs to, or refuse
  * with a plain reason. A game is its own repository, so the root is the git work-tree top; picking `src/`
  * inside a game opens the game. An invalid manifest still resolves: the explorer lists it with its first
- * issue, which is how a user gets to fix one.
+ * issue, which is how a user gets to fix one. A repository with no manifest at all answers `needsManifest`
+ * (Phase 149 Theme F): Open Game proposes an inferred one instead of refusing.
  */
-export async function resolveGameFolder(path: string): Promise<GitOpResult<{ root: string }>> {
+export async function resolveGameFolder(path: string): Promise<GitOpResult<{ root: string; needsManifest?: true }>> {
   if (!isAbsolute(path)) return failure('Choose a full folder path.');
   const name = basename(resolve(path));
   if (!(await isDirectory(path))) return failure(`"${name}" is not a folder.`);
@@ -39,5 +40,6 @@ export async function resolveGameFolder(path: string): Promise<GitOpResult<{ roo
   if (await hasManifest(path)) {
     return failure(`"${name}" is inside the repository ${top}. Games are their own repositories — move it out, or open ${top} if that is the game.`);
   }
-  return failure(`No ${GAME_MANIFEST_FILE} in "${name}". Open Game adds an existing Midnite game; to start one, use New game.`);
+  // Phase 149 Theme F: a repository with no manifest is adopted, not refused: the caller proposes one.
+  return ok({ root: top, needsManifest: true });
 }

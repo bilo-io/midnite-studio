@@ -47,6 +47,7 @@ const LEGACY_VIEW_IDS = [
   'workflows',
   'media',
   'models',
+  'agents',
   'apiClient',
   'settings',
 ];
@@ -55,6 +56,7 @@ const LEGACY_SETTINGS_PAGE_IDS = [
   'appearance',
   'activity',
   'privacy',
+  'permissions',
   'graph',
   'diff',
   'sidebar',

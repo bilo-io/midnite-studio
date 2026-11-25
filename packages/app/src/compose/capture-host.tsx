@@ -85,6 +85,10 @@ export const STUDIO_CAPTURE_HOST: CaptureHost = {
     void requestHandoff({ app: 'agents', view: 'chats' });
   },
   prComment: STUDIO_CAPTURE_PR_COMMENT,
+  openPermissions: () => {
+    useUiStore.getState().setActiveView('settings');
+    useUiStore.getState().setSettingsPage('permissions');
+  },
   creator: {
     repo: selectedRepo,
     reveal: ({ repoId, project, path }) => {

@@ -38,6 +38,7 @@ export const RAIL_VIEW_IDS: readonly ViewId[] = [
   'actions',
   'reviews',
   'history',
+  'agents',
   'councils',
   'workflows',
   'media',

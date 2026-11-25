@@ -118,7 +118,14 @@ export {
   type RevealSize,
 } from './layout/use-reveal';
 export { __nowSubscriberCount, __nowTimerCount, useNow } from './lib/use-now';
-export { ExplorerGroup, ExplorerNotice, ExplorerSearch } from './layout/explorer';
+export {
+  ExplorerGroup,
+  ExplorerNotice,
+  ExplorerSearch,
+  groupItemsByRepo,
+  useCollapsedGroups,
+  type RepoGroup,
+} from './layout/explorer';
 export { StateDot, type DotState } from './layout/state-dot';
 export { TREE_INDENT } from './layout/tree-indent';
 export { LoadingRegion, Skeleton, Spinner as RingSpinner } from './layout/skeleton';
@@ -318,8 +325,16 @@ export { SettingsAccordion } from './settings/settings-section';
 export { SETTINGS_SECTIONS, settingsSectionId, type SettingsSection } from './settings/settings-sections';
 
 // The chrome port — chrome still implemented in packages/app, reached through context.
-export { FrameChromeProvider, useFrameChrome, useOptionalFrameChrome, type FrameChrome } from './chrome/chrome-port';
+export {
+  FrameChromeProvider,
+  useFrameChrome,
+  useOptionalFrameChrome,
+  type FrameChrome,
+  type PageDetachAction,
+  type PageDetachGuard,
+} from './chrome/chrome-port';
 export { FrameModal } from './chrome/frame-modal';
+export { KitContextMenu } from './kit/context-menu';
 export type {
   BlastRadius,
   BlastRadiusKind,
@@ -493,6 +508,7 @@ export {
 export { seedMonitorSample, suiteShellTestBridge } from './shell/suite-shell-test-bridge';
 export {
   createMonitorSegment,
+  type MonitorAction,
   type MonitorFlyoutProps,
   type MonitorSegmentOptions,
 } from './shell/status-bar/monitor/monitor-cluster';

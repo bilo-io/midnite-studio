@@ -24,6 +24,12 @@ export type OptimizerTab = 'smartScan' | 'storage' | 'memory' | 'system' | 'gpu'
 /** Generic over the result shape so Phase 73's system-cache scan can mirror
  *  this verbatim (`OptimizerScanState<SystemScanResult>`) without a second,
  *  drifting copy of the same {state, progress, result, message} shape. */
+/**
+ * The Memory tab's process filter (Phase 148 Theme B) — held here rather than in the tab so a caller
+ * outside it (the monitor flyout's Manage resources) can land the user on `lost` directly.
+ */
+export type MemoryFilter = 'all' | 'ours' | 'lost';
+
 export type OptimizerScanState<R = ScanResult> = {
   state: 'idle' | 'scanning' | 'done' | 'error';
   /** 0–100, driven by `optimizerScanProgress` events, not a timer. */
@@ -51,6 +57,9 @@ export type OptimizerState = {
   scanError: (message: string) => void;
   /** Clean removed this path — drop it from the rendered list without a re-scan. */
   removeScanItem: (path: string) => void;
+
+  memoryFilter: MemoryFilter;
+  setMemoryFilter: (memoryFilter: MemoryFilter) => void;
 
   processes: ProcessInfo[];
   setProcesses: (processes: ProcessInfo[]) => void;
@@ -133,6 +142,9 @@ export const useOptimizerStore = create<OptimizerState>((set) => ({
       };
     }),
 
+  memoryFilter: 'all',
+  setMemoryFilter: (memoryFilter) => set({ memoryFilter }),
+
   processes: [],
   setProcesses: (processes) => set({ processes }),
   removeProcess: (pid) =>
@@ -172,3 +184,14 @@ export const useOptimizerStore = create<OptimizerState>((set) => ({
   trashReady: (summary) => set({ trash: { status: 'ready', summary, message: null } }),
   trashFailed: (message) => set({ trash: { status: 'error', summary: null, message } }),
 }));
+
+/**
+ * Point the Optimizer at a tab (and, for Memory, a filter) before navigating to it — what a host
+ * calls ahead of its hand-off to the Optimizer view (Phase 148 Theme B).
+ */
+export function openOptimizerAt(target: { tab: OptimizerTab; memoryFilter?: MemoryFilter }): void {
+  useOptimizerStore.setState({
+    tab: target.tab,
+    ...(target.memoryFilter !== undefined ? { memoryFilter: target.memoryFilter } : {}),
+  });
+}

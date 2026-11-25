@@ -6,7 +6,6 @@ import {
   setActiveLoopsHost,
   type LoopsExtrasComposerProps,
   type LoopsHost,
-  type LoopsTerminalProps,
 } from '@midnite/studio-feature-loops/renderer';
 
 import {
@@ -24,40 +23,15 @@ import { Tooltip } from '../components/tooltip';
 import { useDismissable } from '../components/use-dismissable';
 import { openNotes } from '../features/notes/notes-window';
 import { useSetupStore } from '../features/setup/setup-store';
-import { LazyTerminalView } from '../features/terminal/lazy-terminal-view';
+import { revealSession } from '../features/terminal/reveal-session';
 import { startAgent } from '../features/terminal/start-agent';
-import { agentInitialInput } from '../features/terminal/terminal-panel';
 import { useTerminalStore } from '../features/terminal/terminal-store';
 import { useAgents } from '../features/terminal/use-agents';
-import { YieldedToSessionsPage } from '../features/terminal/yielded-to-sessions-page';
 import { appendDictation } from '../features/media/voice/use-voice-thread';
 import { useKnownSkills, useRepoStats, useRepos } from '../services/queries';
 import { useUiStore } from '../store/ui-store';
+import { startStudioLoopProfileSession, useStudioAgentProfilesForPicker } from './profile-pickers';
 import { STUDIO_CHROME } from './studio-chrome';
-
-/**
- * One loop's xterm, in Studio: the session's pending input (or the roster's
- * launch command) as its start input, and the Sessions page's placeholder when
- * that page's own live pane has claimed the session — one xterm per pty.
- */
-function StudioLoopTerminal({ sessionId, active, fitSignal, layoutClassName }: LoopsTerminalProps) {
-  const session = useTerminalStore((s) => s.sessions.find((row) => row.id === sessionId));
-  const pendingInput = useTerminalStore((s) => s.pendingInput[sessionId]);
-  const yielded = useTerminalStore((s) => s.sessionsPaneSessionId === sessionId);
-  const agents = useAgents();
-  if (!session) return null;
-  if (yielded) return <YieldedToSessionsPage sessionId={sessionId} layoutClassName={layoutClassName} />;
-  return (
-    <LazyTerminalView
-      key={session.id}
-      session={session}
-      active={active}
-      initialInput={pendingInput ?? agentInitialInput(agents.agents, session.agentId)}
-      fitSignal={fitSignal}
-      {...(layoutClassName !== undefined ? { layoutClassName } : {})}
-    />
-  );
-}
 
 function StudioExtrasComposer({ value, onChange, ...rest }: LoopsExtrasComposerProps) {
   const mic = useComposerMic({ onTranscript: (text) => onChange(appendDictation(value, text)) });
@@ -77,9 +51,27 @@ export const STUDIO_LOOPS_HOST = {
   useTerminal: (selector) => useTerminalStore(selector),
   terminalState: () => useTerminalStore.getState(),
   // `async` so a synchronous throw from `startAgent` is a rejection the caller can handle.
-  startAgent: async ({ extraArgs, ...input }) =>
-    startAgent({ ...input, ...(extraArgs !== undefined ? { extraArgs: [...extraArgs] } : {}) }).id,
-  renderTerminal: (props) => <StudioLoopTerminal {...props} />,
+  startAgent: async ({ extraArgs, agentProfileId, ...input }) => {
+    // #1699: a custom agent's own line; only a deleted one falls through to its base CLI below.
+    if (agentProfileId) {
+      const started = await startStudioLoopProfileSession({
+        profileId: agentProfileId,
+        baseAgentId: input.agentId,
+        repoId: input.repoId,
+        cwd: input.cwd,
+        title: input.title,
+        prompt: input.prompt,
+        loopId: input.loopId,
+        autoSend: input.autoSend === true,
+      });
+      if (started === null) throw new Error('The custom agent could not start.');
+      if (started !== 'missing') return started;
+    }
+    return startAgent({ ...input, ...(extraArgs !== undefined ? { extraArgs: [...extraArgs] } : {}) }).id;
+  },
+  revealSession: (sessionId) => {
+    revealSession(sessionId);
+  },
   renderCompanionLauncher: () => <CompanionLauncher />,
   companion: {
     useStatus: () => {
@@ -102,6 +94,7 @@ export const STUDIO_LOOPS_HOST = {
     open: () => useSetupStore.getState().openSetup(),
   },
   useAgents: () => useAgents(),
+  useAgentProfiles: useStudioAgentProfilesForPicker,
   useRepos: () => useRepos(),
   useKnownSkills: (repoId, enabled) => useKnownSkills(repoId, enabled),
   useContributors: (repoId, enabled) => {

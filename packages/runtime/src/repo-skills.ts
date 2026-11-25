@@ -29,7 +29,8 @@ const MAX_HEAD_BYTES = 16 * 1024;
  * agent's own copy is the one whose description is true for it.
  */
 export function skillSourceOrder(agentId: string | undefined): readonly SkillSource[] {
-  if (agentId === 'codex') return ['.codex', '.agents', '.claude'];
+  // Current Codex reads `.agents/skills`; `.codex` is kept as a fallback for repos set up before it moved.
+  if (agentId === 'codex') return ['.agents', '.codex', '.claude'];
   if (agentId === undefined || agentId === 'claude') return ['.claude', '.agents', '.codex'];
   return ['.agents', '.claude', '.codex'];
 }

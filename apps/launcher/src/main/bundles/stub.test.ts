@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { stubIdentity } from './layout';
 import { readPlistString } from './plist-stamp';
-import { execFileIo, planStub, readRuntimeFrameworks, runStubPlan, runtimeFromExecPath, verifyStub, type StubStep } from './stub';
+import { execFileIo, planStub, readRuntimeFrameworks, runStubPlan, runtimeFromExecPath, STUB_PLIST_REMOVE, verifyStub, type StubStep } from './stub';
 import { fakeIo, fakePayload, fakeRuntime } from './testing';
 
 let root: string;
@@ -36,6 +36,12 @@ async function plan(stubPath = join(root, 'stubs', 'Midnite Cleaner.app')): Prom
 /** Every path a step writes. */
 const written = (steps: StubStep[]): string[] =>
   steps.flatMap((s) => (s.kind === 'mkdir' ? [s.path] : s.kind === 'exec' ? [] : [s.to]));
+
+describe('STUB_PLIST_REMOVE', () => {
+  it('never strips a folder or library usage string, which a stub inherits from the launcher', () => {
+    expect(STUB_PLIST_REMOVE.filter((key) => /^NS.*UsageDescription$/.test(key))).toEqual([]);
+  });
+});
 
 describe('stubIdentity', () => {
   it('wears the suite prefix and a bundle id beside Studio’s and the launcher’s', () => {

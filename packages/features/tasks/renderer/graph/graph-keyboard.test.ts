@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ForgeGraph, ForgeGraphEdge, ForgeGraphNode } from '@midnite/studio-shared';
 
 import { moveAlongEdge, moveWithinRank } from './graph-keyboard';
-import { layoutForgeGraph } from './graph-layout';
+import { layoutForgeGraph } from '@midnite/tasks-core';
 
 function issueNode(number: number, overrides: Partial<ForgeGraphNode> = {}): ForgeGraphNode {
   return {

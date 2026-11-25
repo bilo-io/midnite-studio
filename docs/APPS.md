@@ -1,6 +1,6 @@
 # Midnite Apps — layers and placement
 
-[Phase 113](../.midnite/tasks/phases/phase-113-midnite-apps-suite-split.md) turns the launcher's tiles
+Phase 113 turns the launcher's tiles
 into separately installable apps that share one runtime. This page is the vocabulary and the placement
 map every later theme assumes. Its machine-readable twin is
 [`packages/shared/src/domain/placement.ts`](../packages/shared/src/domain/placement.ts); a vitest
@@ -148,6 +148,8 @@ shared ◀ frame ◀ feature/renderer ◀ app          shared ◀ runtime ◀ fe
 |---|---|---|---|
 | `@midnite/studio-runtime` | `packages/runtime` | The main-process contract every feature's main half registers against: `FeatureMainContext` (`ipc.handle`/`handleBare`, `emit`, `trashItem`), `defineFeatureMain`, `sendToLiveWindow`, and `createRecordingContext` for tests. Theme D's shared services: the one vault (`createVaultService` — three namespaces over the files Studio's three vaults wrote, each access made as a `RuntimeAppId`, `safeStorage` injected) and the pty broker client (`createBrokerService(...).attach(appId)`; the server that loads node-pty stays in desktop). The CLI/MCP server follows. | `shared`, `electron` |
 | `@midnite/studio-frame` | `packages/frame` | The renderer pieces every app wears. Today that is the bridge, the toast store, `DelayedFallback`/`Spinner`/`CONTENT_BOX`/`NavLockToggle` (taken out of `app.tsx`), the metrics primitives behind the status-bar monitor segment, the settings-section and switch-row primitives, `FilterInput` and `useWindowFocusGate`. It also defines the **chrome port**, described below. | `shared`, `react`, `@bilo-io/*`, `react-icons` |
+| **Pure cores** — `@midnite/tasks-core` | `packages/tasks-core` | Phase 146 Theme C. The Tasks derivations with no React, no electron and no DOM: board grouping (`deriveColumns`), graph layout and filter, filter, sort, status stroke, field colours, issue order and `rectsIntersect`. Desktop's Tasks feature and the mobile app (`apps/mobile`, [`docs/MOBILE.md`](MOBILE.md)) both import it. It sits beside `shared`, below the frame and every feature. Test fixtures are at `@midnite/tasks-core/testing`. | `shared` only |
+| **Pure cores** — `@midnite/forge-github-core` | `packages/forge-github-core` | Phase 146 Theme D. GitHub GraphQL query documents, response parsers and mutation builders with no React, no electron and no transport: parsers take the parsed `data` object, builders return `{ query, variables }`. Forge's main half runs them over `gh` (`…FromStdout` wrappers); the mobile app runs them over `fetch`. Built like git-engine (CJS `dist`, reached by forge main through a project reference). | `shared` only |
 | `@midnite/studio-feature-<name>` | `packages/features/<name>` | A single feature, as the three parts described under "The feature template". | the frame (renderer half), the runtime (main half), `shared` |
 
 The rule from [Vocabulary](#vocabulary), as code (modules, the layer between features and apps, are in [Modules and hosts](#modules-and-hosts)): **an app may import modules, features and the frame. A feature
@@ -346,7 +348,7 @@ A new suite app (`apps/<id>`) writes its composition, not its chrome:
 
 ## Modules and hosts
 
-[Phase 124](../.midnite/tasks/phases/phase-124-apps-into-modules.md) merged the apps that overlapped a
+Phase 124 merged the apps that overlapped a
 sibling into that sibling. The suite went from 19 catalog entries to 11 apps, and **every app is now a list
 of modules**.
 
@@ -701,6 +703,8 @@ three things a release needs to pack it as `midnite-cleaner-X.Y.Z-bundle.zip`: a
   operations with a plain "not available yet" message. Porting them behind runtime ports is Theme H3.
 
 ### Media: one folder, several packages, one tab registry (Phase 113 Theme Q)
+
+The games inside Media ▸ Games follow the [Midnite game standard](GAME_STANDARD.md) (Phase 149): the manifest, entry, kit, levels and assets a game needs for every Games feature to work.
 
 `media` is the one placement folder three apps share (Creator, Media, Gamer), so it is split into
 packages that never import each other — `FEATURE_PACKAGE_SPLITS` (`shared/src/domain/placement.ts`)

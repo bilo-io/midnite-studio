@@ -48,9 +48,6 @@ function pickInSelect(name: string, option: string): void {
 function renderComposer(overrides: Partial<Parameters<typeof LoopComposer>[0]> = {}) {
   const props = {
     loop: watchdog,
-    running: false,
-    waiting: false,
-    thinking: false,
     checked: {} as Record<string, boolean>,
     choiceIds: {} as Record<string, string>,
     agents: BUILTIN_AGENTS,
@@ -63,7 +60,6 @@ function renderComposer(overrides: Partial<Parameters<typeof LoopComposer>[0]> =
     reviewUsers: [] as readonly string[],
     contributorOptions: [],
     autoRotatePercent: 30,
-    repeat: true,
     disabled: false,
     disabledReason: undefined,
     onToggle: vi.fn(),
@@ -76,7 +72,6 @@ function renderComposer(overrides: Partial<Parameters<typeof LoopComposer>[0]> =
     onSchedule: vi.fn(),
     onExtras: vi.fn(),
     onStart: vi.fn(),
-    onStop: vi.fn(),
     ...overrides,
   };
   return { props, ...render(<LoopComposer {...props} />) };
@@ -166,6 +161,31 @@ describe('LoopComposer — idle', () => {
     expect(props.onModel).toHaveBeenCalledWith('opus-5');
   });
 
+  it('offers effort as a type-to-filter select whose rows and chip are RAG pills', () => {
+    const onEffort = vi.fn();
+    renderComposer({ effort: 'medium', onEffort });
+
+    // The chosen value wears its pill: medium is amber.
+    const section = combobox('Effort').closest('[class*="control"]')?.parentElement ?? document.body;
+    const chip = within(section as HTMLElement).getByTestId('loop-effort-pill');
+    expect(chip.getAttribute('data-effort')).toBe('medium');
+    expect(chip.className).toContain('amber');
+
+    // Typing filters the rows, and each row is a pill too.
+    fireEvent.change(combobox('Effort'), { target: { value: 'hi' } });
+    const rows = screen.getAllByRole('option');
+    expect(rows.map((row) => row.textContent)).toEqual(['high', 'xhigh']);
+    expect(within(rows[0]!).getByTestId('loop-effort-pill').className).toContain('red');
+
+    fireEvent.click(rows[0]!);
+    expect(onEffort).toHaveBeenCalledWith('high');
+  });
+
+  it('has no effort select without an onEffort handler', () => {
+    renderComposer();
+    expect(screen.queryByRole('combobox', { name: 'Effort' })).toBeNull();
+  });
+
   it('reports a provider by roster id, and offers every roster agent', () => {
     const { props } = renderComposer();
     fireEvent.mouseDown(combobox('Provider'));
@@ -173,6 +193,35 @@ describe('LoopComposer — idle', () => {
 
     pickInSelect('Provider', 'Codex');
     expect(props.onAgent).toHaveBeenCalledWith('codex');
+  });
+
+  it('lists your custom agents first, under their own heading, and reports one by its id (#1699)', () => {
+    const { props } = renderComposer({
+      profiles: [{ id: 'profile-rev', name: 'Reviewer', baseAgentId: 'claude', accent: '#ff0000' }],
+    });
+    fireEvent.mouseDown(combobox('Provider'));
+    const rows = screen.getAllByRole('option').map((row) => row.textContent);
+    expect(rows[0]).toBe('Reviewer');
+    expect(screen.getByText('Your agents')).not.toBeNull();
+    fireEvent.click(screen.getByRole('option', { name: 'Reviewer' }));
+    expect(props.onAgent).toHaveBeenCalledWith('profile-rev');
+  });
+
+  it("names a custom agent on the heading and hands model and effort to it (#1699)", () => {
+    renderComposer({
+      profiles: [{ id: 'profile-rev', name: 'Reviewer', baseAgentId: 'claude', accent: '#ff0000' }],
+      agentProfileId: 'profile-rev',
+      onEffort: vi.fn(),
+    });
+    expect(screen.getAllByText('Reviewer').length).toBeGreaterThan(0);
+    // A disabled `react-select` hides its input from the a11y tree (see the --model test below).
+    expect((document.querySelector('input[aria-label="Model"]') as HTMLInputElement).disabled).toBe(true);
+    expect((document.querySelector('input[aria-label="Effort"]') as HTMLInputElement).disabled).toBe(true);
+  });
+
+  it('says when the custom agent it was set to has been deleted (#1699)', () => {
+    renderComposer({ profileNotice: 'Your custom agent was deleted, so this loop runs as Claude.' });
+    expect(screen.getByRole('status').textContent).toContain('was deleted');
   });
 
   it('collapses the model select to Default for a provider that takes no --model', () => {
@@ -335,11 +384,35 @@ describe('LoopComposer — idle', () => {
     expect(props.onStart).not.toHaveBeenCalled();
   });
 
-  it('starts from the extras Send, with no second Start button beside it', () => {
+  it('starts from the extras Send', () => {
     const { props } = renderComposer();
-    expect(screen.queryByTestId('loop-start')).toBeNull();
     fireEvent.click(screen.getByTestId('loop-extras-send'));
     expect(props.onStart).toHaveBeenCalledOnce();
+  });
+
+  it('starts from the wide rainbow button under the extras box too', () => {
+    const { props } = renderComposer();
+    const start = screen.getByTestId('loop-start');
+    expect(start.className).toContain('brand-gradient-button');
+    expect(start.className).toContain('w-full');
+    expect(start.textContent).toContain(`Start ${watchdog.label}`);
+    fireEvent.click(start);
+    expect(props.onStart).toHaveBeenCalledOnce();
+  });
+
+  it('disables the wide button with the reason when there is nowhere to run', () => {
+    const { props } = renderComposer({ disabled: true, disabledReason: 'Select a repository first.' });
+    const start = screen.getByTestId('loop-start') as HTMLButtonElement;
+    expect(start.disabled).toBe(true);
+    expect(start.title).toBe('Select a repository first.');
+    fireEvent.click(start);
+    expect(props.onStart).not.toHaveBeenCalled();
+  });
+
+  it('never turns into a running strip — there is no Stop in the panel', () => {
+    renderComposer();
+    expect(screen.queryByTestId('loop-stop')).toBeNull();
+    expect(screen.getByPlaceholderText('Extra instructions…')).not.toBeNull();
   });
 
   it('puts Send and Mic inside the extras box, bottom-left', () => {
@@ -349,13 +422,6 @@ describe('LoopComposer — idle', () => {
     expect(box.contains(controls)).toBe(true);
     expect(controls.contains(screen.getByTestId('loop-extras-mic'))).toBe(true);
     expect(controls.contains(screen.getByTestId('loop-extras-send'))).toBe(true);
-  });
-
-  it('keeps Stop inline in the running strip rather than full width', () => {
-    renderComposer({ running: true });
-    const stop = screen.getByTestId('loop-stop');
-    expect(stop.className).not.toContain('w-full');
-    expect(stop.className).not.toContain('loop-start-gradient');
   });
 });
 
@@ -431,87 +497,6 @@ describe('LoopComposer — accordions', () => {
     const rows = tasks.querySelectorAll('[data-loop-option]');
     expect(rows).toHaveLength(watchdog.modifiers.filter((m) => m.group === 'tasks').length);
     for (const row of rows) expect(within(row as HTMLElement).getAllByRole('switch')).toHaveLength(1);
-  });
-});
-
-describe('LoopComposer — running', () => {
-  const checked = { [boxes[0]!.id]: true };
-
-  it('collapses to chips: the composer inputs are gone, the checked labels remain', () => {
-    renderComposer({ running: true, checked });
-    expect(screen.queryByPlaceholderText('Extra instructions…')).toBeNull();
-    expect(screen.queryByRole('switch')).toBeNull();
-    expect(screen.queryByRole('radio')).toBeNull();
-    expect(screen.getByText(boxes[0]!.label)).not.toBeNull();
-  });
-
-  it('says so plainly when a run carries nothing but the defaults', () => {
-    renderComposer({ running: true, checked: {} });
-    expect(screen.getByText('Running with defaults')).not.toBeNull();
-  });
-
-  it('names the non-neutral choices, the model and the window it is running under', () => {
-    // Everything that reached the command line, not just the boxes: a run on
-    // Opus inside an overnight window is a different run from the default one.
-    renderComposer({
-      running: true,
-      checked: {},
-      choiceIds: { 'pr-scope': 'mine', autonomy: 'recommended' },
-      model: 'opus-5',
-      schedule: { enabled: true, from: '22:00', to: '06:00' },
-    });
-    expect(screen.getByText('Mine')).not.toBeNull();
-    expect(screen.getByText('Recommended')).not.toBeNull();
-    expect(screen.getByText('Opus 5')).not.toBeNull();
-    expect(screen.getByText('22:00–06:00')).not.toBeNull();
-  });
-
-  it('drops the model chip for a provider that never carried the flag', () => {
-    // Pick Opus under Claude, switch to Codex, Start: the command line has no
-    // `--model` at all, so a chip claiming one would have the strip and the
-    // section heading disagreeing about what the run costs.
-    renderComposer({ running: true, checked, agentId: 'codex', model: 'opus-5' });
-    expect(screen.queryByText('Opus 5')).toBeNull();
-    // The provider itself is a chip, though — it is not the loop's declared one.
-    expect(screen.getByText('Codex')).not.toBeNull();
-  });
-
-  it('says nothing about a neutral choice, a default model or an unarmed schedule', () => {
-    renderComposer({
-      running: true,
-      checked: {},
-      choiceIds: { 'pr-scope': 'all', autonomy: 'ask' },
-      model: 'default',
-      schedule: { enabled: false, from: '09:00', to: '17:00' },
-    });
-    expect(screen.getByText('Running with defaults')).not.toBeNull();
-  });
-
-  it('swaps Start for Stop and reports the press', () => {
-    const { props } = renderComposer({ running: true, checked });
-    expect(screen.queryByTestId('loop-start')).toBeNull();
-    fireEvent.click(screen.getByTestId('loop-stop'));
-    expect(props.onStop).toHaveBeenCalledOnce();
-  });
-
-  it('wears the steady ring while live but idle — motion means working', () => {
-    renderComposer({ running: true, checked });
-    const stop = screen.getByTestId('loop-stop');
-    expect(stop.className).toContain('loop-run-glow');
-    expect(stop.className).not.toContain('is-thinking');
-    expect(stop.className).not.toContain('is-waiting');
-  });
-
-  it('breathes while the agent is thinking', () => {
-    renderComposer({ running: true, thinking: true, checked });
-    expect(screen.getByTestId('loop-stop').className).toContain('is-thinking');
-  });
-
-  it('goes steady amber while waiting on the user, outranking thinking', () => {
-    renderComposer({ running: true, waiting: true, thinking: true, checked });
-    const stop = screen.getByTestId('loop-stop');
-    expect(stop.className).toContain('is-waiting');
-    expect(stop.className).not.toContain('is-thinking');
   });
 });
 
@@ -633,21 +618,6 @@ describe('LoopComposer — run options', () => {
     const { container } = renderComposer();
     expect(screen.queryByRole('switch', { name: 'Loop' })).toBeNull();
     expect(container.querySelector('[data-testid="loop-repeat-row"]')).toBeNull();
-  });
-
-  it('chips a chosen skill, the users, an off-default rotate and a once-off run', () => {
-    renderComposer({
-      running: true,
-      checked: { 'pr-review': true },
-      skills: { 'pr-review': 'midnite-pr-review' },
-      reviewUsers: ['alice', 'bob'],
-      autoRotatePercent: 50,
-      repeat: false,
-    });
-    expect(screen.getByText('Review PRs · /midnite-pr-review')).not.toBeNull();
-    expect(screen.getByText('Users: alice, bob')).not.toBeNull();
-    expect(screen.getByText('Rotate at 50%')).not.toBeNull();
-    expect(screen.getByText('Once-off')).not.toBeNull();
   });
 });
 

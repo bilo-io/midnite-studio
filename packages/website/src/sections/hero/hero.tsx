@@ -58,7 +58,7 @@ const PHRASES: readonly TypewriterPhrase[] = [
  * `bare` on the `Section`, because this one owns its own height and padding.
  */
 export const Hero = () => (
-  <Section id="hero" label="Midnite Apps" bare className="relative isolate overflow-hidden">
+  <Section id="hero" label="Midnyte Apps" bare className="relative isolate overflow-hidden">
     <div
       aria-hidden="true"
       className="absolute inset-0 -z-10"
@@ -81,7 +81,7 @@ export const Hero = () => (
             className="ws-neon h-14 w-14 rounded-[1rem]"
           />
 
-          <Eyebrow>Midnite Apps · macOS on Apple silicon</Eyebrow>
+          <Eyebrow>Midnyte Apps · macOS on Apple silicon</Eyebrow>
 
           {/* One `<h1>`: the wordmark names the product, the typewriter says what it is for. */}
           <h1 className="text-4xl font-semibold tracking-tight text-fg sm:text-6xl">

@@ -185,6 +185,11 @@ export interface VaultService {
   lock(reason?: string): void;
   unlock(proof?: unknown): boolean | Promise<boolean>;
   onLockedChange(listener: (locked: boolean) => void): () => void;
+  /**
+   * Fires once, at the vault's first real operation (the moment integrity verification, and with it
+   * the keychain, is first reached). Fires immediately when that has already happened.
+   */
+  onFirstAccess(listener: () => void): () => void;
   /** Fires after any entry is set or deleted in any namespace (Phase 115 Theme C: refreshes the write-scrubber's values). */
   onEntriesChanged(listener: () => void): () => void;
   readonly recentUnlockAt: number | null;
@@ -284,8 +289,47 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
 
   const breachChecker = createBreachChecker(directory);
 
-  // Verify on startup and start watcher
-  void integrity.verifyAll();
+  // Integrity verification reads the HMAC key, which on macOS is a keychain access. It therefore
+  // runs on the first real vault operation (memoised), never at construction: a boot that touches
+  // no secret must not prompt. Every entry point awaits it before serving anything, so a tampered
+  // file still locks the vault before the first read is answered.
+  const firstAccessListeners = new Set<() => void>();
+  let verification: Promise<void> | null = null;
+  // Audit writes re-baseline the audit file's HMAC (and read the key), so none may happen before
+  // verifyAll has judged the files. A lock before first access queues its line here.
+  let verified = false;
+  const pendingAudit: Parameters<typeof audit.log>[0][] = [];
+  const logAudit = (record: Parameters<typeof audit.log>[0]) => {
+    if (verified) void audit.log(record);
+    else pendingAudit.push({ ...record, t: Date.now() });
+  };
+  // The file watcher stays armed from construction, so a vault-file write before first access
+  // still runs verifyFile (a keychain read). That is deliberate: tamper detection must not wait.
+  const ensureVerified = (): Promise<void> => {
+    if (!verification) {
+      // Memoise before notifying: a listener that reads the vault re-enters here and must find it.
+      verification = integrity
+        .verifyAll()
+        .then(
+          () => false,
+          () => true,
+        )
+        .then((failed) => {
+          // A verification that could not run fails closed.
+          if (failed) lock('integrity verification failed');
+          verified = true;
+          for (const record of pendingAudit.splice(0)) void audit.log(record);
+        });
+      for (const listener of firstAccessListeners) {
+        try {
+          listener();
+        } catch {
+          // A listener must never fail a vault operation.
+        }
+      }
+    }
+    return verification;
+  };
   integrity.startWatch();
 
   const stores = new Map<VaultNamespace, SecureJsonStore<StoredEntry>>();
@@ -334,6 +378,7 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
   const isAvailable = (): boolean => cipher.isEncryptionAvailable();
 
   const internalRead = async (namespace: VaultNamespace, key: string): Promise<string | null> => {
+    await ensureVerified();
     const held = sessionOnly.get(namespace)?.get(key);
     if (held !== undefined) return held;
     const entry = await storeFor(namespace).get(key);
@@ -348,11 +393,26 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
       locked = true;
       recentUnlockAt = null;
       for (const listener of lockListeners) listener(true);
-      void audit.log({ op: 'lock', app: 'vault', principal: 'system', result: 'ok', reason });
+      logAudit({ op: 'lock', app: 'vault', principal: 'system', result: 'ok', reason });
     }
   };
 
   const unlock = async (proof?: unknown): Promise<boolean> => {
+    const firstVerification = verification === null;
+    await ensureVerified();
+    if (firstVerification && integrity.getTamperedFile() !== null) {
+      // Tamper found by this very call: refuse this unlock. The tamper audit line re-baselines the
+      // audit file, so a later unlock can still succeed (as on main); the forgery stays recorded in
+      // the audit log rather than being prevented.
+      logAudit({
+        op: 'unlock-failed',
+        app: 'vault',
+        principal: 'user',
+        result: 'failed',
+        reason: `Tamper detected in ${integrity.getTamperedFile()}`,
+      });
+      return false;
+    }
     if (integrity.getTamperedFile() !== null) {
       const check = await integrity.verifyAll();
       if (!check.valid) {
@@ -427,6 +487,7 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
     namespace: VaultNamespace,
     key: string,
   ): Promise<{ ok: true; value: string } | { ok: false; error: string }> => {
+    await ensureVerified();
     if (locked) {
       await audit.log({ op: 'reveal', namespace, id: key, app: 'vault', principal: 'user', result: 'locked' });
       return { ok: false, error: 'Vault is locked' };
@@ -466,6 +527,7 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
     clipboard: ClipboardAdapter,
     options?: { timeoutSeconds?: number },
   ): Promise<{ ok: boolean; error?: string; timeoutSeconds?: number }> => {
+    await ensureVerified();
     if (locked) {
       await audit.log({ op: 'copy', namespace, id: key, app: 'vault', principal: 'user', result: 'locked' });
       return { ok: false, error: 'Vault is locked' };
@@ -517,12 +579,14 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
       isAvailable,
 
       has: async (namespace, key) => {
+        await ensureVerified();
         if (!allowed(namespace, key, 'read')) return false;
         if (sessionOnly.get(namespace)?.has(key)) return true;
         return (await storeFor(namespace).get(key)) !== null;
       },
 
       read: async (namespace, key): Promise<VaultRead> => {
+        await ensureVerified();
         if (locked) {
           await audit.log({ op: 'get', namespace, id: key, app: appId, principal: 'guest', result: 'locked' });
           return { ok: false, kind: 'locked' };
@@ -553,6 +617,7 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
       },
 
       set: async (namespace, key, value, setOptions) => {
+        await ensureVerified();
         demand(namespace, key, 'write');
         const spec = VAULT_NAMESPACES[namespace];
         const fingerprint = setOptions?.fingerprint;
@@ -575,6 +640,7 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
       },
 
       delete: async (namespace, key) => {
+        await ensureVerified();
         demand(namespace, key, 'delete');
         sessionOnly.get(namespace)?.delete(key);
         await storeFor(namespace).delete(key);
@@ -583,12 +649,14 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
       },
 
       keys: async (namespace) => {
+        await ensureVerified();
         const ids = new Set(await storeFor(namespace).keys());
         for (const id of sessionOnly.get(namespace)?.keys() ?? []) ids.add(id);
         return [...ids].filter((id) => allowed(namespace, id, 'read'));
       },
 
       fingerprint: async (namespace, key) => {
+        await ensureVerified();
         if (!allowed(namespace, key, 'read')) return null;
         return (await storeFor(namespace).get(key))?.fingerprint ?? null;
       },
@@ -598,6 +666,7 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
         key: string,
         fn: (secret: Buffer) => Promise<T> | T,
       ): Promise<T | null> => {
+        await ensureVerified();
         if (locked) {
           await audit.log({ op: 'get', namespace, id: key, app: appId, principal: 'guest', result: 'locked' });
           return null;
@@ -633,6 +702,20 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
     lock,
     unlock,
     onLockedChange,
+    onFirstAccess: (listener) => {
+      if (verification) {
+        try {
+          listener();
+        } catch {
+          // A listener must never fail a vault operation.
+        }
+        return () => {};
+      }
+      firstAccessListeners.add(listener);
+      return () => {
+        firstAccessListeners.delete(listener);
+      };
+    },
     onEntriesChanged: (listener) => {
       entryListeners.add(listener);
       return () => {

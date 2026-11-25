@@ -7,6 +7,10 @@ The "when is it done" view. Rows, gathering and the shared vocabulary come from
 [`midnite-sitrep`](../midnite-sitrep/SKILL.md) §1–§3. Read it first. **Read-only:** the timeline
 proposes waves. It launches nothing.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/sitrep.mjs timeline [--cap N] [--pr 12,13 | --input rows.json]`. It schedules the waves under the cap and marks the critical path. You still explain the schedule and any assumption behind an ETA. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## Build it
 
 1. **Edges.** Take the hard edges exactly as
@@ -15,7 +19,7 @@ proposes waves. It launches nothing.
 2. **Durations.**
    - A live row's remaining time is its ETA.
    - A row not started is sized from this session's *observed* pace for the same effort tag
-     (S / M / L in a phase doc): build time plus a real CI run, plus the merge.
+     (S / M / L in a phase issue): build time plus a real CI run, plus the merge.
    - Only with no observation at all, fall back to the tag (S ≈ 1h, M ≈ 2h, L ≈ 4h end to end) and
      say so under the chart.
 3. **Schedule.**

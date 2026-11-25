@@ -55,6 +55,11 @@ export type MediaPaneTogglesProps = {
   hasDetail: boolean;
   explorerName?: string;
   detailName?: string;
+  /**
+   * Draw one toggle inline, in the caller's own flow, instead of both floating over the content: `start` is the
+   * explorer's, `end` the detail's. Games puts them at the ends of its tab bar so they never cover a tab.
+   */
+  side?: 'start' | 'end';
 };
 
 export type MediaProjectsAccordionProps = {

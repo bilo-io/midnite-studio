@@ -1,9 +1,10 @@
 import { createContext, useContext, useLayoutEffect, type ComponentType, type ReactElement, type ReactNode } from 'react';
 
 import type { IconComponent } from '@midnite/studio-frame';
-import type { ActivityStatus, AgentDefinition, RepoDescriptor, SuiteAppId } from '@midnite/studio-shared';
+import type { ActivityStatus, AgentDefinition, AgentProfile, RepoDescriptor, SuiteAppId, TerminalSession } from '@midnite/studio-shared';
 import type { ITheme } from '@xterm/xterm';
 
+import type { PrepareProfileLaunch } from './profile-launch';
 import type { TerminalFontSettings } from './terminal-font';
 import { useTerminalStore } from './terminal-store';
 
@@ -59,6 +60,8 @@ export type TerminalPanelActions = {
    */
   revealSession?: (sessionId: string) => void;
   /** The session row's commit count, clicked: show those commits. Absent: the count is not a button. */
+  /** Opens Settings ▸ Permissions (the previous-build notice's link). Absent: the notice has no link. */
+  openPermissions?: () => void;
   showSessionCommits?: (sessionId: string, shas: readonly string[]) => void;
 };
 
@@ -91,6 +94,11 @@ export type TerminalAgentAvatarProps = {
   ollamaBacked?: boolean;
 };
 
+export type TerminalLoopMarkProps = {
+  /** The session the loop dispatched; carries `loopId` (or, for a row from before it existed, `surface: 'fab'`). */
+  session: TerminalSession;
+};
+
 export type TerminalHost = {
   /** The app this window belongs to; every session it opens is stamped with it. */
   appId: SuiteAppId;
@@ -105,6 +113,10 @@ export type TerminalHost = {
   actions: TerminalPanelActions;
   /** The registered repositories, for naming a session's path. A hook. */
   useRepos: () => readonly RepoDescriptor[] | undefined;
+  /** Detected favicon/logo data URL for a registered repository, or `null`. A hook. */
+  useRepoLogo?: (repoId: string | undefined) => string | null;
+  /** Switch the app's selected repository to match a clicked session. Absent: clicking a row does not switch repos. */
+  onSelectRepo?: (target: { repoId?: string; cwd?: string }) => void;
   /**
    * The xterm theme for the resolved light/dark mode, or `undefined` for the
    * feature's built-in fallback. Read on every theme change.
@@ -122,11 +134,29 @@ export type TerminalHost = {
   Popover: ComponentType<TerminalPopoverProps>;
   AgentAvatar: ComponentType<TerminalAgentAvatarProps>;
   /**
+   * The loop mark (its icon, in its colour) for a session a loop dispatched —
+   * drawn between the agent mark and the name in the "Loops" group. The
+   * terminal feature cannot import the loops feature, so the app supplies it.
+   * Absent, or `null` for an unknown loop: the row shows no mark.
+   */
+  LoopMark?: ComponentType<TerminalLoopMarkProps>;
+  /**
    * In a popped-out terminal window, the title-bar slots the header portals
    * into; `null` in a docked panel. Hooks.
    */
   usePopoutHeaderActions: () => HTMLDivElement | null;
   usePopoutHeaderLeading: () => HTMLDivElement | null;
+  /**
+   * The saved custom agents (Phase 154 Theme F), for the `+` menu's "Your agents" section and each
+   * session's chrome. A hook. Studio only: absent, there is no section and every session wears its base
+   * CLI's look.
+   */
+  useAgentProfiles?: () => AgentProfile[];
+  /**
+   * Asks main for a custom agent's typed line and the launch id that binds its private MCP socket.
+   * `null` on a failed envelope, which the host has already reported. Studio only.
+   */
+  prepareProfileLaunch?: PrepareProfileLaunch;
 };
 
 const TerminalHostContext = createContext<TerminalHost | null>(null);

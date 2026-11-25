@@ -5,7 +5,7 @@ import {
   type ForgeProjectItem,
 } from '@midnite/studio-shared';
 
-import { sortByUpdated } from './issue/issue-order';
+import { sortByUpdated } from '@midnite/tasks-core';
 
 /**
  * The built-in "Repo issues" source — Tasks' stand-in for the Issues view it

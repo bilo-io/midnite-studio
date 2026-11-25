@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LuGitBranch } from 'react-icons/lu';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { LuGitBranch, LuInfo, LuX } from 'react-icons/lu';
 
-import type { Chat, ChatAttachment, ChatMode, ChatWidthMode } from '@midnite/studio-shared';
+import { getProviderSyncTier, type Chat, type ChatAttachment, type ChatMode, type ChatWidthMode } from '@midnite/studio-shared';
 
 import { decisionsFor } from './chat-changes';
 import { ChatChangesModal } from './chat-changes-modal';
@@ -10,10 +10,10 @@ import { ChatEmptyState } from './chat-empty-state';
 import { ChatThread } from './chat-thread';
 import { ChatWidthToggle } from './chat-width-toggle';
 import { isStreaming, useChatsStore } from './chats-store';
-import { pickEngine, useChatEngines, wireModel, type ChatEngine } from './use-chat-engines';
+import { engineWire, pickEngine, useChatEngines, wireModel, type ChatEngine } from './use-chat-engines';
 import { useChatFiles, useChatSkills } from './use-composer-sources';
 import { CHAT_COLUMN, CHAT_GUTTER, ExplorerNotice, useFrameChrome, useToastStore } from '@midnite/studio-frame';
-import { Tooltip } from './ui';
+import { IconButton, Tooltip } from './ui';
 import { useChatsHost } from './host';
 
 /**
@@ -29,7 +29,7 @@ const NEW_KEY = '__new__';
 
 type DraftText = { text: string; attachments: ChatAttachment[] };
 
-export function ChatPane({ selectedId }: { selectedId: string | null }) {
+export function ChatPane({ selectedId, headerActions }: { selectedId: string | null; headerActions?: ReactNode }) {
   const chat = useChatsStore((s) => (selectedId === null ? undefined : s.chats[selectedId]));
   const loadError = useChatsStore((s) => s.loadError);
   const draft = useChatsStore((s) => s.draft);
@@ -47,6 +47,8 @@ export function ChatPane({ selectedId }: { selectedId: string | null }) {
   const [focusToken, setFocusToken] = useState(0);
   const [reviewing, setReviewing] = useState<string | null>(null);
   const [resolving, setResolving] = useState<string | null>(null);
+  // Chats whose one-way handoff banner was dismissed; kept for as long as the pane lives.
+  const [handoffDismissed, setHandoffDismissed] = useState<ReadonlySet<string>>(() => new Set());
 
   // Park the outgoing chat's draft, restore the incoming one's.
   const previousKey = useRef(key);
@@ -84,12 +86,16 @@ export function ChatPane({ selectedId }: { selectedId: string | null }) {
   const repoOptions = useMemo(() => (repos.data ?? []).map((r) => ({ id: r.id, name: r.name })), [repos.data]);
 
   const settings: ChatSettings = useMemo(() => {
-    if (chat) return { engine: chat.engine, model: chat.model, mode: chat.mode, repoId: chat.repoId };
-    const engine = pickEngine(engines, draft.engine, primaryAgent);
+    if (chat) {
+      // A chat whose custom agent is gone shows (and, in main, runs as) its base CLI.
+      const profileEngine = chat.agentProfileId ? engines.find((e) => e.id === chat.agentProfileId) : undefined;
+      return { engine: profileEngine?.id ?? chat.engine, model: chat.model, mode: chat.mode, repoId: chat.repoId };
+    }
+    const engine = pickEngine(engines, draft.agentProfileId ?? draft.engine, primaryAgent);
     return { engine: engine?.id ?? null, model: draft.model, mode: draft.mode, repoId: draft.repoId };
   }, [chat, draft, engines, primaryAgent]);
   const engine = engines.find((e) => e.id === settings.engine) ?? null;
-  const skills = useChatSkills(settings.engine, settings.repoId);
+  const skills = useChatSkills(engine?.profile?.baseAgentId ?? settings.engine, settings.repoId);
   const files = useChatFiles(settings.repoId, chat?.id ?? null);
 
   const onSettingsChange = useCallback(
@@ -117,7 +123,15 @@ export function ChatPane({ selectedId }: { selectedId: string | null }) {
     setAttachments([]);
     drafts.current.delete(key);
     // A brand-new chat has no engine until the first send resolves the default.
-    if (!chat && useChatsStore.getState().draft.engine === null && engine) useChatsStore.getState().setDraft({ engine: engine.id, model: wireModel(engine, settings.model) });
+    // A brand-new chat is created from the draft, so make it say what the picker shows (a deleted custom agent
+    // left in the draft must not be sent).
+    if (!chat && engine) {
+      const wire = engineWire(engine);
+      const draftNow = useChatsStore.getState().draft;
+      if (draftNow.engine === null || draftNow.engine !== wire.engine || draftNow.agentProfileId !== wire.agentProfileId) {
+        useChatsStore.getState().setDraft({ ...wire, model: wireModel(engine, settings.model) });
+      }
+    }
     void useChatsStore
       .getState()
       .sendMessage({ text: sent.text, ...(sent.attachments.length > 0 ? { attachments: sent.attachments } : {}) })
@@ -257,12 +271,41 @@ export function ChatPane({ selectedId }: { selectedId: string | null }) {
   return (
     <section className="relative flex min-h-0 min-w-0 flex-1 flex-col" aria-label={chat ? chat.title : 'New chat'} data-testid="chat-pane">
       {chat ? (
-        <ChatHeader chat={chat} engine={engine} streaming={streaming} widthMode={widthMode} onWidthModeChange={setWidthMode} />
+        <ChatHeader
+          chat={chat}
+          engine={engine}
+          streaming={streaming}
+          widthMode={widthMode}
+          onWidthModeChange={setWidthMode}
+          headerActions={headerActions}
+        />
       ) : selectedId === null ? (
         // No header before the first message: the toggle keeps its top-right seat over the new-chat
         // screen. Not over "Opening chat…" or a load error — there is no thread to size there.
-        <div className="absolute right-4 top-2 z-10">
+        <div className="absolute right-4 top-2 z-10 flex items-center gap-2">
           <ChatWidthToggle mode={widthMode} onChange={setWidthMode} />
+          {headerActions}
+        </div>
+      ) : headerActions ? (
+        <header className="flex shrink-0 items-center justify-end gap-2 border-b border-border px-4 py-1.5 text-xs">
+          {headerActions}
+        </header>
+      ) : null}
+      {chat && chat.linkedTerminalId && getProviderSyncTier(chat.engine) === 'handoff-only' && !handoffDismissed.has(chat.id) ? (
+        <div
+          data-testid="chat-handoff-only-banner"
+          className="flex shrink-0 items-center gap-2 border-b border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-900 dark:text-amber-200"
+        >
+          <LuInfo aria-hidden className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <span role="status">Interactive Terminal turns are not synced back into this Chat thread.</span>
+          <span className="ml-auto">
+            <IconButton
+              icon={LuX}
+              label="Dismiss handoff notice"
+              size="sm"
+              onClick={() => setHandoffDismissed((prev) => new Set(prev).add(chat.id))}
+            />
+          </span>
         </div>
       ) : null}
       {body}
@@ -273,11 +316,16 @@ export function ChatPane({ selectedId }: { selectedId: string | null }) {
 }
 
 /** A picker selection → the wire patch: an engine change resets the model to that engine's default. */
-function normalise(patch: Partial<ChatSettings>, engines: readonly ChatEngine[]): { engine?: string; model?: string | null; mode?: ChatMode; repoId?: string | null } {
-  const out: { engine?: string; model?: string | null; mode?: ChatMode; repoId?: string | null } = {};
+function normalise(
+  patch: Partial<ChatSettings>,
+  engines: readonly ChatEngine[],
+): { engine?: string; agentProfileId?: string | null; model?: string | null; mode?: ChatMode; repoId?: string | null } {
+  const out: { engine?: string; agentProfileId?: string | null; model?: string | null; mode?: ChatMode; repoId?: string | null } = {};
   if (patch.engine !== undefined && patch.engine !== null) {
-    out.engine = patch.engine;
     const next = engines.find((e) => e.id === patch.engine);
+    // A custom agent goes over the wire as its base CLI plus its id.
+    if (next) Object.assign(out, engineWire(next));
+    else out.engine = patch.engine;
     out.model = next ? wireModel(next, patch.model ?? null) : null;
   } else if (patch.model !== undefined) {
     out.model = patch.model;
@@ -293,12 +341,14 @@ function ChatHeader({
   streaming,
   widthMode,
   onWidthModeChange,
+  headerActions,
 }: {
   chat: Chat;
   engine: ChatEngine | null;
   streaming: boolean;
   widthMode: ChatWidthMode;
   onWidthModeChange: (mode: ChatWidthMode) => void;
+  headerActions?: ReactNode;
 }) {
   return (
     <header className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-1.5 text-xs">
@@ -307,6 +357,7 @@ function ChatHeader({
       </h2>
       <span className="shrink-0 text-muted-foreground">
         {engine?.label ?? chat.engine}
+        {chat.agentProfileId && engine?.profile === undefined ? ' (custom agent deleted)' : ''}
         {chat.repoName ? ` · ${chat.repoName}` : ''}
       </span>
       {chat.worktree ? <WorktreeChip chat={chat} worktree={chat.worktree} /> : null}
@@ -315,7 +366,10 @@ function ChatHeader({
           Answering…
         </span>
       ) : null}
-      <ChatWidthToggle mode={widthMode} onChange={onWidthModeChange} className="ml-auto" />
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <ChatWidthToggle mode={widthMode} onChange={onWidthModeChange} />
+        {headerActions}
+      </div>
     </header>
   );
 }

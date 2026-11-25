@@ -92,6 +92,11 @@ export const COMMANDS = [
   { id: 'terminal.toggleDock', label: 'Dock Terminal to Bottom / Right', group: 'terminal' },
   { id: 'terminal.focus', label: 'Focus Terminal', group: 'terminal' },
   /**
+   * Chord-free escape hatch for WebGL glyph-atlas corruption: clears the glyph
+   * atlas and repaints every mounted terminal. See `xterm-atlas-guard.ts`.
+   */
+  { id: 'terminal.repaint', label: 'Repaint Terminals', group: 'terminal' },
+  /**
    * `Mod+w` closes whichever session is selected (with the same "still
    * running" confirm the session list's own close button shows). `app`
    * scope, same reasoning as `repos.toggle`: it needs no reach through
@@ -113,6 +118,21 @@ export const COMMANDS = [
    */
   { id: 'terminal.new', label: 'New Terminal', group: 'terminal', chord: 'Mod+t' },
   { id: 'terminal.close', label: 'Close Terminal', group: 'terminal', chord: 'Mod+w' },
+  /**
+   * Chord-free: a rare repair, not a reflex. Re-adopts every live session in any broker (a previous
+   * build's included) and rebuilds the rows `terminals.json` lost, so detached agents list again.
+   */
+  { id: 'terminal.recoverDetached', label: 'Recover Detached Sessions', group: 'terminal' },
+  /**
+   * Chord-free (Phase 148 Theme E): the monitor flyout's Clean system. Scans the Optimizer's system
+   * caches and the broker directory's leftovers, then asks one confirm before anything is removed.
+   */
+  { id: 'system.cleanSystem', label: 'Clean System', group: 'view' },
+  /**
+   * Chord-free (Phase 148 Theme C): the monitor flyout's Free RAM. Lists previous-build sessions, lost
+   * brokers, hidden tabs and renderer caches, then asks one confirm before anything is ended.
+   */
+  { id: 'system.freeRam', label: 'Free RAM', group: 'view' },
   /**
    * Mod+g ("G" for Git). `app` scope, unlike the terminal toggle: showing the
    * repository list while the terminal has focus is not something you reach

@@ -9,7 +9,7 @@ import {
 } from 'react';
 
 import type { IconComponent } from '@midnite/studio-frame';
-import type { AgentDefinition, AgentStatus, ChatWidthMode, FileDiff, RepoDescriptor } from '@midnite/studio-shared';
+import type { AgentDefinition, AgentProfile, AgentStatus, ChatWidthMode, FileDiff, RepoDescriptor } from '@midnite/studio-shared';
 
 /**
  * The chats feature's host port — what this feature needs from the app that
@@ -212,8 +212,10 @@ export type ChatsHost = {
   useThreadWidth: () => ChatsThreadWidth;
   /** The agent roster and what main could learn about it on this machine. A hook. */
   useAgentRoster: () => { agents: AgentDefinition[]; status: AgentStatus[] };
-  /** The agent the app treats as primary — the default engine. A hook. */
+  /** The agent the app treats as primary — the default engine. A hook. A custom agent's id when one is chosen. */
   usePrimaryAgent: () => string;
+  /** The saved custom agents (Phase 154), offered first in the engine picker. A hook; empty where they cannot run. */
+  useAgentProfiles: () => readonly Pick<AgentProfile, 'id' | 'name' | 'baseAgentId' | 'accent' | 'description'>[];
   /** The local-model daemon: whether it answers, and the names of the models it has. A hook. */
   useLocalModels: () => { reachable: boolean; models: string[] };
   /** The account "You" is shown as. A hook. */
@@ -224,6 +226,8 @@ export type ChatsHost = {
   CompanionToggle?: ComponentType;
   /** Takes the graph to a chat's worktree. Absent where the app has no graph. */
   openWorkingCopyInGraph?: (target: { repoId: string; worktreePath: string }) => void;
+  /** Switch the app's selected repository to match a clicked chat. Absent: clicking a chat does not switch repos. */
+  onSelectRepo?: (target: { repoId?: string; cwd?: string }) => void;
 };
 
 const ChatsHostContext = createContext<ChatsHost | null>(null);

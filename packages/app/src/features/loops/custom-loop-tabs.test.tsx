@@ -59,7 +59,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const panel = () => <FabPanel isOpen={true} width={400} fitSignal={0} />;
+const panel = () => <FabPanel isOpen={true} width={400} />;
 
 describe('the "+" tab', () => {
   it('sits left of Guard, outside the scrolling strip, labelled "New loop"', () => {

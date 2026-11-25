@@ -26,11 +26,13 @@ import {
   type WorkflowTriggerOn,
   type WorkflowVerifyCheck,
   type WorkflowVerifyConfig,
+  type AgentProfile,
 } from '@midnite/studio-shared';
 import { LuPlus, LuTrash2 } from 'react-icons/lu';
 
 import { DemoApiQuickFill } from './demo-api-quick-fill';
 import { Field, SelectField, SwitchRow, TextArea, TextField } from '@midnite/studio-frame';
+import { useOptionalWorkflowsHost } from '../host';
 import { IconButton } from '../ui';
 
 /**
@@ -323,13 +325,118 @@ export function JoinForm({ node, onChange }: NodeFormProps) {
   );
 }
 
+const NO_PROFILES: readonly Pick<AgentProfile, 'id' | 'name' | 'baseAgentId'>[] = [];
+/** The picker's value for "a roster agent, by id" — never a profile id, which always starts `profile-`. */
+const ROSTER_AGENT = '';
+
+/** The agent half of an `agent` node, a router's agent-label mode and a verify agent check. */
+type AgentRef = { agentId: string; agentProfileId?: string; model?: string };
+
 /**
  * Phase 95 Theme J. `agentId` is a plain text field rather than a roster
  * picker — the roster (`BUILTIN_AGENTS`/`agents.json`) is a runtime fact
  * about the host this form has no access to (it lives behind
  * `terminal-service.ts` in main), and validating it is `validateWorkflow`'s
- * job at run time, not this form's at edit time.
+ * job at run time, not this form's at edit time. Your custom agents (#1699)
+ * come through the host and are offered first; picking one stores it beside
+ * its base agent, which is what runs once the agent is deleted. The one picker
+ * serves every agent-running node (#1713): the agent node, a router's agent-label
+ * mode and a verify agent check.
  */
+function AgentRefFields({
+  value,
+  onChange,
+  agentHint,
+  withModel,
+}: {
+  value: AgentRef;
+  /** The fields to set; an `agentProfileId` of `undefined` clears it. */
+  onChange: (patch: Partial<AgentRef>) => void;
+  agentHint: string;
+  /** The agent node alone has an optional `--model` field. */
+  withModel: boolean;
+}) {
+  const host = useOptionalWorkflowsHost();
+  // `undefined` until the list has loaded: a saved custom agent is not called deleted before then.
+  const loaded = host?.useAgentProfiles?.();
+  const profiles = loaded ?? NO_PROFILES;
+  const profileId = value.agentProfileId;
+  const profile = profileId ? profiles.find((entry) => entry.id === profileId) : undefined;
+  // An app with no custom-agents port (the Agents app) cannot run a custom agent at all (#1713).
+  const unavailable = profileId !== undefined && host !== null && host.useAgentProfiles === undefined;
+  // #1699: a deleted custom agent runs as its roster agent; the form says so rather than failing silently.
+  const deleted = profileId !== undefined && loaded !== undefined && profile === undefined;
+  const showPicker = profiles.length > 0 || profileId !== undefined;
+  const pick = (next: string) => {
+    if (next === ROSTER_AGENT) {
+      onChange({ agentProfileId: undefined });
+      return;
+    }
+    const chosen = profiles.find((entry) => entry.id === next);
+    if (chosen) onChange({ agentProfileId: chosen.id, agentId: chosen.baseAgentId, model: undefined });
+  };
+
+  return (
+    <>
+      {showPicker ? (
+        <Field label="Run as" hint="One of your agents (its prompt, model and tools), or a roster agent by id.">
+          <select
+            aria-label="Run as"
+            value={profileId ?? ROSTER_AGENT}
+            onChange={(event) => pick(event.target.value)}
+            className="w-full rounded-md border border-input bg-background px-1.5 py-1 text-xs outline-none focus:ring-1 focus:ring-ring"
+          >
+            {/* "Your agents" first, as in every agent picker. */}
+            {profiles.length > 0 ? (
+              <optgroup label="Your agents">
+                {profiles.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.name}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
+            {deleted ? <option value={profileId}>Deleted agent</option> : null}
+            {unavailable ? <option value={profileId}>Custom agent (unavailable here)</option> : null}
+            <optgroup label="Roster">
+              <option value={ROSTER_AGENT}>Roster agent (by id)</option>
+            </optgroup>
+          </select>
+        </Field>
+      ) : null}
+      {deleted ? (
+        <p role="status" className="text-xs text-amber-600 dark:text-amber-400">
+          This custom agent was deleted, so the node runs as {value.agentId || 'its roster agent'}.
+        </p>
+      ) : null}
+      {unavailable ? (
+        <p role="status" className="text-xs text-amber-600 dark:text-amber-400">
+          This app has no custom agents, so the node runs as {value.agentId || 'its roster agent'}, not as the saved agent.
+        </p>
+      ) : null}
+      {profile ? null : (
+        <Field label="Agent" hint={agentHint}>
+          <TextField label="Agent" value={value.agentId} onChange={(agentId) => onChange({ agentId })} placeholder="claude" />
+        </Field>
+      )}
+      {withModel && !profile ? (
+        <Field label="Model" hint="Optional — the agent's own --model flag, when it has one.">
+          <TextField label="Model" value={value.model ?? ''} onChange={(model) => onChange({ model: model || undefined })} />
+        </Field>
+      ) : null}
+    </>
+  );
+}
+
+const EMPTY_ROUTER_AGENT = { agentId: '', prompt: '' };
+
+/** Merges an {@link AgentRef} patch into a config, dropping `agentProfileId` rather than storing it as `undefined`. */
+function withAgentRef<T extends AgentRef>(config: T, patch: Partial<AgentRef>): T {
+  const next = { ...config, ...patch };
+  if (next.agentProfileId === undefined) delete next.agentProfileId;
+  return next;
+}
+
 export function AgentForm({ node, onChange, onInterpolatableFocus }: NodeFormProps) {
   if (node.kind !== 'agent') return null;
   const config = node.config;
@@ -337,9 +444,12 @@ export function AgentForm({ node, onChange, onInterpolatableFocus }: NodeFormPro
 
   return (
     <>
-      <Field label="Agent" hint="A roster agent id, e.g. claude, codex, agy — whatever is installed and logged in.">
-        <TextField label="Agent" value={config.agentId} onChange={(agentId) => update({ agentId })} placeholder="claude" />
-      </Field>
+      <AgentRefFields
+        value={config}
+        onChange={(patch) => onChange({ ...node, config: withAgentRef(config, patch) })}
+        agentHint="A roster agent id, e.g. claude, codex, agy — whatever is installed and logged in."
+        withModel
+      />
       <Field label="Prompt" hint="What to ask the agent to do. The node completes once it prints a done marker and goes idle.">
         <TextArea
           label="Prompt"
@@ -350,9 +460,6 @@ export function AgentForm({ node, onChange, onInterpolatableFocus }: NodeFormPro
             onInterpolatableFocus({ value: config.prompt, onChange: (prompt) => update({ prompt }), el: event.currentTarget })
           }
         />
-      </Field>
-      <Field label="Model" hint="Optional — the agent's own --model flag, when it has one.">
-        <TextField label="Model" value={config.model ?? ''} onChange={(model) => update({ model: model || undefined })} />
       </Field>
     </>
   );
@@ -436,14 +543,12 @@ export function VerifyForm({ node, onChange, onInterpolatableFocus }: NodeFormPr
 
       {config.check === 'agent' ? (
         <>
-          <Field label="Agent" hint="A roster agent id — ideally different from the agent that produced the work it checks.">
-            <TextField
-              label="Agent"
-              value={config.agentId}
-              onChange={(agentId) => onChange({ ...node, config: { ...config, agentId } })}
-              placeholder="claude"
-            />
-          </Field>
+          <AgentRefFields
+            value={config}
+            onChange={(patch) => onChange({ ...node, config: withAgentRef(config, patch) })}
+            agentHint="A roster agent id — ideally different from the agent that produced the work it checks."
+            withModel={false}
+          />
           <Field label="Prompt" hint="What to ask the checking agent to grade. Completes on its own done marker.">
             <TextArea
               label="Prompt"
@@ -748,25 +853,23 @@ export function RouterForm({ node, onChange, onInterpolatableFocus }: NodeFormPr
       </Field>
       {config.mode === 'agent-label' ? (
         <>
-          <Field label="Agent" hint="A roster agent id, e.g. claude, codex, agy — whatever is installed and logged in.">
-            <TextField
-              label="Agent"
-              value={config.agent?.agentId ?? ''}
-              onChange={(agentId) => update({ agent: { agentId, prompt: config.agent?.prompt ?? '', model: config.agent?.model } })}
-              placeholder="claude"
-            />
-          </Field>
+          <AgentRefFields
+            value={config.agent ?? EMPTY_ROUTER_AGENT}
+            onChange={(patch) => update({ agent: withAgentRef(config.agent ?? EMPTY_ROUTER_AGENT, patch) })}
+            agentHint="A roster agent id, e.g. claude, codex, agy — whatever is installed and logged in."
+            withModel={false}
+          />
           <Field label="Prompt" hint="What to classify. The case ids above are appended automatically as the allowed answers.">
             <TextArea
               label="Prompt"
               value={config.agent?.prompt ?? ''}
-              onChange={(prompt) => update({ agent: { agentId: config.agent?.agentId ?? '', prompt, model: config.agent?.model } })}
+              onChange={(prompt) => update({ agent: { ...(config.agent ?? EMPTY_ROUTER_AGENT), prompt } })}
               rows={4}
               onFocus={(event) =>
                 onInterpolatableFocus({
                   value: config.agent?.prompt ?? '',
                   onChange: (prompt) =>
-                    update({ agent: { agentId: config.agent?.agentId ?? '', prompt, model: config.agent?.model } }),
+                    update({ agent: { ...(config.agent ?? EMPTY_ROUTER_AGENT), prompt } }),
                   el: event.currentTarget,
                 })
               }

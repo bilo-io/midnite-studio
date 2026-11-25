@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import type { AgentAuditRecord } from '@midnite/studio-shared';
@@ -163,7 +163,7 @@ const CORPUS_FILES = [
   'docs/WEBSITE.md',
   'README.md',
   'CLAUDE.md',
-  ...readdirSync(join(REPO, '.midnite/tasks/phases'))
+  ...(existsSync(join(REPO, '.midnite/tasks/phases')) ? readdirSync(join(REPO, '.midnite/tasks/phases')) : [])
     .filter((f) => /^phase-1(1[5-9]|20)-/.test(f))
     .map((f) => `.midnite/tasks/phases/${f}`),
 ];

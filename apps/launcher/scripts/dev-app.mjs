@@ -20,6 +20,10 @@ import { fileURLToPath } from 'node:url';
 import { DEV_STUB_NAME, devStubStamp, planDevStub } from '../src/main/bundles/dev-stub.ts';
 import { stampPlist } from '../src/main/bundles/plist-stamp.ts';
 
+
+const requireCjs = createRequire(import.meta.url);
+const { resolveSigning, listKeychainIdentities } = requireCjs('../../../scripts/lib/signing-identity.cjs');
+
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
 const log = (m) => process.stderr.write(`[dev-app] ${m}\n`);
@@ -60,10 +64,10 @@ function runStep(step, state) {
   }
 }
 
-export function buildDevStub({ out, electronApp, icon, electronVersion }) {
+export function buildDevStub({ out, electronApp, icon, electronVersion, signIdentity }) {
   const stubPath = join(out, `${DEV_STUB_NAME}.app`);
   const stampFile = join(out, '.stamp');
-  const stamp = devStubStamp(electronVersion, createHash('sha256').update(readFileSync(icon)).digest('hex'));
+  const stamp = devStubStamp(electronVersion, createHash('sha256').update(readFileSync(icon)).digest('hex'), signIdentity);
   if (existsSync(devStubExecutable(out)) && existsSync(stampFile) && readFileSync(stampFile, 'utf8') === stamp) {
     return { stubPath, rebuilt: false };
   }
@@ -71,7 +75,7 @@ export function buildDevStub({ out, electronApp, icon, electronVersion }) {
   mkdirSync(out, { recursive: true });
   const frameworks = readdirSync(join(electronApp, 'Contents', 'Frameworks'));
   const state = { warned: false };
-  for (const step of planDevStub({ electronApp, frameworks, icon, stubPath })) runStep(step, state);
+  for (const step of planDevStub({ electronApp, frameworks, icon, stubPath, signIdentity })) runStep(step, state);
   writeFileSync(stampFile, stamp);
   return { stubPath, rebuilt: true };
 }
@@ -84,7 +88,12 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const require = createRequire(import.meta.url);
   const electronDir = join(dirname(require.resolve('electron/package.json')));
   const out = resolve(arg('out') ?? join(root, '.dev-app'));
+  // A keychain (or MIDNITE_CODESIGN_IDENTITY) identity gives the dev stub a stable code identity;
+  // CSC_LINK-only has no local name to sign with, so that and no identity both stay ad hoc.
+  const signing = resolveSigning(process.env, listKeychainIdentities);
+  const signIdentity = signing.kind === 'developer-id' && signing.source !== 'builder' ? signing.name : undefined;
   const result = buildDevStub({
+    signIdentity,
     out,
     electronApp: resolve(arg('electron') ?? join(electronDir, 'dist', 'Electron.app')),
     icon: join(root, 'resources', 'icon.icns'),

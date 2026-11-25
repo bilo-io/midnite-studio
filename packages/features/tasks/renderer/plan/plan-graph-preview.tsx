@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import type { AiPlanBlueprint, ForgeGraph, ForgeGraphNode } from '@midnite/studio-shared';
 
-import { layoutForgeGraph, FORGE_GRAPH_GEOMETRY } from '../graph/graph-layout';
+import { layoutForgeGraph, FORGE_GRAPH_GEOMETRY } from '@midnite/tasks-core';
 
 /**
  * The mini dependency preview (Phase 95 Theme F) — the review sheet's own

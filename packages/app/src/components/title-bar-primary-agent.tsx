@@ -5,9 +5,16 @@ import {
   useState,
   type KeyboardEvent,
 } from 'react';
-import { modelsForAgent, type AgentDefinition, type AgentModelInfo, type AgentStatus } from '@midnite/studio-shared';
+import {
+  modelsForAgent,
+  type AgentDefinition,
+  type AgentModelInfo,
+  type AgentProfile,
+  type AgentStatus,
+} from '@midnite/studio-shared';
 import { LuCheck, LuSearch } from 'react-icons/lu';
 
+import { useStudioAgentProfiles } from '../compose/profile-launch';
 import { agentInstallHint, isAgentUnconfigured } from '../features/agent/agent-install-status';
 import { PROPRIETARY_IDS } from '../features/terminal/new-session-menu';
 import { useOllamaModels } from '@midnite/studio-feature-models/renderer';
@@ -36,16 +43,31 @@ export function TitleBarPrimaryAgent() {
   const setPrimaryModel = useUiStore((s) => s.setPrimaryModel);
   const primaryModel = useUiStore((s) => s.primaryModelByAgent[s.primaryAgent] ?? null);
   const focusAgentInSettings = useUiStore((s) => s.focusAgentInSettings);
+  const companionProfileId = useUiStore((s) => s.primaryAgentProfileId);
+  const setPrimaryAgentProfile = useUiStore((s) => s.setPrimaryAgentProfile);
+  const profiles = useStudioAgentProfiles();
 
+  // Phase 154 Theme H: a custom agent the companion thinks through. One deleted under the pill shows the
+  // built-in again; the companion clears the choice (and says so) on its next ask.
+  const activeProfile = companionProfileId ? (profiles.find((p) => p.id === companionProfileId) ?? null) : null;
   const activeAgent = agents.find((a) => a.id === primaryAgent) ?? agents[0];
-  const ActiveIcon = activeAgent ? resolveAgentIcon(activeAgent) : resolveAgentIcon({ id: 'claude' });
+  const profileBase = activeProfile ? agents.find((a) => a.id === activeProfile.baseAgentId) : undefined;
+  const ActiveIcon = activeProfile
+    ? profileIcon(activeProfile)
+    : activeAgent
+      ? resolveAgentIcon(activeAgent)
+      : resolveAgentIcon({ id: 'claude' });
   // The pill shows only a deliberately chosen model; an agent on its own default stays a bare icon.
   const modelLabel = isDefaultModel(primaryModel)
     ? null
     : (modelsForAgent(primaryAgent).find((m) => m.id === primaryModel)?.label ?? primaryModel);
-  const label = activeAgent
-    ? `Primary agent: ${activeAgent.label}${modelLabel ? ` · ${modelLabel}` : ''}`
-    : 'Select primary agent';
+  const chipLabel = activeProfile ? activeProfile.name : modelLabel;
+  const label = activeProfile
+    ? `Companion agent: ${activeProfile.name} (${profileBase?.label ?? activeProfile.baseAgentId})`
+    : activeAgent
+      ? `Primary agent: ${activeAgent.label}${modelLabel ? ` · ${modelLabel}` : ''}`
+      : 'Select primary agent';
+  const iconColor = activeProfile ? activeProfile.accent : activeAgent?.accent;
 
   return (
     <Popover
@@ -59,18 +81,18 @@ export function TitleBarPrimaryAgent() {
       triggerClassName="inline-flex h-6 min-w-6 shrink-0 items-center justify-center gap-1 rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[open=true]:bg-accent cursor-pointer"
       trigger={
         <Tooltip label={label} side="bottom">
-          <span className={`flex items-center justify-center gap-1 ${modelLabel ? 'px-1' : ''}`}>
+          <span className={`flex items-center justify-center gap-1 ${chipLabel ? 'px-1' : ''}`}>
             <ActiveIcon
               aria-hidden
               className="h-3.5 w-3.5 shrink-0"
-              style={activeAgent?.accent ? { color: activeAgent.accent } : undefined}
+              style={iconColor ? { color: iconColor } : undefined}
             />
-            {modelLabel ? (
+            {chipLabel ? (
               <span
-                data-testid="titlebar-primary-model"
+                data-testid={activeProfile ? 'titlebar-companion-profile' : 'titlebar-primary-model'}
                 className="max-w-24 truncate rounded bg-accent px-1 text-[10px] font-medium leading-4 text-foreground"
               >
-                {modelLabel}
+                {chipLabel}
               </span>
             ) : null}
           </span>
@@ -81,8 +103,14 @@ export function TitleBarPrimaryAgent() {
         <PrimaryAgentPickerPanel
           agents={agents}
           status={status}
+          profiles={profiles}
+          activeProfileId={activeProfile?.id ?? null}
           primaryAgent={primaryAgent}
           primaryModel={primaryModel}
+          onSelectProfile={(profileId) => {
+            setPrimaryAgentProfile(profileId);
+            setOpen(false);
+          }}
           onSelectModel={(modelId) => {
             setPrimaryModel(primaryAgent, isDefaultModel(modelId) ? null : modelId);
             setOpen(false);
@@ -101,6 +129,11 @@ export function TitleBarPrimaryAgent() {
   );
 }
 
+/** A custom agent's glyph: its own icon over its base CLI's, as the terminal's `+` menu draws it. */
+function profileIcon(profile: AgentProfile) {
+  return resolveAgentIcon({ id: profile.baseAgentId, ...(profile.icon ? { icon: profile.icon } : {}) });
+}
+
 function matchesQuery(query: string, agent: AgentDefinition): boolean {
   const trimmed = query.trim();
   if (!trimmed) return true;
@@ -116,16 +149,25 @@ type AgentSection = {
 function PrimaryAgentPickerPanel({
   agents,
   status,
+  profiles,
+  activeProfileId,
   primaryAgent,
   primaryModel,
+  onSelectProfile,
   onSelectModel,
   onSelect,
   onConfigure,
 }: {
   agents: AgentDefinition[];
   status: AgentStatus[];
+  /** Saved custom agents (Phase 154 Theme H), listed first under "Your agents". */
+  profiles: readonly AgentProfile[];
+  /** The custom agent the companion uses, or `null` for the primary agent itself. */
+  activeProfileId: string | null;
   primaryAgent: string;
   primaryModel: string | null;
+  /** Makes a custom agent the companion's (the primary agent is left as it is). */
+  onSelectProfile: (profileId: string) => void;
   /** Picks a model for the current primary agent. */
   onSelectModel: (modelId: string) => void;
   onSelect: (agentId: string) => void;
@@ -161,24 +203,45 @@ function PrimaryAgentPickerPanel({
     return result;
   }, [agents, query]);
 
+  // "Your agents" first, as in the terminal's `+` menu: a custom agent is a deliberate choice.
+  const filteredProfiles = useMemo(() => {
+    const trimmed = query.trim();
+    return trimmed ? profiles.filter((p) => fuzzyMatch(trimmed, p.name)) : [...profiles];
+  }, [profiles, query]);
+
   const flatAgents = useMemo<AgentDefinition[]>(
     () => filteredSections.flatMap((s) => s.agents),
     [filteredSections],
   );
 
+  // One walk: custom agents, then built-ins, then models. A key per row, so ids cannot collide.
   const indexById = useMemo(() => {
     const map = new Map<string, number>();
-    flatAgents.forEach((a, i) => map.set(a.id, i));
+    filteredProfiles.forEach((p, i) => map.set(p.id, i));
+    flatAgents.forEach((a, i) => map.set(a.id, filteredProfiles.length + i));
     return map;
-  }, [flatAgents]);
+  }, [filteredProfiles, flatAgents]);
 
   useEffect(() => {
     setHighlighted(0);
   }, [query]);
 
-  // Agents first, then the model rows — hidden while a search narrows the agent list.
-  const visibleModels = query.trim() ? [] : models;
-  const total = flatAgents.length + visibleModels.length;
+  // A custom agent carries its own model, so the Model rows show only for a built-in.
+  const visibleModels = query.trim() || activeProfileId ? [] : models;
+  const rowCount = filteredProfiles.length + flatAgents.length;
+  const total = rowCount + visibleModels.length;
+
+  const profileRowState = (profile: AgentProfile) => {
+    const base = agents.find((a) => a.id === profile.baseAgentId);
+    if (!base) return { base, unconfigured: false, missing: true };
+    return { base, unconfigured: isAgentUnconfigured(base, status), missing: false };
+  };
+  const chooseProfile = (profile: AgentProfile) => {
+    const state = profileRowState(profile);
+    if (state.missing) return;
+    if (state.unconfigured) onConfigure(profile.baseAgentId);
+    else onSelectProfile(profile.id);
+  };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (total === 0) return;
@@ -191,12 +254,17 @@ function PrimaryAgentPickerPanel({
       setHighlighted((current) => (current - 1 + total) % total);
     } else if (event.key === 'Enter') {
       event.preventDefault();
-      if (highlighted >= flatAgents.length) {
-        const model = visibleModels[highlighted - flatAgents.length];
+      if (highlighted >= rowCount) {
+        const model = visibleModels[highlighted - rowCount];
         if (model) onSelectModel(model.id);
         return;
       }
-      const target = flatAgents[highlighted];
+      if (highlighted < filteredProfiles.length) {
+        const profile = filteredProfiles[highlighted];
+        if (profile) chooseProfile(profile);
+        return;
+      }
+      const target = flatAgents[highlighted - filteredProfiles.length];
       if (target) {
         if (isAgentUnconfigured(target, status)) onConfigure(target.id);
         else onSelect(target.id);
@@ -204,7 +272,7 @@ function PrimaryAgentPickerPanel({
     }
   };
 
-  const noMatches = query.trim().length > 0 && filteredSections.length === 0;
+  const noMatches = query.trim().length > 0 && filteredSections.length === 0 && filteredProfiles.length === 0;
 
   return (
     <div onKeyDown={onKeyDown}>
@@ -233,7 +301,63 @@ function PrimaryAgentPickerPanel({
             No agent matches &quot;{query}&quot;.
           </p>
         ) : (
-          filteredSections.map((section) => (
+          <>
+          {filteredProfiles.length > 0 ? (
+            <div data-testid="primary-agent-section-profiles" role="group" aria-label="Your agents">
+              <div className="px-2.5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                Your agents
+              </div>
+              {filteredProfiles.map((profile) => {
+                const itemIndex = indexById.get(profile.id) ?? 0;
+                const isHighlighted = highlighted === itemIndex;
+                const isSelected = profile.id === activeProfileId;
+                const { base, unconfigured, missing } = profileRowState(profile);
+                const greyed = unconfigured || missing;
+                const Icon = profileIcon(profile);
+                const reason = missing
+                  ? `${profile.baseAgentId} is not in the agent roster.`
+                  : unconfigured && base
+                    ? agentInstallHint(base)
+                    : undefined;
+                return (
+                  <button
+                    key={profile.id}
+                    type="button"
+                    role="menuitemradio"
+                    tabIndex={-1}
+                    aria-label={`${profile.name} (${base?.label ?? profile.baseAgentId})`}
+                    aria-checked={isSelected}
+                    aria-selected={isHighlighted}
+                    aria-disabled={greyed ? true : undefined}
+                    title={reason}
+                    data-testid={`primary-agent-profile-${profile.id}`}
+                    onClick={() => chooseProfile(profile)}
+                    onMouseEnter={() => setHighlighted(itemIndex)}
+                    className={`relative flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-sm transition-colors ${
+                      isHighlighted ? 'bg-accent text-foreground' : 'text-foreground'
+                    } ${isSelected ? 'font-medium' : ''} ${greyed ? 'opacity-40' : ''}`}
+                  >
+                    <span
+                      aria-hidden
+                      className="absolute inset-y-1 left-0.5 w-0.5 rounded-full"
+                      style={{ backgroundColor: profile.accent }}
+                    />
+                    <Icon aria-hidden className="h-4 w-4 shrink-0" style={greyed ? undefined : { color: profile.accent }} />
+                    <span className="flex-1 truncate">{profile.name}</span>
+                    <span className="shrink-0 text-[11px] text-muted-foreground">{base?.label ?? profile.baseAgentId}</span>
+                    {isSelected && (
+                      <LuCheck
+                        aria-hidden
+                        data-testid={`primary-agent-profile-check-${profile.id}`}
+                        className="h-3.5 w-3.5 shrink-0 text-primary"
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+          {filteredSections.map((section) => (
             <div key={section.id}>
               <div className="px-2.5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                 {section.label}
@@ -241,7 +365,7 @@ function PrimaryAgentPickerPanel({
               {section.agents.map((agent) => {
                 const itemIndex = indexById.get(agent.id) ?? 0;
                 const isHighlighted = highlighted === itemIndex;
-                const isSelected = agent.id === primaryAgent;
+                const isSelected = activeProfileId === null && agent.id === primaryAgent;
                 const Icon = resolveAgentIcon(agent);
                 // Unconfigured, not disabled: the row stays a real, clickable
                 // button — clicking (or Enter) routes to Settings ▸ Agents
@@ -284,15 +408,16 @@ function PrimaryAgentPickerPanel({
                 );
               })}
             </div>
-          ))
+          ))}
+          </>
         )}
       </div>
-      {query.trim() ? null : (
+      {query.trim() || activeProfileId ? null : (
         <div className="hide-scrollbar max-h-44 overflow-auto border-t border-border p-1">
           <ModelSection
             agentId={primaryAgent}
             selected={primaryModel}
-            offset={flatAgents.length}
+            offset={rowCount}
             highlighted={highlighted}
             onHighlight={setHighlighted}
             onSelect={onSelectModel}

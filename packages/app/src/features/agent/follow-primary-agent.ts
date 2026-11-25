@@ -12,17 +12,27 @@ import { useUiStore } from '../../store/ui-store';
  * run at startup leaves whatever each surface remembered alone.
  */
 
-export type PrimarySelection = { agentId: string; model: string | null };
+/** `profileId` is the custom agent the app is following (Phase 154), when one is chosen; `agentId` is then left alone. */
+export type PrimarySelection = { agentId: string; model: string | null; profileId?: string };
 
 /** The active agent and its chosen model (`null` = the agent's own default). */
-export function primarySelection(primaryAgent: string, byAgent: Readonly<Record<string, string | null>>): PrimarySelection {
+export function primarySelection(
+  primaryAgent: string,
+  byAgent: Readonly<Record<string, string | null>>,
+  profileId: string | null = null,
+): PrimarySelection {
   const model = byAgent[primaryAgent] ?? null;
-  return { agentId: primaryAgent, model: model === 'default' ? null : model };
+  return { agentId: primaryAgent, model: model === 'default' ? null : model, ...(profileId === null ? {} : { profileId }) };
 }
 
-/** What the Chats composer draft becomes: the engine id and the wire model. */
-export function chatDraftFor(sel: PrimarySelection): { engine: string; model: string | null } {
-  return { engine: sel.agentId, model: sel.model };
+/**
+ * What the Chats composer draft becomes. A custom agent sets only `agentProfileId` (the composer resolves its
+ * base CLI from the live list, and the agent's own model applies); a roster agent sets the engine and wire
+ * model and clears any custom agent.
+ */
+export function chatDraftFor(sel: PrimarySelection): { engine?: string; agentProfileId: string | null; model: string | null } {
+  if (sel.profileId !== undefined) return { agentProfileId: sel.profileId, model: null };
+  return { engine: sel.agentId, agentProfileId: null, model: sel.model };
 }
 
 /** What the Media Models tab's prefs become. An agent model outside the agent's loop list falls back to `default`. */
@@ -34,13 +44,17 @@ export function modelPrefsFor(sel: PrimarySelection): { engineId: string; agentM
 
 export function useFollowPrimaryAgent(): void {
   useEffect(() => {
-    let last = primarySelection(useUiStore.getState().primaryAgent, useUiStore.getState().primaryModelByAgent);
+    const read = (state: ReturnType<typeof useUiStore.getState>) =>
+      primarySelection(state.primaryAgent, state.primaryModelByAgent, state.primaryAgentProfileId);
+    let last = read(useUiStore.getState());
     return useUiStore.subscribe((state) => {
-      const next = primarySelection(state.primaryAgent, state.primaryModelByAgent);
-      if (next.agentId === last.agentId && next.model === last.model) return;
+      const next = read(state);
+      if (next.agentId === last.agentId && next.model === last.model && next.profileId === last.profileId) return;
+      const profileOnly = next.agentId === last.agentId && next.model === last.model;
       last = next;
       useChatsStore.getState().setDraft(chatDraftFor(next));
-      useModelPrefs.getState().set(modelPrefsFor(next));
+      // The media tab has no custom agents: a change of custom agent alone leaves its engine as it was.
+      if (!profileOnly) useModelPrefs.getState().set(modelPrefsFor(next));
     });
   }, []);
 }

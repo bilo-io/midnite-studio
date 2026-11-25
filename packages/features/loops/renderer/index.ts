@@ -12,7 +12,6 @@ export {
   type LoopsMultiIconSelectProps,
   type LoopsSelectOption,
   type LoopsState,
-  type LoopsTerminalProps,
   type LoopsTerminalState,
   type LoopsTooltipProps,
   type LoopsTriggerSource,

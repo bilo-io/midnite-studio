@@ -28,7 +28,7 @@ import type { ToolApprovalHookInfo, ToolApprovalRequest, ToolApprovalResolved } 
 import type { CompanionDigest, CompanionSnapshot } from '../companion';
 import type { CommandId } from '../keybindings';
 import type { SuiteLinkLanding } from '../suite-link';
-import type { StartupChangedEvent, StartupLedgerSummary, StartupPdfExport, StartupRequest, StartupResult, StartupSnapshot } from '../startup';
+import type { StartupAgentConsent, StartupAiAgent, StartupAiSettings, StartupAiTest, StartupEmailResult, StartupInvestorDraft, StartupChangedEvent, StartupLedgerSummary, StartupPdfExport, StartupRequest, StartupResult, StartupSnapshot } from '../startup';
 import type { SuitePrefsSetRequest, SuitePrefsSetResponse, SuitePrefsSnapshot } from '../suite-prefs';
 import type { SongChat } from '../media-music-chat';
 import type { ModelLibraryMigrateResult, ModelLibraryNode } from '../media-model-library';
@@ -963,6 +963,12 @@ export type MidniteStudioBridge = {
     save: (req: In<typeof S.TerminalSaveRequest>) => void;
     forget: (req: In<typeof S.TerminalForgetRequest>) => void;
     reorder: (req: In<typeof S.TerminalReorderRequest>) => void;
+    /** Re-adopt every live broker session and recover the rows `terminals.json` lost. */
+    recoverDetached: () => Promise<z.infer<typeof S.TerminalRecoverDetachedResponse>>;
+    /** End sessions by id (kill + archive), for callers outside the panel; re-read the list after. */
+    endSessions: (req: In<typeof S.TerminalEndSessionsRequest>) => Promise<z.infer<typeof S.TerminalEndSessionsResponse>>;
+    /** End every session still running in a previous build's broker. */
+    endPreviousBuild: () => Promise<z.infer<typeof S.TerminalEndSessionsResponse>>;
   };
 
   /**
@@ -983,6 +989,16 @@ export type MidniteStudioBridge = {
     openFileVault: () => Promise<void>;
   };
 
+  /** Settings ▸ Permissions: what macOS reports for this build, read without prompting. */
+  permissions: {
+    status: () => Promise<z.infer<typeof S.PermissionsStatusResponse>>;
+    openPane: (req: In<typeof S.PermissionsPaneRequest>) => Promise<GitOpResult>;
+    /** `tccutil reset` for this app's bundle id only; the renderer confirms first. */
+    reset: (req: In<typeof S.PermissionsResetRequest>) => Promise<GitOpResult>;
+    /** Quit and reopen, so the next use re-asks macOS with the current signature. */
+    relaunch: () => Promise<void>;
+  };
+
   /** A switched-off feature's on-disk data, for Settings ▸ Features' delete (Phase 135 Theme F). */
   features: {
     describeData: (req: In<typeof S.FeatureDataRequest>) => Promise<z.infer<typeof S.FeatureDataDescribeResponse>>;
@@ -998,6 +1014,10 @@ export type MidniteStudioBridge = {
     conversationId: (
       req: In<typeof S.SessionsConversationIdRequest>,
     ) => Promise<z.infer<typeof S.SessionsConversationIdResponse>>;
+    /** Switch a unified agent session between Chat and Terminal views (Phase 146). */
+    switchView?: (
+      req: In<typeof S.SessionSwitchViewRequest>,
+    ) => Promise<z.infer<typeof S.SessionSwitchViewResponse>>;
   };
 
   /**
@@ -1134,6 +1154,22 @@ export type MidniteStudioBridge = {
       handler: (e: z.infer<typeof S.ClaudeUpdateDataEvent>) => void,
     ) => Unsubscribe;
     revealPath: (req: In<typeof S.AgentRevealPathRequest>) => Promise<z.infer<typeof S.AgentRevealPathResponse>>;
+  };
+
+  /**
+   * Custom agents (Phase 154) — global profiles in one user-level file. Every
+   * answer is a `GitOpResult` envelope; `save` returns `saved | conflict`
+   * inside `ok`, and `prepareLaunch` builds the whole typed line (Studio only).
+   */
+  agentProfile: {
+    list: () => Promise<z.infer<typeof S.AgentProfileListResponse>>;
+    save: (req: In<typeof S.AgentProfileSaveRequest>) => Promise<z.infer<typeof S.AgentProfileSaveResponse>>;
+    delete: (req: In<typeof S.AgentProfileDeleteRequest>) => Promise<GitOpResult>;
+    export: (req: In<typeof S.AgentProfileExportRequest>) => Promise<z.infer<typeof S.AgentProfileExportResponse>>;
+    import: () => Promise<z.infer<typeof S.AgentProfileImportResponse>>;
+    prepareLaunch: (
+      req: In<typeof S.AgentProfilePrepareLaunchRequest>,
+    ) => Promise<z.infer<typeof S.AgentProfilePrepareLaunchResponse>>;
   };
 
   /**
@@ -1613,6 +1649,12 @@ export type MidniteStudioBridge = {
     list: () => Promise<z.infer<typeof S.GamesListResponse>>;
     create: (req: In<typeof S.GamesCreateRequest>) => Promise<z.infer<typeof S.GamesCreateResponse>>;
     add: (req: In<typeof S.GamesAddRequest>) => Promise<z.infer<typeof S.GamesAddResponse>>;
+    /** Game management (Phase 149 Theme I). Delete moves the folder to the Trash, never `rm`. */
+    rename: (req: In<typeof S.GamesRenameRequest>) => Promise<GitOpResult>;
+    forget: (req: In<typeof S.GamesForgetRequest>) => Promise<GitOpResult>;
+    reveal: (req: In<typeof S.GamesRevealRequest>) => Promise<GitOpResult>;
+    deleteInfo: (req: In<typeof S.GamesDeleteInfoRequest>) => Promise<z.infer<typeof S.GamesDeleteInfoResponse>>;
+    delete: (req: In<typeof S.GamesDeleteRequest>) => Promise<GitOpResult>;
     manifest: {
       get: (req: In<typeof S.GamesGetManifestRequest>) => Promise<z.infer<typeof S.GamesGetManifestResponse>>;
       set: (req: In<typeof S.GamesSetManifestRequest>) => Promise<GitOpResult>;
@@ -1629,6 +1671,10 @@ export type MidniteStudioBridge = {
     juice: (req: In<typeof S.GamesJuiceRequest>) => Promise<z.infer<typeof S.GamesJuiceResponse>>;
     logs: (req: In<typeof S.GamesLogsRequest>) => Promise<z.infer<typeof S.GamesLogsResponse>>;
     kitUpgrade: (req: In<typeof S.GamesKitUpgradeRequest>) => Promise<z.infer<typeof S.GamesKitUpgradeResponse>>;
+    /** Phase 149 Theme C: the game doctor — every finding against the Midnite game standard. Read-only. */
+    doctor: (req: In<typeof S.GamesDoctorRequest>) => Promise<z.infer<typeof S.GamesDoctorResponse>>;
+    /** Phase 149 Theme D: apply one safe fix (one commit on `midnite-game.json`), answering the fresh diagnosis. */
+    doctorFix: (req: In<typeof S.GamesDoctorFixRequest>) => Promise<z.infer<typeof S.GamesDoctorFixResponse>>;
     /**
      * Levels (Phase 132 Theme C): `levels/<scene>.tmj`. `set` writes one file and makes one commit naming only
      * it; `goto` restarts a running game at a scene, or sets where the next run starts.
@@ -1637,10 +1683,45 @@ export type MidniteStudioBridge = {
       list: (req: In<typeof S.GamesLevelsRequest>) => Promise<z.infer<typeof S.GamesLevelsResponse>>;
       get: (req: In<typeof S.GamesLevelGetRequest>) => Promise<z.infer<typeof S.GamesLevelGetResponse>>;
       set: (req: In<typeof S.GamesLevelSetRequest>) => Promise<z.infer<typeof S.GamesLevelSetResponse>>;
+      mapAsset: (req: In<typeof S.GamesLevelMapAssetRequest>) => Promise<z.infer<typeof S.GamesLevelMapAssetResponse>>;
       /** A `model` asset's bytes for the 3D view (Phase 136 Theme F). */
       model: (req: In<typeof S.GamesLevelModelRequest>) => Promise<z.infer<typeof S.GamesLevelModelResponse>>;
+      /** Phase 139 Theme F: `levels/prefabs/<name>.prefab.json`; `set` and `delete` each make one commit naming only that file. */
+      prefabs: {
+        list: (req: In<typeof S.GamesLevelPrefabsRequest>) => Promise<z.infer<typeof S.GamesLevelPrefabsResponse>>;
+        get: (req: In<typeof S.GamesLevelPrefabGetRequest>) => Promise<z.infer<typeof S.GamesLevelPrefabGetResponse>>;
+        set: (req: In<typeof S.GamesLevelPrefabSetRequest>) => Promise<z.infer<typeof S.GamesLevelPrefabSetResponse>>;
+        delete: (req: In<typeof S.GamesLevelPrefabDeleteRequest>) => Promise<z.infer<typeof S.GamesLevelPrefabDeleteResponse>>;
+      };
+      /** An image-like asset's thumbnail source as a data URL (Phase 139 Theme A). */
+      assetThumb: (req: In<typeof S.GamesLevelAssetThumbRequest>) => Promise<z.infer<typeof S.GamesLevelAssetThumbResponse>>;
+      /** The roads, buildings, sharper drape and fine heights of the terrain under an area, for a level too large for one detail. */
+      terrainDetail: (req: In<typeof S.GamesLevelTerrainDetailRequest>) => Promise<z.infer<typeof S.GamesLevelTerrainDetailResponse>>;
+      /** Phase 140 Theme B: run the editor's unsaved level without a commit; `previewEnd` drops the in-memory overlay. */
+      preview: (req: In<typeof S.GamesLevelPreviewRequest>) => Promise<z.infer<typeof S.GamesLevelPreviewResponse>>;
+      previewEnd: (req: In<typeof S.GamesLevelPreviewEndRequest>) => Promise<GitOpResult>;
+      /** Phase 138 Theme C: main asks the open level editor something (snapshot, apply, select, frame, view). */
+      onEditorRequest: (handler: (event: z.infer<typeof S.GamesLevelEditorRequestPayload>) => void) => Unsubscribe;
+      /** One-way answer to an `onEditorRequest`. */
+      editorReply: (payload: z.input<typeof S.GamesLevelEditorReply>) => void;
+      /** One-way presence: the scene the editor shows (`null` once it closes). */
+      editorOpen: (scene: z.input<typeof S.GamesLevelEditorOpenPayload>) => void;
     };
     goto: (req: In<typeof S.GamesGotoRequest>) => Promise<z.infer<typeof S.GamesGotoResponse>>;
+    /**
+     * Live entities (Phase 140 Theme D): `get` reads a running game's `window.__midnite.entities()` once; `watch`
+     * subscribes this window to the 4 Hz `onEntityState` feed and returns its unsubscribe. The feed pauses with
+     * the game and stops with it; hidden windows should unsubscribe.
+     */
+    entities: {
+      get: (req: In<typeof S.GamesEntitiesRequest>) => Promise<z.infer<typeof S.GamesEntitiesResponse>>;
+      watch: (req: In<typeof S.GamesEntitiesRequest>) => Unsubscribe;
+    };
+    onEntityState: (handler: (event: z.infer<typeof S.GamesEntityStatePayload>) => void) => Unsubscribe;
+    /** Phase 140 Theme G: switch the running game's debug overlays (`window.__midnite.debug`); switches left out keep their setting. */
+    debug: (req: In<typeof S.GamesDebugRequest>) => Promise<z.infer<typeof S.GamesDebugResponse>>;
+    /** The running game's nav-mesh (`window.__midnite.navMesh()`), for the editor's Nav-mesh overlay. */
+    navMesh: (req: In<typeof S.GamesNavMeshRequest>) => Promise<z.infer<typeof S.GamesNavMeshResponse>>;
     /** Move a game's runner into the `game` popout window; closing that window docks it back. */
     popOut: (req: In<typeof S.GamesPopOutRequest>) => Promise<GitOpResult>;
     /** Which game the `game` popout hosts — how the popout's own renderer learns what to show. */
@@ -1667,6 +1748,12 @@ export type MidniteStudioBridge = {
      * provenance, and re-import it when the source changes. Each import and re-import is its own commit.
      */
     assets: {
+      /** The shared asset library: list its collections, read one file for preview. Read-only. */
+      library: {
+        list: () => Promise<z.infer<typeof S.GamesLibraryListResponse>>;
+        read: (req: In<typeof S.GamesLibraryReadRequest>) => Promise<z.infer<typeof S.GamesLibraryReadResponse>>;
+        import: (req: In<typeof S.GamesLibraryImportRequest>) => Promise<z.infer<typeof S.GamesImportAssetResponse>>;
+      };
       sources: (req: In<typeof S.GamesAssetSourcesRequest>) => Promise<z.infer<typeof S.GamesAssetSourcesResponse>>;
       import: (req: In<typeof S.GamesImportAssetRequest>) => Promise<z.infer<typeof S.GamesImportAssetResponse>>;
       resync: (req: In<typeof S.GamesResyncRequest>) => Promise<z.infer<typeof S.GamesResyncResponse>>;
@@ -2253,6 +2340,16 @@ export type MidniteStudioBridge = {
     systemReclaim: (
       req: In<typeof S.OptimizerSystemReclaimRequest>,
     ) => Promise<z.infer<typeof S.OptimizerSystemReclaimResponse>>;
+    /** Phase 148 E: what a broker-dir sweep would delete, with sizes. Deletes nothing. */
+    brokerSweepPlan: () => Promise<z.infer<typeof S.OptimizerBrokerSweepPlanResponse>>;
+    /** Phase 148 E: unlink the named leftovers that are still stale. */
+    brokerSweep: (
+      req: In<typeof S.OptimizerBrokerSweepRequest>,
+    ) => Promise<z.infer<typeof S.OptimizerBrokerSweepResponse>>;
+    /** Phase 148 C: what Free RAM would end or discard, with RSS. Signals nothing. */
+    freeRamPlan: () => Promise<z.infer<typeof S.OptimizerFreeRamPlanResponse>>;
+    /** Phase 148 C: end the confirmed candidates and report the RSS actually freed. */
+    freeRam: (req: In<typeof S.OptimizerFreeRamRequest>) => Promise<z.infer<typeof S.OptimizerFreeRamResponse>>;
   };
 
   protocol: {
@@ -2405,6 +2502,27 @@ export type MidniteStudioBridge = {
     exportInvoicePdf: (req: Omit<Extract<StartupRequest, { op: 'exportInvoicePdf' }>, 'op'>) => Promise<StartupResult<StartupPdfExport>>;
     linkBook: (req: Omit<Extract<StartupRequest, { op: 'linkBook' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
     ledgerSummary: () => Promise<StartupResult<StartupLedgerSummary>>;
+    upsertFleetProjection: (req: Omit<Extract<StartupRequest, { op: 'upsertFleetProjection' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    removeFleetProjection: (req: Omit<Extract<StartupRequest, { op: 'removeFleetProjection' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    duplicateFleetProjection: (req: Omit<Extract<StartupRequest, { op: 'duplicateFleetProjection' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    upsertFleetCatalog: (req: Omit<Extract<StartupRequest, { op: 'upsertFleetCatalog' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    sendFleetProjectionToRunway: (req: Omit<Extract<StartupRequest, { op: 'sendFleetProjectionToRunway' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    unlinkFleetProjectionLines: (req: Omit<Extract<StartupRequest, { op: 'unlinkFleetProjectionLines' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    exportFleetProjectionCsv: (req: Omit<Extract<StartupRequest, { op: 'exportFleetProjectionCsv' }>, 'op'>) => Promise<StartupResult<StartupPdfExport>>;
+    exportRunwayCsv: (req: Omit<Extract<StartupRequest, { op: 'exportRunwayCsv' }>, 'op'>) => Promise<StartupResult<StartupPdfExport>>;
+    exportFleetProjectionPdf: (req: Omit<Extract<StartupRequest, { op: 'exportFleetProjectionPdf' }>, 'op'>) => Promise<StartupResult<StartupPdfExport>>;
+    upsertInvestorUpdate: (req: Omit<Extract<StartupRequest, { op: 'upsertInvestorUpdate' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    removeInvestorUpdate: (req: Omit<Extract<StartupRequest, { op: 'removeInvestorUpdate' }>, 'op'>) => Promise<StartupResult<StartupSnapshot>>;
+    draftInvestorUpdate: (req: Omit<Extract<StartupRequest, { op: 'draftInvestorUpdate' }>, 'op'>) => Promise<StartupResult<StartupInvestorDraft>>;
+    exportInvestorUpdateMd: (req: Omit<Extract<StartupRequest, { op: 'exportInvestorUpdateMd' }>, 'op'>) => Promise<StartupResult<StartupPdfExport>>;
+    exportInvestorUpdatePdf: (req: Omit<Extract<StartupRequest, { op: 'exportInvestorUpdatePdf' }>, 'op'>) => Promise<StartupResult<StartupPdfExport>>;
+    emailInvestorUpdate: (req: Omit<Extract<StartupRequest, { op: 'emailInvestorUpdate' }>, 'op'>) => Promise<StartupResult<StartupEmailResult>>;
+    getAiSettings: () => Promise<StartupResult<StartupAiSettings>>;
+    setAiSettings: (req: Omit<Extract<StartupRequest, { op: 'setAiSettings' }>, 'op'>) => Promise<StartupResult<StartupAiSettings>>;
+    listAiAgents: () => Promise<StartupResult<StartupAiAgent[]>>;
+    testAiModel: (req: Omit<Extract<StartupRequest, { op: 'testAiModel' }>, 'op'>) => Promise<StartupResult<StartupAiTest>>;
+    getAgentConsent: () => Promise<StartupResult<StartupAgentConsent>>;
+    setAgentConsent: (req: Omit<Extract<StartupRequest, { op: 'setAgentConsent' }>, 'op'>) => Promise<StartupResult<StartupAgentConsent>>;
     onChanged: (handler: (e: StartupChangedEvent) => void) => Unsubscribe;
   };
 

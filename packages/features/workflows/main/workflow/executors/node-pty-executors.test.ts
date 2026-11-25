@@ -276,6 +276,76 @@ describe('agent executor', () => {
   });
 });
 
+function profileAgentNode(profileId: string): WorkflowNode {
+  return {
+    id: 'n1',
+    label: 'Ask it',
+    x: 0,
+    y: 0,
+    kind: 'agent',
+    config: { agentId: 'claude', agentProfileId: profileId, prompt: 'Do the thing' },
+  };
+}
+
+describe('agent executor — a custom agent (#1699)', () => {
+  it("types the custom agent's prepared line and binds its launch to the session", async () => {
+    const prepareLaunch = vi.fn(async (_profileId: string, _cwd: string, _prompt: string) => ({
+      kind: 'ready' as const,
+      launchId: 'launch-1',
+      line: "claude --append-system-prompt-file '/p' 'Do the thing'",
+      name: 'Reviewer',
+      baseAgentId: 'claude',
+    }));
+    configureWorkflowsPorts(fakeWorkflowsPorts({ agentProfiles: { prepareLaunch } }));
+    const fake = fakePty();
+    const started = vi.fn(fake.deps.startSession);
+    const promise = createAgentExecutor({ ...fake.deps, startSession: started })(profileAgentNode('profile-a'), context([]));
+
+    await vi.advanceTimersByTimeAsync(0);
+    fake.emitData('MIDNITE_WORKFLOW_NODE_DONE: ok\n');
+    await vi.advanceTimersByTimeAsync(150);
+    const outcome = await promise;
+
+    expect(outcome.ok).toBe(true);
+    expect(prepareLaunch.mock.calls[0]![0]).toBe('profile-a');
+    expect(prepareLaunch.mock.calls[0]![2]).toContain('Do the thing');
+    const params = started.mock.calls[0]![0];
+    expect(params.initialInput).toBe("claude --append-system-prompt-file '/p' 'Do the thing'\r");
+    expect(params).toMatchObject({ agentId: 'claude', profileId: 'profile-a', profileLaunchId: 'launch-1' });
+    if (outcome.ok) expect((outcome.output as AgentNodeOutput).agentProfileFallback).toBeUndefined();
+  });
+
+  it('a deleted custom agent runs as its roster agent and says so', async () => {
+    configureWorkflowsPorts(fakeWorkflowsPorts({ agentProfiles: { prepareLaunch: async () => ({ kind: 'missing' }) } }));
+    const fake = fakePty();
+    const started = vi.fn(fake.deps.startSession);
+    const promise = createAgentExecutor({ ...fake.deps, startSession: started })(profileAgentNode('profile-gone'), context([]));
+
+    await vi.advanceTimersByTimeAsync(0);
+    fake.emitData('MIDNITE_WORKFLOW_NODE_DONE: ok\n');
+    await vi.advanceTimersByTimeAsync(150);
+    const outcome = await promise;
+
+    expect(outcome.ok).toBe(true);
+    const params = started.mock.calls[0]![0];
+    expect(params.initialInput.startsWith('claude ')).toBe(true);
+    expect(params.profileId).toBeUndefined();
+    if (outcome.ok) expect((outcome.output as AgentNodeOutput).agentProfileFallback).toBe('deleted');
+  });
+
+  it('a custom agent that cannot start fails the node and never runs the bare CLI', async () => {
+    configureWorkflowsPorts(
+      fakeWorkflowsPorts({ agentProfiles: { prepareLaunch: async () => ({ kind: 'error', message: 'Codex is not installed.' }) } }),
+    );
+    const fake = fakePty();
+    const started = vi.fn(fake.deps.startSession);
+    const outcome = await createAgentExecutor({ ...fake.deps, startSession: started })(profileAgentNode('profile-a'), context([]));
+
+    expect(outcome).toEqual({ ok: false, error: 'Codex is not installed.' });
+    expect(started).not.toHaveBeenCalled();
+  });
+});
+
 function routerAgentLabelNode(cases: { id: string; label: string }[]): WorkflowNode {
   return {
     id: 'n1',
@@ -286,6 +356,51 @@ function routerAgentLabelNode(cases: { id: string; label: string }[]): WorkflowN
     config: { mode: 'agent-label', cases, agent: { agentId: 'claude', prompt: 'Classify this' } },
   };
 }
+
+describe('router executor — a custom agent (#1713)', () => {
+  it('types the custom agent line and binds its launch', async () => {
+    const prepareLaunch = vi.fn(async (_id: string, _cwd: string, _prompt: string) => ({
+      kind: 'ready' as const,
+      launchId: 'launch-r',
+      line: "claude --append-system-prompt-file '/p' 'x'",
+      name: 'Triager',
+      baseAgentId: 'claude',
+    }));
+    configureWorkflowsPorts(fakeWorkflowsPorts({ agentProfiles: { prepareLaunch } }));
+    const fake = fakePty();
+    const started = vi.fn(fake.deps.startSession);
+    const node = routerAgentLabelNode([{ id: 'urgent', label: 'Urgent' }]);
+    if (node.kind === 'router' && node.config.agent) node.config.agent.agentProfileId = 'profile-tri';
+    const promise = createRouterExecutor({ ...fake.deps, startSession: started })(node, context([]));
+
+    await vi.advanceTimersByTimeAsync(0);
+    fake.emitData('MIDNITE_WORKFLOW_NODE_DONE: route=urgent\n');
+    await vi.advanceTimersByTimeAsync(150);
+    const outcome = await promise;
+
+    expect(outcome.ok && outcome.port).toBe('urgent');
+    expect(prepareLaunch.mock.calls[0]![0]).toBe('profile-tri');
+    expect(started.mock.calls[0]![0]).toMatchObject({ profileId: 'profile-tri', profileLaunchId: 'launch-r' });
+  });
+});
+
+describe('agent executor — an app with no custom-agents port (#1713)', () => {
+  it('runs as the roster agent and says the custom agent was unavailable', async () => {
+    configureWorkflowsPorts(fakeWorkflowsPorts());
+    const fake = fakePty();
+    const started = vi.fn(fake.deps.startSession);
+    const promise = createAgentExecutor({ ...fake.deps, startSession: started })(profileAgentNode('profile-a'), context([]));
+
+    await vi.advanceTimersByTimeAsync(0);
+    fake.emitData('MIDNITE_WORKFLOW_NODE_DONE: ok\n');
+    await vi.advanceTimersByTimeAsync(150);
+    const outcome = await promise;
+
+    expect(outcome.ok).toBe(true);
+    expect(started.mock.calls[0]![0].profileId).toBeUndefined();
+    if (outcome.ok) expect((outcome.output as AgentNodeOutput).agentProfileFallback).toBe('unavailable');
+  });
+});
 
 describe('router executor (Theme F, agent-label mode)', () => {
   it('settles on the out-port named by the marker when it is a known case id', async () => {
