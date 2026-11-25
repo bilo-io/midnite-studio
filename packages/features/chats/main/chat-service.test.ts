@@ -1165,3 +1165,79 @@ describe('chat service: the runner lock around send (Phase 147 Theme C)', () => 
     expect(service.isRunning(chat.id)).toBe(false);
   });
 });
+
+describe('chat service: a turn under a custom agent', () => {
+  const ready = (release = vi.fn(async () => {})) => ({
+    kind: 'ready' as const,
+    name: 'Reviewer',
+    agent: claude,
+    extraArgs: ['--mcp-config', '{}', '--strict-mcp-config', '--append-system-prompt-file', '/p.md'],
+    promptPrefix: null,
+    release,
+  });
+  const echo = () =>
+    fakeSpawn(async (_c, io) => {
+      io.out(textDelta('ok'));
+      io.out(done('s1'));
+      io.close(0);
+    });
+
+  it('puts the agent extras before the prompt, drops the chat model pin, and releases the socket', async () => {
+    const spawn = echo();
+    const release = vi.fn(async () => {});
+    const profileRun = vi.fn(async () => ready(release));
+    const { service } = setup({ spawn, profileRun });
+    const chat = await created(service, { agentProfileId: 'profile-rev', model: 'opus' });
+    expect(chat.agentProfileId).toBe('profile-rev');
+
+    await service.send({ chatId: chat.id, text: 'review this' });
+    await service.idle();
+
+    expect(profileRun).toHaveBeenCalledWith('profile-rev', expect.any(String));
+    const args = spawn.calls[0]!.args;
+    expect(args.indexOf('--strict-mcp-config')).toBeGreaterThan(-1);
+    expect(args.indexOf('--strict-mcp-config')).toBeLessThan(args.length - 1);
+    expect(args.at(-1)).toContain('review this');
+    expect(args).not.toContain('--model');
+    expect(release).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to the base CLI when the agent was deleted, says so, and forgets the agent', async () => {
+    const spawn = echo();
+    const { service } = setup({ spawn, profileRun: async () => ({ kind: 'missing' }) });
+    const chat = await created(service, { agentProfileId: 'profile-gone' });
+    await service.send({ chatId: chat.id, text: 'hi' });
+    await service.idle();
+
+    expect(spawn.calls[0]!.args).not.toContain('--strict-mcp-config');
+    const after = ((await service.get(chat.id)) as { ok: true; value: { chat: Chat } }).value.chat;
+    expect(after.agentProfileId).toBeUndefined();
+    expect(lastAssistant(after).activity?.join(' ')).toContain('custom agent was deleted');
+  });
+
+  it('refuses without starting a process when the agent cannot run, and where custom agents are unavailable', async () => {
+    const spawn = echo();
+    const failing = setup({ spawn, profileRun: async () => ({ kind: 'error', message: 'Its tools would not start.' }) });
+    const chat = await created(failing.service, { agentProfileId: 'profile-rev' });
+    await failing.service.send({ chatId: chat.id, text: 'hi' });
+    await failing.service.idle();
+    expect(lastAssistant(((await failing.service.get(chat.id)) as { ok: true; value: { chat: Chat } }).value.chat)).toMatchObject({ status: 'error', error: 'Its tools would not start.' });
+
+    const bare = setup({ spawn });
+    const other = await created(bare.service, { agentProfileId: 'profile-rev' });
+    await bare.service.send({ chatId: other.id, text: 'hi' });
+    await bare.service.idle();
+    expect(spawn.calls).toHaveLength(0);
+  });
+
+  it('clears the CLI session when the chat switches agent', async () => {
+    const { service } = setup({ spawn: echo(), profileRun: async () => ready() });
+    const chat = await created(service);
+    await service.send({ chatId: chat.id, text: 'hi' });
+    await service.idle();
+    const switched = await service.update({ id: chat.id, engine: 'claude', agentProfileId: 'profile-rev' });
+    expect(switched.ok && switched.value.chat).toMatchObject({ agentProfileId: 'profile-rev', session: null });
+    const back = await service.update({ id: chat.id, engine: 'claude' });
+    expect(back.ok && back.value.chat.agentProfileId).toBeUndefined();
+  });
+});

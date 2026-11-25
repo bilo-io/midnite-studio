@@ -169,14 +169,22 @@ export interface ProfileHeadlessArgvInput {
  * file's *text* ahead of the question instead, which the caller adds. `null` when the base has no print mode.
  */
 export function buildProfileHeadlessArgv(input: ProfileHeadlessArgvInput): string[] | null {
-  const { base, model, promptPath, launch, restricted } = input;
-  const headless = agentHeadlessArgs(base.id);
+  const headless = agentHeadlessArgs(input.base.id);
   if (headless === null) return null;
+  return [...input.base.args, ...headless, ...buildProfileHeadlessExtras(input)];
+}
+
+/**
+ * What a custom agent adds to a one-shot run beyond the base CLI's own print-mode words: its model, its
+ * private MCP socket and (Claude) the prompt file flag. {@link buildProfileHeadlessArgv} is these after the
+ * base args; a caller with its own invocation (a chat turn, which streams and resumes) puts them before its
+ * final prompt word instead.
+ */
+export function buildProfileHeadlessExtras(input: ProfileHeadlessArgvInput): string[] {
+  const { base, model, promptPath, launch, restricted } = input;
   const promptWords =
     promptPath !== null && promptDeliveryFor(base.id) === 'flag' ? ['--append-system-prompt-file', promptPath] : [];
   return [
-    ...base.args,
-    ...headless,
     ...profileModelArgs(base.id, model),
     ...(launch ? profileMcpArgs(base.id, launch, { restricted, quote: false }) : []),
     ...promptWords,
