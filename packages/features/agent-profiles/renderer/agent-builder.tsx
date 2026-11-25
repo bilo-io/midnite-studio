@@ -49,6 +49,8 @@ export function deepEqual(a: unknown, b: unknown): boolean {
   return ka.every((k) => deepEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
 }
 
+const limitLabel = (key: AgentLimitKey): string => AGENT_LIMIT_LABELS[key].replace(/^./, (c) => c.toUpperCase());
+
 type Errors = Record<string, string>;
 
 /** Maps a schema failure onto field ids and the copy the Builder shows under each. */
@@ -574,7 +576,7 @@ export function AgentBuilder({ profile, isNew, onDirtyChange, onSaved, onDone }:
               const value = draft.limits[key];
               const noCap = key === 'spendTokensPerSession' && value === null;
               return (
-                <Field key={key} id={`builder-${key}`} label={AGENT_LIMIT_LABELS[key]} info={FIELD_INFO[key]} error={fieldError(key)}>
+                <Field key={key} id={`builder-${key}`} label={limitLabel(key)} info={FIELD_INFO[key]} error={fieldError(key)}>
                   <div className="flex flex-wrap items-center gap-2">
                     <input
                       id={`builder-${key}`}
@@ -680,6 +682,7 @@ export function AgentBuilder({ profile, isNew, onDirtyChange, onSaved, onDone }:
 
       <FrameModal open={conflict !== null} onClose={() => setConflict(null)} title="This agent changed elsewhere." size="sm" role="alertdialog">
         <div className="space-y-3 p-4 text-xs">
+          <h2 className="text-sm font-semibold">This agent changed elsewhere.</h2>
           <p>
             Another window saved a different version of {draft.name}. Reload to take that version and lose your edits, or Overwrite to
             save yours over it.
