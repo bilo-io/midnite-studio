@@ -2,6 +2,7 @@ import {
   agentHeadlessArgs,
   emptyCompanionSnapshot,
   type AgentDefinition,
+  type AgentProfile,
   type CompanionSnapshot,
   type CompanionVocabulary,
   type RepoDescriptor,
