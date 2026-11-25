@@ -855,6 +855,8 @@ export function createChatService(deps: ChatServiceDeps) {
         }
         if (prepared.kind === 'error') return { error: prepared.message };
         if (prepared.kind === 'missing') {
+          if (!roster.some((a) => a.id === chat.engine)) return { error: `${chat.engine} is not on the agent roster.` };
+          agent = roster.find((a) => a.id === chat.engine) ?? agent;
           // Run as the base CLI from here on, and forget the agent so the picker shows what actually ran.
           profileId = null;
           delete chat.agentProfileId;
