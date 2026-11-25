@@ -1726,8 +1726,8 @@ export type UiState = {
    * Companion only: `primaryAgent` is left as it was, so the midnite menu and the Chats/Media follow
    * (`useFollowPrimaryAgent`) are unchanged. Choosing a built-in agent clears it.
    */
-  companionAgentProfileId: string | null;
-  setCompanionAgentProfile: (profileId: string | null) => void;
+  primaryAgentProfileId: string | null;
+  setPrimaryAgentProfile: (profileId: string | null) => void;
   /**
    * Non-persisted: the Settings ▸ Agents row `AgentsRoster` should scroll to
    * and briefly highlight next. Set by `focusAgentInSettings` when a
@@ -2401,7 +2401,7 @@ export type PersistedUi = Pick<
   | 'agentSkills'
   | 'primaryAgent'
   | 'primaryModelByAgent'
-  | 'companionAgentProfileId'
+  | 'primaryAgentProfileId'
   | 'agentModes'
   | 'agentApiKeys'
   | 'agentBackends'
@@ -2602,7 +2602,7 @@ export const useUiStore = create<UiState>()(
       agentSkills: DEFAULT_AGENT_SKILLS,
       primaryAgent: 'claude',
       primaryModelByAgent: {},
-      companionAgentProfileId: null,
+      primaryAgentProfileId: null,
       pendingAgentFocus: null,
       agentModes: {},
       setAgentMode: (agentId, mode) =>
@@ -3522,8 +3522,8 @@ export const useUiStore = create<UiState>()(
       closeKillSwitch: () => set({ killSwitchOpen: false, killSwitchFlowWorkflowId: null, killSwitchFlowRunId: null }),
       setAgentSkill: (id, skill) =>
         set((state) => ({ agentSkills: { ...state.agentSkills, [id]: skill } })),
-      setPrimaryAgent: (id) => set({ primaryAgent: id, companionAgentProfileId: null }),
-      setCompanionAgentProfile: (profileId) => set({ companionAgentProfileId: profileId }),
+      setPrimaryAgent: (id) => set({ primaryAgent: id, primaryAgentProfileId: null }),
+      setPrimaryAgentProfile: (profileId) => set({ primaryAgentProfileId: profileId }),
       setPrimaryModel: (agentId, modelId) =>
         set((state) => ({
           primaryModelByAgent: {
@@ -3534,7 +3534,7 @@ export const useUiStore = create<UiState>()(
       setPrimaryAgentAndModel: (agentId, modelId) =>
         set((state) => ({
           primaryAgent: agentId,
-          companionAgentProfileId: null,
+          primaryAgentProfileId: null,
           primaryModelByAgent: {
             ...state.primaryModelByAgent,
             ...(modelId !== undefined ? { [agentId]: modelId } : {}),
@@ -3628,7 +3628,7 @@ export const useUiStore = create<UiState>()(
         agentSkills: state.agentSkills,
         primaryAgent: state.primaryAgent,
         primaryModelByAgent: state.primaryModelByAgent,
-        companionAgentProfileId: state.companionAgentProfileId,
+        primaryAgentProfileId: state.primaryAgentProfileId,
         agentModes: state.agentModes,
         agentApiKeys: state.agentApiKeys,
         agentBackends: state.agentBackends,
@@ -4029,7 +4029,7 @@ export const useUiStore = create<UiState>()(
           state.collapsedRepoSections = [...DEFAULT_COLLAPSED_REPO_SECTIONS];
         }
         // v41 → v42 (Phase 154 Theme H): the companion starts on its built-in agent.
-        if (version < 42 || typeof state.companionAgentProfileId !== 'string') state.companionAgentProfileId = null;
+        if (version < 42 || typeof state.primaryAgentProfileId !== 'string') state.primaryAgentProfileId = null;
         return state as PersistedUi;
       },
       /**

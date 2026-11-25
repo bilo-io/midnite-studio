@@ -196,7 +196,7 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
         repoPath: repo.path,
         agentId: ui.primaryAgent,
         // Phase 154 Theme H: the custom agent the companion thinks through, when one is chosen.
-        ...(ui.companionAgentProfileId ? { agentProfileId: ui.companionAgentProfileId } : {}),
+        ...(ui.primaryAgentProfileId ? { agentProfileId: ui.primaryAgentProfileId } : {}),
         snapshot: lastSnapshot,
         // Settings ▸ Companion ▸ Personality's two free-text fields (Ad
         // Hoc) — read fresh from the store on every ask, same as
@@ -310,8 +310,8 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
         text: request.mode === 'tweak' ? request.instruction : `interview: ${request.target}`,
         repoPath: repo.path,
         agentId: useUiStore.getState().primaryAgent,
-        ...(useUiStore.getState().companionAgentProfileId
-          ? { agentProfileId: useUiStore.getState().companionAgentProfileId as string }
+        ...(useUiStore.getState().primaryAgentProfileId
+          ? { agentProfileId: useUiStore.getState().primaryAgentProfileId as string }
           : {}),
         persona: request,
       });
@@ -379,7 +379,7 @@ async function currentRepo(): Promise<RepoSnapshot> {
  */
 function noteDeletedAgent(): string {
   const ui = useUiStore.getState();
-  ui.setCompanionAgentProfile(null);
+  ui.setPrimaryAgentProfile(null);
   const label = rosterCache.find((agent) => agent.id === ui.primaryAgent)?.label ?? ui.primaryAgent;
   const notice = deletedAgentNotice(label);
   showToast({ message: notice });

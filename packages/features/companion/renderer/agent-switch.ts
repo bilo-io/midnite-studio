@@ -73,7 +73,7 @@ export async function buildAgentStateReply(): Promise<CompanionAgentGetOutput> {
       installed: installed(agent.id, status),
       model: ui.primaryModelByAgent[agent.id] ?? null,
     })),
-    agentProfileId: ui.companionAgentProfileId,
+    agentProfileId: ui.primaryAgentProfileId,
     customAgents: profiles.map((profile) => ({
       id: profile.id,
       name: profile.name,
@@ -118,7 +118,7 @@ export async function resolveAgentSet(input: { agent: string; model?: string | u
   const previous = {
     agentId: ui.primaryAgent,
     modelId: ui.primaryModelByAgent[ui.primaryAgent] ?? null,
-    agentProfileId: ui.companionAgentProfileId,
+    agentProfileId: ui.primaryAgentProfileId,
   };
 
   // Phase 154 Theme H: a custom agent by id or name, before the built-ins (the user chose that name).
@@ -131,7 +131,7 @@ export async function resolveAgentSet(input: { agent: string; model?: string | u
       const base = agents.find((a) => a.id === custom.baseAgentId)?.label ?? custom.baseAgentId;
       return refused('notInstalled', `${custom.name} runs on ${base}, which is not installed on this machine.`);
     }
-    ui.setCompanionAgentProfile(custom.id);
+    ui.setPrimaryAgentProfile(custom.id);
     return { status: 'applied', previous, next: { ...previous, agentProfileId: custom.id } };
   }
   if (input.agent.trim().startsWith(AGENT_PROFILE_ID_PREFIX)) {

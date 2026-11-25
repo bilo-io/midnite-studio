@@ -772,7 +772,7 @@ async function switchAgent(
   const currentUi = useUiStore.getState();
   const previousAgent = currentUi.primaryAgent;
   const previousModel = currentUi.primaryModelByAgent[previousAgent] ?? null;
-  const previousProfileId = currentUi.companionAgentProfileId;
+  const previousProfileId = currentUi.primaryAgentProfileId;
 
   useUiStore.getState().setPrimaryAgentAndModel(agent.id, intent.modelId);
 
@@ -814,12 +814,12 @@ async function switchToCustomAgent(profileId: string, deps: HandoffDeps): Promis
   lastAgentSwitchChange = {
     previousAgent: ui.primaryAgent,
     previousModel: ui.primaryModelByAgent[ui.primaryAgent] ?? null,
-    previousProfileId: ui.companionAgentProfileId,
+    previousProfileId: ui.primaryAgentProfileId,
     newAgent: ui.primaryAgent,
     newModel: ui.primaryModelByAgent[ui.primaryAgent] ?? null,
     at: Date.now(),
   };
-  ui.setCompanionAgentProfile(profileId);
+  ui.setPrimaryAgentProfile(profileId);
   await say(deps, `Switched the companion to ${name}.`);
 }
 
@@ -837,7 +837,7 @@ async function undoAgentSwitch(deps: HandoffDeps): Promise<void> {
 
   useUiStore.getState().setPrimaryAgentAndModel(previousAgent, previousModel);
   if (previousProfileId !== null) {
-    useUiStore.getState().setCompanionAgentProfile(previousProfileId);
+    useUiStore.getState().setPrimaryAgentProfile(previousProfileId);
     const name = customAgent(previousProfileId)?.name;
     if (name !== undefined) {
       await say(deps, `Put it back. Switched the companion to ${name}.`);

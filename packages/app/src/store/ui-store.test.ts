@@ -1826,27 +1826,27 @@ describe('v33 -> v34 migration (Phase 113 Theme A: apps -> web-apps)', () => {
 
 
 describe('v41 -> v42 migration (Phase 154 Theme H)', () => {
-  it('seeds companionAgentProfileId as null and keeps primaryAgent', () => {
+  it('seeds primaryAgentProfileId as null and keeps primaryAgent', () => {
     const migrated = useUiStore.persist.getOptions().migrate?.({ primaryAgent: 'codex' }, 41) as Record<string, unknown>;
-    expect(migrated.companionAgentProfileId).toBeNull();
+    expect(migrated.primaryAgentProfileId).toBeNull();
     expect(migrated.primaryAgent).toBe('codex');
   });
 
   it('keeps a saved custom agent and drops a malformed one', () => {
     const migrate = useUiStore.persist.getOptions().migrate;
-    expect((migrate?.({ companionAgentProfileId: 'profile-rev' }, 42) as Record<string, unknown>).companionAgentProfileId).toBe('profile-rev');
-    expect((migrate?.({ companionAgentProfileId: 7 }, 42) as Record<string, unknown>).companionAgentProfileId).toBeNull();
+    expect((migrate?.({ primaryAgentProfileId: 'profile-rev' }, 42) as Record<string, unknown>).primaryAgentProfileId).toBe('profile-rev');
+    expect((migrate?.({ primaryAgentProfileId: 7 }, 42) as Record<string, unknown>).primaryAgentProfileId).toBeNull();
   });
 
   it('a custom agent leaves primaryAgent alone, and choosing a built-in clears it', () => {
     useUiStore.getState().setPrimaryAgent('codex');
-    useUiStore.getState().setCompanionAgentProfile('profile-rev');
+    useUiStore.getState().setPrimaryAgentProfile('profile-rev');
     expect(useUiStore.getState().primaryAgent).toBe('codex');
-    expect(useUiStore.getState().companionAgentProfileId).toBe('profile-rev');
+    expect(useUiStore.getState().primaryAgentProfileId).toBe('profile-rev');
     useUiStore.getState().setPrimaryAgentAndModel('claude', null);
-    expect(useUiStore.getState().companionAgentProfileId).toBeNull();
-    useUiStore.getState().setCompanionAgentProfile('profile-rev');
+    expect(useUiStore.getState().primaryAgentProfileId).toBeNull();
+    useUiStore.getState().setPrimaryAgentProfile('profile-rev');
     useUiStore.getState().setPrimaryAgent('agy');
-    expect(useUiStore.getState().companionAgentProfileId).toBeNull();
+    expect(useUiStore.getState().primaryAgentProfileId).toBeNull();
   });
 });

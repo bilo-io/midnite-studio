@@ -13,7 +13,7 @@ const vocabulary = vocabularyFixture({ customAgents: [{ id: 'profile-rev', name:
 
 beforeEach(() => {
   setCustomAgentsForTests([reviewer]);
-  useUiStore.setState({ primaryAgent: 'codex', primaryModelByAgent: {}, companionAgentProfileId: null });
+  useUiStore.setState({ primaryAgent: 'codex', primaryModelByAgent: {}, primaryAgentProfileId: null });
 });
 afterEach(() => {
   resetHandoffState();
@@ -24,7 +24,7 @@ describe('switching the companion to a custom agent', () => {
   it('reads back the name and leaves the primary agent alone', async () => {
     const store = fakeStore();
     await submitInput('use Reviewer', fakeHandoffDeps({ store, vocabulary: () => vocabulary }));
-    expect(useUiStore.getState().companionAgentProfileId).toBe('profile-rev');
+    expect(useUiStore.getState().primaryAgentProfileId).toBe('profile-rev');
     expect(useUiStore.getState().primaryAgent).toBe('codex');
     expect(store.lines().at(-1)).toBe('companion: Switched the companion to Reviewer.');
   });
@@ -34,19 +34,19 @@ describe('switching the companion to a custom agent', () => {
     const deps = fakeHandoffDeps({ store, vocabulary: () => vocabulary });
     await submitInput('switch to reviewer', deps);
     await submitInput('undo that', deps);
-    expect(useUiStore.getState().companionAgentProfileId).toBeNull();
+    expect(useUiStore.getState().primaryAgentProfileId).toBeNull();
     expect(useUiStore.getState().primaryAgent).toBe('codex');
     expect(store.lines().at(-1)).toBe('companion: Put it back. Switched primary agent to Codex.');
   });
 
   it('switching to a built-in and undoing restores the custom agent', async () => {
-    useUiStore.setState({ companionAgentProfileId: 'profile-rev' });
+    useUiStore.setState({ primaryAgentProfileId: 'profile-rev' });
     const store = fakeStore();
     const deps = fakeHandoffDeps({ store, vocabulary: () => vocabulary });
     await submitInput('switch to claude', deps);
-    expect(useUiStore.getState().companionAgentProfileId).toBeNull();
+    expect(useUiStore.getState().primaryAgentProfileId).toBeNull();
     await submitInput('undo that', deps);
-    expect(useUiStore.getState().companionAgentProfileId).toBe('profile-rev');
+    expect(useUiStore.getState().primaryAgentProfileId).toBe('profile-rev');
     expect(store.lines().at(-1)).toBe('companion: Put it back. Switched the companion to Reviewer.');
   });
 
@@ -59,7 +59,7 @@ describe('switching the companion to a custom agent', () => {
         ask: async () => ({ ok: true, value: { say: 'Switching.', intent: { kind: 'switchAgent', agentId: 'profile-gone' } } }),
       }),
     );
-    expect(useUiStore.getState().companionAgentProfileId).toBeNull();
+    expect(useUiStore.getState().primaryAgentProfileId).toBeNull();
     expect(store.lines().at(-1)).toBe("companion: I don't know that custom agent. It may have been deleted.");
   });
 });

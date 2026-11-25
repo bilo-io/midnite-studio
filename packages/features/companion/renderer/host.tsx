@@ -79,7 +79,7 @@ export type CompanionUiState = {
   primaryAgent: string;
   primaryModelByAgent: Record<string, string | null>;
   /** Phase 154 Theme H: the custom agent the companion thinks through, or `null` for `primaryAgent`. */
-  companionAgentProfileId: string | null;
+  primaryAgentProfileId: string | null;
   agentSkills: Record<string, string>;
   projectBoardByRepo: Record<string, string>;
   /** The forge accounts the thread's user avatar reads, and which is active. */
@@ -115,7 +115,7 @@ export type CompanionUiState = {
   setCompanionPanelOpen: (open: boolean) => void;
   toggleCompanionPanel: () => void;
   setPrimaryAgentAndModel: (agentId: string, modelId?: string | null) => void;
-  setCompanionAgentProfile: (profileId: string | null) => void;
+  setPrimaryAgentProfile: (profileId: string | null) => void;
   setProjectBoard: (repoId: string, projectId: string) => void;
 };
 
