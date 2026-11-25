@@ -99,9 +99,11 @@ export type TerminalMainServices = {
    * pty is being created. Studio's composer binds it; a host without custom-agent launches leaves it out.
    * Returns false for an unknown or expired launch id.
    */
-  bindProfileLaunch?: (launchId: string, sessionId: string) => boolean;
+  bindProfileLaunch?: (launchId: string, sessionId: string) => boolean | Promise<boolean>;
   /** Closes a launch whose pty never started, so its socket does not outlive the failed create. */
   releaseProfileLaunch?: (launchId: string) => void;
+  /** #1697: after a detached-session recovery, bring back the private sockets of the sessions it adopted. */
+  restoreProfileLaunches?: () => Promise<unknown>;
 };
 
 /**
@@ -170,7 +172,9 @@ export const terminalMain = defineFeatureMain<TerminalMainServices>({
     });
     ipc.handleBare(CHANNELS.terminalRecoverDetached, async () => {
       try {
-        return { ok: true as const, ...(await recoverDetachedSessions()) };
+        const recovered = await recoverDetachedSessions();
+        await services.restoreProfileLaunches?.().catch((error: unknown) => warn(`profile sockets: ${String(error)}`));
+        return { ok: true as const, ...recovered };
       } catch (error) {
         return failed(error);
       }
@@ -198,7 +202,7 @@ export const terminalMain = defineFeatureMain<TerminalMainServices>({
     ipc.handle(CHANNELS.ptyCreate, schemas.PtyCreateRequest, async (req) => {
       // Bound before the pty starts, so the agent's very first call is already attributed to this session.
       const launchId = req.profileLaunchId;
-      if (launchId && services.bindProfileLaunch?.(launchId, req.sessionId) === false) {
+      if (launchId && (await services.bindProfileLaunch?.(launchId, req.sessionId)) === false) {
         warn(`profile launch ${launchId} was not bound: unknown or expired`);
       }
       const result = await createPty(req);

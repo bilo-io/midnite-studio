@@ -52,7 +52,7 @@ import { currentSettings, settingsSynced } from './settings-mirror';
 import { configureOutboundSecrets } from './outbound-secrets';
 import { startAgentCommandAudit } from './ipc/agent-command-audit';
 import { startStudioAgentBreaker, stopStudioAgentBreaker } from './agent-breaker-wiring';
-import { closeStudioProfileMcpSockets } from './agent-profiles/studio-profile-sockets';
+import { closeStudioProfileMcpSockets, restoreStudioProfileMcpSockets } from './agent-profiles/studio-profile-sockets';
 import { configureToolPolicy } from './tool-policy-wiring';
 import { configureFindingsLedger, getFindingsLedger, registerVanguardHandlers, resumeVanguardSensors, startVanguardSensors, stopVanguardSensors } from './ipc/vanguard-handlers';
 
@@ -1159,6 +1159,8 @@ export const startStudioMain: StartStudioMain = () => {
         )
         .then(async () => {
           bootMark('pty-ready');
+          // #1697: a custom-agent session the broker kept alive gets its private MCP socket back.
+          void restoreStudioProfileMcpSockets().catch((error: unknown) => defaultLogger.warn(`agent profile sockets: ${String(error)}`));
           /*
             The loop ledger's ends are owned here in main: a run's record is
             finalised off the pty's own session-keyed exit, so a renderer reload
@@ -1376,7 +1378,7 @@ export const startStudioMain: StartStudioMain = () => {
       void stopVanguardSensors();
       stopAgentCommandAudit?.();
       stopStudioAgentBreaker();
-      // Phase 154 Theme G: every custom agent's private socket closes with the app.
+      // Phase 154 Theme G: every custom agent's private socket closes with the app (#1697: bound ones are restored).
       void closeStudioProfileMcpSockets();
       configureConfinement(null);
       disposeChats();
