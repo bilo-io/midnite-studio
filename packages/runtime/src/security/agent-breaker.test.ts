@@ -67,7 +67,7 @@ describe('agent breaker', () => {
     await h.breaker.observe(call(T0 + 600));
     expect(h.trips).toHaveLength(1);
     expect(h.trips[0]).toMatchObject({ sessionId: S, limit: 'toolCallsPerMinute', observed: 6, threshold: 5 });
-    expect(h.interrupt).toHaveBeenCalledExactlyOnceWith(S);
+    expect(h.interrupt).toHaveBeenCalledExactlyOnceWith(S, h.trips[0]); // #1718: the trip goes with it, so a stopped run can name it
     expect(h.recorded).toEqual([
       expect.objectContaining({ kind: 'limit-trip', sessionId: S, limit: 'toolCallsPerMinute', observed: 6, threshold: 5, windowMs: 60_000 }),
     ]);
@@ -168,7 +168,7 @@ describe('agent breaker', () => {
     await h.breaker.observe(call(T0));
     await h.breaker.observe(call(T0 + 1));
     await h.breaker.resolve(h.trips[0]!.id, 'stop');
-    expect(h.stop).toHaveBeenCalledExactlyOnceWith(S);
+    expect(h.stop).toHaveBeenCalledExactlyOnceWith(S, expect.objectContaining({ sessionId: S }));
     for (let i = 0; i < 5; i++) await h.breaker.observe(call(T0 + 10 + i));
     expect(h.trips).toHaveLength(1);
   });

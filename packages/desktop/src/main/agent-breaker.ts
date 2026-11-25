@@ -58,9 +58,9 @@ export interface AgentBreakerSeams {
   /** Send the tripped-limit notification to the window. */
   emitTrip: (trip: AgentLimitTrip) => void;
   /** Write Ctrl+C to the session's pty; false when it is not live. */
-  interrupt: (sessionId: string) => Promise<boolean>;
-  /** End the session's pty. */
-  stop: (sessionId: string) => Promise<boolean>;
+  interrupt: (sessionId: string, trip?: AgentLimitTrip) => Promise<boolean>;
+  /** End the session's pty. `trip`: the limit the "Stop" answers (#1718). */
+  stop: (sessionId: string, trip?: AgentLimitTrip) => Promise<boolean>;
   /** The session's identity (cwd for the per-repo override, agent + conversation for the spend reading). */
   session: (sessionId: string) => Promise<BreakerSession | null>;
   /**

@@ -38,6 +38,8 @@ export type CompanionProfileRun =
       promptPrefix: string | null;
       /** #1713: hand the spawned child over so the agent breaker can stop the run (it has no pty to interrupt). */
       attach?: (handle: { kill: () => void }) => void;
+      /** #1718: why the agent breaker stopped the run ("Stopped: the limit of …"), or `null`; read once it settles. */
+      stopReason?: () => string | null;
       release: () => Promise<void>;
     }
   | { kind: 'missing' }

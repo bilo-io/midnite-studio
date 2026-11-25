@@ -79,6 +79,17 @@ describe('askCompanion with a custom agent', () => {
     expect(typeof attach.mock.calls[0]?.[0]?.kill).toBe('function');
   });
 
+  it('#1718: a run the agent breaker stopped names the limit, not "I could not run"', async () => {
+    const calls: { command: string; args: readonly string[] }[] = [];
+    const reason = 'Stopped: the limit of 30 tool calls per minute was reached (31).';
+    const result = await askCompanion(input, {
+      agents: async () => [claude],
+      spawn: fakeSpawn('', calls, 1),
+      profileRun: async () => ({ kind: 'ready', name: 'Reviewer', agent: claude, args: ['-p'], promptPrefix: null, stopReason: () => reason, release: async () => undefined }),
+    });
+    expect(result).toEqual({ ok: false, kind: 'error', message: reason });
+  });
+
   it('releases the socket however the run ends', async () => {
     const release = vi.fn(async () => undefined);
     const calls: { command: string; args: readonly string[] }[] = [];

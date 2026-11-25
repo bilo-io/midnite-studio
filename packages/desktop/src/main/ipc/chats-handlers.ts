@@ -41,6 +41,9 @@ import { handle, handleBare, handleSend } from './handle';
  * Injected at boot with a store rooted at `app.getPath('userData')`, like
  * `configureNotes`; until then the service runs on an in-memory store.
  */
+/** Where a chat's refusal sends the user: the composer's agent picker. */
+export const CHATS_PICK_HINT = 'Pick another agent for this chat.';
+
 const deps: ChatsRuntimeDeps = {
   agents: listAgents,
   resolveRepo: (repoId) => {
@@ -63,6 +66,9 @@ const deps: ChatsRuntimeDeps = {
       runId: (launchId) => `chat-${launchId}`,
       // #1697/#1713: the breaker finds the turn's custom agent (its limits apply) and can stop the run.
       runs: studioHeadlessRuns(),
+      // #1718: a chat is not the companion talking, so its refusals are neutral and point at its own picker.
+      pickHint: CHATS_PICK_HINT,
+      voice: 'neutral',
     })(profileId, cwd);
     return run.kind === 'ready' ? { ...run, extraArgs: run.extraArgs ?? [] } : run;
   },

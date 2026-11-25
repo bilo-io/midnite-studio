@@ -474,6 +474,7 @@ export async function askCompanion(
     argv: string[];
     release: (() => Promise<void>) | null;
     attach?: ((handle: { kill: () => void }) => void) | undefined;
+    stopReason?: (() => string | null) | undefined;
   } | null = null;
   if (input.agentProfileId) {
     let prepared: CompanionProfileRun;
@@ -495,6 +496,7 @@ export async function askCompanion(
         argv: [...prepared.args, toAgentPrompt(text, prepared.agent.id)],
         release: prepared.release,
         attach: prepared.attach,
+        stopReason: prepared.stopReason,
       };
     }
   }
@@ -527,6 +529,10 @@ export async function askCompanion(
     // The private socket lives exactly as long as the one run that dialled it.
     await run.release?.().catch(() => undefined);
   }
+
+  // #1718: a run the agent breaker stopped names the limit, not a generic failure.
+  const stopped = run.stopReason?.() ?? null;
+  if (stopped) return failure(stopped);
 
   if (!outcome.ok) {
     return failure(

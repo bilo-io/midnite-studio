@@ -709,6 +709,17 @@ describe('a seat set to a custom agent (#1699)', () => {
     expect(store[result.value.id]!.members[0]).toMatchObject({ status: 'succeeded', output: 'looks fine', sessionId: 's-rev' });
   });
 
+  it('#1718: a seat the agent breaker stopped names the limit instead of a parse failure', async () => {
+    const reason = 'Stopped: the limit of 30 tool calls per minute was reached (31).';
+    withProfileRun({ ...ready(), stopReason: () => reason });
+    const result = await startRun('c1', 'topic');
+    if (!result.ok) throw new Error('expected ok');
+    await flush();
+    exit(spawns[0]!.ptyId, 130);
+    await flush();
+    expect(store[result.value.id]!.members[0]).toMatchObject({ status: 'failed', error: reason });
+  });
+
   it("puts a prompt-argument agent's instructions ahead of the question", async () => {
     withProfileRun({ ...ready('You review code.'), agent: AGENTS.find((agent) => agent.id === 'codex')!, args: ['exec'], extraArgs: [] });
     await startRun('c1', 'topic');

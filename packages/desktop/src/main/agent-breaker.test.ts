@@ -72,7 +72,7 @@ describe('startAgentBreaker', () => {
     await running.breaker.poll();
     expect(trips).toHaveLength(1);
     expect(trips[0]).toMatchObject({ threshold: 2, observed: 3 });
-    expect(interrupt).toHaveBeenCalledWith('s1');
+    expect(interrupt).toHaveBeenCalledWith('s1', expect.objectContaining({ limit: 'toolCallsPerMinute', observed: 3, threshold: 2 }));
     running.dispose();
   });
 

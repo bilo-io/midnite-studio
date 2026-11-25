@@ -112,6 +112,8 @@ export type CouncilProfileRun =
       promptPrefix: string | null;
       /** #1713: hand the spawned child over so the agent breaker can stop the run (it has no pty to interrupt). */
       attach?: (handle: { kill: () => void }) => void;
+      /** #1718: why the agent breaker stopped the run ("Stopped: the limit of …"), or `null`; read once it settles. */
+      stopReason?: () => string | null;
       release: () => Promise<void>;
     }
   | { kind: 'missing' }
@@ -693,6 +695,8 @@ type Spawned = {
   provider: CouncilMemberProvider;
   /** Closes a custom agent's private socket; absent for a roster seat. */
   release?: () => Promise<void>;
+  /** #1718: why the agent breaker stopped the seat, read once it settles; absent for a roster seat. */
+  stopReason?: () => string | null;
   /** The seat's custom agent was deleted, so it runs as its base. */
   fallback?: 'deleted';
 };
@@ -707,6 +711,7 @@ type SeatCommand = {
   release?: () => Promise<void>;
   /** #1713: the seat's pty kill goes to the agent breaker, which has no terminal row to find it by. */
   attach?: (handle: { kill: () => void }) => void;
+  stopReason?: () => string | null;
   fallback?: 'deleted';
 };
 
@@ -731,7 +736,7 @@ async function spawnOneShot(
   const promptText = await scrubPrompt(rawPrompt, runId);
   const command = await seatCommand(target, role);
   if (!command.ok) return command;
-  const { agentId, provider, words, env, promptPrefix, release, attach, fallback } = command.value;
+  const { agentId, provider, words, env, promptPrefix, release, attach, stopReason, fallback } = command.value;
   const text = promptPrefix === null ? promptText : `${promptPrefix}\n\n${promptText}`;
 
   let dir: string;
@@ -775,6 +780,7 @@ async function spawnOneShot(
     dir,
     provider,
     ...(release ? { release } : {}),
+    ...(stopReason ? { stopReason } : {}),
     ...(fallback ? { fallback } : {}),
   };
 }
@@ -816,6 +822,7 @@ async function seatCommand(target: LaunchTarget, role: CouncilProfileRole): Prom
           promptPrefix: prepared.promptPrefix,
           release: prepared.release,
           ...(prepared.attach ? { attach: prepared.attach } : {}),
+          ...(prepared.stopReason ? { stopReason: prepared.stopReason } : {}),
         },
       };
     }
@@ -872,7 +879,7 @@ function trackOneShot(
   onSettle: (outcome: Outcome) => void,
   limitMs: number = timeoutMs,
 ): void {
-  const { ptyId, invocation, dir, release } = spawned;
+  const { ptyId, invocation, dir, release, stopReason } = spawned;
   let buffer: Uint8Array = new Uint8Array(0);
   let truncated = false;
   let settled = false;
@@ -915,6 +922,12 @@ function trackOneShot(
     (exitCode) => {
       if (settled) return;
       finish();
+      // #1718: a seat the agent breaker stopped names the limit instead of a parse failure.
+      const stopped = stopReason?.() ?? null;
+      if (stopped) {
+        onSettle({ status: 'failed', text: '', truncated, error: stopped });
+        return;
+      }
       const raw = new TextDecoder().decode(buffer).replace(/\r\n/g, '\n');
       const answer = parseCouncilAnswer(provider, cleanCapturedOutput(raw, invocation), exitCode);
       onSettle({
