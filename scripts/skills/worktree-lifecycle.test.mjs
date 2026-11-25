@@ -17,7 +17,7 @@ function fixture() {
   git(repo, 'add', '.');
   git(repo, 'commit', '-qm', 'init');
   mkdirSync(join(repo, '.worktrees'));
-  const mk = (slug, { commit = false, pad = 'x' } = {}) => {
+  const mk = (slug, { commit = false, pad = 'x', merged = false } = {}) => {
     const p = join(repo, '.worktrees', slug);
     git(repo, 'worktree', 'add', '-q', p, '-b', `feature/${slug}`, 'main');
     if (pad) writeFileSync(join(p, 'SCRATCHPAD.md'), pad);
@@ -25,6 +25,12 @@ function fixture() {
       writeFileSync(join(p, 'new.txt'), 'n\n');
       git(p, 'add', 'new.txt');
       git(p, 'commit', '-qm', 'work');
+    }
+    if (merged) {
+      writeFileSync(join(p, `${slug}.txt`), 'm\n');
+      git(p, 'add', `${slug}.txt`);
+      git(p, 'commit', '-qm', 'merged work');
+      git(repo, 'merge', '-q', '--no-ff', '--no-edit', `feature/${slug}`);
     }
     return p;
   };
@@ -40,19 +46,21 @@ function fixture() {
 describe('worktree-lifecycle.sh', () => {
   it('sweep lists landed worktrees (ancestor of main) with size and dirty state, applies nothing by default', () => {
     const f = fixture();
-    const landed = f.mk('landed');
+    const landed = f.mk('landed', { merged: true });
+    f.mk('empty');
     f.mk('open', { commit: true });
     const out = f.run('sweep');
     expect(out).toMatch(/^landed\tfeature\/landed\tmerged \(ancestor of main\)\t\d+ MB\tclean\t-$/m);
     expect(out).not.toMatch(/^open\t/m);
+    expect(out).not.toMatch(/^empty\t/m); // on main with no commits: in flight, not landed
     expect(out).toMatch(/dry run/);
     expect(existsSync(landed)).toBe(true);
   });
 
   it('sweep --apply removes clean landed worktrees (scratchpad aside) and their branch, keeps dirty ones', () => {
     const f = fixture();
-    const clean = f.mk('clean');
-    const dirty = f.mk('dirty');
+    const clean = f.mk('clean', { merged: true });
+    const dirty = f.mk('dirty', { merged: true });
     writeFileSync(join(dirty, 'wip.txt'), 'wip\n');
     const out = f.run('sweep', '--apply');
     expect(out).toMatch(/^clean\t.*\tremoved \+ branch deleted$/m);

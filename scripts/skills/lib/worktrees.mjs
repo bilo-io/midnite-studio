@@ -46,9 +46,14 @@ export const addStats = (a, b) => ({ files: a.files + b.files, added: a.added + 
  * Stalled = the same Todo count and commit on this run as on the previous one. `prev` is the saved state for the
  * slug (`{sig, seen}`); returns the next state and the verdict.
  */
-export function stallCheck(prev, sig) {
-  const seen = prev?.sig === sig ? (prev.seen ?? 1) + 1 : 1;
-  return { state: { sig, seen }, stalled: seen >= 2 };
+export const STALL_MIN_MS = 5 * 60 * 1000;
+
+export function stallCheck(prev, sig, now = Date.now()) {
+  const same = prev?.sig === sig;
+  const since = same ? (prev.since ?? now) : now;
+  const seen = same ? (prev.seen ?? 1) + 1 : 1;
+  // two runs a few seconds apart say nothing: the unchanged state must also span STALL_MIN_MS
+  return { state: { sig, seen, since }, stalled: seen >= 2 && now - since >= STALL_MIN_MS };
 }
 
 export const stateFile = () => join(process.env.TMPDIR || tmpdir(), 'midnite-sitrep-worktrees.json');
@@ -65,7 +70,7 @@ function loadState(path) {
  * One raw sitrep row per `<dir>/*` worktree that has a SCRATCHPAD.md and no PR on its branch.
  * @param {{dir:string, run?:Function, gh?:Function, read?:Function, list?:Function, statePath?:string|null}} o
  */
-export async function gatherWorktrees({ dir, run = gitRun, gh = undefined, read = (p) => readFileSync(p, 'utf8'), list = (d) => readdirSync(d), statePath = stateFile() } = {}) {
+export async function gatherWorktrees({ now = Date.now(), dir, run = gitRun, gh = undefined, read = (p) => readFileSync(p, 'utf8'), list = (d) => readdirSync(d), statePath = stateFile() } = {}) {
   let slugs = [];
   try {
     slugs = list(dir).sort();
@@ -93,7 +98,7 @@ export async function gatherWorktrees({ dir, run = gitRun, gh = undefined, read 
     const head = (await run(['rev-parse', 'HEAD'], { cwd }).catch(() => '')).trim();
     const todo = parseTodo(md);
     const doing = todo.firstOpen ?? parseNext(md);
-    const { state, stalled } = stallCheck(prev[slug], `${todo.ticked}/${todo.total}@${head}`);
+    const { state, stalled } = stallCheck(prev[slug], `${todo.ticked}/${todo.total}@${head}`, now);
     next[slug] = state;
     rows.push({
       task: slug,

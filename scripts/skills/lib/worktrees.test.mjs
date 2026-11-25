@@ -23,10 +23,11 @@ describe('parsers', () => {
     expect(worktreeProgress({ ticked: 0, total: 0 })).toBe(10);
   });
   it('stallCheck flags the second identical signature', () => {
-    const a = stallCheck(undefined, '1/3@abc');
+    const a = stallCheck(undefined, '1/3@abc', 0);
     expect(a.stalled).toBe(false);
-    expect(stallCheck(a.state, '1/3@abc').stalled).toBe(true);
-    expect(stallCheck(a.state, '2/3@abc').stalled).toBe(false);
+    expect(stallCheck(a.state, '1/3@abc', 1000).stalled).toBe(false); // too soon after the first sighting
+    expect(stallCheck(a.state, '1/3@abc', 10 * 60000).stalled).toBe(true);
+    expect(stallCheck(a.state, '2/3@abc', 10 * 60000).stalled).toBe(false);
   });
   it('addStats sums', () => {
     expect(addStats({ files: 1, added: 2, deleted: 3 }, { files: 1, added: 1, deleted: 0 })).toEqual({ files: 2, added: 3, deleted: 3 });

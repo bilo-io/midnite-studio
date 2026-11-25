@@ -49,10 +49,16 @@ drop_scratchpad() { # delete SCRATCHPAD.md only when it is untracked and nothing
 }
 
 landed_reason() { # <branch> -> why it counts as landed (empty when it does not)
-  local b="$1" st
-  if git -C "$primary" merge-base --is-ancestor "$b" origin/main 2>/dev/null || git -C "$primary" merge-base --is-ancestor "$b" main 2>/dev/null; then
-    echo "merged (ancestor of main)"; return
-  fi
+  local b="$1" st tip m
+  tip="$(git -C "$primary" rev-parse "$b" 2>/dev/null || true)"
+  # A branch sitting exactly on main (a worktree just created, no commits yet) is an ancestor of main
+  # too, but it is in flight, not landed: only the forge can tell those apart, so skip the ancestry test.
+  for m in origin/main main; do
+    if [[ -n "$tip" && "$tip" != "$(git -C "$primary" rev-parse "$m" 2>/dev/null || true)" ]] \
+      && git -C "$primary" merge-base --is-ancestor "$b" "$m" 2>/dev/null; then
+      echo "merged (ancestor of main)"; return
+    fi
+  done
   if command -v gh >/dev/null 2>&1; then
     st="$(cd "$primary" && gh pr list --head "$b" --state all --limit 1 --json state --jq '.[0].state // empty' 2>/dev/null || true)"
     case "$st" in
