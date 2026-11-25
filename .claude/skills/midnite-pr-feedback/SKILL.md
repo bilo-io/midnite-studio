@@ -14,7 +14,7 @@ number,url`; none means stop and say so).
 
 **Auth.** Every `gh` call and every push uses the `bilo-io` account:
 `GH_TOKEN="$(gh auth token -u bilo-io)" gh …`, and pushes use
-`git -c credential.helper= -c credential.helper='!f(){ echo username=bilo-io; echo password=$(gh auth token -u bilo-io); }; f' push`.
+`scripts/skills/push.sh`.
 Never `gh auth switch`.
 
 ## 0 · Run the script first
@@ -23,7 +23,8 @@ Run `node scripts/skills/pr-feedback.mjs <pr> [--rerun-flakes]`. It classifies e
 
 ## 1 · Gather
 
-In parallel, with `--repo bilo-io/midnite-studio`:
+Run `node scripts/skills/pr-context.mjs <n>` (view, reviews, comments, checks, diff-stat, worktree, dirty, ahead/behind in one JSON), then
+`gh pr diff <n>`. Fallback, in parallel, with `--repo bilo-io/midnite-studio`:
 
 ```bash
 gh pr view <n> --json title,body,state,isDraft,baseRefName,headRefName,url
@@ -67,8 +68,8 @@ anything. When called by `midnite-check-yourself`, run straight through.
 
 Work the list in order, striking each item through as it lands. For each code change:
 
-- Make the change, then verify **scoped only**: `pnpm -C <pkg> exec vitest run <files>`,
-  `pnpm -C <pkg> exec tsc --noEmit`, `pnpm exec eslint <changed files>`.
+- Make the change, then verify **scoped only**: `node scripts/skills/scoped-check.mjs --run`
+  (vitest on changed tests, `tsc --noEmit` per touched package, eslint on changed files).
 - **No workspace-wide `moon run :typecheck :lint :test`, no full suites, locally.** They exhaust
   RAM; CI is the gate.
 - Commit with a clear message. **No `Co-Authored-By`, `Signed-off-by` or any attribution trailer.**
@@ -97,7 +98,7 @@ eslint afterwards: deleting a comment can strip a load-bearing pragma.
 ## 6 · Push and report
 
 `git push` (regular, per the command above). When run on its own, append a `## Feedback addressed` list to the PR body
-with `gh pr edit`, preserving the original body (when called by `midnite-check-yourself`, skip the body edit: it fills `## Self-review` instead), and print a short summary ending with the PR URL.
+with `node scripts/skills/pr-body.mjs <n> --set-section "Feedback addressed" --file <f>`, preserving the original body (when called by `midnite-check-yourself`, skip the body edit: it fills `## Self-review` instead), and print a short summary ending with the PR URL.
 
 ## Rules
 

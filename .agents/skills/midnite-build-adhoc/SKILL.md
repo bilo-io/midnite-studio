@@ -36,7 +36,7 @@ Clarify any ambiguous requirements with the user.
 Implement code, adhering strictly to package boundaries. Add unit and visual tests.
 
 ## 3 · Local Gate
-Run `moon run :typecheck && moon run :lint && moon run :test`.
+Run `node scripts/skills/scoped-check.mjs --run` (focused vitest, `tsc --noEmit` and eslint for the packages the diff touches; never the workspace-wide moon gate, which exhausts RAM).
 
 ## 4 · Sub-Agent Self-Review & Fix Implementation
 1. Subagent 1 conducts self-review of the diff against house conventions (CRITICAL, WARNING, NIT).
