@@ -21,8 +21,8 @@ Run `scripts/skills/orchestrate-cap.sh --running <n>` before each spawn, `script
 
 ## 1 · Scope — option sheets, as many pages as it takes (skip what the invocation answers)
 
-Scan the open `phase` issues on GitHub — **Pass 1 only**, the list; no issue bodies — for
-unblocked candidates, and `gh pr list --state open` to skip anything in flight. Present them as
+Scan the forge — `node scripts/skills/tracker.mjs candidates` lists every open theme of every open phase as `ready`, `claimed`,
+`in PR #n` or `blocked by #n`; offer only the `ready` ones (no issue bodies yet). Present them as
 multi-select checkboxes: up to 4 options per question and up to 4
 questions per page, so 16 per page; keep paging until every candidate has been offered. The human
 may describe an ad hoc task via "Other". The roster is everything checked; nothing checked → ask
@@ -48,8 +48,8 @@ Each worker:
   hoc task) for **that task only**, capped to §2.
 - Runs unattended: skips `/midnite-build`'s own questions, takes the conventional choice or the
   phase issue's *Decisions*, and records what it chose in the PR body.
-- Claims its theme sub-issue on GitHub before branching (`gh issue edit <n> --add-assignee @me --add-label wip`);
-  writes what landed into its phase issue's `## Headlines`, and its PR closes the sub-issue.
+- Claims its theme sub-issue on GitHub before branching (`node scripts/skills/tracker.mjs claim <n>`);
+  writes what landed into its phase issue's `## Headlines` (`node scripts/skills/tracker.mjs headlines <phase> --theme X --text …`), and its PR closes the sub-issue.
 - Uses a worktree slug that cannot collide: `.worktrees/p<N>-<letters>`.
 - Opens the PR as a draft, self-reviews with `/midnite-check-yourself`, readies it, watches CI.
 

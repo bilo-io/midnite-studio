@@ -260,6 +260,7 @@ describe('tracker CLI', () => {
     const ghRun = fakeGh(baseRoutes()).run;
     expect((await run(['next'], { ghRun })).text).toBe('10');
     expect((await run(['index'], { ghRun })).text).toContain('| #20 | 9 · Thing | features | 🔄 | x1 | 1/5 |');
+    expect(JSON.parse((await run(['index', '--category', 'issues', '--json'], { ghRun })).text).phases.map((p) => p.phase)).toEqual([8]);
     const c = JSON.parse((await run(['candidates', '--json'], { ghRun })).text);
     expect(c.candidates.filter((x) => x.available).map((x) => x.theme)).toEqual(['E']);
   });
@@ -273,6 +274,12 @@ describe('tracker CLI', () => {
     const r = await run(['headlines', '--phase', '9', '--theme', 'C', '--text', '**Theme C — Wiring.** ✅', '--dry-run'], { ghRun: gh.run, tmpFile: () => '/tmp/x.md' });
     expect(r.text).toBe('# dry run — nothing was written\ngh issue edit 20 --repo bilo-io/midnite-studio --body-file /tmp/x.md');
     expect(gh.calls.some((c) => c.includes('edit'))).toBe(false);
+  });
+  it('link resolves the child database id and posts it', async () => {
+    const gh = fakeGh([[(a) => a[0] === 'api' && a[1].endsWith('/issues/31'), { id: 777 }], [(a) => a.includes('POST'), '']]);
+    expect((await run(['link', '30', '31'], { ghRun: gh.run })).text).toBe('#31: linked under #30');
+    expect(gh.calls.at(-1)).toEqual(['api', 'repos/bilo-io/midnite-studio/issues/30/sub_issues', '-X', 'POST', '-F', 'sub_issue_id=777']);
+    expect((await run(['link', '30'], { ghRun: gh.run })).code).toBe(2);
   });
   it('file reads the bodies and titles from the files', async () => {
     const files = { 'p.md': '# Phase 9 — Thing\n\nbody', 'a.md': '# Phase 9 · Theme A — Parser\n- [ ] x' };

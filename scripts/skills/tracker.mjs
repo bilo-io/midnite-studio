@@ -14,7 +14,8 @@ export const HELP = `tracker — the phase tracker on the forge (docs/TRACKER.md
   node scripts/skills/tracker.mjs <command> [args] [--json] [--dry-run] [--repo owner/name]
 
 Read
-  index [--state open|closed|all]        every phase: category, refined, themes done/total, WIP / TODO letters
+  index [--state open|closed|all] [--category C]
+                                         every phase: category, refined, themes done/total, WIP / TODO letters
   next                                   the next free phase number
   view <issue> | --phase N               a phase issue: themes, progress, Headlines
   candidates                             open themes of open phases: ready, claimed, in an open PR, or blocked
@@ -23,6 +24,7 @@ Write (each accepts --dry-run: prints the exact gh calls, runs none)
   file --phase-body F --theme F... [--category features|security|issues]
                                          create the phase issue + one sub-issue per theme file; each file's
                                          first "# " heading is its title ("Phase N — T" / "Phase N · Theme X — T")
+  link <phase-issue> <theme-issue>       link an existing issue as a sub-issue (by its database id)
   claim <issue>                          assign @me + label wip (the label is created when missing)
   tick <issue> --item "text"             tick the one open "- [ ]" task containing text (refuses 0 or 2+ matches)
   headlines <issue>|--phase N [--theme X] (--file F | --text "...")
@@ -34,7 +36,7 @@ Write (each accepts --dry-run: prints the exact gh calls, runs none)
 
 Exit: 0 ok · 1 gh / forge failure · 2 usage. GH_TOKEN defaults to the bilo-io account's token.`;
 
-const WRITES = new Set(['file', 'claim', 'tick', 'headlines', 'refine-stamp', 'close', 'board']);
+const WRITES = new Set(['file', 'link', 'claim', 'tick', 'headlines', 'refine-stamp', 'close', 'board']);
 const MULTI = new Set(['--theme-file']);
 
 /** argv -> `{cmd, pos[], flags{}}`. `--theme` repeats under `file` (theme files) and is a letter elsewhere. */
@@ -108,9 +110,12 @@ export async function run(argv, { ghRun, readFile = (f) => readFileSync(f, 'utf8
   const need = (flag) => (typeof flags[flag] === 'string' ? flags[flag] : null);
   let r;
   switch (cmd) {
-    case 'index':
+    case 'index': {
+      const cat = need('--category');
       r = await t.index({ state: need('--state') ?? 'all' });
+      if (r.ok && cat) r = { ...r, phases: r.phases.filter((p) => p.category === cat) };
       break;
+    }
     case 'next':
       r = await t.next();
       break;
@@ -130,6 +135,12 @@ export async function run(argv, { ghRun, readFile = (f) => readFileSync(f, 'utf8
       const body = readFile(bodyFile);
       const themes = (flags['--theme-file'] ?? []).map((f) => { const b = readFile(f); return { title: titleOf(b), body: b }; });
       r = await t.file({ title: titleOf(body), category, body, themes });
+      break;
+    }
+    case 'link': {
+      const [parent, child] = pos.map(Number);
+      r = parent > 0 && child > 0 ? await t.linkSubIssue(parent, child) : usage('link needs <phase-issue> <theme-issue>');
+      if (r.ok) r = { ok: true, number: child, parent };
       break;
     }
     case 'claim':
@@ -185,6 +196,8 @@ function render(cmd, r) {
       return `#${r.number}: Headlines ${r.theme ? `Theme ${r.theme} ${r.replaced ? 'replaced' : 'added'}` : 'section replaced'}`;
     case 'refine-stamp':
       return `#${r.number}: ${r.label}`;
+    case 'link':
+      return `#${r.number}: linked under #${r.parent}`;
     case 'board':
       return `#${r.number}: Status → ${r.status} (project ${r.project}, from ${r.projectSource})`;
     default:
