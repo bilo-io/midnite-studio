@@ -52,6 +52,7 @@ import { currentSettings, settingsSynced } from './settings-mirror';
 import { configureOutboundSecrets } from './outbound-secrets';
 import { startAgentCommandAudit } from './ipc/agent-command-audit';
 import { startStudioAgentBreaker, stopStudioAgentBreaker } from './agent-breaker-wiring';
+import { closeStudioProfileMcpSockets } from './agent-profiles/studio-profile-sockets';
 import { configureToolPolicy } from './tool-policy-wiring';
 import { configureFindingsLedger, getFindingsLedger, registerVanguardHandlers, resumeVanguardSensors, startVanguardSensors, stopVanguardSensors } from './ipc/vanguard-handlers';
 
@@ -1375,6 +1376,8 @@ export const startStudioMain: StartStudioMain = () => {
       void stopVanguardSensors();
       stopAgentCommandAudit?.();
       stopStudioAgentBreaker();
+      // Phase 154 Theme G: every custom agent's private socket closes with the app.
+      void closeStudioProfileMcpSockets();
       configureConfinement(null);
       disposeChats();
       // The global capture chord is released and clipboard polling stops with the app (Phase 113 Theme K).

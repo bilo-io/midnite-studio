@@ -17,6 +17,7 @@ import { openLinkFromEvent } from '../services/open-in-midnite';
 import { useRepoLogo, useRepos } from '../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../store/ui-store';
 import { StudioLoopMark } from './loop-mark';
+import { studioPrepareProfileLaunch, useStudioAgentProfiles } from './profile-launch';
 import { selectRepoForSessionOrChat } from './select-repo-for-item';
 import { STUDIO_CHROME } from './studio-chrome';
 
@@ -100,6 +101,9 @@ export const STUDIO_TERMINAL_HOST = {
   LoopMark: StudioLoopMark,
   usePopoutHeaderActions,
   usePopoutHeaderLeading,
+  // Phase 154 Theme F: custom agents in the `+` menu and in each session's chrome.
+  useAgentProfiles: useStudioAgentProfiles,
+  prepareProfileLaunch: studioPrepareProfileLaunch,
 } satisfies TerminalHost;
 
 /**

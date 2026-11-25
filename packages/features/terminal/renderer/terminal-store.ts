@@ -82,6 +82,8 @@ export type NewSessionRequest = {
   /** Session identity for an Ollama-backed launch (Phase 96 Theme H) — see `TerminalSessionSchema`'s own doc. */
   backend?: 'native' | 'ollama';
   ollamaModel?: string;
+  /** The custom agent this session runs (Phase 154): its chrome, and what wake and Resume re-prepare. */
+  profileId?: string;
 };
 
 type TerminalState = {
@@ -157,6 +159,12 @@ type TerminalState = {
    * pressing Enter is the confirmation, so the app never runs it itself.
    */
   pendingInput: Record<string, string>;
+  /**
+   * A custom agent's prepared launch id per session (Phase 154 Theme F), handed to `pty.create` as
+   * `profileLaunchId` so main binds the agent's private MCP socket to this session. Never persisted —
+   * a launch id is single-use — and cleared once the pty binds.
+   */
+  launchIds: Record<string, string>;
   /**
    * A guessed session name, per session — from the shell's own OSC title for
    * an agent, or the last command typed into a plain shell.
@@ -262,6 +270,8 @@ type TerminalState = {
   queueInput: (sessionId: string, input: string) => void;
   /** Consumed on pty creation — one paste per queue, never on a revive. */
   clearPendingInput: (sessionId: string) => void;
+  setLaunchId: (sessionId: string, launchId: string) => void;
+  clearLaunchId: (sessionId: string) => void;
   /**
    * Send bytes straight to a session's bound pty (Phase 86 Theme D).
    *
@@ -391,6 +401,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   replay: {},
   errors: {},
   pendingInput: {},
+  launchIds: {},
   autoNames: {},
   activity: {},
   activityAt: {},
@@ -587,6 +598,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       ...(request.forgeAccountKey === undefined ? {} : { forgeAccountKey: request.forgeAccountKey }),
       ...(request.backend === undefined ? {} : { backend: request.backend }),
       ...(request.ollamaModel === undefined ? {} : { ollamaModel: request.ollamaModel }),
+      ...(request.profileId === undefined ? {} : { profileId: request.profileId }),
       ...(get().appId === 'studio' ? {} : { appId: get().appId }),
     };
 
@@ -692,6 +704,17 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       const pendingInput = { ...state.pendingInput };
       delete pendingInput[sessionId];
       return { pendingInput };
+    }),
+
+  setLaunchId: (sessionId, launchId) =>
+    set((state) => ({ launchIds: { ...state.launchIds, [sessionId]: launchId } })),
+
+  clearLaunchId: (sessionId) =>
+    set((state) => {
+      if (!(sessionId in state.launchIds)) return state;
+      const launchIds = { ...state.launchIds };
+      delete launchIds[sessionId];
+      return { launchIds };
     }),
 
   sendInput: (sessionId, data) => {
@@ -937,6 +960,7 @@ function dropKey(
   | 'replay'
   | 'errors'
   | 'pendingInput'
+  | 'launchIds'
   | 'autoNames'
   | 'activity'
   | 'activityAt'
@@ -951,6 +975,7 @@ function dropKey(
   const replay = { ...state.replay };
   const errors = { ...state.errors };
   const pendingInput = { ...state.pendingInput };
+  const launchIds = { ...state.launchIds };
   const autoNames = { ...state.autoNames };
   const activity = { ...state.activity };
   const activityAt = { ...state.activityAt };
@@ -964,6 +989,7 @@ function dropKey(
   delete replay[sessionId];
   delete errors[sessionId];
   delete pendingInput[sessionId];
+  delete launchIds[sessionId];
   delete autoNames[sessionId];
   delete activity[sessionId];
   delete activityAt[sessionId];
@@ -978,6 +1004,7 @@ function dropKey(
     replay,
     errors,
     pendingInput,
+    launchIds,
     autoNames,
     activity,
     activityAt,

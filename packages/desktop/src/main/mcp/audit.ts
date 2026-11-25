@@ -37,6 +37,7 @@ const asRecord = (entry: McpCallEntry): NewAgentAuditRecord => ({
   repoPath: entry.repoPath,
   ok: entry.ok,
   ms: entry.ms,
+  ...(entry.sessionId ? { sessionId: entry.sessionId } : {}),
 });
 
 /** Point the log at the trail and move anything held in the ring into it. Pass `null` to detach. */
@@ -61,7 +62,9 @@ export async function getMcpCallLog(): Promise<McpCallEntry[]> {
   if (!trail) return [...ring].reverse();
   const records = await trail.tail({ kind: 'mcp-call', limit: CAPACITY });
   return records.flatMap((r) =>
-    r.kind === 'mcp-call' ? [{ at: r.at, tool: r.tool as McpCallEntry['tool'], repoPath: r.repoPath, ok: r.ok, ms: r.ms }] : [],
+    r.kind === 'mcp-call'
+      ? [{ at: r.at, tool: r.tool as McpCallEntry['tool'], repoPath: r.repoPath, ok: r.ok, ms: r.ms, ...(r.sessionId ? { sessionId: r.sessionId } : {}) }]
+      : [],
   );
 }
 

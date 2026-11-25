@@ -13,6 +13,7 @@ import { createFitCoalescer } from './fit-coalescer';
 import { createInputQueue, type InputQueue } from './input-queue';
 import { isXtermFocusReport, isXtermMouseReport, shouldWakeDeadPane } from './is-xterm-focus-report';
 import { parseOsc7 } from './parse-osc7';
+import { prepareProfileStart } from './profile-launch';
 import { createReplayGate, gateLiveWrite, replayLiveHandoff, writeAtSourceSize, type ReplayGate } from './replay-gate';
 import { createSizeSync, type SizeSync } from './size-sync';
 import { attachTerminalLinks } from './terminal-links';
@@ -245,6 +246,9 @@ export function TerminalView({
   startRef.current = start;
   const initialInputRef = useRef(initialInput);
   initialInputRef.current = initialInput;
+  /** Starts (or wakes) the pty — a custom agent's session re-prepares its line first. Set below `agent`. */
+  const launchRef = useRef<(cols: number, rows: number) => Promise<void>>(async () => undefined);
+  const preparingRef = useRef(false);
   const stateRef = useRef(connectionState);
   stateRef.current = connectionState;
 
@@ -782,7 +786,7 @@ export function TerminalView({
         // agent TUI's mode, so merely hovering it emitted mouse reports here
         // and restarted the loop. Only a keystroke or paste wakes a pane.
         if (!shouldWakeDeadPane(data)) return;
-        void startRef.current(term.cols, term.rows, initialInputRef.current);
+        void launchRef.current(term.cols, term.rows);
       });
 
       setReady(true);
@@ -798,7 +802,7 @@ export function TerminalView({
         with an empty one, and would then be revived on sight.
       */
       if (stateRef.current === 'idle') {
-        void startRef.current(term.cols, term.rows, initialInputRef.current);
+        void launchRef.current(term.cols, term.rows);
       }
     };
 
@@ -908,6 +912,37 @@ export function TerminalView({
   const agent = session.kind === 'agent' ? agents.find((a) => a.id === session.agentId) : undefined;
   const phase = sessionPhase(session, connectionState);
 
+  /*
+    Phase 154 Theme F: a custom agent's session comes back as itself. A queued line is a fresh launch's,
+    already prepared with its launch id in the store; otherwise wake (`resume: false`) and Resume
+    (`resume: true`) ask main for the line again. A deleted agent falls back to the base CLI, exactly as a
+    plain agent session starts; any other failure starts nothing (the host has reported it), since the
+    bare base CLI would run without the agent's tool allowlist. `preparingRef` keeps a burst of wake keystrokes
+    from preparing twice — each prepare opens a socket.
+  */
+  const startAs = async (cols: number, rows: number, resume: boolean, fallback: string | undefined): Promise<void> => {
+    const prepare = hostRef.current.prepareProfileLaunch;
+    if (session.profileId && prepare) {
+      if (preparingRef.current) return;
+      preparingRef.current = true;
+      try {
+        const prepared = await prepareProfileStart(prepare, session, resume);
+        if (prepared === 'failed') return;
+        if (prepared !== 'fallback') {
+          return await start(cols, rows, prepared.input, { profileLaunchId: prepared.profileLaunchId });
+        }
+      } finally {
+        preparingRef.current = false;
+      }
+    }
+    return start(cols, rows, fallback);
+  };
+  launchRef.current = (cols, rows) => {
+    const queued = initialInputRef.current;
+    if (queued !== undefined || !session.profileId) return start(cols, rows, queued);
+    return startAs(cols, rows, false, agent ? agentInput(agent) : undefined);
+  };
+
   useEffect(() => {
     if (!active || !ready || !autoFocus) return;
     if (useTerminalStore.getState().suppressAutoFocus) {
@@ -950,11 +985,7 @@ export function TerminalView({
           }}
           onResume={() => {
             if (termRef.current && agent && agent.resume) {
-              void start(
-                termRef.current.cols,
-                termRef.current.rows,
-                agentInput({ ...agent, args: agent.resume }),
-              );
+              void startAs(termRef.current.cols, termRef.current.rows, true, agentInput({ ...agent, args: agent.resume }));
             }
           }}
         />

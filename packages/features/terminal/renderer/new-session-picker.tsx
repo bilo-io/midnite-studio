@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 
-import type { AgentDefinition, AgentStatus } from '@midnite/studio-shared';
+import type { AgentDefinition, AgentProfile, AgentStatus } from '@midnite/studio-shared';
 import { LuPlus, LuSearch, LuTerminal } from 'react-icons/lu';
 
 import type { IconComponent } from '@midnite/studio-frame';
 import { useTerminalHost } from './host';
 import { fuzzyMatch } from '@midnite/studio-frame';
 import { useAgents } from './use-agents';
-import { buildAgentSections, NO_WORKTREE, type AgentRow, type AgentSection } from './new-session-menu';
+import { buildAgentSections, NO_WORKTREE, type AgentSection, type MenuRow } from './new-session-menu';
 
 export type NewSessionPickerProps = {
   agents: AgentDefinition[];
@@ -21,6 +21,10 @@ export type NewSessionPickerProps = {
    * (and failing) to start a session with it.
    */
   onConfigure: (agent: AgentDefinition) => void;
+  /** Saved custom agents (Phase 154): listed first under "Your agents". */
+  profiles?: readonly AgentProfile[];
+  /** Starts a custom agent's session. Without it, no "Your agents" section is shown. */
+  onNewProfile?: (profile: AgentProfile) => void;
   /** Accessible label for the `+` trigger button; defaults to `'New terminal or agent'`. */
   label?: string;
   /** Test id for the popover; defaults to `'new-session-picker'`. */
@@ -49,6 +53,8 @@ export function NewSessionPicker({
   onNewTerminal,
   onNewAgent,
   onConfigure,
+  profiles,
+  onNewProfile,
   label = 'New terminal or agent',
   testId = 'new-session-picker',
   triggerClassName = 'inline-flex h-6 shrink-0 items-center rounded-md px-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[open=true]:bg-accent',
@@ -92,14 +98,23 @@ export function NewSessionPicker({
             onConfigure(agent);
             setOpen(false);
           }}
+          {...(onNewProfile && profiles
+            ? {
+                profiles,
+                onNewProfile: (profile: AgentProfile) => {
+                  onNewProfile(profile);
+                  setOpen(false);
+                },
+              }
+            : {})}
         />
       ) : null}
     </Popover>
   );
 }
 
-/** A row the keyboard may land on: the pinned New Terminal row, or one agent. */
-type Row = { kind: 'terminal' } | { kind: 'agent'; row: AgentRow };
+/** A row the keyboard may land on: the pinned New Terminal row, or one agent or custom agent. */
+type Row = { kind: 'terminal' } | { kind: 'agent'; row: MenuRow };
 
 /**
  * Whether `query` picks out `agent` at all.
@@ -113,6 +128,13 @@ type Row = { kind: 'terminal' } | { kind: 'agent'; row: AgentRow };
 function matchesQuery(query: string, agent: AgentDefinition): boolean {
   if (!query) return true;
   return Boolean(fuzzyMatch(query, agent.label) ?? fuzzyMatch(query, agent.command));
+}
+
+/** A custom agent matches by its own name, or by anything its base CLI matches by. */
+function rowMatchesQuery(query: string, row: MenuRow): boolean {
+  if (row.kind === 'agent') return matchesQuery(query, row.agent);
+  if (!query) return true;
+  return Boolean(fuzzyMatch(query, row.profile.name)) || (row.agent ? matchesQuery(query, row.agent) : false);
 }
 
 /**
@@ -148,6 +170,8 @@ function PickerPanel({
   onNewTerminal,
   onNewAgent,
   onConfigure,
+  profiles,
+  onNewProfile,
 }: {
   agents: AgentDefinition[];
   status: AgentStatus[];
@@ -155,6 +179,8 @@ function PickerPanel({
   onNewTerminal: () => void;
   onNewAgent: (agent: AgentDefinition) => void;
   onConfigure: (agent: AgentDefinition) => void;
+  profiles?: readonly AgentProfile[];
+  onNewProfile?: (profile: AgentProfile) => void;
 }) {
   // The shared store's state, not a prop: the picker never probes, it only reads.
   const { probe } = useAgents();
@@ -170,8 +196,16 @@ function PickerPanel({
   }, []);
 
   const sections = useMemo(
-    () => buildAgentSections({ agents, status, probe, hasWorktree, resolveIcon: resolveAgentIcon }),
-    [agents, status, probe, hasWorktree, resolveAgentIcon],
+    () =>
+      buildAgentSections({
+        agents,
+        status,
+        probe,
+        hasWorktree,
+        resolveIcon: resolveAgentIcon,
+        ...(onNewProfile && profiles ? { profiles } : {}),
+      }),
+    [agents, status, probe, hasWorktree, resolveAgentIcon, profiles, onNewProfile],
   );
 
   /**
@@ -182,10 +216,10 @@ function PickerPanel({
   const filteredSections = useMemo<AgentSection[]>(
     () =>
       sections
-        .map((section) => ({
-          ...section,
-          rows: section.rows.filter((r) => matchesQuery(query, r.agent)),
-        }))
+        .map(
+          (section) =>
+            ({ ...section, rows: (section.rows as MenuRow[]).filter((r) => rowMatchesQuery(query, r)) }) as AgentSection,
+        )
         .filter((section) => section.rows.length > 0),
     [sections, query],
   );
@@ -201,7 +235,7 @@ function PickerPanel({
   /** Row index by identity, so render order and keyboard order can never drift apart. */
   const indexByKey = useMemo(() => {
     const map = new Map<string, number>();
-    flatRows.forEach((r, i) => map.set(r.kind === 'terminal' ? 'terminal' : r.row.agent.id, i));
+    flatRows.forEach((r, i) => map.set(r.kind === 'terminal' ? 'terminal' : r.row.key, i));
     return map;
   }, [flatRows]);
 
@@ -216,6 +250,7 @@ function PickerPanel({
   const runRow = (row: Row | undefined) => {
     if (!isSelectable(row, hasWorktree)) return;
     if (row.kind === 'terminal') onNewTerminal();
+    else if (row.row.kind === 'profile') onNewProfile?.(row.row.profile);
     else if (row.row.unconfigured) onConfigure(row.row.agent);
     else onNewAgent(row.row.agent);
   };
@@ -284,11 +319,29 @@ function PickerPanel({
               <div className="px-2.5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                 {section.label}
               </div>
-              {section.rows.map((row) => {
-                const rowIndex = indexByKey.get(row.agent.id);
+              {(section.rows as MenuRow[]).map((row) => {
+                const rowIndex = indexByKey.get(row.key);
+                if (row.kind === 'profile') {
+                  return (
+                    <PickerRow
+                      key={row.key}
+                      label={row.profile.name}
+                      icon={row.icon}
+                      iconStyle={row.iconStyle}
+                      accent={row.profile.accent}
+                      trailingLabel={row.agent?.label}
+                      selected={highlighted === rowIndex}
+                      disabled={row.disabled}
+                      unconfigured={false}
+                      disabledReason={row.disabledReason}
+                      onSelect={() => runRow({ kind: 'agent', row })}
+                      onHover={() => setHighlighted(rowIndex ?? 0)}
+                    />
+                  );
+                }
                 return (
                   <PickerRow
-                    key={row.agent.id}
+                    key={row.key}
                     label={row.agent.label}
                     icon={row.icon}
                     iconStyle={row.iconStyle}
@@ -314,6 +367,8 @@ function PickerRow({
   label,
   icon: Icon,
   iconStyle,
+  accent,
+  trailingLabel,
   checking,
   selected,
   disabled,
@@ -325,6 +380,10 @@ function PickerRow({
   label: string;
   icon: IconComponent;
   iconStyle?: CSSProperties;
+  /** A custom agent's accent: a 2 px stripe down the row's left edge (Phase 154). */
+  accent?: string;
+  /** Right-aligned beside the label — a custom agent's base CLI. */
+  trailingLabel?: string | undefined;
   checking?: boolean;
   selected: boolean;
   /** Truly inert — no worktree. Native `disabled`, unclickable. */
@@ -355,14 +414,23 @@ function PickerRow({
       // identical choice: a greyed-out row with no explanation is the most
       // frustrating thing a menu can show.
       title={greyedOut ? disabledReason : undefined}
-      className={`flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-sm transition-colors disabled:cursor-not-allowed ${
+      className={`relative flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-sm transition-colors disabled:cursor-not-allowed ${
         greyedOut ? 'opacity-40' : ''
       } ${unconfigured ? 'cursor-pointer' : ''} ${
         selected ? 'bg-accent text-foreground' : 'text-foreground'
       }`}
     >
+      {accent ? (
+        <span
+          aria-hidden
+          data-testid="profile-accent"
+          className="absolute inset-y-1 left-0.5 w-0.5 rounded-full"
+          style={{ backgroundColor: accent }}
+        />
+      ) : null}
       <Icon aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" style={iconStyle} />
       <span className="truncate">{label}</span>
+      {trailingLabel ? <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">{trailingLabel}</span> : null}
       {checking ? (
         <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">checking…</span>
       ) : null}

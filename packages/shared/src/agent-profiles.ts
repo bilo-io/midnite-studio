@@ -22,6 +22,9 @@ export const MAX_AGENT_PROFILES = 200;
 /** Longest profile name, in characters. */
 export const AGENT_PROFILE_NAME_MAX = 60;
 
+/** `agentProfile:*` failure for an id the store no longer has; the terminal falls back to the base CLI on it. */
+export const AGENT_PROFILE_NOT_FOUND = 'Agent not found.';
+
 // --- blueprint ---------------------------------------------------------------
 
 export const AGENT_BLUEPRINT_STAGE_IDS = ['orchestrate', 'ground', 'act', 'adapt', 'operate'] as const;

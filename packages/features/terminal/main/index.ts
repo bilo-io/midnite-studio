@@ -94,6 +94,14 @@ export type TerminalMainServices = {
   };
   /** Where a malformed one-way payload is reported; dropped when absent. */
   warn?: (issue: string) => void;
+  /**
+   * Phase 154 Theme G: ties a custom agent's prepared launch (its private MCP socket) to the session whose
+   * pty is being created. Studio's composer binds it; a host without custom-agent launches leaves it out.
+   * Returns false for an unknown or expired launch id.
+   */
+  bindProfileLaunch?: (launchId: string, sessionId: string) => boolean;
+  /** Closes a launch whose pty never started, so its socket does not outlive the failed create. */
+  releaseProfileLaunch?: (launchId: string) => void;
 };
 
 /**
@@ -187,7 +195,16 @@ export const terminalMain = defineFeatureMain<TerminalMainServices>({
       }
     });
 
-    ipc.handle(CHANNELS.ptyCreate, schemas.PtyCreateRequest, (req) => createPty(req), (issue) => ({
+    ipc.handle(CHANNELS.ptyCreate, schemas.PtyCreateRequest, async (req) => {
+      // Bound before the pty starts, so the agent's very first call is already attributed to this session.
+      const launchId = req.profileLaunchId;
+      if (launchId && services.bindProfileLaunch?.(launchId, req.sessionId) === false) {
+        warn(`profile launch ${launchId} was not bound: unknown or expired`);
+      }
+      const result = await createPty(req);
+      if (!result.ok && launchId) services.releaseProfileLaunch?.(launchId);
+      return result;
+    }, (issue) => ({
       ok: false as const,
       message: issue,
     }));

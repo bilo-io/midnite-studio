@@ -62,12 +62,15 @@ export {
   type LazyTerminalViewProps,
 } from './lazy-terminal-view';
 export {
+  BASE_CLI_NOT_FOUND,
   NO_WORKTREE,
   PROPRIETARY_IDS,
   buildAgentSections,
   type AgentRow,
   type AgentSection,
   type BuildAgentSectionsInput,
+  type MenuRow,
+  type ProfileRow,
 } from './new-session-menu';
 export {
   NewSessionPicker,
@@ -188,3 +191,5 @@ export {
   useShowAllApps,
   visibleInApp,
 } from './app-filter';
+export { launchProfileSession, prepareProfileStart, type PrepareProfileLaunch } from './profile-launch';
+export { resolveSessionAgent } from './session-agent';

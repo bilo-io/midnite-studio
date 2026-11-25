@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 
-import type { AgentDefinition, AgentProbeState, AgentStatus } from '@midnite/studio-shared';
+import type { AgentDefinition, AgentProbeState, AgentProfile, AgentStatus } from '@midnite/studio-shared';
 
 import type { IconComponent } from '@midnite/studio-frame';
 import { agentInstallHint, isAgentUnconfigured } from '@midnite/studio-frame';
@@ -35,6 +35,9 @@ export const NO_WORKTREE = 'No worktree selected';
 export const PROPRIETARY_IDS = new Set(['claude', 'agy', 'codex', 'cursor', 'copilot', 'grok']);
 
 export type AgentRow = {
+  kind: 'agent';
+  /** The row's identity in the picker's keyboard order: the agent id. */
+  key: string;
   agent: AgentDefinition;
   icon: IconComponent;
   /**
@@ -70,11 +73,30 @@ export type AgentRow = {
   disabledReason: string | undefined;
 };
 
-export type AgentSection = {
-  id: 'proprietary' | 'open-source';
-  label: string;
-  rows: AgentRow[];
+/**
+ * A custom agent (Phase 154 Theme F). `agent` is its base CLI, whose label the row shows on the right.
+ * A profile row is never routed to Settings: it is live, or disabled with the reason its base is dead.
+ */
+export type ProfileRow = {
+  kind: 'profile';
+  key: `profile:${string}`;
+  profile: AgentProfile;
+  /** The base CLI; `undefined` when the roster no longer has it. */
+  agent: AgentDefinition | undefined;
+  icon: IconComponent;
+  /** The profile accent, while live. */
+  iconStyle: CSSProperties | undefined;
+  disabled: boolean;
+  disabledReason: string | undefined;
 };
+
+export type MenuRow = AgentRow | ProfileRow;
+
+export const BASE_CLI_NOT_FOUND = 'Base CLI not found';
+
+export type AgentSection =
+  | { id: 'custom'; label: string; rows: ProfileRow[] }
+  | { id: 'proprietary' | 'open-source'; label: string; rows: AgentRow[] };
 
 export type BuildAgentSectionsInput = {
   agents: AgentDefinition[];
@@ -91,6 +113,8 @@ export type BuildAgentSectionsInput = {
   probe?: AgentProbeState;
   /** Whether a worktree is selected; without one there is nowhere to open. */
   hasWorktree: boolean;
+  /** Saved custom agents (Phase 154): a "Your agents" section first, sorted by name. None, no section. */
+  profiles?: readonly AgentProfile[];
 };
 
 /**
@@ -108,6 +132,7 @@ export function buildAgentSections({
   probe,
   hasWorktree,
   resolveIcon,
+  profiles = [],
 }: BuildAgentSectionsInput): AgentSection[] {
   const toRow = (agent: AgentDefinition): AgentRow => {
     // The worktree reason wins: with nowhere to open a session, a row is
@@ -117,6 +142,8 @@ export function buildAgentSections({
     const dead = disabled || unconfigured;
 
     return {
+      kind: 'agent',
+      key: agent.id,
       agent,
       icon: resolveIcon(agent),
       checking:
@@ -133,7 +160,32 @@ export function buildAgentSections({
   const proprietary = agents.filter((a) => PROPRIETARY_IDS.has(a.id)).map(toRow);
   const openSource = agents.filter((a) => !PROPRIETARY_IDS.has(a.id)).map(toRow);
 
+  const toProfileRow = (profile: AgentProfile): ProfileRow => {
+    const agent = agents.find((a) => a.id === profile.baseAgentId);
+    const disabledReason = !hasWorktree
+      ? NO_WORKTREE
+      : !agent
+        ? BASE_CLI_NOT_FOUND
+        : isAgentUnconfigured(agent, status)
+          ? `${agent.label} is not installed`
+          : undefined;
+    return {
+      kind: 'profile',
+      key: `profile:${profile.id}`,
+      profile,
+      agent,
+      icon: resolveIcon({ id: profile.baseAgentId, ...(profile.icon ? { icon: profile.icon } : {}) }),
+      iconStyle: disabledReason ? undefined : { color: profile.accent },
+      disabled: disabledReason !== undefined,
+      disabledReason,
+    };
+  };
+
   const sections: AgentSection[] = [];
+  if (profiles.length > 0) {
+    const sorted = [...profiles].sort((a, b) => a.name.localeCompare(b.name));
+    sections.push({ id: 'custom', label: 'Your agents', rows: sorted.map(toProfileRow) });
+  }
   if (proprietary.length > 0) {
     sections.push({ id: 'proprietary', label: 'Proprietary', rows: proprietary });
   }

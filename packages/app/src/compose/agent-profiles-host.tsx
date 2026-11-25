@@ -9,6 +9,7 @@ import { useAgents } from '../features/terminal/use-agents';
 import { openExternal } from '../services/queries';
 import { useUiStore } from '../store/ui-store';
 import { STUDIO_MCP_TOOL_MANIFESTS } from './mcp-tool-manifests';
+import { useStudioLaunchProfile, useStudioLiveSessionCount } from './profile-launch';
 
 const NO_SKILLS: ChatSkill[] = [];
 
@@ -20,10 +21,8 @@ const STUDIO_MCP_TOOLS = listMcpToolIds(ALL_APPS_INSTALLED, STUDIO_MCP_TOOL_MANI
 }));
 
 /**
- * Studio's side of the custom agents' host port (Phase 154 Theme C).
- *
- * `useLaunchProfile` and `useLiveSessionCount` are left out until Theme F lands them: the page then shows
- * no Launch button and counts no running sessions in the delete confirm.
+ * Studio's side of the custom agents' host port (Phase 154 Theme C). Launch and the live-session count
+ * (Theme F) are Studio's alone: the Agents app has no terminal to launch into.
  */
 export const STUDIO_AGENT_PROFILES_HOST = {
   useAgentRoster: () => useAgents(),
@@ -44,5 +43,7 @@ export const STUDIO_AGENT_PROFILES_HOST = {
     return { skills: query.data ?? NO_SKILLS, loading: query.isPending, error: query.error ? query.error.message : null };
   },
   useMcpTools: () => STUDIO_MCP_TOOLS,
+  useLaunchProfile: useStudioLaunchProfile,
+  useLiveSessionCount: useStudioLiveSessionCount,
   openExternal,
 } satisfies AgentProfilesHost;

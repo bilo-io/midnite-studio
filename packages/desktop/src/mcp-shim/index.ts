@@ -40,6 +40,18 @@ function socketFromArgv(argv: readonly string[]): string | undefined {
 }
 const explicitSocket = socketFromArgv(process.argv);
 
+/**
+ * `--tools a,b` (Phase 154 Theme G): a custom agent's allowlist. Only these ids are listed, and a call to any
+ * other is refused here without dialling the socket — the private socket refuses it again, so a client that
+ * skips the shim gains nothing. Mirrors `createRunShim`'s `toolIds` in `runtime/src/agent-run/run-shim.ts`.
+ */
+function toolsFromArgv(argv: readonly string[]): ReadonlySet<string> | null {
+  const at = argv.indexOf('--tools');
+  if (at < 0) return null;
+  return new Set((argv[at + 1] ?? '').split(',').map((id) => id.trim()).filter((id) => id !== ''));
+}
+const allowedTools = toolsFromArgv(process.argv);
+
 function logToStderr(message: string): void {
   process.stderr.write(`[mcp-shim] ${message}\n`);
 }
@@ -96,11 +108,16 @@ function toListedTool(id: McpToolId) {
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   const base = listMcpToolIds(readInstalledApps(), MCP_TOOL_MANIFESTS);
   const extra = suiteRouter ? await suiteRouter.extraTools(new Set<string>(base)) : [];
-  return { tools: [...base, ...extra.filter(isMcpToolId)].map(toListedTool) };
+  const listed = [...base, ...extra.filter(isMcpToolId)];
+  return { tools: (allowedTools ? listed.filter((id) => allowedTools.has(id)) : listed).map(toListedTool) };
 });
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
+
+  if (allowedTools && !allowedTools.has(name)) {
+    return { content: [{ type: 'text' as const, text: `Tool "${name}" is not allowed for this agent.` }], isError: true };
+  }
 
   if (!isMcpToolId(name)) {
     return {

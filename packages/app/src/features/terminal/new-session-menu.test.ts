@@ -1,4 +1,4 @@
-import { BUILTIN_AGENTS, type AgentStatus } from '@midnite/studio-shared';
+import { BUILTIN_AGENTS, createBlankAgentProfile, type AgentProfile, type AgentStatus } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -10,7 +10,15 @@ import {
   OpenCodeIcon,
   resolveAgentIcon,
 } from '../../components/icons';
-import { buildAgentSections, NO_WORKTREE, PROPRIETARY_IDS, type AgentSection } from './new-session-menu';
+import {
+  BASE_CLI_NOT_FOUND,
+  buildAgentSections,
+  NO_WORKTREE,
+  PROPRIETARY_IDS,
+  type AgentRow,
+  type AgentSection,
+  type MenuRow,
+} from './new-session-menu';
 
 /**
  * Four cases, and each one greys the roster out for a different reason:
@@ -37,11 +45,13 @@ const build = (over: Partial<Parameters<typeof buildAgentSections>[0]> = {}) =>
     ...over,
   });
 
-const section = (sections: AgentSection[], id: AgentSection['id']) =>
-  sections.find((s) => s.id === id);
+type RosterSection = Extract<AgentSection, { id: 'proprietary' | 'open-source' }>;
+
+const section = (sections: AgentSection[], id: RosterSection['id']) =>
+  sections.find((s): s is RosterSection => s.id === id);
 
 const row = (sections: AgentSection[], label: string) =>
-  sections.flatMap((s) => s.rows).find((r) => r.agent.label === label);
+  sections.flatMap((s) => s.rows as MenuRow[]).find((r): r is AgentRow => r.kind === 'agent' && r.agent.label === label);
 
 describe('buildAgentSections — everything installed', () => {
   it('splits the roster into a Proprietary section and an Open Source one, in that order', () => {
@@ -79,7 +89,7 @@ describe('buildAgentSections — everything installed', () => {
 
   it('gives every row an icon', () => {
     const sections = build();
-    for (const s of sections) for (const r of s.rows) expect(r.icon).toBeDefined();
+    for (const s of sections) for (const r of s.rows as AgentRow[]) expect(r.icon).toBeDefined();
   });
 
   it('resolves each agent to its own mark rather than to Claude multiple times', () => {
@@ -105,7 +115,7 @@ describe('buildAgentSections — everything installed', () => {
 
   it('leaves every row enabled', () => {
     const sections = build();
-    for (const s of sections) for (const r of s.rows) expect(r.disabled).toBe(false);
+    for (const s of sections) for (const r of s.rows as AgentRow[]) expect(r.disabled).toBe(false);
   });
 });
 
@@ -166,7 +176,7 @@ describe('buildAgentSections — one agent uninstalled', () => {
 
 describe('buildAgentSections — probe still checking', () => {
   it('marks an unanswered agent "checking" without greying it', () => {
-    const rows = build({ status: [], probe: 'checking' }).flatMap((s) => s.rows);
+    const rows = build({ status: [], probe: 'checking' }).flatMap((s) => s.rows as AgentRow[]);
     expect(rows.length).toBeGreaterThan(0);
     for (const row of rows) {
       expect(row.checking).toBe(true);
@@ -175,10 +185,10 @@ describe('buildAgentSections — probe still checking', () => {
   });
 
   it('does not say checking once answered, nor for an unknown probe', () => {
-    expect(build({ probe: 'ready' }).flatMap((s) => s.rows).some((r) => r.checking)).toBe(false);
+    expect(build({ probe: 'ready' }).flatMap((s) => s.rows as AgentRow[]).some((r) => r.checking)).toBe(false);
     expect(
       build({ status: [], probe: 'unknown' })
-        .flatMap((s) => s.rows)
+        .flatMap((s) => s.rows as AgentRow[])
         .some((r) => r.checking),
     ).toBe(false);
   });
@@ -213,7 +223,7 @@ describe('buildAgentSections — no worktree selected', () => {
     const sections = build({ hasWorktree: false });
 
     for (const s of sections) {
-      for (const r of s.rows) {
+      for (const r of s.rows as AgentRow[]) {
         expect(r.disabled).toBe(true);
         expect(r.disabledReason).toBe(NO_WORKTREE);
       }
@@ -246,7 +256,7 @@ describe('buildAgentSections — an unprobed roster', () => {
     const sections = build({ status: [] });
 
     for (const s of sections) {
-      for (const r of s.rows) {
+      for (const r of s.rows as AgentRow[]) {
         expect(r.disabled).toBe(false);
         expect(r.disabledReason).toBeUndefined();
       }
@@ -276,5 +286,50 @@ describe('buildAgentSections — a roster with only one side represented', () =>
     const sections = build({ agents: onlyOpenSource, status: [] });
 
     expect(sections.map((s) => s.id)).toEqual(['open-source']);
+  });
+});
+
+describe('buildAgentSections — custom agents (Phase 154)', () => {
+  const profile = (name: string, baseAgentId: string, accent = '#8b5cf6'): AgentProfile => ({
+    ...createBlankAgentProfile(),
+    id: `ap-${name.toLowerCase()}`,
+    name,
+    baseAgentId,
+    accent,
+  });
+  const profiles = [profile('Reviewer', 'claude', '#112233'), profile('Architect', 'codex'), profile('Ghost', 'nope')];
+  const custom = (sections: AgentSection[]) => sections.find((s) => s.id === 'custom');
+
+  it('puts "Your agents" first, sorted by name, keyed apart from the roster', () => {
+    const sections = build({ profiles });
+    expect(sections.map((s) => s.id)).toEqual(['custom', 'proprietary', 'open-source']);
+    expect(custom(sections)?.label).toBe('Your agents');
+    const rows = custom(sections)?.rows ?? [];
+    expect(rows.map((r) => (r.kind === 'profile' ? r.profile.name : ''))).toEqual(['Architect', 'Ghost', 'Reviewer']);
+    expect(rows.map((r) => r.key)).toEqual(['profile:ap-architect', 'profile:ap-ghost', 'profile:ap-reviewer']);
+  });
+
+  it('paints a live row in the profile accent and names its base CLI', () => {
+    const reviewer = custom(build({ profiles }))?.rows.find((r) => r.kind === 'profile' && r.profile.name === 'Reviewer');
+    expect(reviewer).toMatchObject({ disabled: false, iconStyle: { color: '#112233' } });
+    expect(reviewer?.kind === 'profile' ? reviewer.agent?.label : undefined).toBe('Claude');
+  });
+
+  it('disables a row whose base is missing from the roster, or not installed, and says which', () => {
+    const status = allInstalled.map((s) => (s.id === 'codex' ? { ...s, installed: false } : s));
+    const rows = custom(build({ profiles, status }))?.rows ?? [];
+    const byName = (name: string) => rows.find((r) => r.kind === 'profile' && r.profile.name === name);
+    expect(byName('Ghost')).toMatchObject({ disabled: true, disabledReason: BASE_CLI_NOT_FOUND, iconStyle: undefined });
+    expect(byName('Architect')).toMatchObject({ disabled: true, disabledReason: 'Codex is not installed' });
+    expect(byName('Reviewer')).toMatchObject({ disabled: false, disabledReason: undefined });
+  });
+
+  it('says no worktree first, like every other row', () => {
+    const rows = custom(build({ profiles, hasWorktree: false }))?.rows ?? [];
+    expect(rows.every((r) => r.disabled && r.disabledReason === NO_WORKTREE)).toBe(true);
+  });
+
+  it('has no section without profiles', () => {
+    expect(build({ profiles: [] }).map((s) => s.id)).toEqual(['proprietary', 'open-source']);
   });
 });

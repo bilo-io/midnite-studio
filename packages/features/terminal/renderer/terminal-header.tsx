@@ -7,7 +7,7 @@ import {
   bridge,
 } from '@midnite/studio-frame';
 
-import type { AgentDefinition, AgentStatus, RepoDescriptor } from '@midnite/studio-shared';
+import type { AgentDefinition, AgentProfile, AgentStatus, RepoDescriptor } from '@midnite/studio-shared';
 import {
   LuChevronDown,
   LuChevronUp,
@@ -49,6 +49,9 @@ export type TerminalHeaderProps = {
   hasWorktree: boolean;
   onNewTerminal: () => void;
   onNewAgent: (agent: AgentDefinition) => void;
+  /** Saved custom agents and how to start one (Phase 154); both absent outside Studio. */
+  profiles?: readonly AgentProfile[];
+  onNewProfile?: (profile: AgentProfile) => void;
 };
 
 /**
@@ -75,6 +78,8 @@ export function TerminalHeader({
   hasWorktree,
   onNewTerminal,
   onNewAgent,
+  profiles,
+  onNewProfile,
 }: TerminalHeaderProps) {
   const broker = useTerminalStore((s) => s.broker);
   const host = useTerminalHost();
@@ -107,6 +112,7 @@ export function TerminalHeader({
         hasWorktree={hasWorktree}
         onNewTerminal={onNewTerminal}
         onNewAgent={onNewAgent}
+        {...(profiles && onNewProfile ? { profiles, onNewProfile } : {})}
         // Studio routes to Settings ▸ Agents, the same as the title bar's own
         // picker (`title-bar-primary-agent.tsx`); an app without that page omits it.
         onConfigure={(candidate) => host.actions.configureAgent?.(candidate.id)}
