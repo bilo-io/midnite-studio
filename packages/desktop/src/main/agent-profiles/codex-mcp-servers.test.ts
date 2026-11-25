@@ -11,17 +11,15 @@ describe('codexOtherMcpServers', () => {
   };
   const read = async (path: string): Promise<string | null> => files[path] ?? null;
 
-  it('joins the user and project layers, drops midnite, and splits out names -c cannot address', async () => {
+  it('joins the user and project layers and drops midnite; a dotted name is kept (#1713)', async () => {
     expect(await codexOtherMcpServers('/repo', { env: {}, home: () => '/home/u', read })).toEqual({
-      names: ['db', 'github'],
-      unaddressable: ['weird.name'],
+      names: ['db', 'github', 'weird.name'],
     });
   });
 
   it('honours CODEX_HOME, and a missing file adds nothing', async () => {
     expect(await codexOtherMcpServers('/nowhere', { env: { CODEX_HOME: '/alt' }, home: () => '/home/u', read })).toEqual({
       names: ['alt'],
-      unaddressable: [],
     });
   });
 });
