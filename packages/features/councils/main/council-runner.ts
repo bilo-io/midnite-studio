@@ -33,7 +33,7 @@ import {
 
 import { appendCapped, cleanCapturedOutput } from '@midnite/studio-runtime';
 
-import { councilCliArgs, councilProfileArgs, councilScript, parseCouncilAnswer, scriptQuote } from './council-cli';
+import { councilCliArgs, councilProfileWords, councilScript, parseCouncilAnswer, scriptQuote } from './council-cli';
 import { buildFollowUpPrompt, buildMemberPrompt, buildSynthesisPrompt, type CouncilSynthesisEntry } from './council-prompts';
 import { getCouncil, getRun, saveRun } from './council-service';
 
@@ -100,7 +100,16 @@ export type CouncilRunnerPorts = {
 
 /** What {@link CouncilRunnerPorts.profileRun} answers — the companion's `CompanionProfileRun` shape. */
 export type CouncilProfileRun =
-  | { kind: 'ready'; name: string; agent: AgentDefinition; args: string[]; promptPrefix: string | null; release: () => Promise<void> }
+  | {
+      kind: 'ready';
+      name: string;
+      agent: AgentDefinition;
+      args: string[];
+      /** The agent's own words beyond its base's print mode (`buildProfileHeadlessExtras`). */
+      extraArgs?: string[];
+      promptPrefix: string | null;
+      release: () => Promise<void>;
+    }
   | { kind: 'missing' }
   | { kind: 'error'; message: string };
 
@@ -767,7 +776,10 @@ async function seatCommand(target: LaunchTarget): Promise<SeatResult> {
         value: {
           agentId: base,
           provider: base,
-          words: [prepared.agent.command, ...prepared.args, ...councilProfileArgs(base, target.sessionId)],
+          // The agent's extras on the council's own invocation, so the answer reads back (and resumes) as its base's.
+          words: prepared.extraArgs
+            ? [prepared.agent.command, ...prepared.agent.args, ...councilProfileWords(base, target.sessionId, prepared.extraArgs)]
+            : [prepared.agent.command, ...prepared.args],
           env: keyEnv,
           promptPrefix: prepared.promptPrefix,
           release: prepared.release,

@@ -682,6 +682,7 @@ describe('a seat set to a custom agent (#1699)', () => {
     name: 'Reviewer',
     agent: claude,
     args: ['-p', '--mcp-config', '{"mcpServers":{}}', '--strict-mcp-config', '--append-system-prompt-file', '/data/profile-rev.md'],
+    extraArgs: ['--mcp-config', '{"mcpServers":{}}', '--strict-mcp-config', '--append-system-prompt-file', '/data/profile-rev.md'],
     promptPrefix,
     release: async () => undefined,
   });
@@ -694,8 +695,10 @@ describe('a seat set to a custom agent (#1699)', () => {
 
     expect(profileRun).toHaveBeenCalledWith('profile-rev', expect.any(String));
     const [spawn] = spawns;
-    expect(spawn!.script).toContain(`exec 'claude' '-p' '--mcp-config'`);
-    expect(spawn!.script).toContain(`'--strict-mcp-config' '--append-system-prompt-file' '/data/profile-rev.md' '--output-format' 'json' "$(cat `);
+    // The agent's extras on the council's own Claude invocation: JSON answer, then `-p` and the prompt.
+    expect(spawn!.script).toContain(
+      `exec 'claude' '--output-format' 'json' '--mcp-config' '{"mcpServers":{}}' '--strict-mcp-config' '--append-system-prompt-file' '/data/profile-rev.md' '-p' "$(cat `,
+    );
     expect(store[result.value.id]!.members[0]).toMatchObject({ agentProfileId: 'profile-rev' });
     expect(store[result.value.id]!.members[0]!.agentProfileFallback).toBeUndefined();
 
@@ -707,12 +710,32 @@ describe('a seat set to a custom agent (#1699)', () => {
   });
 
   it("puts a prompt-argument agent's instructions ahead of the question", async () => {
-    withProfileRun({ ...ready('You review code.'), agent: AGENTS.find((agent) => agent.id === 'codex')!, args: ['exec'] });
+    withProfileRun({ ...ready('You review code.'), agent: AGENTS.find((agent) => agent.id === 'codex')!, args: ['exec'], extraArgs: [] });
     await startRun('c1', 'topic');
     await flush();
     const [spawn] = spawns;
     expect(spawn!.script).toContain(`exec 'codex' 'exec' "$(cat `);
     expect(spawn!.prompt.startsWith('You review code.\n\n')).toBe(true);
+  });
+
+  it('keeps agy\'s -p last, after the extras, and resumes its conversation on a follow-up', async () => {
+    withProfileRun({ ...ready(), agent: AGENTS.find((agent) => agent.id === 'agy')!, args: ['-p'], extraArgs: ['--model', 'fast'] });
+    vi.mocked(getCouncil).mockImplementation(async () => ({ ...PROFILE_COUNCIL, members: [{ ...PROFILE_COUNCIL.members[0]!, provider: 'agy' }] }));
+    const result = await startRun('c1', 'topic');
+    if (!result.ok) throw new Error('expected ok');
+    await flush();
+    const [first] = spawns;
+    expect(first!.script).toContain(`exec 'agy' '--output-format' 'json' '--model' 'fast' '-p' "$(cat `);
+    reply(first!.ptyId, `${JSON.stringify({ conversation_id: 'conv-rev', status: 'SUCCESS', response: 'ok' })}\n`);
+    await flush();
+    const synth = [...listeners.keys()][0]!;
+    reply(synth, `${JSON.stringify({ result: 'done', session_id: 's', is_error: false })}\n`);
+    await flush();
+
+    spawns = [];
+    await continueRun(result.value.id, 'more?');
+    await flush();
+    expect(spawns[0]!.script).toContain(`'--conversation' 'conv-rev' '--output-format' 'json' '--model' 'fast' '-p'`);
   });
 
   it('falls back to the base agent when the custom agent was deleted, and says so on the seat', async () => {

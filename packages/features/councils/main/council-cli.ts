@@ -66,16 +66,14 @@ export function councilCliArgs(request: CouncilCliRequest): string[] {
 }
 
 /**
- * What a custom agent's seat adds after its own headless argv (#1699): Claude's JSON answer and the session
- * to resume, so the seat reads back and follows up like a Claude seat. Nothing for the other bases — agy's
- * `-p` takes the prompt as its value, and Codex and OpenCode answer in plain text anyway.
+ * A custom agent seat's words after its command and base args (#1699): the council's own invocation for its
+ * base (print mode, JSON answer, session to resume) with the agent's extras — model, private MCP socket,
+ * prompt file — ahead of the flag the prompt follows, since agy's `-p` takes the prompt as its value.
  */
-export function councilProfileArgs(
-  provider: CouncilMemberProvider,
-  sessionId: string | undefined,
-): string[] {
-  if (provider !== 'claude') return [];
-  return ['--output-format', 'json', ...(sessionId ? ['--resume', sessionId] : [])];
+export function councilProfileWords(provider: CouncilMemberProvider, sessionId: string | undefined, extras: readonly string[]): string[] {
+  const words = councilCliArgs({ provider, sessionId, allowModelFlag: false });
+  const promptFlag = words[words.length - 1] === '-p';
+  return promptFlag ? [...words.slice(0, -1), ...extras, '-p'] : [...words, ...extras];
 }
 
 export type CouncilCliAnswer = {
