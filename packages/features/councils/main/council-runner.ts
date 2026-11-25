@@ -7,6 +7,7 @@ import {
   COUNCIL_RUN_TIMEOUT_MS,
   councilThreadTitle,
   failure,
+  councilProfileBaseRefusal,
   isCouncilProfileBase,
   isCouncilRunLive,
   isOllamaCloudModelName,
@@ -21,6 +22,7 @@ import {
   type AgentDefinition,
   type AgentOllamaBinding,
   type CouncilMember,
+  type CouncilProfileRole,
   type CouncilRun,
   type CouncilRunMember,
   type CouncilRunStatus,
@@ -95,8 +97,9 @@ export type CouncilRunnerPorts = {
    * prompt, model, tools and limits all apply. `release` closes the socket when the seat settles. Optional:
    * a composer with no custom-agent launch (Agents, for now) leaves it out and such a seat fails plainly.
    */
-  profileRun?(profileId: string, cwd: string): Promise<CouncilProfileRun>;
+  profileRun?(profileId: string, cwd: string, role?: CouncilProfileRole): Promise<CouncilProfileRun>;
 };
+
 
 /** What {@link CouncilRunnerPorts.profileRun} answers — the companion's `CompanionProfileRun` shape. */
 export type CouncilProfileRun =
@@ -115,6 +118,10 @@ export type CouncilProfileRun =
 
 /** What a seat set to a custom agent says where this app cannot run one. */
 export const COUNCIL_PROFILES_NEED_STUDIO = 'Custom agents run in Midnite Studio, so this seat cannot run here.';
+
+/** {@link COUNCIL_PROFILES_NEED_STUDIO} for the part the custom agent runs as. */
+const profilesNeedStudio = (role: CouncilProfileRole): string =>
+  role === 'synthesizer' ? 'Custom agents run in Midnite Studio, so the synthesizer cannot run here.' : COUNCIL_PROFILES_NEED_STUDIO;
 
 /** What outbound redaction scrubbed from a run's prompts so far, for its one audit record. */
 const runRedactions = new Map<string, { redactions: Redaction[]; canary: boolean }>();
@@ -263,6 +270,9 @@ type Seat = Pick<LaunchTarget, 'provider' | 'agentProfileId'>;
 /** Whether a seat still runs the same CLI as before, so its session id can be resumed. */
 const sameSeat = (a: Seat, b: Seat): boolean => a.provider === b.provider && a.agentProfileId === b.agentProfileId;
 
+/** The run's synthesizer as a seat, to compare against the council's current one. */
+const synthSeatOf = (run: CouncilRun): Seat => ({ provider: run.synthProvider, agentProfileId: run.synthAgentProfileId });
+
 function targetOf(member: CouncilRunMember): LaunchTarget {
   return {
     memberId: member.memberId,
@@ -303,6 +313,7 @@ export async function startRun(councilId: string, prompt: string): Promise<GitOp
     status: 'running',
     synthProvider: council.synthProvider,
     ...(council.synthModel === undefined ? {} : { synthModel: council.synthModel }),
+    ...(council.synthAgentProfileId === undefined ? {} : { synthAgentProfileId: council.synthAgentProfileId }),
     synthInstructions: resolveSynthInstructions(council.synthesisType, council.synthInstructions),
     members: council.members.map((member) => freshMember(seatTarget(member), now)),
     turns: [],
@@ -341,6 +352,8 @@ export async function continueRun(runId: string, prompt: string): Promise<GitOpR
       members: current.members.map(({ ptyId: _ptyId, ...member }) => member),
       synthProvider: current.synthProvider,
       ...(current.synthModel === undefined ? {} : { synthModel: current.synthModel }),
+      ...(current.synthAgentProfileId === undefined ? {} : { synthAgentProfileId: current.synthAgentProfileId }),
+      ...(current.synthAgentProfileFallback === undefined ? {} : { synthAgentProfileFallback: current.synthAgentProfileFallback }),
       ...(current.synthesisStatus === undefined ? {} : { synthesisStatus: current.synthesisStatus }),
       ...(current.synthesisOutput === undefined ? {} : { synthesisOutput: current.synthesisOutput }),
       ...(current.synthesisError === undefined ? {} : { synthesisError: current.synthesisError }),
@@ -361,6 +374,8 @@ export async function continueRun(runId: string, prompt: string): Promise<GitOpR
 
     const synthProvider = council?.synthProvider ?? current.synthProvider;
     const synthModel = council ? council.synthModel : current.synthModel;
+    const synthAgentProfileId = council ? council.synthAgentProfileId : current.synthAgentProfileId;
+    const synthSeat = { provider: synthProvider, agentProfileId: synthAgentProfileId };
     const next: CouncilRun = {
       id: current.id,
       councilId: current.councilId,
@@ -371,12 +386,13 @@ export async function continueRun(runId: string, prompt: string): Promise<GitOpR
       members,
       synthProvider,
       ...(synthModel === undefined ? {} : { synthModel }),
+      ...(synthAgentProfileId === undefined ? {} : { synthAgentProfileId }),
       ...(council
         ? { synthInstructions: resolveSynthInstructions(council.synthesisType, council.synthInstructions) }
         : current.synthInstructions === undefined
           ? {}
           : { synthInstructions: current.synthInstructions }),
-      ...(synthProvider === current.synthProvider && current.synthSessionId !== undefined
+      ...(sameSeat(synthSeat, synthSeatOf(current)) && current.synthSessionId !== undefined
         ? { synthSessionId: current.synthSessionId }
         : {}),
       turns: [...current.turns, turn],
@@ -474,6 +490,7 @@ export async function retryMember(runId: string, memberId: string): Promise<GitO
       synthesisError: _e,
       synthesisPtyId: _p,
       synthesisStatus: _s,
+      synthAgentProfileFallback: _f,
       ...rest
     } = current;
     // A retry re-opens the settle barrier, so a synthesis that already ran off the old answer goes with it.
@@ -629,17 +646,26 @@ async function maybeSynthesize(runId: string): Promise<void> {
   );
 
   const spawned = await spawnOneShot(
-    { memberId: 'synthesis', name: 'Synthesis', role: 'synthesizer', provider: run.synthProvider, model: run.synthModel, sessionId: run.synthSessionId },
+    {
+      memberId: 'synthesis',
+      name: 'Synthesis',
+      role: 'synthesizer',
+      provider: run.synthProvider,
+      model: run.synthModel,
+      sessionId: run.synthSessionId,
+      agentProfileId: run.synthAgentProfileId,
+    },
     synthesisPrompt,
     runId,
+    'synthesizer',
   );
   if (!spawned.ok) {
     await finishSynthesis(runId, { status: 'failed', text: '', truncated: false, error: spawned.message });
     return;
   }
 
-  const stillWanted = await patchSynthesisPtyId(runId, spawned.ptyId);
-  trackOneShot(spawned, run.synthProvider, (outcome) => void finishSynthesis(runId, outcome));
+  const stillWanted = await patchSynthesisPtyId(runId, spawned.ptyId, spawned.fallback);
+  trackOneShot(spawned, spawned.provider, (outcome) => void finishSynthesis(runId, outcome));
   if (!stillWanted) stopTracked(spawned.ptyId);
 }
 
@@ -697,9 +723,10 @@ async function spawnOneShot(
   target: LaunchTarget,
   rawPrompt: string,
   runId: string,
+  role: CouncilProfileRole = 'seat',
 ): Promise<Spawned | { ok: false; message: string }> {
   const promptText = await scrubPrompt(rawPrompt, runId);
-  const command = await seatCommand(target);
+  const command = await seatCommand(target, role);
   if (!command.ok) return command;
   const { agentId, provider, words, env, promptPrefix, release, fallback } = command.value;
   const text = promptPrefix === null ? promptText : `${promptPrefix}\n\n${promptText}`;
@@ -751,14 +778,14 @@ async function spawnOneShot(
  * The seat's CLI: its custom agent's argv when it has one (over the agent's private socket), else the
  * roster agent's — which is also where a deleted custom agent falls back to.
  */
-async function seatCommand(target: LaunchTarget): Promise<SeatResult> {
+async function seatCommand(target: LaunchTarget, role: CouncilProfileRole): Promise<SeatResult> {
   let fallback: 'deleted' | undefined;
   if (target.agentProfileId !== undefined) {
     const profileRun = runnerPorts().profileRun;
-    if (!profileRun) return seatFailure(COUNCIL_PROFILES_NEED_STUDIO);
+    if (!profileRun) return seatFailure(profilesNeedStudio(role));
     let prepared: CouncilProfileRun;
     try {
-      prepared = await profileRun(target.agentProfileId, homedir());
+      prepared = await profileRun(target.agentProfileId, homedir(), role);
     } catch (error) {
       prepared = { kind: 'error', message: error instanceof Error ? error.message : String(error) };
     }
@@ -768,7 +795,7 @@ async function seatCommand(target: LaunchTarget): Promise<SeatResult> {
       // The agent was moved onto a base whose answer a council cannot read since this seat was set.
       if (!isCouncilProfileBase(base)) {
         releaseQuietly(prepared.release);
-        return seatFailure(`${prepared.name} now runs on ${prepared.agent.label}, which cannot sit on a council. Pick another agent for this seat.`);
+        return seatFailure(councilProfileBaseRefusal(prepared.name, prepared.agent.label, role));
       }
       const keyEnv = (await runnerPorts().agentKeyEnv?.(base).catch(() => ({}))) ?? {};
       return {
@@ -973,11 +1000,11 @@ async function patchMemberPtyId(runId: string, memberId: string, ptyId: string, 
   });
 }
 
-async function patchSynthesisPtyId(runId: string, ptyId: string): Promise<boolean> {
+async function patchSynthesisPtyId(runId: string, ptyId: string, fallback?: 'deleted'): Promise<boolean> {
   return withRunLock(runId, async () => {
     const run = await getRun(runId);
     if (!run || run.status !== 'synthesizing') return false;
-    await saveRun({ ...run, synthesisPtyId: ptyId, updatedAt: Date.now() });
+    await saveRun({ ...run, synthesisPtyId: ptyId, ...(fallback ? { synthAgentProfileFallback: fallback } : {}), updatedAt: Date.now() });
     return true;
   });
 }

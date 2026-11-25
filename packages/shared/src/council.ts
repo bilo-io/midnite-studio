@@ -82,6 +82,22 @@ export function isCouncilProfileBase(baseAgentId: string): baseAgentId is Counci
   return (COUNCIL_MEMBER_PROVIDERS as readonly string[]).includes(baseAgentId);
 }
 
+/** Which part of a council a custom agent runs as: a member's seat or the synthesizer (#1713). */
+export type CouncilProfileRole = 'seat' | 'synthesizer';
+
+/** Where a council's refusal sends the user to change a custom agent, by the part it runs as. */
+export function councilPickHint(role: CouncilProfileRole): string {
+  return role === 'synthesizer' ? 'Pick another agent for the synthesizer.' : 'Pick another agent for this seat.';
+}
+
+/**
+ * What a council says about a custom agent since moved onto a base whose answer it cannot read (#1713) —
+ * the run's refusal and the config pane's flag, worded once so the two never drift.
+ */
+export function councilProfileBaseRefusal(name: string, baseLabel: string, role: CouncilProfileRole): string {
+  return `${name} now runs on ${baseLabel}, which cannot sit on a council. ${councilPickHint(role)}`;
+}
+
 export const CouncilMemberSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -106,6 +122,11 @@ export const CouncilSchema = z.object({
   synthProvider: CouncilMemberProviderSchema,
   /** The synthesizer's model, as {@link CouncilMemberSchema}'s `model`. */
   synthModel: z.string().min(1).optional(),
+  /**
+   * A custom agent the synthesizer runs as (#1713), as {@link CouncilMemberSchema}'s `agentProfileId`:
+   * `synthProvider` is then its base and its fallback, and `synthModel` is not used.
+   */
+  synthAgentProfileId: CouncilAgentProfileIdSchema.optional(),
   /** How the synthesizer combines the answers (Phase 134 Theme A); a council from before reads as brainstorm. */
   synthesisType: CouncilSynthesisTypeSchema.default('brainstorm'),
   /** The synthesizer's instructions; absent means the preset's own (Custom without any falls back to brainstorm's). */
@@ -213,6 +234,8 @@ export const CouncilTurnSchema = z.object({
   members: z.array(CouncilRunMemberSchema.omit({ ptyId: true })),
   synthProvider: CouncilMemberProviderSchema,
   synthModel: z.string().min(1).optional(),
+  synthAgentProfileId: CouncilAgentProfileIdSchema.optional(),
+  synthAgentProfileFallback: z.literal('deleted').optional(),
   synthesisStatus: CouncilSynthesisStatusSchema.optional(),
   synthesisOutput: z.string().optional(),
   synthesisError: z.string().optional(),
@@ -244,6 +267,10 @@ export const CouncilRunSchema = z.object({
   synthProvider: CouncilMemberProviderSchema,
   members: z.array(CouncilRunMemberSchema),
   synthModel: z.string().min(1).optional(),
+  /** The custom agent the synthesizer was set to run as, snapshotted like `synthProvider` (#1713). */
+  synthAgentProfileId: CouncilAgentProfileIdSchema.optional(),
+  /** The synthesizer's custom agent was deleted, so it ran as `synthProvider` instead. */
+  synthAgentProfileFallback: z.literal('deleted').optional(),
   /** The synthesizer's instructions as resolved at run start (Phase 134 Theme A). */
   synthInstructions: z.string().max(COUNCIL_SYNTH_INSTRUCTIONS_MAX).optional(),
   synthesisStatus: CouncilSynthesisStatusSchema.optional(),

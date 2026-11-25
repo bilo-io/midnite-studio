@@ -28,8 +28,13 @@ export type ProfileHeadlessSeams = {
   runId?: (launchId: string) => string;
   /** #1697: names the run's custom agent to the breaker, so its limits apply to the headless run too. */
   runs?: Pick<HeadlessRunRegistry, 'register'>;
-  /** Where to pick another agent, closing the "not installed" refusal; the title bar by default. */
+  /** Where to pick another agent, closing each refusal; the title bar by default. */
   pickHint?: string;
+  /**
+   * Whose voice the refusals speak in (#1713): the companion's own first person ("I could not start…") by
+   * default, or `neutral` for a surface that is not the companion talking — a council seat or synthesizer.
+   */
+  voice?: 'companion' | 'neutral';
 };
 
 const fileExists = async (path: string): Promise<boolean> => {
@@ -64,6 +69,7 @@ export const councilSeatRunId = (launchId: string): string => `council-${launchI
 export function createProfileHeadlessRun(seams: ProfileHeadlessSeams): (profileId: string, cwd: string) => Promise<CompanionProfileRun> {
   const exists = seams.exists ?? fileExists;
   const read = seams.readPrompt ?? readText;
+  const neutral = seams.voice === 'neutral';
   return async (profileId, cwd) => {
     const profile = await seams.profile(profileId);
     if (!profile) return { kind: 'missing' };
@@ -81,14 +87,20 @@ export function createProfileHeadlessRun(seams: ProfileHeadlessSeams): (profileI
     const promptPrefix = promptPath !== null && delivery === 'argument' ? ((await read(promptPath))?.trim() || null) : null;
     // Checked before a socket is started, so a refusal leaves nothing to close.
     if (buildProfileHeadlessArgv({ base, model: profile.model, promptPath, launch: null, restricted: false }) === null) {
-      return { kind: 'error', message: `${base.label} cannot answer in one go, so ${profile.name} cannot think for me. Pick another agent.` };
+      return {
+        kind: 'error',
+        message: neutral
+          ? `${base.label} cannot answer in one go, so ${profile.name} cannot run here. ${seams.pickHint ?? 'Pick another agent.'}`
+          : `${base.label} cannot answer in one go, so ${profile.name} cannot think for me. Pick another agent.`,
+      };
     }
 
     let prepared: Awaited<ReturnType<ProfileHeadlessSeams['sockets']['prepare']>>;
     try {
       prepared = await seams.sockets.prepare(profile, cwd);
     } catch (error) {
-      return { kind: 'error', message: `I could not start ${profile.name}'s tools: ${error instanceof Error ? error.message : String(error)}` };
+      const reason = error instanceof Error ? error.message : String(error);
+      return { kind: 'error', message: neutral ? `Could not start ${profile.name}'s tools: ${reason}` : `I could not start ${profile.name}'s tools: ${reason}` };
     }
     const runId = (seams.runId ?? companionRunId)(prepared.launchId);
     seams.sockets.bind(prepared.launchId, runId);
