@@ -123,7 +123,7 @@ export const agentProfilesMain = defineFeatureMain<AgentProfilesMainServices>({
       ({ id }) =>
         guarded(async () => {
           const profile = await getAgentProfile(id);
-          if (!profile) return failure('Agent not found.');
+          if (!profile) return failure(AGENT_PROFILE_NOT_FOUND);
           const path = await services.dialogs.pickSavePath({
             title: 'Export agent',
             defaultPath: `${agentFileSlug(profile.name)}.agent.json`,
