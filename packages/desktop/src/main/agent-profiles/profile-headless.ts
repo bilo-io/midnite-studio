@@ -10,6 +10,7 @@ import {
   type AgentProfile,
 } from '@midnite/studio-shared';
 
+import type { HeadlessRunRegistry } from './headless-run-profiles';
 import type { ProfileMcpSockets } from './profile-mcp-sockets';
 
 export type ProfileHeadlessSeams = {
@@ -25,6 +26,8 @@ export type ProfileHeadlessSeams = {
   exists?: (path: string) => Promise<boolean>;
   /** What the run is called in the audit trail, from its launch id. Default: the companion's. */
   runId?: (launchId: string) => string;
+  /** #1697: names the run's custom agent to the breaker, so its limits apply to the headless run too. */
+  runs?: Pick<HeadlessRunRegistry, 'register'>;
 };
 
 const fileExists = async (path: string): Promise<boolean> => {
@@ -82,7 +85,9 @@ export function createProfileHeadlessRun(seams: ProfileHeadlessSeams): (profileI
     } catch (error) {
       return { kind: 'error', message: `I could not start ${profile.name}'s tools: ${error instanceof Error ? error.message : String(error)}` };
     }
-    seams.sockets.bind(prepared.launchId, (seams.runId ?? companionRunId)(prepared.launchId));
+    const runId = (seams.runId ?? companionRunId)(prepared.launchId);
+    seams.sockets.bind(prepared.launchId, runId);
+    const unregister = seams.runs?.register(runId, { profileId: profile.id, agentId: base.id, cwd, title: profile.name });
     const argvInput = {
       base,
       model: profile.model,
@@ -98,7 +103,10 @@ export function createProfileHeadlessRun(seams: ProfileHeadlessSeams): (profileI
       args,
       extraArgs: buildProfileHeadlessExtras(argvInput),
       promptPrefix,
-      release: () => seams.sockets.close(prepared.launchId),
+      release: () => {
+        unregister?.();
+        return seams.sockets.close(prepared.launchId);
+      },
     };
   };
 }

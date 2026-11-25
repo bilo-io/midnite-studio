@@ -1,6 +1,7 @@
 import { BUILTIN_AGENTS, createBlankAgentProfile, type AgentProfile } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
+import { createHeadlessRunRegistry } from './headless-run-profiles';
 import { companionRunId, createProfileHeadlessRun } from './profile-headless';
 
 /** Phase 154 Theme H — the companion's headless ask through a custom agent. */
@@ -20,20 +21,22 @@ function setup(opts: { saved?: AgentProfile | null; prompt?: boolean; fail?: boo
   });
   const bind = vi.fn(() => true);
   const close = vi.fn(async () => undefined);
+  const runs = createHeadlessRunRegistry();
   const run = createProfileHeadlessRun({
     sockets: { prepare, bind, close },
+    runs,
     profile: async () => (opts.saved === undefined ? profile() : opts.saved),
     agents: async () => [...(opts.roster ?? BUILTIN_AGENTS)],
     promptPath: (id) => `/data/agent-profiles/${id}.md`,
     exists: async () => opts.prompt ?? true,
     readPrompt: async () => '  You review code.\n',
   });
-  return { run, prepare, bind, close };
+  return { run, prepare, bind, close, runs };
 }
 
 describe('createProfileHeadlessRun', () => {
   it('prepares Claude: binds the socket to the run at once and builds an unquoted argv', async () => {
-    const { run, prepare, bind, close } = setup({ saved: profile({ model: 'opus', mcpTools: ['git_status'] }) });
+    const { run, prepare, bind, close, runs } = setup({ saved: profile({ model: 'opus', mcpTools: ['git_status'] }) });
     const result = await run('profile-rev', '/repo');
     expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ id: 'profile-rev' }), '/repo');
     expect(bind).toHaveBeenCalledWith('abc123', companionRunId('abc123'));
@@ -43,8 +46,11 @@ describe('createProfileHeadlessRun', () => {
     expect(result.args).toContain('--strict-mcp-config');
     expect(result.args.slice(-2)).toEqual(['--append-system-prompt-file', '/data/agent-profiles/profile-rev.md']);
     expect(result.promptPrefix).toBeNull();
+    // #1697: the breaker can name the run's custom agent until it settles.
+    expect(runs.lookup(companionRunId('abc123'))).toEqual({ profileId: 'profile-rev', agentId: 'claude', cwd: '/repo', title: 'Reviewer' });
     await result.release();
     expect(close).toHaveBeenCalledWith('abc123');
+    expect(runs.lookup(companionRunId('abc123'))).toBeNull();
   });
 
   it('Codex: the prompt file text goes ahead of the question instead of a flag', async () => {
