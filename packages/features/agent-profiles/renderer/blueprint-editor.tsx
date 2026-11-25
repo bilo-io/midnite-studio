@@ -155,30 +155,30 @@ export function BlueprintEditor({
             return (
               <div
                 key={option.id}
-                className={`relative flex items-start gap-2 rounded-md border p-2.5 text-xs transition-colors duration-150 motion-reduce:transition-none ${
+                className={`flex flex-col gap-1 rounded-md border p-2.5 text-xs transition-colors duration-150 motion-reduce:transition-none ${
                   pressed ? 'border-primary bg-primary/10' : 'border-border hover:bg-accent/40'
                 }`}
               >
-                <button
-                  type="button"
-                  aria-pressed={pressed}
-                  data-testid={`blueprint-option-${option.id}`}
-                  onClick={() => toggle(option.id)}
-                  className={`flex min-w-0 flex-1 items-start gap-2 rounded text-left ${FOCUS_RING}`}
-                >
-                  <Icon aria-hidden className={`mt-0.5 h-4 w-4 shrink-0 ${pressed ? 'text-primary' : 'text-muted-foreground'}`} />
-                  <span className="min-w-0 pr-6 font-medium">{option.label}</span>
-                  {pressed ? <LuCheck aria-hidden data-testid="blueprint-check" className="absolute right-2 top-2.5 h-3.5 w-3.5 text-primary" /> : null}
-                </button>
-                <span className="absolute right-7 top-2 flex items-center gap-1">
+                <div className="flex items-start gap-2">
+                  <button
+                    type="button"
+                    aria-pressed={pressed}
+                    data-testid={`blueprint-option-${option.id}`}
+                    onClick={() => toggle(option.id)}
+                    className={`flex min-w-0 flex-1 items-start gap-2 rounded text-left ${FOCUS_RING}`}
+                  >
+                    <Icon aria-hidden className={`mt-0.5 h-4 w-4 shrink-0 ${pressed ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <span className="min-w-0 flex-1 font-medium">{option.label}</span>
+                    {pressed ? <LuCheck aria-hidden data-testid="blueprint-check" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" /> : null}
+                  </button>
                   <InfoTip label={option.label} text={option.summary} side="bottom" />
-                </span>
+                </div>
                 {option.docsUrl ? (
                   <button
                     type="button"
                     onClick={() => host.openExternal(option.docsUrl!)}
                     aria-label={`Docs for ${option.label}`}
-                    className={`absolute bottom-1.5 right-2 inline-flex items-center gap-0.5 rounded text-[11px] underline-offset-2 hover:underline ${FOCUS_RING}`}
+                    className={`ml-6 inline-flex w-fit items-center gap-0.5 rounded text-[11px] underline-offset-2 hover:underline ${FOCUS_RING}`}
                   >
                     Docs
                     <LuExternalLink aria-hidden className="h-[11px] w-[11px]" />

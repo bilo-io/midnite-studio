@@ -161,7 +161,8 @@ export function AgentBuilder({ profile, isNew, onDirtyChange, onSaved, onDone }:
     apply(el.getBoundingClientRect().height || 49);
     if (typeof ResizeObserver === 'undefined') return undefined;
     const observer = new ResizeObserver((entries) => {
-      const h = entries[0]?.contentRect.height;
+      const entry = entries[0];
+      const h = entry?.borderBoxSize?.[0]?.blockSize ?? entry?.contentRect.height;
       if (typeof h === 'number') apply(h);
     });
     observer.observe(el);
@@ -648,7 +649,7 @@ export function AgentBuilder({ profile, isNew, onDirtyChange, onSaved, onDone }:
       <div
         ref={footer}
         data-testid="builder-footer"
-        className="sticky bottom-0 z-[2] flex items-center gap-2 border-t border-border bg-background/95 px-1 py-2 backdrop-blur-sm"
+        className="sticky bottom-0 z-[2] flex items-center gap-2 border-t border-border bg-background/95 py-2 pl-1 pr-14 backdrop-blur-sm"
       >
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground" aria-live="polite" data-testid="builder-status">
           {save.isPending ? (
