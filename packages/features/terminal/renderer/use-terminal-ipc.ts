@@ -131,7 +131,7 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
    * when the agent exits instead of at a dead pane.
    */
   const start = useCallback(
-    async (cols: number, rows: number, initialInput?: string) => {
+    async (cols: number, rows: number, initialInput?: string, options?: { profileLaunchId?: string }) => {
       const api = bridge();
       if (!api) return;
 
@@ -192,6 +192,8 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
         if (recipe && Object.keys(recipe.env).length > 0) env = recipe.env;
       }
 
+      // A custom agent's prepared launch (Phase 154): an explicit one (wake, Resume) or the one queued at open.
+      const profileLaunchId = options?.profileLaunchId ?? useTerminalStore.getState().launchIds[session.id];
       const result = await api.pty.create({
         sessionId: session.id,
         kind: session.kind,
@@ -204,7 +206,10 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
         ...(env === undefined ? {} : { env }),
         ...(useOllamaKey ? { useOllamaKey: true } : {}),
         ...(session.appId === undefined ? {} : { appId: session.appId }),
+        ...(profileLaunchId === undefined ? {} : { profileLaunchId }),
       });
+      // Single-use either way: main bound it, or the create failed and a retry must prepare afresh.
+      if (profileLaunchId !== undefined) useTerminalStore.getState().clearLaunchId(session.id);
 
       if (!result.ok) {
         // node-pty failing to load is not a crash — the pane says so and the

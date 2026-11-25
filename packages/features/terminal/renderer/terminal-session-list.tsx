@@ -18,6 +18,7 @@ import {
   commitsForLiveSession,
   sessionAppId,
   type AgentDefinition,
+  type AgentProfile,
   type AgentStatus,
   type SuiteAppId,
   type TerminalSession,
@@ -42,6 +43,8 @@ import { closeSessionWithConfirm } from './close-session';
 import { LoopSessionLabel } from './loop-session-label';
 import { endSessionsWithConfirm, previousBuildSessions } from './end-sessions';
 import { NewSessionPicker } from './new-session-picker';
+import { launchProfileSession } from './profile-launch';
+import { resolveSessionAgent } from './session-agent';
 import { resolveRepoForPath } from './resolve-repo-for-path';
 import { TerminalNotices } from './terminal-notices';
 import { terminalPanelElement } from './terminal-panel-element';
@@ -391,6 +394,8 @@ function RepoGroupRow({
   ) => void;
 }) {
   const host = useTerminalHost();
+  const profiles = host.useAgentProfiles?.();
+  const prepareProfileLaunch = host.prepareProfileLaunch;
   const logoUrl = host.useRepoLogo?.(resolvedRepoId) ?? null;
   const drag = useSortableRow(group.repoId);
 
@@ -433,6 +438,17 @@ function RepoGroupRow({
               onNewTerminal={() => onOpenInFolder(group)}
               onNewAgent={(agent) => onOpenInFolder(group, agent)}
               onConfigure={(candidate) => onConfigureAgent?.(candidate.id)}
+              {...(profiles && prepareProfileLaunch
+                ? {
+                    profiles,
+                    onNewProfile: (profile: AgentProfile) =>
+                      void launchProfileSession(prepareProfileLaunch, profile, {
+                        repoId: group.items[0]?.repoId ?? group.repoId,
+                        cwd: group.cwd,
+                        title: group.title,
+                      }),
+                  }
+                : {})}
             />
           </span>
         ) : undefined
@@ -447,8 +463,8 @@ function RepoGroupRow({
             key={session.id}
             session={session}
             active={session.id === activeId}
-            agent={agents.find((a) => a.id === session.agentId)}
-            runningAgent={agents.find((a) => a.id === resolveSessionAgentId(session, liveAgentId))}
+            agent={resolveSessionAgent(session, agents, profiles)}
+            runningAgent={resolveSessionAgent(session, agents, profiles, resolveSessionAgentId(session, liveAgentId))}
             resolvedAgentId={resolveSessionAgentId(session, liveAgentId)}
             isAgentRow={isAgentRow(session, liveAgentId)}
             legacy={Boolean(legacy[session.id])}
@@ -502,6 +518,7 @@ function LoopsGroupRow({
   sessions: TerminalSession[];
 }) {
   const host = useTerminalHost();
+  const profiles = host.useAgentProfiles?.();
   const states = useTerminalStore((s) => s.states);
   const anyLive = items.some((s) => sessionPhase(s, states[s.id]) === 'live');
   return (
@@ -538,10 +555,8 @@ function LoopsGroupRow({
               key={session.id}
               session={session}
               active={session.id === activeId}
-              agent={agents.find((a) => a.id === session.agentId)}
-              runningAgent={agents.find(
-                (a) => a.id === resolveSessionAgentId(session, liveAgentId),
-              )}
+              agent={resolveSessionAgent(session, agents, profiles)}
+              runningAgent={resolveSessionAgent(session, agents, profiles, resolveSessionAgentId(session, liveAgentId))}
               resolvedAgentId={resolveSessionAgentId(session, liveAgentId)}
               isAgentRow={isAgentRow(session, liveAgentId)}
               legacy={Boolean(legacy[session.id])}

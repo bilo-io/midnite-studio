@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { AgentDefinition, AgentStatus } from '@midnite/studio-shared';
+import { createBlankAgentProfile, type AgentDefinition, type AgentProfile, type AgentStatus } from '@midnite/studio-shared';
 
 import { NewSessionPicker } from './new-session-picker';
 
@@ -234,5 +234,42 @@ describe('NewSessionPicker', () => {
       expect(onConfigure).toHaveBeenCalledWith(agents[2]);
       expect(onNewAgent).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('NewSessionPicker — Your agents (Phase 154)', () => {
+  const reviewer: AgentProfile = { ...createBlankAgentProfile(), id: 'ap-reviewer', name: 'Reviewer', baseAgentId: 'claude', accent: '#112233' };
+
+  it('lists a custom agent first, with its base CLI on the right and its accent stripe', () => {
+    setup({ profiles: [reviewer], onNewProfile: vi.fn() });
+    openMenu();
+
+    expect(screen.getByText('Your agents')).toBeDefined();
+    const item = screen.getByRole('menuitem', { name: /Reviewer/ });
+    expect(item.textContent).toContain('Claude');
+    const stripe = item.querySelector('[data-testid="profile-accent"]') as HTMLElement;
+    expect(stripe.style.backgroundColor).toBe('rgb(17, 34, 51)');
+    const items = screen.getAllByRole('menuitem');
+    expect(items[1]).toBe(item);
+  });
+
+  it('runs onNewProfile on click, and on Enter one ArrowDown from New Terminal', () => {
+    const onNewProfile = vi.fn();
+    const { onNewAgent } = setup({ profiles: [reviewer], onNewProfile });
+    openMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: /Reviewer/ }));
+    expect(onNewProfile).toHaveBeenCalledWith(reviewer);
+
+    openMenu();
+    fireEvent.keyDown(search(), { key: 'ArrowDown' });
+    fireEvent.keyDown(search(), { key: 'Enter' });
+    expect(onNewProfile).toHaveBeenCalledTimes(2);
+    expect(onNewAgent).not.toHaveBeenCalled();
+  });
+
+  it('shows no section without an onNewProfile to start one', () => {
+    setup({ profiles: [reviewer] });
+    openMenu();
+    expect(screen.queryByText('Your agents')).toBeNull();
   });
 });

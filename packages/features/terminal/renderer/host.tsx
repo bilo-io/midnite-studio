@@ -1,9 +1,10 @@
 import { createContext, useContext, useLayoutEffect, type ComponentType, type ReactElement, type ReactNode } from 'react';
 
 import type { IconComponent } from '@midnite/studio-frame';
-import type { ActivityStatus, AgentDefinition, RepoDescriptor, SuiteAppId, TerminalSession } from '@midnite/studio-shared';
+import type { ActivityStatus, AgentDefinition, AgentProfile, RepoDescriptor, SuiteAppId, TerminalSession } from '@midnite/studio-shared';
 import type { ITheme } from '@xterm/xterm';
 
+import type { PrepareProfileLaunch } from './profile-launch';
 import type { TerminalFontSettings } from './terminal-font';
 import { useTerminalStore } from './terminal-store';
 
@@ -145,6 +146,17 @@ export type TerminalHost = {
    */
   usePopoutHeaderActions: () => HTMLDivElement | null;
   usePopoutHeaderLeading: () => HTMLDivElement | null;
+  /**
+   * The saved custom agents (Phase 154 Theme F), for the `+` menu's "Your agents" section and each
+   * session's chrome. A hook. Studio only: absent, there is no section and every session wears its base
+   * CLI's look.
+   */
+  useAgentProfiles?: () => AgentProfile[];
+  /**
+   * Asks main for a custom agent's typed line and the launch id that binds its private MCP socket.
+   * `null` on a failed envelope, which the host has already reported. Studio only.
+   */
+  prepareProfileLaunch?: PrepareProfileLaunch;
 };
 
 const TerminalHostContext = createContext<TerminalHost | null>(null);

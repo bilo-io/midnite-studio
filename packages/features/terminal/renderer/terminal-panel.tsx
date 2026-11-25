@@ -1,9 +1,11 @@
-import { type AgentDefinition } from '@midnite/studio-shared';
+import { type AgentDefinition, type AgentProfile } from '@midnite/studio-shared';
 import { useEffect } from 'react';
 
 import { ResizeHandle, useResizable, useRevealSize } from '@midnite/studio-frame';
 import { useAppFilterLoaded, useShowAllApps, visibleInApp } from './app-filter';
 import { useTerminalHost } from './host';
+import { launchProfileSession } from './profile-launch';
+import { resolveSessionAgent } from './session-agent';
 import { useMountedSessionIds } from './session-mount-policy';
 import { TerminalHeader } from './terminal-header';
 import { TerminalSessionList } from './terminal-session-list';
@@ -52,6 +54,8 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
   const listWidth = host.useListWidth();
 
   const { agents, status } = useAgents();
+  // Phase 154: Studio's custom agents (the "Your agents" menu section and each session's chrome).
+  const profiles = host.useAgentProfiles?.();
   // For the header's path: which registered checkout the cwd is standing in.
   const repos = host.useRepos();
 
@@ -110,6 +114,11 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
     });
   };
 
+  const openNewProfile = (profile: AgentProfile) => {
+    if (!cwd || !repoId || !host.prepareProfileLaunch) return;
+    void launchProfileSession(host.prepareProfileLaunch, profile, { repoId, cwd, title: repoName });
+  };
+
   const active = sessions.find((s) => s.id === activeId) ?? null;
   /**
    * Which of this panel's OWN sessions still get a live xterm (Phase 84
@@ -149,7 +158,7 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
   */
   const liveAgentId = useTerminalStore((s) => s.liveAgentId);
   const activeAgent = active
-    ? agents.find((a) => a.id === resolveSessionAgentId(active, liveAgentId))
+    ? resolveSessionAgent(active, agents, profiles, resolveSessionAgentId(active, liveAgentId))
     : undefined;
   /*
     A list of one session names nothing the header does not already say, so
@@ -198,6 +207,7 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
         hasWorktree={Boolean(cwd)}
         onNewTerminal={() => openNew()}
         onNewAgent={(agent) => openNew(agent)}
+        {...(profiles && host.prepareProfileLaunch ? { profiles, onNewProfile: openNewProfile } : {})}
       />
 
       <div className={`flex min-h-0 flex-1 ${side === 'left' ? 'flex-row' : 'flex-row-reverse'}`}>
@@ -231,7 +241,7 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
                 key={session.id}
                 session={session}
                 active={session.id === activeId}
-                initialInput={pendingInput[session.id] ?? agentInitialInput(agents, session.agentId)}
+                initialInput={pendingInput[session.id] ?? agentInitialInput(agents, session.agentId, session.profileId)}
                 fitSignal={fitSignal}
               />
             ) : (
@@ -293,8 +303,12 @@ export function agentInput(agent: { command: string; args?: readonly string[] | 
   return `${[agent.command, ...(agent.args ?? [])].join(' ')}\r`;
 }
 
-export function agentInitialInput(agents: AgentDefinition[], agentId?: string): string | undefined {
-  if (!agentId) return undefined;
+/**
+ * A custom agent's session (`profileId`) answers `undefined`: its line is main's to build
+ * (`agentProfile:prepareLaunch`), so the base command is never typed in its place.
+ */
+export function agentInitialInput(agents: AgentDefinition[], agentId?: string, profileId?: string): string | undefined {
+  if (!agentId || profileId) return undefined;
   const agent = agents.find((a) => a.id === agentId);
   if (!agent) return undefined;
   return agentInput(agent);
