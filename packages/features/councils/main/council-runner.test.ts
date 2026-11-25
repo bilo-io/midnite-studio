@@ -677,7 +677,7 @@ describe('a seat set to a custom agent (#1699)', () => {
     return { profileRun, release };
   }
 
-  const ready = (promptPrefix: string | null = null): CouncilProfileRun => ({
+  const ready = (promptPrefix: string | null = null): Extract<CouncilProfileRun, { kind: 'ready' }> => ({
     kind: 'ready',
     name: 'Reviewer',
     agent: claude,

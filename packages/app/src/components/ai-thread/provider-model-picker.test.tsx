@@ -105,3 +105,19 @@ describe('image recommended default', () => {
     expect(rows.filter((r) => r.recommended).map((r) => r.id)).toEqual(['agy']);
   });
 });
+
+describe('ProviderModelPicker groups (#1699)', () => {
+  it('heads each run of grouped providers once, and drops a header the search empties', () => {
+    setup({
+      providers: [
+        { ...providers[0]!, group: 'Your agents' },
+        { ...providers[1]!, id: 'b', label: 'Beta', group: 'Agents' },
+        { ...providers[1]!, id: 'c', label: 'Gamma', group: 'Agents' },
+      ],
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Provider: Alpha' }));
+    expect(screen.getAllByTestId('provider-model-picker-provider-list-group').map((g) => g.textContent)).toEqual(['Your agents', 'Agents']);
+    fireEvent.change(screen.getByLabelText('Search providers'), { target: { value: 'gam' } });
+    expect(screen.getAllByTestId('provider-model-picker-provider-list-group').map((g) => g.textContent)).toEqual(['Agents']);
+  });
+});
