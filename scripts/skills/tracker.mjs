@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { bar, mdTable, pct } from './lib/format.mjs';
-import { CATEGORIES, PROJECT_ENV, REPO, createTracker } from './lib/forge-tracker.mjs';
+import { CATEGORIES, DEFAULT_PROJECT, PROJECT_ENV, REPO, createTracker } from './lib/forge-tracker.mjs';
 import { biloToken } from './lib/pr-common.mjs';
 
 export const HELP = `tracker — the phase tracker on the forge (docs/TRACKER.md)
@@ -21,9 +21,10 @@ Read
   candidates                             open themes of open phases: ready, claimed, in an open PR, or blocked
 
 Write (each accepts --dry-run: prints the exact gh calls, runs none)
-  file --phase-body F --theme F... [--category features|security|issues]
+  file --phase-body F --theme F... [--category features|security|issues] [--project N] [--no-board]
                                          create the phase issue + one sub-issue per theme file; each file's
-                                         first "# " heading is its title ("Phase N — T" / "Phase N · Theme X — T")
+                                         first "# " heading is its title ("Phase N — T" / "Phase N · Theme X — T");
+                                         every new issue goes on the board as Todo unless --no-board
   link <phase-issue> <theme-issue>       link an existing issue as a sub-issue (by its database id)
   claim <issue>                          assign @me + label wip (the label is created when missing)
   tick <issue> --item "text"             tick the one open "- [ ]" task containing text (refuses 0 or 2+ matches)
@@ -32,7 +33,8 @@ Write (each accepts --dry-run: prints the exact gh calls, runs none)
   refine-stamp <issue>|--phase N         swap refined-<N-1> for refined-N
   close <issue> [--comment "..."]        drop wip, then close
   board <issue> --status S [--project N] set the board card's Status (project: --project > the issue's board
-                                         > $${PROJECT_ENV}; anything else is "ambiguous", never a guess)
+                                         > $${PROJECT_ENV} > board ${DEFAULT_PROJECT}; several boards without
+                                         board ${DEFAULT_PROJECT} among them is "ambiguous", never a guess)
 
 Exit: 0 ok · 1 gh / forge failure · 2 usage. GH_TOKEN defaults to the bilo-io account's token.`;
 
@@ -48,7 +50,7 @@ export function parseArgs(argv) {
     const a = rest[i];
     if (!a.startsWith('--')) { pos.push(a); continue; }
     const key = cmd === 'file' && a === '--theme' ? '--theme-file' : a;
-    const takesValue = rest[i + 1] !== undefined && !rest[i + 1].startsWith('--') && !['--json', '--dry-run', '--help'].includes(a);
+    const takesValue = rest[i + 1] !== undefined && !rest[i + 1].startsWith('--') && !['--json', '--dry-run', '--help', '--no-board'].includes(a);
     const val = takesValue ? rest[++i] : true;
     if (MULTI.has(key)) (flags[key] ??= []).push(val);
     else flags[key] = val;
@@ -144,7 +146,7 @@ async function runCommand(argv, { ghRun, readFile = (f) => readFileSync(f, 'utf8
       if (!CATEGORIES.includes(category)) { r = usage(`--category must be one of ${CATEGORIES.join('/')}`); break; }
       const body = readFile(bodyFile);
       const themes = (flags['--theme-file'] ?? []).map((f) => { const b = readFile(f); return { title: titleOf(b), body: b }; });
-      r = await t.file({ title: titleOf(body), category, body, themes });
+      r = await t.file({ title: titleOf(body), category, body, themes, board: flags['--no-board'] ? undefined : { status: 'Todo', project: need('--project') || envProject || undefined } });
       break;
     }
     case 'link': {
@@ -199,7 +201,7 @@ function render(cmd, r) {
       return [mdTable(['', 'Phase', 'Theme', 'Issue', 'Cat', 'Why'], rows.map((c) => [c.available ? '🟢' : '⏳', String(c.phase), `${c.theme} — ${c.name}`, `#${c.number}`, c.category ?? '—', c.why])), ...r.notes.map((n) => `note: ${n}`)].join('\n');
     }
     case 'file':
-      return `filed phase #${r.phase}; themes ${r.themes.map((x) => `#${x.number}`).join(' ') || '—'}`;
+      return [`filed phase #${r.phase}; themes ${r.themes.map((x) => `#${x.number}`).join(' ') || '—'}${r.board ? `; on board ${r.board} as Todo` : ''}`, ...(r.boardErrors ?? []).map((e) => `warning: #${e.number} not put on the board: ${e.message}`)].join('\n');
     case 'tick':
       return r.already ? `#${r.number}: already ticked` : `#${r.number}: ticked line ${r.line}`;
     case 'headlines':

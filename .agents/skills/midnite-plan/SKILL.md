@@ -73,8 +73,8 @@ Print an overview table first thing — before any question — from that list:
    The body's first line is its title: `# Phase N — Title`.
 2. For each theme, write its `- [ ]` deliverables to a scratchpad file whose first line is `# Phase N · Theme X — <name>`.
 3. File them in one call — it creates the phase, each theme, and links every theme as a sub-issue
-   (dry-run first to check the titles): `node scripts/skills/tracker.mjs file --phase-body <scratchpad>/phase.md --theme <scratchpad>/theme-a.md --theme … --category <category> [--dry-run]`.
-4. Put the phase on the project board: `node scripts/skills/tracker.mjs board <phase-issue> --status Todo [--project N]` (it refuses rather than guesses when the board is ambiguous).
+   (dry-run first to check the titles; it also puts the phase and every theme on the project board as Todo, board 8 unless `--project N`, `--no-board` skips): `node scripts/skills/tracker.mjs file --phase-body <scratchpad>/phase.md --theme <scratchpad>/theme-a.md --theme … --category <category> [--dry-run]`.
+4. The board needs no separate step: `file` already added the cards. A card that failed is reported as a warning; add it with `node scripts/skills/tracker.mjs board <issue> --status Todo`.
 
 ## ✅ Stage 6 — Report
 

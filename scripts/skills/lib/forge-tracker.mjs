@@ -16,6 +16,8 @@ export const REPO = 'bilo-io/midnite-studio';
 export const CATEGORIES = ['features', 'security', 'issues'];
 export const WIP_LABEL = 'wip';
 export const PROJECT_ENV = 'MIDNITE_TRACKER_PROJECT';
+/** The tracker's board: bilo-io's user project 8, "bilo-io: all repos" — every phase issue's card lives there. */
+export const DEFAULT_PROJECT = 8;
 
 // ---------------------------------------------------------------- pure: titles, labels, bodies
 
@@ -332,8 +334,10 @@ export function createTracker({ run = defaultRun, repo = REPO, env, dryRun = fal
   /**
    * File a phase and its themes: `{title, category, body, themes:[{title, body}]}`. Titles are used as given;
    * each theme is created, then linked as a sub-issue. Dry-run numbers are placeholders (`<phase>`, `<theme 1>`).
+   * With `board: {status, project}` every new issue is also put on that board (`project` defaults to
+   * `$MIDNITE_TRACKER_PROJECT`, else board 8). A board failure is reported in `boardErrors`, never undoes the filing.
    */
-  async function file({ title, category, body, themes = [] }) {
+  async function file({ title, category, body, themes = [], board: onBoard }) {
     if (!CATEGORIES.includes(category)) return { ok: false, kind: 'usage', message: `category must be one of ${CATEGORIES.join('/')}` };
     if (parseTitle(title).phase == null) return { ok: false, kind: 'usage', message: `phase title must read "Phase N — Title", got "${title}"` };
     const p = await write(['issue', 'create', ...R, '--title', title, '--label', `phase,${category}`, '--body-file', tmpFile(body, 'phase.md')], { placeholder: '/issues/<phase>' });
@@ -349,7 +353,14 @@ export function createTracker({ run = defaultRun, repo = REPO, env, dryRun = fal
       if (!l.ok) return { ...l, phase: phaseNo, themes: filed };
       filed.push({ number: childNo, title: t.title });
     }
-    return { ok: true, phase: phaseNo, themes: filed };
+    if (!onBoard) return { ok: true, phase: phaseNo, themes: filed };
+    const project = onBoard.project || process.env[PROJECT_ENV] || DEFAULT_PROJECT;
+    const boardErrors = [];
+    for (const n of [phaseNo, ...filed.map((f) => f.number)]) {
+      const b = await board(n, onBoard.status ?? 'Todo', { project });
+      if (!b.ok) boardErrors.push({ number: n, message: b.message });
+    }
+    return { ok: true, phase: phaseNo, themes: filed, board: Number(project), boardErrors };
   }
 
   /** Claim a theme (or phase): assign the current user and add the `wip` label. */
@@ -406,27 +417,33 @@ export function createTracker({ run = defaultRun, repo = REPO, env, dryRun = fal
 
   /**
    * Resolve the project board. Order: explicit `project` (number) > the issue's existing project item >
-   * `$MIDNITE_TRACKER_PROJECT`. More than one board holding the issue, or none of the above, is 'ambiguous'
-   * rather than a guess — the caller passes `--project N`.
+   * `$MIDNITE_TRACKER_PROJECT` > `DEFAULT_PROJECT` (board 8). An issue on several boards resolves to the
+   * default board when it is one of them; otherwise that is 'ambiguous' rather than a guess.
    */
-  async function resolveProject(n, { project, envProject = process.env[PROJECT_ENV] } = {}) {
+  async function resolveProject(n, { project, envProject = process.env[PROJECT_ENV], defaultProject = DEFAULT_PROJECT } = {}) {
     if (project != null) return { ok: true, project: Number(project), source: 'flag' };
     const r = await json(['issue', 'view', String(n), ...R, '--json', 'projectItems']);
     if (!r.ok) return r;
     const items = r.data?.projectItems ?? [];
-    if (items.length > 1) return { ok: false, kind: 'ambiguous', message: `#${n} is on ${items.length} boards (${items.map((p) => p.title).join(', ')}); pass --project N` };
-    if (items.length === 1) {
+    if (items.length > 0) {
       const l = await json(['project', 'list', '--owner', owner, '--format', 'json']);
-      const hit = l.ok ? (l.data?.projects ?? []).find((p) => p.title === items[0].title) : null;
-      if (hit) return { ok: true, project: hit.number, source: 'issue' };
+      const all = l.ok ? (l.data?.projects ?? []) : [];
+      const hits = items.map((i) => all.find((p) => p.title === i.title)).filter(Boolean);
+      if (items.length === 1 && hits.length === 1) return { ok: true, project: hits[0].number, source: 'issue' };
+      if (items.length > 1) {
+        const preferred = hits.find((p) => p.number === Number(defaultProject));
+        if (preferred) return { ok: true, project: preferred.number, source: 'issue' };
+        return { ok: false, kind: 'ambiguous', message: `#${n} is on ${items.length} boards (${items.map((p) => p.title).join(', ')}); pass --project N` };
+      }
     }
     if (envProject) return { ok: true, project: Number(envProject), source: 'env' };
+    if (defaultProject) return { ok: true, project: Number(defaultProject), source: 'default' };
     return { ok: false, kind: 'ambiguous', message: `#${n} is on no project board; pass --project N or set ${PROJECT_ENV}` };
   }
 
   /** Set the Status single-select on the board card for issue `n` (adding the card when missing). */
-  async function board(n, status, { project, envProject } = {}) {
-    const p = await resolveProject(n, { project, envProject });
+  async function board(n, status, { project, envProject, defaultProject } = {}) {
+    const p = await resolveProject(n, { project, envProject, defaultProject });
     if (!p.ok) return p;
     const [view, fields] = await Promise.all([
       json(['project', 'view', String(p.project), '--owner', owner, '--format', 'json']),

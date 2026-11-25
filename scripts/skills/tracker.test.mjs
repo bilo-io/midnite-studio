@@ -174,6 +174,32 @@ describe('tracker over a mocked gh', () => {
     expect(gh.calls[0]).toEqual(['issue', 'create', '--repo', 'o/r', '--title', 'Phase 9 — Thing', '--label', 'phase,features', '--body-file', '/tmp/phase.md']);
     expect(gh.calls.at(-1)).toEqual(['api', 'repos/o/r/issues/41/sub_issues', '-X', 'POST', '-F', 'sub_issue_id=1042']);
   });
+  it('file adds each new issue to board 8 as Todo', async () => {
+    let n = 40;
+    const fields = { fields: [{ id: 'F1', name: 'Status', options: [{ id: 'O1', name: 'Todo' }, { id: 'O2', name: 'Done' }] }] };
+    const gh = fakeGh([
+      [starts('issue', 'create'), () => `https://github.com/o/r/issues/${++n}\n`],
+      [(a) => a[0] === 'api' && /issues\/4[12]$/.test(a[1]), (a) => ({ id: 1000 + Number(a[1].split('/').pop()) })],
+      [(a) => a.includes('POST'), ''],
+      [starts('project', 'view'), { id: 'PVT_8' }],
+      [starts('project', 'field-list'), fields],
+      [starts('project', 'item-add'), { id: 'ITEM_1' }],
+      [starts('project', 'item-edit'), ''],
+    ]);
+    const t = createTracker({ run: gh.run, repo: 'o/r', tmpFile: (_, name) => `/tmp/${name}` });
+    const r = await t.file({ title: 'Phase 9 — T', category: 'features', body: 'b', themes: [{ title: 'Phase 9 · Theme A — X', body: 't' }], board: { status: 'Todo' } });
+    expect(r).toMatchObject({ ok: true, phase: 41, board: 8, boardErrors: [] });
+    const adds = gh.calls.filter((c) => c[1] === 'item-add');
+    expect(adds.map((c) => [c[2], c.at(-3)])).toEqual([['8', 'https://github.com/o/r/issues/41'], ['8', 'https://github.com/o/r/issues/42']]);
+  });
+  it('file puts every new issue on the board as Todo when asked, and reports board failures without undoing', async () => {
+    const gh = fakeGh([[() => true, () => { throw new Error('unreachable'); }]]);
+    const t = createTracker({ run: gh.run, dryRun: true, repo: 'o/r', tmpFile: (_, name) => `/tmp/${name}` });
+    const r = await t.file({ title: 'Phase 9 — T', category: 'issues', body: 'b', themes: [{ title: 'Phase 9 · Theme A — X', body: 't' }], board: { status: 'Todo', project: 8 } });
+    expect(r).toMatchObject({ ok: true, board: 8 });
+    expect(r.boardErrors.map((e) => e.number)).toEqual(['<phase>', '<theme 1>']);
+    expect(t.calls.length).toBe(3);
+  });
   it('file validates titles and category before writing', async () => {
     const gh = fakeGh([]);
     const t = createTracker({ run: gh.run });
@@ -238,9 +264,17 @@ describe('tracker over a mocked gh', () => {
       expect(r).toMatchObject({ ok: true, project: 6, projectSource: 'issue', status: 'In Progress' });
       expect(gh.calls.at(-1)).toEqual(['project', 'item-edit', '--id', 'ITEM_1', '--project-id', 'PVT_6', '--field-id', 'F1', '--single-select-option-id', 'O2']);
     });
-    it('is ambiguous with no board, or two, unless --project or the env names one', async () => {
-      expect((await createTracker({ run: fakeGh(routes([])).run }).board(22, 'Todo', { envProject: '' })).kind).toBe('ambiguous');
+    it('falls back to board 8 for an issue on no board', async () => {
+      expect(await createTracker({ run: fakeGh(routes([])).run }).board(22, 'Todo', { envProject: '' })).toMatchObject({ ok: true, project: 8, projectSource: 'default' });
+    });
+    it('prefers board 8 among several boards, and is ambiguous only without it', async () => {
+      const both = [...routes([{ title: 'midnite apps' }, { title: 'bilo-io: all repos' }])];
+      both[1] = [starts('project', 'list'), { projects: [{ number: 6, title: 'midnite apps' }, { number: 8, title: 'bilo-io: all repos' }] }];
+      expect(await createTracker({ run: fakeGh(both).run }).board(22, 'Todo', { envProject: '' })).toMatchObject({ ok: true, project: 8, projectSource: 'issue' });
       expect((await createTracker({ run: fakeGh(routes([{ title: 'a' }, { title: 'b' }])).run }).board(22, 'Todo', { envProject: '' })).kind).toBe('ambiguous');
+    });
+    it('is ambiguous with no board when the default is switched off, unless --project or the env names one', async () => {
+      expect((await createTracker({ run: fakeGh(routes([])).run }).board(22, 'Todo', { envProject: '', defaultProject: 0 })).kind).toBe('ambiguous');
       expect(await createTracker({ run: fakeGh(routes([])).run }).board(22, 'Todo', { envProject: '6' })).toMatchObject({ ok: true, projectSource: 'env' });
       expect(await createTracker({ run: fakeGh(routes([])).run }).board(22, 'Todo', { project: 6 })).toMatchObject({ ok: true, projectSource: 'flag' });
     });

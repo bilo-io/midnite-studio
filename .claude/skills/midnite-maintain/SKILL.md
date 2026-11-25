@@ -65,6 +65,6 @@ Run `node scripts/skills/address-issue.mjs --no-llm` for the address-issue sub-s
    - Formulate structured remediation steps for each identified vulnerability.
    - State the next phase number (highest `Phase N` issue + 1).
    - File the plan as a `phase` + `security` issue with one sub-issue per theme, matching house style ([`docs/TRACKER.md`](../../../docs/TRACKER.md)).
-   - Add it to the project board. Nothing is committed.
+   - `file` puts it on the project board (board 8 by default). Nothing is committed.
 4. **Offer immediate fix:**
    - If non-breaking patch updates exist, offer to apply them in a worktree and open a security PR immediately.
