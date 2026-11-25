@@ -41,7 +41,7 @@ function searchable(chat: ChatSummary): string {
 export function filterChats(chats: readonly ChatSummary[], filters: ChatFilters, now: number): ChatSummary[] {
   const needle = filters.query.trim().toLowerCase();
   return chats.filter((chat) => {
-    if (filters.engines.length > 0 && !filters.engines.includes(chat.engine)) return false;
+    if (filters.engines.length > 0 && !filters.engines.includes(chat.agentProfileId ?? chat.engine)) return false;
     if (filters.repos.length > 0 && !filters.repos.includes(chat.repoId ?? NO_REPO)) return false;
     if (filters.dates.length > 0 && !filters.dates.includes(chatDateBucket(chat.updatedAt, now))) return false;
     if (filters.pinned.length > 0 && !filters.pinned.includes(chat.pinned ? 'pinned' : 'unpinned')) return false;

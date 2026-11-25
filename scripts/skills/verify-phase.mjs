@@ -1,21 +1,24 @@
 #!/usr/bin/env node
-// Phase verification driver (Phase 151 Theme E) — the deterministic half of `midnite-verify`.
+// Phase verification driver (Phase 151 Theme E, on the forge since Theme G) — the deterministic half of
+// `midnite-verify`. The phase is a GitHub issue; its checklist is the task lists of its theme sub-issues.
 //
-//   node scripts/skills/verify-phase.mjs [--phase N] [--root DIR] [--json] [--full]
-//   node scripts/skills/verify-phase.mjs --phase N --tick 151.E.1,151.E.2          # check off automated items
+//   node scripts/skills/verify-phase.mjs [--phase N] [--json] [--full] [--dry-run]
+//   node scripts/skills/verify-phase.mjs --phase N --tick 151.E.1,151.E.2          # tick automated items in the sub-issues
 //   node scripts/skills/verify-phase.mjs --phase N --complete --confirm [--summary "..."]   # after human sign-off
 //
-// Default: locate the oldest incomplete phase (or --phase), partition its checklist into automated vs human
-// items, and LIST the focused commands to run (they need the touched files, so they
-// are never run here). It never runs the full `moon run :typecheck :lint :test` unless --full is passed (that
-// gate exhausts RAM on the dev machine). Writes need explicit flags: --tick edits the phase doc, --complete (with
-// --confirm) flips the phase row to DONE in its category `_INDEX.md` and appends to `done.md`.
+// Default: locate the oldest open phase issue (or --phase N, the phase number), partition its themes'
+// checklist into automated vs human items, and LIST the focused commands to run (they need the touched
+// files, so they are never run here). It never runs the full `moon run :typecheck :lint :test` unless --full
+// is passed (that gate exhausts RAM on the dev machine). Writes need explicit flags: --tick edits the theme
+// sub-issue bodies; --complete (with --confirm) closes every open theme sub-issue and then the phase issue.
+// The Headlines ✅ sentence stays with the agent (`node scripts/skills/tracker.mjs headlines …`).
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { CATEGORIES, countCheckboxes, parseIndex, writeIndexRow } from './lib/tasks-index.mjs';
+import { countTasks, createTracker } from './lib/forge-tracker.mjs';
+import { biloToken } from './lib/pr-common.mjs';
+import { shellLine } from './tracker.mjs';
 
 export const FULL_GATE = ['moon', 'run', ':typecheck', ':lint', ':test'];
 const HUMAN = /open,?\s+for a human|for a human|human[- ](?:pass|verif|sign)|manual(?:ly)?\b|by hand|eyeball|visual(?:ly)? (?:check|review)|sign[- ]?off/i;
@@ -62,25 +65,27 @@ export function tickItems(text, ids = [], { allAutomated = false } = {}) {
   return { text: lines.join('\n'), ticked };
 }
 
-/** Oldest incomplete phase across the category tables: lowest number whose status is not DONE. */
-export function oldestIncomplete(root) {
-  const rows = [];
-  for (const category of CATEGORIES) {
-    const file = join(root, '.midnite/tasks', category, '_INDEX.md');
-    if (!existsSync(file)) continue;
-    for (const r of parseIndex(readFileSync(file, 'utf8'))) if (r.phase != null) rows.push({ ...r, category });
-  }
-  return rows.filter((r) => !/✅|DONE/.test(r.status)).sort((a, b) => a.phase - b.phase)[0] ?? null;
-}
+/** Oldest incomplete phase: the lowest-numbered open phase issue. */
+export const oldestIncomplete = (phases) => phases.filter((p) => p.state === 'open').sort((a, b) => a.phase - b.phase)[0] ?? null;
 
-export function findPhase(root, phase) {
-  for (const category of CATEGORIES) {
-    const file = join(root, '.midnite/tasks', category, '_INDEX.md');
-    if (!existsSync(file)) continue;
-    const row = parseIndex(readFileSync(file, 'utf8')).find((r) => r.phase === Number(phase));
-    if (row) return { ...row, category };
+/** A phase's checklist as one text: each theme sub-issue's body under a `### Theme X — name` heading. */
+export const phaseText = (themes) => themes.map((t) => `### Theme ${t.theme ?? '?'} — ${t.name}\n${t.body ?? ''}`).join('\n\n');
+
+/** Resolve `--phase N` (or the oldest open phase) to `{ok, phase}` with its theme sub-issues. */
+export async function loadPhase(tracker, phaseNo) {
+  let n;
+  if (phaseNo != null) {
+    const f = await tracker.findPhase(phaseNo);
+    if (!f.ok) return f;
+    n = f.number;
+  } else {
+    const l = await tracker.listPhases({ state: 'open' });
+    if (!l.ok) return l;
+    const o = oldestIncomplete(l.phases);
+    if (!o) return { ok: false, kind: 'not-found', message: 'no open phase issue' };
+    n = o.number;
   }
-  return null;
+  return tracker.readPhase(n);
 }
 
 /** The gate: what runs by default, what is merely listed, and what --full adds. */
@@ -93,39 +98,19 @@ export function planGate({ full = false } = {}) {
   return steps;
 }
 
-/** Flip a phase's row to DONE and clear its WIP/TODO theme cells (row only, no prose). */
-export function markIndexDone(text, phase) {
-  return text
-    .split('\n')
-    .map((line) => {
-      const m = /^\|\s*\[(\d+)\b/.exec(line);
-      if (!m || Number(m[1]) !== Number(phase)) return line;
-      const cells = line.replace(/^\||\|\s*$/g, '').split(/(?<!\\)\|/);
-      cells[1] = ' ✅ DONE ';
-      cells[6] = ' — ';
-      cells[7] = ' — ';
-      return `|${cells.join('|')}|`;
-    })
-    .join('\n');
-}
-
-export function doneEntry({ phase, title, date, summary }) {
-  return `\n## ${date} — Phase ${phase} — ${title}\n\n${summary}\n`;
-}
-
 const defaultExec = (cmd, { cwd }) => {
   const r = spawnSync(cmd[0], cmd.slice(1), { cwd, encoding: 'utf8' });
   return { code: r.status ?? 1, out: `${r.stdout ?? ''}${r.stderr ?? ''}` };
 };
 
-/** Run the verification. `exec` is injectable for tests. */
-export function verify({ root, phase, full = false, exec = defaultExec } = {}) {
-  const row = phase != null ? findPhase(root, phase) : oldestIncomplete(root);
-  if (!row) return { ok: false, error: phase != null ? `phase ${phase} not found in any _INDEX.md` : 'no incomplete phase' };
-  const docPath = join(root, '.midnite/tasks', row.category, row.path);
-  const text = readFileSync(docPath, 'utf8');
+/** Run the verification. `tracker` (forge-tracker) and `exec` are injectable for tests. */
+export async function verify({ tracker, phase, full = false, root = process.cwd(), exec = defaultExec } = {}) {
+  const loaded = await loadPhase(tracker, phase);
+  if (!loaded.ok) return { ok: false, error: `${loaded.kind}: ${loaded.message}` };
+  const p = loaded.phase;
+  const text = phaseText(p.themes);
   const items = partitionItems(text);
-  const counts = countCheckboxes(text);
+  const counts = countTasks(text);
   const openAutomated = items.filter((i) => !i.done && i.kind === 'automated');
   const openHuman = items.filter((i) => !i.done && i.kind === 'human');
   const gate = planGate({ full });
@@ -135,10 +120,12 @@ export function verify({ root, phase, full = false, exec = defaultExec } = {}) {
     .map((r) => ({ name: r.name, cmd: r.cmd, code: r.code, tail: r.out.trim().split('\n').slice(-12).join('\n') }));
   return {
     ok: true,
-    phase: row.phase,
-    category: row.category,
-    title: row.title,
-    docPath,
+    phase: p.phase,
+    issue: p.number,
+    category: p.category,
+    title: p.name,
+    url: p.url,
+    themes: p.themes.map((t) => ({ theme: t.theme, number: t.number, state: t.state })),
     counts: { done: counts.done, open: counts.open, total: counts.total },
     openAutomated,
     openHuman,
@@ -148,52 +135,71 @@ export function verify({ root, phase, full = false, exec = defaultExec } = {}) {
   };
 }
 
+/** Tick items by id (or `all` automated) in each theme sub-issue body; one body edit per changed theme. */
+export async function tickPhase(tracker, phase, ids, { allAutomated = false } = {}) {
+  const ticked = [];
+  for (const t of phase.themes) {
+    if (t.state !== 'open') continue;
+    const r = tickItems(t.body ?? '', ids, { allAutomated });
+    if (!r.ticked.length) continue;
+    const w = await tracker.editBody(t.number, r.text);
+    if (!w.ok) return { ...w, ticked };
+    ticked.push(...r.ticked.map((id) => `${id} (#${t.number})`));
+  }
+  return { ok: true, ticked };
+}
+
+/** Close every open theme sub-issue, then the phase issue. Refuses while any item is open. */
+export async function completePhase(tracker, phase, { summary } = {}) {
+  const c = countTasks(phaseText(phase.themes));
+  if (c.open > 0) return { ok: false, kind: 'open-items', message: `refusing: ${c.open} item(s) still open — tick or defer them first` };
+  const note = `Verified: ${c.done}/${c.total} items.${summary ? ` ${summary}` : ''}`;
+  for (const t of phase.themes.filter((x) => x.state === 'open')) {
+    const r = await tracker.close(t.number, { comment: note });
+    if (!r.ok) return r;
+  }
+  const r = await tracker.close(phase.number, { comment: note });
+  return r.ok ? { ok: true, note } : r;
+}
+
 function arg(argv, name) {
   const i = argv.indexOf(name);
   return i >= 0 ? argv[i + 1] : undefined;
 }
 
 function render(r) {
-  const lines = [`Phase ${r.phase} (${r.category}) — ${r.title}`, `checklist ${r.counts.done}/${r.counts.total} done`];
-  lines.push(`\nAutomated, still open (${r.openAutomated.length}):`, ...r.openAutomated.map((i) => `  - ${i.id ?? `L${i.line + 1}`} ${i.text}`));
-  lines.push(`\nHuman sign-off, still open (${r.openHuman.length}):`, ...r.openHuman.map((i) => `  - ${i.id ?? `L${i.line + 1}`} ${i.text}`));
+  const lines = [`Phase ${r.phase} (#${r.issue}, ${r.category ?? '—'}) — ${r.title}`, `checklist ${r.counts.done}/${r.counts.total} done · themes ${r.themes.map((t) => `${t.theme}${t.state === 'closed' ? '✓' : ''}`).join(' ')}`];
+  lines.push(`\nAutomated, still open (${r.openAutomated.length}):`, ...r.openAutomated.map((i) => `  - [${i.theme}] ${i.id ?? `L${i.line + 1}`} ${i.text}`));
+  lines.push(`\nHuman sign-off, still open (${r.openHuman.length}):`, ...r.openHuman.map((i) => `  - [${i.theme}] ${i.id ?? `L${i.line + 1}`} ${i.text}`));
   lines.push('\nGate:');
   for (const g of r.gate) lines.push(`  ${g.ran ? 'ran ' : 'todo'} ${g.cmd}${g.note ? `  (${g.note})` : ''}`);
   for (const x of r.results) lines.push(`\n${x.code === 0 ? 'PASS' : 'FAIL'} ${x.cmd}${x.code === 0 ? '' : `\n${x.tail}`}`);
   return lines.join('\n');
 }
 
-export function main(argv = process.argv.slice(2), out = (s) => process.stdout.write(`${s}\n`)) {
+export async function main(argv = process.argv.slice(2), { out = (s) => process.stdout.write(`${s}\n`), tracker, exec } = {}) {
   const root = arg(argv, '--root') ?? join(dirname(fileURLToPath(import.meta.url)), '..', '..');
   const phase = arg(argv, '--phase');
-  const base = { root, phase: phase != null ? Number(phase) : undefined, full: argv.includes('--full') };
+  const dryRun = argv.includes('--dry-run');
+  const t = tracker ?? createTracker({ dryRun, env: process.env.GH_TOKEN ? undefined : { GH_TOKEN: biloToken() || undefined } });
   const tick = arg(argv, '--tick');
   if (tick != null || argv.includes('--complete')) {
     if (phase == null) return out('--tick/--complete need --phase N'), 2;
-    const row = findPhase(root, phase);
-    if (!row) return out(`phase ${phase} not found`), 1;
-    const docPath = join(root, '.midnite/tasks', row.category, row.path);
-    if (tick != null) {
-      const r = tickItems(readFileSync(docPath, 'utf8'), tick.split(',').filter(Boolean), { allAutomated: tick === 'all' });
-      writeFileSync(docPath, r.text);
-      out(`ticked ${r.ticked.length}: ${r.ticked.join(', ')}`);
-      return 0;
-    }
-    if (!argv.includes('--confirm')) return out('--complete needs --confirm (human sign-off first)'), 2;
-    const c = countCheckboxes(readFileSync(docPath, 'utf8'));
-    if (c.open > 0) return out(`refusing: ${c.open} item(s) still open — tick or defer them first`), 3;
-    writeIndexRow(root, row.category, row.phase, { done: c.done, total: c.total });
-    const idx = join(root, '.midnite/tasks', row.category, '_INDEX.md');
-    writeFileSync(idx, markIndexDone(readFileSync(idx, 'utf8'), row.phase));
-    const date = new Date().toISOString().slice(0, 10);
-    appendFileSync(join(root, '.midnite/tasks/done.md'), doneEntry({ phase: row.phase, title: row.title.replace(/^\d+\s*·\s*/, ''), date, summary: arg(argv, '--summary') ?? 'Verified and signed off.' }));
-    out(`phase ${row.phase} marked DONE`);
+    if (argv.includes('--complete') && !argv.includes('--confirm')) return out('--complete needs --confirm (human sign-off first)'), 2;
+    const loaded = await loadPhase(t, Number(phase));
+    if (!loaded.ok) return out(`${loaded.kind}: ${loaded.message}`), 1;
+    const r = tick != null
+      ? await tickPhase(t, loaded.phase, tick.split(',').filter(Boolean), { allAutomated: tick === 'all' })
+      : await completePhase(t, loaded.phase, { summary: arg(argv, '--summary') });
+    if (!r.ok) return out(r.message), r.kind === 'open-items' ? 3 : 1;
+    out(tick != null ? `ticked ${r.ticked.length}: ${r.ticked.join(', ')}` : `phase ${loaded.phase.phase} closed (#${loaded.phase.number}) — ${r.note}`);
+    if (dryRun) out(['# dry run — nothing was written', ...t.calls.map(shellLine)].join('\n'));
     return 0;
   }
-  const r = verify(base);
+  const r = await verify({ tracker: t, root, phase: phase != null ? Number(phase) : undefined, full: argv.includes('--full'), exec });
   if (!r.ok) return out(r.error), 1;
   out(argv.includes('--json') ? JSON.stringify(r, null, 2) : render(r));
   return r.passed ? 0 : 1;
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) process.exitCode = main();
+if (process.argv[1] === fileURLToPath(import.meta.url)) main().then((c) => (process.exitCode = c));

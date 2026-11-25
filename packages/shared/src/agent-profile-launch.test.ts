@@ -84,6 +84,17 @@ describe('buildProfileLaunchLine', () => {
     expect(resumed).not.toContain('$(cat');
   });
 
+  it('carries a first prompt as the last word, joined into the prompt file for argument delivery', () => {
+    const flag = buildProfileLaunchLine({ base: claude, model: 'default', promptPath: '/p.md', delivery: 'flag', mcpArgs: [], resume: false, prompt: "fix it's bug" });
+    expect(flag.endsWith(String.raw`--append-system-prompt-file '/p.md' 'fix it'\''s bug'`)).toBe(true);
+    const bare = buildProfileLaunchLine({ base: claude, model: 'default', promptPath: null, delivery: 'flag', mcpArgs: [], resume: false, prompt: 'go' });
+    expect(bare.endsWith(" 'go'")).toBe(true);
+    const codex = agent('codex');
+    const arg = buildProfileLaunchLine({ base: codex, model: 'default', promptPath: '/p.md', delivery: 'argument', mcpArgs: [], resume: false, prompt: 'go' });
+    expect(arg.endsWith(String.raw`"$(cat '/p.md'; printf '\n\n%s' 'go')"`)).toBe(true);
+    expect(arg.match(/\$\(cat/g)).toHaveLength(1);
+  });
+
   it('adds base.resume and places mcpArgs before the prompt words', () => {
     const base = { ...claude, resume: ['--continue'] };
     const line = buildProfileLaunchLine({ base, model: 'default', promptPath: '/p.md', delivery: 'flag', mcpArgs: ['--mcp-config', 'x'], resume: true });
@@ -123,6 +134,14 @@ describe('profileMcpArgs (Phase 154 Theme G)', () => {
       '-c',
       'mcp_servers.midnite.env={ ELECTRON_RUN_AS_NODE = "1" }',
     ]);
+  });
+
+  it('Codex restricted: turns each other server off by name; unrestricted or Claude ignores the list (#1697)', () => {
+    const others = ['github', 'midnite', 'my-db_2', 'weird.name', 'github'];
+    const restricted = profileMcpArgs('codex', launch, { restricted: true, quote: true, otherMcpServers: others });
+    expect(restricted.slice(6)).toEqual(['-c', 'mcp_servers.github.enabled=false', '-c', 'mcp_servers.my-db_2.enabled=false']);
+    expect(profileMcpArgs('codex', launch, { restricted: false, quote: false, otherMcpServers: others })).toHaveLength(6);
+    expect(profileMcpArgs('claude', launch, { restricted: true, quote: false, otherMcpServers: others })).toHaveLength(3);
   });
 
   it('nothing for a CLI with no per-launch MCP config', () => {

@@ -4,11 +4,13 @@ import type { CompanionProfileRun } from '@midnite/studio-feature-companion/main
 import {
   BUILTIN_AGENTS,
   buildProfileHeadlessArgv,
+  buildProfileHeadlessExtras,
   promptDeliveryFor,
   type AgentDefinition,
   type AgentProfile,
 } from '@midnite/studio-shared';
 
+import type { HeadlessRunRegistry } from './headless-run-profiles';
 import type { ProfileMcpSockets } from './profile-mcp-sockets';
 
 export type ProfileHeadlessSeams = {
@@ -22,6 +24,10 @@ export type ProfileHeadlessSeams = {
   /** Reads the prompt file; `null` when there is none. */
   readPrompt?: (path: string) => Promise<string | null>;
   exists?: (path: string) => Promise<boolean>;
+  /** What the run is called in the audit trail, from its launch id. Default: the companion's. */
+  runId?: (launchId: string) => string;
+  /** #1697: names the run's custom agent to the breaker, so its limits apply to the headless run too. */
+  runs?: Pick<HeadlessRunRegistry, 'register'>;
 };
 
 const fileExists = async (path: string): Promise<boolean> => {
@@ -79,21 +85,29 @@ export function createProfileHeadlessRun(seams: ProfileHeadlessSeams): (profileI
     } catch (error) {
       return { kind: 'error', message: `I could not start ${profile.name}'s tools: ${error instanceof Error ? error.message : String(error)}` };
     }
-    seams.sockets.bind(prepared.launchId, companionRunId(prepared.launchId));
-    const args = buildProfileHeadlessArgv({
+    const runId = (seams.runId ?? companionRunId)(prepared.launchId);
+    seams.sockets.bind(prepared.launchId, runId);
+    const unregister = seams.runs?.register(runId, { profileId: profile.id, agentId: base.id, cwd, title: profile.name });
+    const argvInput = {
       base,
       model: profile.model,
       promptPath,
       launch: prepared.launch,
       restricted: profile.mcpTools !== null,
-    }) as string[];
+      otherMcpServers: prepared.otherMcpServers,
+    };
+    const args = buildProfileHeadlessArgv(argvInput) as string[];
     return {
       kind: 'ready',
       name: profile.name,
       agent: base,
       args,
+      extraArgs: buildProfileHeadlessExtras(argvInput),
       promptPrefix,
-      release: () => seams.sockets.close(prepared.launchId),
+      release: () => {
+        unregister?.();
+        return seams.sockets.close(prepared.launchId);
+      },
     };
   };
 }

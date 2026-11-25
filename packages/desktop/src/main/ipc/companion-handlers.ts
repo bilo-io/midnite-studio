@@ -5,6 +5,7 @@ import { companionMain } from '@midnite/studio-feature-companion/main';
 import type { FeatureMainContext } from '@midnite/studio-runtime';
 import type { MicrophoneAccess } from '@midnite/studio-shared';
 
+import { studioHeadlessRuns } from '../agent-profiles/headless-run-profiles';
 import { createProfileHeadlessRun } from '../agent-profiles/profile-headless';
 import { studioProfileMcpSockets } from '../agent-profiles/studio-profile-sockets';
 import { dispatchMcpCall } from '../mcp/dispatch';
@@ -39,6 +40,7 @@ export function registerCompanionHandlers(): void {
       profile: getAgentProfile,
       agents: listAgents,
       promptPath: agentProfilePromptPath,
+      runs: studioHeadlessRuns(),
     }),
   });
 }

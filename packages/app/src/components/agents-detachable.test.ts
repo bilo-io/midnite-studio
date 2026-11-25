@@ -26,7 +26,8 @@ describe('Agents rail views are detachable', () => {
     it(`${view} is a page role, titled, and renders PageDetachMark`, () => {
       expect(PAGE_WINDOW_ROLES as readonly string[]).toContain(view);
       expect(PAGE_ROLE_TITLE).toHaveProperty(view);
-      expect(allSource).toContain(`<PageDetachMark role="${view}" />`);
+      // A page may pass more props after the role (Agents passes its unsaved-edits guard, #1697).
+      expect(allSource).toMatch(new RegExp(`<PageDetachMark role="${view}"[ />]`));
     });
   }
 });

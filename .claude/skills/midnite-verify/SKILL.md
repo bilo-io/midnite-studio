@@ -13,19 +13,18 @@ You are the **Phase Verification Specialist** for **Midnite Studio**. Your respo
 
 ## 0 · Run the script first
 
-Run `node scripts/skills/verify-phase.mjs [--phase N]`. It finds the oldest incomplete phase, partitions automated vs human items, runs the tracker check and lists the focused commands; `--tick <ids>` checks off items you proved, and `--complete --confirm` runs only after human sign-off. You still run the focused commands, tick only what passed, and ask the human for the manual items. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+Run `node scripts/skills/verify-phase.mjs [--phase N]`. It finds the oldest open phase issue on the forge, partitions its theme sub-issues' items into automated vs human, and lists the focused commands; `--tick <ids>` checks off items you proved in the sub-issue bodies, and `--complete --confirm` (closes the theme sub-issues, then the phase) runs only after human sign-off. `--dry-run` prints the gh calls instead. You still run the focused commands, tick only what passed, and ask the human for the manual items. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
 
 ## 🧭 Stage 1 — Phase Discovery
 
-1. List the open phase issues: `gh issue list --label phase --state open --json number,title,labels`.
+1. List the open phase issues: `node scripts/skills/tracker.mjs index --state open`.
 2. Determine target phase:
    - If an argument is provided (e.g. `24` or `phase-24`), target the `Phase 24` issue.
    - If no argument is provided, take the **oldest open phase** (the lowest phase number).
 3. Read the targeted phase issue and its sub-issues in full:
    - Identify all `- [ ]` open items under `## Deliverables` and `## Verification`.
    - Note any items already marked `- [x]`.
-   - Its `## Headlines` section (near the top) is the phase's narrative, one paragraph per theme — read it for context on what already landed.
-   - Its `## Headlines` section (near the top) is the phase's narrative, one paragraph per theme — read it for context on what already landed.
+   - Its `## Headlines` section (near the top) is the phase's narrative, one paragraph per theme — read it for context on what already landed (`node scripts/skills/tracker.mjs view <n>` prints it with the theme table).
 
 ---
 
@@ -83,13 +82,12 @@ Run verification checks across the workspace and targeted packages:
 Upon explicit human confirmation:
 
 1. **Update the phase issue and its sub-issues:**
-   - Tick the remaining manual verification items (`- [x]`) in the sub-issue bodies.
-   - In the phase issue's `## Headlines` section, flip each theme paragraph's mark to `✅` and add one sentence on what the verification pass confirmed.
-   - `gh issue edit <n> --body-file …` for each changed body.
+   - Tick the remaining manual verification items: `node scripts/skills/tracker.mjs tick <theme-issue> --item "<task text>"` per item.
+   - In the phase issue's `## Headlines` section, flip each theme paragraph's mark to `✅` and add one sentence on what the verification pass confirmed: `node scripts/skills/tracker.mjs headlines <phase-issue> --theme X --text "…"` per theme.
 
 2. **Close it out:**
-   - Close every finished theme sub-issue, then the phase issue (`gh issue close <n> --comment "Verified: <total>/<total> items."`).
-   - Move the phase's card on the project board to `Done`.
+   - `node scripts/skills/verify-phase.mjs --phase N --complete --confirm` closes every finished theme sub-issue, then the phase issue, each with `Verified: <total>/<total> items.` (`node scripts/skills/tracker.mjs close <n> --comment …` for one by hand).
+   - Move the phase's card on the project board: `node scripts/skills/tracker.mjs board <phase-issue> --status Done [--project N]`.
 
 3. **Nothing is committed** — the tracker lives on GitHub; `.midnite/tasks/` is git-ignored scratch.
 

@@ -34,7 +34,7 @@ Run `node scripts/skills/verify-phase.mjs --phase N --json`. It reads the phase 
 
 ## 🎨 Stage 1 — Locate and read the planned phase
 
-1. Identify the target phase issue: `gh issue list --label phase --state open`, then `gh issue view <n>` and its sub-issues.
+1. Identify the target phase issue: `node scripts/skills/tracker.mjs index --state open`, then `node scripts/skills/tracker.mjs view <n>` (the issue, its theme sub-issues and Headlines).
 2. Read the issue's Headlines, Deliverables, and existing Themes.
 3. Check existing UI components in `packages/app/` or `packages/features/` that overlap.
 

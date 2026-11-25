@@ -81,13 +81,16 @@ import { customAgent } from './custom-agents';
 const _companionIdsAreAgentCommandIds: readonly AgentCommandId[] = COMPANION_COMMAND_IDS;
 void _companionIdsAreAgentCommandIds;
 
+/** A session a hand-off started; `notice` is what to say first when it fell back from a deleted custom agent. */
+export type StartedSession = { id: string; notice?: string };
+
 export type HandoffDeps = ConciergeDeps & {
   /** `skillHandoff` bound to the live roster — returns the session, or `null` if it could not start. */
   startSkill: (opts: {
     skillId: CompanionCommandId;
     body?: string;
     autoSend: boolean;
-  }) => { id: string } | null;
+  }) => Promise<StartedSession | null> | StartedSession | null;
   /** `window.midniteStudio.companion.ask`. */
   ask: (req: {
     kind: 'route' | 'summarise';
@@ -98,7 +101,7 @@ export type HandoffDeps = ConciergeDeps & {
   /** The roster's activity markers for whatever agent that session is running. */
   markers: (sessionId: string) => { awaitingInput?: string; frameEnd?: string } | undefined;
   /** Type text into a fresh agent session verbatim — the no-CLI fallback. */
-  startVerbatim: (text: string) => { id: string } | null;
+  startVerbatim: (text: string) => Promise<StartedSession | null> | StartedSession | null;
   /** Which repositories the switch offer can name, and how to pick one. */
   repos: () => Promise<readonly RepoDescriptor[]>;
   selectRepo: (repoId: string) => void;
@@ -470,7 +473,7 @@ async function startCommand(
   // release branch.
   const wouldAutoSend = deps.autoSendAllowed();
   const autoSend = wouldAutoSend && !COMPANION_NEVER_AUTOSEND.includes(intent.id);
-  const session = deps.startSkill({
+  const session = await deps.startSkill({
     skillId: intent.id,
     ...(intent.body === undefined ? {} : { body: intent.body }),
     autoSend,
@@ -488,6 +491,7 @@ async function startCommand(
   const command = commandLabel(intent);
   deps.setActiveHandoff({ sessionId: session.id, command });
   declined = null;
+  if (session.notice !== undefined) await say(deps, session.notice);
 
   /*
     The spoken confirmation comes BEFORE the machine enters `handoff`, and it
@@ -1096,7 +1100,8 @@ async function route(text: string, deps: HandoffDeps, depth: number): Promise<vo
 
   if (!result.ok) {
     deps.store.send('settle');
-    const session = deps.startVerbatim(text);
+    const session = await deps.startVerbatim(text);
+    if (session?.notice !== undefined) await say(deps, session.notice);
     await say(
       deps,
       session

@@ -3,7 +3,7 @@ import { render } from '@testing-library/react';
 import { vi } from 'vitest';
 import type { ReactElement } from 'react';
 
-import { createFrameChrome, FrameChromeProvider, type FrameDialogs } from '@midnite/studio-frame';
+import { createFrameChrome, FrameChromeProvider, type FrameChrome, type FrameDialogs } from '@midnite/studio-frame';
 import { BUILTIN_AGENTS, type AgentProfile, type AgentStatus } from '@midnite/studio-shared';
 
 import { AgentProfilesHostProvider, type AgentProfilesHost } from './host';
@@ -35,10 +35,10 @@ export function failingListBridge(message: string) {
   return agentProfile;
 }
 
-export function mountWith(ui: ReactElement, host: Partial<AgentProfilesHost> = {}) {
+export function mountWith(ui: ReactElement, host: Partial<AgentProfilesHost> = {}, chromeOverrides: Partial<FrameChrome> = {}) {
   const confirm = vi.fn();
   const dialogs = { confirm, notify: vi.fn(), setBlastRadius: vi.fn(), close: vi.fn() } as unknown as FrameDialogs;
-  const { chrome } = createFrameChrome({ useDialogs: () => dialogs });
+  const { chrome } = createFrameChrome({ useDialogs: () => dialogs, ...chromeOverrides });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = render(
     <QueryClientProvider client={client}>

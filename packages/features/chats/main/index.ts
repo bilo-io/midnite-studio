@@ -9,7 +9,15 @@ import { discoverChatSkills } from './chat-skills';
 import type { ChatsRuntime } from './runtime';
 
 export { chatsManifest, type ChatsManifest } from '../manifest';
-export { createChatService, CHAT_TURN_TIMEOUT_MS, type ChatService, type ChatServiceDeps, type GitSeam } from './chat-service';
+export {
+  createChatService,
+  CHAT_TURN_TIMEOUT_MS,
+  CUSTOM_AGENTS_NEED_STUDIO,
+  type ChatProfileRun,
+  type ChatService,
+  type ChatServiceDeps,
+  type GitSeam,
+} from './chat-service';
 export { createChatStore, createMemoryChatStore, type ChatStore } from './chat-store';
 export { createChatsRuntime, type ChatsRuntime, type ChatsRuntimeDeps } from './runtime';
 

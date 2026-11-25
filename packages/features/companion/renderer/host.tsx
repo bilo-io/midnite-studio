@@ -140,6 +140,12 @@ export type CompanionStartAgentInput = {
   autoSend?: boolean;
 };
 
+/** A custom agent a hand-off launches (Phase 154 follow-up): launched through `agentProfile:prepareLaunch`. */
+export type CompanionProfileTarget = { id: string; name: string; baseAgentId: string };
+
+/** `'missing'` when the agent no longer exists (the caller falls back to the roster agent); `null` for a failure already reported. */
+export type CompanionProfileLaunchResult = { id: string } | 'missing' | null;
+
 export type CompanionSkillHandoffOptions = {
   skillId: string;
   repoId?: string;
@@ -282,6 +288,16 @@ export type CompanionHost = {
     store: CompanionStore<CompanionTerminalState>;
     startAgent: (input: CompanionStartAgentInput) => { id: string } | null;
     skillHandoff: (options: CompanionSkillHandoffOptions, context: CompanionSkillHandoffContext) => { id: string } | null;
+    /** The skill hand-off under a custom agent. Absent: the host cannot launch one, and the hand-off uses the roster agent. */
+    skillHandoffAsProfile?: (
+      options: CompanionSkillHandoffOptions,
+      context: CompanionSkillHandoffContext,
+      profile: CompanionProfileTarget,
+    ) => Promise<CompanionProfileLaunchResult>;
+    /** "Type this" under a custom agent. Absent as above. */
+    startProfileAgent?: (
+      input: Omit<CompanionStartAgentInput, 'agentId' | 'command'> & { profile: CompanionProfileTarget },
+    ) => Promise<CompanionProfileLaunchResult>;
   };
   screensaver: CompanionScreensaverKit;
 

@@ -20,7 +20,7 @@ Run `node scripts/skills/address-issue.mjs --no-llm` for the address-issue sub-s
 ## 🛠️ Sub-Skill 1 — Address Issue (`/midnite-maintain address-issue`)
 
 1. **Triage open issues:**
-   - Run `gh issue list --state open --limit 20`.
+   - Run `gh issue list --state open --limit 20` (phase work is not this sub-skill's: `node scripts/skills/tracker.mjs candidates` lists that).
    - Recommend the highest-impact bug or user-reported issue (plus 3 alternatives).
 2. **Sanitize issue content:**
    - Apply `fenceUntrusted` / sanitization to the issue title and body.

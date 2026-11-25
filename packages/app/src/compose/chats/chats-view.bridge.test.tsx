@@ -94,7 +94,7 @@ describe('empty states', () => {
     const suggestion = screen.getByTestId('chat-suggestion-explain') as HTMLButtonElement;
     expect(suggestion.disabled).toBe(true);
     cleanup();
-    useChatsStore.setState({ draft: { engine: 'claude', model: null, mode: 'ask', repoId: 'repo:/x/app' } });
+    useChatsStore.setState({ draft: { engine: 'claude', agentProfileId: null, model: null, mode: 'ask', repoId: 'repo:/x/app' } });
     await open();
     fireEvent.click(screen.getByTestId('chat-suggestion-explain'));
     expect(composer().value).toMatch(/tour of this repository/);
@@ -211,7 +211,7 @@ describe('explorer', () => {
 
 describe('sending and streaming', () => {
   async function ready(chats: MockFixtures['chats'] = {}) {
-    useChatsStore.setState({ draft: { engine: 'claude', model: null, mode: 'ask', repoId: null } });
+    useChatsStore.setState({ draft: { engine: 'claude', agentProfileId: null, model: null, mode: 'ask', repoId: null } });
     await open(chats);
   }
 
@@ -383,7 +383,7 @@ describe('sending and streaming', () => {
 
 describe('reviewing changes', () => {
   async function withChanges(extra: MockFixtures['chats'] = {}) {
-    useChatsStore.setState({ draft: { engine: 'claude', model: null, mode: 'edit', repoId: null } });
+    useChatsStore.setState({ draft: { engine: 'claude', agentProfileId: null, model: null, mode: 'edit', repoId: null } });
     await open({ reply: 'I updated the greeting.', changes: true, ...extra });
     await type('update the greeting');
     fireEvent.click(screen.getByTestId('chat-input-send'));
@@ -495,7 +495,7 @@ describe('reviewing changes', () => {
   });
 
   it('no card when the chat is read-only (Ask mode)', async () => {
-    useChatsStore.setState({ draft: { engine: 'claude', model: null, mode: 'ask', repoId: null } });
+    useChatsStore.setState({ draft: { engine: 'claude', agentProfileId: null, model: null, mode: 'ask', repoId: null } });
     await open({ reply: 'just an answer', changes: true });
     await type('q');
     fireEvent.click(screen.getByTestId('chat-input-send'));

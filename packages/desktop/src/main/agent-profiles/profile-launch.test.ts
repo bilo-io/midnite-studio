@@ -6,7 +6,7 @@ import { createProfileLaunchService } from './profile-launch';
 const profile = (overrides: Partial<AgentProfile> = {}): AgentProfile => ({ ...createBlankAgentProfile(), id: 'ap-1', ...overrides });
 
 function service(opts: { prompt?: boolean; mcpArgs?: string[] } = {}) {
-  const prepare = vi.fn(async () => ({ launchId: 'abc123', mcpArgs: opts.mcpArgs ?? ['--mcp-config', `'{}'`], launch: null }));
+  const prepare = vi.fn(async () => ({ launchId: 'abc123', mcpArgs: opts.mcpArgs ?? ['--mcp-config', `'{}'`], launch: null, otherMcpServers: [] }));
   const launch = createProfileLaunchService({
     sockets: { prepare },
     agents: async () => [...BUILTIN_AGENTS],

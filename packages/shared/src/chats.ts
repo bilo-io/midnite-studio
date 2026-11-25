@@ -227,7 +227,10 @@ export type ChatWorktree = z.infer<typeof ChatWorktreeSchema>;
 export const ChatSummarySchema = z.object({
   id: z.string().min(1),
   title: z.string(),
+  /** The roster agent the chat runs on. A chat under a custom agent stores that agent's base CLI here. */
   engine: z.string().min(1),
+  /** The custom agent (Phase 154 follow-up) the chat runs as; its tool limits apply. Absent for a roster agent. */
+  agentProfileId: z.string().regex(/^profile-[A-Za-z0-9_-]+$/).nullable().optional(),
   model: z.string().nullable(),
   mode: ChatModeSchema,
   /** The repo the chat is about; `null` for a general chat. */

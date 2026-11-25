@@ -2,9 +2,9 @@
 // git-report: automates `midnite-git-report` (Phase 151 Theme C).
 //   node scripts/skills/git-report.mjs [today|yesterday|YYYY-MM-DD|this-week|this-month|A..B]
 //        [--json] [--no-pdf|--pdf] [--no-llm] [--out <dir>]
-// Merged PRs (gh, window pinned to SAST) + phase progress (the category _INDEX.md tables only, never the
-// phase docs) + done.md items shipped in the window -> markdown report, and for a complete day a PDF made
-// by injecting the same data into pdf-template.html and printing it with headless Chrome.
+// Merged PRs (gh, window pinned to SAST) + phase progress (open phase issues and their theme sub-issues, from
+// the forge tracker) + theme sub-issues closed in the window -> markdown report, and for a complete day a PDF
+// made by injecting the same data into pdf-template.html and printing it with headless Chrome.
 // Read-only. Ollama only writes the one-line headline; a deterministic headline is the fallback.
 import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -15,7 +15,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { bar, mdTable } from './lib/format.mjs';
 import * as gh from './lib/gh.mjs';
 import { isNoLlm, run as ollama } from './lib/ollama.mjs';
-import { CATEGORIES, readIndex } from './lib/tasks-index.mjs';
+import { createTracker } from './lib/forge-tracker.mjs';
 import { resolveWindow, utcToSastHM, wantsPdf } from './sast.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -78,68 +78,63 @@ export function tackled(prs, shipped = {}) {
     .map((e) => ({ ...e, items: shipped[e.phase] ?? 0 }));
 }
 
-/** done.md entries dated inside `start..end`, counted per `Phase N` in the heading. */
-export function shippedCounts(doneMd, start, end) {
+/** Theme sub-issues closed in the window (`{phase}` rows from the tracker), counted per phase. */
+export function shippedCounts(closedThemes) {
   const out = {};
-  for (const m of doneMd.matchAll(/^##\s+(\d{4}-\d{2}-\d{2})\s+[—-]\s+(.*)$/gm)) {
-    if (m[1] < start || m[1] > end) continue;
-    const { phase } = phaseFromTitle(m[2]);
-    const key = phase ?? '—';
+  for (const t of closedThemes ?? []) {
+    const key = t.phase ?? '—';
     out[key] = (out[key] ?? 0) + 1;
   }
   return out;
 }
 
-/** The `Done` cell (`12/41` or `12 / 41`) -> numbers. */
-export function parseDone(cell) {
-  const m = /(\d+)\s*\/\s*(\d+)/.exec(cell ?? '');
-  return m ? { done: Number(m[1]), total: Number(m[2]) } : { done: 0, total: 0 };
-}
-const statusKind = (s = '') => (/✅/.test(s) ? 'done' : /🔄/.test(s) ? 'wip' : 'todo');
-const dash = (s) => (s && s.trim() && s.trim() !== '—' ? s.trim() : '—');
+const dash = (letters) => (letters?.length ? letters.join(' ') : '—');
 
-/** Index rows (all categories) -> phase progress rows, straight from the table. */
-export function phaseRows(rowsByCategory) {
-  const out = [];
-  for (const [category, rows] of Object.entries(rowsByCategory)) {
-    for (const r of rows) {
-      if (r.phase == null) continue;
-      const { done, total } = parseDone(r.done);
-      const pct = Number.parseInt(String(r.pct).replace(/[^\d]/g, ''), 10);
-      out.push({
-        category,
-        phase: r.phase,
-        title: r.title.replace(/^Phase\s+\d+\s*[·:—-]\s*/i, ''),
-        status: statusKind(r.status),
+/** Tracker index rows -> phase progress rows for the open phases (theme sub-issues closed / total). */
+export function phaseRows(indexPhases) {
+  return (indexPhases ?? [])
+    .filter((p) => p.state === 'open')
+    .map((p) => {
+      const done = p.themesDone ?? 0;
+      const total = p.themes ?? 0;
+      return {
+        category: p.category ?? '—',
+        phase: p.phase,
+        title: p.name,
+        status: total && done === total ? 'done' : p.wipThemes?.length || done ? 'wip' : 'todo',
         done,
         total,
-        pct: Number.isFinite(pct) ? pct : total ? Math.floor((done / total) * 100) : 0,
-        wip: dash(r.wip),
-        todo: dash(r.todo),
-      });
-    }
-  }
-  return out.sort((a, b) => b.phase - a.phase);
+        pct: total ? Math.floor((done / total) * 100) : 0,
+        wip: dash(p.wipThemes),
+        todo: dash(p.todoThemes),
+      };
+    })
+    .sort((a, b) => b.phase - a.phase);
 }
+
+/** Closed vs all phase issues, for the "phases complete" line. */
+export const phaseTotals = (indexPhases) => ({ complete: (indexPhases ?? []).filter((p) => p.state === 'closed').length, total: (indexPhases ?? []).length });
 
 const fmt = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
 
-export function deterministicHeadline({ prs, phases, tacklesRows }) {
+const completeOf = (phases, totals) => totals ?? { complete: phases.filter((p) => p.status === 'done').length, total: phases.length };
+
+export function deterministicHeadline({ prs, phases, tacklesRows, totals }) {
   const add = prs.reduce((s, p) => s + p.additions, 0);
   const del = prs.reduce((s, p) => s + p.deletions, 0);
-  const complete = phases.filter((p) => p.status === 'done').length;
+  const { complete, total } = completeOf(phases, totals);
   const touched = tacklesRows.filter((t) => t.phase !== '—').map((t) => t.phase);
   const adv = touched.length ? ` · phase${touched.length > 1 ? 's' : ''} ${touched.slice(0, 4).join(', ')} advanced` : '';
-  return `${prs.length} PR${prs.length === 1 ? '' : 's'} · +${fmt(add)}/−${fmt(del)}${adv}; ${complete}/${phases.length} phases complete.`;
+  return `${prs.length} PR${prs.length === 1 ? '' : 's'} · +${fmt(add)}/−${fmt(del)}${adv}; ${complete}/${total} phases complete.`;
 }
 
 /** Everything the markdown and the PDF need. Pure. */
-export function buildReport({ window: win, prs, status, phases, shipped = {}, headline, generated }) {
+export function buildReport({ window: win, prs, status, phases, totals, shipped = {}, headline, generated }) {
   const tacklesRows = tackled(prs, shipped);
   const add = prs.reduce((s, p) => s + p.additions, 0);
   const del = prs.reduce((s, p) => s + p.deletions, 0);
-  const complete = phases.filter((p) => p.status === 'done').length;
-  const head = headline ?? deterministicHeadline({ prs, phases, tacklesRows });
+  const { complete, total } = completeOf(phases, totals);
+  const head = headline ?? deterministicHeadline({ prs, phases, tacklesRows, totals });
   const label = win.singleDay ? win.start : `${win.start} → ${win.end}`;
   return {
     window: win,
@@ -151,7 +146,7 @@ export function buildReport({ window: win, prs, status, phases, shipped = {}, he
     headline: head,
     linesAdded: `+${add}`,
     linesRemoved: `−${del}`,
-    phasesComplete: `${complete} / ${phases.length}`,
+    phasesComplete: `${complete} / ${total}`,
     generated,
   };
 }
@@ -237,8 +232,8 @@ export function renderPdf({ chrome, htmlPath, pdfPath, exec = execFile }) {
   });
 }
 
-/** Gather from gh + the index. `gh`/`readIdx`/`readDone` are injectable. */
-export async function gather(win, { ghApi = gh, root = repoRoot, readIdx = readIndex, readDone } = {}) {
+/** Gather from gh + the forge tracker. `ghApi` / `tracker` are injectable. */
+export async function gather(win, { ghApi = gh, tracker = createTracker() } = {}) {
   const notes = [];
   const merged = await ghApi.ghJson(
     ['pr', 'list', '--state', 'merged', '--search', `merged:${win.search}`, '--json', 'number,title,url,mergedAt,additions,deletions,author', '--limit', '200'],
@@ -254,16 +249,11 @@ export async function gather(win, { ghApi = gh, root = repoRoot, readIdx = readI
     );
     status = all.ok ? statusMix(all.data ?? [], prs) : { merged: prs.length, open: 0, closed: 0 };
   }
-  const rowsByCategory = {};
-  for (const c of CATEGORIES) {
-    try {
-      rowsByCategory[c] = readIdx(root, c);
-    } catch {
-      rowsByCategory[c] = [];
-    }
-  }
-  const doneText = readDone ? readDone() : existsSync(path.join(root, '.midnite/tasks/done.md')) ? readFileSync(path.join(root, '.midnite/tasks/done.md'), 'utf8') : '';
-  return { prs, status, phases: phaseRows(rowsByCategory), shipped: shippedCounts(doneText, win.start, win.end), notes };
+  const [idx, closed] = await Promise.all([tracker.index(), tracker.closedThemes(win.search)]);
+  if (!idx.ok) notes.push(`tracker unavailable (${idx.kind}): phase progress is empty`);
+  if (!closed.ok) notes.push(`tracker unavailable (${closed.kind}): no themes counted as closed`);
+  const indexPhases = idx.ok ? idx.phases : [];
+  return { prs, status, phases: phaseRows(indexPhases), totals: idx.ok ? phaseTotals(indexPhases) : undefined, shipped: shippedCounts(closed.ok ? closed.themes : []), notes };
 }
 
 export function parseArgs(argv) {

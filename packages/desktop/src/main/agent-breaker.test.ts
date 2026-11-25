@@ -1,7 +1,8 @@
 import type { AgentAuditRecord, AgentLimitTrip } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
-import { agentLimitsSettingsReader, spendTokens, startAgentBreaker } from './agent-breaker';
+import { agentLimitsSettingsReader, spendTokens, startAgentBreaker, withHeadlessRuns } from './agent-breaker';
+import { createHeadlessRunRegistry } from './agent-profiles/headless-run-profiles';
 
 const SESSION = { id: 's1', agentId: 'claude', title: 'T', cwd: '/work/app/pkg' };
 const call = (n: number): AgentAuditRecord => ({ id: `r${n}`, at: 1_000 + n, sessionId: 's1', kind: 'mcp-call', tool: 'x', repoPath: '/r', ok: true, ms: 1 });
@@ -41,6 +42,21 @@ describe('startAgentBreaker', () => {
     running.dispose();
   });
 
+  it("a headless run under a custom agent gets the agent's limits through the run registry (#1697)", async () => {
+    const runs = createHeadlessRunRegistry();
+    const off = runs.register('s1', { profileId: 'p1', agentId: 'claude', cwd: '/work/app/pkg', title: 'Reviewer' });
+    const { running, trips } = wire([call(1), call(2), call(3), call(4)], async () => ({ defaults: {}, repos: {} }), {
+      session: withHeadlessRuns(async () => null, (id) => runs.lookup(id)),
+      profile: async (id) => (id === 'p1' ? { limits: { toolCallsPerMinute: 3 } } : null),
+    });
+    await running.breaker.poll();
+    expect(trips).toHaveLength(1);
+    expect(trips[0]).toMatchObject({ limit: 'toolCallsPerMinute', threshold: 3 });
+    running.dispose();
+    off();
+    expect(runs.lookup('s1')).toBeNull();
+  });
+
   it('a deleted custom agent falls back to the repo limit', async () => {
     const { running, trips } = wire([call(1), call(2), call(3), call(4)], async () => ({ defaults: {}, repos: { '/work/app': { toolCallsPerMinute: 60 } } }), {
       session: async () => ({ ...SESSION, profileId: 'gone' }),
@@ -70,5 +86,24 @@ describe('startAgentBreaker', () => {
 
   it('a missing or malformed settings file means the defaults', async () => {
     expect(await agentLimitsSettingsReader('/nonexistent-dir-for-test')()).toBeUndefined();
+  });
+});
+
+describe('withHeadlessRuns', () => {
+  it('prefers the terminal row and falls back to a registered run, else null', async () => {
+    const runs = createHeadlessRunRegistry();
+    runs.register('companion-x', { profileId: 'p1', agentId: 'codex', cwd: '/r', title: 'Rev' });
+    const lookup = withHeadlessRuns(async (id) => (id === 's1' ? SESSION : null), (id) => runs.lookup(id));
+    expect(await lookup('s1')).toBe(SESSION);
+    expect(await lookup('companion-x')).toEqual({ id: 'companion-x', agentId: 'codex', title: 'Rev', cwd: '/r', profileId: 'p1' });
+    expect(await lookup('nope')).toBeNull();
+  });
+
+  it('an unregister only removes its own registration', () => {
+    const runs = createHeadlessRunRegistry();
+    const first = runs.register('r', { profileId: 'a', agentId: 'claude', cwd: '/', title: 'A' });
+    runs.register('r', { profileId: 'b', agentId: 'claude', cwd: '/', title: 'B' });
+    first();
+    expect(runs.lookup('r')?.profileId).toBe('b');
   });
 });

@@ -87,12 +87,35 @@ export function skillHandoff(
     BUILTIN_AGENTS[0];
   if (!agent) return null;
 
+  const resolved = resolveSkillHandoff(opts, ctx);
+  if (!resolved) return null;
+
+  return startAgent({
+    repoId: resolved.repoId,
+    cwd: resolved.cwd,
+    title: resolved.title,
+    prompt: resolved.prompt,
+    agentId: agent.id,
+    command: agent.command,
+    ...(opts.surface === undefined ? {} : { surface: opts.surface }),
+    autoSend: opts.autoSend ?? false,
+    mode: opts.mode ?? ctx.skillExecutionMode,
+  });
+}
+
+/**
+ * The agent-independent half of a skill hand-off: the skill's text with the body, the repository, the
+ * working directory and the session title. `null` for every "cannot" (no skill string, no repo, no cwd).
+ * Shared by the roster launch above and a custom agent's launch (`skillHandoffAsProfile`).
+ */
+export function resolveSkillHandoff(
+  opts: SkillHandoffOptions,
+  ctx: Pick<SkillHandoffContext, 'skills'>,
+): { repoId: string; cwd: string; prompt: string; title: string } | null {
   const rawSkill = ctx.skills[opts.skillId];
   const defaultSkill = (DEFAULT_AGENT_SKILLS as Record<string, string | undefined>)[opts.skillId];
   const skillTemplate = (rawSkill ?? defaultSkill ?? '').trim();
-  if (skillTemplate === '') {
-    return null;
-  }
+  if (skillTemplate === '') return null;
 
   const repoId = opts.repoId ?? opts.repo?.id;
   if (!repoId) return null;
@@ -102,21 +125,9 @@ export function skillHandoff(
 
   const body = opts.body?.trim();
   const prompt = body ? `${skillTemplate} ${body}` : skillTemplate;
-
   const title =
     opts.title ?? AGENT_COMMANDS.find((c) => c.id === opts.skillId)?.label ?? opts.skillId;
-
-  return startAgent({
-    repoId,
-    cwd,
-    title,
-    prompt,
-    agentId: agent.id,
-    command: agent.command,
-    ...(opts.surface === undefined ? {} : { surface: opts.surface }),
-    autoSend: opts.autoSend ?? false,
-    mode: opts.mode ?? ctx.skillExecutionMode,
-  });
+  return { repoId, cwd, prompt, title };
 }
 
 /**

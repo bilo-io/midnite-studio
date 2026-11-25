@@ -2349,6 +2349,8 @@ export const AgentProfilePrepareLaunchRequest = z.object({
   profileId: z.string().min(1),
   cwd: z.string().min(1),
   resume: z.boolean(),
+  /** A first prompt typed with the agent (a companion skill hand-off); absent starts the agent bare. */
+  prompt: z.string().max(20_000).optional(),
 });
 export const AgentProfilePrepareLaunchResponse = GitOpResultOf(
   z.object({ launchId: z.string(), line: z.string() }),
@@ -4344,6 +4346,8 @@ export const ChatsGetRequest = z.object({ id: ChatIdSchema });
 export const ChatsGetResponse = GitOpResultOf(z.object({ chat: ChatSchema }));
 export const ChatsCreateRequest = z.object({
   engine: z.string().min(1).max(80),
+  /** A custom agent to run as; `engine` is then its base CLI. */
+  agentProfileId: z.string().regex(/^profile-[A-Za-z0-9_-]+$/).nullable().default(null),
   model: z.string().min(1).max(200).nullable().default(null),
   mode: ChatModeSchema.default(DEFAULT_CHAT_MODE),
   repoId: z.string().min(1).nullable().default(null),
@@ -4354,6 +4358,8 @@ export const ChatsUpdateRequest = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   pinned: z.boolean().optional(),
   engine: z.string().min(1).max(80).optional(),
+  /** Set with `engine` (the base CLI) to run as a custom agent; `null` clears it. Absent leaves it unless `engine` changes. */
+  agentProfileId: z.string().regex(/^profile-[A-Za-z0-9_-]+$/).nullable().optional(),
   model: z.string().min(1).max(200).nullable().optional(),
   mode: ChatModeSchema.optional(),
   repoId: z.string().min(1).nullable().optional(),

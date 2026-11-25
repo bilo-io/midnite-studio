@@ -29,7 +29,7 @@ export type CompanionSafeStorage = {
  * `error`: it cannot run as itself (base CLI missing, no print mode, socket failed) — so nothing runs.
  */
 export type CompanionProfileRun =
-  | { kind: 'ready'; name: string; agent: AgentDefinition; args: string[]; promptPrefix: string | null; release: () => Promise<void> }
+  | { kind: 'ready'; name: string; agent: AgentDefinition; args: string[]; extraArgs?: string[]; promptPrefix: string | null; release: () => Promise<void> }
   | { kind: 'missing' }
   | { kind: 'error'; message: string };
 

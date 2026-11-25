@@ -60,7 +60,7 @@ only to vagueness.
 
 ## 🔭 Stage 1 — Find the refineable phases
 
-List the open phase issues only (`gh issue list --label phase --state open --json number,title,labels`).
+List the open phase issues only (`node scripts/skills/tracker.mjs index --state open` — refined count, themes done/total, WIP and TODO letters).
 Do **not** read every phase issue; the list is what replaces that.
 
 A phase is **refineable** if it has open (`- [ ]`) in-scope items — i.e. Status is `◻ TODO` or
@@ -71,8 +71,8 @@ A phase is **refineable** if it has open (`- [ ]`) in-scope items — i.e. Statu
 2. `🔄 WIP` with whole themes still in `◻ TODO`. Refineable, but **only the untouched themes**.
 3. `🔄 WIP` whose remainder is "N manual checks" — usually *not* worth refining; say so.
 
-Check what is in flight before proposing anything: `gh pr list --state open` and the index's `🔄 WIP`
-column. **Refining a theme another `/midnite-build` loop has claimed will collide** — flag any such theme and
+Check what is in flight before proposing anything: `node scripts/skills/tracker.mjs candidates` marks every open theme `claimed`,
+`in PR #n` or `blocked`. **Refining a theme another `/midnite-build` loop has claimed will collide** — flag any such theme and
 exclude it from scope by default.
 
 Print a short table of the refineable phases only (not all 27):
@@ -83,8 +83,8 @@ Print a short table of the refineable phases only (not all 27):
 
 `Refined` is the current `xN` stamp (`—` if never refined). The last column must be a **real**
 observation, not filler — from the row itself (open letters, %, `Refined`) or, for the handful of
-candidates shown, a read of just that doc's `## Headlines` section
-(`sed -n '/^## Headlines/,/^## [^H]/p' <doc>`); the index carries no per-theme prose any more.
+candidates shown, a read of just that issue's `## Headlines` section (`node scripts/skills/tracker.mjs view <n>` prints it); the
+index carries no per-theme prose.
 
 ## 🎯 Stage 2 — Pick the phase — STOP for the human
 
@@ -205,18 +205,8 @@ preserving their voice and structure. Stage 9 pushes them back.
 
 **Rules of the rewrite**
 
-- **Stamp it.** Immediately under the `# Phase N — Title` line, on its own line, before the framing
-  prose — insert or increment:
-
-  ```markdown
-  # Phase 26 — Side by side, and the room to show it
-
-  **Refined: x1** · 2026-08-28 · UI/UX, performance, testing
-  ```
-
-  Increment the digit on each subsequent run (`x1` → `x2` → …), replace the date with today's, and
-  **append** the newly-chosen areas to the list (deduped) rather than overwriting the old ones. Keep
-  the literal `x` form — it is what the index and the drift guard grep for.
+- **The stamp is the `refined-N` label, not a line in the body.** Stage 9 swaps it; write no
+  `**Refined: xN**` line into the issue.
 - **Theme letters and their order never change**, and an existing item keeps its position. New
   sub-items nest under the item they refine; new sibling items go at the end of their theme.
 - **Detail goes into nested bullets**, not into a longer first line. The `- [ ]` line stays a
@@ -241,12 +231,16 @@ preserving their voice and structure. Stage 9 pushes them back.
 
 A refinement that doesn't reach GitHub is invisible.
 
-1. **Push the bodies.** `gh issue edit <phase> --body-file <scratchpad>/phase.md`, and the same for
-   every theme sub-issue whose deliverables changed. A new theme becomes a new sub-issue.
-2. **Stamp it.** Replace any `refined-*` label on the phase issue with `refined-N`
-   (`gh issue edit <phase> --remove-label refined-<N-1> --add-label refined-N`).
+1. **Push the bodies.** `gh issue edit <n> --body-file <scratchpad>/<file>.md` for the phase issue and
+   every theme sub-issue whose deliverables changed. A new theme becomes a new sub-issue:
+   `gh issue create --title "Phase N · Theme X — <name>" --label theme --body-file <file>`, then
+   `node scripts/skills/tracker.mjs link <phase-issue> <theme-issue>`.
+2. **Stamp it.** `node scripts/skills/tracker.mjs refine-stamp <phase-issue>` swaps any `refined-*` label for `refined-N`
+   (creating the label when it is the first `refined-N`).
 3. **Headlines — in the phase issue body.** Rewrite the affected `**Theme X — …**` paragraphs so they
-   describe what the theme now says. Status does not change; refining does no work.
+   describe what the theme now says, one call per theme:
+   `node scripts/skills/tracker.mjs headlines <phase-issue> --theme X --text "**Theme X — <name>.** <the paragraph>"`. Status does
+   not change; refining does no work.
 
 ## ✅ Stage 10 — Report
 

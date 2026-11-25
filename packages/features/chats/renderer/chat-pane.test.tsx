@@ -40,6 +40,7 @@ function makeHost(): ChatsHost {
     useThreadWidth: () => ({ mode: 'default', setMode: vi.fn() }),
     useAgentRoster: () => ({ agents: [...BUILTIN_AGENTS], status: [] }),
     usePrimaryAgent: () => 'claude',
+    useAgentProfiles: () => [],
     useLocalModels: () => ({ reachable: false, models: [] }),
     useAccount: () => undefined,
     resolveAgentIcon: () => () => <span />,

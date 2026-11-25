@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState, type KeyboardEvent } from 'react';
 import { LuBot, LuInfo, LuLayoutGrid, LuPencilRuler } from 'react-icons/lu';
 
-import { useFrameChrome, type IconComponent } from '@midnite/studio-frame';
+import { useFrameChrome, type IconComponent, type PageDetachGuard } from '@midnite/studio-frame';
 import { createBlankAgentProfile, type AgentProfile } from '@midnite/studio-shared';
 
 import { AgentsBuilder } from './agents-builder';
@@ -60,6 +60,29 @@ export function AgentsView() {
       },
     });
   };
+  /**
+   * #1697: the detach mark asks first too. Closing this page's popout loses the edits, so it is the same
+   * Discard confirm; detaching opens a second copy that starts without them (they stay here), so it says so.
+   */
+  const beforeDetachAction: PageDetachGuard = (action, proceed) => {
+    if (dirtyName === null || action === 'focus') {
+      proceed();
+      return;
+    }
+    if (action === 'dock') {
+      guarded(proceed);
+      return;
+    }
+    dialogs.confirm({
+      title: `Open Agents in its own window?`,
+      body: `Your unsaved edits to ${dirtyName} stay in this window; the new window starts without them.`,
+      confirmLabel: 'Open window',
+      danger: false,
+      blastRadius: null,
+      warnings: [],
+      onConfirm: proceed,
+    });
+  };
   const openNow = (profile: AgentProfile, isNew: boolean): void => {
     setEditingId(profile.id);
     setDraft(isNew ? profile : null);
@@ -94,7 +117,7 @@ export function AgentsView() {
   return (
     <div ref={root} data-testid="agents-view" className="flex h-full min-h-0 flex-col gap-3 p-4">
       <header className="flex items-center gap-2">
-        <PageDetachMark role="agents" />
+        <PageDetachMark role="agents" beforeAction={beforeDetachAction} />
         <LuBot aria-hidden className="h-5 w-5" />
         <h1 className="text-sm font-semibold">Agents</h1>
         {!loading && error === null && width >= COUNT_MIN_WIDTH ? (
