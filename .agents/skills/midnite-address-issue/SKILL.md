@@ -160,7 +160,7 @@ Track the agreed plan with a running task list. **Do not implement until every q
 but not its reasoning, which is what every worktree's root `SCRATCHPAD.md` is for. Look before
 making a new tree:
 ```bash
-for f in .worktrees/*/SCRATCHPAD.md; do [ -e "$f" ] && { echo "── $f"; sed -n '1,25p' "$f"; }; done
+scripts/skills/worktree-lifecycle.sh scratchpads     # slug, age, todo n/m, Next line
 ```
 If one covers this task — or is stale enough to be dead — say so and **ask the human: resume that
 worktree, or start fresh?** Resuming means `cd`-ing into it, reading the whole scratchpad, and
@@ -282,14 +282,10 @@ If the session ends before it fires, nothing is lost — Stage 13's sweep catche
 
   Keep it written for the reporter: what was wrong, what they'll see now, when. No internal jargon.
 - Consider a `CHANGELOG.md` entry under the unreleased section if the fix is user-facing.
-- Teardown, and report the reclaimed space:
+- Teardown, and report the reclaimed space (`remove` prints `freed N MB`):
 
   ```bash
-  freed=$(du -sk .worktrees/issue-<N>-<slug> 2>/dev/null | cut -f1)
-  git worktree remove .worktrees/issue-<N>-<slug>
-  git branch -D fix/issue-<N>-<slug>                  # -D: a squash leaves it "unmerged"
-  git worktree prune && git worktree list
-  echo "freed ~$(( freed / 1024 )) MB"
+  scripts/skills/worktree-lifecycle.sh remove issue-<N>-<slug> --delete-branch   # -D inside: a squash leaves it "unmerged"
   ```
 
   **Never pass `--force`.** `git worktree remove` refuses when the tree has modified or untracked files, and that refusal is a safety feature. Parallel agent sessions may be live in a "stale" worktree — if a removal balks, leave that worktree alone, name it, and say why.
@@ -308,17 +304,11 @@ A worktree is safe to remove only when **all three** hold:
 
 ```bash
 git fetch origin -q
-git worktree list --porcelain | awk '/^worktree /{w=$2} /^branch /{print w"\t"$2}' \
-  | grep '\.worktrees/' | while IFS=$'\t' read -r dir ref; do
-      b=${ref#refs/heads/}
-      ahead=$(git rev-list --count "origin/main..$b" 2>/dev/null)
-      dirty=$(git -C "$dir" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
-      state=$(gh pr list --state all --head "$b" --json state --jq '.[0].state' 2>/dev/null)
-      printf '%-46s ahead=%-4s dirty=%-4s pr=%s\n' "$b" "$ahead" "$dirty" "${state:-none}"
-    done
+scripts/skills/worktree-lifecycle.sh sweep           # landed (ancestor or PR merged/closed), size, dirty state
+scripts/skills/worktree-lifecycle.sh sweep --apply   # removes only the clean ones, SCRATCHPAD.md aside; never --force
 ```
 
-Report the table, then remove only the rows that qualify, per-worktree, with the Stage 12 commands. Two rows to leave and call out explicitly rather than tidy away:
+Report the table; `--apply` removes only the rows that qualify. Two rows to leave and call out explicitly rather than tidy away:
 
 - **dirty > 0** — unlanded work, possibly a live parallel session. Leave it.
 - **`pr=none` with `ahead=0` and clean** — an empty worktree that never produced a commit. Removing it is safe, but say that's what it was.

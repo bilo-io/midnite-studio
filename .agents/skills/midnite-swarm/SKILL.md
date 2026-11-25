@@ -16,7 +16,7 @@ launch rules, sitreps, rotation, unsticking and wrap-up.
 
 ## 0 · Run the script first
 
-Run `scripts/skills/orchestrate-cap.sh --running <n>` before each spawn, `scripts/skills/worktree-lifecycle.sh create <slug>` per stage worktree, `node scripts/skills/sitrep.mjs table` each tick. They give the cap line, the worktrees and the sitrep table. You still run the interview and own the board and hand-offs (see midnite-orchestrate). Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+Run `scripts/skills/orchestrate-cap.sh --running <n>` before each spawn, `scripts/skills/worktree-lifecycle.sh create <slug>` per stage worktree, `node scripts/skills/sitrep.mjs table --worktrees` each tick (rows for units with no PR come from their scratchpads), `orchestrate-cap.sh --running <n> --queued <q> --chart` for the cap line and machine block, `worktree-lifecycle.sh sweep --apply` at wrap-up. They give the cap line, the worktrees and the sitrep table. You still run the interview and own the board and hand-offs (see midnite-orchestrate). Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
 
 ## 1 · The problem (skip if the invocation gives it)
 

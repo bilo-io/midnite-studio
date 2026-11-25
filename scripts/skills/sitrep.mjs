@@ -5,17 +5,21 @@
 //   node scripts/skills/sitrep.mjs <view> [--pr 12,13 | --input rows.json | (open PRs)] [--repo o/r]
 //        [--cap N] [--target <task|#n>] [--metric diff,ci,age,stage] [--since ISO] [--now ISO]
 //        [--log-failed] [--no-llm] [--no-num] [--json]   (`--input -` reads the rows from stdin)
+//        [--worktrees [dir]]  add a row per `.worktrees/*` that has a SCRATCHPAD.md and no PR yet
+//        [--worktrees-only]   with --worktrees, skip the PR gather (no gh list call)
 //   views: table | graph | timeline | histogram | sequence | ci | all
 //
 // Rows are `gh pr view --json …` objects (plus optional extras, see `normalizeRow`) or already-normalised
 // rows. Every renderer is a pure function of rows + `now`, exported for tests. Ollama is optional:
 // Notes and CI log lines fall back to deterministic text under `--no-llm`, an unreachable daemon, etc.
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { bar, diffCell, duration, mdTable } from './lib/format.mjs';
 import { defaultRun as ghRun, prChecks, prList, prView, runList } from './lib/gh.mjs';
 import { isNoLlm, run as llm } from './lib/ollama.mjs';
+import { gatherWorktrees } from './lib/worktrees.mjs';
 
 export const MACOS_CAP = 5;
 export const BILLING_RE = /Actions budget is preventing|job was not started because|spending limit/i;
@@ -721,7 +725,25 @@ const arg = (argv, name) => {
   return i >= 0 && i + 1 < argv.length ? argv[i + 1] : undefined;
 };
 
-export async function gather(argv, { run, stdin } = {}) {
+/** `--worktrees [dir]`: the dir is optional; default `<cwd>/.worktrees`. Null when the flag is absent. */
+export function worktreesDir(argv, cwd = process.cwd()) {
+  const i = argv.indexOf('--worktrees');
+  if (i < 0) return null;
+  const v = argv[i + 1];
+  return v && !v.startsWith('--') ? v : join(cwd, '.worktrees');
+}
+
+export async function gather(argv, { run, stdin, wt } = {}) {
+  const dir = worktreesDir(argv);
+  if (dir) {
+    const rows = await gatherWorktrees({ dir, ...wt });
+    if (argv.includes('--worktrees-only')) return rows;
+    return [...(await gatherPrs(argv, { run, stdin })), ...rows];
+  }
+  return gatherPrs(argv, { run, stdin });
+}
+
+async function gatherPrs(argv, { run, stdin } = {}) {
   const input = arg(argv, '--input');
   if (input || stdin) return JSON.parse(input === '-' || !input ? stdin : readFileSync(input, 'utf8'));
   const repo = arg(argv, '--repo');
