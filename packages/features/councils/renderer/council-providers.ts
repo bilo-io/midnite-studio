@@ -2,11 +2,14 @@ import { useMemo } from 'react';
 
 import type { IconComponent } from '@midnite/studio-frame';
 import {
+  BUILTIN_AGENTS,
   COUNCIL_MEMBER_PROVIDERS,
+  councilProfileBaseRefusal,
   isCouncilProfileBase,
   modelsForAgent,
   type AgentProfile,
   type CouncilMemberProvider,
+  type CouncilProfileRole,
 } from '@midnite/studio-shared';
 
 import { useCouncilsHost, type CouncilsAgentProfiles, type CouncilsPickerModel, type CouncilsPickerProvider } from './host';
@@ -55,6 +58,11 @@ export type CouncilProviders = {
   seatPatch: (id: string) => CouncilSeatPatch | null;
   /** The seat's custom agent was deleted, so it runs as its `provider`. Only once the list has loaded. */
   seatFellBack: (seat: CouncilSeat) => boolean;
+  /**
+   * What the UI flags about a seat's custom agent, or `null` when it runs as set (#1713): deleted (it runs
+   * as its base), or moved onto a base a council cannot read (the run will refuse it) — said here, before a run.
+   */
+  seatNotice: (seat: CouncilSeat, role?: CouncilProfileRole) => string | null;
 };
 
 const NO_PROFILES: CouncilsAgentProfiles = { profiles: [], loaded: true };
@@ -114,7 +122,27 @@ export function useCouncilProviders(): CouncilProviders {
     };
     const seatFellBack = (seat: CouncilSeat) =>
       profilesLoaded && seat.agentProfileId !== undefined && !savedProfiles.some((p) => p.id === seat.agentProfileId);
-    return { providers, seats, installed, icon, accent, profileIcon, profile, profilesLoaded, seatValue, seatPatch, seatFellBack };
+    const agentLabel = (id: string) => agentOf(id)?.label ?? BUILTIN_AGENTS.find((a) => a.id === id)?.label ?? id;
+    const seatNotice = (seat: CouncilSeat, role: CouncilProfileRole = 'seat'): string | null => {
+      if (seat.agentProfileId === undefined) return null;
+      if (seatFellBack(seat)) return deletedSeatNotice(seat.provider, false, role);
+      const moved = byId.has(seat.agentProfileId) ? undefined : savedProfiles.find((p) => p.id === seat.agentProfileId);
+      return moved ? councilProfileBaseRefusal(moved.name, agentLabel(moved.baseAgentId), role) : null;
+    };
+    return {
+      providers,
+      seats,
+      installed,
+      icon,
+      accent,
+      profileIcon,
+      profile,
+      profilesLoaded,
+      seatValue,
+      seatPatch,
+      seatFellBack,
+      seatNotice,
+    };
   }, [agents, status, resolveAgentIcon, savedProfiles, profilesLoaded]);
 }
 
@@ -125,11 +153,11 @@ export function seatModelOptions(seat: CouncilSeat): CouncilsPickerModel[] {
   return seat.agentProfileId ? [] : councilModelOptions(seat.provider);
 }
 
-/** What the council UI says about a seat whose custom agent was deleted. */
-export function deletedSeatNotice(provider: CouncilMemberProvider, ran: boolean): string {
-  return ran
-    ? `Custom agent deleted, so this answer came from ${PROVIDER_LABEL[provider]}.`
-    : `Custom agent deleted, so this seat runs as ${PROVIDER_LABEL[provider]}. Pick another agent to change it.`;
+/** What the council UI says about a seat (or the synthesizer) whose custom agent was deleted. */
+export function deletedSeatNotice(provider: CouncilMemberProvider, ran: boolean, role: CouncilProfileRole = 'seat'): string {
+  if (ran) return `Custom agent deleted, so this answer came from ${PROVIDER_LABEL[provider]}.`;
+  const who = role === 'synthesizer' ? 'the synthesizer' : 'this seat';
+  return `Custom agent deleted, so ${who} runs as ${PROVIDER_LABEL[provider]}. Pick another agent to change it.`;
 }
 
 /** A provider's models for the picker, "Default" first. */
