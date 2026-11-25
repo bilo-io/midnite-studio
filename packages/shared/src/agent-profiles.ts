@@ -213,7 +213,8 @@ export function blueprintSummary(blueprint: AgentBlueprint): AgentBlueprintSumma
 // --- profile -----------------------------------------------------------------
 
 export const AgentProfileSchema = z.object({
-  id: z.string().startsWith(AGENT_PROFILE_ID_PREFIX),
+  // Also names the prompt file on disk, so nothing but `[A-Za-z0-9_-]` may follow the prefix (no path separators or dots).
+  id: z.string().regex(/^profile-[A-Za-z0-9_-]+$/),
   name: z.string().trim().min(1).max(AGENT_PROFILE_NAME_MAX),
   description: z.string().max(280).default(''),
   /** The roster agent this profile runs on. */
@@ -251,7 +252,7 @@ export function parseAgentProfiles(raw: unknown): AgentProfile[] {
 /** The id for a new profile, from the shared id factory so tests inject one. */
 export function newAgentProfileId(ids: IdFactory = defaultIdFactory): string {
   const raw = ids('loop');
-  const body = raw.replace(/^[a-z]+-/, '');
+  const body = raw.replace(/^[a-z]+-/, '').replace(/[^A-Za-z0-9_-]/g, '');
   return `${AGENT_PROFILE_ID_PREFIX}${body}`;
 }
 

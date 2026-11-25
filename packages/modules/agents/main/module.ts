@@ -30,6 +30,7 @@ export const agentsModuleMain = defineFeatureMain<AgentsModuleServices>({
     ...modelsMain.channels,
     ...chatsMain.channels,
     ...councilsMain.channels,
+    ...agentProfilesMain.channels,
     ...workflowsMain.channels,
     ...mcpToolsMain.channels,
     CHANNELS.agentList,

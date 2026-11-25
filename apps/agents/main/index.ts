@@ -164,6 +164,19 @@ if (!smoke && !app.requestSingleInstanceLock()) {
         const picked = win !== null && !win.isDestroyed() ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
         return picked.canceled || !picked.filePath ? null : picked.filePath;
       },
+      // Custom agents (Phase 154): import / export dialogs (the page lists and edits; it cannot launch here).
+      agentProfileDialogs: {
+        pickFile: async ({ title, filters }) => {
+          const options = { title, filters, properties: ['openFile' as const] };
+          const picked = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+          return picked.canceled ? null : (picked.filePaths[0] ?? null);
+        },
+        pickSavePath: async ({ title, defaultPath }) => {
+          const options = { title, defaultPath };
+          const picked = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+          return picked.canceled || !picked.filePath ? null : picked.filePath;
+        },
+      },
       // The Coder module (Phase 124 Theme E.3): its repository picker, windows, native dialogs and script worker.
       coder: {
         // The agent-run hand-off's link: main's opener only ever passes a re-parsed `midnite://open` here.

@@ -130,6 +130,7 @@ const bridge: Pick<
   | 'browser'
   | 'webApps'
   | 'agent'
+  | 'agentProfile'
   | 'council'
   | 'loopRuns'
   | 'suitePrefs'
@@ -548,6 +549,14 @@ const bridge: Pick<
     claudeUpdate: () => call(CHANNELS.agentClaudeUpdate),
     onClaudeUpdateData: (handler) => subscribe(EVENT_CHANNELS.agentClaudeUpdateData, handler),
     revealPath: (req) => call(CHANNELS.agentRevealPath, req),
+  },
+  agentProfile: {
+    list: () => call(CHANNELS.agentProfileList),
+    save: (req) => call(CHANNELS.agentProfileSave, req),
+    delete: (req) => call(CHANNELS.agentProfileDelete, req),
+    export: (req) => call(CHANNELS.agentProfileExport, req),
+    import: () => call(CHANNELS.agentProfileImport),
+    prepareLaunch: (req) => call(CHANNELS.agentProfilePrepareLaunch, req),
   },
   council: {
     list: () => call(CHANNELS.councilList),

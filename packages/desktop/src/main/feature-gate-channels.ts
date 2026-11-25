@@ -1,3 +1,4 @@
+import { agentProfilesMain } from '@midnite/studio-feature-agent-profiles/main';
 import { apiClientMain } from '@midnite/studio-feature-api-client/main';
 import { browserMain } from '@midnite/studio-feature-browser/main';
 import { captureMain } from '@midnite/studio-feature-capture/main';
@@ -52,6 +53,7 @@ export const FEATURE_GATE_CHANNELS: Partial<Record<FeatureToggleId, readonly str
   tests: testsMain.channels,
   database: databaseMain.channels,
   'api-client': apiClientMain.channels,
+  agentProfiles: agentProfilesMain.channels,
   councils: councilsMain.channels,
   workflows: workflowsMain.channels,
   media: [

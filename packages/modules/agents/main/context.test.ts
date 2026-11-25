@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { chatsManifest } from '@midnite/studio-feature-chats/main';
 import { mcpToolsManifest } from '@midnite/studio-feature-mcp-tools/main';
+import { agentProfilesManifest } from '@midnite/studio-feature-agent-profiles/main';
 import { councilsManifest, resetCouncilsForTest } from '@midnite/studio-feature-councils/main';
 import { modelsManifest, resetOllamaSettingsState } from '@midnite/studio-feature-models/main';
 import { workflowsManifest } from '@midnite/studio-feature-workflows/main';
@@ -79,6 +80,7 @@ describe('registerAgentsHandlers', () => {
     const expected = [
       ...modelsManifest.ipc,
       ...councilsManifest.ipc,
+      ...agentProfilesManifest.ipc,
       ...chatsManifest.ipc,
       ...workflowsManifest.ipc,
       ...mcpToolsManifest.ipc,
