@@ -28,7 +28,7 @@ Run `node scripts/skills/verify-phase.mjs --json`. It reads the category indexes
 
 ## 🔭 Stage 1 — Scan & show the overview
 
-**Pass 1 — the phase list only.** Default category is `features`. If `$ARGUMENTS` specifies `security` or `issues`, use that label. Run `gh issue list --label phase,<category> --state all --limit 500 --json number,title,state,labels`. Do **not** read individual phase issues yet.
+**Pass 1 — the phase list only.** Default category is `features`. If `$ARGUMENTS` specifies `security` or `issues`, use that label. Run `node scripts/skills/tracker.mjs index --category <category>` (add `--json` to parse it). Do **not** read individual phase issues yet.
 
 Print an overview table first thing — before any question — from that list:
 
@@ -38,9 +38,9 @@ Print an overview table first thing — before any question — from that list:
    | 124 · Apps into modules | ✅ | Merge suite apps into packages/modules | 100% | — |
    | 125 · Animations library | 🔄 | Animation clip library & timeline | 93% | PR pending |
 
-- State the **next phase number** (highest `Phase N` issue title + 1). If `$ARGUMENTS` named a topic, acknowledge it as the seed.
+- State the **next phase number** (`node scripts/skills/tracker.mjs next`: highest `Phase N` issue title + 1). If `$ARGUMENTS` named a topic, acknowledge it as the seed.
 
-**Pass 2 — only overlapping files.** Once a direction is seeded or chosen, read only the overlapping phase issues (`gh issue view <n>`) for style/boundary references.
+**Pass 2 — only overlapping files.** Once a direction is seeded or chosen, read only the overlapping phase issues (`node scripts/skills/tracker.mjs view <n>`) for style/boundary references.
 
 ## 💡 Stage 2 — Seed 5 proposals
 
@@ -70,10 +70,11 @@ Print an overview table first thing — before any question — from that list:
    - `## Headlines` section.
    - `## Verification` checklist.
    - `## Decisions / open questions`.
-2. `gh issue create --title "Phase N — Title" --label phase,<category> --body-file <scratchpad>/phase.md`.
-3. For each theme, write its `- [ ]` deliverables to a scratchpad file and file it:
-   `gh issue create --title "Phase N · Theme X — <name>" --label theme --body-file <file>`, then link it as a sub-issue of the phase (see [`docs/TRACKER.md`](../../../docs/TRACKER.md)).
-4. Add the phase issue to the project board with Status `Todo`.
+   The body's first line is its title: `# Phase N — Title`.
+2. For each theme, write its `- [ ]` deliverables to a scratchpad file whose first line is `# Phase N · Theme X — <name>`.
+3. File them in one call — it creates the phase, each theme, and links every theme as a sub-issue
+   (dry-run first to check the titles): `node scripts/skills/tracker.mjs file --phase-body <scratchpad>/phase.md --theme <scratchpad>/theme-a.md --theme … --category <category> [--dry-run]`.
+4. Put the phase on the project board: `node scripts/skills/tracker.mjs board <phase-issue> --status Todo [--project N]` (it refuses rather than guesses when the board is ambiguous).
 
 ## ✅ Stage 6 — Report
 

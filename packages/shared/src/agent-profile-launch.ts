@@ -125,11 +125,17 @@ const tomlString = (value: string): string => JSON.stringify(value);
  * `--strict-mcp-config` is added only when the agent's tools are restricted, which also drops the user's
  * other MCP servers. Codex's `-c` deep-merges into a global entry key by key, so all three keys are set.
  * `quote` shell-quotes each word for a typed line; a headless argv passes `false`. `[]` for other CLIs.
+ *
+ * #1697: Codex has no strict flag, so a restricted Codex agent turns each of the user's other servers off
+ * by name (`otherMcpServers`, read from their config by main) with `-c mcp_servers.<name>.enabled=false`
+ * (checked on codex 0.162.0; `-c mcp_servers={…}` merges rather than replaces). `-c` splits its key on
+ * every dot, so only names matching {@link CODEX_MCP_NAME_PATTERN} can be addressed; others are skipped
+ * here, and main refuses such a launch before it gets this far.
  */
 export function profileMcpArgs(
   baseAgentId: string,
   launch: ProfileShimLaunch,
-  options: { restricted: boolean; quote: boolean },
+  options: { restricted: boolean; quote: boolean; otherMcpServers?: readonly string[] },
 ): string[] {
   const q = options.quote ? shellWord : (word: string) => word;
   if (baseAgentId === 'claude') {
@@ -146,9 +152,19 @@ export function profileMcpArgs(
       q(`${server}.args=[${launch.args.map(tomlString).join(', ')}]`),
       '-c',
       q(`${server}.env=${env}`),
+      ...(options.restricted ? codexDisableArgs(options.otherMcpServers ?? []).map(q) : []),
     ];
   }
   return [];
+}
+
+/** A Codex MCP server name a `-c mcp_servers.<name>.…` override can address (no dots, no quotes). */
+export const CODEX_MCP_NAME_PATTERN = /^[A-Za-z0-9_-]+$/;
+
+function codexDisableArgs(names: readonly string[]): string[] {
+  return [...new Set(names)]
+    .filter((name) => name !== MCP_SERVER_NAME && CODEX_MCP_NAME_PATTERN.test(name))
+    .flatMap((name) => ['-c', `mcp_servers.${name}.enabled=false`]);
 }
 
 export interface ProfileHeadlessArgvInput {
@@ -160,6 +176,8 @@ export interface ProfileHeadlessArgvInput {
   launch: ProfileShimLaunch | null;
   /** `profile.mcpTools !== null`. */
   restricted: boolean;
+  /** #1697: the user's other MCP servers, turned off for a restricted Codex agent. */
+  otherMcpServers?: readonly string[];
 }
 
 /**
@@ -181,12 +199,12 @@ export function buildProfileHeadlessArgv(input: ProfileHeadlessArgvInput): strin
  * final prompt word instead.
  */
 export function buildProfileHeadlessExtras(input: ProfileHeadlessArgvInput): string[] {
-  const { base, model, promptPath, launch, restricted } = input;
+  const { base, model, promptPath, launch, restricted, otherMcpServers } = input;
   const promptWords =
     promptPath !== null && promptDeliveryFor(base.id) === 'flag' ? ['--append-system-prompt-file', promptPath] : [];
   return [
     ...profileModelArgs(base.id, model),
-    ...(launch ? profileMcpArgs(base.id, launch, { restricted, quote: false }) : []),
+    ...(launch ? profileMcpArgs(base.id, launch, { restricted, quote: false, ...(otherMcpServers ? { otherMcpServers } : {}) }) : []),
     ...promptWords,
   ];
 }

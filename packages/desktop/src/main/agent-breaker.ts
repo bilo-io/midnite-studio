@@ -34,6 +34,22 @@ export type BreakerSession = {
   profileId?: string;
 };
 
+/**
+ * #1697: the breaker's session lookup, falling back to a headless run (no terminal row) registered under the
+ * id its private socket was bound to, so a custom agent's limits apply to it as well.
+ */
+export function withHeadlessRuns(
+  session: (sessionId: string) => Promise<BreakerSession | null>,
+  headless: (runId: string) => { profileId: string; agentId: string; cwd: string; title: string } | null,
+): (sessionId: string) => Promise<BreakerSession | null> {
+  return async (sessionId) => {
+    const row = await session(sessionId);
+    if (row) return row;
+    const run = headless(sessionId);
+    return run ? { id: sessionId, agentId: run.agentId, title: run.title, cwd: run.cwd, profileId: run.profileId } : null;
+  };
+}
+
 export interface AgentBreakerSeams {
   /** The trail's read side (`agentAuditTrail()`), `null` until `userData` is known. */
   reader: () => AgentAuditReader | null;

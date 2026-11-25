@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
-  buildReport, findChrome, gather, injectTemplate, normalisePrs, parseArgs, parseDone, phaseFromTitle, phaseRows,
+  buildReport, findChrome, gather, injectTemplate, normalisePrs, parseArgs, phaseFromTitle, phaseRows, phaseTotals,
   renderMarkdown, renderPdf, shippedCounts, statusMix, TEMPLATE_REL,
 } from './git-report.mjs';
 import { addDays, addMonths, resolveWindow, retroWindow, sastDate, searchRange, utcToSastHM, wantsPdf } from './sast.mjs';
@@ -76,14 +76,21 @@ describe('phase + PR shaping', () => {
     const prs = normalisePrs(raw);
     expect(statusMix([{ number: 1, state: 'MERGED' }, { number: 3, state: 'OPEN' }, { number: 4, state: 'CLOSED' }], prs)).toEqual({ merged: 2, open: 1, closed: 1 });
   });
-  it('counts done.md entries inside the window per phase', () => {
-    const md = '## 2026-11-15 — Phase 148 Theme C — Free RAM\n\n## 2026-11-15 — ISSUES Phase 2 (A–D)\n\n## 2026-10-01 — Phase 148 Theme A\n';
-    expect(shippedCounts(md, '2026-11-01', '2026-11-30')).toEqual({ 148: 1, 2: 1 });
+  it('counts theme sub-issues closed in the window per phase', () => {
+    expect(shippedCounts([{ phase: 148 }, { phase: 148 }, { phase: 2 }, { phase: null }])).toEqual({ 148: 2, 2: 1, '—': 1 });
+    expect(shippedCounts(undefined)).toEqual({});
   });
-  it('parses index rows without recomputing', () => {
-    expect(parseDone('12 / 41')).toEqual({ done: 12, total: 41 });
-    const rows = phaseRows({ FEATURES: [{ phase: 150, title: 'Phase 150 · Fleet', status: '🔄 WIP', done: '12/41', pct: '29%', wip: 'C', todo: '—' }] });
-    expect(rows[0]).toMatchObject({ phase: 150, title: 'Fleet', status: 'wip', done: 12, total: 41, pct: 29 });
+  it('turns tracker index rows into open-phase progress rows', () => {
+    const idx = [
+      { number: 1, phase: 150, name: 'Fleet', state: 'open', category: 'features', themesDone: 3, themes: 4, wipThemes: ['C'], todoThemes: ['D'] },
+      { number: 2, phase: 149, name: 'Old', state: 'closed', category: 'features', themesDone: null, themes: null },
+      { number: 3, phase: 151, name: 'New', state: 'open', category: 'issues', themesDone: 0, themes: 0, wipThemes: [], todoThemes: [] },
+    ];
+    const rows = phaseRows(idx);
+    expect(rows.map((r) => r.phase)).toEqual([151, 150]);
+    expect(rows[1]).toMatchObject({ phase: 150, title: 'Fleet', status: 'wip', done: 3, total: 4, pct: 75, wip: 'C', todo: 'D' });
+    expect(rows[0]).toMatchObject({ status: 'todo', pct: 0, wip: '—' });
+    expect(phaseTotals(idx)).toEqual({ complete: 1, total: 3 });
   });
 });
 
@@ -130,14 +137,22 @@ describe('report + template', () => {
 describe('gather + pdf (no network, no Chrome)', () => {
   it('falls back to empty PR sections when gh is unauthed', async () => {
     const ghApi = { ghJson: async () => ({ ok: false, kind: 'auth', message: 'x' }) };
-    const g = await gather(win, { ghApi, readIdx: () => [], readDone: () => '' });
+    const tracker = { index: async () => ({ ok: false, kind: 'auth' }), closedThemes: async () => ({ ok: false, kind: 'auth' }) };
+    const g = await gather(win, { ghApi, tracker });
     expect(g.prs).toEqual([]);
+    expect(g.phases).toEqual([]);
     expect(g.notes[0]).toMatch(/gh unavailable \(auth\)/);
+    expect(g.notes).toEqual(expect.arrayContaining([expect.stringMatching(/tracker unavailable/)]));
   });
   it('queries merged PRs with the SAST-pinned search', async () => {
     const ghJson = vi.fn(async () => ({ ok: true, data: [] }));
-    await gather(win, { ghApi: { ghJson }, readIdx: () => [], readDone: () => '' });
+    const closedThemes = vi.fn(async () => ({ ok: true, themes: [{ phase: 150 }] }));
+    const tracker = { index: async () => ({ ok: true, phases: [{ phase: 150, name: 'F', state: 'open', themesDone: 1, themes: 2, wipThemes: [], todoThemes: ['B'] }] }), closedThemes };
+    const g = await gather(win, { ghApi: { ghJson }, tracker });
     expect(ghJson.mock.calls[0][0]).toContain(`merged:${win.search}`);
+    expect(closedThemes).toHaveBeenCalledWith(win.search);
+    expect(g).toMatchObject({ shipped: { 150: 1 }, totals: { complete: 0, total: 1 } });
+    expect(buildReport({ window: win, ...g, generated: 'x' }).phasesComplete).toBe('0 / 1');
   });
   it('finds Chrome via CHROME_PATH first and returns null when none exists', () => {
     expect(findChrome((p) => p === '/c', { CHROME_PATH: '/c' })).toBe('/c');

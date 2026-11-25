@@ -3,8 +3,10 @@ import { join } from 'node:path';
 import { app } from 'electron';
 
 import { recordAudit } from '../agent-audit';
+import { livePtyFor } from '../pty-service';
 import { mcpShimScriptPath } from '../mcp';
 import { startMcpServer } from '../mcp/server';
+import { codexOtherMcpServers } from './codex-mcp-servers';
 import { createProfileMcpSockets, type ProfileMcpSockets } from './profile-mcp-sockets';
 
 /**
@@ -33,11 +35,24 @@ export function studioProfileMcpSockets(): ProfileMcpSockets {
       env: { ELECTRON_RUN_AS_NODE: '1' },
     }),
     recordAudit,
+    codexServers: (cwd) => codexOtherMcpServers(cwd),
   });
   return sockets;
 }
 
-/** App quit: close every socket, bound or not. */
+/**
+ * App quit: stop every socket, keeping the manifests of bound ones (#1697) — the pty broker can keep their
+ * sessions alive, and the next start's `restoreStudioProfileMcpSockets` brings the sockets back for them.
+ */
 export async function closeStudioProfileMcpSockets(): Promise<void> {
-  await sockets?.closeAll();
+  await sockets?.suspendAll();
+}
+
+/**
+ * After the pty service has adopted the broker's surviving sessions (boot, and a detached-session recovery):
+ * the private socket of every custom-agent session still live comes back on its old path (#1697). The
+ * breaker's limits need nothing: they key on the session row's `profileId`, which is persisted.
+ */
+export async function restoreStudioProfileMcpSockets(): Promise<string[]> {
+  return studioProfileMcpSockets().restore((sessionId) => livePtyFor(sessionId) !== null);
 }

@@ -9,7 +9,8 @@ import { EVENT_CHANNELS, type AgentLimitResolveRequest } from '@midnite/studio-s
 import type { BrowserWindow } from 'electron';
 
 import { agentAuditTrail, recordAudit } from './agent-audit';
-import { agentLimitsSettingsReader, startAgentBreaker, type RunningAgentBreaker } from './agent-breaker';
+import { agentLimitsSettingsReader, startAgentBreaker, withHeadlessRuns, type RunningAgentBreaker } from './agent-breaker';
+import { studioHeadlessRuns } from './agent-profiles/headless-run-profiles';
 import { defaultLogger } from './log';
 import { getFindingsLedger } from './ipc/vanguard-handlers';
 import { killPty, livePtyFor, onSessionExit, writePty } from './pty-service';
@@ -41,7 +42,8 @@ export function startStudioAgentBreaker(options: { userData: string; getWindow: 
       killPty(live.ptyId);
       return true;
     },
-    session: agentSessionDetail,
+    // #1697: a headless run under a custom agent has no terminal row; its registration stands in for one.
+    session: withHeadlessRuns(agentSessionDetail, (runId) => studioHeadlessRuns().lookup(runId)),
     // Phase 154 Theme G: a custom agent's limits apply within the 5 s cache above; a deleted one adds none.
     profile: getAgentProfile,
     settings: agentLimitsSettingsReader(options.userData),

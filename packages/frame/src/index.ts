@@ -325,7 +325,14 @@ export { SettingsAccordion } from './settings/settings-section';
 export { SETTINGS_SECTIONS, settingsSectionId, type SettingsSection } from './settings/settings-sections';
 
 // The chrome port — chrome still implemented in packages/app, reached through context.
-export { FrameChromeProvider, useFrameChrome, useOptionalFrameChrome, type FrameChrome } from './chrome/chrome-port';
+export {
+  FrameChromeProvider,
+  useFrameChrome,
+  useOptionalFrameChrome,
+  type FrameChrome,
+  type PageDetachAction,
+  type PageDetachGuard,
+} from './chrome/chrome-port';
 export { FrameModal } from './chrome/frame-modal';
 export { KitContextMenu } from './kit/context-menu';
 export type {

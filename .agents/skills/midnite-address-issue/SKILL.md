@@ -116,7 +116,8 @@ Mark the recommendation `(Recommended)` and say in one line *why it beats the ot
    ```
 
    For a `midnite-apps` candidate, add `-R bilo-io/midnite-apps` to **both** calls — neither
-   defaults to that repo.
+   defaults to that repo. For a same-repo issue, also `node scripts/skills/tracker.mjs claim <N>` (assignee + `wip`), so
+   `node scripts/skills/tracker.mjs candidates` and the sitreps read it as taken.
 
    Add the label only if it exists or you create it (`gh label create size/M --color 5D9801`, same `-R` if it's an apps-board issue); never let a missing label abort the run.
 3. Don't self-assign unless the user asks — assignment reads as a commitment.
@@ -206,10 +207,10 @@ stage below checks it never got committed.
 - Pre-push gate, in the worktree, all green — never push red:
 
   ```bash
-  moon run :typecheck && moon run :lint && moon run :test
+  node scripts/skills/scoped-check.mjs --run
   ```
 
-  Redirect output to a file and check moon's own exit code; piping to `tail` masks failures. If a spec fails only under the full suite, re-run the file alone and confirm against `main` before calling it a regression.
+  Focused vitest, `tsc --noEmit` per touched package and eslint on the changed files; never the workspace-wide moon gate, which exhausts RAM. The table it prints carries each step's exit code.
 
 ## 10 · Open the PR + link it back
 
@@ -229,16 +230,13 @@ stage below checks it never got committed.
   - Embedded before/after screenshots for a visual change. Never commit them: capture into the session scratchpad and attach them to the PR on GitHub (drag them into a PR comment or the body), or ask the user to.
   - The `🤖 Generated with [Claude Code]` trailer.
 - **Self-review your own diff** before marking it ready: fidelity to the agreed plan → `CLAUDE.md` conventions → correctness & coverage → anything the fix could regress elsewhere. Fix what's material, re-run Stage 9, push.
-- **Drive CI green:** `gh pr checks <n> --watch`. On failure `gh run view <id> --log-failed` → fix in the worktree → re-run the local gate → push. If genuinely stuck (flaky infra, outage, product call), stop and say exactly what's wrong.
+- **Drive CI green:** `node scripts/skills/ci-watch.mjs <n> --rerun-flakes-once` (prints the failing log tail; exit 4 is a billing lock). On failure → fix in the worktree → re-run the local gate → push. If genuinely stuck (flaky infra, outage, product call), stop and say exactly what's wrong.
 - **Retire the scratchpad.** `SCRATCHPAD.md` was never meant to be committed, but one `git add -A`
   anywhere on the branch swallows it. **Before `gh pr ready`**, check — and un-track it if it
   landed. A squash-merge collapses an add plus a remove to nothing, so un-tracking on the branch is
   the whole fix:
   ```bash
-  git ls-files --error-unmatch SCRATCHPAD.md >/dev/null 2>&1 \
-    && git rm --cached -q SCRATCHPAD.md \
-    && git commit -qm "chore: drop SCRATCHPAD.md from the branch" \
-    && git push
+  scripts/skills/push.sh --fix   # untracks SCRATCHPAD.md if needed, refuses attribution trailers, then pushes
   ```
   **Then, once the merge has landed and before the teardown, `rm -f SCRATCHPAD.md`.** It has done
   its job, and an untracked file left behind is exactly what `git worktree remove` is supposed to
@@ -260,8 +258,7 @@ Post, terse:
 **Before you stop, arm a merge watcher.** Worktrees are big; sweep after merges. Start a background wait that fires when the PR reaches a terminal state:
 
 ```bash
-until s=$(gh pr view <n> --json state --jq .state 2>/dev/null); \
-      [ "$s" = "MERGED" ] || [ "$s" = "CLOSED" ]; do sleep 120; done; echo "PR #<n>: $s"
+node scripts/skills/ci-watch.mjs <n> --until closed --interval 120 --timeout 1440
 ```
 
 Launch it with `run_in_background: true`. When it fires:

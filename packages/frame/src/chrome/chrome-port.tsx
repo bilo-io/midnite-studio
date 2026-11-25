@@ -25,12 +25,20 @@ import type { ConfirmRequest, FrameDialogs, FrameModalProps, IconButtonProps } f
  * grows into a service locator. Add a member only for chrome a feature
  * actually renders.
  */
+/** What a page's detach mark is about to do: open a popout, focus the open one, or close this popout. */
+export type PageDetachAction = 'detach' | 'focus' | 'dock';
+/**
+ * #1697: asks before the mark acts — a page with unsaved edits confirms first and calls `proceed` only when
+ * the user agrees. Omitted, the mark acts at once.
+ */
+export type PageDetachGuard = (action: PageDetachAction, proceed: () => void) => void;
+
 export type FrameChrome = {
   IconButton: ComponentType<IconButtonProps>;
   ConfirmDialog: ComponentType<{ request: ConfirmRequest; onCancel: () => void }>;
   /** A hook — call it at the top of a component, like any other. */
   useDialogs: () => FrameDialogs;
-  PageDetachMark: ComponentType<{ role: PageWindowRole }>;
+  PageDetachMark: ComponentType<{ role: PageWindowRole; beforeAction?: PageDetachGuard }>;
   /**
    * The app's modal, when it has one of its own. Optional: `FrameModal` falls back to the kit's
    * `KitModal`. Studio installs its `Modal` so a feature dialog joins its dismissal stack and
