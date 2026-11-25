@@ -93,3 +93,21 @@ describe('councils.json v1 → v2 (Phase 134)', () => {
     expect(parseStoredCouncils({ version: 2, councils: [council] })[0]).toMatchObject({ synthesisType: 'debate', synthInstructions: 'Pick a winner.' });
   });
 });
+
+describe('a seat set to a custom agent (#1699)', () => {
+  it('keeps agentProfileId beside the provider, and a v2 file without it still loads unchanged', async () => {
+    const dir = await tempDir();
+    const store = createCouncilsStore(dir);
+    const withProfile: Council = {
+      ...sample,
+      members: [{ id: 'm1', name: 'Reviewer seat', provider: 'claude', role: 'Review it.', agentProfileId: 'profile-rev' }],
+    };
+    await store.save([withProfile, sample]);
+    expect(await store.load()).toEqual([withProfile, sample]);
+  });
+
+  it('drops a council whose profile id is not one the app mints', () => {
+    const bad = { ...sample, members: [{ ...sample.members[0], agentProfileId: '../../etc/passwd' }] };
+    expect(parseStoredCouncils({ version: COUNCILS_STORE_VERSION, councils: [bad, sample] })).toEqual([sample]);
+  });
+});

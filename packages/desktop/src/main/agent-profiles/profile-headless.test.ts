@@ -2,7 +2,7 @@ import { BUILTIN_AGENTS, createBlankAgentProfile, type AgentProfile } from '@mid
 import { describe, expect, it, vi } from 'vitest';
 
 import { createHeadlessRunRegistry } from './headless-run-profiles';
-import { companionRunId, createProfileHeadlessRun } from './profile-headless';
+import { companionRunId, councilSeatRunId, createProfileHeadlessRun } from './profile-headless';
 
 /** Phase 154 Theme H — the companion's headless ask through a custom agent. */
 
@@ -14,7 +14,9 @@ const profile = (overrides: Partial<AgentProfile> = {}): AgentProfile => ({
 });
 const launch = { command: '/app/Midnite', args: ['shim.js', '--socket', '/runs/x.sock'], env: { ELECTRON_RUN_AS_NODE: '1' } };
 
-function setup(opts: { saved?: AgentProfile | null; prompt?: boolean; fail?: boolean; roster?: typeof BUILTIN_AGENTS } = {}) {
+function setup(
+  opts: { saved?: AgentProfile | null; prompt?: boolean; fail?: boolean; roster?: typeof BUILTIN_AGENTS; council?: boolean } = {},
+) {
   const prepare = vi.fn(async () => {
     if (opts.fail) throw new Error('socket path too long');
     return { launchId: 'abc123', mcpArgs: [], launch, otherMcpServers: ['github'] };
@@ -30,6 +32,7 @@ function setup(opts: { saved?: AgentProfile | null; prompt?: boolean; fail?: boo
     promptPath: (id) => `/data/agent-profiles/${id}.md`,
     exists: async () => opts.prompt ?? true,
     readPrompt: async () => '  You review code.\n',
+    ...(opts.council ? { runId: councilSeatRunId, pickHint: 'Pick another agent for this seat.' } : {}),
   });
   return { run, prepare, bind, close, runs };
 }
@@ -94,5 +97,16 @@ describe('createProfileHeadlessRun', () => {
       message: "I could not start Reviewer's tools: socket path too long",
     });
     expect(broken.bind).not.toHaveBeenCalled();
+  });
+
+  it('a council seat (#1699) binds under its own run id and points at the seat, not the title bar', async () => {
+    const { run, bind } = setup({ council: true });
+    const ready = await run('profile-rev', '/home');
+    expect(bind).toHaveBeenCalledWith('abc123', councilSeatRunId('abc123'));
+    expect(ready.kind).toBe('ready');
+
+    const missingBase = setup({ council: true, roster: BUILTIN_AGENTS.filter((agent) => agent.id !== 'claude') });
+    const refused = await missingBase.run('profile-rev', '/home');
+    expect(refused).toEqual({ kind: 'error', message: expect.stringContaining('Pick another agent for this seat.') });
   });
 });
