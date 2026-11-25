@@ -48,7 +48,7 @@ an argument, print only that family's branch, in more detail.
 │  └─ /midnite-agents             asks which mode, then:
 │     ├─ /midnite-fleet           separate tasks, one agent each
 │     ├─ /midnite-swarm           one problem, one agent per stage
-│     └─ /midnite-agents-handover pass a running group to a fresh session (pending, PR #1232 — not installed yet)
+│     └─ /midnite-agents-handover the clean stop: every agent commits, writes its HANDOFF, frees its servers and stops
 │
 ├─ Status
 │  ├─ /midnite-sitrep             the standing status table (+ graph, ci, timeline… views)
