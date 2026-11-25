@@ -17,7 +17,7 @@ const launch = { command: '/app/Midnite', args: ['shim.js', '--socket', '/runs/x
 function setup(opts: { saved?: AgentProfile | null; prompt?: boolean; fail?: boolean; roster?: typeof BUILTIN_AGENTS } = {}) {
   const prepare = vi.fn(async () => {
     if (opts.fail) throw new Error('socket path too long');
-    return { launchId: 'abc123', mcpArgs: [], launch };
+    return { launchId: 'abc123', mcpArgs: [], launch, otherMcpServers: ['github'] };
   });
   const bind = vi.fn(() => true);
   const close = vi.fn(async () => undefined);
@@ -60,6 +60,11 @@ describe('createProfileHeadlessRun', () => {
     expect(result.args[0]).toBe('exec');
     expect(result.promptPrefix).toBe('You review code.');
     expect(result.args).not.toContain('--append-system-prompt-file');
+    // #1697: a restricted Codex agent turns the user's other servers off by name.
+    expect(result.args).not.toContain('mcp_servers.github.enabled=false');
+    const restricted = await setup({ saved: profile({ baseAgentId: 'codex', mcpTools: ['repo.list'] }) }).run('profile-rev', '/repo');
+    if (restricted.kind !== 'ready') throw new Error(restricted.kind);
+    expect(restricted.args).toContain('mcp_servers.github.enabled=false');
   });
 
   it('answers missing for a deleted agent, starting nothing', async () => {

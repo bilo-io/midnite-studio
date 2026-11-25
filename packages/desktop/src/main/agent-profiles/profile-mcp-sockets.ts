@@ -28,8 +28,8 @@ import { isSocketPathTooLong } from '../socket-name';
  * The allowlist is held twice: the shim lists and calls only `--tools` ids, and this socket refuses any
  * other id itself, so a client that dials this socket without the shim is refused too. It scopes the
  * agent's MCP wiring, not the machine: an agent with a shell can still run the `midnite` CLI against the
- * global socket, and a restricted Codex agent keeps any other `mcp_servers.*` the user registered (Codex
- * has no strict flag). It is captured at `prepare` and never re-read: a running CLI cannot change its
+ * global socket. A restricted Codex agent (no strict flag) has each of the user's other `mcp_servers.*`
+ * turned off by name (#1697, `codexServers`). It is captured at `prepare` and never re-read: a running CLI cannot change its
  * tools mid-session (Decision 14).
  *
  * #1697: the socket outlives the moment it is needed in two ways. A launch nobody bound in time is parked,
@@ -59,6 +59,8 @@ export type ProfileMcpSocketSeams = {
   /** How long a prepared launch waits for its pty before its server is stopped (and parked). */
   bindTimeoutMs?: number;
   now?: () => number;
+  /** #1697: the user's other Codex servers, which a restricted Codex agent turns off by name. */
+  codexServers?: (cwd: string) => Promise<{ names: string[]; unaddressable: string[] }>;
 };
 
 export type ProfileMcpPrepared = {
@@ -67,6 +69,8 @@ export type ProfileMcpPrepared = {
   mcpArgs: string[];
   /** The shim launch itself, for a headless argv (`profileMcpArgs(..., { quote: false })`); `null` with no socket. */
   launch: ProfileShimLaunch | null;
+  /** #1697: the user's other MCP servers a restricted Codex agent turns off; pass to `buildProfileHeadlessArgv`. */
+  otherMcpServers: string[];
 };
 
 /** What a socket was started for, captured at `prepare` and never re-read (Decision 14). */
@@ -217,14 +221,27 @@ export function createProfileMcpSockets(seams: ProfileMcpSocketSeams): ProfileMc
   return {
     async prepare(profile, cwd) {
       const launchId = newLaunchId();
-      if (!enforcementFor(profile.baseAgentId).tools) return { launchId, mcpArgs: [], launch: null };
+      if (!enforcementFor(profile.baseAgentId).tools) return { launchId, mcpArgs: [], launch: null, otherMcpServers: [] };
+
+      // Checked before a socket starts, so a refusal leaves nothing to close. Fails closed: a server Codex
+      // cannot be told to drop would stay reachable to an agent whose tools are meant to be restricted.
+      let otherMcpServers: string[] = [];
+      if (profile.baseAgentId === 'codex' && profile.mcpTools !== null && seams.codexServers) {
+        const servers = await seams.codexServers(cwd);
+        if (servers.unaddressable.length > 0) {
+          throw new Error(
+            `${profile.name} restricts its tools, but Codex cannot turn off the MCP server${servers.unaddressable.length > 1 ? 's' : ''} ${servers.unaddressable.map((n) => `"${n}"`).join(', ')} for one launch (a name with a dot). Rename it in your Codex config, or let ${profile.name} use all tools.`,
+          );
+        }
+        otherMcpServers = servers.names;
+      }
 
       const agent: LaunchSnapshot = { name: profile.name, baseAgentId: profile.baseAgentId, mcpTools: profile.mcpTools === null ? null : [...profile.mcpTools] };
       const entry = await start(launchId, socketPathFor(launchId), cwd, agent);
       const toolArgs = agent.mcpTools ? ['--tools', agent.mcpTools.join(',')] : [];
       const launch = seams.shimLaunch(entry.socketPath, toolArgs);
-      const mcpArgs = profileMcpArgs(profile.baseAgentId, launch, { restricted: agent.mcpTools !== null, quote: true });
-      return { launchId, mcpArgs, launch };
+      const mcpArgs = profileMcpArgs(profile.baseAgentId, launch, { restricted: agent.mcpTools !== null, quote: true, otherMcpServers });
+      return { launchId, mcpArgs, launch, otherMcpServers };
     },
 
     bind,

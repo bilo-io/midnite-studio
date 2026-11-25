@@ -136,6 +136,14 @@ describe('profileMcpArgs (Phase 154 Theme G)', () => {
     ]);
   });
 
+  it('Codex restricted: turns each other server off by name; unrestricted or Claude ignores the list (#1697)', () => {
+    const others = ['github', 'midnite', 'my-db_2', 'weird.name', 'github'];
+    const restricted = profileMcpArgs('codex', launch, { restricted: true, quote: true, otherMcpServers: others });
+    expect(restricted.slice(6)).toEqual(['-c', 'mcp_servers.github.enabled=false', '-c', 'mcp_servers.my-db_2.enabled=false']);
+    expect(profileMcpArgs('codex', launch, { restricted: false, quote: false, otherMcpServers: others })).toHaveLength(6);
+    expect(profileMcpArgs('claude', launch, { restricted: true, quote: false, otherMcpServers: others })).toHaveLength(3);
+  });
+
   it('nothing for a CLI with no per-launch MCP config', () => {
     expect(profileMcpArgs('aider', launch, { restricted: true, quote: true })).toEqual([]);
   });

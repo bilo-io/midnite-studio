@@ -6,6 +6,7 @@ import { recordAudit } from '../agent-audit';
 import { livePtyFor } from '../pty-service';
 import { mcpShimScriptPath } from '../mcp';
 import { startMcpServer } from '../mcp/server';
+import { codexOtherMcpServers } from './codex-mcp-servers';
 import { createProfileMcpSockets, type ProfileMcpSockets } from './profile-mcp-sockets';
 
 /**
@@ -34,6 +35,7 @@ export function studioProfileMcpSockets(): ProfileMcpSockets {
       env: { ELECTRON_RUN_AS_NODE: '1' },
     }),
     recordAudit,
+    codexServers: (cwd) => codexOtherMcpServers(cwd),
   });
   return sockets;
 }

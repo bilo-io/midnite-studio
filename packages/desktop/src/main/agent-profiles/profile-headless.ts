@@ -94,6 +94,7 @@ export function createProfileHeadlessRun(seams: ProfileHeadlessSeams): (profileI
       promptPath,
       launch: prepared.launch,
       restricted: profile.mcpTools !== null,
+      otherMcpServers: prepared.otherMcpServers,
     };
     const args = buildProfileHeadlessArgv(argvInput) as string[];
     return {
