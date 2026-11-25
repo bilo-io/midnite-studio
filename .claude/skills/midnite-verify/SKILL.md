@@ -53,7 +53,7 @@ Run verification checks across the workspace and targeted packages:
    - If visual screenshots were produced for the phase, verify they are attached to the phase's PRs (screenshots are never committed).
 
 4. **Update Automated Items:**
-   - In `phase-<N>-*.md`, check off passing automated items by changing `- [ ]` to `- [x]`.
+   - Tick each passing automated item in its theme sub-issue: `node scripts/skills/tracker.mjs tick <theme-issue> --item "<task text>"` (or `verify-phase.mjs --tick <ids>`). There is no `phase-<N>-*.md` file to edit.
    - Leave manual / human-only verification items (e.g. `**Open, for a human:**`) unchecked until Stage 4.
 
 ---
@@ -91,5 +91,5 @@ Upon explicit human confirmation:
 
 3. **Nothing is committed** — the tracker lives on GitHub; `.midnite/tasks/` is git-ignored scratch.
 
-6. **Report:**
+4. **Report:**
    Tersely report the verified phase, test results, updated index stats, and commit SHA.
