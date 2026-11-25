@@ -5,9 +5,9 @@ import { join } from 'node:path';
 import {
   COUNCIL_OUTPUT_CAP_BYTES,
   COUNCIL_RUN_TIMEOUT_MS,
+  councilProfileBaseRefusal,
   councilThreadTitle,
   failure,
-  councilProfileBaseRefusal,
   isCouncilProfileBase,
   isCouncilRunLive,
   isOllamaCloudModelName,
@@ -99,7 +99,6 @@ export type CouncilRunnerPorts = {
    */
   profileRun?(profileId: string, cwd: string, role?: CouncilProfileRole): Promise<CouncilProfileRun>;
 };
-
 
 /** What {@link CouncilRunnerPorts.profileRun} answers — the companion's `CompanionProfileRun` shape. */
 export type CouncilProfileRun =
