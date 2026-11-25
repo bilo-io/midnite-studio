@@ -16,7 +16,7 @@ import { SortableList, useFeatureFlag, useFlushableSave, useSortableRow } from '
 
 import { CouncilMemberCount } from './council-member-count';
 import { applyPresetMembers, membersFromGenerated, resizeMembers, revealOrder } from './council-members-model';
-import { DEFAULT_MODEL_ID, deletedSeatNotice, seatModelOptions, useCouncilProviders } from './council-providers';
+import { DEFAULT_MODEL_ID, seatModelOptions, useCouncilProviders } from './council-providers';
 import { CouncilSynthesizerCard } from './council-synthesizer-card';
 import { CouncilUpgradeDialog } from './council-upgrade-dialog';
 import { useCouncilsHost } from './host';
@@ -48,6 +48,8 @@ type Draft = {
   members: CouncilMember[];
   synthProvider: CouncilMemberProvider;
   synthModel: string | undefined;
+  /** The custom agent the synthesizer runs as (#1713); `synthProvider` is then its base. */
+  synthAgentProfileId: string | undefined;
   synthesisType: CouncilSynthesisType;
   /** `undefined` runs the preset's own instructions. */
   synthInstructions: string | undefined;
@@ -57,6 +59,7 @@ const draftOf = (council: Council): Draft => ({
   members: council.members,
   synthProvider: council.synthProvider,
   synthModel: council.synthModel,
+  synthAgentProfileId: council.synthAgentProfileId,
   synthesisType: council.synthesisType,
   synthInstructions: council.synthInstructions,
 });
@@ -117,6 +120,7 @@ export function CouncilConfigPanel({
         synthProvider: pending.synthProvider,
         synthesisType: pending.synthesisType,
         ...(pending.synthModel === undefined ? {} : { synthModel: pending.synthModel }),
+        ...(pending.synthAgentProfileId === undefined ? {} : { synthAgentProfileId: pending.synthAgentProfileId }),
         ...(pending.synthInstructions === undefined ? {} : { synthInstructions: pending.synthInstructions }),
       }),
     SAVE_DEBOUNCE_MS,
@@ -249,9 +253,10 @@ export function CouncilConfigPanel({
 
       <div className="min-h-0 flex-1 overflow-auto px-3 py-2.5">
         <CouncilSynthesizerCard
-          synthProvider={draft.synthProvider}
-          synthModel={draft.synthModel}
-          onSynthChange={(synthProvider, synthModel) => commit({ synthProvider, synthModel })}
+          synth={{ provider: draft.synthProvider, model: draft.synthModel, agentProfileId: draft.synthAgentProfileId }}
+          onSynthChange={(synth) =>
+            commit({ synthProvider: synth.provider, synthModel: synth.model, synthAgentProfileId: synth.agentProfileId })
+          }
           synthesisType={draft.synthesisType}
           onTypeChange={changeType}
           instructions={shownInstructions}
@@ -345,8 +350,8 @@ function MemberRow({
 }) {
   const row = useSortableRow(member.id);
   const { ProviderModelPicker } = useCouncilsHost();
-  const { seats, seatValue, seatPatch, seatFellBack } = useCouncilProviders();
-  const fellBack = seatFellBack(member);
+  const { seats, seatValue, seatPatch, seatNotice } = useCouncilProviders();
+  const notice = seatNotice(member);
   const bodyId = `council-member-body-${member.id}`;
   const label = member.name || 'member';
 
@@ -419,9 +424,9 @@ function MemberRow({
             onModelChange={(id) => onChange({ model: storedModel(id) })}
             testId={`council-member-picker-${index}`}
           />
-          {fellBack ? (
+          {notice ? (
             <p role="status" data-testid={`council-member-fallback-${index}`} className="mt-0.5 text-[11px] text-amber-600 dark:text-amber-400">
-              {deletedSeatNotice(member.provider, false)}
+              {notice}
             </p>
           ) : null}
         </div>

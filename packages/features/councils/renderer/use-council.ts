@@ -47,6 +47,7 @@ export function useCreateCouncil() {
       members?: CouncilMember[];
       synthProvider?: CouncilMemberProvider;
       synthModel?: string;
+      synthAgentProfileId?: string;
       synthesisType?: CouncilSynthesisType;
       synthInstructions?: string;
     }) => (await bridge()?.council.create(input)) ?? noBridge<Council>(),
@@ -65,6 +66,7 @@ export function useUpdateCouncilMembers() {
       members: CouncilMember[];
       synthProvider: CouncilMemberProvider;
       synthModel?: string;
+      synthAgentProfileId?: string;
       synthesisType?: CouncilSynthesisType;
       synthInstructions?: string;
     }) => (await bridge()?.council.updateMembers(input)) ?? noBridge<Council>(),

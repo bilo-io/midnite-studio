@@ -7,17 +7,13 @@ import {
   COUNCIL_SYNTHESIS_TYPES,
   councilSynthesisLabel,
   recommendSynthesisType,
-  type CouncilMemberProvider,
   type CouncilSynthesisType,
 } from '@midnite/studio-shared';
 
-import { councilModelOptions, DEFAULT_MODEL_ID, useCouncilProviders } from './council-providers';
+import { DEFAULT_MODEL_ID, seatModelOptions, useCouncilProviders, type CouncilSeat } from './council-providers';
 import { useCouncilsHost } from './host';
 
 const TYPE_OPTIONS = COUNCIL_SYNTHESIS_TYPES.map((type) => ({ value: type, label: councilSynthesisLabel(type) }));
-
-const isProvider = (id: string, providers: readonly { id: string }[]): id is CouncilMemberProvider =>
-  providers.some((p) => p.id === id);
 
 /**
  * The synthesizer (Phase 134 Theme B), above the members: who synthesizes,
@@ -30,8 +26,7 @@ const isProvider = (id: string, providers: readonly { id: string }[]): id is Cou
  * description) and only suggests: nothing changes until "Use".
  */
 export function CouncilSynthesizerCard({
-  synthProvider,
-  synthModel,
+  synth,
   onSynthChange,
   synthesisType,
   onTypeChange,
@@ -44,9 +39,9 @@ export function CouncilSynthesizerCard({
   generating,
   generateError,
 }: {
-  synthProvider: CouncilMemberProvider;
-  synthModel: string | undefined;
-  onSynthChange: (provider: CouncilMemberProvider, model: string | undefined) => void;
+  /** Who synthesizes: a roster agent, or a custom agent over its base (#1713), as a member seat is. */
+  synth: CouncilSeat;
+  onSynthChange: (synth: CouncilSeat) => void;
   synthesisType: CouncilSynthesisType;
   onTypeChange: (type: CouncilSynthesisType) => void;
   /** The instructions as shown: the stored ones, or the preset's. */
@@ -61,7 +56,8 @@ export function CouncilSynthesizerCard({
   generateError: string | null;
 }) {
   const { ProviderModelPicker } = useCouncilsHost();
-  const { providers, installed } = useCouncilProviders();
+  const { seats, installed, seatValue, seatPatch, seatNotice } = useCouncilProviders();
+  const notice = seatNotice(synth, 'synthesizer');
   const recommendation = recommendSynthesisType(topic);
   const suggest = recommendation !== null && recommendation.type !== synthesisType ? recommendation : null;
 
@@ -77,16 +73,24 @@ export function CouncilSynthesizerCard({
           Synthesizer
         </h3>
         <ProviderModelPicker
-          providers={providers}
-          provider={synthProvider}
+          providers={seats}
+          provider={seatValue(synth)}
           // A new agent starts on its own default model: the old model id belongs to the old agent.
-          onProviderChange={(id) => isProvider(id, providers) && onSynthChange(id, undefined)}
-          models={councilModelOptions(synthProvider)}
-          model={synthModel ?? DEFAULT_MODEL_ID}
-          onModelChange={(id) => onSynthChange(synthProvider, id === DEFAULT_MODEL_ID ? undefined : id)}
+          onProviderChange={(id) => {
+            const patch = seatPatch(id);
+            if (patch) onSynthChange(patch);
+          }}
+          models={seatModelOptions(synth)}
+          model={synth.model ?? DEFAULT_MODEL_ID}
+          onModelChange={(id) => onSynthChange({ ...synth, model: id === DEFAULT_MODEL_ID ? undefined : id })}
           testId="council-synth-picker"
         />
       </div>
+      {notice ? (
+        <p role="status" data-testid="council-synth-fallback" className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
+          {notice}
+        </p>
+      ) : null}
 
       <div className="mt-2">
         <SelectField value={synthesisType} onChange={onTypeChange} options={TYPE_OPTIONS} label="Synthesis type" />
