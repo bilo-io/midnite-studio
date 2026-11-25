@@ -8,7 +8,7 @@ import {
   type PrepareProfileLaunch,
 } from '@midnite/studio-feature-terminal/renderer';
 import { bridge, noBridge, reportFailure } from '@midnite/studio-frame';
-import { AGENT_PROFILE_NOT_FOUND, type AgentProfile } from '@midnite/studio-shared';
+import { AGENT_PROFILE_NOT_FOUND, toAgentPrompt, type AgentProfile } from '@midnite/studio-shared';
 
 import { revealSession } from '../features/terminal/reveal-session';
 import { useRepos } from '../services/queries';
@@ -41,7 +41,7 @@ export function useStudioLaunchProfile(): { launch: (profile: AgentProfile) => P
     launch: async (profile) => {
       if (!repoId || !cwd) return;
       const session = await launchProfileSession(studioPrepareProfileLaunch, profile, { repoId, cwd, title: repoName });
-      if (session) revealSession(session.id);
+      if (session && session !== 'missing') revealSession(session.id);
     },
     disabledReason: repoId && cwd ? null : OPEN_A_REPO_FIRST,
   };
@@ -67,4 +67,30 @@ export function useStudioAgentProfiles(): AgentProfile[] {
   const client = useContext(QueryClientContext) ?? FALLBACK_CLIENT;
   const query = useQuery(agentProfilesQueryOptions(), client);
   return query.data ?? NO_PROFILES;
+}
+
+/**
+ * A companion hand-off under a custom agent: the same `agentProfile:prepareLaunch` path as the `+` menu,
+ * with the hand-off's prompt carried into the typed line (main builds it; the renderer never does). Typed
+ * but not sent unless `autoSend`, like every hand-off. `'missing'` when the agent was deleted; `null` for
+ * a failure already reported.
+ */
+export async function startStudioProfileAgent(input: {
+  profile: Pick<AgentProfile, 'id' | 'name' | 'baseAgentId'>;
+  repoId: string;
+  cwd: string;
+  title: string;
+  prompt?: string | undefined;
+  autoSend?: boolean | undefined;
+}): Promise<{ id: string } | 'missing' | null> {
+  const prompt = input.prompt === undefined ? undefined : toAgentPrompt(input.prompt, input.profile.baseAgentId);
+  const session = await launchProfileSession(studioPrepareProfileLaunch, input.profile, {
+    repoId: input.repoId,
+    cwd: input.cwd,
+    title: input.title,
+    ...(prompt === undefined ? {} : { prompt }),
+    ...(input.autoSend === undefined ? {} : { autoSend: input.autoSend }),
+  });
+  if (session && session !== 'missing') useUiStore.getState().setTerminalOpen(true);
+  return session;
 }

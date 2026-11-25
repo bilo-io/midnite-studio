@@ -18,6 +18,8 @@ export type PrepareProfileLaunch = (req: {
   profileId: string;
   cwd: string;
   resume: boolean;
+  /** A first prompt typed with the agent (a skill hand-off); absent starts it bare. */
+  prompt?: string;
 }) => Promise<{ launchId: string; line: string } | 'missing' | null>;
 
 /**
@@ -28,10 +30,16 @@ export type PrepareProfileLaunch = (req: {
 export async function launchProfileSession(
   prepare: PrepareProfileLaunch,
   profile: Pick<AgentProfile, 'id' | 'name' | 'baseAgentId'>,
-  target: { repoId: string; cwd: string; title?: string },
-): Promise<TerminalSession | null> {
-  const prepared = await prepare({ profileId: profile.id, cwd: target.cwd, resume: false });
-  if (!prepared || prepared === 'missing') return null;
+  target: { repoId: string; cwd: string; title?: string; prompt?: string; autoSend?: boolean },
+): Promise<TerminalSession | 'missing' | null> {
+  const prepared = await prepare({
+    profileId: profile.id,
+    cwd: target.cwd,
+    resume: false,
+    ...(target.prompt === undefined ? {} : { prompt: target.prompt }),
+  });
+  if (prepared === 'missing') return 'missing';
+  if (!prepared) return null;
   const store = useTerminalStore.getState();
   const session = store.openSession({
     kind: 'agent',
@@ -42,7 +50,7 @@ export async function launchProfileSession(
     repoId: target.repoId,
   });
   store.setLaunchId(session.id, prepared.launchId);
-  store.queueInput(session.id, `${prepared.line}\r`);
+  store.queueInput(session.id, prepared.line + (target.prompt === undefined || target.autoSend ? '\r' : ''));
   return session;
 }
 

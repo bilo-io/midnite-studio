@@ -63,3 +63,20 @@ describe('switching the companion to a custom agent', () => {
     expect(store.lines().at(-1)).toBe("companion: I don't know that custom agent. It may have been deleted.");
   });
 });
+
+describe('a skill hand-off under a custom agent', () => {
+  it('awaits an async launch and says the fallback notice when the agent was deleted', async () => {
+    const store = fakeStore();
+    const startSkill = async () => ({ id: 'session-9', notice: "Your custom agent was deleted, so I'm using Claude again." });
+    await submitInput('start a swarm', fakeHandoffDeps({ store, startSkill }));
+    const lines = store.lines();
+    expect(lines.some((line) => line.includes("Your custom agent was deleted, so I'm using Claude again."))).toBe(true);
+    expect(lines.at(-1)).toContain('I have typed');
+  });
+
+  it('says it could not start when the async launch fails', async () => {
+    const store = fakeStore();
+    await submitInput('start a swarm', fakeHandoffDeps({ store, startSkill: async () => null }));
+    expect(store.lines().at(-1)).toBe('companion: I could not start that one — check the agent and skill settings.');
+  });
+});
