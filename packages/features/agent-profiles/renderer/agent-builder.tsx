@@ -43,8 +43,10 @@ export function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
   if (Array.isArray(a) !== Array.isArray(b)) return false;
-  const ka = Object.keys(a);
-  const kb = Object.keys(b);
+  // A key set to undefined equals an absent key (clearing the icon leaves `icon: undefined`).
+  const defined = (o: object): string[] => Object.keys(o).filter((k) => (o as Record<string, unknown>)[k] !== undefined);
+  const ka = defined(a);
+  const kb = defined(b);
   if (ka.length !== kb.length) return false;
   return ka.every((k) => deepEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
 }
@@ -261,6 +263,9 @@ export function AgentBuilder({ profile, isNew, onDirtyChange, onSaved, onDone }:
       onSaved(outcome.profile);
     } else if (outcome.status === 'conflict') {
       setConflict({ current: outcome.current, attempt });
+    } else {
+      // The failure is already toasted; do not leave a stale conflict prompt over it.
+      setConflict(null);
     }
   };
   const onSave = (): void => {

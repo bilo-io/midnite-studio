@@ -10,6 +10,7 @@ import { profileFixture } from './testing';
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  delete (window as { matchMedia?: unknown }).matchMedia;
   delete (window as { midniteStudio?: unknown }).midniteStudio;
 });
 
@@ -273,6 +274,17 @@ describe('AgentBuilder', () => {
     expect(screen.getByText('Unsaved changes')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
     expect(name().value).toBe('Alpha');
+    expect(onDirtyChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it('treats a cleared icon as unchanged', () => {
+    mockBridge([]);
+    const onDirtyChange = vi.fn();
+    mountWith(<AgentBuilder {...props({ onDirtyChange })} />, hostWith());
+    const icon = screen.getByLabelText('Icon') as HTMLSelectElement;
+    fireEvent.change(icon, { target: { value: 'claude' } });
+    expect(onDirtyChange).toHaveBeenLastCalledWith('Alpha');
+    fireEvent.change(icon, { target: { value: '' } });
     expect(onDirtyChange).toHaveBeenLastCalledWith(null);
   });
 
