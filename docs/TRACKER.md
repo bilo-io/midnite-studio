@@ -31,14 +31,14 @@ defaults to the `bilo-io` account's token.
 | `next` | The next free phase number |
 | `view <issue>` · `view --phase N` | A phase issue with its theme sub-issues, progress and `## Headlines` |
 | `candidates` | Every open theme of an open phase: `ready`, `claimed` (assignee or `wip`), `in PR #n`, or `blocked by #n` (`Blocked by` / `Depends on` in the body, on a still-open issue) |
-| `file --phase-body F --theme F… [--category C]` | Create the phase issue, each theme, and link each as a sub-issue; each file's first `# ` line is its title |
+| `file --phase-body F --theme F… [--category C] [--project N] [--no-board]` | Create the phase issue, each theme, and link each as a sub-issue; each file's first `# ` line is its title. Every new issue is put on the board (board 8 unless `--project` or `$MIDNITE_TRACKER_PROJECT`) as Todo; `--no-board` skips that, and a board failure is a warning that never undoes the filing |
 | `link <phase-issue> <theme-issue>` | Link an existing issue as a sub-issue |
 | `claim <issue>` | Assign `@me` and add `wip` (created when missing) |
 | `tick <issue> --item "text"` | Tick the one open `- [ ]` task containing the text; refuses no match or several |
 | `headlines <issue>\|--phase N [--theme X] --text "…"\|--file F` | Replace theme X's paragraph in `## Headlines` (inserted in letter order when absent); without `--theme`, the whole section |
 | `refine-stamp <issue>\|--phase N` | Swap any `refined-*` label for `refined-N`, N = current + 1 |
 | `close <issue> [--comment "…"]` | Drop `wip`, then close |
-| `board <issue> --status S [--project N]` | Set the board card's Status (adding the card). The board is `--project`, else the one board the issue is already on, else `$MIDNITE_TRACKER_PROJECT`; anything else is reported as ambiguous, never guessed |
+| `board <issue> --status S [--project N]` | Set the board card's Status (adding the card). The board is `--project`, else the board the issue is already on (board 8 when it is on several and 8 is one of them), else `$MIDNITE_TRACKER_PROJECT`, else **board 8**, `bilo-io: all repos`, the tracker's board. Several boards without 8 among them is reported as ambiguous, never guessed |
 
 `verify-phase.mjs`, `git-report.mjs` and `pr-audit.mjs` read the phases through the same library.
 
