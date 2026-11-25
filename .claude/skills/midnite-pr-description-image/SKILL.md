@@ -71,7 +71,7 @@ Add or replace the section and nothing else. Exactly:
 <surface changed, a few words>: captured in the session thread, not committed.
 ```
 
-One line, nothing else in the section. On an existing PR use `gh pr edit <n> --body-file <file>`; before
+One line, nothing else in the section. On an existing PR use `node scripts/skills/pr-body.mjs <n> --set-section "Screenshots" --file <file>`; before
 creation, hand the section to `midnite-pr-create`. One image per PR, unless the change has two
 distinct states the reviewer must compare.
 
