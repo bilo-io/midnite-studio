@@ -7,7 +7,7 @@
  * newlines (which `shellQuote` flattens) and keeps the typed line short.
  */
 import type { AgentProfile } from './agent-profiles';
-import { agentInvocationArgs, shellQuote } from './agent-invocation';
+import { agentHeadlessArgs, agentInvocationArgs, shellQuote } from './agent-invocation';
 import { modelArgsFor, modelsForAgent } from './ai-models';
 import { LoopModelSchema, loopModelArgs } from './loops';
 import { MCP_SERVER_NAME } from './media-model-mcp';
@@ -140,4 +140,36 @@ export function profileMcpArgs(
     ];
   }
   return [];
+}
+
+export interface ProfileHeadlessArgvInput {
+  base: AgentDefinition;
+  model: string;
+  /** The prompt file, when the composed prompt is not empty. */
+  promptPath: string | null;
+  /** The private socket's shim launch; `null` when the base CLI has none. */
+  launch: ProfileShimLaunch | null;
+  /** `profile.mcpTools !== null`. */
+  restricted: boolean;
+}
+
+/**
+ * A custom agent's one-shot argv (Phase 154 Theme H) — the companion's headless run, with no shell between
+ * it and the CLI, so nothing is quoted. Everything but the final prompt word: base args, print mode, model,
+ * private MCP socket and (Claude) the prompt file flag. A base with `'argument'` delivery takes the prompt
+ * file's *text* ahead of the question instead, which the caller adds. `null` when the base has no print mode.
+ */
+export function buildProfileHeadlessArgv(input: ProfileHeadlessArgvInput): string[] | null {
+  const { base, model, promptPath, launch, restricted } = input;
+  const headless = agentHeadlessArgs(base.id);
+  if (headless === null) return null;
+  const promptWords =
+    promptPath !== null && promptDeliveryFor(base.id) === 'flag' ? ['--append-system-prompt-file', promptPath] : [];
+  return [
+    ...base.args,
+    ...headless,
+    ...profileModelArgs(base.id, model),
+    ...(launch ? profileMcpArgs(base.id, launch, { restricted, quote: false }) : []),
+    ...promptWords,
+  ];
 }

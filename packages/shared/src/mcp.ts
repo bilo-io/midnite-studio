@@ -1945,7 +1945,7 @@ export const MCP_TOOLS = {
     id: 'companion_agent_get',
     title: 'Read the primary agent and model',
     description:
-      'Reads the primary agent, its chosen model and every agent with its install state — call before `companion_agent_set` instead of guessing an id; read-only.',
+      'Reads the primary agent, its model, every agent with its install state and the custom agents (and which one the companion uses) — call before `companion_agent_set` instead of guessing; read-only.',
     input: z.object({}),
     output: CompanionAgentGetOutputSchema,
     readOnly: true,
@@ -1954,7 +1954,7 @@ export const MCP_TOOLS = {
     id: 'companion_agent_set',
     title: 'Switch the primary agent or model',
     description:
-      'Switches the primary agent, and optionally its model, by name or id — refused for an unknown or uninstalled agent or an unknown model; see `companion_models_list`.',
+      'Switches the primary agent (and optionally its model) by name or id, or makes a custom agent the companion’s — refused for an unknown or uninstalled agent or unknown model; see `companion_models_list`.',
     input: CompanionAgentSetInputSchema,
     output: CompanionAgentSetOutputSchema,
     readOnly: false,

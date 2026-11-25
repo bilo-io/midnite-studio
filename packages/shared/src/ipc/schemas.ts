@@ -5027,6 +5027,11 @@ export const CompanionAskRequest = z.object({
   /** Where to run the CLI. `null` runs it in the home directory — no repo is open. */
   repoPath: z.string().min(1).nullable(),
   agentId: z.string().min(1).optional(),
+  /**
+   * Phase 154 Theme H: the custom agent the companion thinks through, when one is chosen. Main runs it with
+   * the profile's model, prompt file and private MCP socket; a deleted one falls back to `agentId`.
+   */
+  agentProfileId: z.string().regex(/^profile-[A-Za-z0-9_-]+$/).optional(),
   snapshot: CompanionSnapshotSchema.nullable().optional(),
   personality: CompanionPersonalitySchema.optional(),
   aboutUser: CompanionAboutUserSchema.optional(),
