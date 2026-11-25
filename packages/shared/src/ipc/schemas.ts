@@ -2349,6 +2349,8 @@ export const AgentProfilePrepareLaunchRequest = z.object({
   profileId: z.string().min(1),
   cwd: z.string().min(1),
   resume: z.boolean(),
+  /** A first prompt typed with the agent (a companion skill hand-off); absent starts the agent bare. */
+  prompt: z.string().max(20_000).optional(),
 });
 export const AgentProfilePrepareLaunchResponse = GitOpResultOf(
   z.object({ launchId: z.string(), line: z.string() }),

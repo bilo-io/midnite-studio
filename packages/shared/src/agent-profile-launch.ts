@@ -82,18 +82,27 @@ export interface ProfileLaunchLineInput {
   delivery: PromptDelivery;
   mcpArgs: string[];
   resume: boolean;
+  /** A first prompt for the session (a skill hand-off): one shell-quoted word, after the agent's own prompt. */
+  prompt?: string | undefined;
 }
 
 /** The whole typed line, with no trailing `\r`. Pure. */
 export function buildProfileLaunchLine(input: ProfileLaunchLineInput): string {
   const { base, model, promptPath, delivery, mcpArgs, resume } = input;
+  const first = input.prompt?.trim() ? shellQuote(input.prompt) : null;
   let promptWords: string[] = [];
   if (promptPath !== null) {
     if (delivery === 'flag') {
-      promptWords = ['--append-system-prompt-file', shellQuote(promptPath)];
+      promptWords = ['--append-system-prompt-file', shellQuote(promptPath), ...(first ? [first] : [])];
     } else if (delivery === 'argument' && !resume) {
-      promptWords = [...agentInvocationArgs(base.id, 'interactive'), `"$(cat ${shellQuote(promptPath)})"`];
+      // One positional word carries both: the agent's prompt file, then the first prompt after a blank line.
+      const joined = first ? `$(cat ${shellQuote(promptPath)}; printf '\\n\\n%s' ${first})` : `$(cat ${shellQuote(promptPath)})`;
+      promptWords = [...agentInvocationArgs(base.id, 'interactive'), `"${joined}"`];
+    } else if (first) {
+      promptWords = [...(delivery === 'argument' ? agentInvocationArgs(base.id, 'interactive') : []), first];
     }
+  } else if (first) {
+    promptWords = [...agentInvocationArgs(base.id, 'interactive'), first];
   }
   return [
     base.command,
