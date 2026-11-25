@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { LuCheck, LuChevronDown, LuSearch } from 'react-icons/lu';
 
 import type { IconComponent } from '../icon-button';
@@ -14,6 +14,8 @@ export interface PickerProvider {
   disabled?: boolean;
   /** Why it is disabled — shown as the row's title. */
   reason?: string;
+  /** A section header; consecutive items sharing one are listed under it (#1699: "Your agents" first). */
+  group?: string;
 }
 
 export interface PickerModel {
@@ -29,7 +31,9 @@ export function filterPickerItems<T extends { id: string; label: string }>(items
   return items.filter((i) => i.label.toLowerCase().includes(q) || i.id.toLowerCase().includes(q));
 }
 
-function SearchList<T extends { id: string; label: string; recommended?: boolean; disabled?: boolean; reason?: string }>({
+function SearchList<
+  T extends { id: string; label: string; recommended?: boolean; disabled?: boolean; reason?: string; group?: string },
+>({
   items,
   selectedId,
   onSelect,
@@ -62,26 +66,37 @@ function SearchList<T extends { id: string; label: string; recommended?: boolean
       </div>
       <div role="listbox" aria-label={label} className="flex max-h-56 flex-col overflow-auto">
         {shown.length === 0 ? <p className="px-2 py-1.5 text-xs text-muted-foreground">No matches</p> : null}
-        {shown.map((item) => {
+        {shown.map((item, index) => {
           const selected = item.id === selectedId;
+          const header = item.group !== undefined && item.group !== shown[index - 1]?.group ? item.group : null;
           return (
-            <button
-              key={item.id}
-              type="button"
-              role="option"
-              aria-selected={selected}
-              disabled={item.disabled}
-              title={item.disabled ? item.reason : undefined}
-              onClick={() => onSelect(item.id)}
-              className="flex items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-foreground hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {renderIcon?.(item, selected)}
-              <span className="flex-1 truncate">{item.label}</span>
-              {item.recommended ? (
-                <span className="rounded bg-primary/10 px-1 text-[10px] font-medium text-primary">Recommended</span>
+            <Fragment key={item.id}>
+              {header ? (
+                <p
+                  role="presentation"
+                  data-testid={`${testId}-group`}
+                  className="px-2 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                >
+                  {header}
+                </p>
               ) : null}
-              {selected ? <LuCheck aria-hidden className="h-3 w-3 shrink-0" /> : null}
-            </button>
+              <button
+                type="button"
+                role="option"
+                aria-selected={selected}
+                disabled={item.disabled}
+                title={item.disabled ? item.reason : undefined}
+                onClick={() => onSelect(item.id)}
+                className="flex items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-foreground hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {renderIcon?.(item, selected)}
+                <span className="flex-1 truncate">{item.label}</span>
+                {item.recommended ? (
+                  <span className="rounded bg-primary/10 px-1 text-[10px] font-medium text-primary">Recommended</span>
+                ) : null}
+                {selected ? <LuCheck aria-hidden className="h-3 w-3 shrink-0" /> : null}
+              </button>
+            </Fragment>
           );
         })}
       </div>
