@@ -65,6 +65,19 @@ export function councilCliArgs(request: CouncilCliRequest): string[] {
   }
 }
 
+/**
+ * What a custom agent's seat adds after its own headless argv (#1699): Claude's JSON answer and the session
+ * to resume, so the seat reads back and follows up like a Claude seat. Nothing for the other bases — agy's
+ * `-p` takes the prompt as its value, and Codex and OpenCode answer in plain text anyway.
+ */
+export function councilProfileArgs(
+  provider: CouncilMemberProvider,
+  sessionId: string | undefined,
+): string[] {
+  if (provider !== 'claude') return [];
+  return ['--output-format', 'json', ...(sessionId ? ['--resume', sessionId] : [])];
+}
+
 export type CouncilCliAnswer = {
   ok: boolean;
   text: string;
