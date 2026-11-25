@@ -1230,6 +1230,23 @@ describe('chat service: a turn under a custom agent', () => {
     expect(spawn.calls).toHaveLength(0);
   });
 
+  it('follows the agent to its new base CLI: a fresh session, the chat engine updated, and the thread says so', async () => {
+    const spawn = echo();
+    const { service } = setup({ spawn, profileRun: async () => ({ ...ready(), agent: codex }) });
+    const chat = await created(service, { agentProfileId: 'profile-rev' });
+    expect(chat.engine).toBe('claude');
+    await service.update({ id: chat.id, session: { engine: 'claude', id: 'old-session', cwd: '/x' } });
+    await service.send({ chatId: chat.id, text: 'hi' });
+    await service.idle();
+
+    expect(spawn.calls[0]!.command).toBe('codex');
+    expect(spawn.calls[0]!.args).not.toContain('old-session');
+    const after = ((await service.get(chat.id)) as { ok: true; value: { chat: Chat } }).value.chat;
+    expect(after.engine).toBe('codex');
+    expect(after.session?.engine).not.toBe('claude');
+    expect(lastAssistant(after).activity?.join(' ')).toContain('now runs on Codex');
+  });
+
   it('clears the CLI session when the chat switches agent', async () => {
     const { service } = setup({ spawn: echo(), profileRun: async () => ready() });
     const chat = await created(service);
