@@ -195,6 +195,20 @@ describe('createProfileMcpSockets', () => {
     expect(await s.ensureBound('ffffffffffff', 'x')).toBe(false);
   });
 
+  it('a parked launch is revived hours later; only the oldest past the cap is forgotten (#1713)', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    const { sockets: s } = sockets({ parkedMax: 2 });
+    const first = await s.prepare(profile(), '/work/app');
+    const second = await s.prepare(profile(), '/work/app');
+    const third = await s.prepare(profile(), '/work/app');
+    await vi.advanceTimersByTimeAsync(60_000);
+    vi.setSystemTime(Date.now() + 5 * 3_600_000);
+    vi.useRealTimers();
+    expect(await s.ensureBound(first.launchId, 'v1')).toBe(false);
+    expect(await s.ensureBound(second.launchId, 'v2')).toBe(true);
+    expect(await s.ensureBound(third.launchId, 'v3')).toBe(true);
+  });
+
   it('after a restart, restore brings back a live session socket with its allowlist and drops the rest (#1697)', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'mp-'));
     dirs.push(dir);

@@ -58,7 +58,8 @@ export type ProfileMcpSocketSeams = {
   newLaunchId?: () => string;
   /** How long a prepared launch waits for its pty before its server is stopped (and parked). */
   bindTimeoutMs?: number;
-  now?: () => number;
+  /** How many parked launches are kept (oldest dropped first); injectable for tests. */
+  parkedMax?: number;
   /** #1697: the user's other Codex servers, which a restricted Codex agent turns off by name. */
   codexServers?: (cwd: string) => Promise<{ names: string[] }>;
 };
@@ -103,8 +104,12 @@ export type ProfileMcpSockets = {
 };
 
 export const PROFILE_BIND_TIMEOUT_MS = 60_000;
-/** How long a parked (expired, unbound) launch can still be revived by `ensureBound`. */
-export const PROFILE_PARKED_TTL_MS = 3_600_000;
+/**
+ * #1713: a parked (expired, unbound) launch can be revived by `ensureBound` until app quit, not for 1 h. It
+ * holds no server and no file — a path, a cwd and the allowlist — and the queued line that names it lives as
+ * long as the renderer keeps it, which no clock here can know. A cap bounds the map instead of a clock.
+ */
+export const PROFILE_PARKED_MAX = 100;
 
 type Entry = {
   socketPath: string;
@@ -116,7 +121,7 @@ type Entry = {
 };
 
 /** `stopped` settles once the old server has let go of the path, so a revival never races its cleanup. */
-type Parked = { socketPath: string; cwd: string; agent: LaunchSnapshot; at: number; stopped: Promise<void> };
+type Parked = { socketPath: string; cwd: string; agent: LaunchSnapshot; stopped: Promise<void> };
 
 export function profileAllowlistRefusal(tool: string, agentName: string): McpDispatchResult {
   return { ok: false, kind: 'refused', message: `Tool "${tool}" is not allowed for agent "${agentName}".` };
@@ -129,7 +134,7 @@ export function createProfileMcpSockets(seams: ProfileMcpSocketSeams): ProfileMc
   const parked = new Map<string, Parked>();
   const newLaunchId = seams.newLaunchId ?? (() => randomBytes(6).toString('hex'));
   const bindTimeoutMs = seams.bindTimeoutMs ?? PROFILE_BIND_TIMEOUT_MS;
-  const now = seams.now ?? Date.now;
+  const parkedMax = seams.parkedMax ?? PROFILE_PARKED_MAX;
 
   const manifestPath = (launchId: string): string => join(seams.runsDir(), `p-${launchId}.json`);
   const dropManifest = (launchId: string): Promise<void> => rm(manifestPath(launchId), { force: true });
@@ -166,8 +171,12 @@ export function createProfileMcpSockets(seams: ProfileMcpSocketSeams): ProfileMc
     if (!entry || entry.sessionId !== undefined) return;
     entries.delete(launchId);
     const stopped = stopServer(entry).catch(() => undefined);
-    parked.set(launchId, { socketPath: entry.socketPath, cwd: entry.cwd, agent: entry.agent, at: now(), stopped });
-    for (const [id, p] of parked) if (now() - p.at > PROFILE_PARKED_TTL_MS) parked.delete(id);
+    parked.set(launchId, { socketPath: entry.socketPath, cwd: entry.cwd, agent: entry.agent, stopped });
+    // A Map keeps insertion order, so the first keys are the oldest parked.
+    for (const id of parked.keys()) {
+      if (parked.size <= parkedMax) break;
+      parked.delete(id);
+    }
     await stopped;
   };
 
