@@ -1,20 +1,27 @@
-import { useEffect, useRef } from 'react';
-
 import type { AgentProfile } from '@midnite/studio-shared';
 
+import { AgentBuilder } from './agent-builder';
 import { PRIMARY_BUTTON } from './ui';
 
 /**
- * The Builder tab's slot (Phase 154 Theme D builds the full editor here). Until then it names the
- * agent being edited and holds the name input that Edit focuses, so the tab shell is complete.
+ * The Builder tab: the editor for one agent (`AgentBuilder`), or a prompt to pick one. The page owns
+ * which profile is open and whether it is a new, unsaved draft.
  */
-export function AgentsBuilder({ profile, isNew, onNew }: { profile: AgentProfile | null; isNew: boolean; onNew: () => void }) {
-  const name = useRef<HTMLInputElement>(null);
-  const id = profile?.id;
-  useEffect(() => {
-    if (id !== undefined) name.current?.focus();
-  }, [id]);
-
+export function AgentsBuilder({
+  profile,
+  isNew,
+  onNew,
+  onDirtyChange,
+  onSaved,
+  onDone,
+}: {
+  profile: AgentProfile | null;
+  isNew: boolean;
+  onNew: () => void;
+  onDirtyChange: (dirtyName: string | null) => void;
+  onSaved: (profile: AgentProfile) => void;
+  onDone: () => void;
+}) {
   if (!profile) {
     return (
       <div className="flex flex-col items-start gap-2 py-6 text-xs text-muted-foreground" data-testid="agents-builder">
@@ -25,19 +32,5 @@ export function AgentsBuilder({ profile, isNew, onNew }: { profile: AgentProfile
       </div>
     );
   }
-  return (
-    <div className="flex max-w-md flex-col gap-2 text-xs" data-testid="agents-builder">
-      <label className="flex flex-col gap-1">
-        <span className="font-medium">Name</span>
-        <input
-          ref={name}
-          data-testid="builder-name"
-          defaultValue={profile.name}
-          key={profile.id}
-          className="rounded border border-border bg-background px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary"
-        />
-      </label>
-      <p className="text-muted-foreground">{isNew ? 'This agent is not saved yet.' : 'Editing a saved agent.'} The full editor arrives with the Builder.</p>
-    </div>
-  );
+  return <AgentBuilder key={profile.id} profile={profile} isNew={isNew} onDirtyChange={onDirtyChange} onSaved={onSaved} onDone={onDone} />;
 }

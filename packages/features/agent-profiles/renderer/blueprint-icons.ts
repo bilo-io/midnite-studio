@@ -24,7 +24,7 @@ import {
 } from 'react-icons/lu';
 
 import type { IconComponent } from '@midnite/studio-frame';
-import type { AgentBlueprintStageId } from '@midnite/studio-shared';
+import { AGENT_BLUEPRINT_STAGES, type AgentBlueprintStageId } from '@midnite/studio-shared';
 
 export const STAGE_ICONS: Record<AgentBlueprintStageId, IconComponent> = {
   orchestrate: LuWorkflow,
@@ -57,3 +57,9 @@ const OPTION_ICONS: Record<string, IconComponent> = {
 export function optionIcon(optionId: string): IconComponent {
   return OPTION_ICONS[optionId] ?? LuCircle;
 }
+
+/** Every stage and option id mapped to its glyph, for the Builder and its test. */
+export const BLUEPRINT_ICONS: Record<string, IconComponent> = {
+  ...STAGE_ICONS,
+  ...Object.fromEntries(AGENT_BLUEPRINT_STAGES.flatMap((stage) => stage.options.map((option) => [option.id, optionIcon(option.id)]))),
+};
