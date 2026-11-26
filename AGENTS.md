@@ -521,14 +521,27 @@ self-review had run, which pinged a colleague to read unfinished work.
 
 ## Onboarding another repo
 
-[`templates/midnite/`](templates/midnite/) is a checked-in, repo-agnostic skeleton of this same
-workflow — the `.midnite/tasks/` tracker, the ten core skills mirrored into `.claude/` and `.agents/`,
-an `AGENTS.md` stub and a `CLAUDE.md` that imports it — for onboarding a *different* repo
-onto it, not this one. The midnite menu's Setup leaf is what will copy it in and track a hash
-manifest so a re-run is an upgrade rather than a guess (Phase 49); until then,
-[`midnite-setup`](.agents/skills/midnite-setup/SKILL.md) is the interactive path — it emits this
-same tree. See the template's own [README](templates/midnite/README.md) for what ships and why
-three of this repo's thirteen skills are deliberately left out.
+[`templates/midnite/`](templates/midnite/) is the onboarding kit: a repo-agnostic copy of this same
+workflow for a *different* repo — nineteen workflow skills (plus the Media set) mirrored into
+`.claude/` and `.agents/`, the `scripts/skills/` they call, a generic `docs/TRACKER.md`, an `AGENTS.md`
+stub and a `CLAUDE.md` that imports it. The Setup leaf copies it in and keeps a hash manifest in
+`.midnite/settings.json`, so a re-run is an upgrade rather than a guess; the kit's own
+[README](templates/midnite/README.md) says what ships and why the rest does not.
+
+**The kit is generated from this repo's skills, never edited by hand.**
+[`scripts/skills/sync-template.mjs`](scripts/skills/sync-template.mjs) rebuilds it: each kit skill is
+this repo's copy with the reviewed generic substitutions in
+[`templates/midnite-overrides/`](templates/midnite-overrides/) applied, and each script it calls is
+copied byte-identical. So **a change to a shipped skill or script must be followed by
+`node scripts/skills/sync-template.mjs --write`** and a read of the diff; anything that names this
+repo (its slug, account, board, toolchain, package boundaries) gets an override block instead of
+landing in the kit. `--check` runs inside `node scripts/skills/sync-skills.mjs --lint` and the
+node gate (`scripts/skills/sync-template.test.mjs`), so forgetting it fails there.
+
+**The skill scripts name no repo.** The repo slug, the gh account, the tracker's project board and
+the full gate come from [`.midnite/skills.json`](.midnite/skills.json) (env vars override it;
+[`docs/TRACKER.md` › Settings](docs/TRACKER.md#settings-midniteskillsjson)), so the same bytes work in
+an onboarded repo. Board 8, `bilo-io` and the moon gate live in that file, not in code.
 
 ## graphify
 
