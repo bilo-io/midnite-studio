@@ -17,3 +17,12 @@ this repo
 ====
 **this repo**
 >>>>
+
+The install step is the project's own (AGENTS.md › Toolchain), not this repo's pnpm + GitHub Packages pair.
+
+<<<<
+   export GITHUB_PACKAGES_TOKEN=$(gh auth token)
+   pnpm install --frozen-lockfile
+====
+   <the project's install command, from AGENTS.md › Toolchain>
+>>>>
