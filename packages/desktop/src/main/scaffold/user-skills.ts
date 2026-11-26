@@ -6,6 +6,7 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { join, relative, sep } from 'node:path';
@@ -101,6 +102,10 @@ export async function installUserSkills(
       const dest = join(targetDir, name);
       const want = hashTree(src);
 
+      if (existsSync(dest) && !statSync(dest).isDirectory()) {
+        skipped.push({ skill: name, targetDir, reason: 'a file of that name is in the way' });
+        continue;
+      }
       if (existsSync(dest)) {
         const have = hashTree(dest);
         if (!sameHashes(have, want)) {

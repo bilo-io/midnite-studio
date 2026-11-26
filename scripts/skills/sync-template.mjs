@@ -37,7 +37,7 @@ export const KIT_DOCS = ['docs/TRACKER.md'];
 /** Strings that name this repo, its account, its toolchain or its board; none may survive into a generic file. */
 export const FORBIDDEN = [
   'bilo-io', 'bilo-ekko', 'Midnite Studio', 'midnite-studio', 'midnite-apps', 'moon run', 'GITHUB_PACKAGES_TOKEN',
-  'INITIAL_PLAN', 'pnpm', 'board 8', '@bilo-io',
+  'INITIAL_PLAN', 'pnpm', 'board 8',
 ];
 
 const MARK = { open: '<<<<', mid: '====', close: '>>>>' };

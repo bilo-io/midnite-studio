@@ -123,6 +123,19 @@ describe('installUserSkills', () => {
     expect(Object.keys(manifest.skills)).toEqual(['midnite-build']);
   });
 
+  it('skips a skill whose name is taken by a plain file instead of failing the whole install', async () => {
+    const target = await track(await mkdtemp(join(tmpdir(), 'mstudio-target-skills-')));
+    await writeFile(join(target, 'midnite-plan'), 'not a folder');
+    const res = await installUserSkills(
+      await kit({ 'midnite-plan/SKILL.md': 'v1', 'midnite-build/SKILL.md': 'b' }),
+      target,
+    );
+    expect(res.ok && res.value).toMatchObject({
+      copied: ['midnite-build'],
+      skipped: [{ skill: 'midnite-plan', reason: 'a file of that name is in the way' }],
+    });
+  });
+
   it('installs both mirrors and merges the reports', async () => {
     const home = await track(await mkdtemp(join(tmpdir(), 'mstudio-home-')));
     const source = await kit({

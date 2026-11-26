@@ -52,8 +52,8 @@ node scripts/skills/sync-template.mjs --write   # regenerate, then review the di
 `--check` also fails on an override that no longer matches anything (the repo's text moved under it),
 on a kit file nothing generates, on a repo-specific token left in a generic file (`bilo-io`, the
 product name, `moon run`, `pnpm`, a board number, …) and on a reference to a skill the kit does not
-ship. It runs inside `node scripts/skills/sync-skills.mjs --lint` and `scripts/skill-copies.test.mjs`,
-so a skill change that forgets the kit fails the gate. The fix is always the same: `--write`, read the
+ship. It runs inside `node scripts/skills/sync-skills.mjs --lint` and the node gate's
+`scripts/skills/sync-template.test.mjs`, so a skill change that forgets the kit fails the gate. The fix is always the same: `--write`, read the
 diff, and add an override for anything that names this repo. Bump `.template-version` when the kit
 changes materially.
 
