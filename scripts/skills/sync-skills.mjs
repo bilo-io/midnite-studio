@@ -7,7 +7,8 @@
 //   node scripts/skills/sync-skills.mjs                  audit: print per-skill status, exit 1 on drift
 //   node scripts/skills/sync-skills.mjs --json           machine-readable audit
 //   node scripts/skills/sync-skills.mjs --lint [--json]  check every skill's script references and flags, and byte drift of the
-//                                                        non-SKILL files between mirrors; exit 1 on any problem
+//                                                        non-SKILL files between mirrors, and that the onboarding kit
+//                                                        is in sync (sync-template.mjs --check); exit 1 on any problem
 //   node scripts/skills/sync-skills.mjs --write          propagate bodies from the source mirror
 //   node scripts/skills/sync-skills.mjs --write --from claude --skill midnite-sitrep
 //
@@ -19,6 +20,8 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { KIT, run as checkTemplate } from './sync-template.mjs';
 
 export const MIRRORS = ['.agents', '.claude'];
 export const CLAUDE_ONLY_KEYS = ['argument-hint', 'allowed-tools'];
@@ -190,6 +193,11 @@ export function lint(root) {
       if (!existsSync(fa) || !existsSync(fb)) problems.push({ file: existsSync(fa) ? join(a, r) : join(b, r), kind: 'mirror-missing', detail: `absent from ${existsSync(fa) ? b : a}` });
       else if (!readFileSync(fa).equals(readFileSync(fb))) problems.push({ file: join(a, r), kind: 'mirror-drift', detail: `differs from ${join(b, r)}` });
     }
+  }
+  // The onboarding kit is generated from these skills (sync-template.mjs): a skill change that forgets it fails here.
+  if (existsSync(join(root, KIT))) {
+    const t = checkTemplate(root);
+    if (t.code !== 0) for (const line of t.lines) problems.push({ file: KIT, kind: 'template-drift', detail: line });
   }
   return problems;
 }
