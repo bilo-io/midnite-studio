@@ -17,7 +17,7 @@ import {
 import { resolveWorkdir } from '../repo-registry';
 import {
   applyScaffold,
-  installUserSkills,
+  installUserSkillsAll,
   knownSkillRoots,
   listKnownSkills,
   listRepoSkills,
@@ -32,7 +32,8 @@ const REPO_NOT_OPEN_MESSAGE = 'That repository is not open.';
  * The onboarding kit's channels — see `../scaffold/index.ts` for the
  * policy. `plan` and `apply` carry a `repoId`: main resolves the checkout
  * through `resolveWorkdir`. `installUserSkills` installs the kit's skills to
- * the user's `~/.claude/skills` folder. `listRepoSkills` reads (never
+ * the user's `~/.claude/skills` and `~/.agents/skills` folders, skipping (and
+ * reporting) any the user has edited since. `listRepoSkills` reads (never
  * writes) the open checkout's own skill frontmatter for the Projects card
  * skill picker. `listKnownSkills` reads the bundled kit, the open repo and
  * `~/.claude/skills` for the Loops composer's skill field.
@@ -64,9 +65,12 @@ export function registerScaffoldHandlers(): void {
     CHANNELS.scaffoldInstallUserSkills,
     schemas.InstallUserSkillsRequest,
     async () => {
-      const sourceDir = join(templateRoot(), '.claude', 'skills');
-      const targetDir = join(homedir(), '.claude', 'skills');
-      return installUserSkills(sourceDir, targetDir);
+      return installUserSkillsAll(
+        ['.claude', '.agents'].map((cli) => ({
+          sourceDir: join(templateRoot(), cli, 'skills'),
+          targetDir: join(homedir(), cli, 'skills'),
+        })),
+      );
     },
     (issue) => failure(issue),
   );

@@ -5,7 +5,7 @@ import { MIDNITE_INSTALL_COMMAND, type MidniteStudioBridge } from '@midnite/stud
 
 import { submitCommand } from '../terminal/submit-command';
 import { useTerminalStore } from '../terminal/terminal-store';
-import { useProjectActions } from './project-actions';
+import { installUserSkillsSummary, useProjectActions } from './project-actions';
 
 vi.mock('../terminal/submit-command', () => ({ submitCommand: vi.fn() }));
 
@@ -193,5 +193,24 @@ describe('useProjectActions — Update outside the Midnite Studio checkout', () 
     expect(submitCommand).toHaveBeenCalledWith(MIDNITE_INSTALL_COMMAND, 'Update Midnite Studio');
     // Not the checkout's rebuild: no session of its own is opened here.
     expect(useTerminalStore.getState().sessions).toHaveLength(0);
+  });
+});
+
+describe('installUserSkillsSummary', () => {
+  it('names both folders and the count when nothing was skipped', () => {
+    expect(
+      installUserSkillsSummary({ copied: ['a', 'b'], skipped: [], targetDir: '~/.claude/skills', targetDirs: ['~/.claude/skills', '~/.agents/skills'] }),
+    ).toBe('Installed 2 skills into ~/.claude/skills and ~/.agents/skills.');
+  });
+
+  it('lists every skill it left alone, with the folder and the reason', () => {
+    expect(
+      installUserSkillsSummary({
+        copied: ['a'],
+        skipped: [{ skill: 'midnite-plan', targetDir: '~/.claude/skills', reason: 'edited since the last install' }],
+        targetDir: '~/.claude/skills',
+        targetDirs: ['~/.claude/skills'],
+      }),
+    ).toBe('Installed 1 skill into ~/.claude/skills. Left 1 alone, never overwritten: midnite-plan (~/.claude/skills): edited since the last install.');
   });
 });
