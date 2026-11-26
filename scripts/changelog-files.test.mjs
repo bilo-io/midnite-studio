@@ -14,6 +14,8 @@ const appDirs = readdirSync(join(root, 'apps'), { withFileTypes: true })
   .filter((d) => d.isDirectory() && existsSync(join(root, 'apps', d.name, 'moon.yml')))
   .map((d) => d.name)
   .filter((n) => n !== 'studio' && n !== 'launcher')
+  // Midnite Mobile is an Expo Go companion, off the suite release feed (docs/MOBILE.md): no per-app changelog.
+  .filter((n) => n !== 'mobile')
   .sort();
 
 const sourcePath = (id) => (id === 'studio' ? 'CHANGELOG.md' : `apps/${id}/CHANGELOG.md`);
