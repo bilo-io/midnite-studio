@@ -11,8 +11,13 @@ The one entry point for agent groups.
 /midnite-agents
  ├─ Fleet  → /midnite-fleet   separate tasks, one agent each, each to its own merged PR
  ├─ Swarm  → /midnite-swarm   one problem, one agent per stage, handing work forward
- └─ both   → /midnite-orchestrate   settings, cap, board, sitreps, RAM, rotation, unsticking, wrap-up
+ ├─ both   → /midnite-orchestrate   settings, cap, board, sitreps, RAM, rotation, unsticking, wrap-up
+ └─ stop   → /midnite-agents-handover   every agent commits, writes its HANDOFF, frees its servers, stops
 ```
+
+## 0 · Run the script first
+
+Run `scripts/skills/orchestrate-cap.sh --running 0 [--max <ceiling>] --chart`. It prints the starting subagent cap and machine line for the launch message. You still ask the mode and run the interview via the chosen skill. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
 
 ## 1 · Mode — option sheet (skip if the invocation starts with `fleet` or `swarm`)
 
@@ -36,5 +41,5 @@ dialog.
 Invoke the chosen skill with every answer as its arguments, so it skips the questions already
 answered. It launches the first wave within the cap and immediately posts the **first sitrep**: the
 sitrep table with one row per task or stage (queued ones shown as `⏳ queued`), the
-whole-batch ETA line, the machine line with `🤖 Subagent CAP`, and the machine chart. The
+whole-batch ETA line, the machine line with `🤖 Subagent CAP`, and the `🩺 Machine` chart. The
 recurring sitrep then keeps that shape every tick.

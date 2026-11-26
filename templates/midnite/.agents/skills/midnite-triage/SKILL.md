@@ -11,15 +11,15 @@ second. Look, tabulate, touch nothing.
 **Style:** terse. Emit the table and the one-line footer, nothing else — no preamble, no
 narration of the `gh` calls, no per-PR prose under the table.
 
+## 0 · Run the script first
+
+Run `node scripts/skills/triage.mjs [prs|issues|all] [--repo o/r]`. It renders the status-mark table, the sort and the footer from one batched `gh` call (read-only). You still write the one-sentence recommendation if the script left it generic. Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 0 · Hard constraint — read-only
 
 This skill **never** writes. No `gh pr review`, `comment`, `merge`, `close`, `edit`,
 `ready`, `label`; no `git push`, `commit`, `rebase`; no file edits. If the surrounding
 loop asked for a fix, the fix is *not* this skill's job — report the row and stop.
-
-`allowed-tools` drops `Write` and `Edit` to make that cheaper to honour, but it is not a
-guarantee: `Bash` is here for `gh pr list`, and `gh` can merge as easily as it can list.
-The constraint above is the real one, and it is on you.
 
 ## 1 · Scope
 

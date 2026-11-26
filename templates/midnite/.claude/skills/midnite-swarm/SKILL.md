@@ -14,6 +14,10 @@ launch rules, sitreps, rotation, unsticking and wrap-up.
 
 **Conversation style — enforced.** Terse; results, not intentions; tables over prose.
 
+## 0 · Run the script first
+
+Run `scripts/skills/orchestrate-cap.sh --running <n>` before each spawn, `scripts/skills/worktree-lifecycle.sh create <slug>` per stage worktree, `node scripts/skills/sitrep.mjs table --worktrees` each tick (rows for units with no PR come from their scratchpads), `orchestrate-cap.sh --running <n> --queued <q> --chart` for the cap line and machine block, `worktree-lifecycle.sh sweep --apply` at wrap-up. They give the cap line, the worktrees and the sitrep table. You still run the interview and own the board and hand-offs (see midnite-orchestrate). Add `--no-llm` for the fully offline path (deterministic text, no Ollama). If the script errors or is unavailable, fall back to the manual steps below, which stay in place.
+
 ## 1 · The problem (skip if `$ARGUMENTS` gives it)
 
 Ask for it in one line: a description, an issue or PR link, a phase number, or a doc. Restate it as
@@ -37,7 +41,7 @@ Unticked stages are skipped; their inputs come from what the human already suppl
 |---|---|---|---|---|
 | Research | sonnet | Sweeps code (graphify first), docs, issues, prior PRs; no edits | `research.md`: findings with `file:line` | at once |
 | Design | opus | 2–3 options for the UI or architecture, trade-offs, a pick | `design.md` (+ shots in `/tmp/midnite-shots-<run>/`) | at once, beside Research |
-| Plan | opus | The build broken into slices with acceptance criteria; a phase doc when it belongs in the tracker (`/midnite-plan`) | `plan.md` or `phase-N-*.md` | Research done (and Design, if picked) |
+| Plan | opus | The build broken into slices with acceptance criteria; a phase issue when it belongs in the tracker (`/midnite-plan`) | `plan.md` or `phase-N-*.md` | Research done (and Design, if picked) |
 | Refine | sonnet | Resolves open decisions, tightens criteria (`/midnite-refine`) | the plan, refined | Plan done |
 | Dev | sonnet | Builds the plan in a worktree, one PR per slice (`/midnite-build` or `-adhoc`); independent slices run as parallel Dev agents within the cap | draft PR(s) | Plan (or Refine) done |
 | Review | opus | A code review of each PR, in-session; findings to the board | `review-<pr>.md` | each Dev PR opened |
@@ -65,4 +69,4 @@ output; "read-only" for Research, Design and Review (no commits to the repo); a 
 the top and append one line to the board when it finishes.
 
 Then follow `/midnite-orchestrate` §2–§8. The sitrep has one row per stage (and per Dev slice), and
-adds the merge-graph view so the hand-offs are visible.
+adds the `graph` view so the hand-offs are visible.
