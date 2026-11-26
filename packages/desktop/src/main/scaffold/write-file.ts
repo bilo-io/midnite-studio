@@ -18,8 +18,17 @@ import {
  * Shared by both the entry-copy loop (`apply.ts`) and the manifest writer
  * (`manifest.ts`) — the manifest is computed JSON rather than a template
  * file's bytes, but it lands on disk through the identical jail.
+ *
+ * `mode`, when given, is set on the open descriptor after the write — how a
+ * kit script keeps its executable bit (`scripts/skills/*.sh` are run
+ * directly by the skills, so a copy without `+x` would fail in the target).
  */
-export async function writeConfinedFile(root: string, relPath: string, data: Buffer): Promise<boolean> {
+export async function writeConfinedFile(
+  root: string,
+  relPath: string,
+  data: Buffer,
+  mode?: number,
+): Promise<boolean> {
   if (!(await ensureConfinedDirs(root, relPath))) return false;
   const target = await confineParent(root, relPath);
   if (!target) return false;
@@ -31,6 +40,7 @@ export async function writeConfinedFile(root: string, relPath: string, data: Buf
   try {
     if (exists) await handle.truncate(0);
     await handle.write(data, 0, data.length, 0);
+    if (mode !== undefined) await handle.chmod(mode);
   } finally {
     await handle.close();
   }

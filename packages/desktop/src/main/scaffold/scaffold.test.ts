@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -250,6 +250,32 @@ describe('applyScaffold', () => {
     expect(await readFile(join(targetRoot, '.claude/skills/midnite-create/SKILL.md'), 'utf8')).toBe(
       'the skill',
     );
+  });
+
+  it("keeps a template script's executable bit, and leaves other files non-executable", async () => {
+    const templateRoot = await track(
+      await makeTemplate({ 'scripts/skills/push.sh': '#!/bin/sh\n', 'docs/TRACKER.md': '# t' }),
+    );
+    await chmod(join(templateRoot, 'scripts/skills/push.sh'), 0o755);
+    const targetRoot = await track(await makeTarget());
+
+    const result = await applyScaffold(templateRoot, targetRoot, ['scripts/skills/push.sh', 'docs/TRACKER.md']);
+
+    expect(result.written).toEqual(['scripts/skills/push.sh', 'docs/TRACKER.md']);
+    expect((await stat(join(targetRoot, 'scripts/skills/push.sh'))).mode & 0o111).not.toBe(0);
+    expect((await stat(join(targetRoot, 'docs/TRACKER.md'))).mode & 0o111).toBe(0);
+  });
+
+  it('plans the real kit: its scripts and TRACKER.md ride along, the overrides never do', async () => {
+    const kit = resolve(__dirname, '../../../../../templates/midnite');
+    const targetRoot = await track(await makeTarget());
+    const result = await planScaffold(kit, targetRoot);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const paths = result.value.entries.map((e) => e.path);
+    expect(paths).toEqual(expect.arrayContaining(['scripts/skills/tracker.mjs', 'scripts/skills/lib/skills-config.mjs', 'docs/TRACKER.md', '.midnite/settings.json']));
+    expect(paths.some((p) => p.includes('midnite-overrides') || /\.test\.m?js$/.test(p))).toBe(false);
   });
 
   it('a plan-then-apply round trip leaves a repo planScaffold reads back as unchanged', async () => {

@@ -42,8 +42,12 @@ extraResources:
   # `templates/` at all. Read off `process.resourcesPath` in production; the
   # repo root in dev. See `main/template-path.ts` for the one helper that
   # owns the branch.
+  # `midnite-overrides/` is build-time input for `scripts/skills/sync-template.mjs`, not part of the kit.
   - from: ../../templates
     to: templates
+    filter:
+      - '**/*'
+      - '!midnite-overrides/**'
   # The CLI wrapper (`midnite` on PATH, plus a deprecated `midnite-studio` alias wrapper). `resources/` is only
   # `directories.buildResources` — a source of build inputs electron-builder
   # never copies into the bundle on its own — so `cli-handlers.ts`'s

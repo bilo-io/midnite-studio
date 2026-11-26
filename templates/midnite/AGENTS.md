@@ -2,15 +2,21 @@
 
 <!-- TODO: one or two sentences on what this project is. -->
 
-**Progress tracker: [`.midnite/tasks/`](.midnite/tasks/)** — `_INDEX.md` is the phase table,
-`done.md` is the append-only landed log, `outstanding.md` is deliberately-deferred scope.
+**Progress tracker: GitHub issues on this repo's forge — never markdown files in git**
+([`docs/TRACKER.md`](docs/TRACKER.md)). A phase is an issue labelled `phase` (plus `features`,
+`security` or `issues` for its category), each theme a sub-issue of it, and deferred scope an issue
+labelled `deferred`. The issue body's `## Headlines` section carries the per-theme narrative; the
+GitHub Project board is the index (Status field), and closed issues are the landed log. Read a
+phase's issue only once that phase is picked; when a theme lands, close its sub-issue and update the
+parent's Headlines paragraph. The skills drive all of it through `node scripts/skills/tracker.mjs`.
 
-**`_INDEX.md` is status only — scan its table, nothing else.** Its `## Phases` table is all a
-session needs to find what is TODO, in flight or done. Each phase's narrative lives in the
-`## Headlines` section at the top of its own `phases/phase-N-*.md`, one short paragraph per theme
-(`**Theme A — <name>.** ✅ …`). Read a phase's Headlines only once that phase is picked; when a
-theme lands or a phase is refined, verified or created, write the narrative there and touch only
-the phase's *row* in `_INDEX.md`.
+**The skill scripts read their per-repo settings from `.midnite/skills.json`** — the repo slug, the
+gh account to act as, the project board and the full gate, every key optional
+([`docs/TRACKER.md` › Settings](docs/TRACKER.md#settings-midniteskillsjson)). With no board set,
+issues are filed without a card.
+
+**Local markdown plans are scratch files and stay out of git.** Add `.midnite/tasks/` to
+`.gitignore`; a session may draft a plan there, but it becomes real only once it is filed as issues.
 
 ## One convention file: `AGENTS.md`
 
@@ -92,7 +98,7 @@ someone switches back to a dirty tree on a branch they did not choose.
 
 ## Phase workflow
 
-One phase per PR where practical. Work the checklist in `.midnite/tasks/phases/phase-N-*.md`,
-leave the project's own test/lint/typecheck gate green, append an entry to `.midnite/tasks/done.md`,
-update the phase doc's `## Headlines` paragraph for each theme that landed, and update the phase's
-row in the table in `.midnite/tasks/_INDEX.md` (the row only — no prose goes in the index).
+One phase per PR where practical. Work the theme sub-issues of the phase's `phase` issue, leave the
+project's own test/lint/typecheck gate green, link the PR to the sub-issue it closes (`Closes #n`),
+update the parent issue's `## Headlines` paragraph for each theme that landed, and move the card on
+the project board. Nothing about the plan is committed to the repo.
