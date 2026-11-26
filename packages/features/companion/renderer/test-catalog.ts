@@ -33,6 +33,8 @@ export const TEST_VIEW_LABELS: Record<ViewId, string> = {
   capture: 'Capture',
   vanguard: 'Vanguard',
   apiClient: 'API Client',
+  books: 'Books',
+  agents: 'Agents',
   settings: 'Settings',
 };
 
@@ -69,6 +71,8 @@ export const TEST_VIEW_KEYWORDS: Record<ViewId, string> = {
   capture: 'screenshot screen recording record region window clipboard pasteboard snip grab',
   vanguard: 'security antivirus malware defense sensors findings threat persistence launchagent integrity',
   apiClient: 'api client http request postman collection rest graphql send response',
+  books: 'books accounting accountant ledger journal double-entry accounts bookkeeping tax invoice',
+  agents: 'custom agents roster',
   settings: 'preferences configuration options theme',
 };
 
@@ -112,6 +116,10 @@ export const TEST_COMMAND_ACCESS: Record<CommandId, CompanionAccess> = {
   'terminal.repaint': 'direct',
   'terminal.new': 'direct',
   'terminal.close': 'confirm',
+  'terminal.recoverDetached': 'direct',
+  'system.cleanSystem': 'confirm',
+  'system.freeRam': 'confirm',
+  'guard.sweep': 'direct',
   'repos.toggle': 'direct',
   'browser.toggle': 'direct',
   'fab.toggle': 'direct',
@@ -229,4 +237,5 @@ export const TEST_PAGE_ROLE_TITLE: Record<PageWindowRole, string> = {
   media: 'Media',
   models: 'Models',
   notes: 'Notes',
+  agents: 'Agents',
 };
