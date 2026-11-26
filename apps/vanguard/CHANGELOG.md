@@ -8,6 +8,15 @@ Released sections are mirrored to the public release feed by the release flow.
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-11-13
+
+### Added
+- **Release notes in the app** (Phase 131): a version pill in the status bar opens this app's notes for the running version.
+- **Guard fixes** (Phase 122): a vulnerable package found by Guard can be updated or removed from Vanguard. The change runs on a throwaway branch after a confirm that lists the exact commands, and nothing is pushed.
+
+### Fixed
+- Security updates to the validation library (zod 4).
+
 ## [0.0.6] - 2026-10-31
 
 ### Added
