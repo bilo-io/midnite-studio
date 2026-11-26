@@ -1,17 +1,12 @@
-// Helpers shared by the PR skill scripts (Phase 151 Theme D): the bilo-io token, a branch-to-phase
-// guess, and the attribution-trailer test. Pure except `biloToken`.
-import { execFileSync } from 'node:child_process';
+// Helpers shared by the PR skill scripts (Phase 151 Theme D): the repo slug and gh token (both from
+// lib/skills-config.mjs), a branch-to-phase guess, and the attribution-trailer test.
+import { ghToken, skillsConfig } from './skills-config.mjs';
 
-export const REPO = 'bilo-io/midnite-studio';
+/** `owner/name` of the repo the scripts run in: $MIDNITE_REPO > .midnite/skills.json > the origin remote. */
+export const REPO = skillsConfig().repo;
 
-/** Token for the `bilo-io` account; the active gh account is often a different one and 403s. */
-export function biloToken() {
-  try {
-    return execFileSync('gh', ['auth', 'token', '-u', 'bilo-io'], { encoding: 'utf8' }).trim();
-  } catch {
-    return '';
-  }
-}
+/** Token for the configured gh account (`ghUser`), else the active one; '' when gh has none. */
+export const repoToken = () => ghToken();
 
 export const hasTrailer = (message) => /^(Co-Authored-By|Signed-off-by):/im.test(message ?? '');
 

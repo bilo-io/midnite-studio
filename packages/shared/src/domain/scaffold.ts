@@ -92,9 +92,18 @@ export const ScaffoldManifestSchema = z.object({
 });
 export type ScaffoldManifest = z.infer<typeof ScaffoldManifestSchema>;
 
+/**
+ * What "Install user skills" did. `copied` names every kit skill now in place
+ * (fresh, upgraded or already identical); `skipped` names each one left alone
+ * because the user edited it since the last install, or because a skill of
+ * that name was there and not ours — the installer never overwrites either.
+ * `targetDir` is the first folder (`~/.claude/skills`), `targetDirs` all of them.
+ */
 export const InstallUserSkillsResultSchema = z.object({
   copied: z.array(z.string()),
+  skipped: z.array(z.object({ skill: z.string(), targetDir: z.string(), reason: z.string() })),
   targetDir: z.string(),
+  targetDirs: z.array(z.string()),
 });
 export const InstallUserSkillsResult = InstallUserSkillsResultSchema;
 export type InstallUserSkillsResult = z.infer<typeof InstallUserSkillsResultSchema>;

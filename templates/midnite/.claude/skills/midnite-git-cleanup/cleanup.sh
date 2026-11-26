@@ -30,19 +30,41 @@
 #   * no `worktree remove --force` — git refusing a dirty worktree is the safety
 #     check, not an obstacle. Dirty ones are reported and skipped.
 #
+# REMOTE branches get a third test, because the two above cannot see a GitHub
+# squash or rebase merge: a squash rewrites N commits into 1 new SHA (and, once
+# N>1, the *patch-id* changes too — `git cherry` only matches per-commit diffs,
+# not the union of several), so a squash-merged multi-commit branch is neither an
+# ancestor nor patch-equivalent, ever, no matter how long it sits merged. `gh pr
+# list --state merged` is the ground truth GitHub actually has, so for
+# refs/remotes/<remote>/* it is checked FIRST: a remote branch whose tip commit
+# equals a merged PR's `headRefOid` is stale regardless of what ancestry/cherry
+# say. Only a branch with no merged-PR record falls back to ancestry/cherry
+# (plain merge-commit workflows, or no `gh`/no auth available).
+#
+# LOCAL branches use the same ground truth when ancestry/cherry say "unique work": a merged PR
+# (`gh pr list --state merged --head <branch>`) whose headRefOid equals the local tip marks a
+# squash-merged branch stale. A worktree whose only dirt is the deliberately-untracked
+# SCRATCHPAD.md is not dirty: the file is deleted at --apply and the worktree removed (never --force).
+#
 # Usage:
 #   cleanup.sh                     # dry run against the default branch
-#   cleanup.sh --apply             # actually delete
+#   cleanup.sh --apply             # delete local stale branches/worktrees
+#   cleanup.sh --apply --prune-remote  # also delete stale remote branches
 #   cleanup.sh --target release    # compare against another branch
+#   cleanup.sh --no-remote         # skip remote branches entirely (local-only)
 
 APPLY=0
+PRUNE_REMOTE=0
+NO_REMOTE=0
 TARGET=''
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --apply)  APPLY=1 ;;
-    --target) TARGET="$2"; shift ;;
-    -h|--help) sed -n '2,36p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --apply)        APPLY=1 ;;
+    --prune-remote) PRUNE_REMOTE=1 ;;
+    --no-remote)    NO_REMOTE=1 ;;
+    --target)       TARGET="$2"; shift ;;
+    -h|--help) sed -n '2,55p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) printf 'unknown argument: %s\n' "$1" >&2; exit 2 ;;
   esac
   shift
@@ -71,7 +93,45 @@ WT_MAP=$(git worktree list --porcelain | awk '
   /^worktree /  { path=substr($0,10) }
   /^branch /    { ref=substr($0,8); sub(/^refs\/heads\//,"",ref); print ref "\t" path }
 ')
+# Dirt in a worktree, ignoring the deliberately-untracked SCRATCHPAD.md.
+wt_dirt() { git -C "$1" status --porcelain 2>/dev/null | grep -v '^?? SCRATCHPAD.md$'; }
 worktree_for() { printf '%s\n' "$WT_MAP" | awk -F'\t' -v b="$1" '$1==b {print $2; exit}'; }
+
+# --- remote + gh detection (needed by the local scan too; see the header comment) -
+REMOTE='origin'
+HAS_REMOTE=0 HAS_GH=0
+if [ "$NO_REMOTE" -ne 1 ] && git remote get-url "$REMOTE" >/dev/null 2>&1 \
+  && git show-ref --verify --quiet "refs/remotes/$REMOTE/$TARGET"; then
+  HAS_REMOTE=1
+  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+    HAS_GH=1
+  fi
+fi
+
+MERGED_PR_MAP=''
+if [ "$HAS_GH" -eq 1 ]; then
+  MERGED_PR_MAP=$(gh pr list --state merged --limit 500 \
+    --json headRefName,headRefOid,number \
+    --jq '.[] | "\(.headRefName)\t\(.headRefOid)\t\(.number)"' 2>/dev/null)
+fi
+merged_pr_oid() { printf '%s\n' "$MERGED_PR_MAP" | awk -F'\t' -v b="$1" '$1==b{print $2; exit}'; }
+merged_pr_num() { printf '%s\n' "$MERGED_PR_MAP" | awk -F'\t' -v b="$1" '$1==b{print $3; exit}'; }
+# Merged PR for a LOCAL branch, into LPR_NUM / LPR_OID (globals: no subshell). The bulk map first, then
+# `gh pr list --state merged --head <branch>` for a branch the 500-PR map missed.
+local_merged_pr() {
+  LPR_NUM='' LPR_OID=''
+  [ "$HAS_GH" -eq 1 ] || return 0
+  LPR_NUM=$(merged_pr_num "$1")
+  if [ -n "$LPR_NUM" ]; then
+    LPR_OID=$(merged_pr_oid "$1")
+  else
+    row=$(gh pr list --state merged --head "$1" --limit 1 --json headRefOid,number \
+      --jq '.[] | "\(.number)\t\(.headRefOid)"' 2>/dev/null)
+    [ -n "$row" ] || return 0
+    LPR_NUM=$(printf '%s' "$row" | cut -f1)
+    LPR_OID=$(printf '%s' "$row" | cut -f2)
+  fi
+}
 
 STALE='' KEEP='' BLOCKED=''
 
@@ -89,16 +149,65 @@ for b in $(git for-each-ref refs/heads --format='%(refname:short)'); do
     if [ "$plus" -eq 0 ]; then
       how='patch-equivalent (duplicate/cherry-pick — `git branch -d` would refuse)'
     else
-      KEEP="$KEEP$b\t$plus unique change(s) not on $TARGET\n"; continue
+      # A squash/rebase merge is neither ancestor nor patch-equivalent: ask the forge.
+      local_merged_pr "$b"
+      if [ -n "$LPR_NUM" ] && [ "$(git rev-parse "$b")" = "$LPR_OID" ]; then
+        how="merged via PR #$LPR_NUM (squash/rebase)"
+      elif [ -n "$LPR_NUM" ]; then
+        KEEP="$KEEP$b\tPR #$LPR_NUM merged, but local tip has moved since — review\n"; continue
+      else
+        KEEP="$KEEP$b\t$plus unique change(s) not on $TARGET\n"; continue
+      fi
     fi
   fi
 
   wt=$(worktree_for "$b")
-  if [ -n "$wt" ] && [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]; then
+  # SCRATCHPAD.md is deliberately untracked, so it is never dirt: a worktree whose only change is
+  # that file is cleared (the file is deleted at apply time, then a plain `worktree remove` runs).
+  if [ -n "$wt" ] && [ -n "$(wt_dirt "$wt")" ]; then
     BLOCKED="$BLOCKED$b\tworktree $wt has uncommitted changes\n"; continue
   fi
   STALE="$STALE$b\t$how\t$wt\n"
 done
+
+RSTALE='' RKEEP=''
+if [ "$HAS_REMOTE" -eq 1 ]; then
+  RTARGET="$REMOTE/$TARGET"
+  # Match the symref on its FULL refname, not its short form. `refname:short`
+  # renders refs/remotes/origin/HEAD as bare `origin` (it resolves
+  # unambiguously), so `${rb#origin/}` strips nothing and a `[ "$b" = HEAD ]`
+  # guard never fires — the symref then sails through as a branch literally
+  # named `origin` and lands in STALE REMOTE, where --prune-remote would try to
+  # `git push --delete origin origin` a ref that does not exist.
+  for ref in $(git for-each-ref "refs/remotes/$REMOTE" --format='%(refname)'); do
+    [ "$ref" = "refs/remotes/$REMOTE/HEAD" ] && continue
+    rb=${ref#refs/remotes/}
+    b=${rb#"$REMOTE/"}
+    [ "$b" = "$TARGET" ] && continue
+
+    if [ "$HAS_GH" -eq 1 ] && oid=$(merged_pr_oid "$b") && [ -n "$oid" ]; then
+      num=$(merged_pr_num "$b")
+      if [ "$(git rev-parse "$rb")" = "$oid" ]; then
+        RSTALE="$RSTALE$rb\tmerged via PR #$num\n"
+      else
+        RKEEP="$RKEEP$rb\tPR #$num merged, but branch tip has moved since — review\n"
+      fi
+      continue
+    fi
+
+    if git merge-base --is-ancestor "$rb" "$RTARGET" 2>/dev/null; then
+      RSTALE="$RSTALE$rb\tancestor\n"
+      continue
+    fi
+    plus=$(git cherry "$RTARGET" "$rb" 2>/dev/null | grep -c '^+' || true)
+    [ -z "$plus" ] && plus=0
+    if [ "$plus" -eq 0 ]; then
+      RSTALE="$RSTALE$rb\tpatch-equivalent\n"
+    else
+      RKEEP="$RKEEP$rb\t$plus unique change(s), no merged PR on record — review\n"
+    fi
+  done
+fi
 
 # --- stash anchors: would any planned deletion orphan a stash's base commit? ---
 STASH_WARN=''
@@ -112,9 +221,22 @@ while git rev-parse --verify --quiet "stash@{$i}" >/dev/null 2>&1; do
 done
 
 # --- report -------------------------------------------------------------------
+if [ "$NO_REMOTE" -ne 1 ] && [ "$HAS_REMOTE" -eq 0 ]; then
+  echo "note: no $REMOTE/$TARGET remote-tracking ref — skipping remote branches."
+  echo
+elif [ "$HAS_REMOTE" -eq 1 ] && [ "$HAS_GH" -eq 0 ]; then
+  echo "note: gh unavailable/unauthenticated — remote branches checked by"
+  echo '      ancestry/patch-id only, which misses squash- or rebase-merged PRs.'
+  echo
+fi
 if [ -n "$KEEP" ]; then
   echo 'KEEPING (not fully landed):'
   printf "$KEEP" | awk -F'\t' 'NF{printf "  %-36s %s\n", $1, $2}'
+  echo
+fi
+if [ -n "$RKEEP" ]; then
+  echo 'KEEPING REMOTE (not confirmed landed):'
+  printf "$RKEEP" | awk -F'\t' 'NF{printf "  %-44s %s\n", $1, $2}'
   echo
 fi
 if [ -n "$BLOCKED" ]; then
@@ -129,46 +251,99 @@ if [ -n "$STASH_WARN" ]; then
   printf "$STASH_WARN"
   echo
 fi
-if [ -z "$STALE" ]; then
+if [ -z "$STALE" ] && [ -z "$RSTALE" ]; then
   echo 'nothing to clean — no fully-landed branches.'
   exit 0
 fi
 
-echo 'STALE (fully landed — will be removed):'
-printf "$STALE" | awk -F'\t' 'NF{printf "  %-36s %-64s %s\n", $1, $2, ($3==""?"":"worktree: " $3)}'
-echo
+if [ -n "$STALE" ]; then
+  echo 'STALE (fully landed — will be removed):'
+  printf "$STALE" | awk -F'\t' 'NF{printf "  %-36s %-64s %s\n", $1, $2, ($3==""?"":"worktree: " $3)}'
+  echo
+fi
+if [ -n "$RSTALE" ]; then
+  echo 'STALE REMOTE (fully landed on '"$REMOTE"' — will be removed with --prune-remote):'
+  printf "$RSTALE" | awk -F'\t' 'NF{printf "  %-44s %s\n", $1, $2}'
+  echo
+fi
 
 if [ "$APPLY" -ne 1 ]; then
-  echo 're-run with --apply to delete these.'
+  [ -n "$STALE" ] && echo 're-run with --apply to delete local branches/worktrees.'
+  [ -n "$RSTALE" ] && echo 're-run with --apply --prune-remote to also delete remote branches.'
   exit 0
 fi
 
 # --- apply: worktree first, then the branch it held ---------------------------
-echo 'applying:'
-printf "$STALE" | while IFS="$(printf '\t')" read -r b how wt; do
-  [ -n "$b" ] || continue
-  if [ -n "$wt" ]; then
-    git worktree remove "$wt" 2>&1 | sed 's/^/  /' \
-      && printf '  removed worktree %s\n' "$wt" \
-      || { printf '  FAILED to remove worktree %s — leaving branch %s\n' "$wt" "$b"; continue; }
-  fi
-  # -d for ancestors; -D only where patch-equivalence is the evidence, since -d
-  # tests reachability and would refuse a landed duplicate.
-  if git branch -d "$b" >/dev/null 2>&1; then
-    printf '  deleted %s (-d)\n' "$b"
-  elif git branch -D "$b" >/dev/null 2>&1; then
-    printf '  deleted %s (-D — landed as a duplicate, -d refused on reachability)\n' "$b"
-  else
-    printf '  FAILED to delete %s\n' "$b"
-  fi
-done
+if [ -n "$STALE" ]; then
+  echo 'applying (local):'
+  printf "$STALE" | while IFS="$(printf '\t')" read -r b how wt; do
+    [ -n "$b" ] || continue
+    if [ -n "$wt" ]; then
+      # only-SCRATCHPAD.md dirt was cleared by the scan; delete the file so a plain remove (never --force) works
+      [ -f "$wt/SCRATCHPAD.md" ] && ! git -C "$wt" ls-files --error-unmatch SCRATCHPAD.md >/dev/null 2>&1 \
+        && [ -z "$(wt_dirt "$wt")" ] && rm -f "$wt/SCRATCHPAD.md"
+      wt_out=$(git worktree remove "$wt" 2>&1)
+      wt_status=$?
+      [ -n "$wt_out" ] && printf '%s\n' "$wt_out" | sed 's/^/  /'
+      if [ "$wt_status" -eq 0 ]; then
+        printf '  removed worktree %s\n' "$wt"
+      else
+        printf '  FAILED to remove worktree %s (exit %s) — leaving branch %s\n' "$wt" "$wt_status" "$b"
+        continue
+      fi
+    fi
+    # -d for ancestors; -D only where patch-equivalence or a merged PR is the evidence, since -d
+    # tests reachability and would refuse a landed duplicate or squash merge.
+    if git branch -d "$b" >/dev/null 2>&1; then
+      printf '  deleted %s (-d)\n' "$b"
+    elif git branch -D "$b" >/dev/null 2>&1; then
+      printf '  deleted %s (-D — landed as a duplicate/squash, -d refused on reachability)\n' "$b"
+    else
+      printf '  FAILED to delete %s\n' "$b"
+    fi
+  done
+  git worktree prune
+  echo
+fi
 
-git worktree prune
-echo
-printf 'remaining branches:\n'
+# --- apply: remote branches, only with the explicit --prune-remote opt-in -----
+if [ -n "$RSTALE" ]; then
+  if [ "$PRUNE_REMOTE" -eq 1 ]; then
+    echo 'applying (remote):'
+    printf "$RSTALE" | while IFS="$(printf '\t')" read -r rb how; do
+      [ -n "$rb" ] || continue
+      b=${rb#"$REMOTE/"}
+      push_out=$(git push "$REMOTE" --delete "$b" 2>&1)
+      push_status=$?
+      [ -n "$push_out" ] && printf '%s\n' "$push_out" | sed 's/^/  /'
+      if [ "$push_status" -eq 0 ]; then
+        printf '  deleted %s on %s\n' "$b" "$REMOTE"
+      else
+        printf '  FAILED to delete %s on %s (exit %s)\n' "$b" "$REMOTE" "$push_status"
+      fi
+    done
+    git fetch "$REMOTE" --prune >/dev/null 2>&1
+    echo
+  else
+    echo 'skipped remote deletion — re-run with --apply --prune-remote to delete the'
+    echo 'STALE REMOTE branches listed above.'
+    echo
+  fi
+fi
+
+printf 'remaining local branches:\n'
 git for-each-ref refs/heads --format='  %(refname:short) -> %(objectname:short)'
 printf 'remaining worktrees:\n'
 git worktree list | sed 's/^/  /'
+if [ "$HAS_REMOTE" -eq 1 ]; then
+  printf 'remaining %s branches:\n' "$REMOTE"
+  # Same symref trap as the scan loop above: `refname:short` gives bare
+  # `origin` for refs/remotes/origin/HEAD, which `grep -v "/HEAD$"` cannot
+  # catch. Filter on the full refname instead.
+  git for-each-ref "refs/remotes/$REMOTE" --format='%(refname) %(refname:short)' \
+    | grep -v "^refs/remotes/$REMOTE/HEAD " \
+    | sed 's/^[^ ]* /  /'
+fi
 echo
 echo 'note: deleted branches leave dangling commits. `git fsck` lists them;'
 echo '`git gc --prune=now` sweeps them, which is the irreversible step — left to you.'

@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type { ScaffoldApplyResult, ScaffoldManifest } from '@midnite/studio-shared';
@@ -87,7 +87,9 @@ export async function applyScaffold(
     }
 
     const data = await readFile(templateFilePath);
-    if (!(await writeConfinedFile(targetRoot, relPath, data))) {
+    // Keep a template script's executable bit; everything else keeps the default mode.
+    const executable = ((await stat(templateFilePath)).mode & 0o111) !== 0;
+    if (!(await writeConfinedFile(targetRoot, relPath, data, executable ? 0o755 : undefined))) {
       skipped.push({ path: relPath, reason: 'could not write that path' });
       continue;
     }

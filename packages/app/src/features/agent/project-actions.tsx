@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 
 import { LuDownload, LuFolderDown, LuWrench } from 'react-icons/lu';
 
-import { MIDNITE_INSTALL_COMMAND } from '@midnite/studio-shared';
+import { MIDNITE_INSTALL_COMMAND, type InstallUserSkillsResult } from '@midnite/studio-shared';
 
 import { useOptionalDialogs } from '../../components/dialog-host';
 import type { IconComponent } from '../../components/icon-button';
@@ -48,6 +48,16 @@ import { bridge } from '../../services/bridge';
  * prompt as an argument to an agent CLI (`claude "…"`), which is exactly wrong for
  * a literal command.
  */
+/** The notice after "Install user skills": what landed where, and every skill it left alone and why. */
+export function installUserSkillsSummary(r: InstallUserSkillsResult): string {
+  const n = r.copied.length;
+  const dirs = (r.targetDirs.length ? r.targetDirs : [r.targetDir]).join(' and ');
+  const head = `Installed ${n} skill${n === 1 ? '' : 's'} into ${dirs}.`;
+  if (!r.skipped.length) return head;
+  const lines = r.skipped.map((s) => `${s.skill} (${s.targetDir}): ${s.reason}`);
+  return `${head} Left ${r.skipped.length} alone, never overwritten: ${lines.join('; ')}.`;
+}
+
 export type ProjectAction = {
   key: 'setup' | 'user-skills' | 'update';
   /** The menu row's label. */
@@ -148,7 +158,7 @@ export function useProjectActions(target: ProjectActionsTarget): {
     {
       key: 'user-skills',
       label: 'Add Skills to user level',
-      buttonLabel: 'Add skills to user level (~/.claude/skills)',
+      buttonLabel: 'Add skills to user level (~/.claude/skills, ~/.agents/skills)',
       icon: LuFolderDown,
       onSelect: async () => {
         const api = bridge();
@@ -161,11 +171,7 @@ export function useProjectActions(target: ProjectActionsTarget): {
         }
         const res = await api.scaffold.installUserSkills();
         if (res.ok) {
-          const count = res.value.copied.length;
-          dialogs?.notify({
-            title: 'Skills installed',
-            body: `Successfully copied ${count} skill${count === 1 ? '' : 's'} to ${res.value.targetDir}.`,
-          });
+          dialogs?.notify({ title: 'Skills installed', body: installUserSkillsSummary(res.value) });
         } else {
           dialogs?.notify({
             title: 'Failed to add skills',

@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { isTracked, logRange } from './lib/git.mjs';
 import { prList } from './lib/gh.mjs';
-import { REPO, arg, biloToken, hasTrailer } from './lib/pr-common.mjs';
+import { REPO, arg, repoToken, hasTrailer } from './lib/pr-common.mjs';
 
 /** Pure preflight. Returns `{ok, blockers[], warnings[]}`. */
 export function evaluate({ branch, base = 'main', existing = [], commits = [], scratchpadTracked = false, behind = 0, pushed = true }) {
@@ -42,7 +42,7 @@ const git = (...a) => execFileSync('git', a, { encoding: 'utf8' }).trim();
 
 export async function main(argv = process.argv.slice(2), { ghRun, create = (args, env) => execFileSync('gh', args, { encoding: 'utf8', env: { ...process.env, ...env } }) } = {}) {
   const base = arg(argv, '--base') ?? 'main';
-  const token = biloToken();
+  const token = repoToken();
   const env = token ? { GH_TOKEN: token } : {};
   let branch = '';
   try {

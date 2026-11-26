@@ -10,7 +10,7 @@
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { ghJson, prChecks, prView } from './lib/gh.mjs';
-import { REPO, biloToken } from './lib/pr-common.mjs';
+import { REPO, repoToken } from './lib/pr-common.mjs';
 import { parseDiff } from './pr-review-lint.mjs';
 
 /** Names of tests/specs this repo treats as known flakes. */
@@ -76,7 +76,7 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
     process.stderr.write('usage: pr-feedback.mjs <pr> [--rerun-flakes] [--json]\n');
     return 2;
   }
-  const env = { GH_TOKEN: biloToken() };
+  const env = { GH_TOKEN: repoToken() };
   const o = { repo: REPO, env, run: deps.ghRun };
   const view = await prView(n, { ...o, fields: 'number,title,isDraft,reviews,comments,headRefName' });
   const checks = await prChecks(n, o);

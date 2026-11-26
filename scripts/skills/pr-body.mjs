@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defaultRun, prView } from './lib/gh.mjs';
-import { REPO, arg, biloToken } from './lib/pr-common.mjs';
+import { REPO, arg, repoToken } from './lib/pr-common.mjs';
 
 const norm = (h) => h.replace(/^#+\s*/, '').trim().toLowerCase();
 
@@ -61,7 +61,7 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
   }
   const content = file !== undefined ? (deps.readFile ?? readFileSync)(file, 'utf8') : text;
   const run = deps.ghRun ?? defaultRun;
-  const o = { repo: REPO, env: { GH_TOKEN: deps.token ?? biloToken() }, run };
+  const o = { repo: REPO, env: { GH_TOKEN: deps.token ?? repoToken() }, run };
   const view = await prView(n, { ...o, fields: 'body' });
   if (!view.ok) {
     process.stderr.write(`gh: ${view.kind}: ${view.message}\n`);

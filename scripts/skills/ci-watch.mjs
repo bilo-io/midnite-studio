@@ -10,7 +10,7 @@
 // when waiting for green, 6 gh error. `--no-llm` is accepted and a no-op (no LLM use here).
 import { fileURLToPath } from 'node:url';
 import { defaultRun, ghJson, prView } from './lib/gh.mjs';
-import { REPO, arg, biloToken } from './lib/pr-common.mjs';
+import { REPO, arg, repoToken } from './lib/pr-common.mjs';
 import { classifyChecks } from './pr-feedback.mjs';
 
 export const EXIT = { ok: 0, fail: 1, usage: 2, timeout: 3, billing: 4, closed: 5, error: 6 };
@@ -79,7 +79,7 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
   const now = deps.now ?? Date.now;
   const log = deps.log ?? ((s) => process.stderr.write(`${s}\n`));
   const run = deps.ghRun ?? defaultRun;
-  const o = { repo: REPO, env: { GH_TOKEN: deps.token ?? biloToken() }, run };
+  const o = { repo: REPO, env: { GH_TOKEN: deps.token ?? repoToken() }, run };
   const start = now();
   const reran = new Set();
   let last = null;

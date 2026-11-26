@@ -11,13 +11,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { classifyError, defaultRun, ghJson } from './gh.mjs';
+import { ENV, skillsConfig } from './skills-config.mjs';
 
-export const REPO = 'bilo-io/midnite-studio';
+/** `owner/name` the tracker files into: $MIDNITE_REPO > .midnite/skills.json `repo` > the origin remote. */
+export const REPO = skillsConfig().repo;
 export const CATEGORIES = ['features', 'security', 'issues'];
 export const WIP_LABEL = 'wip';
-export const PROJECT_ENV = 'MIDNITE_TRACKER_PROJECT';
-/** The tracker's board: bilo-io's user project 8, "bilo-io: all repos" — every phase issue's card lives there. */
-export const DEFAULT_PROJECT = 8;
+export const PROJECT_ENV = ENV.project;
+/**
+ * The tracker's default board: `project` in .midnite/skills.json (or $MIDNITE_TRACKER_PROJECT), null when
+ * neither is set. A repo with no board configured files issues without cards; it never guesses a board.
+ */
+export const DEFAULT_PROJECT = skillsConfig().project;
 
 // ---------------------------------------------------------------- pure: titles, labels, bodies
 
@@ -335,7 +340,8 @@ export function createTracker({ run = defaultRun, repo = REPO, env, dryRun = fal
    * File a phase and its themes: `{title, category, body, themes:[{title, body}]}`. Titles are used as given;
    * each theme is created, then linked as a sub-issue. Dry-run numbers are placeholders (`<phase>`, `<theme 1>`).
    * With `board: {status, project}` every new issue is also put on that board (`project` defaults to
-   * `$MIDNITE_TRACKER_PROJECT`, else board 8). A board failure is reported in `boardErrors`, never undoes the filing.
+   * `$MIDNITE_TRACKER_PROJECT`, else the configured `project`; with neither, no card is made and
+   * `boardErrors` says so). A board failure is reported in `boardErrors`, never undoes the filing.
    */
   async function file({ title, category, body, themes = [], board: onBoard }) {
     if (!CATEGORIES.includes(category)) return { ok: false, kind: 'usage', message: `category must be one of ${CATEGORIES.join('/')}` };
@@ -355,6 +361,7 @@ export function createTracker({ run = defaultRun, repo = REPO, env, dryRun = fal
     }
     if (!onBoard) return { ok: true, phase: phaseNo, themes: filed };
     const project = onBoard.project || process.env[PROJECT_ENV] || DEFAULT_PROJECT;
+    if (!project) return { ok: true, phase: phaseNo, themes: filed, board: null, boardErrors: [{ number: phaseNo, message: `no project board configured (set "project" in .midnite/skills.json or ${PROJECT_ENV}); no cards made` }] };
     const boardErrors = [];
     for (const n of [phaseNo, ...filed.map((f) => f.number)]) {
       const b = await board(n, onBoard.status ?? 'Todo', { project });
@@ -417,7 +424,7 @@ export function createTracker({ run = defaultRun, repo = REPO, env, dryRun = fal
 
   /**
    * Resolve the project board. Order: explicit `project` (number) > the issue's existing project item >
-   * `$MIDNITE_TRACKER_PROJECT` > `DEFAULT_PROJECT` (board 8). An issue on several boards resolves to the
+   * `$MIDNITE_TRACKER_PROJECT` > `DEFAULT_PROJECT` (the configured board, if any). An issue on several boards resolves to the
    * default board when it is one of them; otherwise that is 'ambiguous' rather than a guess.
    */
   async function resolveProject(n, { project, envProject = process.env[PROJECT_ENV], defaultProject = DEFAULT_PROJECT } = {}) {

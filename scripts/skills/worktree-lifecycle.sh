@@ -99,7 +99,10 @@ case "$cmd" in
         cd "$path"
         for v in $(env | grep -o '^MOON_[A-Z_]*' || true); do unset "$v"; done
         export GITHUB_PACKAGES_TOKEN="${GITHUB_PACKAGES_TOKEN:-$(gh auth token 2>/dev/null || true)}"
-        pnpm install --frozen-lockfile 2>&1 | tail -3
+        if [[ -f pnpm-lock.yaml ]]; then pnpm install --frozen-lockfile 2>&1 | tail -3
+        elif [[ -f package-lock.json ]]; then npm ci 2>&1 | tail -3
+        elif [[ -f yarn.lock ]]; then yarn install --frozen-lockfile 2>&1 | tail -3
+        else echo "no lockfile: skipped the install" >&2; fi
       )
     fi
     echo "$path"

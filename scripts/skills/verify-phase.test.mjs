@@ -107,8 +107,10 @@ describe('verify-phase', () => {
     expect(items.map((i) => [i.theme, i.id])).toEqual([['A', '9.A.1'], ['A', '9.A.2'], ['A', '9.A.3'], ['A', '9.A.4'], ['B', '9.B.1']]);
   });
   it('never plans the full gate by default; --full opts in', async () => {
-    expect(planGate().find((s) => s.name === 'full gate').run).toBe(false);
-    expect(planGate({ full: true }).find((s) => s.name === 'full gate').run).toBe(true);
+    const gate = ['make', 'check'];
+    expect(planGate({ gate }).find((s) => s.name === 'full gate').run).toBe(false);
+    expect(planGate({ full: true, gate }).find((s) => s.name === 'full gate')).toMatchObject({ run: true, cmd: gate });
+    expect(planGate({ full: true, gate: null }).find((s) => s.name === 'full gate').run).toBe(false); // no gate declared: listed, never run
     const ran = [];
     const r = await verify({ tracker: fakeTracker(), phase: 9, exec: (cmd) => (ran.push(cmd.join(' ')), { code: 0, out: 'ok' }) });
     expect(ran).toEqual([]);
