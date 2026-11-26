@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Push as bilo-io (Phase 151 Theme H). The active gh account is often a different one and 403s, so the
-# token comes from `gh auth token -u bilo-io` and goes in through a one-shot credential helper (never
-# written to config or argv logs of the remote). Refuses when any commit since the base carries a
-# Co-Authored-By / Signed-off-by trailer, or when SCRATCHPAD.md is tracked.
+# Guarded push (Phase 151 Theme H). With a gh account configured ($MIDNITE_GH_USER, else "ghUser" in
+# .midnite/skills.json) it pushes as that account: the token comes from `gh auth token -u <user>` and goes
+# in through a one-shot credential helper (never written to config or argv logs of the remote), because
+# the active gh account is often a different one and 403s. Without one it is a plain `git push`.
+# Refuses when any commit since the base carries a Co-Authored-By / Signed-off-by trailer, or when
+# SCRATCHPAD.md is tracked.
 #
 #   scripts/skills/push.sh [ref] [--base origin/main] [--fix] [--check]
 #     ref      branch to push (default: current branch)
@@ -48,5 +50,8 @@ fi
 
 [ "$check" = 1 ] && { echo "push.sh: guards passed"; exit 0; }
 
-T=$(gh auth token -u bilo-io)
-git -c credential.helper= -c "credential.helper=!f(){ echo username=bilo-io; echo password=$T; }; f" push -u origin "$ref"
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+user="${MIDNITE_GH_USER:-$(node -e 'import(process.argv[1]).then((m)=>console.log(m.skillsConfig().ghUser??""))' "$here/lib/skills-config.mjs" 2>/dev/null || true)}"
+if [ -z "$user" ]; then exec git push -u origin "$ref"; fi
+T=$(gh auth token -u "$user")
+git -c credential.helper= -c "credential.helper=!f(){ echo username=$user; echo password=$T; }; f" push -u origin "$ref"

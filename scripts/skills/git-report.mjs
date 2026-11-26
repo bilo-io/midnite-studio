@@ -16,6 +16,7 @@ import { bar, mdTable } from './lib/format.mjs';
 import * as gh from './lib/gh.mjs';
 import { isNoLlm, run as ollama } from './lib/ollama.mjs';
 import { createTracker } from './lib/forge-tracker.mjs';
+import { skillsConfig } from './lib/skills-config.mjs';
 import { resolveWindow, utcToSastHM, wantsPdf } from './sast.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -293,7 +294,7 @@ export async function main(argv = process.argv.slice(2), now = new Date()) {
   mkdirSync(dir, { recursive: true });
   const htmlPath = path.join(dir, `git-report-${win.end}.html`);
   writeFileSync(htmlPath, injectTemplate(readFileSync(path.join(repoRoot, TEMPLATE_REL), 'utf8'), report));
-  const pdfPath = path.join(o.out ?? path.join(homedir(), 'Desktop'), `midnite-studio-git-report-${win.end}.pdf`);
+  const pdfPath = path.join(o.out ?? path.join(homedir(), 'Desktop'), `${(skillsConfig().repo ?? 'repo').split('/').pop()}-git-report-${win.end}.pdf`);
   const res = await renderPdf({ chrome: findChrome(), htmlPath, pdfPath });
   console.error(res.ok ? `pdf: ${res.path}` : `pdf skipped: ${res.reason}`); // never fail the report over it
   return 0;

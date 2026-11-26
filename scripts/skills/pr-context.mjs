@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { defaultRun, ghJson, prView } from './lib/gh.mjs';
 import { fetchChecks } from './ci-watch.mjs';
 import { worktreeList } from './lib/git.mjs';
-import { REPO, biloToken } from './lib/pr-common.mjs';
+import { REPO, repoToken } from './lib/pr-common.mjs';
 
 const VIEW_FIELDS = 'number,title,url,state,isDraft,headRefName,baseRefName,author,body,reviewDecision,reviews,comments,labels,additions,deletions,changedFiles,mergeable,files';
 
@@ -37,7 +37,7 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
   }
   const run = deps.ghRun ?? defaultRun;
   const gitRun = deps.gitRun ?? ((a, o = {}) => Promise.resolve(execFileSync('git', a, { encoding: 'utf8', cwd: o.cwd })));
-  const o = { repo: REPO, env: { GH_TOKEN: deps.token ?? biloToken() }, run };
+  const o = { repo: REPO, env: { GH_TOKEN: deps.token ?? repoToken() }, run };
   let n = argv.find((a) => /^\d+$/.test(a));
   if (!n) {
     const branch = (await gitRun(['rev-parse', '--abbrev-ref', 'HEAD'])).trim();

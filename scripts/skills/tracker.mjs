@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { bar, mdTable, pct } from './lib/format.mjs';
 import { CATEGORIES, DEFAULT_PROJECT, PROJECT_ENV, REPO, createTracker } from './lib/forge-tracker.mjs';
-import { biloToken } from './lib/pr-common.mjs';
+import { repoToken } from './lib/pr-common.mjs';
 
 export const HELP = `tracker — the phase tracker on the forge (docs/TRACKER.md)
 
@@ -33,10 +33,12 @@ Write (each accepts --dry-run: prints the exact gh calls, runs none)
   refine-stamp <issue>|--phase N         swap refined-<N-1> for refined-N
   close <issue> [--comment "..."]        drop wip, then close
   board <issue> --status S [--project N] set the board card's Status (project: --project > the issue's board
-                                         > $${PROJECT_ENV} > board ${DEFAULT_PROJECT}; several boards without
-                                         board ${DEFAULT_PROJECT} among them is "ambiguous", never a guess)
+                                         > $${PROJECT_ENV} > the configured board, now ${DEFAULT_PROJECT ?? 'none'};
+                                         several boards without it among them is "ambiguous", never a guess)
 
-Exit: 0 ok · 1 gh / forge failure · 2 usage. GH_TOKEN defaults to the bilo-io account's token.`;
+Repo: --repo > $MIDNITE_REPO > .midnite/skills.json "repo" > the origin remote (now ${REPO ?? 'unresolved'}).
+Exit: 0 ok · 1 gh / forge failure · 2 usage. GH_TOKEN defaults to the token of .midnite/skills.json's
+"ghUser", else the active gh account's. See docs/TRACKER.md.`;
 
 const WRITES = new Set(['file', 'link', 'claim', 'tick', 'headlines', 'refine-stamp', 'close', 'board']);
 const MULTI = new Set(['--theme-file']);
@@ -219,7 +221,7 @@ function render(cmd, r) {
 
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const env = process.env.GH_TOKEN ? undefined : { GH_TOKEN: biloToken() || undefined };
+  const env = process.env.GH_TOKEN ? undefined : { GH_TOKEN: repoToken() || undefined };
   run(process.argv.slice(2), { env }).then(
     ({ code, text }) => { process.stdout.write(`${text}\n`); process.exitCode = code; },
     (e) => { process.stderr.write(`${e.stack ?? e}\n`); process.exitCode = 1; },

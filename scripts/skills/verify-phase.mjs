@@ -9,7 +9,7 @@
 //
 // Default: locate the oldest open phase issue (or --phase N, the phase number), partition its themes'
 // checklist into automated vs human items, and LIST the focused commands to run (they need the touched
-// files, so they are never run here). It never runs the full `moon run :typecheck :lint :test` unless --full
+// files, so they are never run here). It never runs the repo's full gate (`gate` in .midnite/skills.json) unless --full
 // is passed (that gate exhausts RAM on the dev machine). Writes need explicit flags: --tick edits the theme
 // sub-issue bodies; --complete (with --confirm) closes every open theme sub-issue and then the phase issue.
 // The Headlines ✅ sentence stays with the agent (`node scripts/skills/tracker.mjs headlines …`).
@@ -18,10 +18,12 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { countTasks, createTracker } from './lib/forge-tracker.mjs';
-import { biloToken } from './lib/pr-common.mjs';
+import { repoToken } from './lib/pr-common.mjs';
+import { skillsConfig } from './lib/skills-config.mjs';
 import { shellLine } from './tracker.mjs';
 
-export const FULL_GATE = ['moon', 'run', ':typecheck', ':lint', ':test'];
+/** The repo's full gate argv, from .midnite/skills.json `gate`; null when the repo has not declared one. */
+export const FULL_GATE = skillsConfig().gate;
 const HUMAN = /open,?\s+for a human|for a human|human[- ](?:pass|verif|sign)|manual(?:ly)?\b|by hand|eyeball|visual(?:ly)? (?:check|review)|sign[- ]?off/i;
 const EXCLUDED = /⏳\s*\*{0,2}\s*deferred|❌\s*\*{0,2}\s*OUT OF SCOPE/i;
 
@@ -90,12 +92,13 @@ export async function loadPhase(tracker, phaseNo) {
 }
 
 /** The gate: what runs by default, what is merely listed, and what --full adds. */
-export function planGate({ full = false } = {}) {
+export function planGate({ full = false, gate = FULL_GATE } = {}) {
   // tracker-check is gone with the tracked tracker (planning moved to forge issues), so nothing runs by default.
   const steps = [];
   steps.push({ name: 'focused tests', cmd: ['npx', 'vitest', 'run', '<changed test files>'], run: false, note: 'run the tests of the packages the phase touched' });
   steps.push({ name: 'focused lint', cmd: ['npx', 'eslint', '<touched files>'], run: false });
-  steps.push({ name: 'full gate', cmd: FULL_GATE, run: full, note: full ? undefined : 'opt-in (--full): exhausts RAM on the dev machine' });
+  if (!gate) steps.push({ name: 'full gate', cmd: ['<the project gate>'], run: false, note: 'no "gate" in .midnite/skills.json: run the project\'s own gate by hand' });
+  else steps.push({ name: 'full gate', cmd: gate, run: full, note: full ? undefined : 'opt-in (--full): the whole gate is slow and memory-hungry' });
   return steps;
 }
 
@@ -182,7 +185,7 @@ export async function main(argv = process.argv.slice(2), { out = (s) => process.
   const root = arg(argv, '--root') ?? join(dirname(fileURLToPath(import.meta.url)), '..', '..');
   const phase = arg(argv, '--phase');
   const dryRun = argv.includes('--dry-run');
-  const t = tracker ?? createTracker({ dryRun, env: process.env.GH_TOKEN ? undefined : { GH_TOKEN: biloToken() || undefined } });
+  const t = tracker ?? createTracker({ dryRun, env: process.env.GH_TOKEN ? undefined : { GH_TOKEN: repoToken() || undefined } });
   const tick = arg(argv, '--tick');
   if (tick != null || argv.includes('--complete')) {
     if (phase == null) return out('--tick/--complete need --phase N'), 2;

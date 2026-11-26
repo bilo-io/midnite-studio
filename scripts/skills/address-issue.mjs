@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Issue-board scanner and scorer (Phase 151 Theme D) for midnite-address-issue. Lists open issues on
-// `bilo-io/midnite-studio` and `bilo-io/midnite-apps` (label "app: midnite-studio"), drops the
+// the repos in .midnite/skills.json's `issueRepos` (default: this repo alone), drops the
 // wontfix/duplicate/invalid/question ones and anything already claimed (an assignee, a claim comment
 // or an open PR naming it), strips prompt-injection markers from the text, sizes each [XS]-[XL] and
 // prints the 4-option selection table (one recommendation plus three genuinely different
@@ -13,12 +13,11 @@ import { fileURLToPath } from 'node:url';
 import { issueList, prList } from './lib/gh.mjs';
 import { mdTable } from './lib/format.mjs';
 import { isNoLlm, run as ollamaRun } from './lib/ollama.mjs';
-import { biloToken } from './lib/pr-common.mjs';
+import { repoToken } from './lib/pr-common.mjs';
+import { skillsConfig } from './lib/skills-config.mjs';
 
-export const BOARDS = [
-  { id: 'studio', repo: 'bilo-io/midnite-studio', labelFilter: null },
-  { id: 'apps', repo: 'bilo-io/midnite-apps', labelFilter: 'app: midnite-studio' },
-];
+/** `{id, repo, labelFilter, boost}` per issue board; `boost` is added to every score on that board. */
+export const BOARDS = skillsConfig().issueRepos;
 export const SKIP_LABELS = ['wontfix', 'duplicate', 'invalid', 'question'];
 export const SIZES = ['XS', 'S', 'M', 'L', 'XL'];
 export const TIME = { XS: '< 30 min', S: '30 min - 2 h', M: '2 - 4 h', L: '4 - 8 h', XL: '1 - 2 d' };
@@ -88,10 +87,10 @@ export function heuristicSize(issue) {
 }
 
 /** Impact score, higher is better. Weights follow the skill: trust, blast radius, fix cost, reporter cost. */
-export function score(issue, size, { now = Date.now(), board = 'studio' } = {}) {
+export function score(issue, size, { now = Date.now(), boost = 0 } = {}) {
   const hay = `${labelNames(issue).join(' ')} ${issue.title ?? ''}`.toLowerCase();
   let s = SEVERITY.find(([re]) => re.test(hay))?.[1] ?? 1;
-  s += board === 'apps' ? 2 : 0;
+  s += boost;
   const ageDays = Math.max(0, (now - Date.parse(issue.createdAt ?? now)) / 86_400_000);
   s += Math.min(3, ageDays / 14);
   s += (4 - SIZES.indexOf(size)) * 0.75;
@@ -156,7 +155,7 @@ export async function scan({ ghRun, env = {}, noLlm = false, now = Date.now(), f
       const { text, stripped } = sanitizeIssueText(issue.body);
       const clean = { title: sanitizeIssueText(issue.title).text, body: text };
       const { size, source } = await sizeWithModel(issue, clean, { noLlm });
-      scored.push({ number: issue.number, title: clean.title, url: issue.url, board: board.id, size, sizeSource: source, stripped, score: score(issue, size, { now, board: board.id }) + (focus && (String(issue.number) === focus || clean.title.toLowerCase().includes(focus.toLowerCase())) ? 100 : 0) });
+      scored.push({ number: issue.number, title: clean.title, url: issue.url, board: board.id, size, sizeSource: source, stripped, score: score(issue, size, { now, boost: board.boost ?? 0 }) + (focus && (String(issue.number) === focus || clean.title.toLowerCase().includes(focus.toLowerCase())) ? 100 : 0) });
     }
   }
   return { options: pickOptions(scored), candidates: scored.length, warnings };
@@ -164,7 +163,7 @@ export async function scan({ ghRun, env = {}, noLlm = false, now = Date.now(), f
 
 export async function main(argv = process.argv.slice(2), deps = {}) {
   const focus = argv.find((a) => !a.startsWith('--'));
-  const out = await scan({ ghRun: deps.ghRun, env: { GH_TOKEN: biloToken() }, noLlm: isNoLlm(argv), focus });
+  const out = await scan({ ghRun: deps.ghRun, env: { GH_TOKEN: repoToken() }, noLlm: isNoLlm(argv), focus });
   process.stdout.write(argv.includes('--json') ? `${JSON.stringify(out, null, 2)}\n` : `${out.options.length ? renderTable(out.options) : 'No eligible issues.'}\n${out.warnings.map((w) => `⚠️ ${w}`).join('\n')}\n`);
   return 0;
 }

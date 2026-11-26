@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createTracker, countTasks } from './lib/forge-tracker.mjs';
 import { prView } from './lib/gh.mjs';
-import { REPO, biloToken, phaseFromBranch } from './lib/pr-common.mjs';
+import { REPO, repoToken, phaseFromBranch } from './lib/pr-common.mjs';
 import { parseDiff } from './pr-review-lint.mjs';
 
 /** L4: channel constants and zod schemas on added lines of the wire-contract files. */
@@ -79,7 +79,7 @@ export async function main(argv = process.argv.slice(2), { ghRun, tracker } = {}
     process.stderr.write('usage: pr-audit.mjs <pr> [--json]\n');
     return 2;
   }
-  const env = { GH_TOKEN: biloToken() };
+  const env = { GH_TOKEN: repoToken() };
   const view = await prView(n, { repo: REPO, env, run: ghRun, fields: 'number,title,body,headRefName,baseRefName,closingIssuesReferences' });
   if (!view.ok) {
     process.stderr.write(`gh: ${view.kind}: ${view.message}\n`);

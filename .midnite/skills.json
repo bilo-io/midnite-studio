@@ -1,0 +1,10 @@
+{
+  "repo": "bilo-io/midnite-studio",
+  "ghUser": "bilo-io",
+  "project": 8,
+  "issueRepos": [
+    { "id": "studio", "repo": "bilo-io/midnite-studio" },
+    { "id": "apps", "repo": "bilo-io/midnite-apps", "labelFilter": "app: midnite-studio", "boost": 2 }
+  ],
+  "gate": ["moon", "run", ":typecheck", ":lint", ":test"]
+}
