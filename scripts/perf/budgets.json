@@ -15,6 +15,9 @@
   "_scroll": "Median frame gap over a 60-frame rAF-driven scroll of a 4000-line diff, x 2.5. Inherited as a literal 100 from diff-scroll-perf.spec.ts, which was an order-of-magnitude tripwire rather than a budget; the measurement is 8.5 ms, so the rule gives 22.",
   "diffScrollMedianGapMs": 22,
 
+  "_graphScroll": "Phase 77 Theme B. Measured on Darwin arm64, dev server + mock bridge, 2026-11-27, other agents running: median frame gap over a 60-frame rAF-driven scroll of a synthetic 5000-row, 40-lane commit graph (every row carrying 39 pass-through lanes) was 41-44 ms across 6 runs, x 2.5 = 105. The same rows with the lanes as 39 straight edges instead of a `through` column measured the same (40.8-42.4 ms): the scroll is DOM-bound, one <line> per lane either way, which is exactly why Theme B claims layout time, IPC bytes and heap and not scroll time. This budget is a regression tripwire for the painter, not a claim of a scroll win.",
+  "graphScrollMedianGapMs": 105,
+
   "_retention": "Measured on Darwin arm64. Phase 85 Theme C. SLOPE (bytes retained PER CYCLE). Replaced the single provisional 500 KB/cycle with group- and action-calibrated budgets. Heap snapshot diffing (--heap-diff) confirmed renderer has zero retained constructor growth (~11KB delta across 20 cycles, sub-KB for all application classes). In main and broker, RSS swings during early cycles from allocator/V8 churn and terminal pty buffers, while Chromium's GPU process warms up shaders and compositor surfaces. Falling slopes (negative delta) represent memory returned and are not leaks.",
   "retention": {
     "default": 500,

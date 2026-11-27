@@ -1,7 +1,8 @@
 import { LaneLayoutSession, readCommitDetail, streamLog } from '@midnite/studio-git-engine';
-import { EVENT_CHANNELS, type GraphRow } from '@midnite/studio-shared';
+import { EVENT_CHANNELS, perfEnabled, type GraphRow } from '@midnite/studio-shared';
 import type { BrowserWindow } from 'electron';
 
+import { defaultLogger } from './log';
 import {
   BATCH_SIZE,
   cancel as cancelStream,
@@ -9,6 +10,35 @@ import {
   register,
   release,
 } from './stream-registry';
+
+/**
+ * Phase 77 Theme B: how long the lane layout takes over a whole stream, and how big the first
+ * batch is on the wire, behind `MSTUDIO_PERF=1`. A closure resolved once at module load on
+ * `agent-process.ts`'s `countPsRead` pattern, so with the flag unset a call site pays one no-op.
+ * It is local rather than a `bootMark`: that one's name union is read by `startup-report.mjs`.
+ */
+type LayoutPerf = { batch(layoutMs: number, rows: readonly GraphRow[]): void; done(): void };
+const NO_LAYOUT_PERF: LayoutPerf = { batch: () => {}, done: () => {} };
+const newLayoutPerf: () => LayoutPerf = perfEnabled(process.env)
+  ? () => {
+      let layoutMs = 0;
+      let rows = 0;
+      let firstBatchBytes: number | null = null;
+      return {
+        batch(ms, batchRows) {
+          layoutMs += ms;
+          rows += batchRows.length;
+          // The first batch only: JSON.stringify is the measurement, so it is not repeated per batch.
+          firstBatchBytes ??= JSON.stringify(batchRows).length;
+        },
+        done() {
+          defaultLogger(
+            `[perf] main graph-layout rows=${rows} layoutMs=${layoutMs.toFixed(1)} firstBatchBytes=${firstBatchBytes ?? 0}`,
+          );
+        },
+      };
+    }
+  : () => NO_LAYOUT_PERF;
 
 export type LogStartOptions = {
   requestId: string;
@@ -35,6 +65,7 @@ export function logOptionsFor(options: LogStartOptions): {
  */
 export function startLog(win: BrowserWindow, options: LogStartOptions): void {
   const session = new LaneLayoutSession();
+  const layoutPerf = newLayoutPerf();
   let total = 0;
   let finished = false;
 
@@ -47,7 +78,9 @@ export function startLog(win: BrowserWindow, options: LogStartOptions): void {
     logOptionsFor(options),
     (commits) => {
       if (finished) return;
+      const laidOutAt = performance.now();
       const rows: GraphRow[] = session.push(commits);
+      layoutPerf.batch(performance.now() - laidOutAt, rows);
       total += rows.length;
       send(EVENT_CHANNELS.logBatch, { requestId: options.requestId, rows });
     },
@@ -67,6 +100,7 @@ export function startLog(win: BrowserWindow, options: LogStartOptions): void {
     .then((result) => {
       if (finished) return;
       finished = true;
+      layoutPerf.done();
 
       send(EVENT_CHANNELS.logDone, {
         requestId: options.requestId,
