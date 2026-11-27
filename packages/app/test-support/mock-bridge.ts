@@ -2536,7 +2536,7 @@ export function buildMockBridge(data: MockFixtures) {
       },
       forget: noop,
       reorder: noop,
-      recoverDetached: async () => ({ ok: true as const, recovered: [], live: 0, previousBuild: 0 }),
+      recoverDetached: async () => ({ ok: true as const, recovered: [], live: 0, previousBuild: 0, otherApps: [] }),
       endSessions: async (req: { sessionIds: string[] }) => ({ ok: true as const, ended: req.sessionIds }),
       endPreviousBuild: async () => ({ ok: true as const, ended: [] }),
     },

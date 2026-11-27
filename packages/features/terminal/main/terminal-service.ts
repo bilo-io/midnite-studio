@@ -342,6 +342,16 @@ function studioPtys(): NonNullable<ReturnType<NonNullable<TerminalPtyPort['liveB
   return (port().pty.liveBrokerSessions?.() ?? []).filter((p) => !p.owner || p.owner === 'studio');
 }
 
+/** Guest apps' ptys on the shared broker, counted by owner. `studioPtys()`'s complement: never adopted. */
+function otherAppPtys(): { app: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const p of port().pty.liveBrokerSessions?.() ?? []) {
+    if (!p.owner || p.owner === 'studio') continue;
+    counts.set(p.owner, (counts.get(p.owner) ?? 0) + 1);
+  }
+  return [...counts].map(([app, count]) => ({ app, count }));
+}
+
 export type DetachedSession = { sessionId: string; title: string; cwd: string; repoId: string; legacy: boolean };
 
 const detached = (row: TerminalSession, legacy: boolean): DetachedSession => ({
@@ -362,12 +372,13 @@ export async function recoverDetachedSessions(): Promise<{
   recovered: DetachedSession[];
   live: number;
   previousBuild: number;
+  otherApps: { app: string; count: number }[];
 }> {
   await port().pty.rescanBrokerSessions?.();
   await ensureLoaded();
   const recovered = recoverOrphanedPtys();
   const live = studioPtys();
-  return { recovered, live: live.length, previousBuild: live.filter((p) => p.legacy).length };
+  return { recovered, live: live.length, previousBuild: live.filter((p) => p.legacy).length, otherApps: otherAppPtys() };
 }
 
 /**

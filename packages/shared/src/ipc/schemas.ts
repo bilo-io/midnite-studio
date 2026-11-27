@@ -2199,6 +2199,8 @@ export const TerminalRecoverDetachedResponse = z.discriminatedUnion('ok', [
     live: z.number().int().nonnegative(),
     /** How many of those run in a previous build's broker. */
     previousBuild: z.number().int().nonnegative(),
+    /** Sessions another app owns on the shared broker, by owner: counted, never adopted (Phase 148 D.4). */
+    otherApps: z.array(z.object({ app: z.string().min(1), count: z.number().int().positive() })).optional(),
   }),
   TerminalOpError,
 ]);

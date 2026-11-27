@@ -246,6 +246,17 @@ describe('recoverDetachedSessions', () => {
     expect(await savedIds(dir)).toEqual(['a', 'late-1', 'late-2']);
   });
 
+  it('counts a guest app\'s ptys under otherApps and never adopts them', async () => {
+    const dir = await seeded([]);
+    live.push(pty('g1', { owner: 'agents' }), pty('g2', { owner: 'agents' }), pty('own', { owner: 'studio' }));
+    const result = await recoverDetachedSessions();
+    expect(result.otherApps).toEqual([{ app: 'agents', count: 2 }]);
+    expect(result.recovered.map((r) => r.sessionId)).toEqual(['own']);
+    expect(result.live).toBe(1);
+    await shutdownTerminals();
+    expect(await savedIds(dir)).toEqual(['own']);
+  });
+
   it('recovers nothing twice', async () => {
     await seeded([]);
     live.push(pty('orphan'));

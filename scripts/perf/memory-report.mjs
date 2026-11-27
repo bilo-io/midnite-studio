@@ -20,6 +20,7 @@
  *   node scripts/perf/memory-report.mjs --action=terminal --assert   # fail on a budget breach
  *   node scripts/perf/memory-report.mjs --popout=graph               # Phase 84 Theme H.4
  *   node scripts/perf/memory-report.mjs --hidden-sessions=10         # Phase 84 Theme J.1/E.6
+ *   node scripts/perf/memory-report.mjs --action=free-ram [--sessions=6] # Phase 148 Theme C.7
  *   node scripts/perf/memory-report.mjs --hidden-tabs=8              # Phase 84 Theme J.1/F.5
  *
  * `--popout=<role>` is a different shape of measurement from `--action` above
@@ -73,7 +74,7 @@
  * running broker, socket and all).
  */
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { appendFileSync, copyFileSync, existsSync, readFileSync, renameSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
 import { join, resolve } from 'node:path';
@@ -1448,6 +1449,145 @@ export async function runGraphReturn({ repo, runs = 5 }) {
   }
 }
 
+
+/**
+ * Per-class RSS for the app tree PLUS every broker (and its shells) holding `profile`. A previous-build
+ * broker is spawned detached, so it is reparented away from the app and `rssSnapshotKb(appPid)` never
+ * sees it; this walks from the app pid and from each `broker.js` whose argv names the profile. A pty
+ * shell under a broker is its own class (`brokerShells`), not `main`, which is what `classifyProcess`
+ * would call any argv without `--type=`.
+ */
+export function freeRamSnapshotKb(appPid, profile) {
+  const out = execFileSync('ps', ['-Ao', 'pid=,ppid=,rss=,args='], {
+    encoding: 'utf8',
+    env: { ...process.env, LC_ALL: 'C' },
+  });
+  const rows = [];
+  for (const line of out.split('\n')) {
+    const [pid, ppid, rss, ...rest] = line.trim().split(/\s+/);
+    if (!Number.isFinite(Number(rss))) continue;
+    rows.push({ pid: Number(pid), ppid: Number(ppid), rssKb: Number(rss), args: rest.join(' ') });
+  }
+  const kids = new Map();
+  for (const r of rows) kids.set(r.ppid, [...(kids.get(r.ppid) ?? []), r]);
+  const totals = { main: 0, renderer: 0, gpu: 0, broker: 0, brokerShells: 0, other: 0 };
+  const seen = new Set();
+  const walk = (row, underBroker) => {
+    if (seen.has(row.pid)) return;
+    seen.add(row.pid);
+    const cls = classifyProcess(row.args);
+    const isBroker = cls === 'broker';
+    const key = underBroker && !isBroker ? 'brokerShells' : cls in totals ? cls : 'other';
+    totals[key] += row.rssKb;
+    for (const c of kids.get(row.pid) ?? []) walk(c, underBroker || isBroker);
+  };
+  const app = rows.find((r) => r.pid === appPid);
+  if (app) walk(app, false);
+  for (const r of rows) {
+    if (classifyProcess(r.args) === 'broker' && r.args.includes(profile)) walk(r, false);
+  }
+  return totals;
+}
+
+/**
+ * Phase 148 Theme C.7 — what "Free RAM" frees. A previous-build broker is made the real way: run the
+ * current bundle's broker (owner `studio`) holding `sessions` idle shells, quit the app, change
+ * `broker.js`'s bytes (its build fingerprint is a content hash, see `fingerprintFile`) and relaunch on the
+ * same profile, so the app finds the old broker as a legacy peer. Then measure, run the same op the
+ * flyout's confirm runs (`freeRamPlan` then `freeRam` over every candidate id), and measure again.
+ * `broker.js` is restored byte-for-byte in `finally`.
+ */
+export async function runFreeRam({ repo, sessions = 6 }) {
+  requireBuilt();
+  const brokerJs = join(REPO_ROOT, 'packages', 'desktop', 'dist', 'bundle', 'broker.js');
+  const backup = `${brokerJs}.free-ram-orig`;
+  // A crashed earlier run can leave the patched file behind with the original beside it: put it back first.
+  if (existsSync(backup)) renameSync(backup, brokerJs);
+  const expected = getExpectedMarks();
+  const profile = await seedProfile(repo, expected, { tmpPrefix: '/tmp/mstudio-perf-' });
+  let devtoolsUrl = null;
+  const start = async () => {
+    devtoolsUrl = null;
+    const run = await launch({
+      profile,
+      repo,
+      extraArgs: ['--remote-debugging-port=0'],
+      until: (marks) => expected.every((n) => marks.has(n)) && devtoolsUrl !== null,
+      onLine: (line) => {
+        const m = DEVTOOLS_LINE.exec(line.trim());
+        if (m) devtoolsUrl = m[1];
+      },
+    });
+    if (!run.child.pid || !devtoolsUrl) throw new Error('the app did not start, or never printed a DevTools endpoint');
+    const browser = await chromiumModule().connectOverCDP(devtoolsUrl);
+    const page = browser.contexts()[0]?.pages().find((p) => !p.url().startsWith('devtools://'));
+    if (!page) throw new Error('CDP connected but no app page was found');
+    return { run, browser, page };
+  };
+  let live = null;
+  let patched = false;
+  try {
+    process.stderr.write(`launch 1: ${sessions} idle shells in the current build's broker…\n`);
+    live = await start();
+    const repoId = await live.page.evaluate(async (path) => {
+      const opened = await window.midniteStudio.repos.open({ path });
+      if (!opened.ok) throw new Error(`repos.open failed: ${opened.message}`);
+      return opened.repo.id;
+    }, repo);
+    await live.page.evaluate(
+      async ({ ids, repoId, cwd }) => {
+        for (const sessionId of ids) {
+          const c = await window.midniteStudio.pty.create({ sessionId, kind: 'shell', repoId, cwd, cols: 80, rows: 24 });
+          if (!c.ok) throw new Error(`pty.create failed: ${c.message}`);
+        }
+      },
+      { ids: Array.from({ length: sessions }, () => randomUUID()), repoId, cwd: repo },
+    );
+    await sleep(2_000);
+    await live.browser.close();
+    // Quit the app only; the broker is detached and keeps the shells.
+    live.run.child.kill('SIGTERM');
+    await sleep(3_000);
+    process.stderr.write(
+      `after quit: ${JSON.stringify(freeRamSnapshotKb(0, profile))} (brokers holding the profile)\n`,
+    );
+
+    copyFileSync(brokerJs, backup);
+    appendFileSync(brokerJs, '\n// free-ram perf: new build fingerprint\n');
+    patched = true;
+
+    process.stderr.write('launch 2: same profile, new build, so the old broker is a previous-build peer…\n');
+    live = await start();
+    await sleep(SETTLE_MS / 3);
+    const before = freeRamSnapshotKb(live.run.child.pid, profile);
+    const result = await live.page.evaluate(async () => {
+      const api = window.midniteStudio;
+      const plan = await api.optimizer.freeRamPlan();
+      if (!plan.ok) return { error: plan.message };
+      const ids = plan.value.candidates.map((c) => c.id);
+      const kinds = {};
+      for (const c of plan.value.candidates) kinds[c.kind] = (kinds[c.kind] ?? 0) + 1;
+      if (ids.length === 0) return { kinds, ids: 0 };
+      const ran = await api.optimizer.freeRam({ candidateIds: ids });
+      return { kinds, ids: ids.length, ran: ran.ok ? ran.value : { error: ran.message } };
+    });
+    if (result.error) throw new Error(`freeRamPlan failed: ${result.error}`);
+    await sleep(2_000);
+    const after = freeRamSnapshotKb(live.run.child.pid, profile);
+    return { sessions, before, after, plan: result.kinds, candidates: result.ids, ran: result.ran ?? null };
+  } finally {
+    try {
+      await live?.browser.close();
+    } catch {
+      // already closed
+    }
+    if (patched) renameSync(backup, brokerJs);
+    if (live) await stop(live.run.child, profile);
+    else await stop({ kill() {} }, profile);
+    discardProfile(profile);
+  }
+}
+
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
   const { flag, value } = cli(process.argv.slice(2));
@@ -1512,6 +1652,28 @@ if (isMain) {
         process.exit(1);
       }
       console.log('hidden-tab RSS budget ok');
+    }
+    process.exit(0);
+  }
+
+  if (actionName === 'free-ram') {
+    const sessions = Math.max(1, Math.floor(Number(value('sessions', '6'))) || 6);
+    let r;
+    try {
+      r = await runFreeRam({ repo, sessions });
+    } catch (err) {
+      console.error(err.message);
+      process.exit(2);
+    }
+    if (asJson) console.log(JSON.stringify(r, null, 2));
+    else {
+      console.log(`\nfree-ram — ${r.sessions} idle shells in a previous-build broker; RSS in KB\n`);
+      console.log('  class          before     after     delta');
+      for (const k of Object.keys(r.before)) {
+        console.log(`  ${k.padEnd(13)} ${String(r.before[k]).padStart(8)} ${String(r.after[k]).padStart(9)} ${String(r.after[k] - r.before[k]).padStart(9)}`);
+      }
+      console.log(`\n  plan ${JSON.stringify(r.plan)} (${r.candidates} candidates)`);
+      if (r.ran) console.log(`  op   ${JSON.stringify(r.ran.measured ?? r.ran)}\n`);
     }
     process.exit(0);
   }

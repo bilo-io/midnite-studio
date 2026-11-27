@@ -18,6 +18,8 @@ export type RecoverySummary = {
   /** Every pty the connected brokers hold after recovery. */
   live: number;
   previousBuild: number;
+  /** Sessions other apps own on the shared broker: counted here, never adopted (#1259's `studioPtys()`). */
+  otherApps: readonly { app: string; count: number }[];
   unreachable: readonly UnreachableProcess[];
 };
 
@@ -65,7 +67,7 @@ export function groupByRepo(
  * renders, so "Everything is attached" and that section can never disagree.
  */
 export const isAllAttached = (s: RecoverySummary, staleCount: number): boolean =>
-  s.recovered.length === 0 && staleCount === 0 && s.unreachable.length === 0;
+  s.recovered.length === 0 && staleCount === 0 && s.unreachable.length === 0 && s.otherApps.length === 0;
 
 type FullRecoveryState = {
   summary: RecoverySummary | null;
@@ -107,6 +109,7 @@ async function runOnce(dialogs?: Dialogs): Promise<RecoverySummary | null> {
     recovered: result.recovered,
     live: result.live,
     previousBuild: result.previousBuild,
+    otherApps: result.otherApps ?? [],
     unreachable: await readUnreachable(),
   };
   useFullRecoveryStore.getState().open(summary);
