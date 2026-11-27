@@ -903,6 +903,74 @@ jobs:
           path: packages/app/test-results
           if-no-files-found: ignore
 
+  perf-report:
+    # Phase 77 Theme D. REPORTS the renderer bundle's size; it never gates anything. Total JS sat
+    # 2.2x over its budget for a month because the only reader of `bundle-budget.spec.ts` was a
+    # human who had to remember to run it. A blocking perf check gets disabled rather than read
+    # (`scripts/perf/README.md`), so this is `continue-on-error`, the first use of that key at job
+    # level in this file, and the numbers land in the job summary one click from the Checks tab.
+    #
+    # `ubuntu-26.04`, like the other jobs whose runner OS is invisible: `app:build` is Vite and
+    # Rollup, nothing here touches Electron, and a macOS job would count against the 5-job macOS
+    # cap for a build whose bytes are identical on Linux. Not a PR comment: `$GITHUB_STEP_SUMMARY`
+    # needs no token and no job-level `permissions:` block (which would REPLACE the workflow
+    # default, see `package` below).
+    runs-on: ubuntu-26.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Does this change touch the renderer bundle?
+        # A docs PR does not need a build. Workflow-level `paths:` would also silence the other
+        # jobs, so the filter is a step; pushes to main always report.
+        id: scope
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -qE '^(packages/app/|packages/shared/|pnpm-lock\.yaml$)'; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+            echo "No change under packages/app, packages/shared or pnpm-lock.yaml; skipping the bundle report." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: GitHub Packages auth (user-level npmrc)
+        if: steps.scope.outputs.relevant == 'true'
+        # pnpm 10 ignores env-expanded auth in the project .npmrc; user-level is honoured.
+        run: echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        if: steps.scope.outputs.relevant == 'true'
+        with:
+          version: 10.34.9
+
+      - uses: actions/setup-node@v7
+        if: steps.scope.outputs.relevant == 'true'
+        with:
+          node-version: 24.22.3
+          cache: pnpm
+
+      - name: Install
+        if: steps.scope.outputs.relevant == 'true'
+        run: pnpm install --frozen-lockfile
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build the renderer
+        if: steps.scope.outputs.relevant == 'true'
+        run: pnpm exec moon run app:build
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Write the bundle table to the job summary
+        if: steps.scope.outputs.relevant == 'true'
+        # No `--assert`: this reports, the exit code stays 0 on a breach.
+        run: node scripts/perf/bundle-report.mjs --json | node scripts/perf/bundle-summary.mjs >> "$GITHUB_STEP_SUMMARY"
+
   package:
     # Packaging is macOS-arm64 only and slow, so it runs on main rather than on
     # every PR. It is here to catch electron-builder breakage early — the pnpm
