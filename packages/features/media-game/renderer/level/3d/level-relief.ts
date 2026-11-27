@@ -69,6 +69,10 @@ export function reliefOf(terrain: Pick<GameLevelTerrain, 'heights' | 'detail' | 
   return { heightAt, min, max, fine, coarse, packs };
 }
 
+/** Whether a world point lies on any of the relief's fields (`heightAt` answers a stated default past them). */
+export const inRelief = (r: Pick<Relief, 'fine' | 'coarse' | 'packs'>, x: number, z: number): boolean =>
+  [r.fine, r.coarse, ...r.packs].some((f) => f !== null && inField(f, x, z));
+
 /** Items as drawn on a relief: one with no `elevation` of its own sits on the ground under its centre. */
 export function liftItems<T extends Pick<WorldItem, 'position' | 'grounded'>>(items: readonly T[], relief: Relief | null): T[] {
   if (!relief) return items as T[];

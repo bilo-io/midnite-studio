@@ -8,6 +8,7 @@ import { editorControls } from './level-editor-controls';
 import { frameTarget, resolveIds } from './level-frame';
 import { selectionBounds } from './level-selection';
 import { blockingIssues, useLevelStore, type OpenLevel } from './level-store';
+import { inRelief, reliefOf } from './3d/level-relief';
 
 export type LevelEditorAnswer = LevelEditorResult | LevelEditorFailure;
 /** How long a `view` of the 3D level waits for the Floorplan -> 3D switch to mount the view. */
@@ -29,7 +30,10 @@ const joinErrors = (errors: readonly { index: number; op: string; message: strin
 function applyAgentRequest(request: Extract<LevelEditorRequest, { kind: 'apply' }>, entry: OpenLevel): LevelEditorAnswer {
   const store = useLevelStore.getState();
   const entityTypes = levelEntityTypes(serialise(entry.edit));
-  const { state, result } = applyAgentOps(entry.edit, request.ops, { unit: request.unit, entityTypes, select: request.select, ...(request.prefabs ? { prefabs: request.prefabs } : {}) });
+  // Phase 141 Theme G: a `snap` lands on the relief the editor shows; a level without one has no terrain to snap to.
+  const relief = reliefOf(entry.terrain);
+  const heightAt = relief ? (x: number, z: number): number | null => (inRelief(relief, x, z) ? relief.heightAt(x, z) : null) : null;
+  const { state, result } = applyAgentOps(entry.edit, request.ops, { unit: request.unit, entityTypes, select: request.select, ...(request.prefabs ? { prefabs: request.prefabs } : {}), ...(heightAt ? { heightAt } : {}) });
   if (!result.ok) return failure(joinErrors(result.errors));
   store.update(request.gameId, () => state);
   const changeSetId = crypto.randomUUID();

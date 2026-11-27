@@ -1,4 +1,4 @@
-import { LEVEL_OPS_MAX, type LevelOp } from './game-level-ops';
+import { LEVEL_OPS_MAX, type LevelOp, type LevelOpSnap } from './game-level-ops';
 import { PREFAB_PROPS } from './game-level-prefab';
 import { ScatterOptionsSchema, scatterPoints, type ScatterArea, type ScatterOptions, type ScatterSource } from './game-level-scatter';
 
@@ -46,6 +46,8 @@ export function scatterOps(args: {
   options: ScatterOptions;
   layer?: number | string | undefined;
   instanceId?: () => string;
+  /** Phase 141 Theme G: every op carries this snap. */
+  snap?: LevelOpSnap | undefined;
 }): { ops: LevelOp[]; points: number; capped: boolean } {
   const { level, area, layer } = args;
   const options = ScatterOptionsSchema.parse(args.options);
@@ -55,7 +57,7 @@ export function scatterOps(args: {
   const ops: LevelOp[] = [];
   for (const p of all.slice(0, LEVEL_OPS_MAX)) {
     const source = sources[p.source]!;
-    const where = { ...(layer === undefined ? {} : { layer }) };
+    const where = { ...(layer === undefined ? {} : { layer }), ...(args.snap ? { snap: args.snap } : {}) };
     const x = round(p.x, 2);
     const y = round(p.y, 2);
     const rotation = round(p.rotation, 2);

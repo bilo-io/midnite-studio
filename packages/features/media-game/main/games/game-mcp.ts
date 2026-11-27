@@ -213,6 +213,10 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
             const { manifest } = await deps.service.manifestGet(gameId);
             return manifest ? manifest.assets.filter((a) => a.kind === 'model').map((a) => a.name) : null;
           },
+          ground: async (_gameId, level) => {
+            const got = await readLevelGround(found.path, (level && typeof level === 'object' ? level : {}) as Pick<GameLevel, 'properties'>);
+            return got.ok ? got.ground.heightAt : null;
+          },
         },
         { gameId: found.gameId, scene: input.scene, ops, unit: input.unit, label: input.label, save: input.save ?? false, select: input.select },
       ),
@@ -440,14 +444,14 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
     async game_entity_add(input) {
       return writeEntityOps(
         input,
-        input.entities.map((entity): LevelOp => ({ op: 'add', entity, ...(input.layer === undefined ? {} : { layer: input.layer }) })),
+        input.entities.map((entity): LevelOp => ({ op: 'add', entity, ...(input.layer === undefined ? {} : { layer: input.layer }), ...(input.snap ? { snap: input.snap } : {}) })),
       );
     },
 
     async game_entity_update(input) {
       return writeEntityOps(
         input,
-        input.updates.map((u): LevelOp => ({ op: 'update', id: u.id, set: u.set, ...(u.unset ? { unset: u.unset } : {}) })),
+        input.updates.map((u): LevelOp => ({ op: 'update', id: u.id, set: u.set, ...(u.unset ? { unset: u.unset } : {}), ...(u.snap ? { snap: u.snap } : {}) })),
       );
     },
 
@@ -570,11 +574,11 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
       return unwrapLevel(await deps.service.levels.prefabs.set(found.gameId, prefab));
     },
 
-    async game_level_scatter({ game, scene, area, options, layer, label, save, select }) {
+    async game_level_scatter({ game, scene, area, options, layer, snap, label, save, select }) {
       const found = await need(game);
       const read = unwrapLevel(await readLevelForTool(deps.service, found.gameId, scene));
       const seed = options.seed ?? Math.floor(Math.random() * 2 ** 31);
-      const { ops, points, capped } = scatterOps({ level: read.level, area, options: { ...options, seed }, layer, instanceId: () => crypto.randomUUID().slice(0, 8) });
+      const { ops, points, capped } = scatterOps({ level: read.level, area, options: { ...options, seed }, layer, snap, instanceId: () => crypto.randomUUID().slice(0, 8) });
       if (ops.length === 0) {
         throw new McpToolError('error', points === 0 ? 'Nothing to scatter: the area is already as dense as `density` asks, or too small for `spacing`.' : 'Nothing to scatter.');
       }

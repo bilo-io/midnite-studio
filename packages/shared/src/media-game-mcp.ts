@@ -13,7 +13,7 @@
  */
 import { z } from 'zod';
 
-import { LEVEL_OPS_MAX, LevelEntityFieldsSchema, LevelOpSchema, LevelQuerySchema } from './game-level-ops';
+import { LEVEL_OPS_MAX, LevelEntityFieldsSchema, LevelOpSchema, LevelOpSnapSchema, LevelQuerySchema } from './game-level-ops';
 import { GamePrefabNameSchema, GamePrefabWriteResultSchema, GamePrefabsResultSchema } from './game-level-prefab';
 import { ScatterOptionsSchema } from './game-level-scatter';
 
@@ -363,6 +363,8 @@ export const GameEntityAddInputSchema = GameToolTargetSchema.extend({
   scene: GameSceneNameSchema,
   entities: z.array(LevelEntityFieldsSchema).min(1).max(200),
   layer: z.union([z.number().int(), z.string().min(1)]).optional(),
+  /** Phase 141 Theme G: put every added object on the terrain. */
+  snap: LevelOpSnapSchema.optional(),
   ...LevelWriteOptions,
 });
 export const GameEntityUpdateInputSchema = GameToolTargetSchema.extend({
@@ -373,6 +375,7 @@ export const GameEntityUpdateInputSchema = GameToolTargetSchema.extend({
         id: z.number().int().positive(),
         set: LevelEntityFieldsSchema.partial().default({}),
         unset: z.array(z.string()).max(64).optional(),
+        snap: LevelOpSnapSchema.optional(),
       }),
     )
     .min(1)
@@ -513,6 +516,8 @@ export const GameLevelScatterInputSchema = GameToolTargetSchema.extend({
   /** `seed` unset picks a random one; set it and a re-run on the same level gives the same points. */
   options: ScatterOptionsSchema.extend({ seed: z.number().int().nonnegative().optional() }),
   layer: z.union([z.number().int(), z.string().min(1)]).optional(),
+  /** Phase 141 Theme G: put every scattered object on the terrain. */
+  snap: LevelOpSnapSchema.optional(),
   label: LevelWriteOptions.label,
   save: LevelWriteOptions.save,
   select: z.boolean().default(false),

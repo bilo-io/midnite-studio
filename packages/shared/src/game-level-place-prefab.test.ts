@@ -63,6 +63,13 @@ describe('scatterOps', () => {
   const options = { sources: [{ kind: 'type' as const, type: 'crate' }, { kind: 'prefab' as const, name: 'hut' }], radius: 200, density: 1, spacing: 30, seed: 7 };
   const area = { x: 100, y: 100, width: 600, height: 600 };
 
+  it("carries a snap onto every op (Phase 141 Theme G)", () => {
+    const { ops } = scatterOps({ level: level(), area, options, snap: 'terrain' });
+    expect(ops.length).toBeGreaterThan(0);
+    for (const op of ops) expect(op).toMatchObject({ snap: 'terrain' });
+    expect(scatterOps({ level: level(), area, options }).ops.every((op) => !('snap' in op))).toBe(true);
+  });
+
   it('gives the same count twice from a seed, on a fresh copy of the level', () => {
     const run = () => {
       const { ops } = scatterOps({ level: level(), area, options });
