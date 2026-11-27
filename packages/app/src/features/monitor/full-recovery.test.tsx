@@ -163,6 +163,18 @@ describe('FullRecoveryHost', () => {
     expect(screen.queryByText(/Recovered \(/)).toBeNull();
   });
 
+  it('counts sessions another app owns under "Belongs to <app>" and is not "attached"', async () => {
+    mockBridge({
+      recover: { ok: true, recovered: [], live: 1, previousBuild: 0, otherApps: [{ app: 'agents', count: 2 }] },
+    });
+    renderHost();
+    await runFullRecovery({ notify: vi.fn() });
+    expect(await screen.findByText('Belongs to agents (2)')).toBeTruthy();
+    expect(screen.queryByText('Everything is attached')).toBeNull();
+    expect(screen.queryByText(/Recovered \(/)).toBeNull();
+    expect(useFullRecoveryStore.getState().summary?.recovered).toEqual([]);
+  });
+
   it('lists recovered sessions grouped by repo and Reveal selects the repo and the session', async () => {
     mockBridge({
       recover: {
@@ -182,7 +194,7 @@ describe('FullRecoveryHost', () => {
     expect(screen.queryByText(/Still on a previous build/)).toBeNull();
     const selectRepo = vi.spyOn(useUiStore.getState(), 'selectRepo');
     useFullRecoveryStore.setState({
-      summary: { recovered: [session(s.id, 'r1')], live: 1, previousBuild: 0, unreachable: [] },
+      summary: { recovered: [session(s.id, 'r1')], live: 1, previousBuild: 0, otherApps: [], unreachable: [] },
     });
     fireEvent.click(await screen.findByText('Reveal'));
     expect(selectRepo).toHaveBeenCalledWith('r1');
@@ -195,6 +207,7 @@ describe('FullRecoveryHost', () => {
         recovered: [],
         live: 1,
         previousBuild: 0,
+        otherApps: [],
         unreachable: [{ pid: 9, name: 'b', rssBytes: 1024 ** 3 }],
       },
     });
@@ -210,7 +223,7 @@ describe('FullRecoveryHost', () => {
       .getState()
       .openSession({ kind: 'agent', agentId: 'claude', title: 'old', cwd: '/w/r1', repoId: 'r1' });
     useTerminalStore.setState({ legacy: { [s.id]: true } });
-    const summary = { recovered: [], live: 1, previousBuild: 0, unreachable: [] };
+    const summary = { recovered: [], live: 1, previousBuild: 0, otherApps: [], unreachable: [] };
     expect(isAllAttached(summary, 1)).toBe(false);
     expect(isAllAttached(summary, 0)).toBe(true);
     useFullRecoveryStore.setState({ summary });
@@ -228,7 +241,7 @@ describe('FullRecoveryHost', () => {
       .openSession({ kind: 'agent', agentId: 'claude', title: 'old', cwd: '/w/r1', repoId: 'r1' });
     useTerminalStore.setState({ legacy: { [s.id]: true } });
     useFullRecoveryStore.setState({
-      summary: { recovered: [], live: 1, previousBuild: 1, unreachable: [] },
+      summary: { recovered: [], live: 1, previousBuild: 1, otherApps: [], unreachable: [] },
     });
     renderHost();
     fireEvent.click(await screen.findByText('End…'));

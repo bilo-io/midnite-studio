@@ -119,6 +119,14 @@ export function FullRecoveryHost() {
             </div>
           </section>
         )}
+        {summary.otherApps.map((o) => (
+          <section key={o.app} aria-label={`Belongs to ${o.app}`}>
+            <h3 className="mb-1 font-medium">
+              Belongs to {o.app} ({o.count})
+            </h3>
+            <p>{plural(o.count, 'session')} owned by {o.app}, left for that app to manage.</p>
+          </section>
+        ))}
         {summary.unreachable.length > 0 && (
           <section aria-label="Unreachable">
             <h3 className="mb-1 font-medium">
