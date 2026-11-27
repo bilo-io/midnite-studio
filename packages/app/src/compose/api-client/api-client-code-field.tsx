@@ -18,10 +18,13 @@ const registeredLibs = new Set<string>();
 async function registerAmbientLib(fileName: string, content: string): Promise<void> {
   if (registeredLibs.has(fileName)) return;
   registeredLibs.add(fileName);
-  const monaco = await getMonaco();
-  // `monaco.languages.typescript` is this package's own deprecated shim (typed as `{deprecated: true}`,
-  // monaco-editor 0.56) — the real namespace moved to this top-level `typescript` export.
-  monaco.typescript.javascriptDefaults.addExtraLib(content, fileName);
+  // `getMonaco()` first: it registers the TypeScript/JavaScript language service this reaches into.
+  await getMonaco();
+  // `monaco.languages.typescript` is this package's own deprecated shim, and `editor.api` (Phase 77
+  // Theme A) has no top-level `typescript` export — the defaults live in the feature's own module,
+  // the same one `getMonaco()` registers.
+  const { javascriptDefaults } = await import('monaco-editor/languages/features/typescript/register');
+  javascriptDefaults.addExtraLib(content, fileName);
 }
 
 /**

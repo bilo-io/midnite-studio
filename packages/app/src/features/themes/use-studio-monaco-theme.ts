@@ -7,7 +7,7 @@ import { getMonaco } from '../../lib/monaco/monaco-loader';
 import { usePaletteStore } from './palette-store';
 import { resolveEditorPalette } from './resolve-palette';
 
-type MonacoModule = typeof import('monaco-editor');
+type MonacoModule = Awaited<ReturnType<typeof getMonaco>>;
 
 /**
  * Defines and applies the active studio editor palette as a real Monaco

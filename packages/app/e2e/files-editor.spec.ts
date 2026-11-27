@@ -28,6 +28,7 @@ const editorFixtures: MockFixtures = {
     'repo:': [
       { name: 'a.ts', kind: 'file', size: 20, isIgnored: false },
       { name: 'b.ts', kind: 'file', size: 8, isIgnored: false },
+      { name: 'notes.md', kind: 'file', size: 12, isIgnored: false },
     ],
   },
   fsFiles: {
@@ -38,6 +39,7 @@ const editorFixtures: MockFixtures = {
       version: { mtimeMs: 1, size: 20 },
     },
     'repo:b.ts': { kind: 'text', content: 'const x = 1;\n', size: 8 },
+    'repo:notes.md': { kind: 'text', content: '# Notes\n\nhi\n', size: 12 },
   },
 };
 
@@ -93,3 +95,52 @@ test('Edit swaps the read-only preview for a Monaco editor with a gutter', async
   await expect(page.locator('.monaco-editor .view-lines')).toContainText('const answer = 42;');
 });
 
+
+/*
+  Phase 77 Theme A — the ~6.8 MB TypeScript worker is its own lazy chunk, fetched by the first
+  `.ts`/`.js` model and by nothing else. Mechanism: `page.on('request')` against Vite's dev-server
+  module graph (the production build inlines the worker as base64 inside that lazy chunk, which
+  `dist/.vite/manifest.json` shows as a dynamic import of `monaco-editor/language/typescript/
+  ts.worker`, not a static one — the build-side half of this check is recorded in the PR).
+*/
+test('a Markdown editor requests no TypeScript worker, a TypeScript one does (Phase 77 Theme A)', async ({
+  page,
+}) => {
+  const requestUrls: string[] = [];
+  page.on('request', (req) => requestUrls.push(req.url()));
+
+  await openFiles(page);
+  await page.getByRole('treeitem', { name: /^notes\.md$/ }).click();
+  await page.getByRole('button', { name: 'Edit' }).click();
+  await expect(page.locator('.monaco-editor .view-lines')).toContainText('# Notes');
+  // Monaco is up and has had every chance to ask for a worker.
+  await page.waitForTimeout(1500); // allow-timeout: absence assertion, nothing to await
+  expect(requestUrls.filter((url) => /ts\.worker/i.test(url))).toEqual([]);
+
+  await page.getByRole('treeitem', { name: /^a\.ts$/ }).click();
+  const tsWorker = page.waitForRequest((req) => /ts\.worker/i.test(req.url()), { timeout: 20_000 });
+  await page.getByRole('button', { name: 'Edit' }).click();
+  await expect(page.locator('.monaco-editor .view-lines')).toContainText('const answer = 42;');
+  await tsWorker;
+});
+
+/*
+  Phase 77 Theme A — `editor.api` + an explicit feature list. `code-editor.tsx`'s Escape handling
+  reads `findWidgetVisible` off the private context-key service, which only exists if the find
+  contribution is registered: Ctrl+F must open the find widget, and the first Escape must close it
+  while leaving the editor itself open.
+*/
+test('the find widget opens and the first Escape closes only it (Phase 77 Theme A)', async ({ page }) => {
+  await openFiles(page);
+  await page.getByRole('treeitem', { name: /^a\.ts$/ }).click();
+  await page.getByRole('button', { name: 'Edit' }).click();
+  await expect(page.locator('.monaco-editor .view-lines')).toContainText('const answer = 42;');
+
+  await page.locator('.monaco-editor .view-lines').click();
+  await page.keyboard.press('Control+f');
+  await expect(page.locator('.monaco-editor .find-widget.visible')).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.monaco-editor .find-widget.visible')).toHaveCount(0);
+  await expect(page.getByTestId('code-editor')).toBeVisible();
+});

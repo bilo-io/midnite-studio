@@ -7,7 +7,7 @@
  * same extensions rather than reusing the Shiki id directly, which would
  * silently fall back to plaintext for every id Monaco does not recognise.
  */
-const MONACO_LANG_BY_EXT: Record<string, string> = {
+export const MONACO_LANG_BY_EXT: Record<string, string> = {
   ts: 'typescript',
   tsx: 'typescript',
   mts: 'typescript',
@@ -51,12 +51,16 @@ const MONACO_LANG_BY_EXT: Record<string, string> = {
   sql: 'sql',
   graphql: 'graphql',
   gql: 'graphql',
-  prisma: 'prisma',
+  // Monaco ships no Prisma grammar (it fell back to plaintext silently); drop it explicitly.
+  prisma: 'plaintext',
+  // Monaco's id is `proto` (its definition lives in a directory named `protobuf`, which is where
+  // the phase doc's `protobuf` claim came from). The test reads the real registrations.
   proto: 'proto',
   tf: 'hcl',
   dockerfile: 'dockerfile',
-  diff: 'diff',
-  patch: 'diff',
+  // Monaco ships no `diff` language; it fell back to plaintext silently, so say so.
+  diff: 'plaintext',
+  patch: 'plaintext',
   lua: 'lua',
   zig: 'plaintext',
   ini: 'ini',
@@ -66,7 +70,7 @@ const MONACO_LANG_BY_EXT: Record<string, string> = {
 };
 
 /** Extensionless-but-known file names — mirrors `lib/languages.ts`'s `LANG_BY_NAME`. */
-const MONACO_LANG_BY_NAME: Record<string, string> = {
+export const MONACO_LANG_BY_NAME: Record<string, string> = {
   dockerfile: 'dockerfile',
   makefile: 'shell',
   '.gitignore': 'ini',
