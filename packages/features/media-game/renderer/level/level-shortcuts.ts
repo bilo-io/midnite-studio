@@ -11,7 +11,7 @@ export type LevelCommandId =
   | 'path.finish'
   | 'edit.undo' | 'edit.redo' | 'edit.cut' | 'edit.copy' | 'edit.paste' | 'edit.duplicate' | 'edit.delete'
   | 'select.all' | 'select.none' | 'select.nudge' | 'view.frame' | 'gizmo.translate' | 'gizmo.rotate' | 'gizmo.scale'
-  | 'gizmo.pivot' | 'gizmo.space' | 'help.shortcuts' | 'play.stop' | 'play.here';
+  | 'gizmo.pivot' | 'gizmo.space' | 'help.shortcuts' | 'play.stop' | 'play.here' | 'ground.drop' | 'ground.bake';
 
 export type LevelShortcut = {
   id: LevelCommandId;
@@ -48,6 +48,9 @@ export const LEVEL_SHORTCUTS: readonly LevelShortcut[] = [
   { id: 'gizmo.scale', chord: 'R', label: 'Scale gizmo', group: 'Tools', views: IN_3D, dimension: '3d' },
   { id: 'gizmo.pivot', chord: 'Z', label: 'Pivot / centre', group: 'Tools', views: IN_3D, dimension: '3d' },
   { id: 'gizmo.space', chord: 'X', label: 'Local / world space', group: 'Tools', views: IN_3D, dimension: '3d' },
+  // Shift+End is listed first: a plain chord otherwise ignores Shift, so End would shadow it.
+  { id: 'ground.bake', chord: 'Shift+End', label: 'Bake the ground height into the selection', group: 'Edit', views: IN_3D, dimension: '3d' },
+  { id: 'ground.drop', chord: 'End', label: 'Drop the selection to the ground', group: 'Edit', views: IN_3D, dimension: '3d' },
   { id: 'select.all', chord: 'Mod+A', label: 'Select all in the layer', group: 'Selection', views: BOTH },
   { id: 'select.none', chord: 'Escape', label: 'Clear selection / cancel path', group: 'Selection', views: BOTH },
   { id: 'select.nudge', chord: 'Arrows', label: 'Nudge by the snap step (Shift x10)', group: 'Selection', views: BOTH },

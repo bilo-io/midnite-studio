@@ -30,6 +30,12 @@ export const LEVEL_OP_ERRORS_MAX = 20;
 
 export { LevelEntityFieldsSchema, LevelPropertyValueSchema, type LevelEntityFields, type LevelPropertyValue } from './game-level-entity';
 const finite = z.number().finite();
+/**
+ * Phase 141 Theme G: put the object on the terrain. `'terrain'` removes its `elevation` (the kit's on-the-ground rule,
+ * so it follows a re-exported terrain); `'terrain-bake'` writes the ground's height under its centre into it.
+ */
+export const LevelOpSnapSchema = z.enum(['terrain', 'terrain-bake']);
+export type LevelOpSnap = z.infer<typeof LevelOpSnapSchema>;
 
 export const LevelOpSchema = z.discriminatedUnion('op', [
   z.object({
@@ -39,6 +45,7 @@ export const LevelOpSchema = z.discriminatedUnion('op', [
     layer: z.union([z.number().int(), z.string().min(1)]).optional(),
     /** A caller label; `refs[ref]` in the result is the new id. */
     ref: z.string().min(1).max(64).optional(),
+    snap: LevelOpSnapSchema.optional(),
   }),
   z.object({
     op: z.literal('update'),
@@ -46,6 +53,7 @@ export const LevelOpSchema = z.discriminatedUnion('op', [
     set: LevelEntityFieldsSchema.partial().default({}),
     /** Property names to remove. */
     unset: z.array(z.string()).max(64).optional(),
+    snap: LevelOpSnapSchema.optional(),
   }),
   z.object({ op: z.literal('delete'), id: z.number().int().positive() }),
   /**
@@ -62,6 +70,7 @@ export const LevelOpSchema = z.discriminatedUnion('op', [
     layer: z.union([z.number().int(), z.string().min(1)]).optional(),
     instance: z.string().min(1).max(16).optional(),
     ref: z.string().min(1).max(64).optional(),
+    snap: LevelOpSnapSchema.optional(),
   }),
 ]);
 export type LevelOp = z.infer<typeof LevelOpSchema>;
@@ -71,6 +80,12 @@ export type LevelOpsContext = {
   entityTypes: readonly string[];
   /** The prefabs `place-prefab` may name, by name (main reads them from disk, the renderer from its prefab list). */
   prefabs?: Readonly<Record<string, GamePrefab>>;
+  /**
+   * The ground's height in metres at a world point (origin included), `null` off the terrain; absent when the level
+   * has no terrain, which makes any `snap` an op error. Main samples the heightfield at full resolution, the renderer
+   * its relief.
+   */
+  heightAt?: (x: number, z: number) => number | null;
 };
 export type LevelOpError = { index: number; op: LevelOp['op']; message: string };
 export type LevelOpsResult =
@@ -205,8 +220,25 @@ export function applyLevelOps(level: unknown, ops: readonly LevelOp[], ctx: Leve
     return px < -size || px > 2 * size ? `${axis} = ${px} is outside the level.` : null;
   };
 
+  /** Put `object` on the terrain (Phase 141 Theme G); an error message, or null once done. */
+  const snapTo = (object: TiledObject, mode: LevelOpSnap): string | null => {
+    if (mode === 'terrain') {
+      if (object.properties?.some((p) => p.name === 'elevation')) object.properties = object.properties.filter((p) => p.name !== 'elevation');
+      return null;
+    }
+    const placed = levelEntityToWorld(object as Parameters<typeof levelEntityToWorld>[0], map as Parameters<typeof levelEntityToWorld>[1]);
+    const h = ctx.heightAt?.(placed.position[0], placed.position[2]) ?? null;
+    if (h === null || !Number.isFinite(h)) return `Object ${object.id} at x ${placed.position[0].toFixed(1)} m, z ${placed.position[2].toFixed(1)} m is off the terrain.`;
+    const value = Math.round(h * 1e4) / 1e4;
+    const list = (object.properties ?? []).filter((p) => p.name !== 'elevation');
+    object.properties = [...list, { name: 'elevation', type: 'float', value }];
+    return null;
+  };
+  const NO_TERRAIN = "This level has no terrain, so `snap: 'terrain'` has nothing to land on — `game_terrain_height` reads it.";
+
   ops.forEach((op, index) => {
     if (errors.length >= LEVEL_OP_ERRORS_MAX) return;
+    if (op.op !== 'delete' && op.snap && !ctx.heightAt) return fail(index, op.op, NO_TERRAIN);
     if (op.op === 'place-prefab') {
       const prefab = ctx.prefabs?.[op.prefab];
       if (!prefab) return fail(index, 'place-prefab', `No prefab named "${op.prefab}" — \`game_prefab_list\` returns the names.`);
@@ -221,11 +253,13 @@ export function applyLevelOps(level: unknown, ops: readonly LevelOp[], ctx: Leve
         const problem = checkType(entity.type) ?? checkPos('x', entity.x) ?? checkPos('y', entity.y);
         if (problem) return fail(index, 'place-prefab', `${problem} (in prefab "${op.prefab}")`);
       }
-      entities.forEach((entity, at2) => {
+      for (const [at2, entity] of entities.entries()) {
         const id = pushObject(map, layer, entity, (v) => v, (v) => v);
         added.push(id);
         if (at2 === 0 && op.ref) refs[op.ref] = id;
-      });
+        const snapped = op.snap ? snapTo(layer.objects![layer.objects!.length - 1]!, op.snap) : null;
+        if (snapped) return fail(index, 'place-prefab', snapped);
+      }
       return;
     }
     if (op.op === 'add') {
@@ -237,6 +271,8 @@ export function applyLevelOps(level: unknown, ops: readonly LevelOp[], ctx: Leve
       const id = pushObject(map, layer, entity, sx, sy, px, py);
       added.push(id);
       if (op.ref) refs[op.ref] = id;
+      const snapped = op.snap ? snapTo(layer.objects![layer.objects!.length - 1]!, op.snap) : null;
+      if (snapped) return fail(index, 'add', snapped);
       return;
     }
     const found = findObject(map, op.id);
@@ -271,6 +307,8 @@ export function applyLevelOps(level: unknown, ops: readonly LevelOp[], ctx: Leve
       if (next) object.properties = next;
       else delete object.properties;
     }
+    const snapped = op.snap ? snapTo(object, op.snap) : null;
+    if (snapped) return fail(index, 'update', snapped);
     if (!updated.includes(op.id)) updated.push(op.id);
   });
 

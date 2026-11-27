@@ -3,7 +3,7 @@
  * both (fine over the part the level works in, coarse over the rest), and what the view needs to sit things on it.
  * Pure, no three.
  */
-import type { GameLevelHeights, GameLevelTerrain } from '@midnite/studio-shared';
+import { gridHeightAt, inGrid, levelEntityToWorld, type GameLevelHeights, type GameLevelTerrain, type LevelEntityInput } from '@midnite/studio-shared';
 
 import type { GroundTile } from './level-cull';
 import type { WorldItem } from './level-world';
@@ -27,16 +27,10 @@ export function decodeHeights(h: GameLevelHeights): HeightField | null {
   return { minX: h.minX, minZ: h.minZ, maxX: h.maxX, maxZ: h.maxZ, cols: h.cols, rows: h.rows, values };
 }
 
-export const inField = (f: GroundTile, x: number, z: number): boolean => x >= f.minX && x <= f.maxX && z >= f.minZ && z <= f.maxZ;
+export const inField = (f: GroundTile, x: number, z: number): boolean => inGrid(f, x, z);
 
-/** The field's height at a point, bilinear between its vertices; a point outside reads the nearest edge. */
-export function sampleField(f: HeightField, x: number, z: number): number {
-  const fx = Math.min(f.cols - 1, Math.max(0, ((x - f.minX) / (f.maxX - f.minX)) * (f.cols - 1)));
-  const fz = Math.min(f.rows - 1, Math.max(0, ((z - f.minZ) / (f.maxZ - f.minZ)) * (f.rows - 1)));
-  const x0 = Math.min(f.cols - 2, Math.floor(fx)), z0 = Math.min(f.rows - 2, Math.floor(fz)), tx = fx - x0, tz = fz - z0;
-  const at = (i: number, j: number): number => f.values[j * f.cols + i]!;
-  return (at(x0, z0) * (1 - tx) + at(x0 + 1, z0) * tx) * (1 - tz) + (at(x0, z0 + 1) * (1 - tx) + at(x0 + 1, z0 + 1) * tx) * tz;
-}
+/** The field's height at a point, the kit's way (`shared/src/game-heightfield.ts`); a point outside reads the nearest edge. */
+export const sampleField = (f: HeightField, x: number, z: number): number => gridHeightAt(f, x, z);
 
 export type Relief = {
   /** The ground's height at a world point, metres: the fine field where it reaches, else the terrain's coarse one, else the first further pack that covers the point, else `outside`. */
@@ -75,10 +69,64 @@ export function reliefOf(terrain: Pick<GameLevelTerrain, 'heights' | 'detail' | 
   return { heightAt, min, max, fine, coarse, packs };
 }
 
+/** Whether a world point lies on any of the relief's fields (`heightAt` answers a stated default past them). */
+export const inRelief = (r: Pick<Relief, 'fine' | 'coarse' | 'packs'>, x: number, z: number): boolean =>
+  [r.fine, r.coarse, ...r.packs].some((f) => f !== null && inField(f, x, z));
+
 /** Items as drawn on a relief: one with no `elevation` of its own sits on the ground under its centre. */
 export function liftItems<T extends Pick<WorldItem, 'position' | 'grounded'>>(items: readonly T[], relief: Relief | null): T[] {
   if (!relief) return items as T[];
   return items.map((it) => (it.grounded ? { ...it, position: [it.position[0], relief.heightAt(it.position[0], it.position[2]), it.position[2]] as V3 } : it));
+}
+
+/**
+ * The ground under an object, metres: under its centre for a point, the lowest of its footprint's four corners for
+ * anything with a footprint (`Shift+End` bakes this, so a volume never hangs over a slope).
+ */
+export function groundUnder(o: LevelEntityInput, level: Parameters<typeof levelEntityToWorld>[1], heightAt: (x: number, z: number) => number): number {
+  const placed = levelEntityToWorld(o, level);
+  const [cx, , cz] = placed.position;
+  const hx = placed.size[0] / 2, hz = placed.size[2] / 2;
+  if (!(hx > 0 || hz > 0)) return heightAt(cx, cz);
+  // three's rotation.y: x' = x cos + z sin, z' = −x sin + z cos.
+  const c = Math.cos(placed.yaw), s = Math.sin(placed.yaw);
+  let low = Infinity;
+  for (const [dx, dz] of [[-hx, -hz], [hx, -hz], [hx, hz], [-hx, hz]] as const) low = Math.min(low, heightAt(cx + dx * c + dz * s, cz - dx * s + dz * c));
+  return low;
+}
+
+/**
+ * "Conform on move": the height an object with its own `elevation` keeps when dragged from `from` to `to` (x, z), so
+ * it stays the same distance above the ground.
+ */
+export const conformElevation = (elevation: number, from: readonly [number, number], to: readonly [number, number], heightAt: (x: number, z: number) => number): number =>
+  elevation + heightAt(to[0], to[1]) - heightAt(from[0], from[1]);
+
+/** The scatter brush's ring as a strip of `segments` quads between `inner` and `outer` radii: triangle indices into {@link drapedRing}'s vertices. */
+export function ringIndices(segments: number): number[] {
+  const out: number[] = [];
+  for (let k = 0; k < segments; k += 1) {
+    const a = k * 2, b = a + 1, c = a + 2, d = a + 3;
+    out.push(a, c, b, b, c, d);
+  }
+  return out;
+}
+
+/**
+ * Fill `out` (`(segments + 1) × 2` vertices, `x, y, z`) with the brush ring round `(cx, cz)`, each vertex `lift`
+ * metres above the ground under it, so the ring follows the terrain instead of cutting through a slope.
+ */
+export function drapedRing(out: Float32Array, cx: number, cz: number, inner: number, outer: number, segments: number, heightAt: (x: number, z: number) => number, lift: number): Float32Array {
+  for (let k = 0; k <= segments; k += 1) {
+    const a = (k / segments) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+    for (const [n, r] of [[0, inner], [1, outer]] as const) {
+      const x = cx + c * r, z = cz + s * r, at = (k * 2 + n) * 3;
+      out[at] = x;
+      out[at + 1] = heightAt(x, z) + lift;
+      out[at + 2] = z;
+    }
+  }
+  return out;
 }
 
 /** How far a pointer ray is marched for the ground, metres. */

@@ -306,6 +306,7 @@ const ACTION_LABELS: Partial<Record<GameMcpToolId, string>> = {
   game_prefab_list: 'Listed the prefabs',
   game_prefab_save: 'Saved a prefab',
   game_level_scatter: 'Scattered objects',
+  game_terrain_height: 'Read terrain heights',
 };
 
 /**

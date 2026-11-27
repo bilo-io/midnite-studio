@@ -3,11 +3,11 @@ import { DEFAULT_SNAP, TransformModeBar, type SnapSettings, type TransformMode }
 import { bridge } from '@midnite/studio-frame';
 import { levelOrigin, levelPixelsToWorld, metresPerTile, terrainExtent, type GameLevelTerrain } from '@midnite/studio-shared';
 import { useEffect, useMemo, useRef, useState, type ComponentType, type KeyboardEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent } from 'react';
-import { LuActivity, LuBox, LuCrosshair, LuGlobe, LuGroup } from 'react-icons/lu';
+import { LuActivity, LuBox, LuCrosshair, LuGlobe, LuGroup, LuMountain } from 'react-icons/lu';
 import type { Object3D } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-import { addObject, addSelected, select, setActiveLayer, setOptionalNumber, toggleSelected, type EditLevel, type EditSelection, type EditState, type ObjectRef, type PlanPoint, type PlanRect } from '../level-edit-model';
+import { addObject, addSelected, bakeGroundHeight, dropToGround, select, setActiveLayer, setOptionalNumber, toggleSelected, type EditLevel, type EditSelection, type EditState, type ObjectRef, type PlanPoint, type PlanRect } from '../level-edit-model';
 import { cameraPosition, orbitPose, planPose, type CameraPose } from './camera-transition';
 import { boxCentre, capturePose, framingSpan, levelWorldBox, type WorldBox } from './level-capture-pose';
 import { pixelsToPng } from './level-capture';
@@ -23,7 +23,7 @@ import { marqueeHits, type ScreenPoint, type ScreenRect } from './level-marquee'
 import { isMac, matchShortcut } from '../level-shortcuts';
 import { isAssetDrag, readDroppedAsset, useDraggedAsset, type AssetDragPayload, type AssetDropTarget } from '../assets/asset-drag';
 import { useLevelViewStore, type GizmoPivot, type GizmoSpace } from './level-view-store';
-import { liftItems, reliefOf, reliefPoint } from './level-relief';
+import { conformElevation, groundUnder, liftItems, reliefOf, reliefPoint } from './level-relief';
 import { gizmoEdit, gizmoEditGroup, groundY, groupPivot, levelWorldItems, POINT_SIZE, worldItemOf, worldToObjectPoint, type GizmoChange, type GroupDelta, type GroupPivot } from './level-world';
 import { ModelCache } from './model-cache';
 import { OPTIMISATION_PRESETS, presetFor } from './optimisation';
@@ -138,6 +138,8 @@ export default function Level3dView(props: Level3dViewProps) {
   const space = useLevelViewStore((s) => s.space);
   const setPivotMode = useLevelViewStore((s) => s.setPivot);
   const setSpace = useLevelViewStore((s) => s.setSpace);
+  const conform = useLevelViewStore((s) => s.conform);
+  const setConform = useLevelViewStore((s) => s.setConform);
   const selectedRefs = useMemo(() => selectedIdx.map((i) => items[i]!.sel), [items, selectedIdx]);
   const pivot = useMemo(() => (selectedRefs.length > 1 ? groupPivot(level, selectedRefs, props.selection ?? selectedRefs[0]!, pivotMode) : null), [level, selectedRefs, props.selection, pivotMode]);
 
@@ -289,6 +291,15 @@ export default function Level3dView(props: Level3dViewProps) {
       event.preventDefault();
       if (cmd === 'gizmo.pivot') setPivotMode(pivotMode === 'pivot' ? 'centre' : 'pivot');
       else setSpace(space === 'world' ? 'local' : 'world');
+      return;
+    }
+    // Phase 141 Theme D: End drops the selection onto the ground, Shift+End bakes the ground's height into it.
+    if ((cmd === 'ground.drop' || cmd === 'ground.bake') && !props.readOnly) {
+      event.preventDefault();
+      // A locked object stays where it is.
+      const refs = selectedRefs.filter((r) => !props.locked?.has(`${r.layerId}:${r.objectId}`));
+      if (refs.length === 0) return;
+      update((s) => (cmd === 'ground.drop' ? dropToGround(s, refs) : bakeGroundHeight(s, refs, (o) => groundUnder(o, s.level, heightAt))));
       return;
     }
     if (cmd === 'view.frame') {
@@ -536,7 +547,7 @@ export default function Level3dView(props: Level3dViewProps) {
             update((s) => (sel && modifier === 'toggle' ? toggleSelected(s, sel) : sel && modifier === 'add' ? addSelected(s, [sel]) : select(s, sel)));
           }}
           onGroupEnd={(delta: GroupDelta, framePivot: GroupPivot) => {
-            update((s) => gizmoEditGroup(s, selectedRefs, framePivot, delta));
+            update((s) => gizmoEditGroup(s, selectedRefs, framePivot, delta, conform && relief ? heightAt : undefined));
           }}
           onPlace={(x, z) => {
             if (armedAsset) {
@@ -569,6 +580,10 @@ export default function Level3dView(props: Level3dViewProps) {
               // An object already resting there keeps its (absent) elevation property; so does one moved over bare relief.
               if (Math.abs(drop - item.position[1]) > 1e-3 && !(relief && item.grounded && drop === under)) next = { ...change, elevation: drop };
             }
+            // Conform on move (Phase 141 Theme D): an object with its own elevation keeps its height above the terrain.
+            if (item && conform && relief && !item.grounded && next.elevation === undefined && change.centre) {
+              next = { ...next, elevation: conformElevation(item.position[1], [item.position[0], item.position[2]], change.centre, heightAt) };
+            }
             update((s) => gizmoEdit(s, sel, next));
           }}
           onStats={(s) => {
@@ -594,13 +609,13 @@ export default function Level3dView(props: Level3dViewProps) {
           style={{ left: Math.min(marquee.x0, marquee.x1), top: Math.min(marquee.y0, marquee.y1), width: Math.abs(marquee.x1 - marquee.x0), height: Math.abs(marquee.y1 - marquee.y0) }}
         />
       ) : null}
-      <ViewBar mode={mode} onMode={setMode} snap={snap} onSnap={setSnap} pivot={pivotMode} onPivot={setPivotMode} space={space} onSpace={setSpace} readOnly={props.readOnly} stats={statsOn ? stats : null} />
+      <ViewBar mode={mode} onMode={setMode} snap={snap} onSnap={setSnap} pivot={pivotMode} onPivot={setPivotMode} space={space} onSpace={setSpace} readOnly={props.readOnly} stats={statsOn ? stats : null} conform={relief ? { on: conform, set: setConform } : null} />
     </div>
   );
 }
 
 /** The floating bar: gizmo modes and snap (shared with the model editor), the Optimisation slider and the readout. */
-export function ViewBar({ mode, onMode, snap, onSnap, pivot, onPivot, space, onSpace, readOnly, stats }: { mode: TransformMode; onMode: (m: TransformMode) => void; snap: SnapSettings; onSnap: (s: SnapSettings) => void; pivot: GizmoPivot; onPivot: (p: GizmoPivot) => void; space: GizmoSpace; onSpace: (s: GizmoSpace) => void; readOnly: boolean; stats: ViewStats | null }) {
+export function ViewBar({ mode, onMode, snap, onSnap, pivot, onPivot, space, onSpace, readOnly, stats, conform = null }: { mode: TransformMode; onMode: (m: TransformMode) => void; snap: SnapSettings; onSnap: (s: SnapSettings) => void; pivot: GizmoPivot; onPivot: (p: GizmoPivot) => void; space: GizmoSpace; onSpace: (s: GizmoSpace) => void; readOnly: boolean; stats: ViewStats | null; conform?: { on: boolean; set: (on: boolean) => void } | null }) {
   const step = useLevelViewStore((s) => s.optimisation);
   const statsOn = useLevelViewStore((s) => s.stats);
   const setOptimisation = useLevelViewStore((s) => s.setOptimisation);
@@ -613,6 +628,19 @@ export function ViewBar({ mode, onMode, snap, onSnap, pivot, onPivot, space, onS
           <>
             <Radios label="Gizmo pivot" value={pivot} onChange={onPivot} options={[['pivot', 'Pivot', LuCrosshair, 'Pivot: the primary object (Z)'], ['centre', 'Centre', LuGroup, 'Centre: the middle of the selection (Z)']]} />
             <Radios label="Gizmo space" value={space} onChange={onSpace} options={[['local', 'Local', LuBox, 'Local: turn with the pivot (X)'], ['world', 'World', LuGlobe, 'World: axis-aligned (X)']]} />
+            {conform ? (
+              <button
+                type="button"
+                aria-pressed={conform.on}
+                aria-label="Conform on move"
+                title="Conform on move: a dragged object keeps its height above the terrain"
+                data-testid="level-conform"
+                onClick={() => conform.set(!conform.on)}
+                className={`flex h-6 w-6 items-center justify-center rounded-md ${conform.on ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'}`}
+              >
+                <LuMountain aria-hidden className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
           </>
         )}
         <label className="flex items-center gap-1.5 text-muted-foreground" title="1 favours quality, 5 favours speed: draw distance, detail, shadows, lights and resolution.">

@@ -266,8 +266,9 @@ export function groupPivot(level: EditLevel, refs: readonly ObjectRef[], primary
  * - scale: centre offsets scale in the pivot's frame; a box's drawn size scales along its own axes (the frame's X / Z
  *   factors swap for an item a quarter-turn from the pivot) and a point's `scale` takes the mean; sizes stay >= 0.01 m;
  * - paths translate only: their polyline is relative to their origin, which does not follow a turn or a stretch.
+ * `conform` (the ground's `heightAt`) keeps each elevated object's height above the ground through a flat move.
  */
-export function gizmoEditGroup(state: EditState, refs: readonly ObjectRef[], pivot: GroupPivot, delta: GroupDelta): EditState {
+export function gizmoEditGroup(state: EditState, refs: readonly ObjectRef[], pivot: GroupPivot, delta: GroupDelta, conform?: (x: number, z: number) => number): EditState {
   const t = delta.translate ?? [0, 0, 0];
   const turn = delta.rotateYaw ?? 0;
   const k = delta.scale ?? [1, 1, 1];
@@ -298,6 +299,8 @@ export function gizmoEditGroup(state: EditState, refs: readonly ObjectRef[], piv
     const change: GizmoChange = { centre: [pivot.centre[0] + ox + t[0], pivot.centre[2] + oz + t[2]] };
     if (turn !== 0) change.yaw = -rad((o.rotation ?? 0) + turn);
     if (t[1] !== 0 || k[1] !== 1) change.elevation = pivot.centre[1] + (item.position[1] - pivot.centre[1]) * k[1] + t[1];
+    // Conform on move (Phase 141 Theme D): an object with its own elevation keeps its height above the ground.
+    else if (conform && !item.grounded && change.centre) change.elevation = item.position[1] + conform(change.centre[0], change.centre[1]) - conform(item.position[0], item.position[2]);
     if (scaled) {
       if (item.kind === 'point') change.scale = item.scale * ((k[0] + k[1] + k[2]) / 3);
       else {

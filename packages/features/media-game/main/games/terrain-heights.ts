@@ -1,7 +1,7 @@
 import { readFile, stat } from 'node:fs/promises';
 
 import { decodePng } from '@midnite/studio-runtime';
-import { GAME_LEVEL_HEIGHTS_MAX_SIDE, type GameLevelHeights } from '@midnite/studio-shared';
+import { GAME_LEVEL_HEIGHTS_MAX_SIDE, gridNormalAt, sampleGridAt, type GameLevelHeights } from '@midnite/studio-shared';
 
 import type { Extent } from './terrain-detail';
 
@@ -55,7 +55,7 @@ export async function readHeightSource(files: { png: string | null; json: string
 
 /**
  * The ground over `area` (inside `terrain`, which the source spans edge to edge) as a grid at the source's own
- * spacing, or coarser when that would exceed `maxSide` vertices a side. Bilinear between source samples.
+ * spacing, or coarser when that would exceed `maxSide` vertices a side. Sampled as the kit samples (`sampleGridAt`).
  */
 export function heightsOver(source: HeightSource, terrain: Extent, area: Extent, maxSide: number = GAME_LEVEL_HEIGHTS_MAX_SIDE): GameLevelHeights | null {
   const tw = terrain.maxX - terrain.minX, th = terrain.maxZ - terrain.minZ;
@@ -66,15 +66,31 @@ export function heightsOver(source: HeightSource, terrain: Extent, area: Extent,
   const out = Buffer.alloc(cols * rows * 2);
   const scale = 65535 / source.top;
   for (let j = 0; j < rows; j += 1) {
-    const fz = Math.min(source.height - 1, Math.max(0, ((area.minZ + (j / (rows - 1)) * ah - terrain.minZ) / th) * (source.height - 1)));
-    const z0 = Math.min(source.height - 2, Math.floor(fz)), tz = fz - z0;
+    const fz = ((area.minZ + (j / (rows - 1)) * ah - terrain.minZ) / th) * (source.height - 1);
     for (let i = 0; i < cols; i += 1) {
-      const fx = Math.min(source.width - 1, Math.max(0, ((area.minX + (i / (cols - 1)) * aw - terrain.minX) / tw) * (source.width - 1)));
-      const x0 = Math.min(source.width - 2, Math.floor(fx)), tx = fx - x0;
-      const at = (x: number, z: number): number => source.values[z * source.width + x] as number;
-      const v = (at(x0, z0) * (1 - tx) + at(x0 + 1, z0) * tx) * (1 - tz) + (at(x0, z0 + 1) * (1 - tx) + at(x0 + 1, z0 + 1) * tx) * tz;
+      const fx = ((area.minX + (i / (cols - 1)) * aw - terrain.minX) / tw) * (source.width - 1);
+      const v = sampleGridAt(source.values, source.width, source.height, fx, fz);
       out.writeUInt16LE(Math.max(0, Math.min(65535, Math.round(v * scale))), (j * cols + i) * 2);
     }
   }
   return { minX: area.minX, minZ: area.minZ, maxX: area.maxX, maxZ: area.maxZ, cols, rows, min: source.range[0], max: source.range[1], data: out.toString('base64') };
+}
+
+/**
+ * Metres at world `(x, z)` from `source` at its own resolution — no downsampling, the kit's triangle split — where
+ * `source` spans `rect` edge to edge. `null` off the rectangle.
+ */
+export function heightAtFull(source: HeightSource, rect: Extent, x: number, z: number): number | null {
+  if (!(x >= rect.minX && x <= rect.maxX && z >= rect.minZ && z <= rect.maxZ)) return null;
+  const fx = ((x - rect.minX) / (rect.maxX - rect.minX)) * (source.width - 1);
+  const fz = ((z - rect.minZ) / (rect.maxZ - rect.minZ)) * (source.height - 1);
+  const [lo, hi] = source.range;
+  return lo + (sampleGridAt(source.values, source.width, source.height, fx, fz) / source.top) * (hi - lo);
+}
+
+/** The upward unit normal at world `(x, z)` from `source` over `rect`, at its own resolution; `null` off the rectangle. */
+export function normalAtFull(source: HeightSource, rect: Extent, x: number, z: number): [number, number, number] | null {
+  if (!(x >= rect.minX && x <= rect.maxX && z >= rect.minZ && z <= rect.maxZ)) return null;
+  const [lo, hi] = source.range;
+  return gridNormalAt({ ...rect, cols: source.width, rows: source.height, values: source.values }, x, z, (hi - lo) / source.top);
 }

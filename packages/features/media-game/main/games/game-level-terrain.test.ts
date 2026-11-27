@@ -9,7 +9,10 @@ import { clearDrapePreviewCache } from './drape-preview';
 import { noisyPng } from './drape-preview-fixture';
 import { encodePngGrey16 } from '@midnite/studio-runtime';
 
-import { placeDetail, readLevelTerrain, readLevelTerrainDetail } from './game-level-terrain';
+import { createHeightSampler } from '@midnite/studio-shared';
+
+import { groundHeights, placeDetail, readLevelGround, readLevelTerrain, readLevelTerrainDetail } from './game-level-terrain';
+import { clearTerrainHeightsCache } from './terrain-heights';
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64');
 const withTerrain = (name: string) => ({ properties: [{ name: 'midnite.terrain', type: 'string', value: name }] });
@@ -163,5 +166,84 @@ describe('readLevelTerrain (Phase 132 Theme E)', () => {
     await repo.writeFile('assets/terrain/world/terrain.manifest.json', JSON.stringify({ bounds: { min: [0, 0, 0], max: [10, 1, 20] }, maps: { drape: 'drape.png' } }));
     await writeFile(join(repo.path, 'assets/terrain/world/drape.png'), Buffer.alloc(1100 * 1024, 1));
     expect((await readLevelTerrain(repo.path, withTerrain('world')))?.preview).toBeNull();
+  });
+});
+
+describe('readLevelGround (Phase 141 Theme A)', () => {
+  let repo: TempRepo;
+  const RES = 33;
+  /** Ridges and noise at 33², so the full resolution differs from any coarser grid. */
+  const samples = Uint16Array.from({ length: RES * RES }, (_, k) => Math.round(32768 + 30000 * Math.sin((k % RES) / 2.3) * Math.cos(Math.floor(k / RES) / 3.1)));
+  const level = (packs?: unknown) => ({ properties: [{ name: 'midnite.terrain', type: 'string', value: 'world' }, ...(packs ? [{ name: 'midnite.terrainPacks', type: 'string', value: JSON.stringify(packs) }] : [])] });
+  beforeEach(async () => {
+    clearTerrainHeightsCache();
+    repo = await TempRepo.create();
+    await mkdir(join(repo.path, 'assets/terrain/world'), { recursive: true });
+    await mkdir(join(repo.path, 'assets/terrain/south'), { recursive: true });
+    await repo.writeFile(
+      'assets/index.json',
+      JSON.stringify({ version: 1, assets: [{ name: 'world', kind: 'terrain', path: 'assets/terrain/world' }, { name: 'south', kind: 'terrain', path: 'assets/terrain/south' }] }),
+    );
+    await repo.writeFile('assets/terrain/world/terrain.manifest.json', JSON.stringify({ bounds: { min: [-160, 0, -160], max: [160, 60, 160] }, heightfield: { png: 'heightfield.png', json: 'heightfield.json' } }));
+    await repo.writeFile('assets/terrain/world/heightfield.json', JSON.stringify({ version: 1, resolution: RES, worldSize: 320, heightRange: [-5, 55], rowMajor: 'z', origin: 'centre' }));
+    await writeFile(join(repo.path, 'assets/terrain/world/heightfield.png'), encodePngGrey16(samples, RES, RES));
+    await repo.writeFile('assets/terrain/south/terrain.manifest.json', JSON.stringify({ bounds: { min: [-50, 0, -50], max: [50, 80, 50] }, heightRange: [0, 80], heightfield: { png: 'heightfield.png' } }));
+    await writeFile(join(repo.path, 'assets/terrain/south/heightfield.png'), encodePngGrey16(Uint16Array.from({ length: 9 }, () => 32768), 3, 3));
+  });
+  afterEach(async () => {
+    await repo.cleanup();
+  });
+
+  it('A1: samples the heightfield at its own resolution, as the kit does', async () => {
+    const r = await readLevelGround(repo.path, level());
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const kit = createHeightSampler(samples, { resolution: RES, worldSize: 320, heightRange: [-5, 55] });
+    for (let k = 0; k < 500; k += 1) {
+      const x = ((k * 37) % 319) - 159.5, z = ((k * 53) % 317) - 158.25;
+      expect(Math.abs(r.ground.heightAt(x, z)! - kit.heightAt(x, z))).toBeLessThan(1e-4);
+    }
+    expect(r.ground.terrain).toBe('world');
+    expect(r.ground.extent).toEqual({ minX: -160, minZ: -160, maxX: 160, maxZ: 160 });
+    const n = r.ground.normalAt(3, 4)!;
+    expect(Math.hypot(...n)).toBeCloseTo(1, 9);
+    expect(n).toEqual(kit.normalAt(3, 4).map((v) => expect.closeTo(v, 4)));
+  });
+
+  it('A2/A3: a point over a placed pack samples that pack; one past everything is null', async () => {
+    const r = await readLevelGround(repo.path, level([{ name: 'south', minX: -100, minZ: 160, maxX: 100, maxZ: 360 }]));
+    if (!r.ok) throw new Error(r.message);
+    expect(r.ground.heightAt(0, 260)).toBeCloseTo(40, 2);
+    expect(r.ground.heightAt(0, 500)).toBeNull();
+    expect(r.ground.normalAt(0, 500)).toBeNull();
+    expect(r.ground.heightAt(-200, 0)).toBeNull();
+  });
+
+  it('fails plainly when the level has no terrain, or it cannot be read', async () => {
+    expect(await readLevelGround(repo.path, { properties: [] })).toEqual({ ok: false, message: 'This level has no terrain.' });
+    await repo.writeFile('assets/terrain/world/terrain.manifest.json', JSON.stringify({ bounds: { min: [-160, 0, -160], max: [160, 60, 160] } }));
+    expect(await readLevelGround(repo.path, level())).toEqual({ ok: false, message: 'The terrain "world" has no readable heightfield.' });
+  });
+
+  it('F1/F2: game_terrain_height answers the sampler, clamping and listing a point off the ground', async () => {
+    const r = await readLevelGround(repo.path, level());
+    if (!r.ok) throw new Error(r.message);
+    const out = groundHeights(r.ground, [{ x: 3.3, z: -7.7 }, { x: 900, z: 12 }, { x: -50, z: 50 }], true);
+    expect(out.terrain).toBe('world');
+    expect(out.outside).toEqual([1]);
+    expect(out.heights[0]).toBeCloseTo(r.ground.heightAt(3.3, -7.7)!, 4);
+    expect(out.heights[1]).toBeCloseTo(r.ground.heightAt(160, 12)!, 4);
+    expect(out.heights[2]).toBeCloseTo(r.ground.heightAt(-50, 50)!, 4);
+    expect(out.normals).toHaveLength(3);
+    expect(out.normals![1]).toEqual(r.ground.normalAt(160, 12));
+    expect(groundHeights(r.ground, [{ x: 0, z: 0 }], false).normals).toBeUndefined();
+  });
+
+  it('A4: does not follow a path out of the game folder', async () => {
+    await repo.writeFile('assets/index.json', JSON.stringify({ version: 1, assets: [{ name: 'world', kind: 'terrain', path: '../elsewhere' }] }));
+    expect((await readLevelGround(repo.path, level())).ok).toBe(false);
+    await repo.writeFile('assets/index.json', JSON.stringify({ version: 1, assets: [{ name: 'world', kind: 'terrain', path: 'assets/terrain/world' }] }));
+    await repo.writeFile('assets/terrain/world/terrain.manifest.json', JSON.stringify({ bounds: { min: [-160, 0, -160], max: [160, 60, 160] }, heightfield: { png: '../../../../outside.png' } }));
+    expect((await readLevelGround(repo.path, level())).ok).toBe(false);
   });
 });

@@ -10,6 +10,9 @@ import { isAssetDrag, readDroppedAsset, useDraggedAsset, type AssetDropTarget } 
 import { drawHighlight, drawPlan, drawSelectionExtras, prefersReducedMotion, PULSE_MS, SELECTED_COLOUR, type PlanHighlight, type PlanOverlay } from './level-plan-draw';
 import { drawBrush, drawExtras, hasExtras, type CanvasExtras } from './level-overlay-draw';
 import { fitView, screenToMap, ZOOM_MIN, zoomAround, zoomFloor, type View } from './level-view';
+import { elevationReadout, planHillshades } from './level-plan-relief';
+import { reliefOf } from './3d/level-relief';
+import { useLevelViewStore } from './3d/level-view-store';
 
 /**
  * The editor's canvas (Phase 132 Theme D). It draws with Sprites' `map-view.ts` (`tileOf`, `sourceRect`,
@@ -198,6 +201,27 @@ export function LevelCanvas({
   const [hover, setHover] = useState<Cell | null>(null);
   const [cursor, setCursor] = useState<PlanPoint | null>(null);
   const [brushAt, setBrushAt] = useState<PlanPoint | null>(null);
+  // Phase 141 Theme E: the hillshade under the grid and the elevation under the pointer.
+  const hillshadeOn = useLevelViewStore((s) => s.hillshade);
+  const planTerrain = plan?.terrain ?? null;
+  const hillshades = useMemo(() => {
+    if (!planTerrain || !hillshadeOn || typeof document === 'undefined') return [];
+    return planHillshades(planTerrain).flatMap((h) => {
+      const c = document.createElement('canvas');
+      c.width = h.width;
+      c.height = h.height;
+      const g = c.getContext('2d');
+      if (!g || typeof g.createImageData !== 'function') return [];
+      const img = g.createImageData(h.width, h.height);
+      img.data.set(h.pixels);
+      g.putImageData(img, 0, 0);
+      return [{ image: c, minX: h.minX, minZ: h.minZ, maxX: h.maxX, maxZ: h.maxZ }];
+    });
+  }, [planTerrain, hillshadeOn]);
+  const planRelief = useMemo(() => reliefOf(planTerrain), [planTerrain]);
+  /** Where the pointer is over the plan, for the readout; cleared when it leaves (the path draft keeps `cursor`). */
+  const [pointerAt, setPointerAt] = useState<PlanPoint | null>(null);
+  const readout = plan ? elevationReadout(level, planRelief, pointerAt) : null;
   const { image: terrainImage, loaded: terrainLoaded } = useTerrainImage(plan?.terrain?.preview);
   const { image: terrainDetailImage, loaded: terrainDetailLoaded } = useTerrainImage(plan?.terrain?.detail?.preview);
   const packPreviews = useMemo(() => (plan?.terrain?.packs ?? []).map((p) => p.preview), [plan?.terrain?.packs]);
@@ -285,7 +309,7 @@ export function LevelCanvas({
       } else ctx.rect(o.x, o.y, tmj.tilewidth, tmj.tileheight);
     };
     if (plan) {
-      const overlay: PlanOverlay = { terrain: plan.terrain, terrainImage, terrainDetailImage, terrainPackImages, draft: plan.draft, cursor: plan.draft.length > 0 ? cursor : null, volume: plan.volume };
+      const overlay: PlanOverlay = { terrain: plan.terrain, terrainImage, terrainDetailImage, terrainPackImages, hillshades, draft: plan.draft, cursor: plan.draft.length > 0 ? cursor : null, volume: plan.volume };
       drawPlan(ctx, { level, view, selection, selected, marquee, hidden, overlay, outline, text, highlight });
       if (hasExtras(extras)) drawExtras(ctx, { extras, view });
       if (brush && brushAt) drawBrush(ctx, { at: brushAt, radius: brush.radius, view, outline });
@@ -367,7 +391,7 @@ export function LevelCanvas({
       ctx.stroke();
     }
     if (brush && brushAt) drawBrush(ctx, { at: brushAt, radius: brush.radius, view, outline, toMap: (p) => objectToMapPoint(level, p.x, p.y) });
-  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection, selected, marquee, hidden, plan, terrainImage, terrainLoaded, terrainDetailImage, terrainDetailLoaded, terrainPackImages, terrainPacksLoaded, cursor, highlight, pulseTick, extras, brush, brushAt]);
+  }, [tmj, level, tilesetImages, loaded, view, size, hover, hoverEnabled, preview, selection, selected, marquee, hidden, plan, terrainImage, terrainLoaded, terrainDetailImage, terrainDetailLoaded, terrainPackImages, terrainPacksLoaded, hillshades, cursor, highlight, pulseTick, extras, brush, brushAt]);
 
   const local = (e: { clientX: number; clientY: number }) => {
     const rect = canvas.current?.getBoundingClientRect();
@@ -385,7 +409,10 @@ export function LevelCanvas({
     const cell = cellAt(level, p.x, p.y);
     if (phase === 'move') {
       setHover(cell);
-      if (plan) setCursor({ x: p.x, y: p.y });
+      if (plan) {
+        setCursor({ x: p.x, y: p.y });
+        if (planRelief) setPointerAt({ x: p.x, y: p.y });
+      }
       if (brush) setBrushAt(plan ? { x: p.x, y: p.y } : mapPointToObject(level, p.x, p.y));
     }
     onPointer({
@@ -487,6 +514,7 @@ export function LevelCanvas({
         onPointerLeave={() => {
           setHover(null);
           setBrushAt(null);
+          setPointerAt(null);
         }}
         onAuxClick={(e) => e.preventDefault()}
         onContextMenu={(e) => {
@@ -509,6 +537,11 @@ export function LevelCanvas({
           className="pointer-events-none absolute rounded border border-dashed border-primary bg-primary/30"
           style={{ left: ghost.sx - ghostSize / 2, top: ghost.sy - ghostSize / 2, width: ghostSize, height: ghostSize }}
         />
+      ) : null}
+      {readout ? (
+        <span className="pointer-events-none absolute bottom-1 left-2 rounded bg-background/80 px-1 text-[11px] tabular-nums text-muted-foreground" data-testid="level-elevation">
+          {readout}
+        </span>
       ) : null}
       <span className="pointer-events-none absolute bottom-1 right-2 text-[11px] tabular-nums text-muted-foreground" data-testid="level-zoom">
         {plan ? `${level.width * levelMetresPerTile(level)} × ${level.height * levelMetresPerTile(level)} m` : `${level.width} × ${level.height}`} · {view.zoom < 0.095 ? (view.zoom * 100).toFixed(1) : Math.round(view.zoom * 100)}%

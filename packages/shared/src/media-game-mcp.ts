@@ -13,7 +13,7 @@
  */
 import { z } from 'zod';
 
-import { LEVEL_OPS_MAX, LevelEntityFieldsSchema, LevelOpSchema, LevelQuerySchema } from './game-level-ops';
+import { LEVEL_OPS_MAX, LevelEntityFieldsSchema, LevelOpSchema, LevelOpSnapSchema, LevelQuerySchema } from './game-level-ops';
 import { GamePrefabNameSchema, GamePrefabWriteResultSchema, GamePrefabsResultSchema } from './game-level-prefab';
 import { ScatterOptionsSchema } from './game-level-scatter';
 
@@ -94,6 +94,8 @@ export const GAME_MCP_TOOL_IDS = [
   'game_prefab_list',
   'game_prefab_save',
   'game_level_scatter',
+  // Phase 141 Theme F.
+  'game_terrain_height',
 ] as const;
 export type GameMcpToolId = (typeof GAME_MCP_TOOL_IDS)[number];
 export const isGameMcpToolId = (value: string): value is GameMcpToolId =>
@@ -122,6 +124,7 @@ export const GAME_MCP_READ_TOOL_IDS: readonly GameMcpToolId[] = [
   'game_doctor',
   'game_assets_list',
   'game_prefab_list',
+  'game_terrain_height',
 ];
 
 /** Tools that outlast the shim's default 60 s call timeout (a run boots a renderer, a burst waits between frames). */
@@ -360,6 +363,8 @@ export const GameEntityAddInputSchema = GameToolTargetSchema.extend({
   scene: GameSceneNameSchema,
   entities: z.array(LevelEntityFieldsSchema).min(1).max(200),
   layer: z.union([z.number().int(), z.string().min(1)]).optional(),
+  /** Phase 141 Theme G: put every added object on the terrain. */
+  snap: LevelOpSnapSchema.optional(),
   ...LevelWriteOptions,
 });
 export const GameEntityUpdateInputSchema = GameToolTargetSchema.extend({
@@ -370,6 +375,7 @@ export const GameEntityUpdateInputSchema = GameToolTargetSchema.extend({
         id: z.number().int().positive(),
         set: LevelEntityFieldsSchema.partial().default({}),
         unset: z.array(z.string()).max(64).optional(),
+        snap: LevelOpSnapSchema.optional(),
       }),
     )
     .min(1)
@@ -510,9 +516,26 @@ export const GameLevelScatterInputSchema = GameToolTargetSchema.extend({
   /** `seed` unset picks a random one; set it and a re-run on the same level gives the same points. */
   options: ScatterOptionsSchema.extend({ seed: z.number().int().nonnegative().optional() }),
   layer: z.union([z.number().int(), z.string().min(1)]).optional(),
+  /** Phase 141 Theme G: put every scattered object on the terrain. */
+  snap: LevelOpSnapSchema.optional(),
   label: LevelWriteOptions.label,
   save: LevelWriteOptions.save,
   select: z.boolean().default(false),
+});
+
+/** `game_terrain_height` (Phase 141 Theme F): up to 1,000 x/z points of a 3D level, world metres (origin included). */
+export const GAME_TERRAIN_HEIGHT_MAX_POINTS = 1000;
+export const GameTerrainHeightInputSchema = GameToolTargetSchema.extend({
+  scene: GameSceneNameSchema,
+  points: z.array(z.object({ x: z.number().finite(), z: z.number().finite() })).min(1).max(GAME_TERRAIN_HEIGHT_MAX_POINTS),
+  normals: z.boolean().default(false),
+});
+export const GameTerrainHeightOutputSchema = z.object({
+  terrain: z.string(),
+  heights: z.array(z.number()),
+  normals: z.array(z.tuple([z.number(), z.number(), z.number()])).optional(),
+  /** Indexes of points off the terrain and every pack: each was clamped to the terrain's edge. */
+  outside: z.array(z.number().int()),
 });
 
 /** `game_assert_frame` and `game_playtest` answer a JSON text block, then any diff or failure images. */

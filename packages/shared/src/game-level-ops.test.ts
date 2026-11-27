@@ -159,3 +159,47 @@ describe('LevelOpSchema', () => {
     expect(parse({ type: 'coin', x: 1, y: 1, polyline: Array.from({ length: 1001 }, () => ({ x: 0, y: 0 })) })).toBe(false);
   });
 });
+
+describe("snap: 'terrain' (Phase 141 Theme G)", () => {
+  const props = [
+    { name: 'midnite.dimension', type: 'string', value: '3d' },
+    { name: 'midnite.originX', type: 'float', value: -1000 },
+  ];
+  /** A slope: one metre up per metre east. */
+  const heightAt = (x: number, z: number): number | null => (Math.abs(x) > 5000 || Math.abs(z) > 5000 ? null : 100 + x + z / 4);
+  const elevationOf = (level: unknown, id: number) =>
+    ((level as { layers: Array<{ objects?: Array<{ id: number; properties?: Array<{ name: string; type?: string; value: unknown }> }> }> }).layers[1]!.objects!.find((o) => o.id === id)!.properties ?? []).find((p) => p.name === 'elevation');
+  const c = { ...ctx, heightAt };
+
+  it("G1: an add with snap 'terrain' has no elevation; with 'terrain-bake' it equals the sampler's height", () => {
+    const withElevation: LevelOp = { op: 'add', entity: { type: 'pickup', x: 640, y: 320, properties: { elevation: 999 } }, snap: 'terrain' };
+    const a = applyLevelOps(base(props), [withElevation], c);
+    if (!a.ok) throw new Error(a.errors[0]!.message);
+    expect(elevationOf(a.level, a.added[0]!)).toBeUndefined();
+    const b = applyLevelOps(base(props), [add('pickup', 640, 320, { snap: 'terrain-bake' })], c);
+    if (!b.ok) throw new Error(b.errors[0]!.message);
+    // Map px (640, 320) is 20 m east and 10 m south of the corner, which sits at x = −1000.
+    expect(elevationOf(b.level, b.added[0]!)).toEqual({ name: 'elevation', type: 'float', value: heightAt(-980, 10) });
+  });
+
+  it('snaps an update and every object of a placed prefab', () => {
+    const u = applyLevelOps(base(props), [{ op: 'update', id: 9, set: { x: 0 }, snap: 'terrain-bake' }], c);
+    if (!u.ok) throw new Error(u.errors[0]!.message);
+    expect(elevationOf(u.level, 9)!.value).toBe(heightAt(-1000 + 0.25, 5.25));
+    const prefab = { version: 1 as const, name: 'camp', dimension: '3d' as const, objects: [{ type: 'pickup', x: 0, y: 0, properties: { elevation: 3 } }, { type: 'pickup', x: 64, y: 0 }] };
+    const p = applyLevelOps(base(props), [{ op: 'place-prefab', prefab: 'camp', x: 320, y: 64, snap: 'terrain' }], { ...c, prefabs: { camp: prefab } });
+    if (!p.ok) throw new Error(p.errors[0]!.message);
+    for (const id of p.added) expect(elevationOf(p.level, id)).toBeUndefined();
+  });
+
+  it('G2: without a terrain, or off it, the batch fails and nothing is applied', () => {
+    const none = applyLevelOps(base(props), [add('coin'), add('pickup', 100, 100, { snap: 'terrain' })], ctx);
+    expect(none.ok).toBe(false);
+    if (!none.ok) expect(none.errors[0]).toMatchObject({ index: 1, op: 'add', message: expect.stringContaining('no terrain') });
+    const off = applyLevelOps(base(props), [{ op: 'update', id: 9, set: {}, snap: 'terrain-bake' }], { ...c, heightAt: () => null });
+    expect(off.ok).toBe(false);
+    if (!off.ok) expect(off.errors[0]!.message).toMatch(/off the terrain/);
+    // A delete never snaps, so it needs no terrain.
+    expect(applyLevelOps(base(props), [{ op: 'delete', id: 9 }], ctx).ok).toBe(true);
+  });
+});

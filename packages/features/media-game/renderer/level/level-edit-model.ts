@@ -514,6 +514,37 @@ export function removeProperty(state: EditState, target: NonNullable<EditSelecti
   });
 }
 
+// --- on the ground (Phase 141 Theme D) ---------------------------------------------------
+
+/**
+ * `End` — drop every ref'd object to the ground as ONE undo step: its `elevation` goes, so it stands on the terrain
+ * (or `midnite.groundY`) in the editor and the game alike, by the kit's own rule. Objects already without one are
+ * left alone; the same state comes back when none had one.
+ */
+export function dropToGround(state: EditState, refs: readonly ObjectRef[]): EditState {
+  const level = mapRefs(state.level, refs, (o) => {
+    if (!o.properties?.some((p) => p.name === 'elevation')) return o;
+    return withOverride({ ...o, properties: o.properties.filter((p) => p.name !== 'elevation') }, 'properties.elevation');
+  });
+  return commit(state, level);
+}
+
+/**
+ * `Shift+End` — bake the ground's current height into each ref'd object's `elevation`, as ONE undo step, so it stays
+ * put if the terrain is re-exported. `groundOf` answers the height for an object (the caller takes a volume's lowest
+ * footprint corner); `null` skips it.
+ */
+export function bakeGroundHeight(state: EditState, refs: readonly ObjectRef[], groundOf: (o: LevelObject) => number | null): EditState {
+  const level = mapRefs(state.level, refs, (o) => {
+    const h = groundOf(o);
+    if (h === null || !Number.isFinite(h)) return o;
+    const value = Math.round(h * 1e4) / 1e4;
+    if (o.properties?.find((p) => p.name === 'elevation')?.value === value) return o;
+    return withOverride({ ...o, properties: upsert(o.properties, { name: 'elevation', type: 'float', value }) }, 'properties.elevation');
+  });
+  return commit(state, level);
+}
+
 // --- 3D placement (Phase 132 Theme E) --------------------------------------------------
 
 /** A volume's default vertical size, metres (Decision 3). */
@@ -734,7 +765,7 @@ export function applyAgentOps(
   ops: readonly LevelOp[],
   ctx: LevelOpsContext & { select?: boolean },
 ): { state: EditState; result: LevelOpsResult } {
-  const result = applyLevelOps(serialise(state), ops, { unit: ctx.unit, entityTypes: ctx.entityTypes, ...(ctx.prefabs ? { prefabs: ctx.prefabs } : {}) });
+  const result = applyLevelOps(serialise(state), ops, { unit: ctx.unit, entityTypes: ctx.entityTypes, ...(ctx.prefabs ? { prefabs: ctx.prefabs } : {}), ...(ctx.heightAt ? { heightAt: ctx.heightAt } : {}) });
   if (!result.ok) return { state, result };
   let next = commit(state, result.level as EditLevel);
   if (ctx.select) {

@@ -50,6 +50,8 @@ export const gameAssetsList = async (input: McpToolInput<'game_assets_list'>): P
   tools().game_assets_list(input);
 export const gamePrefabList = async (input: McpToolInput<'game_prefab_list'>): Promise<McpToolOutput<'game_prefab_list'>> =>
   tools().game_prefab_list(input);
+export const gameTerrainHeight = async (input: McpToolInput<'game_terrain_height'>): Promise<McpToolOutput<'game_terrain_height'>> =>
+  tools().game_terrain_height(input);
 export const gamePrefabSave = async (input: McpToolInput<'game_prefab_save'>): Promise<McpToolOutput<'game_prefab_save'>> => {
   allowed();
   return tools().game_prefab_save(input);

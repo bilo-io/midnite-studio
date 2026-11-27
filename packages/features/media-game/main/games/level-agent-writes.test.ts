@@ -140,3 +140,30 @@ describe('defaultLevelWriteLabel', () => {
     expect(defaultLevelWriteLabel([add, del])).toBe('Edit 2 objects');
   });
 });
+
+describe("snap: 'terrain' on the file path (Phase 141 Theme G)", () => {
+  const run = (ground: LevelAgentWriteDeps['ground']) => {
+    const set = vi.fn(async (_g: string, _s: string, _l: unknown) => ok({ sha: 'sha1' }));
+    const deps: LevelAgentWriteDeps = {
+      levels: { get: async () => ok({ level: map([spawn]), issues: [], images: [] }), set } as never,
+      levelEditor: { request: async () => ok({ handled: false, reason: 'not-open' }) },
+      modelAssets: async () => null,
+      ...(ground ? { ground } : {}),
+    };
+    return { set, result: writeLevelOps(deps, { gameId: 'g1', scene: 'level', ops: [{ ...add, snap: 'terrain-bake' } as LevelOp], unit: 'px', save: false, select: true }) };
+  };
+  it('bakes the full-resolution ground main supplies', async () => {
+    const { set, result } = run(async () => (x, z) => 40 + x + z);
+    expect((await result).ok).toBe(true);
+    const written = set.mock.calls[0]![2] as { layers: Array<{ objects: Array<{ id: number; properties?: Array<{ name: string; value: unknown }> }> }> };
+    // (16, 16) px at 16 px a metre is (1, 1) m.
+    expect(written.layers[0]!.objects.find((o) => o.id === 10)!.properties).toEqual([{ name: 'elevation', type: 'float', value: 42 }]);
+  });
+  it('G2: fails and writes nothing when the level has no terrain', async () => {
+    const { set, result } = run(async () => null);
+    const r = await result;
+    expect(r.ok).toBe(false);
+    expect(r).toMatchObject({ message: expect.stringMatching(/no terrain/) });
+    expect(set).not.toHaveBeenCalled();
+  });
+});

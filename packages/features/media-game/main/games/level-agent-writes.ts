@@ -28,6 +28,11 @@ export type LevelAgentWriteDeps = {
   modelAssets: (gameId: string) => Promise<readonly string[] | null>;
   /** One prefab file by name (Phase 139 Theme I), `null` when it is missing or invalid; needed for `place-prefab` ops. */
   prefab?: (gameId: string, name: string) => Promise<GamePrefab | null>;
+  /**
+   * Phase 141 Theme G: the level's ground at full resolution for a `snap`, `null` when it has no terrain. Asked only
+   * when a batch snaps and is written to the file; an open editor snaps against its own relief.
+   */
+  ground?: (gameId: string, level: unknown) => Promise<((x: number, z: number) => number | null) | null>;
 };
 
 export type LevelAgentWriteRequest = {
@@ -137,7 +142,8 @@ const pick = (a: { added: number[]; updated: number[]; deleted: number[]; refs: 
 async function writeToFile(deps: LevelAgentWriteDeps, req: LevelAgentWriteRequest, prefabs: Record<string, GamePrefab>): Promise<GitOpResult<GameEntityWriteOutput>> {
   const file = await deps.levels.get(req.gameId, req.scene);
   if (!file.ok) return file;
-  const result = applyLevelOps(file.value.level, req.ops, { unit: req.unit, entityTypes: levelEntityTypes(file.value.level), prefabs });
+  const heightAt = deps.ground && req.ops.some((op) => op.op !== 'delete' && op.snap) ? await deps.ground(req.gameId, file.value.level) : null;
+  const result = applyLevelOps(file.value.level, req.ops, { unit: req.unit, entityTypes: levelEntityTypes(file.value.level), prefabs, ...(heightAt ? { heightAt } : {}) });
   if (!result.ok) return failure(joinErrors(result.errors));
   const written = await deps.levels.set(req.gameId, req.scene, result.level);
   if (!written.ok) return written;
