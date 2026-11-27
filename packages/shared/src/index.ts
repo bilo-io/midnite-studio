@@ -57,6 +57,7 @@ export * from './capture';
 export * from './game';
 export * from './media-game';
 export * from './game-asset-library';
+export * from './game-entity-types';
 export * from './game-level';
 export * from './game-level-editor-bridge';
 export * from './game-level-ops';
