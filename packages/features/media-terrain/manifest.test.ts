@@ -33,7 +33,8 @@ describe('media-terrain MCP ownership', () => {
 
   it('Studio lists every tool, a Gamer-only install lists the terrain ones, a Creator-only one none', () => {
     const manifests = [mediaTerrainManifest];
-    expect(listMcpToolIds(ALL_APPS_INSTALLED, manifests)).toEqual([...MCP_TOOL_IDS]);
+    // Suite-served tools (Startup's `startup_*`, #1343) are listed by their suite, not Studio.
+    expect(listMcpToolIds(ALL_APPS_INSTALLED, manifests)).toEqual(MCP_TOOL_IDS.filter((id) => !id.startsWith('startup_')));
     expect(listMcpToolIds(installedSet(['gamer']), manifests)).toEqual(expect.arrayContaining(tools));
     expect(listMcpToolIds(installedSet(['creator']), manifests).some((id) => tools.includes(id))).toBe(false);
   });

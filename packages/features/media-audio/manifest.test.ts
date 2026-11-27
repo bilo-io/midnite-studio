@@ -62,7 +62,8 @@ describe('media-audio MCP ownership', () => {
 
   it('Studio lists every tool, a Creator-only install lists the music ones, an Agents-only one none', () => {
     const manifests = [mediaAudioManifest];
-    expect(listMcpToolIds(ALL_APPS_INSTALLED, manifests)).toEqual([...MCP_TOOL_IDS]);
+    // Suite-served tools (Startup's `startup_*`, #1343) are listed by their suite, not Studio.
+    expect(listMcpToolIds(ALL_APPS_INSTALLED, manifests)).toEqual(MCP_TOOL_IDS.filter((id) => !id.startsWith('startup_')));
     expect(listMcpToolIds(installedSet(['creator']), manifests)).toEqual(expect.arrayContaining(music));
     expect(listMcpToolIds(installedSet(['agents']), manifests).some((id) => music.includes(id))).toBe(false);
   });

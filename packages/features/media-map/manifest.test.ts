@@ -34,7 +34,8 @@ describe('media-map MCP ownership', () => {
 
   it('Studio lists every tool, a Gamer-only install lists the Maps ones, a Creator-only one none', () => {
     const manifests = [mediaMapManifest];
-    expect(listMcpToolIds(ALL_APPS_INSTALLED, manifests)).toEqual([...MCP_TOOL_IDS]);
+    // Suite-served tools (Startup's `startup_*`, #1343) are listed by their suite, not Studio.
+    expect(listMcpToolIds(ALL_APPS_INSTALLED, manifests)).toEqual(MCP_TOOL_IDS.filter((id) => !id.startsWith('startup_')));
     expect(listMcpToolIds(installedSet(['gamer']), manifests)).toEqual(expect.arrayContaining([...tools]));
     expect(listMcpToolIds(installedSet(['creator']), manifests).some((id) => (tools as readonly string[]).includes(id))).toBe(false);
   });
