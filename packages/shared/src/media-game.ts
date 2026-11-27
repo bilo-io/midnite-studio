@@ -14,6 +14,7 @@
 import { z } from 'zod';
 
 import { GameFixIdSchema, GameRuleAreaSchema, GameRuleIdSchema, GameRuleLevelSchema } from './game-standard';
+import { GAME_ASSET_KINDS, GameEntityTypeSchema } from './game-entity-types';
 import { LoopModelSchema } from './loops';
 import { MediaTabSchema } from './media';
 
@@ -148,17 +149,7 @@ export type GameNetwork = z.infer<typeof GameNetworkSchema>;
 
 // --- manifest ----------------------------------------------------------------
 
-export const GAME_ASSET_KINDS = [
-  'terrain',
-  'sprite',
-  'tileset',
-  'map',
-  'background',
-  'model',
-  'image',
-  'audio',
-  'animation',
-] as const;
+export { GAME_ASSET_KINDS };
 
 /**
  * Where an asset imported from the shared library came from (optional, so manifests and indexes written before
@@ -280,6 +271,8 @@ export const GameManifestSchema = z
     options: GameOptionsSchema.optional(),
     /** Present means "this game's scenes read their layout from `levels/<scene>.tmj`" (Phase 132, Decision 14). */
     levels: z.object({ dir: z.literal('levels').default('levels'), start: GameSceneNameSchema }).optional(),
+    /** Typed field schemas for level objects (Phase 142 Theme A), merged over `GAME_ENTITY_DEFAULT_SCHEMAS` by `type`. */
+    entityTypes: z.array(GameEntityTypeSchema).max(64).optional(),
     /** A bundled game: run `command` in the repo, then serve `out` (relative, inside the game). */
     build: z
       .object({
