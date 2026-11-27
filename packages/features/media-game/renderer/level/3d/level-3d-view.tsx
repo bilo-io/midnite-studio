@@ -296,8 +296,10 @@ export default function Level3dView(props: Level3dViewProps) {
     // Phase 141 Theme D: End drops the selection onto the ground, Shift+End bakes the ground's height into it.
     if ((cmd === 'ground.drop' || cmd === 'ground.bake') && !props.readOnly) {
       event.preventDefault();
-      if (selectedRefs.length === 0) return;
-      update((s) => (cmd === 'ground.drop' ? dropToGround(s, selectedRefs) : bakeGroundHeight(s, selectedRefs, (o) => groundUnder(o, s.level, heightAt))));
+      // A locked object stays where it is.
+      const refs = selectedRefs.filter((r) => !props.locked?.has(`${r.layerId}:${r.objectId}`));
+      if (refs.length === 0) return;
+      update((s) => (cmd === 'ground.drop' ? dropToGround(s, refs) : bakeGroundHeight(s, refs, (o) => groundUnder(o, s.level, heightAt))));
       return;
     }
     if (cmd === 'view.frame') {

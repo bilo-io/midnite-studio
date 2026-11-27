@@ -211,13 +211,17 @@ export function LevelCanvas({
       c.width = h.width;
       c.height = h.height;
       const g = c.getContext('2d');
-      if (!g) return [];
-      g.putImageData(new ImageData(new Uint8ClampedArray(h.pixels), h.width, h.height), 0, 0);
+      if (!g || typeof g.createImageData !== 'function') return [];
+      const img = g.createImageData(h.width, h.height);
+      img.data.set(h.pixels);
+      g.putImageData(img, 0, 0);
       return [{ image: c, minX: h.minX, minZ: h.minZ, maxX: h.maxX, maxZ: h.maxZ }];
     });
   }, [planTerrain, hillshadeOn]);
   const planRelief = useMemo(() => reliefOf(planTerrain), [planTerrain]);
-  const readout = plan ? elevationReadout(level, planRelief, cursor) : null;
+  /** Where the pointer is over the plan, for the readout; cleared when it leaves (the path draft keeps `cursor`). */
+  const [pointerAt, setPointerAt] = useState<PlanPoint | null>(null);
+  const readout = plan ? elevationReadout(level, planRelief, pointerAt) : null;
   const { image: terrainImage, loaded: terrainLoaded } = useTerrainImage(plan?.terrain?.preview);
   const { image: terrainDetailImage, loaded: terrainDetailLoaded } = useTerrainImage(plan?.terrain?.detail?.preview);
   const packPreviews = useMemo(() => (plan?.terrain?.packs ?? []).map((p) => p.preview), [plan?.terrain?.packs]);
@@ -405,7 +409,10 @@ export function LevelCanvas({
     const cell = cellAt(level, p.x, p.y);
     if (phase === 'move') {
       setHover(cell);
-      if (plan) setCursor({ x: p.x, y: p.y });
+      if (plan) {
+        setCursor({ x: p.x, y: p.y });
+        if (planRelief) setPointerAt({ x: p.x, y: p.y });
+      }
       if (brush) setBrushAt(plan ? { x: p.x, y: p.y } : mapPointToObject(level, p.x, p.y));
     }
     onPointer({
@@ -507,6 +514,7 @@ export function LevelCanvas({
         onPointerLeave={() => {
           setHover(null);
           setBrushAt(null);
+          setPointerAt(null);
         }}
         onAuxClick={(e) => e.preventDefault()}
         onContextMenu={(e) => {
