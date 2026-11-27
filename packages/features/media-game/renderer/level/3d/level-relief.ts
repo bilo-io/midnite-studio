@@ -3,7 +3,7 @@
  * both (fine over the part the level works in, coarse over the rest), and what the view needs to sit things on it.
  * Pure, no three.
  */
-import type { GameLevelHeights, GameLevelTerrain } from '@midnite/studio-shared';
+import { gridHeightAt, inGrid, type GameLevelHeights, type GameLevelTerrain } from '@midnite/studio-shared';
 
 import type { GroundTile } from './level-cull';
 import type { WorldItem } from './level-world';
@@ -27,16 +27,10 @@ export function decodeHeights(h: GameLevelHeights): HeightField | null {
   return { minX: h.minX, minZ: h.minZ, maxX: h.maxX, maxZ: h.maxZ, cols: h.cols, rows: h.rows, values };
 }
 
-export const inField = (f: GroundTile, x: number, z: number): boolean => x >= f.minX && x <= f.maxX && z >= f.minZ && z <= f.maxZ;
+export const inField = (f: GroundTile, x: number, z: number): boolean => inGrid(f, x, z);
 
-/** The field's height at a point, bilinear between its vertices; a point outside reads the nearest edge. */
-export function sampleField(f: HeightField, x: number, z: number): number {
-  const fx = Math.min(f.cols - 1, Math.max(0, ((x - f.minX) / (f.maxX - f.minX)) * (f.cols - 1)));
-  const fz = Math.min(f.rows - 1, Math.max(0, ((z - f.minZ) / (f.maxZ - f.minZ)) * (f.rows - 1)));
-  const x0 = Math.min(f.cols - 2, Math.floor(fx)), z0 = Math.min(f.rows - 2, Math.floor(fz)), tx = fx - x0, tz = fz - z0;
-  const at = (i: number, j: number): number => f.values[j * f.cols + i]!;
-  return (at(x0, z0) * (1 - tx) + at(x0 + 1, z0) * tx) * (1 - tz) + (at(x0, z0 + 1) * (1 - tx) + at(x0 + 1, z0 + 1) * tx) * tz;
-}
+/** The field's height at a point, the kit's way (`shared/src/game-heightfield.ts`); a point outside reads the nearest edge. */
+export const sampleField = (f: HeightField, x: number, z: number): number => gridHeightAt(f, x, z);
 
 export type Relief = {
   /** The ground's height at a world point, metres: the fine field where it reaches, else the terrain's coarse one, else the first further pack that covers the point, else `outside`. */

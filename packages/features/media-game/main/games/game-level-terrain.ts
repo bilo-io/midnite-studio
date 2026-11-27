@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 import { cachedDrapePreview, downscalePng } from './drape-preview';
 import { readTerrainDetail, workExtent, type Extent } from './terrain-detail';
-import { heightsOver, readHeightSource } from './terrain-heights';
+import { heightAtFull, heightsOver, normalAtFull, readHeightSource, type HeightSource } from './terrain-heights';
 
 /** The drape image is only a backdrop for the plan view; a bigger PNG is downscaled (`drape-preview.ts`) rather than shipped whole over IPC (the editor re-reads a level on focus, so it is sent often). */
 const PREVIEW_MAX_BYTES = 1024 * 1024;
@@ -152,5 +152,72 @@ export async function readLevelTerrainDetail(gamePath: string, level: Pick<GameL
     return null;
   } catch {
     return null;
+  }
+}
+
+/** A level's ground at full resolution (Phase 141 Theme A): the terrain, then each placed pack, in the level's order. */
+export type LevelGround = {
+  /** The terrain's asset name (`midnite.terrain`). */
+  terrain: string;
+  /** The terrain's own rectangle, world metres (packs lie round it). */
+  extent: Extent;
+  /** Metres at world `(x, z)` (origin included, as `levelEntityToWorld` gives it); `null` off the terrain and every pack. */
+  heightAt(x: number, z: number): number | null;
+  /** The upward unit normal there; `null` where `heightAt` is. */
+  normalAt(x: number, z: number): [number, number, number] | null;
+};
+
+/**
+ * The ground a 3D level stands on, sampled from each pack's heightfield PNG at its own resolution — the decoded
+ * source `readHeightSource` caches, never a downsampled grid — so placement, `game_terrain_height` and
+ * `snap: 'terrain'` agree with the kit to the cell. A point over the terrain samples it; one over a further pack
+ * (`midnite.terrainPacks`) samples that pack over the rectangle the level places it in. Fails with
+ * "This level has no terrain." when the level names none, and as `readLevelTerrain` does (no terrain) when the
+ * asset, its manifest or its heightfield cannot be read or a path escapes the game folder.
+ */
+export async function readLevelGround(gamePath: string, level: Pick<GameLevel, 'properties'>): Promise<{ ok: true; ground: LevelGround } | { ok: false; message: string }> {
+  const name = levelProperties(level)[GAME_LEVEL_PROPS.terrain];
+  if (typeof name !== 'string' || name === '') return { ok: false, message: 'This level has no terrain.' };
+  const unreadable = { ok: false as const, message: `The terrain "${name}" has no readable heightfield.` };
+  try {
+    const index = GameAssetIndexSchema.parse(JSON.parse(await readFile((await confineToRoot(gamePath, GAME_ASSET_INDEX_FILE)) ?? '', 'utf8')));
+    const layer = async (entry: PackEntry | undefined, placed: Extent | null): Promise<{ source: HeightSource; rect: Extent } | null> => {
+      if (!entry) return null;
+      const read = await readPack(gamePath, entry);
+      if (!read) return null;
+      const source = await readHeightSource({ png: await read.inPack(read.pack.heightfield?.png), json: await read.inPack(read.pack.heightfield?.json) }, read.pack.heightRange ?? null);
+      const own = { minX: read.pack.bounds.min[0], minZ: read.pack.bounds.min[2], maxX: read.pack.bounds.max[0], maxZ: read.pack.bounds.max[2] };
+      return source ? { source, rect: placed ?? own } : null;
+    };
+    const main = await layer(index.assets.find((a) => a.kind === 'terrain' && a.name === name), null);
+    if (!main) return unreadable;
+    const layers = [main];
+    for (const placed of terrainPlacements(levelProperties(level)[GAME_LEVEL_PROPS.terrainPacks])) {
+      if (placed.name === name) continue;
+      try {
+        const more = await layer(index.assets.find((a) => a.kind === 'terrain' && a.name === placed.name), placed);
+        if (more) layers.push(more);
+      } catch {
+        // An unreadable further pack leaves a gap; the terrain still answers.
+      }
+    }
+    const first = <T>(f: (l: { source: HeightSource; rect: Extent }) => T | null): T | null => {
+      for (const l of layers) {
+        const v = f(l);
+        if (v !== null) return v;
+      }
+      return null;
+    };
+    return {
+      ok: true,
+      ground: {
+        terrain: name,
+        extent: main.rect,
+        heightAt: (x, z) => first((l) => heightAtFull(l.source, l.rect, x, z)),
+        normalAt: (x, z) => first((l) => normalAtFull(l.source, l.rect, x, z)),
+      },
+    };
+  } catch {
+    return unreadable;
   }
 }
