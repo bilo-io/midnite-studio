@@ -1546,6 +1546,9 @@ export async function runFreeRam({ repo, sessions = 6 }) {
     // Quit the app only; the broker is detached and keeps the shells.
     live.run.child.kill('SIGTERM');
     await sleep(3_000);
+    process.stderr.write(
+      `after quit: ${JSON.stringify(freeRamSnapshotKb(0, profile))} (brokers holding the profile)\n`,
+    );
 
     copyFileSync(brokerJs, backup);
     appendFileSync(brokerJs, '\n// free-ram perf: new build fingerprint\n');
