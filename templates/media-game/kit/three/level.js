@@ -13,7 +13,7 @@ import * as THREE from 'three';
 
 import { registerEntities } from '../core/hook.js';
 import { installDebugDraw3d } from './debug-draw.js';
-import { applySpawn3d, levelEntities, levelOrigin, levelProps, metresPerTile, snapshotLevelEntities, spawnOverride, toWorld3d } from '../core/level.js';
+import { applySpawn3d, levelEntities, levelEnvironment, levelOrigin, levelProps, metresPerTile, snapshotLevelEntities, spawnOverride, toWorld3d } from '../core/level.js';
 
 /**
  * @typedef {{
@@ -22,7 +22,11 @@ import { applySpawn3d, levelEntities, levelOrigin, levelProps, metresPerTile, sn
  *   materials?: { get: (key: string, options?: Record<string, unknown>) => import('three').Material },
  *   loadModel?: (name: string) => Promise<{ scene: import('three').Object3D } | import('three').Object3D>,
  *   heightAt?: (x: number, z: number) => number,
+ *   environment?: { applyLevel: (env: ReturnType<typeof levelEnvironment>) => void },
+ *   postfx?: { applyLevel: (env: ReturnType<typeof levelEnvironment>) => void },
  * }} Level3dContext
+ * `environment` (a `createEnvironment` result) and `postfx` (a `createPostFx` result), when passed, take the level's
+ * `midnite.sky`, sun, fog and `post` properties; the returned `environment` is the parsed values either way.
  */
 
 /**
@@ -34,6 +38,9 @@ import { applySpawn3d, levelEntities, levelOrigin, levelProps, metresPerTile, sn
  */
 export async function buildLevel3d(context, map, options = {}) {
   const { scene, physics, materials, loadModel, heightAt } = context;
+  const environment = levelEnvironment(map);
+  context.environment?.applyLevel(environment);
+  context.postfx?.applyLevel(environment);
   const groundY = Number(levelProps(map)['midnite.groundY']) || 0;
   const ground = (/** @type {number} */ x, /** @type {number} */ z) => (heightAt ? heightAt(x, z) : groundY);
   const entities = levelEntities(map, options.layer ?? 'objects');
@@ -142,5 +149,6 @@ export async function buildLevel3d(context, map, options = {}) {
     spawns,
     entities: placed,
     paths,
+    environment,
   };
 }

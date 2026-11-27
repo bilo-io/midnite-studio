@@ -63,7 +63,8 @@ export async function startLevel() {
   const lights = [];
   // The lantern posts are `lantern` entities in `levels/level.tmj` (a `light` property marks the ones that carry a real light).
   const levelName = currentLevel('level');
-  const level = await buildLevel3d({ scene }, await fetchLevel(levelName));
+  const level = await buildLevel3d({ environment: env, scene }, await fetchLevel(levelName));
+  fx.postfx.applyLevel(level.environment);
   for (const { entity, world } of level.entities.filter((p) => p.entity.name === 'lantern')) {
     const [x, , z] = world.position;
     const post = new THREE.Mesh(new THREE.BoxGeometry(0.3, 3, 0.3), postMaterial);

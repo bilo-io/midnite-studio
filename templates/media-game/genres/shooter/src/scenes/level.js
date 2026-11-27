@@ -60,7 +60,7 @@ export async function startLevel() {
   const physics = await initPhysics();
   // The layout (crates, ramp, door, pylons, enemy and spawns) is `levels/level.tmj`; the materials and the door's moving collider are here.
   const levelName = currentLevel('level');
-  const level = await buildLevel3d({ scene, physics }, await fetchLevel(levelName));
+  const level = await buildLevel3d({ environment: env, scene, physics }, await fetchLevel(levelName));
   const named = (/** @type {string} */ name) => level.entities.filter((p) => p.entity.name === name);
   /** Re-skin the meshes the builder made for `name`: it draws a plain box, the scene owns the look. */
   const skin = (/** @type {string} */ name, /** @type {(size: number[]) => THREE.Material} */ material) => {
@@ -70,6 +70,7 @@ export async function startLevel() {
   const rig = createCameraRig({ mode: MODE, physics, exclude: character.collider, allowed: config.cameras, canvas });
   // Bloom lifts the muzzle flashes and floodlights; the exposure is a touch low so they read as lights.
   const fx = createFx({ gameName: 'shooter', scene, camera: rig.camera, renderer, bloom: { strength: 0.42, radius: 0.6, threshold: 0.82 }, exposure: 1.05 });
+  fx.postfx.applyLevel(level.environment);
   const { materials, juice, sfx } = fx;
 
   physics.addGround(80);

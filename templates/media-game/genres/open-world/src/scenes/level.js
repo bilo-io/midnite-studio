@@ -184,10 +184,12 @@ export async function startLevel() {
   // The kit's sky, sun, hemisphere light and fog (kit/three/environment.js). The game clock drives it through `setTimeOfDay`
   // each frame below; no reflection bake, because re-baking as the sun moves costs far more than the terrain's materials gain.
   const env = createEnvironment({ scene, renderer, timeOfDay: hourAt(0, DAY_SECONDS, 9), fog: [120, 420], shadowSize: 60, environmentMap: false });
+  env.applyLevel(level.environment);
   // Juice kit: on by default; `?juice=off` or `__midnite.juice.off()` silences it.
   const settings = createJuiceSettings({ gameName: 'open-world' });
   const audio = createAudio(rig.camera);
   const postfx = createPostFx({ renderer, scene, camera: rig.camera, settings, bloom: { strength: 0.22, radius: 0.5, threshold: 0.92 } });
+  postfx.applyLevel(level.environment);
   const juice = createJuice({ scene, camera: rig.camera, renderer, settings, sfx: audio.sfx, postfx, floorY: ground(PLAYER_START[0], PLAYER_START[1]) });
   const beds = createSoundBeds({ context: audio.sfx.context, rng: createRng(0xb1d) });
   const applyVolume = () => {

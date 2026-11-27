@@ -244,6 +244,48 @@ export function levelOrigin(map) {
   return { x: finite(props['midnite.originX'], 0), z: finite(props['midnite.originY'], 0) };
 }
 
+const ENV_SKY = ['day', 'dawn', 'dusk', 'night', 'overcast'];
+const ENV_POST = ['none', 'soft', 'vivid', 'cinematic'];
+/** @param {unknown} v @param {number} min @param {number} max */
+const inRangeOrNull = (v, min, max) => (typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? v : null);
+
+/**
+ * `midnite.weather`, `weatherOptions`, `timeOfDay`, `timeScale` and the Phase 144 `sky`, `sunAzimuth` (deg 0-360),
+ * `sunElevation` (deg -10..90), `fog`, `fogNear`, `fogFar` and `post`, read the way `levelEnvironment` in
+ * `packages/shared/src/game-level.ts` reads them (`kit-level-environment.test.ts` holds the two to a table of
+ * fixtures). `null` = not set, wrong type or out of range: the game's own value stands.
+ * @param {any} map
+ */
+export function levelEnvironment(map) {
+  const props = levelProps(map);
+  const w = props['midnite.weather'];
+  const o = props['midnite.weatherOptions'];
+  const kinds = typeof o === 'string' ? o.split(',').map((k) => k.trim()).filter((k) => k && k !== 'auto') : [];
+  const t = props['midnite.timeOfDay'];
+  const sc = props['midnite.timeScale'];
+  let fogNear = inRangeOrNull(props['midnite.fogNear'], 0, Number.MAX_SAFE_INTEGER);
+  let fogFar = inRangeOrNull(props['midnite.fogFar'], 0, Number.MAX_SAFE_INTEGER);
+  if (fogNear !== null && fogFar !== null && fogNear >= fogFar) {
+    fogNear = null;
+    fogFar = null;
+  }
+  const sky = props['midnite.sky'];
+  const post = props['midnite.post'];
+  return {
+    weather: typeof w === 'string' && w.trim() ? w.trim() : 'auto',
+    weatherOptions: ['auto', ...new Set(kinds)],
+    timeOfDay: typeof t === 'number' && Number.isFinite(t) ? Math.min(24, Math.max(0, t)) : null,
+    timeScale: typeof sc === 'number' && Number.isFinite(sc) ? Math.max(0, sc) : 1,
+    sky: typeof sky === 'string' && ENV_SKY.includes(sky) ? sky : null,
+    sunAzimuth: inRangeOrNull(props['midnite.sunAzimuth'], 0, 360),
+    sunElevation: inRangeOrNull(props['midnite.sunElevation'], -10, 90),
+    fog: typeof props['midnite.fog'] === 'boolean' ? props['midnite.fog'] : null,
+    fogNear,
+    fogFar,
+    post: typeof post === 'string' && ENV_POST.includes(post) ? post : null,
+  };
+}
+
 const DEG = Math.PI / 180;
 
 /**

@@ -78,11 +78,13 @@ export async function startLevel() {
   // A late-afternoon village (15:30, just past the kit's day look): warm low sun, hazy amber sky and fog.
   // Dungeon interiors, when a quest adds them, would take `preset: 'overcast'` or a torch-lit fog with the sky dome hidden.
   const env = createEnvironment({ scene, renderer, timeOfDay: 15.5, fog: [26, 70], shadowSize: 40 });
+  env.applyLevel(level.environment);
   // Juice kit: on by default; `?juice=off` or `__midnite.juice.off()` silences it. Bloom is a touch warmer
   // and stronger than the default so spell glow and torch flames read.
   const settings = createJuiceSettings({ gameName: 'rpg' });
   const audio = createAudio(rig.camera);
   const postfx = createPostFx({ renderer, scene, camera: rig.camera, settings, bloom: { strength: 0.4, radius: 0.7, threshold: 0.82 }, exposure: 1.05 });
+  postfx.applyLevel(level.environment);
   const juice = createJuice({ scene, camera: rig.camera, renderer, settings, sfx: audio.sfx, postfx });
   const applyVolume = () => audio.sfx.setVolume(settings.resolved().volume);
   applyVolume();

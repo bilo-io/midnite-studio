@@ -5,6 +5,7 @@
  */
 import {
   GAME_LEVEL_PROPS,
+  LEVEL_ENVIRONMENT_PROPS,
   LEVEL_TIME_OF_DAY_MAX,
   LEVEL_WEATHER_AUTO,
   SPAWNER_DEFAULT_DENSITY,
@@ -592,6 +593,36 @@ export function setLevelTimeScale(state: EditState, raw: string): EditState {
   const n = Number(raw);
   if (!Number.isFinite(n)) return state;
   return setProperty(state, 'map', GAME_LEVEL_PROPS.timeScale, 'float', Math.max(0, n));
+}
+
+/**
+ * Set or remove several map properties as ONE undo step (Phase 144 Theme B): a value sets the property (a string, a
+ * boolean or a number, stored as `string`, `bool` or `float`), `null` removes it. Nothing changing returns the same state.
+ */
+export function setMapProps(state: EditState, patch: Readonly<Record<string, string | number | boolean | null>>): EditState {
+  let props: LevelProperty[] | undefined = state.level.properties;
+  let changed = false;
+  for (const [name, value] of Object.entries(patch)) {
+    if (value === null) {
+      if (props?.some((p) => p.name === name)) {
+        props = props.filter((p) => p.name !== name);
+        changed = true;
+      }
+      continue;
+    }
+    const type = typeof value === 'boolean' ? 'bool' : typeof value === 'number' ? 'float' : 'string';
+    if (typeof value === 'number' && !Number.isFinite(value)) continue;
+    const existing = props?.find((p) => p.name === name);
+    if (existing && existing.value === value && existing.type === type) continue;
+    props = upsert(props, { name, type, value });
+    changed = true;
+  }
+  return changed ? commit(state, { ...state.level, properties: props }) : state;
+}
+
+/** Remove every environment property (weather, clock, sky, sun, fog, post) in one undo step. */
+export function resetLevelEnvironment(state: EditState): EditState {
+  return setMapProps(state, Object.fromEntries(LEVEL_ENVIRONMENT_PROPS.map((n) => [n, null])));
 }
 
 /** Tiles a freshly placed spawner covers on each side. */
