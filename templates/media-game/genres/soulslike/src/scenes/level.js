@@ -59,7 +59,7 @@ export async function startLevel() {
   const physics = await initPhysics();
   // The layout (pillars, ramp, door, rubble, enemies, bonfire and spawn) is `levels/level.tmj`; the materials and the door's moving collider are here.
   const levelName = currentLevel('level');
-  const level = await buildLevel3d({ scene, physics }, await fetchLevel(levelName));
+  const level = await buildLevel3d({ environment: env, scene, physics }, await fetchLevel(levelName));
   const named = (/** @type {string} */ name) => level.entities.filter((p) => p.entity.name === name);
   /** Re-skin the meshes the builder made for `name`: it draws a plain box, the scene owns the look. */
   const skin = (/** @type {string} */ name, /** @type {(size: number[], index: number) => THREE.Material} */ material) => {
@@ -69,6 +69,7 @@ export async function startLevel() {
   const rig = createCameraRig({ mode: MODE, physics, exclude: character.collider, allowed: config.cameras, canvas });
   // A low exposure keeps the courtyard dark; the bloom threshold is low enough that only the fire and the sword glow.
   const fx = createFx({ gameName: 'soulslike', scene, camera: rig.camera, renderer, bloom: { strength: 0.55, radius: 0.7, threshold: 0.78 }, exposure: 1.2 });
+  fx.postfx.applyLevel(level.environment);
   const { materials, juice, sfx } = fx;
 
   physics.addGround(80);

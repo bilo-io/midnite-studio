@@ -89,7 +89,7 @@ describe('the hook: debug() and navMesh() (G1)', () => {
   it('is versioned with the app', async () => {
     const { hookModule } = await setup();
     expect(hookModule.KIT_VERSION).toBe(GAME_KIT_VERSION);
-    expect(GAME_KIT_VERSION).toBe('0.15.0');
+    expect(GAME_KIT_VERSION).toBe('0.16.0');
   });
 
   it('merges partial switches, tells every drawer, and re-applies them to a drawer registered later', async () => {

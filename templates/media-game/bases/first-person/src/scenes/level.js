@@ -105,7 +105,7 @@ export async function startLevel() {
 
   // The layout (walls, crates, ramp, door, enemy and spawn) is `levels/level.tmj`; the materials and the door's moving collider are here.
   const levelName = currentLevel('level');
-  const level = await buildLevel3d({ scene, physics }, await fetchLevel(levelName));
+  const level = await buildLevel3d({ environment: env, scene, physics }, await fetchLevel(levelName));
   const named = (/** @type {string} */ name) => level.entities.filter((p) => p.entity.name === name);
   /** Re-skin the meshes the builder made for `name`: it draws a plain box, the scene owns the look. */
   const skin = (/** @type {string} */ name, /** @type {(size: number[]) => THREE.Material} */ material) => {
@@ -151,6 +151,7 @@ export async function startLevel() {
   const settings = createJuiceSettings({ gameName: 'first-person' });
   const audio = createAudio(rig.camera);
   const postfx = createPostFx({ renderer, scene, camera: rig.camera, settings });
+  postfx.applyLevel(level.environment);
   const juice = createJuice({ scene, camera: rig.camera, renderer, settings, sfx: audio.sfx, postfx });
   const applyVolume = () => audio.sfx.setVolume(settings.resolved().volume);
   applyVolume();

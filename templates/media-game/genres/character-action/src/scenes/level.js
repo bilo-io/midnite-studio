@@ -53,13 +53,14 @@ export async function startLevel() {
   physics.addGround(90);
   // The spawn is `levels/level.tmj`'s; the ring itself is the genre's.
   const levelName = currentLevel('level');
-  const level = await buildLevel3d({ scene, physics }, await fetchLevel(levelName));
+  const level = await buildLevel3d({ environment: env, scene, physics }, await fetchLevel(levelName));
   const spawn = level.spawns[0]?.position ?? PLAYER_SPAWN;
   const character = createCharacter(physics, { position: spawn });
   const input = createInput(THREE_BINDINGS);
   const rig = createCameraRig({ mode: 'third-person', physics, exclude: character.collider, allowed: config.cameras, canvas });
   // Bloom lifts the slash arcs, the sealing walls and the afterimages; a warm exposure suits the dusk.
   const fx = createFx({ gameName: 'character-action', scene, camera: rig.camera, renderer, bloom: { strength: 0.5, radius: 0.65, threshold: 0.8 }, exposure: 1.1 });
+  fx.postfx.applyLevel(level.environment);
   const { juice } = fx;
 
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), fx.materials.get('stone', { repeat: repeatFor(90, 90, 4), tint: 0x9a8678, normalScale: 1.2 }));

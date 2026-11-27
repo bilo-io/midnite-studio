@@ -17,7 +17,7 @@ import { isSceneName, LEVEL_PARAM, SPAWN_PARAM } from './level.js';
 import { virtualGamepad } from './input-map.js';
 import { replayer } from './replay.js';
 
-export const KIT_VERSION = '0.15.0';
+export const KIT_VERSION = '0.16.0';
 /** `window.__midnite.version`; bumped when the hook's shape changes. */
 export const HOOK_VERSION = 1;
 
