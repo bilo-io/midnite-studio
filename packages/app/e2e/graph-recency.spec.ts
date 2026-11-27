@@ -51,6 +51,7 @@ const graphRows = () => {
     row: i,
     lane: i,
     colorIdx: COLOR_IDX[tier.key],
+    through: [],
     laneCount: TIERS.length,
     edges: [{ fromLane: i, toLane: i, type: 'straight', colorIdx: COLOR_IDX[tier.key] }],
     commit: {

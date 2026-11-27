@@ -43,6 +43,7 @@ const ROWS = Array.from({ length: 120 }, (_, i) => ({
     { fromLane: 0, toLane: 0, type: 'straight', colorIdx: 0 },
     { fromLane: 1, toLane: 1, type: 'straight', colorIdx: 1 },
   ],
+  through: [],
   laneCount: 2,
 }));
 

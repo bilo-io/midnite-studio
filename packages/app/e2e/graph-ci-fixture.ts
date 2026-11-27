@@ -53,6 +53,7 @@ export const CI_GRAPH_ROWS = SUBJECTS.map((_, i) => {
     row: i,
     lane,
     colorIdx: lane,
+    through: [],
     laneCount: i <= 3 ? 2 : 1,
     edges: last ? [] : [...straight(i <= 3 ? 2 : 1), { fromLane: lane, toLane: lane, type: 'branch', colorIdx: lane }],
     commit: commit(i, last ? [] : [ciSha(i + 1)]),

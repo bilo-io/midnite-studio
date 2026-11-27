@@ -46,6 +46,7 @@ const GRAPH_ROWS = [
     row: 0,
     lane: 0,
     colorIdx: 0,
+    through: [],
     laneCount: 2,
     edges: [
       { fromLane: 0, toLane: 0, type: 'branch', colorIdx: 0 },
@@ -58,6 +59,7 @@ const GRAPH_ROWS = [
     row: 1,
     lane: 1,
     colorIdx: 1,
+    through: [],
     laneCount: 2,
     edges: [
       { fromLane: 0, toLane: 0, type: 'straight', colorIdx: 0 },
@@ -70,6 +72,7 @@ const GRAPH_ROWS = [
     row: 2,
     lane: 1,
     colorIdx: 1,
+    through: [],
     laneCount: 2,
     edges: [
       { fromLane: 0, toLane: 0, type: 'straight', colorIdx: 0 },
@@ -82,6 +85,7 @@ const GRAPH_ROWS = [
     row: 3,
     lane: 0,
     colorIdx: 0,
+    through: [],
     laneCount: 2,
     edges: [
       { fromLane: 0, toLane: 0, type: 'branch', colorIdx: 0 },
@@ -94,6 +98,7 @@ const GRAPH_ROWS = [
     row: 4,
     lane: 0,
     colorIdx: 0,
+    through: [],
     laneCount: 1,
     edges: [{ fromLane: 0, toLane: 0, type: 'branch', colorIdx: 0 }],
     commit: commit(4, [], 'initial commit'),

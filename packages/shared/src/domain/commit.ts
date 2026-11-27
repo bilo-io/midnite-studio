@@ -65,6 +65,14 @@ export const GraphRowSchema = z.object({
   colorIdx: z.number().int().nonnegative(),
   /** Edges drawn in the vertical band *below* this row, down to the next one. */
   edges: z.array(GraphEdgeSchema),
+  /**
+   * Indexed by lane: the `colorIdx` of a lane passing straight through this row's band
+   * untouched, or -1 for an empty or touched lane (the commit's own lane included — its
+   * continuation stays in `edges`). Trailing -1s are trimmed, so a row with no pass-through
+   * lanes carries `[]`. Defaulted so a payload written before this field existed still parses —
+   * see `schemas.ts`'s `revisions` for the precedent. Drawn before `edges`.
+   */
+  through: z.array(z.number().int()).default([]),
   /** Total lanes occupied in this row's band — lets the renderer size the gutter. */
   laneCount: z.number().int().nonnegative(),
 });

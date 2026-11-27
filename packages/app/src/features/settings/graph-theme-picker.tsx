@@ -20,6 +20,7 @@ const PREVIEW_ROWS: GraphRow[] = [
     lane: 0,
     colorIdx: 0,
     laneCount: 1,
+    through: [],
     edges: [{ fromLane: 0, toLane: 0, type: 'merge', colorIdx: 0 }],
     commit: commit('a1', ['b2'], 'Ada Lovelace', 'ada@example.com'),
   },
@@ -28,6 +29,7 @@ const PREVIEW_ROWS: GraphRow[] = [
     lane: 0,
     colorIdx: 0,
     laneCount: 2,
+    through: [],
     edges: [
       { fromLane: 0, toLane: 0, type: 'branch', colorIdx: 0 },
       { fromLane: 0, toLane: 0, type: 'merge', colorIdx: 0 },
@@ -40,8 +42,8 @@ const PREVIEW_ROWS: GraphRow[] = [
     lane: 1,
     colorIdx: 1,
     laneCount: 2,
+    through: [0], // lane 0 runs alongside — a pass-through lane, drawn before `edges`
     edges: [
-      { fromLane: 0, toLane: 0, type: 'straight', colorIdx: 0 },
       { fromLane: 1, toLane: 1, type: 'branch', colorIdx: 1 },
       { fromLane: 1, toLane: 1, type: 'merge', colorIdx: 1 },
     ],
@@ -52,6 +54,7 @@ const PREVIEW_ROWS: GraphRow[] = [
     lane: 0,
     colorIdx: 0,
     laneCount: 2,
+    through: [],
     edges: [
       { fromLane: 0, toLane: 0, type: 'branch', colorIdx: 0 },
       { fromLane: 1, toLane: 0, type: 'branch', colorIdx: 1 },

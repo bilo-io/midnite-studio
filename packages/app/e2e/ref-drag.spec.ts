@@ -49,6 +49,7 @@ const GRAPH_ROWS = [0, 1, 2, 3, 4, 5].map((i) => ({
   row: i,
   lane: 0,
   colorIdx: 0,
+  through: [],
   laneCount: 1,
   edges: [{ fromLane: 0, toLane: 0, type: i === 5 ? 'branch' : 'straight', colorIdx: 0 }],
   commit: commit(i, i === 5 ? [] : [sha(i + 1)], `commit number ${i}`),

@@ -63,6 +63,7 @@ const PREVIEW_ROWS: GraphRow[] = [
     lane: 0,
     colorIdx: 0,
     laneCount: 1,
+    through: [],
     edges: [{ fromLane: 0, toLane: 0, type: 'merge', colorIdx: 0 }],
     commit: previewCommit('a1', 'Ada Lovelace', 'ada@example.com'),
   },
@@ -71,6 +72,7 @@ const PREVIEW_ROWS: GraphRow[] = [
     lane: 0,
     colorIdx: 0,
     laneCount: 1,
+    through: [],
     edges: [
       { fromLane: 0, toLane: 0, type: 'branch', colorIdx: 0 },
       { fromLane: 0, toLane: 0, type: 'merge', colorIdx: 0 },

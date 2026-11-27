@@ -34,6 +34,7 @@ const ROWS = Array.from({ length: 600 }, (_, i) => ({
   lane: 0,
   colorIdx: 0,
   edges: [{ fromLane: 0, toLane: 0, type: 'straight', colorIdx: 0 }],
+  through: [],
   laneCount: 1,
 }));
 

@@ -20,6 +20,7 @@ const row = (
   lane,
   colorIdx,
   edges,
+  through: [],
   laneCount: 2,
 });
 const e = (fromLane: number, toLane: number, type: 'straight' | 'merge' | 'branch', colorIdx: number) => ({
@@ -54,6 +55,12 @@ describe('applyHeadLane', () => {
     const out = applyHeadLane(rows[1]!, 1, span);
     expect(out.colorIdx).toBe(HEAD_LANE_IDX);
     expect(out.edges.map((x) => x.colorIdx)).toEqual([3, HEAD_LANE_IDX]);
+  });
+  it('recolours a pass-through lane in the HEAD column (Phase 77 Theme B: through, not edges)', () => {
+    const throughRow: GraphRow = { ...rows[1]!, lane: 0, edges: [], through: [3, 3] };
+    const out = applyHeadLane(throughRow, 1, span);
+    expect(out.through).toEqual([3, HEAD_LANE_IDX]);
+    expect(throughRow.through).toEqual([3, 3]);
   });
   it('leaves a lane sharing the same palette slot alone (no collision with primary)', () => {
     expect(applyHeadLane(rows[0]!, 0, span)).toBe(rows[0]);

@@ -8,6 +8,7 @@ import { isReducedMotion } from '../lib/reduced-motion';
 import { CiSpacer } from './ci-cell';
 import { RAIL_WIDTH, laneCentre, showsAuthorColumn, type GraphTheme } from './graph-themes';
 import { laneColor } from './lane-colors';
+import { throughOf } from './through';
 
 /**
  * The git graph's expand-in-place slot: the panel a row opens underneath
@@ -23,7 +24,7 @@ import { laneColor } from './lane-colors';
  * width, which is where the file list wants to be.
  *
  * Nothing here lays out lanes. Which lanes continue is read straight off the
- * row main already laid out (`GraphRow.edges`), per "lane layout runs in
+ * row main already laid out (`GraphRow.through` and `.edges`), per "lane layout runs in
  * main": a `straight` edge passes through the row in its own lane, a `merge`
  * edge leaves the node for the lane it names, and those are exactly the lanes
  * crossing the row's bottom edge.
@@ -43,6 +44,10 @@ export type SlotLane = { lane: number; colorIdx: number; dashed?: boolean };
 /** The lanes that cross `row`'s bottom edge, one per lane, in lane order. */
 export function lanesLeaving(row: GraphRow): SlotLane[] {
   const byLane = new Map<number, number>();
+  // Pass-through lanes live in `through` (Phase 77 Theme B), indexed by lane; -1 is no lane.
+  throughOf(row).forEach((colorIdx, lane) => {
+    if (colorIdx >= 0) byLane.set(lane, colorIdx);
+  });
   for (const edge of row.edges) {
     if (edge.type === 'straight') byLane.set(edge.fromLane, edge.colorIdx);
     else if (edge.type === 'merge') byLane.set(edge.toLane, edge.colorIdx);

@@ -1155,6 +1155,7 @@ describe('SessionsView', () => {
             row: 0,
             lane: 0,
             colorIdx: 0,
+            through: [],
             edges: [],
             laneCount: 1,
             commit: {
@@ -1174,6 +1175,7 @@ describe('SessionsView', () => {
             row: 1,
             lane: 0,
             colorIdx: 0,
+            through: [],
             edges: [],
             laneCount: 1,
             commit: {
@@ -1193,6 +1195,7 @@ describe('SessionsView', () => {
             row: 2,
             lane: 0,
             colorIdx: 0,
+            through: [],
             edges: [],
             laneCount: 1,
             commit: {
@@ -1247,6 +1250,7 @@ describe('SessionsView', () => {
             row: 0,
             lane: 0,
             colorIdx: 0,
+            through: [],
             edges: [],
             laneCount: 1,
             commit: {
@@ -1266,6 +1270,7 @@ describe('SessionsView', () => {
             row: 1,
             lane: 0,
             colorIdx: 0,
+            through: [],
             edges: [],
             laneCount: 1,
             commit: {

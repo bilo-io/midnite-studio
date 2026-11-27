@@ -28,11 +28,9 @@ import { LaneRegistry } from './lane-registry';
  *      into the lane already waiting for it or into a freshly opened one.
  *   5. Lanes untouched by the commit pass straight through.
  *
- * Deliberately deferred: interval-tree edge culling. On very large repos the
- * naive path re-emits pass-through edges for every lane on every row, which
- * profiles as the bottleneck past a few thousand visible lanes. Virtualisation
- * already caps how many rows exist at once, so this only matters if a real repo
- * shows it — see todo/outstanding.md.
+ * Pass-through lanes are a dense `through` column on the row (lane index to colorIdx, -1 for
+ * none), not one edge object per lane per row (Phase 77 Theme B). Deliberately still deferred:
+ * interval-tree edge culling — `through` makes it moot for pass-throughs.
  */
 export class LaneLayoutSession {
   private readonly registry = new LaneRegistry();
@@ -56,7 +54,6 @@ export class LaneLayoutSession {
 
   private layoutOne(commit: Commit): GraphRow {
     const registry = this.registry;
-    const before = registry.snapshot();
     const widthBefore = registry.width();
 
     // 1 — lanes converging on this commit.
@@ -64,13 +61,15 @@ export class LaneLayoutSession {
     const [primary, ...converging] = arriving;
 
     // 2 — a commit nobody was waiting for is a branch tip: open a lane for it.
+    // Lanes opened during this row (the commit's own tip lane, fresh merge targets): they did
+    // not exist in the band above, so they are not pass-through lanes.
+    const opened: number[] = [];
     const lane = primary ?? registry.open(commit.sha);
+    if (primary === undefined) opened.push(lane);
     const colorIdx = registry.get(lane)?.colorIdx ?? colorForSha(commit.sha);
 
     // Bucketed by type and built in the order a final sort would produce, so
-    // a row's edges come out already ordered without paying for one — the
-    // dominant cost once a row has hundreds of pass-through lanes (deferred:
-    // the O(lanes) edge count itself, see the class doc above).
+    // a row's edges come out already ordered without paying for one.
     const straightEdges: GraphEdge[] = [];
     const branchEdges: GraphEdge[] = [];
     const mergeEdges: GraphEdge[] = [];
@@ -107,9 +106,7 @@ export class LaneLayoutSession {
     // is `primary`, the smallest index in `arriving`, so a branch-type own
     // edge sorts ahead of every `converging` edge above it — it goes at the
     // front rather than appended after them. A straight-type own edge is
-    // placed by the pass-through loop below instead, at the point it reaches
-    // this lane's index, since pass-through lanes on either side of it may
-    // sort before or after.
+    // the only member of `straightEdges` and is pushed in step 5.
     const arrived = primary !== undefined;
     let straightOwnEdge: GraphEdge | null = null;
     if (arrived && continues) {
@@ -134,6 +131,7 @@ export class LaneLayoutSession {
 
       const existing = registry.findExpecting(parent);
       const target = existing[0] ?? registry.open(parent);
+      if (existing[0] === undefined) opened.push(target);
 
       mergeEdges.push({
         fromLane: lane,
@@ -147,30 +145,27 @@ export class LaneLayoutSession {
     for (const index of toClose) registry.close(index);
     registry.trim();
 
-    // 5 — lanes this commit never touched, drawn straight through. `before`
-    // is iterated ascending, so this is where the deferred straight-type own
-    // edge (if any) is spliced in, right when the loop reaches this lane's
-    // own index.
-    const after = registry.snapshot();
-    for (const index of before) {
-      if (index === lane) {
-        if (straightOwnEdge) straightEdges.push(straightOwnEdge);
-        continue;
-      }
-      if (!after.has(index)) continue; // converged and closed above
-      straightEdges.push({
-        fromLane: index,
-        toLane: index,
-        type: 'straight',
-        colorIdx: registry.get(index)?.colorIdx ?? 0,
-      });
+    // 5 — lanes this commit never touched, drawn straight through. They leave `edges` for a
+    // dense `through` column (Phase 77 Theme B): filling it by index walks the registry in
+    // ascending order, which is the order the old pass-through edges were built in pre-sorted, so
+    // no sort appears. A lane is a pass-through lane when it is occupied after this row, is not the
+    // commit's own lane, and was not opened by this row; converged lanes closed above are holes.
+    // The own lane's straight edge (one per row) stays in `edges`.
+    const through: number[] = [];
+    const width = registry.width();
+    for (let index = 0; index < width; index += 1) {
+      const slot = registry.get(index);
+      through.push(slot === null || index === lane || opened.includes(index) ? -1 : slot.colorIdx);
     }
+    while (through.length > 0 && through[through.length - 1] === -1) through.pop();
+    if (straightOwnEdge) straightEdges.push(straightOwnEdge);
 
     const row: GraphRow = {
       row: this.nextRow,
       commit,
       lane,
       colorIdx,
+      through,
       edges: straightEdges.concat(branchEdges, mergeEdges),
       laneCount: Math.max(widthBefore, registry.width()),
     };
