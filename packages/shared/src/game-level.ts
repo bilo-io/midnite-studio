@@ -44,11 +44,33 @@ export const GAME_LEVEL_PROPS = {
   timeOfDay: 'midnite.timeOfDay',
   /** Game clock speed relative to the game's default (1 = default, 0 = frozen); absent = 1. */
   timeScale: 'midnite.timeScale',
+  /** Sky preset name (`LEVEL_SKY_PRESETS`); absent = the game's own. Phase 144. */
+  sky: 'midnite.sky',
+  /** Sun azimuth in degrees, 0-360; absent = follow the time of day. */
+  sunAzimuth: 'midnite.sunAzimuth',
+  /** Sun elevation in degrees, -10 to 90; absent = follow the time of day. */
+  sunElevation: 'midnite.sunElevation',
+  /** Fog on or off; absent = the game's own. */
+  fog: 'midnite.fog',
+  /** Fog start and end in metres; absent = the game's own. */
+  fogNear: 'midnite.fogNear',
+  fogFar: 'midnite.fogFar',
+  /** Post-processing preset (`LEVEL_POST_PRESETS`); absent = the game's own. */
+  post: 'midnite.post',
 } as const;
 
 /** The weather value meaning "the game decides". */
 export const LEVEL_WEATHER_AUTO = 'auto';
 export const LEVEL_TIME_OF_DAY_MAX = 24;
+
+/** The kit's `SKY_PRESETS` keys (`kit/core/sky.js`), pinned by `game-level-environment.test.ts`. */
+export const LEVEL_SKY_PRESETS = ['day', 'dawn', 'dusk', 'night', 'overcast'] as const;
+export const LEVEL_POST_PRESETS = ['none', 'soft', 'vivid', 'cinematic'] as const;
+export type LevelSkyPreset = (typeof LEVEL_SKY_PRESETS)[number];
+export type LevelPostPreset = (typeof LEVEL_POST_PRESETS)[number];
+export const LEVEL_SUN_AZIMUTH_MAX = 360;
+export const LEVEL_SUN_ELEVATION_MIN = -10;
+export const LEVEL_SUN_ELEVATION_MAX = 90;
 
 export type LevelEnvironment = {
   /** `auto` or a weather kind. */
@@ -58,6 +80,17 @@ export type LevelEnvironment = {
   /** Hours 0-24, or `null` for the game's default. */
   timeOfDay: number | null;
   timeScale: number;
+  /** Phase 144: `null` = not set, the game's own. */
+  sky: LevelSkyPreset | null;
+  /** Degrees 0-360. */
+  sunAzimuth: number | null;
+  /** Degrees -10 to 90. */
+  sunElevation: number | null;
+  fog: boolean | null;
+  /** Metres; `fogNear < fogFar` or both read `null`. */
+  fogNear: number | null;
+  fogFar: number | null;
+  post: LevelPostPreset | null;
 };
 
 const looseProperties = z.array(z.object({ name: z.string(), type: z.string().optional(), value: z.unknown() }).passthrough());
@@ -435,12 +468,46 @@ export const GameGotoRequestSchema = z.object({ gameId: z.string().min(1), scene
 export const GameGotoResultSchema = z.object({ via: z.enum(['hook', 'reload', 'next-run']) });
 export type GameGotoResult = z.infer<typeof GameGotoResultSchema>;
 
+type EnvLevel = { properties?: ReadonlyArray<{ name: string; value?: unknown }> | undefined };
+
+const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+const inRange = (n: number | null, min: number, max: number): number | null => (n !== null && n >= min && n <= max ? n : null);
+const oneOf = <T extends string>(v: unknown, list: readonly T[]): T | null => (typeof v === 'string' && (list as readonly string[]).includes(v) ? (v as T) : null);
+
+/** The Phase 144 values with their problems: a wrong type reads as absent (no issue), a bad value reads `null` with an issue. */
+function readNewEnvironment(props: Record<string, unknown>): { env: Pick<LevelEnvironment, 'sky' | 'sunAzimuth' | 'sunElevation' | 'fog' | 'fogNear' | 'fogFar' | 'post'>; issues: string[] } {
+  const issues: string[] = [];
+  const sky = oneOf(props[GAME_LEVEL_PROPS.sky], LEVEL_SKY_PRESETS);
+  if (typeof props[GAME_LEVEL_PROPS.sky] === 'string' && sky === null) issues.push(`${GAME_LEVEL_PROPS.sky}: "${String(props[GAME_LEVEL_PROPS.sky])}" is not one of ${LEVEL_SKY_PRESETS.join(', ')}`);
+  const post = oneOf(props[GAME_LEVEL_PROPS.post], LEVEL_POST_PRESETS);
+  if (typeof props[GAME_LEVEL_PROPS.post] === 'string' && post === null) issues.push(`${GAME_LEVEL_PROPS.post}: "${String(props[GAME_LEVEL_PROPS.post])}" is not one of ${LEVEL_POST_PRESETS.join(', ')}`);
+  const ranged = (key: keyof typeof GAME_LEVEL_PROPS, min: number, max: number): number | null => {
+    const raw = num(props[GAME_LEVEL_PROPS[key]]);
+    const ok = inRange(raw, min, max);
+    if (raw !== null && ok === null) issues.push(`${GAME_LEVEL_PROPS[key]}: ${raw} is outside ${min} to ${max}`);
+    return ok;
+  };
+  const sunAzimuth = ranged('sunAzimuth', 0, LEVEL_SUN_AZIMUTH_MAX);
+  const sunElevation = ranged('sunElevation', LEVEL_SUN_ELEVATION_MIN, LEVEL_SUN_ELEVATION_MAX);
+  let fogNear = ranged('fogNear', 0, Number.MAX_SAFE_INTEGER);
+  let fogFar = ranged('fogFar', 0, Number.MAX_SAFE_INTEGER);
+  if (fogNear !== null && fogFar !== null && fogNear >= fogFar) {
+    issues.push(`${GAME_LEVEL_PROPS.fogNear}: ${fogNear} must be less than ${GAME_LEVEL_PROPS.fogFar} (${fogFar})`);
+    fogNear = null;
+    fogFar = null;
+  }
+  const f = props[GAME_LEVEL_PROPS.fog];
+  return { env: { sky, sunAzimuth, sunElevation, fog: typeof f === 'boolean' ? f : null, fogNear, fogFar, post }, issues };
+}
+
 /**
  * `midnite.weather`, `weatherOptions`, `timeOfDay` and `timeScale` as the editor and the game read them: weather
  * defaults to `auto`, time of day to `null` (the game's default) and is clamped to 0-24, time scale defaults to 1 and
- * is never negative. A property of the wrong type reads as absent.
+ * is never negative. A property of the wrong type reads as absent. Phase 144 adds `sky`, `sunAzimuth`, `sunElevation`,
+ * `fog`, `fogNear`, `fogFar` and `post`: each is `null` when absent, of the wrong type or out of range (the range
+ * problems are listed by {@link levelEnvironmentIssues}). `kit/core/level.js` carries the JS twin.
  */
-export function levelEnvironment(level: { properties?: ReadonlyArray<{ name: string; value?: unknown }> | undefined }): LevelEnvironment {
+export function levelEnvironment(level: EnvLevel): LevelEnvironment {
   const props = levelProperties(level);
   const w = props[GAME_LEVEL_PROPS.weather];
   const weather = typeof w === 'string' && w.trim() ? w.trim() : LEVEL_WEATHER_AUTO;
@@ -453,5 +520,25 @@ export function levelEnvironment(level: { properties?: ReadonlyArray<{ name: str
     weatherOptions: [LEVEL_WEATHER_AUTO, ...new Set(kinds)],
     timeOfDay: typeof t === 'number' && Number.isFinite(t) ? Math.min(LEVEL_TIME_OF_DAY_MAX, Math.max(0, t)) : null,
     timeScale: typeof s === 'number' && Number.isFinite(s) ? Math.max(0, s) : 1,
+    ...readNewEnvironment(props).env,
   };
 }
+
+/** One line per Phase 144 environment property that is out of range or not a known preset; empty when the level is fine. */
+export function levelEnvironmentIssues(level: EnvLevel): string[] {
+  return readNewEnvironment(levelProperties(level)).issues;
+}
+
+/** Every map property the Environment popover owns: its Reset removes them all. */
+export const LEVEL_ENVIRONMENT_PROPS: readonly string[] = [
+  GAME_LEVEL_PROPS.weather,
+  GAME_LEVEL_PROPS.timeOfDay,
+  GAME_LEVEL_PROPS.timeScale,
+  GAME_LEVEL_PROPS.sky,
+  GAME_LEVEL_PROPS.sunAzimuth,
+  GAME_LEVEL_PROPS.sunElevation,
+  GAME_LEVEL_PROPS.fog,
+  GAME_LEVEL_PROPS.fogNear,
+  GAME_LEVEL_PROPS.fogFar,
+  GAME_LEVEL_PROPS.post,
+];

@@ -103,8 +103,13 @@ export function createEnvironment(options) {
   // three's PCFShadowMap is already the soft, filtered one (PCFSoftShadowMap was folded into it); `radius` widens the blur.
 
   const fogOption = options.fog ?? true;
-  const fog = fogOption === false ? null : new THREE.Fog(0xffffff, Array.isArray(fogOption) ? fogOption[0] : 30, Array.isArray(fogOption) ? fogOption[1] : 90);
+  /** @type {THREE.Fog | null} */
+  let fog = fogOption === false ? null : new THREE.Fog(0xffffff, Array.isArray(fogOption) ? fogOption[0] : 30, Array.isArray(fogOption) ? fogOption[1] : 90);
   scene.fog = fog;
+  /** The last fog colour `apply` chose, kept so fog switched on later is the right colour. */
+  let fogColor = 0xffffff;
+  /** A level's own sun (radians), kept over the time-of-day curve. @type {{ azimuth: number, elevation: number } | null} */
+  let sunOverride = null;
   const wantEnv = options.environmentMap !== false && !!renderer;
   /** @type {THREE.WebGLRenderTarget | null} */
   let envTarget = null;
@@ -144,6 +149,10 @@ export function createEnvironment(options) {
       el = t.elevation;
       az = t.azimuth;
     }
+    if (sunOverride) {
+      az = sunOverride.azimuth;
+      el = sunOverride.elevation;
+    }
     const [dx, dy, dz] = sunDirection(az, Math.max(el, 0.02));
     dir.set(dx, dy, dz);
     uniforms.uZenith.value.setHex(p.zenith);
@@ -157,6 +166,7 @@ export function createEnvironment(options) {
     hemi.intensity = p.hemiIntensity;
     sun.color.setHex(p.sun);
     sun.intensity = p.sunIntensity * Math.min(1, Math.max(0.15, el * 3 + 0.4));
+    fogColor = p.fog;
     if (fog) fog.color.setHex(p.fog);
     scene.background = new THREE.Color(p.fog);
     sun.position.copy(centre).addScaledVector(dir, shadowSize * 2);
@@ -170,10 +180,13 @@ export function createEnvironment(options) {
     dome,
     sun,
     hemi,
-    fog,
+    get fog() {
+      return fog;
+    },
     /** Switch to a named preset (`day dawn dusk night overcast`) and re-light. */
     setPreset(/** @type {string} */ name) {
       presetName = name;
+      sunOverride = null;
       hours = null;
       apply();
       bakeEnvironment();
@@ -190,6 +203,41 @@ export function createEnvironment(options) {
       elevation = el;
       hours = null;
       apply();
+    },
+    /**
+     * Apply a level's environment (`levelEnvironment(map)` from `kit/core/level.js`, Phase 144) over the options this
+     * was created with; every `null` leaves the game's own value. `timeOfDay` lights by the hour and so wins over
+     * `sky`; `sunAzimuth` / `sunElevation` (degrees) then move the sun alone; `fog` switches fog and `fogNear` /
+     * `fogFar` (metres) set its range.
+     * @param {{ sky?: string | null, timeOfDay?: number | null, sunAzimuth?: number | null, sunElevation?: number | null, fog?: boolean | null, fogNear?: number | null, fogFar?: number | null } | null | undefined} env
+     */
+    applyLevel(env) {
+      if (!env) return;
+      if (typeof env.sky === 'string' && SKY_PRESETS[env.sky]) {
+        presetName = env.sky;
+        hours = null;
+      }
+      if (typeof env.timeOfDay === 'number') hours = env.timeOfDay;
+      if (typeof env.sunAzimuth === 'number' || typeof env.sunElevation === 'number') {
+        const RAD = Math.PI / 180;
+        sunOverride = {
+          azimuth: typeof env.sunAzimuth === 'number' ? env.sunAzimuth * RAD : azimuth,
+          elevation: typeof env.sunElevation === 'number' ? env.sunElevation * RAD : elevation,
+        };
+      }
+      if (env.fog === false) {
+        fog = null;
+        scene.fog = null;
+      } else if (env.fog === true || typeof env.fogNear === 'number' || typeof env.fogFar === 'number') {
+        if (!fog) {
+          fog = new THREE.Fog(fogColor, 30, 90);
+          scene.fog = fog;
+        }
+        if (typeof env.fogNear === 'number') fog.near = env.fogNear;
+        if (typeof env.fogFar === 'number') fog.far = env.fogFar;
+      }
+      apply();
+      bakeEnvironment();
     },
     /** Keep the dome and the sun's shadow box centred on the player. Call once a frame, cheap. */
     follow(/** @type {{ x: number, y: number, z: number } | readonly number[]} */ position) {
