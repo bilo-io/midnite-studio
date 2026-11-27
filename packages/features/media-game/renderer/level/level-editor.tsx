@@ -102,7 +102,9 @@ import {
   setVolume,
   addSpawner,
   drawSpawner,
+  resetLevelEnvironment,
   setLevelTimeOfDay,
+  setMapProps,
   setLevelTimeScale,
   setLevelWeather,
   toggleSelected,
@@ -1163,7 +1165,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
           </div>
         ) : null}
         {is3d ? <LevelSnapPopover snap={snapSettings} onChange={setSnapSettings} is3d={in3d} /> : null}
-        <LevelEnvironmentPopover level={level} readOnly={readOnly} onWeather={(raw) => update((s) => setLevelWeather(s, raw))} onTimeOfDay={(raw) => update((s) => setLevelTimeOfDay(s, raw))} onTimeScale={(raw) => update((s) => setLevelTimeScale(s, raw))} />
+        <LevelEnvironmentPopover level={level} readOnly={readOnly} onWeather={(raw) => update((s) => setLevelWeather(s, raw))} onTimeOfDay={(raw) => update((s) => setLevelTimeOfDay(s, raw))} onTimeScale={(raw) => update((s) => setLevelTimeScale(s, raw))} onProps={(patch) => update((s) => setMapProps(s, patch))} onStroke={(open) => update(open ? beginStroke : endStroke)} onReset={() => update(resetLevelEnvironment)} />
         <LevelViewPopover overlays={overlays} onChange={(key, on) => {
           useLevelViewStore.getState().setOverlay(key, on);
           if (gameRunning && key !== 'spawners') pushDebug(gameId, { [key]: on });

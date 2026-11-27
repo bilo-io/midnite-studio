@@ -14,6 +14,8 @@ import {
   setLevelTimeOfDay,
   setLevelTimeScale,
   setLevelWeather,
+  setMapProps,
+  resetLevelEnvironment,
   applyAgentOps,
   beginStroke,
   cellCentre,
@@ -551,6 +553,36 @@ describe('applyAgentOps (Phase 138 Theme F)', () => {
 describe('level environment and spawners', () => {
   const base = () => createEditState(blankLevel3d() as EditLevel);
   const prop = (s: ReturnType<typeof base>, n: string) => s.level.properties?.find((p) => p.name === n);
+
+  it('B1: a time slider drag through 20 values is one undo step', () => {
+    let s = beginStroke(base());
+    for (let i = 1; i <= 20; i++) s = setMapProps(s, { 'midnite.timeOfDay': i * 0.25 });
+    s = endStroke(s);
+    expect(s.past).toHaveLength(1);
+    expect(prop(s, 'midnite.timeOfDay')?.value).toBe(5);
+    expect(prop(undo(s), 'midnite.timeOfDay')).toBeUndefined();
+  });
+
+  it('B2: clearing the sun props is one step and a no-op when they are already absent', () => {
+    let s = setMapProps(base(), { 'midnite.sunAzimuth': 90, 'midnite.sunElevation': 30 });
+    expect(prop(s, 'midnite.sunElevation')).toMatchObject({ type: 'float', value: 30 });
+    const before = s.past.length;
+    s = setMapProps(s, { 'midnite.sunAzimuth': null, 'midnite.sunElevation': null });
+    expect(s.past.length).toBe(before + 1);
+    expect(prop(s, 'midnite.sunAzimuth')).toBeUndefined();
+    expect(setMapProps(s, { 'midnite.sunAzimuth': null })).toBe(s);
+  });
+
+  it('B3: reset removes every environment prop, the #1652 ones included, in one step', () => {
+    let s = setLevelWeather(base(), 'rain');
+    s = setLevelTimeOfDay(s, '18');
+    s = setMapProps(s, { 'midnite.sky': 'dusk', 'midnite.fog': true, 'midnite.fogNear': 10, 'midnite.fogFar': 50, 'midnite.post': 'soft', 'midnite.sunAzimuth': 1, 'midnite.sunElevation': 2 });
+    const before = s.past.length;
+    const r = resetLevelEnvironment(s);
+    expect(r.past.length).toBe(before + 1);
+    expect((r.level.properties ?? []).filter((p) => p.name.startsWith('midnite.') && ['weather', 'timeOfDay', 'timeScale', 'sky', 'sunAzimuth', 'sunElevation', 'fog', 'fogNear', 'fogFar', 'post'].includes(p.name.slice(8)))).toEqual([]);
+    expect(r.level.properties?.some((p) => p.name === 'midnite.dimension')).toBe(true);
+  });
 
   it('sets weather and clears it on auto or empty, one undo step each', () => {
     let s = setLevelWeather(base(), 'rain');
