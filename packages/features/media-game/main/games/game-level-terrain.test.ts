@@ -11,7 +11,7 @@ import { encodePngGrey16 } from '@midnite/studio-runtime';
 
 import { createHeightSampler } from '@midnite/studio-shared';
 
-import { placeDetail, readLevelGround, readLevelTerrain, readLevelTerrainDetail } from './game-level-terrain';
+import { groundHeights, placeDetail, readLevelGround, readLevelTerrain, readLevelTerrainDetail } from './game-level-terrain';
 import { clearTerrainHeightsCache } from './terrain-heights';
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64');
@@ -223,6 +223,20 @@ describe('readLevelGround (Phase 141 Theme A)', () => {
     expect(await readLevelGround(repo.path, { properties: [] })).toEqual({ ok: false, message: 'This level has no terrain.' });
     await repo.writeFile('assets/terrain/world/terrain.manifest.json', JSON.stringify({ bounds: { min: [-160, 0, -160], max: [160, 60, 160] } }));
     expect(await readLevelGround(repo.path, level())).toEqual({ ok: false, message: 'The terrain "world" has no readable heightfield.' });
+  });
+
+  it('F1/F2: game_terrain_height answers the sampler, clamping and listing a point off the ground', async () => {
+    const r = await readLevelGround(repo.path, level());
+    if (!r.ok) throw new Error(r.message);
+    const out = groundHeights(r.ground, [{ x: 3.3, z: -7.7 }, { x: 900, z: 12 }, { x: -50, z: 50 }], true);
+    expect(out.terrain).toBe('world');
+    expect(out.outside).toEqual([1]);
+    expect(out.heights[0]).toBeCloseTo(r.ground.heightAt(3.3, -7.7)!, 4);
+    expect(out.heights[1]).toBeCloseTo(r.ground.heightAt(160, 12)!, 4);
+    expect(out.heights[2]).toBeCloseTo(r.ground.heightAt(-50, 50)!, 4);
+    expect(out.normals).toHaveLength(3);
+    expect(out.normals![1]).toEqual(r.ground.normalAt(160, 12));
+    expect(groundHeights(r.ground, [{ x: 0, z: 0 }], false).normals).toBeUndefined();
   });
 
   it('A4: does not follow a path out of the game folder', async () => {

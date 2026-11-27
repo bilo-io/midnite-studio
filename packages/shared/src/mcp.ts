@@ -62,6 +62,8 @@ import {
   GamePrefabSaveInputSchema,
   GamePrefabSaveOutputSchema,
   GameLevelScatterInputSchema,
+  GameTerrainHeightInputSchema,
+  GameTerrainHeightOutputSchema,
   GameEntityAddInputSchema,
   GameEntityUpdateInputSchema,
   GameEntityDeleteInputSchema,
@@ -363,6 +365,7 @@ type McpToolEntry = {
     | 'game_prefab_list'
     | 'game_prefab_save'
     | 'game_level_scatter'
+    | 'game_terrain_height'
     | 'terrain_list'
     | 'terrain_open'
     | 'terrain_get_spec'
@@ -1391,6 +1394,15 @@ export const MCP_TOOLS = {
     input: GameLevelScatterInputSchema,
     output: GameLevelScatterOutputSchema,
     readOnly: false,
+  },
+  game_terrain_height: {
+    id: 'game_terrain_height',
+    title: 'Read terrain heights',
+    description:
+      'Returns terrain heights (and optionally normals) in metres at up to 1,000 x/z points of a 3D level — use to place objects on the ground with `game_entity_add`.',
+    input: GameTerrainHeightInputSchema,
+    output: GameTerrainHeightOutputSchema,
+    readOnly: true,
   },
   game_doctor_fix: {
     id: 'game_doctor_fix',

@@ -91,3 +91,9 @@ describe('game_level_scatter', () => {
     await expect(tools.game_level_scatter(GameLevelScatterInputSchema.parse({ ...input, area: { x: 0, y: 0, width: 5, height: 5 } }))).rejects.toThrow(/Nothing to scatter/);
   });
 });
+
+describe('game_terrain_height (Phase 141 Theme F)', () => {
+  it('F3: a level without terrain fails plainly', async () => {
+    await expect(make().tools.game_terrain_height({ game: 'g1', scene: 'level', points: [{ x: 0, z: 0 }], normals: false })).rejects.toThrow('This level has no terrain.');
+  });
+});

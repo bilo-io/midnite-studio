@@ -221,3 +221,25 @@ export async function readLevelGround(gamePath: string, level: Pick<GameLevel, '
     return unreadable;
   }
 }
+
+/**
+ * `game_terrain_height` (Phase 141 Theme F): the ground's heights (and normals) at `points`. A point off the terrain
+ * and every pack is clamped to the terrain's edge, sampled there, and its index listed in `outside`.
+ */
+export function groundHeights(ground: LevelGround, points: ReadonlyArray<{ x: number; z: number }>, normals: boolean): { terrain: string; heights: number[]; normals?: Array<[number, number, number]>; outside: number[] } {
+  const heights: number[] = [], outside: number[] = [], ns: Array<[number, number, number]> = [];
+  const e = ground.extent;
+  points.forEach((p, i) => {
+    let { x, z } = p;
+    let h = ground.heightAt(x, z);
+    if (h === null) {
+      outside.push(i);
+      x = Math.min(e.maxX, Math.max(e.minX, x));
+      z = Math.min(e.maxZ, Math.max(e.minZ, z));
+      h = ground.heightAt(x, z) ?? 0;
+    }
+    heights.push(Math.round(h * 1e4) / 1e4);
+    if (normals) ns.push(ground.normalAt(x, z) ?? [0, 1, 0]);
+  });
+  return { terrain: ground.terrain, heights, ...(normals ? { normals: ns } : {}), outside };
+}

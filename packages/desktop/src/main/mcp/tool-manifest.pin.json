@@ -1,5 +1,5 @@
 {
-  "hash": "c0e23bcd6435866bdec98ebc7387650d810f4304c84072ce94429e786e60f79e",
+  "hash": "3e011aa7b574b3030a55a4be364dd366f8a33c8a6d058e189f606d9001612e39",
   "tools": {
     "repo.list": "c2254fa779e5cb87",
     "repo.resolve": "b39c228fe331d5d8",
@@ -93,6 +93,7 @@
     "game_prefab_list": "bbd56911f25bcd35",
     "game_prefab_save": "9448abf47edd4ba1",
     "game_level_scatter": "be34bd00127f7cad",
+    "game_terrain_height": "a6529e52a0c859bf",
     "game_doctor_fix": "f91519619043a599",
     "terrain_list": "4a01b835d44535a3",
     "terrain_open": "a4eb168d956b7c63",

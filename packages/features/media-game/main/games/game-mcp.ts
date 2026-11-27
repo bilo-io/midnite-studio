@@ -6,6 +6,7 @@ import {
   GAME_PLACEABLE_ASSET_KINDS,
   prefabFromObjects,
   scatterOps,
+  type GameLevel,
   type GamePrefab,
   validateLevel,
   MCP_CONTENT_KEY,
@@ -29,6 +30,7 @@ import { McpToolError } from '@midnite/studio-runtime';
 import type { z } from 'zod';
 
 import { readLevelForTool } from './game-level-source';
+import { groundHeights, readLevelGround } from './game-level-terrain';
 import { LEVEL_EDITOR_TIMEOUT_MESSAGE, LEVEL_EDITOR_VIEW_TIMEOUT_MS } from './level-editor-bridge';
 import { writeLevelOps } from './level-agent-writes';
 import type { GameService } from './game-service';
@@ -121,7 +123,8 @@ export type GameMcpTools = {
     | 'game_assets_list'
     | 'game_prefab_list'
     | 'game_prefab_save'
-    | 'game_level_scatter']: (input: McpToolInput<K>) => Promise<McpToolOutput<K>>;
+    | 'game_level_scatter'
+    | 'game_terrain_height']: (input: McpToolInput<K>) => Promise<McpToolOutput<K>>;
 };
 
 export { GAME_STATE_TIMEOUT_MS } from './game-state';
@@ -577,6 +580,14 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
       }
       const written = await writeEntityOps({ game: found.gameId, scene, unit: 'px', label: label ?? `Scatter ${ops.length} objects`, save, select }, ops);
       return { ...written, points, capped };
+    },
+
+    async game_terrain_height({ game, scene, points, normals }) {
+      const found = await need(game);
+      const read = unwrapLevel(await readLevelForTool(deps.service, found.gameId, scene));
+      const got = await readLevelGround(found.path, (read.level && typeof read.level === 'object' ? read.level : {}) as Pick<GameLevel, 'properties'>);
+      if (!got.ok) throw new McpToolError('error', got.message);
+      return groundHeights(got.ground, points, normals);
     },
 
     async game_state({ game }) {
