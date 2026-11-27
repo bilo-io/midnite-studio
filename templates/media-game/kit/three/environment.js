@@ -201,6 +201,7 @@ export function createEnvironment(options) {
     setSun(/** @type {number} */ az, /** @type {number} */ el) {
       azimuth = az;
       elevation = el;
+      sunOverride = null;
       hours = null;
       apply();
     },
