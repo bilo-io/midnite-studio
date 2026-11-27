@@ -103,6 +103,7 @@ import { cycleBrowserLayout, type BrowserLayout } from '@midnite/studio-feature-
 import { bridge } from '../services/bridge';
 import { adoptRenamedPersistKey } from './persist-rename';
 import { migrateBuildPlanSkills, migrateSwarmFleetSkills, migratePrSkills, renameLegacySkillsIn } from './migrate-skill-renames';
+import { debouncedStorage } from './debounced-storage';
 import { migrateLoopSwitch } from './migrate-loop-switch';
 import { mergeCustomLoops, migrateCustomLoops, omitKey } from './migrate-custom-loops';
 import { migrateAppsToWebApps } from './migrate-web-apps';
@@ -3566,6 +3567,8 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
+      // Phase 77 Theme C: coalesce the whole-slice write a range-input drag fires per pixel.
+      storage: debouncedStorage<PersistedUi>('midnite-studio.ui'),
       version: 43,
       partialize: (state): PersistedUi => ({
         layout: state.layout,

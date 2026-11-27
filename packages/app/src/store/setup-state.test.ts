@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { discardPendingWrites } from './debounced-storage';
 
 import { INITIAL_SETUP_STATE, isFirstRun, migrateSetupState, withPageSkipped } from './setup-state';
 import { useUiStore } from './ui-store';
@@ -56,6 +57,7 @@ describe('ui-store v27 -> v28 migration', () => {
   beforeEach(() => {
     localStorage.clear();
     useUiStore.setState({ setupState: INITIAL_SETUP_STATE });
+    discardPendingWrites(); // the debounced write the setState queued must not shadow the blob a test seeds
   });
 
   it('folds the three old keys into setupState and deletes them', () => {

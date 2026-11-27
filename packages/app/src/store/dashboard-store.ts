@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { debouncedStorage } from './debounced-storage';
 import { persist } from 'zustand/middleware';
 
 import type { StatsWindow } from '@midnite/studio-shared';
@@ -417,6 +418,8 @@ export const useDashboardStore = create<DashboardState>()(
     }),
     {
       name: 'midnite-studio.dashboard',
+      // Phase 77 Theme C: react-grid-layout fires onLayoutChange throughout a tile drag.
+      storage: debouncedStorage<Partial<DashboardState>>('midnite-studio.dashboard'),
       version: 4,
       migrate: (persisted, version) => migrateDashboardState(persisted, version),
       /*

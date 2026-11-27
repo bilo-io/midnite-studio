@@ -1,4 +1,6 @@
-import { afterEach } from 'vitest';
+import { afterEach, beforeEach } from 'vitest';
+
+import { discardPendingWrites } from './store/debounced-storage';
 
 import { useBoardSelectionStore } from '@midnite/studio-feature-tasks/renderer/state';
 import { useWorkflowRevealStore } from '@midnite/studio-feature-workflows/renderer';
@@ -285,3 +287,8 @@ if (typeof HTMLCanvasElement !== 'undefined') {
   HTMLCanvasElement.prototype.getContext = (() =>
     null) as typeof HTMLCanvasElement.prototype.getContext;
 }
+
+/** Phase 77 Theme C — a debounced persisted-store write queued by one test must not rehydrate into the next. */
+// beforeEach too: a store's import-time hydration queues a write before the first test runs.
+beforeEach(discardPendingWrites);
+afterEach(discardPendingWrites);

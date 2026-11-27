@@ -3,6 +3,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { mergeCustomLoops, migrateCustomLoops, omitKey } from './migrate-custom-loops';
 import { useUiStore } from './ui-store';
+import { flushNow } from './debounced-storage';
+
+/** The ui slice's write is debounced (Phase 77 Theme C): flush before reading what it persisted. */
+const persistedUi = (): string | null => {
+  flushNow();
+  return localStorage.getItem('midnite-studio.ui');
+};
 
 const reset = () =>
   useUiStore.setState({
@@ -146,7 +153,7 @@ describe('custom loop store actions', () => {
 
   it('persists custom loops in the ui blob', () => {
     useUiStore.getState().createCustomLoop();
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: { customLoops?: unknown[]; customLoopEditing?: unknown };
     };
     expect(saved.state.customLoops).toHaveLength(1);
