@@ -74,7 +74,7 @@
  * running broker, socket and all).
  */
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, copyFileSync, readFileSync, renameSync } from 'node:fs';
+import { appendFileSync, copyFileSync, existsSync, readFileSync, renameSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
 import { join, resolve } from 'node:path';
@@ -1501,6 +1501,8 @@ export async function runFreeRam({ repo, sessions = 6 }) {
   requireBuilt();
   const brokerJs = join(REPO_ROOT, 'packages', 'desktop', 'dist', 'bundle', 'broker.js');
   const backup = `${brokerJs}.free-ram-orig`;
+  // A crashed earlier run can leave the patched file behind with the original beside it: put it back first.
+  if (existsSync(backup)) renameSync(backup, brokerJs);
   const expected = getExpectedMarks();
   const profile = await seedProfile(repo, expected, { tmpPrefix: '/tmp/mstudio-perf-' });
   let devtoolsUrl = null;
