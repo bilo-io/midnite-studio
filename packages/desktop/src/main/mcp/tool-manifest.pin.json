@@ -1,5 +1,5 @@
 {
-  "hash": "346e633b6d4007cc4b9f3e420e2a42b7b770e6360579203fccd1f9fdfd0d0218",
+  "hash": "c0e23bcd6435866bdec98ebc7387650d810f4304c84072ce94429e786e60f79e",
   "tools": {
     "repo.list": "c2254fa779e5cb87",
     "repo.resolve": "b39c228fe331d5d8",
@@ -148,8 +148,8 @@
     "companion_profile_save": "83c35a299d7e39a1",
     "companion_profile_switch": "43f1599e2e5261e3",
     "companion_profile_delete": "5b8ed9bc8eb52d08",
-    "companion_agent_get": "efb1b5f0eb932355",
-    "companion_agent_set": "c7ff5371c6b738a6",
+    "companion_agent_get": "8d93d31fb62f98ca",
+    "companion_agent_set": "92c3d7a6d96eed4d",
     "companion_models_list": "318a36c08a1cae26"
   }
 }
