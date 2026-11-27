@@ -366,6 +366,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
   const armedAsset = useArmedAsset();
   // Live ghosts and the View overlays (Phase 140 Themes E to G). Live needs a running game and turns itself off with it.
   const overlays = useLevelViewStore((s) => s.overlays);
+  const hillshadeOn = useLevelViewStore((s) => s.hillshade);
   const runState = useGameRunStore((s) => s.runs[gameId]?.state);
   const gameRunning = isLive(runState) && runState !== 'starting';
   const [liveOn, setLiveOn] = useState(false);
@@ -1169,7 +1170,7 @@ function OpenEditor({ gameId, entry, readsLevels, onPlayStarted }: { gameId: str
         <LevelViewPopover overlays={overlays} onChange={(key, on) => {
           useLevelViewStore.getState().setOverlay(key, on);
           if (gameRunning && key !== 'spawners') pushDebug(gameId, { [key]: on });
-        }} navNeedsGame={!gameRunning} />
+        }} navNeedsGame={!gameRunning} hillshade={is3d && viewTerrain?.heights ? { on: hillshadeOn, set: useLevelViewStore.getState().setHillshade } : null} />
         <IconButton
           icon={LuRadio}
           label={liveOn ? 'Hide live entities' : 'Show live entities'}

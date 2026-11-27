@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createHeightSampler, gridHeightAt, gridNormalAt, inGrid, raycastHeightfield, sampleGridAt } from './game-heightfield';
+import { createHeightSampler, gridHeightAt, gridNormalAt, hillshade, inGrid, raycastHeightfield, sampleGridAt } from './game-heightfield';
 
 /** A seeded generator, so a failure replays. */
 function rng(seed: number): () => number {
@@ -103,5 +103,38 @@ describe('raycastHeightfield', () => {
 
   it('a ray that never comes down within the distance returns null', () => {
     expect(raycastHeightfield(s, [0, 10_000, 0], [1, -0.001, 0], 1000)).toBeNull();
+  });
+});
+
+describe('hillshade (Phase 141 Theme E)', () => {
+  const grid = (f: (x: number, z: number) => number) => {
+    const cols = 21, rows = 21, values: number[] = [];
+    for (let j = 0; j < rows; j += 1) for (let i = 0; i < cols; i += 1) values.push(f(-100 + i * 10, -100 + j * 10));
+    return { minX: -100, minZ: -100, maxX: 100, maxZ: 100, cols, rows, values };
+  };
+  const mean = (px: Uint8ClampedArray): number => {
+    let sum = 0;
+    for (let k = 0; k < px.length; k += 4) sum += px[k]!;
+    return sum / (px.length / 4);
+  };
+
+  it('E1: a flat field is uniform, 255 × sin(altitude)', () => {
+    const px = hillshade(grid(() => 42), 16, 16);
+    expect(px).toHaveLength(16 * 16 * 4);
+    const v = Math.round(255 * Math.sin(Math.PI / 4));
+    for (let k = 0; k < px.length; k += 4) {
+      expect(px[k]).toBe(v);
+      expect(px[k + 3]).toBe(255);
+    }
+  });
+
+  it('E1: under the default north-west sun a slope facing north-west is brighter than one facing south-east', () => {
+    // North is −z, west −x: a ground falling towards −x and −z faces north-west.
+    const facingNw = mean(hillshade(grid((x, z) => (x + z) * 0.5), 16, 16));
+    const facingSe = mean(hillshade(grid((x, z) => -(x + z) * 0.5), 16, 16));
+    const flat = mean(hillshade(grid(() => 0), 16, 16));
+    expect(facingNw).toBeGreaterThan(flat);
+    expect(flat).toBeGreaterThan(facingSe);
+    expect(facingNw - facingSe).toBeGreaterThan(100);
   });
 });

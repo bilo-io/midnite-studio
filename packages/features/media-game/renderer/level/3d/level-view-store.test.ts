@@ -7,7 +7,7 @@ const KEY = 'midnite-studio.level-view';
 
 afterEach(() => {
   localStorage.clear();
-  useLevelViewStore.setState({ modeByGame: {}, optimisation: 3, stats: false, snap: DEFAULT_LEVEL_SNAP, pivot: 'pivot', space: 'world', overlays: { colliders: false, triggers: false, nav: false, spawners: true }, conform: false });
+  useLevelViewStore.setState({ modeByGame: {}, optimisation: 3, stats: false, snap: DEFAULT_LEVEL_SNAP, pivot: 'pivot', space: 'world', overlays: { colliders: false, triggers: false, nav: false, spawners: true }, conform: false, hillshade: true });
 });
 
 describe('useLevelViewStore (Phase 136 Themes E and G)', () => {
@@ -27,7 +27,7 @@ describe('useLevelViewStore (Phase 136 Themes E and G)', () => {
     s.toggleStats();
     s.setMode('g1', '3d');
     const saved = JSON.parse(localStorage.getItem(KEY)!);
-    expect(saved.state).toEqual({ modeByGame: { g1: '3d' }, optimisation: 1, stats: true, snap: DEFAULT_LEVEL_SNAP, pivot: 'pivot', space: 'world', overlays: { colliders: false, triggers: false, nav: false, spawners: true }, conform: false });
+    expect(saved.state).toEqual({ modeByGame: { g1: '3d' }, optimisation: 1, stats: true, snap: DEFAULT_LEVEL_SNAP, pivot: 'pivot', space: 'world', overlays: { colliders: false, triggers: false, nav: false, spawners: true }, conform: false, hillshade: true });
   });
 
   it('a corrupt payload falls back to the defaults', async () => {

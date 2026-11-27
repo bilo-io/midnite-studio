@@ -13,12 +13,17 @@ export type PlanOverlay = {
   terrainDetailImage?: HTMLImageElement | null;
   /** The drapes of `terrain.packs`, in the same order (a missing one draws as its outline alone). */
   terrainPackImages?: ReadonlyArray<HTMLImageElement | null>;
+  /** Phase 141 Theme E: hillshades over world rectangles, drawn in order under the grid. */
+  hillshades?: ReadonlyArray<{ image: CanvasImageSource; minX: number; minZ: number; maxX: number; maxZ: number }>;
   /** The path being drawn (points in map pixels), with the pointer's current position as its rubber-band end. */
   draft: readonly PlanPoint[];
   cursor: PlanPoint | null;
   /** The volume rectangle being dragged. */
   volume: { from: PlanPoint; to: PlanPoint } | null;
 };
+
+/** How strongly the hillshade shows through (Phase 141 Theme E). */
+export const HILLSHADE_ALPHA = 0.35;
 
 const BUILDING_FILL = 'rgba(148, 163, 184, 0.35)';
 const BUILDING_EDGE = 'rgba(203, 213, 225, 0.6)';
@@ -276,6 +281,12 @@ export function drawPlan(
     const r = rects[0]!;
     draped(overlay.terrainImage, r);
     if (overlay.terrain.detail) drawTerrainDetail(ctx, level, overlay.terrain.detail, overlay.terrainDetailImage, px);
+    for (const h of overlay.hillshades ?? []) {
+      const hr = terrainRect(level, h);
+      ctx.globalAlpha = HILLSHADE_ALPHA;
+      ctx.drawImage(h.image, hr.x, hr.y, hr.width, hr.height);
+      ctx.globalAlpha = 1;
+    }
     for (let i = packs.length; i >= 1; i -= 1) outlined(rects[i]!, packs[i - 1]!.name);
     outlined(r, overlay.terrain.name);
   }

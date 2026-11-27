@@ -131,3 +131,36 @@ export function raycastHeightfield(s: Pick<HeightSampler, 'heightAt' | 'cell'>, 
   }
   return null;
 }
+
+/**
+ * A grey hillshade of `grid` as RGBA pixels, `width × height`, row 0 along the grid's `minZ` edge (north, as the
+ * Floorplan draws it) — Phase 141 Theme E. Horn's 3 × 3 gradient over the grid resampled to the output, lit from
+ * `sunAzimuth` degrees clockwise from north (−z) at `sunAltitude` degrees: GIS's classic north-west sun at 45° by
+ * default. A flat field is a uniform `255 × sin(altitude)`; a slope facing the sun is brighter.
+ */
+export function hillshade(grid: HeightGrid, width: number, height: number, sunAzimuth = 315, sunAltitude = 45): Uint8ClampedArray {
+  const w = Math.max(1, Math.round(width)), h = Math.max(1, Math.round(height));
+  const dx = (grid.maxX - grid.minX) / Math.max(1, w - 1), dz = (grid.maxZ - grid.minZ) / Math.max(1, h - 1);
+  const elev = new Float64Array(w * h);
+  for (let j = 0; j < h; j += 1) for (let i = 0; i < w; i += 1) elev[j * w + i] = gridHeightAt(grid, grid.minX + i * dx, grid.minZ + j * dz);
+  const az = (sunAzimuth * Math.PI) / 180, alt = (sunAltitude * Math.PI) / 180;
+  // The light's direction in world terms: north is −z, east +x.
+  const lx = Math.cos(alt) * Math.sin(az), ly = Math.sin(alt), lz = -Math.cos(alt) * Math.cos(az);
+  const at = (i: number, j: number): number => elev[Math.min(h - 1, Math.max(0, j)) * w + Math.min(w - 1, Math.max(0, i))]!;
+  const out = new Uint8ClampedArray(w * h * 4);
+  for (let j = 0; j < h; j += 1) {
+    for (let i = 0; i < w; i += 1) {
+      // Horn: weighted central differences over the 3 × 3 neighbourhood (edges repeat their border).
+      const gx = (at(i + 1, j - 1) + 2 * at(i + 1, j) + at(i + 1, j + 1) - (at(i - 1, j - 1) + 2 * at(i - 1, j) + at(i - 1, j + 1))) / (8 * (dx || 1));
+      const gz = (at(i - 1, j + 1) + 2 * at(i, j + 1) + at(i + 1, j + 1) - (at(i - 1, j - 1) + 2 * at(i, j - 1) + at(i + 1, j - 1))) / (8 * (dz || 1));
+      const len = Math.hypot(gx, 1, gz);
+      const shade = Math.max(0, (-gx * lx + ly - gz * lz) / len);
+      const k = (j * w + i) * 4, v = Math.round(shade * 255);
+      out[k] = v;
+      out[k + 1] = v;
+      out[k + 2] = v;
+      out[k + 3] = 255;
+    }
+  }
+  return out;
+}
