@@ -37,7 +37,7 @@ import { captureScene, type CapturedPixels } from './level-capture';
 import { blendPose, cameraPosition, dollyOffset, poseFromCamera, TRANSITION_MS, type CameraPose } from './camera-transition';
 import { cull, groundTiles, itemRadius, tileInReach, type GroundTile, type ViewStats } from './level-cull';
 import { detailSegments, gridUnit, packTiles, reachFor, tileSizeFor } from './level-big';
-import { drapedGrid, drapedRuns, type Relief } from './level-relief';
+import { drapedGrid, drapedRing, drapedRuns, ringIndices, type Relief } from './level-relief';
 import { buildingsGeometry, lineObject, patchGeometry, tileGeometry } from './level-relief-mesh';
 import { farPlane, fogRange, hazeRange, viewOffset } from './level-lod';
 import type { ScreenPoint } from './level-marquee';
@@ -970,26 +970,44 @@ function GizmoReady() {
 
 export { disposeTree };
 
-/** The scatter brush on the ground (Phase 139 Theme D's ring, flat until Phase 141 conforms it to terrain). */
+/** Vertices round the scatter brush's ring. */
+const RING_SEGMENTS = 64;
+
+/** The scatter brush on the ground (Phase 139 Theme D's ring), draped over the terrain so it reads on a slope (Phase 141 Theme D). */
 function BrushRing({ radius, move, heightAt, lift }: { radius: number; move: MutableRefObject<((at: [number, number] | null) => void) | null>; heightAt: (x: number, z: number) => number; lift: number }) {
   const mesh = useRef<Mesh>(null);
+  const last = useRef<[number, number] | null>(null);
   const invalidate = useThree((s) => s.invalidate);
+  const r = Math.max(radius, 0.05);
+  const geometry = useMemo(() => {
+    const g = new BufferGeometry();
+    g.setAttribute('position', new Float32BufferAttribute(new Float32Array((RING_SEGMENTS + 1) * 2 * 3), 3));
+    g.setIndex(ringIndices(RING_SEGMENTS));
+    return g;
+  }, []);
+  useEffect(() => () => geometry.dispose(), [geometry]);
   useEffect(() => {
     move.current = (at) => {
       const m = mesh.current;
+      last.current = at;
       if (!m) return;
-      if (at) m.position.set(at[0], heightAt(at[0], at[1]) + lift, at[1]);
+      if (at) {
+        const attr = geometry.getAttribute('position') as Float32BufferAttribute;
+        drapedRing(attr.array as Float32Array, at[0], at[1], r * 0.96, r, RING_SEGMENTS, heightAt, lift);
+        attr.needsUpdate = true;
+        geometry.computeBoundingSphere();
+      }
       m.visible = at !== null;
       invalidate();
     };
+    // A new radius (`[` / `]`) redraws the ring where it stands.
+    if (last.current) move.current(last.current);
     return () => {
       move.current = null;
     };
-  }, [move, heightAt, lift, invalidate]);
-  const r = Math.max(radius, 0.05);
+  }, [move, heightAt, lift, invalidate, geometry, r]);
   return (
-    <mesh ref={mesh} rotation={[-Math.PI / 2, 0, 0]} visible={false} renderOrder={5}>
-      <ringGeometry args={[r * 0.96, r, 64]} />
+    <mesh ref={mesh} geometry={geometry} visible={false} renderOrder={5} frustumCulled={false}>
       <meshBasicMaterial color="#6366f1" transparent opacity={0.9} side={DoubleSide} depthTest={false} />
     </mesh>
   );

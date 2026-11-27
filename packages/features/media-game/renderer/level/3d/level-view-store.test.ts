@@ -7,7 +7,7 @@ const KEY = 'midnite-studio.level-view';
 
 afterEach(() => {
   localStorage.clear();
-  useLevelViewStore.setState({ modeByGame: {}, optimisation: 3, stats: false, snap: DEFAULT_LEVEL_SNAP, pivot: 'pivot', space: 'world', overlays: { colliders: false, triggers: false, nav: false, spawners: true } });
+  useLevelViewStore.setState({ modeByGame: {}, optimisation: 3, stats: false, snap: DEFAULT_LEVEL_SNAP, pivot: 'pivot', space: 'world', overlays: { colliders: false, triggers: false, nav: false, spawners: true }, conform: false });
 });
 
 describe('useLevelViewStore (Phase 136 Themes E and G)', () => {
@@ -27,7 +27,7 @@ describe('useLevelViewStore (Phase 136 Themes E and G)', () => {
     s.toggleStats();
     s.setMode('g1', '3d');
     const saved = JSON.parse(localStorage.getItem(KEY)!);
-    expect(saved.state).toEqual({ modeByGame: { g1: '3d' }, optimisation: 1, stats: true, snap: DEFAULT_LEVEL_SNAP, pivot: 'pivot', space: 'world', overlays: { colliders: false, triggers: false, nav: false, spawners: true } });
+    expect(saved.state).toEqual({ modeByGame: { g1: '3d' }, optimisation: 1, stats: true, snap: DEFAULT_LEVEL_SNAP, pivot: 'pivot', space: 'world', overlays: { colliders: false, triggers: false, nav: false, spawners: true }, conform: false });
   });
 
   it('a corrupt payload falls back to the defaults', async () => {
@@ -82,5 +82,16 @@ describe('overlays (Phase 140 Theme F)', () => {
     localStorage.setItem(KEY, JSON.stringify({ state: { overlays: { colliders: 'yes', triggers: 1, nav: true, spawners: 0 } }, version: 1 }));
     await useLevelViewStore.persist.rehydrate();
     expect(useLevelViewStore.getState().overlays).toEqual({ colliders: false, triggers: false, nav: true, spawners: true });
+  });
+});
+
+describe('conform on move (Phase 141 Theme D)', () => {
+  it('is off by default, persists, and only an exact true turns it on', async () => {
+    expect(useLevelViewStore.getState().conform).toBe(false);
+    useLevelViewStore.getState().setConform(true);
+    expect(JSON.parse(localStorage.getItem(KEY)!).state.conform).toBe(true);
+    localStorage.setItem(KEY, JSON.stringify({ version: 1, state: { conform: 'yes' } }));
+    await useLevelViewStore.persist.rehydrate();
+    expect(useLevelViewStore.getState().conform).toBe(false);
   });
 });

@@ -31,6 +31,9 @@ type State = {
   pivot: GizmoPivot;
   space: GizmoSpace;
   overlays: LevelOverlays;
+  /** Phase 141 Theme D: a drag keeps an elevated object's height above the terrain. Off by default. */
+  conform: boolean;
+  setConform: (on: boolean) => void;
   setSnap: (snap: Partial<LevelSnap>) => void;
   setPivot: (pivot: GizmoPivot) => void;
   setSpace: (space: GizmoSpace) => void;
@@ -51,6 +54,8 @@ export const useLevelViewStore = create<State>()(
       pivot: 'pivot',
       space: 'world',
       overlays: DEFAULT_OVERLAYS,
+      conform: false,
+      setConform: (conform) => set({ conform }),
       setSnap: (snap) => set((s) => ({ snap: sanitiseSnap({ ...s.snap, ...snap }) })),
       setPivot: (pivot) => set({ pivot }),
       setSpace: (space) => set({ space }),
@@ -62,7 +67,7 @@ export const useLevelViewStore = create<State>()(
     {
       name: 'midnite-studio.level-view',
       version: 1,
-      partialize: (s) => ({ modeByGame: s.modeByGame, optimisation: s.optimisation, stats: s.stats, snap: s.snap, pivot: s.pivot, space: s.space, overlays: s.overlays }),
+      partialize: (s) => ({ modeByGame: s.modeByGame, optimisation: s.optimisation, stats: s.stats, snap: s.snap, pivot: s.pivot, space: s.space, overlays: s.overlays, conform: s.conform }),
       // A hand-edited or older payload never breaks the editor: anything unexpected falls back to the default.
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<State>;
@@ -70,7 +75,7 @@ export const useLevelViewStore = create<State>()(
         if (p.modeByGame && typeof p.modeByGame === 'object') {
           for (const [id, mode] of Object.entries(p.modeByGame)) if (mode === 'plan' || mode === '3d') modes[id] = mode;
         }
-        return { ...current, modeByGame: modes, optimisation: presetFor(typeof p.optimisation === 'number' ? p.optimisation : DEFAULT_OPTIMISATION).step, stats: p.stats === true, snap: sanitiseSnap(p.snap), pivot: p.pivot === 'centre' ? 'centre' : 'pivot', space: p.space === 'local' ? 'local' : 'world', overlays: sanitiseOverlays(p.overlays) };
+        return { ...current, modeByGame: modes, optimisation: presetFor(typeof p.optimisation === 'number' ? p.optimisation : DEFAULT_OPTIMISATION).step, stats: p.stats === true, snap: sanitiseSnap(p.snap), pivot: p.pivot === 'centre' ? 'centre' : 'pivot', space: p.space === 'local' ? 'local' : 'world', overlays: sanitiseOverlays(p.overlays), conform: p.conform === true };
       },
     },
   ),
