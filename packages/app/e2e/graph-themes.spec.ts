@@ -48,6 +48,7 @@ const GRAPH_ROWS = [
     row: 0,
     lane: 0,
     colorIdx: 0,
+    through: [],
     laneCount: 2,
     edges: [
       { fromLane: 0, toLane: 0, type: 'branch', colorIdx: 0 },
@@ -60,6 +61,7 @@ const GRAPH_ROWS = [
     row: 1,
     lane: 1,
     colorIdx: 1,
+    through: [],
     laneCount: 2,
     edges: [
       { fromLane: 0, toLane: 0, type: 'straight', colorIdx: 0 },
@@ -72,6 +74,7 @@ const GRAPH_ROWS = [
     row: 2,
     lane: 0,
     colorIdx: 0,
+    through: [],
     laneCount: 2,
     edges: [
       { fromLane: 0, toLane: 0, type: 'branch', colorIdx: 0 },
@@ -84,6 +87,7 @@ const GRAPH_ROWS = [
     row: 3,
     lane: 0,
     colorIdx: 0,
+    through: [],
     laneCount: 2,
     edges: [
       { fromLane: 0, toLane: 0, type: 'branch', colorIdx: 0 },
@@ -96,6 +100,7 @@ const GRAPH_ROWS = [
     row: 4,
     lane: 0,
     colorIdx: 0,
+    through: [],
     laneCount: 1,
     edges: [{ fromLane: 0, toLane: 0, type: 'branch', colorIdx: 0 }],
     commit: commit(4, [], 'initial commit'),
@@ -147,6 +152,7 @@ const CHAIN_ROWS = Array.from({ length: CHAIN_LENGTH }, (_, i) => {
     row: i,
     lane: 0,
     colorIdx: 0,
+    through: [],
     laneCount: 1,
     edges: [{ fromLane: 0, toLane: 0, type: edgeType, colorIdx: 0 }],
     commit: commit(i, i === CHAIN_LENGTH - 1 ? [] : [sha(i + 1)], `commit number ${i}`),

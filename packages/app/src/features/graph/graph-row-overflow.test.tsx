@@ -25,6 +25,7 @@ const row: GraphRow = {
   commit: commit('abc1234', 'feat: initial commit'),
   lane: 0,
   colorIdx: 1,
+  through: [],
   edges: [],
   laneCount: 1,
 };

@@ -1,6 +1,7 @@
 import type { GraphRow } from '@midnite/studio-shared';
 
 import { HEAD_LANE_IDX } from './lane-colors';
+import { throughOf } from './through';
 
 /**
  * The checked-out branch's lane, as a span of the loaded rows.
@@ -81,11 +82,15 @@ export function applyHeadLane(
       ? { ...edge, colorIdx: HEAD_LANE_IDX }
       : edge,
   );
-  const changed = edges.some((edge, i) => edge !== row.edges[i]);
+  // A pass-through lane in the HEAD column takes the HEAD colour too (Phase 77 Theme B: they left
+  // `edges`). -1 is "no lane" and stays -1; `through` is returned as-is when it is untouched.
+  const throughOnLane = (throughOf(row)[lane] ?? -1) >= 0;
+  const through = throughOnLane ? throughOf(row).map((c, i) => (i === lane ? HEAD_LANE_IDX : c)) : throughOf(row);
+  const changed = throughOnLane || edges.some((edge, i) => edge !== row.edges[i]);
   const nodeOnLane = row.lane === lane;
   const out =
     changed || nodeOnLane
-      ? { ...row, colorIdx: nodeOnLane ? HEAD_LANE_IDX : row.colorIdx, edges }
+      ? { ...row, colorIdx: nodeOnLane ? HEAD_LANE_IDX : row.colorIdx, through, edges }
       : row;
   cache.set(row, { span, index, out });
   return out;

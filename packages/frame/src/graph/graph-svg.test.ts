@@ -1,7 +1,10 @@
+import type { GraphRow } from '@midnite/studio-shared';
+import { createElement } from 'react';
 import { describe, expect, it } from 'vitest';
 
-import { edgePath } from './graph-svg';
+import { edgePath, GraphSvg } from './graph-svg';
 import { GRAPH_THEMES, type GraphTheme } from './graph-themes';
+import { createTestGitUi, makeTestGitHost, renderWithGitHost } from './test-host';
 
 const withEdge = (edge: GraphTheme['edge'], cornerRadius = 8): GraphTheme => ({
   ...GRAPH_THEMES['git-graph'],
@@ -63,5 +66,54 @@ describe('edgePath', () => {
       // Separate elements leave visible notches at any width above a hairline.
       expect(edgePath(withEdge('orthogonal'), 10, 0, 30, 16).match(/M /g)).toHaveLength(1);
     });
+  });
+});
+
+describe('GraphSvg pass-through lanes (Phase 77 Theme B)', () => {
+  const theme = GRAPH_THEMES['git-graph'];
+  const commit = {
+    sha: 's', parents: [], authorName: '', authorEmail: '', authorDate: 0, committerDate: 0,
+    subject: '', refs: [], coAuthors: [], sessionTrailers: [],
+  };
+  const base = { row: 0, commit, lane: 1, colorIdx: 1, laneCount: 4 };
+  const straight = (lane: number, colorIdx: number) => ({ fromLane: lane, toLane: lane, type: 'straight' as const, colorIdx });
+
+  /** The multiset of full-height verticals actually painted, as `x|stroke`, sorted. */
+  const verticals = (row: GraphRow, glowColorIdx: number | null = null): string[] => {
+    const { container, unmount } = renderWithGitHost(
+      createElement(GraphSvg, { row, width: 120, theme, laneWidth: theme.laneWidth, clipId: 'c', glowColorIdx }),
+      makeTestGitHost(createTestGitUi()),
+    );
+    const found = [...container.querySelectorAll('line')]
+      .filter((l) => l.getAttribute('x1') === l.getAttribute('x2') && l.getAttribute('y1') === '0' && l.getAttribute('y2') === String(theme.rowHeight))
+      .map((l) => `${l.getAttribute('x1')}|${l.getAttribute('stroke')}`)
+      .sort();
+    unmount();
+    return found;
+  };
+
+  // Lanes 0, 2 and 3 pass through; lane 1 is the commit's own continuing lane.
+  const viaEdges: GraphRow = {
+    ...base,
+    through: [],
+    edges: [straight(0, 4), straight(1, 1), straight(2, 6), straight(3, 7)],
+  };
+  const viaThrough: GraphRow = { ...base, through: [4, -1, 6, 7], edges: [straight(1, 1)] };
+
+  it('paints the same multiset of {lane, colour} verticals whether they arrive in edges or through', () => {
+    const before = verticals(viaEdges);
+    expect(before).toHaveLength(4);
+    expect(verticals(viaThrough)).toEqual(before);
+  });
+
+  it('keeps the same multiset in the glow halo layer', () => {
+    // colour 6 is lane 2's; the halo copies only edges of the glowing colour.
+    expect(verticals(viaThrough, 6)).toEqual(verticals(viaEdges, 6));
+    const withGlow = verticals(viaThrough, 6);
+    expect(withGlow.length).toBe(verticals(viaThrough).length + 1);
+  });
+
+  it('draws nothing for a -1 (empty or touched) lane', () => {
+    expect(verticals({ ...base, through: [-1, -1], edges: [] })).toEqual([]);
   });
 });

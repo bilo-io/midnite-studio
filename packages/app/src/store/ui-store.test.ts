@@ -18,6 +18,13 @@ import {
   VIEW_IDS,
   writeSessionActiveView,
 } from './ui-store';
+import { flushNow } from './debounced-storage';
+
+/** The ui slice's write is debounced (Phase 77 Theme C): flush before reading what it persisted. */
+const persistedUi = (): string | null => {
+  flushNow();
+  return localStorage.getItem('midnite-studio.ui');
+};
 
 const reset = () =>
   useUiStore.setState({
@@ -230,7 +237,7 @@ describe('phase 19 store additions', () => {
   it('persists the narrowing, like the sections a user folded away', () => {
     useUiStore.getState().setSectionFilter('actions', false);
 
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: { sectionFilters: Record<string, boolean> };
     };
     expect(saved.state.sectionFilters).toEqual({ actions: false });
@@ -277,7 +284,7 @@ describe('navVisibility (sidenav feature flags)', () => {
   it('persists hidden destinations', () => {
     useUiStore.getState().setNavViewVisible('sessions', false);
 
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: { navVisibility: Record<string, boolean> };
     };
     expect(saved.state.navVisibility).toEqual({ sessions: false });
@@ -341,7 +348,7 @@ describe('phase 16 store additions', () => {
   it('persists the settings page, so reopening Settings lands where you were', () => {
     useUiStore.getState().setSettingsPage('agent');
 
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: Record<string, unknown>;
     };
     expect(saved.state.settingsPage).toBe('agent');
@@ -358,7 +365,7 @@ describe('phase 16 store additions', () => {
     expect(merged.layout.filesTreeWidth).toBe(DEFAULT_LAYOUT.filesTreeWidth);
 
     useUiStore.getState().setLayout('filesTreeWidth', 260);
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: { layout: Record<string, number> };
     };
     expect(saved.state.layout.filesTreeWidth).toBe(260);
@@ -377,7 +384,7 @@ describe('phase 16 store additions', () => {
 
     useUiStore.getState().setLayout('mediaVideoExplorerWidth', 250);
     useUiStore.getState().setLayout('mediaDocDetailWidth', 350);
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: { layout: Record<string, number> };
     };
     expect(saved.state.layout.mediaVideoExplorerWidth).toBe(250);
@@ -495,7 +502,7 @@ describe('phase 16 store additions', () => {
 
   it('does not persist the active view — a launch starts on the graph', () => {
     useUiStore.getState().setActiveView('files');
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: Record<string, unknown>;
     };
     expect(saved.state).not.toHaveProperty('activeView');
@@ -581,7 +588,7 @@ describe('persistence', () => {
     useUiStore.getState().setGraphRefFilter(['refs/heads/main']);
     useUiStore.getState().selectCommit('abc123');
 
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: Record<string, unknown>;
     };
 
@@ -595,7 +602,7 @@ describe('persistence', () => {
     useUiStore.getState().toggleTerminalMaximized();
     useUiStore.getState().setTerminalSidebarSide('left');
 
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: Record<string, unknown>;
     };
 
@@ -615,7 +622,7 @@ describe('persistence', () => {
   it('persists the terminal dock and its right-docked width', () => {
     useUiStore.getState().setTerminalDock('right');
     useUiStore.getState().setLayout('terminalWidth', 600);
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: { terminalDock: string; layout: { terminalWidth: number } };
     };
     expect(saved.state.terminalDock).toBe('right');
@@ -625,7 +632,7 @@ describe('persistence', () => {
   it('persists a hidden repositories sidebar, so it stays hidden across a restart', () => {
     useUiStore.getState().setReposOpen(false);
 
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: Record<string, unknown>;
     };
 
@@ -666,7 +673,7 @@ describe('persistence', () => {
   it('persists the browser pane state and the layout it was opened in', () => {
     useUiStore.getState().openBrowser('right');
 
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: Record<string, unknown>;
     };
 
@@ -677,7 +684,7 @@ describe('persistence', () => {
   it('does not persist the launcher — a modal restored on launch is one nobody asked for', () => {
     useUiStore.getState().toggleBrowser();
 
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: Record<string, unknown>;
     };
 
@@ -760,7 +767,7 @@ describe('persistence', () => {
   it('does not persist the browser switcher — ephemeral HUD', () => {
     useUiStore.getState().openBrowserSwitcher();
 
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: Record<string, unknown>;
     };
 
@@ -804,7 +811,7 @@ describe('persistence', () => {
   it('does not persist the Mod+T terminal/agent switcher — ephemeral HUD', () => {
     useUiStore.getState().openTerminalSwitcher();
 
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: Record<string, unknown>;
     };
 
@@ -835,7 +842,7 @@ describe('phase 14 store additions', () => {
     useUiStore.getState().setGraphTheme('gitkraken');
     useUiStore.getState().setGraphAuthorFilter(['ada@example.com']);
 
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: Record<string, unknown>;
     };
 
@@ -978,7 +985,7 @@ describe('grouped settings navigation', () => {
     // should not have to fold it away again on every launch.
     useUiStore.getState().toggleSettingsGroup('system');
 
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: Record<string, unknown>;
     };
     expect(saved.state.collapsedSettingsGroups).toEqual(['system']);
@@ -1035,7 +1042,7 @@ describe('repo section folds', () => {
   it('persists the shared fold config to localStorage', () => {
     toggleRepoSection('tags');
 
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: Record<string, unknown>;
     };
     expect(saved.state.collapsedRepoSections).toEqual([
@@ -1082,7 +1089,7 @@ describe('the nav-mode lock', () => {
     // is in `partialize` for exactly this, and nothing else asserted it.
     useUiStore.getState().setNavMode('expanded');
 
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: Record<string, unknown>;
     };
     expect(saved.state.navMode).toBe('expanded');
@@ -1120,7 +1127,7 @@ describe('the midnite menu\'s skills', () => {
   it('persists the whole record, so a launch reads back what was configured', () => {
     useUiStore.getState().setAgentSkill('brainstorm', '/midnite-ideate --wide');
 
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: Record<string, unknown>;
     };
     expect(saved.state.agentSkills).toEqual({
@@ -1160,7 +1167,7 @@ describe('the primary agent', () => {
   it('persists across a reload', () => {
     useUiStore.getState().setPrimaryAgent('agy');
 
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: Record<string, unknown>;
     };
     expect(saved.state.primaryAgent).toBe('agy');
@@ -1210,7 +1217,7 @@ describe('the skill execution mode', () => {
   it('persists across a reload', () => {
     useUiStore.getState().setSkillExecutionMode('headless');
 
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: Record<string, unknown>;
     };
     expect(saved.state.skillExecutionMode).toBe('headless');
@@ -1272,7 +1279,7 @@ describe('project view state, keyed by project (Phase 52 Theme D)', () => {
   it('persists the map', () => {
     useUiStore.getState().setProjectView('proj-1', { groupFieldId: 'f1' });
 
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: { projectViewByProject: Record<string, { groupFieldId: string | null }> };
     };
     expect(saved.state.projectViewByProject['proj-1']).toMatchObject({ groupFieldId: 'f1' });
@@ -1552,7 +1559,7 @@ describe('cardSkillByTask (Phase 92 Theme C)', () => {
   it('persists the map', () => {
     useUiStore.getState().setCardSkill('proj-1:item-1', 'execAdhoc');
 
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: { cardSkillByTask: Record<string, string> };
     };
     expect(saved.state.cardSkillByTask['proj-1:item-1']).toBe('execAdhoc');
@@ -1646,7 +1653,7 @@ describe('columnSkillByProject (Phase 95 Theme G)', () => {
   it('persists the map', () => {
     useUiStore.getState().setColumnSkill('proj-1', 'In progress', '/midnite-create-adhoc');
 
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse(persistedUi() ?? '{}') as {
       state: { columnSkillByProject: Record<string, Record<string, string>> };
     };
     expect(saved.state.columnSkillByProject['proj-1']?.['in progress']).toBe('/midnite-create-adhoc');

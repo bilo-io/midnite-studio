@@ -21,6 +21,7 @@ const row = (index: number, sha: string): GraphRow => ({
   commit: commit(sha),
   lane: 0,
   colorIdx: 0,
+  through: [],
   edges: [],
   laneCount: 1,
 });

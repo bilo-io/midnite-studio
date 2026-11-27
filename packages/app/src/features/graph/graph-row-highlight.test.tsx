@@ -41,6 +41,7 @@ const makeRow = (sha: string, colorIdx: number, lane = 0): GraphRow => ({
     { fromLane: lane, toLane: lane, type: 'straight', colorIdx },
     { fromLane: 1, toLane: 1, type: 'straight', colorIdx: 7 },
   ],
+  through: [],
   laneCount: 2,
 });
 

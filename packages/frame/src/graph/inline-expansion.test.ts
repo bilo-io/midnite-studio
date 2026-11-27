@@ -4,12 +4,13 @@ import type { GraphRow } from '@midnite/studio-shared';
 
 import { lanesLeaving } from './inline-expansion';
 
-const row = (edges: GraphRow['edges']): GraphRow =>
+const row = (edges: GraphRow['edges'], through: number[] = []): GraphRow =>
   ({
     row: 0,
     commit: {} as GraphRow['commit'],
     lane: 1,
     colorIdx: 1,
+    through,
     edges,
     laneCount: 3,
   }) as GraphRow;
@@ -29,6 +30,16 @@ describe('lanesLeaving', () => {
       { lane: 0, colorIdx: 0 },
       { lane: 1, colorIdx: 1 },
       { lane: 2, colorIdx: 5 },
+    ]);
+  });
+
+  it('counts a `through` lane (Phase 77 Theme B) beside the own-lane edges, in lane order', () => {
+    expect(
+      lanesLeaving(row([{ fromLane: 1, toLane: 1, type: 'straight', colorIdx: 1 }], [4, -1, -1, 7])),
+    ).toEqual([
+      { lane: 0, colorIdx: 4 },
+      { lane: 1, colorIdx: 1 },
+      { lane: 3, colorIdx: 7 },
     ]);
   });
 

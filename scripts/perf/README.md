@@ -46,13 +46,14 @@ deliberately does not invent).
 moon run app:perf
 ```
 
-Three specs under `packages/app/e2e/perf/`, all reading `budgets.json`:
+Five specs under `packages/app/e2e/perf/`, all reading `budgets.json`:
 
 | Spec | Asserts |
 |------|---------|
 | `bundle-budget.spec.ts` | entry chunk KB, total JS KB, and the **absence** of `@xterm`, `react-grid-layout`, `react-markdown`, `remark-gfm` from the entry chunk |
 | `startup-budget.spec.ts` | `ready-to-show` and `first-view-rendered` medians, every mark present in every run, and `repos-restored` before `create-window` |
 | `diff-scroll.spec.ts` | median frame gap over a 60-frame scroll of a 4 000-line diff |
+| `graph-scroll.spec.ts` | median frame gap over a 60-frame scroll of a synthetic 5 000-row, 40-lane commit graph (Phase 77 Theme B) |
 | `retention.spec.ts` | bytes retained per cycle (main/renderer/broker), median-of-last-5-vs-first-5 — see Phase 45 |
 
 Deliberately **outside** `moon run :test`. A budget failure is a report, and a
@@ -65,6 +66,14 @@ The absence assertions are the part worth keeping. The size budgets catch drift;
 the absence list catches the one mistake this phase exists because of — a single
 static import putting a whole library back on the boot path, which no functional
 test would ever notice.
+
+## The CI report
+
+`ci.yml`'s `perf-report` job (Phase 77 Theme D) builds the renderer and writes the bundle table
+(`bundle-report.mjs --json` through `bundle-summary.mjs`) to `$GITHUB_STEP_SUMMARY`. It is
+`continue-on-error` and runs **without** `--assert`: it reports, it never gates. It stays on
+`ubuntu-*` (a Vite build is identical on Linux, and macOS jobs are capped at 5), and on a pull
+request it skips itself unless `packages/app/`, `packages/shared/` or `pnpm-lock.yaml` changed.
 
 ## Rebaselining
 

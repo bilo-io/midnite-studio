@@ -10,6 +10,7 @@ import { useOpsJournalStore } from '../../store/ops-journal-store';
 import { useUiStore } from '../../store/ui-store';
 import { JournalList } from '../history/journal-list';
 import { ReposPanel } from './repos-panel';
+import { flushNow } from '../../store/debounced-storage';
 
 /**
  * Migrated from `e2e/remote-links.spec.ts` and `e2e/journal-undo.spec.ts`
@@ -407,7 +408,7 @@ describe('ReposPanel showAllRepos toggle', () => {
     // Expand Worktrees in single-repo view — persisted to localStorage.
     fireEvent.click(sectionBtn('Worktrees'));
     expect(sectionBtn('Worktrees').getAttribute('aria-expanded')).toBe('true');
-    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+    const saved = JSON.parse((flushNow(), localStorage.getItem('midnite-studio.ui')) ?? '{}') as {
       state?: { collapsedRepoSections?: string[] };
     };
     expect(saved.state?.collapsedRepoSections).not.toContain('worktrees');

@@ -47,6 +47,7 @@ const makeRow = (sha: string): GraphRow => ({
   lane: 0,
   colorIdx: 0,
   laneCount: 1,
+  through: [],
   edges: [],
   commit: {
     sha,

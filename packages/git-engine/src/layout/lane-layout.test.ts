@@ -47,6 +47,13 @@ const assertNoLaneCollisions = (rows: GraphRow[]): void => {
     const terminating = new Set<number>();
     const entering = new Set<number>();
 
+    // Pass-through lanes ride in `through` (Phase 77 Theme B), indexed by lane; -1 is no lane.
+    row.through.forEach((colorIdx, lane) => {
+      if (colorIdx < 0) return;
+      expect(lane).not.toBe(row.lane); // the own lane's continuation stays in `edges`
+      passing.add(lane);
+    });
+
     for (const edge of row.edges) {
       if (edge.type === 'straight') {
         expect(edge.fromLane).toBe(edge.toLane);
@@ -66,8 +73,29 @@ const assertNoLaneCollisions = (rows: GraphRow[]): void => {
   }
 };
 
+/**
+ * Phase 77 Theme B: every lane occupied below a row appears in exactly one of `through` or the
+ * row's `edges` (as an own-lane straight/merge edge, a merge target or a branch end) — never both
+ * through and straight, and a through lane is never a lane an edge terminates on.
+ */
+const assertThroughDisjointFromEdges = (rows: GraphRow[]): void => {
+  for (const row of rows) {
+    const throughLanes = new Set<number>();
+    row.through.forEach((c, lane) => {
+      if (c >= 0) throughLanes.add(lane);
+    });
+    for (const edge of row.edges) {
+      if (edge.type === 'straight') expect(throughLanes.has(edge.fromLane)).toBe(false);
+      if (edge.type === 'branch') expect(throughLanes.has(edge.fromLane)).toBe(false);
+    }
+    expect(row.through.length === 0 || row.through[row.through.length - 1]! >= 0).toBe(true);
+    expect(row.through.length).toBeLessThanOrEqual(row.laneCount);
+  }
+};
+
 /** Every lane index used must fit inside the row's declared width. */
 const assertLaneCountCoversEdges = (rows: GraphRow[]): void => {
+  assertThroughDisjointFromEdges(rows);
   for (const row of rows) {
     expect(row.lane).toBeLessThan(row.laneCount);
     for (const edge of row.edges) {
@@ -327,6 +355,7 @@ describe('snapshots', () => {
       sha: r.commit.sha,
       lane: r.lane,
       width: r.laneCount,
+      through: r.through,
       edges: r.edges.map((e) => `${e.type}:${e.fromLane}->${e.toLane}`),
     }));
 
@@ -348,6 +377,7 @@ describe('snapshots', () => {
           ],
           "lane": 0,
           "sha": "T",
+          "through": [],
           "width": 1,
         },
         {
@@ -357,24 +387,30 @@ describe('snapshots', () => {
           ],
           "lane": 0,
           "sha": "M",
+          "through": [],
           "width": 2,
         },
         {
           "edges": [
             "straight:0->0",
-            "straight:1->1",
           ],
           "lane": 0,
           "sha": "B",
+          "through": [
+            -1,
+            3,
+          ],
           "width": 2,
         },
         {
           "edges": [
-            "straight:0->0",
             "straight:1->1",
           ],
           "lane": 1,
           "sha": "F",
+          "through": [
+            9,
+          ],
           "width": 2,
         },
         {
@@ -384,9 +420,64 @@ describe('snapshots', () => {
           ],
           "lane": 0,
           "sha": "A",
+          "through": [],
           "width": 2,
         },
       ]
     `);
+  });
+});
+
+describe('through lanes (Phase 77 Theme B)', () => {
+  it('carries a 3-lane merge: lane 1 and 2 pass through while lane 0 merges', () => {
+    // T(M) -> M merges B,F ; B and F stay live below M
+    const rows = layoutGraph(dag({ T: ['M'], M: ['B', 'F'], B: ['A'], F: ['A'], A: [] }, ['T', 'M', 'B', 'F', 'A']));
+    const at = (sha: string) => rows.find((r) => r.commit.sha === sha)!;
+    expect(at('T').through).toEqual([]);
+    expect(at('M').through).toEqual([]); // lane 1 was opened by M's own merge edge: touched, not through
+    expect(at('B').through[0]).toBe(-1); // B's own lane
+    expect(at('B').through[1]).toBeGreaterThanOrEqual(0); // F's lane passes under B
+    expect(at('F').through[0]).toBeGreaterThanOrEqual(0); // B's lane passes beside F
+    expect(at('F').through[1]).toBeUndefined(); // F's own lane is not through
+    assertLaneCountCoversEdges(rows);
+  });
+
+  it('an octopus leaves every other live lane in through', () => {
+    const rows = layoutGraph(
+      dag({ T: ['O'], O: ['A', 'B', 'C'], A: ['R'], B: ['R'], C: ['R'], R: [] }, ['T', 'O', 'A', 'B', 'C', 'R']),
+    );
+    const a = rows.find((r) => r.commit.sha === 'A')!;
+    expect(a.lane).toBe(0);
+    expect(a.through.map((c) => c >= 0)).toEqual([false, true, true]);
+    const c = rows.find((r) => r.commit.sha === 'C')!;
+    expect(c.lane).toBe(2);
+    expect(c.through.map((x) => x >= 0)).toEqual([true, true]);
+    assertLaneCountCoversEdges(rows);
+  });
+
+  it('a root commit has an empty through and its lane closes', () => {
+    const rows = layoutGraph(dag({ A: [] }, ['A']));
+    expect(rows[0]!.through).toEqual([]);
+    const two = layoutGraph(dag({ T: ['R'], U: ['R2'], R: [], R2: [] }, ['T', 'U', 'R', 'R2']));
+    const r = two.find((x) => x.commit.sha === 'R')!;
+    expect(r.through[1]).toBeGreaterThanOrEqual(0); // U's lane passes beside the root R
+    expect(r.through[0]).toBe(-1); // the root's own lane is never through
+  });
+
+  it('a deep column count costs nothing per straight run: a one-parent chain beside 40 lanes', () => {
+    const spec: Record<string, string[]> = {};
+    const order: string[] = [];
+    for (let i = 0; i < 40; i++) {
+      spec[`t${i}`] = [`p${i}`];
+      order.push(`t${i}`);
+    }
+    for (let i = 0; i < 40; i++) {
+      spec[`p${i}`] = [];
+      order.push(`p${i}`);
+    }
+    const rows = layoutGraph(dag(spec, order));
+    const mid = rows[20]!;
+    expect(mid.through.filter((c) => c >= 0)).toHaveLength(20);
+    expect(mid.edges.filter((e) => e.type === 'straight')).toHaveLength(0);
   });
 });

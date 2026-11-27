@@ -12,6 +12,7 @@ import {
 } from './graph-themes';
 import { laneColor, laneSlot, laneVars } from './lane-colors';
 import { usePrimaryHsl } from './primary-lane';
+import { throughOf } from './through';
 import type { ProvenanceMarkMode } from './provenance-display';
 
 /**
@@ -89,6 +90,26 @@ export function GraphSvg({
   const lane = (n: number): number => laneCentre(theme, laneWidth, n);
   const nodeX = lane(row.lane);
   const nodeColor = laneColor(row.colorIdx, theme.palette);
+
+  /**
+   * One pass-through lane (Phase 77 Theme B): the plain full-height `<line>` a `straight` edge
+   * draws below, byte for byte, because `through` replaced exactly those edges. Drawn before
+   * `row.edges`, which is the z-order the old straight-first edge order produced.
+   */
+  const renderThrough = (colorIdx: number, laneIndex: number): ReactElement => {
+    const x = lane(laneIndex);
+    return (
+      <line
+        key={`through-${laneIndex}`}
+        x1={x}
+        y1={0}
+        x2={x}
+        y2={theme.rowHeight}
+        stroke={laneColor(colorIdx, theme.palette)}
+        strokeWidth={theme.strokeWidth}
+      />
+    );
+  };
 
   /**
    * One edge, drawn either as the real lane or as its halo copy.
@@ -258,6 +279,9 @@ export function GraphSvg({
           style={laneVars(glowColorIdx, theme.palette)}
           data-graph-glow
         >
+          {throughOf(row).map((colorIdx, laneIndex) =>
+            colorIdx === glowColorIdx ? renderThrough(colorIdx, laneIndex) : null,
+          )}
           {row.edges.map((edge, index) =>
             edge.colorIdx === glowColorIdx ? renderEdge(edge, index, false) : null,
           )}
@@ -286,6 +310,7 @@ export function GraphSvg({
         </g>
       ) : null}
 
+      {throughOf(row).map((colorIdx, laneIndex) => (colorIdx >= 0 ? renderThrough(colorIdx, laneIndex) : null))}
       {row.edges.map((edge, index) => renderEdge(edge, index, true))}
 
       {/*

@@ -7,6 +7,7 @@ const row = (committerDate: number, sha = Math.random().toString(36)): GraphRow 
   row: 0,
   lane: 0,
   colorIdx: 0,
+  through: [],
   laneCount: 1,
   edges: [],
   commit: {

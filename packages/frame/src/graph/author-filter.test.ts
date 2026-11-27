@@ -7,6 +7,7 @@ const row = (authorName: string, authorEmail: string, sha = Math.random().toStri
   row: 0,
   lane: 0,
   colorIdx: 0,
+  through: [],
   laneCount: 1,
   edges: [],
   commit: {

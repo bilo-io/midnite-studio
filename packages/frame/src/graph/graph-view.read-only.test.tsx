@@ -18,6 +18,7 @@ const row = (index: number, subject: string): GraphRow => ({
   row: index,
   lane: 0,
   colorIdx: 0,
+  through: [],
   laneCount: 1,
   edges: index === 0 ? [{ fromLane: 0, toLane: 0, type: 'straight', colorIdx: 0 }] : [],
   commit: {

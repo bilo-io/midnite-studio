@@ -33,6 +33,7 @@ const row = (i: number, parents: string[], subject: string) => ({
   row: i,
   commit: commit(i, parents, subject),
   lane: 0,
+  through: [],
   laneCount: 1,
   colorIdx: 0,
   edges:
