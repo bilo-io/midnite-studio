@@ -99,6 +99,7 @@ const ROW: GraphRow = {
   colorIdx: 0,
   laneCount: 1,
   edges: [],
+  through: [],
   commit: {
     sha: 'a'.repeat(40),
     parents: [],

@@ -1064,16 +1064,16 @@ describe('SessionsView', () => {
       expect(screen.queryByRole('button', { name: /^Resume conversation/ })).toBeNull();
     });
 
-    it('does not render resume button for agents with no resume mechanism (e.g. agy)', () => {
+    it('does not render resume button for agents with no resume mechanism (e.g. openclaude; agy gained --continue in #1257)', () => {
       historyResult.mockReturnValue({
         data: [
           closedSession({
-            id: 'c-agy',
+            id: 'c-openclaude',
             repoId: 'r1',
             title: 'repo-one',
-            name: 'agy-session',
+            name: 'openclaude-session',
             kind: 'agent',
-            agentId: 'agy',
+            agentId: 'openclaude',
             createdAt: 1000,
             closedAt: 2000,
           }),
@@ -1084,7 +1084,7 @@ describe('SessionsView', () => {
 
       renderView();
 
-      const row = screen.getByText('agy-session').closest('.group');
+      const row = screen.getByText('openclaude-session').closest('.group');
       expect(row?.querySelector('button[aria-label^="Resume"]')).toBeNull();
     });
 

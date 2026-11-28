@@ -68,7 +68,7 @@ async function openBigDiff(page: Page): Promise<void> {
   await page.goto('/');
 
   await page.getByText('feat(phase-11): package, install and run from /Applications').click();
-  await page.getByRole('button', { name: /pnpm-lock\.yaml/ }).click();
+  await page.getByTestId('commit-files').getByRole('button', { name: 'pnpm-lock.yaml' }).click();
   await expect(page.getByTestId('diff-view')).toBeVisible();
 }
 
