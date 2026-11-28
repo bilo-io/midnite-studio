@@ -61,6 +61,7 @@ export * from './game-entity-types';
 export * from './game-heightfield';
 export * from './game-level';
 export * from './game-level-editor-bridge';
+export * from './game-level-diff';
 export * from './game-level-ops';
 export * from './game-level-overlays';
 export * from './game-level-prefab';
