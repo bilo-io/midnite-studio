@@ -83,6 +83,7 @@ const row = (c: Commit, index: number): GraphRow => ({
   lane: 0,
   colorIdx: 0,
   edges: [],
+  through: [],
   laneCount: 1,
 });
 
