@@ -237,8 +237,8 @@ describe('Coder composition', () => {
 
       await waitFor(() => expect(open).toHaveBeenCalledTimes(1));
       expect(runReceiver).toHaveBeenCalledTimes(1);
-      // An ad-hoc card (no "Phase N" in its title): the picker's default is /midnite-create-adhoc.
-      const run = { issueUrl: ITEM.content.url, skill: '/midnite-create-adhoc' };
+      // An ad-hoc card (no "Phase N" in its title): the picker's default is /midnite-build-adhoc.
+      const run = { issueUrl: ITEM.content.url, skill: '/midnite-build-adhoc' };
       expect(open).toHaveBeenCalledWith({ link: `midnite://open?app=agents&run=${encodeAgentRunParam(run)}` });
       // The outcome says where it went and that the confirm is Studio's.
       expect(await screen.findByRole('dialog', { name: 'Sent to Midnite Studio' })).toBeTruthy();
@@ -270,9 +270,9 @@ describe('Coder composition', () => {
       fireEvent.click(await screen.findByRole('button', { name: 'Run in an agent' }, { timeout: 5000 }));
       const dialog = await screen.findByRole('dialog', { name: 'Copy the prompt instead?' });
       expect(open).not.toHaveBeenCalled();
-      expect(dialog.textContent).toContain(`/midnite-create-adhoc ${ITEM.content.url}`);
+      expect(dialog.textContent).toContain(`/midnite-build-adhoc ${ITEM.content.url}`);
       fireEvent.click(screen.getByRole('button', { name: 'Copy prompt' }));
-      expect(writeText).toHaveBeenCalledWith(`/midnite-create-adhoc ${ITEM.content.url}`);
+      expect(writeText).toHaveBeenCalledWith(`/midnite-build-adhoc ${ITEM.content.url}`);
       vi.unstubAllGlobals();
     });
 
